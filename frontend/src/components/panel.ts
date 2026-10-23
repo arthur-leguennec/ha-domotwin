@@ -20,10 +20,11 @@ interface Toast {
 function fileName(title: string): string {
   const slug = title
     .normalize("NFKD")
-    .replace(/[̀-ͯ]/g, "")
+    .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+    .split(/[^a-z0-9]/)
+    .filter(Boolean)
+    .join("-");
   return `${slug || "plan"}.plan.json`;
 }
 

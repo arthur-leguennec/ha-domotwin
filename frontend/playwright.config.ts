@@ -1,7 +1,11 @@
 import { defineConfig, devices } from "@playwright/test";
 
 // Software WebGL2 (SwiftShader) so that rendering is the same on every machine.
-const chromiumArgs = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"];
+const chromiumArgs = [
+  "--use-angle=swiftshader",
+  "--enable-unsafe-swiftshader",
+  "--ignore-gpu-blocklist",
+];
 
 export default defineConfig({
   testDir: "e2e",
