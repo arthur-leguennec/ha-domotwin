@@ -7,7 +7,8 @@
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used, clippy::panic))]
 
 pub mod error;
+pub mod geometry;
 pub mod plan;
 
 pub use error::{ErrorCode, ReadError};
-pub use plan::{PlanSummary, summarize_plan};
+pub use plan::{Plan, PlanSummary, read_plan, summarize_plan};
