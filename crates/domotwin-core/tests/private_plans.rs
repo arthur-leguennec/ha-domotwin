@@ -1,11 +1,12 @@
 //! Reads every `*.plan.json` placed in the repository's `private/` folder (ignored by git), so that
-//! contributors can check their own plans locally. Nothing to do when the folder is empty.
+//! contributors can check that their own plans read and build locally. Nothing to do when the folder is empty.
 
 #![allow(clippy::unwrap_used, clippy::panic)]
 
 use std::path::Path;
 
 use domotwin_core::read_plan;
+use domotwin_core::scene::{SceneOptions, build_scene};
 
 #[test]
 fn private_plans_read() {
@@ -19,8 +20,12 @@ fn private_plans_read() {
             continue;
         }
         let bytes = std::fs::read(&path).unwrap();
-        if let Err(err) = read_plan(&bytes) {
-            panic!("{}: {err}", path.display());
+        match read_plan(&bytes) {
+            Ok(plan) => {
+                let scene = build_scene(&plan, &SceneOptions::default());
+                assert!(scene.opaque.triangle_count() > 0, "{}", path.display());
+            }
+            Err(err) => panic!("{}: {err}", path.display()),
         }
     }
 }

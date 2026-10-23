@@ -9,6 +9,7 @@
 pub mod error;
 pub mod geometry;
 pub mod plan;
+pub mod scene;
 
 pub use error::{ErrorCode, ReadError};
 pub use plan::{Plan, PlanSummary, read_plan, summarize_plan};
