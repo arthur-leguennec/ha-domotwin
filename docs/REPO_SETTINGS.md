@@ -52,7 +52,8 @@ fork and open pull requests, which the owner reviews and merges or closes.
     - `frontend`
     - `python`, `hassfest`, `HACS validation`
     - `bundle`, `e2e`
-    - `gitleaks`, `analyze (actions)`, `analyze (javascript-typescript)`, `analyze (python)`
+    - `gitleaks`, `analyze (actions)`, `analyze (javascript-typescript)`, `analyze (python)`,
+      `analyze (rust)`
     - `conventional commit title`
 
     Not `fuzz plan reader`: it only runs when the Rust core changes and would block other pull
