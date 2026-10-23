@@ -42,6 +42,15 @@ pub struct Rgb8 {
 }
 
 impl Rgb8 {
+    /// From `0xrrggbb`.
+    pub const fn from_u32(hex: u32) -> Rgb8 {
+        Rgb8 {
+            r: (hex >> 16) as u8,
+            g: (hex >> 8) as u8,
+            b: hex as u8,
+        }
+    }
+
     /// Reads `#rrggbb` (either case).
     pub fn from_hex(text: &str) -> Option<Rgb8> {
         let hex = text.strip_prefix('#')?;

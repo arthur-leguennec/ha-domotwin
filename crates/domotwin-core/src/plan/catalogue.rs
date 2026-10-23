@@ -36,11 +36,7 @@ pub struct KindInfo {
 }
 
 const fn rgb(hex: u32) -> Rgb8 {
-    Rgb8 {
-        r: (hex >> 16) as u8,
-        g: (hex >> 8) as u8,
-        b: hex as u8,
-    }
+    Rgb8::from_u32(hex)
 }
 
 const NONE: KindFlags = KindFlags {
