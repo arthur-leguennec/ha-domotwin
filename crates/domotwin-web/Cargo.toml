@@ -1,0 +1,32 @@
+[package]
+name = "domotwin-web"
+description = "DomoTwin WebAssembly glue: the typed API used by the frontend."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+domotwin-core.workspace = true
+domotwin-render.workspace = true
+glow.workspace = true
+wasm-bindgen.workspace = true
+js-sys.workspace = true
+console_error_panic_hook.workspace = true
+web-sys = { workspace = true, features = [
+  "HtmlCanvasElement",
+  "WebGl2RenderingContext",
+  "WebGlContextAttributes",
+] }
+
+[dev-dependencies]
+wasm-bindgen-test.workspace = true
+web-sys = { workspace = true, features = ["Document", "Window", "Element"] }
+
+[lints]
+workspace = true
