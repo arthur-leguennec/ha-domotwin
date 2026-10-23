@@ -92,9 +92,11 @@ const uint FLOOR = 12u;
 const uint WOOD = 13u;
 const uint LEAF = 14u;
 
-const vec3 SKY = vec3(0.62, 0.66, 0.72);
-const vec3 GROUND = vec3(0.30, 0.27, 0.24);
-const vec3 SUN = vec3(2.05, 1.95, 1.80);
+const vec3 SKY = vec3(0.46, 0.49, 0.54);
+const vec3 GROUND = vec3(0.22, 0.20, 0.18);
+const vec3 SUN = vec3(1.55, 1.46, 1.32);
+// Below 1 so that white walls stay off-white after tone mapping.
+const float EXPOSURE = 0.72;
 
 float hash(vec2 p) {
     return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
@@ -224,7 +226,7 @@ void main() {
     float diffuse_sun = max((ndl + wrap) / (1.0 + wrap), 0.0) * shadow;
     vec3 hemi = mix(GROUND, SKY, n.y * 0.5 + 0.5);
     // Rooms have no ceiling: a little darker near the floor on vertical faces.
-    float ao = mix(1.0, mix(0.7, 1.0, smoothstep(0.0, 80.0, v_world.y)), 1.0 - abs(n.y));
+    float ao = mix(1.0, mix(0.62, 1.0, smoothstep(0.0, 90.0, v_world.y)), 1.0 - abs(n.y));
     bool metal = surface == METAL || surface == MIRROR;
     vec3 diffuse = albedo * (hemi * ao + SUN * diffuse_sun) * (metal ? 0.3 : 1.0);
     vec3 h = normalize(u_sun + v);
@@ -250,7 +252,7 @@ void main() {
     if (surface == WALL_CAP) {
         plan = vec3(0.035, 0.04, 0.038);
     }
-    vec3 shaded = mix(aces(color), plan, u_flat);
+    vec3 shaded = mix(aces(color * EXPOSURE), plan, u_flat);
     frag = vec4(pow(shaded, vec3(1.0 / 2.2)), mix(alpha, max(alpha, 0.35), u_flat));
 }
 ";
