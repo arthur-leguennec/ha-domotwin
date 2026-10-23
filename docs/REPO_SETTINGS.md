@@ -30,30 +30,44 @@ fork and open pull requests, which the owner reviews and merges or closes.
   description), disable merge commits and rebase merging, enable "Always suggest updating pull
   request branches" and "Automatically delete head branches".
 
-## Branch protection for `main` (Settings → Rules → Rulesets)
+## Branch protection for `main` (Settings → Rules → Rulesets → New branch ruleset)
 
-- Target: the default branch. Enforcement: *Active*.
-- **Bypass list:** *Repository admin* only (the owner, for emergencies).
-- Restrict deletions and block force pushes.
-- Require a pull request before merging: **0 required approvals** while there is a single maintainer
-  (GitHub does not let authors approve their own pull requests; raise it to 1 when a second
-  maintainer joins), dismiss stale approvals on new commits, require conversation resolution.
-- Require **linear history**.
-- Require status checks to pass, with the branch up to date. The check names are the job names:
-  - `rust`, `rust wasm tests`, `cargo deny`
-  - `frontend`
-  - `python`, `hassfest`, `HACS validation`
-  - `bundle`, `e2e`
-  - `gitleaks`, `analyze (actions)`, `analyze (javascript-typescript)`, `analyze (python)`
-  - `conventional commit title`
+- **Ruleset name:** `protect-main`. **Enforcement status:** *Active* (with *Disabled* nothing applies).
+- **Bypass list:** *Add bypass* → *Roles* → *Repository admin*, mode **For pull requests only**: the
+  owner can merge a pull request that does not meet the rules (for example the release pull
+  request, see below), but nobody can push to `main` directly.
+- **Target branches:** *Add target* → *Include default branch*.
+- **Rules:**
+  - *Restrict creations*, *Restrict updates*: off (restricting updates would block merges).
+  - *Restrict deletions*: on.
+  - *Require linear history*: on.
+  - *Require signed commits*: on (squash merges made by GitHub are signed by GitHub).
+  - *Require a pull request before merging*: on, **0 required approvals** while there is a single
+    maintainer (GitHub does not let authors approve their own pull requests; raise it to 1 when a
+    second maintainer joins), *Dismiss stale pull request approvals when new commits are pushed*,
+    *Require conversation resolution before merging*, allowed merge methods: **Squash** only.
+  - *Require status checks to pass*: on, with *Require branches to be up to date before merging*.
+    The check names are the job names:
+    - `rust`, `rust wasm tests`, `cargo deny`
+    - `frontend`
+    - `python`, `hassfest`, `HACS validation`
+    - `bundle`, `e2e`
+    - `gitleaks`, `analyze (actions)`, `analyze (javascript-typescript)`, `analyze (python)`
+    - `conventional commit title`
 
-Release pull requests opened by release-please use `GITHUB_TOKEN`, which does not start workflows.
-Either let administrators bypass the required checks for those pull requests, or run the checks on
-the release branch from the Actions tab (every workflow has `workflow_dispatch`).
+    Not `fuzz plan reader`: it only runs when the Rust core changes and would block other pull
+    requests.
+  - *Block force pushes*: on.
+  - *Require code scanning results*: on, tool **CodeQL**, security alerts **High or higher**.
+  - *Require deployments*, code quality, code coverage, Copilot review: off.
+
+Release pull requests opened by release-please use `GITHUB_TOKEN`, which does not start workflows,
+so their required checks never report. The owner merges them through the bypass (or runs the checks
+on the release branch from the Actions tab: every workflow has `workflow_dispatch`).
 
 ### Tags (optional)
 
-A second ruleset targeting tags `v*`: restrict creations, updates and deletions, with *Repository
+A second ruleset, `release-tags`, targeting tags `v*` (*Include by pattern*): restrict creations, updates and deletions, with *Repository
 admin* and the *GitHub Actions* app in the bypass list (release-please creates the release tags).
 
 ## Actions (Settings → Actions → General)
