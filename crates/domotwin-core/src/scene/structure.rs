@@ -63,6 +63,7 @@ pub(crate) fn build(builder: &mut Builder, plan: &Plan, layout: &WallLayout) {
 fn floor(builder: &mut Builder, room: &Room, walls: &RoomWalls, element: u16) {
     let tag = Tag {
         element,
+        room: builder.room_slot(walls.element),
         ..Tag::default()
     };
     let mut p = Painter::new(&mut builder.opaque, floor_material(room), tag);
@@ -95,6 +96,7 @@ fn room_walls(
     element: u16,
 ) {
     let height = builder.wall_height;
+    let slot = builder.room_slot(walls.element);
     let n = walls.points.len();
     let jamb = Material::paint(wall_paint(room));
     for (i, bands) in walls.sides.iter().enumerate() {
@@ -117,6 +119,7 @@ fn room_walls(
                 element,
                 group,
                 cut: CutMode::Clamp,
+                room: slot,
             };
             for op in &on_side {
                 builder
@@ -223,6 +226,7 @@ fn room_walls(
             element,
             group,
             cut: CutMode::Clamp,
+            room: slot,
         };
         let mut p = Painter::new(&mut builder.opaque, WALL_OUTER, tag);
         let outer = Some(WALL_OUTER);
@@ -250,10 +254,15 @@ fn free_wall(builder: &mut Builder, plan: &Plan, wall: &FreeWall, element: u16) 
         _ => None,
     });
     let group = builder.own_group(n);
+    let middle = [
+        f64::midpoint(wall.x, wall.x2),
+        f64::midpoint(wall.y, wall.y2),
+    ];
     let tag = Tag {
         element,
         group,
         cut: CutMode::Clamp,
+        room: builder.room_for(plan, &wall.parent, middle),
     };
     let height = builder.wall_height;
     let mut p = Painter::new(&mut builder.opaque, WALL_OUTER, tag);

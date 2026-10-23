@@ -19,8 +19,9 @@ pub enum Surface {
     Subway = 3,
     /// Glass (transparent pass).
     Glass = 4,
-    /// Emits its colour (lit bulbs and shades).
-    Emissive = 5,
+    /// A lamp's shade or bulb: shaded like paint when off, glowing with its element's light when
+    /// on (the light comes from the live state, not from the mesh).
+    Glow = 5,
     /// Metal.
     Metal = 6,
     /// Fabric.
@@ -101,9 +102,9 @@ impl Material {
     pub const fn glass() -> Self {
         Self::new(Rgb8::from_u32(0xcfe6ec), 0.05, Surface::Glass)
     }
-    /// A light source of this colour.
-    pub const fn emissive(color: Rgb8) -> Self {
-        Self::new(color, 1.0, Surface::Emissive)
+    /// A part that glows when its lamp is on; `color` is its look when off.
+    pub const fn glow(color: Rgb8) -> Self {
+        Self::new(color, 0.6, Surface::Glow)
     }
 }
 
@@ -116,6 +117,8 @@ pub struct Tag {
     pub group: u8,
     /// Reaction to the cut-away.
     pub cut: CutMode,
+    /// Room slot (1–254) whose lamps light the vertex; 0 for none.
+    pub room: u8,
 }
 
 /// No wall group.
@@ -127,6 +130,7 @@ impl Default for Tag {
             element: 0,
             group: NO_GROUP,
             cut: CutMode::Keep,
+            room: 0,
         }
     }
 }
@@ -136,7 +140,7 @@ impl Default for Tag {
 pub struct Mesh {
     /// `x, y, z` and the base height of the piece the vertex belongs to (cut-away).
     pub positions: Vec<[f32; 4]>,
-    /// Unit normal × 127.
+    /// Unit normal × 127, and the room slot (as a byte) in the last lane.
     pub normals: Vec<[i8; 4]>,
     /// sRGB colour and roughness × 255.
     pub colors: Vec<[u8; 4]>,
@@ -177,7 +181,8 @@ impl Mesh {
         self.positions
             .push([p[0] as f32, p[1] as f32, p[2] as f32, base as f32]);
         let q = |c: f64| (c.clamp(-1.0, 1.0) * 127.0).round() as i8;
-        self.normals.push([q(n[0]), q(n[1]), q(n[2]), 0]);
+        let room = i8::from_ne_bytes([tag.room]);
+        self.normals.push([q(n[0]), q(n[1]), q(n[2]), room]);
         let Rgb8 { r, g, b } = material.color;
         let rough = (material.roughness.clamp(0.0, 1.0) * 255.0).round() as u8;
         self.colors.push([r, g, b, rough]);

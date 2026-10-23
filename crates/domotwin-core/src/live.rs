@@ -1,0 +1,458 @@
+//! Live state: Home Assistant entity states turned into what each element looks like (a lamp's
+//! light, a screen's glow, a door or a curtain's opening, a blind's position, unavailable
+//! entities greyed out), and the fades from one look to the next.
+
+use std::collections::BTreeMap;
+
+use serde_json::Value;
+
+use crate::bindings::{Bindings, Role};
+use crate::plan::light::{kelvin_to_rgb, light_color, light_power};
+use crate::plan::{Element, Plan, Rgb8};
+use crate::scene::{LightSpot, Overrides};
+
+/// The part of a Home Assistant state DomoTwin uses.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct EntityState {
+    /// `on`, `off`, `open`, `playing`, `unavailable`…
+    pub state: String,
+    /// Light brightness, 0–255.
+    pub brightness: Option<f64>,
+    /// Light colour.
+    pub rgb: Option<Rgb8>,
+    /// Light colour temperature (K).
+    pub kelvin: Option<f64>,
+    /// Cover position, 0 (closed) – 100 (open).
+    pub position: Option<f64>,
+    /// Device class (binary sensors).
+    pub device_class: Option<String>,
+}
+
+impl EntityState {
+    /// Whether the entity cannot be used.
+    pub fn unavailable(&self) -> bool {
+        self.state == "unavailable" || self.state == "unknown"
+    }
+}
+
+/// Reads `{ "entity_id": { "state": …, "attributes": { … } }, … }`; `null` removes an entity.
+pub fn read_states(value: &Value) -> BTreeMap<String, Option<EntityState>> {
+    let Some(map) = value.as_object() else {
+        return BTreeMap::new();
+    };
+    map.iter()
+        .map(|(id, entry)| {
+            let state = entry.as_object().map(|object| {
+                let attributes = object.get("attributes");
+                let attr = |name: &str| attributes.and_then(|a| a.get(name));
+                let number =
+                    |name: &str| attr(name).and_then(Value::as_f64).filter(|n| n.is_finite());
+                EntityState {
+                    state: object
+                        .get("state")
+                        .and_then(Value::as_str)
+                        .unwrap_or("unknown")
+                        .to_owned(),
+                    brightness: number("brightness"),
+                    rgb: attr("rgb_color").and_then(Value::as_array).and_then(|c| {
+                        let channel = |i: usize| {
+                            c.get(i)
+                                .and_then(Value::as_f64)
+                                .filter(|v| v.is_finite())
+                                .map(|v| v.clamp(0.0, 255.0).round() as u8)
+                        };
+                        Some(Rgb8 {
+                            r: channel(0)?,
+                            g: channel(1)?,
+                            b: channel(2)?,
+                        })
+                    }),
+                    kelvin: number("color_temp_kelvin"),
+                    position: number("current_position"),
+                    device_class: attr("device_class")
+                        .and_then(Value::as_str)
+                        .map(str::to_owned),
+                }
+            });
+            (id.clone(), state)
+        })
+        .collect()
+}
+
+/// How an element looks: its own light and whether its entities are unavailable.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Look {
+    /// Colour of its light (linear RGB).
+    pub glow: [f32; 3],
+    /// Strength of its light: 0 off, 1 the default, up to 2.
+    pub strength: f32,
+    /// Its entities are unavailable: drawn greyed out.
+    pub unavailable: f32,
+    /// Tap feedback, 1 just tapped, fading to 0.
+    pub highlight: f32,
+}
+
+impl Default for Look {
+    fn default() -> Self {
+        Self {
+            glow: [1.0, 0.8, 0.55],
+            strength: 0.0,
+            unavailable: 0.0,
+            highlight: 0.0,
+        }
+    }
+}
+
+/// What every element should look like.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct Targets {
+    /// One look per plan element.
+    pub looks: Vec<Look>,
+    /// Openings of doors, windows and curtains, and blinds.
+    pub overrides: Overrides,
+}
+
+/// The screen colour of a TV that plays.
+const SCREEN: Rgb8 = Rgb8::from_u32(0xa9c4ff);
+
+/// What every element should look like, from the plan, the bindings and the entity states.
+pub fn targets(
+    plan: &Plan,
+    lights: &[LightSpot],
+    bindings: &Bindings,
+    states: &BTreeMap<String, EntityState>,
+) -> Targets {
+    let mut looks = vec![Look::default(); plan.elements.len()];
+    // The plan's own lamps, as drawn without Home Assistant.
+    for light in lights.iter().filter(|l| !l.screen) {
+        if let Some(look) = looks.get_mut(light.element) {
+            look.glow = light.color.to_linear();
+            #[allow(clippy::cast_possible_truncation)]
+            let power = light.power as f32;
+            look.strength = if light.on { power } else { 0.0 };
+        }
+    }
+    let mut overrides = Overrides::default();
+    for (index, element) in plan.elements.iter().enumerate() {
+        let Some(entities) = bindings.elements.get(element.id()) else {
+            continue;
+        };
+        let resolved: Vec<(Role, Option<&EntityState>)> = entities
+            .iter()
+            .map(|e| {
+                let state = states.get(&e.entity_id);
+                let class = state.and_then(|s| s.device_class.as_deref());
+                (
+                    e.role.unwrap_or_else(|| Role::derive(&e.entity_id, class)),
+                    state,
+                )
+            })
+            .collect();
+        let visual = |role: Role| {
+            matches!(
+                role,
+                Role::Light | Role::Switch | Role::Fan | Role::Cover | Role::Media | Role::Contact
+            )
+        };
+        let shown: Vec<&(Role, Option<&EntityState>)> =
+            resolved.iter().filter(|(role, _)| visual(*role)).collect();
+        let look = &mut looks[index];
+        if !shown.is_empty()
+            && shown
+                .iter()
+                .all(|(_, state)| state.is_none_or(EntityState::unavailable))
+        {
+            look.unavailable = 1.0;
+        }
+        let on = |role: Role| {
+            resolved
+                .iter()
+                .filter(|(r, _)| *r == role)
+                .filter_map(|(_, s)| *s)
+                .filter(|s| !s.unavailable())
+                .collect::<Vec<_>>()
+        };
+        match element {
+            Element::Furniture(item) => {
+                let lights = on(Role::Light);
+                let switches = on(Role::Switch);
+                if !lights.is_empty() {
+                    // The brightest bound light decides.
+                    let lit = lights
+                        .iter()
+                        .filter(|s| s.state == "on")
+                        .map(|s| {
+                            let level = s.brightness.map_or(1.0, |b| (b / 255.0).clamp(0.02, 1.0));
+                            let color = s
+                                .rgb
+                                .or_else(|| s.kelvin.map(kelvin_to_rgb))
+                                .unwrap_or_else(|| light_color(item));
+                            (level, color)
+                        })
+                        .max_by(|a, b| a.0.total_cmp(&b.0));
+                    #[allow(clippy::cast_possible_truncation)]
+                    match lit {
+                        Some((level, color)) => {
+                            look.strength = (level * light_power(item)) as f32;
+                            look.glow = color.to_linear();
+                        }
+                        None => look.strength = 0.0,
+                    }
+                } else if item.kind.is_light() && !switches.is_empty() {
+                    #[allow(clippy::cast_possible_truncation)]
+                    let power = light_power(item) as f32;
+                    look.strength = if switches.iter().any(|s| s.state == "on") {
+                        power
+                    } else {
+                        0.0
+                    };
+                }
+                if let Some(media) = on(Role::Media).first() {
+                    look.glow = SCREEN.to_linear();
+                    look.strength = match media.state.as_str() {
+                        "playing" => 0.8,
+                        "paused" | "on" | "idle" | "buffering" => 0.35,
+                        _ => 0.0,
+                    };
+                }
+                if let Some(open) = on(Role::Cover).first().and_then(|c| cover_open(c)) {
+                    overrides.open.insert(index, open);
+                }
+            }
+            Element::Door(door) | Element::Window(door) => {
+                let is_door = matches!(element, Element::Door(_));
+                if let Some(contact) = on(Role::Contact).first() {
+                    let open = if contact.state == "on" {
+                        if is_door {
+                            door.open_fraction().max(0.85)
+                        } else {
+                            0.75
+                        }
+                    } else {
+                        0.0
+                    };
+                    overrides.open.insert(index, open);
+                }
+                if let Some(up) = on(Role::Cover).first().and_then(|c| cover_open(c)) {
+                    if is_door {
+                        overrides.open.insert(index, up);
+                    } else {
+                        overrides.blind.insert(index, up);
+                    }
+                }
+            }
+            Element::Room(_) | Element::Wall(_) => {}
+        }
+    }
+    Targets { looks, overrides }
+}
+
+/// The opening of a cover (0 closed, 1 open), from its position or its state.
+fn cover_open(state: &EntityState) -> Option<f64> {
+    state
+        .position
+        .map(|p| (p / 100.0).clamp(0.0, 1.0))
+        .or(match state.state.as_str() {
+            "open" | "opening" => Some(1.0),
+            "closed" | "closing" => Some(0.0),
+            _ => None,
+        })
+}
+
+/// Fade speed of lights (strength per ms).
+const LIGHT_SPEED: f32 = 1.0 / 350.0;
+/// Speed of doors, windows, curtains and blinds (opening per ms).
+const MOVE_SPEED: f64 = 1.0 / 700.0;
+/// Fade of the tap highlight (per ms).
+const HIGHLIGHT_SPEED: f32 = 1.0 / 450.0;
+
+/// The looks being shown, moving towards their targets.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct LiveState {
+    /// Current looks.
+    pub looks: Vec<Look>,
+    /// Current openings.
+    pub overrides: Overrides,
+    target: Targets,
+}
+
+/// What changed in a step.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct Step {
+    /// Looks changed (lights, greyed out, highlight).
+    pub looks: bool,
+    /// Openings changed: rebuild the moving parts.
+    pub moving: bool,
+    /// More steps are needed.
+    pub animating: bool,
+}
+
+fn approach(current: f64, target: f64, step: f64) -> f64 {
+    current + (target - current).clamp(-step, step)
+}
+
+impl LiveState {
+    /// Starts at `targets`, without fading.
+    pub fn new(targets: Targets) -> Self {
+        Self {
+            looks: targets.looks.clone(),
+            overrides: targets.overrides.clone(),
+            target: targets,
+        }
+    }
+
+    /// New targets: the looks fade towards them.
+    pub fn set_targets(&mut self, targets: Targets) {
+        if targets.looks.len() != self.looks.len() {
+            *self = Self::new(targets);
+            return;
+        }
+        self.target = targets;
+    }
+
+    /// Flashes an element (tap feedback).
+    pub fn highlight(&mut self, element: usize) {
+        if let Some(look) = self.looks.get_mut(element) {
+            look.highlight = 1.0;
+        }
+    }
+
+    /// Advances the fades by `dt` milliseconds.
+    #[allow(clippy::cast_possible_truncation)]
+    pub fn step(&mut self, dt: f64) -> Step {
+        let dt = dt.clamp(0.0, 100.0);
+        let mut step = Step::default();
+        let light = LIGHT_SPEED * dt as f32;
+        for (look, target) in self.looks.iter_mut().zip(&self.target.looks) {
+            let before = *look;
+            look.strength = approach(
+                f64::from(look.strength),
+                f64::from(target.strength),
+                f64::from(light) * 2.0,
+            ) as f32;
+            look.unavailable = approach(
+                f64::from(look.unavailable),
+                f64::from(target.unavailable),
+                f64::from(light),
+            ) as f32;
+            for k in 0..3 {
+                look.glow[k] = approach(
+                    f64::from(look.glow[k]),
+                    f64::from(target.glow[k]),
+                    f64::from(light),
+                ) as f32;
+            }
+            look.highlight = (look.highlight - HIGHLIGHT_SPEED * dt as f32).max(0.0);
+            if *look != before {
+                step.looks = true;
+            }
+        }
+        let moved = MOVE_SPEED * dt;
+        for (current, target) in [
+            (&mut self.overrides.open, &self.target.overrides.open),
+            (&mut self.overrides.blind, &self.target.overrides.blind),
+        ] {
+            for (index, goal) in target {
+                let value = current.entry(*index).or_insert(*goal);
+                let next = approach(*value, *goal, moved);
+                if (next - *value).abs() > 1e-9 {
+                    *value = next;
+                    step.moving = true;
+                }
+            }
+        }
+        step.animating = step.looks || step.moving;
+        step
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::bindings::read_bindings;
+    use crate::plan::read_plan;
+    use crate::scene::{SceneOptions, build_scene};
+
+    const DEMO: &[u8] = include_bytes!("../../../examples/demo-apartment.plan.json");
+    const BINDINGS: &str = include_str!("../../../examples/demo-apartment.bindings.json");
+
+    fn setup() -> (Plan, Vec<LightSpot>, Bindings) {
+        let plan = read_plan(DEMO).unwrap();
+        let scene = build_scene(&plan, &SceneOptions::default());
+        let value: Value = serde_json::from_str(BINDINGS).unwrap();
+        (plan, scene.lights, read_bindings(&value))
+    }
+
+    fn index(plan: &Plan, id: &str) -> usize {
+        plan.elements.iter().position(|e| e.id() == id).unwrap()
+    }
+
+    fn states(value: Value) -> BTreeMap<String, EntityState> {
+        read_states(&value)
+            .into_iter()
+            .filter_map(|(k, v)| Some((k, v?)))
+            .collect()
+    }
+
+    #[test]
+    fn lamps_follow_their_lights() {
+        let (plan, lights, bindings) = setup();
+        let states = states(serde_json::json!({
+            "light.living_room_pendant": { "state": "on", "attributes": { "brightness": 128, "rgb_color": [255, 0, 0] } },
+            "light.living_room_floor_lamp": { "state": "off", "attributes": {} },
+            "light.sideboard_lamp": { "state": "unavailable", "attributes": {} },
+            "media_player.living_room_tv": { "state": "playing", "attributes": {} },
+        }));
+        let t = targets(&plan, &lights, &bindings, &states);
+        let pendant = t.looks[index(&plan, "pendant-living")];
+        assert!((pendant.strength - 0.5).abs() < 0.02, "{pendant:?}");
+        assert!(pendant.glow[0] > 0.9 && pendant.glow[1] < 0.01);
+        assert_eq!(t.looks[index(&plan, "floor-lamp")].strength, 0.0);
+        let sideboard = t.looks[index(&plan, "table-lamp")];
+        assert_eq!(sideboard.unavailable, 1.0);
+        assert!(t.looks[index(&plan, "tv")].strength > 0.5);
+        // A bound lamp whose entity is missing is greyed out too.
+        assert_eq!(t.looks[index(&plan, "ceiling-kitchen")].unavailable, 1.0);
+    }
+
+    #[test]
+    fn openings_follow_contacts_and_covers() {
+        let (plan, lights, bindings) = setup();
+        let states = states(serde_json::json!({
+            "binary_sensor.entrance_door_contact": { "state": "on", "attributes": { "device_class": "door" } },
+            "binary_sensor.living_room_window_contact": { "state": "off", "attributes": {} },
+            "cover.living_room_curtains": { "state": "open", "attributes": { "current_position": 40 } },
+            "cover.bedroom_curtains": { "state": "closed", "attributes": {} },
+        }));
+        let t = targets(&plan, &lights, &bindings, &states);
+        assert!(t.overrides.open[&index(&plan, "door-entrance")] >= 0.85);
+        assert_eq!(t.overrides.open[&index(&plan, "win-living-1")], 0.0);
+        assert!((t.overrides.open[&index(&plan, "curtain-living")] - 0.4).abs() < 1e-9);
+        assert_eq!(t.overrides.open[&index(&plan, "curtain-bedroom")], 0.0);
+    }
+
+    #[test]
+    fn looks_fade_and_doors_move() {
+        let (plan, lights, bindings) = setup();
+        let off = targets(&plan, &lights, &bindings, &BTreeMap::new());
+        let mut live = LiveState::new(off);
+        let lamp = index(&plan, "pendant-living");
+        let states = states(serde_json::json!({
+            "light.living_room_pendant": { "state": "on", "attributes": {} },
+            "binary_sensor.entrance_door_contact": { "state": "on", "attributes": {} },
+        }));
+        live.set_targets(targets(&plan, &lights, &bindings, &states));
+        let door = index(&plan, "door-entrance");
+        let first = live.step(16.0);
+        assert!(first.looks && first.animating);
+        let mut t = 16.0;
+        while live.step(16.0).animating {
+            t += 16.0;
+            assert!(t < 5_000.0);
+        }
+        assert!((live.looks[lamp].strength - 1.0).abs() < 1e-3);
+        assert!(live.overrides.open[&door] >= 0.85);
+        live.highlight(lamp);
+        assert!(live.step(16.0).looks);
+    }
+}

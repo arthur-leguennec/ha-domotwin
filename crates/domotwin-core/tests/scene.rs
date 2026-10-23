@@ -112,3 +112,43 @@ fn every_kind_builds_at_any_size() {
         );
     }
 }
+
+#[test]
+fn moving_parts_rebuild_with_overrides() {
+    use domotwin_core::scene::{Overrides, build_dynamic};
+    let plan = read_plan(DEMO).unwrap();
+    let scene = build_scene(&plan, &SceneOptions::default());
+    check_mesh(&scene.dynamic_opaque);
+    check_mesh(&scene.dynamic_transparent);
+    // Doors are moving parts only: none of their vertices is in the static mesh.
+    let door = plan
+        .elements
+        .iter()
+        .position(|e| e.id() == "door-entrance")
+        .unwrap();
+    let tag = u16::try_from(door + 1).unwrap().to_le_bytes();
+    let has = |mesh: &Mesh| mesh.extras.iter().any(|e| [e[2], e[3]] == tag);
+    assert!(!has(&scene.opaque) && has(&scene.dynamic_opaque));
+    // Opening it moves its leaf.
+    let mut overrides = Overrides::default();
+    overrides.open.insert(door, 0.0);
+    let (closed, _) = build_dynamic(&plan, &scene, &overrides);
+    overrides.open.insert(door, 1.0);
+    let (open, _) = build_dynamic(&plan, &scene, &overrides);
+    assert_eq!(closed.vertex_count(), open.vertex_count());
+    assert_ne!(closed.positions, open.positions);
+    // A blind appears on a window bound to a cover.
+    let window = plan
+        .elements
+        .iter()
+        .position(|e| e.id() == "win-living-1")
+        .unwrap();
+    overrides.blind.insert(window, 0.5);
+    let (blind, _) = build_dynamic(&plan, &scene, &overrides);
+    assert!(blind.vertex_count() > open.vertex_count());
+    // Every room, wall and piece belongs to a room slot.
+    for info in &scene.elements {
+        assert!(info.room > 0, "{} has no room", info.id);
+    }
+    assert_eq!(scene.rooms.len(), 5);
+}

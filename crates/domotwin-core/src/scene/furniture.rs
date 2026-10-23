@@ -73,8 +73,8 @@ pub(crate) struct Model<'a> {
     pub(crate) h: f64,
     pub(crate) c: Rgb8,
     pub(crate) rng: Rng,
-    /// Lit, with the light colour.
-    pub(crate) light: Option<Rgb8>,
+    /// Live opening (curtains), overriding the plan.
+    pub(crate) open: Option<f64>,
     /// Light sources found while building (model frame).
     pub(crate) bulbs: Vec<V3>,
     /// Room above the piece up to the ceiling (cm), for stems and chimneys.
@@ -129,10 +129,10 @@ impl Model<'_> {
         self.p.rod(&self.x, a, b, r, 8);
     }
 
-    /// The glowing part of a lamp: emissive when lit, pale shade otherwise.
+    /// The glowing part of a lamp: `off` is its look when the lamp is off; the light itself
+    /// comes from the live state of the element.
     fn glow(&self, off: Rgb8) -> Material {
-        self.light
-            .map_or(Material::new(off, 0.6, Surface::Matte), Material::emissive)
+        Material::glow(off)
     }
 
     /// A bulb: glowing sphere and a light source.
@@ -209,6 +209,10 @@ pub(crate) fn build(builder: &mut Builder, plan: &Plan, layout: &WallLayout) {
         let Element::Furniture(item) = element else {
             continue;
         };
+        // Curtains move (live control): they are built with the moving parts.
+        if (item.kind == Kind::Curtain) != builder.dynamic {
+            continue;
+        }
         piece(builder, plan, layout, index, item);
     }
 }
@@ -277,6 +281,7 @@ fn piece(builder: &mut Builder, plan: &Plan, layout: &WallLayout, index: usize, 
     };
     let tag = Tag {
         element,
+        room: builder.room_for(plan, &f.parent, centre),
         group: group.unwrap_or(NO_GROUP),
         cut: if group.is_some() {
             CutMode::Hide
@@ -291,7 +296,7 @@ fn piece(builder: &mut Builder, plan: &Plan, layout: &WallLayout, index: usize, 
         (rotate([1.0, 0.0]), f.w, f.h)
     };
     let x = Xform::plan([centre[0], f.elevation, centre[1]], u);
-    let light = (f.kind.is_light() && !f.light_off).then(|| light_color(f));
+    let open = builder.overrides.open.get(&index).copied();
     let ceiling = (builder.wall_height - f.elevation - f.z).max(0.0);
     let base = Material::paint(f.color);
     let mut model = Model {
@@ -303,7 +308,7 @@ fn piece(builder: &mut Builder, plan: &Plan, layout: &WallLayout, index: usize, 
         h: f.z,
         c: f.color,
         rng: Rng::new(&f.id),
-        light,
+        open,
         bulbs: Vec::new(),
         ceiling,
     };
@@ -324,8 +329,22 @@ fn piece(builder: &mut Builder, plan: &Plan, layout: &WallLayout, index: usize, 
                 color,
                 power,
                 on: !f.light_off,
+                room: tag.room,
+                screen: false,
             });
         }
+    }
+    if f.kind == Kind::Tv {
+        // The screen lights the room in front of it while something plays.
+        builder.lights.push(super::LightSpot {
+            element: index,
+            position: x.point([0.0, f.z * 0.55, d / 2.0 + 30.0]),
+            color: Rgb8::from_u32(0xa9c4ff),
+            power: 0.8,
+            on: false,
+            room: tag.room,
+            screen: true,
+        });
     }
     // A soft contact shadow under pieces standing on the floor.
     if f.elevation < 2.0 && !flags.wall_decor && !flags.hanging && f.z > 8.0 {
@@ -706,7 +725,10 @@ fn draw(m: &mut Model<'_>, f: &Furniture, plan: &Plan) {
                 [w / 2.0, h * 0.85, d / 4.0],
             );
         }
-        Kind::Curtain => curtain(m, f.curtain_open_fraction()),
+        Kind::Curtain => {
+            let open = m.open.unwrap_or_else(|| f.curtain_open_fraction());
+            curtain(m, open);
+        }
         Kind::Frame | Kind::Gallery | Kind::Mirror => pictures(m, f.kind, variant),
         Kind::Chandelier | Kind::Pendant | Kind::Spot | Kind::Ceilinglight | Kind::Fan => {
             ceiling_light(m, f.kind, variant);
