@@ -1,0 +1,64 @@
+{
+  "version": 1,
+  "rooms": {
+    "living": { "area": "living_room" },
+    "kitchen": { "area": "kitchen" },
+    "bathroom": { "area": "bathroom" },
+    "hall": { "area": "hallway" },
+    "bedroom": { "area": "bedroom" }
+  },
+  "elements": {
+    "pendant-living": {
+      "entities": [{ "entity_id": "light.living_room_pendant" }],
+      "tap_action": { "action": "toggle" },
+      "hold_action": { "action": "controls" }
+    },
+    "floor-lamp": {
+      "entities": [
+        { "entity_id": "light.living_room_floor_lamp" },
+        { "entity_id": "sensor.floor_lamp_power", "role": "power" }
+      ]
+    },
+    "table-lamp": { "entities": [{ "entity_id": "light.sideboard_lamp" }] },
+    "tv": {
+      "entities": [
+        { "entity_id": "media_player.living_room_tv" },
+        { "entity_id": "sensor.tv_power", "role": "power" }
+      ],
+      "tap_action": { "action": "more-info" }
+    },
+    "curtain-living": { "entities": [{ "entity_id": "cover.living_room_curtains" }] },
+    "win-living-1": {
+      "entities": [{ "entity_id": "binary_sensor.living_room_window_contact", "role": "contact" }]
+    },
+    "door-entrance": {
+      "entities": [
+        { "entity_id": "binary_sensor.entrance_door_contact", "role": "contact" },
+        { "entity_id": "lock.entrance_door", "role": "lock" }
+      ],
+      "tap_action": { "action": "more-info", "entity_id": "lock.entrance_door" }
+    },
+    "ceiling-kitchen": { "entities": [{ "entity_id": "light.kitchen_ceiling" }] },
+    "spot-kitchen-1": { "entities": [{ "entity_id": "light.kitchen_spots" }] },
+    "spot-kitchen-2": { "entities": [{ "entity_id": "light.kitchen_spots" }] },
+    "fridge": { "entities": [{ "entity_id": "sensor.fridge_power", "role": "power" }] },
+    "ceiling-bathroom": { "entities": [{ "entity_id": "light.bathroom_ceiling" }] },
+    "washer": {
+      "entities": [{ "entity_id": "sensor.washing_machine_power", "role": "power" }],
+      "tap_action": { "action": "navigate", "navigation_path": "/lovelace/laundry" }
+    },
+    "spot-hall-1": { "entities": [{ "entity_id": "light.hall_spots" }] },
+    "spot-hall-2": { "entities": [{ "entity_id": "light.hall_spots" }] },
+    "nightstand-left": { "entities": [{ "entity_id": "light.bedside_left" }] },
+    "nightstand-right": { "entities": [{ "entity_id": "light.bedside_right" }] },
+    "fan-bedroom": {
+      "entities": [{ "entity_id": "fan.bedroom_ceiling_fan" }, { "entity_id": "light.bedroom_fan_light" }],
+      "tap_action": {
+        "action": "perform-action",
+        "perform_action": "light.toggle",
+        "target": { "entity_id": "light.bedroom_fan_light" }
+      }
+    },
+    "curtain-bedroom": { "entities": [{ "entity_id": "cover.bedroom_curtains" }] }
+  }
+}
