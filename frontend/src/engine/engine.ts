@@ -12,12 +12,17 @@ export interface PlanSummary {
   doors: number;
   windows: number;
   furniture: number;
-  unknown: number;
 }
 
-/** An error raised by the engine; `code` is translated with `errors.plan.<code>`. */
+/**
+ * An error raised by the engine; `code` is translated with `errors.plan.<code>`, `element` is the
+ * id of the plan element at fault, when there is one.
+ */
 export class EngineError extends Error {
-  constructor(readonly code: string) {
+  constructor(
+    readonly code: string,
+    readonly element?: string,
+  ) {
     super(code);
     this.name = "EngineError";
   }
@@ -43,8 +48,21 @@ export function wasmMemoryBytes(): number | undefined {
   return wasmMemory?.buffer.byteLength;
 }
 
-function codeOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
+/** The engine reports plan errors as JSON `{"code", "element"}`, other errors as a bare code. */
+export function engineError(error: unknown): EngineError {
+  const message = error instanceof Error ? error.message : String(error);
+  try {
+    const parsed = JSON.parse(message) as { code?: unknown; element?: unknown };
+    if (typeof parsed.code === "string") {
+      return new EngineError(
+        parsed.code,
+        typeof parsed.element === "string" ? parsed.element : undefined,
+      );
+    }
+  } catch {
+    // A bare code.
+  }
+  return new EngineError(message);
 }
 
 /** One engine per canvas: a typed wrapper around the WebAssembly `Engine`. */
@@ -56,7 +74,7 @@ export class DomoTwinEngine {
     try {
       return new DomoTwinEngine(new wasm.Engine(canvas));
     } catch (error) {
-      throw new EngineError(codeOf(error));
+      throw engineError(error);
     }
   }
 
@@ -70,7 +88,7 @@ export class DomoTwinEngine {
     try {
       return JSON.parse(this.live.loadPlan(json)) as PlanSummary;
     } catch (error) {
-      throw new EngineError(codeOf(error));
+      throw engineError(error);
     }
   }
 
@@ -115,6 +133,6 @@ export async function summarizePlan(json: string): Promise<PlanSummary> {
   try {
     return JSON.parse(wasm.summarizePlan(json)) as PlanSummary;
   } catch (error) {
-    throw new EngineError(codeOf(error));
+    throw engineError(error);
   }
 }

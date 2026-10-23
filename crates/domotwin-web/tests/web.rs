@@ -1,7 +1,7 @@
 //! Runs in headless Chromium with `wasm-bindgen-test` (see CONTRIBUTING.md).
 
 #![cfg(target_arch = "wasm32")]
-#![allow(clippy::unwrap_used)]
+#![allow(clippy::unwrap_used, clippy::panic)]
 
 use domotwin_web::Engine;
 use wasm_bindgen::JsCast;
@@ -27,7 +27,7 @@ fn canvas() -> HtmlCanvasElement {
 #[wasm_bindgen_test]
 fn loads_the_demo_plan_and_draws_a_frame() {
     let mut engine = Engine::new(canvas()).unwrap();
-    let summary = engine.load_plan(DEMO).unwrap();
+    let summary = engine.load_plan(DEMO, None).unwrap();
     assert!(summary.contains("\"rooms\":5"), "{summary}");
     assert!(engine.needs_frame());
     assert!(!engine.frame(0.0));
@@ -37,7 +37,46 @@ fn loads_the_demo_plan_and_draws_a_frame() {
 #[wasm_bindgen_test]
 fn refuses_a_bad_plan_with_a_code() {
     let mut engine = Engine::new(canvas()).unwrap();
-    assert!(engine.load_plan("{}").is_err());
+    let Err(err) = engine.load_plan("{}", None) else {
+        panic!("an empty object is not a plan")
+    };
+    let message = wasm_bindgen::JsValue::from(err);
+    let text = js_sys::Reflect::get(&message, &"message".into())
+        .unwrap()
+        .as_string()
+        .unwrap();
+    assert!(text.contains("\"code\""), "{text}");
+}
+
+#[wasm_bindgen_test]
+fn picks_rooms_and_switches_to_the_plan() {
+    let mut engine = Engine::new(canvas()).unwrap();
+    engine.load_plan(DEMO, None).unwrap();
+    engine.frame(0.0);
+    // The overview frames the home: the centre of the canvas shows something of the plan.
+    let picked = engine.pick(160, 120);
+    assert!(picked.contains("\"id\""), "{picked}");
+    engine.set_plan_view(true, 0.0);
+    let mut t = 0.0;
+    while engine.frame(t) {
+        t += 16.0;
+        assert!(t < 5_000.0);
+    }
+    assert!(engine.plan_view());
+    let picked = engine.pick(160, 120);
+    assert!(picked.contains("\"type\""), "{picked}");
+    assert!(engine.stats().contains("\"triangles\""));
+}
+
+#[wasm_bindgen_test]
+fn saved_views_and_focus() {
+    let mut engine = Engine::new(canvas()).unwrap();
+    engine.load_plan(DEMO, None).unwrap();
+    let views = engine.views();
+    assert!(views.starts_with('['), "{views}");
+    assert!(engine.focus_element("living", 0.0));
+    assert!(!engine.focus_element("nothing-here", 0.0));
+    assert!(engine.needs_frame());
 }
 
 #[wasm_bindgen_test]

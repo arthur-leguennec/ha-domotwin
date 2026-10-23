@@ -8,6 +8,10 @@ export class Engine {
     free(): void;
     [Symbol.dispose](): void;
     /**
+     * Frames an element (a room, a piece). Returns `false` when it has no geometry.
+     */
+    focusElement(id: string, time_ms: number): boolean;
+    /**
      * Draws one frame. Returns `true` while an animation needs more frames.
      */
     frame(time_ms: number): boolean;
@@ -16,15 +20,17 @@ export class Engine {
      */
     invalidate(): void;
     /**
-     * Loads a plan (the text of a `*.plan.json`). Returns a JSON summary of the plan.
+     * Loads a plan (the text of a `*.plan.json`) and builds its scene. Returns a JSON summary.
+     * The camera keeps its place when `keep_camera` (a plan saved from another view).
      *
      * # Errors
      *
-     * Fails with a stable error code (`not_json`, `bad_unit`…) that the frontend translates.
+     * Fails with the JSON error of the plan reader (stable code and element id), which the
+     * frontend translates.
      */
-    loadPlan(json: string): string;
+    loadPlan(json: string, keep_camera?: boolean | null): string;
     /**
-     * Whether a frame is needed (something changed since the last one).
+     * Whether a frame is needed (something changed or an animation is running).
      */
     needsFrame(): boolean;
     /**
@@ -35,6 +41,27 @@ export class Engine {
      * Fails with `webgl2_unavailable` when the browser cannot create a WebGL2 context.
      */
     constructor(canvas: HTMLCanvasElement);
+    /**
+     * Turns the camera by a pointer move of `dx`, `dy` CSS pixels.
+     */
+    orbit(dx: number, dy: number): void;
+    /**
+     * Back to the whole home (animated from `time_ms`).
+     */
+    overview(time_ms: number): void;
+    /**
+     * Pans by a pointer move of `dx`, `dy` CSS pixels on a view `height` CSS pixels high.
+     */
+    pan(dx: number, dy: number, height: number): void;
+    /**
+     * The element drawn at the device pixel `x`, `y` (from the top left), as JSON
+     * `{"id", "type"}`, or an empty string.
+     */
+    pick(x: number, y: number): string;
+    /**
+     * Whether the 2D plan is shown.
+     */
+    planView(): boolean;
     /**
      * The active quality preset.
      */
@@ -48,9 +75,33 @@ export class Engine {
      */
     setBackground(r: number, g: number, b: number): void;
     /**
+     * Sets the cut-away mode: `auto`, `always` or `off`.
+     */
+    setCutaway(name: string): void;
+    /**
+     * Switches between the 3D view and the 2D plan (animated from `time_ms`).
+     */
+    setPlanView(plan: boolean, time_ms: number): void;
+    /**
      * Forces a quality preset (`eco`, `balanced`, `high`) or returns to automatic (`auto`).
      */
     setQuality(name: string): void;
+    /**
+     * Moves to a saved viewpoint. Returns `false` when there is none with this id.
+     */
+    showView(id: string, time_ms: number): boolean;
+    /**
+     * Figures about the scene, as JSON (for the diagnostics and the performance smoke test).
+     */
+    stats(): string;
+    /**
+     * The plan's saved viewpoints, as JSON `[{"id", "name"}]` (eye-level views are skipped).
+     */
+    views(): string;
+    /**
+     * Zooms by `factor` (< 1 closer) towards the screen point `x`, `y` (−1…1, y up).
+     */
+    zoom(factor: number, x: number, y: number): void;
 }
 
 /**
@@ -68,7 +119,7 @@ export function start(): void;
  *
  * # Errors
  *
- * Fails with the stable error code of the plan reader.
+ * Fails with the JSON error of the plan reader (stable code and element id).
  */
 export function summarizePlan(json: string): string;
 
@@ -78,15 +129,27 @@ export interface InitOutput {
     readonly memory: WebAssembly.Memory;
     readonly __wbg_engine_free: (a: number, b: number) => void;
     readonly engineVersion: (a: number) => void;
+    readonly engine_focusElement: (a: number, b: number, c: number, d: number) => number;
     readonly engine_frame: (a: number, b: number) => number;
     readonly engine_invalidate: (a: number) => void;
-    readonly engine_loadPlan: (a: number, b: number, c: number, d: number) => void;
+    readonly engine_loadPlan: (a: number, b: number, c: number, d: number, e: number) => void;
     readonly engine_needsFrame: (a: number) => number;
     readonly engine_new: (a: number, b: number) => void;
+    readonly engine_orbit: (a: number, b: number, c: number) => void;
+    readonly engine_overview: (a: number, b: number) => void;
+    readonly engine_pan: (a: number, b: number, c: number, d: number) => void;
+    readonly engine_pick: (a: number, b: number, c: number, d: number) => void;
+    readonly engine_planView: (a: number) => number;
     readonly engine_quality: (a: number, b: number) => void;
     readonly engine_resize: (a: number, b: number, c: number) => void;
     readonly engine_setBackground: (a: number, b: number, c: number, d: number) => void;
+    readonly engine_setCutaway: (a: number, b: number, c: number) => void;
+    readonly engine_setPlanView: (a: number, b: number, c: number) => void;
     readonly engine_setQuality: (a: number, b: number, c: number) => void;
+    readonly engine_showView: (a: number, b: number, c: number, d: number) => number;
+    readonly engine_stats: (a: number, b: number) => void;
+    readonly engine_views: (a: number, b: number) => void;
+    readonly engine_zoom: (a: number, b: number, c: number, d: number) => void;
     readonly start: () => void;
     readonly summarizePlan: (a: number, b: number, c: number) => void;
     readonly __wbindgen_export: (a: number, b: number) => number;
