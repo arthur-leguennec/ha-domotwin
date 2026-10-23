@@ -96,6 +96,12 @@ export const en = {
     cutaway_auto: "Cut away automatically",
     cutaway_always: "Always cut away",
     cutaway_off: "Full walls",
+    lighting: "Light",
+    lighting_auto: "Follows the time of day",
+    lighting_morning: "Morning",
+    lighting_day: "Day",
+    lighting_evening: "Evening",
+    lighting_night: "Night",
   },
   config: {
     invalid: "Invalid DomoTwin configuration: {reason}",
@@ -103,5 +109,6 @@ export const en = {
     bad_height: "`height` must be a CSS length such as 400px or 60vh",
     bad_quality: "`quality` must be auto, eco, balanced or high",
     bad_cutaway: "`cutaway` must be auto, always or off",
+    bad_lighting: "`lighting` must be auto, morning, day, evening or night",
   },
 } as const;

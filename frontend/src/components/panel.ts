@@ -11,7 +11,12 @@ import type { ViewOptions } from "./view";
 
 /** The plan format allows files up to 32 MB. */
 const MAX_FILE_BYTES = 32_000_000;
-const PANEL_OPTIONS: ViewOptions = { quality: "auto", view: "3d", cutaway: "auto" };
+const PANEL_OPTIONS: ViewOptions = {
+  quality: "auto",
+  view: "3d",
+  cutaway: "auto",
+  lighting: "auto",
+};
 const TOAST_MS = 6000;
 
 interface Toast {

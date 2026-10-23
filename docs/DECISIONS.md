@@ -179,3 +179,17 @@ explains why. Each entry: context, decision, consequences.
 - **Consequences.** Live changes in M2 (a lamp turning on, a door opening) rebuild the scene in Rust
   (a few milliseconds for a 500-element plan) or use per-element uniforms; both keep the draw count.
   Bloom and ambient occlusion are not in M1; they are optional High-preset passes for M5.
+
+## D-015 · Light that follows the time of day
+
+- **Context.** During M1 the maintainer found the first lighting too bright, picked a darker,
+  warmer daylight among five proposals, and asked for the light to change with the time of day.
+- **Decision.** Four moods in `domotwin-core::lighting` (sky, ground, sun colour, exposure,
+  darkening at the foot of walls): **morning** (soft, slightly cool), **day** (warm, clear
+  shadows), **evening** (dim, the lamps stand out), **night** (dark blue moonlight). In `auto` the
+  frontend reads the elevation and `rising` attribute of Home Assistant's `sun.sun` (local to the
+  home, no network) and the core blends the moods smoothly; without a sun entity it uses the local
+  clock. Changes under half a degree are skipped, so following the sun draws a frame every few
+  minutes at most. The card option `lighting` fixes a mood.
+- **Not yet.** The sun's direction does not move (shadows always fall the same way): the real sun
+  through the windows is the M4 layer.

@@ -3,6 +3,8 @@ import type { MessageKey } from "./i18n";
 export type ViewMode = "3d" | "2d";
 export type QualityName = "auto" | "eco" | "balanced" | "high";
 export type CutawayMode = "auto" | "always" | "off";
+/** The light of the scene: following the time of day (`auto`), or fixed. */
+export type LightingMode = "auto" | "morning" | "day" | "evening" | "night";
 
 /** Options of `custom:domotwin-card`, after defaults. */
 export interface CardConfig {
@@ -13,6 +15,7 @@ export interface CardConfig {
   height?: string;
   quality: QualityName;
   cutaway: CutawayMode;
+  lighting: LightingMode;
   /** Room to focus on start (an element id of the plan). */
   room?: string;
   /** Font for the card's texts; absent: the bundled default. */
@@ -30,6 +33,7 @@ export class ConfigError extends Error {
 const VIEWS: readonly ViewMode[] = ["3d", "2d"];
 const QUALITIES: readonly QualityName[] = ["auto", "eco", "balanced", "high"];
 const CUTAWAYS: readonly CutawayMode[] = ["auto", "always", "off"];
+const LIGHTINGS: readonly LightingMode[] = ["auto", "morning", "day", "evening", "night"];
 const CSS_LENGTH = /^\d+(\.\d+)?(px|vh|svh|dvh|em|rem)$/;
 
 function pick<T extends string>(
@@ -64,6 +68,7 @@ export function normalizeConfig(raw: unknown): CardConfig {
     view: pick(input.view, VIEWS, "3d", "config.bad_view"),
     quality: pick(input.quality, QUALITIES, "auto", "config.bad_quality"),
     cutaway: pick(input.cutaway, CUTAWAYS, "auto", "config.bad_cutaway"),
+    lighting: pick(input.lighting, LIGHTINGS, "auto", "config.bad_lighting"),
   };
   const title = optionalString(input.title);
   if (title !== undefined) config.title = title;

@@ -79,6 +79,15 @@ export class Engine {
      */
     setCutaway(name: string): void;
     /**
+     * Fixes the light to a mood: `morning`, `day`, `evening` or `night`. Returns `false` for
+     * another name (the light then follows the sun or the clock).
+     */
+    setLightingMood(name: string): boolean;
+    /**
+     * Lights the scene for a local time of day (`hour` 0–24) when the sun is unknown.
+     */
+    setLocalHour(hour: number): void;
+    /**
      * Switches between the 3D view and the 2D plan (animated from `time_ms`).
      */
     setPlanView(plan: boolean, time_ms: number): void;
@@ -86,6 +95,11 @@ export class Engine {
      * Forces a quality preset (`eco`, `balanced`, `high`) or returns to automatic (`auto`).
      */
     setQuality(name: string): void;
+    /**
+     * Lights the scene for the sun's `elevation` (degrees), `rising` before noon (Home
+     * Assistant's `sun.sun`).
+     */
+    setSun(elevation: number, rising: boolean): void;
     /**
      * Moves to a saved viewpoint. Returns `false` when there is none with this id.
      */
@@ -144,8 +158,11 @@ export interface InitOutput {
     readonly engine_resize: (a: number, b: number, c: number) => void;
     readonly engine_setBackground: (a: number, b: number, c: number, d: number) => void;
     readonly engine_setCutaway: (a: number, b: number, c: number) => void;
+    readonly engine_setLightingMood: (a: number, b: number, c: number) => number;
+    readonly engine_setLocalHour: (a: number, b: number) => void;
     readonly engine_setPlanView: (a: number, b: number, c: number) => void;
     readonly engine_setQuality: (a: number, b: number, c: number) => void;
+    readonly engine_setSun: (a: number, b: number, c: number) => void;
     readonly engine_showView: (a: number, b: number, c: number, d: number) => number;
     readonly engine_stats: (a: number, b: number) => void;
     readonly engine_views: (a: number, b: number) => void;

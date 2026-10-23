@@ -65,6 +65,7 @@ YAML is never required. For reference, the card options are:
 | `height`      | CSS length (`400px`, `60vh`…)       | 4:3 ratio  | Fixed height; in sections the grid decides. |
 | `quality`     | `auto`, `eco`, `balanced`, `high`   | `auto`     | Rendering quality; `auto` adapts to the device. |
 | `cutaway`     | `auto`, `always`, `off`             | `auto`     | How walls facing the camera are lowered.  |
+| `lighting`    | `auto`, `morning`, `day`, `evening`, `night` | `auto` | The light of the scene. `auto` follows the sun of your Home Assistant (`sun.sun`), or the clock without it. |
 | `room`        | a room id of the plan               | none       | Room to focus on when the card opens.     |
 | `font_family` | a font family                       | bundled    | Font of the card's texts.                 |
 

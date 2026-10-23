@@ -13,6 +13,7 @@ pub mod view;
 use std::sync::Arc;
 
 use domotwin_core::camera::CutawayMode;
+use domotwin_core::lighting::Lighting;
 use domotwin_core::scene::Scene;
 use domotwin_core::scene::mesh::Mesh;
 pub use quality::{GpuHint, QualityPreset};
@@ -121,6 +122,7 @@ pub struct Renderer {
     transparent: Option<GpuMesh>,
     shadow: Option<ShadowMap>,
     pick_target: Option<PickTarget>,
+    lighting: Lighting,
     /// What the view shows and how it moves.
     pub view: ViewState,
 }
@@ -226,6 +228,7 @@ impl Renderer {
             transparent: None,
             shadow: None,
             pick_target: None,
+            lighting: Lighting::default(),
             view,
         })
     }
@@ -269,6 +272,19 @@ impl Renderer {
             self.view.shadows_dirty = true;
             self.view.dirty = true;
         }
+    }
+
+    /// Sets the light of the scene (the mood of the time of day).
+    pub fn set_lighting(&mut self, lighting: Lighting) {
+        if lighting != self.lighting {
+            self.lighting = lighting;
+            self.view.dirty = true;
+        }
+    }
+
+    /// The light of the scene.
+    pub const fn lighting(&self) -> Lighting {
+        self.lighting
     }
 
     /// Sets the cut-away mode.
@@ -401,6 +417,13 @@ impl Renderer {
             ),
         );
         program.use_uniform_if_required("u_flat", flat);
+        let light = self.lighting;
+        let rgb = |c: [f32; 3]| Vec3::new(c[0], c[1], c[2]);
+        program.use_uniform_if_required("u_sky", rgb(light.sky));
+        program.use_uniform_if_required("u_ground", rgb(light.ground));
+        program.use_uniform_if_required("u_sun_color", rgb(light.sun));
+        program.use_uniform_if_required("u_exposure", light.exposure);
+        program.use_uniform_if_required("u_ao", light.ao);
         let shadows = self.shadow.as_ref().filter(|_| flat < 0.5);
         program.use_uniform_if_required("u_shadows", if shadows.is_some() { 1.0_f32 } else { 0.0 });
         if let Some(shadow) = self.shadow.as_ref() {

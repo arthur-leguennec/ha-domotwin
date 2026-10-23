@@ -9,6 +9,7 @@
 pub mod camera;
 pub mod error;
 pub mod geometry;
+pub mod lighting;
 pub mod plan;
 pub mod scene;
 

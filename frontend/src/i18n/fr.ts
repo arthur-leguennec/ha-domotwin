@@ -95,6 +95,12 @@ export const fr: Dictionary = {
     cutaway_auto: "Coupés automatiquement",
     cutaway_always: "Toujours coupés",
     cutaway_off: "Murs entiers",
+    lighting: "Lumière",
+    lighting_auto: "Suit l’heure de la journée",
+    lighting_morning: "Matin",
+    lighting_day: "Journée",
+    lighting_evening: "Soirée",
+    lighting_night: "Nuit",
   },
   config: {
     invalid: "Configuration DomoTwin invalide : {reason}",
@@ -102,5 +108,6 @@ export const fr: Dictionary = {
     bad_height: "`height` doit être une longueur CSS comme 400px ou 60vh",
     bad_quality: "`quality` doit valoir auto, eco, balanced ou high",
     bad_cutaway: "`cutaway` doit valoir auto, always ou off",
+    bad_lighting: "`lighting` doit valoir auto, morning, day, evening ou night",
   },
 };

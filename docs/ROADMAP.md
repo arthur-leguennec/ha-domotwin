@@ -59,6 +59,11 @@ Measured at the end of M0: see [`PERFORMANCE.md`](PERFORMANCE.md).
   top view, room focus on tap, saved viewpoints; every move animated.
 - ✅ Automatic cut-away (auto, always, full walls), animated in the vertex shader.
 - ✅ 2D view (top-down plan style) and an animated 2D ↔ 3D switch.
+- ✅ Light through the day (asked by the maintainer during M1): four moods, morning, day, evening and
+  night, blended from the sun's elevation (`sun.sun`) or the local clock; the card option
+  `lighting` fixes one (D-015).
+
+![The four moods of the day](figures/screenshot-moods.png)
 - ✅ Render on demand; quality presets (Eco, Balanced, High) picked from the GPU; adaptive
   resolution from the frame time.
 - ✅ Panel: **Import plan** and **Export plan** (since M0).

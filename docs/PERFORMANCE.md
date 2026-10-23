@@ -60,15 +60,15 @@ Bundle (same toolchain as M0):
 
 | File | Raw | Gzipped |
 | --- | ---: | ---: |
-| `domotwin_web_bg.<hash>.wasm` | 379.7 kB | 171.3 kB |
-| `domotwin.js` (entry) | 34.0 kB | 10.8 kB |
-| `chunks/chunk-<hash>.js` (Lit, shared) | 24.7 kB | 9.2 kB |
-| `chunks/domotwin_web-<hash>.js` (wasm glue) | 25.5 kB | 6.8 kB |
-| `chunks/card-editor-<hash>.js` (on demand) | 1.4 kB | 0.8 kB |
-| **First load** | | **≈ 198 kB of 1 200 kB** |
+| `domotwin_web_bg.<hash>.wasm` | 383.5 kB | 173.2 kB |
+| `domotwin.js` (entry) | 35.0 kB | 11.1 kB |
+| `chunks/chunk-<hash>.js` (Lit, shared) | 25.2 kB | 9.3 kB |
+| `chunks/domotwin_web-<hash>.js` (wasm glue) | 25.7 kB | 6.9 kB |
+| `chunks/card-editor-<hash>.js` (on demand) | 1.5 kB | 0.8 kB |
+| **First load** | | **≈ 200 kB of 1 200 kB** |
 
-The engine grew by 122 kB gzipped: the plan reader, the geometry, the 55 procedural models, the
-renderer and `serde_json`.
+The engine grew by 124 kB gzipped: the plan reader, the geometry, the 55 procedural models, the
+renderer, the moods of the day and `serde_json`.
 
 Scene of the demo apartment (54 elements): 24 560 + 272 vertices (opaque + glass and shadows),
 18 411 triangles, 9 wall groups, 2 draw calls per frame plus the shadow map when walls move.

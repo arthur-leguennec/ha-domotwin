@@ -1,6 +1,6 @@
 import { assetUrl } from "../assets";
 import type { Rgb } from "../color";
-import type { CutawayMode, QualityName } from "../config";
+import type { CutawayMode, LightingMode, QualityName } from "../config";
 import type * as Wasm from "./pkg/domotwin_web.js";
 
 /** What `loadPlan` returns: counts of the plan's elements. */
@@ -124,6 +124,21 @@ export class DomoTwinEngine {
 
   setCutaway(mode: CutawayMode): void {
     this.live.setCutaway(mode);
+  }
+
+  /** Fixes the light to a mood (`morning`, `day`, `evening`, `night`). */
+  setLightingMood(mood: Exclude<LightingMode, "auto">): void {
+    this.live.setLightingMood(mood);
+  }
+
+  /** Lights the scene for the sun's elevation (degrees), rising before noon. */
+  setSun(elevation: number, rising: boolean): void {
+    this.live.setSun(elevation, rising);
+  }
+
+  /** Lights the scene for a local time of day (0–24 h). */
+  setLocalHour(hour: number): void {
+    this.live.setLocalHour(hour);
   }
 
   /** Turns the camera by a drag of `dx`, `dy` CSS pixels. */

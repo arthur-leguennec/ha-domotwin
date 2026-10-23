@@ -159,4 +159,45 @@ test.describe("3D view", () => {
     await expect(page.getByRole("alert")).toContainText("two elements have the same id");
     await expect(page.getByRole("alert")).toContainText("“hall”");
   });
+
+  test("follows the time of day, or a fixed mood", async ({ page }) => {
+    const brightness = async (): Promise<number> => {
+      const png = await canvasPng(page);
+      return page.evaluate(async (base64) => {
+        const image = new Image();
+        image.src = `data:image/png;base64,${base64}`;
+        await image.decode();
+        const canvas = document.createElement("canvas");
+        canvas.width = image.width;
+        canvas.height = image.height;
+        const g = canvas.getContext("2d");
+        if (!g) return 0;
+        g.drawImage(image, 0, 0);
+        const { data } = g.getImageData(0, 0, image.width, image.height);
+        let sum = 0;
+        let count = 0;
+        // Only the home: skip the background (the brightest pixels at the edges).
+        for (let i = 0; i < data.length; i += 4 * 7) {
+          const l =
+            0.2126 * (data[i] ?? 0) + 0.7152 * (data[i + 1] ?? 0) + 0.0722 * (data[i + 2] ?? 0);
+          if (l < 250) {
+            sum += l;
+            count += 1;
+          }
+        }
+        return count ? sum / count : 0;
+      }, png.toString("base64"));
+    };
+    await openHarness(page, { lighting: "auto", sun: { elevation: 40, rising: false } });
+    await ready(page);
+    expect((await viewState(page)).light).toBe("sun:40:false");
+    const day = await brightness();
+    await openHarness(page, { lighting: "auto", sun: { elevation: -20, rising: false } });
+    await ready(page);
+    const night = await brightness();
+    expect(night).toBeLessThan(day - 20);
+    await openHarness(page, { lighting: "evening" });
+    await ready(page);
+    expect((await viewState(page)).light).toBe("mood:evening");
+  });
 });

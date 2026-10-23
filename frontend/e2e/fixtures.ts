@@ -10,6 +10,10 @@ export interface HarnessOptions {
   dark?: boolean;
   view?: "3d" | "2d";
   cutaway?: "auto" | "always" | "off";
+  /** Defaults to `day`, so that pictures do not depend on the time the tests run. */
+  lighting?: "auto" | "morning" | "day" | "evening" | "night";
+  /** A `sun.sun` entity: elevation in degrees and whether it is rising. */
+  sun?: { elevation: number; rising: boolean };
 }
 
 /** Opens the mocked Home Assistant with the built frontend. */
@@ -23,6 +27,8 @@ export async function openHarness(page: Page, options: HarnessOptions = {}): Pro
   });
   if (options.view) params.set("view", options.view);
   if (options.cutaway) params.set("cutaway", options.cutaway);
+  params.set("lighting", options.lighting ?? "day");
+  if (options.sun) params.set("sun", `${options.sun.elevation},${options.sun.rising ? 1 : 0}`);
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto(`/?${params.toString()}`);

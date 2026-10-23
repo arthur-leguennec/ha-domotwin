@@ -9,6 +9,7 @@ describe("normalizeConfig", () => {
       view: "3d",
       quality: "auto",
       cutaway: "auto",
+      lighting: "auto",
     });
   });
 
@@ -21,6 +22,7 @@ describe("normalizeConfig", () => {
         height: "60vh",
         quality: "eco",
         cutaway: "off",
+        lighting: "night",
         room: "living",
         font_family: "Inter",
       }),
@@ -31,6 +33,7 @@ describe("normalizeConfig", () => {
       height: "60vh",
       quality: "eco",
       cutaway: "off",
+      lighting: "night",
       room: "living",
       font_family: "Inter",
     });
@@ -44,6 +47,7 @@ describe("normalizeConfig", () => {
     [{ view: "4d" }, "config.bad_view"],
     [{ quality: "ultra" }, "config.bad_quality"],
     [{ cutaway: "sometimes" }, "config.bad_cutaway"],
+    [{ lighting: "noon" }, "config.bad_lighting"],
     [{ height: "tall" }, "config.bad_height"],
     [{ height: "100%" }, "config.bad_height"],
     [{ height: -3 }, "config.bad_height"],

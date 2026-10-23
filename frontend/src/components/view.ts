@@ -8,7 +8,7 @@ import {
 import { LitElement, css, html, nothing, type PropertyValues, type TemplateResult } from "lit";
 
 import { themeBackground, type Rgb } from "../color";
-import type { CutawayMode, QualityName, ViewMode } from "../config";
+import type { CutawayMode, LightingMode, QualityName, ViewMode } from "../config";
 import {
   DomoTwinEngine,
   EngineError,
@@ -34,6 +34,8 @@ export interface ViewOptions {
   /** View shown first. */
   view?: ViewMode;
   cutaway?: CutawayMode;
+  /** The light: following the time of day (`auto`, the default) or fixed. */
+  lighting?: LightingMode;
   /** Room framed first (an element id of the plan). */
   room?: string;
 }
@@ -47,6 +49,8 @@ const FAST_FRAME_MS = 8;
 /** Keyboard steps: pixels of drag per arrow press, zoom factor per +/- press. */
 const KEY_STEP = 40;
 const KEY_ZOOM = 0.85;
+/** How often the light follows the time of day without a `hass` update (ms). */
+const LIGHT_REFRESH_MS = 5 * 60 * 1000;
 const FALLBACK_BACKGROUND: Rgb = { r: 242, g: 242, b: 240 };
 
 /** Frame timings measured by `benchmark()` (frame-time smoke test). */
@@ -65,6 +69,8 @@ export interface DebugState {
   frames: number;
   planView: boolean;
   resolution: number;
+  /** What the light follows: `mood:<name>`, `sun:<elevation>:<rising>` or `clock:<hour>`. */
+  light?: string;
   quality?: string;
   summary?: PlanSummary;
   stats?: SceneStats;
@@ -122,6 +128,9 @@ export class DomoTwinView extends LitElement {
   private frameCost = 0;
   private lastResolutionChange = 0;
   private stage?: HTMLElement;
+  /** What the light was last set from (mood, sun position or clock), to skip repeats. */
+  private lightKey?: string;
+  private lightTimer?: number;
   private readonly onVisibility = (): void => {
     this.scheduler?.setPageVisible(document.visibilityState === "visible");
   };
@@ -293,10 +302,14 @@ export class DomoTwinView extends LitElement {
       const previous = changed.get("options");
       this.engine.setQuality(this.options.quality);
       this.engine.setCutaway(this.options.cutaway ?? "auto");
+      this.applyLighting();
       if (previous?.view !== this.options.view) this.setPlanView(this.options.view === "2d");
       this.scheduler?.request();
     }
-    if (changed.has("hass")) this.applyTheme();
+    if (changed.has("hass")) {
+      this.applyTheme();
+      this.applyLighting();
+    }
   }
 
   /** Draws a new frame as soon as possible (when visible). */
@@ -312,6 +325,7 @@ export class DomoTwinView extends LitElement {
       planView: this.planView,
       resolution: this.resolution,
     };
+    if (this.lightKey) state.light = this.lightKey;
     if (this.engine) {
       state.quality = this.engine.quality;
       state.stats = this.engine.stats;
@@ -423,6 +437,7 @@ export class DomoTwinView extends LitElement {
     this.engine = engine;
     engine.setQuality(this.options.quality);
     engine.setCutaway(this.options.cutaway ?? "auto");
+    this.lightKey = undefined;
     this.scheduler = new FrameScheduler((time) => this.drawFrame(engine, time));
     this.scheduler.setPageVisible(document.visibilityState === "visible");
     this.resizeObserver = new ResizeObserver(() => {
@@ -437,6 +452,10 @@ export class DomoTwinView extends LitElement {
     this.engineState = "ready";
     this.background = undefined;
     this.applyTheme();
+    this.applyLighting();
+    this.lightTimer = window.setInterval(() => {
+      this.applyLighting();
+    }, LIGHT_REFRESH_MS);
     this.loadedPlan = undefined;
     this.applyPlan();
     this.resize(stage);
@@ -446,6 +465,8 @@ export class DomoTwinView extends LitElement {
   private stopEngine(): void {
     this.generation += 1;
     this.scheduler?.dispose();
+    window.clearInterval(this.lightTimer);
+    this.lightTimer = undefined;
     this.resizeObserver?.disconnect();
     this.intersectionObserver?.disconnect();
     this.engine?.dispose();
@@ -509,6 +530,46 @@ export class DomoTwinView extends LitElement {
     }
     this.background = background;
     this.engine.setBackground(background);
+    this.scheduler?.request();
+  }
+
+  /**
+   * Sets the light: a fixed mood, or the time of day from Home Assistant's sun (`sun.sun`), or
+   * from the local clock when there is no sun entity. Small changes are skipped.
+   */
+  private applyLighting(): void {
+    const engine = this.engine;
+    if (!engine) return;
+    const mode = this.options.lighting ?? "auto";
+    let key: string;
+    let apply: () => void;
+    if (mode !== "auto") {
+      key = `mood:${mode}`;
+      apply = () => {
+        engine.setLightingMood(mode);
+      };
+    } else {
+      const sun = this.hass?.states["sun.sun"];
+      const elevation = Number(sun?.attributes.elevation);
+      if (sun && Number.isFinite(elevation)) {
+        const rounded = Math.round(elevation * 2) / 2;
+        const rising = sun.attributes.rising === true;
+        key = `sun:${rounded}:${rising}`;
+        apply = () => {
+          engine.setSun(rounded, rising);
+        };
+      } else {
+        const now = new Date();
+        const hour = Math.round((now.getHours() + now.getMinutes() / 60) * 12) / 12;
+        key = `clock:${hour}`;
+        apply = () => {
+          engine.setLocalHour(hour);
+        };
+      }
+    }
+    if (key === this.lightKey) return;
+    this.lightKey = key;
+    apply();
     this.scheduler?.request();
   }
 

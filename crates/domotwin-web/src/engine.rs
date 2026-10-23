@@ -3,6 +3,7 @@
 use std::sync::Arc;
 
 use domotwin_core::camera::{Camera, CutawayMode};
+use domotwin_core::lighting::{Mood, lighting_for_hour, lighting_for_sun};
 use domotwin_core::plan::{Plan, View};
 use domotwin_core::scene::mesh::Mesh;
 use domotwin_core::scene::{ElementInfo, SceneOptions, build_scene};
@@ -150,6 +151,31 @@ impl Engine {
     #[wasm_bindgen(js_name = setCutaway)]
     pub fn set_cutaway(&mut self, name: &str) {
         self.renderer.set_cutaway(CutawayMode::from_name(name));
+    }
+
+    /// Fixes the light to a mood: `morning`, `day`, `evening` or `night`. Returns `false` for
+    /// another name (the light then follows the sun or the clock).
+    #[wasm_bindgen(js_name = setLightingMood)]
+    pub fn set_lighting_mood(&mut self, name: &str) -> bool {
+        let Some(mood) = Mood::from_name(name) else {
+            return false;
+        };
+        self.renderer.set_lighting(mood.lighting());
+        true
+    }
+
+    /// Lights the scene for the sun's `elevation` (degrees), `rising` before noon (Home
+    /// Assistant's `sun.sun`).
+    #[wasm_bindgen(js_name = setSun)]
+    pub fn set_sun(&mut self, elevation: f64, rising: bool) {
+        self.renderer
+            .set_lighting(lighting_for_sun(elevation, rising));
+    }
+
+    /// Lights the scene for a local time of day (`hour` 0–24) when the sun is unknown.
+    #[wasm_bindgen(js_name = setLocalHour)]
+    pub fn set_local_hour(&mut self, hour: f64) {
+        self.renderer.set_lighting(lighting_for_hour(hour));
     }
 
     /// Turns the camera by a pointer move of `dx`, `dy` CSS pixels.

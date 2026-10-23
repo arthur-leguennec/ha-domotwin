@@ -105,6 +105,7 @@ export class DomoTwinCard extends LitElement {
         quality: config.quality,
         view: config.view,
         cutaway: config.cutaway,
+        lighting: config.lighting,
       };
       if (config.room) options.room = config.room;
       this.options = { source: config, value: options };
