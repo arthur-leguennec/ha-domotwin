@@ -1,6 +1,6 @@
 import { assetUrl } from "../assets";
 import type { Rgb } from "../color";
-import type { QualityName } from "../config";
+import type { CutawayMode, QualityName } from "../config";
 import type * as Wasm from "./pkg/domotwin_web.js";
 
 /** What `loadPlan` returns: counts of the plan's elements. */
@@ -12,6 +12,33 @@ export interface PlanSummary {
   doors: number;
   windows: number;
   furniture: number;
+}
+
+/** A saved viewpoint of the plan. */
+export interface SavedView {
+  id: string;
+  name: string;
+}
+
+/** The element under a screen point. */
+export interface PickedElement {
+  id: string;
+  type: "room" | "wall" | "door" | "window" | "furniture";
+}
+
+/** Figures about the scene (diagnostics, performance smoke test). */
+export interface SceneStats {
+  triangles: number;
+  groups: number;
+  planView: boolean;
+  quality: string;
+  camera: {
+    target: [number, number, number];
+    distance: number;
+    yaw: number;
+    pitch: number;
+    ortho: number;
+  };
 }
 
 /**
@@ -83,13 +110,74 @@ export class DomoTwinEngine {
     return this.engine;
   }
 
-  /** Reads a plan; throws an `EngineError` with a stable code when it is refused. */
-  loadPlan(json: string): PlanSummary {
+  /**
+   * Reads a plan and builds its scene; throws an `EngineError` with a stable code when it is
+   * refused. The camera stays where it is when `keepCamera` (the same home, saved again).
+   */
+  loadPlan(json: string, keepCamera = false): PlanSummary {
     try {
-      return JSON.parse(this.live.loadPlan(json)) as PlanSummary;
+      return JSON.parse(this.live.loadPlan(json, keepCamera)) as PlanSummary;
     } catch (error) {
       throw engineError(error);
     }
+  }
+
+  setCutaway(mode: CutawayMode): void {
+    this.live.setCutaway(mode);
+  }
+
+  /** Turns the camera by a drag of `dx`, `dy` CSS pixels. */
+  orbit(dx: number, dy: number): void {
+    this.live.orbit(dx, dy);
+  }
+
+  /** Moves the view by a drag of `dx`, `dy` CSS pixels on a view `height` CSS pixels high. */
+  pan(dx: number, dy: number, height: number): void {
+    this.live.pan(dx, dy, height);
+  }
+
+  /** Zooms by `factor` (< 1 closer) towards the screen point `x`, `y` in −1…1 (y up). */
+  zoom(factor: number, x: number, y: number): void {
+    this.live.zoom(factor, x, y);
+  }
+
+  /** Shows the 2D plan (`true`) or the 3D view, with an animated move. */
+  setPlanView(plan: boolean): void {
+    this.live.setPlanView(plan, performance.now());
+  }
+
+  get planView(): boolean {
+    return this.live.planView();
+  }
+
+  /** Back to the whole home. */
+  overview(): void {
+    this.live.overview(performance.now());
+  }
+
+  /** Frames an element; false when it has nothing to show. */
+  focusElement(id: string): boolean {
+    return this.live.focusElement(id, performance.now());
+  }
+
+  /** The plan's saved viewpoints. */
+  views(): SavedView[] {
+    return JSON.parse(this.live.views()) as SavedView[];
+  }
+
+  /** Moves to a saved viewpoint; false when there is none with this id. */
+  showView(id: string): boolean {
+    return this.live.showView(id, performance.now());
+  }
+
+  /** The element drawn at a device pixel of the canvas (from the top left), if any. */
+  pick(x: number, y: number): PickedElement | undefined {
+    const text = this.live.pick(Math.max(0, Math.floor(x)), Math.max(0, Math.floor(y)));
+    return text ? (JSON.parse(text) as PickedElement) : undefined;
+  }
+
+  get stats(): SceneStats {
+    return JSON.parse(this.live.stats()) as SceneStats;
   }
 
   resize(width: number, height: number): void {

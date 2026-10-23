@@ -5,6 +5,7 @@ import { DomoTwinClient, type StoredPlan } from "../ha/client";
 import { isHassError, type HomeAssistant } from "../ha/types";
 import { translatorFor } from "../i18n";
 import { baseStyles } from "./styles";
+import type { ViewOptions } from "./view";
 
 /** `custom:domotwin-card`: the twin on a dashboard. */
 export class DomoTwinCard extends LitElement {
@@ -20,6 +21,7 @@ export class DomoTwinCard extends LitElement {
   protected planError?: string;
   private _hass?: HomeAssistant;
   private unsubscribe?: () => void;
+  private options?: { source: CardConfig; value: ViewOptions };
 
   static override styles = [
     baseStyles,
@@ -94,6 +96,22 @@ export class DomoTwinCard extends LitElement {
     }
   }
 
+  private viewOptions(): ViewOptions {
+    const config = this.config;
+    if (!config) return { quality: "auto" };
+    // The same object while the configuration is unchanged, so the view does not reset.
+    if (this.options?.source !== config) {
+      const options: ViewOptions = {
+        quality: config.quality,
+        view: config.view,
+        cutaway: config.cutaway,
+      };
+      if (config.room) options.room = config.room;
+      this.options = { source: config, value: options };
+    }
+    return this.options.value;
+  }
+
   /** Masonry dashboards: about 6 rows of 50 px. */
   getCardSize(): number {
     return 6;
@@ -128,7 +146,7 @@ export class DomoTwinCard extends LitElement {
         .hass=${this._hass}
         .plan=${this.plan}
         .planError=${this.planError}
-        .options=${{ quality: this.config.quality }}
+        .options=${this.viewOptions()}
       ></domotwin-view>
     </ha-card>`;
   }

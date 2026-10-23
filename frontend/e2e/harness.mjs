@@ -1,5 +1,5 @@
 // A mocked Home Assistant around the real built frontend. Query parameters:
-//   mode=card|panel  lang=en|fr  plan=demo|none  admin=1|0  dark=1
+//   mode=card|panel  lang=en|fr  plan=demo|none  admin=1|0  dark=1  view=3d|2d  cutaway=auto|always|off
 const params = new URLSearchParams(location.search);
 const mode = params.get("mode") ?? "card";
 
@@ -70,7 +70,12 @@ if (mode === "panel") {
 } else {
   mount.classList.add("card");
   element = document.createElement("domotwin-card");
-  element.setConfig({ type: "custom:domotwin-card", title: params.get("title") ?? undefined });
+  element.setConfig({
+    type: "custom:domotwin-card",
+    title: params.get("title") ?? undefined,
+    view: params.get("view") ?? undefined,
+    cutaway: params.get("cutaway") ?? undefined,
+  });
 }
 element.hass = hass;
 mount.append(element);

@@ -256,11 +256,20 @@ impl Engine {
     /// Figures about the scene, as JSON (for the diagnostics and the performance smoke test).
     pub fn stats(&self) -> String {
         let view = &self.renderer.view;
+        let camera = &view.camera;
+        let round = |v: f64| (v * 100.0).round() / 100.0;
         serde_json::json!({
             "triangles": self.triangles,
             "groups": view.cuts.len(),
             "planView": view.plan_view,
             "quality": self.renderer.quality().as_str(),
+            "camera": {
+                "target": camera.target.map(round),
+                "distance": round(camera.distance),
+                "yaw": round(camera.yaw),
+                "pitch": round(camera.pitch),
+                "ortho": round(camera.ortho),
+            },
         })
         .to_string()
     }
