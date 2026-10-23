@@ -74,9 +74,11 @@ function connect(token) {
       if (message.type === "auth_required") socket.send(JSON.stringify({ type: "auth", access_token: token }));
       else if (message.type === "auth_ok") resolve();
       else if (message.type === "auth_invalid") reject(new Error("websocket auth refused"));
-      else if (message.type === "result") {
-        pending.get(message.id)?.(message);
+      else if (message.type === "result" && Number.isInteger(message.id)) {
+        // Only answers to our own requests: an id we sent, mapped to its resolver.
+        const answer = pending.get(message.id);
         pending.delete(message.id);
+        if (typeof answer === "function") answer(message);
       }
     });
     socket.addEventListener("error", () => reject(new Error("websocket error")));
