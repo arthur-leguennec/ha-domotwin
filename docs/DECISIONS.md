@@ -154,3 +154,28 @@ explains why. Each entry: context, decision, consequences.
     produces a compact mesh the engine loads directly, so the first load does not grow.
   - The format's limits apply: 50 models per plan, 8 MB per file, 20 MB of files per plan,
     150 000 triangles per file, external references refused.
+
+## D-014 · Own shaders on three-d's core layer, the home as two meshes
+
+- **Context.** D-002 chose three-d. Its high-level renderer (materials, lights, objects) would draw
+  each mesh and material separately, re-upload geometry to cut walls away, and grow the wasm with
+  features DomoTwin does not use.
+- **Decision.**
+  - `domotwin-core` builds the scene as **two meshes** with packed vertices (36 bytes: position and
+    the base height of its piece, normal, colour and roughness, wall group and surface, element id,
+    pattern coordinates). Merging everything static beats instancing here: a frame is one draw call
+    for the opaque home and one for glass and contact shadows, whatever the plan.
+  - `domotwin-render` uses only three-d's **core layer** (programs, buffers, render targets) with
+    DomoTwin's own GLSL: lighting (sky and ground, the sun with an optional shadow map), procedural
+    floors and tiles (no texture to download), a flat look for the 2D plan, tone mapping.
+  - **Cut-away in the vertex shader.** Walls belong to groups by direction (façade or partition);
+    each group has a cut height animated between the wall height and 38 cm, sent as a uniform array.
+    Vertices clamp to it, pieces starting above it and things hung on a cut wall disappear. Nothing
+    is rebuilt or uploaded during the transition.
+  - **Picking on the GPU.** On a tap, the element ids are drawn into a one-pixel scissor of an
+    offscreen target and read back: exact, whatever the shape.
+  - The camera, the cut-away decision and the animations live in plain Rust (`domotwin-core::camera`,
+    `domotwin-render::view`) and are unit-tested without a GPU.
+- **Consequences.** Live changes in M2 (a lamp turning on, a door opening) rebuild the scene in Rust
+  (a few milliseconds for a 500-element plan) or use per-element uniforms; both keep the draw count.
+  Bloom and ambient occlusion are not in M1; they are optional High-preset passes for M5.

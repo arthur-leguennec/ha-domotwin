@@ -1,0 +1,111 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+  <defs>
+    <style>
+      .title { font: 700 40px Inter, sans-serif; fill: #0f172a; }
+      .subtitle { font: 400 21px Inter, sans-serif; fill: #475569; }
+      .num { font: 700 22px Inter, sans-serif; fill: #ffffff; }
+      .head { font: 700 26px Inter, sans-serif; fill: #0f172a; }
+      .text { font: 400 19px Inter, sans-serif; fill: #334155; }
+      .small { font: 500 16px Inter, sans-serif; fill: #64748b; }
+      .label { font: 600 18px Inter, sans-serif; fill: #334155; }
+    </style>
+    <marker id="a" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#94a3b8" />
+    </marker>
+  </defs>
+  <rect width="1600" height="900" fill="#f8fafc" />
+  <text x="80" y="92" class="title">From your plan to the screen</text>
+  <text x="80" y="132" class="subtitle">The 3D home is built once. After that, a picture costs almost nothing.</text>
+
+  <!-- step 1: the plan file -->
+  <rect x="80" y="180" width="420" height="330" rx="26" fill="#ffffff" stroke="#e2e8f0" stroke-width="2" />
+  <circle cx="122" cy="222" r="22" fill="#f97316" /><text x="122" y="230" class="num" text-anchor="middle">1</text>
+  <g transform="translate(230 220)">
+    <path d="M0,0 L110,0 L150,40 L150,170 L0,170 z" fill="#ffffff" stroke="#94a3b8" stroke-width="4" stroke-linejoin="round" />
+    <path d="M110,0 L110,40 L150,40" fill="none" stroke="#94a3b8" stroke-width="4" stroke-linejoin="round" />
+    <rect x="22" y="60" width="62" height="44" fill="#fde68a" stroke="#ca8a04" stroke-width="2" />
+    <rect x="84" y="60" width="44" height="44" fill="#bbf7d0" stroke="#16a34a" stroke-width="2" />
+    <rect x="22" y="104" width="106" height="44" fill="#bfdbfe" stroke="#2563eb" stroke-width="2" />
+  </g>
+  <text x="290" y="436" class="head" text-anchor="middle">Read the plan</text>
+  <text x="290" y="470" class="text" text-anchor="middle">Rooms, doors, windows, furniture.</text>
+  <text x="290" y="496" class="small" text-anchor="middle">A broken plan is refused with the reason.</text>
+
+  <line x1="512" y1="345" x2="568" y2="345" stroke="#94a3b8" stroke-width="4" marker-end="url(#a)" />
+
+  <!-- step 2: the 3D home -->
+  <rect x="580" y="180" width="440" height="330" rx="26" fill="#ffffff" stroke="#e2e8f0" stroke-width="2" />
+  <circle cx="622" cy="222" r="22" fill="#f97316" /><text x="622" y="230" class="num" text-anchor="middle">2</text>
+  <g transform="translate(800 340) scale(0.8)">
+    <path d="M0,-70 L120,-10 L0,50 L-120,-10 z" fill="#fde68a" />
+    <path d="M-120,-10 L-120,-60 L0,-120 L0,-70 z" fill="#e9e6de" stroke="#4f564d" stroke-width="3" stroke-linejoin="round" />
+    <path d="M0,-70 L0,-120 L120,-60 L120,-10 z" fill="#f1efe9" stroke="#4f564d" stroke-width="3" stroke-linejoin="round" />
+    <path d="M-120,-10 L0,50 L120,-10" fill="none" stroke="#4f564d" stroke-width="3" stroke-linejoin="round" />
+    <path d="M-30,-5 L20,20 L50,5 L0,-20 z" fill="#64748b" />
+    <path d="M-30,-5 L-30,-15 L0,-30 L0,-20 z" fill="#475569" />
+    <path d="M45,-30 L75,-15 L90,-22 L60,-37 z" fill="#c2410c" />
+  </g>
+  <text x="800" y="436" class="head" text-anchor="middle">Build the 3D home</text>
+  <text x="800" y="470" class="text" text-anchor="middle">Walls, doors, windows and every</text>
+  <text x="800" y="496" class="text" text-anchor="middle">piece of furniture at its real size.</text>
+
+  <line x1="1032" y1="345" x2="1088" y2="345" stroke="#94a3b8" stroke-width="4" marker-end="url(#a)" />
+
+  <!-- step 3: the screen -->
+  <rect x="1100" y="180" width="420" height="330" rx="26" fill="#ffffff" stroke="#e2e8f0" stroke-width="2" />
+  <circle cx="1142" cy="222" r="22" fill="#f97316" /><text x="1142" y="230" class="num" text-anchor="middle">3</text>
+  <g transform="translate(1215 240)">
+    <rect x="0" y="0" width="190" height="130" rx="12" fill="#ffffff" stroke="#6366f1" stroke-width="4" />
+    <rect x="14" y="14" width="162" height="102" rx="4" fill="#eef2ff" />
+    <path d="M95,32 L140,55 L95,78 L50,55 z" fill="#fde68a" />
+    <path d="M50,55 L50,40 L95,17 L95,32 z" fill="#e9e6de" stroke="#4f564d" stroke-width="2" />
+    <path d="M95,32 L95,17 L140,40 L140,55 z" fill="#f1efe9" stroke="#4f564d" stroke-width="2" />
+    <path d="M70,142 L120,142" stroke="#6366f1" stroke-width="6" stroke-linecap="round" />
+  </g>
+  <text x="1310" y="436" class="head" text-anchor="middle">Draw it</text>
+  <text x="1310" y="470" class="text" text-anchor="middle">The whole home in one go,</text>
+  <text x="1310" y="496" class="text" text-anchor="middle">only when something changes.</text>
+
+  <!-- cut-away explained -->
+  <rect x="80" y="550" width="1440" height="300" rx="26" fill="#ffffff" stroke="#e2e8f0" stroke-width="2" />
+  <text x="120" y="604" class="head">Walls step aside</text>
+  <text x="120" y="642" class="text">The walls between you and a room are</text>
+  <text x="120" y="670" class="text">lowered, like an open dollhouse. They</text>
+  <text x="120" y="698" class="text">slide down smoothly as you turn, and the</text>
+  <text x="120" y="726" class="text">ones at the back stay whole.</text>
+  <text x="120" y="790" class="small">On the 2D plan nothing is lowered: you see</text>
+  <text x="120" y="814" class="small">the walls from above, as on a paper plan.</text>
+
+  <!-- before / after: the front walls hide the room, then step aside -->
+  <text x="820" y="612" class="label" text-anchor="middle">Walls in the way</text>
+  <g transform="translate(820 745) scale(0.5)">
+    <path d="M0,-60 L200,40 L0,140 L-200,40 z" fill="#fde68a" />
+    <path d="M-200,40 L-200,-110 L0,-210 L0,-60 z" fill="#f1efe9" stroke="#4f564d" stroke-width="5" stroke-linejoin="round" />
+    <path d="M0,-60 L0,-210 L200,-110 L200,40 z" fill="#e9e6de" stroke="#4f564d" stroke-width="5" stroke-linejoin="round" />
+    <path d="M-120,0 L-40,-40 L20,-10 L-60,30 z" fill="#64748b" />
+    <path d="M-120,0 L-120,-14 L-40,-54 L-40,-40 z" fill="#475569" />
+    <path d="M60,-20 L110,5 L130,-5 L80,-30 z" fill="#c2410c" />
+    <path d="M-200,40 L0,140 L0,-10 L-200,-110 z" fill="#f1efe9" stroke="#4f564d" stroke-width="5" stroke-linejoin="round" />
+    <path d="M0,140 L200,40 L200,-110 L0,-10 z" fill="#e9e6de" stroke="#4f564d" stroke-width="5" stroke-linejoin="round" />
+  </g>
+  <line x1="945" y1="735" x2="1050" y2="735" stroke="#94a3b8" stroke-width="4" marker-end="url(#a)" />
+  <text x="1180" y="612" class="label" text-anchor="middle">Lowered: you see inside</text>
+  <g transform="translate(1180 745) scale(0.5)">
+    <path d="M0,-60 L200,40 L0,140 L-200,40 z" fill="#fde68a" />
+    <path d="M-200,40 L-200,-110 L0,-210 L0,-60 z" fill="#f1efe9" stroke="#4f564d" stroke-width="5" stroke-linejoin="round" />
+    <path d="M0,-60 L0,-210 L200,-110 L200,40 z" fill="#e9e6de" stroke="#4f564d" stroke-width="5" stroke-linejoin="round" />
+    <path d="M-120,0 L-40,-40 L20,-10 L-60,30 z" fill="#64748b" />
+    <path d="M-120,0 L-120,-14 L-40,-54 L-40,-40 z" fill="#475569" />
+    <path d="M60,-20 L110,5 L130,-5 L80,-30 z" fill="#c2410c" />
+    <path d="M-200,40 L0,140 L0,112 L-200,12 z" fill="#f1efe9" stroke="#4f564d" stroke-width="5" stroke-linejoin="round" />
+    <path d="M0,140 L200,40 L200,12 L0,112 z" fill="#e9e6de" stroke="#4f564d" stroke-width="5" stroke-linejoin="round" />
+    <path d="M-200,12 L-200,-110 L0,-10 L0,112 M0,-10 L200,-110 L200,12" fill="none" stroke="#94a3b8" stroke-width="4" stroke-dasharray="12 12" />
+  </g>
+  <!-- the camera -->
+  <g transform="translate(1410 760)">
+    <rect x="-34" y="-22" width="58" height="40" rx="8" fill="#6366f1" />
+    <path d="M-34,-8 L-56,-20 L-56,16 L-34,4 z" fill="#6366f1" />
+    <circle cx="-5" cy="-2" r="11" fill="#eef2ff" />
+    <text x="0" y="50" class="label" text-anchor="middle">you</text>
+  </g>
+</svg>

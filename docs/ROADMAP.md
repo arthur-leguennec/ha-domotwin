@@ -40,25 +40,37 @@ Measured at the end of M0: see [`PERFORMANCE.md`](PERFORMANCE.md).
 
 ## M1, render
 
-- Core: strict-structure, lenient-field plan reader for revisions 1–10 with translated error keys,
-  migrations, the plan model, validation and the conflict-free subset of the checks DomoTwin needs.
-- Core geometry: room polygons (frame-relative vertices, legacy `bevel`), implicit walls (interior
+- ✅ Core: strict-structure, lenient-field plan reader for revisions 1–10 with stable error codes
+  (and the element at fault) translated in English and French, the clean plan model, validation of
+  every rule of `plan-format.md`. Fuzzed. The editing checks (overlaps, blocked doors) move to M3,
+  where they are shown.
+- ✅ Core geometry: room polygons (frame-relative vertices, legacy `bevel`), implicit walls (interior
   partitions centred on shared limits, façades outside the polygon, per-side `edgeThickness`,
-  `openEdges`, filled outer corners), openings cut into walls, cut-away classification per wall
-  group, the furniture catalogue (≈ 55 kinds with defaults, light and soft flags, vertical models).
-- Render: three-d on WebGL2, static furniture merged per material, instancing for repeated models,
-  procedural models per kind, procedural floors (`uni`, planks, tiles; `photo-*` keys fall back to
-  their procedural look), wall finishes (`blanc`, `vert-blanc`, `cimaise`, `metro`, paint), doors
-  and windows with all their styles (hinged, glazed, double, folding, sliding, barn, passage,
-  sealed) and `open` fraction, user models made from kits (`custom` pieces; file models as boxes).
-- Camera: orbit with mouse, touch and pinch; overview, top view, room focus, saved viewpoints.
-- Automatic cut-away (auto, always, full walls) with smooth transitions.
-- 2D view (top-down plan style) and an animated 2D ↔ 3D switch.
-- Render on demand, quality presets (Eco, Balanced, High) picked from the GPU and frame time, with
-  adaptive resolution.
-- Panel: **Import plan** (file picker, stored in Home Assistant) and **Export plan**.
-- Tests: geometry unit tests, golden tests on the demo plan, wasm tests, E2E load and 2D/3D switch,
-  first visual-regression baselines.
+  `openEdges`, filled outer corners), openings cut into walls, wall heights and finishes, door sweeps,
+  wall groups for the cut-away, the furniture catalogue (55 kinds with defaults, light and soft
+  flags, vertical models).
+- ✅ Render: three-d's core layer on WebGL2 with DomoTwin's own shaders (D-014). The whole home is
+  two merged meshes (one draw call each), which beats instancing here. Procedural models for every
+  kind, procedural floors (`uni`, planks, tiles; `photo-*` keys fall back to their procedural look),
+  wall finishes (`blanc`, `vert-blanc`, `cimaise`, `metro`, paint), skirting boards and cornices,
+  doors and windows with all their styles and their `open` fraction, lit lamps glowing in their
+  colour, soft contact shadows, user models made from kits (file models as boxes until M3).
+- ✅ Camera: orbit with mouse, touch and pinch, pan, zoom towards the pointer, keyboard; overview,
+  top view, room focus on tap, saved viewpoints; every move animated.
+- ✅ Automatic cut-away (auto, always, full walls), animated in the vertex shader.
+- ✅ 2D view (top-down plan style) and an animated 2D ↔ 3D switch.
+- ✅ Render on demand; quality presets (Eco, Balanced, High) picked from the GPU; adaptive
+  resolution from the frame time.
+- ✅ Panel: **Import plan** and **Export plan** (since M0).
+- ✅ Tests: geometry and camera unit tests, golden tests on the demo plan, every kind at odd sizes,
+  wasm tests in headless Chromium (load, pick, 2D switch), E2E for the gestures, toolbar, saved views
+  and translated errors, visual-regression baselines of the 3D view and the 2D plan.
+
+![The fictional demo apartment in 3D, walls facing the camera cut away](figures/screenshot-3d.png)
+
+Measured at the end of M1: see [`PERFORMANCE.md`](PERFORMANCE.md). Not measured yet: real devices
+(an old wall tablet, a mid-range phone), which need hardware CI does not have; to be done by hand
+before 0.1.0.
 
 ## M1b, IFC import (ISO 16739) ❓
 

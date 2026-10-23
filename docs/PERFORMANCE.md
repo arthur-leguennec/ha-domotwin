@@ -12,7 +12,7 @@ lists the budgets, how they are measured, and the numbers measured at each miles
 | Off-screen or hidden tab | no frame at all | scheduler unit tests |
 | Heatmap animation | 20–30 fps only while the layer is visible | scheduler `setMinInterval` (M4) |
 | Edit-mode drag | 60 fps on a mid-range phone, 500-element plan | M3, on devices |
-| Textures | mipmapped, capped at 1024 px by default | M1 |
+| Textures | none so far: floors and tiles are procedural; user pictures capped at 1024 px | M3 |
 | WebGL contexts | one per visible view, released on `disconnectedCallback` | E2E "releases the engine" |
 | WebAssembly memory | no allocation spikes (it never shrinks) | frame-time smoke test reports it |
 
@@ -28,7 +28,9 @@ lists the budgets, how they are measured, and the numbers measured at each miles
   WebGL2 (SwiftShader), forces 120 consecutive frames and reports the CPU time of a frame, the
   interval between frames and the WebAssembly memory. CI uploads it as the `frame-time` artifact.
   Software rendering is slow and stable, which makes regressions visible; real devices are measured
-  by hand from M1 on.
+  by hand.
+- **Scene.** `crates/domotwin-core/tests/scene.rs` builds the demo plan and fails above 120 000
+  triangles; `stats()` reports the triangles and wall groups of any plan.
 
 ## Measurements
 
@@ -51,3 +53,30 @@ Frame-time smoke test (demo plan, SwiftShader, 120 frames): CPU time per frame <
 
 Renderer candidates measured for [`DECISIONS.md`](DECISIONS.md) (D-002): three-d 83 kB gzipped with
 PBR, shadows and post-processing; wgpu (WebGL2) 667 kB gzipped for a single triangle.
+
+### M1 (render: the whole home in 3D and 2D)
+
+Bundle (same toolchain as M0):
+
+| File | Raw | Gzipped |
+| --- | ---: | ---: |
+| `domotwin_web_bg.<hash>.wasm` | 379.7 kB | 171.3 kB |
+| `domotwin.js` (entry) | 34.0 kB | 10.8 kB |
+| `chunks/chunk-<hash>.js` (Lit, shared) | 24.7 kB | 9.2 kB |
+| `chunks/domotwin_web-<hash>.js` (wasm glue) | 25.5 kB | 6.8 kB |
+| `chunks/card-editor-<hash>.js` (on demand) | 1.4 kB | 0.8 kB |
+| **First load** | | **≈ 198 kB of 1 200 kB** |
+
+The engine grew by 122 kB gzipped: the plan reader, the geometry, the 55 procedural models, the
+renderer and `serde_json`.
+
+Scene of the demo apartment (54 elements): 24 560 + 272 vertices (opaque + glass and shadows),
+18 411 triangles, 9 wall groups, 2 draw calls per frame plus the shadow map when walls move.
+
+Frame-time smoke test (demo plan, SwiftShader, 1000 × 700, Eco as picked for software rendering,
+120 forced frames): CPU time per frame 0.2 ms median, 1 ms p95; frame interval 66.6 ms median,
+150 ms p95; WebAssembly memory 3.1 MB. The interval is the software rasteriser at work (the CPU
+side stays under a millisecond); real GPUs draw this scene far within a 60 Hz frame, to be confirmed
+by hand on devices.
+
+![The 2D plan of the demo apartment](figures/screenshot-plan.png)
