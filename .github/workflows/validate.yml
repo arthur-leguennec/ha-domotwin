@@ -38,5 +38,4 @@ jobs:
         with:
           category: integration
           # brands: the integration is added to home-assistant/brands before the HACS submission.
-          # description, topics: repository settings to apply (docs/REPO_SETTINGS.md).
-          ignore: brands description topics
+          ignore: brands
