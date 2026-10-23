@@ -6,8 +6,12 @@
 
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used, clippy::panic))]
 
+pub mod camera;
 pub mod error;
+pub mod geometry;
+pub mod lighting;
 pub mod plan;
+pub mod scene;
 
 pub use error::{ErrorCode, ReadError};
-pub use plan::{PlanSummary, summarize_plan};
+pub use plan::{Plan, PlanSummary, read_plan, summarize_plan};

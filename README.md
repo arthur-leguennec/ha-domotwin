@@ -14,8 +14,9 @@ Local, fast, Rust + WebAssembly.</p>
 
 > [!NOTE]
 > **Status: early development.** DomoTwin is built milestone by milestone
-> ([roadmap](docs/ROADMAP.md)). The integration, storage, panel, card and plan import work today;
-> the 3D rendering arrives with milestone M1. The features below describe version 0.1.0.
+> ([roadmap](docs/ROADMAP.md)). The integration, the panel, the card, the plan import and the 3D
+> and 2D views work today; live control arrives with milestone M2. The features below describe
+> version 0.1.0.
 
 ## Features
 
@@ -34,6 +35,11 @@ Local, fast, Rust + WebAssembly.</p>
 - **Light and smooth.** Rust compiled to WebAssembly, rendering only when something changes, quality
   presets for old wall tablets. The first load is budgeted at 1.2 MB, checked by CI.
 - **Yours.** English and French, follows your Home Assistant theme, works in the companion apps.
+
+<p align="center">
+  <img src="docs/figures/screenshot-3d.png" alt="The fictional demo apartment in 3D: walls facing the camera are lowered, furniture in every room" width="49%">
+  <img src="docs/figures/screenshot-plan.png" alt="The same apartment as a 2D plan seen from above" width="49%">
+</p>
 
 ## Quick start
 
@@ -59,6 +65,7 @@ YAML is never required. For reference, the card options are:
 | `height`      | CSS length (`400px`, `60vh`…)       | 4:3 ratio  | Fixed height; in sections the grid decides. |
 | `quality`     | `auto`, `eco`, `balanced`, `high`   | `auto`     | Rendering quality; `auto` adapts to the device. |
 | `cutaway`     | `auto`, `always`, `off`             | `auto`     | How walls facing the camera are lowered.  |
+| `lighting`    | `auto`, `morning`, `day`, `evening`, `night` | `auto` | The light of the scene. `auto` follows the sun of your Home Assistant (`sun.sun`), or the clock without it. |
 | `room`        | a room id of the plan               | none       | Room to focus on when the card opens.     |
 | `font_family` | a font family                       | bundled    | Font of the card's texts.                 |
 

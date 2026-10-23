@@ -30,6 +30,21 @@ every reader returns `Result` with a stable error code that the frontend transla
 
 ![Render on demand: frames only when something changes, nothing while idle or off-screen](figures/render-on-demand.png)
 
+## Rendering
+
+![From plan to pixels: the reader, the scene in two meshes, the draw passes and the cut-away](figures/render-pipeline.png)
+
+- `domotwin-core::plan` reads the file; `geometry` derives the walls, their heights and the door
+  sweeps; `scene` turns everything into two meshes (`scene::mesh` packs the vertices); `camera`
+  holds the camera math and the cut-away decision.
+- `domotwin-render` uploads the meshes once and draws them with its own shaders (`shaders.rs`):
+  the sun shadow map (Balanced and High), the opaque home, then glass and contact shadows. `view.rs`
+  runs the camera moves, the 2D switch and the wall animations. See D-014.
+- `domotwin-web` exposes a small API: `loadPlan`, `orbit`, `pan`, `zoom`, `setPlanView`,
+  `overview`, `focusElement`, `views`, `showView`, `pick`, `stats`, `frame`.
+- In the frontend, `src/gestures.ts` turns pointer events into drags, pans, pinches and taps, and
+  `<domotwin-view>` applies them and draws the toolbar.
+
 ## Data flow
 
 ![The four flows: load the home, follow live states, tap and long-press, edit and save](figures/data-flow.png)

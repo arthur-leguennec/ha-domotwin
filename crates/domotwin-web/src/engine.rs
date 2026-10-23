@@ -2,7 +2,12 @@
 
 use std::sync::Arc;
 
-use domotwin_core::{PlanSummary, summarize_plan};
+use domotwin_core::camera::{Camera, CutawayMode};
+use domotwin_core::lighting::{Mood, lighting_for_hour, lighting_for_sun};
+use domotwin_core::plan::{Plan, View};
+use domotwin_core::scene::mesh::Mesh;
+use domotwin_core::scene::{ElementInfo, SceneOptions, build_scene};
+use domotwin_core::{ReadError, read_plan, summarize_plan};
 use domotwin_render::{GpuHint, QualityPreset, Renderer, Rgb};
 use wasm_bindgen::JsCast;
 use wasm_bindgen::prelude::*;
@@ -20,16 +25,21 @@ pub fn engine_version() -> String {
     env!("CARGO_PKG_VERSION").to_owned()
 }
 
+/// A plan error for JavaScript: the JSON `{"code": …, "element": …}`.
+fn plan_error(err: &ReadError) -> JsError {
+    JsError::new(&err.to_json())
+}
+
 /// Reads a plan without drawing it (the import checks a file with it). Returns a JSON summary.
 ///
 /// # Errors
 ///
-/// Fails with the stable error code of the plan reader.
+/// Fails with the JSON error of the plan reader (stable code and element id).
 #[wasm_bindgen(js_name = summarizePlan)]
 pub fn summarize_plan_json(json: &str) -> Result<String, JsError> {
     summarize_plan(json.as_bytes())
         .map(|summary| summary.to_json())
-        .map_err(|err| JsError::new(err.code.as_str()))
+        .map_err(|err| plan_error(&err))
 }
 
 /// One DomoTwin view drawn on one canvas.
@@ -37,7 +47,9 @@ pub fn summarize_plan_json(json: &str) -> Result<String, JsError> {
 #[derive(Debug)]
 pub struct Engine {
     renderer: Renderer,
-    plan: Option<PlanSummary>,
+    plan: Option<Plan>,
+    elements: Vec<ElementInfo>,
+    triangles: usize,
     gpu: GpuHint,
 }
 
@@ -74,6 +86,8 @@ impl Engine {
         let mut engine = Engine {
             renderer,
             plan: None,
+            elements: Vec::new(),
+            triangles: 0,
             gpu,
         };
         engine
@@ -82,18 +96,27 @@ impl Engine {
         Ok(engine)
     }
 
-    /// Loads a plan (the text of a `*.plan.json`). Returns a JSON summary of the plan.
+    /// Loads a plan (the text of a `*.plan.json`) and builds its scene. Returns a JSON summary.
+    /// The camera keeps its place when `keep_camera` (a plan saved from another view).
     ///
     /// # Errors
     ///
-    /// Fails with a stable error code (`not_json`, `bad_unit`…) that the frontend translates.
+    /// Fails with the JSON error of the plan reader (stable code and element id), which the
+    /// frontend translates.
     #[wasm_bindgen(js_name = loadPlan)]
-    pub fn load_plan(&mut self, json: &str) -> Result<String, JsError> {
-        let summary =
-            summarize_plan(json.as_bytes()).map_err(|err| JsError::new(err.code.as_str()))?;
-        let result = summary.to_json();
-        self.plan = Some(summary);
-        Ok(result)
+    pub fn load_plan(&mut self, json: &str, keep_camera: Option<bool>) -> Result<String, JsError> {
+        let plan = read_plan(json.as_bytes()).map_err(|err| plan_error(&err))?;
+        let mut scene = build_scene(&plan, &SceneOptions::default());
+        self.triangles = scene.opaque.triangle_count() + scene.transparent.triangle_count();
+        self.renderer
+            .set_scene(&scene, keep_camera.unwrap_or(false) && self.plan.is_some());
+        // The meshes live on the GPU now: free the copies.
+        scene.opaque = Mesh::default();
+        scene.transparent = Mesh::default();
+        self.elements = scene.elements;
+        let summary = plan.summary().to_json();
+        self.plan = Some(plan);
+        Ok(summary)
     }
 
     /// Sets the drawing buffer size in device pixels.
@@ -124,10 +147,163 @@ impl Engine {
         self.renderer.quality().as_str().to_owned()
     }
 
-    /// Whether a frame is needed (something changed since the last one).
+    /// Sets the cut-away mode: `auto`, `always` or `off`.
+    #[wasm_bindgen(js_name = setCutaway)]
+    pub fn set_cutaway(&mut self, name: &str) {
+        self.renderer.set_cutaway(CutawayMode::from_name(name));
+    }
+
+    /// Fixes the light to a mood: `morning`, `day`, `evening` or `night`. Returns `false` for
+    /// another name (the light then follows the sun or the clock).
+    #[wasm_bindgen(js_name = setLightingMood)]
+    pub fn set_lighting_mood(&mut self, name: &str) -> bool {
+        let Some(mood) = Mood::from_name(name) else {
+            return false;
+        };
+        self.renderer.set_lighting(mood.lighting());
+        true
+    }
+
+    /// Lights the scene for the sun's `elevation` (degrees), `rising` before noon (Home
+    /// Assistant's `sun.sun`).
+    #[wasm_bindgen(js_name = setSun)]
+    pub fn set_sun(&mut self, elevation: f64, rising: bool) {
+        self.renderer
+            .set_lighting(lighting_for_sun(elevation, rising));
+    }
+
+    /// Lights the scene for a local time of day (`hour` 0–24) when the sun is unknown.
+    #[wasm_bindgen(js_name = setLocalHour)]
+    pub fn set_local_hour(&mut self, hour: f64) {
+        self.renderer.set_lighting(lighting_for_hour(hour));
+    }
+
+    /// Turns the camera by a pointer move of `dx`, `dy` CSS pixels.
+    pub fn orbit(&mut self, dx: f64, dy: f64) {
+        self.renderer.view.orbit(dx, dy);
+    }
+
+    /// Pans by a pointer move of `dx`, `dy` CSS pixels on a view `height` CSS pixels high.
+    pub fn pan(&mut self, dx: f64, dy: f64, height: f64) {
+        self.renderer.view.pan(dx, dy, height);
+    }
+
+    /// Zooms by `factor` (< 1 closer) towards the screen point `x`, `y` (−1…1, y up).
+    pub fn zoom(&mut self, factor: f64, x: f64, y: f64) {
+        self.renderer.view.zoom(factor, [x, y]);
+    }
+
+    /// Switches between the 3D view and the 2D plan (animated from `time_ms`).
+    #[wasm_bindgen(js_name = setPlanView)]
+    pub fn set_plan_view(&mut self, plan: bool, time_ms: f64) {
+        self.renderer.view.set_plan_view(plan, time_ms);
+    }
+
+    /// Whether the 2D plan is shown.
+    #[wasm_bindgen(js_name = planView)]
+    pub fn plan_view(&self) -> bool {
+        self.renderer.view.plan_view
+    }
+
+    /// Back to the whole home (animated from `time_ms`).
+    pub fn overview(&mut self, time_ms: f64) {
+        self.renderer.view.overview(time_ms);
+    }
+
+    /// Frames an element (a room, a piece). Returns `false` when it has no geometry.
+    #[wasm_bindgen(js_name = focusElement)]
+    pub fn focus_element(&mut self, id: &str, time_ms: f64) -> bool {
+        let Some(info) = self.elements.iter().find(|e| e.id == id) else {
+            return false;
+        };
+        let [min, max] = info.bounds;
+        if min == max {
+            return false;
+        }
+        let widen = |v: f32| f64::from(v);
+        self.renderer.view.focus(
+            [
+                [widen(min[0]), 0.0, widen(min[2])],
+                [widen(max[0]), widen(max[1]), widen(max[2])],
+            ],
+            time_ms,
+        );
+        true
+    }
+
+    /// The plan's saved viewpoints, as JSON `[{"id", "name"}]` (eye-level views are skipped).
+    pub fn views(&self) -> String {
+        let list: Vec<serde_json::Value> = self
+            .plan
+            .iter()
+            .flat_map(|plan| &plan.views)
+            .filter_map(|view| match view {
+                View::Orbit { id, name, .. } => Some(serde_json::json!({ "id": id, "name": name })),
+                View::Walk { .. } => None,
+            })
+            .collect();
+        serde_json::Value::Array(list).to_string()
+    }
+
+    /// Moves to a saved viewpoint. Returns `false` when there is none with this id.
+    #[wasm_bindgen(js_name = showView)]
+    pub fn show_view(&mut self, id: &str, time_ms: f64) -> bool {
+        let found = self
+            .plan
+            .iter()
+            .flat_map(|plan| &plan.views)
+            .find_map(|view| match view {
+                View::Orbit { id: v, p, t, .. } if v == id => Some((*p, *t)),
+                _ => None,
+            });
+        let Some((position, target)) = found else {
+            return false;
+        };
+        if self.renderer.view.plan_view {
+            self.renderer.view.plan_view = false;
+        }
+        self.renderer
+            .view
+            .go_to(Camera::from_view(position, target), time_ms);
+        true
+    }
+
+    /// The element drawn at the device pixel `x`, `y` (from the top left), as JSON
+    /// `{"id", "type"}`, or an empty string.
+    pub fn pick(&mut self, x: u32, y: u32) -> String {
+        let tag = self.renderer.pick(x, y);
+        usize::from(tag)
+            .checked_sub(1)
+            .and_then(|i| self.elements.get(i))
+            .map(|e| serde_json::json!({ "id": e.id, "type": e.kind }).to_string())
+            .unwrap_or_default()
+    }
+
+    /// Figures about the scene, as JSON (for the diagnostics and the performance smoke test).
+    pub fn stats(&self) -> String {
+        let view = &self.renderer.view;
+        let camera = &view.camera;
+        let round = |v: f64| (v * 100.0).round() / 100.0;
+        serde_json::json!({
+            "triangles": self.triangles,
+            "groups": view.cuts.len(),
+            "planView": view.plan_view,
+            "quality": self.renderer.quality().as_str(),
+            "camera": {
+                "target": camera.target.map(round),
+                "distance": round(camera.distance),
+                "yaw": round(camera.yaw),
+                "pitch": round(camera.pitch),
+                "ortho": round(camera.ortho),
+            },
+        })
+        .to_string()
+    }
+
+    /// Whether a frame is needed (something changed or an animation is running).
     #[wasm_bindgen(js_name = needsFrame)]
     pub fn needs_frame(&self) -> bool {
-        self.renderer.is_dirty()
+        self.renderer.needs_frame()
     }
 
     /// Asks for a new frame even though nothing changed.

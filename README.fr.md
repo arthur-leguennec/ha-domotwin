@@ -14,9 +14,9 @@ Local, rapide, Rust + WebAssembly.</p>
 
 > [!NOTE]
 > **État : développement en cours.** DomoTwin se construit étape par étape
-> ([feuille de route](docs/ROADMAP.md), en anglais). L’intégration, le stockage, le panneau, la
-> carte et l’import du plan fonctionnent déjà ; le rendu 3D arrive avec l’étape M1. Les
-> fonctionnalités ci-dessous décrivent la version 0.1.0.
+> ([feuille de route](docs/ROADMAP.md), en anglais). L’intégration, le panneau, la carte, l’import
+> du plan et les vues 3D et 2D fonctionnent déjà ; le pilotage en direct arrive avec l’étape M2.
+> Les fonctionnalités ci-dessous décrivent la version 0.1.0.
 
 ## Fonctionnalités
 
@@ -38,6 +38,11 @@ Local, rapide, Rust + WebAssembly.</p>
   1,2 Mo, vérifié par l’intégration continue.
 - **À vous.** Anglais et français, suit le thème de Home Assistant, fonctionne dans les applications
   mobiles.
+
+<p align="center">
+  <img src="docs/figures/screenshot-3d.png" alt="L’appartement fictif de démonstration en 3D : les murs face à la caméra sont abaissés, des meubles dans chaque pièce" width="49%">
+  <img src="docs/figures/screenshot-plan.png" alt="Le même appartement en plan 2D vu du dessus" width="49%">
+</p>
 
 ## Démarrage rapide
 
@@ -65,6 +70,7 @@ YAML n’est jamais nécessaire. Pour référence, les options de la carte :
 | `height`      | longueur CSS (`400px`, `60vh`…)     | ratio 4:3  | Hauteur fixe ; en sections, la grille décide. |
 | `quality`     | `auto`, `eco`, `balanced`, `high`   | `auto`     | Qualité du rendu ; `auto` s’adapte à l’appareil. |
 | `cutaway`     | `auto`, `always`, `off`             | `auto`     | Abaissement des murs face à la caméra.        |
+| `lighting`    | `auto`, `morning`, `day`, `evening`, `night` | `auto` | Lumière de la scène. `auto` suit le soleil de votre Home Assistant (`sun.sun`), ou l’horloge à défaut. |
 | `room`        | un identifiant de pièce du plan     | aucun      | Pièce à cadrer à l’ouverture de la carte.     |
 | `font_family` | une famille de police               | incluse    | Police des textes de la carte.                |
 

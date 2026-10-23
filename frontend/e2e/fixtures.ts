@@ -1,4 +1,6 @@
-import { expect, type Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
+
+import type { DebugState } from "../src/components/view";
 
 export interface HarnessOptions {
   mode?: "card" | "panel";
@@ -6,6 +8,12 @@ export interface HarnessOptions {
   plan?: "demo" | "none";
   admin?: boolean;
   dark?: boolean;
+  view?: "3d" | "2d";
+  cutaway?: "auto" | "always" | "off";
+  /** Defaults to `day`, so that pictures do not depend on the time the tests run. */
+  lighting?: "auto" | "morning" | "day" | "evening" | "night";
+  /** A `sun.sun` entity: elevation in degrees and whether it is rising. */
+  sun?: { elevation: number; rising: boolean };
 }
 
 /** Opens the mocked Home Assistant with the built frontend. */
@@ -17,6 +25,10 @@ export async function openHarness(page: Page, options: HarnessOptions = {}): Pro
     admin: options.admin === false ? "0" : "1",
     dark: options.dark ? "1" : "0",
   });
+  if (options.view) params.set("view", options.view);
+  if (options.cutaway) params.set("cutaway", options.cutaway);
+  params.set("lighting", options.lighting ?? "day");
+  if (options.sun) params.set("sun", `${options.sun.elevation},${options.sun.rising ? 1 : 0}`);
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto(`/?${params.toString()}`);
@@ -29,12 +41,30 @@ export async function openHarness(page: Page, options: HarnessOptions = {}): Pro
 }
 
 /** The engine state reported by `<domotwin-view>`. */
-export function viewState(
-  page: Page,
-): Promise<{ engine: string; frames: number; quality?: string }> {
+export function viewState(page: Page): Promise<DebugState> {
   return page.evaluate(() => {
     const view = (window as never as { __view: () => { debugState(): never } | null }).__view();
     if (!view) throw new Error("no view");
     return view.debugState();
   });
+}
+
+/** Runs camera moves and wall animations to their end. */
+export async function settle(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    (window as never as { __view: () => { settle(): void } }).__view().settle();
+  });
+}
+
+/** The canvas pixels as PNG (no overlays: they use system fonts, which differ between machines). */
+export async function canvasPng(page: Page): Promise<Buffer> {
+  const dataUrl = await page.evaluate(() =>
+    (window as never as { __view: () => { captureFrame(): string } }).__view().captureFrame(),
+  );
+  return Buffer.from(dataUrl.slice(dataUrl.indexOf(",") + 1), "base64");
+}
+
+/** The view's stage, where gestures happen. */
+export function stage(page: Page): Locator {
+  return page.locator("domotwin-view").locator(".stage");
 }

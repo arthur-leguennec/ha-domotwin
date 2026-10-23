@@ -1,6 +1,6 @@
 import { assetUrl } from "../assets";
 import type { Rgb } from "../color";
-import type { QualityName } from "../config";
+import type { CutawayMode, LightingMode, QualityName } from "../config";
 import type * as Wasm from "./pkg/domotwin_web.js";
 
 /** What `loadPlan` returns: counts of the plan's elements. */
@@ -12,12 +12,44 @@ export interface PlanSummary {
   doors: number;
   windows: number;
   furniture: number;
-  unknown: number;
 }
 
-/** An error raised by the engine; `code` is translated with `errors.plan.<code>`. */
+/** A saved viewpoint of the plan. */
+export interface SavedView {
+  id: string;
+  name: string;
+}
+
+/** The element under a screen point. */
+export interface PickedElement {
+  id: string;
+  type: "room" | "wall" | "door" | "window" | "furniture";
+}
+
+/** Figures about the scene (diagnostics, performance smoke test). */
+export interface SceneStats {
+  triangles: number;
+  groups: number;
+  planView: boolean;
+  quality: string;
+  camera: {
+    target: [number, number, number];
+    distance: number;
+    yaw: number;
+    pitch: number;
+    ortho: number;
+  };
+}
+
+/**
+ * An error raised by the engine; `code` is translated with `errors.plan.<code>`, `element` is the
+ * id of the plan element at fault, when there is one.
+ */
 export class EngineError extends Error {
-  constructor(readonly code: string) {
+  constructor(
+    readonly code: string,
+    readonly element?: string,
+  ) {
     super(code);
     this.name = "EngineError";
   }
@@ -43,8 +75,21 @@ export function wasmMemoryBytes(): number | undefined {
   return wasmMemory?.buffer.byteLength;
 }
 
-function codeOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
+/** The engine reports plan errors as JSON `{"code", "element"}`, other errors as a bare code. */
+export function engineError(error: unknown): EngineError {
+  const message = error instanceof Error ? error.message : String(error);
+  try {
+    const parsed = JSON.parse(message) as { code?: unknown; element?: unknown };
+    if (typeof parsed.code === "string") {
+      return new EngineError(
+        parsed.code,
+        typeof parsed.element === "string" ? parsed.element : undefined,
+      );
+    }
+  } catch {
+    // A bare code.
+  }
+  return new EngineError(message);
 }
 
 /** One engine per canvas: a typed wrapper around the WebAssembly `Engine`. */
@@ -56,7 +101,7 @@ export class DomoTwinEngine {
     try {
       return new DomoTwinEngine(new wasm.Engine(canvas));
     } catch (error) {
-      throw new EngineError(codeOf(error));
+      throw engineError(error);
     }
   }
 
@@ -65,13 +110,89 @@ export class DomoTwinEngine {
     return this.engine;
   }
 
-  /** Reads a plan; throws an `EngineError` with a stable code when it is refused. */
-  loadPlan(json: string): PlanSummary {
+  /**
+   * Reads a plan and builds its scene; throws an `EngineError` with a stable code when it is
+   * refused. The camera stays where it is when `keepCamera` (the same home, saved again).
+   */
+  loadPlan(json: string, keepCamera = false): PlanSummary {
     try {
-      return JSON.parse(this.live.loadPlan(json)) as PlanSummary;
+      return JSON.parse(this.live.loadPlan(json, keepCamera)) as PlanSummary;
     } catch (error) {
-      throw new EngineError(codeOf(error));
+      throw engineError(error);
     }
+  }
+
+  setCutaway(mode: CutawayMode): void {
+    this.live.setCutaway(mode);
+  }
+
+  /** Fixes the light to a mood (`morning`, `day`, `evening`, `night`). */
+  setLightingMood(mood: Exclude<LightingMode, "auto">): void {
+    this.live.setLightingMood(mood);
+  }
+
+  /** Lights the scene for the sun's elevation (degrees), rising before noon. */
+  setSun(elevation: number, rising: boolean): void {
+    this.live.setSun(elevation, rising);
+  }
+
+  /** Lights the scene for a local time of day (0–24 h). */
+  setLocalHour(hour: number): void {
+    this.live.setLocalHour(hour);
+  }
+
+  /** Turns the camera by a drag of `dx`, `dy` CSS pixels. */
+  orbit(dx: number, dy: number): void {
+    this.live.orbit(dx, dy);
+  }
+
+  /** Moves the view by a drag of `dx`, `dy` CSS pixels on a view `height` CSS pixels high. */
+  pan(dx: number, dy: number, height: number): void {
+    this.live.pan(dx, dy, height);
+  }
+
+  /** Zooms by `factor` (< 1 closer) towards the screen point `x`, `y` in −1…1 (y up). */
+  zoom(factor: number, x: number, y: number): void {
+    this.live.zoom(factor, x, y);
+  }
+
+  /** Shows the 2D plan (`true`) or the 3D view, with an animated move. */
+  setPlanView(plan: boolean): void {
+    this.live.setPlanView(plan, performance.now());
+  }
+
+  get planView(): boolean {
+    return this.live.planView();
+  }
+
+  /** Back to the whole home. */
+  overview(): void {
+    this.live.overview(performance.now());
+  }
+
+  /** Frames an element; false when it has nothing to show. */
+  focusElement(id: string): boolean {
+    return this.live.focusElement(id, performance.now());
+  }
+
+  /** The plan's saved viewpoints. */
+  views(): SavedView[] {
+    return JSON.parse(this.live.views()) as SavedView[];
+  }
+
+  /** Moves to a saved viewpoint; false when there is none with this id. */
+  showView(id: string): boolean {
+    return this.live.showView(id, performance.now());
+  }
+
+  /** The element drawn at a device pixel of the canvas (from the top left), if any. */
+  pick(x: number, y: number): PickedElement | undefined {
+    const text = this.live.pick(Math.max(0, Math.floor(x)), Math.max(0, Math.floor(y)));
+    return text ? (JSON.parse(text) as PickedElement) : undefined;
+  }
+
+  get stats(): SceneStats {
+    return JSON.parse(this.live.stats()) as SceneStats;
   }
 
   resize(width: number, height: number): void {
@@ -115,6 +236,6 @@ export async function summarizePlan(json: string): Promise<PlanSummary> {
   try {
     return JSON.parse(wasm.summarizePlan(json)) as PlanSummary;
   } catch (error) {
-    throw new EngineError(codeOf(error));
+    throw engineError(error);
   }
 }

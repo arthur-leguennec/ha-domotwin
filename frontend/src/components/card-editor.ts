@@ -32,6 +32,10 @@ function schema(t: Translator): FormField[] {
       selector: options(t, "editor.quality", ["auto", "eco", "balanced", "high"]),
     },
     { name: "cutaway", selector: options(t, "editor.cutaway", ["auto", "always", "off"]) },
+    {
+      name: "lighting",
+      selector: options(t, "editor.lighting", ["auto", "morning", "day", "evening", "night"]),
+    },
   ];
 }
 

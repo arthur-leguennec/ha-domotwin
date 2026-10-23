@@ -85,6 +85,12 @@ export class Translator {
     }
     return this.t("errors.unknown", { code });
   }
+
+  /** An error code, naming the plan element at fault when there is one. */
+  errorAt(code: string, element?: string): string {
+    const reason = this.error(code);
+    return element ? this.t("errors.at_element", { reason, element }) : reason;
+  }
 }
 
 /** The translator matching a `hass` object. */

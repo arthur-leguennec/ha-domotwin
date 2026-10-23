@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 
 import { expect, test } from "@playwright/test";
 
-import { openHarness, viewState } from "./fixtures";
+import { canvasPng, openHarness, viewState } from "./fixtures";
 
 test.describe("card", () => {
   test("loads the engine and the demo plan", async ({ page }) => {
@@ -58,12 +58,7 @@ test.describe("card", () => {
   test("canvas snapshot (software WebGL)", async ({ page }) => {
     await openHarness(page);
     await expect(page.getByTestId("summary")).toBeVisible();
-    // Pixels of the canvas only: overlays use system fonts, which differ between machines.
-    const dataUrl = await page.evaluate(() =>
-      (window as never as { __view: () => { captureFrame(): string } }).__view().captureFrame(),
-    );
-    const png = Buffer.from(dataUrl.slice(dataUrl.indexOf(",") + 1), "base64");
-    expect(png).toMatchSnapshot("card-canvas.png", { maxDiffPixelRatio: 0.01 });
+    expect(await canvasPng(page)).toMatchSnapshot("card-canvas.png", { maxDiffPixelRatio: 0.01 });
   });
 });
 

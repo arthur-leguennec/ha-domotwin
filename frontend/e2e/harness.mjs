@@ -1,5 +1,6 @@
 // A mocked Home Assistant around the real built frontend. Query parameters:
-//   mode=card|panel  lang=en|fr  plan=demo|none  admin=1|0  dark=1
+//   mode=card|panel  lang=en|fr  plan=demo|none  admin=1|0  dark=1  view=3d|2d  cutaway=auto|always|off
+//   lighting=auto|morning|day|evening|night  sun=<elevation>,<rising 0|1> (a sun.sun entity)
 const params = new URLSearchParams(location.search);
 const mode = params.get("mode") ?? "card";
 
@@ -48,8 +49,18 @@ const connection = {
 };
 
 const language = params.get("lang") ?? "en";
+const sunParam = params.get("sun");
+const states = {};
+if (sunParam) {
+  const [elevation, rising] = sunParam.split(",");
+  states["sun.sun"] = {
+    entity_id: "sun.sun",
+    state: Number(elevation) > 0 ? "above_horizon" : "below_horizon",
+    attributes: { elevation: Number(elevation), rising: rising === "1" },
+  };
+}
 const hass = {
-  states: {},
+  states,
   user: { id: "e2e", name: "E2E", is_admin: params.get("admin") !== "0" },
   language,
   locale: { language },
@@ -70,7 +81,13 @@ if (mode === "panel") {
 } else {
   mount.classList.add("card");
   element = document.createElement("domotwin-card");
-  element.setConfig({ type: "custom:domotwin-card", title: params.get("title") ?? undefined });
+  element.setConfig({
+    type: "custom:domotwin-card",
+    title: params.get("title") ?? undefined,
+    view: params.get("view") ?? undefined,
+    cutaway: params.get("cutaway") ?? undefined,
+    lighting: params.get("lighting") ?? undefined,
+  });
 }
 element.hass = hass;
 mount.append(element);

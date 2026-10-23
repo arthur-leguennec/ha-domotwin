@@ -1,14 +1,14 @@
-//! Quality presets. The preset is picked from what the GPU reports and adjusted from the measured
-//! frame time; the user can force one in the card or panel settings.
+//! Quality presets. The preset is picked from what the GPU reports; the frontend lowers the
+//! resolution while frames are slow; the user can force a preset in the card or panel settings.
 
 /// Rendering quality, from the lightest to the richest.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum QualityPreset {
-    /// Old tablets and software rendering: no post-processing, smaller shadow maps.
+    /// Old tablets and software rendering: no sun shadows (contact shadows stay).
     Eco,
-    /// Default on most phones and laptops.
+    /// Default on most phones and laptops: 1024 px sun shadow map.
     Balanced,
-    /// Desktop GPUs: ambient occlusion, bloom, soft shadows.
+    /// Desktop GPUs: 2048 px sun shadow map with softer edges.
     High,
 }
 

@@ -107,6 +107,7 @@ dependencies = [
  "domotwin-render",
  "glow",
  "js-sys",
+ "serde_json",
  "wasm-bindgen",
  "wasm-bindgen-test",
  "web-sys",

@@ -7,9 +7,16 @@ import { isHassError, type HomeAssistant } from "../ha/types";
 import { translatorFor, type Translator } from "../i18n";
 import { icon } from "./icon";
 import { baseStyles } from "./styles";
+import type { ViewOptions } from "./view";
 
 /** The plan format allows files up to 32 MB. */
 const MAX_FILE_BYTES = 32_000_000;
+const PANEL_OPTIONS: ViewOptions = {
+  quality: "auto",
+  view: "3d",
+  cutaway: "auto",
+  lighting: "auto",
+};
 const TOAST_MS = 6000;
 
 interface Toast {
@@ -182,7 +189,8 @@ export class DomoTwinPanel extends LitElement {
   }
 
   private describe(error: unknown): string {
-    if (error instanceof EngineError || isHassError(error)) return this.t.error(error.code);
+    if (error instanceof EngineError) return this.t.errorAt(error.code, error.element);
+    if (isHassError(error)) return this.t.error(error.code);
     return this.t.error(error instanceof Error ? error.name : "unknown");
   }
 
@@ -265,7 +273,7 @@ export class DomoTwinPanel extends LitElement {
           .hass=${this._hass}
           .plan=${this.plan}
           .planError=${this.planError}
-          .options=${{ quality: "auto" }}
+          .options=${PANEL_OPTIONS}
         >
           ${
             admin
