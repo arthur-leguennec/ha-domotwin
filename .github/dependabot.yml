@@ -1,0 +1,38 @@
+version: 2
+updates:
+  - package-ecosystem: cargo
+    directory: /
+    schedule: { interval: weekly, day: monday }
+    commit-message: { prefix: deps, include: scope }
+    groups:
+      wasm-bindgen:
+        patterns: ["wasm-bindgen*", "js-sys", "web-sys"]
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule: { interval: weekly, day: monday }
+    commit-message: { prefix: deps, include: scope }
+    groups:
+      lint:
+        patterns: ["eslint", "@eslint/*", "typescript-eslint", "prettier", "globals"]
+      test:
+        patterns: ["vitest", "happy-dom", "@playwright/test"]
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: pip
+    directory: /
+    schedule: { interval: weekly, day: monday }
+    commit-message: { prefix: deps, include: scope }
+    groups:
+      home-assistant:
+        patterns: ["pytest-homeassistant-custom-component", "home-assistant-frontend"]
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: weekly, day: monday }
+    commit-message: { prefix: ci, include: scope }
+    groups:
+      actions:
+        patterns: ["*"]
