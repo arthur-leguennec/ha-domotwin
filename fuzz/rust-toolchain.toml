@@ -1,0 +1,4 @@
+# cargo-fuzz needs a nightly compiler (sanitizers); pinned for reproducible runs.
+[toolchain]
+channel = "nightly-2026-10-15"
+profile = "minimal"

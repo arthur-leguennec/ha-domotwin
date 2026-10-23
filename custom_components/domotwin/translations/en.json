@@ -1,0 +1,28 @@
+{
+  "config": {
+    "abort": {
+      "single_instance_allowed": "DomoTwin is already set up."
+    },
+    "step": {
+      "user": {
+        "title": "DomoTwin",
+        "description": "Add DomoTwin, your home as a live 3D twin. You will import your plan from the DomoTwin panel in the sidebar."
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "DomoTwin options",
+        "data": {
+          "sidebar": "Show DomoTwin in the sidebar",
+          "sidebar_admin_only": "Show it to administrators only"
+        },
+        "data_description": {
+          "sidebar": "The full-screen view with the editor. Dashboard cards work either way.",
+          "sidebar_admin_only": "Other users can still use DomoTwin cards on dashboards."
+        }
+      }
+    }
+  }
+}

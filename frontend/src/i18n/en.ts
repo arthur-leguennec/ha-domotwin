@@ -1,0 +1,78 @@
+/**
+ * English messages. Every visible string of DomoTwin is here and in `fr.ts`.
+ * Placeholders: `{name}`. Plurals: an object with `one` and `other`.
+ */
+export const en = {
+  card: {
+    name: "DomoTwin",
+    description: "Your home as a live 3D twin.",
+  },
+  view: {
+    loading: "Loading DomoTwin…",
+    no_plan: "No plan yet",
+    no_plan_admin: "Import your plan from the DomoTwin panel.",
+    no_plan_user: "An administrator can import the plan from the DomoTwin panel.",
+    untitled: "Untitled plan",
+    rooms: { one: "{count} room", other: "{count} rooms" },
+    pieces: { one: "{count} piece", other: "{count} pieces" },
+    render_soon: "3D rendering arrives in the next milestone.",
+    webgl2_unavailable: "This browser cannot show 3D: WebGL2 is not available.",
+    engine_failed: "DomoTwin could not start.",
+    plan_unreadable: "The stored plan cannot be read: {reason}",
+  },
+  panel: {
+    title: "DomoTwin",
+    import: "Import plan",
+    export: "Export plan",
+    imported: "Plan imported: {title}.",
+    import_failed: "This file cannot be imported: {reason}",
+    export_failed: "The plan cannot be exported: {reason}",
+    nothing_to_export: "There is no plan to export yet.",
+    dismiss: "Dismiss",
+  },
+  errors: {
+    plan: {
+      too_large: "the file is too large.",
+      not_json: "it is not a JSON file.",
+      not_an_object: "it is not a plan.",
+      bad_version: "the format version is not supported.",
+      bad_unit: "the unit must be centimetres.",
+      no_elements: "the plan has no elements.",
+      too_many_elements: "the plan has more than 500 elements.",
+      newer_revision: "the plan comes from a newer version of the format. Update DomoTwin.",
+    },
+    ws: {
+      revision_conflict: "someone saved in the meantime. Reload and try again.",
+      unauthorized: "only administrators can do this.",
+      not_loaded: "DomoTwin is not set up.",
+      invalid_plan: "the plan is not valid.",
+      invalid_layout: "the layout is not valid.",
+      invalid_bindings: "the bindings are not valid.",
+      too_large: "it is too large to store.",
+    },
+    unknown: "unexpected error ({code}).",
+  },
+  editor: {
+    title: "Title",
+    view: "View",
+    view_3d: "3D",
+    view_2d: "2D",
+    height: "Height (for example 400px or 60vh)",
+    quality: "Quality",
+    quality_auto: "Automatic",
+    quality_eco: "Eco",
+    quality_balanced: "Balanced",
+    quality_high: "High",
+    cutaway: "Walls facing the camera",
+    cutaway_auto: "Cut away automatically",
+    cutaway_always: "Always cut away",
+    cutaway_off: "Full walls",
+  },
+  config: {
+    invalid: "Invalid DomoTwin configuration: {reason}",
+    bad_view: "`view` must be 3d or 2d",
+    bad_height: "`height` must be a CSS length such as 400px or 60vh",
+    bad_quality: "`quality` must be auto, eco, balanced or high",
+    bad_cutaway: "`cutaway` must be auto, always or off",
+  },
+} as const;

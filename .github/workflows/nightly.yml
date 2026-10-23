@@ -1,0 +1,43 @@
+name: Nightly
+
+# Real Home Assistant: the official container (latest stable on purpose, to catch upstream
+# changes early) with the freshly built integration, driven through its own APIs.
+on:
+  schedule:
+    - cron: "33 2 * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
+jobs:
+  home-assistant:
+    name: real Home Assistant
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-build
+      - run: scripts/build.sh
+      - name: Start Home Assistant (stable) with DomoTwin
+        run: |
+          mkdir -p "$RUNNER_TEMP/ha/custom_components"
+          cp -r custom_components/domotwin "$RUNNER_TEMP/ha/custom_components/"
+          docker run -d --name ha -p 8123:8123 -v "$RUNNER_TEMP/ha:/config" \
+            ghcr.io/home-assistant/home-assistant:stable
+      - name: Smoke test (onboarding, config flow, static files, panel, websocket API)
+        env:
+          HA_URL: http://localhost:8123
+        run: node scripts/ha-smoke.mjs
+      - name: Home Assistant version and log
+        if: always()
+        run: |
+          docker exec ha python -c "import homeassistant.const as c; print(c.__version__)" || true
+          docker logs ha 2>&1 | grep -iE "domotwin|error" | tail -n 100 || true

@@ -1,0 +1,37 @@
+# cargo-deny: licences, advisories, bans and sources of every Rust dependency.
+[graph]
+targets = ["x86_64-unknown-linux-gnu", "wasm32-unknown-unknown"]
+all-features = false
+
+[advisories]
+version = 2
+yanked = "deny"
+# Unmaintained (not vulnerable) crates pulled in by three-d; tracked in docs/DECISIONS.md, D-002.
+# Revisit at every three-d release; drop the entries as soon as three-d no longer needs them.
+ignore = [
+  { id = "RUSTSEC-2026-0196", reason = "cgmath is unmaintained; used by three-d for its math types" },
+  { id = "RUSTSEC-2024-0384", reason = "instant is unmaintained; used by three-d for timing on wasm" },
+]
+
+[licenses]
+version = 2
+confidence-threshold = 0.93
+allow = ["MIT", "Apache-2.0", "BSD-2-Clause", "BSD-3-Clause", "Zlib", "Unicode-3.0"]
+
+[licenses.private]
+ignore = true
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+allow-wildcard-paths = true
+deny = [
+  # Too heavy for the bundle budget (docs/DECISIONS.md, D-002).
+  { crate = "bevy", reason = "excluded by the architecture" },
+  { crate = "wgpu", reason = "excluded by the bundle budget, see D-002" },
+]
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]

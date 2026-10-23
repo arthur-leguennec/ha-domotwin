@@ -1,0 +1,46 @@
+name: Bug report
+description: Something does not work as described.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. **Never paste tokens, your Home Assistant address, IP addresses or
+        your real floor plan.** If a plan is needed, reproduce with the demo plan in `examples/` or
+        a simplified fictional plan.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+    validations: { required: true }
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: "1. Open the DomoTwin panel\n2. …"
+    validations: { required: true }
+  - type: input
+    id: domotwin
+    attributes:
+      label: DomoTwin version
+      placeholder: "0.1.0"
+    validations: { required: true }
+  - type: input
+    id: ha
+    attributes:
+      label: Home Assistant version
+      placeholder: "2026.10.2"
+    validations: { required: true }
+  - type: input
+    id: device
+    attributes:
+      label: Device and browser (or companion app)
+      placeholder: "Wall tablet, Android 11, companion app 2026.9"
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics
+      description: >
+        Settings → Devices & services → DomoTwin → ⋮ → Download diagnostics. They contain counts
+        only, no names or entity ids. Browser console errors are welcome too.
+      render: json

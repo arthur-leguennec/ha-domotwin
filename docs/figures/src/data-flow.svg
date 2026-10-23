@@ -1,0 +1,142 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+  <defs>
+    <style>
+      .title { font: 700 34px Inter, sans-serif; fill: #0f172a; }
+      .subtitle { font: 400 19px Inter, sans-serif; fill: #475569; }
+      .step { font: 700 22px Inter, sans-serif; fill: #0f172a; }
+      .num { font: 700 20px Inter, sans-serif; fill: #ffffff; }
+      .box { font: 500 15px Inter, sans-serif; fill: #0f172a; }
+      .code { font: 500 14px "JetBrains Mono", monospace; fill: #334155; }
+      .legend { font: 500 15px Inter, sans-serif; fill: #334155; }
+      .when { font: 400 15px Inter, sans-serif; fill: #64748b; }
+    </style>
+    <marker id="down" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="10" markerHeight="10" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#94a3b8" />
+    </marker>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="3" stdDeviation="6" flood-color="#0f172a" flood-opacity="0.07" />
+    </filter>
+  </defs>
+
+  <rect width="1600" height="900" fill="#f8fafc" />
+  <text x="64" y="76" class="title">What happens, step by step</text>
+  <text x="64" y="110" class="subtitle">Four flows cover everything DomoTwin does. Colours show which layer does the work.</text>
+
+  <!-- legend -->
+  <rect x="64" y="134" width="18" height="18" rx="5" fill="#0ea5e9" /><text x="90" y="149" class="legend">Home Assistant</text>
+  <rect x="236" y="134" width="18" height="18" rx="5" fill="#6366f1" /><text x="262" y="149" class="legend">Frontend (TypeScript)</text>
+  <rect x="446" y="134" width="18" height="18" rx="5" fill="#f97316" /><text x="472" y="149" class="legend">Engine (Rust, WebAssembly)</text>
+
+  <!-- column template: x, step colour -->
+  <!-- 1 LOAD -->
+  <g transform="translate(64,180)">
+    <rect width="352" height="680" rx="20" fill="#ffffff" filter="url(#shadow)" />
+    <circle cx="40" cy="44" r="20" fill="#0f172a" /><text x="40" y="51" class="num" text-anchor="middle">1</text>
+    <text x="74" y="51" class="step">Load the home</text>
+    <text x="24" y="90" class="when">When a card or the panel opens</text>
+
+    <rect x="24" y="112" width="304" height="76" rx="12" fill="#eef2ff" stroke="#6366f1" stroke-width="1.5" />
+    <text x="40" y="142" class="box">Ask for the plan and the bindings</text>
+    <text x="40" y="168" class="code">domotwin/plan/get</text>
+    <line x1="176" y1="190" x2="176" y2="214" stroke="#94a3b8" stroke-width="2" marker-end="url(#down)" />
+    <rect x="24" y="220" width="304" height="76" rx="12" fill="#e0f2fe" stroke="#0ea5e9" stroke-width="1.5" />
+    <text x="40" y="250" class="box">Return them from storage</text>
+    <text x="40" y="276" class="code">.storage/domotwin.data</text>
+    <line x1="176" y1="298" x2="176" y2="322" stroke="#94a3b8" stroke-width="2" marker-end="url(#down)" />
+    <rect x="24" y="328" width="304" height="100" rx="12" fill="#fff7ed" stroke="#f97316" stroke-width="1.5" />
+    <text x="40" y="358" class="box">Read the plan, apply your edits,</text>
+    <text x="40" y="382" class="box">build rooms, walls and openings</text>
+    <text x="40" y="410" class="code">core · loadPlan</text>
+    <line x1="176" y1="430" x2="176" y2="454" stroke="#94a3b8" stroke-width="2" marker-end="url(#down)" />
+    <rect x="24" y="460" width="304" height="100" rx="12" fill="#fff7ed" stroke="#f97316" stroke-width="1.5" />
+    <text x="40" y="490" class="box">Merge furniture into a few</text>
+    <text x="40" y="514" class="box">meshes and upload them once</text>
+    <text x="40" y="542" class="code">render · batching</text>
+    <text x="24" y="610" class="when">Then nothing is drawn until</text>
+    <text x="24" y="634" class="when">something changes.</text>
+  </g>
+
+  <!-- 2 LIVE -->
+  <g transform="translate(436,180)">
+    <rect width="352" height="680" rx="20" fill="#ffffff" filter="url(#shadow)" />
+    <circle cx="40" cy="44" r="20" fill="#0f172a" /><text x="40" y="51" class="num" text-anchor="middle">2</text>
+    <text x="74" y="51" class="step">Follow live states</text>
+    <text x="24" y="90" class="when">When an entity changes in the home</text>
+
+    <rect x="24" y="112" width="304" height="76" rx="12" fill="#e0f2fe" stroke="#0ea5e9" stroke-width="1.5" />
+    <text x="40" y="142" class="box">A lamp turns on, a blind moves</text>
+    <text x="40" y="168" class="code">hass.states</text>
+    <line x1="176" y1="190" x2="176" y2="214" stroke="#94a3b8" stroke-width="2" marker-end="url(#down)" />
+    <rect x="24" y="220" width="304" height="76" rx="12" fill="#eef2ff" stroke="#6366f1" stroke-width="1.5" />
+    <text x="40" y="250" class="box">Keep only the bound entities</text>
+    <text x="40" y="276" class="code">setStates(changed)</text>
+    <line x1="176" y1="298" x2="176" y2="322" stroke="#94a3b8" stroke-width="2" marker-end="url(#down)" />
+    <rect x="24" y="328" width="304" height="100" rx="12" fill="#fff7ed" stroke="#f97316" stroke-width="1.5" />
+    <text x="40" y="358" class="box">Turn states into targets: colour,</text>
+    <text x="40" y="382" class="box">brightness, position, glow</text>
+    <text x="40" y="410" class="code">core · state → visual</text>
+    <line x1="176" y1="430" x2="176" y2="454" stroke="#94a3b8" stroke-width="2" marker-end="url(#down)" />
+    <rect x="24" y="460" width="304" height="100" rx="12" fill="#fff7ed" stroke="#f97316" stroke-width="1.5" />
+    <text x="40" y="490" class="box">Fade towards the targets, frame</text>
+    <text x="40" y="514" class="box">by frame, then stop drawing</text>
+    <text x="40" y="542" class="code">render · animations</text>
+    <text x="24" y="610" class="when">Off-screen cards and hidden tabs</text>
+    <text x="24" y="634" class="when">draw nothing at all.</text>
+  </g>
+
+  <!-- 3 INTERACT -->
+  <g transform="translate(808,180)">
+    <rect width="352" height="680" rx="20" fill="#ffffff" filter="url(#shadow)" />
+    <circle cx="40" cy="44" r="20" fill="#0f172a" /><text x="40" y="51" class="num" text-anchor="middle">3</text>
+    <text x="74" y="51" class="step">Tap and long-press</text>
+    <text x="24" y="90" class="when">When you touch the 3D or 2D view</text>
+
+    <rect x="24" y="112" width="304" height="76" rx="12" fill="#eef2ff" stroke="#6366f1" stroke-width="1.5" />
+    <text x="40" y="142" class="box">Pointer position on the view</text>
+    <text x="40" y="168" class="code">pick(x, y)</text>
+    <line x1="176" y1="190" x2="176" y2="214" stroke="#94a3b8" stroke-width="2" marker-end="url(#down)" />
+    <rect x="24" y="220" width="304" height="76" rx="12" fill="#fff7ed" stroke="#f97316" stroke-width="1.5" />
+    <text x="40" y="250" class="box">Find the lamp, door or room</text>
+    <text x="40" y="276" class="code">core · ray cast</text>
+    <line x1="176" y1="298" x2="176" y2="322" stroke="#94a3b8" stroke-width="2" marker-end="url(#down)" />
+    <rect x="24" y="328" width="304" height="100" rx="12" fill="#eef2ff" stroke="#6366f1" stroke-width="1.5" />
+    <text x="40" y="358" class="box">Run its action: toggle, more-info,</text>
+    <text x="40" y="382" class="box">navigate, or open a popover</text>
+    <text x="40" y="410" class="code">binding · tap_action</text>
+    <line x1="176" y1="430" x2="176" y2="454" stroke="#94a3b8" stroke-width="2" marker-end="url(#down)" />
+    <rect x="24" y="460" width="304" height="100" rx="12" fill="#e0f2fe" stroke="#0ea5e9" stroke-width="1.5" />
+    <text x="40" y="490" class="box">Home Assistant switches the</text>
+    <text x="40" y="514" class="box">device, flow 2 shows the result</text>
+    <text x="40" y="542" class="code">callService</text>
+    <text x="24" y="610" class="when">The view never guesses: it waits</text>
+    <text x="24" y="634" class="when">for the real new state.</text>
+  </g>
+
+  <!-- 4 EDIT -->
+  <g transform="translate(1180,180)">
+    <rect width="356" height="680" rx="20" fill="#ffffff" filter="url(#shadow)" />
+    <circle cx="40" cy="44" r="20" fill="#0f172a" /><text x="40" y="51" class="num" text-anchor="middle">4</text>
+    <text x="74" y="51" class="step">Edit and save</text>
+    <text x="24" y="90" class="when">Administrators, in edit mode</text>
+
+    <rect x="24" y="112" width="308" height="76" rx="12" fill="#fff7ed" stroke="#f97316" stroke-width="1.5" />
+    <text x="40" y="142" class="box">Lift the selected piece out of</text>
+    <text x="40" y="168" class="box">its batch while you drag it</text>
+    <line x1="178" y1="190" x2="178" y2="214" stroke="#94a3b8" stroke-width="2" marker-end="url(#down)" />
+    <rect x="24" y="220" width="308" height="76" rx="12" fill="#fff7ed" stroke="#f97316" stroke-width="1.5" />
+    <text x="40" y="250" class="box">Snap, rotate, stack on furniture</text>
+    <text x="40" y="276" class="code">core · snapping</text>
+    <line x1="178" y1="298" x2="178" y2="322" stroke="#94a3b8" stroke-width="2" marker-end="url(#down)" />
+    <rect x="24" y="328" width="308" height="100" rx="12" fill="#eef2ff" stroke="#6366f1" stroke-width="1.5" />
+    <text x="40" y="358" class="box">Save the overlay of your edits,</text>
+    <text x="40" y="382" class="box">never the imported plan itself</text>
+    <text x="40" y="410" class="code">domotwin/plan/save</text>
+    <line x1="178" y1="430" x2="178" y2="454" stroke="#94a3b8" stroke-width="2" marker-end="url(#down)" />
+    <rect x="24" y="460" width="308" height="100" rx="12" fill="#e0f2fe" stroke="#0ea5e9" stroke-width="1.5" />
+    <text x="40" y="490" class="box">Every open card and panel</text>
+    <text x="40" y="514" class="box">reloads the new revision</text>
+    <text x="40" y="542" class="code">domotwin/subscribe</text>
+    <text x="24" y="610" class="when">Re-importing an updated plan keeps</text>
+    <text x="24" y="634" class="when">your edits and your bindings.</text>
+  </g>
+</svg>

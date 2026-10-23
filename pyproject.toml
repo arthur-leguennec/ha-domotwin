@@ -1,0 +1,60 @@
+# Tooling for the Home Assistant integration (custom_components/domotwin) and its tests.
+# The integration itself has no Python requirements.
+
+[tool.ruff]
+target-version = "py314"
+line-length = 100
+extend-exclude = ["frontend", "crates", "fuzz", "target"]
+
+[tool.ruff.lint]
+select = [
+  "A", "ASYNC", "B", "BLE", "C4", "D", "E", "F", "FLY", "G", "I", "ICN", "LOG", "N", "PERF",
+  "PGH", "PIE", "PL", "PT", "PTH", "RET", "RSE", "RUF", "S", "SIM", "SLF", "T20", "TC", "TID",
+  "TRY", "UP", "W",
+]
+ignore = [
+  "D202",    # blank line after docstring (Home Assistant style)
+  "D203",    # conflicts with D211
+  "D213",    # conflicts with D212
+  "PLR2004", # magic values are fine in tests and limits
+  "TRY003",  # messages in exceptions are the useful part here
+  "TC001", "TC002", "TC003", # Home Assistant resolves annotations at runtime
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["D100", "D103", "S101", "SLF001", "PLR0913", "PLR0917"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["custom_components.domotwin", "homeassistant"]
+force-sort-within-sections = true
+combine-as-imports = true
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.mypy]
+python_version = "3.14"
+files = ["custom_components/domotwin", "tests"]
+strict = true
+warn_unreachable = true
+explicit_package_bases = true
+show_error_codes = true
+# Tests use the untyped fixtures of pytest-homeassistant-custom-component.
+[[tool.mypy.overrides]]
+module = ["tests.*"]
+disallow_untyped_decorators = false
+
+# Home Assistant modules re-export names without `as` (e.g. websocket_api.websocket_command).
+[[tool.mypy.overrides]]
+module = ["homeassistant.*"]
+implicit_reexport = true
+
+[[tool.mypy.overrides]]
+module = ["pytest_homeassistant_custom_component.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+addopts = "-p no:cacheprovider"

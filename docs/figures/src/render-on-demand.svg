@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="640" viewBox="0 0 1600 640">
+  <defs>
+    <style>
+      .title { font: 700 34px Inter, sans-serif; fill: #0f172a; }
+      .subtitle { font: 400 19px Inter, sans-serif; fill: #475569; }
+      .lane { font: 600 17px Inter, sans-serif; fill: #334155; }
+      .event { font: 600 15px Inter, sans-serif; fill: #0f172a; }
+      .note { font: 400 15px Inter, sans-serif; fill: #64748b; }
+      .tick { font: 500 13px "JetBrains Mono", monospace; fill: #94a3b8; }
+      .big { font: 700 18px Inter, sans-serif; }
+    </style>
+  </defs>
+  <rect width="1600" height="640" fill="#f8fafc" />
+  <text x="64" y="76" class="title">Render on demand</text>
+  <text x="64" y="110" class="subtitle">DomoTwin draws a frame only when something visible changes. Idle, it costs nothing.</text>
+
+  <rect x="64" y="140" width="1472" height="456" rx="22" fill="#ffffff" stroke="#e2e8f0" stroke-width="2" />
+
+  <!-- time axis -->
+  <line x1="240" y1="520" x2="1500" y2="520" stroke="#cbd5e1" stroke-width="2" />
+  <text x="240" y="548" class="tick">0 s</text>
+  <text x="555" y="548" class="tick">2 s</text>
+  <text x="870" y="548" class="tick">4 s</text>
+  <text x="1185" y="548" class="tick">6 s</text>
+  <text x="1480" y="548" class="tick">8 s</text>
+  <text x="1440" y="580" class="note">time →</text>
+
+  <!-- lanes -->
+  <text x="96" y="214" class="lane">What happens</text>
+  <text x="96" y="344" class="lane">Frames drawn</text>
+  <text x="96" y="454" class="lane">GPU work</text>
+  <line x1="240" y1="270" x2="1500" y2="270" stroke="#f1f5f9" stroke-width="2" />
+  <line x1="240" y1="390" x2="1500" y2="390" stroke="#f1f5f9" stroke-width="2" />
+
+  <!-- events -->
+  <rect x="250" y="186" width="150" height="40" rx="20" fill="#eef2ff" /><text x="325" y="212" class="event" text-anchor="middle">You orbit</text>
+  <rect x="640" y="186" width="190" height="40" rx="20" fill="#e0f2fe" /><text x="735" y="212" class="event" text-anchor="middle">A lamp turns on</text>
+  <rect x="1010" y="186" width="190" height="40" rx="20" fill="#fef3c7" /><text x="1105" y="212" class="event" text-anchor="middle">Card scrolls away</text>
+  <rect x="1300" y="186" width="190" height="40" rx="20" fill="#dcfce7" /><text x="1395" y="212" class="event" text-anchor="middle">Card visible again</text>
+
+  <!-- frames: dense during orbit 250..410, fade 640..790, one frame at 1300 -->
+  <g fill="#6366f1">
+    <rect x="252" y="310" width="4" height="56" rx="2" /><rect x="262" y="310" width="4" height="56" rx="2" /><rect x="272" y="310" width="4" height="56" rx="2" /><rect x="282" y="310" width="4" height="56" rx="2" /><rect x="292" y="310" width="4" height="56" rx="2" /><rect x="302" y="310" width="4" height="56" rx="2" /><rect x="312" y="310" width="4" height="56" rx="2" /><rect x="322" y="310" width="4" height="56" rx="2" /><rect x="332" y="310" width="4" height="56" rx="2" /><rect x="342" y="310" width="4" height="56" rx="2" /><rect x="352" y="310" width="4" height="56" rx="2" /><rect x="362" y="310" width="4" height="56" rx="2" /><rect x="372" y="310" width="4" height="56" rx="2" /><rect x="382" y="310" width="4" height="56" rx="2" /><rect x="392" y="310" width="4" height="56" rx="2" /><rect x="402" y="310" width="4" height="56" rx="2" />
+  </g>
+  <g fill="#0ea5e9">
+    <rect x="642" y="310" width="4" height="56" rx="2" /><rect x="652" y="310" width="4" height="56" rx="2" /><rect x="662" y="310" width="4" height="56" rx="2" /><rect x="672" y="310" width="4" height="56" rx="2" /><rect x="682" y="310" width="4" height="56" rx="2" /><rect x="692" y="310" width="4" height="56" rx="2" /><rect x="702" y="310" width="4" height="56" rx="2" /><rect x="712" y="310" width="4" height="56" rx="2" /><rect x="722" y="310" width="4" height="56" rx="2" /><rect x="732" y="310" width="4" height="56" rx="2" /><rect x="742" y="310" width="4" height="56" rx="2" /><rect x="752" y="310" width="4" height="56" rx="2" /><rect x="762" y="310" width="4" height="56" rx="2" /><rect x="772" y="310" width="4" height="56" rx="2" /><rect x="782" y="310" width="4" height="56" rx="2" />
+  </g>
+  <rect x="1302" y="310" width="4" height="56" rx="2" fill="#16a34a" />
+  <text x="430" y="344" class="note">idle: no frames</text>
+  <text x="810" y="344" class="note">fade done: stops</text>
+  <rect x="1010" y="300" width="280" height="76" rx="12" fill="#fefce8" stroke="#fde68a" stroke-dasharray="6 6" />
+  <text x="1150" y="344" class="note" text-anchor="middle">paused: nothing drawn</text>
+  <text x="1316" y="344" class="note">one frame, then idle</text>
+
+  <!-- GPU usage curve -->
+  <path d="M240,480 L250,480 L252,420 L406,420 L410,480 L640,480 L642,425 L786,440 L790,480 L1302,480 L1303,430 L1308,480 L1500,480" fill="none" stroke="#f97316" stroke-width="3" stroke-linejoin="round" />
+  <text x="1500" y="452" class="big" fill="#16a34a" text-anchor="end">≈ 0 % when idle</text>
+</svg>

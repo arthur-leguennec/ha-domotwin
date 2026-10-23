@@ -1,0 +1,28 @@
+{
+  "config": {
+    "abort": {
+      "single_instance_allowed": "DomoTwin est déjà configuré."
+    },
+    "step": {
+      "user": {
+        "title": "DomoTwin",
+        "description": "Ajouter DomoTwin, votre logement en jumeau 3D vivant. Vous importerez votre plan depuis le panneau DomoTwin de la barre latérale."
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Options de DomoTwin",
+        "data": {
+          "sidebar": "Afficher DomoTwin dans la barre latérale",
+          "sidebar_admin_only": "Le réserver aux administrateurs"
+        },
+        "data_description": {
+          "sidebar": "La vue plein écran avec l’éditeur. Les cartes des tableaux de bord fonctionnent dans tous les cas.",
+          "sidebar_admin_only": "Les autres utilisateurs peuvent toujours utiliser les cartes DomoTwin des tableaux de bord."
+        }
+      }
+    }
+  }
+}

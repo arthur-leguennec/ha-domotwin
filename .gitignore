@@ -1,0 +1,59 @@
+# Personal inputs: your real plan, photos and textures never leave your machine.
+/private/
+/_input/
+*.local.*
+
+# Plans and IFC files outside the fictional examples and test fixtures
+*.plan.json
+!/examples/*.plan.json
+!/crates/*/tests/fixtures/**/*.plan.json
+*.ifc
+!/crates/*/tests/fixtures/**/*.ifc
+!/examples/*.ifc
+
+# Rust
+/target/
+/fuzz/target/
+/fuzz/corpus/
+/fuzz/artifacts/
+/fuzz/coverage/
+
+# Frontend
+node_modules/
+/frontend/dist/
+/frontend/coverage/
+/frontend/test-results/
+/frontend/playwright-report/
+/frontend/blob-report/
+/frontend/.cache/
+
+# Built frontend shipped by the integration (produced by `scripts/build.sh`, attached to releases)
+/custom_components/domotwin/frontend/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Release
+/dist/
+*.zip
+
+# Editors and OS
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+.DS_Store
+Thumbs.db
+
+# wasm-bindgen output: only the TypeScript declaration is committed (checked by CI).
+/frontend/src/engine/pkg/*
+!/frontend/src/engine/pkg/domotwin_web.d.ts
