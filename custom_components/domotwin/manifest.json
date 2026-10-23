@@ -1,0 +1,14 @@
+{
+  "domain": "domotwin",
+  "name": "DomoTwin",
+  "codeowners": ["@arthur-leguennec"],
+  "config_flow": true,
+  "dependencies": ["frontend", "http", "panel_custom", "websocket_api"],
+  "documentation": "https://github.com/arthur-leguennec/ha-domotwin",
+  "integration_type": "service",
+  "iot_class": "calculated",
+  "issue_tracker": "https://github.com/arthur-leguennec/ha-domotwin/issues",
+  "requirements": [],
+  "single_config_entry": true,
+  "version": "0.0.0"
+}
