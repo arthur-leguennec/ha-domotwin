@@ -6,6 +6,7 @@
 
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used, clippy::panic))]
 
+pub mod camera;
 pub mod error;
 pub mod geometry;
 pub mod plan;
