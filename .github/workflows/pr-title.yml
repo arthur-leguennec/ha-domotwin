@@ -32,6 +32,9 @@ jobs:
             revert
             deps
           requireScope: false
+          # Dependabot writes "Bump …" with a capital: its titles are generated, not reviewed.
+          ignoreLabels: |
+            dependencies
           subjectPattern: ^[a-z].*[^.]$
           subjectPatternError: >
             The subject "{subject}" of "{title}" must start with a lower-case letter and must not end
