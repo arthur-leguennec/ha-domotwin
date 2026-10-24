@@ -17,8 +17,8 @@ Local, fast, Rust + WebAssembly.</p>
 > ([roadmap](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/ROADMAP.md)). The
 > integration, the panel, the card, the plan and IFC import, the 3D and 2D views, live control
 > (states, tap, long press, room panel, linking), the edit mode, your own 3D models, the layers, the
-> devices, the plan editor, storeys, the looks, every storey at once, walking and the kiosk work
-> today; more imports come next. The features below describe version 0.1.0.
+> devices, the plan editor, storeys, the looks, every storey at once, walking, the kiosk and the
+> network map work today; more imports come next. The features below describe version 0.1.0.
 
 ## Features
 
@@ -42,6 +42,11 @@ Local, fast, Rust + WebAssembly.</p>
 - **Devices.** Badges over your devices (a lock's state, a camera recording, what plays, a battery
   running low, the washing machine running), and what each camera sees drawn on the floor of its
   room; tap for the live picture.
+- **Network map.** Your Zigbee mesh drawn over the home: each device at its piece, each link an arc
+  coloured by its quality, light running towards the coordinator, and the rooms that hang on a weak
+  link named, with *a router here would help*. Tap a device or a link for the details, rescan,
+  and place the devices the map cannot find. For administrators, with ZHA. See [the network
+  map](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/network.md).
 - **Plan editor.** No plan to import? Draw one in the panel: rooms as polygons with their lengths,
   partitions, doors and windows placed on the walls, with snapping and undo. See [plan
   editor](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/plan-editor.md).
@@ -85,6 +90,10 @@ Local, fast, Rust + WebAssembly.</p>
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-devices.png" alt="Devices: badges over the entrance door, the TV, the camera and the washing machine, and the cone of what the living room's camera sees on the 2D plan" width="100%">
+</p>
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-network.png" alt="The network map: the Zigbee devices of the demo apartment on their pieces, linked by arcs in green, amber and red, and a sheet with a router's details, the mesh's health and a sensor not placed in the home" width="100%">
 </p>
 
 <p align="center">
@@ -138,7 +147,7 @@ YAML is never required. For reference, the card options are:
 | `spread`      | `true`, `false`                     | `true`     | Every storey at once: spread apart, or stacked. |
 | `roof`        | `true`, `false`                     | `true`     | Every storey at once: the roof over the top one. |
 | `room`        | a room id of the plan               | none       | Room to focus on when the card opens.     |
-| `layer`       | `off`, `temperature`, `humidity`, `co2`, `pm25`, `power` | `off` | Layer shown when the card opens; the layer menu changes it. |
+| `layer`       | `off`, `temperature`, `humidity`, `co2`, `pm25`, `power`, `network` | `off` | Layer shown when the card opens; the layer menu changes it. `network` shows to administrators with ZHA only. |
 | `alerts`      | `true`, `false`                     | `true`     | Safety alerts of the rooms (smoke, gas, water, alarm, a window open in the rain). |
 | `presence`    | `true`, `false`                     | `true`     | The rooms someone is in glow softly.      |
 | `sun`         | `fixed`, `real`                     | `fixed`    | `real`: the sun lights from where it is (`sun.sun`), through the windows. |
@@ -162,7 +171,8 @@ The panel's settings (the cog) set where north points on the plan, for the real 
 PM2.5 sensors of its Home Assistant area (the area linked to the room, or the area with the room's
 name); its alerts and presence come from the smoke, gas, carbon monoxide, moisture, safety,
 occupancy, motion and presence sensors of that area, and its alarm panel. The power layer uses the
-power sensors linked to each piece.
+power sensors linked to each piece. The network map places each Zigbee device at the piece linked
+to its device or to one of its entities.
 
 ## How it works
 
@@ -218,8 +228,8 @@ model files are deleted. Use **Export plan** first to keep a copy (it includes t
 
 DomoTwin talks only to your own Home Assistant. It makes no other network call: no CDN, no
 telemetry, no analytics, no web fonts. Every file it uses (JavaScript, WebAssembly, fonts,
-materials) is served by the integration. Diagnostics contain counts only, never names, entity ids or
-geometry.
+materials) is served by the integration. Diagnostics contain counts only, never names, entity ids,
+device ids, Zigbee addresses or geometry.
 
 ## Contributing
 

@@ -756,3 +756,67 @@ Asked by the maintainer (M10b).
   elements come back with their ids. The demo apartment now shows its kinds' colours where it
   named none (wooden tables, green plants). A test keeps the schema's kinds, floors, finishes and
   door styles equal to the core's.
+
+## D-031 · The network map: the Zigbee mesh over the home, from ZHA, for administrators
+
+Asked by the maintainer (M9b).
+
+- **Context.** A Zigbee mesh fails quietly: a sensor in the far bathroom hangs on one weak link, an
+  unplugged router leaves a room cut off, and nothing says so until an automation does not run.
+  ZHA draws its mesh as a graph with no home around it, and the home is what makes it readable:
+  *the bathroom only hears the bedroom plug, badly*. Everything needed is in ZHA's `zha/devices`
+  answer: each device's role, the quality (LQI) and strength (RSSI) of its last message, when that
+  was, and its neighbour table. Home Assistant keeps ZHA's commands for administrators. These
+  commands, their answers and who may send them were checked in the ZHA source of the oldest Home
+  Assistant DomoTwin supports (2025.1): `zha/devices` lists the devices with their neighbours,
+  `zha/topology/update` starts a scan and sends no answer, and both need an administrator.
+- **Decision.**
+  - **A layer for administrators with ZHA.** `network` joins the layers; the menu offers it when the
+    user is an administrator and `zha` is one of Home Assistant's components. It reads ZHA over the
+    dashboard's own connection, so the integration runs nothing new and nothing leaves Home
+    Assistant (D-022). *Rescan* sends `zha/topology/update`, which starts a scan of minutes and
+    never answers, then reads the devices every 30 s for 3 minutes.
+  - **A source behind an interface.** The frontend turns a source's devices (ZHA's, for now) into
+    one snapshot (devices with role, LQI, RSSI, age, availability, the element they are placed at
+    and their neighbours). Zigbee2MQTT or Thread would add a source, not change the map.
+  - **The analysis is in the core** (`domotwin_core::network`), read leniently and tested in Rust.
+    Links are undirected; when both ends report one, the worse LQI is kept; former children are
+    dropped. The thresholds are in one place: good from LQI 150, fair from 80, weak below, unknown
+    without a number; LQI scales differ between radios, so they read as a guide, not a measure. A
+    device is stale when not heard from for 24 hours (longer than any battery device's check-in)
+    or when ZHA counts it unavailable. Each device's way to the coordinator is the widest path:
+    the best weakest link, then the fewest hops, an unknown link counting as fair. The ways make
+    a tree, as Zigbee's routing towards the coordinator does: a device's way is a link to one
+    neighbour and then that neighbour's own way, so the hops shown are the ones its messages
+    take. A stale device keeps its last way but relays for no one, and a room's link to it is no
+    better than a weak one. Health counts
+    weak links and stale devices, and names the rooms whose links out are all weak (*a router here
+    would help*), never the coordinator's own room.
+  - **Devices are placed by linking.** A device stands at the piece linked to its Home Assistant
+    device, else to one of its entities. Bindings gain an optional `device` (a device registry id)
+    per element, with no entity needed: a coordinator has none. A piece stands for one device at
+    most; the devices with entities are placed by them, so the field matters for those without,
+    and a piece that only stands for a device taps and holds as an unlinked one. The devices not
+    placed are listed; in the panel, *Place* asks for a tap on a piece, door or window and opens
+    the link editor filled in with the device's entities worth linking (not hidden, configuration
+    or diagnostic ones).
+  - **Wires are a scene primitive** (`scene::wires`), for the automation wires (M9c) as well: a
+    quadratic arc between two points rising by a quarter of its length (20 cm to 1.2 m), in 16
+    pieces, each end moving with its storey when the storeys spread. The renderer draws them in
+    one call after the halos, over everything (no depth test: a wire behind a wall is still a
+    link), soft at their sides, dashed every 24 cm when they say so, with a pulse (60 cm at
+    1.2 m/s) running the way they flow, still under *reduce motion*; a frame is drawn again while a
+    pulse runs. For the mesh, the links devices take to the coordinator pulse towards it, the
+    others are lighter and still, and links to a stale device are dashed.
+  - **Markers are HTML** over the canvas, as the badges are (D-024): buttons with a name for screen
+    readers, placed where the engine projects each piece, side by side when several devices share
+    a piece. A tap on a wire asks the engine (`networkAt`) for the nearest link drawn within 2 % of
+    the view's smaller side. The sheet sits beside the view's tools, never over them; walking, the
+    map steps aside. `last_seen`, which ZHA writes in the server's local time without its zone, is
+    read in Home Assistant's time zone.
+  - **Addresses stay out of diagnostics**: IEEE and network addresses and device ids are redacted
+    from what the integration hands Home Assistant's diagnostics. Tests and fixtures use made-up
+    addresses.
+- **Consequences.** The map's code loads with the layer, in its own chunk; the engine grew by the
+  analysis and the wire pass (see `PERFORMANCE.md`, M9b). The bindings format gains `device`. The
+  map is as fresh as ZHA's last neighbour scan.

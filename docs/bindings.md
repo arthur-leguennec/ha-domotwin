@@ -48,11 +48,15 @@ A complete example for the demo apartment is in
 
 | Field         | Type   | Default              | Notes                                                 |
 | ------------- | ------ | -------------------- | ----------------------------------------------------- |
-| `entities`    | array  | required (1–16)      | `{ entity_id, role? }`, see roles below.               |
+| `entities`    | array  | required (1–16; 0–16 with `device`) | `{ entity_id, role? }`, see roles below. |
+| `device`      | string 1–64 | none            | A Home Assistant device id (its registry id): where the network map places that device, even one without entities, such as a Zigbee coordinator. |
 | `tap_action`  | object | from the first role  | See actions.                                          |
 | `hold_action` | object | `{ "action": "controls" }` | Long press.                                     |
 | `fov`         | number 10–180 | 90            | A linked camera's angle of view (degrees).            |
 | `range`       | number 50–3 000 | 600         | A linked camera's reach (cm).                         |
+
+A device is linked from the network map (*Place*, in the panel) and shown, with a button that
+removes it, in the link editor. A device id is not kept in the integration's diagnostics.
 
 **Roles.** When `role` is absent it is derived from the domain and the device class:
 
@@ -163,6 +167,9 @@ The layers (`DECISIONS.md`, D-023) read the room's area too, with no binding nee
 The **power** layer uses the entities linked to each piece with the `power` role (a `sensor` with
 device class `power`, in W, kW or MW): pieces drawing more than 3 W are tinted from yellow to red
 and labelled. The card's `alerts: false` and `presence: false` turn those off.
+
+The **network** layer, offered to administrators when ZHA is set up, draws the Zigbee mesh over
+the home: see [the network map](network.md).
 
 ## Linking in the panel
 
