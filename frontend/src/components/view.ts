@@ -131,6 +131,8 @@ export interface DebugState {
   sheet?: string;
   /** Edit mode, when on. */
   edit?: { selection: string[]; conflicts: string[]; guides: number; dirty: boolean };
+  /** 3D files: fetched and read (`loadMs`), then given to the engine (`drawMs`), and failed. */
+  models?: { loadMs: number[]; drawMs: number[]; failed: number };
 }
 
 function percentile(values: number[], p: number): number {
@@ -224,9 +226,10 @@ export class DomoTwinView extends LitElement {
   private lightTimer?: number;
   /** Entity states already sent to the engine, and the entities bound. */
   private readonly states = new StateSync();
-  /** 3D files asked for (by hash), and those that could not be read. */
+  /** 3D files asked for (by hash), those that could not be read, and how long they took. */
   private readonly modelsLoading = new Set<string>();
   private readonly modelsFailed = new Set<string>();
+  private readonly modelTimes: { loadMs: number[]; drawMs: number[] } = { loadMs: [], drawMs: [] };
   private bound = new Set<string>();
   private holdTimer?: number;
   private noticeTimer?: number;
@@ -507,6 +510,13 @@ export class DomoTwinView extends LitElement {
       state.stats = this.engine.stats;
     }
     if (this.summary) state.summary = this.summary;
+    if (this.modelsLoading.size > 0) {
+      state.models = {
+        loadMs: [...this.modelTimes.loadMs],
+        drawMs: [...this.modelTimes.drawMs],
+        failed: this.modelsFailed.size,
+      };
+    }
     const sheet = this.sheet;
     if (sheet) {
       state.sheet =
@@ -1045,12 +1055,16 @@ export class DomoTwinView extends LitElement {
     const files = engine.modelFiles().filter((file) => !this.modelsLoading.has(file.hash));
     if (files.length === 0) return;
     for (const file of files) this.modelsLoading.add(file.hash);
+    const asked = performance.now();
     void import("../models/models").then(({ modelMesh }) => {
       for (const file of files) {
         modelMesh(hass, file.hash, file.format).then(
           (mesh) => {
             if (this.engine !== engine) return;
+            const read = performance.now();
             engine.setModelMesh(file.hash, mesh);
+            this.modelTimes.loadMs.push(read - asked);
+            this.modelTimes.drawMs.push(performance.now() - read);
             const over = engine.modelsOverBudget;
             if (over > 0) this.notify(this.translator.tp("view.models_over_budget", over));
             this.scheduler?.request();

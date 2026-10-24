@@ -377,6 +377,69 @@ try {
     Buffer.from(editPair.slice(editPair.indexOf(",") + 1), "base64"),
   );
   console.log("docs/figures/screenshot-edit.png");
+
+  // Your own 3D models (M3b): bar stools drawn from a GLB file, and the import of a glTF lamp.
+  const models = await browser.newPage({ viewport: { width: 1100, height: 760 } });
+  await models.goto("http://127.0.0.1:4173/?mode=panel&models=1");
+  await models.waitForFunction(() => window.__view?.()?.debugState().models?.drawMs.length, null, {
+    timeout: 60_000,
+  });
+  await models.evaluate(async () => {
+    const view = window.__view();
+    view.options = { quality: "high", view: "3d", cutaway: "auto", lighting: "evening" };
+    await view.updateComplete;
+    view.engine.focusElement("living");
+    view.settle();
+  });
+  await models.waitForTimeout(300);
+  const shown = await models.screenshot();
+  await models.getByTestId("edit-mode").click();
+  await models.getByTestId("edit-status").waitFor();
+  await models.getByTestId("edit-add").click();
+  const chooser = models.waitForEvent("filechooser");
+  await models.getByTestId("catalogue-import-model").click();
+  await (await chooser).setFiles(join(root, "examples", "models", "lamp.gltf"));
+  await models.getByTestId("model-import-sheet").waitFor();
+  await models.waitForTimeout(200);
+  const importing = await models.screenshot();
+  const modelsPair = await models.evaluate(
+    async (images) => {
+      const decoded = await Promise.all(
+        images.map(async (base64) => {
+          const image = new Image();
+          image.src = `data:image/png;base64,${base64}`;
+          await image.decode();
+          return image;
+        }),
+      );
+      const labels = ["Bar stools drawn from a GLB file", "Import a glTF, OBJ, STL or 3MF file"];
+      const [w, h] = [decoded[0].width, decoded[0].height];
+      const canvas = document.createElement("canvas");
+      canvas.width = w * 2 + 30;
+      canvas.height = h + 20;
+      const g = canvas.getContext("2d");
+      g.fillStyle = "#f1f5f9";
+      g.fillRect(0, 0, canvas.width, canvas.height);
+      decoded.forEach((image, i) => {
+        const x = 10 + i * (w + 10);
+        g.drawImage(image, x, 10);
+        g.fillStyle = "rgba(255,255,255,0.92)";
+        g.beginPath();
+        g.roundRect(x + 16, 82, 470, 44, 22);
+        g.fill();
+        g.fillStyle = "#0f172a";
+        g.font = "600 22px Inter, sans-serif";
+        g.fillText(labels[i], x + 36, 111);
+      });
+      return canvas.toDataURL("image/png");
+    },
+    [shown, importing].map((png) => png.toString("base64")),
+  );
+  await fs.writeFile(
+    join(root, "docs", "figures", "screenshot-models.png"),
+    Buffer.from(modelsPair.slice(modelsPair.indexOf(",") + 1), "base64"),
+  );
+  console.log("docs/figures/screenshot-models.png");
   await browser.close();
 } finally {
   server.kill();

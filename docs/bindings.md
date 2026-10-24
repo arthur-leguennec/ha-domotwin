@@ -91,6 +91,8 @@ The engine receives only the bound entities, and only when their state changes. 
 | Lamp (any light kind) | `light` | Glows in the light's colour (`rgb_color`, else `color_temp_kelvin`), at its brightness × the lamp's `lightPower`; lights its own room. Fades in and out. |
 | Lamp | `switch` | On or off, in the plan's light colour. |
 | TV | `media` | The screen glows while playing, dimmer when paused or idle, and lights the room in front of it. |
+| Your own 3D model (`custom`) | `light` | Its glowing (emissive) parts light up and it lights its room, as a lamp does (D-021). |
+| Your own 3D model (`custom`) | `media` | Its glowing parts light up like a screen, and it lights the room around it. |
 | Curtain | `cover` | Opens with `current_position` (else open/closed). |
 | Window | `cover` | A roller blind comes down as the cover closes. |
 | Window | `contact` | Open (casements inward) while the contact is on. |

@@ -16,8 +16,8 @@ export interface HarnessOptions {
   sun?: { elevation: number; rising: boolean };
   /** The demo bindings and the demo home's entities, areas and states. */
   live?: boolean;
-  /** The demo plan with a bar stool drawn from a 3D file, twice. */
-  models?: boolean;
+  /** The demo plan with a bar stool drawn from a 3D file, twice (`big`: 139 392 triangles). */
+  models?: boolean | "big";
 }
 
 /** Opens the mocked Home Assistant with the built frontend. */
@@ -34,7 +34,7 @@ export async function openHarness(page: Page, options: HarnessOptions = {}): Pro
   params.set("lighting", options.lighting ?? "day");
   if (options.sun) params.set("sun", `${options.sun.elevation},${options.sun.rising ? 1 : 0}`);
   if (options.live) params.set("live", "1");
-  if (options.models) params.set("models", "1");
+  if (options.models) params.set("models", options.models === "big" ? "big" : "1");
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto(`/?${params.toString()}`);

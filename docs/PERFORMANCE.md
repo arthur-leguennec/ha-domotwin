@@ -155,3 +155,30 @@ p95**, then 0.2 ms to draw the frame; dropping it (the whole scene rebuilt) 6.6 
 are applied once per frame. Logged by `e2e/perf.spec.ts` with the frame-time smoke test, which is
 unchanged (CPU time per frame 0.3 ms median, 1.6 ms p95; WebAssembly memory 3.5 MB).
 
+
+### M3b (your own 3D models)
+
+Bundle: the first load is **293.5 kB gzipped** of 1 200 kB (+13.5 kB). The 3D model readers are
+their own module, fetched only when a plan shows a piece drawn from a 3D file or one is imported:
+
+| File | Raw | Gzipped |
+| --- | ---: | ---: |
+| `domotwin_web_bg.<hash>.wasm` | 562.8 kB | 246.1 kB |
+| `domotwin.js` (entry) | 60.2 kB | 17.1 kB |
+| `domotwin_models_bg.<hash>.wasm` (on demand) | 186.2 kB | 94.0 kB |
+| `chunks/domotwin_models-<hash>.js` (glue, on demand) | 5.7 kB | 2.2 kB |
+| `chunks/edit-bar-<hash>.js` (edit bar, catalogue, model import, on demand) | 15.2 kB | 4.3 kB |
+
+The engine grew by 10 kB gzipped (reading and fitting meshes, the overlay's models, the session's
+model pieces and their API), the entry by 1.5 kB (fetching and reading a plan's files in the view).
+
+A large model in headless Chromium (SwiftShader, `e2e/perf.spec.ts`): two pieces drawn from a
+generated STL of **139 392 triangles** (7 MB, a little under the 150 000-triangle limit). Fetching
+and reading the file took **341 ms**, giving its mesh to the engine (the whole scene rebuilt and
+uploaded, 297 199 triangles) **61 ms**; then the CPU time per frame was 0.3 ms median, 2.3 ms p95,
+and the WebAssembly memory 25.9 MB (3.5 MB without it). The demo plan's figures are unchanged:
+0.3 ms median and 1.6 ms p95 per frame, a drag step 1.1 ms median and 3.8 ms p95, a drop 5.7 ms.
+
+The readers outside the browser (native, release build) on real files from public sample
+collections, kept out of the repository: a 3 MB 3MF archive of 96 692 triangles in 0.37 s, a 0.4 MB
+textured GLB of 3 624 triangles in 2 ms.
