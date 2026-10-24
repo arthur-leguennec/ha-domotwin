@@ -89,6 +89,7 @@ import {
 import {
   HEAT_KINDS,
   LAYER_NAMES,
+  networkAvailable,
   formatHeat,
   formatPower,
   roomLayers,
@@ -210,6 +211,12 @@ const LIGHT_REFRESH_MS = 5 * 60 * 1000;
 const FALLBACK_BACKGROUND: Rgb = { r: 242, g: 242, b: 240 };
 /** How long a notice (a failed action) stays (ms). */
 const NOTICE_MS = 5000;
+/** What the view asks of the network map (`network-panel.ts`, loaded on demand). */
+type NetworkMap = HTMLElement & {
+  reproject(scale: number): void;
+  selectLink(a: string, b: string): void;
+};
+
 /** Frame interval of the layers' animation alone (ms): 24 frames per second. */
 const LAYER_FRAME_MS = 1000 / 24;
 /** The kiosk's turn (D-029): a round in two and a half minutes (radians per second), drawn at 20
@@ -361,6 +368,8 @@ export class DomoTwinView extends LitElement {
     layout: { attribute: false },
     bindings: { attribute: false },
     linking: { attribute: false },
+    placeDevices: { attribute: false },
+    networkLoaded: { state: true },
     editing: { attribute: false },
     planEditing: { attribute: false },
     planTool: { attribute: false },
@@ -421,6 +430,8 @@ export class DomoTwinView extends LitElement {
    * (`domotwin-pick`, detail: the picked element) instead of acting.
    */
   linking = false;
+  /** Devices of the network map can be placed in the home (the panel, which links them). */
+  placeDevices = false;
   /**
    * Edit mode (the panel's): a tap selects a piece, dragging a selected piece moves it. Every
    * change fires `domotwin-edit` (detail: the `EditState`).
@@ -490,6 +501,9 @@ export class DomoTwinView extends LitElement {
   private planViewBefore = false;
   /** The layer shown (the layer menu), and the menu open. */
   protected layer: LayerName = "off";
+  /** The network map's module is loaded (D-031). */
+  protected networkLoaded = false;
+  private networkModule?: Promise<unknown>;
   protected layersOpen = false;
   /** Sunlight through the windows: the sun where it really is. */
   protected realSun = false;
@@ -1281,12 +1295,12 @@ export class DomoTwinView extends LitElement {
       if (previous?.spread !== this.options.spread) this.spread = this.options.spread !== false;
       if (previous?.roof !== this.options.roof) this.roof = this.options.roof !== false;
     }
-    if (this.layer === "off" && this.labels.length > 0) {
+    if (!this.valueLayer && this.labels.length > 0) {
       this.labels = [];
       this.labelsText = "";
     }
     // The room chip leaves room for the legend (`renderLegend`).
-    this.toggleAttribute("legend", this.layer !== "off" && !this.editingAny);
+    this.toggleAttribute("legend", this.valueLayer && !this.editingAny);
     if (
       changed.has("hass") ||
       changed.has("options") ||
@@ -1769,10 +1783,21 @@ export class DomoTwinView extends LitElement {
       this.setEdit(engine.editSelect(id, this.multiSelect || this.addModifier));
       return;
     }
+    if (this.networkShown) {
+      // The network map: a tap on a link shows it.
+      const point = this.devicePoint(x, y);
+      const hit = engine.networkAt(point.x, point.y);
+      if (hit) {
+        const link = JSON.parse(hit) as { a: string; b: string };
+        this.networkElement()?.selectLink(link.a, link.b);
+        this.gestures.forgetTap();
+        return;
+      }
+    }
     const picked = this.elementAt(x, y);
     if (this.walking && !this.linking) {
       // Walking: a tap on the floor (or on what has nothing to do) goes there.
-      const bound = picked && this.hass && this.bindings?.elements[picked.id];
+      const bound = picked && this.hass && this.actingBinding(picked.id);
       const stairs = picked && this.kinds[picked.id] === "stairs";
       if (!bound && !stairs) {
         const point = this.devicePoint(x, y);
@@ -1786,7 +1811,7 @@ export class DomoTwinView extends LitElement {
       this.pick(picked);
       return;
     }
-    const binding = this.bindings?.elements[picked.id];
+    const binding = this.actingBinding(picked.id);
     if (binding && this.hass) {
       engine.highlight(picked.id);
       // An action ran: a second tap soon after is a new tap, not a double tap.
@@ -1800,6 +1825,16 @@ export class DomoTwinView extends LitElement {
       this.focusedRoom = { id: picked.room, name: this.roomName(picked) };
     }
     this.redraw();
+  }
+
+  /**
+   * An element's binding when it has entities to act on. A piece that only stands for a device
+   * (a Zigbee coordinator on the network map, D-031) taps, holds and is walked to as an unlinked
+   * one.
+   */
+  private actingBinding(id: string): ElementBinding | undefined {
+    const binding = this.bindings?.elements[id];
+    return binding && binding.entities.length > 0 ? binding : undefined;
   }
 
   /** The storey stairs lead to: the one above the storey shown, else the one below. */
@@ -1826,7 +1861,7 @@ export class DomoTwinView extends LitElement {
       this.pick(picked);
       return;
     }
-    const binding = this.bindings?.elements[picked.id];
+    const binding = this.actingBinding(picked.id);
     if (binding && this.hass) {
       this.engine?.highlight(picked.id);
       void this.act(holdAction(binding), binding, picked);
@@ -1846,6 +1881,44 @@ export class DomoTwinView extends LitElement {
   /** Edit mode or the plan editor is on: the live overlays (badges, cones, values) step aside. */
   private get editingAny(): boolean {
     return this.edit !== undefined || this.planEditor !== undefined;
+  }
+
+  /** The network map can be offered: to administrators, with ZHA set up (D-031). */
+  private get networkAllowed(): boolean {
+    return networkAvailable(this.hass);
+  }
+
+  /**
+   * The layer shown: the one chosen, but no network map where it cannot be (a card set to it,
+   * seen by someone who is not an administrator, or without ZHA).
+   */
+  private get shownLayer(): LayerName {
+    return this.layer === "network" && !this.networkAllowed ? "off" : this.layer;
+  }
+
+  /** The layer shown puts values on the home (a heatmap, the power drawn) and has a legend. */
+  private get valueLayer(): boolean {
+    const layer = this.shownLayer;
+    return layer !== "off" && layer !== "network";
+  }
+
+  /**
+   * The network map is shown: chosen, allowed, no tool at work over the view, and not walking
+   * (at eye level the map has nothing to show, and its sheet would cover the walk pad).
+   */
+  private get networkShown(): boolean {
+    return (
+      this.layer === "network" &&
+      this.networkAllowed &&
+      !this.editingAny &&
+      !this.linking &&
+      !this.walking
+    );
+  }
+
+  /** The network map over the view, while it is shown. */
+  private networkElement(): NetworkMap | null {
+    return this.renderRoot.querySelector<NetworkMap>("domotwin-network");
   }
 
   /** Device pixels of the drawing buffer for a point of the view in CSS pixels. */
@@ -2247,12 +2320,16 @@ export class DomoTwinView extends LitElement {
   /** Reads where the layer's values, the badges and what the cameras see go now. */
   private readOverlays(engine: DomoTwinEngine): void {
     this.planEditor?.reproject();
-    if (this.layer !== "off") this.readLabels(engine);
+    const canvas = this.canvas;
+    if (canvas && this.networkShown) {
+      this.networkElement()?.reproject(Math.max(1, canvas.clientWidth) / Math.max(1, canvas.width));
+    }
+    if (this.valueLayer) this.readLabels(engine);
     const shown = !this.editingAny && !this.linking;
     // The rooms' names, where no layer shows a value (the storeys' labels take their place when
     // every storey is shown).
     const names =
-      shown && this.options.names !== false && this.layer === "off" && !this.loadedHome
+      shown && this.options.names !== false && !this.valueLayer && !this.loadedHome
         ? engine.roomLabels()
         : "[]";
     if (names !== this.roomNamesText) {
@@ -2284,7 +2361,7 @@ export class DomoTwinView extends LitElement {
   /** A tap on an element's badges: the element's tap. */
   private tapElement(id: string): void {
     this.sheet = undefined;
-    const binding = this.bindings?.elements[id];
+    const binding = this.actingBinding(id);
     const hass = this.hass;
     if (!binding || !hass) return;
     this.engine?.highlight(id);
@@ -2948,7 +3025,7 @@ export class DomoTwinView extends LitElement {
       ${ready ? this.renderStoreyLabels() : nothing} ${ready ? this.renderPictures() : nothing}
       ${this.renderGuides()} ${this.renderPlanHandles()} ${this.renderOverlay()}
       ${ready ? this.renderLegend() : nothing} ${ready ? this.renderAlerts() : nothing}
-      ${ready ? this.renderWalkPad() : nothing}
+      ${ready ? this.renderWalkPad() : nothing} ${ready ? this.renderNetwork() : nothing}
       ${ready && this.options.tools !== false ? this.renderTools() : nothing}
       ${ready ? this.renderSheet() : nothing}
       ${this.dimmed ? html`<div class="dim" data-testid="dim" aria-hidden="true"></div>` : nothing}
@@ -2957,6 +3034,28 @@ export class DomoTwinView extends LitElement {
           ? html`<div class="notice glass" role="alert" data-testid="notice">${this.notice}</div>`
           : nothing
       }`;
+  }
+
+  /** The network map (D-031): its module is loaded the first time it is shown. */
+  private renderNetwork(): TemplateResult | typeof nothing {
+    if (!this.networkShown) return nothing;
+    if (!this.networkLoaded) {
+      this.networkModule ??= import("./network-panel").then(
+        () => (this.networkLoaded = true),
+        () => (this.networkModule = undefined),
+      );
+      return nothing;
+    }
+    return html`<domotwin-network
+      .hass=${this.hass}
+      .engine=${this.engine}
+      .bindings=${this.bindings}
+      .names=${this.names}
+      .placeable=${this.placeDevices}
+      @domotwin-redraw=${() => {
+        this.redraw();
+      }}
+    ></domotwin-network>`;
   }
 
   /** Walking: the pad that walks while held, and how to look around and go somewhere. */
@@ -3264,7 +3363,7 @@ export class DomoTwinView extends LitElement {
           aria-label=${t.t("layers.menu")}
           aria-haspopup="menu"
           aria-expanded=${this.layersOpen ? "true" : "false"}
-          aria-pressed=${this.layer !== "off" || this.realSun ? "true" : "false"}
+          aria-pressed=${this.shownLayer !== "off" || this.realSun ? "true" : "false"}
           @click=${this.toggleLayers}
         >
           ${icon(mdiLayersOutline)}
@@ -3315,12 +3414,12 @@ export class DomoTwinView extends LitElement {
       aria-label=${t.t("layers.menu")}
       data-testid="layer-menu"
     >
-      ${LAYER_NAMES.map(
+      ${LAYER_NAMES.filter((layer) => layer !== "network" || this.networkAllowed).map(
         (layer) =>
           html`<button
             role="menuitemradio"
             data-layer=${layer}
-            aria-checked=${this.layer === layer ? "true" : "false"}
+            aria-checked=${this.shownLayer === layer ? "true" : "false"}
             @click=${() => {
               this.setLayer(layer);
             }}
@@ -3455,7 +3554,7 @@ export class DomoTwinView extends LitElement {
   private renderLegend(): TemplateResult | typeof nothing {
     const t = this.translator;
     const layer = this.layer;
-    if (layer === "off" || this.editingAny) return nothing;
+    if (!this.valueLayer || this.editingAny) return nothing;
     const name = t.t(`layers.${layer}`);
     if (layer === "power") {
       const gradient = `linear-gradient(to right, ${POWER_GRADIENT.join(", ")})`;

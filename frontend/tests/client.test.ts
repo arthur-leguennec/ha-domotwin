@@ -12,6 +12,9 @@ function fakeHass(): {
   let listener: ((event: UpdateEvent) => void) | undefined;
   let revision = 0;
   const connection: HassConnection = {
+    sendMessage: (message: HassMessage) => {
+      sent.push(message);
+    },
     sendMessagePromise: <T>(message: HassMessage): Promise<T> => {
       sent.push(message);
       if (message.type === "domotwin/plan/save") revision += 1;

@@ -9,9 +9,17 @@ import { areaOf, roomArea, type BindingsJson } from "./bindings";
 
 export const HEAT_KINDS = ["temperature", "humidity", "co2", "pm25"] as const;
 export type HeatKind = (typeof HEAT_KINDS)[number];
-/** What the layer menu shows: nothing, a heatmap or the power layer. */
-export type LayerName = "off" | HeatKind | "power";
-export const LAYER_NAMES: readonly LayerName[] = ["off", ...HEAT_KINDS, "power"];
+/**
+ * What the layer menu shows: nothing, a heatmap, the power layer or the network map (D-031,
+ * offered to administrators with ZHA set up).
+ */
+export type LayerName = "off" | HeatKind | "power" | "network";
+export const LAYER_NAMES: readonly LayerName[] = ["off", ...HEAT_KINDS, "power", "network"];
+
+/** Whether the network map can be offered: to administrators, with ZHA set up (D-031). */
+export function networkAvailable(hass: HomeAssistant | undefined): boolean {
+  return hass?.user?.is_admin === true && (hass.config?.components ?? []).includes("zha");
+}
 
 /** The sensors' device class of each quantity. */
 const DEVICE_CLASSES: Record<HeatKind, string> = {

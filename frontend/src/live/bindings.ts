@@ -38,6 +38,8 @@ export interface BoundEntity {
 
 export interface ElementBinding {
   entities: BoundEntity[];
+  /** The Home Assistant device the element stands for (the network map, D-031). */
+  device?: string;
   tap_action?: Action;
   hold_action?: Action;
   /** A linked camera's angle of view (degrees, 10–180) and reach (cm, 50–3 000). */
@@ -144,8 +146,10 @@ export function readBindings(value: unknown): BindingsJson {
               typeof e === "object" && typeof (e as { entity_id?: unknown }).entity_id === "string",
           )
         : [];
-      if (entities.length === 0) continue;
+      const device = typeof binding?.device === "string" ? binding.device : undefined;
+      if (entities.length === 0 && !device) continue;
       const element: ElementBinding = { entities };
+      if (device) element.device = device;
       if (binding?.tap_action) element.tap_action = binding.tap_action;
       if (binding?.hold_action) element.hold_action = binding.hold_action;
       for (const key of ["fov", "range"] as const) {
@@ -173,6 +177,18 @@ export function areaOf(hass: HomeAssistant, entityId: string): string | undefine
   if (!entry) return undefined;
   if (entry.area_id) return entry.area_id;
   return entry.device_id ? (hass.devices?.[entry.device_id]?.area_id ?? undefined) : undefined;
+}
+
+/** Most entities linked to one element (the integration refuses more). */
+export const MAX_ENTITIES = 16;
+
+/**
+ * An entity worth linking: in Home Assistant now (not disabled), neither hidden nor a
+ * configuration or diagnostic one (a device's identify button, its firmware, its signal).
+ */
+export function shownEntity(hass: HomeAssistant, id: string): boolean {
+  const entry = hass.entities?.[id];
+  return hass.states[id] !== undefined && entry?.hidden !== true && !entry?.entity_category;
 }
 
 /** The visible entities of an area (hidden and configuration entities left out). */

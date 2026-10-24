@@ -31,7 +31,14 @@ import {
   type StoredPlan,
 } from "../ha/client";
 import { isHassError, type HomeAssistant } from "../ha/types";
-import { readBindings, roomArea, type BindingsJson, type ElementBinding } from "../live/bindings";
+import {
+  MAX_ENTITIES,
+  readBindings,
+  roomArea,
+  shownEntity,
+  type BindingsJson,
+  type ElementBinding,
+} from "../live/bindings";
 import {
   clearDraft,
   clearPlanDraft,
@@ -61,6 +68,7 @@ import { translatorFor, type Translator } from "../i18n";
 import { icon } from "./icon";
 import { baseStyles, lookStyles } from "./styles";
 import type { ModelChoice } from "./edit-bar";
+import type { PlaceRequest } from "./network-panel";
 import type { PlanEditState, PlanTool } from "./plan-editor";
 import type { DomoTwinView, EditCommand, PlanCommand, ViewOptions } from "./view";
 
@@ -187,6 +195,8 @@ export class DomoTwinPanel extends LitElement {
   protected busy = false;
   protected linking = false;
   protected linkTarget?: LinkTarget;
+  /** A device of the network map to place: the next piece picked stands for it (D-031). */
+  private placing?: PlaceRequest;
   protected ifcChoice?: IfcChoice;
   /** Edit mode: on, its state, taps adding to the selection, the catalogue open. */
   protected editing = false;
@@ -1109,6 +1119,7 @@ export class DomoTwinPanel extends LitElement {
   private readonly toggleLinking = (): void => {
     this.linking = !this.linking;
     this.linkTarget = undefined;
+    this.placing = undefined;
     this.northDraft = undefined;
   };
 
@@ -1122,7 +1133,38 @@ export class DomoTwinPanel extends LitElement {
     const bindings = this.bindings ?? { version: 1, rooms: {}, elements: {} };
     const roomId = element.type === "room" ? element.id : picked.room || element.parent;
     const target: LinkTarget = { element };
-    const binding = bindings.elements[element.id];
+    let binding = bindings.elements[element.id];
+    const placing = this.placing;
+    if (placing && element.type === "room") {
+      // A device of the network map is being placed: a piece, a door or a window stands for it,
+      // not a room.
+      this.show(this.t.t("network.place_hint", { name: placing.name }));
+      return;
+    }
+    if (placing) {
+      // The device being placed: its entities worth linking, with what the piece already had,
+      // and itself unless the piece already stands for another device (its entities place it).
+      const entities = [...(binding?.entities ?? [])];
+      let added = 0;
+      let left = 0;
+      for (const id of placing.entities) {
+        if (!shownEntity(hass, id) || entities.some((e) => e.entity_id === id)) continue;
+        if (entities.length < MAX_ENTITIES) {
+          entities.push({ entity_id: id });
+          added += 1;
+        } else left += 1;
+      }
+      const taken = binding?.device !== undefined && binding.device !== placing.deviceId;
+      if (taken && added === 0) {
+        // Nothing would place it there: another piece is needed.
+        this.show(this.t.t("network.place_taken", { name: placing.name }));
+        return;
+      }
+      this.placing = undefined;
+      if (left > 0) this.show(this.t.tp("network.place_full", left));
+      binding = { ...binding, entities };
+      if (placing.deviceId && !taken) binding.device = placing.deviceId;
+    }
     if (binding) target.binding = binding;
     const area = element.type === "room" ? bindings.rooms[element.id]?.area : undefined;
     if (area) target.area = area;
@@ -1131,6 +1173,15 @@ export class DomoTwinPanel extends LitElement {
       if (room) target.roomArea = room;
     }
     this.linkTarget = target;
+  };
+
+  /** The network map asks to place one of its devices: link mode, the next piece picked. */
+  private readonly onNetworkPlace = (event: Event): void => {
+    const request = (event as CustomEvent<PlaceRequest>).detail;
+    this.placing = request;
+    this.linking = true;
+    this.linkTarget = undefined;
+    this.show(this.t.t("network.place_hint", { name: request.name }));
   };
 
   /** Saves one edit on top of the latest stored bindings, refused if another save came first. */
@@ -1612,6 +1663,8 @@ export class DomoTwinPanel extends LitElement {
           @domotwin-pick=${this.onPick}
           @domotwin-edit=${this.onEdit}
           @domotwin-plan-edit=${this.onPlanEdit}
+          .placeDevices=${admin}
+          @domotwin-network-place=${this.onNetworkPlace}
         >
           ${
             admin

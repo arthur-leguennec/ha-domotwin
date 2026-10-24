@@ -861,6 +861,32 @@ try {
     await walkPage.screenshot(),
   );
   console.log("docs/figures/screenshot-walk.png");
+
+  // The network map (D-031): the panel, the day look, the mesh with its health, a router tapped.
+  const meshPage = await browser.newPage({
+    viewport: { width: 1280, height: 800 },
+    deviceScaleFactor: 1.5,
+  });
+  await meshPage.emulateMedia({ reducedMotion: "reduce" });
+  await meshPage.goto("http://127.0.0.1:4173/?mode=panel&live=1&zha=1&hometheme=day");
+  await meshPage.waitForFunction(() => window.__view?.()?.debugState().summary, null, {
+    timeout: 60_000,
+  });
+  await meshPage.evaluate(() => {
+    const view = window.__view();
+    view.options = { ...view.options, quality: "high" };
+  });
+  await meshPage.locator("domotwin-view").getByTestId("layers").click();
+  await meshPage.locator('domotwin-view [data-layer="network"]').click();
+  await meshPage.locator("domotwin-network .node").first().waitFor();
+  await meshPage.locator('domotwin-network .node[data-device="00:12:4b:00:00:00:00:02"]').click();
+  await meshPage.evaluate(() => window.__view().settle());
+  await meshPage.waitForTimeout(800);
+  await fs.writeFile(
+    join(root, "docs", "figures", "screenshot-network.png"),
+    await meshPage.screenshot(),
+  );
+  console.log("docs/figures/screenshot-network.png");
   await browser.close();
 } finally {
   server.kill();

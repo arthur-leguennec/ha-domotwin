@@ -20,6 +20,7 @@ use domotwin_core::lighting::Lighting;
 use domotwin_core::live::Look;
 use domotwin_core::scene::lines::Line;
 use domotwin_core::scene::mesh::Mesh;
+use domotwin_core::scene::wires::WireSegment;
 use domotwin_core::scene::{LightSpot, MovingParts, Scene, StoreyPart};
 use domotwin_core::theme::{Theme, ThemeName};
 use lamps::{Halo, Mark, PointLight};
@@ -192,6 +193,66 @@ impl GpuLines {
     }
 }
 
+/// The wires drawn over the home (D-031): four corners per straight piece of an arc.
+struct GpuWires {
+    /// First end and how far along its wire it is.
+    a: VertexBuffer<[f32; 4]>,
+    /// Second end and the same.
+    b: VertexBuffer<[f32; 4]>,
+    /// Along (0 or 1), across (−1 or 1) and weight.
+    corners: VertexBuffer<[f32; 3]>,
+    /// Colour and flow.
+    colors: VertexBuffer<[f32; 4]>,
+    /// The storeys of the wire's ends, its length and whether it is dashed.
+    extras: VertexBuffer<[f32; 4]>,
+    indices: ElementBuffer<u32>,
+    /// A pulse runs along some of them: frames are needed while they are shown.
+    pulsing: bool,
+}
+
+impl GpuWires {
+    fn new(context: &Context, segments: &[WireSegment]) -> Option<Self> {
+        if segments.is_empty() {
+            return None;
+        }
+        let n = segments.len() * 4;
+        let (mut a, mut b) = (Vec::with_capacity(n), Vec::with_capacity(n));
+        let (mut corners, mut colors) = (Vec::with_capacity(n), Vec::with_capacity(n));
+        let mut extras = Vec::with_capacity(n);
+        let mut indices = Vec::with_capacity(segments.len() * 6);
+        for (i, s) in segments.iter().enumerate() {
+            let Ok(base) = u32::try_from(i * 4) else {
+                break;
+            };
+            for [along, across] in [[0.0, -1.0], [1.0, -1.0], [1.0, 1.0], [0.0, 1.0]] {
+                a.push([s.a[0], s.a[1], s.a[2], s.ta]);
+                b.push([s.b[0], s.b[1], s.b[2], s.tb]);
+                corners.push([along, across, s.weight]);
+                colors.push([s.color[0], s.color[1], s.color[2], s.flow]);
+                extras.push([
+                    f32::from(s.parts[0].min(MAX_PARTS - 1)),
+                    f32::from(s.parts[1].min(MAX_PARTS - 1)),
+                    s.length,
+                    if s.dashed { 1.0 } else { 0.0 },
+                ]);
+            }
+            indices.extend_from_slice(&[base, base + 1, base + 2, base, base + 2, base + 3]);
+        }
+        Some(Self {
+            a: VertexBuffer::new_with_data(context, &a),
+            b: VertexBuffer::new_with_data(context, &b),
+            corners: VertexBuffer::new_with_data(context, &corners),
+            colors: VertexBuffer::new_with_data(context, &colors),
+            extras: VertexBuffer::new_with_data(context, &extras),
+            indices: ElementBuffer::new_with_data(context, &indices),
+            pulsing: segments.iter().any(|s| s.flow != 0.0),
+        })
+    }
+}
+
+/// Storeys the wire shader moves wire ends with (the integration keeps at most 20).
+const MAX_PARTS: u8 = 20;
+
 /// One storey on the GPU (D-028): its meshes, its outlines and its lamps' lights.
 #[derive(Default)]
 struct GpuPart {
@@ -321,6 +382,7 @@ pub struct Renderer {
     halo: Program,
     background_program: Program,
     line_program: Program,
+    wire_program: Program,
     bloom_down: Program,
     bloom_up: Program,
     composite: Program,
@@ -339,6 +401,8 @@ pub struct Renderer {
     rooms_shown: bool,
     /// The room layers move (the heatmap's halo, a pulsing alert).
     rooms_animated: bool,
+    /// The wires drawn over the home (the network map, D-031).
+    wires: Option<GpuWires>,
     /// The power layer is shown.
     power_layer: bool,
     /// Layers may move (off when the user prefers reduced motion).
@@ -494,6 +558,8 @@ impl Renderer {
             Program::from_source(&context, full, shaders::BACKGROUND_FRAGMENT)?;
         let line_program =
             Program::from_source(&context, shaders::LINE_VERTEX, shaders::LINE_FRAGMENT)?;
+        let wire_program =
+            Program::from_source(&context, shaders::WIRE_VERTEX, shaders::WIRE_FRAGMENT)?;
         let bloom_down = Program::from_source(&context, full, shaders::BLOOM_DOWN)?;
         let bloom_up = Program::from_source(&context, full, shaders::BLOOM_UP)?;
         let composite = Program::from_source(&context, full, shaders::COMPOSITE)?;
@@ -525,6 +591,7 @@ impl Renderer {
             halo,
             background_program,
             line_program,
+            wire_program,
             bloom_down,
             bloom_up,
             composite,
@@ -536,6 +603,7 @@ impl Renderer {
             rooms,
             rooms_shown: false,
             rooms_animated: false,
+            wires: None,
             power_layer: false,
             motion: true,
             sun: None,
@@ -673,8 +741,15 @@ impl Renderer {
     pub fn layers_animating(&self) -> bool {
         self.motion
             && (self.rooms_animated
+                || self.wires.as_ref().is_some_and(|w| w.pulsing)
                 || (self.power_layer
                     && self.looks.iter().any(|l| lamps::power_level(l.power) > 0.0)))
+    }
+
+    /// Draws `segments` over the home (none: no wires), each end moved with its storey (D-031).
+    pub fn set_wires(&mut self, segments: &[WireSegment]) {
+        self.wires = GpuWires::new(&self.context, segments);
+        self.view.dirty = true;
     }
 
     /// Lights the scene from the real sun (`direction` towards it, `y` up), its light coming
@@ -1072,6 +1147,7 @@ impl Renderer {
         let gain = self.set_main_uniforms(&projection, time_ms, flat, post);
         self.set_background_uniforms(&projection.view_proj, post, flat < 0.5);
         self.set_line_uniforms(&projection);
+        self.set_wire_uniforms(&projection, time_ms);
         let halo = &self.halo;
         if self.halos.is_some() {
             halo.use_uniform_if_required("u_view_proj", mat4(&projection.view_proj));
@@ -1240,8 +1316,36 @@ impl Renderer {
         program.use_uniform_if_required("u_dark_lines", if t.dark_lines { 1.0_f32 } else { 0.0 });
     }
 
+    fn set_wire_uniforms(&self, projection: &domotwin_core::camera::Projection, time_ms: f64) {
+        if self.wires.is_none() {
+            return;
+        }
+        let program = &self.wire_program;
+        program.use_uniform_if_required("u_view_proj", mat4(&projection.view_proj));
+        #[allow(clippy::cast_precision_loss)]
+        program.use_uniform_if_required(
+            "u_viewport",
+            Vec2::new(self.width as f32, self.height as f32),
+        );
+        program.use_uniform_if_required("u_wire_width", (self.line_width() * 1.6).max(2.5));
+        #[allow(clippy::cast_possible_truncation)]
+        let offsets: Vec<Vec4> = (0..usize::from(MAX_PARTS))
+            .map(|k| {
+                let [x, y, z] = self.view.offset(k).map(|v| v as f32);
+                Vec4::new(x, y, z, 0.0)
+            })
+            .collect();
+        program.use_uniform_array("u_offsets", &offsets);
+        #[allow(clippy::cast_possible_truncation)]
+        // A pulse comes round every (wire length + 2.4 m) / 1.2 m/s, which a short wrap of the
+        // clock would cut short: a day's wrap jumps once a day (a float still counts it to a
+        // hundredth of a second).
+        program.use_uniform_if_required("u_time", ((time_ms / 1000.0).rem_euclid(86_400.0)) as f32);
+        program.use_uniform_if_required("u_motion", if self.motion { 1.0_f32 } else { 0.0 });
+    }
+
     /// Every pass of a frame, into the target being written: the background, what is opaque,
-    /// glass, glass walls, the outlines, the halos.
+    /// glass, glass walls, the outlines, the halos, the wires.
     fn draw_passes(&self, viewport: Viewport, only: Option<usize>) {
         let behind = RenderStates {
             write_mask: WriteMask::COLOR,
@@ -1373,6 +1477,37 @@ impl Renderer {
             halo.use_vertex_attribute("a_tint", &h.tints);
             halo.use_vertex_attribute("a_corner", &h.corners);
             halo.draw_elements(halo_states, viewport, &h.indices);
+        }
+        // Wires over everything, so that a link is seen through the walls it crosses; not in a
+        // storey's picture.
+        if let Some(w) = self.wires.as_ref().filter(|_| only.is_none()) {
+            // The alpha channel is what the bloom makes glow: wires glow in the looks whose
+            // outlines do, and leave it as it is in the others.
+            let (alpha_source, alpha_equation) = if self.theme.line_glow > 0.0 {
+                (BlendMultiplierType::One, BlendEquationType::Max)
+            } else {
+                (BlendMultiplierType::Zero, BlendEquationType::Add)
+            };
+            let states = RenderStates {
+                write_mask: WriteMask::COLOR,
+                depth_test: DepthTest::Always,
+                blend: Blend::Enabled {
+                    source_rgb_multiplier: BlendMultiplierType::SrcAlpha,
+                    source_alpha_multiplier: alpha_source,
+                    destination_rgb_multiplier: BlendMultiplierType::OneMinusSrcAlpha,
+                    destination_alpha_multiplier: BlendMultiplierType::One,
+                    rgb_equation: BlendEquationType::Add,
+                    alpha_equation,
+                },
+                cull: Cull::None,
+            };
+            let wire = &self.wire_program;
+            wire.use_vertex_attribute("a_a", &w.a);
+            wire.use_vertex_attribute("a_b", &w.b);
+            wire.use_vertex_attribute("a_corner", &w.corners);
+            wire.use_vertex_attribute("a_color", &w.colors);
+            wire.use_vertex_attribute("a_extra", &w.extras);
+            wire.draw_elements(states, viewport, &w.indices);
         }
     }
 

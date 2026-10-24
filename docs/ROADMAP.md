@@ -21,7 +21,7 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M9        | Every storey at once: stacked, spread apart, with a roof   | ✅     |
 | M10       | Kiosk: walk mode, idle and night modes, Assist voice       | ✅     |
 | M10b      | DomoTwin's own plan format, `*.domotwin.json`              | ✅     |
-| M9b       | Network map: the Zigbee mesh over the home (ZHA)           | ⏳     |
+| M9b       | Network map: the Zigbee mesh over the home (ZHA)           | ✅     |
 | M9c       | Automation wires: what sets off what, drawn in 3D          | ⏳     |
 | M9d       | Upkeep cards: makes, warranties, recurring tasks           | ⏳     |
 | M9e       | People in their rooms, live                                | ⏳     |
@@ -448,6 +448,36 @@ The plan format DomoTwin started from is dropped for one of its own (`DECISIONS.
 - ✅ Tests: the reader's codes and defaults, the overlay, the editor, the IFC fixtures (Rust); the
   plan's lists (vitest); the envelope, the storage migration (pytest); every e2e test on the new
   files (Playwright).
+
+## M9b, network map
+
+The Zigbee mesh drawn over the home (`DECISIONS.md`, D-031; [`network.md`](network.md)).
+
+- ✅ **The network layer**, for administrators with ZHA: each device at the piece linked to its
+  device or entities, the links as arcs coloured by quality (good, fair, weak, in one place), a
+  pulse towards the coordinator along the ways devices take, spare links lighter, links to a
+  device not heard from for a day dashed; still under *reduce motion*.
+- ✅ **Tap a device or a link** for its details: type, LQI, RSSI, last seen, hops and through
+  which device, neighbours best first; a link's ends and quality.
+- ✅ **Health**: devices, weak links, devices not seen for a day, and the rooms that reach the mesh
+  only through weak links (*a router here would help*). **Rescan** asks ZHA for a new scan.
+- ✅ **Not placed in the home**: the devices the map cannot place, with *Place* in the panel (tap
+  the piece, the link editor opens filled in). Bindings gain `device`, for a coordinator without
+  entities.
+- ✅ **A source behind an interface** (ZHA now), the analysis in the core, wires as a scene
+  primitive the automation wires will use; device ids and Zigbee addresses kept out of
+  diagnostics.
+- ✅ Tests: the mesh read, merged and routed, its health, its wires and arcs (Rust); the wires drawn
+  and found under a tap (headless Chromium); ZHA's answer mapped, devices placed, the snapshot
+  (vitest); the `device` field, diagnostics without ids (pytest); the layer offered to
+  administrators with ZHA only, the sheet, a tap on a device and on a link, rescan, placing from
+  the panel, markers on a dense screen, a picture per look (Playwright); the frame time with the
+  map and the cost of a 300-device mesh.
+
+![The network map over the demo apartment](figures/screenshot-network.png)
+
+Left for later: Zigbee2MQTT and Thread as sources, a device's history of quality, a link's
+neighbour table both ways.
 
 ## M11, imports
 

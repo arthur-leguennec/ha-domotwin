@@ -18,6 +18,8 @@ import { applyService, demoHome } from "./demo-home.mjs";
 const params = new URLSearchParams(location.search);
 const mode = params.get("mode") ?? "card";
 const live = params.get("live") === "1";
+// A mocked ZHA (D-031): a fictional Zigbee mesh over the demo apartment.
+const zha = params.get("zha") === "1";
 
 await import("/domotwin_static/domotwin.js?v=e2e");
 
@@ -90,7 +92,16 @@ const store = {
     const shown = ground();
     if (shown) shown.layout = layout;
   },
-  bindings: demoBindings,
+  bindings: zha
+    ? {
+        ...demoBindings,
+        elements: {
+          ...demoBindings.elements,
+          // The coordinator has no entity: the sideboard stands for its device.
+          sideboard: { device: "dev-coordinator", entities: [] },
+        },
+      }
+    : demoBindings,
   revision: 1,
   settings: {
     ...(params.get("north") ? { north: Number(params.get("north")) } : {}),
@@ -198,10 +209,100 @@ window.__show = (request) => {
   for (const listener of listeners) listener({ kind: "show", show: request });
 };
 
+/** A fictional mesh, as ZHA's `zha/devices` describes it (`last_seen` in local time, no zone). */
+function zhaDevices() {
+  const ago = (seconds) => {
+    const d = new Date(Date.now() - seconds * 1000);
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  };
+  const ieee = (n) => `00:12:4b:00:00:00:00:0${n}`;
+  const neighbour = (n, lqi, relationship, device_type = "Router") => ({
+    ieee: ieee(n),
+    nwk: `0x000${n}`,
+    lqi: String(lqi),
+    depth: "1",
+    relationship,
+    device_type,
+    rx_on_when_idle: "On",
+    permit_joining: "Unknown",
+    extended_pan_id: "dd:dd:dd:dd:dd:dd:dd:dd",
+  });
+  const device = (n, name, device_type, entities, extra) => ({
+    ieee: ieee(n),
+    nwk: n === 1 ? 0 : 4096 + n,
+    name,
+    manufacturer: "Fictional",
+    model: `Model ${n}`,
+    device_type,
+    power_source: device_type === "EndDevice" ? "Battery or Unknown" : "Mains",
+    available: true,
+    lqi: 180,
+    rssi: -60,
+    last_seen: ago(40),
+    entities: entities.map((entity_id) => ({ entity_id, name: entity_id })),
+    neighbors: [],
+    routes: [],
+    ...extra,
+  });
+  return [
+    device(1, "Coordinator", "Coordinator", [], {
+      // ZHA reports no quality of its own for the coordinator.
+      lqi: null,
+      rssi: null,
+      device_reg_id: "dev-coordinator",
+      neighbors: [
+        neighbour(2, 220, "Child"),
+        neighbour(3, 170, "Child"),
+        neighbour(6, 100, "Child", "EndDevice"),
+      ],
+    }),
+    device(2, "Living room floor lamp", "Router", ["light.living_room_floor_lamp"], {
+      neighbors: [
+        neighbour(1, 215, "Parent", "Coordinator"),
+        neighbour(3, 120, "Sibling"),
+        neighbour(5, 95, "Child"),
+      ],
+    }),
+    device(3, "Kitchen ceiling", "Router", ["light.kitchen_ceiling"], {
+      neighbors: [
+        neighbour(1, 175, "Parent", "Coordinator"),
+        neighbour(4, 45, "Child", "EndDevice"),
+      ],
+    }),
+    device(4, "Washing machine plug", "EndDevice", ["sensor.washing_machine_power"], {
+      lqi: 45,
+      rssi: -88,
+    }),
+    device(5, "Bedside left", "Router", ["light.bedside_left"], {
+      last_seen: ago(2 * 86400),
+      available: false,
+    }),
+    device(
+      6,
+      "Garden sensor",
+      "EndDevice",
+      ["sensor.garden_temperature", "sensor.garden_sensor_lqi"],
+      {
+        lqi: 100,
+      },
+    ),
+  ];
+}
+
 const connection = {
+  sendMessage(message) {
+    calls.push(message);
+  },
   async sendMessagePromise(message) {
     calls.push(message);
     switch (message.type) {
+      case "zha/devices":
+        if (!zha) throw { code: "unknown_command", message: message.type };
+        if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        // A test can hold the answer back (`window.__zhaHold`, a promise).
+        await window.__zhaHold;
+        return zhaDevices();
       case "domotwin/plan/get": {
         const storey = storeyOf(message.storey);
         return structuredClone({
@@ -355,6 +456,7 @@ let hass = {
   language,
   locale: { language },
   themes: { darkMode: params.get("dark") === "1" },
+  config: { components: zha ? ["domotwin", "zha"] : ["domotwin"] },
   connection,
   fetchWithAuth,
   async callService(domain, service, data, target) {

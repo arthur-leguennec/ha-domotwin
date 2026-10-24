@@ -367,3 +367,40 @@ languages, model kits): the engine lost 3.6 kB. The plan editor's module lost 19
 file's lists as they are and keeps no second, read copy of the plan. The demo apartment is
 8.3 kB instead of 13.9 kB (2.0 kB gzipped instead of 2.2 kB). Its scene is the same geometry
 (13 843 triangles, 9 wall groups); only the colours of the pieces that named none changed.
+
+### M9b (network map)
+
+Bundle: the first load is **407.0 kB gzipped** of 1 200 kB (+17.5 kB). The map's own code is a
+chunk loaded the first time the layer is shown:
+
+| File | Raw | Gzipped |
+| --- | ---: | ---: |
+| `domotwin_web_bg.<hash>.wasm` | 756.6 kB | 328.0 kB |
+| `domotwin.js` (entry) | 126.0 kB | 32.0 kB |
+| `chunks/network-panel-<hash>.js` (on demand) | 15.1 kB | 5.2 kB |
+
+The engine grew by 15.2 kB: the mesh's analysis (reading a snapshot, the widest routes, the
+health, its JSON) and the wires (arcs, their pass and its shaders, the tap on a wire). The rest of
+the first load grew by 2.3 kB (the layer in the menu, the device row of the link editor, the
+texts). Moving the analysis out of the first load, into the map's chunk with a module of its own,
+is left for the pass over size after 0.1.0.
+
+Frame time at the High preset, 1280 × 720, in the evening with the lamps on, the mesh of the e2e
+harness shown (5 devices placed, 5 links), *reduce motion* on so that both columns draw the same
+number of frames; the steps of `e2e/perf.spec.ts` ("frame time with the network map"), in
+Chromium with SwiftShader so that the GPU's time counts (one run):
+
+| Look | Without the map (CPU median, software GPU) | With it |
+| --- | ---: | ---: |
+| Day | 0.8 ms, 300 ms | 0.7 ms, 300 ms |
+| Neon | 1.1 ms, 267 ms | 0.5 ms, 250 ms |
+
+The wires are one draw call over the picture (160 triangles here): they cost nothing
+measurable. With motion on, the pulses keep frames coming at the layers' rate (24 a second), as an
+animated heatmap does; the layer off, or the map closed, nothing runs.
+
+Reading a mesh is done once per load and per rescan read, not per frame. A fictional mesh of 300
+devices with 8 neighbours each (2 400 links, a 196 kB snapshot), every device placed on a piece of
+the demo apartment: **32.5 ms** median in headless Chromium for `setNetwork` (the snapshot read,
+the routes, the health, 38 400 wire pieces built and uploaded, the analysis written back). Homes
+have tens of devices, rarely a hundred.

@@ -202,6 +202,11 @@ export class Engine {
      */
     needsFrame(): boolean;
     /**
+     * The link of the network map nearest the device pixel (`x`, `y`) from the top left, within
+     * a tap's reach: JSON `{"a", "b"}` (its ends' ids), or an empty string.
+     */
+    networkAt(x: number, y: number): string;
+    /**
      * Creates the engine on a canvas (a WebGL2 context is created on it).
      *
      * # Errors
@@ -299,6 +304,13 @@ export class Engine {
      * Lets the layers move, or holds them still (the user prefers reduced motion).
      */
     setMotion(motion: boolean): void;
+    /**
+     * Shows the mesh of `snapshot` (JSON, see `domotwin_core::network`): its links are drawn
+     * between the pieces its devices are placed at, coloured by quality, a pulse running towards
+     * the coordinator. Returns the analysis as JSON (devices, links, health). An empty string
+     * hides the map.
+     */
+    setNetwork(snapshot: string): string;
     /**
      * Switches between the 3D view and the 2D plan (animated from `time_ms`).
      */
@@ -500,6 +512,7 @@ export interface InitOutput {
     readonly engine_modelsOverBudget: (a: number) => number;
     readonly engine_moving: (a: number) => number;
     readonly engine_needsFrame: (a: number) => number;
+    readonly engine_networkAt: (a: number, b: number, c: number, d: number) => void;
     readonly engine_new: (a: number, b: number) => void;
     readonly engine_orbit: (a: number, b: number, c: number) => void;
     readonly engine_orbiting: (a: number) => number;
@@ -522,6 +535,7 @@ export interface InitOutput {
     readonly engine_setLocalHour: (a: number, b: number) => void;
     readonly engine_setModelMesh: (a: number, b: number, c: number, d: number, e: number) => number;
     readonly engine_setMotion: (a: number, b: number) => void;
+    readonly engine_setNetwork: (a: number, b: number, c: number, d: number) => void;
     readonly engine_setPlanView: (a: number, b: number, c: number) => void;
     readonly engine_setPowerLayer: (a: number, b: number) => void;
     readonly engine_setQuality: (a: number, b: number, c: number) => void;

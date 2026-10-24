@@ -18,8 +18,8 @@ Local, rapide, Rust + WebAssembly.</p>
 > L’intégration, le panneau, la carte, l’import du plan et de l’IFC, les vues 3D et 2D, le
 > pilotage en direct (états, toucher, appui long, panneau de pièce, liaisons), le mode édition, vos
 > propres modèles 3D, les calques, les appareils, l’éditeur de plan, les étages, les apparences,
-> tous les étages à la fois, la promenade et le kiosque fonctionnent déjà ; d’autres imports
-> arrivent ensuite. Les fonctionnalités ci-dessous décrivent la version 0.1.0.
+> tous les étages à la fois, la promenade, le kiosque et la carte du réseau fonctionnent déjà ;
+> d’autres imports arrivent ensuite. Les fonctionnalités ci-dessous décrivent la version 0.1.0.
 
 ## Fonctionnalités
 
@@ -47,6 +47,12 @@ Local, rapide, Rust + WebAssembly.</p>
 - **Appareils.** Des badges sur vos appareils (l’état d’une serrure, une caméra qui enregistre, ce
   qui est en lecture, une batterie faible, le lave-linge en marche), et ce que voit chaque caméra,
   dessiné au sol de sa pièce ; touchez pour l’image en direct.
+- **Carte du réseau.** Votre maillage Zigbee dessiné sur le logement : chaque appareil sur son
+  meuble, chaque lien en arc coloré selon sa qualité, une lumière qui court vers le coordinateur,
+  et les pièces suspendues à un lien faible nommées, avec « un routeur ici aiderait ». Touchez un
+  appareil ou un lien pour le détail, relancez un scan, placez les appareils que la carte ne trouve
+  pas. Pour les administrateurs, avec ZHA. Voir [la carte du
+  réseau](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/network.md) (en anglais).
 - **Éditeur de plan.** Pas de plan à importer ? Dessinez-le dans le panneau : des pièces en
   polygones avec leurs longueurs, des cloisons, des portes et des fenêtres posées sur les murs, avec
   aimantation et annulation. Voir [l’éditeur de
@@ -94,6 +100,10 @@ Local, rapide, Rust + WebAssembly.</p>
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-devices.png" alt="Les appareils : des badges sur la porte d’entrée, la télévision, la caméra et le lave-linge, et le cône de ce que voit la caméra du séjour sur le plan 2D" width="100%">
+</p>
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-network.png" alt="La carte du réseau : les appareils Zigbee de l’appartement de démonstration sur leurs meubles, reliés par des arcs verts, orange et rouges, et une fiche avec le détail d’un routeur, la santé du réseau et un capteur pas placé dans le logement" width="100%">
 </p>
 
 <p align="center">
@@ -150,7 +160,7 @@ YAML n’est jamais nécessaire. Pour référence, les options de la carte :
 | `spread`      | `true`, `false`                     | `true`     | Tous les étages à la fois : écartés, ou empilés. |
 | `roof`        | `true`, `false`                     | `true`     | Tous les étages à la fois : le toit sur le dernier. |
 | `room`        | un identifiant de pièce du plan     | aucun      | Pièce à cadrer à l’ouverture de la carte.     |
-| `layer`       | `off`, `temperature`, `humidity`, `co2`, `pm25`, `power` | `off` | Calque affiché à l’ouverture ; le menu des calques le change. |
+| `layer`       | `off`, `temperature`, `humidity`, `co2`, `pm25`, `power`, `network` | `off` | Calque affiché à l’ouverture ; le menu des calques le change. `network` ne s’affiche qu’aux administrateurs, avec ZHA. |
 | `alerts`      | `true`, `false`                     | `true`     | Alertes de sécurité des pièces (fumée, gaz, eau, alarme, fenêtre ouverte sous la pluie). |
 | `presence`    | `true`, `false`                     | `true`     | Les pièces occupées s’illuminent doucement.   |
 | `sun`         | `fixed`, `real`                     | `fixed`    | `real` : le soleil éclaire depuis sa vraie position (`sun.sun`), par les fenêtres. |
@@ -176,7 +186,8 @@ capteurs de température, d’humidité, de CO₂ ou de PM2,5 de sa zone Home As
 la pièce, ou celle qui porte son nom) ; ses alertes et sa présence viennent des détecteurs de
 fumée, de gaz, de monoxyde de carbone, d’humidité, de sécurité, d’occupation, de mouvement et de
 présence de cette zone, et de son alarme. Le calque de consommation utilise les capteurs de
-puissance liés à chaque meuble.
+puissance liés à chaque meuble. La carte du réseau place chaque appareil Zigbee sur le meuble lié à
+son appareil ou à l’une de ses entités.
 
 ## Fonctionnement
 
@@ -239,7 +250,8 @@ plan** pour en garder une copie (elle contient les fichiers 3D).
 DomoTwin ne communique qu’avec votre propre Home Assistant. Aucun autre appel réseau : pas de CDN,
 pas de télémétrie, pas de statistiques, pas de polices web. Tous les fichiers utilisés (JavaScript,
 WebAssembly, polices, matériaux) sont servis par l’intégration. Les diagnostics ne contiennent que
-des comptes, jamais de noms, d’identifiants d’entités ou de géométrie.
+des comptes, jamais de noms, d’identifiants d’entités ou d’appareils, d’adresses Zigbee ou de
+géométrie.
 
 ## Contribuer
 
