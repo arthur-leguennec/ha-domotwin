@@ -6,7 +6,8 @@ integration beside the plan, keyed by element id, so re-importing an updated pla
 
 > Status: the stored format below has not changed since M0. Since M2 the scene follows the bound
 > entities, taps and long presses act on them, and administrators link elements from the panel.
-> The full editor (any action, entity search everywhere) comes with the edit mode in M3.
+> Since M3 the panel's editor also sets roles and the long-press action, runs an action or opens a
+> page.
 
 ![Long press on a lamp: its controls. Long press on a floor: the room panel](figures/screenshot-live.png)
 
@@ -124,14 +125,18 @@ setup. Hidden entities and configuration or diagnostic entities are left out.
 Administrators get **Link entities** in the DomoTwin panel. In this mode a tap picks an element
 instead of acting on it, and opens its editor:
 
-- **Linked entities**, each with its role, and a button to unlink it.
+- **Linked entities**, each with its role (automatic from its domain and device class, or chosen:
+  a switch that powers a lamp can be shown as a light), and a button to unlink it.
 - **Suggestions** from the room's area: the entities that fit the element, best first, those
   already linked left out. Lamps take lights and switches, fans fans and lights, curtains covers,
   TVs media players, doors door contacts, locks and garage covers, windows window contacts and
   covers, appliances power sensors and switches.
 - **Search** by name or entity id, accents ignored.
-- **On tap**: automatic (from the first role), toggle, more info or nothing. An action written by
-  hand in the file (`perform-action`, `navigate`…) is kept as it is.
+- **On tap** and **On long press**: automatic (on tap from the first role, on long press
+  DomoTwin's controls), toggle, more info, DomoTwin's controls, **run an action** (`domain.action`,
+  for example `scene.turn_on`, on one of the linked entities or none), **open a page** (a path of
+  Home Assistant such as `/lovelace/0`) or nothing. The fields are checked before saving. An action
+  written by hand with fields the editor does not show (`data`, another target) is kept as it is.
 - For a room: its **Home Assistant area**, with the one found by name preselected.
 
 Each save applies this one change to the latest stored bindings and sends the revision it read: if

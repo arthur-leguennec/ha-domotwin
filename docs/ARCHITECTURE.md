@@ -74,9 +74,12 @@ every reader returns `Result` with a stable error code that the frontend transla
 3. **Interaction.** Pointer events go to the engine (`pick`) which returns the element under the
    pointer. The frontend runs the binding's action: toggle through `callService`, more-info through
    the `hass-more-info` event, navigation, or the long-press popover.
-4. **Edit and save.** In edit mode the engine moves a detached copy of the selected objects; on save
-   the frontend sends the overlay with `domotwin/plan/save` (admins only) and every open view reloads
-   through `domotwin/subscribe`.
+4. **Edit and save.** In edit mode (`edit-mode.md`) the engine keeps the session: selection,
+   snapping, stacking, collisions and undo, in `domotwin-core::edit`. While a piece is dragged, it
+   and what stands on it are rebuilt alone with the moving parts. Every change is the overlay,
+   applied to the stored plan and read again. On save the frontend sends the overlay with
+   `domotwin/plan/save` (admins only, with the revision it started from), and every open view
+   reloads through `domotwin/subscribe`.
 
 ## Storage
 

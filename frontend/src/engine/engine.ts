@@ -6,6 +6,8 @@ import type * as Wasm from "./pkg/domotwin_web.js";
 /** What `loadPlan` returns: counts of the plan's elements. */
 export interface PlanSummary {
   revision: number;
+  /** The edit overlay made the plan invalid: the plan is shown without it. */
+  layoutRefused?: boolean;
   title: string;
   rooms: number;
   walls: number;
@@ -47,6 +49,58 @@ export interface SceneStats {
     pitch: number;
     ortho: number;
   };
+}
+
+/** A guide edit mode draws while a piece moves (device pixels); `cm` for a distance to a wall. */
+export interface EditGuide {
+  a: [number, number];
+  b: [number, number];
+  cm?: number;
+}
+
+/** A selected piece. */
+export interface EditPiece {
+  id: string;
+  name: string;
+  kind: string;
+  /** Fixed in the plan: it cannot be moved, turned or removed. */
+  locked: boolean;
+}
+
+/** What edit mode shows. */
+export interface EditState {
+  editing: boolean;
+  selection: EditPiece[];
+  /** Pieces overlapping another piece or a wall. */
+  conflicts: string[];
+  guides: EditGuide[];
+  canUndo: boolean;
+  canRedo: boolean;
+  /** Changes not saved. */
+  dirty: boolean;
+}
+
+/** A kind of the catalogue, with its default size (cm). */
+export interface CatalogueKind {
+  kind: string;
+  w: number;
+  d: number;
+  h: number;
+  light: boolean;
+}
+
+const NOT_EDITING: EditState = {
+  editing: false,
+  selection: [],
+  conflicts: [],
+  guides: [],
+  canUndo: false,
+  canRedo: false,
+  dirty: false,
+};
+
+function editState(text: string): EditState {
+  return { ...NOT_EDITING, ...(JSON.parse(text) as Partial<EditState>) };
 }
 
 /**
@@ -122,9 +176,9 @@ export class DomoTwinEngine {
    * Reads a plan and builds its scene; throws an `EngineError` with a stable code when it is
    * refused. The camera stays where it is when `keepCamera` (the same home, saved again).
    */
-  loadPlan(json: string, keepCamera = false): PlanSummary {
+  loadPlan(json: string, keepCamera = false, layout?: string): PlanSummary {
     try {
-      return JSON.parse(this.live.loadPlan(json, keepCamera)) as PlanSummary;
+      return JSON.parse(this.live.loadPlan(json, keepCamera, layout)) as PlanSummary;
     } catch (error) {
       throw engineError(error);
     }
@@ -227,6 +281,75 @@ export class DomoTwinEngine {
     return JSON.parse(this.live.stats()) as SceneStats;
   }
 
+  /** Starts edit mode on the plan shown. */
+  beginEdit(): EditState {
+    return editState(this.live.beginEdit());
+  }
+
+  /** Leaves edit mode, keeping what is shown (`keep`) or going back to what was saved. */
+  endEdit(keep: boolean): void {
+    this.live.endEdit(keep);
+  }
+
+  get editState(): EditState {
+    return editState(this.live.editState());
+  }
+
+  /** Selects a piece (`add`: adds it to the selection or takes it out; another id clears it). */
+  editSelect(id: string, add: boolean): EditState {
+    return editState(this.live.editSelect(id, add));
+  }
+
+  /** Grabs the selection when the device pixel shows a selected piece that may move. */
+  editDragStart(x: number, y: number): boolean {
+    return this.live.editDragStart(x, y);
+  }
+
+  editDragMove(x: number, y: number): EditState {
+    return editState(this.live.editDragMove(x, y));
+  }
+
+  editDragEnd(): EditState {
+    return editState(this.live.editDragEnd());
+  }
+
+  /** Turns the selection by `steps` of 15° (negative: anticlockwise on the plan). */
+  editRotate(steps: number): EditState {
+    return editState(this.live.editRotate(steps));
+  }
+
+  editRemove(): EditState {
+    return editState(this.live.editRemove());
+  }
+
+  /** Adds a piece of the catalogue under the device pixel `x`, `y` (or mid-view) and selects it. */
+  editAdd(kind: string, name: string, x: number, y: number): EditState {
+    return editState(this.live.editAdd(kind, name, x, y));
+  }
+
+  editUndo(): EditState {
+    return editState(this.live.editUndo());
+  }
+
+  editRedo(): EditState {
+    return editState(this.live.editRedo());
+  }
+
+  /** Puts a whole overlay in place (a draft kept by the browser), as one change to undo. */
+  editRestore(layout: Record<string, unknown>): EditState {
+    return editState(this.live.editRestore(JSON.stringify(layout)));
+  }
+
+  /** The edit overlay now (what Save stores). */
+  editLayout(): Record<string, unknown> {
+    return JSON.parse(this.live.editLayout()) as Record<string, unknown>;
+  }
+
+  /** The overlay now was stored. */
+  editSaved(): void {
+    this.live.editSaved();
+  }
+
   resize(width: number, height: number): void {
     this.live.resize(width, height);
   }
@@ -267,6 +390,22 @@ export async function summarizePlan(json: string): Promise<PlanSummary> {
   const wasm = await loadWasm();
   try {
     return JSON.parse(wasm.summarizePlan(json)) as PlanSummary;
+  } catch (error) {
+    throw engineError(error);
+  }
+}
+
+/** The kinds a piece can be added as, with their default sizes. */
+export async function catalogue(): Promise<CatalogueKind[]> {
+  const wasm = await loadWasm();
+  return JSON.parse(wasm.Engine.editCatalogue()) as CatalogueKind[];
+}
+
+/** The plan with its edit overlay applied, as **Export plan** writes it (revision 10). */
+export async function applyLayout(plan: string, layout: string): Promise<string> {
+  const wasm = await loadWasm();
+  try {
+    return wasm.applyLayout(plan, layout);
   } catch (error) {
     throw engineError(error);
   }

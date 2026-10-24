@@ -297,6 +297,86 @@ try {
     Buffer.from(ifcPair.slice(ifcPair.indexOf(",") + 1), "base64"),
   );
   console.log("docs/figures/screenshot-ifc.png");
+
+  // Edit mode (M3): a piece dragged on the plan with its guides, and the catalogue.
+  const edit = await browser.newPage({ viewport: { width: 1100, height: 760 } });
+  await edit.goto("http://127.0.0.1:4173/?mode=panel");
+  await edit.waitForFunction(() => window.__view?.()?.debugState().summary, null, {
+    timeout: 60_000,
+  });
+  await edit.evaluate(async () => {
+    const view = window.__view();
+    view.options = { quality: "high", view: "3d", cutaway: "auto", lighting: "day" };
+    await view.updateComplete;
+  });
+  await edit.getByTestId("toggle-plan").click();
+  await edit.evaluate(() => window.__view().settle());
+  await edit.getByTestId("edit-mode").click();
+  await edit.getByTestId("edit-status").waitFor();
+  const editStage = await edit.locator("domotwin-view .stage").boundingBox();
+  const [sx, sy] = await edit.evaluate(
+    ({ box }) => {
+      const view = window.__view();
+      const c = view.elementPoint("sofa");
+      return [box.x + c.x, box.y + c.y];
+    },
+    { box: editStage },
+  );
+  await edit.mouse.click(sx, sy);
+  await edit.mouse.move(sx, sy);
+  await edit.mouse.down();
+  // Down to the wall: it snaps onto the wall face.
+  for (let i = 1; i <= 12; i += 1) {
+    await edit.mouse.move(sx - i * 0.4, sy + i * 6);
+    await edit.evaluate(() => new Promise((done) => requestAnimationFrame(done)));
+  }
+  await edit.waitForTimeout(200);
+  const dragging = await edit.screenshot();
+  await edit.mouse.up();
+  await edit.getByTestId("toggle-plan").click();
+  await edit.evaluate(() => window.__view().settle());
+  await edit.getByTestId("edit-add").click();
+  await edit.getByTestId("catalogue").waitFor();
+  await edit.waitForTimeout(200);
+  const adding = await edit.screenshot();
+  const editPair = await edit.evaluate(
+    async (images) => {
+      const decoded = await Promise.all(
+        images.map(async (base64) => {
+          const image = new Image();
+          image.src = `data:image/png;base64,${base64}`;
+          await image.decode();
+          return image;
+        }),
+      );
+      const labels = ["Drag: snapping and distances to the walls", "Add a piece from the catalogue"];
+      const [w, h] = [decoded[0].width, decoded[0].height];
+      const canvas = document.createElement("canvas");
+      canvas.width = w * 2 + 30;
+      canvas.height = h + 20;
+      const g = canvas.getContext("2d");
+      g.fillStyle = "#f1f5f9";
+      g.fillRect(0, 0, canvas.width, canvas.height);
+      decoded.forEach((image, i) => {
+        const x = 10 + i * (w + 10);
+        g.drawImage(image, x, 10);
+        g.fillStyle = "rgba(255,255,255,0.92)";
+        g.beginPath();
+        g.roundRect(x + 16, 82, 470, 44, 22);
+        g.fill();
+        g.fillStyle = "#0f172a";
+        g.font = "600 22px Inter, sans-serif";
+        g.fillText(labels[i], x + 36, 111);
+      });
+      return canvas.toDataURL("image/png");
+    },
+    [dragging, adding].map((png) => png.toString("base64")),
+  );
+  await fs.writeFile(
+    join(root, "docs", "figures", "screenshot-edit.png"),
+    Buffer.from(editPair.slice(editPair.indexOf(",") + 1), "base64"),
+  );
+  console.log("docs/figures/screenshot-edit.png");
   await browser.close();
 } finally {
   server.kill();

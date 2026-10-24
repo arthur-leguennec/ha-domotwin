@@ -36,6 +36,15 @@ const MAX_MODELS: usize = 50;
 ///
 /// A [`ReadError`] for empty, oversized or non-JSON input, or anything [`read_plan_value`] refuses.
 pub fn read_plan(bytes: &[u8]) -> Result<Plan, ReadError> {
+    read_plan_value(&parse_plan_json(bytes)?)
+}
+
+/// The JSON of a plan file, before it is read (to apply the edit overlay first).
+///
+/// # Errors
+///
+/// `too_large`, `empty` or `not_json`.
+pub fn parse_plan_json(bytes: &[u8]) -> Result<Value, ReadError> {
     if bytes.len() > MAX_PLAN_BYTES {
         return Err(ReadError::new(ErrorCode::TooLarge));
     }
@@ -44,9 +53,8 @@ pub fn read_plan(bytes: &[u8]) -> Result<Plan, ReadError> {
     if bytes.iter().all(u8::is_ascii_whitespace) {
         return Err(ReadError::new(ErrorCode::Empty));
     }
-    let value: Value = serde_json::from_slice(bytes)
-        .map_err(|err| ReadError::with_detail(ErrorCode::NotJson, err.to_string()))?;
-    read_plan_value(&value)
+    serde_json::from_slice(bytes)
+        .map_err(|err| ReadError::with_detail(ErrorCode::NotJson, err.to_string()))
 }
 
 /// Reads a plan already parsed as JSON.

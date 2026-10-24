@@ -77,6 +77,12 @@ export class Translator {
     return form ? format(form, { ...params, count }) : key;
   }
 
+  /** The name of a furniture kind of the catalogue (`sofa`, `tablelamp`…), else the kind. */
+  kind(kind: string): string {
+    const text = lookup(dictionaries[this.language], `kinds.${kind}`);
+    return typeof text === "string" ? text : kind;
+  }
+
   /** An error code from the engine (`errors.plan.*`) or the websocket API (`errors.ws.*`). */
   error(code: string): string {
     for (const group of ["plan", "ws"]) {

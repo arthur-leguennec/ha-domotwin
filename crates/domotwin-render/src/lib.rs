@@ -19,7 +19,7 @@ use domotwin_core::lighting::Lighting;
 use domotwin_core::live::Look;
 use domotwin_core::scene::mesh::Mesh;
 use domotwin_core::scene::{LightSpot, Scene};
-use lamps::{Halo, PointLight};
+use lamps::{Halo, Mark, PointLight};
 pub use quality::{GpuHint, QualityPreset};
 pub use three_d::context::Context as GlContext;
 use three_d::{
@@ -179,6 +179,9 @@ pub struct Renderer {
     meshes: [Option<GpuMesh>; 4],
     /// The live look of every element, two texels each (see `lamps::element_texels`).
     elements: Texture2D,
+    /// The looks and edit marks it holds.
+    looks: Vec<Look>,
+    marks: Vec<Mark>,
     spots: Vec<LightSpot>,
     lights: Vec<PointLight>,
     halos: Option<GpuHalos>,
@@ -264,8 +267,7 @@ fn sun_matrix(centre: [f64; 3], radius: f64) -> [f32; 16] {
 }
 
 /// The per-element texture: two texels per element tag, on one row.
-fn element_texture(context: &Context, looks: &[Look]) -> Texture2D {
-    let texels = lamps::element_texels(looks);
+fn element_texture(context: &Context, texels: &[[f32; 4]]) -> Texture2D {
     let width = u32::try_from(texels.len()).unwrap_or(2).max(2);
     let texture = Texture2D::new_empty::<[f32; 4]>(
         context,
@@ -277,7 +279,7 @@ fn element_texture(context: &Context, looks: &[Look]) -> Texture2D {
         Wrapping::ClampToEdge,
         Wrapping::ClampToEdge,
     );
-    texture.fill(&texels);
+    texture.fill(texels);
     texture
 }
 
@@ -294,7 +296,7 @@ impl Renderer {
         let depth = Program::from_source(&context, shaders::VERTEX, shaders::DEPTH)?;
         let pick = Program::from_source(&context, shaders::VERTEX, shaders::PICK)?;
         let halo = Program::from_source(&context, shaders::HALO_VERTEX, shaders::HALO_FRAGMENT)?;
-        let elements = element_texture(&context, &[]);
+        let elements = element_texture(&context, &lamps::element_texels(&[], &[]));
         let mut view = ViewState::default();
         view.aspect = f64::from(width.max(1)) / f64::from(height.max(1));
         let no_shadow = DepthTexture2D::new::<f32>(
@@ -320,6 +322,8 @@ impl Renderer {
             halo,
             meshes: [None, None, None, None],
             elements,
+            looks: Vec::new(),
+            marks: Vec::new(),
             spots: Vec::new(),
             lights: Vec::new(),
             halos: None,
@@ -353,20 +357,60 @@ impl Renderer {
 
     /// Sets the live look of every element (lights, greyed out, highlight).
     pub fn set_looks(&mut self, looks: &[Look]) {
-        let texels = lamps::element_texels(looks);
+        self.looks.clear();
+        self.looks.extend_from_slice(looks);
+        self.upload_elements();
+        self.relight();
+    }
+
+    /// Marks the elements selected or in conflict in edit mode (by element index; empty: none).
+    pub fn set_marks(&mut self, marks: &[Mark]) {
+        if marks != self.marks.as_slice() {
+            self.marks = marks.to_vec();
+            self.upload_elements();
+        }
+    }
+
+    /// Moves the lamps (the pieces carrying them moved in edit mode).
+    pub fn set_spots(&mut self, spots: &[LightSpot]) {
+        self.spots = spots.to_vec();
+        self.relight();
+    }
+
+    fn upload_elements(&mut self) {
+        let texels = lamps::element_texels(&self.looks, &self.marks);
         if self.elements.width() as usize == texels.len() {
             self.elements.fill(&texels);
         } else {
-            self.elements = element_texture(&self.context, looks);
+            self.elements = element_texture(&self.context, &texels);
         }
-        self.lights = lamps::point_lights(&self.spots, looks);
-        self.halos = GpuHalos::new(&self.context, &lamps::halos(&self.spots, looks));
         self.view.dirty = true;
+    }
+
+    fn relight(&mut self) {
+        self.lights = lamps::point_lights(&self.spots, &self.looks);
+        self.halos = GpuHalos::new(&self.context, &lamps::halos(&self.spots, &self.looks));
+        self.view.dirty = true;
+    }
+
+    /// The point of the horizontal plane at `height` (cm) drawn at the device pixel `x`, `y`
+    /// from the top left (world coordinates), if the camera sees that plane there.
+    pub fn plane_point(&self, x: f64, y: f64, height: f64) -> Option<[f64; 3]> {
+        let ndc = [
+            x / f64::from(self.width) * 2.0 - 1.0,
+            1.0 - y / f64::from(self.height) * 2.0,
+        ];
+        self.view.camera.plane_point(self.view.aspect, ndc, height)
     }
 
     /// Number of point lights in use (diagnostics).
     pub fn light_count(&self) -> usize {
         self.lights.len()
+    }
+
+    /// The drawing buffer size in device pixels.
+    pub const fn size(&self) -> (u32, u32) {
+        (self.width, self.height)
     }
 
     /// Sets the drawing buffer size in device pixels.

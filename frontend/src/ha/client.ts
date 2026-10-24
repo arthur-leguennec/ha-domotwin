@@ -72,6 +72,15 @@ export class DomoTwinClient {
     return result.revision;
   }
 
+  /** Stores the edit overlay of edit mode (admins only). `expectedRevision` as for `savePlan`. */
+  async saveLayout(layout: Record<string, unknown>, expectedRevision?: number): Promise<number> {
+    const message: HassMessage = { type: "domotwin/plan/save", layout };
+    if (expectedRevision !== undefined) message.expected_revision = expectedRevision;
+    const result = await this.connection.sendMessagePromise<{ revision: number }>(message);
+    this.plan = undefined;
+    return result.revision;
+  }
+
   /** Stores the bindings (admins only). `expectedRevision` as for `savePlan`. */
   async saveBindings(bindings: Bindings, expectedRevision?: number): Promise<number> {
     const message: HassMessage = { type: "domotwin/bindings/save", bindings };

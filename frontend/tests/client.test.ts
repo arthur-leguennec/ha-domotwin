@@ -49,9 +49,11 @@ describe("DomoTwinClient", () => {
     const client = DomoTwinClient.for(hass);
     await client.savePlan({ version: 1 }, 4);
     await client.savePlan(null);
+    await client.saveLayout({ sofa: { x: 10 } }, 6);
     expect(sent).toEqual([
       { type: "domotwin/plan/save", plan: { version: 1 }, expected_revision: 4 },
       { type: "domotwin/plan/save", plan: null },
+      { type: "domotwin/plan/save", layout: { sofa: { x: 10 } }, expected_revision: 6 },
     ]);
   });
 });

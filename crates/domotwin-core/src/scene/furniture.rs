@@ -209,8 +209,10 @@ pub(crate) fn build(builder: &mut Builder, plan: &Plan, layout: &WallLayout) {
         let Element::Furniture(item) = element else {
             continue;
         };
-        // Curtains move (live control): they are built with the moving parts.
-        if (item.kind == Kind::Curtain) != builder.dynamic {
+        // Curtains move (live control), and pieces being moved in edit mode: they are built
+        // with the moving parts.
+        let moving = item.kind == Kind::Curtain || builder.moving.contains(&index);
+        if moving != builder.dynamic {
             continue;
         }
         piece(builder, plan, layout, index, item);

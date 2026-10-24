@@ -6,7 +6,7 @@ import {
   mdiFloorPlan,
   mdiHomeOutline,
 } from "@mdi/js";
-import { LitElement, css, html, nothing, type PropertyValues, type TemplateResult } from "lit";
+import { LitElement, css, html, nothing, svg, type PropertyValues, type TemplateResult } from "lit";
 
 import { themeBackground, type Rgb } from "../color";
 import type { CutawayMode, LightingMode, QualityName, ViewMode } from "../config";
@@ -15,6 +15,7 @@ import {
   EngineError,
   engineError,
   wasmMemoryBytes,
+  type EditState,
   type PickedElement,
   type PlanSummary,
   type SavedView,
@@ -23,6 +24,7 @@ import {
 import {
   GestureTracker,
   HOLD_TIME,
+  TAP_SLOP,
   wheelFactor,
   type Gesture,
   type PointerSample,
@@ -88,6 +90,9 @@ interface FocusedRoom {
   name: string;
 }
 
+/** What the edit bar asks the view to do. */
+export type EditCommand = "undo" | "redo" | "rotate-left" | "rotate-right" | "remove" | "clear";
+
 /** Frame timings measured by `benchmark()` (frame-time smoke test). */
 export interface FrameStats {
   frames: number;
@@ -111,6 +116,8 @@ export interface DebugState {
   stats?: SceneStats;
   /** The open panel: `controls:<entities>` or `room:<area>`. */
   sheet?: string;
+  /** Edit mode, when on. */
+  edit?: { selection: string[]; conflicts: string[]; guides: number; dirty: boolean };
 }
 
 function percentile(values: number[], p: number): number {
@@ -127,8 +134,11 @@ export class DomoTwinView extends LitElement {
   static override properties = {
     hass: { attribute: false },
     plan: { attribute: false },
+    layout: { attribute: false },
     bindings: { attribute: false },
     linking: { attribute: false },
+    editing: { attribute: false },
+    multiSelect: { attribute: false },
     options: { attribute: false },
     planError: { attribute: false },
     engineState: { state: true },
@@ -140,11 +150,14 @@ export class DomoTwinView extends LitElement {
     sheet: { state: true },
     focusedRoom: { state: true },
     notice: { state: true },
+    edit: { state: true },
   };
 
   hass?: HomeAssistant;
   /** `undefined` while loading, `null` when no plan is stored. */
   plan?: StoredPlan["plan"];
+  /** The edit overlay applied to the plan (pieces moved, removed or added in edit mode). */
+  layout?: StoredPlan["layout"];
   /** What the plan's elements and rooms are bound to (`undefined`: nothing bound). */
   bindings?: BindingsJson;
   /**
@@ -152,6 +165,13 @@ export class DomoTwinView extends LitElement {
    * (`domotwin-pick`, detail: the picked element) instead of acting.
    */
   linking = false;
+  /**
+   * Edit mode (the panel's): a tap selects a piece, dragging a selected piece moves it. Every
+   * change fires `domotwin-edit` (detail: the `EditState`).
+   */
+  editing = false;
+  /** In edit mode, taps add pieces to the selection (or take them out). */
+  multiSelect = false;
   options: ViewOptions = { quality: "auto" };
   /** An error to show instead of the plan (e.g. the stored plan could not be fetched). */
   planError?: string;
@@ -165,6 +185,8 @@ export class DomoTwinView extends LitElement {
   protected sheet?: Sheet;
   protected focusedRoom?: FocusedRoom;
   protected notice?: string;
+  /** The edit session's state while edit mode is on. */
+  protected edit?: EditState;
 
   private engine?: DomoTwinEngine;
   private canvas?: HTMLCanvasElement;
@@ -174,6 +196,7 @@ export class DomoTwinView extends LitElement {
   private generation = 0;
   private background?: Rgb;
   private loadedPlan?: unknown;
+  private loadedLayout?: unknown;
   private readonly gestures = new GestureTracker();
   /** Scale of the drawing buffer, lowered while frames are slow. */
   private resolution = 1;
@@ -188,6 +211,16 @@ export class DomoTwinView extends LitElement {
   private bound = new Set<string>();
   private holdTimer?: number;
   private noticeTimer?: number;
+  /**
+   * The pointer that grabbed pieces in edit mode, where it was pressed, whether it has moved past
+   * the tap distance (before that, nothing moves), and where it waits to be applied.
+   */
+  private dragPointer?: number;
+  private dragFrom?: { x: number; y: number };
+  private dragging = false;
+  private dragTo?: { x: number; y: number };
+  /** Ctrl, Cmd or Shift held at the last press: a tap adds to the selection. */
+  private addModifier = false;
   /** The panels' module, loaded the first time one opens. */
   private sheets?: Promise<unknown>;
   private readonly onVisibility = (): void => {
@@ -346,6 +379,37 @@ export class DomoTwinView extends LitElement {
         font-size: 0.875rem;
         border-color: var(--error-color, #db4437);
       }
+      .guides {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        overflow: visible;
+      }
+      .guides line {
+        stroke-linecap: round;
+      }
+      .guides .snap {
+        stroke: var(--primary-color, #03a9f4);
+        stroke-width: 1.5;
+        stroke-dasharray: 6 4;
+      }
+      .guides .distance {
+        stroke: var(--primary-text-color, #1f2328);
+        stroke-opacity: 0.55;
+        stroke-width: 1;
+      }
+      .guides text {
+        font-size: 12px;
+        font-weight: 600;
+        fill: var(--primary-text-color, #1f2328);
+        stroke: var(--card-background-color, #fff);
+        stroke-width: 3px;
+        paint-order: stroke;
+        text-anchor: middle;
+        dominant-baseline: middle;
+      }
       .spinner {
         width: 28px;
         height: 28px;
@@ -375,6 +439,7 @@ export class DomoTwinView extends LitElement {
   override disconnectedCallback(): void {
     super.disconnectedCallback();
     document.removeEventListener("visibilitychange", this.onVisibility);
+    window.removeEventListener("keydown", this.onEditKey);
     window.clearTimeout(this.noticeTimer);
     this.stopEngine();
   }
@@ -385,7 +450,8 @@ export class DomoTwinView extends LitElement {
 
   protected override updated(changed: PropertyValues<this>): void {
     if (changed.has("bindings")) this.applyBindings();
-    if (changed.has("plan")) this.applyPlan();
+    if (changed.has("editing")) this.applyEditing();
+    if (changed.has("plan") || changed.has("layout")) this.applyPlan();
     if (changed.has("options") && this.engine) {
       const previous = changed.get("options");
       this.engine.setQuality(this.options.quality);
@@ -427,7 +493,78 @@ export class DomoTwinView extends LitElement {
           ? `controls:${sheet.entities.join(",")}`
           : `room:${sheet.area ?? ""}`;
     }
+    const edit = this.edit;
+    if (edit) {
+      state.edit = {
+        selection: edit.selection.map((piece) => piece.id),
+        conflicts: edit.conflicts,
+        guides: edit.guides.length,
+        dirty: edit.dirty,
+      };
+    }
     return state;
+  }
+
+  /** Runs a command of the edit bar. */
+  editCommand(command: EditCommand): void {
+    const engine = this.engine;
+    if (!engine || !this.edit) return;
+    switch (command) {
+      case "undo":
+        this.setEdit(engine.editUndo());
+        break;
+      case "redo":
+        this.setEdit(engine.editRedo());
+        break;
+      case "rotate-left":
+        this.setEdit(engine.editRotate(-1));
+        break;
+      case "rotate-right":
+        this.setEdit(engine.editRotate(1));
+        break;
+      case "remove":
+        this.setEdit(engine.editRemove());
+        break;
+      case "clear":
+        this.setEdit(engine.editSelect("", false));
+        break;
+    }
+  }
+
+  /** Adds a piece of the catalogue in the middle of the view and selects it. */
+  editAdd(kind: string, name: string): void {
+    const engine = this.engine;
+    const canvas = this.canvas;
+    if (!engine || !canvas || !this.edit) return;
+    this.setEdit(engine.editAdd(kind, name, canvas.width / 2, canvas.height / 2));
+  }
+
+  /** Puts a draft overlay in place, as one change that can be undone. */
+  editRestore(layout: Record<string, unknown>): void {
+    if (this.engine && this.edit) this.setEdit(this.engine.editRestore(layout));
+  }
+
+  /** The edit overlay now (what Save stores). */
+  editLayout(): Record<string, unknown> | undefined {
+    return this.edit ? this.engine?.editLayout() : undefined;
+  }
+
+  /** The overlay now was stored. */
+  editSaved(): void {
+    if (!this.engine || !this.edit) return;
+    this.engine.editSaved();
+    this.setEdit(this.engine.editState);
+  }
+
+  /** Leaves edit mode, keeping the changes shown (`keep`) or going back to what was saved. */
+  endEdit(keep: boolean): void {
+    if (!this.edit) return;
+    this.engine?.endEdit(keep);
+    this.edit = undefined;
+    window.removeEventListener("keydown", this.onEditKey);
+    this.dragPointer = undefined;
+    this.dragTo = undefined;
+    this.scheduler?.request();
   }
 
   /** Shows the 2D plan or the 3D view. */
@@ -462,6 +599,14 @@ export class DomoTwinView extends LitElement {
     this.sheet = undefined;
     const engine = this.engine;
     if (!engine) return;
+    if (this.edit) {
+      // Edit mode: a tap selects a piece (anything else clears the selection).
+      const picked = this.elementAt(x, y);
+      const id = picked?.type === "furniture" ? picked.id : "";
+      this.gestures.forgetTap();
+      this.setEdit(engine.editSelect(id, this.multiSelect || this.addModifier));
+      return;
+    }
     const picked = this.elementAt(x, y);
     if (!picked) return;
     if (this.linking) {
@@ -483,6 +628,13 @@ export class DomoTwinView extends LitElement {
   /** What a long press at a point of the view does (CSS pixels from its top left). */
   hold(x: number, y: number): void {
     const picked = this.elementAt(x, y);
+    if (this.edit) {
+      // Edit mode: a long press adds a piece to the selection (or takes it out).
+      if (picked?.type === "furniture" && this.engine) {
+        this.setEdit(this.engine.editSelect(picked.id, true));
+      }
+      return;
+    }
     if (!picked) return;
     if (this.linking) {
       this.pick(picked);
@@ -503,6 +655,12 @@ export class DomoTwinView extends LitElement {
     if (!this.engine || !this.canvas) return undefined;
     const scale = this.canvas.width / Math.max(1, this.canvas.clientWidth);
     return this.engine.pick(x * scale, y * scale);
+  }
+
+  /** Device pixels of the drawing buffer for a point of the view in CSS pixels. */
+  private devicePoint(x: number, y: number): { x: number; y: number } {
+    const scale = this.canvas ? this.canvas.width / Math.max(1, this.canvas.clientWidth) : 1;
+    return { x: x * scale, y: y * scale };
   }
 
   /** Where an element's centre is drawn (CSS pixels from the top left of the view), if anywhere. */
@@ -613,7 +771,10 @@ export class DomoTwinView extends LitElement {
     this.states.reset();
     this.applyBindings();
     this.loadedPlan = undefined;
+    this.loadedLayout = undefined;
+    this.edit = undefined;
     this.applyPlan();
+    this.applyEditing();
     this.resize(stage);
     this.scheduler.request();
   }
@@ -640,6 +801,7 @@ export class DomoTwinView extends LitElement {
 
   /** Draws a frame and adapts the resolution to how long frames take. */
   private drawFrame(engine: DomoTwinEngine, time: number): boolean {
+    this.flushDrag();
     const start = performance.now();
     const more = engine.frame(time);
     const cost = performance.now() - start;
@@ -730,10 +892,61 @@ export class DomoTwinView extends LitElement {
     this.scheduler?.request();
   }
 
+  /** Starts or ends the engine's edit session to follow `editing`. */
+  private applyEditing(): void {
+    const engine = this.engine;
+    if (!engine) return;
+    if (this.editing && !this.edit && this.summary) {
+      this.sheet = undefined;
+      this.focusedRoom = undefined;
+      this.viewsOpen = false;
+      this.setEdit(engine.beginEdit());
+    } else if (!this.editing && this.edit) {
+      this.endEdit(true);
+      // Plan changes that came while editing.
+      this.applyPlan();
+    }
+  }
+
+  private setEdit(state: EditState): void {
+    const was = this.edit !== undefined;
+    this.edit = state.editing ? state : undefined;
+    if (!was && this.edit) window.addEventListener("keydown", this.onEditKey);
+    if (was && !this.edit) window.removeEventListener("keydown", this.onEditKey);
+    fire(this, "domotwin-edit", state);
+    this.scheduler?.request();
+  }
+
+  /** Moves the dragged pieces to the last pointer position, once per frame. */
+  private flushDrag(): void {
+    const to = this.dragTo;
+    if (!to || !this.engine || this.dragPointer === undefined) return;
+    this.dragTo = undefined;
+    const point = this.devicePoint(to.x, to.y);
+    this.setEdit(this.engine.editDragMove(point.x, point.y));
+  }
+
+  private endDrag(): void {
+    if (this.dragPointer === undefined || !this.engine) return;
+    this.flushDrag();
+    this.dragPointer = undefined;
+    this.dragFrom = undefined;
+    this.dragging = false;
+    this.setEdit(this.engine.editDragEnd());
+  }
+
   private applyPlan(): void {
-    if (!this.engine || this.plan === this.loadedPlan) return;
+    // Not while editing: the session works on the plan shown; changes wait for its end.
+    if (
+      !this.engine ||
+      this.edit ||
+      (this.plan === this.loadedPlan && this.layout === this.loadedLayout)
+    ) {
+      return;
+    }
     const sameHome = this.loadedPlan !== undefined && this.loadedPlan !== null;
     this.loadedPlan = this.plan;
+    this.loadedLayout = this.layout;
     if (!sameHome) {
       this.sheet = undefined;
       this.focusedRoom = undefined;
@@ -743,7 +956,11 @@ export class DomoTwinView extends LitElement {
     this.savedViews = [];
     if (!this.plan) return;
     try {
-      this.summary = this.engine.loadPlan(JSON.stringify(this.plan), sameHome);
+      this.summary = this.engine.loadPlan(
+        JSON.stringify(this.plan),
+        sameHome,
+        this.layout ? JSON.stringify(this.layout) : undefined,
+      );
       this.savedViews = this.engine.views();
       if (!sameHome) {
         if (this.options.view === "2d") this.setPlanView(true);
@@ -859,6 +1076,23 @@ export class DomoTwinView extends LitElement {
     if (!this.engine) return;
     this.viewsOpen = false;
     (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+    this.addModifier = event.ctrlKey || event.metaKey || event.shiftKey;
+    if (
+      this.edit &&
+      this.dragPointer === undefined &&
+      this.gestures.active === 0 &&
+      event.button === 0 &&
+      !event.shiftKey
+    ) {
+      // Edit mode: pressing a selected piece grabs it.
+      const point = this.devicePoint(event.offsetX, event.offsetY);
+      if (this.engine.editDragStart(point.x, point.y)) {
+        this.dragPointer = event.pointerId;
+        this.dragFrom = { x: event.offsetX, y: event.offsetY };
+        this.dragging = false;
+        return;
+      }
+    }
     this.apply(this.gestures.down(this.sample(event)));
     window.clearTimeout(this.holdTimer);
     if (this.gestures.active === 1) {
@@ -869,17 +1103,39 @@ export class DomoTwinView extends LitElement {
   };
 
   private readonly onPointerMove = (event: PointerEvent): void => {
+    if (event.pointerId === this.dragPointer) {
+      const from = this.dragFrom;
+      this.dragging ||=
+        !from || Math.hypot(event.offsetX - from.x, event.offsetY - from.y) >= TAP_SLOP;
+      if (this.dragging) {
+        this.dragTo = { x: event.offsetX, y: event.offsetY };
+        this.scheduler?.request();
+      }
+      return;
+    }
     if (this.gestures.active === 0) return;
     this.apply(this.gestures.move(this.sample(event)));
   };
 
   private readonly onPointerUp = (event: PointerEvent): void => {
     window.clearTimeout(this.holdTimer);
+    if (event.pointerId === this.dragPointer) {
+      const moved = this.dragging;
+      if (moved) this.dragTo = { x: event.offsetX, y: event.offsetY };
+      this.endDrag();
+      // Pressed without moving: a tap (selects this piece alone, or toggles it).
+      if (!moved) this.tap(event.offsetX, event.offsetY);
+      return;
+    }
     this.apply(this.gestures.up(this.sample(event)));
   };
 
   private readonly onPointerCancel = (event: PointerEvent): void => {
     window.clearTimeout(this.holdTimer);
+    if (event.pointerId === this.dragPointer) {
+      this.endDrag();
+      return;
+    }
     this.gestures.cancel(event.pointerId);
   };
 
@@ -896,7 +1152,48 @@ export class DomoTwinView extends LitElement {
     ]);
   };
 
+  /** Edit mode's keys: Delete, R (Shift+R the other way), Ctrl+Z, Ctrl+Y, Escape. */
+  private editKey(event: KeyboardEvent): boolean {
+    const control = event.ctrlKey || event.metaKey;
+    const key = event.key.toLowerCase();
+    let command: EditCommand | undefined;
+    if (event.key === "Delete" || event.key === "Backspace") command = "remove";
+    else if (key === "r" && !control) command = event.shiftKey ? "rotate-left" : "rotate-right";
+    else if (key === "z" && control) command = event.shiftKey ? "redo" : "undo";
+    else if (key === "y" && control) command = "redo";
+    else if (event.key === "Escape") command = "clear";
+    if (!command) return false;
+    event.preventDefault();
+    this.editCommand(command);
+    return true;
+  }
+
+  /** Edit mode's keys work anywhere on the page, except while typing. */
+  private readonly onEditKey = (event: KeyboardEvent): void => {
+    if (!this.edit || event.defaultPrevented) return;
+    const target = event.composedPath()[0];
+    if (
+      target instanceof HTMLElement &&
+      (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName))
+    ) {
+      return;
+    }
+    this.editKey(event);
+  };
+
   private readonly onKeyDown = (event: KeyboardEvent): void => {
+    // Edit mode's keys are handled on the window (onEditKey).
+    if (this.edit) {
+      const control = event.ctrlKey || event.metaKey;
+      const key = event.key.toLowerCase();
+      if (
+        ["Delete", "Backspace", "Escape"].includes(event.key) ||
+        (key === "r" && !control) ||
+        (control && (key === "z" || key === "y"))
+      ) {
+        return;
+      }
+    }
     const keys: Record<string, Gesture | undefined> = {
       ArrowLeft: { kind: event.shiftKey ? "pan" : "drag", dx: -KEY_STEP, dy: 0 },
       ArrowRight: { kind: event.shiftKey ? "pan" : "drag", dx: KEY_STEP, dy: 0 },
@@ -989,13 +1286,33 @@ export class DomoTwinView extends LitElement {
           event.preventDefault();
         }}
       ></div>
-      ${this.renderOverlay()} ${ready ? this.renderTools() : nothing}
+      ${this.renderGuides()} ${this.renderOverlay()} ${ready ? this.renderTools() : nothing}
       ${ready ? this.renderSheet() : nothing}
       ${
         this.notice
           ? html`<div class="notice glass" role="alert" data-testid="notice">${this.notice}</div>`
           : nothing
       }`;
+  }
+
+  /** Edit mode's guides: the faces a piece snapped onto, and its distances to the walls. */
+  private renderGuides(): TemplateResult | typeof nothing {
+    const guides = this.edit?.guides;
+    const canvas = this.canvas;
+    if (!guides || guides.length === 0 || !canvas) return nothing;
+    const k = Math.max(1, canvas.clientWidth) / Math.max(1, canvas.width);
+    const format = new Intl.NumberFormat(this.translator.language, { maximumFractionDigits: 0 });
+    return html`<svg class="guides" aria-hidden="true" data-testid="guides">
+      ${guides.map((guide) => {
+        const [x1, y1, x2, y2] = [guide.a[0] * k, guide.a[1] * k, guide.b[0] * k, guide.b[1] * k];
+        if (guide.cm === undefined) {
+          return svg`<line class="snap" x1=${x1} y1=${y1} x2=${x2} y2=${y2}></line>`;
+        }
+        if (guide.cm < 1 || Math.hypot(x2 - x1, y2 - y1) < 24) return nothing;
+        return svg`<line class="distance" x1=${x1} y1=${y1} x2=${x2} y2=${y2}></line>
+          <text x=${(x1 + x2) / 2} y=${(y1 + y2) / 2}>${format.format(guide.cm)} cm</text>`;
+      })}
+    </svg>`;
   }
 
   private renderSheet(): TemplateResult | typeof nothing {
@@ -1113,7 +1430,7 @@ export class DomoTwinView extends LitElement {
         true,
       );
     }
-    if (!this.summary || this.sheet) return nothing;
+    if (!this.summary || this.sheet || this.edit) return nothing;
     if (this.linking) {
       return html`<div class="chip glass" role="status" data-testid="link-hint">
         ${t.t("link.hint")}

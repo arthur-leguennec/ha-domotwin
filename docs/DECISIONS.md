@@ -253,3 +253,29 @@ explains why. Each entry: context, decision, consequences.
 - **Consequences.** A model without spaces cannot be imported (the message says how to add them);
   rooms from walls alone may come later. Window sills follow the plan format's fixed 90 cm.
 
+## D-019 · Edit mode: an overlay replayed on the plan, the session in the engine
+
+- **Context.** M3 moves, turns, stacks, removes and adds furniture. The imported plan stays as it
+  was read (D-005) so that importing an updated plan keeps the edits; editing must feel immediate on
+  wall tablets; undo must be reliable; two devices may edit.
+- **Decision.**
+  - Every edit is the **overlay** (`layout`, keyed by element id: position, angle, elevation, room,
+    removed, added pieces), applied to the plan's JSON **before** it is read
+    (`domotwin-core::overlay`). The reader checks the result like any plan; a change that would make
+    it invalid is dropped. Only furniture is edited: rooms, walls and openings come from the plan.
+  - The session lives in `domotwin-core::edit`, tested without a GPU: selection, snapping (each side
+    onto the nearest parallel wall face or piece edge within about 1.5 % of the view, else a 5 cm
+    grid), distance guides, stacking, collisions, and a history of **whole overlays** (100), so that
+    undo cannot drift.
+  - While a piece is dragged, it and what stands on it are built with the moving parts (D-016):
+    a pointer move rebuilds only them; the scene is rebuilt once when they are dropped.
+  - **Stacking** is for small objects only (lamps, plants, screens, printers, a dryer on a washer,
+    the user's models) on pieces with a top: an armchair dropped on a table is a conflict, not a
+    stack. **Conflicts** are drawn red and never refused: plans are approximate.
+  - **Save** sends the overlay with the revision edit mode started from (D-005, D-017). The overlay
+    not saved is kept in the browser's local storage for that revision, on the device only, and
+    offered again when edit mode opens.
+- **Consequences.** **Export plan** writes the overlay applied. Added pieces get ids
+  `<kind>-added-<n>`. The engine grew by 28 kB gzipped; the edit bar and catalogue load only when
+  edit mode opens. Rooms, walls, doors and windows are not edited in DomoTwin.
+

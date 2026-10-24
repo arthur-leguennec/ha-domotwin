@@ -1,16 +1,32 @@
-import { mdiCheck, mdiClose, mdiLinkVariant, mdiTrayArrowDown, mdiTrayArrowUp } from "@mdi/js";
+import {
+  mdiCheck,
+  mdiClose,
+  mdiLinkVariant,
+  mdiPencilOutline,
+  mdiTrayArrowDown,
+  mdiTrayArrowUp,
+} from "@mdi/js";
 import { LitElement, css, html, nothing, type TemplateResult } from "lit";
 
-import { EngineError, summarizePlan, type PickedElement } from "../engine/engine";
+import {
+  EngineError,
+  applyLayout,
+  catalogue,
+  summarizePlan,
+  type CatalogueKind,
+  type EditState,
+  type PickedElement,
+} from "../engine/engine";
 import { DomoTwinClient, type PlanJson, type StoredPlan } from "../ha/client";
 import { isHassError, type HomeAssistant } from "../ha/types";
 import { readBindings, roomArea, type BindingsJson, type ElementBinding } from "../live/bindings";
+import { clearDraft, readDraft, writeDraft, type Draft } from "../live/draft";
 import { applyLink, planElement, type LinkChange, type PlanElementInfo } from "../live/suggest";
 import type { IfcFile, IfcReport, IfcStorey } from "../ifc/ifc";
 import { translatorFor, type Translator } from "../i18n";
 import { icon } from "./icon";
 import { baseStyles } from "./styles";
-import type { ViewOptions } from "./view";
+import type { DomoTwinView, EditCommand, ViewOptions } from "./view";
 
 /** The plan format allows files up to 32 MB. */
 const MAX_FILE_BYTES = 32_000_000;
@@ -62,6 +78,7 @@ export class DomoTwinPanel extends LitElement {
     narrow: { type: Boolean },
     panel: { attribute: false },
     plan: { state: true },
+    layout: { state: true },
     planError: { state: true },
     bindings: { state: true },
     toast: { state: true },
@@ -69,11 +86,18 @@ export class DomoTwinPanel extends LitElement {
     linking: { state: true },
     linkTarget: { state: true },
     ifcChoice: { state: true },
+    editing: { state: true },
+    edit: { state: true },
+    multi: { state: true },
+    catalogue: { state: true },
+    discardAsk: { state: true },
+    draft: { state: true },
   };
 
   narrow = false;
   panel?: unknown;
   protected plan?: StoredPlan["plan"];
+  protected layout?: StoredPlan["layout"];
   protected planError?: string;
   protected bindings?: BindingsJson;
   protected toast?: Toast;
@@ -81,6 +105,20 @@ export class DomoTwinPanel extends LitElement {
   protected linking = false;
   protected linkTarget?: LinkTarget;
   protected ifcChoice?: IfcChoice;
+  /** Edit mode: on, its state, taps adding to the selection, the catalogue open. */
+  protected editing = false;
+  protected edit?: EditState;
+  protected multi = false;
+  protected catalogue?: CatalogueKind[];
+  /** Asking whether to discard the changes. */
+  protected discardAsk = false;
+  /** Changes not saved, kept by this browser, offered when edit mode starts. */
+  protected draft?: Draft;
+  private revision?: number;
+  /** The draft last written (pointer moves report the same overlay many times). */
+  private lastDraft?: string;
+  /** The stored revision edit mode started from (saving is refused if another save came). */
+  private editRevision?: number;
   private _hass?: HomeAssistant;
   private unsubscribe?: () => void;
   private toastTimer?: number;
@@ -192,9 +230,48 @@ export class DomoTwinPanel extends LitElement {
         color: var(--secondary-text-color, #5f6368);
         font-size: 0.85rem;
       }
-      .storeys .footer {
+      .storeys .footer,
+      .ask .footer {
         display: flex;
         justify-content: flex-end;
+        gap: 8px;
+      }
+      .toast.top {
+        bottom: auto;
+        top: 20px;
+      }
+      .ask {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: min(380px, calc(100% - 32px));
+        padding: 16px;
+        display: grid;
+        gap: 12px;
+        z-index: 3;
+      }
+      .ask h2,
+      .ask p {
+        margin: 0;
+        font-size: 1rem;
+        font-weight: 500;
+      }
+      .draft {
+        position: absolute;
+        top: 12px;
+        left: 12px;
+        right: 68px;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 8px 8px 14px;
+        z-index: 2;
+      }
+      .draft span {
+        flex: 1;
+        min-width: 160px;
       }
     `,
   ];
@@ -258,7 +335,14 @@ export class DomoTwinPanel extends LitElement {
     const client = this.client;
     if (!client) return;
     try {
-      this.plan = (await client.getPlan()).plan;
+      const stored = await client.getPlan();
+      if (this.editing && stored.revision !== this.editRevision) {
+        // Saved elsewhere: the view keeps the plan being edited; saving will be refused.
+        this.show(this.t.t("edit.changed_elsewhere"), true);
+      }
+      this.plan = stored.plan;
+      this.layout = stored.layout;
+      this.revision = stored.revision;
       this.planError = undefined;
     } catch (error) {
       this.planError = isHassError(error) ? error.code : "unknown";
@@ -276,6 +360,110 @@ export class DomoTwinPanel extends LitElement {
     if (isHassError(error)) return this.t.error(error.code);
     return this.t.error(error instanceof Error ? error.name : "unknown");
   }
+
+  private get view(): DomoTwinView | null {
+    return this.renderRoot.querySelector("domotwin-view");
+  }
+
+  private readonly startEdit = async (): Promise<void> => {
+    if (!this.plan || this.busy || this.editing) return;
+    await import("./edit-bar");
+    this.linking = false;
+    this.linkTarget = undefined;
+    this.multi = false;
+    this.editRevision = this.revision;
+    const draft = this.revision === undefined ? undefined : readDraft(this.revision);
+    if (draft && JSON.stringify(draft.layout) !== JSON.stringify(this.layout ?? {})) {
+      this.draft = draft;
+    }
+    this.editing = true;
+  };
+
+  private stopEditing(): void {
+    this.lastDraft = undefined;
+    this.editing = false;
+    this.edit = undefined;
+    this.multi = false;
+    this.catalogue = undefined;
+    this.discardAsk = false;
+    this.draft = undefined;
+  }
+
+  /** Every change of the edit session: kept as a draft while it is not saved. */
+  private readonly onEdit = (event: Event): void => {
+    const state = (event as CustomEvent<EditState>).detail;
+    this.edit = state.editing ? state : undefined;
+    if (!state.editing) return;
+    const layout = state.dirty ? this.view?.editLayout() : undefined;
+    const text = layout ? JSON.stringify(layout) : "";
+    if (text === this.lastDraft) return;
+    this.lastDraft = text;
+    if (layout && this.editRevision !== undefined) {
+      writeDraft({ revision: this.editRevision, layout });
+    } else if (!this.draft) {
+      clearDraft();
+    }
+  };
+
+  private readonly onEditCommand = (event: Event): void => {
+    this.view?.editCommand((event as CustomEvent<EditCommand>).detail);
+  };
+
+  private readonly openCatalogue = async (): Promise<void> => {
+    this.catalogue = await catalogue();
+  };
+
+  private readonly onAdd = (event: Event): void => {
+    const { kind, name } = (event as CustomEvent<{ kind: string; name: string }>).detail;
+    this.catalogue = undefined;
+    this.view?.editAdd(kind, name);
+  };
+
+  private readonly restoreDraft = (): void => {
+    const draft = this.draft;
+    this.draft = undefined;
+    if (draft) this.view?.editRestore(draft.layout);
+  };
+
+  private readonly forgetDraft = (): void => {
+    this.draft = undefined;
+    clearDraft();
+  };
+
+  private readonly saveEdit = async (): Promise<void> => {
+    const view = this.view;
+    const client = this.client;
+    const layout = view?.editLayout();
+    if (!view || !client || !layout || this.busy) return;
+    const t = this.t;
+    this.busy = true;
+    try {
+      await client.saveLayout(layout, this.editRevision);
+      view.editSaved();
+      clearDraft();
+      this.stopEditing();
+      await this.loadPlan();
+      this.show(t.t("edit.saved"));
+    } catch (error) {
+      this.show(t.t("edit.save_failed", { reason: this.describe(error) }), true);
+    } finally {
+      this.busy = false;
+    }
+  };
+
+  private readonly cancelEdit = (): void => {
+    if (this.edit?.dirty) {
+      this.discardAsk = true;
+      return;
+    }
+    this.discardEdit();
+  };
+
+  private readonly discardEdit = (): void => {
+    this.view?.endEdit(false);
+    clearDraft();
+    this.stopEditing();
+  };
 
   private readonly toggleLinking = (): void => {
     this.linking = !this.linking;
@@ -436,11 +624,15 @@ export class DomoTwinPanel extends LitElement {
     if (!client) return;
     const t = this.t;
     try {
-      const { plan } = await client.getPlan();
-      if (!plan) {
+      const { plan: stored, layout } = await client.getPlan();
+      if (!stored) {
         this.show(t.t("panel.nothing_to_export"));
         return;
       }
+      // The plan as it is now: the edits of edit mode applied.
+      const plan = JSON.parse(
+        await applyLayout(JSON.stringify(stored), JSON.stringify(layout)),
+      ) as PlanJson;
       const title = typeof plan.title === "string" ? plan.title : "";
       const blob = new Blob([`${JSON.stringify(plan, null, 2)}\n`], { type: "application/json" });
       const url = URL.createObjectURL(blob);
@@ -490,49 +682,25 @@ export class DomoTwinPanel extends LitElement {
   protected override render(): TemplateResult {
     const t = this.t;
     const admin = this._hass?.user?.is_admin === true;
+    // One template in both modes: the view stays the same element (engine, camera, 2D or 3D).
     return html`<div class="toolbar">
         <ha-menu-button .hass=${this._hass} .narrow=${this.narrow}></ha-menu-button>
-        <h1>${t.t("panel.title")}</h1>
-        ${
-          admin
-            ? html`<button
-                class="action"
-                ?disabled=${this.busy || this.ifcChoice !== undefined}
-                @click=${this.chooseFile}
-                aria-label=${t.t("panel.import")}
-              >
-                ${icon(mdiTrayArrowUp)}<span class="label">${t.t("panel.import")}</span>
-              </button>`
-            : nothing
-        }
-        ${
-          admin && this.plan
-            ? html`<button
-                class="action"
-                data-testid="link-mode"
-                aria-pressed=${this.linking ? "true" : "false"}
-                @click=${this.toggleLinking}
-                aria-label=${this.linking ? t.t("link.done") : t.t("link.mode")}
-              >
-                ${icon(this.linking ? mdiCheck : mdiLinkVariant)}<span class="label"
-                  >${this.linking ? t.t("link.done") : t.t("link.mode")}</span
-                >
-              </button>`
-            : nothing
-        }
-        <button class="action" @click=${this.exportPlan} aria-label=${t.t("panel.export")}>
-          ${icon(mdiTrayArrowDown)}<span class="label">${t.t("panel.export")}</span>
-        </button>
+        <h1>${this.editing ? t.t("edit.title") : t.t("panel.title")}</h1>
+        ${this.editing ? this.renderEditActions() : this.renderActions(admin)}
       </div>
       <div class="body">
         <domotwin-view
           .hass=${this._hass}
           .plan=${this.plan}
+          .layout=${this.layout}
           .bindings=${this.bindings}
           .planError=${this.planError}
           .options=${PANEL_OPTIONS}
           .linking=${this.linking}
+          .editing=${this.editing}
+          .multiSelect=${this.multi}
           @domotwin-pick=${this.onPick}
+          @domotwin-edit=${this.onEdit}
         >
           ${
             admin
@@ -542,36 +710,172 @@ export class DomoTwinPanel extends LitElement {
               : nothing
           }
         </domotwin-view>
-        ${
-          this.linkTarget
-            ? html`<domotwin-link
-                .hass=${this._hass}
-                .heading=${this.linkTarget.element.name || this.linkTarget.element.id}
-                .element=${this.linkTarget.element}
-                .binding=${this.linkTarget.binding}
-                .area=${this.linkTarget.area}
-                .roomArea=${this.linkTarget.roomArea}
-                .busy=${this.busy}
-                @domotwin-link-save=${this.onLinkSave}
-                @domotwin-close=${() => (this.linkTarget = undefined)}
-              ></domotwin-link>`
-            : nothing
-        }
-        ${this.ifcChoice ? this.renderStoreys(this.ifcChoice) : nothing}
-        ${
-          this.toast
-            ? html`<div
-                class="toast glass ${this.toast.error ? "error" : ""}"
-                role=${this.toast.error ? "alert" : "status"}
-              >
-                <span>${this.toast.text}</span>
-                <button @click=${() => (this.toast = undefined)} aria-label=${t.t("panel.dismiss")}>
-                  ${icon(mdiClose)}
-                </button>
-              </div>`
-            : nothing
-        }
+        ${this.editing ? this.renderEditTools() : this.renderSheets()} ${this.renderToast()}
       </div>
       <input type="file" accept=".json,application/json,.ifc" @change=${this.importFile} />`;
+  }
+
+  private renderActions(admin: boolean): TemplateResult {
+    const t = this.t;
+    return html`${
+        admin
+          ? html`<button
+              class="action"
+              ?disabled=${this.busy || this.ifcChoice !== undefined}
+              @click=${this.chooseFile}
+              aria-label=${t.t("panel.import")}
+            >
+              ${icon(mdiTrayArrowUp)}<span class="label">${t.t("panel.import")}</span>
+            </button>`
+          : nothing
+      }
+      ${
+        admin && this.plan && !this.linking
+          ? html`<button
+              class="action"
+              data-testid="edit-mode"
+              ?disabled=${this.busy || this.ifcChoice !== undefined}
+              @click=${this.startEdit}
+              aria-label=${t.t("edit.mode")}
+            >
+              ${icon(mdiPencilOutline)}<span class="label">${t.t("edit.mode")}</span>
+            </button>`
+          : nothing
+      }
+      ${
+        admin && this.plan
+          ? html`<button
+              class="action"
+              data-testid="link-mode"
+              aria-pressed=${this.linking ? "true" : "false"}
+              @click=${this.toggleLinking}
+              aria-label=${this.linking ? t.t("link.done") : t.t("link.mode")}
+            >
+              ${icon(this.linking ? mdiCheck : mdiLinkVariant)}<span class="label"
+                >${this.linking ? t.t("link.done") : t.t("link.mode")}</span
+              >
+            </button>`
+          : nothing
+      }
+      <button class="action" @click=${this.exportPlan} aria-label=${t.t("panel.export")}>
+        ${icon(mdiTrayArrowDown)}<span class="label">${t.t("panel.export")}</span>
+      </button>`;
+  }
+
+  /** Edit mode's header: Cancel and Save. */
+  private renderEditActions(): TemplateResult {
+    const t = this.t;
+    return html`<button
+        class="action"
+        data-testid="edit-cancel"
+        ?disabled=${this.busy}
+        @click=${this.cancelEdit}
+        aria-label=${t.t("edit.cancel")}
+      >
+        ${icon(mdiClose)}<span class="label">${t.t("edit.cancel")}</span>
+      </button>
+      <button
+        class="action"
+        data-testid="edit-save"
+        ?disabled=${this.busy || !this.edit?.dirty}
+        @click=${this.saveEdit}
+        aria-label=${t.t("edit.save")}
+      >
+        ${icon(mdiCheck)}<span class="label">${t.t("edit.save")}</span>
+      </button>`;
+  }
+
+  /** Over the view outside edit mode: the link editor, the storey picker. */
+  private renderSheets(): TemplateResult {
+    const target = this.linkTarget;
+    return html`${
+      target
+        ? html`<domotwin-link
+            .hass=${this._hass}
+            .heading=${target.element.name || target.element.id}
+            .element=${target.element}
+            .binding=${target.binding}
+            .area=${target.area}
+            .roomArea=${target.roomArea}
+            .busy=${this.busy}
+            @domotwin-link-save=${this.onLinkSave}
+            @domotwin-close=${() => (this.linkTarget = undefined)}
+          ></domotwin-link>`
+        : nothing
+    }
+    ${this.ifcChoice ? this.renderStoreys(this.ifcChoice) : nothing}`;
+  }
+
+  private renderToast(): TemplateResult | typeof nothing {
+    const toast = this.toast;
+    if (!toast) return nothing;
+    return html`<div
+      class="toast glass ${toast.error ? "error" : ""} ${this.editing ? "top" : ""}"
+      role=${toast.error ? "alert" : "status"}
+      data-testid="toast"
+    >
+      <span>${toast.text}</span>
+      <button @click=${() => (this.toast = undefined)} aria-label=${this.t.t("panel.dismiss")}>
+        ${icon(mdiClose)}
+      </button>
+    </div>`;
+  }
+
+  /** Edit mode over the view: the edit bar, the catalogue, the draft offer, the discard question. */
+  private renderEditTools(): TemplateResult {
+    const t = this.t;
+    // The catalogue covers the bottom of the view: the bar comes back when it closes.
+    return html`${
+      this.edit && !this.catalogue
+        ? html`<domotwin-edit-bar
+            .hass=${this._hass}
+            .state=${this.edit}
+            .multi=${this.multi}
+            @domotwin-edit-command=${this.onEditCommand}
+            @domotwin-edit-multi=${(event: Event) => {
+              this.multi = (event as CustomEvent<boolean>).detail;
+            }}
+            @domotwin-edit-catalogue=${this.openCatalogue}
+          ></domotwin-edit-bar>`
+        : nothing
+    }
+    ${
+      this.catalogue
+        ? html`<domotwin-catalogue
+            data-testid="catalogue"
+            .hass=${this._hass}
+            .heading=${t.t("edit.add")}
+            .kinds=${this.catalogue}
+            @domotwin-add=${this.onAdd}
+            @domotwin-close=${() => (this.catalogue = undefined)}
+          ></domotwin-catalogue>`
+        : nothing
+    }
+    ${
+      this.draft
+        ? html`<div class="draft glass" role="status" data-testid="edit-draft">
+            <span>${t.t("edit.draft")}</span>
+            <button class="action quiet" @click=${this.forgetDraft}>${t.t("edit.forget")}</button>
+            <button class="action" data-testid="edit-restore" @click=${this.restoreDraft}>
+              ${t.t("edit.restore")}
+            </button>
+          </div>`
+        : nothing
+    }
+    ${
+      this.discardAsk
+        ? html`<div class="ask glass" role="alertdialog" data-testid="edit-discard">
+            <h2>${t.t("edit.discard_title")}</h2>
+            <div class="footer">
+              <button class="action quiet" @click=${() => (this.discardAsk = false)}>
+                ${t.t("edit.keep")}
+              </button>
+              <button class="action" data-testid="edit-discard-confirm" @click=${this.discardEdit}>
+                ${t.t("edit.discard")}
+              </button>
+            </div>
+          </div>`
+        : nothing
+    }`;
   }
 }

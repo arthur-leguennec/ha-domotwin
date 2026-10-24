@@ -11,7 +11,8 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M1        | Render: plan, walls, openings, furniture, 2D/3D, cut-away  | ✅     |
 | M2        | Live control: bindings, tap, long-press, room panel        | ✅     |
 | M1b       | IFC import (ISO 16739), one storey → plan                  | ✅     |
-| M3        | Edit mode: move, rotate, stack, undo, save, card editor    | ⏳     |
+| M3        | Edit mode: move, rotate, stack, undo, save, card editor    | ✅     |
+| M3b       | Your own furniture and appliances with their 3D model      | ⏳     |
 | M4        | Layers: heatmap, alerts, presence, sun and mood, power     | ⏳     |
 | M5        | Polish: design, fonts, accessibility, performance, README  | ⏳     |
 | M6        | Release 0.1.0 and HACS submission checklist                | ⏳     |
@@ -149,10 +150,40 @@ when a model has no spaces, reading the 3D files of user models with the same mo
 
 ## M3, edit mode
 
-Select and multi-select, move with snapping (walls, furniture edges, grid) and distance guides,
-rotate with 15° snapping, stacking on top surfaces with attached children, collision hints, undo and
-redo (≥ 50 steps), save and discard, local draft autosave, the bindings editor with entity search,
-the full visual card editor, and optionally a small procedural catalogue to add or remove furniture.
+Goal: administrators rearrange the furniture from the panel, and link and configure everything from
+the UI. See [`edit-mode.md`](edit-mode.md). The maintainer chose to split the milestone: the user's
+own 3D models are M3b.
+
+- ✅ The **edit overlay** (`layout`) applied to the plan's JSON before it is read, by the card and the
+  panel; a plan made invalid by its overlay is shown without it and says so. **Export plan** writes
+  the plan with the overlay applied.
+- ✅ Edit mode in the panel (administrators): select and select several, **drag** with snapping onto
+  wall faces, piece edges and a 5 cm grid, with dashed guides and the distances to the walls;
+  **turn** by 15°; **stack** small objects on tables, chests and shelves, and move what stands on a
+  piece with it; **conflicts** in red; **remove**; **add** from a catalogue of every kind, by room,
+  with a search; **undo and redo** (100 steps); keyboard shortcuts.
+- ✅ **Save** with the revision edit mode started from (refused if another device saved), **Cancel**
+  with a question when there are changes, and a **draft** kept by the browser for that revision and
+  offered again.
+- ✅ The **link editor** completed: the role of each entity, the long-press action, **run an action**
+  (`domain.action` on a linked entity) and **open a page**, checked before saving.
+- ✅ The **card editor** completed: the room shown first, picked among the rooms of the stored plan,
+  and the font.
+- ✅ Tests: the overlay, snapping, stacking, collisions, the history and the session on the demo
+  plan (core); the edit session through the wasm API in headless Chromium; the catalogue, the draft
+  and the action fields (vitest); E2E of moving and saving, export with the overlay, turning,
+  removing, adding, undo and discard, the conflict colours (visual regression), the draft restored,
+  the full link editor, and non-administrators. A new fuzz target applies arbitrary overlays and
+  edits the result.
+
+![Edit mode: a piece dragged on the 2D plan with its guides, and the catalogue](figures/screenshot-edit.png)
+
+Measured at the end of M3: see [`PERFORMANCE.md`](PERFORMANCE.md).
+
+Left for later: moving several pieces with the keyboard arrows; editing rooms, walls, doors and
+windows (they stay House Maquette's); refreshing the summary chip's counts while editing.
+
+## M3b, your own furniture and appliances
 
 **Your own furniture or appliance** (`DECISIONS.md`, D-013): import a glTF/GLB model (then OBJ, STL,
 3MF) with its real size and behaviour (lamp, screen, appliance…), stored by the integration by hash,

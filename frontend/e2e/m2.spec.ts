@@ -241,7 +241,7 @@ test.describe("linking", () => {
     await editor.getByRole("button", { name: "Link Living room floor lamp" }).click();
     await editor.getByRole("searchbox").fill("bedside left");
     await editor.getByRole("button", { name: "Link Bedside left" }).click();
-    await editor.getByRole("combobox").selectOption("none");
+    await editor.getByTestId("link-tap").selectOption("none");
     await editor.getByTestId("link-save").click();
     await expect(page.getByRole("status").filter({ hasText: "Links saved." })).toBeVisible();
     await expect(editor).toHaveCount(0);
@@ -275,6 +275,39 @@ test.describe("linking", () => {
     // Done: taps act again.
     await page.getByTestId("link-mode").click();
     await expect(page.getByTestId("link-hint")).toHaveCount(0);
+  });
+
+  test("sets roles, a long-press action and a page to open", async ({ page }) => {
+    await openHarness(page, { mode: "panel", live: true });
+    await ready(page);
+    await page.getByTestId("link-mode").click();
+    await focus(page, "living");
+    await page.mouse.click(...xy(await pointOn(page, "table-lamp")));
+    const editor = page.locator("domotwin-link");
+    await editor.getByTestId("role-light.sideboard_lamp").selectOption("switch");
+    await editor.getByTestId("link-hold").selectOption("perform-action");
+    await editor.getByTestId("link-hold-service").fill("scene turn on");
+    await expect(editor.getByText("Write it as domain.action")).toBeVisible();
+    await expect(editor.getByTestId("link-save")).toBeDisabled();
+    await editor.getByTestId("link-hold-service").fill("light.turn_on");
+    await editor.getByTestId("link-hold-target").selectOption("light.sideboard_lamp");
+    await editor.getByTestId("link-tap").selectOption("navigate");
+    await editor.getByTestId("link-tap-path").fill("/lovelace/1");
+    await editor.getByTestId("link-save").click();
+    await expect(editor).toHaveCount(0);
+    expect((await saved(page)).elements["table-lamp"]).toEqual({
+      entities: [{ entity_id: "light.sideboard_lamp", role: "switch" }],
+      tap_action: { action: "navigate", navigation_path: "/lovelace/1" },
+      hold_action: {
+        action: "perform-action",
+        perform_action: "light.turn_on",
+        target: { entity_id: "light.sideboard_lamp" },
+      },
+    });
+    // Out of link mode, a long press runs the action.
+    await page.getByTestId("link-mode").click();
+    await longPress(page, await pointOn(page, "table-lamp"));
+    await expect.poll(() => entityState(page, "light.sideboard_lamp")).toBe("on");
   });
 
   test("is for administrators only", async ({ page }) => {

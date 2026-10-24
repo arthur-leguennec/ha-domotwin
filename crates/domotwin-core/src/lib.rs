@@ -8,10 +8,12 @@
 
 pub mod bindings;
 pub mod camera;
+pub mod edit;
 pub mod error;
 pub mod geometry;
 pub mod lighting;
 pub mod live;
+pub mod overlay;
 pub mod plan;
 pub mod scene;
 
