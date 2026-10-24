@@ -310,6 +310,47 @@ test.describe("linking", () => {
     await expect.poll(() => entityState(page, "light.sideboard_lamp")).toBe("on");
   });
 
+  test("shows an action's target that is not linked, and clears it on unlink", async ({ page }) => {
+    await openHarness(page, { mode: "panel", live: true });
+    await ready(page);
+    await page.evaluate(async () => {
+      const connection = (
+        window as never as {
+          __hass: { connection: { sendMessagePromise(message: unknown): Promise<unknown> } };
+        }
+      ).__hass.connection;
+      const stored = (await connection.sendMessagePromise({ type: "domotwin/bindings/get" })) as {
+        bindings: { elements: Record<string, Record<string, unknown>> };
+      };
+      stored.bindings.elements["table-lamp"] = {
+        entities: [{ entity_id: "light.sideboard_lamp" }],
+        hold_action: {
+          action: "perform-action",
+          perform_action: "light.turn_on",
+          target: { entity_id: "light.living_room_floor_lamp" },
+        },
+      };
+      await connection.sendMessagePromise({
+        type: "domotwin/bindings/save",
+        bindings: stored.bindings,
+      });
+    });
+    await page.getByTestId("link-mode").click();
+    await focus(page, "living");
+    await page.mouse.click(...xy(await pointOn(page, "table-lamp")));
+    const editor = page.locator("domotwin-link");
+    await expect(editor.getByTestId("link-hold-target")).toHaveValue(
+      "light.living_room_floor_lamp",
+    );
+    await editor.getByTestId("link-hold-target").selectOption("");
+    await editor.getByTestId("link-save").click();
+    await expect(editor).toHaveCount(0);
+    expect((await saved(page)).elements["table-lamp"]).toEqual({
+      entities: [{ entity_id: "light.sideboard_lamp" }],
+      hold_action: { action: "perform-action", perform_action: "light.turn_on" },
+    });
+  });
+
   test("is for administrators only", async ({ page }) => {
     await openHarness(page, { mode: "panel", live: true, admin: false });
     await ready(page);

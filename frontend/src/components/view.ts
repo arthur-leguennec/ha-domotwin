@@ -93,6 +93,18 @@ interface FocusedRoom {
 /** What the edit bar asks the view to do. */
 export type EditCommand = "undo" | "redo" | "rotate-left" | "rotate-right" | "remove" | "clear";
 
+/** Edit mode's keys: Delete, R (Shift+R the other way), Ctrl+Z, Ctrl+Y, Escape. */
+export function editCommandFor(event: KeyboardEvent): EditCommand | undefined {
+  const control = event.ctrlKey || event.metaKey;
+  const key = event.key.toLowerCase();
+  if (event.key === "Delete" || event.key === "Backspace") return "remove";
+  if (key === "r" && !control) return event.shiftKey ? "rotate-left" : "rotate-right";
+  if (key === "z" && control) return event.shiftKey ? "redo" : "undo";
+  if (key === "y" && control) return "redo";
+  if (event.key === "Escape") return "clear";
+  return undefined;
+}
+
 /** Frame timings measured by `benchmark()` (frame-time smoke test). */
 export interface FrameStats {
   frames: number;
@@ -139,6 +151,7 @@ export class DomoTwinView extends LitElement {
     linking: { attribute: false },
     editing: { attribute: false },
     multiSelect: { attribute: false },
+    editKeys: { attribute: false },
     options: { attribute: false },
     planError: { attribute: false },
     engineState: { state: true },
@@ -172,6 +185,8 @@ export class DomoTwinView extends LitElement {
   editing = false;
   /** In edit mode, taps add pieces to the selection (or take them out). */
   multiSelect = false;
+  /** Edit mode's keys act (not while the panel shows a dialog over the view). */
+  editKeys = true;
   options: ViewOptions = { quality: "auto" };
   /** An error to show instead of the plan (e.g. the stored plan could not be fetched). */
   planError?: string;
@@ -218,6 +233,8 @@ export class DomoTwinView extends LitElement {
   private dragPointer?: number;
   private dragFrom?: { x: number; y: number };
   private dragging = false;
+  /** The press on a selected piece was held: a long press, not a tap. */
+  private dragHeld = false;
   private dragTo?: { x: number; y: number };
   /** Ctrl, Cmd or Shift held at the last press: a tap adds to the selection. */
   private addModifier = false;
@@ -536,7 +553,9 @@ export class DomoTwinView extends LitElement {
     const engine = this.engine;
     const canvas = this.canvas;
     if (!engine || !canvas || !this.edit) return;
-    this.setEdit(engine.editAdd(kind, name, canvas.width / 2, canvas.height / 2));
+    const state = engine.editAdd(kind, name, canvas.width / 2, canvas.height / 2);
+    this.setEdit(state);
+    if (state.refused) this.notify(this.translator.t("edit.too_many"));
   }
 
   /** Puts a draft overlay in place, as one change that can be undone. */
@@ -549,21 +568,27 @@ export class DomoTwinView extends LitElement {
     return this.edit ? this.engine?.editLayout() : undefined;
   }
 
-  /** The overlay now was stored. */
-  editSaved(): void {
+  /** The overlay `layout` (what was sent) was stored. */
+  editSaved(layout: Record<string, unknown>): void {
     if (!this.engine || !this.edit) return;
-    this.engine.editSaved();
+    this.engine.editSaved(layout);
     this.setEdit(this.engine.editState);
   }
 
-  /** Leaves edit mode, keeping the changes shown (`keep`) or going back to what was saved. */
+  /**
+   * Leaves edit mode, keeping the changes shown (`keep`) or going back to what was saved, then
+   * shows the plan changes that came while editing.
+   */
   endEdit(keep: boolean): void {
     if (!this.edit) return;
     this.engine?.endEdit(keep);
     this.edit = undefined;
     window.removeEventListener("keydown", this.onEditKey);
+    window.clearTimeout(this.holdTimer);
     this.dragPointer = undefined;
     this.dragTo = undefined;
+    this.dragHeld = false;
+    this.applyPlan();
     this.scheduler?.request();
   }
 
@@ -903,8 +928,6 @@ export class DomoTwinView extends LitElement {
       this.setEdit(engine.beginEdit());
     } else if (!this.editing && this.edit) {
       this.endEdit(true);
-      // Plan changes that came while editing.
-      this.applyPlan();
     }
   }
 
@@ -932,6 +955,7 @@ export class DomoTwinView extends LitElement {
     this.dragPointer = undefined;
     this.dragFrom = undefined;
     this.dragging = false;
+    this.dragHeld = false;
     this.setEdit(this.engine.editDragEnd());
   }
 
@@ -961,6 +985,8 @@ export class DomoTwinView extends LitElement {
         sameHome,
         this.layout ? JSON.stringify(this.layout) : undefined,
       );
+      const refused = this.summary.layoutRefused ?? 0;
+      if (refused > 0) this.notify(this.translator.tp("view.layout_refused", refused));
       this.savedViews = this.engine.views();
       if (!sameHome) {
         if (this.options.view === "2d") this.setPlanView(true);
@@ -1087,9 +1113,18 @@ export class DomoTwinView extends LitElement {
       // Edit mode: pressing a selected piece grabs it.
       const point = this.devicePoint(event.offsetX, event.offsetY);
       if (this.engine.editDragStart(point.x, point.y)) {
+        const from = { x: event.offsetX, y: event.offsetY };
         this.dragPointer = event.pointerId;
-        this.dragFrom = { x: event.offsetX, y: event.offsetY };
+        this.dragFrom = from;
         this.dragging = false;
+        this.dragHeld = false;
+        // Held still: a long press (adds to the selection or takes out), not a drag.
+        window.clearTimeout(this.holdTimer);
+        this.holdTimer = window.setTimeout(() => {
+          if (this.dragPointer !== event.pointerId || this.dragging) return;
+          this.dragHeld = true;
+          this.hold(from.x, from.y);
+        }, HOLD_TIME + 20);
         return;
       }
     }
@@ -1121,10 +1156,11 @@ export class DomoTwinView extends LitElement {
     window.clearTimeout(this.holdTimer);
     if (event.pointerId === this.dragPointer) {
       const moved = this.dragging;
+      const held = this.dragHeld;
       if (moved) this.dragTo = { x: event.offsetX, y: event.offsetY };
       this.endDrag();
       // Pressed without moving: a tap (selects this piece alone, or toggles it).
-      if (!moved) this.tap(event.offsetX, event.offsetY);
+      if (!moved && !held) this.tap(event.offsetX, event.offsetY);
       return;
     }
     this.apply(this.gestures.up(this.sample(event)));
@@ -1152,25 +1188,12 @@ export class DomoTwinView extends LitElement {
     ]);
   };
 
-  /** Edit mode's keys: Delete, R (Shift+R the other way), Ctrl+Z, Ctrl+Y, Escape. */
-  private editKey(event: KeyboardEvent): boolean {
-    const control = event.ctrlKey || event.metaKey;
-    const key = event.key.toLowerCase();
-    let command: EditCommand | undefined;
-    if (event.key === "Delete" || event.key === "Backspace") command = "remove";
-    else if (key === "r" && !control) command = event.shiftKey ? "rotate-left" : "rotate-right";
-    else if (key === "z" && control) command = event.shiftKey ? "redo" : "undo";
-    else if (key === "y" && control) command = "redo";
-    else if (event.key === "Escape") command = "clear";
-    if (!command) return false;
-    event.preventDefault();
-    this.editCommand(command);
-    return true;
-  }
-
-  /** Edit mode's keys work anywhere on the page, except while typing. */
+  /**
+   * Edit mode's keys work anywhere on the page, except while typing or while the panel shows a
+   * dialog over the view (`editKeys` off).
+   */
   private readonly onEditKey = (event: KeyboardEvent): void => {
-    if (!this.edit || event.defaultPrevented) return;
+    if (!this.edit || !this.editKeys || event.defaultPrevented) return;
     const target = event.composedPath()[0];
     if (
       target instanceof HTMLElement &&
@@ -1178,22 +1201,15 @@ export class DomoTwinView extends LitElement {
     ) {
       return;
     }
-    this.editKey(event);
+    const command = editCommandFor(event);
+    if (!command) return;
+    event.preventDefault();
+    this.editCommand(command);
   };
 
   private readonly onKeyDown = (event: KeyboardEvent): void => {
     // Edit mode's keys are handled on the window (onEditKey).
-    if (this.edit) {
-      const control = event.ctrlKey || event.metaKey;
-      const key = event.key.toLowerCase();
-      if (
-        ["Delete", "Backspace", "Escape"].includes(event.key) ||
-        (key === "r" && !control) ||
-        (control && (key === "z" || key === "y"))
-      ) {
-        return;
-      }
-    }
+    if (this.edit && editCommandFor(event)) return;
     const keys: Record<string, Gesture | undefined> = {
       ArrowLeft: { kind: event.shiftKey ? "pan" : "drag", dx: -KEY_STEP, dy: 0 },
       ArrowRight: { kind: event.shiftKey ? "pan" : "drag", dx: KEY_STEP, dy: 0 },

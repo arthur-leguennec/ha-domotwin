@@ -8,7 +8,7 @@ use domotwin_core::camera::{Camera, CutawayMode};
 use domotwin_core::edit::Session;
 use domotwin_core::lighting::{Mood, lighting_for_hour, lighting_for_sun};
 use domotwin_core::live::{EntityState, LiveState, read_states, targets};
-use domotwin_core::overlay::{Layout, apply, read_layout};
+use domotwin_core::overlay::{Layout, apply, fit, parse_layout};
 use domotwin_core::plan::{Element, Plan, View, parse_plan_json, read_plan_value};
 use domotwin_core::scene::mesh::Mesh;
 use domotwin_core::scene::{ElementInfo, Scene, SceneOptions, build_dynamic, build_scene_moving};
@@ -55,8 +55,7 @@ pub fn summarize_plan_json(json: &str) -> Result<String, JsError> {
 #[wasm_bindgen(js_name = applyLayout)]
 pub fn apply_layout_json(plan: &str, layout: &str) -> Result<String, JsError> {
     let source = parse_plan_json(plan.as_bytes()).map_err(|err| plan_error(&err))?;
-    let layout = serde_json::from_str(layout).map_or_else(|_| Layout::new(), |v| read_layout(&v));
-    let mut applied = apply(&source, &layout);
+    let mut applied = apply(&source, &parse_layout(layout));
     if let Some(root) = applied.as_object_mut() {
         root.insert("layoutRevision".into(), serde_json::Value::from(10));
     }
@@ -142,9 +141,9 @@ impl Engine {
     }
 
     /// Loads a plan (the text of a `*.plan.json`) with its edit overlay (`layout`, JSON) and
-    /// builds its scene. Returns a JSON summary; `layoutRefused` is true when the overlay made
-    /// the plan invalid and the plan is shown without it. The camera keeps its place when
-    /// `keep_camera` (a plan saved from another view).
+    /// builds its scene. Returns a JSON summary; `layoutRefused` counts the entries of the overlay
+    /// left out because they made the plan invalid (an updated plan). The camera keeps its place
+    /// when `keep_camera` (a plan saved from another view).
     ///
     /// # Errors
     ///
@@ -158,17 +157,8 @@ impl Engine {
         layout: Option<String>,
     ) -> Result<String, JsError> {
         let source = parse_plan_json(json.as_bytes()).map_err(|err| plan_error(&err))?;
-        let layout = layout
-            .and_then(|l| serde_json::from_str(&l).ok())
-            .map_or_else(Layout::new, |v| read_layout(&v));
-        let (plan, layout, refused) = match read_plan_value(&apply(&source, &layout)) {
-            Ok(plan) => (plan, layout, false),
-            Err(_) if !layout.is_empty() => {
-                let plan = read_plan_value(&source).map_err(|err| plan_error(&err))?;
-                (plan, Layout::new(), true)
-            }
-            Err(err) => return Err(plan_error(&err)),
-        };
+        let layout = layout.as_deref().map_or_else(Layout::new, parse_layout);
+        let (plan, layout, refused) = fit(&source, &layout).map_err(|err| plan_error(&err))?;
         let keep = keep_camera.unwrap_or(false) && self.plan.is_some();
         self.source = Some(source);
         self.layout = layout;
@@ -178,8 +168,10 @@ impl Engine {
         self.renderer.set_marks(&[]);
         let mut summary: serde_json::Value =
             serde_json::from_str(&self.install(plan, keep)).unwrap_or_default();
-        if refused && let Some(object) = summary.as_object_mut() {
-            object.insert("layoutRefused".into(), serde_json::Value::Bool(true));
+        if refused > 0
+            && let Some(object) = summary.as_object_mut()
+        {
+            object.insert("layoutRefused".into(), serde_json::Value::from(refused));
         }
         Ok(summary.to_string())
     }
@@ -194,7 +186,8 @@ impl Engine {
     }
 
     /// Builds and uploads the scene of `plan`, with the pieces `moving` (element indices) among
-    /// the moving parts. The live looks start at their targets when `fresh`, else keep fading.
+    /// the moving parts. The live looks start at their targets when `fresh`, else keep fading,
+    /// each with its element (an edit may move elements to other indices).
     pub(crate) fn show(
         &mut self,
         plan: Plan,
@@ -202,6 +195,23 @@ impl Engine {
         moving: &BTreeSet<usize>,
         fresh: bool,
     ) {
+        // Where each element was before. Edits keep the order of the others, so the search goes
+        // on from the last one found (linear for a whole plan).
+        let n = self.elements.len();
+        let mut cursor = 0;
+        let old: Vec<Option<usize>> = plan
+            .elements
+            .iter()
+            .map(|e| {
+                let found = (0..n)
+                    .map(|k| (cursor + k) % n)
+                    .find(|&k| self.elements[k].id == e.id());
+                if let Some(k) = found {
+                    cursor = k + 1;
+                }
+                found
+            })
+            .collect();
         let mut scene = build_scene_moving(&plan, &SceneOptions::default(), moving);
         self.triangles = [
             &scene.opaque,
@@ -223,7 +233,7 @@ impl Engine {
         if fresh {
             self.live = LiveState::new(targets);
         } else {
-            self.live.set_targets(targets);
+            self.live.retarget_moved(targets, &old);
         }
         self.plan = Some(plan);
         self.scene = Some(scene);

@@ -18,10 +18,13 @@ use std::collections::BTreeMap;
 
 use serde_json::{Map, Value};
 
+use crate::ReadError;
+use crate::plan::{Plan, read_plan_value};
+
 /// Most entries kept (twice the plan's 500 elements).
 pub const MAX_ENTRIES: usize = 1000;
 /// Most elements a plan may hold.
-const MAX_ELEMENTS: usize = 500;
+pub const MAX_ELEMENTS: usize = 500;
 /// Longest id kept.
 const MAX_ID: usize = 100;
 /// Farthest coordinate of the plan format (cm).
@@ -60,6 +63,11 @@ fn finite(value: Option<&Value>, max: f64) -> Option<f64> {
     value
         .and_then(Value::as_f64)
         .filter(|v| v.is_finite() && v.abs() <= max)
+}
+
+/// Reads an overlay from JSON text leniently (not JSON: an empty overlay).
+pub fn parse_layout(text: &str) -> Layout {
+    serde_json::from_str(text).map_or_else(|_| Layout::new(), |value| read_layout(&value))
 }
 
 /// Reads a stored overlay leniently: anything malformed is left out.
@@ -128,8 +136,9 @@ pub fn layout_value(layout: &Layout) -> Value {
     Value::Object(out)
 }
 
-/// Writes the entry's changes into a piece's element.
-fn place(element: &mut Map<String, Value>, entry: &Entry) {
+/// Writes the entry's changes into a piece's element. A room the plan does not have (renamed in an
+/// updated plan) is not followed: the piece keeps its own.
+fn place(element: &mut Map<String, Value>, entry: &Entry, rooms: &[String]) {
     for (key, v) in [("x", entry.x), ("y", entry.y), ("angle", entry.angle)] {
         if let Some(v) = v {
             element.insert(key.into(), Value::from(round(v)));
@@ -144,7 +153,11 @@ fn place(element: &mut Map<String, Value>, entry: &Entry) {
         }
         None => {}
     }
-    if let Some(parent) = &entry.parent {
+    if let Some(parent) = entry
+        .parent
+        .as_ref()
+        .filter(|p| p.is_empty() || rooms.contains(*p))
+    {
         element.insert("parent".into(), Value::String(parent.clone()));
     }
 }
@@ -157,6 +170,11 @@ pub fn apply(plan: &Value, layout: &Layout) -> Value {
     let Some(elements) = plan.get_mut("elements").and_then(Value::as_array_mut) else {
         return plan;
     };
+    let rooms: Vec<String> = elements
+        .iter()
+        .filter(|e| e.get("type").and_then(Value::as_str) == Some("room"))
+        .filter_map(|e| e.get("id").and_then(Value::as_str).map(str::to_owned))
+        .collect();
     let mut ids: Vec<String> = Vec::with_capacity(elements.len());
     elements.retain_mut(|element| {
         let Some(object) = element.as_object_mut() else {
@@ -173,7 +191,7 @@ pub fn apply(plan: &Value, layout: &Layout) -> Value {
         match entry {
             Some(entry) if entry.removed => false,
             Some(entry) => {
-                place(object, entry);
+                place(object, entry, &rooms);
                 true
             }
             None => true,
@@ -187,10 +205,37 @@ pub fn apply(plan: &Value, layout: &Layout) -> Value {
         let mut element = add.clone();
         element.insert("id".into(), Value::String(id.clone()));
         element.insert("type".into(), Value::String("furniture".into()));
-        place(&mut element, entry);
+        place(&mut element, entry, &rooms);
         elements.push(Value::Object(element));
     }
     plan
+}
+
+/// The plan read with as much of the overlay as it accepts: when the whole overlay makes the plan
+/// invalid (an updated plan, an entry written by hand), its entries are tried one by one and those
+/// that make it invalid are left out. Returns the plan, the overlay kept and how many entries were
+/// left out.
+///
+/// # Errors
+///
+/// The reader's error when the plan is invalid without any overlay.
+pub fn fit(source: &Value, layout: &Layout) -> Result<(Plan, Layout, usize), ReadError> {
+    if let Ok(plan) = read_plan_value(&apply(source, layout)) {
+        return Ok((plan, layout.clone(), 0));
+    }
+    let mut plan = read_plan_value(source)?;
+    let mut kept = Layout::new();
+    for (id, entry) in layout {
+        kept.insert(id.clone(), entry.clone());
+        match read_plan_value(&apply(source, &kept)) {
+            Ok(read) => plan = read,
+            Err(_) => {
+                kept.remove(id);
+            }
+        }
+    }
+    let left = layout.len() - kept.len();
+    Ok((plan, kept, left))
 }
 
 #[cfg(test)]
@@ -244,5 +289,25 @@ mod tests {
         assert_eq!(room(&read), room(&original));
         // Stored back as it was read.
         assert_eq!(read_layout(&layout_value(&layout)), layout);
+        assert_eq!(parse_layout(&layout_value(&layout).to_string()), layout);
+        assert!(parse_layout("not json").is_empty());
+    }
+
+    #[test]
+    fn keeps_what_the_plan_accepts() {
+        let plan: Value = serde_json::from_str(DEMO).unwrap();
+        let layout = read_layout(&serde_json::json!({
+            "sofa": { "x": 300 },
+            // A room the plan does not have: the piece keeps its own.
+            "armchair": { "x": 200, "parent": "old-room" },
+            // An added piece the reader refuses (no height).
+            "bad-added-1": { "add": { "name": "Bad", "kind": "lamp", "w": 35, "h": 35 } }
+        }));
+        let (read, kept, left) = fit(&plan, &layout).unwrap();
+        assert_eq!(left, 1);
+        assert!(!kept.contains_key("bad-added-1"));
+        let armchair = furniture(&read, "armchair").unwrap();
+        assert_eq!((armchair.x, armchair.parent.as_str()), (200.0, "living"));
+        assert_eq!(furniture(&read, "sofa").unwrap().x, 300.0);
     }
 }

@@ -115,8 +115,13 @@ export class DomoTwinPanel extends LitElement {
   /** Changes not saved, kept by this browser, offered when edit mode starts. */
   protected draft?: Draft;
   private revision?: number;
-  /** The draft last written (pointer moves report the same overlay many times). */
-  private lastDraft?: string;
+  /**
+   * The overlay's change count last seen: a draft is written only when the overlay changed (a drag
+   * reports its guides every frame), and a count going back means the view started a new session.
+   */
+  private editChanges = 0;
+  /** Saving: the save's own update event is not a save from another device. */
+  private saving = false;
   /** The stored revision edit mode started from (saving is refused if another save came). */
   private editRevision?: number;
   private _hass?: HomeAssistant;
@@ -336,7 +341,7 @@ export class DomoTwinPanel extends LitElement {
     if (!client) return;
     try {
       const stored = await client.getPlan();
-      if (this.editing && stored.revision !== this.editRevision) {
+      if (this.editing && !this.saving && stored.revision !== this.editRevision) {
         // Saved elsewhere: the view keeps the plan being edited; saving will be refused.
         this.show(this.t.t("edit.changed_elsewhere"), true);
       }
@@ -372,6 +377,7 @@ export class DomoTwinPanel extends LitElement {
     this.linkTarget = undefined;
     this.multi = false;
     this.editRevision = this.revision;
+    this.editChanges = 0;
     const draft = this.revision === undefined ? undefined : readDraft(this.revision);
     if (draft && JSON.stringify(draft.layout) !== JSON.stringify(this.layout ?? {})) {
       this.draft = draft;
@@ -380,7 +386,6 @@ export class DomoTwinPanel extends LitElement {
   };
 
   private stopEditing(): void {
-    this.lastDraft = undefined;
     this.editing = false;
     this.edit = undefined;
     this.multi = false;
@@ -393,14 +398,20 @@ export class DomoTwinPanel extends LitElement {
   private readonly onEdit = (event: Event): void => {
     const state = (event as CustomEvent<EditState>).detail;
     this.edit = state.editing ? state : undefined;
-    if (!state.editing) return;
+    if (!state.editing || state.changes === this.editChanges) return;
+    const restarted = state.changes < this.editChanges;
+    this.editChanges = state.changes;
+    if (restarted) {
+      // The view started a new session (its engine restarted): offer what was kept.
+      const draft = this.editRevision === undefined ? undefined : readDraft(this.editRevision);
+      if (draft) this.draft = draft;
+      return;
+    }
     const layout = state.dirty ? this.view?.editLayout() : undefined;
-    const text = layout ? JSON.stringify(layout) : "";
-    if (text === this.lastDraft) return;
-    this.lastDraft = text;
     if (layout && this.editRevision !== undefined) {
       writeDraft({ revision: this.editRevision, layout });
     } else if (!this.draft) {
+      // Undone back to what is stored: nothing left to keep.
       clearDraft();
     }
   };
@@ -430,24 +441,36 @@ export class DomoTwinPanel extends LitElement {
     clearDraft();
   };
 
+  /**
+   * Saves the overlay. Changes made while it is on its way stay in edit mode, to be saved too;
+   * otherwise edit mode ends.
+   */
   private readonly saveEdit = async (): Promise<void> => {
     const view = this.view;
     const client = this.client;
-    const layout = view?.editLayout();
-    if (!view || !client || !layout || this.busy) return;
+    const sent = view?.editLayout();
+    if (!view || !client || !sent || this.busy) return;
     const t = this.t;
     this.busy = true;
+    this.saving = true;
     try {
-      await client.saveLayout(layout, this.editRevision);
-      view.editSaved();
-      clearDraft();
-      this.stopEditing();
+      const revision = await client.saveLayout(sent, this.editRevision);
+      this.editRevision = revision;
+      view.editSaved(sent);
+      const now = view.editLayout();
+      if (now && JSON.stringify(now) !== JSON.stringify(sent)) {
+        writeDraft({ revision, layout: now });
+      } else {
+        clearDraft();
+        this.stopEditing();
+      }
       await this.loadPlan();
       this.show(t.t("edit.saved"));
     } catch (error) {
       this.show(t.t("edit.save_failed", { reason: this.describe(error) }), true);
     } finally {
       this.busy = false;
+      this.saving = false;
     }
   };
 
@@ -460,8 +483,9 @@ export class DomoTwinPanel extends LitElement {
   };
 
   private readonly discardEdit = (): void => {
+    // A draft still offered stays, unless changes were discarded on purpose.
+    if (this.edit?.dirty || !this.draft) clearDraft();
     this.view?.endEdit(false);
-    clearDraft();
     this.stopEditing();
   };
 
@@ -699,6 +723,7 @@ export class DomoTwinPanel extends LitElement {
           .linking=${this.linking}
           .editing=${this.editing}
           .multiSelect=${this.multi}
+          .editKeys=${!this.catalogue && !this.discardAsk}
           @domotwin-pick=${this.onPick}
           @domotwin-edit=${this.onEdit}
         >

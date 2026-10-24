@@ -7,12 +7,12 @@ use std::collections::BTreeSet;
 use serde_json::{Map, Value};
 
 use super::{
-    Footprint, Guide, History, ROTATION_STEP, can_stack, carried, collisions, snap, snap_angle,
-    support_under, wall_blocks, wall_faces,
+    Footprint, Guide, History, RESTING, ROTATION_STEP, can_stack, carried, collisions, snap,
+    snap_angle, support_under, wall_blocks, wall_faces,
 };
 use crate::geometry::polygon::{P2, point_in_polygon};
 use crate::geometry::walls::WallLayout;
-use crate::overlay::{Entry, Layout, MAX_ENTRIES};
+use crate::overlay::{Entry, Layout, MAX_ELEMENTS, MAX_ENTRIES};
 use crate::plan::{Element, Furniture, Kind, Plan};
 
 /// A piece being moved, as it was when the drag started.
@@ -30,8 +30,9 @@ struct Drag {
     from: P2,
     /// The lead piece (snapping and stacking follow it) and the others moving with it.
     pieces: Vec<Start>,
-    /// Only one piece selected: it stands on what it is dropped on.
-    single: bool,
+    /// Only one piece selected, standing (on the floor or on a piece) when grabbed: it stands on
+    /// what it is dropped on. A piece fixed higher (a TV on a wall) keeps its height.
+    stands: bool,
     moved: bool,
     faces: Vec<(P2, P2)>,
     blocks: Vec<[P2; 4]>,
@@ -49,6 +50,8 @@ pub struct Session {
     /// Pieces in conflict with the selection (ids): overlapping each other or a wall.
     pub conflicts: Vec<String>,
     drag: Option<Drag>,
+    /// Counts the changes of the overlay (records, undo, redo), to tell when it changed.
+    changes: u64,
 }
 
 fn pieces(plan: &Plan) -> impl Iterator<Item = &Furniture> {
@@ -140,7 +143,13 @@ impl Session {
             guides: Vec::new(),
             conflicts: Vec::new(),
             drag: None,
+            changes: 0,
         }
+    }
+
+    /// A number that changes whenever the overlay does.
+    pub fn changes(&self) -> u64 {
+        self.changes
     }
 
     /// The overlay now.
@@ -163,6 +172,12 @@ impl Session {
         self.saved = self.history.current().clone();
     }
 
+    /// `layout` is the one stored (it may differ from the overlay now: changes made while it was
+    /// being saved).
+    pub fn mark_saved_as(&mut self, layout: Layout) {
+        self.saved = layout;
+    }
+
     pub fn can_undo(&self) -> bool {
         self.history.can_undo()
     }
@@ -173,12 +188,16 @@ impl Session {
 
     pub fn undo(&mut self) -> bool {
         self.drag = None;
-        self.history.undo().is_some()
+        let done = self.history.undo().is_some();
+        self.changes += u64::from(done);
+        done
     }
 
     pub fn redo(&mut self) -> bool {
         self.drag = None;
-        self.history.redo().is_some()
+        let done = self.history.redo().is_some();
+        self.changes += u64::from(done);
+        done
     }
 
     /// Puts a whole overlay in place as one change (a draft restored). Returns whether it changed
@@ -191,6 +210,7 @@ impl Session {
     /// Forgets the last change (the plan it made was refused).
     pub fn reject(&mut self) {
         self.history.drop_current();
+        self.changes += 1;
     }
 
     fn record(&mut self, layout: Layout) -> bool {
@@ -198,6 +218,7 @@ impl Session {
             return false;
         }
         self.history.push(layout);
+        self.changes += 1;
         true
     }
 
@@ -245,10 +266,14 @@ impl Session {
             .collect()
     }
 
-    /// Height (cm) of the underside of the piece a drag holds: the pointer moves on that plane.
-    pub fn drag_height(&self, plan: &Plan) -> Option<f64> {
-        let lead = self.drag.as_ref()?.pieces.first()?;
-        piece(plan, &lead.id).map(|f| f.elevation)
+    /// Height (cm) of the underside of the piece a drag holds when it was grabbed: the pointer
+    /// moves on that plane for the whole drag, even when the piece goes up onto a table.
+    pub fn drag_height(&self) -> Option<f64> {
+        self.drag
+            .as_ref()?
+            .pieces
+            .first()
+            .map(|lead| lead.elevation)
     }
 
     /// Starts moving the selection, grabbed by the piece `id` at `from` (plan, on the plane of its
@@ -262,6 +287,17 @@ impl Session {
         ids.extend(movable.iter().filter(|m| *m != id).cloned());
         let carried = carried_by(plan, &ids);
         ids.extend(carried);
+        // Standing on the floor or on a piece: it may stand on another one.
+        let stands = movable.len() == 1
+            && piece(plan, id).is_some_and(|f| {
+                let others: Vec<(Footprint, Kind)> = pieces(plan)
+                    .filter(|o| !ids.contains(&o.id))
+                    .map(|o| (Footprint::of(o), o.kind))
+                    .collect();
+                f.elevation < RESTING
+                    || support_under(&Footprint::of(f), f.kind, &others, &[])
+                        .is_some_and(|(_, top)| (top - f.elevation).abs() < RESTING)
+            });
         let pieces = ids
             .iter()
             .filter_map(|id| piece(plan, id))
@@ -275,7 +311,7 @@ impl Session {
         self.drag = Some(Drag {
             from,
             pieces,
-            single: movable.len() == 1,
+            stands,
             moved: false,
             faces: wall_faces(walls),
             blocks: wall_blocks(walls),
@@ -316,7 +352,7 @@ impl Session {
             snapped.centre[0] - start.centre[0],
             snapped.centre[1] - start.centre[1],
         ];
-        let elevation = if drag.single && can_stack(kind) {
+        let elevation = if drag.stands && can_stack(kind) {
             let at = Footprint {
                 centre: snapped.centre,
                 ..start
@@ -447,7 +483,7 @@ impl Session {
         name: &str,
         at: P2,
     ) -> Option<String> {
-        if kind == Kind::Custom {
+        if kind == Kind::Custom || plan.elements.len() >= MAX_ELEMENTS {
             return None;
         }
         self.drag = None;
@@ -463,6 +499,7 @@ impl Session {
             Value::from(name.chars().take(100).collect::<String>()),
         );
         element.insert("kind".into(), Value::from(info.name));
+        element.insert("color".into(), Value::from(info.color.to_hex()));
         element.insert("w".into(), Value::from(w));
         element.insert("h".into(), Value::from(d));
         element.insert("z".into(), Value::from(h));
@@ -653,6 +690,80 @@ mod tests {
         assert!(session.remove(&plan));
         session.reject();
         assert!(!session.dirty() && !session.can_redo());
+    }
+
+    #[test]
+    fn the_pointer_stays_on_the_plane_it_grabbed() {
+        let mut session = Session::new(&Layout::new());
+        let (mut plan, walls) = shown(&Layout::new());
+        session.select(&plan, &walls, "table-lamp", false);
+        let from = piece(&plan, "table-lamp").unwrap().center();
+        assert!(session.drag_start(&plan, &walls, "table-lamp", from));
+        assert_eq!(session.drag_height(), Some(85.0));
+        // Over the coffee table: it goes down onto it, the pointer plane does not move.
+        session.drag_move(&mut plan, [212.5, 210.0], 3.0);
+        assert_eq!(piece(&plan, "table-lamp").unwrap().elevation, 42.0);
+        assert_eq!(session.drag_height(), Some(85.0));
+    }
+
+    #[test]
+    fn pieces_fixed_high_keep_their_height() {
+        let source: Value = serde_json::from_str(DEMO).unwrap();
+        let mut high = source.clone();
+        for e in high["elements"].as_array_mut().unwrap() {
+            if e["id"] == "plant-living" {
+                // A plant on a shelf the plan does not have: it hangs at 120 cm.
+                e["elevation"] = Value::from(120);
+            }
+        }
+        let mut plan = read_plan_value(&high).unwrap();
+        let walls = WallLayout::new(&plan);
+        let mut session = Session::new(&Layout::new());
+        session.select(&plan, &walls, "plant-living", false);
+        let from = piece(&plan, "plant-living").unwrap().center();
+        assert!(session.drag_start(&plan, &walls, "plant-living", from));
+        session.drag_move(&mut plan, [from[0] + 30.0, from[1] + 30.0], 3.0);
+        assert_eq!(piece(&plan, "plant-living").unwrap().elevation, 120.0);
+    }
+
+    #[test]
+    fn adds_in_the_kind_colour_up_to_the_limit() {
+        let mut session = Session::new(&Layout::new());
+        let (plan, walls) = shown(&Layout::new());
+        let id = session
+            .add(&plan, &walls, Kind::Sofa, "Sofa", [300.0, 200.0])
+            .unwrap();
+        let (plan, _) = shown(session.layout());
+        assert_eq!(piece(&plan, &id).unwrap().color, Kind::Sofa.info().color);
+        // A plan already holding 500 elements takes no more.
+        let mut full = plan.clone();
+        while full.elements.len() < MAX_ELEMENTS {
+            full.elements.push(full.elements[0].clone());
+        }
+        assert!(
+            session
+                .add(&full, &walls, Kind::Plant, "Plant", [100.0, 100.0])
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn counts_changes_and_saves_what_was_sent() {
+        let mut session = Session::new(&Layout::new());
+        let (plan, walls) = shown(&Layout::new());
+        session.select(&plan, &walls, "bed", false);
+        assert_eq!(session.changes(), 0);
+        assert!(session.rotate(&plan, &walls, 1));
+        let sent = session.layout().clone();
+        let (plan, walls) = shown(session.layout());
+        // Turned again while the save was on its way: still a change to save.
+        assert!(session.rotate(&plan, &walls, 1));
+        session.mark_saved_as(sent);
+        assert!(session.dirty());
+        assert_eq!(session.changes(), 2);
+        assert!(session.undo());
+        assert!(!session.dirty());
+        assert_eq!(session.changes(), 3);
     }
 
     #[test]

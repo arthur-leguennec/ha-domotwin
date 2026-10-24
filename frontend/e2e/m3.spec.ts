@@ -192,6 +192,100 @@ test.describe("M3: edit mode", () => {
     expect(layout).toMatchObject({ "chair-1": { angle: 15 }, "chair-2": { angle: 15 } });
   });
 
+  test("a long press on a selected piece takes it out of the selection", async ({ page }) => {
+    await editing(page);
+    await select(page, "chair-1");
+    await page.getByTestId("edit-several").click();
+    const chair2 = await pointOn(page, "chair-2");
+    await page.mouse.click(chair2.x, chair2.y);
+    await page.getByTestId("edit-several").click();
+    const chair1 = await pointOn(page, "chair-1");
+    await page.mouse.move(chair1.x, chair1.y);
+    await page.mouse.down();
+    await page.waitForTimeout(750);
+    await page.mouse.up();
+    await expect.poll(async () => (await viewState(page)).edit?.selection).toEqual(["chair-2"]);
+  });
+
+  test("keys wait while the catalogue is open", async ({ page }) => {
+    await editing(page);
+    await select(page, "bed");
+    await page.getByTestId("edit-add").click();
+    await page.getByTestId("catalogue").locator("button").first().focus();
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("catalogue")).toHaveCount(0);
+    expect((await viewState(page)).edit?.selection).toEqual(["bed"]);
+  });
+
+  test("discarding shows what another device saved meanwhile", async ({ page }) => {
+    await editing(page);
+    await select(page, "bed");
+    await page.keyboard.press("r");
+    const before = await elementPoint(page, "sofa");
+    // Another device moves the sofa.
+    await page.evaluate(() =>
+      (
+        window as never as {
+          __hass: { connection: { sendMessagePromise(message: unknown): Promise<unknown> } };
+        }
+      ).__hass.connection.sendMessagePromise({
+        type: "domotwin/plan/save",
+        layout: { sofa: { x: 200, y: 150 } },
+      }),
+    );
+    await expect(page.getByTestId("toast")).toHaveText(/another device/);
+    await page.getByTestId("edit-cancel").click();
+    await page.getByTestId("edit-discard-confirm").click();
+    await expect.poll(async () => (await elementPoint(page, "sofa")).x).not.toBe(before.x);
+  });
+
+  test("keeps the draft when leaving without changes, and after the view restarts", async ({
+    page,
+  }) => {
+    await editing(page);
+    await select(page, "bed");
+    await page.keyboard.press("r");
+    await expect.poll(async () => (await viewState(page)).edit?.dirty).toBe(true);
+    // The panel leaves the page and comes back (Home Assistant does that): the view restarts.
+    await page.evaluate(() => {
+      const element = (window as never as { __element: HTMLElement }).__element;
+      const parent = element.parentNode;
+      element.remove();
+      parent?.appendChild(element);
+    });
+    await expect(page.getByTestId("edit-draft")).toBeVisible();
+    // Leaving without changes keeps it.
+    await page.getByTestId("edit-cancel").click();
+    await page.getByTestId("edit-mode").click();
+    await expect(page.getByTestId("edit-draft")).toBeVisible();
+    await page.getByTestId("edit-restore").click();
+    expect((await viewState(page)).edit?.dirty).toBe(true);
+  });
+
+  test("leaves out the edits an updated plan refuses, and says so", async ({ page }) => {
+    await openHarness(page, { mode: "panel" });
+    await expect(page.getByTestId("summary")).toBeVisible();
+    await page.evaluate(() =>
+      (
+        window as never as {
+          __hass: { connection: { sendMessagePromise(message: unknown): Promise<unknown> } };
+        }
+      ).__hass.connection.sendMessagePromise({
+        type: "domotwin/plan/save",
+        layout: {
+          sofa: { x: 200 },
+          "bad-added-1": { add: { name: "Bad", kind: "lamp", w: 35, h: 35 } },
+        },
+      }),
+    );
+    await expect(page.locator("domotwin-view").getByTestId("notice")).toHaveText(
+      "1 edit could not be applied to this plan and was left out.",
+    );
+    await page.getByTestId("edit-mode").click();
+    await expect(page.getByTestId("edit-status")).toBeVisible();
+    expect(await editLayout(page)).toEqual({ sofa: { x: 200 } });
+  });
+
   test("only administrators edit", async ({ page }) => {
     await openHarness(page, { mode: "panel", admin: false });
     await expect(page.getByTestId("summary")).toBeVisible();

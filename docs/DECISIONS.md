@@ -262,7 +262,9 @@ explains why. Each entry: context, decision, consequences.
   - Every edit is the **overlay** (`layout`, keyed by element id: position, angle, elevation, room,
     removed, added pieces), applied to the plan's JSON **before** it is read
     (`domotwin-core::overlay`). The reader checks the result like any plan; a change that would make
-    it invalid is dropped. Only furniture is edited: rooms, walls and openings come from the plan.
+    it invalid is dropped, and a stored overlay that an updated plan refuses keeps the entries it
+    accepts (tried one by one; the view says how many were left out). Only furniture is edited:
+    rooms, walls and openings come from the plan.
   - The session lives in `domotwin-core::edit`, tested without a GPU: selection, snapping (each side
     onto the nearest parallel wall face or piece edge within about 1.5 % of the view, else a 5 cm
     grid), distance guides, stacking, collisions, and a history of **whole overlays** (100), so that
@@ -276,6 +278,6 @@ explains why. Each entry: context, decision, consequences.
     not saved is kept in the browser's local storage for that revision, on the device only, and
     offered again when edit mode opens.
 - **Consequences.** **Export plan** writes the overlay applied. Added pieces get ids
-  `<kind>-added-<n>`. The engine grew by 28 kB gzipped; the edit bar and catalogue load only when
+  `<kind>-added-<n>`. The engine grew by 30 kB gzipped; the edit bar and catalogue load only when
   edit mode opens. Rooms, walls, doors and windows are not edited in DomoTwin.
 

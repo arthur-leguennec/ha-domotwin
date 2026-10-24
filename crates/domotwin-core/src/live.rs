@@ -310,6 +310,34 @@ impl LiveState {
         self.target = targets;
     }
 
+    /// New targets after the plan was edited: `old[i]` is the index element `i` had before (`None`
+    /// for a new one). Looks and openings follow their elements, whatever their new index, and
+    /// fade from there; new elements start at their targets.
+    pub fn retarget_moved(&mut self, targets: Targets, old: &[Option<usize>]) {
+        let unchanged =
+            old.len() == self.looks.len() && old.iter().enumerate().all(|(i, o)| *o == Some(i));
+        if unchanged {
+            self.set_targets(targets);
+            return;
+        }
+        let mut next = Self::new(targets);
+        for (i, o) in old.iter().enumerate() {
+            let Some(o) = *o else { continue };
+            if let (Some(look), Some(previous)) = (next.looks.get_mut(i), self.looks.get(o)) {
+                *look = *previous;
+            }
+            for (current, previous) in [
+                (&mut next.overrides.open, &self.overrides.open),
+                (&mut next.overrides.blind, &self.overrides.blind),
+            ] {
+                if let Some(v) = previous.get(&o) {
+                    current.insert(i, *v);
+                }
+            }
+        }
+        *self = next;
+    }
+
     /// Whether every look and opening has reached its target (no frame needed).
     pub fn is_settled(&self) -> bool {
         let close = |a: f32, b: f32| (a - b).abs() < 1e-4;
@@ -426,6 +454,36 @@ mod tests {
             .into_iter()
             .filter_map(|(k, v)| Some((k, v?)))
             .collect()
+    }
+
+    #[test]
+    fn looks_follow_their_elements_when_indices_move() {
+        let (plan, lights, bindings) = setup();
+        let lit = states(serde_json::json!({
+            "light.living_room_pendant": { "state": "on", "attributes": {} },
+        }));
+        let pendant = index(&plan, "pendant-living");
+        let mut live = LiveState::new(targets(&plan, &lights, &bindings, &lit));
+        let strength = live.looks[pendant].strength;
+        assert!(strength > 0.5);
+        let next = live.looks[pendant + 1];
+        // The element before the pendant was removed and one added at the end: the pendant is
+        // one index lower, the count is the same.
+        let n = live.looks.len();
+        let old: Vec<Option<usize>> = (0..n)
+            .map(|i| match i {
+                _ if i + 1 == n => None,
+                _ if i + 1 >= pendant => Some(i + 1),
+                _ => Some(i),
+            })
+            .collect();
+        let mut shifted = targets(&plan, &lights, &bindings, &lit);
+        shifted.looks.remove(pendant - 1);
+        shifted.looks.push(Look::default());
+        live.retarget_moved(shifted, &old);
+        // Each look moved with its element (by index it would have stayed with the neighbour).
+        assert_eq!(live.looks[pendant - 1].strength, strength);
+        assert_eq!(live.looks[pendant], next);
     }
 
     #[test]

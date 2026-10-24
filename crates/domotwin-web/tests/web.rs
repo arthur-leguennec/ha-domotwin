@@ -154,8 +154,29 @@ fn edit_mode_moves_turns_adds_and_undoes() {
     assert!(state.contains("\"dirty\":false"), "{state}");
     assert_eq!(engine.edit_layout(), "{}");
     engine.edit_redo();
+    // Saved what was sent: the turn made since stays to be saved.
+    let sent = engine.edit_layout();
+    engine.edit_select("sofa", false);
+    engine.edit_rotate(1);
+    engine.edit_saved(&sent);
+    assert!(engine.edit_state().contains("\"dirty\":true"));
+    engine.edit_undo();
+    assert!(engine.edit_state().contains("\"dirty\":false"));
     engine.end_edit(false);
     assert!(engine.edit_state().contains("\"editing\":false"));
     assert!(Engine::edit_catalogue().contains("\"kind\":\"sofa\""));
     assert!(!engine.edit_drag_start(x, y), "not editing");
+}
+
+#[wasm_bindgen_test]
+fn an_overlay_the_plan_refuses_is_left_out_entry_by_entry() {
+    let mut engine = Engine::new(canvas()).unwrap();
+    let layout =
+        r#"{"sofa":{"x":200},"bad-added-1":{"add":{"name":"Bad","kind":"lamp","w":35,"h":35}}}"#;
+    let summary = engine
+        .load_plan(DEMO, None, Some(layout.to_owned()))
+        .unwrap();
+    assert!(summary.contains("\"layoutRefused\":1"), "{summary}");
+    engine.begin_edit();
+    assert_eq!(engine.edit_layout(), r#"{"sofa":{"x":200.0}}"#);
 }

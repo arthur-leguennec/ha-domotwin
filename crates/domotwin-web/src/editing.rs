@@ -8,7 +8,7 @@ use std::collections::BTreeSet;
 
 use domotwin_core::edit::{Guide, Session, indices};
 use domotwin_core::geometry::polygon::P2;
-use domotwin_core::overlay::{Layout, apply, layout_value, read_layout};
+use domotwin_core::overlay::{Layout, apply, layout_value, parse_layout};
 use domotwin_core::plan::{Element, Kind, read_plan_value};
 use domotwin_core::scene::build_dynamic_lit;
 use domotwin_render::lamps::Mark;
@@ -51,7 +51,8 @@ impl Engine {
 
     /// What edit mode shows, as JSON: `editing`, `selection` (`[{"id", "name", "kind",
     /// "locked"}]`), `conflicts` (ids), `guides` (`[{"a": [x, y], "b": [x, y], "cm"}]`, device
-    /// pixels, `cm` only for distances), `canUndo`, `canRedo`, `dirty`.
+    /// pixels, `cm` only for distances), `canUndo`, `canRedo`, `dirty`, and `changes` (a number
+    /// that changes with the overlay).
     #[wasm_bindgen(js_name = editState)]
     pub fn edit_state(&self) -> String {
         let (Some(session), Some(plan)) = (&self.edit, &self.plan) else {
@@ -72,7 +73,7 @@ impl Engine {
                 })
             })
             .collect();
-        let height = session.drag_height(plan).unwrap_or(0.0);
+        let height = session.drag_height().unwrap_or(0.0);
         let point = |p: P2| self.renderer.screen_point([p[0], height, p[1]]);
         let round = |p: [f64; 2]| p.map(|v| (v * 10.0).round() / 10.0);
         let guides: Vec<Value> = session
@@ -97,6 +98,7 @@ impl Engine {
             "canUndo": session.can_undo(),
             "canRedo": session.can_redo(),
             "dirty": session.dirty(),
+            "changes": session.changes(),
         })
         .to_string()
     }
@@ -139,12 +141,7 @@ impl Engine {
     /// the guides.
     #[wasm_bindgen(js_name = editDragMove)]
     pub fn edit_drag_move(&mut self, x: f64, y: f64) -> String {
-        let Some(height) = self
-            .edit
-            .as_ref()
-            .zip(self.plan.as_ref())
-            .and_then(|(session, plan)| session.drag_height(plan))
-        else {
+        let Some(height) = self.edit.as_ref().and_then(Session::drag_height) else {
             return self.edit_state();
         };
         let Some(to) = self.renderer.plane_point(x, y, height) else {
@@ -214,7 +211,8 @@ impl Engine {
     }
 
     /// Adds a piece of the catalogue `kind` named `name` under the device pixel `x`, `y` (or in
-    /// the middle of the view when the floor is not there), and selects it.
+    /// the middle of the view when the floor is not there), and selects it. The state has
+    /// `refused: true` when it could not be added (the plan holds 500 elements).
     #[wasm_bindgen(js_name = editAdd)]
     pub fn edit_add(&mut self, kind: &str, name: &str, x: f64, y: f64) -> String {
         let Some(kind) = Kind::from_name(kind) else {
@@ -233,8 +231,13 @@ impl Engine {
         };
         if added {
             self.commit();
+            return self.edit_state();
         }
-        self.edit_state()
+        let mut state: Value = serde_json::from_str(&self.edit_state()).unwrap_or_default();
+        if let Some(object) = state.as_object_mut() {
+            object.insert("refused".into(), Value::Bool(true));
+        }
+        state.to_string()
     }
 
     /// Undoes the last change.
@@ -259,8 +262,7 @@ impl Engine {
     /// be undone.
     #[wasm_bindgen(js_name = editRestore)]
     pub fn edit_restore(&mut self, layout: &str) -> String {
-        let layout =
-            serde_json::from_str(layout).map_or_else(|_| Layout::new(), |v| read_layout(&v));
+        let layout = parse_layout(layout);
         if self
             .edit
             .as_mut()
@@ -278,11 +280,12 @@ impl Engine {
         layout_value(layout).to_string()
     }
 
-    /// The overlay now was stored.
+    /// The overlay `layout` (JSON, what was sent) was stored. Changes made while it was being saved
+    /// stay to be saved.
     #[wasm_bindgen(js_name = editSaved)]
-    pub fn edit_saved(&mut self) {
+    pub fn edit_saved(&mut self, layout: &str) {
         if let Some(session) = self.edit.as_mut() {
-            session.mark_saved();
+            session.mark_saved_as(parse_layout(layout));
         }
     }
 

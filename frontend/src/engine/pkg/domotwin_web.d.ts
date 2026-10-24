@@ -13,7 +13,8 @@ export class Engine {
     beginEdit(): string;
     /**
      * Adds a piece of the catalogue `kind` named `name` under the device pixel `x`, `y` (or in
-     * the middle of the view when the floor is not there), and selects it.
+     * the middle of the view when the floor is not there), and selects it. The state has
+     * `refused: true` when it could not be added (the plan holds 500 elements).
      */
     editAdd(kind: string, name: string, x: number, y: number): string;
     /**
@@ -57,9 +58,10 @@ export class Engine {
      */
     editRotate(steps: number): string;
     /**
-     * The overlay now was stored.
+     * The overlay `layout` (JSON, what was sent) was stored. Changes made while it was being saved
+     * stay to be saved.
      */
-    editSaved(): void;
+    editSaved(layout: string): void;
     /**
      * Selects the piece `id` (`add`: adds it to the selection or takes it out); another id
      * clears the selection unless `add`.
@@ -68,7 +70,8 @@ export class Engine {
     /**
      * What edit mode shows, as JSON: `editing`, `selection` (`[{"id", "name", "kind",
      * "locked"}]`), `conflicts` (ids), `guides` (`[{"a": [x, y], "b": [x, y], "cm"}]`, device
-     * pixels, `cm` only for distances), `canUndo`, `canRedo`, `dirty`.
+     * pixels, `cm` only for distances), `canUndo`, `canRedo`, `dirty`, and `changes` (a number
+     * that changes with the overlay).
      */
     editState(): string;
     /**
@@ -97,9 +100,9 @@ export class Engine {
     invalidate(): void;
     /**
      * Loads a plan (the text of a `*.plan.json`) with its edit overlay (`layout`, JSON) and
-     * builds its scene. Returns a JSON summary; `layoutRefused` is true when the overlay made
-     * the plan invalid and the plan is shown without it. The camera keeps its place when
-     * `keep_camera` (a plan saved from another view).
+     * builds its scene. Returns a JSON summary; `layoutRefused` counts the entries of the overlay
+     * left out because they made the plan invalid (an updated plan). The camera keeps its place
+     * when `keep_camera` (a plan saved from another view).
      *
      * # Errors
      *
@@ -257,7 +260,7 @@ export interface InitOutput {
     readonly engine_editRemove: (a: number, b: number) => void;
     readonly engine_editRestore: (a: number, b: number, c: number, d: number) => void;
     readonly engine_editRotate: (a: number, b: number, c: number) => void;
-    readonly engine_editSaved: (a: number) => void;
+    readonly engine_editSaved: (a: number, b: number, c: number) => void;
     readonly engine_editSelect: (a: number, b: number, c: number, d: number, e: number) => void;
     readonly engine_editState: (a: number, b: number) => void;
     readonly engine_editUndo: (a: number, b: number) => void;

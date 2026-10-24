@@ -24,8 +24,8 @@ In the panel, **Edit** opens edit mode (administrators only). The header gets **
 - **Undo** and **Redo**: the bar, or Ctrl+Z and Ctrl+Shift+Z (Ctrl+Y). 100 steps are kept.
 - **Save** stores the overlay; **Cancel** asks before discarding changes.
 
-Keys, when no text field has the focus: Delete or Backspace removes, R turns clockwise and
-Shift+R anticlockwise, Escape clears the selection.
+Keys, when no text field has the focus and no dialog is open: Delete or Backspace removes, R turns
+clockwise and Shift+R anticlockwise, Escape clears the selection.
 
 The 2D plan (the toolbar of the view) is the easiest place to place pieces precisely; everything
 works in 3D too.
@@ -42,7 +42,9 @@ plan snaps onto a **5 cm grid**. The faces it snapped onto are drawn as dashed l
 
 Small objects stand on the piece they are dropped over: lamps, plants, screens and printers on
 tables, desks, chests, shelves, sideboards, counters…, a dryer on a washer. Moving a piece moves what
-stands on it; turning it turns them too. Removing it puts them down on the floor.
+stands on it; turning it turns them too. Removing it puts them down on the floor. A piece fixed
+higher than what is under it (a TV on a wall, a plant on a shelf the plan does not have) keeps its
+height when it moves.
 
 ### Conflicts
 
@@ -57,7 +59,8 @@ Fixed pieces (`locked` in the plan) can be selected but not moved, turned or rem
 
 **Save** sends the overlay with the revision edit mode started from. If the plan, the overlay or
 the bindings were saved from another device in between, the save is refused with a message instead
-of overwriting their work; cancel to see their version.
+of overwriting their work; cancel to see their version. Changes made while a save is on its way stay
+in edit mode, to be saved too.
 
 Until it is saved, the overlay is kept in this browser (local storage, on this device only) for the
 revision it started from. If the tab closes or the connection drops, opening edit mode again offers
@@ -93,7 +96,9 @@ Stored by the integration in `layout`, keyed by element id (`domotwin-core::over
 
 The overlay is applied to the plan's JSON before it is read, so the result is checked like any
 plan; entries for pieces the plan no longer has, for elements that are not furniture, malformed
-values and added pieces past the 500 elements are ignored. At most 1 000 entries.
+values, rooms the plan no longer has and added pieces past the 500 elements are ignored. When an
+entry still makes the plan invalid (an updated plan), the entries are tried one by one and those the
+plan refuses are left out; the view says how many. At most 1 000 entries.
 
 ## For developers
 

@@ -137,15 +137,15 @@ until the page reloads (WebAssembly memory never shrinks).
 
 ### M3 (edit mode)
 
-Bundle: the first load is **277.9 kB gzipped** of 1 200 kB (+35 kB):
+Bundle: the first load is **280.0 kB gzipped** of 1 200 kB (+37 kB):
 
 | File | Raw | Gzipped |
 | --- | ---: | ---: |
-| `domotwin_web_bg.<hash>.wasm` | 533.6 kB | 234.1 kB |
-| `domotwin.js` (entry) | 53.5 kB | 15.2 kB |
+| `domotwin_web_bg.<hash>.wasm` | 537.0 kB | 235.7 kB |
+| `domotwin.js` (entry) | 54.7 kB | 15.6 kB |
 | `chunks/edit-bar-<hash>.js` (edit bar and catalogue, on demand) | 8.1 kB | 2.7 kB |
 
-The engine grew by 28 kB gzipped (the overlay, snapping, stacking, collisions, the session and its
+The engine grew by 30 kB gzipped (the overlay, snapping, stacking, collisions, the session and its
 API); the entry by 3 kB (edit mode in the view, the panel's edit mode, the names of the kinds in
 English and French). The edit bar and the catalogue load the first time edit mode opens.
 

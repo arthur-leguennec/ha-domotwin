@@ -203,6 +203,9 @@ export class DomoTwinLink extends Sheet {
 
   private unlink(entityId: string): void {
     this.entities = this.entities.filter((e) => e.entity_id !== entityId);
+    // An action aimed at it now aims at no entity in particular.
+    if (this.tap.target === entityId) this.tap = { ...this.tap, target: "" };
+    if (this.hold.target === entityId) this.hold = { ...this.hold, target: "" };
   }
 
   protected override render(): TemplateResult | typeof nothing {
@@ -408,6 +411,14 @@ export class DomoTwinLink extends Sheet {
                   <option value="" ?selected=${draft.target === ""}>
                     ${t.t("link.target_none")}
                   </option>
+                  ${
+                    // A target written in the file that is not linked: shown, so it can be changed.
+                    draft.target && !this.entities.some((e) => e.entity_id === draft.target)
+                      ? html`<option value=${draft.target} selected>
+                          ${entityName(hass, draft.target)}
+                        </option>`
+                      : nothing
+                  }
                   ${this.entities.map(
                     (entity) =>
                       html`<option

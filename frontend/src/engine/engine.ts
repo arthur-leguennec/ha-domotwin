@@ -6,8 +6,8 @@ import type * as Wasm from "./pkg/domotwin_web.js";
 /** What `loadPlan` returns: counts of the plan's elements. */
 export interface PlanSummary {
   revision: number;
-  /** The edit overlay made the plan invalid: the plan is shown without it. */
-  layoutRefused?: boolean;
+  /** Entries of the edit overlay left out because they made the plan invalid (an updated plan). */
+  layoutRefused?: number;
   title: string;
   rooms: number;
   walls: number;
@@ -78,6 +78,10 @@ export interface EditState {
   canRedo: boolean;
   /** Changes not saved. */
   dirty: boolean;
+  /** A number that changes whenever the overlay does. */
+  changes: number;
+  /** `editAdd` only: the piece could not be added (the plan holds 500 elements). */
+  refused?: boolean;
 }
 
 /** A kind of the catalogue, with its default size (cm). */
@@ -97,6 +101,7 @@ const NOT_EDITING: EditState = {
   canUndo: false,
   canRedo: false,
   dirty: false,
+  changes: 0,
 };
 
 function editState(text: string): EditState {
@@ -345,9 +350,9 @@ export class DomoTwinEngine {
     return JSON.parse(this.live.editLayout()) as Record<string, unknown>;
   }
 
-  /** The overlay now was stored. */
-  editSaved(): void {
-    this.live.editSaved();
+  /** The overlay `layout` (what was sent) was stored; later changes stay to be saved. */
+  editSaved(layout: Record<string, unknown>): void {
+    this.live.editSaved(JSON.stringify(layout));
   }
 
   resize(width: number, height: number): void {

@@ -28,6 +28,10 @@ export const en = {
     toolbar: "View controls",
     action_failed: "That did not work: {reason}",
     room_panel: "Open the controls of {room}",
+    layout_refused: {
+      one: "{count} edit could not be applied to this plan and was left out.",
+      other: "{count} edits could not be applied to this plan and were left out.",
+    },
   },
   controls: {
     turn_on: "Turn on",
@@ -169,6 +173,7 @@ export const en = {
     selected: { one: "{count} piece selected", other: "{count} pieces selected" },
     locked: "{name} is fixed in the plan.",
     conflict: "Overlaps another piece or a wall.",
+    too_many: "This plan already holds 500 elements: remove some before adding.",
     draft: "Changes not saved were kept on this device.",
     restore: "Restore",
     forget: "Forget them",

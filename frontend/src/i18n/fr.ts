@@ -27,6 +27,10 @@ export const fr: Dictionary = {
     toolbar: "Commandes de la vue",
     action_failed: "Cela n’a pas marché : {reason}",
     room_panel: "Ouvrir les commandes de {room}",
+    layout_refused: {
+      one: "{count} modification ne s’applique plus à ce plan et a été laissée de côté.",
+      other: "{count} modifications ne s’appliquent plus à ce plan et ont été laissées de côté.",
+    },
   },
   controls: {
     turn_on: "Allumer",
@@ -169,6 +173,7 @@ export const fr: Dictionary = {
     selected: { one: "{count} meuble sélectionné", other: "{count} meubles sélectionnés" },
     locked: "{name} est fixé dans le plan.",
     conflict: "Chevauche un autre meuble ou un mur.",
+    too_many: "Ce plan contient déjà 500 éléments : retirez-en avant d’en ajouter.",
     draft: "Des modifications non enregistrées ont été gardées sur cet appareil.",
     restore: "Restaurer",
     forget: "Les oublier",
