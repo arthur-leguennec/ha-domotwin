@@ -226,7 +226,12 @@ local −x.
 `backsplash`, `shoecab`, `heater`, `curtain`, `frame`, `gallery`, `mirror`, `chandelier`,
 `pendant`, `spot`, `lamp`, `ceilinglight`, `fan`, `tablelamp`, `lantern`, `desklamp`, `barrister`,
 `openshelf`, `trunk`, `stand`, `officechair`, `roundtable`, `console`, `printer`, `conduit`,
-`printer3d`.
+`printer3d`, `stairs`.
+
+**Stairs (`stairs`, DomoTwin).** Stairs to another storey, 100 × 280 × 270 cm by default: steps of
+about 18 cm rising from the front of the piece (its local +y) to its back. Added by DomoTwin for
+homes of several storeys; a reader that does not know the kind reads it as `desk`, as the format
+says.
 
 **User models (revision 10).** A piece of kind `custom` shows the user 3D model named by its
 `model` (an id of the plan's `models`, required for this kind and dropped from the others). It has

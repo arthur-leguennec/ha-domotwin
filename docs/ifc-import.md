@@ -2,7 +2,8 @@
 
 DomoTwin can start from an **IFC file** (ISO 16739), the open standard for building models, instead
 of a House Maquette plan. In the DomoTwin panel, **Import plan** accepts `.ifc` files: DomoTwin reads
-one storey and turns it into an ordinary plan (`plan-format.md`), stored like an imported plan.
+one storey and turns it into an ordinary plan (`plan-format.md`), stored like an imported plan in
+the storey shown, or **imports every storey** of the file as the home's [storeys](storeys.md).
 Everything else (3D and 2D views, bindings, live states, export) works the same.
 
 ![The storey picker of a two-storey file, and a fictional apartment imported](figures/screenshot-ifc.png)
@@ -15,7 +16,7 @@ fictional [`examples/demo-apartment.ifc`](../examples/demo-apartment.ifc).
 
 | IFC | Becomes | Notes |
 | --- | --- | --- |
-| `IfcBuildingStorey` | the plan | When several storeys have spaces, DomoTwin asks which one. |
+| `IfcBuildingStorey` | the plan | When several storeys have spaces, DomoTwin asks which one, or imports them all: each becomes a storey of the home with its name and elevation (measured from the storey nearest 0 when one is within 2 m of it, else from the lowest), and they replace the home's storeys in one save. |
 | `IfcSpace` | a room | Its outline: the `FootPrint` curve, else the profile of its extruded body, else the lowest face of its brep, else the hull of its points. Name: `LongName`, else `Name`. |
 | `IfcWall`, `IfcWallStandardCase` | wall thicknesses | Interior thickness: the gaps between facing spaces, else the internal walls' material layers or geometry. Exterior: walls with `IsExternal`. |
 | `IfcDoor`, `IfcWindow` | doors and windows | Put on the room side they sit in. Width: `OverallWidth`, else the geometry. Hinge side, swing and style from the operation type (IFC4) or the door style or type (IFC2x3). |

@@ -17,13 +17,15 @@ Local, rapide, Rust + WebAssembly.</p>
 > route](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/ROADMAP.md), en anglais).
 > L’intégration, le panneau, la carte, l’import du plan et de l’IFC, les vues 3D et 2D, le
 > pilotage en direct (états, toucher, appui long, panneau de pièce, liaisons), le mode édition, vos
-> propres modèles 3D, les calques, les appareils et l’éditeur de plan fonctionnent déjà ; les
-> étages arrivent ensuite. Les fonctionnalités ci-dessous décrivent la version 0.1.0.
+> propres modèles 3D, les calques, les appareils, l’éditeur de plan et les étages fonctionnent
+> déjà ; l’apparence et un mode kiosque arrivent ensuite. Les fonctionnalités ci-dessous décrivent
+> la version 0.1.0.
 
 ## Fonctionnalités
 
-- **Votre plan en 3D et en 2D.** Importez un plan House Maquette (`*.plan.json`) ou un étage d’une
-  maquette IFC (`*.ifc`, depuis Revit, ArchiCAD, Bonsai, FreeCAD…) et voyez-le en maquette 3D. Les
+- **Votre plan en 3D et en 2D.** Importez un plan House Maquette (`*.plan.json`) ou une maquette
+  IFC (`*.ifc`, depuis Revit, ArchiCAD, Bonsai, FreeCAD…), un étage ou tous, et voyez-le en
+  maquette 3D. Les
   murs face à la caméra s’abaissent automatiquement, comme une maison de poupée ouverte. Passez à un
   plan 2D net avec une transition fluide.
 - **Toucher pour piloter.** Touchez une lampe pour l’allumer ou l’éteindre, appuyez longuement pour
@@ -43,6 +45,10 @@ Local, rapide, Rust + WebAssembly.</p>
   polygones avec leurs longueurs, des cloisons, des portes et des fenêtres posées sur les murs, avec
   aimantation et annulation. Voir [l’éditeur de
   plan](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/plan-editor.md) (en anglais).
+- **Étages.** Une cave, des étages, des combles : un plan chacun, un sélecteur dans la vue, un
+  escalier qui vous fait monter d’une touche, et les alertes de chaque étage où que vous soyez.
+  Voir [les étages](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/storeys.md) (en
+  anglais).
 - **Mode édition.** Déplacez, tournez et empilez les meubles avec aimantation, repères et
   annulation, ajoutez des meubles depuis un catalogue, liez n’importe quel objet à des entités (avec
   des suggestions tirées de vos pièces), et ajoutez votre propre meuble ou appareil avec son modèle
@@ -78,6 +84,10 @@ Local, rapide, Rust + WebAssembly.</p>
   <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-plan-editor.png" alt="L’éditeur de plan : un coin du séjour déplacé avec les longueurs de ses côtés, et une pièce dessinée à côté du logement" width="100%">
 </p>
 
+<p align="center">
+  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-storeys.png" alt="Les étages : l’étage au-dessus de l’appartement de démonstration avec son escalier et le sélecteur d’étage, et la fenêtre qui liste les étages avec leur nom et leur hauteur" width="100%">
+</p>
+
 ## Démarrage rapide
 
 1. **Installer.** Utilisez le bouton ci-dessus, ou ajoutez dans HACS
@@ -111,6 +121,7 @@ YAML n’est jamais nécessaire. Pour référence, les options de la carte :
 | `quality`     | `auto`, `eco`, `balanced`, `high`   | `auto`     | Qualité du rendu ; `auto` s’adapte à l’appareil. |
 | `cutaway`     | `auto`, `always`, `off`             | `auto`     | Abaissement des murs face à la caméra.        |
 | `lighting`    | `auto`, `morning`, `day`, `evening`, `night` | `auto` | Lumière de la scène. `auto` suit le soleil de votre Home Assistant (`sun.sun`), ou l’horloge à défaut. |
+| `storey`      | un identifiant d’étage (`storey-2`…) | rez-de-chaussée | Étage affiché à l’ouverture de la carte ; le sélecteur le change. |
 | `room`        | un identifiant de pièce du plan     | aucun      | Pièce à cadrer à l’ouverture de la carte.     |
 | `layer`       | `off`, `temperature`, `humidity`, `co2`, `pm25`, `power` | `off` | Calque affiché à l’ouverture ; le menu des calques le change. |
 | `alerts`      | `true`, `false`                     | `true`     | Alertes de sécurité des pièces (fumée, gaz, eau, alarme, fenêtre ouverte sous la pluie). |
@@ -149,9 +160,14 @@ dans
 
 **Quels formats de plan DomoTwin lit-il ?** Le format de plan House Maquette, décrit dans
 [`docs/plan-format.md`](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/plan-format.md)
-avec son schéma JSON, et un étage d’un fichier IFC (ISO 16739, exporté par FreeCAD, Blender avec
-Bonsai, ArchiCAD ou Revit) : voir [l’import
+avec son schéma JSON, et les fichiers IFC (ISO 16739, exportés par FreeCAD, Blender avec Bonsai,
+ArchiCAD ou Revit), un étage ou tous à la fois : voir [l’import
 IFC](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/ifc-import.md) (en anglais).
+
+**Mon logement a plusieurs niveaux.** Chaque niveau est un étage avec son propre plan : **Étages**
+dans le panneau en ajoute un (importé ou dessiné), le nomme et règle sa hauteur ; la vue passe de
+l’un à l’autre, et une carte peut s’ouvrir sur n’importe lequel. Voir [les
+étages](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/storeys.md) (en anglais).
 
 **Puis-je dessiner mon logement sans autre logiciel ?** Oui : **Dessiner un plan** dans le
 panneau (ou **Modifier le plan** pour en changer un), voir [l’éditeur de

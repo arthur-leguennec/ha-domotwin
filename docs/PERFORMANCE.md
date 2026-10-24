@@ -246,3 +246,22 @@ per pointer move (median; 12 ms p95): the change checked by the plan reader in t
 draft passed as JSON to the engine, read again, the whole scene built and uploaded, and the
 handles placed; drawing the frame then takes 0.2 ms. The view applies at most one move per frame;
 a tap that only selects marks the element without building the scene again.
+
+### M7 (storeys)
+
+Bundle: the first load is **340.6 kB gzipped** of 1 200 kB (+5.8 kB):
+
+| File | Raw | Gzipped |
+| --- | ---: | ---: |
+| `domotwin_web_bg.<hash>.wasm` | 625.6 kB | 272.1 kB |
+| `domotwin.js` (entry) | 103.9 kB | 26.7 kB |
+
+The engine grew by 1.4 kB (the stairs, the ids edit mode keeps for the other storeys), the rest by
+4.4 kB (the switcher, the storeys dialog, the alerts of the other storeys, the texts in two
+languages).
+
+In headless Chromium with the demo apartment and its fictional upper floor, switching storeys takes
+10 ms median from the tap to the new storey read (7–16 ms): the plan was already fetched for the
+alerts, so it is read and its scene built, the camera kept. Every frame then costs what one storey
+costs; nothing of the other storeys is drawn.
+
