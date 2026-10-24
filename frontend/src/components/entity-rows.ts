@@ -54,7 +54,8 @@ function modes(entity: HassEntity): string[] {
   return Array.isArray(value) ? value.filter((m): m is string => typeof m === "string") : [];
 }
 
-function toggle(
+/** A switch that turns an entity on or off. */
+export function toggle(
   hass: HomeAssistant,
   t: Translator,
   entityId: string,

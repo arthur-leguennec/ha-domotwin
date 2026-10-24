@@ -16,7 +16,11 @@ async function pointOnWire(page: Page): Promise<{ x: number; y: number }> {
     const view = (
       window as never as {
         __view: () => {
-          engine: { networkAt(x: number, y: number): string };
+          engine: {
+            networkAt(x: number, y: number): string;
+            pick(x: number, y: number): { id: string } | undefined;
+          };
+          bindings?: { elements: Record<string, { entities: unknown[] } | undefined> };
           canvas: HTMLCanvasElement;
           shadowRoot: ShadowRoot;
         };
@@ -28,6 +32,9 @@ async function pointOnWire(page: Page): Promise<{ x: number; y: number }> {
     for (let y = 0; y < canvas.height; y += 6) {
       for (let x = 0; x < canvas.width; x += 6) {
         if (!view.engine.networkAt(x, y)) continue;
+        // Not over a linked piece: a tap there acts on the piece.
+        const piece = view.engine.pick(x, y);
+        if (piece && (view.bindings?.elements[piece.id]?.entities.length ?? 0) > 0) continue;
         // Only where the canvas itself takes the tap (not under the sheet or a marker).
         const top = view.shadowRoot.elementFromPoint(rect.left + x * k, rect.top + y * k);
         if (top === canvas) return { x: x * k, y: y * k };

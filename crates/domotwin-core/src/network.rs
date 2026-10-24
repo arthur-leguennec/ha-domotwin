@@ -505,6 +505,7 @@ impl Mesh {
                     flow,
                     dashed: self.devices[link.a].stale() || self.devices[link.b].stale(),
                     weight: if spare { SPARE_WEIGHT } else { 1.0 },
+                    bend: 1.0,
                 };
                 Some((k, wire))
             })

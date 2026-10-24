@@ -20,6 +20,7 @@ import {
   type NetworkSource,
   type Quality,
 } from "../live/network";
+import { timeAgo } from "../live/text";
 import { define, fire } from "./define";
 import { icon } from "./icon";
 import { baseStyles } from "./styles";
@@ -390,11 +391,7 @@ export class DomoTwinNetwork extends LitElement {
   private ago(seconds: number | undefined): string {
     const t = this.t;
     if (seconds === undefined) return t.t("network.never");
-    const format = new Intl.RelativeTimeFormat(t.language, { numeric: "auto" });
-    if (seconds < 90) return format.format(-Math.round(seconds), "second");
-    if (seconds < 5_400) return format.format(-Math.round(seconds / 60), "minute");
-    if (seconds < 129_600) return format.format(-Math.round(seconds / 3_600), "hour");
-    return format.format(-Math.round(seconds / 86_400), "day");
+    return timeAgo(t.language, seconds);
   }
 
   protected override render(): TemplateResult {

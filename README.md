@@ -17,8 +17,8 @@ Local, fast, Rust + WebAssembly.</p>
 > ([roadmap](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/ROADMAP.md)). The
 > integration, the panel, the card, the plan and IFC import, the 3D and 2D views, live control
 > (states, tap, long press, room panel, linking), the edit mode, your own 3D models, the layers, the
-> devices, the plan editor, storeys, the looks, every storey at once, walking, the kiosk and the
-> network map work today; more imports come next. The features below describe version 0.1.0.
+> devices, the plan editor, storeys, the looks, every storey at once, walking, the kiosk, the
+> network map and the automation wires work today; more imports come next. The features below describe version 0.1.0.
 
 ## Features
 
@@ -47,6 +47,11 @@ Local, fast, Rust + WebAssembly.</p>
   link named, with *a router here would help*. Tap a device or a link for the details, rescan,
   and place the devices the map cannot find. For administrators, with ZHA. See [the network
   map](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/network.md).
+- **Automation wires.** Long-press a lamp: its panel lists the automations that involve it, with
+  their switch and when they last ran. Show their wires, from what sets them off to what they act
+  on, and watch a pulse run along them when one runs. Or every automation of the home at once.
+  See [automation
+  wires](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/automations.md).
 - **Plan editor.** No plan to import? Draw one in the panel: rooms as polygons with their lengths,
   partitions, doors and windows placed on the walls, with snapping and undo. See [plan
   editor](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/plan-editor.md).
@@ -94,6 +99,10 @@ Local, fast, Rust + WebAssembly.</p>
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-network.png" alt="The network map: the Zigbee devices of the demo apartment on their pieces, linked by arcs in green, amber and red, and a sheet with a router's details, the mesh's health and a sensor not placed in the home" width="100%">
+</p>
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-automations.png" alt="Automation wires: every automation of the demo apartment drawn from the TV and the entrance door to the lamps and curtains, with labels floating above the home for the sun, a time, a notification and what a template decides" width="100%">
 </p>
 
 <p align="center">
@@ -147,7 +156,7 @@ YAML is never required. For reference, the card options are:
 | `spread`      | `true`, `false`                     | `true`     | Every storey at once: spread apart, or stacked. |
 | `roof`        | `true`, `false`                     | `true`     | Every storey at once: the roof over the top one. |
 | `room`        | a room id of the plan               | none       | Room to focus on when the card opens.     |
-| `layer`       | `off`, `temperature`, `humidity`, `co2`, `pm25`, `power`, `network` | `off` | Layer shown when the card opens; the layer menu changes it. `network` shows to administrators with ZHA only. |
+| `layer`       | `off`, `temperature`, `humidity`, `co2`, `pm25`, `power`, `network`, `automations` | `off` | Layer shown when the card opens; the layer menu changes it. `network` shows to administrators with ZHA only, `automations` to administrators. |
 | `alerts`      | `true`, `false`                     | `true`     | Safety alerts of the rooms (smoke, gas, water, alarm, a window open in the rain). |
 | `presence`    | `true`, `false`                     | `true`     | The rooms someone is in glow softly.      |
 | `sun`         | `fixed`, `real`                     | `fixed`    | `real`: the sun lights from where it is (`sun.sun`), through the windows. |

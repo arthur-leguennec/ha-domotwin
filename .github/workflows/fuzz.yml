@@ -82,7 +82,7 @@ jobs:
           if [ -n "$SECONDS_INPUT" ]; then seconds="$SECONDS_INPUT"; fi
           targets=()
           if [ "$CORE" = true ]; then
-            targets+=("plan_reader:200000" "edit_layout:20000" "plan_draft:640")
+            targets+=("plan_reader:200000" "edit_layout:20000" "plan_draft:640" "automation:20000")
           fi
           if [ "$IFC" = true ]; then targets+=("ifc_reader:200000"); fi
           if [ "$MODELS" = true ]; then targets+=("model_file:200000"); fi

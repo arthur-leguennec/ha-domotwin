@@ -50,4 +50,11 @@ test = false
 doc = false
 bench = false
 
+[[bin]]
+name = "automation"
+path = "fuzz_targets/automation.rs"
+test = false
+doc = false
+bench = false
+
 [workspace]

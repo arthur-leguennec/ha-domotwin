@@ -6,13 +6,14 @@ use std::collections::HashMap;
 use domotwin_core::network::Mesh;
 use domotwin_core::scene::ElementInfo;
 use domotwin_core::scene::wires::{self, Wire, segments};
+use domotwin_render::WireSet;
 use serde_json::{Value, json};
 use wasm_bindgen::prelude::*;
 
 use crate::engine::Engine;
 
 /// How far above the top of its piece a device's end of a wire is (cm).
-const ABOVE: f32 = 12.0;
+pub(crate) const ABOVE: f32 = 12.0;
 /// How near a tap must be to a wire to pick it, as a share of the drawing buffer's smaller side.
 const TAP_REACH: f64 = 0.02;
 
@@ -34,7 +35,7 @@ impl Engine {
     pub fn set_network(&mut self, snapshot: &str) -> String {
         if snapshot.is_empty() {
             self.network = None;
-            self.renderer.set_wires(&[]);
+            self.renderer.set_wires(WireSet::Network, &[]);
             return String::new();
         }
         let value: Value = serde_json::from_str(snapshot).unwrap_or(Value::Null);
@@ -57,33 +58,14 @@ impl Engine {
         let Some(shown) = self.network.as_ref() else {
             return String::new();
         };
-        let (width, height) = self.renderer.size();
-        let reach = f64::from(width.min(height)) * TAP_REACH;
-        let mut best: Option<(f64, usize)> = None;
-        for (k, wire) in &shown.wires {
-            let screen: Vec<Option<[f64; 2]>> = (0..=wires::STEPS)
-                .map(|s| {
-                    #[allow(clippy::cast_precision_loss)]
-                    let t = s as f32 / wires::STEPS as f32;
-                    self.renderer.screen_point(self.wire_point(wire, t))
-                })
-                .collect();
-            for pair in screen.windows(2) {
-                let (Some(a), Some(b)) = (pair[0], pair[1]) else {
-                    continue;
-                };
-                let d = distance_to_segment([x, y], a, b);
-                if d <= reach && best.is_none_or(|(e, _)| d < e) {
-                    best = Some((d, *k));
-                }
-            }
-        }
-        best.and_then(|(_, k)| {
-            let link = shown.mesh.links.get(k)?;
-            let id = |i: usize| shown.mesh.devices[i].id.clone();
-            Some(json!({ "a": id(link.a), "b": id(link.b) }).to_string())
-        })
-        .unwrap_or_default()
+        let found = self.nearest_wire(&shown.wires, x, y);
+        found
+            .and_then(|k| {
+                let link = shown.mesh.links.get(k)?;
+                let id = |i: usize| shown.mesh.devices[i].id.clone();
+                Some(json!({ "a": id(link.a), "b": id(link.b) }).to_string())
+            })
+            .unwrap_or_default()
     }
 }
 
@@ -113,14 +95,15 @@ impl Engine {
             .filter(|(_, w)| wires::drawn(w))
             .collect();
         let pieces: Vec<Wire> = wires.iter().map(|(_, w)| *w).collect();
-        self.renderer.set_wires(&segments(&pieces));
+        self.renderer
+            .set_wires(WireSet::Network, &segments(&pieces));
         if let Some(shown) = self.network.as_mut() {
             shown.wires = wires;
         }
     }
 
     /// The elements of the scene shown, by id.
-    fn elements_by_id(&self) -> HashMap<&str, &ElementInfo> {
+    pub(crate) fn elements_by_id(&self) -> HashMap<&str, &ElementInfo> {
         self.elements.iter().map(|e| (e.id.as_str(), e)).collect()
     }
 
@@ -130,7 +113,7 @@ impl Engine {
         if let Some(shown) = self.network.as_mut() {
             shown.wires.clear();
         }
-        self.renderer.set_wires(&[]);
+        self.renderer.set_wires(WireSet::Network, &[]);
     }
 
     /// The room each device of the mesh shown is in: its piece's room (none when it is not
@@ -146,6 +129,39 @@ impl Engine {
             .iter()
             .map(|d| self.room_of(elements.get(d.element.as_deref()?)?).cloned())
             .collect()
+    }
+
+    /// The key of the wire of `wires` (each with its key) drawn nearest the device pixel (`x`,
+    /// `y`), within a tap's reach.
+    pub(crate) fn nearest_wire(&self, wires: &[(usize, Wire)], x: f64, y: f64) -> Option<usize> {
+        self.wires_near(wires, x, y).first().copied()
+    }
+
+    /// The keys of the wires of `wires` (each with its key) drawn within a tap's reach of the
+    /// device pixel (`x`, `y`), the nearest first.
+    pub(crate) fn wires_near(&self, wires: &[(usize, Wire)], x: f64, y: f64) -> Vec<usize> {
+        let (width, height) = self.renderer.size();
+        let reach = f64::from(width.min(height)) * TAP_REACH;
+        let mut near: Vec<(f64, usize)> = Vec::new();
+        for &(k, ref wire) in wires {
+            let screen: Vec<Option<[f64; 2]>> = (0..=wires::STEPS)
+                .map(|s| {
+                    #[allow(clippy::cast_precision_loss)]
+                    let t = s as f32 / wires::STEPS as f32;
+                    self.renderer.screen_point(self.wire_point(wire, t))
+                })
+                .collect();
+            let nearest = screen
+                .windows(2)
+                .filter_map(|pair| Some(distance_to_segment([x, y], pair[0]?, pair[1]?)))
+                .fold(f64::INFINITY, f64::min);
+            if nearest <= reach {
+                // Few are within reach: each goes in its place.
+                let at = near.partition_point(|&(d, _)| d <= nearest);
+                near.insert(at, (nearest, k));
+            }
+        }
+        near.into_iter().map(|(_, k)| k).collect()
     }
 
     /// Where the point at `t` along `wire` is drawn now, each end moved with its storey.

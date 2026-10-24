@@ -169,7 +169,9 @@ device class `power`, in W, kW or MW): pieces drawing more than 3 W are tinted f
 and labelled. The card's `alerts: false` and `presence: false` turn those off.
 
 The **network** layer, offered to administrators when ZHA is set up, draws the Zigbee mesh over
-the home: see [the network map](network.md).
+the home: see [the network map](network.md). The **automations** layer, for administrators,
+draws every automation as wires between the pieces linked to what it involves: see [automation
+wires](automations.md).
 
 ## Linking in the panel
 

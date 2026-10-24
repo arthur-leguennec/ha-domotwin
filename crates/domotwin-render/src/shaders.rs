@@ -727,12 +727,15 @@ in vec4 a_b;
 in vec3 a_corner;
 in vec4 a_color;
 in vec4 a_extra;
+// When a one-shot pulse set off along the wire (seconds; negative: none).
+in float a_shot;
 
 out float v_across;
 out float v_t;
 flat out vec4 v_color;
 flat out vec4 v_extra;
 flat out float v_weight;
+flat out float v_shot;
 
 vec3 placed(vec3 p, float t) {
     vec3 from = u_offsets[int(a_extra.x)].xyz;
@@ -745,6 +748,7 @@ void main() {
     v_weight = a_corner.z;
     v_color = a_color;
     v_extra = a_extra;
+    v_shot = a_shot;
     v_t = a_corner.x < 0.5 ? a_a.w : a_b.w;
     vec4 ca = u_view_proj * vec4(placed(a_a.xyz, a_a.w), 1.0);
     vec4 cb = u_view_proj * vec4(placed(a_b.xyz, a_b.w), 1.0);
@@ -787,6 +791,7 @@ in float v_t;
 flat in vec4 v_color;
 flat in vec4 v_extra;
 flat in float v_weight;
+flat in float v_shot;
 
 out vec4 frag;
 
@@ -794,6 +799,11 @@ out vec4 frag;
 const float PULSE = 60.0;
 const float SPEED = 120.0;
 const float GAP = 240.0;
+// A one-shot pulse (what an automation did): 90 cm long at 4 m a second, from the wire's start to
+// its end; held still, the wire flashes for 0.6 s instead.
+const float SHOT_LENGTH = 90.0;
+const float SHOT_SPEED = 400.0;
+const float SHOT_FLASH = 0.6;
 
 void main() {
     float length_cm = max(v_extra.z, 1.0);
@@ -810,6 +820,18 @@ void main() {
         float pulse = behind >= 0.0 && behind < PULSE ? 1.0 - behind / PULSE : 0.0;
         color = mix(color, vec3(1.0), pulse * 0.7);
         alpha = max(alpha, edge * pulse * v_weight);
+    }
+    if (v_shot >= 0.0) {
+        float elapsed = u_time - v_shot;
+        float shot = 0.0;
+        if (u_motion > 0.5) {
+            float behind = elapsed * SHOT_SPEED - v_t * length_cm;
+            shot = behind >= 0.0 && behind < SHOT_LENGTH ? 1.0 - behind / SHOT_LENGTH : 0.0;
+        } else if (elapsed >= 0.0 && elapsed < SHOT_FLASH) {
+            shot = 1.0 - elapsed / SHOT_FLASH;
+        }
+        color = mix(color, vec3(1.0), shot * 0.75);
+        alpha = max(alpha, edge * shot);
     }
     frag = vec4(color, alpha);
 }

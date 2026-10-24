@@ -8,6 +8,16 @@ export class Engine {
     free(): void;
     [Symbol.dispose](): void;
     /**
+     * The automations of the wires drawn within a tap's reach of the device pixel (`x`, `y`),
+     * those of the nearest first, each once: JSON `["automation.…"]`, or an empty string.
+     */
+    automationAt(x: number, y: number): string;
+    /**
+     * Where each spot of the automations shown is drawn now (the order `setAutomations` gave
+     * them): JSON `[[x, y] | null]` in device pixels from the top left.
+     */
+    automationPoints(): string;
+    /**
      * Starts edit mode on the plan shown. Returns the edit state.
      */
     beginEdit(): string;
@@ -227,6 +237,10 @@ export class Engine {
      */
     pan(dx: number, dy: number, height: number): void;
     /**
+     * Picks out one automation (its id; empty: none): its wires drawn fully, the others lighter.
+     */
+    pickAutomation(id: string): void;
+    /**
      * The element drawn at the device pixel `x`, `y` (from the top left), as JSON
      * `{"id", "type", "name", "room"}` (`room`: the id of the room it is in, maybe empty), or an
      * empty string.
@@ -241,6 +255,11 @@ export class Engine {
      * Whether the 2D plan is shown.
      */
     planView(): boolean;
+    /**
+     * An automation ran (its id) at `time_ms` (the frames' clock): a pulse runs along its wires,
+     * from what set it off to what it acted on. Returns whether it has wires shown.
+     */
+    pulseAutomation(id: string, time_ms: number): boolean;
     /**
      * The active quality preset.
      */
@@ -269,6 +288,15 @@ export class Engine {
      * stop); a gesture stops it.
      */
     setAutoOrbit(per_second: number): void;
+    /**
+     * Shows the wires of automations (JSON `{"automations": [{"id", "color": [r, g, b], "ends":
+     * [...]}], "grouped", "faded", "bundle": [r, g, b]}`, empty to hide them): from every trigger
+     * and condition to every action, in the automation's colour; with `grouped`, bundled by
+     * room. Returns the spots the ends are at, in the order `automationPoints` gives their
+     * places: JSON `[{"piece" | "room" | "above", "room"?, "roles": [...], "automations":
+     * [indices], "dynamic"}]`.
+     */
+    setAutomations(json: string): string;
     /**
      * Sets the background colour (sRGB, 0–255) from the Home Assistant theme.
      */
@@ -455,6 +483,12 @@ export function engineVersion(): string;
 export function heatLegend(kind: string): string;
 
 /**
+ * What an automation's configuration (JSON, `automation/config`'s `config`) involves: JSON
+ * `{"ends": [{"role", "entity" | "device" | "area" | "place" | "dynamic": name}], "skipped"}`.
+ */
+export function readAutomation(config: string): string;
+
+/**
  * Installs the panic hook so that a bug shows a readable message in the console.
  */
 export function start(): void;
@@ -475,6 +509,8 @@ export interface InitOutput {
     readonly __wbg_engine_free: (a: number, b: number) => void;
     readonly applyLayout: (a: number, b: number, c: number, d: number, e: number) => void;
     readonly engineVersion: (a: number) => void;
+    readonly engine_automationAt: (a: number, b: number, c: number, d: number) => void;
+    readonly engine_automationPoints: (a: number, b: number) => void;
     readonly engine_beginEdit: (a: number, b: number) => void;
     readonly engine_cameraViews: (a: number, b: number) => void;
     readonly engine_clearPlan: (a: number) => void;
@@ -519,14 +555,17 @@ export interface InitOutput {
     readonly engine_overview: (a: number, b: number) => void;
     readonly engine_pan: (a: number, b: number, c: number, d: number) => void;
     readonly engine_pick: (a: number, b: number, c: number, d: number) => void;
+    readonly engine_pickAutomation: (a: number, b: number, c: number) => void;
     readonly engine_planPoint: (a: number, b: number, c: number, d: number) => void;
     readonly engine_planView: (a: number) => number;
+    readonly engine_pulseAutomation: (a: number, b: number, c: number, d: number) => number;
     readonly engine_quality: (a: number, b: number) => void;
     readonly engine_resize: (a: number, b: number, c: number) => void;
     readonly engine_roomLabels: (a: number, b: number) => void;
     readonly engine_screenPoint: (a: number, b: number, c: number, d: number) => void;
     readonly engine_screenPoints: (a: number, b: number, c: number, d: number) => void;
     readonly engine_setAutoOrbit: (a: number, b: number) => void;
+    readonly engine_setAutomations: (a: number, b: number, c: number, d: number) => void;
     readonly engine_setBackground: (a: number, b: number, c: number, d: number) => void;
     readonly engine_setBindings: (a: number, b: number, c: number) => void;
     readonly engine_setCutaway: (a: number, b: number, c: number) => void;
@@ -560,6 +599,7 @@ export interface InitOutput {
     readonly engine_walking: (a: number) => number;
     readonly engine_zoom: (a: number, b: number, c: number, d: number) => void;
     readonly heatLegend: (a: number, b: number, c: number) => void;
+    readonly readAutomation: (a: number, b: number, c: number) => void;
     readonly start: () => void;
     readonly summarizePlan: (a: number, b: number, c: number) => void;
     readonly __wbindgen_export: (a: number, b: number) => number;

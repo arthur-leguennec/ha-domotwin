@@ -75,6 +75,7 @@ import type { StoreyInfo, StoredPlan } from "../ha/client";
 import { isHassError, type HomeAssistant } from "../ha/types";
 import { translatorFor, type KindName, type Translator } from "../i18n";
 import { runAction } from "../live/actions";
+import type { ReadAutomation } from "../live/automations";
 import {
   boundEntityIds,
   entityName,
@@ -89,6 +90,7 @@ import {
 import {
   HEAT_KINDS,
   LAYER_NAMES,
+  automationsAvailable,
   networkAvailable,
   formatHeat,
   formatPower,
@@ -217,6 +219,15 @@ type NetworkMap = HTMLElement & {
   selectLink(a: string, b: string): void;
 };
 
+/** What the view asks of the automation wires (`automation-wires.ts`, loaded on demand). */
+type WiresView = HTMLElement & {
+  reproject(scale: number): void;
+  tap(x: number, y: number): boolean;
+};
+
+/** What a panel already read of the automations whose wires it asks for. */
+type WiresReads = ReadonlyMap<string, ReadAutomation>;
+
 /** Frame interval of the layers' animation alone (ms): 24 frames per second. */
 const LAYER_FRAME_MS = 1000 / 24;
 /** The kiosk's turn (D-029): a round in two and a half minutes (radians per second), drawn at 20
@@ -271,7 +282,7 @@ function pictureUrl(pixels: Uint8Array): string {
 
 /** The panel open over the scene: an element's controls or a room's panel. */
 type Sheet =
-  | { kind: "controls"; heading: string; entities: string[] }
+  | { kind: "controls"; heading: string; entities: string[]; device?: string; area?: string }
   | { kind: "room"; heading: string; area?: string };
 
 /** A room framed by a tap. */
@@ -370,6 +381,8 @@ export class DomoTwinView extends LitElement {
     linking: { attribute: false },
     placeDevices: { attribute: false },
     networkLoaded: { state: true },
+    wiresAsked: { state: true },
+    wiresLoaded: { state: true },
     editing: { attribute: false },
     planEditing: { attribute: false },
     planTool: { attribute: false },
@@ -504,6 +517,10 @@ export class DomoTwinView extends LitElement {
   /** The network map's module is loaded (D-031). */
   protected networkLoaded = false;
   private networkModule?: Promise<unknown>;
+  /** The automations whose wires a panel asked for (D-032), and the wires' module loaded. */
+  protected wiresAsked?: { ids: string[]; reads?: WiresReads };
+  protected wiresLoaded = false;
+  private wiresModule?: Promise<unknown>;
   protected layersOpen = false;
   /** Sunlight through the windows: the sun where it really is. */
   protected realSun = false;
@@ -1747,6 +1764,8 @@ export class DomoTwinView extends LitElement {
 
   /** Shows a layer (the layer menu). */
   setLayer(layer: LayerName): void {
+    // Every automation of the home takes over from those of a panel.
+    if (layer === "automations") this.wiresAsked = undefined;
     this.layersOpen = false;
     this.layer = layer;
     this.redraw();
@@ -1783,7 +1802,18 @@ export class DomoTwinView extends LitElement {
       this.setEdit(engine.editSelect(id, this.multiSelect || this.addModifier));
       return;
     }
-    if (this.networkShown) {
+    const picked = this.elementAt(x, y);
+    // A linked piece acts on a tap even under a wire passing over it.
+    const acts = !this.linking && picked !== undefined && this.actingBinding(picked.id);
+    if (this.wiresShown && !acts) {
+      // Automation wires: a tap on one picks its automation out.
+      const point = this.devicePoint(x, y);
+      if (this.wiresElement()?.tap(point.x, point.y)) {
+        this.gestures.forgetTap();
+        return;
+      }
+    }
+    if (this.networkShown && !acts) {
       // The network map: a tap on a link shows it.
       const point = this.devicePoint(x, y);
       const hit = engine.networkAt(point.x, point.y);
@@ -1794,7 +1824,6 @@ export class DomoTwinView extends LitElement {
         return;
       }
     }
-    const picked = this.elementAt(x, y);
     if (this.walking && !this.linking) {
       // Walking: a tap on the floor (or on what has nothing to do) goes there.
       const bound = picked && this.hass && this.actingBinding(picked.id);
@@ -1893,14 +1922,45 @@ export class DomoTwinView extends LitElement {
    * seen by someone who is not an administrator, or without ZHA).
    */
   private get shownLayer(): LayerName {
-    return this.layer === "network" && !this.networkAllowed ? "off" : this.layer;
+    if (this.layer === "network" && !this.networkAllowed) return "off";
+    if (this.layer === "automations" && !automationsAvailable(this.hass)) return "off";
+    return this.layer;
   }
 
   /** The layer shown puts values on the home (a heatmap, the power drawn) and has a legend. */
   private get valueLayer(): boolean {
     const layer = this.shownLayer;
-    return layer !== "off" && layer !== "network";
+    return layer !== "off" && layer !== "network" && layer !== "automations";
   }
+
+  /**
+   * The automation wires shown (D-032): those a panel asked for, else every automation's when
+   * their layer is chosen (`ids` undefined); none while a tool is at work over the view, nor
+   * while walking (at eye level the wires would cross the view).
+   */
+  private get wiresShown(): { ids?: string[]; reads?: WiresReads } | undefined {
+    if (this.editingAny || this.linking || this.walking) return undefined;
+    if (this.wiresAsked) return this.wiresAsked;
+    return this.shownLayer === "automations" ? {} : undefined;
+  }
+
+  /** The automation wires over the view, while they are shown. */
+  private wiresElement(): WiresView | null {
+    return this.renderRoot.querySelector<WiresView>("domotwin-wires");
+  }
+
+  /** A panel asked for the wires of its automations (and hands what it read of them). */
+  private readonly onShowWires = (event: Event): void => {
+    this.sheet = undefined;
+    const { ids, reads } = (event as CustomEvent<{ ids: string[]; reads?: WiresReads }>).detail;
+    this.wiresAsked = { ids, reads };
+  };
+
+  /** The wires' close button: those a panel asked for go, else their layer. */
+  private readonly onWiresClose = (): void => {
+    if (this.wiresAsked) this.wiresAsked = undefined;
+    else this.setLayer("off");
+  };
 
   /**
    * The network map is shown: chosen, allowed, no tool at work over the view, and not walking
@@ -2324,6 +2384,9 @@ export class DomoTwinView extends LitElement {
     if (canvas && this.networkShown) {
       this.networkElement()?.reproject(Math.max(1, canvas.clientWidth) / Math.max(1, canvas.width));
     }
+    if (canvas && this.wiresShown) {
+      this.wiresElement()?.reproject(Math.max(1, canvas.clientWidth) / Math.max(1, canvas.width));
+    }
     if (this.valueLayer) this.readLabels(engine);
     const shown = !this.editingAny && !this.linking;
     // The rooms' names, where no layer shows a value (the storeys' labels take their place when
@@ -2729,11 +2792,19 @@ export class DomoTwinView extends LitElement {
     const hass = this.hass;
     const primary = primaryEntity(binding, hass);
     const heading = picked.name || (hass && primary ? entityName(hass, primary) : picked.id);
-    this.sheet = {
+    const sheet: Sheet = {
       kind: "controls",
       heading,
       entities: binding.entities.map((entity) => entity.entity_id),
     };
+    if (binding.device) sheet.device = binding.device;
+    // Its room's area: the automations of the room take part in it too.
+    const room = picked.room;
+    const roomName = this.rooms.find((r) => r.id === room)?.name ?? "";
+    const area =
+      hass && room ? roomArea(hass, this.bindings ?? NO_BINDINGS, room, roomName) : undefined;
+    if (area) sheet.area = area;
+    this.sheet = sheet;
   }
 
   private async openRoom(id: string, name: string): Promise<void> {
@@ -3026,6 +3097,7 @@ export class DomoTwinView extends LitElement {
       ${this.renderGuides()} ${this.renderPlanHandles()} ${this.renderOverlay()}
       ${ready ? this.renderLegend() : nothing} ${ready ? this.renderAlerts() : nothing}
       ${ready ? this.renderWalkPad() : nothing} ${ready ? this.renderNetwork() : nothing}
+      ${ready ? this.renderWires() : nothing}
       ${ready && this.options.tools !== false ? this.renderTools() : nothing}
       ${ready ? this.renderSheet() : nothing}
       ${this.dimmed ? html`<div class="dim" data-testid="dim" aria-hidden="true"></div>` : nothing}
@@ -3056,6 +3128,32 @@ export class DomoTwinView extends LitElement {
         this.redraw();
       }}
     ></domotwin-network>`;
+  }
+
+  /** The automation wires (D-032): their module is loaded the first time they are shown. */
+  private renderWires(): TemplateResult | typeof nothing {
+    const shown = this.wiresShown;
+    if (!shown) return nothing;
+    if (!this.wiresLoaded) {
+      this.wiresModule ??= import("./automation-wires").then(
+        () => (this.wiresLoaded = true),
+        () => (this.wiresModule = undefined),
+      );
+      return nothing;
+    }
+    return html`<domotwin-wires
+      .hass=${this.hass}
+      .engine=${this.engine}
+      .bindings=${this.bindings}
+      .rooms=${this.rooms}
+      .names=${this.names}
+      .ids=${shown.ids}
+      .known=${shown.reads}
+      @domotwin-redraw=${() => {
+        this.redraw();
+      }}
+      @domotwin-wires-close=${this.onWiresClose}
+    ></domotwin-wires>`;
   }
 
   /** Walking: the pad that walks while held, and how to look around and go somewhere. */
@@ -3289,7 +3387,10 @@ export class DomoTwinView extends LitElement {
         .hass=${this.hass}
         .heading=${sheet.heading}
         .entities=${sheet.entities}
+        .device=${sheet.device}
+        .area=${sheet.area}
         @domotwin-close=${this.closeSheet}
+        @domotwin-show-wires=${this.onShowWires}
       ></domotwin-controls>`;
     }
     return html`<domotwin-room
@@ -3299,6 +3400,7 @@ export class DomoTwinView extends LitElement {
       .area=${sheet.area}
       .admin=${this.hass?.user?.is_admin === true}
       @domotwin-close=${this.closeSheet}
+      @domotwin-show-wires=${this.onShowWires}
     ></domotwin-room>`;
   }
 
@@ -3414,7 +3516,11 @@ export class DomoTwinView extends LitElement {
       aria-label=${t.t("layers.menu")}
       data-testid="layer-menu"
     >
-      ${LAYER_NAMES.filter((layer) => layer !== "network" || this.networkAllowed).map(
+      ${LAYER_NAMES.filter(
+        (layer) =>
+          (layer !== "network" || this.networkAllowed) &&
+          (layer !== "automations" || automationsAvailable(this.hass)),
+      ).map(
         (layer) =>
           html`<button
             role="menuitemradio"

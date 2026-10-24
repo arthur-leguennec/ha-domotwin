@@ -10,11 +10,25 @@ import { areaOf, roomArea, type BindingsJson } from "./bindings";
 export const HEAT_KINDS = ["temperature", "humidity", "co2", "pm25"] as const;
 export type HeatKind = (typeof HEAT_KINDS)[number];
 /**
- * What the layer menu shows: nothing, a heatmap, the power layer or the network map (D-031,
- * offered to administrators with ZHA set up).
+ * What the layer menu shows: nothing, a heatmap, the power layer, the network map (D-031,
+ * offered to administrators with ZHA set up) or every automation's wires (D-032, administrators).
  */
-export type LayerName = "off" | HeatKind | "power" | "network";
-export const LAYER_NAMES: readonly LayerName[] = ["off", ...HEAT_KINDS, "power", "network"];
+export type LayerName = "off" | HeatKind | "power" | "network" | "automations";
+export const LAYER_NAMES: readonly LayerName[] = [
+  "off",
+  ...HEAT_KINDS,
+  "power",
+  "network",
+  "automations",
+];
+
+/**
+ * Whether every automation's wires can be offered (D-032): to administrators, as Home Assistant
+ * keeps automations' configurations for them in its recent versions.
+ */
+export function automationsAvailable(hass: HomeAssistant | undefined): boolean {
+  return hass?.user?.is_admin === true;
+}
 
 /** Whether the network map can be offered: to administrators, with ZHA set up (D-031). */
 export function networkAvailable(hass: HomeAssistant | undefined): boolean {

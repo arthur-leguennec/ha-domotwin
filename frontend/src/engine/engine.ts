@@ -246,6 +246,15 @@ export function heatLegend(kind: string): HeatLegend | undefined {
   return legends.get(kind);
 }
 
+/**
+ * What an automation's configuration involves (D-032), as the engine's JSON text `{"ends":
+ * [{"role", "entity" | "device" | "area" | "place" | "dynamic": name}], "skipped"}`, once the
+ * engine is loaded.
+ */
+export function readAutomation(config: string): string | undefined {
+  return wasmLoaded?.readAutomation(config);
+}
+
 /** The engine reports plan errors as JSON `{"code", "element"}`, other errors as a bare code. */
 export function engineError(error: unknown): EngineError {
   const message = error instanceof Error ? error.message : String(error);
@@ -431,6 +440,34 @@ export class DomoTwinEngine {
   /** The link of the network map nearest a device pixel, as JSON text `{"a", "b"}`, or "". */
   networkAt(x: number, y: number): string {
     return this.live.networkAt(x, y);
+  }
+
+  /**
+   * Shows the wires of automations (D-032; JSON text `{"automations": [...], "grouped",
+   * "faded", "bundle"}`, `"{}"` hides them). Returns the spots their ends are at, as JSON text.
+   */
+  setAutomations(json: string): string {
+    return this.live.setAutomations(json);
+  }
+
+  /** Where each spot of the automations shown is drawn now, as JSON text `[[x, y] | null]`. */
+  automationPoints(): string {
+    return this.live.automationPoints();
+  }
+
+  /** The automations of the wire nearest a device pixel, as JSON text `["automation.…"]`, or "". */
+  automationAt(x: number, y: number): string {
+    return this.live.automationAt(x, y);
+  }
+
+  /** Picks one automation out of those shown (its id; "" for none). */
+  pickAutomation(id: string): void {
+    this.live.pickAutomation(id);
+  }
+
+  /** An automation ran: a pulse along its wires. Whether it has wires shown. */
+  pulseAutomation(id: string, time: number): boolean {
+    return this.live.pulseAutomation(id, time);
   }
 
   /** The values of the layers shown and where they go, as the engine's JSON text. */

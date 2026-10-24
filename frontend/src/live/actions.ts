@@ -60,12 +60,17 @@ export async function runAction(
     }
     case "navigate":
       if (!action.navigation_path) return "none";
-      history.pushState(null, "", action.navigation_path);
-      window.dispatchEvent(new CustomEvent("location-changed", { detail: { replace: false } }));
+      navigate(action.navigation_path);
       return "done";
     case "controls":
       return "controls";
     case "none":
       return "none";
   }
+}
+
+/** Goes to a page of Home Assistant, as its own links do (no reload). */
+export function navigate(path: string): void {
+  history.pushState(null, "", path);
+  window.dispatchEvent(new CustomEvent("location-changed", { detail: { replace: false } }));
 }

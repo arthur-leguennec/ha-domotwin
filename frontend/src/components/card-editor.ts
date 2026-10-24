@@ -4,7 +4,7 @@ import { MAX_IDLE, THEME_MODES } from "../config";
 import { DomoTwinClient, type StoreyInfo } from "../ha/client";
 import type { HomeAssistant } from "../ha/types";
 import { translatorFor, type MessageKey, type Translator } from "../i18n";
-import { LAYER_NAMES, networkAvailable } from "../live/layers";
+import { LAYER_NAMES, automationsAvailable, networkAvailable } from "../live/layers";
 import { ALL_STOREYS, loadHome, storeyLevels, storeyName } from "../live/storeys";
 import { planRooms } from "../live/suggest";
 import { define, fire } from "./define";
@@ -89,7 +89,7 @@ export function storeyField(
 
 function schema(
   t: Translator,
-  home: { rooms: RoomOption[]; storeys: StoreyInfo[]; network: boolean },
+  home: { rooms: RoomOption[]; storeys: StoreyInfo[]; network: boolean; automations: boolean },
   config: Record<string, unknown>,
 ): FormField[] {
   const storey = storeyField(t, home.storeys, config.storey);
@@ -138,7 +138,10 @@ function schema(
           mode: "dropdown",
           // The network map only where it can be shown (D-031), or kept where it is set.
           options: LAYER_NAMES.filter(
-            (value) => value !== "network" || home.network || config.layer === "network",
+            (value) =>
+              config.layer === value ||
+              ((value !== "network" || home.network) &&
+                (value !== "automations" || home.automations)),
           ).map((value) => ({
             value,
             label: t.t(`layers.${value}` as MessageKey),
@@ -257,7 +260,12 @@ export class DomoTwinCardEditor extends LitElement {
       .data=${{ ...ON_BY_DEFAULT, ...this.config }}
       .schema=${schema(
         t,
-        { rooms: this.rooms, storeys: this.storeys, network: networkAvailable(this.hass) },
+        {
+          rooms: this.rooms,
+          storeys: this.storeys,
+          network: networkAvailable(this.hass),
+          automations: automationsAvailable(this.hass),
+        },
         this.config,
       )}
       .computeLabel=${(field: FormField) => t.t(`editor.${field.name}` as MessageKey)}

@@ -41,6 +41,9 @@ pub struct Wire {
     pub dashed: bool,
     /// How strongly it is drawn (0–1): faded wires are drawn lighter.
     pub weight: f32,
+    /// How high it rises, as a share of the usual rise (1): wires between the same two points
+    /// rise apart.
+    pub bend: f32,
 }
 
 /// A straight piece of a wire, as the renderer draws it.
@@ -79,7 +82,7 @@ fn distance(a: [f32; 3], b: [f32; 3]) -> f32 {
 /// The point at `t` (0–1) along the arc of `wire`.
 pub fn point(wire: &Wire, t: f32) -> [f32; 3] {
     let (p0, p1) = (wire.from, wire.to);
-    let rise = (distance(p0, p1) * RISE).clamp(MIN_RISE, MAX_RISE);
+    let rise = (distance(p0, p1) * RISE).clamp(MIN_RISE, MAX_RISE) * wire.bend.clamp(0.0, 4.0);
     let control = [
         (p0[0] + p1[0]) / 2.0,
         (p0[1] + p1[1]) / 2.0 + rise,
@@ -141,6 +144,7 @@ mod tests {
             flow: Flow::Forward,
             dashed: false,
             weight: 1.0,
+            bend: 1.0,
         }
     }
 
@@ -157,6 +161,9 @@ mod tests {
         assert!((point(&long, 0.5)[1] - 60.0).abs() < 1e-3);
         let short = wire([0.0, 0.0, 0.0], [10.0, 0.0, 0.0]);
         assert!((point(&short, 0.5)[1] - 10.0).abs() < 1e-3);
+        // Bent further: it rises higher.
+        let bent = Wire { bend: 1.5, ..w };
+        assert!((point(&bent, 0.5)[1] - 175.0).abs() < 1e-3);
     }
 
     #[test]

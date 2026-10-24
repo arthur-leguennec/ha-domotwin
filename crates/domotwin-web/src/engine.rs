@@ -28,6 +28,7 @@ use wasm_bindgen::JsCast;
 use wasm_bindgen::prelude::*;
 use web_sys::{HtmlCanvasElement, WebGl2RenderingContext, WebGlContextAttributes};
 
+use crate::automations::AutomationsShown;
 use crate::network::NetworkShown;
 
 /// Installs the panic hook so that a bug shows a readable message in the console.
@@ -127,6 +128,8 @@ pub struct Engine {
     pub(crate) home: Vec<HomeStorey>,
     /// The network map, while it is shown (D-031).
     pub(crate) network: Option<NetworkShown>,
+    /// The automations whose wires are shown (D-032).
+    pub(crate) automations: Option<AutomationsShown>,
 }
 
 /// A storey of the home shown whole: its id and name, its plan (its overlay applied) and the
@@ -190,6 +193,7 @@ impl Engine {
             cones: Vec::new(),
             home: Vec::new(),
             network: None,
+            automations: None,
         };
         engine
             .renderer
@@ -479,6 +483,7 @@ impl Engine {
         self.upload_rooms();
         self.update_cones();
         self.place_network();
+        self.place_automations();
     }
 
     /// Shows no plan (a new plan drawn and dropped).
@@ -494,6 +499,7 @@ impl Engine {
         self.renderer.set_looks(&self.live.looks);
         self.cones.clear();
         self.drop_network_wires();
+        self.drop_automation_wires();
     }
 
     /// Works out what the linked cameras see (`DECISIONS.md`, D-024).

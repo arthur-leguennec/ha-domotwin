@@ -820,3 +820,48 @@ Asked by the maintainer (M9b).
 - **Consequences.** The map's code loads with the layer, in its own chunk; the engine grew by the
   analysis and the wire pass (see `PERFORMANCE.md`, M9b). The bindings format gains `device`. The
   map is as fresh as ZHA's last neighbour scan.
+
+## D-032 · Automation wires: what sets off what, drawn in the home, live
+
+Asked by the maintainer (M9c).
+
+- **Context.** Home Assistant lists automations; it does not show what they do in the home. "What
+  turns this lamp on?" means opening automations one by one. DomoTwin knows where every entity
+  is, so it can draw an automation as wires from what sets it off to what it acts on, and light
+  them when it runs. Checked in the source of Home Assistant 2025.1: `search/related` finds the
+  automations of an entity, a device or an area and is open to every user; `automation/config`
+  gives an automation's configuration (open in 2025.1, kept for administrators in later
+  versions); the `automation_triggered` event and traces are for administrators only; every
+  automation's `last_triggered` reaches every dashboard with its state.
+- **Decision.**
+  - **The panels list them.** The controls of a piece and the panel of a room end with the
+    automations related to the piece's entities, its device and its room's area: name, how the
+    piece takes part, a switch, when it last ran, and an editor link for administrators.
+  - **The configuration is read in the core** (`domotwin_core::automation`), leniently and
+    fuzzed: triggers, conditions and actions in both spellings Home Assistant accepts, `choose`,
+    `if`, `repeat`, `parallel`, `sequence`, `wait_for_trigger` followed, at most 24 deep. Each
+    end is an entity, a device, an area, a floor, a label, a place with no piece (a time, the
+    sun, a template, the action called) or something a template decides when it runs. What is not known is skipped
+    and counted, never refused. Configurations that cannot be read leave the list without wires.
+  - **Placed by the bindings.** An entity's end is at the piece linked to it; a device's at the
+    piece linked to it or to one of its entities; an area's in the room linked to it; a label's
+    at every piece its entities are linked to. What has no piece (a floor among them) floats as
+    a label above its room, or above the home.
+  - **A tap on a piece comes first.** A linked piece under a wire still does what a tap on it
+    does; elsewhere a tap picks out the automation of the wires within reach, the next one at
+    each tap where several pass. Walking hides the wires.
+  - **Wires as for the network map** (the `scene::wires` of D-031, a wire set of their own):
+    every trigger and every condition to every action, in one colour per automation; dashed from
+    a condition and to an action a template decides. Every automation at once is drawn lighter,
+    and bundled by room above 30: one wire between two rooms for all the automations between
+    them, stronger the more there are.
+  - **Live from the states.** A run is seen when `last_triggered` moves on, which needs no
+    subscription and works for every user: a one-shot pulse runs along the automation's wires
+    (400 cm/s), and the pieces it acted on that changed flash. Under *reduce motion* the wires
+    flash instead. Nothing is watched while no wires are shown.
+  - **Who sees what.** The list is for everyone. The wires need the configurations: where Home
+    Assistant keeps them for administrators, only they get the wires. The editor links and the
+    layer of every automation are for administrators.
+- **Consequences.** The section and the wires are chunks of their own; the engine grew by the
+  reader and the wires' placing (see `PERFORMANCE.md`, M9c). A step DomoTwin does not know is
+  missing from the wires until the reader learns it. Scripts called are ends, not followed into.
