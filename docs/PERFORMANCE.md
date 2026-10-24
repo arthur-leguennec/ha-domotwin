@@ -296,27 +296,29 @@ screen, as before.
 
 ### M9 (every storey at once)
 
-Bundle: the first load is **378.3 kB gzipped** of 1 200 kB (+19.1 kB):
+Bundle: the first load is **381.2 kB gzipped** of 1 200 kB (+22.0 kB):
 
 | File | Raw | Gzipped |
 | --- | ---: | ---: |
-| `domotwin_web_bg.<hash>.wasm` | 702.9 kB | 305.4 kB |
-| `domotwin.js` (entry) | 113.1 kB | 28.6 kB |
+| `domotwin_web_bg.<hash>.wasm` | 710.8 kB | 308.2 kB |
+| `domotwin.js` (entry) | 113.7 kB | 28.7 kB |
 
-The engine grew by 16.7 kB (the scene of every storey, the roof, the storeys' lifts and spreading,
-the pictures of the storeys, the labels), the rest by 2.4 kB (the "every storey" button, the
-storeys' labels and pictures, the options, the texts).
+The engine grew by 19.5 kB (the scene of every storey, the roof, where each storey is drawn and
+its animations, the plan of storeys side by side, the pictures of the storeys, the labels), the
+rest by 2.5 kB (the "every storey" button, the storeys' labels and pictures, the options, the
+texts).
 
 Frame time in headless Chromium at the High preset, neon, in the evening with the lamps on
 (`e2e/perf.spec.ts`, "frame time of each look" and "frame time of the whole home", one run):
 
 | Shown | CPU per frame (median, p95) | Software GPU per frame (median) |
 | --- | ---: | ---: |
-| The ground floor alone | 0.5 ms, 8.1 ms | 250 ms |
-| Both storeys, spread apart, with the roof (27 776 triangles) | 1.1 ms, 6.4 ms | 267 ms |
+| The ground floor alone | 0.5 ms, 2.8 ms | 283 ms |
+| Both storeys, spread apart, with the roof (27 776 triangles) | 0.7 ms, 3.1 ms | 250 ms |
 
-The CPU's share grows with the draw calls (each storey's meshes, outlines and lamps), the GPU's
-hardly: the storeys are small and most of a frame is the offscreen picture and its bloom. The
+The CPU's share grows a little with the draw calls (each storey's meshes, outlines and lamps), the
+GPU's not measurably (software rendering times vary by a frame of the display from run to run):
+the storeys are small and most of a frame is the offscreen picture and its bloom. The
 pictures of the storeys are drawn once per home and per look (280 × 180 pixels each), not per
 frame. Spreading the storeys apart redraws the sun's shadow map on each frame of the animation in
 the day look (0.7 s), as a moving wall does.

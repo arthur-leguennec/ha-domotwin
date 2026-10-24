@@ -673,10 +673,10 @@ Decided while the maintainer was away (M9); open to review.
     heatmap, presence and power show on every storey.
 - **Consequences.** A home of several storeys costs one draw call per mesh per storey instead of
   per mesh: in headless Chromium at High, neon, the demo apartment's two storeys under their roof
-  (27 776 triangles) take 1.1 ms of CPU per frame median against 0.5 ms for the ground floor alone,
+  (27 776 triangles) take 0.7 ms of CPU per frame median against 0.5 ms for the ground floor alone,
   and about the same software GPU time. The live look of every element is a texture of rows of
   512 elements (1 536 texels, within the 2 048 every WebGL2 GPU allows), as a whole home has the
   elements of all its storeys. Every storey's plan is fetched once (the client already
-  fetched them for the alerts). The first load grew by 19.1 kB gzipped: the engine 16.7 kB (the
-  scene of storeys, the roof, the lifts, the pictures) and the rest 2.4 kB (the switcher's button,
-  the labels, the pictures, the options, the texts).
+  fetched them for the alerts). The first load grew by 22.0 kB gzipped: the engine 19.5 kB (the
+  scene of storeys, the roof, the offsets and the plan side by side, the pictures) and the rest
+  2.5 kB (the switcher's button, the labels, the pictures, the options, the texts).
