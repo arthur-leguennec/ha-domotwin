@@ -16,6 +16,9 @@ export default defineConfig({
   retries: 0,
   reporter: process.env.CI ? [["list"], ["html", { open: "never" }]] : "list",
   expect: {
+    // A picture read back from software WebGL2 takes seconds on a busy runner (every frame
+    // queued before it is drawn first): waiting longer only slows down a test that fails.
+    timeout: 15_000,
     toHaveScreenshot: { maxDiffPixelRatio: 0.01, animations: "disabled" },
   },
   use: {
