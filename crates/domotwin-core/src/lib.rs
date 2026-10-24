@@ -20,6 +20,7 @@ pub mod overlay;
 pub mod plan;
 pub mod scene;
 pub mod structure;
+pub mod theme;
 
 pub use error::{ErrorCode, ReadError};
 pub use plan::{Plan, PlanSummary, read_plan, summarize_plan};

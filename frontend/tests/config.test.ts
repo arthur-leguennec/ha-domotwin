@@ -16,6 +16,7 @@ describe("normalizeConfig", () => {
       sun: "fixed",
       badges: true,
       cameras: true,
+      names: true,
     });
   });
 
@@ -37,6 +38,7 @@ describe("normalizeConfig", () => {
         sun: "real",
         badges: false,
         cameras: false,
+        names: false,
       }),
     ).toEqual({
       type: "custom:domotwin-card",
@@ -54,11 +56,19 @@ describe("normalizeConfig", () => {
       sun: "real",
       badges: false,
       cameras: false,
+      names: false,
     });
   });
 
   it("reads a number height as pixels", () => {
     expect(normalizeConfig({ height: 420 }).height).toBe("420px");
+  });
+
+  it("keeps a look and an accent only when given", () => {
+    const config = normalizeConfig({ theme: "neon", accent: " #FF2D95 " });
+    expect([config.theme, config.accent]).toEqual(["neon", "#ff2d95"]);
+    const plain = normalizeConfig({ theme: "", accent: null });
+    expect("theme" in plain || "accent" in plain).toBe(false);
   });
 
   it.each([
@@ -72,6 +82,10 @@ describe("normalizeConfig", () => {
     [{ sun: "moon" }, "config.bad_sun"],
     [{ badges: "on" }, "config.bad_badges"],
     [{ cameras: 0 }, "config.bad_cameras"],
+    [{ names: "yes" }, "config.bad_names"],
+    [{ theme: "dark" }, "config.bad_theme"],
+    [{ accent: "red" }, "config.bad_accent"],
+    [{ accent: "#12345" }, "config.bad_accent"],
     [{ height: "tall" }, "config.bad_height"],
     [{ height: "100%" }, "config.bad_height"],
     [{ height: -3 }, "config.bad_height"],

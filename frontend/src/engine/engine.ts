@@ -354,6 +354,11 @@ export class DomoTwinEngine {
     return this.live.layerLabels();
   }
 
+  /** Where the rooms' names go: JSON `[{id, name, x, y}]` (device pixels). */
+  roomLabels(): string {
+    return this.live.roomLabels();
+  }
+
   /** Turns the camera by a drag of `dx`, `dy` CSS pixels. */
   orbit(dx: number, dy: number): void {
     this.live.orbit(dx, dy);
@@ -579,6 +584,11 @@ export class DomoTwinEngine {
 
   setBackground(color: Rgb): void {
     this.live.setBackground(color.r, color.g, color.b);
+  }
+
+  /** Sets the look (`day`, `neon`, `blueprint`) and its accent (`#rrggbb`). Returns the look. */
+  setTheme(theme: string, accent: string): string {
+    return this.live.setTheme(theme, accent);
   }
 
   setQuality(quality: QualityName): void {

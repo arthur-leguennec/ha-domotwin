@@ -29,7 +29,16 @@ import {
 import { LitElement, css, html, nothing, svg, type PropertyValues, type TemplateResult } from "lit";
 
 import { themeBackground, type Rgb } from "../color";
-import type { CutawayMode, LightingMode, QualityName, SunMode, ViewMode } from "../config";
+import {
+  DEFAULT_ACCENT,
+  resolveLook,
+  type CutawayMode,
+  type LightingMode,
+  type QualityName,
+  type SunMode,
+  type ThemeMode,
+  type ViewMode,
+} from "../config";
 import {
   DomoTwinEngine,
   EngineError,
@@ -92,13 +101,17 @@ import { fire } from "./define";
 import { icon } from "./icon";
 import type { Planner } from "../planner/planner";
 import type { PlanEditState, PlanEditor, PlanTool } from "./plan-editor";
-import { baseStyles } from "./styles";
+import { baseStyles, lookStyles } from "./styles";
 
 type EngineState = "idle" | "loading" | "ready" | "unsupported" | "failed";
 
 /** Options of a view (from the card configuration or the panel). */
 export interface ViewOptions {
   quality: QualityName;
+  /** The look (D-027); absent: the home's, else `auto`. */
+  theme?: ThemeMode;
+  /** Its accent (`#rrggbb`); absent: the home's. */
+  accent?: string;
   /** View shown first. */
   view?: ViewMode;
   cutaway?: CutawayMode;
@@ -118,6 +131,8 @@ export interface ViewOptions {
   badges?: boolean;
   /** What the cameras see, on the floor (on unless `false`). */
   cameras?: boolean;
+  /** The rooms' names over their floor (on unless `false`). */
+  names?: boolean;
 }
 
 /** What a camera sees, as drawn now (device pixels). */
@@ -238,6 +253,8 @@ export interface DebugState {
   resolution: number;
   /** What the light follows: `mood:<name>`, `sun:<elevation>:<rising>` or `clock:<hour>`. */
   light?: string;
+  /** The look and accent drawn: `<look> <#accent>`. */
+  look?: string;
   /** Where the sun lights from: `default`, or `<azimuth>:<elevation>:<north>` (the real sun). */
   sun?: string;
   /** The layer shown and what the engine was given for the rooms (`setLayers`). */
@@ -296,6 +313,9 @@ export class DomoTwinView extends LitElement {
     edit: { state: true },
     planEditor: { state: true },
     north: { attribute: false },
+    homeTheme: { attribute: false },
+    homeAccent: { attribute: false },
+    look: { reflect: true },
     storeys: { attribute: false },
     storey: { attribute: false },
     elsewhere: { attribute: false },
@@ -304,6 +324,7 @@ export class DomoTwinView extends LitElement {
     realSun: { state: true },
     alerts: { state: true },
     labels: { state: true },
+    roomNames: { state: true },
     showBadges: { state: true },
     showCameras: { state: true },
     badges: { state: true },
@@ -351,6 +372,11 @@ export class DomoTwinView extends LitElement {
   planError?: string;
   /** Where north points on the plan, degrees clockwise from its top (the home's settings). */
   north = 0;
+  /** The home's look and accent (its settings), for views whose options do not choose one. */
+  homeTheme?: ThemeMode;
+  homeAccent?: string;
+  /** The look shown (D-027), on the element as an attribute for the overlays' colours. */
+  look = "day";
   /**
    * The storeys of the home and the one shown (its `plan`): with several, a switcher fires
    * `domotwin-storey` (detail: the storey's id) for the host to show it.
@@ -390,6 +416,9 @@ export class DomoTwinView extends LitElement {
   private focusAfterLoad?: { id: string; name: string };
   /** The values of the layer shown and where they go (device pixels). */
   protected labels: LayerLabel[] = [];
+  /** The rooms' names and where they go (device pixels), while no layer shows its values. */
+  protected roomNames: { id: string; name: string; x: number; y: number }[] = [];
+  private roomNamesText = "[]";
   /** The devices' badges and what the cameras see (the layer menu turns them off). */
   protected showBadges = true;
   protected showCameras = true;
@@ -405,6 +434,10 @@ export class DomoTwinView extends LitElement {
   private intersectionObserver?: IntersectionObserver;
   private generation = 0;
   private background?: Rgb;
+  /** The look and accent last given to the engine. */
+  private lookKey?: string;
+  /** The accent colour of the look. */
+  private accent = DEFAULT_ACCENT;
   private loadedPlan?: unknown;
   private loadedLayout?: unknown;
   private readonly gestures = new GestureTracker();
@@ -471,6 +504,7 @@ export class DomoTwinView extends LitElement {
 
   static override styles = [
     baseStyles,
+    lookStyles,
     css`
       :host {
         position: relative;
@@ -660,11 +694,32 @@ export class DomoTwinView extends LitElement {
         stroke: color-mix(in srgb, var(--secondary-text-color, #5f6368) 40%, transparent);
         stroke-dasharray: 5 4;
       }
-      .badges {
+      .badges,
+      .room-names {
         position: absolute;
         inset: 0;
         pointer-events: none;
         overflow: hidden;
+      }
+      .room-name {
+        position: absolute;
+        transform: translate(-50%, -50%);
+        max-width: 40%;
+        overflow: hidden;
+        padding: 3px 10px;
+        border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+        border-radius: 999px;
+        background: color-mix(in srgb, var(--card-background-color, #fff) 78%, transparent);
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+        font-size: 12px;
+        font-weight: 600;
+        line-height: 16px;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+      :host([look="neon"]) .room-name {
+        border-color: color-mix(in srgb, var(--domotwin-accent, #00d4ff) 45%, transparent);
+        box-shadow: 0 0 14px color-mix(in srgb, var(--domotwin-accent, #00d4ff) 22%, transparent);
       }
       .badge-group {
         position: absolute;
@@ -990,6 +1045,14 @@ export class DomoTwinView extends LitElement {
     }
     // The room chip leaves room for the legend (`renderLegend`).
     this.toggleAttribute("legend", this.layer !== "off" && !this.editingAny);
+    if (
+      changed.has("hass") ||
+      changed.has("options") ||
+      changed.has("homeTheme") ||
+      changed.has("homeAccent")
+    ) {
+      this.updateLook();
+    }
   }
 
   protected override updated(changed: PropertyValues<this>): void {
@@ -1014,6 +1077,7 @@ export class DomoTwinView extends LitElement {
       this.applyLighting();
       this.syncStates();
     }
+    this.applyLook();
     // `layer` and `realSun` are this view's own state.
     const own = changed as PropertyValues;
     if (
@@ -1056,6 +1120,7 @@ export class DomoTwinView extends LitElement {
       resolution: this.resolution,
     };
     if (this.lightKey) state.light = this.lightKey;
+    state.look = this.lookKey ?? this.look;
     if (this.sunKey) state.sun = this.sunKey;
     state.layer = this.layer;
     if (this.layersKey) state.layers = this.layersKey;
@@ -1488,7 +1553,9 @@ export class DomoTwinView extends LitElement {
     this.intersectionObserver.observe(this);
     this.engineState = "ready";
     this.background = undefined;
+    this.lookKey = undefined;
     this.applyTheme();
+    this.applyLook();
     this.applyLighting();
     this.lightTimer = window.setInterval(() => {
       this.applyLighting();
@@ -1602,6 +1669,26 @@ export class DomoTwinView extends LitElement {
     }
     this.background = background;
     this.engine.setBackground(background);
+    this.redraw();
+  }
+
+  /**
+   * The look (D-027): the view's option, else the home's, else `auto`, which follows Home
+   * Assistant's dark mode (neon when dark, day otherwise). The overlays' colours follow `look`.
+   */
+  private updateLook(): void {
+    this.look = resolveLook(this.options.theme ?? this.homeTheme, this.hass);
+    this.accent = this.options.accent ?? this.homeAccent ?? DEFAULT_ACCENT;
+    this.style.setProperty("--domotwin-accent", this.accent);
+  }
+
+  /** Draws the look found by `updateLook`, when it changed. */
+  private applyLook(): void {
+    const engine = this.engine;
+    const key = `${this.look} ${this.accent}`;
+    if (!engine || key === this.lookKey) return;
+    this.lookKey = key;
+    engine.setTheme(this.look, this.accent);
     this.redraw();
   }
 
@@ -1738,6 +1825,13 @@ export class DomoTwinView extends LitElement {
     this.planEditor?.reproject();
     if (this.layer !== "off") this.readLabels(engine);
     const shown = !this.editingAny && !this.linking;
+    // The rooms' names, where no layer shows a value.
+    const names =
+      shown && this.options.names !== false && this.layer === "off" ? engine.roomLabels() : "[]";
+    if (names !== this.roomNamesText) {
+      this.roomNamesText = names;
+      this.roomNames = JSON.parse(names) as typeof this.roomNames;
+    }
     const ids = shown && this.showBadges ? [...this.badges.keys()] : [];
     const points = ids.length > 0 ? engine.elementPoints(JSON.stringify(ids)) : "{}";
     if (points !== this.pointsText) {
@@ -2363,10 +2457,10 @@ export class DomoTwinView extends LitElement {
         }}
       ></div>
       ${ready ? this.renderCameras() : nothing} ${ready ? this.renderLabels() : nothing}
-      ${ready ? this.renderBadges() : nothing} ${this.renderGuides()} ${this.renderPlanHandles()}
-      ${this.renderOverlay()} ${ready ? this.renderLegend() : nothing}
-      ${ready ? this.renderAlerts() : nothing} ${ready ? this.renderTools() : nothing}
-      ${ready ? this.renderSheet() : nothing}
+      ${ready ? this.renderRoomNames() : nothing} ${ready ? this.renderBadges() : nothing}
+      ${this.renderGuides()} ${this.renderPlanHandles()} ${this.renderOverlay()}
+      ${ready ? this.renderLegend() : nothing} ${ready ? this.renderAlerts() : nothing}
+      ${ready ? this.renderTools() : nothing} ${ready ? this.renderSheet() : nothing}
       ${
         this.notice
           ? html`<div class="notice glass" role="alert" data-testid="notice">${this.notice}</div>`
@@ -2625,6 +2719,25 @@ export class DomoTwinView extends LitElement {
         return svg`<polygon class=${tone} data-id=${shape.id} points=${points}></polygon>`;
       })}
     </svg>`;
+  }
+
+  /** The rooms' names, on their floor; the room framed has its own chip. */
+  private renderRoomNames(): TemplateResult | typeof nothing {
+    const canvas = this.canvas;
+    if (!canvas || this.roomNames.length === 0 || this.editingAny || this.linking) return nothing;
+    const k = Math.max(1, canvas.clientWidth) / Math.max(1, canvas.width);
+    return html`<div class="room-names" data-testid="room-names" aria-hidden="true">
+      ${this.roomNames.map((room) =>
+        room.name && room.id !== this.focusedRoom?.id
+          ? html`<span
+              class="room-name"
+              data-room=${room.id}
+              style="left:${room.x * k}px;top:${room.y * k}px"
+              >${room.name}</span
+            >`
+          : nothing,
+      )}
+    </div>`;
   }
 
   /** The devices' badges over their elements; a tap does what a tap on the element does. */

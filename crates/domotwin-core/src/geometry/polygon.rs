@@ -96,6 +96,94 @@ pub fn point_in_polygon(p: P2, points: &[P2], strict: bool) -> bool {
     inside
 }
 
+/// Distance from `p` to segment AB.
+fn segment_distance(p: P2, a: P2, b: P2) -> f64 {
+    let (dx, dy) = (b[0] - a[0], b[1] - a[1]);
+    let len2 = dx * dx + dy * dy;
+    let t = if len2 > 0.0 {
+        (((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / len2).clamp(0.0, 1.0)
+    } else {
+        0.0
+    };
+    (p[0] - a[0] - dx * t).hypot(p[1] - a[1] - dy * t)
+}
+
+/// A point well inside a polygon, where its label goes: the centre of its area when that lies
+/// well inside, else about the point farthest from its sides (an L-shaped room's wider arm).
+pub fn label_point(points: &[P2]) -> P2 {
+    let n = points.len();
+    #[allow(clippy::cast_precision_loss)]
+    let count = n.max(1) as f64;
+    let mean = [
+        points.iter().map(|p| p[0]).sum::<f64>() / count,
+        points.iter().map(|p| p[1]).sum::<f64>() / count,
+    ];
+    if n < 3 || points.iter().flatten().any(|v| !v.is_finite()) {
+        return mean;
+    }
+    // How deep a point is inside (negative outside).
+    let depth = |p: P2| {
+        if !point_in_polygon(p, points, true) {
+            return -1.0;
+        }
+        (0..n)
+            .map(|i| segment_distance(p, points[i], points[(i + 1) % n]))
+            .fold(f64::INFINITY, f64::min)
+    };
+    let a2 = signed_area2(points);
+    let centre = if a2.abs() > 1e-9 {
+        let (mut cx, mut cy) = (0.0, 0.0);
+        for i in 0..n {
+            let (p, q) = (points[i], points[(i + 1) % n]);
+            let k = p[0] * q[1] - q[0] * p[1];
+            cx += (p[0] + q[0]) * k;
+            cy += (p[1] + q[1]) * k;
+        }
+        [cx / (3.0 * a2), cy / (3.0 * a2)]
+    } else {
+        mean
+    };
+    // The deepest point on a grid over the polygon, refined around the best one found.
+    let (mut lo, mut hi) = ([f64::INFINITY; 2], [f64::NEG_INFINITY; 2]);
+    for p in points {
+        for k in 0..2 {
+            lo[k] = lo[k].min(p[k]);
+            hi[k] = hi[k].max(p[k]);
+        }
+    }
+    let mut best = (centre, depth(centre));
+    const STEPS: u32 = 10;
+    for _ in 0..4 {
+        let step = [
+            (hi[0] - lo[0]) / f64::from(STEPS),
+            (hi[1] - lo[1]) / f64::from(STEPS),
+        ];
+        for i in 0..=STEPS {
+            for j in 0..=STEPS {
+                let p = [
+                    lo[0] + step[0] * f64::from(i),
+                    lo[1] + step[1] * f64::from(j),
+                ];
+                let d = depth(p);
+                if d > best.1 {
+                    best = (p, d);
+                }
+            }
+        }
+        let p = best.0;
+        lo = [p[0] - step[0], p[1] - step[1]];
+        hi = [p[0] + step[0], p[1] + step[1]];
+    }
+    if best.1 <= 0.0 {
+        return mean;
+    }
+    if depth(centre) >= best.1 * 0.5 {
+        centre
+    } else {
+        best.0
+    }
+}
+
 /// Unit normal of side `i` (vertex i → i + 1) pointing out of the polygon, whatever the winding.
 pub fn outward_normal(points: &[P2], i: usize) -> P2 {
     let n = points.len();
@@ -225,6 +313,31 @@ mod tests {
     use super::*;
 
     const SQUARE: [P2; 4] = [[0.0, 0.0], [100.0, 0.0], [100.0, 100.0], [0.0, 100.0]];
+
+    #[test]
+    fn labels_go_well_inside() {
+        // A square: its centre.
+        assert_eq!(label_point(&SQUARE), [50.0, 50.0]);
+        // An L: the centre of its area is near the inner corner; the label goes in an arm.
+        let l = [
+            [0.0, 0.0],
+            [400.0, 0.0],
+            [400.0, 100.0],
+            [100.0, 100.0],
+            [100.0, 400.0],
+            [0.0, 400.0],
+        ];
+        let p = label_point(&l);
+        assert!(point_in_polygon(p, &l, true));
+        let depth = [p[0], p[1], 400.0 - p[0], 100.0 - p[1]]
+            .into_iter()
+            .fold(f64::INFINITY, f64::min);
+        let in_top_arm = p[1] < 100.0 && depth > 40.0;
+        let in_left_arm = p[0] < 100.0 && p[1].min(400.0 - p[1]).min(p[0]).min(100.0 - p[0]) > 40.0;
+        assert!(in_top_arm || in_left_arm, "{p:?}");
+        // Degenerate: the mean of the points.
+        assert_eq!(label_point(&[[0.0, 0.0], [10.0, 0.0]]), [5.0, 0.0]);
+    }
 
     #[test]
     fn areas_and_normals() {

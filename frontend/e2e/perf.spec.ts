@@ -24,6 +24,33 @@ test("frame time with the demo plan", async ({ page }, testInfo) => {
   expect(stats.frames).toBe(120);
 });
 
+// The looks (D-027) at High quality: day drawn straight to the screen, neon and blueprint offscreen
+// with MSAA and their bloom.
+test("frame time of each look", async ({ page }, testInfo) => {
+  // A software GPU draws a High frame in a fraction of a second.
+  test.setTimeout(240_000);
+  const report: Record<string, FrameStats> = {};
+  for (const theme of ["day", "neon", "blueprint"] as const) {
+    await openHarness(page, { theme, lighting: "evening", live: true });
+    await expect(page.getByTestId("summary")).toBeVisible();
+    await page.evaluate(() => {
+      const view = (
+        window as never as { __view: () => { options: Record<string, unknown> } }
+      ).__view();
+      view.options = { ...view.options, quality: "high" };
+    });
+    await expect.poll(async () => (await viewState(page)).quality).toBe("high");
+    report[theme] = await page.evaluate(() =>
+      (window as never as { __view: () => BenchmarkView }).__view().benchmark(20),
+    );
+    expect(report[theme].frames).toBe(20);
+  }
+  const path = testInfo.outputPath("looks-frame-time.json");
+  await writeFile(path, JSON.stringify(report, null, 2));
+  await testInfo.attach("looks-frame-time", { path, contentType: "application/json" });
+  console.log(JSON.stringify(report));
+});
+
 interface DragEngine {
   beginEdit(): unknown;
   editSelect(id: string, add: boolean): unknown;

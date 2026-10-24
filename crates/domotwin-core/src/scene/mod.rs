@@ -1,11 +1,12 @@
 //! The 3D scene of a plan, as renderer-agnostic meshes: floors and walls, doors and windows,
-//! furniture and user models. Two meshes cover everything (opaque, and glass with the contact
-//! shadows), so the renderer draws the whole home in a few calls.
+//! furniture and user models. A few meshes cover everything (opaque, the walls, and glass with the
+//! contact shadows), so the renderer draws the whole home in a few calls.
 //!
 //! Walls belong to **groups** by direction (10° steps, interior and façade apart; each free
 //! partition its own): the renderer cuts away the groups facing the camera by lowering them to
 //! [`CUT_HEIGHT`](crate::geometry::heights::CUT_HEIGHT), in the vertex shader.
 
+pub mod lines;
 pub mod mesh;
 
 mod furniture;
@@ -18,7 +19,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::rc::Rc;
 
 use crate::geometry::heights::WALL_HEIGHT;
-use crate::geometry::polygon::{P2, point_in_polygon};
+use crate::geometry::polygon::{P2, label_point, point_in_polygon};
 use crate::geometry::walls::WallLayout;
 use crate::model_mesh::ModelMesh;
 use crate::plan::{Element, Kind, Plan};
@@ -87,8 +88,11 @@ pub struct Overrides {
 /// The built scene.
 #[derive(Debug, Clone)]
 pub struct Scene {
-    /// Opaque geometry that never moves.
+    /// Opaque geometry that never moves, but the walls.
     pub opaque: Mesh,
+    /// The walls of the rooms and the free partitions, their tops, trims and corners: opaque, or
+    /// glass in the looks with glass walls (D-027).
+    pub wall_mesh: Mesh,
     /// Glass and contact shadows that never move, drawn after the opaque geometry.
     pub transparent: Mesh,
     /// The moving parts (doors, windows, curtains, blinds, and the pieces moved in edit mode),
@@ -99,8 +103,13 @@ pub struct Scene {
     /// The ceilings of the rooms, at the walls' height: they only cast shadows, so that the real
     /// sun (D-023) comes in through the windows.
     pub ceiling: Mesh,
+    /// The outlines of the home: wall tops and corners, door and window frames, floor outlines
+    /// (drawn by the line looks, D-027).
+    pub lines: Vec<lines::Line>,
     /// Element id of each room slot (slot `k` is `rooms[k - 1]`).
     pub rooms: Vec<String>,
+    /// Where each room's label goes, well inside it (plan x, y), by room slot like `rooms`.
+    pub labels: Vec<P2>,
     /// Wall groups, indexed by the vertex group.
     pub groups: Vec<WallGroup>,
     /// One entry per plan element, in plan order (vertex element tag − 1).
@@ -140,6 +149,7 @@ impl Default for SceneOptions {
 #[derive(Debug, Clone, Default)]
 pub(crate) struct Builder {
     pub(crate) opaque: Mesh,
+    pub(crate) wall_mesh: Mesh,
     pub(crate) transparent: Mesh,
     pub(crate) groups: Vec<WallGroup>,
     keys: BTreeMap<(bool, i32), u8>,
@@ -159,6 +169,8 @@ pub(crate) struct Builder {
     pub(crate) moving: BTreeSet<usize>,
     /// The meshes of 3D files.
     pub(crate) models: Rc<ModelMeshes>,
+    /// The outlines of the home.
+    pub(crate) lines: lines::Lines,
     /// Pieces whose 3D file is past [`MAX_FILE_TRIANGLES`]: boxes.
     pub(crate) boxed: BTreeSet<usize>,
 }
@@ -280,20 +292,33 @@ pub fn build_scene_moving(plan: &Plan, options: &SceneOptions, moving: &BTreeSet
         builder.room_shapes.push((slot, walls.points.clone()));
     }
     structure::build(&mut builder, plan, &layout);
+    let outlines = std::mem::take(&mut builder.lines.list);
     furniture::build(&mut builder, plan, &layout);
     // The moving parts go to their own meshes, rebuilt alone when they move.
     let opaque = std::mem::take(&mut builder.opaque);
+    let wall_mesh = std::mem::take(&mut builder.wall_mesh);
     let transparent = std::mem::take(&mut builder.transparent);
     builder.dynamic = true;
     openings::build(&mut builder, plan, &layout);
     furniture::build(&mut builder, plan, &layout);
     let dynamic_opaque = std::mem::take(&mut builder.opaque);
     let dynamic_transparent = std::mem::take(&mut builder.transparent);
-    let meshes = [&opaque, &transparent, &dynamic_opaque, &dynamic_transparent];
+    let meshes = [
+        &opaque,
+        &wall_mesh,
+        &transparent,
+        &dynamic_opaque,
+        &dynamic_transparent,
+    ];
     let elements = element_infos(plan, &meshes);
     let bounds = meshes.iter().map(|m| m.bounds()).fold([[0.0; 3]; 2], union);
     let lights = std::mem::take(&mut builder.lights);
     let models_over_budget = builder.boxed.len();
+    let labels = builder
+        .room_shapes
+        .iter()
+        .map(|(_, points)| label_point(points))
+        .collect();
     let mut ceiling = Mesh::default();
     {
         let mut painter = mesh::Painter::new(
@@ -307,11 +332,14 @@ pub fn build_scene_moving(plan: &Plan, options: &SceneOptions, moving: &BTreeSet
     }
     Scene {
         opaque,
+        wall_mesh,
         transparent,
         dynamic_opaque,
         dynamic_transparent,
         ceiling,
+        lines: outlines,
         rooms,
+        labels,
         groups: builder.groups.clone(),
         elements,
         lights,

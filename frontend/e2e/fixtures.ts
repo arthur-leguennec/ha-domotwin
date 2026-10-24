@@ -32,6 +32,13 @@ export interface HarnessOptions {
   storeys?: 2;
   /** Card option: the storey shown first. */
   storey?: string;
+  /** Card options: the look and its accent. */
+  theme?: "auto" | "day" | "neon" | "blueprint";
+  accent?: string;
+  /** The home's look (the stored settings). */
+  homeTheme?: "auto" | "day" | "neon" | "blueprint";
+  /** Card option: the rooms' names off. */
+  names?: false;
 }
 
 /** Opens the mocked Home Assistant with the built frontend. */
@@ -57,6 +64,10 @@ export async function openHarness(page: Page, options: HarnessOptions = {}): Pro
   if (options.north !== undefined) params.set("north", String(options.north));
   if (options.storeys) params.set("storeys", String(options.storeys));
   if (options.storey) params.set("storey", options.storey);
+  if (options.theme) params.set("theme", options.theme);
+  if (options.accent) params.set("accent", options.accent);
+  if (options.homeTheme) params.set("hometheme", options.homeTheme);
+  if (options.names === false) params.set("names", "0");
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto(`/?${params.toString()}`);

@@ -192,8 +192,11 @@ export class DomoTwinCard extends LitElement {
         sun: config.sun,
         badges: config.badges,
         cameras: config.cameras,
+        names: config.names,
       };
       if (config.room) options.room = config.room;
+      if (config.theme) options.theme = config.theme;
+      if (config.accent) options.accent = config.accent;
       this.options = { source: config, value: options };
     }
     return this.options.value;
@@ -237,6 +240,8 @@ export class DomoTwinCard extends LitElement {
         .planError=${this.planError}
         .options=${this.viewOptions()}
         .north=${this.settings?.north ?? 0}
+        .homeTheme=${this.settings?.theme}
+        .homeAccent=${this.settings?.accent}
         .storeys=${this.storeys}
         .storey=${this.storey}
         .elsewhere=${this.elsewhere}

@@ -1,5 +1,6 @@
 import { LitElement, html, nothing, type TemplateResult } from "lit";
 
+import { THEME_MODES } from "../config";
 import { DomoTwinClient, type StoreyInfo } from "../ha/client";
 import type { HomeAssistant } from "../ha/types";
 import { translatorFor, type MessageKey, type Translator } from "../i18n";
@@ -87,6 +88,22 @@ function schema(
   const storey = storeyField(t, home.storeys, config.storey);
   return [
     { name: "title", selector: { text: {} } },
+    {
+      name: "theme",
+      selector: {
+        select: {
+          mode: "dropdown",
+          options: [
+            { value: "", label: t.t("editor.theme_home") },
+            ...THEME_MODES.map((value) => ({
+              value,
+              label: t.t(`settings.theme_${value}` as MessageKey),
+            })),
+          ],
+        },
+      },
+    },
+    { name: "accent", selector: { text: {} } },
     { name: "view", selector: options(t, "editor.view", ["3d", "2d"]) },
     { name: "height", selector: { text: {} } },
     {
@@ -117,12 +134,13 @@ function schema(
     { name: "sun", selector: options(t, "editor.sun", ["fixed", "real"]) },
     { name: "badges", selector: { boolean: {} } },
     { name: "cameras", selector: { boolean: {} } },
+    { name: "names", selector: { boolean: {} } },
     { name: "font_family", selector: { text: {} } },
   ];
 }
 
 /** Switches that are on unless turned off show as on. */
-const ON_BY_DEFAULT = { alerts: true, presence: true, badges: true, cameras: true };
+const ON_BY_DEFAULT = { alerts: true, presence: true, badges: true, cameras: true, names: true };
 
 /** Visual editor of `custom:domotwin-card` (YAML is never needed). */
 export class DomoTwinCardEditor extends LitElement {

@@ -20,6 +20,7 @@ use domotwin_core::scene::mesh::Mesh;
 use domotwin_core::scene::{
     ElementInfo, ModelMeshes, Scene, SceneOptions, build_dynamic, build_scene_moving,
 };
+use domotwin_core::theme::{DEFAULT_ACCENT, Theme, ThemeName, parse_hex};
 use domotwin_core::{ReadError, summarize_plan};
 use domotwin_render::lamps::power_level;
 use domotwin_render::{GpuHint, QualityPreset, Renderer, Rgb};
@@ -261,6 +262,7 @@ impl Engine {
         let mut scene = build_scene_moving(&plan, &options, moving);
         self.triangles = [
             &scene.opaque,
+            &scene.wall_mesh,
             &scene.transparent,
             &scene.dynamic_opaque,
             &scene.dynamic_transparent,
@@ -271,6 +273,7 @@ impl Engine {
         self.renderer.set_scene(&scene, keep_camera);
         // The meshes live on the GPU now: free the copies.
         scene.opaque = Mesh::default();
+        scene.wall_mesh = Mesh::default();
         scene.transparent = Mesh::default();
         scene.dynamic_opaque = Mesh::default();
         scene.dynamic_transparent = Mesh::default();
@@ -496,6 +499,16 @@ impl Engine {
         });
     }
 
+    /// Sets the look (D-027): `day`, `neon` or `blueprint` (anything else: `day`), with an accent
+    /// colour `#rrggbb` (anything else: the default cyan). Returns the look's name.
+    #[wasm_bindgen(js_name = setTheme)]
+    pub fn set_theme(&mut self, name: &str, accent: &str) -> String {
+        let theme = ThemeName::from_name(name).unwrap_or_default();
+        let accent = parse_hex(accent).unwrap_or(DEFAULT_ACCENT);
+        self.renderer.set_theme(Theme::new(theme, accent));
+        theme.name().to_owned()
+    }
+
     /// Forces a quality preset (`eco`, `balanced`, `high`) or returns to automatic (`auto`).
     #[wasm_bindgen(js_name = setQuality)]
     pub fn set_quality(&mut self, name: &str) {
@@ -674,7 +687,7 @@ impl Engine {
         {
             for room in room_shapes(plan, scene) {
                 if let Some(value) = self.layers.values.get(room.id) {
-                    let [x, z] = room.centre;
+                    let [x, z] = room.label;
                     push(room.id, "heat", *value, [x, 1.0, z]);
                 }
             }
@@ -683,6 +696,25 @@ impl Engine {
             for (info, look) in self.elements.iter().zip(&self.live.looks) {
                 if let Some(top) = top_of(info).filter(|_| power_level(look.power) > 0.0) {
                     push(&info.id, "power", f64::from(look.power), top);
+                }
+            }
+        }
+        serde_json::Value::Array(labels).to_string()
+    }
+
+    /// Where the rooms' names go on the picture, as JSON `[{"id", "name", "x", "y"}]` in device
+    /// pixels from the top left: the middle of each room's floor.
+    #[wasm_bindgen(js_name = roomLabels)]
+    pub fn room_labels(&self) -> String {
+        let mut labels = Vec::new();
+        if let (Some(plan), Some(scene)) = (&self.plan, &self.scene) {
+            for room in room_shapes(plan, scene) {
+                let name = plan.element(room.id).map_or("", Element::name);
+                let [x, z] = room.label;
+                if let Some([sx, sy]) = self.renderer.screen_point([x, 1.0, z]) {
+                    labels.push(serde_json::json!({
+                        "id": room.id, "name": name, "x": sx, "y": sy,
+                    }));
                 }
             }
         }
@@ -841,6 +873,8 @@ impl Engine {
                 .count(),
             "bound": self.bindings.elements.len(),
             "quality": self.renderer.quality().as_str(),
+            "theme": self.renderer.theme().name.name(),
+            "lines": self.scene.as_ref().map_or(0, |scene| scene.lines.len()),
             "camera": {
                 "target": camera.target.map(round),
                 "distance": round(camera.distance),

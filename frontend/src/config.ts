@@ -8,6 +8,30 @@ export type CutawayMode = "auto" | "always" | "off";
 export type LightingMode = "auto" | "morning" | "day" | "evening" | "night";
 /** Where the sun lights from: high in the south-east (`fixed`), or where it is (`real`). */
 export type SunMode = "fixed" | "real";
+/** The look (D-027): following Home Assistant's dark mode (`auto`: neon when dark), or fixed. */
+export type ThemeMode = "auto" | "day" | "neon" | "blueprint";
+
+export const THEME_MODES: readonly ThemeMode[] = ["auto", "day", "neon", "blueprint"];
+/** The accent of the looks by default. */
+export const DEFAULT_ACCENT = "#00d4ff";
+const ACCENT = /^#[0-9a-f]{6}$/i;
+
+/** The look drawn for `mode` (absent: `auto`): `auto` is neon in Home Assistant's dark mode. */
+export function resolveLook(
+  mode: ThemeMode | undefined,
+  hass: { themes?: { darkMode?: boolean } } | undefined,
+): "day" | "neon" | "blueprint" {
+  const chosen = mode ?? "auto";
+  if (chosen !== "auto") return chosen;
+  return hass?.themes?.darkMode ? "neon" : "day";
+}
+
+/** An accent colour as stored (`#rrggbb`, lower case), or undefined. */
+export function readAccent(value: unknown): string | undefined {
+  return typeof value === "string" && ACCENT.test(value.trim())
+    ? value.trim().toLowerCase()
+    : undefined;
+}
 
 /** Options of `custom:domotwin-card`, after defaults. */
 export interface CardConfig {
@@ -36,6 +60,12 @@ export interface CardConfig {
   badges: boolean;
   /** What the cameras see, on the floor. */
   cameras: boolean;
+  /** The rooms' names over their floor. */
+  names: boolean;
+  /** The look; absent: the home's (the panel's settings). */
+  theme?: ThemeMode;
+  /** The accent of the look (`#rrggbb`); absent: the home's. */
+  accent?: string;
 }
 
 /** A configuration problem; `key` is translated by the card. */
@@ -98,6 +128,7 @@ export function normalizeConfig(raw: unknown): CardConfig {
     sun: pick(input.sun, SUNS, "fixed", "config.bad_sun"),
     badges: flag(input.badges, true, "config.bad_badges"),
     cameras: flag(input.cameras, true, "config.bad_cameras"),
+    names: flag(input.names, true, "config.bad_names"),
   };
   const title = optionalString(input.title);
   if (title !== undefined) config.title = title;
@@ -108,5 +139,13 @@ export function normalizeConfig(raw: unknown): CardConfig {
   if (storey !== undefined) config.storey = storey;
   const font = optionalString(input.font_family);
   if (font !== undefined) config.font_family = font;
+  if (input.theme !== undefined && input.theme !== null && input.theme !== "") {
+    config.theme = pick(input.theme, THEME_MODES, "auto", "config.bad_theme");
+  }
+  if (input.accent !== undefined && input.accent !== null && input.accent !== "") {
+    const accent = readAccent(input.accent);
+    if (accent === undefined) throw new ConfigError("config.bad_accent");
+    config.accent = accent;
+  }
   return config;
 }

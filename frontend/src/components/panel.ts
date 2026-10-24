@@ -21,6 +21,7 @@ import {
   type PickedElement,
   type UserModel,
 } from "../engine/engine";
+import { DEFAULT_ACCENT, THEME_MODES, readAccent, resolveLook, type ThemeMode } from "../config";
 import {
   DomoTwinClient,
   type PlanJson,
@@ -54,7 +55,7 @@ import type { IfcFile, IfcReport, IfcStorey } from "../ifc/ifc";
 import type { ModelFormat, ModelInfo } from "../models/models";
 import { translatorFor, type Translator } from "../i18n";
 import { icon } from "./icon";
-import { baseStyles } from "./styles";
+import { baseStyles, lookStyles } from "./styles";
 import type { ModelChoice } from "./edit-bar";
 import type { PlanEditState, PlanTool } from "./plan-editor";
 import type { DomoTwinView, EditCommand, PlanCommand, ViewOptions } from "./view";
@@ -154,6 +155,8 @@ export class DomoTwinPanel extends LitElement {
     draft: { state: true },
     settings: { state: true },
     northDraft: { state: true },
+    lookDraft: { state: true },
+    look: { reflect: true },
     planning: { state: true },
     planState: { state: true },
     planTool: { state: true },
@@ -195,6 +198,10 @@ export class DomoTwinPanel extends LitElement {
   /** The home's settings, and north being set (the settings dialog is open). */
   protected settings?: Settings;
   protected northDraft?: number;
+  /** The look being chosen in the settings (shown as it is chosen), while they are open. */
+  protected lookDraft?: { theme: ThemeMode; accent: string };
+  /** The look shown (D-027), on the element for the colours of the header and the dialogs. */
+  look = "day";
   /** The storeys, the one shown, the storeys dialog and a storey being removed. */
   protected storeys: StoreyInfo[] = [];
   protected storey?: string;
@@ -239,6 +246,7 @@ export class DomoTwinPanel extends LitElement {
 
   static override styles = [
     baseStyles,
+    lookStyles,
     css`
       :host {
         display: flex;
@@ -398,6 +406,30 @@ export class DomoTwinPanel extends LitElement {
         width: 100%;
         accent-color: var(--primary-color, #03a9f4);
       }
+      .ask label.look {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-top: 10px;
+      }
+      .ask label.look select {
+        min-height: 36px;
+        padding: 0 8px;
+        border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+        border-radius: 8px;
+        background: var(--card-background-color, #fff);
+        color: inherit;
+        font: inherit;
+      }
+      .ask label.look input[type="color"] {
+        width: 48px;
+        height: 32px;
+        padding: 0;
+        border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+        border-radius: 8px;
+        background: none;
+      }
       .compass {
         display: flex;
         align-items: center;
@@ -539,6 +571,10 @@ export class DomoTwinPanel extends LitElement {
 
   private readonly openSettings = (): void => {
     this.northDraft = this.settings?.north ?? 0;
+    this.lookDraft = {
+      theme: this.settings?.theme ?? "auto",
+      accent: this.settings?.accent ?? DEFAULT_ACCENT,
+    };
   };
 
   private readonly saveSettings = async (): Promise<void> => {
@@ -547,8 +583,17 @@ export class DomoTwinPanel extends LitElement {
     if (!client || north === undefined) return;
     this.busy = true;
     try {
-      await client.saveSettings({ ...this.settings, north });
-      this.settings = { ...this.settings, north };
+      const settings: Settings = { ...this.settings, north };
+      // The look is stored once one is chosen (automatic and the default accent until then).
+      const look = this.lookDraft;
+      if (look && (look.theme !== "auto" || settings.theme !== undefined)) {
+        settings.theme = look.theme;
+      }
+      if (look && (look.accent !== DEFAULT_ACCENT || settings.accent !== undefined)) {
+        settings.accent = look.accent;
+      }
+      await client.saveSettings(settings);
+      this.settings = settings;
       this.northDraft = undefined;
       this.show(this.t.t("settings.saved"));
     } catch (error) {
@@ -1439,6 +1484,21 @@ export class DomoTwinPanel extends LitElement {
     </div>`;
   }
 
+  /** The home's look (as being chosen, while the settings are open). */
+  private homeLook(): { theme?: ThemeMode; accent?: string } {
+    const draft = this.northDraft !== undefined ? this.lookDraft : undefined;
+    return {
+      theme: draft?.theme ?? this.settings?.theme,
+      accent: draft?.accent ?? this.settings?.accent,
+    };
+  }
+
+  protected override willUpdate(): void {
+    const { theme, accent } = this.homeLook();
+    this.look = resolveLook(theme, this._hass);
+    this.style.setProperty("--domotwin-accent", accent ?? DEFAULT_ACCENT);
+  }
+
   protected override render(): TemplateResult {
     const t = this.t;
     const admin = this._hass?.user?.is_admin === true;
@@ -1477,6 +1537,8 @@ export class DomoTwinPanel extends LitElement {
           .planTool=${this.planTool}
           .planBlank=${this.planNew}
           .planReserved=${this.planReserved}
+          .homeTheme=${this.homeLook().theme}
+          .homeAccent=${this.homeLook().accent}
           .storeys=${this.storeys}
           .storey=${this.storey}
           .elsewhere=${this.elsewhere}
@@ -1643,6 +1705,7 @@ export class DomoTwinPanel extends LitElement {
         />
       </label>
       <p class="hint">${t.t("settings.north_hint")}</p>
+      ${this.renderLookSettings()}
       <div class="footer">
         <button class="action quiet" @click=${() => (this.northDraft = undefined)}>
           ${t.t("panel.cancel")}
@@ -1657,6 +1720,43 @@ export class DomoTwinPanel extends LitElement {
         </button>
       </div>
     </div>`;
+  }
+
+  /** The look of the home in the settings: shown as it is chosen, kept on Save. */
+  private renderLookSettings(): TemplateResult | typeof nothing {
+    const t = this.t;
+    const draft = this.lookDraft;
+    if (!draft) return nothing;
+    return html`<label class="look">
+        <span>${t.t("settings.theme")}</span>
+        <select
+          data-testid="settings-theme"
+          @change=${(event: Event) => {
+            const theme = (event.target as HTMLSelectElement).value as ThemeMode;
+            this.lookDraft = { ...draft, theme };
+          }}
+        >
+          ${THEME_MODES.map(
+            (mode) =>
+              html`<option value=${mode} ?selected=${mode === draft.theme}>
+                ${t.t(`settings.theme_${mode}`)}
+              </option>`,
+          )}
+        </select>
+      </label>
+      <label class="look">
+        <span>${t.t("settings.accent")}</span>
+        <input
+          type="color"
+          data-testid="settings-accent"
+          .value=${draft.accent}
+          @input=${(event: Event) => {
+            const accent = readAccent((event.target as HTMLInputElement).value);
+            if (accent) this.lookDraft = { ...draft, accent };
+          }}
+        />
+      </label>
+      <p class="hint">${t.t("settings.theme_hint")}</p>`;
   }
 
   /** Edit mode's header: Cancel and Save. */

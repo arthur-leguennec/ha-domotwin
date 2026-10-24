@@ -75,3 +75,34 @@ export const baseStyles = css`
     }
   }
 `;
+
+/**
+ * The night looks (D-027) keep their overlays, dialogs and header dark, whatever the dashboard's
+ * theme: on the element with the `look` attribute.
+ */
+export const lookStyles = css`
+  :host([look="neon"]) {
+    --card-background-color: #0b1426;
+    --primary-background-color: #070c18;
+    --secondary-background-color: #101c33;
+    --primary-text-color: #e8f2ff;
+    --secondary-text-color: #9fb3cf;
+    --divider-color: rgba(130, 200, 255, 0.22);
+    --primary-color: var(--domotwin-accent, #00d4ff);
+    --text-primary-color: #04121f;
+    --app-header-background-color: #0b1426;
+    --app-header-text-color: #e8f2ff;
+  }
+  :host([look="blueprint"]) {
+    --card-background-color: #0e3474;
+    --primary-background-color: #0b2c63;
+    --secondary-background-color: #13408a;
+    --primary-text-color: #f2f7ff;
+    --secondary-text-color: #b9cdee;
+    --divider-color: rgba(255, 255, 255, 0.25);
+    --primary-color: #ffffff;
+    --text-primary-color: #0b2c63;
+    --app-header-background-color: #0b2c63;
+    --app-header-text-color: #f2f7ff;
+  }
+`;

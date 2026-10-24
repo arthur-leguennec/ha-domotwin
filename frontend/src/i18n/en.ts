@@ -85,6 +85,13 @@ export const en = {
     north_hint:
       "Where north points, clockwise from the top of the plan. The sun lights the rooms from where it really is.",
     degrees: "{value}°",
+    theme: "Look",
+    theme_auto: "Automatic (neon in dark mode)",
+    theme_day: "Day",
+    theme_neon: "Neon",
+    theme_blueprint: "Blueprint",
+    accent: "Accent colour",
+    theme_hint: "The look of the panel and of the cards that do not choose one.",
     save: "Save",
     saved: "Settings saved.",
     save_failed: "The settings could not be saved: {reason}",
@@ -494,6 +501,9 @@ export const en = {
   },
   editor: {
     title: "Title",
+    theme: "Look",
+    theme_home: "The home's",
+    accent: "Accent colour (empty: the home's)",
     view: "View",
     view_3d: "3D",
     view_2d: "2D",
@@ -526,6 +536,7 @@ export const en = {
     sun_real: "Where it is (light through the windows)",
     badges: "Badges over the devices (locks, cameras, batteries…)",
     cameras: "What the cameras see",
+    names: "The rooms' names",
   },
   config: {
     invalid: "Invalid DomoTwin configuration: {reason}",
@@ -540,5 +551,8 @@ export const en = {
     bad_sun: "`sun` must be fixed or real",
     bad_badges: "`badges` must be true or false",
     bad_cameras: "`cameras` must be true or false",
+    bad_names: "`names` must be true or false",
+    bad_theme: "`theme` must be auto, day, neon or blueprint",
+    bad_accent: "`accent` must be a colour such as #00d4ff",
   },
 } as const;
