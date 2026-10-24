@@ -22,9 +22,9 @@ Local, fast, Rust + WebAssembly.</p>
 
 ## Features
 
-- **Your floor plan in 3D and 2D.** Import a House Maquette plan (`*.plan.json`) or an IFC model
-  (`*.ifc`, from Revit, ArchiCAD, Bonsai, FreeCAD…), one storey or all of them, and see it as a
-  clean 3D model. The
+- **Your floor plan in 3D and 2D.** Draw it in the panel, or import an IFC model (`*.ifc`, from
+  Revit, ArchiCAD, Bonsai, FreeCAD…) or a DomoTwin plan (`*.domotwin.json`), one storey or all of
+  them, and see it as a clean 3D model. The
   walls facing the camera are lowered automatically, like an open dollhouse. Switch to a crisp 2D
   plan with a smooth animation.
 - **Three looks.** **Neon**: walls of glass outlined in a glowing accent colour over a grid,
@@ -109,11 +109,11 @@ Local, fast, Rust + WebAssembly.</p>
    `https://github.com/arthur-leguennec/ha-domotwin` as a custom repository of type *Integration*,
    install **DomoTwin** and restart Home Assistant.
 2. **Add the integration.** Settings → Devices & services → Add integration → **DomoTwin**. No YAML.
-3. **Import your plan.** Open **DomoTwin** in the sidebar → **Import plan** and pick your
-   `*.plan.json`, or an IFC file (`*.ifc`, see [IFC
+3. **Draw or import your plan.** Open **DomoTwin** in the sidebar → **Draw a plan**, or
+   **Import plan** and pick a DomoTwin plan (`*.domotwin.json`) or an IFC file (`*.ifc`, see [IFC
    import](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/ifc-import.md)). No plan
    yet? Try the fictional
-   [`examples/demo-apartment.plan.json`](https://github.com/arthur-leguennec/ha-domotwin/blob/main/examples/demo-apartment.plan.json)
+   [`examples/demo-apartment.domotwin.json`](https://github.com/arthur-leguennec/ha-domotwin/blob/main/examples/demo-apartment.domotwin.json)
    or
    [`examples/demo-apartment.ifc`](https://github.com/arthur-leguennec/ha-domotwin/blob/main/examples/demo-apartment.ifc),
    or **Draw a plan** in the app.
@@ -177,7 +177,7 @@ WebAssembly) reads the plan, builds the geometry and draws it with WebGL2. More 
 
 ## FAQ
 
-**Which plan formats does DomoTwin read?** The House Maquette plan format, documented in
+**Which plan formats does DomoTwin read?** Its own plan format, documented in
 [`docs/plan-format.md`](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/plan-format.md)
 with its JSON Schema, and IFC files (ISO 16739, exported by FreeCAD, Blender with Bonsai, ArchiCAD
 or Revit), one storey or every storey at once: see [IFC

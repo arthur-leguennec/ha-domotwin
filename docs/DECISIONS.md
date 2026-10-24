@@ -78,7 +78,7 @@ explains why. Each entry: context, decision, consequences.
 
 ## D-006 · Validation split between Python and Rust
 
-- **Decision.** Python checks only the envelope (types, `version`, `unit`, element count, sizes) so
+- **Decision.** Python checks only the envelope (types, `format` and `version`, element count, sizes) so
   that garbage and oversized payloads are refused. The full lenient validation lives once, in
   `domotwin-core`, and runs in the browser before a save and on every load.
 - **Consequences.** One reader to test and fuzz; the Python side stays thin as required.
@@ -90,13 +90,11 @@ explains why. Each entry: context, decision, consequences.
 
 ## D-008 · Copyright line and attribution
 
-- **Context.** The repository must not contain real names. The MIT licence asks to keep the copyright
-  notice of the copied House Maquette files.
-- **Decision.** DomoTwin's licence names "DomoTwin contributors". The House Maquette spec and schema
-  are credited in `THIRD_PARTY_NOTICES.md` to "the House Maquette author", who is also DomoTwin's
-  maintainer and holds the copyright of both, so they can license their own work this way.
-- **Consequences.** If the maintainer prefers the original notice with their name, it is a one-line
-  change in `THIRD_PARTY_NOTICES.md`.
+- **Context.** The repository must not contain real names.
+- **Decision.** DomoTwin's licence names "DomoTwin contributors"; the works it reuses are credited in
+  `THIRD_PARTY_NOTICES.md`.
+- **Consequences.** If the maintainer prefers a notice with their name, it is a one-line change in
+  `LICENSE`.
 
 ## D-009 · IFC import (ISO 16739) as an optional, isolated importer
 
@@ -104,8 +102,8 @@ explains why. Each entry: context, decision, consequences.
   is easier to adopt, provided it never prevents or degrades what the project must do. IFC
   (ISO 16739) is the ISO standard for building models and is exported by FreeCAD, Bonsai (Blender),
   ArchiCAD, Revit and others.
-- **Decision.** Keep the House Maquette plan as the native and stored format (the walls, openings and
-  furniture kinds the renderer relies on are defined by it). Add an **IFC importer** that converts one
+- **Decision.** Keep the JSON plan of `docs/plan-format.md` as the native and stored format (the
+  walls, openings and furniture kinds the renderer relies on are defined by it; D-030 redrew it). Add an **IFC importer** that converts one
   storey into a plan, in its own crate and its own lazily loaded wasm module (milestone M1b). glTF
   (ISO/IEC 12113) export of the 3D model is a possible later addition.
 - **Consequences.** No cost on first load and no change to the native model. If any part of the IFC
@@ -151,7 +149,7 @@ explains why. Each entry: context, decision, consequences.
     kind; place, stack and bind it like any other piece.
   - Model files are not stored in `.storage` (base64 would bloat it): the integration keeps them in
     `<config>/domotwin/models/<sha256>.<ext>`, admin-only upload, served to authenticated users only.
-    **Export plan** embeds them as `data` URLs, as House Maquette does, so a plan round-trips.
+    **Export plan** embeds them as `data` URLs, so a plan round-trips.
   - Parsing 3D files happens in the same lazily loaded import module as the IFC import (D-009) and
     produces a compact mesh the engine loads directly, so the first load does not grow.
   - The format's limits apply: 50 models per plan, 8 MB per file, 20 MB of files per plan,
@@ -321,7 +319,7 @@ Decided while the maintainer was away (M3b, D-013 carried out); open to review.
   choices: where the files are read, how textured models look in a renderer without textures
   (D-014), where models imported in edit mode are kept, how the server gets a file's hash, and how a
   model "behaves like" a lamp or a screen when the plan format has no field for it (its schema
-  refuses extra fields, and DomoTwin's exports must stay valid House Maquette plans).
+  refuses extra fields).
 - **Decision.**
   - **A module of its own.** The readers (`domotwin-models`: glTF 2.0 as GLB or with embedded
     data, OBJ, STL binary and ASCII, 3MF with base materials, colour groups and parts in other model
@@ -374,7 +372,7 @@ Decided at the maintainer's request (after M3b); the order of the milestones is 
   M10 polish, M11 release 0.1.0 (`ROADMAP.md`). What stays as it is, and sets DomoTwin apart: free
   and open source, no account, no licence check and no network call outside the user's Home
   Assistant; the engine in Rust compiled to WebAssembly, drawn on demand within the budgets of
-  `PERFORMANCE.md`; open formats in and out (the House Maquette plan, IFC, glTF, OBJ, STL, 3MF);
+  `PERFORMANCE.md`; open formats in and out (the documented JSON plan, IFC, glTF, OBJ, STL, 3MF);
   every text in English and French.
 - **Consequences.** The first release comes later than M6 of the original plan would have put it.
   Features that need a service outside Home Assistant (cloud rendering, accounts, shared online
@@ -439,8 +437,7 @@ Decided while the maintainer was away (M4); open to review.
 Decided while the maintainer was away (M5); open to review.
 
 - **Context.** M5 shows what the devices of the home are doing. The plan format has a closed list
-  of kinds (unknown ones read as `desk`) and DomoTwin's exports must stay valid House Maquette
-  plans, so there is no "camera" or "lock" piece to add; but every element can already be linked
+  of kinds, so there is no "camera" or "lock" piece to add; but every element can already be linked
   to entities.
 - **Decision.**
   - **From the links.** A device is whatever its entity is linked to: a camera on the bookcase, a
@@ -479,7 +476,7 @@ Decided while the maintainer was away (M5); open to review.
 Decided while the maintainer was away (M6); open to review.
 
 - **Context.** M6 lets a home be drawn in the app: rooms as polygons, partitions, doors and windows
-  on the rooms' sides, with snapping and lengths, without House Maquette or another program. The
+  on the rooms' sides, with snapping and lengths, without another program. The
   format's rules already live in the plan reader; the engine every dashboard loads must stay light
   (D-022); the furniture is arranged as an overlay (D-019).
 - **Decision.**
@@ -496,7 +493,7 @@ Decided while the maintainer was away (M6); open to review.
     the same side; a door moved along its side keeps the side it opens to, and one on a wall two
     rooms share stays in its own room. A width or a reshape that leaves an opening longer than its
     side is refused (`opening_too_wide`). An opening is on a side by the walls' own rule (its line
-    within 6 cm of both ends of the side). A room moves with everything whose `parent` it is. A door or a window is placed on the nearest side of a room
+    within 6 cm of both ends of the side). A room moves with everything that belongs to it. A door or a window is placed on the nearest side of a room
     within 60 cm, centred, kept within the side, a door opening into the room (83 cm; windows
     120 cm). Removing a room removes its doors and windows; its furniture stays, in no room. Undo
     and redo wait for a drag to end.
@@ -544,7 +541,7 @@ Decided while the maintainer was away (M7); open to review.
   - **Ids are the home's.** Bindings stay one document for the whole home: an element id, or the
     id of a piece an overlay adds, may be on one storey only (`duplicate_id` on save). A plan
     joining a home (imported as a new storey, every storey of an IFC file) has its taken ids
-    renamed first (`living` → `living-2`, the `parent` of its pieces following, within the
+    renamed first (`living` → `living-2`, the `room` of its pieces following, within the
     reader's 100 characters), by the planner module's `freeIds`; the plan editor and edit mode
     reserve the other storeys' ids.
   - **API.** `plan/get` and `plan/save` take an optional `storey` and `plan/get` lists the storeys;
@@ -727,3 +724,35 @@ Decided while the maintainer was away (M10); open to review.
   floor, the ceilings' light), the rest 3.7 kB (the walk button and pad, the kiosk, the requests,
   the texts). The Python tests need Assist's packages (`hassil`, `home-assistant-intents`) for the
   blueprint's test.
+
+## D-030 · DomoTwin's own plan format
+
+Asked by the maintainer (M10b).
+
+- **Context.** DomoTwin started from an earlier JSON plan format, adopted with its specification.
+  It carried choices DomoTwin did not need: a unit that is always centimetres, rooms as a frame
+  with corners relative to it, pieces placed by their top-left corner, a flag that turned some
+  kinds sideways, names in two languages, fields no part of DomoTwin read. The maintainer asked for
+  that format to be dropped for good.
+- **Decision.**
+  - **A format of its own**: `docs/plan-format.md`, `schema/plan.schema.json`, files named
+    `*.domotwin.json`, marked `"format": "domotwin-plan"` and `"version": 1`. Elements are in lists
+    by what they are (`rooms`, `partitions`, `doors`, `windows`, `items`) instead of one list with
+    a `type`. Rooms are outlines of plan points; their walls follow from them, and a side can be
+    open, thicker or finished on its own. Doors and windows run `from` one end `to` the other along
+    their wall and say which way they open (`opensTo`). Items are placed by the centre of their
+    footprint (`at`), sized `[width, depth, height]`, turned by `rotation` and raised by `lift`.
+    Every name is English (kinds, styles, floors, finishes), and a piece without a colour takes its
+    kind's.
+  - **The engine keeps its model.** The reader turns a file into the same elements as before, so
+    the scene, the walls, walking and the layers are unchanged. The plan editor, the edit overlay
+    (now `at`, `rotation`, `lift` and `room`) and the IFC import write the new format.
+  - **Nothing reads the earlier format.** Plans stored in it are set aside when DomoTwin starts
+    (storage version 3): moved, with their overlays, to `retired` in the stored data, which nothing
+    shows, their 3D files kept, a warning in the log and the revision moved on so that browsers'
+    drafts for them are not offered again. They are imported again as `*.domotwin.json`; no
+    converter ships with DomoTwin. Model kits went with it: a 3D model is a file.
+- **Consequences.** A plan stored before this change has to be imported again; the links to its
+  elements come back with their ids. The demo apartment now shows its kinds' colours where it
+  named none (wooden tables, green plants). A test keeps the schema's kinds, floors, finishes and
+  door styles equal to the core's.

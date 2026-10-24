@@ -23,9 +23,9 @@ Local, rapide, Rust + WebAssembly.</p>
 
 ## Fonctionnalités
 
-- **Votre plan en 3D et en 2D.** Importez un plan House Maquette (`*.plan.json`) ou une maquette
-  IFC (`*.ifc`, depuis Revit, ArchiCAD, Bonsai, FreeCAD…), un étage ou tous, et voyez-le en
-  maquette 3D. Les
+- **Votre plan en 3D et en 2D.** Dessinez-le dans le panneau, ou importez une maquette IFC
+  (`*.ifc`, depuis Revit, ArchiCAD, Bonsai, FreeCAD…) ou un plan DomoTwin (`*.domotwin.json`), un
+  étage ou tous, et voyez-le en maquette 3D. Les
   murs face à la caméra s’abaissent automatiquement, comme une maison de poupée ouverte. Passez à un
   plan 2D net avec une transition fluide.
 - **Trois apparences.** **Néon** : des murs de verre soulignés d’une couleur d’accent lumineuse
@@ -119,11 +119,12 @@ Local, rapide, Rust + WebAssembly.</p>
    installez **DomoTwin** et redémarrez Home Assistant.
 2. **Ajouter l’intégration.** Paramètres → Appareils et services → Ajouter une intégration →
    **DomoTwin**. Aucun YAML.
-3. **Importer votre plan.** Ouvrez **DomoTwin** dans la barre latérale → **Importer un plan** et
-   choisissez votre `*.plan.json`, ou un fichier IFC (`*.ifc`, voir [l’import
+3. **Dessiner ou importer votre plan.** Ouvrez **DomoTwin** dans la barre latérale → **Dessiner un
+   plan**, ou **Importer un plan** et choisissez un plan DomoTwin (`*.domotwin.json`) ou un fichier
+   IFC (`*.ifc`, voir [l’import
    IFC](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/ifc-import.md), en anglais).
    Pas encore de plan ? Essayez l’appartement fictif
-   [`examples/demo-apartment.plan.json`](https://github.com/arthur-leguennec/ha-domotwin/blob/main/examples/demo-apartment.plan.json)
+   [`examples/demo-apartment.domotwin.json`](https://github.com/arthur-leguennec/ha-domotwin/blob/main/examples/demo-apartment.domotwin.json)
    ou
    [`examples/demo-apartment.ifc`](https://github.com/arthur-leguennec/ha-domotwin/blob/main/examples/demo-apartment.ifc),
    ou **Dessiner un plan** dans l’application.
@@ -192,7 +193,7 @@ dans
 
 ## FAQ
 
-**Quels formats de plan DomoTwin lit-il ?** Le format de plan House Maquette, décrit dans
+**Quels formats de plan DomoTwin lit-il ?** Son propre format de plan, décrit dans
 [`docs/plan-format.md`](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/plan-format.md)
 avec son schéma JSON, et les fichiers IFC (ISO 16739, exportés par FreeCAD, Blender avec Bonsai,
 ArchiCAD ou Revit), un étage ou tous à la fois : voir [l’import

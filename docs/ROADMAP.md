@@ -20,13 +20,22 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M8        | Looks: neon, blueprint and day, glowing outlines, bloom    | ✅     |
 | M9        | Every storey at once: stacked, spread apart, with a roof   | ✅     |
 | M10       | Kiosk: walk mode, idle and night modes, Assist voice       | ✅     |
+| M10b      | DomoTwin's own plan format, `*.domotwin.json`              | ✅     |
+| M9b       | Network map: the Zigbee mesh over the home (ZHA)           | ⏳     |
+| M9c       | Automation wires: what sets off what, drawn in 3D          | ⏳     |
+| M9d       | Upkeep cards: makes, warranties, recurring tasks           | ⏳     |
+| M9e       | People in their rooms, live                                | ⏳     |
+| M8b       | Two more looks: cartoon and clay                           | ⏳     |
 | M11       | Imports: Sweet Home 3D, DXF, room scans                    | ⏳     |
 | M12       | Polish: design, fonts, accessibility, performance, README  | ⏳     |
 | M13       | Release 0.1.0 and HACS submission checklist                | ⏳     |
 
 M5 to M11 were added after M3b (`DECISIONS.md`, D-022): what people expect of a 3D home dashboard,
 with no account and no network call outside Home Assistant. M8 became the looks alone, and the
-storeys seen together their own milestone (M9), so that the picture comes first (D-027).
+storeys seen together their own milestone (M9), so that the picture comes first (D-027). M10b
+replaced the plan format DomoTwin started from with its own (D-030); M9b to M9e and M8b were asked
+for after M10, and come before the imports. After 0.1.0, a pass over size and speed that keeps the
+picture as it is.
 
 ## M0, scaffold
 
@@ -52,19 +61,18 @@ Measured at the end of M0: see [`PERFORMANCE.md`](PERFORMANCE.md).
 
 ## M1, render
 
-- ✅ Core: strict-structure, lenient-field plan reader for revisions 1–10 with stable error codes
+- ✅ Core: strict-structure, lenient-field plan reader with stable error codes
   (and the element at fault) translated in English and French, the clean plan model, validation of
   every rule of `plan-format.md`. Fuzzed. The editing checks (overlaps, blocked doors) move to M3,
   where they are shown.
-- ✅ Core geometry: room polygons (frame-relative vertices, legacy `bevel`), implicit walls (interior
-  partitions centred on shared limits, façades outside the polygon, per-side `edgeThickness`,
-  `openEdges`, filled outer corners), openings cut into walls, wall heights and finishes, door sweeps,
+- ✅ Core geometry: room polygons, implicit walls (interior partitions centred on shared limits,
+  façades outside the polygon, per-side thickness, open sides, filled outer corners), openings cut into walls, wall heights and finishes, door sweeps,
   wall groups for the cut-away, the furniture catalogue (55 kinds with defaults, light and soft
-  flags, vertical models).
+  flags).
 - ✅ Render: three-d's core layer on WebGL2 with DomoTwin's own shaders (D-014). The whole home is
   two merged meshes (one draw call each), which beats instancing here. Procedural models for every
-  kind, procedural floors (`uni`, planks, tiles; `photo-*` keys fall back to their procedural look),
-  wall finishes (`blanc`, `vert-blanc`, `cimaise`, `metro`, paint), skirting boards and cornices,
+  kind, procedural floors (plain, planks, tiles),
+  wall finishes (plain, wainscot, chair rail, tiles, paint), skirting boards and cornices,
   doors and windows with all their styles and their `open` fraction, lit lamps glowing in their
   colour, soft contact shadows, user models made from kits (file models as boxes until M3).
 - ✅ Camera: orbit with mouse, touch and pinch, pan, zoom towards the pointer, keyboard; overview,
@@ -93,7 +101,7 @@ before 0.1.0.
 
 - ✅ Core: the bindings reader (roles derived from the domain and device class, lenient like the
   plan reader), entity states, and the **targets** of every element: lamp colour and intensity from
-  the light (`rgb_color`, else `color_temp_kelvin`, × brightness × `lightPower`) or a switch, the
+  the light (`rgb_color`, else `color_temp_kelvin`, × brightness × the lamp's power) or a switch, the
   TV screen from the media player, curtains and doors from covers, window blinds from covers, doors
   and windows from contact sensors, unavailable entities greyed out. Lights fade (≈ 0.35 s),
   moving parts move (≈ 0.7 s). See D-016.
@@ -192,7 +200,7 @@ own 3D models are M3b.
 Measured at the end of M3: see [`PERFORMANCE.md`](PERFORMANCE.md).
 
 Left for later: moving several pieces with the keyboard arrows; editing rooms, walls, doors and
-windows (they stay House Maquette's); refreshing the summary chip's counts while editing.
+windows (done in M6); refreshing the summary chip's counts while editing.
 
 ## M3b, your own furniture and appliances
 
@@ -333,7 +341,7 @@ Several storeys in one home (`DECISIONS.md`, D-026; [`storeys.md`](storeys.md)).
   measured from the ground floor; ids renamed where two storeys share them (`freeIds`).
 - ✅ **Alerts from every storey** in the banner, with their storey; the switcher marks a storey with
   an alert and a tap on the alert goes there.
-- ✅ A fictional upper floor for the demo apartment (`examples/demo-upper-floor.plan.json`).
+- ✅ A fictional upper floor for the demo apartment (`examples/demo-upper-floor.domotwin.json`).
 - ✅ Tests: migration, storey commands, unique ids, admin-only writes (pytest); stairs, the upper
   floor and renaming ids (Rust); levels, names, the card editor's picker, alerts elsewhere
   (vitest); the switcher, stairs, the card option, the dialog, a storey drawn, imported, a whole
@@ -425,10 +433,26 @@ Walking, wall tablets and the voice (`DECISIONS.md`, D-029; [`kiosk.md`](kiosk.m
 Left for later: furniture in a walker's way, walking up the stairs, a voice answer naming what was
 not found.
 
+## M10b, DomoTwin's own plan format
+
+The plan format DomoTwin started from is dropped for one of its own (`DECISIONS.md`, D-030;
+[`plan-format.md`](plan-format.md)).
+
+- ✅ **`*.domotwin.json`**: `"format": "domotwin-plan"`, elements in lists by what they are, rooms
+  as outlines, openings from one end to the other, items by their centre, size and rotation, every
+  name in English; its JSON Schema, kept equal to the core's lists by a test.
+- ✅ **Written everywhere**: the plan editor, the edit overlay (`at`, `rotation`, `lift`, `room`),
+  the IFC import, **Export plan**; the demo apartment and its upper floor converted.
+- ✅ **Stored plans of the earlier format are set aside** at start-up (storage 3.1, kept in the
+  stored data, with a warning); no reader or converter of it ships.
+- ✅ Tests: the reader's codes and defaults, the overlay, the editor, the IFC fixtures (Rust); the
+  plan's lists (vitest); the envelope, the storage migration (pytest); every e2e test on the new
+  files (Playwright).
+
 ## M11, imports
 
 Plans from Sweet Home 3D (`.sh3d`), DXF drawings and room scans (USDZ or OBJ from phone LiDAR
-apps), turned into House Maquette plans.
+apps), turned into DomoTwin plans.
 
 ## M12, polish
 

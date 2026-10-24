@@ -350,3 +350,20 @@ every pixel, takes about a third longer; a real GPU does not notice. A walk step
 segment distances (the walls of a storey) per frame while moving, and nothing once standing. The
 kiosk's slow turn draws 20 frames per second, the dimmed screen none at all, and the wait for
 idle is a check per second, not a frame.
+
+### M10b (DomoTwin's own plan format)
+
+Bundle: the first load is **389.5 kB gzipped** of 1 200 kB, 3.7 kB less than M10 as merged
+(393.2 kB, measured again on the same build tools):
+
+| File | Raw | Gzipped |
+| --- | ---: | ---: |
+| `domotwin_web_bg.<hash>.wasm` | 717.3 kB | 312.8 kB |
+| `domotwin_planner_bg.<hash>.wasm` (on demand) | 207.5 kB | 95.2 kB |
+| `domotwin_ifc_bg.<hash>.wasm` (on demand) | 245.1 kB | 114.1 kB |
+
+The new reader has less to undo (corners relative to a frame, kinds turned sideways, names in two
+languages, model kits): the engine lost 3.6 kB. The plan editor's module lost 19.4 kB: it edits the
+file's lists as they are and keeps no second, read copy of the plan. The demo apartment is
+8.3 kB instead of 13.9 kB (2.0 kB gzipped instead of 2.2 kB). Its scene is the same geometry
+(13 843 triangles, 9 wall groups); only the colours of the pieces that named none changed.
