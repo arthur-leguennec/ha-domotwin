@@ -527,6 +527,47 @@ export class DomoTwinEngine {
     this.live.editSaved(JSON.stringify(layout));
   }
 
+  /**
+   * Shows a plan drawn in the plan editor (no overlay), `selected` marked; the plan stored stays,
+   * to come back to with `loadPlan`. The camera stays, unless nothing was shown.
+   */
+  showDraft(plan: string, selected: string): void {
+    try {
+      this.live.showDraft(plan, selected);
+    } catch (error) {
+      throw engineError(error);
+    }
+  }
+
+  /**
+   * The plan shown with its edit overlay in it, at the current revision (what the plan editor
+   * starts from); an empty string when none is shown.
+   */
+  shownPlan(): string {
+    return this.live.shownPlan();
+  }
+
+  /** Marks an element as selected in the draft shown ("": none), without building it again. */
+  markSelected(id: string): void {
+    this.live.markSelected(id);
+  }
+
+  /** Shows no plan (a new plan drawn and dropped). */
+  clearPlan(): void {
+    this.live.clearPlan();
+  }
+
+  /** The plan point (cm) on the floor under a device pixel; undefined off the floor. */
+  planPoint(x: number, y: number): [number, number] | undefined {
+    const p = this.live.planPoint(x, y);
+    return p.length === 2 ? [p[0] ?? 0, p[1] ?? 0] : undefined;
+  }
+
+  /** Where plan points (cm, `[x0, y0, x1, y1…]`) are drawn, in device pixels (NaN: not drawn). */
+  screenPoints(points: ArrayLike<number>): Float64Array {
+    return this.live.screenPoints(Float64Array.from(points));
+  }
+
   resize(width: number, height: number): void {
     this.live.resize(width, height);
   }

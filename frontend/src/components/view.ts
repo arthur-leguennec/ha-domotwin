@@ -83,6 +83,8 @@ import { planRooms } from "../live/suggest";
 import { FrameScheduler } from "../scheduler";
 import { fire } from "./define";
 import { icon } from "./icon";
+import type { Planner } from "../planner/planner";
+import type { PlanEditState, PlanEditor, PlanTool } from "./plan-editor";
 import { baseStyles } from "./styles";
 
 type EngineState = "idle" | "loading" | "ready" | "unsupported" | "failed";
@@ -195,6 +197,20 @@ export function editCommandFor(event: KeyboardEvent): EditCommand | undefined {
   return undefined;
 }
 
+/** What the plan bar and the keys ask the plan editor to do. */
+export type PlanCommand = "undo" | "redo" | "remove" | "clear" | "remove-corner";
+
+/** The plan editor's keys: Delete, Ctrl+Z, Ctrl+Y (Ctrl+Shift+Z), Escape. */
+export function planCommandFor(event: KeyboardEvent): PlanCommand | undefined {
+  const control = event.ctrlKey || event.metaKey;
+  const key = event.key.toLowerCase();
+  if (event.key === "Delete" || event.key === "Backspace") return "remove";
+  if (key === "z" && control) return event.shiftKey ? "redo" : "undo";
+  if (key === "y" && control) return "redo";
+  if (event.key === "Escape") return "clear";
+  return undefined;
+}
+
 /** Frame timings measured by `benchmark()` (frame-time smoke test). */
 export interface FrameStats {
   frames: number;
@@ -229,6 +245,8 @@ export interface DebugState {
   sheet?: string;
   /** Edit mode, when on. */
   edit?: { selection: string[]; conflicts: string[]; guides: number; dirty: boolean };
+  /** The plan editor, when on: its tool, the element selected, its corners, unsaved changes. */
+  planEdit?: { tool: string; selection: string | null; corners: number; dirty: boolean };
   /** 3D files: fetched and read (`loadMs`, each), drawn (`drawMs`, each rebuild), and failed. */
   models?: { loadMs: number[]; drawMs: number[]; failed: number };
 }
@@ -251,6 +269,8 @@ export class DomoTwinView extends LitElement {
     bindings: { attribute: false },
     linking: { attribute: false },
     editing: { attribute: false },
+    planEditing: { attribute: false },
+    planTool: { attribute: false },
     multiSelect: { attribute: false },
     editKeys: { attribute: false },
     options: { attribute: false },
@@ -265,6 +285,7 @@ export class DomoTwinView extends LitElement {
     focusedRoom: { state: true },
     notice: { state: true },
     edit: { state: true },
+    planEditor: { state: true },
     north: { attribute: false },
     layer: { state: true },
     layersOpen: { state: true },
@@ -295,6 +316,13 @@ export class DomoTwinView extends LitElement {
    * change fires `domotwin-edit` (detail: the `EditState`).
    */
   editing = false;
+  /**
+   * The plan editor (the panel's; `DECISIONS.md`, D-025): rooms, partitions, doors and windows are
+   * drawn and changed with `planTool`, in 2D. Every change fires `domotwin-plan-edit` (detail: the
+   * `PlanEditState`). Without a plan, it starts a new one.
+   */
+  planEditing = false;
+  planTool: PlanTool = "select";
   /** In edit mode, taps add pieces to the selection (or take them out). */
   multiSelect = false;
   /** Edit mode's keys act (not while the panel shows a dialog over the view). */
@@ -316,6 +344,14 @@ export class DomoTwinView extends LitElement {
   protected notice?: string;
   /** The edit session's state while edit mode is on. */
   protected edit?: EditState;
+  /** The plan editor while it is on (and while its module loads), and whether the 3D view was shown before it. */
+  protected planEditor?: PlanEditor;
+  private planOpening = false;
+  /** Counts the plan editor's opens: one that ends after a later one (or after the view left the page) is dropped. */
+  private planToken = 0;
+  /** The draft kept while the view is away from the page, to go on with when it comes back. */
+  private parked?: { planner: Planner; empty: boolean };
+  private planViewBefore = false;
   /** The layer shown (the layer menu), and the menu open. */
   protected layer: LayerName = "off";
   protected layersOpen = false;
@@ -775,6 +811,61 @@ export class DomoTwinView extends LitElement {
         text-anchor: middle;
         dominant-baseline: middle;
       }
+      .plan-handles {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        overflow: visible;
+      }
+      .plan-handles .snap {
+        stroke: var(--primary-color, #03a9f4);
+        stroke-width: 1.5;
+        stroke-dasharray: 6 4;
+      }
+      .plan-handles .drawn {
+        fill: color-mix(in srgb, var(--primary-color, #03a9f4) 12%, transparent);
+        stroke: var(--primary-color, #03a9f4);
+        stroke-width: 2;
+        stroke-dasharray: 8 4;
+      }
+      .plan-handles .corner {
+        fill: var(--card-background-color, #fff);
+        stroke: var(--primary-color, #03a9f4);
+        stroke-width: 2.5;
+      }
+      .plan-handles .corner.active {
+        fill: var(--primary-color, #03a9f4);
+      }
+      .plan-handles .insert {
+        pointer-events: auto;
+        cursor: copy;
+      }
+      .plan-handles .insert circle {
+        fill: var(--card-background-color, #fff);
+        stroke: var(--primary-color, #03a9f4);
+        stroke-width: 1.5;
+        opacity: 0.9;
+      }
+      .plan-handles .insert path {
+        stroke: var(--primary-color, #03a9f4);
+        stroke-width: 2;
+        stroke-linecap: round;
+      }
+      .plan-handles .insert:focus-visible circle {
+        stroke-width: 3;
+      }
+      .plan-handles text {
+        font-size: 12px;
+        font-weight: 600;
+        fill: var(--primary-text-color, #1f2328);
+        stroke: var(--card-background-color, #fff);
+        stroke-width: 3px;
+        paint-order: stroke;
+        text-anchor: middle;
+        dominant-baseline: middle;
+      }
       .spinner {
         width: 28px;
         height: 28px;
@@ -807,7 +898,15 @@ export class DomoTwinView extends LitElement {
     document.removeEventListener("visibilitychange", this.onVisibility);
     this.motionQuery?.removeEventListener("change", this.onMotion);
     window.removeEventListener("keydown", this.onEditKey);
+    window.removeEventListener("keydown", this.onPlanKey);
     window.clearTimeout(this.noticeTimer);
+    // The engine goes; the plan drawn is kept, to go on with if the view comes back.
+    if (this.planEditor) {
+      this.parked = { planner: this.planEditor.release(), empty: this.planEditor.state.empty };
+      this.planEditor = undefined;
+    }
+    this.planToken += 1;
+    this.planOpening = false;
     this.stopEngine();
   }
 
@@ -831,13 +930,18 @@ export class DomoTwinView extends LitElement {
       this.labelsText = "";
     }
     // The room chip leaves room for the legend (`renderLegend`).
-    this.toggleAttribute("legend", this.layer !== "off" && !this.edit);
+    this.toggleAttribute("legend", this.layer !== "off" && !this.editingAny);
   }
 
   protected override updated(changed: PropertyValues<this>): void {
     if (changed.has("bindings")) this.applyBindings();
     if (changed.has("editing")) this.applyEditing();
     if (changed.has("plan") || changed.has("layout")) this.applyPlan();
+    if (changed.has("planEditing")) this.applyPlanEditing();
+    if (changed.has("planTool") && this.planEditor) {
+      this.planEditor.tool = this.planTool;
+      this.requestUpdate();
+    }
     if (changed.has("options") && this.engine) {
       const previous = changed.get("options");
       this.engine.setQuality(this.options.quality);
@@ -922,6 +1026,15 @@ export class DomoTwinView extends LitElement {
         conflicts: edit.conflicts,
         guides: edit.guides.length,
         dirty: edit.dirty,
+      };
+    }
+    const plan = this.planEditor;
+    if (plan) {
+      state.planEdit = {
+        tool: plan.tool,
+        selection: plan.state.selection?.id ?? null,
+        corners: plan.state.cornerCount,
+        dirty: plan.state.dirty,
       };
     }
     return state;
@@ -1030,6 +1143,52 @@ export class DomoTwinView extends LitElement {
     this.redraw();
   }
 
+  /** Runs a command of the plan bar. */
+  planCommand(command: PlanCommand): void {
+    this.planEditor?.command(command);
+  }
+
+  /** Changes fields of the element selected in the plan editor. */
+  planUpdate(fields: Record<string, unknown>): void {
+    this.planEditor?.update(fields);
+  }
+
+  /** The plan drawn (what Save stores, with an empty overlay). */
+  planDraft(): Record<string, unknown> | undefined {
+    return this.planEditor?.plan;
+  }
+
+  /** The plan drawn was stored as it is. */
+  planSaved(): void {
+    this.planEditor?.saved();
+  }
+
+  /** Puts a plan kept by the browser in place, as one change that can be undone. */
+  planRestore(plan: Record<string, unknown>): void {
+    this.planEditor?.restore(plan);
+  }
+
+  /**
+   * Leaves the plan editor. With `keep` (once saved) the plan drawn stays shown until the plan
+   * stored comes back; else the plan stored is shown again (nothing, for a new plan).
+   */
+  endPlanEdit(keep: boolean): void {
+    // Asked by the panel, which leaves the plan editor: not opened again meanwhile.
+    this.planEditing = false;
+    const editor = this.planEditor;
+    if (!editor) return;
+    this.planEditor = undefined;
+    editor.dispose();
+    window.removeEventListener("keydown", this.onPlanKey);
+    this.setPlanView(this.planViewBefore);
+    if (!keep) {
+      if (this.plan) this.applyPlan(true);
+      else this.engine?.clearPlan();
+    }
+    this.applyPlan();
+    this.redraw();
+  }
+
   /** Shows the 2D plan or the 3D view. */
   setPlanView(plan: boolean): void {
     this.viewsOpen = false;
@@ -1075,6 +1234,11 @@ export class DomoTwinView extends LitElement {
     this.sheet = undefined;
     const engine = this.engine;
     if (!engine) return;
+    if (this.planEditor) {
+      this.gestures.forgetTap();
+      this.planEditor.tap(x, y);
+      return;
+    }
     if (this.edit) {
       // Edit mode: a tap selects a piece (anything else clears the selection).
       const picked = this.elementAt(x, y);
@@ -1103,6 +1267,7 @@ export class DomoTwinView extends LitElement {
 
   /** What a long press at a point of the view does (CSS pixels from its top left). */
   hold(x: number, y: number): void {
+    if (this.planEditor) return;
     const picked = this.elementAt(x, y);
     if (this.edit) {
       // Edit mode: a long press adds a piece to the selection (or takes it out).
@@ -1131,6 +1296,11 @@ export class DomoTwinView extends LitElement {
     if (!this.engine || !this.canvas) return undefined;
     const scale = this.canvas.width / Math.max(1, this.canvas.clientWidth);
     return this.engine.pick(x * scale, y * scale);
+  }
+
+  /** Edit mode or the plan editor is on: the live overlays (badges, cones, values) step aside. */
+  private get editingAny(): boolean {
+    return this.edit !== undefined || this.planEditor !== undefined;
   }
 
   /** Device pixels of the drawing buffer for a point of the view in CSS pixels. */
@@ -1256,8 +1426,11 @@ export class DomoTwinView extends LitElement {
     this.loadedPlan = undefined;
     this.loadedLayout = undefined;
     this.edit = undefined;
+    this.planEditor?.dispose();
+    this.planEditor = undefined;
     this.applyPlan();
     this.applyEditing();
+    this.applyPlanEditing();
     this.applySun();
     this.resize(stage);
     this.scheduler.request();
@@ -1286,6 +1459,7 @@ export class DomoTwinView extends LitElement {
   /** Draws a frame and adapts the resolution to how long frames take. */
   private drawFrame(engine: DomoTwinEngine, time: number): boolean {
     this.flushDrag();
+    this.planEditor?.flush();
     if (this.modelsCame) {
       // Every mesh that came since the last frame, in one rebuild.
       this.modelsCame = false;
@@ -1483,8 +1657,9 @@ export class DomoTwinView extends LitElement {
 
   /** Reads where the layer's values, the badges and what the cameras see go now. */
   private readOverlays(engine: DomoTwinEngine): void {
+    this.planEditor?.reproject();
     if (this.layer !== "off") this.readLabels(engine);
-    const shown = !this.edit && !this.linking;
+    const shown = !this.editingAny && !this.linking;
     const ids = shown && this.showBadges ? [...this.badges.keys()] : [];
     const points = ids.length > 0 ? engine.elementPoints(JSON.stringify(ids)) : "{}";
     if (points !== this.pointsText) {
@@ -1520,7 +1695,7 @@ export class DomoTwinView extends LitElement {
 
   /** Reads where the layer's values go; the labels change only when they moved. */
   private readLabels(engine: DomoTwinEngine): void {
-    const text = this.edit ? "[]" : engine.layerLabels();
+    const text = this.editingAny ? "[]" : engine.layerLabels();
     if (text === this.labelsText) return;
     this.labelsText = text;
     this.labels = JSON.parse(text) as LayerLabel[];
@@ -1539,6 +1714,121 @@ export class DomoTwinView extends LitElement {
       this.endEdit(true);
     }
   }
+
+  /** Ids that have links: a new element of the plan editor never takes one of them. */
+  private linkedIds(): string[] {
+    const bindings = this.bindings ?? NO_BINDINGS;
+    return [...Object.keys(bindings.elements), ...Object.keys(bindings.rooms)];
+  }
+
+  /**
+   * Starts or ends the plan editor to follow `planEditing`, once the stored plan is known: on the
+   * draft kept while the view was away from the page, else on the plan shown (its overlay in it),
+   * or on a new plan when none is stored or it cannot be read. The plan editor's module is loaded
+   * now.
+   */
+  private applyPlanEditing(): void {
+    const engine = this.engine;
+    if (!this.planEditing) {
+      if (this.planEditor) this.endPlanEdit(false);
+      this.parked?.planner.dispose();
+      this.parked = undefined;
+      return;
+    }
+    if (!engine || this.planEditor || this.planOpening || this.edit || this.plan === undefined) {
+      return;
+    }
+    const t = this.translator;
+    const token = ++this.planToken;
+    const parked = this.parked;
+    this.parked = undefined;
+    const shown = parked || !this.plan || this.loadError ? "" : engine.shownPlan();
+    const plan = shown ? (JSON.parse(shown) as Record<string, unknown>) : null;
+    const empty = parked ? parked.empty : plan === null;
+    this.planOpening = true;
+    Promise.all([import("../planner/planner"), import("./plan-editor")])
+      .then(async ([{ Planner }, { PlanEditor }]) => ({
+        PlanEditor,
+        planner:
+          parked?.planner ??
+          (await Planner.open(plan, t.t("plan.new_title"), t.t("plan.new_room"), this.linkedIds())),
+      }))
+      .then(
+        ({ PlanEditor, planner }) => {
+          // A later open, or the view left the page meanwhile: this one is not wanted any more.
+          if (token !== this.planToken) {
+            planner.dispose();
+            return;
+          }
+          this.planOpening = false;
+          if (!this.planEditing || this.engine !== engine || this.edit) {
+            planner.dispose();
+            return;
+          }
+          // Ids with links stay theirs: a new element never takes over another's links.
+          planner.reserve(this.linkedIds());
+          this.sheet = undefined;
+          this.focusedRoom = undefined;
+          this.viewsOpen = false;
+          this.layersOpen = false;
+          const editor = new PlanEditor(
+            engine,
+            planner,
+            {
+              devicePoint: (x, y) => this.devicePoint(x, y),
+              planChanged: (state) => {
+                if (state) this.setPlanState(state);
+                else this.requestUpdate();
+              },
+              redraw: () => {
+                this.redraw();
+              },
+            },
+            t,
+            empty,
+          );
+          editor.tool = this.planTool;
+          this.planEditor = editor;
+          // The draft first: a new scene stops the camera's moves, the one to 2D included.
+          editor.show();
+          this.planViewBefore = this.planView;
+          this.setPlanView(true);
+          window.addEventListener("keydown", this.onPlanKey);
+          this.setPlanState(editor.state);
+        },
+        (error: unknown) => {
+          if (token !== this.planToken) return;
+          this.planOpening = false;
+          this.notify(
+            t.t("plan.open_failed", {
+              reason: t.error(error instanceof EngineError ? error.code : "unknown"),
+            }),
+          );
+        },
+      );
+  }
+
+  private setPlanState(state: PlanEditState): void {
+    fire(this, "domotwin-plan-edit", state);
+    this.requestUpdate();
+    this.redraw();
+  }
+
+  /** The plan editor's keys work anywhere on the page, except while typing or under a dialog. */
+  private readonly onPlanKey = (event: KeyboardEvent): void => {
+    if (!this.planEditor || !this.editKeys || event.defaultPrevented) return;
+    const target = event.composedPath()[0];
+    if (
+      target instanceof HTMLElement &&
+      (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName))
+    ) {
+      return;
+    }
+    const command = planCommandFor(event);
+    if (!command) return;
+    event.preventDefault();
+    this.planEditor.command(command);
+  };
 
   private setEdit(state: EditState): void {
     const was = this.edit !== undefined;
@@ -1568,12 +1858,14 @@ export class DomoTwinView extends LitElement {
     this.setEdit(this.engine.editDragEnd());
   }
 
-  private applyPlan(): void {
+  /** Shows the plan stored when it changed (`force`: even if not, e.g. after a draft). */
+  private applyPlan(force = false): void {
     // Not while editing: the session works on the plan shown; changes wait for its end.
     if (
       !this.engine ||
       this.edit ||
-      (this.plan === this.loadedPlan && this.layout === this.loadedLayout)
+      this.planEditor ||
+      (!force && this.plan === this.loadedPlan && this.layout === this.loadedLayout)
     ) {
       return;
     }
@@ -1609,6 +1901,7 @@ export class DomoTwinView extends LitElement {
     } catch (error) {
       this.loadError = error instanceof EngineError ? error : engineError(error);
     }
+    this.applyPlanEditing();
     this.redraw();
   }
 
@@ -1669,6 +1962,8 @@ export class DomoTwinView extends LitElement {
     if (!engine) return;
     const bindings = this.bindings ?? { version: 1, rooms: {}, elements: {} };
     engine.setBindings(JSON.stringify(bindings));
+    // Links added meanwhile: their ids are not given to new elements either.
+    this.planEditor?.reserve(this.linkedIds());
     this.bound = boundEntityIds(bindings);
     this.syncStates();
     this.redraw();
@@ -1762,6 +2057,8 @@ export class DomoTwinView extends LitElement {
     this.layersOpen = false;
     (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
     this.addModifier = event.ctrlKey || event.metaKey || event.shiftKey;
+    // The plan editor: a press grabs a corner or the selection, or starts drawing.
+    if (this.planEditor && this.gestures.active === 0 && this.planEditor.down(event)) return;
     if (
       this.edit &&
       this.dragPointer === undefined &&
@@ -1797,6 +2094,7 @@ export class DomoTwinView extends LitElement {
   };
 
   private readonly onPointerMove = (event: PointerEvent): void => {
+    if (this.planEditor?.move(event)) return;
     if (event.pointerId === this.dragPointer) {
       const from = this.dragFrom;
       this.dragging ||=
@@ -1813,6 +2111,7 @@ export class DomoTwinView extends LitElement {
 
   private readonly onPointerUp = (event: PointerEvent): void => {
     window.clearTimeout(this.holdTimer);
+    if (this.planEditor?.up(event)) return;
     if (event.pointerId === this.dragPointer) {
       const moved = this.dragging;
       const held = this.dragHeld;
@@ -1827,6 +2126,7 @@ export class DomoTwinView extends LitElement {
 
   private readonly onPointerCancel = (event: PointerEvent): void => {
     window.clearTimeout(this.holdTimer);
+    if (this.planEditor?.cancel(event)) return;
     if (event.pointerId === this.dragPointer) {
       this.endDrag();
       return;
@@ -1867,8 +2167,9 @@ export class DomoTwinView extends LitElement {
   };
 
   private readonly onKeyDown = (event: KeyboardEvent): void => {
-    // Edit mode's keys are handled on the window (onEditKey).
+    // Edit mode's and the plan editor's keys are handled on the window (onEditKey, onPlanKey).
     if (this.edit && editCommandFor(event)) return;
+    if (this.planEditor && planCommandFor(event)) return;
     const keys: Record<string, Gesture | undefined> = {
       ArrowLeft: { kind: event.shiftKey ? "pan" : "drag", dx: -KEY_STEP, dy: 0 },
       ArrowRight: { kind: event.shiftKey ? "pan" : "drag", dx: KEY_STEP, dy: 0 },
@@ -1953,7 +2254,8 @@ export class DomoTwinView extends LitElement {
 
   protected override render(): TemplateResult {
     const t = this.translator;
-    const ready = this.engineState === "ready" && this.summary !== undefined;
+    const ready =
+      this.engineState === "ready" && (this.summary !== undefined || this.planEditor !== undefined);
     const title = this.summary?.title || t.t("view.untitled");
     return html`<div
         class="stage"
@@ -1971,14 +2273,22 @@ export class DomoTwinView extends LitElement {
         }}
       ></div>
       ${ready ? this.renderCameras() : nothing} ${ready ? this.renderLabels() : nothing}
-      ${ready ? this.renderBadges() : nothing} ${this.renderGuides()} ${this.renderOverlay()}
-      ${ready ? this.renderLegend() : nothing} ${ready ? this.renderAlerts() : nothing}
-      ${ready ? this.renderTools() : nothing} ${ready ? this.renderSheet() : nothing}
+      ${ready ? this.renderBadges() : nothing} ${this.renderGuides()} ${this.renderPlanHandles()}
+      ${this.renderOverlay()} ${ready ? this.renderLegend() : nothing}
+      ${ready ? this.renderAlerts() : nothing} ${ready ? this.renderTools() : nothing}
+      ${ready ? this.renderSheet() : nothing}
       ${
         this.notice
           ? html`<div class="notice glass" role="alert" data-testid="notice">${this.notice}</div>`
           : nothing
       }`;
+  }
+
+  /** The plan editor's handles: the selected room's corners and sides, guides, what is drawn. */
+  private renderPlanHandles(): TemplateResult | typeof nothing {
+    const canvas = this.canvas;
+    if (!this.planEditor || !canvas) return nothing;
+    return this.planEditor.render(Math.max(1, canvas.clientWidth) / Math.max(1, canvas.width));
   }
 
   /** Edit mode's guides: the faces a piece snapped onto, and its distances to the walls. */
@@ -2026,6 +2336,21 @@ export class DomoTwinView extends LitElement {
   private renderTools(): TemplateResult {
     const t = this.translator;
     const plan = this.planView;
+    if (this.planEditor) {
+      // The plan editor draws in 2D: only the whole home to frame again.
+      return html`<div class="tools glass" role="toolbar" aria-label=${t.t("view.toolbar")}>
+        <button
+          data-testid="overview"
+          title=${t.t("view.overview")}
+          aria-label=${t.t("view.overview")}
+          @click=${() => {
+            this.overview();
+          }}
+        >
+          ${icon(mdiHomeOutline)}
+        </button>
+      </div>`;
+    }
     return html`<div class="tools glass" role="toolbar" aria-label=${t.t("view.toolbar")}>
         <button
           data-testid="toggle-plan"
@@ -2155,7 +2480,7 @@ export class DomoTwinView extends LitElement {
   /** What the cameras see: their cones on the floor, red while recording. */
   private renderCameras(): TemplateResult | typeof nothing {
     const canvas = this.canvas;
-    if (!canvas || !this.showCameras || this.edit || this.linking) return nothing;
+    if (!canvas || !this.showCameras || this.editingAny || this.linking) return nothing;
     if (this.cameraShapes.length === 0) return nothing;
     const k = Math.max(1, canvas.clientWidth) / Math.max(1, canvas.width);
     return html`<svg class="cameras" aria-hidden="true" data-testid="cameras">
@@ -2177,7 +2502,7 @@ export class DomoTwinView extends LitElement {
   /** The devices' badges over their elements; a tap does what a tap on the element does. */
   private renderBadges(): TemplateResult | typeof nothing {
     const canvas = this.canvas;
-    if (!canvas || !this.showBadges || this.edit || this.linking || this.badges.size === 0) {
+    if (!canvas || !this.showBadges || this.editingAny || this.linking || this.badges.size === 0) {
       return nothing;
     }
     const t = this.translator;
@@ -2224,7 +2549,7 @@ export class DomoTwinView extends LitElement {
   private renderLegend(): TemplateResult | typeof nothing {
     const t = this.translator;
     const layer = this.layer;
-    if (layer === "off" || this.edit) return nothing;
+    if (layer === "off" || this.editingAny) return nothing;
     const name = t.t(`layers.${layer}`);
     if (layer === "power") {
       const gradient = `linear-gradient(to right, ${POWER_GRADIENT.join(", ")})`;
@@ -2267,7 +2592,7 @@ export class DomoTwinView extends LitElement {
   /** The values of the layer shown: each room's at its centre, each piece's power above it. */
   private renderLabels(): TemplateResult | typeof nothing {
     const canvas = this.canvas;
-    if (this.labels.length === 0 || !canvas || this.edit) return nothing;
+    if (this.labels.length === 0 || !canvas || this.editingAny) return nothing;
     const k = Math.max(1, canvas.clientWidth) / Math.max(1, canvas.width);
     const language = this.translator.language;
     const fahrenheit = this.fahrenheit;
@@ -2294,7 +2619,7 @@ export class DomoTwinView extends LitElement {
   /** The rooms with an alert: a tap frames the room. */
   private renderAlerts(): TemplateResult | typeof nothing {
     const alerts = this.alerts;
-    if (alerts.length === 0) return nothing;
+    if (alerts.length === 0 || this.planEditor) return nothing;
     const t = this.translator;
     const shown = alerts.slice(0, MAX_ALERTS_SHOWN);
     const more = alerts.length - shown.length;
@@ -2331,6 +2656,7 @@ export class DomoTwinView extends LitElement {
     if (this.planError) {
       return this.message(mdiAlertCircleOutline, t.error(this.planError), undefined, true);
     }
+    if (this.planEditor) return nothing;
     if (this.engineState !== "ready" || this.plan === undefined) {
       return html`<div class="overlay" role="status" aria-live="polite">
         <div class="message glass">
@@ -2353,7 +2679,7 @@ export class DomoTwinView extends LitElement {
         true,
       );
     }
-    if (!this.summary || this.sheet || this.edit) return nothing;
+    if (!this.summary || this.sheet || this.editingAny) return nothing;
     if (this.linking) {
       return html`<div class="chip glass" role="status" data-testid="link-hint">
         ${t.t("link.hint")}

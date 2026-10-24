@@ -45,7 +45,7 @@ The same commands run in CI:
 # Rust
 cargo fmt --all --check
 cargo clippy --workspace --all-targets -- -D warnings
-cargo clippy -p domotwin-web -p domotwin-ifc -p domotwin-models --target wasm32-unknown-unknown --all-targets -- -D warnings
+cargo clippy -p domotwin-web -p domotwin-ifc -p domotwin-models -p domotwin-planner --target wasm32-unknown-unknown --all-targets -- -D warnings
 cargo test --workspace
 (cd crates/domotwin-web && CHROMEDRIVER=/path/to/chromedriver cargo test --target wasm32-unknown-unknown)
 cargo deny check

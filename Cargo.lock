@@ -118,6 +118,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "domotwin-planner"
+version = "0.0.0"
+dependencies = [
+ "console_error_panic_hook",
+ "domotwin-core",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "domotwin-render"
 version = "0.0.0"
 dependencies = [

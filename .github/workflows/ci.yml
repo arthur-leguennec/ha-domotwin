@@ -70,7 +70,7 @@ jobs:
       - run: cargo fmt --all --check
       - run: cargo clippy --locked --workspace --all-targets -- -D warnings
       - name: Clippy for the browser target
-        run: cargo clippy --locked -p domotwin-web -p domotwin-ifc -p domotwin-models --target wasm32-unknown-unknown --all-targets -- -D warnings
+        run: cargo clippy --locked -p domotwin-web -p domotwin-ifc -p domotwin-models -p domotwin-planner --target wasm32-unknown-unknown --all-targets -- -D warnings
       - run: cargo test --locked --workspace
 
   wasm-tests:
@@ -224,6 +224,7 @@ jobs:
           frontend/src/engine/pkg/domotwin_web.d.ts
           frontend/src/ifc/pkg/domotwin_ifc.d.ts
           frontend/src/models/pkg/domotwin_models.d.ts
+          frontend/src/planner/pkg/domotwin_planner.d.ts
       - name: First-load budget (wasm + JS ≤ 1.2 MB gzipped)
         run: |
           node scripts/check-bundle-size.mjs --json bundle-size.json | tee bundle-size.md

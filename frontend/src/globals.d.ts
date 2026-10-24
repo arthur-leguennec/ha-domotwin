@@ -6,6 +6,8 @@ declare const __DOMOTWIN_WASM__: string;
 declare const __DOMOTWIN_IFC_WASM__: string;
 /** File name of the 3D model reader's WebAssembly module, loaded only for plans with 3D files. */
 declare const __DOMOTWIN_MODELS_WASM__: string;
+/** File name of the plan editor's WebAssembly module, loaded only when the plan editor opens. */
+declare const __DOMOTWIN_PLANNER_WASM__: string;
 
 interface CustomCardEntry {
   type: string;

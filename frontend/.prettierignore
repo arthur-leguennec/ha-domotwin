@@ -2,6 +2,7 @@ node_modules/
 src/engine/pkg/
 src/ifc/pkg/
 src/models/pkg/
+src/planner/pkg/
 test-results/
 playwright-report/
 coverage/

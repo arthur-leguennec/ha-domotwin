@@ -10,6 +10,7 @@ export default defineConfig({
     __DOMOTWIN_WASM__: JSON.stringify("domotwin_web_bg.wasm"),
     __DOMOTWIN_IFC_WASM__: JSON.stringify("domotwin_ifc_bg.wasm"),
     __DOMOTWIN_MODELS_WASM__: JSON.stringify("domotwin_models_bg.wasm"),
+    __DOMOTWIN_PLANNER_WASM__: JSON.stringify("domotwin_planner_bg.wasm"),
   },
   test: {
     environment: "happy-dom",

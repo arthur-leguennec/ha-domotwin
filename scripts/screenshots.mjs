@@ -592,6 +592,88 @@ try {
     Buffer.from(devicesImage.slice(devicesImage.indexOf(",") + 1), "base64"),
   );
   console.log("docs/figures/screenshot-devices.png");
+
+  // The plan editor (M6): a corner of the living room dragged with its guides and lengths, and a
+  // new room drawn beside the home.
+  const planShots = [];
+  for (const [label, draw] of [
+    ["A corner dragged, lengths and guides", false],
+    ["A room drawn beside the home", true],
+  ]) {
+    const page = await browser.newPage({ viewport: { width: 1100, height: 760 } });
+    await page.goto("http://127.0.0.1:4173/?mode=panel&view=2d");
+    await page.waitForFunction(() => window.__view?.()?.debugState().summary, null, {
+      timeout: 60_000,
+    });
+    await page.getByTestId("plan-mode").click();
+    await page.locator("domotwin-plan-bar").waitFor();
+    await page.evaluate(() => window.__view().settle());
+    const box = await page.locator("domotwin-view").locator(".stage").boundingBox();
+    if (!draw) {
+      const sofa = await page.evaluate(() => window.__view().elementPoint("sofa"));
+      await page.mouse.click(box.x + sofa.x, box.y + sofa.y);
+      const corner = await page
+        .locator("domotwin-view")
+        .locator("circle.corner")
+        .first()
+        .boundingBox();
+      const [cx, cy] = [corner.x + corner.width / 2, corner.y + corner.height / 2];
+      await page.mouse.move(cx, cy);
+      await page.mouse.down();
+      for (let i = 1; i <= 10; i += 1) {
+        await page.mouse.move(cx - i * 3, cy - i * 2);
+        await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(resolve)));
+      }
+    } else {
+      await page.locator("domotwin-plan-bar").getByTestId("plan-tool-room").click();
+      const [sx, sy] = [box.x + box.width - 250, box.y + 110];
+      await page.mouse.move(sx, sy);
+      await page.mouse.down();
+      for (let i = 1; i <= 10; i += 1) {
+        await page.mouse.move(sx + i * 19, sy + i * 16);
+        await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(resolve)));
+      }
+    }
+    await page.waitForTimeout(300);
+    planShots.push([label, (await page.screenshot()).toString("base64")]);
+    await page.mouse.up();
+    await page.close();
+  }
+  const planImage = await layersPage.evaluate(async (shots) => {
+    const decoded = await Promise.all(
+      shots.map(async ([label, base64]) => {
+        const image = new Image();
+        image.src = `data:image/png;base64,${base64}`;
+        await image.decode();
+        return [label, image];
+      }),
+    );
+    const [w, h] = [decoded[0][1].width, decoded[0][1].height];
+    const canvas = document.createElement("canvas");
+    canvas.width = w * 2 + 30;
+    canvas.height = h + 20;
+    const g = canvas.getContext("2d");
+    g.fillStyle = "#f1f5f9";
+    g.fillRect(0, 0, canvas.width, canvas.height);
+    decoded.forEach(([label, image], i) => {
+      const x = 10 + i * (w + 10);
+      g.drawImage(image, x, 10);
+      g.font = "600 22px Inter, sans-serif";
+      const width = g.measureText(label).width + 40;
+      g.fillStyle = "rgba(255,255,255,0.92)";
+      g.beginPath();
+      g.roundRect(x + w / 2 - width / 2, 10 + h - 190, width, 44, 22);
+      g.fill();
+      g.fillStyle = "#0f172a";
+      g.fillText(label, x + w / 2 - width / 2 + 20, 10 + h - 161);
+    });
+    return canvas.toDataURL("image/png");
+  }, planShots);
+  await fs.writeFile(
+    join(root, "docs", "figures", "screenshot-plan-editor.png"),
+    Buffer.from(planImage.slice(planImage.indexOf(",") + 1), "base64"),
+  );
+  console.log("docs/figures/screenshot-plan-editor.png");
   await browser.close();
 } finally {
   server.kill();

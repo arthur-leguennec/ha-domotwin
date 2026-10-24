@@ -409,6 +409,15 @@ impl Renderer {
         self.view.set_scene(scene, keep_camera);
     }
 
+    /// Draws nothing but the background (no plan shown any more).
+    pub fn clear_scene(&mut self) {
+        self.meshes = [None, None, None, None];
+        self.ceiling = None;
+        self.spots.clear();
+        self.shadow_stale = true;
+        self.view.dirty = true;
+    }
+
     /// Uploads the moving parts again (doors, windows, curtains, blinds moved).
     pub fn set_moving_parts(&mut self, opaque: &Mesh, transparent: &Mesh) {
         GpuMesh::replace(&mut self.meshes[1], &self.context, opaque);

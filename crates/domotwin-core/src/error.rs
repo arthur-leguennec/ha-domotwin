@@ -58,6 +58,8 @@ pub enum ErrorCode {
     InvalidWall,
     /// A door or window without a valid width or angle.
     InvalidOpening,
+    /// A door or window wider than the side of its room (the plan editor's check).
+    OpeningTooWide,
     /// A `parent` that is not the id of a room.
     MissingParent,
     /// A `custom` piece whose model is not in `models`.
@@ -98,6 +100,7 @@ impl ErrorCode {
             Self::InvalidEdgeThickness => "invalid_edge_thickness",
             Self::InvalidWall => "invalid_wall",
             Self::InvalidOpening => "invalid_opening",
+            Self::OpeningTooWide => "opening_too_wide",
             Self::MissingParent => "missing_parent",
             Self::MissingModel => "missing_model",
             Self::InvalidModel => "invalid_model",
