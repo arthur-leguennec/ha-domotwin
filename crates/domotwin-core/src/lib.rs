@@ -16,6 +16,7 @@ pub mod layers;
 pub mod lighting;
 pub mod live;
 pub mod model_mesh;
+pub mod network;
 pub mod overlay;
 pub mod plan;
 pub mod scene;

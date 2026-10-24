@@ -28,6 +28,8 @@ use wasm_bindgen::JsCast;
 use wasm_bindgen::prelude::*;
 use web_sys::{HtmlCanvasElement, WebGl2RenderingContext, WebGlContextAttributes};
 
+use crate::network::NetworkShown;
+
 /// Installs the panic hook so that a bug shows a readable message in the console.
 #[wasm_bindgen(start)]
 pub fn start() {
@@ -123,6 +125,8 @@ pub struct Engine {
     cones: Vec<(String, String, usize, Vec<[f64; 2]>)>,
     /// The storeys of the home shown whole (D-028), lowest first; empty for a plan alone.
     pub(crate) home: Vec<HomeStorey>,
+    /// The network map, while it is shown (D-031).
+    pub(crate) network: Option<NetworkShown>,
 }
 
 /// A storey of the home shown whole: its id and name, its plan (its overlay applied) and the
@@ -185,6 +189,7 @@ impl Engine {
             layers: RoomLayers::default(),
             cones: Vec::new(),
             home: Vec::new(),
+            network: None,
         };
         engine
             .renderer
@@ -473,6 +478,7 @@ impl Engine {
         self.rebuild_moving_parts();
         self.upload_rooms();
         self.update_cones();
+        self.place_network();
     }
 
     /// Shows no plan (a new plan drawn and dropped).
@@ -487,6 +493,7 @@ impl Engine {
         self.live = LiveState::default();
         self.renderer.set_looks(&self.live.looks);
         self.cones.clear();
+        self.drop_network_wires();
     }
 
     /// Works out what the linked cameras see (`DECISIONS.md`, D-024).
@@ -1107,11 +1114,7 @@ impl Engine {
             .and_then(|plan| plan.elements.get(index))
             .map_or("", Element::name);
         // The room it stands in (a room is its own).
-        let room = self
-            .scene
-            .as_ref()
-            .and_then(|scene| scene.rooms.get(usize::from(info.room).checked_sub(1)?))
-            .map_or("", String::as_str);
+        let room = self.room_of(info).map_or("", String::as_str);
         let mut picked =
             serde_json::json!({ "id": info.id, "type": info.kind, "name": name, "room": room });
         if let Some(storey) = self.home.get(info.storey) {
@@ -1189,17 +1192,14 @@ impl Engine {
     /// The top of an element's centre where the view draws it, where its labels and badges go;
     /// `None` without geometry.
     fn top_of(&self, info: &ElementInfo) -> Option<[f64; 3]> {
-        let [min, max] = info.bounds;
-        (min != max).then(|| {
-            self.renderer.view.place(
-                info.storey,
-                [
-                    f64::from(min[0] + max[0]) * 0.5,
-                    f64::from(max[1]),
-                    f64::from(min[2] + max[2]) * 0.5,
-                ],
-            )
-        })
+        info.top()
+            .map(|top| self.renderer.view.place(info.storey, top.map(f64::from)))
+    }
+
+    /// The id of the room an element is in (a room is its own).
+    pub(crate) fn room_of(&self, info: &ElementInfo) -> Option<&String> {
+        let slot = usize::from(info.room).checked_sub(1)?;
+        self.scene.as_ref()?.rooms.get(slot)
     }
 
     /// The plans shown: every storey's for the home shown whole, else the plan alone.

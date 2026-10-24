@@ -13,6 +13,7 @@
 
 pub mod lines;
 pub mod mesh;
+pub mod wires;
 
 mod furniture;
 mod imported;
@@ -83,6 +84,14 @@ pub struct ElementInfo {
     pub room: u8,
     /// The storey (part) it is on.
     pub storey: usize,
+}
+
+impl ElementInfo {
+    /// The top of the centre of its footprint, on its storey's floor (cm); none without geometry.
+    pub fn top(&self) -> Option<[f32; 3]> {
+        let [min, max] = self.bounds;
+        (min != max).then(|| [(min[0] + max[0]) * 0.5, max[1], (min[2] + max[2]) * 0.5])
+    }
 }
 
 /// Live changes to the moving parts of the scene, by element index.

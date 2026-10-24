@@ -420,6 +420,19 @@ export class DomoTwinEngine {
     return this.live.elementPoints(ids);
   }
 
+  /**
+   * Shows the radio mesh of `snapshot` (D-031) over the home, or hides it (an empty string).
+   * Returns the analysis as JSON text (empty when hidden).
+   */
+  setNetwork(snapshot: string): string {
+    return this.live.setNetwork(snapshot);
+  }
+
+  /** The link of the network map nearest a device pixel, as JSON text `{"a", "b"}`, or "". */
+  networkAt(x: number, y: number): string {
+    return this.live.networkAt(x, y);
+  }
+
   /** The values of the layers shown and where they go, as the engine's JSON text. */
   layerLabels(): string {
     return this.live.layerLabels();

@@ -107,6 +107,14 @@ const entities = [
   ["binary_sensor.hallway_smoke", "hallway", "off", { device_class: "smoke" }],
   ["binary_sensor.bathroom_leak", "bathroom", "off", { device_class: "moisture" }],
   ["weather.home", null, "sunny", { temperature: 16 }],
+  // A Zigbee sensor in the garden (the network map, D-031), with its signal as a diagnostic.
+  [
+    "sensor.garden_temperature",
+    null,
+    "14.5",
+    { device_class: "temperature", unit_of_measurement: "°C" },
+  ],
+  ["sensor.garden_sensor_lqi", null, "100", {}],
 ];
 
 function title(id) {
@@ -122,6 +130,10 @@ export function demoHome() {
     states[id] = { entity_id: id, state, attributes: { friendly_name: title(id), ...attributes } };
     if (area) registry[id] = { entity_id: id, area_id: area };
   }
+  registry["sensor.garden_sensor_lqi"] = {
+    entity_id: "sensor.garden_sensor_lqi",
+    entity_category: "diagnostic",
+  };
   const areaRegistry = Object.fromEntries(
     Object.entries(areas).map(([area_id, name]) => [area_id, { area_id, name }]),
   );

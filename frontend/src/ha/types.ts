@@ -21,6 +21,8 @@ export interface HassMessage {
 
 export interface HassConnection {
   sendMessagePromise<T>(message: HassMessage): Promise<T>;
+  /** Sends a command whose answer is not awaited (one that never answers, too). */
+  sendMessage(message: HassMessage): void;
   // Mirrors home-assistant-js-websocket: the caller states the event type.
   // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters
   subscribeMessage<T>(
@@ -44,6 +46,8 @@ export interface HassDeviceEntry {
   id: string;
   area_id?: string | null;
   name?: string | null;
+  /** The name given in Home Assistant, before the device's own. */
+  name_by_user?: string | null;
 }
 
 /** An entry of the area registry. */
@@ -61,8 +65,13 @@ export interface HomeAssistant {
   language: string;
   locale?: { language: string };
   themes?: { darkMode?: boolean };
-  /** Home Assistant's configuration: the units of climate entities. */
-  config?: { unit_system?: { temperature?: string } };
+  /** Home Assistant's configuration: the units of climate entities, the integrations loaded. */
+  config?: {
+    unit_system?: { temperature?: string };
+    components?: string[];
+    /** Home Assistant's time zone (an IANA name). */
+    time_zone?: string;
+  };
   connection: HassConnection;
   /** A request to Home Assistant with the user's session (the frontend's `fetchWithAuth`). */
   fetchWithAuth?(path: string, init?: RequestInit): Promise<Response>;

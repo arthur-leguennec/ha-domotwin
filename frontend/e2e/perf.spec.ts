@@ -107,6 +107,81 @@ test("frame time walking", async ({ page }, testInfo) => {
   expect(one.frames).toBe(20);
 });
 
+// The network map (D-031): the day look at High with the mesh drawn (its pulses held still, as
+// with reduce motion), against the same view without it; then what reading a large fictional mesh costs (300 devices, 8 neighbours each,
+// placed on the plan's pieces in turn), analysed and its wires built.
+test("frame time with the network map", async ({ page }, testInfo) => {
+  test.setTimeout(240_000);
+  // The pulses held still, so that both measures draw the same frames.
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await openHarness(page, { theme: "day", lighting: "evening", live: true, zha: true });
+  await expect(page.getByTestId("summary")).toBeVisible();
+  await page.evaluate(() => {
+    const view = (
+      window as never as { __view: () => { options: Record<string, unknown> } }
+    ).__view();
+    view.options = { ...view.options, quality: "high" };
+  });
+  await expect.poll(async () => (await viewState(page)).quality).toBe("high");
+  await settle(page);
+  const benchmark = () =>
+    page.evaluate(() =>
+      (window as never as { __view: () => BenchmarkView }).__view().benchmark(20),
+    );
+  const without = await benchmark();
+  await page.getByTestId("layers").click();
+  await page.getByTestId("layer-menu").locator('[data-layer="network"]').click();
+  await expect(page.locator("domotwin-network .node")).toHaveCount(5);
+  const withMap = await benchmark();
+  const large = await page.evaluate(() => {
+    const view = (
+      window as never as {
+        __view: () => {
+          engine: { setNetwork(snapshot: string): string; elementList(): { id: string }[] };
+        };
+      }
+    ).__view();
+    const elements = view.engine.elementList().map((e) => e.id);
+    const count = 300;
+    const id = (i: number) =>
+      `00:00:00:00:00:00:${Math.floor(i / 256)
+        .toString(16)
+        .padStart(2, "0")}:${(i % 256).toString(16).padStart(2, "0")}`;
+    const devices = Array.from({ length: count }, (_, i) => ({
+      id: id(i),
+      name: `Device ${i}`,
+      role: i === 0 ? "coordinator" : i % 3 === 0 ? "end" : "router",
+      lqi: 40 + ((i * 37) % 215),
+      seen: (i * 97) % 90_000,
+      available: true,
+      element: elements[i % elements.length],
+      neighbours: Array.from({ length: 8 }, (_, k) => ({
+        id: id((i + 1 + k * 13) % count),
+        lqi: 30 + ((i * 11 + k * 29) % 225),
+        relation: k === 0 ? "parent" : "sibling",
+      })),
+    }));
+    const snapshot = JSON.stringify({ devices });
+    const times: number[] = [];
+    let links = 0;
+    for (let run = 0; run < 7; run += 1) {
+      const start = performance.now();
+      const text = view.engine.setNetwork(snapshot);
+      times.push(performance.now() - start);
+      links = (JSON.parse(text) as { links: unknown[] }).links.length;
+    }
+    times.sort((a, b) => a - b);
+    return { devices: count, links, medianMs: times[3], bytes: snapshot.length };
+  });
+  const report = { without, withMap, large };
+  const path = testInfo.outputPath("network-frame-time.json");
+  await writeFile(path, JSON.stringify(report, null, 2));
+  await testInfo.attach("network-frame-time", { path, contentType: "application/json" });
+  console.log(JSON.stringify(report));
+  expect(withMap.frames).toBe(20);
+  expect(large.links).toBeGreaterThan(300);
+});
+
 interface DragEngine {
   beginEdit(): unknown;
   editSelect(id: string, add: boolean): unknown;

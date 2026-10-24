@@ -159,13 +159,16 @@ export function searchEntities(
     .slice(0, MAX_RESULTS);
 }
 
-/** The bindings after an edit (an element without entities, a room without area: removed). */
+/**
+ * The bindings after an edit (an element without entities or device, a room without area:
+ * removed).
+ */
 export function applyLink(bindings: BindingsJson, change: LinkChange): BindingsJson {
   const without = <T>(entries: Record<string, T>, id: string): Record<string, T> =>
     Object.fromEntries(Object.entries(entries).filter(([key]) => key !== id));
   if ("element" in change) {
     const elements = without(bindings.elements, change.element);
-    if (change.binding && change.binding.entities.length > 0) {
+    if (change.binding && (change.binding.entities.length > 0 || change.binding.device)) {
       elements[change.element] = change.binding;
     }
     return { version: 1, rooms: { ...bindings.rooms }, elements };

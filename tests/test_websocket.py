@@ -78,6 +78,11 @@ async def test_bindings_round_trip(
     assert saved["success"], saved
     await client.send_json_auto_id({"type": "domotwin/bindings/get"})
     assert (await client.receive_json())["result"]["bindings"] == demo_bindings
+    # A piece that stands for a device (the network map): no entity needed.
+    hub = {"device": "0123456789abcdef0123456789abcdef", "entities": []}
+    with_device = {**demo_bindings, "elements": {**demo_bindings["elements"], "hub": hub}}
+    await client.send_json_auto_id({"type": "domotwin/bindings/save", "bindings": with_device})
+    assert (await client.receive_json())["success"]
 
 
 async def test_revision_conflict(
@@ -216,6 +221,8 @@ async def test_a_null_list_is_an_empty_one(
         {"version": 2, "rooms": {}, "elements": {}},
         {"version": 1, "rooms": [], "elements": {}},
         {"version": 1, "elements": {"lamp": {"entities": []}}},
+        {"version": 1, "elements": {"hub": {"device": 3, "entities": []}}},
+        {"version": 1, "elements": {"hub": {"device": "", "entities": []}}},
         {"version": 1, "elements": {"lamp": {"entities": [{"entity_id": "not an entity"}]}}},
         {"version": 1, "elements": {"lamp": {"entities": [{"entity_id": "light.a", "role": 3}]}}},
         {

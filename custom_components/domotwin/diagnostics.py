@@ -4,11 +4,16 @@ from __future__ import annotations
 
 from typing import Any
 
+from homeassistant.components.diagnostics import async_redact_data
 from homeassistant.core import HomeAssistant
 
 from . import DomoTwinConfigEntry
 from .const import MODEL_ENTRY_PREFIX, PLAN_LISTS, VERSION
 from .models import async_usage
+
+# Addresses of the radio mesh (an IEEE address, a network address) and the Home Assistant device a
+# piece stands for (the network map, D-031): never in diagnostics, whatever part of them holds one.
+TO_REDACT = {"ieee", "nwk", "device", "device_reg_id"}
 
 
 async def async_get_config_entry_diagnostics(
@@ -29,7 +34,8 @@ async def async_get_config_entry_diagnostics(
             "models": len(plan["models"]) if isinstance(plan.get("models"), dict) else 0,
         }
     bindings = data.bindings
-    return {
+    elements = bindings.get("elements", {})
+    diagnostics: dict[str, Any] = {
         "version": VERSION,
         "options": dict(entry.options),
         "revision": data.revision,
@@ -41,8 +47,11 @@ async def async_get_config_entry_diagnostics(
         "model_files": await async_usage(hass),
         "bindings": {
             "rooms": len(bindings.get("rooms", {})),
-            "elements": len(bindings.get("elements", {})),
+            "elements": len(elements),
+            "devices": sum(1 for b in elements.values() if isinstance(b, dict) and "device" in b),
         },
         # Which settings are set, not their values (north tells how the home faces).
         "settings": sorted(data.settings),
     }
+    redacted: dict[str, Any] = async_redact_data(diagnostics, TO_REDACT)
+    return redacted

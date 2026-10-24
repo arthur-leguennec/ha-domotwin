@@ -3,9 +3,9 @@ import { expect, test, type Page } from "@playwright/test";
 import {
   canvasPng,
   colorAt,
-  elementPoint,
   entityState,
   openHarness,
+  pointOn,
   settle,
   viewState,
 } from "./fixtures";
@@ -19,33 +19,6 @@ async function stats(page: Page): Promise<{ lights: number; lit: number; bound: 
   const state = await viewState(page);
   if (!state.stats) throw new Error("no scene");
   return state.stats;
-}
-
-/** A point of the view where `id` is the element under the pointer (it may be partly hidden). */
-async function pointOn(page: Page, id: string): Promise<{ x: number; y: number }> {
-  const centre = await elementPoint(page, id);
-  const box = await page.locator("domotwin-view").locator(".stage").boundingBox();
-  if (!box) throw new Error("no stage");
-  const hit = await page.evaluate(
-    ({ id, x, y }) => {
-      const view = (
-        window as never as {
-          __view: () => { elementAt(x: number, y: number): { id: string } | undefined };
-        }
-      ).__view();
-      for (let r = 0; r <= 24; r += 3) {
-        for (let dy = -r; dy <= r; dy += 3) {
-          for (let dx = -r; dx <= r; dx += 3) {
-            if (view.elementAt(x + dx, y + dy)?.id === id) return { x: x + dx, y: y + dy };
-          }
-        }
-      }
-      return null;
-    },
-    { id, x: centre.x - box.x, y: centre.y - box.y },
-  );
-  if (!hit) throw new Error(`${id} cannot be tapped`);
-  return { x: box.x + hit.x, y: box.y + hit.y };
 }
 
 async function focus(page: Page, id: string): Promise<void> {

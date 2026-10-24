@@ -669,3 +669,54 @@ fn walking_through_the_home_at_eye_level() {
     engine.load_storeys(&home(), None).unwrap();
     assert!(!engine.set_walk(true, t));
 }
+
+#[wasm_bindgen_test]
+fn the_network_map_draws_links_between_pieces_and_finds_them() {
+    let mut engine = Engine::new(canvas()).unwrap();
+    engine.load_plan(DEMO, None, None).unwrap();
+    // A fictional mesh: the coordinator on the sideboard, a router in the floor lamp, a sensor on
+    // the washer that only hears the router, badly; a device placed nowhere.
+    let snapshot = serde_json::json!({ "devices": [
+        { "id": "00:00:00:00:00:00:00:01", "role": "coordinator", "element": "sideboard",
+          "neighbours": [{ "id": "00:00:00:00:00:00:00:02", "lqi": 210 }] },
+        { "id": "00:00:00:00:00:00:00:02", "role": "router", "element": "floor-lamp",
+          "neighbours": [{ "id": "00:00:00:00:00:00:00:03", "lqi": 30 }] },
+        { "id": "00:00:00:00:00:00:00:03", "role": "end", "element": "washer" },
+        { "id": "00:00:00:00:00:00:00:04", "role": "end",
+          "neighbours": [{ "id": "00:00:00:00:00:00:00:02", "lqi": 120 }] },
+        { "id": "00:00:00:00:00:00:00:05", "role": "end", "element": "floor-lamp",
+          "neighbours": [{ "id": "00:00:00:00:00:00:00:02", "lqi": 200 }] }
+    ] });
+    let analysis: serde_json::Value =
+        serde_json::from_str(&engine.set_network(&snapshot.to_string())).unwrap();
+    assert_eq!(analysis["health"]["weakLinks"], 1);
+    assert_eq!(analysis["health"]["weakRooms"][0]["room"], "bathroom");
+    assert_eq!(analysis["devices"][2]["room"], "bathroom");
+    assert_eq!(analysis["devices"][3].get("room"), None, "not placed");
+    // The pulse needs frames while the map is shown.
+    assert!(engine.frame(0.0), "a pulse runs");
+    // A tap somewhere on a wire finds its link; one far from every wire finds none.
+    let mut found = Vec::new();
+    for y in (0..240).step_by(3) {
+        for x in (0..320).step_by(3) {
+            let hit = engine.network_at(f64::from(x), f64::from(y));
+            if !hit.is_empty() {
+                found.push(hit);
+            }
+        }
+    }
+    assert!(!found.is_empty(), "the wires are on screen");
+    assert!(
+        found.iter().all(|h| h.contains("00:00:00:00:00:00:00:02")),
+        "{found:?}"
+    );
+    // Two devices on the same piece: their link is not drawn, nor found.
+    assert!(
+        !found.iter().any(|h| h.contains("00:00:00:00:00:00:00:05")),
+        "{found:?}"
+    );
+    // Hidden: no wires, no frames.
+    assert_eq!(engine.set_network(""), "");
+    assert!(engine.network_at(160.0, 120.0).is_empty());
+    assert!(!engine.frame(16.0));
+}

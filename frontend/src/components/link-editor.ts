@@ -83,6 +83,7 @@ export class DomoTwinLink extends Sheet {
     roomArea: { attribute: false },
     busy: { attribute: false },
     entities: { state: true },
+    device: { state: true },
     tap: { state: true },
     hold: { state: true },
     chosenArea: { state: true },
@@ -162,6 +163,8 @@ export class DomoTwinLink extends Sheet {
   busy = false;
 
   protected entities: BoundEntity[] = [];
+  /** The Home Assistant device the element stands for (the network map, D-031). */
+  protected device = "";
   protected tap: ActionDraft = actionDraft(undefined);
   protected hold: ActionDraft = actionDraft(undefined);
   protected chosenArea = "";
@@ -173,6 +176,7 @@ export class DomoTwinLink extends Sheet {
   protected override willUpdate(changed: PropertyValues<this>): void {
     if (changed.has("element") || changed.has("binding") || changed.has("area")) {
       this.entities = [...(this.binding?.entities ?? [])];
+      this.device = this.binding?.device ?? "";
       this.tap = actionDraft(this.binding?.tap_action);
       this.hold = actionDraft(this.binding?.hold_action);
       this.chosenArea = this.area ?? (this.element?.type === "room" ? (this.roomArea ?? "") : "");
@@ -190,6 +194,7 @@ export class DomoTwinLink extends Sheet {
       change = { room: element.id, area: this.chosenArea || null };
     } else {
       const binding: ElementBinding = { entities: this.entities };
+      if (this.device) binding.device = this.device;
       const tap = draftAction(this.tap, this.binding?.tap_action);
       const hold = draftAction(this.hold, this.binding?.hold_action);
       if (tap === null || hold === null) return;
@@ -309,9 +314,27 @@ export class DomoTwinLink extends Sheet {
     const suggested = suggestions(hass, element, this.roomArea, linked);
     const found = searchEntities(hass, element, this.query, linked);
     const areaName = this.roomArea ? hass.areas?.[this.roomArea]?.name : undefined;
+    const entry = this.device ? hass.devices?.[this.device] : undefined;
+    const device = this.device ? entry?.name_by_user || entry?.name || this.device : undefined;
     return html`<h3>${t.t("link.linked")}</h3>
       ${
-        this.entities.length === 0
+        device
+          ? html`<div class="entity" data-testid="linked-device">
+              <span class="text"><span>${t.t("link.device", { name: device })}</span></span>
+              <button
+                class="round"
+                aria-label=${t.t("link.device_remove", { name: device })}
+                @click=${() => {
+                  this.device = "";
+                }}
+              >
+                ${icon(mdiClose)}
+              </button>
+            </div>`
+          : nothing
+      }
+      ${
+        this.entities.length === 0 && !device
           ? html`<p class="hint">${t.t("link.none")}</p>`
           : this.entities.map((entity) => {
               const name = entityName(hass, entity.entity_id);

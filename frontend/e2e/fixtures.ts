@@ -22,7 +22,7 @@ export interface HarnessOptions {
    */
   models?: boolean | "big" | "unused";
   /** Card options of the layers. */
-  layer?: "off" | "temperature" | "humidity" | "co2" | "pm25" | "power";
+  layer?: "off" | "temperature" | "humidity" | "co2" | "pm25" | "power" | "network";
   realSun?: boolean;
   /** `sun.sun`'s position (degrees). */
   sunPosition?: { azimuth: number; elevation: number };
@@ -44,6 +44,8 @@ export interface HarnessOptions {
   idle?: number;
   orbit?: boolean;
   nightDim?: boolean;
+  /** A mocked ZHA with a fictional Zigbee mesh (the network map, D-031). */
+  zha?: boolean;
 }
 
 /** Opens the mocked Home Assistant with the built frontend. */
@@ -77,6 +79,7 @@ export async function openHarness(page: Page, options: HarnessOptions = {}): Pro
   if (options.idle !== undefined) params.set("idle", String(options.idle));
   if (options.orbit) params.set("orbit", "1");
   if (options.nightDim) params.set("nightdim", "1");
+  if (options.zha) params.set("zha", "1");
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto(`/?${params.toString()}`);
@@ -134,6 +137,33 @@ export async function elementPoint(page: Page, id: string): Promise<{ x: number;
   );
   if (!point) throw new Error(`${id} is not on screen`);
   return { x: box.x + point.x, y: box.y + point.y };
+}
+
+/** A point of the view where `id` is the element under the pointer (it may be partly hidden). */
+export async function pointOn(page: Page, id: string): Promise<{ x: number; y: number }> {
+  const centre = await elementPoint(page, id);
+  const box = await page.locator("domotwin-view").locator(".stage").boundingBox();
+  if (!box) throw new Error("no stage");
+  const hit = await page.evaluate(
+    ({ id, x, y }) => {
+      const view = (
+        window as never as {
+          __view: () => { elementAt(x: number, y: number): { id: string } | undefined };
+        }
+      ).__view();
+      for (let r = 0; r <= 24; r += 3) {
+        for (let dy = -r; dy <= r; dy += 3) {
+          for (let dx = -r; dx <= r; dx += 3) {
+            if (view.elementAt(x + dx, y + dy)?.id === id) return { x: x + dx, y: y + dy };
+          }
+        }
+      }
+      return null;
+    },
+    { id, x: centre.x - box.x, y: centre.y - box.y },
+  );
+  if (!hit) throw new Error(`${id} cannot be tapped`);
+  return { x: box.x + hit.x, y: box.y + hit.y };
 }
 
 /** The state of an entity of the mocked Home Assistant. */

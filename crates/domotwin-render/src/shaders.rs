@@ -710,6 +710,111 @@ void main() {
 }
 ";
 
+/// Wires over the home (D-031): each straight piece of an arc a quad a few pixels wide facing the
+/// screen, its ends moved with their storeys (a wire between two storeys follows both).
+pub(crate) const WIRE_VERTEX: &str = r"
+uniform mat4 u_view_proj;
+uniform vec2 u_viewport;
+uniform float u_wire_width;
+// Where each storey is drawn (D-028).
+uniform vec4 u_offsets[20];
+
+// First end and how far along the wire it is; second end and the same; along (0 or 1), across
+// (-1 or 1) and weight; colour and flow (1, -1 or 0); the storeys of the wire's two ends, its
+// length (cm) and whether it is dashed.
+in vec4 a_a;
+in vec4 a_b;
+in vec3 a_corner;
+in vec4 a_color;
+in vec4 a_extra;
+
+out float v_across;
+out float v_t;
+flat out vec4 v_color;
+flat out vec4 v_extra;
+flat out float v_weight;
+
+vec3 placed(vec3 p, float t) {
+    vec3 from = u_offsets[int(a_extra.x)].xyz;
+    vec3 to = u_offsets[int(a_extra.y)].xyz;
+    return p + mix(from, to, t);
+}
+
+void main() {
+    v_across = a_corner.y;
+    v_weight = a_corner.z;
+    v_color = a_color;
+    v_extra = a_extra;
+    v_t = a_corner.x < 0.5 ? a_a.w : a_b.w;
+    vec4 ca = u_view_proj * vec4(placed(a_a.xyz, a_a.w), 1.0);
+    vec4 cb = u_view_proj * vec4(placed(a_b.xyz, a_b.w), 1.0);
+    float da = ca.z + ca.w;
+    float db = cb.z + cb.w;
+    if (da <= 0.0 && db <= 0.0) {
+        gl_Position = vec4(0.0, 0.0, 2.0, 1.0);
+        return;
+    }
+    if (da < 0.0) {
+        ca = mix(ca, cb, (da - 0.001 * db) / (da - db));
+    } else if (db < 0.0) {
+        cb = mix(cb, ca, (db - 0.001 * da) / (db - da));
+    }
+    vec2 half_size = u_viewport * 0.5;
+    vec2 sa = ca.xy / ca.w * half_size;
+    vec2 sb = cb.xy / cb.w * half_size;
+    vec2 along = sb - sa;
+    float len = length(along);
+    along = len > 1e-4 ? along / len : vec2(1.0, 0.0);
+    vec2 across = vec2(-along.y, along.x);
+    vec4 c = a_corner.x < 0.5 ? ca : cb;
+    // Only the wire's own ends are capped: pieces that met and overlapped would be drawn twice
+    // where they join, a bead at every joint of a translucent wire.
+    float end = a_corner.x < 0.5 ? (a_a.w <= 0.0 ? -1.0 : 0.0) : (a_b.w >= 1.0 ? 1.0 : 0.0);
+    vec2 offset = (across * a_corner.y + along * end * 0.5) * u_wire_width;
+    c.xy += offset / half_size * c.w;
+    gl_Position = c;
+}
+";
+
+/// The colour of a wire, soft at its sides, dashed when it says so; a light pulse runs along it
+/// the way it flows, unless the layers are held still.
+pub(crate) const WIRE_FRAGMENT: &str = r"
+uniform float u_time;
+uniform float u_motion;
+
+in float v_across;
+in float v_t;
+flat in vec4 v_color;
+flat in vec4 v_extra;
+flat in float v_weight;
+
+out vec4 frag;
+
+// The pulse: 60 cm long, at 120 cm a second, one every wire length and 2.4 m.
+const float PULSE = 60.0;
+const float SPEED = 120.0;
+const float GAP = 240.0;
+
+void main() {
+    float length_cm = max(v_extra.z, 1.0);
+    if (v_extra.w > 0.5 && fract(v_t * length_cm / 24.0) > 0.55) {
+        discard;
+    }
+    float edge = 1.0 - smoothstep(0.35, 1.0, abs(v_across));
+    float alpha = edge * v_weight * 0.85;
+    vec3 color = v_color.rgb;
+    if (v_color.a != 0.0 && u_motion > 0.5) {
+        float along = (v_color.a > 0.0 ? v_t : 1.0 - v_t) * length_cm;
+        float head = mod(u_time * SPEED, length_cm + GAP);
+        float behind = head - along;
+        float pulse = behind >= 0.0 && behind < PULSE ? 1.0 - behind / PULSE : 0.0;
+        color = mix(color, vec3(1.0), pulse * 0.7);
+        alpha = max(alpha, edge * pulse * v_weight);
+    }
+    frag = vec4(color, alpha);
+}
+";
+
 /// The bloom, going down: a quarter of the size each step, the first step keeping only what glows
 /// (the colour weighted by the alpha channel).
 pub(crate) const BLOOM_DOWN: &str = r"

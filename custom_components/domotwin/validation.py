@@ -174,11 +174,17 @@ def _validate_action(action: Any) -> None:
 def _validate_element_binding(binding: Any) -> None:
     if not isinstance(binding, dict):
         raise InvalidPayloadError("invalid_bindings", "every binding must be an object")
+    # The Home Assistant device the element stands for (the network map, D-031): with it, the
+    # element may have no entities (a Zigbee coordinator has none).
+    device = binding.get("device")
+    if device is not None and (not isinstance(device, str) or not 0 < len(device) <= 64):
+        raise InvalidPayloadError("invalid_bindings", "`device` must be a device id")
     entities = binding.get("entities")
-    if not isinstance(entities, list) or not 0 < len(entities) <= MAX_ENTITIES_PER_ELEMENT:
+    least = 0 if device else 1
+    if not isinstance(entities, list) or not least <= len(entities) <= MAX_ENTITIES_PER_ELEMENT:
         raise InvalidPayloadError(
             "invalid_bindings",
-            f"`entities` must hold 1 to {MAX_ENTITIES_PER_ELEMENT} entities",
+            f"`entities` must hold {least} to {MAX_ENTITIES_PER_ELEMENT} entities",
         )
     for entity in entities:
         if not isinstance(entity, dict) or not isinstance(entity.get("entity_id"), str):
