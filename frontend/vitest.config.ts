@@ -1,6 +1,10 @@
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
+  resolve: {
+    // The generated WebAssembly packages exist only after scripts/build.sh.
+    alias: [{ find: /^\.\/pkg\/domotwin_\w+\.js$/, replacement: "/tests/stubs/wasm.ts" }],
+  },
   define: {
     __DOMOTWIN_VERSION__: JSON.stringify("0.0.0-test"),
     __DOMOTWIN_WASM__: JSON.stringify("domotwin_web_bg.wasm"),
