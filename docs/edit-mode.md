@@ -3,14 +3,15 @@
 Administrators rearrange the furniture of the imported plan from the DomoTwin panel: move, turn,
 stack, remove and add pieces, with undo. The plan as imported is never changed: the edits are an
 **overlay** stored beside it (`layout`), so importing an updated plan later keeps the edits of the
-pieces that still exist. Rooms, walls, doors and windows belong to the plan: change them in House
-Maquette (or your modelling software) and import again.
+pieces that still exist. Rooms, partitions, doors and windows are changed in the
+[plan editor](plan-editor.md), or in House Maquette (or your modelling software) and imported
+again.
 
 ![Edit mode: a piece dragged on the 2D plan with its guides, and the catalogue](figures/screenshot-edit.png)
 
 ## Using it
 
-In the panel, **Edit** opens edit mode (administrators only). The header gets **Cancel** and
+In the panel, **Arrange** opens edit mode (administrators only). The header gets **Cancel** and
 **Save**, and a bar appears at the bottom of the view.
 
 - **Select**: tap a piece. **Select several** in the bar (or Ctrl, Cmd or Shift with the tap, or a
