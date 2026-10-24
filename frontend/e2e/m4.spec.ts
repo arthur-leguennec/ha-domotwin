@@ -88,7 +88,7 @@ test.describe("layers", () => {
     await setState(page, "sensor.living_room_pm25", "unavailable");
     await setState(page, "sensor.kitchen_pm25", "unavailable");
     await setState(page, "sensor.bedroom_pm25", "unavailable");
-    await expect(page.getByTestId("legend")).toContainText("Aucun capteur");
+    await expect(page.getByTestId("legend")).toContainText("aucun capteur");
   });
 
   test("the power layer tints the running appliances and labels them", async ({ page }) => {

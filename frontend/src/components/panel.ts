@@ -479,6 +479,8 @@ export class DomoTwinPanel extends LitElement {
     await import("./edit-bar");
     this.linking = false;
     this.linkTarget = undefined;
+    // A north being set and not saved is dropped.
+    this.northDraft = undefined;
     this.multi = false;
     this.editRevision = this.revision;
     this.editChanges = 0;
@@ -679,6 +681,7 @@ export class DomoTwinPanel extends LitElement {
   private readonly toggleLinking = (): void => {
     this.linking = !this.linking;
     this.linkTarget = undefined;
+    this.northDraft = undefined;
   };
 
   /** Link mode: an element was picked in the view, open its editor. */

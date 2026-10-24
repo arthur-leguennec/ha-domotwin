@@ -126,7 +126,12 @@ export class DomoTwinCardEditor extends LitElement {
     event.stopPropagation();
     const config = Object.fromEntries(
       Object.entries({ ...this.config, ...event.detail.value }).filter(
-        ([, value]) => value !== "" && value !== undefined && value !== null,
+        ([key, value]) =>
+          value !== "" &&
+          value !== undefined &&
+          value !== null &&
+          // A switch shown on by default is not written until it is turned off.
+          !(key in ON_BY_DEFAULT && value === true && this.config[key] === undefined),
       ),
     );
     this.config = config;

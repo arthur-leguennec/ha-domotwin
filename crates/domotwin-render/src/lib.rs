@@ -229,6 +229,9 @@ pub struct Renderer {
     lights: Vec<PointLight>,
     halos: Option<GpuHalos>,
     shadow: Option<ShadowMap>,
+    /// The shadow map must be drawn again (scene, moving parts, sun or quality changed); the
+    /// view says when the cut-away changed (`ViewState::shadows_dirty`).
+    shadow_stale: bool,
     /// What the shadow sampler points at without shadows. Created once: creating a texture
     /// binds it to the active unit, which would replace a texture bound for the frame.
     no_shadow: DepthTexture2D,
@@ -384,6 +387,7 @@ impl Renderer {
             lights: Vec::new(),
             halos: None,
             shadow: None,
+            shadow_stale: true,
             no_shadow,
             pick_target: None,
             lighting: Lighting::default(),
@@ -400,7 +404,7 @@ impl Renderer {
             GpuMesh::new(&self.context, &scene.dynamic_transparent),
         ];
         self.ceiling = GpuMesh::new(&self.context, &scene.ceiling);
-        self.view.shadows_dirty = true;
+        self.shadow_stale = true;
         self.spots.clone_from(&scene.lights);
         self.view.set_scene(scene, keep_camera);
     }
@@ -409,7 +413,7 @@ impl Renderer {
     pub fn set_moving_parts(&mut self, opaque: &Mesh, transparent: &Mesh) {
         GpuMesh::replace(&mut self.meshes[1], &self.context, opaque);
         GpuMesh::replace(&mut self.meshes[3], &self.context, transparent);
-        self.view.shadows_dirty = true;
+        self.shadow_stale = true;
         self.view.dirty = true;
     }
 
@@ -494,7 +498,7 @@ impl Renderer {
         let sun = direction.and_then(real_sun);
         if sun != self.sun {
             self.sun = sun;
-            self.view.shadows_dirty = true;
+            self.shadow_stale = true;
             self.view.dirty = true;
         }
     }
@@ -581,7 +585,7 @@ impl Renderer {
         if quality != self.quality {
             self.quality = quality;
             self.shadow = None;
-            self.view.shadows_dirty = true;
+            self.shadow_stale = true;
             self.view.dirty = true;
         }
     }
@@ -610,7 +614,7 @@ impl Renderer {
     /// Asks for a new frame even though nothing changed (benchmarks, context restore).
     pub fn invalidate(&mut self) {
         self.view.dirty = true;
-        self.view.shadows_dirty = true;
+        self.shadow_stale = true;
     }
 
     /// Whether a frame is needed: something changed or an animation is running.
@@ -620,6 +624,9 @@ impl Renderer {
 
     fn shadow_size(&self) -> Option<(u32, f32)> {
         match self.quality {
+            // The real sun comes in through the windows only with a shadow map: a small one,
+            // drawn again only when something moves, read once per pixel.
+            QualityPreset::Eco if self.sun.is_some() => Some((1024, 0.0)),
             QualityPreset::Eco => None,
             QualityPreset::Balanced => Some((1024, 1.0)),
             QualityPreset::High => Some((2048, 2.0)),
@@ -709,9 +716,11 @@ impl Renderer {
     /// Draws one frame at `time_ms`. Returns `true` while an animation needs more frames.
     pub fn render(&mut self, time_ms: f64) -> bool {
         let animating = self.view.update(time_ms);
-        if self.view.shadows_dirty {
+        let cuts_moved = std::mem::take(&mut self.view.shadows_dirty);
+        // With the real sun the shadow map draws whole walls: the cut-away does not change it.
+        if self.shadow_stale || (cuts_moved && self.sun.is_none()) {
             self.render_shadow_map();
-            self.view.shadows_dirty = false;
+            self.shadow_stale = false;
         }
         let projection = self
             .view

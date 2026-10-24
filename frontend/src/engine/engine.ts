@@ -190,10 +190,16 @@ export function wasmMemoryBytes(): number | undefined {
   return wasmMemory?.buffer.byteLength;
 }
 
+const legends = new Map<string, HeatLegend | undefined>();
+
 /** The legend of a heatmap (`temperature`, `humidity`, `co2`, `pm25`), once the engine is loaded. */
 export function heatLegend(kind: string): HeatLegend | undefined {
-  const text = wasmLoaded?.heatLegend(kind);
-  return text ? (JSON.parse(text) as HeatLegend) : undefined;
+  if (!wasmLoaded) return undefined;
+  if (!legends.has(kind)) {
+    const text = wasmLoaded.heatLegend(kind);
+    legends.set(kind, text ? (JSON.parse(text) as HeatLegend) : undefined);
+  }
+  return legends.get(kind);
 }
 
 /** The engine reports plan errors as JSON `{"code", "element"}`, other errors as a bare code. */

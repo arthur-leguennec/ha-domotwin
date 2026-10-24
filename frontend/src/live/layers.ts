@@ -88,26 +88,54 @@ export interface RoomLayers {
   presence: string[];
 }
 
-/** The entity ids of each area, built once per entity registry. */
-const indexes = new WeakMap<object, { devices: unknown; byArea: Map<string, string[]> }>();
+/** An entity of an area: hidden ones raise alerts but give no value and no presence. */
+interface AreaEntity {
+  id: string;
+  hidden: boolean;
+}
 
-function areaIndex(hass: HomeAssistant): Map<string, string[]> {
+/** The entities of each area, built once per entity registry. */
+const indexes = new WeakMap<object, { devices: unknown; byArea: Map<string, AreaEntity[]> }>();
+
+function areaIndex(hass: HomeAssistant): Map<string, AreaEntity[]> {
   const entities = hass.entities;
   if (!entities) return new Map();
   const cached = indexes.get(entities);
   if (cached && cached.devices === hass.devices) return cached.byArea;
-  const byArea = new Map<string, string[]>();
+  const byArea = new Map<string, AreaEntity[]>();
   for (const entry of Object.values(entities)) {
     // Configuration and diagnostic entities say nothing about the room.
     if (!entry || entry.entity_category) continue;
     const area = areaOf(hass, entry.entity_id);
     if (!area) continue;
-    const ids = byArea.get(area);
-    if (ids) ids.push(entry.entity_id);
-    else byArea.set(area, [entry.entity_id]);
+    const entity = { id: entry.entity_id, hidden: entry.hidden === true };
+    const list = byArea.get(area);
+    if (list) list.push(entity);
+    else byArea.set(area, [entity]);
   }
   indexes.set(entities, { devices: hass.devices, byArea });
   return byArea;
+}
+
+const NO_AREAS = {};
+
+/** The area of each room, found once per area registry and bindings. */
+type RoomAreas = Map<string, string | undefined>;
+const roomAreas = new WeakMap<object, WeakMap<object, RoomAreas>>();
+
+function areaOfRoom(
+  hass: HomeAssistant,
+  bindings: BindingsJson,
+  room: PlanRoom,
+): string | undefined {
+  const registry = hass.areas ?? NO_AREAS;
+  let byBindings = roomAreas.get(registry);
+  if (!byBindings) roomAreas.set(registry, (byBindings = new WeakMap<object, RoomAreas>()));
+  let found = byBindings.get(bindings);
+  if (!found) byBindings.set(bindings, (found = new Map<string, string | undefined>()));
+  const key = `${room.id}\n${room.name}`;
+  if (!found.has(key)) found.set(key, roomArea(hass, bindings, room.id, room.name));
+  return found.get(key);
 }
 
 function numberOf(value: unknown): number | undefined {
@@ -155,12 +183,18 @@ function round(value: number, decimals: number): number {
   return Math.round(value * k) / k;
 }
 
-/** Whether the weather comes in through open windows (any weather entity says so). */
-function wetWeather(hass: HomeAssistant): boolean {
-  for (const [id, entity] of Object.entries(hass.states)) {
-    if (id.startsWith("weather.") && entity && WET_WEATHER.has(entity.state)) return true;
-  }
-  return false;
+/**
+ * Whether the weather comes in through open windows (any weather entity says so). Asked only
+ * when a window is open, at most once per update.
+ */
+function wetWeather(hass: HomeAssistant): () => boolean {
+  let wet: boolean | undefined;
+  return () => {
+    wet ??= Object.entries(hass.states).some(
+      ([id, entity]) => id.startsWith("weather.") && !!entity && WET_WEATHER.has(entity.state),
+    );
+    return wet;
+  };
 }
 
 /** What one room shows. */
@@ -173,9 +207,9 @@ interface RoomReading {
 
 function readRoom(
   hass: HomeAssistant,
-  ids: string[],
+  entities: AreaEntity[],
   heat: HeatKind | undefined,
-  wet: boolean,
+  wet: () => boolean,
 ): RoomReading {
   const reading: RoomReading = { presence: false };
   const values: number[] = [];
@@ -186,11 +220,13 @@ function readRoom(
       reading.alert = { level, reason, entity };
     }
   };
-  for (const id of ids) {
+  for (const { id, hidden } of entities) {
     const entity = hass.states[id];
     if (!entity) continue;
     const domain = id.slice(0, id.indexOf("."));
     const deviceClass = entity.attributes.device_class;
+    // A hidden entity (a duplicate, a probe inside an appliance…) still raises its alerts.
+    if (hidden && domain !== "binary_sensor" && domain !== "alarm_control_panel") continue;
     if (domain === "sensor") {
       if (heat) {
         const value = sensorValue(entity, heat);
@@ -204,8 +240,8 @@ function readRoom(
     } else if (domain === "binary_sensor" && entity.state === "on") {
       const kind = typeof deviceClass === "string" ? deviceClass : "";
       if (DANGER_CLASSES.has(kind)) raise("danger", kind as AlertReason, id);
-      else if (PRESENCE_CLASSES.has(kind)) reading.presence = true;
-      else if (WINDOW_CLASSES.has(kind) && wet) raise("warning", "window_rain", id);
+      else if (PRESENCE_CLASSES.has(kind)) reading.presence ||= !hidden;
+      else if (WINDOW_CLASSES.has(kind) && wet()) raise("warning", "window_rain", id);
     } else if (domain === "alarm_control_panel" && entity.state === "triggered") {
       raise("danger", "alarm", id);
     }
@@ -214,11 +250,11 @@ function readRoom(
   if (value !== undefined && heat) reading.value = round(value, DECIMALS[heat]);
   const ppm = mean(co2);
   if (ppm !== undefined && ppm > CO2_WARNING) {
-    const sensor = ids.find((id) => {
+    const sensor = entities.find(({ id, hidden }) => {
       const entity = hass.states[id];
-      return entity !== undefined && sensorValue(entity, "co2") !== undefined;
+      return !hidden && entity !== undefined && sensorValue(entity, "co2") !== undefined;
     });
-    if (sensor) raise("warning", "co2", sensor);
+    if (sensor) raise("warning", "co2", sensor.id);
   }
   return reading;
 }
@@ -234,15 +270,16 @@ export function roomLayers(
     ? (choice.layer as HeatKind)
     : undefined;
   const byArea = areaIndex(hass);
-  const wet = choice.alerts && wetWeather(hass);
+  const weather = wetWeather(hass);
+  const wet = (): boolean => choice.alerts && weather();
   const values: Record<string, number> = {};
   const alerts: RoomAlert[] = [];
   const presence: string[] = [];
   for (const room of rooms) {
-    const area = roomArea(hass, bindings, room.id, room.name);
-    const ids = area ? (byArea.get(area) ?? []) : [];
-    if (ids.length === 0) continue;
-    const reading = readRoom(hass, ids, heat, wet);
+    const area = areaOfRoom(hass, bindings, room);
+    const entities = area ? (byArea.get(area) ?? []) : [];
+    if (entities.length === 0) continue;
+    const reading = readRoom(hass, entities, heat, wet);
     if (reading.value !== undefined) values[room.id] = reading.value;
     if (choice.presence && reading.presence) presence.push(room.id);
     if (choice.alerts && reading.alert) {
@@ -269,12 +306,23 @@ export function formatPower(watts: number, language: string): string {
   return `${new Intl.NumberFormat(language, { maximumFractionDigits: 0 }).format(watts)} W`;
 }
 
-/** A value of a heatmap with its unit: `21.5 °C`, `45 %`, `800 ppm`. */
-export function formatHeat(value: number, unit: string, language: string): string {
-  const decimals = unit === "°C" ? 1 : 0;
+/**
+ * A value of a heatmap with its unit: `21.5 °C`, `45 %`, `800 ppm`; temperatures in °F when
+ * `fahrenheit` (Home Assistant's unit system).
+ */
+export function formatHeat(
+  value: number,
+  unit: string,
+  language: string,
+  fahrenheit = false,
+): string {
+  const temperature = unit === "°C";
+  const [shown, shownUnit] =
+    temperature && fahrenheit ? [(value * 9) / 5 + 32, "°F"] : [value, unit];
+  const decimals = temperature ? 1 : 0;
   const text = new Intl.NumberFormat(language, {
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
-  }).format(value);
-  return `${text} ${unit}`;
+  }).format(shown);
+  return `${text} ${shownUnit}`;
 }

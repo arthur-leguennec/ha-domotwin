@@ -456,8 +456,8 @@ try {
     ],
     [
       "Sun through the windows",
-      "&sunpos=205,24&north=160",
-      { lighting: "auto", sun: "real" },
+      "&sunpos=205,35&north=160",
+      { lighting: "day", sun: "real" },
       "window.__setState('cover.living_room_curtains', 'open', { current_position: 100 });",
     ],
   ]) {

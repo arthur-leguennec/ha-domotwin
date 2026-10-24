@@ -145,6 +145,31 @@ describe("roomLayers", () => {
   });
 });
 
+describe("hidden entities", () => {
+  it("give no value and no presence, but still raise their alerts", () => {
+    const hass = home([
+      ["sensor.lounge_a", "lounge", "20", temperature()],
+      ["sensor.lounge_probe", "lounge", "4", temperature()],
+      ["binary_sensor.lounge_motion", "lounge", "on", { device_class: "motion" }],
+      ["binary_sensor.lounge_smoke", "lounge", "on", { device_class: "smoke" }],
+    ]);
+    for (const id of [
+      "sensor.lounge_probe",
+      "binary_sensor.lounge_motion",
+      "binary_sensor.lounge_smoke",
+    ]) {
+      hass.entities = {
+        ...hass.entities,
+        [id]: { entity_id: id, area_id: "lounge", hidden: true },
+      };
+    }
+    const layers = roomLayers(hass, BINDINGS, ROOMS, { layer: "temperature", ...ALL_ON });
+    expect(layers.values).toEqual({ living: 20 });
+    expect(layers.presence).toEqual([]);
+    expect(layers.alerts.map((a) => a.reason)).toEqual(["smoke"]);
+  });
+});
+
 describe("units and labels", () => {
   it("converts temperatures", () => {
     expect(celsius(212, "°F")).toBe(100);
@@ -160,5 +185,8 @@ describe("units and labels", () => {
     expect(formatHeat(21.43, "°C", "en")).toBe("21.4 °C");
     expect(formatHeat(21, "°C", "fr")).toBe("21,0 °C");
     expect(formatHeat(812.6, "ppm", "en")).toBe("813 ppm");
+    // Home Assistant in °F: temperatures shown in °F, other units as they are.
+    expect(formatHeat(22, "°C", "en", true)).toBe("71.6 °F");
+    expect(formatHeat(45, "%", "en", true)).toBe("45 %");
   });
 });

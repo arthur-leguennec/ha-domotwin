@@ -51,7 +51,7 @@ export const en = {
     power: "Power",
     sun: "Sunlight through the windows",
     legend: "Legend: {layer}, {low} to {high}",
-    no_values: "No {layer} sensor in the rooms' areas.",
+    no_values: "{layer}: no sensor in the rooms' areas.",
     no_power: "No piece draws power now.",
     alerts: "Alerts",
     alert_smoke: "Smoke in {room}",

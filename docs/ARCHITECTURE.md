@@ -102,7 +102,8 @@ every reader returns `Result` with a stable error code that the frontend transla
   "plan": { "version": 1, "unit": "cm", "elements": [] },
   "layout": { "sofa": { "x": 360, "y": 110, "angle": 0 } },
   "bindings": { "version": 1, "rooms": {}, "elements": {} },
-  "settings": {}
+  "settings": {},
+  "revisions": { "plan": 2, "bindings": 3, "settings": 0 }
 }
 ```
 
@@ -111,7 +112,10 @@ every reader returns `Result` with a stable error code that the frontend transla
 - `bindings`: see [`bindings.md`](bindings.md).
 - `settings`: the home's settings, `{"north": <degrees>}`: where north points on the plan,
   clockwise from its top, for the real sun (D-023).
-- `revision`: bumped on every write; used for optimistic concurrency between devices.
+- `revision`: bumped on every write. `revisions` keeps the revision of the last write of each kind
+  (`plan` for the plan and the overlay, `bindings`, `settings`): the `get` commands return it and a
+  save with `expected_revision` is checked against it, so that saving the bindings or the settings
+  does not refuse an edit of the plan started before (optimistic concurrency between devices).
 
 The 3D files of user models are not in `.storage`: they are kept under their SHA-256 in
 `<config>/domotwin/models/<sha256>.<format>` (D-021), uploaded with `POST /api/domotwin/models?format=…`

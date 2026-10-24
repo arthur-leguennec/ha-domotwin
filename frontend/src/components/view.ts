@@ -285,15 +285,16 @@ export class DomoTwinView extends LitElement {
   /** The rooms of the plan shown, and whether a heatmap found values in them. */
   private rooms: PlanRoom[] = [];
   private heatValues = 0;
-  /** The labels' JSON last read from the engine. */
+  /** The labels' JSON last read from the engine, and whether they must be read again. */
   private labelsText = "";
+  private labelsDue = true;
   private readonly motionQuery =
     typeof window.matchMedia === "function"
       ? window.matchMedia("(prefers-reduced-motion: reduce)")
       : undefined;
   private readonly onMotion = (): void => {
     this.engine?.setMotion(!this.motionQuery?.matches);
-    this.scheduler?.request();
+    this.redraw();
   };
   private lightTimer?: number;
   /** Entity states already sent to the engine, and the entities bound. */
@@ -656,13 +657,12 @@ export class DomoTwinView extends LitElement {
       if (previous?.layer !== this.options.layer) this.layer = this.options.layer ?? "off";
       if (previous?.sun !== this.options.sun) this.realSun = this.options.sun === "real";
     }
-    if (this.layer !== "off" && this.layer !== "power" && this.heatValues > 0) {
-      this.setAttribute("legend", "");
-    } else if (this.layer === "power") {
-      this.setAttribute("legend", "");
-    } else {
-      this.removeAttribute("legend");
+    if (this.layer === "off" && this.labels.length > 0) {
+      this.labels = [];
+      this.labelsText = "";
     }
+    // The room chip leaves room for the legend (`renderLegend`).
+    this.toggleAttribute("legend", this.layer !== "off" && !this.edit);
   }
 
   protected override updated(changed: PropertyValues<this>): void {
@@ -675,7 +675,7 @@ export class DomoTwinView extends LitElement {
       this.engine.setCutaway(this.options.cutaway ?? "auto");
       this.applyLighting();
       if (previous?.view !== this.options.view) this.setPlanView(this.options.view === "2d");
-      this.scheduler?.request();
+      this.redraw();
     }
     if (changed.has("hass")) {
       this.applyTheme();
@@ -697,6 +697,15 @@ export class DomoTwinView extends LitElement {
 
   /** Draws a new frame as soon as possible (when visible). */
   requestFrame(): void {
+    this.redraw();
+  }
+
+  /**
+   * Asks for a frame because something changed (camera, states, layers, size…): the values of
+   * the layer are read again with it. The layers' own animation does not read them.
+   */
+  private redraw(): void {
+    this.labelsDue = true;
     this.scheduler?.request();
   }
 
@@ -845,7 +854,7 @@ export class DomoTwinView extends LitElement {
     this.dragTo = undefined;
     this.dragHeld = false;
     this.applyPlan();
-    this.scheduler?.request();
+    this.redraw();
   }
 
   /** Shows the 2D plan or the 3D view. */
@@ -857,7 +866,7 @@ export class DomoTwinView extends LitElement {
     }
     this.engine.setPlanView(plan);
     this.planView = plan;
-    this.scheduler?.request();
+    this.redraw();
   }
 
   /** Back to the whole home. */
@@ -865,18 +874,14 @@ export class DomoTwinView extends LitElement {
     this.viewsOpen = false;
     this.focusedRoom = undefined;
     this.engine?.overview();
-    this.scheduler?.request();
+    this.redraw();
   }
 
   /** Shows a layer (the layer menu). */
   setLayer(layer: LayerName): void {
     this.layersOpen = false;
     this.layer = layer;
-    if (layer === "off") {
-      this.labels = [];
-      this.labelsText = "";
-    }
-    this.scheduler?.request();
+    this.redraw();
   }
 
   /** Lights the rooms from where the sun really is (through the windows), or not. */
@@ -888,7 +893,7 @@ export class DomoTwinView extends LitElement {
   /** Frames an element of the plan; false when it has nothing to show. */
   showElement(id: string): boolean {
     const done = this.engine?.focusElement(id) ?? false;
-    this.scheduler?.request();
+    this.redraw();
     return done;
   }
 
@@ -920,7 +925,7 @@ export class DomoTwinView extends LitElement {
     } else if (picked.room && engine.focusElement(picked.room)) {
       this.focusedRoom = { id: picked.room, name: this.roomName(picked) };
     }
-    this.scheduler?.request();
+    this.redraw();
   }
 
   /** What a long press at a point of the view does (CSS pixels from its top left). */
@@ -945,7 +950,7 @@ export class DomoTwinView extends LitElement {
     } else if (picked.room) {
       void this.openRoom(picked.room, this.roomName(picked));
     }
-    this.scheduler?.request();
+    this.redraw();
   }
 
   /** The element at a point of the view (CSS pixels from its top left). */
@@ -1116,10 +1121,16 @@ export class DomoTwinView extends LitElement {
       const over = engine.modelsOverBudget;
       if (over > 0) this.notify(this.translator.tp("view.models_over_budget", over));
     }
+    const movingBefore = engine.moving;
     const start = performance.now();
     const more = engine.frame(time);
     const cost = performance.now() - start;
-    if (this.layer !== "off") this.readLabels(engine);
+    const movingAfter = engine.moving;
+    // The values move with the camera, or change: not with the layers' own animation.
+    if (this.layer !== "off" && (this.labelsDue || movingBefore || movingAfter)) {
+      this.labelsDue = false;
+      this.readLabels(engine);
+    }
     // The layers' animation alone runs at 24 frames per second; camera moves, wall animations
     // and fades at the display's rate (a gesture sets it back at once, see `apply`).
     this.scheduler?.setMinInterval(
@@ -1152,7 +1163,7 @@ export class DomoTwinView extends LitElement {
     }
     if (this.engine) {
       this.engine.resize(width, height);
-      this.scheduler?.request();
+      this.redraw();
     }
   }
 
@@ -1169,7 +1180,7 @@ export class DomoTwinView extends LitElement {
     }
     this.background = background;
     this.engine.setBackground(background);
-    this.scheduler?.request();
+    this.redraw();
   }
 
   /**
@@ -1209,7 +1220,7 @@ export class DomoTwinView extends LitElement {
     if (key === this.lightKey) return;
     this.lightKey = key;
     apply();
-    this.scheduler?.request();
+    this.redraw();
   }
 
   /**
@@ -1232,7 +1243,12 @@ export class DomoTwinView extends LitElement {
     this.sunKey = key;
     if (real) engine.setSunPosition(a, e, north);
     else engine.useDefaultSun();
-    this.scheduler?.request();
+    this.redraw();
+  }
+
+  /** Temperatures are shown in °F when Home Assistant uses them (the scales stay in °C). */
+  private get fahrenheit(): boolean {
+    return this.hass?.config?.unit_system?.temperature === "°F";
   }
 
   /** Sends the engine what the layers show now (only when it changed) and lists the alerts. */
@@ -1251,7 +1267,7 @@ export class DomoTwinView extends LitElement {
     if (json !== this.layersKey) {
       this.layersKey = json;
       engine.setLayers(json);
-      this.scheduler?.request();
+      this.redraw();
     }
     engine.setPowerLayer(this.layer === "power");
     const values = Object.keys(layers?.values ?? {}).length;
@@ -1291,7 +1307,7 @@ export class DomoTwinView extends LitElement {
     if (!was && this.edit) window.addEventListener("keydown", this.onEditKey);
     if (was && !this.edit) window.removeEventListener("keydown", this.onEditKey);
     fire(this, "domotwin-edit", state);
-    this.scheduler?.request();
+    this.redraw();
   }
 
   /** Moves the dragged pieces to the last pointer position, once per frame. */
@@ -1353,7 +1369,7 @@ export class DomoTwinView extends LitElement {
     } catch (error) {
       this.loadError = error instanceof EngineError ? error : engineError(error);
     }
-    this.scheduler?.request();
+    this.redraw();
   }
 
   /**
@@ -1386,7 +1402,7 @@ export class DomoTwinView extends LitElement {
               this.modelsFailed.delete(file.hash);
               this.modelTimes.loadMs.push(read - asked);
               this.modelsCame = true;
-              this.scheduler?.request();
+              this.redraw();
             },
             () => {
               failed(file.hash);
@@ -1404,7 +1420,7 @@ export class DomoTwinView extends LitElement {
     this.engine?.highlight(picked.id);
     this.gestures.forgetTap();
     fire(this, "domotwin-pick", picked);
-    this.scheduler?.request();
+    this.redraw();
   }
 
   /** Sends the bindings to the engine, then the states of the entities now bound. */
@@ -1415,7 +1431,7 @@ export class DomoTwinView extends LitElement {
     engine.setBindings(JSON.stringify(bindings));
     this.bound = boundEntityIds(bindings);
     this.syncStates();
-    this.scheduler?.request();
+    this.redraw();
   }
 
   /** Sends the engine the bound entities whose state changed. */
@@ -1425,7 +1441,7 @@ export class DomoTwinView extends LitElement {
     const changes = this.states.changes(this.hass, this.bound);
     if (changes === undefined) return;
     engine.setStates(changes);
-    this.scheduler?.request();
+    this.redraw();
   }
 
   private roomName(picked: PickedElement): string {
@@ -1547,7 +1563,7 @@ export class DomoTwinView extends LitElement {
         !from || Math.hypot(event.offsetX - from.x, event.offsetY - from.y) >= TAP_SLOP;
       if (this.dragging) {
         this.dragTo = { x: event.offsetX, y: event.offsetY };
-        this.scheduler?.request();
+        this.redraw();
       }
       return;
     }
@@ -1672,7 +1688,7 @@ export class DomoTwinView extends LitElement {
           break;
       }
     }
-    this.scheduler?.request();
+    this.redraw();
   }
 
   private readonly toggleViews = (): void => {
@@ -1691,7 +1707,7 @@ export class DomoTwinView extends LitElement {
     this.viewsOpen = false;
     if (this.engine?.showView(id)) {
       this.planView = false;
-      this.scheduler?.request();
+      this.redraw();
     }
   }
 
@@ -1892,12 +1908,18 @@ export class DomoTwinView extends LitElement {
     if (!legend) return nothing;
     if (this.heatValues === 0) {
       return html`<div class="legend glass" data-testid="legend" role="note">
-        <span>${t.t("layers.no_values", { layer: name.toLowerCase() })}</span>
+        <span>${t.t("layers.no_values", { layer: name })}</span>
       </div>`;
     }
     const language = t.language;
-    const low = formatHeat(legend.stops[0]?.[0] ?? 0, legend.unit, language);
-    const high = formatHeat(legend.stops[legend.stops.length - 1]?.[0] ?? 0, legend.unit, language);
+    const fahrenheit = this.fahrenheit;
+    const low = formatHeat(legend.stops[0]?.[0] ?? 0, legend.unit, language, fahrenheit);
+    const high = formatHeat(
+      legend.stops[legend.stops.length - 1]?.[0] ?? 0,
+      legend.unit,
+      language,
+      fahrenheit,
+    );
     const gradient = `linear-gradient(to right, ${legend.gradient.join(", ")})`;
     return html`<div
       class="legend glass"
@@ -1917,6 +1939,7 @@ export class DomoTwinView extends LitElement {
     if (this.labels.length === 0 || !canvas || this.edit) return nothing;
     const k = Math.max(1, canvas.clientWidth) / Math.max(1, canvas.width);
     const language = this.translator.language;
+    const fahrenheit = this.fahrenheit;
     const unit = (HEAT_KINDS as readonly string[]).includes(this.layer)
       ? (heatLegend(this.layer)?.unit ?? "")
       : "";
@@ -1930,7 +1953,7 @@ export class DomoTwinView extends LitElement {
             >${
               label.kind === "power"
                 ? formatPower(label.value, language)
-                : formatHeat(label.value, unit, language)
+                : formatHeat(label.value, unit, language, fahrenheit)
             }</span
           >`,
       )}
@@ -1954,7 +1977,7 @@ export class DomoTwinView extends LitElement {
               if (this.engine?.focusElement(alert.room)) {
                 this.focusedRoom = { id: alert.room, name: alert.name };
               }
-              this.scheduler?.request();
+              this.redraw();
             }}
           >
             ${icon(alert.level === "danger" ? mdiAlert : mdiAlertCircleOutline)}

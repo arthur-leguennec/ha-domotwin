@@ -78,9 +78,15 @@ describe("FrameScheduler", () => {
     const scheduler = new FrameScheduler(() => true, clock);
     scheduler.setMinInterval(1000 / 24);
     scheduler.request();
-    for (let i = 0; i < 60; i += 1) clock.tick(); // ≈ 1 s at 60 Hz
-    expect(scheduler.frames).toBeGreaterThanOrEqual(19);
+    for (let i = 0; i < 60; i += 1) clock.tick(); // 960 ms at 62.5 Hz
+    // 23 frames in 960 ms: 24 per second, not one every three ticks (20).
+    expect(scheduler.frames).toBeGreaterThanOrEqual(22);
     expect(scheduler.frames).toBeLessThanOrEqual(24);
+    // Uncapped again: every tick.
+    scheduler.setMinInterval(0);
+    const before = scheduler.frames;
+    for (let i = 0; i < 10; i += 1) clock.tick();
+    expect(scheduler.frames - before).toBe(10);
   });
 
   it("stops for good once disposed", () => {

@@ -391,9 +391,10 @@ Decided while the maintainer was away (M4); open to review.
   - **Values come from areas, in the frontend.** Each room's area (its link, else an area with the
     room's name, as for the room panel) gives its sensors by device class; a room shows their mean,
     in °C for temperatures (°F and K converted), or its thermostat's reading when it has no sensor.
-    The view computes this from the `hass` object it already has and sends the engine one small
-    JSON (`setLayers`) only when a value changes at the precision shown; the states of every
-    sensor never go to the engine.
+    Hidden entities give no value and no presence but still raise their alerts. The view computes
+    this from the `hass` object it already has and sends the engine one small JSON (`setLayers`)
+    only when a value changes at the precision shown; the states of every sensor never go to the
+    engine. Temperatures are shown in °F when Home Assistant uses them; the scales stay in °C.
   - **Perceptual scales, one place.** Each quantity has a scale of stops chosen for its meaning
     (temperature green at 22 °C, CO₂ red from 2 000 ppm…), interpolated in OKLab by the core, which
     also gives the legend's colours.
@@ -418,9 +419,14 @@ Decided while the maintainer was away (M4); open to review.
     and from where north points on the plan, a new home setting (`domotwin/settings/*`,
     administrators, in the panel). The shadow map then draws whole walls (not cut away) and the
     rooms' ceilings (kept only on the GPU, never drawn in colour), so the sun comes in through the
-    windows (glass casts no shadow) and open doors; a little light bounces off what it lights so
-    that the shade does not go flat. Below the horizon it lights from just above it while the time
-    of day dims it.
+    windows (glass casts no shadow) and open doors; the rooms see less of the sky and a little
+    light bounces off what the sun lights. The Eco preset, which has no shadows, gets a small
+    shadow map for it, read once per pixel and drawn again only when the sun or something in the
+    home moves (the cut-away does not change it). Below the horizon the sun lights from just above
+    it while the time of day dims it.
+  - **Saves stay apart.** The settings are a third kind of save beside the plan and the bindings;
+    each save is checked against the last write of its own kind (`ARCHITECTURE.md`), which also
+    fixes a bindings save refusing an edit of the plan started before it.
 - **Consequences.** The first load grows by about 21 kB gzipped (engine 14 kB, entry 3.5 kB). A
   heatmap or an alert on screen costs frames at 24 per second (a wall tablet's battery: reduced
   motion stops it). Sensors outside the room's area do not count, and picking a room's sensors one

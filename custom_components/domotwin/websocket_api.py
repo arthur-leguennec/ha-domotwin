@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import logging
 from typing import Any
 
@@ -73,7 +74,11 @@ def ws_plan_get(
     snapshot = data.snapshot()
     connection.send_result(
         msg["id"],
-        {"plan": snapshot["plan"], "layout": snapshot["layout"], "revision": data.revision},
+        {
+            "plan": snapshot["plan"],
+            "layout": snapshot["layout"],
+            "revision": data.revision_of("plan"),
+        },
     )
 
 
@@ -128,7 +133,8 @@ def ws_bindings_get(
     if (data := _get_data(hass, connection, msg)) is None:
         return
     connection.send_result(
-        msg["id"], {"bindings": data.snapshot()["bindings"], "revision": data.revision}
+        msg["id"],
+        {"bindings": copy.deepcopy(data.bindings), "revision": data.revision_of("bindings")},
     )
 
 
@@ -168,7 +174,8 @@ def ws_settings_get(
     if (data := _get_data(hass, connection, msg)) is None:
         return
     connection.send_result(
-        msg["id"], {"settings": data.snapshot()["settings"], "revision": data.revision}
+        msg["id"],
+        {"settings": copy.deepcopy(data.settings), "revision": data.revision_of("settings")},
     )
 
 

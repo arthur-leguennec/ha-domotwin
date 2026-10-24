@@ -50,7 +50,7 @@ export const fr: Dictionary = {
     power: "Consommation",
     sun: "Soleil par les fenêtres",
     legend: "Légende : {layer}, de {low} à {high}",
-    no_values: "Aucun capteur de {layer} dans les zones des pièces.",
+    no_values: "{layer} : aucun capteur dans les zones des pièces.",
     no_power: "Aucun appareil ne consomme en ce moment.",
     alerts: "Alertes",
     alert_smoke: "Fumée : {room}",

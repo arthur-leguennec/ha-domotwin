@@ -280,11 +280,11 @@ void main() {
 
     // Room layers, on the floors: the heatmap as a soft halo from the centre of the room, its
     // edge moving slowly; a warm glow where someone is; an alert pulsing towards the walls.
-    bool floor = surface == PLANKS || surface == TILES || surface == FLOOR;
+    bool on_floor = surface == PLANKS || surface == TILES || surface == FLOOR;
     vec3 layer_glow = vec3(0.0);
     vec3 alert_tone = vec3(0.0);
     float alert = 0.0;
-    if (u_layers > 0.5 && floor && v_room > 0.5) {
+    if (u_layers > 0.5 && on_floor && v_room > 0.5) {
         int at = int(v_room + 0.5) * 3;
         vec4 heat = texelFetch(u_rooms, ivec2(at, 0), 0);
         vec4 shape = texelFetch(u_rooms, ivec2(at + 1, 0), 0);
@@ -372,7 +372,7 @@ void main() {
     color += layer_glow;
     plan += layer_glow * 0.5;
     // The power layer: pieces drawing power tinted from yellow (tens of watts) to red (kW).
-    if (u_power_layer > 0.5 && v_power > 0.0 && !floor) {
+    if (u_power_layer > 0.5 && v_power > 0.0 && !on_floor) {
         vec3 tone = mix(vec3(1.0, 0.78, 0.1), vec3(1.0, 0.2, 0.02), v_power);
         float luma = dot(color, vec3(0.2126, 0.7152, 0.0722));
         color = mix(color, tone * (0.45 + luma), 0.5) + tone * (0.1 + 0.2 * wave(2.618, 1.0)) * v_power;
