@@ -208,6 +208,11 @@ async def test_invalid_plans_are_refused(
         },
         {"version": 1, "elements": {"": {"entities": [{"entity_id": "light.a"}]}}},
         {"version": 1, "rooms": {"living": {"area": 3}}},
+        {"version": 1, "elements": {"cam": {"entities": [{"entity_id": "camera.a"}], "fov": 5}}},
+        {
+            "version": 1,
+            "elements": {"cam": {"entities": [{"entity_id": "camera.a"}], "range": "far"}},
+        },
     ],
 )
 async def test_invalid_bindings_are_refused(

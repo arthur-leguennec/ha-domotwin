@@ -347,3 +347,26 @@ fn the_real_sun_and_legends() {
     assert_eq!(legend["stops"][0][0], 400.0);
     assert_eq!(domotwin_web::heat_legend("noise"), "");
 }
+
+#[wasm_bindgen_test]
+fn cameras_see_their_room_and_badges_have_places() {
+    let mut engine = Engine::new(canvas()).unwrap();
+    engine.load_plan(DEMO, None, None).unwrap();
+    engine.set_bindings(include_str!(
+        "../../../examples/demo-apartment.bindings.json"
+    ));
+    engine.frame(0.0);
+    let views: serde_json::Value = serde_json::from_str(&engine.camera_views()).unwrap();
+    let views = views.as_array().unwrap();
+    assert_eq!(views.len(), 1, "{views:?}");
+    assert_eq!(views[0]["id"], "bookcase");
+    assert_eq!(views[0]["entity"], "camera.living_room");
+    assert!(views[0]["points"].as_array().unwrap().len() >= 3);
+    let points: serde_json::Value =
+        serde_json::from_str(&engine.element_points(r#"["tv", "door-entrance", "nowhere"]"#))
+            .unwrap();
+    let points = points.as_object().unwrap();
+    assert_eq!(points.len(), 2, "{points:?}");
+    assert!(points["tv"].as_array().unwrap()[0].as_f64().unwrap() > 0.0);
+    assert_eq!(engine.element_points("not json"), "{}");
+}

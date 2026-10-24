@@ -12,6 +12,12 @@ export class Engine {
      */
     beginEdit(): string;
     /**
+     * What the linked cameras see on the floor, as JSON `[{"id", "entity", "points": [[x, y]…]}]`
+     * in device pixels from the top left: each camera's cone cut to its room (`DECISIONS.md`,
+     * D-024). A cone partly behind the camera of the view is left out.
+     */
+    cameraViews(): string;
+    /**
      * Adds a piece of the user model `model` under the device pixel `x`, `y` (or in the middle of
      * the view), and selects it. `definition` is the model itself (JSON) when it is imported now,
      * empty for a model the plan has. The state has `refused: true` when it could not be added.
@@ -95,6 +101,12 @@ export class Engine {
      * Undoes the last change.
      */
     editUndo(): string;
+    /**
+     * Where the elements `ids` (JSON array) are drawn now: the top of each one's centre, as JSON
+     * `{"id": [x, y]}` in device pixels from the top left. Elements behind the camera or without
+     * geometry are left out.
+     */
+    elementPoints(ids: string): string;
     /**
      * Leaves edit mode, keeping the changes shown (`keep`) or going back to the overlay saved.
      */
@@ -335,6 +347,7 @@ export interface InitOutput {
     readonly applyLayout: (a: number, b: number, c: number, d: number, e: number) => void;
     readonly engineVersion: (a: number) => void;
     readonly engine_beginEdit: (a: number, b: number) => void;
+    readonly engine_cameraViews: (a: number, b: number) => void;
     readonly engine_editAdd: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => void;
     readonly engine_editAddModel: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => void;
     readonly engine_editCatalogue: (a: number) => void;
@@ -352,6 +365,7 @@ export interface InitOutput {
     readonly engine_editSelect: (a: number, b: number, c: number, d: number, e: number) => void;
     readonly engine_editState: (a: number, b: number) => void;
     readonly engine_editUndo: (a: number, b: number) => void;
+    readonly engine_elementPoints: (a: number, b: number, c: number, d: number) => void;
     readonly engine_endEdit: (a: number, b: number) => void;
     readonly engine_focusElement: (a: number, b: number, c: number, d: number) => number;
     readonly engine_frame: (a: number, b: number) => number;

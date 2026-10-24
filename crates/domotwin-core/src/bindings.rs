@@ -6,6 +6,8 @@ use std::collections::BTreeMap;
 
 use serde_json::Value;
 
+use crate::devices::CameraView;
+
 /// What an entity does for its element.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Role {
@@ -23,6 +25,8 @@ pub enum Role {
     Contact,
     /// Locks.
     Lock,
+    /// Cameras: what they see on the floor.
+    Camera,
     /// Power layer.
     Power,
     /// Room panel.
@@ -32,7 +36,7 @@ pub enum Role {
 }
 
 impl Role {
-    const NAMES: [(Role, &'static str); 10] = [
+    const NAMES: [(Role, &'static str); 11] = [
         (Role::Light, "light"),
         (Role::Switch, "switch"),
         (Role::Fan, "fan"),
@@ -40,6 +44,7 @@ impl Role {
         (Role::Media, "media"),
         (Role::Contact, "contact"),
         (Role::Lock, "lock"),
+        (Role::Camera, "camera"),
         (Role::Power, "power"),
         (Role::Climate, "climate"),
         (Role::Sensor, "sensor"),
@@ -71,6 +76,7 @@ impl Role {
             "cover" => Role::Cover,
             "media_player" => Role::Media,
             "lock" => Role::Lock,
+            "camera" => Role::Camera,
             "climate" => Role::Climate,
             "binary_sensor"
                 if matches!(
@@ -96,12 +102,21 @@ pub struct BoundEntity {
 }
 
 /// The bindings of a home.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct Bindings {
     /// Entities of each bound element, by element id.
     pub elements: BTreeMap<String, Vec<BoundEntity>>,
     /// Home Assistant area of each room, by room id.
     pub rooms: BTreeMap<String, String>,
+    /// What the cameras of the elements that set it see (`fov`, `range`), by element id.
+    pub views: BTreeMap<String, CameraView>,
+}
+
+impl Bindings {
+    /// What a camera linked to `element` sees.
+    pub fn view(&self, element: &str) -> CameraView {
+        self.views.get(element).copied().unwrap_or_default()
+    }
 }
 
 /// Most entities read per element.
@@ -150,6 +165,13 @@ pub fn read_bindings(value: &Value) -> Bindings {
                 .take(MAX_ENTITIES)
                 .collect();
             if !entities.is_empty() {
+                let number = |key: &str| entry.get(key).and_then(Value::as_f64);
+                if entry.get("fov").is_some() || entry.get("range").is_some() {
+                    bindings.views.insert(
+                        element.clone(),
+                        CameraView::new(number("fov"), number("range")),
+                    );
+                }
                 bindings.elements.insert(element.clone(), entities);
             }
         }
@@ -197,6 +219,20 @@ mod tests {
         );
         assert_eq!(bindings.elements.len(), 1);
         assert_eq!(read_bindings(&Value::Null), Bindings::default());
+    }
+
+    #[test]
+    fn reads_what_cameras_see() {
+        let value = serde_json::json!({
+            "elements": {
+                "cam": { "entities": [{ "entity_id": "camera.hall" }], "fov": 70, "range": "far" },
+                "lamp": { "entities": [{ "entity_id": "light.a" }] }
+            }
+        });
+        let bindings = read_bindings(&value);
+        assert_eq!(bindings.view("cam"), CameraView::new(Some(70.0), None));
+        assert_eq!(bindings.view("lamp"), CameraView::default());
+        assert_eq!(Role::derive("camera.hall", None), Role::Camera);
     }
 
     #[test]

@@ -186,6 +186,12 @@ def _validate_element_binding(binding: Any) -> None:
     for key in ("tap_action", "hold_action"):
         if key in binding:
             _validate_action(binding[key])
+    # What a linked camera sees (DECISIONS.md, D-024): its angle of view and reach.
+    for key, low, high in (("fov", 10, 180), ("range", 50, 3000)):
+        if key in binding and not (_is_number(binding[key]) and low <= binding[key] <= high):
+            raise InvalidPayloadError(
+                "invalid_bindings", f"`{key}` must be a number from {low} to {high}"
+            )
 
 
 def validate_bindings(bindings: Any) -> dict[str, Any]:

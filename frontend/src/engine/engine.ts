@@ -325,6 +325,16 @@ export class DomoTwinEngine {
     return this.live.moving();
   }
 
+  /** What the linked cameras see on the floor, as the engine's JSON text (device pixels). */
+  cameraViews(): string {
+    return this.live.cameraViews();
+  }
+
+  /** Where the elements `ids` (JSON array) are drawn now, as the engine's JSON text. */
+  elementPoints(ids: string): string {
+    return this.live.elementPoints(ids);
+  }
+
   /** The values of the layers shown and where they go, as the engine's JSON text. */
   layerLabels(): string {
     return this.live.layerLabels();

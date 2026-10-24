@@ -13,6 +13,7 @@ export type Role =
   | "media"
   | "contact"
   | "lock"
+  | "camera"
   | "power"
   | "climate"
   | "sensor";
@@ -38,6 +39,9 @@ export interface ElementBinding {
   entities: BoundEntity[];
   tap_action?: Action;
   hold_action?: Action;
+  /** A linked camera's angle of view (degrees, 10–180) and reach (cm, 50–3 000). */
+  fov?: number;
+  range?: number;
 }
 
 export interface BindingsJson {
@@ -47,7 +51,16 @@ export interface BindingsJson {
 }
 
 /** The roles shown in the scene, in the order a primary entity is chosen. */
-const VISUAL: readonly Role[] = ["light", "switch", "fan", "cover", "media", "contact", "lock"];
+const VISUAL: readonly Role[] = [
+  "light",
+  "switch",
+  "fan",
+  "cover",
+  "media",
+  "contact",
+  "lock",
+  "camera",
+];
 
 /** The role of an entity without an explicit one, from its domain and device class. */
 export function deriveRole(entityId: string, hass?: HomeAssistant): Role {
@@ -67,6 +80,8 @@ export function deriveRole(entityId: string, hass?: HomeAssistant): Role {
       return "media";
     case "lock":
       return "lock";
+    case "camera":
+      return "camera";
     case "climate":
       return "climate";
     case "binary_sensor":
@@ -132,6 +147,10 @@ export function readBindings(value: unknown): BindingsJson {
       const element: ElementBinding = { entities };
       if (binding?.tap_action) element.tap_action = binding.tap_action;
       if (binding?.hold_action) element.hold_action = binding.hold_action;
+      for (const key of ["fov", "range"] as const) {
+        const value = binding?.[key];
+        if (typeof value === "number" && Number.isFinite(value)) element[key] = value;
+      }
       out.elements[id] = element;
     }
   }

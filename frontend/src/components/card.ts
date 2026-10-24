@@ -141,6 +141,8 @@ export class DomoTwinCard extends LitElement {
         alerts: config.alerts,
         presence: config.presence,
         sun: config.sun,
+        badges: config.badges,
+        cameras: config.cameras,
       };
       if (config.room) options.room = config.room;
       this.options = { source: config, value: options };

@@ -14,6 +14,8 @@ describe("normalizeConfig", () => {
       alerts: true,
       presence: true,
       sun: "fixed",
+      badges: true,
+      cameras: true,
     });
   });
 
@@ -33,6 +35,8 @@ describe("normalizeConfig", () => {
         alerts: false,
         presence: false,
         sun: "real",
+        badges: false,
+        cameras: false,
       }),
     ).toEqual({
       type: "custom:domotwin-card",
@@ -48,6 +52,8 @@ describe("normalizeConfig", () => {
       alerts: false,
       presence: false,
       sun: "real",
+      badges: false,
+      cameras: false,
     });
   });
 
@@ -64,6 +70,8 @@ describe("normalizeConfig", () => {
     [{ alerts: "yes" }, "config.bad_alerts"],
     [{ presence: 1 }, "config.bad_presence"],
     [{ sun: "moon" }, "config.bad_sun"],
+    [{ badges: "on" }, "config.bad_badges"],
+    [{ cameras: 0 }, "config.bad_cameras"],
     [{ height: "tall" }, "config.bad_height"],
     [{ height: "100%" }, "config.bad_height"],
     [{ height: -3 }, "config.bad_height"],

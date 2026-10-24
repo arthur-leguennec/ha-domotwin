@@ -4,8 +4,9 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::rc::Rc;
 use std::sync::Arc;
 
-use domotwin_core::bindings::{Bindings, read_bindings};
+use domotwin_core::bindings::{Bindings, Role, read_bindings};
 use domotwin_core::camera::{Camera, CutawayMode};
+use domotwin_core::devices::camera_cone;
 use domotwin_core::edit::Session;
 use domotwin_core::layers::{
     HeatKind, RoomLayers, legend, read_room_layers, room_shapes, room_texels,
@@ -536,6 +537,71 @@ impl Engine {
     #[wasm_bindgen(js_name = layersAnimating)]
     pub fn layers_animating(&self) -> bool {
         self.renderer.layers_animating()
+    }
+
+    /// What the linked cameras see on the floor, as JSON `[{"id", "entity", "points": [[x, y]…]}]`
+    /// in device pixels from the top left: each camera's cone cut to its room (`DECISIONS.md`,
+    /// D-024). A cone partly behind the camera of the view is left out.
+    #[wasm_bindgen(js_name = cameraViews)]
+    pub fn camera_views(&self) -> String {
+        let (Some(plan), Some(scene)) = (&self.plan, &self.scene) else {
+            return "[]".to_owned();
+        };
+        let mut views = Vec::new();
+        for (id, entities) in &self.bindings.elements {
+            let camera = entities.iter().find(|e| {
+                let class = self
+                    .states
+                    .get(&e.entity_id)
+                    .and_then(|s| s.device_class.as_deref());
+                e.role.unwrap_or_else(|| Role::derive(&e.entity_id, class)) == Role::Camera
+            });
+            let (Some(camera), Some(index)) =
+                (camera, plan.elements.iter().position(|e| e.id() == id))
+            else {
+                continue;
+            };
+            let Some(cone) = camera_cone(plan, scene, index, self.bindings.view(id)) else {
+                continue;
+            };
+            let points: Option<Vec<[f64; 2]>> = cone
+                .iter()
+                .map(|p| self.renderer.screen_point([p[0], 1.0, p[1]]))
+                .collect();
+            if let Some(points) = points {
+                views.push(serde_json::json!({
+                    "id": id, "entity": camera.entity_id, "points": points,
+                }));
+            }
+        }
+        serde_json::Value::Array(views).to_string()
+    }
+
+    /// Where the elements `ids` (JSON array) are drawn now: the top of each one's centre, as JSON
+    /// `{"id": [x, y]}` in device pixels from the top left. Elements behind the camera or without
+    /// geometry are left out.
+    #[wasm_bindgen(js_name = elementPoints)]
+    pub fn element_points(&self, ids: &str) -> String {
+        let ids: Vec<String> = serde_json::from_str(ids).unwrap_or_default();
+        let mut points = serde_json::Map::new();
+        for id in ids {
+            let Some(info) = self.elements.iter().find(|e| e.id == id) else {
+                continue;
+            };
+            let [min, max] = info.bounds;
+            if min == max {
+                continue;
+            }
+            let top = [
+                f64::from(min[0] + max[0]) * 0.5,
+                f64::from(max[1]),
+                f64::from(min[2] + max[2]) * 0.5,
+            ];
+            if let Some(point) = self.renderer.screen_point(top) {
+                points.insert(id, serde_json::json!(point));
+            }
+        }
+        serde_json::Value::Object(points).to_string()
     }
 
     /// Whether a camera move, a wall animation or a fade is running: frames are then drawn at
