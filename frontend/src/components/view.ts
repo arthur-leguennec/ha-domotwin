@@ -77,13 +77,7 @@ import {
   type PlanRoom,
   type RoomAlert,
 } from "../live/layers";
-import {
-  deviceBadges,
-  elementNames,
-  pieceKinds,
-  type Badge,
-  type BadgeKind,
-} from "../live/devices";
+import { deviceBadges, type Badge, type BadgeKind } from "../live/devices";
 import { StateSync } from "../live/states";
 import { planRooms } from "../live/suggest";
 import { FrameScheduler } from "../scheduler";
@@ -591,6 +585,9 @@ export class DomoTwinView extends LitElement {
         font: inherit;
         cursor: pointer;
         pointer-events: auto;
+      }
+      .badges.raised .badge-group {
+        transform: translate(-50%, calc(-100% - 34px));
       }
       .badge {
         display: inline-flex;
@@ -1456,6 +1453,20 @@ export class DomoTwinView extends LitElement {
     if (JSON.stringify(alerts) !== JSON.stringify(this.alerts)) this.alerts = alerts;
   }
 
+  /**
+   * Reads the kind and name of the elements of the plan shown (the edit overlay applied), then
+   * works out the badges again.
+   */
+  private readElements(engine: DomoTwinEngine): void {
+    this.kinds = {};
+    this.names = {};
+    for (const element of engine.elementList()) {
+      if (element.kind) this.kinds[element.id] = element.kind;
+      this.names[element.id] = { name: element.name || element.id, type: element.type };
+    }
+    this.applyDevices();
+  }
+
   /** Works out the devices' badges; the view changes only when they did. */
   private applyDevices(): void {
     const hass = this.hass;
@@ -1489,10 +1500,13 @@ export class DomoTwinView extends LitElement {
 
   /** A tap on an element's badges: the element's tap. */
   private tapElement(id: string): void {
+    this.sheet = undefined;
     const binding = this.bindings?.elements[id];
     const hass = this.hass;
     if (!binding || !hass) return;
     this.engine?.highlight(id);
+    // An action ran: a second tap soon after is a new tap, not a double tap.
+    this.gestures.forgetTap();
     const info = this.names[id];
     const picked: PickedElement = {
       id,
@@ -1574,8 +1588,6 @@ export class DomoTwinView extends LitElement {
     this.loadError = undefined;
     this.savedViews = [];
     this.rooms = planRooms(this.plan);
-    this.kinds = pieceKinds(this.plan, this.layout);
-    this.names = elementNames(this.plan);
     if (!this.plan) return;
     try {
       this.summary = this.engine.loadPlan(
@@ -1589,6 +1601,7 @@ export class DomoTwinView extends LitElement {
       this.savedViews = this.engine.views();
       this.layersKey = undefined;
       this.applyLayers();
+      this.readElements(this.engine);
       if (!sameHome) {
         if (this.options.view === "2d") this.setPlanView(true);
         if (this.options.room) this.engine.focusElement(this.options.room);
@@ -2148,7 +2161,13 @@ export class DomoTwinView extends LitElement {
     return html`<svg class="cameras" aria-hidden="true" data-testid="cameras">
       ${this.cameraShapes.map((shape) => {
         const state = this.hass?.states[shape.entity]?.state;
-        const tone = state === "recording" ? "recording" : state === "unavailable" ? "off" : "on";
+        // A camera Home Assistant no longer has is off too.
+        const tone =
+          state === "recording"
+            ? "recording"
+            : state === undefined || state === "unavailable"
+              ? "off"
+              : "on";
         const points = shape.points.map(([x, y]) => `${x * k},${y * k}`).join(" ");
         return svg`<polygon class=${tone} data-id=${shape.id} points=${points}></polygon>`;
       })}
@@ -2163,7 +2182,9 @@ export class DomoTwinView extends LitElement {
     }
     const t = this.translator;
     const k = Math.max(1, canvas.clientWidth) / Math.max(1, canvas.width);
-    return html`<div class="badges" data-testid="badges">
+    // Above the power layer's labels, which stand at the same place.
+    const raised = this.layer === "power" ? "raised" : "";
+    return html`<div class="badges ${raised}" data-testid="badges">
       ${[...this.badges].map(([id, badges]) => {
         const point = this.badgePoints[id];
         if (!point) return nothing;

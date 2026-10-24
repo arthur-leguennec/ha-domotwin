@@ -369,4 +369,14 @@ fn cameras_see_their_room_and_badges_have_places() {
     assert_eq!(points.len(), 2, "{points:?}");
     assert!(points["tv"].as_array().unwrap()[0].as_f64().unwrap() > 0.0);
     assert_eq!(engine.element_points("not json"), "{}");
+    let list: serde_json::Value = serde_json::from_str(&engine.element_list()).unwrap();
+    let washer = list
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|e| e["id"] == "washer")
+        .unwrap();
+    assert_eq!(washer["kind"], "washer");
+    assert_eq!(washer["type"], "furniture");
+    assert_eq!(washer["name"], "Washing machine");
 }

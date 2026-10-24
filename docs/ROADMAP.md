@@ -269,13 +269,13 @@ Devices drawn as what they are (`DECISIONS.md`, D-024; `bindings.md`, Devices).
   appliance running (washing machine, dryer, dishwasher, cooker, hood, printers: power over 10 W or
   a `running` sensor). At most two per element, the most urgent first; a tap does what a tap on
   the element does.
-- ✅ **Cameras**: a new `camera` role; the cone a camera sees on the floor, from the piece it is
-  linked to, cut to its room, red while recording; its angle of view and reach set in the link
+- ✅ **Cameras**: a new `camera` role; what a camera sees on the floor, from the piece it is
+  linked to, in its room with its walls hiding what is behind them, red while recording; its angle of view and reach set in the link
   editor (`fov`, `range`); a tap opens Home Assistant's more-info with the live picture.
 - ✅ Unavailable locks and cameras grey out their element, like lights.
 - ✅ Card options `badges` and `cameras`, the layer menu turns both off; linking suggests
-  cameras for shelves and models, and battery sensors for anything.
-- ✅ Tests: the cone and its clipping, the camera's settings (Rust); the engine's camera and
+  cameras for shelves, picture frames, spots and models.
+- ✅ Tests: what a camera sees and what walls hide, the camera's settings (Rust); the engine's camera and
   point API in headless Chromium; the badges' rules (vitest); `fov` and `range` validation
   (pytest); badges, a tap on them, cones, recording, and setting a camera when linking (Playwright).
 

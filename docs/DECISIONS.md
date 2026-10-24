@@ -453,15 +453,21 @@ Decided while the maintainer was away (M5); open to review.
     first. The engine only says where elements are drawn (`elementPoints`, one call for all), read
     again only when the camera moves or something changes (D-023's rule for labels). Badges are
     buttons: a tap does the element's tap; they say what they show to screen readers.
-  - **Cones on the floor, cut to the room.** The engine draws a camera's cone from the centre of
-    its piece towards the piece's front, cut to the piece's room by clipping the room's polygon with
-    the cone (Sutherland–Hodgman), and returns it projected on the floor (`cameraViews`); the view
-    draws it as an SVG polygon, blue, red while recording, grey and dashed when unavailable. No
-    geometry is added to the scene, so nothing is rebuilt when a camera's settings change.
+  - **What a camera sees, in its room.** The engine works out a camera's view from the centre of
+    its piece (moved up to 40 cm forward when it sits in a wall) towards the piece's front: rays
+    across the angle of view and to the room's corners, each stopping at the first side of the
+    room or at the reach, so that the walls hide what is behind them, an L-shaped room's inner
+    corner included. It does so when the plan or the bindings change and only projects it on the
+    floor when the view moves (`cameraViews`); the view draws it as an SVG polygon, blue, red while
+    recording, grey and dashed when unavailable. No geometry is added to the scene, so nothing is
+    rebuilt when a camera's settings change.
+  - **Kinds and names from the engine.** The badges take each piece's kind (for appliances) and
+    name (for their labels) from the plan the engine shows, the edit overlay applied
+    (`elementList`), so that pieces added in edit mode get them too.
   - **Unavailable devices.** A lock or a camera that is unavailable greys out its element, as
     lights and covers do.
-- **Consequences.** Cones are not cut by furniture or by the walls of an open room (the room's
-  polygon stands for its walls). A camera must be linked to a piece; cameras of their own come
+- **Consequences.** Views are not cut by furniture, and an open side between two rooms stops a
+  view as a wall would (the room's polygon stands for its walls). A camera must be linked to a piece; cameras of their own come
   with the plan editor (M6). Badges hide while linking and in edit mode, where taps pick elements.
   The badges and cones of a large home are a few dozen HTML and SVG nodes, moved only when the
   camera moves.

@@ -102,6 +102,11 @@ export class Engine {
      */
     editUndo(): string;
     /**
+     * The elements of the plan shown (the edit overlay applied), as JSON `[{"id", "type", "name",
+     * "kind"}]` (`kind` for furniture only).
+     */
+    elementList(): string;
+    /**
      * Where the elements `ids` (JSON array) are drawn now: the top of each one's centre, as JSON
      * `{"id": [x, y]}` in device pixels from the top left. Elements behind the camera or without
      * geometry are left out.
@@ -365,6 +370,7 @@ export interface InitOutput {
     readonly engine_editSelect: (a: number, b: number, c: number, d: number, e: number) => void;
     readonly engine_editState: (a: number, b: number) => void;
     readonly engine_editUndo: (a: number, b: number) => void;
+    readonly engine_elementList: (a: number, b: number) => void;
     readonly engine_elementPoints: (a: number, b: number, c: number, d: number) => void;
     readonly engine_endEdit: (a: number, b: number) => void;
     readonly engine_focusElement: (a: number, b: number, c: number, d: number) => number;

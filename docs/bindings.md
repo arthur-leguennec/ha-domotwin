@@ -120,9 +120,9 @@ on one element, the most urgent first.
 | Battery low | a `sensor` with class `battery` at 20 % or less, or a `binary_sensor` battery on | amber, with the level |
 | Running | a washing machine, dryer, dishwasher, cooker, hood or printer whose power sensors read more than 10 W, or whose `binary_sensor` with class `running` is on | its own icon, pulsing |
 
-**What a camera sees.** An element linked to a camera shows its cone on the floor: from the
+**What a camera sees.** A piece linked to a camera shows what it sees on the floor: from the
 centre of the piece towards its front (the `y + h` side, the way it faces), `fov` wide and `range`
-long, cut to the piece's room. It is blue, red while recording, grey and dashed when the camera is
+long, in the piece's room, its walls hiding what is behind them. It is blue, red while recording, grey and dashed when the camera is
 unavailable. The camera on the bookcase of the demo apartment looks into the living room. A tap
 opens Home Assistant's more-info dialog, with the live picture. The card's `badges: false` and
 `cameras: false` turn them off; so does the layer menu.
@@ -174,8 +174,7 @@ instead of acting on it, and opens its editor:
 - **Suggestions** from the room's area: the entities that fit the element, best first, those
   already linked left out. Lamps take lights and switches, fans fans and lights, curtains covers,
   TVs media players, doors door contacts, locks and garage covers, windows window contacts and
-  covers, appliances power sensors and switches, shelves and models cameras; a battery sensor
-  fits anything.
+  covers, appliances power sensors and switches, shelves, frames, spots and models cameras.
 - **Search** by name or entity id, accents ignored.
 - **On tap** and **On long press**: automatic (on tap from the first role, on long press
   DomoTwin's controls), toggle, more info, DomoTwin's controls, **run an action** (`domain.action`,

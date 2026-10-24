@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { HassEntity, HomeAssistant } from "../src/ha/types";
 import type { BindingsJson } from "../src/live/bindings";
-import { deviceBadges, elementNames, pieceKinds, MAX_BADGES } from "../src/live/devices";
+import { deviceBadges, MAX_BADGES } from "../src/live/devices";
 
 function hass(states: [string, string, Record<string, unknown>?][]): HomeAssistant {
   const all: Record<string, HassEntity> = {};
@@ -127,25 +127,5 @@ describe("deviceBadges", () => {
     );
     expect(badges.get("a")).toHaveLength(MAX_BADGES);
     expect(badges.get("a")?.[0]?.kind).toBe("lock_open");
-  });
-});
-
-describe("plan helpers", () => {
-  it("reads the pieces' kinds, overlay pieces included, and the elements' names", () => {
-    const plan = {
-      elements: [
-        { id: "w", type: "furniture", kind: "washer", name: "Washer" },
-        { id: "r", type: "room", name: "" },
-      ],
-    };
-    expect(pieceKinds(plan, { added: { kind: "dryer" }, w: { x: 3 } })).toEqual({
-      w: "washer",
-      added: "dryer",
-    });
-    expect(elementNames(plan)).toEqual({
-      w: { name: "Washer", type: "furniture" },
-      r: { name: "r", type: "room" },
-    });
-    expect(pieceKinds(null, null)).toEqual({});
   });
 });

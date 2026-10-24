@@ -110,6 +110,15 @@ export interface UserModel {
   removable: boolean;
 }
 
+/** An element of the plan shown. */
+export interface PlanElement {
+  id: string;
+  type: "room" | "wall" | "door" | "window" | "furniture";
+  name: string;
+  /** Furniture only. */
+  kind?: string;
+}
+
 /** A value of a layer and where it goes on the picture (device pixels from the top left). */
 export interface LayerLabel {
   /** The room's id (`heat`) or the piece's (`power`). */
@@ -323,6 +332,11 @@ export class DomoTwinEngine {
   /** Whether a camera move, a wall animation or a fade is running (frames at the display rate). */
   get moving(): boolean {
     return this.live.moving();
+  }
+
+  /** The elements of the plan shown, the edit overlay applied. */
+  elementList(): PlanElement[] {
+    return JSON.parse(this.live.elementList()) as PlanElement[];
   }
 
   /** What the linked cameras see on the floor, as the engine's JSON text (device pixels). */

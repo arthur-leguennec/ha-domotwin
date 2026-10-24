@@ -5,6 +5,7 @@
  */
 import type { HassEntity, HomeAssistant } from "../ha/types";
 import { roleOf, type BindingsJson } from "./bindings";
+import { numberOf } from "./layers";
 
 export type BadgeKind =
   | "locked"
@@ -54,13 +55,8 @@ export const MAX_BADGES = 2;
 
 const TONE_ORDER: Record<BadgeTone, number> = { danger: 0, warning: 1, ok: 2, info: 3 };
 
-function numberOf(entity: HassEntity): number | undefined {
-  const value = entity.state.trim() === "" ? NaN : Number(entity.state);
-  return Number.isFinite(value) ? value : undefined;
-}
-
 function watts(entity: HassEntity): number | undefined {
-  const value = numberOf(entity);
+  const value = numberOf(entity.state);
   if (value === undefined) return undefined;
   const unit = entity.attributes.unit_of_measurement;
   if (unit === "kW") return value * 1000;
@@ -129,7 +125,7 @@ export function deviceBadges(
         power += Math.max(0, watts(entity) ?? 0);
       }
       if (deviceClass === "battery") {
-        const level = id.startsWith("sensor.") ? numberOf(entity) : undefined;
+        const level = id.startsWith("sensor.") ? numberOf(entity.state) : undefined;
         if (level !== undefined && level <= LOW_BATTERY) {
           add({ kind: "battery_low", tone: "warning", entity: id, text: `${Math.round(level)} %` });
         } else if (id.startsWith("binary_sensor.") && entity.state === "on") {
@@ -151,41 +147,6 @@ export function deviceBadges(
       badges.sort((a, b) => TONE_ORDER[a.tone] - TONE_ORDER[b.tone]);
       out.set(element, badges.slice(0, MAX_BADGES));
     }
-  }
-  return out;
-}
-
-/** The furniture kind of each piece of a plan JSON and of the pieces an overlay added. */
-export function pieceKinds(plan: unknown, layout: unknown): Record<string, string> {
-  const kinds: Record<string, string> = {};
-  const elements = (plan as { elements?: unknown } | null | undefined)?.elements;
-  if (Array.isArray(elements)) {
-    for (const raw of elements as unknown[]) {
-      const e = raw as { id?: unknown; kind?: unknown } | null;
-      if (typeof e?.id === "string" && typeof e.kind === "string") kinds[e.id] = e.kind;
-    }
-  }
-  if (typeof layout === "object" && layout !== null) {
-    for (const [id, raw] of Object.entries(layout as Record<string, unknown>)) {
-      const kind = (raw as { kind?: unknown } | null)?.kind;
-      if (typeof kind === "string") kinds[id] = kind;
-    }
-  }
-  return kinds;
-}
-
-/** The name and type of each element of a plan JSON (names default to ids). */
-export function elementNames(plan: unknown): Record<string, { name: string; type: string }> {
-  const out: Record<string, { name: string; type: string }> = {};
-  const elements = (plan as { elements?: unknown } | null | undefined)?.elements;
-  if (!Array.isArray(elements)) return out;
-  for (const raw of elements as unknown[]) {
-    const e = raw as { id?: unknown; name?: unknown; type?: unknown } | null;
-    if (typeof e?.id !== "string") continue;
-    out[e.id] = {
-      name: typeof e.name === "string" && e.name ? e.name : e.id,
-      type: typeof e.type === "string" ? e.type : "",
-    };
   }
   return out;
 }

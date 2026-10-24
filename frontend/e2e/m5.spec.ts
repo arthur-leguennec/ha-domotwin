@@ -126,6 +126,8 @@ test.describe("devices", () => {
     await expect(editor.getByTestId("link-fov")).toHaveValue("100");
     await editor.getByTestId("link-fov").fill("5");
     await expect(editor.getByTestId("link-save")).toBeDisabled();
+    await editor.getByTestId("link-fov").fill("12a");
+    await expect(editor.getByTestId("link-save")).toBeDisabled();
     await editor.getByTestId("link-fov").fill("40");
     await editor.getByTestId("link-range").fill("");
     await editor.getByTestId("link-save").click();

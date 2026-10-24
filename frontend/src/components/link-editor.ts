@@ -54,8 +54,8 @@ const ROLES: readonly Role[] = [
 
 /** What a camera sees: its angle of view (degrees) and reach (cm), with their limits. */
 const VIEW_FIELDS = [
-  ["fov", 10, 180, 5, 90],
-  ["range", 50, 3000, 10, 600],
+  ["fov", 10, 180, 90],
+  ["range", 50, 3000, 600],
 ] as const;
 
 /** A view field typed by the user: empty (the default) or a number within its limits. */
@@ -218,9 +218,12 @@ export class DomoTwinLink extends Sheet {
     );
   }
 
-  /** A camera is linked: what it sees can be set. */
+  /** A camera is linked to a piece: what it sees can be set (cones start from pieces). */
   private get hasCamera(): boolean {
-    return this.entities.some((entity) => roleOf(entity, this.hass) === "camera");
+    return (
+      this.element?.type === "furniture" &&
+      this.entities.some((entity) => roleOf(entity, this.hass) === "camera")
+    );
   }
 
   private setRole(entityId: string, role: string): void {
@@ -382,16 +385,14 @@ export class DomoTwinLink extends Sheet {
     );
     return html`<h3>${t.t("link.camera_view")}</h3>
       ${VIEW_FIELDS.map(
-        ([key, low, high, step, fallback]) =>
+        ([key, , , fallback]) =>
           html`<label>
             <span class="field">${t.t(`link.${key}`)}</span>
             <input
-              type="number"
-              inputmode="numeric"
+              type="text"
+              inputmode="decimal"
+              autocomplete="off"
               data-testid=${`link-${key}`}
-              min=${low}
-              max=${high}
-              step=${step}
               placeholder=${String(fallback)}
               .value=${this[key]}
               @input=${(event: Event) => {
