@@ -14,60 +14,44 @@ pub enum ErrorCode {
     NotJson,
     /// The top level is not a JSON object.
     NotAnObject,
-    /// `version` is missing or is not `1`.
-    BadVersion,
-    /// `unit` is missing or is not `"cm"`.
-    BadUnit,
-    /// `elements` is missing, empty or not an array.
+    /// Not a DomoTwin plan (`format`, `version`, or a list that is not one).
+    NotAPlan,
+    /// A plan of a newer version of the format.
+    NewerVersion,
+    /// No element at all.
     NoElements,
     /// More elements than the format allows.
     TooManyElements,
-    /// The plan was written by a newer revision of the format.
-    NewerRevision,
-    /// `wallSettings` has a value out of range.
+    /// `wallThickness` has a value out of range.
     WallThickness,
-    /// An element without a valid id, type or name, or with a duplicate id.
+    /// An element that is not an object or has no valid id.
     InvalidElement,
     /// Two elements share an id.
     DuplicateId,
-    /// `x` or `y` out of range.
+    /// An item's place missing or out of range.
     PositionRange,
-    /// A room frame out of range.
-    RoomSize,
-    /// A furniture footprint out of range.
-    FurnitureSize,
-    /// A furniture height out of range.
-    FurnitureHeight,
-    /// A furniture elevation out of range.
-    ElevationRange,
-    /// An `angle` that is not a number.
-    InvalidAngle,
-    /// A room polygon with a wrong number of vertices or vertices outside the frame.
-    VertexCount,
-    /// A room polygon that crosses itself.
+    /// A room's outline missing, of a wrong number of corners, out of range or too large.
+    InvalidOutline,
+    /// A room's outline that crosses itself.
     SelfIntersection,
-    /// A room polygon smaller than 25 cm².
+    /// A room smaller than 25 cm².
     MinArea,
-    /// `openEdges` is not a list.
-    InvalidOpenEdges,
-    /// `openEdges` names a side that does not exist.
-    OpenEdgeRange,
-    /// `edgeThickness` does not match the sides or has a value out of range.
-    InvalidEdgeThickness,
-    /// A free wall out of range or shorter than 5 cm.
-    InvalidWall,
-    /// A door or window without a valid width or angle.
+    /// An item's footprint missing or out of range.
+    ItemSize,
+    /// An item's height out of range.
+    ItemHeight,
+    /// A partition without both ends, or shorter than 5 cm.
+    InvalidPartition,
+    /// A door or window without both ends, or of a width out of range.
     InvalidOpening,
     /// A door or window wider than the side of its room (the plan editor's check).
     OpeningTooWide,
-    /// A `parent` that is not the id of a room.
-    MissingParent,
-    /// A `custom` piece whose model is not in `models`.
+    /// A `room` that is not the id of a room.
+    MissingRoom,
+    /// An item whose model is not in `models`.
     MissingModel,
     /// An invalid entry of `models`.
     InvalidModel,
-    /// An invalid `site`.
-    InvalidSite,
 }
 
 impl ErrorCode {
@@ -78,33 +62,25 @@ impl ErrorCode {
             Self::TooLarge => "too_large",
             Self::NotJson => "not_json",
             Self::NotAnObject => "not_an_object",
-            Self::BadVersion => "bad_version",
-            Self::BadUnit => "bad_unit",
+            Self::NotAPlan => "not_a_plan",
+            Self::NewerVersion => "newer_version",
             Self::NoElements => "no_elements",
             Self::TooManyElements => "too_many_elements",
-            Self::NewerRevision => "newer_revision",
             Self::WallThickness => "wall_thickness",
             Self::InvalidElement => "invalid_element",
             Self::DuplicateId => "duplicate_id",
             Self::PositionRange => "position_range",
-            Self::RoomSize => "room_size",
-            Self::FurnitureSize => "furniture_size",
-            Self::FurnitureHeight => "furniture_height",
-            Self::ElevationRange => "elevation_range",
-            Self::InvalidAngle => "invalid_angle",
-            Self::VertexCount => "vertex_count",
+            Self::InvalidOutline => "invalid_outline",
             Self::SelfIntersection => "self_intersection",
             Self::MinArea => "min_area",
-            Self::InvalidOpenEdges => "invalid_open_edges",
-            Self::OpenEdgeRange => "open_edge_range",
-            Self::InvalidEdgeThickness => "invalid_edge_thickness",
-            Self::InvalidWall => "invalid_wall",
+            Self::ItemSize => "item_size",
+            Self::ItemHeight => "item_height",
+            Self::InvalidPartition => "invalid_partition",
             Self::InvalidOpening => "invalid_opening",
             Self::OpeningTooWide => "opening_too_wide",
-            Self::MissingParent => "missing_parent",
+            Self::MissingRoom => "missing_room",
             Self::MissingModel => "missing_model",
             Self::InvalidModel => "invalid_model",
-            Self::InvalidSite => "invalid_site",
         }
     }
 }

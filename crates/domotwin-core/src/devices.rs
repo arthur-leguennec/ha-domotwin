@@ -141,13 +141,11 @@ mod tests {
     /// left edge.
     fn home(angle: f64) -> Plan {
         let value = json!({
-            "version": 1, "unit": "cm",
-            "elements": [
-                { "id": "room", "type": "room", "name": "Room", "x": 0, "y": 0, "w": 600, "h": 400,
-                  "vertices": [[0, 0], [1, 0], [1, 0.5], [0.5, 0.5], [0.5, 1], [0, 1]] },
-                { "id": "cam", "type": "furniture", "name": "Camera", "x": 20, "y": 90, "w": 10,
-                  "h": 20, "z": 10, "kind": "spot", "angle": angle, "parent": "room" }
-            ]
+            "format": "domotwin-plan", "version": 1,
+            "rooms": [{ "id": "room", "name": "Room",
+                        "outline": [[0, 0], [600, 0], [600, 200], [300, 200], [300, 400], [0, 400]] }],
+            "items": [{ "id": "cam", "name": "Camera", "at": [25, 100], "size": [10, 20, 10],
+                        "kind": "spotlight", "rotation": angle, "room": "room" }]
         });
         crate::plan::read_plan_value(&value).unwrap()
     }

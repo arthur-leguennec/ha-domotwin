@@ -1,6 +1,7 @@
 import type { DomoTwinClient, StoreyInfo } from "../ha/client";
 import type { Translator } from "../i18n";
 import { ALL_STOREYS, storeyLevels, storeyName } from "./storeys";
+import { planElements } from "./plan";
 import { nameWords } from "./text";
 
 /** A `domotwin.show` request (D-029), as the integration sends it to every screen. */
@@ -79,14 +80,11 @@ interface Named {
 
 /** The elements of a plan with their names (the id when unnamed). */
 function named(plan: unknown): Named[] {
-  const elements = (plan as { elements?: unknown } | null | undefined)?.elements;
-  if (!Array.isArray(elements)) return [];
-  return (elements as unknown[]).flatMap((raw) => {
-    const e = raw as Record<string, unknown> | null;
-    if (typeof e?.id !== "string") return [];
-    const name = typeof e.name === "string" && e.name ? e.name : e.id;
-    return [{ id: e.id, name, type: typeof e.type === "string" ? e.type : "" }];
-  });
+  return planElements(plan).map(({ id, type, fields }) => ({
+    id,
+    type,
+    name: typeof fields.name === "string" && fields.name ? fields.name : id,
+  }));
 }
 
 /** The element `wanted` names in `plans`: by id, else by its name as said (a room first when

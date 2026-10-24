@@ -11,7 +11,7 @@ export class IfcImport {
      * The plan of a storey and what was left out, as JSON `{"plan", "report"}`. Errors:
      * `no_storeys`, `no_spaces`.
      */
-    convert(storey: number, reference: string): string;
+    convert(storey: number): string;
     /**
      * Reads the file's bytes. Errors are JSON `{"code"}`: `not_ifc`, `too_large`, `no_storeys`.
      */
@@ -32,7 +32,7 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 export interface InitOutput {
     readonly memory: WebAssembly.Memory;
     readonly __wbg_ifcimport_free: (a: number, b: number) => void;
-    readonly ifcimport_convert: (a: number, b: number, c: number, d: number, e: number) => void;
+    readonly ifcimport_convert: (a: number, b: number, c: number) => void;
     readonly ifcimport_new: (a: number, b: number, c: number) => void;
     readonly ifcimport_schema: (a: number, b: number) => void;
     readonly ifcimport_storeys: (a: number, b: number) => void;

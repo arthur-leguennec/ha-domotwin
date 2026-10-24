@@ -62,12 +62,12 @@ def looks_like(data: bytes, file_format: str) -> bool:
     return sniff is not None and 0 < len(data) <= MAX_MODEL_BYTES and sniff(data)
 
 
-def used_hashes(plan: dict[str, Any] | None, layout: dict[str, Any]) -> set[str]:
+def used_hashes(plan: Any, layout: Any) -> set[str]:
     """The files the stored plan and its overlay use."""
     models: list[Any] = []
     if isinstance(plan, dict) and isinstance(plan.get("models"), dict):
         models.extend(plan["models"].values())
-    for key, entry in layout.items():
+    for key, entry in layout.items() if isinstance(layout, dict) else ():
         if key.startswith(MODEL_ENTRY_PREFIX) and isinstance(entry, dict):
             models.append(entry.get("model"))
     hashes: set[str] = set()
@@ -140,9 +140,7 @@ async def async_store(hass: HomeAssistant, data: bytes, file_format: str) -> str
     return await hass.async_add_executor_job(_store, models_dir(hass), data, file_format)
 
 
-async def async_remove_unused(
-    hass: HomeAssistant, storeys: list[tuple[dict[str, Any] | None, dict[str, Any]]]
-) -> int:
+async def async_remove_unused(hass: HomeAssistant, storeys: list[tuple[Any, Any]]) -> int:
     """Delete the files no storey uses any more (past their grace period). Returns how many."""
     used: set[str] = set()
     for plan, layout in storeys:

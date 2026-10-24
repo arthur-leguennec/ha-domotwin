@@ -5,8 +5,8 @@
 use std::rc::Rc;
 
 use super::Builder;
+use super::imported;
 use super::mesh::{CutMode, Material, NO_GROUP, Painter, ROUND, Surface, Tag, V3, Xform};
-use super::{imported, kit};
 use crate::geometry::polygon::P2;
 use crate::geometry::walls::WallLayout;
 use crate::model_mesh::ModelMesh;
@@ -296,17 +296,13 @@ fn piece(builder: &mut Builder, plan: &Plan, layout: &WallLayout, index: usize, 
             CutMode::Keep
         },
     };
-    // Vertical kinds are modelled along the plan's y side, their front towards plan −x.
-    let (u, w, d) = if flags.vertical {
-        (rotate([0.0, 1.0]), f.h, f.w)
-    } else {
-        (rotate([1.0, 0.0]), f.w, f.h)
-    };
+    // Width along the item's x, depth along its y, its front towards +y.
+    let (u, w, d) = (rotate([1.0, 0.0]), f.w, f.h);
     let x = Xform::plan([centre[0], f.elevation, centre[1]], u);
     let open = builder.overrides.open.get(&builder.global(index)).copied();
     let ceiling = (builder.wall_height - f.elevation - f.z).max(0.0);
     let base = Material::paint(f.color);
-    let file = if f.kind == Kind::Custom && !builder.boxed.contains(&index) {
+    let file = if f.model.is_some() && !builder.boxed.contains(&index) {
         f.model
             .as_ref()
             .and_then(|id| plan.models.get(id))
@@ -332,7 +328,7 @@ fn piece(builder: &mut Builder, plan: &Plan, layout: &WallLayout, index: usize, 
         file,
     };
     let before = model.p.mesh.vertex_count() + model.g.mesh.vertex_count();
-    draw(&mut model, f, plan);
+    draw(&mut model, f);
     if model.p.mesh.vertex_count() + model.g.mesh.vertex_count() == before {
         // Too small for its model: a plain box of its size.
         model.bx(base, [-w / 2.0, 0.0, -d / 2.0], [w / 2.0, f.z, d / 2.0]);
@@ -354,7 +350,7 @@ fn piece(builder: &mut Builder, plan: &Plan, layout: &WallLayout, index: usize, 
             });
         }
     }
-    if f.kind == Kind::Custom {
+    if f.model.is_some() {
         // A user model lights the room when a light is linked to it (D-021): off until then.
         builder.lights.push(super::LightSpot {
             element: builder.global(index),
@@ -421,14 +417,18 @@ fn contact_shadow(builder: &mut Builder, x: &Xform, w: f64, d: f64) {
 }
 
 #[allow(clippy::too_many_lines)]
-fn draw(m: &mut Model<'_>, f: &Furniture, plan: &Plan) {
+fn draw(m: &mut Model<'_>, f: &Furniture) {
     let (w, d, h, c) = (m.w, m.d, m.h, m.c);
     let variant = f.variant.as_deref();
     match f.kind {
-        Kind::Sofa => sofa(m, variant == Some("cuir"), None),
-        Kind::Armchair => sofa(m, variant == Some("cuir"), Some(1)),
-        Kind::Table | Kind::Dining | Kind::Desk | Kind::Console => {
-            let top = if f.kind == Kind::Table { 4.0 } else { 3.5 };
+        Kind::Sofa => sofa(m, variant == Some("leather"), None),
+        Kind::Armchair => sofa(m, variant == Some("leather"), Some(1)),
+        Kind::CoffeeTable | Kind::DiningTable | Kind::Desk | Kind::Console => {
+            let top = if f.kind == Kind::CoffeeTable {
+                4.0
+            } else {
+                3.5
+            };
             let wood = surface(c);
             m.bx(wood, [-w / 2.0, h - top, -d / 2.0], [w / 2.0, h, d / 2.0]);
             let leg = (w.min(d) * 0.07).clamp(3.0, 6.0);
@@ -446,7 +446,7 @@ fn draw(m: &mut Model<'_>, f: &Furniture, plan: &Plan) {
                     [w / 2.0 - dw - 2.5, h - 15.0, d / 2.0 - 2.0],
                     [w / 2.0 - 3.5, h - top - 1.0, d / 2.0 - 1.0],
                 );
-            } else if f.kind == Kind::Table && h > 30.0 {
+            } else if f.kind == Kind::CoffeeTable && h > 30.0 {
                 m.bx(
                     wood,
                     [-w / 2.0 + 4.0, 10.0, -d / 2.0 + 4.0],
@@ -456,7 +456,7 @@ fn draw(m: &mut Model<'_>, f: &Furniture, plan: &Plan) {
         }
         Kind::Tv => {
             let screen_h = (h - 8.0).max(h * 0.8);
-            let wall = variant == Some("mural");
+            let wall = variant == Some("wall-mounted");
             let z = if wall { -d / 2.0 + 3.0 } else { 0.0 };
             let y0 = if wall { 0.0 } else { h - screen_h };
             m.bx(
@@ -489,8 +489,8 @@ fn draw(m: &mut Model<'_>, f: &Furniture, plan: &Plan) {
             m.bx(wood, [-w / 2.0, 6.0, -d / 2.0], [w / 2.0, h, d / 2.0]);
             m.legs(wood, 3.0, 3.0, 6.0);
             let rows = match variant {
-                Some("3-tiroirs") => 3,
-                Some("1-tiroir") => 1,
+                Some("three-drawers") => 3,
+                Some("one-drawer") => 1,
                 _ => 2,
             };
             m.fronts(Material::satin(shade(c, 1.05)), 8.0, h - 2.0, 1, rows, true);
@@ -518,9 +518,13 @@ fn draw(m: &mut Model<'_>, f: &Furniture, plan: &Plan) {
             );
             m.bulbs.push([0.0, top + lamp_h - 9.0, -d * 0.1]);
         }
-        Kind::Dresser | Kind::Shoecab | Kind::Cabinet => {
+        Kind::Dresser | Kind::ShoeCabinet | Kind::WallCabinet => {
             let wood = surface(c);
-            let feet = if f.kind == Kind::Cabinet { 0.0 } else { 8.0 };
+            let feet = if f.kind == Kind::WallCabinet {
+                0.0
+            } else {
+                8.0
+            };
             m.bx(wood, [-w / 2.0, feet, -d / 2.0], [w / 2.0, h, d / 2.0]);
             if feet > 0.0 {
                 m.legs(Material::wood(shade(c, 0.7)), 4.0, 4.0, feet);
@@ -530,7 +534,7 @@ fn draw(m: &mut Model<'_>, f: &Furniture, plan: &Plan) {
             match f.kind {
                 Kind::Dresser => {
                     m.fronts(front, feet + 2.0, h - 3.0, cols, 3, true);
-                    if variant == Some("ancien") {
+                    if variant == Some("antique") {
                         m.bx(
                             wood,
                             [-w / 2.0 - 1.5, h, -d / 2.0 - 1.0],
@@ -538,14 +542,14 @@ fn draw(m: &mut Model<'_>, f: &Furniture, plan: &Plan) {
                         );
                     }
                 }
-                Kind::Shoecab => m.fronts(front, feet + 2.0, h - 2.0, cols, 2, true),
+                Kind::ShoeCabinet => m.fronts(front, feet + 2.0, h - 2.0, cols, 2, true),
                 _ => m.fronts(front, 1.0, h - 1.0, cols, 1, true),
             }
         }
         Kind::Chair => chair(m),
-        Kind::Officechair => office_chair(m),
+        Kind::OfficeChair => office_chair(m),
         Kind::Stairs => stairs(m),
-        Kind::Bookcase | Kind::Shelf | Kind::Openshelf | Kind::Barrister => {
+        Kind::Bookcase | Kind::Shelf | Kind::OpenShelving | Kind::GlazedBookcase => {
             shelves(m, f.kind, variant)
         }
         Kind::Counter | Kind::Sink | Kind::Stove | Kind::Dishwasher => kitchen(m, f.kind),
@@ -614,7 +618,7 @@ fn draw(m: &mut Model<'_>, f: &Furniture, plan: &Plan) {
             );
             faucet(m, [0.0, h, -d / 2.0 + 5.0]);
         }
-        Kind::Linen => {
+        Kind::TallCabinet => {
             let body = surface(c);
             m.bx(body, [-w / 2.0, 0.0, -d / 2.0], [w / 2.0, h, d / 2.0]);
             m.fronts(
@@ -625,7 +629,7 @@ fn draw(m: &mut Model<'_>, f: &Furniture, plan: &Plan) {
                 1,
                 true,
             );
-            if variant == Some("armoire") {
+            if variant == Some("wardrobe") {
                 m.bx(
                     body,
                     [-w / 2.0 - 2.0, h - 6.0, -d / 2.0 - 1.0],
@@ -692,7 +696,7 @@ fn draw(m: &mut Model<'_>, f: &Furniture, plan: &Plan) {
                 3.0,
             );
         }
-        Kind::Cart => {
+        Kind::Trolley => {
             let metal = Material::metal(c);
             for y in [12.0, h * 0.5, h - 2.0] {
                 m.bx(metal, [-w / 2.0, y - 2.0, -d / 2.0], [w / 2.0, y, d / 2.0]);
@@ -725,7 +729,7 @@ fn draw(m: &mut Model<'_>, f: &Furniture, plan: &Plan) {
                 );
             }
         }
-        Kind::Soffit => m.bx(
+        Kind::Bulkhead => m.bx(
             Material::paint(c),
             [-w / 2.0, 0.0, -d / 2.0],
             [w / 2.0, h, d / 2.0],
@@ -735,7 +739,7 @@ fn draw(m: &mut Model<'_>, f: &Furniture, plan: &Plan) {
             [-w / 2.0, 0.0, -d / 2.0],
             [w / 2.0, h, d / 2.0],
         ),
-        Kind::Heater => {
+        Kind::Radiator => {
             let paint = Material::satin(c);
             let fins = ((w / 6.0).floor().max(2.0)) as usize;
             #[allow(clippy::cast_precision_loss)]
@@ -764,12 +768,18 @@ fn draw(m: &mut Model<'_>, f: &Furniture, plan: &Plan) {
             let open = m.open.unwrap_or_else(|| f.curtain_open_fraction());
             curtain(m, open);
         }
-        Kind::Frame | Kind::Gallery | Kind::Mirror => pictures(m, f.kind, variant),
-        Kind::Chandelier | Kind::Pendant | Kind::Spot | Kind::Ceilinglight | Kind::Fan => {
+        Kind::Picture | Kind::PictureWall | Kind::Mirror => pictures(m, f.kind, variant),
+        Kind::Chandelier
+        | Kind::Pendant
+        | Kind::Spotlight
+        | Kind::CeilingLight
+        | Kind::CeilingFan => {
             ceiling_light(m, f.kind, variant);
         }
-        Kind::Lamp | Kind::Tablelamp | Kind::Lantern | Kind::Desklamp => standing_light(m, f.kind),
-        Kind::Trunk => {
+        Kind::FloorLamp | Kind::TableLamp | Kind::Lantern | Kind::DeskLamp => {
+            standing_light(m, f.kind)
+        }
+        Kind::Chest => {
             let wood = Material::wood(c);
             m.bx(
                 wood,
@@ -795,13 +805,13 @@ fn draw(m: &mut Model<'_>, f: &Furniture, plan: &Plan) {
                 [3.0, h * 0.78, d / 2.0 + 1.0],
             );
         }
-        Kind::Stand | Kind::Roundtable => {
-            let top_m = if variant == Some("marbre") {
+        Kind::SideTable | Kind::RoundTable => {
+            let top_m = if variant == Some("marble") {
                 Material::new(Rgb8::from_u32(0xe8e6e1), 0.25, Surface::Matte)
             } else {
                 surface(c)
             };
-            if f.kind == Kind::Roundtable {
+            if f.kind == Kind::RoundTable {
                 m.p.material = top_m;
                 m.p.ellipse_cylinder(
                     &m.x,
@@ -816,7 +826,7 @@ fn draw(m: &mut Model<'_>, f: &Furniture, plan: &Plan) {
                 m.cyl(Material::metal(c), [0.0, 2.0, 0.0], [2.0, 2.0], h - 5.0);
             } else {
                 m.bx(top_m, [-w / 2.0, h - 3.0, -d / 2.0], [w / 2.0, h, d / 2.0]);
-                if variant == Some("epingle") {
+                if variant == Some("hairpin") {
                     let iron = Material::metal(DARK);
                     for sx in [-1.0, 1.0] {
                         for sz in [-1.0, 1.0] {
@@ -854,25 +864,15 @@ fn draw(m: &mut Model<'_>, f: &Furniture, plan: &Plan) {
                 [w * 0.3, h + 0.6, -d / 2.0 + 14.0],
             );
         }
-        Kind::Conduit => {
-            m.p.material = Material::metal(c);
-            let tube =
-                m.x.translated([-w / 2.0, h / 2.0, 0.0])
-                    .turned_z(-std::f64::consts::FRAC_PI_2);
-            m.p.cylinder(&tube, [0.0; 3], [h / 2.0, h / 2.0], w, 10, true);
-        }
         Kind::Printer3d => printer3d(m, variant),
-        Kind::Custom => {
+        Kind::Box => {
+            // A piece drawn from a 3D file once its mesh came; a box until then.
             let drawn = match m.file.take() {
                 Some((mesh, z_up)) => {
                     imported::draw(m, &mesh, z_up);
                     true
                 }
-                None => f
-                    .model
-                    .as_ref()
-                    .and_then(|id| plan.models.get(id))
-                    .is_some_and(|model| kit::draw(m, model)),
+                None => false,
             };
             if !drawn {
                 m.bx(
@@ -1235,14 +1235,14 @@ fn plant(m: &mut Model<'_>, variant: Option<&str>) {
 
 fn shelves(m: &mut Model<'_>, kind: Kind, variant: Option<&str>) {
     let (w, d, h, c) = (m.w, m.d, m.h, m.c);
-    let metal = kind == Kind::Openshelf && variant == Some("metal");
+    let metal = kind == Kind::OpenShelving && variant == Some("metal");
     let body = if metal {
         Material::metal(c)
     } else {
         surface(c)
     };
     let t = if metal { 1.5 } else { 2.0 };
-    let open = kind == Kind::Openshelf || kind == Kind::Shelf;
+    let open = kind == Kind::OpenShelving || kind == Kind::Shelf;
     if open {
         for sx in [-1.0, 1.0] {
             for sz in [-1.0, 1.0] {
@@ -1304,7 +1304,7 @@ fn shelves(m: &mut Model<'_>, kind: Kind, variant: Option<&str>) {
             }
         }
     }
-    if kind == Kind::Barrister {
+    if kind == Kind::GlazedBookcase {
         // Glass doors on each section.
         for k in 0..levels {
             #[allow(clippy::cast_precision_loss)]
@@ -1474,7 +1474,7 @@ fn pictures(m: &mut Model<'_>, kind: Kind, variant: Option<&str>) {
     let z0 = -d / 2.0;
     match kind {
         Kind::Mirror => {
-            let frame = if variant == Some("blanc") {
+            let frame = if variant == Some("white") {
                 Material::satin(WHITE)
             } else {
                 Material::metal(c)
@@ -1486,7 +1486,7 @@ fn pictures(m: &mut Model<'_>, kind: Kind, variant: Option<&str>) {
                 [w / 2.0 - 4.0, h - 4.0, z0 + d + 0.2],
             );
         }
-        Kind::Gallery => {
+        Kind::PictureWall => {
             let cols = ((w / 40.0).round() as usize).clamp(2, 6);
             #[allow(clippy::cast_precision_loss)]
             let cw = w / cols as f64;
@@ -1500,9 +1500,9 @@ fn pictures(m: &mut Model<'_>, kind: Kind, variant: Option<&str>) {
         }
         _ => {
             let art = match variant {
-                Some("carte") => Rgb8::from_u32(0xd9c9a0),
-                Some("bd") => Rgb8::from_u32(0xe9b949),
-                Some("affiche") => Rgb8::from_u32(0xc8553d),
+                Some("map") => Rgb8::from_u32(0xd9c9a0),
+                Some("comic") => Rgb8::from_u32(0xe9b949),
+                Some("poster") => Rgb8::from_u32(0xc8553d),
                 Some("portrait") => Rgb8::from_u32(0x7a6a5a),
                 _ => Rgb8::from_u32(0xe8e2d4),
             };
@@ -1546,7 +1546,7 @@ fn ceiling_light(m: &mut Model<'_>, kind: Kind, variant: Option<&str>) {
     let r = w.min(m.d) / 2.0;
     let stem = m.ceiling;
     let metal = Material::metal(c);
-    if stem > 0.5 && kind != Kind::Spot {
+    if stem > 0.5 && kind != Kind::Spotlight {
         m.rod(
             Material::metal(DARK),
             [0.0, h, 0.0],
@@ -1556,7 +1556,7 @@ fn ceiling_light(m: &mut Model<'_>, kind: Kind, variant: Option<&str>) {
         m.cyl(metal, [0.0, h + stem - 2.0, 0.0], [5.0, 5.0], 2.0);
     }
     match kind {
-        Kind::Spot => {
+        Kind::Spotlight => {
             m.cyl(Material::metal(c), [0.0; 3], [r, r], h);
             let glow = m.glow(Rgb8::from_u32(0xf4f1e8));
             m.cyl(glow, [0.0, -0.2, 0.0], [r * 0.6, r * 0.6], 0.3);
@@ -1564,7 +1564,7 @@ fn ceiling_light(m: &mut Model<'_>, kind: Kind, variant: Option<&str>) {
         }
         Kind::Pendant => {
             let shade_m = Material::satin(c);
-            if variant == Some("cylindre") {
+            if variant == Some("cylinder") {
                 m.p.material = shade_m;
                 m.p.cylinder(
                     &m.x,
@@ -1588,12 +1588,12 @@ fn ceiling_light(m: &mut Model<'_>, kind: Kind, variant: Option<&str>) {
             }
             m.bulb([0.0, h * 0.35, 0.0], (r * 0.18).min(6.0));
         }
-        Kind::Ceilinglight => {
+        Kind::CeilingLight => {
             m.cyl(metal, [0.0, h - 2.0, 0.0], [r * 0.6, r * 0.6], 2.0);
             let glow = m.glow(Rgb8::from_u32(0xf6f2e8));
             m.sph(glow, [0.0, h - 2.0, 0.0], [r, h - 2.0, r]);
             m.bulbs.push([0.0, h * 0.4, 0.0]);
-            if variant == Some("fleurons") {
+            if variant == Some("rosette") {
                 for k in 0..6 {
                     let a = f64::from(k) * std::f64::consts::TAU / 6.0;
                     let (s, co) = a.sin_cos();
@@ -1605,7 +1605,7 @@ fn ceiling_light(m: &mut Model<'_>, kind: Kind, variant: Option<&str>) {
                 }
             }
         }
-        Kind::Fan => {
+        Kind::CeilingFan => {
             m.cyl(metal, [0.0, h * 0.45, 0.0], [10.0, 9.0], h * 0.35);
             for k in 0..5 {
                 let a = f64::from(k) * std::f64::consts::TAU / 5.0;
@@ -1647,7 +1647,7 @@ fn standing_light(m: &mut Model<'_>, kind: Kind) {
     let r = w.min(m.d) / 2.0;
     let metal = Material::metal(c);
     match kind {
-        Kind::Lamp => {
+        Kind::FloorLamp => {
             m.cyl(Material::metal(DARK), [0.0; 3], [r * 0.6, r * 0.55], 2.5);
             m.rod(
                 Material::metal(GOLD),
@@ -1660,7 +1660,7 @@ fn standing_light(m: &mut Model<'_>, kind: Kind) {
             m.p.cylinder(&m.x, [0.0, h - 34.0, 0.0], [r, r * 0.7], 34.0, ROUND, true);
             m.bulbs.push([0.0, h - 20.0, 0.0]);
         }
-        Kind::Tablelamp => {
+        Kind::TableLamp => {
             m.sph(
                 Material::ceramic(c),
                 [0.0, h * 0.22, 0.0],
@@ -1739,8 +1739,7 @@ fn standing_light(m: &mut Model<'_>, kind: Kind) {
 
 fn printer3d(m: &mut Model<'_>, variant: Option<&str>) {
     let (w, d, h, c) = (m.w, m.d, m.h, m.c);
-    let enclosure = matches!(variant, Some("enclosure" | "enclosure-sans-bobine"));
-    let spool = !matches!(variant, Some("sans-bobine" | "enclosure-sans-bobine"));
+    let enclosure = variant == Some("enclosed");
     let frame = Material::metal(c);
     let (iw, id, ih) = if enclosure {
         (w - 8.0, d - 8.0, h - 8.0)
@@ -1775,13 +1774,12 @@ fn printer3d(m: &mut Model<'_>, variant: Option<&str>) {
         [-4.0, ih * 0.55 - 6.0, 2.0],
         [4.0, ih * 0.55 + 4.0, 7.0],
     );
-    if spool {
-        let holder =
-            m.x.translated([iw / 2.0 + 1.5, ih * 0.8, 0.0])
-                .turned_z(-std::f64::consts::FRAC_PI_2);
-        m.p.material = Material::new(Rgb8::from_u32(0xd8572a), 0.4, Surface::Matte);
-        m.p.cylinder(&holder, [0.0, 0.0, 0.0], [10.0, 10.0], 6.0, ROUND, true);
-    }
+    // The spool on its holder.
+    let holder =
+        m.x.translated([iw / 2.0 + 1.5, ih * 0.8, 0.0])
+            .turned_z(-std::f64::consts::FRAC_PI_2);
+    m.p.material = Material::new(Rgb8::from_u32(0xd8572a), 0.4, Surface::Matte);
+    m.p.cylinder(&holder, [0.0, 0.0, 0.0], [10.0, 10.0], 6.0, ROUND, true);
     if enclosure {
         let glass = Material::glass();
         m.bx(frame, [-w / 2.0, 0.0, -d / 2.0], [w / 2.0, 3.0, d / 2.0]);

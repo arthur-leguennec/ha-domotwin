@@ -62,7 +62,8 @@ In the panel, **Storeys** (administrators only) lists the storeys, highest first
   a value not understood is marked and not kept.
 - **Remove** (the cross) asks first, then removes the storey with its plan and overlay. The last
   storey stays.
-- **Import a plan as a new storey**: a House Maquette plan or one storey of an IFC file.
+- **Import a plan as a new storey**: a DomoTwin plan (`*.domotwin.json`) or one storey of an IFC
+  file.
 - **Draw a new storey**: the [plan editor](plan-editor.md) on a new plan; saving it adds the
   storey.
 

@@ -398,13 +398,15 @@ mod tests {
     /// Three rooms in a row, 300 × 300: a door from A to B, none from B to C; a window in A.
     fn floor() -> Floor {
         let plan = read_plan(
-            br#"{"version":1,"unit":"cm","elements":[
-            {"id":"a","type":"room","name":"A","x":0,"y":0,"w":300,"h":300},
-            {"id":"b","type":"room","name":"B","x":300,"y":0,"w":300,"h":300},
-            {"id":"c","type":"room","name":"C","x":600,"y":0,"w":300,"h":300},
-            {"id":"d","type":"door","name":"D","x":300,"y":100,"w":90,"angle":90},
-            {"id":"w","type":"window","name":"W","x":100,"y":0,"w":100,"angle":0}
-        ]}"#,
+            br#"{"format":"domotwin-plan","version":1,"rooms":[
+                {"id":"a","name":"A","outline":[[0,0],[300,0],[300,300],[0,300]]},
+                {"id":"b","name":"B","outline":[[300,0],[600,0],[600,300],[300,300]]},
+                {"id":"c","name":"C","outline":[[600,0],[900,0],[900,300],[600,300]]}
+            ],"doors":[
+                {"id":"d","name":"D","from":[300,100],"to":[300,190]}
+            ],"windows":[
+                {"id":"w","name":"W","from":[100,0],"to":[200,0]}
+            ]}"#,
         )
         .unwrap();
         Floor::new(&plan, &WallLayout::new(&plan))
@@ -436,13 +438,15 @@ mod tests {
     fn partitions_stop_walkers_open_sides_let_them_through_and_walls_hide_the_floor() {
         // A and B open onto each other; a door from B to C; a partition across A.
         let plan = read_plan(
-            br#"{"version":1,"unit":"cm","elements":[
-            {"id":"a","type":"room","name":"A","x":0,"y":0,"w":300,"h":300,"openEdges":[1]},
-            {"id":"b","type":"room","name":"B","x":300,"y":0,"w":300,"h":300,"openEdges":[3]},
-            {"id":"c","type":"room","name":"C","x":600,"y":0,"w":300,"h":300},
-            {"id":"d","type":"door","name":"D","x":600,"y":100,"w":90,"angle":90},
-            {"id":"p","type":"wall","name":"P","x":100,"y":0,"x2":100,"y2":200,"thickness":10}
-        ]}"#,
+            br#"{"format":"domotwin-plan","version":1,"rooms":[
+                {"id":"a","name":"A","outline":[[0,0],[300,0],[300,300],[0,300]],"sides":[null,{"open":true},null,null]},
+                {"id":"b","name":"B","outline":[[300,0],[600,0],[600,300],[300,300]],"sides":[null,null,null,{"open":true}]},
+                {"id":"c","name":"C","outline":[[600,0],[900,0],[900,300],[600,300]]}
+            ],"partitions":[
+                {"id":"p","name":"P","from":[100,0],"to":[100,200],"thickness":10}
+            ],"doors":[
+                {"id":"d","name":"D","from":[600,100],"to":[600,190]}
+            ]}"#,
         )
         .unwrap();
         let floor = Floor::new(&plan, &WallLayout::new(&plan));

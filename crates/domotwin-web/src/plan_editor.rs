@@ -5,7 +5,7 @@
 use std::collections::BTreeSet;
 
 use domotwin_core::overlay::apply;
-use domotwin_core::plan::{PLAN_REVISION, parse_plan_json, read_plan_value};
+use domotwin_core::plan::{parse_plan_json, read_plan_value};
 use domotwin_render::lamps::Mark;
 use wasm_bindgen::prelude::*;
 
@@ -31,18 +31,14 @@ impl Engine {
         Ok(())
     }
 
-    /// The plan shown with its edit overlay in it (the entries it accepted), as JSON text of the
-    /// current revision: what the plan editor starts from. An empty string when none is shown.
+    /// The plan shown with its edit overlay in it (the entries it accepted), as JSON text: what
+    /// the plan editor starts from. An empty string when none is shown.
     #[wasm_bindgen(js_name = shownPlan)]
     pub fn shown_plan(&self) -> String {
         let Some(source) = &self.source else {
             return String::new();
         };
-        let mut plan = apply(source, &self.layout);
-        if let Some(root) = plan.as_object_mut() {
-            root.insert("layoutRevision".into(), PLAN_REVISION.into());
-        }
-        plan.to_string()
+        apply(source, &self.layout).to_string()
     }
 
     /// Marks element `id` as selected in the draft shown (nothing for an empty id), without

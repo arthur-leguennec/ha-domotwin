@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import copy
 from enum import Enum
+import logging
 from typing import Any, Final
 
 from homeassistant.core import HomeAssistant, callback
@@ -11,6 +12,7 @@ from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.storage import Store
 
 from .const import (
+    PLAN_FORMAT,
     SIGNAL_UPDATED,
     STORAGE_KEY,
     STORAGE_MINOR_VERSION,
@@ -18,6 +20,8 @@ from .const import (
 )
 
 type StoredData = dict[str, Any]
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class _Unset(Enum):
@@ -46,6 +50,7 @@ def empty_data() -> StoredData:
         "bindings": empty_bindings(),
         "settings": {},
         "revisions": {},
+        "retired": [],
     }
 
 
@@ -74,7 +79,29 @@ def normalise(stored: dict[str, Any]) -> StoredData:
         )
     if not isinstance(data["revisions"], dict):
         data["revisions"] = {}
+    if not isinstance(data["retired"], list):
+        data["retired"] = []
     return data
+
+
+def retire_foreign_plans(data: StoredData) -> int:
+    """Set aside the storeys whose plan is not in DomoTwin's format (storage 1.x and 2.x).
+
+    They move, overlays and all, to `retired`, which nothing reads: the user's work is kept in the
+    stored data, not shown. Links keyed by their ids stay, unused, until a plan has them again.
+    Return how many storeys were set aside.
+    """
+    kept: list[Any] = []
+    retired: list[Any] = []
+    for storey in data["storeys"]:
+        plan = storey.get("plan") if isinstance(storey, dict) else None
+        if isinstance(plan, dict) and plan.get("format") == PLAN_FORMAT:
+            kept.append(storey)
+        elif plan is not None:
+            retired.append(storey)
+    data["storeys"] = kept
+    data["retired"].extend(retired)
+    return len(retired)
 
 
 class UnknownStoreyError(Exception):
@@ -100,8 +127,22 @@ class DomoTwinStore(Store[StoredData]):
         old_data: dict[str, Any],
     ) -> StoredData:
         """Bring data written by an older version to the current shape."""
-        # 1.x → 2.1: the plan and its overlay become the first storey.
-        return normalise(old_data)
+        # 1.x: the plan and its overlay become the first storey.
+        data = normalise(old_data)
+        # 1.x and 2.x: plans in a format DomoTwin no longer reads are set aside. The revision
+        # moves on, so that drafts browsers kept in that format are not offered again.
+        if old_major_version >= 3:
+            return data
+        data["revision"] = int(data["revision"]) + 1
+        data["revisions"] = dict.fromkeys(KINDS, data["revision"])
+        if retired := retire_foreign_plans(data):
+            _LOGGER.warning(
+                "%s stored plan(s) were not in DomoTwin's plan format: they are set aside in "
+                "the stored data (`retired`), and can be imported again as .domotwin.json files "
+                "(docs/plan-format.md)",
+                retired,
+            )
+        return data
 
 
 class DomoTwinData:
@@ -173,6 +214,12 @@ class DomoTwinData:
         """The edit-mode overlay of the ground floor, keyed by element id."""
         storey = self.storey()
         return storey["layout"] if storey else {}
+
+    @property
+    def retired(self) -> list[dict[str, Any]]:
+        """Storeys set aside when their plan's format was dropped (D-030); nothing shows them."""
+        retired: list[dict[str, Any]] = self._data["retired"]
+        return retired
 
     @property
     def bindings(self) -> dict[str, Any]:

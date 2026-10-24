@@ -3,9 +3,11 @@
  * suggestions from its room's area, the entity search, and applying an edit to the bindings.
  */
 import type { HomeAssistant } from "../ha/types";
+import type { KindName } from "../i18n";
 import { areaEntities, entityName, type BindingsJson, type ElementBinding } from "./bindings";
 import { APPLIANCES } from "./devices";
 import { unaccented } from "./text";
+import { planElements } from "./plan";
 
 /** What the editor needs to know about a plan element. */
 export interface PlanElementInfo {
@@ -24,51 +26,61 @@ export type LinkChange =
 
 const MAX_RESULTS = 8;
 
-/** Furniture kinds that give light (the catalogue's light kinds). */
-const LIGHT_KINDS = new Set([
-  "lamp",
-  "tablelamp",
-  "desklamp",
+/** Kinds of items that give light (the catalogue's lamps). */
+const LIGHT_KINDS = new Set<string>([
+  "floor-lamp",
+  "table-lamp",
+  "desk-lamp",
   "lantern",
   "pendant",
   "chandelier",
-  "ceilinglight",
-  "spot",
+  "ceiling-light",
+  "spotlight",
   "nightstand",
-]);
-/** Furniture kinds a camera is often placed on or drawn as. */
-const CAMERA_KINDS = new Set(["custom", "shelf", "openshelf", "bookcase", "spot", "frame"]);
+] satisfies KindName[]);
+/** Kinds of items a camera is often placed on or drawn as. */
+const CAMERA_KINDS = new Set<string>([
+  "box",
+  "shelf",
+  "open-shelving",
+  "bookcase",
+  "spotlight",
+  "picture",
+] satisfies KindName[]);
+/** Kinds with rules of their own. */
+const FAN: KindName = "ceiling-fan";
+const CURTAIN: KindName = "curtain";
+const TV: KindName = "tv";
+const RADIATOR: KindName = "radiator";
 /** Furniture kinds with a plug: power sensors and switches fit them. */
 const APPLIANCE_KINDS = new Set([...APPLIANCES, "fridge"]);
 
 /** The plan element with this id, from the plan JSON. */
 export function planElement(plan: unknown, id: string): PlanElementInfo | undefined {
-  const elements = (plan as { elements?: unknown } | null | undefined)?.elements;
-  if (!Array.isArray(elements)) return undefined;
-  for (const raw of elements as unknown[]) {
-    const e = raw as Record<string, unknown> | null;
-    if (e?.id !== id) continue;
-    const info: PlanElementInfo = {
-      id,
-      type: typeof e.type === "string" ? e.type : "",
-      name: typeof e.name === "string" ? e.name : "",
-    };
-    if (typeof e.kind === "string") info.kind = e.kind;
-    if (typeof e.parent === "string") info.parent = e.parent;
-    return info;
+  const found = planElements(plan).find((e) => e.id === id);
+  if (!found) return undefined;
+  const { fields } = found;
+  const info: PlanElementInfo = {
+    id,
+    type: found.type,
+    name: typeof fields.name === "string" ? fields.name : "",
+  };
+  if (found.type === "furniture") {
+    const kind = typeof fields.model === "string" ? undefined : fields.kind;
+    info.kind = typeof kind === "string" ? kind : "box";
   }
-  return undefined;
+  if (typeof fields.room === "string") info.parent = fields.room;
+  return info;
 }
 
 /** The rooms of the plan JSON, in plan order (for the card editor). */
 export function planRooms(plan: unknown): { id: string; name: string }[] {
-  const elements = (plan as { elements?: unknown } | null | undefined)?.elements;
-  if (!Array.isArray(elements)) return [];
-  return (elements as unknown[]).flatMap((raw) => {
-    const e = raw as Record<string, unknown> | null;
-    if (e?.type !== "room" || typeof e.id !== "string") return [];
-    return [{ id: e.id, name: typeof e.name === "string" && e.name ? e.name : e.id }];
-  });
+  return planElements(plan)
+    .filter((e) => e.type === "room")
+    .map(({ id, fields }) => ({
+      id,
+      name: typeof fields.name === "string" && fields.name ? fields.name : id,
+    }));
 }
 
 /** How well an entity fits an element: 0 does not fit, higher fits better. */
@@ -94,13 +106,13 @@ export function fit(element: PlanElementInfo, entityId: string, hass: HomeAssist
   // A camera stands on a shelf, hangs on a wall or is a model of its own.
   if (domain === "camera") return CAMERA_KINDS.has(kind) ? 2 : 0;
   if (LIGHT_KINDS.has(kind)) return domain === "light" ? 3 : domain === "switch" ? 2 : 0;
-  if (kind === "fan") return domain === "fan" ? 3 : domain === "light" ? 2 : 0;
-  if (kind === "curtain") {
+  if (kind === FAN) return domain === "fan" ? 3 : domain === "light" ? 2 : 0;
+  if (kind === CURTAIN) {
     if (domain !== "cover") return 0;
     return deviceClass === "curtain" ? 4 : 2;
   }
-  if (kind === "tv") return domain === "media_player" ? 3 : domain === "switch" || power ? 1 : 0;
-  if (kind === "heater") return domain === "climate" ? 3 : domain === "switch" ? 2 : 0;
+  if (kind === TV) return domain === "media_player" ? 3 : domain === "switch" || power ? 1 : 0;
+  if (kind === RADIATOR) return domain === "climate" ? 3 : domain === "switch" ? 2 : 0;
   if (APPLIANCE_KINDS.has(kind)) return power || domain === "switch" ? 2 : 0;
   return domain === "switch" || power ? 1 : 0;
 }

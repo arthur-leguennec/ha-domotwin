@@ -10,7 +10,7 @@ use domotwin_core::plan::{Kind, read_plan_value};
 use domotwin_core::scene::{SceneOptions, build_scene};
 use libfuzzer_sys::fuzz_target;
 
-const DEMO: &str = include_str!("../../examples/demo-apartment.plan.json");
+const DEMO: &str = include_str!("../../examples/demo-apartment.domotwin.json");
 
 fuzz_target!(|data: &[u8]| {
     let Ok(value) = serde_json::from_slice::<serde_json::Value>(data) else {
@@ -38,7 +38,7 @@ fuzz_target!(|data: &[u8]| {
         }
     }
     session.rotate(&plan, &walls, (data.len() % 7) as i32 - 3);
-    let _ = session.add(&plan, &walls, Kind::Tablelamp, "Lamp", [n, n]);
+    let _ = session.add(&plan, &walls, Kind::TableLamp, "Lamp", [n, n]);
     session.remove(&plan);
     let _ = read_plan_value(&apply(&source, session.layout()));
 });

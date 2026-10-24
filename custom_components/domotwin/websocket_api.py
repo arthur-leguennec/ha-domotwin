@@ -111,10 +111,18 @@ def ws_plan_get(
 
 
 async def _remove_unused_models(hass: HomeAssistant, data: DomoTwinData) -> None:
-    """The files no storey uses any more go, a day after they were last used."""
+    """The files no storey uses any more go, a day after they were last used.
+
+    Storeys set aside keep theirs, should they be imported again.
+    """
     try:
         await async_remove_unused(
-            hass, [(storey["plan"], storey["layout"]) for storey in data.storeys]
+            hass,
+            [
+                (storey.get("plan"), storey.get("layout"))
+                for storey in [*data.storeys, *data.retired]
+                if isinstance(storey, dict)
+            ],
         )
     except OSError:
         _LOGGER.warning("Could not clean up the unused 3D model files", exc_info=True)

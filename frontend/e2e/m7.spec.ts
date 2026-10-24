@@ -6,7 +6,14 @@ interface StoredStorey {
   id: string;
   name: string;
   elevation: number;
-  plan: { title?: string; elements: { id: string; type: string; parent?: string }[] };
+  plan: {
+    name?: string;
+    rooms?: { id: string }[];
+    partitions?: { id: string }[];
+    doors?: { id: string }[];
+    windows?: { id: string }[];
+    items?: { id: string; room?: string }[];
+  };
 }
 
 /** The storeys the mocked integration holds. */
@@ -18,7 +25,11 @@ function storeys(page: Page): Promise<StoredStorey[]> {
 
 /** Every element id of the home: none is on two storeys. */
 function expectIdsOfTheirOwn(home: StoredStorey[]): void {
-  const ids = home.flatMap((storey) => storey.plan.elements.map((element) => element.id));
+  const ids = home.flatMap(({ plan }) =>
+    [plan.rooms, plan.partitions, plan.doors, plan.windows, plan.items].flatMap((list) =>
+      (list ?? []).map((element) => element.id),
+    ),
+  );
   expect(new Set(ids).size).toBe(ids.length);
 }
 
@@ -49,7 +60,7 @@ test.describe("storeys", () => {
       "true",
     );
     // Only that storey's plan is drawn.
-    await expect.poll(async () => (await viewState(page)).summary?.title).toContain("upper floor");
+    await expect.poll(async () => (await viewState(page)).summary?.name).toContain("upper floor");
     // A tap on the stairs of the top storey goes down.
     await settle(page);
     const stairs = await elementPoint(page, "up-stairs");
@@ -65,7 +76,7 @@ test.describe("storeys", () => {
     page,
   }) => {
     await openHarness(page, { storeys: 2, live: true });
-    await expect.poll(async () => (await viewState(page)).summary?.title).toBe("Demo apartment");
+    await expect.poll(async () => (await viewState(page)).summary?.name).toBe("Demo apartment");
     await page.evaluate(() => {
       (window as never as { __setState: (id: string, state: string) => void }).__setState(
         "binary_sensor.office_smoke",
@@ -80,7 +91,7 @@ test.describe("storeys", () => {
     await expect(upstairs).toHaveAttribute("aria-label", "Floor 1, alert");
     // The tap shows the floor above and frames the office.
     await banner.locator('button[data-storey="storey-2"]').click();
-    await expect.poll(async () => (await viewState(page)).summary?.title).toContain("upper floor");
+    await expect.poll(async () => (await viewState(page)).summary?.name).toContain("upper floor");
     await expect(page.getByTestId("room-chip")).toContainText("Office");
     await expect(banner).toContainText("Smoke in Office");
     await expect(banner).not.toContainText("Floor 1");
@@ -91,7 +102,7 @@ test.describe("storeys", () => {
     page,
   }) => {
     await openHarness(page, { storeys: 2, storey: "storey-2" });
-    await expect.poll(async () => (await viewState(page)).summary?.title).toContain("upper floor");
+    await expect.poll(async () => (await viewState(page)).summary?.name).toContain("upper floor");
     await expect(page.getByTestId("storeys").locator('[data-storey="storey-2"]')).toHaveAttribute(
       "aria-pressed",
       "true",
@@ -104,14 +115,14 @@ test.describe("storeys", () => {
         card.setConfig({ type: "custom:domotwin-card", storey });
       }, storey);
     await setStorey("storey-1");
-    await expect.poll(async () => (await viewState(page)).summary?.title).toBe("Demo apartment");
+    await expect.poll(async () => (await viewState(page)).summary?.name).toBe("Demo apartment");
     await page.getByTestId("storeys").locator('[data-storey="storey-2"]').click();
-    await expect.poll(async () => (await viewState(page)).summary?.title).toContain("upper floor");
+    await expect.poll(async () => (await viewState(page)).summary?.name).toContain("upper floor");
     await setStorey(undefined);
-    await expect.poll(async () => (await viewState(page)).summary?.title).toBe("Demo apartment");
+    await expect.poll(async () => (await viewState(page)).summary?.name).toBe("Demo apartment");
     await openHarness(page, { storey: "storey-9" });
     // A storey since removed: the ground floor, without a switcher.
-    await expect.poll(async () => (await viewState(page)).summary?.title).toBe("Demo apartment");
+    await expect.poll(async () => (await viewState(page)).summary?.name).toBe("Demo apartment");
     await expect(page.getByTestId("storeys")).toHaveCount(0);
   });
 
@@ -165,7 +176,7 @@ test.describe("storeys", () => {
     expect(home).toHaveLength(3);
     const added = home[2];
     expect(added?.elevation).toBe(560);
-    expect(added?.plan.elements.filter((element) => element.type === "room")).toHaveLength(1);
+    expect(added?.plan.rooms).toHaveLength(1);
     expectIdsOfTheirOwn(home);
     // The panel shows the new storey.
     await expect(page.getByTestId("storeys").locator(LEVELS)).toHaveCount(3);
@@ -184,26 +195,26 @@ test.describe("storeys", () => {
     const chooser = page.waitForEvent("filechooser");
     await page.getByTestId("storey-import").click();
     // The same apartment again: every id is taken by the storey below.
-    await (await chooser).setFiles("../examples/demo-apartment.plan.json");
+    await (await chooser).setFiles("../examples/demo-apartment.domotwin.json");
     await expect(page.getByTestId("toast")).toContainText("Plan imported: Demo apartment.");
     const home = await storeys(page);
     expect(home).toHaveLength(2);
     expect(home[1]?.elevation).toBe(280);
     expectIdsOfTheirOwn(home);
-    const renamed = home[1]?.plan.elements ?? [];
-    expect(renamed.some((element) => element.id === "living-2")).toBe(true);
+    const renamed = home[1]?.plan;
+    expect(renamed?.rooms?.some((element) => element.id === "living-2")).toBe(true);
     // A piece in the living room still is.
-    expect(renamed.find((element) => element.id === "sofa-2")?.parent).toBe("living-2");
+    expect(renamed?.items?.find((element) => element.id === "sofa-2")?.room).toBe("living-2");
     await expect(page.getByTestId("storeys").locator(LEVELS)).toHaveCount(2);
     // Importing again from the toolbar replaces the storey shown, not another.
     const again = page.waitForEvent("filechooser");
     await page.getByRole("button", { name: "Import plan" }).first().click();
-    await (await again).setFiles("../examples/demo-upper-floor.plan.json");
+    await (await again).setFiles("../examples/demo-upper-floor.domotwin.json");
     await expect(page.getByTestId("summary")).toContainText("upper floor");
     const after = await storeys(page);
     expect(after).toHaveLength(2);
-    expect(after[1]?.plan.title).toBe("Demo apartment, upper floor");
-    expect(after[0]?.plan.title).toBe("Demo apartment");
+    expect(after[1]?.plan.name).toBe("Demo apartment, upper floor");
+    expect(after[0]?.plan.name).toBe("Demo apartment");
   });
 
   test("every storey of an IFC file is imported at once", async ({ page }) => {
@@ -223,7 +234,7 @@ test.describe("storeys", () => {
       ["storey-1", "Rez-de-chaussée", 0],
       ["storey-2", "Étage", 280],
     ]);
-    expect(home[1]?.plan.title).toContain("Étage");
+    expect(home[1]?.plan.name).toContain("Étage");
     expectIdsOfTheirOwn(home);
     // The ground floor is shown.
     await expect(page.getByTestId("storeys").locator(LEVELS)).toHaveCount(2);

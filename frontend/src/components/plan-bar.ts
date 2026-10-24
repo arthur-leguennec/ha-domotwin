@@ -28,32 +28,32 @@ import { PLAN_TOOLS, type PlanEditState, type PlanSelection, type PlanTool } fro
 import type { PlanCommand } from "./view";
 import { baseStyles } from "./styles";
 
-/** The floors offered (the procedural ones; `plan-format.md`). */
+/** The floor materials (`plan-format.md`). */
 export const FLOORS = [
-  "uni",
-  "bois-gris",
-  "bois-chene",
-  "bois-peint",
-  "carrelage-beige",
-  "carrelage-blanc",
+  "plain",
+  "grey-wood",
+  "oak",
+  "painted-wood",
+  "beige-tiles",
+  "white-tiles",
 ] as const;
 /** The kinds of doors (`plan-format.md`). */
 export const DOOR_STYLES = [
-  "battante",
-  "vitree",
+  "hinged",
+  "glazed",
   "double",
-  "pliante",
-  "pliante-double",
-  "coulissante",
-  "grange",
-  "passage",
-  "condamnee",
+  "folding",
+  "double-folding",
+  "sliding",
+  "barn",
+  "opening",
+  "sealed",
 ] as const;
 
 /** The limits of a length field (cm), by element type and field. */
 export const LIMITS: Record<string, [number, number]> = {
-  "door.w": [20, 300],
-  "window.w": [20, 1000],
+  "door.width": [20, 300],
+  "window.width": [20, 1000],
   "wall.thickness": [1, 100],
 };
 
@@ -260,14 +260,15 @@ export class DomoTwinPlanBar extends LitElement {
     const state = this.state;
     let extra: TemplateResult | typeof nothing;
     if (selection.type === "room") {
-      const floor = typeof selection.floor === "string" ? selection.floor : "uni";
+      const material = (selection.floor as { material?: unknown } | undefined)?.material;
+      const floor = typeof material === "string" ? material : "plain";
       const corners = state?.cornerCount ?? 0;
       extra = html`<label
           >${t.t("plan.floor")}
           <select
             data-testid="plan-floor"
             @change=${(event: Event) => {
-              this.send({ floor: (event.target as HTMLSelectElement).value });
+              this.send({ floor: { material: (event.target as HTMLSelectElement).value } });
             }}
           >
             ${FLOORS.map(
@@ -284,9 +285,9 @@ export class DomoTwinPlanBar extends LitElement {
             : nothing
         }`;
     } else if (selection.type === "door") {
-      const style = typeof selection.style === "string" ? selection.style : "battante";
-      const swing = selection.swing === -1 ? -1 : 1;
-      extra = html`${this.length(selection, "w", "plan.width")}
+      const style = typeof selection.style === "string" ? selection.style : "hinged";
+      const opensTo = selection.opensTo === "left" ? "left" : "right";
+      extra = html`${this.length(selection, "width", "plan.width")}
         <label
           >${t.t("plan.style")}
           <select
@@ -309,13 +310,13 @@ export class DomoTwinPlanBar extends LitElement {
           title=${t.t("plan.swing")}
           aria-label=${t.t("plan.swing")}
           @click=${() => {
-            this.send({ swing: -swing });
+            this.send({ opensTo: opensTo === "left" ? "right" : "left" });
           }}
         >
           ${icon(mdiSwapHorizontal)}
         </button>`;
     } else if (selection.type === "window") {
-      extra = this.length(selection, "w", "plan.width");
+      extra = this.length(selection, "width", "plan.width");
     } else {
       extra = this.length(selection, "thickness", "plan.thickness");
     }

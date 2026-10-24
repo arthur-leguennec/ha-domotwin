@@ -1,7 +1,8 @@
-//! The House Maquette plan format (`*.plan.json`, revisions 1–10), see `docs/plan-format.md`.
+//! The DomoTwin plan format (`*.domotwin.json`), see `docs/plan-format.md`.
 //!
 //! [`read_plan`] turns any bytes into a clean [`Plan`] or a [`ReadError`]: strict on structure,
-//! lenient on optional values, exactly as the format describes.
+//! lenient on optional values, exactly as the format describes. Inside, rooms keep a frame and
+//! their corners within it, items the corner of their unturned box: what the geometry works with.
 
 pub mod catalogue;
 pub mod light;
@@ -9,19 +10,22 @@ mod read;
 
 use std::collections::BTreeMap;
 
-pub use catalogue::{DoorStyle, Floor, Kind, KindFlags, KindInfo, Role, WallStyle};
+pub use catalogue::{DoorStyle, Floor, Kind, KindFlags, KindInfo, WallStyle};
 pub(crate) use read::MAX_ID;
-pub use read::{parse_plan_json, read_plan, read_plan_value, valid_model_id};
+pub(crate) use read::point;
+pub use read::{LISTS, parse_plan_json, read_plan, read_plan_value, valid_model_id};
 use serde_json::Value;
 
 use crate::error::ReadError;
 
-/// Largest plan file the format allows, in bytes.
+/// Largest plan file read, in bytes.
 pub const MAX_PLAN_BYTES: usize = 32_000_000;
 /// Number of elements of a plan.
 pub const MAX_ELEMENTS: usize = 500;
-/// Highest format revision this version of DomoTwin reads (and the one it writes).
-pub const PLAN_REVISION: u32 = 10;
+/// `format` of a plan file.
+pub const PLAN_FORMAT: &str = "domotwin-plan";
+/// The format's version this DomoTwin reads and writes.
+pub const PLAN_VERSION: u32 = 1;
 /// |x| and |y| of elements, in cm.
 pub const MAX_COORDINATE: f64 = 50_000.0;
 /// Default colour of rooms and furniture without a valid `color`.
@@ -85,17 +89,13 @@ impl Rgb8 {
     }
 }
 
-/// Default wall thicknesses (`wallSettings`).
+/// Default wall thicknesses (`wallThickness`).
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct WallSettings {
-    /// Partitions between two rooms (cm).
+    /// Walls between two rooms (cm).
     pub interior: f64,
-    /// Façade walls (cm).
+    /// Façades (cm).
     pub exterior: f64,
-    /// Largest thickness the layout already leaves room for (cm).
-    pub spacing: f64,
-    /// Reflow option of the original editor.
-    pub reflow: bool,
 }
 
 impl Default for WallSettings {
@@ -103,22 +103,20 @@ impl Default for WallSettings {
         Self {
             interior: 10.0,
             exterior: 20.0,
-            spacing: 0.0,
-            reflow: false,
         }
     }
 }
 
-/// A finish of one side of a room, overriding its wall style.
+/// A finish of one side of a room, overriding its walls' finish.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EdgeFinish {
-    /// Subway tiles.
+    /// Tiles.
     Metro,
     /// Paint.
     Paint(Rgb8),
 }
 
-/// A room: a polygon relative to its frame, with implicit walls on its closed sides.
+/// A room: its outline, kept as a frame and its corners within it, with walls on its sides.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Room {
     /// Element id.
@@ -133,31 +131,19 @@ pub struct Room {
     pub w: f64,
     /// Frame depth along y (cm).
     pub h: f64,
-    /// Rotation last applied (degrees, 0–360); the polygon is stored turned.
-    pub angle: f64,
     /// Fill colour on the plan.
     pub color: Rgb8,
-    /// Dimensions still to be measured.
-    pub estimated: bool,
-    /// Role.
-    pub role: Role,
-    /// Floor covering.
+    /// Floor material.
     pub floor: Floor,
     /// Direction of the floor pattern (degrees).
     pub floor_angle: f64,
-    /// Wall style.
+    /// Finish of the walls.
     pub wall_style: WallStyle,
     /// Paint of the inner wall faces.
     pub wall_color: Option<Rgb8>,
     /// Crown moulding under the ceiling.
     pub cornice: bool,
-    /// Rounded door casings.
-    pub rounded_casing: bool,
-    /// Note about the materials.
-    pub material_source: String,
-    /// Legacy bevel (kept for the export).
-    pub bevel: f64,
-    /// Polygon vertices relative to the frame (`[u, v]`, 0–1).
+    /// Corners relative to the frame (`[u, v]`, 0–1).
     pub vertices: Vec<[f64; 2]>,
     /// Sides without a wall (sorted, unique).
     pub open_edges: Vec<usize>,
@@ -182,7 +168,7 @@ impl Room {
     }
 }
 
-/// A free partition from `(x, y)` to `(x2, y2)` (drawn in 2D only by the original app).
+/// A free partition from `(x, y)` to `(x2, y2)`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct FreeWall {
     /// Element id.
@@ -218,13 +204,13 @@ pub struct Opening {
     pub w: f64,
     /// Direction along the wall (degrees, 0–360).
     pub angle: f64,
-    /// Side the leaf opens to: `1` = n = (−sin a, cos a), `−1` the other side.
+    /// Side the leaf opens to: `1` = n = (−sin a, cos a) (`right` in files), `−1` the other.
     pub swing: i8,
     /// Room it follows, or empty.
     pub parent: String,
     /// Door style (windows: always hinged, unused).
     pub style: DoorStyle,
-    /// Doors: opening 0–99 %, `None` = fully open.
+    /// Doors: how open, 0–99 %, `None` = fully open.
     pub open: Option<u8>,
 }
 
@@ -236,7 +222,7 @@ impl Opening {
     }
 }
 
-/// A furniture item: `x, y` is the top-left of the unrotated box, turned by `angle` about its centre.
+/// An item: `x, y` is the top-left of the unturned box, turned by `angle` about its centre.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Furniture {
     /// Element id.
@@ -257,21 +243,17 @@ pub struct Furniture {
     pub angle: f64,
     /// Main colour.
     pub color: Rgb8,
-    /// Role.
-    pub role: Role,
     /// Kind.
     pub kind: Kind,
-    /// Kind `custom`: id of a user model.
+    /// The user model it is drawn from (its kind is then `box`).
     pub model: Option<String>,
-    /// Alternative model of the kind.
+    /// Style of the kind.
     pub variant: Option<String>,
     /// Room it follows, or empty.
     pub parent: String,
-    /// Note about the dimensions.
-    pub source: String,
     /// Height of the underside (cm).
     pub elevation: f64,
-    /// Fixed item.
+    /// Built in: edit mode does not move it.
     pub locked: bool,
     /// Curtains: 0 (closed) to 100 (open).
     pub open: Option<u8>,
@@ -291,11 +273,11 @@ impl Furniture {
         [self.x + self.w / 2.0, self.y + self.h / 2.0]
     }
 
-    /// Whether the curtain is drawn closed (absent: `ferme` curtains closed, others open).
+    /// How open a curtain is drawn (absent: `closed` curtains closed, others open).
     pub fn curtain_open_fraction(&self) -> f64 {
         match self.open {
             Some(open) => f64::from(open.min(100)) / 100.0,
-            None if self.variant.as_deref() == Some("ferme") => 0.0,
+            None if self.variant.as_deref() == Some("closed") => 0.0,
             None => 1.0,
         }
     }
@@ -337,7 +319,8 @@ impl Element {
         }
     }
 
-    /// The `type` of the element in plan files.
+    /// What the element is: `room`, `wall` (a partition), `door`, `window` or `furniture` (an
+    /// item), as the engine names it to the frontend.
     pub const fn type_name(&self) -> &'static str {
         match self {
             Element::Room(_) => "room",
@@ -349,10 +332,11 @@ impl Element {
     }
 }
 
-/// A saved viewpoint.
+/// A saved viewpoint: where the camera is and what it looks at, `[x, height, plan y]` (the 3D
+/// axes; files write `[x, y, height]`).
 #[derive(Debug, Clone, PartialEq)]
 pub enum View {
-    /// Overview camera: position and target `[x, height, plan y]`.
+    /// A camera around the home.
     Orbit {
         /// Id.
         id: String,
@@ -363,43 +347,20 @@ pub enum View {
         /// Camera target.
         t: [f64; 3],
     },
-    /// Eye-level viewpoint (kept for the export; DomoTwin has no walk mode).
-    Walk {
-        /// Id.
-        id: String,
-        /// Name.
-        name: String,
-        /// Plan x.
-        x: f64,
-        /// Plan y.
-        y: f64,
-        /// Heading (radians, 0 = towards −y).
-        yaw: f64,
-        /// Pitch (radians).
-        pitch: f64,
-        /// Eye height (cm).
-        eye: f64,
-    },
 }
 
-/// A clean plan at the current revision.
+/// A plan as read.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Plan {
-    /// Revision the file was written with (before migration).
-    pub source_revision: u32,
-    /// Title (may be empty).
-    pub title: String,
-    /// Free reference.
-    pub reference_name: String,
+    /// Name (may be empty).
+    pub name: String,
     /// Default wall thicknesses.
     pub wall_settings: WallSettings,
-    /// Rooms, walls, doors, windows and furniture, in file order.
+    /// Rooms, partitions, doors, windows and items, in that order (each in file order).
     pub elements: Vec<Element>,
     /// Saved viewpoints.
     pub views: Vec<View>,
-    /// The building exterior, kept as read (not drawn by DomoTwin).
-    pub site: Option<Value>,
-    /// User 3D models by id, kept as read (kits are drawn, files are boxes until M3).
+    /// User 3D models by id, as read.
     pub models: BTreeMap<String, Value>,
 }
 
@@ -437,8 +398,7 @@ impl Plan {
     /// Counts of the plan's elements.
     pub fn summary(&self) -> PlanSummary {
         let mut summary = PlanSummary {
-            revision: self.source_revision,
-            title: self.title.clone(),
+            name: self.name.clone(),
             ..PlanSummary::default()
         };
         for element in &self.elements {
@@ -494,10 +454,8 @@ impl Plan {
 /// What a plan contains, without its geometry.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct PlanSummary {
-    /// Format revision of the file.
-    pub revision: u32,
-    /// Title of the plan (may be empty).
-    pub title: String,
+    /// Name of the plan (may be empty).
+    pub name: String,
     /// Number of rooms.
     pub rooms: usize,
     /// Number of free walls.
@@ -514,8 +472,7 @@ impl PlanSummary {
     /// The summary as a small JSON object for the frontend.
     pub fn to_json(&self) -> String {
         serde_json::json!({
-            "revision": self.revision,
-            "title": self.title,
+            "name": self.name,
             "rooms": self.rooms,
             "walls": self.walls,
             "doors": self.doors,

@@ -479,7 +479,7 @@ mod tests {
     use crate::plan::read_plan;
     use crate::scene::{SceneOptions, build_scene};
 
-    const DEMO: &[u8] = include_bytes!("../../../examples/demo-apartment.plan.json");
+    const DEMO: &[u8] = include_bytes!("../../../examples/demo-apartment.domotwin.json");
     const BINDINGS: &str = include_str!("../../../examples/demo-apartment.bindings.json");
 
     fn setup() -> (Plan, Vec<LightSpot>, Bindings) {

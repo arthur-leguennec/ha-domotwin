@@ -68,7 +68,7 @@ test.describe("panel", () => {
     await expect(page.getByRole("heading", { name: "No plan yet" })).toBeVisible();
     const chooser = page.waitForEvent("filechooser");
     await page.getByRole("button", { name: "Import plan" }).first().click();
-    await (await chooser).setFiles("../examples/demo-apartment.plan.json");
+    await (await chooser).setFiles("../examples/demo-apartment.domotwin.json");
     await expect(page.getByText("Plan imported: Demo apartment.")).toBeVisible();
     await expect(page.getByTestId("summary")).toContainText("5 rooms");
     const saves = await page.evaluate(() =>
@@ -88,9 +88,9 @@ test.describe("panel", () => {
     ).setFiles({
       name: "notes.json",
       mimeType: "application/json",
-      buffer: Buffer.from('{"version":1,"unit":"mm","elements":[{}]}'),
+      buffer: Buffer.from('{"version":1,"elements":[{}]}'),
     });
-    await expect(page.getByRole("alert")).toContainText("l’unité doit être le centimètre");
+    await expect(page.getByRole("alert")).toContainText("ce n’est pas un plan DomoTwin");
   });
 
   test("exports the stored plan", async ({ page }) => {
@@ -98,9 +98,13 @@ test.describe("panel", () => {
     const download = page.waitForEvent("download");
     await page.getByRole("button", { name: "Export plan" }).click();
     const file = await download;
-    expect(file.suggestedFilename()).toBe("demo-apartment.plan.json");
-    const exported = JSON.parse(await readFile(await file.path(), "utf8")) as { title: string };
-    expect(exported.title).toBe("Demo apartment");
+    expect(file.suggestedFilename()).toBe("demo-apartment.domotwin.json");
+    const exported = JSON.parse(await readFile(await file.path(), "utf8")) as {
+      format: string;
+      name: string;
+    };
+    expect(exported.format).toBe("domotwin-plan");
+    expect(exported.name).toBe("Demo apartment");
   });
 
   test("hides the import from non-administrators", async ({ page }) => {

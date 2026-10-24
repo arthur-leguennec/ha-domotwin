@@ -21,7 +21,7 @@ const live = params.get("live") === "1";
 
 await import("/domotwin_static/domotwin.js?v=e2e");
 
-const demo = await (await fetch("/examples/demo-apartment.plan.json")).json();
+const demo = await (await fetch("/examples/demo-apartment.domotwin.json")).json();
 const demoBindings = live
   ? await (await fetch("/examples/demo-apartment.bindings.json")).json()
   : { version: 1, rooms: {}, elements: {} };
@@ -29,7 +29,7 @@ const storeys = [];
 if (params.get("plan") !== "none") {
   storeys.push({ id: "storey-1", name: "", elevation: 0, plan: demo, layout: {} });
   if (params.get("storeys") === "2") {
-    const upper = await (await fetch("/examples/demo-upper-floor.plan.json")).json();
+    const upper = await (await fetch("/examples/demo-upper-floor.domotwin.json")).json();
     storeys.push({ id: "storey-2", name: "", elevation: 280, plan: upper, layout: {} });
   }
 }
@@ -47,9 +47,11 @@ function storeyOf(id) {
   if (!found) throw { code: "unknown_storey", message: "no storey has this id" };
   return found;
 }
+/** The lists of a plan file. */
+const LISTS = ["rooms", "partitions", "doors", "windows", "items"];
 /** The ids a storey uses: its plan's elements and the pieces its overlay adds. */
 const idsOf = (plan, layout = {}) => [
-  ...(plan?.elements ?? []).map((e) => e.id),
+  ...LISTS.flatMap((list) => plan?.[list] ?? []).map((e) => e.id),
   ...Object.entries(layout)
     .filter(([, entry]) => entry && "add" in entry)
     .map(([id]) => id),
@@ -159,18 +161,13 @@ if (modelsParam && store.plan) {
         ["stool-1", 80],
         ["stool-2", 130],
       ]) {
-    store.plan.elements.push({
+    store.plan.items.push({
       id,
-      type: "furniture",
       name: "Bar stool",
-      x,
-      y: 280,
-      w: 38,
-      h: 38,
-      z: 71,
-      kind: "custom",
       model: "m-stool",
-      parent: "living",
+      at: [x + 19, 299],
+      size: [38, 38, 71],
+      room: "living",
     });
   }
 }

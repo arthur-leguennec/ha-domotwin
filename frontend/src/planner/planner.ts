@@ -29,7 +29,7 @@ function checked<T>(change: () => T): T {
 
 /**
  * `plan` with ids none of `taken` has (`<id>-2`…), for a storey joining a home whose other
- * storeys use some of them; the `parent` of its elements follows.
+ * storeys use some of them; the `room` of its elements follows.
  */
 export async function freeIds(
   plan: Record<string, unknown>,
@@ -132,6 +132,19 @@ export class Planner {
     const points: PlanPoint[] = [];
     for (let i = 0; i + 1 < flat.length; i += 2) points.push([flat[i] ?? 0, flat[i + 1] ?? 0]);
     return points;
+  }
+
+  /**
+   * The point element `id` is held by when dragged: a room's first corner, else the first end
+   * (`from`) of a partition, a door or a window; undefined for anything else.
+   */
+  anchor(id: string): PlanPoint | undefined {
+    const corner = this.roomPoints(id)[0];
+    if (corner) return corner;
+    const from = this.element(id)?.from;
+    if (!Array.isArray(from)) return undefined;
+    const [x, y] = from as unknown[];
+    return typeof x === "number" && typeof y === "number" ? [x, y] : undefined;
   }
 
   /** Where a point goes, snapped, and the guides it was lined up on. */

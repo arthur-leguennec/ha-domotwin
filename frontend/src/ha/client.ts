@@ -2,7 +2,7 @@ import type { ThemeMode } from "../config";
 import type { ShowRequest } from "../live/show";
 import type { HassConnection, HassMessage, HomeAssistant } from "./types";
 
-export type PlanJson = Record<string, unknown> & { title?: unknown; elements?: unknown };
+export type PlanJson = Record<string, unknown> & { name?: unknown; items?: unknown };
 
 /** A storey of the home (`docs/DECISIONS.md`, D-026). */
 export interface StoreyInfo {

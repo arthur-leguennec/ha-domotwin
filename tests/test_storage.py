@@ -2,14 +2,18 @@
 
 from __future__ import annotations
 
+import copy
 from typing import Any
 
+import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.domotwin.const import STORAGE_KEY, STORAGE_MINOR_VERSION, STORAGE_VERSION
 from custom_components.domotwin.data import DATA_KEY
 from custom_components.domotwin.storage import DomoTwinData
 from homeassistant.core import HomeAssistant
+
+from .conftest import one_room_plan
 
 
 async def test_data_survives_a_restart(
@@ -25,7 +29,7 @@ async def test_data_survives_a_restart(
         "data": {
             "revision": 7,
             "plan": demo_plan,
-            "layout": {"sofa": {"x": 1}},
+            "layout": {"sofa": {"at": [1, 1]}},
             "bindings": {"version": 1, "rooms": {}, "elements": {}},
             "settings": {},
         },
@@ -35,7 +39,7 @@ async def test_data_survives_a_restart(
     data = hass.data[DATA_KEY]
     assert data.revision == 7
     assert data.plan == demo_plan
-    assert data.layout == {"sofa": {"x": 1}}
+    assert data.layout == {"sofa": {"at": [1, 1]}}
     # Data stored before per-kind revisions: each kind starts at the stored revision.
     assert [data.revision_of(kind) for kind in ("plan", "bindings", "settings")] == [7, 7, 7]
     await data.async_save_settings({"north": 5})
@@ -109,14 +113,16 @@ async def test_the_single_plan_of_version_1_1_becomes_the_first_storey(
         "version": 1,
         "minor_version": 1,
         "key": STORAGE_KEY,
-        "data": {"revision": 3, "plan": demo_plan, "layout": {"sofa": {"x": 1}}},
+        "data": {"revision": 3, "plan": demo_plan, "layout": {"sofa": {"at": [1, 1]}}},
     }
     data = DomoTwinData(hass)
     await data.async_load()
     assert [storey["id"] for storey in data.storeys] == ["storey-1"]
     assert data.plan == demo_plan
-    assert data.layout == {"sofa": {"x": 1}}
+    assert data.layout == {"sofa": {"at": [1, 1]}}
     assert "plan" not in data.snapshot()
+    # Data from before DomoTwin's plan format moves its revision on.
+    assert data.revision == 4
     # Without a plan, no storey.
     hass_storage[STORAGE_KEY]["data"] = {"revision": 1, "plan": None, "layout": {}}
     empty = DomoTwinData(hass)
@@ -125,26 +131,59 @@ async def test_the_single_plan_of_version_1_1_becomes_the_first_storey(
     assert empty.plan is None
 
 
+async def test_plans_in_an_older_format_are_set_aside(
+    hass: HomeAssistant,
+    hass_storage: dict[str, Any],
+    demo_plan: dict[str, Any],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    older = {"version": 1, "elements": [{"id": "hall", "type": "room"}]}
+    storeys = [
+        {"id": "storey-1", "name": "", "elevation": 0, "plan": demo_plan, "layout": {}},
+        {"id": "storey-2", "name": "Up", "elevation": 280, "plan": older, "layout": {"a": {}}},
+        {"id": "storey-3", "name": "", "elevation": 560, "plan": None, "layout": {}},
+    ]
+
+    def stored(version: int) -> dict[str, Any]:
+        return {
+            "version": version,
+            "minor_version": 1,
+            "key": STORAGE_KEY,
+            "data": {"revision": 5, "storeys": copy.deepcopy(storeys)},
+        }
+
+    hass_storage[STORAGE_KEY] = stored(2)
+    data = DomoTwinData(hass)
+    await data.async_load()
+    assert [storey["id"] for storey in data.storeys] == ["storey-1"]
+    assert data.plan == demo_plan
+    # Kept in the stored data, not shown; an empty storey goes.
+    assert [storey["id"] for storey in data.retired] == ["storey-2"]
+    assert data.retired[0]["layout"] == {"a": {}}
+    # The revision moves on: drafts kept for the old plans are not offered again.
+    assert data.revision == 6
+    assert data.revision_of("plan") == 6
+    warnings = [r.getMessage() for r in caplog.records if r.name.startswith("custom_components")]
+    assert len(warnings) == 1
+    assert "1 stored plan(s) were not in DomoTwin's plan format" in warnings[0]
+    assert "Up" not in warnings[0]
+    # Data of this version is read as it is.
+    hass_storage[STORAGE_KEY] = stored(STORAGE_VERSION)
+    current = DomoTwinData(hass)
+    await current.async_load()
+    assert len(current.storeys) == 3
+
+
 async def test_storeys_are_added_changed_ordered_and_removed(
     hass: HomeAssistant, demo_plan: dict[str, Any]
 ) -> None:
     data = DomoTwinData(hass)
     await data.async_load()
     await data.async_save_plan(plan=demo_plan)
-    upper = {
-        **demo_plan,
-        "elements": [
-            {"id": "attic", "type": "room", "name": "Attic", "x": 0, "y": 0, "w": 300, "h": 300}
-        ],
-    }
+    upper = one_room_plan("attic", "Attic")
     revision, storey = await data.async_save_storey(name="First floor", elevation=280, plan=upper)
     assert storey == "storey-2"
-    cellar = {
-        **demo_plan,
-        "elements": [
-            {"id": "cellar", "type": "room", "name": "Cellar", "x": 0, "y": 0, "w": 300, "h": 300}
-        ],
-    }
+    cellar = one_room_plan("cellar", "Cellar")
     _, below = await data.async_save_storey(name="Cellar", elevation=-250, plan=cellar)
     # Lowest first; the default storey is the ground floor, not the cellar.
     assert [s["id"] for s in data.storeys] == [below, "storey-1", "storey-2"]
@@ -156,10 +195,10 @@ async def test_storeys_are_added_changed_ordered_and_removed(
     attic = data.storey("storey-2")
     assert attic is not None
     assert attic["name"] == "Attic"
-    await data.async_save_plan(storey="storey-2", layout={"x": {"angle": 15}})
+    await data.async_save_plan(storey="storey-2", layout={"x": {"rotation": 15}})
     attic = data.storey("storey-2")
     assert attic is not None
-    assert attic["layout"] == {"x": {"angle": 15}}
+    assert attic["layout"] == {"x": {"rotation": 15}}
     await data.async_remove_storey(below)
     assert [s["id"] for s in data.storeys] == ["storey-1", "storey-2"]
     # A plan None removes its storey.

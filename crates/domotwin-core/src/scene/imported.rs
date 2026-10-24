@@ -125,13 +125,12 @@ mod tests {
     /// A room with two pieces of a Z-up STL model, 40 × 60 × 80 cm, at (100, 100) and (200, 100).
     fn plan() -> crate::Plan {
         let plan = json!({
-            "version": 1, "unit": "cm",
-            "elements": [
-                { "id": "room", "type": "room", "name": "Room", "x": 0, "y": 0, "w": 400, "h": 300 },
-                { "id": "a", "type": "furniture", "name": "A", "x": 100, "y": 100, "w": 40, "h": 60, "z": 80,
-                  "kind": "custom", "model": "m-1" },
-                { "id": "b", "type": "furniture", "name": "B", "x": 200, "y": 100, "w": 40, "h": 60, "z": 80,
-                  "kind": "custom", "model": "m-1" }
+            "format": "domotwin-plan", "version": 1,
+            "rooms": [{ "id": "room", "name": "Room",
+                        "outline": [[0, 0], [400, 0], [400, 300], [0, 300]] }],
+            "items": [
+                { "id": "a", "name": "A", "at": [120, 130], "size": [40, 60, 80], "model": "m-1" },
+                { "id": "b", "name": "B", "at": [220, 130], "size": [40, 60, 80], "model": "m-1" }
             ],
             "models": { "m-1": { "name": "Stool", "size": [40, 60, 80],
                 "file": { "format": "stl", "hash": HASH, "bytes": 84, "up": "z" } } }

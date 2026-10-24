@@ -1,0 +1,44 @@
+{
+  "format": "domotwin-plan",
+  "version": 1,
+  "name": "Demo apartment, upper floor",
+  "wallThickness": {"interior": 10, "exterior": 20},
+  "rooms": [
+    {"id": "up-bedroom", "name": "Second bedroom", "outline": [[0, 0], [340, 0], [340, 420], [0, 420]], "floor": {"material": "oak"}},
+    {"id": "up-office", "name": "Office", "outline": [[340, 0], [820, 0], [820, 420], [340, 420]], "floor": {"material": "painted-wood"}},
+    {"id": "up-shower", "name": "Shower room", "outline": [[0, 420], [240, 420], [240, 760], [0, 760]], "floor": {"material": "white-tiles"}},
+    {"id": "up-landing", "name": "Landing", "outline": [[240, 420], [440, 420], [440, 760], [240, 760]], "floor": {"material": "grey-wood"}},
+    {"id": "up-dressing", "name": "Dressing room", "outline": [[440, 420], [820, 420], [820, 675], [763, 760], [440, 760]], "floor": {"material": "oak"}}
+  ],
+  "doors": [
+    {"id": "up-door-bedroom", "name": "Second bedroom door", "from": [250, 420], "to": [330, 420], "room": "up-landing"},
+    {"id": "up-door-office", "name": "Office door", "from": [350, 420], "to": [430, 420], "room": "up-landing", "style": "glazed"},
+    {"id": "up-door-shower", "name": "Shower room door", "from": [240, 600], "to": [240, 675], "room": "up-landing", "open": 0},
+    {"id": "up-door-dressing", "name": "Dressing room door", "from": [440, 460], "to": [440, 540], "opensTo": "left", "room": "up-landing", "open": 0.4}
+  ],
+  "windows": [
+    {"id": "up-win-bedroom", "name": "Second bedroom window", "from": [100, 0], "to": [240, 0], "room": "up-bedroom"},
+    {"id": "up-win-office", "name": "Office window", "from": [520, 0], "to": [680, 0], "room": "up-office"},
+    {"id": "up-win-office-2", "name": "Office side window", "from": [820, 140], "to": [820, 240], "room": "up-office"},
+    {"id": "up-win-shower", "name": "Shower room window", "from": [0, 520], "to": [0, 580], "room": "up-shower"},
+    {"id": "up-win-dressing", "name": "Dressing room window", "from": [820, 470], "to": [820, 590], "room": "up-dressing"}
+  ],
+  "items": [
+    {"id": "up-stairs", "name": "Stairs", "kind": "stairs", "at": [380, 610], "size": [100, 280, 270], "room": "up-landing"},
+    {"id": "up-bed", "name": "Bed", "kind": "bed", "at": [160, 275], "size": [140, 190, 55], "room": "up-bedroom"},
+    {"id": "up-nightstand", "name": "Nightstand", "kind": "nightstand", "at": [260, 200], "size": [40, 40, 48], "room": "up-bedroom"},
+    {"id": "up-pendant", "name": "Bedroom light", "kind": "pendant", "at": [163.5, 273.5], "size": [47, 47, 45], "lift": 150, "room": "up-bedroom"},
+    {"id": "up-desk", "name": "Desk", "kind": "desk", "at": [695, 75], "size": [150, 70, 75], "room": "up-office"},
+    {"id": "up-officechair", "name": "Office chair", "kind": "office-chair", "at": [695, 155], "size": [60, 60, 110], "room": "up-office"},
+    {"id": "up-bookcase", "name": "Bookcase", "kind": "bookcase", "at": [435, 17.5], "size": [110, 35, 180], "room": "up-office"},
+    {"id": "up-lamp", "name": "Floor lamp", "kind": "floor-lamp", "at": [787.5, 367.5], "size": [35, 35, 160], "room": "up-office"},
+    {"id": "up-vanity", "name": "Washbasin", "kind": "vanity", "at": [57.5, 460], "size": [75, 50, 85], "room": "up-shower"},
+    {"id": "up-toilet", "name": "Toilet", "kind": "toilet", "at": [200, 715], "size": [40, 70, 75], "room": "up-shower"},
+    {"id": "up-bathtub", "name": "Bathtub", "kind": "bathtub", "at": [42.5, 645], "size": [75, 170, 60], "room": "up-shower"},
+    {"id": "up-linen", "name": "Wardrobe", "kind": "tall-cabinet", "at": [620, 462.5], "size": [120, 65, 190], "room": "up-dressing"},
+    {"id": "up-dresser", "name": "Chest of drawers", "kind": "dresser", "at": [750, 452.5], "size": [100, 45, 85], "room": "up-dressing"}
+  ],
+  "views": [
+    {"id": "up-overview", "name": "Overview", "eye": [410, 1150, 900], "target": [410, 380, 0]}
+  ]
+}

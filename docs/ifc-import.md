@@ -1,7 +1,7 @@
 # IFC import
 
 DomoTwin can start from an **IFC file** (ISO 16739), the open standard for building models, instead
-of a House Maquette plan. In the DomoTwin panel, **Import plan** accepts `.ifc` files: DomoTwin reads
+of a plan drawn in the panel. In the DomoTwin panel, **Import plan** accepts `.ifc` files: DomoTwin reads
 one storey and turns it into an ordinary plan (`plan-format.md`), stored like an imported plan in
 the storey shown, or **imports every storey** of the file as the home's [storeys](storeys.md).
 Everything else (3D and 2D views, bindings, live states, export) works the same.
@@ -38,11 +38,11 @@ boolean results, CSG blocks, bounding boxes.
   share a limit and the partition is drawn centred on it. Where two spaces face each other across a
   wall of up to 59 cm, both are widened to the middle of that wall (only along the part where they
   face each other). Exterior walls stay outside the rooms. Partitions of an unusual thickness keep
-  it (`edgeThickness`).
+  it (the side's `thickness`).
 - **Ids.** Elements keep their IFC `GlobalId` as plan id, so importing an updated model again keeps
   your bindings.
 - **Floors.** Rooms named like a bathroom or a kitchen get tiles, living rooms and bedrooms wood.
-  You can change them in House Maquette.
+  You can change them in the [plan editor](plan-editor.md).
 
 ## What is left out (and said so)
 
@@ -76,7 +76,7 @@ about two seconds (`PERFORMANCE.md`).
   parsed on demand), `model.rs` (units, placements, relations, geometry), `convert.rs` (storey →
   plan), `kinds.rs` (furniture kinds). Its wasm API (`web.rs`) is wrapped by
   `frontend/src/ifc/ifc.ts`.
-- `cargo run -p domotwin-ifc --example ifc2plan -- file.ifc [storey] > out.plan.json` converts a
+- `cargo run -p domotwin-ifc --example ifc2plan -- file.ifc [storey] > out.domotwin.json` converts a
   file on the command line.
 - The test files in `crates/domotwin-ifc/tests/fixtures/` and `examples/demo-apartment.ifc` are
   fictional and written by `python3 scripts/make-ifc-fixtures.py`. Real IFC files never go in the

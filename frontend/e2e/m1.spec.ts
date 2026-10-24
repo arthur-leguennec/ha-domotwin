@@ -141,18 +141,35 @@ test.describe("3D view", () => {
     const chooser = page.waitForEvent("filechooser");
     await page.getByRole("button", { name: "Import plan" }).first().click();
     const plan = {
+      format: "domotwin-plan",
       version: 1,
-      unit: "cm",
-      layoutRevision: 10,
-      elements: [
-        { id: "hall", type: "room", name: "Hall", x: 0, y: 0, w: 200, h: 200 },
-        { id: "hall", type: "room", name: "Hall", x: 200, y: 0, w: 200, h: 200 },
+      rooms: [
+        {
+          id: "hall",
+          name: "Hall",
+          outline: [
+            [0, 0],
+            [200, 0],
+            [200, 200],
+            [0, 200],
+          ],
+        },
+        {
+          id: "hall",
+          name: "Hall",
+          outline: [
+            [200, 0],
+            [400, 0],
+            [400, 200],
+            [200, 200],
+          ],
+        },
       ],
     };
     await (
       await chooser
     ).setFiles({
-      name: "twice.plan.json",
+      name: "twice.domotwin.json",
       mimeType: "application/json",
       buffer: Buffer.from(JSON.stringify(plan)),
     });

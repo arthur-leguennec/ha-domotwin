@@ -7,12 +7,12 @@
 use std::collections::BTreeSet;
 use std::sync::OnceLock;
 
-use domotwin_core::plan::read_plan_value;
+use domotwin_core::plan::{LISTS, read_plan_value};
 use domotwin_core::structure::{Draft, free_ids};
 use libfuzzer_sys::fuzz_target;
 use serde_json::{Map, Value, json};
 
-const DEMO: &str = include_str!("../../examples/demo-apartment.plan.json");
+const DEMO: &str = include_str!("../../examples/demo-apartment.domotwin.json");
 
 /// A coordinate from two bytes: −1 000 to 1 548 cm, around the demo home.
 fn coordinate(bytes: &[u8]) -> f64 {
@@ -25,16 +25,7 @@ fuzz_target!(|data: &[u8]| {
     };
     let mut draft = Draft::new(source.clone());
     for op in data.chunks_exact(10).take(64) {
-        let ids: Vec<String> = draft
-            .plan()
-            .get("elements")
-            .and_then(Value::as_array)
-            .map(|list| {
-                list.iter()
-                    .filter_map(|e| e.get("id").and_then(Value::as_str).map(str::to_owned))
-                    .collect()
-            })
-            .unwrap_or_default();
+        let ids: Vec<String> = ids_of(draft.plan()).into_iter().collect();
         let id = ids
             .get(usize::from(op[1]) % ids.len().max(1))
             .cloned()
@@ -52,11 +43,12 @@ fuzz_target!(|data: &[u8]| {
             6 => draft.move_element(&id, [a[0] / 10.0, a[1] / 10.0]).is_ok(),
             7 => {
                 let mut fields = Map::new();
-                fields.insert("w".into(), json!(a[0] / 4.0));
+                fields.insert("width".into(), json!(a[0] / 4.0));
                 fields.insert("thickness".into(), json!(b[0] / 10.0));
-                fields.insert("swing".into(), json!(if op[3] % 2 == 0 { 1 } else { -1 }));
+                let side = if op[3] % 2 == 0 { "left" } else { "right" };
+                fields.insert("opensTo".into(), json!(side));
                 fields.insert("name".into(), json!("Renamed"));
-                fields.insert("x".into(), json!(a[1]));
+                fields.insert("outline".into(), json!(a[1]));
                 draft.update(&id, &fields).is_ok()
             }
             8 => draft.remove(&id).is_ok(),
@@ -83,15 +75,22 @@ fuzz_target!(|data: &[u8]| {
     // (picked by the bytes) has too.
     let mut joining = draft.plan().clone();
     let long = "é".repeat(100);
-    if let Some(list) = joining.get_mut("elements").and_then(Value::as_array_mut)
+    if let Some(list) = joining.get_mut("rooms").and_then(Value::as_array_mut)
         && !list.is_empty()
     {
         let pick = usize::from(data.first().copied().unwrap_or(0)) % list.len();
         let old = list[pick].get("id").and_then(Value::as_str).map(str::to_owned);
         list[pick]["id"] = json!(long);
-        for e in list.iter_mut() {
-            if old.is_some() && e.get("parent").and_then(Value::as_str) == old.as_deref() {
-                e["parent"] = json!(long);
+        for (key, _) in &LISTS[1..] {
+            for e in joining
+                .get_mut(key)
+                .and_then(Value::as_array_mut)
+                .into_iter()
+                .flatten()
+            {
+                if old.is_some() && e.get("room").and_then(Value::as_str) == old.as_deref() {
+                    e["room"] = json!(long);
+                }
             }
         }
     }
@@ -110,12 +109,10 @@ fuzz_target!(|data: &[u8]| {
 static DEMO_IDS: OnceLock<BTreeSet<String>> = OnceLock::new();
 
 fn ids_of(plan: &Value) -> BTreeSet<String> {
-    plan.get("elements")
-        .and_then(Value::as_array)
-        .map(|list| {
-            list.iter()
-                .filter_map(|e| e.get("id").and_then(Value::as_str).map(str::to_owned))
-                .collect()
-        })
-        .unwrap_or_default()
+    LISTS
+        .iter()
+        .filter_map(|(key, _)| plan.get(key).and_then(Value::as_array))
+        .flatten()
+        .filter_map(|e| e.get("id").and_then(Value::as_str).map(str::to_owned))
+        .collect()
 }

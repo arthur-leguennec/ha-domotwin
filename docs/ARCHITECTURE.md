@@ -128,20 +128,24 @@ every reader returns `Result` with a stable error code that the frontend transla
       "id": "storey-1",
       "name": "",
       "elevation": 0,
-      "plan": { "version": 1, "unit": "cm", "elements": [] },
-      "layout": { "sofa": { "x": 360, "y": 110, "angle": 0 } }
+      "plan": { "format": "domotwin-plan", "version": 1, "rooms": [] },
+      "layout": { "sofa": { "at": [405, 155], "rotation": 90 } }
     }
   ],
   "bindings": { "version": 1, "rooms": {}, "elements": {} },
   "settings": {},
-  "revisions": { "plan": 2, "bindings": 3, "settings": 0 }
+  "revisions": { "plan": 2, "bindings": 3, "settings": 0 },
+  "retired": []
 }
 ```
 
-- `storeys` (D-026): each storey's `plan`, the House Maquette plan exactly as read, and `layout`,
-  its edit-mode overlay keyed by element id; `name` (empty: named by its place) and `elevation`
-  (cm). Element ids, and the ids of pieces an overlay adds, are unique in the whole home. Storage
-  1.1 kept one `plan` and `layout`: they become `storey-1` (storage 2.1).
+- `storeys` (D-026): each storey's `plan`, the DomoTwin plan exactly as read
+  ([`plan-format.md`](plan-format.md)), and `layout`, its edit-mode overlay keyed by element id;
+  `name` (empty: named by its place) and `elevation` (cm). Element ids, and the ids of pieces an
+  overlay adds, are unique in the whole home. Storage 1.1 kept one `plan` and `layout`: they
+  become `storey-1` (storage 2.1).
+- `retired` (D-030): storeys whose plan was in the format DomoTwin started from, set aside by the
+  migration to storage 3.1 with their overlays and their 3D files; nothing shows them.
 - `bindings`: see [`bindings.md`](bindings.md).
 - `settings`: the home's settings, `{"north": <degrees>}`: where north points on the plan,
   clockwise from its top, for the real sun (D-023).

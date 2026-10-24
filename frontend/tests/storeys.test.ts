@@ -71,7 +71,7 @@ describe("storeys", () => {
 
   it("fetch the rooms of the storeys not shown, leaving out a plan that cannot be had", async () => {
     const plans: Record<string, unknown> = {
-      up: { elements: [{ id: "office", type: "room", name: "Office" }] },
+      up: { rooms: [{ id: "office", name: "Office" }] },
     };
     const client = {
       getPlan: (id?: string) =>
@@ -139,7 +139,7 @@ describe("storeys", () => {
       getPlan: (id?: string) => {
         asked.push(id);
         return Promise.resolve({
-          plan: { elements: [{ type: "room", id: `room-${id ?? ""}` }] },
+          plan: { rooms: [{ id: `room-${id ?? ""}` }] },
           layout: { moved: { x: 1 } },
           revision: 1,
           storey: id ?? null,
@@ -152,7 +152,7 @@ describe("storeys", () => {
       ["down", "", 0],
       ["up", "Up", 280],
     ]);
-    expect(home[1]?.plan).toEqual({ elements: [{ type: "room", id: "room-up" }] });
+    expect(home[1]?.plan).toEqual({ rooms: [{ id: "room-up" }] });
     expect(home[0]?.layout).toEqual({ moved: { x: 1 } });
     expect(asked.sort()).toEqual(["down", "up"]);
   });
@@ -163,7 +163,7 @@ describe("storeys", () => {
         lost && id === "attic"
           ? Promise.reject(new Error("gone"))
           : Promise.resolve({
-              plan: id === "empty" ? null : { elements: [] },
+              plan: id === "empty" ? null : { rooms: [] },
               layout: {},
               revision: 1,
               storey: id ?? null,
@@ -178,12 +178,8 @@ describe("storeys", () => {
 
   it("count a storey's rooms and the lights linked to it that are on", () => {
     const plan = {
-      elements: [
-        { type: "room", id: "office" },
-        { type: "room", id: "landing" },
-        { type: "furniture", id: "lamp" },
-        { type: "furniture", id: "desk" },
-      ],
+      rooms: [{ id: "office" }, { id: "landing" }],
+      items: [{ id: "lamp" }, { id: "desk" }],
     };
     const hass = {
       states: {
@@ -209,7 +205,7 @@ describe("storeys", () => {
     const added = { ...bindings, elements: { added: { entities: [{ entity_id: "light.new" }] } } };
     const lit = { states: { "light.new": { state: "on" } } } as unknown as HomeAssistant;
     expect(storeyCounts(lit, added, plan)).toEqual({ rooms: 2, lights: 0 });
-    expect(storeyCounts(lit, added, plan, { added: { add: { kind: "lamp" } } })).toEqual({
+    expect(storeyCounts(lit, added, plan, { added: { add: { kind: "floor-lamp" } } })).toEqual({
       rooms: 2,
       lights: 1,
     });

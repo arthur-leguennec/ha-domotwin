@@ -95,8 +95,9 @@ test.describe("M3: edit mode", () => {
     await expect(page.getByTestId("toast")).toHaveText(/Changes saved\./);
     await expect(page.getByTestId("edit-mode")).toBeVisible();
     const layout = await savedLayout(page);
-    expect(layout?.sofa?.x).toBeLessThan(380);
-    expect(layout?.sofa?.y).toBeGreaterThan(105);
+    const at = layout?.sofa?.at as [number, number];
+    expect(at[0]).toBeLessThan(425);
+    expect(at[1]).toBeGreaterThan(210);
     expect((await viewState(page)).edit).toBeUndefined();
 
     // Export writes the plan as it is now, with the sofa moved.
@@ -105,9 +106,9 @@ test.describe("M3: edit mode", () => {
     const file = await (await download).path();
     const { readFile } = await import("node:fs/promises");
     const plan = JSON.parse(await readFile(file, "utf8")) as {
-      elements: { id: string; x: number }[];
+      items: { id: string; at: [number, number] }[];
     };
-    expect(plan.elements.find((e) => e.id === "sofa")?.x).toBe(layout?.sofa?.x);
+    expect(plan.items.find((e) => e.id === "sofa")?.at).toEqual(at);
   });
 
   test("turns, removes, adds from the catalogue, undoes, then discards", async ({ page }) => {
@@ -121,7 +122,7 @@ test.describe("M3: edit mode", () => {
     const catalogue = page.getByTestId("catalogue");
     await catalogue.getByTestId("catalogue-search").fill("lampe");
     await expect(catalogue.getByTestId("catalogue-sofa")).toHaveCount(0);
-    await catalogue.getByTestId("catalogue-tablelamp").click();
+    await catalogue.getByTestId("catalogue-table-lamp").click();
     await expect(catalogue).toHaveCount(0);
     await expect(page.getByTestId("edit-status")).toHaveText("Lampe à poser");
     await page.getByTestId("edit-undo").click();
@@ -189,7 +190,7 @@ test.describe("M3: edit mode", () => {
     await expect(page.getByTestId("edit-status")).toHaveText("2 pieces selected");
     await page.getByTestId("edit-rotate-right").click();
     const layout = await editLayout(page);
-    expect(layout).toMatchObject({ "chair-1": { angle: 15 }, "chair-2": { angle: 15 } });
+    expect(layout).toMatchObject({ "chair-1": { rotation: 15 }, "chair-2": { rotation: 15 } });
   });
 
   test("a long press on a selected piece takes it out of the selection", async ({ page }) => {
@@ -230,7 +231,7 @@ test.describe("M3: edit mode", () => {
         }
       ).__hass.connection.sendMessagePromise({
         type: "domotwin/plan/save",
-        layout: { sofa: { x: 200, y: 150 } },
+        layout: { sofa: { at: [245, 255] } },
       }),
     );
     await expect(page.getByTestId("toast")).toHaveText(/another device/);
@@ -273,8 +274,9 @@ test.describe("M3: edit mode", () => {
       ).__hass.connection.sendMessagePromise({
         type: "domotwin/plan/save",
         layout: {
-          sofa: { x: 200 },
-          "bad-added-1": { add: { name: "Bad", kind: "lamp", w: 35, h: 35 } },
+          sofa: { at: [245, 255] },
+          // Nowhere to stand.
+          "bad-added-1": { add: { name: "Bad", kind: "floor-lamp", size: [35, 35, 160] } },
         },
       }),
     );
@@ -283,7 +285,7 @@ test.describe("M3: edit mode", () => {
     );
     await page.getByTestId("edit-mode").click();
     await expect(page.getByTestId("edit-status")).toBeVisible();
-    expect(await editLayout(page)).toEqual({ sofa: { x: 200 } });
+    expect(await editLayout(page)).toEqual({ sofa: { at: [245, 255] } });
   });
 
   test("only administrators edit", async ({ page }) => {

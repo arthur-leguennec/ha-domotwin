@@ -2,7 +2,7 @@
 
 Administrators draw and change the plan itself from the DomoTwin panel: rooms as polygons,
 partitions, doors and windows placed on the rooms' sides, with snapping, lengths and undo. A home
-can be drawn from nothing, without House Maquette or any other software. Furniture is arranged in
+can be drawn from nothing, without any other software. Furniture is arranged in
 [edit mode](edit-mode.md).
 
 ![The plan editor: a corner of the living room dragged with the lengths of its sides, and a room drawn beside the home](figures/screenshot-plan-editor.png)
@@ -66,7 +66,7 @@ has links.
 
 ## Limits
 
-Sides without a wall (`openEdges`), per-side wall thicknesses and finishes, a room's colour, wall
+Sides without a wall (`open`), per-side wall thicknesses and finishes, a room's colour, wall
 style and materials, and a side's length typed in are not edited here yet: they are kept as the
 plan has them.
 

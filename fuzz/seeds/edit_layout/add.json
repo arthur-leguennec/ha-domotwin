@@ -1,1 +1,1 @@
-{"lamp-added-1": {"add": {"name": "Lamp", "kind": "lamp", "w": 35, "h": 35, "z": 160}, "x": 40, "y": 20, "parent": "living"}}
+{"floor-lamp-added-1": {"add": {"name": "Lamp", "kind": "floor-lamp", "size": [35, 35, 160]}, "at": [57.5, 37.5], "room": "living"}}

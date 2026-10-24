@@ -4,8 +4,7 @@ Administrators rearrange the furniture of the imported plan from the DomoTwin pa
 stack, remove and add pieces, with undo. The plan as imported is never changed: the edits are an
 **overlay** stored beside it (`layout`), so importing an updated plan later keeps the edits of the
 pieces that still exist. Rooms, partitions, doors and windows are changed in the
-[plan editor](plan-editor.md), or in House Maquette (or your modelling software) and imported
-again.
+[plan editor](plan-editor.md), or in your modelling software and imported again.
 
 ![Edit mode: a piece dragged on the 2D plan with its guides, and the catalogue](figures/screenshot-edit.png)
 
@@ -108,32 +107,32 @@ Stored by the integration in `layout`, keyed by element id (`domotwin-core::over
 
 ```json
 {
-  "sofa": { "x": 360, "y": 110, "angle": 90 },
+  "sofa": { "at": [405, 155], "rotation": 90 },
   "plant-living": { "removed": true },
-  "table-lamp": { "x": 190, "y": 383, "elevation": 75, "parent": "living" },
-  "lamp-added-1": {
-    "add": { "name": "Floor lamp", "kind": "lamp", "w": 35, "h": 35, "z": 160 },
-    "x": 40, "y": 20, "parent": "living"
+  "table-lamp": { "at": [205, 398], "lift": 75, "room": "living" },
+  "floor-lamp-added-1": {
+    "add": { "name": "Floor lamp", "kind": "floor-lamp", "color": "#f1e7d2", "size": [35, 35, 160] },
+    "at": [57.5, 37.5], "room": "living"
   },
   "@model:m-6f1c…": {
     "model": { "name": "Bar stool", "size": [38, 38, 71],
                "file": { "format": "glb", "hash": "3f1b…", "bytes": 19012, "up": "y" } }
   },
-  "custom-added-1": {
-    "add": { "name": "Bar stool", "kind": "custom", "model": "m-6f1c…", "w": 38, "h": 38, "z": 71 },
-    "x": 120, "y": 300, "parent": "living"
+  "model-added-1": {
+    "add": { "name": "Bar stool", "model": "m-6f1c…", "color": "#a0714a", "size": [38, 38, 71] },
+    "at": [139, 319], "room": "living"
   }
 }
 ```
 
 | Field | Meaning |
 | --- | --- |
-| `x`, `y` | Corner of the unrotated box, as in the plan format (cm). |
-| `angle` | Rotation, 0–360°. |
-| `elevation` | Height of the underside (cm, 0–300). |
-| `parent` | The room the piece now follows (set when a piece moves into another room). |
+| `at` | The centre of its footprint, as in the plan format (cm). |
+| `rotation` | Rotation, 0–360°. |
+| `lift` | Height of the underside (cm, 0–300). |
+| `room` | The room the piece now follows (set when a piece moves into another room). |
 | `removed` | Taken out of the home. |
-| `add` | A piece added in edit mode: its element, without `id` and `type`. |
+| `add` | A piece added in edit mode: its item, without `id` and its place (`name`, `kind` or `model`, `color`, `size`). |
 | `model` | Keys `@model:<id>` only: a user model imported in edit mode, added to the plan's `models`. |
 
 The overlay is applied to the plan's JSON before it is read, so the result is checked like any

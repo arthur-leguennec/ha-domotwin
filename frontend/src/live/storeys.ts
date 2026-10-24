@@ -10,6 +10,7 @@ import type { Translator } from "../i18n";
 import type { BindingsJson } from "./bindings";
 import { roomLayers, type PlanRoom, type RoomAlert } from "./layers";
 import { planRooms } from "./suggest";
+import { planElements } from "./plan";
 
 /** What a storey switcher or a card's `storey` says to show every storey at once (D-028). */
 export const ALL_STOREYS = "all";
@@ -54,12 +55,7 @@ export async function loadStorey(
 
 /** The ids a storey uses: its plan's elements and the pieces its overlay adds. */
 export function storeyIds(plan: unknown, layout?: Record<string, unknown>): string[] {
-  const elements = (plan as { elements?: unknown } | null)?.elements;
-  const ids = Array.isArray(elements)
-    ? elements
-        .map((element) => (element as { id?: unknown } | null)?.id)
-        .filter((id): id is string => typeof id === "string")
-    : [];
+  const ids = planElements(plan).map((e) => e.id);
   for (const [id, entry] of Object.entries(layout ?? {})) {
     if (entry && typeof entry === "object" && "add" in entry) ids.push(id);
   }

@@ -56,6 +56,11 @@ pub struct Session {
     reserved: BTreeSet<String>,
 }
 
+/// Whether a piece is set on top of what it is dropped over.
+fn stacks(f: &Furniture) -> bool {
+    can_stack(f.kind, f.model.is_some())
+}
+
 fn pieces(plan: &Plan) -> impl Iterator<Item = &Furniture> {
     plan.elements.iter().filter_map(|e| match e {
         Element::Furniture(f) => Some(f),
@@ -303,7 +308,7 @@ impl Session {
                     .map(|o| (Footprint::of(o), o.kind))
                     .collect();
                 f.elevation < RESTING
-                    || support_under(&Footprint::of(f), f.kind, &others, &[])
+                    || support_under(&Footprint::of(f), stacks(f), &others, &[])
                         .is_some_and(|(_, top)| (top - f.elevation).abs() < RESTING)
             });
         let pieces = ids
@@ -340,7 +345,7 @@ impl Session {
         let Some(f) = piece(plan, &lead.id) else {
             return false;
         };
-        let kind = f.kind;
+        let stacking = stacks(f);
         let start = Footprint::of(&Furniture {
             x: lead.x,
             y: lead.y,
@@ -360,12 +365,12 @@ impl Session {
             snapped.centre[0] - start.centre[0],
             snapped.centre[1] - start.centre[1],
         ];
-        let elevation = if drag.stands && can_stack(kind) {
+        let elevation = if drag.stands && stacking {
             let at = Footprint {
                 centre: snapped.centre,
                 ..start
             };
-            support_under(&at, kind, &others, &[]).map_or(0.0, |(_, top)| top)
+            support_under(&at, true, &others, &[]).map_or(0.0, |(_, top)| top)
         } else {
             lead.elevation
         };
@@ -399,11 +404,10 @@ impl Session {
                 continue;
             };
             let entry = layout.entry(f.id.clone()).or_default();
-            entry.x = Some(f.x);
-            entry.y = Some(f.y);
-            entry.elevation = Some(f.elevation);
+            entry.at = Some(f.center());
+            entry.lift = Some(f.elevation);
             if let Some(room) = room_at(plan, walls, f.center()).filter(|r| *r != f.parent) {
-                entry.parent = Some(room);
+                entry.room = Some(room);
             }
         }
         self.record(layout)
@@ -438,13 +442,11 @@ impl Session {
         for f in ids.iter().filter_map(|id| piece(plan, id)) {
             let (x, y, angle) = turned(f, pivot, delta);
             let entry = layout.entry(f.id.clone()).or_default();
-            entry.x = Some(x);
-            entry.y = Some(y);
-            entry.angle = Some(angle);
-            if let Some(room) =
-                room_at(plan, walls, [x + f.w / 2.0, y + f.h / 2.0]).filter(|r| *r != f.parent)
-            {
-                entry.parent = Some(room);
+            let centre = [x + f.w / 2.0, y + f.h / 2.0];
+            entry.at = Some(centre);
+            entry.rotation = Some(angle);
+            if let Some(room) = room_at(plan, walls, centre).filter(|r| *r != f.parent) {
+                entry.room = Some(room);
             }
         }
         self.record(layout)
@@ -473,8 +475,8 @@ impl Session {
             }
         }
         for id in carried_by(plan, &movable) {
-            if piece(plan, &id).is_some_and(|f| can_stack(f.kind)) {
-                layout.entry(id).or_default().elevation = Some(0.0);
+            if piece(plan, &id).is_some_and(stacks) {
+                layout.entry(id).or_default().lift = Some(0.0);
             }
         }
         self.selection.retain(|id| !movable.contains(id));
@@ -491,7 +493,7 @@ impl Session {
         name: &str,
         at: P2,
     ) -> Option<String> {
-        if kind == Kind::Custom {
+        if kind == Kind::Box {
             return None;
         }
         let info = kind.info();
@@ -540,7 +542,7 @@ impl Session {
             .unwrap_or(DEFAULT_MODEL_COLOR)
             .to_owned();
         let piece = Added {
-            kind: Kind::Custom,
+            kind: Kind::Box,
             name,
             color,
             size: [w, d, h],
@@ -587,26 +589,29 @@ impl Session {
         let info = piece.kind.info();
         let [w, d, h] = piece.size;
         let layout = self.layout().clone();
-        let id = (1..)
-            .map(|n| format!("{}-added-{n}", info.name))
-            .find(|id| {
-                !layout.contains_key(id)
-                    && !self.reserved.contains(id)
-                    && !plan.elements.iter().any(|e| e.id() == id)
-            })?;
+        // A piece of a user model is named after neither a kind nor the model's name.
+        let stem = if piece.model.is_some() {
+            "model"
+        } else {
+            info.name
+        };
+        let id = (1..).map(|n| format!("{stem}-added-{n}")).find(|id| {
+            !layout.contains_key(id)
+                && !self.reserved.contains(id)
+                && !plan.elements.iter().any(|e| e.id() == id)
+        })?;
         let mut element = Map::new();
         element.insert(
             "name".into(),
             Value::from(piece.name.chars().take(100).collect::<String>()),
         );
-        element.insert("kind".into(), Value::from(info.name));
         if let Some(model) = piece.model {
             element.insert("model".into(), Value::from(model));
+        } else {
+            element.insert("kind".into(), Value::from(info.name));
         }
         element.insert("color".into(), Value::from(piece.color.clone()));
-        element.insert("w".into(), Value::from(w));
-        element.insert("h".into(), Value::from(d));
-        element.insert("z".into(), Value::from(h));
+        element.insert("size".into(), Value::from(vec![w, d, h]));
         let here = Footprint {
             centre: at,
             half: [w / 2.0, d / 2.0],
@@ -616,13 +621,17 @@ impl Session {
         };
         let others: Vec<(Footprint, Kind)> =
             pieces(plan).map(|f| (Footprint::of(f), f.kind)).collect();
-        let elevation =
-            support_under(&here, piece.kind, &others, &[]).map_or(info.elevation, |(_, top)| top);
+        let elevation = support_under(
+            &here,
+            can_stack(piece.kind, piece.model.is_some()),
+            &others,
+            &[],
+        )
+        .map_or(info.elevation, |(_, top)| top);
         let entry = Entry {
-            x: Some(at[0] - w / 2.0),
-            y: Some(at[1] - d / 2.0),
-            elevation: (elevation > 0.0).then_some(elevation),
-            parent: room_at(plan, walls, at),
+            at: Some(at),
+            lift: (elevation > 0.0).then_some(elevation),
+            room: room_at(plan, walls, at),
             add: Some(element),
             ..Entry::default()
         };
@@ -669,7 +678,7 @@ mod tests {
     use crate::overlay::apply;
     use crate::plan::read_plan_value;
 
-    const DEMO: &str = include_str!("../../../../examples/demo-apartment.plan.json");
+    const DEMO: &str = include_str!("../../../../examples/demo-apartment.domotwin.json");
 
     /// The demo plan with an overlay, as the engine shows it.
     fn shown(layout: &Layout) -> (Plan, WallLayout) {
@@ -752,23 +761,23 @@ mod tests {
 
         // A floor lamp in the bedroom.
         let id = session
-            .add(&plan, &walls, Kind::Lamp, "Lamp", [480.0, 700.0])
+            .add(&plan, &walls, Kind::FloorLamp, "Lamp", [480.0, 700.0])
             .unwrap();
-        assert_eq!(id, "lamp-added-1");
+        assert_eq!(id, "floor-lamp-added-1");
         // Another storey's ids are not taken.
         let mut other = Session::new(&Layout::new());
-        other.reserve(["lamp-added-1".to_owned()]);
+        other.reserve(["floor-lamp-added-1".to_owned()]);
         let (plan_before, walls_before) = shown(other.layout());
         let next = other
             .add(
                 &plan_before,
                 &walls_before,
-                Kind::Lamp,
+                Kind::FloorLamp,
                 "Lamp",
                 [480.0, 700.0],
             )
             .unwrap();
-        assert_eq!(next, "lamp-added-2");
+        assert_eq!(next, "floor-lamp-added-2");
         let (plan, walls) = shown(session.layout());
         let lamp = piece(&plan, &id).unwrap();
         assert_eq!(
@@ -845,10 +854,10 @@ mod tests {
     fn pieces_fixed_high_keep_their_height() {
         let source: Value = serde_json::from_str(DEMO).unwrap();
         let mut high = source.clone();
-        for e in high["elements"].as_array_mut().unwrap() {
+        for e in high["items"].as_array_mut().unwrap() {
             if e["id"] == "plant-living" {
                 // A plant on a shelf the plan does not have: it hangs at 120 cm.
-                e["elevation"] = Value::from(120);
+                e["lift"] = Value::from(120);
             }
         }
         let mut plan = read_plan_value(&high).unwrap();
@@ -901,6 +910,9 @@ mod tests {
             .add_model(&plan, &walls, "m-1", Some(stool), [300.0, 200.0])
             .unwrap();
         assert!(session.layout().contains_key("@model:m-1"));
+        assert_eq!(id, "model-added-1");
+        let added = session.layout()[&id].add.as_ref().unwrap();
+        assert!(added.get("kind").is_none(), "the model gives its shape");
         let (plan, walls) = shown(session.layout());
         let f = piece(&plan, &id).unwrap();
         assert_eq!(
@@ -912,7 +924,7 @@ mod tests {
                 f.z,
                 f.color.to_hex().as_str()
             ),
-            (Kind::Custom, Some("m-1"), 38.0, 42.0, 71.0, "#a0714a")
+            (Kind::Box, Some("m-1"), 38.0, 42.0, 71.0, "#a0714a")
         );
         // Another piece of the same model, known to the plan now.
         let second = session
@@ -958,9 +970,9 @@ mod tests {
         let mut layout = Layout::new();
         let source: Value = serde_json::from_str(DEMO).unwrap();
         let mut locked = source.clone();
-        for e in locked["elements"].as_array_mut().unwrap() {
+        for e in locked["items"].as_array_mut().unwrap() {
             if e["id"] == "bed" {
-                e["locked"] = Value::Bool(true);
+                e["fixed"] = Value::Bool(true);
             }
         }
         let plan = read_plan_value(&locked).unwrap();

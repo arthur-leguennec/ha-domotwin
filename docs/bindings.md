@@ -91,18 +91,18 @@ The engine receives only the bound entities, and only when their state changes. 
 
 | Element | Entities | What changes |
 | --- | --- | --- |
-| Lamp (any light kind) | `light` | Glows in the light's colour (`rgb_color`, else `color_temp_kelvin`), at its brightness × the lamp's `lightPower`; lights its own room. Fades in and out. |
+| Lamp (any light kind) | `light` | Glows in the light's colour (`rgb_color`, else `color_temp_kelvin`), at its brightness × the lamp's `light.power`; lights its own room. Fades in and out. |
 | Lamp | `switch` | On or off, in the plan's light colour. |
 | TV | `media` | The screen glows while playing, dimmer when paused or idle, and lights the room in front of it. |
-| Your own 3D model (`custom`) | `light` | Its glowing (emissive) parts light up and it lights its room, as a lamp does (D-021). |
-| Your own 3D model (`custom`) | `media` | Its glowing parts light up like a screen, and it lights the room around it. |
+| Your own 3D model (`model`) | `light` | Its glowing (emissive) parts light up and it lights its room, as a lamp does (D-021). |
+| Your own 3D model (`model`) | `media` | Its glowing parts light up like a screen, and it lights the room around it. |
 | Curtain | `cover` | Opens with `current_position` (else open/closed). |
 | Window | `cover` | A roller blind comes down as the cover closes. |
 | Window | `contact` | Open (casements inward) while the contact is on. |
 | Door | `contact`, `cover` | Opens while the contact is on, or with the cover's position. |
 | Any | all entities of a shown role `unavailable` or missing | Greyed out, gives no light. |
 
-Lamps not bound keep the plan's state (`lightOff`). Lamps count less in daylight: a lamp lit at noon
+Lamps not bound keep the plan's state (`light.on`). Lamps count less in daylight: a lamp lit at noon
 barely shows, at night it lights its room (`DECISIONS.md`, D-016). At most 16 lamps light the scene
 at once, the strongest first.
 

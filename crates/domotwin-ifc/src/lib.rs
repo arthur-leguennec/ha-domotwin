@@ -1,6 +1,6 @@
 //! DomoTwin's IFC import (ISO 16739, `DECISIONS.md` D-009): reads an IFC file (IFC2x3, IFC4,
-//! IFC4.3 subsets), lists its storeys and converts one into a House Maquette plan. It is built as
-//! its own WebAssembly module, which the frontend loads only to import a `.ifc` file.
+//! IFC4.3 subsets), lists its storeys and converts one into a DomoTwin plan. It is built as its
+//! own WebAssembly module, which the frontend loads only to import a `.ifc` file.
 
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used, clippy::panic))]
 
@@ -60,14 +60,10 @@ impl IfcFile {
     /// # Errors
     ///
     /// `no_storeys` for an unknown storey, `no_spaces` when it has no space with an outline.
-    pub fn convert(
-        &self,
-        storey: u32,
-        reference: &str,
-    ) -> Result<(serde_json::Value, Report), &'static str> {
+    pub fn convert(&self, storey: u32) -> Result<(serde_json::Value, Report), &'static str> {
         if self.model.step.type_of(storey) != Some("IFCBUILDINGSTOREY") {
             return Err("no_storeys");
         }
-        convert::convert(&self.model, storey, reference)
+        convert::convert(&self.model, storey)
     }
 }

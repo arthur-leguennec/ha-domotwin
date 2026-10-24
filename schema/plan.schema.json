@@ -1,501 +1,475 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/arthur-leguennec/ha-domotwin/blob/main/schema/plan.schema.json",
-  "$comment": "Copied from the House Maquette plan format (same author), MIT licence; see THIRD_PARTY_NOTICES.md. Only $id, this comment and references to files of the original app differ from the original.",
-  "title": "House Maquette plan",
-  "description": "A House Maquette (formerly Atelier Plan) apartment plan, `*.plan.json`. Lengths are centimetres; plan x grows to the right and plan y grows down the screen; angles are degrees, a positive angle turns clockwise on screen. In 3D, x = plan x, z = plan y and y is the height. This schema describes the canonical format written by the app (layoutRevision 10). The app reads more leniently: it drops unknown fields, replaces invalid optional values with their defaults, cuts texts to their maximum length and migrates older revisions. Some rules cannot be expressed here and are only checked by the app: element ids are unique, a non-empty `parent` is the id of a room, a room polygon does not cross itself and encloses more than 25 cm², `openEdges` and `edgeThickness` match the number of vertices, a free wall is at least 5 cm long, a `custom` piece names a model of `models`, the imported files of a plan total at most 20 000 000 bytes, a file's `data` is valid base64, and the rules of the `site` object.",
+  "title": "DomoTwin plan",
+  "description": "One storey of a home, `*.domotwin.json` (docs/plan-format.md). Lengths are centimetres; plan x grows to the right and plan y down the page; angles are degrees, clockwise on the plan. This schema describes the fields DomoTwin reads, and refuses others to catch a misspelt one; DomoTwin itself keeps fields it does not know as they are, without reading them. It reads more leniently than the schema (an optional value that is missing or out of range takes its default) and checks what a schema cannot: ids are unique (in the whole home), a `room` names a room of the plan, an outline does not cross itself and encloses at least 25 cm², `sides` has at most one entry per side, a piece's `model` is one of `models`, and a plan has at most 500 elements.",
   "type": "object",
   "required": [
-    "version",
-    "unit",
-    "elements"
+    "format",
+    "version"
   ],
   "additionalProperties": false,
+  "anyOf": [
+    {
+      "required": [
+        "rooms"
+      ],
+      "properties": {
+        "rooms": {
+          "minItems": 1
+        }
+      }
+    },
+    {
+      "required": [
+        "partitions"
+      ],
+      "properties": {
+        "partitions": {
+          "minItems": 1
+        }
+      }
+    },
+    {
+      "required": [
+        "doors"
+      ],
+      "properties": {
+        "doors": {
+          "minItems": 1
+        }
+      }
+    },
+    {
+      "required": [
+        "windows"
+      ],
+      "properties": {
+        "windows": {
+          "minItems": 1
+        }
+      }
+    },
+    {
+      "required": [
+        "items"
+      ],
+      "properties": {
+        "items": {
+          "minItems": 1
+        }
+      }
+    }
+  ],
   "properties": {
+    "format": {
+      "const": "domotwin-plan"
+    },
     "version": {
-      "description": "Format version, always 1.",
+      "description": "The version of the format; a higher one is refused.",
       "const": 1
     },
-    "layoutRevision": {
-      "description": "Revision of the format: 1–7 were written by Atelier Plan (layout revisions of its reference plan, same format), 8 by House Maquette (adds `site`), 9 by House Maquette M8 (adds the light settings `lightColor`, `lightKelvin`, `lightPower`), 10 by House Maquette 0.5 (adds the user 3D models: `models` and the furniture kind `custom`). Missing or invalid values count as 1; older revisions are migrated to 10 when the plan is loaded; a higher revision is refused.",
-      "type": "integer",
-      "minimum": 1,
-      "maximum": 10,
-      "default": 1
+    "name": {
+      "$ref": "#/$defs/name",
+      "description": "The home's or the storey's name."
     },
-    "unit": {
-      "description": "Unit of every length, always centimetres.",
-      "const": "cm"
+    "wallThickness": {
+      "description": "Default thickness of the walls.",
+      "type": "object",
+      "required": [],
+      "additionalProperties": false,
+      "properties": {
+        "interior": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 10,
+          "description": "A wall between two rooms."
+        },
+        "exterior": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 20,
+          "description": "A façade, built outward."
+        }
+      }
     },
-    "title": {
-      "description": "Title of the plan, shown in the header; also names the exported file. Empty: untitled.",
-      "type": "string",
-      "maxLength": 100,
-      "default": ""
-    },
-    "referenceName": {
-      "description": "Free reference, for example the name of the file the plan came from.",
-      "type": "string",
-      "maxLength": 100,
-      "default": ""
-    },
-    "wallSettings": {
-      "$ref": "#/$defs/wallSettings"
-    },
-    "elements": {
-      "description": "Rooms, free walls, doors, windows and furniture (1 to 500). Ids must be unique; children (furniture, openings, free walls) follow the room named by their `parent`.",
+    "rooms": {
       "type": "array",
-      "minItems": 1,
       "maxItems": 500,
       "items": {
-        "$ref": "#/$defs/element"
+        "$ref": "#/$defs/room"
+      }
+    },
+    "partitions": {
+      "type": "array",
+      "maxItems": 500,
+      "items": {
+        "$ref": "#/$defs/partition"
+      }
+    },
+    "doors": {
+      "type": "array",
+      "maxItems": 500,
+      "items": {
+        "$ref": "#/$defs/door"
+      }
+    },
+    "windows": {
+      "type": "array",
+      "maxItems": 500,
+      "items": {
+        "$ref": "#/$defs/window"
+      }
+    },
+    "items": {
+      "type": "array",
+      "maxItems": 500,
+      "items": {
+        "$ref": "#/$defs/item"
       }
     },
     "views": {
-      "description": "Saved viewpoints of the 3D view (keys 1 to 9), at most 40.",
       "type": "array",
       "maxItems": 40,
       "items": {
         "$ref": "#/$defs/view"
-      },
-      "default": []
-    },
-    "site": {
-      "$ref": "#/$defs/site"
+      }
     },
     "models": {
-      "description": "User 3D models by id (revision 10): imported 3D files and kits of primitive parts, shown by the furniture of kind `custom`. At most 50. Absent when the plan has none.",
+      "description": "The 3D files pieces are drawn from, by id.",
       "type": "object",
       "maxProperties": 50,
       "propertyNames": {
-        "$ref": "#/$defs/modelId"
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
       },
       "additionalProperties": {
-        "$ref": "#/$defs/userModel"
+        "$ref": "#/$defs/model"
       }
     }
   },
   "$defs": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100
+    },
+    "name": {
+      "type": "string",
+      "maxLength": 100
+    },
     "coordinate": {
-      "description": "A plan coordinate in cm, between −50 000 and 50 000.",
       "type": "number",
       "minimum": -50000,
       "maximum": 50000
     },
-    "angle": {
-      "description": "An angle in degrees; the app stores it normalised to [0, 360). A positive angle turns clockwise on screen.",
-      "type": "number"
-    },
-    "color": {
-      "description": "A colour `#rrggbb`.",
-      "type": "string",
-      "pattern": "^#[0-9a-fA-F]{6}$"
-    },
-    "id": {
-      "description": "Identifier of the element, unique in the plan (at most 100 characters).",
-      "type": "string",
-      "maxLength": 100
-    },
-    "name": {
-      "description": "Name shown in the element list and on the plan (at most 100 characters).",
-      "type": "string",
-      "maxLength": 100
-    },
-    "parent": {
-      "description": "Id of the room this element follows when the room moves or turns, or '' for none.",
-      "type": "string",
-      "default": ""
-    },
-    "role": {
-      "description": "`piece` (a room), `placard` (a closet: shorter label) or `circulation` (a corridor).",
-      "enum": [
-        "piece",
-        "placard",
-        "circulation"
-      ],
-      "default": "piece"
-    },
-    "estimated": {
-      "description": "Whether the dimensions are estimates still to be measured.",
-      "type": "boolean"
-    },
-    "wallSettings": {
-      "description": "Default wall thicknesses and the reflow option of the « Murs » dialog.",
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "interior": {
-          "description": "Thickness of the partitions between two rooms, centred on their shared limit (cm).",
-          "type": "number",
-          "minimum": 1,
-          "maximum": 100,
-          "default": 10
-        },
-        "exterior": {
-          "description": "Thickness of the façade walls, entirely outside the room polygon (cm).",
-          "type": "number",
-          "minimum": 1,
-          "maximum": 100,
-          "default": 20
-        },
-        "spacing": {
-          "description": "Largest wall thickness the layout already leaves room for (cm), updated by the reflow.",
-          "type": "number",
-          "minimum": 0,
-          "maximum": 100,
-          "default": 0
-        },
-        "reflow": {
-          "description": "« Répercuter sur la disposition »: changing a wall thickness moves the neighbouring rooms.",
-          "type": "boolean",
-          "default": false
-        }
-      }
-    },
-    "element": {
-      "description": "An element of the plan, by `type`.",
-      "type": "object",
-      "required": [
-        "type"
-      ],
-      "properties": {
-        "type": {
-          "description": "Kind of element.",
-          "enum": [
-            "room",
-            "wall",
-            "door",
-            "window",
-            "furniture"
-          ]
-        }
-      },
-      "allOf": [
-        {
-          "if": {
-            "type": "object",
-            "properties": {
-              "type": {
-                "const": "room"
-              }
-            }
-          },
-          "then": {
-            "$ref": "#/$defs/room"
-          }
-        },
-        {
-          "if": {
-            "type": "object",
-            "properties": {
-              "type": {
-                "const": "furniture"
-              }
-            }
-          },
-          "then": {
-            "$ref": "#/$defs/furniture"
-          }
-        },
-        {
-          "if": {
-            "type": "object",
-            "properties": {
-              "type": {
-                "const": "wall"
-              }
-            }
-          },
-          "then": {
-            "$ref": "#/$defs/wall"
-          }
-        },
-        {
-          "if": {
-            "type": "object",
-            "properties": {
-              "type": {
-                "const": "door"
-              }
-            }
-          },
-          "then": {
-            "$ref": "#/$defs/door"
-          }
-        },
-        {
-          "if": {
-            "type": "object",
-            "properties": {
-              "type": {
-                "const": "window"
-              }
-            }
-          },
-          "then": {
-            "$ref": "#/$defs/window"
-          }
-        }
-      ]
-    },
-    "room": {
-      "description": "A room: a polygon whose vertices are given relative to the frame `x, y, w, h`. Each closed side gets an implicit wall: a partition where it faces another room, a façade wall elsewhere.",
-      "type": "object",
-      "required": [
-        "id",
-        "type",
-        "name",
-        "x",
-        "y",
-        "w",
-        "h"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "id": {
-          "$ref": "#/$defs/id"
-        },
-        "type": {
-          "description": "Always `room`.",
-          "const": "room"
-        },
-        "name": {
-          "$ref": "#/$defs/name"
-        },
-        "x": {
-          "$ref": "#/$defs/coordinate",
-          "description": "Left of the frame (cm)."
-        },
-        "y": {
-          "$ref": "#/$defs/coordinate",
-          "description": "Top of the frame (cm)."
-        },
-        "w": {
-          "description": "Width of the frame (cm).",
-          "type": "number",
-          "minimum": 5,
-          "maximum": 10000
-        },
-        "h": {
-          "description": "Height of the frame on the plan, i.e. its depth along y (cm).",
-          "type": "number",
-          "minimum": 5,
-          "maximum": 10000
-        },
-        "angle": {
-          "$ref": "#/$defs/angle",
-          "description": "Rotation last applied to the room (degrees); the polygon itself is stored turned."
-        },
-        "color": {
-          "$ref": "#/$defs/color",
-          "description": "Fill colour of the room on the plan.",
-          "default": "#e5e9dc"
-        },
-        "estimated": {
-          "$ref": "#/$defs/estimated"
-        },
-        "role": {
-          "$ref": "#/$defs/role"
-        },
-        "floor": {
-          "description": "Floor covering.",
-          "enum": [
-            "uni",
-            "bois-gris",
-            "bois-chene",
-            "bois-peint",
-            "carrelage-beige",
-            "carrelage-blanc",
-            "photo-stratifie",
-            "photo-carrelage",
-            "photo-bois-gris",
-            "photo-stratifie-gris",
-            "photo-lattes"
-          ],
-          "default": "uni"
-        },
-        "wallStyle": {
-          "description": "Style of the inner wall faces: `blanc` (white), `vert-blanc` (green wainscot under white) or `cimaise` (white with a chair rail).",
-          "enum": [
-            "blanc",
-            "vert-blanc",
-            "cimaise"
-          ],
-          "default": "blanc"
-        },
-        "floorAngle": {
-          "$ref": "#/$defs/angle",
-          "description": "Direction of the floor pattern (boards, tiles), degrees.",
-          "default": 0
-        },
-        "bevel": {
-          "description": "Legacy (Atelier Plan): cut of the bottom-right corner in cm, used only when `vertices` is absent; at most w − 5.",
-          "type": "number",
-          "minimum": 0,
-          "default": 0
-        },
-        "materialSource": {
-          "description": "Where the floor and wall materials come from (note, at most 300 characters).",
-          "type": "string",
-          "maxLength": 300,
-          "default": "Revêtement à confirmer."
-        },
-        "wallColor": {
-          "$ref": "#/$defs/color",
-          "description": "Paint colour of the inner wall faces (stored in lower case)."
-        },
-        "cornice": {
-          "description": "Whether the room has a cornice under the ceiling.",
-          "type": "boolean"
-        },
-        "casing": {
-          "description": "Door casings: `arrondi` for rounded casings; absent for square ones.",
-          "const": "arrondi"
-        },
-        "vertices": {
-          "description": "The polygon: 3 to 64 points `[u, v]` relative to the frame, point = `[x + u·w, y + v·h]`. Side i joins vertex i and vertex i + 1 (the last side closes the polygon). The polygon must not cross itself. Default: the frame rectangle (or the `bevel` trapezoid).",
-          "type": "array",
-          "minItems": 3,
-          "maxItems": 64,
-          "items": {
-            "$ref": "#/$defs/relativePoint"
-          }
-        },
-        "openEdges": {
-          "description": "Indices of the sides without a wall (open to the next space), sorted, each lower than the number of vertices.",
-          "type": "array",
-          "uniqueItems": true,
-          "items": {
-            "type": "integer",
-            "minimum": 0,
-            "maximum": 63
-          },
-          "default": []
-        },
-        "edgeThickness": {
-          "description": "Wall thickness per side: one entry per side, `null` for the automatic thickness (`wallSettings`) or 1–100 cm.",
-          "type": "array",
-          "maxItems": 64,
-          "items": {
-            "anyOf": [
-              {
-                "type": "null"
-              },
-              {
-                "type": "number",
-                "minimum": 1,
-                "maximum": 100
-              }
-            ]
-          }
-        },
-        "edgeFinish": {
-          "description": "Inner finish per side, overriding `wallStyle`: `metro` (subway tiles), a paint colour `#rrggbb`, or `null`. Stored only when at least one side has a finish.",
-          "type": "array",
-          "maxItems": 64,
-          "items": {
-            "anyOf": [
-              {
-                "type": "null"
-              },
-              {
-                "const": "metro"
-              },
-              {
-                "type": "string",
-                "pattern": "^#[0-9a-fA-F]{6}$"
-              }
-            ]
-          }
-        }
-      }
-    },
-    "relativePoint": {
-      "description": "A vertex `[u, v]` relative to the room frame, each from 0 to 1 (a tolerance of 1e-7 is accepted).",
+    "point": {
+      "description": "[x, y] on the plan (cm).",
       "type": "array",
       "minItems": 2,
       "maxItems": 2,
       "items": {
-        "type": "number",
-        "minimum": -1e-07,
-        "maximum": 1.0000001
+        "$ref": "#/$defs/coordinate"
       }
     },
-    "furniture": {
-      "description": "A furniture item. `x, y` is the top-left corner of the unrotated `w` × `h` box and `angle` turns the box about its centre. Its front is local +y (the y + h side): at angle 0 it faces +y (down the screen). `sofa`, `armchair` and `tv` items with h > w are built with width and depth swapped, facing local −x.",
+    "point3": {
+      "description": "[x, y, height] (cm).",
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "prefixItems": [
+        {
+          "$ref": "#/$defs/coordinate"
+        },
+        {
+          "$ref": "#/$defs/coordinate"
+        },
+        {
+          "type": "number",
+          "minimum": -10000,
+          "maximum": 10000
+        }
+      ]
+    },
+    "color": {
+      "type": "string",
+      "pattern": "^#[0-9a-fA-F]{6}$"
+    },
+    "fraction": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "room": {
+      "description": "A room; the walls follow from the rooms.",
       "type": "object",
       "required": [
         "id",
-        "type",
-        "name",
-        "x",
-        "y",
-        "w",
-        "h",
-        "z"
+        "outline"
       ],
       "additionalProperties": false,
       "properties": {
         "id": {
           "$ref": "#/$defs/id"
         },
-        "type": {
-          "description": "Always `furniture`.",
-          "const": "furniture"
+        "name": {
+          "$ref": "#/$defs/name"
+        },
+        "outline": {
+          "description": "Its corners in order: a simple polygon.",
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 64,
+          "items": {
+            "$ref": "#/$defs/point"
+          }
+        },
+        "color": {
+          "$ref": "#/$defs/color",
+          "description": "Its fill on the 2D plan."
+        },
+        "floor": {
+          "description": "The floor.",
+          "type": "object",
+          "required": [],
+          "additionalProperties": false,
+          "properties": {
+            "material": {
+              "enum": [
+                "plain",
+                "grey-wood",
+                "oak",
+                "painted-wood",
+                "beige-tiles",
+                "white-tiles"
+              ],
+              "default": "plain"
+            },
+            "angle": {
+              "type": "number",
+              "description": "The direction of boards or tiles.",
+              "default": 0
+            }
+          }
+        },
+        "walls": {
+          "description": "The inner faces of its walls.",
+          "type": "object",
+          "required": [],
+          "additionalProperties": false,
+          "properties": {
+            "finish": {
+              "enum": [
+                "plain",
+                "wainscot",
+                "chair-rail"
+              ],
+              "default": "plain"
+            },
+            "paint": {
+              "$ref": "#/$defs/color",
+              "description": "The colour of the inner faces."
+            },
+            "moulding": {
+              "type": "boolean",
+              "default": false,
+              "description": "A crown moulding under the ceiling."
+            }
+          }
+        },
+        "sides": {
+          "description": "One entry per side, side i running from corner i to the next.",
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "description": "What differs on that side.",
+                "type": "object",
+                "required": [],
+                "additionalProperties": false,
+                "properties": {
+                  "open": {
+                    "type": "boolean",
+                    "description": "No wall on that side."
+                  },
+                  "thickness": {
+                    "type": "number",
+                    "minimum": 1,
+                    "maximum": 100
+                  },
+                  "finish": {
+                    "description": "Tiles or a paint colour on that side's inner face.",
+                    "anyOf": [
+                      {
+                        "const": "tiles"
+                      },
+                      {
+                        "$ref": "#/$defs/color"
+                      }
+                    ]
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    "partition": {
+      "description": "A free-standing wall, at least 5 cm long.",
+      "type": "object",
+      "required": [
+        "id",
+        "from",
+        "to"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
         },
         "name": {
           "$ref": "#/$defs/name"
         },
-        "x": {
-          "$ref": "#/$defs/coordinate",
-          "description": "Left of the unrotated box (cm)."
+        "from": {
+          "$ref": "#/$defs/point"
         },
-        "y": {
-          "$ref": "#/$defs/coordinate",
-          "description": "Top of the unrotated box (cm)."
+        "to": {
+          "$ref": "#/$defs/point"
         },
-        "w": {
-          "description": "Width of the footprint (cm).",
+        "thickness": {
           "type": "number",
           "minimum": 1,
-          "maximum": 10000
+          "maximum": 100
         },
-        "h": {
-          "description": "Depth of the footprint, along local y (cm).",
-          "type": "number",
-          "minimum": 1,
-          "maximum": 10000
+        "room": {
+          "$ref": "#/$defs/id",
+          "description": "The room it belongs to."
+        }
+      }
+    },
+    "door": {
+      "description": "A door: its ends 20–300 cm apart.",
+      "type": "object",
+      "required": [
+        "id",
+        "from",
+        "to"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
         },
-        "z": {
-          "description": "Height of the item (cm).",
-          "type": "number",
-          "minimum": 1,
-          "maximum": 300
+        "name": {
+          "$ref": "#/$defs/name"
         },
-        "angle": {
-          "$ref": "#/$defs/angle",
-          "description": "Rotation about the centre of the box (degrees).",
-          "default": 0
+        "from": {
+          "$ref": "#/$defs/point",
+          "description": "One end along the wall (the leaf hangs here)."
         },
-        "color": {
-          "$ref": "#/$defs/color",
-          "description": "Main colour of the item.",
-          "default": "#e5e9dc"
+        "to": {
+          "$ref": "#/$defs/point",
+          "description": "The other end."
         },
-        "estimated": {
-          "description": "Always true for furniture: its dimensions are estimates.",
-          "type": "boolean"
+        "opensTo": {
+          "description": "The side the leaf swings to, walking from `from` to `to`.",
+          "enum": [
+            "left",
+            "right"
+          ],
+          "default": "right"
         },
-        "role": {
-          "$ref": "#/$defs/role"
+        "room": {
+          "$ref": "#/$defs/id",
+          "description": "The room it belongs to."
+        },
+        "style": {
+          "enum": [
+            "hinged",
+            "glazed",
+            "double",
+            "folding",
+            "double-folding",
+            "sliding",
+            "barn",
+            "opening",
+            "sealed"
+          ],
+          "default": "hinged"
+        },
+        "open": {
+          "$ref": "#/$defs/fraction",
+          "description": "How open the leaf is drawn (0 closed).",
+          "default": 1
+        }
+      }
+    },
+    "window": {
+      "description": "A window: its ends 20–1000 cm apart.",
+      "type": "object",
+      "required": [
+        "id",
+        "from",
+        "to"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "name": {
+          "$ref": "#/$defs/name"
+        },
+        "from": {
+          "$ref": "#/$defs/point",
+          "description": "One end along the wall."
+        },
+        "to": {
+          "$ref": "#/$defs/point",
+          "description": "The other end."
+        },
+        "opensTo": {
+          "description": "The side the leaf swings to, walking from `from` to `to`.",
+          "enum": [
+            "left",
+            "right"
+          ],
+          "default": "right"
+        },
+        "room": {
+          "$ref": "#/$defs/id",
+          "description": "The room it belongs to."
+        }
+      }
+    },
+    "item": {
+      "description": "A piece of furniture, an appliance, a lamp, stairs.",
+      "type": "object",
+      "required": [
+        "id",
+        "at",
+        "size"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "name": {
+          "$ref": "#/$defs/name"
         },
         "kind": {
-          "description": "Kind of furniture (decides the 2D icon, the 3D model and the checks). `custom` (revision 10) shows the user model named by `model`.",
           "enum": [
-            "custom",
+            "box",
             "sofa",
             "armchair",
-            "table",
+            "coffee-table",
             "tv",
             "plant",
             "bed",
@@ -508,644 +482,59 @@
             "sink",
             "stove",
             "fridge",
-            "dining",
+            "dining-table",
             "bathtub",
             "vanity",
-            "linen",
+            "tall-cabinet",
             "toilet",
             "washer",
             "dryer",
             "bin",
-            "cabinet",
+            "wall-cabinet",
             "shelf",
-            "cart",
+            "trolley",
             "dishwasher",
             "hood",
-            "soffit",
+            "bulkhead",
             "backsplash",
-            "shoecab",
-            "heater",
+            "shoe-cabinet",
+            "radiator",
             "curtain",
-            "frame",
-            "gallery",
+            "picture",
+            "picture-wall",
             "mirror",
             "chandelier",
             "pendant",
-            "spot",
-            "lamp",
-            "ceilinglight",
-            "fan",
-            "tablelamp",
+            "spotlight",
+            "floor-lamp",
+            "ceiling-light",
+            "ceiling-fan",
+            "table-lamp",
             "lantern",
-            "desklamp",
-            "barrister",
-            "openshelf",
-            "trunk",
-            "stand",
-            "officechair",
-            "roundtable",
+            "desk-lamp",
+            "glazed-bookcase",
+            "open-shelving",
+            "chest",
+            "side-table",
+            "office-chair",
+            "round-table",
             "console",
             "printer",
-            "conduit",
-            "printer3d",
+            "3d-printer",
             "stairs"
           ],
-          "default": "desk"
+          "default": "box",
+          "description": "How it is drawn and what it does (docs/plan-format.md)."
         },
-        "model": {
-          "$ref": "#/$defs/modelId",
-          "description": "Kind `custom` only (revision 10): id of the user model in the plan's `models`."
-        },
-        "variant": {
-          "description": "Alternative 3D model, among those listed for the kind (see docs/plan-format.md); absent for the default model.",
-          "type": "string",
-          "minLength": 1
-        },
-        "parent": {
-          "$ref": "#/$defs/parent"
-        },
-        "source": {
-          "description": "Where the dimensions come from (note, at most 300 characters).",
-          "type": "string",
-          "maxLength": 300,
-          "default": "Implantation proposée ; dimensions estimées."
-        },
-        "elevation": {
-          "description": "Height of the underside above the floor (cm), for wall cabinets, hoods, ceiling items…; stored only when above 0.",
-          "type": "number",
-          "minimum": 0,
-          "maximum": 300
-        },
-        "locked": {
-          "description": "Locked (fixed) item: it cannot be moved or rotated on the plan.",
-          "type": "boolean"
-        },
-        "open": {
-          "description": "Curtains only: 0 (drawn closed) to 100 (gathered open). When absent, `ferme` curtains are closed and the others open.",
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 100
-        },
-        "lightOff": {
-          "description": "Light kinds only (chandelier, pendant, spot, lamp, nightstand, ceilinglight, fan, tablelamp, lantern, desklamp): true when switched off; absent when on.",
-          "type": "boolean"
-        },
-        "lightColor": {
-          "description": "Light kinds only (revision 9): colour of the light picked by the user, lower case. Never together with `lightKelvin`.",
-          "type": "string",
-          "pattern": "^#[0-9a-f]{6}$"
-        },
-        "lightKelvin": {
-          "description": "Light kinds only (revision 9): colour temperature of the light in kelvin; the colour is computed from it. Never together with `lightColor`.",
-          "type": "integer",
-          "minimum": 1800,
-          "maximum": 6500
-        },
-        "lightPower": {
-          "description": "Light kinds only (revision 9): intensity in percent of the fitting's default; absent = 100 (never stored).",
-          "type": "integer",
-          "minimum": 10,
-          "maximum": 200,
-          "not": {
-            "const": 100
-          }
-        }
-      },
-      "allOf": [
-        {
-          "if": {
-            "type": "object",
-            "required": [
-              "open"
-            ]
-          },
-          "then": {
-            "type": "object",
-            "required": [
-              "kind"
-            ],
-            "properties": {
-              "kind": {
-                "const": "curtain"
-              }
-            }
-          }
-        },
-        {
-          "if": {
-            "type": "object",
-            "required": [
-              "lightOff"
-            ],
-            "properties": {
-              "lightOff": {
-                "const": true
-              }
-            }
-          },
-          "then": {
-            "type": "object",
-            "required": [
-              "kind"
-            ],
-            "properties": {
-              "kind": {
-                "enum": [
-                  "chandelier",
-                  "pendant",
-                  "spot",
-                  "lamp",
-                  "nightstand",
-                  "ceilinglight",
-                  "fan",
-                  "tablelamp",
-                  "lantern",
-                  "desklamp"
-                ]
-              }
-            }
-          }
-        },
-        {
-          "if": {
-            "type": "object",
-            "required": [
-              "variant"
-            ]
-          },
-          "then": {
-            "type": "object",
-            "required": [
-              "kind"
-            ],
-            "properties": {
-              "kind": {
-                "enum": [
-                  "plant",
-                  "bed",
-                  "nightstand",
-                  "dresser",
-                  "linen",
-                  "tv",
-                  "sofa",
-                  "armchair",
-                  "openshelf",
-                  "stand",
-                  "mirror",
-                  "frame",
-                  "pendant",
-                  "ceilinglight",
-                  "curtain",
-                  "printer3d"
-                ]
-              }
-            }
-          }
-        },
-        {
-          "$ref": "#/$defs/variants"
-        },
-        {
-          "if": {
-            "anyOf": [
-              {
-                "type": "object",
-                "required": [
-                  "lightColor"
-                ]
-              },
-              {
-                "type": "object",
-                "required": [
-                  "lightKelvin"
-                ]
-              },
-              {
-                "type": "object",
-                "required": [
-                  "lightPower"
-                ]
-              }
-            ]
-          },
-          "then": {
-            "type": "object",
-            "required": [
-              "kind"
-            ],
-            "properties": {
-              "kind": {
-                "enum": [
-                  "chandelier",
-                  "pendant",
-                  "spot",
-                  "lamp",
-                  "nightstand",
-                  "ceilinglight",
-                  "fan",
-                  "tablelamp",
-                  "lantern",
-                  "desklamp"
-                ]
-              }
-            }
-          }
-        },
-        {
-          "not": {
-            "type": "object",
-            "required": [
-              "lightColor",
-              "lightKelvin"
-            ]
-          }
-        },
-        {
-          "if": {
-            "type": "object",
-            "required": [
-              "kind"
-            ],
-            "properties": {
-              "kind": {
-                "const": "custom"
-              }
-            }
-          },
-          "then": {
-            "type": "object",
-            "required": [
-              "model"
-            ]
-          },
-          "else": {
-            "not": {
-              "type": "object",
-              "required": [
-                "model"
-              ]
-            }
-          }
-        }
-      ]
-    },
-    "variants": {
-      "description": "The variants allowed for each furniture kind.",
-      "allOf": [
-        {
-          "if": {
-            "type": "object",
-            "properties": {
-              "kind": {
-                "const": "plant"
-              }
-            }
-          },
-          "then": {
-            "type": "object",
-            "properties": {
-              "variant": {
-                "enum": [
-                  "monstera",
-                  "pothos",
-                  "dracaena"
-                ]
-              }
-            }
-          }
-        },
-        {
-          "if": {
-            "type": "object",
-            "properties": {
-              "kind": {
-                "const": "bed"
-              }
-            }
-          },
-          "then": {
-            "type": "object",
-            "properties": {
-              "variant": {
-                "enum": [
-                  "metal"
-                ]
-              }
-            }
-          }
-        },
-        {
-          "if": {
-            "type": "object",
-            "properties": {
-              "kind": {
-                "const": "nightstand"
-              }
-            }
-          },
-          "then": {
-            "type": "object",
-            "properties": {
-              "variant": {
-                "enum": [
-                  "3-tiroirs",
-                  "1-tiroir"
-                ]
-              }
-            }
-          }
-        },
-        {
-          "if": {
-            "type": "object",
-            "properties": {
-              "kind": {
-                "const": "dresser"
-              }
-            }
-          },
-          "then": {
-            "type": "object",
-            "properties": {
-              "variant": {
-                "enum": [
-                  "ancien"
-                ]
-              }
-            }
-          }
-        },
-        {
-          "if": {
-            "type": "object",
-            "properties": {
-              "kind": {
-                "const": "linen"
-              }
-            }
-          },
-          "then": {
-            "type": "object",
-            "properties": {
-              "variant": {
-                "enum": [
-                  "armoire"
-                ]
-              }
-            }
-          }
-        },
-        {
-          "if": {
-            "type": "object",
-            "properties": {
-              "kind": {
-                "const": "tv"
-              }
-            }
-          },
-          "then": {
-            "type": "object",
-            "properties": {
-              "variant": {
-                "enum": [
-                  "mural"
-                ]
-              }
-            }
-          }
-        },
-        {
-          "if": {
-            "type": "object",
-            "properties": {
-              "kind": {
-                "const": "sofa"
-              }
-            }
-          },
-          "then": {
-            "type": "object",
-            "properties": {
-              "variant": {
-                "enum": [
-                  "cuir"
-                ]
-              }
-            }
-          }
-        },
-        {
-          "if": {
-            "type": "object",
-            "properties": {
-              "kind": {
-                "const": "armchair"
-              }
-            }
-          },
-          "then": {
-            "type": "object",
-            "properties": {
-              "variant": {
-                "enum": [
-                  "cuir"
-                ]
-              }
-            }
-          }
-        },
-        {
-          "if": {
-            "type": "object",
-            "properties": {
-              "kind": {
-                "const": "openshelf"
-              }
-            }
-          },
-          "then": {
-            "type": "object",
-            "properties": {
-              "variant": {
-                "enum": [
-                  "metal"
-                ]
-              }
-            }
-          }
-        },
-        {
-          "if": {
-            "type": "object",
-            "properties": {
-              "kind": {
-                "const": "stand"
-              }
-            }
-          },
-          "then": {
-            "type": "object",
-            "properties": {
-              "variant": {
-                "enum": [
-                  "marbre",
-                  "epingle"
-                ]
-              }
-            }
-          }
-        },
-        {
-          "if": {
-            "type": "object",
-            "properties": {
-              "kind": {
-                "const": "mirror"
-              }
-            }
-          },
-          "then": {
-            "type": "object",
-            "properties": {
-              "variant": {
-                "enum": [
-                  "blanc"
-                ]
-              }
-            }
-          }
-        },
-        {
-          "if": {
-            "type": "object",
-            "properties": {
-              "kind": {
-                "const": "frame"
-              }
-            }
-          },
-          "then": {
-            "type": "object",
-            "properties": {
-              "variant": {
-                "enum": [
-                  "gravure",
-                  "portrait",
-                  "bd",
-                  "carte",
-                  "affiche"
-                ]
-              }
-            }
-          }
-        },
-        {
-          "if": {
-            "type": "object",
-            "properties": {
-              "kind": {
-                "const": "pendant"
-              }
-            }
-          },
-          "then": {
-            "type": "object",
-            "properties": {
-              "variant": {
-                "enum": [
-                  "cylindre"
-                ]
-              }
-            }
-          }
-        },
-        {
-          "if": {
-            "type": "object",
-            "properties": {
-              "kind": {
-                "const": "ceilinglight"
-              }
-            }
-          },
-          "then": {
-            "type": "object",
-            "properties": {
-              "variant": {
-                "enum": [
-                  "fleurons"
-                ]
-              }
-            }
-          }
-        },
-        {
-          "if": {
-            "type": "object",
-            "properties": {
-              "kind": {
-                "const": "curtain"
-              }
-            }
-          },
-          "then": {
-            "type": "object",
-            "properties": {
-              "variant": {
-                "enum": [
-                  "ferme"
-                ]
-              }
-            }
-          }
-        },
-        {
-          "if": {
-            "type": "object",
-            "properties": {
-              "kind": {
-                "const": "printer3d"
-              }
-            }
-          },
-          "then": {
-            "type": "object",
-            "properties": {
-              "variant": {
-                "enum": [
-                  "sans-bobine",
-                  "enclosure",
-                  "enclosure-sans-bobine"
-                ]
-              }
-            }
-          }
-        }
-      ]
-    },
-    "modelId": {
-      "description": "Id of a user 3D model: letters, digits, `-` and `_`, at most 64 characters, starting with a letter or a digit.",
-      "type": "string",
-      "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
-    },
-    "userModel": {
-      "description": "A user 3D model (revision 10): an imported file (`file`) or a kit of primitive parts (`kit`), exactly one of them.",
-      "type": "object",
-      "required": [
-        "name",
-        "size"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "name": {
-          "description": "Name of the model, shown in « Mes modèles » and on the plan (at most 100 characters).",
-          "type": "string",
-          "maxLength": 100
+        "at": {
+          "$ref": "#/$defs/point",
+          "description": "The centre of its footprint."
         },
         "size": {
-          "description": "Real size `[w, d, h]` in cm: width, depth and height of a new piece of this model.",
+          "description": "[width, depth, height] (cm); its front faces +y before turning.",
           "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
           "prefixItems": [
             {
               "type": "number",
@@ -1162,1647 +551,182 @@
               "minimum": 1,
               "maximum": 300
             }
-          ],
-          "items": false,
-          "minItems": 3
+          ]
+        },
+        "rotation": {
+          "type": "number",
+          "minimum": 0,
+          "exclusiveMaximum": 360,
+          "default": 0,
+          "description": "Clockwise, about its centre."
+        },
+        "lift": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 300,
+          "default": 0,
+          "description": "The height of its underside."
         },
         "color": {
-          "description": "Colour of new pieces of this model, lower case (kits: the « accent » parts; STL and OBJ files: the whole model).",
-          "type": "string",
-          "pattern": "^#[0-9a-f]{6}$"
-        },
-        "kit": {
-          "$ref": "#/$defs/kit"
-        },
-        "file": {
-          "$ref": "#/$defs/modelFile"
-        }
-      },
-      "oneOf": [
-        {
-          "type": "object",
-          "required": [
-            "kit"
-          ]
-        },
-        {
-          "type": "object",
-          "required": [
-            "file"
-          ]
-        }
-      ]
-    },
-    "modelFile": {
-      "description": "An imported 3D file. On the device its bytes are stored under `hash`; an exported plan embeds them in `data`.",
-      "type": "object",
-      "required": [
-        "format",
-        "hash",
-        "bytes",
-        "up"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "format": {
-          "description": "File format: `glb` (binary glTF), `gltf` (glTF with embedded data), `obj`, `stl`, `3mf`.",
-          "enum": [
-            "glb",
-            "gltf",
-            "obj",
-            "stl",
-            "3mf"
-          ]
-        },
-        "hash": {
-          "description": "SHA-256 of the file, 64 lower-case hexadecimal digits.",
-          "type": "string",
-          "pattern": "^[0-9a-f]{64}$"
-        },
-        "bytes": {
-          "description": "Size of the file in bytes.",
-          "type": "integer",
-          "minimum": 1,
-          "maximum": 8000000
-        },
-        "up": {
-          "description": "Axis of the file that points up: `y` (glTF, most OBJ files) or `z` (STL, 3MF, CAD software).",
-          "enum": [
-            "y",
-            "z"
-          ]
-        },
-        "data": {
-          "description": "Exported plans only: the file as a base64 data URL (at most 8 000 000 bytes once decoded).",
-          "type": "string",
-          "pattern": "^data:[a-z0-9.+-]+/[a-z0-9.+-]+;base64,[A-Za-z0-9+/]*={0,2}$",
-          "maxLength": 10666720
-        }
-      }
-    },
-    "kit": {
-      "description": "A kit: a model described as primitive parts. The piece fits the box of the parts (with `size`, from the origin) into its own size.",
-      "type": "object",
-      "required": [
-        "parts"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "size": {
-          "description": "Design box `[w, d, h]` in cm from the origin, when the parts do not fill it.",
-          "type": "array",
-          "prefixItems": [
-            {
-              "type": "number",
-              "minimum": 0.1,
-              "maximum": 4000
-            },
-            {
-              "type": "number",
-              "minimum": 0.1,
-              "maximum": 4000
-            },
-            {
-              "type": "number",
-              "minimum": 0.1,
-              "maximum": 4000
-            }
-          ],
-          "items": false,
-          "minItems": 3
-        },
-        "parts": {
-          "description": "The parts, 1 to 200.",
-          "type": "array",
-          "minItems": 1,
-          "maxItems": 200,
-          "items": {
-            "$ref": "#/$defs/kitPart"
-          }
-        }
-      }
-    },
-    "kitPart": {
-      "description": "One part of a kit: a shape that fills the box from `at` to `at + size` (cm), x to the right, y towards the front, z up, then turns about the box centre by `rotate`.",
-      "type": "object",
-      "required": [
-        "shape",
-        "at",
-        "size"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "shape": {
-          "description": "`box`, `cylinder` (vertical unless `axis` says otherwise) or `sphere` (an ellipsoid when the sides differ).",
-          "enum": [
-            "box",
-            "cylinder",
-            "sphere"
-          ]
-        },
-        "at": {
-          "description": "Back-left-bottom corner of the part's box `[x, y, z]` in cm.",
-          "type": "array",
-          "prefixItems": [
-            {
-              "type": "number",
-              "minimum": -2000,
-              "maximum": 2000
-            },
-            {
-              "type": "number",
-              "minimum": -2000,
-              "maximum": 2000
-            },
-            {
-              "type": "number",
-              "minimum": -2000,
-              "maximum": 2000
-            }
-          ],
-          "items": false,
-          "minItems": 3
-        },
-        "size": {
-          "description": "Width (x), depth (y) and height (z) of the part's box in cm.",
-          "type": "array",
-          "prefixItems": [
-            {
-              "type": "number",
-              "minimum": 0.1,
-              "maximum": 2000
-            },
-            {
-              "type": "number",
-              "minimum": 0.1,
-              "maximum": 2000
-            },
-            {
-              "type": "number",
-              "minimum": 0.1,
-              "maximum": 2000
-            }
-          ],
-          "items": false,
-          "minItems": 3
-        },
-        "material": {
-          "description": "`accent` (the piece's colour, as paint), `accent:<finish>`, `<finish>:#rrggbb` with a finish among paint, metal, wood, fabric, leather, or a fixed material. Unknown materials are read as `accent`.",
-          "anyOf": [
-            {
-              "type": "string",
-              "pattern": "^accent(:(paint|metal|wood|fabric|leather))?$"
-            },
-            {
-              "type": "string",
-              "pattern": "^(paint|metal|wood|fabric|leather):#[0-9a-f]{6}$"
-            },
-            {
-              "enum": [
-                "glass",
-                "glassDark",
-                "chrome",
-                "steel",
-                "steelDark",
-                "gold",
-                "black",
-                "ceramic",
-                "mirror",
-                "marble",
-                "screen"
-              ]
-            }
-          ],
-          "default": "accent"
-        },
-        "radius": {
-          "description": "Boxes only: radius of the rounded edges in cm (at most half the smallest side).",
-          "type": "number",
-          "exclusiveMinimum": 0
-        },
-        "axis": {
-          "description": "Cylinders only: `x` (left-right) or `y` (front-back) for a lying cylinder; absent: vertical.",
-          "enum": [
-            "x",
-            "y"
-          ]
-        },
-        "taper": {
-          "description": "Cylinders only: radius of the top end (or the +x / +y end) as a fraction of the other end, 0 for a cone; absent: 1.",
-          "type": "number",
-          "minimum": 0,
-          "exclusiveMaximum": 1
-        },
-        "rotate": {
-          "description": "Turns about the box centre in degrees, applied in this order: the top leans towards the front, the top leans to the right, then a clockwise turn seen from above.",
-          "type": "array",
-          "prefixItems": [
-            {
-              "type": "number",
-              "exclusiveMinimum": -180,
-              "maximum": 180
-            },
-            {
-              "type": "number",
-              "exclusiveMinimum": -180,
-              "maximum": 180
-            },
-            {
-              "type": "number",
-              "exclusiveMinimum": -180,
-              "maximum": 180
-            }
-          ],
-          "items": false,
-          "minItems": 3
-        }
-      },
-      "allOf": [
-        {
-          "if": {
-            "type": "object",
-            "required": [
-              "radius"
-            ]
-          },
-          "then": {
-            "type": "object",
-            "properties": {
-              "shape": {
-                "const": "box"
-              }
-            }
-          }
-        },
-        {
-          "if": {
-            "anyOf": [
-              {
-                "type": "object",
-                "required": [
-                  "axis"
-                ]
-              },
-              {
-                "type": "object",
-                "required": [
-                  "taper"
-                ]
-              }
-            ]
-          },
-          "then": {
-            "type": "object",
-            "properties": {
-              "shape": {
-                "const": "cylinder"
-              }
-            }
-          }
-        }
-      ]
-    },
-    "wall": {
-      "description": "A free partition (« Cloison ») from (x, y) to (x2, y2), centred on that segment. Drawn in 2D and in the SVG fallback only.",
-      "type": "object",
-      "required": [
-        "id",
-        "type",
-        "name",
-        "x",
-        "y",
-        "x2",
-        "y2",
-        "thickness"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "id": {
-          "$ref": "#/$defs/id"
-        },
-        "type": {
-          "description": "Always `wall`.",
-          "const": "wall"
-        },
-        "name": {
-          "$ref": "#/$defs/name"
-        },
-        "x": {
-          "$ref": "#/$defs/coordinate",
-          "description": "x of the start point (cm)."
-        },
-        "y": {
-          "$ref": "#/$defs/coordinate",
-          "description": "y of the start point (cm)."
-        },
-        "x2": {
-          "$ref": "#/$defs/coordinate",
-          "description": "x of the end point (cm)."
-        },
-        "y2": {
-          "$ref": "#/$defs/coordinate",
-          "description": "y of the end point (cm)."
-        },
-        "thickness": {
-          "description": "Thickness of the partition (cm). Its length must be at least 5 cm.",
-          "type": "number",
-          "minimum": 1,
-          "maximum": 100
-        },
-        "parent": {
-          "$ref": "#/$defs/parent"
-        }
-      }
-    },
-    "door": {
-      "description": "A door in a room wall. The opening runs from P0 = (x, y) to P0 + w·u, u = (cos a, sin a). The leaf of a single door is hinged at P0 and opens towards the side swing·n, n = (−sin a, cos a); with an opening fraction f its tip is at P0 + w·(cos(f·90°)·u + swing·sin(f·90°)·n).",
-      "type": "object",
-      "required": [
-        "id",
-        "type",
-        "name",
-        "x",
-        "y",
-        "w",
-        "angle"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "id": {
-          "$ref": "#/$defs/id"
-        },
-        "type": {
-          "description": "Always `door`.",
-          "const": "door"
-        },
-        "name": {
-          "$ref": "#/$defs/name"
-        },
-        "x": {
-          "$ref": "#/$defs/coordinate",
-          "description": "x of the hinge end of the opening (cm)."
-        },
-        "y": {
-          "$ref": "#/$defs/coordinate",
-          "description": "y of the hinge end of the opening (cm)."
-        },
-        "w": {
-          "description": "Width of the opening (cm).",
-          "type": "number",
-          "minimum": 20,
-          "maximum": 300
-        },
-        "angle": {
-          "$ref": "#/$defs/angle",
-          "description": "Direction of the opening from (x, y), along the wall (degrees)."
-        },
-        "swing": {
-          "description": "Side the leaf opens to: 1 = n = (−sin a, cos a), −1 = the other side.",
-          "enum": [
-            1,
-            -1
-          ],
-          "default": 1
-        },
-        "parent": {
-          "$ref": "#/$defs/parent"
+          "$ref": "#/$defs/color"
         },
         "style": {
-          "description": "`battante` (hinged), `vitree` (hinged, glazed), `double` (two leaves), `pliante` (folding), `pliante-double` (folding from both ends), `coulissante` (sliding inside the wall face), `grange` (barn door sliding 5 cm out), `passage` (no door) or `condamnee` (closed for good).",
-          "enum": [
-            "battante",
-            "vitree",
-            "double",
-            "pliante",
-            "pliante-double",
-            "coulissante",
-            "grange",
-            "passage",
-            "condamnee"
-          ],
-          "default": "battante"
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40,
+          "description": "A variant of its kind."
+        },
+        "room": {
+          "$ref": "#/$defs/id",
+          "description": "The room it belongs to."
+        },
+        "fixed": {
+          "type": "boolean",
+          "default": false,
+          "description": "Built in: edit mode does not move it."
+        },
+        "light": {
+          "description": "Lamps only.",
+          "type": "object",
+          "required": [],
+          "additionalProperties": false,
+          "properties": {
+            "on": {
+              "type": "boolean",
+              "default": true
+            },
+            "color": {
+              "$ref": "#/$defs/color"
+            },
+            "kelvin": {
+              "type": "number",
+              "minimum": 1800,
+              "maximum": 6500
+            },
+            "power": {
+              "type": "number",
+              "minimum": 0.1,
+              "maximum": 2,
+              "description": "A fraction of the kind's usual light."
+            }
+          }
         },
         "open": {
-          "description": "Opening in percent: 0 = closed. Absent = fully open (100 is not stored).",
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 100
-        }
-      }
-    },
-    "window": {
-      "description": "A window in a room wall, from (x, y) along the direction `angle` over `w` cm (sill 90 cm, head 215 cm in 3D).",
-      "type": "object",
-      "required": [
-        "id",
-        "type",
-        "name",
-        "x",
-        "y",
-        "w",
-        "angle"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "id": {
-          "$ref": "#/$defs/id"
+          "$ref": "#/$defs/fraction",
+          "default": 1,
+          "description": "Curtains only: how open they are drawn."
         },
-        "type": {
-          "description": "Always `window`.",
-          "const": "window"
-        },
-        "name": {
-          "$ref": "#/$defs/name"
-        },
-        "x": {
-          "$ref": "#/$defs/coordinate",
-          "description": "x of the start of the opening (cm)."
-        },
-        "y": {
-          "$ref": "#/$defs/coordinate",
-          "description": "y of the start of the opening (cm)."
-        },
-        "w": {
-          "description": "Width of the window (cm).",
-          "type": "number",
-          "minimum": 20,
-          "maximum": 1000
-        },
-        "angle": {
-          "$ref": "#/$defs/angle",
-          "description": "Direction of the opening from (x, y), along the wall (degrees)."
-        },
-        "swing": {
-          "description": "Stored for symmetry with doors; unused.",
-          "enum": [
-            1,
-            -1
-          ],
-          "default": 1
-        },
-        "parent": {
-          "$ref": "#/$defs/parent"
+        "model": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$",
+          "description": "A model of `models` the piece is drawn from."
         }
       }
     },
     "view": {
-      "description": "A saved viewpoint, by `mode`.",
+      "description": "A saved viewpoint.",
       "type": "object",
       "required": [
-        "mode"
-      ],
-      "properties": {
-        "mode": {
-          "description": "`walk` (eye-level walk mode) or `orbit` (overview camera).",
-          "enum": [
-            "walk",
-            "orbit"
-          ]
-        }
-      },
-      "allOf": [
-        {
-          "if": {
-            "type": "object",
-            "properties": {
-              "mode": {
-                "const": "walk"
-              }
-            }
-          },
-          "then": {
-            "$ref": "#/$defs/walkView"
-          }
-        },
-        {
-          "if": {
-            "type": "object",
-            "properties": {
-              "mode": {
-                "const": "orbit"
-              }
-            }
-          },
-          "then": {
-            "$ref": "#/$defs/orbitView"
-          }
-        }
-      ]
-    },
-    "viewId": {
-      "description": "Identifier of the viewpoint (shorter than 80 characters; regenerated otherwise).",
-      "type": "string",
-      "maxLength": 79
-    },
-    "viewName": {
-      "description": "Name of the viewpoint (1 to 60 characters; an empty name becomes « Vue »).",
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 60
-    },
-    "walkView": {
-      "description": "A viewpoint in walk mode.",
-      "type": "object",
-      "required": [
-        "name",
-        "mode",
-        "x",
-        "y",
-        "yaw",
-        "pitch"
+        "id",
+        "eye",
+        "target"
       ],
       "additionalProperties": false,
       "properties": {
         "id": {
-          "$ref": "#/$defs/viewId"
+          "$ref": "#/$defs/id"
         },
         "name": {
-          "$ref": "#/$defs/viewName"
-        },
-        "mode": {
-          "description": "Always `walk`.",
-          "const": "walk"
-        },
-        "x": {
-          "description": "Plan x of the walker (cm).",
-          "type": "number",
-          "exclusiveMinimum": -50000,
-          "exclusiveMaximum": 50000
-        },
-        "y": {
-          "description": "Plan y of the walker (cm).",
-          "type": "number",
-          "exclusiveMinimum": -50000,
-          "exclusiveMaximum": 50000
-        },
-        "yaw": {
-          "description": "Heading in radians; 0 looks towards −y (up the screen).",
-          "type": "number"
-        },
-        "pitch": {
-          "description": "Looking up (> 0) or down (< 0), radians.",
-          "type": "number",
-          "minimum": -1.3,
-          "maximum": 1.3
+          "type": "string",
+          "maxLength": 60
         },
         "eye": {
-          "description": "Eye height (cm): 160 standing, 112 seated.",
-          "type": "number",
-          "minimum": 60,
-          "maximum": 200,
-          "default": 160
+          "$ref": "#/$defs/point3"
         },
-        "thumb": {
-          "$ref": "#/$defs/viewThumb"
+        "target": {
+          "$ref": "#/$defs/point3"
         }
       }
     },
-    "orbitView": {
-      "description": "A viewpoint of the overview camera.",
+    "model": {
+      "description": "A 3D model.",
       "type": "object",
       "required": [
-        "name",
-        "mode",
-        "p",
-        "t"
+        "size",
+        "file"
       ],
       "additionalProperties": false,
       "properties": {
-        "id": {
-          "$ref": "#/$defs/viewId"
-        },
         "name": {
-          "$ref": "#/$defs/viewName"
+          "$ref": "#/$defs/name"
         },
-        "mode": {
-          "description": "Always `orbit`.",
-          "const": "orbit"
-        },
-        "p": {
-          "$ref": "#/$defs/vector3",
-          "description": "Camera position `[x, height, plan y]` (cm)."
-        },
-        "t": {
-          "$ref": "#/$defs/vector3",
-          "description": "Camera target `[x, height, plan y]` (cm)."
-        },
-        "thumb": {
-          "$ref": "#/$defs/viewThumb"
-        }
-      }
-    },
-    "viewThumb": {
-      "description": "Picture of the viewpoint taken when it was saved: a JPEG data URL of at most 20 480 characters (optional; dropped when invalid).",
-      "type": "string",
-      "maxLength": 20480,
-      "pattern": "^data:image/jpeg;base64,[A-Za-z0-9+/]+={0,2}$"
-    },
-    "vector3": {
-      "description": "A 3D point `[x, height, plan y]` in cm, each coordinate strictly between −100 000 and 100 000.",
-      "type": "array",
-      "minItems": 3,
-      "maxItems": 3,
-      "items": {
-        "type": "number",
-        "exclusiveMinimum": -100000,
-        "exclusiveMaximum": 100000
-      }
-    },
-    "site": {
-      "description": "What surrounds the apartment in the 3D view (building shell, street, neighbours, trees).",
-      "type": "object",
-      "required": [
-        "version"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "version": {
-          "description": "Site format version, always 1.",
-          "const": 1
-        },
-        "label": {
-          "description": "Short text shown next to the Exterior toggle.",
-          "type": "string",
-          "maxLength": 200
-        },
-        "groundLevel": {
-          "description": "Ground height relative to the apartment floor (cm, ≤ 0).",
-          "type": "number",
-          "minimum": -100000,
-          "maximum": 0,
-          "default": 0
-        },
-        "parapet": {
-          "description": "How far the façade walls rise above the ceiling (cm).",
-          "type": "number",
-          "minimum": 0,
-          "maximum": 100000,
-          "default": 0
-        },
-        "facadeFinish": {
-          "$ref": "#/$defs/siteMaterial",
-          "description": "Outer face of the apartment's façade walls.",
-          "default": "wallOuter"
-        },
-        "finishZones": {
-          "description": "Façade walls whose outer face looks into `polygon` use `finish` (at most 100 zones).",
+        "size": {
           "type": "array",
-          "maxItems": 100,
-          "items": {
-            "type": "object",
-            "required": [
-              "polygon",
-              "finish"
-            ],
-            "additionalProperties": false,
-            "properties": {
-              "polygon": {
-                "$ref": "#/$defs/sitePolygon"
-              },
-              "finish": {
-                "$ref": "#/$defs/siteMaterial",
-                "description": "Outer finish of the façade walls in front of the polygon."
-              }
-            }
-          },
-          "default": []
-        },
-        "facades": {
-          "description": "Street-front pictures used by `facade:<key>` materials (at most 100).",
-          "type": "object",
-          "maxProperties": 100,
-          "propertyNames": {
-            "$ref": "#/$defs/siteKey"
-          },
-          "additionalProperties": {
-            "$ref": "#/$defs/siteFacade"
-          },
-          "default": {}
-        },
-        "elements": {
-          "description": "The objects of the site (at most 2000).",
-          "type": "array",
-          "maxItems": 2000,
-          "items": {
-            "$ref": "#/$defs/siteElement"
-          },
-          "default": []
-        },
-        "groups": {
-          "description": "Shared cutaway behaviour of the elements that name the group (at most 2000).",
-          "type": "object",
-          "maxProperties": 2000,
-          "propertyNames": {
-            "$ref": "#/$defs/siteKey"
-          },
-          "additionalProperties": {
-            "$ref": "#/$defs/siteGroup"
-          },
-          "default": {}
-        },
-        "colliders": {
-          "description": "Extra obstacles for walk mode (plan polygons, at most 2000).",
-          "type": "array",
-          "maxItems": 2000,
-          "items": {
-            "$ref": "#/$defs/sitePolygon"
-          },
-          "default": []
-        }
-      }
-    },
-    "siteKey": {
-      "description": "A key of `facades` or `groups`: a letter, then up to 39 letters, digits, `-` or `_`.",
-      "type": "string",
-      "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,39}$"
-    },
-    "siteNumber": {
-      "description": "A site coordinate or offset in cm, between −100 000 and 100 000.",
-      "type": "number",
-      "minimum": -100000,
-      "maximum": 100000
-    },
-    "siteSize": {
-      "description": "A size in cm, greater than 0 and at most 100 000.",
-      "type": "number",
-      "exclusiveMinimum": 0,
-      "maximum": 100000
-    },
-    "siteColour": {
-      "description": "A colour `#rrggbb`.",
-      "type": "string",
-      "pattern": "^#[0-9a-fA-F]{6}$"
-    },
-    "sitePoint": {
-      "description": "A plan point `[x, y]` (cm).",
-      "type": "array",
-      "minItems": 2,
-      "maxItems": 2,
-      "items": {
-        "$ref": "#/$defs/siteNumber"
-      }
-    },
-    "siteSpan": {
-      "description": "An extent `[min, max]` (cm) with min < max.",
-      "type": "array",
-      "minItems": 2,
-      "maxItems": 2,
-      "items": {
-        "$ref": "#/$defs/siteNumber"
-      }
-    },
-    "sitePolygon": {
-      "description": "A plan polygon: 3 to 1000 points `[x, y]`.",
-      "type": "array",
-      "minItems": 3,
-      "maxItems": 1000,
-      "items": {
-        "$ref": "#/$defs/sitePoint"
-      }
-    },
-    "siteHeight": {
-      "description": "A height above the apartment floor: a number of cm, or `ground`, `ceiling`, `top` (ceiling + parapet) or `door` (207 cm) with an optional `+n` / `-n` offset in cm (at most 100 000), e.g. `top+3`.",
-      "anyOf": [
-        {
-          "$ref": "#/$defs/siteNumber"
-        },
-        {
-          "type": "string",
-          "pattern": "^\\s*(?:ground|ceiling|top|door)\\s*(?:[+-]\\s*0*(?:100000(?:\\.0+)?|\\d{1,5}(?:\\.\\d+)?))?\\s*$"
-        }
-      ]
-    },
-    "siteHeightRange": {
-      "description": "Two heights `[bottom, top]`, increasing when they use the same base.",
-      "type": "array",
-      "minItems": 2,
-      "maxItems": 2,
-      "items": {
-        "$ref": "#/$defs/siteHeight"
-      }
-    },
-    "siteMaterial": {
-      "description": "A material: a basic one, a painted plaster `wallpaint:#rrggbb` or a facade picture `facade:<key>` (a key of `facades`).",
-      "anyOf": [
-        {
-          "enum": [
-            "brick",
-            "beigebrick",
-            "stucco",
-            "roof",
-            "coping",
-            "deck",
-            "trim",
-            "glass",
-            "glassDark",
-            "grate",
-            "ground",
-            "gravel",
-            "leaves",
-            "concrete",
-            "asphalt",
-            "fenceDark",
-            "fenceWood",
-            "bark",
-            "stone",
-            "wallOuter"
-          ]
-        },
-        {
-          "type": "string",
-          "pattern": "^wallpaint:#[0-9a-fA-F]{6}$"
-        },
-        {
-          "type": "string",
-          "pattern": "^facade:[A-Za-z][A-Za-z0-9_-]{0,39}$"
-        }
-      ]
-    },
-    "siteFacade": {
-      "description": "A `w` × `h` cm street-front picture, repeated over the face it is applied to.",
-      "type": "object",
-      "required": [
-        "w",
-        "h",
-        "base",
-        "kind",
-        "items"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "w": {
-          "$ref": "#/$defs/siteSize",
-          "description": "Width of the picture (cm)."
-        },
-        "h": {
-          "$ref": "#/$defs/siteSize",
-          "description": "Height of the picture (cm)."
-        },
-        "base": {
-          "$ref": "#/$defs/siteColour",
-          "description": "Background colour."
-        },
-        "kind": {
-          "description": "Texture of the wall: `stucco`, `brick` or `beigebrick`.",
-          "enum": [
-            "stucco",
-            "brick",
-            "beigebrick"
-          ]
-        },
-        "items": {
-          "description": "Windows, doors… as `[x, y, w, h, type, colour?]` in cm from the bottom-left corner seen from outside; type `win`, `garage`, `door`, `awning`, `band` or `balcony` (at most 500).",
-          "type": "array",
-          "maxItems": 500,
-          "items": {
-            "$ref": "#/$defs/siteFacadeItem"
-          }
-        }
-      }
-    },
-    "siteFacadeItem": {
-      "description": "An item of a facade picture: `[x, y, w, h, type]` or `[x, y, w, h, type, colour]` (cm from the bottom-left corner seen from outside).",
-      "anyOf": [
-        {
-          "type": "array",
-          "minItems": 5,
-          "maxItems": 5,
+          "minItems": 3,
+          "maxItems": 3,
           "prefixItems": [
             {
-              "$ref": "#/$defs/siteNumber"
+              "type": "number",
+              "minimum": 1,
+              "maximum": 10000
             },
             {
-              "$ref": "#/$defs/siteNumber"
+              "type": "number",
+              "minimum": 1,
+              "maximum": 10000
             },
             {
-              "$ref": "#/$defs/siteSize"
-            },
-            {
-              "$ref": "#/$defs/siteSize"
-            },
-            {
-              "enum": [
-                "win",
-                "garage",
-                "door",
-                "awning",
-                "band",
-                "balcony"
-              ]
+              "type": "number",
+              "minimum": 1,
+              "maximum": 300
             }
           ]
         },
-        {
-          "type": "array",
-          "minItems": 6,
-          "maxItems": 6,
-          "prefixItems": [
-            {
-              "$ref": "#/$defs/siteNumber"
-            },
-            {
-              "$ref": "#/$defs/siteNumber"
-            },
-            {
-              "$ref": "#/$defs/siteSize"
-            },
-            {
-              "$ref": "#/$defs/siteSize"
-            },
-            {
-              "enum": [
-                "win",
-                "garage",
-                "door",
-                "awning",
-                "band",
-                "balcony"
-              ]
-            },
-            {
-              "$ref": "#/$defs/siteColour"
-            }
-          ]
-        }
-      ]
-    },
-    "siteGroup": {
-      "description": "Behaviour shared by the elements of a group in the overview camera.",
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "cutaway": {
-          "description": "The group is hidden while the apartment walls facing these sides are cut away.",
-          "type": "array",
-          "minItems": 1,
-          "maxItems": 4,
-          "uniqueItems": true,
-          "items": {
-            "enum": [
-              "+x",
-              "-x",
-              "+y",
-              "-y"
-            ]
-          }
+        "color": {
+          "$ref": "#/$defs/color"
         },
-        "context": {
-          "$ref": "#/$defs/sitePoint",
-          "description": "The group is hidden when this point lies on the camera side of the orbit target."
-        }
-      }
-    },
-    "siteGroupRef": {
-      "description": "Key of an entry of `groups`.",
-      "type": "string",
-      "maxLength": 200
-    },
-    "siteCast": {
-      "description": "false stops the element from casting shadows.",
-      "type": "boolean",
-      "default": true
-    },
-    "siteElement": {
-      "description": "An object of the site, by `type`.",
-      "type": "object",
-      "required": [
-        "type"
-      ],
-      "properties": {
-        "type": {
-          "description": "Kind of object.",
-          "enum": [
-            "box",
-            "boxes",
-            "beam",
-            "railing",
-            "stair",
-            "floor",
-            "tree",
-            "pole",
-            "building"
-          ]
-        }
-      },
-      "allOf": [
-        {
-          "if": {
-            "type": "object",
-            "properties": {
-              "type": {
-                "const": "box"
-              }
-            }
-          },
-          "then": {
-            "$ref": "#/$defs/siteBox"
-          }
-        },
-        {
-          "if": {
-            "type": "object",
-            "properties": {
-              "type": {
-                "const": "boxes"
-              }
-            }
-          },
-          "then": {
-            "$ref": "#/$defs/siteBoxes"
-          }
-        },
-        {
-          "if": {
-            "type": "object",
-            "properties": {
-              "type": {
-                "const": "beam"
-              }
-            }
-          },
-          "then": {
-            "$ref": "#/$defs/siteBeam"
-          }
-        },
-        {
-          "if": {
-            "type": "object",
-            "properties": {
-              "type": {
-                "const": "railing"
-              }
-            }
-          },
-          "then": {
-            "$ref": "#/$defs/siteRailing"
-          }
-        },
-        {
-          "if": {
-            "type": "object",
-            "properties": {
-              "type": {
-                "const": "stair"
-              }
-            }
-          },
-          "then": {
-            "$ref": "#/$defs/siteStair"
-          }
-        },
-        {
-          "if": {
-            "type": "object",
-            "properties": {
-              "type": {
-                "const": "floor"
-              }
-            }
-          },
-          "then": {
-            "$ref": "#/$defs/siteFloor"
-          }
-        },
-        {
-          "if": {
-            "type": "object",
-            "properties": {
-              "type": {
-                "const": "tree"
-              }
-            }
-          },
-          "then": {
-            "$ref": "#/$defs/siteTree"
-          }
-        },
-        {
-          "if": {
-            "type": "object",
-            "properties": {
-              "type": {
-                "const": "pole"
-              }
-            }
-          },
-          "then": {
-            "$ref": "#/$defs/sitePole"
-          }
-        },
-        {
-          "if": {
-            "type": "object",
-            "properties": {
-              "type": {
-                "const": "building"
-              }
-            }
-          },
-          "then": {
-            "$ref": "#/$defs/siteBuilding"
-          }
-        }
-      ]
-    },
-    "siteBox": {
-      "description": "A box.",
-      "type": "object",
-      "required": [
-        "type",
-        "x",
-        "y",
-        "z",
-        "material"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "type": {
-          "description": "Always `box`.",
-          "const": "box"
-        },
-        "group": {
-          "$ref": "#/$defs/siteGroupRef"
-        },
-        "x": {
-          "$ref": "#/$defs/siteSpan",
-          "description": "Extent along plan x."
-        },
-        "y": {
-          "$ref": "#/$defs/siteSpan",
-          "description": "Extent along plan y."
-        },
-        "z": {
-          "$ref": "#/$defs/siteHeightRange",
-          "description": "Bottom and top heights."
-        },
-        "material": {
-          "$ref": "#/$defs/siteMaterial",
-          "description": "Material of every face."
-        },
-        "faces": {
-          "description": "Material per face, overriding `material`.",
+        "file": {
+          "description": "The file, stored by the integration under its hash.",
           "type": "object",
+          "required": [
+            "format",
+            "hash",
+            "bytes",
+            "up"
+          ],
           "additionalProperties": false,
           "properties": {
-            "+x": {
-              "$ref": "#/$defs/siteMaterial",
-              "description": "Face towards increasing plan x."
+            "format": {
+              "enum": [
+                "glb",
+                "gltf",
+                "obj",
+                "stl",
+                "3mf"
+              ]
             },
-            "-x": {
-              "$ref": "#/$defs/siteMaterial",
-              "description": "Face towards decreasing plan x."
+            "hash": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$",
+              "description": "SHA-256 of the file."
             },
-            "+y": {
-              "$ref": "#/$defs/siteMaterial",
-              "description": "Face towards increasing plan y."
+            "bytes": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 8000000
             },
-            "-y": {
-              "$ref": "#/$defs/siteMaterial",
-              "description": "Face towards decreasing plan y."
+            "up": {
+              "enum": [
+                "y",
+                "z"
+              ]
             },
-            "top": {
-              "$ref": "#/$defs/siteMaterial",
-              "description": "Top face."
-            },
-            "bottom": {
-              "$ref": "#/$defs/siteMaterial",
-              "description": "Bottom face."
+            "data": {
+              "type": "string",
+              "pattern": "^data:[^,;]*;base64,",
+              "description": "The file itself, in an exported plan; a stored plan has its hash only."
             }
           }
-        },
-        "cast": {
-          "$ref": "#/$defs/siteCast"
-        }
-      }
-    },
-    "siteBoxes": {
-      "description": "Many small boxes drawn as one mesh (trims, posts, glazing).",
-      "type": "object",
-      "required": [
-        "type",
-        "material",
-        "boxes"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "type": {
-          "description": "Always `boxes`.",
-          "const": "boxes"
-        },
-        "group": {
-          "$ref": "#/$defs/siteGroupRef"
-        },
-        "material": {
-          "$ref": "#/$defs/siteMaterial",
-          "description": "Material of the boxes."
-        },
-        "boxes": {
-          "description": "Boxes `[x0, x1, y0, y1, z0, z1]` (z0, z1 are heights), 1 to 2000.",
-          "type": "array",
-          "minItems": 1,
-          "maxItems": 2000,
-          "items": {
-            "type": "array",
-            "minItems": 6,
-            "maxItems": 6,
-            "prefixItems": [
-              {
-                "$ref": "#/$defs/siteNumber"
-              },
-              {
-                "$ref": "#/$defs/siteNumber"
-              },
-              {
-                "$ref": "#/$defs/siteNumber"
-              },
-              {
-                "$ref": "#/$defs/siteNumber"
-              },
-              {
-                "$ref": "#/$defs/siteHeight"
-              },
-              {
-                "$ref": "#/$defs/siteHeight"
-              }
-            ]
-          }
-        },
-        "cast": {
-          "$ref": "#/$defs/siteCast"
-        }
-      }
-    },
-    "sitePoint3": {
-      "description": "A point `[x, y, z]`: plan coordinates (cm) and a height.",
-      "type": "array",
-      "minItems": 3,
-      "maxItems": 3,
-      "prefixItems": [
-        {
-          "$ref": "#/$defs/siteNumber"
-        },
-        {
-          "$ref": "#/$defs/siteNumber"
-        },
-        {
-          "$ref": "#/$defs/siteHeight"
-        }
-      ]
-    },
-    "siteBeam": {
-      "description": "A bar between two points.",
-      "type": "object",
-      "required": [
-        "type",
-        "from",
-        "to",
-        "section",
-        "material"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "type": {
-          "description": "Always `beam`.",
-          "const": "beam"
-        },
-        "group": {
-          "$ref": "#/$defs/siteGroupRef"
-        },
-        "from": {
-          "$ref": "#/$defs/sitePoint3",
-          "description": "Start of the bar."
-        },
-        "to": {
-          "$ref": "#/$defs/sitePoint3",
-          "description": "End of the bar."
-        },
-        "section": {
-          "description": "Section `[w, h]` (cm); w is horizontal and across the bar.",
-          "type": "array",
-          "minItems": 2,
-          "maxItems": 2,
-          "items": {
-            "$ref": "#/$defs/siteSize"
-          }
-        },
-        "material": {
-          "$ref": "#/$defs/siteMaterial",
-          "description": "Material of the bar."
-        },
-        "cast": {
-          "$ref": "#/$defs/siteCast"
-        }
-      }
-    },
-    "siteRailing": {
-      "description": "A 96 cm metal railing with rails, balusters every 11 cm and end posts.",
-      "type": "object",
-      "required": [
-        "type",
-        "from",
-        "to"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "type": {
-          "description": "Always `railing`.",
-          "const": "railing"
-        },
-        "group": {
-          "$ref": "#/$defs/siteGroupRef"
-        },
-        "from": {
-          "$ref": "#/$defs/sitePoint",
-          "description": "Start point (differs from `to`)."
-        },
-        "to": {
-          "$ref": "#/$defs/sitePoint",
-          "description": "End point."
-        },
-        "z": {
-          "$ref": "#/$defs/siteHeight",
-          "description": "Height of the foot.",
-          "default": 0
-        },
-        "material": {
-          "$ref": "#/$defs/siteMaterial",
-          "description": "Material of the railing.",
-          "default": "grate"
-        }
-      }
-    },
-    "siteStair": {
-      "description": "A straight open stair of `risers − 1` treads, each 3 cm thick.",
-      "type": "object",
-      "required": [
-        "type",
-        "from",
-        "to",
-        "width",
-        "risers",
-        "top",
-        "bottom"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "type": {
-          "description": "Always `stair`.",
-          "const": "stair"
-        },
-        "group": {
-          "$ref": "#/$defs/siteGroupRef"
-        },
-        "from": {
-          "$ref": "#/$defs/sitePoint",
-          "description": "Middle of the top edge."
-        },
-        "to": {
-          "$ref": "#/$defs/sitePoint",
-          "description": "Middle of the bottom edge (differs from `from`)."
-        },
-        "width": {
-          "$ref": "#/$defs/siteSize",
-          "description": "Width of the stair (cm)."
-        },
-        "risers": {
-          "description": "Number of risers (2 to 200).",
-          "type": "integer",
-          "minimum": 2,
-          "maximum": 200
-        },
-        "top": {
-          "$ref": "#/$defs/siteHeight",
-          "description": "Height of the top."
-        },
-        "bottom": {
-          "$ref": "#/$defs/siteHeight",
-          "description": "Height of the bottom."
-        },
-        "material": {
-          "$ref": "#/$defs/siteMaterial",
-          "description": "Material of the treads.",
-          "default": "grate"
-        },
-        "stringers": {
-          "description": "Adds side stringers, handrails and end posts.",
-          "type": "boolean",
-          "default": true
-        }
-      }
-    },
-    "siteFloor": {
-      "description": "A flat floor, optionally with a ceiling.",
-      "type": "object",
-      "required": [
-        "type",
-        "polygon",
-        "floor"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "type": {
-          "description": "Always `floor`.",
-          "const": "floor"
-        },
-        "group": {
-          "$ref": "#/$defs/siteGroupRef"
-        },
-        "polygon": {
-          "$ref": "#/$defs/sitePolygon"
-        },
-        "floor": {
-          "description": "A plan floor covering id, e.g. `photo-stratifie`.",
-          "type": "string",
-          "pattern": "^[A-Za-z0-9_-]{1,64}$"
-        },
-        "floorAngle": {
-          "description": "Direction of the floor pattern (degrees, −360 to 360).",
-          "type": "number",
-          "minimum": -360,
-          "maximum": 360,
-          "default": 0
-        },
-        "z": {
-          "$ref": "#/$defs/siteHeight",
-          "description": "Height of the floor.",
-          "default": 0
-        },
-        "ceiling": {
-          "description": "Adds a ceiling at the ceiling height, shown in walk mode.",
-          "type": "boolean",
-          "default": false
-        }
-      }
-    },
-    "siteTree": {
-      "description": "A procedural tree; the same seed always gives the same tree.",
-      "type": "object",
-      "required": [
-        "type",
-        "x",
-        "y",
-        "height"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "type": {
-          "description": "Always `tree`.",
-          "const": "tree"
-        },
-        "group": {
-          "$ref": "#/$defs/siteGroupRef"
-        },
-        "x": {
-          "$ref": "#/$defs/siteNumber",
-          "description": "Plan x of the trunk."
-        },
-        "y": {
-          "$ref": "#/$defs/siteNumber",
-          "description": "Plan y of the trunk."
-        },
-        "height": {
-          "$ref": "#/$defs/siteSize",
-          "description": "Height of the tree (cm)."
-        },
-        "seed": {
-          "description": "Seed of the random shape.",
-          "type": "integer",
-          "minimum": -100000,
-          "maximum": 100000,
-          "default": 0
-        },
-        "base": {
-          "$ref": "#/$defs/siteHeight",
-          "description": "Height of the foot.",
-          "default": "ground"
-        }
-      }
-    },
-    "sitePole": {
-      "description": "A post, lamp pole or utility pole.",
-      "type": "object",
-      "required": [
-        "type",
-        "x",
-        "y",
-        "height"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "type": {
-          "description": "Always `pole`.",
-          "const": "pole"
-        },
-        "group": {
-          "$ref": "#/$defs/siteGroupRef"
-        },
-        "x": {
-          "$ref": "#/$defs/siteNumber",
-          "description": "Plan x of the pole."
-        },
-        "y": {
-          "$ref": "#/$defs/siteNumber",
-          "description": "Plan y of the pole."
-        },
-        "height": {
-          "$ref": "#/$defs/siteSize",
-          "description": "Height of the pole (cm)."
-        },
-        "radius": {
-          "description": "Radius `[top, bottom]` (cm).",
-          "type": "array",
-          "minItems": 2,
-          "maxItems": 2,
-          "items": {
-            "$ref": "#/$defs/siteSize"
-          },
-          "default": [
-            12,
-            14
-          ]
-        },
-        "base": {
-          "$ref": "#/$defs/siteHeight",
-          "description": "Height of the foot.",
-          "default": "ground"
-        },
-        "material": {
-          "$ref": "#/$defs/siteMaterial",
-          "description": "Material of the pole.",
-          "default": "bark"
-        }
-      }
-    },
-    "siteBuilding": {
-      "description": "A block with a flat roof.",
-      "type": "object",
-      "required": [
-        "type",
-        "x",
-        "y",
-        "height",
-        "walls"
-      ],
-      "additionalProperties": false,
-      "dependentRequired": {
-        "facade": [
-          "facadeFace"
-        ],
-        "facadeFace": [
-          "facade"
-        ]
-      },
-      "properties": {
-        "type": {
-          "description": "Always `building`.",
-          "const": "building"
-        },
-        "group": {
-          "$ref": "#/$defs/siteGroupRef"
-        },
-        "x": {
-          "$ref": "#/$defs/siteSpan",
-          "description": "Extent along plan x."
-        },
-        "y": {
-          "$ref": "#/$defs/siteSpan",
-          "description": "Extent along plan y."
-        },
-        "height": {
-          "$ref": "#/$defs/siteSize",
-          "description": "Height above the base (cm)."
-        },
-        "base": {
-          "$ref": "#/$defs/siteHeight",
-          "description": "Height of the foot.",
-          "default": "ground"
-        },
-        "walls": {
-          "$ref": "#/$defs/siteMaterial",
-          "description": "Material of the walls."
-        },
-        "roof": {
-          "$ref": "#/$defs/siteMaterial",
-          "description": "Material of the roof.",
-          "default": "roof"
-        },
-        "facade": {
-          "$ref": "#/$defs/siteKey",
-          "description": "Key of the `facades` picture drawn on the street face (with `facadeFace`)."
-        },
-        "facadeFace": {
-          "description": "Face that shows the facade picture.",
-          "enum": [
-            "+x",
-            "-x",
-            "+y",
-            "-y"
-          ]
-        },
-        "coping": {
-          "description": "Adds a 3 cm coping that overhangs by 2 cm.",
-          "type": "boolean",
-          "default": false
         }
       }
     }

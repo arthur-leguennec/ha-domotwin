@@ -899,7 +899,7 @@ mod tests {
     use domotwin_core::plan::read_plan;
     use domotwin_core::scene::{SceneOptions, build_scene};
 
-    const DEMO: &[u8] = include_bytes!("../../../examples/demo-apartment.plan.json");
+    const DEMO: &[u8] = include_bytes!("../../../examples/demo-apartment.domotwin.json");
 
     fn view() -> ViewState {
         let plan = read_plan(DEMO).unwrap();
@@ -966,7 +966,7 @@ mod tests {
     #[test]
     fn the_storeys_of_a_home_spread_apart_and_stack() {
         use domotwin_core::scene::build_home;
-        const UPPER: &[u8] = include_bytes!("../../../examples/demo-upper-floor.plan.json");
+        const UPPER: &[u8] = include_bytes!("../../../examples/demo-upper-floor.domotwin.json");
         let ground = read_plan(DEMO).unwrap();
         let upper = read_plan(UPPER).unwrap();
         let scene = build_home(&[(&ground, 0.0), (&upper, 280.0)], &SceneOptions::default());
@@ -1008,7 +1008,7 @@ mod tests {
     #[test]
     fn the_plan_of_a_home_lays_its_storeys_side_by_side() {
         use domotwin_core::scene::build_home;
-        const UPPER: &[u8] = include_bytes!("../../../examples/demo-upper-floor.plan.json");
+        const UPPER: &[u8] = include_bytes!("../../../examples/demo-upper-floor.domotwin.json");
         let ground = read_plan(DEMO).unwrap();
         let upper = read_plan(UPPER).unwrap();
         let scene = build_home(&[(&ground, 0.0), (&upper, 280.0)], &SceneOptions::default());

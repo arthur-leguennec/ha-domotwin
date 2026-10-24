@@ -73,7 +73,7 @@ import {
 } from "../gestures";
 import type { StoreyInfo, StoredPlan } from "../ha/client";
 import { isHassError, type HomeAssistant } from "../ha/types";
-import { translatorFor, type Translator } from "../i18n";
+import { translatorFor, type KindName, type Translator } from "../i18n";
 import { runAction } from "../live/actions";
 import {
   boundEntityIds,
@@ -187,8 +187,8 @@ const APPLIANCE_ICONS: Record<string, string> = {
   stove: mdiStove,
   hood: mdiFan,
   printer: mdiPrinter,
-  printer3d: mdiPrinter3d,
-};
+  "3d-printer": mdiPrinter3d,
+} satisfies Partial<Record<KindName, string>>;
 
 function badgeIcon(badge: Badge): string {
   return badge.kind === "running"
@@ -2925,7 +2925,7 @@ export class DomoTwinView extends LitElement {
     const t = this.translator;
     const ready =
       this.engineState === "ready" && (this.summary !== undefined || this.planEditor !== undefined);
-    const title = this.summary?.title || t.t("view.untitled");
+    const title = this.summary?.name || t.t("view.untitled");
     return html`<div
         class="stage"
         tabindex=${ready ? "0" : "-1"}
@@ -3623,7 +3623,7 @@ export class DomoTwinView extends LitElement {
         <span>${room.name}</span>${icon(mdiChevronUp)}
       </button>`;
     }
-    const title = this.summary.title || t.t("view.untitled");
+    const title = this.summary.name || t.t("view.untitled");
     return html`<div class="chip glass" role="status" data-testid="summary">
       <span
         >${title} · ${t.tp("view.rooms", this.summary.rooms)} ·

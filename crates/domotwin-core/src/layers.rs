@@ -356,7 +356,7 @@ mod tests {
     use super::*;
     use crate::scene::{SceneOptions, build_scene};
 
-    const DEMO: &str = include_str!("../../../examples/demo-apartment.plan.json");
+    const DEMO: &str = include_str!("../../../examples/demo-apartment.domotwin.json");
 
     #[test]
     fn scales_follow_their_stops() {

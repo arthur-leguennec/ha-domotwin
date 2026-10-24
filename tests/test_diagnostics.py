@@ -29,14 +29,27 @@ async def test_diagnostics_are_counts_only(
 
     diagnostics = await get_diagnostics_for_config_entry(hass, hass_client, setup_integration)
     assert diagnostics["revision"] == 3
-    assert diagnostics["plan"]["elements"] == {
-        "room": 5,
-        "door": 4,
-        "window": 6,
-        "furniture": 39,
+    assert diagnostics["plan"] == {
+        "version": 1,
+        "elements": {"rooms": 5, "doors": 4, "windows": 6, "items": 39},
+        "views": 2,
+        "models": 0,
     }
     assert diagnostics["bindings"] == {"rooms": 5, "elements": 20}
     assert diagnostics["settings"] == ["north"]
     text = json.dumps(diagnostics)
     for private in ("Living room", "light.", "living", "Demo apartment", "37.5"):
         assert private not in text
+
+
+async def test_odd_plan_fields_are_counted_as_none(
+    hass: HomeAssistant,
+    hass_client: ClientSessionGenerator,
+    setup_integration: MockConfigEntry,
+    demo_plan: dict[str, Any],
+) -> None:
+    # The integration checks only a plan's envelope: a field it does not check may be anything.
+    await hass.data[DATA_KEY].async_save_plan(plan={**demo_plan, "views": 3, "models": True})
+    diagnostics = await get_diagnostics_for_config_entry(hass, hass_client, setup_integration)
+    assert (diagnostics["plan"]["views"], diagnostics["plan"]["models"]) == (0, 0)
+    assert diagnostics["retired_storeys"] == 0
