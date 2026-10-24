@@ -10,15 +10,24 @@ import { areaEntities } from "../live/bindings";
 import { define, fire } from "./define";
 import { entityRow, rowStyles } from "./entity-rows";
 import { icon } from "./icon";
+import "./automation-section";
 import { Sheet, sheetStyles } from "./sheet";
 import { baseStyles } from "./styles";
 
-/** `<domotwin-controls>`: the entities of one element, with their controls. */
+/** `<domotwin-controls>`: the entities of one element, with their controls and automations. */
 export class DomoTwinControls extends Sheet {
-  static override properties = { ...Sheet.properties, entities: { attribute: false } };
+  static override properties = {
+    ...Sheet.properties,
+    entities: { attribute: false },
+    device: { attribute: false },
+    area: { attribute: false },
+  };
   static override styles = [baseStyles, rowStyles, sheetStyles];
 
   entities: string[] = [];
+  /** The Home Assistant device it stands for, and its room's area: their automations too. */
+  device?: string;
+  area?: string;
 
   protected override render(): TemplateResult | typeof nothing {
     const hass = this.hass;
@@ -26,7 +35,13 @@ export class DomoTwinControls extends Sheet {
     const t = this.t;
     const first = this.entities[0];
     return this.frame(
-      html`${this.entities.map((id) => entityRow(hass, t, id, true))}`,
+      html`${this.entities.map((id) => entityRow(hass, t, id, true))}
+        <domotwin-automations
+          .hass=${hass}
+          .entities=${this.entities}
+          .device=${this.device}
+          .area=${this.area}
+        ></domotwin-automations>`,
       first
         ? html`<div class="footer">
             <button
@@ -83,8 +98,15 @@ export class DomoTwinRoom extends Sheet {
       key: group.key,
       ids: ids.filter((id) => group.domains.includes(id.split(".")[0] ?? "")),
     })).filter((group) => group.ids.length > 0);
+    const automations = html`<domotwin-automations
+      .hass=${hass}
+      .area=${area}
+    ></domotwin-automations>`;
     if (groups.length === 0) {
-      return this.frame(html`<p class="empty">${t.t("room.empty")}</p>`);
+      return this.frame(
+        html`<p class="empty">${t.t("room.empty")}</p>
+          ${automations}`,
+      );
     }
     const anyOn = ids.some((id) => id.startsWith("light.") && hass.states[id]?.state === "on");
     return this.frame(
@@ -92,7 +114,7 @@ export class DomoTwinRoom extends Sheet {
         (group) =>
           html`<h3>${t.t(`room.${group.key}`)}</h3>
             ${group.ids.map((id) => entityRow(hass, t, id, false))}`,
-      )}`,
+      )}${automations}`,
       anyOn
         ? html`<div class="footer">
             <button

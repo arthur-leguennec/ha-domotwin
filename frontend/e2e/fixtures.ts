@@ -22,7 +22,7 @@ export interface HarnessOptions {
    */
   models?: boolean | "big" | "unused";
   /** Card options of the layers. */
-  layer?: "off" | "temperature" | "humidity" | "co2" | "pm25" | "power" | "network";
+  layer?: "off" | "temperature" | "humidity" | "co2" | "pm25" | "power" | "network" | "automations";
   realSun?: boolean;
   /** `sun.sun`'s position (degrees). */
   sunPosition?: { azimuth: number; elevation: number };
@@ -46,6 +46,8 @@ export interface HarnessOptions {
   nightDim?: boolean;
   /** A mocked ZHA with a fictional Zigbee mesh (the network map, D-031). */
   zha?: boolean;
+  /** Fictional automations (D-032): `true` three of the demo apartment, a number made up ones. */
+  automations?: true | number;
 }
 
 /** Opens the mocked Home Assistant with the built frontend. */
@@ -80,6 +82,9 @@ export async function openHarness(page: Page, options: HarnessOptions = {}): Pro
   if (options.orbit) params.set("orbit", "1");
   if (options.nightDim) params.set("nightdim", "1");
   if (options.zha) params.set("zha", "1");
+  if (options.automations) {
+    params.set("automations", options.automations === true ? "1" : String(options.automations));
+  }
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto(`/?${params.toString()}`);

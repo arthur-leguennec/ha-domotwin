@@ -182,6 +182,75 @@ test("frame time with the network map", async ({ page }, testInfo) => {
   expect(large.links).toBeGreaterThan(300);
 });
 
+// Automation wires (D-032): 50 made-up automations, every one shown (bundled by room, as the layer
+// does above 30), against the same view without them; then what drawing all 50 unbundled costs
+// (their ends placed, the wires worked out and built), and reading one configuration.
+test("frame time with 50 automations", async ({ page }, testInfo) => {
+  test.setTimeout(240_000);
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await openHarness(page, { theme: "day", lighting: "evening", live: true, automations: 50 });
+  await expect(page.getByTestId("summary")).toBeVisible();
+  await page.evaluate(() => {
+    const view = (
+      window as never as { __view: () => { options: Record<string, unknown> } }
+    ).__view();
+    view.options = { ...view.options, quality: "high" };
+  });
+  await expect.poll(async () => (await viewState(page)).quality).toBe("high");
+  await settle(page);
+  const benchmark = () =>
+    page.evaluate(() =>
+      (window as never as { __view: () => BenchmarkView }).__view().benchmark(20),
+    );
+  const without = await benchmark();
+  await page.getByTestId("layers").click();
+  await page.getByTestId("layer-menu").locator('[data-layer="automations"]').click();
+  await expect(page.getByTestId("wires")).toContainText("50 automations");
+  const bundled = await benchmark();
+  const unbundled = await page.evaluate(() => {
+    const view = (
+      window as never as {
+        __view: () => {
+          engine: {
+            setAutomations(json: string): string;
+            elementList(): { id: string; type: string }[];
+          };
+        };
+      }
+    ).__view();
+    const pieces = view.engine
+      .elementList()
+      .filter((e) => e.type === "furniture")
+      .map((e) => e.id);
+    const automations = Array.from({ length: 50 }, (_, i) => ({
+      id: `automation.made_up_${i}`,
+      color: [0.9, 0.4, 0.1],
+      ends: [
+        i % 3 === 0
+          ? { role: "trigger", above: "Time" }
+          : { role: "trigger", piece: pieces[i % pieces.length] },
+        { role: "action", piece: pieces[(i * 7 + 3) % pieces.length] },
+        { role: "action", piece: pieces[(i * 11 + 5) % pieces.length] },
+      ],
+    }));
+    const json = JSON.stringify({ automations });
+    const times: number[] = [];
+    for (let run = 0; run < 7; run += 1) {
+      const start = performance.now();
+      view.engine.setAutomations(json);
+      times.push(performance.now() - start);
+    }
+    times.sort((a, b) => a - b);
+    return { automations: automations.length, medianMs: times[3] };
+  });
+  const report = { without, bundled, unbundled };
+  const path = testInfo.outputPath("automations-frame-time.json");
+  await writeFile(path, JSON.stringify(report, null, 2));
+  await testInfo.attach("automations-frame-time", { path, contentType: "application/json" });
+  console.log(JSON.stringify(report));
+  expect(bundled.frames).toBe(20);
+});
+
 interface DragEngine {
   beginEdit(): unknown;
   editSelect(id: string, add: boolean): unknown;

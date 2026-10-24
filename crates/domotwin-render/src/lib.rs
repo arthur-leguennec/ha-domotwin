@@ -208,6 +208,13 @@ struct GpuWires {
     indices: ElementBuffer<u32>,
     /// A pulse runs along some of them: frames are needed while they are shown.
     pulsing: bool,
+    /// When a one-shot pulse set off along each corner's wire (seconds of the wires' clock;
+    /// negative: none), and the wire of each piece, to set them off.
+    shots: VertexBuffer<f32>,
+    shot_starts: Vec<f32>,
+    wire_of: Vec<u32>,
+    /// The length of each wire (cm), by its index: how long its pulse takes.
+    lengths: Vec<f32>,
 }
 
 impl GpuWires {
@@ -220,6 +227,8 @@ impl GpuWires {
         let (mut corners, mut colors) = (Vec::with_capacity(n), Vec::with_capacity(n));
         let mut extras = Vec::with_capacity(n);
         let mut indices = Vec::with_capacity(segments.len() * 6);
+        let mut wire_of = Vec::with_capacity(segments.len());
+        let mut lengths: Vec<f32> = Vec::new();
         for (i, s) in segments.iter().enumerate() {
             let Ok(base) = u32::try_from(i * 4) else {
                 break;
@@ -237,7 +246,14 @@ impl GpuWires {
                 ]);
             }
             indices.extend_from_slice(&[base, base + 1, base + 2, base, base + 2, base + 3]);
+            wire_of.push(s.wire);
+            let k = s.wire as usize;
+            if lengths.len() <= k {
+                lengths.resize(k + 1, 0.0);
+            }
+            lengths[k] = s.length;
         }
+        let shot_starts = vec![-1.0; a.len()];
         Some(Self {
             a: VertexBuffer::new_with_data(context, &a),
             b: VertexBuffer::new_with_data(context, &b),
@@ -246,8 +262,61 @@ impl GpuWires {
             extras: VertexBuffer::new_with_data(context, &extras),
             indices: ElementBuffer::new_with_data(context, &indices),
             pulsing: segments.iter().any(|s| s.flow != 0.0),
+            shots: VertexBuffer::new_with_data(context, &shot_starts),
+            shot_starts,
+            wire_of,
+            lengths,
         })
     }
+
+    /// Sets a one-shot pulse off along `wires` (their indices) at `start` (seconds of the wires'
+    /// clock). Returns when the last of them is over.
+    fn shoot(&mut self, wires: &[u32], start: f32) -> f32 {
+        let mut until = start;
+        let mut chosen = vec![false; self.lengths.len()];
+        for &wire in wires {
+            if let Some(c) = chosen.get_mut(wire as usize) {
+                *c = true;
+            }
+        }
+        for (piece, wire) in self.wire_of.iter().enumerate() {
+            if chosen.get(*wire as usize).copied().unwrap_or(false) {
+                self.shot_starts[piece * 4..piece * 4 + 4].fill(start);
+                let length = self.lengths.get(*wire as usize).copied().unwrap_or(0.0);
+                until = until.max(start + (length + SHOT_LENGTH) / SHOT_SPEED);
+            }
+        }
+        self.shots.fill(&self.shot_starts);
+        until
+    }
+
+    /// No one-shot pulse any more.
+    fn clear_shots(&mut self) {
+        if self.shot_starts.iter().any(|&s| s >= 0.0) {
+            self.shot_starts.fill(-1.0);
+            self.shots.fill(&self.shot_starts);
+        }
+    }
+}
+
+/// A one-shot pulse (an automation that ran) runs at this speed (cm/s)…
+const SHOT_SPEED: f32 = 400.0;
+/// …and is this long (cm); held still, the wire flashes for [`SHOT_FLASH`] seconds instead.
+const SHOT_LENGTH: f32 = 90.0;
+const SHOT_FLASH: f32 = 0.6;
+
+/// Which wires: those of the network map (D-031), those of automations (D-032).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WireSet {
+    Network = 0,
+    Automations = 1,
+}
+
+/// The wires' clock (seconds): wrapped once a day, so that a float counts it to a hundredth of a
+/// second and a pulse is cut short once a day at most.
+#[allow(clippy::cast_possible_truncation)]
+fn wire_clock(time_ms: f64) -> f32 {
+    (time_ms / 1000.0).rem_euclid(86_400.0) as f32
 }
 
 /// Storeys the wire shader moves wire ends with (the integration keeps at most 20).
@@ -401,8 +470,11 @@ pub struct Renderer {
     rooms_shown: bool,
     /// The room layers move (the heatmap's halo, a pulsing alert).
     rooms_animated: bool,
-    /// The wires drawn over the home (the network map, D-031).
-    wires: Option<GpuWires>,
+    /// The wires drawn over the home, by [`WireSet`].
+    wires: [Option<GpuWires>; 2],
+    /// The frames' clock at the last frame, and when the last one-shot pulse is over (ms).
+    frame_ms: f64,
+    shots_until_ms: f64,
     /// The power layer is shown.
     power_layer: bool,
     /// Layers may move (off when the user prefers reduced motion).
@@ -603,7 +675,9 @@ impl Renderer {
             rooms,
             rooms_shown: false,
             rooms_animated: false,
-            wires: None,
+            wires: [None, None],
+            frame_ms: 0.0,
+            shots_until_ms: 0.0,
             power_layer: false,
             motion: true,
             sun: None,
@@ -736,20 +810,40 @@ impl Renderer {
         }
     }
 
+    /// The clock (ms) of the last frame drawn.
+    pub const fn frame_ms(&self) -> f64 {
+        self.frame_ms
+    }
+
     /// Whether the layers shown move: frames are then needed all the time (the frontend slows
     /// them down).
     pub fn layers_animating(&self) -> bool {
-        self.motion
+        // A one-shot pulse runs, or its flash fades under reduce motion: frames until it is over.
+        let shot = self.frame_ms < self.shots_until_ms;
+        shot || self.motion
             && (self.rooms_animated
-                || self.wires.as_ref().is_some_and(|w| w.pulsing)
+                || self.wires.iter().flatten().any(|w| w.pulsing)
                 || (self.power_layer
                     && self.looks.iter().any(|l| lamps::power_level(l.power) > 0.0)))
     }
 
-    /// Draws `segments` over the home (none: no wires), each end moved with its storey (D-031).
-    pub fn set_wires(&mut self, segments: &[WireSegment]) {
-        self.wires = GpuWires::new(&self.context, segments);
+    /// Draws `segments` as the wires of `set` (none: no wires), each end moved with its storey
+    /// (D-031).
+    pub fn set_wires(&mut self, set: WireSet, segments: &[WireSegment]) {
+        self.wires[set as usize] = GpuWires::new(&self.context, segments);
         self.view.dirty = true;
+    }
+
+    /// Sets a one-shot pulse off along `wires` of `set` (their indices in the wires given), from
+    /// each one's start to its end, at `time_ms` (the frames' clock). Held still (reduce motion),
+    /// the wires flash instead.
+    pub fn shoot_wires(&mut self, set: WireSet, wires: &[u32], time_ms: f64) {
+        let start = wire_clock(time_ms);
+        if let Some(w) = self.wires[set as usize].as_mut() {
+            let lasts = (w.shoot(wires, start) - start).max(SHOT_FLASH);
+            self.shots_until_ms = self.shots_until_ms.max(time_ms + f64::from(lasts) * 1000.0);
+            self.view.dirty = true;
+        }
     }
 
     /// Lights the scene from the real sun (`direction` towards it, `y` up), its light coming
@@ -1115,6 +1209,15 @@ impl Renderer {
 
     /// Draws one frame at `time_ms`. Returns `true` while an animation needs more frames.
     pub fn render(&mut self, time_ms: f64) -> bool {
+        self.frame_ms = time_ms;
+        if self.shots_until_ms > 0.0 && time_ms >= self.shots_until_ms {
+            // The pulses are over: forgotten, so that none comes back when the wires' clock
+            // comes round again.
+            for w in self.wires.iter_mut().flatten() {
+                w.clear_shots();
+            }
+            self.shots_until_ms = 0.0;
+        }
         let moving = self.view.storeys_moving();
         let animating = self.view.update(time_ms);
         if moving {
@@ -1317,7 +1420,7 @@ impl Renderer {
     }
 
     fn set_wire_uniforms(&self, projection: &domotwin_core::camera::Projection, time_ms: f64) {
-        if self.wires.is_none() {
+        if self.wires.iter().all(Option::is_none) {
             return;
         }
         let program = &self.wire_program;
@@ -1336,11 +1439,7 @@ impl Renderer {
             })
             .collect();
         program.use_uniform_array("u_offsets", &offsets);
-        #[allow(clippy::cast_possible_truncation)]
-        // A pulse comes round every (wire length + 2.4 m) / 1.2 m/s, which a short wrap of the
-        // clock would cut short: a day's wrap jumps once a day (a float still counts it to a
-        // hundredth of a second).
-        program.use_uniform_if_required("u_time", ((time_ms / 1000.0).rem_euclid(86_400.0)) as f32);
+        program.use_uniform_if_required("u_time", wire_clock(time_ms));
         program.use_uniform_if_required("u_motion", if self.motion { 1.0_f32 } else { 0.0 });
     }
 
@@ -1480,7 +1579,7 @@ impl Renderer {
         }
         // Wires over everything, so that a link is seen through the walls it crosses; not in a
         // storey's picture.
-        if let Some(w) = self.wires.as_ref().filter(|_| only.is_none()) {
+        for w in self.wires.iter().flatten().filter(|_| only.is_none()) {
             // The alpha channel is what the bloom makes glow: wires glow in the looks whose
             // outlines do, and leave it as it is in the others.
             let (alpha_source, alpha_equation) = if self.theme.line_glow > 0.0 {
@@ -1507,6 +1606,7 @@ impl Renderer {
             wire.use_vertex_attribute("a_corner", &w.corners);
             wire.use_vertex_attribute("a_color", &w.colors);
             wire.use_vertex_attribute("a_extra", &w.extras);
+            wire.use_vertex_attribute("a_shot", &w.shots);
             wire.draw_elements(states, viewport, &w.indices);
         }
     }

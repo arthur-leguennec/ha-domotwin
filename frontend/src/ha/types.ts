@@ -39,6 +39,8 @@ export interface HassEntityEntry {
   name?: string | null;
   hidden?: boolean;
   entity_category?: string | null;
+  /** The labels given in Home Assistant (their ids). */
+  labels?: string[];
 }
 
 /** An entry of the device registry. */
@@ -54,6 +56,13 @@ export interface HassDeviceEntry {
 export interface HassAreaEntry {
   area_id: string;
   name: string;
+  floor_id?: string | null;
+}
+
+/** An entry of the floor registry. */
+export interface HassFloorEntry {
+  floor_id: string;
+  name: string;
 }
 
 export interface HomeAssistant {
@@ -61,6 +70,7 @@ export interface HomeAssistant {
   entities?: Record<string, HassEntityEntry | undefined>;
   devices?: Record<string, HassDeviceEntry | undefined>;
   areas?: Record<string, HassAreaEntry | undefined>;
+  floors?: Record<string, HassFloorEntry | undefined>;
   user?: HassUser;
   language: string;
   locale?: { language: string };

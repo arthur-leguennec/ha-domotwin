@@ -887,6 +887,31 @@ try {
     await meshPage.screenshot(),
   );
   console.log("docs/figures/screenshot-network.png");
+
+  // Automation wires (D-032): the panel, the day look, every automation of the demo apartment.
+  const wiresPage = await browser.newPage({
+    viewport: { width: 1280, height: 800 },
+    deviceScaleFactor: 1.5,
+  });
+  await wiresPage.emulateMedia({ reducedMotion: "reduce" });
+  await wiresPage.goto("http://127.0.0.1:4173/?mode=panel&live=1&automations=1&hometheme=day");
+  await wiresPage.waitForFunction(() => window.__view?.()?.debugState().summary, null, {
+    timeout: 60_000,
+  });
+  await wiresPage.evaluate(() => {
+    const view = window.__view();
+    view.options = { ...view.options, quality: "high" };
+  });
+  await wiresPage.locator("domotwin-view").getByTestId("layers").click();
+  await wiresPage.locator('domotwin-view [data-layer="automations"]').click();
+  await wiresPage.locator("domotwin-wires .label").first().waitFor();
+  await wiresPage.evaluate(() => window.__view().settle());
+  await wiresPage.waitForTimeout(800);
+  await fs.writeFile(
+    join(root, "docs", "figures", "screenshot-automations.png"),
+    await wiresPage.screenshot(),
+  );
+  console.log("docs/figures/screenshot-automations.png");
   await browser.close();
 } finally {
   server.kill();

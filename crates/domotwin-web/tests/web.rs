@@ -720,3 +720,130 @@ fn the_network_map_draws_links_between_pieces_and_finds_them() {
     assert!(engine.network_at(160.0, 120.0).is_empty());
     assert!(!engine.frame(16.0));
 }
+
+#[wasm_bindgen_test]
+fn automation_wires_join_their_ends_and_pulse_when_one_runs() {
+    let mut engine = Engine::new(canvas()).unwrap();
+    engine.load_plan(DEMO, None, None).unwrap();
+    // Two fictional automations: motion in the hall (the floor lamp's piece stands for its
+    // sensor here) turns the floor lamp on at sunset; a button on the sideboard dims the living
+    // room, if a template says so.
+    let automations = serde_json::json!({ "automations": [
+        { "id": "automation.dusk", "color": [1.0, 0.5, 0.1], "ends": [
+            { "role": "trigger", "piece": "sideboard" },
+            { "role": "trigger", "above": "Sun" },
+            { "role": "action", "piece": "floor-lamp" }
+        ] },
+        { "id": "automation.dim", "color": [0.2, 0.6, 1.0], "ends": [
+            { "role": "trigger", "piece": "tv" },
+            { "role": "condition", "above": "Template", "room": "living" },
+            { "role": "action", "room": "living", "dynamic": true }
+        ] }
+    ] });
+    let spots: serde_json::Value =
+        serde_json::from_str(&engine.set_automations(&automations.to_string())).unwrap();
+    let spots = spots.as_array().unwrap();
+    assert_eq!(spots.len(), 6, "{spots:?}");
+    assert_eq!(spots[0]["piece"], "sideboard");
+    assert_eq!(spots[1]["above"], "Sun");
+    assert_eq!(spots[5]["room"], "living");
+    assert_eq!(spots[5]["dynamic"], true);
+    let points: Vec<Option<[f64; 2]>> = serde_json::from_str(&engine.automation_points()).unwrap();
+    assert_eq!(points.len(), 6);
+    assert!(points.iter().all(Option::is_some), "{points:?}");
+    // No wire is moving: no frames needed until one runs.
+    engine.frame(0.0);
+    assert!(!engine.frame(16.0));
+    assert!(engine.pulse_automation("automation.dusk", 20.0));
+    assert!(engine.frame(40.0), "the pulse runs");
+    assert!(!engine.frame(5_000.0), "and is over");
+    assert!(!engine.pulse_automation("automation.unknown", 50.0));
+    // A tap on a wire finds its automation.
+    let mut found = Vec::new();
+    for y in (0..240).step_by(3) {
+        for x in (0..320).step_by(3) {
+            let hit = engine.automation_at(f64::from(x), f64::from(y));
+            if !hit.is_empty() && !found.contains(&hit) {
+                found.push(hit);
+            }
+        }
+    }
+    assert!(
+        found.iter().any(|h| h.contains("automation.dusk")),
+        "{found:?}"
+    );
+    // Two alike automations (the same two pieces): their wires rise apart, each can be tapped;
+    // an id longer than a label is kept whole; a pulse goes on when one is picked out.
+    let long = format!("automation.{}", "x".repeat(150));
+    let alike = serde_json::json!({ "automations": [
+        { "id": "automation.on", "color": [1.0, 0.5, 0.1], "ends": [
+            { "role": "trigger", "piece": "sideboard" }, { "role": "action", "piece": "floor-lamp" }
+        ] },
+        { "id": long, "color": [0.2, 0.6, 1.0], "ends": [
+            { "role": "trigger", "piece": "sideboard" }, { "role": "action", "piece": "floor-lamp" }
+        ] }
+    ] });
+    engine.set_automations(&alike.to_string());
+    let mut hits = std::collections::BTreeSet::new();
+    for y in (0..240).step_by(2) {
+        for x in (0..320).step_by(2) {
+            let hit = engine.automation_at(f64::from(x), f64::from(y));
+            if !hit.is_empty() {
+                hits.insert(hit);
+            }
+        }
+    }
+    assert!(hits.iter().any(|h| h.contains("automation.on")), "{hits:?}");
+    assert!(hits.iter().any(|h| h.contains(&long)), "{hits:?}");
+    // Where the two wires are close, a tap finds both (each tap then picks the next).
+    assert!(
+        hits.iter()
+            .any(|h| h.contains("automation.on") && h.contains(&long)),
+        "{hits:?}"
+    );
+    engine.frame(10_000.0);
+    assert!(engine.pulse_automation(&long, 10_010.0));
+    engine.pick_automation("automation.on");
+    assert!(
+        engine.frame(10_100.0),
+        "the pulse runs on, picked out or not"
+    );
+    // The same automations handed over again (the scene or the names changed): the pulse goes on.
+    engine.set_automations(&alike.to_string());
+    assert!(
+        engine.frame(10_150.0),
+        "the pulse runs on, handed over again"
+    );
+    engine.set_automations(&automations.to_string());
+    // Picked out, then bundled by room: the hall's and the living room's.
+    engine.pick_automation("automation.dim");
+    let bundled = serde_json::json!({ "automations": automations["automations"], "grouped": true });
+    let spots: serde_json::Value =
+        serde_json::from_str(&engine.set_automations(&bundled.to_string())).unwrap();
+    assert!(
+        spots
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|s| s.get("piece").is_none()),
+        "{spots:?}"
+    );
+    // Hidden: nothing drawn, nothing found.
+    assert_eq!(engine.set_automations("{}"), "[]");
+    // The configuration reader, for the interface.
+    let read: serde_json::Value = serde_json::from_str(&domotwin_web::read_automation(
+        r#"{"triggers": [{"trigger": "sun"}], "actions": [{"action": "light.turn_on", "target": {"area_id": "living_room", "floor_id": "ground", "label_id": "evening"}}, {"fictional": 1}]}"#,
+    ))
+    .unwrap();
+    assert_eq!(
+        read,
+        serde_json::json!({ "ends": [
+            { "role": "trigger", "place": "sun" },
+            { "role": "action", "area": "living_room" },
+            { "role": "action", "floor": "ground" },
+            { "role": "action", "label": "evening" }
+        ], "skipped": 1 })
+    );
+    assert!(engine.automation_at(160.0, 120.0).is_empty());
+    assert_eq!(engine.automation_points(), "[]");
+}

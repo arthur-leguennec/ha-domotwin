@@ -20,6 +20,8 @@ const mode = params.get("mode") ?? "card";
 const live = params.get("live") === "1";
 // A mocked ZHA (D-031): a fictional Zigbee mesh over the demo apartment.
 const zha = params.get("zha") === "1";
+// Fictional automations (D-032): `automations=1` three of them, `automations=50` as many made up.
+const automationCount = Number(params.get("automations") ?? 0);
 
 await import("/domotwin_static/domotwin.js?v=e2e");
 
@@ -209,6 +211,78 @@ window.__show = (request) => {
   for (const listener of listeners) listener({ kind: "show", show: request });
 };
 
+/** Fictional automations of the demo apartment, by entity id, with their configurations. */
+function automationConfigs() {
+  if (automationCount <= 0) return {};
+  if (automationCount === 1) {
+    return {
+      "automation.evening_lights": {
+        id: "1001",
+        alias: "Evening lights",
+        triggers: [
+          { trigger: "sun", event: "sunset" },
+          { trigger: "state", entity_id: "binary_sensor.entrance_door_contact", to: "on" },
+        ],
+        conditions: [
+          { condition: "state", entity_id: "binary_sensor.living_room_motion", state: "on" },
+        ],
+        actions: [
+          {
+            action: "light.turn_on",
+            target: { entity_id: ["light.living_room_floor_lamp", "light.sideboard_lamp"] },
+          },
+        ],
+      },
+      "automation.movie_time": {
+        id: "1002",
+        alias: "Movie time",
+        triggers: [{ trigger: "state", entity_id: "media_player.living_room_tv", to: "playing" }],
+        conditions: ["{{ is_state('sun.sun', 'below_horizon') }}"],
+        actions: [
+          { action: "light.turn_off", target: { area_id: "living_room" } },
+          { action: "cover.close_cover", target: { entity_id: "cover.living_room_curtains" } },
+        ],
+      },
+      "automation.goodnight": {
+        id: "1003",
+        alias: "Goodnight",
+        triggers: [{ trigger: "time", at: "23:00:00" }],
+        actions: [
+          {
+            action: "light.turn_off",
+            target: { entity_id: ["light.bedside_left", "light.bedside_right"] },
+          },
+          { action: "notify.phone", data: { message: "Goodnight" } },
+          { action: "{{ 'light.turn_' ~ mode }}", target: { entity_id: "light.kitchen_ceiling" } },
+        ],
+      },
+    };
+  }
+  // Made up, for the frame time: each from a sensor or a time to two lights.
+  const sensors = Object.keys(home.states).filter((id) => id.startsWith("binary_sensor."));
+  const lights = Object.keys(home.states).filter((id) => id.startsWith("light."));
+  return Object.fromEntries(
+    Array.from({ length: automationCount }, (_, i) => [
+      `automation.made_up_${i}`,
+      {
+        id: String(2000 + i),
+        alias: `Made up ${i}`,
+        triggers: [
+          i % 3 === 0
+            ? { trigger: "time", at: "07:00:00" }
+            : { trigger: "state", entity_id: sensors[i % sensors.length] },
+        ],
+        actions: [
+          {
+            action: "light.toggle",
+            target: { entity_id: [lights[i % lights.length], lights[(i * 7 + 3) % lights.length]] },
+          },
+        ],
+      },
+    ]),
+  );
+}
+
 /** A fictional mesh, as ZHA's `zha/devices` describes it (`last_seen` in local time, no zone). */
 function zhaDevices() {
   const ago = (seconds) => {
@@ -303,6 +377,28 @@ const connection = {
         // A test can hold the answer back (`window.__zhaHold`, a promise).
         await window.__zhaHold;
         return zhaDevices();
+      case "search/related": {
+        // What Home Assistant relates: automations naming the entity, device or area, or (for an
+        // area) an entity in it.
+        const configs = automationConfigs();
+        const inArea = (id) =>
+          message.item_type === "area" && home.entities[id]?.area_id === message.item_id;
+        const automation = Object.entries(configs)
+          .filter(([, config]) => {
+            const text = JSON.stringify(config);
+            if (text.includes(`"${message.item_id}"`)) return true;
+            return Object.keys(home.states).some((id) => inArea(id) && text.includes(`"${id}"`));
+          })
+          .map(([id]) => id);
+        return automation.length > 0 ? { automation } : {};
+      }
+      case "automation/config": {
+        // Kept for administrators, as recent Home Assistant versions do.
+        if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        const config = automationConfigs()[message.entity_id];
+        if (!config) throw { code: "not_found", message: "Entity not found" };
+        return { config: structuredClone(config) };
+      }
       case "domotwin/plan/get": {
         const storey = storeyOf(message.storey);
         return structuredClone({
@@ -401,6 +497,33 @@ const language = params.get("lang") ?? "en";
 const sunParam = params.get("sun");
 const sunPosition = params.get("sunpos");
 const home = live ? demoHome() : { states: {}, entities: {}, devices: {}, areas: {} };
+for (const [id, config] of Object.entries(automationConfigs())) {
+  home.states[id] = {
+    entity_id: id,
+    state: "on",
+    last_changed: "2026-01-02T08:00:00.000Z",
+    attributes: {
+      friendly_name: config.alias,
+      id: config.id,
+      last_triggered: new Date(Date.now() - 3_600_000).toISOString(),
+    },
+  };
+}
+
+/** An automation runs (E2E tests): it is triggered now, and its first action takes effect. */
+window.__runAutomation = (id) => {
+  const config = automationConfigs()[id];
+  const previous = home.states[id];
+  if (!config || !previous) return;
+  home.states[id] = {
+    ...previous,
+    attributes: { ...previous.attributes, last_triggered: new Date().toISOString() },
+  };
+  const first = config.actions[0];
+  const [domain, service] = String(first?.action ?? "").split(".");
+  if (domain && service) applyService(home, domain, service, first.data ?? {}, first.target ?? {});
+  publish();
+};
 if (live && params.get("storeys") === "2") {
   // The upper floor's office, with a smoke sensor.
   home.areas.office = { area_id: "office", name: "Office" };
