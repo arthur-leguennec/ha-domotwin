@@ -288,24 +288,26 @@ explains why. Each entry: context, decision, consequences.
   for as little runner time as possible with the same quality.
 - **Decision.**
   - One workflow (`ci.yml`) for the required checks. A first job (`changes`, `scripts/ci-changes.sh`)
-    lists the changed files; each job runs only when they concern it (Rust, the browser build,
-    the frontend, the Python integration and its tests, the Home Assistant validators, the
-    dependencies). A job skipped by a condition counts as passed for the required checks; a
-    workflow skipped by a path filter would leave them pending. If `changes` fails, every job runs.
-    A change of the CI itself runs everything.
+    lists the changed files (renames at both paths); each job runs only when one concerns it (Rust,
+    the browser build, the frontend, the Python integration and its tests including the README's
+    links, the Home Assistant validators). A file known to need no job (other workflows, templates,
+    release files, documentation tools) runs none; any other file runs everything, as does a change
+    of the CI itself. A job skipped by a condition counts as passed for the required checks (a
+    workflow skipped by a path filter would leave them pending); if `changes` fails, every job runs.
+  - `cargo deny` runs every time (17 s): advisories appear without a commit.
   - A merge to main runs the jobs that keep the caches warm for the next pull requests (Rust,
     Python, the build), not the E2E: with *require branches to be up to date* and squash merges,
     main holds exactly the tree its pull request tested.
-  - CodeQL runs on every pull request: the code scanning rule blocks a pull request without results.
-    On main, a change of documentation alone skips it.
-  - The weekly run checks what changes without a commit: the Home Assistant validators and the
-    RustSec advisories (`cargo deny`).
+  - CodeQL runs on every pull request and every push to main: the code scanning rule blocks a pull
+    request without results, and each pull request is compared with the analysis of its base.
+  - The weekly run checks the Home Assistant validators and the advisories.
   - The Python environment is cached whole (exact Python, pinned requirements); the fuzz targets are
-    built once in one job, cached, and only those the change concerns run.
+    built once in one job, cached, and only those the change concerns run (a crash in one does not
+    stop the others).
   - The real Home Assistant test runs at night only when there is something new: a Home Assistant
     release or a commit on main since the last run that passed.
-  - Dependabot groups minor and patch updates per ecosystem (one pull request, one CI run).
-- **Consequences.** A documentation change costs a few seconds plus CodeQL; a frontend change skips
-  the Rust and Python jobs. The required check names do not change. `cargo deny` no longer runs on
-  pull requests that do not touch the dependencies; new advisories are caught weekly.
-
+  - Dependabot groups compatible updates per ecosystem (npm and pip minors and patches, cargo
+    patches); majors, cargo 0.x minors and TypeScript stay apart.
+- **Consequences.** A documentation change runs the Python tests, `cargo deny` and CodeQL; a
+  frontend change skips the Rust and Python jobs; a merge skips the E2E. The required check names do
+  not change. CodeQL (about 6 runner-minutes) remains the largest cost and runs on everything.

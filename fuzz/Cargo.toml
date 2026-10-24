@@ -11,7 +11,8 @@ cargo-fuzz = true
 libfuzzer-sys = "=0.4.13"
 domotwin-core = { path = "../crates/domotwin-core" }
 domotwin-ifc = { path = "../crates/domotwin-ifc" }
-serde_json = { version = "=1.0.154", default-features = false, features = ["std"] }
+# Whatever version the core is pinned to (the root Cargo.toml).
+serde_json = { version = "1", default-features = false, features = ["std"] }
 
 [[bin]]
 name = "plan_reader"

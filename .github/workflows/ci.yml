@@ -36,7 +36,8 @@ jobs:
       deny: ${{ steps.changes.outputs.deny }}
       frontend: ${{ steps.changes.outputs.frontend }}
       python: ${{ steps.changes.outputs.python }}
-      integration: ${{ steps.changes.outputs.integration }}
+      hassfest: ${{ steps.changes.outputs.hassfest }}
+      hacs: ${{ steps.changes.outputs.hacs }}
       build: ${{ steps.changes.outputs.build }}
       e2e: ${{ steps.changes.outputs.e2e }}
     steps:
@@ -176,7 +177,7 @@ jobs:
   hassfest:
     name: hassfest
     needs: changes
-    if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.integration == 'true') }}
+    if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.hassfest == 'true') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
@@ -190,7 +191,7 @@ jobs:
   hacs:
     name: HACS validation
     needs: changes
-    if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.integration == 'true') }}
+    if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.hacs == 'true') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
