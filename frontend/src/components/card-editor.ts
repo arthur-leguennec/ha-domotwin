@@ -1,6 +1,6 @@
 import { LitElement, html, nothing, type TemplateResult } from "lit";
 
-import { THEME_MODES } from "../config";
+import { MAX_IDLE, THEME_MODES } from "../config";
 import { DomoTwinClient, type StoreyInfo } from "../ha/client";
 import type { HomeAssistant } from "../ha/types";
 import { translatorFor, type MessageKey, type Translator } from "../i18n";
@@ -149,6 +149,12 @@ function schema(
     { name: "badges", selector: { boolean: {} } },
     { name: "cameras", selector: { boolean: {} } },
     { name: "names", selector: { boolean: {} } },
+    // The kiosk (D-029): back after a while untouched, turning slowly, dimmed at night.
+    { name: "idle", selector: { number: { min: 0, max: MAX_IDLE, step: 10, mode: "box" } } },
+    { name: "orbit", selector: { boolean: {} } },
+    { name: "night_dim", selector: { boolean: {} } },
+    { name: "tools", selector: { boolean: {} } },
+    { name: "screen", selector: { text: {} } },
     { name: "font_family", selector: { text: {} } },
   ];
 }
@@ -162,6 +168,7 @@ const ON_BY_DEFAULT = {
   names: true,
   spread: true,
   roof: true,
+  tools: true,
 };
 
 /** Visual editor of `custom:domotwin-card` (YAML is never needed). */

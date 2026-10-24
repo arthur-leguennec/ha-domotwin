@@ -165,6 +165,7 @@ const uint WALL_CAP = 11u;
 const uint FLOOR = 12u;
 const uint WOOD = 13u;
 const uint LEAF = 14u;
+const uint CEILING = 15u;
 
 // The light of the moment (`domotwin_core::lighting`): morning, day, evening or night.
 uniform vec3 u_sky;
@@ -378,11 +379,16 @@ void main() {
     vec3 v = normalize(u_eye - v_world);
     vec3 r = reflect(-v, n);
     vec3 env = mix(u_ground, u_sky * 1.15, clamp(r.y * 0.5 + 0.5, 0.0, 1.0));
-    float shadow = sun_shadow(n);
+    // A ceiling is never lit by the sun (its lamps light it from below).
+    float shadow = surface == CEILING ? 0.0 : sun_shadow(n);
     float ndl = dot(n, u_sun);
     float wrap = surface == LEAF ? 0.4 : 0.0;
     float diffuse_sun = max((ndl + wrap) / (1.0 + wrap), 0.0) * shadow;
     vec3 hemi = mix(u_ground, u_sky, n.y * 0.5 + 0.5);
+    // A ceiling sees the light the room sends back up, about as much as the walls get.
+    if (surface == CEILING) {
+        hemi = mix(u_ground, u_sky, 0.75);
+    }
     // Under a ceiling (the real sun), a room sees less of the sky: the sunlit patches stand out.
     if (u_bounce > 0.0 && v_room > 0.5) {
         hemi *= 0.6;

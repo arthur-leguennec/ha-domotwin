@@ -19,7 +19,7 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M7        | Storeys: several floors, stairs, a storey switcher         | ✅     |
 | M8        | Looks: neon, blueprint and day, glowing outlines, bloom    | ✅     |
 | M9        | Every storey at once: stacked, spread apart, with a roof   | ✅     |
-| M10       | Kiosk: walk mode, idle and night modes, Assist voice       | ⏳     |
+| M10       | Kiosk: walk mode, idle and night modes, Assist voice       | ✅     |
 | M11       | Imports: Sweet Home 3D, DXF, room scans                    | ⏳     |
 | M12       | Polish: design, fonts, accessibility, performance, README  | ⏳     |
 | M13       | Release 0.1.0 and HACS submission checklist                | ⏳     |
@@ -403,8 +403,27 @@ a home of several wings.
 
 ## M10, kiosk
 
-A walk mode at eye level, a kiosk mode for wall tablets (return to a view when idle, a slow orbit,
-night dimming), and Assist voice commands.
+Walking, wall tablets and the voice (`DECISIONS.md`, D-029; [`kiosk.md`](kiosk.md)).
+
+- ✅ **Walking at eye level**: the walk button, drag to look around, tap the floor to go there
+  (through the doors and the open sides between rooms, the shortest way), the pad and the keys to
+  walk, the wheel and a pinch to step; never through a wall, a partition or a window; a room shown
+  is walked into, a piece walked up to; whole walls and lit ceilings; stairs still lead up.
+- ✅ **The kiosk**: back to the card's view after `idle` seconds untouched, a slow turn (`orbit`),
+  dimmed at night (`night_dim`, unless an alert shows), `tools: false`; a touch wakes it.
+- ✅ **`domotwin.show`**: an action that shows a room, an element, a storey or a view on every
+  screen or on one (`screen`), found by name as said, on any storey.
+- ✅ **Assist**: a blueprint turning "show the kitchen" into `domotwin.show`, with Assist's answer.
+- ✅ Tests: where a walker can go, the doors and the way between rooms, the widest view, the eyes'
+  camera (Rust); walking, a tap on the floor, the walls stopping it (view, headless Chromium); the
+  kiosk's options, the requests found by name (vitest); `domotwin.show` checked and sent, the
+  blueprint answering a sentence (pytest); walking with the pad, the keys and a tap, the kiosk going
+  back and dimming, requests for this screen and another (Playwright); the frame time walking.
+
+![Walking through the demo apartment's living room at eye level](figures/screenshot-walk.png)
+
+Left for later: furniture in a walker's way, walking up the stairs, a voice answer naming what was
+not found.
 
 ## M11, imports
 

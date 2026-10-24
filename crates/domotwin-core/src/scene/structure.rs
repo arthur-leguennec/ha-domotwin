@@ -455,20 +455,10 @@ fn room_lines(
 }
 
 fn free_wall(builder: &mut Builder, plan: &Plan, wall: &FreeWall, element: u16) {
-    let (dx, dy) = (wall.x2 - wall.x, wall.y2 - wall.y);
-    let len = dx.hypot(dy);
-    if len < 0.5 {
+    // Its footprint is the one a walker meets (`walk`).
+    let Some((q, n)) = crate::geometry::walls::free_wall_quad(wall) else {
         return;
-    }
-    let n = [-dy / len, dx / len];
-    let t = wall.thickness / 2.0;
-    let side = |x: f64, y: f64, k: f64| [x + n[0] * k, y + n[1] * k];
-    let q = [
-        side(wall.x, wall.y, t),
-        side(wall.x2, wall.y2, t),
-        side(wall.x2, wall.y2, -t),
-        side(wall.x, wall.y, -t),
-    ];
+    };
     let room = plan.element(&wall.parent).and_then(|e| match e {
         Element::Room(r) => Some(r),
         _ => None,

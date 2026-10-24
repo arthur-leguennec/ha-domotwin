@@ -412,10 +412,19 @@ fn build(
         {
             let mut painter = mesh::Painter::new(
                 &mut ceiling,
-                mesh::Material::paint(crate::plan::Rgb8::from_u32(0xff_ff_ff)),
+                mesh::Material::new(
+                    crate::plan::Rgb8::from_u32(0xf4_f2_ee),
+                    0.95,
+                    mesh::Surface::Ceiling,
+                ),
                 mesh::Tag::default(),
             );
             for walls in &layout.rooms {
+                // Lit by its room's lamps.
+                painter.tag = mesh::Tag {
+                    room: builder.room_slot(walls.element),
+                    ..mesh::Tag::default()
+                };
                 painter.polygon(&walls.points, wall_height, false, 0.0);
             }
         }
@@ -577,6 +586,18 @@ impl Scene {
             .chain(self.roof.as_ref().map(|r| &r.mesh))
             .map(Mesh::triangle_count)
             .sum()
+    }
+
+    /// Where a walker can go on the storey shown alone (D-029), `plan` being its plan; `None` for
+    /// a home of several storeys.
+    pub fn walk_floor(&self, plan: &Plan) -> Option<crate::walk::Floor> {
+        match self.parts.as_slice() {
+            [part] => Some(crate::walk::Floor::new(
+                part.plan.as_ref().unwrap_or(plan),
+                &part.layout,
+            )),
+            _ => None,
+        }
     }
 
     /// Frees the meshes once they are on the GPU (what rebuilding the moving parts needs stays).

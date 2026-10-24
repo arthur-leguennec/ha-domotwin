@@ -14,6 +14,12 @@ pub const MIN_PITCH: f64 = 0.08;
 pub const DISTANCE_RANGE: (f64, f64) = (60.0, 30_000.0);
 /// Vertical field of view of the 3D view (radians).
 pub const FOV: f64 = 0.70;
+/// Walking (D-029): how far ahead of the eyes the target is (cm), and how far up and down the
+/// eyes look (radians below the horizon).
+pub const WALK_LOOK: f64 = 100.0;
+pub const WALK_PITCH: (f64, f64) = (-0.75, 1.2);
+/// Vertical field of view at eye level (radians): wider, as eyes see a room.
+pub const WALK_FOV: f64 = 1.25;
 
 /// A camera state. `ortho` blends from perspective (0) to the 2D plan (1).
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -29,6 +35,9 @@ pub struct Camera {
     pub distance: f64,
     /// 0 = perspective, 1 = orthographic plan view.
     pub ortho: f64,
+    /// How much the camera is at eye level (D-029): 0 around the home, 1 walking (the eyes are
+    /// the camera, looking up and down, the walls whole, a wider view), in between on the way.
+    pub walk: f64,
 }
 
 impl Default for Camera {
@@ -39,6 +48,7 @@ impl Default for Camera {
             pitch: 0.75,
             distance: 1500.0,
             ortho: 0.0,
+            walk: 0.0,
         }
     }
 }
@@ -112,17 +122,27 @@ impl Camera {
 
     /// Keeps the state within its ranges.
     pub fn clamped(mut self) -> Self {
-        self.pitch = if self.pitch.is_finite() {
-            self.pitch.clamp(MIN_PITCH, FRAC_PI_2)
+        self.walk = if self.walk.is_finite() {
+            self.walk.clamp(0.0, 1.0)
         } else {
-            FRAC_PI_2
+            0.0
+        };
+        // From the orbit's range to the eyes' with `walk`: a move between the two never jumps.
+        let low = MIN_PITCH + (WALK_PITCH.0 - MIN_PITCH) * self.walk;
+        let high = FRAC_PI_2 + (WALK_PITCH.1 - FRAC_PI_2) * self.walk;
+        self.pitch = if self.pitch.is_finite() {
+            self.pitch.clamp(low, high)
+        } else {
+            high
         };
         self.yaw = if self.yaw.is_finite() {
             self.yaw.rem_euclid(TAU)
         } else {
             0.0
         };
-        self.distance = if self.distance.is_finite() {
+        self.distance = if self.walk >= 1.0 {
+            WALK_LOOK
+        } else if self.distance.is_finite() {
             self.distance.clamp(DISTANCE_RANGE.0, DISTANCE_RANGE.1)
         } else {
             DISTANCE_RANGE.1
@@ -147,11 +167,13 @@ impl Camera {
         } else {
             1.0
         };
-        let half_height = self.distance * (FOV / 2.0).tan();
+        // Wider at eye level.
+        let base_fov = FOV + (WALK_FOV - FOV) * self.walk.clamp(0.0, 1.0);
+        let half_height = self.distance * (base_fov / 2.0).tan();
         // Towards the plan view, narrow the field of view and step back to keep the framing,
         // then switch to a true orthographic projection.
         let orthographic = self.ortho > 0.999;
-        let fov = (FOV * (1.0 - self.ortho).powi(2)).max(0.02);
+        let fov = (base_fov * (1.0 - self.ortho).powi(2)).max(0.02);
         let tan_half_fov = (fov / 2.0).tan();
         let distance = if orthographic {
             self.distance.max(depth * 2.0 + 100.0)
@@ -349,6 +371,7 @@ impl Camera {
             pitch,
             distance,
             ortho,
+            walk: 0.0,
         }
         .clamped()
     }
@@ -375,6 +398,7 @@ impl Camera {
             pitch: d[1].atan2(horizontal),
             distance,
             ortho: 0.0,
+            walk: 0.0,
         }
         .clamped()
     }
@@ -398,8 +422,44 @@ impl Camera {
             // Distances blend geometrically, so zooming feels even.
             distance: (self.distance.ln() + (to.distance.ln() - self.distance.ln()) * t).exp(),
             ortho: mix(self.ortho, to.ortho),
+            // On the way to or from the eyes, the pitch may go below the horizon.
+            walk: mix(self.walk, to.walk),
         }
         .clamped()
+    }
+
+    /// Walking: the eyes at `eye`, looking towards `yaw` (as the orbit's), `pitch` below the
+    /// horizon.
+    pub fn walking(eye: [f64; 3], yaw: f64, pitch: f64) -> Self {
+        let mut camera = Camera {
+            target: eye,
+            yaw,
+            pitch,
+            distance: WALK_LOOK,
+            ortho: 0.0,
+            walk: 1.0,
+        }
+        .clamped();
+        let back = camera.back();
+        camera.target = [
+            eye[0] - back[0] * WALK_LOOK,
+            eye[1] - back[1] * WALK_LOOK,
+            eye[2] - back[2] * WALK_LOOK,
+        ];
+        camera
+    }
+
+    /// Walking: looks around by a drag of `dx`, `dy` pixels, the eyes where they are (the scene
+    /// follows the pointer).
+    pub fn look(&mut self, dx: f64, dy: f64) {
+        let eye = self.eye();
+        *self = Self::walking(eye, self.yaw + dx * 0.004, self.pitch - dy * 0.004);
+    }
+
+    /// Walking: the unit directions ahead and to the right on the floor (plan x, plan y).
+    pub fn heading(&self) -> ([f64; 2], [f64; 2]) {
+        let (sy, cy) = self.yaw.sin_cos();
+        ([-sy, -cy], [cy, -sy])
     }
 }
 
@@ -469,12 +529,14 @@ pub fn cut_targets(
 ) -> Vec<f64> {
     let back = camera.back();
     let horizontal = back[0].hypot(back[2]);
-    // From (almost) straight above, walls hide nothing: keep them.
-    let looking_down = camera.pitch > 1.35 || camera.ortho > 0.5;
+    // From (almost) straight above, walls hide nothing: keep them; walking, they are around.
+    let walking = camera.walk > 0.5;
+    let looking_down = camera.pitch > 1.35 || camera.ortho > 0.5 || walking;
     groups
         .iter()
         .map(|group| {
             let cut = match mode {
+                _ if walking => false,
                 CutawayMode::Off => false,
                 CutawayMode::Always => true,
                 CutawayMode::Auto if looking_down || horizontal < 1e-6 => false,
@@ -529,6 +591,7 @@ mod tests {
             pitch: FRAC_PI_2,
             distance: 1000.0,
             ortho: 1.0,
+            walk: 0.0,
         };
         let p = camera.projection(1.0, 1000.0);
         assert!(p.orthographic);
@@ -586,6 +649,45 @@ mod tests {
         let eye = view.eye();
         assert!((eye[0] - 500.0).abs() < 1e-6 && (eye[1] - 800.0).abs() < 1e-6);
         assert!((eye[2] - 1300.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn walking_eyes_look_around_where_they_are() {
+        let eye = [200.0, 160.0, 300.0];
+        let mut camera = Camera::walking(eye, 0.0, 0.1);
+        let close = |a: [f64; 3], b: [f64; 3]| (0..3).all(|k| (a[k] - b[k]).abs() < 1e-6);
+        assert!(close(camera.eye(), eye) && camera.distance == WALK_LOOK);
+        // Yaw 0 looks towards −y (north); right is +x.
+        let (ahead, right) = camera.heading();
+        assert!((ahead[1] + 1.0).abs() < 1e-9 && (right[0] - 1.0).abs() < 1e-9);
+        // Looking up, above the horizon, the eyes stay put; the walls are whole.
+        camera.look(120.0, 300.0);
+        assert!(camera.pitch < 0.0 && close(camera.eye(), eye), "{camera:?}");
+        assert!(camera.pitch >= WALK_PITCH.0);
+        let group = WallGroup {
+            normal: [0.0, 1.0],
+            inner: false,
+        };
+        assert_eq!(
+            cut_targets(&[group], &camera, CutawayMode::Always, 250.0),
+            vec![250.0]
+        );
+        // On the way out, below the horizon until the move ends.
+        let out = Camera::default();
+        assert!(camera.lerp(&out, 0.1).pitch < 0.0);
+        assert!(camera.lerp(&out, 1.0).walk == 0.0);
+        // From the eyes to the plan seen from above: the pitch goes up all the way, no jump.
+        let plan = Camera {
+            pitch: FRAC_PI_2,
+            ortho: 1.0,
+            ..Camera::default()
+        };
+        let eyes = Camera::walking(eye, 0.0, 0.1);
+        for k in 0..=10 {
+            let t = f64::from(k) / 10.0;
+            let expected = 0.1 + (FRAC_PI_2 - 0.1) * t;
+            assert!((eyes.lerp(&plan, t).pitch - expected).abs() < 1e-9, "{t}");
+        }
     }
 
     #[test]

@@ -53,6 +53,7 @@ import {
   storeyName,
   type StoreyRooms,
 } from "../live/storeys";
+import { resolveShow, type ShowRequest } from "../live/show";
 import { applyLink, planElement, type LinkChange, type PlanElementInfo } from "../live/suggest";
 import type { IfcFile, IfcReport, IfcStorey } from "../ifc/ifc";
 import type { ModelFormat, ModelInfo } from "../models/models";
@@ -223,6 +224,8 @@ export class DomoTwinPanel extends LitElement {
   private storeyChanges: Promise<void> = Promise.resolve();
   /** Counts the plan's loads: the answer to an older one is dropped. */
   private loads = 0;
+  /** Counts `domotwin.show` requests: an older one still on its way is dropped. */
+  private shows = 0;
   protected storeyRemoveAsk?: StoreyInfo;
   /** The plan editor draws a new storey; the ids of the other storeys' elements. */
   protected planNew = false;
@@ -560,13 +563,42 @@ export class DomoTwinPanel extends LitElement {
     const client = this.client;
     if (!client || this.unsubscribe) return;
     this.unsubscribe = client.subscribe((event) => {
-      if (event.kind === "plan") void this.loadPlan();
+      if (event.kind === "show") void this.showRequest(event.show);
+      else if (event.kind === "plan") void this.loadPlan();
       else if (event.kind === "bindings") void this.loadBindings();
       else void this.loadSettings();
     });
     void this.loadPlan();
     void this.loadBindings();
     void this.loadSettings();
+  }
+
+  /** `domotwin.show` (D-029), when no tool runs (requests naming a screen are for cards): the
+   * storey asked for, then what to frame and how. */
+  private async showRequest(request: ShowRequest): Promise<void> {
+    const client = this.client;
+    if (!client || !this.hass || request.screen || this.editing || this.planning || this.linking) {
+      return;
+    }
+    const shown = this.wholeHome() ? ALL_STOREYS : this.storey;
+    const ticket = ++this.shows;
+    const target = await resolveShow(
+      client,
+      this.t,
+      this.storeys,
+      { plan: this.plan, storey: shown },
+      request,
+    );
+    if (!target || ticket !== this.shows) return;
+    if (target.storey !== undefined && target.storey !== shown) {
+      this.showAll = target.storey === ALL_STOREYS;
+      if (!this.showAll) this.storey = target.storey;
+      await this.loadPlan();
+      await this.updateComplete;
+    }
+    const view = this.view;
+    await view?.updateComplete;
+    if (ticket === this.shows) view?.show(target);
   }
 
   /** Without settings the home shows with north up. */

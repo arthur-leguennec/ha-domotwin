@@ -24,5 +24,33 @@
         }
       }
     }
+  },
+  "services": {
+    "show": {
+      "name": "Montrer",
+      "description": "Montre une pièce, un élément, un étage ou une vue sur les écrans DomoTwin (cartes et panneau), ou sur l’un d’eux.",
+      "fields": {
+        "room": {
+          "name": "Pièce",
+          "description": "Une pièce du plan, par son nom ou son identifiant (à n’importe quel étage)."
+        },
+        "element": {
+          "name": "Élément",
+          "description": "N’importe quel élément du plan, par son nom ou son identifiant : il est cadré."
+        },
+        "storey": {
+          "name": "Étage",
+          "description": "Un étage, par son nom, son identifiant ou son numéro (0 pour le rez-de-chaussée, 1 au-dessus, -1 en dessous) ; all pour tous les étages à la fois."
+        },
+        "view": {
+          "name": "Vue",
+          "description": "overview, 3d, 2d, walk (à hauteur des yeux, jusqu’à la pièce donnée), ou le nom d’un point de vue enregistré."
+        },
+        "screen": {
+          "name": "Écran",
+          "description": "L’écran où le montrer : l’option screen d’une carte. Vide pour tous les écrans."
+        }
+      }
+    }
   }
 }

@@ -3,7 +3,7 @@ import { writeFile } from "node:fs/promises";
 import { expect, test } from "@playwright/test";
 
 import type { FrameStats } from "../src/components/view";
-import { openHarness, viewState } from "./fixtures";
+import { openHarness, settle, viewState } from "./fixtures";
 
 interface BenchmarkView {
   benchmark(frames: number): Promise<FrameStats>;
@@ -78,6 +78,32 @@ test("frame time of the whole home", async ({ page }, testInfo) => {
   await writeFile(path, JSON.stringify(report, null, 2));
   await testInfo.attach("home-frame-time", { path, contentType: "application/json" });
   console.log(JSON.stringify(report));
+  expect(one.frames).toBe(20);
+});
+
+// Walking (D-029): at eye level in the living room, the day look at High, in the evening with the
+// lamps on: whole walls and the ceilings drawn.
+test("frame time walking", async ({ page }, testInfo) => {
+  test.setTimeout(240_000);
+  await openHarness(page, { theme: "day", lighting: "evening", live: true });
+  await expect(page.getByTestId("summary")).toBeVisible();
+  await page.evaluate(() => {
+    const view = (
+      window as never as { __view: () => { options: Record<string, unknown> } }
+    ).__view();
+    view.options = { ...view.options, quality: "high" };
+  });
+  await expect.poll(async () => (await viewState(page)).quality).toBe("high");
+  await page.locator("domotwin-view").getByTestId("walk").click();
+  await expect.poll(async () => (await viewState(page)).stats?.walking).toBe(true);
+  await settle(page);
+  const one: FrameStats = await page.evaluate(() =>
+    (window as never as { __view: () => BenchmarkView }).__view().benchmark(20),
+  );
+  const path = testInfo.outputPath("walk-frame-time.json");
+  await writeFile(path, JSON.stringify(one, null, 2));
+  await testInfo.attach("walk-frame-time", { path, contentType: "application/json" });
+  console.log(JSON.stringify({ walking: one }));
   expect(one.frames).toBe(20);
 });
 

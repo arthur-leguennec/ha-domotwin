@@ -5,7 +5,8 @@
 use domotwin_core::camera::{Camera, CutawayMode, Transition, cut_targets};
 use domotwin_core::geometry::heights::CUT_HEIGHT;
 use domotwin_core::scene::{Scene, WallGroup};
-use std::f64::consts::FRAC_PI_2;
+use domotwin_core::walk::{EYE_HEIGHT, Floor};
+use std::f64::consts::{FRAC_PI_2, PI, TAU};
 
 /// Duration of camera moves (ms).
 const MOVE_MS: f64 = 650.0;
@@ -21,6 +22,33 @@ const SIDE_GAP: f64 = 150.0;
 const SIDE_GAP_SHARE: f64 = 0.12;
 /// Below this width / height, the storeys side by side go down the view instead of across.
 const SIDE_DOWN_ASPECT: f64 = 0.9;
+/// Walking (D-029): speed (cm per ms), how fast the walker turns towards its way (radians per ms),
+/// how far down the eyes look on the way in, how far a wheel step goes (cm).
+const WALK_SPEED: f64 = 0.13;
+const WALK_TURN: f64 = 0.004;
+const WALK_PITCH: f64 = 0.12;
+const WALK_WHEEL: f64 = 400.0;
+/// How far back from where it lands the walker steps to see the room (cm).
+const WALK_STEP_BACK: f64 = 220.0;
+/// How far from a piece the walker stops to look at it (cm, beyond its half size).
+const WALK_STAND_OFF: f64 = 90.0;
+
+/// Walking through the storey shown at eye level (D-029).
+#[derive(Debug, Clone, PartialEq)]
+struct Walk {
+    /// Where the walker can go.
+    floor: Floor,
+    /// Height of the eyes (cm).
+    eye_height: f64,
+    /// How the walker moves on its own (keys, the pad): ahead and to the right, −1…1.
+    velocity: [f64; 2],
+    /// Where the walker is going (a tap on the floor), the next point last.
+    path: Vec<[f64; 2]>,
+    /// What the walker turns to face once there (a piece shown).
+    face: Option<[f64; 2]>,
+    /// The camera to come back to.
+    before: Camera,
+}
 
 /// Bounds `[min, max]` in cm.
 type Bounds = [[f64; 3]; 2];
@@ -68,6 +96,10 @@ pub struct ViewState {
     side: f64,
     side_target: f64,
     side_down: bool,
+    /// Walking at eye level, when walking.
+    walk: Option<Walk>,
+    /// The kiosk's slow turn around the home while nobody touches it (radians per ms, 0: none).
+    auto_orbit: f64,
     /// Viewport width / height.
     pub aspect: f64,
     last_time: Option<f64>,
@@ -97,6 +129,8 @@ impl Default for ViewState {
             side: 0.0,
             side_target: 0.0,
             side_down: false,
+            walk: None,
+            auto_orbit: 0.0,
             aspect: 1.0,
             last_time: None,
             dirty: true,
@@ -146,6 +180,10 @@ impl ViewState {
         if !keep_camera || self.storeys.len() < 2 {
             self.side = self.side_target;
         }
+        if !keep_camera || self.storeys.len() > 1 {
+            // Walking is on a storey shown alone, as it was.
+            self.walk = None;
+        }
         if !keep_camera {
             // A home framed afresh stands as asked, without spreading or stacking first.
             self.spread = self.spread_target;
@@ -153,10 +191,15 @@ impl ViewState {
         }
         self.lay_side_by_side();
         self.bounds = self.shown_bounds(self.spread, self.side);
-        self.transition = None;
-        // On the plan, a storey more or less moves the others: framed again.
+        // On the plan, a storey more or less moves the others: framed again. The same home
+        // otherwise keeps its camera, and the move it was making (into a walk too); eyes left
+        // without a walk go back to the overview.
         let reframe = self.plan_view && self.storeys.len() != storeys_before;
-        if !keep_camera || reframe {
+        let eyes = self
+            .transition
+            .map_or(self.camera.walk > 0.0, |t| t.to.walk > 0.0);
+        if !keep_camera || reframe || (eyes && self.walk.is_none()) {
+            self.transition = None;
             self.camera = if self.plan_view {
                 self.plan_camera()
             } else {
@@ -369,6 +412,13 @@ impl ViewState {
         ]
     }
 
+    /// How far the home reaches from the camera's target (cm), for the clipping planes: its
+    /// radius, and how far the target is from its centre (walking, anywhere in the home).
+    pub fn depth(&self) -> f64 {
+        let (c, t) = (self.centre(), self.camera.target);
+        self.radius() + (t[0] - c[0]).hypot(t[1] - c[1]).hypot(t[2] - c[2])
+    }
+
     /// The overview: the whole home from above and a corner (lower over several storeys, so that
     /// they hide less of each other).
     pub fn overview_camera(&self) -> Camera {
@@ -392,8 +442,20 @@ impl ViewState {
         self.dirty = true;
     }
 
+    /// Goes to a saved viewpoint: in 3D, not walking.
+    pub fn show_camera(&mut self, to: Camera, now: f64) {
+        self.walk = None;
+        if self.plan_view {
+            self.plan_view = false;
+            self.side_target = 0.0;
+            self.last_3d = None;
+        }
+        self.go_to(to, now);
+    }
+
     /// Back to the overview.
     pub fn overview(&mut self, now: f64) {
+        self.walk = None;
         let camera = if self.plan_view {
             self.plan_camera()
         } else {
@@ -405,6 +467,16 @@ impl ViewState {
     /// Switches between the 3D view and the 2D plan, with an animated move.
     pub fn set_plan_view(&mut self, plan: bool, now: f64) {
         if plan == self.plan_view {
+            return;
+        }
+        if plan && let Some(walk) = self.walk.take() {
+            // From the eyes to the plan, then back to where the walk started.
+            self.camera = self.transition.map_or(self.camera, |t| t.to);
+            self.transition = None;
+            self.last_3d = Some(walk.before);
+            self.plan_view = true;
+            let to = self.plan_camera();
+            self.go_to(to, now);
             return;
         }
         self.plan_view = plan;
@@ -427,8 +499,29 @@ impl ViewState {
         self.go_to(to, now);
     }
 
-    /// Frames a box (a room or a piece) from the current direction.
-    pub fn focus(&mut self, bounds: [[f64; 3]; 2], now: f64) {
+    /// Frames a box (a room or a piece) from the current direction. Walking, the walker goes to
+    /// `inside` (a point well inside a room), or up to the piece and faces it.
+    pub fn focus(&mut self, bounds: [[f64; 3]; 2], inside: Option<[f64; 2]>, now: f64) {
+        if self.walk.is_some() {
+            if let Some(spot) = inside {
+                self.walk_to(spot);
+                return;
+            }
+            let [min, max] = bounds;
+            let centre = [f64::midpoint(min[0], max[0]), f64::midpoint(min[2], max[2])];
+            let eye = self.transition.map_or(self.camera, |t| t.to).eye();
+            let (dx, dy) = (centre[0] - eye[0], centre[1] - eye[2]);
+            let far = dx.hypot(dy);
+            let keep = (max[0] - min[0]).max(max[2] - min[2]) / 2.0 + WALK_STAND_OFF;
+            if far > keep {
+                self.walk_to([centre[0] - dx / far * keep, centre[1] - dy / far * keep]);
+            }
+            if let Some(walk) = self.walk.as_mut() {
+                walk.face = Some(centre);
+                self.dirty = true;
+            }
+            return;
+        }
         let (yaw, pitch, ortho) = if self.plan_view {
             (0.0, FRAC_PI_2, 1.0)
         } else {
@@ -444,20 +537,48 @@ impl ViewState {
             return;
         }
         self.stop();
-        self.camera.orbit(dx, dy);
+        if self.walk.is_some() {
+            // Walking, a drag looks around.
+            self.camera.look(dx, dy);
+        } else {
+            self.camera.orbit(dx, dy);
+        }
         self.dirty = true;
     }
 
     /// Pans the view; `height` is the viewport height in pixels.
     pub fn pan(&mut self, dx: f64, dy: f64, height: f64) {
         self.stop();
-        self.camera.pan(dx, dy, height);
+        if self.walk.is_some() {
+            // Walking, the eyes stay on the floor: a two-finger drag looks around too.
+            self.camera.look(dx, dy);
+        } else {
+            self.camera.pan(dx, dy, height);
+        }
         self.dirty = true;
     }
 
     /// Zooms by `factor` towards the screen point `ndc`.
     pub fn zoom(&mut self, factor: f64, ndc: [f64; 2]) {
         self.stop();
+        if let Some(walk) = &self.walk {
+            // Walking, the wheel or a pinch steps ahead or back.
+            if factor.is_finite() && factor > 0.0 {
+                let eye = self.camera.eye();
+                let (ahead, _) = self.camera.heading();
+                let d = (1.0 - factor).clamp(-1.0, 1.0) * WALK_WHEEL;
+                let at = walk
+                    .floor
+                    .slide([eye[0], eye[2]], [ahead[0] * d, ahead[1] * d]);
+                self.camera = Camera::walking(
+                    [at[0], walk.eye_height, at[1]],
+                    self.camera.yaw,
+                    self.camera.pitch,
+                );
+                self.dirty = true;
+            }
+            return;
+        }
         // On the plane at the target's height: the point under the centre is the target, so a zoom
         // there goes straight in, however high the home is framed.
         let toward = self
@@ -467,15 +588,238 @@ impl ViewState {
         self.dirty = true;
     }
 
-    /// Stops a running move where it is.
+    /// Stops a running move where it is, and the kiosk's turn.
     fn stop(&mut self) {
+        if let Some(t) = self.transition.take()
+            && t.to.walk != self.camera.walk
+        {
+            // Into the eyes or out of them: not stuck between the two.
+            self.camera = t.to;
+        }
+        self.auto_orbit = 0.0;
+    }
+
+    /// Starts walking through the storey shown, its floor `floor_height` cm up: the eyes go down
+    /// where the camera looked (or into the nearest room), looking the same way.
+    pub fn start_walk(&mut self, floor: Floor, floor_height: f64, now: f64) {
+        let before = self.transition.map_or(self.camera, |t| t.to);
+        let before = if self.plan_view {
+            self.plan_view = false;
+            self.side_target = 0.0;
+            self.last_3d
+                .take()
+                .unwrap_or_else(|| self.overview_camera())
+        } else if before.walk > 0.0 {
+            self.walk.as_ref().map_or(before, |w| w.before)
+        } else {
+            before
+        };
+        // Where the camera looks, or is about to.
+        let aim = self.transition.map_or(self.camera, |t| t.to).target;
+        let at = floor.start([aim[0], aim[2]]);
+        let eye_height = floor_height + EYE_HEIGHT;
+        // Looking the way the camera looked, unless a wall is right there: the widest view.
+        let (sy, cy) = before.yaw.sin_cos();
+        let look = floor.widest_view(at, [-sy, -cy]);
+        let yaw = (-look[0]).atan2(-look[1]);
+        // A few steps back, to see more of the room.
+        let at = floor.reach(
+            at,
+            [
+                at[0] - look[0] * WALK_STEP_BACK,
+                at[1] - look[1] * WALK_STEP_BACK,
+            ],
+        );
+        let to = Camera::walking([at[0], eye_height, at[1]], yaw, WALK_PITCH);
+        self.walk = Some(Walk {
+            floor,
+            eye_height,
+            velocity: [0.0; 2],
+            path: Vec::new(),
+            face: None,
+            before,
+        });
+        self.auto_orbit = 0.0;
+        self.go_to(to, now);
+    }
+
+    /// Stops walking: back to the camera before it.
+    pub fn stop_walk(&mut self, now: f64) {
+        if let Some(walk) = self.walk.take() {
+            self.go_to(walk.before, now);
+        }
+    }
+
+    /// Whether walking.
+    pub const fn walking(&self) -> bool {
+        self.walk.is_some()
+    }
+
+    /// Walking: a point well inside the room `id` (an L-shaped room's middle may be outside it).
+    pub fn room_spot(&self, id: &str) -> Option<[f64; 2]> {
+        self.walk.as_ref()?.floor.room_spot(id)
+    }
+
+    /// Walking: the floor changed (the plan saved again, another storey up the stairs, its floor
+    /// `floor_height` cm up): the walker stays where it is if it can stand there, else goes to the
+    /// middle of the nearest room.
+    pub fn set_walk_floor(&mut self, floor: Floor, floor_height: f64) {
+        let Some(walk) = self.walk.as_mut() else {
+            return;
+        };
+        let eye_height = floor_height + EYE_HEIGHT;
+        let going = self.transition.map_or(self.camera, |t| t.to).eye();
+        let going = [going[0], going[2]];
+        if (eye_height - walk.eye_height).abs() < 0.5 && floor.start(going) == going {
+            // The same storey (its 3D files came, it was saved again): the walk goes on.
+            walk.floor = floor;
+            self.dirty = true;
+            return;
+        }
+        let eye = self.camera.eye();
+        let at = floor.start([eye[0], eye[2]]);
+        walk.eye_height = eye_height;
+        walk.path.clear();
+        walk.floor = floor;
         self.transition = None;
+        self.camera = Camera::walking(
+            [at[0], walk.eye_height, at[1]],
+            self.camera.yaw,
+            self.camera.pitch,
+        );
+        self.dirty = true;
+    }
+
+    /// Walking: moves on its own ahead and to the right (−1…1 each, 0 to stop), as long as a key
+    /// or the pad is held.
+    pub fn set_walk_velocity(&mut self, ahead: f64, right: f64) {
+        if let Some(walk) = self.walk.as_mut() {
+            let v = |x: f64| {
+                if x.is_finite() {
+                    x.clamp(-1.0, 1.0)
+                } else {
+                    0.0
+                }
+            };
+            walk.velocity = [v(ahead), v(right)];
+            if walk.velocity != [0.0; 2] {
+                walk.path.clear();
+                walk.face = None;
+            }
+            self.dirty = true;
+        }
+    }
+
+    /// Walking: walks to `to` on the floor, through the doors.
+    pub fn walk_to(&mut self, to: [f64; 2]) {
+        let eye = self.transition.map_or(self.camera, |t| t.to).eye();
+        if let Some(walk) = self.walk.as_mut() {
+            let mut path = walk.floor.path([eye[0], eye[2]], to);
+            path.reverse();
+            walk.path = path;
+            walk.face = None;
+            walk.velocity = [0.0; 2];
+            self.dirty = true;
+        }
+    }
+
+    /// Walking: whether `to` on the floor is in sight from the eyes (no wall in between).
+    pub fn sees(&self, to: [f64; 2]) -> bool {
+        let eye = self.transition.map_or(self.camera, |t| t.to).eye();
+        self.walk
+            .as_ref()
+            .is_some_and(|w| w.floor.seen([eye[0], eye[2]], to))
+    }
+
+    /// The kiosk's slow turn around the home (radians per second, 0 to stop); not while walking
+    /// or on the plan.
+    pub fn set_auto_orbit(&mut self, per_second: f64) {
+        self.auto_orbit = if per_second.is_finite() {
+            per_second / 1000.0
+        } else {
+            0.0
+        };
+        self.dirty = true;
+    }
+
+    /// Whether the kiosk's turn moves the camera now (frames go on, at the pace the view sets).
+    pub fn orbiting(&self) -> bool {
+        self.auto_orbit != 0.0 && self.walk.is_none() && !self.plan_view
+    }
+
+    /// Whether the walker is moving.
+    fn walker_moving(&self) -> bool {
+        self.walk
+            .as_ref()
+            .is_some_and(|w| w.velocity != [0.0; 2] || !w.path.is_empty() || w.face.is_some())
+    }
+
+    /// Moves the walker by `dt` ms: on its own, or along its way, turning towards it.
+    fn walk_step(&mut self, dt: f64) {
+        if self.transition.is_some() {
+            return;
+        }
+        let Some(walk) = self.walk.as_mut() else {
+            return;
+        };
+        let step = WALK_SPEED * dt;
+        if step <= 0.0 {
+            return;
+        }
+        let eye = self.camera.eye();
+        let at = [eye[0], eye[2]];
+        let (ahead, right) = self.camera.heading();
+        let mut yaw = self.camera.yaw;
+        let moved = if walk.velocity != [0.0; 2] {
+            let [va, vr] = walk.velocity;
+            let d = [
+                (ahead[0] * va + right[0] * vr) * step,
+                (ahead[1] * va + right[1] * vr) * step,
+            ];
+            walk.floor.slide(at, d)
+        } else if let Some(&next) = walk.path.last() {
+            let (dx, dy) = (next[0] - at[0], next[1] - at[1]);
+            let left = dx.hypot(dy);
+            let to = if left <= step {
+                walk.path.pop();
+                next
+            } else {
+                [at[0] + dx / left * step, at[1] + dy / left * step]
+            };
+            let reached = walk.floor.reach(at, to);
+            if reached == at && to != at {
+                // A wall in the way: stop there.
+                walk.path.clear();
+            }
+            if left > 1.0 {
+                // Turn towards the way.
+                yaw = turned(yaw, [dx, dy], WALK_TURN * dt).0;
+            }
+            reached
+        } else if let Some(face) = walk.face {
+            // There: turn to face what was shown.
+            let facing;
+            (yaw, facing) = turned(yaw, [face[0] - at[0], face[1] - at[1]], WALK_TURN * dt);
+            if facing {
+                walk.face = None;
+            }
+            at
+        } else {
+            return;
+        };
+        self.camera = Camera::walking(
+            [moved[0], walk.eye_height, moved[1]],
+            yaw,
+            self.camera.pitch,
+        );
+        self.dirty = true;
     }
 
     /// Whether a move or a wall animation is running.
     pub fn animating(&self) -> bool {
         self.transition.is_some()
             || self.storeys_moving()
+            || self.walker_moving()
             || cut_targets(&self.groups, &self.camera, self.cutaway, self.wall_height)
                 .iter()
                 .zip(&self.cuts)
@@ -494,6 +838,11 @@ impl ViewState {
             if done {
                 self.transition = None;
             }
+            self.dirty = true;
+        }
+        self.walk_step(dt);
+        if self.orbiting() && self.transition.is_none() {
+            self.camera.yaw = (self.camera.yaw + self.auto_orbit * dt).rem_euclid(TAU);
             self.dirty = true;
         }
         if self.storeys_moving() {
@@ -519,8 +868,18 @@ impl ViewState {
                 self.dirty = true;
             }
         }
-        self.animating()
+        self.animating() || self.orbiting()
     }
+}
+
+/// `yaw` turned towards `d` on the floor by at most `most` radians, and whether it faces it now
+/// (ahead is (−sin yaw, −cos yaw)).
+fn turned(yaw: f64, d: [f64; 2], most: f64) -> (f64, bool) {
+    let mut turn = ((-d[0]).atan2(-d[1]) - yaw).rem_euclid(TAU);
+    if turn > PI {
+        turn -= TAU;
+    }
+    (yaw + turn.clamp(-most, most), turn.abs() <= most)
 }
 
 /// Smooth in and out.
@@ -703,6 +1062,110 @@ mod tests {
         view.set_scene(&scene, false);
         assert!(!view.storeys_moving());
         assert!(view.offset(0)[2] > 0.0);
+    }
+
+    #[test]
+    fn walking_goes_where_the_floor_is_tapped() {
+        use domotwin_core::geometry::walls::WallLayout;
+        use domotwin_core::walk::Floor;
+        let plan = read_plan(DEMO).unwrap();
+        let mut view = view();
+        view.start_walk(Floor::new(&plan, &WallLayout::new(&plan)), 0.0, 0.0);
+        let mut t = 0.0;
+        while view.update(t) {
+            t += 16.0;
+            assert!(t < 10_000.0);
+        }
+        assert!(view.walking() && view.camera.walk == 1.0);
+        let eye = view.camera.eye();
+        assert!((eye[1] - 160.0).abs() < 1e-6, "{eye:?}");
+        // Somewhere else in the same room.
+        let (ahead, _) = view.camera.heading();
+        let to = [eye[0] + ahead[0] * 150.0, eye[2] + ahead[1] * 150.0];
+        view.walk_to(to);
+        while view.update(t) {
+            t += 16.0;
+            assert!(t < 20_000.0);
+        }
+        let there = view.camera.eye();
+        assert!(
+            (there[0] - to[0]).hypot(there[2] - to[1]) < 1.0,
+            "{there:?} {to:?}"
+        );
+        // Out: back where it was.
+        view.stop_walk(t);
+        while view.update(t) {
+            t += 16.0;
+        }
+        assert!(!view.walking() && view.camera.walk == 0.0);
+    }
+
+    #[test]
+    fn a_walk_stays_whole_through_rebuilds_drags_and_viewpoints() {
+        use domotwin_core::geometry::walls::WallLayout;
+        use domotwin_core::walk::Floor;
+        let plan = read_plan(DEMO).unwrap();
+        let floor = || Floor::new(&plan, &WallLayout::new(&plan));
+        let mut view = view();
+        view.start_walk(floor(), 0.0, 0.0);
+        let mut t = 0.0;
+        while view.update(t) {
+            t += 16.0;
+        }
+        // Into a room: well inside it, through the doors.
+        let spot = view.room_spot("bedroom").unwrap();
+        view.walk_to(spot);
+        view.update(t + 16.0);
+        // The same storey built again (its 3D files came): on with the walk.
+        view.set_walk_floor(floor(), 0.0);
+        assert!(view.walker_moving());
+        while view.update(t) {
+            t += 16.0;
+            assert!(t < 60_000.0);
+        }
+        let eye = view.camera.eye();
+        assert!((eye[0] - spot[0]).hypot(eye[2] - spot[1]) < 1.0, "{eye:?}");
+        // A drag while leaving: out of the eyes at once, not stuck half way.
+        view.stop_walk(t);
+        view.update(t + 200.0);
+        assert!(view.camera.walk > 0.0 && view.camera.walk < 1.0);
+        view.orbit(10.0, 0.0);
+        assert!(view.camera.walk == 0.0);
+        // A piece shown while walking: up to it, then facing it.
+        view.start_walk(floor(), 0.0, t);
+        while view.update(t) {
+            t += 16.0;
+        }
+        // The sofa: 90 × 210 at (380, 105).
+        let [min, max] = [[380.0, 0.0, 105.0], [470.0, 85.0, 315.0]];
+        view.focus([min, max], None, t);
+        while view.update(t) {
+            t += 16.0;
+            assert!(t < 120_000.0);
+        }
+        let eye = view.camera.eye();
+        let (ahead, _) = view.camera.heading();
+        let to = [425.0 - eye[0], 210.0 - eye[2]];
+        let far = to[0].hypot(to[1]);
+        assert!(far < 105.0 + 90.0 + 1.0, "{eye:?}");
+        assert!(
+            (ahead[0] * to[0] + ahead[1] * to[1]) / far > 0.99,
+            "{ahead:?} {to:?}"
+        );
+        // A saved viewpoint ends a walk.
+        view.start_walk(floor(), 0.0, t);
+        view.show_camera(view.overview_camera(), t);
+        assert!(!view.walking());
+        // The same storey built again half way into a walk: the move goes on to the eyes.
+        view.start_walk(floor(), 0.0, t);
+        t += 300.0;
+        view.update(t);
+        view.set_scene(&build_scene(&plan, &SceneOptions::default()), true);
+        view.set_walk_floor(floor(), 0.0);
+        while view.update(t) {
+            t += 16.0;
+        }
+        assert!(view.camera.walk == 1.0 && (view.camera.eye()[1] - 160.0).abs() < 1e-6);
     }
 
     #[test]

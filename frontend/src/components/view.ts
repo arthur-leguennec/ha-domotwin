@@ -7,6 +7,9 @@ import {
   mdiCamera,
   mdiCctv,
   mdiCctvOff,
+  mdiChevronDown,
+  mdiChevronLeft,
+  mdiChevronRight,
   mdiChevronUp,
   mdiCubeOutline,
   mdiDishwasher,
@@ -28,6 +31,7 @@ import {
   mdiRecordRec,
   mdiStove,
   mdiTumbleDryer,
+  mdiWalk,
   mdiWashingMachine,
 } from "@mdi/js";
 import { LitElement, css, html, nothing, svg, type PropertyValues, type TemplateResult } from "lit";
@@ -92,6 +96,7 @@ import {
   type PlanRoom,
 } from "../live/layers";
 import { deviceBadges, type Badge, type BadgeKind } from "../live/devices";
+import { spoken } from "../live/show";
 import { StateSync } from "../live/states";
 import {
   ALL_STOREYS,
@@ -144,6 +149,15 @@ export interface ViewOptions {
   /** Every storey at once (D-028): spread apart and the roof shown, unless `false`. */
   spread?: boolean;
   roof?: boolean;
+  /**
+   * The kiosk (D-029): back to the view it opened on after this many seconds untouched (0 or
+   * absent: never), turning slowly meanwhile (`orbit`), dimmed at night (`nightDim`).
+   */
+  idle?: number;
+  orbit?: boolean;
+  nightDim?: boolean;
+  /** The buttons (on unless `false`). */
+  tools?: boolean;
 }
 
 /** What a camera sees, as drawn now (device pixels). */
@@ -198,6 +212,24 @@ const FALLBACK_BACKGROUND: Rgb = { r: 242, g: 242, b: 240 };
 const NOTICE_MS = 5000;
 /** Frame interval of the layers' animation alone (ms): 24 frames per second. */
 const LAYER_FRAME_MS = 1000 / 24;
+/** The kiosk's turn (D-029): a round in two and a half minutes (radians per second), drawn at 20
+ * frames per second. */
+const ORBIT_SPEED = (2 * Math.PI) / 150;
+const ORBIT_FRAME_MS = 1000 / 20;
+/** How long the hint on how to walk shows (ms). */
+const WALK_HINT_MS = 6000;
+/** Without `idle`, the slow turn and night dimming wait this long untouched (seconds). */
+const IDLE_AFTER = 60;
+/** Keys that walk (D-029), where they are on the keyboard: ahead, back, to the left and to the
+ * right (W, S, A and D on QWERTY; Z, S, Q and D on AZERTY). */
+const WALK_KEYS: Record<string, [number, number]> = {
+  ArrowUp: [1, 0],
+  KeyW: [1, 0],
+  ArrowDown: [-1, 0],
+  KeyS: [-1, 0],
+  KeyA: [0, -1],
+  KeyD: [0, 1],
+};
 /** Alerts listed in the banner; the others are counted. */
 const MAX_ALERTS_SHOWN = 2;
 /** The power layer's colours, from a few watts to 3 kW (`shaders.rs`). */
@@ -359,6 +391,9 @@ export class DomoTwinView extends LitElement {
     elsewhere: { attribute: false },
     spread: { state: true },
     roof: { state: true },
+    walking: { state: true },
+    walkHint: { state: true },
+    dimmed: { state: true },
     storeyLabels: { state: true },
     pictures: { state: true },
     layer: { state: true },
@@ -474,6 +509,19 @@ export class DomoTwinView extends LitElement {
   protected storeyLabels: StoreyLabel[] = [];
   private storeyLabelsText = "[]";
   protected pictures: string[] = [];
+  /** Walking at eye level (D-029), and the keys held to walk. */
+  protected walking = false;
+  private readonly walkKeys = new Set<string>();
+  /** How to walk, shown for a few seconds once walking starts. */
+  protected walkHint = false;
+  private walkHintTimer?: number;
+  /** The kiosk (D-029): when the view was last touched, whether it went back since, dimmed. */
+  private lastTouch = performance.now();
+  private idleNow = false;
+  protected dimmed = false;
+  /** The touch that woke a dimmed kiosk: its click is swallowed too. */
+  private wakeTouch = false;
+  private idleTimer?: number;
   /** The pictures of the storeys are to be drawn again (a new home, a new look, models came). */
   private picturesDue = false;
   /** The devices' badges and what the cameras see (the layer menu turns them off). */
@@ -613,6 +661,65 @@ export class DomoTwinView extends LitElement {
         background: transparent;
         color: var(--primary-text-color, #1f2328);
         cursor: pointer;
+      }
+      .walk-pad {
+        position: absolute;
+        right: 12px;
+        bottom: 12px;
+        display: grid;
+        grid-template-columns: repeat(3, 44px);
+        grid-template-rows: repeat(2, 44px);
+        gap: 4px;
+        padding: 6px;
+        border-radius: 16px;
+      }
+      .walk-pad button {
+        display: grid;
+        place-items: center;
+        border: none;
+        border-radius: 12px;
+        background: transparent;
+        color: inherit;
+        cursor: pointer;
+        touch-action: none;
+      }
+      .walk-pad button:active {
+        background: color-mix(in srgb, var(--primary-color, #03a9f4) 18%, transparent);
+      }
+      .walk-pad .pad-ahead {
+        grid-column: 2;
+        grid-row: 1;
+      }
+      .walk-pad .pad-left {
+        grid-column: 1;
+        grid-row: 2;
+      }
+      .walk-pad .pad-back {
+        grid-column: 2;
+        grid-row: 2;
+      }
+      .walk-pad .pad-right {
+        grid-column: 3;
+        grid-row: 2;
+      }
+      .walk-hint {
+        position: absolute;
+        left: 50%;
+        top: 12px;
+        transform: translateX(-50%);
+        max-width: calc(100% - 120px);
+        padding: 4px 12px;
+        border-radius: 12px;
+        font-size: 12px;
+        text-align: center;
+        pointer-events: none;
+      }
+      .dim {
+        position: absolute;
+        inset: 0;
+        background: #000;
+        opacity: 0.7;
+        pointer-events: none;
       }
       .tools button:hover {
         background: color-mix(in srgb, var(--primary-text-color, #1f2328) 8%, transparent);
@@ -1124,6 +1231,13 @@ export class DomoTwinView extends LitElement {
     super.connectedCallback();
     document.addEventListener("visibilitychange", this.onVisibility);
     this.motionQuery?.addEventListener("change", this.onMotion);
+    // Any touch, click, key or wheel in the view counts for the kiosk.
+    this.addEventListener("pointerdown", this.onTouch, true);
+    this.addEventListener("click", this.onWakeClick, true);
+    this.addEventListener("keydown", this.onTouch, true);
+    this.addEventListener("wheel", this.onTouch, { capture: true, passive: true });
+    this.lastTouch = performance.now();
+    this.idleTimer = window.setInterval(this.checkIdle, 1000);
     if (this.hasUpdated) void this.startEngine();
   }
 
@@ -1131,6 +1245,12 @@ export class DomoTwinView extends LitElement {
     super.disconnectedCallback();
     document.removeEventListener("visibilitychange", this.onVisibility);
     this.motionQuery?.removeEventListener("change", this.onMotion);
+    this.removeEventListener("pointerdown", this.onTouch, true);
+    this.removeEventListener("click", this.onWakeClick, true);
+    this.removeEventListener("keydown", this.onTouch, true);
+    this.removeEventListener("wheel", this.onTouch, true);
+    window.clearInterval(this.idleTimer);
+    window.clearTimeout(this.walkHintTimer);
     window.removeEventListener("keydown", this.onEditKey);
     window.removeEventListener("keydown", this.onPlanKey);
     window.clearTimeout(this.noticeTimer);
@@ -1181,6 +1301,8 @@ export class DomoTwinView extends LitElement {
     if (changed.has("bindings")) this.applyBindings();
     // A storey alone again before edit mode starts on it.
     if (changed.has("home")) this.applyPlan();
+    // Tools work from above.
+    if (this.walking && (this.editing || this.planEditing || this.linking)) this.setWalk(false);
     if (changed.has("editing")) this.applyEditing();
     if (changed.has("plan") || changed.has("layout")) this.applyPlan();
     if (changed.has("planEditing")) this.applyPlanEditing();
@@ -1465,6 +1587,150 @@ export class DomoTwinView extends LitElement {
     this.redraw();
   }
 
+  /**
+   * `domotwin.show` (D-029): shows a view (`overview`, `3d`, `2d`, `walk` or a saved viewpoint's
+   * name), frames an element (walking: goes there); a kiosk waiting wakes up.
+   */
+  show(target: { element?: string; view?: string }): void {
+    this.onTouch();
+    this.sheet = undefined;
+    const view = target.view ? spoken(target.view) : "";
+    if (view === "walk") {
+      if (!this.walking) this.setWalk(true);
+    } else if (view) {
+      if (this.walking) this.setWalk(false);
+      if (view === "2d" || view === "plan") this.setPlanView(true);
+      else if (view === "3d") this.setPlanView(false);
+      else if (view === "overview") {
+        if (!target.element) this.overview();
+      } else {
+        const saved = this.savedViews.find((v) => spoken(v.name) === view);
+        if (saved) this.showView(saved.id);
+      }
+    }
+    if (target.element) this.showElement(target.element);
+    this.redraw();
+  }
+
+  /** Walks through the storey shown at eye level, or stops (D-029). */
+  setWalk(on: boolean): void {
+    const engine = this.engine;
+    if (!engine) return;
+    this.walkKeys.clear();
+    this.walking = engine.setWalk(on);
+    window.clearTimeout(this.walkHintTimer);
+    this.walkHint = this.walking;
+    if (this.walking) {
+      this.walkHintTimer = window.setTimeout(() => {
+        this.walkHint = false;
+      }, WALK_HINT_MS);
+      this.planView = false;
+      this.sheet = undefined;
+      this.layersOpen = false;
+      this.viewsOpen = false;
+    }
+    this.redraw();
+  }
+
+  /** Whether walking can start: a storey alone, no tool on it. */
+  private get walkable(): boolean {
+    return (
+      this.loadedHome === undefined &&
+      !this.editingAny &&
+      !this.linking &&
+      this.summary !== undefined &&
+      this.engine !== undefined
+    );
+  }
+
+  /** Walking: moves as the keys held say. */
+  private walkFromKeys(): void {
+    let [ahead, right] = [0, 0];
+    for (const key of this.walkKeys) {
+      const [a, r] = WALK_KEYS[key] ?? [0, 0];
+      ahead += a;
+      right += r;
+    }
+    this.engine?.setWalkVelocity(Math.sign(ahead), Math.sign(right));
+    this.redraw();
+  }
+
+  /** The kiosk: the view was touched; it wakes up. Dimmed, the touch or key that wakes it does
+   * nothing else: what it was on could not be seen. */
+  private readonly onTouch = (event?: Event): void => {
+    this.lastTouch = performance.now();
+    if (event?.type === "pointerdown") this.wakeTouch = false;
+    if (this.idleNow) {
+      if (this.dimmed && (event?.type === "pointerdown" || event?.type === "keydown")) {
+        event.stopPropagation();
+        event.preventDefault();
+        this.wakeTouch = event.type === "pointerdown";
+      }
+      this.idleNow = false;
+      this.dimmed = false;
+      this.engine?.setAutoOrbit(0);
+      this.redraw();
+    }
+  };
+
+  /** The click of the touch that woke a dimmed kiosk. */
+  private readonly onWakeClick = (event: Event): void => {
+    if (!this.wakeTouch) return;
+    this.wakeTouch = false;
+    event.stopPropagation();
+    event.preventDefault();
+  };
+
+  /** The kiosk: untouched long enough (`idle`, else a minute), back to the view it opened on,
+   * turning slowly; dimmed at night unless an alert shows. */
+  private readonly checkIdle = (): void => {
+    const idle = this.options.idle ?? 0;
+    const dim = this.options.nightDim === true;
+    const orbit = this.options.orbit === true && !this.motionQuery?.matches;
+    if ((idle <= 0 && !dim && !orbit) || !this.engine) return;
+    if (performance.now() - this.lastTouch < (idle > 0 ? idle : IDLE_AFTER) * 1000) return;
+    if (!this.idleNow) {
+      this.idleNow = true;
+      if (idle > 0) this.goBack();
+      if (orbit && !this.planView) this.engine.setAutoOrbit(ORBIT_SPEED);
+      this.redraw();
+    }
+    const dimmed = dim && this.isNight() && this.alerts.length === 0;
+    if (dimmed !== this.dimmed) {
+      this.dimmed = dimmed;
+      // No turn in the dark.
+      this.engine.setAutoOrbit(!dimmed && orbit && !this.planView ? ORBIT_SPEED : 0);
+      this.redraw();
+    }
+  };
+
+  /** The kiosk: back to the view it opened on (2D or 3D, its room), the panels closed. */
+  private goBack(): void {
+    this.sheet = undefined;
+    this.layersOpen = false;
+    this.viewsOpen = false;
+    this.focusedRoom = undefined;
+    if (this.walking) this.setWalk(false);
+    this.frameHome();
+    fire(this, "domotwin-idle", undefined);
+  }
+
+  /** The view it opened on: the 2D plan or 3D, its room or the whole home. */
+  frameHome(): void {
+    this.setPlanView(this.options.view === "2d");
+    const room = this.options.room;
+    if (!room || !this.showElement(room)) this.overview();
+  }
+
+  /** Whether it is night: the sun below the horizon, else between 22:00 and 07:00. */
+  private isNight(): boolean {
+    const sun = this.hass?.states["sun.sun"]?.state;
+    if (sun === "below_horizon") return true;
+    if (sun === "above_horizon") return false;
+    const hour = new Date().getHours();
+    return hour >= 22 || hour < 7;
+  }
+
   /** Shows a layer (the layer menu). */
   setLayer(layer: LayerName): void {
     this.layersOpen = false;
@@ -1504,6 +1770,17 @@ export class DomoTwinView extends LitElement {
       return;
     }
     const picked = this.elementAt(x, y);
+    if (this.walking && !this.linking) {
+      // Walking: a tap on the floor (or on what has nothing to do) goes there.
+      const bound = picked && this.hass && this.bindings?.elements[picked.id];
+      const stairs = picked && this.kinds[picked.id] === "stairs";
+      if (!bound && !stairs) {
+        const point = this.devicePoint(x, y);
+        engine.walkTo(point.x, point.y);
+        this.redraw();
+        return;
+      }
+    }
     if (!picked) return;
     if (this.linking) {
       this.pick(picked);
@@ -1757,16 +2034,19 @@ export class DomoTwinView extends LitElement {
     const more = engine.frame(time);
     const cost = performance.now() - start;
     const movingAfter = engine.moving;
-    // The values, badges and cameras' views move with the camera, or change: not with the
-    // layers' own animation.
-    if (this.labelsDue || movingBefore || movingAfter) {
+    // The values, badges and cameras' views move with the camera (the kiosk's turn too), or
+    // change: not with the layers' own animation.
+    if (this.labelsDue || movingBefore || movingAfter || engine.orbiting) {
       this.labelsDue = false;
       this.readOverlays(engine);
     }
     // The layers' animation alone runs at 24 frames per second; camera moves, wall animations
     // and fades at the display's rate (a gesture sets it back at once, see `apply`).
+    if (engine.walking !== this.walking) this.walking = engine.walking;
+    // The kiosk's turn goes slower still.
+    const slow = engine.orbiting ? ORBIT_FRAME_MS : LAYER_FRAME_MS;
     this.scheduler?.setMinInterval(
-      more && engine.layersAnimating && !engine.moving ? LAYER_FRAME_MS : 0,
+      more && (engine.layersAnimating || engine.orbiting) && !engine.moving ? slow : 0,
     );
     this.frameCost = this.frameCost === 0 ? cost : this.frameCost * 0.8 + cost * 0.2;
     // Only animations tell: a single frame after an idle period is not representative.
@@ -1985,7 +2265,9 @@ export class DomoTwinView extends LitElement {
       this.pointsText = points;
       this.badgePoints = JSON.parse(points) as Record<string, [number, number]>;
     }
-    const cameras = shown && this.showCameras ? engine.cameraViews() : "[]";
+    // What the cameras see is drawn flat over the picture, to be read from above: not at eye
+    // level, where it would lie over the furniture.
+    const cameras = shown && this.showCameras && !engine.walking ? engine.cameraViews() : "[]";
     if (cameras !== this.camerasText) {
       this.camerasText = cameras;
       this.cameraShapes = JSON.parse(cameras) as CameraShape[];
@@ -2528,9 +2810,26 @@ export class DomoTwinView extends LitElement {
     // Edit mode's and the plan editor's keys are handled on the window (onEditKey, onPlanKey).
     if (this.edit && editCommandFor(event)) return;
     if (this.planEditor && planCommandFor(event)) return;
+    if (this.walking) {
+      // Where the keys are, whatever the layout (W on QWERTY is Z on AZERTY).
+      const key = event.code;
+      if (event.key === "Escape") {
+        event.preventDefault();
+        this.setWalk(false);
+        return;
+      }
+      if (WALK_KEYS[key] && !event.ctrlKey && !event.metaKey && !event.altKey) {
+        event.preventDefault();
+        this.walkKeys.add(key);
+        this.walkFromKeys();
+        return;
+      }
+    }
+    // Walking, → turns right: the scene goes the other way than a drag would take it.
+    const turn = this.walking ? -KEY_STEP : KEY_STEP;
     const keys: Record<string, Gesture | undefined> = {
-      ArrowLeft: { kind: event.shiftKey ? "pan" : "drag", dx: -KEY_STEP, dy: 0 },
-      ArrowRight: { kind: event.shiftKey ? "pan" : "drag", dx: KEY_STEP, dy: 0 },
+      ArrowLeft: { kind: event.shiftKey ? "pan" : "drag", dx: -turn, dy: 0 },
+      ArrowRight: { kind: event.shiftKey ? "pan" : "drag", dx: turn, dy: 0 },
       ArrowUp: { kind: event.shiftKey ? "pan" : "drag", dx: 0, dy: -KEY_STEP },
       ArrowDown: { kind: event.shiftKey ? "pan" : "drag", dx: 0, dy: KEY_STEP },
     };
@@ -2553,6 +2852,18 @@ export class DomoTwinView extends LitElement {
     if (!gesture) return;
     event.preventDefault();
     this.apply([gesture]);
+  };
+
+  /** Walking: a key let go. */
+  private readonly onKeyUp = (event: KeyboardEvent): void => {
+    if (this.walkKeys.delete(event.code)) this.walkFromKeys();
+  };
+
+  /** Walking: the view lost the keys (focus elsewhere); the walker stops. */
+  private readonly onBlur = (): void => {
+    if (this.walkKeys.size === 0) return;
+    this.walkKeys.clear();
+    this.walkFromKeys();
   };
 
   /** Applies gestures to the camera. */
@@ -2626,6 +2937,8 @@ export class DomoTwinView extends LitElement {
         @pointercancel=${this.onPointerCancel}
         @wheel=${this.onWheel}
         @keydown=${this.onKeyDown}
+        @keyup=${this.onKeyUp}
+        @blur=${this.onBlur}
         @contextmenu=${(event: Event) => {
           event.preventDefault();
         }}
@@ -2635,10 +2948,55 @@ export class DomoTwinView extends LitElement {
       ${ready ? this.renderStoreyLabels() : nothing} ${ready ? this.renderPictures() : nothing}
       ${this.renderGuides()} ${this.renderPlanHandles()} ${this.renderOverlay()}
       ${ready ? this.renderLegend() : nothing} ${ready ? this.renderAlerts() : nothing}
-      ${ready ? this.renderTools() : nothing} ${ready ? this.renderSheet() : nothing}
+      ${ready ? this.renderWalkPad() : nothing}
+      ${ready && this.options.tools !== false ? this.renderTools() : nothing}
+      ${ready ? this.renderSheet() : nothing}
+      ${this.dimmed ? html`<div class="dim" data-testid="dim" aria-hidden="true"></div>` : nothing}
       ${
         this.notice
           ? html`<div class="notice glass" role="alert" data-testid="notice">${this.notice}</div>`
+          : nothing
+      }`;
+  }
+
+  /** Walking: the pad that walks while held, and how to look around and go somewhere. */
+  private renderWalkPad(): TemplateResult | typeof nothing {
+    if (!this.walking) return nothing;
+    const t = this.translator;
+    const stop = (): void => {
+      this.engine?.setWalkVelocity(0, 0);
+    };
+    const pad = (dir: "ahead" | "back" | "left" | "right", path: string, v: [number, number]) =>
+      html`<button
+        class="pad-${dir}"
+        data-testid=${`walk-${dir}`}
+        title=${t.t(`walk.${dir}`)}
+        aria-label=${t.t(`walk.${dir}`)}
+        @pointerdown=${(event: PointerEvent) => {
+          (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+          this.engine?.setWalkVelocity(v[0], v[1]);
+          this.redraw();
+        }}
+        @pointerup=${stop}
+        @pointercancel=${stop}
+        @lostpointercapture=${stop}
+        @click=${(event: MouseEvent) => {
+          // From the keyboard: a few steps.
+          if (event.detail !== 0) return;
+          this.engine?.setWalkVelocity(v[0], v[1]);
+          this.redraw();
+          window.setTimeout(stop, 400);
+        }}
+      >
+        ${icon(path)}
+      </button>`;
+    return html`<div class="walk-pad glass" role="group" aria-label=${t.t("walk.pad")}>
+        ${pad("ahead", mdiChevronUp, [1, 0])} ${pad("left", mdiChevronLeft, [0, -1])}
+        ${pad("back", mdiChevronDown, [-1, 0])} ${pad("right", mdiChevronRight, [0, 1])}
+      </div>
+      ${
+        this.walkHint
+          ? html`<div class="walk-hint glass" data-testid="walk-hint">${t.t("walk.hint")}</div>`
           : nothing
       }`;
   }
@@ -2885,6 +3243,21 @@ export class DomoTwinView extends LitElement {
         >
           ${icon(mdiHomeOutline)}
         </button>
+        ${
+          this.walkable
+            ? html`<button
+                data-testid="walk"
+                aria-pressed=${this.walking ? "true" : "false"}
+                title=${t.t(this.walking ? "walk.stop" : "walk.start")}
+                aria-label=${t.t(this.walking ? "walk.stop" : "walk.start")}
+                @click=${() => {
+                  this.setWalk(!this.walking);
+                }}
+              >
+                ${icon(mdiWalk)}
+              </button>`
+            : nothing
+        }
         <button
           data-testid="layers"
           title=${t.t("layers.menu")}

@@ -39,6 +39,11 @@ export interface HarnessOptions {
   homeTheme?: "auto" | "day" | "neon" | "blueprint";
   /** Card option: the rooms' names off. */
   names?: false;
+  /** Kiosk options (D-029): the card's screen name, `idle` seconds, `orbit`, `night_dim`. */
+  screen?: string;
+  idle?: number;
+  orbit?: boolean;
+  nightDim?: boolean;
 }
 
 /** Opens the mocked Home Assistant with the built frontend. */
@@ -68,6 +73,10 @@ export async function openHarness(page: Page, options: HarnessOptions = {}): Pro
   if (options.accent) params.set("accent", options.accent);
   if (options.homeTheme) params.set("hometheme", options.homeTheme);
   if (options.names === false) params.set("names", "0");
+  if (options.screen) params.set("screen", options.screen);
+  if (options.idle !== undefined) params.set("idle", String(options.idle));
+  if (options.orbit) params.set("orbit", "1");
+  if (options.nightDim) params.set("nightdim", "1");
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto(`/?${params.toString()}`);

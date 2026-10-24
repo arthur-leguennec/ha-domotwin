@@ -1,0 +1,28 @@
+show:
+  fields:
+    room:
+      example: Kitchen
+      selector:
+        text:
+    element:
+      example: lamp-sofa
+      selector:
+        text:
+    storey:
+      example: Floor 1
+      selector:
+        text:
+    view:
+      example: walk
+      selector:
+        select:
+          custom_value: true
+          options:
+            - overview
+            - 3d
+            - 2d
+            - walk
+    screen:
+      example: hallway
+      selector:
+        text:

@@ -1,0 +1,503 @@
+//! Walking through a storey at eye level (`DECISIONS.md`, D-029): where a walker can stand,
+//! without going through a wall or a window, through the doors from one room to the next, and the
+//! way from one room to another.
+//!
+//! The walls are the bands the scene draws (`geometry::walls`), cut where a door is, and the free
+//! partitions; a walker is a circle of [`RADIUS`] on the floor. Doors and the open sides between
+//! two rooms are the ways through. Furniture is not in the way.
+
+use crate::geometry::polygon::{
+    P2, label_point, point_in_polygon, segment_distance, segments_meet,
+};
+use crate::geometry::walls::{
+    WallLayout, free_wall_quad, opening_axes, openings_on_side, side_segments, wall_openings,
+};
+use crate::plan::{Element, Plan};
+
+/// How far from the walls a walker keeps (cm): about half a body.
+pub const RADIUS: f64 = 20.0;
+/// Height of the eyes above the floor (cm).
+pub const EYE_HEIGHT: f64 = 160.0;
+/// The length of the steps a move is checked by (cm).
+const STEP: f64 = 4.0;
+/// How far into a room the way through a door goes (cm).
+const THROUGH: f64 = 45.0;
+/// How far a look is followed to find the widest view (cm), by steps of [`VIEW_STEP`].
+const VIEW_RANGE: f64 = 1500.0;
+const VIEW_STEP: f64 = 16.0;
+
+/// A way between two rooms (a door, or an open side): its middle, the unit normal to its wall,
+/// and the room on each side (along the normal, then against it).
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct Door {
+    middle: P2,
+    normal: P2,
+    rooms: [Option<usize>; 2],
+}
+
+/// Where a walker can go on a storey.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct Floor {
+    /// The pieces of wall, each a convex quadrilateral, with its bounds.
+    walls: Vec<([P2; 4], [P2; 2])>,
+    /// The rooms' outlines, and their ids.
+    rooms: Vec<Vec<P2>>,
+    room_ids: Vec<String>,
+    doors: Vec<Door>,
+}
+
+impl Floor {
+    /// The walls and doors of a plan, from its wall layout.
+    pub fn new(plan: &Plan, layout: &WallLayout) -> Self {
+        let openings = wall_openings(plan);
+        let mut walls = Vec::new();
+        let mut add = |quad: [P2; 4]| {
+            let mut bounds = [[f64::INFINITY; 2], [f64::NEG_INFINITY; 2]];
+            for p in quad {
+                for k in 0..2 {
+                    bounds[0][k] = bounds[0][k].min(p[k]);
+                    bounds[1][k] = bounds[1][k].max(p[k]);
+                }
+            }
+            if bounds[0].iter().chain(&bounds[1]).all(|v| v.is_finite()) {
+                walls.push((quad, bounds));
+            }
+        };
+        for room in &layout.rooms {
+            for (i, bands) in room.sides.iter().enumerate() {
+                let Some(bands) = bands else { continue };
+                let (a, b) = room.side(i);
+                let len = (b[0] - a[0]).hypot(b[1] - a[1]);
+                if len <= 1e-9 {
+                    continue;
+                }
+                let u = [(b[0] - a[0]) / len, (b[1] - a[1]) / len];
+                let n = room.normal(i);
+                let on_side = openings_on_side(a, b, &openings);
+                for band in bands {
+                    for (s0, s1, opening) in side_segments(band.t0 * len, band.t1 * len, &on_side) {
+                        // A door is the way through; a window is a wall to a walker.
+                        if opening.is_some_and(|o| o.door) {
+                            continue;
+                        }
+                        let at = |s: f64, o: f64| {
+                            [a[0] + u[0] * s + n[0] * o, a[1] + u[1] * s + n[1] * o]
+                        };
+                        add([
+                            at(s0, band.o0),
+                            at(s1, band.o0),
+                            at(s1, band.o1),
+                            at(s0, band.o1),
+                        ]);
+                    }
+                }
+            }
+            for corner in &room.corners {
+                add(corner.quad);
+            }
+        }
+        for element in &plan.elements {
+            if let Element::Wall(wall) = element
+                && let Some((quad, _)) = free_wall_quad(wall)
+            {
+                add(quad);
+            }
+        }
+        let rooms: Vec<Vec<P2>> = layout.rooms.iter().map(|r| r.points.clone()).collect();
+        let room_ids = layout
+            .rooms
+            .iter()
+            .map(|r| {
+                plan.elements
+                    .get(r.element)
+                    .map_or("", |e| e.id())
+                    .to_owned()
+            })
+            .collect();
+        let room_at = |p: P2| rooms.iter().position(|r| point_in_polygon(p, r, false));
+        let doors = openings
+            .iter()
+            .filter(|(_, door)| *door)
+            .map(|(o, _)| {
+                let (u, n) = opening_axes(o.angle);
+                let middle = [o.x + u[0] * o.w / 2.0, o.y + u[1] * o.w / 2.0];
+                let side = |k: f64| room_at([middle[0] + n[0] * k, middle[1] + n[1] * k]);
+                Door {
+                    middle,
+                    normal: n,
+                    rooms: [side(THROUGH), side(-THROUGH)],
+                }
+            })
+            .collect();
+        let mut floor = Self {
+            walls,
+            rooms,
+            room_ids,
+            doors,
+        };
+        // An open side between two rooms is a way through, where a walker fits.
+        let mut open = Vec::new();
+        for room in &layout.rooms {
+            for (i, bands) in room.sides.iter().enumerate() {
+                if bands.is_some() {
+                    continue;
+                }
+                let (a, b) = room.side(i);
+                let middle = [f64::midpoint(a[0], b[0]), f64::midpoint(a[1], b[1])];
+                let n = room.normal(i);
+                let side = |k: f64| floor.room_at([middle[0] + n[0] * k, middle[1] + n[1] * k]);
+                if let rooms @ [Some(x), Some(y)] = [side(THROUGH), side(-THROUGH)]
+                    && x != y
+                    && floor.free(middle)
+                {
+                    open.push(Door {
+                        middle,
+                        normal: n,
+                        rooms,
+                    });
+                }
+            }
+        }
+        floor.doors.extend(open);
+        floor
+    }
+
+    /// Whether `to` is in sight from `from` on the floor: no wall between them.
+    pub fn seen(&self, from: P2, to: P2) -> bool {
+        let lo = [from[0].min(to[0]), from[1].min(to[1])];
+        let hi = [from[0].max(to[0]), from[1].max(to[1])];
+        !self.walls.iter().any(|(quad, [qlo, qhi])| {
+            qlo[0] <= hi[0]
+                && qhi[0] >= lo[0]
+                && qlo[1] <= hi[1]
+                && qhi[1] >= lo[1]
+                && (point_in_polygon(to, quad, false)
+                    || (0..4).any(|k| segments_meet(from, to, quad[k], quad[(k + 1) % 4], true)))
+        })
+    }
+
+    /// Whether a walker can stand at `p`: no wall within [`RADIUS`].
+    pub fn free(&self, p: P2) -> bool {
+        self.clearance(p) >= RADIUS
+    }
+
+    /// How far `p` is from the nearest wall (cm; 0 inside one, infinite without walls).
+    fn clearance(&self, p: P2) -> f64 {
+        let mut best = f64::INFINITY;
+        for (quad, [lo, hi]) in &self.walls {
+            // Walls farther than the walker's reach by their bounds are not looked at closely.
+            let dx = (lo[0] - p[0]).max(p[0] - hi[0]).max(0.0);
+            let dy = (lo[1] - p[1]).max(p[1] - hi[1]).max(0.0);
+            if dx.hypot(dy) >= best.min(RADIUS * 2.0) {
+                continue;
+            }
+            let d = if point_in_polygon(p, quad, false) {
+                0.0
+            } else {
+                (0..4)
+                    .map(|k| segment_distance(p, quad[k], quad[(k + 1) % 4]))
+                    .fold(f64::INFINITY, f64::min)
+            };
+            best = best.min(d);
+        }
+        best
+    }
+
+    /// How far a look from `at` goes along `d` before a wall comes within a walker's reach (cm,
+    /// up to [`VIEW_RANGE`]); from close to a wall, as long as it does not get closer.
+    fn sight(&self, at: P2, d: P2) -> f64 {
+        let (mut far, mut room) = (0.0, self.clearance(at));
+        while far < VIEW_RANGE {
+            let next = (far + VIEW_STEP).min(VIEW_RANGE);
+            let c = self.clearance([at[0] + d[0] * next, at[1] + d[1] * next]);
+            if c < RADIUS && c < room {
+                break;
+            }
+            (far, room) = (next, c);
+        }
+        far
+    }
+
+    /// The farthest point a walker gets to from `from` towards `to` in a straight line. A walker
+    /// already too close to a wall may move as long as it does not get closer.
+    pub fn reach(&self, from: P2, to: P2) -> P2 {
+        let len = (to[0] - from[0]).hypot(to[1] - from[1]);
+        if !len.is_finite() {
+            return from;
+        }
+        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+        let steps = ((len / STEP).ceil() as usize).max(1);
+        let mut last = from;
+        let mut room = self.clearance(from);
+        #[allow(clippy::cast_precision_loss)]
+        for k in 1..=steps {
+            let t = k as f64 / steps as f64;
+            let p = [
+                from[0] + (to[0] - from[0]) * t,
+                from[1] + (to[1] - from[1]) * t,
+            ];
+            let c = self.clearance(p);
+            if c < RADIUS && c < room {
+                return last;
+            }
+            (last, room) = (p, c);
+        }
+        to
+    }
+
+    /// A step from `from` by `delta`, sliding along a wall in the way: the whole step, else along
+    /// x then y, or y then x, whichever goes farther.
+    pub fn slide(&self, from: P2, delta: P2) -> P2 {
+        let whole = [from[0] + delta[0], from[1] + delta[1]];
+        if self.reach(from, whole) == whole {
+            return whole;
+        }
+        let x_first = {
+            let p = self.reach(from, [whole[0], from[1]]);
+            self.reach(p, [p[0], whole[1]])
+        };
+        let y_first = {
+            let p = self.reach(from, [from[0], whole[1]]);
+            self.reach(p, [whole[0], p[1]])
+        };
+        let gained = |p: P2| (p[0] - from[0]).hypot(p[1] - from[1]);
+        if gained(y_first) > gained(x_first) {
+            y_first
+        } else {
+            x_first
+        }
+    }
+
+    /// The room `p` is in.
+    pub fn room_at(&self, p: P2) -> Option<usize> {
+        self.rooms
+            .iter()
+            .position(|r| point_in_polygon(p, r, false))
+    }
+
+    /// The way from `from` to `to`: through the doors between their rooms (the fewest), then
+    /// straight to `to`; just `to` when they are in the same room, outside or not linked.
+    pub fn path(&self, from: P2, to: P2) -> Vec<P2> {
+        let (Some(start), Some(end)) = (self.room_at(from), self.room_at(to)) else {
+            return vec![to];
+        };
+        if start == end {
+            return vec![to];
+        }
+        // Breadth first over the rooms, through the doors.
+        let mut came: Vec<Option<(usize, usize)>> = vec![None; self.rooms.len()];
+        let mut seen = vec![false; self.rooms.len()];
+        seen[start] = true;
+        let mut queue = std::collections::VecDeque::from([start]);
+        while let Some(room) = queue.pop_front() {
+            if room == end {
+                break;
+            }
+            for (d, door) in self.doors.iter().enumerate() {
+                let [Some(a), Some(b)] = door.rooms else {
+                    continue;
+                };
+                let next = if a == room {
+                    b
+                } else if b == room {
+                    a
+                } else {
+                    continue;
+                };
+                if !seen[next] {
+                    seen[next] = true;
+                    came[next] = Some((room, d));
+                    queue.push_back(next);
+                }
+            }
+        }
+        if !seen[end] {
+            return vec![to];
+        }
+        let mut doors = Vec::new();
+        let mut room = end;
+        while let Some((before, door)) = came[room] {
+            doors.push((before, door));
+            room = before;
+        }
+        doors.reverse();
+        let mut path = Vec::with_capacity(doors.len() * 2 + 1);
+        for (before, d) in doors {
+            let door = self.doors[d];
+            // The side of the door the walker comes from, then the other.
+            let k = if door.rooms[0] == Some(before) {
+                THROUGH
+            } else {
+                -THROUGH
+            };
+            let [x, y] = door.middle;
+            let [nx, ny] = door.normal;
+            path.push([x + nx * k, y + ny * k]);
+            path.push([x - nx * k, y - ny * k]);
+        }
+        path.push(to);
+        path
+    }
+
+    /// The way to look from `at` that sees the most (among 16): the farthest on average across
+    /// a third of a turn around it, so an open side of the room wins over a long diagonal into a
+    /// corner; the nearest to `towards` (a direction on the floor) when several see about as much.
+    pub fn widest_view(&self, at: P2, towards: P2) -> P2 {
+        const RAYS: usize = 16;
+        let seen: Vec<f64> = (0..RAYS).map(|k| self.sight(at, ray(k, RAYS))).collect();
+        let mut best = (towards, f64::NEG_INFINITY);
+        for k in 0..RAYS {
+            let d = ray(k, RAYS);
+            // This way and its two neighbours on each side (a field of view of about 110°).
+            let open: f64 = (0..5).map(|j| seen[(k + RAYS + j - 2) % RAYS]).sum::<f64>() / 5.0;
+            // A little preference for the way the camera looked, so that walking in keeps it.
+            let score = open + (d[0] * towards[0] + d[1] * towards[1]) * 60.0;
+            if score > best.1 {
+                best = (d, score);
+            }
+        }
+        best.0
+    }
+
+    /// A point well inside the room `id`, where a walker going there stops.
+    pub fn room_spot(&self, id: &str) -> Option<P2> {
+        let k = self.room_ids.iter().position(|r| r == id)?;
+        Some(label_point(&self.rooms[k]))
+    }
+
+    /// Where to stand when walking starts near `near`: there when it is free in a room, else in
+    /// the middle of the room it is in, or of the room nearest it.
+    pub fn start(&self, near: P2) -> P2 {
+        if self.room_at(near).is_some() && self.free(near) {
+            return near;
+        }
+        let distance = |p: P2| (p[0] - near[0]).hypot(p[1] - near[1]);
+        let room = self.room_at(near).or_else(|| {
+            (0..self.rooms.len()).min_by(|a, b| {
+                let da = distance(label_point(&self.rooms[*a]));
+                let db = distance(label_point(&self.rooms[*b]));
+                da.total_cmp(&db)
+            })
+        });
+        room.map_or(near, |r| label_point(&self.rooms[r]))
+    }
+}
+
+/// Direction `k` of `n` around a turn.
+fn ray(k: usize, n: usize) -> P2 {
+    #[allow(clippy::cast_precision_loss)]
+    let angle = k as f64 * std::f64::consts::TAU / n as f64;
+    [angle.cos(), angle.sin()]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::plan::read_plan;
+
+    /// Three rooms in a row, 300 × 300: a door from A to B, none from B to C; a window in A.
+    fn floor() -> Floor {
+        let plan = read_plan(
+            br#"{"version":1,"unit":"cm","elements":[
+            {"id":"a","type":"room","name":"A","x":0,"y":0,"w":300,"h":300},
+            {"id":"b","type":"room","name":"B","x":300,"y":0,"w":300,"h":300},
+            {"id":"c","type":"room","name":"C","x":600,"y":0,"w":300,"h":300},
+            {"id":"d","type":"door","name":"D","x":300,"y":100,"w":90,"angle":90},
+            {"id":"w","type":"window","name":"W","x":100,"y":0,"w":100,"angle":0}
+        ]}"#,
+        )
+        .unwrap();
+        Floor::new(&plan, &WallLayout::new(&plan))
+    }
+
+    #[test]
+    fn walls_stop_a_walker_and_doors_let_it_through() {
+        let floor = floor();
+        assert!(floor.free([150.0, 150.0]));
+        assert!(!floor.free([300.0, 250.0]));
+        // Through the door from A to B.
+        let to = [450.0, 145.0];
+        assert_eq!(floor.reach([150.0, 145.0], to), to);
+        // Not through the partition below the door: stopped a body's width before it.
+        let stop = floor.reach([150.0, 250.0], [450.0, 250.0]);
+        assert!(stop[0] < 300.0 - RADIUS && stop[0] > 250.0, "{stop:?}");
+        // Not through the window either.
+        let out = floor.reach([150.0, 150.0], [150.0, -100.0]);
+        assert!(out[1] > 0.0, "{out:?}");
+        // Sliding along the partition.
+        let slid = floor.slide([260.0, 250.0], [20.0, 20.0]);
+        assert!(
+            (slid[1] - 270.0).abs() < 1e-9 && slid[0] <= 280.0,
+            "{slid:?}"
+        );
+    }
+
+    #[test]
+    fn partitions_stop_walkers_open_sides_let_them_through_and_walls_hide_the_floor() {
+        // A and B open onto each other; a door from B to C; a partition across A.
+        let plan = read_plan(
+            br#"{"version":1,"unit":"cm","elements":[
+            {"id":"a","type":"room","name":"A","x":0,"y":0,"w":300,"h":300,"openEdges":[1]},
+            {"id":"b","type":"room","name":"B","x":300,"y":0,"w":300,"h":300,"openEdges":[3]},
+            {"id":"c","type":"room","name":"C","x":600,"y":0,"w":300,"h":300},
+            {"id":"d","type":"door","name":"D","x":600,"y":100,"w":90,"angle":90},
+            {"id":"p","type":"wall","name":"P","x":100,"y":0,"x2":100,"y2":200,"thickness":10}
+        ]}"#,
+        )
+        .unwrap();
+        let floor = Floor::new(&plan, &WallLayout::new(&plan));
+        // The partition stops a walker a body's width before it; below its end, the way is free.
+        let stop = floor.reach([50.0, 100.0], [250.0, 100.0]);
+        assert!(stop[0] < 95.0 - RADIUS + 1.0 && stop[0] > 50.0, "{stop:?}");
+        assert_eq!(floor.reach([50.0, 260.0], [250.0, 260.0]), [250.0, 260.0]);
+        // From A to C: across the open side into B, then through the door.
+        let path = floor.path([200.0, 150.0], [750.0, 150.0]);
+        assert_eq!(path.len(), 5, "{path:?}");
+        let mut at = [200.0, 150.0];
+        for p in &path {
+            at = floor.reach(at, *p);
+        }
+        assert_eq!(at, [750.0, 150.0]);
+        // The floor beyond a wall is not in sight; through the door it is.
+        assert!(!floor.seen([450.0, 250.0], [750.0, 250.0]));
+        assert!(floor.seen([450.0, 145.0], [750.0, 145.0]));
+        assert!(!floor.seen([50.0, 100.0], [250.0, 100.0]));
+    }
+
+    #[test]
+    fn a_room_s_spot_is_inside_it() {
+        let floor = floor();
+        let spot = floor.room_spot("b").unwrap();
+        assert_eq!(floor.room_at(spot), Some(1));
+        assert!(floor.room_spot("nowhere").is_none());
+    }
+
+    #[test]
+    fn the_way_goes_through_the_doors() {
+        let floor = floor();
+        assert_eq!(floor.room_at([450.0, 50.0]), Some(1));
+        // From A to the far corner of B: through the door, then there.
+        let path = floor.path([50.0, 250.0], [550.0, 250.0]);
+        assert_eq!(path.len(), 3);
+        assert!(path[0][0] < 300.0 && path[1][0] > 300.0, "{path:?}");
+        assert!((path[0][1] - 145.0).abs() < 1.0);
+        // Each leg is free.
+        let mut at = [50.0, 250.0];
+        for p in &path {
+            at = floor.reach(at, *p);
+        }
+        assert_eq!(at, [550.0, 250.0]);
+        // C has no door: straight, and the wall stops the walker.
+        assert_eq!(
+            floor.path([450.0, 150.0], [750.0, 150.0]),
+            vec![[750.0, 150.0]]
+        );
+        // From the middle of A, the widest view is towards the door to B (east).
+        let east = floor.widest_view([150.0, 145.0], [0.0, -1.0]);
+        assert!(east[0] > 0.6, "{east:?}");
+        // Starting in a wall: the middle of the nearest room.
+        let start = floor.start([300.0, 250.0]);
+        assert!(floor.free(start) && floor.room_at(start).is_some());
+        assert_eq!(floor.start([150.0, 150.0]), [150.0, 150.0]);
+    }
+}

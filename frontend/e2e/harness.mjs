@@ -11,6 +11,8 @@
 //   storeys=2 (the fictional upper floor above the demo apartment)  storey=<id> (card option)
 //   theme=auto|day|neon|blueprint  accent=<#rrggbb>  names=0 (card options)
 //   hometheme=<look> (the stored settings)
+//   screen=<name>  idle=<seconds>  orbit=1  nightdim=1 (the kiosk's card options)
+//   window.__show(request) sends a `domotwin.show` request to every screen
 import { applyService, demoHome } from "./demo-home.mjs";
 
 const params = new URLSearchParams(location.search);
@@ -194,6 +196,10 @@ async function fetchWithAuth(path, init = {}) {
 const listeners = new Set();
 const calls = [];
 window.__calls = calls;
+// `domotwin.show` (D-029), as the integration sends it to every screen.
+window.__show = (request) => {
+  for (const listener of listeners) listener({ kind: "show", show: request });
+};
 
 const connection = {
   async sendMessagePromise(message) {
@@ -410,6 +416,10 @@ if (mode === "panel") {
     theme: params.get("theme") ?? undefined,
     names: params.get("names") === "0" ? false : undefined,
     accent: params.get("accent") ?? undefined,
+    screen: params.get("screen") ?? undefined,
+    idle: params.get("idle") ? Number(params.get("idle")) : undefined,
+    orbit: params.get("orbit") === "1" ? true : undefined,
+    night_dim: params.get("nightdim") === "1" ? true : undefined,
   });
 }
 element.hass = hass;

@@ -17,9 +17,9 @@ Local, rapide, Rust + WebAssembly.</p>
 > route](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/ROADMAP.md), en anglais).
 > L’intégration, le panneau, la carte, l’import du plan et de l’IFC, les vues 3D et 2D, le
 > pilotage en direct (états, toucher, appui long, panneau de pièce, liaisons), le mode édition, vos
-> propres modèles 3D, les calques, les appareils, l’éditeur de plan, les étages, les apparences et
-> tous les étages à la fois fonctionnent déjà ; un mode kiosque arrive ensuite. Les
-> fonctionnalités ci-dessous décrivent la version 0.1.0.
+> propres modèles 3D, les calques, les appareils, l’éditeur de plan, les étages, les apparences,
+> tous les étages à la fois, la promenade et le kiosque fonctionnent déjà ; d’autres imports
+> arrivent ensuite. Les fonctionnalités ci-dessous décrivent la version 0.1.0.
 
 ## Fonctionnalités
 
@@ -60,6 +60,11 @@ Local, rapide, Rust + WebAssembly.</p>
   annulation, ajoutez des meubles depuis un catalogue, liez n’importe quel objet à des entités (avec
   des suggestions tirées de vos pièces), et ajoutez votre propre meuble ou appareil avec son modèle
   3D (glTF/GLB, OBJ, STL ou 3MF). Voir [le mode édition](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/edit-mode.md) (en anglais).
+- **Promenez-vous, accrochez-le au mur, demandez-le.** Promenez-vous dans votre logement à
+  hauteur des yeux, de pièce en pièce par les portes. Sur une tablette murale, une carte revient à
+  sa vue quand on la laisse, tourne lentement et s’assombrit la nuit. Dites « montre la cuisine » à
+  Assist et vos écrans la montrent. Voir [la promenade, les kiosques et la
+  voix](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/kiosk.md) (en anglais).
 - **Léger et fluide.** Rust compilé en WebAssembly, un rendu seulement quand quelque chose change,
   des préréglages de qualité pour les vieilles tablettes murales. Le premier chargement est limité à
   1,2 Mo, vérifié par l’intégration continue.
@@ -101,6 +106,10 @@ Local, rapide, Rust + WebAssembly.</p>
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-home.png" alt="Tous les étages à la fois : les deux étages de l’appartement de démonstration écartés sous un toit de verre dans l’apparence néon, chacun avec son étiquette (pièces, lumières allumées) et une image de chaque étage à gauche" width="100%">
+</p>
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-walk.png" alt="Promenade dans le séjour de l’appartement de démonstration à hauteur des yeux, le soir, ses lampes allumées, avec le pavé de marche dans le coin" width="100%">
 </p>
 
 ## Démarrage rapide
@@ -149,6 +158,11 @@ YAML n’est jamais nécessaire. Pour référence, les options de la carte :
 | `theme`       | `auto`, `day`, `neon`, `blueprint`  | celle du logement | L’apparence ; `auto` : néon en mode sombre. |
 | `accent`      | une couleur `#rrggbb`               | celle du logement | Couleur d’accent (les contours lumineux du néon). |
 | `names`       | `true`, `false`                     | `true`     | Le nom des pièces au sol.                     |
+| `idle`        | secondes (0 à 86400)                | `0`        | Kiosque : revenir à cette vue après ce temps sans contact (0 : jamais). |
+| `orbit`       | `true`, `false`                     | `false`    | Kiosque : tourner lentement autour du logement entre-temps. |
+| `night_dim`   | `true`, `false`                     | `false`    | Kiosque : assombri la nuit entre-temps (sauf alerte). |
+| `tools`       | `true`, `false`                     | `true`     | Les boutons de la vue.                        |
+| `screen`      | un nom (`hallway`…)                 | aucun      | Le nom de cet écran, pour `domotwin.show`.    |
 | `font_family` | une famille de police               | incluse    | Police des textes de la carte.                |
 
 Options de l’intégration (Paramètres → Appareils et services → DomoTwin → Configurer) : afficher le
@@ -183,6 +197,11 @@ dans
 avec son schéma JSON, et les fichiers IFC (ISO 16739, exportés par FreeCAD, Blender avec Bonsai,
 ArchiCAD ou Revit), un étage ou tous à la fois : voir [l’import
 IFC](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/ifc-import.md) (en anglais).
+
+**Puis-je le mettre sur une tablette murale, ou demander une pièce à la voix ?** Oui : les options
+`idle`, `orbit`, `night_dim` et `tools` font d’une carte un kiosque, et l’action `domotwin.show`
+(avec un blueprint pour Assist) montre une pièce sur vos écrans. Voir [la promenade, les kiosques
+et la voix](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/kiosk.md) (en anglais).
 
 **Mon logement a plusieurs niveaux.** Chaque niveau est un étage avec son propre plan : **Étages**
 dans le panneau en ajoute un (importé ou dessiné), le nomme et règle sa hauteur ; la vue passe de

@@ -17,8 +17,8 @@ Local, fast, Rust + WebAssembly.</p>
 > ([roadmap](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/ROADMAP.md)). The
 > integration, the panel, the card, the plan and IFC import, the 3D and 2D views, live control
 > (states, tap, long press, room panel, linking), the edit mode, your own 3D models, the layers, the
-> devices, the plan editor, storeys, the looks and every storey at once work today; a kiosk mode
-> comes next. The features below describe version 0.1.0.
+> devices, the plan editor, storeys, the looks, every storey at once, walking and the kiosk work
+> today; more imports come next. The features below describe version 0.1.0.
 
 ## Features
 
@@ -54,6 +54,10 @@ Local, fast, Rust + WebAssembly.</p>
   a catalogue, link any object to entities (with suggestions from your areas), and add your own
   furniture or appliance with its 3D model (glTF/GLB, OBJ, STL or 3MF). See
   [edit mode](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/edit-mode.md).
+- **Walk through it, hang it on the wall, ask for it.** Walk through your home at eye level, from
+  room to room through the doors. On a wall tablet, a card goes back to its view when left alone,
+  turns slowly and dims at night. Say "show the kitchen" to Assist and your screens show it. See
+  [walking, kiosks and your voice](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/kiosk.md).
 - **Light and smooth.** Rust compiled to WebAssembly, rendering only when something changes, quality
   presets for old wall tablets. The first load is budgeted at 1.2 MB, checked by CI.
 - **Yours.** English and French, follows your Home Assistant theme, works in the companion apps.
@@ -93,6 +97,10 @@ Local, fast, Rust + WebAssembly.</p>
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-home.png" alt="Every storey at once: the demo apartment's two storeys spread apart under a glass roof in the neon look, each with its label (rooms, lights on) and a picture of each storey on the left" width="100%">
+</p>
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-walk.png" alt="Walking through the demo apartment's living room at eye level in the evening, its lamps on, with the walk pad in the corner" width="100%">
 </p>
 
 ## Quick start
@@ -139,6 +147,11 @@ YAML is never required. For reference, the card options are:
 | `theme`       | `auto`, `day`, `neon`, `blueprint`  | the home's | The look; `auto` is neon in dark mode.    |
 | `accent`      | a colour `#rrggbb`                  | the home's | Accent of the look (neon's glowing outlines). |
 | `names`       | `true`, `false`                     | `true`     | The rooms' names on their floors.         |
+| `idle`        | seconds (0 to 86400)                | `0`        | Kiosk: back to this view after this long untouched (0: never). |
+| `orbit`       | `true`, `false`                     | `false`    | Kiosk: a slow turn around the home meanwhile. |
+| `night_dim`   | `true`, `false`                     | `false`    | Kiosk: dimmed at night meanwhile (unless an alert shows). |
+| `tools`       | `true`, `false`                     | `true`     | The view's buttons.                       |
+| `screen`      | a name (`hallway`…)                 | none       | This screen's name, for `domotwin.show`.  |
 | `font_family` | a font family                       | bundled    | Font of the card's texts.                 |
 
 Integration options (Settings → Devices & services → DomoTwin → Configure): show the panel in the
@@ -169,6 +182,11 @@ WebAssembly) reads the plan, builds the geometry and draws it with WebGL2. More 
 with its JSON Schema, and IFC files (ISO 16739, exported by FreeCAD, Blender with Bonsai, ArchiCAD
 or Revit), one storey or every storey at once: see [IFC
 import](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/ifc-import.md).
+
+**Can I put it on a wall tablet, or ask for a room by voice?** Yes: the `idle`, `orbit`,
+`night_dim` and `tools` options make a card a kiosk, and the `domotwin.show` action (with a
+blueprint for Assist) shows a room on your screens. See [walking, kiosks and your
+voice](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/kiosk.md).
 
 **My home has several floors.** Each floor is a storey with its own plan: **Storeys** in the panel
 adds one (imported or drawn), names it and sets its height; the view switches between them or

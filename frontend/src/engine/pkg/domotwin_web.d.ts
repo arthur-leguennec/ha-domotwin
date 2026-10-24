@@ -260,6 +260,11 @@ export class Engine {
      */
     screenPoints(points: Float64Array): Float64Array;
     /**
+     * The kiosk's slow turn around the home while nobody touches it (radians per second, 0 to
+     * stop); a gesture stops it.
+     */
+    setAutoOrbit(per_second: number): void;
+    /**
      * Sets the background colour (sRGB, 0–255) from the Home Assistant theme.
      */
     setBackground(r: number, g: number, b: number): void;
@@ -338,6 +343,17 @@ export class Engine {
      */
     setTheme(name: string, accent: string): string;
     /**
+     * Walking: moves on its own ahead and to the right (−1…1 each, 0 to stop) while a key or
+     * the pad is held.
+     */
+    setWalkVelocity(ahead: number, right: number): void;
+    /**
+     * Starts walking through the storey shown at eye level (D-029), or stops (back to the
+     * camera before), animated from `time_ms`. Returns whether walking: not with every storey
+     * shown, without a plan or in edit mode.
+     */
+    setWalk(on: boolean, time_ms: number): boolean;
+    /**
      * Shows a plan drawn in the plan editor (JSON text, no overlay), element `selected` marked.
      * The plan stored and its overlay stay as they are, to come back to (`loadPlan`); the camera
      * stays, unless nothing was shown.
@@ -387,9 +403,22 @@ export class Engine {
      */
     views(): string;
     /**
+     * Walking: walks to the floor under the device pixel `x`, `y` (through the doors). Returns
+     * whether the floor is there, in sight (not behind a wall tapped).
+     */
+    walkTo(x: number, y: number): boolean;
+    /**
      * Zooms by `factor` (< 1 closer) towards the screen point `x`, `y` (−1…1, y up).
      */
     zoom(factor: number, x: number, y: number): void;
+    /**
+     * Whether the kiosk's slow turn is moving the camera: frames go on, slowly.
+     */
+    readonly orbiting: boolean;
+    /**
+     * Whether walking through the storey shown.
+     */
+    readonly walking: boolean;
 }
 
 /**
@@ -473,6 +502,7 @@ export interface InitOutput {
     readonly engine_needsFrame: (a: number) => number;
     readonly engine_new: (a: number, b: number) => void;
     readonly engine_orbit: (a: number, b: number, c: number) => void;
+    readonly engine_orbiting: (a: number) => number;
     readonly engine_overview: (a: number, b: number) => void;
     readonly engine_pan: (a: number, b: number, c: number, d: number) => void;
     readonly engine_pick: (a: number, b: number, c: number, d: number) => void;
@@ -483,6 +513,7 @@ export interface InitOutput {
     readonly engine_roomLabels: (a: number, b: number) => void;
     readonly engine_screenPoint: (a: number, b: number, c: number, d: number) => void;
     readonly engine_screenPoints: (a: number, b: number, c: number, d: number) => void;
+    readonly engine_setAutoOrbit: (a: number, b: number) => void;
     readonly engine_setBackground: (a: number, b: number, c: number, d: number) => void;
     readonly engine_setBindings: (a: number, b: number, c: number) => void;
     readonly engine_setCutaway: (a: number, b: number, c: number) => void;
@@ -500,6 +531,8 @@ export interface InitOutput {
     readonly engine_setSun: (a: number, b: number, c: number) => void;
     readonly engine_setSunPosition: (a: number, b: number, c: number, d: number) => void;
     readonly engine_setTheme: (a: number, b: number, c: number, d: number, e: number, f: number) => void;
+    readonly engine_setWalk: (a: number, b: number, c: number) => number;
+    readonly engine_setWalkVelocity: (a: number, b: number, c: number) => void;
     readonly engine_showDraft: (a: number, b: number, c: number, d: number, e: number, f: number) => void;
     readonly engine_showModels: (a: number) => number;
     readonly engine_showView: (a: number, b: number, c: number, d: number) => number;
@@ -509,6 +542,8 @@ export interface InitOutput {
     readonly engine_storeyPicture: (a: number, b: number, c: number, d: number, e: number) => void;
     readonly engine_useDefaultSun: (a: number) => void;
     readonly engine_views: (a: number, b: number) => void;
+    readonly engine_walkTo: (a: number, b: number, c: number) => number;
+    readonly engine_walking: (a: number) => number;
     readonly engine_zoom: (a: number, b: number, c: number, d: number) => void;
     readonly heatLegend: (a: number, b: number, c: number) => void;
     readonly start: () => void;
