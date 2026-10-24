@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/domotwin-core", "crates/domotwin-render", "crates/domotwin-web"]
+members = ["crates/domotwin-core", "crates/domotwin-render", "crates/domotwin-web", "crates/domotwin-ifc"]
 exclude = ["fuzz"]
 
 [workspace.package]

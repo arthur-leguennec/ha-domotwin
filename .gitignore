@@ -10,6 +10,7 @@
 *.ifc
 !/crates/*/tests/fixtures/**/*.ifc
 !/examples/*.ifc
+!/fuzz/seeds/**/*.ifc
 
 # Rust
 /target/
