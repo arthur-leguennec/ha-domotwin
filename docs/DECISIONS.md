@@ -110,6 +110,8 @@ explains why. Each entry: context, decision, consequences.
   (ISO/IEC 12113) export of the 3D model is a possible later addition.
 - **Consequences.** No cost on first load and no change to the native model. If any part of the IFC
   import turns out to hurt size, speed or robustness, that part is dropped and noted here.
+- **Outcome (M1b).** Built as planned: 112 kB gzipped, fetched only to import a file, fuzzed, nothing
+  dropped. See D-018 for how a storey becomes a plan.
 
 ## D-010 · Minimum Home Assistant version: 2025.1
 
@@ -230,4 +232,24 @@ explains why. Each entry: context, decision, consequences.
   between is refused, never overwritten. Actions written by hand are kept as they are.
 - **Consequences.** Plan and bindings share one revision (D-005), so the client drops both cached
   copies on any save event. The M3 editor will reuse the same save path.
+
+## D-018 · IFC storey to plan: rooms meet in the middle of walls, ids from GlobalIds
+
+- **Context.** IFC spaces stop at the wall faces and walls are separate objects; the plan format
+  draws partitions centred on the limit two rooms share and façades outside the rooms. IFC models
+  are often placed at an angle or far away (georeferenced). Bindings are keyed by element id.
+- **Decision.**
+  - Rooms come from spaces only. Where two spaces face each other across a wall of up to 59 cm,
+    each is widened by half the gap along the part where they face, so that they share a limit in
+    the middle of the wall; partitions of another thickness keep it per side. Exterior walls are
+    not touched (façades lie outside rooms, as in IFC).
+  - The plan is mirrored (y down), moved next to the origin and turned so that its main walls run
+    along the axes (the length-weighted direction of the room sides, modulo 90°).
+  - Doors and windows are put on the nearest parallel room side within 45 cm, where the plan
+    format expects them; the others are reported, not guessed.
+  - Element ids are the IFC GlobalIds: importing an updated model keeps the bindings.
+  - Wall thicknesses: the measured gaps between spaces (interior), the walls marked `IsExternal`
+    (exterior), else the walls' material layers or geometry.
+- **Consequences.** A model without spaces cannot be imported (the message says how to add them);
+  rooms from walls alone may come later. Window sills follow the plan format's fixed 90 cm.
 

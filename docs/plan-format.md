@@ -439,5 +439,5 @@ These notes are DomoTwin's, not part of the copied reference.
 - **Photo floors.** DomoTwin ships no photo textures. `photo-*` floors use the matching procedural
   material until the user uploads a picture for that key.
 - **Messages.** Rejection messages are translated (English and French) instead of French only.
-- **Other inputs.** An IFC import (ISO 16739) that converts one storey to this format is planned:
-  see [`ROADMAP.md`](ROADMAP.md).
+- **Other inputs.** An IFC file (ISO 16739) can be imported: one storey is converted to this format
+  (see [`ifc-import.md`](ifc-import.md)).

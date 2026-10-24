@@ -12,6 +12,10 @@ interface.
 | `domotwin-core`   | `serde`, `serde_json`   | plans, geometry, bindings, states   | GPU, browser, HA API |
 | `domotwin-render` | core, `three-d`, `glow` | meshes, materials, cameras, passes  | browser, HA          |
 | `domotwin-web`    | core, render, `web-sys` | canvas, JS values, timing           | HA                   |
+| `domotwin-ifc`    | `serde_json`            | IFC files, one storey → plan JSON   | core, GPU, HA        |
+
+`domotwin-ifc` is the IFC import (`ifc-import.md`): its own wasm module, loaded only when a `.ifc`
+file is imported, writing an ordinary plan that the core then reads like any other.
 
 `domotwin-core` is where the logic lives and where the tests concentrate. It never panics on input:
 every reader returns `Result` with a stable error code that the frontend translates.

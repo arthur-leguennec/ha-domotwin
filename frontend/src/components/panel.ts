@@ -6,6 +6,7 @@ import { DomoTwinClient, type PlanJson, type StoredPlan } from "../ha/client";
 import { isHassError, type HomeAssistant } from "../ha/types";
 import { readBindings, roomArea, type BindingsJson, type ElementBinding } from "../live/bindings";
 import { applyLink, planElement, type LinkChange, type PlanElementInfo } from "../live/suggest";
+import type { IfcFile, IfcReport, IfcStorey } from "../ifc/ifc";
 import { translatorFor, type Translator } from "../i18n";
 import { icon } from "./icon";
 import { baseStyles } from "./styles";
@@ -13,6 +14,8 @@ import type { ViewOptions } from "./view";
 
 /** The plan format allows files up to 32 MB. */
 const MAX_FILE_BYTES = 32_000_000;
+/** IFC files are read in the browser's memory: larger ones are refused. */
+const MAX_IFC_BYTES = 200_000_000;
 const PANEL_OPTIONS: ViewOptions = {
   quality: "auto",
   view: "3d",
@@ -24,6 +27,13 @@ const TOAST_MS = 6000;
 interface Toast {
   text: string;
   error: boolean;
+}
+
+/** An IFC file waiting for the user to pick a storey. */
+interface IfcChoice {
+  file: IfcFile;
+  name: string;
+  storeys: IfcStorey[];
 }
 
 /** The element open in the link editor. */
@@ -58,6 +68,7 @@ export class DomoTwinPanel extends LitElement {
     busy: { state: true },
     linking: { state: true },
     linkTarget: { state: true },
+    ifcChoice: { state: true },
   };
 
   narrow = false;
@@ -69,6 +80,7 @@ export class DomoTwinPanel extends LitElement {
   protected busy = false;
   protected linking = false;
   protected linkTarget?: LinkTarget;
+  protected ifcChoice?: IfcChoice;
   private _hass?: HomeAssistant;
   private unsubscribe?: () => void;
   private toastTimer?: number;
@@ -143,6 +155,47 @@ export class DomoTwinPanel extends LitElement {
       input[type="file"] {
         display: none;
       }
+      .storeys {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: min(420px, calc(100% - 32px));
+        max-height: calc(100% - 32px);
+        overflow: auto;
+        padding: 16px;
+        display: grid;
+        gap: 6px;
+        z-index: 3;
+      }
+      .storeys h2 {
+        margin: 0 0 6px;
+        font-size: 1.05rem;
+        font-weight: 600;
+      }
+      .storeys button.storey {
+        display: grid;
+        gap: 2px;
+        text-align: start;
+        padding: 10px 12px;
+        border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+        border-radius: 12px;
+        background: transparent;
+        color: inherit;
+        font: inherit;
+        cursor: pointer;
+      }
+      .storeys button.storey:hover {
+        background: color-mix(in srgb, var(--primary-text-color, #1f2328) 6%, transparent);
+      }
+      .storeys .detail {
+        color: var(--secondary-text-color, #5f6368);
+        font-size: 0.85rem;
+      }
+      .storeys .footer {
+        display: flex;
+        justify-content: flex-end;
+      }
     `,
   ];
 
@@ -176,6 +229,7 @@ export class DomoTwinPanel extends LitElement {
     this.unsubscribe?.();
     this.unsubscribe = undefined;
     window.clearTimeout(this.toastTimer);
+    this.cancelIfc();
   }
 
   private connectData(): void {
@@ -270,6 +324,8 @@ export class DomoTwinPanel extends LitElement {
   };
 
   private readonly chooseFile = (): void => {
+    // One import at a time: not while a file is read or its storey is being chosen.
+    if (this.busy || this.ifcChoice) return;
     this.renderRoot.querySelector<HTMLInputElement>("input[type=file]")?.click();
   };
 
@@ -278,7 +334,11 @@ export class DomoTwinPanel extends LitElement {
     const file = input.files?.[0];
     input.value = "";
     const client = this.client;
-    if (!file || !client) return;
+    if (!file || !client || this.busy || this.ifcChoice) return;
+    if (/\.ifc$/i.test(file.name)) {
+      await this.readIfc(file);
+      return;
+    }
     const t = this.t;
     this.busy = true;
     try {
@@ -294,6 +354,81 @@ export class DomoTwinPanel extends LitElement {
     } finally {
       this.busy = false;
     }
+  };
+
+  /** Reads an IFC file with the IFC module (loaded now), then imports its storey or asks which. */
+  private async readIfc(file: File): Promise<void> {
+    const t = this.t;
+    this.busy = true;
+    this.show(t.t("panel.ifc_reading", { name: file.name }));
+    let ifc: IfcFile | undefined;
+    try {
+      if (file.size > MAX_IFC_BYTES) throw new EngineError("too_large");
+      const { IfcFile } = await import("../ifc/ifc");
+      ifc = await IfcFile.read(new Uint8Array(await file.arrayBuffer()));
+      const storeys = ifc.storeys().filter((s) => s.spaces > 0);
+      const only = storeys[0];
+      if (!only) throw new EngineError("no_spaces");
+      if (storeys.length > 1) {
+        this.ifcChoice = { file: ifc, name: file.name, storeys };
+        ifc = undefined;
+        this.toast = undefined;
+        return;
+      }
+      await this.importStorey(ifc, only, file.name);
+    } catch (error) {
+      this.show(t.t("panel.import_failed", { reason: this.describe(error) }), true);
+    } finally {
+      ifc?.dispose();
+      this.busy = false;
+    }
+  }
+
+  /** Converts a storey, has the engine check the plan, stores it and says what was left out. */
+  private async importStorey(ifc: IfcFile, storey: IfcStorey, name: string): Promise<void> {
+    const client = this.client;
+    if (!client) return;
+    const t = this.t;
+    const { plan, report } = ifc.convert(storey.id, name);
+    const summary = await summarizePlan(JSON.stringify(plan));
+    await client.savePlan(plan);
+    await this.loadPlan();
+    const imported = t.t("panel.ifc_imported", { title: summary.title || t.t("view.untitled") });
+    const left = this.leftOut(report);
+    this.show(left ? `${imported} ${t.t("panel.ifc_left_out", { list: left })}` : imported);
+  }
+
+  private leftOut(report: IfcReport): string {
+    const t = this.t;
+    const parts: string[] = [];
+    if (report.unplacedOpenings > 0)
+      parts.push(t.tp("panel.ifc_unplaced", report.unplacedOpenings));
+    if (report.skippedFurniture > 0)
+      parts.push(t.tp("panel.ifc_skipped_furniture", report.skippedFurniture));
+    if (report.skippedSpaces > 0)
+      parts.push(t.tp("panel.ifc_skipped_spaces", report.skippedSpaces));
+    if (report.overLimit > 0) parts.push(t.tp("panel.ifc_over_limit", report.overLimit));
+    return parts.join(", ");
+  }
+
+  private async pickStorey(storey: IfcStorey): Promise<void> {
+    const choice = this.ifcChoice;
+    if (!choice) return;
+    this.ifcChoice = undefined;
+    this.busy = true;
+    try {
+      await this.importStorey(choice.file, storey, choice.name);
+    } catch (error) {
+      this.show(this.t.t("panel.import_failed", { reason: this.describe(error) }), true);
+    } finally {
+      choice.file.dispose();
+      this.busy = false;
+    }
+  }
+
+  private readonly cancelIfc = (): void => {
+    this.ifcChoice?.file.dispose();
+    this.ifcChoice = undefined;
   };
 
   private readonly exportPlan = async (): Promise<void> => {
@@ -321,6 +456,37 @@ export class DomoTwinPanel extends LitElement {
     }
   };
 
+  private renderStoreys(choice: IfcChoice): TemplateResult {
+    const t = this.t;
+    const metres = new Intl.NumberFormat(t.language, { maximumFractionDigits: 2 });
+    return html`<div
+      class="storeys glass"
+      role="dialog"
+      aria-label=${t.t("panel.ifc_pick", { name: choice.name })}
+      data-testid="ifc-storeys"
+    >
+      <h2>${t.t("panel.ifc_pick", { name: choice.name })}</h2>
+      ${choice.storeys.map(
+        (storey) =>
+          html`<button
+            class="storey"
+            @click=${() => {
+              void this.pickStorey(storey);
+            }}
+          >
+            <span class="name">${storey.name || t.t("view.untitled")}</span>
+            <span class="detail"
+              >${t.tp("view.rooms", storey.spaces)} · ${metres.format(storey.elevation / 100)}
+              m</span
+            >
+          </button>`,
+      )}
+      <div class="footer">
+        <button class="action quiet" @click=${this.cancelIfc}>${t.t("panel.cancel")}</button>
+      </div>
+    </div>`;
+  }
+
   protected override render(): TemplateResult {
     const t = this.t;
     const admin = this._hass?.user?.is_admin === true;
@@ -331,7 +497,7 @@ export class DomoTwinPanel extends LitElement {
           admin
             ? html`<button
                 class="action"
-                ?disabled=${this.busy}
+                ?disabled=${this.busy || this.ifcChoice !== undefined}
                 @click=${this.chooseFile}
                 aria-label=${t.t("panel.import")}
               >
@@ -391,6 +557,7 @@ export class DomoTwinPanel extends LitElement {
               ></domotwin-link>`
             : nothing
         }
+        ${this.ifcChoice ? this.renderStoreys(this.ifcChoice) : nothing}
         ${
           this.toast
             ? html`<div
@@ -405,6 +572,6 @@ export class DomoTwinPanel extends LitElement {
             : nothing
         }
       </div>
-      <input type="file" accept=".json,application/json" @change=${this.importFile} />`;
+      <input type="file" accept=".json,application/json,.ifc" @change=${this.importFile} />`;
   }
 }

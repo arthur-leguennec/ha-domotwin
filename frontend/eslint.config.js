@@ -4,7 +4,15 @@ import globals from "globals";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["src/engine/pkg/", "node_modules/", "test-results/", "playwright-report/"] },
+  {
+    ignores: [
+      "src/engine/pkg/",
+      "src/ifc/pkg/",
+      "node_modules/",
+      "test-results/",
+      "playwright-report/",
+    ],
+  },
   js.configs.recommended,
   ...tseslint.configs.strictTypeChecked,
   {

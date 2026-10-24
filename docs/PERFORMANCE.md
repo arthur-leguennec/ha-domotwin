@@ -114,3 +114,24 @@ machine's load): M1 83 ms, M2 100 ms with no lamp lit and 117 ms with six. The e
 pixel (the lamp lights of the pixel's room, glows, greyed-out entities), which the software
 rasteriser runs on the CPU; on a GPU it is small, still to be confirmed on real devices by hand.
 Frames are only drawn while something moves.
+
+### M1b (IFC import)
+
+Bundle: the first load is **242.6 kB gzipped** (+1.7 kB: the panel's import of `.ifc` files). The
+IFC import is its own module, fetched only when an `.ifc` file is picked:
+
+| File | Raw | Gzipped |
+| --- | ---: | ---: |
+| `domotwin_ifc_bg.<hash>.wasm` (on demand) | 241.6 kB | 112.2 kB |
+| `chunks/domotwin_ifc-<hash>.js` (glue, on demand) | 5.3 kB | 2.0 kB |
+| `chunks/ifc-<hash>.js` (wrapper, on demand) | 0.7 kB | 0.4 kB |
+
+An E2E test checks that the page never requests the IFC module before a file is picked.
+
+Import time in headless Chromium (reading the file, converting, the engine's check, saving and
+showing the plan, the module's first download included): the fictional
+`examples/demo-apartment.ifc` (53 kB, 6 rooms, 10 openings, 24 pieces) 0.5 s; a synthetic 9.8 MB
+file with 20 000 extra pieces 2.1 s (the plan keeps 500 elements and says so). The reader keeps the
+file's bytes and a small index; attributes are parsed only when needed. The module's memory is kept
+until the page reloads (WebAssembly memory never shrinks).
+

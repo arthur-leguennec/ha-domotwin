@@ -9,7 +9,8 @@ export const fr: Dictionary = {
   view: {
     loading: "Chargement de DomoTwin…",
     no_plan: "Pas encore de plan",
-    no_plan_admin: "Importez votre plan depuis le panneau DomoTwin.",
+    no_plan_admin:
+      "Importez votre plan depuis le panneau DomoTwin : un plan House Maquette (.plan.json) ou un fichier IFC (.ifc).",
     no_plan_user: "Un administrateur peut importer le plan depuis le panneau DomoTwin.",
     untitled: "Plan sans titre",
     rooms: { one: "{count} pièce", other: "{count} pièces" },
@@ -112,6 +113,27 @@ export const fr: Dictionary = {
     export_failed: "Le plan ne peut pas être exporté : {reason}",
     nothing_to_export: "Il n’y a pas encore de plan à exporter.",
     dismiss: "Fermer",
+    cancel: "Annuler",
+    ifc_reading: "Lecture de {name}…",
+    ifc_pick: "Quel étage de {name} ?",
+    ifc_imported: "Importé depuis l’IFC : {title}.",
+    ifc_left_out: "Laissés de côté : {list}.",
+    ifc_unplaced: {
+      one: "{count} porte ou fenêtre hors des murs",
+      other: "{count} portes ou fenêtres hors des murs",
+    },
+    ifc_skipped_furniture: {
+      one: "{count} meuble inconnu ou égaré",
+      other: "{count} meubles inconnus ou égarés",
+    },
+    ifc_skipped_spaces: {
+      one: "{count} espace extérieur ou global",
+      other: "{count} espaces extérieurs ou globaux",
+    },
+    ifc_over_limit: {
+      one: "{count} élément au-delà de 500",
+      other: "{count} éléments au-delà de 500",
+    },
   },
   errors: {
     plan: {
@@ -145,6 +167,10 @@ export const fr: Dictionary = {
       missing_model: "un meuble utilise un modèle 3D absent du plan.",
       invalid_model: "un modèle 3D du plan n’est pas valide.",
       invalid_site: "l’extérieur du bâtiment n’est pas valide.",
+      not_ifc: "ce n’est pas un fichier IFC.",
+      no_storeys: "le fichier IFC n’a aucun étage.",
+      no_spaces:
+        "cet étage n’a aucun espace (pièce). Ajoutez des espaces dans votre logiciel de modélisation et exportez à nouveau.",
     },
     ws: {
       revision_conflict: "quelqu’un a enregistré entre-temps. Rechargez et réessayez.",

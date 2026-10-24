@@ -10,7 +10,8 @@ export const en = {
   view: {
     loading: "Loading DomoTwin…",
     no_plan: "No plan yet",
-    no_plan_admin: "Import your plan from the DomoTwin panel.",
+    no_plan_admin:
+      "Import your plan from the DomoTwin panel: a House Maquette plan (.plan.json) or an IFC file (.ifc).",
     no_plan_user: "An administrator can import the plan from the DomoTwin panel.",
     untitled: "Untitled plan",
     rooms: { one: "{count} room", other: "{count} rooms" },
@@ -112,6 +113,27 @@ export const en = {
     export_failed: "The plan cannot be exported: {reason}",
     nothing_to_export: "There is no plan to export yet.",
     dismiss: "Dismiss",
+    cancel: "Cancel",
+    ifc_reading: "Reading {name}…",
+    ifc_pick: "Which storey of {name}?",
+    ifc_imported: "Imported from IFC: {title}.",
+    ifc_left_out: "Left out: {list}.",
+    ifc_unplaced: {
+      one: "{count} door or window off the walls",
+      other: "{count} doors or windows off the walls",
+    },
+    ifc_skipped_furniture: {
+      one: "{count} unknown or stray piece",
+      other: "{count} unknown or stray pieces",
+    },
+    ifc_skipped_spaces: {
+      one: "{count} outside or overall space",
+      other: "{count} outside or overall spaces",
+    },
+    ifc_over_limit: {
+      one: "{count} element past the 500 limit",
+      other: "{count} elements past the 500 limit",
+    },
   },
   errors: {
     plan: {
@@ -145,6 +167,10 @@ export const en = {
       missing_model: "a piece uses a 3D model that is not in the plan.",
       invalid_model: "a 3D model of the plan is not valid.",
       invalid_site: "the building exterior is not valid.",
+      not_ifc: "it is not an IFC file.",
+      no_storeys: "the IFC file has no storey.",
+      no_spaces:
+        "this storey has no spaces (rooms). Add spaces in your modelling software and export again.",
     },
     ws: {
       revision_conflict: "someone saved in the meantime. Reload and try again.",
