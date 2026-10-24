@@ -578,13 +578,15 @@ impl Renderer {
         program.use_uniform_if_required("u_sun_color", rgb(light.sun));
         program.use_uniform_if_required("u_exposure", light.exposure);
         program.use_uniform_if_required("u_ao", light.ao);
+        // Lamps and halos count less in daylight: a lamp lit at noon barely shows indoors.
+        let gain = light.lamp_gain();
         let mut positions = [Vec4::new(0.0, 0.0, 0.0, 1.0); lamps::MAX_LIGHTS];
         let mut colors = [Vec4::new(0.0, 0.0, 0.0, 0.0); lamps::MAX_LIGHTS];
         for (i, lamp) in self.lights.iter().enumerate().take(lamps::MAX_LIGHTS) {
             let [x, y, z] = lamp.position;
             positions[i] = Vec4::new(x, y, z, lamp.radius);
             let [r, g, b] = lamp.color;
-            colors[i] = Vec4::new(r, g, b, f32::from(lamp.room));
+            colors[i] = Vec4::new(r * gain, g * gain, b * gain, f32::from(lamp.room));
         }
         if program.requires_uniform("u_light_pos") {
             program.use_uniform_array("u_light_pos", &positions);
@@ -623,10 +625,6 @@ impl Renderer {
             blend: Blend::TRANSPARENCY,
             cull: Cull::Back,
         };
-        // Halos: brighter at night, when the room around them is dark.
-        let sky = light.sky;
-        let gain =
-            (1.25 - 1.8 * (0.2126 * sky[0] + 0.7152 * sky[1] + 0.0722 * sky[2])).clamp(0.3, 1.0);
         let halo = &self.halo;
         if self.halos.is_some() {
             halo.use_uniform_if_required("u_view_proj", mat4(&projection.view_proj));

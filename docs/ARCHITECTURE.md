@@ -26,6 +26,12 @@ every reader returns `Result` with a stable error code that the frontend transla
   moves, a state changes, an animation runs or an edit is dragged; it stops when the engine reports
   that nothing is moving, and pauses entirely when the view is off-screen
   (`IntersectionObserver`) or the tab is hidden (`visibilitychange`).
+- `src/live/` is the Home Assistant side of live control: bindings and roles, the default tap and
+  long-press actions and running them, the states sent to the engine (only bound entities that
+  changed), and the suggestions of the link editor.
+- `src/components/` holds the card, the panel, `<domotwin-view>` (one canvas, one engine), the
+  panels over the scene (`sheets.ts`: an element's controls, a room's panel) and the link editor;
+  the last two are chunks loaded the first time they open.
 - `src/i18n/` holds the English and French dictionaries. Every visible string goes through `t()`.
 
 ![Render on demand: frames only when something changes, nothing while idle or off-screen](figures/render-on-demand.png)
@@ -35,15 +41,20 @@ every reader returns `Result` with a stable error code that the frontend transla
 ![From plan to pixels: the reader, the scene in two meshes, the draw passes and the cut-away](figures/render-pipeline.png)
 
 - `domotwin-core::plan` reads the file; `geometry` derives the walls, their heights and the door
-  sweeps; `scene` turns everything into two meshes (`scene::mesh` packs the vertices); `camera`
-  holds the camera math and the cut-away decision.
+  sweeps; `scene` turns the static home into two meshes (`scene::mesh` packs the vertices) and the
+  moving parts (doors, windows, blinds, curtains) into two small ones; `camera` holds the camera
+  math and the cut-away decision; `bindings` and `live` turn entity states into the look of each
+  element and fade towards it (D-016).
 - `domotwin-render` uploads the meshes once and draws them with its own shaders (`shaders.rs`):
-  the sun shadow map (Balanced and High), the opaque home, then glass and contact shadows. `view.rs`
-  runs the camera moves, the 2D switch and the wall animations. See D-014.
-- `domotwin-web` exposes a small API: `loadPlan`, `orbit`, `pan`, `zoom`, `setPlanView`,
-  `overview`, `focusElement`, `views`, `showView`, `pick`, `stats`, `frame`.
-- In the frontend, `src/gestures.ts` turns pointer events into drags, pans, pinches and taps, and
-  `<domotwin-view>` applies them and draws the toolbar.
+  the sun shadow map (Balanced and High), the opaque home, then glass and contact shadows, then the
+  halos of lit bulbs. The look of every element (glow, greyed out, flash) is a small texture the
+  vertex shader reads; `lamps.rs` picks the point lights. `view.rs` runs the camera moves, the 2D
+  switch and the wall animations. See D-014 and D-016.
+- `domotwin-web` exposes a small API: `loadPlan`, `setBindings`, `setStates`, `highlight`,
+  `orbit`, `pan`, `zoom`, `setPlanView`, `overview`, `focusElement`, `views`, `showView`, `pick`,
+  `screenPoint`, `stats`, `frame`.
+- In the frontend, `src/gestures.ts` turns pointer events into drags, pans, pinches, taps and long
+  presses, and `<domotwin-view>` applies them, runs the actions and draws the toolbar.
 
 ## Data flow
 

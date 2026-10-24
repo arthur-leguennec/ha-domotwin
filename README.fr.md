@@ -15,8 +15,9 @@ Local, rapide, Rust + WebAssembly.</p>
 > [!NOTE]
 > **État : développement en cours.** DomoTwin se construit étape par étape
 > ([feuille de route](docs/ROADMAP.md), en anglais). L’intégration, le panneau, la carte, l’import
-> du plan et les vues 3D et 2D fonctionnent déjà ; le pilotage en direct arrive avec l’étape M2.
-> Les fonctionnalités ci-dessous décrivent la version 0.1.0.
+> du plan, les vues 3D et 2D et le pilotage en direct (états, toucher, appui long, panneau de pièce,
+> liaisons) fonctionnent déjà ; les calques et le mode édition arrivent ensuite. Les fonctionnalités
+> ci-dessous décrivent la version 0.1.0.
 
 ## Fonctionnalités
 
@@ -24,8 +25,8 @@ Local, rapide, Rust + WebAssembly.</p>
   maquette 3D. Les murs face à la caméra s’abaissent automatiquement, comme une maison de poupée
   ouverte. Passez à un plan 2D net avec une transition fluide.
 - **Toucher pour piloter.** Touchez une lampe pour l’allumer ou l’éteindre, appuyez longuement pour
-  la luminosité et la couleur, touchez une pièce pour retrouver ses lumières, scènes, volets,
-  chauffage et lecteurs.
+  la luminosité et la couleur, appuyez longuement sur une pièce pour retrouver ses lumières, scènes,
+  volets, chauffage et lecteurs.
 - **En direct.** Les lampes éclairent leur pièce dans leur vraie couleur et luminosité, la télévision
   s’illumine, volets et rideaux bougent, portes et fenêtres s’ouvrent avec leurs capteurs.
 - **Calques.** Une carte de chaleur animée (température, humidité ou CO₂), les alertes de sécurité,
@@ -42,6 +43,10 @@ Local, rapide, Rust + WebAssembly.</p>
 <p align="center">
   <img src="docs/figures/screenshot-3d.png" alt="L’appartement fictif de démonstration en 3D : les murs face à la caméra sont abaissés, des meubles dans chaque pièce" width="49%">
   <img src="docs/figures/screenshot-plan.png" alt="Le même appartement en plan 2D vu du dessus" width="49%">
+</p>
+
+<p align="center">
+  <img src="docs/figures/screenshot-live.png" alt="Le pilotage en direct, le soir : un appui long sur une lampe ouvre ses commandes, un appui long sur le sol d’une pièce ouvre le panneau de la pièce" width="100%">
 </p>
 
 ## Démarrage rapide

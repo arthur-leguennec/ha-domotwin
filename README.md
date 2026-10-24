@@ -14,17 +14,17 @@ Local, fast, Rust + WebAssembly.</p>
 
 > [!NOTE]
 > **Status: early development.** DomoTwin is built milestone by milestone
-> ([roadmap](docs/ROADMAP.md)). The integration, the panel, the card, the plan import and the 3D
-> and 2D views work today; live control arrives with milestone M2. The features below describe
-> version 0.1.0.
+> ([roadmap](docs/ROADMAP.md)). The integration, the panel, the card, the plan import, the 3D
+> and 2D views and live control (states, tap, long press, room panel, linking) work today; layers
+> and the edit mode come next. The features below describe version 0.1.0.
 
 ## Features
 
 - **Your floor plan in 3D and 2D.** Import a House Maquette plan (`*.plan.json`) and see it as a
   clean 3D model. The walls facing the camera are lowered automatically, like an open dollhouse.
   Switch to a crisp 2D plan with a smooth animation.
-- **Tap to control.** Tap a lamp to toggle it, long-press for brightness and colour, tap a room to
-  get every light, scene, cover, climate and media player of that room.
+- **Tap to control.** Tap a lamp to toggle it, long-press for brightness and colour, long-press a
+  room to get every light, scene, cover, climate and media player of that room.
 - **Live.** Lamps light their room in their real colour and brightness, the TV glows, blinds and
   curtains move, doors and windows open with their contact sensors.
 - **Layers.** An animated heatmap of temperature, humidity or CO₂, safety alerts, presence, the real
@@ -39,6 +39,10 @@ Local, fast, Rust + WebAssembly.</p>
 <p align="center">
   <img src="docs/figures/screenshot-3d.png" alt="The fictional demo apartment in 3D: walls facing the camera are lowered, furniture in every room" width="49%">
   <img src="docs/figures/screenshot-plan.png" alt="The same apartment as a 2D plan seen from above" width="49%">
+</p>
+
+<p align="center">
+  <img src="docs/figures/screenshot-live.png" alt="Live control in the evening: a long press on a lamp opens its controls, a long press on a room's floor opens the room panel" width="100%">
 </p>
 
 ## Quick start

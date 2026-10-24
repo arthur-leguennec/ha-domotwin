@@ -137,6 +137,94 @@ try {
     ),
   );
   console.log("docs/figures/screenshot-moods.png");
+
+  // Live control (M2), with the demo home's states: the panels over the scene, in the evening.
+  const live = await browser.newPage({ viewport: { width: 1100, height: 760 } });
+  await live.goto("http://127.0.0.1:4173/?mode=panel&live=1");
+  await live.waitForFunction(() => window.__view?.()?.debugState().summary, null, {
+    timeout: 60_000,
+  });
+  await live.evaluate(async () => {
+    const view = window.__view();
+    view.options = { quality: "high", view: "3d", cutaway: "auto", lighting: "evening" };
+    await view.updateComplete;
+    view.showElement("living");
+    view.settle();
+  });
+  const stage = await live.locator("domotwin-view .stage").boundingBox();
+  const pointOn = (id) =>
+    live.evaluate(
+      ({ id, box }) => {
+        const view = window.__view();
+        const c = view.elementPoint(id);
+        for (let r = 0; r <= 24; r += 3)
+          for (let dy = -r; dy <= r; dy += 3)
+            for (let dx = -r; dx <= r; dx += 3)
+              if (view.elementAt(c.x + dx, c.y + dy)?.id === id)
+                return [box.x + c.x + dx, box.y + c.y + dy];
+        return [box.x + c.x, box.y + c.y];
+      },
+      { id, box: stage },
+    );
+  const longPress = async (id) => {
+    const [x, y] = await pointOn(id);
+    await live.mouse.move(x, y);
+    await live.mouse.down();
+    await live.waitForTimeout(700);
+    await live.mouse.up();
+    await live.waitForTimeout(300);
+    await live.evaluate(() => window.__view().settle());
+  };
+  const pictures = [];
+  await longPress("floor-lamp");
+  pictures.push(await live.screenshot());
+  await live.keyboard.press("Escape");
+  await longPress("living");
+  pictures.push(await live.screenshot());
+  await live.keyboard.press("Escape");
+  await live.getByTestId("link-mode").click();
+  const [lx, ly] = await pointOn("table-lamp");
+  await live.mouse.click(lx, ly);
+  await live.waitForTimeout(300);
+  await live.evaluate(() => window.__view().settle());
+  const fs = await import("node:fs/promises");
+  await fs.writeFile(join(root, "docs", "figures", "screenshot-link.png"), await live.screenshot());
+  console.log("docs/figures/screenshot-link.png");
+  const pair = await live.evaluate(async (images) => {
+    const decoded = await Promise.all(
+      images.map(async (base64) => {
+        const image = new Image();
+        image.src = `data:image/png;base64,${base64}`;
+        await image.decode();
+        return image;
+      }),
+    );
+    const labels = ["Long press: the lamp's controls", "Long press on the floor: the room"];
+    const canvas = document.createElement("canvas");
+    const [w, h] = [decoded[0].width, decoded[0].height];
+    canvas.width = w * 2 + 30;
+    canvas.height = h + 20;
+    const g = canvas.getContext("2d");
+    g.fillStyle = "#f1f5f9";
+    g.fillRect(0, 0, canvas.width, canvas.height);
+    decoded.forEach((image, i) => {
+      const x = 10 + i * (w + 10);
+      g.drawImage(image, x, 10);
+      g.fillStyle = "rgba(255,255,255,0.92)";
+      g.beginPath();
+      g.roundRect(x + 16, 72, 430, 44, 22);
+      g.fill();
+      g.fillStyle = "#0f172a";
+      g.font = "600 22px Inter, sans-serif";
+      g.fillText(labels[i], x + 36, 101);
+    });
+    return canvas.toDataURL("image/png");
+  }, pictures.map((png) => png.toString("base64")));
+  await fs.writeFile(
+    join(root, "docs", "figures", "screenshot-live.png"),
+    Buffer.from(pair.slice(pair.indexOf(",") + 1), "base64"),
+  );
+  console.log("docs/figures/screenshot-live.png");
   await browser.close();
 } finally {
   server.kill();
