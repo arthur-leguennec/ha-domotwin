@@ -87,3 +87,36 @@ fn quality_can_be_forced() {
     engine.set_quality("eco");
     assert_eq!(engine.quality(), "eco");
 }
+
+const BINDINGS: &str = include_str!("../../../examples/demo-apartment.bindings.json");
+
+#[wasm_bindgen_test]
+fn live_states_light_lamps_and_move_doors() {
+    let mut engine = Engine::new(canvas()).unwrap();
+    engine.load_plan(DEMO, None).unwrap();
+    engine.set_bindings(BINDINGS);
+    engine.set_states(
+        r#"{
+            "light.living_room_pendant": { "state": "on", "attributes": { "brightness": 255 } },
+            "light.living_room_floor_lamp": { "state": "off", "attributes": {} },
+            "binary_sensor.entrance_door_contact": { "state": "on", "attributes": { "device_class": "door" } },
+            "media_player.living_room_tv": { "state": "playing", "attributes": {} }
+        }"#,
+    );
+    assert!(engine.needs_frame());
+    let mut t = 0.0;
+    while engine.frame(t) {
+        t += 16.0;
+        assert!(t < 10_000.0, "the fades end");
+    }
+    let stats = engine.stats();
+    assert!(stats.contains("\"bound\":"), "{stats}");
+    assert!(!engine.needs_frame());
+    engine.highlight("pendant-living");
+    assert!(engine.needs_frame());
+    // Forgetting an entity greys its lamp out, without breaking anything.
+    engine.set_states(r#"{ "light.living_room_pendant": null }"#);
+    while engine.frame(t) {
+        t += 16.0;
+    }
+}

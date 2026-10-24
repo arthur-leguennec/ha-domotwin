@@ -2,13 +2,16 @@
 //!
 //! One vertex shader serves every pass. It reads the packed attributes of
 //! `domotwin_core::scene::mesh::Mesh` and applies the cut-away: walls lower to the height of their
-//! group, pieces starting above it and things hanging on a cut wall disappear.
+//! group, pieces starting above it and things hanging on a cut wall disappear. It also reads the
+//! live look of the vertex's element (its light, greyed out, tap highlight) from `u_elements`.
 
 /// Vertex shader of every pass.
 pub(crate) const VERTEX: &str = r"
 uniform mat4 u_view_proj;
 uniform vec4 u_cut[32];
 uniform float u_wall_height;
+// Two texels per element tag: light (rgb, strength), flags (greyed out, highlight).
+uniform sampler2D u_elements;
 
 in vec4 a_position;
 in ivec4 a_normal;
@@ -22,6 +25,9 @@ out vec4 v_color;
 out vec2 v_uv;
 flat out uint v_surface;
 flat out uint v_element;
+flat out vec4 v_look;
+flat out vec4 v_flags;
+flat out float v_room;
 
 float cut_height(uint group) {
     vec4 slot = u_cut[group >> 2u];
@@ -49,6 +55,10 @@ void main() {
     v_uv = a_uv;
     v_surface = a_extra.y >> 2u;
     v_element = a_extra.z | (a_extra.w << 8u);
+    ivec2 at = ivec2(int(v_element) * 2, 0);
+    v_look = texelFetch(u_elements, at, 0);
+    v_flags = texelFetch(u_elements, at + ivec2(1, 0), 0);
+    v_room = float(uint(a_normal.w) & 255u);
     // A hidden piece is moved outside the clip volume: all its vertices share the test.
     gl_Position = hidden ? vec4(0.0, 0.0, 2.0, 1.0) : u_view_proj * vec4(p, 1.0);
 }
@@ -73,6 +83,14 @@ in vec4 v_color;
 in vec2 v_uv;
 flat in uint v_surface;
 flat in uint v_element;
+flat in vec4 v_look;
+flat in vec4 v_flags;
+flat in float v_room;
+
+// The lamps that are on: position and reach, colour and room slot (0: every room).
+uniform vec4 u_light_pos[16];
+uniform vec4 u_light_color[16];
+uniform float u_light_count;
 
 out vec4 frag;
 
@@ -81,7 +99,7 @@ const uint PLANKS = 1u;
 const uint TILES = 2u;
 const uint SUBWAY = 3u;
 const uint GLASS = 4u;
-const uint EMISSIVE = 5u;
+const uint GLOW = 5u;
 const uint METAL = 6u;
 const uint FABRIC = 7u;
 const uint MIRROR = 8u;
@@ -182,6 +200,32 @@ float sun_shadow(vec3 n) {
     return lit / count;
 }
 
+// The light of the lamps that are on, limited to their room.
+vec3 lamps(vec3 n) {
+    vec3 sum = vec3(0.0);
+    int count = int(u_light_count);
+    for (int i = 0; i < 16; i++) {
+        if (i >= count) {
+            break;
+        }
+        vec4 pos = u_light_pos[i];
+        vec4 tint = u_light_color[i];
+        if (tint.w > 0.5 && abs(tint.w - v_room) > 0.5) {
+            continue;
+        }
+        vec3 d = pos.xyz - v_world;
+        float dist = length(d);
+        if (dist >= pos.w) {
+            continue;
+        }
+        float x = dist / pos.w;
+        float fall = (1.0 - x * x) * (1.0 - x * x);
+        float facing = max(dot(n, d / max(dist, 1.0)), 0.0) * 0.8 + 0.2;
+        sum += tint.rgb * fall * facing;
+    }
+    return sum;
+}
+
 void main() {
     uint surface = v_surface;
     vec3 base = to_linear(v_color.rgb);
@@ -196,11 +240,6 @@ void main() {
         vec2 q = max(abs(v_uv) - core, 0.0) / max(1.0 - core, vec2(0.001));
         float a = (1.0 - smoothstep(0.0, 1.0, length(q))) * 0.32 * (1.0 - 0.5 * u_flat);
         frag = vec4(0.0, 0.0, 0.0, a);
-        return;
-    }
-    if (surface == EMISSIVE) {
-        vec3 e = aces(base * 2.4);
-        frag = vec4(pow(e, vec3(1.0 / 2.2)), 1.0);
         return;
     }
     vec3 albedo = base;
@@ -238,6 +277,7 @@ void main() {
     vec3 f = f0 + (1.0 - f0) * fresnel * (1.0 - rough);
     vec3 color = diffuse + u_sun_color * spec * f * shadow * step(0.0, ndl) * (1.0 - rough * 0.85);
     color += env * f * (1.0 - rough) * 0.6;
+    color += albedo * lamps(n) * (metal ? 0.4 : 1.0);
     float alpha = 1.0;
     if (surface == MIRROR) {
         color = env * 0.9 + albedo * 0.1;
@@ -248,11 +288,31 @@ void main() {
         alpha = 0.22 + 0.5 * fresnel;
     }
 
+    // Lamps and screens that are on glow with their element's light.
+    float glow = v_look.a;
+    vec3 emission = v_look.rgb * glow;
+    if (surface == GLOW) {
+        color = color * (1.0 - min(glow, 1.0) * 0.7) + emission * 2.2;
+    } else if (surface == SCREEN) {
+        color += emission * 1.4;
+    }
+
     // The 2D plan: flat colours, dark wall tops.
     vec3 plan = albedo * (0.86 + 0.14 * max(n.y, 0.0));
     if (surface == WALL_CAP) {
         plan = vec3(0.035, 0.04, 0.038);
     }
+    if (surface == GLOW || surface == SCREEN) {
+        plan = mix(plan, min(emission * 1.5, vec3(1.0)), min(glow, 1.0) * 0.85);
+    }
+
+    // Unavailable entities: greyed out. A tap: a short blue flash.
+    float grey = v_flags.r * 0.85;
+    color = mix(color, vec3(dot(color, vec3(0.2126, 0.7152, 0.0722))) * 0.7, grey);
+    plan = mix(plan, vec3(dot(plan, vec3(0.2126, 0.7152, 0.0722))) * 0.8, grey);
+    vec3 flash = vec3(0.25, 0.5, 1.0) * v_flags.g;
+    color += flash * 0.6;
+    plan += flash * 0.3;
     vec3 shaded = mix(aces(color * u_exposure), plan, u_flat);
     frag = vec4(pow(shaded, vec3(1.0 / 2.2)), mix(alpha, max(alpha, 0.35), u_flat));
 }
@@ -273,5 +333,45 @@ void main() {
         discard;
     }
     frag = vec4(float(v_element & 255u), float(v_element >> 8u), 0.0, 255.0) / 255.0;
+}
+";
+
+/// Halos around lit bulbs: camera-facing quads, added to the picture.
+pub(crate) const HALO_VERTEX: &str = r"
+uniform mat4 u_view_proj;
+uniform vec3 u_right;
+uniform vec3 u_up;
+
+in vec4 a_center;
+in vec4 a_tint;
+in vec2 a_corner;
+
+out vec2 v_corner;
+flat out vec3 v_tint;
+
+void main() {
+    v_corner = a_corner;
+    v_tint = a_tint.rgb;
+    vec3 p = a_center.xyz + (u_right * a_corner.x + u_up * a_corner.y) * a_center.w;
+    gl_Position = u_view_proj * vec4(p, 1.0);
+}
+";
+
+/// The glow of a halo, strongest at the bulb.
+pub(crate) const HALO_FRAGMENT: &str = r"
+uniform float u_gain;
+
+in vec2 v_corner;
+flat in vec3 v_tint;
+
+out vec4 frag;
+
+void main() {
+    float d2 = dot(v_corner, v_corner);
+    if (d2 >= 1.0) {
+        discard;
+    }
+    float a = (exp(-d2 * 4.0) - exp(-4.0)) / (1.0 - exp(-4.0));
+    frag = vec4(1.0 - exp(-v_tint * a * u_gain), 0.0);
 }
 ";

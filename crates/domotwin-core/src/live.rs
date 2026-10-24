@@ -310,6 +310,28 @@ impl LiveState {
         self.target = targets;
     }
 
+    /// Whether every look and opening has reached its target (no frame needed).
+    pub fn is_settled(&self) -> bool {
+        let close = |a: f32, b: f32| (a - b).abs() < 1e-4;
+        let looks = self.looks.iter().zip(&self.target.looks).all(|(a, b)| {
+            close(a.strength, b.strength)
+                && close(a.unavailable, b.unavailable)
+                && a.highlight <= 0.0
+                && (0..3).all(|k| close(a.glow[k], b.glow[k]))
+        });
+        let moving = [
+            (&self.overrides.open, &self.target.overrides.open),
+            (&self.overrides.blind, &self.target.overrides.blind),
+        ]
+        .into_iter()
+        .all(|(current, target)| {
+            target
+                .iter()
+                .all(|(k, v)| current.get(k).is_some_and(|c| (c - v).abs() < 1e-9))
+        });
+        looks && moving
+    }
+
     /// Flashes an element (tap feedback).
     pub fn highlight(&mut self, element: usize) {
         if let Some(look) = self.looks.get_mut(element) {
@@ -353,13 +375,25 @@ impl LiveState {
             (&mut self.overrides.blind, &self.target.overrides.blind),
         ] {
             for (index, goal) in target {
-                let value = current.entry(*index).or_insert(*goal);
-                let next = approach(*value, *goal, moved);
-                if (next - *value).abs() > 1e-9 {
-                    *value = next;
-                    step.moving = true;
+                match current.get_mut(index) {
+                    Some(value) => {
+                        let next = approach(*value, *goal, moved);
+                        if (next - *value).abs() > 1e-9 {
+                            *value = next;
+                            step.moving = true;
+                        }
+                    }
+                    // A part that starts following an entity: drawn there at once.
+                    None => {
+                        current.insert(*index, *goal);
+                        step.moving = true;
+                    }
                 }
             }
+            // A part that stops following an entity goes back to the plan.
+            let before = current.len();
+            current.retain(|index, _| target.contains_key(index));
+            step.moving |= current.len() != before;
         }
         step.animating = step.looks || step.moving;
         step
@@ -452,6 +486,10 @@ mod tests {
         }
         assert!((live.looks[lamp].strength - 1.0).abs() < 1e-3);
         assert!(live.overrides.open[&door] >= 0.85);
+        // Forgetting the contact puts the door back as the plan has it.
+        live.set_targets(targets(&plan, &lights, &bindings, &BTreeMap::new()));
+        assert!(live.step(16.0).moving);
+        assert!(!live.overrides.open.contains_key(&door));
         live.highlight(lamp);
         assert!(live.step(16.0).looks);
     }
