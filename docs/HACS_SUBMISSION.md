@@ -14,6 +14,8 @@ maintainer.
 - [ ] The integration is in the [home-assistant/brands](https://github.com/home-assistant/brands)
       repository (`custom_integrations/domotwin/icon.png`, `logo.png`, and their `@2x` versions).
 - [ ] The README explains what the integration does, how to install and configure it.
+- [ ] The README's images and links are absolute URLs: HACS shows it inside Home Assistant, where
+      relative paths do not resolve (`tests/test_readme.py`).
 - [ ] Install test as a HACS custom repository on a clean Home Assistant succeeded.
 
 ## Submission
