@@ -78,6 +78,68 @@ test("drag cost in edit mode", async ({ page }, testInfo) => {
   expect(report.moveMedianMs).toBeLessThan(50);
 });
 
+interface PlanEditorForTests {
+  state: { corners: { x: number; y: number }[] };
+  tap(x: number, y: number): void;
+  grab(pointer: number, from: { x: number; y: number }): boolean;
+  pending?: { x: number; y: number };
+  flush(): void;
+  endDrag(): void;
+}
+
+// The plan editor: what one pointer move costs while a room's corner is dragged (the change
+// checked by the plan reader in the plan editor's module, the draft shown again: read by the
+// engine, the whole scene built and uploaded, the handles placed), then drawing the frame.
+test("drag cost in the plan editor", async ({ page }, testInfo) => {
+  await openHarness(page, { mode: "panel", view: "2d" });
+  await expect(page.getByTestId("summary")).toBeVisible();
+  await page.getByTestId("plan-mode").click();
+  await expect(page.locator("domotwin-plan-bar")).toBeVisible();
+  const report = await page.evaluate(() => {
+    const view = (
+      window as never as {
+        __view: () => {
+          planEditor: PlanEditorForTests;
+          engine: { frame(time: number): boolean; invalidate(): void };
+          canvas: HTMLCanvasElement;
+          elementPoint(id: string): { x: number; y: number } | undefined;
+        };
+      }
+    ).__view();
+    const editor = view.planEditor;
+    const sofa = view.elementPoint("sofa");
+    if (!sofa) throw new Error("no sofa");
+    editor.tap(sofa.x, sofa.y);
+    const scale = view.canvas.width / view.canvas.clientWidth;
+    const corner = editor.state.corners[0];
+    if (!corner) throw new Error("no room selected");
+    const from = { x: corner.x / scale, y: corner.y / scale };
+    if (!editor.grab(1, from)) throw new Error("no grab");
+    const move: number[] = [];
+    const frame: number[] = [];
+    for (let i = 1; i <= 60; i += 1) {
+      editor.pending = { x: from.x - i, y: from.y - i / 2 };
+      const start = performance.now();
+      editor.flush();
+      const moved = performance.now();
+      view.engine.invalidate();
+      view.engine.frame(moved);
+      move.push(moved - start);
+      frame.push(performance.now() - moved);
+    }
+    editor.endDrag();
+    const median = (values: number[]) => [...values].sort((a, b) => a - b)[values.length >> 1];
+    const p95 = (values: number[]) =>
+      [...values].sort((a, b) => a - b)[Math.floor(values.length * 0.95)];
+    return { moveMedianMs: median(move), moveP95Ms: p95(move), frameMedianMs: median(frame) };
+  });
+  const path = testInfo.outputPath("plan-drag-cost.json");
+  await writeFile(path, JSON.stringify(report, null, 2));
+  await testInfo.attach("plan-drag-cost", { path, contentType: "application/json" });
+  console.log(JSON.stringify(report));
+  expect(report.moveMedianMs).toBeLessThan(50);
+});
+
 // Two pieces drawn from a 3D file of 139 392 triangles (7 MB STL): fetching and reading it, giving
 // it to the engine (the whole scene rebuilt), then the frame time.
 test("a large 3D model", async ({ page }, testInfo) => {

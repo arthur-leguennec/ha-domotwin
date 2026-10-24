@@ -17,7 +17,7 @@ Local, rapide, Rust + WebAssembly.</p>
 > route](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/ROADMAP.md), en anglais).
 > L’intégration, le panneau, la carte, l’import du plan et de l’IFC, les vues 3D et 2D, le
 > pilotage en direct (états, toucher, appui long, panneau de pièce, liaisons), le mode édition, vos
-> propres modèles 3D, les calques et les appareils fonctionnent déjà ; un éditeur de plan et les
+> propres modèles 3D, les calques, les appareils et l’éditeur de plan fonctionnent déjà ; les
 > étages arrivent ensuite. Les fonctionnalités ci-dessous décrivent la version 0.1.0.
 
 ## Fonctionnalités
@@ -39,6 +39,10 @@ Local, rapide, Rust + WebAssembly.</p>
 - **Appareils.** Des badges sur vos appareils (l’état d’une serrure, une caméra qui enregistre, ce
   qui est en lecture, une batterie faible, le lave-linge en marche), et ce que voit chaque caméra,
   dessiné au sol de sa pièce ; touchez pour l’image en direct.
+- **Éditeur de plan.** Pas de plan à importer ? Dessinez-le dans le panneau : des pièces en
+  polygones avec leurs longueurs, des cloisons, des portes et des fenêtres posées sur les murs, avec
+  aimantation et annulation. Voir [l’éditeur de
+  plan](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/plan-editor.md) (en anglais).
 - **Mode édition.** Déplacez, tournez et empilez les meubles avec aimantation, repères et
   annulation, ajoutez des meubles depuis un catalogue, liez n’importe quel objet à des entités (avec
   des suggestions tirées de vos pièces), et ajoutez votre propre meuble ou appareil avec son modèle
@@ -70,6 +74,10 @@ Local, rapide, Rust + WebAssembly.</p>
   <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-devices.png" alt="Les appareils : des badges sur la porte d’entrée, la télévision, la caméra et le lave-linge, et le cône de ce que voit la caméra du séjour sur le plan 2D" width="100%">
 </p>
 
+<p align="center">
+  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-plan-editor.png" alt="L’éditeur de plan : un coin du séjour déplacé avec les longueurs de ses côtés, et une pièce dessinée à côté du logement" width="100%">
+</p>
+
 ## Démarrage rapide
 
 1. **Installer.** Utilisez le bouton ci-dessus, ou ajoutez dans HACS
@@ -83,7 +91,8 @@ Local, rapide, Rust + WebAssembly.</p>
    Pas encore de plan ? Essayez l’appartement fictif
    [`examples/demo-apartment.plan.json`](https://github.com/arthur-leguennec/ha-domotwin/blob/main/examples/demo-apartment.plan.json)
    ou
-   [`examples/demo-apartment.ifc`](https://github.com/arthur-leguennec/ha-domotwin/blob/main/examples/demo-apartment.ifc).
+   [`examples/demo-apartment.ifc`](https://github.com/arthur-leguennec/ha-domotwin/blob/main/examples/demo-apartment.ifc),
+   ou **Dessiner un plan** dans l’application.
 
 Ajoutez ensuite la carte **DomoTwin** à n’importe quel tableau de bord depuis le sélecteur de
 cartes.
@@ -143,6 +152,10 @@ dans
 avec son schéma JSON, et un étage d’un fichier IFC (ISO 16739, exporté par FreeCAD, Blender avec
 Bonsai, ArchiCAD ou Revit) : voir [l’import
 IFC](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/ifc-import.md) (en anglais).
+
+**Puis-je dessiner mon logement sans autre logiciel ?** Oui : **Dessiner un plan** dans le
+panneau (ou **Modifier le plan** pour en changer un), voir [l’éditeur de
+plan](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/plan-editor.md) (en anglais).
 
 **Puis-je utiliser mes propres meubles ?** Oui : en mode édition, **Importer un modèle 3D** accepte
 un fichier glTF/GLB, OBJ, STL ou 3MF de 8 Mo au plus. Donnez sa taille réelle ; il se place,

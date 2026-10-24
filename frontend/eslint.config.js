@@ -9,6 +9,7 @@ export default tseslint.config(
       "src/engine/pkg/",
       "src/ifc/pkg/",
       "src/models/pkg/",
+      "src/planner/pkg/",
       "node_modules/",
       "test-results/",
       "playwright-report/",

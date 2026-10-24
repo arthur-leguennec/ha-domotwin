@@ -223,3 +223,26 @@ In headless Chromium with the demo apartment (three elements with badges, one ca
 out the badges from the `hass` object takes 0.04 ms, the elements' points 0.02 ms and the cameras'
 cones 0.07 ms, read only when the camera moves or a state changes; the CPU time per frame is
 unchanged (0.3 ms median, 1.1 ms p95).
+
+### M6 (plan editor)
+
+Bundle: the first load is **334.8 kB gzipped** of 1 200 kB (+7.5 kB):
+
+| File | Raw | Gzipped |
+| --- | ---: | ---: |
+| `domotwin_web_bg.<hash>.wasm` | 621.5 kB | 270.7 kB |
+| `domotwin.js` (entry) | 90.4 kB | 23.8 kB |
+| `domotwin_planner_bg.<hash>.wasm` (on demand) | 237.9 kB | 112.8 kB |
+| The plan editor's JS: bar, tools and handles, glue (on demand) | 29.6 kB | 10.2 kB |
+
+Inside the engine, the plan editor cost 20.5 kB gzipped (LTO inlined the whole engine
+differently): it is its own module, loaded when the plan editor opens (D-025). The engine grew by
+3.3 kB (showing a draft, marking the selection, the plan shown with its overlay, points both
+ways), the first load's other chunks by 4.2 kB (the texts in English and French, the panel's and
+the view's side of the plan editor).
+
+In headless Chromium with the demo apartment, dragging a corner of the living room costs 4.7 ms
+per pointer move (median; 12 ms p95): the change checked by the plan reader in the planner, the
+draft passed as JSON to the engine, read again, the whole scene built and uploaded, and the
+handles placed; drawing the frame then takes 0.2 ms. The view applies at most one move per frame;
+a tap that only selects marks the element without building the scene again.

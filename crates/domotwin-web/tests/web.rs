@@ -380,3 +380,58 @@ fn cameras_see_their_room_and_badges_have_places() {
     assert_eq!(washer["type"], "furniture");
     assert_eq!(washer["name"], "Washing machine");
 }
+
+#[wasm_bindgen_test]
+fn the_plan_editor_s_drafts_are_shown_and_points_turned_both_ways() {
+    let mut engine = Engine::new(canvas()).unwrap();
+    engine.load_plan(DEMO, None, None).unwrap();
+    engine.set_plan_view(true, 0.0);
+    let mut t = 0.0;
+    while engine.frame(t) {
+        t += 16.0;
+    }
+    // A plan point and back: the same device pixel.
+    let p = engine.plan_point(160.0, 120.0);
+    assert_eq!(p.len(), 2);
+    let back = engine.screen_points(&p);
+    assert!(
+        (back[0] - 160.0).abs() < 0.5 && (back[1] - 120.0).abs() < 0.5,
+        "{back:?}"
+    );
+    // The plan shown, the overlay in it, at the current revision.
+    let shown = engine.shown_plan();
+    assert!(shown.contains("\"layoutRevision\":10"), "{shown}");
+    // A draft with the living room renamed, the living room marked; the camera stays.
+
+    let camera = engine.stats();
+    let draft = DEMO.replacen("\"Living room\"", "\"Lounge\"", 1);
+    engine.show_draft(&draft, "living").unwrap();
+    assert_eq!(engine.stats(), camera);
+    let [x, y]: [f64; 2] = serde_json::from_str(&engine.screen_point("living")).unwrap();
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    let picked = engine.pick(x as u32, y as u32);
+    assert!(picked.contains("\"living\""), "{picked}");
+    assert!(
+        engine.show_draft("{}", "").is_err(),
+        "a draft the reader refuses"
+    );
+    engine.mark_selected("kitchen");
+    engine.mark_selected("");
+    // Edit mode works on the plan stored, which is still the one loaded.
+    engine.load_plan(DEMO, Some(true), None).unwrap();
+    assert!(engine.begin_edit().contains("\"editing\":true"));
+    engine.end_edit(false);
+    // A new plan drawn and dropped: nothing is drawn.
+    let mut other = Engine::new(canvas()).unwrap();
+    assert!(other.shown_plan().is_empty());
+    other.show_draft(DEMO, "").unwrap();
+    assert!(!other.stats().contains("\"triangles\":0"));
+    other.clear_plan_shown();
+    assert!(
+        other.stats().contains("\"triangles\":0"),
+        "{}",
+        other.stats()
+    );
+    assert!(other.pick(160, 120).is_empty());
+    assert!(other.begin_edit().contains("\"editing\":false"));
+}

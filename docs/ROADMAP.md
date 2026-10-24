@@ -15,7 +15,7 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M3b       | Your own furniture and appliances with their 3D model      | ✅     |
 | M4        | Layers: heatmap, alerts, presence, real sun, power         | ✅     |
 | M5        | Devices: cameras and what they see, locks, appliances      | ✅     |
-| M6        | Plan editor: draw rooms, walls, doors and windows          | ⏳     |
+| M6        | Plan editor: draw rooms, walls, doors and windows          | ✅     |
 | M7        | Storeys: several floors, stairs, a storey switcher         | ⏳     |
 | M8        | Looks and kiosk: themes, walk mode, idle and night modes   | ⏳     |
 | M9        | Imports: Sweet Home 3D, DXF, room scans                    | ⏳     |
@@ -281,13 +281,36 @@ Devices drawn as what they are (`DECISIONS.md`, D-024; `bindings.md`, Devices).
 
 ![Devices: badges over the entrance door, the TV, the camera and the washing machine; what the living room's camera sees](figures/screenshot-devices.png)
 
-Left for later: cameras not on a piece (M6, drawn with the plan editor), a camera's picture in the
+Left for later: cameras not on a piece (not drawn by the plan editor either), a camera's picture in the
 view, cones cut by furniture, more device classes (vacuums with their position, irrigation).
 
 ## M6, plan editor
 
-Draw a plan in the app: rooms as polygons, walls, doors and windows placed on walls, with snapping
-and measurements, saved as a House Maquette plan.
+Draw a plan in the app (`DECISIONS.md`, D-025; [`plan-editor.md`](plan-editor.md)).
+
+- ✅ **Edit plan** in the panel, **Draw a plan** when none is stored (a new plan with one room); the
+  2D plan, Cancel and Save, a bar with the tools, Undo, Redo and Remove.
+- ✅ **Rooms**: drawn as rectangles or dropped with a tap, moved with everything in them, reshaped
+  by their corners (dragged, added in the middle of a side, removed), the length of each side
+  shown; name and floor.
+- ✅ **Partitions** drawn from end to end, with their thickness; **doors** and **windows** placed on
+  the nearest side of a room, moved along the sides, kept on their side when the room is reshaped;
+  width, kind and opening side of doors.
+- ✅ **Snapping** onto the other rooms' corners, in line with them (with guides), else onto a 5 cm
+  grid; every change checked by the plan reader, refused changes said.
+- ✅ **Saved** with the overlay in the plan, refused if another device saved; a plan not saved kept
+  by the browser and offered again. Edit mode's button is now **Arrange**.
+- ✅ The draft in **its own wasm module**, loaded when the plan editor opens: the first load grew by
+  7.5 kB gzipped.
+- ✅ Tests: the draft's changes (Rust) and fuzzing (every change kept leaves a plan the reader
+  accepts); the engine's drafts and points in headless Chromium; the fields, keys, labels and
+  draft storage (vitest); editing, drawing from nothing, keys, the kept draft and cancelling
+  (Playwright); the cost of a drag (4.7 ms).
+
+![The plan editor: a corner of the living room dragged with the lengths of its sides, and a room drawn beside the home](figures/screenshot-plan-editor.png)
+
+Left for later: sides without a wall, per-side thicknesses and finishes, typing a side's length,
+a camera of its own (not on a piece), several storeys (M7).
 
 ## M7, storeys
 

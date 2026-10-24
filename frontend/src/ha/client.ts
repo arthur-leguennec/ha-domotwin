@@ -93,9 +93,17 @@ export class DomoTwinClient {
     return result.revision;
   }
 
-  /** Stores a plan (admins only). `expectedRevision` refuses the save if another device saved. */
-  async savePlan(plan: PlanJson | null, expectedRevision?: number): Promise<number> {
+  /**
+   * Stores a plan (admins only). `expectedRevision` refuses the save if another device saved;
+   * `layout` replaces the edit overlay too (the plan editor stores the overlay in the plan).
+   */
+  async savePlan(
+    plan: PlanJson | null,
+    expectedRevision?: number,
+    layout?: Record<string, unknown>,
+  ): Promise<number> {
     const message: HassMessage = { type: "domotwin/plan/save", plan };
+    if (layout) message.layout = layout;
     if (expectedRevision !== undefined) message.expected_revision = expectedRevision;
     const result = await this.connection.sendMessagePromise<{ revision: number }>(message);
     this.plan = undefined;

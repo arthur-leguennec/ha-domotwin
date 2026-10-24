@@ -16,9 +16,9 @@ Local, fast, Rust + WebAssembly.</p>
 > **Status: early development.** DomoTwin is built milestone by milestone
 > ([roadmap](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/ROADMAP.md)). The
 > integration, the panel, the card, the plan and IFC import, the 3D and 2D views, live control
-> (states, tap, long press, room panel, linking), the edit mode, your own 3D models, the layers and
-> the devices work today; a plan editor and storeys come next. The features below describe
-> version 0.1.0.
+> (states, tap, long press, room panel, linking), the edit mode, your own 3D models, the layers, the
+> devices and the plan editor work today; storeys come next. The features below describe version
+> 0.1.0.
 
 ## Features
 
@@ -37,6 +37,9 @@ Local, fast, Rust + WebAssembly.</p>
 - **Devices.** Badges over your devices (a lock's state, a camera recording, what plays, a battery
   running low, the washing machine running), and what each camera sees drawn on the floor of its
   room; tap for the live picture.
+- **Plan editor.** No plan to import? Draw one in the panel: rooms as polygons with their lengths,
+  partitions, doors and windows placed on the walls, with snapping and undo. See [plan
+  editor](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/plan-editor.md).
 - **Edit mode.** Move, rotate and stack furniture with snapping, guides and undo, add pieces from
   a catalogue, link any object to entities (with suggestions from your areas), and add your own
   furniture or appliance with its 3D model (glTF/GLB, OBJ, STL or 3MF). See
@@ -66,6 +69,10 @@ Local, fast, Rust + WebAssembly.</p>
   <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-devices.png" alt="Devices: badges over the entrance door, the TV, the camera and the washing machine, and the cone of what the living room's camera sees on the 2D plan" width="100%">
 </p>
 
+<p align="center">
+  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-plan-editor.png" alt="The plan editor: a corner of the living room dragged with the lengths of its sides, and a room drawn beside the home" width="100%">
+</p>
+
 ## Quick start
 
 1. **Install.** Use the button above, or in HACS add
@@ -78,7 +85,8 @@ Local, fast, Rust + WebAssembly.</p>
    yet? Try the fictional
    [`examples/demo-apartment.plan.json`](https://github.com/arthur-leguennec/ha-domotwin/blob/main/examples/demo-apartment.plan.json)
    or
-   [`examples/demo-apartment.ifc`](https://github.com/arthur-leguennec/ha-domotwin/blob/main/examples/demo-apartment.ifc).
+   [`examples/demo-apartment.ifc`](https://github.com/arthur-leguennec/ha-domotwin/blob/main/examples/demo-apartment.ifc),
+   or **Draw a plan** in the app.
 
 Then add the **DomoTwin** card to any dashboard from the card picker.
 
@@ -133,6 +141,10 @@ WebAssembly) reads the plan, builds the geometry and draws it with WebGL2. More 
 with its JSON Schema, and one storey of an IFC file (ISO 16739, exported by FreeCAD, Blender with
 Bonsai, ArchiCAD or Revit): see [IFC
 import](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/ifc-import.md).
+
+**Can I draw my home without another program?** Yes: **Draw a plan** in the panel (or **Edit
+plan** to change one), see [plan
+editor](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/plan-editor.md).
 
 **Can I use my own furniture?** Yes: in edit mode, **Import a 3D model** takes a glTF/GLB, OBJ, STL
 or 3MF file up to 8 MB. Give its real size; it is placed, stacked and linked like any piece, kept

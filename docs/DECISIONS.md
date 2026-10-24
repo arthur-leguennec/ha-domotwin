@@ -279,7 +279,8 @@ explains why. Each entry: context, decision, consequences.
     offered again when edit mode opens.
 - **Consequences.** **Export plan** writes the overlay applied. Added pieces get ids
   `<kind>-added-<n>`. The engine grew by 30 kB gzipped; the edit bar and catalogue load only when
-  edit mode opens. Rooms, walls, doors and windows are not edited in DomoTwin.
+  edit mode opens. Rooms, walls, doors and windows are not edited in DomoTwin (until the plan
+  editor, D-025).
 
 ## D-020 · CI: run what a change needs, nothing twice
 
@@ -467,7 +468,59 @@ Decided while the maintainer was away (M5); open to review.
   - **Unavailable devices.** A lock or a camera that is unavailable greys out its element, as
     lights and covers do.
 - **Consequences.** Views are not cut by furniture, and an open side between two rooms stops a
-  view as a wall would (the room's polygon stands for its walls). A camera must be linked to a piece; cameras of their own come
-  with the plan editor (M6). Badges hide while linking and in edit mode, where taps pick elements.
+  view as a wall would (the room's polygon stands for its walls). A camera must be linked to a
+  piece; cameras of their own come later (the plan editor of M6 does not draw them). Badges hide
+  while linking and in edit mode, where taps pick elements.
   The badges and cones of a large home are a few dozen HTML and SVG nodes, moved only when the
   camera moves.
+
+## D-025 · Plan editor: a draft of the plan's JSON checked by the reader, in a module of its own
+
+Decided while the maintainer was away (M6); open to review.
+
+- **Context.** M6 lets a home be drawn in the app: rooms as polygons, partitions, doors and windows
+  on the rooms' sides, with snapping and lengths, without House Maquette or another program. The
+  format's rules already live in the plan reader; the engine every dashboard loads must stay light
+  (D-022); the furniture is arranged as an overlay (D-019).
+- **Decision.**
+  - **A draft of the JSON.** The editor works on the plan's JSON with the edit overlay applied
+    (the entries the plan accepts, at the current revision), in `domotwin-core::structure`. Every
+    change builds the next JSON and has the plan reader read it: a change refused is forgotten and
+    its code shown (a refused place only stops a drag). Undo keeps whole plans (100 steps); a drag
+    is one step. There is no second model of the plan to keep in step with the format.
+  - **Shapes.** A room is its frame and its corners in it, written back normalised (a legacy
+    `bevel` becomes corners); adding a corner splits a side, removing one merges two, and the per-side settings
+    (`openEdges`, `edgeThickness`, `edgeFinish`) follow their sides. When the room is reshaped, its
+    doors and windows stay on their side (on the half they are on when a corner splits it, on the
+    merged side when one goes) as near their place as they fit, running the same way and opening to
+    the same side; a door moved along its side keeps the side it opens to, and one on a wall two
+    rooms share stays in its own room. A width or a reshape that leaves an opening longer than its
+    side is refused (`opening_too_wide`). An opening is on a side by the walls' own rule (its line
+    within 6 cm of both ends of the side). A room moves with everything whose `parent` it is. A door or a window is placed on the nearest side of a room
+    within 60 cm, centred, kept within the side, a door opening into the room (83 cm; windows
+    120 cm). Removing a room removes its doors and windows; its furniture stays, in no room. Undo
+    and redo wait for a drag to end.
+  - **Snapping** in plan centimetres: onto another room's corner within 12 cm, else in line with
+    the corners of the other rooms within 8 cm (with a guide), else onto a 5 cm grid. Plans are
+    drawn by hand, not measured: these are fixed distances, not a share of the view as in edit mode.
+  - **A module of its own.** The draft is built as its own WebAssembly module
+    (`domotwin-planner`), loaded only when the plan editor opens, like the IFC import and the 3D
+    model readers (D-021): inside the engine it cost 20.5 kB gzipped on every first load (the
+    whole engine is inlined differently), for a tool an administrator opens now and then. The
+    engine only shows each version of the draft (`showDraft`, the selection marked), gives the
+    plan it shows with its overlay (`shownPlan`) and turns screen points into plan points and back.
+    The tools, the drags and the handles (corners, lengths, guides, the shape being drawn) are the
+    frontend's, loaded with the module; the handles follow the camera like the badges (D-024).
+  - **Saving** stores the whole plan, the overlay in it, and an empty overlay, in one save with the
+    revision the editor started from. A plan not saved is kept by the browser for that revision,
+    as edit mode's overlay is (D-019), and by the view while the panel is away from the page (its
+    history with it).
+  - **In 2D only**, apart from edit mode: one or the other is on. Edit mode's button is now
+    **Arrange**, so that it is not mistaken for **Edit plan**.
+- **Consequences.** Once saved from the plan editor, the plan is DomoTwin's: the overlay is in it,
+  and importing a file replaces it as before. A drag move builds the whole scene again (4.7 ms in
+  headless Chromium for the demo apartment, with the JSON passed from one module to the other).
+  Links follow ids: a removed element's links stay stored and do nothing, and a new element never
+  takes an id that has links (nor one given earlier in the session). Open sides, per-side
+  thicknesses and finishes and typed lengths are kept but not edited yet; the first load
+  grew by 7.5 kB gzipped (the engine's 3.3 kB, the texts in two languages, the panel's buttons).

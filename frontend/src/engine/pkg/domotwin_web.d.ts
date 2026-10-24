@@ -18,6 +18,10 @@ export class Engine {
      */
     cameraViews(): string;
     /**
+     * Shows no plan (a new plan drawn and dropped).
+     */
+    clearPlan(): void;
+    /**
      * Adds a piece of the user model `model` under the device pixel `x`, `y` (or in the middle of
      * the view), and selects it. `definition` is the model itself (JSON) when it is imported now,
      * empty for a model the plan has. The state has `refused: true` when it could not be added.
@@ -156,6 +160,11 @@ export class Engine {
      */
     loadPlan(json: string, keep_camera?: boolean | null, layout?: string | null): string;
     /**
+     * Marks element `id` as selected in the draft shown (nothing for an empty id), without
+     * building the scene again.
+     */
+    markSelected(id: string): void;
+    /**
      * The 3D files the pieces of the plan shown are drawn from, as JSON `[{"hash", "format",
      * "bytes"}]`, each once: the frontend fetches and reads them, then gives their meshes with
      * [`Engine::set_model_mesh`]. Files already given are left out.
@@ -202,6 +211,11 @@ export class Engine {
      */
     pick(x: number, y: number): string;
     /**
+     * The plan point (cm, `[x, y]`) on the floor under the device pixel `x`, `y`; empty when
+     * the floor is not there.
+     */
+    planPoint(x: number, y: number): Float64Array;
+    /**
      * Whether the 2D plan is shown.
      */
     planView(): boolean;
@@ -218,6 +232,11 @@ export class Engine {
      * top left, or an empty string (no such element, no geometry, behind the camera).
      */
     screenPoint(id: string): string;
+    /**
+     * Where plan points (cm, `[x0, y0, x1, y1, …]`) are drawn on the floor, in device pixels
+     * (`NaN` for a point not in front of the camera).
+     */
+    screenPoints(points: Float64Array): Float64Array;
     /**
      * Sets the background colour (sRGB, 0–255) from the Home Assistant theme.
      */
@@ -283,6 +302,16 @@ export class Engine {
      */
     setSun(elevation: number, rising: boolean): void;
     /**
+     * Shows a plan drawn in the plan editor (JSON text, no overlay), element `selected` marked.
+     * The plan stored and its overlay stay as they are, to come back to (`loadPlan`); the camera
+     * stays, unless nothing was shown.
+     *
+     * # Errors
+     *
+     * The JSON error of the plan reader.
+     */
+    showDraft(json: string, selected: string): void;
+    /**
      * Draws the pieces whose 3D file came since the scene was built, in one rebuild for all of
      * them. Returns whether it did.
      */
@@ -291,6 +320,11 @@ export class Engine {
      * Moves to a saved viewpoint. Returns `false` when there is none with this id.
      */
     showView(id: string, time_ms: number): boolean;
+    /**
+     * The plan shown with its edit overlay in it (the entries it accepted), as JSON text of the
+     * current revision: what the plan editor starts from. An empty string when none is shown.
+     */
+    shownPlan(): string;
     /**
      * Figures about the scene, as JSON (for the diagnostics and the performance smoke test).
      */
@@ -353,6 +387,7 @@ export interface InitOutput {
     readonly engineVersion: (a: number) => void;
     readonly engine_beginEdit: (a: number, b: number) => void;
     readonly engine_cameraViews: (a: number, b: number) => void;
+    readonly engine_clearPlan: (a: number) => void;
     readonly engine_editAdd: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => void;
     readonly engine_editAddModel: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => void;
     readonly engine_editCatalogue: (a: number) => void;
@@ -380,6 +415,7 @@ export interface InitOutput {
     readonly engine_layerLabels: (a: number, b: number) => void;
     readonly engine_layersAnimating: (a: number) => number;
     readonly engine_loadPlan: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => void;
+    readonly engine_markSelected: (a: number, b: number, c: number) => void;
     readonly engine_modelFiles: (a: number, b: number) => void;
     readonly engine_modelsOverBudget: (a: number) => number;
     readonly engine_moving: (a: number) => number;
@@ -389,10 +425,12 @@ export interface InitOutput {
     readonly engine_overview: (a: number, b: number) => void;
     readonly engine_pan: (a: number, b: number, c: number, d: number) => void;
     readonly engine_pick: (a: number, b: number, c: number, d: number) => void;
+    readonly engine_planPoint: (a: number, b: number, c: number, d: number) => void;
     readonly engine_planView: (a: number) => number;
     readonly engine_quality: (a: number, b: number) => void;
     readonly engine_resize: (a: number, b: number, c: number) => void;
     readonly engine_screenPoint: (a: number, b: number, c: number, d: number) => void;
+    readonly engine_screenPoints: (a: number, b: number, c: number, d: number) => void;
     readonly engine_setBackground: (a: number, b: number, c: number, d: number) => void;
     readonly engine_setBindings: (a: number, b: number, c: number) => void;
     readonly engine_setCutaway: (a: number, b: number, c: number) => void;
@@ -407,8 +445,10 @@ export interface InitOutput {
     readonly engine_setStates: (a: number, b: number, c: number) => void;
     readonly engine_setSun: (a: number, b: number, c: number) => void;
     readonly engine_setSunPosition: (a: number, b: number, c: number, d: number) => void;
+    readonly engine_showDraft: (a: number, b: number, c: number, d: number, e: number, f: number) => void;
     readonly engine_showModels: (a: number) => number;
     readonly engine_showView: (a: number, b: number, c: number, d: number) => number;
+    readonly engine_shownPlan: (a: number, b: number) => void;
     readonly engine_stats: (a: number, b: number) => void;
     readonly engine_useDefaultSun: (a: number) => void;
     readonly engine_views: (a: number, b: number) => void;

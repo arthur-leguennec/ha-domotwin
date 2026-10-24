@@ -40,7 +40,7 @@ pub fn engine_version() -> String {
 }
 
 /// A plan error for JavaScript: the JSON `{"code": …, "element": …}`.
-fn plan_error(err: &ReadError) -> JsError {
+pub(crate) fn plan_error(err: &ReadError) -> JsError {
     JsError::new(&err.to_json())
 }
 
@@ -288,6 +288,19 @@ impl Engine {
         self.rebuild_moving_parts();
         self.upload_rooms();
         self.update_cones();
+    }
+
+    /// Shows no plan (a new plan drawn and dropped).
+    pub(crate) fn clear_plan(&mut self) {
+        self.renderer.clear_scene();
+        self.renderer.set_marks(&[]);
+        self.plan = None;
+        self.scene = None;
+        self.elements.clear();
+        self.triangles = 0;
+        self.live = LiveState::default();
+        self.renderer.set_looks(&self.live.looks);
+        self.cones.clear();
     }
 
     /// Works out what the linked cameras see (`DECISIONS.md`, D-024).

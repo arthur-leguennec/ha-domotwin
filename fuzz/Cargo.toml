@@ -43,4 +43,11 @@ test = false
 doc = false
 bench = false
 
+[[bin]]
+name = "plan_draft"
+path = "fuzz_targets/plan_draft.rs"
+test = false
+doc = false
+bench = false
+
 [workspace]

@@ -19,7 +19,7 @@ const PROBES: [f64; 5] = [1.3, 6.1, 12.7, 25.3, 52.9];
 /// Gaps wider than this (cm) are not bridged by an interior partition.
 const MAX_GAP: f64 = 59.0;
 /// Openings and room sides closer than this (cm) to a line are on it.
-const ON_LINE: f64 = 6.0;
+pub(crate) const ON_LINE: f64 = 6.0;
 
 /// A portion `[t0, t1]` (0–1) of a side and what it faces.
 #[derive(Debug, Clone, Copy, PartialEq)]

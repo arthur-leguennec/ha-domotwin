@@ -6,6 +6,7 @@ import {
   mdiPencilOutline,
   mdiTrayArrowDown,
   mdiTrayArrowUp,
+  mdiVectorSquareEdit,
 } from "@mdi/js";
 import { LitElement, css, html, nothing, type TemplateResult } from "lit";
 
@@ -22,7 +23,16 @@ import {
 import { DomoTwinClient, type PlanJson, type Settings, type StoredPlan } from "../ha/client";
 import { isHassError, type HomeAssistant } from "../ha/types";
 import { readBindings, roomArea, type BindingsJson, type ElementBinding } from "../live/bindings";
-import { clearDraft, readDraft, writeDraft, type Draft } from "../live/draft";
+import {
+  clearDraft,
+  clearPlanDraft,
+  readDraft,
+  readPlanDraft,
+  writeDraft,
+  writePlanDraft,
+  type Draft,
+  type PlanDraft,
+} from "../live/draft";
 import { applyLink, planElement, type LinkChange, type PlanElementInfo } from "../live/suggest";
 import type { IfcFile, IfcReport, IfcStorey } from "../ifc/ifc";
 import type { ModelFormat, ModelInfo } from "../models/models";
@@ -30,7 +40,8 @@ import { translatorFor, type Translator } from "../i18n";
 import { icon } from "./icon";
 import { baseStyles } from "./styles";
 import type { ModelChoice } from "./edit-bar";
-import type { DomoTwinView, EditCommand, ViewOptions } from "./view";
+import type { PlanEditState, PlanTool } from "./plan-editor";
+import type { DomoTwinView, EditCommand, PlanCommand, ViewOptions } from "./view";
 
 /** The plan format allows files up to 32 MB. */
 const MAX_FILE_BYTES = 32_000_000;
@@ -43,6 +54,8 @@ const PANEL_OPTIONS: ViewOptions = {
   lighting: "auto",
 };
 const TOAST_MS = 6000;
+/** The plan drawn is kept by the browser once the drawing pauses this long (ms). */
+const PLAN_DRAFT_MS = 800;
 
 interface Toast {
   text: string;
@@ -123,6 +136,11 @@ export class DomoTwinPanel extends LitElement {
     draft: { state: true },
     settings: { state: true },
     northDraft: { state: true },
+    planning: { state: true },
+    planState: { state: true },
+    planTool: { state: true },
+    planOffer: { state: true },
+    planDiscardAsk: { state: true },
   };
 
   narrow = false;
@@ -152,6 +170,18 @@ export class DomoTwinPanel extends LitElement {
   /** The home's settings, and north being set (the settings dialog is open). */
   protected settings?: Settings;
   protected northDraft?: number;
+  /**
+   * The plan editor: on, its state and tool, a plan drawn and kept by this browser (offered when
+   * it starts), and the discard question.
+   */
+  protected planning = false;
+  protected planState?: PlanEditState;
+  protected planTool: PlanTool = "select";
+  protected planOffer?: PlanDraft;
+  protected planDiscardAsk = false;
+  /** The stored revision the plan editor started from (saving is refused if another save came). */
+  private planRevision?: number;
+  private planDraftTimer?: number;
   private revision?: number;
   /**
    * The overlay's change count last seen: a draft is written only when the overlay changed (a drag
@@ -340,6 +370,12 @@ export class DomoTwinPanel extends LitElement {
         border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
         border-radius: 50%;
       }
+      .empty-actions {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 8px;
+      }
       .ask p.hint {
         font-size: 0.85rem;
         font-weight: 400;
@@ -378,6 +414,7 @@ export class DomoTwinPanel extends LitElement {
     this.unsubscribe?.();
     this.unsubscribe = undefined;
     window.clearTimeout(this.toastTimer);
+    window.clearTimeout(this.planDraftTimer);
     this.cancelIfc();
   }
 
@@ -444,7 +481,8 @@ export class DomoTwinPanel extends LitElement {
     if (!client) return;
     try {
       const stored = await client.getPlan();
-      if (this.editing && !this.saving && stored.revision !== this.editRevision) {
+      const started = this.editing ? this.editRevision : this.planRevision;
+      if ((this.editing || this.planning) && !this.saving && stored.revision !== started) {
         // Saved elsewhere: the view keeps the plan being edited; saving will be refused.
         this.show(this.t.t("edit.changed_elsewhere"), true);
       }
@@ -475,7 +513,7 @@ export class DomoTwinPanel extends LitElement {
   }
 
   private readonly startEdit = async (): Promise<void> => {
-    if (!this.plan || this.busy || this.editing) return;
+    if (!this.plan || this.busy || this.editing || this.planning) return;
     await import("./edit-bar");
     this.linking = false;
     this.linkTarget = undefined;
@@ -676,6 +714,117 @@ export class DomoTwinPanel extends LitElement {
     if (this.edit?.dirty || !this.draft) clearDraft();
     this.view?.endEdit(false);
     this.stopEditing();
+  };
+
+  /** Starts the plan editor: on the plan shown, or on a new plan when none is stored. */
+  private readonly startPlan = async (): Promise<void> => {
+    if (this.busy || this.editing || this.planning || this.plan === undefined) return;
+    await import("./plan-bar");
+    this.linking = false;
+    this.linkTarget = undefined;
+    this.northDraft = undefined;
+    this.planRevision = this.revision;
+    this.planTool = this.plan ? "select" : "room";
+    this.planOffer = this.revision === undefined ? undefined : readPlanDraft(this.revision);
+    this.planning = true;
+  };
+
+  private stopPlanning(): void {
+    window.clearTimeout(this.planDraftTimer);
+    this.planning = false;
+    this.planState = undefined;
+    this.planOffer = undefined;
+    this.planDiscardAsk = false;
+  }
+
+  /** Every change of the plan editor: a refused change said, the plan drawn kept by the browser. */
+  private readonly onPlanEdit = (event: Event): void => {
+    const state = (event as CustomEvent<PlanEditState>).detail;
+    const before = this.planState;
+    this.planState = state;
+    const t = this.t;
+    if (state.error && state.refusals !== before?.refusals) {
+      this.show(
+        state.error === "no_side"
+          ? t.t("plan.no_side")
+          : t.t("plan.refused", { reason: t.error(state.error) }),
+        true,
+      );
+    }
+    window.clearTimeout(this.planDraftTimer);
+    this.planDraftTimer = window.setTimeout(() => {
+      this.keepPlanDraft();
+    }, PLAN_DRAFT_MS);
+  };
+
+  private keepPlanDraft(): void {
+    const revision = this.planRevision;
+    if (!this.planning || revision === undefined) return;
+    const plan = this.planState?.dirty ? this.view?.planDraft() : undefined;
+    if (plan) writePlanDraft({ revision, plan });
+    else if (!this.planOffer) clearPlanDraft();
+  }
+
+  private readonly onPlanCommand = (event: Event): void => {
+    this.view?.planCommand((event as CustomEvent<PlanCommand>).detail);
+  };
+
+  private readonly onPlanUpdate = (event: Event): void => {
+    this.view?.planUpdate((event as CustomEvent<Record<string, unknown>>).detail);
+  };
+
+  private readonly restorePlanDraft = (): void => {
+    const offer = this.planOffer;
+    this.planOffer = undefined;
+    if (offer) this.view?.planRestore(offer.plan);
+  };
+
+  private readonly forgetPlanDraft = (): void => {
+    this.planOffer = undefined;
+    clearPlanDraft();
+  };
+
+  /**
+   * Saves the plan drawn, its edit overlay in it (the stored overlay is emptied), and leaves the
+   * plan editor. Refused when another device saved since it started.
+   */
+  private readonly savePlanEdit = async (): Promise<void> => {
+    const view = this.view;
+    const client = this.client;
+    const plan = view?.planDraft();
+    if (!view || !client || !plan || this.busy) return;
+    const t = this.t;
+    this.busy = true;
+    this.saving = true;
+    try {
+      await client.savePlan(plan, this.planRevision, {});
+      view.planSaved();
+      clearPlanDraft();
+      view.endPlanEdit(true);
+      this.stopPlanning();
+      await this.loadPlan();
+      this.show(t.t("plan.saved"));
+    } catch (error) {
+      this.show(t.t("plan.save_failed", { reason: this.describe(error) }), true);
+    } finally {
+      this.busy = false;
+      this.saving = false;
+    }
+  };
+
+  private readonly cancelPlan = (): void => {
+    if (this.planState?.dirty) {
+      this.planDiscardAsk = true;
+      return;
+    }
+    this.discardPlan();
+  };
+
+  private readonly discardPlan = (): void => {
+    // A draft still offered stays, unless changes were discarded on purpose.
+    if (this.planState?.dirty || !this.planOffer) clearPlanDraft();
+    this.view?.endPlanEdit(false);
+    this.stopPlanning();
   };
 
   private readonly toggleLinking = (): void => {
@@ -972,8 +1121,22 @@ export class DomoTwinPanel extends LitElement {
     // One template in both modes: the view stays the same element (engine, camera, 2D or 3D).
     return html`<div class="toolbar">
         <ha-menu-button .hass=${this._hass} .narrow=${this.narrow}></ha-menu-button>
-        <h1>${this.editing ? t.t("edit.title") : t.t("panel.title")}</h1>
-        ${this.editing ? this.renderEditActions() : this.renderActions(admin)}
+        <h1>
+          ${
+            this.editing
+              ? t.t("edit.title")
+              : this.planning
+                ? t.t("plan.title")
+                : t.t("panel.title")
+          }
+        </h1>
+        ${
+          this.editing
+            ? this.renderEditActions()
+            : this.planning
+              ? this.renderPlanActions()
+              : this.renderActions(admin)
+        }
       </div>
       <div class="body">
         <domotwin-view
@@ -986,20 +1149,35 @@ export class DomoTwinPanel extends LitElement {
           .north=${this.northDraft ?? this.settings?.north ?? 0}
           .linking=${this.linking}
           .editing=${this.editing}
+          .planEditing=${this.planning}
+          .planTool=${this.planTool}
           .multiSelect=${this.multi}
-          .editKeys=${!this.catalogue && !this.discardAsk && !this.modelImport}
+          .editKeys=${!this.catalogue && !this.discardAsk && !this.modelImport && !this.planDiscardAsk}
           @domotwin-pick=${this.onPick}
           @domotwin-edit=${this.onEdit}
+          @domotwin-plan-edit=${this.onPlanEdit}
         >
           ${
             admin
-              ? html`<button slot="empty-action" class="action" @click=${this.chooseFile}>
-                  ${icon(mdiTrayArrowUp)}${t.t("panel.import")}
-                </button>`
+              ? html`<span slot="empty-action" class="empty-actions">
+                  <button class="action" @click=${this.chooseFile}>
+                    ${icon(mdiTrayArrowUp)}${t.t("panel.import")}
+                  </button>
+                  <button class="action" data-testid="plan-new" @click=${this.startPlan}>
+                    ${icon(mdiVectorSquareEdit)}${t.t("plan.new")}
+                  </button>
+                </span>`
               : nothing
           }
         </domotwin-view>
-        ${this.editing ? this.renderEditTools() : this.renderSheets()} ${this.renderToast()}
+        ${
+          this.editing
+            ? this.renderEditTools()
+            : this.planning
+              ? this.renderPlanTools()
+              : this.renderSheets()
+        }
+        ${this.renderToast()}
       </div>
       <input
         class="plan-file"
@@ -1026,6 +1204,20 @@ export class DomoTwinPanel extends LitElement {
               aria-label=${t.t("panel.import")}
             >
               ${icon(mdiTrayArrowUp)}<span class="label">${t.t("panel.import")}</span>
+            </button>`
+          : nothing
+      }
+      ${
+        admin && this.plan && !this.linking
+          ? html`<button
+              class="action"
+              data-testid="plan-mode"
+              ?disabled=${this.busy || this.ifcChoice !== undefined}
+              @click=${this.startPlan}
+              aria-label=${t.t("plan.mode")}
+              title=${t.t("plan.mode")}
+            >
+              ${icon(mdiVectorSquareEdit)}<span class="label">${t.t("plan.mode")}</span>
             </button>`
           : nothing
       }
@@ -1146,6 +1338,76 @@ export class DomoTwinPanel extends LitElement {
       </button>`;
   }
 
+  /** The plan editor's header: Cancel and Save. */
+  private renderPlanActions(): TemplateResult {
+    const t = this.t;
+    return html`<button
+        class="action"
+        data-testid="plan-cancel"
+        ?disabled=${this.busy}
+        @click=${this.cancelPlan}
+        aria-label=${t.t("edit.cancel")}
+      >
+        ${icon(mdiClose)}<span class="label">${t.t("edit.cancel")}</span>
+      </button>
+      <button
+        class="action"
+        data-testid="plan-save"
+        ?disabled=${this.busy || !this.planState?.dirty}
+        @click=${this.savePlanEdit}
+        aria-label=${t.t("edit.save")}
+      >
+        ${icon(mdiCheck)}<span class="label">${t.t("edit.save")}</span>
+      </button>`;
+  }
+
+  /** The plan editor over the view: its bar, the draft offer, the discard question. */
+  private renderPlanTools(): TemplateResult {
+    const t = this.t;
+    return html`${
+      this.planState
+        ? html`<domotwin-plan-bar
+            .hass=${this._hass}
+            .state=${this.planState}
+            .tool=${this.planTool}
+            @domotwin-plan-tool=${(event: Event) => {
+              this.planTool = (event as CustomEvent<PlanTool>).detail;
+            }}
+            @domotwin-plan-command=${this.onPlanCommand}
+            @domotwin-plan-update=${this.onPlanUpdate}
+          ></domotwin-plan-bar>`
+        : nothing
+    }
+    ${
+      this.planOffer
+        ? html`<div class="draft glass" role="status" data-testid="plan-draft">
+            <span>${t.t("plan.draft")}</span>
+            <button class="action quiet" @click=${this.forgetPlanDraft}>
+              ${t.t("edit.forget")}
+            </button>
+            <button class="action" data-testid="plan-restore" @click=${this.restorePlanDraft}>
+              ${t.t("edit.restore")}
+            </button>
+          </div>`
+        : nothing
+    }
+    ${
+      this.planDiscardAsk
+        ? html`<div class="ask glass" role="alertdialog" data-testid="plan-discard">
+            <h2>${t.t("plan.discard_title")}</h2>
+            <div class="footer">
+              <button class="action quiet" @click=${() => (this.planDiscardAsk = false)}>
+                ${t.t("edit.keep")}
+              </button>
+              <button class="action" data-testid="plan-discard-confirm" @click=${this.discardPlan}>
+                ${t.t("edit.discard")}
+              </button>
+            </div>
+          </div>`
+        : nothing
+    }`;
+  }
+
   /** Over the view outside edit mode: the link editor, the storey picker. */
   private renderSheets(): TemplateResult {
     const target = this.linkTarget;
@@ -1172,7 +1434,7 @@ export class DomoTwinPanel extends LitElement {
     const toast = this.toast;
     if (!toast) return nothing;
     return html`<div
-      class="toast glass ${toast.error ? "error" : ""} ${this.editing ? "top" : ""}"
+      class="toast glass ${toast.error ? "error" : ""} ${this.editing || this.planning ? "top" : ""}"
       role=${toast.error ? "alert" : "status"}
       data-testid="toast"
     >
