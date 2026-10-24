@@ -13,6 +13,7 @@ pub mod error;
 pub mod geometry;
 pub mod lighting;
 pub mod live;
+pub mod model_mesh;
 pub mod overlay;
 pub mod plan;
 pub mod scene;

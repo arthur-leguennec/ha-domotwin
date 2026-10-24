@@ -2,11 +2,14 @@
 //! at the centre of the footprint on the piece's underside, `x` across the width, `y` up, `z`
 //! towards the front.
 
+use std::rc::Rc;
+
 use super::Builder;
-use super::kit;
 use super::mesh::{CutMode, Material, NO_GROUP, Painter, ROUND, Surface, Tag, V3, Xform};
+use super::{imported, kit};
 use crate::geometry::polygon::P2;
 use crate::geometry::walls::WallLayout;
+use crate::model_mesh::ModelMesh;
 use crate::plan::light::{light_color, light_power};
 use crate::plan::{Element, Furniture, Kind, Plan, Rgb8};
 
@@ -79,6 +82,8 @@ pub(crate) struct Model<'a> {
     pub(crate) bulbs: Vec<V3>,
     /// Room above the piece up to the ceiling (cm), for stems and chimneys.
     pub(crate) ceiling: f64,
+    /// The mesh of a user model's 3D file, and whether it is Z up.
+    pub(crate) file: Option<(Rc<ModelMesh>, bool)>,
 }
 
 impl std::fmt::Debug for Model<'_> {
@@ -301,6 +306,17 @@ fn piece(builder: &mut Builder, plan: &Plan, layout: &WallLayout, index: usize, 
     let open = builder.overrides.open.get(&index).copied();
     let ceiling = (builder.wall_height - f.elevation - f.z).max(0.0);
     let base = Material::paint(f.color);
+    let file = if f.kind == Kind::Custom && !builder.boxed.contains(&index) {
+        f.model
+            .as_ref()
+            .and_then(|id| plan.models.get(id))
+            .and_then(|model| {
+                let mesh = builder.models.get(imported::file_hash(model)?)?;
+                Some((Rc::clone(mesh), imported::z_up(model)))
+            })
+    } else {
+        None
+    };
     let mut model = Model {
         p: Painter::new(&mut builder.opaque, base, tag),
         g: Painter::new(&mut builder.transparent, Material::glass(), tag),
@@ -313,6 +329,7 @@ fn piece(builder: &mut Builder, plan: &Plan, layout: &WallLayout, index: usize, 
         open,
         bulbs: Vec::new(),
         ceiling,
+        file,
     };
     let before = model.p.mesh.vertex_count() + model.g.mesh.vertex_count();
     draw(&mut model, f, plan);
@@ -335,6 +352,18 @@ fn piece(builder: &mut Builder, plan: &Plan, layout: &WallLayout, index: usize, 
                 screen: false,
             });
         }
+    }
+    if f.kind == Kind::Custom {
+        // A user model lights the room when a light is linked to it (D-021): off until then.
+        builder.lights.push(super::LightSpot {
+            element: index,
+            position: x.point([0.0, f.z * 0.75, 0.0]),
+            color: light_color(f),
+            power: 1.0,
+            on: false,
+            room: tag.room,
+            screen: false,
+        });
     }
     if f.kind == Kind::Tv {
         // The screen lights the room in front of it while something plays.
@@ -830,11 +859,17 @@ fn draw(m: &mut Model<'_>, f: &Furniture, plan: &Plan) {
         }
         Kind::Printer3d => printer3d(m, variant),
         Kind::Custom => {
-            let drawn = f
-                .model
-                .as_ref()
-                .and_then(|id| plan.models.get(id))
-                .is_some_and(|model| kit::draw(m, model));
+            let drawn = match m.file.take() {
+                Some((mesh, z_up)) => {
+                    imported::draw(m, &mesh, z_up);
+                    true
+                }
+                None => f
+                    .model
+                    .as_ref()
+                    .and_then(|id| plan.models.get(id))
+                    .is_some_and(|model| kit::draw(m, model)),
+            };
             if !drawn {
                 m.bx(
                     Material::paint(c),

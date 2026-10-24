@@ -13,6 +13,15 @@
 //! ```
 //!
 //! Only pieces of furniture are edited: rooms, walls, doors and windows belong to the plan.
+//!
+//! User models imported in edit mode are entries too, keyed `@model:<model id>` (D-021): they are
+//! added to the plan's `models` (a model the plan already has stays the plan's), so they follow
+//! undo, drafts, saving and Export like the pieces that show them.
+//!
+//! ```json
+//! { "@model:m-1": { "model": { "name": "Stool", "size": [38, 38, 71],
+//!                              "file": { "format": "glb", "hash": "…", "bytes": 19012, "up": "y" } } } }
+//! ```
 
 use std::collections::BTreeMap;
 
@@ -29,6 +38,17 @@ pub const MAX_ELEMENTS: usize = 500;
 const MAX_ID: usize = 100;
 /// Farthest coordinate of the plan format (cm).
 const MAX_COORDINATE: f64 = 50_000.0;
+/// The key prefix of model entries.
+pub const MODEL_PREFIX: &str = "@model:";
+
+/// Whether a model id is valid (`plan-format.md`, user 3D models).
+pub fn valid_model_id(id: &str) -> bool {
+    id.len() <= 64
+        && id.chars().next().is_some_and(|c| c.is_ascii_alphanumeric())
+        && id
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+}
 
 /// What edit mode changed for one piece.
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -47,6 +67,8 @@ pub struct Entry {
     pub removed: bool,
     /// A piece added in edit mode: its element (without `id` and `type`).
     pub add: Option<Map<String, Value>>,
+    /// A user model added in edit mode (entries keyed [`MODEL_PREFIX`] + its id).
+    pub model: Option<Map<String, Value>>,
 }
 
 impl Entry {
@@ -81,6 +103,18 @@ pub fn read_layout(value: &Value) -> Layout {
         if id.is_empty() || id.chars().count() > MAX_ID {
             continue;
         }
+        if let Some(model_id) = id.strip_prefix(MODEL_PREFIX) {
+            if let Some(model) = raw.get("model").and_then(Value::as_object)
+                && valid_model_id(model_id)
+            {
+                let entry = Entry {
+                    model: Some(model.clone()),
+                    ..Entry::default()
+                };
+                layout.insert(id.clone(), entry);
+            }
+            continue;
+        }
         let entry = Entry {
             x: finite(raw.get("x"), MAX_COORDINATE),
             y: finite(raw.get("y"), MAX_COORDINATE),
@@ -93,6 +127,7 @@ pub fn read_layout(value: &Value) -> Layout {
                 .map(str::to_owned),
             removed: raw.get("removed").and_then(Value::as_bool) == Some(true),
             add: raw.get("add").and_then(Value::as_object).cloned(),
+            model: None,
         };
         if !entry.is_empty() {
             layout.insert(id.clone(), entry);
@@ -110,6 +145,9 @@ pub fn layout_value(layout: &Layout) -> Value {
     let mut out = Map::new();
     for (id, entry) in layout {
         let mut e = Map::new();
+        if let Some(model) = &entry.model {
+            e.insert("model".into(), Value::Object(model.clone()));
+        }
         if let Some(add) = &entry.add {
             e.insert("add".into(), Value::Object(add.clone()));
         }
@@ -167,6 +205,27 @@ fn place(element: &mut Map<String, Value>, entry: &Entry, rooms: &[String]) {
 /// pieces past the plan's 500 elements are ignored. Not a plan object: returned as it is.
 pub fn apply(plan: &Value, layout: &Layout) -> Value {
     let mut plan = plan.clone();
+    let models: Vec<(&str, &Map<String, Value>)> = layout
+        .iter()
+        .filter_map(|(id, entry)| Some((id.strip_prefix(MODEL_PREFIX)?, entry.model.as_ref()?)))
+        .collect();
+    if !models.is_empty()
+        && let Some(root) = plan.as_object_mut()
+    {
+        let slot = root
+            .entry("models")
+            .or_insert_with(|| Value::Object(Map::new()));
+        if slot.is_null() {
+            *slot = Value::Object(Map::new());
+        }
+        if let Some(existing) = slot.as_object_mut() {
+            for (id, model) in models {
+                existing
+                    .entry(id)
+                    .or_insert_with(|| Value::Object(model.clone()));
+            }
+        }
+    }
     let Some(elements) = plan.get_mut("elements").and_then(Value::as_array_mut) else {
         return plan;
     };
@@ -225,7 +284,11 @@ pub fn fit(source: &Value, layout: &Layout) -> Result<(Plan, Layout, usize), Rea
     }
     let mut plan = read_plan_value(source)?;
     let mut kept = Layout::new();
-    for (id, entry) in layout {
+    // Models first: the pieces that show them need them.
+    let (models, pieces): (Vec<_>, Vec<_>) = layout
+        .iter()
+        .partition(|(id, _)| id.starts_with(MODEL_PREFIX));
+    for (id, entry) in models.into_iter().chain(pieces) {
         kept.insert(id.clone(), entry.clone());
         match read_plan_value(&apply(source, &kept)) {
             Ok(read) => plan = read,
@@ -291,6 +354,37 @@ mod tests {
         assert_eq!(read_layout(&layout_value(&layout)), layout);
         assert_eq!(parse_layout(&layout_value(&layout).to_string()), layout);
         assert!(parse_layout("not json").is_empty());
+    }
+
+    #[test]
+    fn adds_models() {
+        let plan: Value = serde_json::from_str(DEMO).unwrap();
+        let stool = serde_json::json!({ "name": "Stool", "size": [38, 38, 71],
+            "file": { "format": "glb", "hash": "a".repeat(64), "bytes": 100, "up": "y" } });
+        let layout = read_layout(&serde_json::json!({
+            "@model:m-1": { "model": stool },
+            "@model:bad id": { "model": stool },
+            "@model:m-2": { "x": 1 },
+            // Sorted before the model: the piece must still find it.
+            "1-stool": { "add": { "name": "Stool", "kind": "custom", "model": "m-1", "w": 38, "h": 38, "z": 71 },
+                         "x": 40, "y": 20 },
+            "2-bad": { "add": { "name": "Bad", "kind": "custom", "model": "m-9", "w": 38, "h": 38, "z": 71 } }
+        }));
+        assert_eq!(layout.len(), 3);
+        assert_eq!(read_layout(&layout_value(&layout)), layout);
+        let (read, kept, left) = fit(&plan, &layout).unwrap();
+        assert_eq!(left, 1, "the piece of an unknown model");
+        assert!(kept.contains_key("1-stool") && kept.contains_key("@model:m-1"));
+        assert_eq!(read.models["m-1"]["name"], "Stool");
+        assert_eq!(
+            furniture(&read, "1-stool").unwrap().model.as_deref(),
+            Some("m-1")
+        );
+        // A model the plan already has stays the plan's.
+        let mut with_model = plan.clone();
+        with_model["models"] = serde_json::json!({ "m-1": { "name": "Plan's", "size": [1, 1, 1], "kit": { "parts": [] } } });
+        let applied = apply(&with_model, &layout);
+        assert_eq!(applied["models"]["m-1"]["name"], "Plan's");
     }
 
     #[test]

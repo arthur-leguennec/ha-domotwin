@@ -9,20 +9,29 @@
 pub mod mesh;
 
 mod furniture;
+mod imported;
 mod kit;
 mod openings;
 mod structure;
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::rc::Rc;
 
 use crate::geometry::heights::WALL_HEIGHT;
 use crate::geometry::polygon::{P2, point_in_polygon};
 use crate::geometry::walls::WallLayout;
-use crate::plan::{Element, Plan};
+use crate::model_mesh::ModelMesh;
+use crate::plan::{Element, Kind, Plan};
 use mesh::{Mesh, NO_GROUP};
 
 /// Most wall groups a scene has (the shader keeps one cut height per group).
 pub const MAX_GROUPS: usize = 128;
+
+/// Most triangles drawn from 3D files in one scene; pieces past it are boxes.
+pub const MAX_FILE_TRIANGLES: usize = 600_000;
+
+/// The meshes of the plan's 3D files, by SHA-256 (`models[…].file.hash`).
+pub type ModelMeshes = BTreeMap<String, Rc<ModelMesh>>;
 
 /// A group of walls cut away together.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -99,22 +108,27 @@ pub struct Scene {
     pub wall_height: f64,
     /// World bounding box of the whole scene.
     pub bounds: [[f32; 3]; 2],
+    /// Pieces drawn as boxes because their 3D files would pass [`MAX_FILE_TRIANGLES`].
+    pub models_over_budget: usize,
     /// What [`build_dynamic`] needs to rebuild the moving parts the same way.
     context: Builder,
     layout: WallLayout,
 }
 
 /// Scene options.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct SceneOptions {
     /// Wall height (cm).
     pub wall_height: f64,
+    /// The meshes of the 3D files loaded so far; pieces whose file is not among them are boxes.
+    pub models: Rc<ModelMeshes>,
 }
 
 impl Default for SceneOptions {
     fn default() -> Self {
         Self {
             wall_height: WALL_HEIGHT,
+            models: Rc::default(),
         }
     }
 }
@@ -140,6 +154,10 @@ pub(crate) struct Builder {
     pub(crate) overrides: Overrides,
     /// Pieces of furniture built with the moving parts (being moved in edit mode).
     pub(crate) moving: BTreeSet<usize>,
+    /// The meshes of 3D files.
+    pub(crate) models: Rc<ModelMeshes>,
+    /// Pieces whose 3D file is past [`MAX_FILE_TRIANGLES`]: boxes.
+    pub(crate) boxed: BTreeSet<usize>,
 }
 
 impl Builder {
@@ -239,6 +257,8 @@ pub fn build_scene_moving(plan: &Plan, options: &SceneOptions, moving: &BTreeSet
     let mut builder = Builder {
         wall_height,
         moving: moving.clone(),
+        models: Rc::clone(&options.models),
+        boxed: over_budget(plan, &options.models),
         ..Builder::default()
     };
     let mut rooms = Vec::new();
@@ -270,6 +290,7 @@ pub fn build_scene_moving(plan: &Plan, options: &SceneOptions, moving: &BTreeSet
     let elements = element_infos(plan, &meshes);
     let bounds = meshes.iter().map(|m| m.bounds()).fold([[0.0; 3]; 2], union);
     let lights = std::mem::take(&mut builder.lights);
+    let models_over_budget = builder.boxed.len();
     Scene {
         opaque,
         transparent,
@@ -281,9 +302,37 @@ pub fn build_scene_moving(plan: &Plan, options: &SceneOptions, moving: &BTreeSet
         lights,
         wall_height,
         bounds,
+        models_over_budget,
         context: builder,
         layout,
     }
+}
+
+/// The pieces whose 3D file would pass [`MAX_FILE_TRIANGLES`], in plan order.
+fn over_budget(plan: &Plan, meshes: &ModelMeshes) -> BTreeSet<usize> {
+    let mut drawn = 0_usize;
+    let mut boxed = BTreeSet::new();
+    for (index, element) in plan.elements.iter().enumerate() {
+        let Element::Furniture(f) = element else {
+            continue;
+        };
+        if f.kind != Kind::Custom {
+            continue;
+        }
+        let triangles = f
+            .model
+            .as_ref()
+            .and_then(|id| plan.models.get(id))
+            .and_then(imported::file_hash)
+            .and_then(|hash| meshes.get(hash))
+            .map_or(0, |mesh| mesh.triangle_count());
+        if drawn + triangles > MAX_FILE_TRIANGLES {
+            boxed.insert(index);
+        } else {
+            drawn += triangles;
+        }
+    }
+    boxed
 }
 
 /// Rebuilds the moving parts of a scene (doors, windows, curtains, blinds) with live changes.

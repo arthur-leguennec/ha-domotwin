@@ -12,7 +12,7 @@ use super::{
 };
 use crate::geometry::polygon::{P2, point_in_polygon};
 use crate::geometry::walls::WallLayout;
-use crate::overlay::{Entry, Layout, MAX_ELEMENTS, MAX_ENTRIES};
+use crate::overlay::{Entry, Layout, MAX_ELEMENTS, MAX_ENTRIES, MODEL_PREFIX, valid_model_id};
 use crate::plan::{Element, Furniture, Kind, Plan};
 
 /// A piece being moved, as it was when the drag started.
@@ -483,12 +483,101 @@ impl Session {
         name: &str,
         at: P2,
     ) -> Option<String> {
-        if kind == Kind::Custom || plan.elements.len() >= MAX_ELEMENTS {
+        if kind == Kind::Custom {
+            return None;
+        }
+        let info = kind.info();
+        let piece = Added {
+            kind,
+            name: name.to_owned(),
+            color: info.color.to_hex(),
+            size: info.size,
+            model: None,
+        };
+        self.add_piece(plan, walls, &piece, at, None)
+    }
+
+    /// Adds a piece of the user model `model` centred on `at`, and selects it; `define` adds the
+    /// model itself to the overlay in the same step (a model imported in edit mode). Returns the
+    /// piece's id.
+    pub fn add_model(
+        &mut self,
+        plan: &Plan,
+        walls: &WallLayout,
+        model: &str,
+        define: Option<Map<String, Value>>,
+        at: P2,
+    ) -> Option<String> {
+        if !valid_model_id(model) {
+            return None;
+        }
+        let known = plan.models.get(model).and_then(Value::as_object);
+        let fields = define.as_ref().or(known)?;
+        let size = fields.get("size").and_then(Value::as_array)?;
+        let size: Vec<f64> = size.iter().filter_map(Value::as_f64).collect();
+        let &[w, d, h] = size.as_slice() else {
+            return None;
+        };
+        if ![w, d, h].iter().all(|v| v.is_finite() && *v >= 1.0) {
+            return None;
+        }
+        let name = fields
+            .get("name")
+            .and_then(Value::as_str)
+            .unwrap_or("3D model")
+            .to_owned();
+        let color = fields
+            .get("color")
+            .and_then(Value::as_str)
+            .unwrap_or(DEFAULT_MODEL_COLOR)
+            .to_owned();
+        let piece = Added {
+            kind: Kind::Custom,
+            name,
+            color,
+            size: [w, d, h],
+            model: Some(model),
+        };
+        let definition = define.map(|m| {
+            (
+                format!("{MODEL_PREFIX}{model}"),
+                Entry {
+                    model: Some(m),
+                    ..Entry::default()
+                },
+            )
+        });
+        self.add_piece(plan, walls, &piece, at, definition)
+    }
+
+    /// Forgets a model imported in edit mode that no piece shows. Returns whether it did.
+    pub fn remove_model(&mut self, plan: &Plan, model: &str) -> bool {
+        let key = format!("{MODEL_PREFIX}{model}");
+        if !self.layout().contains_key(&key)
+            || pieces(plan).any(|f| f.model.as_deref() == Some(model))
+        {
+            return false;
+        }
+        self.drag = None;
+        let mut layout = self.layout().clone();
+        layout.remove(&key);
+        self.record(layout)
+    }
+
+    fn add_piece(
+        &mut self,
+        plan: &Plan,
+        walls: &WallLayout,
+        piece: &Added<'_>,
+        at: P2,
+        definition: Option<(String, Entry)>,
+    ) -> Option<String> {
+        if plan.elements.len() >= MAX_ELEMENTS {
             return None;
         }
         self.drag = None;
-        let info = kind.info();
-        let [w, d, h] = info.size;
+        let info = piece.kind.info();
+        let [w, d, h] = piece.size;
         let layout = self.layout().clone();
         let id = (1..)
             .map(|n| format!("{}-added-{n}", info.name))
@@ -496,10 +585,13 @@ impl Session {
         let mut element = Map::new();
         element.insert(
             "name".into(),
-            Value::from(name.chars().take(100).collect::<String>()),
+            Value::from(piece.name.chars().take(100).collect::<String>()),
         );
         element.insert("kind".into(), Value::from(info.name));
-        element.insert("color".into(), Value::from(info.color.to_hex()));
+        if let Some(model) = piece.model {
+            element.insert("model".into(), Value::from(model));
+        }
+        element.insert("color".into(), Value::from(piece.color.clone()));
         element.insert("w".into(), Value::from(w));
         element.insert("h".into(), Value::from(d));
         element.insert("z".into(), Value::from(h));
@@ -513,7 +605,7 @@ impl Session {
         let others: Vec<(Footprint, Kind)> =
             pieces(plan).map(|f| (Footprint::of(f), f.kind)).collect();
         let elevation =
-            support_under(&here, kind, &others, &[]).map_or(info.elevation, |(_, top)| top);
+            support_under(&here, piece.kind, &others, &[]).map_or(info.elevation, |(_, top)| top);
         let entry = Entry {
             x: Some(at[0] - w / 2.0),
             y: Some(at[1] - d / 2.0),
@@ -523,6 +615,9 @@ impl Session {
             ..Entry::default()
         };
         let mut layout = layout;
+        if let Some((key, model)) = definition {
+            layout.insert(key, model);
+        }
         layout.insert(id.clone(), entry);
         if !self.record(layout) {
             return None;
@@ -530,6 +625,20 @@ impl Session {
         self.selection = vec![id.clone()];
         Some(id)
     }
+}
+
+/// Colour of new pieces of a model without one (`plan-format.md`).
+const DEFAULT_MODEL_COLOR: &str = "#b8ad9a";
+
+/// A piece about to be added.
+#[derive(Debug)]
+struct Added<'a> {
+    kind: Kind,
+    name: String,
+    color: String,
+    /// Width, depth, height (cm).
+    size: [f64; 3],
+    model: Option<&'a str>,
 }
 
 /// The ids in `plan` order of `ids` (to build their indices).
@@ -745,6 +854,58 @@ mod tests {
                 .add(&full, &walls, Kind::Plant, "Plant", [100.0, 100.0])
                 .is_none()
         );
+    }
+
+    #[test]
+    fn adds_imported_models_in_one_step() {
+        let mut session = Session::new(&Layout::new());
+        let (plan, walls) = shown(&Layout::new());
+        let stool = serde_json::json!({ "name": "Stool", "size": [38, 42, 71], "color": "#a0714a",
+            "file": { "format": "glb", "hash": "b".repeat(64), "bytes": 100, "up": "y" } });
+        let Value::Object(stool) = stool else {
+            panic!("an object")
+        };
+        assert!(
+            session
+                .add_model(&plan, &walls, "m-1", None, [300.0, 200.0])
+                .is_none(),
+            "an unknown model"
+        );
+        let id = session
+            .add_model(&plan, &walls, "m-1", Some(stool), [300.0, 200.0])
+            .unwrap();
+        assert!(session.layout().contains_key("@model:m-1"));
+        let (plan, walls) = shown(session.layout());
+        let f = piece(&plan, &id).unwrap();
+        assert_eq!(
+            (
+                f.kind,
+                f.model.as_deref(),
+                f.w,
+                f.h,
+                f.z,
+                f.color.to_hex().as_str()
+            ),
+            (Kind::Custom, Some("m-1"), 38.0, 42.0, 71.0, "#a0714a")
+        );
+        // Another piece of the same model, known to the plan now.
+        let second = session
+            .add_model(&plan, &walls, "m-1", None, [100.0, 100.0])
+            .unwrap();
+        assert_ne!(second, id);
+        // In use: kept.
+        let (plan, _) = shown(session.layout());
+        assert!(!session.remove_model(&plan, "m-1"));
+        // Undoing the import takes the model away with its piece.
+        assert!(session.undo() && session.undo());
+        assert!(session.layout().is_empty());
+        assert!(session.redo());
+        session.select(&plan, &walls, &id, false);
+        assert!(session.remove(&plan));
+        let (plan, _) = shown(session.layout());
+        assert!(session.remove_model(&plan, "m-1"));
+        assert!(session.layout().is_empty());
+        assert!(!session.remove_model(&plan, "m-1"));
     }
 
     #[test]

@@ -90,6 +90,8 @@ pub struct Look {
     pub unavailable: f32,
     /// Tap feedback, 1 just tapped, fading to 0.
     pub highlight: f32,
+    /// Its light is a screen's (a linked media player), not a lamp's.
+    pub screen: bool,
 }
 
 impl Default for Look {
@@ -99,6 +101,7 @@ impl Default for Look {
             strength: 0.0,
             unavailable: 0.0,
             highlight: 0.0,
+            screen: false,
         }
     }
 }
@@ -208,6 +211,7 @@ pub fn targets(
                     };
                 }
                 if let Some(media) = on(Role::Media).first() {
+                    look.screen = true;
                     look.glow = SCREEN.to_linear();
                     look.strength = match media.state.as_str() {
                         "playing" => 0.8,
@@ -393,6 +397,7 @@ impl LiveState {
                 ) as f32;
             }
             look.highlight = (look.highlight - HIGHLIGHT_SPEED * dt as f32).max(0.0);
+            look.screen = target.screen;
             if *look != before {
                 step.looks = true;
             }

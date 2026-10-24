@@ -8,7 +8,7 @@ use std::collections::BTreeSet;
 
 use domotwin_core::edit::{Guide, Session, indices};
 use domotwin_core::geometry::polygon::P2;
-use domotwin_core::overlay::{Layout, apply, layout_value, parse_layout};
+use domotwin_core::overlay::{Layout, MODEL_PREFIX, apply, layout_value, parse_layout};
 use domotwin_core::plan::{Element, Kind, read_plan_value};
 use domotwin_core::scene::build_dynamic_lit;
 use domotwin_render::lamps::Mark;
@@ -238,6 +238,99 @@ impl Engine {
             object.insert("refused".into(), Value::Bool(true));
         }
         state.to_string()
+    }
+
+    /// Adds a piece of the user model `model` under the device pixel `x`, `y` (or in the middle of
+    /// the view), and selects it. `definition` is the model itself (JSON) when it is imported now,
+    /// empty for a model the plan has. The state has `refused: true` when it could not be added.
+    #[wasm_bindgen(js_name = editAddModel)]
+    pub fn edit_add_model(&mut self, model: &str, definition: &str, x: f64, y: f64) -> String {
+        let define = match serde_json::from_str::<Value>(definition) {
+            Ok(Value::Object(map)) => Some(map),
+            _ => None,
+        };
+        let target = self.renderer.view.camera.target;
+        let at = self
+            .renderer
+            .plane_point(x, y, 0.0)
+            .map_or([target[0], target[2]], |p| [p[0], p[2]]);
+        let added = match (&mut self.edit, &self.plan, &self.scene) {
+            (Some(session), Some(plan), Some(scene)) => session
+                .add_model(plan, scene.walls(), model, define, at)
+                .is_some(),
+            _ => false,
+        };
+        // A model the plan refuses (more than 50, a bad definition) is undone by the commit.
+        let before = self.edit.as_ref().map(Session::changes);
+        if added {
+            self.commit();
+        }
+        let kept = added && self.edit.as_ref().map(Session::changes) == before;
+        if kept {
+            return self.edit_state();
+        }
+        let mut state: Value = serde_json::from_str(&self.edit_state()).unwrap_or_default();
+        if let Some(object) = state.as_object_mut() {
+            object.insert("refused".into(), Value::Bool(true));
+        }
+        state.to_string()
+    }
+
+    /// Forgets a model imported in edit mode that no piece shows.
+    #[wasm_bindgen(js_name = editRemoveModel)]
+    pub fn edit_remove_model(&mut self, model: &str) -> String {
+        let changed = match (&mut self.edit, &self.plan) {
+            (Some(session), Some(plan)) => session.remove_model(plan, model),
+            _ => false,
+        };
+        if changed {
+            self.commit();
+        }
+        self.edit_state()
+    }
+
+    /// The user models of the plan shown (« My models »), as JSON `[{"id", "name", "w", "d",
+    /// "h", "color", "format", "pieces", "removable"}]`: `format` is the 3D file's (`null` for a
+    /// kit), `pieces` how many pieces show it, `removable` whether it was imported in edit mode
+    /// and no piece shows it.
+    #[wasm_bindgen(js_name = editModels)]
+    pub fn edit_models(&self) -> String {
+        let Some(plan) = &self.plan else {
+            return "[]".to_owned();
+        };
+        let layout = self.edit.as_ref().map_or(&self.layout, Session::layout);
+        let list: Vec<Value> = plan
+            .models
+            .iter()
+            .map(|(id, model)| {
+                let pieces = plan
+                    .elements
+                    .iter()
+                    .filter(
+                        |e| matches!(e, Element::Furniture(f) if f.model.as_deref() == Some(id)),
+                    )
+                    .count();
+                let size = |k: usize| {
+                    model
+                        .pointer(&format!("/size/{k}"))
+                        .cloned()
+                        .unwrap_or_default()
+                };
+                let imported = layout.contains_key(&format!("{MODEL_PREFIX}{id}"));
+                json!({
+                    "id": id,
+                    "name": model.get("name").and_then(Value::as_str).unwrap_or_default(),
+                    "w": size(0),
+                    "d": size(1),
+                    "h": size(2),
+                    "color": model.get("color").cloned().unwrap_or(Value::Null),
+                    "format": model.pointer("/file/format").cloned().unwrap_or(Value::Null),
+                    "pieces": pieces,
+                    "removable": imported && pieces == 0,
+                })
+            })
+            .collect();
+        Value::Array(list).to_string()
     }
 
     /// Undoes the last change.
