@@ -25,7 +25,8 @@ impl Engine {
     /// Starts edit mode on the plan shown. Returns the edit state.
     #[wasm_bindgen(js_name = beginEdit)]
     pub fn begin_edit(&mut self) -> String {
-        if self.plan.is_some() && self.edit.is_none() {
+        // A storey alone: the home shown whole (D-028) is not edited.
+        if self.plan.is_some() && self.home.is_empty() && self.edit.is_none() {
             self.edit = Some(Session::new(&self.layout));
         }
         self.edit_state()
@@ -459,8 +460,8 @@ impl Engine {
         let (Some(plan), Some(scene)) = (&self.plan, &self.scene) else {
             return;
         };
-        let (opaque, transparent, lights) = build_dynamic_lit(plan, scene, &self.live.overrides);
-        self.renderer.set_moving_parts(&opaque, &transparent);
+        let (parts, lights) = build_dynamic_lit(plan, scene, &self.live.overrides);
+        self.renderer.set_moving_parts(&parts);
         let mut spots: Vec<_> = scene
             .lights
             .iter()

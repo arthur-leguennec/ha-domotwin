@@ -24,12 +24,12 @@ fn check_mesh(mesh: &Mesh) {
 fn demo_scene() {
     let plan = read_plan(DEMO).unwrap();
     let scene = build_scene(&plan, &SceneOptions::default());
-    check_mesh(&scene.opaque);
-    check_mesh(&scene.wall_mesh);
-    check_mesh(&scene.transparent);
+    check_mesh(&scene.parts[0].opaque);
+    check_mesh(&scene.parts[0].wall_mesh);
+    check_mesh(&scene.parts[0].transparent);
     // The walls are a mesh of their own (glass in some looks), and nothing else is in it.
-    assert!(scene.wall_mesh.triangle_count() > 500);
-    for e in &scene.wall_mesh.extras {
+    assert!(scene.parts[0].wall_mesh.triangle_count() > 500);
+    for e in &scene.parts[0].wall_mesh.extras {
         let index = usize::from(u16::from_le_bytes([e[2], e[3]])) - 1;
         assert!(matches!(
             plan.elements[index],
@@ -72,15 +72,15 @@ fn demo_scene() {
         .collect();
     assert_eq!(on.len(), lit);
     // A budget that keeps the demo light on old tablets.
-    let triangles = scene.opaque.triangle_count()
-        + scene.wall_mesh.triangle_count()
-        + scene.transparent.triangle_count();
+    let triangles = scene.parts[0].opaque.triangle_count()
+        + scene.parts[0].wall_mesh.triangle_count()
+        + scene.parts[0].transparent.triangle_count();
     assert!(triangles < 120_000, "{triangles} triangles");
     println!(
         "demo scene: {} + {} + {} vertices, {triangles} triangles, {} groups",
-        scene.opaque.vertex_count(),
-        scene.wall_mesh.vertex_count(),
-        scene.transparent.vertex_count(),
+        scene.parts[0].opaque.vertex_count(),
+        scene.parts[0].wall_mesh.vertex_count(),
+        scene.parts[0].transparent.vertex_count(),
         scene.groups.len()
     );
 }
@@ -111,8 +111,8 @@ fn every_kind_builds_at_any_size() {
     });
     let plan = read_plan(plan.to_string().as_bytes()).unwrap();
     let scene = build_scene(&plan, &SceneOptions::default());
-    check_mesh(&scene.opaque);
-    check_mesh(&scene.transparent);
+    check_mesh(&scene.parts[0].opaque);
+    check_mesh(&scene.parts[0].transparent);
     for (info, element) in scene.elements.iter().zip(&plan.elements) {
         let Element::Furniture(f) = element else {
             continue;
@@ -131,8 +131,8 @@ fn moving_parts_rebuild_with_overrides() {
     use domotwin_core::scene::{Overrides, build_dynamic};
     let plan = read_plan(DEMO).unwrap();
     let scene = build_scene(&plan, &SceneOptions::default());
-    check_mesh(&scene.dynamic_opaque);
-    check_mesh(&scene.dynamic_transparent);
+    check_mesh(&scene.parts[0].dynamic_opaque);
+    check_mesh(&scene.parts[0].dynamic_transparent);
     // Doors are moving parts only: none of their vertices is in the static mesh.
     let door = plan
         .elements
@@ -141,13 +141,13 @@ fn moving_parts_rebuild_with_overrides() {
         .unwrap();
     let tag = u16::try_from(door + 1).unwrap().to_le_bytes();
     let has = |mesh: &Mesh| mesh.extras.iter().any(|e| [e[2], e[3]] == tag);
-    assert!(!has(&scene.opaque) && has(&scene.dynamic_opaque));
+    assert!(!has(&scene.parts[0].opaque) && has(&scene.parts[0].dynamic_opaque));
     // Opening it moves its leaf.
     let mut overrides = Overrides::default();
     overrides.open.insert(door, 0.0);
-    let (closed, _) = build_dynamic(&plan, &scene, &overrides);
+    let (closed, _) = build_dynamic(&plan, &scene, &overrides).swap_remove(0);
     overrides.open.insert(door, 1.0);
-    let (open, _) = build_dynamic(&plan, &scene, &overrides);
+    let (open, _) = build_dynamic(&plan, &scene, &overrides).swap_remove(0);
     assert_eq!(closed.vertex_count(), open.vertex_count());
     assert_ne!(closed.positions, open.positions);
     // A blind appears on a window bound to a cover.
@@ -157,7 +157,7 @@ fn moving_parts_rebuild_with_overrides() {
         .position(|e| e.id() == "win-living-1")
         .unwrap();
     overrides.blind.insert(window, 0.5);
-    let (blind, _) = build_dynamic(&plan, &scene, &overrides);
+    let (blind, _) = build_dynamic(&plan, &scene, &overrides).swap_remove(0);
     assert!(blind.vertex_count() > open.vertex_count());
     // Every room, wall and piece belongs to a room slot.
     for info in &scene.elements {
@@ -193,7 +193,12 @@ fn outlines_follow_the_walls() {
     #[allow(clippy::cast_possible_truncation)]
     let height = scene.wall_height as f32;
     let near = |a: f32, b: f32| (a - b).abs() < 0.01;
-    let walls = || scene.lines.iter().filter(|l| l.kind == LineKind::Wall);
+    let walls = || {
+        scene.parts[0]
+            .lines
+            .iter()
+            .filter(|l| l.kind == LineKind::Wall)
+    };
     // The partition's top runs once, on its middle: both rooms give it there, and neither on
     // its own face.
     let along_x = |x: f32| {
@@ -213,7 +218,7 @@ fn outlines_follow_the_walls() {
     // The window's frame goes with the cut-away below its sill; the door's stands on the floor.
     #[allow(clippy::cast_possible_truncation)]
     let sill = SILL as f32;
-    let frames: Vec<_> = scene
+    let frames: Vec<_> = scene.parts[0]
         .lines
         .iter()
         .filter(|l| l.kind == LineKind::Opening)

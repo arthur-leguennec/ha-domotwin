@@ -51,6 +51,36 @@ test("frame time of each look", async ({ page }, testInfo) => {
   console.log(JSON.stringify(report));
 });
 
+// Every storey at once (D-028): the demo home's two storeys spread apart under their roof, in the
+// evening with its lamps on, neon at High quality (offscreen, with MSAA and its bloom), as above.
+test("frame time of the whole home", async ({ page }, testInfo) => {
+  test.setTimeout(240_000);
+  await openHarness(page, {
+    storeys: 2,
+    storey: "all",
+    theme: "neon",
+    lighting: "evening",
+    live: true,
+  });
+  await expect.poll(async () => (await viewState(page)).stats?.storeys).toBe(2);
+  await page.evaluate(() => {
+    const view = (
+      window as never as { __view: () => { options: Record<string, unknown> } }
+    ).__view();
+    view.options = { ...view.options, quality: "high" };
+  });
+  await expect.poll(async () => (await viewState(page)).quality).toBe("high");
+  const one: FrameStats = await page.evaluate(() =>
+    (window as never as { __view: () => BenchmarkView }).__view().benchmark(20),
+  );
+  const report = { storeys: 2, triangles: (await viewState(page)).stats?.triangles, ...one };
+  const path = testInfo.outputPath("home-frame-time.json");
+  await writeFile(path, JSON.stringify(report, null, 2));
+  await testInfo.attach("home-frame-time", { path, contentType: "application/json" });
+  console.log(JSON.stringify(report));
+  expect(one.frames).toBe(20);
+});
+
 interface DragEngine {
   beginEdit(): unknown;
   editSelect(id: string, add: boolean): unknown;

@@ -4,7 +4,14 @@ import { ConfigError, normalizeConfig, type CardConfig } from "../config";
 import { DomoTwinClient, type Settings, type StoreyInfo, type StoredPlan } from "../ha/client";
 import { isHassError, type HomeAssistant } from "../ha/types";
 import { readBindings, type BindingsJson } from "../live/bindings";
-import { loadStorey, roomsElsewhere, type StoreyRooms } from "../live/storeys";
+import type { HomeStorey } from "../engine/engine";
+import {
+  ALL_STOREYS,
+  loadHome,
+  loadStorey,
+  roomsElsewhere,
+  type StoreyRooms,
+} from "../live/storeys";
 import { translatorFor } from "../i18n";
 import { baseStyles } from "./styles";
 import type { ViewOptions } from "./view";
@@ -16,6 +23,7 @@ export class DomoTwinCard extends LitElement {
     config: { state: true },
     plan: { state: true },
     layout: { state: true },
+    home: { state: true },
     planError: { state: true },
     bindings: { state: true },
     settings: { state: true },
@@ -27,6 +35,8 @@ export class DomoTwinCard extends LitElement {
   protected config?: CardConfig;
   protected plan?: StoredPlan["plan"];
   protected layout?: StoredPlan["layout"];
+  /** Every storey's plan, when the home is shown whole (D-028). */
+  protected home?: HomeStorey[];
   protected planError?: string;
   protected bindings?: BindingsJson;
   protected settings?: Settings;
@@ -130,21 +140,43 @@ export class DomoTwinCard extends LitElement {
     const ticket = ++this.loads;
     try {
       // The storey chosen with the switcher, else the card's; a storey removed since: the ground
-      // floor.
-      let stored = await loadStorey(client, this.chosen ?? this.config?.storey);
-      if (this.chosen !== undefined && stored.storey !== this.chosen) {
-        // The storey chosen was removed: the card's own.
+      // floor. Every storey at once (D-028): the ground floor's first, for the list of storeys.
+      const wanted = this.chosen ?? this.config?.storey;
+      let all = wanted === ALL_STOREYS;
+      let stored = await loadStorey(client, all ? undefined : wanted);
+      if (!all && this.chosen !== undefined && stored.storey !== this.chosen) {
+        // The storey chosen was removed: the card's own (every storey, or one).
         this.chosen = undefined;
-        if (this.config?.storey !== undefined)
+        all = this.config?.storey === ALL_STOREYS;
+        if (this.config?.storey !== undefined && !all) {
           stored = await loadStorey(client, this.config.storey);
+        }
+      }
+      // Every storey at once needs two with a plan; else the one with a plan, alone.
+      const storeys =
+        all && stored.storeys.length > 1 ? await loadHome(client, stored.storeys) : [];
+      const home = storeys.length > 1 ? storeys : undefined;
+      const [only] = storeys;
+      if (only && !home) {
+        const plan = only.plan as StoredPlan["plan"];
+        stored = { ...stored, plan, layout: only.layout ?? {}, storey: only.id };
       }
       // A later load (another storey asked for) wins.
       if (ticket !== this.loads) return;
-      this.plan = stored.plan;
-      this.layout = stored.layout;
       this.storeys = stored.storeys;
-      this.storey = stored.storey ?? undefined;
-      void this.loadElsewhere(client, stored);
+      if (home) {
+        this.home = home;
+        this.plan = undefined;
+        this.layout = undefined;
+        this.storey = ALL_STOREYS;
+        this.elsewhere = [];
+      } else {
+        this.home = undefined;
+        this.plan = stored.plan;
+        this.layout = stored.layout;
+        this.storey = stored.storey ?? undefined;
+        void this.loadElsewhere(client, stored);
+      }
       this.planError = undefined;
     } catch (error) {
       this.planError = isHassError(error) ? error.code : "unknown";
@@ -193,6 +225,8 @@ export class DomoTwinCard extends LitElement {
         badges: config.badges,
         cameras: config.cameras,
         names: config.names,
+        spread: config.spread,
+        roof: config.roof,
       };
       if (config.room) options.room = config.room;
       if (config.theme) options.theme = config.theme;
@@ -236,6 +270,7 @@ export class DomoTwinCard extends LitElement {
         .hass=${this._hass}
         .plan=${this.plan}
         .layout=${this.layout}
+        .home=${this.home}
         .bindings=${this.bindings}
         .planError=${this.planError}
         .options=${this.viewOptions()}

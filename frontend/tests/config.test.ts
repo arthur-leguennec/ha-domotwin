@@ -17,6 +17,8 @@ describe("normalizeConfig", () => {
       badges: true,
       cameras: true,
       names: true,
+      spread: true,
+      roof: true,
     });
   });
 
@@ -39,6 +41,9 @@ describe("normalizeConfig", () => {
         badges: false,
         cameras: false,
         names: false,
+        storey: " all ",
+        spread: false,
+        roof: false,
       }),
     ).toEqual({
       type: "custom:domotwin-card",
@@ -57,6 +62,9 @@ describe("normalizeConfig", () => {
       badges: false,
       cameras: false,
       names: false,
+      storey: "all",
+      spread: false,
+      roof: false,
     });
   });
 
@@ -83,6 +91,8 @@ describe("normalizeConfig", () => {
     [{ badges: "on" }, "config.bad_badges"],
     [{ cameras: 0 }, "config.bad_cameras"],
     [{ names: "yes" }, "config.bad_names"],
+    [{ spread: "apart" }, "config.bad_spread"],
+    [{ roof: 1 }, "config.bad_roof"],
     [{ theme: "dark" }, "config.bad_theme"],
     [{ accent: "red" }, "config.bad_accent"],
     [{ accent: "#12345" }, "config.bad_accent"],

@@ -56,7 +56,9 @@ every reader returns `Result` with a stable error code that the frontend transla
 - `domotwin-core::plan` reads the file; `geometry` derives the walls, their heights and the door
   sweeps; `scene` turns the static home into three meshes (opaque, the walls, glass;
   `scene::mesh` packs the vertices) and the moving parts (doors, windows, blinds, curtains) into
-  two small ones; `camera` holds the camera math and the cut-away decision; `bindings` and `live`
+  two small ones. A home shown whole has these meshes for each storey (a part with its elevation,
+  the elements, rooms, walls and lamps numbered across the home) and a roof over the top one
+  (`scene::roof`, D-028); `camera` holds the camera math and the cut-away decision; `bindings` and `live`
   turn entity states into the look of each element and fade towards it (D-016).
 - `domotwin-render` uploads the meshes once and draws them with its own shaders (`shaders.rs`):
   the sun shadow map (Balanced and High, day look), the background (sky, ground and grid), the
@@ -65,9 +67,12 @@ every reader returns `Result` with a stable error code that the frontend transla
   (`scene::lines`), then the halos of lit bulbs. In the looks that glow, all of it is drawn
   offscreen with 4× MSAA, and a bloom of what glows is added on the way to the screen (D-027).
   The look of every element (glow, greyed out, flash) is a small texture the vertex shader reads;
-  `lamps.rs` picks the point lights. `view.rs` runs the camera moves, the 2D switch and the wall
-  animations. See D-014 and D-016.
-- `domotwin-web` exposes a small API: `loadPlan`, `setBindings`, `setStates`, `highlight`,
+  `lamps.rs` picks the point lights. `view.rs` runs the camera moves, the 2D switch, the wall
+  animations and where the storeys go: each storey is drawn moved by its offset (a uniform), up
+  and spread apart in 3D, side by side on the 2D plan, the roof above the top one. See D-014,
+  D-016 and D-028.
+- `domotwin-web` exposes a small API: `loadPlan` (or `loadStoreys`, with `setSpread`, `setRoof`,
+  `storeyLabels` and `storeyPicture`, for every storey at once), `setBindings`, `setStates`, `highlight`,
   `orbit`, `pan`, `zoom`, `setPlanView`, `overview`, `focusElement`, `views`, `showView`, `pick`,
   `screenPoint`, `stats`, `frame`, and for 3D files `modelFiles` (what to fetch) and `setModelMesh`.
 - In the frontend, `src/gestures.ts` turns pointer events into drags, pans, pinches, taps and long
@@ -81,7 +86,7 @@ every reader returns `Result` with a stable error code that the frontend transla
    default), `domotwin/bindings/get` and `domotwin/settings/get`, then passes the
    plan, the overlay and the bindings to the engine (`load_plan`). With several storeys, the other
    storeys' plans are fetched too, for their rooms' alerts (D-026); a storey switch loads another
-   plan in the same engine. The core reads the plan leniently,
+   plan in the same engine, and every storey at once loads them all (`loadStoreys`, D-028). The core reads the plan leniently,
    applies the overlay, builds the geometry, and the renderer uploads batched meshes. Pieces drawn
    from 3D files are boxes until the view has fetched each file once
    (`GET /api/domotwin/models/<sha256>.<format>`), read it with the model module and given its mesh

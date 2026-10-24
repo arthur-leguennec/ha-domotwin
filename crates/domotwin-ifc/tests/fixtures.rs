@@ -185,7 +185,9 @@ fn apartment_ifc4() {
 
     // The core draws it.
     let scene = build_scene(&plan, &SceneOptions::default());
-    assert!(scene.opaque.triangle_count() + scene.wall_mesh.triangle_count() > 1000);
+    assert!(
+        scene.parts[0].opaque.triangle_count() + scene.parts[0].wall_mesh.triangle_count() > 1000
+    );
 }
 
 #[test]

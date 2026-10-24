@@ -128,6 +128,9 @@ pub struct Mark {
 
 /// Texels per element tag in [`element_texels`].
 pub const ELEMENT_TEXELS: usize = 3;
+/// Element tags per row of the elements' texture (`ELEMENTS_PER_ROW` in `shaders.rs`): a row is
+/// 1 536 texels wide, within the 2 048 every WebGL2 GPU allows, however many elements a home has.
+pub const ELEMENTS_PER_ROW: usize = 512;
 
 /// Below this (W), an appliance is on standby: the power layer leaves it out.
 const STANDBY_WATTS: f32 = 3.0;
@@ -160,6 +163,17 @@ pub fn element_texels(looks: &[Look], marks: &[Mark]) -> Vec<[f32; 4]> {
     texels
 }
 
+/// [`element_texels`] laid out as the elements' texture: its width and height, and its texels,
+/// [`ELEMENTS_PER_ROW`] tags per row (the last row padded).
+pub fn element_rows(mut texels: Vec<[f32; 4]>) -> (u32, u32, Vec<[f32; 4]>) {
+    let tags = texels.len().div_ceil(ELEMENT_TEXELS).max(1);
+    let per_row = tags.min(ELEMENTS_PER_ROW);
+    let rows = tags.div_ceil(per_row);
+    texels.resize(per_row * rows * ELEMENT_TEXELS, [0.0; 4]);
+    let width = u32::try_from(per_row * ELEMENT_TEXELS).unwrap_or(u32::MAX);
+    (width, u32::try_from(rows).unwrap_or(u32::MAX), texels)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -167,6 +181,7 @@ mod tests {
     fn spot(element: usize, position: [f64; 3], screen: bool) -> LightSpot {
         LightSpot {
             element,
+            storey: 0,
             position,
             color: domotwin_core::plan::Rgb8::from_u32(0xffd6a0),
             power: 1.0,
@@ -252,6 +267,21 @@ mod tests {
             ..Look::default()
         }];
         assert!((element_texels(&looks, &[])[5][0] - 2.0 / 3.0).abs() < 1e-4);
+    }
+
+    #[test]
+    fn the_elements_texture_wraps_onto_rows() {
+        // A few elements: one row, as wide as they need.
+        let (w, h, texels) = element_rows(element_texels(&[lit(1.0); 4], &[]));
+        assert_eq!((w, h, texels.len()), (15, 1, 15));
+        // A home of many: rows of 512 tags, 1 536 texels, the last one padded.
+        let looks = vec![lit(1.0); 1500];
+        let (w, h, texels) = element_rows(element_texels(&looks, &[]));
+        assert_eq!((w, h), (1536, 3));
+        assert_eq!(texels.len(), 1536 * 3);
+        // Tag 1 000 (element 999) is on the second row, where the shader reads it.
+        let at = (1000 / ELEMENTS_PER_ROW) * 1536 + (1000 % ELEMENTS_PER_ROW) * ELEMENT_TEXELS;
+        assert!((texels[at][3] - 1.0).abs() < 1e-6);
     }
 
     #[test]

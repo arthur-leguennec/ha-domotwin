@@ -103,7 +103,7 @@ impl RoomWalls {
 }
 
 /// The walls of every room of a plan, computed once.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct WallLayout {
     /// One entry per room, in plan order.
     pub rooms: Vec<RoomWalls>,

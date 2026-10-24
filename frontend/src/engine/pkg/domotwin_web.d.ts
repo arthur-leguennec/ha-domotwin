@@ -164,6 +164,19 @@ export class Engine {
      */
     loadPlan(json: string, keep_camera?: boolean | null, layout?: string | null): string;
     /**
+     * Loads every storey of the home to show it whole (D-028): JSON `[{"id", "name",
+     * "elevation", "plan", "layout"}]`, each plan with its overlay. The storeys stand at their
+     * heights, spread apart or not ([`Engine::set_spread`]), the roof over the top one. Returns
+     * the summary of the whole home with `storeys`. Edit mode needs a storey alone
+     * ([`Engine::load_plan`]).
+     *
+     * # Errors
+     *
+     * Fails with the JSON error of the plan reader for a storey's plan (`storey` names it), or
+     * `{"code": "no_storeys"}` without a storey.
+     */
+    loadStoreys(json: string, keep_camera?: boolean | null): string;
+    /**
      * Marks element `id` as selected in the draft shown (nothing for an empty id), without
      * building the scene again.
      */
@@ -295,6 +308,15 @@ export class Engine {
      */
     setQuality(name: string): void;
     /**
+     * Shows or hides the roof over the top storey of the home shown whole.
+     */
+    setRoof(shown: boolean): void;
+    /**
+     * Spreads the storeys of the home shown whole apart, or stacks them (animated from
+     * `time_ms`); the camera frames the home as it will be.
+     */
+    setSpread(spread: boolean, time_ms: number): void;
+    /**
      * Updates entity states: JSON `{ "entity_id": { "state", "attributes" } | null }`, only the
      * entities that changed (`null` forgets one).
      */
@@ -343,6 +365,19 @@ export class Engine {
      * Figures about the scene, as JSON (for the diagnostics and the performance smoke test).
      */
     stats(): string;
+    /**
+     * Where each storey of the home shown whole is, as JSON `[{"id", "name", "x", "y", "top"}]`
+     * in device pixels from the top left, where its label goes: in 3D, the rightmost corner of
+     * the storey halfway up its walls; on the 2D plan (`top`), the middle of its top edge.
+     * Storeys behind the camera are left out.
+     */
+    storeyLabels(): string;
+    /**
+     * A picture of storey `index` (lowest first) of the home shown whole, alone, seen from above
+     * a corner: `width` × `height` RGBA pixels, rows from the top (its thumbnail). Empty without
+     * that storey.
+     */
+    storeyPicture(index: number, width: number, height: number): Uint8Array;
     /**
      * Goes back to the default sun, high in the south-east of the plan.
      */
@@ -430,6 +465,7 @@ export interface InitOutput {
     readonly engine_layerLabels: (a: number, b: number) => void;
     readonly engine_layersAnimating: (a: number) => number;
     readonly engine_loadPlan: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => void;
+    readonly engine_loadStoreys: (a: number, b: number, c: number, d: number, e: number) => void;
     readonly engine_markSelected: (a: number, b: number, c: number) => void;
     readonly engine_modelFiles: (a: number, b: number) => void;
     readonly engine_modelsOverBudget: (a: number) => number;
@@ -458,6 +494,8 @@ export interface InitOutput {
     readonly engine_setPlanView: (a: number, b: number, c: number) => void;
     readonly engine_setPowerLayer: (a: number, b: number) => void;
     readonly engine_setQuality: (a: number, b: number, c: number) => void;
+    readonly engine_setRoof: (a: number, b: number) => void;
+    readonly engine_setSpread: (a: number, b: number, c: number) => void;
     readonly engine_setStates: (a: number, b: number, c: number) => void;
     readonly engine_setSun: (a: number, b: number, c: number) => void;
     readonly engine_setSunPosition: (a: number, b: number, c: number, d: number) => void;
@@ -467,6 +505,8 @@ export interface InitOutput {
     readonly engine_showView: (a: number, b: number, c: number, d: number) => number;
     readonly engine_shownPlan: (a: number, b: number) => void;
     readonly engine_stats: (a: number, b: number) => void;
+    readonly engine_storeyLabels: (a: number, b: number) => void;
+    readonly engine_storeyPicture: (a: number, b: number, c: number, d: number, e: number) => void;
     readonly engine_useDefaultSun: (a: number) => void;
     readonly engine_views: (a: number, b: number) => void;
     readonly engine_zoom: (a: number, b: number, c: number, d: number) => void;

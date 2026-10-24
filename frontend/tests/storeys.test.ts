@@ -5,7 +5,10 @@ import type { StoreyInfo } from "../src/ha/client";
 import type { HomeAssistant } from "../src/ha/types";
 import { Translator } from "../src/i18n";
 import {
+  ALL_STOREYS,
+  loadHome,
   roomsElsewhere,
+  storeyCounts,
   storeyLevels,
   storeyName,
   storeyShort,
@@ -53,9 +56,12 @@ describe("storeys", () => {
       )?.options.map((option) => `${option.value}:${option.label}`);
     expect(labels(undefined)).toEqual([
       ":The ground floor",
+      "all:Every storey at once",
       "storey-2:Attic",
       "storey-1:Ground floor",
     ]);
+    // Every storey at once is a choice like a storey.
+    expect(labels(ALL_STOREYS)?.filter((l) => l.startsWith("all:"))).toHaveLength(1);
     expect(labels("storey-7")?.at(-1)).toBe("storey-7:storey-7");
     // One storey: nothing to pick, unless the card names another.
     expect(storeyField(t, home.slice(0, 1), undefined)).toBeUndefined();
@@ -125,5 +131,87 @@ describe("storeys", () => {
     const shownHere = [{ ...office, entity: "binary_sensor.office_smoke" }] as never[];
     const twin = [{ storey: "up", rooms: [{ id: "office-2", name: "Office" }] }];
     expect(withAlertsElsewhere(hass, bindings, shownHere, twin, "ground")).toHaveLength(1);
+  });
+
+  it("fetch every storey's plan to show the home whole, lowest first", async () => {
+    const asked: (string | undefined)[] = [];
+    const client = {
+      getPlan: (id?: string) => {
+        asked.push(id);
+        return Promise.resolve({
+          plan: { elements: [{ type: "room", id: `room-${id ?? ""}` }] },
+          layout: { moved: { x: 1 } },
+          revision: 1,
+          storey: id ?? null,
+          storeys: [],
+        });
+      },
+    };
+    const home = await loadHome(client, [storey("up", 280, "Up"), storey("down", 0)]);
+    expect(home.map((s) => [s.id, s.name, s.elevation])).toEqual([
+      ["down", "", 0],
+      ["up", "Up", 280],
+    ]);
+    expect(home[1]?.plan).toEqual({ elements: [{ type: "room", id: "room-up" }] });
+    expect(home[0]?.layout).toEqual({ moved: { x: 1 } });
+    expect(asked.sort()).toEqual(["down", "up"]);
+  });
+
+  it("leave out of the home a storey without a plan; a plan not fetched fails it", async () => {
+    const client = (lost: boolean) => ({
+      getPlan: (id?: string) =>
+        lost && id === "attic"
+          ? Promise.reject(new Error("gone"))
+          : Promise.resolve({
+              plan: id === "empty" ? null : { elements: [] },
+              layout: {},
+              revision: 1,
+              storey: id ?? null,
+              storeys: [],
+            }),
+    });
+    const storeys = [storey("ground", 0), storey("empty", 280), storey("attic", 560)];
+    const home = await loadHome(client(false), storeys);
+    expect(home.map((s) => s.id)).toEqual(["ground", "attic"]);
+    await expect(loadHome(client(true), storeys)).rejects.toThrow("gone");
+  });
+
+  it("count a storey's rooms and the lights linked to it that are on", () => {
+    const plan = {
+      elements: [
+        { type: "room", id: "office" },
+        { type: "room", id: "landing" },
+        { type: "furniture", id: "lamp" },
+        { type: "furniture", id: "desk" },
+      ],
+    };
+    const hass = {
+      states: {
+        "light.desk": { state: "on" },
+        "light.off": { state: "off" },
+        "switch.fan": { state: "on" },
+      },
+    } as unknown as HomeAssistant;
+    const bindings = {
+      version: 1 as const,
+      rooms: {},
+      elements: {
+        lamp: { entities: [{ entity_id: "light.desk" }, { entity_id: "light.off" }] },
+        desk: { entities: [{ entity_id: "switch.fan" }, { entity_id: "light.desk" }] },
+        elsewhere: { entities: [{ entity_id: "light.hall" }] },
+      },
+    };
+    // The same light linked twice counts once; switches are not lights.
+    expect(storeyCounts(hass, bindings, plan)).toEqual({ rooms: 2, lights: 1 });
+    expect(storeyCounts(undefined, undefined, plan)).toEqual({ rooms: 2, lights: 0 });
+    expect(storeyCounts(hass, bindings, null)).toEqual({ rooms: 0, lights: 0 });
+    // A lamp added in edit mode counts too.
+    const added = { ...bindings, elements: { added: { entities: [{ entity_id: "light.new" }] } } };
+    const lit = { states: { "light.new": { state: "on" } } } as unknown as HomeAssistant;
+    expect(storeyCounts(lit, added, plan)).toEqual({ rooms: 2, lights: 0 });
+    expect(storeyCounts(lit, added, plan, { added: { add: { kind: "lamp" } } })).toEqual({
+      rooms: 2,
+      lights: 1,
+    });
   });
 });

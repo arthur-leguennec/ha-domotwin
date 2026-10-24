@@ -12,7 +12,8 @@ one storey to the next.
 With two storeys or more, the view's tools get one button per storey, the highest on top: **0**
 for the ground floor, **1**, **2**… above it, **−1** below it. A tap on a button shows that storey.
 A tap on **stairs** (the `stairs` kind of furniture, with nothing linked to it) goes to the storey
-above, or from the top storey to the one below. One storey is shown at a time.
+above, or from the top storey to the one below. The button above the storeys shows them all at
+once (see below).
 
 **Alerts follow you.** The alerts of every storey's rooms (smoke, gas, water, alarm, a window open
 in the rain) show in the banner whichever storey is shown, with the storey they are on: "Smoke in
@@ -22,6 +23,35 @@ and a tap on the alert shows that storey and frames the room.
 The ground floor is the storey whose floor is nearest the ground (elevation 0): the panel and a
 card open on it unless told otherwise. A card's **`storey`** option (the visual editor lists the
 storeys) opens it on another one; a card naming a storey that was removed shows the ground floor.
+
+## Every storey at once
+
+![The demo apartment's two storeys spread apart under their roof, with their labels and pictures](figures/screenshot-home.png)
+
+The **every storey** button (three layers, above the storeys' buttons) shows the whole home: each
+storey at its height, **spread apart** so that you see into each one, and a **roof** over the top
+storey. Two buttons in the view's tools stack the storeys back on each other (and spread them again)
+and take the roof off (and put it back); both are animated.
+
+- **Each storey's label** stands beside it: its name, its rooms and how many lights are on in it. A
+  tap on it shows that storey alone.
+- **A picture of each storey**, seen from above, in the look shown, lines up on the left, the
+  highest on top (in views wider than 560 pixels). A tap on one shows that storey alone.
+- **Everything is live**, on every storey: lamps light their storey, a tap on any lamp toggles it,
+  a long press opens its controls, the walls facing the camera are lowered storey by storey, and
+  the layers (heatmap, alerts, presence, power), the badges and the cameras' cones show on every
+  storey.
+- **The roof** is a gable roof over the top storey's walls, its ridge along the longer side. It is
+  of glass in the neon and blueprint looks, tiled in day. A tap goes through it to what is under it.
+- **On the 2D plan**, the storeys lie side by side, the ground floor on the left (down the view in
+  a view taller than wide, the highest on top), each with its label over it.
+
+A storey added but not drawn yet is left out of the whole home until it has a plan.
+
+A card shows every storey with **`storey: all`**, the storeys spread apart and the roof on unless
+**`spread: false`** or **`roof: false`** (the visual editor offers all three with two storeys or
+more). In the panel, **Arrange**, linking and **Edit plan** work on one storey: the one last shown
+alone is shown alone while they run, and the whole home comes back when they end.
 
 ## Managing them
 
@@ -71,6 +101,8 @@ Exporting from the panel exports the plan of the storey shown, named after the s
 
 ## Limits
 
-One storey is drawn at a time: the storeys are not stacked in one 3D view yet, and the stairs are
-a piece of furniture, not an opening in the floor above. The heatmap, presence and the power layer
-are those of the storey shown; only the alerts come from every storey.
+The stairs are a piece of furniture, not an opening in the floor above: with the storeys stacked,
+the floor above covers them. The roof is a gable over the smallest rectangle around the top
+storey; a home of several wings or with a flat, hipped or imported roof gets the same simple roof
+(`roof: false` hides it). With one storey shown, the heatmap, presence and the power layer are
+those of that storey; only the alerts come from every storey.

@@ -12,14 +12,15 @@ mod quality;
 mod shaders;
 pub mod view;
 
+use std::borrow::Cow;
 use std::sync::Arc;
 
-use domotwin_core::camera::CutawayMode;
+use domotwin_core::camera::{Camera, CutawayMode};
 use domotwin_core::lighting::Lighting;
 use domotwin_core::live::Look;
 use domotwin_core::scene::lines::Line;
 use domotwin_core::scene::mesh::Mesh;
-use domotwin_core::scene::{LightSpot, Scene};
+use domotwin_core::scene::{LightSpot, MovingParts, Scene, StoreyPart};
 use domotwin_core::theme::{Theme, ThemeName};
 use lamps::{Halo, Mark, PointLight};
 pub use quality::{GpuHint, QualityPreset};
@@ -191,6 +192,43 @@ impl GpuLines {
     }
 }
 
+/// One storey on the GPU (D-028): its meshes, its outlines and its lamps' lights.
+#[derive(Default)]
+struct GpuPart {
+    /// Opaque and moving opaque, then glass and moving glass.
+    meshes: [Option<GpuMesh>; 4],
+    /// The walls: opaque, or glass faces with opaque tops (D-027).
+    walls: Option<GpuMesh>,
+    /// The ceilings: only drawn in the shadow map, with the real sun.
+    ceiling: Option<GpuMesh>,
+    lines: Option<GpuLines>,
+    /// The lights of its lamps that are on, where the view draws them.
+    lights: Vec<PointLight>,
+}
+
+impl GpuPart {
+    fn new(context: &Context, part: &StoreyPart) -> Self {
+        Self {
+            meshes: [
+                GpuMesh::new(context, &part.opaque),
+                GpuMesh::new(context, &part.dynamic_opaque),
+                GpuMesh::new(context, &part.transparent),
+                GpuMesh::new(context, &part.dynamic_transparent),
+            ],
+            walls: GpuMesh::new(context, &part.wall_mesh),
+            ceiling: GpuMesh::new(context, &part.ceiling),
+            lines: GpuLines::new(context, &part.lines),
+            lights: Vec::new(),
+        }
+    }
+}
+
+/// The roof on the GPU, and its outlines.
+struct GpuRoof {
+    mesh: Option<GpuMesh>,
+    lines: Option<GpuLines>,
+}
+
 /// The offscreen targets of the bloom (D-027): the picture drawn with MSAA, resolved, and the
 /// levels of its glow, each half the size of the one before.
 struct PostTargets {
@@ -288,14 +326,11 @@ pub struct Renderer {
     composite: Program,
     /// The look (D-027).
     theme: Theme,
-    /// The outlines of the home.
-    lines: Option<GpuLines>,
     /// The offscreen targets, while the look glows.
     post: Option<PostTargets>,
-    /// Opaque and moving opaque, then glass and moving glass.
-    meshes: [Option<GpuMesh>; 4],
-    /// The walls: opaque, or glass faces with opaque tops (D-027).
-    walls: Option<GpuMesh>,
+    /// The storeys of the scene (one for a plan alone), and the roof over the top one.
+    parts: Vec<GpuPart>,
+    roof: Option<GpuRoof>,
     /// The live look of every element, three texels each (see `lamps::element_texels`).
     elements: Texture2D,
     /// The room layers, three texels per room slot (`domotwin_core::layers::room_texels`).
@@ -310,13 +345,10 @@ pub struct Renderer {
     motion: bool,
     /// Direction towards the real sun (unit), when its position is used; else [`SUN`].
     sun: Option<[f64; 3]>,
-    /// The ceilings: only drawn in the shadow map, with the real sun.
-    ceiling: Option<GpuMesh>,
     /// The looks and edit marks it holds.
     looks: Vec<Look>,
     marks: Vec<Mark>,
     spots: Vec<LightSpot>,
-    lights: Vec<PointLight>,
     halos: Option<GpuHalos>,
     shadow: Option<ShadowMap>,
     /// The shadow map must be drawn again (scene, moving parts, sun or quality changed); the
@@ -337,12 +369,24 @@ impl std::fmt::Debug for Renderer {
             .field("width", &self.width)
             .field("height", &self.height)
             .field("quality", &self.quality)
-            .field("meshes", &self.meshes)
-            .field("walls", &self.walls)
-            .field("lights", &self.lights.len())
+            .field("storeys", &self.parts.len())
+            .field("lights", &self.light_count())
             .finish_non_exhaustive()
     }
 }
+
+/// Draws what `program` draws next moved by `offset` cm (a storey of a home, D-028).
+#[allow(clippy::cast_possible_truncation)]
+fn set_offset(program: &Program, offset: [f64; 3]) {
+    let [x, y, z] = offset.map(|v| v as f32);
+    program.use_uniform_if_required("u_offset", Vec3::new(x, y, z));
+}
+
+/// No offset: the geometry where it stands.
+const NO_OFFSET: [f64; 3] = [0.0; 3];
+
+/// A storey as a frame draws it: its meshes, where, and the lights that light it.
+type Drawn<'a> = (&'a GpuPart, [f64; 3], Cow<'a, [PointLight]>);
 
 #[allow(clippy::cast_possible_truncation)]
 fn mat4(m: &[f32; 16]) -> Mat4 {
@@ -411,10 +455,15 @@ fn sun_matrix(centre: [f64; 3], radius: f64, sun: [f64; 3]) -> [f32; 16] {
 /// A texture of texels on one row (per element tag, per room slot).
 fn row_texture(context: &Context, texels: &[[f32; 4]]) -> Texture2D {
     let width = u32::try_from(texels.len()).unwrap_or(2).max(2);
+    rows_texture(context, width, 1, texels)
+}
+
+/// A float texture of `width` × `height` texels, row 0 first, read with `texelFetch`.
+fn rows_texture(context: &Context, width: u32, height: u32, texels: &[[f32; 4]]) -> Texture2D {
     let texture = Texture2D::new_empty::<[f32; 4]>(
         context,
         width,
-        1,
+        height,
         Interpolation::Nearest,
         Interpolation::Nearest,
         None,
@@ -446,7 +495,8 @@ impl Renderer {
         let bloom_down = Program::from_source(&context, full, shaders::BLOOM_DOWN)?;
         let bloom_up = Program::from_source(&context, full, shaders::BLOOM_UP)?;
         let composite = Program::from_source(&context, full, shaders::COMPOSITE)?;
-        let elements = row_texture(&context, &lamps::element_texels(&[], &[]));
+        let (columns, rows, texels) = lamps::element_rows(lamps::element_texels(&[], &[]));
+        let elements = rows_texture(&context, columns, rows, &texels);
         let rooms = row_texture(&context, &[[0.0; 4]; 3]);
         let mut view = ViewState::default();
         view.aspect = f64::from(width.max(1)) / f64::from(height.max(1));
@@ -477,10 +527,9 @@ impl Renderer {
             bloom_up,
             composite,
             theme: Theme::default(),
-            lines: None,
             post: None,
-            meshes: [None, None, None, None],
-            walls: None,
+            parts: Vec::new(),
+            roof: None,
             elements,
             rooms,
             rooms_shown: false,
@@ -488,11 +537,9 @@ impl Renderer {
             power_layer: false,
             motion: true,
             sun: None,
-            ceiling: None,
             looks: Vec::new(),
             marks: Vec::new(),
             spots: Vec::new(),
-            lights: Vec::new(),
             halos: None,
             shadow: None,
             shadow_stale: true,
@@ -505,37 +552,50 @@ impl Renderer {
 
     /// Uploads a scene. The camera frames it unless `keep_camera`.
     pub fn set_scene(&mut self, scene: &Scene, keep_camera: bool) {
-        self.meshes = [
-            GpuMesh::new(&self.context, &scene.opaque),
-            GpuMesh::new(&self.context, &scene.dynamic_opaque),
-            GpuMesh::new(&self.context, &scene.transparent),
-            GpuMesh::new(&self.context, &scene.dynamic_transparent),
-        ];
-        self.walls = GpuMesh::new(&self.context, &scene.wall_mesh);
-        self.ceiling = GpuMesh::new(&self.context, &scene.ceiling);
-        self.lines = GpuLines::new(&self.context, &scene.lines);
+        self.parts = scene
+            .parts
+            .iter()
+            .map(|part| GpuPart::new(&self.context, part))
+            .collect();
+        self.roof = scene.roof.as_ref().map(|roof| GpuRoof {
+            mesh: GpuMesh::new(&self.context, &roof.mesh),
+            lines: GpuLines::new(&self.context, &roof.lines),
+        });
         self.shadow_stale = true;
         self.spots.clone_from(&scene.lights);
         self.view.set_scene(scene, keep_camera);
+        self.relight();
     }
 
     /// Draws nothing but the background (no plan shown any more).
     pub fn clear_scene(&mut self) {
-        self.meshes = [None, None, None, None];
-        self.walls = None;
-        self.ceiling = None;
-        self.lines = None;
+        self.parts.clear();
+        self.roof = None;
         self.spots.clear();
+        self.shadow_stale = true;
+        self.view.dirty = true;
+        self.relight();
+    }
+
+    /// Uploads the moving parts of each storey again (doors, windows, curtains, blinds moved).
+    pub fn set_moving_parts(&mut self, parts: &[MovingParts]) {
+        for (gpu, (opaque, transparent)) in self.parts.iter_mut().zip(parts) {
+            GpuMesh::replace(&mut gpu.meshes[1], &self.context, opaque);
+            GpuMesh::replace(&mut gpu.meshes[3], &self.context, transparent);
+        }
         self.shadow_stale = true;
         self.view.dirty = true;
     }
 
-    /// Uploads the moving parts again (doors, windows, curtains, blinds moved).
-    pub fn set_moving_parts(&mut self, opaque: &Mesh, transparent: &Mesh) {
-        GpuMesh::replace(&mut self.meshes[1], &self.context, opaque);
-        GpuMesh::replace(&mut self.meshes[3], &self.context, transparent);
-        self.shadow_stale = true;
-        self.view.dirty = true;
+    /// Spreads the storeys of a home apart, or stacks them (animated from `now`).
+    pub fn set_spread(&mut self, spread: bool, now: f64) {
+        self.view.set_spread(spread, now);
+    }
+
+    /// Shows or hides the roof over the top storey.
+    pub fn set_roof(&mut self, shown: bool) {
+        self.view.set_roof(shown);
+        self.relight();
     }
 
     /// Sets the live look of every element (lights, greyed out, highlight).
@@ -561,11 +621,12 @@ impl Renderer {
     }
 
     fn upload_elements(&mut self) {
-        let texels = lamps::element_texels(&self.looks, &self.marks);
-        if self.elements.width() as usize == texels.len() {
+        let (width, height, texels) =
+            lamps::element_rows(lamps::element_texels(&self.looks, &self.marks));
+        if (self.elements.width(), self.elements.height()) == (width, height) {
             self.elements.fill(&texels);
         } else {
-            self.elements = row_texture(&self.context, &texels);
+            self.elements = rows_texture(&self.context, width, height, &texels);
         }
         self.view.dirty = true;
     }
@@ -629,9 +690,35 @@ impl Renderer {
         self.sun.unwrap_or_else(|| unit(SUN))
     }
 
+    /// Places the lamps' lights and halos where the view draws their storeys.
     fn relight(&mut self) {
-        self.lights = lamps::point_lights(&self.spots, &self.looks);
-        self.halos = GpuHalos::new(&self.context, &lamps::halos(&self.spots, &self.looks));
+        // Each storey's lamps are worked out on its own floor (how high a bulb is decides its
+        // reach and its halo), then moved to where the storey is drawn.
+        let mut halos = Vec::new();
+        for (k, part) in self.parts.iter_mut().enumerate() {
+            #[allow(clippy::cast_possible_truncation)]
+            let offset = self.view.offset(k).map(|v| v as f32);
+            let moved = |p: &mut [f32; 3]| {
+                for (v, o) in p.iter_mut().zip(offset) {
+                    *v += o;
+                }
+            };
+            let own: Vec<LightSpot> = self
+                .spots
+                .iter()
+                .filter(|s| s.storey == k)
+                .copied()
+                .collect();
+            part.lights = lamps::point_lights(&own, &self.looks);
+            for light in &mut part.lights {
+                moved(&mut light.position);
+            }
+            halos.extend(lamps::halos(&own, &self.looks).into_iter().map(|mut halo| {
+                moved(&mut halo.center);
+                halo
+            }));
+        }
+        self.halos = GpuHalos::new(&self.context, &halos);
         self.view.dirty = true;
     }
 
@@ -647,7 +734,7 @@ impl Renderer {
 
     /// Number of point lights in use (diagnostics).
     pub fn light_count(&self) -> usize {
-        self.lights.len()
+        self.parts.iter().map(|p| p.lights.len()).sum()
     }
 
     /// The drawing buffer size in device pixels.
@@ -661,8 +748,7 @@ impl Renderer {
         if (width, height) != (self.width, self.height) {
             self.width = width;
             self.height = height;
-            self.view.aspect = f64::from(width) / f64::from(height);
-            self.view.dirty = true;
+            self.view.set_aspect(f64::from(width) / f64::from(height));
         }
     }
 
@@ -836,21 +922,25 @@ impl Renderer {
             cull: Cull::None,
         };
         let viewport = Viewport::new_at_origo(size, size);
-        let (depth, meshes) = (&self.depth, &self.meshes);
-        let ceiling = self.ceiling.as_ref().filter(|_| real);
+        let (depth, parts, view) = (&self.depth, &self.parts, &self.view);
         let _ = shadow
             .texture
             .as_depth_target()
             .clear(ClearState::depth(1.0))
             .write::<CoreError>(|| {
-                for mesh in meshes[..2]
-                    .iter()
-                    .chain([&self.walls])
-                    .flatten()
-                    .chain(ceiling)
-                {
-                    mesh.draw(depth, states, viewport);
+                for (k, part) in parts.iter().enumerate() {
+                    set_offset(depth, view.offset(k));
+                    let ceiling = part.ceiling.as_ref().filter(|_| real);
+                    for mesh in part.meshes[..2]
+                        .iter()
+                        .chain([&part.walls])
+                        .flatten()
+                        .chain(ceiling)
+                    {
+                        mesh.draw(depth, states, viewport);
+                    }
                 }
+                set_offset(depth, NO_OFFSET);
                 Ok(())
             });
     }
@@ -940,7 +1030,13 @@ impl Renderer {
 
     /// Draws one frame at `time_ms`. Returns `true` while an animation needs more frames.
     pub fn render(&mut self, time_ms: f64) -> bool {
+        let moving = self.view.storeys_moving();
         let animating = self.view.update(time_ms);
+        if moving {
+            // The lamps and the shadows go up and down with their storeys.
+            self.relight();
+            self.shadow_stale = true;
+        }
         let cuts_moved = std::mem::take(&mut self.view.shadows_dirty);
         // With the real sun the shadow map draws whole walls: the cut-away does not change it.
         // Night looks have no sun shadows.
@@ -981,7 +1077,7 @@ impl Renderer {
                 .scene
                 .clear(ClearState::color_and_depth(r, g, b, 0.0, 1.0))
                 .write::<CoreError>(|| {
-                    self.draw_passes(viewport);
+                    self.draw_passes(viewport, None);
                     Ok(())
                 });
             targets
@@ -992,7 +1088,7 @@ impl Renderer {
             let _ = RenderTarget::screen(&self.context, self.width, self.height)
                 .clear(ClearState::color_and_depth(r, g, b, 1.0, 1.0))
                 .write::<CoreError>(|| {
-                    self.draw_passes(viewport);
+                    self.draw_passes(viewport, None);
                     Ok(())
                 });
         }
@@ -1046,20 +1142,6 @@ impl Renderer {
         program.use_uniform_if_required("u_glow_alpha", on(post));
         // Lamps and halos count less in daylight: a lamp lit at noon barely shows indoors.
         let gain = light.lamp_gain();
-        let mut positions = [Vec4::new(0.0, 0.0, 0.0, 1.0); lamps::MAX_LIGHTS];
-        let mut colors = [Vec4::new(0.0, 0.0, 0.0, 0.0); lamps::MAX_LIGHTS];
-        for (i, lamp) in self.lights.iter().enumerate().take(lamps::MAX_LIGHTS) {
-            let [x, y, z] = lamp.position;
-            positions[i] = Vec4::new(x, y, z, lamp.radius);
-            let [r, g, b] = lamp.color;
-            colors[i] = Vec4::new(r * gain, g * gain, b * gain, f32::from(lamp.room));
-        }
-        if program.requires_uniform("u_light_pos") {
-            program.use_uniform_array("u_light_pos", &positions);
-            program.use_uniform_array("u_light_color", &colors);
-        }
-        #[allow(clippy::cast_precision_loss)]
-        program.use_uniform_if_required("u_light_count", self.lights.len() as f32);
         let shadows = self.shadow.as_ref().filter(|_| flat < 0.5);
         program.use_uniform_if_required("u_shadows", on(shadows.is_some()));
         if let Some(shadow) = self.shadow.as_ref() {
@@ -1133,7 +1215,7 @@ impl Renderer {
         #[allow(clippy::cast_possible_truncation)]
         {
             program.use_uniform_if_required("u_toward", Vec4::from(toward.map(|v| v as f32)));
-            program.use_uniform_if_required("u_lift", lift as f32);
+            program.use_uniform_if_required("u_line_lift", lift as f32);
         }
         #[allow(clippy::cast_precision_loss)]
         program.use_uniform_if_required(
@@ -1150,7 +1232,7 @@ impl Renderer {
 
     /// Every pass of a frame, into the target being written: the background, what is opaque,
     /// glass, glass walls, the outlines, the halos.
-    fn draw_passes(&self, viewport: Viewport) {
+    fn draw_passes(&self, viewport: Viewport, only: Option<usize>) {
         let behind = RenderStates {
             write_mask: WriteMask::COLOR,
             depth_test: DepthTest::Always,
@@ -1174,34 +1256,59 @@ impl Renderer {
             blend: Blend::TRANSPARENCY,
             cull: Cull::Back,
         };
-        for mesh in self.meshes[..2].iter().flatten() {
+        let gain = self.light().lamp_gain();
+        let glass_walls = self.theme.glass_walls;
+        let roof = self
+            .roof
+            .as_ref()
+            .filter(|_| only.is_none())
+            .zip(self.view.roof_offset())
+            .and_then(|(roof, offset)| Some((roof.mesh.as_ref()?, offset, roof)));
+        let storeys = self.drawn(only);
+        // What is opaque, storey by storey; glass walls only have their tops drawn with it.
+        for (part, offset, lights) in &storeys {
+            self.use_storey(program, *offset, lights, gain);
+            for mesh in part.meshes[..2].iter().flatten() {
+                mesh.draw(program, opaque_states, viewport);
+            }
+            if let Some(walls) = part.walls.as_ref() {
+                let pass = if glass_walls { 1.0_f32 } else { 0.0 };
+                program.use_uniform_if_required("u_wall_pass", pass);
+                walls.draw(program, opaque_states, viewport);
+                program.use_uniform_if_required("u_wall_pass", 0.0_f32);
+            }
+        }
+        if let Some((mesh, offset, _)) = roof.filter(|_| !glass_walls) {
+            self.use_storey(program, offset, &[], gain);
             mesh.draw(program, opaque_states, viewport);
         }
-        // Glass walls: their tops with what is opaque, their faces after the glass.
-        let glass_walls = self.walls.as_ref().filter(|_| self.theme.glass_walls);
-        if let Some(walls) = self.walls.as_ref() {
-            let pass = if glass_walls.is_some() { 1.0_f32 } else { 0.0 };
-            program.use_uniform_if_required("u_wall_pass", pass);
-            walls.draw(program, opaque_states, viewport);
-            program.use_uniform_if_required("u_wall_pass", 0.0_f32);
+        for (part, offset, lights) in &storeys {
+            self.use_storey(program, *offset, lights, gain);
+            for mesh in part.meshes[2..].iter().flatten() {
+                mesh.draw(program, glass_states, viewport);
+            }
         }
-        for mesh in self.meshes[2..].iter().flatten() {
-            mesh.draw(program, glass_states, viewport);
-        }
-        if let Some(walls) = glass_walls {
+        if glass_walls {
+            // The faces of glass walls (and a glass roof), after everything else.
             program.use_uniform_if_required("u_wall_pass", 2.0_f32);
             let states = RenderStates {
                 cull: Cull::None,
                 ..glass_states
             };
-            walls.draw(program, states, viewport);
+            for (part, offset, lights) in &storeys {
+                if let Some(walls) = part.walls.as_ref() {
+                    self.use_storey(program, *offset, lights, gain);
+                    walls.draw(program, states, viewport);
+                }
+            }
+            if let Some((mesh, offset, _)) = roof {
+                self.use_storey(program, offset, &[], gain);
+                mesh.draw(program, states, viewport);
+            }
             program.use_uniform_if_required("u_wall_pass", 0.0_f32);
         }
-        if let Some(lines) = self
-            .lines
-            .as_ref()
-            .filter(|_| self.theme.line_strength > 0.0)
-        {
+        set_offset(program, NO_OFFSET);
+        if self.theme.line_strength > 0.0 {
             // Light lines keep the brightest of what is drawn where they cross (a partition's
             // line comes from both its rooms); dark lines the darkest. The glow keeps the most.
             let equation = if self.theme.dark_lines {
@@ -1224,12 +1331,22 @@ impl Renderer {
             };
             let line = &self.line_program;
             self.bind_textures(line);
-            line.use_vertex_attribute("a_a", &lines.a);
-            line.use_vertex_attribute("a_b", &lines.b);
-            line.use_vertex_attribute("a_corner", &lines.corners);
-            line.draw_elements(states, viewport, &lines.indices);
+            let outlines = storeys
+                .iter()
+                .map(|(part, offset, _)| (part.lines.as_ref(), *offset));
+            let roof_lines = roof.map(|(_, offset, roof)| (roof.lines.as_ref(), offset));
+            for (lines, offset) in outlines.chain(roof_lines) {
+                if let Some(lines) = lines {
+                    set_offset(line, offset);
+                    line.use_vertex_attribute("a_a", &lines.a);
+                    line.use_vertex_attribute("a_b", &lines.b);
+                    line.use_vertex_attribute("a_corner", &lines.corners);
+                    line.draw_elements(states, viewport, &lines.indices);
+                }
+            }
+            set_offset(line, NO_OFFSET);
         }
-        if let Some(h) = self.halos.as_ref() {
+        if let Some(h) = self.halos.as_ref().filter(|_| only.is_none()) {
             let halo_states = RenderStates {
                 write_mask: WriteMask::COLOR,
                 depth_test: DepthTest::LessOrEqual,
@@ -1242,6 +1359,119 @@ impl Renderer {
             halo.use_vertex_attribute("a_corner", &h.corners);
             halo.draw_elements(halo_states, viewport, &h.indices);
         }
+    }
+
+    /// The storeys a frame draws, where and lit by which lights: every one, or `only` one
+    /// at its floor (a picture of it).
+    fn drawn(&self, only: Option<usize>) -> Vec<Drawn<'_>> {
+        self.parts
+            .iter()
+            .enumerate()
+            .filter_map(|(k, part)| match only {
+                None => Some((part, self.view.offset(k), Cow::Borrowed(&part.lights[..]))),
+                Some(o) if o == k => {
+                    let own: Vec<LightSpot> = self
+                        .spots
+                        .iter()
+                        .filter(|s| s.storey == k)
+                        .copied()
+                        .collect();
+                    Some((
+                        part,
+                        NO_OFFSET,
+                        Cow::Owned(lamps::point_lights(&own, &self.looks)),
+                    ))
+                }
+                Some(_) => None,
+            })
+            .collect()
+    }
+
+    /// A picture of storey `storey` alone, `width` × `height` device pixels, seen from above a
+    /// corner as the overview sees the home: RGBA rows from the top (the storeys' thumbnails,
+    /// D-028). `None` without that storey.
+    pub fn picture(&mut self, storey: usize, width: u32, height: u32) -> Option<Vec<u8>> {
+        let bounds = self.view.storey_bounds(storey)?;
+        let (width, height) = (width.clamp(16, 1024), height.clamp(16, 1024));
+        let aspect = f64::from(width) / f64::from(height);
+        let camera = Camera::framing(bounds, 0.6, 0.82, aspect, 0.0);
+        let [min, max] = bounds;
+        let radius = (max[0] - min[0])
+            .hypot(max[1] - min[1])
+            .hypot(max[2] - min[2])
+            / 2.0;
+        let projection = camera.projection(aspect, radius.max(100.0));
+        // The view's frame state, as this picture needs it: its size, its cut-away, no sun
+        // shadows (the shadow map has the storeys where the view shows them).
+        let size = (self.width, self.height);
+        (self.width, self.height) = (width, height);
+        let cuts = self.view.cuts_for(&camera);
+        let view_cuts = std::mem::replace(&mut self.view.cuts, cuts);
+        let shadow = self.shadow.take();
+        self.set_main_uniforms(&projection, 0.0, 0.0, false);
+        self.set_background_uniforms(&projection.view_proj, false, false);
+        self.set_line_uniforms(&projection);
+        let color = Texture2D::new_empty::<[u8; 4]>(
+            &self.context,
+            width,
+            height,
+            Interpolation::Nearest,
+            Interpolation::Nearest,
+            None,
+            Wrapping::ClampToEdge,
+            Wrapping::ClampToEdge,
+        );
+        let depth = DepthTexture2D::new::<f32>(
+            &self.context,
+            width,
+            height,
+            Wrapping::ClampToEdge,
+            Wrapping::ClampToEdge,
+        );
+        let target = RenderTarget::new(color.as_color_target(None), depth.as_depth_target());
+        let [r, g, b] = self.backdrop().1;
+        let viewport = Viewport::new_at_origo(width, height);
+        let _ = target
+            .clear(ClearState::color_and_depth(r, g, b, 1.0, 1.0))
+            .write::<CoreError>(|| {
+                self.draw_passes(viewport, Some(storey));
+                Ok(())
+            });
+        let pixels = target.read_color::<[u8; 4]>();
+        (self.width, self.height) = size;
+        self.view.cuts = view_cuts;
+        self.shadow = shadow;
+        self.view.dirty = true;
+        // GL rows go from the bottom.
+        let row = width as usize;
+        Some(
+            pixels
+                .chunks(row)
+                .rev()
+                .flatten()
+                .flat_map(|p| *p)
+                .collect(),
+        )
+    }
+
+    /// Draws storey parts moved by `offset` (cm), lit by `lights` (their colours times `gain`).
+    fn use_storey(&self, program: &Program, offset: [f64; 3], lights: &[PointLight], gain: f32) {
+        set_offset(program, offset);
+        let mut positions = [Vec4::new(0.0, 0.0, 0.0, 1.0); lamps::MAX_LIGHTS];
+        let mut colors = [Vec4::new(0.0, 0.0, 0.0, 0.0); lamps::MAX_LIGHTS];
+        for (i, lamp) in lights.iter().enumerate().take(lamps::MAX_LIGHTS) {
+            let [x, y, z] = lamp.position;
+            positions[i] = Vec4::new(x, y, z, lamp.radius);
+            let [r, g, b] = lamp.color;
+            colors[i] = Vec4::new(r * gain, g * gain, b * gain, f32::from(lamp.room));
+        }
+        if program.requires_uniform("u_light_pos") {
+            program.use_uniform_array("u_light_pos", &positions);
+            program.use_uniform_array("u_light_color", &colors);
+        }
+        #[allow(clippy::cast_precision_loss)]
+        program
+            .use_uniform_if_required("u_light_count", lights.len().min(lamps::MAX_LIGHTS) as f32);
     }
 
     /// The bloom of what glows, then the picture with it onto the screen.
@@ -1364,10 +1594,10 @@ impl Renderer {
             blend: Blend::Disabled,
             cull: Cull::Back,
         };
-        let (program, meshes) = (&self.pick, &self.meshes);
-        // Through glass walls, what is behind them; their tops stay solid.
+        // Through glass walls, what is behind them; their tops stay solid. The roof is not
+        // picked: a tap goes to the storey under it.
         let wall_pass = if self.theme.glass_walls { 1.0_f32 } else { 0.0 };
-        let walls = self.walls.as_ref();
+        let (program, parts, view) = (&self.pick, &self.parts, &self.view);
         let render_target = RenderTarget::new(
             target.color.as_color_target(None),
             target.depth.as_depth_target(),
@@ -1378,14 +1608,18 @@ impl Renderer {
                 ClearState::color_and_depth(0.0, 0.0, 0.0, 0.0, 1.0),
             )
             .write_partially::<CoreError>(scissor, || {
-                for mesh in meshes.iter().flatten() {
-                    mesh.draw(program, states, viewport);
+                for (k, part) in parts.iter().enumerate() {
+                    set_offset(program, view.offset(k));
+                    for mesh in part.meshes.iter().flatten() {
+                        mesh.draw(program, states, viewport);
+                    }
+                    if let Some(walls) = part.walls.as_ref() {
+                        program.use_uniform_if_required("u_wall_pass", wall_pass);
+                        walls.draw(program, states, viewport);
+                        program.use_uniform_if_required("u_wall_pass", 0.0_f32);
+                    }
                 }
-                if let Some(walls) = walls {
-                    program.use_uniform_if_required("u_wall_pass", wall_pass);
-                    walls.draw(program, states, viewport);
-                    program.use_uniform_if_required("u_wall_pass", 0.0_f32);
-                }
+                set_offset(program, NO_OFFSET);
                 Ok(())
             });
         let pixels = render_target.read_color_partially::<[u8; 4]>(scissor);
@@ -1429,6 +1663,13 @@ mod tests {
             assert_eq!(value(shaders::FRAGMENT, name), surface as u8, "{name}");
         }
         assert_eq!(value(shaders::VERTEX, "WALL_CAP"), Surface::WallCap as u8);
+        let per_row = "const uint ELEMENTS_PER_ROW = ";
+        let at = shaders::VERTEX.find(per_row).unwrap() + per_row.len();
+        let end = at + shaders::VERTEX[at..].find('u').unwrap();
+        assert_eq!(
+            shaders::VERTEX[at..end].parse::<usize>().unwrap(),
+            lamps::ELEMENTS_PER_ROW
+        );
     }
 
     #[test]

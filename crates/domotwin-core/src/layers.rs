@@ -229,6 +229,8 @@ pub struct RoomShape<'a> {
     pub id: &'a str,
     /// Room slot (1 for the first room).
     pub slot: usize,
+    /// The storey (part of the scene) it is on.
+    pub storey: usize,
     /// Centre: the mean of its corners (plan x, y).
     pub centre: [f64; 2],
     /// Where its label goes, well inside it (plan x, y).
@@ -237,14 +239,17 @@ pub struct RoomShape<'a> {
     pub reach: f64,
 }
 
-/// The rooms of `scene` (built from `plan`) with their slot, centre and reach.
+/// The rooms of `scene` (built from `plan`, every storey's for a home) with their slot, centre
+/// and reach.
 pub fn room_shapes<'a>(plan: &'a Plan, scene: &Scene) -> Vec<RoomShape<'a>> {
     scene
-        .walls()
-        .rooms
-        .iter()
-        .filter_map(|walls| {
-            let id = plan.elements.get(walls.element)?.id();
+        .storey_walls()
+        .enumerate()
+        .flat_map(|(storey, (first, layout))| {
+            layout.rooms.iter().map(move |walls| (storey, first, walls))
+        })
+        .filter_map(|(storey, first, walls)| {
+            let id = plan.elements.get(first + walls.element)?.id();
             let slot = scene.rooms.iter().position(|r| r == id)? + 1;
             #[allow(clippy::cast_precision_loss)]
             let n = walls.points.len().max(1) as f64;
@@ -258,6 +263,7 @@ pub fn room_shapes<'a>(plan: &'a Plan, scene: &Scene) -> Vec<RoomShape<'a>> {
             Some(RoomShape {
                 id,
                 slot,
+                storey,
                 centre: [cx, cz],
                 label: scene.labels.get(slot - 1).copied().unwrap_or([cx, cz]),
                 reach,

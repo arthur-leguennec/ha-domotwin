@@ -2,6 +2,11 @@
 //! furniture and user models. A few meshes cover everything (opaque, the walls, and glass with the
 //! contact shadows), so the renderer draws the whole home in a few calls.
 //!
+//! A scene holds one storey, or every storey of the home (D-028): each storey is a part of its
+//! own, built on its floor and drawn at its height, while the elements, room slots, wall groups
+//! and lamps are the home's (an element's tag is its index in the storeys' elements one after the
+//! other, as [`stack_plans`] lists them).
+//!
 //! Walls belong to **groups** by direction (10° steps, interior and façade apart; each free
 //! partition its own): the renderer cuts away the groups facing the camera by lowering them to
 //! [`CUT_HEIGHT`](crate::geometry::heights::CUT_HEIGHT), in the vertex shader.
@@ -13,6 +18,7 @@ mod furniture;
 mod imported;
 mod kit;
 mod openings;
+mod roof;
 mod structure;
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -49,6 +55,8 @@ pub struct WallGroup {
 pub struct LightSpot {
     /// Element index in `Plan::elements`.
     pub element: usize,
+    /// The storey (part) it is on.
+    pub storey: usize,
     /// Position (world, cm).
     pub position: [f64; 3],
     /// Colour.
@@ -70,10 +78,12 @@ pub struct ElementInfo {
     pub id: String,
     /// `room`, `wall`, `door`, `window` or `furniture`.
     pub kind: &'static str,
-    /// World bounding box `[min, max]` of its geometry (zeros when it has none).
+    /// Bounding box `[min, max]` of its geometry on its storey's floor (zeros when it has none).
     pub bounds: [[f32; 3]; 2],
     /// Room slot it belongs to (0: none).
     pub room: u8,
+    /// The storey (part) it is on.
+    pub storey: usize,
 }
 
 /// Live changes to the moving parts of the scene, by element index.
@@ -85,9 +95,15 @@ pub struct Overrides {
     pub blind: BTreeMap<usize, f64>,
 }
 
-/// The built scene.
+/// One storey of the scene (D-028): its meshes and outlines, built on its floor (height 0) and
+/// drawn at its height.
 #[derive(Debug, Clone)]
-pub struct Scene {
+pub struct StoreyPart {
+    /// Height of its floor (cm).
+    pub elevation: f64,
+    /// Its elements: `first..first + count` in the scene's elements.
+    pub first: usize,
+    pub count: usize,
     /// Opaque geometry that never moves, but the walls.
     pub opaque: Mesh,
     /// The walls of the rooms and the free partitions, their tops, trims and corners: opaque, or
@@ -103,28 +119,55 @@ pub struct Scene {
     /// The ceilings of the rooms, at the walls' height: they only cast shadows, so that the real
     /// sun (D-023) comes in through the windows.
     pub ceiling: Mesh,
-    /// The outlines of the home: wall tops and corners, door and window frames, floor outlines
+    /// The outlines of the storey: wall tops and corners, door and window frames, floor outlines
     /// (drawn by the line looks, D-027).
     pub lines: Vec<lines::Line>,
+    /// Bounding box of its geometry, its floor at 0.
+    pub bounds: [[f32; 3]; 2],
+    /// Its plan when the scene holds several storeys (one alone is the plan the scene is shown
+    /// with), its walls, and what [`build_dynamic`] needs to rebuild its moving parts.
+    plan: Option<Plan>,
+    layout: WallLayout,
+    context: Builder,
+}
+
+/// The roof over the top storey (D-028), at the height of its walls' tops.
+#[derive(Debug, Clone)]
+pub struct Roof {
+    /// Height of the floor of the storey it covers (cm): its mesh and lines stand on that floor
+    /// like the storey's, their eaves at the walls' height, and are lifted like it.
+    pub elevation: f64,
+    /// The storey it covers.
+    pub storey: usize,
+    /// Its slopes and gables.
+    pub mesh: Mesh,
+    /// Its eaves, ridge and gable edges.
+    pub lines: Vec<lines::Line>,
+}
+
+/// The built scene.
+#[derive(Debug, Clone)]
+pub struct Scene {
+    /// Its storeys, lowest first (one for a plan alone).
+    pub parts: Vec<StoreyPart>,
+    /// The roof over the top storey, for the home seen whole (several storeys).
+    pub roof: Option<Roof>,
     /// Element id of each room slot (slot `k` is `rooms[k - 1]`).
     pub rooms: Vec<String>,
     /// Where each room's label goes, well inside it (plan x, y), by room slot like `rooms`.
     pub labels: Vec<P2>,
     /// Wall groups, indexed by the vertex group.
     pub groups: Vec<WallGroup>,
-    /// One entry per plan element, in plan order (vertex element tag − 1).
+    /// One entry per element, in plan order (vertex element tag − 1).
     pub elements: Vec<ElementInfo>,
     /// Lamps.
     pub lights: Vec<LightSpot>,
     /// Wall height (cm).
     pub wall_height: f64,
-    /// World bounding box of the whole scene.
+    /// Bounding box of the whole scene, each storey at its height.
     pub bounds: [[f32; 3]; 2],
     /// Pieces drawn as boxes because their 3D files would pass [`MAX_FILE_TRIANGLES`].
     pub models_over_budget: usize,
-    /// What [`build_dynamic`] needs to rebuild the moving parts the same way.
-    context: Builder,
-    layout: WallLayout,
 }
 
 /// Scene options.
@@ -173,6 +216,9 @@ pub(crate) struct Builder {
     pub(crate) lines: lines::Lines,
     /// Pieces whose 3D file is past [`MAX_FILE_TRIANGLES`]: boxes.
     pub(crate) boxed: BTreeSet<usize>,
+    /// The storey being built, and the index of its first element among the home's.
+    pub(crate) storey: usize,
+    pub(crate) base: usize,
 }
 
 impl Builder {
@@ -199,9 +245,14 @@ impl Builder {
             .unwrap_or_else(|| self.room_at(p))
     }
 
-    /// The vertex tag of element `index`.
+    /// The home's index of the storey's element `index`.
+    pub(crate) fn global(&self, index: usize) -> usize {
+        self.base + index
+    }
+
+    /// The vertex tag of the storey's element `index`.
     pub(crate) fn element_tag(&self, index: usize) -> u16 {
-        u16::try_from(index + 1).unwrap_or(0)
+        u16::try_from(self.global(index) + 1).unwrap_or(0)
     }
 
     /// The group of walls facing `normal` (10° steps).
@@ -263,7 +314,38 @@ pub fn build_scene(plan: &Plan, options: &SceneOptions) -> Scene {
 /// Builds the scene of a plan with the pieces of furniture `moving` (element indices) among the
 /// moving parts, so that [`build_dynamic`] rebuilds them alone while they are dragged.
 pub fn build_scene_moving(plan: &Plan, options: &SceneOptions, moving: &BTreeSet<usize>) -> Scene {
-    let layout = WallLayout::new(plan);
+    build(&[(plan, 0.0)], options, moving, false)
+}
+
+/// Builds the scene of every storey of a home (D-028): each storey's plan (its overlay applied)
+/// with the height of its floor (cm), lowest first; the roof over the top one.
+pub fn build_home(storeys: &[(&Plan, f64)], options: &SceneOptions) -> Scene {
+    build(storeys, options, &BTreeSet::new(), true)
+}
+
+/// The plan of every storey at once, for what the scene of a home ([`build_home`]) refers to by
+/// element index: the storeys' elements one after the other, the rest from the first storey's
+/// (`None` without storeys).
+pub fn stack_plans(plans: &[&Plan]) -> Option<Plan> {
+    let mut stacked = (*plans.first()?).clone();
+    for plan in plans.iter().skip(1) {
+        stacked.elements.extend(plan.elements.iter().cloned());
+        for (id, model) in &plan.models {
+            stacked
+                .models
+                .entry(id.clone())
+                .or_insert_with(|| model.clone());
+        }
+    }
+    Some(stacked)
+}
+
+fn build(
+    storeys: &[(&Plan, f64)],
+    options: &SceneOptions,
+    moving: &BTreeSet<usize>,
+    home: bool,
+) -> Scene {
     let wall_height = if options.wall_height.is_finite() {
         options.wall_height.clamp(150.0, 400.0)
     } else {
@@ -273,87 +355,128 @@ pub fn build_scene_moving(plan: &Plan, options: &SceneOptions, moving: &BTreeSet
         wall_height,
         moving: moving.clone(),
         models: Rc::clone(&options.models),
-        boxed: over_budget(plan, &options.models),
         ..Builder::default()
     };
+    let mut drawn = 0;
     let mut rooms = Vec::new();
-    for walls in &layout.rooms {
-        let Some(Element::Room(room)) = plan.elements.get(walls.element) else {
-            continue;
-        };
-        let Ok(slot) = u8::try_from(rooms.len() + 1) else {
-            break;
-        };
-        if slot == u8::MAX {
-            break;
-        }
-        rooms.push(room.id.clone());
-        builder.room_slots.insert(walls.element, slot);
-        builder.room_shapes.push((slot, walls.points.clone()));
-    }
-    structure::build(&mut builder, plan, &layout);
-    let outlines = std::mem::take(&mut builder.lines.list);
-    furniture::build(&mut builder, plan, &layout);
-    // The moving parts go to their own meshes, rebuilt alone when they move.
-    let opaque = std::mem::take(&mut builder.opaque);
-    let wall_mesh = std::mem::take(&mut builder.wall_mesh);
-    let transparent = std::mem::take(&mut builder.transparent);
-    builder.dynamic = true;
-    openings::build(&mut builder, plan, &layout);
-    furniture::build(&mut builder, plan, &layout);
-    let dynamic_opaque = std::mem::take(&mut builder.opaque);
-    let dynamic_transparent = std::mem::take(&mut builder.transparent);
-    let meshes = [
-        &opaque,
-        &wall_mesh,
-        &transparent,
-        &dynamic_opaque,
-        &dynamic_transparent,
-    ];
-    let elements = element_infos(plan, &meshes);
-    let bounds = meshes.iter().map(|m| m.bounds()).fold([[0.0; 3]; 2], union);
-    let lights = std::mem::take(&mut builder.lights);
-    let models_over_budget = builder.boxed.len();
-    let labels = builder
-        .room_shapes
-        .iter()
-        .map(|(_, points)| label_point(points))
-        .collect();
-    let mut ceiling = Mesh::default();
-    {
-        let mut painter = mesh::Painter::new(
-            &mut ceiling,
-            mesh::Material::paint(crate::plan::Rgb8::from_u32(0xff_ff_ff)),
-            mesh::Tag::default(),
-        );
+    let mut labels = Vec::new();
+    let mut infos = Vec::new();
+    let mut parts = Vec::new();
+    let mut lights = Vec::new();
+    for (storey, (plan, elevation)) in storeys.iter().enumerate() {
+        let layout = WallLayout::new(plan);
+        builder.storey = storey;
+        builder.base = infos.len();
+        builder.boxed = over_budget(plan, &options.models, &mut drawn);
+        builder.room_slots.clear();
+        builder.room_shapes.clear();
         for walls in &layout.rooms {
-            painter.polygon(&walls.points, wall_height, false, 0.0);
+            let Some(Element::Room(room)) = plan.elements.get(walls.element) else {
+                continue;
+            };
+            let Ok(slot) = u8::try_from(rooms.len() + 1) else {
+                break;
+            };
+            if slot == u8::MAX {
+                break;
+            }
+            rooms.push(room.id.clone());
+            labels.push(label_point(&walls.points));
+            builder.room_slots.insert(walls.element, slot);
+            builder.room_shapes.push((slot, walls.points.clone()));
+        }
+        builder.dynamic = false;
+        structure::build(&mut builder, plan, &layout);
+        let outlines = std::mem::take(&mut builder.lines.list);
+        furniture::build(&mut builder, plan, &layout);
+        // The moving parts go to their own meshes, rebuilt alone when they move.
+        let opaque = std::mem::take(&mut builder.opaque);
+        let wall_mesh = std::mem::take(&mut builder.wall_mesh);
+        let transparent = std::mem::take(&mut builder.transparent);
+        builder.dynamic = true;
+        openings::build(&mut builder, plan, &layout);
+        furniture::build(&mut builder, plan, &layout);
+        let dynamic_opaque = std::mem::take(&mut builder.opaque);
+        let dynamic_transparent = std::mem::take(&mut builder.transparent);
+        let meshes = [
+            &opaque,
+            &wall_mesh,
+            &transparent,
+            &dynamic_opaque,
+            &dynamic_transparent,
+        ];
+        infos.extend(element_infos(plan, &meshes, builder.base, storey));
+        let bounds = meshes.iter().map(|m| m.bounds()).fold([[0.0; 3]; 2], union);
+        lights.append(&mut builder.lights);
+        let mut ceiling = Mesh::default();
+        {
+            let mut painter = mesh::Painter::new(
+                &mut ceiling,
+                mesh::Material::paint(crate::plan::Rgb8::from_u32(0xff_ff_ff)),
+                mesh::Tag::default(),
+            );
+            for walls in &layout.rooms {
+                painter.polygon(&walls.points, wall_height, false, 0.0);
+            }
+        }
+        builder.dynamic = false;
+        parts.push(StoreyPart {
+            elevation: if elevation.is_finite() {
+                *elevation
+            } else {
+                0.0
+            },
+            first: builder.base,
+            count: plan.elements.len(),
+            opaque,
+            wall_mesh,
+            transparent,
+            dynamic_opaque,
+            dynamic_transparent,
+            ceiling,
+            lines: outlines,
+            bounds,
+            plan: (storeys.len() > 1).then(|| (*plan).clone()),
+            layout,
+            context: builder.clone(),
+        });
+    }
+    let models_over_budget = parts.iter().map(|p| p.context.boxed.len()).sum();
+    let roof = if home {
+        roof::build(&parts, wall_height)
+    } else {
+        None
+    };
+    let mut bounds = [[0.0; 3]; 2];
+    for part in &parts {
+        #[allow(clippy::cast_possible_truncation)]
+        let lift = part.elevation as f32;
+        let [min, max] = part.bounds;
+        if min != max {
+            let raised = [
+                [min[0], min[1] + lift, min[2]],
+                [max[0], max[1] + lift, max[2]],
+            ];
+            bounds = union(bounds, raised);
         }
     }
     Scene {
-        opaque,
-        wall_mesh,
-        transparent,
-        dynamic_opaque,
-        dynamic_transparent,
-        ceiling,
-        lines: outlines,
+        parts,
+        roof,
         rooms,
         labels,
         groups: builder.groups.clone(),
-        elements,
+        elements: infos,
         lights,
         wall_height,
         bounds,
         models_over_budget,
-        context: builder,
-        layout,
     }
 }
 
-/// The pieces whose 3D file would pass [`MAX_FILE_TRIANGLES`], in plan order.
-fn over_budget(plan: &Plan, meshes: &ModelMeshes) -> BTreeSet<usize> {
-    let mut drawn = 0_usize;
+/// The pieces whose 3D file would pass [`MAX_FILE_TRIANGLES`] (with the `drawn` triangles of the
+/// storeys before), in plan order.
+fn over_budget(plan: &Plan, meshes: &ModelMeshes, drawn: &mut usize) -> BTreeSet<usize> {
     let mut boxed = BTreeSet::new();
     for (index, element) in plan.elements.iter().enumerate() {
         let Element::Furniture(f) = element else {
@@ -369,20 +492,23 @@ fn over_budget(plan: &Plan, meshes: &ModelMeshes) -> BTreeSet<usize> {
             .and_then(imported::file_hash)
             .and_then(|hash| meshes.get(hash))
             .map_or(0, |mesh| mesh.triangle_count());
-        if drawn + triangles > MAX_FILE_TRIANGLES {
+        if *drawn + triangles > MAX_FILE_TRIANGLES {
             boxed.insert(index);
         } else {
-            drawn += triangles;
+            *drawn += triangles;
         }
     }
     boxed
 }
 
-/// Rebuilds the moving parts of a scene (doors, windows, curtains, blinds) with live changes.
-/// Returns the opaque and the transparent meshes.
-pub fn build_dynamic(plan: &Plan, scene: &Scene, overrides: &Overrides) -> (Mesh, Mesh) {
-    let (opaque, transparent, _) = build_dynamic_lit(plan, scene, overrides);
-    (opaque, transparent)
+/// The moving parts of one storey: opaque and glass.
+pub type MovingParts = (Mesh, Mesh);
+
+/// Rebuilds the moving parts of a scene (doors, windows, curtains, blinds) with live changes,
+/// storey by storey. `plan` is the plan the scene is shown with: for a storey alone, its current
+/// version (edit mode moves pieces without building the scene again).
+pub fn build_dynamic(plan: &Plan, scene: &Scene, overrides: &Overrides) -> Vec<MovingParts> {
+    build_dynamic_lit(plan, scene, overrides).0
 }
 
 /// [`build_dynamic`], with the lamps of the moving parts where they are now (pieces dragged in
@@ -391,24 +517,85 @@ pub fn build_dynamic_lit(
     plan: &Plan,
     scene: &Scene,
     overrides: &Overrides,
-) -> (Mesh, Mesh, Vec<LightSpot>) {
-    let mut builder = scene.context.clone();
-    builder.overrides = overrides.clone();
-    builder.lights.clear();
-    openings::build(&mut builder, plan, &scene.layout);
-    furniture::build(&mut builder, plan, &scene.layout);
-    (builder.opaque, builder.transparent, builder.lights)
+) -> (Vec<MovingParts>, Vec<LightSpot>) {
+    let mut meshes = Vec::with_capacity(scene.parts.len());
+    let mut lights = Vec::new();
+    for part in &scene.parts {
+        let mut builder = part.context.clone();
+        builder.overrides = overrides.clone();
+        builder.lights.clear();
+        builder.dynamic = true;
+        let plan = part.plan.as_ref().unwrap_or(plan);
+        openings::build(&mut builder, plan, &part.layout);
+        furniture::build(&mut builder, plan, &part.layout);
+        meshes.push((builder.opaque, builder.transparent));
+        lights.append(&mut builder.lights);
+    }
+    (meshes, lights)
 }
 
 impl Scene {
     /// The pieces built with the moving parts (element indices).
     pub fn moving(&self) -> &BTreeSet<usize> {
-        &self.context.moving
+        static NONE: BTreeSet<usize> = BTreeSet::new();
+        self.parts.first().map_or(&NONE, |p| &p.context.moving)
     }
 
-    /// The walls of the plan (faces and blocks for edit mode).
+    /// The walls of the first storey (edit mode works on a storey alone).
     pub fn walls(&self) -> &WallLayout {
-        &self.layout
+        static NONE: std::sync::OnceLock<WallLayout> = std::sync::OnceLock::new();
+        self.parts
+            .first()
+            .map_or_else(|| NONE.get_or_init(WallLayout::default), |p| &p.layout)
+    }
+
+    /// The walls of every storey with the index of its first element.
+    pub fn storey_walls(&self) -> impl Iterator<Item = (usize, &WallLayout)> {
+        self.parts.iter().map(|p| (p.first, &p.layout))
+    }
+
+    /// The storey (part) element `index` is on.
+    pub fn storey_of(&self, index: usize) -> Option<usize> {
+        self.parts
+            .iter()
+            .position(|p| index >= p.first && index < p.first + p.count)
+    }
+
+    /// The triangles of every mesh.
+    pub fn triangle_count(&self) -> usize {
+        self.parts
+            .iter()
+            .flat_map(|p| {
+                [
+                    &p.opaque,
+                    &p.wall_mesh,
+                    &p.transparent,
+                    &p.dynamic_opaque,
+                    &p.dynamic_transparent,
+                ]
+            })
+            .chain(self.roof.as_ref().map(|r| &r.mesh))
+            .map(Mesh::triangle_count)
+            .sum()
+    }
+
+    /// Frees the meshes once they are on the GPU (what rebuilding the moving parts needs stays).
+    pub fn drop_meshes(&mut self) {
+        for part in &mut self.parts {
+            for mesh in [
+                &mut part.opaque,
+                &mut part.wall_mesh,
+                &mut part.transparent,
+                &mut part.dynamic_opaque,
+                &mut part.dynamic_transparent,
+                &mut part.ceiling,
+            ] {
+                *mesh = Mesh::default();
+            }
+        }
+        if let Some(roof) = self.roof.as_mut() {
+            roof.mesh = Mesh::default();
+        }
     }
 }
 
@@ -434,7 +621,8 @@ fn union(a: [[f32; 3]; 2], b: [[f32; 3]; 2]) -> [[f32; 3]; 2] {
     ]
 }
 
-fn element_infos(plan: &Plan, meshes: &[&Mesh]) -> Vec<ElementInfo> {
+/// What the scene knows of each element of a storey, the storey's elements starting at `base`.
+fn element_infos(plan: &Plan, meshes: &[&Mesh], base: usize, storey: usize) -> Vec<ElementInfo> {
     let n = plan.elements.len();
     let mut min = vec![[f32::INFINITY; 3]; n];
     let mut max = vec![[f32::NEG_INFINITY; 3]; n];
@@ -443,7 +631,7 @@ fn element_infos(plan: &Plan, meshes: &[&Mesh]) -> Vec<ElementInfo> {
         for ((p, e), normal) in mesh.positions.iter().zip(&mesh.extras).zip(&mesh.normals) {
             let tag = usize::from(u16::from_le_bytes([e[2], e[3]]));
             // Contact shadows carry no element.
-            let Some(i) = tag.checked_sub(1).filter(|i| *i < n) else {
+            let Some(i) = tag.checked_sub(1 + base).filter(|i| *i < n) else {
                 continue;
             };
             for k in 0..3 {
@@ -465,6 +653,7 @@ fn element_infos(plan: &Plan, meshes: &[&Mesh]) -> Vec<ElementInfo> {
                 [[0.0; 3]; 2]
             },
             room: room[i],
+            storey,
         })
         .collect()
 }

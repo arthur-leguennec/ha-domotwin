@@ -3,12 +3,16 @@
  * the storey whose floor is nearest the ground (elevation 0), the others are numbered up and down
  * from it. A storey's own name wins.
  */
+import type { HomeStorey } from "../engine/engine";
 import type { DomoTwinClient, StoredPlan, StoreyInfo } from "../ha/client";
 import { isHassError, type HomeAssistant } from "../ha/types";
 import type { Translator } from "../i18n";
 import type { BindingsJson } from "./bindings";
 import { roomLayers, type PlanRoom, type RoomAlert } from "./layers";
 import { planRooms } from "./suggest";
+
+/** What a storey switcher or a card's `storey` says to show every storey at once (D-028). */
+export const ALL_STOREYS = "all";
 
 /** The storeys lowest first, each with its level (0: the ground floor, 1 above it, −1 below). */
 export function storeyLevels(
@@ -127,4 +131,51 @@ export function withAlertsElsewhere(
   }
   // A stable sort: the storey shown first within each level.
   return alerts.sort((a, b) => (a.level === b.level ? 0 : a.level === "danger" ? -1 : 1));
+}
+
+/**
+ * Every storey's plan and overlay, lowest first, to show the home whole (D-028); the plans the
+ * client has are not fetched again. A storey without a plan yet (added, not drawn) is left out; a
+ * plan that could not be fetched fails it all, as one storey's would.
+ */
+export async function loadHome(
+  client: Pick<DomoTwinClient, "getPlan">,
+  storeys: readonly StoreyInfo[],
+): Promise<HomeStorey[]> {
+  const sorted = [...storeys].sort((a, b) => a.elevation - b.elevation);
+  const plans = await Promise.all(sorted.map((storey) => client.getPlan(storey.id)));
+  return sorted.flatMap((storey, i) => {
+    const stored = plans[i];
+    if (stored?.plan === undefined || stored.plan === null) return [];
+    return [
+      {
+        id: storey.id,
+        name: storey.name,
+        elevation: storey.elevation,
+        plan: stored.plan,
+        layout: stored.layout,
+      },
+    ];
+  });
+}
+
+/**
+ * How many rooms a storey's plan has, and how many of the lights linked to its elements (and to
+ * the pieces its overlay adds) are on.
+ */
+export function storeyCounts(
+  hass: HomeAssistant | undefined,
+  bindings: BindingsJson | undefined,
+  plan: unknown,
+  layout?: unknown,
+): { rooms: number; lights: number } {
+  const ids = storeyIds(plan, layout as Record<string, unknown> | undefined);
+  const on = new Set<string>();
+  for (const id of ids) {
+    for (const entity of bindings?.elements[id]?.entities ?? []) {
+      const entityId = entity.entity_id;
+      if (entityId.startsWith("light.") && hass?.states[entityId]?.state === "on") on.add(entityId);
+    }
+  }
+  return { rooms: planRooms(plan).length, lights: on.size };
 }

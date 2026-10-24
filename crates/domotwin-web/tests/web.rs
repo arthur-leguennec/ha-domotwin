@@ -498,3 +498,117 @@ fn a_tap_goes_through_glass_walls() {
     // The rooms are still there to tap.
     assert!(neon.iter().any(|n| n.contains("\"type\":\"room\"")));
 }
+
+const UPPER: &str = include_str!("../../../examples/demo-upper-floor.plan.json");
+
+/// The fictional home of two storeys, as the frontend gives it to the engine.
+fn home() -> String {
+    serde_json::json!([
+        { "id": "upper", "name": "Upper floor", "elevation": 280,
+          "plan": serde_json::from_str::<serde_json::Value>(UPPER).unwrap(), "layout": {} },
+        { "id": "ground", "name": "", "elevation": 0,
+          "plan": serde_json::from_str::<serde_json::Value>(DEMO).unwrap() },
+    ])
+    .to_string()
+}
+
+#[wasm_bindgen_test]
+fn the_whole_home_stands_storey_above_storey() {
+    let surface = canvas();
+    let mut engine = Engine::new(surface.clone()).unwrap();
+    let summary = engine.load_storeys(&home(), None).unwrap();
+    assert!(summary.contains("\"storeys\":2"), "{summary}");
+    let stats = engine.stats();
+    assert!(
+        stats.contains("\"storeys\":2") && stats.contains("\"spread\":true"),
+        "{stats}"
+    );
+    assert!(stats.contains("\"roof\":true"), "{stats}");
+    let gl = surface
+        .get_context("webgl2")
+        .unwrap()
+        .unwrap()
+        .dyn_into::<web_sys::WebGl2RenderingContext>()
+        .unwrap();
+    for look in ["day", "neon"] {
+        engine.set_theme(look, "#00d4ff");
+        engine.frame(0.0);
+        assert_eq!(
+            gl.get_error(),
+            web_sys::WebGl2RenderingContext::NO_ERROR,
+            "{look}"
+        );
+    }
+    // Each storey has its label, lowest first; a tap says which storey it is on.
+    let labels: serde_json::Value = serde_json::from_str(&engine.storey_labels()).unwrap();
+    assert_eq!(labels.as_array().unwrap().len(), 2);
+    assert_eq!(labels[0]["id"], "ground");
+    let mut storeys = std::collections::BTreeSet::new();
+    for y in (8..240).step_by(12) {
+        for x in (8..320).step_by(12) {
+            let picked = engine.pick(x, y);
+            if let Ok(value) = serde_json::from_str::<serde_json::Value>(&picked) {
+                storeys.insert(value["storey"].as_str().unwrap_or_default().to_owned());
+            }
+        }
+    }
+    assert!(
+        storeys.contains("ground") && storeys.contains("upper"),
+        "{storeys:?}"
+    );
+    // A picture of each storey.
+    for index in 0..2 {
+        let picture = engine.storey_picture(index, 64, 48);
+        assert_eq!(picture.len(), 64 * 48 * 4);
+        let first = &picture[..4];
+        assert!(
+            picture.chunks(4).any(|p| p != first),
+            "storey {index} drawn"
+        );
+    }
+    assert!(engine.storey_picture(2, 64, 48).is_empty());
+    // Stacked, the home is lower; without its roof, too.
+    engine.set_spread(false, 0.0);
+    let mut t = 0.0;
+    while engine.frame(t) {
+        t += 16.0;
+        assert!(t < 5_000.0);
+    }
+    assert!(engine.stats().contains("\"spread\":false"));
+    engine.set_roof(false);
+    assert!(engine.stats().contains("\"roof\":false"));
+    // On the 2D plan, the storeys lie side by side, the ground floor on the left, each with its
+    // label over it.
+    engine.set_roof(true);
+    engine.set_plan_view(true, t);
+    while engine.frame(t) {
+        t += 16.0;
+        assert!(t < 10_000.0);
+    }
+    assert!(engine.stats().contains("\"roof\":false"));
+    let labels: serde_json::Value = serde_json::from_str(&engine.storey_labels()).unwrap();
+    assert_eq!(labels[0]["top"], true);
+    let x = |k: usize| labels[k]["x"].as_f64().unwrap();
+    assert!(x(0) < x(1), "{labels}");
+    let mut sides = std::collections::BTreeMap::new();
+    for y in (8..240).step_by(8) {
+        for x in (8..320).step_by(8) {
+            let picked = engine.pick(x, y);
+            if let Ok(value) = serde_json::from_str::<serde_json::Value>(&picked) {
+                let storey = value["storey"].as_str().unwrap_or_default().to_owned();
+                let (low, high) = sides.entry(storey).or_insert((x, x));
+                (*low, *high) = ((*low).min(x), (*high).max(x));
+            }
+        }
+    }
+    let (ground, upper) = (sides["ground"], sides["upper"]);
+    assert!(ground.1 < upper.0, "{sides:?}");
+    engine.set_plan_view(false, t);
+    // The whole home is not edited; a storey alone is.
+    assert!(engine.begin_edit().contains("\"editing\":false"));
+    engine.load_plan(DEMO, None, None).unwrap();
+    assert!(engine.stats().contains("\"storeys\":1"));
+    assert!(engine.begin_edit().contains("\"editing\":true"));
+    // No storeys: refused.
+    assert!(engine.load_storeys("[]", None).is_err());
+}

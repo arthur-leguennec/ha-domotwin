@@ -809,6 +809,33 @@ try {
     Buffer.from(looksImage.slice(looksImage.indexOf(",") + 1), "base64"),
   );
   console.log("docs/figures/screenshot-looks.png");
+
+  // Every storey at once (D-028): the panel in the evening, neon, both storeys spread apart under
+  // their roof, with their labels and pictures.
+  const homePage = await browser.newPage({
+    viewport: { width: 1280, height: 800 },
+    deviceScaleFactor: 1.5,
+  });
+  await homePage.goto(
+    "http://127.0.0.1:4173/?mode=panel&live=1&storeys=2&lighting=evening&hometheme=neon",
+  );
+  await homePage.waitForFunction(() => window.__view?.()?.debugState().summary, null, {
+    timeout: 60_000,
+  });
+  await homePage.evaluate(() => {
+    const view = window.__view();
+    view.options = { ...view.options, quality: "high" };
+  });
+  await homePage.locator('domotwin-view .storey[data-storey="all"]').click();
+  await homePage.waitForFunction(() => window.__view().debugState().stats?.storeys === 2);
+  await homePage.locator("domotwin-view").getByTestId("storey-pictures").waitFor();
+  await homePage.evaluate(() => window.__view().settle());
+  await homePage.waitForTimeout(800);
+  await fs.writeFile(
+    join(root, "docs", "figures", "screenshot-home.png"),
+    await homePage.screenshot(),
+  );
+  console.log("docs/figures/screenshot-home.png");
   await browser.close();
 } finally {
   server.kill();

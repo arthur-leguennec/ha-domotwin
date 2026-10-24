@@ -16,6 +16,11 @@ uniform float u_wall_height;
 uniform float u_wall_pass;
 // The surface of the tops of the walls (`Surface::WallCap`).
 const uint WALL_CAP = 11u;
+// Element tags per row of `u_elements` (`lamps::ELEMENTS_PER_ROW`).
+const uint ELEMENTS_PER_ROW = 512u;
+// Where the storey drawn is moved to (D-028): up to its floor's height, more when the storeys are
+// spread apart, or beside the others on the 2D plan.
+uniform vec3 u_offset;
 // Three texels per element tag: light (rgb, strength), flags (greyed out, highlight, selected,
 // in conflict), power layer level.
 uniform sampler2D u_elements;
@@ -27,6 +32,10 @@ in uvec4 a_extra;
 in vec2 a_uv;
 
 out vec3 v_world;
+// Where the fragment is on its storey's own plan (x, z), wherever the storey is drawn.
+out vec2 v_plan;
+// Height above its storey's floor.
+out float v_height;
 out vec3 v_normal;
 out vec4 v_color;
 out vec2 v_uv;
@@ -63,12 +72,15 @@ void main() {
         hidden = true;
     }
     v_glass = u_wall_pass > 1.5 ? 1.0 : 0.0;
+    v_height = p.y;
+    v_plan = p.xz;
+    p += u_offset;
     v_world = p;
     v_normal = vec3(a_normal.xyz) / 127.0;
     v_color = vec4(a_color) / 255.0;
     v_uv = a_uv;
     v_element = a_extra.z | (a_extra.w << 8u);
-    ivec2 at = ivec2(int(v_element) * 3, 0);
+    ivec2 at = ivec2(int(v_element % ELEMENTS_PER_ROW) * 3, int(v_element / ELEMENTS_PER_ROW));
     v_look = texelFetch(u_elements, at, 0);
     v_flags = texelFetch(u_elements, at + ivec2(1, 0), 0);
     v_power = texelFetch(u_elements, at + ivec2(2, 0), 0).r;
@@ -92,6 +104,8 @@ uniform float u_shadow_texel;
 uniform float u_pcf;
 
 in vec3 v_world;
+in vec2 v_plan;
+in float v_height;
 in vec3 v_normal;
 in vec4 v_color;
 in vec2 v_uv;
@@ -336,11 +350,11 @@ void main() {
         vec4 heat = texelFetch(u_rooms, ivec2(at, 0), 0);
         vec4 shape = texelFetch(u_rooms, ivec2(at + 1, 0), 0);
         float presence = texelFetch(u_rooms, ivec2(at + 2, 0), 0).r;
-        float d = length(v_world.xz - shape.xy) / max(shape.z, 1.0);
+        float d = length(v_plan - shape.xy) / max(shape.z, 1.0);
         if (heat.a > 0.0) {
             float turn = u_motion > 0.5 ? u_time * 0.0104720 : 0.0;
             vec2 drift = vec2(sin(turn), cos(turn)) * 6.0;
-            float wobble = noise(v_world.xz * 0.011 + drift) - 0.5;
+            float wobble = noise(v_plan * 0.011 + drift) - 0.5;
             float k = 1.0 - smoothstep(0.1, 1.15, d + wobble * 0.45);
             float breath = 0.92 + 0.08 * wave(1.0472, 1.0);
             albedo = mix(albedo, heat.rgb, (0.35 + 0.5 * k) * breath * heat.a);
@@ -374,7 +388,7 @@ void main() {
         hemi *= 0.6;
     }
     // Rooms have no ceiling: a little darker near the floor on vertical faces.
-    float ao = mix(1.0, mix(u_ao, 1.0, smoothstep(0.0, 90.0, v_world.y)), 1.0 - abs(n.y));
+    float ao = mix(1.0, mix(u_ao, 1.0, smoothstep(0.0, 90.0, v_height)), 1.0 - abs(n.y));
     bool metal = surface == METAL || surface == MIRROR;
     vec3 bounce = u_sun_color * u_bounce * (1.0 - shadow) * (0.6 + 0.4 * max(n.y, 0.0));
     vec3 diffuse =
@@ -594,11 +608,13 @@ uniform mat4 u_view_proj;
 uniform vec4 u_cut[32];
 uniform vec2 u_viewport;
 uniform float u_line_width;
+// Where the storey drawn is moved to (D-028).
+uniform vec3 u_offset;
 // Towards the camera: its position (w = 1), or the way back along its view (w = 0, orthographic);
 // how far lines move that way: a share of the distance (perspective), or a length (orthographic),
 // a couple of pixels where the line is.
 uniform vec4 u_toward;
-uniform float u_lift;
+uniform float u_line_lift;
 
 // First end and wall group; second end and the height of the bottom of what the line outlines;
 // along (0 or 1), across (-1 or 1) and weight.
@@ -619,7 +635,7 @@ float cut_height(uint group) {
 // not through the walls.
 vec3 forward(vec3 p) {
     vec3 toward = u_toward.w > 0.5 ? u_toward.xyz - p : u_toward.xyz;
-    return p + toward * u_lift;
+    return p + toward * u_line_lift;
 }
 
 void main() {
@@ -634,6 +650,8 @@ void main() {
         pa.y = min(pa.y, cut);
         pb.y = min(pb.y, cut);
     }
+    pa += u_offset;
+    pb += u_offset;
     vec4 ca = u_view_proj * vec4(forward(pa), 1.0);
     vec4 cb = u_view_proj * vec4(forward(pb), 1.0);
     // Clipped at the near plane (z = -w) when one end is behind it.

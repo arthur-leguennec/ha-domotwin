@@ -18,7 +18,7 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M6        | Plan editor: draw rooms, walls, doors and windows          | ✅     |
 | M7        | Storeys: several floors, stairs, a storey switcher         | ✅     |
 | M8        | Looks: neon, blueprint and day, glowing outlines, bloom    | ✅     |
-| M9        | Every storey at once: stacked, spread apart, with a roof   | ⏳     |
+| M9        | Every storey at once: stacked, spread apart, with a roof   | ✅     |
 | M10       | Kiosk: walk mode, idle and night modes, Assist voice       | ⏳     |
 | M11       | Imports: Sweet Home 3D, DXF, room scans                    | ⏳     |
 | M12       | Polish: design, fonts, accessibility, performance, README  | ⏳     |
@@ -374,8 +374,32 @@ weather.
 
 ## M9, every storey at once
 
-The storeys stacked in one view, spread apart on demand, a roof over the top one; small pictures
-of each storey to pick from.
+The whole home in one view (`DECISIONS.md`, D-028; [`storeys.md`](storeys.md)).
+
+- ✅ **One scene of every storey**: each storey's meshes and outlines built apart with its height,
+  its elements, rooms, walls and lamps numbered across the home, so that the live looks, the
+  layers, the cut-away and taps work on every storey.
+- ✅ **Spread apart or stacked**, animated, the camera framing the home as it will be; each storey
+  drawn at its lift, lamps lighting their own storey, badges, cones and labels following it.
+- ✅ **A roof** over the top storey: a gable over the smallest rectangle around its walls, of glass
+  in the night looks, tiled in day, never in the way of a tap.
+- ✅ **The 2D plan of every storey**, side by side, each with its label over it.
+- ✅ **Each storey's label** (its name, rooms and lights on) and **a picture of each storey**, drawn
+  offscreen in the look shown; a tap on either shows that storey alone.
+- ✅ **Where**: an "every storey" button in the switcher, the card's `storey: all`, `spread` and
+  `roof` options and buttons; in the panel, edit mode, linking and the plan editor work on one
+  storey, and the home comes back after.
+- ✅ Tests: the roof's rectangle and slopes, the demo home built storey by storey (Rust); the
+  storeys spreading, stacking and lying side by side on the plan (view); the whole home drawn, a
+  tap on the floor above, the plan of storeys side by side (headless Chromium); the options, the
+  card editor, the counts on the labels, a storey without a plan (vitest); a card showing every
+  storey, spreading, the roof, a lamp upstairs tapped, the 2D plan, edit mode on a storey alone
+  (Playwright); the frame time of the whole home.
+
+![The demo apartment's two storeys spread apart under their roof, with their labels and pictures](figures/screenshot-home.png)
+
+Left for later: stairs cut into the floor above, a roof read from an IFC file, several roofs over
+a home of several wings.
 
 ## M10, kiosk
 

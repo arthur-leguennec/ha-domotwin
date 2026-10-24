@@ -45,7 +45,8 @@ export interface CardConfig {
   lighting: LightingMode;
   /** Room to focus on start (an element id of the plan). */
   room?: string;
-  /** Storey shown first (a storey id); the ground floor by default. */
+  /** Storey shown first (a storey id, or `all` for every storey at once); the ground floor by
+   * default. */
   storey?: string;
   /** Font for the card's texts; absent: the bundled default. */
   font_family?: string;
@@ -62,6 +63,9 @@ export interface CardConfig {
   cameras: boolean;
   /** The rooms' names over their floor. */
   names: boolean;
+  /** Every storey at once (D-028): spread apart (else stacked), the roof over the top one. */
+  spread: boolean;
+  roof: boolean;
   /** The look; absent: the home's (the panel's settings). */
   theme?: ThemeMode;
   /** The accent of the look (`#rrggbb`); absent: the home's. */
@@ -129,6 +133,8 @@ export function normalizeConfig(raw: unknown): CardConfig {
     badges: flag(input.badges, true, "config.bad_badges"),
     cameras: flag(input.cameras, true, "config.bad_cameras"),
     names: flag(input.names, true, "config.bad_names"),
+    spread: flag(input.spread, true, "config.bad_spread"),
+    roof: flag(input.roof, true, "config.bad_roof"),
   };
   const title = optionalString(input.title);
   if (title !== undefined) config.title = title;

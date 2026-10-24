@@ -16,9 +16,9 @@ use domotwin_core::live::{EntityState, LiveState, read_states, targets};
 use domotwin_core::model_mesh::ModelMesh;
 use domotwin_core::overlay::{Layout, apply, fit, parse_layout};
 use domotwin_core::plan::{Element, Plan, View, parse_plan_json, read_plan_value};
-use domotwin_core::scene::mesh::Mesh;
 use domotwin_core::scene::{
-    ElementInfo, ModelMeshes, Scene, SceneOptions, build_dynamic, build_scene_moving,
+    ElementInfo, ModelMeshes, Scene, SceneOptions, build_dynamic, build_home, build_scene_moving,
+    stack_plans,
 };
 use domotwin_core::theme::{DEFAULT_ACCENT, Theme, ThemeName, parse_hex};
 use domotwin_core::{ReadError, summarize_plan};
@@ -121,9 +121,21 @@ pub struct Engine {
     models_dirty: bool,
     /// The room layers shown (heatmap, alerts, presence).
     layers: RoomLayers,
-    /// What each linked camera sees on the floor (element id, camera entity, plan points), worked
-    /// out when the plan shown or the bindings change.
-    cones: Vec<(String, String, Vec<[f64; 2]>)>,
+    /// What each linked camera sees on the floor (element id, camera entity, its storey, plan
+    /// points), worked out when the plan shown or the bindings change.
+    cones: Vec<(String, String, usize, Vec<[f64; 2]>)>,
+    /// The storeys of the home shown whole (D-028), lowest first; empty for a plan alone.
+    pub(crate) home: Vec<HomeStorey>,
+}
+
+/// A storey of the home shown whole: its id and name, its plan (its overlay applied) and the
+/// height of its floor.
+#[derive(Debug, Clone)]
+pub(crate) struct HomeStorey {
+    id: String,
+    name: String,
+    plan: Plan,
+    elevation: f64,
 }
 
 #[wasm_bindgen]
@@ -175,6 +187,7 @@ impl Engine {
             models_dirty: false,
             layers: RoomLayers::default(),
             cones: Vec::new(),
+            home: Vec::new(),
         };
         engine
             .renderer
@@ -201,7 +214,8 @@ impl Engine {
         let source = parse_plan_json(json.as_bytes()).map_err(|err| plan_error(&err))?;
         let layout = layout.as_deref().map_or_else(Layout::new, parse_layout);
         let (plan, layout, refused) = fit(&source, &layout).map_err(|err| plan_error(&err))?;
-        let keep = keep_camera.unwrap_or(false) && self.plan.is_some();
+        let keep = keep_camera.unwrap_or(false) && self.plan.is_some() && self.home.is_empty();
+        self.home.clear();
         self.source = Some(source);
         self.layout = layout;
         // A plan loaded again ends edit mode (the frontend starts it again).
@@ -216,6 +230,150 @@ impl Engine {
             object.insert("layoutRefused".into(), serde_json::Value::from(refused));
         }
         Ok(summary.to_string())
+    }
+
+    /// Loads every storey of the home to show it whole (D-028): JSON `[{"id", "name",
+    /// "elevation", "plan", "layout"}]`, each plan with its overlay. The storeys stand at their
+    /// heights, spread apart or not ([`Engine::set_spread`]), the roof over the top one. Returns
+    /// the summary of the whole home with `storeys`. Edit mode needs a storey alone
+    /// ([`Engine::load_plan`]).
+    ///
+    /// # Errors
+    ///
+    /// Fails with the JSON error of the plan reader for a storey's plan (`storey` names it), or
+    /// `{"code": "no_storeys"}` without a storey.
+    #[wasm_bindgen(js_name = loadStoreys)]
+    pub fn load_storeys(
+        &mut self,
+        json: &str,
+        keep_camera: Option<bool>,
+    ) -> Result<String, JsError> {
+        let value: serde_json::Value = serde_json::from_str(json).unwrap_or_default();
+        let mut home = Vec::new();
+        for entry in value.as_array().map_or(&[][..], Vec::as_slice) {
+            let id = entry
+                .get("id")
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or_default();
+            let text = entry
+                .get("plan")
+                .map(ToString::to_string)
+                .unwrap_or_default();
+            let storey_error = |err: &ReadError| {
+                let mut value: serde_json::Value =
+                    serde_json::from_str(&err.to_json()).unwrap_or_default();
+                value["storey"] = id.into();
+                JsError::new(&value.to_string())
+            };
+            let source = parse_plan_json(text.as_bytes()).map_err(|err| storey_error(&err))?;
+            let layout = entry
+                .get("layout")
+                .map_or_else(Layout::new, |l| parse_layout(&l.to_string()));
+            let (plan, _, _) = fit(&source, &layout).map_err(|err| storey_error(&err))?;
+            let elevation = entry
+                .get("elevation")
+                .and_then(serde_json::Value::as_f64)
+                .filter(|e| e.is_finite())
+                .unwrap_or(0.0);
+            home.push(HomeStorey {
+                id: id.to_owned(),
+                name: entry
+                    .get("name")
+                    .and_then(serde_json::Value::as_str)
+                    .unwrap_or_default()
+                    .to_owned(),
+                plan,
+                elevation,
+            });
+        }
+        if home.is_empty() {
+            return Err(JsError::new(r#"{"code":"no_storeys"}"#));
+        }
+        home.sort_by(|a, b| a.elevation.total_cmp(&b.elevation));
+        let keep = keep_camera.unwrap_or(false) && !self.home.is_empty();
+        self.home = home;
+        self.source = None;
+        self.layout = Layout::new();
+        self.edit = None;
+        self.drag_built = false;
+        self.renderer.set_marks(&[]);
+        let stacked = self.show_home(keep, true);
+        let mut summary: serde_json::Value =
+            serde_json::from_str(&stacked.summary().to_json()).unwrap_or_default();
+        summary["storeys"] = self.home.len().into();
+        Ok(summary.to_string())
+    }
+
+    /// Spreads the storeys of the home shown whole apart, or stacks them (animated from
+    /// `time_ms`); the camera frames the home as it will be.
+    #[wasm_bindgen(js_name = setSpread)]
+    pub fn set_spread(&mut self, spread: bool, time_ms: f64) {
+        self.renderer.set_spread(spread, time_ms);
+    }
+
+    /// Shows or hides the roof over the top storey of the home shown whole.
+    #[wasm_bindgen(js_name = setRoof)]
+    pub fn set_roof(&mut self, shown: bool) {
+        self.renderer.set_roof(shown);
+    }
+
+    /// Where each storey of the home shown whole is, as JSON `[{"id", "name", "x", "y", "top"}]`
+    /// in device pixels from the top left, where its label goes: in 3D, the rightmost corner of
+    /// the storey halfway up its walls; on the 2D plan (`top`), the middle of its top edge.
+    /// Storeys behind the camera are left out.
+    #[wasm_bindgen(js_name = storeyLabels)]
+    pub fn storey_labels(&self) -> String {
+        let view = &self.renderer.view;
+        let top = view.plan_view;
+        let labels: Vec<serde_json::Value> = self
+            .home
+            .iter()
+            .enumerate()
+            .filter_map(|(k, storey)| {
+                let [min, max] = view.storey_bounds(k)?;
+                let y = if top {
+                    view.wall_height
+                } else {
+                    view.wall_height * 0.5
+                };
+                let corners: Vec<[f64; 2]> = [
+                    [min[0], y, min[2]],
+                    [max[0], y, min[2]],
+                    [max[0], y, max[2]],
+                    [min[0], y, max[2]],
+                ]
+                .into_iter()
+                .filter_map(|c| self.renderer.screen_point(view.place(k, c)))
+                .collect();
+                let [x, y] = if top {
+                    let (left, right) = corners
+                        .iter()
+                        .fold((f64::INFINITY, f64::NEG_INFINITY), |(l, r), p| {
+                            (l.min(p[0]), r.max(p[0]))
+                        });
+                    let up = corners.iter().map(|p| p[1]).fold(f64::INFINITY, f64::min);
+                    [f64::midpoint(left, right), up]
+                } else {
+                    *corners.iter().max_by(|a, b| a[0].total_cmp(&b[0]))?
+                };
+                (x.is_finite() && y.is_finite()).then(|| {
+                    serde_json::json!({
+                        "id": storey.id, "name": storey.name, "x": x, "y": y, "top": top,
+                    })
+                })
+            })
+            .collect();
+        serde_json::Value::Array(labels).to_string()
+    }
+
+    /// A picture of storey `index` (lowest first) of the home shown whole, alone, seen from above
+    /// a corner: `width` × `height` RGBA pixels, rows from the top (its thumbnail). Empty without
+    /// that storey.
+    #[wasm_bindgen(js_name = storeyPicture)]
+    pub fn storey_picture(&mut self, index: usize, width: u32, height: u32) -> Vec<u8> {
+        self.renderer
+            .picture(index, width, height)
+            .unwrap_or_default()
     }
 }
 
@@ -237,6 +395,8 @@ impl Engine {
         moving: &BTreeSet<usize>,
         fresh: bool,
     ) {
+        // A plan alone, not the home shown whole.
+        self.home.clear();
         // Where each element was before. Edits keep the order of the others, so the search goes
         // on from the last one found (linear for a whole plan).
         let n = self.elements.len();
@@ -254,36 +414,53 @@ impl Engine {
                 found
             })
             .collect();
-        let options = SceneOptions {
+        let options = self.scene_options();
+        let scene = build_scene_moving(&plan, &options, moving);
+        self.put(plan, scene, keep_camera, &old, fresh);
+    }
+
+    fn scene_options(&mut self) -> SceneOptions {
+        self.models_dirty = false;
+        SceneOptions {
             models: Rc::clone(&self.models),
             ..SceneOptions::default()
-        };
-        self.models_dirty = false;
-        let mut scene = build_scene_moving(&plan, &options, moving);
-        self.triangles = [
-            &scene.opaque,
-            &scene.wall_mesh,
-            &scene.transparent,
-            &scene.dynamic_opaque,
-            &scene.dynamic_transparent,
-        ]
-        .iter()
-        .map(|m| m.triangle_count())
-        .sum();
+        }
+    }
+
+    /// Builds and uploads the scene of the home shown whole. Returns its plan (every storey's
+    /// elements).
+    fn show_home(&mut self, keep_camera: bool, fresh: bool) -> Plan {
+        let options = self.scene_options();
+        let storeys: Vec<(&Plan, f64)> = self.home.iter().map(|s| (&s.plan, s.elevation)).collect();
+        let plans: Vec<&Plan> = storeys.iter().map(|(p, _)| *p).collect();
+        let scene = build_home(&storeys, &options);
+        let stacked = stack_plans(&plans).unwrap_or_else(|| self.home[0].plan.clone());
+        let old: Vec<Option<usize>> = (0..stacked.elements.len()).map(Some).collect();
+        self.put(stacked.clone(), scene, keep_camera, &old, fresh);
+        stacked
+    }
+
+    /// Shows a scene built from `plan`: uploads it and sets its live looks (from their targets
+    /// when `fresh`, else each element keeps fading from where it was, `old` giving its index
+    /// before).
+    fn put(
+        &mut self,
+        plan: Plan,
+        mut scene: Scene,
+        keep_camera: bool,
+        old: &[Option<usize>],
+        fresh: bool,
+    ) {
+        self.triangles = scene.triangle_count();
         self.renderer.set_scene(&scene, keep_camera);
         // The meshes live on the GPU now: free the copies.
-        scene.opaque = Mesh::default();
-        scene.wall_mesh = Mesh::default();
-        scene.transparent = Mesh::default();
-        scene.dynamic_opaque = Mesh::default();
-        scene.dynamic_transparent = Mesh::default();
-        scene.ceiling = Mesh::default();
+        scene.drop_meshes();
         self.elements.clone_from(&scene.elements);
         let targets = targets(&plan, &scene.lights, &self.bindings, &self.states);
         if fresh {
             self.live = LiveState::new(targets);
         } else {
-            self.live.retarget_moved(targets, &old);
+            self.live.retarget_moved(targets, old);
         }
         self.plan = Some(plan);
         self.scene = Some(scene);
@@ -295,6 +472,7 @@ impl Engine {
 
     /// Shows no plan (a new plan drawn and dropped).
     pub(crate) fn clear_plan(&mut self) {
+        self.home.clear();
         self.renderer.clear_scene();
         self.renderer.set_marks(&[]);
         self.plan = None;
@@ -326,8 +504,9 @@ impl Engine {
                 continue;
             };
             if let Some(cone) = camera_cone(plan, scene, index, self.bindings.view(id)) {
+                let storey = scene.storey_of(index).unwrap_or(0);
                 self.cones
-                    .push((id.clone(), camera.entity_id.clone(), cone));
+                    .push((id.clone(), camera.entity_id.clone(), storey, cone));
             }
         }
     }
@@ -349,12 +528,13 @@ impl Engine {
     /// [`Engine::set_model_mesh`]. Files already given are left out.
     #[wasm_bindgen(js_name = modelFiles)]
     pub fn model_files(&self) -> String {
-        let Some(plan) = &self.plan else {
-            return "[]".to_owned();
-        };
         let mut seen: Vec<&str> = Vec::new();
         let mut files = Vec::new();
-        for element in &plan.elements {
+        for (plan, element) in self
+            .plans()
+            .into_iter()
+            .flat_map(|plan| plan.elements.iter().map(move |e| (plan, e)))
+        {
             let Element::Furniture(f) = element else {
                 continue;
             };
@@ -394,7 +574,7 @@ impl Engine {
             return false;
         };
         Rc::make_mut(&mut self.models).insert(hash.to_owned(), Rc::new(mesh));
-        let shown = self.plan.as_ref().is_some_and(|plan| {
+        let shown = self.plans().into_iter().any(|plan| {
             plan.models.values().any(|m| {
                 m.get("file")
                     .and_then(|f| f.get("hash"))
@@ -416,7 +596,9 @@ impl Engine {
         let Some(moving) = self.scene.as_ref().map(|s| s.moving().clone()) else {
             return false;
         };
-        if let Some(plan) = self.plan.take() {
+        if !self.home.is_empty() {
+            self.show_home(true, false);
+        } else if let Some(plan) = self.plan.take() {
             self.show(plan, true, &moving, false);
             if let (Some(session), Some(plan), Some(scene)) =
                 (&mut self.edit, &self.plan, &self.scene)
@@ -479,8 +661,8 @@ impl Engine {
 
     pub(crate) fn rebuild_moving_parts(&mut self) {
         if let (Some(plan), Some(scene)) = (&self.plan, &self.scene) {
-            let (opaque, transparent) = build_dynamic(plan, scene, &self.live.overrides);
-            self.renderer.set_moving_parts(&opaque, &transparent);
+            let parts = build_dynamic(plan, scene, &self.live.overrides);
+            self.renderer.set_moving_parts(&parts);
         }
     }
 
@@ -605,10 +787,14 @@ impl Engine {
         let views: Vec<serde_json::Value> = self
             .cones
             .iter()
-            .filter_map(|(id, entity, cone)| {
+            .filter_map(|(id, entity, storey, cone)| {
+                let view = &self.renderer.view;
                 let points: Option<Vec<[f64; 2]>> = cone
                     .iter()
-                    .map(|p| self.renderer.screen_point([p[0], 1.0, p[1]]))
+                    .map(|p| {
+                        self.renderer
+                            .screen_point(view.place(*storey, [p[0], 1.0, p[1]]))
+                    })
                     .collect();
                 points.map(
                     |points| serde_json::json!({ "id": id, "entity": entity, "points": points }),
@@ -656,7 +842,10 @@ impl Engine {
             let Some(info) = self.elements.iter().find(|e| e.id == id) else {
                 continue;
             };
-            if let Some(point) = top_of(info).and_then(|top| self.renderer.screen_point(top)) {
+            if let Some(point) = self
+                .top_of(info)
+                .and_then(|top| self.renderer.screen_point(top))
+            {
                 points.insert(id, serde_json::json!(point));
             }
         }
@@ -688,13 +877,14 @@ impl Engine {
             for room in room_shapes(plan, scene) {
                 if let Some(value) = self.layers.values.get(room.id) {
                     let [x, z] = room.label;
-                    push(room.id, "heat", *value, [x, 1.0, z]);
+                    let at = self.renderer.view.place(room.storey, [x, 1.0, z]);
+                    push(room.id, "heat", *value, at);
                 }
             }
         }
         if self.renderer.power_layer() {
             for (info, look) in self.elements.iter().zip(&self.live.looks) {
-                if let Some(top) = top_of(info).filter(|_| power_level(look.power) > 0.0) {
+                if let Some(top) = self.top_of(info).filter(|_| power_level(look.power) > 0.0) {
                     push(&info.id, "power", f64::from(look.power), top);
                 }
             }
@@ -711,7 +901,8 @@ impl Engine {
             for room in room_shapes(plan, scene) {
                 let name = plan.element(room.id).map_or("", Element::name);
                 let [x, z] = room.label;
-                if let Some([sx, sy]) = self.renderer.screen_point([x, 1.0, z]) {
+                let at = self.renderer.view.place(room.storey, [x, 1.0, z]);
+                if let Some([sx, sy]) = self.renderer.screen_point(at) {
                     labels.push(serde_json::json!({
                         "id": room.id, "name": name, "x": sx, "y": sy,
                     }));
@@ -764,13 +955,10 @@ impl Engine {
             return false;
         }
         let widen = |v: f32| f64::from(v);
-        self.renderer.view.focus(
-            [
-                [widen(min[0]), 0.0, widen(min[2])],
-                [widen(max[0]), widen(max[1]), widen(max[2])],
-            ],
-            time_ms,
-        );
+        let view = &self.renderer.view;
+        let low = view.place(info.storey, [widen(min[0]), 0.0, widen(min[2])]);
+        let high = view.place(info.storey, [widen(max[0]), widen(max[1]), widen(max[2])]);
+        self.renderer.view.focus([low, high], time_ms);
         true
     }
 
@@ -785,7 +973,10 @@ impl Engine {
         if min == max {
             return String::new();
         }
-        let centre = [0, 1, 2].map(|k| f64::from(min[k] + max[k]) * 0.5);
+        let centre = self.renderer.view.place(
+            info.storey,
+            [0, 1, 2].map(|k| f64::from(min[k] + max[k]) * 0.5),
+        );
         self.renderer
             .screen_point(centre)
             .map(|p| serde_json::json!(p).to_string())
@@ -851,8 +1042,12 @@ impl Engine {
             .as_ref()
             .and_then(|scene| scene.rooms.get(usize::from(info.room).checked_sub(1)?))
             .map_or("", String::as_str);
-        serde_json::json!({ "id": info.id, "type": info.kind, "name": name, "room": room })
-            .to_string()
+        let mut picked =
+            serde_json::json!({ "id": info.id, "type": info.kind, "name": name, "room": room });
+        if let Some(storey) = self.home.get(info.storey) {
+            picked["storey"] = storey.id.clone().into();
+        }
+        picked.to_string()
     }
 
     /// Figures about the scene, as JSON (for the diagnostics and the performance smoke test).
@@ -874,7 +1069,13 @@ impl Engine {
             "bound": self.bindings.elements.len(),
             "quality": self.renderer.quality().as_str(),
             "theme": self.renderer.theme().name.name(),
-            "lines": self.scene.as_ref().map_or(0, |scene| scene.lines.len()),
+            "lines": self
+                .scene
+                .as_ref()
+                .map_or(0, |scene| scene.parts.iter().map(|p| p.lines.len()).sum::<usize>()),
+            "storeys": view.storey_count(),
+            "spread": view.spread(),
+            "roof": view.roof_offset().is_some(),
             "camera": {
                 "target": camera.target.map(round),
                 "distance": round(camera.distance),
@@ -913,17 +1114,31 @@ impl Engine {
     }
 }
 
-/// The top of an element's centre (world), where its labels and badges go; `None` without
-/// geometry.
-fn top_of(info: &ElementInfo) -> Option<[f64; 3]> {
-    let [min, max] = info.bounds;
-    (min != max).then(|| {
-        [
-            f64::from(min[0] + max[0]) * 0.5,
-            f64::from(max[1]),
-            f64::from(min[2] + max[2]) * 0.5,
-        ]
-    })
+impl Engine {
+    /// The top of an element's centre where the view draws it, where its labels and badges go;
+    /// `None` without geometry.
+    fn top_of(&self, info: &ElementInfo) -> Option<[f64; 3]> {
+        let [min, max] = info.bounds;
+        (min != max).then(|| {
+            self.renderer.view.place(
+                info.storey,
+                [
+                    f64::from(min[0] + max[0]) * 0.5,
+                    f64::from(max[1]),
+                    f64::from(min[2] + max[2]) * 0.5,
+                ],
+            )
+        })
+    }
+
+    /// The plans shown: every storey's for the home shown whole, else the plan alone.
+    fn plans(&self) -> Vec<&Plan> {
+        if self.home.is_empty() {
+            self.plan.iter().collect()
+        } else {
+            self.home.iter().map(|s| &s.plan).collect()
+        }
+    }
 }
 
 fn gpu_hint(gl: &WebGl2RenderingContext) -> GpuHint {
