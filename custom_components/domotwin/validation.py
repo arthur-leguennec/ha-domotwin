@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from typing import Any
+from typing import Any, Final
 
 from homeassistant.core import valid_entity_id
 from homeassistant.helpers.json import json_bytes
@@ -219,14 +219,34 @@ def validate_bindings(bindings: Any) -> dict[str, Any]:
     return {"version": 1, "rooms": rooms, "elements": elements}
 
 
+THEMES: Final = ("auto", "day", "neon", "blueprint")
+ACCENT: Final = re.compile(r"#[0-9a-fA-F]{6}")
+
+
 def validate_settings(settings: Any) -> dict[str, Any]:
-    """Check the home's settings: `north`, degrees clockwise from the top of the plan."""
-    if not isinstance(settings, dict) or set(settings) - {"north"}:
-        raise InvalidPayloadError("invalid_settings", "settings hold only `north`")
+    """Check the home's settings.
+
+    `north`, degrees clockwise from the top of the plan; the look shown by default (`theme`) and
+    its accent colour (`accent`, `#rrggbb`).
+    """
+    if not isinstance(settings, dict) or set(settings) - {"north", "theme", "accent"}:
+        raise InvalidPayloadError(
+            "invalid_settings", "settings hold only `north`, `theme` and `accent`"
+        )
     north = settings.get("north", 0)
     if not _is_number(north) or not 0 <= north < 360:
         raise InvalidPayloadError("invalid_settings", "`north` must be a number from 0 to 360")
-    return {"north": north}
+    checked: dict[str, Any] = {"north": north}
+    if "theme" in settings:
+        if settings["theme"] not in THEMES:
+            raise InvalidPayloadError("invalid_settings", f"`theme` must be one of {THEMES}")
+        checked["theme"] = settings["theme"]
+    if "accent" in settings:
+        accent = settings["accent"]
+        if not isinstance(accent, str) or not ACCENT.fullmatch(accent):
+            raise InvalidPayloadError("invalid_settings", "`accent` must be a colour #rrggbb")
+        checked["accent"] = accent.lower()
+    return checked
 
 
 def validate_storey_name(name: Any) -> str:

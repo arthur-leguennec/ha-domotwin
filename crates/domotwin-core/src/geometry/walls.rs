@@ -56,6 +56,15 @@ impl EdgeBand {
     pub fn depth(&self) -> f64 {
         self.o1 - self.o0
     }
+
+    /// Whether the band reaches the start of its side, or (`at_end`) its end.
+    pub fn reaches(&self, at_end: bool) -> bool {
+        if at_end {
+            self.t1 >= 1.0 - 1e-9
+        } else {
+            self.t0 <= 1e-9
+        }
+    }
 }
 
 /// The filled outer corner at a convex vertex between two façade bands.

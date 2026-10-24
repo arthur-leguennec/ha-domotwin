@@ -11,6 +11,11 @@ pub(crate) const VERTEX: &str = r"
 uniform mat4 u_view_proj;
 uniform vec4 u_cut[32];
 uniform float u_wall_height;
+// Drawing the walls' mesh in the looks with glass walls (D-027): 1 their tops alone (opaque), 2
+// their faces alone (glass); 0 everything.
+uniform float u_wall_pass;
+// The surface of the tops of the walls (`Surface::WallCap`).
+const uint WALL_CAP = 11u;
 // Three texels per element tag: light (rgb, strength), flags (greyed out, highlight, selected,
 // in conflict), power layer level.
 uniform sampler2D u_elements;
@@ -31,6 +36,7 @@ flat out vec4 v_look;
 flat out vec4 v_flags;
 flat out float v_power;
 flat out float v_room;
+flat out float v_glass;
 
 float cut_height(uint group) {
     vec4 slot = u_cut[group >> 2u];
@@ -52,11 +58,15 @@ void main() {
             hidden = cut < u_wall_height - 0.5;
         }
     }
+    v_surface = a_extra.y >> 2u;
+    if (u_wall_pass > 0.5 && (v_surface == WALL_CAP) != (u_wall_pass < 1.5)) {
+        hidden = true;
+    }
+    v_glass = u_wall_pass > 1.5 ? 1.0 : 0.0;
     v_world = p;
     v_normal = vec3(a_normal.xyz) / 127.0;
     v_color = vec4(a_color) / 255.0;
     v_uv = a_uv;
-    v_surface = a_extra.y >> 2u;
     v_element = a_extra.z | (a_extra.w << 8u);
     ivec2 at = ivec2(int(v_element) * 3, 0);
     v_look = texelFetch(u_elements, at, 0);
@@ -91,6 +101,22 @@ flat in vec4 v_look;
 flat in vec4 v_flags;
 flat in float v_power;
 flat in float v_room;
+flat in float v_glass;
+
+// The look (D-027): glass walls (their faces drawn in a pass of their own, `v_glass`), their tint,
+// opacity and the colour of their tops (sRGB); the palette furniture and floors take; the 2D plan's
+// colours; whether the alpha channel carries the glow (drawn offscreen for the bloom) rather than 1.
+uniform float u_glass_walls;
+uniform vec3 u_wall_tint;
+uniform float u_wall_alpha;
+uniform vec3 u_wall_cap;
+uniform float u_tint;
+uniform vec3 u_palette;
+uniform float u_floor_tint;
+uniform vec3 u_floor_palette;
+uniform vec3 u_plan_floor;
+uniform vec3 u_plan_cap;
+uniform float u_glow_alpha;
 
 // The layers (D-023), three texels per room slot: heatmap colour (linear) and strength; the
 // room's centre (x, z), reach and alert (0.5 warning, 1 danger); presence.
@@ -255,6 +281,17 @@ void main() {
     if (!gl_FrontFacing) {
         n = -n;
     }
+    if (v_glass > 0.5) {
+        // Tinted glass, brighter at grazing angles, catching the lamps of its room.
+        vec3 view = normalize(u_eye - v_world);
+        float grazing = pow(1.0 - abs(dot(n, view)), 2.0);
+        vec3 lamp = lamps(n);
+        vec3 lit = to_linear(u_wall_tint) * (0.18 + 0.5 * grazing) + lamp * 0.35;
+        float shown = u_wall_alpha * (0.7 + 1.6 * grazing);
+        vec3 glass = pow(aces(lit * u_exposure), vec3(1.0 / 2.2));
+        frag = vec4(glass, clamp(shown + dot(lamp, vec3(0.1)), 0.0, 0.6) * (1.0 - u_flat));
+        return;
+    }
     if (surface == SHADOW) {
         // Soft contact shadow: full under the footprint, fading outwards.
         vec2 core = v_color.rg;
@@ -277,10 +314,20 @@ void main() {
     } else if (surface == FABRIC) {
         albedo = base * (0.94 + 0.08 * noise(v_uv * 1.7));
     }
+    // The look's palette, keeping each surface's lightness.
+    bool floor_surface = surface == PLANKS || surface == TILES || surface == FLOOR;
+    float lightness = dot(albedo, vec3(0.2126, 0.7152, 0.0722));
+    if (surface == WALL_CAP && u_glass_walls > 0.5) {
+        albedo = to_linear(u_wall_cap);
+    } else if (floor_surface) {
+        albedo = mix(albedo, to_linear(u_floor_palette) * (0.5 + 0.8 * lightness), u_floor_tint);
+    } else if (surface != GLOW && surface != SCREEN && surface != GLASS) {
+        albedo = mix(albedo, to_linear(u_palette) * (0.45 + 1.6 * lightness), u_tint);
+    }
 
     // Room layers, on the floors: the heatmap as a soft halo from the centre of the room, its
     // edge moving slowly; a warm glow where someone is; an alert pulsing towards the walls.
-    bool on_floor = surface == PLANKS || surface == TILES || surface == FLOOR;
+    bool on_floor = floor_surface;
     vec3 layer_glow = vec3(0.0);
     vec3 alert_tone = vec3(0.0);
     float alert = 0.0;
@@ -360,10 +407,12 @@ void main() {
         color += emission * 1.4;
     }
 
-    // The 2D plan: flat colours, dark wall tops.
+    // The 2D plan: flat colours, the look's wall tops (and floors, for the looks with glass walls).
     vec3 plan = albedo * (0.86 + 0.14 * max(n.y, 0.0));
     if (surface == WALL_CAP) {
-        plan = vec3(0.035, 0.04, 0.038);
+        plan = to_linear(u_plan_cap);
+    } else if (on_floor && u_glass_walls > 0.5) {
+        plan = to_linear(u_plan_floor) * (0.92 + 0.16 * lightness);
     }
     if (surface == GLOW || surface == SCREEN) {
         plan = mix(plan, min(emission * 1.5, vec3(1.0)), min(glow, 1.0) * 0.85);
@@ -396,7 +445,14 @@ void main() {
     plan = mix(plan, vec3(0.95, 0.12, 0.08), bad * 0.7);
     vec3 shaded = mix(aces(color * u_exposure), plan, u_flat);
     shaded = mix(shaded, alert_tone, alert);
-    frag = vec4(pow(shaded, vec3(1.0 / 2.2)), mix(alpha, max(alpha, 0.35), u_flat));
+    float a = mix(alpha, max(alpha, 0.35), u_flat);
+    // Drawn offscreen, an opaque surface's alpha is how much it glows (lamps and screens that are
+    // on); glass keeps its alpha to blend with (and leaves the glow below it as it is).
+    if (u_glow_alpha > 0.5 && a >= 0.999) {
+        bool lit = surface == GLOW || surface == SCREEN;
+        a = lit ? min(glow, 1.0) * 0.9 : 0.0;
+    }
+    frag = vec4(pow(shaded, vec3(1.0 / 2.2)), a);
 }
 ";
 
@@ -454,6 +510,241 @@ void main() {
         discard;
     }
     float a = (exp(-d2 * 4.0) - exp(-4.0)) / (1.0 - exp(-4.0));
-    frag = vec4(1.0 - exp(-v_tint * a * u_gain), 0.0);
+    vec3 light = 1.0 - exp(-v_tint * a * u_gain);
+    // Offscreen, the alpha channel is the glow: a halo adds to it.
+    frag = vec4(light, dot(light, vec3(0.33)));
+}
+";
+
+/// A triangle covering the view, for the background and the bloom passes.
+pub(crate) const FULLSCREEN_VERTEX: &str = r"
+out vec2 v_uv;
+
+void main() {
+    vec2 p = vec2(float((gl_VertexID << 1) & 2), float(gl_VertexID & 2));
+    v_uv = p;
+    gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0);
+}
+";
+
+/// The background (D-027): a sky from the horizon up, and the ground the home stands on with its
+/// grid, fading into the sky far away; the sun's shadow on it when the look has shadows.
+pub(crate) const BACKGROUND_FRAGMENT: &str = r"
+precision highp sampler2D;
+
+uniform mat4 u_inv_view_proj;
+uniform vec3 u_sky_top;
+uniform vec3 u_sky_horizon;
+uniform vec3 u_ground;
+uniform vec3 u_grid;
+uniform float u_grid_strength;
+uniform float u_ground_y;
+uniform vec2 u_centre;
+uniform float u_radius;
+uniform float u_glow_alpha;
+uniform float u_shadows;
+uniform sampler2D u_shadow_map;
+uniform mat4 u_shadow_matrix;
+
+in vec2 v_uv;
+out vec4 frag;
+
+// Lines every `size` cm about one pixel wide, fading out when the cells get a few pixels small.
+float grid(vec2 p, float size) {
+    vec2 w = fwidth(p);
+    vec2 d = abs(fract(p / size - 0.5) - 0.5) * size;
+    vec2 line = 1.0 - smoothstep(w * 0.5, w * 1.5, d);
+    float density = max(w.x, w.y) / size;
+    return max(line.x, line.y) * (1.0 - smoothstep(0.06, 0.25, density));
+}
+
+void main() {
+    vec2 ndc = v_uv * 2.0 - 1.0;
+    vec4 near = u_inv_view_proj * vec4(ndc, -1.0, 1.0);
+    vec4 far = u_inv_view_proj * vec4(ndc, 1.0, 1.0);
+    vec3 p0 = near.xyz / near.w;
+    vec3 dir = normalize(far.xyz / far.w - p0);
+    vec3 color = mix(u_sky_horizon, u_sky_top, smoothstep(0.1, 1.0, v_uv.y));
+    float glow = 0.0;
+    if (dir.y < -1e-5) {
+        vec3 g = p0 + dir * ((u_ground_y - p0.y) / dir.y);
+        float far_away = smoothstep(u_radius * 1.4, u_radius * 4.5, length(g.xz - u_centre));
+        float lines = max(grid(g.xz, 100.0) * 0.55, grid(g.xz, 500.0));
+        vec3 ground = mix(u_ground, u_grid, lines * u_grid_strength);
+        if (u_shadows > 0.5) {
+            vec4 s = u_shadow_matrix * vec4(g, 1.0);
+            vec3 c = s.xyz / s.w * 0.5 + 0.5;
+            bool inside = c.x > 0.0 && c.x < 1.0 && c.y > 0.0 && c.y < 1.0 && c.z < 1.0;
+            if (inside && c.z - 0.002 > texture(u_shadow_map, c.xy).r) {
+                ground *= 0.86;
+            }
+        }
+        color = mix(ground, color, far_away);
+        glow = lines * u_grid_strength * (1.0 - far_away) * 0.5;
+    }
+    frag = vec4(color, u_glow_alpha > 0.5 ? glow : 1.0);
+}
+";
+
+/// The outlines of the home (D-027): each line a quad a few pixels wide, facing the screen, gone
+/// or lowered with its wall by the cut-away like the meshes' pieces, a little in front of the
+/// surfaces it lies on.
+pub(crate) const LINE_VERTEX: &str = r"
+uniform mat4 u_view_proj;
+uniform vec4 u_cut[32];
+uniform vec2 u_viewport;
+uniform float u_line_width;
+// Towards the camera: its position (w = 1), or the way back along its view (w = 0, orthographic);
+// how far lines move that way: a share of the distance (perspective), or a length (orthographic),
+// a couple of pixels where the line is.
+uniform vec4 u_toward;
+uniform float u_lift;
+
+// First end and wall group; second end and the height of the bottom of what the line outlines;
+// along (0 or 1), across (-1 or 1) and weight.
+in vec4 a_a;
+in vec4 a_b;
+in vec3 a_corner;
+
+out float v_across;
+flat out float v_weight;
+
+float cut_height(uint group) {
+    vec4 slot = u_cut[group >> 2u];
+    uvec4 lane = uvec4(group & 3u);
+    return dot(slot, vec4(equal(lane, uvec4(0u, 1u, 2u, 3u))));
+}
+
+// A couple of pixels towards the camera: in front of the surfaces the line lies on at any zoom,
+// not through the walls.
+vec3 forward(vec3 p) {
+    vec3 toward = u_toward.w > 0.5 ? u_toward.xyz - p : u_toward.xyz;
+    return p + toward * u_lift;
+}
+
+void main() {
+    v_across = a_corner.y;
+    v_weight = a_corner.z;
+    vec3 pa = a_a.xyz;
+    vec3 pb = a_b.xyz;
+    bool hidden = false;
+    if (a_a.w < 127.5) {
+        float cut = cut_height(uint(a_a.w));
+        hidden = a_b.w >= cut - 0.01;
+        pa.y = min(pa.y, cut);
+        pb.y = min(pb.y, cut);
+    }
+    vec4 ca = u_view_proj * vec4(forward(pa), 1.0);
+    vec4 cb = u_view_proj * vec4(forward(pb), 1.0);
+    // Clipped at the near plane (z = -w) when one end is behind it.
+    float da = ca.z + ca.w;
+    float db = cb.z + cb.w;
+    if (hidden || (da <= 0.0 && db <= 0.0)) {
+        gl_Position = vec4(0.0, 0.0, 2.0, 1.0);
+        return;
+    }
+    if (da < 0.0) {
+        ca = mix(ca, cb, (da - 0.001 * db) / (da - db));
+    } else if (db < 0.0) {
+        cb = mix(cb, ca, (db - 0.001 * da) / (db - da));
+    }
+    vec2 half_size = u_viewport * 0.5;
+    vec2 sa = ca.xy / ca.w * half_size;
+    vec2 sb = cb.xy / cb.w * half_size;
+    vec2 along = sb - sa;
+    float len = length(along);
+    along = len > 1e-4 ? along / len : vec2(1.0, 0.0);
+    vec2 across = vec2(-along.y, along.x);
+    vec4 c = a_corner.x < 0.5 ? ca : cb;
+    float end = a_corner.x < 0.5 ? -1.0 : 1.0;
+    vec2 offset = (across * a_corner.y + along * end * 0.5) * u_line_width;
+    c.xy += offset / half_size * c.w;
+    gl_Position = c;
+}
+";
+
+/// The colour of a line, soft at its sides. Light lines brighten what is under them and add to the
+/// glow; dark lines darken it.
+pub(crate) const LINE_FRAGMENT: &str = r"
+uniform vec3 u_line_color;
+uniform float u_line_strength;
+uniform float u_line_glow;
+uniform float u_dark_lines;
+
+in float v_across;
+flat in float v_weight;
+
+out vec4 frag;
+
+void main() {
+    float k = (1.0 - smoothstep(0.3, 1.0, abs(v_across))) * v_weight * u_line_strength;
+    if (u_dark_lines > 0.5) {
+        frag = vec4(mix(vec3(1.0), u_line_color, k), 0.0);
+    } else {
+        frag = vec4(u_line_color * k, k * u_line_glow);
+    }
+}
+";
+
+/// The bloom, going down: a quarter of the size each step, the first step keeping only what glows
+/// (the colour weighted by the alpha channel).
+pub(crate) const BLOOM_DOWN: &str = r"
+uniform sampler2D u_source;
+uniform vec2 u_texel;
+uniform float u_first;
+
+in vec2 v_uv;
+out vec4 frag;
+
+vec3 take(vec2 uv) {
+    vec4 c = texture(u_source, uv);
+    return u_first > 0.5 ? c.rgb * c.a : c.rgb;
+}
+
+void main() {
+    vec2 h = u_texel;
+    vec3 sum = take(v_uv) * 4.0;
+    sum += take(v_uv - h) + take(v_uv + h);
+    sum += take(v_uv + vec2(h.x, -h.y)) + take(v_uv - vec2(h.x, -h.y));
+    frag = vec4(sum / 8.0, 1.0);
+}
+";
+
+/// The bloom, coming back up: a tent of the smaller level, added to the larger one.
+pub(crate) const BLOOM_UP: &str = r"
+uniform sampler2D u_source;
+uniform vec2 u_texel;
+
+in vec2 v_uv;
+out vec4 frag;
+
+void main() {
+    vec2 h = u_texel;
+    vec3 sum = texture(u_source, v_uv + vec2(-2.0 * h.x, 0.0)).rgb;
+    sum += texture(u_source, v_uv + vec2(-h.x, h.y)).rgb * 2.0;
+    sum += texture(u_source, v_uv + vec2(0.0, 2.0 * h.y)).rgb;
+    sum += texture(u_source, v_uv + vec2(h.x, h.y)).rgb * 2.0;
+    sum += texture(u_source, v_uv + vec2(2.0 * h.x, 0.0)).rgb;
+    sum += texture(u_source, v_uv + vec2(h.x, -h.y)).rgb * 2.0;
+    sum += texture(u_source, v_uv + vec2(0.0, -2.0 * h.y)).rgb;
+    sum += texture(u_source, v_uv + vec2(-h.x, -h.y)).rgb * 2.0;
+    frag = vec4(sum / 12.0, 1.0);
+}
+";
+
+/// The picture with its bloom, onto the screen.
+pub(crate) const COMPOSITE: &str = r"
+uniform sampler2D u_scene;
+uniform sampler2D u_bloom;
+uniform float u_bloom_strength;
+
+in vec2 v_uv;
+out vec4 frag;
+
+void main() {
+    vec3 scene = texture(u_scene, v_uv).rgb;
+    vec3 bloom = texture(u_bloom, v_uv).rgb * u_bloom_strength;
+    // Added softly, so that what is already bright does not burn out.
+    frag = vec4(scene + bloom * (1.0 - scene * 0.5), 1.0);
 }
 ";

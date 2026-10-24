@@ -435,3 +435,66 @@ fn the_plan_editor_s_drafts_are_shown_and_points_turned_both_ways() {
     assert!(other.pick(160, 120).is_empty());
     assert!(other.begin_edit().contains("\"editing\":false"));
 }
+
+#[wasm_bindgen_test]
+fn every_look_draws_with_and_without_its_bloom() {
+    let surface = canvas();
+    let mut engine = Engine::new(surface.clone()).unwrap();
+    engine.load_plan(DEMO, None, None).unwrap();
+    assert!(engine.stats().contains("\"lines\":"));
+    assert!(!engine.stats().contains("\"lines\":0"));
+    assert_eq!(engine.set_theme("blue", ""), "day");
+    let gl = surface
+        .get_context("webgl2")
+        .unwrap()
+        .unwrap()
+        .dyn_into::<web_sys::WebGl2RenderingContext>()
+        .unwrap();
+    for quality in ["eco", "high"] {
+        engine.set_quality(quality);
+        for (name, accent) in [("day", "#00d4ff"), ("neon", "#FF2D95"), ("blueprint", "x")] {
+            assert_eq!(engine.set_theme(name, accent), name);
+            assert!(engine.stats().contains(&format!("\"theme\":\"{name}\"")));
+            engine.frame(0.0);
+            assert_eq!(
+                gl.get_error(),
+                web_sys::WebGl2RenderingContext::NO_ERROR,
+                "{name}"
+            );
+            // Picking does not depend on the look.
+            assert!(engine.pick(160, 120).contains("\"id\""), "{name} {quality}");
+        }
+    }
+    // The 2D plan, at the end of its move.
+    engine.set_plan_view(true, 0.0);
+    engine.frame(10_000.0);
+    assert_eq!(gl.get_error(), web_sys::WebGl2RenderingContext::NO_ERROR);
+}
+
+#[wasm_bindgen_test]
+fn a_tap_goes_through_glass_walls() {
+    let mut engine = Engine::new(canvas()).unwrap();
+    engine.load_plan(DEMO, None, None).unwrap();
+    let picks = |engine: &mut Engine| {
+        engine.frame(0.0);
+        let mut picked = Vec::new();
+        for y in (8..240).step_by(16) {
+            for x in (8..320).step_by(16) {
+                picked.push(engine.pick(x, y));
+            }
+        }
+        picked
+    };
+    let day = picks(&mut engine);
+    engine.set_theme("neon", "#00d4ff");
+    let neon = picks(&mut engine);
+    // Where a wall stood in front of the view, what is behind its glass.
+    let through = day
+        .iter()
+        .zip(&neon)
+        .filter(|(d, n)| d.contains("\"type\":\"room\"") && d != n)
+        .count();
+    assert!(through > 0);
+    // The rooms are still there to tap.
+    assert!(neon.iter().any(|n| n.contains("\"type\":\"room\"")));
+}

@@ -1,3 +1,4 @@
+import type { ThemeMode } from "../config";
 import type { HassConnection, HassMessage, HomeAssistant } from "./types";
 
 export type PlanJson = Record<string, unknown> & { title?: unknown; elements?: unknown };
@@ -46,6 +47,9 @@ export interface StoredBindings {
 export interface Settings {
   /** Where north points on the plan, degrees clockwise from its top (0: up). */
   north?: number;
+  /** The look shown by default (D-027) and its accent (`#rrggbb`). */
+  theme?: ThemeMode;
+  accent?: string;
 }
 
 export interface StoredSettings {

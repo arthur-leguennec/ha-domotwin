@@ -232,6 +232,11 @@ export class Engine {
      */
     resize(width: number, height: number): void;
     /**
+     * Where the rooms' names go on the picture, as JSON `[{"id", "name", "x", "y"}]` in device
+     * pixels from the top left: the middle of each room's floor.
+     */
+    roomLabels(): string;
+    /**
      * Where the centre of an element is drawn now, as JSON `[x, y]` in device pixels from the
      * top left, or an empty string (no such element, no geometry, behind the camera).
      */
@@ -305,6 +310,11 @@ export class Engine {
      * Assistant's `sun.sun`).
      */
     setSun(elevation: number, rising: boolean): void;
+    /**
+     * Sets the look (D-027): `day`, `neon` or `blueprint` (anything else: `day`), with an accent
+     * colour `#rrggbb` (anything else: the default cyan). Returns the look's name.
+     */
+    setTheme(name: string, accent: string): string;
     /**
      * Shows a plan drawn in the plan editor (JSON text, no overlay), element `selected` marked.
      * The plan stored and its overlay stay as they are, to come back to (`loadPlan`); the camera
@@ -434,6 +444,7 @@ export interface InitOutput {
     readonly engine_planView: (a: number) => number;
     readonly engine_quality: (a: number, b: number) => void;
     readonly engine_resize: (a: number, b: number, c: number) => void;
+    readonly engine_roomLabels: (a: number, b: number) => void;
     readonly engine_screenPoint: (a: number, b: number, c: number, d: number) => void;
     readonly engine_screenPoints: (a: number, b: number, c: number, d: number) => void;
     readonly engine_setBackground: (a: number, b: number, c: number, d: number) => void;
@@ -450,6 +461,7 @@ export interface InitOutput {
     readonly engine_setStates: (a: number, b: number, c: number) => void;
     readonly engine_setSun: (a: number, b: number, c: number) => void;
     readonly engine_setSunPosition: (a: number, b: number, c: number, d: number) => void;
+    readonly engine_setTheme: (a: number, b: number, c: number, d: number, e: number, f: number) => void;
     readonly engine_showDraft: (a: number, b: number, c: number, d: number, e: number, f: number) => void;
     readonly engine_showModels: (a: number) => number;
     readonly engine_showView: (a: number, b: number, c: number, d: number) => number;

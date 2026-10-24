@@ -9,6 +9,8 @@
 //   sunpos=<azimuth>,<elevation> (sun.sun's position)  realsun=1 (card option sun: real)
 //   north=<degrees> (the stored settings)  badges=0  cameras=0 (card options)
 //   storeys=2 (the fictional upper floor above the demo apartment)  storey=<id> (card option)
+//   theme=auto|day|neon|blueprint  accent=<#rrggbb>  names=0 (card options)
+//   hometheme=<look> (the stored settings)
 import { applyService, demoHome } from "./demo-home.mjs";
 
 const params = new URLSearchParams(location.search);
@@ -86,7 +88,10 @@ const store = {
   },
   bindings: demoBindings,
   revision: 1,
-  settings: params.get("north") ? { north: Number(params.get("north")) } : {},
+  settings: {
+    ...(params.get("north") ? { north: Number(params.get("north")) } : {}),
+    ...(params.get("hometheme") ? { theme: params.get("hometheme") } : {}),
+  },
   /** Model files kept by the mocked integration, by `<sha256>.<format>`. */
   files: new Map(),
 };
@@ -386,6 +391,9 @@ if (mode === "panel") {
     badges: params.get("badges") === "0" ? false : undefined,
     cameras: params.get("cameras") === "0" ? false : undefined,
     storey: params.get("storey") ?? undefined,
+    theme: params.get("theme") ?? undefined,
+    names: params.get("names") === "0" ? false : undefined,
+    accent: params.get("accent") ?? undefined,
   });
 }
 element.hass = hass;

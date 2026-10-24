@@ -265,3 +265,31 @@ In headless Chromium with the demo apartment and its fictional upper floor, swit
 alerts, so it is read and its scene built, the camera kept. Every frame then costs what one storey
 costs; nothing of the other storeys is drawn.
 
+### M8 (looks)
+
+Bundle: the first load is **359.2 kB gzipped** of 1 200 kB (+18.6 kB):
+
+| File | Raw | Gzipped |
+| --- | ---: | ---: |
+| `domotwin_web_bg.<hash>.wasm` | 662.5 kB | 288.7 kB |
+| `domotwin.js` (entry) | 106.8 kB | 27.1 kB |
+
+The engine grew by 16.6 kB (the looks' shaders, the outlines of the home, the background, glass
+walls and bloom passes, the rooms' label points), the rest by 2 kB (the options and settings,
+the rooms' names, the texts).
+
+Frame time in headless Chromium at the High preset, the demo apartment in the evening with its
+lamps on (`e2e/perf.spec.ts`, "frame time of each look"):
+
+| Look | CPU per frame (median, p95) | Software GPU per frame (median) |
+| --- | ---: | ---: |
+| Day (straight to the screen) | 0.8 ms, 5.1 ms | 317 ms |
+| Neon (offscreen, 4× MSAA, bloom) | 0.6 ms, 1.6 ms | 283 ms |
+| Blueprint (offscreen, 4× MSAA, bloom) | 0.5 ms, 2.9 ms | 267 ms |
+
+The CPU's share does not change with the look. SwiftShader rasterises on the CPU, so its time is
+no guide to a real GPU, only to the ratio: the offscreen picture with MSAA and the bloom cost
+about what day's sun shadow map and soft shadows cost (night looks draw no shadow map), and the
+glass walls draw the walls' mesh again, not the whole home. Eco draws every look straight to the
+screen, as before.
+

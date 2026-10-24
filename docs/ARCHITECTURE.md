@@ -54,15 +54,19 @@ every reader returns `Result` with a stable error code that the frontend transla
 ![From plan to pixels: the reader, the scene in two meshes, the draw passes and the cut-away](figures/render-pipeline.png)
 
 - `domotwin-core::plan` reads the file; `geometry` derives the walls, their heights and the door
-  sweeps; `scene` turns the static home into two meshes (`scene::mesh` packs the vertices) and the
-  moving parts (doors, windows, blinds, curtains) into two small ones; `camera` holds the camera
-  math and the cut-away decision; `bindings` and `live` turn entity states into the look of each
-  element and fade towards it (D-016).
+  sweeps; `scene` turns the static home into three meshes (opaque, the walls, glass;
+  `scene::mesh` packs the vertices) and the moving parts (doors, windows, blinds, curtains) into
+  two small ones; `camera` holds the camera math and the cut-away decision; `bindings` and `live`
+  turn entity states into the look of each element and fade towards it (D-016).
 - `domotwin-render` uploads the meshes once and draws them with its own shaders (`shaders.rs`):
-  the sun shadow map (Balanced and High), the opaque home, then glass and contact shadows, then the
-  halos of lit bulbs. The look of every element (glow, greyed out, flash) is a small texture the
-  vertex shader reads; `lamps.rs` picks the point lights. `view.rs` runs the camera moves, the 2D
-  switch and the wall animations. See D-014 and D-016.
+  the sun shadow map (Balanced and High, day look), the background (sky, ground and grid), the
+  opaque home and the walls (their tops alone in neon and blueprint), then glass and contact
+  shadows, the glass faces of the walls (neon and blueprint), the outlines of the home
+  (`scene::lines`), then the halos of lit bulbs. In the looks that glow, all of it is drawn
+  offscreen with 4× MSAA, and a bloom of what glows is added on the way to the screen (D-027).
+  The look of every element (glow, greyed out, flash) is a small texture the vertex shader reads;
+  `lamps.rs` picks the point lights. `view.rs` runs the camera moves, the 2D switch and the wall
+  animations. See D-014 and D-016.
 - `domotwin-web` exposes a small API: `loadPlan`, `setBindings`, `setStates`, `highlight`,
   `orbit`, `pan`, `zoom`, `setPlanView`, `overview`, `focusElement`, `views`, `showView`, `pick`,
   `screenPoint`, `stats`, `frame`, and for 3D files `modelFiles` (what to fetch) and `setModelMesh`.

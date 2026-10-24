@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/hero.png" alt="DomoTwin : vue isométrique en maison de poupée ouverte d’un appartement fictif aux lampes allumées" width="100%">
+  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-neon.png" alt="DomoTwin : un appartement fictif dans l’apparence néon, ses murs de verre soulignés de cyan, ses lampes allumées, le nom des pièces au sol" width="100%">
 </p>
 
 <p align="center"><b>Votre logement en jumeau 3D vivant dans Home Assistant.</b><br>
@@ -17,9 +17,9 @@ Local, rapide, Rust + WebAssembly.</p>
 > route](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/ROADMAP.md), en anglais).
 > L’intégration, le panneau, la carte, l’import du plan et de l’IFC, les vues 3D et 2D, le
 > pilotage en direct (états, toucher, appui long, panneau de pièce, liaisons), le mode édition, vos
-> propres modèles 3D, les calques, les appareils, l’éditeur de plan et les étages fonctionnent
-> déjà ; l’apparence et un mode kiosque arrivent ensuite. Les fonctionnalités ci-dessous décrivent
-> la version 0.1.0.
+> propres modèles 3D, les calques, les appareils, l’éditeur de plan, les étages et les apparences
+> fonctionnent déjà ; tous les étages à la fois et un mode kiosque arrivent ensuite. Les
+> fonctionnalités ci-dessous décrivent la version 0.1.0.
 
 ## Fonctionnalités
 
@@ -28,6 +28,12 @@ Local, rapide, Rust + WebAssembly.</p>
   maquette 3D. Les
   murs face à la caméra s’abaissent automatiquement, comme une maison de poupée ouverte. Passez à un
   plan 2D net avec une transition fluide.
+- **Trois apparences.** **Néon** : des murs de verre soulignés d’une couleur d’accent lumineuse
+  sur une grille, des lampes et des écrans qui brillent ; **plan d’architecte** : des traits blancs
+  sur fond bleu ; **jour** : le logement tel qu’il est, à la lumière de l’heure. Automatique : néon
+  en mode sombre. Voir [les
+  apparences](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/looks.md) (en
+  anglais).
 - **Toucher pour piloter.** Touchez une lampe pour l’allumer ou l’éteindre, appuyez longuement pour
   la luminosité et la couleur, appuyez longuement sur une pièce pour retrouver ses lumières, scènes,
   volets, chauffage et lecteurs.
@@ -58,6 +64,10 @@ Local, rapide, Rust + WebAssembly.</p>
   1,2 Mo, vérifié par l’intégration continue.
 - **À vous.** Anglais et français, suit le thème de Home Assistant, fonctionne dans les applications
   mobiles.
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-looks.png" alt="L’appartement de démonstration le soir dans les trois apparences : néon, plan d’architecte et jour" width="100%">
+</p>
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-3d.png" alt="L’appartement fictif de démonstration en 3D : les murs face à la caméra sont abaissés, des meubles dans chaque pièce" width="49%">
@@ -129,6 +139,9 @@ YAML n’est jamais nécessaire. Pour référence, les options de la carte :
 | `sun`         | `fixed`, `real`                     | `fixed`    | `real` : le soleil éclaire depuis sa vraie position (`sun.sun`), par les fenêtres. |
 | `badges`      | `true`, `false`                     | `true`     | Badges des appareils : serrures, caméras, lecture, batteries faibles, appareils en marche. |
 | `cameras`     | `true`, `false`                     | `true`     | Ce que voient les caméras liées, dessiné au sol. |
+| `theme`       | `auto`, `day`, `neon`, `blueprint`  | celle du logement | L’apparence ; `auto` : néon en mode sombre. |
+| `accent`      | une couleur `#rrggbb`               | celle du logement | Couleur d’accent (les contours lumineux du néon). |
+| `names`       | `true`, `false`                     | `true`     | Le nom des pièces au sol.                     |
 | `font_family` | une famille de police               | incluse    | Police des textes de la carte.                |
 
 Options de l’intégration (Paramètres → Appareils et services → DomoTwin → Configurer) : afficher le

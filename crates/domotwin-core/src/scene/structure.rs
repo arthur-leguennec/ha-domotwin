@@ -2,11 +2,12 @@
 //! renderer can cut away the ones between the camera and the rooms.
 
 use super::Builder;
-use super::mesh::{CutMode, Material, Painter, Surface, Tag};
+use super::lines::{LineKind, band_at, bend, offset_corner, top_offset};
+use super::mesh::{CutMode, Material, NO_GROUP, Painter, Surface, Tag};
 use crate::geometry::heights::{Covering, RAIL, covering_bands, wall_paint, wall_spans};
 use crate::geometry::polygon::P2;
 use crate::geometry::walls::{
-    RoomWalls, WallLayout, openings_on_side, side_segments, wall_openings,
+    EdgeBand, RoomWalls, WallLayout, openings_on_side, side_segments, wall_openings,
 };
 use crate::plan::{EdgeFinish, Element, Floor, FreeWall, Plan, Rgb8, Room, WallStyle};
 
@@ -52,6 +53,7 @@ pub(crate) fn build(builder: &mut Builder, plan: &Plan, layout: &WallLayout) {
         let element = builder.element_tag(walls.element);
         floor(builder, room, walls, element);
         room_walls(builder, room, walls, &openings, element);
+        room_lines(builder, walls, &openings);
     }
     for (index, element) in plan.elements.iter().enumerate() {
         if let Element::Wall(wall) = element {
@@ -142,7 +144,7 @@ fn room_walls(
             } else {
                 None
             };
-            let mut p = Painter::new(&mut builder.opaque, TRIM, tag);
+            let mut p = Painter::new(&mut builder.wall_mesh, TRIM, tag);
             for (sa, sb, op) in side_segments(band.t0 * len, band.t1 * len, &on_side) {
                 if sb - sa < 0.2 {
                     continue;
@@ -228,9 +230,227 @@ fn room_walls(
             cut: CutMode::Clamp,
             room: slot,
         };
-        let mut p = Painter::new(&mut builder.opaque, WALL_OUTER, tag);
+        let mut p = Painter::new(&mut builder.wall_mesh, WALL_OUTER, tag);
         let outer = Some(WALL_OUTER);
         p.prism(corner.quad, 0.0, height, [outer; 4], Some(WALL_CAP), 0.0);
+    }
+}
+
+/// Sine of the turn below which the walls of a room run on at a vertex (no corner there).
+const BEND: f64 = 0.02;
+/// Farthest a joined corner of the outlines may be from the room's vertex, in thicknesses (a
+/// sharper corner is left open).
+const JOIN_REACH: f64 = 4.0;
+
+/// How the outer face of a façade ends at a vertex of its room.
+enum FacadeEnd {
+    /// It meets the outer face of the next façade there (a concave corner).
+    Joined(P2),
+    /// It runs into a corner piece or into the next wall: nothing more to draw.
+    Covered,
+    /// The end of the wall shows.
+    Open,
+}
+
+/// How the outer face of façade `band` on side `side` ends at its start or (`at_end`) its end.
+fn facade_end(walls: &RoomWalls, side: usize, band: &EdgeBand, at_end: bool) -> FacadeEnd {
+    let n = walls.points.len().max(1);
+    let (vertex, other_side) = if at_end {
+        ((side + 1) % n, (side + 1) % n)
+    } else {
+        (side, (side + n - 1) % n)
+    };
+    // Along the side, a façade gives way to a partition: its end shows.
+    if !band.reaches(at_end) {
+        return FacadeEnd::Open;
+    }
+    let Some(other) = band_at(walls, other_side, !at_end) else {
+        return FacadeEnd::Open;
+    };
+    let bend = bend(walls, vertex).unwrap_or(0.0);
+    if other.inner {
+        return if bend.abs() < BEND {
+            FacadeEnd::Open
+        } else {
+            FacadeEnd::Covered
+        };
+    }
+    if bend > BEND {
+        let (a, b) = walls.side(side);
+        let (c, d) = walls.side(other_side);
+        let joined = offset_corner(
+            (a, b, walls.normal(side), band.o1),
+            (c, d, walls.normal(other_side), other.o1),
+        );
+        let v = walls.points[vertex];
+        let reach = JOIN_REACH * band.o1.max(other.o1) + 0.5;
+        return match joined {
+            Some(p) if (p[0] - v[0]).hypot(p[1] - v[1]) <= reach => FacadeEnd::Joined(p),
+            _ => FacadeEnd::Open,
+        };
+    }
+    if bend < -BEND && !walls.corners.iter().any(|c| c.vertex % n == vertex) {
+        // A corner too sharp for its corner piece.
+        return FacadeEnd::Open;
+    }
+    FacadeEnd::Covered
+}
+
+/// Where the tops of the walls on both sides of vertex `i` meet, if both reach it.
+fn top_joint(walls: &RoomWalls, i: usize) -> Option<P2> {
+    let n = walls.points.len().max(1);
+    let prev = (i + n - 1) % n;
+    let before = band_at(walls, prev, true)?;
+    let after = band_at(walls, i, false)?;
+    let (k0, k1) = (top_offset(&before), top_offset(&after));
+    let ((a, b), (c, d)) = (walls.side(prev), walls.side(i));
+    let p = offset_corner((a, b, walls.normal(prev), k0), (c, d, walls.normal(i), k1))?;
+    let v = walls.points[i % n];
+    let reach = JOIN_REACH * k0.abs().max(k1.abs()) + 0.5;
+    ((p[0] - v[0]).hypot(p[1] - v[1]) <= reach).then_some(p)
+}
+
+/// The outlines of a room (`lines.rs`): its floor, the tops and corners of its walls, the outer
+/// faces of its façades, and the frames of the doors and windows on its sides.
+fn room_lines(
+    builder: &mut Builder,
+    walls: &RoomWalls,
+    openings: &[(&crate::plan::Opening, bool)],
+) {
+    let height = builder.wall_height;
+    let n = walls.points.len();
+    builder.lines.floor(&walls.points, NO_GROUP);
+    let mut side_groups = vec![None; n];
+    for (i, bands) in walls.sides.iter().enumerate() {
+        let Some(bands) = bands else { continue };
+        let (a, b) = walls.side(i);
+        let len = (b[0] - a[0]).hypot(b[1] - a[1]);
+        if len < 0.5 {
+            continue;
+        }
+        let normal = walls.normal(i);
+        let u = [(b[0] - a[0]) / len, (b[1] - a[1]) / len];
+        let at = |s: f64, k: f64| -> P2 {
+            [
+                a[0] + u[0] * s + normal[0] * k,
+                a[1] + u[1] * s + normal[1] * k,
+            ]
+        };
+        let on_side = openings_on_side(a, b, openings);
+        for band in bands {
+            let group = builder.group(normal, band.inner);
+            side_groups[i].get_or_insert(group);
+            let (s0, s1) = (band.t0 * len, band.t1 * len);
+            // The top, meeting the next wall's at the room's corners.
+            let k = top_offset(band);
+            let start = band
+                .reaches(false)
+                .then(|| top_joint(walls, i))
+                .flatten()
+                .unwrap_or_else(|| at(s0, k));
+            let end = band
+                .reaches(true)
+                .then(|| top_joint(walls, (i + 1) % n))
+                .flatten()
+                .unwrap_or_else(|| at(s1, k));
+            builder
+                .lines
+                .push(start, height, end, height, group, LineKind::Wall);
+            for op in &on_side {
+                let middle = f64::midpoint(op.s0, op.s1);
+                if middle >= s0 && middle <= s1 {
+                    builder.lines.opening(at(0.0, k), u, op, height, group);
+                }
+            }
+            if band.inner {
+                continue;
+            }
+            // The outer face of a façade.
+            let mut outer = [at(s0, band.o1), at(s1, band.o1)];
+            for (at_end, s) in [(false, s0), (true, s1)] {
+                match facade_end(walls, i, band, at_end) {
+                    FacadeEnd::Joined(p) => {
+                        outer[usize::from(at_end)] = p;
+                        // The corner's edge, drawn once (by the façade starting there).
+                        if !at_end {
+                            builder
+                                .lines
+                                .vertical(p, 0.0, height, group, LineKind::Wall);
+                        }
+                    }
+                    FacadeEnd::Open => {
+                        builder.lines.push(
+                            at(s, band.o0),
+                            height,
+                            at(s, band.o1),
+                            height,
+                            group,
+                            LineKind::Wall,
+                        );
+                        builder
+                            .lines
+                            .vertical(at(s, band.o1), 0.0, height, group, LineKind::Wall);
+                    }
+                    FacadeEnd::Covered => {}
+                }
+            }
+            builder
+                .lines
+                .push(outer[0], height, outer[1], height, group, LineKind::Wall);
+        }
+    }
+    // The corners of the room, up its walls (none where the walls run on).
+    for i in 0..n {
+        let prev = (i + n - 1) % n;
+        if bend(walls, i).is_none_or(|b| b.abs() < BEND) {
+            continue;
+        }
+        let Some(group) = side_groups[i].or(side_groups[prev]) else {
+            continue;
+        };
+        let offset_point = |side: usize, at_end: bool| {
+            band_at(walls, side, at_end).map(|band| {
+                let (a, b) = walls.side(side);
+                let p = if at_end { b } else { a };
+                let normal = walls.normal(side);
+                let k = top_offset(&band);
+                [p[0] + normal[0] * k, p[1] + normal[1] * k]
+            })
+        };
+        let p = top_joint(walls, i)
+            .or_else(|| offset_point(i, false))
+            .or_else(|| offset_point(prev, true))
+            .unwrap_or(walls.points[i]);
+        builder
+            .lines
+            .vertical(p, 0.0, height, group, LineKind::Wall);
+    }
+    // The outer corners of façades: the mitre and its edge. A corner piece between a façade and a
+    // partition (the gap between two rooms) carries on the façade's outer face alone.
+    for corner in &walls.corners {
+        let v = corner.vertex % n.max(1);
+        let Some(group) = side_groups[v] else {
+            continue;
+        };
+        let facade =
+            |side: usize, at_end: bool| band_at(walls, side, at_end).is_some_and(|b| !b.inner);
+        let (before, after) = (facade((v + n - 1) % n, true), facade(v, false));
+        let q = corner.quad;
+        if before {
+            builder
+                .lines
+                .push(q[1], height, q[2], height, group, LineKind::Wall);
+        }
+        if after {
+            builder
+                .lines
+                .push(q[2], height, q[3], height, group, LineKind::Wall);
+        }
+        if before && after {
+            builder
+                .lines
+                .vertical(q[2], 0.0, height, group, LineKind::Wall);
+        }
     }
 }
 
@@ -265,7 +485,7 @@ fn free_wall(builder: &mut Builder, plan: &Plan, wall: &FreeWall, element: u16) 
         room: builder.room_for(plan, &wall.parent, middle),
     };
     let height = builder.wall_height;
-    let mut p = Painter::new(&mut builder.opaque, WALL_OUTER, tag);
+    let mut p = Painter::new(&mut builder.wall_mesh, WALL_OUTER, tag);
     let bands = room.map_or_else(
         || {
             vec![(
@@ -278,5 +498,14 @@ fn free_wall(builder: &mut Builder, plan: &Plan, wall: &FreeWall, element: u16) 
     for ([y0, y1], covering) in bands {
         let m = Some(covering_material(covering));
         p.prism(q, y0, y1, [m; 4], Some(WALL_CAP), 0.0);
+    }
+    for k in 0..4 {
+        let (from, to) = (q[k], q[(k + 1) % 4]);
+        builder
+            .lines
+            .push(from, height, to, height, group, LineKind::Wall);
+        builder
+            .lines
+            .vertical(from, 0.0, height, group, LineKind::Wall);
     }
 }

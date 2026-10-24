@@ -289,11 +289,34 @@ async def test_settings_round_trip(
     assert (await listener.receive_json())["event"] == {"kind": "settings", "revision": 1}
     await client.send_json_auto_id({"type": "domotwin/settings/get"})
     assert (await client.receive_json())["result"] == {"settings": {"north": 22.5}, "revision": 1}
+    # The look shown by default and its accent.
+    await client.send_json_auto_id(
+        {
+            "type": "domotwin/settings/save",
+            "settings": {"north": 0, "theme": "neon", "accent": "#FF2D95"},
+        }
+    )
+    assert (await client.receive_json())["success"]
+    await client.send_json_auto_id({"type": "domotwin/settings/get"})
+    assert (await client.receive_json())["result"]["settings"] == {
+        "north": 0,
+        "theme": "neon",
+        "accent": "#ff2d95",
+    }
 
 
 @pytest.mark.parametrize(
     "settings",
-    [{"north": 360}, {"north": -1}, {"north": "up"}, {"north": True}, {"theme": "dark"}],
+    [
+        {"north": 360},
+        {"north": -1},
+        {"north": "up"},
+        {"north": True},
+        {"theme": "dark"},
+        {"accent": "red"},
+        {"accent": "#12345"},
+        {"other": 1},
+    ],
 )
 async def test_invalid_settings_are_refused(
     hass: HomeAssistant,

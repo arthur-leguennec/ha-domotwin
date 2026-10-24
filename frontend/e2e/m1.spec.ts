@@ -173,10 +173,16 @@ test.describe("3D view", () => {
         const g = canvas.getContext("2d");
         if (!g) return 0;
         g.drawImage(image, 0, 0);
-        const { data } = g.getImageData(0, 0, image.width, image.height);
+        // Only the home: the middle of the view, without the brightest pixels.
+        const [w, h] = [Math.round(image.width * 0.4), Math.round(image.height * 0.4)];
+        const { data } = g.getImageData(
+          Math.round(image.width * 0.3),
+          Math.round(image.height * 0.3),
+          w,
+          h,
+        );
         let sum = 0;
         let count = 0;
-        // Only the home: skip the background (the brightest pixels at the edges).
         for (let i = 0; i < data.length; i += 4 * 7) {
           const l =
             0.2126 * (data[i] ?? 0) + 0.7152 * (data[i + 1] ?? 0) + 0.0722 * (data[i + 2] ?? 0);

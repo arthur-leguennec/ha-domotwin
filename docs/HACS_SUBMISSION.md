@@ -1,6 +1,6 @@
 # HACS submission checklist
 
-Filled in at milestone M11. The submission to the HACS default repository list is made by the
+Filled in at milestone M13. The submission to the HACS default repository list is made by the
 maintainer.
 
 ## Before submitting

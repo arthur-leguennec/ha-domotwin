@@ -56,3 +56,38 @@ fn the_upper_floor_reads_with_its_stairs_and_ids_of_its_own() {
         domotwin_core::scene::build_scene(&plan, &domotwin_core::scene::SceneOptions::default());
     assert!(scene.opaque.triangle_count() > 1000);
 }
+
+#[test]
+fn the_demo_apartment_is_outlined() {
+    use domotwin_core::scene::lines::LineKind;
+    use domotwin_core::scene::mesh::NO_GROUP;
+    use domotwin_core::scene::{SceneOptions, build_scene};
+
+    let plan = read_plan(DEMO.as_bytes()).unwrap();
+    let scene = build_scene(&plan, &SceneOptions::default());
+    let count = |kind: LineKind| scene.lines.iter().filter(|l| l.kind == kind).count();
+    // Each of the 5 rooms' floor is outlined (the bedroom has 5 corners).
+    assert_eq!(count(LineKind::Floor), 4 * 4 + 5);
+    // A window's frame has four sides (its sill too), a door's three; the entrance door is on a
+    // façade, the three others on partitions that both their rooms outline.
+    assert_eq!(count(LineKind::Opening), 6 * 4 + (1 + 3 * 2) * 3);
+    assert!(count(LineKind::Wall) > 50);
+    let [lo, hi] = scene.bounds;
+    let groups = u8::try_from(scene.groups.len()).unwrap();
+    for line in &scene.lines {
+        for p in [line.a, line.b] {
+            for k in 0..3 {
+                assert!(
+                    p[k] >= lo[k] - 1.0 && p[k] <= hi[k] + 1.0,
+                    "{line:?} out of the scene"
+                );
+            }
+        }
+        if line.kind == LineKind::Floor {
+            assert_eq!(line.group, NO_GROUP);
+        } else {
+            // Wall lines follow the cut-away of a wall group.
+            assert!(line.group < groups, "{line:?}");
+        }
+    }
+}

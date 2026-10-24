@@ -25,7 +25,17 @@ fn demo_scene() {
     let plan = read_plan(DEMO).unwrap();
     let scene = build_scene(&plan, &SceneOptions::default());
     check_mesh(&scene.opaque);
+    check_mesh(&scene.wall_mesh);
     check_mesh(&scene.transparent);
+    // The walls are a mesh of their own (glass in some looks), and nothing else is in it.
+    assert!(scene.wall_mesh.triangle_count() > 500);
+    for e in &scene.wall_mesh.extras {
+        let index = usize::from(u16::from_le_bytes([e[2], e[3]])) - 1;
+        assert!(matches!(
+            plan.elements[index],
+            Element::Room(_) | Element::Wall(_)
+        ));
+    }
     // Every element has geometry, inside the plan's footprint (with the walls around it).
     let [min, max] = plan.bounds();
     for info in &scene.elements {
@@ -62,11 +72,14 @@ fn demo_scene() {
         .collect();
     assert_eq!(on.len(), lit);
     // A budget that keeps the demo light on old tablets.
-    let triangles = scene.opaque.triangle_count() + scene.transparent.triangle_count();
+    let triangles = scene.opaque.triangle_count()
+        + scene.wall_mesh.triangle_count()
+        + scene.transparent.triangle_count();
     assert!(triangles < 120_000, "{triangles} triangles");
     println!(
-        "demo scene: {} + {} vertices, {triangles} triangles, {} groups",
+        "demo scene: {} + {} + {} vertices, {triangles} triangles, {} groups",
         scene.opaque.vertex_count(),
+        scene.wall_mesh.vertex_count(),
         scene.transparent.vertex_count(),
         scene.groups.len()
     );
@@ -151,4 +164,70 @@ fn moving_parts_rebuild_with_overrides() {
         assert!(info.room > 0, "{} has no room", info.id);
     }
     assert_eq!(scene.rooms.len(), 5);
+}
+
+#[test]
+fn outlines_follow_the_walls() {
+    use domotwin_core::geometry::heights::SILL;
+    use domotwin_core::scene::lines::LineKind;
+
+    // Two rooms 10 cm apart (a partition fills the gap), the first with a vertex halfway along
+    // its top side, a window on that side and a door in the partition; a sharp triangle apart.
+    let plan = serde_json::json!({
+        "version": 1, "unit": "cm", "layoutRevision": 10,
+        "wallSettings": { "interior": 10, "exterior": 20 },
+        "elements": [
+            { "id": "a", "type": "room", "name": "A", "x": 0, "y": 0, "w": 300, "h": 300,
+              "vertices": [[0, 0], [0.5, 0], [1, 0], [1, 1], [0, 1]] },
+            { "id": "b", "type": "room", "name": "B", "x": 310, "y": 0, "w": 300, "h": 300 },
+            { "id": "c", "type": "room", "name": "C", "x": 1000, "y": 0, "w": 400, "h": 30,
+              "vertices": [[0, 0], [1, 0], [0, 1]] },
+            { "id": "w", "type": "window", "name": "W", "x": 40, "y": 0, "w": 80, "angle": 0,
+              "parent": "a" },
+            { "id": "d", "type": "door", "name": "D", "x": 300, "y": 100, "w": 80, "angle": 90,
+              "parent": "a" }
+        ]
+    });
+    let plan = read_plan(plan.to_string().as_bytes()).unwrap();
+    let scene = build_scene(&plan, &SceneOptions::default());
+    #[allow(clippy::cast_possible_truncation)]
+    let height = scene.wall_height as f32;
+    let near = |a: f32, b: f32| (a - b).abs() < 0.01;
+    let walls = || scene.lines.iter().filter(|l| l.kind == LineKind::Wall);
+    // The partition's top runs once, on its middle: both rooms give it there, and neither on
+    // its own face.
+    let along_x = |x: f32| {
+        walls()
+            .filter(|l| near(l.a[1], height) && near(l.b[1], height))
+            .filter(|l| near(l.a[0], x) && near(l.b[0], x))
+            .count()
+    };
+    assert_eq!(along_x(300.0) + along_x(310.0), 0);
+    assert!(along_x(305.0) >= 2);
+    // No corner up the wall where the sides run on.
+    let vertical_at = |x: f32, z: f32| {
+        walls().any(|l| near(l.a[0], x) && near(l.a[2], z) && near(l.b[0], x) && near(l.b[2], z))
+    };
+    assert!(!vertical_at(150.0, 0.0));
+    assert!(vertical_at(0.0, 0.0));
+    // The window's frame goes with the cut-away below its sill; the door's stands on the floor.
+    #[allow(clippy::cast_possible_truncation)]
+    let sill = SILL as f32;
+    let frames: Vec<_> = scene
+        .lines
+        .iter()
+        .filter(|l| l.kind == LineKind::Opening)
+        .collect();
+    assert!(frames.iter().any(|l| near(l.base, sill)));
+    assert!(frames.iter().any(|l| l.base == 0.0));
+    for line in &frames {
+        assert!(line.base <= line.a[1].min(line.b[1]) + 0.01, "{line:?}");
+    }
+    // The outer faces of the sharp triangle's façades stop at its corners.
+    for line in walls().filter(|l| l.a[0] > 900.0) {
+        for p in [line.a, line.b] {
+            assert!(p[0] > 1000.0 - 90.0 && p[0] < 1400.0 + 90.0, "{line:?}");
+            assert!(p[2] > -90.0 && p[2] < 30.0 + 90.0, "{line:?}");
+        }
+    }
 }

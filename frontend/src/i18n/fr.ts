@@ -84,6 +84,13 @@ export const fr: Dictionary = {
     north_hint:
       "Direction du nord, dans le sens horaire depuis le haut du plan. Le soleil éclaire les pièces depuis sa vraie position.",
     degrees: "{value}°",
+    theme: "Apparence",
+    theme_auto: "Automatique (néon en mode sombre)",
+    theme_day: "Jour",
+    theme_neon: "Néon",
+    theme_blueprint: "Plan d’architecte",
+    accent: "Couleur d’accent",
+    theme_hint: "L’apparence du panneau et des cartes qui n’en choisissent pas.",
     save: "Enregistrer",
     saved: "Réglages enregistrés.",
     save_failed: "Les réglages n’ont pas pu être enregistrés : {reason}",
@@ -499,6 +506,9 @@ export const fr: Dictionary = {
   },
   editor: {
     title: "Titre",
+    theme: "Apparence",
+    theme_home: "Celle du logement",
+    accent: "Couleur d’accent (vide : celle du logement)",
     view: "Vue",
     view_3d: "3D",
     view_2d: "2D",
@@ -531,6 +541,7 @@ export const fr: Dictionary = {
     sun_real: "À sa vraie place (lumière par les fenêtres)",
     badges: "Badges des appareils (serrures, caméras, batteries…)",
     cameras: "Ce que voient les caméras",
+    names: "Le nom des pièces",
   },
   config: {
     invalid: "Configuration DomoTwin invalide : {reason}",
@@ -545,5 +556,8 @@ export const fr: Dictionary = {
     bad_sun: "`sun` doit valoir fixed ou real",
     bad_badges: "`badges` doit valoir true ou false",
     bad_cameras: "`cameras` doit valoir true ou false",
+    bad_names: "`names` doit valoir true ou false",
+    bad_theme: "`theme` doit valoir auto, day, neon ou blueprint",
+    bad_accent: "`accent` doit être une couleur comme #00d4ff",
   },
 };

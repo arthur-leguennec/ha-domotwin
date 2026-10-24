@@ -1,8 +1,8 @@
 //! DomoTwin renderer: draws the scene built by `domotwin-core` with the core layer of three-d on
 //! WebGL2 and DomoTwin's own shaders (see `docs/DECISIONS.md`, D-014).
 //!
-//! The home is a few meshes (opaque, then glass and contact shadows; the moving parts apart), so a
-//! frame is a few draw calls whatever the plan. Frames are drawn on demand:
+//! The home is a few meshes (opaque, the walls, then glass and contact shadows; the moving parts
+//! apart), so a frame is a few draw calls whatever the plan. Frames are drawn on demand:
 //! [`Renderer::needs_frame`] says when.
 
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used, clippy::panic))]
@@ -17,15 +17,18 @@ use std::sync::Arc;
 use domotwin_core::camera::CutawayMode;
 use domotwin_core::lighting::Lighting;
 use domotwin_core::live::Look;
+use domotwin_core::scene::lines::Line;
 use domotwin_core::scene::mesh::Mesh;
 use domotwin_core::scene::{LightSpot, Scene};
+use domotwin_core::theme::{Theme, ThemeName};
 use lamps::{Halo, Mark, PointLight};
 pub use quality::{GpuHint, QualityPreset};
 pub use three_d::context::Context as GlContext;
 use three_d::{
-    Blend, ClearState, Context, CoreError, Cull, DepthTest, DepthTexture2D, ElementBuffer,
-    Interpolation, Mat4, Program, RenderStates, RenderTarget, ScissorBox, Texture2D, Vec3, Vec4,
-    VertexBuffer, Viewport, Wrapping, WriteMask,
+    Blend, BlendEquationType, BlendMultiplierType, ClearState, Context, CoreError, Cull, DepthTest,
+    DepthTexture2D, ElementBuffer, Interpolation, Mat4, Matrix4, Program, RenderStates,
+    RenderTarget, RenderTargetMultisample, ScissorBox, SquareMatrix, Texture2D, Vec2, Vec3, Vec4,
+    VertexBuffer, Viewport, Wrapping, WriteMask, Zero,
 };
 pub use view::ViewState;
 
@@ -146,6 +149,80 @@ impl GpuHalos {
     }
 }
 
+/// The outlines of the home on the GPU: four corners per line.
+struct GpuLines {
+    /// First end and wall group.
+    a: VertexBuffer<[f32; 4]>,
+    /// Second end and the height of the bottom of what the line outlines.
+    b: VertexBuffer<[f32; 4]>,
+    /// Along (0 or 1), across (−1 or 1) and weight.
+    corners: VertexBuffer<[f32; 3]>,
+    indices: ElementBuffer<u32>,
+}
+
+impl GpuLines {
+    fn new(context: &Context, lines: &[Line]) -> Option<Self> {
+        if lines.is_empty() {
+            return None;
+        }
+        let mut a = Vec::with_capacity(lines.len() * 4);
+        let mut b = Vec::with_capacity(lines.len() * 4);
+        let mut corners = Vec::with_capacity(lines.len() * 4);
+        let mut indices = Vec::with_capacity(lines.len() * 6);
+        for (i, line) in lines.iter().enumerate() {
+            let Ok(base) = u32::try_from(i * 4) else {
+                break;
+            };
+            for [along, across] in [[0.0, -1.0], [1.0, -1.0], [1.0, 1.0], [0.0, 1.0]] {
+                let [x, y, z] = line.a;
+                a.push([x, y, z, f32::from(line.group)]);
+                let [x, y, z] = line.b;
+                b.push([x, y, z, line.base]);
+                corners.push([along, across, line.kind.weight()]);
+            }
+            indices.extend_from_slice(&[base, base + 1, base + 2, base, base + 2, base + 3]);
+        }
+        Some(Self {
+            a: VertexBuffer::new_with_data(context, &a),
+            b: VertexBuffer::new_with_data(context, &b),
+            corners: VertexBuffer::new_with_data(context, &corners),
+            indices: ElementBuffer::new_with_data(context, &indices),
+        })
+    }
+}
+
+/// The offscreen targets of the bloom (D-027): the picture drawn with MSAA, resolved, and the
+/// levels of its glow, each half the size of the one before.
+struct PostTargets {
+    width: u32,
+    height: u32,
+    scene: RenderTargetMultisample<[u8; 4], f32>,
+    resolved: Texture2D,
+    levels: Vec<Texture2D>,
+}
+
+/// Levels of the bloom (down to a sixteenth of the view).
+const BLOOM_LEVELS: usize = 4;
+/// Samples of the offscreen picture (WebGL2 guarantees four).
+const MSAA_SAMPLES: u32 = 4;
+/// Height of the ground (cm): under the floors' slabs.
+const GROUND_Y: f64 = -6.0;
+/// How far the outlines are moved towards the camera, in device pixels where they are.
+const LINE_LIFT: f64 = 2.0;
+
+/// The inverse of a column-major 4 × 4 matrix, computed in double precision (zero when it has
+/// none).
+fn invert(m: &[f32; 16]) -> Mat4 {
+    let a = m.map(f64::from);
+    Matrix4::new(
+        a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7], a[8], a[9], a[10], a[11], a[12], a[13],
+        a[14], a[15],
+    )
+    .invert()
+    .and_then(|inverse| inverse.cast::<f32>())
+    .unwrap_or_else(Mat4::zero)
+}
+
 /// A shadow map and the matrix that projects the world into it.
 struct ShadowMap {
     texture: DepthTexture2D,
@@ -204,8 +281,21 @@ pub struct Renderer {
     depth: Program,
     pick: Program,
     halo: Program,
+    background_program: Program,
+    line_program: Program,
+    bloom_down: Program,
+    bloom_up: Program,
+    composite: Program,
+    /// The look (D-027).
+    theme: Theme,
+    /// The outlines of the home.
+    lines: Option<GpuLines>,
+    /// The offscreen targets, while the look glows.
+    post: Option<PostTargets>,
     /// Opaque and moving opaque, then glass and moving glass.
     meshes: [Option<GpuMesh>; 4],
+    /// The walls: opaque, or glass faces with opaque tops (D-027).
+    walls: Option<GpuMesh>,
     /// The live look of every element, three texels each (see `lamps::element_texels`).
     elements: Texture2D,
     /// The room layers, three texels per room slot (`domotwin_core::layers::room_texels`).
@@ -248,6 +338,7 @@ impl std::fmt::Debug for Renderer {
             .field("height", &self.height)
             .field("quality", &self.quality)
             .field("meshes", &self.meshes)
+            .field("walls", &self.walls)
             .field("lights", &self.lights.len())
             .finish_non_exhaustive()
     }
@@ -347,6 +438,14 @@ impl Renderer {
         let depth = Program::from_source(&context, shaders::VERTEX, shaders::DEPTH)?;
         let pick = Program::from_source(&context, shaders::VERTEX, shaders::PICK)?;
         let halo = Program::from_source(&context, shaders::HALO_VERTEX, shaders::HALO_FRAGMENT)?;
+        let full = shaders::FULLSCREEN_VERTEX;
+        let background_program =
+            Program::from_source(&context, full, shaders::BACKGROUND_FRAGMENT)?;
+        let line_program =
+            Program::from_source(&context, shaders::LINE_VERTEX, shaders::LINE_FRAGMENT)?;
+        let bloom_down = Program::from_source(&context, full, shaders::BLOOM_DOWN)?;
+        let bloom_up = Program::from_source(&context, full, shaders::BLOOM_UP)?;
+        let composite = Program::from_source(&context, full, shaders::COMPOSITE)?;
         let elements = row_texture(&context, &lamps::element_texels(&[], &[]));
         let rooms = row_texture(&context, &[[0.0; 4]; 3]);
         let mut view = ViewState::default();
@@ -372,7 +471,16 @@ impl Renderer {
             depth,
             pick,
             halo,
+            background_program,
+            line_program,
+            bloom_down,
+            bloom_up,
+            composite,
+            theme: Theme::default(),
+            lines: None,
+            post: None,
             meshes: [None, None, None, None],
+            walls: None,
             elements,
             rooms,
             rooms_shown: false,
@@ -403,7 +511,9 @@ impl Renderer {
             GpuMesh::new(&self.context, &scene.transparent),
             GpuMesh::new(&self.context, &scene.dynamic_transparent),
         ];
+        self.walls = GpuMesh::new(&self.context, &scene.wall_mesh);
         self.ceiling = GpuMesh::new(&self.context, &scene.ceiling);
+        self.lines = GpuLines::new(&self.context, &scene.lines);
         self.shadow_stale = true;
         self.spots.clone_from(&scene.lights);
         self.view.set_scene(scene, keep_camera);
@@ -412,7 +522,9 @@ impl Renderer {
     /// Draws nothing but the background (no plan shown any more).
     pub fn clear_scene(&mut self) {
         self.meshes = [None, None, None, None];
+        self.walls = None;
         self.ceiling = None;
+        self.lines = None;
         self.spots.clear();
         self.shadow_stale = true;
         self.view.dirty = true;
@@ -607,9 +719,25 @@ impl Renderer {
         }
     }
 
-    /// The light of the scene.
+    /// The light of the time of day (the look may have its own, see [`Renderer::theme`]).
     pub const fn lighting(&self) -> Lighting {
         self.lighting
+    }
+
+    /// Sets the look (D-027).
+    pub fn set_theme(&mut self, theme: Theme) {
+        if theme != self.theme {
+            if theme.shadows != self.theme.shadows {
+                self.shadow_stale = true;
+            }
+            self.theme = theme;
+            self.view.dirty = true;
+        }
+    }
+
+    /// The look.
+    pub const fn theme(&self) -> &Theme {
+        &self.theme
     }
 
     /// Sets the cut-away mode.
@@ -715,11 +843,99 @@ impl Renderer {
             .as_depth_target()
             .clear(ClearState::depth(1.0))
             .write::<CoreError>(|| {
-                for mesh in meshes[..2].iter().flatten().chain(ceiling) {
+                for mesh in meshes[..2]
+                    .iter()
+                    .chain([&self.walls])
+                    .flatten()
+                    .chain(ceiling)
+                {
                     mesh.draw(depth, states, viewport);
                 }
                 Ok(())
             });
+    }
+
+    /// Whether frames are drawn offscreen for the bloom (D-027): the looks that glow, on GPUs that
+    /// can afford it (day only on desktop GPUs).
+    fn post_on(&self) -> bool {
+        self.theme.bloom > 0.0
+            && match self.quality {
+                QualityPreset::Eco => false,
+                QualityPreset::Balanced => self.theme.name != ThemeName::Day,
+                QualityPreset::High => true,
+            }
+    }
+
+    /// The offscreen targets at the size of the view, made again when it changed.
+    fn ensure_post(&mut self) {
+        let (width, height) = (self.width, self.height);
+        if self
+            .post
+            .as_ref()
+            .is_some_and(|p| (p.width, p.height) == (width, height))
+        {
+            return;
+        }
+        let texture = |w: u32, h: u32| {
+            Texture2D::new_empty::<[u8; 4]>(
+                &self.context,
+                w.max(1),
+                h.max(1),
+                Interpolation::Linear,
+                Interpolation::Linear,
+                None,
+                Wrapping::ClampToEdge,
+                Wrapping::ClampToEdge,
+            )
+        };
+        let mut levels = Vec::new();
+        let (mut w, mut h) = (width / 2, height / 2);
+        while levels.len() < BLOOM_LEVELS && w.min(h) >= 8 {
+            levels.push(texture(w, h));
+            (w, h) = (w / 2, h / 2);
+        }
+        self.post = Some(PostTargets {
+            width,
+            height,
+            scene: RenderTargetMultisample::new(&self.context, width, height, MSAA_SAMPLES),
+            resolved: texture(width, height),
+            levels,
+        });
+    }
+
+    /// The light of the scene: the look's own, else the time of day's.
+    fn light(&self) -> Lighting {
+        self.theme.lighting.unwrap_or(self.lighting)
+    }
+
+    /// The background's colours: the look's, or for the day look, shades of the dashboard's, the
+    /// ground dimming with the light of the time of day.
+    fn backdrop(&self) -> ([f32; 3], [f32; 3], [f32; 3], [f32; 3]) {
+        let t = &self.theme;
+        if t.name != ThemeName::Day {
+            return (t.sky_top, t.sky_horizon, t.ground, t.grid);
+        }
+        let Rgb { r, g, b } = self.background;
+        let shade = |k: f32| [r * k, g * k, b * k];
+        let sky = self.lighting.sky;
+        let daylight = Lighting::default().sky;
+        let luma = |c: [f32; 3]| 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+        let dim = (luma(sky) / luma(daylight).max(1e-3))
+            .sqrt()
+            .clamp(0.4, 1.0);
+        (shade(1.0), shade(0.95), shade(0.93 * dim), shade(0.8 * dim))
+    }
+
+    /// Width of the lines in device pixels.
+    fn line_width(&self) -> f32 {
+        #[allow(clippy::cast_precision_loss)]
+        let side = self.width.min(self.height) as f32;
+        let base = (side / 650.0).clamp(1.0, 3.0);
+        match self.theme.name {
+            ThemeName::Day => base * 0.9,
+            ThemeName::Neon => base * 1.5,
+            ThemeName::Blueprint => base * 1.2,
+        }
     }
 
     /// Draws one frame at `time_ms`. Returns `true` while an animation needs more frames.
@@ -727,26 +943,77 @@ impl Renderer {
         let animating = self.view.update(time_ms);
         let cuts_moved = std::mem::take(&mut self.view.shadows_dirty);
         // With the real sun the shadow map draws whole walls: the cut-away does not change it.
-        if self.shadow_stale || (cuts_moved && self.sun.is_none()) {
+        // Night looks have no sun shadows.
+        if !self.theme.shadows {
+            self.shadow = None;
+        } else if self.shadow_stale || (cuts_moved && self.sun.is_none()) {
             self.render_shadow_map();
             self.shadow_stale = false;
+        }
+        let post = self.post_on();
+        if post {
+            self.ensure_post();
+        } else {
+            self.post = None;
         }
         let projection = self
             .view
             .camera
             .projection(self.view.aspect, self.view.radius());
-        let eye = projection.eye;
         #[allow(clippy::cast_possible_truncation)]
         let flat = self.view.camera.ortho.clamp(0.0, 1.0) as f32;
+        let gain = self.set_main_uniforms(&projection, time_ms, flat, post);
+        self.set_background_uniforms(&projection.view_proj, post, flat < 0.5);
+        self.set_line_uniforms(&projection);
+        let halo = &self.halo;
+        if self.halos.is_some() {
+            halo.use_uniform_if_required("u_view_proj", mat4(&projection.view_proj));
+            #[allow(clippy::cast_possible_truncation)]
+            let v3 = |v: [f64; 3]| Vec3::new(v[0] as f32, v[1] as f32, v[2] as f32);
+            halo.use_uniform_if_required("u_right", v3(projection.right));
+            halo.use_uniform_if_required("u_up", v3(projection.up));
+            halo.use_uniform_if_required("u_gain", gain);
+        }
+        let viewport = Viewport::new_at_origo(self.width, self.height);
+        let [r, g, b] = self.backdrop().1;
+        if let Some(targets) = self.post.as_ref() {
+            let _ = targets
+                .scene
+                .clear(ClearState::color_and_depth(r, g, b, 0.0, 1.0))
+                .write::<CoreError>(|| {
+                    self.draw_passes(viewport);
+                    Ok(())
+                });
+            targets
+                .scene
+                .resolve_color_to(&targets.resolved.as_color_target(None));
+            self.draw_bloom(targets);
+        } else {
+            let _ = RenderTarget::screen(&self.context, self.width, self.height)
+                .clear(ClearState::color_and_depth(r, g, b, 1.0, 1.0))
+                .write::<CoreError>(|| {
+                    self.draw_passes(viewport);
+                    Ok(())
+                });
+        }
+        self.view.dirty = false;
+        animating || self.layers_animating()
+    }
+
+    /// Sets what the main program needs for a frame. Returns the lamps' gain.
+    fn set_main_uniforms(
+        &self,
+        projection: &domotwin_core::camera::Projection,
+        time_ms: f64,
+        flat: f32,
+        post: bool,
+    ) -> f32 {
         let program = &self.main;
         self.use_common(program, &projection.view_proj, false);
         #[allow(clippy::cast_possible_truncation)]
         let v3 = |v: [f64; 3]| Vec3::new(v[0] as f32, v[1] as f32, v[2] as f32);
-        program.use_uniform_if_required("u_eye", v3(eye));
+        program.use_uniform_if_required("u_eye", v3(projection.eye));
         program.use_uniform_if_required("u_sun", v3(self.sun_direction()));
-        if program.requires_uniform("u_rooms") {
-            program.use_texture("u_rooms", &self.rooms);
-        }
         let on = |b: bool| if b { 1.0_f32 } else { 0.0 };
         program.use_uniform_if_required("u_layers", on(self.rooms_shown));
         program.use_uniform_if_required("u_power_layer", on(self.power_layer));
@@ -757,13 +1024,26 @@ impl Renderer {
         #[allow(clippy::cast_possible_truncation)]
         program.use_uniform_if_required("u_time", ((time_ms / 1000.0).rem_euclid(600.0)) as f32);
         program.use_uniform_if_required("u_flat", flat);
-        let light = self.lighting;
+        let light = self.light();
         let rgb = |c: [f32; 3]| Vec3::new(c[0], c[1], c[2]);
         program.use_uniform_if_required("u_sky", rgb(light.sky));
         program.use_uniform_if_required("u_ground", rgb(light.ground));
         program.use_uniform_if_required("u_sun_color", rgb(light.sun));
         program.use_uniform_if_required("u_exposure", light.exposure);
         program.use_uniform_if_required("u_ao", light.ao);
+        let t = &self.theme;
+        program.use_uniform_if_required("u_glass_walls", on(t.glass_walls));
+        program.use_uniform_if_required("u_wall_pass", 0.0_f32);
+        program.use_uniform_if_required("u_wall_tint", rgb(t.wall_tint));
+        program.use_uniform_if_required("u_wall_alpha", t.wall_alpha);
+        program.use_uniform_if_required("u_wall_cap", rgb(t.wall_cap));
+        program.use_uniform_if_required("u_tint", t.tint);
+        program.use_uniform_if_required("u_palette", rgb(t.palette));
+        program.use_uniform_if_required("u_floor_tint", t.floor_tint);
+        program.use_uniform_if_required("u_floor_palette", rgb(t.floor_palette));
+        program.use_uniform_if_required("u_plan_floor", rgb(t.plan_floor));
+        program.use_uniform_if_required("u_plan_cap", rgb(t.plan_cap));
+        program.use_uniform_if_required("u_glow_alpha", on(post));
         // Lamps and halos count less in daylight: a lamp lit at noon barely shows indoors.
         let gain = light.lamp_gain();
         let mut positions = [Vec4::new(0.0, 0.0, 0.0, 1.0); lamps::MAX_LIGHTS];
@@ -781,24 +1061,107 @@ impl Renderer {
         #[allow(clippy::cast_precision_loss)]
         program.use_uniform_if_required("u_light_count", self.lights.len() as f32);
         let shadows = self.shadow.as_ref().filter(|_| flat < 0.5);
-        program.use_uniform_if_required("u_shadows", if shadows.is_some() { 1.0_f32 } else { 0.0 });
+        program.use_uniform_if_required("u_shadows", on(shadows.is_some()));
         if let Some(shadow) = self.shadow.as_ref() {
-            if program.requires_uniform("u_shadow_map") {
-                program.use_depth_texture("u_shadow_map", &shadow.texture);
-            }
             program.use_uniform_if_required("u_shadow_matrix", mat4(&shadow.matrix));
             #[allow(clippy::cast_precision_loss)]
             program.use_uniform_if_required("u_shadow_texel", 1.0 / shadow.size as f32);
             program.use_uniform_if_required("u_pcf", self.shadow_size().map_or(1.0, |(_, p)| p));
-        } else if program.requires_uniform("u_shadow_map") {
-            // A sampler must point at a depth texture even when unused.
-            program.use_depth_texture("u_shadow_map", &self.no_shadow);
+        } else {
             program.use_uniform_if_required("u_pcf", 1.0_f32);
             program.use_uniform_if_required("u_shadow_texel", 1.0_f32);
             program.use_uniform_if_required("u_shadow_matrix", mat4(&[0.0; 16]));
         }
-        let viewport = Viewport::new_at_origo(self.width, self.height);
-        let Rgb { r, g, b } = self.background;
+        gain
+    }
+
+    /// Binds the textures of `program`: a texture unit is shared by every program, so each binds
+    /// its own right before drawing.
+    fn bind_textures(&self, program: &Program) {
+        if program.requires_uniform("u_elements") {
+            program.use_texture("u_elements", &self.elements);
+        }
+        if program.requires_uniform("u_rooms") {
+            program.use_texture("u_rooms", &self.rooms);
+        }
+        if program.requires_uniform("u_shadow_map") {
+            // A sampler must point at a depth texture even when unused.
+            let texture = self.shadow.as_ref().map_or(&self.no_shadow, |s| &s.texture);
+            program.use_depth_texture("u_shadow_map", texture);
+        }
+    }
+
+    /// The background's uniforms; the sun's shadow on the ground only in 3D (`shadows`).
+    fn set_background_uniforms(&self, view_proj: &[f32; 16], post: bool, shadows: bool) {
+        let program = &self.background_program;
+        let (top, horizon, ground, grid) = self.backdrop();
+        let rgb = |c: [f32; 3]| Vec3::new(c[0], c[1], c[2]);
+        program.use_uniform_if_required("u_inv_view_proj", invert(view_proj));
+        program.use_uniform_if_required("u_sky_top", rgb(top));
+        program.use_uniform_if_required("u_sky_horizon", rgb(horizon));
+        program.use_uniform_if_required("u_ground", rgb(ground));
+        program.use_uniform_if_required("u_grid", rgb(grid));
+        program.use_uniform_if_required("u_grid_strength", self.theme.grid_strength);
+        #[allow(clippy::cast_possible_truncation)]
+        program.use_uniform_if_required("u_ground_y", GROUND_Y as f32);
+        let [cx, _, cz] = self.view.centre();
+        #[allow(clippy::cast_possible_truncation)]
+        program.use_uniform_if_required("u_centre", Vec2::new(cx as f32, cz as f32));
+        #[allow(clippy::cast_possible_truncation)]
+        program.use_uniform_if_required("u_radius", self.view.radius().max(300.0) as f32);
+        program.use_uniform_if_required("u_glow_alpha", if post { 1.0_f32 } else { 0.0 });
+        let shadow = self.shadow.as_ref().filter(|_| shadows);
+        program.use_uniform_if_required("u_shadows", if shadow.is_some() { 1.0_f32 } else { 0.0 });
+        let matrix = shadow.map_or([0.0; 16], |s| s.matrix);
+        program.use_uniform_if_required("u_shadow_matrix", mat4(&matrix));
+    }
+
+    fn set_line_uniforms(&self, projection: &domotwin_core::camera::Projection) {
+        let program = &self.line_program;
+        self.use_common(program, &projection.view_proj, false);
+        // Towards the camera, by `LINE_LIFT` pixels where the line is: from its position (a pixel
+        // spans `2 tan(fov / 2) / height` of the distance), or straight back along an orthographic
+        // view (a pixel spans `2 half_height / height`).
+        let pixels = f64::from(self.height.max(1)) / LINE_LIFT;
+        let (toward, lift) = if projection.orthographic {
+            let [fx, fy, fz] = projection.forward;
+            ([-fx, -fy, -fz, 0.0], 2.0 * projection.half_height / pixels)
+        } else {
+            let [ex, ey, ez] = projection.eye;
+            ([ex, ey, ez, 1.0], 2.0 * projection.tan_half_fov / pixels)
+        };
+        #[allow(clippy::cast_possible_truncation)]
+        {
+            program.use_uniform_if_required("u_toward", Vec4::from(toward.map(|v| v as f32)));
+            program.use_uniform_if_required("u_lift", lift as f32);
+        }
+        #[allow(clippy::cast_precision_loss)]
+        program.use_uniform_if_required(
+            "u_viewport",
+            Vec2::new(self.width as f32, self.height as f32),
+        );
+        program.use_uniform_if_required("u_line_width", self.line_width());
+        let t = &self.theme;
+        program.use_uniform_if_required("u_line_color", Vec3::new(t.line[0], t.line[1], t.line[2]));
+        program.use_uniform_if_required("u_line_strength", t.line_strength);
+        program.use_uniform_if_required("u_line_glow", t.line_glow);
+        program.use_uniform_if_required("u_dark_lines", if t.dark_lines { 1.0_f32 } else { 0.0 });
+    }
+
+    /// Every pass of a frame, into the target being written: the background, what is opaque,
+    /// glass, glass walls, the outlines, the halos.
+    fn draw_passes(&self, viewport: Viewport) {
+        let behind = RenderStates {
+            write_mask: WriteMask::COLOR,
+            depth_test: DepthTest::Always,
+            blend: Blend::Disabled,
+            cull: Cull::None,
+        };
+        let background = &self.background_program;
+        self.bind_textures(background);
+        background.draw_arrays(behind, viewport, 3);
+        let program = &self.main;
+        self.bind_textures(program);
         let opaque_states = RenderStates {
             write_mask: WriteMask::COLOR_AND_DEPTH,
             depth_test: DepthTest::Less,
@@ -811,39 +1174,138 @@ impl Renderer {
             blend: Blend::TRANSPARENCY,
             cull: Cull::Back,
         };
-        let halo = &self.halo;
-        if self.halos.is_some() {
-            halo.use_uniform_if_required("u_view_proj", mat4(&projection.view_proj));
-            halo.use_uniform_if_required("u_right", v3(projection.right));
-            halo.use_uniform_if_required("u_up", v3(projection.up));
-            halo.use_uniform_if_required("u_gain", gain);
+        for mesh in self.meshes[..2].iter().flatten() {
+            mesh.draw(program, opaque_states, viewport);
         }
-        let halo_states = RenderStates {
+        // Glass walls: their tops with what is opaque, their faces after the glass.
+        let glass_walls = self.walls.as_ref().filter(|_| self.theme.glass_walls);
+        if let Some(walls) = self.walls.as_ref() {
+            let pass = if glass_walls.is_some() { 1.0_f32 } else { 0.0 };
+            program.use_uniform_if_required("u_wall_pass", pass);
+            walls.draw(program, opaque_states, viewport);
+            program.use_uniform_if_required("u_wall_pass", 0.0_f32);
+        }
+        for mesh in self.meshes[2..].iter().flatten() {
+            mesh.draw(program, glass_states, viewport);
+        }
+        if let Some(walls) = glass_walls {
+            program.use_uniform_if_required("u_wall_pass", 2.0_f32);
+            let states = RenderStates {
+                cull: Cull::None,
+                ..glass_states
+            };
+            walls.draw(program, states, viewport);
+            program.use_uniform_if_required("u_wall_pass", 0.0_f32);
+        }
+        if let Some(lines) = self
+            .lines
+            .as_ref()
+            .filter(|_| self.theme.line_strength > 0.0)
+        {
+            // Light lines keep the brightest of what is drawn where they cross (a partition's
+            // line comes from both its rooms); dark lines the darkest. The glow keeps the most.
+            let equation = if self.theme.dark_lines {
+                BlendEquationType::Min
+            } else {
+                BlendEquationType::Max
+            };
+            let states = RenderStates {
+                write_mask: WriteMask::COLOR,
+                depth_test: DepthTest::LessOrEqual,
+                blend: Blend::Enabled {
+                    source_rgb_multiplier: BlendMultiplierType::One,
+                    source_alpha_multiplier: BlendMultiplierType::One,
+                    destination_rgb_multiplier: BlendMultiplierType::One,
+                    destination_alpha_multiplier: BlendMultiplierType::One,
+                    rgb_equation: equation,
+                    alpha_equation: BlendEquationType::Max,
+                },
+                cull: Cull::None,
+            };
+            let line = &self.line_program;
+            self.bind_textures(line);
+            line.use_vertex_attribute("a_a", &lines.a);
+            line.use_vertex_attribute("a_b", &lines.b);
+            line.use_vertex_attribute("a_corner", &lines.corners);
+            line.draw_elements(states, viewport, &lines.indices);
+        }
+        if let Some(h) = self.halos.as_ref() {
+            let halo_states = RenderStates {
+                write_mask: WriteMask::COLOR,
+                depth_test: DepthTest::LessOrEqual,
+                blend: Blend::ADD,
+                cull: Cull::None,
+            };
+            let halo = &self.halo;
+            halo.use_vertex_attribute("a_center", &h.centers);
+            halo.use_vertex_attribute("a_tint", &h.tints);
+            halo.use_vertex_attribute("a_corner", &h.corners);
+            halo.draw_elements(halo_states, viewport, &h.indices);
+        }
+    }
+
+    /// The bloom of what glows, then the picture with it onto the screen.
+    fn draw_bloom(&self, targets: &PostTargets) {
+        let replace = RenderStates {
             write_mask: WriteMask::COLOR,
-            depth_test: DepthTest::LessOrEqual,
-            blend: Blend::ADD,
+            depth_test: DepthTest::Always,
+            blend: Blend::Disabled,
             cull: Cull::None,
         };
-        let (meshes, halos) = (&self.meshes, &self.halos);
-        let _ = RenderTarget::screen(&self.context, self.width, self.height)
-            .clear(ClearState::color_and_depth(r, g, b, 1.0, 1.0))
-            .write::<CoreError>(|| {
-                for mesh in meshes[..2].iter().flatten() {
-                    mesh.draw(program, opaque_states, viewport);
-                }
-                for mesh in meshes[2..].iter().flatten() {
-                    mesh.draw(program, glass_states, viewport);
-                }
-                if let Some(h) = halos {
-                    halo.use_vertex_attribute("a_center", &h.centers);
-                    halo.use_vertex_attribute("a_tint", &h.tints);
-                    halo.use_vertex_attribute("a_corner", &h.corners);
-                    halo.draw_elements(halo_states, viewport, &h.indices);
-                }
+        let add = RenderStates {
+            blend: Blend::ADD,
+            ..replace
+        };
+        let texel = |t: &Texture2D| {
+            #[allow(clippy::cast_precision_loss)]
+            Vec2::new(0.5 / t.width() as f32, 0.5 / t.height() as f32)
+        };
+        let down = &self.bloom_down;
+        let mut source = &targets.resolved;
+        for (i, level) in targets.levels.iter().enumerate() {
+            down.use_texture("u_source", source);
+            down.use_uniform_if_required("u_texel", texel(source));
+            down.use_uniform_if_required("u_first", if i == 0 { 1.0_f32 } else { 0.0 });
+            let viewport = Viewport::new_at_origo(level.width(), level.height());
+            let _ = level
+                .as_color_target(None)
+                .clear(ClearState::color(0.0, 0.0, 0.0, 1.0))
+                .write::<CoreError>(|| {
+                    down.draw_arrays(replace, viewport, 3);
+                    Ok(())
+                });
+            source = level;
+        }
+        let up = &self.bloom_up;
+        for pair in targets.levels.windows(2).rev() {
+            let (larger, smaller) = (&pair[0], &pair[1]);
+            up.use_texture("u_source", smaller);
+            up.use_uniform_if_required("u_texel", texel(smaller));
+            let viewport = Viewport::new_at_origo(larger.width(), larger.height());
+            let _ = larger.as_color_target(None).write::<CoreError>(|| {
+                up.draw_arrays(add, viewport, 3);
                 Ok(())
             });
-        self.view.dirty = false;
-        animating || self.layers_animating()
+        }
+        let composite = &self.composite;
+        composite.use_texture("u_scene", &targets.resolved);
+        if let Some(bloom) = targets.levels.first() {
+            composite.use_texture("u_bloom", bloom);
+        } else {
+            composite.use_texture("u_bloom", &targets.resolved);
+        }
+        let strength = if targets.levels.is_empty() {
+            0.0
+        } else {
+            self.theme.bloom
+        };
+        composite.use_uniform_if_required("u_bloom_strength", strength);
+        let viewport = Viewport::new_at_origo(self.width, self.height);
+        let _ =
+            RenderTarget::screen(&self.context, self.width, self.height).write::<CoreError>(|| {
+                composite.draw_arrays(replace, viewport, 3);
+                Ok(())
+            });
     }
 
     /// The element tag (index + 1, 0 for none) drawn at the device pixel `(x, y)` from the top
@@ -903,6 +1365,9 @@ impl Renderer {
             cull: Cull::Back,
         };
         let (program, meshes) = (&self.pick, &self.meshes);
+        // Through glass walls, what is behind them; their tops stay solid.
+        let wall_pass = if self.theme.glass_walls { 1.0_f32 } else { 0.0 };
+        let walls = self.walls.as_ref();
         let render_target = RenderTarget::new(
             target.color.as_color_target(None),
             target.depth.as_depth_target(),
@@ -916,6 +1381,11 @@ impl Renderer {
                 for mesh in meshes.iter().flatten() {
                     mesh.draw(program, states, viewport);
                 }
+                if let Some(walls) = walls {
+                    program.use_uniform_if_required("u_wall_pass", wall_pass);
+                    walls.draw(program, states, viewport);
+                    program.use_uniform_if_required("u_wall_pass", 0.0_f32);
+                }
                 Ok(())
             });
         let pixels = render_target.read_color_partially::<[u8; 4]>(scissor);
@@ -928,6 +1398,38 @@ impl Renderer {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_shaders_know_the_surfaces() {
+        use domotwin_core::scene::mesh::Surface;
+        let value = |source: &str, name: &str| {
+            let at = source.find(&format!("const uint {name} = ")).unwrap() + name.len() + 14;
+            source[at..source[at..].find('u').unwrap() + at]
+                .parse::<u8>()
+                .unwrap()
+        };
+        let surfaces = [
+            ("MATTE", Surface::Matte),
+            ("PLANKS", Surface::Planks),
+            ("TILES", Surface::Tiles),
+            ("SUBWAY", Surface::Subway),
+            ("GLASS", Surface::Glass),
+            ("GLOW", Surface::Glow),
+            ("METAL", Surface::Metal),
+            ("FABRIC", Surface::Fabric),
+            ("MIRROR", Surface::Mirror),
+            ("SCREEN", Surface::Screen),
+            ("SHADOW", Surface::Shadow),
+            ("WALL_CAP", Surface::WallCap),
+            ("FLOOR", Surface::Floor),
+            ("WOOD", Surface::Wood),
+            ("LEAF", Surface::Leaf),
+        ];
+        for (name, surface) in surfaces {
+            assert_eq!(value(shaders::FRAGMENT, name), surface as u8, "{name}");
+        }
+        assert_eq!(value(shaders::VERTEX, "WALL_CAP"), Surface::WallCap as u8);
+    }
 
     #[test]
     fn the_sun_sees_the_centre_in_the_middle() {

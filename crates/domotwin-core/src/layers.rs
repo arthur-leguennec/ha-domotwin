@@ -231,6 +231,8 @@ pub struct RoomShape<'a> {
     pub slot: usize,
     /// Centre: the mean of its corners (plan x, y).
     pub centre: [f64; 2],
+    /// Where its label goes, well inside it (plan x, y).
+    pub label: [f64; 2],
     /// Distance from the centre to its farthest corner.
     pub reach: f64,
 }
@@ -257,6 +259,7 @@ pub fn room_shapes<'a>(plan: &'a Plan, scene: &Scene) -> Vec<RoomShape<'a>> {
                 id,
                 slot,
                 centre: [cx, cz],
+                label: scene.labels.get(slot - 1).copied().unwrap_or([cx, cz]),
                 reach,
             })
         })
