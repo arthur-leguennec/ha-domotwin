@@ -14,7 +14,7 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M3        | Edit mode: move, rotate, stack, undo, save, card editor    | ✅     |
 | M3b       | Your own furniture and appliances with their 3D model      | ✅     |
 | M4        | Layers: heatmap, alerts, presence, real sun, power         | ✅     |
-| M5        | Devices: cameras and what they see, locks, appliances      | ⏳     |
+| M5        | Devices: cameras and what they see, locks, appliances      | ✅     |
 | M6        | Plan editor: draw rooms, walls, doors and windows          | ⏳     |
 | M7        | Storeys: several floors, stairs, a storey switcher         | ⏳     |
 | M8        | Looks and kiosk: themes, walk mode, idle and night modes   | ⏳     |
@@ -262,9 +262,27 @@ Left for later: avatars of the people at home, picking a room's sensors one by o
 
 ## M5, devices
 
-Devices drawn as what they are: cameras with their field of view on the plan and a live picture on
-tap, locks with their state, appliances with what they are doing (washing, drying, cooking),
-media players with what they play.
+Devices drawn as what they are (`DECISIONS.md`, D-024; `bindings.md`, Devices).
+
+- ✅ **Badges** over linked elements, in 3D and 2D: a lock's state (locked, unlocked, moving,
+  open, jammed), a camera (recording, unavailable), what plays, a battery at 20 % or less, an
+  appliance running (washing machine, dryer, dishwasher, cooker, hood, printers: power over 10 W or
+  a `running` sensor). At most two per element, the most urgent first; a tap does what a tap on
+  the element does.
+- ✅ **Cameras**: a new `camera` role; the cone a camera sees on the floor, from the piece it is
+  linked to, cut to its room, red while recording; its angle of view and reach set in the link
+  editor (`fov`, `range`); a tap opens Home Assistant's more-info with the live picture.
+- ✅ Unavailable locks and cameras grey out their element, like lights.
+- ✅ Card options `badges` and `cameras`, the layer menu turns both off; linking suggests
+  cameras for shelves and models, and battery sensors for anything.
+- ✅ Tests: the cone and its clipping, the camera's settings (Rust); the engine's camera and
+  point API in headless Chromium; the badges' rules (vitest); `fov` and `range` validation
+  (pytest); badges, a tap on them, cones, recording, and setting a camera when linking (Playwright).
+
+![Devices: badges over the entrance door, the TV, the camera and the washing machine; what the living room's camera sees](figures/screenshot-devices.png)
+
+Left for later: cameras not on a piece (M6, drawn with the plan editor), a camera's picture in the
+view, cones cut by furniture, more device classes (vacuums with their position, irrigation).
 
 ## M6, plan editor
 

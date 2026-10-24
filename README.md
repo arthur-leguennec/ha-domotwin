@@ -16,9 +16,9 @@ Local, fast, Rust + WebAssembly.</p>
 > **Status: early development.** DomoTwin is built milestone by milestone
 > ([roadmap](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/ROADMAP.md)). The
 > integration, the panel, the card, the plan and IFC import, the 3D and 2D views, live control
-> (states, tap, long press, room panel, linking), the edit mode, your own 3D models and the layers
-> work today; devices, a plan editor and storeys come next. The features below describe version
-> 0.1.0.
+> (states, tap, long press, room panel, linking), the edit mode, your own 3D models, the layers and
+> the devices work today; a plan editor and storeys come next. The features below describe
+> version 0.1.0.
 
 ## Features
 
@@ -34,6 +34,9 @@ Local, fast, Rust + WebAssembly.</p>
   sensors of each room's area, safety alerts that pulse in their room (smoke, gas, water leak,
   alarm, a window open in the rain), the rooms someone is in, the real sun coming in through your
   windows, and what each appliance draws.
+- **Devices.** Badges over your devices (a lock's state, a camera recording, what plays, a battery
+  running low, the washing machine running), and what each camera sees drawn on the floor of its
+  room; tap for the live picture.
 - **Edit mode.** Move, rotate and stack furniture with snapping, guides and undo, add pieces from
   a catalogue, link any object to entities (with suggestions from your areas), and add your own
   furniture or appliance with its 3D model (glTF/GLB, OBJ, STL or 3MF). See
@@ -57,6 +60,10 @@ Local, fast, Rust + WebAssembly.</p>
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-layers.png" alt="Layers: the temperature of each room as a heatmap with its legend, the power drawn by the appliances, a smoke alert pulsing in the kitchen, and the sun coming in through the windows" width="100%">
+</p>
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-devices.png" alt="Devices: badges over the entrance door, the TV, the camera and the washing machine, and the cone of what the living room's camera sees on the 2D plan" width="100%">
 </p>
 
 ## Quick start
@@ -94,6 +101,8 @@ YAML is never required. For reference, the card options are:
 | `alerts`      | `true`, `false`                     | `true`     | Safety alerts of the rooms (smoke, gas, water, alarm, a window open in the rain). |
 | `presence`    | `true`, `false`                     | `true`     | The rooms someone is in glow softly.      |
 | `sun`         | `fixed`, `real`                     | `fixed`    | `real`: the sun lights from where it is (`sun.sun`), through the windows. |
+| `badges`      | `true`, `false`                     | `true`     | Badges over the devices: locks, cameras, what plays, low batteries, appliances running. |
+| `cameras`     | `true`, `false`                     | `true`     | What the linked cameras see, drawn on the floor. |
 | `font_family` | a font family                       | bundled    | Font of the card's texts.                 |
 
 Integration options (Settings → Devices & services → DomoTwin → Configure): show the panel in the

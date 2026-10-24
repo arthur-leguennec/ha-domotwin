@@ -51,6 +51,8 @@ A complete example for the demo apartment is in
 | `entities`    | array  | required (1–16)      | `{ entity_id, role? }`, see roles below.               |
 | `tap_action`  | object | from the first role  | See actions.                                          |
 | `hold_action` | object | `{ "action": "controls" }` | Long press.                                     |
+| `fov`         | number 10–180 | 90            | A linked camera's angle of view (degrees).            |
+| `range`       | number 50–3 000 | 600         | A linked camera's reach (cm).                         |
 
 **Roles.** When `role` is absent it is derived from the domain and the device class:
 
@@ -62,7 +64,8 @@ A complete example for the demo apartment is in
 | `cover`    | `cover.*`                                                     | curtains, blinds, position     |
 | `media`    | `media_player.*`                                              | TV screen glow, media controls |
 | `contact`  | `binary_sensor.*` with class `door`, `window`, `opening`, `garage_door` | doors and windows open |
-| `lock`     | `lock.*`                                                      | alerts, door look              |
+| `lock`     | `lock.*`                                                      | badge (locked, unlocked…)      |
+| `camera`   | `camera.*`                                                    | what it sees, badge, live view |
 | `power`    | `sensor.*` with class `power`                                 | power layer                    |
 | `climate`  | `climate.*`                                                   | room panel                     |
 | `sensor`   | any other entity                                              | labels, layers                 |
@@ -102,6 +105,27 @@ The engine receives only the bound entities, and only when their state changes. 
 Lamps not bound keep the plan's state (`lightOff`). Lamps count less in daylight: a lamp lit at noon
 barely shows, at night it lights its room (`DECISIONS.md`, D-016). At most 16 lamps light the scene
 at once, the strongest first.
+
+## Devices
+
+Each linked element can carry badges for what its devices are doing (`DECISIONS.md`, D-024),
+shown over it in 3D and 2D; a tap on them does what a tap on the element does. At most two show
+on one element, the most urgent first.
+
+| Badge | From | Look |
+| --- | --- | --- |
+| Lock | a `lock` entity: locked, unlocked, locking or unlocking, open, jammed | green when locked, red when jammed, amber when open |
+| Camera | a `camera` entity: idle or streaming, recording, unavailable | red and pulsing while it records |
+| Playing | a `media` entity playing (its title in the label) | |
+| Battery low | a `sensor` with class `battery` at 20 % or less, or a `binary_sensor` battery on | amber, with the level |
+| Running | a washing machine, dryer, dishwasher, cooker, hood or printer whose power sensors read more than 10 W, or whose `binary_sensor` with class `running` is on | its own icon, pulsing |
+
+**What a camera sees.** An element linked to a camera shows its cone on the floor: from the
+centre of the piece towards its front (the `y + h` side, the way it faces), `fov` wide and `range`
+long, cut to the piece's room. It is blue, red while recording, grey and dashed when the camera is
+unavailable. The camera on the bookcase of the demo apartment looks into the living room. A tap
+opens Home Assistant's more-info dialog, with the live picture. The card's `badges: false` and
+`cameras: false` turn them off; so does the layer menu.
 
 ## Tap and long press
 
@@ -150,13 +174,15 @@ instead of acting on it, and opens its editor:
 - **Suggestions** from the room's area: the entities that fit the element, best first, those
   already linked left out. Lamps take lights and switches, fans fans and lights, curtains covers,
   TVs media players, doors door contacts, locks and garage covers, windows window contacts and
-  covers, appliances power sensors and switches.
+  covers, appliances power sensors and switches, shelves and models cameras; a battery sensor
+  fits anything.
 - **Search** by name or entity id, accents ignored.
 - **On tap** and **On long press**: automatic (on tap from the first role, on long press
   DomoTwin's controls), toggle, more info, DomoTwin's controls, **run an action** (`domain.action`,
   for example `scene.turn_on`, on one of the linked entities or none), **open a page** (a path of
   Home Assistant such as `/lovelace/0`) or nothing. The fields are checked before saving. An action
   written by hand with fields the editor does not show (`data`, another target) is kept as it is.
+- For a camera: **what it sees**, its angle of view and reach (empty: 90° and 600 cm).
 - For a room: its **Home Assistant area**, with the one found by name preselected.
 
 Each save applies this one change to the latest stored bindings and sends the revision it read: if
