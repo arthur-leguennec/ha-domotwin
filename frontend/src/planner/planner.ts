@@ -27,6 +27,21 @@ function checked<T>(change: () => T): T {
   }
 }
 
+/**
+ * `plan` with ids none of `taken` has (`<id>-2`…), for a storey joining a home whose other
+ * storeys use some of them; the `parent` of its elements follows.
+ */
+export async function freeIds(
+  plan: Record<string, unknown>,
+  taken: string[],
+): Promise<Record<string, unknown>> {
+  const wasm = await loadPlannerWasm();
+  return JSON.parse(checked(() => wasm.freeIds(JSON.stringify(plan), taken))) as Record<
+    string,
+    unknown
+  >;
+}
+
 /** A plan point (cm). */
 export type PlanPoint = [number, number];
 

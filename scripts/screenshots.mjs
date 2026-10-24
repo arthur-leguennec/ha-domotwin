@@ -674,6 +674,71 @@ try {
     Buffer.from(planImage.slice(planImage.indexOf(",") + 1), "base64"),
   );
   console.log("docs/figures/screenshot-plan-editor.png");
+
+  // Storeys: the fictional upper floor with its stairs and the switcher, and the storeys dialog.
+  const storeyShots = [];
+  for (const [label, dialog] of [
+    ["The floor above, its stairs and the switcher", false],
+    ["The storeys of the home", true],
+  ]) {
+    const page = await browser.newPage({ viewport: { width: 1100, height: 760 } });
+    await page.goto("http://127.0.0.1:4173/?mode=panel&storeys=2&lighting=day");
+    await page.waitForFunction(() => window.__view?.()?.debugState().summary, null, {
+      timeout: 60_000,
+    });
+    await page
+      .locator("domotwin-view")
+      .getByTestId("storeys")
+      .locator('[data-storey="storey-2"]')
+      .click();
+    await page.waitForFunction(() =>
+      window.__view().debugState().summary?.title.includes("upper floor"),
+    );
+    await page.evaluate(() => {
+      const view = window.__view();
+      view.options = { ...view.options, quality: "high" };
+      view.settle();
+    });
+    if (dialog) await page.getByTestId("storeys-manage").click();
+    await page.waitForTimeout(400);
+    storeyShots.push([label, (await page.screenshot()).toString("base64")]);
+    await page.close();
+  }
+  const storeyImage = await layersPage.evaluate(async (shots) => {
+    const decoded = await Promise.all(
+      shots.map(async ([label, base64]) => {
+        const image = new Image();
+        image.src = `data:image/png;base64,${base64}`;
+        await image.decode();
+        return [label, image];
+      }),
+    );
+    const [w, h] = [decoded[0][1].width, decoded[0][1].height];
+    const canvas = document.createElement("canvas");
+    canvas.width = w * 2 + 30;
+    canvas.height = h + 20;
+    const g = canvas.getContext("2d");
+    g.fillStyle = "#f1f5f9";
+    g.fillRect(0, 0, canvas.width, canvas.height);
+    decoded.forEach(([label, image], i) => {
+      const x = 10 + i * (w + 10);
+      g.drawImage(image, x, 10);
+      g.font = "600 22px Inter, sans-serif";
+      const width = g.measureText(label).width + 40;
+      g.fillStyle = "rgba(255,255,255,0.92)";
+      g.beginPath();
+      g.roundRect(x + w / 2 - width / 2, 10 + 76, width, 44, 22);
+      g.fill();
+      g.fillStyle = "#0f172a";
+      g.fillText(label, x + w / 2 - width / 2 + 20, 10 + 105);
+    });
+    return canvas.toDataURL("image/png");
+  }, storeyShots);
+  await fs.writeFile(
+    join(root, "docs", "figures", "screenshot-storeys.png"),
+    Buffer.from(storeyImage.slice(storeyImage.indexOf(",") + 1), "base64"),
+  );
+  console.log("docs/figures/screenshot-storeys.png");
   await browser.close();
 } finally {
   server.kill();

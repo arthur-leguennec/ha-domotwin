@@ -541,6 +541,7 @@ fn draw(m: &mut Model<'_>, f: &Furniture, plan: &Plan) {
         }
         Kind::Chair => chair(m),
         Kind::Officechair => office_chair(m),
+        Kind::Stairs => stairs(m),
         Kind::Bookcase | Kind::Shelf | Kind::Openshelf | Kind::Barrister => {
             shelves(m, f.kind, variant)
         }
@@ -953,6 +954,34 @@ fn sofa(m: &mut Model<'_>, leather: bool, seats: Option<usize>) {
                 [x + cw / 2.0 - 1.0, seat_top + bh, -d / 2.0 + back + 13.0],
             );
         }
+    }
+}
+
+/// Stairs to another storey (`DECISIONS.md`, D-026): solid steps of about 18 cm, rising from the
+/// front of the piece (local +z) to its back.
+fn stairs(m: &mut Model<'_>) {
+    let (w, d, h, c) = (m.w, m.d, m.h, m.c);
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    let steps = ((h / 18.0).round() as usize).clamp(3, 24);
+    #[allow(clippy::cast_precision_loss)]
+    let (rise, run) = (h / steps as f64, d / steps as f64);
+    let wood = surface(c);
+    let riser = Material::satin(shade(c, 0.86));
+    for i in 0..steps {
+        #[allow(clippy::cast_precision_loss)]
+        let k = i as f64;
+        let front = d / 2.0 - run * k;
+        // The tread, and the riser under its front edge.
+        m.bx(
+            wood,
+            [-w / 2.0, 0.0, front - run],
+            [w / 2.0, rise * (k + 1.0), front],
+        );
+        m.bx(
+            riser,
+            [-w / 2.0 + 0.5, rise * k, front - 0.5],
+            [w / 2.0 - 0.5, rise * (k + 1.0) - 1.0, front + 0.3],
+        );
     }
 }
 

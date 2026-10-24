@@ -524,3 +524,48 @@ Decided while the maintainer was away (M6); open to review.
   takes an id that has links (nor one given earlier in the session). Open sides, per-side
   thicknesses and finishes and typed lengths are kept but not edited yet; the first load
   grew by 7.5 kB gzipped (the engine's 3.3 kB, the texts in two languages, the panel's buttons).
+
+## D-026 · Storeys: one plan each, ids unique in the whole home, one storey drawn at a time
+
+Decided while the maintainer was away (M7); open to review.
+
+- **Context.** Houses have a cellar, floors above, an attic; IFC files hold several storeys. The plan
+  format describes one level: its rooms, walls and openings sit on one floor. Links to entities
+  and rooms' areas are keyed by element id (`bindings.md`); the edit overlay too (D-019).
+- **Decision.**
+  - **One plan per storey.** The stored data holds `storeys: [{id, name, elevation, plan,
+    layout}]` instead of one `plan` and `layout` (storage 2.1; a 1.1 home becomes `storey-1` at
+    elevation 0). A major version: an older DomoTwin refuses the data instead of reading it without
+    its storeys and saving that. A storey is an ordinary plan, read, imported, exported, edited and arranged
+    exactly as before; no new format and no change to the plan reader. `elevation` (cm, −100 to
+    1 000 m) orders the storeys; the **ground floor** is the storey nearest elevation 0 (the lower
+    of two as near): what `plan/get` and `plan/save` use without `storey`, so a client from before
+    storeys keeps working on the ground floor. At most 20 storeys.
+  - **Ids are the home's.** Bindings stay one document for the whole home: an element id, or the
+    id of a piece an overlay adds, may be on one storey only (`duplicate_id` on save). A plan
+    joining a home (imported as a new storey, every storey of an IFC file) has its taken ids
+    renamed first (`living` → `living-2`, the `parent` of its pieces following, within the
+    reader's 100 characters), by the planner module's `freeIds`; the plan editor and edit mode
+    reserve the other storeys' ids.
+  - **API.** `plan/get` and `plan/save` take an optional `storey` and `plan/get` lists the storeys;
+    `storey/save` adds a storey (with its plan) or renames or moves one, `storey/remove` removes
+    one, and `storeys/replace` replaces them all in one write, every plan checked first (every
+    storey of an IFC file: all of them stored, or none). Storey ids are `storey-<n>`, the lowest
+    free `n`: when the storeys are replaced, the ids are given again in order, so a card set to the
+    floor above still shows it. IFC storeys are measured from the storey nearest elevation 0 when
+    one is within 2 m of it (else from the lowest, as georeferenced files are far above 0), so a
+    cellar stays below the ground floor. Drafts kept by the browser are per storey.
+  - **One storey drawn at a time.** The view gets a switcher (one button per storey, highest on
+    top, numbered from the ground floor) and the card a `storey` option; `stairs` (a new
+    furniture kind, a DomoTwin addition read as `desk` by other readers) lead to the next storey on
+    a tap. Stacking the storeys in one scene would multiply what dashboards draw and need the
+    floors cut open; one storey at a time keeps every frame as cheap as before.
+  - **Alerts from every storey.** Safety alerts are what must not be missed: the card and the
+    panel fetch the other storeys' plans (the client keeps them, so switching is then immediate),
+    and the banner lists their rooms' alerts with their storey; the switcher marks the storey.
+    Heatmap, presence and power stay those of the storey shown.
+- **Consequences.** A storey switch loads the plan already fetched: 10 ms median in headless
+  Chromium for the demo apartment's two storeys, the camera kept. A home of several storeys
+  fetches every storey's plan once per page for the alerts, and again after a save of a plan or an
+  overlay (not of the bindings or the settings). The first load grew by 5.8 kB
+  gzipped (the switcher, the storeys dialog, the alerts of other storeys, the texts, the stairs).

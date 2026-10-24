@@ -11,7 +11,10 @@ import type * as Wasm from "./pkg/domotwin_ifc.js";
 export interface IfcStorey {
   id: number;
   name: string;
-  /** Height of its floor above the lowest storey's (cm). */
+  /**
+   * Height of its floor above the ground floor's (cm; negative below it): the storey nearest 0
+   * when one is within 2 m of it, else the lowest.
+   */
   elevation: number;
   spaces: number;
   doors: number;

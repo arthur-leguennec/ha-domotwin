@@ -9,7 +9,7 @@ use serde_json::{Map, Value, json};
 
 use crate::error::{ErrorCode, ReadError};
 use crate::geometry::polygon::P2;
-use crate::plan::{Element, Plan, read_plan_value};
+use crate::plan::{Element, MAX_ID, Plan, read_plan_value};
 
 /// Grid of the plan editor (cm).
 pub const GRID: f64 = 5.0;
@@ -806,6 +806,44 @@ impl Draft {
     }
 }
 
+/// Gives a plan's elements ids none of `taken` has (`<id>-2`, `<id>-3`…), the `parent` of the
+/// others following, so that a plan can join a home whose other storeys use some of its ids
+/// (`DECISIONS.md`, D-026). Returns how many were renamed.
+pub fn free_ids(plan: &mut Value, taken: &BTreeSet<String>) -> usize {
+    let mut used: BTreeSet<String> = taken.clone();
+    let mut renamed: Vec<(String, String)> = Vec::new();
+    let list = elements_mut(plan);
+    for e in list.iter_mut() {
+        let Some(id) = id_of(e).map(str::to_owned) else {
+            continue;
+        };
+        if used.insert(id.clone()) {
+            continue;
+        }
+        let new = (2..)
+            .map(|n| {
+                // Within the reader's 100 characters: a long id gives up its end.
+                let suffix = format!("-{n}");
+                let base: String = id.chars().take(MAX_ID - suffix.len()).collect();
+                format!("{base}{suffix}")
+            })
+            .find(|candidate| !used.contains(candidate))
+            .unwrap_or_default();
+        used.insert(new.clone());
+        e["id"] = json!(new);
+        renamed.push((id, new));
+    }
+    for e in list.iter_mut() {
+        let Some(parent) = e.get("parent").and_then(Value::as_str) else {
+            continue;
+        };
+        if let Some((_, new)) = renamed.iter().find(|(old, _)| old == parent) {
+            e["parent"] = json!(new);
+        }
+    }
+    renamed.len()
+}
+
 /// A door's or a window's place on a room's side.
 #[derive(Debug, Clone, PartialEq)]
 struct SidePlace {
@@ -1282,5 +1320,34 @@ mod tests {
         let d = Draft::blank("Home", "Room", ["room-1".to_owned()]);
         assert!(d.element("room-2").is_some() && d.element("room-1").is_none());
         assert!(d.read().is_ok() && d.dirty());
+    }
+
+    #[test]
+    fn a_plan_joining_a_home_gets_ids_of_its_own() {
+        let mut plan = draft().plan().clone();
+        let taken: BTreeSet<String> = ["a".to_owned(), "a-2".to_owned()].into();
+        assert_eq!(free_ids(&mut plan, &taken), 1);
+        let ids: Vec<&str> = elements(&plan).iter().filter_map(id_of).collect();
+        assert_eq!(ids, ["a-3", "sofa", "d"]);
+        // What stood in the room follows it.
+        assert_eq!(elements(&plan)[1]["parent"], "a-3");
+        assert_eq!(elements(&plan)[2]["parent"], "a-3");
+        assert!(read_plan_value(&plan).is_ok());
+        assert_eq!(free_ids(&mut plan, &BTreeSet::new()), 0);
+        // A long id keeps within the reader's 100 characters.
+        let long = "é".repeat(100);
+        let mut plan = draft().plan().clone();
+        for e in elements_mut(&mut plan) {
+            if e["id"] == "a" {
+                e["id"] = json!(long);
+            } else {
+                e["parent"] = json!(long);
+            }
+        }
+        assert_eq!(free_ids(&mut plan, &[long.clone()].into()), 1);
+        let renamed = format!("{}-2", "é".repeat(98));
+        assert_eq!(elements(&plan)[0]["id"], json!(renamed));
+        assert_eq!(elements(&plan)[1]["parent"], json!(renamed));
+        assert!(read_plan_value(&plan).is_ok());
     }
 }

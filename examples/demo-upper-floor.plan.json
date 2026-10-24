@@ -1,0 +1,356 @@
+{
+  "version": 1,
+  "layoutRevision": 10,
+  "unit": "cm",
+  "title": "Demo apartment, upper floor",
+  "referenceName": "Fictional upper floor for DomoTwin's tests and screenshots",
+  "wallSettings": {
+    "interior": 10,
+    "exterior": 20,
+    "spacing": 0,
+    "reflow": false
+  },
+  "views": [
+    {
+      "id": "up-overview",
+      "name": "Overview",
+      "mode": "orbit",
+      "p": [
+        410,
+        900,
+        1150
+      ],
+      "t": [
+        410,
+        0,
+        380
+      ]
+    }
+  ],
+  "elements": [
+    {
+      "id": "up-bedroom",
+      "type": "room",
+      "name": "Second bedroom",
+      "x": 0,
+      "y": 0,
+      "w": 340,
+      "h": 420,
+      "floor": "bois-chene"
+    },
+    {
+      "id": "up-office",
+      "type": "room",
+      "name": "Office",
+      "x": 340,
+      "y": 0,
+      "w": 480,
+      "h": 420,
+      "floor": "bois-peint"
+    },
+    {
+      "id": "up-shower",
+      "type": "room",
+      "name": "Shower room",
+      "x": 0,
+      "y": 420,
+      "w": 240,
+      "h": 340,
+      "floor": "carrelage-blanc"
+    },
+    {
+      "id": "up-landing",
+      "type": "room",
+      "name": "Landing",
+      "x": 240,
+      "y": 420,
+      "w": 200,
+      "h": 340,
+      "floor": "bois-gris",
+      "role": "circulation"
+    },
+    {
+      "id": "up-dressing",
+      "type": "room",
+      "name": "Dressing room",
+      "x": 440,
+      "y": 420,
+      "w": 380,
+      "h": 340,
+      "floor": "bois-chene",
+      "vertices": [
+        [
+          0,
+          0
+        ],
+        [
+          1,
+          0
+        ],
+        [
+          1,
+          0.75
+        ],
+        [
+          0.85,
+          1
+        ],
+        [
+          0,
+          1
+        ]
+      ]
+    },
+    {
+      "id": "up-door-bedroom",
+      "type": "door",
+      "name": "Second bedroom door",
+      "x": 250,
+      "y": 420,
+      "w": 80,
+      "angle": 0,
+      "parent": "up-landing"
+    },
+    {
+      "id": "up-door-office",
+      "type": "door",
+      "name": "Office door",
+      "x": 350,
+      "y": 420,
+      "w": 80,
+      "angle": 0,
+      "parent": "up-landing",
+      "style": "vitree"
+    },
+    {
+      "id": "up-door-shower",
+      "type": "door",
+      "name": "Shower room door",
+      "x": 240,
+      "y": 600,
+      "w": 75,
+      "angle": 90,
+      "parent": "up-landing",
+      "open": 0
+    },
+    {
+      "id": "up-door-dressing",
+      "type": "door",
+      "name": "Dressing room door",
+      "x": 440,
+      "y": 460,
+      "w": 80,
+      "angle": 90,
+      "parent": "up-landing",
+      "swing": -1,
+      "open": 40
+    },
+    {
+      "id": "up-win-bedroom",
+      "type": "window",
+      "name": "Second bedroom window",
+      "x": 100,
+      "y": 0,
+      "w": 140,
+      "angle": 0,
+      "parent": "up-bedroom"
+    },
+    {
+      "id": "up-win-office",
+      "type": "window",
+      "name": "Office window",
+      "x": 520,
+      "y": 0,
+      "w": 160,
+      "angle": 0,
+      "parent": "up-office"
+    },
+    {
+      "id": "up-win-office-2",
+      "type": "window",
+      "name": "Office side window",
+      "x": 820,
+      "y": 140,
+      "w": 100,
+      "angle": 90,
+      "parent": "up-office"
+    },
+    {
+      "id": "up-win-shower",
+      "type": "window",
+      "name": "Shower room window",
+      "x": 0,
+      "y": 520,
+      "w": 60,
+      "angle": 90,
+      "parent": "up-shower"
+    },
+    {
+      "id": "up-win-dressing",
+      "type": "window",
+      "name": "Dressing room window",
+      "x": 820,
+      "y": 470,
+      "w": 120,
+      "angle": 90,
+      "parent": "up-dressing"
+    },
+    {
+      "id": "up-stairs",
+      "type": "furniture",
+      "name": "Stairs",
+      "kind": "stairs",
+      "x": 330,
+      "y": 470,
+      "w": 100,
+      "h": 280,
+      "z": 270,
+      "parent": "up-landing"
+    },
+    {
+      "id": "up-bed",
+      "type": "furniture",
+      "name": "Bed",
+      "kind": "bed",
+      "x": 90,
+      "y": 180,
+      "w": 140,
+      "h": 190,
+      "z": 55,
+      "parent": "up-bedroom"
+    },
+    {
+      "id": "up-nightstand",
+      "type": "furniture",
+      "name": "Nightstand",
+      "kind": "nightstand",
+      "x": 240,
+      "y": 180,
+      "w": 40,
+      "h": 40,
+      "z": 48,
+      "parent": "up-bedroom"
+    },
+    {
+      "id": "up-pendant",
+      "type": "furniture",
+      "name": "Bedroom light",
+      "kind": "pendant",
+      "x": 140,
+      "y": 250,
+      "w": 47,
+      "h": 47,
+      "z": 45,
+      "parent": "up-bedroom",
+      "elevation": 150
+    },
+    {
+      "id": "up-desk",
+      "type": "furniture",
+      "name": "Desk",
+      "kind": "desk",
+      "x": 620,
+      "y": 40,
+      "w": 150,
+      "h": 70,
+      "z": 75,
+      "parent": "up-office"
+    },
+    {
+      "id": "up-officechair",
+      "type": "furniture",
+      "name": "Office chair",
+      "kind": "officechair",
+      "x": 665,
+      "y": 125,
+      "w": 60,
+      "h": 60,
+      "z": 110,
+      "parent": "up-office"
+    },
+    {
+      "id": "up-bookcase",
+      "type": "furniture",
+      "name": "Bookcase",
+      "kind": "bookcase",
+      "x": 380,
+      "y": 0,
+      "w": 110,
+      "h": 35,
+      "z": 180,
+      "parent": "up-office"
+    },
+    {
+      "id": "up-lamp",
+      "type": "furniture",
+      "name": "Floor lamp",
+      "kind": "lamp",
+      "x": 770,
+      "y": 350,
+      "w": 35,
+      "h": 35,
+      "z": 160,
+      "parent": "up-office"
+    },
+    {
+      "id": "up-vanity",
+      "type": "furniture",
+      "name": "Washbasin",
+      "kind": "vanity",
+      "x": 20,
+      "y": 435,
+      "w": 75,
+      "h": 50,
+      "z": 85,
+      "parent": "up-shower"
+    },
+    {
+      "id": "up-toilet",
+      "type": "furniture",
+      "name": "Toilet",
+      "kind": "toilet",
+      "x": 180,
+      "y": 680,
+      "w": 40,
+      "h": 70,
+      "z": 75,
+      "parent": "up-shower"
+    },
+    {
+      "id": "up-bathtub",
+      "type": "furniture",
+      "name": "Bathtub",
+      "kind": "bathtub",
+      "x": 5,
+      "y": 560,
+      "w": 75,
+      "h": 170,
+      "z": 60,
+      "parent": "up-shower"
+    },
+    {
+      "id": "up-linen",
+      "type": "furniture",
+      "name": "Wardrobe",
+      "kind": "linen",
+      "x": 560,
+      "y": 430,
+      "w": 120,
+      "h": 65,
+      "z": 190,
+      "parent": "up-dressing"
+    },
+    {
+      "id": "up-dresser",
+      "type": "furniture",
+      "name": "Chest of drawers",
+      "kind": "dresser",
+      "x": 700,
+      "y": 430,
+      "w": 100,
+      "h": 45,
+      "z": 85,
+      "parent": "up-dressing"
+    }
+  ]
+}

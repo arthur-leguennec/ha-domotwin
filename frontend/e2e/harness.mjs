@@ -8,6 +8,7 @@
 //   layer=off|temperature|humidity|co2|pm25|power  alerts=0  presence=0 (card options)
 //   sunpos=<azimuth>,<elevation> (sun.sun's position)  realsun=1 (card option sun: real)
 //   north=<degrees> (the stored settings)  badges=0  cameras=0 (card options)
+//   storeys=2 (the fictional upper floor above the demo apartment)  storey=<id> (card option)
 import { applyService, demoHome } from "./demo-home.mjs";
 
 const params = new URLSearchParams(location.search);
@@ -20,9 +21,69 @@ const demo = await (await fetch("/examples/demo-apartment.plan.json")).json();
 const demoBindings = live
   ? await (await fetch("/examples/demo-apartment.bindings.json")).json()
   : { version: 1, rooms: {}, elements: {} };
+const storeys = [];
+if (params.get("plan") !== "none") {
+  storeys.push({ id: "storey-1", name: "", elevation: 0, plan: demo, layout: {} });
+  if (params.get("storeys") === "2") {
+    const upper = await (await fetch("/examples/demo-upper-floor.plan.json")).json();
+    storeys.push({ id: "storey-2", name: "", elevation: 280, plan: upper, layout: {} });
+  }
+}
+/** The storeys lowest first; the ground floor (nearest elevation 0, the lower of two as near). */
+const sorted = () => [...storeys].sort((a, b) => a.elevation - b.elevation);
+const ground = () =>
+  sorted().reduce(
+    (best, storey) => (Math.abs(storey.elevation) < Math.abs(best.elevation) ? storey : best),
+    sorted()[0],
+  );
+/** A storey by id (the ground floor without; an error for an unknown id). */
+function storeyOf(id) {
+  if (id === undefined) return ground();
+  const found = storeys.find((storey) => storey.id === id);
+  if (!found) throw { code: "unknown_storey", message: "no storey has this id" };
+  return found;
+}
+/** The ids a storey uses: its plan's elements and the pieces its overlay adds. */
+const idsOf = (plan, layout = {}) => [
+  ...(plan?.elements ?? []).map((e) => e.id),
+  ...Object.entries(layout)
+    .filter(([, entry]) => entry && "add" in entry)
+    .map(([id]) => id),
+];
+/** Element ids are the home's: none may be another storey's. */
+function checkIds(plan, except, layout = {}) {
+  const taken = new Set(
+    storeys.filter((s) => s !== except).flatMap((s) => idsOf(s.plan, s.layout)),
+  );
+  if (idsOf(plan, layout).some((id) => taken.has(id))) {
+    throw { code: "duplicate_id", message: "ids used on another storey" };
+  }
+}
+function newStorey(fields) {
+  let n = 1;
+  while (storeys.some((s) => s.id === `storey-${n}`)) n += 1;
+  const storey = { id: `storey-${n}`, name: "", elevation: 0, layout: {}, ...fields };
+  storeys.push(storey);
+  return storey;
+}
 const store = {
-  plan: params.get("plan") === "none" ? null : demo,
-  layout: {},
+  storeys,
+  // The ground floor's plan and overlay (the tests of a single storey use these).
+  get plan() {
+    return ground()?.plan ?? null;
+  },
+  set plan(plan) {
+    const shown = ground();
+    if (shown) shown.plan = plan;
+    else if (plan) newStorey({ plan });
+  },
+  get layout() {
+    return ground()?.layout ?? {};
+  },
+  set layout(layout) {
+    const shown = ground();
+    if (shown) shown.layout = layout;
+  },
   bindings: demoBindings,
   revision: 1,
   settings: params.get("north") ? { north: Number(params.get("north")) } : {},
@@ -133,12 +194,16 @@ const connection = {
   async sendMessagePromise(message) {
     calls.push(message);
     switch (message.type) {
-      case "domotwin/plan/get":
+      case "domotwin/plan/get": {
+        const storey = storeyOf(message.storey);
         return structuredClone({
-          plan: store.plan,
-          layout: store.layout,
+          plan: storey?.plan ?? null,
+          layout: storey?.layout ?? {},
+          storey: storey?.id ?? null,
+          storeys: sorted().map(({ id, name, elevation }) => ({ id, name, elevation })),
           revision: store.revision,
         });
+      }
       case "domotwin/bindings/get":
         return structuredClone({ bindings: store.bindings, revision: store.revision });
       case "domotwin/settings/get":
@@ -152,8 +217,55 @@ const connection = {
       }
       case "domotwin/plan/save": {
         if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
-        if ("plan" in message) store.plan = message.plan;
-        if ("layout" in message) store.layout = message.layout;
+        let target = storeyOf(message.storey);
+        if (message.plan !== null) {
+          checkIds(message.plan ?? target?.plan, target, message.layout ?? target?.layout);
+        }
+        if (!target && message.plan) target = newStorey({ plan: message.plan });
+        if (target && message.plan === null) storeys.splice(storeys.indexOf(target), 1);
+        else if (target) {
+          if (message.plan) target.plan = message.plan;
+          if ("layout" in message) target.layout = message.layout;
+        }
+        store.revision += 1;
+        for (const listener of listeners) listener({ kind: "plan", revision: store.revision });
+        return { revision: store.revision };
+      }
+      case "domotwin/storey/save": {
+        if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        let target = message.storey === undefined ? undefined : storeyOf(message.storey);
+        if ("plan" in message || "layout" in message) {
+          checkIds(message.plan ?? target?.plan, target, message.layout ?? target?.layout);
+        }
+        if (!target) {
+          if (!message.plan) throw { code: "invalid_storey", message: "a new storey needs a plan" };
+          target = newStorey({ plan: message.plan });
+        }
+        for (const key of ["name", "elevation", "plan", "layout"]) {
+          if (key in message) target[key] = message[key];
+        }
+        store.revision += 1;
+        for (const listener of listeners) listener({ kind: "plan", revision: store.revision });
+        return { revision: store.revision, storey: target.id };
+      }
+      case "domotwin/storeys/replace": {
+        if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        const ids = message.storeys.flatMap((s) => idsOf(s.plan));
+        if (new Set(ids).size !== ids.length) {
+          throw { code: "duplicate_id", message: "ids used on two storeys" };
+        }
+        storeys.splice(0, storeys.length);
+        for (const { plan, name = "", elevation = 0 } of message.storeys) {
+          newStorey({ plan, name, elevation });
+        }
+        store.revision += 1;
+        for (const listener of listeners) listener({ kind: "plan", revision: store.revision });
+        return { revision: store.revision, storeys: storeys.map((s) => s.id) };
+      }
+      case "domotwin/storey/remove": {
+        if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        const target = storeyOf(message.storey);
+        storeys.splice(storeys.indexOf(target), 1);
         store.revision += 1;
         for (const listener of listeners) listener({ kind: "plan", revision: store.revision });
         return { revision: store.revision };
@@ -180,6 +292,19 @@ const language = params.get("lang") ?? "en";
 const sunParam = params.get("sun");
 const sunPosition = params.get("sunpos");
 const home = live ? demoHome() : { states: {}, entities: {}, devices: {}, areas: {} };
+if (live && params.get("storeys") === "2") {
+  // The upper floor's office, with a smoke sensor.
+  home.areas.office = { area_id: "office", name: "Office" };
+  home.entities["binary_sensor.office_smoke"] = {
+    entity_id: "binary_sensor.office_smoke",
+    area_id: "office",
+  };
+  home.states["binary_sensor.office_smoke"] = {
+    entity_id: "binary_sensor.office_smoke",
+    state: "off",
+    attributes: { device_class: "smoke", friendly_name: "Office smoke" },
+  };
+}
 const states = home.states;
 if (sunParam) {
   const [elevation, rising] = sunParam.split(",");
@@ -260,6 +385,7 @@ if (mode === "panel") {
     sun: params.get("realsun") === "1" ? "real" : undefined,
     badges: params.get("badges") === "0" ? false : undefined,
     cameras: params.get("cameras") === "0" ? false : undefined,
+    storey: params.get("storey") ?? undefined,
   });
 }
 element.hass = hass;

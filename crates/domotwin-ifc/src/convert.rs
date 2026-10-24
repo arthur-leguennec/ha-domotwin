@@ -32,6 +32,8 @@ const MAX_ROOM: f64 = 10_000.0;
 const MAX_COORDINATE: f64 = 50_000.0;
 /// Pieces farther than this (cm) from every room are left out.
 const MAX_STRAY: f64 = 1_000.0;
+/// A storey this near elevation 0 (cm) is the ground floor the others are measured from.
+const GROUND_NEAR: f64 = 200.0;
 
 /// A storey that can be imported.
 #[derive(Debug, Clone, PartialEq)]
@@ -39,7 +41,7 @@ pub struct Storey {
     /// Instance number of the `IfcBuildingStorey`.
     pub id: u32,
     pub name: String,
-    /// Height of its floor above the lowest storey's (cm).
+    /// Height of its floor above the ground floor's (cm; below it, negative): see [`storeys`].
     pub elevation: f64,
     pub spaces: usize,
     pub doors: usize,
@@ -119,8 +121,15 @@ pub fn storeys(model: &Model) -> Vec<Storey> {
         })
         .collect();
     out.sort_by(|a, b| a.elevation.total_cmp(&b.elevation));
-    // Heights from the lowest storey (georeferenced files place the ground far above zero).
-    let base = out.first().map_or(0.0, |s| s.elevation);
+    // Heights from the ground floor: the storey nearest 0 when one is within 2 m of it (the lower
+    // of two as near), else the lowest (georeferenced files place the ground far above zero).
+    let base = out
+        .iter()
+        .map(|s| s.elevation)
+        .filter(|e| e.abs() <= GROUND_NEAR)
+        .min_by(|a, b| a.abs().total_cmp(&b.abs()))
+        .or_else(|| out.first().map(|s| s.elevation))
+        .unwrap_or(0.0);
     for s in &mut out {
         s.elevation -= base;
     }

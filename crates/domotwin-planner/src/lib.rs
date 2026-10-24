@@ -18,6 +18,20 @@ fn error(err: &ReadError) -> JsError {
     JsError::new(&err.to_json())
 }
 
+/// The plan (JSON text) with ids none of `taken` has, for a storey joining a home whose other
+/// storeys use some of them (`DECISIONS.md`, D-026); the `parent` of its elements follows.
+///
+/// # Errors
+///
+/// `{"code": "not_json"}` when the text is not JSON.
+#[wasm_bindgen(js_name = freeIds)]
+pub fn free_ids(plan: &str, taken: Vec<String>) -> Result<String, JsError> {
+    let mut value: Value = serde_json::from_str(plan)
+        .map_err(|_| JsError::new(&json!({ "code": "not_json" }).to_string()))?;
+    domotwin_core::structure::free_ids(&mut value, &taken.into_iter().collect());
+    Ok(value.to_string())
+}
+
 /// A plan being edited.
 #[wasm_bindgen]
 #[derive(Debug)]

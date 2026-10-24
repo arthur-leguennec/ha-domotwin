@@ -51,7 +51,9 @@ async def test_saves_are_written(
     stored = hass_storage[STORAGE_KEY]
     assert stored["version"] == STORAGE_VERSION
     assert stored["minor_version"] == STORAGE_MINOR_VERSION
-    assert stored["data"]["plan"] == demo_plan
+    assert stored["data"]["storeys"] == [
+        {"id": "storey-1", "name": "", "elevation": 0, "plan": demo_plan, "layout": {}}
+    ]
     assert stored["data"]["revision"] == 1
 
 
@@ -98,3 +100,68 @@ async def test_removing_the_integration_deletes_the_data(
     assert await hass.config_entries.async_remove(setup_integration.entry_id)
     await hass.async_block_till_done()
     assert STORAGE_KEY not in hass_storage
+
+
+async def test_the_single_plan_of_version_1_1_becomes_the_first_storey(
+    hass: HomeAssistant, hass_storage: dict[str, Any], demo_plan: dict[str, Any]
+) -> None:
+    hass_storage[STORAGE_KEY] = {
+        "version": 1,
+        "minor_version": 1,
+        "key": STORAGE_KEY,
+        "data": {"revision": 3, "plan": demo_plan, "layout": {"sofa": {"x": 1}}},
+    }
+    data = DomoTwinData(hass)
+    await data.async_load()
+    assert [storey["id"] for storey in data.storeys] == ["storey-1"]
+    assert data.plan == demo_plan
+    assert data.layout == {"sofa": {"x": 1}}
+    assert "plan" not in data.snapshot()
+    # Without a plan, no storey.
+    hass_storage[STORAGE_KEY]["data"] = {"revision": 1, "plan": None, "layout": {}}
+    empty = DomoTwinData(hass)
+    await empty.async_load()
+    assert empty.storeys == []
+    assert empty.plan is None
+
+
+async def test_storeys_are_added_changed_ordered_and_removed(
+    hass: HomeAssistant, demo_plan: dict[str, Any]
+) -> None:
+    data = DomoTwinData(hass)
+    await data.async_load()
+    await data.async_save_plan(plan=demo_plan)
+    upper = {
+        **demo_plan,
+        "elements": [
+            {"id": "attic", "type": "room", "name": "Attic", "x": 0, "y": 0, "w": 300, "h": 300}
+        ],
+    }
+    revision, storey = await data.async_save_storey(name="First floor", elevation=280, plan=upper)
+    assert storey == "storey-2"
+    cellar = {
+        **demo_plan,
+        "elements": [
+            {"id": "cellar", "type": "room", "name": "Cellar", "x": 0, "y": 0, "w": 300, "h": 300}
+        ],
+    }
+    _, below = await data.async_save_storey(name="Cellar", elevation=-250, plan=cellar)
+    # Lowest first; the default storey is the ground floor, not the cellar.
+    assert [s["id"] for s in data.storeys] == [below, "storey-1", "storey-2"]
+    ground = data.storey()
+    assert ground is not None
+    assert ground["id"] == "storey-1"
+    assert data.plan == demo_plan
+    await data.async_save_storey(storey="storey-2", name="Attic", expected_revision=revision + 1)
+    attic = data.storey("storey-2")
+    assert attic is not None
+    assert attic["name"] == "Attic"
+    await data.async_save_plan(storey="storey-2", layout={"x": {"angle": 15}})
+    attic = data.storey("storey-2")
+    assert attic is not None
+    assert attic["layout"] == {"x": {"angle": 15}}
+    await data.async_remove_storey(below)
+    assert [s["id"] for s in data.storeys] == ["storey-1", "storey-2"]
+    # A plan None removes its storey.
+    await data.async_save_plan(storey="storey-2", plan=None)
+    assert [s["id"] for s in data.storeys] == ["storey-1"]

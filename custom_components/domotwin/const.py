@@ -9,7 +9,9 @@ VERSION: Final = "0.0.0"  # x-release-please-version
 
 # Storage (.storage/domotwin.data), see docs/ARCHITECTURE.md.
 STORAGE_KEY: Final = f"{DOMAIN}.data"
-STORAGE_VERSION: Final = 1
+# 2: the storeys (1.1 kept one plan). A major version, so that an older DomoTwin refuses the data
+# instead of reading it without its storeys and saving that.
+STORAGE_VERSION: Final = 2
 STORAGE_MINOR_VERSION: Final = 1
 
 # Frontend files served by the integration.
@@ -37,6 +39,11 @@ MAX_ELEMENTS: Final = 500
 MAX_ID_LENGTH: Final = 100
 MAX_BOUND_ELEMENTS: Final = 2_000
 MAX_ENTITIES_PER_ELEMENT: Final = 16
+# Storeys of a home, the length of their names and their elevation (cm, from the ground).
+MAX_STOREYS: Final = 20
+MAX_STOREY_NAME: Final = 60
+MIN_ELEVATION: Final = -10_000
+MAX_ELEVATION: Final = 100_000
 
 # Dispatcher signal sent after every write: (kind, revision).
 SIGNAL_UPDATED: Final = f"{DOMAIN}_updated"

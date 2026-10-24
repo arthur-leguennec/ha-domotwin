@@ -76,6 +76,10 @@ export class Engine {
      */
     editRemove(): string;
     /**
+     * Ids the pieces added in this session must not take (the other storeys' elements).
+     */
+    editReserve(ids: string[]): void;
+    /**
      * Puts a whole overlay (JSON, a draft kept by the browser) in place as one change that can
      * be undone.
      */
@@ -399,6 +403,7 @@ export interface InitOutput {
     readonly engine_editRedo: (a: number, b: number) => void;
     readonly engine_editRemove: (a: number, b: number) => void;
     readonly engine_editRemoveModel: (a: number, b: number, c: number, d: number) => void;
+    readonly engine_editReserve: (a: number, b: number, c: number) => void;
     readonly engine_editRestore: (a: number, b: number, c: number, d: number) => void;
     readonly engine_editRotate: (a: number, b: number, c: number) => void;
     readonly engine_editSaved: (a: number, b: number, c: number) => void;

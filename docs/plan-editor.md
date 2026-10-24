@@ -68,7 +68,13 @@ has links.
 
 Sides without a wall (`openEdges`), per-side wall thicknesses and finishes, a room's colour, wall
 style and materials, and a side's length typed in are not edited here yet: they are kept as the
-plan has them. One storey per plan until M7.
+plan has them.
+
+## Storeys
+
+The plan editor edits the storey shown; **Draw a new storey**, in the panel's **Storeys**, opens it
+on a new plan that is saved as a new storey above the others ([storeys](storeys.md)). New elements
+never take an id another storey uses. A plan not saved is kept for its storey.
 
 ## For developers
 

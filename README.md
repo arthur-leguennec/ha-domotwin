@@ -17,13 +17,14 @@ Local, fast, Rust + WebAssembly.</p>
 > ([roadmap](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/ROADMAP.md)). The
 > integration, the panel, the card, the plan and IFC import, the 3D and 2D views, live control
 > (states, tap, long press, room panel, linking), the edit mode, your own 3D models, the layers, the
-> devices and the plan editor work today; storeys come next. The features below describe version
-> 0.1.0.
+> devices, the plan editor and storeys work today; looks and a kiosk mode come next. The features
+> below describe version 0.1.0.
 
 ## Features
 
-- **Your floor plan in 3D and 2D.** Import a House Maquette plan (`*.plan.json`) or one storey of an
-  IFC model (`*.ifc`, from Revit, ArchiCAD, Bonsai, FreeCAD…) and see it as a clean 3D model. The
+- **Your floor plan in 3D and 2D.** Import a House Maquette plan (`*.plan.json`) or an IFC model
+  (`*.ifc`, from Revit, ArchiCAD, Bonsai, FreeCAD…), one storey or all of them, and see it as a
+  clean 3D model. The
   walls facing the camera are lowered automatically, like an open dollhouse. Switch to a crisp 2D
   plan with a smooth animation.
 - **Tap to control.** Tap a lamp to toggle it, long-press for brightness and colour, long-press a
@@ -40,6 +41,9 @@ Local, fast, Rust + WebAssembly.</p>
 - **Plan editor.** No plan to import? Draw one in the panel: rooms as polygons with their lengths,
   partitions, doors and windows placed on the walls, with snapping and undo. See [plan
   editor](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/plan-editor.md).
+- **Storeys.** A cellar, floors above, an attic: one plan each, a switcher in the view, stairs that
+  take you up a tap at a time, and the alerts of every storey wherever you are. See
+  [storeys](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/storeys.md).
 - **Edit mode.** Move, rotate and stack furniture with snapping, guides and undo, add pieces from
   a catalogue, link any object to entities (with suggestions from your areas), and add your own
   furniture or appliance with its 3D model (glTF/GLB, OBJ, STL or 3MF). See
@@ -73,6 +77,10 @@ Local, fast, Rust + WebAssembly.</p>
   <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-plan-editor.png" alt="The plan editor: a corner of the living room dragged with the lengths of its sides, and a room drawn beside the home" width="100%">
 </p>
 
+<p align="center">
+  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-storeys.png" alt="Storeys: the floor above the demo apartment with its stairs and the storey switcher, and the dialog listing the storeys with their names and floor heights" width="100%">
+</p>
+
 ## Quick start
 
 1. **Install.** Use the button above, or in HACS add
@@ -104,6 +112,7 @@ YAML is never required. For reference, the card options are:
 | `quality`     | `auto`, `eco`, `balanced`, `high`   | `auto`     | Rendering quality; `auto` adapts to the device. |
 | `cutaway`     | `auto`, `always`, `off`             | `auto`     | How walls facing the camera are lowered.  |
 | `lighting`    | `auto`, `morning`, `day`, `evening`, `night` | `auto` | The light of the scene. `auto` follows the sun of your Home Assistant (`sun.sun`), or the clock without it. |
+| `storey`      | a storey id (`storey-2`…)           | ground floor | Storey shown when the card opens; the switcher changes it. |
 | `room`        | a room id of the plan               | none       | Room to focus on when the card opens.     |
 | `layer`       | `off`, `temperature`, `humidity`, `co2`, `pm25`, `power` | `off` | Layer shown when the card opens; the layer menu changes it. |
 | `alerts`      | `true`, `false`                     | `true`     | Safety alerts of the rooms (smoke, gas, water, alarm, a window open in the rain). |
@@ -138,9 +147,14 @@ WebAssembly) reads the plan, builds the geometry and draws it with WebGL2. More 
 
 **Which plan formats does DomoTwin read?** The House Maquette plan format, documented in
 [`docs/plan-format.md`](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/plan-format.md)
-with its JSON Schema, and one storey of an IFC file (ISO 16739, exported by FreeCAD, Blender with
-Bonsai, ArchiCAD or Revit): see [IFC
+with its JSON Schema, and IFC files (ISO 16739, exported by FreeCAD, Blender with Bonsai, ArchiCAD
+or Revit), one storey or every storey at once: see [IFC
 import](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/ifc-import.md).
+
+**My home has several floors.** Each floor is a storey with its own plan: **Storeys** in the panel
+adds one (imported or drawn), names it and sets its height; the view switches between them, and a
+card can open on any of them. See
+[storeys](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/storeys.md).
 
 **Can I draw my home without another program?** Yes: **Draw a plan** in the panel (or **Edit
 plan** to change one), see [plan

@@ -16,7 +16,7 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M4        | Layers: heatmap, alerts, presence, real sun, power         | ✅     |
 | M5        | Devices: cameras and what they see, locks, appliances      | ✅     |
 | M6        | Plan editor: draw rooms, walls, doors and windows          | ✅     |
-| M7        | Storeys: several floors, stairs, a storey switcher         | ⏳     |
+| M7        | Storeys: several floors, stairs, a storey switcher         | ✅     |
 | M8        | Looks and kiosk: themes, walk mode, idle and night modes   | ⏳     |
 | M9        | Imports: Sweet Home 3D, DXF, room scans                    | ⏳     |
 | M10       | Polish: design, fonts, accessibility, performance, README  | ⏳     |
@@ -310,12 +310,36 @@ Draw a plan in the app (`DECISIONS.md`, D-025; [`plan-editor.md`](plan-editor.md
 ![The plan editor: a corner of the living room dragged with the lengths of its sides, and a room drawn beside the home](figures/screenshot-plan-editor.png)
 
 Left for later: sides without a wall, per-side thicknesses and finishes, typing a side's length,
-a camera of its own (not on a piece), several storeys (M7).
+a camera of its own (not on a piece).
 
 ## M7, storeys
 
-Several storeys in one plan, stairs between them, a storey switcher in the view and the card's
-`storey` option; an IFC file imported whole.
+Several storeys in one home (`DECISIONS.md`, D-026; [`storeys.md`](storeys.md)).
+
+- ✅ **Storage 2.1**: storeys `{id, name, elevation, plan, layout}`, the home of 1.1 migrated as its
+  first storey; `plan/get` and `plan/save` take a storey (the ground floor by default),
+  `storey/save`, `storey/remove` and `storeys/replace` (all at once, or none); element ids, and
+  pieces added in edit mode, unique in the whole home (`duplicate_id`); at most 20 storeys; 3D
+  files kept while any storey uses them.
+- ✅ **A storey switcher** in the view's tools, highest on top, numbered from the ground floor; the
+  card's `storey` option, with a picker in the visual editor; **stairs**, a new furniture kind,
+  lead to the next storey on a tap.
+- ✅ **Storeys** in the panel: name, floor height, removal, a new storey imported or drawn in the
+  plan editor; import, edit, arrange and export work on the storey shown; drafts kept per storey.
+- ✅ **IFC**: **Import every storey** of a file in one save, with their names and elevations
+  measured from the ground floor; ids renamed where two storeys share them (`freeIds`).
+- ✅ **Alerts from every storey** in the banner, with their storey; the switcher marks a storey with
+  an alert and a tap on the alert goes there.
+- ✅ A fictional upper floor for the demo apartment (`examples/demo-upper-floor.plan.json`).
+- ✅ Tests: migration, storey commands, unique ids, admin-only writes (pytest); stairs, the upper
+  floor and renaming ids (Rust); levels, names, the card editor's picker, alerts elsewhere
+  (vitest); the switcher, stairs, the card option, the dialog, a storey drawn, imported, a whole
+  IFC file, an alert upstairs (Playwright).
+
+![The floor above with its stairs and the storey switcher; the storeys dialog](figures/screenshot-storeys.png)
+
+Left for later: the storeys stacked in one 3D view (the floors above see-through), stairs cut into
+the floor above, the heatmap and presence of the other storeys.
 
 ## M8, looks and kiosk
 

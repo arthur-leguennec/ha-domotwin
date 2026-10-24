@@ -73,9 +73,11 @@ every reader returns `Result` with a stable error code that the frontend transla
 
 ![The four flows: load the home, follow live states, tap and long-press, edit and save](figures/data-flow.png)
 
-1. **Load.** The panel or card calls `domotwin/plan/get`, `domotwin/bindings/get` and
-   `domotwin/settings/get`, then passes the
-   plan, the overlay and the bindings to the engine (`load_plan`). The core reads the plan leniently,
+1. **Load.** The panel or card calls `domotwin/plan/get` (the storey shown, the ground floor by
+   default), `domotwin/bindings/get` and `domotwin/settings/get`, then passes the
+   plan, the overlay and the bindings to the engine (`load_plan`). With several storeys, the other
+   storeys' plans are fetched too, for their rooms' alerts (D-026); a storey switch loads another
+   plan in the same engine. The core reads the plan leniently,
    applies the overlay, builds the geometry, and the renderer uploads batched meshes. Pieces drawn
    from 3D files are boxes until the view has fetched each file once
    (`GET /api/domotwin/models/<sha256>.<format>`), read it with the model module and given its mesh
@@ -103,16 +105,25 @@ every reader returns `Result` with a stable error code that the frontend transla
 ```json
 {
   "revision": 3,
-  "plan": { "version": 1, "unit": "cm", "elements": [] },
-  "layout": { "sofa": { "x": 360, "y": 110, "angle": 0 } },
+  "storeys": [
+    {
+      "id": "storey-1",
+      "name": "",
+      "elevation": 0,
+      "plan": { "version": 1, "unit": "cm", "elements": [] },
+      "layout": { "sofa": { "x": 360, "y": 110, "angle": 0 } }
+    }
+  ],
   "bindings": { "version": 1, "rooms": {}, "elements": {} },
   "settings": {},
   "revisions": { "plan": 2, "bindings": 3, "settings": 0 }
 }
 ```
 
-- `plan`: the imported House Maquette plan exactly as read, or `null`.
-- `layout`: the edit-mode overlay, keyed by element id.
+- `storeys` (D-026): each storey's `plan`, the House Maquette plan exactly as read, and `layout`,
+  its edit-mode overlay keyed by element id; `name` (empty: named by its place) and `elevation`
+  (cm). Element ids, and the ids of pieces an overlay adds, are unique in the whole home. Storage
+  1.1 kept one `plan` and `layout`: they become `storey-1` (storage 2.1).
 - `bindings`: see [`bindings.md`](bindings.md).
 - `settings`: the home's settings, `{"north": <degrees>}`: where north points on the plan,
   clockwise from its top, for the real sun (D-023).
@@ -132,9 +143,12 @@ when the integration is removed.
 
 | Command                  | Who    | Payload                                        | Result                           |
 | ------------------------ | ------ | ---------------------------------------------- | -------------------------------- |
-| `domotwin/info`          | user   | –                                              | `version`, `revision`, `has_plan` |
-| `domotwin/plan/get`      | user   | –                                              | `plan`, `layout`, `revision`     |
-| `domotwin/plan/save`     | admin  | `plan?`, `layout?`, `expected_revision?`       | `revision`                       |
+| `domotwin/info`          | user   | –                                              | `version`, `revision`, `has_plan`, `storeys` |
+| `domotwin/plan/get`      | user   | `storey?` (the ground floor by default)        | `plan`, `layout`, `storey`, `storeys`, `revision` |
+| `domotwin/plan/save`     | admin  | `storey?`, `plan?` (`null` removes the storey), `layout?`, `expected_revision?` | `revision` |
+| `domotwin/storey/save`   | admin  | `storey?` (none: a new storey, `plan` needed), `name?`, `elevation?`, `plan?`, `layout?`, `expected_revision?` | `revision`, `storey` |
+| `domotwin/storey/remove` | admin  | `storey`, `expected_revision?`                 | `revision`                       |
+| `domotwin/storeys/replace` | admin | `storeys` (`[{plan, name?, elevation?}]`, 1 to 20), `expected_revision?` | `revision`, `storeys` (their ids) |
 | `domotwin/bindings/get`  | user   | –                                              | `bindings`, `revision`           |
 | `domotwin/bindings/save` | admin  | `bindings`, `expected_revision?`               | `revision`                       |
 | `domotwin/settings/get`  | user   | –                                              | `settings`, `revision`           |
@@ -143,7 +157,8 @@ when the integration is removed.
 
 Errors: `not_loaded`, `invalid_plan`, `invalid_layout`, `invalid_bindings`, `invalid_settings`,
 `too_large`,
-`too_many_models`, `revision_conflict`, and Home Assistant's `unauthorized` for non-admin writes.
+`too_many_models`, `revision_conflict`, `unknown_storey`, `invalid_storey`, `too_many_storeys`,
+`duplicate_id`, and Home Assistant's `unauthorized` for non-admin writes.
 
 ## Privacy
 

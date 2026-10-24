@@ -439,6 +439,11 @@ export class DomoTwinEngine {
     return editState(this.live.beginEdit());
   }
 
+  /** Ids the pieces added in this session must not take (the other storeys'). */
+  editReserve(ids: string[]): void {
+    this.live.editReserve(ids);
+  }
+
   /** Leaves edit mode, keeping what is shown (`keep`) or going back to what was saved. */
   endEdit(keep: boolean): void {
     this.live.endEdit(keep);

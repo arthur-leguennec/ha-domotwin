@@ -190,6 +190,7 @@ kinds! {
     Printer = "printer", [42, 38, 25], 0xe8e8e6, 0, NONE, [];
     Conduit = "conduit", [200, 3, 3], 0xa6aaa9, 250, SOFT_WALL, [];
     Printer3d = "printer3d", [35, 36, 49], 0x1f2022, 0, NONE, ["sans-bobine", "enclosure", "enclosure-sans-bobine"];
+    Stairs = "stairs", [100, 280, 270], 0xb79268, 0, NONE, [];
 }
 
 impl Kind {
@@ -355,7 +356,7 @@ mod tests {
 
     #[test]
     fn every_kind_round_trips_and_has_sane_defaults() {
-        assert_eq!(Kind::ALL.len(), 55);
+        assert_eq!(Kind::ALL.len(), 56);
         for kind in Kind::ALL {
             assert_eq!(Kind::from_name(kind.name()), Some(*kind));
             let info = kind.info();

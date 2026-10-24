@@ -25,7 +25,7 @@ async def test_empty_installation(
 
     await client.send_json_auto_id({"type": "domotwin/plan/get"})
     result = (await client.receive_json())["result"]
-    assert result == {"plan": None, "layout": {}, "revision": 0}
+    assert result == {"plan": None, "layout": {}, "storey": None, "storeys": [], "revision": 0}
 
     await client.send_json_auto_id({"type": "domotwin/bindings/get"})
     result = (await client.receive_json())["result"]
@@ -306,3 +306,179 @@ async def test_invalid_settings_are_refused(
     response = await client.receive_json()
     assert not response["success"]
     assert response["error"]["code"] == "invalid_settings"
+
+
+async def test_storeys_over_the_websocket(
+    hass: HomeAssistant,
+    setup_integration: MockConfigEntry,
+    hass_ws_client: WebSocketGenerator,
+    demo_plan: dict[str, Any],
+) -> None:
+    client = await hass_ws_client(hass)
+
+    async def send(message: dict[str, Any]) -> dict[str, Any]:
+        await client.send_json_auto_id(message)
+        response: dict[str, Any] = await client.receive_json()
+        return response
+
+    assert (await send({"type": "domotwin/plan/save", "plan": demo_plan}))["success"]
+    upper = {
+        **demo_plan,
+        "elements": [
+            {"id": "attic", "type": "room", "name": "Attic", "x": 0, "y": 0, "w": 300, "h": 300}
+        ],
+    }
+    added = await send(
+        {"type": "domotwin/storey/save", "name": "First floor", "elevation": 280, "plan": upper}
+    )
+    assert added["success"]
+    storey = added["result"]["storey"]
+    got = (await send({"type": "domotwin/plan/get", "storey": storey}))["result"]
+    assert got["plan"] == upper
+    assert got["storey"] == storey
+    assert got["storeys"] == [
+        {"id": "storey-1", "name": "", "elevation": 0},
+        {"id": storey, "name": "First floor", "elevation": 280.0},
+    ]
+    # The ground floor by default.
+    assert (await send({"type": "domotwin/plan/get"}))["result"]["storey"] == "storey-1"
+    # Ids are unique in the whole home: the demo's on another storey are refused.
+    clash = await send({"type": "domotwin/storey/save", "plan": demo_plan})
+    assert clash["error"]["code"] == "duplicate_id"
+    clash = await send({"type": "domotwin/plan/save", "storey": storey, "plan": demo_plan})
+    assert clash["error"]["code"] == "duplicate_id"
+    # A storey of its own may keep its ids.
+    same = await send({"type": "domotwin/plan/save", "storey": storey, "plan": upper})
+    assert same["success"]
+    # Checked fields.
+    bad = await send({"type": "domotwin/storey/save", "storey": storey, "elevation": 10**9})
+    assert bad["error"]["code"] == "invalid_storey"
+    bad = await send({"type": "domotwin/storey/save", "name": "Nothing"})
+    assert bad["error"]["code"] == "invalid_storey"
+    unknown = await send({"type": "domotwin/plan/get", "storey": "nope"})
+    assert unknown["error"]["code"] == "unknown_storey"
+    unknown = await send({"type": "domotwin/storey/remove", "storey": "nope"})
+    assert unknown["error"]["code"] == "unknown_storey"
+    # Removed.
+    assert (await send({"type": "domotwin/storey/remove", "storey": storey}))["success"]
+    got = (await send({"type": "domotwin/plan/get"}))["result"]
+    assert [s["id"] for s in got["storeys"]] == ["storey-1"]
+    info = (await send({"type": "domotwin/info"}))["result"]
+    assert info["storeys"] == 1
+
+
+async def test_pieces_added_in_edit_mode_have_ids_of_their_own(
+    hass: HomeAssistant,
+    setup_integration: MockConfigEntry,
+    hass_ws_client: WebSocketGenerator,
+    demo_plan: dict[str, Any],
+) -> None:
+    client = await hass_ws_client(hass)
+
+    async def send(message: dict[str, Any]) -> dict[str, Any]:
+        await client.send_json_auto_id(message)
+        response: dict[str, Any] = await client.receive_json()
+        return response
+
+    lamp = {
+        "lamp-added-1": {
+            "add": {"name": "Floor lamp", "kind": "lamp", "w": 35, "h": 35, "z": 160},
+            "x": 40,
+            "y": 20,
+        }
+    }
+    assert (await send({"type": "domotwin/plan/save", "plan": demo_plan, "layout": lamp}))[
+        "success"
+    ]
+    upper = {
+        **demo_plan,
+        "elements": [
+            {"id": "attic", "type": "room", "name": "Attic", "x": 0, "y": 0, "w": 300, "h": 300}
+        ],
+    }
+    added = await send({"type": "domotwin/storey/save", "plan": upper, "elevation": 280})
+    storey = added["result"]["storey"]
+    # The same id added on another storey is refused, in the overlay as in the plan.
+    clash = await send({"type": "domotwin/plan/save", "storey": storey, "layout": lamp})
+    assert clash["error"]["code"] == "duplicate_id"
+    clash = await send({"type": "domotwin/storey/save", "storey": storey, "layout": lamp})
+    assert clash["error"]["code"] == "duplicate_id"
+    # Moving a piece of its own is not adding one.
+    moved = await send(
+        {"type": "domotwin/plan/save", "storey": storey, "layout": {"attic": {"x": 10}}}
+    )
+    assert moved["success"]
+
+
+async def test_every_storey_is_replaced_at_once_or_none(
+    hass: HomeAssistant,
+    setup_integration: MockConfigEntry,
+    hass_ws_client: WebSocketGenerator,
+    demo_plan: dict[str, Any],
+) -> None:
+    client = await hass_ws_client(hass)
+
+    async def send(message: dict[str, Any]) -> dict[str, Any]:
+        await client.send_json_auto_id(message)
+        response: dict[str, Any] = await client.receive_json()
+        return response
+
+    assert (await send({"type": "domotwin/plan/save", "plan": demo_plan}))["success"]
+    upper = {
+        **demo_plan,
+        "elements": [
+            {"id": "attic", "type": "room", "name": "Attic", "x": 0, "y": 0, "w": 300, "h": 300}
+        ],
+    }
+    cellar = {
+        **demo_plan,
+        "elements": [
+            {"id": "cellar", "type": "room", "name": "Cellar", "x": 0, "y": 0, "w": 300, "h": 300}
+        ],
+    }
+    replace = {
+        "type": "domotwin/storeys/replace",
+        "storeys": [
+            {"name": "Cellar", "elevation": -300, "plan": cellar},
+            {"name": "Attic", "elevation": 280, "plan": upper},
+        ],
+    }
+    # Refused, the home as it was: ids on two storeys, a bad height, none, too many.
+    for storeys, code in (
+        ([{"plan": upper}, {"plan": upper}], "duplicate_id"),
+        ([{"plan": upper, "elevation": 10**9}], "invalid_storey"),
+        ([], "invalid_storey"),
+        ([{"plan": upper}] * 21, "too_many_storeys"),
+    ):
+        refused = await send({**replace, "storeys": storeys})
+        assert refused["error"]["code"] == code
+    got = (await send({"type": "domotwin/plan/get"}))["result"]
+    assert got["plan"] == demo_plan
+    # Replaced: ids in order, the ground floor the one nearest 0.
+    done = await send(replace)
+    assert done["result"]["storeys"] == ["storey-1", "storey-2"]
+    got = (await send({"type": "domotwin/plan/get"}))["result"]
+    assert got["storey"] == "storey-2"
+    assert got["plan"] == upper
+    assert [(s["name"], s["elevation"]) for s in got["storeys"]] == [
+        ("Cellar", -300.0),
+        ("Attic", 280.0),
+    ]
+
+
+async def test_storeys_need_an_admin(
+    hass: HomeAssistant,
+    setup_integration: MockConfigEntry,
+    hass_ws_client: WebSocketGenerator,
+    hass_read_only_access_token: str,
+    demo_plan: dict[str, Any],
+) -> None:
+    client = await hass_ws_client(hass, hass_read_only_access_token)
+    await client.send_json_auto_id({"type": "domotwin/storey/save", "plan": demo_plan})
+    assert (await client.receive_json())["error"]["code"] == "unauthorized"
+    await client.send_json_auto_id({"type": "domotwin/storey/remove", "storey": "storey-1"})
+    assert (await client.receive_json())["error"]["code"] == "unauthorized"
+    await client.send_json_auto_id(
+        {"type": "domotwin/storeys/replace", "storeys": [{"plan": demo_plan}]}
+    )
+    assert (await client.receive_json())["error"]["code"] == "unauthorized"

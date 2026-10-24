@@ -547,7 +547,8 @@
             "console",
             "printer",
             "conduit",
-            "printer3d"
+            "printer3d",
+            "stairs"
           ],
           "default": "desk"
         },

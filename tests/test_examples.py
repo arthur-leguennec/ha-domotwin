@@ -33,3 +33,14 @@ def test_bindings_reference_existing_elements(
     rooms = {element["id"] for element in demo_plan["elements"] if element["type"] == "room"}
     assert set(demo_bindings["elements"]) <= ids
     assert set(demo_bindings["rooms"]) <= rooms
+
+
+def test_upper_floor_matches_the_schema_with_ids_of_its_own(demo_plan: dict[str, Any]) -> None:
+    upper = json.loads(
+        (ROOT / "examples" / "demo-upper-floor.plan.json").read_text(encoding="utf-8")
+    )
+    schema = json.loads((ROOT / "schema" / "plan.schema.json").read_text(encoding="utf-8"))
+    assert list(jsonschema.Draft202012Validator(schema).iter_errors(upper)) == []
+    assert validate_plan(upper) is upper
+    ids = {element["id"] for element in demo_plan["elements"]}
+    assert not ids & {element["id"] for element in upper["elements"]}

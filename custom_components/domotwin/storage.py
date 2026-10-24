@@ -1,4 +1,4 @@
-"""Versioned storage of the plan, the edit overlay and the bindings."""
+"""Versioned storage of the storeys (a plan and its overlay each), the bindings, the settings."""
 
 from __future__ import annotations
 
@@ -42,12 +42,43 @@ def empty_data() -> StoredData:
     """Return the data of a fresh installation."""
     return {
         "revision": 0,
-        "plan": None,
-        "layout": {},
+        "storeys": [],
         "bindings": empty_bindings(),
         "settings": {},
         "revisions": {},
     }
+
+
+def normalise(stored: dict[str, Any]) -> StoredData:
+    """Return the stored data in the current shape.
+
+    Known keys only; the single plan of version 1.1 (`plan`, `layout`) becomes the first storey.
+    """
+    data = empty_data()
+    data.update({key: value for key, value in stored.items() if key in data})
+    if not isinstance(stored.get("storeys"), list):
+        plan = stored.get("plan")
+        layout = stored.get("layout")
+        data["storeys"] = (
+            [
+                {
+                    "id": "storey-1",
+                    "name": "",
+                    "elevation": 0,
+                    "plan": plan,
+                    "layout": layout if isinstance(layout, dict) else {},
+                }
+            ]
+            if isinstance(plan, dict)
+            else []
+        )
+    if not isinstance(data["revisions"], dict):
+        data["revisions"] = {}
+    return data
+
+
+class UnknownStoreyError(Exception):
+    """No storey has the id given."""
 
 
 class RevisionConflictError(Exception):
@@ -69,10 +100,8 @@ class DomoTwinStore(Store[StoredData]):
         old_data: dict[str, Any],
     ) -> StoredData:
         """Bring data written by an older version to the current shape."""
-        # Version 1.1 is the first one; future migrations go here, one step at a time.
-        data = empty_data()
-        data.update({key: value for key, value in old_data.items() if key in data})
-        return data
+        # 1.x → 2.1: the plan and its overlay become the first storey.
+        return normalise(old_data)
 
 
 class DomoTwinData:
@@ -93,11 +122,7 @@ class DomoTwinData:
     async def async_load(self) -> None:
         """Load the stored data, or start empty."""
         stored = await self._store.async_load()
-        data = empty_data()
-        if isinstance(stored, dict):
-            data.update({key: value for key, value in stored.items() if key in data})
-        if not isinstance(data["revisions"], dict):
-            data["revisions"] = {}
+        data = normalise(stored if isinstance(stored, dict) else {})
         for kind in KINDS:
             data["revisions"].setdefault(kind, data["revision"])
         self._data = data
@@ -112,16 +137,42 @@ class DomoTwinData:
         return int(self._data["revisions"].get(kind, self.revision))
 
     @property
+    def storeys(self) -> list[dict[str, Any]]:
+        """The storeys, lowest first: `id`, `name`, `elevation` (cm), `plan`, `layout`."""
+        storeys: list[dict[str, Any]] = self._data["storeys"]
+        return sorted(storeys, key=lambda storey: float(storey.get("elevation", 0)))
+
+    def storey(self, storey_id: str | None = None) -> dict[str, Any] | None:
+        """Storey `storey_id`, or the ground floor; None when there is none.
+
+        The ground floor is the storey whose floor is nearest elevation 0 (the lower one of two as
+        near). Raises UnknownStoreyError for an id no storey has.
+        """
+        if storey_id is not None:
+            return self._by_id(storey_id)
+        storeys = self.storeys
+        if not storeys:
+            return None
+        return min(storeys, key=lambda storey: abs(float(storey.get("elevation", 0))))
+
+    def _by_id(self, storey_id: str) -> dict[str, Any]:
+        storeys: list[dict[str, Any]] = self._data["storeys"]
+        for storey in storeys:
+            if storey["id"] == storey_id:
+                return storey
+        raise UnknownStoreyError(storey_id)
+
+    @property
     def plan(self) -> dict[str, Any] | None:
-        """The imported plan, as read, or None."""
-        plan: dict[str, Any] | None = self._data["plan"]
-        return plan
+        """The plan of the ground floor, or None."""
+        storey = self.storey()
+        return storey["plan"] if storey else None
 
     @property
     def layout(self) -> dict[str, Any]:
-        """The edit-mode overlay keyed by element id."""
-        layout: dict[str, Any] = self._data["layout"]
-        return layout
+        """The edit-mode overlay of the ground floor, keyed by element id."""
+        storey = self.storey()
+        return storey["layout"] if storey else {}
 
     @property
     def bindings(self) -> dict[str, Any]:
@@ -144,15 +195,106 @@ class DomoTwinData:
         *,
         plan: dict[str, Any] | _Unset | None = UNSET,
         layout: dict[str, Any] | _Unset = UNSET,
+        storey: str | None = None,
         expected_revision: int | None = None,
     ) -> int:
-        """Store a new plan (None removes it) and/or overlay. Return the new revision."""
+        """Store the plan and/or overlay of a storey. Return the new revision.
+
+        The storey is `storey`, else the ground floor; the first storey is made when there is
+        none. A plan None removes the storey.
+        """
         self._check_revision("plan", expected_revision)
+        target = self.storey(storey)
+        if target is None:
+            if not isinstance(plan, dict):
+                # Nothing to remove, or an overlay without a plan.
+                return await self._async_commit("plan")
+            target = self._new_storey("", 0)
+        if plan is None:
+            self._data["storeys"].remove(target)
+            return await self._async_commit("plan")
         if not isinstance(plan, _Unset):
-            self._data["plan"] = plan
+            target["plan"] = plan
         if not isinstance(layout, _Unset):
-            self._data["layout"] = layout
+            target["layout"] = layout
         return await self._async_commit("plan")
+
+    async def async_save_storey(  # noqa: PLR0913 - the fields of the command, all keyword-only
+        self,
+        *,
+        storey: str | None = None,
+        name: str | _Unset = UNSET,
+        elevation: float | _Unset = UNSET,
+        plan: dict[str, Any] | _Unset = UNSET,
+        layout: dict[str, Any] | _Unset = UNSET,
+        expected_revision: int | None = None,
+    ) -> tuple[int, str]:
+        """Store a storey. Return the new revision and the storey's id.
+
+        A new one without `storey` (its plan is needed), else its name, elevation, plan or overlay.
+        """
+        self._check_revision("plan", expected_revision)
+        if storey is None:
+            if not isinstance(plan, dict):
+                raise ValueError("a new storey needs a plan")
+            target = self._new_storey(
+                "" if isinstance(name, _Unset) else name,
+                0 if isinstance(elevation, _Unset) else elevation,
+            )
+        else:
+            target = self._by_id(storey)
+        if not isinstance(name, _Unset):
+            target["name"] = name
+        if not isinstance(elevation, _Unset):
+            target["elevation"] = elevation
+        if not isinstance(plan, _Unset):
+            target["plan"] = plan
+        if not isinstance(layout, _Unset):
+            target["layout"] = layout
+        return await self._async_commit("plan"), target["id"]
+
+    async def async_remove_storey(self, storey: str, expected_revision: int | None = None) -> int:
+        """Remove a storey. Return the new revision."""
+        self._check_revision("plan", expected_revision)
+        self._data["storeys"].remove(self._by_id(storey))
+        return await self._async_commit("plan")
+
+    async def async_replace_storeys(
+        self, storeys: list[dict[str, Any]], expected_revision: int | None = None
+    ) -> tuple[int, list[str]]:
+        """Replace every storey (`name`, `elevation`, `plan` each), in one write.
+
+        Their ids are given in order (`storey-1`, `storey-2`…), their overlays empty. Return the new
+        revision and the ids.
+        """
+        self._check_revision("plan", expected_revision)
+        self._data["storeys"] = [
+            {
+                "id": f"storey-{number}",
+                "name": storey["name"],
+                "elevation": storey["elevation"],
+                "plan": storey["plan"],
+                "layout": {},
+            }
+            for number, storey in enumerate(storeys, start=1)
+        ]
+        ids = [storey["id"] for storey in self._data["storeys"]]
+        return await self._async_commit("plan"), ids
+
+    def _new_storey(self, name: str, elevation: float) -> dict[str, Any]:
+        taken = {storey["id"] for storey in self._data["storeys"]}
+        number = 1
+        while f"storey-{number}" in taken:
+            number += 1
+        target: dict[str, Any] = {
+            "id": f"storey-{number}",
+            "name": name,
+            "elevation": elevation,
+            "plan": None,
+            "layout": {},
+        }
+        self._data["storeys"].append(target)
+        return target
 
     async def async_save_bindings(
         self, bindings: dict[str, Any], expected_revision: int | None = None

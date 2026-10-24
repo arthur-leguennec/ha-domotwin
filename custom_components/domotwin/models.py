@@ -141,10 +141,12 @@ async def async_store(hass: HomeAssistant, data: bytes, file_format: str) -> str
 
 
 async def async_remove_unused(
-    hass: HomeAssistant, plan: dict[str, Any] | None, layout: dict[str, Any]
+    hass: HomeAssistant, storeys: list[tuple[dict[str, Any] | None, dict[str, Any]]]
 ) -> int:
-    """Delete the files nothing uses any more (past their grace period). Returns how many."""
-    used = used_hashes(plan, layout)
+    """Delete the files no storey uses any more (past their grace period). Returns how many."""
+    used: set[str] = set()
+    for plan, layout in storeys:
+        used |= used_hashes(plan, layout)
     return await hass.async_add_executor_job(_remove_unused, models_dir(hass), used, time.time())
 
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from http import HTTPStatus
 import os
 from pathlib import Path
@@ -187,6 +188,11 @@ async def test_unused_files_go_after_a_day_and_all_with_the_integration(
         os.utime(path, (old, old))
     await client.send_json_auto_id({"type": "domotwin/plan/save", "layout": layout})
     assert (await client.receive_json())["success"]
+    # The clean-up runs once the answer is sent.
+    for _ in range(100):
+        if len(list(folder.iterdir())) == 1:
+            break
+        await asyncio.sleep(0.01)
     assert sorted(p.name for p in folder.iterdir()) == [f"{used}.glb"]
     assert unused not in str(list(folder.iterdir()))
 
