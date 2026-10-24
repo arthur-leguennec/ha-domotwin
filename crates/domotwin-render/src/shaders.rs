@@ -301,11 +301,13 @@ void main() {
         }
         if (presence > 0.0) {
             float k = 0.3 + 0.7 * (1.0 - smoothstep(0.0, 0.85, d));
-            layer_glow += vec3(1.0, 0.62, 0.3) * k * 0.22;
+            layer_glow += vec3(1.0, 0.62, 0.3) * k * 0.3;
         }
         if (shape.a > 0.0) {
             bool danger = shape.a > 0.75;
-            alert_tone = danger ? vec3(1.0, 0.03, 0.02) : vec3(1.0, 0.42, 0.02);
+            // Display colours: the alert is laid over the picture after tone mapping, so that red
+            // stays red on a light floor.
+            alert_tone = danger ? vec3(0.8, 0.015, 0.01) : vec3(0.95, 0.4, 0.0);
             float pulse = 0.35 + 0.65 * wave(danger ? 6.2832 : 3.1416, 0.75);
             // A danger shows stronger than a warning.
             alert = pulse * (0.35 + 0.65 * smoothstep(0.35, 1.0, d)) * (danger ? 0.85 : 0.55);
@@ -320,6 +322,10 @@ void main() {
     float wrap = surface == LEAF ? 0.4 : 0.0;
     float diffuse_sun = max((ndl + wrap) / (1.0 + wrap), 0.0) * shadow;
     vec3 hemi = mix(u_ground, u_sky, n.y * 0.5 + 0.5);
+    // Under a ceiling (the real sun), a room sees less of the sky: the sunlit patches stand out.
+    if (u_bounce > 0.0 && v_room > 0.5) {
+        hemi *= 0.6;
+    }
     // Rooms have no ceiling: a little darker near the floor on vertical faces.
     float ao = mix(1.0, mix(u_ao, 1.0, smoothstep(0.0, 90.0, v_world.y)), 1.0 - abs(n.y));
     bool metal = surface == METAL || surface == MIRROR;
@@ -365,8 +371,6 @@ void main() {
 
     color += layer_glow;
     plan += layer_glow * 0.5;
-    color = mix(color, alert_tone * 1.4, alert);
-    plan = mix(plan, alert_tone, alert * 0.9);
     // The power layer: pieces drawing power tinted from yellow (tens of watts) to red (kW).
     if (u_power_layer > 0.5 && v_power > 0.0 && !floor) {
         vec3 tone = mix(vec3(1.0, 0.78, 0.1), vec3(1.0, 0.2, 0.02), v_power);
@@ -391,6 +395,7 @@ void main() {
     plan = mix(plan, vec3(0.2, 0.45, 1.0), selected * 0.45);
     plan = mix(plan, vec3(0.95, 0.12, 0.08), bad * 0.7);
     vec3 shaded = mix(aces(color * u_exposure), plan, u_flat);
+    shaded = mix(shaded, alert_tone, alert);
     frag = vec4(pow(shaded, vec3(1.0 / 2.2)), mix(alpha, max(alpha, 0.35), u_flat));
 }
 ";

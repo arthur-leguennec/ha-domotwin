@@ -180,7 +180,7 @@ explains why. Each entry: context, decision, consequences.
     `domotwin-render::view`) and are unit-tested without a GPU.
 - **Consequences.** Live changes in M2 (a lamp turning on, a door opening) rebuild the scene in Rust
   (a few milliseconds for a 500-element plan) or use per-element uniforms; both keep the draw count.
-  Bloom and ambient occlusion are not in M1; they are optional High-preset passes for M5.
+  Bloom and ambient occlusion are not in M1; they are optional High-preset passes for M10.
 
 ## D-015 · Light that follows the time of day
 
@@ -358,3 +358,71 @@ Decided while the maintainer was away (M3b, D-013 carried out); open to review.
   (no texture memory, no new shader inputs). Behaviour cannot be set without linking an entity: an
   unlinked lamp model never lights. The overlay's `@model:` keys cannot be element ids; DomoTwin
   never writes such ids.
+
+## D-022 · A wider scope: what people expect of a 3D home dashboard, with no account and no cloud
+
+Decided at the maintainer's request (after M3b); the order of the milestones is open to review.
+
+- **Context.** The maintainer asked for DomoTwin to stand comparison with the best 3D dashboards
+  for Home Assistant, paid ones included. What they offer beyond M1–M3b: live layers over the rooms
+  (climate, safety, presence, energy), sunlight at its true angle, devices with their own look
+  (cameras and what they see, locks), a plan drawn in the app, several storeys, looks and a kiosk
+  mode for wall tablets, and imports from common home design tools.
+- **Decision.** The roadmap grows to cover them, one milestone and one PR at a time:
+  M4 layers (`D-023`), M5 devices, M6 plan editor, M7 storeys, M8 looks and kiosk, M9 imports,
+  M10 polish, M11 release 0.1.0 (`ROADMAP.md`). What stays as it is, and sets DomoTwin apart: free
+  and open source, no account, no licence check and no network call outside the user's Home
+  Assistant; the engine in Rust compiled to WebAssembly, drawn on demand within the budgets of
+  `PERFORMANCE.md`; open formats in and out (the House Maquette plan, IFC, glTF, OBJ, STL, 3MF);
+  every text in English and French.
+- **Consequences.** The first release comes later than M6 of the original plan would have put it.
+  Features that need a service outside Home Assistant (cloud rendering, accounts, shared online
+  catalogues) stay out.
+
+## D-023 · Layers: read from the rooms' areas, drawn on the floors from a texture of rooms
+
+Decided while the maintainer was away (M4); open to review.
+
+- **Context.** M4 shows on the plan what the home's sensors say: a heatmap (temperature, humidity,
+  CO₂, fine particles), safety alerts, where someone is, what draws power, and the sun at its true
+  angle. A home has dozens of sensors; most are not linked to a plan element, but most are in a
+  Home Assistant area.
+- **Decision.**
+  - **Values come from areas, in the frontend.** Each room's area (its link, else an area with the
+    room's name, as for the room panel) gives its sensors by device class; a room shows their mean,
+    in °C for temperatures (°F and K converted), or its thermostat's reading when it has no sensor.
+    The view computes this from the `hass` object it already has and sends the engine one small
+    JSON (`setLayers`) only when a value changes at the precision shown; the states of every
+    sensor never go to the engine.
+  - **Perceptual scales, one place.** Each quantity has a scale of stops chosen for its meaning
+    (temperature green at 22 °C, CO₂ red from 2 000 ppm…), interpolated in OKLab by the core, which
+    also gives the legend's colours.
+  - **Drawn on the floors.** Three texels per room slot (heatmap colour; the room's centre, reach
+    and alert; presence) in one texture, read by the shader of the floors (planks, tiles, plain):
+    the heatmap tints the floor most at the room's centre, its edge moving slowly with noise; an
+    alert pulses towards the walls (red once a second for a danger, amber every two seconds for a
+    warning); presence warms the floor. The 2D plan shows the same. No geometry, no draw call and
+    no pass is added.
+  - **Alerts.** Dangers: smoke, gas, carbon monoxide, a water leak, a safety sensor, an alarm panel
+    going off. Warnings: a window open while a weather entity says rain or snow, CO₂ over
+    1 500 ppm. They show whatever layer is chosen, in a banner whose entries frame the room, unless
+    the card turns them off (`alerts: false`).
+  - **Power.** The power sensors linked to a piece (W, kW or MW) give its power; the layer tints the
+    pieces on a logarithmic scale from 3 W (standby, not shown) to 3 kW and labels them in watts
+    (a third texel per element).
+  - **Frames.** Animated layers need frames all the time: they come at 24 per second when nothing
+    else moves, at the display's rate during gestures, camera moves and fades, and never while the
+    view is hidden or off screen (D-014). With reduced motion the layers hold still and frames are
+    drawn on demand again.
+  - **The real sun.** Optional (`sun: real`, or the layer menu): its direction comes from `sun.sun`
+    and from where north points on the plan, a new home setting (`domotwin/settings/*`,
+    administrators, in the panel). The shadow map then draws whole walls (not cut away) and the
+    rooms' ceilings (kept only on the GPU, never drawn in colour), so the sun comes in through the
+    windows (glass casts no shadow) and open doors; a little light bounces off what it lights so
+    that the shade does not go flat. Below the horizon it lights from just above it while the time
+    of day dims it.
+- **Consequences.** The first load grows by about 21 kB gzipped (engine 14 kB, entry 3.5 kB). A
+  heatmap or an alert on screen costs frames at 24 per second (a wall tablet's battery: reduced
+  motion stops it). Sensors outside the room's area do not count, and picking a room's sensors one
+  by one is left for later. The halo is centred on the mean of the room's corners, which can fall
+  outside an L-shaped room. The settings hold only north for now.

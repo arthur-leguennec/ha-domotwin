@@ -69,7 +69,8 @@ every reader returns `Result` with a stable error code that the frontend transla
 
 ![The four flows: load the home, follow live states, tap and long-press, edit and save](figures/data-flow.png)
 
-1. **Load.** The panel or card calls `domotwin/plan/get` and `domotwin/bindings/get`, then passes the
+1. **Load.** The panel or card calls `domotwin/plan/get`, `domotwin/bindings/get` and
+   `domotwin/settings/get`, then passes the
    plan, the overlay and the bindings to the engine (`load_plan`). The core reads the plan leniently,
    applies the overlay, builds the geometry, and the renderer uploads batched meshes. Pieces drawn
    from 3D files are boxes until the view has fetched each file once
@@ -77,8 +78,10 @@ every reader returns `Result` with a stable error code that the frontend transla
    to the engine, which builds the scene again.
 2. **Live states.** On every `hass` update the frontend keeps only the entities that are bound,
    sends the changed ones to the engine (`set_states`), and the core maps them to visual targets
-   (light colour and intensity, cover position, glow…). The renderer animates towards the targets and
-   asks for frames until they are reached.
+   (light colour and intensity, cover position, glow, power…). The renderer animates towards the
+   targets and asks for frames until they are reached. The layers (D-023) are worked out in the
+   frontend from the sensors of each room's area and sent as one small JSON (`set_layers`) when a
+   value changes; the floors' shader draws them from a texture of rooms.
 3. **Interaction.** Pointer events go to the engine (`pick`) which returns the element under the
    pointer. The frontend runs the binding's action: toggle through `callService`, more-info through
    the `hass-more-info` event, navigation, or the long-press popover.
@@ -106,6 +109,8 @@ every reader returns `Result` with a stable error code that the frontend transla
 - `plan`: the imported House Maquette plan exactly as read, or `null`.
 - `layout`: the edit-mode overlay, keyed by element id.
 - `bindings`: see [`bindings.md`](bindings.md).
+- `settings`: the home's settings, `{"north": <degrees>}`: where north points on the plan,
+  clockwise from its top, for the real sun (D-023).
 - `revision`: bumped on every write; used for optimistic concurrency between devices.
 
 The 3D files of user models are not in `.storage`: they are kept under their SHA-256 in
@@ -124,9 +129,12 @@ when the integration is removed.
 | `domotwin/plan/save`     | admin  | `plan?`, `layout?`, `expected_revision?`       | `revision`                       |
 | `domotwin/bindings/get`  | user   | –                                              | `bindings`, `revision`           |
 | `domotwin/bindings/save` | admin  | `bindings`, `expected_revision?`               | `revision`                       |
+| `domotwin/settings/get`  | user   | –                                              | `settings`, `revision`           |
+| `domotwin/settings/save` | admin  | `settings` (`north`, 0 ≤ n < 360)              | `revision`                       |
 | `domotwin/subscribe`     | user   | –                                              | events `{kind, revision}`        |
 
-Errors: `not_loaded`, `invalid_plan`, `invalid_layout`, `invalid_bindings`, `too_large`,
+Errors: `not_loaded`, `invalid_plan`, `invalid_layout`, `invalid_bindings`, `invalid_settings`,
+`too_large`,
 `too_many_models`, `revision_conflict`, and Home Assistant's `unauthorized` for non-admin writes.
 
 ## Privacy

@@ -16,8 +16,9 @@ Local, fast, Rust + WebAssembly.</p>
 > **Status: early development.** DomoTwin is built milestone by milestone
 > ([roadmap](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/ROADMAP.md)). The
 > integration, the panel, the card, the plan and IFC import, the 3D and 2D views, live control
-> (states, tap, long press, room panel, linking), the edit mode and your own 3D models work today;
-> the layers come next. The features below describe version 0.1.0.
+> (states, tap, long press, room panel, linking), the edit mode, your own 3D models and the layers
+> work today; devices, a plan editor and storeys come next. The features below describe version
+> 0.1.0.
 
 ## Features
 
@@ -29,8 +30,10 @@ Local, fast, Rust + WebAssembly.</p>
   room to get every light, scene, cover, climate and media player of that room.
 - **Live.** Lamps light their room in their real colour and brightness, the TV glows, blinds and
   curtains move, doors and windows open with their contact sensors.
-- **Layers.** An animated heatmap of temperature, humidity or CO₂, safety alerts, presence, the real
-  sun through your windows, and power consumption.
+- **Layers.** An animated heatmap of temperature, humidity, CO₂ or fine particles read from the
+  sensors of each room's area, safety alerts that pulse in their room (smoke, gas, water leak,
+  alarm, a window open in the rain), the rooms someone is in, the real sun coming in through your
+  windows, and what each appliance draws.
 - **Edit mode.** Move, rotate and stack furniture with snapping, guides and undo, add pieces from
   a catalogue, link any object to entities (with suggestions from your areas), and add your own
   furniture or appliance with its 3D model (glTF/GLB, OBJ, STL or 3MF). See
@@ -50,6 +53,10 @@ Local, fast, Rust + WebAssembly.</p>
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-live.png" alt="Live control in the evening: a long press on a lamp opens its controls, a long press on a room's floor opens the room panel" width="100%">
+</p>
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-layers.png" alt="Layers: the temperature of each room as a heatmap with its legend, the power drawn by the appliances, a smoke alert pulsing in the kitchen, and the sun coming in through the windows" width="100%">
 </p>
 
 ## Quick start
@@ -83,10 +90,21 @@ YAML is never required. For reference, the card options are:
 | `cutaway`     | `auto`, `always`, `off`             | `auto`     | How walls facing the camera are lowered.  |
 | `lighting`    | `auto`, `morning`, `day`, `evening`, `night` | `auto` | The light of the scene. `auto` follows the sun of your Home Assistant (`sun.sun`), or the clock without it. |
 | `room`        | a room id of the plan               | none       | Room to focus on when the card opens.     |
+| `layer`       | `off`, `temperature`, `humidity`, `co2`, `pm25`, `power` | `off` | Layer shown when the card opens; the layer menu changes it. |
+| `alerts`      | `true`, `false`                     | `true`     | Safety alerts of the rooms (smoke, gas, water, alarm, a window open in the rain). |
+| `presence`    | `true`, `false`                     | `true`     | The rooms someone is in glow softly.      |
+| `sun`         | `fixed`, `real`                     | `fixed`    | `real`: the sun lights from where it is (`sun.sun`), through the windows. |
 | `font_family` | a font family                       | bundled    | Font of the card's texts.                 |
 
 Integration options (Settings → Devices & services → DomoTwin → Configure): show the panel in the
 sidebar, and show it to administrators only. Only administrators can import plans, edit and bind.
+The panel's settings (the cog) set where north points on the plan, for the real sun.
+
+**Layers read your areas.** A room's heatmap value is the mean of the temperature, humidity, CO₂ or
+PM2.5 sensors of its Home Assistant area (the area linked to the room, or the area with the room's
+name); its alerts and presence come from the smoke, gas, carbon monoxide, moisture, safety,
+occupancy, motion and presence sensors of that area, and its alarm panel. The power layer uses the
+power sensors linked to each piece.
 
 ## How it works
 

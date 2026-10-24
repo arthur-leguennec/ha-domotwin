@@ -122,6 +122,24 @@ A room uses the area of its `rooms` binding. Without one, an area with the same 
 (ignoring case and accents) is used, so "Living room" finds the area "Living room" without any
 setup. Hidden entities and configuration or diagnostic entities are left out.
 
+## Layers
+
+The layers (`DECISIONS.md`, D-023) read the room's area too, with no binding needed:
+
+| Layer | Entities of the room's area | What shows |
+| --- | --- | --- |
+| Temperature | `sensor` with device class `temperature` (°C, °F or K), else a `climate` entity's `current_temperature` | The mean, as a heatmap from 14 °C (blue) to 30 °C (red), green around 22 °C. |
+| Humidity | `sensor` `humidity`, else a `climate` entity's `current_humidity` | The mean, from 20 % (orange, dry) to 85 % (blue). |
+| CO₂ | `sensor` `carbon_dioxide` (ppm) | The mean, from 400 ppm (green) to 2 000 ppm (red). Over 1 500 ppm: a warning. |
+| Fine particles | `sensor` `pm25` (µg/m³) | The mean, from 0 (green) to 150 (purple). |
+| Alerts (always) | `binary_sensor` `smoke`, `gas`, `carbon_monoxide`, `moisture`, `safety` on; `alarm_control_panel` triggered | A danger: the floor pulses red, the banner names it. |
+| Alerts (always) | `binary_sensor` `window` or `opening` on while a `weather` entity says rain, pouring, storm, snow or hail | A warning: the floor pulses amber. |
+| Presence (always) | `binary_sensor` `occupancy`, `motion` or `presence` on | The floor glows warm. |
+
+The **power** layer uses the entities linked to each piece with the `power` role (a `sensor` with
+device class `power`, in W, kW or MW): pieces drawing more than 3 W are tinted from yellow to red
+and labelled. The card's `alerts: false` and `presence: false` turn those off.
+
 ## Linking in the panel
 
 Administrators get **Link entities** in the DomoTwin panel. In this mode a tap picks an element

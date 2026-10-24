@@ -10,7 +10,7 @@ lists the budgets, how they are measured, and the numbers measured at each miles
 | First load (wasm + JS a view needs), gzipped | ≤ 1.2 MB, user textures and fonts excluded | `scripts/check-bundle-size.mjs`, CI job `bundle` (fails over budget) |
 | Idle CPU | ≈ 0: no frame unless something changed | scheduler unit tests, E2E "no frames while idle" |
 | Off-screen or hidden tab | no frame at all | scheduler unit tests |
-| Heatmap animation | 20–30 fps only while the layer is visible | scheduler `setMinInterval` (M4) |
+| Layer animation (heatmap, alerts, power) | 24 fps only while a moving layer is visible, none with reduced motion | scheduler `setMinInterval`, E2E "24 frames per second" (M4) |
 | Edit-mode drag | 60 fps on a mid-range phone, 500-element plan | M3, on devices |
 | Textures | none so far: floors and tiles are procedural; user pictures capped at 1024 px | M3 |
 | WebGL contexts | one per visible view, released on `disconnectedCallback` | E2E "releases the engine" |
@@ -183,3 +183,26 @@ median and 3.0 ms p95, a drop 5.0 ms.
 The readers outside the browser (native, release build) on real files from public sample
 collections, kept out of the repository: a 3 MB 3MF archive of 96 692 triangles in 0.37 s, a 0.4 MB
 textured GLB of 3 624 triangles in 2 ms.
+
+
+### M4 (layers)
+
+Bundle: the first load is **314.8 kB gzipped** of 1 200 kB (+21.3 kB):
+
+| File | Raw | Gzipped |
+| --- | ---: | ---: |
+| `domotwin_web_bg.<hash>.wasm` | 596.4 kB | 260.3 kB |
+| `domotwin.js` (entry) | 73.8 kB | 20.6 kB |
+
+The engine grew by 14 kB gzipped (the scales and their OKLab colours, the room and power texels,
+the layers' shading, the real sun and its shadow pass, the labels and legends), the entry by 3.5 kB
+(reading the rooms' sensors, the layer menu, legend, labels and alerts, the settings).
+
+In headless Chromium (SwiftShader, High quality, the demo apartment with its fictional sensors),
+the CPU time per frame stays at 0.2–0.4 ms median with the heatmap, the power layer or the real sun
+(1–2 ms p95): the layers are read by the floors' shading, with no added draw call. A move of the
+sun draws the shadow map again (0.5 ms of CPU that frame). Working out the layers from the `hass`
+object on a state change takes 0.05–0.2 ms. A moving layer draws 24 frames per second while
+nothing else moves (`frameInterval` in the view's debug state); SwiftShader itself draws only a
+few per second, so the rate on real GPUs is checked through the scheduler's cap, not by counting.
+

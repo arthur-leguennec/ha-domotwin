@@ -13,9 +13,17 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M1b       | IFC import (ISO 16739), one storey → plan                  | ✅     |
 | M3        | Edit mode: move, rotate, stack, undo, save, card editor    | ✅     |
 | M3b       | Your own furniture and appliances with their 3D model      | ✅     |
-| M4        | Layers: heatmap, alerts, presence, sun and mood, power     | ⏳     |
-| M5        | Polish: design, fonts, accessibility, performance, README  | ⏳     |
-| M6        | Release 0.1.0 and HACS submission checklist                | ⏳     |
+| M4        | Layers: heatmap, alerts, presence, real sun, power         | ✅     |
+| M5        | Devices: cameras and what they see, locks, appliances      | ⏳     |
+| M6        | Plan editor: draw rooms, walls, doors and windows          | ⏳     |
+| M7        | Storeys: several floors, stairs, a storey switcher         | ⏳     |
+| M8        | Looks and kiosk: themes, walk mode, idle and night modes   | ⏳     |
+| M9        | Imports: Sweet Home 3D, DXF, room scans                    | ⏳     |
+| M10       | Polish: design, fonts, accessibility, performance, README  | ⏳     |
+| M11       | Release 0.1.0 and HACS submission checklist                | ⏳     |
+
+M5 to M9 were added after M3b (`DECISIONS.md`, D-022): what people expect of a 3D home dashboard,
+with no account and no network call outside Home Assistant.
 
 ## M0, scaffold
 
@@ -219,17 +227,72 @@ Left for later: textures drawn as textures, kits made in the app, resizing a pie
 
 ## M4, layers
 
-Heatmap (animated organic halo, perceptual scale, legend, 20–30 fps only while visible), alerts
-(pulse and banner, safety alerts always on), presence (room glow, avatars), sun and mood (`sun.sun`,
-configurable north, sunlight patches through windows, evening mood), power (labels and glows).
+The rooms show what their sensors say (`DECISIONS.md`, D-023). The layer menu of the view (or the
+card's `layer` option) picks one layer at a time; alerts and presence show whatever the layer.
 
-## M5, polish
+- ✅ **Heatmap** of temperature, humidity, CO₂ or fine particles (PM2.5): each room's value is the
+  mean of the sensors of its Home Assistant area (°F and K converted; a thermostat when there is no
+  sensor), drawn on its floor as a halo from the centre whose edge moves slowly, on perceptual
+  scales interpolated in OKLab, with a legend and each room's value. The 2D plan shows it too.
+- ✅ **Alerts**: smoke, gas, carbon monoxide, a water leak, a safety sensor or an alarm going off
+  (dangers, red); a window open in the rain or the snow, CO₂ over 1 500 ppm (warnings, amber). The
+  room's floor pulses and a banner lists them; tapping one frames the room. On unless the card
+  sets `alerts: false`.
+- ✅ **Presence**: the floor of a room whose occupancy, motion or presence sensor is on glows warm
+  (`presence: false` turns it off).
+- ✅ **Power**: pieces linked to power sensors are tinted from yellow (tens of watts) to red
+  (kilowatts) and labelled; standby (3 W or less) is left out.
+- ✅ **Real sun** (`sun: real`, or the layer menu): the sun lights the home from where it is
+  (`sun.sun`) with the home's north, set by an administrator in the panel's settings; walls and
+  ceilings cast shadows, so it comes in through the windows and open doors. Below the horizon the
+  time of day dims it (D-015).
+- ✅ The animation runs at 24 frames per second only while a layer that moves is shown and the
+  view is visible, at the display's rate during gestures; reduced motion holds it still.
+- ✅ Tests: the scales, the room texels, the power scale and the sun's direction (Rust); the
+  engine's layer API in headless Chromium; the values from areas, units, alerts and presence
+  (vitest); the settings commands (pytest); the heatmap, the power layer, alerts, the frame rate
+  and reduced motion, the real sun and the north setting (Playwright).
+
+![Layers: the temperature heatmap, the power layer, an alert and the sun through the windows](figures/screenshot-layers.png)
+
+Measured at the end of M4: see [`PERFORMANCE.md`](PERFORMANCE.md).
+
+Left for later: avatars of the people at home, picking a room's sensors one by one, more scales
+(noise, light level, radon), the sun's position computed without `sun.sun`.
+
+## M5, devices
+
+Devices drawn as what they are: cameras with their field of view on the plan and a live picture on
+tap, locks with their state, appliances with what they are doing (washing, drying, cooking),
+media players with what they play.
+
+## M6, plan editor
+
+Draw a plan in the app: rooms as polygons, walls, doors and windows placed on walls, with snapping
+and measurements, saved as a House Maquette plan.
+
+## M7, storeys
+
+Several storeys in one plan, stairs between them, a storey switcher in the view and the card's
+`storey` option; an IFC file imported whole.
+
+## M8, looks and kiosk
+
+Themes and an accent colour for the scene, a walk mode at eye level, a kiosk mode for wall tablets
+(return to a view when idle, a slow orbit, night dimming), and Assist voice commands.
+
+## M9, imports
+
+Plans from Sweet Home 3D (`.sh3d`), DXF drawings and room scans (USDZ or OBJ from phone LiDAR
+apps), turned into House Maquette plans.
+
+## M10, polish
 
 Design pass, bundled variable font and `font_family` option, accessibility (keyboard, focus rings,
 screen-reader labels, reduced motion), performance tuning against the budgets, README with real
 screenshots and a GIF made from the demo plan.
 
-## M6, release 0.1.0
+## M11, release 0.1.0
 
 Tag and release with the `domotwin.zip` asset, install test as a HACS custom repository, and the
 checklist for the HACS default repository list in `HACS_SUBMISSION.md`.
