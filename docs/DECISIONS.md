@@ -311,3 +311,50 @@ explains why. Each entry: context, decision, consequences.
 - **Consequences.** A documentation change runs the Python tests, `cargo deny` and CodeQL; a
   frontend change skips the Rust and Python jobs; a merge skips the E2E. The required check names do
   not change. CodeQL (about 6 runner-minutes) remains the largest cost and runs on everything.
+
+## D-021 · Your own 3D models: a module of their own, colours at the vertices, links for behaviour
+
+Decided while the maintainer was away (M3b, D-013 carried out); open to review.
+
+- **Context.** D-013 set the formats, the limits and where files live. Building it raised five
+  choices: where the files are read, how textured models look in a renderer without textures
+  (D-014), where models imported in edit mode are kept, how the server gets a file's hash, and how a
+  model "behaves like" a lamp or a screen when the plan format has no field for it (its schema
+  refuses extra fields, and DomoTwin's exports must stay valid House Maquette plans).
+- **Decision.**
+  - **A module of its own.** The readers (`domotwin-models`: glTF 2.0 as GLB or with embedded
+    data, OBJ, STL binary and ASCII, 3MF with base materials, colour groups and parts in other model
+    files of the archive) are their own WebAssembly module (94 kB gzipped), not part of the IFC
+    import as D-013 said: cards need them to draw, not only the import. A view loads it only when
+    its plan has a piece drawn from a 3D file, reads each file once per page and gives the engine a
+    compact mesh (positions, normals, per-vertex colour and finish, indices). The engine fits it
+    into the piece's box (`up` axis, front +z or −y) inside the merged scene, so a frame still draws
+    the home in the same few calls. Pieces are boxes until their mesh comes, or when the files of a
+    plan pass 600 000 triangles in all; the view says how many.
+  - **Colours at the vertices.** Base colour pictures are decoded by the browser (scaled to 256 px)
+    and sampled at each vertex: a textured model keeps its colours, not the detail between
+    vertices. Emissive materials glow with the piece's light, transparent ones are glass, metallic
+    ones metal; STL and OBJ files take the piece's colour. Double-sided glTF materials are drawn on
+    both sides.
+  - **Kept in the overlay.** A model imported in edit mode is an overlay entry `@model:<id>` beside
+    its pieces (D-019), so it follows undo, drafts, saving, the revision check and Export like them;
+    a model the plan already has stays the plan's. « My models » lists the plan's models; one
+    imported in edit mode that no piece shows can be forgotten.
+  - **The server hashes.** Files go to `POST /api/domotwin/models` (administrators) and come back
+    from `GET /api/domotwin/models/<sha256>.<format>` (signed-in users, cached as immutable). The
+    integration computes the SHA-256: browsers only offer it on HTTPS pages, and Home Assistant is
+    often served over plain HTTP at home. It checks that the bytes look like the format; the browser
+    has read the file fully before sending it. A file nothing uses is deleted a day after its upload
+    (an import not saved yet keeps it), and all of them when the integration is removed.
+  - **Behaviour from links.** A user model linked to a light lights the room from three quarters of
+    its height and its emissive parts glow; linked to a media player it lights like a screen. Nothing is stored for it: the format has no field, and the links already
+    say what the piece is. Small and large user models can stand on tables (M3's rule for `custom`).
+  - **Exports carry the files.** Export plan embeds each file as a `data:` URL; importing such a
+    plan reads every file, uploads it and keeps only its reference. A file that cannot be read fails
+    the import with the model's name; a file missing from Home Assistant is left out of the export
+    with its pieces, and the panel says so.
+- **Consequences.** The first load grows by the engine's drawing and editing of models (about
+  14 kB gzipped); the readers cost nothing until a plan uses a 3D file. Textures are approximated
+  (no texture memory, no new shader inputs). Behaviour cannot be set without linking an entity: an
+  unlinked lamp model never lights. The overlay's `@model:` keys cannot be element ids; DomoTwin
+  never writes such ids.

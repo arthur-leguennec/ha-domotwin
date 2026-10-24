@@ -8,6 +8,7 @@ export default tseslint.config(
     ignores: [
       "src/engine/pkg/",
       "src/ifc/pkg/",
+      "src/models/pkg/",
       "node_modules/",
       "test-results/",
       "playwright-report/",

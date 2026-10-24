@@ -1,5 +1,5 @@
 // Bundles the frontend into custom_components/domotwin/frontend/ (run through scripts/build.sh,
-// which builds the WebAssembly modules first: the engine and the IFC import).
+// which builds the WebAssembly modules first: the engine, the IFC import and the 3D model reader).
 import { createHash } from "node:crypto";
 import { copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
@@ -29,6 +29,7 @@ async function wasmModule(dir, name) {
 }
 const engine = await wasmModule("src/engine/pkg", "domotwin_web");
 const ifc = await wasmModule("src/ifc/pkg", "domotwin_ifc");
+const models = await wasmModule("src/models/pkg", "domotwin_models");
 const wasmFile = engine.file;
 
 await rm(out, { recursive: true, force: true });
@@ -52,15 +53,23 @@ const result = await build({
     __DOMOTWIN_VERSION__: JSON.stringify(version),
     __DOMOTWIN_WASM__: JSON.stringify(wasmFile),
     __DOMOTWIN_IFC_WASM__: JSON.stringify(ifc.file),
+    __DOMOTWIN_MODELS_WASM__: JSON.stringify(models.file),
   },
 });
 
 await copyFile(engine.path, join(out, engine.file));
 await copyFile(ifc.path, join(out, ifc.file));
+await copyFile(models.path, join(out, models.file));
 await writeFile(
   join(out, "build.json"),
   JSON.stringify(
-    { version, wasm: wasmFile, ifc: ifc.file, outputs: Object.keys(result.metafile.outputs) },
+    {
+      version,
+      wasm: wasmFile,
+      ifc: ifc.file,
+      models: models.file,
+      outputs: Object.keys(result.metafile.outputs),
+    },
     null,
     2,
   ),

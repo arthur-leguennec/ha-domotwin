@@ -30,6 +30,15 @@ def frontend_built(tmp_path: Path) -> Generator[Path]:
         yield tmp_path
 
 
+@pytest.fixture(autouse=True)
+def config_dir(hass: HomeAssistant, tmp_path: Path) -> Path:
+    """A configuration folder of its own, where model files are kept."""
+    folder = tmp_path / "config"
+    folder.mkdir()
+    hass.config.config_dir = str(folder)
+    return folder
+
+
 @pytest.fixture
 def demo_plan() -> dict[str, Any]:
     """The fictional demo apartment of examples/."""

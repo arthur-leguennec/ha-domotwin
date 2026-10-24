@@ -60,3 +60,5 @@ Thumbs.db
 !/frontend/src/engine/pkg/domotwin_web.d.ts
 /frontend/src/ifc/pkg/*
 !/frontend/src/ifc/pkg/domotwin_ifc.d.ts
+/frontend/src/models/pkg/*
+!/frontend/src/models/pkg/domotwin_models.d.ts

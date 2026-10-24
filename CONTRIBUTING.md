@@ -31,7 +31,7 @@ address or a real floor plan.
 cd frontend && npm ci && npx playwright install chromium && cd ..
 python3.14 -m venv .venv && . .venv/bin/activate && pip install -r requirements_test.txt
 pre-commit install
-scripts/build.sh            # builds the engine and the frontend into custom_components/domotwin/frontend
+scripts/build.sh            # builds the wasm modules and the frontend into custom_components/domotwin/frontend
 ```
 
 To try it in Home Assistant, link or copy `custom_components/domotwin` into the `custom_components`
@@ -45,7 +45,7 @@ The same commands run in CI:
 # Rust
 cargo fmt --all --check
 cargo clippy --workspace --all-targets -- -D warnings
-cargo clippy -p domotwin-web --target wasm32-unknown-unknown --all-targets -- -D warnings
+cargo clippy -p domotwin-web -p domotwin-ifc -p domotwin-models --target wasm32-unknown-unknown --all-targets -- -D warnings
 cargo test --workspace
 (cd crates/domotwin-web && CHROMEDRIVER=/path/to/chromedriver cargo test --target wasm32-unknown-unknown)
 cargo deny check
@@ -63,8 +63,11 @@ node scripts/check-bundle-size.mjs
 ```
 
 `cargo fuzz run plan_reader` (in `fuzz/`, nightly toolchain) fuzzes the plan reader
-(`edit_layout`: the edit overlay, `ifc_reader`: the IFC import); CI runs the targets a pull request
-concerns for a minute each, and all of them weekly.
+(`edit_layout`: the edit overlay, `ifc_reader`: the IFC import, `model_file`: the 3D model readers);
+CI runs the targets a pull request concerns for a minute each, and all of them weekly.
+
+The fictional test files are written by scripts: `python3 scripts/make-ifc-fixtures.py` (IFC) and
+`python3 scripts/make-model-fixtures.py` (the 3D models of `examples/models/`).
 
 Visual-regression snapshots compare only the canvas pixels rendered by software WebGL2. After an
 intended visual change, update them with `npx playwright test --update-snapshots` and look at the

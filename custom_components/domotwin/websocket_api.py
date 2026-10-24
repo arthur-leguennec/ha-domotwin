@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from homeassistant.components import websocket_api
@@ -11,13 +12,17 @@ from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from .compat import vol
 from .const import SIGNAL_UPDATED, VERSION
 from .data import DATA_KEY
+from .models import async_remove_unused
 from .storage import UNSET, DomoTwinData, RevisionConflictError
 from .validation import (
     InvalidPayloadError,
     validate_bindings,
     validate_layout,
+    validate_models,
     validate_plan,
 )
+
+_LOGGER = logging.getLogger(__name__)
 
 
 @callback
@@ -90,6 +95,10 @@ async def ws_plan_save(
         if isinstance(plan, dict):
             plan = validate_plan(plan)
         layout = validate_layout(msg["layout"]) if "layout" in msg else UNSET
+        validate_models(
+            data.plan if plan is UNSET else plan,
+            layout if isinstance(layout, dict) else data.layout,
+        )
         revision = await data.async_save_plan(
             plan=plan, layout=layout, expected_revision=msg.get("expected_revision")
         )
@@ -100,6 +109,11 @@ async def ws_plan_save(
         connection.send_error(msg["id"], "revision_conflict", str(err))
         return
     connection.send_result(msg["id"], {"revision": revision})
+    # The files no plan uses any more go, a day after they were last used.
+    try:
+        await async_remove_unused(hass, data.plan, data.layout)
+    except OSError:
+        _LOGGER.warning("Could not clean up the unused 3D model files", exc_info=True)
 
 
 @websocket_api.websocket_command({vol.Required("type"): "domotwin/bindings/get"})

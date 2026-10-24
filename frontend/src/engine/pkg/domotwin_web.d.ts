@@ -12,6 +12,12 @@ export class Engine {
      */
     beginEdit(): string;
     /**
+     * Adds a piece of the user model `model` under the device pixel `x`, `y` (or in the middle of
+     * the view), and selects it. `definition` is the model itself (JSON) when it is imported now,
+     * empty for a model the plan has. The state has `refused: true` when it could not be added.
+     */
+    editAddModel(model: string, definition: string, x: number, y: number): string;
+    /**
      * Adds a piece of the catalogue `kind` named `name` under the device pixel `x`, `y` (or in
      * the middle of the view when the floor is not there), and selects it. The state has
      * `refused: true` when it could not be added (the plan holds 500 elements).
@@ -41,9 +47,20 @@ export class Engine {
      */
     editLayout(): string;
     /**
+     * The user models of the plan shown (« My models »), as JSON `[{"id", "name", "w", "d",
+     * "h", "color", "format", "bytes", "pieces", "removable"}]`: `format` and `bytes` are the 3D
+     * file's (`null` for a kit), `pieces` how many pieces show it, `removable` whether it was
+     * imported in edit mode and no piece shows it.
+     */
+    editModels(): string;
+    /**
      * Does again the last change undone.
      */
     editRedo(): string;
+    /**
+     * Forgets a model imported in edit mode that no piece shows.
+     */
+    editRemoveModel(model: string): string;
     /**
      * Removes the selected pieces.
      */
@@ -110,6 +127,17 @@ export class Engine {
      * frontend translates.
      */
     loadPlan(json: string, keep_camera?: boolean | null, layout?: string | null): string;
+    /**
+     * The 3D files the pieces of the plan shown are drawn from, as JSON `[{"hash", "format",
+     * "bytes"}]`, each once: the frontend fetches and reads them, then gives their meshes with
+     * [`Engine::set_model_mesh`]. Files already given are left out.
+     */
+    modelFiles(): string;
+    /**
+     * How many pieces are drawn as boxes because the 3D files of the plan pass the scene's
+     * triangle budget.
+     */
+    modelsOverBudget(): number;
     /**
      * Whether a frame is needed (something changed or an animation is running).
      */
@@ -179,6 +207,11 @@ export class Engine {
      */
     setLocalHour(hour: number): void;
     /**
+     * Gives the mesh of the 3D file `hash` (`DTM1`, from the model module); the pieces drawn
+     * from it change at the next [`Engine::show_models`]. Returns `false` when the mesh is refused.
+     */
+    setModelMesh(hash: string, mesh: Uint8Array): boolean;
+    /**
      * Switches between the 3D view and the 2D plan (animated from `time_ms`).
      */
     setPlanView(plan: boolean, time_ms: number): void;
@@ -196,6 +229,11 @@ export class Engine {
      * Assistant's `sun.sun`).
      */
     setSun(elevation: number, rising: boolean): void;
+    /**
+     * Draws the pieces whose 3D file came since the scene was built, in one rebuild for all of
+     * them. Returns whether it did.
+     */
+    showModels(): boolean;
     /**
      * Moves to a saved viewpoint. Returns `false` when there is none with this id.
      */
@@ -251,13 +289,16 @@ export interface InitOutput {
     readonly engineVersion: (a: number) => void;
     readonly engine_beginEdit: (a: number, b: number) => void;
     readonly engine_editAdd: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => void;
+    readonly engine_editAddModel: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => void;
     readonly engine_editCatalogue: (a: number) => void;
     readonly engine_editDragEnd: (a: number, b: number) => void;
     readonly engine_editDragMove: (a: number, b: number, c: number, d: number) => void;
     readonly engine_editDragStart: (a: number, b: number, c: number) => number;
     readonly engine_editLayout: (a: number, b: number) => void;
+    readonly engine_editModels: (a: number, b: number) => void;
     readonly engine_editRedo: (a: number, b: number) => void;
     readonly engine_editRemove: (a: number, b: number) => void;
+    readonly engine_editRemoveModel: (a: number, b: number, c: number, d: number) => void;
     readonly engine_editRestore: (a: number, b: number, c: number, d: number) => void;
     readonly engine_editRotate: (a: number, b: number, c: number) => void;
     readonly engine_editSaved: (a: number, b: number, c: number) => void;
@@ -270,6 +311,8 @@ export interface InitOutput {
     readonly engine_highlight: (a: number, b: number, c: number) => void;
     readonly engine_invalidate: (a: number) => void;
     readonly engine_loadPlan: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => void;
+    readonly engine_modelFiles: (a: number, b: number) => void;
+    readonly engine_modelsOverBudget: (a: number) => number;
     readonly engine_needsFrame: (a: number) => number;
     readonly engine_new: (a: number, b: number) => void;
     readonly engine_orbit: (a: number, b: number, c: number) => void;
@@ -285,10 +328,12 @@ export interface InitOutput {
     readonly engine_setCutaway: (a: number, b: number, c: number) => void;
     readonly engine_setLightingMood: (a: number, b: number, c: number) => number;
     readonly engine_setLocalHour: (a: number, b: number) => void;
+    readonly engine_setModelMesh: (a: number, b: number, c: number, d: number, e: number) => number;
     readonly engine_setPlanView: (a: number, b: number, c: number) => void;
     readonly engine_setQuality: (a: number, b: number, c: number) => void;
     readonly engine_setStates: (a: number, b: number, c: number) => void;
     readonly engine_setSun: (a: number, b: number, c: number) => void;
+    readonly engine_showModels: (a: number) => number;
     readonly engine_showView: (a: number, b: number, c: number, d: number) => number;
     readonly engine_stats: (a: number, b: number) => void;
     readonly engine_views: (a: number, b: number) => void;

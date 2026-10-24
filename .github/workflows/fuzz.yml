@@ -1,7 +1,8 @@
 name: Fuzz
 
 # One job builds the fuzz targets once (cached) and runs those the change concerns: the plan reader
-# and the edit overlay for the core, the IFC reader for the IFC import (scripts/ci-changes.sh).
+# and the edit overlay for the core, the IFC reader for the IFC import, the 3D model readers for
+# user models (scripts/ci-changes.sh).
 # Not a required check: it only runs when the code it fuzzes changes.
 
 on:
@@ -11,6 +12,7 @@ on:
     paths:
       - "crates/domotwin-core/**"
       - "crates/domotwin-ifc/**"
+      - "crates/domotwin-models/**"
       - "examples/**"
       - "fuzz/**"
       - "Cargo.toml"
@@ -33,8 +35,8 @@ jobs:
   fuzz:
     name: fuzz
     runs-on: ubuntu-24.04
-    # Three targets of 10 minutes each on schedule, plus the build.
-    timeout-minutes: 100
+    # Four targets of 10 minutes each on schedule, plus the build.
+    timeout-minutes: 110
     permissions:
       contents: read
     defaults:
@@ -57,7 +59,7 @@ jobs:
           if [ "$EVENT" = pull_request ]; then
             scripts/ci-changes.sh
           else
-            { echo fuzz_core=true; echo fuzz_ifc=true; } >> "$GITHUB_OUTPUT"
+            { echo fuzz_core=true; echo fuzz_ifc=true; echo fuzz_models=true; } >> "$GITHUB_OUTPUT"
           fi
       - name: Install the pinned nightly (fuzz/rust-toolchain.toml)
         run: rustup show active-toolchain || rustup toolchain install
@@ -73,6 +75,7 @@ jobs:
           EVENT: ${{ github.event_name }}
           CORE: ${{ steps.changes.outputs.fuzz_core }}
           IFC: ${{ steps.changes.outputs.fuzz_ifc }}
+          MODELS: ${{ steps.changes.outputs.fuzz_models }}
         run: |
           seconds=600
           if [ "$EVENT" = "pull_request" ]; then seconds=60; fi
@@ -80,6 +83,7 @@ jobs:
           targets=()
           if [ "$CORE" = true ]; then targets+=("plan_reader:200000" "edit_layout:20000"); fi
           if [ "$IFC" = true ]; then targets+=("ifc_reader:200000"); fi
+          if [ "$MODELS" = true ]; then targets+=("model_file:200000"); fi
           # A crash in one target does not stop the others; the step fails at the end.
           status=0
           for entry in "${targets[@]}"; do

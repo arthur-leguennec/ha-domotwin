@@ -27,9 +27,10 @@ hassfest='^custom_components/'
 # HACS shows and checks the README (render_readme).
 hacs='^custom_components/|^(hacs\.json|README\.md)$'
 build="$rust|$frontend|^scripts/(build\\.sh|check-bundle-size\\.mjs)$"
-quiet='^\.github/(ISSUE_TEMPLATE/|PULL_REQUEST_TEMPLATE\.md$|CODEOWNERS$|dependabot\.yml$|workflows/(codeql|security|pr-title|release-please|nightly|fuzz)\.yml$)|^fuzz/|^(\.gitignore|\.gitleaks\.toml|\.pre-commit-config\.yaml|\.release-please-manifest\.json|release-please-config\.json)$|^scripts/(screenshots|render-figures|ha-smoke|third-party-notices)\.mjs$|^scripts/make-ifc-fixtures\.py$'
+quiet='^\.github/(ISSUE_TEMPLATE/|PULL_REQUEST_TEMPLATE\.md$|CODEOWNERS$|dependabot\.yml$|workflows/(codeql|security|pr-title|release-please|nightly|fuzz)\.yml$)|^fuzz/|^(\.gitignore|\.gitleaks\.toml|\.pre-commit-config\.yaml|\.release-please-manifest\.json|release-please-config\.json)$|^scripts/(screenshots|render-figures|ha-smoke|third-party-notices)\.mjs$|^scripts/make-(ifc|model)-fixtures\.py$'
 fuzz_core='^(crates/domotwin-core/|fuzz/|examples/)|^(Cargo\.(toml|lock)|rust-toolchain\.toml|\.github/workflows/fuzz\.yml)$'
 fuzz_ifc='^(crates/domotwin-(core|ifc)/|fuzz/)|^(Cargo\.(toml|lock)|rust-toolchain\.toml|\.github/workflows/fuzz\.yml)$'
+fuzz_models='^(crates/domotwin-(core|models)/|fuzz/|examples/models/)|^(Cargo\.(toml|lock)|rust-toolchain\.toml|\.github/workflows/fuzz\.yml)$'
 
 files=""
 all=false
@@ -78,6 +79,7 @@ if [ "$event" = push ] && [ "$all" != true ]; then e2e_needed=false; fi
   echo "e2e=$e2e_needed"
   echo "fuzz_core=$(needs "$fuzz_core")"
   echo "fuzz_ifc=$(needs "$fuzz_ifc")"
+  echo "fuzz_models=$(needs "$fuzz_models")"
 } >>"$out"
 
 if [ "$all" = true ]; then

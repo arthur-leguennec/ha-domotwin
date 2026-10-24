@@ -180,3 +180,97 @@ fn an_overlay_the_plan_refuses_is_left_out_entry_by_entry() {
     engine.begin_edit();
     assert_eq!(engine.edit_layout(), r#"{"sofa":{"x":200.0}}"#);
 }
+
+/// A `DTM1` mesh (as the model module writes it) of one triangle.
+fn triangle_mesh() -> Vec<u8> {
+    let mut out = b"DTM1".to_vec();
+    out.extend_from_slice(&3_u32.to_le_bytes());
+    out.extend_from_slice(&3_u32.to_le_bytes());
+    for p in [[0.0_f32, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 1.0]] {
+        for c in p {
+            out.extend_from_slice(&c.to_le_bytes());
+        }
+    }
+    out.extend_from_slice(&[0, 0, 127, 1].repeat(3));
+    out.extend_from_slice(&[200, 100, 50, 128].repeat(3));
+    for i in 0_u32..3 {
+        out.extend_from_slice(&i.to_le_bytes());
+    }
+    out
+}
+
+fn triangles(engine: &Engine) -> u64 {
+    let stats: serde_json::Value = serde_json::from_str(&engine.stats()).unwrap();
+    stats["triangles"].as_u64().unwrap()
+}
+
+#[wasm_bindgen_test]
+fn pieces_of_3d_files_are_boxes_until_their_mesh_comes() {
+    let hash = "c".repeat(64);
+    let mut plan: serde_json::Value = serde_json::from_str(DEMO).unwrap();
+    plan["models"] = serde_json::json!({ "m-1": { "name": "Stool", "size": [38, 38, 71],
+        "file": { "format": "glb", "hash": hash, "bytes": 100, "up": "y" } } });
+    let elements = plan["elements"].as_array_mut().unwrap();
+    for (id, x) in [("stool-1", 300), ("stool-2", 340)] {
+        elements.push(
+            serde_json::json!({ "id": id, "type": "furniture", "name": "Stool",
+            "x": x, "y": 150, "w": 38, "h": 38, "z": 71, "kind": "custom", "model": "m-1" }),
+        );
+    }
+    let mut engine = Engine::new(canvas()).unwrap();
+    engine.load_plan(&plan.to_string(), None, None).unwrap();
+    let files: serde_json::Value = serde_json::from_str(&engine.model_files()).unwrap();
+    assert_eq!(
+        files,
+        serde_json::json!([{ "hash": hash, "format": "glb", "bytes": 100 }])
+    );
+    let boxes = triangles(&engine);
+    assert!(!engine.set_model_mesh(&hash, b"DTM1"), "a broken mesh");
+    assert!(engine.set_model_mesh(&hash, &triangle_mesh()));
+    // Drawn at the next showModels, once for every mesh that came.
+    assert_eq!(triangles(&engine), boxes);
+    assert!(engine.show_models());
+    assert!(!engine.show_models());
+    // Two boxes (12 triangles each) became two triangles.
+    assert_eq!(triangles(&engine), boxes - 2 * 12 + 2);
+    assert_eq!(engine.model_files(), "[]");
+    assert_eq!(engine.models_over_budget(), 0);
+}
+
+#[wasm_bindgen_test]
+fn edit_mode_imports_a_model_and_forgets_it() {
+    let hash = "d".repeat(64);
+    let mut engine = Engine::new(canvas()).unwrap();
+    engine.load_plan(DEMO, None, None).unwrap();
+    engine.begin_edit();
+    assert!(engine.set_model_mesh(&hash, &triangle_mesh()));
+    let definition = serde_json::json!({ "name": "Lamp", "size": [40, 40, 160],
+        "file": { "format": "gltf", "hash": hash, "bytes": 2000, "up": "y" } })
+    .to_string();
+    let state: serde_json::Value =
+        serde_json::from_str(&engine.edit_add_model("m-lamp", &definition, 160.0, 120.0)).unwrap();
+    assert_eq!(state["refused"], serde_json::Value::Null, "{state}");
+    assert_eq!(state["selection"][0]["kind"], "custom");
+    let layout: serde_json::Value = serde_json::from_str(&engine.edit_layout()).unwrap();
+    assert_eq!(layout["@model:m-lamp"]["model"]["name"], "Lamp");
+    let models: serde_json::Value = serde_json::from_str(&engine.edit_models()).unwrap();
+    assert_eq!(models[0]["id"], "m-lamp");
+    assert_eq!(
+        (
+            models[0]["pieces"].as_u64(),
+            models[0]["removable"].as_bool()
+        ),
+        (Some(1), Some(false))
+    );
+    engine.edit_remove();
+    engine.edit_remove_model("m-lamp");
+    assert_eq!(engine.edit_models(), "[]");
+    // A model with a bad id or without a size is refused.
+    let refused: serde_json::Value =
+        serde_json::from_str(&engine.edit_add_model("bad id", &definition, 160.0, 120.0)).unwrap();
+    assert_eq!(refused["refused"], true);
+    let refused: serde_json::Value =
+        serde_json::from_str(&engine.edit_add_model("m-2", "{\"name\":\"x\"}", 160.0, 120.0))
+            .unwrap();
+    assert_eq!(refused["refused"], true);
+}

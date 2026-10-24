@@ -62,6 +62,8 @@ export interface HomeAssistant {
   locale?: { language: string };
   themes?: { darkMode?: boolean };
   connection: HassConnection;
+  /** A request to Home Assistant with the user's session (the frontend's `fetchWithAuth`). */
+  fetchWithAuth?(path: string, init?: RequestInit): Promise<Response>;
   callService(
     domain: string,
     service: string,

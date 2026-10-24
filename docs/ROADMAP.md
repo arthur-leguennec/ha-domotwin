@@ -12,7 +12,7 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M2        | Live control: bindings, tap, long-press, room panel        | ✅     |
 | M1b       | IFC import (ISO 16739), one storey → plan                  | ✅     |
 | M3        | Edit mode: move, rotate, stack, undo, save, card editor    | ✅     |
-| M3b       | Your own furniture and appliances with their 3D model      | ⏳     |
+| M3b       | Your own furniture and appliances with their 3D model      | ✅     |
 | M4        | Layers: heatmap, alerts, presence, sun and mood, power     | ⏳     |
 | M5        | Polish: design, fonts, accessibility, performance, README  | ⏳     |
 | M6        | Release 0.1.0 and HACS submission checklist                | ⏳     |
@@ -185,9 +185,37 @@ windows (they stay House Maquette's); refreshing the summary chip's counts while
 
 ## M3b, your own furniture and appliances
 
-**Your own furniture or appliance** (`DECISIONS.md`, D-013): import a glTF/GLB model (then OBJ, STL,
-3MF) with its real size and behaviour (lamp, screen, appliance…), stored by the integration by hash,
-placed, stacked and bound like any piece, and embedded in **Export plan**.
+**Your own furniture or appliance** (`DECISIONS.md`, D-013 and D-021).
+
+- ✅ Readers for **glTF 2.0** (GLB, or glTF with embedded data), **OBJ**, **STL** (binary and ASCII)
+  and **3MF** (base materials, colour groups, parts in other model files of the archive), in their
+  own WebAssembly module, loaded only when a plan shows a 3D file or one is imported. The format's
+  limits apply (8 MB, 150 000 triangles, 5 000 meshes, pictures up to 4 096 px, 32 MB unpacked),
+  external files are refused. Fuzzed.
+- ✅ The engine draws a file's mesh fitted into its piece (`up` axis and front), with the colours,
+  metal, glass and glowing parts of its materials and the colours of its pictures sampled at the
+  vertices; pieces are boxes until their file is read, or past 600 000 triangles of files in a plan.
+- ✅ **Import a 3D model** in edit mode's catalogue: the name, the unit and up axis (guessed from the
+  format and the file), the real size and, for files without colours, a colour; **My models** lists
+  the plan's models to add more pieces of them, and forgets an imported model no piece shows.
+  Imported models are overlay entries: undo, drafts and saving treat them like pieces.
+- ✅ The integration keeps the files by SHA-256 in `<config>/domotwin/models/` (upload by
+  administrators, reading by signed-in users), deletes the files nothing uses a day after their
+  upload, and all of them when it is removed; the models of plans and overlays are checked (50 per
+  plan, 20 MB of files).
+- ✅ A user model linked to a light lights the room and its emissive parts glow; linked to a media
+  player it lights like a screen.
+- ✅ **Export plan** embeds the files as `data:` URLs; importing such a plan uploads them back.
+- ✅ Tests: the four readers on fictional models in every format (`scripts/make-model-fixtures.py`),
+  the fit, the overlay's models, the session; the upload, reading and clean-up views (pytest); the
+  engine API in headless Chromium; the import, My models, export and import back, a refused file
+  and a missing file (Playwright).
+
+![Your own 3D models: bar stools drawn from a GLB file, and the import of a glTF lamp](figures/screenshot-models.png)
+
+Measured at the end of M3b: see [`PERFORMANCE.md`](PERFORMANCE.md).
+
+Left for later: textures drawn as textures, kits made in the app, resizing a piece in edit mode.
 
 ## M4, layers
 

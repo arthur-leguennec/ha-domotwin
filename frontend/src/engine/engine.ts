@@ -80,8 +80,34 @@ export interface EditState {
   dirty: boolean;
   /** A number that changes whenever the overlay does. */
   changes: number;
-  /** `editAdd` only: the piece could not be added (the plan holds 500 elements). */
+  /** `editAdd` and `editAddModel` only: the piece could not be added (500 elements, 50 models). */
   refused?: boolean;
+}
+
+/** A 3D file the plan shown draws pieces from, to fetch and read (`setModelMesh`). */
+export interface ModelFileRef {
+  /** SHA-256 of the file (its name on the server). */
+  hash: string;
+  format: string;
+  bytes: number;
+}
+
+/** A user model of the plan shown (« My models »). */
+export interface UserModel {
+  id: string;
+  name: string;
+  /** Size of a new piece (cm). */
+  w: number;
+  d: number;
+  h: number;
+  color: string | null;
+  /** The 3D file's format and size, `null` for a kit of parts. */
+  format: string | null;
+  bytes: number | null;
+  /** How many pieces show it. */
+  pieces: number;
+  /** Imported in edit mode and shown by no piece: it can be forgotten. */
+  removable: boolean;
 }
 
 /** A kind of the catalogue, with its default size (cm). */
@@ -286,6 +312,26 @@ export class DomoTwinEngine {
     return JSON.parse(this.live.stats()) as SceneStats;
   }
 
+  /** The 3D files the pieces shown are drawn from and whose mesh the engine does not have. */
+  modelFiles(): ModelFileRef[] {
+    return JSON.parse(this.live.modelFiles()) as ModelFileRef[];
+  }
+
+  /** Gives the mesh of a 3D file (from the model module); its pieces change at `showModels`. */
+  setModelMesh(hash: string, mesh: Uint8Array): boolean {
+    return this.live.setModelMesh(hash, mesh);
+  }
+
+  /** Draws the pieces whose 3D file came since the scene was built (one rebuild for all). */
+  showModels(): boolean {
+    return this.live.showModels();
+  }
+
+  /** Pieces drawn as boxes because the plan's 3D files pass the triangle budget. */
+  get modelsOverBudget(): number {
+    return this.live.modelsOverBudget();
+  }
+
   /** Starts edit mode on the plan shown. */
   beginEdit(): EditState {
     return editState(this.live.beginEdit());
@@ -330,6 +376,30 @@ export class DomoTwinEngine {
   /** Adds a piece of the catalogue under the device pixel `x`, `y` (or mid-view) and selects it. */
   editAdd(kind: string, name: string, x: number, y: number): EditState {
     return editState(this.live.editAdd(kind, name, x, y));
+  }
+
+  /**
+   * Adds a piece of a user model under the device pixel `x`, `y` (or mid-view) and selects it;
+   * `definition` is the model itself when it is imported now.
+   */
+  editAddModel(
+    id: string,
+    definition: Record<string, unknown> | undefined,
+    x: number,
+    y: number,
+  ): EditState {
+    const text = definition ? JSON.stringify(definition) : "";
+    return editState(this.live.editAddModel(id, text, x, y));
+  }
+
+  /** Forgets a model imported in edit mode that no piece shows. */
+  editRemoveModel(id: string): EditState {
+    return editState(this.live.editRemoveModel(id));
+  }
+
+  /** The plan's user models (« My models »). */
+  editModels(): UserModel[] {
+    return JSON.parse(this.live.editModels()) as UserModel[];
   }
 
   editUndo(): EditState {

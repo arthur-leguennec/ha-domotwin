@@ -67,7 +67,7 @@ pub fn point_lights(spots: &[LightSpot], looks: &[Look]) -> Vec<PointLight> {
                 (sum[1] / n) as f32,
                 (sum[2] / n) as f32,
             ];
-            let (gain, radius) = if spot.screen {
+            let (gain, radius) = if spot.screen || look.screen {
                 (0.55, 260.0)
             } else {
                 // High lamps reach further, so that their light gets to the floor.
@@ -102,7 +102,8 @@ pub fn halos(spots: &[LightSpot], looks: &[Look]) -> Vec<Halo> {
         .filter_map(|spot| {
             let look = looks.get(spot.element)?;
             let s = strength(look);
-            if s < 0.02 {
+            // A user model linked to a media player lights like a screen: no halo.
+            if s < 0.02 || look.screen {
                 return None;
             }
             let bulbs = spots.iter().filter(|o| o.element == spot.element).count() as f32;
@@ -183,6 +184,20 @@ mod tests {
         assert_eq!(halos(&spots, &looks).len(), 3);
         let ceiling = [spot(0, [0.0, 240.0, 0.0], false)];
         assert!(halos(&ceiling, &[lit(1.0)]).is_empty());
+    }
+
+    #[test]
+    fn a_lamp_spot_showing_a_screen_lights_like_one() {
+        let spots = [spot(0, [0.0, 100.0, 0.0], false)];
+        let lamp = point_lights(&spots, &[lit(0.8)]);
+        let looks = [Look {
+            screen: true,
+            ..lit(0.8)
+        }];
+        let screen = point_lights(&spots, &looks);
+        assert!(screen[0].radius < lamp[0].radius);
+        assert!(halos(&spots, &looks).is_empty());
+        assert_eq!(halos(&spots, &[lit(0.8)]).len(), 1);
     }
 
     #[test]

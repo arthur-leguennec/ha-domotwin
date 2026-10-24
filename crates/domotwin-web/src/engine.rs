@@ -1,6 +1,7 @@
 //! The engine exposed to JavaScript.
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::rc::Rc;
 use std::sync::Arc;
 
 use domotwin_core::bindings::{Bindings, read_bindings};
@@ -8,10 +9,13 @@ use domotwin_core::camera::{Camera, CutawayMode};
 use domotwin_core::edit::Session;
 use domotwin_core::lighting::{Mood, lighting_for_hour, lighting_for_sun};
 use domotwin_core::live::{EntityState, LiveState, read_states, targets};
+use domotwin_core::model_mesh::ModelMesh;
 use domotwin_core::overlay::{Layout, apply, fit, parse_layout};
 use domotwin_core::plan::{Element, Plan, View, parse_plan_json, read_plan_value};
 use domotwin_core::scene::mesh::Mesh;
-use domotwin_core::scene::{ElementInfo, Scene, SceneOptions, build_dynamic, build_scene_moving};
+use domotwin_core::scene::{
+    ElementInfo, ModelMeshes, Scene, SceneOptions, build_dynamic, build_scene_moving,
+};
 use domotwin_core::{ReadError, summarize_plan};
 use domotwin_render::{GpuHint, QualityPreset, Renderer, Rgb};
 use wasm_bindgen::JsCast;
@@ -86,6 +90,10 @@ pub struct Engine {
     pub(crate) edit: Option<Session>,
     /// The pieces a drag moves are built apart (with the moving parts) since its first move.
     pub(crate) drag_built: bool,
+    /// The meshes of the 3D files given so far, by SHA-256.
+    models: Rc<ModelMeshes>,
+    /// A mesh came for a piece shown since the scene was built.
+    models_dirty: bool,
 }
 
 #[wasm_bindgen]
@@ -133,6 +141,8 @@ impl Engine {
             last_frame: None,
             edit: None,
             drag_built: false,
+            models: Rc::default(),
+            models_dirty: false,
         };
         engine
             .renderer
@@ -212,7 +222,12 @@ impl Engine {
                 found
             })
             .collect();
-        let mut scene = build_scene_moving(&plan, &SceneOptions::default(), moving);
+        let options = SceneOptions {
+            models: Rc::clone(&self.models),
+            ..SceneOptions::default()
+        };
+        self.models_dirty = false;
+        let mut scene = build_scene_moving(&plan, &options, moving);
         self.triangles = [
             &scene.opaque,
             &scene.transparent,
@@ -244,6 +259,96 @@ impl Engine {
 
 #[wasm_bindgen]
 impl Engine {
+    /// The 3D files the pieces of the plan shown are drawn from, as JSON `[{"hash", "format",
+    /// "bytes"}]`, each once: the frontend fetches and reads them, then gives their meshes with
+    /// [`Engine::set_model_mesh`]. Files already given are left out.
+    #[wasm_bindgen(js_name = modelFiles)]
+    pub fn model_files(&self) -> String {
+        let Some(plan) = &self.plan else {
+            return "[]".to_owned();
+        };
+        let mut seen: Vec<&str> = Vec::new();
+        let mut files = Vec::new();
+        for element in &plan.elements {
+            let Element::Furniture(f) = element else {
+                continue;
+            };
+            let Some(file) = f
+                .model
+                .as_ref()
+                .and_then(|id| plan.models.get(id))
+                .and_then(|m| m.get("file"))
+            else {
+                continue;
+            };
+            let (Some(hash), Some(format)) = (
+                file.get("hash").and_then(serde_json::Value::as_str),
+                file.get("format").and_then(serde_json::Value::as_str),
+            ) else {
+                continue;
+            };
+            let valid =
+                hash.len() == 64 && hash.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'));
+            if valid && !self.models.contains_key(hash) && !seen.contains(&hash) {
+                seen.push(hash);
+                files.push(serde_json::json!({
+                    "hash": hash,
+                    "format": format,
+                    "bytes": file.get("bytes").cloned().unwrap_or_default(),
+                }));
+            }
+        }
+        serde_json::Value::Array(files).to_string()
+    }
+
+    /// Gives the mesh of the 3D file `hash` (`DTM1`, from the model module); the pieces drawn
+    /// from it change at the next [`Engine::show_models`]. Returns `false` when the mesh is refused.
+    #[wasm_bindgen(js_name = setModelMesh)]
+    pub fn set_model_mesh(&mut self, hash: &str, mesh: &[u8]) -> bool {
+        let Ok(mesh) = ModelMesh::decode(mesh) else {
+            return false;
+        };
+        Rc::make_mut(&mut self.models).insert(hash.to_owned(), Rc::new(mesh));
+        let shown = self.plan.as_ref().is_some_and(|plan| {
+            plan.models.values().any(|m| {
+                m.get("file")
+                    .and_then(|f| f.get("hash"))
+                    .and_then(serde_json::Value::as_str)
+                    == Some(hash)
+            })
+        });
+        self.models_dirty |= shown;
+        true
+    }
+
+    /// Draws the pieces whose 3D file came since the scene was built, in one rebuild for all of
+    /// them. Returns whether it did.
+    #[wasm_bindgen(js_name = showModels)]
+    pub fn show_models(&mut self) -> bool {
+        if !self.models_dirty {
+            return false;
+        }
+        let Some(moving) = self.scene.as_ref().map(|s| s.moving().clone()) else {
+            return false;
+        };
+        if let Some(plan) = self.plan.take() {
+            self.show(plan, true, &moving, false);
+            if let (Some(session), Some(plan), Some(scene)) =
+                (&mut self.edit, &self.plan, &self.scene)
+            {
+                session.sync(plan, scene.walls());
+            }
+        }
+        true
+    }
+
+    /// How many pieces are drawn as boxes because the 3D files of the plan pass the scene's
+    /// triangle budget.
+    #[wasm_bindgen(js_name = modelsOverBudget)]
+    pub fn models_over_budget(&self) -> usize {
+        self.scene.as_ref().map_or(0, |s| s.models_over_budget)
+    }
+
     /// Sets the bindings (the JSON stored by the integration). Malformed entries are skipped.
     #[wasm_bindgen(js_name = setBindings)]
     pub fn set_bindings(&mut self, json: &str) {

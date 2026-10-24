@@ -432,8 +432,10 @@ These notes are DomoTwin's, not part of the copied reference.
   overlay keyed by element id (position, rotation, elevation, support, added or removed pieces) and
   the bindings live beside it, so re-importing an updated plan keeps both. **Export plan** writes a
   revision 10 plan with the overlay applied.
-- **User models.** `custom` pieces made from a kit are drawn from M1; pieces whose model is a 3D
-  file are drawn as a box of their size until M3 brings the 3D file import (`DECISIONS.md`, D-013).
+- **User models.** `custom` pieces made from a kit are drawn from M1, those whose model is a 3D file
+  from M3b (`DECISIONS.md`, D-013 and D-021). DomoTwin keeps the files in Home Assistant rather than
+  in the browser's IndexedDB, so that every device shows them; a piece whose file is missing is a
+  box of its size and the view says so. Pictures colour the model at its vertices.
 - **Not drawn.** `site` is kept for the export but not drawn, and walk viewpoints are kept but
   DomoTwin has no walk mode.
 - **Photo floors.** DomoTwin ships no photo textures. `photo-*` floors use the matching procedural

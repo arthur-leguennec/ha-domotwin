@@ -16,8 +16,8 @@ Local, fast, Rust + WebAssembly.</p>
 > **Status: early development.** DomoTwin is built milestone by milestone
 > ([roadmap](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/ROADMAP.md)). The
 > integration, the panel, the card, the plan and IFC import, the 3D and 2D views, live control
-> (states, tap, long press, room panel, linking) and the edit mode work today; your own 3D models
-> and the layers come next. The features below describe version 0.1.0.
+> (states, tap, long press, room panel, linking), the edit mode and your own 3D models work today;
+> the layers come next. The features below describe version 0.1.0.
 
 ## Features
 
@@ -33,7 +33,7 @@ Local, fast, Rust + WebAssembly.</p>
   sun through your windows, and power consumption.
 - **Edit mode.** Move, rotate and stack furniture with snapping, guides and undo, add pieces from
   a catalogue, link any object to entities (with suggestions from your areas), and add your own
-  furniture or appliance with its 3D model. See
+  furniture or appliance with its 3D model (glTF/GLB, OBJ, STL or 3MF). See
   [edit mode](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/edit-mode.md).
 - **Light and smooth.** Rust compiled to WebAssembly, rendering only when something changes, quality
   presets for old wall tablets. The first load is budgeted at 1.2 MB, checked by CI.
@@ -107,6 +107,10 @@ with its JSON Schema, and one storey of an IFC file (ISO 16739, exported by Free
 Bonsai, ArchiCAD or Revit): see [IFC
 import](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/ifc-import.md).
 
+**Can I use my own furniture?** Yes: in edit mode, **Import a 3D model** takes a glTF/GLB, OBJ, STL
+or 3MF file up to 8 MB. Give its real size; it is placed, stacked and linked like any piece, kept
+by Home Assistant and included in **Export plan**.
+
 **Does it need an internet connection?** No. See
 [Privacy](https://github.com/arthur-leguennec/ha-domotwin#privacy).
 
@@ -117,8 +121,8 @@ something changes, so an idle view costs almost nothing.
 **Who can change the plan?** Everyone can view and use DomoTwin; only administrators can import a
 plan, edit it and change bindings.
 
-**What happens to my data if I remove the integration?** The stored plan, edits and bindings are
-deleted. Use **Export plan** first to keep a copy.
+**What happens to my data if I remove the integration?** The stored plan, edits, bindings and 3D
+model files are deleted. Use **Export plan** first to keep a copy (it includes the 3D files).
 
 ## Privacy
 

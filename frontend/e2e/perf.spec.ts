@@ -3,7 +3,7 @@ import { writeFile } from "node:fs/promises";
 import { expect, test } from "@playwright/test";
 
 import type { FrameStats } from "../src/components/view";
-import { openHarness } from "./fixtures";
+import { openHarness, viewState } from "./fixtures";
 
 interface BenchmarkView {
   benchmark(frames: number): Promise<FrameStats>;
@@ -76,4 +76,31 @@ test("drag cost in edit mode", async ({ page }, testInfo) => {
   await testInfo.attach("drag-cost", { path, contentType: "application/json" });
   console.log(JSON.stringify(report));
   expect(report.moveMedianMs).toBeLessThan(50);
+});
+
+// Two pieces drawn from a 3D file of 139 392 triangles (7 MB STL): fetching and reading it, giving
+// it to the engine (the whole scene rebuilt), then the frame time.
+test("a large 3D model", async ({ page }, testInfo) => {
+  await openHarness(page, { models: "big" });
+  await expect(page.getByTestId("summary")).toBeVisible();
+  await expect
+    .poll(async () => (await viewState(page)).models?.drawMs.length, { timeout: 30_000 })
+    .toBe(1);
+  const state = await viewState(page);
+  const stats: FrameStats = await page.evaluate(() =>
+    (window as never as { __view: () => BenchmarkView }).__view().benchmark(60),
+  );
+  const report = {
+    triangles: state.stats?.triangles,
+    loadMs: state.models?.loadMs[0],
+    drawMs: state.models?.drawMs[0],
+    cpuMedianMs: stats.cpuMedianMs,
+    cpuP95Ms: stats.cpuP95Ms,
+    wasmMemoryBytes: stats.wasmMemoryBytes,
+  };
+  const path = testInfo.outputPath("large-model.json");
+  await writeFile(path, JSON.stringify(report, null, 2));
+  await testInfo.attach("large-model", { path, contentType: "application/json" });
+  console.log(JSON.stringify(report));
+  expect(report.triangles).toBeGreaterThan(2 * 139_392);
 });

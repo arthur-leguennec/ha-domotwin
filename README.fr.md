@@ -16,8 +16,8 @@ Local, rapide, Rust + WebAssembly.</p>
 > **État : développement en cours.** DomoTwin se construit étape par étape ([feuille de
 > route](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/ROADMAP.md), en anglais).
 > L’intégration, le panneau, la carte, l’import du plan et de l’IFC, les vues 3D et 2D, le
-> pilotage en direct (états, toucher, appui long, panneau de pièce, liaisons) et le mode édition
-> fonctionnent déjà ; vos propres modèles 3D et les calques arrivent ensuite. Les fonctionnalités
+> pilotage en direct (états, toucher, appui long, panneau de pièce, liaisons), le mode édition et
+> vos propres modèles 3D fonctionnent déjà ; les calques arrivent ensuite. Les fonctionnalités
 > ci-dessous décrivent la version 0.1.0.
 
 ## Fonctionnalités
@@ -37,7 +37,7 @@ Local, rapide, Rust + WebAssembly.</p>
 - **Mode édition.** Déplacez, tournez et empilez les meubles avec aimantation, repères et
   annulation, ajoutez des meubles depuis un catalogue, liez n’importe quel objet à des entités (avec
   des suggestions tirées de vos pièces), et ajoutez votre propre meuble ou appareil avec son modèle
-  3D. Voir [le mode édition](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/edit-mode.md) (en anglais).
+  3D (glTF/GLB, OBJ, STL ou 3MF). Voir [le mode édition](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/edit-mode.md) (en anglais).
 - **Léger et fluide.** Rust compilé en WebAssembly, un rendu seulement quand quelque chose change,
   des préréglages de qualité pour les vieilles tablettes murales. Le premier chargement est limité à
   1,2 Mo, vérifié par l’intégration continue.
@@ -117,6 +117,11 @@ avec son schéma JSON, et un étage d’un fichier IFC (ISO 16739, exporté par 
 Bonsai, ArchiCAD ou Revit) : voir [l’import
 IFC](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/ifc-import.md) (en anglais).
 
+**Puis-je utiliser mes propres meubles ?** Oui : en mode édition, **Importer un modèle 3D** accepte
+un fichier glTF/GLB, OBJ, STL ou 3MF de 8 Mo au plus. Donnez sa taille réelle ; il se place,
+s’empile et se lie comme n’importe quel meuble, est gardé par Home Assistant et inclus dans
+**Exporter le plan**.
+
 **Faut-il une connexion Internet ?** Non. Voir
 [Confidentialité](https://github.com/arthur-leguennec/ha-domotwin/blob/main/README.fr.md#confidentialité).
 
@@ -128,8 +133,9 @@ rien.
 **Qui peut modifier le plan ?** Tout le monde peut voir et utiliser DomoTwin ; seuls les
 administrateurs peuvent importer un plan, le modifier et changer les liaisons.
 
-**Que deviennent mes données si je supprime l’intégration ?** Le plan, les modifications et les
-liaisons enregistrés sont supprimés. Utilisez d’abord **Exporter le plan** pour en garder une copie.
+**Que deviennent mes données si je supprime l’intégration ?** Le plan, les modifications, les
+liaisons et les fichiers des modèles 3D enregistrés sont supprimés. Utilisez d’abord **Exporter le
+plan** pour en garder une copie (elle contient les fichiers 3D).
 
 ## Confidentialité
 

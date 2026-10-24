@@ -4,11 +4,16 @@
  * - `<domotwin-edit-bar>`: the bar at the bottom of the view (undo, redo, turn, remove, select
  *   several, add) and what is selected. It fires `domotwin-edit-command` (detail: the command),
  *   `domotwin-edit-multi` (detail: on or off) and `domotwin-edit-catalogue`;
- * - `<domotwin-catalogue>`: the pieces that can be added, by room, with a search. It fires
- *   `domotwin-add` (detail: `{ kind, name }`).
+ * - `<domotwin-catalogue>`: the pieces that can be added, by room, with a search, and the plan's
+ *   own 3D models (« My models »). It fires `domotwin-add` (detail: `{ kind, name }`),
+ *   `domotwin-add-model` and `domotwin-forget-model` (detail: `{ id }`) and
+ *   `domotwin-import-model`;
+ * - `<domotwin-model-import>`: the name, size, unit and up axis of a 3D file being imported. It
+ *   fires `domotwin-model-confirm` (detail: `ModelChoice`).
  */
 import {
   mdiAlertOutline,
+  mdiCubeOutline,
   mdiDeleteOutline,
   mdiLock,
   mdiPlus,
@@ -20,9 +25,18 @@ import {
 } from "@mdi/js";
 import { LitElement, css, html, nothing, type TemplateResult } from "lit";
 
-import type { CatalogueKind, EditState } from "../engine/engine";
+import type { CatalogueKind, EditState, UserModel } from "../engine/engine";
 import type { HomeAssistant } from "../ha/types";
 import { translatorFor, type MessageKey, type Translator } from "../i18n";
+import {
+  UNITS,
+  guessUnit,
+  modelSize,
+  validSize,
+  type ModelFormat,
+  type ModelInfo,
+  type ModelUnit,
+} from "../models/models";
 import { define, fire } from "./define";
 import { icon } from "./icon";
 import { Sheet, sheetStyles } from "./sheet";
@@ -70,22 +84,26 @@ export const GROUPS: [string, string[]][] = [
   ["decor", ["plant", "curtain", "frame", "gallery", "heater", "conduit"]],
 ];
 
+/** Text folded for a search: lower case, without accents. */
+function folded(text: string, t: Translator): string {
+  return text.toLocaleLowerCase(t.language).normalize("NFKD").replace(/[̀-ͯ]/g, "");
+}
+
+/** The plan's models whose name matches `query`. */
+export function matchingModels(models: UserModel[], t: Translator, query = ""): UserModel[] {
+  const wanted = folded(query.trim(), t);
+  return models.filter((model) => !wanted || folded(model.name, t).includes(wanted));
+}
+
 /** The catalogue in groups, translated and filtered by `query` (name or kind). */
 export function catalogueGroups(
   kinds: CatalogueKind[],
   t: Translator,
   query = "",
 ): { group: string; kinds: CatalogueKind[] }[] {
-  const wanted = query.trim().toLocaleLowerCase(t.language).normalize("NFKD").replace(/[̀-ͯ]/g, "");
-  const matches = (kind: CatalogueKind): boolean => {
-    if (!wanted) return true;
-    const name = t
-      .kind(kind.kind)
-      .toLocaleLowerCase(t.language)
-      .normalize("NFKD")
-      .replace(/[̀-ͯ]/g, "");
-    return name.includes(wanted) || kind.kind.includes(wanted);
-  };
+  const wanted = folded(query.trim(), t);
+  const matches = (kind: CatalogueKind): boolean =>
+    !wanted || folded(t.kind(kind.kind), t).includes(wanted) || kind.kind.includes(wanted);
   const placed = new Set(GROUPS.flatMap(([, list]) => list));
   const groups = GROUPS.map(([group, list]) => ({
     group,
@@ -290,6 +308,7 @@ export class DomoTwinCatalogue extends Sheet {
   static override properties = {
     ...Sheet.properties,
     kinds: { attribute: false },
+    models: { attribute: false },
     query: { state: true },
   };
   static override styles = [
@@ -333,11 +352,93 @@ export class DomoTwinCatalogue extends Sheet {
         color: var(--secondary-text-color, #5f6368);
         font-size: 0.75rem;
       }
+      .kinds .model {
+        position: relative;
+        display: grid;
+      }
+      .kinds .model .forget {
+        position: absolute;
+        top: 4px;
+        right: 4px;
+        min-height: 0;
+        width: 32px;
+        height: 32px;
+        padding: 0;
+        place-items: center;
+        border: none;
+        border-radius: 50%;
+      }
+      .kinds .model .add-model {
+        padding-right: 36px;
+      }
+      .kinds .import {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        grid-column: 1 / -1;
+        border-style: dashed;
+      }
     `,
   ];
 
   kinds: CatalogueKind[] = [];
+  models: UserModel[] = [];
   protected query = "";
+
+  /** « My models »: the plan's own models, and the import of a 3D file. */
+  private renderModels(): TemplateResult {
+    const t = this.t;
+    const models = matchingModels(this.models, t, this.query);
+    return html`<h3>${t.t("edit.my_models")}</h3>
+      <div class="kinds">
+        ${models.map(
+          (model) =>
+            html`<div class="model">
+              <button
+                class="add-model"
+                data-testid=${`catalogue-model-${model.id}`}
+                @click=${() => {
+                  fire(this, "domotwin-add-model", { id: model.id });
+                }}
+              >
+                <span>${model.name || t.t("model.default_name")}</span>
+                <small
+                  >${t.t("edit.size", { w: model.w, d: model.d, h: model.h })}${
+                    model.format ? ` · ${model.format.toUpperCase()}` : ""
+                  }</small
+                >
+              </button>
+              ${
+                model.removable
+                  ? html`<button
+                      class="forget"
+                      data-testid=${`catalogue-forget-${model.id}`}
+                      title=${t.t("edit.forget_model", { name: model.name })}
+                      aria-label=${t.t("edit.forget_model", { name: model.name })}
+                      @click=${() => {
+                        fire(this, "domotwin-forget-model", { id: model.id });
+                      }}
+                    >
+                      ${icon(mdiDeleteOutline)}
+                    </button>`
+                  : nothing
+              }
+            </div>`,
+        )}
+        <button
+          class="import"
+          data-testid="catalogue-import-model"
+          @click=${() => {
+            fire(this, "domotwin-import-model", {});
+          }}
+        >
+          ${icon(mdiCubeOutline)}
+          <span
+            >${t.t("edit.import_model")}<br /><small>${t.t("edit.import_model_hint")}</small></span
+          >
+        </button>
+      </div>`;
+  }
 
   override firstUpdated(): void {
     this.renderRoot.querySelector("input")?.focus();
@@ -357,6 +458,7 @@ export class DomoTwinCatalogue extends Sheet {
             this.query = (event.target as HTMLInputElement).value;
           }}
         />
+        ${this.renderModels()}
         ${groups.length === 0 ? html`<p class="empty">${t.t("edit.no_match")}</p>` : nothing}
         ${groups.map(
           ({ group, kinds }) =>
@@ -380,5 +482,247 @@ export class DomoTwinCatalogue extends Sheet {
   }
 }
 
+/** What the import of a 3D file settled. */
+export interface ModelChoice {
+  name: string;
+  /** Width, depth, height (cm). */
+  size: [number, number, number];
+  up: "y" | "z";
+  /** The colour of a model without colours of its own. */
+  color?: string;
+}
+
+/** The colour of new pieces of a model without one (`plan-format.md`). */
+const MODEL_COLOR = "#b8ad9a";
+
+export class DomoTwinModelImport extends Sheet {
+  static override properties = {
+    ...Sheet.properties,
+    info: { attribute: false },
+    format: { attribute: false },
+    fileName: { attribute: false },
+    busy: { attribute: false },
+    name: { state: true },
+    unit: { state: true },
+    up: { state: true },
+    size: { state: true },
+    color: { state: true },
+  };
+  static override styles = [
+    baseStyles,
+    sheetStyles,
+    css`
+      form {
+        display: grid;
+        gap: 10px;
+      }
+      label {
+        display: grid;
+        gap: 4px;
+        font-size: 0.875rem;
+      }
+      .row {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+      }
+      input,
+      select {
+        box-sizing: border-box;
+        width: 100%;
+        min-height: 40px;
+        padding: 0 10px;
+        border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.2));
+        border-radius: 10px;
+        background: var(--card-background-color, #fff);
+        color: inherit;
+        font: inherit;
+      }
+      input[type="color"] {
+        padding: 4px;
+      }
+      .detail,
+      .invalid {
+        margin: 0;
+        font-size: 0.8rem;
+        color: var(--secondary-text-color, #5f6368);
+      }
+      .invalid {
+        color: var(--error-color, #db4437);
+      }
+      .footer button {
+        min-height: 40px;
+        padding: 0 16px;
+        border: none;
+        border-radius: 10px;
+        background: transparent;
+        color: var(--primary-color, #03a9f4);
+        font: inherit;
+        font-weight: 500;
+        cursor: pointer;
+      }
+      .footer button.primary {
+        background: var(--primary-color, #03a9f4);
+        color: var(--text-primary-color, #fff);
+      }
+      .footer button:disabled {
+        opacity: 0.5;
+        cursor: default;
+      }
+    `,
+  ];
+
+  info?: ModelInfo;
+  format: ModelFormat = "glb";
+  fileName = "";
+  busy = false;
+  protected name = "";
+  protected unit: ModelUnit = "cm";
+  protected up: "y" | "z" = "y";
+  protected size: [number, number, number] = [1, 1, 1];
+  protected color = MODEL_COLOR;
+
+  override willUpdate(changed: Map<PropertyKey, unknown>): void {
+    if (changed.has("info") && this.info) {
+      this.name = this.fileName.replace(/\.[^.]+$/, "").slice(0, 100);
+      this.unit = guessUnit(this.info, this.format);
+      this.up = this.info.up;
+      this.resize();
+    }
+  }
+
+  private resize(): void {
+    if (this.info) this.size = modelSize(this.info, this.unit, this.up);
+  }
+
+  private confirm(): void {
+    if (!validSize(this.size) || this.busy) return;
+    const choice: ModelChoice = {
+      name: this.name.trim() || this.t.t("model.default_name"),
+      size: this.size,
+      up: this.up,
+    };
+    if (!this.info?.colors) choice.color = this.color;
+    fire(this, "domotwin-model-confirm", choice);
+  }
+
+  private dimension(index: 0 | 1 | 2, label: MessageKey): TemplateResult {
+    return html`<label
+      >${this.t.t(label)}
+      <input
+        type="number"
+        inputmode="decimal"
+        min="1"
+        max=${index === 2 ? 300 : 10_000}
+        step="0.1"
+        data-testid=${`model-size-${index}`}
+        .value=${String(this.size[index])}
+        @input=${(event: Event) => {
+          const size = [...this.size] as [number, number, number];
+          size[index] = Number((event.target as HTMLInputElement).value);
+          this.size = size;
+        }}
+    /></label>`;
+  }
+
+  protected override render(): TemplateResult {
+    const t = this.t;
+    const info = this.info;
+    const valid = validSize(this.size);
+    const units = Object.keys(UNITS) as ModelUnit[];
+    return this.frame(
+      html`<form
+        @submit=${(event: Event) => {
+          event.preventDefault();
+          this.confirm();
+        }}
+      >
+        <p class="detail">
+          ${this.fileName}${info ? html` · ${t.tp("model.triangles", info.triangles)}` : nothing}
+        </p>
+        <label
+          >${t.t("model.name")}
+          <input
+            data-testid="model-name"
+            maxlength="100"
+            .value=${this.name}
+            @input=${(event: Event) => {
+              this.name = (event.target as HTMLInputElement).value;
+            }}
+        /></label>
+        <label
+          >${t.t("model.unit")}
+          <select
+            data-testid="model-unit"
+            @change=${(event: Event) => {
+              this.unit = (event.target as HTMLSelectElement).value as ModelUnit;
+              this.resize();
+            }}
+          >
+            ${units.map(
+              (unit) =>
+                html`<option value=${unit} ?selected=${unit === this.unit}>
+                  ${t.t(`model.unit_${unit}` as MessageKey)}
+                </option>`,
+            )}
+          </select></label
+        >
+        <label
+          >${t.t("model.up")}
+          <select
+            data-testid="model-up"
+            @change=${(event: Event) => {
+              this.up = (event.target as HTMLSelectElement).value as "y" | "z";
+              this.resize();
+            }}
+          >
+            <option value="y" ?selected=${this.up === "y"}>${t.t("model.up_y")}</option>
+            <option value="z" ?selected=${this.up === "z"}>${t.t("model.up_z")}</option>
+          </select></label
+        >
+        <div class="row">
+          ${this.dimension(0, "model.width")} ${this.dimension(1, "model.depth")}
+          ${this.dimension(2, "model.height")}
+        </div>
+        ${valid ? nothing : html`<p class="invalid" role="alert">${t.t("model.size_invalid")}</p>`}
+        ${
+          info && !info.colors
+            ? html`<label
+                >${t.t("model.color")}
+                <input
+                  type="color"
+                  data-testid="model-color"
+                  .value=${this.color}
+                  @input=${(event: Event) => {
+                    this.color = (event.target as HTMLInputElement).value;
+                  }}
+              /></label>`
+            : nothing
+        }
+      </form>`,
+      html`<div class="footer">
+        <button
+          @click=${() => {
+            this.close();
+          }}
+        >
+          ${t.t("panel.cancel")}
+        </button>
+        <button
+          class="primary"
+          data-testid="model-import"
+          ?disabled=${!valid || this.busy}
+          @click=${() => {
+            this.confirm();
+          }}
+        >
+          ${this.busy ? t.t("model.importing") : t.t("model.import")}
+        </button>
+      </div>`,
+    );
+  }
+}
+
 define("domotwin-edit-bar", DomoTwinEditBar);
 define("domotwin-catalogue", DomoTwinCatalogue);
+define("domotwin-model-import", DomoTwinModelImport);

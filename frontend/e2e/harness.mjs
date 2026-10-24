@@ -2,6 +2,9 @@
 //   mode=card|panel  lang=en|fr  plan=demo|none  admin=1|0  dark=1  view=3d|2d  cutaway=auto|always|off
 //   lighting=auto|morning|day|evening|night  sun=<elevation>,<rising 0|1> (a sun.sun entity)
 //   live=1 (the demo bindings, and the demo home's entities, areas and states)
+//   models=1 (the demo plan with a bar stool drawn from examples/models/stool.glb, twice)
+//   models=big (the same pieces drawn from a generated STL of 139 392 triangles)
+//   models=unused (the stool model in the plan, without pieces)
 import { applyService, demoHome } from "./demo-home.mjs";
 
 const params = new URLSearchParams(location.search);
@@ -19,7 +22,105 @@ const store = {
   layout: {},
   bindings: demoBindings,
   revision: 1,
+  /** Model files kept by the mocked integration, by `<sha256>.<format>`. */
+  files: new Map(),
 };
+window.__store = store;
+
+async function sha256(bytes) {
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+/** A wavy square of 264 × 264 cells (139 392 triangles) as a binary STL, Z up, millimetres. */
+function bigStl() {
+  const cells = 264;
+  const bytes = new Uint8Array(84 + 50 * 2 * cells * cells);
+  const view = new DataView(bytes.buffer);
+  view.setUint32(80, 2 * cells * cells, true);
+  const z = (i, j) => 300 + 60 * Math.sin(i / 9) * Math.cos(j / 13);
+  let at = 84;
+  const corner = (i, j) => [i * 1.5, j * 1.5, z(i, j)];
+  for (let i = 0; i < cells; i += 1) {
+    for (let j = 0; j < cells; j += 1) {
+      const a = corner(i, j);
+      const b = corner(i + 1, j);
+      const c = corner(i + 1, j + 1);
+      const d = corner(i, j + 1);
+      for (const triangle of [
+        [a, b, c],
+        [a, c, d],
+      ]) {
+        at += 12;
+        for (const p of triangle) {
+          for (const v of p) {
+            view.setFloat32(at, v, true);
+            at += 4;
+          }
+        }
+        at += 2;
+      }
+    }
+  }
+  return bytes;
+}
+
+const modelsParam = params.get("models");
+if (modelsParam && store.plan) {
+  const big = modelsParam === "big";
+  const bytes = big
+    ? bigStl()
+    : new Uint8Array(await (await fetch("/examples/models/stool.glb")).arrayBuffer());
+  const format = big ? "stl" : "glb";
+  const hash = await sha256(bytes);
+  store.files.set(`${hash}.${format}`, bytes);
+  store.plan.models = {
+    "m-stool": {
+      name: "Bar stool",
+      size: [38, 38, 71],
+      file: { format, hash, bytes: bytes.length, up: big ? "z" : "y" },
+    },
+  };
+  for (const [id, x] of modelsParam === "unused"
+    ? []
+    : [
+        ["stool-1", 80],
+        ["stool-2", 130],
+      ]) {
+    store.plan.elements.push({
+      id,
+      type: "furniture",
+      name: "Bar stool",
+      x,
+      y: 280,
+      w: 38,
+      h: 38,
+      z: 71,
+      kind: "custom",
+      model: "m-stool",
+      parent: "living",
+    });
+  }
+}
+
+/** The integration's model file views (`/api/domotwin/models`), with the user's session. */
+async function fetchWithAuth(path, init = {}) {
+  calls.push({ type: "fetch", method: init.method ?? "GET", path });
+  const url = new URL(path, location.origin);
+  if (url.pathname === "/api/domotwin/models" && init.method === "POST") {
+    if (!hass.user.is_admin) return Response.json({ code: "unauthorized" }, { status: 403 });
+    const format = url.searchParams.get("format");
+    const bytes = new Uint8Array(await new Response(init.body).arrayBuffer());
+    const hash = await sha256(bytes);
+    store.files.set(`${hash}.${format}`, bytes);
+    return Response.json({ hash, bytes: bytes.length, format });
+  }
+  const name = url.pathname.replace("/api/domotwin/models/", "");
+  const bytes = store.files.get(name);
+  if (!bytes || window.__failModelFiles)
+    return Response.json({ code: "not_found" }, { status: 404 });
+  return new Response(bytes);
+}
 const listeners = new Set();
 const calls = [];
 window.__calls = calls;
@@ -84,6 +185,7 @@ let hass = {
   locale: { language },
   themes: { darkMode: params.get("dark") === "1" },
   connection,
+  fetchWithAuth,
   async callService(domain, service, data, target) {
     calls.push({ type: "call_service", domain, service, data, target });
     if (window.__failServices)
