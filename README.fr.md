@@ -18,8 +18,8 @@ Local, rapide, Rust + WebAssembly.</p>
 > L’intégration, le panneau, la carte, l’import du plan et de l’IFC, les vues 3D et 2D, le
 > pilotage en direct (états, toucher, appui long, panneau de pièce, liaisons), le mode édition, vos
 > propres modèles 3D, les calques, les appareils, l’éditeur de plan, les étages, les apparences,
-> tous les étages à la fois, la promenade, le kiosque et la carte du réseau fonctionnent déjà ;
-> d’autres imports arrivent ensuite. Les fonctionnalités ci-dessous décrivent la version 0.1.0.
+> tous les étages à la fois, la promenade, le kiosque, la carte du réseau et les fils des
+> automatisations fonctionnent déjà ; d’autres imports arrivent ensuite. Les fonctionnalités ci-dessous décrivent la version 0.1.0.
 
 ## Fonctionnalités
 
@@ -53,6 +53,12 @@ Local, rapide, Rust + WebAssembly.</p>
   appareil ou un lien pour le détail, relancez un scan, placez les appareils que la carte ne trouve
   pas. Pour les administrateurs, avec ZHA. Voir [la carte du
   réseau](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/network.md) (en anglais).
+- **Fils des automatisations.** Un appui long sur une lampe : son panneau liste les automatisations
+  qui la concernent, avec leur interrupteur et leur dernier lancement. Montrez leurs fils, de ce
+  qui les déclenche à ce qu’elles commandent, et voyez une impulsion les parcourir quand l’une se
+  lance. Ou toutes les automatisations du logement à la fois. Voir [les fils des
+  automatisations](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/automations.md)
+  (en anglais).
 - **Éditeur de plan.** Pas de plan à importer ? Dessinez-le dans le panneau : des pièces en
   polygones avec leurs longueurs, des cloisons, des portes et des fenêtres posées sur les murs, avec
   aimantation et annulation. Voir [l’éditeur de
@@ -104,6 +110,10 @@ Local, rapide, Rust + WebAssembly.</p>
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-network.png" alt="La carte du réseau : les appareils Zigbee de l’appartement de démonstration sur leurs meubles, reliés par des arcs verts, orange et rouges, et une fiche avec le détail d’un routeur, la santé du réseau et un capteur pas placé dans le logement" width="100%">
+</p>
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-automations.png" alt="Les fils des automatisations : toutes les automatisations de l’appartement de démonstration tirées de la télévision et de la porte d’entrée jusqu’aux lampes et aux rideaux, avec des étiquettes au-dessus du logement pour le soleil, une heure, une notification et ce qu’un modèle décide" width="100%">
 </p>
 
 <p align="center">
@@ -160,7 +170,7 @@ YAML n’est jamais nécessaire. Pour référence, les options de la carte :
 | `spread`      | `true`, `false`                     | `true`     | Tous les étages à la fois : écartés, ou empilés. |
 | `roof`        | `true`, `false`                     | `true`     | Tous les étages à la fois : le toit sur le dernier. |
 | `room`        | un identifiant de pièce du plan     | aucun      | Pièce à cadrer à l’ouverture de la carte.     |
-| `layer`       | `off`, `temperature`, `humidity`, `co2`, `pm25`, `power`, `network` | `off` | Calque affiché à l’ouverture ; le menu des calques le change. `network` ne s’affiche qu’aux administrateurs, avec ZHA. |
+| `layer`       | `off`, `temperature`, `humidity`, `co2`, `pm25`, `power`, `network`, `automations` | `off` | Calque affiché à l’ouverture ; le menu des calques le change. `network` ne s’affiche qu’aux administrateurs, avec ZHA ; `automations` aux administrateurs. |
 | `alerts`      | `true`, `false`                     | `true`     | Alertes de sécurité des pièces (fumée, gaz, eau, alarme, fenêtre ouverte sous la pluie). |
 | `presence`    | `true`, `false`                     | `true`     | Les pièces occupées s’illuminent doucement.   |
 | `sun`         | `fixed`, `real`                     | `fixed`    | `real` : le soleil éclaire depuis sa vraie position (`sun.sun`), par les fenêtres. |

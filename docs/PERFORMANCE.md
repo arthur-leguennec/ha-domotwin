@@ -404,3 +404,41 @@ devices with 8 neighbours each (2 400 links, a 196 kB snapshot), every device pl
 the demo apartment: **32.5 ms** median in headless Chromium for `setNetwork` (the snapshot read,
 the routes, the health, 38 400 wire pieces built and uploaded, the analysis written back). Homes
 have tens of devices, rarely a hundred.
+
+### M9c (automation wires)
+
+Bundle: the first load is **428.5 kB gzipped** of 1 200 kB (+21.5 kB). The automations' section
+and their wires are chunks loaded when first shown:
+
+| File | Raw | Gzipped |
+| --- | ---: | ---: |
+| `domotwin_web_bg.<hash>.wasm` | 800.0 kB | 347.4 kB |
+| `domotwin.js` (entry) | 126.8 kB | 32.0 kB |
+| `chunks/automation-wires-<hash>.js` (on demand) | 7.3 kB | 2.9 kB |
+| `chunks/sheets-<hash>.js` (on demand, with the section) | 6.7 kB | 2.4 kB |
+
+The engine grew by 25.7 kB: the configuration reader (about 150 small functions, most of them
+the reader's steps and their iterators), the wires' links and bundles, the placing of the ends,
+a second wire set with its one-shot pulses, and the runs and the automation picked out kept
+when the wires are built again. With the network map's analysis (M9b), the
+reader is the first thing to move into a module of its own, loaded with the panels, in the pass
+over size after 0.1.0.
+
+Frame time at the High preset, 1280 × 720, in the evening with the lamps on, every automation of
+the e2e harness shown from the layer menu, *reduce motion* on; Chromium with SwiftShader (one
+run):
+
+| Automations | Look | Without (CPU median, software GPU) | With them |
+| --- | --- | ---: | ---: |
+| 3 (each drawn) | Day | 0.6 ms, 300 ms | 0.6 ms, 267 ms |
+| 3 | Neon | 0.6 ms, 233 ms | 0.9 ms, 233 ms |
+| 50 (bundled by room) | Day | 0.7 ms, 283 ms | 0.6 ms, 250 ms |
+| 50 | Neon | 0.7 ms, 250 ms | 0.6 ms, 250 ms |
+
+The wires are one draw call: they cost nothing measurable. Showing 50 automations unbundled (their
+ends placed, the links worked out, 100 wires built and uploaded) takes **2.1 ms** median in
+headless Chromium (`e2e/perf.spec.ts`, "frame time with 50 automations"); reading their
+configurations is one request each to Home Assistant, done once when the wires are shown. A run
+draws frames for the length of its pulse (under 2 s), and nothing is watched while no wires are
+shown.
+

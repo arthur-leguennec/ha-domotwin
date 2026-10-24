@@ -22,7 +22,7 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M10       | Kiosk: walk mode, idle and night modes, Assist voice       | ✅     |
 | M10b      | DomoTwin's own plan format, `*.domotwin.json`              | ✅     |
 | M9b       | Network map: the Zigbee mesh over the home (ZHA)           | ✅     |
-| M9c       | Automation wires: what sets off what, drawn in 3D          | ⏳     |
+| M9c       | Automation wires: what sets off what, drawn in 3D          | ✅     |
 | M9d       | Upkeep cards: makes, warranties, recurring tasks           | ⏳     |
 | M9e       | People in their rooms, live                                | ⏳     |
 | M8b       | Two more looks: cartoon and clay                           | ⏳     |
@@ -478,6 +478,32 @@ The Zigbee mesh drawn over the home (`DECISIONS.md`, D-031; [`network.md`](netwo
 
 Left for later: Zigbee2MQTT and Thread as sources, a device's history of quality, a link's
 neighbour table both ways.
+
+## M9c, automation wires
+
+What sets off what, drawn in the home, live (`DECISIONS.md`, D-032; [`automations.md`](automations.md)).
+
+- ✅ **Automations in the panels**: those related to a piece's entities, its device and its room's
+  area, with how the piece takes part, a switch, when it last ran and an editor link for
+  administrators; the same in a room's panel.
+- ✅ **Show wires**: from every trigger and condition to every action, one colour per automation,
+  dashed from conditions and to what a template decides; ends marked by role; labels floating
+  above a room or the home for what has no piece, lifted apart; a tap picks one out.
+- ✅ **Live**: a pulse along an automation's wires when it runs, the pieces it acted on flashing;
+  wires flashing under *reduce motion*.
+- ✅ **Every automation of the home** from the layer menu, lighter, bundled by room above 30.
+- ✅ **The reader in the core**, lenient and fuzzed; both spellings of Home Assistant's
+  configuration; nested steps followed.
+- ✅ Tests: reading fictional configurations (nested `choose`, `if`, `repeat`, device triggers,
+  area targets, templates, unknown steps, depth), wires and bundles (Rust); wires drawn, found,
+  pulsing (headless Chromium); related automations, placing, roles, runs, labels lifted
+  (vitest); the panel section, the wires, a mocked run, others without wires, the layer, 50
+  bundled, a picture per look (Playwright); the frame time with 50 automations.
+
+![Every automation of the demo apartment as wires](figures/screenshot-automations.png)
+
+Left for later: scripts followed into, a run's trace (which branch it took), wires between
+storeys shown apart.
 
 ## M11, imports
 
