@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/figures/hero.png" alt="DomoTwin : vue isométrique en maison de poupée ouverte d’un appartement fictif aux lampes allumées" width="100%">
+  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/hero.png" alt="DomoTwin : vue isométrique en maison de poupée ouverte d’un appartement fictif aux lampes allumées" width="100%">
 </p>
 
 <p align="center"><b>Votre logement en jumeau 3D vivant dans Home Assistant.</b><br>
@@ -10,25 +10,28 @@ Local, rapide, Rust + WebAssembly.</p>
   <a href="https://my.home-assistant.io/redirect/hacs_repository/?owner=arthur-leguennec&repository=ha-domotwin&category=integration"><img src="https://my.home-assistant.io/badges/hacs_repository.svg" alt="Ouvrir votre Home Assistant et ajouter ce dépôt à HACS."></a>
 </p>
 
-<p align="center"><a href="README.md">Read in English</a></p>
+<p align="center"><a href="https://github.com/arthur-leguennec/ha-domotwin/blob/main/README.md">Read in English</a></p>
 
 > [!NOTE]
-> **État : développement en cours.** DomoTwin se construit étape par étape
-> ([feuille de route](docs/ROADMAP.md), en anglais). L’intégration, le panneau, la carte, l’import
-> du plan et de l’IFC, les vues 3D et 2D et le pilotage en direct (états, toucher, appui long,
-> panneau de pièce, liaisons) fonctionnent déjà ; le mode édition et les calques arrivent ensuite. Les fonctionnalités
-> ci-dessous décrivent la version 0.1.0.
+> **État : développement en cours.** DomoTwin se construit étape par étape ([feuille de
+> route](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/ROADMAP.md), en anglais).
+> L’intégration, le panneau, la carte, l’import du plan et de l’IFC, les vues 3D et 2D et le
+> pilotage en direct (états, toucher, appui long, panneau de pièce, liaisons) fonctionnent déjà ; le
+> mode édition et les calques arrivent ensuite. Les fonctionnalités ci-dessous décrivent la version
+> 0.1.0.
 
 ## Fonctionnalités
 
 - **Votre plan en 3D et en 2D.** Importez un plan House Maquette (`*.plan.json`) ou un étage d’une
-  maquette IFC (`*.ifc`, depuis Revit, ArchiCAD, Bonsai, FreeCAD…) et voyez-le en maquette 3D. Les murs face à la caméra s’abaissent automatiquement, comme une maison de poupée
-  ouverte. Passez à un plan 2D net avec une transition fluide.
+  maquette IFC (`*.ifc`, depuis Revit, ArchiCAD, Bonsai, FreeCAD…) et voyez-le en maquette 3D. Les
+  murs face à la caméra s’abaissent automatiquement, comme une maison de poupée ouverte. Passez à un
+  plan 2D net avec une transition fluide.
 - **Toucher pour piloter.** Touchez une lampe pour l’allumer ou l’éteindre, appuyez longuement pour
   la luminosité et la couleur, appuyez longuement sur une pièce pour retrouver ses lumières, scènes,
   volets, chauffage et lecteurs.
-- **En direct.** Les lampes éclairent leur pièce dans leur vraie couleur et luminosité, la télévision
-  s’illumine, volets et rideaux bougent, portes et fenêtres s’ouvrent avec leurs capteurs.
+- **En direct.** Les lampes éclairent leur pièce dans leur vraie couleur et luminosité, la
+  télévision s’illumine, volets et rideaux bougent, portes et fenêtres s’ouvrent avec leurs
+  capteurs.
 - **Calques.** Une carte de chaleur animée (température, humidité ou CO₂), les alertes de sécurité,
   la présence, le vrai soleil à travers vos fenêtres et la consommation électrique.
 - **Mode édition.** Déplacez, tournez et empilez les meubles avec aimantation et annulation, liez
@@ -41,12 +44,12 @@ Local, rapide, Rust + WebAssembly.</p>
   mobiles.
 
 <p align="center">
-  <img src="docs/figures/screenshot-3d.png" alt="L’appartement fictif de démonstration en 3D : les murs face à la caméra sont abaissés, des meubles dans chaque pièce" width="49%">
-  <img src="docs/figures/screenshot-plan.png" alt="Le même appartement en plan 2D vu du dessus" width="49%">
+  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-3d.png" alt="L’appartement fictif de démonstration en 3D : les murs face à la caméra sont abaissés, des meubles dans chaque pièce" width="49%">
+  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-plan.png" alt="Le même appartement en plan 2D vu du dessus" width="49%">
 </p>
 
 <p align="center">
-  <img src="docs/figures/screenshot-live.png" alt="Le pilotage en direct, le soir : un appui long sur une lampe ouvre ses commandes, un appui long sur le sol d’une pièce ouvre le panneau de la pièce" width="100%">
+  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-live.png" alt="Le pilotage en direct, le soir : un appui long sur une lampe ouvre ses commandes, un appui long sur le sol d’une pièce ouvre le panneau de la pièce" width="100%">
 </p>
 
 ## Démarrage rapide
@@ -57,12 +60,15 @@ Local, rapide, Rust + WebAssembly.</p>
 2. **Ajouter l’intégration.** Paramètres → Appareils et services → Ajouter une intégration →
    **DomoTwin**. Aucun YAML.
 3. **Importer votre plan.** Ouvrez **DomoTwin** dans la barre latérale → **Importer un plan** et
-   choisissez votre `*.plan.json`, ou un fichier IFC (`*.ifc`, voir [l’import IFC](docs/ifc-import.md),
-   en anglais). Pas encore de plan ? Essayez l’appartement fictif
-   [`examples/demo-apartment.plan.json`](examples/demo-apartment.plan.json) ou
-   [`examples/demo-apartment.ifc`](examples/demo-apartment.ifc).
+   choisissez votre `*.plan.json`, ou un fichier IFC (`*.ifc`, voir [l’import
+   IFC](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/ifc-import.md), en anglais).
+   Pas encore de plan ? Essayez l’appartement fictif
+   [`examples/demo-apartment.plan.json`](https://github.com/arthur-leguennec/ha-domotwin/blob/main/examples/demo-apartment.plan.json)
+   ou
+   [`examples/demo-apartment.ifc`](https://github.com/arthur-leguennec/ha-domotwin/blob/main/examples/demo-apartment.ifc).
 
-Ajoutez ensuite la carte **DomoTwin** à n’importe quel tableau de bord depuis le sélecteur de cartes.
+Ajoutez ensuite la carte **DomoTwin** à n’importe quel tableau de bord depuis le sélecteur de
+cartes.
 
 ## Configuration
 
@@ -82,27 +88,32 @@ YAML n’est jamais nécessaire. Pour référence, les options de la carte :
 | `font_family` | une famille de police               | incluse    | Police des textes de la carte.                |
 
 Options de l’intégration (Paramètres → Appareils et services → DomoTwin → Configurer) : afficher le
-panneau dans la barre latérale, et le réserver aux administrateurs. Seuls les administrateurs peuvent
-importer un plan, le modifier et lier des entités.
+panneau dans la barre latérale, et le réserver aux administrateurs. Seuls les administrateurs
+peuvent importer un plan, le modifier et lier des entités.
 
 ## Fonctionnement
 
 <p align="center">
-  <img src="docs/figures/architecture.png" alt="Architecture de DomoTwin : l’intégration Home Assistant, l’interface et le moteur WebAssembly" width="100%">
+  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/architecture.png" alt="Architecture de DomoTwin : l’intégration Home Assistant, l’interface et le moteur WebAssembly" width="100%">
 </p>
 
 Une intégration Python légère enregistre votre plan, vos modifications et vos liaisons dans Home
 Assistant et sert l’interface. L’interface (TypeScript) dialogue avec Home Assistant ; le moteur
 (Rust compilé en WebAssembly) lit le plan, construit la géométrie et la dessine en WebGL2. Détails
-dans [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) (en anglais).
+dans
+[`docs/ARCHITECTURE.md`](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/ARCHITECTURE.md)
+(en anglais).
 
 ## FAQ
 
 **Quels formats de plan DomoTwin lit-il ?** Le format de plan House Maquette, décrit dans
-[`docs/plan-format.md`](docs/plan-format.md) avec son schéma JSON. Un import de fichiers IFC
-(ISO 16739, exportés par FreeCAD, Blender avec Bonsai, ArchiCAD ou Revit) est prévu.
+[`docs/plan-format.md`](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/plan-format.md)
+avec son schéma JSON, et un étage d’un fichier IFC (ISO 16739, exporté par FreeCAD, Blender avec
+Bonsai, ArchiCAD ou Revit) : voir [l’import
+IFC](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/ifc-import.md) (en anglais).
 
-**Faut-il une connexion Internet ?** Non. Voir [Confidentialité](#confidentialité).
+**Faut-il une connexion Internet ?** Non. Voir
+[Confidentialité](https://github.com/arthur-leguennec/ha-domotwin/blob/main/README.fr.md#confidentialité).
 
 **Est-ce que ça tourne sur ma tablette murale ?** Il faut WebGL2, présent dans les navigateurs
 actuels et dans les applications mobiles Home Assistant. Sur les appareils anciens, DomoTwin choisit
@@ -124,10 +135,14 @@ des comptes, jamais de noms, d’identifiants d’entités ou de géométrie.
 
 ## Contribuer
 
-Les contributions sont les bienvenues : voir [`CONTRIBUTING.md`](CONTRIBUTING.md) (en anglais).
-Problèmes de sécurité : voir [`SECURITY.md`](SECURITY.md).
+Les contributions sont les bienvenues : voir
+[`CONTRIBUTING.md`](https://github.com/arthur-leguennec/ha-domotwin/blob/main/CONTRIBUTING.md) (en
+anglais). Problèmes de sécurité : voir
+[`SECURITY.md`](https://github.com/arthur-leguennec/ha-domotwin/blob/main/SECURITY.md).
 
 ## Licence
 
-[MIT](LICENSE). La spécification du format de plan et son schéma sont réutilisés sous licence MIT,
-et les composants tiers inclus sont listés dans [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
+[MIT](https://github.com/arthur-leguennec/ha-domotwin/blob/main/LICENSE). La spécification du format
+de plan et son schéma sont réutilisés sous licence MIT, et les composants tiers inclus sont listés
+dans
+[`THIRD_PARTY_NOTICES.md`](https://github.com/arthur-leguennec/ha-domotwin/blob/main/THIRD_PARTY_NOTICES.md).

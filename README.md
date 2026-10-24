@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/figures/hero.png" alt="DomoTwin: an isometric open-dollhouse view of a fictional apartment with glowing lamps" width="100%">
+  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/hero.png" alt="DomoTwin: an isometric open-dollhouse view of a fictional apartment with glowing lamps" width="100%">
 </p>
 
 <p align="center"><b>Your home as a live 3D twin in Home Assistant.</b><br>
@@ -10,19 +10,21 @@ Local, fast, Rust + WebAssembly.</p>
   <a href="https://my.home-assistant.io/redirect/hacs_repository/?owner=arthur-leguennec&repository=ha-domotwin&category=integration"><img src="https://my.home-assistant.io/badges/hacs_repository.svg" alt="Open your Home Assistant instance and add this repository to HACS."></a>
 </p>
 
-<p align="center"><a href="README.fr.md">Lire en français</a></p>
+<p align="center"><a href="https://github.com/arthur-leguennec/ha-domotwin/blob/main/README.fr.md">Lire en français</a></p>
 
 > [!NOTE]
 > **Status: early development.** DomoTwin is built milestone by milestone
-> ([roadmap](docs/ROADMAP.md)). The integration, the panel, the card, the plan and IFC import, the
-> 3D and 2D views and live control (states, tap, long press, room panel, linking) work today; the
-> edit mode and layers come next. The features below describe version 0.1.0.
+> ([roadmap](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/ROADMAP.md)). The
+> integration, the panel, the card, the plan and IFC import, the 3D and 2D views and live control
+> (states, tap, long press, room panel, linking) work today; the edit mode and layers come next. The
+> features below describe version 0.1.0.
 
 ## Features
 
 - **Your floor plan in 3D and 2D.** Import a House Maquette plan (`*.plan.json`) or one storey of an
-  IFC model (`*.ifc`, from Revit, ArchiCAD, Bonsai, FreeCAD…) and see it as a clean 3D model. The walls facing the camera are lowered automatically, like an open dollhouse.
-  Switch to a crisp 2D plan with a smooth animation.
+  IFC model (`*.ifc`, from Revit, ArchiCAD, Bonsai, FreeCAD…) and see it as a clean 3D model. The
+  walls facing the camera are lowered automatically, like an open dollhouse. Switch to a crisp 2D
+  plan with a smooth animation.
 - **Tap to control.** Tap a lamp to toggle it, long-press for brightness and colour, long-press a
   room to get every light, scene, cover, climate and media player of that room.
 - **Live.** Lamps light their room in their real colour and brightness, the TV glows, blinds and
@@ -37,23 +39,27 @@ Local, fast, Rust + WebAssembly.</p>
 - **Yours.** English and French, follows your Home Assistant theme, works in the companion apps.
 
 <p align="center">
-  <img src="docs/figures/screenshot-3d.png" alt="The fictional demo apartment in 3D: walls facing the camera are lowered, furniture in every room" width="49%">
-  <img src="docs/figures/screenshot-plan.png" alt="The same apartment as a 2D plan seen from above" width="49%">
+  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-3d.png" alt="The fictional demo apartment in 3D: walls facing the camera are lowered, furniture in every room" width="49%">
+  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-plan.png" alt="The same apartment as a 2D plan seen from above" width="49%">
 </p>
 
 <p align="center">
-  <img src="docs/figures/screenshot-live.png" alt="Live control in the evening: a long press on a lamp opens its controls, a long press on a room's floor opens the room panel" width="100%">
+  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-live.png" alt="Live control in the evening: a long press on a lamp opens its controls, a long press on a room's floor opens the room panel" width="100%">
 </p>
 
 ## Quick start
 
-1. **Install.** Use the button above, or in HACS add `https://github.com/arthur-leguennec/ha-domotwin`
-   as a custom repository of type *Integration*, install **DomoTwin** and restart Home Assistant.
+1. **Install.** Use the button above, or in HACS add
+   `https://github.com/arthur-leguennec/ha-domotwin` as a custom repository of type *Integration*,
+   install **DomoTwin** and restart Home Assistant.
 2. **Add the integration.** Settings → Devices & services → Add integration → **DomoTwin**. No YAML.
 3. **Import your plan.** Open **DomoTwin** in the sidebar → **Import plan** and pick your
-   `*.plan.json`, or an IFC file (`*.ifc`, see [IFC import](docs/ifc-import.md)). No plan yet? Try
-   the fictional [`examples/demo-apartment.plan.json`](examples/demo-apartment.plan.json) or
-   [`examples/demo-apartment.ifc`](examples/demo-apartment.ifc).
+   `*.plan.json`, or an IFC file (`*.ifc`, see [IFC
+   import](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/ifc-import.md)). No plan
+   yet? Try the fictional
+   [`examples/demo-apartment.plan.json`](https://github.com/arthur-leguennec/ha-domotwin/blob/main/examples/demo-apartment.plan.json)
+   or
+   [`examples/demo-apartment.ifc`](https://github.com/arthur-leguennec/ha-domotwin/blob/main/examples/demo-apartment.ifc).
 
 Then add the **DomoTwin** card to any dashboard from the card picker.
 
@@ -80,21 +86,24 @@ sidebar, and show it to administrators only. Only administrators can import plan
 ## How it works
 
 <p align="center">
-  <img src="docs/figures/architecture.png" alt="How DomoTwin is built: the Home Assistant integration, the frontend and the WebAssembly engine" width="100%">
+  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/architecture.png" alt="How DomoTwin is built: the Home Assistant integration, the frontend and the WebAssembly engine" width="100%">
 </p>
 
 A thin Python integration stores your plan, your edits and your bindings in Home Assistant and
-serves the frontend. The frontend (TypeScript) talks to Home Assistant; the engine (Rust compiled
-to WebAssembly) reads the plan, builds the geometry and draws it with WebGL2. More in
-[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+serves the frontend. The frontend (TypeScript) talks to Home Assistant; the engine (Rust compiled to
+WebAssembly) reads the plan, builds the geometry and draws it with WebGL2. More in
+[`docs/ARCHITECTURE.md`](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/ARCHITECTURE.md).
 
 ## FAQ
 
 **Which plan formats does DomoTwin read?** The House Maquette plan format, documented in
-[`docs/plan-format.md`](docs/plan-format.md) with its JSON Schema. An import of IFC files (ISO 16739,
-exported by FreeCAD, Blender with Bonsai, ArchiCAD or Revit) is planned.
+[`docs/plan-format.md`](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/plan-format.md)
+with its JSON Schema, and one storey of an IFC file (ISO 16739, exported by FreeCAD, Blender with
+Bonsai, ArchiCAD or Revit): see [IFC
+import](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/ifc-import.md).
 
-**Does it need an internet connection?** No. See [Privacy](#privacy).
+**Does it need an internet connection?** No. See
+[Privacy](https://github.com/arthur-leguennec/ha-domotwin#privacy).
 
 **Will it run on my wall tablet?** It needs WebGL2, available in current browsers and in the Home
 Assistant companion apps. On old devices DomoTwin picks the Eco preset and renders only when
@@ -109,15 +118,20 @@ deleted. Use **Export plan** first to keep a copy.
 ## Privacy
 
 DomoTwin talks only to your own Home Assistant. It makes no other network call: no CDN, no
-telemetry, no analytics, no web fonts. Every file it uses (JavaScript, WebAssembly, fonts, materials)
-is served by the integration. Diagnostics contain counts only, never names, entity ids or geometry.
+telemetry, no analytics, no web fonts. Every file it uses (JavaScript, WebAssembly, fonts,
+materials) is served by the integration. Diagnostics contain counts only, never names, entity ids or
+geometry.
 
 ## Contributing
 
-Contributions are welcome: see [`CONTRIBUTING.md`](CONTRIBUTING.md). Security issues: see
-[`SECURITY.md`](SECURITY.md).
+Contributions are welcome: see
+[`CONTRIBUTING.md`](https://github.com/arthur-leguennec/ha-domotwin/blob/main/CONTRIBUTING.md).
+Security issues: see
+[`SECURITY.md`](https://github.com/arthur-leguennec/ha-domotwin/blob/main/SECURITY.md).
 
 ## Licence
 
-[MIT](LICENSE). The plan format specification and schema are reused under the MIT licence, and the
-bundled third-party components are listed in [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
+[MIT](https://github.com/arthur-leguennec/ha-domotwin/blob/main/LICENSE). The plan format
+specification and schema are reused under the MIT licence, and the bundled third-party components
+are listed in
+[`THIRD_PARTY_NOTICES.md`](https://github.com/arthur-leguennec/ha-domotwin/blob/main/THIRD_PARTY_NOTICES.md).
