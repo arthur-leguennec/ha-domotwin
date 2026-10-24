@@ -1,5 +1,5 @@
 //! Converts one storey of an IFC file to a plan, for development:
-//!   cargo run -p domotwin-ifc --example ifc2plan -- <file.ifc> [storey index] > out.plan.json
+//!   cargo run -p domotwin-ifc --example ifc2plan -- <file.ifc> [storey index] > out.domotwin.json
 #![allow(clippy::print_stdout, clippy::print_stderr)]
 
 use domotwin_ifc::IfcFile;
@@ -36,7 +36,7 @@ fn main() {
         eprintln!("no storey {index}");
         std::process::exit(1);
     };
-    match file.convert(storey.id, "") {
+    match file.convert(storey.id) {
         Ok((plan, report)) => {
             eprintln!("{report:?}");
             println!("{plan:#}");

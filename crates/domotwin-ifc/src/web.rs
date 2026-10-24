@@ -56,8 +56,8 @@ impl IfcImport {
 
     /// The plan of a storey and what was left out, as JSON `{"plan", "report"}`. Errors:
     /// `no_storeys`, `no_spaces`.
-    pub fn convert(&self, storey: u32, reference: &str) -> Result<String, JsError> {
-        let (plan, report) = self.file.convert(storey, reference).map_err(error)?;
+    pub fn convert(&self, storey: u32) -> Result<String, JsError> {
+        let (plan, report) = self.file.convert(storey).map_err(error)?;
         Ok(json!({
             "plan": plan,
             "report": {

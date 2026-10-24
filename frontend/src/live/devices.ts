@@ -4,6 +4,7 @@
  * appliance running). The engine says where the elements are drawn (`elementPoints`).
  */
 import type { HassEntity, HomeAssistant } from "../ha/types";
+import type { KindName } from "../i18n";
 import { roleOf, type BindingsJson } from "./bindings";
 import { numberOf } from "./layers";
 
@@ -37,15 +38,15 @@ export interface Badge {
 }
 
 /** Kinds whose running shows (a fridge always runs). */
-export const APPLIANCES = new Set([
+export const APPLIANCES = new Set<string>([
   "washer",
   "dryer",
   "dishwasher",
   "stove",
   "hood",
   "printer",
-  "printer3d",
-]);
+  "3d-printer",
+] satisfies KindName[]);
 /** Above this (W) an appliance is running, not on standby. */
 const RUNNING_WATTS = 10;
 /** A battery at or under this (%) is low. */

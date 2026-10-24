@@ -1,6 +1,6 @@
 [package]
 name = "domotwin-ifc"
-description = "DomoTwin IFC import: reads one storey of an IFC file (ISO 16739) into a House Maquette plan. Its own wasm module, loaded only to import a file."
+description = "DomoTwin IFC import: reads one storey of an IFC file (ISO 16739) into a DomoTwin plan. Its own wasm module, loaded only to import a file."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

@@ -13,11 +13,13 @@ async function importFile(page: Page, path: string): Promise<void> {
   await (await chooser).setFiles(path);
 }
 
-function saves(page: Page): Promise<{ plan: { elements: { type: string }[] } }[]> {
+type Saved = { plan: { doors?: unknown[]; windows?: unknown[] } };
+
+function saves(page: Page): Promise<Saved[]> {
   return page.evaluate(() =>
-    (
-      window as never as { __calls: { type: string; plan: { elements: { type: string }[] } }[] }
-    ).__calls.filter((call) => call.type === "domotwin/plan/save"),
+    (window as never as { __calls: ({ type: string } & Saved)[] }).__calls.filter(
+      (call) => call.type === "domotwin/plan/save",
+    ),
   );
 }
 
@@ -34,9 +36,8 @@ test.describe("IFC import", () => {
     await expect(page.getByTestId("summary")).toContainText("24 pieces");
     const saved = await saves(page);
     expect(saved).toHaveLength(1);
-    const types = saved[0]?.plan.elements.map((e) => e.type) ?? [];
-    expect(types.filter((t) => t === "door")).toHaveLength(6);
-    expect(types.filter((t) => t === "window")).toHaveLength(4);
+    expect(saved[0]?.plan.doors).toHaveLength(6);
+    expect(saved[0]?.plan.windows).toHaveLength(4);
   });
 
   test("asks which storey when there are several", async ({ page }) => {

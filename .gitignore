@@ -5,8 +5,9 @@
 
 # Plans and IFC files outside the fictional examples and test fixtures
 *.plan.json
-!/examples/*.plan.json
-!/crates/*/tests/fixtures/**/*.plan.json
+*.domotwin.json
+!/examples/*.domotwin.json
+!/crates/*/tests/fixtures/**/*.domotwin.json
 *.ifc
 !/crates/*/tests/fixtures/**/*.ifc
 !/examples/*.ifc

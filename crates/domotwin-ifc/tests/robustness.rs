@@ -142,7 +142,7 @@ impl Step {
 fn convert(bytes: Vec<u8>) -> (Value, Report) {
     let file = IfcFile::read(bytes).unwrap();
     let storey = file.storeys()[0].id;
-    let (plan, report) = file.convert(storey, "test").unwrap();
+    let (plan, report) = file.convert(storey).unwrap();
     let text = serde_json::to_vec(&plan).unwrap();
     if let Err(e) = read_plan(&text) {
         panic!("the core refuses the plan: {e:?}\n{plan:#}");
@@ -150,13 +150,9 @@ fn convert(bytes: Vec<u8>) -> (Value, Report) {
     (plan, report)
 }
 
-fn elements<'a>(plan: &'a Value, ty: &str) -> Vec<&'a Value> {
-    plan["elements"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .filter(|e| e["type"] == ty)
-        .collect()
+/// The elements of a list of the plan (`rooms`, `items`…).
+fn elements<'a>(plan: &'a Value, list: &str) -> Vec<&'a Value> {
+    plan[list].as_array().into_iter().flatten().collect()
 }
 
 #[test]
@@ -179,7 +175,7 @@ fn self_references_end_quickly() {
         "{:?}",
         start.elapsed()
     );
-    assert_eq!(elements(&plan, "room").len(), 1);
+    assert_eq!(elements(&plan, "rooms").len(), 1);
     assert_eq!(report.skipped_furniture, 1);
     assert_eq!(report.skipped_spaces, 1);
 }
@@ -200,9 +196,10 @@ fn hairline_gaps_are_closed_but_are_not_walls() {
     step.space("C", 0.0, 3.1, 4.0, 6.0, "INTERNAL");
     step.space("D", 4.006, 3.1, 8.0, 6.0, "INTERNAL");
     let (plan, _) = convert(step.bytes());
-    assert_eq!(plan["wallSettings"]["interior"], 10.0);
-    for room in elements(&plan, "room") {
-        for t in room["edgeThickness"].as_array().into_iter().flatten() {
+    assert_eq!(plan["wallThickness"]["interior"], 10.0);
+    for room in elements(&plan, "rooms") {
+        for side in room["sides"].as_array().into_iter().flatten() {
+            let t = &side["thickness"];
             assert!(t.is_null() || t.as_f64().unwrap() >= 1.0, "{room}");
         }
     }
@@ -221,9 +218,9 @@ fn stray_pieces_and_overall_spaces_are_left_out() {
     let lost = step.block(0.5, 0.5, 0.5);
     step.piece("IFCFURNITURE", "Chair", -2000.0, 0.0, &lost, ".CHAIR.");
     let (plan, report) = convert(step.bytes());
-    assert_eq!(elements(&plan, "room").len(), 1);
+    assert_eq!(elements(&plan, "rooms").len(), 1);
     assert_eq!(report.skipped_spaces, 2);
-    assert_eq!(elements(&plan, "furniture").len(), 1);
+    assert_eq!(elements(&plan, "items").len(), 1);
     assert_eq!(report.skipped_furniture, 1);
 }
 
@@ -273,8 +270,8 @@ fn names_types_mirrors_and_profiles() {
     step.piece("IFCFURNITURE", "Rail", 5.0, 4.0, &rail, ".NOTDEFINED.");
 
     let (plan, _) = convert(step.bytes());
-    assert_eq!(elements(&plan, "room")[0]["name"], "Chambre 1 : parents");
-    let pieces = elements(&plan, "furniture");
+    assert_eq!(elements(&plan, "rooms")[0]["name"], "Chambre 1 : parents");
+    let pieces = elements(&plan, "items");
     let named = |name: &str| {
         pieces
             .iter()
@@ -285,11 +282,17 @@ fn names_types_mirrors_and_profiles() {
     assert_eq!(named("M_Shelf").len(), 1);
     // Plan y points down: the mirrored bench lies 60 cm further down.
     let benches = named("Bench");
-    let centre_y = |p: &Value| p["y"].as_f64().unwrap() + p["h"].as_f64().unwrap() / 2.0;
+    let centre_y = |p: &Value| p["at"][1].as_f64().unwrap();
     assert!(((centre_y(benches[1]) - centre_y(benches[0])) - 60.0).abs() < 0.5);
     let rail = named("Rail")[0];
-    assert!((rail["w"].as_f64().unwrap() - 5.0).abs() < 0.2, "{rail}");
-    assert!((rail["h"].as_f64().unwrap() - 20.0).abs() < 0.2, "{rail}");
+    assert!(
+        (rail["size"][0].as_f64().unwrap() - 5.0).abs() < 0.2,
+        "{rail}"
+    );
+    assert!(
+        (rail["size"][1].as_f64().unwrap() - 20.0).abs() < 0.2,
+        "{rail}"
+    );
 }
 
 #[test]
@@ -321,8 +324,8 @@ fn trimmed_curves_run_from_trim1_to_trim2() {
     ));
     step.spaces.push(space);
     let (plan, _) = convert(step.bytes());
-    let room = elements(&plan, "room")[0];
-    assert_eq!(room["vertices"].as_array().unwrap().len(), 4, "{room}");
+    let room = elements(&plan, "rooms")[0];
+    assert_eq!(room["outline"].as_array().unwrap().len(), 4, "{room}");
 }
 
 /// A file with storeys only, at these elevations (m), without placements.

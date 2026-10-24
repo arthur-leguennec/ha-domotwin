@@ -562,11 +562,13 @@ mod tests {
     }
 
     /// Two 300 × 300 rooms side by side, sharing the limit x = 300.
-    const TWO_ROOMS: &str = r#"{"version":1,"unit":"cm","layoutRevision":10,"elements":[
-        {"id":"a","type":"room","name":"A","x":0,"y":0,"w":300,"h":300},
-        {"id":"b","type":"room","name":"B","x":300,"y":0,"w":300,"h":300},
-        {"id":"d","type":"door","name":"D","x":300,"y":100,"w":80,"angle":90,"parent":"a"},
-        {"id":"w","type":"window","name":"W","x":100,"y":0,"w":100,"angle":0,"parent":"a"}
+    const TWO_ROOMS: &str = r#"{"format":"domotwin-plan","version":1,"rooms":[
+        {"id":"a","name":"A","outline":[[0,0],[300,0],[300,300],[0,300]]},
+        {"id":"b","name":"B","outline":[[300,0],[600,0],[600,300],[300,300]]}
+    ],"doors":[
+        {"id":"d","name":"D","from":[300,100],"to":[300,180],"room":"a"}
+    ],"windows":[
+        {"id":"w","name":"W","from":[100,0],"to":[200,0],"room":"a"}
     ]}"#;
 
     #[test]
@@ -596,9 +598,10 @@ mod tests {
     #[test]
     fn partly_shared_side_is_split() {
         let layout = WallLayout::new(&plan(
-            r#"{"version":1,"unit":"cm","layoutRevision":10,"elements":[
-            {"id":"a","type":"room","name":"A","x":0,"y":0,"w":300,"h":400},
-            {"id":"b","type":"room","name":"B","x":300,"y":100,"w":200,"h":200}]}"#,
+            r#"{"format":"domotwin-plan","version":1,"rooms":[
+                {"id":"a","name":"A","outline":[[0,0],[300,0],[300,400],[0,400]]},
+                {"id":"b","name":"B","outline":[[300,100],[500,100],[500,300],[300,300]]}
+            ]}"#,
         ));
         let Some(Some(bands)) = layout.rooms[0].sides.get(1) else {
             panic!("side 1 has walls")
@@ -612,9 +615,10 @@ mod tests {
     #[test]
     fn gap_between_rooms_centres_the_partition() {
         let layout = WallLayout::new(&plan(
-            r#"{"version":1,"unit":"cm","layoutRevision":10,"elements":[
-            {"id":"a","type":"room","name":"A","x":0,"y":0,"w":300,"h":300},
-            {"id":"b","type":"room","name":"B","x":306,"y":0,"w":300,"h":300}]}"#,
+            r#"{"format":"domotwin-plan","version":1,"rooms":[
+                {"id":"a","name":"A","outline":[[0,0],[300,0],[300,300],[0,300]]},
+                {"id":"b","name":"B","outline":[[306,0],[606,0],[606,300],[306,300]]}
+            ]}"#,
         ));
         let Some(Some(bands)) = layout.rooms[0].sides.get(1) else {
             panic!("side 1 has walls")
@@ -626,9 +630,9 @@ mod tests {
     #[test]
     fn overrides_and_open_sides() {
         let layout = WallLayout::new(&plan(
-            r#"{"version":1,"unit":"cm","layoutRevision":10,"elements":[
-            {"id":"a","type":"room","name":"A","x":0,"y":0,"w":300,"h":300,
-             "openEdges":[2],"edgeThickness":[35,null,null,null]}]}"#,
+            r#"{"format":"domotwin-plan","version":1,"rooms":[
+                {"id":"a","name":"A","outline":[[0,0],[300,0],[300,300],[0,300]],"sides":[{"thickness":35},null,{"open":true},null]}
+            ]}"#,
         ));
         let room = &layout.rooms[0];
         assert!(room.sides[2].is_none());

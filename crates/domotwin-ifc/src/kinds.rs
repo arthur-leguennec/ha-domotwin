@@ -25,18 +25,20 @@ fn words(text: &str) -> Vec<String> {
 
 /// Phrases (one or more words, in order) and the kind they mean; earlier entries win.
 const PHRASES: &[(&str, &str)] = &[
-    ("office chair", "officechair"),
-    ("chaise de bureau", "officechair"),
-    ("burostuhl", "officechair"),
-    ("table lamp", "tablelamp"),
-    ("bedside lamp", "tablelamp"),
-    ("lampe de table", "tablelamp"),
-    ("lampe de chevet", "tablelamp"),
-    ("desk lamp", "desklamp"),
-    ("lampe de bureau", "desklamp"),
-    ("floor lamp", "lamp"),
-    ("ceiling light", "ceilinglight"),
-    ("ceiling fan", "fan"),
+    ("office chair", "office-chair"),
+    ("chaise de bureau", "office-chair"),
+    ("burostuhl", "office-chair"),
+    ("table lamp", "table-lamp"),
+    ("bedside lamp", "table-lamp"),
+    ("lampe de table", "table-lamp"),
+    ("lampe de chevet", "table-lamp"),
+    ("desk lamp", "desk-lamp"),
+    ("lampe de bureau", "desk-lamp"),
+    ("floor lamp", "floor-lamp"),
+    ("ceiling light", "ceiling-light"),
+    ("ceiling fan", "ceiling-fan"),
+    ("ventilateur de plafond", "ceiling-fan"),
+    ("ventilateur plafond", "ceiling-fan"),
     ("washing machine", "washer"),
     ("lave linge", "washer"),
     ("seche linge", "dryer"),
@@ -44,10 +46,10 @@ const PHRASES: &[(&str, &str)] = &[
     ("plan de travail", "counter"),
     ("kitchen cabinet", "counter"),
     ("base cabinet", "counter"),
-    ("wall cabinet", "cabinet"),
-    ("salle a manger", "dining"),
-    ("dining table", "dining"),
-    ("coffee table", "table"),
+    ("wall cabinet", "wall-cabinet"),
+    ("salle a manger", "dining-table"),
+    ("dining table", "dining-table"),
+    ("coffee table", "coffee-table"),
     ("bedside table", "nightstand"),
     ("night stand", "nightstand"),
     ("table de chevet", "nightstand"),
@@ -118,11 +120,11 @@ const PHRASES: &[(&str, &str)] = &[
     ("bed", "bed"),
     ("lit", "bed"),
     ("bett", "bed"),
-    ("wardrobe", "linen"),
-    ("armoire", "linen"),
-    ("penderie", "linen"),
-    ("closet", "linen"),
-    ("kleiderschrank", "linen"),
+    ("wardrobe", "tall-cabinet"),
+    ("armoire", "tall-cabinet"),
+    ("penderie", "tall-cabinet"),
+    ("closet", "tall-cabinet"),
+    ("kleiderschrank", "tall-cabinet"),
     ("dresser", "dresser"),
     ("commode", "dresser"),
     ("chest", "dresser"),
@@ -140,15 +142,15 @@ const PHRASES: &[(&str, &str)] = &[
     ("desk", "desk"),
     ("bureau", "desk"),
     ("schreibtisch", "desk"),
-    ("dining", "dining"),
-    ("table", "table"),
-    ("tisch", "table"),
+    ("dining", "dining-table"),
+    ("table", "coffee-table"),
+    ("tisch", "coffee-table"),
     ("counter", "counter"),
     ("worktop", "counter"),
-    ("cabinet", "cabinet"),
-    ("cupboard", "cabinet"),
-    ("placard", "cabinet"),
-    ("schrank", "cabinet"),
+    ("cabinet", "wall-cabinet"),
+    ("cupboard", "wall-cabinet"),
+    ("placard", "wall-cabinet"),
+    ("schrank", "wall-cabinet"),
     ("plant", "plant"),
     ("plante", "plant"),
     ("pflanze", "plant"),
@@ -156,21 +158,18 @@ const PHRASES: &[(&str, &str)] = &[
     ("suspension", "pendant"),
     ("chandelier", "chandelier"),
     ("lustre", "chandelier"),
-    ("spot", "spot"),
-    ("spotlight", "spot"),
-    ("downlight", "spot"),
-    ("plafonnier", "ceilinglight"),
-    ("lampadaire", "lamp"),
-    ("lamp", "lamp"),
-    ("lampe", "lamp"),
-    ("fan", "fan"),
-    ("ventilateur", "fan"),
-    ("ventilator", "fan"),
-    ("radiator", "heater"),
-    ("radiateur", "heater"),
-    ("heizkorper", "heater"),
-    ("heater", "heater"),
-    ("convector", "heater"),
+    ("spot", "spotlight"),
+    ("spotlight", "spotlight"),
+    ("downlight", "spotlight"),
+    ("plafonnier", "ceiling-light"),
+    ("lampadaire", "floor-lamp"),
+    ("lamp", "floor-lamp"),
+    ("lampe", "floor-lamp"),
+    ("radiator", "radiator"),
+    ("radiateur", "radiator"),
+    ("heizkorper", "radiator"),
+    ("heater", "radiator"),
+    ("convector", "radiator"),
     ("mirror", "mirror"),
     ("miroir", "mirror"),
     ("spiegel", "mirror"),
@@ -222,19 +221,19 @@ pub(crate) fn kind(names: &[&str], clues: Clues<'_>) -> Option<&'static str> {
     let [w, d, h] = clues.size;
     let lamp_by_height = || {
         if clues.elevation > 170.0 {
-            "ceilinglight"
+            "ceiling-light"
         } else if clues.elevation < 20.0 && h > 100.0 {
-            "lamp"
+            "floor-lamp"
         } else {
-            "tablelamp"
+            "table-lamp"
         }
     };
     if let Some(kind) = by_name {
         // A table big and high enough to eat at is a dining table.
-        if kind == "table" && w.max(d) >= 120.0 && w.min(d) >= 70.0 && h >= 65.0 {
-            return Some("dining");
+        if kind == "coffee-table" && w.max(d) >= 120.0 && w.min(d) >= 70.0 && h >= 65.0 {
+            return Some("dining-table");
         }
-        if kind == "lamp" && clues.class.starts_with("IFCLIGHTFIXTURE") {
+        if kind == "floor-lamp" && clues.class.starts_with("IFCLIGHTFIXTURE") {
             return Some(lamp_by_height());
         }
         return Some(kind);
@@ -253,9 +252,10 @@ pub(crate) fn kind(names: &[&str], clues: Clues<'_>) -> Option<&'static str> {
             "TUMBLEDRYER" => "dryer",
             "DISHWASHER" => "dishwasher",
             "ELECTRICCOOKER" | "MICROWAVE" | "KITCHENMACHINE" => "stove",
-            "FREESTANDINGFAN" => "fan",
+            // A fan standing on the floor: no kind draws one, a box of its size does.
+            "FREESTANDINGFAN" => "box",
             "PHOTOCOPIER" | "FACSIMILE" => "printer",
-            "FREESTANDINGELECTRICHEATER" | "FREESTANDINGWATERHEATER" => "heater",
+            "FREESTANDINGELECTRICHEATER" | "FREESTANDINGWATERHEATER" => "radiator",
             "PERSONALCOMPUTER" => "desk",
             _ => "dresser",
         }),
@@ -264,7 +264,7 @@ pub(crate) fn kind(names: &[&str], clues: Clues<'_>) -> Option<&'static str> {
             _ => "dresser",
         }),
         "IFCLIGHTFIXTURE" | "IFCLIGHTFIXTURETYPE" => Some(lamp_by_height()),
-        "IFCSPACEHEATER" | "IFCSPACEHEATERTYPE" => Some("heater"),
+        "IFCSPACEHEATER" | "IFCSPACEHEATERTYPE" => Some("radiator"),
         "IFCFURNITURE"
         | "IFCFURNITURETYPE"
         | "IFCFURNISHINGELEMENT"
@@ -273,14 +273,14 @@ pub(crate) fn kind(names: &[&str], clues: Clues<'_>) -> Option<&'static str> {
             "CHAIR" => "chair",
             "TABLE" => {
                 if w.max(d) >= 120.0 && h >= 65.0 {
-                    "dining"
+                    "dining-table"
                 } else {
-                    "table"
+                    "coffee-table"
                 }
             }
             "DESK" => "desk",
             "BED" => "bed",
-            "FILECABINET" | "TECHNICALCABINET" => "cabinet",
+            "FILECABINET" | "TECHNICALCABINET" => "wall-cabinet",
             "SHELF" => "shelf",
             "SOFA" => "sofa",
             _ => "dresser",
@@ -322,17 +322,32 @@ mod tests {
         );
         assert_eq!(
             kind(&["Office chair 2"], clues("IFCFURNITURE", None)),
-            Some("officechair")
+            Some("office-chair")
         );
         assert_eq!(
             kind(&["Bathroom cabinet"], clues("IFCFURNITURE", None)),
-            Some("cabinet")
+            Some("wall-cabinet")
         );
         let big = Clues {
             size: [180.0, 90.0, 75.0],
             ..clues("IFCFURNITURE", None)
         };
-        assert_eq!(kind(&["Table"], big), Some("dining"));
+        assert_eq!(kind(&["Table"], big), Some("dining-table"));
+        // A ceiling fan hangs; a fan standing on the floor is a box of its size.
+        assert_eq!(
+            kind(
+                &["Ventilateur de plafond"],
+                clues("IFCFURNISHINGELEMENT", None)
+            ),
+            Some("ceiling-fan")
+        );
+        assert_eq!(
+            kind(
+                &["Fan"],
+                clues("IFCELECTRICAPPLIANCE", Some("FREESTANDINGFAN"))
+            ),
+            Some("box")
+        );
     }
 
     #[test]
@@ -349,13 +364,13 @@ mod tests {
             elevation: 240.0,
             ..clues("IFCLIGHTFIXTURE", None)
         };
-        assert_eq!(kind(&["Luminaire 3"], high), Some("ceilinglight"));
+        assert_eq!(kind(&["Luminaire 3"], high), Some("ceiling-light"));
         // IFC2x3: a flow terminal typed as a light fixture.
         let typed = Clues {
             elevation: 240.0,
             ..clues("IFCLIGHTFIXTURETYPE", None)
         };
-        assert_eq!(kind(&["Ceiling lamp"], typed), Some("ceilinglight"));
+        assert_eq!(kind(&["Ceiling lamp"], typed), Some("ceiling-light"));
         assert_eq!(
             kind(&["Proxy"], clues("IFCBUILDINGELEMENTPROXY", None)),
             None

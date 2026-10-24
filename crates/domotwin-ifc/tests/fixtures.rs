@@ -20,7 +20,7 @@ fn fixture(name: &str) -> Vec<u8> {
 fn convert(name: &str, storey: usize) -> (Value, Report, Plan) {
     let file = IfcFile::read(fixture(name)).unwrap();
     let storeys = file.storeys();
-    let (json, report) = file.convert(storeys[storey].id, name).unwrap();
+    let (json, report) = file.convert(storeys[storey].id).unwrap();
     let text = serde_json::to_vec(&json).unwrap();
     let plan =
         read_plan(&text).unwrap_or_else(|e| panic!("{name}: the core refuses the plan: {e:?}"));
@@ -50,11 +50,10 @@ fn openings_on_walls(plan: &Plan) {
 }
 
 fn kinds(json: &Value) -> Vec<String> {
-    let mut kinds: Vec<String> = json["elements"]
+    let mut kinds: Vec<String> = json["items"]
         .as_array()
         .unwrap()
         .iter()
-        .filter(|e| e["type"] == "furniture")
         .map(|e| e["kind"].as_str().unwrap().to_owned())
         .collect();
     kinds.sort();
@@ -90,7 +89,7 @@ fn apartment_ifc4() {
     assert_eq!((storeys[0].doors, storeys[0].windows), (6, 4));
 
     let (json, report, plan) = convert("apartment-ifc4.ifc", 0);
-    assert_eq!(json["title"], "Fictional building – Level 0");
+    assert_eq!(json["name"], "Fictional building – Level 0");
     let names: Vec<&str> = rooms(&plan).iter().map(|(n, _)| *n).collect();
     assert_eq!(
         names,
@@ -110,8 +109,8 @@ fn apartment_ifc4() {
         (6, 4, 0)
     );
     assert_eq!(report.skipped_furniture, 1, "the unknown proxy");
-    assert_eq!(json["wallSettings"]["interior"], 10.0);
-    assert_eq!(json["wallSettings"]["exterior"], 30.0);
+    assert_eq!(json["wallThickness"]["interior"], 10.0);
+    assert_eq!(json["wallThickness"]["exterior"], 30.0);
 
     // Living room 5 × 4 m and kitchen 3 × 4 m (net), now meeting in the middle of their wall.
     let all = rooms(&plan);
@@ -127,61 +126,56 @@ fn apartment_ifc4() {
     assert!(bedroom[3] <= living[1] + 0.5);
 
     openings_on_walls(&plan);
-    let doors: Vec<&Value> = json["elements"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .filter(|e| e["type"] == "door")
-        .collect();
+    let doors: Vec<&Value> = json["doors"].as_array().unwrap().iter().collect();
     let style = |name: &str| {
         doors
             .iter()
             .find(|d| d["name"] == name)
-            .map(|d| d["style"].as_str().unwrap().to_owned())
+            .map(|d| d["style"].as_str().unwrap_or("hinged").to_owned())
             .unwrap()
     };
     assert_eq!(style("Glazed double door"), "double");
-    assert_eq!(style("Bedroom door"), "coulissante");
-    assert_eq!(style("Storage door"), "pliante");
-    assert_eq!(style("Entrance door"), "battante");
+    assert_eq!(style("Bedroom door"), "sliding");
+    assert_eq!(style("Storage door"), "folding");
+    assert_eq!(style("Entrance door"), "hinged");
 
     assert_eq!(
         kinds(&json),
         [
             "bathtub",
             "bed",
-            "cabinet",
-            "ceilinglight",
+            "ceiling-light",
             "chair",
             "chair",
             "chair",
             "chair",
+            "coffee-table",
             "counter",
-            "dining",
+            "dining-table",
+            "floor-lamp",
             "fridge",
-            "lamp",
-            "linen",
             "nightstand",
             "nightstand",
             "pendant",
             "sink",
             "sofa",
             "stove",
-            "table",
+            "tall-cabinet",
             "toilet",
             "tv",
             "vanity",
+            "wall-cabinet",
             "washer"
         ]
     );
-    let pendant = json["elements"]
+    let pendant = json["items"]
         .as_array()
         .unwrap()
         .iter()
         .find(|e| e["kind"] == "pendant")
         .unwrap();
-    assert_eq!(pendant["elevation"], 160.0);
-    assert_eq!(pendant["parent"], json["elements"][0]["id"]);
+    assert_eq!(pendant["lift"], 160.0);
+    assert_eq!(pendant["room"], json["rooms"][0]["id"]);
 
     // The core draws it.
     let scene = build_scene(&plan, &SceneOptions::default());
@@ -207,12 +201,15 @@ fn house_ifc2x3_two_storeys_turned() {
         (2, 1, 0)
     );
     openings_on_walls(&plan);
-    assert_eq!(kinds(&json), ["fridge", "sofa", "table", "toilet"]);
+    assert_eq!(kinds(&json), ["coffee-table", "fridge", "sofa", "toilet"]);
     // Turned by 30°: the doors follow, far from the georeferenced origin.
-    for e in json["elements"].as_array().unwrap() {
-        assert!(e["x"].as_f64().unwrap().abs() < 2000.0, "{e}");
+    for (opening, _) in plan.openings() {
+        assert!(opening.x.abs() < 2000.0, "{}", opening.name);
     }
-    let double = json["elements"]
+    for room in plan.rooms() {
+        assert!(room.x.abs() < 2000.0, "{}", room.name);
+    }
+    let double = json["doors"]
         .as_array()
         .unwrap()
         .iter()
@@ -221,9 +218,14 @@ fn house_ifc2x3_two_storeys_turned() {
     assert_eq!(double["style"], "double");
     // The plan is turned back so that the walls run along the axes: a door in a wall along
     // IFC +y runs up the plan (270°, y down).
-    let angle = double["angle"].as_f64().unwrap();
+    let (kitchen, door) = plan
+        .openings()
+        .find(|(o, _)| o.name == "Porte cuisine")
+        .unwrap();
+    assert!(door);
+    let angle = kitchen.angle;
     assert!((angle - 270.0).abs() < 0.2, "got {angle}");
-    assert_eq!(json["wallSettings"]["interior"], 15.0);
+    assert_eq!(json["wallThickness"]["interior"], 15.0);
 
     let (json, _, plan) = convert("house-ifc2x3.ifc", 1);
     assert_eq!(rooms(&plan).len(), 2);
@@ -239,21 +241,17 @@ fn studio_in_feet() {
     assert!((studio[2] - studio[0] - 605.0).abs() < 1.0, "{studio:?}");
     assert_eq!(report.doors, 1);
     openings_on_walls(&plan);
-    let door = json["elements"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|e| e["type"] == "door")
-        .unwrap();
-    assert!((door["w"].as_f64().unwrap() - 75.0).abs() < 0.2);
+    let _ = json;
+    let (door, _) = plan.openings().next().unwrap();
+    assert!((door.w - 75.0).abs() < 0.2);
 }
 
 #[test]
 fn refusals() {
     let file = IfcFile::read(fixture("no-spaces-ifc4.ifc")).unwrap();
     let storey = file.storeys()[0].id;
-    assert_eq!(file.convert(storey, "x").unwrap_err(), "no_spaces");
-    assert_eq!(file.convert(1, "x").unwrap_err(), "no_storeys");
+    assert_eq!(file.convert(storey).unwrap_err(), "no_spaces");
+    assert_eq!(file.convert(1).unwrap_err(), "no_storeys");
     assert_eq!(
         IfcFile::read(b"{\"version\":1}".to_vec()).unwrap_err(),
         "not_ifc"

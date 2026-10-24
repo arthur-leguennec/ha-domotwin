@@ -152,7 +152,7 @@ export class Engine {
      */
     layersAnimating(): boolean;
     /**
-     * Loads a plan (the text of a `*.plan.json`) with its edit overlay (`layout`, JSON) and
+     * Loads a plan (the text of a `*.domotwin.json`) with its edit overlay (`layout`, JSON) and
      * builds its scene. Returns a JSON summary; `layoutRefused` counts the entries of the overlay
      * left out because they made the plan invalid (an updated plan). The camera keeps its place
      * when `keep_camera` (a plan saved from another view).
@@ -373,8 +373,8 @@ export class Engine {
      */
     showView(id: string, time_ms: number): boolean;
     /**
-     * The plan shown with its edit overlay in it (the entries it accepted), as JSON text of the
-     * current revision: what the plan editor starts from. An empty string when none is shown.
+     * The plan shown with its edit overlay in it (the entries it accepted), as JSON text: what
+     * the plan editor starts from. An empty string when none is shown.
      */
     shownPlan(): string;
     /**
@@ -399,7 +399,7 @@ export class Engine {
      */
     useDefaultSun(): void;
     /**
-     * The plan's saved viewpoints, as JSON `[{"id", "name"}]` (eye-level views are skipped).
+     * The plan's saved viewpoints, as JSON `[{"id", "name"}]`.
      */
     views(): string;
     /**
@@ -422,7 +422,7 @@ export class Engine {
 }
 
 /**
- * The plan with the edit overlay applied, as written by **Export plan** (revision 10).
+ * The plan with the edit overlay applied, as written by **Export plan**.
  *
  * # Errors
  *

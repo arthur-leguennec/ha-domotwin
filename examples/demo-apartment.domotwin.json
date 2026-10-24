@@ -1,0 +1,72 @@
+{
+  "format": "domotwin-plan",
+  "version": 1,
+  "name": "Demo apartment",
+  "wallThickness": {"interior": 10, "exterior": 20},
+  "rooms": [
+    {"id": "living", "name": "Living room", "outline": [[0, 0], [520, 0], [520, 420], [0, 420]], "color": "#e9e4d8", "floor": {"material": "oak"}, "walls": {"paint": "#f2efe8", "moulding": true}, "sides": [null, {"open": true}, null, null]},
+    {"id": "kitchen", "name": "Kitchen", "outline": [[520, 0], [820, 0], [820, 420], [520, 420]], "color": "#e6e9e1", "floor": {"material": "beige-tiles"}, "sides": [{"finish": "tiles"}, null, null, {"open": true}]},
+    {"id": "bathroom", "name": "Bathroom", "outline": [[0, 420], [240, 420], [240, 760], [0, 760]], "color": "#dfe8ea", "floor": {"material": "white-tiles"}, "walls": {"paint": "#e8eef0"}},
+    {"id": "hall", "name": "Hall", "outline": [[240, 420], [440, 420], [440, 760], [240, 760]], "color": "#ebe8df", "floor": {"material": "grey-wood"}},
+    {"id": "bedroom", "name": "Bedroom", "outline": [[440, 420], [820, 420], [820, 675], [763, 760], [440, 760]], "color": "#e7e3ec", "floor": {"material": "painted-wood"}, "walls": {"finish": "chair-rail", "paint": "#e9e4ef"}}
+  ],
+  "doors": [
+    {"id": "door-entrance", "name": "Entrance door", "from": [300, 760], "to": [390, 760], "opensTo": "left", "room": "hall", "open": 0},
+    {"id": "door-living", "name": "Living room door", "from": [300, 420], "to": [380, 420], "room": "hall", "style": "glazed"},
+    {"id": "door-bathroom", "name": "Bathroom door", "from": [240, 600], "to": [240, 675], "room": "hall", "open": 0},
+    {"id": "door-bedroom", "name": "Bedroom door", "from": [440, 460], "to": [440, 540], "opensTo": "left", "room": "hall", "open": 0.4}
+  ],
+  "windows": [
+    {"id": "win-living-1", "name": "Living room window", "from": [70, 0], "to": [230, 0], "room": "living"},
+    {"id": "win-living-2", "name": "Living room window", "from": [290, 0], "to": [430, 0], "room": "living"},
+    {"id": "win-kitchen-1", "name": "Kitchen window", "from": [610, 0], "to": [720, 0], "room": "kitchen"},
+    {"id": "win-kitchen-2", "name": "Kitchen side window", "from": [820, 140], "to": [820, 240], "room": "kitchen"},
+    {"id": "win-bathroom", "name": "Bathroom window", "from": [0, 520], "to": [0, 580], "room": "bathroom"},
+    {"id": "win-bedroom", "name": "Bedroom window", "from": [820, 470], "to": [820, 610], "room": "bedroom"}
+  ],
+  "items": [
+    {"id": "tv", "name": "TV", "kind": "tv", "at": [22.5, 210], "size": [140, 35, 55], "rotation": 270, "color": "#e8e4d9", "room": "living"},
+    {"id": "sofa", "name": "Sofa", "kind": "sofa", "at": [425, 210], "size": [210, 90, 85], "rotation": 90, "color": "#5f6b73", "room": "living"},
+    {"id": "coffee-table", "name": "Coffee table", "kind": "coffee-table", "at": [212.5, 210], "size": [65, 110, 42], "color": "#a97a50", "room": "living"},
+    {"id": "armchair", "name": "Armchair", "kind": "armchair", "at": [310, 320], "size": [80, 80, 85], "rotation": 210, "color": "#8a5a3d", "style": "leather", "room": "living"},
+    {"id": "bookcase", "name": "Bookcase", "kind": "bookcase", "at": [95, 402.5], "size": [110, 35, 180], "rotation": 180, "room": "living"},
+    {"id": "sideboard", "name": "Sideboard", "kind": "dresser", "at": [205, 397.5], "size": [100, 45, 85], "rotation": 180, "color": "#c4a27a", "room": "living"},
+    {"id": "table-lamp", "name": "Table lamp", "kind": "table-lamp", "at": [205, 398], "size": [30, 30, 48], "lift": 85, "room": "living", "light": {"color": "#ff9a5c"}},
+    {"id": "floor-lamp", "name": "Floor lamp", "kind": "floor-lamp", "at": [487.5, 32.5], "size": [35, 35, 160], "room": "living", "light": {"kelvin": 3000, "power": 0.8}},
+    {"id": "pendant-living", "name": "Pendant", "kind": "pendant", "at": [212.5, 210.5], "size": [47, 47, 45], "lift": 150, "room": "living", "light": {"kelvin": 2700}},
+    {"id": "plant-living", "name": "Monstera", "kind": "plant", "at": [35, 35], "size": [40, 40, 90], "style": "monstera", "room": "living"},
+    {"id": "curtain-living", "name": "Curtains", "kind": "curtain", "at": [250, 7], "size": [400, 6, 235], "room": "living", "open": 1},
+    {"id": "counter", "name": "Worktop", "kind": "counter", "at": [670, 30], "size": [240, 60, 90], "color": "#d8c7a8", "room": "kitchen"},
+    {"id": "sink", "name": "Sink", "kind": "sink", "at": [665, 29.5], "size": [80, 55, 94], "room": "kitchen"},
+    {"id": "stove", "name": "Cooker", "kind": "stove", "at": [750, 30], "size": [60, 60, 90], "room": "kitchen"},
+    {"id": "fridge", "name": "Fridge", "kind": "fridge", "at": [780, 370], "size": [70, 70, 185], "rotation": 90, "room": "kitchen"},
+    {"id": "dining-table", "name": "Dining table", "kind": "dining-table", "at": [660, 240], "size": [140, 80, 75], "room": "kitchen"},
+    {"id": "chair-1", "name": "Chair", "kind": "chair", "at": [632.5, 172.5], "size": [45, 45, 80], "room": "kitchen"},
+    {"id": "chair-2", "name": "Chair", "kind": "chair", "at": [687.5, 172.5], "size": [45, 45, 80], "room": "kitchen"},
+    {"id": "chair-3", "name": "Chair", "kind": "chair", "at": [632.5, 307.5], "size": [45, 45, 80], "rotation": 180, "room": "kitchen"},
+    {"id": "chair-4", "name": "Chair", "kind": "chair", "at": [687.5, 307.5], "size": [45, 45, 80], "rotation": 180, "room": "kitchen"},
+    {"id": "ceiling-kitchen", "name": "Ceiling light", "kind": "ceiling-light", "at": [660, 240], "size": [36, 36, 14], "lift": 250, "room": "kitchen", "light": {"kelvin": 4000}},
+    {"id": "spot-kitchen-1", "name": "Spot", "kind": "spotlight", "at": [595, 80], "size": [10, 10, 3], "lift": 240, "room": "kitchen"},
+    {"id": "spot-kitchen-2", "name": "Spot", "kind": "spotlight", "at": [745, 80], "size": [10, 10, 3], "lift": 240, "room": "kitchen"},
+    {"id": "vanity", "name": "Vanity", "kind": "vanity", "at": [97.5, 450], "size": [75, 50, 85], "room": "bathroom"},
+    {"id": "mirror", "name": "Mirror", "kind": "mirror", "at": [97, 423], "size": [60, 4, 90], "lift": 110, "style": "white", "room": "bathroom"},
+    {"id": "bathtub", "name": "Bathtub", "kind": "bathtub", "at": [90, 717.5], "size": [170, 75, 60], "rotation": 180, "room": "bathroom"},
+    {"id": "toilet", "name": "Toilet", "kind": "toilet", "at": [35, 620], "size": [40, 70, 75], "rotation": 270, "room": "bathroom"},
+    {"id": "washer", "name": "Washing machine", "kind": "washer", "at": [197.5, 462.5], "size": [65, 65, 90], "room": "bathroom"},
+    {"id": "ceiling-bathroom", "name": "Ceiling light", "kind": "ceiling-light", "at": [120, 590], "size": [36, 36, 14], "lift": 250, "room": "bathroom", "light": {"kelvin": 4000}},
+    {"id": "shoe-cabinet", "name": "Shoe cabinet", "kind": "shoe-cabinet", "at": [427.5, 640], "size": [80, 25, 100], "rotation": 90, "room": "hall"},
+    {"id": "spot-hall-1", "name": "Spot", "kind": "spotlight", "at": [340, 505], "size": [10, 10, 3], "lift": 240, "room": "hall"},
+    {"id": "spot-hall-2", "name": "Spot", "kind": "spotlight", "at": [340, 665], "size": [10, 10, 3], "lift": 240, "room": "hall"},
+    {"id": "bed", "name": "Bed", "kind": "bed", "at": [660, 525], "size": [160, 200, 55], "color": "#aab09d", "room": "bedroom"},
+    {"id": "nightstand-left", "name": "Nightstand", "kind": "nightstand", "at": [555, 445], "size": [40, 40, 48], "room": "bedroom", "light": {"kelvin": 2700}},
+    {"id": "nightstand-right", "name": "Nightstand", "kind": "nightstand", "at": [765, 445], "size": [40, 40, 48], "room": "bedroom", "light": {"on": false, "kelvin": 2700}},
+    {"id": "dresser", "name": "Chest of drawers", "kind": "dresser", "at": [570, 734.5], "size": [100, 45, 85], "rotation": 180, "room": "bedroom"},
+    {"id": "plant-bedroom", "name": "Pothos", "kind": "plant", "at": [565, 730], "size": [30, 30, 40], "lift": 85, "style": "pothos", "room": "bedroom"},
+    {"id": "curtain-bedroom", "name": "Curtains", "kind": "curtain", "at": [814, 540], "size": [180, 6, 235], "rotation": 90, "style": "closed", "room": "bedroom", "open": 0.3},
+    {"id": "fan-bedroom", "name": "Ceiling fan", "kind": "ceiling-fan", "at": [660, 590], "size": [105, 105, 30], "lift": 215, "room": "bedroom"}
+  ],
+  "views": [
+    {"id": "overview", "name": "Overview", "eye": [410, 1150, 900], "target": [410, 380, 0]},
+    {"id": "living", "name": "Living room", "eye": [520, 560, 420], "target": [230, 200, 60]}
+  ]
+}

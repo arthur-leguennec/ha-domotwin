@@ -1,1 +1,1 @@
-{"version":1,"unit":"cm","elements":[{"id":"a","type":"room","name":"A","x":0,"y":0,"w":100,"h":100}]}
+{"format":"domotwin-plan","version":1,"rooms":[{"id":"a","name":"A","outline":[[0,0],[300,0],[300,200],[0,200]]}]}

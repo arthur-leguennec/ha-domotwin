@@ -14,7 +14,11 @@ async function planEdit(
 /** The last plan stored by the panel, and the overlay sent with it. */
 function lastSave(page: Page): Promise<
   | {
-      plan?: { elements: { id: string; type: string; name?: string; w?: number }[] };
+      plan?: {
+        rooms?: { id: string; name?: string }[];
+        doors?: { id: string; name?: string; from: number[]; to: number[]; style?: string }[];
+        partitions?: { id: string; from: number[]; to: number[] }[];
+      };
       layout?: unknown;
     }
   | undefined
@@ -96,26 +100,60 @@ test.describe("plan editor", () => {
     await page.mouse.click(start.x + 80, start.y + 120);
     await expect(bar.getByTestId("plan-fields")).toContainText("Door");
     // A width out of range is refused; one within is kept.
-    await bar.getByTestId("plan-w").fill("5");
-    await bar.getByTestId("plan-w").press("Enter");
-    await expect(bar.getByTestId("plan-w")).toHaveAttribute("aria-invalid", "true");
-    await bar.getByTestId("plan-w").fill("90");
-    await bar.getByTestId("plan-w").press("Enter");
-    await expect(bar.getByTestId("plan-w")).toHaveAttribute("aria-invalid", "false");
-    await bar.getByTestId("plan-style").selectOption("coulissante");
+    await bar.getByTestId("plan-width").fill("5");
+    await bar.getByTestId("plan-width").press("Enter");
+    await expect(bar.getByTestId("plan-width")).toHaveAttribute("aria-invalid", "true");
+    await bar.getByTestId("plan-width").fill("90");
+    await bar.getByTestId("plan-width").press("Enter");
+    await expect(bar.getByTestId("plan-width")).toHaveAttribute("aria-invalid", "false");
+    await bar.getByTestId("plan-style").selectOption("sliding");
     // Saved: the plan with the overlay in it, and an empty overlay.
     await page.getByTestId("plan-save").click();
     await expect(page.getByTestId("toast")).toContainText("Plan saved.");
     const saved = await lastSave(page);
     expect(saved?.layout).toEqual({});
-    const elements = saved?.plan?.elements ?? [];
-    expect(elements.find((e) => e.id === "living")?.name).toBe("Lounge");
-    expect(elements.some((e) => e.type === "room" && e.name === "Studio")).toBe(true);
-    const door = elements.find((e) => e.type === "door" && e.name === "Door");
-    expect(door).toMatchObject({ w: 90, style: "coulissante" });
+    const rooms = saved?.plan?.rooms ?? [];
+    expect(rooms.find((e) => e.id === "living")?.name).toBe("Lounge");
+    expect(rooms.some((e) => e.name === "Studio")).toBe(true);
+    const door = saved?.plan?.doors?.find((e) => e.name === "Door");
+    expect(door?.style).toBe("sliding");
+    const [fromX = 0, fromY = 0] = door?.from ?? [];
+    const [toX = 0, toY = 0] = door?.to ?? [];
+    expect(Math.hypot(toX - fromX, toY - fromY)).toBeCloseTo(90, 1);
     // The panel is back, and the view shows the plan saved.
     await expect(page.getByTestId("plan-mode")).toBeVisible();
     await expect(page.getByTestId("summary")).toContainText("6 rooms");
+  });
+
+  test("a partition is dragged as far as the pointer goes", async ({ page }) => {
+    await openHarness(page, { mode: "panel" });
+    await expect(page.getByTestId("summary")).toBeVisible();
+    await page.getByTestId("plan-mode").click();
+    await expect.poll(async () => (await viewState(page)).planView).toBe(true);
+    await settle(page);
+    // The living room's windows have their middles at x = 150 and 360 cm on its top wall: they
+    // give the scale and the directions of the plan on screen.
+    const a = await elementPoint(page, "win-living-1");
+    const b = await elementPoint(page, "win-living-2");
+    const right = { x: (b.x - a.x) / 210, y: (b.y - a.y) / 210 };
+    const down = { x: -right.y, y: right.x };
+    // A partition drawn across the living room, from 100 to 300 cm below its top wall.
+    await page.locator("domotwin-plan-bar").getByTestId("plan-tool-wall").click();
+    const start = { x: a.x + down.x * 100, y: a.y + down.y * 100 };
+    await dragBy(page, start, down.x * 200, down.y * 200);
+    const id = (await planEdit(page)).selection ?? "";
+    expect(id).not.toBe("");
+    // Held by its middle and moved 40 cm to the right, in eight moves.
+    await page.locator("domotwin-plan-bar").getByTestId("plan-tool-select").click();
+    await dragBy(page, await elementPoint(page, id), right.x * 40, right.y * 40);
+    await page.getByTestId("plan-save").click();
+    await expect(page.getByTestId("toast")).toContainText("Plan saved.");
+    const saved = (await lastSave(page))?.plan?.partitions?.find((w) => w.id === id);
+    const [fromX = 0] = saved?.from ?? [];
+    const [toX = 0] = saved?.to ?? [];
+    expect(fromX).toBeGreaterThan(180);
+    expect(fromX).toBeLessThan(200);
+    expect(toX).toBeCloseTo(fromX, 0);
   });
 
   test("a plan is drawn from nothing", async ({ page }) => {
@@ -143,7 +181,7 @@ test.describe("plan editor", () => {
     await page.getByTestId("plan-save").click();
     await expect(page.getByTestId("toast")).toContainText("Plan saved.");
     const saved = await lastSave(page);
-    expect(saved?.plan?.elements.filter((e) => e.type === "room")).toHaveLength(2);
+    expect(saved?.plan?.rooms).toHaveLength(2);
     await expect(page.getByTestId("summary")).toContainText("2 rooms");
   });
 

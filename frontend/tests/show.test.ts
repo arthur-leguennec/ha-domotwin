@@ -13,22 +13,22 @@ const storeys: StoreyInfo[] = [
 ];
 const plans: Record<string, unknown> = {
   "storey-1": {
-    elements: [
-      { id: "kitchen", type: "room", name: "Kitchen" },
-      { id: "kitchen-lamp", type: "furniture", name: "Kitchen lamp" },
-      { id: "living", type: "room", name: "Séjour et salle à manger" },
-      { id: "bedroom-down", type: "room", name: "Bedroom" },
+    rooms: [
+      { id: "kitchen", name: "Kitchen" },
+      { id: "living", name: "Séjour et salle à manger" },
+      { id: "bedroom-down", name: "Bedroom" },
     ],
+    items: [{ id: "kitchen-lamp", name: "Kitchen lamp" }],
   },
   "storey-3": {
-    elements: [
-      { id: "office", type: "room", name: "Office" },
-      { id: "bedroom-up", type: "room", name: "Bedroom" },
-      { id: "studio", type: "room", name: "Home studio" },
+    rooms: [
+      { id: "office", name: "Office" },
+      { id: "bedroom-up", name: "Bedroom" },
+      { id: "studio", name: "Home studio" },
     ],
   },
-  "storey-2": { elements: [] },
-  "storey-4": { elements: [{ id: "cellar", type: "room", name: "" }] },
+  "storey-2": { rooms: [] },
+  "storey-4": { rooms: [{ id: "cellar", name: "" }] },
 };
 const client = {
   getPlan: (id?: string) =>

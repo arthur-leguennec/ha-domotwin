@@ -692,7 +692,7 @@ try {
       .locator('[data-storey="storey-2"]')
       .click();
     await page.waitForFunction(() =>
-      window.__view().debugState().summary?.title.includes("upper floor"),
+      window.__view().debugState().summary?.name.includes("upper floor"),
     );
     await page.evaluate(() => {
       const view = window.__view();

@@ -134,7 +134,6 @@ async def test_models_in_overlays_and_plans_are_checked(
         {"@model:m-1\n": model(digest)},
         {"@model:m-1": model(digest, size=MAX_MODEL_BYTES + 1)},
         {"@model:m-1": {"model": {**model(digest)["model"], "size": [38, 38, 400]}}},
-        {"@model:m-1": {"model": {**model(digest)["model"], "kit": {"parts": []}}}},
         {"@model:m-1": {"model": {"name": "x", "size": [1, 1, 1]}}},
         {"@model:m-1": {"x": 1}},
     ]

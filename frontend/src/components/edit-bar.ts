@@ -27,7 +27,7 @@ import { LitElement, css, html, nothing, type TemplateResult } from "lit";
 
 import type { CatalogueKind, EditState, UserModel } from "../engine/engine";
 import type { HomeAssistant } from "../ha/types";
-import { translatorFor, type MessageKey, type Translator } from "../i18n";
+import { translatorFor, type KindName, type MessageKey, type Translator } from "../i18n";
 import {
   UNITS,
   guessUnit,
@@ -44,9 +44,12 @@ import { baseStyles } from "./styles";
 import type { EditCommand } from "./view";
 
 /** The catalogue's groups, in order; kinds in none go to "Other". */
-export const GROUPS: [string, string[]][] = [
-  ["living", ["sofa", "armchair", "table", "roundtable", "tv", "stand", "console", "trunk"]],
-  ["bedroom", ["bed", "nightstand", "dresser", "linen"]],
+export const GROUPS: [string, KindName[]][] = [
+  [
+    "living",
+    ["sofa", "armchair", "coffee-table", "round-table", "tv", "side-table", "console", "chest"],
+  ],
+  ["bedroom", ["bed", "nightstand", "dresser", "tall-cabinet"]],
   [
     "kitchen",
     [
@@ -56,32 +59,33 @@ export const GROUPS: [string, string[]][] = [
       "fridge",
       "dishwasher",
       "hood",
-      "soffit",
+      "wall-cabinet",
+      "bulkhead",
       "backsplash",
-      "dining",
+      "dining-table",
       "chair",
-      "cart",
+      "trolley",
       "bin",
     ],
   ],
   ["bathroom", ["bathtub", "vanity", "toilet", "washer", "dryer", "mirror"]],
-  ["office", ["desk", "officechair", "printer", "printer3d"]],
-  ["storage", ["bookcase", "barrister", "openshelf", "shelf", "cabinet", "shoecab"]],
+  ["office", ["desk", "office-chair", "printer", "3d-printer"]],
+  ["storage", ["bookcase", "glazed-bookcase", "open-shelving", "shelf", "shoe-cabinet"]],
   [
     "lights",
     [
-      "lamp",
-      "tablelamp",
-      "desklamp",
+      "floor-lamp",
+      "table-lamp",
+      "desk-lamp",
       "lantern",
       "pendant",
       "chandelier",
-      "ceilinglight",
-      "spot",
-      "fan",
+      "ceiling-light",
+      "spotlight",
+      "ceiling-fan",
     ],
   ],
-  ["decor", ["plant", "curtain", "frame", "gallery", "heater", "conduit"]],
+  ["decor", ["plant", "curtain", "picture", "picture-wall", "radiator"]],
 ];
 
 /** Text folded for a search: lower case, without accents. */
@@ -104,7 +108,7 @@ export function catalogueGroups(
   const wanted = folded(query.trim(), t);
   const matches = (kind: CatalogueKind): boolean =>
     !wanted || folded(t.kind(kind.kind), t).includes(wanted) || kind.kind.includes(wanted);
-  const placed = new Set(GROUPS.flatMap(([, list]) => list));
+  const placed = new Set<string>(GROUPS.flatMap(([, list]) => list));
   const groups = GROUPS.map(([group, list]) => ({
     group,
     kinds: list

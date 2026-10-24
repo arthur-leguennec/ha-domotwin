@@ -1,36 +1,47 @@
-//! The plan reader: strict on structure, lenient on optional values (`docs/plan-format.md`).
+//! The plan reader: strict on structure, lenient on values (`docs/plan-format.md`).
 //!
-//! Required values that are missing or out of range refuse the whole file with an [`ErrorCode`]
-//! and the element concerned. Unknown fields are dropped, invalid optional values get their
-//! default, texts are cut to their maximum length (in characters) and older revisions are migrated
-//! (revisions 1–10 share the same data). Nothing here panics, whatever the input.
+//! What defines an element (a room's outline, an opening's ends, an item's place and size) refuses
+//! the whole file with an [`ErrorCode`] and the element concerned when it is missing or out of
+//! range. Optional values that are missing, of the wrong type or out of range take their default,
+//! texts are cut to their longest (in characters) and unknown fields are left out. Nothing here
+//! panics, whatever the input.
 
 use std::collections::{BTreeMap, HashSet};
 
 use serde_json::{Map, Value};
 
-use super::catalogue::{DoorStyle, Floor, Kind, Role, WallStyle};
+use super::catalogue::{DoorStyle, Floor, Kind, WallStyle};
 use super::light::{KELVIN_RANGE, POWER_RANGE};
 use super::{
-    DEFAULT_COLOR, EdgeFinish, Element, Furniture, MAX_COORDINATE, MAX_ELEMENTS, MAX_PLAN_BYTES,
-    Opening, PLAN_REVISION, Plan, Rgb8, Room, View, WallSettings,
+    EdgeFinish, Element, FreeWall, Furniture, MAX_COORDINATE, MAX_ELEMENTS, MAX_PLAN_BYTES,
+    Opening, PLAN_FORMAT, PLAN_VERSION, Plan, Rgb8, Room, View, WallSettings,
 };
 use crate::error::{ErrorCode, ReadError};
-use crate::geometry::polygon::{area, self_intersects};
+use crate::geometry::polygon::{P2, area, self_intersects};
 
 type Object = Map<String, Value>;
 
 const TEXT: usize = 100;
 /// Longest element id (characters), shared by the overlay and the plan editor.
 pub(crate) const MAX_ID: usize = TEXT;
-const LONG_TEXT: usize = 300;
-const MAX_VERTICES: usize = 64;
-const VERTEX_TOLERANCE: f64 = 1e-7;
-const DEFAULT_MATERIAL_SOURCE: &str = "Revêtement à confirmer.";
-const DEFAULT_FURNITURE_SOURCE: &str = "Implantation proposée ; dimensions estimées.";
-const DEFAULT_VIEW_NAME: &str = "Vue";
+const VIEW_NAME: usize = 60;
+const MAX_CORNERS: usize = 64;
+/// Largest room, along x and along y (cm).
+const MAX_ROOM: f64 = 10_000.0;
 const MAX_VIEWS: usize = 40;
 const MAX_MODELS: usize = 50;
+/// The lists of elements of a plan file, in the order they are read, and what each element is to
+/// the engine and the frontend.
+pub const LISTS: [(&str, &str); 5] = [
+    ("rooms", "room"),
+    ("partitions", "wall"),
+    ("doors", "door"),
+    ("windows", "window"),
+    ("items", "furniture"),
+];
+/// How far an opening may be over or under its range of widths and still be read at its limit
+/// (cm): its ends are written rounded.
+const WIDTH_SLACK: f64 = 0.25;
 
 /// Reads a plan file (its bytes).
 ///
@@ -63,385 +74,217 @@ pub fn parse_plan_json(bytes: &[u8]) -> Result<Value, ReadError> {
 ///
 /// # Errors
 ///
-/// A [`ReadError`] when a required value is missing or out of range.
+/// A [`ReadError`] when the file is not a plan, or an element lacks what defines it.
 pub fn read_plan_value(value: &Value) -> Result<Plan, ReadError> {
     let Value::Object(root) = value else {
         return Err(ReadError::new(ErrorCode::NotAnObject));
     };
-    if root.get("version").and_then(Value::as_f64) != Some(1.0) {
-        return Err(ReadError::new(ErrorCode::BadVersion));
+    if root.get("format").and_then(Value::as_str) != Some(PLAN_FORMAT) {
+        return Err(ReadError::new(ErrorCode::NotAPlan));
     }
-    if root.get("unit").and_then(Value::as_str) != Some("cm") {
-        return Err(ReadError::new(ErrorCode::BadUnit));
+    match root.get("version").and_then(integer) {
+        Some(v) if v == f64::from(PLAN_VERSION) => {}
+        Some(v) if v > f64::from(PLAN_VERSION) => {
+            return Err(ReadError::with_detail(
+                ErrorCode::NewerVersion,
+                format!("{v}"),
+            ));
+        }
+        _ => return Err(ReadError::new(ErrorCode::NotAPlan)),
     }
-    let Some(elements) = root.get("elements").and_then(Value::as_array) else {
+    let mut lists = Vec::with_capacity(LISTS.len());
+    for (key, _) in LISTS {
+        match root.get(key) {
+            None | Some(Value::Null) => lists.push(&[][..]),
+            Some(Value::Array(list)) => lists.push(list.as_slice()),
+            Some(_) => return Err(ReadError::with_detail(ErrorCode::NotAPlan, key)),
+        }
+    }
+    let count: usize = lists.iter().map(|l| l.len()).sum();
+    if count == 0 {
         return Err(ReadError::new(ErrorCode::NoElements));
-    };
-    if elements.is_empty() {
-        return Err(ReadError::new(ErrorCode::NoElements));
     }
-    if elements.len() > MAX_ELEMENTS {
+    if count > MAX_ELEMENTS {
         return Err(ReadError::new(ErrorCode::TooManyElements));
     }
-    let source_revision = read_revision(root.get("layoutRevision"))?;
-    // Revisions 1 to 10 share the same data: every migration step is the identity.
-
+    let wall_settings = read_wall_thickness(root.get("wallThickness"))?;
     let models = read_models(root.get("models"))?;
     let mut plan = Plan {
-        source_revision,
-        title: text(root.get("title"), TEXT, ""),
-        reference_name: text(root.get("referenceName"), TEXT, ""),
-        wall_settings: read_wall_settings(root.get("wallSettings"))?,
-        elements: Vec::with_capacity(elements.len()),
+        name: text(root.get("name"), TEXT),
+        wall_settings,
+        elements: Vec::with_capacity(count),
         views: read_views(root.get("views")),
-        site: read_site(root.get("site"))?,
         models,
     };
-
-    let mut ids = HashSet::with_capacity(elements.len());
-    for (index, raw) in elements.iter().enumerate() {
-        let element = read_element(raw, index, &plan.models)?;
-        if !ids.insert(element.id().to_owned()) {
-            return Err(ReadError::new(ErrorCode::DuplicateId).at(element.id()));
+    let mut ids = HashSet::with_capacity(count);
+    for ((key, _), list) in LISTS.iter().zip(lists) {
+        for (index, raw) in list.iter().enumerate() {
+            let element = read_element(key, raw, index, &plan)?;
+            if !ids.insert(element.id().to_owned()) {
+                return Err(ReadError::new(ErrorCode::DuplicateId).at(element.id()));
+            }
+            plan.elements.push(element);
         }
-        plan.elements.push(element);
     }
-    check_parents(&plan)?;
+    check_rooms(&plan)?;
     Ok(plan)
 }
 
-/// `layoutRevision`: an integer 1–10; anything else counts as 1; a higher integer is refused.
-fn read_revision(value: Option<&Value>) -> Result<u32, ReadError> {
-    let Some(revision) = value.and_then(integer) else {
-        return Ok(1);
-    };
-    if revision > f64::from(PLAN_REVISION) {
-        return Err(ReadError::with_detail(
-            ErrorCode::NewerRevision,
-            format!("{revision}"),
-        ));
-    }
-    Ok(if revision >= 1.0 { revision as u32 } else { 1 })
-}
-
-fn read_wall_settings(value: Option<&Value>) -> Result<WallSettings, ReadError> {
+/// `wallThickness`: 1–100 cm each.
+fn read_wall_thickness(value: Option<&Value>) -> Result<WallSettings, ReadError> {
     let defaults = WallSettings::default();
     let Some(Value::Object(map)) = value else {
         return Ok(defaults);
     };
     let field = |key: &str, default: f64| -> Result<f64, ReadError> {
         match map.get(key) {
-            None => Ok(default),
+            None | Some(Value::Null) => Ok(default),
             Some(v) => match v.as_f64() {
-                Some(n) if (0.0..=100.0).contains(&n) => Ok(n),
+                Some(n) if (1.0..=100.0).contains(&n) => Ok(n),
                 _ => Err(ReadError::new(ErrorCode::WallThickness)),
             },
         }
     };
-    let settings = WallSettings {
+    Ok(WallSettings {
         interior: field("interior", defaults.interior)?,
         exterior: field("exterior", defaults.exterior)?,
-        spacing: field("spacing", defaults.spacing)?,
-        reflow: map.get("reflow").is_some_and(truthy),
-    };
-    if settings.interior < 1.0 || settings.exterior < 1.0 {
-        return Err(ReadError::new(ErrorCode::WallThickness));
-    }
-    Ok(settings)
+    })
 }
 
-fn read_element(
-    raw: &Value,
-    index: usize,
-    models: &BTreeMap<String, Value>,
-) -> Result<Element, ReadError> {
-    let invalid = || ReadError::new(ErrorCode::InvalidElement).at(format!("#{index}"));
+fn read_element(list: &str, raw: &Value, index: usize, plan: &Plan) -> Result<Element, ReadError> {
+    let invalid = || ReadError::new(ErrorCode::InvalidElement).at(format!("{list}[{index}]"));
     let Value::Object(e) = raw else {
         return Err(invalid());
     };
     let id = match e.get("id").and_then(Value::as_str) {
-        Some(id) if id.chars().count() <= MAX_ID => id.to_owned(),
+        Some(id) if !id.is_empty() && id.chars().count() <= MAX_ID => id.to_owned(),
         _ => return Err(invalid()),
     };
-    let kind = e.get("type").and_then(Value::as_str);
-    let Some(name) = e.get("name").and_then(Value::as_str) else {
-        return Err(invalid().at(id));
-    };
-    let name = clip(name, TEXT);
-    let at = |code: ErrorCode| ReadError::new(code).at(id.as_str());
-    let x = number(e, "x");
-    let y = number(e, "y");
-    let (Some(x), Some(y)) = (x, y) else {
-        return Err(at(ErrorCode::PositionRange));
-    };
-    if x.abs() > MAX_COORDINATE || y.abs() > MAX_COORDINATE {
-        return Err(at(ErrorCode::PositionRange));
-    }
-    match kind {
-        Some("room") => read_room(e, id, name, x, y).map(Element::Room),
-        Some("furniture") => read_furniture(e, id, name, x, y, models).map(Element::Furniture),
-        Some("wall") => read_wall(e, id, name, x, y),
-        Some(kind @ ("door" | "window")) => read_opening(e, id, name, x, y, kind == "door"),
-        _ => Err(invalid().at(id)),
+    let name = text(e.get("name"), TEXT);
+    let room = text(e.get("room"), MAX_ID);
+    match list {
+        "rooms" => read_room(e, id, name).map(Element::Room),
+        "partitions" => read_partition(e, id, name, room, plan).map(Element::Wall),
+        "doors" => read_opening(e, id, name, room, true).map(Element::Door),
+        "windows" => read_opening(e, id, name, room, false).map(Element::Window),
+        _ => read_item(e, id, name, room, plan).map(Element::Furniture),
     }
 }
 
-/// `w`, `h` in range and an optional numeric `angle` (rooms and furniture).
-fn read_box(
-    e: &Object,
-    id: &str,
-    range: (f64, f64),
-    code: ErrorCode,
-) -> Result<(f64, f64, f64), ReadError> {
-    let w = number(e, "w").filter(|w| (range.0..=range.1).contains(w));
-    let h = number(e, "h").filter(|h| (range.0..=range.1).contains(h));
-    let (Some(w), Some(h)) = (w, h) else {
-        return Err(ReadError::new(code).at(id));
-    };
-    let angle = match e.get("angle") {
-        None => 0.0,
-        Some(v) => match v.as_f64() {
-            Some(a) => normal_angle(a),
-            None => return Err(ReadError::new(ErrorCode::InvalidAngle).at(id)),
-        },
-    };
-    Ok((w, h, angle))
-}
-
-fn read_room(e: &Object, id: String, name: String, x: f64, y: f64) -> Result<Room, ReadError> {
-    let (w, h, angle) = read_box(e, &id, (5.0, 10_000.0), ErrorCode::RoomSize)?;
+fn read_room(e: &Object, id: String, name: String) -> Result<Room, ReadError> {
     let at = |code: ErrorCode| ReadError::new(code).at(id.as_str());
-    let raw_bevel = number(e, "bevel");
-    let bevel = raw_bevel.map_or(0.0, |b| b.max(0.0).min(w - 5.0).max(0.0));
-
-    // The polygon: `vertices`, else the legacy bevel trapezoid, else the frame rectangle.
-    let vertices: Vec<[f64; 2]> = match e.get("vertices") {
-        Some(Value::Array(points)) => {
-            let mut out = Vec::with_capacity(points.len());
-            for point in points {
-                let pair = point.as_array().filter(|p| p.len() == 2);
-                let u = pair.and_then(|p| p.first()).and_then(Value::as_f64);
-                let v = pair.and_then(|p| p.get(1)).and_then(Value::as_f64);
-                match (u, v) {
-                    (Some(u), Some(v)) if in_unit(u) && in_unit(v) => out.push([u, v]),
-                    _ => return Err(at(ErrorCode::VertexCount)),
-                }
-            }
-            out
-        }
-        _ => match raw_bevel.filter(|b| *b != 0.0) {
-            Some(b) => vec![[0.0, 0.0], [1.0, 0.0], [1.0 - b / w, 1.0], [0.0, 1.0]],
-            None => vec![[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]],
-        },
+    let Some(Value::Array(list)) = e.get("outline") else {
+        return Err(at(ErrorCode::InvalidOutline));
     };
-    if !(3..=MAX_VERTICES).contains(&vertices.len())
-        || !vertices.iter().flatten().all(|c| in_unit(*c))
-    {
-        return Err(at(ErrorCode::VertexCount));
+    if !(3..=MAX_CORNERS).contains(&list.len()) {
+        return Err(at(ErrorCode::InvalidOutline));
     }
-    if self_intersects(&vertices) {
+    let mut points = Vec::with_capacity(list.len());
+    for raw in list {
+        points.push(point(raw).ok_or_else(|| at(ErrorCode::InvalidOutline))?);
+    }
+    if self_intersects(&points) {
         return Err(at(ErrorCode::SelfIntersection));
     }
-    if area(&vertices) * w * h < 25.0 {
+    if area(&points) < 25.0 {
         return Err(at(ErrorCode::MinArea));
     }
-    let sides = vertices.len();
-    let open_edges = match e.get("openEdges") {
-        None => Vec::new(),
-        Some(Value::Array(list)) => {
-            let mut edges = Vec::with_capacity(list.len());
-            for side in list {
-                match integer(side) {
-                    Some(i) if i >= 0.0 && (i as usize) < sides => edges.push(i as usize),
-                    _ => return Err(at(ErrorCode::OpenEdgeRange)),
-                }
-            }
-            edges.sort_unstable();
-            edges.dedup();
-            edges
+    let mut min = [f64::INFINITY; 2];
+    let mut max = [f64::NEG_INFINITY; 2];
+    for p in &points {
+        for k in 0..2 {
+            min[k] = min[k].min(p[k]);
+            max[k] = max[k].max(p[k]);
         }
-        Some(_) => return Err(at(ErrorCode::InvalidOpenEdges)),
-    };
-    let edge_thickness = match e.get("edgeThickness") {
-        None => vec![None; sides],
-        Some(Value::Array(list)) if list.len() == sides => {
-            let mut out = Vec::with_capacity(sides);
-            for t in list {
-                match t {
-                    Value::Null => out.push(None),
-                    _ => match t.as_f64() {
-                        Some(t) if (1.0..=100.0).contains(&t) => out.push(Some(t)),
-                        _ => return Err(at(ErrorCode::InvalidEdgeThickness)),
-                    },
-                }
+    }
+    let (w, h) = (max[0] - min[0], max[1] - min[1]);
+    if w > MAX_ROOM || h > MAX_ROOM || w <= 0.0 || h <= 0.0 {
+        return Err(at(ErrorCode::InvalidOutline));
+    }
+    let vertices = points
+        .iter()
+        .map(|p| [(p[0] - min[0]) / w, (p[1] - min[1]) / h])
+        .collect();
+    let sides = points.len();
+    let mut open_edges = Vec::new();
+    let mut edge_thickness = vec![None; sides];
+    let mut edge_finish = vec![None; sides];
+    if let Some(Value::Array(list)) = e.get("sides") {
+        for (i, side) in list.iter().take(sides).enumerate() {
+            let Value::Object(side) = side else { continue };
+            if side.get("open") == Some(&Value::Bool(true)) {
+                open_edges.push(i);
             }
-            out
+            edge_thickness[i] = side
+                .get("thickness")
+                .and_then(Value::as_f64)
+                .filter(|t| (1.0..=100.0).contains(t));
+            edge_finish[i] = match side.get("finish") {
+                Some(Value::String(s)) if s == "tiles" => Some(EdgeFinish::Metro),
+                Some(Value::String(s)) => Rgb8::from_hex(s).map(EdgeFinish::Paint),
+                _ => None,
+            };
         }
-        Some(_) => return Err(at(ErrorCode::InvalidEdgeThickness)),
-    };
-    let edge_finish = match e.get("edgeFinish") {
-        Some(Value::Array(list)) if list.iter().any(truthy) => Some(
-            (0..sides)
-                .map(|i| match list.get(i) {
-                    Some(Value::String(s)) if s == "metro" => Some(EdgeFinish::Metro),
-                    Some(Value::String(s)) => Rgb8::from_hex(s).map(EdgeFinish::Paint),
-                    _ => None,
-                })
-                .collect(),
-        ),
-        _ => None,
-    };
+    }
+    let floor = e.get("floor").and_then(Value::as_object);
+    let walls = e.get("walls").and_then(Value::as_object);
     Ok(Room {
         id,
         name,
-        x,
-        y,
+        x: min[0],
+        y: min[1],
         w,
         h,
-        angle,
-        color: color(e.get("color")).unwrap_or(DEFAULT_COLOR),
-        estimated: e.get("estimated").is_some_and(truthy),
-        role: e
-            .get("role")
-            .and_then(Value::as_str)
-            .map_or(Role::Room, Role::from_name),
-        floor: e
-            .get("floor")
+        color: color(e.get("color")).unwrap_or(super::DEFAULT_COLOR),
+        floor: floor
+            .and_then(|f| f.get("material"))
             .and_then(Value::as_str)
             .map_or(Floor::Plain, Floor::from_name),
-        floor_angle: number(e, "floorAngle").map_or(0.0, normal_angle),
-        wall_style: e
-            .get("wallStyle")
+        floor_angle: floor
+            .and_then(|f| f.get("angle"))
+            .and_then(Value::as_f64)
+            .map_or(0.0, normal_angle),
+        wall_style: walls
+            .and_then(|w| w.get("finish"))
             .and_then(Value::as_str)
             .map_or(WallStyle::White, WallStyle::from_name),
-        wall_color: color(e.get("wallColor")),
-        cornice: e.get("cornice") == Some(&Value::Bool(true)),
-        rounded_casing: e.get("casing").and_then(Value::as_str) == Some("arrondi"),
-        material_source: text(e.get("materialSource"), LONG_TEXT, DEFAULT_MATERIAL_SOURCE),
-        bevel,
+        wall_color: color(walls.and_then(|w| w.get("paint"))),
+        cornice: walls.and_then(|w| w.get("moulding")) == Some(&Value::Bool(true)),
         vertices,
         open_edges,
         edge_thickness,
-        edge_finish,
+        edge_finish: edge_finish
+            .iter()
+            .any(Option::is_some)
+            .then_some(edge_finish),
     })
 }
 
-fn read_furniture(
+fn read_partition(
     e: &Object,
     id: String,
     name: String,
-    x: f64,
-    y: f64,
-    models: &BTreeMap<String, Value>,
-) -> Result<Furniture, ReadError> {
-    let (w, h, angle) = read_box(e, &id, (1.0, 10_000.0), ErrorCode::FurnitureSize)?;
-    let at = |code: ErrorCode| ReadError::new(code).at(id.as_str());
-    let z = number(e, "z")
-        .filter(|z| (1.0..=300.0).contains(z))
-        .ok_or_else(|| at(ErrorCode::FurnitureHeight))?;
-    let elevation = match e.get("elevation") {
-        None => 0.0,
-        Some(v) => match v.as_f64() {
-            Some(el) if (0.0..=300.0).contains(&el) => el,
-            _ => return Err(at(ErrorCode::ElevationRange)),
-        },
-    };
-    let kind = e
-        .get("kind")
-        .and_then(Value::as_str)
-        .and_then(Kind::from_name)
-        .unwrap_or(Kind::Desk);
-    let model = if kind == Kind::Custom {
-        match e.get("model").and_then(Value::as_str) {
-            Some(model) if models.contains_key(model) => Some(model.to_owned()),
-            _ => return Err(at(ErrorCode::MissingModel)),
-        }
-    } else {
-        None
-    };
-    let light = kind.is_light();
-    let light_color = if light {
-        color(e.get("lightColor"))
-    } else {
-        None
-    };
-    let light_kelvin = if light && light_color.is_none() {
-        number(e, "lightKelvin").map(|k| k.clamp(KELVIN_RANGE.0, KELVIN_RANGE.1).round() as u16)
-    } else {
-        None
-    };
-    let light_power = if light {
-        number(e, "lightPower")
-            .map(|p| p.clamp(POWER_RANGE.0, POWER_RANGE.1).round() as u16)
-            .filter(|p| *p != 100)
-    } else {
-        None
-    };
-    let variant = e
-        .get("variant")
-        .and_then(Value::as_str)
-        .filter(|v| !v.is_empty() && kind.has_variant(v))
-        .map(str::to_owned);
-    let open = if kind == Kind::Curtain {
-        open_value(e.get("open")).map(|v| v.round().clamp(0.0, 100.0) as u8)
-    } else {
-        None
-    };
-    Ok(Furniture {
-        id,
-        name,
-        x,
-        y,
-        w,
-        h,
-        z,
-        angle,
-        color: color(e.get("color")).unwrap_or(DEFAULT_COLOR),
-        role: e
-            .get("role")
-            .and_then(Value::as_str)
-            .map_or(Role::Room, Role::from_name),
-        kind,
-        model,
-        variant,
-        parent: e
-            .get("parent")
-            .and_then(Value::as_str)
-            .unwrap_or_default()
-            .to_owned(),
-        source: text(e.get("source"), LONG_TEXT, DEFAULT_FURNITURE_SOURCE),
-        elevation,
-        locked: e.get("locked") == Some(&Value::Bool(true)),
-        open,
-        light_off: light && e.get("lightOff") == Some(&Value::Bool(true)),
-        light_color,
-        light_kelvin,
-        light_power,
-    })
-}
-
-fn read_wall(e: &Object, id: String, name: String, x: f64, y: f64) -> Result<Element, ReadError> {
-    let x2 = number(e, "x2").filter(|v| v.abs() <= MAX_COORDINATE);
-    let y2 = number(e, "y2").filter(|v| v.abs() <= MAX_COORDINATE);
-    let thickness = number(e, "thickness").filter(|t| (1.0..=100.0).contains(t));
-    match (x2, y2, thickness) {
-        (Some(x2), Some(y2), Some(thickness)) if (x2 - x).hypot(y2 - y) >= 5.0 => {
-            Ok(Element::Wall(super::FreeWall {
-                id,
-                name,
-                x,
-                y,
-                x2,
-                y2,
-                thickness,
-                parent: e
-                    .get("parent")
-                    .and_then(Value::as_str)
-                    .unwrap_or_default()
-                    .to_owned(),
-            }))
-        }
-        _ => Err(ReadError::new(ErrorCode::InvalidWall).at(id)),
+    parent: String,
+    plan: &Plan,
+) -> Result<FreeWall, ReadError> {
+    let from = e.get("from").and_then(point);
+    let to = e.get("to").and_then(point);
+    match (from, to) {
+        (Some([x, y]), Some([x2, y2])) if (x2 - x).hypot(y2 - y) >= 5.0 => Ok(FreeWall {
+            id,
+            name,
+            x,
+            y,
+            x2,
+            y2,
+            thickness: e
+                .get("thickness")
+                .and_then(Value::as_f64)
+                .filter(|t| (1.0..=100.0).contains(t))
+                .unwrap_or(plan.wall_settings.interior),
+            parent,
+        }),
+        _ => Err(ReadError::new(ErrorCode::InvalidPartition).at(id)),
     }
 }
 
@@ -449,52 +292,154 @@ fn read_opening(
     e: &Object,
     id: String,
     name: String,
-    x: f64,
-    y: f64,
+    parent: String,
     door: bool,
-) -> Result<Element, ReadError> {
+) -> Result<Opening, ReadError> {
     let range = if door { (20.0, 300.0) } else { (20.0, 1_000.0) };
-    let w = number(e, "w").filter(|w| (range.0..=range.1).contains(w));
-    let angle = number(e, "angle");
-    let (Some(w), Some(angle)) = (w, angle) else {
+    let (Some(from), Some(to)) = (e.get("from").and_then(point), e.get("to").and_then(point))
+    else {
         return Err(ReadError::new(ErrorCode::InvalidOpening).at(id));
     };
-    let mut opening = Opening {
+    let (dx, dy) = (to[0] - from[0], to[1] - from[1]);
+    // Ends written rounded leave a width at its limit a hair over it on a slanted wall.
+    let w = dx.hypot(dy);
+    if !(range.0 - WIDTH_SLACK..=range.1 + WIDTH_SLACK).contains(&w) {
+        return Err(ReadError::new(ErrorCode::InvalidOpening).at(id));
+    }
+    let w = w.clamp(range.0, range.1);
+    let style = if door {
+        e.get("style")
+            .and_then(Value::as_str)
+            .map_or(DoorStyle::Hinged, DoorStyle::from_name)
+    } else {
+        DoorStyle::Hinged
+    };
+    // Fully open is not kept: absent means open.
+    let open = if door {
+        fraction(e.get("open"))
+            .map(|f| (f * 100.0).round())
+            .filter(|p| *p < 100.0)
+            .map(|p| p.max(0.0) as u8)
+    } else {
+        None
+    };
+    Ok(Opening {
         id,
         name,
-        x,
-        y,
+        x: from[0],
+        y: from[1],
         w,
-        angle: normal_angle(angle),
-        swing: if e.get("swing").and_then(Value::as_f64) == Some(-1.0) {
+        angle: normal_angle(dy.atan2(dx).to_degrees()),
+        swing: if e.get("opensTo").and_then(Value::as_str) == Some("left") {
             -1
         } else {
             1
         },
-        parent: e
-            .get("parent")
-            .and_then(Value::as_str)
-            .unwrap_or_default()
-            .to_owned(),
-        style: DoorStyle::Hinged,
-        open: None,
-    };
-    if !door {
-        return Ok(Element::Window(opening));
-    }
-    opening.style = e
-        .get("style")
-        .and_then(Value::as_str)
-        .map_or(DoorStyle::Hinged, DoorStyle::from_name);
-    // 100 (fully open) is not stored: absent means open.
-    opening.open = open_value(e.get("open"))
-        .filter(|v| *v < 100.0)
-        .map(|v| v.round().max(0.0) as u8);
-    Ok(Element::Door(opening))
+        parent,
+        style,
+        open,
+    })
 }
 
-/// Every non-empty `parent` names a room.
-fn check_parents(plan: &Plan) -> Result<(), ReadError> {
+fn read_item(
+    e: &Object,
+    id: String,
+    name: String,
+    parent: String,
+    plan: &Plan,
+) -> Result<Furniture, ReadError> {
+    let at = |code: ErrorCode| ReadError::new(code).at(id.as_str());
+    let centre = e
+        .get("at")
+        .and_then(point)
+        .ok_or_else(|| at(ErrorCode::PositionRange))?;
+    let size = e
+        .get("size")
+        .and_then(Value::as_array)
+        .filter(|s| s.len() == 3)
+        .ok_or_else(|| at(ErrorCode::ItemSize))?;
+    let length = |i: usize| size.get(i).and_then(Value::as_f64);
+    let (Some(w), Some(d)) = (
+        length(0).filter(|v| (1.0..=10_000.0).contains(v)),
+        length(1).filter(|v| (1.0..=10_000.0).contains(v)),
+    ) else {
+        return Err(at(ErrorCode::ItemSize));
+    };
+    let z = length(2)
+        .filter(|v| (1.0..=300.0).contains(v))
+        .ok_or_else(|| at(ErrorCode::ItemHeight))?;
+    let elevation = e
+        .get("lift")
+        .and_then(Value::as_f64)
+        .map_or(0.0, |lift| lift.clamp(0.0, 300.0));
+    let model = match e.get("model") {
+        None | Some(Value::Null) => None,
+        Some(Value::String(model)) if plan.models.contains_key(model) => Some(model.clone()),
+        Some(_) => return Err(at(ErrorCode::MissingModel)),
+    };
+    let kind = if model.is_some() {
+        Kind::Box
+    } else {
+        e.get("kind")
+            .and_then(Value::as_str)
+            .and_then(Kind::from_name)
+            .unwrap_or(Kind::Box)
+    };
+    let light = kind
+        .is_light()
+        .then(|| e.get("light").and_then(Value::as_object))
+        .flatten();
+    let light_color = light.and_then(|l| color(l.get("color")));
+    let light_kelvin = light
+        .filter(|_| light_color.is_none())
+        .and_then(|l| l.get("kelvin"))
+        .and_then(Value::as_f64)
+        .map(|k| k.clamp(KELVIN_RANGE.0, KELVIN_RANGE.1).round() as u16);
+    let light_power = light
+        .and_then(|l| l.get("power"))
+        .and_then(Value::as_f64)
+        .filter(|p| p.is_finite())
+        .map(|p| (p * 100.0).clamp(POWER_RANGE.0, POWER_RANGE.1).round() as u16)
+        .filter(|p| *p != 100);
+    let variant = e
+        .get("style")
+        .and_then(Value::as_str)
+        .filter(|v| kind.has_variant(v))
+        .map(str::to_owned);
+    let open = if kind == Kind::Curtain {
+        fraction(e.get("open")).map(|f| (f * 100.0).round() as u8)
+    } else {
+        None
+    };
+    Ok(Furniture {
+        id,
+        name,
+        x: centre[0] - w / 2.0,
+        y: centre[1] - d / 2.0,
+        w,
+        h: d,
+        z,
+        angle: e
+            .get("rotation")
+            .and_then(Value::as_f64)
+            .map_or(0.0, normal_angle),
+        color: color(e.get("color")).unwrap_or(kind.info().color),
+        kind,
+        model,
+        variant,
+        parent,
+        elevation,
+        locked: e.get("fixed") == Some(&Value::Bool(true)),
+        open,
+        light_off: light.and_then(|l| l.get("on")) == Some(&Value::Bool(false)),
+        light_color,
+        light_kelvin,
+        light_power,
+    })
+}
+
+/// Every `room` an element names is a room of the plan.
+fn check_rooms(plan: &Plan) -> Result<(), ReadError> {
     let rooms: HashSet<&str> = plan.rooms().map(|room| room.id.as_str()).collect();
     for element in &plan.elements {
         let parent = match element {
@@ -504,13 +449,13 @@ fn check_parents(plan: &Plan) -> Result<(), ReadError> {
             Element::Furniture(f) => &f.parent,
         };
         if !parent.is_empty() && !rooms.contains(parent.as_str()) {
-            return Err(ReadError::new(ErrorCode::MissingParent).at(element.id()));
+            return Err(ReadError::new(ErrorCode::MissingRoom).at(element.id()));
         }
     }
     Ok(())
 }
 
-/// Saved viewpoints: at most 40 read, invalid ones dropped.
+/// Viewpoints: at most 40 read, those without both points left out.
 fn read_views(value: Option<&Value>) -> Vec<View> {
     let Some(Value::Array(list)) = value else {
         return Vec::new();
@@ -518,49 +463,24 @@ fn read_views(value: Option<&Value>) -> Vec<View> {
     let mut views = Vec::new();
     for (index, item) in list.iter().take(MAX_VIEWS).enumerate() {
         let Value::Object(v) = item else { continue };
-        let Some(name) = v.get("name").and_then(Value::as_str) else {
+        let (Some(eye), Some(target)) = (vector3(v.get("eye")), vector3(v.get("target"))) else {
             continue;
         };
         let id = match v.get("id").and_then(Value::as_str) {
-            Some(id) if id.chars().count() < 80 => id.to_owned(),
+            Some(id) if !id.is_empty() && id.chars().count() <= MAX_ID => id.to_owned(),
             _ => format!("view-{index}"),
         };
-        let name = match clip(name, 60) {
-            name if name.is_empty() => DEFAULT_VIEW_NAME.to_owned(),
+        let name = match text(v.get("name"), VIEW_NAME) {
+            name if name.is_empty() => id.clone(),
             name => name,
         };
-        match v.get("mode").and_then(Value::as_str) {
-            Some("walk") => {
-                let (Some(x), Some(y), Some(yaw), Some(pitch)) = (
-                    number(v, "x"),
-                    number(v, "y"),
-                    number(v, "yaw"),
-                    number(v, "pitch"),
-                ) else {
-                    continue;
-                };
-                if x.abs() >= MAX_COORDINATE || y.abs() >= MAX_COORDINATE {
-                    continue;
-                }
-                let eye = number(v, "eye").map_or(160.0, |e| e.clamp(60.0, 200.0));
-                views.push(View::Walk {
-                    id,
-                    name,
-                    x,
-                    y,
-                    yaw,
-                    pitch: pitch.clamp(-1.3, 1.3),
-                    eye,
-                });
-            }
-            Some("orbit") => {
-                let (Some(p), Some(t)) = (vector3(v.get("p")), vector3(v.get("t"))) else {
-                    continue;
-                };
-                views.push(View::Orbit { id, name, p, t });
-            }
-            _ => {}
-        }
+        // Files write `[x, y, height]`; the 3D axes are `[x, height, y]`.
+        views.push(View::Orbit {
+            id,
+            name,
+            p: [eye[0], eye[2], eye[1]],
+            t: [target[0], target[2], target[1]],
+        });
     }
     views
 }
@@ -569,23 +489,9 @@ fn vector3(value: Option<&Value>) -> Option<[f64; 3]> {
     let list = value?.as_array().filter(|l| l.len() == 3)?;
     let mut out = [0.0; 3];
     for (slot, item) in out.iter_mut().zip(list) {
-        let n = item.as_f64().filter(|n| n.abs() < 100_000.0)?;
-        *slot = n;
+        *slot = item.as_f64().filter(|n| n.abs() < 100_000.0)?;
     }
     Some(out)
-}
-
-/// `site`: kept as read when it is an object of version 1 (DomoTwin does not draw it).
-fn read_site(value: Option<&Value>) -> Result<Option<Value>, ReadError> {
-    match value {
-        None | Some(Value::Null) => Ok(None),
-        Some(site @ Value::Object(map))
-            if map.get("version").and_then(Value::as_f64) == Some(1.0) =>
-        {
-            Ok(Some(site.clone()))
-        }
-        Some(_) => Err(ReadError::new(ErrorCode::InvalidSite)),
-    }
 }
 
 /// Whether a user model id is valid: 1–64 letters, digits, `-` and `_`, starting with a letter or
@@ -598,7 +504,7 @@ pub fn valid_model_id(id: &str) -> bool {
             .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
 }
 
-/// `models`: an object of at most 50 user models by id, each with a size and a kit or a file.
+/// `models`: an object of at most 50 user models by id, each with a size and a file.
 fn read_models(value: Option<&Value>) -> Result<BTreeMap<String, Value>, ReadError> {
     let map = match value {
         None | Some(Value::Null) => return Ok(BTreeMap::new()),
@@ -610,7 +516,6 @@ fn read_models(value: Option<&Value>) -> Result<BTreeMap<String, Value>, ReadErr
     }
     let mut models = BTreeMap::new();
     for (id, model) in map {
-        let valid_id = valid_model_id(id);
         let Value::Object(fields) = model else {
             return Err(ReadError::new(ErrorCode::InvalidModel).at(id.as_str()));
         };
@@ -623,9 +528,8 @@ fn read_models(value: Option<&Value>) -> Result<BTreeMap<String, Value>, ReadErr
                         .zip([10_000.0, 10_000.0, 300.0])
                         .all(|(v, max)| v.as_f64().is_some_and(|n| (1.0..=max).contains(&n)))
             });
-        let has_kit = fields.get("kit").is_some_and(|k| !k.is_null());
-        let has_file = fields.get("file").is_some_and(|f| !f.is_null());
-        if !valid_id || !size_ok || has_kit == has_file {
+        let has_file = fields.get("file").is_some_and(Value::is_object);
+        if !valid_model_id(id) || !size_ok || !has_file {
             return Err(ReadError::new(ErrorCode::InvalidModel).at(id.as_str()));
         }
         models.insert(id.clone(), model.clone());
@@ -635,49 +539,35 @@ fn read_models(value: Option<&Value>) -> Result<BTreeMap<String, Value>, ReadErr
 
 // ---------------------------------------------------------------- value helpers
 
-fn number(e: &Object, key: &str) -> Option<f64> {
-    e.get(key).and_then(Value::as_f64)
+/// A point `[x, y]` within the plan's reach.
+/// A point `[x, y]` of the plan, within its coordinates.
+pub(crate) fn point(value: &Value) -> Option<P2> {
+    let pair = value.as_array().filter(|p| p.len() == 2)?;
+    let x = pair.first()?.as_f64()?;
+    let y = pair.get(1)?.as_f64()?;
+    (x.abs() <= MAX_COORDINATE && y.abs() <= MAX_COORDINATE).then_some([x, y])
 }
 
 fn integer(value: &Value) -> Option<f64> {
     value.as_f64().filter(|n| n.fract() == 0.0)
 }
 
-fn in_unit(c: f64) -> bool {
-    (-VERTEX_TOLERANCE..=1.0 + VERTEX_TOLERANCE).contains(&c)
-}
-
-/// JavaScript truthiness of a JSON value.
-fn truthy(value: &Value) -> bool {
-    match value {
-        Value::Null => false,
-        Value::Bool(b) => *b,
-        Value::Number(n) => n.as_f64().is_some_and(|n| n != 0.0),
-        Value::String(s) => !s.is_empty(),
-        Value::Array(_) | Value::Object(_) => true,
-    }
-}
-
-/// An `open` value: a number or a numeric string; `null`, `""` and anything else are absent.
-fn open_value(value: Option<&Value>) -> Option<f64> {
-    match value? {
-        Value::Number(n) => n.as_f64(),
-        Value::String(s) if !s.trim().is_empty() => {
-            s.trim().parse::<f64>().ok().filter(|n| n.is_finite())
-        }
-        Value::Bool(b) => Some(if *b { 1.0 } else { 0.0 }),
-        _ => None,
-    }
+/// A fraction 0–1 (clamped); anything else is absent.
+fn fraction(value: Option<&Value>) -> Option<f64> {
+    value
+        .and_then(Value::as_f64)
+        .filter(|f| f.is_finite())
+        .map(|f| f.clamp(0.0, 1.0))
 }
 
 fn color(value: Option<&Value>) -> Option<Rgb8> {
     value.and_then(Value::as_str).and_then(Rgb8::from_hex)
 }
 
-fn text(value: Option<&Value>, max: usize, fallback: &str) -> String {
+fn text(value: Option<&Value>, max: usize) -> String {
     value
         .and_then(Value::as_str)
-        .map_or_else(|| fallback.to_owned(), |s| clip(s, max))
+        .map_or_else(String::new, |s| clip(s, max))
 }
 
 /// Cuts a text to `max` characters (code points), never inside one.

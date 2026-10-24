@@ -5,10 +5,9 @@ import type * as Wasm from "./pkg/domotwin_web.js";
 
 /** What `loadPlan` returns: counts of the plan's elements. */
 export interface PlanSummary {
-  revision: number;
   /** Entries of the edit overlay left out because they made the plan invalid (an updated plan). */
   layoutRefused?: number;
-  title: string;
+  name: string;
   rooms: number;
   walls: number;
   doors: number;
@@ -654,8 +653,8 @@ export class DomoTwinEngine {
   }
 
   /**
-   * The plan shown with its edit overlay in it, at the current revision (what the plan editor
-   * starts from); an empty string when none is shown.
+   * The plan shown with its edit overlay in it (what the plan editor starts from); an empty
+   * string when none is shown.
    */
   shownPlan(): string {
     return this.live.shownPlan();
@@ -738,7 +737,7 @@ export async function catalogue(): Promise<CatalogueKind[]> {
   return JSON.parse(wasm.Engine.editCatalogue()) as CatalogueKind[];
 }
 
-/** The plan with its edit overlay applied, as **Export plan** writes it (revision 10). */
+/** The plan with its edit overlay applied, as **Export plan** writes it. */
 export async function applyLayout(plan: string, layout: string): Promise<string> {
   const wasm = await loadWasm();
   try {

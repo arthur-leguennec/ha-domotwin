@@ -131,7 +131,7 @@ function fileName(title: string): string {
     .split(/[^a-z0-9]/)
     .filter(Boolean)
     .join("-");
-  return `${slug || "plan"}.plan.json`;
+  return `${slug || "plan"}.domotwin.json`;
 }
 
 /** `<domotwin-panel>`: the full-screen DomoTwin in the sidebar, with import and export. */
@@ -1251,7 +1251,7 @@ export class DomoTwinPanel extends LitElement {
       const read = JSON.parse(text.replace(/^\uFEFF/, "")) as PlanJson;
       await this.storeEmbeddedModels(read);
       await this.storePlan(read);
-      this.show(t.t("panel.imported", { title: summary.title || t.t("view.untitled") }));
+      this.show(t.t("panel.imported", { title: summary.name || t.t("view.untitled") }));
     } catch (error) {
       this.show(t.t("panel.import_failed", { reason: this.describe(error) }), true);
     } finally {
@@ -1317,7 +1317,7 @@ export class DomoTwinPanel extends LitElement {
         this.toast = undefined;
         return;
       }
-      await this.importStorey(ifc, only, file.name);
+      await this.importStorey(ifc, only);
     } catch (error) {
       this.show(t.t("panel.import_failed", { reason: this.describe(error) }), true);
     } finally {
@@ -1327,14 +1327,14 @@ export class DomoTwinPanel extends LitElement {
   }
 
   /** Converts a storey, has the engine check the plan, stores it and says what was left out. */
-  private async importStorey(ifc: IfcFile, storey: IfcStorey, name: string): Promise<void> {
+  private async importStorey(ifc: IfcFile, storey: IfcStorey): Promise<void> {
     const client = this.client;
     if (!client) return;
     const t = this.t;
-    const { plan, report } = ifc.convert(storey.id, name);
+    const { plan, report } = ifc.convert(storey.id);
     const summary = await summarizePlan(JSON.stringify(plan));
     await this.storePlan(plan);
-    const imported = t.t("panel.ifc_imported", { title: summary.title || t.t("view.untitled") });
+    const imported = t.t("panel.ifc_imported", { title: summary.name || t.t("view.untitled") });
     const left = this.leftOut(report);
     this.show(left ? `${imported} ${t.t("panel.ifc_left_out", { list: left })}` : imported);
   }
@@ -1375,7 +1375,7 @@ export class DomoTwinPanel extends LitElement {
     const taken: string[] = [];
     const { freeIds } = await import("../planner/planner");
     for (const storey of choice.storeys) {
-      const converted = choice.file.convert(storey.id, choice.name).plan;
+      const converted = choice.file.convert(storey.id).plan;
       const plan = (await freeIds(converted, taken)) as PlanJson;
       await summarizePlan(JSON.stringify(plan));
       taken.push(...storeyIds(plan));
@@ -1407,7 +1407,7 @@ export class DomoTwinPanel extends LitElement {
     this.ifcChoice = undefined;
     this.busy = true;
     try {
-      await this.importStorey(choice.file, storey, choice.name);
+      await this.importStorey(choice.file, storey);
     } catch (error) {
       this.show(this.t.t("panel.import_failed", { reason: this.describe(error) }), true);
     } finally {
@@ -1451,7 +1451,7 @@ export class DomoTwinPanel extends LitElement {
         await applyLayout(JSON.stringify(stored), JSON.stringify(layout)),
       ) as PlanJson;
       const missing = await this.embedModels(plan);
-      const title = typeof plan.title === "string" ? plan.title : "";
+      const title = typeof plan.name === "string" ? plan.name : "";
       const blob = new Blob([`${JSON.stringify(plan, null, 2)}\n`], { type: "application/json" });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
@@ -1495,11 +1495,13 @@ export class DomoTwinPanel extends LitElement {
         left.push(id);
       }
     }
-    if (left.length > 0 && Array.isArray(plan.elements)) {
+    if (left.length > 0) {
       for (const id of left) Reflect.deleteProperty(models, id);
-      plan.elements = (plan.elements as { model?: unknown }[]).filter(
-        (element) => typeof element.model !== "string" || !left.includes(element.model),
-      );
+      if (Array.isArray(plan.items)) {
+        plan.items = (plan.items as { model?: unknown }[]).filter(
+          (item) => typeof item.model !== "string" || !left.includes(item.model),
+        );
+      }
     }
     return left.length;
   }

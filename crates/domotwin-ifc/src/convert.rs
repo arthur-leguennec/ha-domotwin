@@ -1,4 +1,4 @@
-//! One storey of an IFC model → a House Maquette plan (`docs/plan-format.md`).
+//! One storey of an IFC model → a DomoTwin plan (`docs/plan-format.md`).
 //!
 //! Spaces become rooms, doors and windows are put on the room sides they sit in, furniture,
 //! sanitary terminals, appliances and light fixtures become pieces of the matching kind. Plan
@@ -450,18 +450,8 @@ struct RoomOut {
     points: Vec<P2>,
     /// Partition thickness of each side when it differs from the plan's interior thickness.
     thickness: Vec<Option<f64>>,
-    /// The frame and vertices written, once checked.
-    frame: Option<RoomFrame>,
-}
-
-/// A room as the plan stores it: its frame and its vertices relative to the frame.
-#[derive(Debug, Clone)]
-struct RoomFrame {
-    x: f64,
-    y: f64,
-    w: f64,
-    h: f64,
-    vertices: Vec<P2>,
+    /// The outline written, once checked.
+    frame: Option<Vec<P2>>,
 }
 
 fn bounds(points: &[P2]) -> [f64; 4] {
@@ -483,43 +473,25 @@ fn bounds(points: &[P2]) -> [f64; 4] {
     )
 }
 
-/// The frame of a room once shifted, or `None` when the plan reader would refuse it: the same
-/// rounding, the same tests (size, position, corners, crossing or touching sides, area).
-fn room_frame(points: &[P2], shift: impl Fn(P2) -> P2) -> Option<RoomFrame> {
-    let points: Vec<P2> = points.iter().map(|&p| shift(p)).collect();
+/// The outline of a room once shifted and rounded to the millimetre, or `None` when the plan
+/// reader would refuse it: the same tests (size, position, corners, crossing or touching sides,
+/// area).
+fn room_frame(points: &[P2], shift: impl Fn(P2) -> P2) -> Option<Vec<P2>> {
+    let points: Vec<P2> = points.iter().map(|&p| shift(p).map(round1)).collect();
     let [lo_x, lo_y, hi_x, hi_y] = bounds(&points);
-    let (w, h) = (
-        round1((hi_x - lo_x).max(5.0)),
-        round1((hi_y - lo_y).max(5.0)),
-    );
-    if w > MAX_ROOM || h > MAX_ROOM {
+    if hi_x - lo_x > MAX_ROOM || hi_y - lo_y > MAX_ROOM {
         return None;
     }
-    if [lo_x, lo_y, lo_x + w, lo_y + h]
+    if [lo_x, lo_y, hi_x, hi_y]
         .iter()
         .any(|v| v.abs() > MAX_COORDINATE)
     {
         return None;
     }
-    let vertices: Vec<P2> = points
-        .iter()
-        .map(|p| {
-            [
-                ((p[0] - lo_x) / w * 1e6).round() / 1e6,
-                ((p[1] - lo_y) / h * 1e6).round() / 1e6,
-            ]
-        })
-        .collect();
-    let valid = (3..=MAX_VERTICES).contains(&vertices.len())
-        && !self_intersects(&vertices)
-        && signed_area2(&vertices).abs() / 2.0 * w * h >= 25.0;
-    valid.then_some(RoomFrame {
-        x: lo_x,
-        y: lo_y,
-        w,
-        h,
-        vertices,
-    })
+    let valid = (3..=MAX_VERTICES).contains(&points.len())
+        && !self_intersects(&points)
+        && signed_area2(&points).abs() / 2.0 >= 25.0;
+    valid.then_some(points)
 }
 
 /// The thickness of each side of `points` from the side of `old` it lies on (after removing
@@ -608,7 +580,7 @@ fn is_external_space(model: &Model, space: u32) -> bool {
         .is_some_and(|v| v == "EXTERNAL" || v == "GFA")
 }
 
-/// Floor covering from a room name (a guess the user can change in House Maquette).
+/// Floor material from a room name (a guess the user can change).
 fn floor_for(name: &str) -> Option<&'static str> {
     let lower = name.to_lowercase();
     let any = |words: &[&str]| words.iter().any(|w| lower.contains(w));
@@ -622,7 +594,7 @@ fn floor_for(name: &str) -> Option<&'static str> {
         "douche",
         "bad",
     ]) {
-        Some("carrelage-blanc")
+        Some("white-tiles")
     } else if any(&[
         "kitchen",
         "cuisine",
@@ -631,12 +603,12 @@ fn floor_for(name: &str) -> Option<&'static str> {
         "laundry",
         "buanderie",
     ]) {
-        Some("carrelage-beige")
+        Some("beige-tiles")
     } else if any(&[
         "living", "séjour", "sejour", "salon", "bedroom", "chambre", "office", "bureau", "wohn",
         "schlaf", "dining",
     ]) {
-        Some("bois-chene")
+        Some("oak")
     } else {
         None
     }
@@ -776,11 +748,7 @@ fn local_box(model: &Model, product: u32) -> Option<(V3, V3)> {
 ///
 /// `no_spaces` when the storey has no space with an outline.
 #[allow(clippy::too_many_lines)]
-pub fn convert(
-    model: &Model,
-    storey: u32,
-    reference: &str,
-) -> Result<(Json, Report), &'static str> {
+pub fn convert(model: &Model, storey: u32) -> Result<(Json, Report), &'static str> {
     let mut report = Report::default();
     let (spaces, elements) = storey_content(model, storey);
     let floor = floor_level(model, storey);
@@ -1049,13 +1017,13 @@ pub fn convert(
                     if operation.starts_with("DOUBLE_DOOR") {
                         "double"
                     } else {
-                        "battante"
+                        "hinged"
                     }
                 }
-                "SLIDING_TO_LEFT" | "SLIDING_TO_RIGHT" | "DOUBLE_DOOR_SLIDING" => "coulissante",
-                "FOLDING_TO_LEFT" | "FOLDING_TO_RIGHT" => "pliante",
-                "DOUBLE_DOOR_FOLDING" => "pliante-double",
-                _ => "battante",
+                "SLIDING_TO_LEFT" | "SLIDING_TO_RIGHT" | "DOUBLE_DOOR_SLIDING" => "sliding",
+                "FOLDING_TO_LEFT" | "FOLDING_TO_RIGHT" => "folding",
+                "DOUBLE_DOOR_FOLDING" => "double-folding",
+                _ => "hinged",
             })
         } else {
             None
@@ -1210,86 +1178,96 @@ pub fn convert(
         pieces.truncate(budget);
     }
 
-    let mut out: Vec<Json> = Vec::new();
+    let mut out_rooms: Vec<Json> = Vec::new();
     for room in &rooms {
-        let Some(frame) = &room.frame else { continue };
+        let Some(outline) = &room.frame else { continue };
         let mut e = Map::new();
         e.insert("id".into(), json!(room.id));
-        e.insert("type".into(), json!("room"));
         e.insert("name".into(), json!(room.name));
-        e.insert("x".into(), json!(frame.x));
-        e.insert("y".into(), json!(frame.y));
-        e.insert("w".into(), json!(frame.w));
-        e.insert("h".into(), json!(frame.h));
-        e.insert("vertices".into(), json!(frame.vertices));
+        e.insert("outline".into(), json!(outline));
         if room.thickness.len() == room.points.len() && room.thickness.iter().any(Option::is_some) {
-            e.insert("edgeThickness".into(), json!(room.thickness));
+            let sides: Vec<Json> = room
+                .thickness
+                .iter()
+                .map(|t| t.map_or(Json::Null, |t| json!({ "thickness": t })))
+                .collect();
+            e.insert("sides".into(), Json::Array(sides));
         }
         if let Some(floor) = floor_for(&room.name) {
-            e.insert("floor".into(), json!(floor));
+            e.insert("floor".into(), json!({ "material": floor }));
         }
-        out.push(Json::Object(e));
+        out_rooms.push(Json::Object(e));
     }
     report.rooms = rooms.len();
+    let (mut doors, mut windows) = (Vec::new(), Vec::new());
     for o in &openings {
         let p0 = shift(o.p0);
+        let w = round1(o.w);
         let mut e = Map::new();
         e.insert("id".into(), json!(o.id));
-        e.insert("type".into(), json!(if o.door { "door" } else { "window" }));
         e.insert("name".into(), json!(o.name));
-        e.insert("x".into(), json!(p0[0]));
-        e.insert("y".into(), json!(p0[1]));
-        e.insert("w".into(), json!(round1(o.w)));
-        e.insert("angle".into(), json!(degrees(o.u)));
-        if o.door {
-            e.insert("swing".into(), json!(o.swing));
+        e.insert("from".into(), json!([p0[0], p0[1]]));
+        // The far end to the hundredth, so that the width read back is `w` on a slanted wall.
+        let hundredth = |v: f64| (v * 100.0).round() / 100.0;
+        e.insert(
+            "to".into(),
+            json!([hundredth(p0[0] + o.u[0] * w), hundredth(p0[1] + o.u[1] * w)]),
+        );
+        if o.door && o.swing < 0.0 {
+            e.insert("opensTo".into(), json!("left"));
         }
-        if let Some(style) = o.style {
+        if let Some(style) = o.style.filter(|s| *s != "hinged") {
             e.insert("style".into(), json!(style));
         }
-        e.insert("parent".into(), json!(rooms[o.room].id));
-        out.push(Json::Object(e));
+        e.insert("room".into(), json!(rooms[o.room].id));
         if o.door {
+            doors.push(Json::Object(e));
             report.doors += 1;
         } else {
+            windows.push(Json::Object(e));
             report.windows += 1;
         }
     }
+    let mut items = Vec::new();
     for p in &pieces {
         let c = shift(p.centre);
-        let parent = rooms
+        let room = rooms
             .iter()
             .find(|r| point_in_polygon(p.centre, &r.points))
-            .map(|r| r.id.clone())
-            .unwrap_or_default();
+            .map(|r| r.id.clone());
         let mut e = Map::new();
         e.insert("id".into(), json!(p.id));
-        e.insert("type".into(), json!("furniture"));
         e.insert("name".into(), json!(p.name));
         e.insert("kind".into(), json!(p.kind));
-        e.insert("x".into(), json!(round1(c[0] - p.size[0] / 2.0)));
-        e.insert("y".into(), json!(round1(c[1] - p.size[1] / 2.0)));
-        e.insert("w".into(), json!(round1(p.size[0]).max(1.0)));
-        e.insert("h".into(), json!(round1(p.size[1]).max(1.0)));
-        e.insert("z".into(), json!(round1(p.size[2]).clamp(1.0, 300.0)));
-        e.insert("angle".into(), json!(p.angle));
+        e.insert("at".into(), json!([round1(c[0]), round1(c[1])]));
+        e.insert(
+            "size".into(),
+            json!([
+                round1(p.size[0]).max(1.0),
+                round1(p.size[1]).max(1.0),
+                round1(p.size[2]).clamp(1.0, 300.0)
+            ]),
+        );
+        e.insert("rotation".into(), json!(p.angle));
         if p.elevation >= 0.5 {
-            e.insert("elevation".into(), json!(round1(p.elevation).min(300.0)));
+            e.insert("lift".into(), json!(round1(p.elevation).min(300.0)));
         }
-        e.insert("parent".into(), json!(parent));
-        out.push(Json::Object(e));
+        if let Some(room) = room {
+            e.insert("room".into(), json!(room));
+        }
+        items.push(Json::Object(e));
     }
     report.furniture = pieces.len();
 
-    let title = storey_title(model, storey);
     let plan = json!({
+        "format": "domotwin-plan",
         "version": 1,
-        "layoutRevision": 10,
-        "unit": "cm",
-        "title": title,
-        "referenceName": reference.chars().take(100).collect::<String>(),
-        "wallSettings": { "interior": round1(interior), "exterior": round1(exterior) },
-        "elements": out,
+        "name": storey_title(model, storey),
+        "wallThickness": { "interior": round1(interior), "exterior": round1(exterior) },
+        "rooms": out_rooms,
+        "doors": doors,
+        "windows": windows,
+        "items": items,
     });
     Ok((plan, report))
 }
@@ -1355,9 +1333,8 @@ mod tests {
     #[test]
     fn frames_are_checked_like_the_plan_reader() {
         let square = [[0.0, 0.0], [400.0, 0.0], [400.0, 300.0], [0.0, 300.0]];
-        let frame = room_frame(&square, |p| p).unwrap();
-        assert_eq!((frame.w, frame.h), (400.0, 300.0));
-        assert_eq!(frame.vertices[2], [1.0, 1.0]);
+        let outline = room_frame(&square, |p| p).unwrap();
+        assert_eq!(outline[2], [400.0, 300.0]);
         let touching = [
             [0.0, 0.0],
             [400.0, 0.0],

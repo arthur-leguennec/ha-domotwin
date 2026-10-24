@@ -69,10 +69,10 @@ export class IfcFile {
     return JSON.parse(this.live.storeys()) as IfcStorey[];
   }
 
-  /** The plan of a storey; `reference` is kept as the plan's reference (the file name). */
-  convert(storey: number, reference: string): { plan: PlanJson; report: IfcReport } {
+  /** The plan of a storey. */
+  convert(storey: number): { plan: PlanJson; report: IfcReport } {
     try {
-      return JSON.parse(this.live.convert(storey, reference)) as {
+      return JSON.parse(this.live.convert(storey)) as {
         plan: PlanJson;
         report: IfcReport;
       };

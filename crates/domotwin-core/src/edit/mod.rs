@@ -259,56 +259,58 @@ pub fn snap_angle(angle: f64) -> f64 {
 pub fn can_support(kind: Kind) -> bool {
     matches!(
         kind,
-        Kind::Table
-            | Kind::Dining
-            | Kind::Roundtable
+        Kind::CoffeeTable
+            | Kind::DiningTable
+            | Kind::RoundTable
             | Kind::Desk
             | Kind::Dresser
             | Kind::Nightstand
             | Kind::Counter
             | Kind::Console
             | Kind::Bookcase
-            | Kind::Openshelf
+            | Kind::OpenShelving
             | Kind::Shelf
-            | Kind::Barrister
-            | Kind::Trunk
-            | Kind::Stand
-            | Kind::Cart
+            | Kind::GlazedBookcase
+            | Kind::Chest
+            | Kind::SideTable
+            | Kind::Trolley
             | Kind::Vanity
-            | Kind::Shoecab
-            | Kind::Linen
+            | Kind::ShoeCabinet
+            | Kind::TallCabinet
             | Kind::Washer
             | Kind::Dryer
             | Kind::Fridge
     )
 }
 
-/// Whether a kind is set on top of a piece it is dropped over: small objects (lamps, plants,
-/// screens, printers), a dryer on a washer, and the user's own models.
-pub fn can_stack(kind: Kind) -> bool {
-    matches!(
-        kind,
-        Kind::Tv
-            | Kind::Plant
-            | Kind::Tablelamp
-            | Kind::Lantern
-            | Kind::Desklamp
-            | Kind::Printer
-            | Kind::Printer3d
-            | Kind::Dryer
-            | Kind::Custom
-    )
+/// Whether a piece of `kind`, drawn from one of the user's models or not (`model`), is set on top
+/// of a piece it is dropped over: small objects (lamps, plants, screens, printers), a dryer on a
+/// washer, and the user's own models. A plain box, or a kind this version does not know, is not.
+pub fn can_stack(kind: Kind, model: bool) -> bool {
+    model
+        || matches!(
+            kind,
+            Kind::Tv
+                | Kind::Plant
+                | Kind::TableLamp
+                | Kind::Lantern
+                | Kind::DeskLamp
+                | Kind::Printer
+                | Kind::Printer3d
+                | Kind::Dryer
+        )
 }
 
-/// The piece a moving one would stand on: the highest supporting piece (not `moving`) under its
-/// centre, at least half its area and below 2 m. Returns its index and the height of its top.
+/// The piece a moving one that stacks (see [`can_stack`]) would stand on: the highest supporting
+/// piece (not `moving`) under its centre, at least half its area and below 2 m. Returns its index
+/// and the height of its top; none for a piece that does not stack.
 pub fn support_under(
     moving: &Footprint,
-    kind: Kind,
+    stacks: bool,
     pieces: &[(Footprint, Kind)],
     skip: &[usize],
 ) -> Option<(usize, f64)> {
-    if !can_stack(kind) {
+    if !stacks {
         return None;
     }
     pieces
@@ -521,22 +523,24 @@ mod tests {
 
     #[test]
     fn stacks_and_carries() {
-        let table = (fp(200.0, 150.0, 120.0, 80.0, 0.0, 75.0), Kind::Table);
-        let lamp = (fp(210.0, 150.0, 30.0, 30.0, 75.0, 48.0), Kind::Tablelamp);
+        let table = (fp(200.0, 150.0, 120.0, 80.0, 0.0, 75.0), Kind::CoffeeTable);
+        let lamp = (fp(210.0, 150.0, 30.0, 30.0, 75.0, 48.0), Kind::TableLamp);
         let bed = (fp(100.0, 100.0, 160.0, 200.0, 0.0, 55.0), Kind::Bed);
         let pieces = [table, lamp, bed];
         let moving = fp(195.0, 140.0, 30.0, 30.0, 0.0, 48.0);
+        let lamp_stacks = can_stack(Kind::TableLamp, false);
         assert_eq!(
-            support_under(&moving, Kind::Tablelamp, &pieces, &[]),
+            support_under(&moving, lamp_stacks, &pieces, &[]),
             Some((0, 75.0))
         );
         // A bed is no support; a curtain never stands on anything.
         let over_bed = fp(100.0, 100.0, 30.0, 30.0, 0.0, 48.0);
-        assert_eq!(
-            support_under(&over_bed, Kind::Tablelamp, &pieces, &[]),
-            None
-        );
-        assert_eq!(support_under(&moving, Kind::Curtain, &pieces, &[]), None);
+        assert_eq!(support_under(&over_bed, lamp_stacks, &pieces, &[]), None);
+        let curtain_stacks = can_stack(Kind::Curtain, false);
+        assert_eq!(support_under(&moving, curtain_stacks, &pieces, &[]), None);
+        // A user's model stands on a table; a plain box, or a kind this version does not know,
+        // stays on the floor.
+        assert!(can_stack(Kind::Box, true) && !can_stack(Kind::Box, false));
         let footprints: Vec<Footprint> = pieces.iter().map(|p| p.0).collect();
         assert_eq!(carried(0, &footprints), [1]);
         assert!(carried(2, &footprints).is_empty());
@@ -544,9 +548,9 @@ mod tests {
 
     #[test]
     fn collides_with_pieces_and_walls() {
-        let table = (fp(200.0, 150.0, 120.0, 80.0, 0.0, 75.0), Kind::Table);
+        let table = (fp(200.0, 150.0, 120.0, 80.0, 0.0, 75.0), Kind::CoffeeTable);
         let chair = (fp(250.0, 150.0, 45.0, 45.0, 0.0, 85.0), Kind::Chair);
-        let lamp = (fp(210.0, 150.0, 30.0, 30.0, 75.0, 48.0), Kind::Tablelamp);
+        let lamp = (fp(210.0, 150.0, 30.0, 30.0, 75.0, 48.0), Kind::TableLamp);
         let pendant = (fp(200.0, 150.0, 47.0, 47.0, 150.0, 45.0), Kind::Pendant);
         let pieces = [table, chair, lamp, pendant];
         assert_eq!(collisions(&pieces, &[1], &[]), [0, 1]);

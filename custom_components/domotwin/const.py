@@ -9,10 +9,14 @@ VERSION: Final = "0.0.0"  # x-release-please-version
 
 # Storage (.storage/domotwin.data), see docs/ARCHITECTURE.md.
 STORAGE_KEY: Final = f"{DOMAIN}.data"
-# 2: the storeys (1.1 kept one plan). A major version, so that an older DomoTwin refuses the data
-# instead of reading it without its storeys and saving that.
-STORAGE_VERSION: Final = 2
+# 2: the storeys (1.1 kept one plan). 3: plans in DomoTwin's own format (docs/plan-format.md).
+# Major versions, so that an older DomoTwin refuses the data instead of misreading it.
+STORAGE_VERSION: Final = 3
 STORAGE_MINOR_VERSION: Final = 1
+
+# What a plan file says it is, and the lists of its elements (docs/plan-format.md).
+PLAN_FORMAT: Final = "domotwin-plan"
+PLAN_LISTS: Final = ("rooms", "partitions", "doors", "windows", "items")
 
 # Frontend files served by the integration.
 STATIC_URL: Final = "/domotwin_static"

@@ -133,8 +133,7 @@ test.describe("M3b: your own 3D models", () => {
       file: { format: "stl", up: "z" },
     });
     expect(model.file.hash).toMatch(/^[0-9a-f]{64}$/);
-    expect(layout["custom-added-1"]?.add).toMatchObject({
-      kind: "custom",
+    expect(layout["model-added-1"]?.add).toMatchObject({
       model: key?.slice("@model:".length),
     });
 
@@ -148,7 +147,7 @@ test.describe("M3b: your own 3D models", () => {
     await page.getByTestId(`catalogue-model-${id}`).click();
     await expect
       .poll(async () => (await viewState(page)).edit?.selection)
-      .toEqual(["custom-added-2"]);
+      .toEqual(["model-added-2"]);
   });
 
   test("forgets an imported model that no piece shows", async ({ page }) => {
@@ -157,7 +156,7 @@ test.describe("M3b: your own 3D models", () => {
     await page.getByTestId("model-import").click();
     await expect
       .poll(async () => (await viewState(page)).edit?.selection)
-      .toEqual(["custom-added-1"]);
+      .toEqual(["model-added-1"]);
     await page.getByTestId("edit-remove").click();
     await page.getByTestId("edit-add").click();
     const forget = page.locator("[data-testid^=catalogue-forget-]");
@@ -177,13 +176,13 @@ test.describe("M3b: your own 3D models", () => {
     await page.getByTestId("catalogue-model-m-stool").click();
     await expect
       .poll(async () => (await viewState(page)).edit?.selection)
-      .toEqual(["custom-added-1"]);
+      .toEqual(["model-added-1"]);
     await expect
       .poll(async () => (await calls(page)).filter((c) => c.type === "fetch").length)
       .toBe(1);
     // Not selected (no blue tint): the wood of its seat.
     await page.keyboard.press("Escape");
-    await expect.poll(async () => brownish(await colorAt(page, "custom-added-1"))).toBe(true);
+    await expect.poll(async () => brownish(await colorAt(page, "model-added-1"))).toBe(true);
   });
 
   test("keeps a plan's 3D files within 20 MB", async ({ page }) => {
@@ -250,7 +249,7 @@ test.describe("M3b: your own 3D models", () => {
     await (
       await chooser
     ).setFiles({
-      name: "home.plan.json",
+      name: "home.domotwin.json",
       mimeType: "application/json",
       buffer: Buffer.from(text),
     });
@@ -280,7 +279,7 @@ test.describe("M3b: your own 3D models", () => {
   }) => {
     await openHarness(page, { mode: "panel" });
     await expect(page.getByTestId("summary")).toBeVisible();
-    const plan = JSON.parse(await readFile("../examples/demo-apartment.plan.json", "utf8")) as {
+    const plan = JSON.parse(await readFile("../examples/demo-apartment.domotwin.json", "utf8")) as {
       models?: unknown;
     };
     plan.models = {
@@ -301,7 +300,7 @@ test.describe("M3b: your own 3D models", () => {
     await (
       await chooser
     ).setFiles({
-      name: "broken.plan.json",
+      name: "broken.domotwin.json",
       mimeType: "application/json",
       buffer: Buffer.from(JSON.stringify(plan)),
     });

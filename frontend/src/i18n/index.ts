@@ -29,6 +29,9 @@ export type MessageKey = Leaves<typeof en, string>;
 /** Keys of plural messages, e.g. `view.rooms`. */
 export type PluralKey = Leaves<typeof en, Plural>;
 
+/** A kind of item of the plan format (`docs/plan-format.md`), as the catalogue names it. */
+export type KindName = keyof (typeof en)["kinds"];
+
 export type Language = "en" | "fr";
 
 const dictionaries: Record<Language, Dictionary> = { en, fr };
@@ -77,7 +80,7 @@ export class Translator {
     return form ? format(form, { ...params, count }) : key;
   }
 
-  /** The name of a furniture kind of the catalogue (`sofa`, `tablelamp`…), else the kind. */
+  /** The name of a kind of item of the catalogue (`sofa`, `table-lamp`…), else the kind. */
   kind(kind: string): string {
     const text = lookup(dictionaries[this.language], `kinds.${kind}`);
     return typeof text === "string" ? text : kind;

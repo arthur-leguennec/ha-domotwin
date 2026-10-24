@@ -16,7 +16,6 @@ pub mod mesh;
 
 mod furniture;
 mod imported;
-mod kit;
 mod openings;
 mod roof;
 mod structure;
@@ -28,7 +27,7 @@ use crate::geometry::heights::WALL_HEIGHT;
 use crate::geometry::polygon::{P2, label_point, point_in_polygon};
 use crate::geometry::walls::WallLayout;
 use crate::model_mesh::ModelMesh;
-use crate::plan::{Element, Kind, Plan};
+use crate::plan::{Element, Plan};
 use mesh::{Mesh, NO_GROUP};
 
 /// Most wall groups a scene has (the shader keeps one cut height per group).
@@ -491,7 +490,7 @@ fn over_budget(plan: &Plan, meshes: &ModelMeshes, drawn: &mut usize) -> BTreeSet
         let Element::Furniture(f) = element else {
             continue;
         };
-        if f.kind != Kind::Custom {
+        if f.model.is_none() {
             continue;
         }
         let triangles = f

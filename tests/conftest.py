@@ -17,6 +17,17 @@ from homeassistant.core import HomeAssistant
 ROOT = Path(__file__).parent.parent
 
 
+def one_room_plan(room_id: str, name: str) -> dict[str, Any]:
+    """A plan of a single room, 3 m by 3 m."""
+    return {
+        "format": "domotwin-plan",
+        "version": 1,
+        "rooms": [
+            {"id": room_id, "name": name, "outline": [[0, 0], [300, 0], [300, 300], [0, 300]]}
+        ],
+    }
+
+
 @pytest.fixture(autouse=True)
 def auto_enable_custom_integrations(enable_custom_integrations: None) -> None:
     """Load custom_components/ in every test."""
@@ -43,7 +54,7 @@ def config_dir(hass: HomeAssistant, tmp_path: Path) -> Path:
 def demo_plan() -> dict[str, Any]:
     """The fictional demo apartment of examples/."""
     plan: dict[str, Any] = json.loads(
-        (ROOT / "examples" / "demo-apartment.plan.json").read_text(encoding="utf-8")
+        (ROOT / "examples" / "demo-apartment.domotwin.json").read_text(encoding="utf-8")
     )
     return plan
 

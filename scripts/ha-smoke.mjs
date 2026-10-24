@@ -13,7 +13,7 @@ if (!base) {
   process.exit(2);
 }
 const clientId = `${base}/`;
-const demo = JSON.parse(await readFile(new URL("../examples/demo-apartment.plan.json", import.meta.url), "utf8"));
+const demo = JSON.parse(await readFile(new URL("../examples/demo-apartment.domotwin.json", import.meta.url), "utf8"));
 
 function check(condition, message) {
   if (!condition) throw new Error(`check failed: ${message}`);
@@ -123,8 +123,8 @@ check(info.success && info.result.has_plan === false, "domotwin/info answers on 
 const saved = await ws.send({ type: "domotwin/plan/save", plan: demo });
 check(saved.success && saved.result.revision === 1, "an administrator saves the demo plan");
 const read = await ws.send({ type: "domotwin/plan/get" });
-check(read.result.plan.title === demo.title, "the plan reads back");
-const bad = await ws.send({ type: "domotwin/plan/save", plan: { ...demo, unit: "mm" } });
+check(JSON.stringify(read.result.plan) === JSON.stringify(demo), "the plan reads back");
+const bad = await ws.send({ type: "domotwin/plan/save", plan: { ...demo, format: "other" } });
 check(!bad.success && bad.error.code === "invalid_plan", "an invalid plan is refused");
 ws.close();
 console.log("Home Assistant smoke test passed.");

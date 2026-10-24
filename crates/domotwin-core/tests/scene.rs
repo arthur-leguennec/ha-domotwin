@@ -6,7 +6,7 @@ use domotwin_core::plan::{Element, Kind, read_plan};
 use domotwin_core::scene::mesh::Mesh;
 use domotwin_core::scene::{SceneOptions, build_scene};
 
-const DEMO: &[u8] = include_bytes!("../../../examples/demo-apartment.plan.json");
+const DEMO: &[u8] = include_bytes!("../../../examples/demo-apartment.domotwin.json");
 
 fn check_mesh(mesh: &Mesh) {
     let n = mesh.vertex_count();
@@ -87,27 +87,25 @@ fn demo_scene() {
 
 #[test]
 fn every_kind_builds_at_any_size() {
-    let mut elements = Vec::new();
-    for (i, kind) in Kind::ALL.iter().enumerate() {
+    let mut items = Vec::new();
+    for (i, kind) in Kind::ALL.iter().chain([&Kind::Box]).enumerate() {
         for (j, [w, h, z]) in [[1.0, 1.0, 1.0], [37.0, 52.0, 81.0], [600.0, 300.0, 300.0]]
             .iter()
             .enumerate()
         {
-            elements.push(serde_json::json!({
-                "id": format!("f{i}-{j}"), "type": "furniture", "name": "x", "kind": kind.name(),
-                "x": 100 + i * 10, "y": 100, "w": w, "h": h, "z": z, "angle": 33,
-                "model": if *kind == Kind::Custom { serde_json::json!("m1") } else { serde_json::Value::Null },
+            items.push(serde_json::json!({
+                "id": format!("f{i}-{j}"), "name": "x", "kind": kind.name(),
+                "at": [100 + i * 10, 100], "size": [w, h, z], "rotation": 33,
             }));
         }
     }
+    items.push(serde_json::json!({
+        "id": "stool", "model": "m1", "at": [50, 50], "size": [38, 38, 71]
+    }));
     let plan = serde_json::json!({
-        "version": 1, "unit": "cm", "layoutRevision": 10, "elements": elements,
-        "models": { "m1": { "name": "Stool", "size": [38, 38, 71], "kit": { "parts": [
-            { "shape": "cylinder", "at": [0, 0, 62], "size": [38, 38, 4], "material": "accent:wood" },
-            { "shape": "cylinder", "at": [17, 17, 0], "size": [4, 4, 62], "axis": "y", "taper": 0.5 },
-            { "shape": "box", "at": [0, 0, 30], "size": [38, 2, 2], "rotate": [10, -20, 45], "material": "glass" },
-            { "shape": "sphere", "at": [10, 10, 66], "size": [18, 18, 10], "material": "metal:#808080" }
-        ] } } }
+        "format": "domotwin-plan", "version": 1, "items": items,
+        "models": { "m1": { "name": "Stool", "size": [38, 38, 71],
+            "file": { "format": "glb", "hash": "a".repeat(64), "bytes": 100, "up": "y" } } }
     });
     let plan = read_plan(plan.to_string().as_bytes()).unwrap();
     let scene = build_scene(&plan, &SceneOptions::default());
@@ -174,19 +172,16 @@ fn outlines_follow_the_walls() {
     // Two rooms 10 cm apart (a partition fills the gap), the first with a vertex halfway along
     // its top side, a window on that side and a door in the partition; a sharp triangle apart.
     let plan = serde_json::json!({
-        "version": 1, "unit": "cm", "layoutRevision": 10,
-        "wallSettings": { "interior": 10, "exterior": 20 },
-        "elements": [
-            { "id": "a", "type": "room", "name": "A", "x": 0, "y": 0, "w": 300, "h": 300,
-              "vertices": [[0, 0], [0.5, 0], [1, 0], [1, 1], [0, 1]] },
-            { "id": "b", "type": "room", "name": "B", "x": 310, "y": 0, "w": 300, "h": 300 },
-            { "id": "c", "type": "room", "name": "C", "x": 1000, "y": 0, "w": 400, "h": 30,
-              "vertices": [[0, 0], [1, 0], [0, 1]] },
-            { "id": "w", "type": "window", "name": "W", "x": 40, "y": 0, "w": 80, "angle": 0,
-              "parent": "a" },
-            { "id": "d", "type": "door", "name": "D", "x": 300, "y": 100, "w": 80, "angle": 90,
-              "parent": "a" }
-        ]
+        "format": "domotwin-plan", "version": 1,
+        "wallThickness": { "interior": 10, "exterior": 20 },
+        "rooms": [
+            { "id": "a", "name": "A",
+              "outline": [[0, 0], [150, 0], [300, 0], [300, 300], [0, 300]] },
+            { "id": "b", "name": "B", "outline": [[310, 0], [610, 0], [610, 300], [310, 300]] },
+            { "id": "c", "name": "C", "outline": [[1000, 0], [1400, 0], [1000, 30]] }
+        ],
+        "windows": [{ "id": "w", "name": "W", "from": [40, 0], "to": [120, 0], "room": "a" }],
+        "doors": [{ "id": "d", "name": "D", "from": [300, 100], "to": [300, 180], "room": "a" }]
     });
     let plan = read_plan(plan.to_string().as_bytes()).unwrap();
     let scene = build_scene(&plan, &SceneOptions::default());

@@ -1,4 +1,4 @@
-//! Reads every `*.plan.json` placed in the repository's `private/` folder (ignored by git), so that
+//! Reads every `*.domotwin.json` placed in the repository's `private/` folder (ignored by git), so that
 //! contributors can check that their own plans read and build locally. Nothing to do when the folder is empty.
 
 #![allow(clippy::unwrap_used, clippy::panic)]
@@ -16,7 +16,7 @@ fn private_plans_read() {
     };
     for entry in entries.flatten() {
         let path = entry.path();
-        if !path.to_string_lossy().ends_with(".plan.json") {
+        if !path.to_string_lossy().ends_with(".domotwin.json") {
             continue;
         }
         let bytes = std::fs::read(&path).unwrap();

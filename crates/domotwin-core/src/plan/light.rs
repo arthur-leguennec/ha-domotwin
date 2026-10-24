@@ -1,4 +1,4 @@
-//! Light fittings (plan revision 9): colour, colour temperature and power.
+//! Lamps: their colour, colour temperature and power.
 
 use super::{Furniture, Rgb8};
 

@@ -1,60 +1,55 @@
-//! The edit overlay (`layout`) stored beside the imported plan: pieces moved, turned, raised, put
+//! The edit overlay (`layout`) stored beside the imported plan: items moved, turned, raised, put
 //! in another room, removed or added in edit mode, keyed by element id. The imported plan is never
 //! changed; the overlay is applied to its JSON before it is read, so re-importing an updated plan
-//! keeps the edits of the pieces that still exist (`docs/DECISIONS.md`, D-005 and D-019).
+//! keeps the edits of the items that still exist (`docs/DECISIONS.md`, D-005 and D-019).
 //!
 //! ```json
 //! {
-//!   "sofa": { "x": 360, "y": 110, "angle": 90 },
+//!   "sofa": { "at": [405, 215], "rotation": 90 },
 //!   "plant": { "removed": true },
-//!   "lamp-1700000000": { "add": { "name": "Lamp", "kind": "lamp", "w": 35, "h": 35, "z": 160 },
-//!                        "x": 40, "y": 20, "parent": "living" }
+//!   "lamp-1700000000": { "add": { "name": "Lamp", "kind": "floor-lamp", "size": [35, 35, 160] },
+//!                        "at": [58, 38], "room": "living" }
 //! }
 //! ```
 //!
-//! Only pieces of furniture are edited: rooms, walls, doors and windows belong to the plan.
+//! Only items are edited: rooms, partitions, doors and windows belong to the plan.
 //!
 //! User models imported in edit mode are entries too, keyed `@model:<model id>` (D-021): they are
 //! added to the plan's `models` (a model the plan already has stays the plan's), so they follow
-//! undo, drafts, saving and Export like the pieces that show them.
+//! undo, drafts, saving and Export like the items that show them.
 //!
 //! ```json
 //! { "@model:m-1": { "model": { "name": "Stool", "size": [38, 38, 71],
 //!                              "file": { "format": "glb", "hash": "…", "bytes": 19012, "up": "y" } } } }
 //! ```
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 
 use serde_json::{Map, Value};
 
 use crate::ReadError;
-use crate::plan::{MAX_ID, Plan, read_plan_value, valid_model_id};
+pub use crate::plan::MAX_ELEMENTS;
+use crate::plan::{LISTS, MAX_ID, Plan, point, read_plan_value, valid_model_id};
 
 /// Most entries kept (twice the plan's 500 elements).
 pub const MAX_ENTRIES: usize = 1000;
-/// Most elements a plan may hold.
-pub const MAX_ELEMENTS: usize = 500;
-/// Farthest coordinate of the plan format (cm).
-const MAX_COORDINATE: f64 = 50_000.0;
 /// The key prefix of model entries.
 pub const MODEL_PREFIX: &str = "@model:";
 
-/// What edit mode changed for one piece.
+/// What edit mode changed for one item.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Entry {
-    /// Left of the unrotated box (cm).
-    pub x: Option<f64>,
-    /// Top of the unrotated box (cm).
-    pub y: Option<f64>,
+    /// The centre of its footprint (cm).
+    pub at: Option<[f64; 2]>,
     /// Rotation (degrees, 0–360).
-    pub angle: Option<f64>,
+    pub rotation: Option<f64>,
     /// Height of the underside (cm).
-    pub elevation: Option<f64>,
-    /// The room it now follows (`""`: none).
-    pub parent: Option<String>,
+    pub lift: Option<f64>,
+    /// The room it now belongs to (`""`: none).
+    pub room: Option<String>,
     /// Taken out of the home.
     pub removed: bool,
-    /// A piece added in edit mode: its element (without `id` and `type`).
+    /// An item added in edit mode: its fields (without `id`).
     pub add: Option<Map<String, Value>>,
     /// A user model added in edit mode (entries keyed [`MODEL_PREFIX`] + its id).
     pub model: Option<Map<String, Value>>,
@@ -105,12 +100,11 @@ pub fn read_layout(value: &Value) -> Layout {
             continue;
         }
         let entry = Entry {
-            x: finite(raw.get("x"), MAX_COORDINATE),
-            y: finite(raw.get("y"), MAX_COORDINATE),
-            angle: finite(raw.get("angle"), 1e6).map(|a| a.rem_euclid(360.0)),
-            elevation: finite(raw.get("elevation"), 300.0).map(|e| e.max(0.0)),
-            parent: raw
-                .get("parent")
+            at: raw.get("at").and_then(point),
+            rotation: finite(raw.get("rotation"), 1e6).map(|a| a.rem_euclid(360.0)),
+            lift: finite(raw.get("lift"), 300.0).map(|e| e.max(0.0)),
+            room: raw
+                .get("room")
                 .and_then(Value::as_str)
                 .filter(|p| p.chars().count() <= MAX_ID)
                 .map(str::to_owned),
@@ -129,6 +123,10 @@ fn round(v: f64) -> f64 {
     (v * 100.0).round() / 100.0
 }
 
+fn point_value(p: [f64; 2]) -> Value {
+    Value::from(vec![round(p[0]), round(p[1])])
+}
+
 /// The overlay as stored.
 pub fn layout_value(layout: &Layout) -> Value {
     let mut out = Map::new();
@@ -143,18 +141,16 @@ pub fn layout_value(layout: &Layout) -> Value {
         if entry.removed {
             e.insert("removed".into(), Value::Bool(true));
         }
-        for (key, v) in [
-            ("x", entry.x),
-            ("y", entry.y),
-            ("angle", entry.angle),
-            ("elevation", entry.elevation),
-        ] {
+        if let Some(at) = entry.at {
+            e.insert("at".into(), point_value(at));
+        }
+        for (key, v) in [("rotation", entry.rotation), ("lift", entry.lift)] {
             if let Some(v) = v {
                 e.insert(key.into(), Value::from(round(v)));
             }
         }
-        if let Some(parent) = &entry.parent {
-            e.insert("parent".into(), Value::String(parent.clone()));
+        if let Some(room) = &entry.room {
+            e.insert("room".into(), Value::String(room.clone()));
         }
         if !e.is_empty() {
             out.insert(id.clone(), Value::Object(e));
@@ -163,44 +159,50 @@ pub fn layout_value(layout: &Layout) -> Value {
     Value::Object(out)
 }
 
-/// Writes the entry's changes into a piece's element. A room the plan does not have (renamed in an
-/// updated plan) is not followed: the piece keeps its own.
-fn place(element: &mut Map<String, Value>, entry: &Entry, rooms: &[String]) {
-    for (key, v) in [("x", entry.x), ("y", entry.y), ("angle", entry.angle)] {
-        if let Some(v) = v {
-            element.insert(key.into(), Value::from(round(v)));
-        }
+/// Writes the entry's changes into an item. A room the plan does not have (renamed in an updated
+/// plan) is not followed: the item keeps its own.
+fn place(item: &mut Map<String, Value>, entry: &Entry, rooms: &[String]) {
+    if let Some(at) = entry.at {
+        item.insert("at".into(), point_value(at));
     }
-    match entry.elevation {
+    if let Some(rotation) = entry.rotation {
+        item.insert("rotation".into(), Value::from(round(rotation)));
+    }
+    match entry.lift {
         Some(e) if e > 0.0 => {
-            element.insert("elevation".into(), Value::from(round(e)));
+            item.insert("lift".into(), Value::from(round(e)));
         }
         Some(_) => {
-            element.remove("elevation");
+            item.remove("lift");
         }
         None => {}
     }
-    if let Some(parent) = entry
-        .parent
+    if let Some(room) = entry
+        .room
         .as_ref()
         .filter(|p| p.is_empty() || rooms.contains(*p))
     {
-        element.insert("parent".into(), Value::String(parent.clone()));
+        if room.is_empty() {
+            item.remove("room");
+        } else {
+            item.insert("room".into(), Value::String(room.clone()));
+        }
     }
 }
 
-/// The plan with the overlay applied: pieces moved, removed and added. Entries for ids the plan
-/// does not have (removed from an updated plan), for elements other than furniture, and added
-/// pieces past the plan's 500 elements are ignored. Not a plan object: returned as it is.
+/// The plan with the overlay applied: items moved, removed and added. Entries for ids the plan
+/// does not have (removed from an updated plan), for elements other than items, and added items
+/// past the plan's 500 elements are ignored. Not a plan object: returned as it is.
 pub fn apply(plan: &Value, layout: &Layout) -> Value {
     let mut plan = plan.clone();
     let models: Vec<(&str, &Map<String, Value>)> = layout
         .iter()
         .filter_map(|(id, entry)| Some((id.strip_prefix(MODEL_PREFIX)?, entry.model.as_ref()?)))
         .collect();
-    if !models.is_empty()
-        && let Some(root) = plan.as_object_mut()
-    {
+    let Some(root) = plan.as_object_mut() else {
+        return plan;
+    };
+    if !models.is_empty() {
         let slot = root
             .entry("models")
             .or_insert_with(|| Value::Object(Map::new()));
@@ -215,29 +217,38 @@ pub fn apply(plan: &Value, layout: &Layout) -> Value {
             }
         }
     }
-    let Some(elements) = plan.get_mut("elements").and_then(Value::as_array_mut) else {
+    let ids_of = |key: &str| -> Vec<String> {
+        root.get(key)
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .filter_map(|e| e.get("id").and_then(Value::as_str).map(str::to_owned))
+            .collect()
+    };
+    let rooms = ids_of("rooms");
+    let ids: HashSet<String> = LISTS.iter().flat_map(|(key, _)| ids_of(key)).collect();
+    let count = ids.len();
+    let items = root
+        .entry("items")
+        .or_insert_with(|| Value::Array(Vec::new()));
+    // Null is an empty list, as the reader reads it.
+    if items.is_null() {
+        *items = Value::Array(Vec::new());
+    }
+    let Some(items) = items.as_array_mut() else {
         return plan;
     };
-    let rooms: Vec<String> = elements
-        .iter()
-        .filter(|e| e.get("type").and_then(Value::as_str) == Some("room"))
-        .filter_map(|e| e.get("id").and_then(Value::as_str).map(str::to_owned))
-        .collect();
-    let mut ids: Vec<String> = Vec::with_capacity(elements.len());
-    elements.retain_mut(|element| {
-        let Some(object) = element.as_object_mut() else {
+    let mut removed = 0;
+    items.retain_mut(|item| {
+        let Some(object) = item.as_object_mut() else {
             return true;
         };
-        let id = object
-            .get("id")
-            .and_then(Value::as_str)
-            .unwrap_or_default()
-            .to_owned();
-        let furniture = object.get("type").and_then(Value::as_str) == Some("furniture");
-        let entry = layout.get(&id).filter(|_| furniture);
-        ids.push(id);
-        match entry {
-            Some(entry) if entry.removed => false,
+        let id = object.get("id").and_then(Value::as_str).unwrap_or_default();
+        match layout.get(id) {
+            Some(entry) if entry.removed => {
+                removed += 1;
+                false
+            }
             Some(entry) => {
                 place(object, entry, &rooms);
                 true
@@ -245,16 +256,17 @@ pub fn apply(plan: &Value, layout: &Layout) -> Value {
             None => true,
         }
     });
+    let mut count = count - removed;
     for (id, entry) in layout {
         let Some(add) = &entry.add else { continue };
-        if entry.removed || ids.contains(id) || elements.len() >= MAX_ELEMENTS {
+        if entry.removed || ids.contains(id) || count >= MAX_ELEMENTS {
             continue;
         }
-        let mut element = add.clone();
-        element.insert("id".into(), Value::String(id.clone()));
-        element.insert("type".into(), Value::String("furniture".into()));
-        place(&mut element, entry, &rooms);
-        elements.push(Value::Object(element));
+        let mut item = add.clone();
+        item.insert("id".into(), Value::String(id.clone()));
+        place(&mut item, entry, &rooms);
+        items.push(Value::Object(item));
+        count += 1;
     }
     plan
 }
@@ -296,7 +308,7 @@ mod tests {
     use crate::plan::Element;
     use crate::read_plan;
 
-    const DEMO: &str = include_str!("../../../examples/demo-apartment.plan.json");
+    const DEMO: &str = include_str!("../../../examples/demo-apartment.domotwin.json");
 
     fn furniture<'a>(plan: &'a crate::Plan, id: &str) -> Option<&'a crate::plan::Furniture> {
         plan.elements.iter().find_map(|e| match e {
@@ -309,23 +321,23 @@ mod tests {
     fn moves_removes_and_adds() {
         let plan: Value = serde_json::from_str(DEMO).unwrap();
         let layout = read_layout(&serde_json::json!({
-            "sofa": { "x": 300, "y": 120.5, "angle": 450, "elevation": 0 },
+            "sofa": { "at": [345, 165.5], "rotation": 450, "lift": 0 },
             "plant-living": { "removed": true },
-            "living": { "x": 9999 },
-            "nothing-here": { "x": 1 },
-            "lamp-new": { "add": { "name": "Lamp", "kind": "lamp", "w": 35, "h": 35, "z": 160 },
-                          "x": 40, "y": 20, "parent": "living" },
+            "living": { "at": [9999, 0] },
+            "nothing-here": { "at": [1, 1] },
+            "lamp-new": { "add": { "name": "Lamp", "kind": "floor-lamp", "size": [35, 35, 160] },
+                          "at": [57.5, 37.5], "room": "living" },
             "bad": 3,
-            "": { "x": 1 },
-            "far": { "x": 1e9 }
+            "": { "at": [1, 1] },
+            "far": { "at": [1e9, 0] }
         }));
         assert_eq!(layout.len(), 5);
-        assert_eq!(layout["sofa"].angle, Some(90.0));
+        assert_eq!(layout["sofa"].rotation, Some(90.0));
         assert!(!layout.contains_key("far"), "out of range: nothing left");
         let applied = apply(&plan, &layout);
         let read = read_plan(serde_json::to_string(&applied).unwrap().as_bytes()).unwrap();
         let sofa = furniture(&read, "sofa").unwrap();
-        assert_eq!((sofa.x, sofa.y, sofa.angle), (300.0, 120.5, 90.0));
+        assert_eq!((sofa.center(), sofa.angle), ([345.0, 165.5], 90.0));
         assert!(furniture(&read, "plant-living").is_none());
         let lamp = furniture(&read, "lamp-new").unwrap();
         assert_eq!(
@@ -353,16 +365,16 @@ mod tests {
         let layout = read_layout(&serde_json::json!({
             "@model:m-1": { "model": stool },
             "@model:bad id": { "model": stool },
-            "@model:m-2": { "x": 1 },
-            // Sorted before the model: the piece must still find it.
-            "1-stool": { "add": { "name": "Stool", "kind": "custom", "model": "m-1", "w": 38, "h": 38, "z": 71 },
-                         "x": 40, "y": 20 },
-            "2-bad": { "add": { "name": "Bad", "kind": "custom", "model": "m-9", "w": 38, "h": 38, "z": 71 } }
+            "@model:m-2": { "at": [1, 1] },
+            // Sorted before the model: the item must still find it.
+            "1-stool": { "add": { "name": "Stool", "model": "m-1", "size": [38, 38, 71] },
+                         "at": [59, 39] },
+            "2-bad": { "add": { "name": "Bad", "model": "m-9", "size": [38, 38, 71] }, "at": [0, 0] }
         }));
         assert_eq!(layout.len(), 3);
         assert_eq!(read_layout(&layout_value(&layout)), layout);
         let (read, kept, left) = fit(&plan, &layout).unwrap();
-        assert_eq!(left, 1, "the piece of an unknown model");
+        assert_eq!(left, 1, "the item of an unknown model");
         assert!(kept.contains_key("1-stool") && kept.contains_key("@model:m-1"));
         assert_eq!(read.models["m-1"]["name"], "Stool");
         assert_eq!(
@@ -371,7 +383,9 @@ mod tests {
         );
         // A model the plan already has stays the plan's.
         let mut with_model = plan.clone();
-        with_model["models"] = serde_json::json!({ "m-1": { "name": "Plan's", "size": [1, 1, 1], "kit": { "parts": [] } } });
+        let mut own = stool.clone();
+        own["name"] = serde_json::json!("Plan's");
+        with_model["models"] = serde_json::json!({ "m-1": own });
         let applied = apply(&with_model, &layout);
         assert_eq!(applied["models"]["m-1"]["name"], "Plan's");
     }
@@ -380,17 +394,35 @@ mod tests {
     fn keeps_what_the_plan_accepts() {
         let plan: Value = serde_json::from_str(DEMO).unwrap();
         let layout = read_layout(&serde_json::json!({
-            "sofa": { "x": 300 },
-            // A room the plan does not have: the piece keeps its own.
-            "armchair": { "x": 200, "parent": "old-room" },
-            // An added piece the reader refuses (no height).
-            "bad-added-1": { "add": { "name": "Bad", "kind": "lamp", "w": 35, "h": 35 } }
+            "sofa": { "at": [345, 210] },
+            // A room the plan does not have: the item keeps its own.
+            "armchair": { "at": [240, 300], "room": "old-room" },
+            // An added item the reader refuses (no height).
+            "bad-added-1": { "add": { "name": "Bad", "kind": "floor-lamp", "size": [35, 35] },
+                             "at": [10, 10] }
         }));
         let (read, kept, left) = fit(&plan, &layout).unwrap();
         assert_eq!(left, 1);
         assert!(!kept.contains_key("bad-added-1"));
         let armchair = furniture(&read, "armchair").unwrap();
-        assert_eq!((armchair.x, armchair.parent.as_str()), (200.0, "living"));
-        assert_eq!(furniture(&read, "sofa").unwrap().x, 300.0);
+        assert_eq!(
+            (armchair.center(), armchair.parent.as_str()),
+            ([240.0, 300.0], "living")
+        );
+        assert_eq!(furniture(&read, "sofa").unwrap().center(), [345.0, 210.0]);
+    }
+
+    #[test]
+    fn a_null_list_of_items_takes_added_ones() {
+        let plan = serde_json::json!({
+            "format": "domotwin-plan", "version": 1, "items": null,
+            "rooms": [{ "id": "a", "outline": [[0, 0], [300, 0], [300, 300], [0, 300]] }]
+        });
+        let layout = read_layout(&serde_json::json!({
+            "lamp": { "add": { "kind": "floor-lamp", "size": [35, 35, 160] }, "at": [50, 50] }
+        }));
+        let (read, kept, left) = fit(&plan, &layout).unwrap();
+        assert_eq!((kept.len(), left), (1, 0));
+        assert!(furniture(&read, "lamp").is_some());
     }
 }

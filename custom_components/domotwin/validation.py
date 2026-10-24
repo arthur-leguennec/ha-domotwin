@@ -25,6 +25,8 @@ from .const import (
     MIN_ELEVATION,
     MODEL_ENTRY_PREFIX,
     MODEL_FORMATS,
+    PLAN_FORMAT,
+    PLAN_LISTS,
 )
 
 MODEL_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{0,63}")
@@ -61,7 +63,7 @@ def _check_id(value: Any, what: str, code: str) -> None:
 
 
 def _file_bytes(model: Any) -> int:
-    """The declared size of a model's file (0 for a kit)."""
+    """The declared size of a model's file (0 when it has none)."""
     file = model.get("file") if isinstance(model, dict) else None
     size = file.get("bytes") if isinstance(file, dict) else None
     return size if isinstance(size, int) and not isinstance(size, bool) else 0
@@ -82,13 +84,7 @@ def _validate_model(model: Any, code: str) -> None:
         or not all(_is_number(v) and 1 <= v <= m for v, m in zip(size, limits, strict=False))
     ):
         raise InvalidPayloadError(code, "a model's `size` must be [w, d, h] in cm")
-    if ("kit" in model) == ("file" in model):
-        raise InvalidPayloadError(code, "a model has a `kit` or a `file`, not both")
     file = model.get("file")
-    if file is None:
-        if not isinstance(model.get("kit"), dict):
-            raise InvalidPayloadError(code, "a model's `kit` must be an object")
-        return
     if not isinstance(file, dict):
         raise InvalidPayloadError(code, "a model's `file` must be an object")
     if file.get("format") not in MODEL_FORMATS or file.get("up") not in ("y", "z"):
@@ -117,20 +113,27 @@ def validate_models(plan: dict[str, Any] | None, layout: dict[str, Any]) -> None
         )
 
 
+def _plan_lists(plan: dict[str, Any]) -> list[list[Any]]:
+    """The lists of elements a plan has (a missing one is empty)."""
+    return [plan[key] for key in PLAN_LISTS if isinstance(plan.get(key), list)]
+
+
 def validate_plan(plan: Any) -> dict[str, Any]:
-    """Check the envelope of a House Maquette plan (see docs/plan-format.md)."""
-    if not isinstance(plan, dict):
-        raise InvalidPayloadError("invalid_plan", "the plan must be a JSON object")
+    """Check the envelope of a DomoTwin plan; the engine reads the rest (docs/plan-format.md)."""
+    if not isinstance(plan, dict) or plan.get("format") != PLAN_FORMAT:
+        raise InvalidPayloadError(
+            "invalid_plan", f'a plan is an object with `format` "{PLAN_FORMAT}"'
+        )
     version = plan.get("version")
     if not _is_number(version) or version != 1:
         raise InvalidPayloadError("invalid_plan", "`version` must be 1")
-    if plan.get("unit") != "cm":
-        raise InvalidPayloadError("invalid_plan", '`unit` must be "cm"')
-    elements = plan.get("elements")
-    if not isinstance(elements, list) or not 0 < len(elements) <= MAX_ELEMENTS:
-        raise InvalidPayloadError(
-            "invalid_plan", f"`elements` must hold 1 to {MAX_ELEMENTS} elements"
-        )
+    for key in PLAN_LISTS:
+        # Missing or null: empty, as the engine reads it.
+        if plan.get(key) is not None and not isinstance(plan[key], list):
+            raise InvalidPayloadError("invalid_plan", f"`{key}` must be a list")
+    elements = [element for found in _plan_lists(plan) for element in found]
+    if not 0 < len(elements) <= MAX_ELEMENTS:
+        raise InvalidPayloadError("invalid_plan", f"a plan holds 1 to {MAX_ELEMENTS} elements")
     if not all(isinstance(element, dict) for element in elements):
         raise InvalidPayloadError("invalid_plan", "every element must be a JSON object")
     models = plan.get("models")
@@ -275,16 +278,12 @@ def validate_storey_count(count: int) -> None:
 
 def element_ids(plan: dict[str, Any] | None, layout: dict[str, Any] | None = None) -> set[str]:
     """The ids a storey uses: its plan's elements and the pieces its overlay adds."""
-    elements = plan.get("elements") if isinstance(plan, dict) else None
-    ids = (
-        {
-            element["id"]
-            for element in elements
-            if isinstance(element, dict) and isinstance(element.get("id"), str)
-        }
-        if isinstance(elements, list)
-        else set()
-    )
+    ids = {
+        element["id"]
+        for found in (_plan_lists(plan) if isinstance(plan, dict) else [])
+        for element in found
+        if isinstance(element, dict) and isinstance(element.get("id"), str)
+    }
     if isinstance(layout, dict):
         ids |= {key for key, entry in layout.items() if isinstance(entry, dict) and "add" in entry}
     return ids

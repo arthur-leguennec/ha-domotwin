@@ -21,7 +21,7 @@ export class Planner {
      *
      * # Errors
      *
-     * The reader's (`room_size`: a side shorter than 30 cm…).
+     * The reader's (`min_area`: a room smaller than 30 cm…).
      */
     addRoom(ax: number, ay: number, bx: number, by: number, name: string): string;
     /**
@@ -48,7 +48,8 @@ export class Planner {
      */
     dirty(): boolean;
     /**
-     * Element `id` as JSON (its fields in the plan file), or an empty string.
+     * Element `id` as JSON (its fields in the plan file, with its `type` and an opening's
+     * `width`), or an empty string.
      */
     element(id: string): string;
     /**
@@ -144,7 +145,7 @@ export class Planner {
      */
     undo(): boolean;
     /**
-     * Changes fields of element `id` (a JSON object: `name`, `floor`, `w`, `swing`, `style`,
+     * Changes fields of element `id` (a JSON object: `name`, `floor`, `width`, `opensTo`, `style`,
      * `thickness`… as its type allows; others are left alone).
      *
      * # Errors
@@ -156,7 +157,7 @@ export class Planner {
 
 /**
  * The plan (JSON text) with ids none of `taken` has, for a storey joining a home whose other
- * storeys use some of them (`DECISIONS.md`, D-026); the `parent` of its elements follows.
+ * storeys use some of them (`DECISIONS.md`, D-026); the `room` of its elements follows.
  *
  * # Errors
  *

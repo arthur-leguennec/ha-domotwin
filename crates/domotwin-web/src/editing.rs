@@ -402,7 +402,6 @@ impl Engine {
     pub fn edit_catalogue() -> String {
         let kinds: Vec<Value> = Kind::ALL
             .iter()
-            .filter(|kind| **kind != Kind::Custom)
             .map(|kind| {
                 let info = kind.info();
                 json!({

@@ -41,7 +41,7 @@ function hass(): HomeAssistant {
   };
 }
 
-const lamp: PlanElementInfo = { id: "lamp", type: "furniture", name: "Lamp", kind: "lamp" };
+const lamp: PlanElementInfo = { id: "lamp", type: "furniture", name: "Lamp", kind: "floor-lamp" };
 const curtain: PlanElementInfo = { id: "c", type: "furniture", name: "C", kind: "curtain" };
 const door: PlanElementInfo = { id: "d", type: "door", name: "Door" };
 const window_: PlanElementInfo = { id: "w", type: "window", name: "Window" };
@@ -58,6 +58,19 @@ describe("suggestions", () => {
     expect(fit(door, "binary_sensor.window", h)).toBe(0);
     expect(fit(window_, "binary_sensor.window", h)).toBeGreaterThan(0);
     expect(fit(fridge, "sensor.fridge_power", h)).toBeGreaterThan(0);
+    // Kinds with rules of their own.
+    h.states["fan.bedroom"] = entity("off", { friendly_name: "Fan" });
+    h.states["climate.living"] = entity("heat", { friendly_name: "Thermostat" });
+    h.states["sensor.printer_power"] = entity("150", { device_class: "power" });
+    const piece = (kind: string): PlanElementInfo => ({
+      id: kind,
+      type: "furniture",
+      name: "",
+      kind,
+    });
+    expect(fit(piece("ceiling-fan"), "fan.bedroom", h)).toBe(3);
+    expect(fit(piece("radiator"), "climate.living", h)).toBe(3);
+    expect(fit(piece("3d-printer"), "sensor.printer_power", h)).toBe(2);
   });
 
   it("suggests the area's entities that fit, best first, not those already linked", () => {
@@ -85,15 +98,22 @@ describe("suggestions", () => {
 
 describe("editing bindings", () => {
   it("reads plan elements", () => {
-    const plan = { elements: [{ id: "lamp", type: "furniture", name: "Lamp", kind: "lamp" }] };
+    const plan = { items: [{ id: "lamp", name: "Lamp", kind: "floor-lamp" }] };
     expect(planElement(plan, "lamp")).toEqual(lamp);
     expect(planElement(plan, "x")).toBeUndefined();
+    // A piece of the plan's own models is a box; the room it stands in is its parent.
+    const placed = { items: [{ id: "stool", model: "m1", room: "living" }] };
+    expect(planElement(placed, "stool")).toEqual({
+      id: "stool",
+      type: "furniture",
+      name: "",
+      kind: "box",
+      parent: "living",
+    });
+    expect(planElement({ doors: [{ id: "d", name: "Door" }] }, "d")).toEqual(door);
     const rooms = {
-      elements: [
-        { id: "living", type: "room", name: "Living" },
-        { id: "x", type: "room" },
-        ...plan.elements,
-      ],
+      rooms: [{ id: "living", name: "Living" }, { id: "x" }],
+      items: plan.items,
     };
     expect(planRooms(rooms)).toEqual([
       { id: "living", name: "Living" },

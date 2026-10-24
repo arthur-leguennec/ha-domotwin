@@ -63,7 +63,7 @@ describe("Translator", () => {
 
   it("translates engine and websocket error codes", () => {
     const t = new Translator("en");
-    expect(t.error("bad_unit")).toBe("the unit must be centimetres.");
+    expect(t.error("not_a_plan")).toBe("it is not a DomoTwin plan.");
     expect(t.error("revision_conflict")).toContain("someone saved");
     expect(t.error("weird")).toBe("unexpected error (weird).");
   });

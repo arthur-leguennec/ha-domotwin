@@ -85,13 +85,21 @@ describe("plan draft", () => {
   });
 
   it("keeps the plan drawn for the revision and storey it started from, apart from edit mode's", () => {
-    writePlanDraft({ revision: 4, storey: "storey-2", plan: { version: 1, elements: [] } });
+    writePlanDraft({
+      revision: 4,
+      storey: "storey-2",
+      plan: { format: "domotwin-plan", version: 1 },
+    });
     writeDraft({ revision: 4, storey: "storey-2", layout: { sofa: { x: 1 } } });
-    expect(readPlanDraft(4, "storey-2")?.plan).toEqual({ version: 1, elements: [] });
+    expect(readPlanDraft(4, "storey-2")?.plan).toEqual({ format: "domotwin-plan", version: 1 });
     expect(readDraft(4, "storey-2")?.layout).toEqual({ sofa: { x: 1 } });
     // Another storey's draft stays for it, even when this one's is cleared.
-    writePlanDraft({ revision: 4, storey: "", plan: { version: 1, elements: [], title: "New" } });
-    expect(readPlanDraft(4, "")?.plan.title).toBe("New");
+    writePlanDraft({
+      revision: 4,
+      storey: "",
+      plan: { format: "domotwin-plan", version: 1, name: "New" },
+    });
+    expect(readPlanDraft(4, "")?.plan.name).toBe("New");
     clearPlanDraft("");
     expect(readPlanDraft(4, "")).toBeUndefined();
     expect(readPlanDraft(4, "storey-2")).toBeDefined();

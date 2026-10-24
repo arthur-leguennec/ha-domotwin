@@ -1,14 +1,17 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { catalogueGroups, GROUPS } from "../src/components/edit-bar";
 import type { CatalogueKind } from "../src/engine/engine";
-import { Translator, en } from "../src/i18n";
+import { Translator, en, fr } from "../src/i18n";
 import { clearDraft, readDraft, writeDraft } from "../src/live/draft";
 
 const kinds: CatalogueKind[] = [
   { kind: "sofa", w: 90, d: 210, h: 85, light: false },
-  { kind: "tablelamp", w: 30, d: 30, h: 48, light: true },
-  { kind: "lamp", w: 35, d: 35, h: 160, light: true },
+  { kind: "table-lamp", w: 30, d: 30, h: 48, light: true },
+  { kind: "floor-lamp", w: 35, d: 35, h: 160, light: true },
   { kind: "somethingnew", w: 10, d: 10, h: 10, light: false },
 ];
 
@@ -16,7 +19,7 @@ describe("catalogue", () => {
   it("groups kinds by room, unknown ones last", () => {
     const groups = catalogueGroups(kinds, new Translator("en"));
     expect(groups.map((g) => g.group)).toEqual(["living", "lights", "other"]);
-    expect(groups[1]?.kinds.map((k) => k.kind)).toEqual(["lamp", "tablelamp"]);
+    expect(groups[1]?.kinds.map((k) => k.kind)).toEqual(["floor-lamp", "table-lamp"]);
   });
 
   it("searches translated names without accents", () => {
@@ -25,8 +28,8 @@ describe("catalogue", () => {
       ["sofa"],
     );
     expect(catalogueGroups(kinds, fr, "LAMP").flatMap((g) => g.kinds.map((k) => k.kind))).toEqual([
-      "lamp",
-      "tablelamp",
+      "floor-lamp",
+      "table-lamp",
     ]);
     expect(catalogueGroups(kinds, fr, "zzz")).toEqual([]);
   });
@@ -38,6 +41,16 @@ describe("catalogue", () => {
     }
     expect(new Translator("fr").kind("sofa")).toBe("Canapé");
     expect(new Translator("en").kind("unknown-kind")).toBe("unknown-kind");
+  });
+
+  it("names the kinds of the plan format, and only those", () => {
+    // The schema's kinds are the core's (crates/domotwin-core/tests/schema.rs).
+    const schema = JSON.parse(
+      readFileSync(resolve(__dirname, "../../schema/plan.schema.json"), "utf8"),
+    ) as { $defs: { item: { properties: { kind: { enum: string[] } } } } };
+    const kinds = schema.$defs.item.properties.kind.enum;
+    expect(Object.keys(en.kinds).sort()).toEqual([...kinds].sort());
+    expect(Object.keys(fr.kinds).sort()).toEqual([...kinds].sort());
   });
 });
 

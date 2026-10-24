@@ -1,1 +1,1 @@
-{"sideboard": {"elevation": 299, "parent": "nowhere"}, "living": {"x": -50000}}
+{"sideboard": {"lift": 299, "room": "nowhere"}, "living": {"at": [-50000, 0]}}

@@ -10,7 +10,7 @@ password, an API key, a Home Assistant address or IP address, an e-mail address,
 address or a real floor plan.
 
 - Keep your own plan, photos and textures in `private/` or `_input/`: both are ignored by git, and so
-  is any `*.plan.json` outside `examples/` and the test fixtures.
+  is any `*.domotwin.json` outside `examples/` and the test fixtures.
 - Tests, examples and screenshots use the **fictional** demo apartment of `examples/` (or another
   fictional plan you create).
 - `pre-commit` runs gitleaks on every commit and CI scans every push. If something slips through,

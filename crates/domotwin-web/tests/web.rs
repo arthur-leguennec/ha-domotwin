@@ -10,7 +10,7 @@ use web_sys::HtmlCanvasElement;
 
 wasm_bindgen_test_configure!(run_in_browser);
 
-const DEMO: &str = include_str!("../../../examples/demo-apartment.plan.json");
+const DEMO: &str = include_str!("../../../examples/demo-apartment.domotwin.json");
 
 fn canvas() -> HtmlCanvasElement {
     let document = web_sys::window().unwrap().document().unwrap();
@@ -144,7 +144,8 @@ fn edit_mode_moves_turns_adds_and_undoes() {
     assert!(engine.edit_layout().contains("\"sofa\""));
     let state = engine.edit_rotate(1);
     assert!(state.contains("\"canUndo\":true"), "{state}");
-    assert!(engine.edit_layout().contains("\"angle\":15"));
+    // The sofa stands turned a quarter in the plan: a step turns it 15° more.
+    assert!(engine.edit_layout().contains("\"rotation\":105"));
     engine.edit_add("plant", "Plant", x, y);
     assert!(engine.edit_layout().contains("plant-added-1"));
     for _ in 0..3 {
@@ -171,14 +172,13 @@ fn edit_mode_moves_turns_adds_and_undoes() {
 #[wasm_bindgen_test]
 fn an_overlay_the_plan_refuses_is_left_out_entry_by_entry() {
     let mut engine = Engine::new(canvas()).unwrap();
-    let layout =
-        r#"{"sofa":{"x":200},"bad-added-1":{"add":{"name":"Bad","kind":"lamp","w":35,"h":35}}}"#;
+    let layout = r#"{"sofa":{"at":[300,210]},"bad-added-1":{"add":{"name":"Bad","kind":"floor-lamp","size":[35,35]},"at":[10,10]}}"#;
     let summary = engine
         .load_plan(DEMO, None, Some(layout.to_owned()))
         .unwrap();
     assert!(summary.contains("\"layoutRefused\":1"), "{summary}");
     engine.begin_edit();
-    assert_eq!(engine.edit_layout(), r#"{"sofa":{"x":200.0}}"#);
+    assert_eq!(engine.edit_layout(), r#"{"sofa":{"at":[300.0,210.0]}}"#);
 }
 
 /// A `DTM1` mesh (as the model module writes it) of one triangle.
@@ -210,11 +210,11 @@ fn pieces_of_3d_files_are_boxes_until_their_mesh_comes() {
     let mut plan: serde_json::Value = serde_json::from_str(DEMO).unwrap();
     plan["models"] = serde_json::json!({ "m-1": { "name": "Stool", "size": [38, 38, 71],
         "file": { "format": "glb", "hash": hash, "bytes": 100, "up": "y" } } });
-    let elements = plan["elements"].as_array_mut().unwrap();
-    for (id, x) in [("stool-1", 300), ("stool-2", 340)] {
-        elements.push(
-            serde_json::json!({ "id": id, "type": "furniture", "name": "Stool",
-            "x": x, "y": 150, "w": 38, "h": 38, "z": 71, "kind": "custom", "model": "m-1" }),
+    let items = plan["items"].as_array_mut().unwrap();
+    for (id, x) in [("stool-1", 319), ("stool-2", 359)] {
+        items.push(
+            serde_json::json!({ "id": id, "name": "Stool", "at": [x, 169],
+            "size": [38, 38, 71], "model": "m-1" }),
         );
     }
     let mut engine = Engine::new(canvas()).unwrap();
@@ -250,7 +250,7 @@ fn edit_mode_imports_a_model_and_forgets_it() {
     let state: serde_json::Value =
         serde_json::from_str(&engine.edit_add_model("m-lamp", &definition, 160.0, 120.0)).unwrap();
     assert_eq!(state["refused"], serde_json::Value::Null, "{state}");
-    assert_eq!(state["selection"][0]["kind"], "custom");
+    assert_eq!(state["selection"][0]["kind"], "box");
     let layout: serde_json::Value = serde_json::from_str(&engine.edit_layout()).unwrap();
     assert_eq!(layout["@model:m-lamp"]["model"]["name"], "Lamp");
     let models: serde_json::Value = serde_json::from_str(&engine.edit_models()).unwrap();
@@ -398,9 +398,9 @@ fn the_plan_editor_s_drafts_are_shown_and_points_turned_both_ways() {
         (back[0] - 160.0).abs() < 0.5 && (back[1] - 120.0).abs() < 0.5,
         "{back:?}"
     );
-    // The plan shown, the overlay in it, at the current revision.
+    // The plan shown, the overlay in it.
     let shown = engine.shown_plan();
-    assert!(shown.contains("\"layoutRevision\":10"), "{shown}");
+    assert!(shown.contains("\"format\":\"domotwin-plan\""), "{shown}");
     // A draft with the living room renamed, the living room marked; the camera stays.
 
     let camera = engine.stats();
@@ -499,7 +499,7 @@ fn a_tap_goes_through_glass_walls() {
     assert!(neon.iter().any(|n| n.contains("\"type\":\"room\"")));
 }
 
-const UPPER: &str = include_str!("../../../examples/demo-upper-floor.plan.json");
+const UPPER: &str = include_str!("../../../examples/demo-upper-floor.domotwin.json");
 
 /// The fictional home of two storeys, as the frontend gives it to the engine.
 fn home() -> String {

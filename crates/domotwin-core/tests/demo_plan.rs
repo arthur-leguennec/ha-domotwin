@@ -5,14 +5,13 @@
 use domotwin_core::plan::{Element, Kind};
 use domotwin_core::read_plan;
 
-const DEMO: &str = include_str!("../../../examples/demo-apartment.plan.json");
+const DEMO: &str = include_str!("../../../examples/demo-apartment.domotwin.json");
 
 #[test]
 fn demo_apartment_reads() {
     let plan = read_plan(DEMO.as_bytes()).unwrap();
     let summary = plan.summary();
-    assert_eq!(summary.revision, 10);
-    assert_eq!(summary.title, "Demo apartment");
+    assert_eq!(summary.name, "Demo apartment");
     assert_eq!(
         (
             summary.rooms,
@@ -39,7 +38,7 @@ fn demo_apartment_reads() {
     ));
 }
 
-const UPPER: &str = include_str!("../../../examples/demo-upper-floor.plan.json");
+const UPPER: &str = include_str!("../../../examples/demo-upper-floor.domotwin.json");
 
 #[test]
 fn the_upper_floor_reads_with_its_stairs_and_ids_of_its_own() {

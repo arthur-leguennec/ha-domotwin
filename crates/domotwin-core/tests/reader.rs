@@ -2,16 +2,20 @@
 
 #![allow(clippy::unwrap_used, clippy::panic)]
 
-use domotwin_core::plan::{DoorStyle, Element, Floor, Kind, Role, WallStyle, read_plan};
+use domotwin_core::plan::{DoorStyle, Element, Floor, Kind, View, WallStyle, read_plan};
 use domotwin_core::{ErrorCode, Plan};
 use serde_json::{Value, json};
 
-fn plan(elements: Value) -> Value {
-    json!({ "version": 1, "unit": "cm", "layoutRevision": 10, "elements": elements })
+fn plan(lists: Value) -> Value {
+    let mut out = json!({ "format": "domotwin-plan", "version": 1 });
+    for (k, v) in lists.as_object().unwrap() {
+        out.as_object_mut().unwrap().insert(k.clone(), v.clone());
+    }
+    out
 }
 
 fn room(id: &str) -> Value {
-    json!({ "id": id, "type": "room", "name": "Room", "x": 0, "y": 0, "w": 400, "h": 300 })
+    json!({ "id": id, "name": "Room", "outline": [[0, 0], [400, 0], [400, 300], [0, 300]] })
 }
 
 fn read(value: &Value) -> Result<Plan, (ErrorCode, Option<String>)> {
@@ -39,468 +43,482 @@ fn without(mut base: Value, key: &str) -> Value {
     base
 }
 
-fn furniture(extra: Value) -> Value {
-    let mut item = json!({
-        "id": "f", "type": "furniture", "name": "Item", "x": 10, "y": 10, "w": 50, "h": 40, "z": 80
-    });
+fn item(extra: Value) -> Value {
+    let mut item = json!({ "id": "f", "name": "Item", "at": [35, 30], "size": [50, 40, 80] });
     for (k, v) in extra.as_object().unwrap() {
         item.as_object_mut().unwrap().insert(k.clone(), v.clone());
     }
     item
 }
 
-fn only_furniture(plan: &Plan) -> &domotwin_core::plan::Furniture {
+fn items(list: Value) -> Value {
+    plan(json!({ "items": list }))
+}
+
+fn only_item(plan: &Plan) -> &domotwin_core::plan::Furniture {
     plan.furniture().next().unwrap()
 }
 
-#[test]
-fn envelope_errors() {
-    assert_eq!(read_plan(b"").unwrap_err().code, ErrorCode::Empty);
-    assert_eq!(read_plan(b"  \n").unwrap_err().code, ErrorCode::Empty);
-    assert_eq!(read_plan(b"{").unwrap_err().code, ErrorCode::NotJson);
-    assert_eq!(code(&json!([1])), ErrorCode::NotAnObject);
-    assert_eq!(
-        code(&with(plan(json!([room("a")])), "version", json!(2))),
-        ErrorCode::BadVersion
-    );
-    assert_eq!(
-        code(&with(plan(json!([room("a")])), "unit", json!("mm"))),
-        ErrorCode::BadUnit
-    );
-    assert_eq!(code(&plan(json!([]))), ErrorCode::NoElements);
-    assert_eq!(
-        code(&without(plan(json!([])), "elements")),
-        ErrorCode::NoElements
-    );
-    let many: Vec<Value> = (0..501).map(|i| room(&format!("r{i}"))).collect();
-    assert_eq!(code(&plan(Value::Array(many))), ErrorCode::TooManyElements);
+fn only_room(plan: &Plan) -> &domotwin_core::plan::Room {
+    plan.rooms().next().unwrap()
 }
 
 #[test]
-fn revisions() {
-    let base = plan(json!([room("a")]));
-    assert_eq!(read_ok(&base).source_revision, 10);
+fn what_is_not_a_plan_is_refused() {
+    assert_eq!(read_plan(b"").unwrap_err().code, ErrorCode::Empty);
+    assert_eq!(read_plan(b"  \n").unwrap_err().code, ErrorCode::Empty);
+    assert_eq!(read_plan(b"{").unwrap_err().code, ErrorCode::NotJson);
+    assert_eq!(read_plan(b"[]").unwrap_err().code, ErrorCode::NotAnObject);
+    let base = plan(json!({ "rooms": [room("a")] }));
+    assert!(read(&base).is_ok());
+    assert_eq!(code(&without(base.clone(), "format")), ErrorCode::NotAPlan);
     assert_eq!(
-        read_ok(&with(base.clone(), "layoutRevision", json!(7))).source_revision,
-        7
+        code(&with(base.clone(), "format", json!("something-else"))),
+        ErrorCode::NotAPlan
+    );
+    assert_eq!(code(&without(base.clone(), "version")), ErrorCode::NotAPlan);
+    assert_eq!(
+        code(&with(base.clone(), "version", json!(0))),
+        ErrorCode::NotAPlan
     );
     assert_eq!(
-        read_ok(&without(base.clone(), "layoutRevision")).source_revision,
-        1
+        code(&with(base.clone(), "version", json!(1.5))),
+        ErrorCode::NotAPlan
     );
     assert_eq!(
-        read_ok(&with(base.clone(), "layoutRevision", json!("9"))).source_revision,
-        1
+        code(&with(base.clone(), "version", json!(2))),
+        ErrorCode::NewerVersion
     );
     assert_eq!(
-        read_ok(&with(base.clone(), "layoutRevision", json!(0))).source_revision,
-        1
+        code(&with(base.clone(), "rooms", json!({}))),
+        ErrorCode::NotAPlan
     );
-    assert_eq!(
-        code(&with(base, "layoutRevision", json!(11))),
-        ErrorCode::NewerRevision
-    );
+    assert_eq!(code(&plan(json!({}))), ErrorCode::NoElements);
+    assert_eq!(code(&plan(json!({ "rooms": [] }))), ErrorCode::NoElements);
+    let many: Vec<Value> = (0..501)
+        .map(|i| item(json!({ "id": format!("f{i}") })))
+        .collect();
+    assert_eq!(code(&items(json!(many))), ErrorCode::TooManyElements);
+    let mut huge = vec![b' '; 32_000_001];
+    huge[0] = b'{';
+    assert_eq!(read_plan(&huge).unwrap_err().code, ErrorCode::TooLarge);
 }
 
 #[test]
 fn byte_order_mark_and_texts() {
+    let base = with(plan(json!({ "rooms": [room("a")] })), "name", json!("Home"));
     let mut bytes = b"\xEF\xBB\xBF".to_vec();
-    bytes.extend(plan(json!([room("a")])).to_string().as_bytes());
-    assert!(read_plan(&bytes).is_ok());
-
+    bytes.extend(base.to_string().as_bytes());
+    assert_eq!(read_plan(&bytes).unwrap().name, "Home");
+    // Texts are cut to 100 characters, never inside one.
     let long = "é".repeat(150);
+    let p = read_ok(&with(base.clone(), "name", json!(long)));
+    assert_eq!(p.name.chars().count(), 100);
+    // A name of the wrong type is empty; unknown fields are left out.
     let p = read_ok(&with(
-        plan(json!([with(room("a"), "name", json!(long))])),
-        "title",
-        json!(long),
+        with(base, "name", json!(3)),
+        "extra",
+        json!({ "x": 1 }),
     ));
-    assert_eq!(p.title.chars().count(), 100);
-    assert_eq!(p.elements[0].name().chars().count(), 100);
+    assert_eq!(p.name, "");
 }
 
 #[test]
-fn wall_settings() {
-    let base = plan(json!([room("a")]));
+fn wall_thickness() {
+    let base = plan(json!({ "rooms": [room("a")] }));
+    let p = read_ok(&base);
+    assert_eq!(
+        (p.wall_settings.interior, p.wall_settings.exterior),
+        (10.0, 20.0)
+    );
     let p = read_ok(&with(
         base.clone(),
-        "wallSettings",
-        json!({ "interior": 12, "reflow": true }),
+        "wallThickness",
+        json!({ "interior": 7 }),
     ));
     assert_eq!(
         (p.wall_settings.interior, p.wall_settings.exterior),
-        (12.0, 20.0)
+        (7.0, 20.0)
     );
-    assert!(p.wall_settings.reflow);
+    for bad in [
+        json!({ "exterior": 0 }),
+        json!({ "interior": 101 }),
+        json!({ "interior": "7" }),
+    ] {
+        assert_eq!(
+            code(&with(base.clone(), "wallThickness", bad)),
+            ErrorCode::WallThickness
+        );
+    }
+    // Not an object: the defaults.
+    assert!(read(&with(base, "wallThickness", json!(3))).is_ok());
+}
+
+#[test]
+fn ids_are_required_and_unique() {
+    let p = |list: Value| code(&plan(json!({ "rooms": list })));
+    assert_eq!(p(json!([3])), ErrorCode::InvalidElement);
     assert_eq!(
-        read_ok(&with(base.clone(), "wallSettings", json!(5)))
-            .wall_settings
-            .exterior,
-        20.0
+        p(json!([without(room("a"), "id")])),
+        ErrorCode::InvalidElement
     );
     assert_eq!(
-        code(&with(
-            base.clone(),
-            "wallSettings",
-            json!({ "interior": 0 })
-        )),
-        ErrorCode::WallThickness
+        p(json!([with(room("a"), "id", json!(""))])),
+        ErrorCode::InvalidElement
     );
     assert_eq!(
-        code(&with(base, "wallSettings", json!({ "exterior": "20" }))),
-        ErrorCode::WallThickness
+        p(json!([with(room("a"), "id", json!("x".repeat(101)))])),
+        ErrorCode::InvalidElement
+    );
+    let err = read(&plan(json!({ "rooms": [room("a"), 3] }))).unwrap_err();
+    assert_eq!(err, (ErrorCode::InvalidElement, Some("rooms[1]".into())));
+    // Unique across the lists.
+    let twice = plan(json!({ "rooms": [room("a")], "items": [item(json!({ "id": "a" }))] }));
+    assert_eq!(
+        read(&twice).unwrap_err(),
+        (ErrorCode::DuplicateId, Some("a".into()))
+    );
+    // A name is optional.
+    assert_eq!(
+        read_ok(&plan(json!({ "rooms": [without(room("a"), "name")] })))
+            .rooms()
+            .next()
+            .unwrap()
+            .name,
+        ""
     );
 }
 
 #[test]
-fn element_identity_errors() {
-    assert_eq!(
-        code(&plan(json!([without(room("a"), "id")]))),
-        ErrorCode::InvalidElement
-    );
-    assert_eq!(
-        code(&plan(json!([with(
-            room("a"),
-            "id",
-            json!("x".repeat(101))
-        )]))),
-        ErrorCode::InvalidElement
-    );
-    assert_eq!(
-        code(&plan(json!([without(room("a"), "name")]))),
-        ErrorCode::InvalidElement
-    );
-    assert_eq!(
-        code(&plan(json!([with(room("a"), "type", json!("stair"))]))),
-        ErrorCode::InvalidElement
-    );
-    assert_eq!(
-        code(&plan(json!([room("a"), room("a")]))),
-        ErrorCode::DuplicateId
-    );
-    let err = read(&plan(json!([
-        room("a"),
-        with(room("b"), "x", json!(60_000))
-    ])))
-    .unwrap_err();
-    assert_eq!(err, (ErrorCode::PositionRange, Some("b".into())));
+fn rooms_their_frame_and_their_defaults() {
+    let p = read_ok(&plan(json!({ "rooms": [json!({
+        "id": "l", "outline": [[100, 50], [500, 50], [500, 350], [300, 450], [100, 350]]
+    })] })));
+    let r = only_room(&p);
+    assert_eq!((r.x, r.y, r.w, r.h), (100.0, 50.0, 400.0, 400.0));
+    assert_eq!(r.points()[3], [300.0, 450.0]);
+    assert_eq!(r.floor, Floor::Plain);
+    assert_eq!(r.wall_style, WallStyle::White);
+    assert!(r.wall_color.is_none() && !r.cornice && r.open_edges.is_empty());
+    assert_eq!(r.edge_thickness, vec![None; 5]);
+    assert!(r.edge_finish.is_none());
+    // Its materials, finishes and sides.
+    let p = read_ok(&plan(json!({ "rooms": [with(with(with(with(room("a"),
+        "floor", json!({ "material": "oak", "angle": 450 })),
+        "walls", json!({ "finish": "chair-rail", "paint": "#AABBCC", "moulding": true })),
+        "color", json!("#112233")),
+        "sides", json!([null, { "open": true, "thickness": 30 }, { "finish": "tiles" },
+                        { "finish": "#ff0000", "thickness": 500 }, { "open": true }]))] })));
+    let r = only_room(&p);
+    assert_eq!((r.floor, r.floor_angle), (Floor::WoodOak, 90.0));
+    assert_eq!(r.wall_style, WallStyle::ChairRail);
+    assert_eq!(r.wall_color.unwrap().to_hex(), "#aabbcc");
+    assert_eq!(r.color.to_hex(), "#112233");
+    assert!(r.cornice);
+    assert_eq!(r.open_edges, vec![1], "a fifth side does not exist");
+    assert_eq!(r.edge_thickness, vec![None, Some(30.0), None, None]);
+    assert!(r.edge_finish.as_ref().unwrap()[2].is_some());
+    // Unknown names take the default.
+    let p = read_ok(&plan(
+        json!({ "rooms": [with(room("a"), "floor", json!({ "material": "marble" }))] }),
+    ));
+    assert_eq!(only_room(&p).floor, Floor::Plain);
 }
 
 #[test]
-fn rooms_defaults_and_lenient_fields() {
-    let r = with(
-        with(
-            with(room("a"), "floor", json!("marble")),
-            "wallStyle",
-            json!("cimaise"),
-        ),
-        "angle",
-        json!(-90),
-    );
-    let r = with(
-        with(
-            with(r, "color", json!("blue")),
-            "wallColor",
-            json!("#AABBCC"),
-        ),
-        "role",
-        json!("placard"),
-    );
-    let p = read_ok(&plan(json!([r])));
-    let Element::Room(room) = &p.elements[0] else {
-        panic!()
+fn room_outlines() {
+    let r = |outline: Value| {
+        code(&plan(
+            json!({ "rooms": [with(room("a"), "outline", outline)] }),
+        ))
     };
-    assert_eq!(room.floor, Floor::Plain);
-    assert_eq!(room.wall_style, WallStyle::ChairRail);
-    assert_eq!(room.angle, 270.0);
-    assert_eq!(room.color.to_hex(), "#e5e9dc");
-    assert_eq!(room.wall_color.unwrap().to_hex(), "#aabbcc");
-    assert_eq!(room.role, Role::Closet);
-    assert_eq!(room.vertices.len(), 4);
-    assert_eq!(room.material_source, "Revêtement à confirmer.");
-    assert_eq!(room.edge_thickness, vec![None; 4]);
-}
-
-#[test]
-fn room_errors() {
     assert_eq!(
-        code(&plan(json!([with(room("a"), "w", json!(4))]))),
-        ErrorCode::RoomSize
+        code(&plan(json!({ "rooms": [without(room("a"), "outline")] }))),
+        ErrorCode::InvalidOutline
+    );
+    assert_eq!(r(json!([[0, 0], [10, 0]])), ErrorCode::InvalidOutline);
+    assert_eq!(
+        r(json!([[0, 0], [10, 0], [10, "a"]])),
+        ErrorCode::InvalidOutline
+    );
+    assert_eq!(r(json!([[0, 0], [10, 0], [10]])), ErrorCode::InvalidOutline);
+    assert_eq!(
+        r(json!([[0, 0], [60_000, 0], [0, 10]])),
+        ErrorCode::InvalidOutline
     );
     assert_eq!(
-        code(&plan(json!([with(room("a"), "angle", json!(null))]))),
-        ErrorCode::InvalidAngle
+        r(json!([[0, 0], [20_000, 0], [0, 300]])),
+        ErrorCode::InvalidOutline
     );
-    let triangle_outside = json!([[0, 0], [1.2, 0], [0, 1]]);
+    let many: Vec<Value> = (0..65)
+        .map(|i| {
+            let a = f64::from(i) / 65.0 * std::f64::consts::TAU;
+            json!([200.0 * a.cos(), 200.0 * a.sin()])
+        })
+        .collect();
+    assert_eq!(r(json!(many)), ErrorCode::InvalidOutline);
     assert_eq!(
-        code(&plan(json!([with(
-            room("a"),
-            "vertices",
-            triangle_outside
-        )]))),
-        ErrorCode::VertexCount
-    );
-    assert_eq!(
-        code(&plan(json!([with(
-            room("a"),
-            "vertices",
-            json!([[0, 0], [1, 1]])
-        )]))),
-        ErrorCode::VertexCount
-    );
-    let bow_tie = json!([[0, 0], [1, 1], [1, 0], [0, 1]]);
-    assert_eq!(
-        code(&plan(json!([with(room("a"), "vertices", bow_tie)]))),
+        r(json!([[0, 0], [100, 100], [100, 0], [0, 100]])),
         ErrorCode::SelfIntersection
     );
-    let tiny = with(with(room("a"), "w", json!(5)), "h", json!(5));
     assert_eq!(
-        code(&plan(json!([with(
-            tiny,
-            "vertices",
-            json!([[0, 0], [1, 0], [0, 1]])
-        )]))),
+        r(json!([[0, 0], [4, 0], [4, 4], [0, 4]])),
         ErrorCode::MinArea
     );
-    assert_eq!(
-        code(&plan(json!([with(room("a"), "openEdges", json!(3))]))),
-        ErrorCode::InvalidOpenEdges
-    );
-    assert_eq!(
-        code(&plan(json!([with(room("a"), "openEdges", json!([4]))]))),
-        ErrorCode::OpenEdgeRange
-    );
-    assert_eq!(
-        code(&plan(json!([with(
-            room("a"),
-            "edgeThickness",
-            json!([null, 5])
-        )]))),
-        ErrorCode::InvalidEdgeThickness
-    );
-    assert_eq!(
-        code(&plan(json!([with(
-            room("a"),
-            "edgeThickness",
-            json!([null, 0, null, null])
-        )]))),
-        ErrorCode::InvalidEdgeThickness
-    );
 }
 
 #[test]
-fn room_geometry_fields() {
-    let r = with(
-        with(room("a"), "openEdges", json!([2, 0, 2])),
-        "edgeThickness",
-        json!([null, 15, null, null]),
-    );
-    let r = with(r, "edgeFinish", json!(["metro", "#112233", "nope"]));
-    let p = read_ok(&plan(json!([r])));
-    let Element::Room(rm) = &p.elements[0] else {
-        panic!()
-    };
-    assert_eq!(rm.open_edges, vec![0, 2]);
-    assert_eq!(rm.edge_thickness, vec![None, Some(15.0), None, None]);
-    let finish = rm.edge_finish.as_ref().unwrap();
-    assert_eq!(finish.len(), 4);
-    assert!(matches!(
-        finish[0],
-        Some(domotwin_core::plan::EdgeFinish::Metro)
-    ));
-    assert!(finish[2].is_none() && finish[3].is_none());
-
-    // The legacy bevel cuts the bottom-right corner.
-    let p = read_ok(&plan(json!([with(room("b"), "bevel", json!(100))])));
-    let Element::Room(rm) = &p.elements[0] else {
-        panic!()
-    };
-    assert_eq!(rm.vertices[2], [0.75, 1.0]);
-}
-
-#[test]
-fn furniture_rules() {
-    let p = read_ok(&plan(json!([furniture(
-        json!({ "kind": "sofa-bed", "variant": "cuir" })
+fn items_their_box_and_their_defaults() {
+    let p = read_ok(&items(json!([item(
+        json!({ "kind": "sofa", "rotation": -90 })
     )])));
-    let f = only_furniture(&p);
-    assert_eq!(f.kind, Kind::Desk);
-    assert_eq!(f.variant, None);
-    assert_eq!(f.elevation, 0.0);
-
-    let p = read_ok(&plan(json!([furniture(
-        json!({ "kind": "sofa", "variant": "cuir", "elevation": 12 })
+    let f = only_item(&p);
+    // The corner of its unturned box, inside.
+    assert_eq!((f.x, f.y, f.w, f.h, f.z), (10.0, 10.0, 50.0, 40.0, 80.0));
+    assert_eq!(f.center(), [35.0, 30.0]);
+    assert_eq!((f.kind, f.angle, f.elevation), (Kind::Sofa, 270.0, 0.0));
+    assert_eq!(f.color, Kind::Sofa.info().color, "the kind's colour");
+    assert!(!f.locked && f.parent.is_empty() && f.variant.is_none());
+    // An unknown kind is a plain box; a style of another kind is left out.
+    let p = read_ok(&items(json!([item(
+        json!({ "kind": "spaceship", "style": "leather" })
     )])));
-    assert_eq!(only_furniture(&p).variant.as_deref(), Some("cuir"));
-    assert_eq!(only_furniture(&p).elevation, 12.0);
+    assert_eq!(
+        (only_item(&p).kind, only_item(&p).variant.as_deref()),
+        (Kind::Box, None)
+    );
+    let p = read_ok(&items(json!([item(
+        json!({ "kind": "sofa", "style": "leather", "fixed": true, "lift": 40, "color": "#010203" })
+    )])));
+    let f = only_item(&p);
+    assert_eq!(f.variant.as_deref(), Some("leather"));
+    assert!(f.locked);
+    assert_eq!(f.elevation, 40.0);
+    assert_eq!(f.color.to_hex(), "#010203");
+}
 
+#[test]
+fn item_errors() {
+    let e = |extra: Value| code(&items(json!([item(extra)])));
     assert_eq!(
-        code(&plan(json!([furniture(json!({ "z": 0 }))]))),
-        ErrorCode::FurnitureHeight
+        code(&items(json!([without(item(json!({})), "at")]))),
+        ErrorCode::PositionRange
     );
+    assert_eq!(e(json!({ "at": [60_000, 0] })), ErrorCode::PositionRange);
     assert_eq!(
-        code(&plan(json!([furniture(json!({ "w": 0.5 }))]))),
-        ErrorCode::FurnitureSize
+        code(&items(json!([without(item(json!({})), "size")]))),
+        ErrorCode::ItemSize
     );
+    assert_eq!(e(json!({ "size": [0, 40, 80] })), ErrorCode::ItemSize);
+    assert_eq!(e(json!({ "size": [50, 40] })), ErrorCode::ItemSize);
+    assert_eq!(e(json!({ "size": [50, 40, 301] })), ErrorCode::ItemHeight);
+    // A lift out of range is held at its limits.
+    let lift = |value: Value| {
+        only_item(&read_ok(&items(json!([item(json!({ "lift": value }))])))).elevation
+    };
     assert_eq!(
-        code(&plan(json!([furniture(json!({ "elevation": 301 }))]))),
-        ErrorCode::ElevationRange
+        (lift(json!(301)), lift(json!(-1)), lift(json!("high"))),
+        (300.0, 0.0, 0.0)
     );
+    // A rotation of the wrong type is none.
     assert_eq!(
-        code(&plan(json!([furniture(json!({ "angle": "90" }))]))),
-        ErrorCode::InvalidAngle
+        only_item(&read_ok(&items(json!([item(json!({ "rotation": "a" }))])))).angle,
+        0.0
     );
 }
 
 #[test]
-fn light_settings() {
-    let lamp = |extra: Value| {
-        let mut item = furniture(json!({ "kind": "lamp" }));
-        for (k, v) in extra.as_object().unwrap() {
-            item.as_object_mut().unwrap().insert(k.clone(), v.clone());
-        }
-        read_ok(&plan(json!([item])))
+fn lamps() {
+    let lamp = |light: Value| {
+        let p = read_ok(&items(json!([item(
+            json!({ "kind": "floor-lamp", "light": light })
+        )])));
+        only_item(&p).clone()
     };
-    let p = lamp(json!({ "lightOff": true, "lightKelvin": 9000, "lightPower": 100 }));
-    let f = only_furniture(&p);
+    let f = lamp(json!({ "on": false, "kelvin": 99_999, "power": 1.5 }));
     assert!(f.light_off);
-    assert_eq!(f.light_kelvin, Some(6500));
-    assert_eq!(f.light_power, None);
-    let p = lamp(json!({ "lightColor": "#FFAA00", "lightKelvin": 3000, "lightPower": 4 }));
-    let f = only_furniture(&p);
-    assert_eq!(f.light_color.unwrap().to_hex(), "#ffaa00");
-    assert_eq!(f.light_kelvin, None);
-    assert_eq!(f.light_power, Some(10));
-    // Not a light: the fields are dropped.
-    let p = read_ok(&plan(json!([furniture(
-        json!({ "kind": "sofa", "lightOff": true, "lightColor": "#ffffff" })
-    )])));
-    let f = only_furniture(&p);
+    assert_eq!((f.light_kelvin, f.light_power), (Some(6500), Some(150)));
+    // A colour wins over a temperature; 100 % is not kept.
+    let f = lamp(json!({ "color": "#ff0000", "kelvin": 2700, "power": 1 }));
+    assert_eq!(f.light_color.unwrap().to_hex(), "#ff0000");
+    assert_eq!((f.light_kelvin, f.light_power), (None, None));
+    let f = lamp(json!(3));
     assert!(!f.light_off && f.light_color.is_none());
+    // Only lamps have a light.
+    let p = read_ok(&items(json!([item(
+        json!({ "kind": "sofa", "light": { "on": false } })
+    )])));
+    assert!(!only_item(&p).light_off);
 }
 
 #[test]
-fn curtains_and_custom_models() {
-    let p = read_ok(&plan(json!([furniture(
-        json!({ "kind": "curtain", "open": "42.6" })
+fn curtains_and_models() {
+    let p = read_ok(&items(json!([item(
+        json!({ "kind": "curtain", "open": 0.25 })
     )])));
-    assert_eq!(only_furniture(&p).open, Some(43));
-    let p = read_ok(&plan(json!([furniture(
-        json!({ "kind": "curtain", "variant": "ferme" })
+    assert_eq!(only_item(&p).curtain_open_fraction(), 0.25);
+    let p = read_ok(&items(json!([item(
+        json!({ "kind": "curtain", "style": "closed" })
     )])));
-    assert_eq!(only_furniture(&p).curtain_open_fraction(), 0.0);
-    let p = read_ok(&plan(json!([furniture(
-        json!({ "kind": "table", "open": 50 })
-    )])));
-    assert_eq!(only_furniture(&p).open, None);
-
+    assert_eq!(only_item(&p).curtain_open_fraction(), 0.0);
+    let stool = json!({ "name": "Stool", "size": [38, 38, 71],
+        "file": { "format": "glb", "hash": "a".repeat(64), "bytes": 100, "up": "y" } });
+    let with_model = |model: Value| {
+        with(
+            items(json!([item(json!({ "kind": "chair", "model": "stool" }))])),
+            "models",
+            model,
+        )
+    };
+    let p = read_ok(&with_model(json!({ "stool": stool })));
+    let f = only_item(&p);
+    assert_eq!((f.kind, f.model.as_deref()), (Kind::Box, Some("stool")));
     assert_eq!(
-        code(&plan(json!([furniture(
-            json!({ "kind": "custom", "model": "m1" })
-        )]))),
-        ErrorCode::MissingModel
+        read(&with_model(json!({}))).unwrap_err(),
+        (ErrorCode::MissingModel, Some("f".into()))
     );
-    let kit = json!({ "m1": { "name": "Stool", "size": [38, 38, 71], "kit": { "parts": [] } } });
-    let p = read_ok(&with(
-        plan(json!([furniture(
-            json!({ "kind": "custom", "model": "m1" })
-        )])),
-        "models",
-        kit,
-    ));
-    assert_eq!(only_furniture(&p).model.as_deref(), Some("m1"));
-    let both = json!({ "m1": { "name": "x", "size": [1, 1, 1], "kit": {}, "file": {} } });
     assert_eq!(
-        code(&with(plan(json!([room("a")])), "models", both)),
+        code(&with_model(json!({ "bad id": stool }))),
         ErrorCode::InvalidModel
     );
+    assert_eq!(
+        code(&with_model(json!({ "stool": { "size": [1, 1, 1] } }))),
+        ErrorCode::InvalidModel
+    );
+    assert_eq!(
+        code(&with_model(
+            json!({ "stool": with(stool.clone(), "size", json!([1, 1, 400])) })
+        )),
+        ErrorCode::InvalidModel
+    );
+    assert_eq!(code(&with_model(json!([]))), ErrorCode::InvalidModel);
 }
 
 #[test]
-fn walls_and_openings() {
-    let wall = json!({ "id": "w", "type": "wall", "name": "W", "x": 0, "y": 0, "x2": 3, "y2": 0, "thickness": 10 });
-    assert_eq!(code(&plan(json!([wall]))), ErrorCode::InvalidWall);
-    let door = json!({ "id": "d", "type": "door", "name": "D", "x": 0, "y": 0, "w": 80, "angle": 450,
-                       "style": "revolving", "open": 99.6, "swing": -1 });
-    let p = read_ok(&plan(json!([door])));
-    let Element::Door(d) = &p.elements[0] else {
+fn partitions_doors_and_windows() {
+    let p = read_ok(&plan(json!({
+        "rooms": [room("a")],
+        "partitions": [{ "id": "p", "from": [10, 10], "to": [10, 200], "room": "a" }],
+        "doors": [{ "id": "d", "from": [100, 0], "to": [100, 90], "opensTo": "left",
+                    "style": "barn", "open": 0.4, "room": "a" }],
+        "windows": [{ "id": "w", "from": [300, 0], "to": [200, 0], "style": "barn", "open": 0 }]
+    })));
+    let mut elements = p.elements.iter();
+    assert!(matches!(elements.next(), Some(Element::Room(_))));
+    let Some(Element::Wall(w)) = elements.next() else {
         panic!()
     };
     assert_eq!(
-        (d.angle, d.style, d.open, d.swing),
-        (90.0, DoorStyle::Hinged, Some(100), -1)
+        (w.x2, w.y2, w.thickness, w.parent.as_str()),
+        (10.0, 200.0, 10.0, "a")
     );
-    let window =
-        json!({ "id": "w", "type": "window", "name": "W", "x": 0, "y": 0, "w": 1200, "angle": 0 });
-    assert_eq!(code(&plan(json!([window]))), ErrorCode::InvalidOpening);
-    let door = json!({ "id": "d", "type": "door", "name": "D", "x": 0, "y": 0, "w": 80 });
-    assert_eq!(code(&plan(json!([door]))), ErrorCode::InvalidOpening);
-}
-
-#[test]
-fn parents_must_be_rooms() {
-    let err = read(&plan(json!([
-        room("a"),
-        furniture(json!({ "parent": "nowhere" }))
-    ])))
-    .unwrap_err();
-    assert_eq!(err, (ErrorCode::MissingParent, Some("f".into())));
-    let err = read(&plan(json!([
-        room("a"),
-        with(room("b"), "id", json!("b")),
-        furniture(json!({ "parent": "a" }))
-    ])));
-    assert!(err.is_ok());
-}
-
-#[test]
-fn views_are_cleaned() {
-    let views = json!([
-        { "id": "o", "name": "Top", "mode": "orbit", "p": [0, 900, 0], "t": [0, 0, 0] },
-        { "name": "", "mode": "walk", "x": 10, "y": 10, "yaw": 0, "pitch": 3, "eye": 500 },
-        { "name": "Bad", "mode": "orbit", "p": [0, 1e6, 0], "t": [0, 0, 0] },
-        { "mode": "orbit" }
-    ]);
-    let p = read_ok(&with(plan(json!([room("a")])), "views", views));
-    assert_eq!(p.views.len(), 2);
-    let domotwin_core::plan::View::Walk {
-        name, pitch, eye, ..
-    } = &p.views[1]
-    else {
+    let Some(Element::Door(d)) = elements.next() else {
         panic!()
     };
-    assert_eq!((name.as_str(), *pitch, *eye), ("Vue", 1.3, 200.0));
-}
-
-#[test]
-fn site_is_kept_or_refused() {
-    let base = plan(json!([room("a")]));
+    assert_eq!(
+        (d.x, d.y, d.w, d.angle, d.swing),
+        (100.0, 0.0, 90.0, 90.0, -1)
+    );
+    assert_eq!((d.style, d.open), (DoorStyle::Barn, Some(40)));
+    let Some(Element::Window(w)) = elements.next() else {
+        panic!()
+    };
+    assert_eq!((w.x, w.w, w.angle, w.swing), (300.0, 100.0, 180.0, 1));
+    assert_eq!(
+        (w.style, w.open),
+        (DoorStyle::Hinged, None),
+        "windows have no style"
+    );
+    // Fully open is not kept.
+    let p = read_ok(&plan(
+        json!({ "doors": [{ "id": "d", "from": [0, 0], "to": [90, 0], "open": 1 }] }),
+    ));
+    assert!(matches!(&p.elements[0], Element::Door(d) if d.open.is_none()));
+    let bad = |list: &str, e: Value| code(&plan(json!({ list: [e] })));
+    assert_eq!(
+        bad(
+            "partitions",
+            json!({ "id": "p", "from": [0, 0], "to": [3, 0] })
+        ),
+        ErrorCode::InvalidPartition
+    );
+    assert_eq!(
+        bad("partitions", json!({ "id": "p", "from": [0, 0] })),
+        ErrorCode::InvalidPartition
+    );
+    assert_eq!(
+        bad(
+            "doors",
+            json!({ "id": "d", "from": [0, 0], "to": [400, 0] })
+        ),
+        ErrorCode::InvalidOpening
+    );
+    assert_eq!(
+        bad(
+            "windows",
+            json!({ "id": "w", "from": [0, 0], "to": [10, 0] })
+        ),
+        ErrorCode::InvalidOpening
+    );
     assert!(
-        read_ok(&with(
-            base.clone(),
-            "site",
-            json!({ "version": 1, "label": "x" })
+        read(&plan(
+            json!({ "windows": [{ "id": "w", "from": [0, 0], "to": [900, 0] }] })
         ))
-        .site
-        .is_some()
+        .is_ok()
     );
-    assert!(
-        read_ok(&with(base.clone(), "site", Value::Null))
-            .site
-            .is_none()
-    );
+    // Ends written rounded put a door at its widest a hair over 300 cm on a slanted wall: read at
+    // 300. Farther over, refused.
+    let door = |to: Value| plan(json!({ "doors": [{ "id": "d", "from": [0, 0], "to": to }] }));
+    let read = read_ok(&door(json!([271.9, 126.8])));
+    assert_eq!(read.openings().next().unwrap().0.w, 300.0);
+    assert_eq!(code(&door(json!([300.3, 0]))), ErrorCode::InvalidOpening);
+}
+
+#[test]
+fn rooms_named_must_exist() {
+    let p = plan(json!({ "rooms": [room("a")], "items": [item(json!({ "room": "b" }))] }));
     assert_eq!(
-        code(&with(base, "site", json!({ "version": 2 }))),
-        ErrorCode::InvalidSite
+        read(&p).unwrap_err(),
+        (ErrorCode::MissingRoom, Some("f".into()))
     );
+    let p = plan(json!({ "rooms": [room("a")], "items": [item(json!({ "room": "a" }))] }));
+    assert_eq!(only_item(&read_ok(&p)).parent, "a");
+}
+
+#[test]
+fn viewpoints() {
+    let p = read_ok(&with(
+        plan(json!({ "rooms": [room("a")] })),
+        "views",
+        json!([
+            { "id": "v", "name": "Corner", "eye": [10, 20, 300], "target": [100, 200, 0] },
+            { "name": "", "eye": [1, 2, 3], "target": [4, 5, 6] },
+            { "id": "half", "eye": [1, 2, 3] },
+            3
+        ]),
+    ));
+    assert_eq!(p.views.len(), 2);
+    let View::Orbit {
+        id,
+        name,
+        p: eye,
+        t,
+    } = &p.views[0];
+    assert_eq!((id.as_str(), name.as_str()), ("v", "Corner"));
+    assert_eq!((*eye, *t), ([10.0, 300.0, 20.0], [100.0, 0.0, 200.0]));
+    let View::Orbit { id, name, .. } = &p.views[1];
+    assert_eq!((id.as_str(), name.as_str()), ("view-1", "view-1"));
 }
 
 #[test]
 fn error_json_names_the_element() {
     let err = read_plan(
-        plan(json!([with(room("kitchen"), "w", json!(1))]))
+        plan(json!({ "items": [item(json!({ "size": [0, 1, 1] }))] }))
             .to_string()
             .as_bytes(),
     )
     .unwrap_err();
-    assert_eq!(err.to_json(), r#"{"code":"room_size","element":"kitchen"}"#);
+    let json: Value = serde_json::from_str(&err.to_json()).unwrap();
+    assert_eq!(json["code"], "item_size");
+    assert_eq!(json["element"], "f");
 }

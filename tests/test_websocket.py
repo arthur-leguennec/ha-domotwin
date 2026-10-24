@@ -12,6 +12,8 @@ from pytest_homeassistant_custom_component.typing import WebSocketGenerator
 from custom_components.domotwin.const import MAX_ELEMENTS
 from homeassistant.core import HomeAssistant
 
+from .conftest import one_room_plan
+
 
 async def test_empty_installation(
     hass: HomeAssistant, setup_integration: MockConfigEntry, hass_ws_client: WebSocketGenerator
@@ -39,7 +41,7 @@ async def test_save_and_read_back(
     demo_plan: dict[str, Any],
 ) -> None:
     client = await hass_ws_client(hass)
-    layout = {"sofa": {"x": 360, "y": 110}}
+    layout = {"sofa": {"at": [405, 215]}}
     await client.send_json_auto_id(
         {"type": "domotwin/plan/save", "plan": demo_plan, "layout": layout}
     )
@@ -167,12 +169,16 @@ def _without(plan: dict[str, Any], key: str) -> dict[str, Any]:
     [
         (lambda plan: {**plan, "version": 2}, "invalid_plan"),
         (lambda plan: {**plan, "version": True}, "invalid_plan"),
-        (lambda plan: {**plan, "unit": "mm"}, "invalid_plan"),
-        (lambda plan: {**plan, "elements": []}, "invalid_plan"),
-        (lambda plan: {**plan, "elements": [1]}, "invalid_plan"),
-        (lambda plan: {**plan, "elements": [{}] * (MAX_ELEMENTS + 1)}, "invalid_plan"),
-        (lambda plan: _without(plan, "unit"), "invalid_plan"),
-        (lambda plan: {**plan, "title": "x" * 3_600_000}, "too_large"),
+        (lambda plan: {**plan, "format": "another-plan"}, "invalid_plan"),
+        (lambda plan: _without(plan, "format"), "invalid_plan"),
+        (
+            lambda plan: {**plan, "rooms": [], "doors": [], "windows": [], "items": []},
+            "invalid_plan",
+        ),
+        (lambda plan: {**plan, "items": [1]}, "invalid_plan"),
+        (lambda plan: {**plan, "rooms": {}}, "invalid_plan"),
+        (lambda plan: {**plan, "items": [{}] * (MAX_ELEMENTS + 1)}, "invalid_plan"),
+        (lambda plan: {**plan, "name": "x" * 3_600_000}, "too_large"),
     ],
 )
 async def test_invalid_plans_are_refused(
@@ -190,6 +196,18 @@ async def test_invalid_plans_are_refused(
     assert response["error"]["code"] == code
     await client.send_json_auto_id({"type": "domotwin/info"})
     assert (await client.receive_json())["result"]["revision"] == 0
+
+
+async def test_a_null_list_is_an_empty_one(
+    hass: HomeAssistant,
+    setup_integration: MockConfigEntry,
+    hass_ws_client: WebSocketGenerator,
+    demo_plan: dict[str, Any],
+) -> None:
+    client = await hass_ws_client(hass)
+    plan = {**demo_plan, "partitions": None}
+    await client.send_json_auto_id({"type": "domotwin/plan/save", "plan": plan})
+    assert (await client.receive_json())["success"]
 
 
 @pytest.mark.parametrize(
@@ -345,12 +363,7 @@ async def test_storeys_over_the_websocket(
         return response
 
     assert (await send({"type": "domotwin/plan/save", "plan": demo_plan}))["success"]
-    upper = {
-        **demo_plan,
-        "elements": [
-            {"id": "attic", "type": "room", "name": "Attic", "x": 0, "y": 0, "w": 300, "h": 300}
-        ],
-    }
+    upper = one_room_plan("attic", "Attic")
     added = await send(
         {"type": "domotwin/storey/save", "name": "First floor", "elevation": 280, "plan": upper}
     )
@@ -404,21 +417,15 @@ async def test_pieces_added_in_edit_mode_have_ids_of_their_own(
         return response
 
     lamp = {
-        "lamp-added-1": {
-            "add": {"name": "Floor lamp", "kind": "lamp", "w": 35, "h": 35, "z": 160},
-            "x": 40,
-            "y": 20,
+        "floor-lamp-added-1": {
+            "add": {"name": "Floor lamp", "kind": "floor-lamp", "size": [35, 35, 160]},
+            "at": [57.5, 37.5],
         }
     }
     assert (await send({"type": "domotwin/plan/save", "plan": demo_plan, "layout": lamp}))[
         "success"
     ]
-    upper = {
-        **demo_plan,
-        "elements": [
-            {"id": "attic", "type": "room", "name": "Attic", "x": 0, "y": 0, "w": 300, "h": 300}
-        ],
-    }
+    upper = one_room_plan("attic", "Attic")
     added = await send({"type": "domotwin/storey/save", "plan": upper, "elevation": 280})
     storey = added["result"]["storey"]
     # The same id added on another storey is refused, in the overlay as in the plan.
@@ -428,7 +435,7 @@ async def test_pieces_added_in_edit_mode_have_ids_of_their_own(
     assert clash["error"]["code"] == "duplicate_id"
     # Moving a piece of its own is not adding one.
     moved = await send(
-        {"type": "domotwin/plan/save", "storey": storey, "layout": {"attic": {"x": 10}}}
+        {"type": "domotwin/plan/save", "storey": storey, "layout": {"attic": {"at": [10, 10]}}}
     )
     assert moved["success"]
 
@@ -447,18 +454,8 @@ async def test_every_storey_is_replaced_at_once_or_none(
         return response
 
     assert (await send({"type": "domotwin/plan/save", "plan": demo_plan}))["success"]
-    upper = {
-        **demo_plan,
-        "elements": [
-            {"id": "attic", "type": "room", "name": "Attic", "x": 0, "y": 0, "w": 300, "h": 300}
-        ],
-    }
-    cellar = {
-        **demo_plan,
-        "elements": [
-            {"id": "cellar", "type": "room", "name": "Cellar", "x": 0, "y": 0, "w": 300, "h": 300}
-        ],
-    }
+    upper = one_room_plan("attic", "Attic")
+    cellar = one_room_plan("cellar", "Cellar")
     replace = {
         "type": "domotwin/storeys/replace",
         "storeys": [

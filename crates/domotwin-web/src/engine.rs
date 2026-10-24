@@ -57,7 +57,7 @@ pub fn summarize_plan_json(json: &str) -> Result<String, JsError> {
         .map_err(|err| plan_error(&err))
 }
 
-/// The plan with the edit overlay applied, as written by **Export plan** (revision 10).
+/// The plan with the edit overlay applied, as written by **Export plan**.
 ///
 /// # Errors
 ///
@@ -65,10 +65,7 @@ pub fn summarize_plan_json(json: &str) -> Result<String, JsError> {
 #[wasm_bindgen(js_name = applyLayout)]
 pub fn apply_layout_json(plan: &str, layout: &str) -> Result<String, JsError> {
     let source = parse_plan_json(plan.as_bytes()).map_err(|err| plan_error(&err))?;
-    let mut applied = apply(&source, &parse_layout(layout));
-    if let Some(root) = applied.as_object_mut() {
-        root.insert("layoutRevision".into(), serde_json::Value::from(10));
-    }
+    let applied = apply(&source, &parse_layout(layout));
     read_plan_value(&applied).map_err(|err| plan_error(&err))?;
     Ok(applied.to_string())
 }
@@ -195,7 +192,7 @@ impl Engine {
         Ok(engine)
     }
 
-    /// Loads a plan (the text of a `*.plan.json`) with its edit overlay (`layout`, JSON) and
+    /// Loads a plan (the text of a `*.domotwin.json`) with its edit overlay (`layout`, JSON) and
     /// builds its scene. Returns a JSON summary; `layoutRefused` counts the entries of the overlay
     /// left out because they made the plan invalid (an updated plan). The camera keeps its place
     /// when `keep_camera` (a plan saved from another view).
@@ -1062,16 +1059,13 @@ impl Engine {
             .unwrap_or_default()
     }
 
-    /// The plan's saved viewpoints, as JSON `[{"id", "name"}]` (eye-level views are skipped).
+    /// The plan's saved viewpoints, as JSON `[{"id", "name"}]`.
     pub fn views(&self) -> String {
         let list: Vec<serde_json::Value> = self
             .plan
             .iter()
             .flat_map(|plan| &plan.views)
-            .filter_map(|view| match view {
-                View::Orbit { id, name, .. } => Some(serde_json::json!({ "id": id, "name": name })),
-                View::Walk { .. } => None,
-            })
+            .map(|View::Orbit { id, name, .. }| serde_json::json!({ "id": id, "name": name }))
             .collect();
         serde_json::Value::Array(list).to_string()
     }

@@ -311,16 +311,15 @@ export class PlanEditor {
     const on = picked?.id === id || (picked?.type === "furniture" && picked.room === id);
     const grab = this.engine.planPoint(p.x, p.y);
     if (!on || !grab) return false;
-    const room = this.planner.roomPoints(id);
-    const element = this.planner.element(id);
-    const anchor: PlanPoint = room[0] ?? [Number(element?.x ?? 0), Number(element?.y ?? 0)];
+    const anchor = this.planner.anchor(id);
+    if (!anchor) return false;
     this.drag = {
       pointer,
       from,
       moved: false,
       kind: "element",
       id,
-      room: room.length > 0,
+      room: this.planner.roomPoints(id).length > 0,
       grab,
       anchor,
     };
@@ -378,11 +377,7 @@ export class PlanEditor {
       target = snapped.point;
       this.guides = snapped.guides;
     }
-    const element = planner.element(drag.id);
-    const now: PlanPoint = planner.roomPoints(drag.id)[0] ?? [
-      Number(element?.x ?? drag.anchor[0]),
-      Number(element?.y ?? drag.anchor[1]),
-    ];
+    const now = planner.anchor(drag.id) ?? drag.anchor;
     const d: PlanPoint = [target[0] - now[0], target[1] - now[1]];
     if (Math.abs(d[0]) < 1e-9 && Math.abs(d[1]) < 1e-9) {
       this.refresh();

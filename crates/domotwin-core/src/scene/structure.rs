@@ -26,13 +26,13 @@ const SLAB_DEPTH: f64 = 6.0;
 
 /// The floor material of a room.
 pub(crate) fn floor_material(room: &Room) -> Material {
-    match room.floor.procedural() {
+    match room.floor {
         Floor::WoodGrey => Material::new(Rgb8::from_u32(0xa8a08b), 0.7, Surface::Planks),
         Floor::WoodOak => Material::new(Rgb8::from_u32(0xbb9668), 0.6, Surface::Planks),
         Floor::WoodPainted => Material::new(Rgb8::from_u32(0xa6b0ab), 0.65, Surface::Planks),
         Floor::TilesBeige => Material::new(Rgb8::from_u32(0xd7cdb8), 0.35, Surface::Tiles),
         Floor::TilesWhite => Material::new(Rgb8::from_u32(0xe8e8e1), 0.3, Surface::Tiles),
-        _ => Material::new(Rgb8::from_u32(0xd9d3c6), 0.85, Surface::Floor),
+        Floor::Plain => Material::new(Rgb8::from_u32(0xd9d3c6), 0.85, Surface::Floor),
     }
 }
 
