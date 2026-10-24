@@ -180,7 +180,14 @@ pub fn targets(
         let visual = |role: Role| {
             matches!(
                 role,
-                Role::Light | Role::Switch | Role::Fan | Role::Cover | Role::Media | Role::Contact
+                Role::Light
+                    | Role::Switch
+                    | Role::Fan
+                    | Role::Cover
+                    | Role::Media
+                    | Role::Contact
+                    | Role::Lock
+                    | Role::Camera
             )
         };
         let shown: Vec<&(Role, Option<&EntityState>)> =

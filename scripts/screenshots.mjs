@@ -522,6 +522,76 @@ try {
     Buffer.from(layersImage.slice(layersImage.indexOf(",") + 1), "base64"),
   );
   console.log("docs/figures/screenshot-layers.png");
+
+  // Devices (M5): badges in 3D, and what the living room's camera sees on the 2D plan.
+  const deviceShots = [];
+  for (const [label, view, script] of [
+    [
+      "Badges: lock, battery, TV, camera, washing machine",
+      "3d",
+      "window.__setState('lock.entrance_door', 'locked');" +
+        "window.__setState('sensor.entrance_door_lock_battery', '12');" +
+        "window.__setState('sensor.washing_machine_power', '450');",
+    ],
+    [
+      "What the camera sees, recording",
+      "2d",
+      "window.__setState('camera.living_room', 'recording');",
+    ],
+  ]) {
+    const page = await browser.newPage({ viewport: { width: 1100, height: 760 } });
+    await page.goto("http://127.0.0.1:4173/?mode=panel&live=1");
+    await page.waitForFunction(() => window.__view?.()?.debugState().summary, null, {
+      timeout: 60_000,
+    });
+    await page.evaluate((script) => new Function(script)(), script);
+    await page.waitForTimeout(200);
+    await page.evaluate(async (view) => {
+      const element = window.__view();
+      element.options = { quality: "high", view, cutaway: "auto", lighting: "day" };
+      await element.updateComplete;
+      element.settle();
+      element.requestFrame();
+    }, view);
+    await page.waitForTimeout(500);
+    deviceShots.push([label, (await page.screenshot()).toString("base64")]);
+    await page.close();
+  }
+  const devicesImage = await layersPage.evaluate(async (shots) => {
+    const decoded = await Promise.all(
+      shots.map(async ([label, base64]) => {
+        const image = new Image();
+        image.src = `data:image/png;base64,${base64}`;
+        await image.decode();
+        return [label, image];
+      }),
+    );
+    const [w, h] = [decoded[0][1].width, decoded[0][1].height];
+    const canvas = document.createElement("canvas");
+    canvas.width = w * 2 + 30;
+    canvas.height = h + 20;
+    const g = canvas.getContext("2d");
+    g.fillStyle = "#f1f5f9";
+    g.fillRect(0, 0, canvas.width, canvas.height);
+    decoded.forEach(([label, image], i) => {
+      const x = 10 + i * (w + 10);
+      g.drawImage(image, x, 10);
+      g.font = "600 22px Inter, sans-serif";
+      const width = g.measureText(label).width + 40;
+      g.fillStyle = "rgba(255,255,255,0.92)";
+      g.beginPath();
+      g.roundRect(x + w / 2 - width / 2, 10 + h - 120, width, 44, 22);
+      g.fill();
+      g.fillStyle = "#0f172a";
+      g.fillText(label, x + w / 2 - width / 2 + 20, 10 + h - 91);
+    });
+    return canvas.toDataURL("image/png");
+  }, deviceShots);
+  await fs.writeFile(
+    join(root, "docs", "figures", "screenshot-devices.png"),
+    Buffer.from(devicesImage.slice(devicesImage.indexOf(",") + 1), "base64"),
+  );
+  console.log("docs/figures/screenshot-devices.png");
   await browser.close();
 } finally {
   server.kill();

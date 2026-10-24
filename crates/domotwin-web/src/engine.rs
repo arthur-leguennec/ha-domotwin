@@ -4,8 +4,9 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::rc::Rc;
 use std::sync::Arc;
 
-use domotwin_core::bindings::{Bindings, read_bindings};
+use domotwin_core::bindings::{Bindings, Role, read_bindings};
 use domotwin_core::camera::{Camera, CutawayMode};
+use domotwin_core::devices::camera_cone;
 use domotwin_core::edit::Session;
 use domotwin_core::layers::{
     HeatKind, RoomLayers, legend, read_room_layers, room_shapes, room_texels,
@@ -119,6 +120,9 @@ pub struct Engine {
     models_dirty: bool,
     /// The room layers shown (heatmap, alerts, presence).
     layers: RoomLayers,
+    /// What each linked camera sees on the floor (element id, camera entity, plan points), worked
+    /// out when the plan shown or the bindings change.
+    cones: Vec<(String, String, Vec<[f64; 2]>)>,
 }
 
 #[wasm_bindgen]
@@ -169,6 +173,7 @@ impl Engine {
             models: Rc::default(),
             models_dirty: false,
             layers: RoomLayers::default(),
+            cones: Vec::new(),
         };
         engine
             .renderer
@@ -282,6 +287,33 @@ impl Engine {
         self.renderer.set_looks(&self.live.looks);
         self.rebuild_moving_parts();
         self.upload_rooms();
+        self.update_cones();
+    }
+
+    /// Works out what the linked cameras see (`DECISIONS.md`, D-024).
+    fn update_cones(&mut self) {
+        self.cones.clear();
+        let (Some(plan), Some(scene)) = (&self.plan, &self.scene) else {
+            return;
+        };
+        for (id, entities) in &self.bindings.elements {
+            let camera = entities.iter().find(|e| {
+                let class = self
+                    .states
+                    .get(&e.entity_id)
+                    .and_then(|s| s.device_class.as_deref());
+                e.role.unwrap_or_else(|| Role::derive(&e.entity_id, class)) == Role::Camera
+            });
+            let (Some(camera), Some(index)) =
+                (camera, plan.elements.iter().position(|e| e.id() == id))
+            else {
+                continue;
+            };
+            if let Some(cone) = camera_cone(plan, scene, index, self.bindings.view(id)) {
+                self.cones
+                    .push((id.clone(), camera.entity_id.clone(), cone));
+            }
+        }
     }
 
     /// Gives the renderer the room layers of the scene shown.
@@ -392,6 +424,7 @@ impl Engine {
         let value = serde_json::from_str(json).unwrap_or(serde_json::Value::Null);
         self.bindings = read_bindings(&value);
         self.retarget();
+        self.update_cones();
     }
 
     /// Updates entity states: JSON `{ "entity_id": { "state", "attributes" } | null }`, only the
@@ -538,6 +571,72 @@ impl Engine {
         self.renderer.layers_animating()
     }
 
+    /// What the linked cameras see on the floor, as JSON `[{"id", "entity", "points": [[x, y]…]}]`
+    /// in device pixels from the top left: each camera's cone cut to its room (`DECISIONS.md`,
+    /// D-024). A cone partly behind the camera of the view is left out.
+    #[wasm_bindgen(js_name = cameraViews)]
+    pub fn camera_views(&self) -> String {
+        let views: Vec<serde_json::Value> = self
+            .cones
+            .iter()
+            .filter_map(|(id, entity, cone)| {
+                let points: Option<Vec<[f64; 2]>> = cone
+                    .iter()
+                    .map(|p| self.renderer.screen_point([p[0], 1.0, p[1]]))
+                    .collect();
+                points.map(
+                    |points| serde_json::json!({ "id": id, "entity": entity, "points": points }),
+                )
+            })
+            .collect();
+        serde_json::Value::Array(views).to_string()
+    }
+
+    /// The elements of the plan shown (the edit overlay applied), as JSON `[{"id", "type", "name",
+    /// "kind"}]` (`kind` for furniture only).
+    #[wasm_bindgen(js_name = elementList)]
+    pub fn element_list(&self) -> String {
+        let list: Vec<serde_json::Value> = self
+            .plan
+            .iter()
+            .flat_map(|plan| &plan.elements)
+            .map(|element| {
+                let mut entry = serde_json::json!({ "id": element.id(), "name": element.name() });
+                let (kind, piece) = match element {
+                    Element::Room(_) => ("room", None),
+                    Element::Wall(_) => ("wall", None),
+                    Element::Door(_) => ("door", None),
+                    Element::Window(_) => ("window", None),
+                    Element::Furniture(f) => ("furniture", Some(f.kind.name())),
+                };
+                entry["type"] = kind.into();
+                if let Some(piece) = piece {
+                    entry["kind"] = piece.into();
+                }
+                entry
+            })
+            .collect();
+        serde_json::Value::Array(list).to_string()
+    }
+
+    /// Where the elements `ids` (JSON array) are drawn now: the top of each one's centre, as JSON
+    /// `{"id": [x, y]}` in device pixels from the top left. Elements behind the camera or without
+    /// geometry are left out.
+    #[wasm_bindgen(js_name = elementPoints)]
+    pub fn element_points(&self, ids: &str) -> String {
+        let ids: Vec<String> = serde_json::from_str(ids).unwrap_or_default();
+        let mut points = serde_json::Map::new();
+        for id in ids {
+            let Some(info) = self.elements.iter().find(|e| e.id == id) else {
+                continue;
+            };
+            if let Some(point) = top_of(info).and_then(|top| self.renderer.screen_point(top)) {
+                points.insert(id, serde_json::json!(point));
+            }
+        }
+        serde_json::Value::Object(points).to_string()
+    }
+
     /// Whether a camera move, a wall animation or a fade is running: frames are then drawn at
     /// the display's rate, else the layers' animation runs slower.
     pub fn moving(&self) -> bool {
@@ -569,13 +668,7 @@ impl Engine {
         }
         if self.renderer.power_layer() {
             for (info, look) in self.elements.iter().zip(&self.live.looks) {
-                let [min, max] = info.bounds;
-                if power_level(look.power) > 0.0 && min != max {
-                    let top = [
-                        f64::from(min[0] + max[0]) * 0.5,
-                        f64::from(max[1]),
-                        f64::from(min[2] + max[2]) * 0.5,
-                    ];
+                if let Some(top) = top_of(info).filter(|_| power_level(look.power) > 0.0) {
                     push(&info.id, "power", f64::from(look.power), top);
                 }
             }
@@ -771,6 +864,19 @@ impl Engine {
         let camera = self.renderer.render(time_ms);
         camera || !self.live.is_settled()
     }
+}
+
+/// The top of an element's centre (world), where its labels and badges go; `None` without
+/// geometry.
+fn top_of(info: &ElementInfo) -> Option<[f64; 3]> {
+    let [min, max] = info.bounds;
+    (min != max).then(|| {
+        [
+            f64::from(min[0] + max[0]) * 0.5,
+            f64::from(max[1]),
+            f64::from(min[2] + max[2]) * 0.5,
+        ]
+    })
 }
 
 fn gpu_hint(gl: &WebGl2RenderingContext) -> GpuHint {

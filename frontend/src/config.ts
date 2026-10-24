@@ -30,6 +30,10 @@ export interface CardConfig {
   /** Rooms someone is in glow softly. */
   presence: boolean;
   sun: SunMode;
+  /** Badges over the devices (locks, cameras, what plays, low batteries, appliances running). */
+  badges: boolean;
+  /** What the cameras see, on the floor. */
+  cameras: boolean;
 }
 
 /** A configuration problem; `key` is translated by the card. */
@@ -90,6 +94,8 @@ export function normalizeConfig(raw: unknown): CardConfig {
     alerts: flag(input.alerts, true, "config.bad_alerts"),
     presence: flag(input.presence, true, "config.bad_presence"),
     sun: pick(input.sun, SUNS, "fixed", "config.bad_sun"),
+    badges: flag(input.badges, true, "config.bad_badges"),
+    cameras: flag(input.cameras, true, "config.bad_cameras"),
   };
   const title = optionalString(input.title);
   if (title !== undefined) config.title = title;

@@ -1,12 +1,30 @@
 import {
   mdiAlert,
   mdiAlertCircleOutline,
+  mdiBatteryAlertVariantOutline,
   mdiCamera,
+  mdiCctv,
+  mdiCctvOff,
   mdiChevronUp,
   mdiCubeOutline,
+  mdiDishwasher,
+  mdiDoorOpen,
+  mdiFan,
   mdiFloorPlan,
   mdiHomeOutline,
   mdiLayersOutline,
+  mdiLock,
+  mdiLockAlert,
+  mdiLockClock,
+  mdiLockOpenVariant,
+  mdiPlay,
+  mdiPowerPlug,
+  mdiPrinter,
+  mdiPrinter3d,
+  mdiRecordRec,
+  mdiStove,
+  mdiTumbleDryer,
+  mdiWashingMachine,
 } from "@mdi/js";
 import { LitElement, css, html, nothing, svg, type PropertyValues, type TemplateResult } from "lit";
 
@@ -59,6 +77,7 @@ import {
   type PlanRoom,
   type RoomAlert,
 } from "../live/layers";
+import { deviceBadges, type Badge, type BadgeKind } from "../live/devices";
 import { StateSync } from "../live/states";
 import { planRooms } from "../live/suggest";
 import { FrameScheduler } from "../scheduler";
@@ -86,6 +105,46 @@ export interface ViewOptions {
   presence?: boolean;
   /** Where the sun lights from (`fixed` unless set). */
   sun?: SunMode;
+  /** Badges over the devices (on unless `false`). */
+  badges?: boolean;
+  /** What the cameras see, on the floor (on unless `false`). */
+  cameras?: boolean;
+}
+
+/** What a camera sees, as drawn now (device pixels). */
+interface CameraShape {
+  id: string;
+  entity: string;
+  points: [number, number][];
+}
+
+/** The icon of each badge; running appliances show their own. */
+const BADGE_ICONS: Record<Exclude<BadgeKind, "running">, string> = {
+  locked: mdiLock,
+  unlocked: mdiLockOpenVariant,
+  jammed: mdiLockAlert,
+  lock_moving: mdiLockClock,
+  lock_open: mdiDoorOpen,
+  camera: mdiCctv,
+  recording: mdiRecordRec,
+  camera_off: mdiCctvOff,
+  playing: mdiPlay,
+  battery_low: mdiBatteryAlertVariantOutline,
+};
+const APPLIANCE_ICONS: Record<string, string> = {
+  washer: mdiWashingMachine,
+  dryer: mdiTumbleDryer,
+  dishwasher: mdiDishwasher,
+  stove: mdiStove,
+  hood: mdiFan,
+  printer: mdiPrinter,
+  printer3d: mdiPrinter3d,
+};
+
+function badgeIcon(badge: Badge): string {
+  return badge.kind === "running"
+    ? (APPLIANCE_ICONS[badge.appliance ?? ""] ?? mdiPowerPlug)
+    : BADGE_ICONS[badge.kind];
 }
 
 /** Device pixel ratio cap: sharper than this costs fill rate for little visible gain. */
@@ -212,6 +271,11 @@ export class DomoTwinView extends LitElement {
     realSun: { state: true },
     alerts: { state: true },
     labels: { state: true },
+    showBadges: { state: true },
+    showCameras: { state: true },
+    badges: { state: true },
+    badgePoints: { state: true },
+    cameraShapes: { state: true },
   };
 
   hass?: HomeAssistant;
@@ -261,6 +325,13 @@ export class DomoTwinView extends LitElement {
   protected alerts: RoomAlert[] = [];
   /** The values of the layer shown and where they go (device pixels). */
   protected labels: LayerLabel[] = [];
+  /** The devices' badges and what the cameras see (the layer menu turns them off). */
+  protected showBadges = true;
+  protected showCameras = true;
+  protected badges = new Map<string, Badge[]>();
+  /** Where each element with badges is drawn (device pixels). */
+  protected badgePoints: Record<string, [number, number] | undefined> = {};
+  protected cameraShapes: CameraShape[] = [];
 
   private engine?: DomoTwinEngine;
   private canvas?: HTMLCanvasElement;
@@ -285,6 +356,13 @@ export class DomoTwinView extends LitElement {
   /** The rooms of the plan shown, and whether a heatmap found values in them. */
   private rooms: PlanRoom[] = [];
   private heatValues = 0;
+  /** The badges last worked out, and the badges' points and cameras last read from the engine. */
+  private badgesKey = "";
+  private pointsText = "{}";
+  private camerasText = "[]";
+  /** The kind of each piece and the name and type of each element of the plan shown. */
+  private kinds: Record<string, string> = {};
+  private names: Record<string, { name: string; type: string }> = {};
   /** The labels' JSON last read from the engine, and whether they must be read again. */
   private labelsText = "";
   private labelsDue = true;
@@ -464,6 +542,93 @@ export class DomoTwinView extends LitElement {
       }
       .labels span.power {
         transform: translate(-50%, -130%);
+      }
+      .cameras {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+      }
+      .cameras polygon {
+        fill: color-mix(in srgb, var(--primary-color, #03a9f4) 16%, transparent);
+        stroke: color-mix(in srgb, var(--primary-color, #03a9f4) 55%, transparent);
+        stroke-width: 1.5;
+        stroke-linejoin: round;
+      }
+      .cameras polygon.recording {
+        fill: color-mix(in srgb, var(--error-color, #db4437) 16%, transparent);
+        stroke: color-mix(in srgb, var(--error-color, #db4437) 60%, transparent);
+      }
+      .cameras polygon.off {
+        fill: color-mix(in srgb, var(--secondary-text-color, #5f6368) 10%, transparent);
+        stroke: color-mix(in srgb, var(--secondary-text-color, #5f6368) 40%, transparent);
+        stroke-dasharray: 5 4;
+      }
+      .badges {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        overflow: hidden;
+      }
+      .badge-group {
+        position: absolute;
+        transform: translate(-50%, calc(-100% - 6px));
+        display: flex;
+        gap: 2px;
+        padding: 2px;
+        border: none;
+        border-radius: 14px;
+        background: color-mix(in srgb, var(--card-background-color, #fff) 86%, transparent);
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+        color: inherit;
+        font: inherit;
+        cursor: pointer;
+        pointer-events: auto;
+      }
+      .badges.raised .badge-group {
+        transform: translate(-50%, calc(-100% - 34px));
+      }
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 2px;
+        min-width: 22px;
+        height: 22px;
+        padding: 0 3px;
+        box-sizing: border-box;
+        border-radius: 11px;
+        font-size: 0.7rem;
+        font-weight: 600;
+        color: var(--secondary-text-color, #5f6368);
+      }
+      .badge svg.icon {
+        width: 16px;
+        height: 16px;
+      }
+      .badge.ok {
+        color: var(--success-color, #43a047);
+      }
+      .badge.warning {
+        color: var(--warning-color, #ffa600);
+      }
+      .badge.danger {
+        color: var(--error-color, #db4437);
+      }
+      .badge.running,
+      .badge.recording {
+        animation: badge-pulse 1.6s ease-in-out infinite;
+      }
+      @keyframes badge-pulse {
+        50% {
+          opacity: 0.45;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .badge.running,
+        .badge.recording {
+          animation: none;
+        }
       }
       .alerts {
         position: absolute;
@@ -656,6 +821,10 @@ export class DomoTwinView extends LitElement {
       const previous = changed.get("options");
       if (previous?.layer !== this.options.layer) this.layer = this.options.layer ?? "off";
       if (previous?.sun !== this.options.sun) this.realSun = this.options.sun === "real";
+      if (previous?.badges !== this.options.badges) this.showBadges = this.options.badges !== false;
+      if (previous?.cameras !== this.options.cameras) {
+        this.showCameras = this.options.cameras !== false;
+      }
     }
     if (this.layer === "off" && this.labels.length > 0) {
       this.labels = [];
@@ -693,6 +862,10 @@ export class DomoTwinView extends LitElement {
       this.applyLayers();
     }
     if (changed.has("north") || own.has("realSun") || changed.has("hass")) this.applySun();
+    if (changed.has("hass") || changed.has("bindings") || changed.has("plan")) {
+      this.applyDevices();
+    }
+    if (changed.has("linking") || own.has("showBadges") || own.has("showCameras")) this.redraw();
   }
 
   /** Draws a new frame as soon as possible (when visible). */
@@ -1126,10 +1299,11 @@ export class DomoTwinView extends LitElement {
     const more = engine.frame(time);
     const cost = performance.now() - start;
     const movingAfter = engine.moving;
-    // The values move with the camera, or change: not with the layers' own animation.
-    if (this.layer !== "off" && (this.labelsDue || movingBefore || movingAfter)) {
+    // The values, badges and cameras' views move with the camera, or change: not with the
+    // layers' own animation.
+    if (this.labelsDue || movingBefore || movingAfter) {
       this.labelsDue = false;
-      this.readLabels(engine);
+      this.readOverlays(engine);
     }
     // The layers' animation alone runs at 24 frames per second; camera moves, wall animations
     // and fades at the display's rate (a gesture sets it back at once, see `apply`).
@@ -1279,6 +1453,71 @@ export class DomoTwinView extends LitElement {
     if (JSON.stringify(alerts) !== JSON.stringify(this.alerts)) this.alerts = alerts;
   }
 
+  /**
+   * Reads the kind and name of the elements of the plan shown (the edit overlay applied), then
+   * works out the badges again.
+   */
+  private readElements(engine: DomoTwinEngine): void {
+    this.kinds = {};
+    this.names = {};
+    for (const element of engine.elementList()) {
+      if (element.kind) this.kinds[element.id] = element.kind;
+      this.names[element.id] = { name: element.name || element.id, type: element.type };
+    }
+    this.applyDevices();
+  }
+
+  /** Works out the devices' badges; the view changes only when they did. */
+  private applyDevices(): void {
+    const hass = this.hass;
+    const badges =
+      hass && this.bindings
+        ? deviceBadges(hass, this.bindings, this.kinds)
+        : new Map<string, Badge[]>();
+    const key = JSON.stringify([...badges]);
+    if (key === this.badgesKey) return;
+    this.badgesKey = key;
+    this.badges = badges;
+    this.redraw();
+  }
+
+  /** Reads where the layer's values, the badges and what the cameras see go now. */
+  private readOverlays(engine: DomoTwinEngine): void {
+    if (this.layer !== "off") this.readLabels(engine);
+    const shown = !this.edit && !this.linking;
+    const ids = shown && this.showBadges ? [...this.badges.keys()] : [];
+    const points = ids.length > 0 ? engine.elementPoints(JSON.stringify(ids)) : "{}";
+    if (points !== this.pointsText) {
+      this.pointsText = points;
+      this.badgePoints = JSON.parse(points) as Record<string, [number, number]>;
+    }
+    const cameras = shown && this.showCameras ? engine.cameraViews() : "[]";
+    if (cameras !== this.camerasText) {
+      this.camerasText = cameras;
+      this.cameraShapes = JSON.parse(cameras) as CameraShape[];
+    }
+  }
+
+  /** A tap on an element's badges: the element's tap. */
+  private tapElement(id: string): void {
+    this.sheet = undefined;
+    const binding = this.bindings?.elements[id];
+    const hass = this.hass;
+    if (!binding || !hass) return;
+    this.engine?.highlight(id);
+    // An action ran: a second tap soon after is a new tap, not a double tap.
+    this.gestures.forgetTap();
+    const info = this.names[id];
+    const picked: PickedElement = {
+      id,
+      type: (info?.type ?? "furniture") as PickedElement["type"],
+      name: info?.name ?? id,
+      room: "",
+    };
+    void this.act(tapAction(binding, hass), binding, picked);
+    this.redraw();
+  }
+
   /** Reads where the layer's values go; the labels change only when they moved. */
   private readLabels(engine: DomoTwinEngine): void {
     const text = this.edit ? "[]" : engine.layerLabels();
@@ -1362,6 +1601,7 @@ export class DomoTwinView extends LitElement {
       this.savedViews = this.engine.views();
       this.layersKey = undefined;
       this.applyLayers();
+      this.readElements(this.engine);
       if (!sameHome) {
         if (this.options.view === "2d") this.setPlanView(true);
         if (this.options.room) this.engine.focusElement(this.options.room);
@@ -1730,7 +1970,8 @@ export class DomoTwinView extends LitElement {
           event.preventDefault();
         }}
       ></div>
-      ${ready ? this.renderLabels() : nothing} ${this.renderGuides()} ${this.renderOverlay()}
+      ${ready ? this.renderCameras() : nothing} ${ready ? this.renderLabels() : nothing}
+      ${ready ? this.renderBadges() : nothing} ${this.renderGuides()} ${this.renderOverlay()}
       ${ready ? this.renderLegend() : nothing} ${ready ? this.renderAlerts() : nothing}
       ${ready ? this.renderTools() : nothing} ${ready ? this.renderSheet() : nothing}
       ${
@@ -1886,6 +2127,96 @@ export class DomoTwinView extends LitElement {
       >
         ${t.t("layers.sun")}
       </button>
+      <button
+        role="menuitemcheckbox"
+        data-testid="show-badges"
+        aria-checked=${this.showBadges ? "true" : "false"}
+        @click=${() => {
+          this.layersOpen = false;
+          this.showBadges = !this.showBadges;
+        }}
+      >
+        ${t.t("layers.badges")}
+      </button>
+      <button
+        role="menuitemcheckbox"
+        data-testid="show-cameras"
+        aria-checked=${this.showCameras ? "true" : "false"}
+        @click=${() => {
+          this.layersOpen = false;
+          this.showCameras = !this.showCameras;
+        }}
+      >
+        ${t.t("layers.cameras")}
+      </button>
+    </div>`;
+  }
+
+  /** What the cameras see: their cones on the floor, red while recording. */
+  private renderCameras(): TemplateResult | typeof nothing {
+    const canvas = this.canvas;
+    if (!canvas || !this.showCameras || this.edit || this.linking) return nothing;
+    if (this.cameraShapes.length === 0) return nothing;
+    const k = Math.max(1, canvas.clientWidth) / Math.max(1, canvas.width);
+    return html`<svg class="cameras" aria-hidden="true" data-testid="cameras">
+      ${this.cameraShapes.map((shape) => {
+        const state = this.hass?.states[shape.entity]?.state;
+        // A camera Home Assistant no longer has is off too.
+        const tone =
+          state === "recording"
+            ? "recording"
+            : state === undefined || state === "unavailable"
+              ? "off"
+              : "on";
+        const points = shape.points.map(([x, y]) => `${x * k},${y * k}`).join(" ");
+        return svg`<polygon class=${tone} data-id=${shape.id} points=${points}></polygon>`;
+      })}
+    </svg>`;
+  }
+
+  /** The devices' badges over their elements; a tap does what a tap on the element does. */
+  private renderBadges(): TemplateResult | typeof nothing {
+    const canvas = this.canvas;
+    if (!canvas || !this.showBadges || this.edit || this.linking || this.badges.size === 0) {
+      return nothing;
+    }
+    const t = this.translator;
+    const k = Math.max(1, canvas.clientWidth) / Math.max(1, canvas.width);
+    // Above the power layer's labels, which stand at the same place.
+    const raised = this.layer === "power" ? "raised" : "";
+    return html`<div class="badges ${raised}" data-testid="badges">
+      ${[...this.badges].map(([id, badges]) => {
+        const point = this.badgePoints[id];
+        if (!point) return nothing;
+        const name = this.names[id]?.name ?? id;
+        const label = badges
+          .map((badge) => {
+            const text = t.t(`devices.${badge.kind}`, { name });
+            return badge.text ? `${text} (${badge.text})` : text;
+          })
+          .join(", ");
+        return html`<button
+          class="badge-group"
+          data-element=${id}
+          style="left:${point[0] * k}px;top:${point[1] * k}px"
+          aria-label=${label}
+          title=${label}
+          @click=${() => {
+            this.tapElement(id);
+          }}
+        >
+          ${badges.map(
+            (badge) =>
+              html`<span class="badge ${badge.tone} ${badge.kind}" data-kind=${badge.kind}
+                >${icon(badgeIcon(badge))}${
+                  badge.kind === "battery_low" && badge.text
+                    ? html`<small>${badge.text}</small>`
+                    : nothing
+                }</span
+              >`,
+          )}
+        </button>`;
+      })}
     </div>`;
   }
 

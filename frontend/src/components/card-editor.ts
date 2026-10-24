@@ -81,12 +81,14 @@ function schema(t: Translator, rooms: RoomOption[], config: Record<string, unkno
     { name: "alerts", selector: { boolean: {} } },
     { name: "presence", selector: { boolean: {} } },
     { name: "sun", selector: options(t, "editor.sun", ["fixed", "real"]) },
+    { name: "badges", selector: { boolean: {} } },
+    { name: "cameras", selector: { boolean: {} } },
     { name: "font_family", selector: { text: {} } },
   ];
 }
 
 /** Switches that are on unless turned off show as on. */
-const ON_BY_DEFAULT = { alerts: true, presence: true };
+const ON_BY_DEFAULT = { alerts: true, presence: true, badges: true, cameras: true };
 
 /** Visual editor of `custom:domotwin-card` (YAML is never needed). */
 export class DomoTwinCardEditor extends LitElement {

@@ -4,6 +4,7 @@
  */
 import type { HomeAssistant } from "../ha/types";
 import { areaEntities, entityName, type BindingsJson, type ElementBinding } from "./bindings";
+import { APPLIANCES } from "./devices";
 
 /** What the editor needs to know about a plan element. */
 export interface PlanElementInfo {
@@ -34,17 +35,10 @@ const LIGHT_KINDS = new Set([
   "spot",
   "nightstand",
 ]);
+/** Furniture kinds a camera is often placed on or drawn as. */
+const CAMERA_KINDS = new Set(["custom", "shelf", "openshelf", "bookcase", "spot", "frame"]);
 /** Furniture kinds with a plug: power sensors and switches fit them. */
-const APPLIANCE_KINDS = new Set([
-  "fridge",
-  "washer",
-  "dryer",
-  "dishwasher",
-  "stove",
-  "hood",
-  "printer",
-  "printer3d",
-]);
+const APPLIANCE_KINDS = new Set([...APPLIANCES, "fridge"]);
 
 /** The plan element with this id, from the plan JSON. */
 export function planElement(plan: unknown, id: string): PlanElementInfo | undefined {
@@ -96,6 +90,8 @@ export function fit(element: PlanElementInfo, entityId: string, hass: HomeAssist
   }
   if (element.type !== "furniture") return 0;
   const kind = element.kind ?? "";
+  // A camera stands on a shelf, hangs on a wall or is a model of its own.
+  if (domain === "camera") return CAMERA_KINDS.has(kind) ? 2 : 0;
   if (LIGHT_KINDS.has(kind)) return domain === "light" ? 3 : domain === "switch" ? 2 : 0;
   if (kind === "fan") return domain === "fan" ? 3 : domain === "light" ? 2 : 0;
   if (kind === "curtain") {

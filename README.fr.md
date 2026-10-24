@@ -17,7 +17,7 @@ Local, rapide, Rust + WebAssembly.</p>
 > route](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/ROADMAP.md), en anglais).
 > L’intégration, le panneau, la carte, l’import du plan et de l’IFC, les vues 3D et 2D, le
 > pilotage en direct (états, toucher, appui long, panneau de pièce, liaisons), le mode édition, vos
-> propres modèles 3D et les calques fonctionnent déjà ; les appareils, un éditeur de plan et les
+> propres modèles 3D, les calques et les appareils fonctionnent déjà ; un éditeur de plan et les
 > étages arrivent ensuite. Les fonctionnalités ci-dessous décrivent la version 0.1.0.
 
 ## Fonctionnalités
@@ -36,6 +36,9 @@ Local, rapide, Rust + WebAssembly.</p>
   des capteurs de la zone de chaque pièce, des alertes de sécurité qui pulsent dans leur pièce
   (fumée, gaz, fuite d’eau, alarme, fenêtre ouverte sous la pluie), les pièces occupées, le vrai
   soleil qui entre par vos fenêtres, et ce que consomme chaque appareil.
+- **Appareils.** Des badges sur vos appareils (l’état d’une serrure, une caméra qui enregistre, ce
+  qui est en lecture, une batterie faible, le lave-linge en marche), et ce que voit chaque caméra,
+  dessiné au sol de sa pièce ; touchez pour l’image en direct.
 - **Mode édition.** Déplacez, tournez et empilez les meubles avec aimantation, repères et
   annulation, ajoutez des meubles depuis un catalogue, liez n’importe quel objet à des entités (avec
   des suggestions tirées de vos pièces), et ajoutez votre propre meuble ou appareil avec son modèle
@@ -61,6 +64,10 @@ Local, rapide, Rust + WebAssembly.</p>
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-layers.png" alt="Les calques : la température de chaque pièce en carte de chaleur avec sa légende, la consommation des appareils, une alerte de fumée qui pulse dans la cuisine, et le soleil qui entre par les fenêtres" width="100%">
+</p>
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-devices.png" alt="Les appareils : des badges sur la porte d’entrée, la télévision, la caméra et le lave-linge, et le cône de ce que voit la caméra du séjour sur le plan 2D" width="100%">
 </p>
 
 ## Démarrage rapide
@@ -100,6 +107,8 @@ YAML n’est jamais nécessaire. Pour référence, les options de la carte :
 | `alerts`      | `true`, `false`                     | `true`     | Alertes de sécurité des pièces (fumée, gaz, eau, alarme, fenêtre ouverte sous la pluie). |
 | `presence`    | `true`, `false`                     | `true`     | Les pièces occupées s’illuminent doucement.   |
 | `sun`         | `fixed`, `real`                     | `fixed`    | `real` : le soleil éclaire depuis sa vraie position (`sun.sun`), par les fenêtres. |
+| `badges`      | `true`, `false`                     | `true`     | Badges des appareils : serrures, caméras, lecture, batteries faibles, appareils en marche. |
+| `cameras`     | `true`, `false`                     | `true`     | Ce que voient les caméras liées, dessiné au sol. |
 | `font_family` | une famille de police               | incluse    | Police des textes de la carte.                |
 
 Options de l’intégration (Paramètres → Appareils et services → DomoTwin → Configurer) : afficher le

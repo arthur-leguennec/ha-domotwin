@@ -432,3 +432,42 @@ Decided while the maintainer was away (M4); open to review.
   motion stops it). Sensors outside the room's area do not count, and picking a room's sensors one
   by one is left for later. The halo is centred on the mean of the room's corners, which can fall
   outside an L-shaped room. The settings hold only north for now.
+
+## D-024 · Devices: badges from the links, cameras' cones from the pieces, both over the picture
+
+Decided while the maintainer was away (M5); open to review.
+
+- **Context.** M5 shows what the devices of the home are doing. The plan format has a closed list
+  of kinds (unknown ones read as `desk`) and DomoTwin's exports must stay valid House Maquette
+  plans, so there is no "camera" or "lock" piece to add; but every element can already be linked
+  to entities.
+- **Decision.**
+  - **From the links.** A device is whatever its entity is linked to: a camera on the bookcase, a
+    lock on the entrance door, a battery sensor on the door it powers. A new `camera` role joins
+    the roles (derived from `camera.*`). The binding of an element may say what its camera sees:
+    `fov` (10–180°, 90 by default) and `range` (50–3 000 cm, 600), set in the link editor and
+    checked by the integration.
+  - **Badges in the page, not in the scene.** The frontend works out each element's badges from
+    the states it already has (lock state, camera, playing, battery at 20 % or less, an appliance
+    running: power over 10 W or a `running` sensor), at most two per element, the most urgent
+    first. The engine only says where elements are drawn (`elementPoints`, one call for all), read
+    again only when the camera moves or something changes (D-023's rule for labels). Badges are
+    buttons: a tap does the element's tap; they say what they show to screen readers.
+  - **What a camera sees, in its room.** The engine works out a camera's view from the centre of
+    its piece (moved up to 40 cm forward when it sits in a wall) towards the piece's front: rays
+    across the angle of view and to the room's corners, each stopping at the first side of the
+    room or at the reach, so that the walls hide what is behind them, an L-shaped room's inner
+    corner included. It does so when the plan or the bindings change and only projects it on the
+    floor when the view moves (`cameraViews`); the view draws it as an SVG polygon, blue, red while
+    recording, grey and dashed when unavailable. No geometry is added to the scene, so nothing is
+    rebuilt when a camera's settings change.
+  - **Kinds and names from the engine.** The badges take each piece's kind (for appliances) and
+    name (for their labels) from the plan the engine shows, the edit overlay applied
+    (`elementList`), so that pieces added in edit mode get them too.
+  - **Unavailable devices.** A lock or a camera that is unavailable greys out its element, as
+    lights and covers do.
+- **Consequences.** Views are not cut by furniture, and an open side between two rooms stops a
+  view as a wall would (the room's polygon stands for its walls). A camera must be linked to a piece; cameras of their own come
+  with the plan editor (M6). Badges hide while linking and in edit mode, where taps pick elements.
+  The badges and cones of a large home are a few dozen HTML and SVG nodes, moved only when the
+  camera moves.

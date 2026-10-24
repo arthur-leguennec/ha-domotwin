@@ -49,6 +49,13 @@ const entities = [
   ["binary_sensor.living_room_window_contact", "living_room", "off", { device_class: "window" }],
   ["scene.living_room_evening", "living_room", "2026-01-01T18:00:00+00:00", {}],
   ["binary_sensor.entrance_door_contact", "hallway", "on", { device_class: "door" }],
+  [
+    "sensor.entrance_door_lock_battery",
+    "hallway",
+    "64",
+    { device_class: "battery", unit_of_measurement: "%" },
+  ],
+  ["camera.living_room", "living_room", "idle", { brand: "Demo" }],
   ["lock.entrance_door", "hallway", "unlocked", {}],
   ["light.hall_spots", "hallway", "off", { ...warm }],
   ["light.kitchen_ceiling", "kitchen", "off", { ...warm }],

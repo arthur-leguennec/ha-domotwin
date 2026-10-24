@@ -8,6 +8,7 @@
 
 pub mod bindings;
 pub mod camera;
+pub mod devices;
 pub mod edit;
 pub mod error;
 pub mod geometry;

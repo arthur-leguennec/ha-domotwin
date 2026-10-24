@@ -138,7 +138,8 @@ function areaOfRoom(
   return found.get(key);
 }
 
-function numberOf(value: unknown): number | undefined {
+/** A number from a state or an attribute (`"21.5"`, `21.5`); undefined otherwise. */
+export function numberOf(value: unknown): number | undefined {
   const n = typeof value === "number" ? value : typeof value === "string" ? Number(value) : NaN;
   return Number.isFinite(n) && !(typeof value === "string" && value.trim() === "") ? n : undefined;
 }

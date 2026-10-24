@@ -35,7 +35,7 @@ async def test_diagnostics_are_counts_only(
         "window": 6,
         "furniture": 39,
     }
-    assert diagnostics["bindings"] == {"rooms": 5, "elements": 19}
+    assert diagnostics["bindings"] == {"rooms": 5, "elements": 20}
     assert diagnostics["settings"] == ["north"]
     text = json.dumps(diagnostics)
     for private in ("Living room", "light.", "living", "Demo apartment", "37.5"):

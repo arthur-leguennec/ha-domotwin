@@ -7,7 +7,7 @@
 //   models=unused (the stool model in the plan, without pieces)
 //   layer=off|temperature|humidity|co2|pm25|power  alerts=0  presence=0 (card options)
 //   sunpos=<azimuth>,<elevation> (sun.sun's position)  realsun=1 (card option sun: real)
-//   north=<degrees> (the stored settings)
+//   north=<degrees> (the stored settings)  badges=0  cameras=0 (card options)
 import { applyService, demoHome } from "./demo-home.mjs";
 
 const params = new URLSearchParams(location.search);
@@ -258,6 +258,8 @@ if (mode === "panel") {
     alerts: params.get("alerts") === "0" ? false : undefined,
     presence: params.get("presence") === "0" ? false : undefined,
     sun: params.get("realsun") === "1" ? "real" : undefined,
+    badges: params.get("badges") === "0" ? false : undefined,
+    cameras: params.get("cameras") === "0" ? false : undefined,
   });
 }
 element.hass = hass;

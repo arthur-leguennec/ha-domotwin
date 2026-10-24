@@ -206,3 +206,20 @@ object on a state change takes 0.05–0.2 ms. A moving layer draws 24 frames per
 nothing else moves (`frameInterval` in the view's debug state); SwiftShader itself draws only a
 few per second, so the rate on real GPUs is checked through the scheduler's cap, not by counting.
 
+
+### M5 (devices)
+
+Bundle: the first load is **327.3 kB gzipped** of 1 200 kB (+12.5 kB):
+
+| File | Raw | Gzipped |
+| --- | ---: | ---: |
+| `domotwin_web_bg.<hash>.wasm` | 613.0 kB | 267.4 kB |
+| `domotwin.js` (entry) | 82.6 kB | 23.1 kB |
+
+The engine grew by 7 kB gzipped (the camera role and settings, the cone and its clipping, the
+cameras' and elements' points), the entry by 2.5 kB (the badges, their icons and the cones).
+
+In headless Chromium with the demo apartment (three elements with badges, one camera): working
+out the badges from the `hass` object takes 0.04 ms, the elements' points 0.02 ms and the cameras'
+cones 0.07 ms, read only when the camera moves or a state changes; the CPU time per frame is
+unchanged (0.3 ms median, 1.1 ms p95).

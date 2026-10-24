@@ -18,6 +18,7 @@ import {
 } from "../live/action-choice";
 import {
   deriveRole,
+  roleOf,
   entityName,
   tapAction,
   type BoundEntity,
@@ -45,10 +46,24 @@ const ROLES: readonly Role[] = [
   "media",
   "contact",
   "lock",
+  "camera",
   "power",
   "climate",
   "sensor",
 ];
+
+/** What a camera sees: its angle of view (degrees) and reach (cm), with their limits. */
+const VIEW_FIELDS = [
+  ["fov", 10, 180, 90],
+  ["range", 50, 3000, 600],
+] as const;
+
+/** A view field typed by the user: empty (the default) or a number within its limits. */
+function viewValue(text: string, low: number, high: number): number | undefined | null {
+  if (text.trim() === "") return undefined;
+  const value = Number(text);
+  return Number.isFinite(value) && value >= low && value <= high ? value : null;
+}
 
 const CHOICES: readonly [ActionChoice, MessageKey][] = [
   ["toggle", "link.action_toggle"],
@@ -72,6 +87,8 @@ export class DomoTwinLink extends Sheet {
     hold: { state: true },
     chosenArea: { state: true },
     query: { state: true },
+    fov: { state: true },
+    range: { state: true },
   };
   static override styles = [
     baseStyles,
@@ -149,6 +166,9 @@ export class DomoTwinLink extends Sheet {
   protected hold: ActionDraft = actionDraft(undefined);
   protected chosenArea = "";
   protected query = "";
+  /** A linked camera's angle of view and reach, as typed (empty: the default). */
+  protected fov = "";
+  protected range = "";
 
   protected override willUpdate(changed: PropertyValues<this>): void {
     if (changed.has("element") || changed.has("binding") || changed.has("area")) {
@@ -157,6 +177,8 @@ export class DomoTwinLink extends Sheet {
       this.hold = actionDraft(this.binding?.hold_action);
       this.chosenArea = this.area ?? (this.element?.type === "room" ? (this.roomArea ?? "") : "");
       this.query = "";
+      this.fov = this.binding?.fov?.toString() ?? "";
+      this.range = this.binding?.range?.toString() ?? "";
     }
   }
 
@@ -173,17 +195,34 @@ export class DomoTwinLink extends Sheet {
       if (tap === null || hold === null) return;
       if (tap) binding.tap_action = tap;
       if (hold) binding.hold_action = hold;
+      if (this.hasCamera) {
+        for (const [key, low, high] of VIEW_FIELDS) {
+          const value = viewValue(this[key], low, high);
+          if (value === null) return;
+          if (value !== undefined) binding[key] = value;
+        }
+      }
       change = { element: element.id, binding };
     }
     fire(this, "domotwin-link-save", change);
   }
 
-  /** A field of an action is not valid: nothing to save yet. */
+  /** A field of an action or of the camera's view is not valid: nothing to save yet. */
   private get invalid(): boolean {
     if (this.element?.type === "room") return false;
     return (
       draftAction(this.tap, this.binding?.tap_action) === null ||
-      draftAction(this.hold, this.binding?.hold_action) === null
+      draftAction(this.hold, this.binding?.hold_action) === null ||
+      (this.hasCamera &&
+        VIEW_FIELDS.some(([key, low, high]) => viewValue(this[key], low, high) === null))
+    );
+  }
+
+  /** A camera is linked to a piece: what it sees can be set (cones start from pieces). */
+  private get hasCamera(): boolean {
+    return (
+      this.element?.type === "furniture" &&
+      this.entities.some((entity) => roleOf(entity, this.hass) === "camera")
     );
   }
 
@@ -311,6 +350,7 @@ export class DomoTwinLink extends Sheet {
               </div>`;
             })
       }
+      ${this.hasCamera ? this.viewEditor() : nothing}
       <h3>
         ${areaName ? t.t("link.suggestions", { area: areaName }) : t.t("link.suggestions_title")}
       </h3>
@@ -335,6 +375,33 @@ export class DomoTwinLink extends Sheet {
       </label>
       ${found.map((id) => this.candidate(hass, id))} ${this.actionEditor(hass, "tap")}
       ${this.actionEditor(hass, "hold")}`;
+  }
+
+  /** What a linked camera sees on the plan: its angle of view and reach. */
+  private viewEditor(): TemplateResult {
+    const t = this.t;
+    const invalid = VIEW_FIELDS.some(
+      ([key, low, high]) => viewValue(this[key], low, high) === null,
+    );
+    return html`<h3>${t.t("link.camera_view")}</h3>
+      ${VIEW_FIELDS.map(
+        ([key, , , fallback]) =>
+          html`<label>
+            <span class="field">${t.t(`link.${key}`)}</span>
+            <input
+              type="text"
+              inputmode="decimal"
+              autocomplete="off"
+              data-testid=${`link-${key}`}
+              placeholder=${String(fallback)}
+              .value=${this[key]}
+              @input=${(event: Event) => {
+                this[key] = (event.target as HTMLInputElement).value;
+              }}
+            />
+          </label>`,
+      )}
+      ${invalid ? html`<p class="hint error">${t.t("link.view_invalid")}</p>` : nothing}`;
   }
 
   /** The choice of an action and its fields. */

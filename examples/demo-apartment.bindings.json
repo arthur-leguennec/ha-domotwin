@@ -31,10 +31,16 @@
     "win-living-1": {
       "entities": [{ "entity_id": "binary_sensor.living_room_window_contact", "role": "contact" }]
     },
+    "bookcase": {
+      "entities": [{ "entity_id": "camera.living_room" }],
+      "fov": 100,
+      "range": 520
+    },
     "door-entrance": {
       "entities": [
         { "entity_id": "binary_sensor.entrance_door_contact", "role": "contact" },
-        { "entity_id": "lock.entrance_door", "role": "lock" }
+        { "entity_id": "lock.entrance_door", "role": "lock" },
+        { "entity_id": "sensor.entrance_door_lock_battery" }
       ],
       "tap_action": { "action": "more-info", "entity_id": "lock.entrance_door" }
     },
