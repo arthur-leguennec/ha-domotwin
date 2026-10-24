@@ -44,6 +44,22 @@ describe("DomoTwinClient", () => {
     stop();
   });
 
+  it("caches the settings until any save", async () => {
+    const { hass, sent, emit } = fakeHass();
+    const client = DomoTwinClient.for(hass);
+    await client.getSettings();
+    await client.getSettings();
+    expect(sent.filter((m) => m.type === "domotwin/settings/get")).toHaveLength(1);
+    await client.saveSettings({ north: 45 });
+    expect(sent.at(-1)).toEqual({ type: "domotwin/settings/save", settings: { north: 45 } });
+    await client.getSettings();
+    const stop = client.subscribe(() => undefined);
+    emit({ kind: "settings", revision: 3 });
+    await client.getSettings();
+    expect(sent.filter((m) => m.type === "domotwin/settings/get")).toHaveLength(3);
+    stop();
+  });
+
   it("sends the expected revision when asked", async () => {
     const { hass, sent } = fakeHass();
     const client = DomoTwinClient.for(hass);

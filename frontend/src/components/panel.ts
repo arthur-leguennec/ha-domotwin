@@ -1,6 +1,7 @@
 import {
   mdiCheck,
   mdiClose,
+  mdiCogOutline,
   mdiLinkVariant,
   mdiPencilOutline,
   mdiTrayArrowDown,
@@ -18,7 +19,7 @@ import {
   type PickedElement,
   type UserModel,
 } from "../engine/engine";
-import { DomoTwinClient, type PlanJson, type StoredPlan } from "../ha/client";
+import { DomoTwinClient, type PlanJson, type Settings, type StoredPlan } from "../ha/client";
 import { isHassError, type HomeAssistant } from "../ha/types";
 import { readBindings, roomArea, type BindingsJson, type ElementBinding } from "../live/bindings";
 import { clearDraft, readDraft, writeDraft, type Draft } from "../live/draft";
@@ -120,6 +121,8 @@ export class DomoTwinPanel extends LitElement {
     modelImport: { state: true },
     discardAsk: { state: true },
     draft: { state: true },
+    settings: { state: true },
+    northDraft: { state: true },
   };
 
   narrow = false;
@@ -146,6 +149,9 @@ export class DomoTwinPanel extends LitElement {
   protected discardAsk = false;
   /** Changes not saved, kept by this browser, offered when edit mode starts. */
   protected draft?: Draft;
+  /** The home's settings, and north being set (the settings dialog is open). */
+  protected settings?: Settings;
+  protected northDraft?: number;
   private revision?: number;
   /**
    * The overlay's change count last seen: a draft is written only when the overlay changed (a drag
@@ -310,6 +316,35 @@ export class DomoTwinPanel extends LitElement {
         flex: 1;
         min-width: 160px;
       }
+      .ask label.north {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        align-items: center;
+        gap: 8px;
+      }
+      .ask label.north input {
+        grid-column: 1 / -1;
+        width: 100%;
+        accent-color: var(--primary-color, #03a9f4);
+      }
+      .compass {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-variant-numeric: tabular-nums;
+      }
+      .compass svg {
+        width: 28px;
+        height: 28px;
+        fill: var(--error-color, #db4437);
+        border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+        border-radius: 50%;
+      }
+      .ask p.hint {
+        font-size: 0.85rem;
+        font-weight: 400;
+        color: var(--secondary-text-color, #5f6368);
+      }
     `,
   ];
 
@@ -351,11 +386,47 @@ export class DomoTwinPanel extends LitElement {
     if (!client || this.unsubscribe) return;
     this.unsubscribe = client.subscribe((event) => {
       if (event.kind === "plan") void this.loadPlan();
-      else void this.loadBindings();
+      else if (event.kind === "bindings") void this.loadBindings();
+      else void this.loadSettings();
     });
     void this.loadPlan();
     void this.loadBindings();
+    void this.loadSettings();
   }
+
+  /** Without settings the home shows with north up. */
+  private async loadSettings(): Promise<void> {
+    const client = this.client;
+    if (!client) return;
+    try {
+      this.settings = (await client.getSettings()).settings;
+    } catch {
+      this.settings = undefined;
+    }
+  }
+
+  private readonly openSettings = (): void => {
+    this.northDraft = this.settings?.north ?? 0;
+  };
+
+  private readonly saveSettings = async (): Promise<void> => {
+    const client = this.client;
+    const north = this.northDraft;
+    if (!client || north === undefined) return;
+    this.busy = true;
+    try {
+      await client.saveSettings({ ...this.settings, north });
+      this.settings = { ...this.settings, north };
+      this.northDraft = undefined;
+      this.show(this.t.t("settings.saved"));
+    } catch (error) {
+      const t = this.t;
+      const reason = isHassError(error) ? t.error(error.code) : t.error("unknown");
+      this.show(t.t("settings.save_failed", { reason }), true);
+    } finally {
+      this.busy = false;
+    }
+  };
 
   /** Without bindings the home still shows, without live states. */
   private async loadBindings(): Promise<void> {
@@ -909,6 +980,7 @@ export class DomoTwinPanel extends LitElement {
           .bindings=${this.bindings}
           .planError=${this.planError}
           .options=${PANEL_OPTIONS}
+          .north=${this.northDraft ?? this.settings?.north ?? 0}
           .linking=${this.linking}
           .editing=${this.editing}
           .multiSelect=${this.multi}
@@ -984,7 +1056,68 @@ export class DomoTwinPanel extends LitElement {
       }
       <button class="action" @click=${this.exportPlan} aria-label=${t.t("panel.export")}>
         ${icon(mdiTrayArrowDown)}<span class="label">${t.t("panel.export")}</span>
-      </button>`;
+      </button>
+      ${
+        admin && this.plan && !this.linking
+          ? html`<button
+              class="action"
+              data-testid="settings"
+              ?disabled=${this.busy}
+              @click=${this.openSettings}
+              aria-label=${t.t("settings.title")}
+              title=${t.t("settings.title")}
+            >
+              ${icon(mdiCogOutline)}
+            </button>`
+          : nothing
+      }`;
+  }
+
+  /** The home's settings: where north points on the plan, shown live while it is set. */
+  private renderSettings(north: number): TemplateResult {
+    const t = this.t;
+    return html`<div
+      class="ask glass"
+      role="dialog"
+      aria-labelledby="settings-title"
+      data-testid="settings-dialog"
+    >
+      <h2 id="settings-title">${t.t("settings.title")}</h2>
+      <label class="north">
+        <span>${t.t("settings.north")}</span>
+        <span class="compass" aria-hidden="true">
+          <svg viewBox="-12 -12 24 24" style="transform:rotate(${north}deg)">
+            <path d="M0 -10 L4 4 L0 1.5 L-4 4 Z"></path>
+          </svg>
+          <output>${t.t("settings.degrees", { value: north })}</output>
+        </span>
+        <input
+          type="range"
+          min="0"
+          max="359"
+          step="1"
+          data-testid="settings-north"
+          .value=${String(north)}
+          @input=${(event: Event) => {
+            this.northDraft = Number((event.target as HTMLInputElement).value);
+          }}
+        />
+      </label>
+      <p class="hint">${t.t("settings.north_hint")}</p>
+      <div class="footer">
+        <button class="action quiet" @click=${() => (this.northDraft = undefined)}>
+          ${t.t("panel.cancel")}
+        </button>
+        <button
+          class="action"
+          data-testid="settings-save"
+          ?disabled=${this.busy}
+          @click=${this.saveSettings}
+        >
+          ${t.t("settings.save")}
+        </button>
+      </div>
+    </div>`;
   }
 
   /** Edit mode's header: Cancel and Save. */
@@ -1028,7 +1161,8 @@ export class DomoTwinPanel extends LitElement {
           ></domotwin-link>`
         : nothing
     }
-    ${this.ifcChoice ? this.renderStoreys(this.ifcChoice) : nothing}`;
+    ${this.ifcChoice ? this.renderStoreys(this.ifcChoice) : nothing}
+    ${this.northDraft !== undefined ? this.renderSettings(this.northDraft) : nothing}`;
   }
 
   private renderToast(): TemplateResult | typeof nothing {

@@ -21,6 +21,13 @@ export interface HarnessOptions {
    * the model without pieces).
    */
   models?: boolean | "big" | "unused";
+  /** Card options of the layers. */
+  layer?: "off" | "temperature" | "humidity" | "co2" | "pm25" | "power";
+  realSun?: boolean;
+  /** `sun.sun`'s position (degrees). */
+  sunPosition?: { azimuth: number; elevation: number };
+  /** The stored settings' north (degrees). */
+  north?: number;
 }
 
 /** Opens the mocked Home Assistant with the built frontend. */
@@ -38,6 +45,12 @@ export async function openHarness(page: Page, options: HarnessOptions = {}): Pro
   if (options.sun) params.set("sun", `${options.sun.elevation},${options.sun.rising ? 1 : 0}`);
   if (options.live) params.set("live", "1");
   if (options.models) params.set("models", options.models === true ? "1" : options.models);
+  if (options.layer) params.set("layer", options.layer);
+  if (options.realSun) params.set("realsun", "1");
+  if (options.sunPosition) {
+    params.set("sunpos", `${options.sunPosition.azimuth},${options.sunPosition.elevation}`);
+  }
+  if (options.north !== undefined) params.set("north", String(options.north));
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto(`/?${params.toString()}`);

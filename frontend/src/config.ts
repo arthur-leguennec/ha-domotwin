@@ -1,10 +1,13 @@
 import type { MessageKey } from "./i18n";
+import { LAYER_NAMES, type LayerName } from "./live/layers";
 
 export type ViewMode = "3d" | "2d";
 export type QualityName = "auto" | "eco" | "balanced" | "high";
 export type CutawayMode = "auto" | "always" | "off";
 /** The light of the scene: following the time of day (`auto`), or fixed. */
 export type LightingMode = "auto" | "morning" | "day" | "evening" | "night";
+/** Where the sun lights from: high in the south-east (`fixed`), or where it is (`real`). */
+export type SunMode = "fixed" | "real";
 
 /** Options of `custom:domotwin-card`, after defaults. */
 export interface CardConfig {
@@ -20,6 +23,13 @@ export interface CardConfig {
   room?: string;
   /** Font for the card's texts; absent: the bundled default. */
   font_family?: string;
+  /** The layer shown first (heatmap, power or none). */
+  layer: LayerName;
+  /** Room alerts (smoke, water, an alarm…), on unless turned off. */
+  alerts: boolean;
+  /** Rooms someone is in glow softly. */
+  presence: boolean;
+  sun: SunMode;
 }
 
 /** A configuration problem; `key` is translated by the card. */
@@ -34,6 +44,7 @@ const VIEWS: readonly ViewMode[] = ["3d", "2d"];
 const QUALITIES: readonly QualityName[] = ["auto", "eco", "balanced", "high"];
 const CUTAWAYS: readonly CutawayMode[] = ["auto", "always", "off"];
 const LIGHTINGS: readonly LightingMode[] = ["auto", "morning", "day", "evening", "night"];
+const SUNS: readonly SunMode[] = ["fixed", "real"];
 const CSS_LENGTH = /^\d+(\.\d+)?(px|vh|svh|dvh|em|rem)$/;
 
 function pick<T extends string>(
@@ -45,6 +56,12 @@ function pick<T extends string>(
   if (value === undefined || value === null || value === "") return fallback;
   if (typeof value === "string" && (allowed as readonly string[]).includes(value))
     return value as T;
+  throw new ConfigError(error);
+}
+
+function flag(value: unknown, fallback: boolean, error: MessageKey): boolean {
+  if (value === undefined || value === null) return fallback;
+  if (typeof value === "boolean") return value;
   throw new ConfigError(error);
 }
 
@@ -69,6 +86,10 @@ export function normalizeConfig(raw: unknown): CardConfig {
     quality: pick(input.quality, QUALITIES, "auto", "config.bad_quality"),
     cutaway: pick(input.cutaway, CUTAWAYS, "auto", "config.bad_cutaway"),
     lighting: pick(input.lighting, LIGHTINGS, "auto", "config.bad_lighting"),
+    layer: pick(input.layer, LAYER_NAMES, "off", "config.bad_layer"),
+    alerts: flag(input.alerts, true, "config.bad_alerts"),
+    presence: flag(input.presence, true, "config.bad_presence"),
+    sun: pick(input.sun, SUNS, "fixed", "config.bad_sun"),
   };
   const title = optionalString(input.title);
   if (title !== undefined) config.title = title;

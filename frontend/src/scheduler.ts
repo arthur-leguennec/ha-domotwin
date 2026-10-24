@@ -21,7 +21,7 @@ export class FrameScheduler {
   private wanted = false;
   private onScreen = true;
   private pageVisible = true;
-  private minInterval = 0;
+  private interval = 0;
   private lastFrame = Number.NEGATIVE_INFINITY;
   private disposed = false;
 
@@ -53,7 +53,12 @@ export class FrameScheduler {
 
   /** Caps the frame rate of animations (e.g. 1000 / 24 for the heatmap); 0 = display rate. */
   setMinInterval(milliseconds: number): void {
-    this.minInterval = Math.max(0, milliseconds);
+    this.interval = Math.max(0, milliseconds);
+  }
+
+  /** The frame rate cap of animations (ms between frames; 0: the display's rate). */
+  get minInterval(): number {
+    return this.interval;
   }
 
   get running(): boolean {
@@ -83,7 +88,7 @@ export class FrameScheduler {
     if (this.disposed || !this.wanted || this.pending !== undefined || this.paused) return;
     this.pending = this.clock.request((time) => {
       this.pending = undefined;
-      if (time - this.lastFrame < this.minInterval) {
+      if (time - this.lastFrame < this.interval) {
         this.schedule();
         return;
       }

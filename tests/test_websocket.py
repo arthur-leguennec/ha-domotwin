@@ -109,6 +109,7 @@ async def test_writes_need_an_admin(
     for message in (
         {"type": "domotwin/plan/save", "plan": demo_plan},
         {"type": "domotwin/bindings/save", "bindings": demo_bindings},
+        {"type": "domotwin/settings/save", "settings": {"north": 90}},
     ):
         await client.send_json_auto_id(message)
         response = await client.receive_json()
@@ -229,3 +230,38 @@ async def test_commands_before_setup(
     await client.send_json_auto_id({"type": "domotwin/plan/get"})
     response = await client.receive_json()
     assert response["error"]["code"] == "not_loaded"
+
+
+async def test_settings_round_trip(
+    hass: HomeAssistant, setup_integration: MockConfigEntry, hass_ws_client: WebSocketGenerator
+) -> None:
+    listener = await hass_ws_client(hass)
+    await listener.send_json_auto_id({"type": "domotwin/subscribe"})
+    assert (await listener.receive_json())["success"]
+
+    client = await hass_ws_client(hass)
+    await client.send_json_auto_id({"type": "domotwin/settings/get"})
+    assert (await client.receive_json())["result"] == {"settings": {}, "revision": 0}
+    await client.send_json_auto_id({"type": "domotwin/settings/save", "settings": {"north": 22.5}})
+    saved = await client.receive_json()
+    assert saved["success"], saved
+    assert (await listener.receive_json())["event"] == {"kind": "settings", "revision": 1}
+    await client.send_json_auto_id({"type": "domotwin/settings/get"})
+    assert (await client.receive_json())["result"] == {"settings": {"north": 22.5}, "revision": 1}
+
+
+@pytest.mark.parametrize(
+    "settings",
+    [{"north": 360}, {"north": -1}, {"north": "up"}, {"north": True}, {"theme": "dark"}],
+)
+async def test_invalid_settings_are_refused(
+    hass: HomeAssistant,
+    setup_integration: MockConfigEntry,
+    hass_ws_client: WebSocketGenerator,
+    settings: dict[str, Any],
+) -> None:
+    client = await hass_ws_client(hass)
+    await client.send_json_auto_id({"type": "domotwin/settings/save", "settings": settings})
+    response = await client.receive_json()
+    assert not response["success"]
+    assert response["error"]["code"] == "invalid_settings"

@@ -26,12 +26,32 @@ pub struct EntityState {
     pub position: Option<f64>,
     /// Device class (binary sensors).
     pub device_class: Option<String>,
+    /// Unit of a sensor's value (`unit_of_measurement`).
+    pub unit: Option<String>,
 }
 
 impl EntityState {
     /// Whether the entity cannot be used.
     pub fn unavailable(&self) -> bool {
         self.state == "unavailable" || self.state == "unknown"
+    }
+
+    /// A power sensor's value in watts (`W`, `kW` or `MW`; a sensor without a unit counts as
+    /// watts), when its state is a number.
+    pub fn watts(&self) -> Option<f64> {
+        let value = self
+            .state
+            .trim()
+            .parse::<f64>()
+            .ok()
+            .filter(|v| v.is_finite())?;
+        let factor = match self.unit.as_deref() {
+            Some("kW") => 1_000.0,
+            Some("MW") => 1_000_000.0,
+            Some("W") | None => 1.0,
+            Some(_) => return None,
+        };
+        Some(value * factor)
     }
 }
 
@@ -72,6 +92,9 @@ pub fn read_states(value: &Value) -> BTreeMap<String, Option<EntityState>> {
                     device_class: attr("device_class")
                         .and_then(Value::as_str)
                         .map(str::to_owned),
+                    unit: attr("unit_of_measurement")
+                        .and_then(Value::as_str)
+                        .map(str::to_owned),
                 }
             });
             (id.clone(), state)
@@ -92,6 +115,8 @@ pub struct Look {
     pub highlight: f32,
     /// Its light is a screen's (a linked media player), not a lamp's.
     pub screen: bool,
+    /// What its linked power sensors read (W), for the power layer.
+    pub power: f32,
 }
 
 impl Default for Look {
@@ -102,6 +127,7 @@ impl Default for Look {
             unavailable: 0.0,
             highlight: 0.0,
             screen: false,
+            power: 0.0,
         }
     }
 }
@@ -209,6 +235,11 @@ pub fn targets(
                     } else {
                         0.0
                     };
+                }
+                let watts: f64 = on(Role::Power).iter().filter_map(|s| s.watts()).sum();
+                #[allow(clippy::cast_possible_truncation)]
+                {
+                    look.power = watts.max(0.0) as f32;
                 }
                 if let Some(media) = on(Role::Media).first() {
                     look.screen = true;
@@ -398,6 +429,7 @@ impl LiveState {
             }
             look.highlight = (look.highlight - HIGHLIGHT_SPEED * dt as f32).max(0.0);
             look.screen = target.screen;
+            look.power = target.power;
             if *look != before {
                 step.looks = true;
             }
@@ -526,6 +558,37 @@ mod tests {
         assert_eq!(t.overrides.open[&index(&plan, "win-living-1")], 0.0);
         assert!((t.overrides.open[&index(&plan, "curtain-living")] - 0.4).abs() < 1e-9);
         assert_eq!(t.overrides.open[&index(&plan, "curtain-bedroom")], 0.0);
+    }
+
+    #[test]
+    fn power_sensors_add_up_in_watts() {
+        let watts = |state: &str, unit: Option<&str>| {
+            EntityState {
+                state: state.to_owned(),
+                unit: unit.map(str::to_owned),
+                ..EntityState::default()
+            }
+            .watts()
+        };
+        assert_eq!(watts("12.5", Some("W")), Some(12.5));
+        assert_eq!(watts("1.2", Some("kW")), Some(1_200.0));
+        assert_eq!(watts("40", None), Some(40.0));
+        assert_eq!(watts("40", Some("kWh")), None);
+        assert_eq!(watts("unavailable", Some("W")), None);
+        assert_eq!(watts("NaN", Some("W")), None);
+        let (plan, lights, bindings) = setup();
+        let states = states(serde_json::json!({
+            "sensor.fridge_power": { "state": "0.09", "attributes": { "unit_of_measurement": "kW" } },
+            "sensor.tv_power": { "state": "-3", "attributes": { "unit_of_measurement": "W" } },
+        }));
+        let t = targets(&plan, &lights, &bindings, &states);
+        assert!((t.looks[index(&plan, "fridge")].power - 90.0).abs() < 1e-3);
+        // A negative reading (a sensor feeding power back) counts as nothing.
+        assert_eq!(t.looks[index(&plan, "tv")].power, 0.0);
+        let mut live = LiveState::new(Targets::default());
+        live.set_targets(t);
+        live.step(16.0);
+        assert!((live.looks[index(&plan, "fridge")].power - 90.0).abs() < 1e-3);
     }
 
     #[test]

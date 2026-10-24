@@ -116,6 +116,12 @@ class DomoTwinData:
         bindings: dict[str, Any] = self._data["bindings"]
         return bindings
 
+    @property
+    def settings(self) -> dict[str, Any]:
+        """The home's settings (where north points on the plan)."""
+        settings: dict[str, Any] = self._data["settings"]
+        return settings
+
     def snapshot(self) -> StoredData:
         """Return a deep copy, safe to hand out."""
         return copy.deepcopy(self._data)
@@ -142,6 +148,11 @@ class DomoTwinData:
         self._check_revision(expected_revision)
         self._data["bindings"] = bindings
         return await self._async_commit("bindings")
+
+    async def async_save_settings(self, settings: dict[str, Any]) -> int:
+        """Store new settings. Return the new revision."""
+        self._data["settings"] = settings
+        return await self._async_commit("settings")
 
     def _check_revision(self, expected_revision: int | None) -> None:
         if expected_revision is not None and expected_revision != self.revision:

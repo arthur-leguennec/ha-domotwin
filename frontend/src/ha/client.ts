@@ -19,8 +19,19 @@ export interface StoredBindings {
   revision: number;
 }
 
+/** The home's settings, set by an administrator. */
+export interface Settings {
+  /** Where north points on the plan, degrees clockwise from its top (0: up). */
+  north?: number;
+}
+
+export interface StoredSettings {
+  settings: Settings;
+  revision: number;
+}
+
 export interface UpdateEvent {
-  kind: "plan" | "bindings";
+  kind: "plan" | "bindings" | "settings";
   revision: number;
 }
 
@@ -35,6 +46,7 @@ const clients = new WeakMap<HassConnection, DomoTwinClient>();
 export class DomoTwinClient {
   private plan?: Promise<StoredPlan>;
   private bindings?: Promise<StoredBindings>;
+  private settings?: Promise<StoredSettings>;
   private readonly listeners = new Set<Listener>();
   private unsubscribe?: Promise<() => Promise<void>>;
 
@@ -61,6 +73,24 @@ export class DomoTwinClient {
     });
     this.bindings.catch(() => (this.bindings = undefined));
     return this.bindings;
+  }
+
+  getSettings(): Promise<StoredSettings> {
+    this.settings ??= this.connection.sendMessagePromise<StoredSettings>({
+      type: "domotwin/settings/get",
+    });
+    this.settings.catch(() => (this.settings = undefined));
+    return this.settings;
+  }
+
+  /** Stores the settings (admins only). */
+  async saveSettings(settings: Settings): Promise<number> {
+    const result = await this.connection.sendMessagePromise<{ revision: number }>({
+      type: "domotwin/settings/save",
+      settings,
+    });
+    this.settings = undefined;
+    return result.revision;
   }
 
   /** Stores a plan (admins only). `expectedRevision` refuses the save if another device saved. */
@@ -95,9 +125,10 @@ export class DomoTwinClient {
     this.listeners.add(listener);
     this.unsubscribe ??= this.connection.subscribeMessage<UpdateEvent>(
       (event) => {
-        // One revision counts the saves of both: any save makes both cached revisions stale.
+        // One revision counts every save: any save makes the cached revisions stale.
         this.plan = undefined;
         this.bindings = undefined;
+        this.settings = undefined;
         for (const each of this.listeners) each(event);
       },
       { type: "domotwin/subscribe" },

@@ -149,6 +149,22 @@ pub fn lighting_for_sun(elevation: f64, rising: bool) -> Lighting {
     }
 }
 
+/// The direction towards the sun in the scene (unit vector; `x` the plan's x, `y` up, `z` the
+/// plan's y), from its `azimuth` (degrees clockwise from north, as `sun.sun` gives it), its
+/// `elevation` (degrees above the horizon) and `north`: where north points on the plan, in degrees
+/// clockwise from the top of the plan (0: north is up).
+pub fn sun_direction(azimuth: f64, elevation: f64, north: f64) -> [f64; 3] {
+    let finite = |v: f64, fallback: f64| if v.is_finite() { v } else { fallback };
+    let heading = (finite(north, 0.0) + finite(azimuth, 180.0)).to_radians();
+    let up = finite(elevation, 45.0).clamp(-90.0, 90.0).to_radians();
+    // The top of the plan is −z; clockwise on the plan turns from −z towards +x.
+    [
+        up.cos() * heading.sin(),
+        up.sin(),
+        -up.cos() * heading.cos(),
+    ]
+}
+
 /// The light for a local time of day (`hour` 0–24), when the sun's position is unknown.
 pub fn lighting_for_hour(hour: f64) -> Lighting {
     let hour = if hour.is_finite() {
@@ -180,6 +196,21 @@ mod tests {
             .all(|k| d(a.sky[k], b.sky[k]) && d(a.sun[k], b.sun[k]) && d(a.ground[k], b.ground[k]))
             && d(a.exposure, b.exposure)
             && d(a.ao, b.ao)
+    }
+
+    #[test]
+    fn the_sun_turns_with_north() {
+        let close = |a: [f64; 3], b: [f64; 3]| a.iter().zip(b).all(|(x, y)| (x - y).abs() < 1e-9);
+        // North up: the sun in the south is towards the bottom of the plan (+z).
+        assert!(close(sun_direction(180.0, 0.0, 0.0), [0.0, 0.0, 1.0]));
+        // In the east: towards +x.
+        assert!(close(sun_direction(90.0, 0.0, 0.0), [1.0, 0.0, 0.0]));
+        // North pointing right on the plan: the east is at the bottom.
+        assert!(close(sun_direction(90.0, 0.0, 90.0), [0.0, 0.0, 1.0]));
+        // Overhead.
+        assert!(close(sun_direction(0.0, 90.0, 0.0), [0.0, 1.0, 0.0]));
+        let d = sun_direction(f64::NAN, f64::NAN, f64::NAN);
+        assert!((d[0] * d[0] + d[1] * d[1] + d[2] * d[2] - 1.0).abs() < 1e-9);
     }
 
     #[test]

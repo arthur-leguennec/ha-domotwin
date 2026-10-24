@@ -61,6 +61,8 @@ export interface HomeAssistant {
   language: string;
   locale?: { language: string };
   themes?: { darkMode?: boolean };
+  /** Home Assistant's configuration: the units of climate entities. */
+  config?: { unit_system?: { temperature?: string } };
   connection: HassConnection;
   /** A request to Home Assistant with the user's session (the frontend's `fetchWithAuth`). */
   fetchWithAuth?(path: string, init?: RequestInit): Promise<Response>;

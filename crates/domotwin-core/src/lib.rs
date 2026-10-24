@@ -11,6 +11,7 @@ pub mod camera;
 pub mod edit;
 pub mod error;
 pub mod geometry;
+pub mod layers;
 pub mod lighting;
 pub mod live;
 pub mod model_mesh;

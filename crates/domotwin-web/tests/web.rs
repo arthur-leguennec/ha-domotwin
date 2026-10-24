@@ -274,3 +274,76 @@ fn edit_mode_imports_a_model_and_forgets_it() {
             .unwrap();
     assert_eq!(refused["refused"], true);
 }
+
+#[wasm_bindgen_test]
+fn layers_show_move_and_label() {
+    let mut engine = Engine::new(canvas()).unwrap();
+    engine.load_plan(DEMO, None, None).unwrap();
+    engine.frame(0.0);
+    assert!(!engine.layers_animating());
+    engine.set_layers(
+        r#"{"heat": "temperature", "values": {"living": 21.5, "nowhere": 30}, "alerts": {"kitchen": "danger"}}"#,
+    );
+    assert!(engine.layers_animating());
+    assert!(engine.needs_frame());
+    assert!(engine.frame(16.0), "a pulsing alert keeps drawing");
+    let labels: serde_json::Value = serde_json::from_str(&engine.layer_labels()).unwrap();
+    let labels = labels.as_array().unwrap();
+    assert_eq!(labels.len(), 1, "{labels:?}");
+    assert_eq!(labels[0]["id"], "living");
+    assert_eq!(labels[0]["kind"], "heat");
+    // Held still for reduced motion: drawn once, then idle.
+    engine.set_motion(false);
+    assert!(!engine.layers_animating());
+    assert!(!engine.frame(32.0));
+    assert!(!engine.needs_frame());
+    engine.set_motion(true);
+    // Presence alone does not move.
+    engine.set_layers(r#"{"presence": ["living"]}"#);
+    assert!(!engine.layers_animating());
+    engine.set_layers("{}");
+    assert!(!engine.frame(48.0));
+}
+
+#[wasm_bindgen_test]
+fn the_power_layer_tints_running_appliances() {
+    let mut engine = Engine::new(canvas()).unwrap();
+    engine.load_plan(DEMO, None, None).unwrap();
+    engine.set_bindings(include_str!(
+        "../../../examples/demo-apartment.bindings.json"
+    ));
+    engine.set_states(
+        r#"{"sensor.fridge_power": {"state": "85", "attributes": {"unit_of_measurement": "W"}},
+            "sensor.tv_power": {"state": "1", "attributes": {"unit_of_measurement": "W"}}}"#,
+    );
+    engine.frame(0.0);
+    assert_eq!(engine.layer_labels(), "[]", "no labels without the layer");
+    engine.set_power_layer(true);
+    assert!(engine.layers_animating());
+    let labels: serde_json::Value = serde_json::from_str(&engine.layer_labels()).unwrap();
+    let labels = labels.as_array().unwrap();
+    // The TV on standby is left out.
+    assert_eq!(labels.len(), 1, "{labels:?}");
+    assert_eq!(labels[0]["id"], "fridge");
+    assert_eq!(labels[0]["value"], 85.0);
+    engine.set_power_layer(false);
+    assert!(!engine.layers_animating());
+}
+
+#[wasm_bindgen_test]
+fn the_real_sun_and_legends() {
+    let mut engine = Engine::new(canvas()).unwrap();
+    engine.load_plan(DEMO, None, None).unwrap();
+    engine.frame(0.0);
+    engine.set_sun_position(135.0, 30.0, 20.0);
+    assert!(engine.needs_frame());
+    assert!(!engine.frame(16.0));
+    engine.use_default_sun();
+    assert!(engine.needs_frame());
+    let legend: serde_json::Value =
+        serde_json::from_str(&domotwin_web::heat_legend("co2")).unwrap();
+    assert_eq!(legend["unit"], "ppm");
+    assert_eq!(legend["gradient"].as_array().unwrap().len(), 16);
+    assert_eq!(legend["stops"][0][0], 400.0);
+    assert_eq!(domotwin_web::heat_legend("noise"), "");
+}

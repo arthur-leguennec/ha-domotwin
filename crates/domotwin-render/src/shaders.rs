@@ -3,15 +3,16 @@
 //! One vertex shader serves every pass. It reads the packed attributes of
 //! `domotwin_core::scene::mesh::Mesh` and applies the cut-away: walls lower to the height of their
 //! group, pieces starting above it and things hanging on a cut wall disappear. It also reads the
-//! live look of the vertex's element (its light, greyed out, tap highlight) from `u_elements`.
+//! live look of the vertex's element (its light, greyed out, tap highlight, power) from
+//! `u_elements`.
 
 /// Vertex shader of every pass.
 pub(crate) const VERTEX: &str = r"
 uniform mat4 u_view_proj;
 uniform vec4 u_cut[32];
 uniform float u_wall_height;
-// Two texels per element tag: light (rgb, strength), flags (greyed out, highlight, selected,
-// in conflict).
+// Three texels per element tag: light (rgb, strength), flags (greyed out, highlight, selected,
+// in conflict), power layer level.
 uniform sampler2D u_elements;
 
 in vec4 a_position;
@@ -28,6 +29,7 @@ flat out uint v_surface;
 flat out uint v_element;
 flat out vec4 v_look;
 flat out vec4 v_flags;
+flat out float v_power;
 flat out float v_room;
 
 float cut_height(uint group) {
@@ -56,9 +58,10 @@ void main() {
     v_uv = a_uv;
     v_surface = a_extra.y >> 2u;
     v_element = a_extra.z | (a_extra.w << 8u);
-    ivec2 at = ivec2(int(v_element) * 2, 0);
+    ivec2 at = ivec2(int(v_element) * 3, 0);
     v_look = texelFetch(u_elements, at, 0);
     v_flags = texelFetch(u_elements, at + ivec2(1, 0), 0);
+    v_power = texelFetch(u_elements, at + ivec2(2, 0), 0).r;
     v_room = float(uint(a_normal.w) & 255u);
     // A hidden piece is moved outside the clip volume: all its vertices share the test.
     gl_Position = hidden ? vec4(0.0, 0.0, 2.0, 1.0) : u_view_proj * vec4(p, 1.0);
@@ -86,7 +89,19 @@ flat in uint v_surface;
 flat in uint v_element;
 flat in vec4 v_look;
 flat in vec4 v_flags;
+flat in float v_power;
 flat in float v_room;
+
+// The layers (D-023), three texels per room slot: heatmap colour (linear) and strength; the
+// room's centre (x, z), reach and alert (0.5 warning, 1 danger); presence.
+uniform sampler2D u_rooms;
+uniform float u_layers;
+uniform float u_power_layer;
+// Seconds, wrapping every 600 s (every wave below repeats within that); still without motion.
+uniform float u_time;
+uniform float u_motion;
+// The real sun: the light of sunlit surfaces bouncing into the rooms it cannot reach.
+uniform float u_bounce;
 
 // The lamps that are on: position and reach, colour and room slot (0: every room).
 uniform vec4 u_light_pos[16];
@@ -201,6 +216,11 @@ float sun_shadow(vec3 n) {
     return lit / count;
 }
 
+// A wave between `still` (no motion) and 1, `w` radians per second.
+float wave(float w, float still) {
+    return u_motion > 0.5 ? 0.5 + 0.5 * sin(u_time * w) : still;
+}
+
 // The light of the lamps that are on, limited to their room.
 vec3 lamps(vec3 n) {
     vec3 sum = vec3(0.0);
@@ -258,6 +278,40 @@ void main() {
         albedo = base * (0.94 + 0.08 * noise(v_uv * 1.7));
     }
 
+    // Room layers, on the floors: the heatmap as a soft halo from the centre of the room, its
+    // edge moving slowly; a warm glow where someone is; an alert pulsing towards the walls.
+    bool floor = surface == PLANKS || surface == TILES || surface == FLOOR;
+    vec3 layer_glow = vec3(0.0);
+    vec3 alert_tone = vec3(0.0);
+    float alert = 0.0;
+    if (u_layers > 0.5 && floor && v_room > 0.5) {
+        int at = int(v_room + 0.5) * 3;
+        vec4 heat = texelFetch(u_rooms, ivec2(at, 0), 0);
+        vec4 shape = texelFetch(u_rooms, ivec2(at + 1, 0), 0);
+        float presence = texelFetch(u_rooms, ivec2(at + 2, 0), 0).r;
+        float d = length(v_world.xz - shape.xy) / max(shape.z, 1.0);
+        if (heat.a > 0.0) {
+            float turn = u_motion > 0.5 ? u_time * 0.0104720 : 0.0;
+            vec2 drift = vec2(sin(turn), cos(turn)) * 6.0;
+            float wobble = noise(v_world.xz * 0.011 + drift) - 0.5;
+            float k = 1.0 - smoothstep(0.1, 1.15, d + wobble * 0.45);
+            float breath = 0.92 + 0.08 * wave(1.0472, 1.0);
+            albedo = mix(albedo, heat.rgb, (0.35 + 0.5 * k) * breath * heat.a);
+            layer_glow += heat.rgb * k * 0.12 * heat.a;
+        }
+        if (presence > 0.0) {
+            float k = 0.3 + 0.7 * (1.0 - smoothstep(0.0, 0.85, d));
+            layer_glow += vec3(1.0, 0.62, 0.3) * k * 0.22;
+        }
+        if (shape.a > 0.0) {
+            bool danger = shape.a > 0.75;
+            alert_tone = danger ? vec3(1.0, 0.03, 0.02) : vec3(1.0, 0.42, 0.02);
+            float pulse = 0.35 + 0.65 * wave(danger ? 6.2832 : 3.1416, 0.75);
+            // A danger shows stronger than a warning.
+            alert = pulse * (0.35 + 0.65 * smoothstep(0.35, 1.0, d)) * (danger ? 0.85 : 0.55);
+        }
+    }
+
     vec3 v = normalize(u_eye - v_world);
     vec3 r = reflect(-v, n);
     vec3 env = mix(u_ground, u_sky * 1.15, clamp(r.y * 0.5 + 0.5, 0.0, 1.0));
@@ -269,7 +323,9 @@ void main() {
     // Rooms have no ceiling: a little darker near the floor on vertical faces.
     float ao = mix(1.0, mix(u_ao, 1.0, smoothstep(0.0, 90.0, v_world.y)), 1.0 - abs(n.y));
     bool metal = surface == METAL || surface == MIRROR;
-    vec3 diffuse = albedo * (hemi * ao + u_sun_color * diffuse_sun) * (metal ? 0.3 : 1.0);
+    vec3 bounce = u_sun_color * u_bounce * (1.0 - shadow) * (0.6 + 0.4 * max(n.y, 0.0));
+    vec3 diffuse =
+        albedo * (hemi * ao + u_sun_color * diffuse_sun + bounce) * (metal ? 0.3 : 1.0);
     vec3 h = normalize(u_sun + v);
     float shininess = exp2(11.0 * (1.0 - rough) + 1.0);
     float spec = pow(max(dot(n, h), 0.0), shininess) * (shininess + 8.0) / 25.0;
@@ -305,6 +361,18 @@ void main() {
     }
     if (surface == GLOW || surface == SCREEN) {
         plan = mix(plan, min(emission * 1.5, vec3(1.0)), min(glow, 1.0) * 0.85);
+    }
+
+    color += layer_glow;
+    plan += layer_glow * 0.5;
+    color = mix(color, alert_tone * 1.4, alert);
+    plan = mix(plan, alert_tone, alert * 0.9);
+    // The power layer: pieces drawing power tinted from yellow (tens of watts) to red (kW).
+    if (u_power_layer > 0.5 && v_power > 0.0 && !floor) {
+        vec3 tone = mix(vec3(1.0, 0.78, 0.1), vec3(1.0, 0.2, 0.02), v_power);
+        float luma = dot(color, vec3(0.2126, 0.7152, 0.0722));
+        color = mix(color, tone * (0.45 + luma), 0.5) + tone * (0.1 + 0.2 * wave(2.618, 1.0)) * v_power;
+        plan = mix(plan, tone, 0.55);
     }
 
     // Unavailable entities: greyed out. A tap: a short blue flash.

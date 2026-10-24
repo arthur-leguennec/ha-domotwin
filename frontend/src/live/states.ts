@@ -10,6 +10,7 @@ const ATTRIBUTES = [
   "color_temp_kelvin",
   "current_position",
   "device_class",
+  "unit_of_measurement",
 ] as const;
 
 /** The compact state the engine reads, as JSON text (compared to find changes). */
