@@ -1,8 +1,13 @@
 name: CodeQL
 
+# Runs on every pull request: the ruleset requires its results (a pull request without them stays
+# blocked). On main, a change of documentation alone has nothing to analyse.
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
   pull_request:
   schedule:
     - cron: "23 5 * * 2"

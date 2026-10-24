@@ -1,4 +1,6 @@
 version: 2
+# Every pull request runs the whole CI: minor and patch updates come grouped, one pull request per
+# ecosystem and week (majors stay apart, they need a look).
 updates:
   - package-ecosystem: cargo
     directory: /
@@ -7,6 +9,9 @@ updates:
     groups:
       wasm-bindgen:
         patterns: ["wasm-bindgen*", "js-sys", "web-sys"]
+      cargo-minor:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
     ignore:
       # glow must stay on the version three-d builds on (the engine hands its context to three-d);
       # it is bumped by hand together with three-d.
@@ -22,6 +27,9 @@ updates:
         patterns: ["eslint", "@eslint/*", "typescript-eslint", "prettier", "globals"]
       test:
         patterns: ["vitest", "happy-dom", "@playwright/test"]
+      npm-minor:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
     ignore:
       # typescript-eslint supports TypeScript < 6.1 (docs/DECISIONS.md, D-011).
       - dependency-name: typescript
@@ -35,6 +43,9 @@ updates:
     groups:
       home-assistant:
         patterns: ["pytest-homeassistant-custom-component", "home-assistant-frontend"]
+      pip-minor:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
     open-pull-requests-limit: 5
 
   - package-ecosystem: github-actions

@@ -47,17 +47,19 @@ fork and open pull requests, which the owner reviews and merges or closes.
     second maintainer joins), *Dismiss stale pull request approvals when new commits are pushed*,
     *Require conversation resolution before merging*, allowed merge methods: **Squash** only.
   - *Require status checks to pass*: on, with *Require branches to be up to date before merging*.
-    The check names are the job names:
+    The check names are the job names (of `.github/workflows/ci.yml` unless said otherwise). The
+    CI runs only the jobs a change needs; a job skipped that way counts as passed, so a change of
+    documentation alone is not blocked:
     - `rust`, `rust wasm tests`, `cargo deny`
     - `frontend`
     - `python`, `hassfest`, `HACS validation`
     - `bundle`, `e2e`
-    - `gitleaks`, `analyze (actions)`, `analyze (javascript-typescript)`, `analyze (python)`,
-      `analyze (rust)`
-    - `conventional commit title`
+    - `gitleaks` (`security.yml`), `analyze (actions)`, `analyze (javascript-typescript)`,
+      `analyze (python)`, `analyze (rust)` (`codeql.yml`, on every pull request)
+    - `conventional commit title` (`pr-title.yml`)
 
-    Not `fuzz plan reader`: it only runs when the Rust core changes and would block other pull
-    requests.
+    Not `changes` (it only says which jobs to run; when it fails, every job runs) nor `fuzz`: it
+    only runs when the code it fuzzes changes and would block other pull requests.
   - *Block force pushes*: on.
   - *Require code scanning results*: on, tool **CodeQL**, security alerts **High or higher**.
   - *Require deployments*, code quality, code coverage, Copilot review: off.

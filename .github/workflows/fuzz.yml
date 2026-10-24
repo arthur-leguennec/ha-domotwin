@@ -1,5 +1,9 @@
 name: Fuzz
 
+# One job builds the fuzz targets once (cached) and runs those the change concerns: the plan reader
+# and the edit overlay for the core, the IFC reader for the IFC import (scripts/ci-changes.sh).
+# Not a required check: it only runs when the code it fuzzes changes.
+
 on:
   schedule:
     - cron: "5 2 * * 0"
@@ -7,7 +11,9 @@ on:
     paths:
       - "crates/domotwin-core/**"
       - "crates/domotwin-ifc/**"
+      - "examples/**"
       - "fuzz/**"
+      - ".github/workflows/fuzz.yml"
   workflow_dispatch:
     inputs:
       seconds:
@@ -21,10 +27,10 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  plan-reader:
-    name: fuzz plan reader
+  fuzz:
+    name: fuzz
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 60
     permissions:
       contents: read
     defaults:
@@ -33,101 +39,55 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          fetch-depth: 0
           persist-credentials: false
+      - name: Targets the change concerns
+        id: changes
+        working-directory: .
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          # The weekly and manual runs fuzz everything.
+          if [ "$EVENT" = pull_request ]; then
+            scripts/ci-changes.sh
+          else
+            { echo fuzz_core=true; echo fuzz_ifc=true; } >> "$GITHUB_OUTPUT"
+          fi
       - name: Install the pinned nightly (fuzz/rust-toolchain.toml)
         run: rustup show active-toolchain || rustup toolchain install
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          workspaces: fuzz
       - uses: taiki-e/install-action@a4d3f3f761dcd95cce1b72cb61cb6d1963438177 # v2.87.30
         with:
           tool: cargo-fuzz@0.13.2
-      - name: Fuzz (60 s on pull requests, 10 min on schedule)
+      - name: Fuzz (60 s per target on pull requests, 10 min on schedule)
         env:
           SECONDS_INPUT: ${{ inputs.seconds }}
           EVENT: ${{ github.event_name }}
+          CORE: ${{ steps.changes.outputs.fuzz_core }}
+          IFC: ${{ steps.changes.outputs.fuzz_ifc }}
         run: |
           seconds=600
           if [ "$EVENT" = "pull_request" ]; then seconds=60; fi
           if [ -n "$SECONDS_INPUT" ]; then seconds="$SECONDS_INPUT"; fi
-          mkdir -p corpus/plan_reader
-          # The prebuilt cargo-fuzz defaults to its own (musl) target: name the runner's.
-          cargo fuzz run --target x86_64-unknown-linux-gnu plan_reader corpus/plan_reader seeds/plan_reader -- \
-            -max_total_time="$seconds" -max_len=200000
+          targets=()
+          if [ "$CORE" = true ]; then targets+=("plan_reader:200000" "edit_layout:20000"); fi
+          if [ "$IFC" = true ]; then targets+=("ifc_reader:200000"); fi
+          for entry in "${targets[@]}"; do
+            target="${entry%%:*}"
+            mkdir -p "corpus/$target"
+            echo "::group::$target"
+            # The prebuilt cargo-fuzz defaults to its own (musl) target: name the runner's.
+            cargo fuzz run --target x86_64-unknown-linux-gnu "$target" "corpus/$target" "seeds/$target" -- \
+              -max_total_time="$seconds" -max_len="${entry##*:}"
+            echo "::endgroup::"
+          done
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: failure()
         with:
           name: fuzz-artifacts
-          path: fuzz/artifacts/
-          retention-days: 30
-
-  ifc-reader:
-    name: fuzz ifc reader
-    runs-on: ubuntu-24.04
-    timeout-minutes: 45
-    permissions:
-      contents: read
-    defaults:
-      run:
-        working-directory: fuzz
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - name: Install the pinned nightly (fuzz/rust-toolchain.toml)
-        run: rustup show active-toolchain || rustup toolchain install
-      - uses: taiki-e/install-action@a4d3f3f761dcd95cce1b72cb61cb6d1963438177 # v2.87.30
-        with:
-          tool: cargo-fuzz@0.13.2
-      - name: Fuzz (60 s on pull requests, 10 min on schedule)
-        env:
-          SECONDS_INPUT: ${{ inputs.seconds }}
-          EVENT: ${{ github.event_name }}
-        run: |
-          seconds=600
-          if [ "$EVENT" = "pull_request" ]; then seconds=60; fi
-          if [ -n "$SECONDS_INPUT" ]; then seconds="$SECONDS_INPUT"; fi
-          mkdir -p corpus/ifc_reader
-          # The prebuilt cargo-fuzz defaults to its own (musl) target: name the runner's.
-          cargo fuzz run --target x86_64-unknown-linux-gnu ifc_reader corpus/ifc_reader seeds/ifc_reader -- \
-            -max_total_time="$seconds" -max_len=200000
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        if: failure()
-        with:
-          name: fuzz-artifacts-ifc
-          path: fuzz/artifacts/
-          retention-days: 30
-
-  edit-layout:
-    name: fuzz edit overlay
-    runs-on: ubuntu-24.04
-    timeout-minutes: 45
-    permissions:
-      contents: read
-    defaults:
-      run:
-        working-directory: fuzz
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - name: Install the pinned nightly (fuzz/rust-toolchain.toml)
-        run: rustup show active-toolchain || rustup toolchain install
-      - uses: taiki-e/install-action@a4d3f3f761dcd95cce1b72cb61cb6d1963438177 # v2.87.30
-        with:
-          tool: cargo-fuzz@0.13.2
-      - name: Fuzz (60 s on pull requests, 10 min on schedule)
-        env:
-          SECONDS_INPUT: ${{ inputs.seconds }}
-          EVENT: ${{ github.event_name }}
-        run: |
-          seconds=600
-          if [ "$EVENT" = "pull_request" ]; then seconds=60; fi
-          if [ -n "$SECONDS_INPUT" ]; then seconds="$SECONDS_INPUT"; fi
-          mkdir -p corpus/edit_layout
-          # The prebuilt cargo-fuzz defaults to its own (musl) target: name the runner's.
-          cargo fuzz run --target x86_64-unknown-linux-gnu edit_layout corpus/edit_layout seeds/edit_layout -- \
-            -max_total_time="$seconds" -max_len=20000
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        if: failure()
-        with:
-          name: fuzz-artifacts-edit
           path: fuzz/artifacts/
           retention-days: 30
