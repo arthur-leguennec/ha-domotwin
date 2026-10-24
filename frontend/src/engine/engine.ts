@@ -24,6 +24,10 @@ export interface SavedView {
 export interface PickedElement {
   id: string;
   type: "room" | "wall" | "door" | "window" | "furniture";
+  /** Its name in the plan (may be empty). */
+  name: string;
+  /** The id of the room it is in (a room is its own), empty when none. */
+  room: string;
 }
 
 /** Figures about the scene (diagnostics, performance smoke test). */
@@ -31,6 +35,10 @@ export interface SceneStats {
   triangles: number;
   groups: number;
   planView: boolean;
+  /** Point lights in use, lit elements (lamps, screens) and elements with bindings. */
+  lights: number;
+  lit: number;
+  bound: number;
   quality: string;
   camera: {
     target: [number, number, number];
@@ -122,6 +130,24 @@ export class DomoTwinEngine {
     }
   }
 
+  /** Sets the bindings (the stored JSON); the scene follows them at once. */
+  setBindings(json: string): void {
+    this.live.setBindings(json);
+  }
+
+  /**
+   * Updates entity states: JSON `{ "entity_id": { "state", "attributes" } | null }` with only
+   * the entities that changed (`null` forgets one). Lamps fade and moving parts move to them.
+   */
+  setStates(json: string): void {
+    this.live.setStates(json);
+  }
+
+  /** Flashes an element briefly (tap feedback). */
+  highlight(id: string): void {
+    this.live.highlight(id);
+  }
+
   setCutaway(mode: CutawayMode): void {
     this.live.setCutaway(mode);
   }
@@ -189,6 +215,12 @@ export class DomoTwinEngine {
   pick(x: number, y: number): PickedElement | undefined {
     const text = this.live.pick(Math.max(0, Math.floor(x)), Math.max(0, Math.floor(y)));
     return text ? (JSON.parse(text) as PickedElement) : undefined;
+  }
+
+  /** Where an element's centre is drawn now (device pixels from the top left), if anywhere. */
+  screenPoint(id: string): [number, number] | undefined {
+    const text = this.live.screenPoint(id);
+    return text ? (JSON.parse(text) as [number, number]) : undefined;
   }
 
   get stats(): SceneStats {

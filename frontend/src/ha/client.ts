@@ -72,6 +72,15 @@ export class DomoTwinClient {
     return result.revision;
   }
 
+  /** Stores the bindings (admins only). `expectedRevision` as for `savePlan`. */
+  async saveBindings(bindings: Bindings, expectedRevision?: number): Promise<number> {
+    const message: HassMessage = { type: "domotwin/bindings/save", bindings };
+    if (expectedRevision !== undefined) message.expected_revision = expectedRevision;
+    const result = await this.connection.sendMessagePromise<{ revision: number }>(message);
+    this.bindings = undefined;
+    return result.revision;
+  }
+
   /** Calls `listener` after every save, from any device. Returns a function that stops it. */
   subscribe(listener: Listener): () => void {
     this.listeners.add(listener);

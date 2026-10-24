@@ -4,6 +4,7 @@ import { LitElement, css, html, nothing, type TemplateResult } from "lit";
 import { EngineError, summarizePlan } from "../engine/engine";
 import { DomoTwinClient, type PlanJson, type StoredPlan } from "../ha/client";
 import { isHassError, type HomeAssistant } from "../ha/types";
+import { readBindings, type BindingsJson } from "../live/bindings";
 import { translatorFor, type Translator } from "../i18n";
 import { icon } from "./icon";
 import { baseStyles } from "./styles";
@@ -43,6 +44,7 @@ export class DomoTwinPanel extends LitElement {
     panel: { attribute: false },
     plan: { state: true },
     planError: { state: true },
+    bindings: { state: true },
     toast: { state: true },
     busy: { state: true },
   };
@@ -51,6 +53,7 @@ export class DomoTwinPanel extends LitElement {
   panel?: unknown;
   protected plan?: StoredPlan["plan"];
   protected planError?: string;
+  protected bindings?: BindingsJson;
   protected toast?: Toast;
   protected busy = false;
   private _hass?: HomeAssistant;
@@ -167,8 +170,21 @@ export class DomoTwinPanel extends LitElement {
     if (!client || this.unsubscribe) return;
     this.unsubscribe = client.subscribe((event) => {
       if (event.kind === "plan") void this.loadPlan();
+      else void this.loadBindings();
     });
     void this.loadPlan();
+    void this.loadBindings();
+  }
+
+  /** Without bindings the home still shows, without live states. */
+  private async loadBindings(): Promise<void> {
+    const client = this.client;
+    if (!client) return;
+    try {
+      this.bindings = readBindings((await client.getBindings()).bindings);
+    } catch {
+      this.bindings = undefined;
+    }
   }
 
   private async loadPlan(): Promise<void> {
@@ -272,6 +288,7 @@ export class DomoTwinPanel extends LitElement {
         <domotwin-view
           .hass=${this._hass}
           .plan=${this.plan}
+          .bindings=${this.bindings}
           .planError=${this.planError}
           .options=${PANEL_OPTIONS}
         >

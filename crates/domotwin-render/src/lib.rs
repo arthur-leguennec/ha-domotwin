@@ -369,6 +369,28 @@ impl Renderer {
         }
     }
 
+    /// Where a world point is drawn now: device pixels from the top left, `None` when it is
+    /// behind the camera.
+    pub fn screen_point(&self, point: [f64; 3]) -> Option<[f64; 2]> {
+        let m = self
+            .view
+            .camera
+            .projection(self.view.aspect, self.view.radius())
+            .view_proj
+            .map(f64::from);
+        let clip = |row: usize| {
+            m[row] * point[0] + m[4 + row] * point[1] + m[8 + row] * point[2] + m[12 + row]
+        };
+        let w = clip(3);
+        if w <= 1e-6 {
+            return None;
+        }
+        Some([
+            (clip(0) / w + 1.0) * 0.5 * f64::from(self.width),
+            (1.0 - clip(1) / w) * 0.5 * f64::from(self.height),
+        ])
+    }
+
     /// Sets the colour behind the scene (from the Home Assistant theme).
     pub fn set_background(&mut self, background: Rgb) {
         if background != self.background {

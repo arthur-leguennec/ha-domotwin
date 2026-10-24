@@ -1,6 +1,7 @@
 import {
   mdiAlertCircleOutline,
   mdiCamera,
+  mdiChevronUp,
   mdiCubeOutline,
   mdiFloorPlan,
   mdiHomeOutline,
@@ -14,14 +15,34 @@ import {
   EngineError,
   engineError,
   wasmMemoryBytes,
+  type PickedElement,
   type PlanSummary,
   type SavedView,
   type SceneStats,
 } from "../engine/engine";
-import { GestureTracker, wheelFactor, type Gesture, type PointerSample } from "../gestures";
+import {
+  GestureTracker,
+  HOLD_TIME,
+  wheelFactor,
+  type Gesture,
+  type PointerSample,
+} from "../gestures";
 import type { StoredPlan } from "../ha/client";
-import type { HomeAssistant } from "../ha/types";
+import { isHassError, type HomeAssistant } from "../ha/types";
 import { translatorFor, type Translator } from "../i18n";
+import { runAction } from "../live/actions";
+import {
+  boundEntityIds,
+  entityName,
+  holdAction,
+  primaryEntity,
+  roomArea,
+  tapAction,
+  type Action,
+  type BindingsJson,
+  type ElementBinding,
+} from "../live/bindings";
+import { StateSync } from "../live/states";
 import { FrameScheduler } from "../scheduler";
 import { icon } from "./icon";
 import { baseStyles } from "./styles";
@@ -52,6 +73,19 @@ const KEY_ZOOM = 0.85;
 /** How often the light follows the time of day without a `hass` update (ms). */
 const LIGHT_REFRESH_MS = 5 * 60 * 1000;
 const FALLBACK_BACKGROUND: Rgb = { r: 242, g: 242, b: 240 };
+/** How long a notice (a failed action) stays (ms). */
+const NOTICE_MS = 5000;
+
+/** The panel open over the scene: an element's controls or a room's panel. */
+type Sheet =
+  | { kind: "controls"; heading: string; entities: string[] }
+  | { kind: "room"; heading: string; area?: string };
+
+/** A room framed by a tap. */
+interface FocusedRoom {
+  id: string;
+  name: string;
+}
 
 /** Frame timings measured by `benchmark()` (frame-time smoke test). */
 export interface FrameStats {
@@ -74,6 +108,8 @@ export interface DebugState {
   quality?: string;
   summary?: PlanSummary;
   stats?: SceneStats;
+  /** The open panel: `controls:<entities>` or `room:<area>`. */
+  sheet?: string;
 }
 
 function percentile(values: number[], p: number): number {
@@ -90,6 +126,7 @@ export class DomoTwinView extends LitElement {
   static override properties = {
     hass: { attribute: false },
     plan: { attribute: false },
+    bindings: { attribute: false },
     options: { attribute: false },
     planError: { attribute: false },
     engineState: { state: true },
@@ -98,11 +135,16 @@ export class DomoTwinView extends LitElement {
     planView: { state: true },
     savedViews: { state: true },
     viewsOpen: { state: true },
+    sheet: { state: true },
+    focusedRoom: { state: true },
+    notice: { state: true },
   };
 
   hass?: HomeAssistant;
   /** `undefined` while loading, `null` when no plan is stored. */
   plan?: StoredPlan["plan"];
+  /** What the plan's elements and rooms are bound to (`undefined`: nothing bound). */
+  bindings?: BindingsJson;
   options: ViewOptions = { quality: "auto" };
   /** An error to show instead of the plan (e.g. the stored plan could not be fetched). */
   planError?: string;
@@ -113,6 +155,9 @@ export class DomoTwinView extends LitElement {
   protected planView = false;
   protected savedViews: SavedView[] = [];
   protected viewsOpen = false;
+  protected sheet?: Sheet;
+  protected focusedRoom?: FocusedRoom;
+  protected notice?: string;
 
   private engine?: DomoTwinEngine;
   private canvas?: HTMLCanvasElement;
@@ -131,6 +176,13 @@ export class DomoTwinView extends LitElement {
   /** What the light was last set from (mood, sun position or clock), to skip repeats. */
   private lightKey?: string;
   private lightTimer?: number;
+  /** Entity states already sent to the engine, and the entities bound. */
+  private readonly states = new StateSync();
+  private bound = new Set<string>();
+  private holdTimer?: number;
+  private noticeTimer?: number;
+  /** The panels' module, loaded the first time one opens. */
+  private sheets?: Promise<unknown>;
   private readonly onVisibility = (): void => {
     this.scheduler?.setPageVisible(document.visibilityState === "visible");
   };
@@ -157,6 +209,9 @@ export class DomoTwinView extends LitElement {
       .stage {
         cursor: grab;
         outline: none;
+        user-select: none;
+        -webkit-user-select: none;
+        -webkit-touch-callout: none;
       }
       .stage:active {
         cursor: grabbing;
@@ -260,6 +315,30 @@ export class DomoTwinView extends LitElement {
         display: grid;
         gap: 2px;
       }
+      button.chip {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        border: none;
+        color: inherit;
+        font: inherit;
+        text-align: start;
+        cursor: pointer;
+      }
+      button.chip svg.icon {
+        width: 18px;
+        height: 18px;
+      }
+      .notice {
+        position: absolute;
+        left: 50%;
+        top: 12px;
+        transform: translateX(-50%);
+        max-width: calc(100% - 120px);
+        padding: 8px 14px;
+        font-size: 0.875rem;
+        border-color: var(--error-color, #db4437);
+      }
       .spinner {
         width: 28px;
         height: 28px;
@@ -289,6 +368,7 @@ export class DomoTwinView extends LitElement {
   override disconnectedCallback(): void {
     super.disconnectedCallback();
     document.removeEventListener("visibilitychange", this.onVisibility);
+    window.clearTimeout(this.noticeTimer);
     this.stopEngine();
   }
 
@@ -297,6 +377,7 @@ export class DomoTwinView extends LitElement {
   }
 
   protected override updated(changed: PropertyValues<this>): void {
+    if (changed.has("bindings")) this.applyBindings();
     if (changed.has("plan")) this.applyPlan();
     if (changed.has("options") && this.engine) {
       const previous = changed.get("options");
@@ -309,6 +390,7 @@ export class DomoTwinView extends LitElement {
     if (changed.has("hass")) {
       this.applyTheme();
       this.applyLighting();
+      this.syncStates();
     }
   }
 
@@ -331,6 +413,13 @@ export class DomoTwinView extends LitElement {
       state.stats = this.engine.stats;
     }
     if (this.summary) state.summary = this.summary;
+    const sheet = this.sheet;
+    if (sheet) {
+      state.sheet =
+        sheet.kind === "controls"
+          ? `controls:${sheet.entities.join(",")}`
+          : `room:${sheet.area ?? ""}`;
+    }
     return state;
   }
 
@@ -349,15 +438,65 @@ export class DomoTwinView extends LitElement {
   /** Back to the whole home. */
   overview(): void {
     this.viewsOpen = false;
+    this.focusedRoom = undefined;
     this.engine?.overview();
     this.scheduler?.request();
   }
 
+  /** Frames an element of the plan; false when it has nothing to show. */
+  showElement(id: string): boolean {
+    const done = this.engine?.focusElement(id) ?? false;
+    this.scheduler?.request();
+    return done;
+  }
+
+  /** What a tap at a point of the view does (CSS pixels from its top left). */
+  tap(x: number, y: number): void {
+    this.sheet = undefined;
+    const engine = this.engine;
+    if (!engine) return;
+    const picked = this.elementAt(x, y);
+    if (!picked) return;
+    const binding = this.bindings?.elements[picked.id];
+    if (binding && this.hass) {
+      engine.highlight(picked.id);
+      // An action ran: a second tap soon after is a new tap, not a double tap.
+      this.gestures.forgetTap();
+      void this.act(tapAction(binding, this.hass), binding, picked);
+    } else if (picked.room && engine.focusElement(picked.room)) {
+      this.focusedRoom = { id: picked.room, name: this.roomName(picked) };
+    }
+    this.scheduler?.request();
+  }
+
+  /** What a long press at a point of the view does (CSS pixels from its top left). */
+  hold(x: number, y: number): void {
+    const picked = this.elementAt(x, y);
+    if (!picked) return;
+    const binding = this.bindings?.elements[picked.id];
+    if (binding && this.hass) {
+      this.engine?.highlight(picked.id);
+      void this.act(holdAction(binding), binding, picked);
+    } else if (picked.room) {
+      void this.openRoom(picked.room, this.roomName(picked));
+    }
+    this.scheduler?.request();
+  }
+
   /** The element at a point of the view (CSS pixels from its top left). */
-  elementAt(x: number, y: number): { id: string; type: string } | undefined {
+  elementAt(x: number, y: number): PickedElement | undefined {
     if (!this.engine || !this.canvas) return undefined;
     const scale = this.canvas.width / Math.max(1, this.canvas.clientWidth);
     return this.engine.pick(x * scale, y * scale);
+  }
+
+  /** Where an element's centre is drawn (CSS pixels from the top left of the view), if anywhere. */
+  elementPoint(id: string): { x: number; y: number } | undefined {
+    if (!this.engine || !this.canvas) return undefined;
+    const point = this.engine.screenPoint(id);
+    if (!point) return undefined;
+    const scale = Math.max(1, this.canvas.clientWidth) / this.canvas.width;
+    return { x: point[0] * scale, y: point[1] * scale };
   }
 
   /**
@@ -456,6 +595,8 @@ export class DomoTwinView extends LitElement {
     this.lightTimer = window.setInterval(() => {
       this.applyLighting();
     }, LIGHT_REFRESH_MS);
+    this.states.reset();
+    this.applyBindings();
     this.loadedPlan = undefined;
     this.applyPlan();
     this.resize(stage);
@@ -466,6 +607,7 @@ export class DomoTwinView extends LitElement {
     this.generation += 1;
     this.scheduler?.dispose();
     window.clearInterval(this.lightTimer);
+    window.clearTimeout(this.holdTimer);
     this.lightTimer = undefined;
     this.resizeObserver?.disconnect();
     this.intersectionObserver?.disconnect();
@@ -577,6 +719,10 @@ export class DomoTwinView extends LitElement {
     if (!this.engine || this.plan === this.loadedPlan) return;
     const sameHome = this.loadedPlan !== undefined && this.loadedPlan !== null;
     this.loadedPlan = this.plan;
+    if (!sameHome) {
+      this.sheet = undefined;
+      this.focusedRoom = undefined;
+    }
     this.summary = undefined;
     this.loadError = undefined;
     this.savedViews = [];
@@ -592,6 +738,88 @@ export class DomoTwinView extends LitElement {
       this.loadError = error instanceof EngineError ? error : engineError(error);
     }
     this.scheduler?.request();
+  }
+
+  /** Sends the bindings to the engine, then the states of the entities now bound. */
+  private applyBindings(): void {
+    const engine = this.engine;
+    if (!engine) return;
+    const bindings = this.bindings ?? { version: 1, rooms: {}, elements: {} };
+    engine.setBindings(JSON.stringify(bindings));
+    this.bound = boundEntityIds(bindings);
+    this.syncStates();
+    this.scheduler?.request();
+  }
+
+  /** Sends the engine the bound entities whose state changed. */
+  private syncStates(): void {
+    const engine = this.engine;
+    if (!engine || !this.hass) return;
+    const changes = this.states.changes(this.hass, this.bound);
+    if (changes === undefined) return;
+    engine.setStates(changes);
+    this.scheduler?.request();
+  }
+
+  private roomName(picked: PickedElement): string {
+    if (picked.type === "room" && picked.name) return picked.name;
+    return this.focusedRoom?.id === picked.room ? this.focusedRoom.name : picked.room;
+  }
+
+  /** Runs an action of a binding; `controls` opens the element's panel. */
+  private async act(action: Action, binding: ElementBinding, picked: PickedElement): Promise<void> {
+    const hass = this.hass;
+    if (!hass) return;
+    try {
+      if ((await runAction(this, hass, action, binding)) === "controls") {
+        await this.openControls(binding, picked);
+      }
+    } catch (error) {
+      const t = this.translator;
+      const reason = isHassError(error)
+        ? error.message || t.error(error.code)
+        : t.error(error instanceof Error ? error.name : "unknown");
+      this.notify(t.t("view.action_failed", { reason }));
+    }
+  }
+
+  private loadSheets(): Promise<unknown> {
+    this.sheets ??= import("./sheets");
+    this.sheets.catch(() => (this.sheets = undefined));
+    return this.sheets;
+  }
+
+  private async openControls(binding: ElementBinding, picked: PickedElement): Promise<void> {
+    await this.loadSheets();
+    const hass = this.hass;
+    const primary = primaryEntity(binding, hass);
+    const heading = picked.name || (hass && primary ? entityName(hass, primary) : picked.id);
+    this.sheet = {
+      kind: "controls",
+      heading,
+      entities: binding.entities.map((entity) => entity.entity_id),
+    };
+  }
+
+  private async openRoom(id: string, name: string): Promise<void> {
+    await this.loadSheets();
+    const hass = this.hass;
+    const sheet: Sheet = { kind: "room", heading: name };
+    const area = hass
+      ? roomArea(hass, this.bindings ?? { version: 1, rooms: {}, elements: {} }, id, name)
+      : undefined;
+    if (area) sheet.area = area;
+    this.sheet = sheet;
+  }
+
+  private readonly closeSheet = (): void => {
+    this.sheet = undefined;
+  };
+
+  private notify(text: string): void {
+    this.notice = text;
+    window.clearTimeout(this.noticeTimer);
+    this.noticeTimer = window.setTimeout(() => (this.notice = undefined), NOTICE_MS);
   }
 
   private sample(event: PointerEvent): PointerSample {
@@ -610,6 +838,12 @@ export class DomoTwinView extends LitElement {
     this.viewsOpen = false;
     (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
     this.apply(this.gestures.down(this.sample(event)));
+    window.clearTimeout(this.holdTimer);
+    if (this.gestures.active === 1) {
+      this.holdTimer = window.setTimeout(() => {
+        this.apply(this.gestures.hold(performance.now()));
+      }, HOLD_TIME + 20);
+    }
   };
 
   private readonly onPointerMove = (event: PointerEvent): void => {
@@ -618,10 +852,12 @@ export class DomoTwinView extends LitElement {
   };
 
   private readonly onPointerUp = (event: PointerEvent): void => {
+    window.clearTimeout(this.holdTimer);
     this.apply(this.gestures.up(this.sample(event)));
   };
 
   private readonly onPointerCancel = (event: PointerEvent): void => {
+    window.clearTimeout(this.holdTimer);
     this.gestures.cancel(event.pointerId);
   };
 
@@ -656,6 +892,11 @@ export class DomoTwinView extends LitElement {
       this.overview();
       return;
     }
+    if (event.key === "Enter" && this.focusedRoom) {
+      event.preventDefault();
+      void this.openRoom(this.focusedRoom.id, this.focusedRoom.name);
+      return;
+    }
     if (!gesture) return;
     event.preventDefault();
     this.apply([gesture]);
@@ -680,13 +921,14 @@ export class DomoTwinView extends LitElement {
         case "zoom":
           engine.zoom(gesture.factor, (gesture.x / width) * 2 - 1, 1 - (gesture.y / height) * 2);
           break;
-        case "tap": {
-          const picked = this.elementAt(gesture.x, gesture.y);
-          if (picked?.type === "room") engine.focusElement(picked.id);
+        case "tap":
+          this.tap(gesture.x, gesture.y);
           break;
-        }
+        case "hold":
+          this.hold(gesture.x, gesture.y);
+          break;
         case "double-tap":
-          engine.overview();
+          this.overview();
           break;
       }
     }
@@ -695,6 +937,7 @@ export class DomoTwinView extends LitElement {
 
   private readonly toggleViews = (): void => {
     this.viewsOpen = !this.viewsOpen;
+    this.sheet = undefined;
   };
 
   private showView(id: string): void {
@@ -724,7 +967,35 @@ export class DomoTwinView extends LitElement {
           event.preventDefault();
         }}
       ></div>
-      ${this.renderOverlay()} ${ready ? this.renderTools() : nothing}`;
+      ${this.renderOverlay()} ${ready ? this.renderTools() : nothing}
+      ${ready ? this.renderSheet() : nothing}
+      ${
+        this.notice
+          ? html`<div class="notice glass" role="alert" data-testid="notice">${this.notice}</div>`
+          : nothing
+      }`;
+  }
+
+  private renderSheet(): TemplateResult | typeof nothing {
+    const sheet = this.sheet;
+    if (!sheet) return nothing;
+    if (sheet.kind === "controls") {
+      return html`<domotwin-controls
+        data-testid="controls"
+        .hass=${this.hass}
+        .heading=${sheet.heading}
+        .entities=${sheet.entities}
+        @domotwin-close=${this.closeSheet}
+      ></domotwin-controls>`;
+    }
+    return html`<domotwin-room
+      data-testid="room"
+      .hass=${this.hass}
+      .heading=${sheet.heading}
+      .area=${sheet.area}
+      .admin=${this.hass?.user?.is_admin === true}
+      @domotwin-close=${this.closeSheet}
+    ></domotwin-room>`;
   }
 
   private renderTools(): TemplateResult {
@@ -820,7 +1091,20 @@ export class DomoTwinView extends LitElement {
         true,
       );
     }
-    if (!this.summary) return nothing;
+    if (!this.summary || this.sheet) return nothing;
+    const room = this.focusedRoom;
+    if (room) {
+      return html`<button
+        class="chip glass"
+        data-testid="room-chip"
+        aria-label=${t.t("view.room_panel", { room: room.name })}
+        @click=${() => {
+          void this.openRoom(room.id, room.name);
+        }}
+      >
+        <span>${room.name}</span>${icon(mdiChevronUp)}
+      </button>`;
+    }
     const title = this.summary.title || t.t("view.untitled");
     return html`<div class="chip glass" role="status" data-testid="summary">
       <span

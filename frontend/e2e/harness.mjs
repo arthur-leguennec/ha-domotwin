@@ -1,16 +1,23 @@
 // A mocked Home Assistant around the real built frontend. Query parameters:
 //   mode=card|panel  lang=en|fr  plan=demo|none  admin=1|0  dark=1  view=3d|2d  cutaway=auto|always|off
 //   lighting=auto|morning|day|evening|night  sun=<elevation>,<rising 0|1> (a sun.sun entity)
+//   live=1 (the demo bindings, and the demo home's entities, areas and states)
+import { applyService, demoHome } from "./demo-home.mjs";
+
 const params = new URLSearchParams(location.search);
 const mode = params.get("mode") ?? "card";
+const live = params.get("live") === "1";
 
 await import("/domotwin_static/domotwin.js?v=e2e");
 
 const demo = await (await fetch("/examples/demo-apartment.plan.json")).json();
+const demoBindings = live
+  ? await (await fetch("/examples/demo-apartment.bindings.json")).json()
+  : { version: 1, rooms: {}, elements: {} };
 const store = {
   plan: params.get("plan") === "none" ? null : demo,
   layout: {},
-  bindings: { version: 1, rooms: {}, elements: {} },
+  bindings: demoBindings,
   revision: 1,
 };
 const listeners = new Set();
@@ -37,6 +44,13 @@ const connection = {
         for (const listener of listeners) listener({ kind: "plan", revision: store.revision });
         return { revision: store.revision };
       }
+      case "domotwin/bindings/save": {
+        if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        store.bindings = message.bindings;
+        store.revision += 1;
+        for (const listener of listeners) listener({ kind: "bindings", revision: store.revision });
+        return { revision: store.revision };
+      }
       default:
         throw { code: "unknown_command", message: message.type };
     }
@@ -50,7 +64,8 @@ const connection = {
 
 const language = params.get("lang") ?? "en";
 const sunParam = params.get("sun");
-const states = {};
+const home = live ? demoHome() : { states: {}, entities: {}, devices: {}, areas: {} };
+const states = home.states;
 if (sunParam) {
   const [elevation, rising] = sunParam.split(",");
   states["sun.sun"] = {
@@ -59,8 +74,11 @@ if (sunParam) {
     attributes: { elevation: Number(elevation), rising: rising === "1" },
   };
 }
-const hass = {
+let hass = {
   states,
+  entities: home.entities,
+  devices: home.devices,
+  areas: home.areas,
   user: { id: "e2e", name: "E2E", is_admin: params.get("admin") !== "0" },
   language,
   locale: { language },
@@ -68,9 +86,34 @@ const hass = {
   connection,
   async callService(domain, service, data, target) {
     calls.push({ type: "call_service", domain, service, data, target });
+    if (window.__failServices)
+      throw { code: "service_failed", message: "The device did not answer" };
+    const [realDomain, realService] =
+      domain === "homeassistant"
+        ? [String(target?.entity_id).split(".")[0], service]
+        : [domain, service];
+    if (applyService(home, realDomain, realService, data, target).length > 0) publish();
   },
 };
 window.__hass = hass;
+
+/** Home Assistant gives a new `hass` object, with new state objects for what changed. */
+function publish() {
+  hass = { ...hass, states: { ...home.states } };
+  window.__hass = hass;
+  if (element) element.hass = hass;
+}
+
+/** Changes an entity as if a device did (E2E tests). */
+window.__setState = (entityId, state, attributes = {}) => {
+  const previous = home.states[entityId];
+  home.states[entityId] = {
+    entity_id: entityId,
+    state,
+    attributes: { ...(previous?.attributes ?? {}), ...attributes },
+  };
+  publish();
+};
 if (hass.themes.darkMode) document.body.classList.add("dark");
 
 const mount = document.getElementById("mount");

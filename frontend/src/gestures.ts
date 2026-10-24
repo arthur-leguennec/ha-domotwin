@@ -4,7 +4,8 @@
  * - one finger or the left mouse button drags (turn in 3D, move on the 2D plan);
  * - the right or middle button, or Shift + drag, moves the view;
  * - two fingers pinch to zoom and move together to pan;
- * - a short press without moving is a tap; two taps close together are a double tap.
+ * - a short press without moving is a tap; two taps close together are a double tap;
+ * - a press held still for `HOLD_TIME` is a long press (`hold`), checked by a timer of the view.
  */
 
 /** What a gesture asks the camera to do. Distances are CSS pixels. */
@@ -13,7 +14,8 @@ export type Gesture =
   | { kind: "pan"; dx: number; dy: number }
   | { kind: "zoom"; factor: number; x: number; y: number }
   | { kind: "tap"; x: number; y: number }
-  | { kind: "double-tap"; x: number; y: number };
+  | { kind: "double-tap"; x: number; y: number }
+  | { kind: "hold"; x: number; y: number };
 
 /** The fields of a `PointerEvent` the tracker needs. */
 export interface PointerSample {
@@ -29,6 +31,8 @@ export interface PointerSample {
 export const TAP_TIME = 500;
 /** Movement (CSS pixels) below which a press is still a tap. */
 export const TAP_SLOP = 6;
+/** A press held still this long (ms) is a long press. */
+export const HOLD_TIME = 500;
 /** Two taps closer than this (ms and CSS pixels) make a double tap. */
 export const DOUBLE_TAP_TIME = 320;
 const DOUBLE_TAP_SLOP = 24;
@@ -43,6 +47,7 @@ export class GestureTracker {
   private panning = false;
   private start?: { x: number; y: number; time: number };
   private moved = false;
+  private held = false;
   private lastTap?: { x: number; y: number; time: number };
 
   /** Pointers currently down. */
@@ -56,6 +61,7 @@ export class GestureTracker {
       this.panning = sample.button === 1 || sample.button === 2 || sample.shiftKey;
       this.start = { x: sample.x, y: sample.y, time: sample.time };
       this.moved = false;
+      this.held = false;
     } else {
       // A second finger: never a tap.
       this.moved = true;
@@ -108,7 +114,7 @@ export class GestureTracker {
     if (this.pointers.size > 0) return [];
     const start = this.start;
     this.start = undefined;
-    if (!start || this.moved || sample.time - start.time > TAP_TIME) return [];
+    if (!start || this.moved || this.held || sample.time - start.time > TAP_TIME) return [];
     const last = this.lastTap;
     if (
       last &&
@@ -120,6 +126,20 @@ export class GestureTracker {
     }
     this.lastTap = { x: sample.x, y: sample.y, time: sample.time };
     return [{ kind: "tap", x: sample.x, y: sample.y }];
+  }
+
+  /** A long press, once, if the only pointer has stayed still for `HOLD_TIME` at `time`. */
+  hold(time: number): Gesture[] {
+    const start = this.start;
+    if (!start || this.pointers.size !== 1 || this.moved || this.held) return [];
+    if (time - start.time < HOLD_TIME) return [];
+    this.held = true;
+    return [{ kind: "hold", x: start.x, y: start.y }];
+  }
+
+  /** The last tap acted on something: the next one starts afresh (no double tap). */
+  forgetTap(): void {
+    this.lastTap = undefined;
   }
 
   /** The pointer left without a normal release (`pointercancel`). */

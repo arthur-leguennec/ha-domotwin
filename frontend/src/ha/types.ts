@@ -29,8 +29,34 @@ export interface HassConnection {
   ): Promise<() => Promise<void>>;
 }
 
+/** An entry of Home Assistant's entity registry, as the frontend gets it. */
+export interface HassEntityEntry {
+  entity_id: string;
+  device_id?: string | null;
+  area_id?: string | null;
+  name?: string | null;
+  hidden?: boolean;
+  entity_category?: string | null;
+}
+
+/** An entry of the device registry. */
+export interface HassDeviceEntry {
+  id: string;
+  area_id?: string | null;
+  name?: string | null;
+}
+
+/** An entry of the area registry. */
+export interface HassAreaEntry {
+  area_id: string;
+  name: string;
+}
+
 export interface HomeAssistant {
   states: Record<string, HassEntity | undefined>;
+  entities?: Record<string, HassEntityEntry | undefined>;
+  devices?: Record<string, HassDeviceEntry | undefined>;
+  areas?: Record<string, HassAreaEntry | undefined>;
   user?: HassUser;
   language: string;
   locale?: { language: string };

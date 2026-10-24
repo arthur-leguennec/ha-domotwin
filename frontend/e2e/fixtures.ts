@@ -14,6 +14,8 @@ export interface HarnessOptions {
   lighting?: "auto" | "morning" | "day" | "evening" | "night";
   /** A `sun.sun` entity: elevation in degrees and whether it is rising. */
   sun?: { elevation: number; rising: boolean };
+  /** The demo bindings and the demo home's entities, areas and states. */
+  live?: boolean;
 }
 
 /** Opens the mocked Home Assistant with the built frontend. */
@@ -29,6 +31,7 @@ export async function openHarness(page: Page, options: HarnessOptions = {}): Pro
   if (options.cutaway) params.set("cutaway", options.cutaway);
   params.set("lighting", options.lighting ?? "day");
   if (options.sun) params.set("sun", `${options.sun.elevation},${options.sun.rising ? 1 : 0}`);
+  if (options.live) params.set("live", "1");
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto(`/?${params.toString()}`);
@@ -67,4 +70,33 @@ export async function canvasPng(page: Page): Promise<Buffer> {
 /** The view's stage, where gestures happen. */
 export function stage(page: Page): Locator {
   return page.locator("domotwin-view").locator(".stage");
+}
+
+/** Where an element of the plan is drawn, in page coordinates. */
+export async function elementPoint(page: Page, id: string): Promise<{ x: number; y: number }> {
+  const box = await stage(page).boundingBox();
+  if (!box) throw new Error("no stage");
+  const point = await page.evaluate(
+    (element) =>
+      (
+        window as never as {
+          __view: () => { elementPoint(id: string): { x: number; y: number } | undefined };
+        }
+      )
+        .__view()
+        .elementPoint(element),
+    id,
+  );
+  if (!point) throw new Error(`${id} is not on screen`);
+  return { x: box.x + point.x, y: box.y + point.y };
+}
+
+/** The state of an entity of the mocked Home Assistant. */
+export function entityState(page: Page, id: string): Promise<string | undefined> {
+  return page.evaluate(
+    (entity) =>
+      (window as never as { __hass: { states: Record<string, { state: string } | undefined> } })
+        .__hass.states[entity]?.state,
+    id,
+  );
 }

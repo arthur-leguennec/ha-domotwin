@@ -59,7 +59,8 @@ export class Engine {
     pan(dx: number, dy: number, height: number): void;
     /**
      * The element drawn at the device pixel `x`, `y` (from the top left), as JSON
-     * `{"id", "type"}`, or an empty string.
+     * `{"id", "type", "name", "room"}` (`room`: the id of the room it is in, maybe empty), or an
+     * empty string.
      */
     pick(x: number, y: number): string;
     /**
@@ -74,6 +75,11 @@ export class Engine {
      * Sets the drawing buffer size in device pixels.
      */
     resize(width: number, height: number): void;
+    /**
+     * Where the centre of an element is drawn now, as JSON `[x, y]` in device pixels from the
+     * top left, or an empty string (no such element, no geometry, behind the camera).
+     */
+    screenPoint(id: string): string;
     /**
      * Sets the background colour (sRGB, 0–255) from the Home Assistant theme.
      */
@@ -170,6 +176,7 @@ export interface InitOutput {
     readonly engine_planView: (a: number) => number;
     readonly engine_quality: (a: number, b: number) => void;
     readonly engine_resize: (a: number, b: number, c: number) => void;
+    readonly engine_screenPoint: (a: number, b: number, c: number, d: number) => void;
     readonly engine_setBackground: (a: number, b: number, c: number, d: number) => void;
     readonly engine_setBindings: (a: number, b: number, c: number) => void;
     readonly engine_setCutaway: (a: number, b: number, c: number) => void;

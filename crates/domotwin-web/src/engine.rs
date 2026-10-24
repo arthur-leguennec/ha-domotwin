@@ -7,7 +7,7 @@ use domotwin_core::bindings::{Bindings, read_bindings};
 use domotwin_core::camera::{Camera, CutawayMode};
 use domotwin_core::lighting::{Mood, lighting_for_hour, lighting_for_sun};
 use domotwin_core::live::{EntityState, LiveState, read_states, targets};
-use domotwin_core::plan::{Plan, View};
+use domotwin_core::plan::{Element, Plan, View};
 use domotwin_core::scene::mesh::Mesh;
 use domotwin_core::scene::{ElementInfo, Scene, SceneOptions, build_dynamic, build_scene};
 use domotwin_core::{ReadError, read_plan, summarize_plan};
@@ -308,6 +308,24 @@ impl Engine {
         true
     }
 
+    /// Where the centre of an element is drawn now, as JSON `[x, y]` in device pixels from the
+    /// top left, or an empty string (no such element, no geometry, behind the camera).
+    #[wasm_bindgen(js_name = screenPoint)]
+    pub fn screen_point(&self, id: &str) -> String {
+        let Some(info) = self.elements.iter().find(|e| e.id == id) else {
+            return String::new();
+        };
+        let [min, max] = info.bounds;
+        if min == max {
+            return String::new();
+        }
+        let centre = [0, 1, 2].map(|k| f64::from(min[k] + max[k]) * 0.5);
+        self.renderer
+            .screen_point(centre)
+            .map(|p| serde_json::json!(p).to_string())
+            .unwrap_or_default()
+    }
+
     /// The plan's saved viewpoints, as JSON `[{"id", "name"}]` (eye-level views are skipped).
     pub fn views(&self) -> String {
         let list: Vec<serde_json::Value> = self
@@ -346,14 +364,29 @@ impl Engine {
     }
 
     /// The element drawn at the device pixel `x`, `y` (from the top left), as JSON
-    /// `{"id", "type"}`, or an empty string.
+    /// `{"id", "type", "name", "room"}` (`room`: the id of the room it is in, maybe empty), or an
+    /// empty string.
     pub fn pick(&mut self, x: u32, y: u32) -> String {
         let tag = self.renderer.pick(x, y);
-        usize::from(tag)
+        let Some((index, info)) = usize::from(tag)
             .checked_sub(1)
-            .and_then(|i| self.elements.get(i))
-            .map(|e| serde_json::json!({ "id": e.id, "type": e.kind }).to_string())
-            .unwrap_or_default()
+            .and_then(|i| Some((i, self.elements.get(i)?)))
+        else {
+            return String::new();
+        };
+        let name = self
+            .plan
+            .as_ref()
+            .and_then(|plan| plan.elements.get(index))
+            .map_or("", Element::name);
+        // The room it stands in (a room is its own).
+        let room = self
+            .scene
+            .as_ref()
+            .and_then(|scene| scene.rooms.get(usize::from(info.room).checked_sub(1)?))
+            .map_or("", String::as_str);
+        serde_json::json!({ "id": info.id, "type": info.kind, "name": name, "room": room })
+            .to_string()
     }
 
     /// Figures about the scene, as JSON (for the diagnostics and the performance smoke test).
@@ -366,7 +399,12 @@ impl Engine {
             "groups": view.cuts.len(),
             "planView": view.plan_view,
             "lights": self.renderer.light_count(),
-            "lit": self.live.looks.iter().filter(|l| l.strength > 0.02).count(),
+            "lit": self
+                .live
+                .looks
+                .iter()
+                .filter(|l| l.strength * (1.0 - l.unavailable) > 0.02)
+                .count(),
             "bound": self.bindings.elements.len(),
             "quality": self.renderer.quality().as_str(),
             "camera": {
