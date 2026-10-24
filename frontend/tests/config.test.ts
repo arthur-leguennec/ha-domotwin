@@ -10,6 +10,10 @@ describe("normalizeConfig", () => {
       quality: "auto",
       cutaway: "auto",
       lighting: "auto",
+      layer: "off",
+      alerts: true,
+      presence: true,
+      sun: "fixed",
     });
   });
 
@@ -25,6 +29,10 @@ describe("normalizeConfig", () => {
         lighting: "night",
         room: "living",
         font_family: "Inter",
+        layer: "co2",
+        alerts: false,
+        presence: false,
+        sun: "real",
       }),
     ).toEqual({
       type: "custom:domotwin-card",
@@ -36,6 +44,10 @@ describe("normalizeConfig", () => {
       lighting: "night",
       room: "living",
       font_family: "Inter",
+      layer: "co2",
+      alerts: false,
+      presence: false,
+      sun: "real",
     });
   });
 
@@ -48,6 +60,10 @@ describe("normalizeConfig", () => {
     [{ quality: "ultra" }, "config.bad_quality"],
     [{ cutaway: "sometimes" }, "config.bad_cutaway"],
     [{ lighting: "noon" }, "config.bad_lighting"],
+    [{ layer: "noise" }, "config.bad_layer"],
+    [{ alerts: "yes" }, "config.bad_alerts"],
+    [{ presence: 1 }, "config.bad_presence"],
+    [{ sun: "moon" }, "config.bad_sun"],
     [{ height: "tall" }, "config.bad_height"],
     [{ height: "100%" }, "config.bad_height"],
     [{ height: -3 }, "config.bad_height"],

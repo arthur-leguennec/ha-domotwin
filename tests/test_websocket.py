@@ -97,6 +97,42 @@ async def test_revision_conflict(
     assert response["error"]["code"] == "revision_conflict"
 
 
+async def test_each_kind_is_checked_against_its_own_last_write(
+    hass: HomeAssistant,
+    setup_integration: MockConfigEntry,
+    hass_ws_client: WebSocketGenerator,
+    demo_plan: dict[str, Any],
+    demo_bindings: dict[str, Any],
+) -> None:
+    """Saving the bindings or the settings does not refuse an edit of the plan started before."""
+    client = await hass_ws_client(hass)
+    await client.send_json_auto_id({"type": "domotwin/plan/save", "plan": demo_plan})
+    assert (await client.receive_json())["success"]
+    await client.send_json_auto_id({"type": "domotwin/plan/get"})
+    plan_revision = (await client.receive_json())["result"]["revision"]
+    await client.send_json_auto_id({"type": "domotwin/bindings/save", "bindings": demo_bindings})
+    assert (await client.receive_json())["success"]
+    await client.send_json_auto_id({"type": "domotwin/settings/save", "settings": {"north": 10}})
+    assert (await client.receive_json())["success"]
+    await client.send_json_auto_id({"type": "domotwin/plan/get"})
+    assert (await client.receive_json())["result"]["revision"] == plan_revision
+    await client.send_json_auto_id(
+        {"type": "domotwin/plan/save", "layout": {}, "expected_revision": plan_revision}
+    )
+    saved = await client.receive_json()
+    assert saved["success"], saved
+    assert saved["result"]["revision"] == 4
+    # The bindings are checked against their own last write too.
+    await client.send_json_auto_id(
+        {"type": "domotwin/bindings/save", "bindings": demo_bindings, "expected_revision": 2}
+    )
+    assert (await client.receive_json())["success"]
+    await client.send_json_auto_id(
+        {"type": "domotwin/bindings/save", "bindings": demo_bindings, "expected_revision": 2}
+    )
+    assert (await client.receive_json())["error"]["code"] == "revision_conflict"
+
+
 async def test_writes_need_an_admin(
     hass: HomeAssistant,
     setup_integration: MockConfigEntry,
@@ -109,6 +145,7 @@ async def test_writes_need_an_admin(
     for message in (
         {"type": "domotwin/plan/save", "plan": demo_plan},
         {"type": "domotwin/bindings/save", "bindings": demo_bindings},
+        {"type": "domotwin/settings/save", "settings": {"north": 90}},
     ):
         await client.send_json_auto_id(message)
         response = await client.receive_json()
@@ -229,3 +266,38 @@ async def test_commands_before_setup(
     await client.send_json_auto_id({"type": "domotwin/plan/get"})
     response = await client.receive_json()
     assert response["error"]["code"] == "not_loaded"
+
+
+async def test_settings_round_trip(
+    hass: HomeAssistant, setup_integration: MockConfigEntry, hass_ws_client: WebSocketGenerator
+) -> None:
+    listener = await hass_ws_client(hass)
+    await listener.send_json_auto_id({"type": "domotwin/subscribe"})
+    assert (await listener.receive_json())["success"]
+
+    client = await hass_ws_client(hass)
+    await client.send_json_auto_id({"type": "domotwin/settings/get"})
+    assert (await client.receive_json())["result"] == {"settings": {}, "revision": 0}
+    await client.send_json_auto_id({"type": "domotwin/settings/save", "settings": {"north": 22.5}})
+    saved = await client.receive_json()
+    assert saved["success"], saved
+    assert (await listener.receive_json())["event"] == {"kind": "settings", "revision": 1}
+    await client.send_json_auto_id({"type": "domotwin/settings/get"})
+    assert (await client.receive_json())["result"] == {"settings": {"north": 22.5}, "revision": 1}
+
+
+@pytest.mark.parametrize(
+    "settings",
+    [{"north": 360}, {"north": -1}, {"north": "up"}, {"north": True}, {"theme": "dark"}],
+)
+async def test_invalid_settings_are_refused(
+    hass: HomeAssistant,
+    setup_integration: MockConfigEntry,
+    hass_ws_client: WebSocketGenerator,
+    settings: dict[str, Any],
+) -> None:
+    client = await hass_ws_client(hass)
+    await client.send_json_auto_id({"type": "domotwin/settings/save", "settings": settings})
+    response = await client.receive_json()
+    assert not response["success"]
+    assert response["error"]["code"] == "invalid_settings"

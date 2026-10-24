@@ -1,7 +1,7 @@
 import { LitElement, css, html, nothing, type TemplateResult } from "lit";
 
 import { ConfigError, normalizeConfig, type CardConfig } from "../config";
-import { DomoTwinClient, type StoredPlan } from "../ha/client";
+import { DomoTwinClient, type Settings, type StoredPlan } from "../ha/client";
 import { isHassError, type HomeAssistant } from "../ha/types";
 import { readBindings, type BindingsJson } from "../live/bindings";
 import { translatorFor } from "../i18n";
@@ -17,6 +17,7 @@ export class DomoTwinCard extends LitElement {
     layout: { state: true },
     planError: { state: true },
     bindings: { state: true },
+    settings: { state: true },
   };
 
   protected config?: CardConfig;
@@ -24,6 +25,7 @@ export class DomoTwinCard extends LitElement {
   protected layout?: StoredPlan["layout"];
   protected planError?: string;
   protected bindings?: BindingsJson;
+  protected settings?: Settings;
   private _hass?: HomeAssistant;
   private unsubscribe?: () => void;
   private options?: { source: CardConfig; value: ViewOptions };
@@ -88,10 +90,21 @@ export class DomoTwinCard extends LitElement {
     const client = DomoTwinClient.for(this._hass);
     this.unsubscribe = client.subscribe((event) => {
       if (event.kind === "plan") void this.loadPlan(client);
-      else void this.loadBindings(client);
+      else if (event.kind === "bindings") void this.loadBindings(client);
+      else void this.loadSettings(client);
     });
     void this.loadPlan(client);
     void this.loadBindings(client);
+    void this.loadSettings(client);
+  }
+
+  /** Without settings the home shows with north up. */
+  private async loadSettings(client: DomoTwinClient): Promise<void> {
+    try {
+      this.settings = (await client.getSettings()).settings;
+    } catch {
+      this.settings = undefined;
+    }
   }
 
   private async loadPlan(client: DomoTwinClient): Promise<void> {
@@ -124,6 +137,10 @@ export class DomoTwinCard extends LitElement {
         view: config.view,
         cutaway: config.cutaway,
         lighting: config.lighting,
+        layer: config.layer,
+        alerts: config.alerts,
+        presence: config.presence,
+        sun: config.sun,
       };
       if (config.room) options.room = config.room;
       this.options = { source: config, value: options };
@@ -168,6 +185,7 @@ export class DomoTwinCard extends LitElement {
         .bindings=${this.bindings}
         .planError=${this.planError}
         .options=${this.viewOptions()}
+        .north=${this.settings?.north ?? 0}
       ></domotwin-view>
     </ha-card>`;
   }

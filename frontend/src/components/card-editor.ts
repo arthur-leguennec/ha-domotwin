@@ -3,6 +3,7 @@ import { LitElement, html, nothing, type TemplateResult } from "lit";
 import { DomoTwinClient } from "../ha/client";
 import type { HomeAssistant } from "../ha/types";
 import { translatorFor, type MessageKey, type Translator } from "../i18n";
+import { LAYER_NAMES } from "../live/layers";
 import { planRooms } from "../live/suggest";
 import { define, fire } from "./define";
 
@@ -65,9 +66,27 @@ function schema(t: Translator, rooms: RoomOption[], config: Record<string, unkno
       selector: options(t, "editor.lighting", ["auto", "morning", "day", "evening", "night"]),
     },
     roomField(t, rooms, config.room),
+    {
+      name: "layer",
+      selector: {
+        select: {
+          mode: "dropdown",
+          options: LAYER_NAMES.map((value) => ({
+            value,
+            label: t.t(`layers.${value}` as MessageKey),
+          })),
+        },
+      },
+    },
+    { name: "alerts", selector: { boolean: {} } },
+    { name: "presence", selector: { boolean: {} } },
+    { name: "sun", selector: options(t, "editor.sun", ["fixed", "real"]) },
     { name: "font_family", selector: { text: {} } },
   ];
 }
+
+/** Switches that are on unless turned off show as on. */
+const ON_BY_DEFAULT = { alerts: true, presence: true };
 
 /** Visual editor of `custom:domotwin-card` (YAML is never needed). */
 export class DomoTwinCardEditor extends LitElement {
@@ -107,7 +126,12 @@ export class DomoTwinCardEditor extends LitElement {
     event.stopPropagation();
     const config = Object.fromEntries(
       Object.entries({ ...this.config, ...event.detail.value }).filter(
-        ([, value]) => value !== "" && value !== undefined && value !== null,
+        ([key, value]) =>
+          value !== "" &&
+          value !== undefined &&
+          value !== null &&
+          // A switch shown on by default is not written until it is turned off.
+          !(key in ON_BY_DEFAULT && value === true && this.config[key] === undefined),
       ),
     );
     this.config = config;
@@ -130,7 +154,7 @@ export class DomoTwinCardEditor extends LitElement {
     const t = translatorFor(this.hass);
     return html`<ha-form
       .hass=${this.hass}
-      .data=${this.config}
+      .data=${{ ...ON_BY_DEFAULT, ...this.config }}
       .schema=${schema(t, this.rooms, this.config)}
       .computeLabel=${(field: FormField) => t.t(`editor.${field.name}` as MessageKey)}
       @value-changed=${this.changed}

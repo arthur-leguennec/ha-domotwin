@@ -207,3 +207,13 @@ def validate_bindings(bindings: Any) -> dict[str, Any]:
         _validate_element_binding(binding)
     _check_size(bindings, MAX_BINDINGS_BYTES, "the bindings")
     return {"version": 1, "rooms": rooms, "elements": elements}
+
+
+def validate_settings(settings: Any) -> dict[str, Any]:
+    """Check the home's settings: `north`, degrees clockwise from the top of the plan."""
+    if not isinstance(settings, dict) or set(settings) - {"north"}:
+        raise InvalidPayloadError("invalid_settings", "settings hold only `north`")
+    north = settings.get("north", 0)
+    if not _is_number(north) or not 0 <= north < 360:
+        raise InvalidPayloadError("invalid_settings", "`north` must be a number from 0 to 360")
+    return {"north": north}

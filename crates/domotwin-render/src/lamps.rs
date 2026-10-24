@@ -126,12 +126,27 @@ pub struct Mark {
     pub conflict: bool,
 }
 
-/// Two texels per element tag (index + 1, tag 0 = no element): the light (`rgb`, strength) and
-/// the flags (greyed out, highlight, selected, in conflict).
+/// Texels per element tag in [`element_texels`].
+pub const ELEMENT_TEXELS: usize = 3;
+
+/// Below this (W), an appliance is on standby: the power layer leaves it out.
+const STANDBY_WATTS: f32 = 3.0;
+
+/// How strongly the power layer marks a piece drawing `watts`: 0 on standby, then on a
+/// logarithmic scale up to 1 at 3 kW (30 W reads a third, 300 W two thirds).
+pub fn power_level(watts: f32) -> f32 {
+    if watts.is_nan() || watts <= STANDBY_WATTS {
+        return 0.0;
+    }
+    ((watts / STANDBY_WATTS).log10() / 3.0).clamp(0.02, 1.0)
+}
+
+/// Three texels per element tag (index + 1, tag 0 = no element): the light (`rgb`, strength),
+/// the flags (greyed out, highlight, selected, in conflict) and the power layer's level.
 pub fn element_texels(looks: &[Look], marks: &[Mark]) -> Vec<[f32; 4]> {
-    let mut texels = vec![[0.0; 4]; 2 * (looks.len() + 1)];
+    let mut texels = vec![[0.0; 4]; ELEMENT_TEXELS * (looks.len() + 1)];
     for (i, look) in looks.iter().enumerate() {
-        let at = 2 * (i + 1);
+        let at = ELEMENT_TEXELS * (i + 1);
         let mark = marks.get(i).copied().unwrap_or_default();
         texels[at] = [look.glow[0], look.glow[1], look.glow[2], strength(look)];
         texels[at + 1] = [
@@ -140,6 +155,7 @@ pub fn element_texels(looks: &[Look], marks: &[Mark]) -> Vec<[f32; 4]> {
             if mark.selected { 1.0 } else { 0.0 },
             if mark.conflict { 1.0 } else { 0.0 },
         ];
+        texels[at + 2][0] = power_level(look.power);
     }
     texels
 }
@@ -210,9 +226,9 @@ mod tests {
         }];
         assert!(point_lights(&spots, &looks).is_empty());
         let texels = element_texels(&looks, &[]);
-        assert_eq!(texels.len(), 4);
-        assert_eq!(texels[2][3], 0.0);
-        assert_eq!(texels[3][0], 1.0);
+        assert_eq!(texels.len(), 6);
+        assert_eq!(texels[3][3], 0.0);
+        assert_eq!(texels[4][0], 1.0);
         let marked = element_texels(
             &looks,
             &[Mark {
@@ -220,7 +236,22 @@ mod tests {
                 conflict: true,
             }],
         );
-        assert_eq!(marked[3][2..], [1.0, 1.0]);
+        assert_eq!(marked[4][2..], [1.0, 1.0]);
+    }
+
+    #[test]
+    fn power_reads_on_a_logarithmic_scale() {
+        assert_eq!(power_level(0.0), 0.0);
+        assert_eq!(power_level(2.5), 0.0);
+        assert_eq!(power_level(f32::NAN), 0.0);
+        assert!((power_level(30.0) - 1.0 / 3.0).abs() < 1e-4);
+        assert!((power_level(300.0) - 2.0 / 3.0).abs() < 1e-4);
+        assert_eq!(power_level(1e6), 1.0);
+        let looks = [Look {
+            power: 300.0,
+            ..Look::default()
+        }];
+        assert!((element_texels(&looks, &[])[5][0] - 2.0 / 3.0).abs() < 1e-4);
     }
 
     #[test]

@@ -96,6 +96,9 @@ pub struct Scene {
     pub dynamic_opaque: Mesh,
     /// Glass of the moving parts.
     pub dynamic_transparent: Mesh,
+    /// The ceilings of the rooms, at the walls' height: they only cast shadows, so that the real
+    /// sun (D-023) comes in through the windows.
+    pub ceiling: Mesh,
     /// Element id of each room slot (slot `k` is `rooms[k - 1]`).
     pub rooms: Vec<String>,
     /// Wall groups, indexed by the vertex group.
@@ -291,11 +294,23 @@ pub fn build_scene_moving(plan: &Plan, options: &SceneOptions, moving: &BTreeSet
     let bounds = meshes.iter().map(|m| m.bounds()).fold([[0.0; 3]; 2], union);
     let lights = std::mem::take(&mut builder.lights);
     let models_over_budget = builder.boxed.len();
+    let mut ceiling = Mesh::default();
+    {
+        let mut painter = mesh::Painter::new(
+            &mut ceiling,
+            mesh::Material::paint(crate::plan::Rgb8::from_u32(0xff_ff_ff)),
+            mesh::Tag::default(),
+        );
+        for walls in &layout.rooms {
+            painter.polygon(&walls.points, wall_height, false, 0.0);
+        }
+    }
     Scene {
         opaque,
         transparent,
         dynamic_opaque,
         dynamic_transparent,
+        ceiling,
         rooms,
         groups: builder.groups.clone(),
         elements,

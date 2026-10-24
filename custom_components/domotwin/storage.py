@@ -28,6 +28,10 @@ class _Unset(Enum):
 
 UNSET: Final = _Unset.TOKEN
 
+# What a save changes. Each kind is checked against the revision of its own last write, so that
+# saving the bindings or the settings does not refuse an edit of the plan started before.
+KINDS: Final = ("plan", "bindings", "settings")
+
 
 def empty_bindings() -> dict[str, Any]:
     """Return bindings with nothing bound."""
@@ -42,6 +46,7 @@ def empty_data() -> StoredData:
         "layout": {},
         "bindings": empty_bindings(),
         "settings": {},
+        "revisions": {},
     }
 
 
@@ -91,12 +96,20 @@ class DomoTwinData:
         data = empty_data()
         if isinstance(stored, dict):
             data.update({key: value for key, value in stored.items() if key in data})
+        if not isinstance(data["revisions"], dict):
+            data["revisions"] = {}
+        for kind in KINDS:
+            data["revisions"].setdefault(kind, data["revision"])
         self._data = data
 
     @property
     def revision(self) -> int:
         """Revision of the stored data."""
         return int(self._data["revision"])
+
+    def revision_of(self, kind: str) -> int:
+        """Revision of the last write of `kind` (`plan` for the plan and the overlay)."""
+        return int(self._data["revisions"].get(kind, self.revision))
 
     @property
     def plan(self) -> dict[str, Any] | None:
@@ -116,6 +129,12 @@ class DomoTwinData:
         bindings: dict[str, Any] = self._data["bindings"]
         return bindings
 
+    @property
+    def settings(self) -> dict[str, Any]:
+        """The home's settings (where north points on the plan)."""
+        settings: dict[str, Any] = self._data["settings"]
+        return settings
+
     def snapshot(self) -> StoredData:
         """Return a deep copy, safe to hand out."""
         return copy.deepcopy(self._data)
@@ -128,7 +147,7 @@ class DomoTwinData:
         expected_revision: int | None = None,
     ) -> int:
         """Store a new plan (None removes it) and/or overlay. Return the new revision."""
-        self._check_revision(expected_revision)
+        self._check_revision("plan", expected_revision)
         if not isinstance(plan, _Unset):
             self._data["plan"] = plan
         if not isinstance(layout, _Unset):
@@ -139,16 +158,23 @@ class DomoTwinData:
         self, bindings: dict[str, Any], expected_revision: int | None = None
     ) -> int:
         """Store new bindings. Return the new revision."""
-        self._check_revision(expected_revision)
+        self._check_revision("bindings", expected_revision)
         self._data["bindings"] = bindings
         return await self._async_commit("bindings")
 
-    def _check_revision(self, expected_revision: int | None) -> None:
-        if expected_revision is not None and expected_revision != self.revision:
-            raise RevisionConflictError(self.revision)
+    async def async_save_settings(self, settings: dict[str, Any]) -> int:
+        """Store new settings. Return the new revision."""
+        self._data["settings"] = settings
+        return await self._async_commit("settings")
+
+    def _check_revision(self, kind: str, expected_revision: int | None) -> None:
+        current = self.revision_of(kind)
+        if expected_revision is not None and expected_revision != current:
+            raise RevisionConflictError(current)
 
     async def _async_commit(self, kind: str) -> int:
         self._data["revision"] = self.revision + 1
+        self._data["revisions"][kind] = self.revision
         await self._store.async_save(self._data)
         self._notify(kind)
         return self.revision

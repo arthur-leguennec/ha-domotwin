@@ -440,6 +440,88 @@ try {
     Buffer.from(modelsPair.slice(modelsPair.indexOf(",") + 1), "base64"),
   );
   console.log("docs/figures/screenshot-models.png");
+
+  // Layers (M4): the temperature heatmap, the power layer, a smoke alert and the sun through the
+  // windows, with the legend, the values and the banner over the view.
+  const layerShots = [];
+  for (const [label, query, options, script] of [
+    ["Temperature", "", { lighting: "day", layer: "temperature" }, ""],
+    ["Power", "", { lighting: "evening", layer: "power" }, ""],
+    [
+      "Smoke alert",
+      "",
+      { lighting: "day" },
+      "window.__setState('binary_sensor.kitchen_smoke', 'on');" +
+        "window.__setState('binary_sensor.living_room_motion', 'on');",
+    ],
+    [
+      "Sun through the windows",
+      "&sunpos=205,35&north=160",
+      { lighting: "day", sun: "real" },
+      "window.__setState('cover.living_room_curtains', 'open', { current_position: 100 });",
+    ],
+  ]) {
+    const page = await browser.newPage({ viewport: { width: 1100, height: 760 } });
+    await page.goto(`http://127.0.0.1:4173/?mode=panel&live=1${query}`);
+    await page.waitForFunction(() => window.__view?.()?.debugState().summary, null, {
+      timeout: 60_000,
+    });
+    // States first: the panel gives the view its own options again when Home Assistant updates.
+    await page.evaluate((script) => new Function(script)(), script);
+    await page.waitForTimeout(200);
+    await page.evaluate(
+      async ([options]) => {
+        const view = window.__view();
+        view.options = { quality: "high", view: "3d", cutaway: "auto", ...options };
+        await view.updateComplete;
+        // Pulses held at their strongest look, so that the picture is the same every time.
+        view.engine.setMotion(false);
+        view.settle();
+        view.requestFrame();
+      },
+      [options],
+    );
+    await page.waitForTimeout(500);
+    layerShots.push([label, (await page.screenshot()).toString("base64")]);
+    await page.close();
+  }
+  const layersPage = await browser.newPage();
+  const layersImage = await layersPage.evaluate(async (shots) => {
+    const decoded = await Promise.all(
+      shots.map(async ([label, base64]) => {
+        const image = new Image();
+        image.src = `data:image/png;base64,${base64}`;
+        await image.decode();
+        return [label, image];
+      }),
+    );
+    const [w, h] = [decoded[0][1].width, decoded[0][1].height];
+    const canvas = document.createElement("canvas");
+    canvas.width = w * 2 + 30;
+    canvas.height = h * 2 + 30;
+    const g = canvas.getContext("2d");
+    g.fillStyle = "#f1f5f9";
+    g.fillRect(0, 0, canvas.width, canvas.height);
+    decoded.forEach(([label, image], i) => {
+      const x = 10 + (i % 2) * (w + 10);
+      const y = 10 + Math.floor(i / 2) * (h + 10);
+      g.drawImage(image, x, y);
+      g.font = "600 22px Inter, sans-serif";
+      const width = g.measureText(label).width + 40;
+      g.fillStyle = "rgba(255,255,255,0.92)";
+      g.beginPath();
+      g.roundRect(x + w / 2 - width / 2, y + h - 120, width, 44, 22);
+      g.fill();
+      g.fillStyle = "#0f172a";
+      g.fillText(label, x + w / 2 - width / 2 + 20, y + h - 91);
+    });
+    return canvas.toDataURL("image/png");
+  }, layerShots);
+  await fs.writeFile(
+    join(root, "docs", "figures", "screenshot-layers.png"),
+    Buffer.from(layersImage.slice(layersImage.indexOf(",") + 1), "base64"),
+  );
+  console.log("docs/figures/screenshot-layers.png");
   await browser.close();
 } finally {
   server.kill();

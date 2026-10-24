@@ -1,21 +1,25 @@
 import {
+  mdiAlert,
   mdiAlertCircleOutline,
   mdiCamera,
   mdiChevronUp,
   mdiCubeOutline,
   mdiFloorPlan,
   mdiHomeOutline,
+  mdiLayersOutline,
 } from "@mdi/js";
 import { LitElement, css, html, nothing, svg, type PropertyValues, type TemplateResult } from "lit";
 
 import { themeBackground, type Rgb } from "../color";
-import type { CutawayMode, LightingMode, QualityName, ViewMode } from "../config";
+import type { CutawayMode, LightingMode, QualityName, SunMode, ViewMode } from "../config";
 import {
   DomoTwinEngine,
   EngineError,
   engineError,
+  heatLegend,
   wasmMemoryBytes,
   type EditState,
+  type LayerLabel,
   type PickedElement,
   type PlanSummary,
   type SavedView,
@@ -45,7 +49,18 @@ import {
   type BindingsJson,
   type ElementBinding,
 } from "../live/bindings";
+import {
+  HEAT_KINDS,
+  LAYER_NAMES,
+  formatHeat,
+  formatPower,
+  roomLayers,
+  type LayerName,
+  type PlanRoom,
+  type RoomAlert,
+} from "../live/layers";
 import { StateSync } from "../live/states";
+import { planRooms } from "../live/suggest";
 import { FrameScheduler } from "../scheduler";
 import { fire } from "./define";
 import { icon } from "./icon";
@@ -63,6 +78,14 @@ export interface ViewOptions {
   lighting?: LightingMode;
   /** Room framed first (an element id of the plan). */
   room?: string;
+  /** The layer shown first. */
+  layer?: LayerName;
+  /** Room alerts (on unless `false`). */
+  alerts?: boolean;
+  /** Rooms someone is in glow (on unless `false`). */
+  presence?: boolean;
+  /** Where the sun lights from (`fixed` unless set). */
+  sun?: SunMode;
 }
 
 /** Device pixel ratio cap: sharper than this costs fill rate for little visible gain. */
@@ -79,6 +102,13 @@ const LIGHT_REFRESH_MS = 5 * 60 * 1000;
 const FALLBACK_BACKGROUND: Rgb = { r: 242, g: 242, b: 240 };
 /** How long a notice (a failed action) stays (ms). */
 const NOTICE_MS = 5000;
+/** Frame interval of the layers' animation alone (ms): 24 frames per second. */
+const LAYER_FRAME_MS = 1000 / 24;
+/** Alerts listed in the banner; the others are counted. */
+const MAX_ALERTS_SHOWN = 2;
+/** The power layer's colours, from a few watts to 3 kW (`shaders.rs`). */
+const POWER_GRADIENT = ["#ffe459", "#ff7b2b"];
+const NO_BINDINGS: BindingsJson = { version: 1, rooms: {}, elements: {} };
 
 /** The panel open over the scene: an element's controls or a room's panel. */
 type Sheet =
@@ -120,10 +150,19 @@ export interface FrameStats {
 export interface DebugState {
   engine: EngineState;
   frames: number;
+  /** Least time between the frames of an animation (ms; 0: the display's rate). */
+  frameInterval: number;
   planView: boolean;
   resolution: number;
   /** What the light follows: `mood:<name>`, `sun:<elevation>:<rising>` or `clock:<hour>`. */
   light?: string;
+  /** Where the sun lights from: `default`, or `<azimuth>:<elevation>:<north>` (the real sun). */
+  sun?: string;
+  /** The layer shown and what the engine was given for the rooms (`setLayers`). */
+  layer?: string;
+  layers?: string;
+  /** Rooms with an alert, dangers first. */
+  alerts?: string[];
   quality?: string;
   summary?: PlanSummary;
   stats?: SceneStats;
@@ -167,6 +206,12 @@ export class DomoTwinView extends LitElement {
     focusedRoom: { state: true },
     notice: { state: true },
     edit: { state: true },
+    north: { attribute: false },
+    layer: { state: true },
+    layersOpen: { state: true },
+    realSun: { state: true },
+    alerts: { state: true },
+    labels: { state: true },
   };
 
   hass?: HomeAssistant;
@@ -193,6 +238,8 @@ export class DomoTwinView extends LitElement {
   options: ViewOptions = { quality: "auto" };
   /** An error to show instead of the plan (e.g. the stored plan could not be fetched). */
   planError?: string;
+  /** Where north points on the plan, degrees clockwise from its top (the home's settings). */
+  north = 0;
 
   protected engineState: EngineState = "idle";
   protected summary?: PlanSummary;
@@ -205,6 +252,15 @@ export class DomoTwinView extends LitElement {
   protected notice?: string;
   /** The edit session's state while edit mode is on. */
   protected edit?: EditState;
+  /** The layer shown (the layer menu), and the menu open. */
+  protected layer: LayerName = "off";
+  protected layersOpen = false;
+  /** Sunlight through the windows: the sun where it really is. */
+  protected realSun = false;
+  /** Rooms with an alert, dangers first. */
+  protected alerts: RoomAlert[] = [];
+  /** The values of the layer shown and where they go (device pixels). */
+  protected labels: LayerLabel[] = [];
 
   private engine?: DomoTwinEngine;
   private canvas?: HTMLCanvasElement;
@@ -223,6 +279,23 @@ export class DomoTwinView extends LitElement {
   private stage?: HTMLElement;
   /** What the light was last set from (mood, sun position or clock), to skip repeats. */
   private lightKey?: string;
+  /** Where the sun was last set from, and the room layers last sent, to skip repeats. */
+  private sunKey?: string;
+  private layersKey?: string;
+  /** The rooms of the plan shown, and whether a heatmap found values in them. */
+  private rooms: PlanRoom[] = [];
+  private heatValues = 0;
+  /** The labels' JSON last read from the engine, and whether they must be read again. */
+  private labelsText = "";
+  private labelsDue = true;
+  private readonly motionQuery =
+    typeof window.matchMedia === "function"
+      ? window.matchMedia("(prefers-reduced-motion: reduce)")
+      : undefined;
+  private readonly onMotion = (): void => {
+    this.engine?.setMotion(!this.motionQuery?.matches);
+    this.redraw();
+  };
   private lightTimer?: number;
   /** Entity states already sent to the engine, and the entities bound. */
   private readonly states = new StateSync();
@@ -335,6 +408,107 @@ export class DomoTwinView extends LitElement {
       }
       .views button:hover {
         background: color-mix(in srgb, var(--primary-text-color, #1f2328) 8%, transparent);
+      }
+      .views button[aria-checked="true"] {
+        color: var(--primary-color, #03a9f4);
+        font-weight: 600;
+      }
+      .views hr {
+        width: 100%;
+        margin: 4px 0;
+        border: none;
+        border-top: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+      }
+      .legend {
+        position: absolute;
+        right: 12px;
+        bottom: 12px;
+        width: 168px;
+        padding: 8px 12px;
+        display: grid;
+        gap: 4px;
+        font-size: 0.75rem;
+      }
+      .legend .bar {
+        height: 8px;
+        border-radius: 4px;
+      }
+      .legend .ends {
+        display: flex;
+        justify-content: space-between;
+        color: var(--secondary-text-color, #5f6368);
+      }
+      .legend .name {
+        font-weight: 600;
+      }
+      :host([legend]) .chip {
+        max-width: calc(100% - 216px);
+      }
+      .labels {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        overflow: hidden;
+      }
+      .labels span {
+        position: absolute;
+        transform: translate(-50%, -50%);
+        padding: 2px 8px;
+        border-radius: 10px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        white-space: nowrap;
+        color: var(--primary-text-color, #1f2328);
+        background: color-mix(in srgb, var(--card-background-color, #fff) 82%, transparent);
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
+      }
+      .labels span.power {
+        transform: translate(-50%, -130%);
+      }
+      .alerts {
+        position: absolute;
+        top: 12px;
+        left: 12px;
+        max-width: calc(100% - 92px);
+        display: grid;
+        gap: 6px;
+        justify-items: start;
+      }
+      .alerts button {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        max-width: 100%;
+        padding: 8px 14px 8px 10px;
+        border: none;
+        box-shadow:
+          inset 0 0 0 2px var(--warning-color, #ffa600),
+          0 8px 28px rgba(0, 0, 0, 0.1);
+        color: inherit;
+        font: inherit;
+        font-size: 0.875rem;
+        font-weight: 600;
+        text-align: start;
+        cursor: pointer;
+      }
+      .alerts button.danger {
+        box-shadow:
+          inset 0 0 0 2px var(--error-color, #db4437),
+          0 8px 28px rgba(0, 0, 0, 0.1);
+      }
+      .alerts button svg.icon {
+        flex: none;
+        width: 20px;
+        height: 20px;
+        color: var(--warning-color, #ffa600);
+      }
+      .alerts button.danger svg.icon {
+        color: var(--error-color, #db4437);
+      }
+      .alerts .more {
+        padding: 0 4px;
+        font-size: 0.75rem;
+        color: var(--secondary-text-color, #5f6368);
       }
       .overlay {
         position: absolute;
@@ -459,12 +633,14 @@ export class DomoTwinView extends LitElement {
   override connectedCallback(): void {
     super.connectedCallback();
     document.addEventListener("visibilitychange", this.onVisibility);
+    this.motionQuery?.addEventListener("change", this.onMotion);
     if (this.hasUpdated) void this.startEngine();
   }
 
   override disconnectedCallback(): void {
     super.disconnectedCallback();
     document.removeEventListener("visibilitychange", this.onVisibility);
+    this.motionQuery?.removeEventListener("change", this.onMotion);
     window.removeEventListener("keydown", this.onEditKey);
     window.clearTimeout(this.noticeTimer);
     this.stopEngine();
@@ -472,6 +648,21 @@ export class DomoTwinView extends LitElement {
 
   protected override firstUpdated(): void {
     void this.startEngine();
+  }
+
+  protected override willUpdate(changed: PropertyValues<this>): void {
+    if (changed.has("options")) {
+      // The layer and the sun start as the options say; the layer menu changes them after.
+      const previous = changed.get("options");
+      if (previous?.layer !== this.options.layer) this.layer = this.options.layer ?? "off";
+      if (previous?.sun !== this.options.sun) this.realSun = this.options.sun === "real";
+    }
+    if (this.layer === "off" && this.labels.length > 0) {
+      this.labels = [];
+      this.labelsText = "";
+    }
+    // The room chip leaves room for the legend (`renderLegend`).
+    this.toggleAttribute("legend", this.layer !== "off" && !this.edit);
   }
 
   protected override updated(changed: PropertyValues<this>): void {
@@ -484,17 +675,37 @@ export class DomoTwinView extends LitElement {
       this.engine.setCutaway(this.options.cutaway ?? "auto");
       this.applyLighting();
       if (previous?.view !== this.options.view) this.setPlanView(this.options.view === "2d");
-      this.scheduler?.request();
+      this.redraw();
     }
     if (changed.has("hass")) {
       this.applyTheme();
       this.applyLighting();
       this.syncStates();
     }
+    // `layer` and `realSun` are this view's own state.
+    const own = changed as PropertyValues;
+    if (
+      changed.has("hass") ||
+      changed.has("bindings") ||
+      changed.has("options") ||
+      own.has("layer")
+    ) {
+      this.applyLayers();
+    }
+    if (changed.has("north") || own.has("realSun") || changed.has("hass")) this.applySun();
   }
 
   /** Draws a new frame as soon as possible (when visible). */
   requestFrame(): void {
+    this.redraw();
+  }
+
+  /**
+   * Asks for a frame because something changed (camera, states, layers, size…): the values of
+   * the layer are read again with it. The layers' own animation does not read them.
+   */
+  private redraw(): void {
+    this.labelsDue = true;
     this.scheduler?.request();
   }
 
@@ -503,10 +714,15 @@ export class DomoTwinView extends LitElement {
     const state: DebugState = {
       engine: this.engineState,
       frames: this.scheduler?.frames ?? 0,
+      frameInterval: this.scheduler?.minInterval ?? 0,
       planView: this.planView,
       resolution: this.resolution,
     };
     if (this.lightKey) state.light = this.lightKey;
+    if (this.sunKey) state.sun = this.sunKey;
+    state.layer = this.layer;
+    if (this.layersKey) state.layers = this.layersKey;
+    state.alerts = this.alerts.map((alert) => alert.room);
     if (this.engine) {
       state.quality = this.engine.quality;
       state.stats = this.engine.stats;
@@ -638,7 +854,7 @@ export class DomoTwinView extends LitElement {
     this.dragTo = undefined;
     this.dragHeld = false;
     this.applyPlan();
-    this.scheduler?.request();
+    this.redraw();
   }
 
   /** Shows the 2D plan or the 3D view. */
@@ -650,7 +866,7 @@ export class DomoTwinView extends LitElement {
     }
     this.engine.setPlanView(plan);
     this.planView = plan;
-    this.scheduler?.request();
+    this.redraw();
   }
 
   /** Back to the whole home. */
@@ -658,13 +874,26 @@ export class DomoTwinView extends LitElement {
     this.viewsOpen = false;
     this.focusedRoom = undefined;
     this.engine?.overview();
-    this.scheduler?.request();
+    this.redraw();
+  }
+
+  /** Shows a layer (the layer menu). */
+  setLayer(layer: LayerName): void {
+    this.layersOpen = false;
+    this.layer = layer;
+    this.redraw();
+  }
+
+  /** Lights the rooms from where the sun really is (through the windows), or not. */
+  setRealSun(real: boolean): void {
+    this.layersOpen = false;
+    this.realSun = real;
   }
 
   /** Frames an element of the plan; false when it has nothing to show. */
   showElement(id: string): boolean {
     const done = this.engine?.focusElement(id) ?? false;
-    this.scheduler?.request();
+    this.redraw();
     return done;
   }
 
@@ -696,7 +925,7 @@ export class DomoTwinView extends LitElement {
     } else if (picked.room && engine.focusElement(picked.room)) {
       this.focusedRoom = { id: picked.room, name: this.roomName(picked) };
     }
-    this.scheduler?.request();
+    this.redraw();
   }
 
   /** What a long press at a point of the view does (CSS pixels from its top left). */
@@ -721,7 +950,7 @@ export class DomoTwinView extends LitElement {
     } else if (picked.room) {
       void this.openRoom(picked.room, this.roomName(picked));
     }
-    this.scheduler?.request();
+    this.redraw();
   }
 
   /** The element at a point of the view (CSS pixels from its top left). */
@@ -758,12 +987,13 @@ export class DomoTwinView extends LitElement {
     return this.canvas.toDataURL("image/png");
   }
 
-  /** Runs camera moves and wall animations to their end at once (tests). */
+  /** Runs camera moves, wall animations and fades to their end at once (tests). */
   settle(): void {
     const engine = this.engine;
     if (!engine) return;
     let time = performance.now();
-    for (let i = 0; i < 300 && engine.frame(time); i += 1) time += 100;
+    // The layers' animation never ends: it does not count.
+    for (let i = 0; i < 300 && engine.frame(time) && engine.moving; i += 1) time += 100;
   }
 
   /** Forces `frames` consecutive frames and measures them (frame-time smoke test). */
@@ -823,7 +1053,11 @@ export class DomoTwinView extends LitElement {
     this.engine = engine;
     engine.setQuality(this.options.quality);
     engine.setCutaway(this.options.cutaway ?? "auto");
+    engine.setMotion(!this.motionQuery?.matches);
     this.lightKey = undefined;
+    this.sunKey = undefined;
+    this.layersKey = undefined;
+    this.labelsText = "";
     this.scheduler = new FrameScheduler((time) => this.drawFrame(engine, time));
     this.scheduler.setPageVisible(document.visibilityState === "visible");
     this.resizeObserver = new ResizeObserver(() => {
@@ -851,6 +1085,7 @@ export class DomoTwinView extends LitElement {
     this.edit = undefined;
     this.applyPlan();
     this.applyEditing();
+    this.applySun();
     this.resize(stage);
     this.scheduler.request();
   }
@@ -886,9 +1121,21 @@ export class DomoTwinView extends LitElement {
       const over = engine.modelsOverBudget;
       if (over > 0) this.notify(this.translator.tp("view.models_over_budget", over));
     }
+    const movingBefore = engine.moving;
     const start = performance.now();
     const more = engine.frame(time);
     const cost = performance.now() - start;
+    const movingAfter = engine.moving;
+    // The values move with the camera, or change: not with the layers' own animation.
+    if (this.layer !== "off" && (this.labelsDue || movingBefore || movingAfter)) {
+      this.labelsDue = false;
+      this.readLabels(engine);
+    }
+    // The layers' animation alone runs at 24 frames per second; camera moves, wall animations
+    // and fades at the display's rate (a gesture sets it back at once, see `apply`).
+    this.scheduler?.setMinInterval(
+      more && engine.layersAnimating && !engine.moving ? LAYER_FRAME_MS : 0,
+    );
     this.frameCost = this.frameCost === 0 ? cost : this.frameCost * 0.8 + cost * 0.2;
     // Only animations tell: a single frame after an idle period is not representative.
     if (more && time - this.lastResolutionChange > 600 && this.stage) {
@@ -916,7 +1163,7 @@ export class DomoTwinView extends LitElement {
     }
     if (this.engine) {
       this.engine.resize(width, height);
-      this.scheduler?.request();
+      this.redraw();
     }
   }
 
@@ -933,7 +1180,7 @@ export class DomoTwinView extends LitElement {
     }
     this.background = background;
     this.engine.setBackground(background);
-    this.scheduler?.request();
+    this.redraw();
   }
 
   /**
@@ -973,7 +1220,71 @@ export class DomoTwinView extends LitElement {
     if (key === this.lightKey) return;
     this.lightKey = key;
     apply();
-    this.scheduler?.request();
+    this.redraw();
+  }
+
+  /**
+   * Sets where the sun lights from: where it is (`sun.sun`'s azimuth and elevation, with the
+   * home's north) when sunlight through the windows is on, else the default sun.
+   */
+  private applySun(): void {
+    const engine = this.engine;
+    if (!engine) return;
+    const sun = this.hass?.states["sun.sun"];
+    const azimuth = Number(sun?.attributes.azimuth);
+    const elevation = Number(sun?.attributes.elevation);
+    const real = this.realSun && Number.isFinite(azimuth) && Number.isFinite(elevation);
+    // Half a degree: the shadows are drawn again only when the sun has visibly moved.
+    const a = Math.round(azimuth * 2) / 2;
+    const e = Math.round(elevation * 2) / 2;
+    const north = Number.isFinite(this.north) ? this.north : 0;
+    const key = real ? `${a}:${e}:${north}` : "default";
+    if (key === this.sunKey) return;
+    this.sunKey = key;
+    if (real) engine.setSunPosition(a, e, north);
+    else engine.useDefaultSun();
+    this.redraw();
+  }
+
+  /** Temperatures are shown in °F when Home Assistant uses them (the scales stay in °C). */
+  private get fahrenheit(): boolean {
+    return this.hass?.config?.unit_system?.temperature === "°F";
+  }
+
+  /** Sends the engine what the layers show now (only when it changed) and lists the alerts. */
+  private applyLayers(): void {
+    const engine = this.engine;
+    if (!engine || !this.summary) return;
+    const hass = this.hass;
+    const layers = hass
+      ? roomLayers(hass, this.bindings ?? NO_BINDINGS, this.rooms, {
+          layer: this.layer,
+          alerts: this.options.alerts !== false,
+          presence: this.options.presence !== false,
+        })
+      : undefined;
+    const json = layers?.json ?? "{}";
+    if (json !== this.layersKey) {
+      this.layersKey = json;
+      engine.setLayers(json);
+      this.redraw();
+    }
+    engine.setPowerLayer(this.layer === "power");
+    const values = Object.keys(layers?.values ?? {}).length;
+    const alerts = layers?.alerts ?? [];
+    if (values !== this.heatValues) {
+      this.heatValues = values;
+      this.requestUpdate();
+    }
+    if (JSON.stringify(alerts) !== JSON.stringify(this.alerts)) this.alerts = alerts;
+  }
+
+  /** Reads where the layer's values go; the labels change only when they moved. */
+  private readLabels(engine: DomoTwinEngine): void {
+    const text = this.edit ? "[]" : engine.layerLabels();
+    if (text === this.labelsText) return;
+    this.labelsText = text;
+    this.labels = JSON.parse(text) as LayerLabel[];
   }
 
   /** Starts or ends the engine's edit session to follow `editing`. */
@@ -996,7 +1307,7 @@ export class DomoTwinView extends LitElement {
     if (!was && this.edit) window.addEventListener("keydown", this.onEditKey);
     if (was && !this.edit) window.removeEventListener("keydown", this.onEditKey);
     fire(this, "domotwin-edit", state);
-    this.scheduler?.request();
+    this.redraw();
   }
 
   /** Moves the dragged pieces to the last pointer position, once per frame. */
@@ -1037,6 +1348,7 @@ export class DomoTwinView extends LitElement {
     this.summary = undefined;
     this.loadError = undefined;
     this.savedViews = [];
+    this.rooms = planRooms(this.plan);
     if (!this.plan) return;
     try {
       this.summary = this.engine.loadPlan(
@@ -1048,6 +1360,8 @@ export class DomoTwinView extends LitElement {
       if (refused > 0) this.notify(this.translator.tp("view.layout_refused", refused));
       this.loadModels();
       this.savedViews = this.engine.views();
+      this.layersKey = undefined;
+      this.applyLayers();
       if (!sameHome) {
         if (this.options.view === "2d") this.setPlanView(true);
         if (this.options.room) this.engine.focusElement(this.options.room);
@@ -1055,7 +1369,7 @@ export class DomoTwinView extends LitElement {
     } catch (error) {
       this.loadError = error instanceof EngineError ? error : engineError(error);
     }
-    this.scheduler?.request();
+    this.redraw();
   }
 
   /**
@@ -1088,7 +1402,7 @@ export class DomoTwinView extends LitElement {
               this.modelsFailed.delete(file.hash);
               this.modelTimes.loadMs.push(read - asked);
               this.modelsCame = true;
-              this.scheduler?.request();
+              this.redraw();
             },
             () => {
               failed(file.hash);
@@ -1106,7 +1420,7 @@ export class DomoTwinView extends LitElement {
     this.engine?.highlight(picked.id);
     this.gestures.forgetTap();
     fire(this, "domotwin-pick", picked);
-    this.scheduler?.request();
+    this.redraw();
   }
 
   /** Sends the bindings to the engine, then the states of the entities now bound. */
@@ -1117,7 +1431,7 @@ export class DomoTwinView extends LitElement {
     engine.setBindings(JSON.stringify(bindings));
     this.bound = boundEntityIds(bindings);
     this.syncStates();
-    this.scheduler?.request();
+    this.redraw();
   }
 
   /** Sends the engine the bound entities whose state changed. */
@@ -1127,7 +1441,7 @@ export class DomoTwinView extends LitElement {
     const changes = this.states.changes(this.hass, this.bound);
     if (changes === undefined) return;
     engine.setStates(changes);
-    this.scheduler?.request();
+    this.redraw();
   }
 
   private roomName(picked: PickedElement): string {
@@ -1205,6 +1519,7 @@ export class DomoTwinView extends LitElement {
   private readonly onPointerDown = (event: PointerEvent): void => {
     if (!this.engine) return;
     this.viewsOpen = false;
+    this.layersOpen = false;
     (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
     this.addModifier = event.ctrlKey || event.metaKey || event.shiftKey;
     if (
@@ -1248,7 +1563,7 @@ export class DomoTwinView extends LitElement {
         !from || Math.hypot(event.offsetX - from.x, event.offsetY - from.y) >= TAP_SLOP;
       if (this.dragging) {
         this.dragTo = { x: event.offsetX, y: event.offsetY };
-        this.scheduler?.request();
+        this.redraw();
       }
       return;
     }
@@ -1348,6 +1663,8 @@ export class DomoTwinView extends LitElement {
     if (!engine || !stage || gestures.length === 0) return;
     const width = Math.max(1, stage.clientWidth);
     const height = Math.max(1, stage.clientHeight);
+    // Gestures draw at the display's rate, even while the layers run slower.
+    this.scheduler?.setMinInterval(0);
     for (const gesture of gestures) {
       switch (gesture.kind) {
         case "drag":
@@ -1371,11 +1688,18 @@ export class DomoTwinView extends LitElement {
           break;
       }
     }
-    this.scheduler?.request();
+    this.redraw();
   }
 
   private readonly toggleViews = (): void => {
     this.viewsOpen = !this.viewsOpen;
+    this.layersOpen = false;
+    this.sheet = undefined;
+  };
+
+  private readonly toggleLayers = (): void => {
+    this.layersOpen = !this.layersOpen;
+    this.viewsOpen = false;
     this.sheet = undefined;
   };
 
@@ -1383,7 +1707,7 @@ export class DomoTwinView extends LitElement {
     this.viewsOpen = false;
     if (this.engine?.showView(id)) {
       this.planView = false;
-      this.scheduler?.request();
+      this.redraw();
     }
   }
 
@@ -1406,8 +1730,9 @@ export class DomoTwinView extends LitElement {
           event.preventDefault();
         }}
       ></div>
-      ${this.renderGuides()} ${this.renderOverlay()} ${ready ? this.renderTools() : nothing}
-      ${ready ? this.renderSheet() : nothing}
+      ${ready ? this.renderLabels() : nothing} ${this.renderGuides()} ${this.renderOverlay()}
+      ${ready ? this.renderLegend() : nothing} ${ready ? this.renderAlerts() : nothing}
+      ${ready ? this.renderTools() : nothing} ${ready ? this.renderSheet() : nothing}
       ${
         this.notice
           ? html`<div class="notice glass" role="alert" data-testid="notice">${this.notice}</div>`
@@ -1482,6 +1807,17 @@ export class DomoTwinView extends LitElement {
         >
           ${icon(mdiHomeOutline)}
         </button>
+        <button
+          data-testid="layers"
+          title=${t.t("layers.menu")}
+          aria-label=${t.t("layers.menu")}
+          aria-haspopup="menu"
+          aria-expanded=${this.layersOpen ? "true" : "false"}
+          aria-pressed=${this.layer !== "off" || this.realSun ? "true" : "false"}
+          @click=${this.toggleLayers}
+        >
+          ${icon(mdiLayersOutline)}
+        </button>
         ${
           this.savedViews.length > 0
             ? html`<button
@@ -1513,7 +1849,143 @@ export class DomoTwinView extends LitElement {
               )}
             </div>`
           : nothing
-      }`;
+      }
+      ${this.layersOpen ? this.renderLayerMenu() : nothing}`;
+  }
+
+  /** The layer menu: one layer at a time, and sunlight through the windows. */
+  private renderLayerMenu(): TemplateResult {
+    const t = this.translator;
+    return html`<div
+      class="views glass"
+      role="menu"
+      aria-label=${t.t("layers.menu")}
+      data-testid="layer-menu"
+    >
+      ${LAYER_NAMES.map(
+        (layer) =>
+          html`<button
+            role="menuitemradio"
+            data-layer=${layer}
+            aria-checked=${this.layer === layer ? "true" : "false"}
+            @click=${() => {
+              this.setLayer(layer);
+            }}
+          >
+            ${t.t(`layers.${layer}`)}
+          </button>`,
+      )}
+      <hr />
+      <button
+        role="menuitemcheckbox"
+        data-testid="real-sun"
+        aria-checked=${this.realSun ? "true" : "false"}
+        @click=${() => {
+          this.setRealSun(!this.realSun);
+        }}
+      >
+        ${t.t("layers.sun")}
+      </button>
+    </div>`;
+  }
+
+  /** The legend of the layer shown: its colours from end to end, or why it shows nothing. */
+  private renderLegend(): TemplateResult | typeof nothing {
+    const t = this.translator;
+    const layer = this.layer;
+    if (layer === "off" || this.edit) return nothing;
+    const name = t.t(`layers.${layer}`);
+    if (layer === "power") {
+      const gradient = `linear-gradient(to right, ${POWER_GRADIENT.join(", ")})`;
+      return html`<div class="legend glass" data-testid="legend" role="note">
+        <span class="name">${name}</span>
+        <div class="bar" style="background:${gradient}"></div>
+        <div class="ends"><span>3 W</span><span>3 kW</span></div>
+      </div>`;
+    }
+    if (!(HEAT_KINDS as readonly string[]).includes(layer)) return nothing;
+    const legend = heatLegend(layer);
+    if (!legend) return nothing;
+    if (this.heatValues === 0) {
+      return html`<div class="legend glass" data-testid="legend" role="note">
+        <span>${t.t("layers.no_values", { layer: name })}</span>
+      </div>`;
+    }
+    const language = t.language;
+    const fahrenheit = this.fahrenheit;
+    const low = formatHeat(legend.stops[0]?.[0] ?? 0, legend.unit, language, fahrenheit);
+    const high = formatHeat(
+      legend.stops[legend.stops.length - 1]?.[0] ?? 0,
+      legend.unit,
+      language,
+      fahrenheit,
+    );
+    const gradient = `linear-gradient(to right, ${legend.gradient.join(", ")})`;
+    return html`<div
+      class="legend glass"
+      data-testid="legend"
+      role="note"
+      aria-label=${t.t("layers.legend", { layer: name, low, high })}
+    >
+      <span class="name">${name}</span>
+      <div class="bar" style="background:${gradient}"></div>
+      <div class="ends" aria-hidden="true"><span>${low}</span><span>${high}</span></div>
+    </div>`;
+  }
+
+  /** The values of the layer shown: each room's at its centre, each piece's power above it. */
+  private renderLabels(): TemplateResult | typeof nothing {
+    const canvas = this.canvas;
+    if (this.labels.length === 0 || !canvas || this.edit) return nothing;
+    const k = Math.max(1, canvas.clientWidth) / Math.max(1, canvas.width);
+    const language = this.translator.language;
+    const fahrenheit = this.fahrenheit;
+    const unit = (HEAT_KINDS as readonly string[]).includes(this.layer)
+      ? (heatLegend(this.layer)?.unit ?? "")
+      : "";
+    return html`<div class="labels" aria-hidden="true" data-testid="labels">
+      ${this.labels.map(
+        (label) =>
+          html`<span
+            class=${label.kind}
+            data-id=${label.id}
+            style="left:${label.x * k}px;top:${label.y * k}px"
+            >${
+              label.kind === "power"
+                ? formatPower(label.value, language)
+                : formatHeat(label.value, unit, language, fahrenheit)
+            }</span
+          >`,
+      )}
+    </div>`;
+  }
+
+  /** The rooms with an alert: a tap frames the room. */
+  private renderAlerts(): TemplateResult | typeof nothing {
+    const alerts = this.alerts;
+    if (alerts.length === 0) return nothing;
+    const t = this.translator;
+    const shown = alerts.slice(0, MAX_ALERTS_SHOWN);
+    const more = alerts.length - shown.length;
+    return html`<div class="alerts" role="alert" data-testid="alerts">
+      ${shown.map(
+        (alert) =>
+          html`<button
+            class="glass ${alert.level}"
+            data-room=${alert.room}
+            @click=${() => {
+              if (this.engine?.focusElement(alert.room)) {
+                this.focusedRoom = { id: alert.room, name: alert.name };
+              }
+              this.redraw();
+            }}
+          >
+            ${icon(alert.level === "danger" ? mdiAlert : mdiAlertCircleOutline)}
+            <span>${t.t(`layers.alert_${alert.reason}`, { room: alert.name })}</span>
+          </button>`,
+      )}
+      ${more > 0 ? html`<span class="more">${t.tp("layers.more_alerts", more)}</span>` : nothing}
+    </div>`;
   }
 
   private renderOverlay(): TemplateResult | typeof nothing {

@@ -36,6 +36,10 @@ async def test_data_survives_a_restart(
     assert data.revision == 7
     assert data.plan == demo_plan
     assert data.layout == {"sofa": {"x": 1}}
+    # Data stored before per-kind revisions: each kind starts at the stored revision.
+    assert [data.revision_of(kind) for kind in ("plan", "bindings", "settings")] == [7, 7, 7]
+    await data.async_save_settings({"north": 5})
+    assert (data.revision, data.revision_of("plan"), data.revision_of("settings")) == (8, 7, 8)
 
 
 async def test_saves_are_written(

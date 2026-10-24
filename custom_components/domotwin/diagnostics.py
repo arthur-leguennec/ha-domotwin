@@ -44,4 +44,6 @@ async def async_get_config_entry_diagnostics(
             "rooms": len(bindings.get("rooms", {})),
             "elements": len(bindings.get("elements", {})),
         },
+        # Which settings are set, not their values (north tells how the home faces).
+        "settings": sorted(data.settings),
     }

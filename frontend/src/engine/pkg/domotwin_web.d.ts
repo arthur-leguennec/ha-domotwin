@@ -116,6 +116,17 @@ export class Engine {
      */
     invalidate(): void;
     /**
+     * Where the values of the layers shown go on the picture, as JSON `[{"id", "kind": "heat"
+     * | "power", "value", "x", "y"}]` in device pixels from the top left: each room's heatmap
+     * value at its centre, and each piece's power (W) when the power layer is shown.
+     */
+    layerLabels(): string;
+    /**
+     * Whether the layers shown move: a frame is then needed all the time, and the frontend
+     * draws fewer per second.
+     */
+    layersAnimating(): boolean;
+    /**
      * Loads a plan (the text of a `*.plan.json`) with its edit overlay (`layout`, JSON) and
      * builds its scene. Returns a JSON summary; `layoutRefused` counts the entries of the overlay
      * left out because they made the plan invalid (an updated plan). The camera keeps its place
@@ -138,6 +149,11 @@ export class Engine {
      * triangle budget.
      */
     modelsOverBudget(): number;
+    /**
+     * Whether a camera move, a wall animation or a fade is running: frames are then drawn at
+     * the display's rate, else the layers' animation runs slower.
+     */
+    moving(): boolean;
     /**
      * Whether a frame is needed (something changed or an animation is running).
      */
@@ -198,6 +214,11 @@ export class Engine {
      */
     setCutaway(name: string): void;
     /**
+     * Shows the room layers: JSON `{"heat": "temperature", "values": {room id: value},
+     * "alerts": {room id: "warning" | "danger"}, "presence": [room id…]}`; `{}` shows none.
+     */
+    setLayers(json: string): void;
+    /**
      * Fixes the light to a mood: `morning`, `day`, `evening` or `night`. Returns `false` for
      * another name (the light then follows the sun or the clock).
      */
@@ -212,9 +233,18 @@ export class Engine {
      */
     setModelMesh(hash: string, mesh: Uint8Array): boolean;
     /**
+     * Lets the layers move, or holds them still (the user prefers reduced motion).
+     */
+    setMotion(motion: boolean): void;
+    /**
      * Switches between the 3D view and the 2D plan (animated from `time_ms`).
      */
     setPlanView(plan: boolean, time_ms: number): void;
+    /**
+     * Shows or hides the power layer: the pieces whose power sensors read more than standby are
+     * tinted, from yellow to red.
+     */
+    setPowerLayer(shown: boolean): void;
     /**
      * Forces a quality preset (`eco`, `balanced`, `high`) or returns to automatic (`auto`).
      */
@@ -224,6 +254,12 @@ export class Engine {
      * entities that changed (`null` forgets one).
      */
     setStates(json: string): void;
+    /**
+     * Lights the scene from where the sun really is (`azimuth` and `elevation` in degrees, as
+     * `sun.sun` gives them) for a plan whose north is `north` degrees clockwise from its top:
+     * its light comes into the rooms through the windows.
+     */
+    setSunPosition(azimuth: number, elevation: number, north: number): void;
     /**
      * Lights the scene for the sun's `elevation` (degrees), `rising` before noon (Home
      * Assistant's `sun.sun`).
@@ -242,6 +278,10 @@ export class Engine {
      * Figures about the scene, as JSON (for the diagnostics and the performance smoke test).
      */
     stats(): string;
+    /**
+     * Goes back to the default sun, high in the south-east of the plan.
+     */
+    useDefaultSun(): void;
     /**
      * The plan's saved viewpoints, as JSON `[{"id", "name"}]` (eye-level views are skipped).
      */
@@ -265,6 +305,13 @@ export function applyLayout(plan: string, layout: string): string;
  * The version of the engine (the product version is set by the frontend).
  */
 export function engineVersion(): string;
+
+/**
+ * The legend of a heatmap (`temperature`, `humidity`, `co2`, `pm25`), as JSON `{"unit",
+ * "stops": [[value, "#rrggbb"]…], "gradient": ["#rrggbb"…]}` (16 colours from the first stop to
+ * the last, for a CSS gradient); an empty string for another name.
+ */
+export function heatLegend(kind: string): string;
 
 /**
  * Installs the panic hook so that a bug shows a readable message in the console.
@@ -310,9 +357,12 @@ export interface InitOutput {
     readonly engine_frame: (a: number, b: number) => number;
     readonly engine_highlight: (a: number, b: number, c: number) => void;
     readonly engine_invalidate: (a: number) => void;
+    readonly engine_layerLabels: (a: number, b: number) => void;
+    readonly engine_layersAnimating: (a: number) => number;
     readonly engine_loadPlan: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => void;
     readonly engine_modelFiles: (a: number, b: number) => void;
     readonly engine_modelsOverBudget: (a: number) => number;
+    readonly engine_moving: (a: number) => number;
     readonly engine_needsFrame: (a: number) => number;
     readonly engine_new: (a: number, b: number) => void;
     readonly engine_orbit: (a: number, b: number, c: number) => void;
@@ -326,18 +376,24 @@ export interface InitOutput {
     readonly engine_setBackground: (a: number, b: number, c: number, d: number) => void;
     readonly engine_setBindings: (a: number, b: number, c: number) => void;
     readonly engine_setCutaway: (a: number, b: number, c: number) => void;
+    readonly engine_setLayers: (a: number, b: number, c: number) => void;
     readonly engine_setLightingMood: (a: number, b: number, c: number) => number;
     readonly engine_setLocalHour: (a: number, b: number) => void;
     readonly engine_setModelMesh: (a: number, b: number, c: number, d: number, e: number) => number;
+    readonly engine_setMotion: (a: number, b: number) => void;
     readonly engine_setPlanView: (a: number, b: number, c: number) => void;
+    readonly engine_setPowerLayer: (a: number, b: number) => void;
     readonly engine_setQuality: (a: number, b: number, c: number) => void;
     readonly engine_setStates: (a: number, b: number, c: number) => void;
     readonly engine_setSun: (a: number, b: number, c: number) => void;
+    readonly engine_setSunPosition: (a: number, b: number, c: number, d: number) => void;
     readonly engine_showModels: (a: number) => number;
     readonly engine_showView: (a: number, b: number, c: number, d: number) => number;
     readonly engine_stats: (a: number, b: number) => void;
+    readonly engine_useDefaultSun: (a: number) => void;
     readonly engine_views: (a: number, b: number) => void;
     readonly engine_zoom: (a: number, b: number, c: number, d: number) => void;
+    readonly heatLegend: (a: number, b: number, c: number) => void;
     readonly start: () => void;
     readonly summarizePlan: (a: number, b: number, c: number) => void;
     readonly __wbindgen_export: (a: number, b: number) => number;

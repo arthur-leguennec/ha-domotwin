@@ -5,6 +5,9 @@
 //   models=1 (the demo plan with a bar stool drawn from examples/models/stool.glb, twice)
 //   models=big (the same pieces drawn from a generated STL of 139 392 triangles)
 //   models=unused (the stool model in the plan, without pieces)
+//   layer=off|temperature|humidity|co2|pm25|power  alerts=0  presence=0 (card options)
+//   sunpos=<azimuth>,<elevation> (sun.sun's position)  realsun=1 (card option sun: real)
+//   north=<degrees> (the stored settings)
 import { applyService, demoHome } from "./demo-home.mjs";
 
 const params = new URLSearchParams(location.search);
@@ -22,6 +25,7 @@ const store = {
   layout: {},
   bindings: demoBindings,
   revision: 1,
+  settings: params.get("north") ? { north: Number(params.get("north")) } : {},
   /** Model files kept by the mocked integration, by `<sha256>.<format>`. */
   files: new Map(),
 };
@@ -137,6 +141,15 @@ const connection = {
         });
       case "domotwin/bindings/get":
         return structuredClone({ bindings: store.bindings, revision: store.revision });
+      case "domotwin/settings/get":
+        return structuredClone({ settings: store.settings, revision: store.revision });
+      case "domotwin/settings/save": {
+        if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        store.settings = message.settings;
+        store.revision += 1;
+        for (const listener of listeners) listener({ kind: "settings", revision: store.revision });
+        return { revision: store.revision };
+      }
       case "domotwin/plan/save": {
         if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
         if ("plan" in message) store.plan = message.plan;
@@ -165,6 +178,7 @@ const connection = {
 
 const language = params.get("lang") ?? "en";
 const sunParam = params.get("sun");
+const sunPosition = params.get("sunpos");
 const home = live ? demoHome() : { states: {}, entities: {}, devices: {}, areas: {} };
 const states = home.states;
 if (sunParam) {
@@ -173,6 +187,14 @@ if (sunParam) {
     entity_id: "sun.sun",
     state: Number(elevation) > 0 ? "above_horizon" : "below_horizon",
     attributes: { elevation: Number(elevation), rising: rising === "1" },
+  };
+}
+if (sunPosition) {
+  const [azimuth, elevation] = sunPosition.split(",").map(Number);
+  states["sun.sun"] = {
+    entity_id: "sun.sun",
+    state: elevation > 0 ? "above_horizon" : "below_horizon",
+    attributes: { azimuth, elevation, rising: azimuth < 180 },
   };
 }
 let hass = {
@@ -232,6 +254,10 @@ if (mode === "panel") {
     view: params.get("view") ?? undefined,
     cutaway: params.get("cutaway") ?? undefined,
     lighting: params.get("lighting") ?? undefined,
+    layer: params.get("layer") ?? undefined,
+    alerts: params.get("alerts") === "0" ? false : undefined,
+    presence: params.get("presence") === "0" ? false : undefined,
+    sun: params.get("realsun") === "1" ? "real" : undefined,
   });
 }
 element.hass = hass;

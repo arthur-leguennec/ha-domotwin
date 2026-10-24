@@ -72,6 +72,34 @@ const entities = [
     "heat",
     { temperature: 19, current_temperature: 18.5, min_temp: 7, max_temp: 30 },
   ],
+  // The layers: air sensors of each room, presence, safety (all quiet at first), the weather.
+  ...[
+    ["living_room", 21.4, 46, 720, 8],
+    ["kitchen", 23.8, 58, 1080, 21],
+    ["bathroom", 24.6, 72, null, null],
+    ["hallway", 19.6, null, null, null],
+    ["bedroom", 18.2, 49, 940, 6],
+  ].flatMap(([area, temperature, humidity, co2, pm25]) =>
+    [
+      ["temperature", temperature, "°C"],
+      ["humidity", humidity, "%"],
+      ["carbon_dioxide", co2, "ppm"],
+      ["pm25", pm25, "µg/m³"],
+    ]
+      .filter(([, value]) => value !== null)
+      .map(([deviceClass, value, unit]) => [
+        `sensor.${area}_${deviceClass}`,
+        area,
+        String(value),
+        { device_class: deviceClass, unit_of_measurement: unit, state_class: "measurement" },
+      ]),
+  ),
+  ["binary_sensor.living_room_motion", "living_room", "off", { device_class: "motion" }],
+  ["binary_sensor.bedroom_occupancy", "bedroom", "off", { device_class: "occupancy" }],
+  ["binary_sensor.kitchen_smoke", "kitchen", "off", { device_class: "smoke" }],
+  ["binary_sensor.hallway_smoke", "hallway", "off", { device_class: "smoke" }],
+  ["binary_sensor.bathroom_leak", "bathroom", "off", { device_class: "moisture" }],
+  ["weather.home", null, "sunny", { temperature: 16 }],
 ];
 
 function title(id) {
@@ -85,7 +113,7 @@ export function demoHome() {
   const registry = {};
   for (const [id, area, state, attributes] of entities) {
     states[id] = { entity_id: id, state, attributes: { friendly_name: title(id), ...attributes } };
-    registry[id] = { entity_id: id, area_id: area };
+    if (area) registry[id] = { entity_id: id, area_id: area };
   }
   const areaRegistry = Object.fromEntries(
     Object.entries(areas).map(([area_id, name]) => [area_id, { area_id, name }]),

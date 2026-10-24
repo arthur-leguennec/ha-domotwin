@@ -16,9 +16,9 @@ Local, rapide, Rust + WebAssembly.</p>
 > **État : développement en cours.** DomoTwin se construit étape par étape ([feuille de
 > route](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/ROADMAP.md), en anglais).
 > L’intégration, le panneau, la carte, l’import du plan et de l’IFC, les vues 3D et 2D, le
-> pilotage en direct (états, toucher, appui long, panneau de pièce, liaisons), le mode édition et
-> vos propres modèles 3D fonctionnent déjà ; les calques arrivent ensuite. Les fonctionnalités
-> ci-dessous décrivent la version 0.1.0.
+> pilotage en direct (états, toucher, appui long, panneau de pièce, liaisons), le mode édition, vos
+> propres modèles 3D et les calques fonctionnent déjà ; les appareils, un éditeur de plan et les
+> étages arrivent ensuite. Les fonctionnalités ci-dessous décrivent la version 0.1.0.
 
 ## Fonctionnalités
 
@@ -32,8 +32,10 @@ Local, rapide, Rust + WebAssembly.</p>
 - **En direct.** Les lampes éclairent leur pièce dans leur vraie couleur et luminosité, la
   télévision s’illumine, volets et rideaux bougent, portes et fenêtres s’ouvrent avec leurs
   capteurs.
-- **Calques.** Une carte de chaleur animée (température, humidité ou CO₂), les alertes de sécurité,
-  la présence, le vrai soleil à travers vos fenêtres et la consommation électrique.
+- **Calques.** Une carte de chaleur animée (température, humidité, CO₂ ou particules fines) tirée
+  des capteurs de la zone de chaque pièce, des alertes de sécurité qui pulsent dans leur pièce
+  (fumée, gaz, fuite d’eau, alarme, fenêtre ouverte sous la pluie), les pièces occupées, le vrai
+  soleil qui entre par vos fenêtres, et ce que consomme chaque appareil.
 - **Mode édition.** Déplacez, tournez et empilez les meubles avec aimantation, repères et
   annulation, ajoutez des meubles depuis un catalogue, liez n’importe quel objet à des entités (avec
   des suggestions tirées de vos pièces), et ajoutez votre propre meuble ou appareil avec son modèle
@@ -55,6 +57,10 @@ Local, rapide, Rust + WebAssembly.</p>
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-live.png" alt="Le pilotage en direct, le soir : un appui long sur une lampe ouvre ses commandes, un appui long sur le sol d’une pièce ouvre le panneau de la pièce" width="100%">
+</p>
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-layers.png" alt="Les calques : la température de chaque pièce en carte de chaleur avec sa légende, la consommation des appareils, une alerte de fumée qui pulse dans la cuisine, et le soleil qui entre par les fenêtres" width="100%">
 </p>
 
 ## Démarrage rapide
@@ -90,11 +96,23 @@ YAML n’est jamais nécessaire. Pour référence, les options de la carte :
 | `cutaway`     | `auto`, `always`, `off`             | `auto`     | Abaissement des murs face à la caméra.        |
 | `lighting`    | `auto`, `morning`, `day`, `evening`, `night` | `auto` | Lumière de la scène. `auto` suit le soleil de votre Home Assistant (`sun.sun`), ou l’horloge à défaut. |
 | `room`        | un identifiant de pièce du plan     | aucun      | Pièce à cadrer à l’ouverture de la carte.     |
+| `layer`       | `off`, `temperature`, `humidity`, `co2`, `pm25`, `power` | `off` | Calque affiché à l’ouverture ; le menu des calques le change. |
+| `alerts`      | `true`, `false`                     | `true`     | Alertes de sécurité des pièces (fumée, gaz, eau, alarme, fenêtre ouverte sous la pluie). |
+| `presence`    | `true`, `false`                     | `true`     | Les pièces occupées s’illuminent doucement.   |
+| `sun`         | `fixed`, `real`                     | `fixed`    | `real` : le soleil éclaire depuis sa vraie position (`sun.sun`), par les fenêtres. |
 | `font_family` | une famille de police               | incluse    | Police des textes de la carte.                |
 
 Options de l’intégration (Paramètres → Appareils et services → DomoTwin → Configurer) : afficher le
 panneau dans la barre latérale, et le réserver aux administrateurs. Seuls les administrateurs
-peuvent importer un plan, le modifier et lier des entités.
+peuvent importer un plan, le modifier et lier des entités. Les réglages du panneau (la roue
+dentée) indiquent où se trouve le nord sur le plan, pour le vrai soleil.
+
+**Les calques lisent vos zones.** La valeur d’une pièce sur la carte de chaleur est la moyenne des
+capteurs de température, d’humidité, de CO₂ ou de PM2,5 de sa zone Home Assistant (la zone liée à
+la pièce, ou celle qui porte son nom) ; ses alertes et sa présence viennent des détecteurs de
+fumée, de gaz, de monoxyde de carbone, d’humidité, de sécurité, d’occupation, de mouvement et de
+présence de cette zone, et de son alarme. Le calque de consommation utilise les capteurs de
+puissance liés à chaque meuble.
 
 ## Fonctionnement
 

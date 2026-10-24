@@ -7,7 +7,10 @@ use std::sync::Arc;
 use domotwin_core::bindings::{Bindings, read_bindings};
 use domotwin_core::camera::{Camera, CutawayMode};
 use domotwin_core::edit::Session;
-use domotwin_core::lighting::{Mood, lighting_for_hour, lighting_for_sun};
+use domotwin_core::layers::{
+    HeatKind, RoomLayers, legend, read_room_layers, room_shapes, room_texels,
+};
+use domotwin_core::lighting::{Mood, lighting_for_hour, lighting_for_sun, sun_direction};
 use domotwin_core::live::{EntityState, LiveState, read_states, targets};
 use domotwin_core::model_mesh::ModelMesh;
 use domotwin_core::overlay::{Layout, apply, fit, parse_layout};
@@ -17,6 +20,7 @@ use domotwin_core::scene::{
     ElementInfo, ModelMeshes, Scene, SceneOptions, build_dynamic, build_scene_moving,
 };
 use domotwin_core::{ReadError, summarize_plan};
+use domotwin_render::lamps::power_level;
 use domotwin_render::{GpuHint, QualityPreset, Renderer, Rgb};
 use wasm_bindgen::JsCast;
 use wasm_bindgen::prelude::*;
@@ -67,6 +71,25 @@ pub fn apply_layout_json(plan: &str, layout: &str) -> Result<String, JsError> {
     Ok(applied.to_string())
 }
 
+/// The legend of a heatmap (`temperature`, `humidity`, `co2`, `pm25`), as JSON `{"unit",
+/// "stops": [[value, "#rrggbb"]…], "gradient": ["#rrggbb"…]}` (16 colours from the first stop to
+/// the last, for a CSS gradient); an empty string for another name.
+#[wasm_bindgen(js_name = heatLegend)]
+pub fn heat_legend(kind: &str) -> String {
+    let Some(kind) = HeatKind::from_name(kind) else {
+        return String::new();
+    };
+    let stops: Vec<serde_json::Value> = kind
+        .stops()
+        .iter()
+        .map(|&(value, color)| {
+            serde_json::json!([value, domotwin_core::plan::Rgb8::from_u32(color).to_hex()])
+        })
+        .collect();
+    let gradient: Vec<String> = legend(kind, 16).into_iter().map(|(_, c)| c).collect();
+    serde_json::json!({ "unit": kind.unit(), "stops": stops, "gradient": gradient }).to_string()
+}
+
 /// One DomoTwin view drawn on one canvas.
 #[wasm_bindgen]
 #[derive(Debug)]
@@ -94,6 +117,8 @@ pub struct Engine {
     models: Rc<ModelMeshes>,
     /// A mesh came for a piece shown since the scene was built.
     models_dirty: bool,
+    /// The room layers shown (heatmap, alerts, presence).
+    layers: RoomLayers,
 }
 
 #[wasm_bindgen]
@@ -143,6 +168,7 @@ impl Engine {
             drag_built: false,
             models: Rc::default(),
             models_dirty: false,
+            layers: RoomLayers::default(),
         };
         engine
             .renderer
@@ -243,6 +269,7 @@ impl Engine {
         scene.transparent = Mesh::default();
         scene.dynamic_opaque = Mesh::default();
         scene.dynamic_transparent = Mesh::default();
+        scene.ceiling = Mesh::default();
         self.elements.clone_from(&scene.elements);
         let targets = targets(&plan, &scene.lights, &self.bindings, &self.states);
         if fresh {
@@ -254,6 +281,16 @@ impl Engine {
         self.scene = Some(scene);
         self.renderer.set_looks(&self.live.looks);
         self.rebuild_moving_parts();
+        self.upload_rooms();
+    }
+
+    /// Gives the renderer the room layers of the scene shown.
+    fn upload_rooms(&mut self) {
+        if let (Some(plan), Some(scene)) = (&self.plan, &self.scene) {
+            let texels = room_texels(plan, scene, &self.layers);
+            self.renderer
+                .set_rooms(&texels, self.layers.shown(), self.layers.animated());
+        }
     }
 }
 
@@ -455,6 +492,95 @@ impl Engine {
     #[wasm_bindgen(js_name = setLocalHour)]
     pub fn set_local_hour(&mut self, hour: f64) {
         self.renderer.set_lighting(lighting_for_hour(hour));
+    }
+
+    /// Lights the scene from where the sun really is (`azimuth` and `elevation` in degrees, as
+    /// `sun.sun` gives them) for a plan whose north is `north` degrees clockwise from its top:
+    /// its light comes into the rooms through the windows.
+    #[wasm_bindgen(js_name = setSunPosition)]
+    pub fn set_sun_position(&mut self, azimuth: f64, elevation: f64, north: f64) {
+        self.renderer
+            .set_sun(Some(sun_direction(azimuth, elevation, north)));
+    }
+
+    /// Goes back to the default sun, high in the south-east of the plan.
+    #[wasm_bindgen(js_name = useDefaultSun)]
+    pub fn use_default_sun(&mut self) {
+        self.renderer.set_sun(None);
+    }
+
+    /// Shows the room layers: JSON `{"heat": "temperature", "values": {room id: value},
+    /// "alerts": {room id: "warning" | "danger"}, "presence": [room id…]}`; `{}` shows none.
+    #[wasm_bindgen(js_name = setLayers)]
+    pub fn set_layers(&mut self, json: &str) {
+        let value = serde_json::from_str(json).unwrap_or(serde_json::Value::Null);
+        self.layers = read_room_layers(&value);
+        self.upload_rooms();
+    }
+
+    /// Shows or hides the power layer: the pieces whose power sensors read more than standby are
+    /// tinted, from yellow to red.
+    #[wasm_bindgen(js_name = setPowerLayer)]
+    pub fn set_power_layer(&mut self, shown: bool) {
+        self.renderer.set_power_layer(shown);
+    }
+
+    /// Lets the layers move, or holds them still (the user prefers reduced motion).
+    #[wasm_bindgen(js_name = setMotion)]
+    pub fn set_motion(&mut self, motion: bool) {
+        self.renderer.set_motion(motion);
+    }
+
+    /// Whether the layers shown move: a frame is then needed all the time, and the frontend
+    /// draws fewer per second.
+    #[wasm_bindgen(js_name = layersAnimating)]
+    pub fn layers_animating(&self) -> bool {
+        self.renderer.layers_animating()
+    }
+
+    /// Whether a camera move, a wall animation or a fade is running: frames are then drawn at
+    /// the display's rate, else the layers' animation runs slower.
+    pub fn moving(&self) -> bool {
+        self.renderer.view.animating() || !self.live.is_settled()
+    }
+
+    /// Where the values of the layers shown go on the picture, as JSON `[{"id", "kind": "heat"
+    /// | "power", "value", "x", "y"}]` in device pixels from the top left: each room's heatmap
+    /// value at its centre, and each piece's power (W) when the power layer is shown.
+    #[wasm_bindgen(js_name = layerLabels)]
+    pub fn layer_labels(&self) -> String {
+        let mut labels = Vec::new();
+        let mut push = |id: &str, kind: &str, value: f64, point: [f64; 3]| {
+            if let Some([x, y]) = self.renderer.screen_point(point) {
+                labels.push(serde_json::json!({
+                    "id": id, "kind": kind, "value": value, "x": x, "y": y,
+                }));
+            }
+        };
+        if let (Some(plan), Some(scene)) = (&self.plan, &self.scene)
+            && self.layers.heat.is_some()
+        {
+            for room in room_shapes(plan, scene) {
+                if let Some(value) = self.layers.values.get(room.id) {
+                    let [x, z] = room.centre;
+                    push(room.id, "heat", *value, [x, 1.0, z]);
+                }
+            }
+        }
+        if self.renderer.power_layer() {
+            for (info, look) in self.elements.iter().zip(&self.live.looks) {
+                let [min, max] = info.bounds;
+                if power_level(look.power) > 0.0 && min != max {
+                    let top = [
+                        f64::from(min[0] + max[0]) * 0.5,
+                        f64::from(max[1]),
+                        f64::from(min[2] + max[2]) * 0.5,
+                    ];
+                    push(&info.id, "power", f64::from(look.power), top);
+                }
+            }
+        }
+        serde_json::Value::Array(labels).to_string()
     }
 
     /// Turns the camera by a pointer move of `dx`, `dy` CSS pixels.

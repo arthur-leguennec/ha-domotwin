@@ -25,9 +25,10 @@ async def test_diagnostics_are_counts_only(
     data = hass.data[DATA_KEY]
     await data.async_save_plan(plan=demo_plan)
     await data.async_save_bindings(demo_bindings)
+    await data.async_save_settings({"north": 37.5})
 
     diagnostics = await get_diagnostics_for_config_entry(hass, hass_client, setup_integration)
-    assert diagnostics["revision"] == 2
+    assert diagnostics["revision"] == 3
     assert diagnostics["plan"]["elements"] == {
         "room": 5,
         "door": 4,
@@ -35,6 +36,7 @@ async def test_diagnostics_are_counts_only(
         "furniture": 39,
     }
     assert diagnostics["bindings"] == {"rooms": 5, "elements": 19}
+    assert diagnostics["settings"] == ["north"]
     text = json.dumps(diagnostics)
-    for private in ("Living room", "light.", "living", "Demo apartment"):
+    for private in ("Living room", "light.", "living", "Demo apartment", "37.5"):
         assert private not in text

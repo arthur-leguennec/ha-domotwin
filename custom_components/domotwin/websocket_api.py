@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import logging
 from typing import Any
 
@@ -20,6 +21,7 @@ from .validation import (
     validate_layout,
     validate_models,
     validate_plan,
+    validate_settings,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -33,6 +35,8 @@ def async_register_commands(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_plan_save)
     websocket_api.async_register_command(hass, ws_bindings_get)
     websocket_api.async_register_command(hass, ws_bindings_save)
+    websocket_api.async_register_command(hass, ws_settings_get)
+    websocket_api.async_register_command(hass, ws_settings_save)
     websocket_api.async_register_command(hass, ws_subscribe)
 
 
@@ -70,7 +74,11 @@ def ws_plan_get(
     snapshot = data.snapshot()
     connection.send_result(
         msg["id"],
-        {"plan": snapshot["plan"], "layout": snapshot["layout"], "revision": data.revision},
+        {
+            "plan": snapshot["plan"],
+            "layout": snapshot["layout"],
+            "revision": data.revision_of("plan"),
+        },
     )
 
 
@@ -125,7 +133,8 @@ def ws_bindings_get(
     if (data := _get_data(hass, connection, msg)) is None:
         return
     connection.send_result(
-        msg["id"], {"bindings": data.snapshot()["bindings"], "revision": data.revision}
+        msg["id"],
+        {"bindings": copy.deepcopy(data.bindings), "revision": data.revision_of("bindings")},
     )
 
 
@@ -156,12 +165,45 @@ async def ws_bindings_save(
     connection.send_result(msg["id"], {"revision": revision})
 
 
+@websocket_api.websocket_command({vol.Required("type"): "domotwin/settings/get"})
+@callback
+def ws_settings_get(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Return the home's settings."""
+    if (data := _get_data(hass, connection, msg)) is None:
+        return
+    connection.send_result(
+        msg["id"],
+        {"settings": copy.deepcopy(data.settings), "revision": data.revision_of("settings")},
+    )
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command(
+    {vol.Required("type"): "domotwin/settings/save", vol.Required("settings"): dict}
+)
+@websocket_api.async_response
+async def ws_settings_save(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Store the home's settings. Admins only."""
+    if (data := _get_data(hass, connection, msg)) is None:
+        return
+    try:
+        revision = await data.async_save_settings(validate_settings(msg["settings"]))
+    except InvalidPayloadError as err:
+        connection.send_error(msg["id"], err.code, str(err))
+        return
+    connection.send_result(msg["id"], {"revision": revision})
+
+
 @websocket_api.websocket_command({vol.Required("type"): "domotwin/subscribe"})
 @callback
 def ws_subscribe(
     hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
 ) -> None:
-    """Send an event every time the plan, the overlay or the bindings change."""
+    """Send an event every time the plan, the overlay, the bindings or the settings change."""
 
     @callback
     def forward(kind: str, revision: int) -> None:

@@ -110,6 +110,26 @@ export interface UserModel {
   removable: boolean;
 }
 
+/** A value of a layer and where it goes on the picture (device pixels from the top left). */
+export interface LayerLabel {
+  /** The room's id (`heat`) or the piece's (`power`). */
+  id: string;
+  kind: "heat" | "power";
+  /** In the heatmap's unit, or watts. */
+  value: number;
+  x: number;
+  y: number;
+}
+
+/** The legend of a heatmap. */
+export interface HeatLegend {
+  unit: string;
+  /** The scale's stops: value and colour (`#rrggbb`). */
+  stops: [number, string][];
+  /** 16 colours from the first stop to the last, for a CSS gradient. */
+  gradient: string[];
+}
+
 /** A kind of the catalogue, with its default size (cm). */
 export interface CatalogueKind {
   kind: string;
@@ -150,6 +170,7 @@ export class EngineError extends Error {
 
 let wasmModule: Promise<typeof Wasm> | undefined;
 let wasmMemory: WebAssembly.Memory | undefined;
+let wasmLoaded: typeof Wasm | undefined;
 
 /** Loads the WebAssembly engine once per page (it is a separate chunk, fetched on demand). */
 export function loadWasm(): Promise<typeof Wasm> {
@@ -157,6 +178,7 @@ export function loadWasm(): Promise<typeof Wasm> {
     const wasm = await import("./pkg/domotwin_web.js");
     const output = await wasm.default({ module_or_path: assetUrl(__DOMOTWIN_WASM__) });
     wasmMemory = output.memory;
+    wasmLoaded = wasm;
     return wasm;
   })();
   wasmModule.catch(() => (wasmModule = undefined));
@@ -166,6 +188,18 @@ export function loadWasm(): Promise<typeof Wasm> {
 /** Size of the engine's WebAssembly memory in bytes (it never shrinks; see PERFORMANCE.md). */
 export function wasmMemoryBytes(): number | undefined {
   return wasmMemory?.buffer.byteLength;
+}
+
+const legends = new Map<string, HeatLegend | undefined>();
+
+/** The legend of a heatmap (`temperature`, `humidity`, `co2`, `pm25`), once the engine is loaded. */
+export function heatLegend(kind: string): HeatLegend | undefined {
+  if (!wasmLoaded) return undefined;
+  if (!legends.has(kind)) {
+    const text = wasmLoaded.heatLegend(kind);
+    legends.set(kind, text ? (JSON.parse(text) as HeatLegend) : undefined);
+  }
+  return legends.get(kind);
 }
 
 /** The engine reports plan errors as JSON `{"code", "element"}`, other errors as a bare code. */
@@ -250,6 +284,50 @@ export class DomoTwinEngine {
   /** Lights the scene for a local time of day (0–24 h). */
   setLocalHour(hour: number): void {
     this.live.setLocalHour(hour);
+  }
+
+  /**
+   * Lights the scene from where the sun is (`sun.sun`'s azimuth and elevation, degrees) for a
+   * plan whose north is `north` degrees clockwise from its top: the light comes in through the
+   * windows.
+   */
+  setSunPosition(azimuth: number, elevation: number, north: number): void {
+    this.live.setSunPosition(azimuth, elevation, north);
+  }
+
+  /** Back to the default sun, high in the south-east of the plan. */
+  useDefaultSun(): void {
+    this.live.useDefaultSun();
+  }
+
+  /** Shows the room layers (the JSON of `roomLayers`). */
+  setLayers(json: string): void {
+    this.live.setLayers(json);
+  }
+
+  /** Shows or hides the power layer. */
+  setPowerLayer(shown: boolean): void {
+    this.live.setPowerLayer(shown);
+  }
+
+  /** Lets the layers move, or holds them still (reduced motion). */
+  setMotion(motion: boolean): void {
+    this.live.setMotion(motion);
+  }
+
+  /** Whether the layers shown move (frames are then needed all the time). */
+  get layersAnimating(): boolean {
+    return this.live.layersAnimating();
+  }
+
+  /** Whether a camera move, a wall animation or a fade is running (frames at the display rate). */
+  get moving(): boolean {
+    return this.live.moving();
+  }
+
+  /** The values of the layers shown and where they go, as the engine's JSON text. */
+  layerLabels(): string {
+    return this.live.layerLabels();
   }
 
   /** Turns the camera by a drag of `dx`, `dy` CSS pixels. */

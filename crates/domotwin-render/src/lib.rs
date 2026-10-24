@@ -161,8 +161,37 @@ struct PickTarget {
     height: u32,
 }
 
-/// Direction towards the sun: high, from the south-east of the plan.
+/// Direction towards the sun when its position is not used: high, from the south-east of the
+/// plan.
 const SUN: [f64; 3] = [0.38, 0.82, 0.43];
+/// Lowest height of the real sun's direction: below the horizon, it lights from just above it
+/// (its light has faded by then, see `domotwin_core::lighting`).
+const SUN_MIN_Y: f64 = 0.035;
+
+/// Unit vector of `v`.
+fn unit(v: [f64; 3]) -> [f64; 3] {
+    let len = (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt().max(1e-12);
+    v.map(|c| c / len)
+}
+
+/// The direction towards the real sun as drawn: a unit vector no lower than [`SUN_MIN_Y`];
+/// `None` for no direction.
+fn real_sun(direction: [f64; 3]) -> Option<[f64; 3]> {
+    if direction.iter().any(|c| !c.is_finite()) || direction.iter().all(|c| *c == 0.0) {
+        return None;
+    }
+    let [x, y, z] = unit(direction);
+    let flat = (x * x + z * z).sqrt();
+    if y >= SUN_MIN_Y {
+        Some([x, y, z])
+    } else if flat < 1e-9 {
+        // Straight down: from overhead.
+        Some([0.0, 1.0, 0.0])
+    } else {
+        let k = (1.0 - SUN_MIN_Y * SUN_MIN_Y).sqrt() / flat;
+        Some([x * k, SUN_MIN_Y, z * k])
+    }
+}
 
 /// Owns the GPU resources of one view. One per canvas.
 pub struct Renderer {
@@ -177,8 +206,22 @@ pub struct Renderer {
     halo: Program,
     /// Opaque and moving opaque, then glass and moving glass.
     meshes: [Option<GpuMesh>; 4],
-    /// The live look of every element, two texels each (see `lamps::element_texels`).
+    /// The live look of every element, three texels each (see `lamps::element_texels`).
     elements: Texture2D,
+    /// The room layers, three texels per room slot (`domotwin_core::layers::room_texels`).
+    rooms: Texture2D,
+    /// A room layer is shown (heatmap, alert or presence).
+    rooms_shown: bool,
+    /// The room layers move (the heatmap's halo, a pulsing alert).
+    rooms_animated: bool,
+    /// The power layer is shown.
+    power_layer: bool,
+    /// Layers may move (off when the user prefers reduced motion).
+    motion: bool,
+    /// Direction towards the real sun (unit), when its position is used; else [`SUN`].
+    sun: Option<[f64; 3]>,
+    /// The ceilings: only drawn in the shadow map, with the real sun.
+    ceiling: Option<GpuMesh>,
     /// The looks and edit marks it holds.
     looks: Vec<Look>,
     marks: Vec<Mark>,
@@ -186,6 +229,9 @@ pub struct Renderer {
     lights: Vec<PointLight>,
     halos: Option<GpuHalos>,
     shadow: Option<ShadowMap>,
+    /// The shadow map must be drawn again (scene, moving parts, sun or quality changed); the
+    /// view says when the cut-away changed (`ViewState::shadows_dirty`).
+    shadow_stale: bool,
     /// What the shadow sampler points at without shadows. Created once: creating a texture
     /// binds it to the active unit, which would replace a texture bound for the frame.
     no_shadow: DepthTexture2D,
@@ -215,16 +261,21 @@ fn mat4(m: &[f32; 16]) -> Mat4 {
     )
 }
 
-/// Orthographic projection of the world as seen from the sun, covering a sphere.
+/// Orthographic projection of the world as seen from the sun (`sun`, a unit vector towards it),
+/// covering a sphere.
 #[allow(clippy::cast_possible_truncation)]
-fn sun_matrix(centre: [f64; 3], radius: f64) -> [f32; 16] {
-    let len = (SUN[0] * SUN[0] + SUN[1] * SUN[1] + SUN[2] * SUN[2]).sqrt();
-    let back = [SUN[0] / len, SUN[1] / len, SUN[2] / len];
+fn sun_matrix(centre: [f64; 3], radius: f64, sun: [f64; 3]) -> [f32; 16] {
+    let back = sun;
     let forward = [-back[0], -back[1], -back[2]];
     // Right = forward × world up, normalised; up = right × forward.
     let r = [-forward[2], 0.0, forward[0]];
-    let rl = (r[0] * r[0] + r[2] * r[2]).sqrt().max(1e-9);
-    let right = [r[0] / rl, 0.0, r[2] / rl];
+    let rl = (r[0] * r[0] + r[2] * r[2]).sqrt();
+    // A sun overhead sees the plan with its x axis to the right.
+    let right = if rl > 1e-6 {
+        [r[0] / rl, 0.0, r[2] / rl]
+    } else {
+        [1.0, 0.0, 0.0]
+    };
     let up = [
         right[1] * forward[2] - right[2] * forward[1],
         right[2] * forward[0] - right[0] * forward[2],
@@ -266,8 +317,8 @@ fn sun_matrix(centre: [f64; 3], radius: f64) -> [f32; 16] {
     out
 }
 
-/// The per-element texture: two texels per element tag, on one row.
-fn element_texture(context: &Context, texels: &[[f32; 4]]) -> Texture2D {
+/// A texture of texels on one row (per element tag, per room slot).
+fn row_texture(context: &Context, texels: &[[f32; 4]]) -> Texture2D {
     let width = u32::try_from(texels.len()).unwrap_or(2).max(2);
     let texture = Texture2D::new_empty::<[f32; 4]>(
         context,
@@ -296,7 +347,8 @@ impl Renderer {
         let depth = Program::from_source(&context, shaders::VERTEX, shaders::DEPTH)?;
         let pick = Program::from_source(&context, shaders::VERTEX, shaders::PICK)?;
         let halo = Program::from_source(&context, shaders::HALO_VERTEX, shaders::HALO_FRAGMENT)?;
-        let elements = element_texture(&context, &lamps::element_texels(&[], &[]));
+        let elements = row_texture(&context, &lamps::element_texels(&[], &[]));
+        let rooms = row_texture(&context, &[[0.0; 4]; 3]);
         let mut view = ViewState::default();
         view.aspect = f64::from(width.max(1)) / f64::from(height.max(1));
         let no_shadow = DepthTexture2D::new::<f32>(
@@ -322,12 +374,20 @@ impl Renderer {
             halo,
             meshes: [None, None, None, None],
             elements,
+            rooms,
+            rooms_shown: false,
+            rooms_animated: false,
+            power_layer: false,
+            motion: true,
+            sun: None,
+            ceiling: None,
             looks: Vec::new(),
             marks: Vec::new(),
             spots: Vec::new(),
             lights: Vec::new(),
             halos: None,
             shadow: None,
+            shadow_stale: true,
             no_shadow,
             pick_target: None,
             lighting: Lighting::default(),
@@ -343,6 +403,8 @@ impl Renderer {
             GpuMesh::new(&self.context, &scene.transparent),
             GpuMesh::new(&self.context, &scene.dynamic_transparent),
         ];
+        self.ceiling = GpuMesh::new(&self.context, &scene.ceiling);
+        self.shadow_stale = true;
         self.spots.clone_from(&scene.lights);
         self.view.set_scene(scene, keep_camera);
     }
@@ -351,7 +413,7 @@ impl Renderer {
     pub fn set_moving_parts(&mut self, opaque: &Mesh, transparent: &Mesh) {
         GpuMesh::replace(&mut self.meshes[1], &self.context, opaque);
         GpuMesh::replace(&mut self.meshes[3], &self.context, transparent);
-        self.view.shadows_dirty = true;
+        self.shadow_stale = true;
         self.view.dirty = true;
     }
 
@@ -382,9 +444,68 @@ impl Renderer {
         if self.elements.width() as usize == texels.len() {
             self.elements.fill(&texels);
         } else {
-            self.elements = element_texture(&self.context, &texels);
+            self.elements = row_texture(&self.context, &texels);
         }
         self.view.dirty = true;
+    }
+
+    /// Sets the room layers: three texels per room slot (`domotwin_core::layers::room_texels`),
+    /// whether one is `shown` and whether it moves (`animated`).
+    pub fn set_rooms(&mut self, texels: &[[f32; 4]], shown: bool, animated: bool) {
+        if self.rooms.width() as usize == texels.len() {
+            self.rooms.fill(texels);
+        } else {
+            self.rooms = row_texture(&self.context, texels);
+        }
+        self.rooms_shown = shown;
+        self.rooms_animated = shown && animated;
+        self.view.dirty = true;
+    }
+
+    /// Shows or hides the power layer (the pieces drawing power tinted).
+    pub fn set_power_layer(&mut self, shown: bool) {
+        if shown != self.power_layer {
+            self.power_layer = shown;
+            self.view.dirty = true;
+        }
+    }
+
+    /// Whether the power layer is shown.
+    pub const fn power_layer(&self) -> bool {
+        self.power_layer
+    }
+
+    /// Lets the layers move, or holds them still (reduced motion).
+    pub fn set_motion(&mut self, motion: bool) {
+        if motion != self.motion {
+            self.motion = motion;
+            self.view.dirty = true;
+        }
+    }
+
+    /// Whether the layers shown move: frames are then needed all the time (the frontend slows
+    /// them down).
+    pub fn layers_animating(&self) -> bool {
+        self.motion
+            && (self.rooms_animated
+                || (self.power_layer
+                    && self.looks.iter().any(|l| lamps::power_level(l.power) > 0.0)))
+    }
+
+    /// Lights the scene from the real sun (`direction` towards it, `y` up), its light coming
+    /// into the rooms through the windows only; `None` goes back to the default sun.
+    pub fn set_sun(&mut self, direction: Option<[f64; 3]>) {
+        let sun = direction.and_then(real_sun);
+        if sun != self.sun {
+            self.sun = sun;
+            self.shadow_stale = true;
+            self.view.dirty = true;
+        }
+    }
+
+    /// The direction towards the sun used now (unit).
+    pub fn sun_direction(&self) -> [f64; 3] {
+        self.sun.unwrap_or_else(|| unit(SUN))
     }
 
     fn relight(&mut self) {
@@ -464,7 +585,7 @@ impl Renderer {
         if quality != self.quality {
             self.quality = quality;
             self.shadow = None;
-            self.view.shadows_dirty = true;
+            self.shadow_stale = true;
             self.view.dirty = true;
         }
     }
@@ -493,27 +614,32 @@ impl Renderer {
     /// Asks for a new frame even though nothing changed (benchmarks, context restore).
     pub fn invalidate(&mut self) {
         self.view.dirty = true;
-        self.view.shadows_dirty = true;
+        self.shadow_stale = true;
     }
 
     /// Whether a frame is needed: something changed or an animation is running.
     pub fn needs_frame(&self) -> bool {
-        self.view.dirty || self.view.animating()
+        self.view.dirty || self.view.animating() || self.layers_animating()
     }
 
     fn shadow_size(&self) -> Option<(u32, f32)> {
         match self.quality {
+            // The real sun comes in through the windows only with a shadow map: a small one,
+            // drawn again only when something moves, read once per pixel.
+            QualityPreset::Eco if self.sun.is_some() => Some((1024, 0.0)),
             QualityPreset::Eco => None,
             QualityPreset::Balanced => Some((1024, 1.0)),
             QualityPreset::High => Some((2048, 2.0)),
         }
     }
 
-    fn cut_uniform(&self) -> [Vec4; 32] {
+    /// The height of each wall group; whole walls when `uncut`.
+    fn cut_uniform(&self, uncut: bool) -> [Vec4; 32] {
         #[allow(clippy::cast_possible_truncation)]
         let wall = self.view.wall_height as f32;
         let mut slots = [Vec4::new(wall, wall, wall, wall); 32];
-        for (i, cut) in self.view.cuts.iter().enumerate().take(128) {
+        let cuts = if uncut { &[][..] } else { &self.view.cuts[..] };
+        for (i, cut) in cuts.iter().enumerate().take(128) {
             #[allow(clippy::cast_possible_truncation)]
             let value = *cut as f32;
             let slot = &mut slots[i / 4];
@@ -527,13 +653,13 @@ impl Renderer {
         slots
     }
 
-    fn use_common(&self, program: &Program, view_proj: &[f32; 16]) {
+    fn use_common(&self, program: &Program, view_proj: &[f32; 16], uncut: bool) {
         program.use_uniform_if_required("u_view_proj", mat4(view_proj));
         if program.requires_uniform("u_elements") {
             program.use_texture("u_elements", &self.elements);
         }
         if program.requires_uniform("u_cut") {
-            program.use_uniform_array("u_cut", &self.cut_uniform());
+            program.use_uniform_array("u_cut", &self.cut_uniform(uncut));
         }
         #[allow(clippy::cast_possible_truncation)]
         program.use_uniform_if_required("u_wall_height", self.view.wall_height as f32);
@@ -557,8 +683,11 @@ impl Renderer {
                 size,
             });
         }
-        let matrix = sun_matrix(self.view.centre(), self.view.radius());
-        self.use_common(&self.depth, &matrix);
+        let matrix = sun_matrix(self.view.centre(), self.view.radius(), self.sun_direction());
+        // The real sun comes in through the windows only: whole walls and the ceilings cast
+        // shadows, whatever the cut-away shows.
+        let real = self.sun.is_some();
+        self.use_common(&self.depth, &matrix, real);
         let Some(shadow) = self.shadow.as_mut() else {
             return;
         };
@@ -571,12 +700,13 @@ impl Renderer {
         };
         let viewport = Viewport::new_at_origo(size, size);
         let (depth, meshes) = (&self.depth, &self.meshes);
+        let ceiling = self.ceiling.as_ref().filter(|_| real);
         let _ = shadow
             .texture
             .as_depth_target()
             .clear(ClearState::depth(1.0))
             .write::<CoreError>(|| {
-                for mesh in meshes[..2].iter().flatten() {
+                for mesh in meshes[..2].iter().flatten().chain(ceiling) {
                     mesh.draw(depth, states, viewport);
                 }
                 Ok(())
@@ -586,9 +716,11 @@ impl Renderer {
     /// Draws one frame at `time_ms`. Returns `true` while an animation needs more frames.
     pub fn render(&mut self, time_ms: f64) -> bool {
         let animating = self.view.update(time_ms);
-        if self.view.shadows_dirty {
+        let cuts_moved = std::mem::take(&mut self.view.shadows_dirty);
+        // With the real sun the shadow map draws whole walls: the cut-away does not change it.
+        if self.shadow_stale || (cuts_moved && self.sun.is_none()) {
             self.render_shadow_map();
-            self.view.shadows_dirty = false;
+            self.shadow_stale = false;
         }
         let projection = self
             .view
@@ -598,22 +730,23 @@ impl Renderer {
         #[allow(clippy::cast_possible_truncation)]
         let flat = self.view.camera.ortho.clamp(0.0, 1.0) as f32;
         let program = &self.main;
-        self.use_common(program, &projection.view_proj);
+        self.use_common(program, &projection.view_proj, false);
         #[allow(clippy::cast_possible_truncation)]
-        program.use_uniform_if_required(
-            "u_eye",
-            Vec3::new(eye[0] as f32, eye[1] as f32, eye[2] as f32),
-        );
-        let len = (SUN[0] * SUN[0] + SUN[1] * SUN[1] + SUN[2] * SUN[2]).sqrt();
+        let v3 = |v: [f64; 3]| Vec3::new(v[0] as f32, v[1] as f32, v[2] as f32);
+        program.use_uniform_if_required("u_eye", v3(eye));
+        program.use_uniform_if_required("u_sun", v3(self.sun_direction()));
+        if program.requires_uniform("u_rooms") {
+            program.use_texture("u_rooms", &self.rooms);
+        }
+        let on = |b: bool| if b { 1.0_f32 } else { 0.0 };
+        program.use_uniform_if_required("u_layers", on(self.rooms_shown));
+        program.use_uniform_if_required("u_power_layer", on(self.power_layer));
+        program.use_uniform_if_required("u_motion", on(self.motion));
+        program
+            .use_uniform_if_required("u_bounce", if self.sun.is_some() { 0.16_f32 } else { 0.0 });
+        // Every wave of the layers repeats within 600 s; f32 keeps them smooth over that.
         #[allow(clippy::cast_possible_truncation)]
-        program.use_uniform_if_required(
-            "u_sun",
-            Vec3::new(
-                (SUN[0] / len) as f32,
-                (SUN[1] / len) as f32,
-                (SUN[2] / len) as f32,
-            ),
-        );
+        program.use_uniform_if_required("u_time", ((time_ms / 1000.0).rem_euclid(600.0)) as f32);
         program.use_uniform_if_required("u_flat", flat);
         let light = self.lighting;
         let rgb = |c: [f32; 3]| Vec3::new(c[0], c[1], c[2]);
@@ -672,8 +805,6 @@ impl Renderer {
         let halo = &self.halo;
         if self.halos.is_some() {
             halo.use_uniform_if_required("u_view_proj", mat4(&projection.view_proj));
-            #[allow(clippy::cast_possible_truncation)]
-            let v3 = |v: [f64; 3]| Vec3::new(v[0] as f32, v[1] as f32, v[2] as f32);
             halo.use_uniform_if_required("u_right", v3(projection.right));
             halo.use_uniform_if_required("u_up", v3(projection.up));
             halo.use_uniform_if_required("u_gain", gain);
@@ -703,7 +834,7 @@ impl Renderer {
                 Ok(())
             });
         self.view.dirty = false;
-        animating
+        animating || self.layers_animating()
     }
 
     /// The element tag (index + 1, 0 for none) drawn at the device pixel `(x, y)` from the top
@@ -744,7 +875,7 @@ impl Renderer {
             .view
             .camera
             .projection(self.view.aspect, self.view.radius());
-        self.use_common(&self.pick, &projection.view_proj);
+        self.use_common(&self.pick, &projection.view_proj, false);
         let Some(target) = self.pick_target.as_mut() else {
             return 0;
         };
@@ -791,7 +922,7 @@ mod tests {
 
     #[test]
     fn the_sun_sees_the_centre_in_the_middle() {
-        let m = sun_matrix([500.0, 0.0, 300.0], 800.0);
+        let m = sun_matrix([500.0, 0.0, 300.0], 800.0, unit(SUN));
         let p = [500.0_f32, 0.0, 300.0, 1.0];
         let mut out = [0.0_f32; 4];
         for (row, o) in out.iter_mut().enumerate() {
@@ -799,5 +930,20 @@ mod tests {
         }
         assert!(out[0].abs() < 1e-4 && out[1].abs() < 1e-4);
         assert!(out[2] > -1.0 && out[2] < 1.0);
+        // Overhead, the projection stays whole.
+        let m = sun_matrix([500.0, 0.0, 300.0], 800.0, [0.0, 1.0, 0.0]);
+        assert!(m.iter().all(|v| v.is_finite()));
+        assert!(m[0].abs() > 1e-6);
+    }
+
+    #[test]
+    fn the_real_sun_stays_above_the_horizon() {
+        assert_eq!(real_sun([0.0; 3]), None);
+        assert_eq!(real_sun([f64::NAN, 1.0, 0.0]), None);
+        assert_eq!(real_sun([0.0, 2.0, 0.0]), Some([0.0, 1.0, 0.0]));
+        assert_eq!(real_sun([0.0, -1.0, 0.0]), Some([0.0, 1.0, 0.0]));
+        let low = real_sun([1.0, -0.5, 0.0]).unwrap();
+        assert!((low[1] - SUN_MIN_Y).abs() < 1e-12 && low[0] > 0.99);
+        assert!((low.iter().map(|c| c * c).sum::<f64>() - 1.0).abs() < 1e-12);
     }
 }
