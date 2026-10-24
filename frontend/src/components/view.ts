@@ -44,6 +44,7 @@ import {
 } from "../live/bindings";
 import { StateSync } from "../live/states";
 import { FrameScheduler } from "../scheduler";
+import { fire } from "./define";
 import { icon } from "./icon";
 import { baseStyles } from "./styles";
 
@@ -127,6 +128,7 @@ export class DomoTwinView extends LitElement {
     hass: { attribute: false },
     plan: { attribute: false },
     bindings: { attribute: false },
+    linking: { attribute: false },
     options: { attribute: false },
     planError: { attribute: false },
     engineState: { state: true },
@@ -145,6 +147,11 @@ export class DomoTwinView extends LitElement {
   plan?: StoredPlan["plan"];
   /** What the plan's elements and rooms are bound to (`undefined`: nothing bound). */
   bindings?: BindingsJson;
+  /**
+   * Link mode (the panel's bindings editor): taps and long presses pick an element
+   * (`domotwin-pick`, detail: the picked element) instead of acting.
+   */
+  linking = false;
   options: ViewOptions = { quality: "auto" };
   /** An error to show instead of the plan (e.g. the stored plan could not be fetched). */
   planError?: string;
@@ -457,6 +464,10 @@ export class DomoTwinView extends LitElement {
     if (!engine) return;
     const picked = this.elementAt(x, y);
     if (!picked) return;
+    if (this.linking) {
+      this.pick(picked);
+      return;
+    }
     const binding = this.bindings?.elements[picked.id];
     if (binding && this.hass) {
       engine.highlight(picked.id);
@@ -473,6 +484,10 @@ export class DomoTwinView extends LitElement {
   hold(x: number, y: number): void {
     const picked = this.elementAt(x, y);
     if (!picked) return;
+    if (this.linking) {
+      this.pick(picked);
+      return;
+    }
     const binding = this.bindings?.elements[picked.id];
     if (binding && this.hass) {
       this.engine?.highlight(picked.id);
@@ -737,6 +752,13 @@ export class DomoTwinView extends LitElement {
     } catch (error) {
       this.loadError = error instanceof EngineError ? error : engineError(error);
     }
+    this.scheduler?.request();
+  }
+
+  private pick(picked: PickedElement): void {
+    this.engine?.highlight(picked.id);
+    this.gestures.forgetTap();
+    fire(this, "domotwin-pick", picked);
     this.scheduler?.request();
   }
 
@@ -1092,6 +1114,11 @@ export class DomoTwinView extends LitElement {
       );
     }
     if (!this.summary || this.sheet) return nothing;
+    if (this.linking) {
+      return html`<div class="chip glass" role="status" data-testid="link-hint">
+        ${t.t("link.hint")}
+      </div>`;
+    }
     const room = this.focusedRoom;
     if (room) {
       return html`<button

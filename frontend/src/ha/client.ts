@@ -86,8 +86,9 @@ export class DomoTwinClient {
     this.listeners.add(listener);
     this.unsubscribe ??= this.connection.subscribeMessage<UpdateEvent>(
       (event) => {
-        if (event.kind === "plan") this.plan = undefined;
-        else this.bindings = undefined;
+        // One revision counts the saves of both: any save makes both cached revisions stale.
+        this.plan = undefined;
+        this.bindings = undefined;
         for (const each of this.listeners) each(event);
       },
       { type: "domotwin/subscribe" },

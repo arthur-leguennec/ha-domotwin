@@ -183,6 +183,9 @@ pub struct Renderer {
     lights: Vec<PointLight>,
     halos: Option<GpuHalos>,
     shadow: Option<ShadowMap>,
+    /// What the shadow sampler points at without shadows. Created once: creating a texture
+    /// binds it to the active unit, which would replace a texture bound for the frame.
+    no_shadow: DepthTexture2D,
     pick_target: Option<PickTarget>,
     lighting: Lighting,
     /// What the view shows and how it moves.
@@ -294,6 +297,13 @@ impl Renderer {
         let elements = element_texture(&context, &[]);
         let mut view = ViewState::default();
         view.aspect = f64::from(width.max(1)) / f64::from(height.max(1));
+        let no_shadow = DepthTexture2D::new::<f32>(
+            &context,
+            1,
+            1,
+            Wrapping::ClampToEdge,
+            Wrapping::ClampToEdge,
+        );
         Ok(Self {
             context,
             width: width.max(1),
@@ -314,6 +324,7 @@ impl Renderer {
             lights: Vec::new(),
             halos: None,
             shadow: None,
+            no_shadow,
             pick_target: None,
             lighting: Lighting::default(),
             view,
@@ -592,15 +603,8 @@ impl Renderer {
             program.use_uniform_if_required("u_shadow_texel", 1.0 / shadow.size as f32);
             program.use_uniform_if_required("u_pcf", self.shadow_size().map_or(1.0, |(_, p)| p));
         } else if program.requires_uniform("u_shadow_map") {
-            // A sampler must point at a depth texture even when unused: a tiny one.
-            let tiny = DepthTexture2D::new::<f32>(
-                &self.context,
-                1,
-                1,
-                Wrapping::ClampToEdge,
-                Wrapping::ClampToEdge,
-            );
-            program.use_depth_texture("u_shadow_map", &tiny);
+            // A sampler must point at a depth texture even when unused.
+            program.use_depth_texture("u_shadow_map", &self.no_shadow);
             program.use_uniform_if_required("u_pcf", 1.0_f32);
             program.use_uniform_if_required("u_shadow_texel", 1.0_f32);
             program.use_uniform_if_required("u_shadow_matrix", mat4(&[0.0; 16]));

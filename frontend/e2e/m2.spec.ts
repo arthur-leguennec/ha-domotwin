@@ -1,6 +1,14 @@
 import { expect, test, type Page } from "@playwright/test";
 
-import { canvasPng, elementPoint, entityState, openHarness, settle, viewState } from "./fixtures";
+import {
+  canvasPng,
+  colorAt,
+  elementPoint,
+  entityState,
+  openHarness,
+  settle,
+  viewState,
+} from "./fixtures";
 
 async function ready(page: Page): Promise<void> {
   await expect(page.getByTestId("summary")).toBeVisible();
@@ -82,6 +90,10 @@ test.describe("live control", () => {
     await settle(page);
     expect((await stats(page)).lit).toBe(4);
     expect(await canvasPng(page)).toMatchSnapshot("live-night.png");
+    // Up close, the playing TV glows blue (at every quality).
+    await focus(page, "tv");
+    const [r, , b] = await colorAt(page, "tv");
+    expect(b).toBeGreaterThan(r + 40);
   });
 
   test("a tap toggles a lamp, and the scene follows", async ({ page }) => {
@@ -197,6 +209,78 @@ test.describe("live control", () => {
       });
     });
     await expect.poll(async () => (await stats(page)).bound).toBe(0);
+  });
+});
+
+test.describe("linking", () => {
+  async function saved(page: Page): Promise<{
+    rooms: Record<string, unknown>;
+    elements: Record<string, { entities: { entity_id: string }[]; tap_action?: unknown }>;
+  }> {
+    return page.evaluate(() => {
+      const calls = (
+        window as never as { __calls: { type: string; bindings?: unknown }[] }
+      ).__calls.filter((call) => call.type === "domotwin/bindings/save");
+      return calls[calls.length - 1]?.bindings as never;
+    });
+  }
+
+  test("links a lamp to other entities, with suggestions from its room", async ({ page }) => {
+    await openHarness(page, { mode: "panel", live: true });
+    await ready(page);
+    await page.getByTestId("link-mode").click();
+    await expect(page.getByTestId("link-hint")).toBeVisible();
+    await focus(page, "living");
+    await page.mouse.click(...xy(await pointOn(page, "table-lamp")));
+    const editor = page.locator("domotwin-link");
+    await expect(editor.getByRole("dialog", { name: "Table lamp" })).toBeVisible();
+    // Linking is not acting: the lamp did not change.
+    expect(await entityState(page, "light.sideboard_lamp")).toBe("off");
+    await expect(editor.getByText("Suggestions from Living room")).toBeVisible();
+    await editor.getByRole("button", { name: "Unlink Sideboard lamp" }).click();
+    await editor.getByRole("button", { name: "Link Living room floor lamp" }).click();
+    await editor.getByRole("searchbox").fill("bedside left");
+    await editor.getByRole("button", { name: "Link Bedside left" }).click();
+    await editor.getByRole("combobox").selectOption("none");
+    await editor.getByTestId("link-save").click();
+    await expect(page.getByRole("status").filter({ hasText: "Links saved." })).toBeVisible();
+    await expect(editor).toHaveCount(0);
+    const bindings = await saved(page);
+    expect(bindings.elements["table-lamp"]).toEqual({
+      entities: [
+        { entity_id: "light.living_room_floor_lamp" },
+        { entity_id: "light.bedside_left" },
+      ],
+      tap_action: { action: "none" },
+    });
+    // Everything else is kept.
+    expect(bindings.elements["pendant-living"]).toBeDefined();
+    expect(Object.keys(bindings.rooms)).toHaveLength(5);
+  });
+
+  test("links a room to an area, or unlinks it", async ({ page }) => {
+    await openHarness(page, { mode: "panel", live: true, lang: "fr" });
+    await ready(page);
+    await page.getByTestId("link-mode").click();
+    await page.mouse.click(...xy(await pointOn(page, "bedroom")));
+    const editor = page.locator("domotwin-link");
+    const select = editor.getByRole("combobox", { name: "Pièce Home Assistant" });
+    await expect(select).toHaveValue("bedroom");
+    await select.selectOption("");
+    await editor.getByTestId("link-save").click();
+    await expect(editor).toHaveCount(0);
+    const bindings = await saved(page);
+    expect(bindings.rooms.bedroom).toBeUndefined();
+    expect(bindings.rooms.living).toEqual({ area: "living_room" });
+    // Done: taps act again.
+    await page.getByTestId("link-mode").click();
+    await expect(page.getByTestId("link-hint")).toHaveCount(0);
+  });
+
+  test("is for administrators only", async ({ page }) => {
+    await openHarness(page, { mode: "panel", live: true, admin: false });
+    await ready(page);
+    await expect(page.getByTestId("link-mode")).toHaveCount(0);
   });
 });
 

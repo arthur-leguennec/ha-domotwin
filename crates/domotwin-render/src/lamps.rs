@@ -6,6 +6,9 @@ use domotwin_core::scene::LightSpot;
 
 /// Most point lights a frame uses (the strongest win).
 pub const MAX_LIGHTS: usize = 16;
+/// Bulbs higher than this (cm) are on the ceiling, which is not drawn: seen from above, a halo
+/// there would float over the floor like a stain. Their glowing disc is enough.
+const HALO_MAX_HEIGHT: f64 = 200.0;
 
 /// A point light, limited to its room.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -90,12 +93,12 @@ pub fn point_lights(spots: &[LightSpot], looks: &[Look]) -> Vec<PointLight> {
         .collect()
 }
 
-/// Halos around the bulbs of lit lamps.
+/// Halos around the bulbs of lit lamps (not on the ceiling).
 #[allow(clippy::cast_possible_truncation, clippy::cast_precision_loss)]
 pub fn halos(spots: &[LightSpot], looks: &[Look]) -> Vec<Halo> {
     spots
         .iter()
-        .filter(|spot| !spot.screen)
+        .filter(|spot| !spot.screen && spot.position[1] <= HALO_MAX_HEIGHT)
         .filter_map(|spot| {
             let look = looks.get(spot.element)?;
             let s = strength(look);
@@ -168,6 +171,8 @@ mod tests {
         assert_eq!(lights[1].position, [10.0, 200.0, 0.0]);
         assert!(lights[1].radius > lights[0].radius);
         assert_eq!(halos(&spots, &looks).len(), 3);
+        let ceiling = [spot(0, [0.0, 240.0, 0.0], false)];
+        assert!(halos(&ceiling, &[lit(1.0)]).is_empty());
     }
 
     #[test]
