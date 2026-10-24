@@ -3,6 +3,7 @@ import { LitElement, css, html, nothing, type TemplateResult } from "lit";
 import { ConfigError, normalizeConfig, type CardConfig } from "../config";
 import { DomoTwinClient, type StoredPlan } from "../ha/client";
 import { isHassError, type HomeAssistant } from "../ha/types";
+import { readBindings, type BindingsJson } from "../live/bindings";
 import { translatorFor } from "../i18n";
 import { baseStyles } from "./styles";
 import type { ViewOptions } from "./view";
@@ -14,11 +15,13 @@ export class DomoTwinCard extends LitElement {
     config: { state: true },
     plan: { state: true },
     planError: { state: true },
+    bindings: { state: true },
   };
 
   protected config?: CardConfig;
   protected plan?: StoredPlan["plan"];
   protected planError?: string;
+  protected bindings?: BindingsJson;
   private _hass?: HomeAssistant;
   private unsubscribe?: () => void;
   private options?: { source: CardConfig; value: ViewOptions };
@@ -83,8 +86,10 @@ export class DomoTwinCard extends LitElement {
     const client = DomoTwinClient.for(this._hass);
     this.unsubscribe = client.subscribe((event) => {
       if (event.kind === "plan") void this.loadPlan(client);
+      else void this.loadBindings(client);
     });
     void this.loadPlan(client);
+    void this.loadBindings(client);
   }
 
   private async loadPlan(client: DomoTwinClient): Promise<void> {
@@ -93,6 +98,15 @@ export class DomoTwinCard extends LitElement {
       this.planError = undefined;
     } catch (error) {
       this.planError = isHassError(error) ? error.code : "unknown";
+    }
+  }
+
+  /** Without bindings the home still shows, without live states. */
+  private async loadBindings(client: DomoTwinClient): Promise<void> {
+    try {
+      this.bindings = readBindings((await client.getBindings()).bindings);
+    } catch {
+      this.bindings = undefined;
     }
   }
 
@@ -146,6 +160,7 @@ export class DomoTwinCard extends LitElement {
         style=${style}
         .hass=${this._hass}
         .plan=${this.plan}
+        .bindings=${this.bindings}
         .planError=${this.planError}
         .options=${this.viewOptions()}
       ></domotwin-view>

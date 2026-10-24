@@ -1,12 +1,15 @@
 //! The engine exposed to JavaScript.
 
+use std::collections::BTreeMap;
 use std::sync::Arc;
 
+use domotwin_core::bindings::{Bindings, read_bindings};
 use domotwin_core::camera::{Camera, CutawayMode};
 use domotwin_core::lighting::{Mood, lighting_for_hour, lighting_for_sun};
-use domotwin_core::plan::{Plan, View};
+use domotwin_core::live::{EntityState, LiveState, read_states, targets};
+use domotwin_core::plan::{Element, Plan, View};
 use domotwin_core::scene::mesh::Mesh;
-use domotwin_core::scene::{ElementInfo, SceneOptions, build_scene};
+use domotwin_core::scene::{ElementInfo, Scene, SceneOptions, build_dynamic, build_scene};
 use domotwin_core::{ReadError, read_plan, summarize_plan};
 use domotwin_render::{GpuHint, QualityPreset, Renderer, Rgb};
 use wasm_bindgen::JsCast;
@@ -48,9 +51,15 @@ pub fn summarize_plan_json(json: &str) -> Result<String, JsError> {
 pub struct Engine {
     renderer: Renderer,
     plan: Option<Plan>,
+    /// The scene without its static meshes (on the GPU), to rebuild the moving parts.
+    scene: Option<Scene>,
     elements: Vec<ElementInfo>,
     triangles: usize,
     gpu: GpuHint,
+    bindings: Bindings,
+    states: BTreeMap<String, EntityState>,
+    live: LiveState,
+    last_frame: Option<f64>,
 }
 
 #[wasm_bindgen]
@@ -86,9 +95,14 @@ impl Engine {
         let mut engine = Engine {
             renderer,
             plan: None,
+            scene: None,
             elements: Vec::new(),
             triangles: 0,
             gpu,
+            bindings: Bindings::default(),
+            states: BTreeMap::new(),
+            live: LiveState::default(),
+            last_frame: None,
         };
         engine
             .renderer
@@ -107,16 +121,79 @@ impl Engine {
     pub fn load_plan(&mut self, json: &str, keep_camera: Option<bool>) -> Result<String, JsError> {
         let plan = read_plan(json.as_bytes()).map_err(|err| plan_error(&err))?;
         let mut scene = build_scene(&plan, &SceneOptions::default());
-        self.triangles = scene.opaque.triangle_count() + scene.transparent.triangle_count();
+        self.triangles = [
+            &scene.opaque,
+            &scene.transparent,
+            &scene.dynamic_opaque,
+            &scene.dynamic_transparent,
+        ]
+        .iter()
+        .map(|m| m.triangle_count())
+        .sum();
         self.renderer
             .set_scene(&scene, keep_camera.unwrap_or(false) && self.plan.is_some());
         // The meshes live on the GPU now: free the copies.
         scene.opaque = Mesh::default();
         scene.transparent = Mesh::default();
-        self.elements = scene.elements;
+        scene.dynamic_opaque = Mesh::default();
+        scene.dynamic_transparent = Mesh::default();
+        self.elements.clone_from(&scene.elements);
         let summary = plan.summary().to_json();
+        self.live = LiveState::new(targets(&plan, &scene.lights, &self.bindings, &self.states));
         self.plan = Some(plan);
+        self.scene = Some(scene);
+        self.renderer.set_looks(&self.live.looks);
+        self.rebuild_moving_parts();
         Ok(summary)
+    }
+
+    /// Sets the bindings (the JSON stored by the integration). Malformed entries are skipped.
+    #[wasm_bindgen(js_name = setBindings)]
+    pub fn set_bindings(&mut self, json: &str) {
+        let value = serde_json::from_str(json).unwrap_or(serde_json::Value::Null);
+        self.bindings = read_bindings(&value);
+        self.retarget();
+    }
+
+    /// Updates entity states: JSON `{ "entity_id": { "state", "attributes" } | null }`, only the
+    /// entities that changed (`null` forgets one).
+    #[wasm_bindgen(js_name = setStates)]
+    pub fn set_states(&mut self, json: &str) {
+        let value = serde_json::from_str(json).unwrap_or(serde_json::Value::Null);
+        for (id, state) in read_states(&value) {
+            match state {
+                Some(state) => {
+                    self.states.insert(id, state);
+                }
+                None => {
+                    self.states.remove(&id);
+                }
+            }
+        }
+        self.retarget();
+    }
+
+    /// Flashes an element briefly (tap feedback).
+    pub fn highlight(&mut self, id: &str) {
+        if let Some(index) = self.elements.iter().position(|e| e.id == id) {
+            self.live.highlight(index);
+            self.renderer.set_looks(&self.live.looks);
+        }
+    }
+
+    fn retarget(&mut self) {
+        if let (Some(plan), Some(scene)) = (&self.plan, &self.scene) {
+            self.live
+                .set_targets(targets(plan, &scene.lights, &self.bindings, &self.states));
+            self.renderer.invalidate();
+        }
+    }
+
+    fn rebuild_moving_parts(&mut self) {
+        if let (Some(plan), Some(scene)) = (&self.plan, &self.scene) {
+            let (opaque, transparent) = build_dynamic(plan, scene, &self.live.overrides);
+            self.renderer.set_moving_parts(&opaque, &transparent);
+        }
     }
 
     /// Sets the drawing buffer size in device pixels.
@@ -231,6 +308,24 @@ impl Engine {
         true
     }
 
+    /// Where the centre of an element is drawn now, as JSON `[x, y]` in device pixels from the
+    /// top left, or an empty string (no such element, no geometry, behind the camera).
+    #[wasm_bindgen(js_name = screenPoint)]
+    pub fn screen_point(&self, id: &str) -> String {
+        let Some(info) = self.elements.iter().find(|e| e.id == id) else {
+            return String::new();
+        };
+        let [min, max] = info.bounds;
+        if min == max {
+            return String::new();
+        }
+        let centre = [0, 1, 2].map(|k| f64::from(min[k] + max[k]) * 0.5);
+        self.renderer
+            .screen_point(centre)
+            .map(|p| serde_json::json!(p).to_string())
+            .unwrap_or_default()
+    }
+
     /// The plan's saved viewpoints, as JSON `[{"id", "name"}]` (eye-level views are skipped).
     pub fn views(&self) -> String {
         let list: Vec<serde_json::Value> = self
@@ -269,14 +364,29 @@ impl Engine {
     }
 
     /// The element drawn at the device pixel `x`, `y` (from the top left), as JSON
-    /// `{"id", "type"}`, or an empty string.
+    /// `{"id", "type", "name", "room"}` (`room`: the id of the room it is in, maybe empty), or an
+    /// empty string.
     pub fn pick(&mut self, x: u32, y: u32) -> String {
         let tag = self.renderer.pick(x, y);
-        usize::from(tag)
+        let Some((index, info)) = usize::from(tag)
             .checked_sub(1)
-            .and_then(|i| self.elements.get(i))
-            .map(|e| serde_json::json!({ "id": e.id, "type": e.kind }).to_string())
-            .unwrap_or_default()
+            .and_then(|i| Some((i, self.elements.get(i)?)))
+        else {
+            return String::new();
+        };
+        let name = self
+            .plan
+            .as_ref()
+            .and_then(|plan| plan.elements.get(index))
+            .map_or("", Element::name);
+        // The room it stands in (a room is its own).
+        let room = self
+            .scene
+            .as_ref()
+            .and_then(|scene| scene.rooms.get(usize::from(info.room).checked_sub(1)?))
+            .map_or("", String::as_str);
+        serde_json::json!({ "id": info.id, "type": info.kind, "name": name, "room": room })
+            .to_string()
     }
 
     /// Figures about the scene, as JSON (for the diagnostics and the performance smoke test).
@@ -288,6 +398,14 @@ impl Engine {
             "triangles": self.triangles,
             "groups": view.cuts.len(),
             "planView": view.plan_view,
+            "lights": self.renderer.light_count(),
+            "lit": self
+                .live
+                .looks
+                .iter()
+                .filter(|l| l.strength * (1.0 - l.unavailable) > 0.02)
+                .count(),
+            "bound": self.bindings.elements.len(),
             "quality": self.renderer.quality().as_str(),
             "camera": {
                 "target": camera.target.map(round),
@@ -303,7 +421,7 @@ impl Engine {
     /// Whether a frame is needed (something changed or an animation is running).
     #[wasm_bindgen(js_name = needsFrame)]
     pub fn needs_frame(&self) -> bool {
-        self.renderer.needs_frame()
+        self.renderer.needs_frame() || !self.live.is_settled()
     }
 
     /// Asks for a new frame even though nothing changed.
@@ -313,7 +431,17 @@ impl Engine {
 
     /// Draws one frame. Returns `true` while an animation needs more frames.
     pub fn frame(&mut self, time_ms: f64) -> bool {
-        self.renderer.render(time_ms)
+        let dt = self.last_frame.map_or(16.0, |last| time_ms - last);
+        self.last_frame = Some(time_ms);
+        let step = self.live.step(dt);
+        if step.looks {
+            self.renderer.set_looks(&self.live.looks);
+        }
+        if step.moving {
+            self.rebuild_moving_parts();
+        }
+        let camera = self.renderer.render(time_ms);
+        camera || !self.live.is_settled()
     }
 }
 

@@ -193,3 +193,41 @@ explains why. Each entry: context, decision, consequences.
   minutes at most. The card option `lighting` fixes a mood.
 - **Not yet.** The sun's direction does not move (shadows always fall the same way): the real sun
   through the windows is the M4 layer.
+
+## D-016 · Live states: targets in the core, looks in a texture, moving parts apart
+
+- **Context.** M2 shows Home Assistant states in the scene: lamps on and off in their colour, the
+  TV, curtains, blinds, doors and windows, unavailable entities. A home has dozens of bound
+  entities and Home Assistant sends a new `hass` object for every change anywhere.
+- **Decision.**
+  - The frontend sends the engine only the **bound** entities whose state **changed**, with only the
+    attributes the scene uses (brightness, colour, colour temperature, position, device class).
+    Home Assistant keeps the object of an entity that did not change, so most updates cost one
+    comparison per bound entity and nothing reaches the engine.
+  - `domotwin-core::live` turns plan, bindings and states into **targets** (per element: glow
+    colour and strength, greyed out, highlight; opening of doors, windows and curtains; blinds) and
+    fades towards them. Everything is plain Rust, tested without a GPU.
+  - Looks reach the GPU as a **float texture of two texels per element**, read by the vertex shader
+    with the element id every vertex already carries (D-014): a lamp turning on uploads a few bytes
+    and rebuilds nothing.
+  - Lamps light their room with **point lights**: at most 16, the strongest first, each limited to
+    its own room (every vertex carries its room), so light does not leak through walls without a
+    shadow pass per lamp. They count less in daylight (`Lighting::lamp_gain`: a quarter by day, all
+    at night). Halos are drawn around bulbs, not on the ceiling, which is not drawn.
+  - Doors, windows, blinds and curtains live in a **second, small mesh** rebuilt only while one of
+    them moves; the rest of the home is never rebuilt.
+- **Consequences.** The draw count stays fixed (four meshes and the halos). Lamps do not cast
+  shadows. More than 16 lit lamps in view: the weakest stop lighting their room (they still glow).
+
+## D-017 · Linking in M2, one change per save
+
+- **Context.** Bindings are written by hand or from the UI, possibly from two devices. The full
+  editor belongs to the edit mode (M3), but linking must be possible as soon as states show.
+- **Decision.** The panel gets a link mode for administrators: a tap picks an element and opens a
+  small editor (entities suggested from the room's area by what fits the element's kind, search,
+  tap action; an area for a room). Each save reads the latest stored bindings, applies this one
+  change and sends the revision it read (`expected_revision`): a save from another device in
+  between is refused, never overwritten. Actions written by hand are kept as they are.
+- **Consequences.** Plan and bindings share one revision (D-005), so the client drops both cached
+  copies on any save event. The M3 editor will reuse the same save path.
+

@@ -7,10 +7,10 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 
 | Milestone | Scope                                                      | Status |
 | --------- | ---------------------------------------------------------- | ------ |
-| M0        | Scaffold: workspace, integration skeleton, CI, docs, demo  | 🚧     |
-| M1        | Render: plan, walls, openings, furniture, 2D/3D, cut-away  | ⏳     |
-| M1b       | IFC import (ISO 16739), one storey → plan                  | ⏳ ❓  |
-| M2        | Live control: bindings, tap, long-press, room panel        | ⏳     |
+| M0        | Scaffold: workspace, integration skeleton, CI, docs, demo  | ✅     |
+| M1        | Render: plan, walls, openings, furniture, 2D/3D, cut-away  | ✅     |
+| M2        | Live control: bindings, tap, long-press, room panel        | ✅     |
+| M1b       | IFC import (ISO 16739), one storey → plan                  | ⏳     |
 | M3        | Edit mode: move, rotate, stack, undo, save, card editor    | ⏳     |
 | M4        | Layers: heatmap, alerts, presence, sun and mood, power     | ⏳     |
 | M5        | Polish: design, fonts, accessibility, performance, README  | ⏳     |
@@ -77,10 +77,48 @@ Measured at the end of M1: see [`PERFORMANCE.md`](PERFORMANCE.md). Not measured 
 (an old wall tablet, a mid-range phone), which need hardware CI does not have; to be done by hand
 before 0.1.0.
 
-## M1b, IFC import (ISO 16739) ❓
+## M2, live control
+
+- ✅ Core: the bindings reader (roles derived from the domain and device class, lenient like the
+  plan reader), entity states, and the **targets** of every element: lamp colour and intensity from
+  the light (`rgb_color`, else `color_temp_kelvin`, × brightness × `lightPower`) or a switch, the
+  TV screen from the media player, curtains and doors from covers, window blinds from covers, doors
+  and windows from contact sensors, unavailable entities greyed out. Lights fade (≈ 0.35 s),
+  moving parts move (≈ 0.7 s). See D-016.
+- ✅ Render: per-element looks in a small float texture read by the vertex shader (one upload per
+  change, no rebuild); lamp shades and screens glow; up to 16 point lights, each limited to its own
+  room, the strongest first, counting less in daylight; halos around bulbs (not on the ceiling);
+  doors, windows, blinds and curtains as a second, small mesh rebuilt only while they move.
+- ✅ Frontend: the card and the panel load the bindings and follow their changes; only bound
+  entities whose state changed go to the engine. Tap actions (`toggle`, `more-info`,
+  `perform-action`/`call-service`, `navigate`, `none`) with a short flash; long-press controls
+  (switch, brightness, warmth, colours, cover position, media and volume, lock, climate, scenes);
+  the room panel (lights, scenes, blinds and curtains, climate, media, devices, **All lights off**)
+  from the room's area, or the area with the room's name; a tap on a room shows its name, which
+  opens the panel. The panels are a separate chunk loaded the first time one opens.
+- ✅ Linking in the panel (administrators): pick an element, link entities suggested from its room's
+  area by what fits its kind, or searched; choose the tap action; link a room to an area. Each save
+  is one change on top of the latest stored bindings, refused if another device saved first.
+- ✅ Fixed on the way: in Eco quality, lamps and screens did not glow (a texture created mid-frame
+  took the element texture's unit); halos of ceiling lights floated over the floor.
+- ✅ Tests: core targets and fades, lamps and texels, the moving parts rebuild, wasm (states light
+  lamps and move doors), unit tests of roles, actions, state sync and suggestions, E2E with a mocked
+  demo home (tap toggles and the scene follows, more-info, long-press controls, room panel and
+  **All lights off**, failed action, bindings saved elsewhere, linking a lamp and a room, admin
+  only), a night baseline of live states and a check that a playing TV glows.
+
+![Long press on a lamp: its controls. Long press on a floor: the room panel](figures/screenshot-live.png)
+
+Measured at the end of M2: see [`PERFORMANCE.md`](PERFORMANCE.md).
+
+Left for later: fan blades turning; locks and power shown on the scene (the alerts and power layers,
+M4); the full bindings editor with every action (M3).
+
+## M1b, IFC import (ISO 16739)
 
 Suggested by the maintainer during M0 and accepted on condition that it never degrades the core
-product (see `DECISIONS.md`, D-009). Planned shape, to be confirmed before it starts:
+product (see `DECISIONS.md`, D-009). The maintainer confirmed the order during M2: after M2, before
+M3. Planned shape:
 
 - A separate crate `domotwin-ifc` compiled to its **own small wasm module, loaded only when the
   user imports a `.ifc` file**, so it costs nothing on first load.
@@ -92,14 +130,6 @@ product (see `DECISIONS.md`, D-009). Planned shape, to be confirmed before it st
 - Output: an ordinary plan, so everything downstream (render, bindings, edit, export) is unchanged.
 - Fixtures: fictional IFC files generated by a script in the repository.
 - The same lazily loaded module later reads the 3D files of user models (M3).
-
-## M2, live control
-
-Bindings with suggestions from Home Assistant areas, tap actions (`toggle`, `more-info`,
-`perform-action`/`call-service`, `navigate`, `none`), long-press popovers (light brightness and
-colour, cover position, media controls), the room panel (lights, scenes, climate, covers, media,
-"all lights off"), live state rendering (lamp colour and brightness with bloom and fades, TV glow,
-covers and curtains, doors and windows from contact sensors, unavailable entities greyed out).
 
 ## M3, edit mode
 

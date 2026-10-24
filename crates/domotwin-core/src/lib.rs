@@ -6,10 +6,12 @@
 
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used, clippy::panic))]
 
+pub mod bindings;
 pub mod camera;
 pub mod error;
 pub mod geometry;
 pub mod lighting;
+pub mod live;
 pub mod plan;
 pub mod scene;
 

@@ -1,9 +1,11 @@
-import { mdiClose, mdiTrayArrowDown, mdiTrayArrowUp } from "@mdi/js";
+import { mdiCheck, mdiClose, mdiLinkVariant, mdiTrayArrowDown, mdiTrayArrowUp } from "@mdi/js";
 import { LitElement, css, html, nothing, type TemplateResult } from "lit";
 
-import { EngineError, summarizePlan } from "../engine/engine";
+import { EngineError, summarizePlan, type PickedElement } from "../engine/engine";
 import { DomoTwinClient, type PlanJson, type StoredPlan } from "../ha/client";
 import { isHassError, type HomeAssistant } from "../ha/types";
+import { readBindings, roomArea, type BindingsJson, type ElementBinding } from "../live/bindings";
+import { applyLink, planElement, type LinkChange, type PlanElementInfo } from "../live/suggest";
 import { translatorFor, type Translator } from "../i18n";
 import { icon } from "./icon";
 import { baseStyles } from "./styles";
@@ -22,6 +24,14 @@ const TOAST_MS = 6000;
 interface Toast {
   text: string;
   error: boolean;
+}
+
+/** The element open in the link editor. */
+interface LinkTarget {
+  element: PlanElementInfo;
+  binding?: ElementBinding;
+  area?: string;
+  roomArea?: string;
 }
 
 function fileName(title: string): string {
@@ -43,16 +53,22 @@ export class DomoTwinPanel extends LitElement {
     panel: { attribute: false },
     plan: { state: true },
     planError: { state: true },
+    bindings: { state: true },
     toast: { state: true },
     busy: { state: true },
+    linking: { state: true },
+    linkTarget: { state: true },
   };
 
   narrow = false;
   panel?: unknown;
   protected plan?: StoredPlan["plan"];
   protected planError?: string;
+  protected bindings?: BindingsJson;
   protected toast?: Toast;
   protected busy = false;
+  protected linking = false;
+  protected linkTarget?: LinkTarget;
   private _hass?: HomeAssistant;
   private unsubscribe?: () => void;
   private toastTimer?: number;
@@ -167,8 +183,21 @@ export class DomoTwinPanel extends LitElement {
     if (!client || this.unsubscribe) return;
     this.unsubscribe = client.subscribe((event) => {
       if (event.kind === "plan") void this.loadPlan();
+      else void this.loadBindings();
     });
     void this.loadPlan();
+    void this.loadBindings();
+  }
+
+  /** Without bindings the home still shows, without live states. */
+  private async loadBindings(): Promise<void> {
+    const client = this.client;
+    if (!client) return;
+    try {
+      this.bindings = readBindings((await client.getBindings()).bindings);
+    } catch {
+      this.bindings = undefined;
+    }
   }
 
   private async loadPlan(): Promise<void> {
@@ -193,6 +222,52 @@ export class DomoTwinPanel extends LitElement {
     if (isHassError(error)) return this.t.error(error.code);
     return this.t.error(error instanceof Error ? error.name : "unknown");
   }
+
+  private readonly toggleLinking = (): void => {
+    this.linking = !this.linking;
+    this.linkTarget = undefined;
+  };
+
+  /** Link mode: an element was picked in the view, open its editor. */
+  private readonly onPick = async (event: Event): Promise<void> => {
+    const picked = (event as CustomEvent<PickedElement>).detail;
+    const hass = this._hass;
+    const element = planElement(this.plan, picked.id);
+    if (!hass || !element) return;
+    await import("./link-editor");
+    const bindings = this.bindings ?? { version: 1, rooms: {}, elements: {} };
+    const roomId = element.type === "room" ? element.id : picked.room || element.parent;
+    const target: LinkTarget = { element };
+    const binding = bindings.elements[element.id];
+    if (binding) target.binding = binding;
+    const area = element.type === "room" ? bindings.rooms[element.id]?.area : undefined;
+    if (area) target.area = area;
+    if (roomId) {
+      const room = roomArea(hass, bindings, roomId, planElement(this.plan, roomId)?.name ?? "");
+      if (room) target.roomArea = room;
+    }
+    this.linkTarget = target;
+  };
+
+  /** Saves one edit on top of the latest stored bindings, refused if another save came first. */
+  private readonly onLinkSave = async (event: Event): Promise<void> => {
+    const change = (event as CustomEvent<LinkChange>).detail;
+    const client = this.client;
+    if (!client) return;
+    const t = this.t;
+    this.busy = true;
+    try {
+      const stored = await client.getBindings();
+      await client.saveBindings(applyLink(readBindings(stored.bindings), change), stored.revision);
+      this.linkTarget = undefined;
+      await this.loadBindings();
+      this.show(t.t("link.saved"));
+    } catch (error) {
+      this.show(t.t("link.save_failed", { reason: this.describe(error) }), true);
+    } finally {
+      this.busy = false;
+    }
+  };
 
   private readonly chooseFile = (): void => {
     this.renderRoot.querySelector<HTMLInputElement>("input[type=file]")?.click();
@@ -264,6 +339,21 @@ export class DomoTwinPanel extends LitElement {
               </button>`
             : nothing
         }
+        ${
+          admin && this.plan
+            ? html`<button
+                class="action"
+                data-testid="link-mode"
+                aria-pressed=${this.linking ? "true" : "false"}
+                @click=${this.toggleLinking}
+                aria-label=${this.linking ? t.t("link.done") : t.t("link.mode")}
+              >
+                ${icon(this.linking ? mdiCheck : mdiLinkVariant)}<span class="label"
+                  >${this.linking ? t.t("link.done") : t.t("link.mode")}</span
+                >
+              </button>`
+            : nothing
+        }
         <button class="action" @click=${this.exportPlan} aria-label=${t.t("panel.export")}>
           ${icon(mdiTrayArrowDown)}<span class="label">${t.t("panel.export")}</span>
         </button>
@@ -272,8 +362,11 @@ export class DomoTwinPanel extends LitElement {
         <domotwin-view
           .hass=${this._hass}
           .plan=${this.plan}
+          .bindings=${this.bindings}
           .planError=${this.planError}
           .options=${PANEL_OPTIONS}
+          .linking=${this.linking}
+          @domotwin-pick=${this.onPick}
         >
           ${
             admin
@@ -283,6 +376,21 @@ export class DomoTwinPanel extends LitElement {
               : nothing
           }
         </domotwin-view>
+        ${
+          this.linkTarget
+            ? html`<domotwin-link
+                .hass=${this._hass}
+                .heading=${this.linkTarget.element.name || this.linkTarget.element.id}
+                .element=${this.linkTarget.element}
+                .binding=${this.linkTarget.binding}
+                .area=${this.linkTarget.area}
+                .roomArea=${this.linkTarget.roomArea}
+                .busy=${this.busy}
+                @domotwin-link-save=${this.onLinkSave}
+                @domotwin-close=${() => (this.linkTarget = undefined)}
+              ></domotwin-link>`
+            : nothing
+        }
         ${
           this.toast
             ? html`<div

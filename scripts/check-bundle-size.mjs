@@ -41,23 +41,64 @@ for (const file of await files(out)) {
 }
 rows.sort((a, b) => b.gzip - a.gzip);
 
-// Everything a view needs on first load: every JS chunk except the card editor, and the wasm.
-const firstLoad = rows.filter(
-  (row) => (row.kind === "js" || row.kind === "wasm") && !row.file.includes("card-editor"),
-);
+// Everything a view needs on first load: the entry, the chunks it imports statically, the engine
+// (imported on demand, but every view starts it) with its own imports, and the wasm. Panels and
+// editors imported on demand are listed apart.
+const sources = new Map();
+for (const row of rows) {
+  if (row.kind === "js") sources.set(row.file, await readFile(join(out, row.file), "utf8"));
+}
+function imports(file) {
+  const text = sources.get(file) ?? "";
+  const found = { static: [], dynamic: [] };
+  for (const match of text.matchAll(/\bimport\s*\(\s*["']([^"']+)["']\s*\)/g)) {
+    found.dynamic.push(match[1]);
+  }
+  for (const match of text.matchAll(/(?:^|[;}\n])\s*(?:import|export)\s*(?:[\w$*{},\s]*?\bfrom\s*)?["']([^"']+)["']/g)) {
+    found.static.push(match[1]);
+  }
+  const resolveFrom = (spec) => relative(out, resolve(dirname(join(out, file)), spec.split("?")[0]));
+  return { static: found.static.map(resolveFrom), dynamic: found.dynamic.map(resolveFrom) };
+}
+const needed = new Set();
+const visit = (file) => {
+  if (needed.has(file) || !sources.has(file)) return;
+  needed.add(file);
+  const { static: statics, dynamic } = imports(file);
+  statics.forEach(visit);
+  dynamic.filter((spec) => spec.includes("domotwin_web")).forEach(visit);
+};
+visit("domotwin.js");
+const firstLoad = rows.filter((row) => row.kind === "wasm" || needed.has(row.file));
+const onDemand = rows.filter((row) => row.kind === "js" && !needed.has(row.file));
 const total = firstLoad.reduce((sum, row) => sum + row.gzip, 0);
+const later = onDemand.reduce((sum, row) => sum + row.gzip, 0);
 const kb = (n) => `${(n / 1000).toFixed(1)} kB`;
 
 console.log("| File | Raw | Gzipped |");
 console.log("| --- | ---: | ---: |");
-for (const row of rows) console.log(`| ${row.file} | ${kb(row.bytes)} | ${kb(row.gzip)} |`);
+for (const row of rows) {
+  const when = row.kind === "other" ? "" : needed.has(row.file) || row.kind === "wasm" ? "" : " (on demand)";
+  console.log(`| ${row.file}${when} | ${kb(row.bytes)} | ${kb(row.gzip)} |`);
+}
 console.log(`\nFirst load (wasm + JS): ${kb(total)} gzipped, budget ${kb(BUDGET_GZIP_BYTES)}.`);
+console.log(`On demand (panels, editors): ${kb(later)} gzipped.`);
 
 const jsonIndex = process.argv.indexOf("--json");
 if (jsonIndex > 0 && process.argv[jsonIndex + 1]) {
   await writeFile(
     process.argv[jsonIndex + 1],
-    JSON.stringify({ budget: BUDGET_GZIP_BYTES, firstLoadGzip: total, files: rows }, null, 2),
+    JSON.stringify(
+      {
+        budget: BUDGET_GZIP_BYTES,
+        firstLoadGzip: total,
+        onDemandGzip: later,
+        firstLoad: firstLoad.map((row) => row.file),
+        files: rows,
+      },
+      null,
+      2,
+    ),
   );
 }
 

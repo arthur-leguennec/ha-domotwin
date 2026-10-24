@@ -14,6 +14,8 @@ export interface HarnessOptions {
   lighting?: "auto" | "morning" | "day" | "evening" | "night";
   /** A `sun.sun` entity: elevation in degrees and whether it is rising. */
   sun?: { elevation: number; rising: boolean };
+  /** The demo bindings and the demo home's entities, areas and states. */
+  live?: boolean;
 }
 
 /** Opens the mocked Home Assistant with the built frontend. */
@@ -29,6 +31,7 @@ export async function openHarness(page: Page, options: HarnessOptions = {}): Pro
   if (options.cutaway) params.set("cutaway", options.cutaway);
   params.set("lighting", options.lighting ?? "day");
   if (options.sun) params.set("sun", `${options.sun.elevation},${options.sun.rising ? 1 : 0}`);
+  if (options.live) params.set("live", "1");
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto(`/?${params.toString()}`);
@@ -67,4 +70,67 @@ export async function canvasPng(page: Page): Promise<Buffer> {
 /** The view's stage, where gestures happen. */
 export function stage(page: Page): Locator {
   return page.locator("domotwin-view").locator(".stage");
+}
+
+/** Where an element of the plan is drawn, in page coordinates. */
+export async function elementPoint(page: Page, id: string): Promise<{ x: number; y: number }> {
+  const box = await stage(page).boundingBox();
+  if (!box) throw new Error("no stage");
+  const point = await page.evaluate(
+    (element) =>
+      (
+        window as never as {
+          __view: () => { elementPoint(id: string): { x: number; y: number } | undefined };
+        }
+      )
+        .__view()
+        .elementPoint(element),
+    id,
+  );
+  if (!point) throw new Error(`${id} is not on screen`);
+  return { x: box.x + point.x, y: box.y + point.y };
+}
+
+/** The state of an entity of the mocked Home Assistant. */
+export function entityState(page: Page, id: string): Promise<string | undefined> {
+  return page.evaluate(
+    (entity) =>
+      (window as never as { __hass: { states: Record<string, { state: string } | undefined> } })
+        .__hass.states[entity]?.state,
+    id,
+  );
+}
+
+/** The colour drawn at the centre of an element, from a fresh frame. */
+export async function colorAt(page: Page, id: string): Promise<[number, number, number]> {
+  return page.evaluate(async (element) => {
+    const view = (
+      window as never as {
+        __view: () => {
+          captureFrame(): string;
+          elementPoint(id: string): { x: number; y: number } | undefined;
+        };
+      }
+    ).__view();
+    const point = view.elementPoint(element);
+    if (!point) throw new Error(`${element} is not on screen`);
+    const image = new Image();
+    image.src = view.captureFrame();
+    await image.decode();
+    const canvas = document.createElement("canvas");
+    canvas.width = image.width;
+    canvas.height = image.height;
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("no 2d context");
+    context.drawImage(image, 0, 0);
+    const shown = (window as never as { __view: () => HTMLElement }).__view();
+    const ratio = image.width / Math.max(1, shown.clientWidth);
+    const [r, g, b] = context.getImageData(
+      Math.round(point.x * ratio),
+      Math.round(point.y * ratio),
+      1,
+      1,
+    ).data;
+    return [r ?? 0, g ?? 0, b ?? 0] as [number, number, number];
+  }, id);
 }

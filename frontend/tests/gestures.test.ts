@@ -53,6 +53,28 @@ describe("GestureTracker", () => {
     expect(tracker.up(sample(1, 52, 52, 1600))).toEqual([]);
   });
 
+  it("long presses once, and they are not taps", () => {
+    const tracker = new GestureTracker();
+    tracker.down(sample(1, 40, 40, 0));
+    expect(tracker.hold(300)).toEqual([]);
+    expect(tracker.hold(520)).toEqual([{ kind: "hold", x: 40, y: 40 }]);
+    expect(tracker.hold(900)).toEqual([]);
+    expect(tracker.up(sample(1, 40, 40, 950))).toEqual([]);
+    // A press that moved is never a long press.
+    tracker.down(sample(1, 0, 0, 2000));
+    tracker.move(sample(1, 30, 0, 2100));
+    expect(tracker.hold(2600)).toEqual([]);
+  });
+
+  it("forgets a tap that acted", () => {
+    const tracker = new GestureTracker();
+    tracker.down(sample(1, 5, 5, 0));
+    tracker.up(sample(1, 5, 5, 50));
+    tracker.forgetTap();
+    tracker.down(sample(1, 5, 5, 100));
+    expect(tracker.up(sample(1, 5, 5, 150))).toEqual([{ kind: "tap", x: 5, y: 5 }]);
+  });
+
   it("forgets cancelled pointers", () => {
     const tracker = new GestureTracker();
     tracker.down(sample(1, 0, 0, 0));

@@ -16,6 +16,7 @@ mod structure;
 use std::collections::BTreeMap;
 
 use crate::geometry::heights::WALL_HEIGHT;
+use crate::geometry::polygon::{P2, point_in_polygon};
 use crate::geometry::walls::WallLayout;
 use crate::plan::{Element, Plan};
 use mesh::{Mesh, NO_GROUP};
@@ -46,6 +47,10 @@ pub struct LightSpot {
     pub power: f64,
     /// Switched on in the plan.
     pub on: bool,
+    /// Room slot the light stays in (0: none).
+    pub room: u8,
+    /// A screen (TV) rather than a lamp.
+    pub screen: bool,
 }
 
 /// What the scene knows about one element.
@@ -57,15 +62,32 @@ pub struct ElementInfo {
     pub kind: &'static str,
     /// World bounding box `[min, max]` of its geometry (zeros when it has none).
     pub bounds: [[f32; 3]; 2],
+    /// Room slot it belongs to (0: none).
+    pub room: u8,
+}
+
+/// Live changes to the moving parts of the scene, by element index.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct Overrides {
+    /// Doors, windows and curtains: opening, 0 (closed) to 1 (open).
+    pub open: BTreeMap<usize, f64>,
+    /// Windows with a blind: 0 (blind down) to 1 (blind up).
+    pub blind: BTreeMap<usize, f64>,
 }
 
 /// The built scene.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct Scene {
-    /// Opaque geometry.
+    /// Opaque geometry that never moves.
     pub opaque: Mesh,
-    /// Glass and contact shadows, drawn after the opaque geometry.
+    /// Glass and contact shadows that never move, drawn after the opaque geometry.
     pub transparent: Mesh,
+    /// The moving parts (doors, windows, curtains, blinds), rebuilt by [`build_dynamic`].
+    pub dynamic_opaque: Mesh,
+    /// Glass of the moving parts.
+    pub dynamic_transparent: Mesh,
+    /// Element id of each room slot (slot `k` is `rooms[k - 1]`).
+    pub rooms: Vec<String>,
     /// Wall groups, indexed by the vertex group.
     pub groups: Vec<WallGroup>,
     /// One entry per plan element, in plan order (vertex element tag − 1).
@@ -76,6 +98,9 @@ pub struct Scene {
     pub wall_height: f64,
     /// World bounding box of the whole scene.
     pub bounds: [[f32; 3]; 2],
+    /// What [`build_dynamic`] needs to rebuild the moving parts the same way.
+    context: Builder,
+    layout: WallLayout,
 }
 
 /// Scene options.
@@ -94,7 +119,7 @@ impl Default for SceneOptions {
 }
 
 /// Shared state while building.
-#[derive(Debug)]
+#[derive(Debug, Clone, Default)]
 pub(crate) struct Builder {
     pub(crate) opaque: Mesh,
     pub(crate) transparent: Mesh,
@@ -104,9 +129,40 @@ pub(crate) struct Builder {
     pub(crate) opening_groups: BTreeMap<String, u8>,
     pub(crate) lights: Vec<LightSpot>,
     pub(crate) wall_height: f64,
+    /// Room slot of each room element index.
+    room_slots: BTreeMap<usize, u8>,
+    /// Room polygons with their slot, to find the room of a point.
+    room_shapes: Vec<(u8, Vec<P2>)>,
+    /// Building the moving parts (doors, windows, curtains) rather than the rest.
+    pub(crate) dynamic: bool,
+    /// Live changes to the moving parts.
+    pub(crate) overrides: Overrides,
 }
 
 impl Builder {
+    /// The room slot of the room element `index` (0 when it is not a room or past 254 rooms).
+    pub(crate) fn room_slot(&self, index: usize) -> u8 {
+        self.room_slots.get(&index).copied().unwrap_or(0)
+    }
+
+    /// The slot of the room containing a plan point (0 when none).
+    pub(crate) fn room_at(&self, p: P2) -> u8 {
+        self.room_shapes
+            .iter()
+            .find(|(_, points)| point_in_polygon(p, points, false))
+            .map_or(0, |(slot, _)| *slot)
+    }
+
+    /// The slot of the room an element follows (`parent`), else of the room containing `p`.
+    pub(crate) fn room_for(&self, plan: &Plan, parent: &str, p: P2) -> u8 {
+        plan.elements
+            .iter()
+            .position(|e| matches!(e, Element::Room(r) if r.id == parent))
+            .map(|i| self.room_slot(i))
+            .filter(|slot| *slot != 0)
+            .unwrap_or_else(|| self.room_at(p))
+    }
+
     /// The vertex tag of element `index`.
     pub(crate) fn element_tag(&self, index: usize) -> u16 {
         u16::try_from(index + 1).unwrap_or(0)
@@ -163,7 +219,7 @@ impl Builder {
     }
 }
 
-/// Builds the scene of a plan.
+/// Builds the scene of a plan, the moving parts as the plan has them.
 pub fn build_scene(plan: &Plan, options: &SceneOptions) -> Scene {
     let layout = WallLayout::new(plan);
     let wall_height = if options.wall_height.is_finite() {
@@ -172,28 +228,63 @@ pub fn build_scene(plan: &Plan, options: &SceneOptions) -> Scene {
         WALL_HEIGHT
     };
     let mut builder = Builder {
-        opaque: Mesh::default(),
-        transparent: Mesh::default(),
-        groups: Vec::new(),
-        keys: BTreeMap::new(),
-        opening_groups: BTreeMap::new(),
-        lights: Vec::new(),
         wall_height,
+        ..Builder::default()
     };
+    let mut rooms = Vec::new();
+    for walls in &layout.rooms {
+        let Some(Element::Room(room)) = plan.elements.get(walls.element) else {
+            continue;
+        };
+        let Ok(slot) = u8::try_from(rooms.len() + 1) else {
+            break;
+        };
+        if slot == u8::MAX {
+            break;
+        }
+        rooms.push(room.id.clone());
+        builder.room_slots.insert(walls.element, slot);
+        builder.room_shapes.push((slot, walls.points.clone()));
+    }
     structure::build(&mut builder, plan, &layout);
+    furniture::build(&mut builder, plan, &layout);
+    // The moving parts go to their own meshes, rebuilt alone when they move.
+    let opaque = std::mem::take(&mut builder.opaque);
+    let transparent = std::mem::take(&mut builder.transparent);
+    builder.dynamic = true;
     openings::build(&mut builder, plan, &layout);
     furniture::build(&mut builder, plan, &layout);
-    let elements = element_infos(plan, &builder.opaque, &builder.transparent);
-    let bounds = union(builder.opaque.bounds(), builder.transparent.bounds());
+    let dynamic_opaque = std::mem::take(&mut builder.opaque);
+    let dynamic_transparent = std::mem::take(&mut builder.transparent);
+    let meshes = [&opaque, &transparent, &dynamic_opaque, &dynamic_transparent];
+    let elements = element_infos(plan, &meshes);
+    let bounds = meshes.iter().map(|m| m.bounds()).fold([[0.0; 3]; 2], union);
+    let lights = std::mem::take(&mut builder.lights);
     Scene {
-        opaque: builder.opaque,
-        transparent: builder.transparent,
-        groups: builder.groups,
+        opaque,
+        transparent,
+        dynamic_opaque,
+        dynamic_transparent,
+        rooms,
+        groups: builder.groups.clone(),
         elements,
-        lights: builder.lights,
+        lights,
         wall_height,
         bounds,
+        context: builder,
+        layout,
     }
+}
+
+/// Rebuilds the moving parts of a scene (doors, windows, curtains, blinds) with live changes.
+/// Returns the opaque and the transparent meshes.
+pub fn build_dynamic(plan: &Plan, scene: &Scene, overrides: &Overrides) -> (Mesh, Mesh) {
+    let mut builder = scene.context.clone();
+    builder.overrides = overrides.clone();
+    builder.lights.clear();
+    openings::build(&mut builder, plan, &scene.layout);
+    furniture::build(&mut builder, plan, &scene.layout);
+    (builder.opaque, builder.transparent)
 }
 
 fn union(a: [[f32; 3]; 2], b: [[f32; 3]; 2]) -> [[f32; 3]; 2] {
@@ -218,12 +309,13 @@ fn union(a: [[f32; 3]; 2], b: [[f32; 3]; 2]) -> [[f32; 3]; 2] {
     ]
 }
 
-fn element_infos(plan: &Plan, opaque: &Mesh, transparent: &Mesh) -> Vec<ElementInfo> {
+fn element_infos(plan: &Plan, meshes: &[&Mesh]) -> Vec<ElementInfo> {
     let n = plan.elements.len();
     let mut min = vec![[f32::INFINITY; 3]; n];
     let mut max = vec![[f32::NEG_INFINITY; 3]; n];
-    for mesh in [opaque, transparent] {
-        for (p, e) in mesh.positions.iter().zip(&mesh.extras) {
+    let mut room = vec![0_u8; n];
+    for mesh in meshes {
+        for ((p, e), normal) in mesh.positions.iter().zip(&mesh.extras).zip(&mesh.normals) {
             let tag = usize::from(u16::from_le_bytes([e[2], e[3]]));
             // Contact shadows carry no element.
             let Some(i) = tag.checked_sub(1).filter(|i| *i < n) else {
@@ -233,6 +325,7 @@ fn element_infos(plan: &Plan, opaque: &Mesh, transparent: &Mesh) -> Vec<ElementI
                 min[i][k] = min[i][k].min(p[k]);
                 max[i][k] = max[i][k].max(p[k]);
             }
+            room[i] = u8::from_ne_bytes(normal[3].to_ne_bytes());
         }
     }
     plan.elements
@@ -246,6 +339,7 @@ fn element_infos(plan: &Plan, opaque: &Mesh, transparent: &Mesh) -> Vec<ElementI
             } else {
                 [[0.0; 3]; 2]
             },
+            room: room[i],
         })
         .collect()
 }

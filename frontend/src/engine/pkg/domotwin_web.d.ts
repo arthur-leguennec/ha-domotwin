@@ -16,6 +16,10 @@ export class Engine {
      */
     frame(time_ms: number): boolean;
     /**
+     * Flashes an element briefly (tap feedback).
+     */
+    highlight(id: string): void;
+    /**
      * Asks for a new frame even though nothing changed.
      */
     invalidate(): void;
@@ -55,7 +59,8 @@ export class Engine {
     pan(dx: number, dy: number, height: number): void;
     /**
      * The element drawn at the device pixel `x`, `y` (from the top left), as JSON
-     * `{"id", "type"}`, or an empty string.
+     * `{"id", "type", "name", "room"}` (`room`: the id of the room it is in, maybe empty), or an
+     * empty string.
      */
     pick(x: number, y: number): string;
     /**
@@ -71,9 +76,18 @@ export class Engine {
      */
     resize(width: number, height: number): void;
     /**
+     * Where the centre of an element is drawn now, as JSON `[x, y]` in device pixels from the
+     * top left, or an empty string (no such element, no geometry, behind the camera).
+     */
+    screenPoint(id: string): string;
+    /**
      * Sets the background colour (sRGB, 0–255) from the Home Assistant theme.
      */
     setBackground(r: number, g: number, b: number): void;
+    /**
+     * Sets the bindings (the JSON stored by the integration). Malformed entries are skipped.
+     */
+    setBindings(json: string): void;
     /**
      * Sets the cut-away mode: `auto`, `always` or `off`.
      */
@@ -95,6 +109,11 @@ export class Engine {
      * Forces a quality preset (`eco`, `balanced`, `high`) or returns to automatic (`auto`).
      */
     setQuality(name: string): void;
+    /**
+     * Updates entity states: JSON `{ "entity_id": { "state", "attributes" } | null }`, only the
+     * entities that changed (`null` forgets one).
+     */
+    setStates(json: string): void;
     /**
      * Lights the scene for the sun's `elevation` (degrees), `rising` before noon (Home
      * Assistant's `sun.sun`).
@@ -145,6 +164,7 @@ export interface InitOutput {
     readonly engineVersion: (a: number) => void;
     readonly engine_focusElement: (a: number, b: number, c: number, d: number) => number;
     readonly engine_frame: (a: number, b: number) => number;
+    readonly engine_highlight: (a: number, b: number, c: number) => void;
     readonly engine_invalidate: (a: number) => void;
     readonly engine_loadPlan: (a: number, b: number, c: number, d: number, e: number) => void;
     readonly engine_needsFrame: (a: number) => number;
@@ -156,12 +176,15 @@ export interface InitOutput {
     readonly engine_planView: (a: number) => number;
     readonly engine_quality: (a: number, b: number) => void;
     readonly engine_resize: (a: number, b: number, c: number) => void;
+    readonly engine_screenPoint: (a: number, b: number, c: number, d: number) => void;
     readonly engine_setBackground: (a: number, b: number, c: number, d: number) => void;
+    readonly engine_setBindings: (a: number, b: number, c: number) => void;
     readonly engine_setCutaway: (a: number, b: number, c: number) => void;
     readonly engine_setLightingMood: (a: number, b: number, c: number) => number;
     readonly engine_setLocalHour: (a: number, b: number) => void;
     readonly engine_setPlanView: (a: number, b: number, c: number) => void;
     readonly engine_setQuality: (a: number, b: number, c: number) => void;
+    readonly engine_setStates: (a: number, b: number, c: number) => void;
     readonly engine_setSun: (a: number, b: number, c: number) => void;
     readonly engine_showView: (a: number, b: number, c: number, d: number) => number;
     readonly engine_stats: (a: number, b: number) => void;

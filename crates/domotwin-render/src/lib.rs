@@ -1,11 +1,13 @@
 //! DomoTwin renderer: draws the scene built by `domotwin-core` with the core layer of three-d on
 //! WebGL2 and DomoTwin's own shaders (see `docs/DECISIONS.md`, D-014).
 //!
-//! The whole home is two meshes (opaque, then glass and contact shadows), so a frame is a few
-//! draw calls whatever the plan. Frames are drawn on demand: [`Renderer::needs_frame`] says when.
+//! The home is a few meshes (opaque, then glass and contact shadows; the moving parts apart), so a
+//! frame is a few draw calls whatever the plan. Frames are drawn on demand:
+//! [`Renderer::needs_frame`] says when.
 
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used, clippy::panic))]
 
+pub mod lamps;
 mod quality;
 mod shaders;
 pub mod view;
@@ -14,8 +16,10 @@ use std::sync::Arc;
 
 use domotwin_core::camera::CutawayMode;
 use domotwin_core::lighting::Lighting;
-use domotwin_core::scene::Scene;
+use domotwin_core::live::Look;
 use domotwin_core::scene::mesh::Mesh;
+use domotwin_core::scene::{LightSpot, Scene};
+use lamps::{Halo, PointLight};
 pub use quality::{GpuHint, QualityPreset};
 pub use three_d::context::Context as GlContext;
 use three_d::{
@@ -69,6 +73,21 @@ impl GpuMesh {
         })
     }
 
+    /// Replaces the data, keeping the buffers (moving parts are uploaded often).
+    fn replace(slot: &mut Option<Self>, context: &Context, mesh: &Mesh) {
+        match slot {
+            Some(gpu) if !mesh.indices.is_empty() => {
+                gpu.positions.fill(&mesh.positions);
+                gpu.normals.fill(&mesh.normals);
+                gpu.colors.fill(&mesh.colors);
+                gpu.extras.fill(&mesh.extras);
+                gpu.uvs.fill(&mesh.uvs);
+                gpu.indices.fill(&mesh.indices);
+            }
+            _ => *slot = Self::new(context, mesh),
+        }
+    }
+
     /// Draws with `program`, binding only the attributes it uses.
     fn draw(&self, program: &Program, states: RenderStates, viewport: Viewport) {
         if program.requires_attribute("a_position") {
@@ -87,6 +106,43 @@ impl GpuMesh {
             program.use_vertex_attribute("a_uv", &self.uvs);
         }
         program.draw_elements(states, viewport, &self.indices);
+    }
+}
+
+/// The halos of lit bulbs on the GPU.
+struct GpuHalos {
+    centers: VertexBuffer<[f32; 4]>,
+    tints: VertexBuffer<[f32; 4]>,
+    corners: VertexBuffer<[f32; 2]>,
+    indices: ElementBuffer<u32>,
+}
+
+impl GpuHalos {
+    fn new(context: &Context, halos: &[Halo]) -> Option<Self> {
+        if halos.is_empty() {
+            return None;
+        }
+        let mut centers = Vec::with_capacity(halos.len() * 4);
+        let mut tints = Vec::with_capacity(halos.len() * 4);
+        let mut corners = Vec::with_capacity(halos.len() * 4);
+        let mut indices = Vec::with_capacity(halos.len() * 6);
+        for (i, halo) in halos.iter().enumerate() {
+            let base = u32::try_from(i * 4).unwrap_or(u32::MAX - 4);
+            for corner in [[-1.0, -1.0], [1.0, -1.0], [1.0, 1.0], [-1.0, 1.0]] {
+                let [x, y, z] = halo.center;
+                centers.push([x, y, z, halo.size]);
+                let [r, g, b] = halo.tint;
+                tints.push([r, g, b, 1.0]);
+                corners.push(corner);
+            }
+            indices.extend_from_slice(&[base, base + 1, base + 2, base, base + 2, base + 3]);
+        }
+        Some(Self {
+            centers: VertexBuffer::new_with_data(context, &centers),
+            tints: VertexBuffer::new_with_data(context, &tints),
+            corners: VertexBuffer::new_with_data(context, &corners),
+            indices: ElementBuffer::new_with_data(context, &indices),
+        })
     }
 }
 
@@ -118,9 +174,18 @@ pub struct Renderer {
     main: Program,
     depth: Program,
     pick: Program,
-    opaque: Option<GpuMesh>,
-    transparent: Option<GpuMesh>,
+    halo: Program,
+    /// Opaque and moving opaque, then glass and moving glass.
+    meshes: [Option<GpuMesh>; 4],
+    /// The live look of every element, two texels each (see `lamps::element_texels`).
+    elements: Texture2D,
+    spots: Vec<LightSpot>,
+    lights: Vec<PointLight>,
+    halos: Option<GpuHalos>,
     shadow: Option<ShadowMap>,
+    /// What the shadow sampler points at without shadows. Created once: creating a texture
+    /// binds it to the active unit, which would replace a texture bound for the frame.
+    no_shadow: DepthTexture2D,
     pick_target: Option<PickTarget>,
     lighting: Lighting,
     /// What the view shows and how it moves.
@@ -133,7 +198,8 @@ impl std::fmt::Debug for Renderer {
             .field("width", &self.width)
             .field("height", &self.height)
             .field("quality", &self.quality)
-            .field("opaque", &self.opaque)
+            .field("meshes", &self.meshes)
+            .field("lights", &self.lights.len())
             .finish_non_exhaustive()
     }
 }
@@ -197,6 +263,24 @@ fn sun_matrix(centre: [f64; 3], radius: f64) -> [f32; 16] {
     out
 }
 
+/// The per-element texture: two texels per element tag, on one row.
+fn element_texture(context: &Context, looks: &[Look]) -> Texture2D {
+    let texels = lamps::element_texels(looks);
+    let width = u32::try_from(texels.len()).unwrap_or(2).max(2);
+    let texture = Texture2D::new_empty::<[f32; 4]>(
+        context,
+        width,
+        1,
+        Interpolation::Nearest,
+        Interpolation::Nearest,
+        None,
+        Wrapping::ClampToEdge,
+        Wrapping::ClampToEdge,
+    );
+    texture.fill(&texels);
+    texture
+}
+
 impl Renderer {
     /// Creates the renderer on an existing WebGL2 context.
     ///
@@ -209,8 +293,17 @@ impl Renderer {
         let main = Program::from_source(&context, shaders::VERTEX, shaders::FRAGMENT)?;
         let depth = Program::from_source(&context, shaders::VERTEX, shaders::DEPTH)?;
         let pick = Program::from_source(&context, shaders::VERTEX, shaders::PICK)?;
+        let halo = Program::from_source(&context, shaders::HALO_VERTEX, shaders::HALO_FRAGMENT)?;
+        let elements = element_texture(&context, &[]);
         let mut view = ViewState::default();
         view.aspect = f64::from(width.max(1)) / f64::from(height.max(1));
+        let no_shadow = DepthTexture2D::new::<f32>(
+            &context,
+            1,
+            1,
+            Wrapping::ClampToEdge,
+            Wrapping::ClampToEdge,
+        );
         Ok(Self {
             context,
             width: width.max(1),
@@ -224,9 +317,14 @@ impl Renderer {
             main,
             depth,
             pick,
-            opaque: None,
-            transparent: None,
+            halo,
+            meshes: [None, None, None, None],
+            elements,
+            spots: Vec::new(),
+            lights: Vec::new(),
+            halos: None,
             shadow: None,
+            no_shadow,
             pick_target: None,
             lighting: Lighting::default(),
             view,
@@ -235,9 +333,40 @@ impl Renderer {
 
     /// Uploads a scene. The camera frames it unless `keep_camera`.
     pub fn set_scene(&mut self, scene: &Scene, keep_camera: bool) {
-        self.opaque = GpuMesh::new(&self.context, &scene.opaque);
-        self.transparent = GpuMesh::new(&self.context, &scene.transparent);
+        self.meshes = [
+            GpuMesh::new(&self.context, &scene.opaque),
+            GpuMesh::new(&self.context, &scene.dynamic_opaque),
+            GpuMesh::new(&self.context, &scene.transparent),
+            GpuMesh::new(&self.context, &scene.dynamic_transparent),
+        ];
+        self.spots.clone_from(&scene.lights);
         self.view.set_scene(scene, keep_camera);
+    }
+
+    /// Uploads the moving parts again (doors, windows, curtains, blinds moved).
+    pub fn set_moving_parts(&mut self, opaque: &Mesh, transparent: &Mesh) {
+        GpuMesh::replace(&mut self.meshes[1], &self.context, opaque);
+        GpuMesh::replace(&mut self.meshes[3], &self.context, transparent);
+        self.view.shadows_dirty = true;
+        self.view.dirty = true;
+    }
+
+    /// Sets the live look of every element (lights, greyed out, highlight).
+    pub fn set_looks(&mut self, looks: &[Look]) {
+        let texels = lamps::element_texels(looks);
+        if self.elements.width() as usize == texels.len() {
+            self.elements.fill(&texels);
+        } else {
+            self.elements = element_texture(&self.context, looks);
+        }
+        self.lights = lamps::point_lights(&self.spots, looks);
+        self.halos = GpuHalos::new(&self.context, &lamps::halos(&self.spots, looks));
+        self.view.dirty = true;
+    }
+
+    /// Number of point lights in use (diagnostics).
+    pub fn light_count(&self) -> usize {
+        self.lights.len()
     }
 
     /// Sets the drawing buffer size in device pixels.
@@ -249,6 +378,28 @@ impl Renderer {
             self.view.aspect = f64::from(width) / f64::from(height);
             self.view.dirty = true;
         }
+    }
+
+    /// Where a world point is drawn now: device pixels from the top left, `None` when it is
+    /// behind the camera.
+    pub fn screen_point(&self, point: [f64; 3]) -> Option<[f64; 2]> {
+        let m = self
+            .view
+            .camera
+            .projection(self.view.aspect, self.view.radius())
+            .view_proj
+            .map(f64::from);
+        let clip = |row: usize| {
+            m[row] * point[0] + m[4 + row] * point[1] + m[8 + row] * point[2] + m[12 + row]
+        };
+        let w = clip(3);
+        if w <= 1e-6 {
+            return None;
+        }
+        Some([
+            (clip(0) / w + 1.0) * 0.5 * f64::from(self.width),
+            (1.0 - clip(1) / w) * 0.5 * f64::from(self.height),
+        ])
     }
 
     /// Sets the colour behind the scene (from the Home Assistant theme).
@@ -334,6 +485,9 @@ impl Renderer {
 
     fn use_common(&self, program: &Program, view_proj: &[f32; 16]) {
         program.use_uniform_if_required("u_view_proj", mat4(view_proj));
+        if program.requires_uniform("u_elements") {
+            program.use_texture("u_elements", &self.elements);
+        }
         if program.requires_uniform("u_cut") {
             program.use_uniform_array("u_cut", &self.cut_uniform());
         }
@@ -372,13 +526,13 @@ impl Renderer {
             cull: Cull::None,
         };
         let viewport = Viewport::new_at_origo(size, size);
-        let (depth, opaque) = (&self.depth, &self.opaque);
+        let (depth, meshes) = (&self.depth, &self.meshes);
         let _ = shadow
             .texture
             .as_depth_target()
             .clear(ClearState::depth(1.0))
             .write::<CoreError>(|| {
-                if let Some(mesh) = opaque {
+                for mesh in meshes[..2].iter().flatten() {
                     mesh.draw(depth, states, viewport);
                 }
                 Ok(())
@@ -424,6 +578,22 @@ impl Renderer {
         program.use_uniform_if_required("u_sun_color", rgb(light.sun));
         program.use_uniform_if_required("u_exposure", light.exposure);
         program.use_uniform_if_required("u_ao", light.ao);
+        // Lamps and halos count less in daylight: a lamp lit at noon barely shows indoors.
+        let gain = light.lamp_gain();
+        let mut positions = [Vec4::new(0.0, 0.0, 0.0, 1.0); lamps::MAX_LIGHTS];
+        let mut colors = [Vec4::new(0.0, 0.0, 0.0, 0.0); lamps::MAX_LIGHTS];
+        for (i, lamp) in self.lights.iter().enumerate().take(lamps::MAX_LIGHTS) {
+            let [x, y, z] = lamp.position;
+            positions[i] = Vec4::new(x, y, z, lamp.radius);
+            let [r, g, b] = lamp.color;
+            colors[i] = Vec4::new(r * gain, g * gain, b * gain, f32::from(lamp.room));
+        }
+        if program.requires_uniform("u_light_pos") {
+            program.use_uniform_array("u_light_pos", &positions);
+            program.use_uniform_array("u_light_color", &colors);
+        }
+        #[allow(clippy::cast_precision_loss)]
+        program.use_uniform_if_required("u_light_count", self.lights.len() as f32);
         let shadows = self.shadow.as_ref().filter(|_| flat < 0.5);
         program.use_uniform_if_required("u_shadows", if shadows.is_some() { 1.0_f32 } else { 0.0 });
         if let Some(shadow) = self.shadow.as_ref() {
@@ -435,15 +605,8 @@ impl Renderer {
             program.use_uniform_if_required("u_shadow_texel", 1.0 / shadow.size as f32);
             program.use_uniform_if_required("u_pcf", self.shadow_size().map_or(1.0, |(_, p)| p));
         } else if program.requires_uniform("u_shadow_map") {
-            // A sampler must point at a depth texture even when unused: a tiny one.
-            let tiny = DepthTexture2D::new::<f32>(
-                &self.context,
-                1,
-                1,
-                Wrapping::ClampToEdge,
-                Wrapping::ClampToEdge,
-            );
-            program.use_depth_texture("u_shadow_map", &tiny);
+            // A sampler must point at a depth texture even when unused.
+            program.use_depth_texture("u_shadow_map", &self.no_shadow);
             program.use_uniform_if_required("u_pcf", 1.0_f32);
             program.use_uniform_if_required("u_shadow_texel", 1.0_f32);
             program.use_uniform_if_required("u_shadow_matrix", mat4(&[0.0; 16]));
@@ -462,15 +625,36 @@ impl Renderer {
             blend: Blend::TRANSPARENCY,
             cull: Cull::Back,
         };
-        let (opaque, transparent) = (&self.opaque, &self.transparent);
+        let halo = &self.halo;
+        if self.halos.is_some() {
+            halo.use_uniform_if_required("u_view_proj", mat4(&projection.view_proj));
+            #[allow(clippy::cast_possible_truncation)]
+            let v3 = |v: [f64; 3]| Vec3::new(v[0] as f32, v[1] as f32, v[2] as f32);
+            halo.use_uniform_if_required("u_right", v3(projection.right));
+            halo.use_uniform_if_required("u_up", v3(projection.up));
+            halo.use_uniform_if_required("u_gain", gain);
+        }
+        let halo_states = RenderStates {
+            write_mask: WriteMask::COLOR,
+            depth_test: DepthTest::LessOrEqual,
+            blend: Blend::ADD,
+            cull: Cull::None,
+        };
+        let (meshes, halos) = (&self.meshes, &self.halos);
         let _ = RenderTarget::screen(&self.context, self.width, self.height)
             .clear(ClearState::color_and_depth(r, g, b, 1.0, 1.0))
             .write::<CoreError>(|| {
-                if let Some(mesh) = opaque {
+                for mesh in meshes[..2].iter().flatten() {
                     mesh.draw(program, opaque_states, viewport);
                 }
-                if let Some(mesh) = transparent {
+                for mesh in meshes[2..].iter().flatten() {
                     mesh.draw(program, glass_states, viewport);
+                }
+                if let Some(h) = halos {
+                    halo.use_vertex_attribute("a_center", &h.centers);
+                    halo.use_vertex_attribute("a_tint", &h.tints);
+                    halo.use_vertex_attribute("a_corner", &h.corners);
+                    halo.draw_elements(halo_states, viewport, &h.indices);
                 }
                 Ok(())
             });
@@ -534,7 +718,7 @@ impl Renderer {
             blend: Blend::Disabled,
             cull: Cull::Back,
         };
-        let (program, opaque, transparent) = (&self.pick, &self.opaque, &self.transparent);
+        let (program, meshes) = (&self.pick, &self.meshes);
         let render_target = RenderTarget::new(
             target.color.as_color_target(None),
             target.depth.as_depth_target(),
@@ -545,7 +729,7 @@ impl Renderer {
                 ClearState::color_and_depth(0.0, 0.0, 0.0, 0.0, 1.0),
             )
             .write_partially::<CoreError>(scissor, || {
-                for mesh in [opaque, transparent].into_iter().flatten() {
+                for mesh in meshes.iter().flatten() {
                     mesh.draw(program, states, viewport);
                 }
                 Ok(())

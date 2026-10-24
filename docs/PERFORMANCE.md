@@ -22,8 +22,10 @@ lists the budgets, how they are measured, and the numbers measured at each miles
 
 - **Bundle.** `scripts/build.sh` builds the engine (`opt-level = "z"`, LTO, `wasm-opt -Oz`) and the
   frontend (esbuild, minified, split into chunks), then `node scripts/check-bundle-size.mjs` gzips
-  (level 9) every file. "First load" counts every JS chunk except the card editor, plus the wasm.
-  CI publishes the table in the job summary and the JSON as the `bundle-size` artifact.
+  (level 9) every file. "First load" follows the imports: the entry, the chunks it imports
+  statically, the engine glue (every view starts it) and the wasm. Chunks imported only on demand
+  (the card editor, the panels over the scene, the link editor) are listed apart. CI publishes the
+  table in the job summary and the JSON as the `bundle-size` artifact.
 - **Frame time.** `frontend/e2e/perf.spec.ts` loads the demo plan in headless Chromium with software
   WebGL2 (SwiftShader), forces 120 consecutive frames and reports the CPU time of a frame, the
   interval between frames and the WebAssembly memory. CI uploads it as the `frame-time` artifact.
@@ -80,3 +82,35 @@ side stays under a millisecond); real GPUs draw this scene far within a 60 Hz fr
 by hand on devices.
 
 ![The 2D plan of the demo apartment](figures/screenshot-plan.png)
+
+### M2 (live control)
+
+Bundle (same toolchain):
+
+| File | Raw | Gzipped |
+| --- | ---: | ---: |
+| `domotwin_web_bg.<hash>.wasm` | 466.7 kB | 205.8 kB |
+| `domotwin.js` (entry) | 41.7 kB | 12.4 kB |
+| `chunks/chunk-<hash>.js` (Lit, shared) | 29.4 kB | 10.8 kB |
+| `chunks/domotwin_web-<hash>.js` (wasm glue) | 26.8 kB | 7.0 kB |
+| `chunks/chunk-<hash>.js` (bindings, actions) | 8.6 kB | 3.8 kB |
+| `chunks/chunk-<hash>.js` (suggestions) | 2.2 kB | 1.1 kB |
+| **First load** | | **≈ 241 kB of 1 200 kB** |
+| On demand: controls and room panel, link editor, card editor | 19.7 kB | 7.0 kB |
+
+The engine grew by 33 kB gzipped (bindings, states, targets and fades, the moving parts, lamps).
+The panels over the scene load the first time one opens.
+
+Scene of the demo apartment: the same 18 411 triangles, now in four meshes (static opaque and
+glass, moving opaque and glass) plus the halos. A state change uploads one small texture (two
+texels per element); only doors, windows, blinds and curtains that move rebuild their small mesh,
+and only while they move. A `hass` update costs a comparison of the bound entities' state objects
+(Home Assistant keeps the object of an entity that did not change).
+
+Frame-time smoke test (demo plan, SwiftShader, 1000 × 700, Eco, 120 forced frames): CPU time per
+frame 0.3 ms median, 1.9 ms p95; WebAssembly memory 3.2 MB. Frame interval 133 ms median, 283 ms
+p95. To compare with M1 on the same machine at the same moment (software rendering depends on the
+machine's load): M1 83 ms, M2 100 ms with no lamp lit and 117 ms with six. The extra time is per
+pixel (the lamp lights of the pixel's room, glows, greyed-out entities), which the software
+rasteriser runs on the CPU; on a GPU it is small, still to be confirmed on real devices by hand.
+Frames are only drawn while something moves.

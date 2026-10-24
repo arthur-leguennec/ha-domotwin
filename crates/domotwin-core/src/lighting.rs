@@ -98,6 +98,14 @@ impl Lighting {
             ao: mix(self.ao, to.ao),
         }
     }
+
+    /// How much lamps count (their light pools and halos), from the brightness of the sky: a
+    /// quarter by day, about two thirds in the evening, all of it at night.
+    pub fn lamp_gain(&self) -> f32 {
+        let [r, g, b] = self.sky;
+        let sky = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+        ((0.36 - sky) / 0.15).clamp(0.25, 1.0)
+    }
 }
 
 impl Default for Lighting {
@@ -172,6 +180,15 @@ mod tests {
             .all(|k| d(a.sky[k], b.sky[k]) && d(a.sun[k], b.sun[k]) && d(a.ground[k], b.ground[k]))
             && d(a.exposure, b.exposure)
             && d(a.ao, b.ao)
+    }
+
+    #[test]
+    fn lamps_count_more_as_it_gets_dark() {
+        let gain = |mood: Mood| mood.lighting().lamp_gain();
+        assert!((gain(Mood::Day) - 0.25).abs() < 1e-6);
+        assert!(gain(Mood::Morning) < gain(Mood::Evening));
+        assert!(gain(Mood::Evening) > 0.5 && gain(Mood::Evening) < 0.9);
+        assert!((gain(Mood::Night) - 1.0).abs() < 1e-6);
     }
 
     #[test]
