@@ -623,3 +623,60 @@ Decided while the maintainer was away (M8); open to review.
   cost about what day's sun shadows cost, and the glass walls redraw the walls alone. The first load grew by 18.6 kB gzipped: the engine
   16.6 kB (the looks' shaders, the outlines, the background, glass and bloom passes), the rest
   2 kB (the options, the settings, the rooms' names, the texts).
+
+## D-028 · Every storey at once: one scene, each storey drawn at its own lift
+
+Decided while the maintainer was away (M9); open to review.
+
+- **Context.** One storey drawn at a time (D-026) keeps frames cheap, but a home of several floors
+  is first seen whole: the storeys stacked like a dollhouse, pulled apart to look inside each, a
+  roof on top. Dashboards also want a quick way to pick a storey. Links, layers, taps and the live
+  looks are keyed by element and room; edit mode, linking and the plan editor work on one plan.
+- **Decision.**
+  - **One scene of every storey.** The core builds each storey's meshes (opaque, walls, glass,
+    moving parts, ceiling, outlines) into a part of its own with the storey's elevation
+    (`build_home`), its geometry on its own floor. The elements, the rooms' slots, the wall groups
+    and the lamps are numbered across the home, so the live looks, the rooms' texture of the layers,
+    the cut-away and picking work for every storey as they did for one. A plan of the storeys put
+    together (`stack_plans`) serves the engine's lookups (links, targets, badges). A plan alone is
+    a home of one storey: one code path.
+  - **Each storey moved where it is shown.** The renderer draws each part with a `u_offset`
+    uniform: up to its elevation, plus 1.6 wall heights per storey below it when spread apart.
+    Spreading and stacking are animated (0.7 s, eased), the camera framing the home as it will
+    be. Lamps are worked out on their storey's floor (how high a bulb is decides its reach and its
+    halo), then moved with it; picking draws each part where it is and says which storey was
+    tapped. Badges, cameras' cones, the layers' values and the labels follow their storey. The
+    shadow map draws every storey where it is shown.
+  - **The 2D plan lays the storeys side by side.** Seen from above, stacked storeys hide each
+    other: on the plan, they lie down on the ground side by side, the lowest on the left (or down
+    the view, the highest on top, in a view taller than wide), a gap of 12 % of the widest between
+    them (1.5 m at least), each label over its storey, without the roof. The same offset carries
+    them there, animated with the switch to the plan.
+  - **A roof over the top storey.** A gable roof over the smallest rectangle around the top
+    storey's walls (the convex hull of its rooms and walls, then the rectangle of least area on one
+    of its sides), the ridge along the longer side, 30° slopes up to 3.2 m above the eaves, the
+    eaves 30 cm out from the walls, gable walls under it, its outlines. It floats above the top
+    storey like another storey when spread. It is glass in the looks with glass walls, opaque in
+    day; it is never tapped (a tap goes to what is under it) and casts no sun shadow, so that the
+    light still comes in. Real roofs vary (hip, flat, several wings): this one says "a house"; the
+    plan format has no roof to read, and an imported roof is for later.
+  - **Labels and pictures.** Each storey has a label beside it (its name, its rooms, the lights
+    on); the view draws a small picture of each storey alone from above a corner, offscreen, in the
+    look shown, once per home and per look (280 × 180 device pixels). A tap on either shows that
+    storey alone.
+  - **Where.** The view's storey switcher gets an "every storey" button above the storeys; a card
+    opens on it with `storey: all`, with `spread` and `roof` options (both on by default), the view
+    a button for each. A storey without a plan yet is left out; with fewer than two storeys with a
+    plan, the storey alone is shown. The panel shows it until a tool starts: edit mode, linking and the plan
+    editor work on the storey that was last shown alone, shown alone meanwhile, and the home comes
+    back after. With every storey shown, the alerts banner lists every room's alerts, and the
+    heatmap, presence and power show on every storey.
+- **Consequences.** A home of several storeys costs one draw call per mesh per storey instead of
+  per mesh: in headless Chromium at High, neon, the demo apartment's two storeys under their roof
+  (27 776 triangles) take 1.1 ms of CPU per frame median against 0.5 ms for the ground floor alone,
+  and about the same software GPU time. The live look of every element is a texture of rows of
+  512 elements (1 536 texels, within the 2 048 every WebGL2 GPU allows), as a whole home has the
+  elements of all its storeys. Every storey's plan is fetched once (the client already
+  fetched them for the alerts). The first load grew by 19.1 kB gzipped: the engine 16.7 kB (the
+  scene of storeys, the roof, the lifts, the pictures) and the rest 2.4 kB (the switcher's button,
+  the labels, the pictures, the options, the texts).
