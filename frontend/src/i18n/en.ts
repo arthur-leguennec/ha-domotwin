@@ -336,6 +336,7 @@ export const en = {
       image_too_large: "a picture of the model is larger than 4 096 × 4 096 pixels.",
       model_missing: "its 3D file is missing from Home Assistant.",
       upload_failed: "the 3D file could not be sent to Home Assistant.",
+      models_too_large: "the 3D files of a plan total at most 20 MB.",
     },
     ws: {
       revision_conflict: "someone saved in the meantime. Reload and try again.",

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from homeassistant.components import websocket_api
@@ -20,6 +21,8 @@ from .validation import (
     validate_models,
     validate_plan,
 )
+
+_LOGGER = logging.getLogger(__name__)
 
 
 @callback
@@ -106,8 +109,11 @@ async def ws_plan_save(
         connection.send_error(msg["id"], "revision_conflict", str(err))
         return
     connection.send_result(msg["id"], {"revision": revision})
-    # The files no plan uses any more go (a day after their upload).
-    await async_remove_unused(hass, data.plan, data.layout)
+    # The files no plan uses any more go, a day after they were last used.
+    try:
+        await async_remove_unused(hass, data.plan, data.layout)
+    except OSError:
+        _LOGGER.warning("Could not clean up the unused 3D model files", exc_info=True)
 
 
 @websocket_api.websocket_command({vol.Required("type"): "domotwin/bindings/get"})

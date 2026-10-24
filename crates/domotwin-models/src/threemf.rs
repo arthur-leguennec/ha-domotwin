@@ -336,7 +336,8 @@ struct Drawing<'a> {
     archive: Archive<'a>,
     parts: HashMap<String, Rc<Part>>,
     soup: Soup,
-    meshes: usize,
+    /// Objects placed so far, meshes or components: the limit of expanded meshes bounds the work.
+    placed: usize,
 }
 
 impl Drawing<'_> {
@@ -357,6 +358,10 @@ impl Drawing<'_> {
         if depth > MAX_NESTING {
             return Err(Error::NotModel);
         }
+        self.placed += 1;
+        if self.placed > MAX_MESHES {
+            return Err(Error::TooManyMeshes);
+        }
         let part = self.part(path)?;
         let o = part.objects.get(&object).ok_or(Error::NotModel)?;
         match &o.shape {
@@ -371,10 +376,6 @@ impl Drawing<'_> {
                 vertices,
                 triangles,
             } => {
-                self.meshes += 1;
-                if self.meshes > MAX_MESHES {
-                    return Err(Error::TooManyMeshes);
-                }
                 if self.soup.triangles() + triangles.len() > MAX_TRIANGLES {
                     return Err(Error::TooManyTriangles);
                 }
@@ -438,7 +439,7 @@ pub(crate) fn read(bytes: &[u8]) -> Result<Model, Error> {
         archive,
         parts: HashMap::new(),
         soup: Soup::default(),
-        meshes: 0,
+        placed: 0,
     };
     let root = drawing.part(&start)?;
     for item in &root.build {
@@ -529,6 +530,25 @@ mod tests {
         let no_rels = archive(&[("3D/3dmodel.model", model("").as_bytes())]);
         assert_eq!(read(&no_rels).err(), Some(Error::NotModel));
         assert_eq!(read(b"not a zip").err(), Some(Error::NotModel));
+    }
+
+    #[test]
+    fn components_count_towards_the_limit() {
+        // 8 levels of 8 components ending in an empty object: 8^8 placements if nothing stops it.
+        let mut objects = String::from(r#"<object id="1"/>"#);
+        for level in 2..=9 {
+            let below = level - 1;
+            let components = format!(r#"<component objectid="{below}"/>"#).repeat(8);
+            objects.push_str(&format!(
+                r#"<object id="{level}"><components>{components}</components></object>"#
+            ));
+        }
+        let model = format!(
+            r#"<model unit="millimeter"><resources>{objects}</resources><build><item objectid="9"/></build></model>"#
+        );
+        let started = std::time::Instant::now();
+        assert_eq!(read(&package(&model)).err(), Some(Error::TooManyMeshes));
+        assert!(started.elapsed().as_secs() < 2);
     }
 
     #[test]

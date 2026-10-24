@@ -290,9 +290,9 @@ impl Engine {
     }
 
     /// The user models of the plan shown (« My models »), as JSON `[{"id", "name", "w", "d",
-    /// "h", "color", "format", "pieces", "removable"}]`: `format` is the 3D file's (`null` for a
-    /// kit), `pieces` how many pieces show it, `removable` whether it was imported in edit mode
-    /// and no piece shows it.
+    /// "h", "color", "format", "bytes", "pieces", "removable"}]`: `format` and `bytes` are the 3D
+    /// file's (`null` for a kit), `pieces` how many pieces show it, `removable` whether it was
+    /// imported in edit mode and no piece shows it.
     #[wasm_bindgen(js_name = editModels)]
     pub fn edit_models(&self) -> String {
         let Some(plan) = &self.plan else {
@@ -317,7 +317,9 @@ impl Engine {
                         .cloned()
                         .unwrap_or_default()
                 };
-                let format = model.get("file").and_then(|f| f.get("format"));
+                let file = model.get("file");
+                let format = file.and_then(|f| f.get("format"));
+                let bytes = file.and_then(|f| f.get("bytes"));
                 let imported = layout.contains_key(&format!("{MODEL_PREFIX}{id}"));
                 json!({
                     "id": id,
@@ -327,6 +329,7 @@ impl Engine {
                     "h": size(2),
                     "color": model.get("color").cloned().unwrap_or(Value::Null),
                     "format": format.cloned().unwrap_or(Value::Null),
+                    "bytes": bytes.cloned().unwrap_or(Value::Null),
                     "pieces": pieces,
                     "removable": imported && pieces == 0,
                 })

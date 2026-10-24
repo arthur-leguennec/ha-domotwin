@@ -48,9 +48,9 @@ export class Engine {
     editLayout(): string;
     /**
      * The user models of the plan shown (« My models »), as JSON `[{"id", "name", "w", "d",
-     * "h", "color", "format", "pieces", "removable"}]`: `format` is the 3D file's (`null` for a
-     * kit), `pieces` how many pieces show it, `removable` whether it was imported in edit mode
-     * and no piece shows it.
+     * "h", "color", "format", "bytes", "pieces", "removable"}]`: `format` and `bytes` are the 3D
+     * file's (`null` for a kit), `pieces` how many pieces show it, `removable` whether it was
+     * imported in edit mode and no piece shows it.
      */
     editModels(): string;
     /**
@@ -207,8 +207,8 @@ export class Engine {
      */
     setLocalHour(hour: number): void;
     /**
-     * Gives the mesh of the 3D file `hash` (`DTM1`, from the model module) and redraws the
-     * pieces drawn from it. Returns `false` when the mesh is refused.
+     * Gives the mesh of the 3D file `hash` (`DTM1`, from the model module); the pieces drawn
+     * from it change at the next [`Engine::show_models`]. Returns `false` when the mesh is refused.
      */
     setModelMesh(hash: string, mesh: Uint8Array): boolean;
     /**
@@ -229,6 +229,11 @@ export class Engine {
      * Assistant's `sun.sun`).
      */
     setSun(elevation: number, rising: boolean): void;
+    /**
+     * Draws the pieces whose 3D file came since the scene was built, in one rebuild for all of
+     * them. Returns whether it did.
+     */
+    showModels(): boolean;
     /**
      * Moves to a saved viewpoint. Returns `false` when there is none with this id.
      */
@@ -328,6 +333,7 @@ export interface InitOutput {
     readonly engine_setQuality: (a: number, b: number, c: number) => void;
     readonly engine_setStates: (a: number, b: number, c: number) => void;
     readonly engine_setSun: (a: number, b: number, c: number) => void;
+    readonly engine_showModels: (a: number) => number;
     readonly engine_showView: (a: number, b: number, c: number, d: number) => number;
     readonly engine_stats: (a: number, b: number) => void;
     readonly engine_views: (a: number, b: number) => void;

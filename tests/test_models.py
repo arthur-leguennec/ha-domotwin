@@ -82,7 +82,13 @@ async def test_uploads_are_checked(
 
     admin = await hass_client()
     assert (await upload(admin, STOOL, "fbx")).status == HTTPStatus.BAD_REQUEST
-    for data, file_format in ((b"hello", "stl"), (STL, "glb"), (b"\x00\x01", "obj"), (b"", "3mf")):
+    for data, file_format in (
+        (b"hello", "stl"),
+        (bytes(34), "stl"),
+        (STL, "glb"),
+        (b"\x00\x01", "obj"),
+        (b"", "3mf"),
+    ):
         response = await upload(admin, data, file_format)
         assert response.status == HTTPStatus.BAD_REQUEST, file_format
         assert (await response.json())["code"] == "not_model"
@@ -123,6 +129,8 @@ async def test_models_in_overlays_and_plans_are_checked(
     bad: list[dict[str, Any]] = [
         {"@model:bad id": model(digest)},
         {"@model:m-1": model("A" * 64)},
+        {"@model:m-1": model("a" * 64 + "\n")},
+        {"@model:m-1\n": model(digest)},
         {"@model:m-1": model(digest, size=MAX_MODEL_BYTES + 1)},
         {"@model:m-1": {"model": {**model(digest)["model"], "size": [38, 38, 400]}}},
         {"@model:m-1": {"model": {**model(digest)["model"], "kit": {"parts": []}}}},
@@ -185,3 +193,35 @@ async def test_unused_files_go_after_a_day_and_all_with_the_integration(
     assert await hass.config_entries.async_remove(setup_integration.entry_id)
     await hass.async_block_till_done()
     assert not folder.exists()
+
+
+async def test_a_file_stays_a_day_after_its_last_use(
+    hass: HomeAssistant,
+    setup_integration: MockConfigEntry,
+    hass_client: ClientSessionGenerator,
+    hass_ws_client: WebSocketGenerator,
+    demo_plan: dict[str, Any],
+    config_dir: Path,
+) -> None:
+    http = await hass_client()
+    digest = (await (await upload(http, STOOL)).json())["hash"]
+    path = config_dir / "domotwin" / "models" / f"{digest}.glb"
+    client = await hass_ws_client(hass)
+
+    async def save(layout: dict[str, Any]) -> None:
+        await client.send_json_auto_id(
+            {"type": "domotwin/plan/save", "plan": demo_plan, "layout": layout}
+        )
+        assert (await client.receive_json())["success"]
+
+    old = time.time() - 2 * 86_400
+    os.utime(path, (old, old))
+    # Still used: its time is now.
+    await save({"@model:m-1": model(digest)})
+    assert path.stat().st_mtime > time.time() - 60
+    # Just forgotten (an undo may bring it back): kept for a day.
+    await save({})
+    assert path.exists()
+    os.utime(path, (old, old))
+    await save({})
+    assert not path.exists()

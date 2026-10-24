@@ -294,8 +294,10 @@ impl Document<'_> {
         if let Some(cached) = self.floats.get(&index) {
             return Ok(Rc::clone(cached));
         }
+        // Checked against the data (or the limit of empty accessors) before anything is allocated.
+        let elements = self.elements(&a)?;
         let mut out = Vec::with_capacity(a.count * a.width);
-        match self.elements(&a)? {
+        match elements {
             None => out.resize(a.count * a.width, 0.0),
             Some((data, stride, size)) => {
                 for i in 0..a.count {
@@ -1009,6 +1011,20 @@ mod tests {
             Some(Error::Unsupported)
         );
         assert_eq!(read_gltf(b"{]").err(), Some(Error::NotModel));
+    }
+
+    #[test]
+    fn checks_counts_before_allocating() {
+        for count in [1_000_000_000_000_000_u64, u64::MAX] {
+            let refused = read_gltf(&triangle(&json!({
+                "accessors": [{ "bufferView": 0, "componentType": 5126, "count": count, "type": "VEC3" }],
+            })));
+            assert_eq!(refused.err(), Some(Error::NotModel));
+            let empty = read_gltf(&triangle(&json!({
+                "accessors": [{ "componentType": 5126, "count": count, "type": "VEC3" }],
+            })));
+            assert_eq!(empty.err(), Some(Error::NotModel));
+        }
     }
 
     #[test]

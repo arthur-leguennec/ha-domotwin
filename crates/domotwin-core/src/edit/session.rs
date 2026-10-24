@@ -12,8 +12,8 @@ use super::{
 };
 use crate::geometry::polygon::{P2, point_in_polygon};
 use crate::geometry::walls::WallLayout;
-use crate::overlay::{Entry, Layout, MAX_ELEMENTS, MAX_ENTRIES, MODEL_PREFIX, valid_model_id};
-use crate::plan::{Element, Furniture, Kind, Plan};
+use crate::overlay::{Entry, Layout, MAX_ELEMENTS, MAX_ENTRIES, MODEL_PREFIX};
+use crate::plan::{Element, Furniture, Kind, Plan, valid_model_id};
 
 /// A piece being moved, as it was when the drag started.
 #[derive(Debug, Clone, PartialEq)]

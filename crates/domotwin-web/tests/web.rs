@@ -227,6 +227,10 @@ fn pieces_of_3d_files_are_boxes_until_their_mesh_comes() {
     let boxes = triangles(&engine);
     assert!(!engine.set_model_mesh(&hash, b"DTM1"), "a broken mesh");
     assert!(engine.set_model_mesh(&hash, &triangle_mesh()));
+    // Drawn at the next showModels, once for every mesh that came.
+    assert_eq!(triangles(&engine), boxes);
+    assert!(engine.show_models());
+    assert!(!engine.show_models());
     // Two boxes (12 triangles each) became two triangles.
     assert_eq!(triangles(&engine), boxes - 2 * 12 + 2);
     assert_eq!(engine.model_files(), "[]");

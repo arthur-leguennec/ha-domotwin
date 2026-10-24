@@ -4,6 +4,7 @@
 //   live=1 (the demo bindings, and the demo home's entities, areas and states)
 //   models=1 (the demo plan with a bar stool drawn from examples/models/stool.glb, twice)
 //   models=big (the same pieces drawn from a generated STL of 139 392 triangles)
+//   models=unused (the stool model in the plan, without pieces)
 import { applyService, demoHome } from "./demo-home.mjs";
 
 const params = new URLSearchParams(location.search);
@@ -80,10 +81,12 @@ if (modelsParam && store.plan) {
       file: { format, hash, bytes: bytes.length, up: big ? "z" : "y" },
     },
   };
-  for (const [id, x] of [
-    ["stool-1", 80],
-    ["stool-2", 130],
-  ]) {
+  for (const [id, x] of modelsParam === "unused"
+    ? []
+    : [
+        ["stool-1", 80],
+        ["stool-2", 130],
+      ]) {
     store.plan.elements.push({
       id,
       type: "furniture",

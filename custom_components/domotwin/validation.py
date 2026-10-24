@@ -23,8 +23,8 @@ from .const import (
     MODEL_FORMATS,
 )
 
-MODEL_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$")
-SHA256 = re.compile(r"^[0-9a-f]{64}$")
+MODEL_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{0,63}")
+SHA256 = re.compile(r"[0-9a-f]{64}")
 
 ACTIONS = frozenset(
     {"toggle", "more-info", "perform-action", "call-service", "navigate", "controls", "none"}
@@ -89,7 +89,7 @@ def _validate_model(model: Any, code: str) -> None:
         raise InvalidPayloadError(code, "a model's `file` must be an object")
     if file.get("format") not in MODEL_FORMATS or file.get("up") not in ("y", "z"):
         raise InvalidPayloadError(code, "a model file needs a known `format` and `up`")
-    if not isinstance(file.get("hash"), str) or not SHA256.match(file["hash"]):
+    if not isinstance(file.get("hash"), str) or not SHA256.fullmatch(file["hash"]):
         raise InvalidPayloadError(code, "a model file's `hash` must be a SHA-256")
     if not 1 <= _file_bytes(model) <= MAX_MODEL_BYTES:
         raise InvalidPayloadError(code, f"a model file has 1 to {MAX_MODEL_BYTES} bytes")
@@ -150,7 +150,7 @@ def validate_layout(layout: Any) -> dict[str, Any]:
         if not isinstance(entry, dict):
             raise InvalidPayloadError("invalid_layout", "every layout entry must be an object")
         if element_id.startswith(MODEL_ENTRY_PREFIX):
-            if not MODEL_ID.match(element_id.removeprefix(MODEL_ENTRY_PREFIX)):
+            if not MODEL_ID.fullmatch(element_id.removeprefix(MODEL_ENTRY_PREFIX)):
                 raise InvalidPayloadError("invalid_layout", "a model id is 1 to 64 letters")
             _validate_model(entry.get("model"), "invalid_layout")
     _check_size(layout, MAX_LAYOUT_BYTES, "the layout")

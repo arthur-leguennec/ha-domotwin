@@ -55,6 +55,14 @@ interface IfcChoice {
   storeys: IfcStorey[];
 }
 
+/** A message already translated (a refused model of an imported plan). */
+class TranslatedError extends Error {
+  override name = "TranslatedError";
+}
+
+/** The 3D files of a plan total at most this (`plan-format.md`). */
+const MAX_MODELS_BYTES = 20_000_000;
+
 /** A 3D file read, waiting for its name and size. */
 interface ModelImport {
   fileName: string;
@@ -387,8 +395,7 @@ export class DomoTwinPanel extends LitElement {
   private describe(error: unknown): string {
     if (error instanceof EngineError) return this.t.errorAt(error.code, error.element);
     if (isHassError(error)) return this.t.error(error.code);
-    // A message already translated (a refused model of an imported plan).
-    if (error instanceof Error && error.name === "Error" && error.message) return error.message;
+    if (error instanceof TranslatedError) return error.message;
     return this.t.error(error instanceof Error ? error.name : "unknown");
   }
 
@@ -510,6 +517,9 @@ export class DomoTwinPanel extends LitElement {
     const t = this.t;
     this.busy = true;
     try {
+      const stored = (this.view?.editModels() ?? []).reduce((sum, m) => sum + (m.bytes ?? 0), 0);
+      if (stored + pending.bytes.length > MAX_MODELS_BYTES)
+        throw new EngineError("models_too_large");
       const { keepMesh, newModelId, uploadModel } = await import("../models/models");
       const uploaded = await uploadModel(hass, pending.bytes, pending.format);
       keepMesh(uploaded.hash, pending.mesh);
@@ -706,9 +716,10 @@ export class DomoTwinPanel extends LitElement {
         file.bytes = uploaded.bytes;
         delete file.data;
       } catch (error) {
-        throw new Error(t.t("panel.model_refused", { name, reason: this.describe(error) }), {
-          cause: error,
-        });
+        throw new TranslatedError(
+          t.t("panel.model_refused", { name, reason: this.describe(error) }),
+          { cause: error },
+        );
       }
     }
   }
@@ -825,8 +836,8 @@ export class DomoTwinPanel extends LitElement {
    */
   private async embedModels(plan: PlanJson): Promise<number> {
     const hass = this._hass;
-    const models = plan.models as Record<string, PlanModel> | undefined;
-    if (!hass || typeof models !== "object") return 0;
+    const models = plan.models as Record<string, PlanModel> | null | undefined;
+    if (!hass || !models || typeof models !== "object") return 0;
     const files = Object.entries(models).filter(([, m]) => typeof m.file?.hash === "string");
     if (files.length === 0) return 0;
     const { MODEL_FORMATS, fetchModel, toDataUrl } = await import("../models/models");

@@ -28,7 +28,7 @@ use std::collections::BTreeMap;
 use serde_json::{Map, Value};
 
 use crate::ReadError;
-use crate::plan::{Plan, read_plan_value};
+use crate::plan::{Plan, read_plan_value, valid_model_id};
 
 /// Most entries kept (twice the plan's 500 elements).
 pub const MAX_ENTRIES: usize = 1000;
@@ -40,15 +40,6 @@ const MAX_ID: usize = 100;
 const MAX_COORDINATE: f64 = 50_000.0;
 /// The key prefix of model entries.
 pub const MODEL_PREFIX: &str = "@model:";
-
-/// Whether a model id is valid (`plan-format.md`, user 3D models).
-pub fn valid_model_id(id: &str) -> bool {
-    id.len() <= 64
-        && id.chars().next().is_some_and(|c| c.is_ascii_alphanumeric())
-        && id
-            .chars()
-            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
-}
 
 /// What edit mode changed for one piece.
 #[derive(Debug, Clone, Default, PartialEq)]

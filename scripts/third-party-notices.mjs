@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Regenerates THIRD_PARTY_NOTICES.md from what is really shipped: the Rust crates compiled into the
-// WebAssembly engine and the npm packages bundled into the frontend (dev tools are not shipped).
+// WebAssembly modules and the npm packages bundled into the frontend (dev tools are not shipped).
 //   node scripts/third-party-notices.mjs
 import { execFileSync } from "node:child_process";
 import { readFile, writeFile } from "node:fs/promises";
@@ -9,15 +9,18 @@ import { fileURLToPath } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
-const crates = execFileSync(
-  "cargo",
-  [
-    "tree", "-p", "domotwin-web", "--target", "wasm32-unknown-unknown", "-e", "normal",
-    "--prefix", "none", "--format", "{p}\t{l}",
-  ],
-  { cwd: root, encoding: "utf8" },
-)
-  .split("\n")
+// The three WebAssembly modules: the engine, the IFC import and the 3D model readers.
+const crates = ["domotwin-web", "domotwin-ifc", "domotwin-models"]
+  .flatMap((module) =>
+    execFileSync(
+      "cargo",
+      [
+        "tree", "-p", module, "--target", "wasm32-unknown-unknown", "-e", "normal",
+        "--prefix", "none", "--format", "{p}\t{l}",
+      ],
+      { cwd: root, encoding: "utf8" },
+    ).split("\n"),
+  )
   .map((line) => line.replace(/ \(.*\)/, "").trim())
   .filter((line) => line && !line.startsWith("domotwin"))
   .map((line) => {
@@ -88,7 +91,7 @@ SOFTWARE.
 
 DomoTwin ships no photo textures: \`photo-*\` floors use the user's own pictures.
 
-## Rust crates compiled into the WebAssembly engine
+## Rust crates compiled into the WebAssembly modules
 
 ${table(uniqueCrates)}
 

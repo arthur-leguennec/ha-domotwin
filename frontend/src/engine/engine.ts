@@ -101,8 +101,9 @@ export interface UserModel {
   d: number;
   h: number;
   color: string | null;
-  /** The 3D file's format, `null` for a kit of parts. */
+  /** The 3D file's format and size, `null` for a kit of parts. */
   format: string | null;
+  bytes: number | null;
   /** How many pieces show it. */
   pieces: number;
   /** Imported in edit mode and shown by no piece: it can be forgotten. */
@@ -316,9 +317,14 @@ export class DomoTwinEngine {
     return JSON.parse(this.live.modelFiles()) as ModelFileRef[];
   }
 
-  /** Gives the mesh of a 3D file (from the model module); its pieces are drawn with it. */
+  /** Gives the mesh of a 3D file (from the model module); its pieces change at `showModels`. */
   setModelMesh(hash: string, mesh: Uint8Array): boolean {
     return this.live.setModelMesh(hash, mesh);
+  }
+
+  /** Draws the pieces whose 3D file came since the scene was built (one rebuild for all). */
+  showModels(): boolean {
+    return this.live.showModels();
   }
 
   /** Pieces drawn as boxes because the plan's 3D files pass the triangle budget. */

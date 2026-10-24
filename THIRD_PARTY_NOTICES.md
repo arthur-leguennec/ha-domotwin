@@ -44,10 +44,11 @@ SOFTWARE.
 
 DomoTwin ships no photo textures: `photo-*` floors use the user's own pictures.
 
-## Rust crates compiled into the WebAssembly engine
+## Rust crates compiled into the WebAssembly modules
 
 | Component | Version | Licence |
 | --- | --- | --- |
+| adler2 | 2.0.1 | 0BSD OR MIT OR Apache-2.0 |
 | approx | 0.4.0 | Apache-2.0 |
 | bumpalo | 3.20.3 | MIT OR Apache-2.0 |
 | cfg-if | 1.0.5 | MIT OR Apache-2.0 |
@@ -63,6 +64,7 @@ DomoTwin ships no photo textures: `photo-*` floors use the user's own pictures.
 | js-sys | 0.3.106 | MIT OR Apache-2.0 |
 | libm | 0.2.16 | MIT |
 | memchr | 2.8.3 | Unlicense OR MIT |
+| miniz_oxide | 0.9.1 | MIT OR Zlib OR Apache-2.0 |
 | num-traits | 0.2.19 | MIT OR Apache-2.0 |
 | once_cell | 1.21.4 | MIT OR Apache-2.0 |
 | open-enum | 0.5.3 | Apache-2.0 |

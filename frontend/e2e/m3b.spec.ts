@@ -7,7 +7,7 @@ import { colorAt, openHarness, settle, viewState } from "./fixtures";
 const MODELS = "../examples/models";
 
 /** The panel of the demo home in edit mode, on the 2D plan. */
-async function editing(page: Page, models = false): Promise<void> {
+async function editing(page: Page, models: boolean | "unused" = false): Promise<void> {
   await openHarness(page, { mode: "panel", models });
   await expect(page.getByTestId("summary")).toBeVisible();
   await page.getByTestId("toggle-plan").click();
@@ -166,6 +166,50 @@ test.describe("M3b: your own 3D models", () => {
     await expect(page.locator("[data-testid^=catalogue-model-]")).toHaveCount(0);
     await page.getByTestId("catalogue").getByRole("button", { name: "Dismiss" }).click();
     expect((await viewState(page)).edit?.dirty).toBe(false);
+  });
+
+  test("a model no piece showed is fetched when a piece of it is added", async ({ page }) => {
+    await editing(page, "unused");
+    // Nothing to draw: nothing fetched.
+    expect((await calls(page)).filter((c) => c.type === "fetch")).toHaveLength(0);
+    await page.getByTestId("edit-add").click();
+    await expect(page.getByTestId("catalogue-model-m-stool")).toContainText("Bar stool");
+    await page.getByTestId("catalogue-model-m-stool").click();
+    await expect
+      .poll(async () => (await viewState(page)).edit?.selection)
+      .toEqual(["custom-added-1"]);
+    await expect
+      .poll(async () => (await calls(page)).filter((c) => c.type === "fetch").length)
+      .toBe(1);
+    // Not selected (no blue tint): the wood of its seat.
+    await page.keyboard.press("Escape");
+    await expect.poll(async () => brownish(await colorAt(page, "custom-added-1"))).toBe(true);
+  });
+
+  test("keeps a plan's 3D files within 20 MB", async ({ page }) => {
+    await openHarness(page, { mode: "panel", models: true });
+    await expect(page.getByTestId("summary")).toBeVisible();
+    // Another model whose file is almost 20 MB… with the stool's: no room for one more.
+    await page.evaluate(async () => {
+      const w = window as never as {
+        __store: { plan: { models: Record<string, unknown> } };
+        __hass: { connection: { sendMessagePromise(message: unknown): Promise<unknown> } };
+      };
+      const plan = structuredClone(w.__store.plan);
+      plan.models["m-big"] = {
+        name: "Big",
+        size: [100, 100, 100],
+        file: { format: "glb", hash: "e".repeat(64), bytes: 19_980_000, up: "y" },
+      };
+      await w.__hass.connection.sendMessagePromise({ type: "domotwin/plan/save", plan });
+    });
+    await page.getByTestId("edit-mode").click();
+    await importModel(page, `${MODELS}/stool.stl`);
+    await page.getByTestId("model-import").click();
+    await expect(page.getByRole("alert")).toHaveText(
+      "This 3D model cannot be imported: the 3D files of a plan total at most 20 MB.",
+    );
+    expect((await calls(page)).filter((c) => c.method === "POST")).toHaveLength(0);
   });
 
   test("refuses a file it cannot read, and says why", async ({ page }) => {

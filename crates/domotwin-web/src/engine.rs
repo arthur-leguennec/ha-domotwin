@@ -92,6 +92,8 @@ pub struct Engine {
     pub(crate) drag_built: bool,
     /// The meshes of the 3D files given so far, by SHA-256.
     models: Rc<ModelMeshes>,
+    /// A mesh came for a piece shown since the scene was built.
+    models_dirty: bool,
 }
 
 #[wasm_bindgen]
@@ -140,6 +142,7 @@ impl Engine {
             edit: None,
             drag_built: false,
             models: Rc::default(),
+            models_dirty: false,
         };
         engine
             .renderer
@@ -223,6 +226,7 @@ impl Engine {
             models: Rc::clone(&self.models),
             ..SceneOptions::default()
         };
+        self.models_dirty = false;
         let mut scene = build_scene_moving(&plan, &options, moving);
         self.triangles = [
             &scene.opaque,
@@ -297,8 +301,8 @@ impl Engine {
         serde_json::Value::Array(files).to_string()
     }
 
-    /// Gives the mesh of the 3D file `hash` (`DTM1`, from the model module) and redraws the
-    /// pieces drawn from it. Returns `false` when the mesh is refused.
+    /// Gives the mesh of the 3D file `hash` (`DTM1`, from the model module); the pieces drawn
+    /// from it change at the next [`Engine::show_models`]. Returns `false` when the mesh is refused.
     #[wasm_bindgen(js_name = setModelMesh)]
     pub fn set_model_mesh(&mut self, hash: &str, mesh: &[u8]) -> bool {
         let Ok(mesh) = ModelMesh::decode(mesh) else {
@@ -313,11 +317,21 @@ impl Engine {
                     == Some(hash)
             })
         });
-        if !shown {
-            return true;
+        self.models_dirty |= shown;
+        true
+    }
+
+    /// Draws the pieces whose 3D file came since the scene was built, in one rebuild for all of
+    /// them. Returns whether it did.
+    #[wasm_bindgen(js_name = showModels)]
+    pub fn show_models(&mut self) -> bool {
+        if !self.models_dirty {
+            return false;
         }
-        let moving = self.scene.as_ref().map(|s| s.moving().clone());
-        if let (Some(plan), Some(moving)) = (self.plan.take(), moving) {
+        let Some(moving) = self.scene.as_ref().map(|s| s.moving().clone()) else {
+            return false;
+        };
+        if let Some(plan) = self.plan.take() {
             self.show(plan, true, &moving, false);
             if let (Some(session), Some(plan), Some(scene)) =
                 (&mut self.edit, &self.plan, &self.scene)

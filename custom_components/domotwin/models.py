@@ -3,7 +3,8 @@
 Files live in `<config>/domotwin/models/<sha256>.<format>`, outside `.storage` (they would bloat
 it). The browser reads and checks a file before it uploads it; the integration only checks that
 the bytes look like the format and keeps them. A file that no stored plan or overlay uses is
-deleted a day after its upload, and every file goes when the integration is removed.
+deleted a day after it was last uploaded or used, and every file goes when the integration is
+removed.
 """
 
 from __future__ import annotations
@@ -29,7 +30,7 @@ from .const import (
 )
 
 FORMATS = "|".join(re.escape(f) for f in MODEL_FORMATS)
-FILE_NAME = re.compile(rf"^([0-9a-f]{{64}})\.({FORMATS})$")
+FILE_NAME = re.compile(rf"([0-9a-f]{{64}})\.({FORMATS})")
 
 
 def models_dir(hass: HomeAssistant) -> Path:
@@ -38,8 +39,8 @@ def models_dir(hass: HomeAssistant) -> Path:
 
 
 def _stl(data: bytes) -> bool:
-    count = int.from_bytes(data[80:84], "little") if len(data) >= 84 else -1
-    return 84 + 50 * count == len(data) or data.lstrip()[:5].lower() == b"solid"
+    binary = len(data) >= 84 and 84 + 50 * int.from_bytes(data[80:84], "little") == len(data)
+    return binary or data.lstrip()[:5].lower() == b"solid"
 
 
 def _text(data: bytes) -> bool:
@@ -97,23 +98,41 @@ def _store(folder: Path, data: bytes, file_format: str) -> str:
 
 
 def _remove_unused(folder: Path, used: set[str], now: float) -> int:
+    """Delete the files unused for a day; a file in use has its time set to now.
+
+    A file's time is when it was last uploaded or used, so a file that just stopped being used (a
+    model forgotten, an edit undone later) stays for a day.
+    """
     if not folder.is_dir():
         return 0
     removed = 0
     for path in folder.iterdir():
-        match = FILE_NAME.match(path.name)
-        stale = now - path.stat().st_mtime > MODEL_GRACE_SECONDS
-        if path.name.startswith(".upload-") and stale:
-            path.unlink(missing_ok=True)
-        elif match and match.group(1) not in used and stale:
-            path.unlink(missing_ok=True)
-            removed += 1
+        match = FILE_NAME.fullmatch(path.name)
+        try:
+            if match and match.group(1) in used:
+                os.utime(path, (now, now))
+                continue
+            stale = now - path.stat().st_mtime > MODEL_GRACE_SECONDS
+            if stale and (match or path.name.startswith(".upload-")):
+                path.unlink()
+                removed += 1 if match else 0
+        except FileNotFoundError:
+            # Removed or renamed meanwhile (another save, an upload finishing).
+            continue
     return removed
 
 
 def _usage(folder: Path) -> dict[str, int]:
-    files = [p for p in folder.iterdir() if FILE_NAME.match(p.name)] if folder.is_dir() else []
-    return {"files": len(files), "bytes": sum(p.stat().st_size for p in files)}
+    files = 0
+    size = 0
+    for path in folder.iterdir() if folder.is_dir() else []:
+        if FILE_NAME.fullmatch(path.name):
+            try:
+                size += path.stat().st_size
+            except FileNotFoundError:
+                continue
+            files += 1
+    return {"files": files, "bytes": size}
 
 
 async def async_store(hass: HomeAssistant, data: bytes, file_format: str) -> str:
@@ -141,7 +160,7 @@ async def async_usage(hass: HomeAssistant) -> dict[str, int]:
 
 def file_path(hass: HomeAssistant, name: str) -> tuple[Path, str] | None:
     """The path and media type of a file name (`<sha256>.<format>`), or None for any other."""
-    match = FILE_NAME.match(name)
+    match = FILE_NAME.fullmatch(name)
     if match is None:
         return None
     return models_dir(hass) / name, MODEL_FORMATS[match.group(2)]

@@ -174,10 +174,11 @@ model pieces and their API), the entry by 1.5 kB (fetching and reading a plan's 
 
 A large model in headless Chromium (SwiftShader, `e2e/perf.spec.ts`): two pieces drawn from a
 generated STL of **139 392 triangles** (7 MB, a little under the 150 000-triangle limit). Fetching
-and reading the file took **341 ms**, giving its mesh to the engine (the whole scene rebuilt and
-uploaded, 297 199 triangles) **61 ms**; then the CPU time per frame was 0.3 ms median, 2.3 ms p95,
-and the WebAssembly memory 25.9 MB (3.5 MB without it). The demo plan's figures are unchanged:
-0.3 ms median and 1.6 ms p95 per frame, a drag step 1.1 ms median and 3.8 ms p95, a drop 5.7 ms.
+and reading the file took **315 ms**; drawing it (the whole scene rebuilt and uploaded once for
+every mesh that came before the next frame, 297 199 triangles) **80 ms**; then the CPU time per
+frame was 0.3 ms median, 0.8 ms p95, and the WebAssembly memory 21.7 MB (3.5 MB without it). The
+demo plan's figures are unchanged: 0.3 ms median and 1.4 ms p95 per frame, a drag step 0.9 ms
+median and 3.0 ms p95, a drop 5.0 ms.
 
 The readers outside the browser (native, release build) on real files from public sample
 collections, kept out of the repository: a 3 MB 3MF archive of 96 692 triangles in 0.37 s, a 0.4 MB

@@ -586,6 +586,16 @@ fn read_site(value: Option<&Value>) -> Result<Option<Value>, ReadError> {
     }
 }
 
+/// Whether a user model id is valid: 1–64 letters, digits, `-` and `_`, starting with a letter or
+/// a digit.
+pub fn valid_model_id(id: &str) -> bool {
+    id.len() <= 64
+        && id.chars().next().is_some_and(|c| c.is_ascii_alphanumeric())
+        && id
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+}
+
 /// `models`: an object of at most 50 user models by id, each with a size and a kit or a file.
 fn read_models(value: Option<&Value>) -> Result<BTreeMap<String, Value>, ReadError> {
     let map = match value {
@@ -598,11 +608,7 @@ fn read_models(value: Option<&Value>) -> Result<BTreeMap<String, Value>, ReadErr
     }
     let mut models = BTreeMap::new();
     for (id, model) in map {
-        let valid_id = id.len() <= 64
-            && id.chars().next().is_some_and(|c| c.is_ascii_alphanumeric())
-            && id
-                .chars()
-                .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_');
+        let valid_id = valid_model_id(id);
         let Value::Object(fields) = model else {
             return Err(ReadError::new(ErrorCode::InvalidModel).at(id.as_str()));
         };

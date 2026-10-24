@@ -131,7 +131,7 @@ export interface DebugState {
   sheet?: string;
   /** Edit mode, when on. */
   edit?: { selection: string[]; conflicts: string[]; guides: number; dirty: boolean };
-  /** 3D files: fetched and read (`loadMs`), then given to the engine (`drawMs`), and failed. */
+  /** 3D files: fetched and read (`loadMs`, each), drawn (`drawMs`, each rebuild), and failed. */
   models?: { loadMs: number[]; drawMs: number[]; failed: number };
 }
 
@@ -230,6 +230,8 @@ export class DomoTwinView extends LitElement {
   private readonly modelsLoading = new Set<string>();
   private readonly modelsFailed = new Set<string>();
   private readonly modelTimes: { loadMs: number[]; drawMs: number[] } = { loadMs: [], drawMs: [] };
+  /** Meshes came since the last frame: their pieces are drawn at the next one. */
+  private modelsCame = false;
   private bound = new Set<string>();
   private holdTimer?: number;
   private noticeTimer?: number;
@@ -543,9 +545,11 @@ export class DomoTwinView extends LitElement {
     switch (command) {
       case "undo":
         this.setEdit(engine.editUndo());
+        this.loadModels();
         break;
       case "redo":
         this.setEdit(engine.editRedo());
+        this.loadModels();
         break;
       case "rotate-left":
         this.setEdit(engine.editRotate(-1));
@@ -588,6 +592,8 @@ export class DomoTwinView extends LitElement {
     const state = engine.editAddModel(id, definition, canvas.width / 2, canvas.height / 2);
     this.setEdit(state);
     if (state.refused) this.notify(this.translator.t("edit.model_refused"));
+    // A model of the plan that no piece showed: its file is fetched now.
+    this.loadModels();
   }
 
   /** Forgets a model imported in edit mode that no piece shows. */
@@ -872,6 +878,14 @@ export class DomoTwinView extends LitElement {
   /** Draws a frame and adapts the resolution to how long frames take. */
   private drawFrame(engine: DomoTwinEngine, time: number): boolean {
     this.flushDrag();
+    if (this.modelsCame) {
+      // Every mesh that came since the last frame, in one rebuild.
+      this.modelsCame = false;
+      const started = performance.now();
+      if (engine.showModels()) this.modelTimes.drawMs.push(performance.now() - started);
+      const over = engine.modelsOverBudget;
+      if (over > 0) this.notify(this.translator.tp("view.models_over_budget", over));
+    }
     const start = performance.now();
     const more = engine.frame(time);
     const cost = performance.now() - start;
@@ -1056,29 +1070,36 @@ export class DomoTwinView extends LitElement {
     if (files.length === 0) return;
     for (const file of files) this.modelsLoading.add(file.hash);
     const asked = performance.now();
-    void import("../models/models").then(({ modelMesh }) => {
-      for (const file of files) {
-        modelMesh(hass, file.hash, file.format).then(
-          (mesh) => {
-            if (this.engine !== engine) return;
-            const read = performance.now();
-            engine.setModelMesh(file.hash, mesh);
-            this.modelTimes.loadMs.push(read - asked);
-            this.modelTimes.drawMs.push(performance.now() - read);
-            const over = engine.modelsOverBudget;
-            if (over > 0) this.notify(this.translator.tp("view.models_over_budget", over));
-            this.scheduler?.request();
-          },
-          () => {
-            if (this.engine !== engine) return;
-            // Tried again with the next plan shown.
-            this.modelsLoading.delete(file.hash);
-            this.modelsFailed.add(file.hash);
-            this.notify(this.translator.tp("view.models_failed", this.modelsFailed.size));
-          },
-        );
-      }
-    });
+    const failed = (hash: string): void => {
+      if (this.engine !== engine) return;
+      // Asked again with the next plan shown.
+      this.modelsLoading.delete(hash);
+      this.modelsFailed.add(hash);
+      this.notify(this.translator.tp("view.models_failed", this.modelsFailed.size));
+    };
+    import("../models/models").then(
+      ({ modelMesh }) => {
+        for (const file of files) {
+          modelMesh(hass, file.hash, file.format).then(
+            (mesh) => {
+              if (this.engine !== engine) return;
+              const read = performance.now();
+              engine.setModelMesh(file.hash, mesh);
+              this.modelsFailed.delete(file.hash);
+              this.modelTimes.loadMs.push(read - asked);
+              this.modelsCame = true;
+              this.scheduler?.request();
+            },
+            () => {
+              failed(file.hash);
+            },
+          );
+        }
+      },
+      () => {
+        for (const file of files) failed(file.hash);
+      },
+    );
   }
 
   private pick(picked: PickedElement): void {

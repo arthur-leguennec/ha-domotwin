@@ -2,6 +2,7 @@
 //! against their CRC-32 and limited in total unpacked size. No ZIP64, no encryption.
 
 use std::cell::Cell;
+use std::collections::HashMap;
 
 use miniz_oxide::inflate::decompress_to_vec_with_limit;
 
@@ -12,7 +13,6 @@ const MAX_ENTRIES: usize = 10_000;
 
 #[derive(Debug, Clone)]
 struct Entry {
-    name: String,
     flags: u16,
     method: u16,
     crc: u32,
@@ -25,7 +25,8 @@ struct Entry {
 #[derive(Debug)]
 pub(crate) struct Archive<'a> {
     bytes: &'a [u8],
-    entries: Vec<Entry>,
+    /// Entries by part name (see [`part_key`]).
+    entries: HashMap<String, Entry>,
     unpacked: Cell<usize>,
 }
 
@@ -70,7 +71,7 @@ impl<'a> Archive<'a> {
         if count > MAX_ENTRIES || offset.checked_add(size).is_none_or(|e| e > end) {
             return Err(Error::NotModel);
         }
-        let mut entries: Vec<Entry> = Vec::with_capacity(count);
+        let mut entries: HashMap<String, Entry> = HashMap::with_capacity(count);
         let mut at = offset;
         for _ in 0..count {
             if u32_at(bytes, at)? != 0x0201_4b50 {
@@ -82,9 +83,8 @@ impl<'a> Archive<'a> {
             let raw = bytes
                 .get(at + 46..at + 46 + name_len)
                 .ok_or(Error::NotModel)?;
-            let name = String::from_utf8(raw.to_vec()).map_err(|_| Error::NotModel)?;
+            let name = std::str::from_utf8(raw).map_err(|_| Error::NotModel)?;
             let entry = Entry {
-                name,
                 flags: u16_at(bytes, at + 8)?,
                 method: u16_at(bytes, at + 10)?,
                 crc: u32_at(bytes, at + 16)?,
@@ -96,11 +96,9 @@ impl<'a> Archive<'a> {
             if [entry.packed, entry.size, entry.local].contains(&0xffff_ffff) {
                 return Err(Error::NotModel);
             }
-            let key = part_key(&entry.name);
-            if entries.iter().any(|e| part_key(&e.name) == key) {
+            if entries.insert(part_key(name), entry).is_some() {
                 return Err(Error::NotModel);
             }
-            entries.push(entry);
             at += 46 + name_len + extra_len + comment_len;
         }
         Ok(Self {
@@ -112,8 +110,7 @@ impl<'a> Archive<'a> {
 
     /// Whether the archive has a part.
     pub(crate) fn has(&self, name: &str) -> bool {
-        let key = part_key(name);
-        self.entries.iter().any(|e| part_key(&e.name) == key)
+        self.entries.contains_key(&part_key(name))
     }
 
     /// The bytes of a part.
@@ -123,12 +120,7 @@ impl<'a> Archive<'a> {
     /// [`Error::NotModel`] for a missing, encrypted, corrupt or unknown-method part,
     /// [`Error::TooLarge`] past 32 MB unpacked in all.
     pub(crate) fn read(&self, name: &str) -> Result<Vec<u8>, Error> {
-        let key = part_key(name);
-        let entry = self
-            .entries
-            .iter()
-            .find(|e| part_key(&e.name) == key)
-            .ok_or(Error::NotModel)?;
+        let entry = self.entries.get(&part_key(name)).ok_or(Error::NotModel)?;
         if entry.flags & 1 != 0 {
             return Err(Error::NotModel);
         }

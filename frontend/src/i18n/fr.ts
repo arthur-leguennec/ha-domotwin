@@ -341,6 +341,7 @@ export const fr: Dictionary = {
       image_too_large: "une image du modèle dépasse 4 096 × 4 096 pixels.",
       model_missing: "son fichier 3D manque dans Home Assistant.",
       upload_failed: "le fichier 3D n’a pas pu être envoyé à Home Assistant.",
+      models_too_large: "les fichiers 3D d’un plan font au plus 20 Mo en tout.",
     },
     ws: {
       revision_conflict: "quelqu’un a enregistré entre-temps. Rechargez et réessayez.",
