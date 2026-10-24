@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import shutil
+from typing import Any, cast
 
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -104,5 +105,5 @@ async def test_the_voice_blueprint_shows_the_room_said(
         "kind": "show",
         "show": {"room": "kitchen", "view": "walk", "screen": "hallway"},
     }
-    speech = answer["response"]["speech"]["plain"]["speech"]  # type: ignore[index]
+    speech = cast("Any", answer)["response"]["speech"]["plain"]["speech"]
     assert speech == "kitchen, on the screen."
