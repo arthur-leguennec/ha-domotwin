@@ -10,7 +10,8 @@ pub(crate) const VERTEX: &str = r"
 uniform mat4 u_view_proj;
 uniform vec4 u_cut[32];
 uniform float u_wall_height;
-// Two texels per element tag: light (rgb, strength), flags (greyed out, highlight).
+// Two texels per element tag: light (rgb, strength), flags (greyed out, highlight, selected,
+// in conflict).
 uniform sampler2D u_elements;
 
 in vec4 a_position;
@@ -313,6 +314,14 @@ void main() {
     vec3 flash = vec3(0.25, 0.5, 1.0) * v_flags.g;
     color += flash * 0.6;
     plan += flash * 0.3;
+    // Edit mode: the selection tinted blue, pieces in conflict red (red wins).
+    float bad = v_flags.a;
+    float selected = v_flags.b * (1.0 - bad);
+    float luma = dot(color, vec3(0.2126, 0.7152, 0.0722));
+    color = mix(color, vec3(0.12, 0.38, 1.0) * (0.35 + luma), selected * 0.55);
+    color = mix(color, vec3(1.0, 0.08, 0.04) * (0.5 + luma), bad * 0.75);
+    plan = mix(plan, vec3(0.2, 0.45, 1.0), selected * 0.45);
+    plan = mix(plan, vec3(0.95, 0.12, 0.08), bad * 0.7);
     vec3 shaded = mix(aces(color * u_exposure), plan, u_flat);
     frag = vec4(pow(shaded, vec3(1.0 / 2.2)), mix(alpha, max(alpha, 0.35), u_flat));
 }

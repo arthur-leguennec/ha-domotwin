@@ -135,3 +135,23 @@ file with 20 000 extra pieces 2.1 s (the plan keeps 500 elements and says so). T
 file's bytes and a small index; attributes are parsed only when needed. The module's memory is kept
 until the page reloads (WebAssembly memory never shrinks).
 
+### M3 (edit mode)
+
+Bundle: the first load is **280.0 kB gzipped** of 1 200 kB (+37 kB):
+
+| File | Raw | Gzipped |
+| --- | ---: | ---: |
+| `domotwin_web_bg.<hash>.wasm` | 537.0 kB | 235.7 kB |
+| `domotwin.js` (entry) | 54.7 kB | 15.6 kB |
+| `chunks/edit-bar-<hash>.js` (edit bar and catalogue, on demand) | 8.1 kB | 2.7 kB |
+
+The engine grew by 30 kB gzipped (the overlay, snapping, stacking, collisions, the session and its
+API); the entry by 3 kB (edit mode in the view, the panel's edit mode, the names of the kinds in
+English and French). The edit bar and the catalogue load the first time edit mode opens.
+
+Edit mode in headless Chromium (demo plan, SwiftShader, 1000 × 700): a pointer move while the sofa
+is dragged (rebuilding the dragged pieces, snapping, guides, collisions) **1.2 ms median, 4.2 ms
+p95**, then 0.2 ms to draw the frame; dropping it (the whole scene rebuilt) 6.6 ms. Pointer moves
+are applied once per frame. Logged by `e2e/perf.spec.ts` with the frame-time smoke test, which is
+unchanged (CPU time per frame 0.3 ms median, 1.6 ms p95; WebAssembly memory 3.5 MB).
+

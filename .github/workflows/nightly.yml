@@ -1,7 +1,9 @@
 name: Nightly
 
-# Real Home Assistant: the official container (latest stable on purpose, to catch upstream
-# changes early) with the freshly built integration, driven through its own APIs.
+# The integration in a real Home Assistant (stable). It runs when there is something new to test:
+# a new Home Assistant release or a new commit on main since the last run that passed (a marker in
+# the Actions cache). A manual run always tests.
+
 on:
   schedule:
     - cron: "33 2 * * *"
@@ -21,23 +23,59 @@ jobs:
     permissions:
       contents: read
     steps:
+      - name: Home Assistant's stable version
+        id: ha
+        run: |
+          version="$(curl -fsSL https://version.home-assistant.io/stable.json | jq -r '.homeassistant.default' || true)"
+          if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then version=stable; fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - name: Already tested with this version and this commit?
+        id: tested
+        if: github.event_name != 'workflow_dispatch' && steps.ha.outputs.version != 'stable'
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ha-smoke-passed
+          key: ha-smoke-${{ steps.ha.outputs.version }}-${{ github.sha }}
+          lookup-only: true
+      - name: Nothing new since the last run that passed
+        if: steps.tested.outputs.cache-hit == 'true'
+        env:
+          VERSION: ${{ steps.ha.outputs.version }}
+        run: echo "Home Assistant $VERSION and $GITHUB_SHA already passed."
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: steps.tested.outputs.cache-hit != 'true'
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-build
+        if: steps.tested.outputs.cache-hit != 'true'
       - run: scripts/build.sh
-      - name: Start Home Assistant (stable) with DomoTwin
+        if: steps.tested.outputs.cache-hit != 'true'
+      - name: Start Home Assistant with DomoTwin
+        if: steps.tested.outputs.cache-hit != 'true'
+        env:
+          VERSION: ${{ steps.ha.outputs.version }}
         run: |
           mkdir -p "$RUNNER_TEMP/ha/custom_components"
           cp -r custom_components/domotwin "$RUNNER_TEMP/ha/custom_components/"
           docker run -d --name ha -p 8123:8123 -v "$RUNNER_TEMP/ha:/config" \
-            ghcr.io/home-assistant/home-assistant:stable
+            "ghcr.io/home-assistant/home-assistant:$VERSION"
       - name: Smoke test (onboarding, config flow, static files, panel, websocket API)
+        if: steps.tested.outputs.cache-hit != 'true'
         env:
           HA_URL: http://localhost:8123
         run: node scripts/ha-smoke.mjs
       - name: Home Assistant version and log
-        if: always()
+        if: always() && steps.tested.outputs.cache-hit != 'true'
         run: |
           docker exec ha python -c "import homeassistant.const as c; print(c.__version__)" || true
           docker logs ha 2>&1 | grep -iE "domotwin|error" | tail -n 100 || true
+      - name: Remember that this version and this commit passed
+        if: success() && steps.tested.outputs.cache-hit != 'true' && steps.ha.outputs.version != 'stable'
+        env:
+          VERSION: ${{ steps.ha.outputs.version }}
+        run: echo "$VERSION $GITHUB_SHA" > ha-smoke-passed
+      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        if: success() && steps.tested.outputs.cache-hit != 'true' && steps.ha.outputs.version != 'stable'
+        with:
+          path: ha-smoke-passed
+          key: ha-smoke-${{ steps.ha.outputs.version }}-${{ github.sha }}

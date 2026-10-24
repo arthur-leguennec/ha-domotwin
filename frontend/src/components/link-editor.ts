@@ -1,19 +1,28 @@
 /**
  * `<domotwin-link>`: links one element of the plan to Home Assistant (administrators, from the
- * panel's link mode). An element gets entities (suggested from its room's area, or searched) and
- * a tap action; a room gets an area. Saving is the panel's job (`domotwin-link-save`).
+ * panel's link mode). An element gets entities (suggested from its room's area, or searched), the
+ * role of each, a tap action and a long-press action; a room gets an area. Saving is the panel's
+ * job (`domotwin-link-save`).
  */
 import { mdiClose, mdiPlus } from "@mdi/js";
 import { css, html, nothing, type PropertyValues, type TemplateResult } from "lit";
 
 import type { HomeAssistant } from "../ha/types";
 import {
+  actionDraft,
+  draftAction,
+  validPath,
+  validService,
+  type ActionChoice,
+  type ActionDraft,
+} from "../live/action-choice";
+import {
+  deriveRole,
   entityName,
-  roleOf,
   tapAction,
-  type Action,
   type BoundEntity,
   type ElementBinding,
+  type Role,
 } from "../live/bindings";
 import {
   searchEntities,
@@ -21,22 +30,34 @@ import {
   type LinkChange,
   type PlanElementInfo,
 } from "../live/suggest";
+import type { MessageKey } from "../i18n";
 import { define, fire } from "./define";
 import { rowStyles } from "./entity-rows";
 import { icon } from "./icon";
 import { Sheet, sheetStyles } from "./sheet";
 import { baseStyles } from "./styles";
 
-/** The tap actions the editor offers; `custom` keeps an action written by hand. */
-type TapChoice = "auto" | "toggle" | "more-info" | "none" | "custom";
+const ROLES: readonly Role[] = [
+  "light",
+  "switch",
+  "fan",
+  "cover",
+  "media",
+  "contact",
+  "lock",
+  "power",
+  "climate",
+  "sensor",
+];
 
-function tapChoice(action: Action | undefined): TapChoice {
-  if (!action) return "auto";
-  if (action.action === "toggle" && !action.entity_id) return "toggle";
-  if (action.action === "more-info" && !action.entity_id) return "more-info";
-  if (action.action === "none") return "none";
-  return "custom";
-}
+const CHOICES: readonly [ActionChoice, MessageKey][] = [
+  ["toggle", "link.action_toggle"],
+  ["more-info", "link.action_more_info"],
+  ["controls", "link.action_controls"],
+  ["perform-action", "link.action_perform"],
+  ["navigate", "link.action_navigate"],
+  ["none", "link.action_none"],
+];
 
 export class DomoTwinLink extends Sheet {
   static override properties = {
@@ -48,6 +69,7 @@ export class DomoTwinLink extends Sheet {
     busy: { attribute: false },
     entities: { state: true },
     tap: { state: true },
+    hold: { state: true },
     chosenArea: { state: true },
     query: { state: true },
   };
@@ -92,6 +114,22 @@ export class DomoTwinLink extends Sheet {
         color: inherit;
         font: inherit;
       }
+      select.role {
+        width: auto;
+        max-width: 100%;
+        min-height: 30px;
+        margin-top: 2px;
+        padding: 0 6px;
+        font-size: 0.8rem;
+      }
+      .field {
+        display: block;
+        margin-top: 8px;
+        font-size: 0.85rem;
+      }
+      .hint.error {
+        color: var(--error-color, #db4437);
+      }
     `,
   ];
 
@@ -107,14 +145,16 @@ export class DomoTwinLink extends Sheet {
   busy = false;
 
   protected entities: BoundEntity[] = [];
-  protected tap: TapChoice = "auto";
+  protected tap: ActionDraft = actionDraft(undefined);
+  protected hold: ActionDraft = actionDraft(undefined);
   protected chosenArea = "";
   protected query = "";
 
   protected override willUpdate(changed: PropertyValues<this>): void {
     if (changed.has("element") || changed.has("binding") || changed.has("area")) {
       this.entities = [...(this.binding?.entities ?? [])];
-      this.tap = tapChoice(this.binding?.tap_action);
+      this.tap = actionDraft(this.binding?.tap_action);
+      this.hold = actionDraft(this.binding?.hold_action);
       this.chosenArea = this.area ?? (this.element?.type === "room" ? (this.roomArea ?? "") : "");
       this.query = "";
     }
@@ -128,15 +168,32 @@ export class DomoTwinLink extends Sheet {
       change = { room: element.id, area: this.chosenArea || null };
     } else {
       const binding: ElementBinding = { entities: this.entities };
-      if (this.tap === "custom" && this.binding?.tap_action) {
-        binding.tap_action = this.binding.tap_action;
-      } else if (this.tap !== "auto" && this.tap !== "custom") {
-        binding.tap_action = { action: this.tap };
-      }
-      if (this.binding?.hold_action) binding.hold_action = this.binding.hold_action;
+      const tap = draftAction(this.tap, this.binding?.tap_action);
+      const hold = draftAction(this.hold, this.binding?.hold_action);
+      if (tap === null || hold === null) return;
+      if (tap) binding.tap_action = tap;
+      if (hold) binding.hold_action = hold;
       change = { element: element.id, binding };
     }
     fire(this, "domotwin-link-save", change);
+  }
+
+  /** A field of an action is not valid: nothing to save yet. */
+  private get invalid(): boolean {
+    if (this.element?.type === "room") return false;
+    return (
+      draftAction(this.tap, this.binding?.tap_action) === null ||
+      draftAction(this.hold, this.binding?.hold_action) === null
+    );
+  }
+
+  private setRole(entityId: string, role: string): void {
+    this.entities = this.entities.map((entity) => {
+      if (entity.entity_id !== entityId) return entity;
+      const next: BoundEntity = { entity_id: entity.entity_id };
+      if (role) next.role = role as Role;
+      return next;
+    });
   }
 
   private link(entityId: string): void {
@@ -146,6 +203,9 @@ export class DomoTwinLink extends Sheet {
 
   private unlink(entityId: string): void {
     this.entities = this.entities.filter((e) => e.entity_id !== entityId);
+    // An action aimed at it now aims at no entity in particular.
+    if (this.tap.target === entityId) this.tap = { ...this.tap, target: "" };
+    if (this.hold.target === entityId) this.hold = { ...this.hold, target: "" };
   }
 
   protected override render(): TemplateResult | typeof nothing {
@@ -165,7 +225,7 @@ export class DomoTwinLink extends Sheet {
       <button
         class="action"
         data-testid="link-save"
-        ?disabled=${this.busy}
+        ?disabled=${this.busy || this.invalid}
         @click=${() => {
           this.save();
         }}
@@ -210,20 +270,34 @@ export class DomoTwinLink extends Sheet {
     const suggested = suggestions(hass, element, this.roomArea, linked);
     const found = searchEntities(hass, element, this.query, linked);
     const areaName = this.roomArea ? hass.areas?.[this.roomArea]?.name : undefined;
-    const auto = tapAction({ entities: this.entities }, hass).action;
-    const autoLabel = t.t(auto === "toggle" ? "link.action_toggle" : "link.action_more_info");
     return html`<h3>${t.t("link.linked")}</h3>
       ${
         this.entities.length === 0
           ? html`<p class="hint">${t.t("link.none")}</p>`
           : this.entities.map((entity) => {
               const name = entityName(hass, entity.entity_id);
+              const derived = t.t(`link.role_${deriveRole(entity.entity_id, hass)}`);
               return html`<div class="entity">
                 <span class="text"
-                  ><span>${name}</span
-                  ><small
-                    >${entity.entity_id} · ${t.t(`link.role_${roleOf(entity, hass)}`)}</small
-                  ></span
+                  ><span>${name}</span><small>${entity.entity_id}</small>
+                  <select
+                    class="role"
+                    data-testid=${`role-${entity.entity_id}`}
+                    aria-label=${t.t("link.role_of", { name })}
+                    @change=${(event: Event) => {
+                      this.setRole(entity.entity_id, (event.target as HTMLSelectElement).value);
+                    }}
+                  >
+                    <option value="" ?selected=${!entity.role}>
+                      ${t.t("link.role_auto", { role: derived })}
+                    </option>
+                    ${ROLES.map(
+                      (role) =>
+                        html`<option value=${role} ?selected=${entity.role === role}>
+                          ${t.t(`link.role_${role}`)}
+                        </option>`,
+                    )}
+                  </select></span
                 >
                 <button
                   class="round"
@@ -259,33 +333,127 @@ export class DomoTwinLink extends Sheet {
           }}
         />
       </label>
-      ${found.map((id) => this.candidate(hass, id))}
-      <label>
-        <h3>${t.t("link.tap")}</h3>
+      ${found.map((id) => this.candidate(hass, id))} ${this.actionEditor(hass, "tap")}
+      ${this.actionEditor(hass, "hold")}`;
+  }
+
+  /** The choice of an action and its fields. */
+  private actionEditor(hass: HomeAssistant, which: "tap" | "hold"): TemplateResult {
+    const t = this.t;
+    const draft = which === "tap" ? this.tap : this.hold;
+    const original = which === "tap" ? this.binding?.tap_action : this.binding?.hold_action;
+    const set = (patch: Partial<ActionDraft>): void => {
+      const next = { ...draft, ...patch };
+      if (which === "tap") this.tap = next;
+      else this.hold = next;
+    };
+    let auto: string;
+    if (which === "hold") auto = t.t("link.action_controls");
+    else {
+      const action = tapAction({ entities: this.entities }, hass).action;
+      auto = t.t(action === "toggle" ? "link.action_toggle" : "link.action_more_info");
+    }
+    const custom = original !== undefined && actionDraft(original).choice === "custom";
+    return html`<label>
+        <h3>${t.t(which === "tap" ? "link.tap" : "link.hold")}</h3>
         <select
+          data-testid=${`link-${which}`}
           @change=${(event: Event) => {
-            this.tap = (event.target as HTMLSelectElement).value as TapChoice;
+            set({ choice: (event.target as HTMLSelectElement).value as ActionChoice });
           }}
         >
-          <option value="auto" ?selected=${this.tap === "auto"}>
-            ${t.t("link.action_auto", { action: autoLabel })}
+          <option value="auto" ?selected=${draft.choice === "auto"}>
+            ${t.t("link.action_auto", { action: auto })}
           </option>
-          <option value="toggle" ?selected=${this.tap === "toggle"}>
-            ${t.t("link.action_toggle")}
-          </option>
-          <option value="more-info" ?selected=${this.tap === "more-info"}>
-            ${t.t("link.action_more_info")}
-          </option>
-          <option value="none" ?selected=${this.tap === "none"}>${t.t("link.action_none")}</option>
+          ${CHOICES.map(
+            ([choice, label]) =>
+              html`<option value=${choice} ?selected=${draft.choice === choice}>
+                ${t.t(label)}
+              </option>`,
+          )}
           ${
-            this.binding?.tap_action && tapChoice(this.binding.tap_action) === "custom"
-              ? html`<option value="custom" ?selected=${this.tap === "custom"}>
+            custom
+              ? html`<option value="custom" ?selected=${draft.choice === "custom"}>
                   ${t.t("link.action_custom")}
                 </option>`
               : nothing
           }
         </select>
-      </label>`;
+      </label>
+      ${
+        draft.choice === "perform-action"
+          ? html`<label>
+                <span class="field">${t.t("link.service")}</span>
+                <input
+                  data-testid=${`link-${which}-service`}
+                  autocomplete="off"
+                  spellcheck="false"
+                  placeholder="scene.turn_on"
+                  .value=${draft.service}
+                  @input=${(event: Event) => {
+                    set({ service: (event.target as HTMLInputElement).value });
+                  }}
+                />
+              </label>
+              ${
+                draft.service && !validService(draft.service)
+                  ? html`<p class="hint error">${t.t("link.service_invalid")}</p>`
+                  : nothing
+              }
+              <label>
+                <span class="field">${t.t("link.target")}</span>
+                <select
+                  data-testid=${`link-${which}-target`}
+                  @change=${(event: Event) => {
+                    set({ target: (event.target as HTMLSelectElement).value });
+                  }}
+                >
+                  <option value="" ?selected=${draft.target === ""}>
+                    ${t.t("link.target_none")}
+                  </option>
+                  ${
+                    // A target written in the file that is not linked: shown, so it can be changed.
+                    draft.target && !this.entities.some((e) => e.entity_id === draft.target)
+                      ? html`<option value=${draft.target} selected>
+                          ${entityName(hass, draft.target)}
+                        </option>`
+                      : nothing
+                  }
+                  ${this.entities.map(
+                    (entity) =>
+                      html`<option
+                        value=${entity.entity_id}
+                        ?selected=${draft.target === entity.entity_id}
+                      >
+                        ${entityName(hass, entity.entity_id)}
+                      </option>`,
+                  )}
+                </select>
+              </label>`
+          : nothing
+      }
+      ${
+        draft.choice === "navigate"
+          ? html`<label>
+                <span class="field">${t.t("link.path")}</span>
+                <input
+                  data-testid=${`link-${which}-path`}
+                  autocomplete="off"
+                  spellcheck="false"
+                  placeholder="/lovelace/0"
+                  .value=${draft.path}
+                  @input=${(event: Event) => {
+                    set({ path: (event.target as HTMLInputElement).value });
+                  }}
+                />
+              </label>
+              ${
+                draft.path && !validPath(draft.path)
+                  ? html`<p class="hint error">${t.t("link.path_invalid")}</p>`
+                  : nothing
+              }`
+          : nothing
+      }`;
   }
 
   private candidate(hass: HomeAssistant, id: string): TemplateResult {

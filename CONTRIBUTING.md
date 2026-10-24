@@ -62,8 +62,9 @@ mypy && pytest
 node scripts/check-bundle-size.mjs
 ```
 
-`cargo fuzz run plan_reader` (in `fuzz/`, nightly toolchain) fuzzes the plan reader; CI runs it
-weekly.
+`cargo fuzz run plan_reader` (in `fuzz/`, nightly toolchain) fuzzes the plan reader
+(`edit_layout`: the edit overlay, `ifc_reader`: the IFC import); CI runs the targets a pull request
+concerns for a minute each, and all of them weekly.
 
 Visual-regression snapshots compare only the canvas pixels rendered by software WebGL2. After an
 intended visual change, update them with `npx playwright test --update-snapshots` and look at the

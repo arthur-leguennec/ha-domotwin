@@ -57,6 +57,7 @@ dependencies = [
  "domotwin-core",
  "domotwin-ifc",
  "libfuzzer-sys",
+ "serde_json",
 ]
 
 [[package]]

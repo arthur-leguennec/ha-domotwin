@@ -15,10 +15,10 @@ Local, rapide, Rust + WebAssembly.</p>
 > [!NOTE]
 > **État : développement en cours.** DomoTwin se construit étape par étape ([feuille de
 > route](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/ROADMAP.md), en anglais).
-> L’intégration, le panneau, la carte, l’import du plan et de l’IFC, les vues 3D et 2D et le
-> pilotage en direct (états, toucher, appui long, panneau de pièce, liaisons) fonctionnent déjà ; le
-> mode édition et les calques arrivent ensuite. Les fonctionnalités ci-dessous décrivent la version
-> 0.1.0.
+> L’intégration, le panneau, la carte, l’import du plan et de l’IFC, les vues 3D et 2D, le
+> pilotage en direct (états, toucher, appui long, panneau de pièce, liaisons) et le mode édition
+> fonctionnent déjà ; vos propres modèles 3D et les calques arrivent ensuite. Les fonctionnalités
+> ci-dessous décrivent la version 0.1.0.
 
 ## Fonctionnalités
 
@@ -34,9 +34,10 @@ Local, rapide, Rust + WebAssembly.</p>
   capteurs.
 - **Calques.** Une carte de chaleur animée (température, humidité ou CO₂), les alertes de sécurité,
   la présence, le vrai soleil à travers vos fenêtres et la consommation électrique.
-- **Mode édition.** Déplacez, tournez et empilez les meubles avec aimantation et annulation, liez
-  n’importe quel objet à des entités (avec des suggestions tirées de vos pièces), et ajoutez votre
-  propre meuble ou appareil avec son modèle 3D.
+- **Mode édition.** Déplacez, tournez et empilez les meubles avec aimantation, repères et
+  annulation, ajoutez des meubles depuis un catalogue, liez n’importe quel objet à des entités (avec
+  des suggestions tirées de vos pièces), et ajoutez votre propre meuble ou appareil avec son modèle
+  3D. Voir [le mode édition](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/edit-mode.md) (en anglais).
 - **Léger et fluide.** Rust compilé en WebAssembly, un rendu seulement quand quelque chose change,
   des préréglages de qualité pour les vieilles tablettes murales. Le premier chargement est limité à
   1,2 Mo, vérifié par l’intégration continue.
@@ -46,6 +47,10 @@ Local, rapide, Rust + WebAssembly.</p>
 <p align="center">
   <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-3d.png" alt="L’appartement fictif de démonstration en 3D : les murs face à la caméra sont abaissés, des meubles dans chaque pièce" width="49%">
   <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-plan.png" alt="Le même appartement en plan 2D vu du dessus" width="49%">
+</p>
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-edit.png" alt="Le mode édition : un meuble glissé sur le plan 2D s’aimante contre un mur, avec les distances aux autres murs ; le catalogue des meubles à ajouter" width="100%">
 </p>
 
 <p align="center">

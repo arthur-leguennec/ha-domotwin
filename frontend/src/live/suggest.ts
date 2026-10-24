@@ -65,6 +65,17 @@ export function planElement(plan: unknown, id: string): PlanElementInfo | undefi
   return undefined;
 }
 
+/** The rooms of the plan JSON, in plan order (for the card editor). */
+export function planRooms(plan: unknown): { id: string; name: string }[] {
+  const elements = (plan as { elements?: unknown } | null | undefined)?.elements;
+  if (!Array.isArray(elements)) return [];
+  return (elements as unknown[]).flatMap((raw) => {
+    const e = raw as Record<string, unknown> | null;
+    if (e?.type !== "room" || typeof e.id !== "string") return [];
+    return [{ id: e.id, name: typeof e.name === "string" && e.name ? e.name : e.id }];
+  });
+}
+
 /** How well an entity fits an element: 0 does not fit, higher fits better. */
 export function fit(element: PlanElementInfo, entityId: string, hass: HomeAssistant): number {
   const domain = entityId.split(".")[0] ?? "";

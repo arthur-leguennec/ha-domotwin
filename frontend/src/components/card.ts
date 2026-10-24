@@ -14,12 +14,14 @@ export class DomoTwinCard extends LitElement {
     hass: { attribute: false },
     config: { state: true },
     plan: { state: true },
+    layout: { state: true },
     planError: { state: true },
     bindings: { state: true },
   };
 
   protected config?: CardConfig;
   protected plan?: StoredPlan["plan"];
+  protected layout?: StoredPlan["layout"];
   protected planError?: string;
   protected bindings?: BindingsJson;
   private _hass?: HomeAssistant;
@@ -94,7 +96,9 @@ export class DomoTwinCard extends LitElement {
 
   private async loadPlan(client: DomoTwinClient): Promise<void> {
     try {
-      this.plan = (await client.getPlan()).plan;
+      const stored = await client.getPlan();
+      this.plan = stored.plan;
+      this.layout = stored.layout;
       this.planError = undefined;
     } catch (error) {
       this.planError = isHassError(error) ? error.code : "unknown";
@@ -160,6 +164,7 @@ export class DomoTwinCard extends LitElement {
         style=${style}
         .hass=${this._hass}
         .plan=${this.plan}
+        .layout=${this.layout}
         .bindings=${this.bindings}
         .planError=${this.planError}
         .options=${this.viewOptions()}

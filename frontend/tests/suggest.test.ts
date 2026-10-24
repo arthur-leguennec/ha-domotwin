@@ -6,6 +6,7 @@ import {
   applyLink,
   fit,
   planElement,
+  planRooms,
   searchEntities,
   suggestions,
   type PlanElementInfo,
@@ -87,6 +88,18 @@ describe("editing bindings", () => {
     const plan = { elements: [{ id: "lamp", type: "furniture", name: "Lamp", kind: "lamp" }] };
     expect(planElement(plan, "lamp")).toEqual(lamp);
     expect(planElement(plan, "x")).toBeUndefined();
+    const rooms = {
+      elements: [
+        { id: "living", type: "room", name: "Living" },
+        { id: "x", type: "room" },
+        ...plan.elements,
+      ],
+    };
+    expect(planRooms(rooms)).toEqual([
+      { id: "living", name: "Living" },
+      { id: "x", name: "x" },
+    ]);
+    expect(planRooms(null)).toEqual([]);
     expect(planElement(null, "lamp")).toBeUndefined();
   });
 

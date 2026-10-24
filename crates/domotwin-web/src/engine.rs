@@ -1,16 +1,18 @@
 //! The engine exposed to JavaScript.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
 use domotwin_core::bindings::{Bindings, read_bindings};
 use domotwin_core::camera::{Camera, CutawayMode};
+use domotwin_core::edit::Session;
 use domotwin_core::lighting::{Mood, lighting_for_hour, lighting_for_sun};
 use domotwin_core::live::{EntityState, LiveState, read_states, targets};
-use domotwin_core::plan::{Element, Plan, View};
+use domotwin_core::overlay::{Layout, apply, fit, parse_layout};
+use domotwin_core::plan::{Element, Plan, View, parse_plan_json, read_plan_value};
 use domotwin_core::scene::mesh::Mesh;
-use domotwin_core::scene::{ElementInfo, Scene, SceneOptions, build_dynamic, build_scene};
-use domotwin_core::{ReadError, read_plan, summarize_plan};
+use domotwin_core::scene::{ElementInfo, Scene, SceneOptions, build_dynamic, build_scene_moving};
+use domotwin_core::{ReadError, summarize_plan};
 use domotwin_render::{GpuHint, QualityPreset, Renderer, Rgb};
 use wasm_bindgen::JsCast;
 use wasm_bindgen::prelude::*;
@@ -45,21 +47,45 @@ pub fn summarize_plan_json(json: &str) -> Result<String, JsError> {
         .map_err(|err| plan_error(&err))
 }
 
+/// The plan with the edit overlay applied, as written by **Export plan** (revision 10).
+///
+/// # Errors
+///
+/// Fails with the JSON error of the plan reader when the result is not a valid plan.
+#[wasm_bindgen(js_name = applyLayout)]
+pub fn apply_layout_json(plan: &str, layout: &str) -> Result<String, JsError> {
+    let source = parse_plan_json(plan.as_bytes()).map_err(|err| plan_error(&err))?;
+    let mut applied = apply(&source, &parse_layout(layout));
+    if let Some(root) = applied.as_object_mut() {
+        root.insert("layoutRevision".into(), serde_json::Value::from(10));
+    }
+    read_plan_value(&applied).map_err(|err| plan_error(&err))?;
+    Ok(applied.to_string())
+}
+
 /// One DomoTwin view drawn on one canvas.
 #[wasm_bindgen]
 #[derive(Debug)]
 pub struct Engine {
-    renderer: Renderer,
-    plan: Option<Plan>,
+    pub(crate) renderer: Renderer,
+    /// The stored plan's JSON, before the overlay (edit mode applies it again after each change).
+    pub(crate) source: Option<serde_json::Value>,
+    /// The edit overlay applied to it.
+    pub(crate) layout: Layout,
+    pub(crate) plan: Option<Plan>,
     /// The scene without its static meshes (on the GPU), to rebuild the moving parts.
-    scene: Option<Scene>,
-    elements: Vec<ElementInfo>,
+    pub(crate) scene: Option<Scene>,
+    pub(crate) elements: Vec<ElementInfo>,
     triangles: usize,
     gpu: GpuHint,
     bindings: Bindings,
     states: BTreeMap<String, EntityState>,
-    live: LiveState,
+    pub(crate) live: LiveState,
     last_frame: Option<f64>,
+    /// Edit mode, when on.
+    pub(crate) edit: Option<Session>,
+    /// The pieces a drag moves are built apart (with the moving parts) since its first move.
+    pub(crate) drag_built: bool,
 }
 
 #[wasm_bindgen]
@@ -94,6 +120,8 @@ impl Engine {
         .map_err(|_| JsError::new("webgl2_unavailable"))?;
         let mut engine = Engine {
             renderer,
+            source: None,
+            layout: Layout::new(),
             plan: None,
             scene: None,
             elements: Vec::new(),
@@ -103,6 +131,8 @@ impl Engine {
             states: BTreeMap::new(),
             live: LiveState::default(),
             last_frame: None,
+            edit: None,
+            drag_built: false,
         };
         engine
             .renderer
@@ -110,17 +140,79 @@ impl Engine {
         Ok(engine)
     }
 
-    /// Loads a plan (the text of a `*.plan.json`) and builds its scene. Returns a JSON summary.
-    /// The camera keeps its place when `keep_camera` (a plan saved from another view).
+    /// Loads a plan (the text of a `*.plan.json`) with its edit overlay (`layout`, JSON) and
+    /// builds its scene. Returns a JSON summary; `layoutRefused` counts the entries of the overlay
+    /// left out because they made the plan invalid (an updated plan). The camera keeps its place
+    /// when `keep_camera` (a plan saved from another view).
     ///
     /// # Errors
     ///
     /// Fails with the JSON error of the plan reader (stable code and element id), which the
     /// frontend translates.
     #[wasm_bindgen(js_name = loadPlan)]
-    pub fn load_plan(&mut self, json: &str, keep_camera: Option<bool>) -> Result<String, JsError> {
-        let plan = read_plan(json.as_bytes()).map_err(|err| plan_error(&err))?;
-        let mut scene = build_scene(&plan, &SceneOptions::default());
+    pub fn load_plan(
+        &mut self,
+        json: &str,
+        keep_camera: Option<bool>,
+        layout: Option<String>,
+    ) -> Result<String, JsError> {
+        let source = parse_plan_json(json.as_bytes()).map_err(|err| plan_error(&err))?;
+        let layout = layout.as_deref().map_or_else(Layout::new, parse_layout);
+        let (plan, layout, refused) = fit(&source, &layout).map_err(|err| plan_error(&err))?;
+        let keep = keep_camera.unwrap_or(false) && self.plan.is_some();
+        self.source = Some(source);
+        self.layout = layout;
+        // A plan loaded again ends edit mode (the frontend starts it again).
+        self.edit = None;
+        self.drag_built = false;
+        self.renderer.set_marks(&[]);
+        let mut summary: serde_json::Value =
+            serde_json::from_str(&self.install(plan, keep)).unwrap_or_default();
+        if refused > 0
+            && let Some(object) = summary.as_object_mut()
+        {
+            object.insert("layoutRefused".into(), serde_json::Value::from(refused));
+        }
+        Ok(summary.to_string())
+    }
+}
+
+impl Engine {
+    /// Shows a plan: builds its scene, uploads it and sets its live looks. Returns the summary.
+    fn install(&mut self, plan: Plan, keep_camera: bool) -> String {
+        let summary = plan.summary().to_json();
+        self.show(plan, keep_camera, &BTreeSet::new(), true);
+        summary
+    }
+
+    /// Builds and uploads the scene of `plan`, with the pieces `moving` (element indices) among
+    /// the moving parts. The live looks start at their targets when `fresh`, else keep fading,
+    /// each with its element (an edit may move elements to other indices).
+    pub(crate) fn show(
+        &mut self,
+        plan: Plan,
+        keep_camera: bool,
+        moving: &BTreeSet<usize>,
+        fresh: bool,
+    ) {
+        // Where each element was before. Edits keep the order of the others, so the search goes
+        // on from the last one found (linear for a whole plan).
+        let n = self.elements.len();
+        let mut cursor = 0;
+        let old: Vec<Option<usize>> = plan
+            .elements
+            .iter()
+            .map(|e| {
+                let found = (0..n)
+                    .map(|k| (cursor + k) % n)
+                    .find(|&k| self.elements[k].id == e.id());
+                if let Some(k) = found {
+                    cursor = k + 1;
+                }
+                found
+            })
+            .collect();
+        let mut scene = build_scene_moving(&plan, &SceneOptions::default(), moving);
         self.triangles = [
             &scene.opaque,
             &scene.transparent,
@@ -130,23 +222,28 @@ impl Engine {
         .iter()
         .map(|m| m.triangle_count())
         .sum();
-        self.renderer
-            .set_scene(&scene, keep_camera.unwrap_or(false) && self.plan.is_some());
+        self.renderer.set_scene(&scene, keep_camera);
         // The meshes live on the GPU now: free the copies.
         scene.opaque = Mesh::default();
         scene.transparent = Mesh::default();
         scene.dynamic_opaque = Mesh::default();
         scene.dynamic_transparent = Mesh::default();
         self.elements.clone_from(&scene.elements);
-        let summary = plan.summary().to_json();
-        self.live = LiveState::new(targets(&plan, &scene.lights, &self.bindings, &self.states));
+        let targets = targets(&plan, &scene.lights, &self.bindings, &self.states);
+        if fresh {
+            self.live = LiveState::new(targets);
+        } else {
+            self.live.retarget_moved(targets, &old);
+        }
         self.plan = Some(plan);
         self.scene = Some(scene);
         self.renderer.set_looks(&self.live.looks);
         self.rebuild_moving_parts();
-        Ok(summary)
     }
+}
 
+#[wasm_bindgen]
+impl Engine {
     /// Sets the bindings (the JSON stored by the integration). Malformed entries are skipped.
     #[wasm_bindgen(js_name = setBindings)]
     pub fn set_bindings(&mut self, json: &str) {
@@ -189,7 +286,7 @@ impl Engine {
         }
     }
 
-    fn rebuild_moving_parts(&mut self) {
+    pub(crate) fn rebuild_moving_parts(&mut self) {
         if let (Some(plan), Some(scene)) = (&self.plan, &self.scene) {
             let (opaque, transparent) = build_dynamic(plan, scene, &self.live.overrides);
             self.renderer.set_moving_parts(&opaque, &transparent);

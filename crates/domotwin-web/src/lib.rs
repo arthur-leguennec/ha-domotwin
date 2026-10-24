@@ -8,6 +8,8 @@
 // The engine only exists in the browser; on other targets the crate is empty so that
 // `cargo test --workspace` and `cargo clippy --workspace` work natively.
 #[cfg(target_arch = "wasm32")]
+mod editing;
+#[cfg(target_arch = "wasm32")]
 mod engine;
 #[cfg(target_arch = "wasm32")]
 pub use engine::*;

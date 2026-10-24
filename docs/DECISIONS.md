@@ -253,3 +253,61 @@ explains why. Each entry: context, decision, consequences.
 - **Consequences.** A model without spaces cannot be imported (the message says how to add them);
   rooms from walls alone may come later. Window sills follow the plan format's fixed 90 cm.
 
+## D-019 · Edit mode: an overlay replayed on the plan, the session in the engine
+
+- **Context.** M3 moves, turns, stacks, removes and adds furniture. The imported plan stays as it
+  was read (D-005) so that importing an updated plan keeps the edits; editing must feel immediate on
+  wall tablets; undo must be reliable; two devices may edit.
+- **Decision.**
+  - Every edit is the **overlay** (`layout`, keyed by element id: position, angle, elevation, room,
+    removed, added pieces), applied to the plan's JSON **before** it is read
+    (`domotwin-core::overlay`). The reader checks the result like any plan; a change that would make
+    it invalid is dropped, and a stored overlay that an updated plan refuses keeps the entries it
+    accepts (tried one by one; the view says how many were left out). Only furniture is edited:
+    rooms, walls and openings come from the plan.
+  - The session lives in `domotwin-core::edit`, tested without a GPU: selection, snapping (each side
+    onto the nearest parallel wall face or piece edge within about 1.5 % of the view, else a 5 cm
+    grid), distance guides, stacking, collisions, and a history of **whole overlays** (100), so that
+    undo cannot drift.
+  - While a piece is dragged, it and what stands on it are built with the moving parts (D-016):
+    a pointer move rebuilds only them; the scene is rebuilt once when they are dropped.
+  - **Stacking** is for small objects only (lamps, plants, screens, printers, a dryer on a washer,
+    the user's models) on pieces with a top: an armchair dropped on a table is a conflict, not a
+    stack. **Conflicts** are drawn red and never refused: plans are approximate.
+  - **Save** sends the overlay with the revision edit mode started from (D-005, D-017). The overlay
+    not saved is kept in the browser's local storage for that revision, on the device only, and
+    offered again when edit mode opens.
+- **Consequences.** **Export plan** writes the overlay applied. Added pieces get ids
+  `<kind>-added-<n>`. The engine grew by 30 kB gzipped; the edit bar and catalogue load only when
+  edit mode opens. Rooms, walls, doors and windows are not edited in DomoTwin.
+
+## D-020 · CI: run what a change needs, nothing twice
+
+- **Context.** Every push to a pull request ran every check (about 14 runner-minutes), every merge
+  ran them again on main, and a change of documentation alone did the same. The maintainer asked
+  for as little runner time as possible with the same quality.
+- **Decision.**
+  - One workflow (`ci.yml`) for the required checks. A first job (`changes`, `scripts/ci-changes.sh`)
+    lists the changed files (renames at both paths); each job runs only when one concerns it (Rust,
+    the browser build, the frontend, the Python integration and its tests including the README's
+    links, the Home Assistant validators). A file known to need no job (other workflows, templates,
+    release files, documentation tools) runs none; any other file runs everything, as does a change
+    of the CI itself. A job skipped by a condition counts as passed for the required checks (a
+    workflow skipped by a path filter would leave them pending); if `changes` fails, every job runs.
+  - `cargo deny` runs every time (17 s): advisories appear without a commit.
+  - A merge to main runs the jobs that keep the caches warm for the next pull requests (Rust,
+    Python, the build), not the E2E: with *require branches to be up to date* and squash merges,
+    main holds exactly the tree its pull request tested.
+  - CodeQL runs on every pull request and every push to main: the code scanning rule blocks a pull
+    request without results, and each pull request is compared with the analysis of its base.
+  - The weekly run checks the Home Assistant validators and the advisories.
+  - The Python environment is cached whole (exact Python, pinned requirements); the fuzz targets are
+    built once in one job, cached, and only those the change concerns run (a crash in one does not
+    stop the others).
+  - The real Home Assistant test runs at night only when there is something new: a Home Assistant
+    release or a commit on main since the last run that passed.
+  - Dependabot groups compatible updates per ecosystem (npm and pip minors and patches, cargo
+    patches); majors, cargo 0.x minors and TypeScript stay apart.
+- **Consequences.** A documentation change runs the Python tests, `cargo deny` and CodeQL; a
+  frontend change skips the Rust and Python jobs; a merge skips the E2E. The required check names do
+  not change. CodeQL (about 6 runner-minutes) remains the largest cost and runs on everything.

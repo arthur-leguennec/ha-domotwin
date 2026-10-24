@@ -8,6 +8,81 @@ export class Engine {
     free(): void;
     [Symbol.dispose](): void;
     /**
+     * Starts edit mode on the plan shown. Returns the edit state.
+     */
+    beginEdit(): string;
+    /**
+     * Adds a piece of the catalogue `kind` named `name` under the device pixel `x`, `y` (or in
+     * the middle of the view when the floor is not there), and selects it. The state has
+     * `refused: true` when it could not be added (the plan holds 500 elements).
+     */
+    editAdd(kind: string, name: string, x: number, y: number): string;
+    /**
+     * The catalogue of kinds a piece can be added as, as JSON `[{"kind", "w", "d", "h",
+     * "light"}]` (default sizes in cm).
+     */
+    static editCatalogue(): string;
+    /**
+     * Drops the pieces of the drag where they are.
+     */
+    editDragEnd(): string;
+    /**
+     * Moves the pieces of the drag to the device pixel `x`, `y`. Returns the edit state, with
+     * the guides.
+     */
+    editDragMove(x: number, y: number): string;
+    /**
+     * Starts moving the selection when the device pixel `x`, `y` shows a selected piece that is
+     * not fixed. Returns whether it did (else the pointer turns or pans the view).
+     */
+    editDragStart(x: number, y: number): boolean;
+    /**
+     * The edit overlay now, as JSON (what **Save** stores).
+     */
+    editLayout(): string;
+    /**
+     * Does again the last change undone.
+     */
+    editRedo(): string;
+    /**
+     * Removes the selected pieces.
+     */
+    editRemove(): string;
+    /**
+     * Puts a whole overlay (JSON, a draft kept by the browser) in place as one change that can
+     * be undone.
+     */
+    editRestore(layout: string): string;
+    /**
+     * Turns the selection by `steps` of 15° (negative: anticlockwise on the plan).
+     */
+    editRotate(steps: number): string;
+    /**
+     * The overlay `layout` (JSON, what was sent) was stored. Changes made while it was being saved
+     * stay to be saved.
+     */
+    editSaved(layout: string): void;
+    /**
+     * Selects the piece `id` (`add`: adds it to the selection or takes it out); another id
+     * clears the selection unless `add`.
+     */
+    editSelect(id: string, add: boolean): string;
+    /**
+     * What edit mode shows, as JSON: `editing`, `selection` (`[{"id", "name", "kind",
+     * "locked"}]`), `conflicts` (ids), `guides` (`[{"a": [x, y], "b": [x, y], "cm"}]`, device
+     * pixels, `cm` only for distances), `canUndo`, `canRedo`, `dirty`, and `changes` (a number
+     * that changes with the overlay).
+     */
+    editState(): string;
+    /**
+     * Undoes the last change.
+     */
+    editUndo(): string;
+    /**
+     * Leaves edit mode, keeping the changes shown (`keep`) or going back to the overlay saved.
+     */
+    endEdit(keep: boolean): void;
+    /**
      * Frames an element (a room, a piece). Returns `false` when it has no geometry.
      */
     focusElement(id: string, time_ms: number): boolean;
@@ -24,15 +99,17 @@ export class Engine {
      */
     invalidate(): void;
     /**
-     * Loads a plan (the text of a `*.plan.json`) and builds its scene. Returns a JSON summary.
-     * The camera keeps its place when `keep_camera` (a plan saved from another view).
+     * Loads a plan (the text of a `*.plan.json`) with its edit overlay (`layout`, JSON) and
+     * builds its scene. Returns a JSON summary; `layoutRefused` counts the entries of the overlay
+     * left out because they made the plan invalid (an updated plan). The camera keeps its place
+     * when `keep_camera` (a plan saved from another view).
      *
      * # Errors
      *
      * Fails with the JSON error of the plan reader (stable code and element id), which the
      * frontend translates.
      */
-    loadPlan(json: string, keep_camera?: boolean | null): string;
+    loadPlan(json: string, keep_camera?: boolean | null, layout?: string | null): string;
     /**
      * Whether a frame is needed (something changed or an animation is running).
      */
@@ -138,6 +215,15 @@ export class Engine {
 }
 
 /**
+ * The plan with the edit overlay applied, as written by **Export plan** (revision 10).
+ *
+ * # Errors
+ *
+ * Fails with the JSON error of the plan reader when the result is not a valid plan.
+ */
+export function applyLayout(plan: string, layout: string): string;
+
+/**
  * The version of the engine (the product version is set by the frontend).
  */
 export function engineVersion(): string;
@@ -161,12 +247,29 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 export interface InitOutput {
     readonly memory: WebAssembly.Memory;
     readonly __wbg_engine_free: (a: number, b: number) => void;
+    readonly applyLayout: (a: number, b: number, c: number, d: number, e: number) => void;
     readonly engineVersion: (a: number) => void;
+    readonly engine_beginEdit: (a: number, b: number) => void;
+    readonly engine_editAdd: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => void;
+    readonly engine_editCatalogue: (a: number) => void;
+    readonly engine_editDragEnd: (a: number, b: number) => void;
+    readonly engine_editDragMove: (a: number, b: number, c: number, d: number) => void;
+    readonly engine_editDragStart: (a: number, b: number, c: number) => number;
+    readonly engine_editLayout: (a: number, b: number) => void;
+    readonly engine_editRedo: (a: number, b: number) => void;
+    readonly engine_editRemove: (a: number, b: number) => void;
+    readonly engine_editRestore: (a: number, b: number, c: number, d: number) => void;
+    readonly engine_editRotate: (a: number, b: number, c: number) => void;
+    readonly engine_editSaved: (a: number, b: number, c: number) => void;
+    readonly engine_editSelect: (a: number, b: number, c: number, d: number, e: number) => void;
+    readonly engine_editState: (a: number, b: number) => void;
+    readonly engine_editUndo: (a: number, b: number) => void;
+    readonly engine_endEdit: (a: number, b: number) => void;
     readonly engine_focusElement: (a: number, b: number, c: number, d: number) => number;
     readonly engine_frame: (a: number, b: number) => number;
     readonly engine_highlight: (a: number, b: number, c: number) => void;
     readonly engine_invalidate: (a: number) => void;
-    readonly engine_loadPlan: (a: number, b: number, c: number, d: number, e: number) => void;
+    readonly engine_loadPlan: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => void;
     readonly engine_needsFrame: (a: number) => number;
     readonly engine_new: (a: number, b: number) => void;
     readonly engine_orbit: (a: number, b: number, c: number) => void;

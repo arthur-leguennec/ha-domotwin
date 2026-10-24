@@ -288,6 +288,11 @@ impl Camera {
 
     /// The point of the floor (`y = 0`) under the screen point `ndc` (−1…1, y up), if any.
     pub fn floor_point(&self, aspect: f64, ndc: [f64; 2]) -> Option<[f64; 3]> {
+        self.plane_point(aspect, ndc, 0.0)
+    }
+
+    /// The point of the horizontal plane at `height` (cm) under the screen point `ndc`, if any.
+    pub fn plane_point(&self, aspect: f64, ndc: [f64; 2], height: f64) -> Option<[f64; 3]> {
         let p = self.projection(aspect, 1000.0);
         let (origin, dir) = if p.orthographic {
             let w = p.half_height * aspect;
@@ -309,8 +314,8 @@ impl Camera {
         if dir[1] > -1e-6 {
             return None;
         }
-        let t = -origin[1] / dir[1];
-        Some([origin[0] + dir[0] * t, 0.0, origin[2] + dir[2] * t])
+        let t = (height - origin[1]) / dir[1];
+        Some([origin[0] + dir[0] * t, height, origin[2] + dir[2] * t])
     }
 
     /// The camera framing the box `[min, max]` with the given yaw and pitch.

@@ -1,7 +1,9 @@
 import { LitElement, html, nothing, type TemplateResult } from "lit";
 
+import { DomoTwinClient } from "../ha/client";
 import type { HomeAssistant } from "../ha/types";
 import { translatorFor, type MessageKey, type Translator } from "../i18n";
+import { planRooms } from "../live/suggest";
 import { define, fire } from "./define";
 
 interface FormField {
@@ -22,7 +24,33 @@ function options(
   };
 }
 
-function schema(t: Translator): FormField[] {
+/** A room of the plan, for the picker. */
+interface RoomOption {
+  id: string;
+  name: string;
+}
+
+function roomField(t: Translator, rooms: RoomOption[], current: unknown): FormField {
+  const list = [...rooms];
+  // A room the stored plan no longer has stays visible, so the card's setting is not lost.
+  if (typeof current === "string" && current && !list.some((room) => room.id === current)) {
+    list.push({ id: current, name: current });
+  }
+  return {
+    name: "room",
+    selector: {
+      select: {
+        mode: "dropdown",
+        options: [
+          { value: "", label: t.t("editor.room_none") },
+          ...list.map((room) => ({ value: room.id, label: room.name })),
+        ],
+      },
+    },
+  };
+}
+
+function schema(t: Translator, rooms: RoomOption[], config: Record<string, unknown>): FormField[] {
   return [
     { name: "title", selector: { text: {} } },
     { name: "view", selector: options(t, "editor.view", ["3d", "2d"]) },
@@ -36,6 +64,8 @@ function schema(t: Translator): FormField[] {
       name: "lighting",
       selector: options(t, "editor.lighting", ["auto", "morning", "day", "evening", "night"]),
     },
+    roomField(t, rooms, config.room),
+    { name: "font_family", selector: { text: {} } },
   ];
 }
 
@@ -44,10 +74,14 @@ export class DomoTwinCardEditor extends LitElement {
   static override properties = {
     hass: { attribute: false },
     config: { state: true },
+    rooms: { state: true },
   };
 
   hass?: HomeAssistant;
   protected config: Record<string, unknown> = {};
+  /** The rooms of the stored plan, once fetched. */
+  protected rooms: RoomOption[] = [];
+  private roomsFetched = false;
 
   setConfig(config: Record<string, unknown>): void {
     this.config = { ...config };
@@ -80,13 +114,24 @@ export class DomoTwinCardEditor extends LitElement {
     fire(this, "config-changed", { config });
   };
 
+  /** The room picker lists the rooms of the stored plan. */
+  private async fetchRooms(hass: HomeAssistant): Promise<void> {
+    this.roomsFetched = true;
+    try {
+      this.rooms = planRooms((await DomoTwinClient.for(hass).getPlan()).plan);
+    } catch {
+      // No plan or no access: only the current setting is offered.
+    }
+  }
+
   protected override render(): TemplateResult | typeof nothing {
     if (!this.hass) return nothing;
+    if (!this.roomsFetched) void this.fetchRooms(this.hass);
     const t = translatorFor(this.hass);
     return html`<ha-form
       .hass=${this.hass}
       .data=${this.config}
-      .schema=${schema(t)}
+      .schema=${schema(t, this.rooms, this.config)}
       .computeLabel=${(field: FormField) => t.t(`editor.${field.name}` as MessageKey)}
       @value-changed=${this.changed}
     ></ha-form>`;

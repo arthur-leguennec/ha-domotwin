@@ -27,7 +27,7 @@ fn canvas() -> HtmlCanvasElement {
 #[wasm_bindgen_test]
 fn loads_the_demo_plan_and_draws_a_frame() {
     let mut engine = Engine::new(canvas()).unwrap();
-    let summary = engine.load_plan(DEMO, None).unwrap();
+    let summary = engine.load_plan(DEMO, None, None).unwrap();
     assert!(summary.contains("\"rooms\":5"), "{summary}");
     assert!(engine.needs_frame());
     assert!(!engine.frame(0.0));
@@ -37,7 +37,7 @@ fn loads_the_demo_plan_and_draws_a_frame() {
 #[wasm_bindgen_test]
 fn refuses_a_bad_plan_with_a_code() {
     let mut engine = Engine::new(canvas()).unwrap();
-    let Err(err) = engine.load_plan("{}", None) else {
+    let Err(err) = engine.load_plan("{}", None, None) else {
         panic!("an empty object is not a plan")
     };
     let message = wasm_bindgen::JsValue::from(err);
@@ -51,7 +51,7 @@ fn refuses_a_bad_plan_with_a_code() {
 #[wasm_bindgen_test]
 fn picks_rooms_and_switches_to_the_plan() {
     let mut engine = Engine::new(canvas()).unwrap();
-    engine.load_plan(DEMO, None).unwrap();
+    engine.load_plan(DEMO, None, None).unwrap();
     engine.frame(0.0);
     // The overview frames the home: the centre of the canvas shows something of the plan.
     let picked = engine.pick(160, 120);
@@ -71,7 +71,7 @@ fn picks_rooms_and_switches_to_the_plan() {
 #[wasm_bindgen_test]
 fn saved_views_and_focus() {
     let mut engine = Engine::new(canvas()).unwrap();
-    engine.load_plan(DEMO, None).unwrap();
+    engine.load_plan(DEMO, None, None).unwrap();
     let views = engine.views();
     assert!(views.starts_with('['), "{views}");
     assert!(engine.focus_element("living", 0.0));
@@ -93,7 +93,7 @@ const BINDINGS: &str = include_str!("../../../examples/demo-apartment.bindings.j
 #[wasm_bindgen_test]
 fn live_states_light_lamps_and_move_doors() {
     let mut engine = Engine::new(canvas()).unwrap();
-    engine.load_plan(DEMO, None).unwrap();
+    engine.load_plan(DEMO, None, None).unwrap();
     engine.set_bindings(BINDINGS);
     engine.set_states(
         r#"{
@@ -119,4 +119,64 @@ fn live_states_light_lamps_and_move_doors() {
     while engine.frame(t) {
         t += 16.0;
     }
+}
+
+#[wasm_bindgen_test]
+fn edit_mode_moves_turns_adds_and_undoes() {
+    let mut engine = Engine::new(canvas()).unwrap();
+    engine.load_plan(DEMO, None, None).unwrap();
+    engine.set_plan_view(true, 0.0);
+    let mut t = 0.0;
+    while engine.frame(t) {
+        t += 16.0;
+    }
+    let state = engine.begin_edit();
+    assert!(state.contains("\"editing\":true"), "{state}");
+    let state = engine.edit_select("sofa", false);
+    assert!(state.contains("\"id\":\"sofa\""), "{state}");
+    let [x, y]: [f64; 2] = serde_json::from_str(&engine.screen_point("sofa")).unwrap();
+    assert!(engine.edit_drag_start(x, y), "the sofa is under its centre");
+    let state = engine.edit_drag_move(x - 25.0, y);
+    assert!(state.contains("\"guides\":[{"), "{state}");
+    engine.frame(t);
+    let state = engine.edit_drag_end();
+    assert!(state.contains("\"dirty\":true"), "{state}");
+    assert!(engine.edit_layout().contains("\"sofa\""));
+    let state = engine.edit_rotate(1);
+    assert!(state.contains("\"canUndo\":true"), "{state}");
+    assert!(engine.edit_layout().contains("\"angle\":15"));
+    engine.edit_add("plant", "Plant", x, y);
+    assert!(engine.edit_layout().contains("plant-added-1"));
+    for _ in 0..3 {
+        engine.edit_undo();
+    }
+    let state = engine.edit_state();
+    assert!(state.contains("\"dirty\":false"), "{state}");
+    assert_eq!(engine.edit_layout(), "{}");
+    engine.edit_redo();
+    // Saved what was sent: the turn made since stays to be saved.
+    let sent = engine.edit_layout();
+    engine.edit_select("sofa", false);
+    engine.edit_rotate(1);
+    engine.edit_saved(&sent);
+    assert!(engine.edit_state().contains("\"dirty\":true"));
+    engine.edit_undo();
+    assert!(engine.edit_state().contains("\"dirty\":false"));
+    engine.end_edit(false);
+    assert!(engine.edit_state().contains("\"editing\":false"));
+    assert!(Engine::edit_catalogue().contains("\"kind\":\"sofa\""));
+    assert!(!engine.edit_drag_start(x, y), "not editing");
+}
+
+#[wasm_bindgen_test]
+fn an_overlay_the_plan_refuses_is_left_out_entry_by_entry() {
+    let mut engine = Engine::new(canvas()).unwrap();
+    let layout =
+        r#"{"sofa":{"x":200},"bad-added-1":{"add":{"name":"Bad","kind":"lamp","w":35,"h":35}}}"#;
+    let summary = engine
+        .load_plan(DEMO, None, Some(layout.to_owned()))
+        .unwrap();
+    assert!(summary.contains("\"layoutRefused\":1"), "{summary}");
+    engine.begin_edit();
+    assert_eq!(engine.edit_layout(), r#"{"sofa":{"x":200.0}}"#);
 }

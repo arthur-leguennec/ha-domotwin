@@ -15,9 +15,9 @@ Local, fast, Rust + WebAssembly.</p>
 > [!NOTE]
 > **Status: early development.** DomoTwin is built milestone by milestone
 > ([roadmap](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/ROADMAP.md)). The
-> integration, the panel, the card, the plan and IFC import, the 3D and 2D views and live control
-> (states, tap, long press, room panel, linking) work today; the edit mode and layers come next. The
-> features below describe version 0.1.0.
+> integration, the panel, the card, the plan and IFC import, the 3D and 2D views, live control
+> (states, tap, long press, room panel, linking) and the edit mode work today; your own 3D models
+> and the layers come next. The features below describe version 0.1.0.
 
 ## Features
 
@@ -31,9 +31,10 @@ Local, fast, Rust + WebAssembly.</p>
   curtains move, doors and windows open with their contact sensors.
 - **Layers.** An animated heatmap of temperature, humidity or CO₂, safety alerts, presence, the real
   sun through your windows, and power consumption.
-- **Edit mode.** Move, rotate and stack furniture with snapping and undo, link any object to
-  entities (with suggestions from your areas), and add your own furniture or appliance with its 3D
-  model.
+- **Edit mode.** Move, rotate and stack furniture with snapping, guides and undo, add pieces from
+  a catalogue, link any object to entities (with suggestions from your areas), and add your own
+  furniture or appliance with its 3D model. See
+  [edit mode](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/edit-mode.md).
 - **Light and smooth.** Rust compiled to WebAssembly, rendering only when something changes, quality
   presets for old wall tablets. The first load is budgeted at 1.2 MB, checked by CI.
 - **Yours.** English and French, follows your Home Assistant theme, works in the companion apps.
@@ -41,6 +42,10 @@ Local, fast, Rust + WebAssembly.</p>
 <p align="center">
   <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-3d.png" alt="The fictional demo apartment in 3D: walls facing the camera are lowered, furniture in every room" width="49%">
   <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-plan.png" alt="The same apartment as a 2D plan seen from above" width="49%">
+</p>
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-edit.png" alt="Edit mode: a piece dragged on the 2D plan snaps onto a wall, with the distances to the other walls; the catalogue of pieces to add" width="100%">
 </p>
 
 <p align="center">

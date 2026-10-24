@@ -10,7 +10,7 @@ mod read;
 use std::collections::BTreeMap;
 
 pub use catalogue::{DoorStyle, Floor, Kind, KindFlags, KindInfo, Role, WallStyle};
-pub use read::{read_plan, read_plan_value};
+pub use read::{parse_plan_json, read_plan, read_plan_value};
 use serde_json::Value;
 
 use crate::error::ReadError;

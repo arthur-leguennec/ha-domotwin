@@ -1,5 +1,5 @@
 //! Lamps: the point lights that light a lamp's room, the halos around lit bulbs and the
-//! per-element data the shaders read (light, greyed out, tap highlight). No GPU here.
+//! per-element data the shaders read (light, greyed out, tap highlight, edit marks). No GPU here.
 
 use domotwin_core::live::Look;
 use domotwin_core::scene::LightSpot;
@@ -116,18 +116,28 @@ pub fn halos(spots: &[LightSpot], looks: &[Look]) -> Vec<Halo> {
         .collect()
 }
 
+/// How edit mode marks an element.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct Mark {
+    /// Selected.
+    pub selected: bool,
+    /// Overlapping another piece or a wall.
+    pub conflict: bool,
+}
+
 /// Two texels per element tag (index + 1, tag 0 = no element): the light (`rgb`, strength) and
-/// the flags (greyed out, highlight).
-pub fn element_texels(looks: &[Look]) -> Vec<[f32; 4]> {
+/// the flags (greyed out, highlight, selected, in conflict).
+pub fn element_texels(looks: &[Look], marks: &[Mark]) -> Vec<[f32; 4]> {
     let mut texels = vec![[0.0; 4]; 2 * (looks.len() + 1)];
     for (i, look) in looks.iter().enumerate() {
         let at = 2 * (i + 1);
+        let mark = marks.get(i).copied().unwrap_or_default();
         texels[at] = [look.glow[0], look.glow[1], look.glow[2], strength(look)];
         texels[at + 1] = [
             look.unavailable.clamp(0.0, 1.0),
             look.highlight.clamp(0.0, 1.0),
-            0.0,
-            0.0,
+            if mark.selected { 1.0 } else { 0.0 },
+            if mark.conflict { 1.0 } else { 0.0 },
         ];
     }
     texels
@@ -184,10 +194,18 @@ mod tests {
             ..Look::default()
         }];
         assert!(point_lights(&spots, &looks).is_empty());
-        let texels = element_texels(&looks);
+        let texels = element_texels(&looks, &[]);
         assert_eq!(texels.len(), 4);
         assert_eq!(texels[2][3], 0.0);
         assert_eq!(texels[3][0], 1.0);
+        let marked = element_texels(
+            &looks,
+            &[Mark {
+                selected: true,
+                conflict: true,
+            }],
+        );
+        assert_eq!(marked[3][2..], [1.0, 1.0]);
     }
 
     #[test]

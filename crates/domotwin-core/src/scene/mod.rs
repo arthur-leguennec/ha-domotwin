@@ -13,7 +13,7 @@ mod kit;
 mod openings;
 mod structure;
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use crate::geometry::heights::WALL_HEIGHT;
 use crate::geometry::polygon::{P2, point_in_polygon};
@@ -82,7 +82,8 @@ pub struct Scene {
     pub opaque: Mesh,
     /// Glass and contact shadows that never move, drawn after the opaque geometry.
     pub transparent: Mesh,
-    /// The moving parts (doors, windows, curtains, blinds), rebuilt by [`build_dynamic`].
+    /// The moving parts (doors, windows, curtains, blinds, and the pieces moved in edit mode),
+    /// rebuilt by [`build_dynamic`].
     pub dynamic_opaque: Mesh,
     /// Glass of the moving parts.
     pub dynamic_transparent: Mesh,
@@ -137,6 +138,8 @@ pub(crate) struct Builder {
     pub(crate) dynamic: bool,
     /// Live changes to the moving parts.
     pub(crate) overrides: Overrides,
+    /// Pieces of furniture built with the moving parts (being moved in edit mode).
+    pub(crate) moving: BTreeSet<usize>,
 }
 
 impl Builder {
@@ -221,6 +224,12 @@ impl Builder {
 
 /// Builds the scene of a plan, the moving parts as the plan has them.
 pub fn build_scene(plan: &Plan, options: &SceneOptions) -> Scene {
+    build_scene_moving(plan, options, &BTreeSet::new())
+}
+
+/// Builds the scene of a plan with the pieces of furniture `moving` (element indices) among the
+/// moving parts, so that [`build_dynamic`] rebuilds them alone while they are dragged.
+pub fn build_scene_moving(plan: &Plan, options: &SceneOptions, moving: &BTreeSet<usize>) -> Scene {
     let layout = WallLayout::new(plan);
     let wall_height = if options.wall_height.is_finite() {
         options.wall_height.clamp(150.0, 400.0)
@@ -229,6 +238,7 @@ pub fn build_scene(plan: &Plan, options: &SceneOptions) -> Scene {
     };
     let mut builder = Builder {
         wall_height,
+        moving: moving.clone(),
         ..Builder::default()
     };
     let mut rooms = Vec::new();
@@ -279,12 +289,35 @@ pub fn build_scene(plan: &Plan, options: &SceneOptions) -> Scene {
 /// Rebuilds the moving parts of a scene (doors, windows, curtains, blinds) with live changes.
 /// Returns the opaque and the transparent meshes.
 pub fn build_dynamic(plan: &Plan, scene: &Scene, overrides: &Overrides) -> (Mesh, Mesh) {
+    let (opaque, transparent, _) = build_dynamic_lit(plan, scene, overrides);
+    (opaque, transparent)
+}
+
+/// [`build_dynamic`], with the lamps of the moving parts where they are now (pieces dragged in
+/// edit mode carry theirs).
+pub fn build_dynamic_lit(
+    plan: &Plan,
+    scene: &Scene,
+    overrides: &Overrides,
+) -> (Mesh, Mesh, Vec<LightSpot>) {
     let mut builder = scene.context.clone();
     builder.overrides = overrides.clone();
     builder.lights.clear();
     openings::build(&mut builder, plan, &scene.layout);
     furniture::build(&mut builder, plan, &scene.layout);
-    (builder.opaque, builder.transparent)
+    (builder.opaque, builder.transparent, builder.lights)
+}
+
+impl Scene {
+    /// The pieces built with the moving parts (element indices).
+    pub fn moving(&self) -> &BTreeSet<usize> {
+        &self.context.moving
+    }
+
+    /// The walls of the plan (faces and blocks for edit mode).
+    pub fn walls(&self) -> &WallLayout {
+        &self.layout
+    }
 }
 
 fn union(a: [[f32; 3]; 2], b: [[f32; 3]; 2]) -> [[f32; 3]; 2] {
