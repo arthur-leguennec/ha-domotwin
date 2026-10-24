@@ -217,7 +217,13 @@ impl StepFile {
     ///
     /// `NotStep` when the file is not a STEP file, `TooLarge` past `MAX_ENTITIES` instances.
     pub fn new(data: Vec<u8>) -> Result<Self, StepError> {
-        let start = skip_blank(&data, 0);
+        // A byte-order mark some editors add is not part of the file.
+        let bom = if data.starts_with(&[0xEF, 0xBB, 0xBF]) {
+            3
+        } else {
+            0
+        };
+        let start = skip_blank(&data, bom);
         let head = data.get(start..).unwrap_or_default();
         let magic = b"ISO-10303-21";
         if head.len() < magic.len() || !head[..magic.len()].eq_ignore_ascii_case(magic) {

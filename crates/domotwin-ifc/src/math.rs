@@ -151,22 +151,38 @@ fn orient(a: P2, b: P2, c: P2) -> f64 {
     (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])
 }
 
-fn segments_cross(a: P2, b: P2, c: P2, d: P2) -> bool {
-    let (d1, d2) = (orient(a, b, c), orient(a, b, d));
-    let (d3, d4) = (orient(c, d, a), orient(c, d, b));
-    ((d1 > 1e-9 && d2 < -1e-9) || (d1 < -1e-9 && d2 > 1e-9))
-        && ((d3 > 1e-9 && d4 < -1e-9) || (d3 < -1e-9 && d4 > 1e-9))
+/// Whether `p` lies on segment AB within `eps` (as the core's plan reader tests it).
+fn on_segment(p: P2, a: P2, b: P2, eps: f64) -> bool {
+    orient(a, b, p).abs() <= eps * (b[0] - a[0]).hypot(b[1] - a[1]).max(1.0)
+        && p[0] >= a[0].min(b[0]) - eps
+        && p[0] <= a[0].max(b[0]) + eps
+        && p[1] >= a[1].min(b[1]) - eps
+        && p[1] <= a[1].max(b[1]) + eps
 }
 
-/// Whether two non-adjacent sides of the polygon cross.
+/// Whether segments AB and CD cross or touch.
+fn segments_meet(a: P2, b: P2, c: P2, d: P2) -> bool {
+    let (ab1, ab2) = (orient(a, b, c), orient(a, b, d));
+    let (cd1, cd2) = (orient(c, d, a), orient(c, d, b));
+    if ab1 * ab2 < -1e-9 && cd1 * cd2 < -1e-9 {
+        return true;
+    }
+    on_segment(a, c, d, 1e-7)
+        || on_segment(b, c, d, 1e-7)
+        || on_segment(c, a, b, 1e-7)
+        || on_segment(d, a, b, 1e-7)
+}
+
+/// Whether two non-adjacent sides of the polygon cross or touch: the plan reader's own test, so a
+/// polygon that passes here is never refused there.
 pub fn self_intersects(points: &[P2]) -> bool {
     let n = points.len();
     for i in 0..n {
-        for j in i + 2..n {
-            if i == 0 && j == n - 1 {
+        for j in i + 1..n {
+            if j == i + 1 || (i == 0 && j == n - 1) {
                 continue;
             }
-            if segments_cross(
+            if segments_meet(
                 points[i],
                 points[(i + 1) % n],
                 points[j],
@@ -299,6 +315,15 @@ mod tests {
         assert!(!self_intersects(&clean));
         let bow = [[0.0, 0.0], [10.0, 10.0], [10.0, 0.0], [0.0, 10.0]];
         assert!(self_intersects(&bow));
+        // Touching counts, as for the plan reader: a corner on a side that is not its neighbour.
+        let touching = [
+            [0.0, 0.0],
+            [10.0, 0.0],
+            [10.0, 10.0],
+            [5.0, 0.0],
+            [0.0, 10.0],
+        ];
+        assert!(self_intersects(&touching));
         assert_eq!(convex_hull(&bow).len(), 4);
         let circle: Vec<P2> = (0..200)
             .map(|i| {

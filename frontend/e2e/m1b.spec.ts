@@ -27,7 +27,7 @@ test.describe("IFC import", () => {
     await importFile(page, "../examples/demo-apartment.ifc");
     await expect(
       page.getByText(
-        "Imported from IFC: Fictional building – Level 0. Left out: 1 unknown piece, 2 outside or overall spaces.",
+        "Imported from IFC: Fictional building – Level 0. Left out: 1 unknown or stray piece, 2 outside or overall spaces.",
       ),
     ).toBeVisible();
     await expect(page.getByTestId("summary")).toContainText("6 rooms");
@@ -46,6 +46,8 @@ test.describe("IFC import", () => {
     await expect(picker.getByRole("button")).toHaveCount(3);
     await expect(picker.getByRole("button").first()).toContainText("Rez-de-chaussée");
     await expect(picker.getByRole("button").first()).toContainText("4 pièces · 0 m");
+    // One import at a time: no other file while the storey is being chosen.
+    await expect(page.getByRole("button", { name: "Importer un plan" }).first()).toBeDisabled();
     await picker.getByRole("button", { name: /Étage/ }).click();
     await expect(
       page.getByText("Importé depuis l’IFC : Maison des Exemples – Étage."),

@@ -47,10 +47,12 @@ boolean results, CSG blocks, bounding boxes.
 
 After the import, a message lists what was left out:
 
-- **outside or overall spaces**: spaces marked external, and spaces that hold several others (gross
-  floor areas);
+- **outside or overall spaces**: spaces marked external or as a gross floor area (`GFA`), spaces
+  drawn over other ones (where one holds the centre of another, the larger one goes), spaces larger
+  than a plan room can be (100 m);
 - **doors or windows off the walls**: openings more than 45 cm from any room side;
-- **unknown pieces**: elements without geometry, and proxies whose name says nothing;
+- **unknown or stray pieces**: elements without geometry, proxies whose name says nothing, and
+  pieces more than 10 m away from every room (often left at the project origin);
 - **elements past the 500 limit**: a plan holds 500 elements; rooms come first, then doors and
   windows, then the largest pieces.
 

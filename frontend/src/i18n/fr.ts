@@ -122,7 +122,10 @@ export const fr: Dictionary = {
       one: "{count} porte ou fenêtre hors des murs",
       other: "{count} portes ou fenêtres hors des murs",
     },
-    ifc_skipped_furniture: { one: "{count} meuble inconnu", other: "{count} meubles inconnus" },
+    ifc_skipped_furniture: {
+      one: "{count} meuble inconnu ou égaré",
+      other: "{count} meubles inconnus ou égarés",
+    },
     ifc_skipped_spaces: {
       one: "{count} espace extérieur ou global",
       other: "{count} espaces extérieurs ou globaux",

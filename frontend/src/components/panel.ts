@@ -229,6 +229,7 @@ export class DomoTwinPanel extends LitElement {
     this.unsubscribe?.();
     this.unsubscribe = undefined;
     window.clearTimeout(this.toastTimer);
+    this.cancelIfc();
   }
 
   private connectData(): void {
@@ -323,6 +324,8 @@ export class DomoTwinPanel extends LitElement {
   };
 
   private readonly chooseFile = (): void => {
+    // One import at a time: not while a file is read or its storey is being chosen.
+    if (this.busy || this.ifcChoice) return;
     this.renderRoot.querySelector<HTMLInputElement>("input[type=file]")?.click();
   };
 
@@ -331,7 +334,7 @@ export class DomoTwinPanel extends LitElement {
     const file = input.files?.[0];
     input.value = "";
     const client = this.client;
-    if (!file || !client) return;
+    if (!file || !client || this.busy || this.ifcChoice) return;
     if (/\.ifc$/i.test(file.name)) {
       await this.readIfc(file);
       return;
@@ -494,7 +497,7 @@ export class DomoTwinPanel extends LitElement {
           admin
             ? html`<button
                 class="action"
-                ?disabled=${this.busy}
+                ?disabled=${this.busy || this.ifcChoice !== undefined}
                 @click=${this.chooseFile}
                 aria-label=${t.t("panel.import")}
               >

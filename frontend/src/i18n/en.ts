@@ -122,7 +122,10 @@ export const en = {
       one: "{count} door or window off the walls",
       other: "{count} doors or windows off the walls",
     },
-    ifc_skipped_furniture: { one: "{count} unknown piece", other: "{count} unknown pieces" },
+    ifc_skipped_furniture: {
+      one: "{count} unknown or stray piece",
+      other: "{count} unknown or stray pieces",
+    },
     ifc_skipped_spaces: {
       one: "{count} outside or overall space",
       other: "{count} outside or overall spaces",

@@ -25,6 +25,13 @@ const MAX_VERTICES: usize = 64;
 const MAX_WALL_GAP: f64 = 59.0;
 /// How far (cm) from a room side an opening may be to be put on it.
 const SNAP_DISTANCE: f64 = 45.0;
+/// Gaps narrower than this (cm) between two rooms are closed but are not walls.
+const MIN_WALL: f64 = 2.0;
+/// Largest room side and farthest coordinate the plan format allows (cm).
+const MAX_ROOM: f64 = 10_000.0;
+const MAX_COORDINATE: f64 = 50_000.0;
+/// Pieces farther than this (cm) from every room are left out.
+const MAX_STRAY: f64 = 1_000.0;
 
 /// A storey that can be imported.
 #[derive(Debug, Clone, PartialEq)]
@@ -434,6 +441,109 @@ struct RoomOut {
     points: Vec<P2>,
     /// Partition thickness of each side when it differs from the plan's interior thickness.
     thickness: Vec<Option<f64>>,
+    /// The frame and vertices written, once checked.
+    frame: Option<RoomFrame>,
+}
+
+/// A room as the plan stores it: its frame and its vertices relative to the frame.
+#[derive(Debug, Clone)]
+struct RoomFrame {
+    x: f64,
+    y: f64,
+    w: f64,
+    h: f64,
+    vertices: Vec<P2>,
+}
+
+fn bounds(points: &[P2]) -> [f64; 4] {
+    points.iter().fold(
+        [
+            f64::INFINITY,
+            f64::INFINITY,
+            f64::NEG_INFINITY,
+            f64::NEG_INFINITY,
+        ],
+        |b, p| {
+            [
+                b[0].min(p[0]),
+                b[1].min(p[1]),
+                b[2].max(p[0]),
+                b[3].max(p[1]),
+            ]
+        },
+    )
+}
+
+/// The frame of a room once shifted, or `None` when the plan reader would refuse it: the same
+/// rounding, the same tests (size, position, corners, crossing or touching sides, area).
+fn room_frame(points: &[P2], shift: impl Fn(P2) -> P2) -> Option<RoomFrame> {
+    let points: Vec<P2> = points.iter().map(|&p| shift(p)).collect();
+    let [lo_x, lo_y, hi_x, hi_y] = bounds(&points);
+    let (w, h) = (
+        round1((hi_x - lo_x).max(5.0)),
+        round1((hi_y - lo_y).max(5.0)),
+    );
+    if w > MAX_ROOM || h > MAX_ROOM {
+        return None;
+    }
+    if [lo_x, lo_y, lo_x + w, lo_y + h]
+        .iter()
+        .any(|v| v.abs() > MAX_COORDINATE)
+    {
+        return None;
+    }
+    let vertices: Vec<P2> = points
+        .iter()
+        .map(|p| {
+            [
+                ((p[0] - lo_x) / w * 1e6).round() / 1e6,
+                ((p[1] - lo_y) / h * 1e6).round() / 1e6,
+            ]
+        })
+        .collect();
+    let valid = (3..=MAX_VERTICES).contains(&vertices.len())
+        && !self_intersects(&vertices)
+        && signed_area2(&vertices).abs() / 2.0 * w * h >= 25.0;
+    valid.then_some(RoomFrame {
+        x: lo_x,
+        y: lo_y,
+        w,
+        h,
+        vertices,
+    })
+}
+
+/// The thickness of each side of `points` from the side of `old` it lies on (after removing
+/// corners, most sides keep theirs).
+fn remap_thickness(old: &[P2], thickness: &[Option<f64>], points: &[P2]) -> Vec<Option<f64>> {
+    if thickness.len() != old.len() || thickness.iter().all(Option::is_none) {
+        return Vec::new();
+    }
+    let n = points.len();
+    (0..n)
+        .map(|i| {
+            let (a, b) = (points[i], points[(i + 1) % n]);
+            let m = [(a[0] + b[0]) / 2.0, (a[1] + b[1]) / 2.0];
+            let m_old = old.len();
+            (0..m_old)
+                .find(|&k| {
+                    let (p, q) = (old[k], old[(k + 1) % m_old]);
+                    segment_distance(m, p, q) < 1.0
+                })
+                .and_then(|k| thickness[k])
+        })
+        .collect()
+}
+
+fn segment_distance(m: P2, a: P2, b: P2) -> f64 {
+    let (dx, dy) = (b[0] - a[0], b[1] - a[1]);
+    let len2 = dx * dx + dy * dy;
+    let t = if len2 < 1e-12 {
+        0.0
+    } else {
+        (((m[0] - a[0]) * dx + (m[1] - a[1]) * dy) / len2).clamp(0.0, 1.0)
+    };
+    (m[0] - a[0] - dx * t).hypot(m[1] - a[1] - dy * t)
 }
 
 fn median(values: &mut [f64]) -> Option<f64> {
@@ -469,17 +579,24 @@ fn element_name(model: &Model, id: u32) -> String {
         _ => "",
     };
     let text = text.trim();
-    // Revit-style "Family:Type:12345" names: the family is the readable part.
-    let readable = text.split(':').next().unwrap_or(text).trim();
+    // Revit names "Family:Type:12345": the family is the readable part. Other names keep their
+    // colons ("Chambre 1 : parents").
+    let parts: Vec<&str> = text.split(':').collect();
+    let revit = parts.len() >= 3
+        && parts.last().is_some_and(|id| {
+            !id.trim().is_empty() && id.trim().chars().all(|c| c.is_ascii_digit())
+        });
+    let readable = if revit { parts[0].trim() } else { text };
     readable.chars().take(100).collect()
 }
 
-/// Whether a space is outside (IFC2x3 `InteriorOrExteriorSpace`, IFC4 `PredefinedType`).
+/// Whether a space is not a room: outside (IFC2x3 `InteriorOrExteriorSpace`, IFC4
+/// `PredefinedType`) or a gross floor area (IFC4 `GFA`).
 fn is_external_space(model: &Model, space: u32) -> bool {
     model
         .get(space)
         .and_then(|e| e.enumeration(9).map(str::to_owned))
-        .is_some_and(|v| v == "EXTERNAL")
+        .is_some_and(|v| v == "EXTERNAL" || v == "GFA")
 }
 
 /// Floor covering from a room name (a guess the user can change in House Maquette).
@@ -709,33 +826,46 @@ pub fn convert(
             report.skipped_spaces += 1;
             continue;
         }
+        // Larger than a room of the plan format can be (100 m): not a room.
+        let [lo_x, lo_y, hi_x, hi_y] = bounds(&points);
+        if hi_x - lo_x > MAX_ROOM || hi_y - lo_y > MAX_ROOM {
+            report.skipped_spaces += 1;
+            continue;
+        }
         rooms.push(RoomOut {
             id: String::new(),
             name: element_name(model, space),
             points,
             thickness: Vec::new(),
+            frame: None,
         });
         let last = rooms.len() - 1;
         rooms[last].id = unique(global_id(model, space));
     }
-    // Gross areas: a space holding the centres of two or more others.
+    // Overlapping spaces (gross areas, zones drawn over rooms): where one holds the centre of
+    // another, the larger one goes.
     let centres: Vec<P2> = rooms.iter().map(|r| centroid(&r.points)).collect();
-    let gross: Vec<bool> = rooms
+    let areas: Vec<f64> = rooms
         .iter()
-        .enumerate()
-        .map(|(k, r)| {
-            centres
-                .iter()
-                .enumerate()
-                .filter(|&(j, c)| j != k && point_in_polygon(*c, &r.points))
-                .count()
-                >= 2
-        })
+        .map(|r| signed_area2(&r.points).abs())
         .collect();
+    let mut overlapping = vec![false; rooms.len()];
+    for k in 0..rooms.len() {
+        for j in 0..rooms.len() {
+            if j != k && point_in_polygon(centres[j], &rooms[k].points) {
+                let larger = if areas[k] > areas[j] || (areas[k] == areas[j] && k > j) {
+                    k
+                } else {
+                    j
+                };
+                overlapping[larger] = true;
+            }
+        }
+    }
     let before = rooms.len();
     let mut k = 0;
     rooms.retain(|_| {
-        let keep = !gross[k];
+        let keep = !overlapping[k];
         k += 1;
         keep
     });
@@ -749,7 +879,12 @@ pub fn convert(
     let split: Vec<Vec<Side>> = (0..polygons.len())
         .map(|k| split_sides(&polygons, k))
         .collect();
-    let mut measured: Vec<f64> = split.iter().flatten().filter_map(|s| s.gap).collect();
+    let mut measured: Vec<f64> = split
+        .iter()
+        .flatten()
+        .filter_map(|s| s.gap)
+        .filter(|g| *g >= MIN_WALL)
+        .collect();
     let walls = walls(model, &elements);
     let mut internal: Vec<f64> = walls
         .iter()
@@ -777,21 +912,46 @@ pub fn convert(
             room.points = points;
             room.thickness = moved
                 .iter()
-                .map(|(_, g)| g.filter(|g| (g - interior).abs() > 3.0).map(round1))
+                .map(|(_, g)| {
+                    g.filter(|g| *g >= MIN_WALL && (g - interior).abs() > 3.0)
+                        .map(|g| round1(g).clamp(1.0, 100.0))
+                })
                 .collect();
         }
     }
     for room in &mut rooms {
         let simple = simplify_polygon(&room.points, MAX_VERTICES);
-        if simple.len() != room.points.len() {
-            room.thickness = Vec::new();
-        }
-        room.points = if simple.len() >= 3 && !self_intersects(&simple) {
+        let points = if simple.len() >= 3 && !self_intersects(&simple) {
             simple
         } else {
-            room.thickness = Vec::new();
             convex_hull(&room.points)
         };
+        room.thickness = remap_thickness(&room.points, &room.thickness, &points);
+        room.points = points;
+    }
+
+    // Next to the origin; every room checked as the plan reader will check it (its hull when its
+    // own outline fails, left out when that fails too).
+    let (mut min_x, mut min_y) = (f64::INFINITY, f64::INFINITY);
+    for p in rooms.iter().flat_map(|r| &r.points) {
+        min_x = min_x.min(p[0]);
+        min_y = min_y.min(p[1]);
+    }
+    let shift = |p: P2| [round1(p[0] - min_x), round1(p[1] - min_y)];
+    for room in &mut rooms {
+        room.frame = room_frame(&room.points, shift);
+        if room.frame.is_none() {
+            let hull = convex_hull(&room.points);
+            room.thickness = remap_thickness(&room.points, &room.thickness, &hull);
+            room.frame = room_frame(&hull, shift);
+            room.points = hull;
+        }
+    }
+    let before = rooms.len();
+    rooms.retain(|r| r.frame.is_some());
+    report.skipped_spaces += before - rooms.len();
+    if rooms.is_empty() {
+        return Err("no_spaces");
     }
 
     // Openings.
@@ -959,10 +1119,15 @@ pub fn convert(
             (Some(t), true) => t.ty,
             _ => class,
         };
+        // On types, `PredefinedType` follows `ElementType`, except on `IfcFurnitureType` where
+        // `AssemblyPlace` comes first.
+        let type_predefined = type_object
+            .as_ref()
+            .and_then(|t| t.enumeration(if t.ty == "IFCFURNITURETYPE" { 10 } else { 9 }));
         let predefined = entity
             .enumeration(8)
             .filter(|p| *p != "NOTDEFINED" && *p != "USERDEFINED")
-            .or_else(|| type_object.as_ref().and_then(|t| t.enumeration(9)));
+            .or(type_predefined);
         let names = [
             entity.text(2).unwrap_or_default(),
             entity.text(4).unwrap_or_default(),
@@ -986,6 +1151,23 @@ pub fn convert(
             (lo[2] + hi[2]) / 2.0,
         ]));
         let angle = degrees(frame.vector(t.vector([1.0, 0.0, 0.0])));
+        // Far from every room (a stray piece at the project origin): left out.
+        let near = rooms.iter().any(|r| {
+            let [lo_x, lo_y, hi_x, hi_y] = bounds(&r.points);
+            centre[0] > lo_x - MAX_STRAY
+                && centre[0] < hi_x + MAX_STRAY
+                && centre[1] > lo_y - MAX_STRAY
+                && centre[1] < hi_y + MAX_STRAY
+        });
+        let shifted = shift(centre);
+        if !near
+            || shifted
+                .iter()
+                .any(|v| v.abs() + size[0].max(size[1]) > MAX_COORDINATE)
+        {
+            report.skipped_furniture += 1;
+            continue;
+        }
         pieces.push(Piece {
             id: unique(global_id(model, e)),
             name: element_name(model, e),
@@ -1019,45 +1201,18 @@ pub fn convert(
         pieces.truncate(budget);
     }
 
-    // Shift next to the origin.
-    let (mut min_x, mut min_y) = (f64::INFINITY, f64::INFINITY);
-    for p in rooms.iter().flat_map(|r| &r.points) {
-        min_x = min_x.min(p[0]);
-        min_y = min_y.min(p[1]);
-    }
-    let shift = |p: P2| [round1(p[0] - min_x), round1(p[1] - min_y)];
-
     let mut out: Vec<Json> = Vec::new();
     for room in &rooms {
-        let points: Vec<P2> = room.points.iter().map(|&p| shift(p)).collect();
-        let (lo_x, hi_x) = points
-            .iter()
-            .fold((f64::INFINITY, f64::NEG_INFINITY), |(a, b), p| {
-                (a.min(p[0]), b.max(p[0]))
-            });
-        let (lo_y, hi_y) = points
-            .iter()
-            .fold((f64::INFINITY, f64::NEG_INFINITY), |(a, b), p| {
-                (a.min(p[1]), b.max(p[1]))
-            });
-        let (w, h) = ((hi_x - lo_x).max(5.0), (hi_y - lo_y).max(5.0));
-        let vertices: Vec<Json> = points
-            .iter()
-            .map(|p| {
-                let u = ((p[0] - lo_x) / w * 1e6).round() / 1e6;
-                let v = ((p[1] - lo_y) / h * 1e6).round() / 1e6;
-                json!([u, v])
-            })
-            .collect();
+        let Some(frame) = &room.frame else { continue };
         let mut e = Map::new();
         e.insert("id".into(), json!(room.id));
         e.insert("type".into(), json!("room"));
         e.insert("name".into(), json!(room.name));
-        e.insert("x".into(), json!(lo_x));
-        e.insert("y".into(), json!(lo_y));
-        e.insert("w".into(), json!(round1(w)));
-        e.insert("h".into(), json!(round1(h)));
-        e.insert("vertices".into(), json!(vertices));
+        e.insert("x".into(), json!(frame.x));
+        e.insert("y".into(), json!(frame.y));
+        e.insert("w".into(), json!(frame.w));
+        e.insert("h".into(), json!(frame.h));
+        e.insert("vertices".into(), json!(frame.vertices));
         if room.thickness.len() == room.points.len() && room.thickness.iter().any(Option::is_some) {
             e.insert("edgeThickness".into(), json!(room.thickness));
         }
@@ -1163,4 +1318,46 @@ fn storey_title(model: &Model, storey: u32) -> String {
         (true, _) => storey_name,
     };
     title.chars().take(100).collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn thicknesses_follow_their_sides_when_corners_go() {
+        // A side split in two (a corner in the middle of it) carries 20 cm.
+        let old = [
+            [0.0, 0.0],
+            [5.0, 0.0],
+            [10.0, 0.0],
+            [10.0, 10.0],
+            [0.0, 10.0],
+        ];
+        let thickness = [Some(20.0), Some(20.0), None, None, None];
+        let simple = [[0.0, 0.0], [10.0, 0.0], [10.0, 10.0], [0.0, 10.0]];
+        assert_eq!(
+            remap_thickness(&old, &thickness, &simple),
+            [Some(20.0), None, None, None]
+        );
+        assert!(remap_thickness(&old, &[None; 5], &simple).is_empty());
+    }
+
+    #[test]
+    fn frames_are_checked_like_the_plan_reader() {
+        let square = [[0.0, 0.0], [400.0, 0.0], [400.0, 300.0], [0.0, 300.0]];
+        let frame = room_frame(&square, |p| p).unwrap();
+        assert_eq!((frame.w, frame.h), (400.0, 300.0));
+        assert_eq!(frame.vertices[2], [1.0, 1.0]);
+        let touching = [
+            [0.0, 0.0],
+            [400.0, 0.0],
+            [400.0, 300.0],
+            [200.0, 0.0],
+            [0.0, 300.0],
+        ];
+        assert!(room_frame(&touching, |p| p).is_none());
+        let far = [[60_000.0, 0.0], [60_400.0, 0.0], [60_400.0, 300.0]];
+        assert!(room_frame(&far, |p| p).is_none());
+    }
 }

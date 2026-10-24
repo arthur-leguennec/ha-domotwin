@@ -2,6 +2,7 @@
 //! relations between elements, properties, and the geometry reduced to points and outlines.
 //! Attribute positions follow IFC2x3 and IFC4 (they agree for everything read here).
 
+use std::cell::Cell;
 use std::collections::HashMap;
 
 use crate::math::{P2, Transform, V3, convex_hull, normalize, signed_area2};
@@ -11,6 +12,9 @@ use crate::step::{Entity, StepFile, Value};
 const MAX_DEPTH: usize = 32;
 /// Most geometry points gathered for one product.
 const MAX_POINTS: usize = 200_000;
+/// Most items, curves, faces and profiles visited to read one product's geometry: a file whose
+/// items refer to themselves (`#5=IFCGEOMETRICSET((#5,#5))`) stops here instead of fanning out.
+const MAX_STEPS: u32 = 200_000;
 
 /// An IFC file ready to be queried.
 #[derive(Debug)]
@@ -36,6 +40,8 @@ pub struct Model {
     pub types: HashMap<u32, u32>,
     /// Material of an element (`IfcRelAssociatesMaterial`).
     pub materials: HashMap<u32, u32>,
+    /// What is left of the current geometry walk (see `MAX_STEPS`).
+    steps: Cell<u32>,
 }
 
 fn point3(values: &[Value]) -> Option<V3> {
@@ -59,6 +65,7 @@ impl Model {
             properties: HashMap::new(),
             types: HashMap::new(),
             materials: HashMap::new(),
+            steps: Cell::new(MAX_STEPS),
         };
         model.read_units();
         model.read_relations();
@@ -67,6 +74,13 @@ impl Model {
 
     pub fn get(&self, id: u32) -> Option<Entity<'_>> {
         self.step.get(id)
+    }
+
+    /// Takes one step of the current geometry walk; false once the walk is over budget.
+    fn step(&self) -> bool {
+        let left = self.steps.get();
+        self.steps.set(left.saturating_sub(1));
+        left > 0
     }
 
     fn read_units(&mut self) {
@@ -307,6 +321,7 @@ impl Model {
 
     /// The points of the product's solid geometry, in its own placement frame (file units).
     pub fn local_points(&self, product: u32) -> Vec<V3> {
+        self.steps.set(MAX_STEPS);
         let mut out = Vec::new();
         for (identifier, items) in self.representations(product) {
             if matches!(
@@ -333,7 +348,7 @@ impl Model {
 
     /// Gathers the points of a representation item, transformed by `t`.
     fn item_points(&self, id: u32, t: &Transform, depth: usize, out: &mut Vec<V3>) {
-        if depth > MAX_DEPTH || out.len() >= MAX_POINTS {
+        if depth > MAX_DEPTH || out.len() >= MAX_POINTS || !self.step() {
             return;
         }
         let Some(e) = self.get(id) else { return };
@@ -474,6 +489,9 @@ impl Model {
 
     /// The outer loop of an `IfcFace`.
     fn face_loop(&self, face: u32) -> Vec<V3> {
+        if !self.step() {
+            return Vec::new();
+        }
         let Some(face) = self.get(face) else {
             return Vec::new();
         };
@@ -501,12 +519,12 @@ impl Model {
 
     /// The faces of a brep, each as its outer loop (for floor outlines).
     pub fn brep_faces(&self, item: u32, depth: usize) -> Vec<Vec<V3>> {
+        if depth > MAX_DEPTH || !self.step() {
+            return Vec::new();
+        }
         let Some(e) = self.get(item) else {
             return Vec::new();
         };
-        if depth > MAX_DEPTH {
-            return Vec::new();
-        }
         match e.ty {
             "IFCFACETEDBREP" | "IFCFACETEDBREPWITHVOIDS" => e
                 .reference(0)
@@ -549,9 +567,10 @@ impl Model {
             (s, s)
         };
         let frame = Transform::frame(origin, z, x);
+        let y = mirrored(frame.y, e.reference(1).and_then(|d| self.direction(d)));
         Transform {
             x: crate::math::scale(frame.x, s),
-            y: crate::math::scale(frame.y, sy),
+            y: crate::math::scale(y, sy),
             z: crate::math::scale(frame.z, sz),
             origin,
         }
@@ -559,6 +578,9 @@ impl Model {
 
     /// The outer outline of a profile, in its own 2D frame placed by its position.
     pub fn profile(&self, id: Option<u32>, depth: usize) -> Vec<P2> {
+        if depth > MAX_DEPTH || !self.step() {
+            return Vec::new();
+        }
         let Some(e) = id.and_then(|i| self.get(i)) else {
             return Vec::new();
         };
@@ -590,13 +612,21 @@ impl Model {
                 ellipse(e.number(3).unwrap_or(0.0), e.number(4).unwrap_or(0.0)),
                 e.reference(2),
             ),
-            "IFCISHAPEPROFILEDEF"
-            | "IFCUSHAPEPROFILEDEF"
+            // OverallWidth (x), then OverallDepth (y).
+            "IFCISHAPEPROFILEDEF" => {
+                let (x, y) = (
+                    e.number(3).unwrap_or(0.0) / 2.0,
+                    e.number(4).unwrap_or(0.0) / 2.0,
+                );
+                placed(vec![[-x, -y], [x, -y], [x, y], [-x, y]], e.reference(2))
+            }
+            // Depth (y), then the width of the flange or leg (x).
+            "IFCUSHAPEPROFILEDEF"
             | "IFCCSHAPEPROFILEDEF"
             | "IFCZSHAPEPROFILEDEF"
             | "IFCTSHAPEPROFILEDEF"
             | "IFCLSHAPEPROFILEDEF" => {
-                let (x, y) = (
+                let (y, x) = (
                     e.number(3).unwrap_or(0.0) / 2.0,
                     e.number(4).unwrap_or(0.0) / 2.0,
                 );
@@ -647,9 +677,10 @@ impl Model {
             .unwrap_or([0.0; 3]);
         let s = e.number(3).filter(|s| *s > 0.0).unwrap_or(1.0);
         let frame = Transform::frame(origin, None, x);
+        let y = mirrored(frame.y, e.reference(1).and_then(|d| self.direction(d)));
         Transform {
             x: crate::math::scale(frame.x, s),
-            y: crate::math::scale(frame.y, s),
+            y: crate::math::scale(y, s),
             z: frame.z,
             origin,
         }
@@ -657,12 +688,12 @@ impl Model {
 
     /// The points of a curve, in order (arcs are reduced to their end points).
     pub fn curve(&self, id: u32, depth: usize) -> Vec<V3> {
+        if depth > MAX_DEPTH || !self.step() {
+            return Vec::new();
+        }
         let Some(e) = self.get(id) else {
             return Vec::new();
         };
-        if depth > MAX_DEPTH {
-            return Vec::new();
-        }
         match e.ty {
             "IFCPOLYLINE" => e
                 .get(0)
@@ -729,14 +760,10 @@ impl Model {
                         .iter()
                         .find_map(|t| t.reference().and_then(|p| self.point(p)))
                 };
+                // Always from Trim1 to Trim2: the sense only says which way around the basis
+                // curve, which end points alone cannot show.
                 match (trim(e.get(1)), trim(e.get(2))) {
-                    (Some(a), Some(b)) => {
-                        if e.get(3).enumeration() == Some("F") {
-                            vec![b, a]
-                        } else {
-                            vec![a, b]
-                        }
-                    }
+                    (Some(a), Some(b)) => vec![a, b],
                     _ => Vec::new(),
                 }
             }
@@ -749,6 +776,7 @@ impl Model {
     /// its `FootPrint` curve, else the profile of its extruded body, else the lowest face of its
     /// brep, else the hull of its points.
     pub fn footprint(&self, space: u32) -> Vec<P2> {
+        self.steps.set(MAX_STEPS);
         let representations = self.representations(space);
         for (identifier, items) in &representations {
             if identifier == "FootPrint" {
@@ -801,7 +829,7 @@ impl Model {
 
     /// The outline of a vertical extrusion seen from above.
     fn extrusion_outline(&self, item: u32, t: &Transform, depth: usize) -> Option<Vec<P2>> {
-        if depth > MAX_DEPTH {
+        if depth > MAX_DEPTH || !self.step() {
             return None;
         }
         let e = self.get(item)?;
@@ -888,6 +916,15 @@ fn si_factor(prefix: Option<&str>, name: Option<&str>) -> Option<f64> {
         Some(_) => 1.0,
     };
     Some(base * scale)
+}
+
+/// The second axis of a transformation operator: the right-handed `y`, or its opposite when the
+/// file's `Axis2` points the other way (a mirrored instance).
+fn mirrored(y: V3, axis2: Option<V3>) -> V3 {
+    match axis2 {
+        Some(a) if crate::math::dot(a, y) < 0.0 => crate::math::scale(y, -1.0),
+        _ => y,
+    }
 }
 
 fn box_corners(a: V3, b: V3) -> [V3; 8] {

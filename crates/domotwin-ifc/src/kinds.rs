@@ -234,7 +234,7 @@ pub(crate) fn kind(names: &[&str], clues: Clues<'_>) -> Option<&'static str> {
         if kind == "table" && w.max(d) >= 120.0 && w.min(d) >= 70.0 && h >= 65.0 {
             return Some("dining");
         }
-        if kind == "lamp" && clues.class == "IFCLIGHTFIXTURE" {
+        if kind == "lamp" && clues.class.starts_with("IFCLIGHTFIXTURE") {
             return Some(lamp_by_height());
         }
         return Some(kind);
@@ -350,6 +350,12 @@ mod tests {
             ..clues("IFCLIGHTFIXTURE", None)
         };
         assert_eq!(kind(&["Luminaire 3"], high), Some("ceilinglight"));
+        // IFC2x3: a flow terminal typed as a light fixture.
+        let typed = Clues {
+            elevation: 240.0,
+            ..clues("IFCLIGHTFIXTURETYPE", None)
+        };
+        assert_eq!(kind(&["Ceiling lamp"], typed), Some("ceilinglight"));
         assert_eq!(
             kind(&["Proxy"], clues("IFCBUILDINGELEMENTPROXY", None)),
             None
