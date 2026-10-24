@@ -322,3 +322,31 @@ the storeys are small and most of a frame is the offscreen picture and its bloom
 pictures of the storeys are drawn once per home and per look (280 × 180 pixels each), not per
 frame. Spreading the storeys apart redraws the sun's shadow map on each frame of the animation in
 the day look (0.7 s), as a moving wall does.
+
+### M10 (walking, kiosks and voice)
+
+Bundle: the first load is **391.6 kB gzipped** of 1 200 kB (+10.4 kB):
+
+| File | Raw | Gzipped |
+| --- | ---: | ---: |
+| `domotwin_web_bg.<hash>.wasm` | 725.1 kB | 314.9 kB |
+| `domotwin.js` (entry) | 123.3 kB | 31.3 kB |
+
+The engine grew by 6.7 kB (the walls and doors a walker meets, the way through the doors, the
+widest view, the walking camera, the ceilings), the rest by 3.7 kB (the walk button, pad and keys,
+the kiosk's wait, slow turn and dimming, `domotwin.show`, the options, the texts).
+
+Frame time in headless Chromium at the High preset, in the day look in the evening with the lamps
+on (`e2e/perf.spec.ts`, "frame time of each look" and "frame time walking", one run):
+
+| Shown | CPU per frame (median, p95) | Software GPU per frame (median) |
+| --- | ---: | ---: |
+| The ground floor from above | 1.1 ms, 5.0 ms | 300 ms |
+| Walking through it at eye level, ceilings on | 0.9 ms, 5.2 ms | 417 ms |
+
+At eye level the walls are whole (no cut-away) and the ceilings are drawn, so more of the screen
+is covered by near surfaces, each lit by the lamps of its room: the software GPU, which shades
+every pixel, takes about a third longer; a real GPU does not notice. A walk step costs a few
+segment distances (the walls of a storey) per frame while moving, and nothing once standing. The
+kiosk's slow turn draws 20 frames per second, the dimmed screen none at all, and the wait for
+idle is a check per second, not a frame.

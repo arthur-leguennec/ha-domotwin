@@ -58,8 +58,10 @@ every reader returns `Result` with a stable error code that the frontend transla
   `scene::mesh` packs the vertices) and the moving parts (doors, windows, blinds, curtains) into
   two small ones. A home shown whole has these meshes for each storey (a part with its elevation,
   the elements, rooms, walls and lamps numbered across the home) and a roof over the top one
-  (`scene::roof`, D-028); `camera` holds the camera math and the cut-away decision; `bindings` and `live`
-  turn entity states into the look of each element and fade towards it (D-016).
+  (`scene::roof`, D-028); `camera` holds the camera math and the cut-away decision, and the
+  walking camera at eye level; `walk` is the floor a walker meets (the walls and windows that stop
+  it, the doors it goes through, the way from room to room, the widest view, D-029); `bindings`
+  and `live` turn entity states into the look of each element and fade towards it (D-016).
 - `domotwin-render` uploads the meshes once and draws them with its own shaders (`shaders.rs`):
   the sun shadow map (Balanced and High, day look), the background (sky, ground and grid), the
   opaque home and the walls (their tops alone in neon and blueprint), then glass and contact
@@ -69,12 +71,14 @@ every reader returns `Result` with a stable error code that the frontend transla
   The look of every element (glow, greyed out, flash) is a small texture the vertex shader reads;
   `lamps.rs` picks the point lights. `view.rs` runs the camera moves, the 2D switch, the wall
   animations and where the storeys go: each storey is drawn moved by its offset (a uniform), up
-  and spread apart in 3D, side by side on the 2D plan, the roof above the top one. See D-014,
-  D-016 and D-028.
+  and spread apart in 3D, side by side on the 2D plan, the roof above the top one; and the walk:
+  a walker's steps on the floor, its way through the doors, the slow turn of a kiosk. Walking
+  draws the walls whole and the rooms' ceilings (day look). See D-014, D-016, D-028 and D-029.
 - `domotwin-web` exposes a small API: `loadPlan` (or `loadStoreys`, with `setSpread`, `setRoof`,
   `storeyLabels` and `storeyPicture`, for every storey at once), `setBindings`, `setStates`, `highlight`,
   `orbit`, `pan`, `zoom`, `setPlanView`, `overview`, `focusElement`, `views`, `showView`, `pick`,
-  `screenPoint`, `stats`, `frame`, and for 3D files `modelFiles` (what to fetch) and `setModelMesh`.
+  `screenPoint`, `stats`, `frame`, walking (`setWalk`, `setWalkVelocity`, `walkTo`) and the kiosk's
+  `setAutoOrbit`, and for 3D files `modelFiles` (what to fetch) and `setModelMesh`.
 - In the frontend, `src/gestures.ts` turns pointer events into drags, pans, pinches, taps and long
   presses, and `<domotwin-view>` applies them, runs the actions and draws the toolbar.
 
@@ -106,6 +110,11 @@ every reader returns `Result` with a stable error code that the frontend transla
    applied to the stored plan and read again. On save the frontend sends the overlay with
    `domotwin/plan/save` (admins only, with the revision it started from), and every open view
    reloads through `domotwin/subscribe`.
+5. **Show.** The `domotwin.show` action (`services.py`, D-029), run by a script, an automation or
+   the voice blueprint (`blueprints/automation/domotwin/show_by_voice.yaml`), is sent as it was
+   asked to every open view through `domotwin/subscribe` (`{kind: "show", show}`). Each card (the
+   one with that `screen`, or all of them) and the panel find the room, element, storey or
+   viewpoint named (`src/live/show.ts`), switch storey if they must and frame it.
 
 ## Storage
 
@@ -162,7 +171,7 @@ when the integration is removed.
 | `domotwin/bindings/save` | admin  | `bindings`, `expected_revision?`               | `revision`                       |
 | `domotwin/settings/get`  | user   | –                                              | `settings`, `revision`           |
 | `domotwin/settings/save` | admin  | `settings` (`north`, 0 ≤ n < 360)              | `revision`                       |
-| `domotwin/subscribe`     | user   | –                                              | events `{kind, revision}`        |
+| `domotwin/subscribe`     | user   | –                                              | events `{kind, revision}`, and `{kind: "show", show}` for `domotwin.show` |
 
 Errors: `not_loaded`, `invalid_plan`, `invalid_layout`, `invalid_bindings`, `invalid_settings`,
 `too_large`,

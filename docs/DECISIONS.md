@@ -680,3 +680,50 @@ Decided while the maintainer was away (M9); open to review.
   fetched them for the alerts). The first load grew by 22.0 kB gzipped: the engine 19.5 kB (the
   scene of storeys, the roof, the offsets and the plan side by side, the pictures) and the rest
   2.5 kB (the switcher's button, the labels, the pictures, the options, the texts).
+
+## D-029 · Kiosk: walking at eye level, a card that waits and dims, `domotwin.show` for Assist
+
+Decided while the maintainer was away (M10); open to review.
+
+- **Context.** DomoTwin lives on wall tablets as much as on dashboards. People expect to walk
+  through their twin at eye level, a wall screen to go back to its view and dim at night on its own,
+  and to ask for a room by voice. Assist, Home Assistant's voice assistant, runs locally and
+  already handles speech; nothing outside Home Assistant may be called (D-022).
+- **Decision.**
+  - **Walking is the same camera, at the eyes.** The orbit camera gets a `walk` amount (0 around the
+    home, 1 at eye level): its target 1 m ahead of the eyes at 1.6 m, the pitch free to look up, the
+    field of view widened (72° instead of 40°), the walls whole, blended on the way in and out like
+    any camera move. No second camera, no second renderer.
+  - **Where a walker can go comes from the walls drawn.** `domotwin-core::walk` takes the wall
+    bands of the scene, cut where a door is (windows stay walls), and the free partitions (the same
+    footprint the scene draws), and keeps a walker 20 cm from them, sliding along a wall in the
+    way. A tap on the floor in sight walks there (a tap on a wall does nothing), through the doors
+    and the open sides between rooms: the fewest of them between the two rooms (a breadth-first
+    search on the rooms they link), 45 cm into each room on the way. A room shown is walked into
+    (to a point well inside it), a piece walked up to and faced. Walking starts where the camera
+    looked, facing the widest view, a couple of steps back. Furniture is not in the way: a plan's
+    pieces are not walls, and stopping at every chair would make tablets frustrating.
+  - **Rooms have ceilings when walking** (in the day look; the night looks keep the sky above the
+    glass walls): the ceilings the real sun's shadows already used, lit by their room's lamps and
+    the light bounced from the room, never by the sun. Under them the sun comes in through the
+    windows only, as the real sun does (the ceilings are in its shadow map). What cameras see,
+    drawn flat over the picture to be read from above, is not drawn at eye level.
+  - **A kiosk is a card's options.** `idle` (seconds) brings it back to the view it opened on
+    (its storey, 2D or 3D, its room), `orbit` turns it slowly meanwhile (20 frames per second, not
+    with *reduce motion*), `night_dim` dims it when the sun is below the horizon, unless an alert
+    shows; without `idle` they wait a minute. `tools: false` leaves the home alone on screen. Any
+    touch wakes it; on a dimmed screen that touch does nothing else.
+  - **`domotwin.show`, an action, not a voice feature.** Home Assistant's action names a room, an
+    element, a storey, a view and optionally a screen (a card's `screen`); the integration sends it
+    to every screen over the subscription it already has (`domotwin/subscribe`, open to every user),
+    and each screen finds the room in its plans by id or by name as said (no case, accents or
+    article). Voice is then an automation: a blueprint with Assist's conversation trigger
+    ("show [the] {room}") calls `domotwin.show` and answers. Any automation can use it (a doorbell
+    showing the entrance on the hallway tablet), and Assist does the speech, locally or as the user
+    chose: DomoTwin adds no intent, no agent, no speech.
+- **Consequences.** Walking costs what the overview costs on the CPU (0.9 ms per frame median in
+  headless Chromium at High, against 1.1 ms); the software GPU draws more pixels near the eyes
+  (417 ms against 300 ms per frame). The first load grew by 10.4 kB gzipped: the engine 6.7 kB (walking, the
+  floor, the ceilings' light), the rest 3.7 kB (the walk button and pad, the kiosk, the requests,
+  the texts). The Python tests need Assist's packages (`hassil`, `home-assistant-intents`) for the
+  blueprint's test.
