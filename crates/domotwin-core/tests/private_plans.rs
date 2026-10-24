@@ -23,7 +23,11 @@ fn private_plans_read() {
         match read_plan(&bytes) {
             Ok(plan) => {
                 let scene = build_scene(&plan, &SceneOptions::default());
-                assert!(scene.opaque.triangle_count() > 0, "{}", path.display());
+                assert!(
+                    scene.parts[0].opaque.triangle_count() > 0,
+                    "{}",
+                    path.display()
+                );
             }
             Err(err) => panic!("{}: {err}", path.display()),
         }

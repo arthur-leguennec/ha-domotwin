@@ -1,6 +1,8 @@
 import {
   mdiAlert,
   mdiAlertCircleOutline,
+  mdiArrowCollapseVertical,
+  mdiArrowExpandVertical,
   mdiBatteryAlertVariantOutline,
   mdiCamera,
   mdiCctv,
@@ -12,7 +14,9 @@ import {
   mdiFan,
   mdiFloorPlan,
   mdiHomeOutline,
+  mdiHomeRoof,
   mdiLayersOutline,
+  mdiLayersTriple,
   mdiLock,
   mdiLockAlert,
   mdiLockClock,
@@ -46,11 +50,13 @@ import {
   heatLegend,
   wasmMemoryBytes,
   type EditState,
+  type HomeStorey,
   type LayerLabel,
   type PickedElement,
   type PlanSummary,
   type SavedView,
   type SceneStats,
+  type StoreyLabel,
   type UserModel,
 } from "../engine/engine";
 import {
@@ -88,6 +94,8 @@ import {
 import { deviceBadges, type Badge, type BadgeKind } from "../live/devices";
 import { StateSync } from "../live/states";
 import {
+  ALL_STOREYS,
+  storeyCounts,
   storeyLevels,
   storeyName,
   storeyShort,
@@ -133,6 +141,9 @@ export interface ViewOptions {
   cameras?: boolean;
   /** The rooms' names over their floor (on unless `false`). */
   names?: boolean;
+  /** Every storey at once (D-028): spread apart and the roof shown, unless `false`. */
+  spread?: boolean;
+  roof?: boolean;
 }
 
 /** What a camera sees, as drawn now (device pixels). */
@@ -192,6 +203,32 @@ const MAX_ALERTS_SHOWN = 2;
 /** The power layer's colours, from a few watts to 3 kW (`shaders.rs`). */
 const POWER_GRADIENT = ["#ffe459", "#ff7b2b"];
 const NO_BINDINGS: BindingsJson = { version: 1, rooms: {}, elements: {} };
+/** Size of the storeys' pictures (device pixels; shown at half that). */
+const PICTURE_WIDTH = 280;
+const PICTURE_HEIGHT = 180;
+/** The narrowest view (CSS pixels) that shows them beside the home. */
+const PICTURES_MIN_WIDTH = 560;
+/** Room kept on the right of a storey's label for itself and the toolbar (CSS pixels). */
+const STOREY_LABEL_ROOM = 250;
+/** About half the width and the height (with its gap) of a label over a storey (CSS pixels). */
+const STOREY_LABEL_HALF = 80;
+const STOREY_LABEL_HEIGHT = 56;
+
+/** A storey's picture (RGBA rows from the top) as a data URL; empty without one. */
+function pictureUrl(pixels: Uint8Array): string {
+  if (pixels.length !== PICTURE_WIDTH * PICTURE_HEIGHT * 4) return "";
+  const canvas = document.createElement("canvas");
+  canvas.width = PICTURE_WIDTH;
+  canvas.height = PICTURE_HEIGHT;
+  const context = canvas.getContext("2d");
+  if (!context) return "";
+  context.putImageData(
+    new ImageData(new Uint8ClampedArray(pixels), PICTURE_WIDTH, PICTURE_HEIGHT),
+    0,
+    0,
+  );
+  return canvas.toDataURL("image/png");
+}
 
 /** The panel open over the scene: an element's controls or a room's panel. */
 type Sheet =
@@ -318,7 +355,12 @@ export class DomoTwinView extends LitElement {
     look: { reflect: true },
     storeys: { attribute: false },
     storey: { attribute: false },
+    home: { attribute: false },
     elsewhere: { attribute: false },
+    spread: { state: true },
+    roof: { state: true },
+    storeyLabels: { state: true },
+    pictures: { state: true },
     layer: { state: true },
     layersOpen: { state: true },
     realSun: { state: true },
@@ -383,6 +425,12 @@ export class DomoTwinView extends LitElement {
    */
   storeys: StoreyInfo[] = [];
   storey?: string;
+  /**
+   * Every storey's plan, lowest first, to show the home whole (D-028; `storey` is then
+   * `ALL_STOREYS`): `plan` and `layout` are not shown, edit mode and the plan editor wait for a
+   * storey alone.
+   */
+  home?: HomeStorey[];
   /** The rooms of the other storeys: their alerts show too, and a tap on one goes there. */
   elsewhere: StoreyRooms[] = [];
 
@@ -419,6 +467,15 @@ export class DomoTwinView extends LitElement {
   /** The rooms' names and where they go (device pixels), while no layer shows its values. */
   protected roomNames: { id: string; name: string; x: number; y: number }[] = [];
   private roomNamesText = "[]";
+  /** The home shown whole: its storeys spread apart, its roof, where each storey is drawn, and a
+   * picture of each (data URLs, lowest first). */
+  protected spread = true;
+  protected roof = true;
+  protected storeyLabels: StoreyLabel[] = [];
+  private storeyLabelsText = "[]";
+  protected pictures: string[] = [];
+  /** The pictures of the storeys are to be drawn again (a new home, a new look, models came). */
+  private picturesDue = false;
   /** The devices' badges and what the cameras see (the layer menu turns them off). */
   protected showBadges = true;
   protected showCameras = true;
@@ -440,6 +497,7 @@ export class DomoTwinView extends LitElement {
   private accent = DEFAULT_ACCENT;
   private loadedPlan?: unknown;
   private loadedLayout?: unknown;
+  private loadedHome?: HomeStorey[];
   private readonly gestures = new GestureTracker();
   /** Scale of the drawing buffer, lowered while frames are slow. */
   private resolution = 1;
@@ -695,12 +753,74 @@ export class DomoTwinView extends LitElement {
         stroke-dasharray: 5 4;
       }
       .badges,
-      .room-names {
+      .room-names,
+      .storey-labels {
         position: absolute;
         inset: 0;
         pointer-events: none;
         overflow: hidden;
       }
+      .storey-label {
+        position: absolute;
+        transform: translate(14px, -50%);
+        display: grid;
+        gap: 1px;
+        max-width: 38%;
+        padding: 6px 12px;
+        border-radius: 12px;
+        border-left: 3px solid var(--domotwin-accent, var(--primary-color, #03a9f4));
+        pointer-events: auto;
+        cursor: pointer;
+        font: inherit;
+        text-align: left;
+        color: inherit;
+      }
+      .storey-label.top {
+        transform: translate(-50%, calc(-100% - 10px));
+        border-left: none;
+        border-bottom: 3px solid var(--domotwin-accent, var(--primary-color, #03a9f4));
+        max-width: 60%;
+      }
+      .storey-label strong {
+        font-size: 13px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .storey-label span {
+        font-size: 11px;
+        color: var(--secondary-text-color, #5f6368);
+        white-space: nowrap;
+      }
+      .pictures {
+        position: absolute;
+        left: 12px;
+        top: 12px;
+        display: grid;
+        gap: 8px;
+        max-height: calc(100% - 80px);
+        overflow-y: auto;
+      }
+      .picture {
+        display: grid;
+        gap: 4px;
+        width: 140px;
+        padding: 6px;
+        border-radius: 12px;
+        cursor: pointer;
+        font: inherit;
+        font-size: 12px;
+        font-weight: 600;
+        color: inherit;
+        text-align: left;
+      }
+      .picture img {
+        width: 100%;
+        aspect-ratio: 14 / 9;
+        border-radius: 8px;
+        display: block;
+      }
+
       .room-name {
         position: absolute;
         transform: translate(-50%, -50%);
@@ -1038,6 +1158,8 @@ export class DomoTwinView extends LitElement {
       if (previous?.cameras !== this.options.cameras) {
         this.showCameras = this.options.cameras !== false;
       }
+      if (previous?.spread !== this.options.spread) this.spread = this.options.spread !== false;
+      if (previous?.roof !== this.options.roof) this.roof = this.options.roof !== false;
     }
     if (this.layer === "off" && this.labels.length > 0) {
       this.labels = [];
@@ -1057,6 +1179,8 @@ export class DomoTwinView extends LitElement {
 
   protected override updated(changed: PropertyValues<this>): void {
     if (changed.has("bindings")) this.applyBindings();
+    // A storey alone again before edit mode starts on it.
+    if (changed.has("home")) this.applyPlan();
     if (changed.has("editing")) this.applyEditing();
     if (changed.has("plan") || changed.has("layout")) this.applyPlan();
     if (changed.has("planEditing")) this.applyPlanEditing();
@@ -1094,6 +1218,11 @@ export class DomoTwinView extends LitElement {
       this.applyDevices();
     }
     if (changed.has("linking") || own.has("showBadges") || own.has("showCameras")) this.redraw();
+    if ((own.has("spread") || own.has("roof")) && this.engine && this.loadedHome) {
+      this.engine.setSpread(this.spread);
+      this.engine.setRoof(this.roof);
+      this.redraw();
+    }
   }
 
   /** Draws a new frame as soon as possible (when visible). */
@@ -1476,6 +1605,8 @@ export class DomoTwinView extends LitElement {
     let time = performance.now();
     // The layers' animation never ends: it does not count.
     for (let i = 0; i < 300 && engine.frame(time) && engine.moving; i += 1) time += 100;
+    // Labels, badges and cones where the home now is.
+    this.readOverlays(engine);
   }
 
   /** Forces `frames` consecutive frames and measures them (frame-time smoke test). */
@@ -1566,6 +1697,7 @@ export class DomoTwinView extends LitElement {
     this.applyBindings();
     this.loadedPlan = undefined;
     this.loadedLayout = undefined;
+    this.loadedHome = undefined;
     this.edit = undefined;
     this.planEditor?.dispose();
     this.planEditor = undefined;
@@ -1605,9 +1737,20 @@ export class DomoTwinView extends LitElement {
       // Every mesh that came since the last frame, in one rebuild.
       this.modelsCame = false;
       const started = performance.now();
-      if (engine.showModels()) this.modelTimes.drawMs.push(performance.now() - started);
+      if (engine.showModels()) {
+        this.modelTimes.drawMs.push(performance.now() - started);
+        // The storeys' pictures show the models too.
+        this.picturesDue = this.loadedHome !== undefined;
+      }
       const over = engine.modelsOverBudget;
       if (over > 0) this.notify(this.translator.tp("view.models_over_budget", over));
+    }
+    if (this.picturesDue && this.loadedHome) {
+      // A picture of each storey of the home shown whole, in the look shown.
+      this.picturesDue = false;
+      this.pictures = this.loadedHome.map((_, i) =>
+        pictureUrl(engine.storeyPicture(i, PICTURE_WIDTH, PICTURE_HEIGHT)),
+      );
     }
     const movingBefore = engine.moving;
     const start = performance.now();
@@ -1689,6 +1832,7 @@ export class DomoTwinView extends LitElement {
     if (!engine || key === this.lookKey) return;
     this.lookKey = key;
     engine.setTheme(this.look, this.accent);
+    this.picturesDue = this.loadedHome !== undefined;
     this.redraw();
   }
 
@@ -1825,9 +1969,12 @@ export class DomoTwinView extends LitElement {
     this.planEditor?.reproject();
     if (this.layer !== "off") this.readLabels(engine);
     const shown = !this.editingAny && !this.linking;
-    // The rooms' names, where no layer shows a value.
+    // The rooms' names, where no layer shows a value (the storeys' labels take their place when
+    // every storey is shown).
     const names =
-      shown && this.options.names !== false && this.layer === "off" ? engine.roomLabels() : "[]";
+      shown && this.options.names !== false && this.layer === "off" && !this.loadedHome
+        ? engine.roomLabels()
+        : "[]";
     if (names !== this.roomNamesText) {
       this.roomNamesText = names;
       this.roomNames = JSON.parse(names) as typeof this.roomNames;
@@ -1842,6 +1989,13 @@ export class DomoTwinView extends LitElement {
     if (cameras !== this.camerasText) {
       this.camerasText = cameras;
       this.cameraShapes = JSON.parse(cameras) as CameraShape[];
+    }
+    // Where each storey of the home shown whole is.
+    const storeys = this.loadedHome ? engine.storeyLabels() : [];
+    const storeysText = JSON.stringify(storeys);
+    if (storeysText !== this.storeyLabelsText) {
+      this.storeyLabelsText = storeysText;
+      this.storeyLabels = storeys;
     }
   }
 
@@ -2046,13 +2200,23 @@ export class DomoTwinView extends LitElement {
       !this.engine ||
       this.edit ||
       this.planEditor ||
-      (!force && this.plan === this.loadedPlan && this.layout === this.loadedLayout)
+      (!force &&
+        this.plan === this.loadedPlan &&
+        this.layout === this.loadedLayout &&
+        this.home === this.loadedHome)
     ) {
       return;
     }
-    const sameHome = this.loadedPlan !== undefined && this.loadedPlan !== null;
+    // Every storey at once (D-028), with several.
+    const home = this.home && this.home.length > 1 ? this.home : undefined;
+    const sameHome =
+      (this.loadedPlan !== undefined && this.loadedPlan !== null) || this.loadedHome !== undefined;
+    // The camera stays for the same home saved again; a storey alone and every storey at once
+    // are framed afresh.
+    const keep = sameHome && (this.loadedHome !== undefined) === (home !== undefined);
     this.loadedPlan = this.plan;
     this.loadedLayout = this.layout;
+    this.loadedHome = this.home;
     if (!sameHome) {
       this.sheet = undefined;
       this.focusedRoom = undefined;
@@ -2060,16 +2224,26 @@ export class DomoTwinView extends LitElement {
     this.summary = undefined;
     this.loadError = undefined;
     this.savedViews = [];
-    this.rooms = planRooms(this.plan);
-    if (!this.plan) return;
+    this.rooms = home ? home.flatMap((storey) => planRooms(storey.plan)) : planRooms(this.plan);
+    this.storeyLabels = [];
+    this.storeyLabelsText = "[]";
+    this.pictures = [];
+    if (!home && !this.plan) return;
     try {
-      this.summary = this.engine.loadPlan(
-        JSON.stringify(this.plan),
-        sameHome,
-        this.layout ? JSON.stringify(this.layout) : undefined,
-      );
-      const refused = this.summary.layoutRefused ?? 0;
-      if (refused > 0) this.notify(this.translator.tp("view.layout_refused", refused));
+      if (home) {
+        this.engine.setSpread(this.spread);
+        this.engine.setRoof(this.roof);
+        this.summary = this.engine.loadStoreys(home, keep);
+        this.picturesDue = true;
+      } else {
+        this.summary = this.engine.loadPlan(
+          JSON.stringify(this.plan),
+          keep,
+          this.layout ? JSON.stringify(this.layout) : undefined,
+        );
+        const refused = this.summary.layoutRefused ?? 0;
+        if (refused > 0) this.notify(this.translator.tp("view.layout_refused", refused));
+      }
       this.loadModels();
       this.savedViews = this.engine.views();
       this.layersKey = undefined;
@@ -2458,6 +2632,7 @@ export class DomoTwinView extends LitElement {
       ></div>
       ${ready ? this.renderCameras() : nothing} ${ready ? this.renderLabels() : nothing}
       ${ready ? this.renderRoomNames() : nothing} ${ready ? this.renderBadges() : nothing}
+      ${ready ? this.renderStoreyLabels() : nothing} ${ready ? this.renderPictures() : nothing}
       ${this.renderGuides()} ${this.renderPlanHandles()} ${this.renderOverlay()}
       ${ready ? this.renderLegend() : nothing} ${ready ? this.renderAlerts() : nothing}
       ${ready ? this.renderTools() : nothing} ${ready ? this.renderSheet() : nothing}
@@ -2473,8 +2648,21 @@ export class DomoTwinView extends LitElement {
     if (this.storeys.length < 2 || this.editingAny) return nothing;
     const t = this.translator;
     const levels = storeyLevels(this.storeys).reverse();
+    const all = this.storey === ALL_STOREYS;
     return html`<span class="rule" aria-hidden="true"></span>
       <div role="group" aria-label=${t.t("storey.menu")} data-testid="storeys">
+        <button
+          class="storey"
+          data-storey=${ALL_STOREYS}
+          title=${t.t("storey.all")}
+          aria-label=${t.t("storey.all")}
+          aria-pressed=${all ? "true" : "false"}
+          @click=${() => {
+            this.chooseStorey(ALL_STOREYS);
+          }}
+        >
+          ${icon(mdiLayersTriple)}
+        </button>
         ${levels.map(({ storey, level }) => {
           const name = storeyName(t, storey, level);
           // Another storey with an alert is marked (the most urgent's colour).
@@ -2503,6 +2691,109 @@ export class DomoTwinView extends LitElement {
     this.sheet = undefined;
     this.focusedRoom = undefined;
     if (id !== this.storey) fire(this, "domotwin-storey", id);
+  }
+
+  /** The home shown whole: its storeys spread apart or stacked, its roof shown or not. */
+  private renderHomeTools(): TemplateResult {
+    const t = this.translator;
+    const spread = t.t(this.spread ? "storey.stack" : "storey.spread");
+    const roof = t.t(this.roof ? "storey.roof_hide" : "storey.roof_show");
+    return html`<button
+        data-testid="spread"
+        title=${spread}
+        aria-label=${spread}
+        aria-pressed=${this.spread ? "true" : "false"}
+        @click=${() => {
+          this.spread = !this.spread;
+        }}
+      >
+        ${icon(this.spread ? mdiArrowCollapseVertical : mdiArrowExpandVertical)}
+      </button>
+      <button
+        data-testid="roof"
+        title=${roof}
+        aria-label=${roof}
+        aria-pressed=${this.roof ? "true" : "false"}
+        @click=${() => {
+          this.roof = !this.roof;
+        }}
+      >
+        ${icon(mdiHomeRoof)}
+      </button>`;
+  }
+
+  /** What a storey of the home is called, and how many rooms and lights on it has. */
+  private storeyText(id: string): { name: string; counts: string } {
+    const t = this.translator;
+    const level = storeyLevels(this.storeys).find(({ storey }) => storey.id === id);
+    const name = level ? storeyName(t, level.storey, level.level) : id;
+    const storey = this.loadedHome?.find((s) => s.id === id);
+    const { rooms, lights } = storeyCounts(this.hass, this.bindings, storey?.plan, storey?.layout);
+    const counts = [t.tp("storey.rooms", rooms), lights > 0 ? t.tp("storey.lights_on", lights) : ""]
+      .filter(Boolean)
+      .join(" · ");
+    return { name, counts };
+  }
+
+  /** The home shown whole: each storey's name beside it; a tap shows it alone. */
+  private renderStoreyLabels(): TemplateResult | typeof nothing {
+    const canvas = this.canvas;
+    if (!canvas || !this.loadedHome || this.storeyLabels.length === 0 || this.linking) {
+      return nothing;
+    }
+    const k = Math.max(1, canvas.clientWidth) / Math.max(1, canvas.width);
+    return html`<div class="storey-labels" data-testid="storey-labels">
+      ${this.storeyLabels.map((label) => {
+        const { name, counts } = this.storeyText(label.id);
+        // Beside the storey, clear of the toolbar; over it on the plan. Inside the view.
+        const width = canvas.clientWidth;
+        const left = label.top
+          ? Math.max(STOREY_LABEL_HALF, Math.min(label.x * k, width - STOREY_LABEL_HALF))
+          : Math.max(0, Math.min(label.x * k, width - STOREY_LABEL_ROOM));
+        const top = label.top ? Math.max(label.y * k, STOREY_LABEL_HEIGHT) : label.y * k;
+        return html`<button
+          class="storey-label glass ${label.top ? "top" : ""}"
+          data-storey=${label.id}
+          style="left:${left}px;top:${top}px"
+          @click=${() => {
+            this.chooseStorey(label.id);
+          }}
+        >
+          <strong>${name}</strong><span>${counts}</span>
+        </button>`;
+      })}
+    </div>`;
+  }
+
+  /** The home shown whole: a picture of each storey, the highest on top; a tap shows it alone. */
+  private renderPictures(): TemplateResult | typeof nothing {
+    const home = this.loadedHome;
+    if (!home || this.pictures.length !== home.length || this.linking) return nothing;
+    // Small views keep the pictures out of the way.
+    if ((this.canvas?.clientWidth ?? 0) < PICTURES_MIN_WIDTH) return nothing;
+    const t = this.translator;
+    return html`<div
+      class="pictures"
+      role="group"
+      aria-label=${t.t("storey.pictures")}
+      data-testid="storey-pictures"
+    >
+      ${[...home.keys()].reverse().map((i) => {
+        const storey = home[i];
+        const picture = this.pictures[i];
+        if (!storey || !picture) return nothing;
+        const { name } = this.storeyText(storey.id);
+        return html`<button
+          class="picture glass"
+          data-storey=${storey.id}
+          @click=${() => {
+            this.chooseStorey(storey.id);
+          }}
+        >
+          <img src=${picture} alt="" /><span>${name}</span>
+        </button>`;
+      })}
+    </div>`;
   }
 
   /** The plan editor's handles: the selected room's corners and sides, guides, what is drawn. */
@@ -2605,6 +2896,7 @@ export class DomoTwinView extends LitElement {
         >
           ${icon(mdiLayersOutline)}
         </button>
+        ${this.loadedHome && !this.planView ? this.renderHomeTools() : nothing}
         ${
           this.savedViews.length > 0
             ? html`<button
@@ -2917,7 +3209,7 @@ export class DomoTwinView extends LitElement {
       return this.message(mdiAlertCircleOutline, t.error(this.planError), undefined, true);
     }
     if (this.planEditor) return nothing;
-    if (this.engineState !== "ready" || this.plan === undefined) {
+    if (this.engineState !== "ready" || (this.plan === undefined && !this.home)) {
       return html`<div class="overlay" role="status" aria-live="polite">
         <div class="message glass">
           <div class="spinner" aria-hidden="true"></div>
@@ -2925,7 +3217,7 @@ export class DomoTwinView extends LitElement {
         </div>
       </div>`;
     }
-    if (this.plan === null) {
+    if (this.plan === null && !this.home) {
       const hint = this.hass?.user?.is_admin ? t.t("view.no_plan_admin") : t.t("view.no_plan_user");
       return this.message(mdiFloorPlan, t.t("view.no_plan"), hint, false, true);
     }

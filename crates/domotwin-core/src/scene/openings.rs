@@ -55,12 +55,12 @@ pub(crate) fn build(builder: &mut Builder, plan: &Plan, layout: &WallLayout) {
             room,
         };
         let frame = Xform::plan([opening.x, 0.0, opening.y], u);
-        let open = builder.overrides.open.get(&index).copied();
+        let open = builder.overrides.open.get(&builder.global(index)).copied();
         if door {
             let open = open.unwrap_or_else(|| opening.open_fraction());
             build_door(builder, opening, &frame, range, tag, open);
         } else {
-            let blind = builder.overrides.blind.get(&index).copied();
+            let blind = builder.overrides.blind.get(&builder.global(index)).copied();
             build_window(
                 builder,
                 opening,

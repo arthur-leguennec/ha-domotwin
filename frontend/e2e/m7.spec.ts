@@ -24,6 +24,9 @@ function expectIdsOfTheirOwn(home: StoredStorey[]): void {
 
 const IFC_FIXTURES = "../crates/domotwin-ifc/tests/fixtures";
 
+/** The switcher's storey buttons, not the one showing every storey. */
+const LEVELS = 'button:not([data-storey="all"])';
+
 test.describe("storeys", () => {
   test("the switcher shows each storey, the highest on top, and stairs lead up and down", async ({
     page,
@@ -32,7 +35,8 @@ test.describe("storeys", () => {
     const summary = page.getByTestId("summary");
     await expect(summary).toContainText("Demo apartment");
     const switcher = page.getByTestId("storeys");
-    await expect(switcher.getByRole("button")).toHaveText(["1", "0"]);
+    // One button per storey, after the one showing every storey (D-028).
+    await expect(switcher.locator(LEVELS)).toHaveText(["1", "0"]);
     await expect(switcher.locator('[data-storey="storey-1"]')).toHaveAttribute(
       "aria-pressed",
       "true",
@@ -164,7 +168,7 @@ test.describe("storeys", () => {
     expect(added?.plan.elements.filter((element) => element.type === "room")).toHaveLength(1);
     expectIdsOfTheirOwn(home);
     // The panel shows the new storey.
-    await expect(page.getByTestId("storeys").getByRole("button")).toHaveCount(3);
+    await expect(page.getByTestId("storeys").locator(LEVELS)).toHaveCount(3);
     await expect(
       page.getByTestId("storeys").locator(`[data-storey="${added?.id ?? ""}"]`),
     ).toHaveAttribute("aria-pressed", "true");
@@ -190,7 +194,7 @@ test.describe("storeys", () => {
     expect(renamed.some((element) => element.id === "living-2")).toBe(true);
     // A piece in the living room still is.
     expect(renamed.find((element) => element.id === "sofa-2")?.parent).toBe("living-2");
-    await expect(page.getByTestId("storeys").getByRole("button")).toHaveCount(2);
+    await expect(page.getByTestId("storeys").locator(LEVELS)).toHaveCount(2);
     // Importing again from the toolbar replaces the storey shown, not another.
     const again = page.waitForEvent("filechooser");
     await page.getByRole("button", { name: "Import plan" }).first().click();
@@ -222,7 +226,7 @@ test.describe("storeys", () => {
     expect(home[1]?.plan.title).toContain("Étage");
     expectIdsOfTheirOwn(home);
     // The ground floor is shown.
-    await expect(page.getByTestId("storeys").getByRole("button")).toHaveCount(2);
+    await expect(page.getByTestId("storeys").locator(LEVELS)).toHaveCount(2);
     await expect(page.getByTestId("summary")).toContainText("Rez-de-chaussée");
   });
 });

@@ -216,7 +216,7 @@ pub(crate) fn build(builder: &mut Builder, plan: &Plan, layout: &WallLayout) {
         };
         // Curtains move (live control), and pieces being moved in edit mode: they are built
         // with the moving parts.
-        let moving = item.kind == Kind::Curtain || builder.moving.contains(&index);
+        let moving = item.kind == Kind::Curtain || builder.moving.contains(&builder.global(index));
         if moving != builder.dynamic {
             continue;
         }
@@ -303,7 +303,7 @@ fn piece(builder: &mut Builder, plan: &Plan, layout: &WallLayout, index: usize, 
         (rotate([1.0, 0.0]), f.w, f.h)
     };
     let x = Xform::plan([centre[0], f.elevation, centre[1]], u);
-    let open = builder.overrides.open.get(&index).copied();
+    let open = builder.overrides.open.get(&builder.global(index)).copied();
     let ceiling = (builder.wall_height - f.elevation - f.z).max(0.0);
     let base = Material::paint(f.color);
     let file = if f.kind == Kind::Custom && !builder.boxed.contains(&index) {
@@ -343,7 +343,8 @@ fn piece(builder: &mut Builder, plan: &Plan, layout: &WallLayout, index: usize, 
         let power = light_power(f);
         for position in bulbs {
             builder.lights.push(super::LightSpot {
-                element: index,
+                element: builder.global(index),
+                storey: builder.storey,
                 position,
                 color,
                 power,
@@ -356,7 +357,8 @@ fn piece(builder: &mut Builder, plan: &Plan, layout: &WallLayout, index: usize, 
     if f.kind == Kind::Custom {
         // A user model lights the room when a light is linked to it (D-021): off until then.
         builder.lights.push(super::LightSpot {
-            element: index,
+            element: builder.global(index),
+            storey: builder.storey,
             position: x.point([0.0, f.z * 0.75, 0.0]),
             color: light_color(f),
             power: 1.0,
@@ -368,7 +370,8 @@ fn piece(builder: &mut Builder, plan: &Plan, layout: &WallLayout, index: usize, 
     if f.kind == Kind::Tv {
         // The screen lights the room in front of it while something plays.
         builder.lights.push(super::LightSpot {
-            element: index,
+            element: builder.global(index),
+            storey: builder.storey,
             position: x.point([0.0, f.z * 0.55, d / 2.0 + 30.0]),
             color: Rgb8::from_u32(0xa9c4ff),
             power: 0.8,

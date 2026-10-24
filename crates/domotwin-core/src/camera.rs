@@ -321,9 +321,12 @@ impl Camera {
     /// The camera framing the box `[min, max]` with the given yaw and pitch.
     pub fn framing(bounds: [[f64; 3]; 2], yaw: f64, pitch: f64, aspect: f64, ortho: f64) -> Self {
         let [min, max] = bounds;
+        // Low on a storey (its floors matter more than its walls' tops); about the middle of a
+        // home of several storeys. Measured from the bottom of the box: a cellar is below 0.
+        let half = (max[1] - min[1]) / 2.0;
         let centre = [
             f64::midpoint(min[0], max[0]),
-            f64::midpoint(min[1], max[1]) * 0.3,
+            min[1] + (half * 0.3).max(half - 95.0),
             f64::midpoint(min[2], max[2]),
         ];
         let size = [max[0] - min[0], max[1] - min[1], max[2] - min[2]];
@@ -570,6 +573,15 @@ mod tests {
             let c = apply(&p.view_proj, corner);
             assert!(c[0].abs() <= 1.0 && c[1].abs() <= 1.0, "{corner:?} → {c:?}");
         }
+        // A room of a cellar, below the ground: aimed at, not above it.
+        let cellar = Camera::framing(
+            [[0.0, -280.0, 0.0], [400.0, -15.0, 300.0]],
+            0.6,
+            0.75,
+            1.5,
+            0.0,
+        );
+        assert!((-280.0..-15.0).contains(&cellar.target[1]), "{cellar:?}");
         let view = Camera::from_view([500.0, 800.0, 1300.0], [500.0, 0.0, 300.0]);
         let eye = view.eye();
         assert!((eye[0] - 500.0).abs() < 1e-6 && (eye[1] - 800.0).abs() < 1e-6);

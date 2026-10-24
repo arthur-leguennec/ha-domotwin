@@ -5,7 +5,7 @@ import { DomoTwinClient, type StoreyInfo } from "../ha/client";
 import type { HomeAssistant } from "../ha/types";
 import { translatorFor, type MessageKey, type Translator } from "../i18n";
 import { LAYER_NAMES } from "../live/layers";
-import { storeyLevels, storeyName } from "../live/storeys";
+import { ALL_STOREYS, loadHome, storeyLevels, storeyName } from "../live/storeys";
 import { planRooms } from "../live/suggest";
 import { define, fire } from "./define";
 
@@ -62,7 +62,10 @@ export function storeyField(
   storeys: readonly StoreyInfo[],
   current: unknown,
 ): FormField | undefined {
-  const known = typeof current === "string" && storeys.some((storey) => storey.id === current);
+  const known =
+    typeof current === "string" &&
+    (storeys.some((storey) => storey.id === current) ||
+      (current === ALL_STOREYS && storeys.length > 1));
   if (storeys.length < 2 && (typeof current !== "string" || !current || known)) return undefined;
   const list = storeyLevels(storeys)
     .reverse()
@@ -74,7 +77,11 @@ export function storeyField(
     selector: {
       select: {
         mode: "dropdown",
-        options: [{ value: "", label: t.t("editor.storey_ground") }, ...list],
+        options: [
+          { value: "", label: t.t("editor.storey_ground") },
+          ...(storeys.length > 1 ? [{ value: ALL_STOREYS, label: t.t("editor.storey_all") }] : []),
+          ...list,
+        ],
       },
     },
   };
@@ -116,6 +123,13 @@ function schema(
       selector: options(t, "editor.lighting", ["auto", "morning", "day", "evening", "night"]),
     },
     ...(storey ? [storey] : []),
+    // Every storey at once: spread apart, the roof (D-028).
+    ...(home.storeys.length > 1
+      ? [
+          { name: "spread", selector: { boolean: {} } },
+          { name: "roof", selector: { boolean: {} } },
+        ]
+      : []),
     roomField(t, home.rooms, config.room),
     {
       name: "layer",
@@ -140,7 +154,15 @@ function schema(
 }
 
 /** Switches that are on unless turned off show as on. */
-const ON_BY_DEFAULT = { alerts: true, presence: true, badges: true, cameras: true, names: true };
+const ON_BY_DEFAULT = {
+  alerts: true,
+  presence: true,
+  badges: true,
+  cameras: true,
+  names: true,
+  spread: true,
+  roof: true,
+};
 
 /** Visual editor of `custom:domotwin-card` (YAML is never needed). */
 export class DomoTwinCardEditor extends LitElement {
@@ -200,10 +222,15 @@ export class DomoTwinCardEditor extends LitElement {
     this.fetchedFor = storey;
     const client = DomoTwinClient.for(hass);
     try {
-      // A storey since removed: the card shows the ground floor, so do its rooms.
-      const stored = await client.getPlan(storey || undefined).catch(() => client.getPlan());
+      // Every storey at once: the rooms of every storey. A storey since removed: the card shows
+      // the ground floor, so do its rooms.
+      const all = storey === ALL_STOREYS;
+      const stored = await client
+        .getPlan(storey && !all ? storey : undefined)
+        .catch(() => client.getPlan());
+      const home = all ? await loadHome(client, stored.storeys) : undefined;
       if (this.fetchedFor !== storey) return;
-      this.rooms = planRooms(stored.plan);
+      this.rooms = home ? home.flatMap((s) => planRooms(s.plan)) : planRooms(stored.plan);
       this.storeys = stored.storeys;
     } catch {
       // No plan or no access: only the current settings are offered.

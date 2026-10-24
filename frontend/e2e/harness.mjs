@@ -309,6 +309,22 @@ if (live && params.get("storeys") === "2") {
     state: "off",
     attributes: { device_class: "smoke", friendly_name: "Office smoke" },
   };
+  // Its desk lamp, on.
+  home.entities["light.office_lamp"] = { entity_id: "light.office_lamp", area_id: "office" };
+  home.states["light.office_lamp"] = {
+    entity_id: "light.office_lamp",
+    state: "on",
+    attributes: {
+      friendly_name: "Office lamp",
+      brightness: 200,
+      color_mode: "color_temp",
+      color_temp_kelvin: 2700,
+      supported_color_modes: ["color_temp"],
+    },
+  };
+  if (store.bindings) {
+    store.bindings.elements["up-lamp"] = { entities: [{ entity_id: "light.office_lamp" }] };
+  }
 }
 const states = home.states;
 if (sunParam) {

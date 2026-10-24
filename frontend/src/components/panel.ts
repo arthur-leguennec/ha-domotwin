@@ -18,6 +18,7 @@ import {
   summarizePlan,
   type CatalogueKind,
   type EditState,
+  type HomeStorey,
   type PickedElement,
   type UserModel,
 } from "../engine/engine";
@@ -42,7 +43,9 @@ import {
   type PlanDraft,
 } from "../live/draft";
 import {
+  ALL_STOREYS,
   idsElsewhere,
+  loadHome,
   loadStorey,
   roomsElsewhere,
   storeyIds,
@@ -164,6 +167,8 @@ export class DomoTwinPanel extends LitElement {
     planDiscardAsk: { state: true },
     storeys: { state: true },
     storey: { state: true },
+    showAll: { state: true },
+    home: { state: true },
     elsewhere: { state: true },
     storeysOpen: { state: true },
     storeyRemoveAsk: { state: true },
@@ -205,6 +210,12 @@ export class DomoTwinPanel extends LitElement {
   /** The storeys, the one shown, the storeys dialog and a storey being removed. */
   protected storeys: StoreyInfo[] = [];
   protected storey?: string;
+  /**
+   * Every storey at once (D-028): the view shows `home` while no tool runs; the tools work on
+   * `storey`, shown alone meanwhile.
+   */
+  protected showAll = false;
+  protected home?: HomeStorey[];
   /** The rooms of the storeys not shown, for their alerts. */
   protected elsewhere: StoreyRooms[] = [];
   protected storeysOpen = false;
@@ -621,8 +632,12 @@ export class DomoTwinPanel extends LitElement {
     if (!client) return;
     const ticket = ++this.loads;
     try {
-      // The storey shown, or the ground floor when it was removed (here or elsewhere).
+      // The storey shown, or the ground floor when it was removed (here or elsewhere); every
+      // storey's too to show them all, before anything changes (D-028: two with a plan at least).
       const stored = await loadStorey(client, this.storey);
+      const storeys =
+        this.showAll && stored.storeys.length > 1 ? await loadHome(client, stored.storeys) : [];
+      const home = storeys.length > 1 ? storeys : undefined;
       // A later load (another storey asked for) wins.
       if (ticket !== this.loads) return;
       const started = this.editing ? this.editRevision : this.planRevision;
@@ -637,6 +652,8 @@ export class DomoTwinPanel extends LitElement {
       void this.loadElsewhere(client, stored);
       this.revision = stored.revision;
       this.planError = undefined;
+      this.showAll &&= home !== undefined;
+      this.home = home;
     } catch (error) {
       this.planError = isHassError(error) ? error.code : "unknown";
     }
@@ -852,6 +869,8 @@ export class DomoTwinPanel extends LitElement {
     try {
       const revision = await client.saveLayout(sent, this.editRevision, this.storey);
       this.editRevision = revision;
+      // The home shown whole comes back with what was saved, not before.
+      this.home = undefined;
       view.editSaved(sent);
       const now = view.editLayout();
       if (now && JSON.stringify(now) !== JSON.stringify(sent)) {
@@ -1025,6 +1044,7 @@ export class DomoTwinPanel extends LitElement {
       } else {
         await client.savePlan(plan, this.planRevision, {}, this.storey);
       }
+      this.home = undefined;
       view.planSaved();
       clearPlanDraft(this.draftStorey());
       view.endPlanEdit(true);
@@ -1108,10 +1128,19 @@ export class DomoTwinPanel extends LitElement {
     this.renderRoot.querySelector<HTMLInputElement>("input.plan-file")?.click();
   };
 
-  /** The view's storey switcher: another storey is shown (not while editing one). */
+  /** Whether the view shows every storey at once: chosen, and no tool works on a storey. */
+  private wholeHome(): boolean {
+    return (
+      this.showAll && this.home !== undefined && !this.editing && !this.planning && !this.linking
+    );
+  }
+
+  /** The view's storey switcher: another storey is shown, or all of them (not while editing). */
   private readonly onStorey = (event: Event): void => {
     if (this.editing || this.planning) return;
-    this.storey = (event as CustomEvent<string>).detail;
+    const storey = (event as CustomEvent<string>).detail;
+    this.showAll = storey === ALL_STOREYS;
+    if (!this.showAll) this.storey = storey;
     this.linkTarget = undefined;
     void this.loadPlan();
   };
@@ -1540,8 +1569,9 @@ export class DomoTwinPanel extends LitElement {
           .homeTheme=${this.homeLook().theme}
           .homeAccent=${this.homeLook().accent}
           .storeys=${this.storeys}
-          .storey=${this.storey}
-          .elsewhere=${this.elsewhere}
+          .storey=${this.wholeHome() ? ALL_STOREYS : this.storey}
+          .home=${this.wholeHome() ? this.home : undefined}
+          .elsewhere=${this.wholeHome() ? [] : this.elsewhere}
           @domotwin-storey=${this.onStorey}
           .multiSelect=${this.multi}
           .editKeys=${!this.catalogue && !this.discardAsk && !this.modelImport && !this.planDiscardAsk}

@@ -16,6 +16,31 @@ export interface PlanSummary {
   furniture: number;
 }
 
+/** A storey of the home shown whole (`loadStoreys`, D-028): its plan with its overlay. */
+export interface HomeStorey {
+  id: string;
+  name: string;
+  /** Height of its floor (cm). */
+  elevation: number;
+  plan: unknown;
+  layout?: Record<string, unknown>;
+}
+
+/** What `loadStoreys` returns: the counts of every storey's elements, and the storeys. */
+export interface HomeSummary extends PlanSummary {
+  storeys: number;
+}
+
+/** Where a storey of the home shown whole is drawn (device pixels from the top left). */
+export interface StoreyLabel {
+  id: string;
+  name: string;
+  /** Where its label goes (device pixels): beside the storey, or over it on the 2D plan (`top`). */
+  x: number;
+  y: number;
+  top: boolean;
+}
+
 /** A saved viewpoint of the plan. */
 export interface SavedView {
   id: string;
@@ -30,6 +55,8 @@ export interface PickedElement {
   name: string;
   /** The id of the room it is in (a room is its own), empty when none. */
   room: string;
+  /** The storey it is on, when the home is shown whole. */
+  storey?: string;
 }
 
 /** Figures about the scene (diagnostics, performance smoke test). */
@@ -42,6 +69,13 @@ export interface SceneStats {
   lit: number;
   bound: number;
   quality: string;
+  theme: string;
+  /** Outlines drawn by the looks. */
+  lines: number;
+  /** Storeys shown, spread apart or not, the roof shown or not (D-028). */
+  storeys: number;
+  spread: boolean;
+  roof: boolean;
   camera: {
     target: [number, number, number];
     distance: number;
@@ -256,6 +290,42 @@ export class DomoTwinEngine {
     } catch (error) {
       throw engineError(error);
     }
+  }
+
+  /**
+   * Shows every storey of the home at once (D-028), lowest first, the roof over the top one;
+   * throws an `EngineError` (naming its storey) when a storey's plan is refused. Edit mode needs a
+   * storey alone (`loadPlan`).
+   */
+  loadStoreys(storeys: HomeStorey[], keepCamera = false): HomeSummary {
+    try {
+      return JSON.parse(this.live.loadStoreys(JSON.stringify(storeys), keepCamera)) as HomeSummary;
+    } catch (error) {
+      throw engineError(error);
+    }
+  }
+
+  /** Spreads the storeys of the home apart, or stacks them, with an animated move. */
+  setSpread(spread: boolean): void {
+    this.live.setSpread(spread, performance.now());
+  }
+
+  /** Shows or hides the roof over the top storey. */
+  setRoof(shown: boolean): void {
+    this.live.setRoof(shown);
+  }
+
+  /** Where each storey of the home shown whole is drawn (its label goes there). */
+  storeyLabels(): StoreyLabel[] {
+    return JSON.parse(this.live.storeyLabels()) as StoreyLabel[];
+  }
+
+  /**
+   * A picture of storey `index` (lowest first) alone, `width` × `height` pixels: RGBA rows from
+   * the top; empty without that storey.
+   */
+  storeyPicture(index: number, width: number, height: number): Uint8Array {
+    return this.live.storeyPicture(index, width, height);
   }
 
   /** Sets the bindings (the stored JSON); the scene follows them at once. */

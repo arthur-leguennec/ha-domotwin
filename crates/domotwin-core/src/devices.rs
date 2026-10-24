@@ -59,10 +59,16 @@ pub fn camera_cone(
         return None;
     };
     let centre = piece.center();
-    let rooms = &scene.walls().rooms;
+    // The rooms of its storey (`plan` holds every storey's elements for a home).
+    let (first, layout) = scene
+        .storey_of(element)
+        .and_then(|k| scene.storey_walls().nth(k))?;
+    let rooms = &layout.rooms;
     let room = rooms
         .iter()
-        .find(|r| plan.elements.get(r.element).map(Element::id) == Some(piece.parent.as_str()))
+        .find(|r| {
+            plan.elements.get(first + r.element).map(Element::id) == Some(piece.parent.as_str())
+        })
         .or_else(|| {
             rooms
                 .iter()

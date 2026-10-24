@@ -167,7 +167,7 @@ mod tests {
         let a = &scene.elements[1];
         assert_eq!(a.bounds, [[100.0, 0.0, 100.0], [140.0, 80.0, 160.0]]);
         // The top corner is at the front (the piece's y + h side) and on the left.
-        let top = scene
+        let top = scene.parts[0]
             .opaque
             .positions
             .iter()
@@ -178,7 +178,7 @@ mod tests {
         // Not loaded: a box of the piece's size, with the same bounds.
         let boxed = build_scene(&plan, &SceneOptions::default());
         assert_eq!(boxed.elements[1].bounds, a.bounds);
-        assert!(boxed.opaque.triangle_count() > scene.opaque.triangle_count());
+        assert!(boxed.parts[0].opaque.triangle_count() > scene.parts[0].opaque.triangle_count());
         // Each piece may light the room once a light is linked to it: off until then.
         let spots: Vec<_> = scene.lights.iter().filter(|l| l.element == 1).collect();
         assert_eq!(spots.len(), 1);
