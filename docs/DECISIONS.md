@@ -569,3 +569,57 @@ Decided while the maintainer was away (M7); open to review.
   fetches every storey's plan once per page for the alerts, and again after a save of a plan or an
   overlay (not of the bindings or the settings). The first load grew by 5.8 kB
   gzipped (the switcher, the storeys dialog, the alerts of other storeys, the texts, the stairs).
+
+## D-027 · Looks: neon, blueprint and day, drawn by the same engine, glowing offscreen
+
+Decided while the maintainer was away (M8); open to review.
+
+- **Context.** The maintainer asked for a picture at least as striking as the best 3D home
+  dashboards: night scenes of glass walls with glowing outlines over a grid are what people expect
+  now. DomoTwin's realistic look stays a strength (furniture, materials, real sun shadows), but it
+  stood on a blank background, without glow. The first load is budgeted (D-002) and dashboards run
+  on old tablets.
+- **Decision.**
+  - **Three looks, one renderer.** A look (`domotwin-core::theme`) is data: background and ground
+    colours, glass walls or not, outline colour, strength and glow, a palette furniture and floors
+    lean to, a light of its own or the time of day's, sun shadows or not, the 2D plan's colours.
+    **Day** keeps the realistic home; **neon** and **blueprint** are night and drawing looks. The
+    accent tints neon's outlines and grid. No second renderer, no new shader per look.
+  - **Outlines from the walls' layout.** The core draws the lines of the home from the same bands
+    as the walls (`scene::lines`): wall tops (a façade's two faces, a partition's middle, meeting
+    at the rooms' corners), corners where the walls turn, door and window frames, floors'
+    outlines. Each line has its wall group and the height of the bottom of what it outlines, so
+    that it follows the cut-away like the meshes' pieces (a window's frame goes when its wall is
+    cut below the sill). The renderer draws them as quads a few device pixels wide, moved two
+    pixels towards the camera (in front of the surfaces they lie on at any zoom, not through the
+    walls) and clipped at the near plane, and blends them by **max** (min for day's dark lines):
+    the line a partition gets from both its rooms is drawn once.
+  - **Glass walls, a mesh of their own.** The walls (faces, tops, trims, corners) are a mesh apart
+    from the rest of the opaque home. Day draws it with the rest. With glass walls, its tops are
+    drawn with what is opaque and its faces after the glass, tinted, brighter at grazing angles,
+    catching their room's lamps; the vertex shader leaves out the other part, so no pass
+    discards fragments and doors and windows keep their own look. A tap goes through glass walls
+    to what is behind them; their tops still pick their room.
+  - **The background is drawn, not cleared.** A full-screen pass draws a sky from the horizon up
+    and the ground under the floors' slabs with its grid (fading out when its cells get too small,
+    and into the sky far away), the sun's shadow on it in 3D. The day look takes its colours from
+    the dashboard's background, the ground dimming with the light of the time of day.
+  - **Bloom offscreen, only where it pays.** The glow is carried in the alpha channel of an
+    offscreen picture drawn with 4× MSAA (lamps and screens that are on, halos, outlines, the
+    grid); four levels of a dual-filter blur at half resolution and below are added back. Neon and
+    blueprint are drawn this way from the Balanced preset up, day on High only; Eco draws every
+    look straight to the screen, with the canvas' own antialiasing. Night looks have no sun shadow
+    map, which pays for part of the bloom.
+  - **Which look.** `auto` (the default) is neon in Home Assistant's dark mode and day otherwise;
+    the panel's settings choose the home's look and accent (`settings.theme`, `settings.accent`),
+    a card's `theme` and `accent` options win over them. The view, the panel's header and their
+    dialogs take the look's colours whatever the dashboard's theme (a `look` attribute and CSS
+    variables), so a neon view never shows white buttons.
+  - **The rooms' names** stand on their floors (from the engine, like the layers' values) unless
+    a layer shows its values there or the card turns them off (`names: false`).
+- **Consequences.** The look is part of the picture tests: day's references changed once (the
+  ground, the outlines). In headless Chromium a frame costs about the same CPU time in every look
+  (0.5–0.8 ms median at High), and the software GPU about the same time too: MSAA and the bloom
+  cost about what day's sun shadows cost, and the glass walls redraw the walls alone. The first load grew by 18.6 kB gzipped: the engine
+  16.6 kB (the looks' shaders, the outlines, the background, glass and bloom passes), the rest
+  2 kB (the options, the settings, the rooms' names, the texts).

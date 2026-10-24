@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/hero.png" alt="DomoTwin: an isometric open-dollhouse view of a fictional apartment with glowing lamps" width="100%">
+  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-neon.png" alt="DomoTwin: a fictional apartment in the neon look, its walls of glass outlined in cyan, its lamps on, the rooms named on their floors" width="100%">
 </p>
 
 <p align="center"><b>Your home as a live 3D twin in Home Assistant.</b><br>
@@ -17,8 +17,8 @@ Local, fast, Rust + WebAssembly.</p>
 > ([roadmap](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/ROADMAP.md)). The
 > integration, the panel, the card, the plan and IFC import, the 3D and 2D views, live control
 > (states, tap, long press, room panel, linking), the edit mode, your own 3D models, the layers, the
-> devices, the plan editor and storeys work today; looks and a kiosk mode come next. The features
-> below describe version 0.1.0.
+> devices, the plan editor, storeys and the looks work today; every storey at once and a kiosk
+> mode come next. The features below describe version 0.1.0.
 
 ## Features
 
@@ -27,6 +27,10 @@ Local, fast, Rust + WebAssembly.</p>
   clean 3D model. The
   walls facing the camera are lowered automatically, like an open dollhouse. Switch to a crisp 2D
   plan with a smooth animation.
+- **Three looks.** **Neon**: walls of glass outlined in a glowing accent colour over a grid,
+  lamps and screens that shine; **blueprint**: white lines on blue; **day**: the home as it is, in
+  the light of the time of day. Automatic: neon in Home Assistant's dark mode. See
+  [looks](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/looks.md).
 - **Tap to control.** Tap a lamp to toggle it, long-press for brightness and colour, long-press a
   room to get every light, scene, cover, climate and media player of that room.
 - **Live.** Lamps light their room in their real colour and brightness, the TV glows, blinds and
@@ -51,6 +55,10 @@ Local, fast, Rust + WebAssembly.</p>
 - **Light and smooth.** Rust compiled to WebAssembly, rendering only when something changes, quality
   presets for old wall tablets. The first load is budgeted at 1.2 MB, checked by CI.
 - **Yours.** English and French, follows your Home Assistant theme, works in the companion apps.
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-looks.png" alt="The demo apartment in the evening in the three looks: neon, blueprint and day" width="100%">
+</p>
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-3d.png" alt="The fictional demo apartment in 3D: walls facing the camera are lowered, furniture in every room" width="49%">
@@ -120,6 +128,9 @@ YAML is never required. For reference, the card options are:
 | `sun`         | `fixed`, `real`                     | `fixed`    | `real`: the sun lights from where it is (`sun.sun`), through the windows. |
 | `badges`      | `true`, `false`                     | `true`     | Badges over the devices: locks, cameras, what plays, low batteries, appliances running. |
 | `cameras`     | `true`, `false`                     | `true`     | What the linked cameras see, drawn on the floor. |
+| `theme`       | `auto`, `day`, `neon`, `blueprint`  | the home's | The look; `auto` is neon in dark mode.    |
+| `accent`      | a colour `#rrggbb`                  | the home's | Accent of the look (neon's glowing outlines). |
+| `names`       | `true`, `false`                     | `true`     | The rooms' names on their floors.         |
 | `font_family` | a font family                       | bundled    | Font of the card's texts.                 |
 
 Integration options (Settings → Devices & services → DomoTwin → Configure): show the panel in the

@@ -17,13 +17,16 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M5        | Devices: cameras and what they see, locks, appliances      | ✅     |
 | M6        | Plan editor: draw rooms, walls, doors and windows          | ✅     |
 | M7        | Storeys: several floors, stairs, a storey switcher         | ✅     |
-| M8        | Looks and kiosk: themes, walk mode, idle and night modes   | ⏳     |
-| M9        | Imports: Sweet Home 3D, DXF, room scans                    | ⏳     |
-| M10       | Polish: design, fonts, accessibility, performance, README  | ⏳     |
-| M11       | Release 0.1.0 and HACS submission checklist                | ⏳     |
+| M8        | Looks: neon, blueprint and day, glowing outlines, bloom    | ✅     |
+| M9        | Every storey at once: stacked, spread apart, with a roof   | ⏳     |
+| M10       | Kiosk: walk mode, idle and night modes, Assist voice       | ⏳     |
+| M11       | Imports: Sweet Home 3D, DXF, room scans                    | ⏳     |
+| M12       | Polish: design, fonts, accessibility, performance, README  | ⏳     |
+| M13       | Release 0.1.0 and HACS submission checklist                | ⏳     |
 
-M5 to M9 were added after M3b (`DECISIONS.md`, D-022): what people expect of a 3D home dashboard,
-with no account and no network call outside Home Assistant.
+M5 to M11 were added after M3b (`DECISIONS.md`, D-022): what people expect of a 3D home dashboard,
+with no account and no network call outside Home Assistant. M8 became the looks alone, and the
+storeys seen together their own milestone (M9), so that the picture comes first (D-027).
 
 ## M0, scaffold
 
@@ -341,23 +344,56 @@ Several storeys in one home (`DECISIONS.md`, D-026; [`storeys.md`](storeys.md)).
 Left for later: the storeys stacked in one 3D view (the floors above see-through), stairs cut into
 the floor above, the heatmap and presence of the other storeys.
 
-## M8, looks and kiosk
+## M8, looks
 
-Themes and an accent colour for the scene, a walk mode at eye level, a kiosk mode for wall tablets
-(return to a view when idle, a slow orbit, night dimming), and Assist voice commands.
+Three looks for the scene (`DECISIONS.md`, D-027; [`looks.md`](looks.md)).
 
-## M9, imports
+- ✅ **Neon**: a night sky, a grid on the ground fading into the dark, walls of tinted glass, the
+  outlines of the home glowing in an accent colour, the furniture in a palette of night blues,
+  lamps and screens that shine.
+- ✅ **Blueprint**: white lines on blue, an architect's drawing in 3D.
+- ✅ **Day**: the home as it is, in the light of the time of day, now standing on a ground with
+  its shadow, thin outlines, lamps that glow on desktop GPUs.
+- ✅ **Outlines** of the home from the walls' layout: wall tops and corners, the frames of doors and
+  windows, the floors' outlines, lowered with the cut-away; lines a few pixels wide whatever the
+  zoom.
+- ✅ **Bloom** of what glows (lamps, halos, screens, outlines, the grid), drawn offscreen with 4×
+  MSAA; on old tablets (Eco) the looks are drawn straight to the screen, without it.
+- ✅ **Automatic**: neon in Home Assistant's dark mode, day otherwise; the home's look and accent in
+  the panel's settings (shown as they are chosen), the card's `theme` and `accent` options, the
+  panel's header and the view's buttons and dialogs in the look's colours.
+- ✅ **The rooms' names** on their floors (card option `names`).
+- ✅ Tests: the outlines of the demo apartment, the looks (Rust); every look drawn with and without
+  its bloom, without a WebGL error (headless Chromium); options and settings (vitest, pytest); the
+  looks of a card and of the panel, automatic, the names (Playwright); the frame time of each look.
+
+![The demo apartment in the evening, in the neon, blueprint and day looks](figures/screenshot-looks.png)
+
+Left for later: every storey at once (M9), reflections on the floors, a sky that follows the
+weather.
+
+## M9, every storey at once
+
+The storeys stacked in one view, spread apart on demand, a roof over the top one; small pictures
+of each storey to pick from.
+
+## M10, kiosk
+
+A walk mode at eye level, a kiosk mode for wall tablets (return to a view when idle, a slow orbit,
+night dimming), and Assist voice commands.
+
+## M11, imports
 
 Plans from Sweet Home 3D (`.sh3d`), DXF drawings and room scans (USDZ or OBJ from phone LiDAR
 apps), turned into House Maquette plans.
 
-## M10, polish
+## M12, polish
 
 Design pass, bundled variable font and `font_family` option, accessibility (keyboard, focus rings,
 screen-reader labels, reduced motion), performance tuning against the budgets, README with real
 screenshots and a GIF made from the demo plan.
 
-## M11, release 0.1.0
+## M13, release 0.1.0
 
 Tag and release with the `domotwin.zip` asset, install test as a HACS custom repository, and the
 checklist for the HACS default repository list in `HACS_SUBMISSION.md`.
