@@ -263,7 +263,7 @@ impl Engine {
         let Some(plan) = &self.plan else {
             return "[]".to_owned();
         };
-        let mut seen = BTreeSet::new();
+        let mut seen: Vec<&str> = Vec::new();
         let mut files = Vec::new();
         for element in &plan.elements {
             let Element::Furniture(f) = element else {
@@ -285,7 +285,8 @@ impl Engine {
             };
             let valid =
                 hash.len() == 64 && hash.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'));
-            if valid && !self.models.contains_key(hash) && seen.insert(hash.to_owned()) {
+            if valid && !self.models.contains_key(hash) && !seen.contains(&hash) {
+                seen.push(hash);
                 files.push(serde_json::json!({
                     "hash": hash,
                     "format": format,
@@ -305,16 +306,18 @@ impl Engine {
         };
         Rc::make_mut(&mut self.models).insert(hash.to_owned(), Rc::new(mesh));
         let shown = self.plan.as_ref().is_some_and(|plan| {
-            plan.models
-                .values()
-                .any(|m| m.pointer("/file/hash").and_then(serde_json::Value::as_str) == Some(hash))
+            plan.models.values().any(|m| {
+                m.get("file")
+                    .and_then(|f| f.get("hash"))
+                    .and_then(serde_json::Value::as_str)
+                    == Some(hash)
+            })
         });
         if !shown {
             return true;
         }
-        if let (Some(plan), Some(scene)) = (&self.plan, &self.scene) {
-            let plan = plan.clone();
-            let moving = scene.moving().clone();
+        let moving = self.scene.as_ref().map(|s| s.moving().clone());
+        if let (Some(plan), Some(moving)) = (self.plan.take(), moving) {
             self.show(plan, true, &moving, false);
             if let (Some(session), Some(plan), Some(scene)) =
                 (&mut self.edit, &self.plan, &self.scene)

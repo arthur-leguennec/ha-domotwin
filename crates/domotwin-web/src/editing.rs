@@ -312,10 +312,12 @@ impl Engine {
                     .count();
                 let size = |k: usize| {
                     model
-                        .pointer(&format!("/size/{k}"))
+                        .get("size")
+                        .and_then(|s| s.get(k))
                         .cloned()
                         .unwrap_or_default()
                 };
+                let format = model.get("file").and_then(|f| f.get("format"));
                 let imported = layout.contains_key(&format!("{MODEL_PREFIX}{id}"));
                 json!({
                     "id": id,
@@ -324,7 +326,7 @@ impl Engine {
                     "d": size(1),
                     "h": size(2),
                     "color": model.get("color").cloned().unwrap_or(Value::Null),
-                    "format": model.pointer("/file/format").cloned().unwrap_or(Value::Null),
+                    "format": format.cloned().unwrap_or(Value::Null),
                     "pieces": pieces,
                     "removable": imported && pieces == 0,
                 })

@@ -27,6 +27,14 @@ export const fr: Dictionary = {
     toolbar: "Commandes de la vue",
     action_failed: "Cela n’a pas marché : {reason}",
     room_panel: "Ouvrir les commandes de {room}",
+    models_failed: {
+      one: "{count} modèle 3D n’a pas pu être affiché : ses meubles sont des boîtes.",
+      other: "{count} modèles 3D n’ont pas pu être affichés : leurs meubles sont des boîtes.",
+    },
+    models_over_budget: {
+      one: "{count} meuble est une boîte : les modèles 3D de ce plan ont trop de triangles.",
+      other: "{count} meubles sont des boîtes : les modèles 3D de ce plan ont trop de triangles.",
+    },
     layout_refused: {
       one: "{count} modification ne s’applique plus à ce plan et a été laissée de côté.",
       other: "{count} modifications ne s’appliquent plus à ce plan et ont été laissées de côté.",
@@ -150,6 +158,13 @@ export const fr: Dictionary = {
       one: "{count} élément au-delà de 500",
       other: "{count} éléments au-delà de 500",
     },
+    model_refused: "le modèle 3D « {name} » a été refusé : {reason}",
+    models_reading: "Lecture des modèles 3D du plan…",
+    models_not_embedded: {
+      one: "{count} fichier 3D n’a pas pu être ajouté à l’export : son modèle a été laissé de côté.",
+      other:
+        "{count} fichiers 3D n’ont pas pu être ajoutés à l’export : leurs modèles ont été laissés de côté.",
+    },
   },
   edit: {
     mode: "Modifier",
@@ -174,6 +189,14 @@ export const fr: Dictionary = {
     locked: "{name} est fixé dans le plan.",
     conflict: "Chevauche un autre meuble ou un mur.",
     too_many: "Ce plan contient déjà 500 éléments : retirez-en avant d’en ajouter.",
+    model_refused:
+      "Ce modèle ne peut pas être ajouté : un plan contient au plus 500 éléments et 50 modèles.",
+    my_models: "Mes modèles",
+    import_model: "Importer un modèle 3D…",
+    import_model_hint: "glTF, GLB, OBJ, STL ou 3MF, 8 Mo au plus",
+    forget_model: "Oublier {name}",
+    model_reading: "Lecture de {name}…",
+    model_failed: "Ce modèle 3D ne peut pas être importé : {reason}",
     draft: "Des modifications non enregistrées ont été gardées sur cet appareil.",
     restore: "Restaurer",
     forget: "Les oublier",
@@ -191,6 +214,28 @@ export const fr: Dictionary = {
     group_lights: "Luminaires",
     group_decor: "Décoration et murs",
     group_other: "Autres",
+  },
+  model: {
+    title: "Importer un modèle 3D",
+    name: "Nom",
+    default_name: "Modèle 3D",
+    unit: "Unité du fichier",
+    unit_mm: "Millimètres",
+    unit_cm: "Centimètres",
+    unit_m: "Mètres",
+    unit_in: "Pouces",
+    unit_ft: "Pieds",
+    up: "Axe vertical",
+    up_y: "Y (glTF, la plupart des OBJ)",
+    up_z: "Z (STL, 3MF, logiciels de CAO)",
+    width: "Largeur (cm)",
+    depth: "Profondeur (cm)",
+    height: "Hauteur (cm)",
+    color: "Couleur",
+    triangles: { one: "{count} triangle", other: "{count} triangles" },
+    size_invalid: "Largeur et profondeur : 1 à 10 000 cm. Hauteur : 1 à 300 cm.",
+    import: "Importer",
+    importing: "Import…",
   },
   kinds: {
     sofa: "Canapé",
@@ -285,6 +330,17 @@ export const fr: Dictionary = {
       no_storeys: "le fichier IFC n’a aucun étage.",
       no_spaces:
         "cet étage n’a aucun espace (pièce). Ajoutez des espaces dans votre logiciel de modélisation et exportez à nouveau.",
+      not_model: "ce n’est pas un fichier 3D lisible par l’application, ou il est abîmé.",
+      too_many_triangles: "le modèle a plus de 150 000 triangles.",
+      too_many_meshes: "le modèle a plus de 5 000 parties une fois développé.",
+      external_reference:
+        "le modèle a besoin d’autres fichiers : exportez-le en un seul fichier (GLB).",
+      unsupported:
+        "le modèle utilise une fonction que l’application ne sait pas lire (maillages compressés…).",
+      no_geometry: "le fichier ne contient aucun triangle.",
+      image_too_large: "une image du modèle dépasse 4 096 × 4 096 pixels.",
+      model_missing: "son fichier 3D manque dans Home Assistant.",
+      upload_failed: "le fichier 3D n’a pas pu être envoyé à Home Assistant.",
     },
     ws: {
       revision_conflict: "quelqu’un a enregistré entre-temps. Rechargez et réessayez.",
@@ -294,6 +350,7 @@ export const fr: Dictionary = {
       invalid_layout: "la disposition n’est pas valide.",
       invalid_bindings: "les liaisons ne sont pas valides.",
       too_large: "il est trop volumineux pour être enregistré.",
+      too_many_models: "un plan contient au plus 50 modèles.",
     },
     unknown: "erreur inattendue ({code}).",
     at_element: "{reason} (élément « {element} »)",

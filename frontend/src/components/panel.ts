@@ -16,6 +16,7 @@ import {
   type CatalogueKind,
   type EditState,
   type PickedElement,
+  type UserModel,
 } from "../engine/engine";
 import { DomoTwinClient, type PlanJson, type StoredPlan } from "../ha/client";
 import { isHassError, type HomeAssistant } from "../ha/types";
@@ -23,9 +24,11 @@ import { readBindings, roomArea, type BindingsJson, type ElementBinding } from "
 import { clearDraft, readDraft, writeDraft, type Draft } from "../live/draft";
 import { applyLink, planElement, type LinkChange, type PlanElementInfo } from "../live/suggest";
 import type { IfcFile, IfcReport, IfcStorey } from "../ifc/ifc";
+import type { ModelFormat, ModelInfo } from "../models/models";
 import { translatorFor, type Translator } from "../i18n";
 import { icon } from "./icon";
 import { baseStyles } from "./styles";
+import type { ModelChoice } from "./edit-bar";
 import type { DomoTwinView, EditCommand, ViewOptions } from "./view";
 
 /** The plan format allows files up to 32 MB. */
@@ -50,6 +53,21 @@ interface IfcChoice {
   file: IfcFile;
   name: string;
   storeys: IfcStorey[];
+}
+
+/** A 3D file read, waiting for its name and size. */
+interface ModelImport {
+  fileName: string;
+  format: ModelFormat;
+  bytes: Uint8Array;
+  info: ModelInfo;
+  mesh: Uint8Array;
+}
+
+/** A user model of a plan, as far as the import and export read it. */
+interface PlanModel {
+  name?: unknown;
+  file?: { format?: unknown; hash?: unknown; bytes?: unknown; up?: unknown; data?: unknown };
 }
 
 /** The element open in the link editor. */
@@ -90,6 +108,8 @@ export class DomoTwinPanel extends LitElement {
     edit: { state: true },
     multi: { state: true },
     catalogue: { state: true },
+    models: { state: true },
+    modelImport: { state: true },
     discardAsk: { state: true },
     draft: { state: true },
   };
@@ -110,6 +130,10 @@ export class DomoTwinPanel extends LitElement {
   protected edit?: EditState;
   protected multi = false;
   protected catalogue?: CatalogueKind[];
+  /** The plan's own models, in the catalogue. */
+  protected models: UserModel[] = [];
+  /** A 3D file being imported. */
+  protected modelImport?: ModelImport;
   /** Asking whether to discard the changes. */
   protected discardAsk = false;
   /** Changes not saved, kept by this browser, offered when edit mode starts. */
@@ -363,6 +387,8 @@ export class DomoTwinPanel extends LitElement {
   private describe(error: unknown): string {
     if (error instanceof EngineError) return this.t.errorAt(error.code, error.element);
     if (isHassError(error)) return this.t.error(error.code);
+    // A message already translated (a refused model of an imported plan).
+    if (error instanceof Error && error.name === "Error" && error.message) return error.message;
     return this.t.error(error instanceof Error ? error.name : "unknown");
   }
 
@@ -390,6 +416,7 @@ export class DomoTwinPanel extends LitElement {
     this.edit = undefined;
     this.multi = false;
     this.catalogue = undefined;
+    this.modelImport = undefined;
     this.discardAsk = false;
     this.draft = undefined;
   }
@@ -421,6 +448,7 @@ export class DomoTwinPanel extends LitElement {
   };
 
   private readonly openCatalogue = async (): Promise<void> => {
+    this.models = this.view?.editModels() ?? [];
     this.catalogue = await catalogue();
   };
 
@@ -428,6 +456,84 @@ export class DomoTwinPanel extends LitElement {
     const { kind, name } = (event as CustomEvent<{ kind: string; name: string }>).detail;
     this.catalogue = undefined;
     this.view?.editAdd(kind, name);
+  };
+
+  private readonly onAddModel = (event: Event): void => {
+    const { id } = (event as CustomEvent<{ id: string }>).detail;
+    this.catalogue = undefined;
+    this.view?.editAddModel(id);
+  };
+
+  private readonly onForgetModel = (event: Event): void => {
+    const { id } = (event as CustomEvent<{ id: string }>).detail;
+    this.view?.editRemoveModel(id);
+    this.models = this.view?.editModels() ?? [];
+  };
+
+  private readonly chooseModel = (): void => {
+    if (this.busy) return;
+    this.renderRoot.querySelector<HTMLInputElement>("input.model-file")?.click();
+  };
+
+  /** Reads a 3D file with the model module (loaded now), then asks for its name and size. */
+  private readonly readModelFile = async (event: Event): Promise<void> => {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = "";
+    if (!file || this.busy) return;
+    const t = this.t;
+    this.busy = true;
+    this.show(t.t("edit.model_reading", { name: file.name }));
+    try {
+      const { MAX_MODEL_BYTES, formatOf, readModel } = await import("../models/models");
+      const format = formatOf(file.name);
+      if (!format) throw new EngineError("not_model");
+      if (file.size > MAX_MODEL_BYTES) throw new EngineError("too_large");
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const read = await readModel(bytes, format);
+      this.toast = undefined;
+      this.catalogue = undefined;
+      this.modelImport = { fileName: file.name, format, bytes, ...read };
+    } catch (error) {
+      this.show(t.t("edit.model_failed", { reason: this.describe(error) }), true);
+    } finally {
+      this.busy = false;
+    }
+  };
+
+  /** Uploads the file being imported and adds a piece of its new model. */
+  private readonly confirmModel = async (event: Event): Promise<void> => {
+    const choice = (event as CustomEvent<ModelChoice>).detail;
+    const pending = this.modelImport;
+    const hass = this._hass;
+    if (!pending || !hass || this.busy) return;
+    const t = this.t;
+    this.busy = true;
+    try {
+      const { keepMesh, newModelId, uploadModel } = await import("../models/models");
+      const uploaded = await uploadModel(hass, pending.bytes, pending.format);
+      keepMesh(uploaded.hash, pending.mesh);
+      const definition: Record<string, unknown> = {
+        name: choice.name,
+        size: choice.size,
+        file: {
+          format: pending.format,
+          hash: uploaded.hash,
+          bytes: uploaded.bytes,
+          up: choice.up,
+        },
+      };
+      if (choice.color) definition.color = choice.color;
+      this.modelImport = undefined;
+      this.view?.editAddModel(newModelId(), definition, {
+        hash: uploaded.hash,
+        mesh: pending.mesh,
+      });
+    } catch (error) {
+      this.show(t.t("edit.model_failed", { reason: this.describe(error) }), true);
+    } finally {
+      this.busy = false;
+    }
   };
 
   private readonly restoreDraft = (): void => {
@@ -538,7 +644,7 @@ export class DomoTwinPanel extends LitElement {
   private readonly chooseFile = (): void => {
     // One import at a time: not while a file is read or its storey is being chosen.
     if (this.busy || this.ifcChoice) return;
-    this.renderRoot.querySelector<HTMLInputElement>("input[type=file]")?.click();
+    this.renderRoot.querySelector<HTMLInputElement>("input.plan-file")?.click();
   };
 
   private readonly importFile = async (event: Event): Promise<void> => {
@@ -558,6 +664,7 @@ export class DomoTwinPanel extends LitElement {
       const text = await file.text();
       const summary = await summarizePlan(text);
       const plan = JSON.parse(text.replace(/^\uFEFF/, "")) as PlanJson;
+      await this.storeEmbeddedModels(plan);
       await client.savePlan(plan);
       await this.loadPlan();
       this.show(t.t("panel.imported", { title: summary.title || t.t("view.untitled") }));
@@ -567,6 +674,44 @@ export class DomoTwinPanel extends LitElement {
       this.busy = false;
     }
   };
+
+  /**
+   * The 3D files an exported plan embeds (`data:` URLs) are read, checked and uploaded, and the
+   * plan keeps only their references. A file that is refused fails the import with its model's
+   * name.
+   */
+  private async storeEmbeddedModels(plan: PlanJson): Promise<void> {
+    const hass = this._hass;
+    const models = plan.models;
+    if (!hass || typeof models !== "object" || models === null) return;
+    const embedded = Object.values(models as Record<string, PlanModel>).filter(
+      (model) => typeof model.file?.data === "string",
+    );
+    if (embedded.length === 0) return;
+    const t = this.t;
+    this.show(t.t("panel.models_reading"));
+    const { MODEL_FORMATS, fromDataUrl, keepMesh, readModel, uploadModel } =
+      await import("../models/models");
+    for (const model of embedded) {
+      const file = model.file ?? {};
+      const name = typeof model.name === "string" ? model.name : "";
+      try {
+        const format = MODEL_FORMATS.find((f) => f === file.format);
+        const bytes = fromDataUrl(String(file.data));
+        if (!format || !bytes) throw new EngineError("not_model");
+        const read = await readModel(bytes, format);
+        const uploaded = await uploadModel(hass, bytes, format);
+        keepMesh(uploaded.hash, read.mesh);
+        file.hash = uploaded.hash;
+        file.bytes = uploaded.bytes;
+        delete file.data;
+      } catch (error) {
+        throw new Error(t.t("panel.model_refused", { name, reason: this.describe(error) }), {
+          cause: error,
+        });
+      }
+    }
+  }
 
   /** Reads an IFC file with the IFC module (loaded now), then imports its storey or asks which. */
   private async readIfc(file: File): Promise<void> {
@@ -657,6 +802,7 @@ export class DomoTwinPanel extends LitElement {
       const plan = JSON.parse(
         await applyLayout(JSON.stringify(stored), JSON.stringify(layout)),
       ) as PlanJson;
+      const missing = await this.embedModels(plan);
       const title = typeof plan.title === "string" ? plan.title : "";
       const blob = new Blob([`${JSON.stringify(plan, null, 2)}\n`], { type: "application/json" });
       const url = URL.createObjectURL(blob);
@@ -667,10 +813,42 @@ export class DomoTwinPanel extends LitElement {
       setTimeout(() => {
         URL.revokeObjectURL(url);
       }, 1000);
+      if (missing > 0) this.show(t.tp("panel.models_not_embedded", missing), true);
     } catch (error) {
       this.show(t.t("panel.export_failed", { reason: this.describe(error) }), true);
     }
   };
+
+  /**
+   * Embeds the plan's 3D files as `data:` URLs, so that it opens with its models elsewhere. A
+   * model whose file cannot be fetched is left out with its pieces. Returns how many.
+   */
+  private async embedModels(plan: PlanJson): Promise<number> {
+    const hass = this._hass;
+    const models = plan.models as Record<string, PlanModel> | undefined;
+    if (!hass || typeof models !== "object") return 0;
+    const files = Object.entries(models).filter(([, m]) => typeof m.file?.hash === "string");
+    if (files.length === 0) return 0;
+    const { MODEL_FORMATS, fetchModel, toDataUrl } = await import("../models/models");
+    const left: string[] = [];
+    for (const [id, model] of files) {
+      const file = model.file ?? {};
+      const format = MODEL_FORMATS.find((f) => f === file.format);
+      try {
+        if (!format) throw new EngineError("not_model");
+        file.data = toDataUrl(await fetchModel(hass, String(file.hash), format), format);
+      } catch {
+        left.push(id);
+      }
+    }
+    if (left.length > 0 && Array.isArray(plan.elements)) {
+      for (const id of left) Reflect.deleteProperty(models, id);
+      plan.elements = (plan.elements as { model?: unknown }[]).filter(
+        (element) => typeof element.model !== "string" || !left.includes(element.model),
+      );
+    }
+    return left.length;
+  }
 
   private renderStoreys(choice: IfcChoice): TemplateResult {
     const t = this.t;
@@ -723,7 +901,7 @@ export class DomoTwinPanel extends LitElement {
           .linking=${this.linking}
           .editing=${this.editing}
           .multiSelect=${this.multi}
-          .editKeys=${!this.catalogue && !this.discardAsk}
+          .editKeys=${!this.catalogue && !this.discardAsk && !this.modelImport}
           @domotwin-pick=${this.onPick}
           @domotwin-edit=${this.onEdit}
         >
@@ -737,7 +915,18 @@ export class DomoTwinPanel extends LitElement {
         </domotwin-view>
         ${this.editing ? this.renderEditTools() : this.renderSheets()} ${this.renderToast()}
       </div>
-      <input type="file" accept=".json,application/json,.ifc" @change=${this.importFile} />`;
+      <input
+        class="plan-file"
+        type="file"
+        accept=".json,application/json,.ifc"
+        @change=${this.importFile}
+      />
+      <input
+        class="model-file"
+        type="file"
+        accept=".glb,.gltf,.obj,.stl,.3mf"
+        @change=${this.readModelFile}
+      />`;
   }
 
   private renderActions(admin: boolean): TemplateResult {
@@ -851,7 +1040,7 @@ export class DomoTwinPanel extends LitElement {
     const t = this.t;
     // The catalogue covers the bottom of the view: the bar comes back when it closes.
     return html`${
-      this.edit && !this.catalogue
+      this.edit && !this.catalogue && !this.modelImport
         ? html`<domotwin-edit-bar
             .hass=${this._hass}
             .state=${this.edit}
@@ -871,9 +1060,28 @@ export class DomoTwinPanel extends LitElement {
             .hass=${this._hass}
             .heading=${t.t("edit.add")}
             .kinds=${this.catalogue}
+            .models=${this.models}
             @domotwin-add=${this.onAdd}
+            @domotwin-add-model=${this.onAddModel}
+            @domotwin-forget-model=${this.onForgetModel}
+            @domotwin-import-model=${this.chooseModel}
             @domotwin-close=${() => (this.catalogue = undefined)}
           ></domotwin-catalogue>`
+        : nothing
+    }
+    ${
+      this.modelImport
+        ? html`<domotwin-model-import
+            data-testid="model-import-sheet"
+            .hass=${this._hass}
+            .heading=${t.t("model.title")}
+            .fileName=${this.modelImport.fileName}
+            .format=${this.modelImport.format}
+            .info=${this.modelImport.info}
+            .busy=${this.busy}
+            @domotwin-model-confirm=${this.confirmModel}
+            @domotwin-close=${() => (this.modelImport = undefined)}
+          ></domotwin-model-import>`
         : nothing
     }
     ${

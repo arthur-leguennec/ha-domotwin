@@ -219,7 +219,11 @@ jobs:
       - name: Build the engine and the frontend
         run: scripts/build.sh
       - name: The committed TypeScript declarations of the wasm modules are up to date
-        run: git diff --exit-code -- frontend/src/engine/pkg/domotwin_web.d.ts frontend/src/ifc/pkg/domotwin_ifc.d.ts
+        run: >-
+          git diff --exit-code --
+          frontend/src/engine/pkg/domotwin_web.d.ts
+          frontend/src/ifc/pkg/domotwin_ifc.d.ts
+          frontend/src/models/pkg/domotwin_models.d.ts
       - name: First-load budget (wasm + JS ≤ 1.2 MB gzipped)
         run: |
           node scripts/check-bundle-size.mjs --json bundle-size.json | tee bundle-size.md

@@ -2,6 +2,7 @@
 //   mode=card|panel  lang=en|fr  plan=demo|none  admin=1|0  dark=1  view=3d|2d  cutaway=auto|always|off
 //   lighting=auto|morning|day|evening|night  sun=<elevation>,<rising 0|1> (a sun.sun entity)
 //   live=1 (the demo bindings, and the demo home's entities, areas and states)
+//   models=1 (the demo plan with a bar stool drawn from examples/models/stool.glb, twice)
 import { applyService, demoHome } from "./demo-home.mjs";
 
 const params = new URLSearchParams(location.search);
@@ -19,7 +20,65 @@ const store = {
   layout: {},
   bindings: demoBindings,
   revision: 1,
+  /** Model files kept by the mocked integration, by `<sha256>.<format>`. */
+  files: new Map(),
 };
+window.__store = store;
+
+async function sha256(bytes) {
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+if (params.get("models") === "1" && store.plan) {
+  const bytes = new Uint8Array(await (await fetch("/examples/models/stool.glb")).arrayBuffer());
+  const hash = await sha256(bytes);
+  store.files.set(`${hash}.glb`, bytes);
+  store.plan.models = {
+    "m-stool": {
+      name: "Bar stool",
+      size: [38, 38, 71],
+      file: { format: "glb", hash, bytes: bytes.length, up: "y" },
+    },
+  };
+  for (const [id, x] of [
+    ["stool-1", 80],
+    ["stool-2", 130],
+  ]) {
+    store.plan.elements.push({
+      id,
+      type: "furniture",
+      name: "Bar stool",
+      x,
+      y: 280,
+      w: 38,
+      h: 38,
+      z: 71,
+      kind: "custom",
+      model: "m-stool",
+      parent: "living",
+    });
+  }
+}
+
+/** The integration's model file views (`/api/domotwin/models`), with the user's session. */
+async function fetchWithAuth(path, init = {}) {
+  calls.push({ type: "fetch", method: init.method ?? "GET", path });
+  const url = new URL(path, location.origin);
+  if (url.pathname === "/api/domotwin/models" && init.method === "POST") {
+    if (!hass.user.is_admin) return Response.json({ code: "unauthorized" }, { status: 403 });
+    const format = url.searchParams.get("format");
+    const bytes = new Uint8Array(await new Response(init.body).arrayBuffer());
+    const hash = await sha256(bytes);
+    store.files.set(`${hash}.${format}`, bytes);
+    return Response.json({ hash, bytes: bytes.length, format });
+  }
+  const name = url.pathname.replace("/api/domotwin/models/", "");
+  const bytes = store.files.get(name);
+  if (!bytes || window.__failModelFiles)
+    return Response.json({ code: "not_found" }, { status: 404 });
+  return new Response(bytes);
+}
 const listeners = new Set();
 const calls = [];
 window.__calls = calls;
@@ -84,6 +143,7 @@ let hass = {
   locale: { language },
   themes: { darkMode: params.get("dark") === "1" },
   connection,
+  fetchWithAuth,
   async callService(domain, service, data, target) {
     calls.push({ type: "call_service", domain, service, data, target });
     if (window.__failServices)

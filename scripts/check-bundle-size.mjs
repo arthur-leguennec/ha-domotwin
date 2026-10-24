@@ -43,7 +43,7 @@ rows.sort((a, b) => b.gzip - a.gzip);
 
 // Everything a view needs on first load: the entry, the chunks it imports statically, the engine
 // (imported on demand, but every view starts it) with its own imports, and the engine's wasm.
-// Panels, editors and the IFC import, loaded on demand, are listed apart.
+// Panels, editors, the IFC import and the 3D model reader, loaded on demand, are listed apart.
 const manifest = JSON.parse(await readFile(join(out, "build.json"), "utf8"));
 const sources = new Map();
 for (const row of rows) {
@@ -86,7 +86,7 @@ for (const row of rows) {
   console.log(`| ${row.file}${when} | ${kb(row.bytes)} | ${kb(row.gzip)} |`);
 }
 console.log(`\nFirst load (wasm + JS): ${kb(total)} gzipped, budget ${kb(BUDGET_GZIP_BYTES)}.`);
-console.log(`On demand (panels, editors, IFC import): ${kb(later)} gzipped.`);
+console.log(`On demand (panels, editors, IFC import, 3D models): ${kb(later)} gzipped.`);
 
 const jsonIndex = process.argv.indexOf("--json");
 if (jsonIndex > 0 && process.argv[jsonIndex + 1]) {

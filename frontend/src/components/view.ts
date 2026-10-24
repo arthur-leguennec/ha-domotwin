@@ -20,6 +20,7 @@ import {
   type PlanSummary,
   type SavedView,
   type SceneStats,
+  type UserModel,
 } from "../engine/engine";
 import {
   GestureTracker,
@@ -223,6 +224,9 @@ export class DomoTwinView extends LitElement {
   private lightTimer?: number;
   /** Entity states already sent to the engine, and the entities bound. */
   private readonly states = new StateSync();
+  /** 3D files asked for (by hash), and those that could not be read. */
+  private readonly modelsLoading = new Set<string>();
+  private readonly modelsFailed = new Set<string>();
   private bound = new Set<string>();
   private holdTimer?: number;
   private noticeTimer?: number;
@@ -558,9 +562,38 @@ export class DomoTwinView extends LitElement {
     if (state.refused) this.notify(this.translator.t("edit.too_many"));
   }
 
+  /**
+   * Adds a piece of a user model in the middle of the view and selects it. A model imported now
+   * comes with its definition and the mesh of its file.
+   */
+  editAddModel(
+    id: string,
+    definition?: Record<string, unknown>,
+    file?: { hash: string; mesh: Uint8Array },
+  ): void {
+    const engine = this.engine;
+    const canvas = this.canvas;
+    if (!engine || !canvas || !this.edit) return;
+    if (file) engine.setModelMesh(file.hash, file.mesh);
+    const state = engine.editAddModel(id, definition, canvas.width / 2, canvas.height / 2);
+    this.setEdit(state);
+    if (state.refused) this.notify(this.translator.t("edit.model_refused"));
+  }
+
+  /** Forgets a model imported in edit mode that no piece shows. */
+  editRemoveModel(id: string): void {
+    if (this.engine && this.edit) this.setEdit(this.engine.editRemoveModel(id));
+  }
+
+  /** The user models of the plan shown (« My models »). */
+  editModels(): UserModel[] {
+    return this.engine?.editModels() ?? [];
+  }
+
   /** Puts a draft overlay in place, as one change that can be undone. */
   editRestore(layout: Record<string, unknown>): void {
     if (this.engine && this.edit) this.setEdit(this.engine.editRestore(layout));
+    this.loadModels();
   }
 
   /** The edit overlay now (what Save stores). */
@@ -794,6 +827,8 @@ export class DomoTwinView extends LitElement {
       this.applyLighting();
     }, LIGHT_REFRESH_MS);
     this.states.reset();
+    this.modelsLoading.clear();
+    this.modelsFailed.clear();
     this.applyBindings();
     this.loadedPlan = undefined;
     this.loadedLayout = undefined;
@@ -987,6 +1022,7 @@ export class DomoTwinView extends LitElement {
       );
       const refused = this.summary.layoutRefused ?? 0;
       if (refused > 0) this.notify(this.translator.tp("view.layout_refused", refused));
+      this.loadModels();
       this.savedViews = this.engine.views();
       if (!sameHome) {
         if (this.options.view === "2d") this.setPlanView(true);
@@ -996,6 +1032,39 @@ export class DomoTwinView extends LitElement {
       this.loadError = error instanceof EngineError ? error : engineError(error);
     }
     this.scheduler?.request();
+  }
+
+  /**
+   * Fetches and reads the 3D files the pieces shown are drawn from (they are boxes until then),
+   * with the model module, loaded only now.
+   */
+  private loadModels(): void {
+    const engine = this.engine;
+    const hass = this.hass;
+    if (!engine || !hass) return;
+    const files = engine.modelFiles().filter((file) => !this.modelsLoading.has(file.hash));
+    if (files.length === 0) return;
+    for (const file of files) this.modelsLoading.add(file.hash);
+    void import("../models/models").then(({ modelMesh }) => {
+      for (const file of files) {
+        modelMesh(hass, file.hash, file.format).then(
+          (mesh) => {
+            if (this.engine !== engine) return;
+            engine.setModelMesh(file.hash, mesh);
+            const over = engine.modelsOverBudget;
+            if (over > 0) this.notify(this.translator.tp("view.models_over_budget", over));
+            this.scheduler?.request();
+          },
+          () => {
+            if (this.engine !== engine) return;
+            // Tried again with the next plan shown.
+            this.modelsLoading.delete(file.hash);
+            this.modelsFailed.add(file.hash);
+            this.notify(this.translator.tp("view.models_failed", this.modelsFailed.size));
+          },
+        );
+      }
+    });
   }
 
   private pick(picked: PickedElement): void {

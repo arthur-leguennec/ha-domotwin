@@ -19,6 +19,7 @@ const types = {
   ".mjs": "text/javascript; charset=utf-8",
   ".json": "application/json",
   ".wasm": "application/wasm",
+  ".glb": "model/gltf-binary",
 };
 
 createServer(async (request, response) => {
