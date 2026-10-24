@@ -1,9 +1,10 @@
 import { LitElement, css, html, nothing, type TemplateResult } from "lit";
 
 import { ConfigError, normalizeConfig, type CardConfig } from "../config";
-import { DomoTwinClient, type Settings, type StoredPlan } from "../ha/client";
+import { DomoTwinClient, type Settings, type StoreyInfo, type StoredPlan } from "../ha/client";
 import { isHassError, type HomeAssistant } from "../ha/types";
 import { readBindings, type BindingsJson } from "../live/bindings";
+import { loadStorey, roomsElsewhere, type StoreyRooms } from "../live/storeys";
 import { translatorFor } from "../i18n";
 import { baseStyles } from "./styles";
 import type { ViewOptions } from "./view";
@@ -18,6 +19,9 @@ export class DomoTwinCard extends LitElement {
     planError: { state: true },
     bindings: { state: true },
     settings: { state: true },
+    storeys: { state: true },
+    storey: { state: true },
+    elsewhere: { state: true },
   };
 
   protected config?: CardConfig;
@@ -26,6 +30,15 @@ export class DomoTwinCard extends LitElement {
   protected planError?: string;
   protected bindings?: BindingsJson;
   protected settings?: Settings;
+  /** The storeys, and the one shown (chosen in the view, else the card's `storey`). */
+  protected storeys: StoreyInfo[] = [];
+  protected storey?: string;
+  /** The storey chosen with the switcher, until the page is left. */
+  private chosen?: string;
+  /** Counts the plan's loads: the answer to an older one is dropped. */
+  private loads = 0;
+  /** The rooms of the storeys not shown, for their alerts. */
+  protected elsewhere: StoreyRooms[] = [];
   private _hass?: HomeAssistant;
   private unsubscribe?: () => void;
   private options?: { source: CardConfig; value: ViewOptions };
@@ -52,7 +65,13 @@ export class DomoTwinCard extends LitElement {
   /** Home Assistant calls this with the YAML or UI configuration; invalid ones throw. */
   setConfig(config: unknown): void {
     try {
+      const before = this.config?.storey;
       this.config = normalizeConfig(config);
+      if (this.config.storey !== before) {
+        // Another storey asked for (the visual editor): it wins over the switcher's choice.
+        this.chosen = undefined;
+        if (this._hass && this.isConnected) void this.loadPlan(DomoTwinClient.for(this._hass));
+      }
     } catch (error) {
       if (error instanceof ConfigError) {
         const t = translatorFor(this._hass);
@@ -108,15 +127,45 @@ export class DomoTwinCard extends LitElement {
   }
 
   private async loadPlan(client: DomoTwinClient): Promise<void> {
+    const ticket = ++this.loads;
     try {
-      const stored = await client.getPlan();
+      // The storey chosen with the switcher, else the card's; a storey removed since: the ground
+      // floor.
+      let stored = await loadStorey(client, this.chosen ?? this.config?.storey);
+      if (this.chosen !== undefined && stored.storey !== this.chosen) {
+        // The storey chosen was removed: the card's own.
+        this.chosen = undefined;
+        if (this.config?.storey !== undefined)
+          stored = await loadStorey(client, this.config.storey);
+      }
+      // A later load (another storey asked for) wins.
+      if (ticket !== this.loads) return;
       this.plan = stored.plan;
       this.layout = stored.layout;
+      this.storeys = stored.storeys;
+      this.storey = stored.storey ?? undefined;
+      void this.loadElsewhere(client, stored);
       this.planError = undefined;
     } catch (error) {
       this.planError = isHassError(error) ? error.code : "unknown";
     }
   }
+
+  /** The rooms of the other storeys (plans the client has are not fetched again). */
+  private async loadElsewhere(client: DomoTwinClient, stored: StoredPlan): Promise<void> {
+    const elsewhere =
+      stored.storeys.length > 1 ? await roomsElsewhere(client, stored.storeys, stored.storey) : [];
+    // Another storey shown meanwhile: its own load sets them.
+    if ((stored.storey ?? undefined) === this.storey) this.elsewhere = elsewhere;
+  }
+
+  /** The view's storey switcher. */
+  private readonly onStorey = (event: Event): void => {
+    const hass = this._hass;
+    if (!hass) return;
+    this.chosen = (event as CustomEvent<string>).detail;
+    void this.loadPlan(DomoTwinClient.for(hass));
+  };
 
   /** Without bindings the home still shows, without live states. */
   private async loadBindings(client: DomoTwinClient): Promise<void> {
@@ -188,6 +237,10 @@ export class DomoTwinCard extends LitElement {
         .planError=${this.planError}
         .options=${this.viewOptions()}
         .north=${this.settings?.north ?? 0}
+        .storeys=${this.storeys}
+        .storey=${this.storey}
+        .elsewhere=${this.elsewhere}
+        @domotwin-storey=${this.onStorey}
       ></domotwin-view>
     </ha-card>`;
   }

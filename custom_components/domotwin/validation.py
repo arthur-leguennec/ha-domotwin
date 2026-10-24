@@ -12,6 +12,7 @@ from .const import (
     MAX_BINDINGS_BYTES,
     MAX_BOUND_ELEMENTS,
     MAX_ELEMENTS,
+    MAX_ELEVATION,
     MAX_ENTITIES_PER_ELEMENT,
     MAX_ID_LENGTH,
     MAX_LAYOUT_BYTES,
@@ -19,6 +20,9 @@ from .const import (
     MAX_MODELS,
     MAX_MODELS_BYTES,
     MAX_PLAN_BYTES,
+    MAX_STOREY_NAME,
+    MAX_STOREYS,
+    MIN_ELEVATION,
     MODEL_ENTRY_PREFIX,
     MODEL_FORMATS,
 )
@@ -223,3 +227,73 @@ def validate_settings(settings: Any) -> dict[str, Any]:
     if not _is_number(north) or not 0 <= north < 360:
         raise InvalidPayloadError("invalid_settings", "`north` must be a number from 0 to 360")
     return {"north": north}
+
+
+def validate_storey_name(name: Any) -> str:
+    """A storey's name: text of at most 60 characters (empty: named by its place)."""
+    if not isinstance(name, str) or len(name) > MAX_STOREY_NAME:
+        raise InvalidPayloadError(
+            "invalid_storey", f"a storey's name is text of at most {MAX_STOREY_NAME} characters"
+        )
+    return name.strip()
+
+
+def validate_elevation(elevation: Any) -> float:
+    """A storey's elevation (cm above the ground floor's)."""
+    if not _is_number(elevation) or not MIN_ELEVATION <= elevation <= MAX_ELEVATION:
+        raise InvalidPayloadError(
+            "invalid_storey", f"an elevation is {MIN_ELEVATION} to {MAX_ELEVATION} cm"
+        )
+    return float(elevation)
+
+
+def validate_storey_count(count: int) -> None:
+    """At most 20 storeys."""
+    if count > MAX_STOREYS:
+        raise InvalidPayloadError("too_many_storeys", f"a home has at most {MAX_STOREYS} storeys")
+
+
+def element_ids(plan: dict[str, Any] | None, layout: dict[str, Any] | None = None) -> set[str]:
+    """The ids a storey uses: its plan's elements and the pieces its overlay adds."""
+    elements = plan.get("elements") if isinstance(plan, dict) else None
+    ids = (
+        {
+            element["id"]
+            for element in elements
+            if isinstance(element, dict) and isinstance(element.get("id"), str)
+        }
+        if isinstance(elements, list)
+        else set()
+    )
+    if isinstance(layout, dict):
+        ids |= {key for key, entry in layout.items() if isinstance(entry, dict) and "add" in entry}
+    return ids
+
+
+type StoreyContent = tuple[dict[str, Any] | None, dict[str, Any] | None]
+
+
+def validate_unique_ids(storey: StoreyContent, others: list[StoreyContent]) -> None:
+    """Element ids are unique in the whole home: links and room areas are keyed by them.
+
+    `storey` and each of `others` are a plan and its overlay.
+    """
+    taken: set[str] = set()
+    for other in others:
+        taken |= element_ids(*other)
+    _check_shared(element_ids(*storey) & taken)
+
+
+def _check_shared(shared: set[str]) -> None:
+    if shared:
+        named = ", ".join(sorted(shared)[:5])
+        raise InvalidPayloadError("duplicate_id", f"ids already used on another storey: {named}")
+
+
+def validate_storeys_ids(plans: list[dict[str, Any]]) -> None:
+    """No element id is on two of `plans` (storeys replacing the home's)."""
+    taken: set[str] = set()
+    for plan in plans:
+        ids = element_ids(plan)
+        _check_shared(ids & taken)
+        taken |= ids

@@ -21,6 +21,8 @@ use crate::geometry::polygon::{area, self_intersects};
 type Object = Map<String, Value>;
 
 const TEXT: usize = 100;
+/// Longest element id (characters), shared by the overlay and the plan editor.
+pub(crate) const MAX_ID: usize = TEXT;
 const LONG_TEXT: usize = 300;
 const MAX_VERTICES: usize = 64;
 const VERTEX_TOLERANCE: f64 = 1e-7;
@@ -158,7 +160,7 @@ fn read_element(
         return Err(invalid());
     };
     let id = match e.get("id").and_then(Value::as_str) {
-        Some(id) if id.chars().count() <= TEXT => id.to_owned(),
+        Some(id) if id.chars().count() <= MAX_ID => id.to_owned(),
         _ => return Err(invalid()),
     };
     let kind = e.get("type").and_then(Value::as_str);

@@ -1,9 +1,14 @@
 //! The plan editor's changes, driven by the bytes, on the demo plan: nothing may panic, and every
-//! change kept leaves a plan the reader accepts.
+//! change kept leaves a plan the reader accepts; so does the plan with its ids made free of the
+//! demo's (a storey joining a home).
 
 #![no_main]
 
-use domotwin_core::structure::Draft;
+use std::collections::BTreeSet;
+use std::sync::OnceLock;
+
+use domotwin_core::plan::read_plan_value;
+use domotwin_core::structure::{Draft, free_ids};
 use libfuzzer_sys::fuzz_target;
 use serde_json::{Map, Value, json};
 
@@ -18,7 +23,7 @@ fuzz_target!(|data: &[u8]| {
     let Ok(source) = serde_json::from_str::<Value>(DEMO) else {
         return;
     };
-    let mut draft = Draft::new(source);
+    let mut draft = Draft::new(source.clone());
     for op in data.chunks_exact(10).take(64) {
         let ids: Vec<String> = draft
             .plan()
@@ -74,4 +79,43 @@ fuzz_target!(|data: &[u8]| {
             assert!(draft.read().is_ok(), "a change kept left a plan the reader refuses");
         }
     }
+    // Joining a home whose other storey uses every id the demo has, and a long one that an element
+    // (picked by the bytes) has too.
+    let mut joining = draft.plan().clone();
+    let long = "é".repeat(100);
+    if let Some(list) = joining.get_mut("elements").and_then(Value::as_array_mut)
+        && !list.is_empty()
+    {
+        let pick = usize::from(data.first().copied().unwrap_or(0)) % list.len();
+        let old = list[pick].get("id").and_then(Value::as_str).map(str::to_owned);
+        list[pick]["id"] = json!(long);
+        for e in list.iter_mut() {
+            if old.is_some() && e.get("parent").and_then(Value::as_str) == old.as_deref() {
+                e["parent"] = json!(long);
+            }
+        }
+    }
+    let mut taken = DEMO_IDS.get_or_init(|| ids_of(&source)).clone();
+    taken.insert(long);
+    free_ids(&mut joining, &taken);
+    if draft.read().is_ok() {
+        assert!(
+            read_plan_value(&joining).is_ok(),
+            "ids made free left a plan the reader refuses"
+        );
+    }
 });
+
+/// The demo plan's ids, read once.
+static DEMO_IDS: OnceLock<BTreeSet<String>> = OnceLock::new();
+
+fn ids_of(plan: &Value) -> BTreeSet<String> {
+    plan.get("elements")
+        .and_then(Value::as_array)
+        .map(|list| {
+            list.iter()
+                .filter_map(|e| e.get("id").and_then(Value::as_str).map(str::to_owned))
+                .collect()
+        })
+        .unwrap_or_default()
+}

@@ -10,6 +10,7 @@ mod read;
 use std::collections::BTreeMap;
 
 pub use catalogue::{DoorStyle, Floor, Kind, KindFlags, KindInfo, Role, WallStyle};
+pub(crate) use read::MAX_ID;
 pub use read::{parse_plan_json, read_plan, read_plan_value, valid_model_id};
 use serde_json::Value;
 

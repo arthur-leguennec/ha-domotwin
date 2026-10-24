@@ -52,6 +52,8 @@ pub struct Session {
     drag: Option<Drag>,
     /// Counts the changes of the overlay (records, undo, redo), to tell when it changed.
     changes: u64,
+    /// Ids an added piece must not take: the other storeys' (`DECISIONS.md`, D-026).
+    reserved: BTreeSet<String>,
 }
 
 fn pieces(plan: &Plan) -> impl Iterator<Item = &Furniture> {
@@ -144,7 +146,13 @@ impl Session {
             conflicts: Vec::new(),
             drag: None,
             changes: 0,
+            reserved: BTreeSet::new(),
         }
+    }
+
+    /// Ids pieces added from now on must not take.
+    pub fn reserve(&mut self, ids: impl IntoIterator<Item = String>) {
+        self.reserved.extend(ids);
     }
 
     /// A number that changes whenever the overlay does.
@@ -581,7 +589,11 @@ impl Session {
         let layout = self.layout().clone();
         let id = (1..)
             .map(|n| format!("{}-added-{n}", info.name))
-            .find(|id| !layout.contains_key(id) && !plan.elements.iter().any(|e| e.id() == id))?;
+            .find(|id| {
+                !layout.contains_key(id)
+                    && !self.reserved.contains(id)
+                    && !plan.elements.iter().any(|e| e.id() == id)
+            })?;
         let mut element = Map::new();
         element.insert(
             "name".into(),
@@ -743,6 +755,20 @@ mod tests {
             .add(&plan, &walls, Kind::Lamp, "Lamp", [480.0, 700.0])
             .unwrap();
         assert_eq!(id, "lamp-added-1");
+        // Another storey's ids are not taken.
+        let mut other = Session::new(&Layout::new());
+        other.reserve(["lamp-added-1".to_owned()]);
+        let (plan_before, walls_before) = shown(other.layout());
+        let next = other
+            .add(
+                &plan_before,
+                &walls_before,
+                Kind::Lamp,
+                "Lamp",
+                [480.0, 700.0],
+            )
+            .unwrap();
+        assert_eq!(next, "lamp-added-2");
         let (plan, walls) = shown(session.layout());
         let lamp = piece(&plan, &id).unwrap();
         assert_eq!(

@@ -31,6 +31,14 @@ impl Engine {
         self.edit_state()
     }
 
+    /// Ids the pieces added in this session must not take (the other storeys' elements).
+    #[wasm_bindgen(js_name = editReserve)]
+    pub fn edit_reserve(&mut self, ids: Vec<String>) {
+        if let Some(session) = self.edit.as_mut() {
+            session.reserve(ids);
+        }
+    }
+
     /// Leaves edit mode, keeping the changes shown (`keep`) or going back to the overlay saved.
     #[wasm_bindgen(js_name = endEdit)]
     pub fn end_edit(&mut self, keep: bool) {

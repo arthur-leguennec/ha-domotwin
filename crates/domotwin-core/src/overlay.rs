@@ -28,14 +28,12 @@ use std::collections::BTreeMap;
 use serde_json::{Map, Value};
 
 use crate::ReadError;
-use crate::plan::{Plan, read_plan_value, valid_model_id};
+use crate::plan::{MAX_ID, Plan, read_plan_value, valid_model_id};
 
 /// Most entries kept (twice the plan's 500 elements).
 pub const MAX_ENTRIES: usize = 1000;
 /// Most elements a plan may hold.
 pub const MAX_ELEMENTS: usize = 500;
-/// Longest id kept.
-const MAX_ID: usize = 100;
 /// Farthest coordinate of the plan format (cm).
 const MAX_COORDINATE: f64 = 50_000.0;
 /// The key prefix of model entries.

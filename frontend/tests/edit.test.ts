@@ -43,21 +43,39 @@ describe("catalogue", () => {
 
 describe("draft", () => {
   beforeEach(() => {
-    clearDraft();
+    window.localStorage.clear();
   });
 
-  it("is kept for the revision it started from", () => {
-    writeDraft({ revision: 3, layout: { sofa: { x: 1 } } });
-    expect(readDraft(3)).toEqual({ revision: 3, layout: { sofa: { x: 1 } } });
+  it("is kept for the revision and storey it started from", () => {
+    writeDraft({ revision: 3, storey: "storey-1", layout: { sofa: { x: 1 } } });
+    expect(readDraft(3, "storey-1")).toEqual({
+      revision: 3,
+      storey: "storey-1",
+      layout: { sofa: { x: 1 } },
+    });
+    // Another storey's draft is its own, and stays.
+    writeDraft({ revision: 3, storey: "storey-2", layout: { bed: { x: 2 } } });
+    expect(readDraft(3, "storey-2")?.layout).toEqual({ bed: { x: 2 } });
+    clearDraft("storey-2");
+    expect(readDraft(3, "storey-1")?.layout).toEqual({ sofa: { x: 1 } });
     // Saved again since: stale, forgotten.
-    expect(readDraft(4)).toBeUndefined();
-    expect(readDraft(3)).toBeUndefined();
+    expect(readDraft(4, "storey-1")).toBeUndefined();
+    expect(readDraft(3, "storey-1")).toBeUndefined();
   });
 
-  it("ignores what is not a draft", () => {
-    window.localStorage.setItem("domotwin-edit-draft", "not json");
-    expect(readDraft(1)).toBeUndefined();
-    window.localStorage.setItem("domotwin-edit-draft", JSON.stringify({ revision: 1, layout: [] }));
-    expect(readDraft(1)).toBeUndefined();
+  it("ignores what is not a draft, and a draft from before storeys", () => {
+    window.localStorage.setItem("domotwin-edit-draft:s", "not json");
+    expect(readDraft(1, "s")).toBeUndefined();
+    window.localStorage.setItem(
+      "domotwin-edit-draft:s",
+      JSON.stringify({ revision: 1, layout: [] }),
+    );
+    expect(readDraft(1, "s")).toBeUndefined();
+    window.localStorage.setItem(
+      "domotwin-edit-draft",
+      JSON.stringify({ revision: 1, layout: { sofa: { x: 1 } } }),
+    );
+    expect(readDraft(1, "")).toBeUndefined();
+    expect(window.localStorage.getItem("domotwin-edit-draft")).toBeNull();
   });
 });

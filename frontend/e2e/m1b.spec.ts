@@ -43,9 +43,9 @@ test.describe("IFC import", () => {
     await openHarness(page, { mode: "panel", plan: "none", lang: "fr" });
     await importFile(page, `${FIXTURES}/house-ifc2x3.ifc`);
     const picker = page.getByTestId("ifc-storeys");
-    await expect(picker.getByRole("button")).toHaveCount(3);
-    await expect(picker.getByRole("button").first()).toContainText("Rez-de-chaussée");
-    await expect(picker.getByRole("button").first()).toContainText("4 pièces · 0 m");
+    await expect(picker.locator("button.storey")).toHaveCount(2);
+    await expect(picker.locator("button.storey").first()).toContainText("Rez-de-chaussée");
+    await expect(picker.locator("button.storey").first()).toContainText("4 pièces · 0 m");
     // One import at a time: no other file while the storey is being chosen.
     await expect(page.getByRole("button", { name: "Importer un plan" }).first()).toBeDisabled();
     await picker.getByRole("button", { name: /Étage/ }).click();

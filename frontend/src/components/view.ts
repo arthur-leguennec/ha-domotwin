@@ -52,7 +52,7 @@ import {
   type Gesture,
   type PointerSample,
 } from "../gestures";
-import type { StoredPlan } from "../ha/client";
+import type { StoreyInfo, StoredPlan } from "../ha/client";
 import { isHassError, type HomeAssistant } from "../ha/types";
 import { translatorFor, type Translator } from "../i18n";
 import { runAction } from "../live/actions";
@@ -75,10 +75,17 @@ import {
   roomLayers,
   type LayerName,
   type PlanRoom,
-  type RoomAlert,
 } from "../live/layers";
 import { deviceBadges, type Badge, type BadgeKind } from "../live/devices";
 import { StateSync } from "../live/states";
+import {
+  storeyLevels,
+  storeyName,
+  storeyShort,
+  withAlertsElsewhere,
+  type StoreyAlert,
+  type StoreyRooms,
+} from "../live/storeys";
 import { planRooms } from "../live/suggest";
 import { FrameScheduler } from "../scheduler";
 import { fire } from "./define";
@@ -271,6 +278,8 @@ export class DomoTwinView extends LitElement {
     editing: { attribute: false },
     planEditing: { attribute: false },
     planTool: { attribute: false },
+    planBlank: { attribute: false },
+    planReserved: { attribute: false },
     multiSelect: { attribute: false },
     editKeys: { attribute: false },
     options: { attribute: false },
@@ -287,6 +296,9 @@ export class DomoTwinView extends LitElement {
     edit: { state: true },
     planEditor: { state: true },
     north: { attribute: false },
+    storeys: { attribute: false },
+    storey: { attribute: false },
+    elsewhere: { attribute: false },
     layer: { state: true },
     layersOpen: { state: true },
     realSun: { state: true },
@@ -323,6 +335,13 @@ export class DomoTwinView extends LitElement {
    */
   planEditing = false;
   planTool: PlanTool = "select";
+  /** The plan editor starts on a new plan, whatever is shown (a new storey). */
+  planBlank = false;
+  /**
+   * Ids the other storeys use: what the plan editor draws and what edit mode adds never take them
+   * (ids are the home's).
+   */
+  planReserved: string[] = [];
   /** In edit mode, taps add pieces to the selection (or take them out). */
   multiSelect = false;
   /** Edit mode's keys act (not while the panel shows a dialog over the view). */
@@ -332,6 +351,14 @@ export class DomoTwinView extends LitElement {
   planError?: string;
   /** Where north points on the plan, degrees clockwise from its top (the home's settings). */
   north = 0;
+  /**
+   * The storeys of the home and the one shown (its `plan`): with several, a switcher fires
+   * `domotwin-storey` (detail: the storey's id) for the host to show it.
+   */
+  storeys: StoreyInfo[] = [];
+  storey?: string;
+  /** The rooms of the other storeys: their alerts show too, and a tap on one goes there. */
+  elsewhere: StoreyRooms[] = [];
 
   protected engineState: EngineState = "idle";
   protected summary?: PlanSummary;
@@ -357,8 +384,10 @@ export class DomoTwinView extends LitElement {
   protected layersOpen = false;
   /** Sunlight through the windows: the sun where it really is. */
   protected realSun = false;
-  /** Rooms with an alert, dangers first. */
-  protected alerts: RoomAlert[] = [];
+  /** Rooms with an alert, dangers first (the other storeys' with their storey). */
+  protected alerts: StoreyAlert[] = [];
+  /** A room to frame once its storey is shown (an alert on another storey was tapped). */
+  private focusAfterLoad?: { id: string; name: string };
   /** The values of the layer shown and where they go (device pixels). */
   protected labels: LayerLabel[] = [];
   /** The devices' badges and what the cameras see (the layer menu turns them off). */
@@ -498,6 +527,36 @@ export class DomoTwinView extends LitElement {
       }
       .tools button[aria-pressed="true"] {
         color: var(--primary-color, #03a9f4);
+      }
+      .tools .storey {
+        font: inherit;
+        font-weight: 600;
+        font-size: 0.95rem;
+        font-variant-numeric: tabular-nums;
+      }
+      .tools .storey[aria-pressed="true"] {
+        background: color-mix(in srgb, var(--primary-color, #03a9f4) 14%, transparent);
+      }
+      .tools .storey.alert {
+        position: relative;
+      }
+      .tools .storey.alert::after {
+        content: "";
+        position: absolute;
+        top: 5px;
+        right: 5px;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--warning-color, #ff9800);
+      }
+      .tools .storey.alert.danger::after {
+        background: var(--error-color, #db4437);
+      }
+      .tools .rule {
+        height: 1px;
+        margin: 2px 6px;
+        background: var(--divider-color, rgba(0, 0, 0, 0.12));
       }
       .views {
         position: absolute;
@@ -961,6 +1020,7 @@ export class DomoTwinView extends LitElement {
       changed.has("hass") ||
       changed.has("bindings") ||
       changed.has("options") ||
+      changed.has("elsewhere") ||
       own.has("layer")
     ) {
       this.applyLayers();
@@ -999,7 +1059,9 @@ export class DomoTwinView extends LitElement {
     if (this.sunKey) state.sun = this.sunKey;
     state.layer = this.layer;
     if (this.layersKey) state.layers = this.layersKey;
-    state.alerts = this.alerts.map((alert) => alert.room);
+    state.alerts = this.alerts.map((alert) =>
+      alert.storey ? `${alert.storey}:${alert.room}` : alert.room,
+    );
     if (this.engine) {
       state.quality = this.engine.quality;
       state.stats = this.engine.stats;
@@ -1259,10 +1321,22 @@ export class DomoTwinView extends LitElement {
       // An action ran: a second tap soon after is a new tap, not a double tap.
       this.gestures.forgetTap();
       void this.act(tapAction(binding, this.hass), binding, picked);
+    } else if (this.kinds[picked.id] === "stairs" && this.nextStorey()) {
+      // Stairs lead to the storey above (from the top one, to the one below).
+      this.gestures.forgetTap();
+      this.chooseStorey(this.nextStorey() ?? "");
     } else if (picked.room && engine.focusElement(picked.room)) {
       this.focusedRoom = { id: picked.room, name: this.roomName(picked) };
     }
     this.redraw();
+  }
+
+  /** The storey stairs lead to: the one above the storey shown, else the one below. */
+  private nextStorey(): string | undefined {
+    const levels = storeyLevels(this.storeys);
+    const i = levels.findIndex(({ storey }) => storey.id === this.storey);
+    if (i < 0) return undefined;
+    return (levels[i + 1] ?? levels[i - 1])?.storey.id;
   }
 
   /** What a long press at a point of the view does (CSS pixels from its top left). */
@@ -1619,7 +1693,11 @@ export class DomoTwinView extends LitElement {
     }
     engine.setPowerLayer(this.layer === "power");
     const values = Object.keys(layers?.values ?? {}).length;
-    const alerts = layers?.alerts ?? [];
+    const here = layers?.alerts ?? [];
+    const alerts =
+      hass && this.options.alerts !== false && this.elsewhere.length > 0
+        ? withAlertsElsewhere(hass, this.bindings ?? NO_BINDINGS, here, this.elsewhere, this.storey)
+        : here;
     if (values !== this.heatValues) {
       this.heatValues = values;
       this.requestUpdate();
@@ -1710,15 +1788,23 @@ export class DomoTwinView extends LitElement {
       this.focusedRoom = undefined;
       this.viewsOpen = false;
       this.setEdit(engine.beginEdit());
+      engine.editReserve(this.planReserved);
     } else if (!this.editing && this.edit) {
       this.endEdit(true);
     }
   }
 
-  /** Ids that have links: a new element of the plan editor never takes one of them. */
-  private linkedIds(): string[] {
+  /**
+   * Ids a new element of the plan editor never takes: those with links, and those of the other
+   * storeys' elements.
+   */
+  private takenIds(): string[] {
     const bindings = this.bindings ?? NO_BINDINGS;
-    return [...Object.keys(bindings.elements), ...Object.keys(bindings.rooms)];
+    return [
+      ...Object.keys(bindings.elements),
+      ...Object.keys(bindings.rooms),
+      ...this.planReserved,
+    ];
   }
 
   /**
@@ -1742,7 +1828,8 @@ export class DomoTwinView extends LitElement {
     const token = ++this.planToken;
     const parked = this.parked;
     this.parked = undefined;
-    const shown = parked || !this.plan || this.loadError ? "" : engine.shownPlan();
+    const shown =
+      parked || this.planBlank || !this.plan || this.loadError ? "" : engine.shownPlan();
     const plan = shown ? (JSON.parse(shown) as Record<string, unknown>) : null;
     const empty = parked ? parked.empty : plan === null;
     this.planOpening = true;
@@ -1751,7 +1838,7 @@ export class DomoTwinView extends LitElement {
         PlanEditor,
         planner:
           parked?.planner ??
-          (await Planner.open(plan, t.t("plan.new_title"), t.t("plan.new_room"), this.linkedIds())),
+          (await Planner.open(plan, t.t("plan.new_title"), t.t("plan.new_room"), this.takenIds())),
       }))
       .then(
         ({ PlanEditor, planner }) => {
@@ -1766,7 +1853,7 @@ export class DomoTwinView extends LitElement {
             return;
           }
           // Ids with links stay theirs: a new element never takes over another's links.
-          planner.reserve(this.linkedIds());
+          planner.reserve(this.takenIds());
           this.sheet = undefined;
           this.focusedRoom = undefined;
           this.viewsOpen = false;
@@ -1898,6 +1985,9 @@ export class DomoTwinView extends LitElement {
         if (this.options.view === "2d") this.setPlanView(true);
         if (this.options.room) this.engine.focusElement(this.options.room);
       }
+      const focus = this.focusAfterLoad;
+      this.focusAfterLoad = undefined;
+      if (focus && this.engine.focusElement(focus.id)) this.focusedRoom = focus;
     } catch (error) {
       this.loadError = error instanceof EngineError ? error : engineError(error);
     }
@@ -1963,7 +2053,7 @@ export class DomoTwinView extends LitElement {
     const bindings = this.bindings ?? { version: 1, rooms: {}, elements: {} };
     engine.setBindings(JSON.stringify(bindings));
     // Links added meanwhile: their ids are not given to new elements either.
-    this.planEditor?.reserve(this.linkedIds());
+    this.planEditor?.reserve(this.takenIds());
     this.bound = boundEntityIds(bindings);
     this.syncStates();
     this.redraw();
@@ -2284,6 +2374,43 @@ export class DomoTwinView extends LitElement {
       }`;
   }
 
+  /** With several storeys, one button each, the highest on top (not while editing one). */
+  private renderStoreys(): TemplateResult | typeof nothing {
+    if (this.storeys.length < 2 || this.editingAny) return nothing;
+    const t = this.translator;
+    const levels = storeyLevels(this.storeys).reverse();
+    return html`<span class="rule" aria-hidden="true"></span>
+      <div role="group" aria-label=${t.t("storey.menu")} data-testid="storeys">
+        ${levels.map(({ storey, level }) => {
+          const name = storeyName(t, storey, level);
+          // Another storey with an alert is marked (the most urgent's colour).
+          const alert = this.alerts.find((a) => a.storey === storey.id);
+          const label = alert ? t.t("storey.with_alert", { name }) : name;
+          return html`<button
+            class="storey ${alert ? `alert ${alert.level}` : ""}"
+            data-storey=${storey.id}
+            title=${label}
+            aria-label=${label}
+            aria-pressed=${storey.id === this.storey ? "true" : "false"}
+            @click=${() => {
+              this.chooseStorey(storey.id);
+            }}
+          >
+            ${storeyShort(level)}
+          </button>`;
+        })}
+      </div>`;
+  }
+
+  /** Asks the host to show another storey. */
+  private chooseStorey(id: string): void {
+    this.viewsOpen = false;
+    this.layersOpen = false;
+    this.sheet = undefined;
+    this.focusedRoom = undefined;
+    if (id !== this.storey) fire(this, "domotwin-storey", id);
+  }
+
   /** The plan editor's handles: the selected room's corners and sides, guides, what is drawn. */
   private renderPlanHandles(): TemplateResult | typeof nothing {
     const canvas = this.canvas;
@@ -2398,6 +2525,7 @@ export class DomoTwinView extends LitElement {
               </button>`
             : nothing
         }
+        ${this.renderStoreys()}
       </div>
       ${
         this.viewsOpen
@@ -2616,7 +2744,20 @@ export class DomoTwinView extends LitElement {
     </div>`;
   }
 
-  /** The rooms with an alert: a tap frames the room. */
+  /** What an alert says; on another storey, which one. */
+  private alertText(alert: StoreyAlert): string {
+    const t = this.translator;
+    const text = t.t(`layers.alert_${alert.reason}`, { room: alert.name });
+    if (!alert.storey) return text;
+    const level = storeyLevels(this.storeys).find(({ storey }) => storey.id === alert.storey);
+    if (!level) return text;
+    return t.t("storey.alert_on", {
+      alert: text,
+      storey: storeyName(t, level.storey, level.level),
+    });
+  }
+
+  /** The rooms with an alert: a tap frames the room (showing its storey first). */
   private renderAlerts(): TemplateResult | typeof nothing {
     const alerts = this.alerts;
     if (alerts.length === 0 || this.planEditor) return nothing;
@@ -2629,15 +2770,21 @@ export class DomoTwinView extends LitElement {
           html`<button
             class="glass ${alert.level}"
             data-room=${alert.room}
+            data-storey=${alert.storey ?? nothing}
             @click=${() => {
-              if (this.engine?.focusElement(alert.room)) {
-                this.focusedRoom = { id: alert.room, name: alert.name };
+              const room = { id: alert.room, name: alert.name };
+              if (alert.storey) {
+                // On another storey: shown first, then the room framed.
+                this.chooseStorey(alert.storey);
+                this.focusAfterLoad = room;
+                return;
               }
+              if (this.engine?.focusElement(alert.room)) this.focusedRoom = room;
               this.redraw();
             }}
           >
             ${icon(alert.level === "danger" ? mdiAlert : mdiAlertCircleOutline)}
-            <span>${t.t(`layers.alert_${alert.reason}`, { room: alert.name })}</span>
+            <span>${this.alertText(alert)}</span>
           </button>`,
       )}
       ${more > 0 ? html`<span class="more">${t.tp("layers.more_alerts", more)}</span>` : nothing}

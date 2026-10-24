@@ -84,24 +84,30 @@ describe("plan draft", () => {
     localStorage.clear();
   });
 
-  it("keeps the plan drawn for the revision it started from, apart from edit mode's", () => {
-    writePlanDraft({ revision: 4, plan: { version: 1, elements: [] } });
-    writeDraft({ revision: 4, layout: { sofa: { x: 1 } } });
-    expect(readPlanDraft(4)?.plan).toEqual({ version: 1, elements: [] });
-    expect(readDraft(4)?.layout).toEqual({ sofa: { x: 1 } });
+  it("keeps the plan drawn for the revision and storey it started from, apart from edit mode's", () => {
+    writePlanDraft({ revision: 4, storey: "storey-2", plan: { version: 1, elements: [] } });
+    writeDraft({ revision: 4, storey: "storey-2", layout: { sofa: { x: 1 } } });
+    expect(readPlanDraft(4, "storey-2")?.plan).toEqual({ version: 1, elements: [] });
+    expect(readDraft(4, "storey-2")?.layout).toEqual({ sofa: { x: 1 } });
+    // Another storey's draft stays for it, even when this one's is cleared.
+    writePlanDraft({ revision: 4, storey: "", plan: { version: 1, elements: [], title: "New" } });
+    expect(readPlanDraft(4, "")?.plan.title).toBe("New");
+    clearPlanDraft("");
+    expect(readPlanDraft(4, "")).toBeUndefined();
+    expect(readPlanDraft(4, "storey-2")).toBeDefined();
     // Saved again since: stale, forgotten.
-    expect(readPlanDraft(5)).toBeUndefined();
-    expect(readPlanDraft(4)).toBeUndefined();
-    expect(readDraft(4)).toBeDefined();
+    expect(readPlanDraft(5, "storey-2")).toBeUndefined();
+    expect(readPlanDraft(4, "storey-2")).toBeUndefined();
+    expect(readDraft(4, "storey-2")).toBeDefined();
   });
 
-  it("forgets a broken draft", () => {
-    localStorage.setItem("domotwin-plan-draft", "{");
-    expect(readPlanDraft(1)).toBeUndefined();
-    localStorage.setItem("domotwin-plan-draft", JSON.stringify({ revision: 1, plan: [] }));
-    expect(readPlanDraft(1)).toBeUndefined();
-    writePlanDraft({ revision: 1, plan: {} });
-    clearPlanDraft();
+  it("forgets a broken draft, and one from before storeys", () => {
+    localStorage.setItem("domotwin-plan-draft:", "{");
+    expect(readPlanDraft(1, "")).toBeUndefined();
+    localStorage.setItem("domotwin-plan-draft:", JSON.stringify({ revision: 1, plan: [] }));
+    expect(readPlanDraft(1, "")).toBeUndefined();
+    localStorage.setItem("domotwin-plan-draft", JSON.stringify({ revision: 1, plan: {} }));
+    expect(readPlanDraft(1, "")).toBeUndefined();
     expect(localStorage.getItem("domotwin-plan-draft")).toBeNull();
   });
 });

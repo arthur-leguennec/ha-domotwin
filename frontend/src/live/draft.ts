@@ -8,10 +8,26 @@
 const KEY = "domotwin-edit-draft";
 const PLAN_KEY = "domotwin-plan-draft";
 
+/** Each storey's drafts are its own ("": a new storey); the bare keys are from before storeys. */
+function keyOf(base: string, storey: string): string {
+  return `${base}:${storey}`;
+}
+
 export interface Draft {
   /** The stored revision the edits started from. */
   revision: number;
+  /** The storey edited. */
+  storey: string;
   layout: Record<string, unknown>;
+}
+
+/** The plan editor's draft. */
+export interface PlanDraft {
+  /** The stored revision the drawing started from. */
+  revision: number;
+  /** The storey it was drawn for ("": a new storey). */
+  storey: string;
+  plan: Record<string, unknown>;
 }
 
 function storage(): Storage | undefined {
@@ -21,13 +37,6 @@ function storage(): Storage | undefined {
     // Storage disabled (private browsing, policies).
     return undefined;
   }
-}
-
-/** The plan editor's draft. */
-export interface PlanDraft {
-  /** The stored revision the drawing started from. */
-  revision: number;
-  plan: Record<string, unknown>;
 }
 
 /** The object kept under `key` as `field` for `revision`; a stale or broken one is forgotten. */
@@ -69,32 +78,35 @@ function clear(key: string): void {
   }
 }
 
-/** The draft for `revision`, if one was kept (a stale one is forgotten). */
-export function readDraft(revision: number): Draft | undefined {
-  const layout = read(KEY, "layout", revision);
-  return layout ? { revision, layout } : undefined;
+/** Edit mode's draft of `storey` for `revision`, if one was kept (a stale one is forgotten). */
+export function readDraft(revision: number, storey: string): Draft | undefined {
+  // A draft from before storeys cannot tell which storey it was for.
+  clear(KEY);
+  const layout = read(keyOf(KEY, storey), "layout", revision);
+  return layout ? { revision, storey, layout } : undefined;
 }
 
 /** Keeps the overlay not saved yet. */
 export function writeDraft(draft: Draft): void {
-  write(KEY, draft);
+  write(keyOf(KEY, draft.storey), { revision: draft.revision, layout: draft.layout });
 }
 
-export function clearDraft(): void {
-  clear(KEY);
+export function clearDraft(storey: string): void {
+  clear(keyOf(KEY, storey));
 }
 
-/** The plan editor's draft for `revision`, if one was kept (a stale one is forgotten). */
-export function readPlanDraft(revision: number): PlanDraft | undefined {
-  const plan = read(PLAN_KEY, "plan", revision);
-  return plan ? { revision, plan } : undefined;
+/** The plan editor's draft of `storey` for `revision`, if one was kept (a stale one is forgotten). */
+export function readPlanDraft(revision: number, storey: string): PlanDraft | undefined {
+  clear(PLAN_KEY);
+  const plan = read(keyOf(PLAN_KEY, storey), "plan", revision);
+  return plan ? { revision, storey, plan } : undefined;
 }
 
 /** Keeps the plan drawn and not saved yet. */
 export function writePlanDraft(draft: PlanDraft): void {
-  write(PLAN_KEY, draft);
+  write(keyOf(PLAN_KEY, draft.storey), { revision: draft.revision, plan: draft.plan });
 }
 
-export function clearPlanDraft(): void {
-  clear(PLAN_KEY);
+export function clearPlanDraft(storey: string): void {
+  clear(keyOf(PLAN_KEY, storey));
 }

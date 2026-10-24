@@ -17,6 +17,7 @@ async def async_get_config_entry_diagnostics(
 ) -> dict[str, Any]:
     """Return what helps to debug without exposing the home."""
     data = entry.runtime_data
+    # The ground floor's plan (the others are counted).
     plan = data.plan
     plan_info: dict[str, Any] | None = None
     if plan is not None:
@@ -36,6 +37,7 @@ async def async_get_config_entry_diagnostics(
         "version": VERSION,
         "options": dict(entry.options),
         "revision": data.revision,
+        "storeys": len(data.storeys),
         "plan": plan_info,
         "layout_entries": len(data.layout),
         "layout_models": sum(1 for key in data.layout if key.startswith(MODEL_ENTRY_PREFIX)),

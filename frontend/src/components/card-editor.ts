@@ -1,9 +1,10 @@
 import { LitElement, html, nothing, type TemplateResult } from "lit";
 
-import { DomoTwinClient } from "../ha/client";
+import { DomoTwinClient, type StoreyInfo } from "../ha/client";
 import type { HomeAssistant } from "../ha/types";
 import { translatorFor, type MessageKey, type Translator } from "../i18n";
 import { LAYER_NAMES } from "../live/layers";
+import { storeyLevels, storeyName } from "../live/storeys";
 import { planRooms } from "../live/suggest";
 import { define, fire } from "./define";
 
@@ -51,7 +52,39 @@ function roomField(t: Translator, rooms: RoomOption[], current: unknown): FormFi
   };
 }
 
-function schema(t: Translator, rooms: RoomOption[], config: Record<string, unknown>): FormField[] {
+/**
+ * The storey picker, highest first, when the home has several storeys (or the card names one the
+ * home no longer has, kept so that the setting is not lost).
+ */
+export function storeyField(
+  t: Translator,
+  storeys: readonly StoreyInfo[],
+  current: unknown,
+): FormField | undefined {
+  const known = typeof current === "string" && storeys.some((storey) => storey.id === current);
+  if (storeys.length < 2 && (typeof current !== "string" || !current || known)) return undefined;
+  const list = storeyLevels(storeys)
+    .reverse()
+    .map(({ storey, level }) => ({ value: storey.id, label: storeyName(t, storey, level) }));
+  if (typeof current === "string" && current && !known)
+    list.push({ value: current, label: current });
+  return {
+    name: "storey",
+    selector: {
+      select: {
+        mode: "dropdown",
+        options: [{ value: "", label: t.t("editor.storey_ground") }, ...list],
+      },
+    },
+  };
+}
+
+function schema(
+  t: Translator,
+  home: { rooms: RoomOption[]; storeys: StoreyInfo[] },
+  config: Record<string, unknown>,
+): FormField[] {
+  const storey = storeyField(t, home.storeys, config.storey);
   return [
     { name: "title", selector: { text: {} } },
     { name: "view", selector: options(t, "editor.view", ["3d", "2d"]) },
@@ -65,7 +98,8 @@ function schema(t: Translator, rooms: RoomOption[], config: Record<string, unkno
       name: "lighting",
       selector: options(t, "editor.lighting", ["auto", "morning", "day", "evening", "night"]),
     },
-    roomField(t, rooms, config.room),
+    ...(storey ? [storey] : []),
+    roomField(t, home.rooms, config.room),
     {
       name: "layer",
       selector: {
@@ -96,13 +130,16 @@ export class DomoTwinCardEditor extends LitElement {
     hass: { attribute: false },
     config: { state: true },
     rooms: { state: true },
+    storeys: { state: true },
   };
 
   hass?: HomeAssistant;
   protected config: Record<string, unknown> = {};
-  /** The rooms of the stored plan, once fetched. */
+  /** The rooms of the storey chosen, and the home's storeys, once fetched. */
   protected rooms: RoomOption[] = [];
-  private roomsFetched = false;
+  protected storeys: StoreyInfo[] = [];
+  /** The storey whose rooms were fetched ("" for the ground floor); undefined before. */
+  private fetchedFor?: string;
 
   setConfig(config: Record<string, unknown>): void {
     this.config = { ...config };
@@ -140,24 +177,30 @@ export class DomoTwinCardEditor extends LitElement {
     fire(this, "config-changed", { config });
   };
 
-  /** The room picker lists the rooms of the stored plan. */
-  private async fetchRooms(hass: HomeAssistant): Promise<void> {
-    this.roomsFetched = true;
+  /** The room picker lists the rooms of the storey chosen (the ground floor's by default). */
+  private async fetchHome(hass: HomeAssistant, storey: string): Promise<void> {
+    this.fetchedFor = storey;
+    const client = DomoTwinClient.for(hass);
     try {
-      this.rooms = planRooms((await DomoTwinClient.for(hass).getPlan()).plan);
+      // A storey since removed: the card shows the ground floor, so do its rooms.
+      const stored = await client.getPlan(storey || undefined).catch(() => client.getPlan());
+      if (this.fetchedFor !== storey) return;
+      this.rooms = planRooms(stored.plan);
+      this.storeys = stored.storeys;
     } catch {
-      // No plan or no access: only the current setting is offered.
+      // No plan or no access: only the current settings are offered.
     }
   }
 
   protected override render(): TemplateResult | typeof nothing {
     if (!this.hass) return nothing;
-    if (!this.roomsFetched) void this.fetchRooms(this.hass);
+    const storey = typeof this.config.storey === "string" ? this.config.storey : "";
+    if (this.fetchedFor !== storey) void this.fetchHome(this.hass, storey);
     const t = translatorFor(this.hass);
     return html`<ha-form
       .hass=${this.hass}
       .data=${{ ...ON_BY_DEFAULT, ...this.config }}
-      .schema=${schema(t, this.rooms, this.config)}
+      .schema=${schema(t, { rooms: this.rooms, storeys: this.storeys }, this.config)}
       .computeLabel=${(field: FormField) => t.t(`editor.${field.name}` as MessageKey)}
       @value-changed=${this.changed}
     ></ha-form>`;

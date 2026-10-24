@@ -21,6 +21,8 @@ export interface CardConfig {
   lighting: LightingMode;
   /** Room to focus on start (an element id of the plan). */
   room?: string;
+  /** Storey shown first (a storey id); the ground floor by default. */
+  storey?: string;
   /** Font for the card's texts; absent: the bundled default. */
   font_family?: string;
   /** The layer shown first (heatmap, power or none). */
@@ -102,6 +104,8 @@ export function normalizeConfig(raw: unknown): CardConfig {
   if (height !== undefined) config.height = height;
   const room = optionalString(input.room);
   if (room !== undefined) config.room = room;
+  const storey = optionalString(input.storey);
+  if (storey !== undefined) config.storey = storey;
   const font = optionalString(input.font_family);
   if (font !== undefined) config.font_family = font;
   return config;

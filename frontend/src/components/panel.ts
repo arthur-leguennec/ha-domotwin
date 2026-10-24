@@ -6,6 +6,7 @@ import {
   mdiPencilOutline,
   mdiTrayArrowDown,
   mdiTrayArrowUp,
+  mdiStairs,
   mdiVectorSquareEdit,
 } from "@mdi/js";
 import { LitElement, css, html, nothing, type TemplateResult } from "lit";
@@ -20,7 +21,13 @@ import {
   type PickedElement,
   type UserModel,
 } from "../engine/engine";
-import { DomoTwinClient, type PlanJson, type Settings, type StoredPlan } from "../ha/client";
+import {
+  DomoTwinClient,
+  type PlanJson,
+  type Settings,
+  type StoreyInfo,
+  type StoredPlan,
+} from "../ha/client";
 import { isHassError, type HomeAssistant } from "../ha/types";
 import { readBindings, roomArea, type BindingsJson, type ElementBinding } from "../live/bindings";
 import {
@@ -33,6 +40,15 @@ import {
   type Draft,
   type PlanDraft,
 } from "../live/draft";
+import {
+  idsElsewhere,
+  loadStorey,
+  roomsElsewhere,
+  storeyIds,
+  storeyLevels,
+  storeyName,
+  type StoreyRooms,
+} from "../live/storeys";
 import { applyLink, planElement, type LinkChange, type PlanElementInfo } from "../live/suggest";
 import type { IfcFile, IfcReport, IfcStorey } from "../ifc/ifc";
 import type { ModelFormat, ModelInfo } from "../models/models";
@@ -54,6 +70,8 @@ const PANEL_OPTIONS: ViewOptions = {
   lighting: "auto",
 };
 const TOAST_MS = 6000;
+/** The highest a storey's floor may be (cm), as the integration checks. */
+const MAX_ELEVATION = 100_000;
 /** The plan drawn is kept by the browser once the drawing pauses this long (ms). */
 const PLAN_DRAFT_MS = 800;
 
@@ -141,6 +159,13 @@ export class DomoTwinPanel extends LitElement {
     planTool: { state: true },
     planOffer: { state: true },
     planDiscardAsk: { state: true },
+    storeys: { state: true },
+    storey: { state: true },
+    elsewhere: { state: true },
+    storeysOpen: { state: true },
+    storeyRemoveAsk: { state: true },
+    planNew: { state: true },
+    planReserved: { state: true },
   };
 
   narrow = false;
@@ -170,6 +195,22 @@ export class DomoTwinPanel extends LitElement {
   /** The home's settings, and north being set (the settings dialog is open). */
   protected settings?: Settings;
   protected northDraft?: number;
+  /** The storeys, the one shown, the storeys dialog and a storey being removed. */
+  protected storeys: StoreyInfo[] = [];
+  protected storey?: string;
+  /** The rooms of the storeys not shown, for their alerts. */
+  protected elsewhere: StoreyRooms[] = [];
+  protected storeysOpen = false;
+  /** The changes of the storeys' names and heights, saved in turn. */
+  private storeyChanges: Promise<void> = Promise.resolve();
+  /** Counts the plan's loads: the answer to an older one is dropped. */
+  private loads = 0;
+  protected storeyRemoveAsk?: StoreyInfo;
+  /** The plan editor draws a new storey; the ids of the other storeys' elements. */
+  protected planNew = false;
+  protected planReserved: string[] = [];
+  /** Where the next file imported goes: the storey shown, or a new storey. */
+  private importTarget: "storey" | "new" = "storey";
   /**
    * The plan editor: on, its state and tool, a plan drawn and kept by this browser (offered when
    * it starts), and the discard question.
@@ -376,6 +417,60 @@ export class DomoTwinPanel extends LitElement {
         justify-content: center;
         gap: 8px;
       }
+      .storeys.manage {
+        width: min(520px, calc(100% - 32px));
+        gap: 10px;
+      }
+      .storeys .hint {
+        margin: 4px 0 0;
+        font-size: 0.85rem;
+        color: var(--secondary-text-color, #5f6368);
+      }
+      .storey-row {
+        display: grid;
+        grid-template-columns: 1fr 120px auto;
+        align-items: end;
+        gap: 8px;
+      }
+      .storey-row label {
+        display: grid;
+        gap: 2px;
+        font-size: 0.75rem;
+        color: var(--secondary-text-color, #5f6368);
+      }
+      .storey-row input {
+        box-sizing: border-box;
+        min-height: 36px;
+        width: 100%;
+        padding: 0 8px;
+        border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.2));
+        border-radius: 8px;
+        background: var(--card-background-color, #fff);
+        color: var(--primary-text-color, #1f2328);
+        font: inherit;
+        font-size: 0.875rem;
+      }
+      .storey-row input[aria-invalid="true"] {
+        border-color: var(--error-color, #db4437);
+      }
+      .storey-row .icon-button {
+        width: 36px;
+        height: 36px;
+        display: grid;
+        place-items: center;
+        border: none;
+        border-radius: 50%;
+        background: transparent;
+        color: inherit;
+        cursor: pointer;
+      }
+      .storey-row .icon-button:disabled {
+        opacity: 0.35;
+        cursor: default;
+      }
+      .storeys .footer {
+        flex-wrap: wrap;
+      }
       .ask p.hint {
         font-size: 0.85rem;
         font-weight: 400;
@@ -479,8 +574,12 @@ export class DomoTwinPanel extends LitElement {
   private async loadPlan(): Promise<void> {
     const client = this.client;
     if (!client) return;
+    const ticket = ++this.loads;
     try {
-      const stored = await client.getPlan();
+      // The storey shown, or the ground floor when it was removed (here or elsewhere).
+      const stored = await loadStorey(client, this.storey);
+      // A later load (another storey asked for) wins.
+      if (ticket !== this.loads) return;
       const started = this.editing ? this.editRevision : this.planRevision;
       if ((this.editing || this.planning) && !this.saving && stored.revision !== started) {
         // Saved elsewhere: the view keeps the plan being edited; saving will be refused.
@@ -488,11 +587,22 @@ export class DomoTwinPanel extends LitElement {
       }
       this.plan = stored.plan;
       this.layout = stored.layout;
+      this.storeys = stored.storeys;
+      this.storey = stored.storey ?? undefined;
+      void this.loadElsewhere(client, stored);
       this.revision = stored.revision;
       this.planError = undefined;
     } catch (error) {
       this.planError = isHassError(error) ? error.code : "unknown";
     }
+  }
+
+  /** The rooms of the other storeys (plans the client has are not fetched again). */
+  private async loadElsewhere(client: DomoTwinClient, stored: StoredPlan): Promise<void> {
+    const elsewhere =
+      stored.storeys.length > 1 ? await roomsElsewhere(client, stored.storeys, stored.storey) : [];
+    // Another storey shown meanwhile: its own load sets them.
+    if ((stored.storey ?? undefined) === this.storey) this.elsewhere = elsewhere;
   }
 
   private show(text: string, error = false): void {
@@ -520,9 +630,20 @@ export class DomoTwinPanel extends LitElement {
     // A north being set and not saved is dropped.
     this.northDraft = undefined;
     this.multi = false;
+    this.busy = true;
+    try {
+      // Pieces added take no id another storey uses (D-026).
+      this.planReserved = await this.otherIds(this.storey);
+    } catch {
+      // Saving would be refused (`duplicate_id`) if one clashed.
+      this.planReserved = [];
+    } finally {
+      this.busy = false;
+    }
     this.editRevision = this.revision;
     this.editChanges = 0;
-    const draft = this.revision === undefined ? undefined : readDraft(this.revision);
+    const draft =
+      this.revision === undefined ? undefined : readDraft(this.revision, this.storey ?? "");
     if (draft && JSON.stringify(draft.layout) !== JSON.stringify(this.layout ?? {})) {
       this.draft = draft;
     }
@@ -548,16 +669,19 @@ export class DomoTwinPanel extends LitElement {
     this.editChanges = state.changes;
     if (restarted) {
       // The view started a new session (its engine restarted): offer what was kept.
-      const draft = this.editRevision === undefined ? undefined : readDraft(this.editRevision);
+      const draft =
+        this.editRevision === undefined
+          ? undefined
+          : readDraft(this.editRevision, this.storey ?? "");
       if (draft) this.draft = draft;
       return;
     }
     const layout = state.dirty ? this.view?.editLayout() : undefined;
     if (layout && this.editRevision !== undefined) {
-      writeDraft({ revision: this.editRevision, layout });
+      writeDraft({ revision: this.editRevision, storey: this.storey ?? "", layout });
     } else if (!this.draft) {
       // Undone back to what is stored: nothing left to keep.
-      clearDraft();
+      clearDraft(this.storey ?? "");
     }
   };
 
@@ -665,7 +789,7 @@ export class DomoTwinPanel extends LitElement {
 
   private readonly forgetDraft = (): void => {
     this.draft = undefined;
-    clearDraft();
+    clearDraft(this.storey ?? "");
   };
 
   /**
@@ -681,14 +805,14 @@ export class DomoTwinPanel extends LitElement {
     this.busy = true;
     this.saving = true;
     try {
-      const revision = await client.saveLayout(sent, this.editRevision);
+      const revision = await client.saveLayout(sent, this.editRevision, this.storey);
       this.editRevision = revision;
       view.editSaved(sent);
       const now = view.editLayout();
       if (now && JSON.stringify(now) !== JSON.stringify(sent)) {
-        writeDraft({ revision, layout: now });
+        writeDraft({ revision, storey: this.storey ?? "", layout: now });
       } else {
-        clearDraft();
+        clearDraft(this.storey ?? "");
         this.stopEditing();
       }
       await this.loadPlan();
@@ -711,27 +835,77 @@ export class DomoTwinPanel extends LitElement {
 
   private readonly discardEdit = (): void => {
     // A draft still offered stays, unless changes were discarded on purpose.
-    if (this.edit?.dirty || !this.draft) clearDraft();
+    if (this.edit?.dirty || !this.draft) clearDraft(this.storey ?? "");
     this.view?.endEdit(false);
     this.stopEditing();
   };
 
-  /** Starts the plan editor: on the plan shown, or on a new plan when none is stored. */
-  private readonly startPlan = async (): Promise<void> => {
+  /**
+   * Starts the plan editor: on the plan shown, or on a new plan when none is stored or for a new
+   * storey (`newStorey`).
+   */
+  private async startPlanFor(newStorey: boolean): Promise<void> {
     if (this.busy || this.editing || this.planning || this.plan === undefined) return;
-    await import("./plan-bar");
+    this.busy = true;
+    try {
+      await import("./plan-bar");
+      // Ids are the home's: those of the other storeys are not given to new elements.
+      this.planReserved = await this.otherIds(newStorey ? undefined : this.storey);
+    } catch (error) {
+      this.show(this.t.t("plan.open_failed", { reason: this.describe(error) }), true);
+      return;
+    } finally {
+      this.busy = false;
+    }
     this.linking = false;
     this.linkTarget = undefined;
     this.northDraft = undefined;
+    this.storeysOpen = false;
+    this.planNew = newStorey;
     this.planRevision = this.revision;
-    this.planTool = this.plan ? "select" : "room";
-    this.planOffer = this.revision === undefined ? undefined : readPlanDraft(this.revision);
+    this.planTool = this.plan && !newStorey ? "select" : "room";
+    this.planOffer =
+      this.revision === undefined ? undefined : readPlanDraft(this.revision, this.draftStorey());
     this.planning = true;
+  }
+
+  private readonly startPlan = (): void => {
+    void this.startPlanFor(false);
   };
+
+  /** What the plan editor's draft is kept for: the storey shown, or "" for a new storey. */
+  private draftStorey(): string {
+    return this.planNew ? "" : (this.storey ?? "");
+  }
+
+  /** The ids every storey but `except` uses. */
+  private async otherIds(except?: string): Promise<string[]> {
+    const client = this.client;
+    return client ? idsElsewhere(client, this.storeys, except) : [];
+  }
+
+  /** A plan joining the home (an import): its ids that other storeys use are changed. */
+  private async ownIds(plan: PlanJson, except?: string): Promise<PlanJson> {
+    const taken = await this.otherIds(except);
+    if (taken.length === 0) return plan;
+    const { freeIds } = await import("../planner/planner");
+    return await freeIds(plan, taken);
+  }
+
+  /**
+   * Where a new storey goes: 2.8 m above the highest one, on the ground (0) when that is within
+   * 1 m of it (a home with only a cellar), within the 1 000 m a height may be.
+   */
+  private nextElevation(): number {
+    if (this.storeys.length === 0) return 0;
+    const next = Math.max(...this.storeys.map((storey) => storey.elevation)) + 280;
+    return Math.abs(next) < 100 ? 0 : Math.min(next, MAX_ELEVATION);
+  }
 
   private stopPlanning(): void {
     window.clearTimeout(this.planDraftTimer);
     this.planning = false;
+    this.planNew = false;
     this.planState = undefined;
     this.planOffer = undefined;
     this.planDiscardAsk = false;
@@ -761,8 +935,8 @@ export class DomoTwinPanel extends LitElement {
     const revision = this.planRevision;
     if (!this.planning || revision === undefined) return;
     const plan = this.planState?.dirty ? this.view?.planDraft() : undefined;
-    if (plan) writePlanDraft({ revision, plan });
-    else if (!this.planOffer) clearPlanDraft();
+    if (plan) writePlanDraft({ revision, storey: this.draftStorey(), plan });
+    else if (!this.planOffer) clearPlanDraft(this.draftStorey());
   }
 
   private readonly onPlanCommand = (event: Event): void => {
@@ -781,7 +955,7 @@ export class DomoTwinPanel extends LitElement {
 
   private readonly forgetPlanDraft = (): void => {
     this.planOffer = undefined;
-    clearPlanDraft();
+    clearPlanDraft(this.draftStorey());
   };
 
   /**
@@ -797,9 +971,17 @@ export class DomoTwinPanel extends LitElement {
     this.busy = true;
     this.saving = true;
     try {
-      await client.savePlan(plan, this.planRevision, {});
+      if (this.planNew) {
+        const added = await client.saveStorey(
+          { plan, layout: {}, elevation: this.nextElevation() },
+          this.planRevision,
+        );
+        this.storey = added.storey;
+      } else {
+        await client.savePlan(plan, this.planRevision, {}, this.storey);
+      }
       view.planSaved();
-      clearPlanDraft();
+      clearPlanDraft(this.draftStorey());
       view.endPlanEdit(true);
       this.stopPlanning();
       await this.loadPlan();
@@ -822,7 +1004,7 @@ export class DomoTwinPanel extends LitElement {
 
   private readonly discardPlan = (): void => {
     // A draft still offered stays, unless changes were discarded on purpose.
-    if (this.planState?.dirty || !this.planOffer) clearPlanDraft();
+    if (this.planState?.dirty || !this.planOffer) clearPlanDraft(this.draftStorey());
     this.view?.endPlanEdit(false);
     this.stopPlanning();
   };
@@ -877,6 +1059,70 @@ export class DomoTwinPanel extends LitElement {
   private readonly chooseFile = (): void => {
     // One import at a time: not while a file is read or its storey is being chosen.
     if (this.busy || this.ifcChoice) return;
+    this.importTarget = "storey";
+    this.renderRoot.querySelector<HTMLInputElement>("input.plan-file")?.click();
+  };
+
+  /** The view's storey switcher: another storey is shown (not while editing one). */
+  private readonly onStorey = (event: Event): void => {
+    if (this.editing || this.planning) return;
+    this.storey = (event as CustomEvent<string>).detail;
+    this.linkTarget = undefined;
+    void this.loadPlan();
+  };
+
+  private readonly openStoreys = (): void => {
+    this.northDraft = undefined;
+    this.linkTarget = undefined;
+    this.storeyRemoveAsk = undefined;
+    this.storeysOpen = true;
+  };
+
+  /** Changes a storey's name or height, at once. */
+  private changeStorey(
+    storey: StoreyInfo,
+    change: { name?: string; elevation?: number },
+  ): Promise<void> {
+    const client = this.client;
+    if (!client) return Promise.resolve();
+    // One after the other: a height typed while a name is being saved is saved next.
+    this.storeyChanges = this.storeyChanges.then(async () => {
+      try {
+        await client.saveStorey({ storey: storey.id, ...change });
+        await this.loadPlan();
+      } catch (error) {
+        this.show(this.t.t("storey.save_failed", { reason: this.describe(error) }), true);
+      }
+    });
+    return this.storeyChanges;
+  }
+
+  private async removeStorey(storey: StoreyInfo, name: string): Promise<void> {
+    const client = this.client;
+    if (!client || this.busy) return;
+    this.busy = true;
+    try {
+      await client.removeStorey(storey.id);
+      this.storeyRemoveAsk = undefined;
+      if (this.storey === storey.id) this.storey = undefined;
+      await this.loadPlan();
+      this.show(this.t.t("storey.removed", { name }));
+    } catch (error) {
+      this.show(this.t.t("storey.save_failed", { reason: this.describe(error) }), true);
+    } finally {
+      this.busy = false;
+    }
+  }
+
+  private readonly drawStorey = (): void => {
+    this.storeysOpen = false;
+    void this.startPlanFor(true);
+  };
+
+  private readonly importStoreyFile = (): void => {
+    if (this.busy || this.ifcChoice) return;
+    this.storeysOpen = false;
+    this.importTarget = "new";
     this.renderRoot.querySelector<HTMLInputElement>("input.plan-file")?.click();
   };
 
@@ -896,10 +1142,9 @@ export class DomoTwinPanel extends LitElement {
       if (file.size > MAX_FILE_BYTES) throw new EngineError("too_large");
       const text = await file.text();
       const summary = await summarizePlan(text);
-      const plan = JSON.parse(text.replace(/^\uFEFF/, "")) as PlanJson;
-      await this.storeEmbeddedModels(plan);
-      await client.savePlan(plan);
-      await this.loadPlan();
+      const read = JSON.parse(text.replace(/^\uFEFF/, "")) as PlanJson;
+      await this.storeEmbeddedModels(read);
+      await this.storePlan(read);
       this.show(t.t("panel.imported", { title: summary.title || t.t("view.untitled") }));
     } catch (error) {
       this.show(t.t("panel.import_failed", { reason: this.describe(error) }), true);
@@ -982,11 +1227,59 @@ export class DomoTwinPanel extends LitElement {
     const t = this.t;
     const { plan, report } = ifc.convert(storey.id, name);
     const summary = await summarizePlan(JSON.stringify(plan));
-    await client.savePlan(plan);
-    await this.loadPlan();
+    await this.storePlan(plan);
     const imported = t.t("panel.ifc_imported", { title: summary.title || t.t("view.untitled") });
     const left = this.leftOut(report);
     this.show(left ? `${imported} ${t.t("panel.ifc_left_out", { list: left })}` : imported);
+  }
+
+  /**
+   * Stores an imported plan: in the storey shown (its overlay kept, for an updated plan), or as a
+   * new storey above the others; its ids that other storeys use are changed first.
+   */
+  private async storePlan(read: PlanJson): Promise<void> {
+    const client = this.client;
+    if (!client) return;
+    const target = this.importTarget;
+    this.importTarget = "storey";
+    if (target === "new") {
+      const plan = await this.ownIds(read);
+      const added = await client.saveStorey({ plan, elevation: this.nextElevation() });
+      this.storey = added.storey;
+    } else {
+      await client.savePlan(
+        await this.ownIds(read, this.storey),
+        undefined,
+        undefined,
+        this.storey,
+      );
+    }
+    await this.loadPlan();
+  }
+
+  /**
+   * Every storey of an IFC file with rooms: each plan read by the engine first, then they replace
+   * the home's storeys in one save (all of them, or none if one is refused).
+   */
+  private async importAllStoreys(choice: IfcChoice): Promise<void> {
+    const client = this.client;
+    if (!client) return;
+    const t = this.t;
+    const storeys: { plan: PlanJson; name: string; elevation: number }[] = [];
+    const taken: string[] = [];
+    const { freeIds } = await import("../planner/planner");
+    for (const storey of choice.storeys) {
+      const converted = choice.file.convert(storey.id, choice.name).plan;
+      const plan = (await freeIds(converted, taken)) as PlanJson;
+      await summarizePlan(JSON.stringify(plan));
+      taken.push(...storeyIds(plan));
+      storeys.push({ plan, name: storey.name.slice(0, 60), elevation: storey.elevation });
+    }
+    await client.replaceStoreys(storeys);
+    // The server's ground floor.
+    this.storey = undefined;
+    await this.loadPlan();
+    this.show(t.tp("storey.ifc_all_imported", storeys.length));
   }
 
   private leftOut(report: IfcReport): string {
@@ -1017,6 +1310,21 @@ export class DomoTwinPanel extends LitElement {
     }
   }
 
+  private async pickAllStoreys(): Promise<void> {
+    const choice = this.ifcChoice;
+    if (!choice) return;
+    this.ifcChoice = undefined;
+    this.busy = true;
+    try {
+      await this.importAllStoreys(choice);
+    } catch (error) {
+      this.show(this.t.t("panel.import_failed", { reason: this.describe(error) }), true);
+    } finally {
+      choice.file.dispose();
+      this.busy = false;
+    }
+  }
+
   private readonly cancelIfc = (): void => {
     this.ifcChoice?.file.dispose();
     this.ifcChoice = undefined;
@@ -1027,7 +1335,7 @@ export class DomoTwinPanel extends LitElement {
     if (!client) return;
     const t = this.t;
     try {
-      const { plan: stored, layout } = await client.getPlan();
+      const { plan: stored, layout } = await client.getPlan(this.storey);
       if (!stored) {
         this.show(t.t("panel.nothing_to_export"));
         return;
@@ -1042,7 +1350,13 @@ export class DomoTwinPanel extends LitElement {
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = fileName(title);
+      // With several storeys, the file says which.
+      const level = storeyLevels(this.storeys).find(({ storey }) => storey.id === this.storey);
+      link.download = fileName(
+        level && this.storeys.length > 1
+          ? `${title} ${storeyName(t, level.storey, level.level)}`
+          : title,
+      );
       link.click();
       setTimeout(() => {
         URL.revokeObjectURL(url);
@@ -1109,8 +1423,18 @@ export class DomoTwinPanel extends LitElement {
             >
           </button>`,
       )}
+      <p class="hint">${t.t("storey.ifc_all_hint")}</p>
       <div class="footer">
         <button class="action quiet" @click=${this.cancelIfc}>${t.t("panel.cancel")}</button>
+        <button
+          class="action"
+          data-testid="ifc-all"
+          @click=${() => {
+            void this.pickAllStoreys();
+          }}
+        >
+          ${t.t("storey.ifc_all")}
+        </button>
       </div>
     </div>`;
   }
@@ -1151,6 +1475,12 @@ export class DomoTwinPanel extends LitElement {
           .editing=${this.editing}
           .planEditing=${this.planning}
           .planTool=${this.planTool}
+          .planBlank=${this.planNew}
+          .planReserved=${this.planReserved}
+          .storeys=${this.storeys}
+          .storey=${this.storey}
+          .elsewhere=${this.elsewhere}
+          @domotwin-storey=${this.onStorey}
           .multiSelect=${this.multi}
           .editKeys=${!this.catalogue && !this.discardAsk && !this.modelImport && !this.planDiscardAsk}
           @domotwin-pick=${this.onPick}
@@ -1204,6 +1534,20 @@ export class DomoTwinPanel extends LitElement {
               aria-label=${t.t("panel.import")}
             >
               ${icon(mdiTrayArrowUp)}<span class="label">${t.t("panel.import")}</span>
+            </button>`
+          : nothing
+      }
+      ${
+        admin && this.plan && !this.linking
+          ? html`<button
+              class="action"
+              data-testid="storeys-manage"
+              ?disabled=${this.busy || this.ifcChoice !== undefined}
+              @click=${this.openStoreys}
+              aria-label=${t.t("storey.manage")}
+              title=${t.t("storey.manage")}
+            >
+              ${icon(mdiStairs)}<span class="label">${t.t("storey.manage")}</span>
             </button>`
           : nothing
       }
@@ -1427,7 +1771,111 @@ export class DomoTwinPanel extends LitElement {
         : nothing
     }
     ${this.ifcChoice ? this.renderStoreys(this.ifcChoice) : nothing}
-    ${this.northDraft !== undefined ? this.renderSettings(this.northDraft) : nothing}`;
+    ${this.northDraft !== undefined ? this.renderSettings(this.northDraft) : nothing}
+    ${this.storeysOpen ? this.renderStoreysDialog() : nothing}`;
+  }
+
+  /** The storeys of the home: name, height, removal; a new storey drawn or imported. */
+  private renderStoreysDialog(): TemplateResult {
+    const t = this.t;
+    const metres = new Intl.NumberFormat("en", { maximumFractionDigits: 2, useGrouping: false });
+    const ask = this.storeyRemoveAsk;
+    const levels = storeyLevels(this.storeys).reverse();
+    if (ask) {
+      const level = levels.find(({ storey }) => storey.id === ask.id)?.level ?? 0;
+      const name = storeyName(t, ask, level);
+      return html`<div class="ask glass" role="alertdialog" data-testid="storey-remove">
+        <h2>${t.t("storey.remove_title", { name })}</h2>
+        <div class="footer">
+          <button class="action quiet" @click=${() => (this.storeyRemoveAsk = undefined)}>
+            ${t.t("panel.cancel")}
+          </button>
+          <button
+            class="action"
+            data-testid="storey-remove-confirm"
+            ?disabled=${this.busy}
+            @click=${() => {
+              void this.removeStorey(ask, name);
+            }}
+          >
+            ${t.t("storey.remove", { name })}
+          </button>
+        </div>
+      </div>`;
+    }
+    return html`<div
+      class="storeys glass manage"
+      role="dialog"
+      aria-labelledby="storeys-title"
+      data-testid="storeys-dialog"
+    >
+      <h2 id="storeys-title">${t.t("storey.title")}</h2>
+      ${levels.map(({ storey, level }) => {
+        const name = storeyName(t, storey, level);
+        return html`<div class="storey-row" data-storey=${storey.id}>
+          <label
+            >${t.t("storey.name")}
+            <input
+              data-testid="storey-name"
+              ?disabled=${this.busy}
+              maxlength="60"
+              placeholder=${storeyName(t, { ...storey, name: "" }, level)}
+              .value=${storey.name}
+              @change=${(event: Event) => {
+                const value = (event.target as HTMLInputElement).value.trim();
+                if (value !== storey.name) void this.changeStorey(storey, { name: value });
+              }}
+          /></label>
+          <label
+            >${t.t("storey.elevation")}
+            <input
+              class="metres"
+              data-testid="storey-elevation"
+              ?disabled=${this.busy}
+              inputmode="decimal"
+              .value=${metres.format(storey.elevation / 100)}
+              @change=${(event: Event) => {
+                const input = event.target as HTMLInputElement;
+                const value = Number(input.value.trim().replace(",", ".").replace("−", "-"));
+                if (
+                  !input.value.trim() ||
+                  !Number.isFinite(value) ||
+                  value < -100 ||
+                  value > 1000
+                ) {
+                  input.setAttribute("aria-invalid", "true");
+                  input.title = t.t("storey.bad_elevation");
+                  return;
+                }
+                input.removeAttribute("aria-invalid");
+                const elevation = Math.round(value * 100);
+                if (elevation !== storey.elevation) void this.changeStorey(storey, { elevation });
+              }}
+          /></label>
+          <button
+            class="icon-button"
+            data-testid="storey-remove-ask"
+            title=${t.t("storey.remove", { name })}
+            aria-label=${t.t("storey.remove", { name })}
+            ?disabled=${this.busy || this.storeys.length < 2}
+            @click=${() => (this.storeyRemoveAsk = storey)}
+          >
+            ${icon(mdiClose)}
+          </button>
+        </div>`;
+      })}
+      <div class="footer">
+        <button class="action quiet" data-testid="storey-import" @click=${this.importStoreyFile}>
+          ${icon(mdiTrayArrowUp)}${t.t("storey.import")}
+        </button>
+        <button class="action quiet" data-testid="storey-draw" @click=${this.drawStorey}>
+          ${icon(mdiVectorSquareEdit)}${t.t("storey.draw")}
+        </button>
+        <button class="action" @click=${() => (this.storeysOpen = false)}>
+          ${t.t("storey.close")}
+        </button>
+      </div>
+    </div>`;
   }
 
   private renderToast(): TemplateResult | typeof nothing {

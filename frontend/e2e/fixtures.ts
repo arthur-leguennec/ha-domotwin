@@ -28,6 +28,10 @@ export interface HarnessOptions {
   sunPosition?: { azimuth: number; elevation: number };
   /** The stored settings' north (degrees). */
   north?: number;
+  /** The fictional upper floor above the demo apartment (two storeys). */
+  storeys?: 2;
+  /** Card option: the storey shown first. */
+  storey?: string;
 }
 
 /** Opens the mocked Home Assistant with the built frontend. */
@@ -51,6 +55,8 @@ export async function openHarness(page: Page, options: HarnessOptions = {}): Pro
     params.set("sunpos", `${options.sunPosition.azimuth},${options.sunPosition.elevation}`);
   }
   if (options.north !== undefined) params.set("north", String(options.north));
+  if (options.storeys) params.set("storeys", String(options.storeys));
+  if (options.storey) params.set("storey", options.storey);
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto(`/?${params.toString()}`);

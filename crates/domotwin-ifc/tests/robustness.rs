@@ -324,3 +324,43 @@ fn trimmed_curves_run_from_trim1_to_trim2() {
     let room = elements(&plan, "room")[0];
     assert_eq!(room["vertices"].as_array().unwrap().len(), 4, "{room}");
 }
+
+/// A file with storeys only, at these elevations (m), without placements.
+fn storeys_at(elevations: &[f64]) -> Vec<f64> {
+    let mut lines = vec![
+        "IFCSIUNIT(*,.LENGTHUNIT.,$,.METRE.)".to_owned(),
+        "IFCUNITASSIGNMENT((#1))".to_owned(),
+        "IFCPROJECT('project',$,'Project',$,$,$,$,$,#2)".to_owned(),
+    ];
+    for (i, e) in elevations.iter().enumerate() {
+        lines.push(format!(
+            "IFCBUILDINGSTOREY('s{i}',$,'Level {i}',$,$,$,$,$,.ELEMENT.,{e:?})"
+        ));
+    }
+    let body: Vec<String> = lines
+        .iter()
+        .enumerate()
+        .map(|(i, l)| format!("#{}={l};", i + 1))
+        .collect();
+    let text = format!(
+        "ISO-10303-21;\nHEADER;\nFILE_SCHEMA(('IFC4'));\nENDSEC;\nDATA;\n{}\nENDSEC;\nEND-ISO-10303-21;\n",
+        body.join("\n")
+    );
+    let file = IfcFile::read(text.into_bytes()).unwrap();
+    file.storeys()
+        .iter()
+        .map(|s| (s.elevation * 10.0).round() / 10.0)
+        .collect()
+}
+
+#[test]
+fn storeys_are_measured_from_the_ground_floor() {
+    // A cellar below the ground floor stays below it.
+    assert_eq!(storeys_at(&[2.8, -2.6, 0.0]), [-260.0, 0.0, 280.0]);
+    // A raised ground floor is still the ground floor.
+    assert_eq!(storeys_at(&[-2.3, 0.5, 3.3]), [-280.0, 0.0, 280.0]);
+    // Two as near: the lower one.
+    assert_eq!(storeys_at(&[-1.0, 1.0]), [0.0, 200.0]);
+    // Georeferenced, far above zero: from the lowest storey.
+    assert_eq!(storeys_at(&[47.8, 45.0]), [0.0, 280.0]);
+}

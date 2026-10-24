@@ -154,11 +154,22 @@ export class Planner {
     update(id: string, fields: string): void;
 }
 
+/**
+ * The plan (JSON text) with ids none of `taken` has, for a storey joining a home whose other
+ * storeys use some of them (`DECISIONS.md`, D-026); the `parent` of its elements follows.
+ *
+ * # Errors
+ *
+ * `{"code": "not_json"}` when the text is not JSON.
+ */
+export function freeIds(plan: string, taken: string[]): string;
+
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
 
 export interface InitOutput {
     readonly memory: WebAssembly.Memory;
     readonly __wbg_planner_free: (a: number, b: number) => void;
+    readonly freeIds: (a: number, b: number, c: number, d: number, e: number) => void;
     readonly planner_addOpening: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => void;
     readonly planner_addRoom: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => void;
     readonly planner_addWall: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => void;
