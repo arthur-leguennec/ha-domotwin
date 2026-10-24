@@ -9,3 +9,4 @@ from .storage import DomoTwinData
 
 DATA_KEY: HassKey[DomoTwinData] = HassKey(DOMAIN)
 STATIC_REGISTERED_KEY: HassKey[bool] = HassKey(f"{DOMAIN}_static_registered")
+VIEWS_REGISTERED_KEY: HassKey[bool] = HassKey(f"{DOMAIN}_views_registered")

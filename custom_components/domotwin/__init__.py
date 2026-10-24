@@ -15,6 +15,8 @@ from .frontend import (
     async_unregister_frontend,
     async_update_panel,
 )
+from .http import async_register_views
+from .models import async_remove_all
 from .storage import DomoTwinData
 from .websocket_api import async_register_commands
 
@@ -24,8 +26,9 @@ type DomoTwinConfigEntry = ConfigEntry[DomoTwinData]
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
-    """Register the websocket API (it answers `not_loaded` until an entry is set up)."""
+    """Register the websocket API and the model views (`not_loaded` until an entry is set up)."""
     async_register_commands(hass)
+    async_register_views(hass)
     return True
 
 
@@ -54,5 +57,6 @@ async def async_unload_entry(hass: HomeAssistant, entry: DomoTwinConfigEntry) ->
 
 
 async def async_remove_entry(hass: HomeAssistant, entry: DomoTwinConfigEntry) -> None:
-    """Delete the stored plan, overlay and bindings when the integration is removed."""
+    """Delete the stored plan, overlay, bindings and model files (the integration is removed)."""
     await DomoTwinData(hass).async_remove()
+    await async_remove_all(hass)
