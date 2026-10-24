@@ -475,7 +475,7 @@ fn every_look_draws_with_and_without_its_bloom() {
 fn a_tap_goes_through_glass_walls() {
     let mut engine = Engine::new(canvas()).unwrap();
     engine.load_plan(DEMO, None, None).unwrap();
-    let mut picks = |engine: &mut Engine| {
+    let picks = |engine: &mut Engine| {
         engine.frame(0.0);
         let mut picked = Vec::new();
         for y in (8..240).step_by(16) {
