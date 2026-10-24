@@ -1,4 +1,5 @@
 import type { ThemeMode } from "../config";
+import type { ShowRequest } from "../live/show";
 import type { HassConnection, HassMessage, HomeAssistant } from "./types";
 
 export type PlanJson = Record<string, unknown> & { title?: unknown; elements?: unknown };
@@ -57,10 +58,10 @@ export interface StoredSettings {
   revision: number;
 }
 
-export interface UpdateEvent {
-  kind: "plan" | "bindings" | "settings";
-  revision: number;
-}
+/** A save (its kind and revision), or a `domotwin.show` request (D-029). */
+export type UpdateEvent =
+  | { kind: "plan" | "bindings" | "settings"; revision: number }
+  | { kind: "show"; show: ShowRequest };
 
 type Listener = (event: UpdateEvent) => void;
 
@@ -220,10 +221,11 @@ export class DomoTwinClient {
     this.listeners.add(listener);
     this.unsubscribe ??= this.connection.subscribeMessage<UpdateEvent>(
       (event) => {
-        // Each kind has its revision: a save of the bindings leaves the plans fetched valid.
+        // Each kind has its revision: a save of the bindings leaves the plans fetched valid. A
+        // request to show something changes nothing.
         if (event.kind === "bindings") this.bindings = undefined;
         else if (event.kind === "settings") this.settings = undefined;
-        else this.plans.clear();
+        else if (event.kind === "plan") this.plans.clear();
         for (const each of this.listeners) each(event);
       },
       { type: "domotwin/subscribe" },

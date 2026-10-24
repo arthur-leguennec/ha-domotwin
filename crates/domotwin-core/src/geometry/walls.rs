@@ -12,7 +12,7 @@
 //! the same bands.
 
 use crate::geometry::polygon::{P2, line_inside, outward_normal, point_in_polygon, signed_area2};
-use crate::plan::{Element, Opening, Plan, Room, WallSettings};
+use crate::plan::{Element, FreeWall, Opening, Plan, Room, WallSettings};
 
 /// Offsets (cm) of the lines parallel to a side probed for a neighbouring room.
 const PROBES: [f64; 5] = [1.3, 6.1, 12.7, 25.3, 52.9];
@@ -203,6 +203,28 @@ impl WallLayout {
         }
         thickness
     }
+}
+
+/// The footprint of a free partition: a quadrilateral along it as thick as it is, and its unit
+/// normal; none when it has no length.
+pub fn free_wall_quad(wall: &FreeWall) -> Option<([P2; 4], P2)> {
+    let (dx, dy) = (wall.x2 - wall.x, wall.y2 - wall.y);
+    let len = dx.hypot(dy);
+    if len < 0.5 {
+        return None;
+    }
+    let n = [-dy / len, dx / len];
+    let t = wall.thickness / 2.0;
+    let side = |x: f64, y: f64, k: f64| [x + n[0] * k, y + n[1] * k];
+    Some((
+        [
+            side(wall.x, wall.y, t),
+            side(wall.x2, wall.y2, t),
+            side(wall.x2, wall.y2, -t),
+            side(wall.x, wall.y, -t),
+        ],
+        n,
+    ))
 }
 
 /// Unit vector `u` along an opening of direction `angle` (degrees) and `n` = `u` turned +90°.

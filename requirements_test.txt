@@ -5,3 +5,7 @@ jsonschema==4.26.0
 types-jsonschema==4.26.0.20261006
 ruff==0.17.2
 mypy==2.4.0
+# Assist, for the voice blueprint's test (the versions Home Assistant pins).
+gazetteer-matcher==1.1.0
+hassil==3.12.1
+home-assistant-intents==2026.10.6

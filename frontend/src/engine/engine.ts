@@ -76,6 +76,8 @@ export interface SceneStats {
   storeys: number;
   spread: boolean;
   roof: boolean;
+  /** Walking at eye level (D-029). */
+  walking: boolean;
   camera: {
     target: [number, number, number];
     distance: number;
@@ -451,6 +453,38 @@ export class DomoTwinEngine {
 
   get planView(): boolean {
     return this.live.planView();
+  }
+
+  /**
+   * Walks through the storey shown at eye level (D-029), or stops; false when it cannot (every
+   * storey shown, no plan, edit mode).
+   */
+  setWalk(on: boolean): boolean {
+    return this.live.setWalk(on, performance.now());
+  }
+
+  get walking(): boolean {
+    return this.live.walking;
+  }
+
+  /** Walking: moves on its own ahead and to the right (−1…1 each, 0 to stop). */
+  setWalkVelocity(ahead: number, right: number): void {
+    this.live.setWalkVelocity(ahead, right);
+  }
+
+  /** Walking: walks to the floor under a point (device pixels); false when there is none. */
+  walkTo(x: number, y: number): boolean {
+    return this.live.walkTo(x, y);
+  }
+
+  /** The kiosk's slow turn around the home (radians per second, 0 to stop). */
+  setAutoOrbit(perSecond: number): void {
+    this.live.setAutoOrbit(perSecond);
+  }
+
+  /** Whether the kiosk's turn moves the camera (frames go on, slowly). */
+  get orbiting(): boolean {
+    return this.live.orbiting;
   }
 
   /** Back to the whole home. */

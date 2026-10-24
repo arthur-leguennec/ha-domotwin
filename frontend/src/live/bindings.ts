@@ -3,6 +3,7 @@
  * the default actions, and the entities of a Home Assistant area.
  */
 import type { HomeAssistant } from "../ha/types";
+import { nameWords } from "./text";
 
 /** What an entity does for its element. */
 export type Role =
@@ -183,15 +184,6 @@ export function areaEntities(hass: HomeAssistant, areaId: string): string[] {
     .sort();
 }
 
-function normalize(text: string): string {
-  return text
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim();
-}
-
 /** The area of a room: the bound one, else an area whose name matches the room's name. */
 export function roomArea(
   hass: HomeAssistant,
@@ -201,9 +193,9 @@ export function roomArea(
 ): string | undefined {
   const bound = bindings.rooms[roomId]?.area;
   if (bound) return bound;
-  const wanted = normalize(roomName);
+  const wanted = nameWords(roomName);
   if (!wanted) return undefined;
-  return Object.values(hass.areas ?? {}).find((a) => a && normalize(a.name) === wanted)?.area_id;
+  return Object.values(hass.areas ?? {}).find((a) => a && nameWords(a.name) === wanted)?.area_id;
 }
 
 /** The display name of an entity. */

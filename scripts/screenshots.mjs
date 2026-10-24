@@ -836,6 +836,31 @@ try {
     await homePage.screenshot(),
   );
   console.log("docs/figures/screenshot-home.png");
+
+  // Walking (D-029): the panel in the evening, the day look, at eye level in the living room.
+  const walkPage = await browser.newPage({
+    viewport: { width: 1280, height: 800 },
+    deviceScaleFactor: 1.5,
+  });
+  await walkPage.goto(
+    "http://127.0.0.1:4173/?mode=panel&live=1&lighting=evening&hometheme=day",
+  );
+  await walkPage.waitForFunction(() => window.__view?.()?.debugState().summary, null, {
+    timeout: 60_000,
+  });
+  await walkPage.evaluate(() => {
+    const view = window.__view();
+    view.options = { ...view.options, quality: "high" };
+  });
+  await walkPage.locator("domotwin-view").getByTestId("walk").click();
+  await walkPage.waitForFunction(() => window.__view().debugState().stats?.walking === true);
+  await walkPage.evaluate(() => window.__view().settle());
+  await walkPage.waitForTimeout(800);
+  await fs.writeFile(
+    join(root, "docs", "figures", "screenshot-walk.png"),
+    await walkPage.screenshot(),
+  );
+  console.log("docs/figures/screenshot-walk.png");
   await browser.close();
 } finally {
   server.kill();

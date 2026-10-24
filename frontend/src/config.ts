@@ -70,6 +70,17 @@ export interface CardConfig {
   theme?: ThemeMode;
   /** The accent of the look (`#rrggbb`); absent: the home's. */
   accent?: string;
+  /**
+   * The kiosk (D-029): back to the view it opened on after this many seconds untouched (0:
+   * never), turning slowly around the home meanwhile (`orbit`), dimmed at night (`night_dim`).
+   */
+  idle: number;
+  orbit: boolean;
+  night_dim: boolean;
+  /** The view's buttons, on unless turned off. */
+  tools: boolean;
+  /** The name of this screen, for `domotwin.show` (D-029). */
+  screen?: string;
 }
 
 /** A configuration problem; `key` is translated by the card. */
@@ -86,6 +97,10 @@ const CUTAWAYS: readonly CutawayMode[] = ["auto", "always", "off"];
 const LIGHTINGS: readonly LightingMode[] = ["auto", "morning", "day", "evening", "night"];
 const SUNS: readonly SunMode[] = ["fixed", "real"];
 const CSS_LENGTH = /^\d+(\.\d+)?(px|vh|svh|dvh|em|rem)$/;
+/** The longest wait before the kiosk goes back (seconds: a day). */
+export const MAX_IDLE = 86_400;
+/** A screen's name: letters, digits, `_` and `-`. */
+const SCREEN = /^[a-z0-9_-]{1,64}$/i;
 
 function pick<T extends string>(
   value: unknown,
@@ -103,6 +118,14 @@ function flag(value: unknown, fallback: boolean, error: MessageKey): boolean {
   if (value === undefined || value === null) return fallback;
   if (typeof value === "boolean") return value;
   throw new ConfigError(error);
+}
+
+/** The kiosk's wait (seconds, 0 to 1 day; absent: 0, never). */
+function seconds(value: unknown): number {
+  if (value === undefined || value === null || value === "") return 0;
+  const n = typeof value === "string" ? Number(value) : value;
+  if (typeof n === "number" && Number.isInteger(n) && n >= 0 && n <= MAX_IDLE) return n;
+  throw new ConfigError("config.bad_idle");
 }
 
 function optionalString(value: unknown): string | undefined {
@@ -135,6 +158,10 @@ export function normalizeConfig(raw: unknown): CardConfig {
     names: flag(input.names, true, "config.bad_names"),
     spread: flag(input.spread, true, "config.bad_spread"),
     roof: flag(input.roof, true, "config.bad_roof"),
+    idle: seconds(input.idle),
+    orbit: flag(input.orbit, false, "config.bad_orbit"),
+    night_dim: flag(input.night_dim, false, "config.bad_night_dim"),
+    tools: flag(input.tools, true, "config.bad_tools"),
   };
   const title = optionalString(input.title);
   if (title !== undefined) config.title = title;
@@ -147,6 +174,11 @@ export function normalizeConfig(raw: unknown): CardConfig {
   if (font !== undefined) config.font_family = font;
   if (input.theme !== undefined && input.theme !== null && input.theme !== "") {
     config.theme = pick(input.theme, THEME_MODES, "auto", "config.bad_theme");
+  }
+  if (input.screen !== undefined && input.screen !== null && input.screen !== "") {
+    const screen = typeof input.screen === "string" ? input.screen.trim() : "";
+    if (!SCREEN.test(screen)) throw new ConfigError("config.bad_screen");
+    config.screen = screen;
   }
   if (input.accent !== undefined && input.accent !== null && input.accent !== "") {
     const accent = readAccent(input.accent);

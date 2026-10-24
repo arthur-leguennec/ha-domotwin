@@ -97,7 +97,7 @@ pub fn point_in_polygon(p: P2, points: &[P2], strict: bool) -> bool {
 }
 
 /// Distance from `p` to segment AB.
-fn segment_distance(p: P2, a: P2, b: P2) -> f64 {
+pub(crate) fn segment_distance(p: P2, a: P2, b: P2) -> f64 {
     let (dx, dy) = (b[0] - a[0], b[1] - a[1]);
     let len2 = dx * dx + dy * dy;
     let t = if len2 > 0.0 {

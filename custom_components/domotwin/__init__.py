@@ -17,6 +17,7 @@ from .frontend import (
 )
 from .http import async_register_views
 from .models import async_remove_all
+from .services import async_register_services
 from .storage import DomoTwinData
 from .websocket_api import async_register_commands
 
@@ -26,9 +27,13 @@ type DomoTwinConfigEntry = ConfigEntry[DomoTwinData]
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
-    """Register the websocket API and the model views (`not_loaded` until an entry is set up)."""
+    """Register the websocket API, the model views and `domotwin.show`.
+
+    The commands answer `not_loaded` until an entry is set up.
+    """
     async_register_commands(hass)
     async_register_views(hass)
+    async_register_services(hass)
     return True
 
 

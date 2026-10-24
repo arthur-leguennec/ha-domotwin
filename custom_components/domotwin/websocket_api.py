@@ -11,7 +11,7 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 
 from .compat import vol
-from .const import SIGNAL_UPDATED, VERSION
+from .const import SIGNAL_SHOW, SIGNAL_UPDATED, VERSION
 from .data import DATA_KEY
 from .models import async_remove_unused
 from .storage import UNSET, DomoTwinData, RevisionConflictError, UnknownStoreyError
@@ -402,7 +402,10 @@ async def ws_settings_save(
 def ws_subscribe(
     hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
 ) -> None:
-    """Send an event every time the plan, the overlay, the bindings or the settings change."""
+    """Send an event every time the plan, the overlay, the bindings or the settings change.
+
+    Every `domotwin.show` is sent too: kind `show`, the request in `show`.
+    """
 
     @callback
     def forward(kind: str, revision: int) -> None:
@@ -410,5 +413,21 @@ def ws_subscribe(
             websocket_api.event_message(msg["id"], {"kind": kind, "revision": revision})
         )
 
-    connection.subscriptions[msg["id"]] = async_dispatcher_connect(hass, SIGNAL_UPDATED, forward)
+    @callback
+    def show(request: dict[str, Any]) -> None:
+        connection.send_message(
+            websocket_api.event_message(msg["id"], {"kind": "show", "show": request})
+        )
+
+    stops = [
+        async_dispatcher_connect(hass, SIGNAL_UPDATED, forward),
+        async_dispatcher_connect(hass, SIGNAL_SHOW, show),
+    ]
+
+    @callback
+    def stop() -> None:
+        for each in stops:
+            each()
+
+    connection.subscriptions[msg["id"]] = stop
     connection.send_result(msg["id"])

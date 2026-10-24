@@ -199,7 +199,7 @@ struct GpuPart {
     meshes: [Option<GpuMesh>; 4],
     /// The walls: opaque, or glass faces with opaque tops (D-027).
     walls: Option<GpuMesh>,
-    /// The ceilings: only drawn in the shadow map, with the real sun.
+    /// The ceilings: drawn in the shadow map with the real sun, and seen when walking (D-029).
     ceiling: Option<GpuMesh>,
     lines: Option<GpuLines>,
     /// The lights of its lamps that are on, where the view draws them.
@@ -354,6 +354,8 @@ pub struct Renderer {
     /// The shadow map must be drawn again (scene, moving parts, sun or quality changed); the
     /// view says when the cut-away changed (`ViewState::shadows_dirty`).
     shadow_stale: bool,
+    /// Whether the shadow map was drawn with the ceilings (see `roofed`).
+    shadow_roofed: bool,
     /// What the shadow sampler points at without shadows. Created once: creating a texture
     /// binds it to the active unit, which would replace a texture bound for the frame.
     no_shadow: DepthTexture2D,
@@ -543,6 +545,7 @@ impl Renderer {
             halos: None,
             shadow: None,
             shadow_stale: true,
+            shadow_roofed: false,
             no_shadow,
             pick_target: None,
             lighting: Lighting::default(),
@@ -758,7 +761,7 @@ impl Renderer {
         let m = self
             .view
             .camera
-            .projection(self.view.aspect, self.view.radius())
+            .projection(self.view.aspect, self.view.depth())
             .view_proj
             .map(f64::from);
         let clip = |row: usize| {
@@ -888,6 +891,12 @@ impl Renderer {
         program.use_uniform_if_required("u_wall_height", self.view.wall_height as f32);
     }
 
+    /// Whether the rooms have their ceilings in the sun's way: with the real sun (it comes in
+    /// through the windows), and walking under the ceilings drawn (D-029).
+    fn roofed(&self) -> bool {
+        self.sun.is_some() || (self.view.walking() && !self.theme.glass_walls)
+    }
+
     fn render_shadow_map(&mut self) {
         let Some((size, _)) = self.shadow_size() else {
             self.shadow = None;
@@ -907,9 +916,10 @@ impl Renderer {
             });
         }
         let matrix = sun_matrix(self.view.centre(), self.view.radius(), self.sun_direction());
-        // The real sun comes in through the windows only: whole walls and the ceilings cast
-        // shadows, whatever the cut-away shows.
-        let real = self.sun.is_some();
+        // The real sun comes in through the windows only, and so does the sun of a walk under the
+        // ceilings: whole walls and the ceilings cast shadows, whatever the cut-away shows.
+        let real = self.roofed();
+        self.shadow_roofed = real;
         self.use_common(&self.depth, &matrix, real);
         let Some(shadow) = self.shadow.as_mut() else {
             return;
@@ -1038,11 +1048,12 @@ impl Renderer {
             self.shadow_stale = true;
         }
         let cuts_moved = std::mem::take(&mut self.view.shadows_dirty);
-        // With the real sun the shadow map draws whole walls: the cut-away does not change it.
+        // Under the ceilings the shadow map draws whole walls: the cut-away does not change it.
         // Night looks have no sun shadows.
+        let roofed = self.roofed();
         if !self.theme.shadows {
             self.shadow = None;
-        } else if self.shadow_stale || (cuts_moved && self.sun.is_none()) {
+        } else if self.shadow_stale || roofed != self.shadow_roofed || (cuts_moved && !roofed) {
             self.render_shadow_map();
             self.shadow_stale = false;
         }
@@ -1055,7 +1066,7 @@ impl Renderer {
         let projection = self
             .view
             .camera
-            .projection(self.view.aspect, self.view.radius());
+            .projection(self.view.aspect, self.view.depth());
         #[allow(clippy::cast_possible_truncation)]
         let flat = self.view.camera.ortho.clamp(0.0, 1.0) as f32;
         let gain = self.set_main_uniforms(&projection, time_ms, flat, post);
@@ -1114,8 +1125,7 @@ impl Renderer {
         program.use_uniform_if_required("u_layers", on(self.rooms_shown));
         program.use_uniform_if_required("u_power_layer", on(self.power_layer));
         program.use_uniform_if_required("u_motion", on(self.motion));
-        program
-            .use_uniform_if_required("u_bounce", if self.sun.is_some() { 0.16_f32 } else { 0.0 });
+        program.use_uniform_if_required("u_bounce", if self.roofed() { 0.16_f32 } else { 0.0 });
         // Every wave of the layers repeats within 600 s; f32 keeps them smooth over that.
         #[allow(clippy::cast_possible_truncation)]
         program.use_uniform_if_required("u_time", ((time_ms / 1000.0).rem_euclid(600.0)) as f32);
@@ -1258,6 +1268,7 @@ impl Renderer {
         };
         let gain = self.light().lamp_gain();
         let glass_walls = self.theme.glass_walls;
+        let walking = self.view.walking() && only.is_none();
         let roof = self
             .roof
             .as_ref()
@@ -1276,6 +1287,10 @@ impl Renderer {
                 program.use_uniform_if_required("u_wall_pass", pass);
                 walls.draw(program, opaque_states, viewport);
                 program.use_uniform_if_required("u_wall_pass", 0.0_f32);
+            }
+            // Walking, the rooms have their ceilings (the glass looks keep the sky above).
+            if let Some(ceiling) = part.ceiling.as_ref().filter(|_| walking && !glass_walls) {
+                ceiling.draw(program, opaque_states, viewport);
             }
         }
         if let Some((mesh, offset, _)) = roof.filter(|_| !glass_walls) {
@@ -1575,7 +1590,7 @@ impl Renderer {
         let projection = self
             .view
             .camera
-            .projection(self.view.aspect, self.view.radius());
+            .projection(self.view.aspect, self.view.depth());
         self.use_common(&self.pick, &projection.view_proj, false);
         let Some(target) = self.pick_target.as_mut() else {
             return 0;
@@ -1658,6 +1673,7 @@ mod tests {
             ("FLOOR", Surface::Floor),
             ("WOOD", Surface::Wood),
             ("LEAF", Surface::Leaf),
+            ("CEILING", Surface::Ceiling),
         ];
         for (name, surface) in surfaces {
             assert_eq!(value(shaders::FRAGMENT, name), surface as u8, "{name}");

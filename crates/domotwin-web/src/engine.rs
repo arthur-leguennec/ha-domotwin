@@ -453,6 +453,14 @@ impl Engine {
     ) {
         self.triangles = scene.triangle_count();
         self.renderer.set_scene(&scene, keep_camera);
+        if self.renderer.view.walking()
+            && let Some(floor) = scene.walk_floor(&plan)
+        {
+            // The plan saved again, or another storey, while walking: its walls and doors as they
+            // are now.
+            let height = self.renderer.view.offset(0)[1];
+            self.renderer.view.set_walk_floor(floor, height);
+        }
         // The meshes live on the GPU now: free the copies.
         scene.drop_meshes();
         self.elements.clone_from(&scene.elements);
@@ -927,6 +935,72 @@ impl Engine {
         self.renderer.view.zoom(factor, [x, y]);
     }
 
+    /// Starts walking through the storey shown at eye level (D-029), or stops (back to the
+    /// camera before), animated from `time_ms`. Returns whether walking: not with every storey
+    /// shown, without a plan or in edit mode.
+    #[wasm_bindgen(js_name = setWalk)]
+    pub fn set_walk(&mut self, on: bool, time_ms: f64) -> bool {
+        if !on || !self.home.is_empty() || self.edit.is_some() {
+            self.renderer.view.stop_walk(time_ms);
+            return false;
+        }
+        let Some(floor) = self
+            .plan
+            .as_ref()
+            .zip(self.scene.as_ref())
+            .and_then(|(plan, scene)| scene.walk_floor(plan))
+        else {
+            return false;
+        };
+        let height = self.renderer.view.offset(0)[1];
+        self.renderer.view.start_walk(floor, height, time_ms);
+        true
+    }
+
+    /// Whether walking through the storey shown.
+    #[wasm_bindgen(getter)]
+    pub fn walking(&self) -> bool {
+        self.renderer.view.walking()
+    }
+
+    /// Whether the kiosk's slow turn is moving the camera: frames go on, slowly.
+    #[wasm_bindgen(getter)]
+    pub fn orbiting(&self) -> bool {
+        self.renderer.view.orbiting()
+    }
+
+    /// Walking: moves on its own ahead and to the right (−1…1 each, 0 to stop) while a key or
+    /// the pad is held.
+    #[wasm_bindgen(js_name = setWalkVelocity)]
+    pub fn set_walk_velocity(&mut self, ahead: f64, right: f64) {
+        self.renderer.view.set_walk_velocity(ahead, right);
+    }
+
+    /// Walking: walks to the floor under the device pixel `x`, `y` (through the doors). Returns
+    /// whether the floor is there, in sight (not behind a wall tapped).
+    #[wasm_bindgen(js_name = walkTo)]
+    pub fn walk_to(&mut self, x: f64, y: f64) -> bool {
+        if !self.renderer.view.walking() {
+            return false;
+        }
+        let floor = self.renderer.view.offset(0)[1];
+        let Some(p) = self.renderer.plane_point(x, y, floor) else {
+            return false;
+        };
+        if !self.renderer.view.sees([p[0], p[2]]) {
+            return false;
+        }
+        self.renderer.view.walk_to([p[0], p[2]]);
+        true
+    }
+
+    /// The kiosk's slow turn around the home while nobody touches it (radians per second, 0 to
+    /// stop); a gesture stops it.
+    #[wasm_bindgen(js_name = setAutoOrbit)]
+    pub fn set_auto_orbit(&mut self, per_second: f64) {
+        self.renderer.view.set_auto_orbit(per_second);
+    }
+
     /// Switches between the 3D view and the 2D plan (animated from `time_ms`).
     #[wasm_bindgen(js_name = setPlanView)]
     pub fn set_plan_view(&mut self, plan: bool, time_ms: f64) {
@@ -958,7 +1032,12 @@ impl Engine {
         let view = &self.renderer.view;
         let low = view.place(info.storey, [widen(min[0]), 0.0, widen(min[2])]);
         let high = view.place(info.storey, [widen(max[0]), widen(max[1]), widen(max[2])]);
-        self.renderer.view.focus([low, high], time_ms);
+        let inside = if info.kind == "room" {
+            view.room_spot(id)
+        } else {
+            None
+        };
+        self.renderer.view.focus([low, high], inside, time_ms);
         true
     }
 
@@ -1011,12 +1090,9 @@ impl Engine {
         let Some((position, target)) = found else {
             return false;
         };
-        if self.renderer.view.plan_view {
-            self.renderer.view.plan_view = false;
-        }
         self.renderer
             .view
-            .go_to(Camera::from_view(position, target), time_ms);
+            .show_camera(Camera::from_view(position, target), time_ms);
         true
     }
 
@@ -1059,6 +1135,7 @@ impl Engine {
             "triangles": self.triangles,
             "groups": view.cuts.len(),
             "planView": view.plan_view,
+            "walking": view.walking(),
             "lights": self.renderer.light_count(),
             "lit": self
                 .live

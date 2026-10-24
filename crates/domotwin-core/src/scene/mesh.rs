@@ -40,6 +40,8 @@ pub enum Surface {
     Wood = 13,
     /// Leaves of plants.
     Leaf = 14,
+    /// A room's ceiling, seen from below when walking (D-029): lit like the room, not by the sun.
+    Ceiling = 15,
 }
 
 /// How a vertex reacts to the cut-away of its wall group. Stored in the vertex (2 bits).

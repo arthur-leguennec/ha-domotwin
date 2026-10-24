@@ -4,6 +4,7 @@ import { ConfigError, normalizeConfig, type CardConfig } from "../config";
 import { DomoTwinClient, type Settings, type StoreyInfo, type StoredPlan } from "../ha/client";
 import { isHassError, type HomeAssistant } from "../ha/types";
 import { readBindings, type BindingsJson } from "../live/bindings";
+import { forScreen, resolveShow, type ShowRequest } from "../live/show";
 import type { HomeStorey } from "../engine/engine";
 import {
   ALL_STOREYS,
@@ -14,7 +15,7 @@ import {
 } from "../live/storeys";
 import { translatorFor } from "../i18n";
 import { baseStyles } from "./styles";
-import type { ViewOptions } from "./view";
+import type { DomoTwinView, ViewOptions } from "./view";
 
 /** `custom:domotwin-card`: the twin on a dashboard. */
 export class DomoTwinCard extends LitElement {
@@ -47,6 +48,8 @@ export class DomoTwinCard extends LitElement {
   private chosen?: string;
   /** Counts the plan's loads: the answer to an older one is dropped. */
   private loads = 0;
+  /** Counts `domotwin.show` requests: an older one still on its way is dropped. */
+  private shows = 0;
   /** The rooms of the storeys not shown, for their alerts. */
   protected elsewhere: StoreyRooms[] = [];
   private _hass?: HomeAssistant;
@@ -118,7 +121,8 @@ export class DomoTwinCard extends LitElement {
     if (!this._hass || this.unsubscribe) return;
     const client = DomoTwinClient.for(this._hass);
     this.unsubscribe = client.subscribe((event) => {
-      if (event.kind === "plan") void this.loadPlan(client);
+      if (event.kind === "show") void this.showRequest(client, event.show);
+      else if (event.kind === "plan") void this.loadPlan(client);
       else if (event.kind === "bindings") void this.loadBindings(client);
       else void this.loadSettings(client);
     });
@@ -191,6 +195,43 @@ export class DomoTwinCard extends LitElement {
     if ((stored.storey ?? undefined) === this.storey) this.elsewhere = elsewhere;
   }
 
+  /** `domotwin.show` (D-029): on this screen (or every one), the storey asked for, then what to
+   * frame and how. */
+  private async showRequest(client: DomoTwinClient, request: ShowRequest): Promise<void> {
+    const hass = this._hass;
+    if (!hass || !forScreen(request, this.config?.screen)) return;
+    const ticket = ++this.shows;
+    const target = await resolveShow(
+      client,
+      translatorFor(hass),
+      this.storeys,
+      { plan: this.plan, storey: this.storey },
+      request,
+    );
+    if (!target || ticket !== this.shows) return;
+    if (target.storey !== undefined && target.storey !== this.storey) {
+      this.chosen = target.storey;
+      await this.loadPlan(client);
+      await this.updateComplete;
+    }
+    const view = this.renderRoot.querySelector<DomoTwinView>("domotwin-view");
+    await view?.updateComplete;
+    if (ticket === this.shows) view?.show(target);
+  }
+
+  /** The kiosk went back to the view it opened on (D-029): its own storey too, framed again
+   * once shown. */
+  private readonly onIdle = (): void => {
+    if (this.chosen === undefined || !this._hass) return;
+    this.chosen = undefined;
+    void this.loadPlan(DomoTwinClient.for(this._hass)).then(async () => {
+      await this.updateComplete;
+      const view = this.renderRoot.querySelector<DomoTwinView>("domotwin-view");
+      await view?.updateComplete;
+      view?.frameHome();
+    });
+  };
+
   /** The view's storey switcher. */
   private readonly onStorey = (event: Event): void => {
     const hass = this._hass;
@@ -227,6 +268,10 @@ export class DomoTwinCard extends LitElement {
         names: config.names,
         spread: config.spread,
         roof: config.roof,
+        idle: config.idle,
+        orbit: config.orbit,
+        nightDim: config.night_dim,
+        tools: config.tools,
       };
       if (config.room) options.room = config.room;
       if (config.theme) options.theme = config.theme;
@@ -281,6 +326,7 @@ export class DomoTwinCard extends LitElement {
         .storey=${this.storey}
         .elsewhere=${this.elsewhere}
         @domotwin-storey=${this.onStorey}
+        @domotwin-idle=${this.onIdle}
       ></domotwin-view>
     </ha-card>`;
   }

@@ -19,6 +19,10 @@ describe("normalizeConfig", () => {
       names: true,
       spread: true,
       roof: true,
+      idle: 0,
+      orbit: false,
+      night_dim: false,
+      tools: true,
     });
   });
 
@@ -44,6 +48,11 @@ describe("normalizeConfig", () => {
         storey: " all ",
         spread: false,
         roof: false,
+        idle: 120,
+        orbit: true,
+        night_dim: true,
+        tools: false,
+        screen: " hallway ",
       }),
     ).toEqual({
       type: "custom:domotwin-card",
@@ -65,7 +74,17 @@ describe("normalizeConfig", () => {
       storey: "all",
       spread: false,
       roof: false,
+      idle: 120,
+      orbit: true,
+      night_dim: true,
+      tools: false,
+      screen: "hallway",
     });
+  });
+
+  it("reads the kiosk's wait from the visual editor's text", () => {
+    expect(normalizeConfig({ idle: "300" }).idle).toBe(300);
+    expect(normalizeConfig({ idle: "" }).idle).toBe(0);
   });
 
   it("reads a number height as pixels", () => {
@@ -93,6 +112,15 @@ describe("normalizeConfig", () => {
     [{ names: "yes" }, "config.bad_names"],
     [{ spread: "apart" }, "config.bad_spread"],
     [{ roof: 1 }, "config.bad_roof"],
+    [{ idle: -1 }, "config.bad_idle"],
+    [{ idle: 1.5 }, "config.bad_idle"],
+    [{ idle: 90_000 }, "config.bad_idle"],
+    [{ idle: "soon" }, "config.bad_idle"],
+    [{ orbit: "yes" }, "config.bad_orbit"],
+    [{ night_dim: 1 }, "config.bad_night_dim"],
+    [{ tools: "no" }, "config.bad_tools"],
+    [{ screen: "hall way" }, "config.bad_screen"],
+    [{ screen: 3 }, "config.bad_screen"],
     [{ theme: "dark" }, "config.bad_theme"],
     [{ accent: "red" }, "config.bad_accent"],
     [{ accent: "#12345" }, "config.bad_accent"],

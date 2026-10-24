@@ -21,6 +21,7 @@ pub mod plan;
 pub mod scene;
 pub mod structure;
 pub mod theme;
+pub mod walk;
 
 pub use error::{ErrorCode, ReadError};
 pub use plan::{Plan, PlanSummary, read_plan, summarize_plan};

@@ -5,6 +5,7 @@
 import type { HomeAssistant } from "../ha/types";
 import { areaEntities, entityName, type BindingsJson, type ElementBinding } from "./bindings";
 import { APPLIANCES } from "./devices";
+import { unaccented } from "./text";
 
 /** What the editor needs to know about a plan element. */
 export interface PlanElementInfo {
@@ -127,10 +128,6 @@ export function suggestions(
     .slice(0, MAX_RESULTS);
 }
 
-function normalize(text: string): string {
-  return text.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
-}
-
 /** Entities whose id or name holds every word of `query`, those that fit first. */
 export function searchEntities(
   hass: HomeAssistant,
@@ -138,12 +135,12 @@ export function searchEntities(
   query: string,
   linked: readonly string[],
 ): string[] {
-  const words = normalize(query).split(/\s+/).filter(Boolean);
+  const words = unaccented(query).split(/\s+/).filter(Boolean);
   if (words.length === 0 || words.join("").length < 2) return [];
   return Object.keys(hass.states)
     .filter((id) => {
       if (linked.includes(id)) return false;
-      const text = normalize(`${id} ${entityName(hass, id)}`);
+      const text = unaccented(`${id} ${entityName(hass, id)}`);
       return words.every((word) => text.includes(word));
     })
     .sort(byFitThenName(element, hass))

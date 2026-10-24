@@ -612,3 +612,60 @@ fn the_whole_home_stands_storey_above_storey() {
     // No storeys: refused.
     assert!(engine.load_storeys("[]", None).is_err());
 }
+
+/// The camera's target, from the scene's figures.
+fn target(engine: &Engine) -> [f64; 3] {
+    let stats: serde_json::Value = serde_json::from_str(&engine.stats()).unwrap();
+    let t = &stats["camera"]["target"];
+    [0, 1, 2].map(|k| t[k].as_f64().unwrap())
+}
+
+#[wasm_bindgen_test]
+fn walking_through_the_home_at_eye_level() {
+    let mut engine = Engine::new(canvas()).unwrap();
+    engine.load_plan(DEMO, None, None).unwrap();
+    let settle = |engine: &mut Engine, t: &mut f64| {
+        while engine.frame(*t) {
+            *t += 16.0;
+            assert!(*t < 20_000.0, "the walk ends");
+        }
+    };
+    let mut t = 0.0;
+    settle(&mut engine, &mut t);
+    assert!(!engine.walking());
+    // In: the eyes go down into a room, looking a little down.
+    assert!(engine.set_walk(true, t));
+    settle(&mut engine, &mut t);
+    let stats = engine.stats();
+    assert!(stats.contains("\"walking\":true"), "{stats}");
+    let at = target(&engine);
+    assert!(at[1] > 100.0 && at[1] < 160.0, "{at:?}");
+    // A tap on the floor ahead: the walker goes there.
+    assert!(engine.walk_to(160.0, 200.0));
+    settle(&mut engine, &mut t);
+    let there = target(&engine);
+    assert!(
+        (there[0] - at[0]).hypot(there[2] - at[2]) > 10.0,
+        "{at:?} {there:?}"
+    );
+    // Held keys: it walks ahead until a wall stops it, never through it.
+    engine.set_walk_velocity(1.0, 0.0);
+    for _ in 0..400 {
+        t += 16.0;
+        engine.frame(t);
+    }
+    engine.set_walk_velocity(0.0, 0.0);
+    let stopped = target(&engine);
+    for _ in 0..30 {
+        t += 16.0;
+        engine.frame(t);
+    }
+    assert_eq!(target(&engine), stopped);
+    // Out: back to the camera before.
+    assert!(!engine.set_walk(false, t));
+    settle(&mut engine, &mut t);
+    assert!(engine.stats().contains("\"walking\":false"));
+    // Not with every storey shown.
+    engine.load_storeys(&home(), None).unwrap();
+    assert!(!engine.set_walk(true, t));
+}

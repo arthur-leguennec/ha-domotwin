@@ -47,6 +47,11 @@ MAX_ELEVATION: Final = 100_000
 
 # Dispatcher signal sent after every write: (kind, revision).
 SIGNAL_UPDATED: Final = f"{DOMAIN}_updated"
+# `domotwin.show` (docs/DECISIONS.md, D-029): what to show, sent to the screens: (request,).
+SERVICE_SHOW: Final = "show"
+SIGNAL_SHOW: Final = f"{DOMAIN}_show"
+MAX_SHOW_TEXT: Final = 100
+MAX_SCREEN_NAME: Final = 64
 
 # The 3D files of user models (docs/DECISIONS.md, D-013 and D-021): kept by their SHA-256 in
 # <config>/domotwin/models/, uploaded by administrators, served to signed-in users.

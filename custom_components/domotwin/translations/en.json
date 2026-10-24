@@ -24,5 +24,33 @@
         }
       }
     }
+  },
+  "services": {
+    "show": {
+      "name": "Show",
+      "description": "Shows a room, an element, a storey or a view on the DomoTwin screens (cards and panel), or on one of them.",
+      "fields": {
+        "room": {
+          "name": "Room",
+          "description": "A room of the plan, by its name or its id (on any storey)."
+        },
+        "element": {
+          "name": "Element",
+          "description": "Any element of the plan, by its name or its id: it is framed."
+        },
+        "storey": {
+          "name": "Storey",
+          "description": "A storey, by its name, its id or its number (0 for the ground floor, 1 above, -1 below); all for every storey at once."
+        },
+        "view": {
+          "name": "View",
+          "description": "overview, 3d, 2d, walk (at eye level, to the room given), or the name of a saved viewpoint."
+        },
+        "screen": {
+          "name": "Screen",
+          "description": "The screen to show it on: a card's screen option. Empty for every screen."
+        }
+      }
+    }
   }
 }
