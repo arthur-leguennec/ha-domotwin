@@ -15,14 +15,14 @@ Local, rapide, Rust + WebAssembly.</p>
 > [!NOTE]
 > **État : développement en cours.** DomoTwin se construit étape par étape
 > ([feuille de route](docs/ROADMAP.md), en anglais). L’intégration, le panneau, la carte, l’import
-> du plan, les vues 3D et 2D et le pilotage en direct (états, toucher, appui long, panneau de pièce,
-> liaisons) fonctionnent déjà ; les calques et le mode édition arrivent ensuite. Les fonctionnalités
+> du plan et de l’IFC, les vues 3D et 2D et le pilotage en direct (états, toucher, appui long,
+> panneau de pièce, liaisons) fonctionnent déjà ; le mode édition et les calques arrivent ensuite. Les fonctionnalités
 > ci-dessous décrivent la version 0.1.0.
 
 ## Fonctionnalités
 
-- **Votre plan en 3D et en 2D.** Importez un plan House Maquette (`*.plan.json`) et voyez-le en
-  maquette 3D. Les murs face à la caméra s’abaissent automatiquement, comme une maison de poupée
+- **Votre plan en 3D et en 2D.** Importez un plan House Maquette (`*.plan.json`) ou un étage d’une
+  maquette IFC (`*.ifc`, depuis Revit, ArchiCAD, Bonsai, FreeCAD…) et voyez-le en maquette 3D. Les murs face à la caméra s’abaissent automatiquement, comme une maison de poupée
   ouverte. Passez à un plan 2D net avec une transition fluide.
 - **Toucher pour piloter.** Touchez une lampe pour l’allumer ou l’éteindre, appuyez longuement pour
   la luminosité et la couleur, appuyez longuement sur une pièce pour retrouver ses lumières, scènes,
@@ -57,8 +57,10 @@ Local, rapide, Rust + WebAssembly.</p>
 2. **Ajouter l’intégration.** Paramètres → Appareils et services → Ajouter une intégration →
    **DomoTwin**. Aucun YAML.
 3. **Importer votre plan.** Ouvrez **DomoTwin** dans la barre latérale → **Importer un plan** et
-   choisissez votre `*.plan.json`. Pas encore de plan ? Essayez l’appartement fictif
-   [`examples/demo-apartment.plan.json`](examples/demo-apartment.plan.json).
+   choisissez votre `*.plan.json`, ou un fichier IFC (`*.ifc`, voir [l’import IFC](docs/ifc-import.md),
+   en anglais). Pas encore de plan ? Essayez l’appartement fictif
+   [`examples/demo-apartment.plan.json`](examples/demo-apartment.plan.json) ou
+   [`examples/demo-apartment.ifc`](examples/demo-apartment.ifc).
 
 Ajoutez ensuite la carte **DomoTwin** à n’importe quel tableau de bord depuis le sélecteur de cartes.
 

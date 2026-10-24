@@ -1,5 +1,5 @@
 // Bundles the frontend into custom_components/domotwin/frontend/ (run through scripts/build.sh,
-// which builds the WebAssembly engine first).
+// which builds the WebAssembly modules first: the engine and the IFC import).
 import { createHash } from "node:crypto";
 import { copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
@@ -8,18 +8,28 @@ import { build } from "esbuild";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const out = resolve(here, "../custom_components/domotwin/frontend");
-const pkg = resolve(here, "src/engine/pkg");
 const dev = process.argv.includes("--dev");
 
 const { version } = JSON.parse(await readFile(join(here, "package.json"), "utf8"));
-let wasm;
-try {
-  wasm = await readFile(join(pkg, "domotwin_web_bg.wasm"));
-} catch {
-  console.error("The engine is not built: run scripts/build.sh from the repository root.");
-  process.exit(1);
+
+/** A built wasm module and the name it is served under (content hash for caching). */
+async function wasmModule(dir, name) {
+  const path = resolve(here, dir, `${name}_bg.wasm`);
+  let bytes;
+  try {
+    bytes = await readFile(path);
+  } catch {
+    console.error(`${name} is not built: run scripts/build.sh from the repository root.`);
+    process.exit(1);
+  }
+  return {
+    path,
+    file: `${name}_bg.${createHash("sha256").update(bytes).digest("hex").slice(0, 12)}.wasm`,
+  };
 }
-const wasmFile = `domotwin_web_bg.${createHash("sha256").update(wasm).digest("hex").slice(0, 12)}.wasm`;
+const engine = await wasmModule("src/engine/pkg", "domotwin_web");
+const ifc = await wasmModule("src/ifc/pkg", "domotwin_ifc");
+const wasmFile = engine.file;
 
 await rm(out, { recursive: true, force: true });
 await mkdir(out, { recursive: true });
@@ -41,14 +51,16 @@ const result = await build({
   define: {
     __DOMOTWIN_VERSION__: JSON.stringify(version),
     __DOMOTWIN_WASM__: JSON.stringify(wasmFile),
+    __DOMOTWIN_IFC_WASM__: JSON.stringify(ifc.file),
   },
 });
 
-await copyFile(join(pkg, "domotwin_web_bg.wasm"), join(out, wasmFile));
+await copyFile(engine.path, join(out, engine.file));
+await copyFile(ifc.path, join(out, ifc.file));
 await writeFile(
   join(out, "build.json"),
   JSON.stringify(
-    { version, wasm: wasmFile, outputs: Object.keys(result.metafile.outputs) },
+    { version, wasm: wasmFile, ifc: ifc.file, outputs: Object.keys(result.metafile.outputs) },
     null,
     2,
   ),

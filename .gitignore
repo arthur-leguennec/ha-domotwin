@@ -58,3 +58,5 @@ Thumbs.db
 # wasm-bindgen output: only the TypeScript declaration is committed (checked by CI).
 /frontend/src/engine/pkg/*
 !/frontend/src/engine/pkg/domotwin_web.d.ts
+/frontend/src/ifc/pkg/*
+!/frontend/src/ifc/pkg/domotwin_ifc.d.ts

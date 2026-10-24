@@ -2,6 +2,8 @@
 declare const __DOMOTWIN_VERSION__: string;
 /** File name of the engine's WebAssembly module (content-hashed by the build). */
 declare const __DOMOTWIN_WASM__: string;
+/** File name of the IFC import's WebAssembly module, loaded only to import a .ifc file. */
+declare const __DOMOTWIN_IFC_WASM__: string;
 
 interface CustomCardEntry {
   type: string;

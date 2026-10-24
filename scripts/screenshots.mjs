@@ -225,6 +225,78 @@ try {
     Buffer.from(pair.slice(pair.indexOf(",") + 1), "base64"),
   );
   console.log("docs/figures/screenshot-live.png");
+
+  // IFC import (M1b): the storey picker of a two-storey file, and a fictional apartment imported.
+  const ifc = await browser.newPage({ viewport: { width: 1100, height: 760 } });
+  await ifc.goto("http://127.0.0.1:4173/?mode=panel&plan=none");
+  await ifc.waitForFunction(() => window.__element !== undefined);
+  const pick = async (file) => {
+    const chooser = ifc.waitForEvent("filechooser");
+    await ifc.getByRole("button", { name: "Import plan" }).first().click();
+    await (await chooser).setFiles(join(root, file));
+  };
+  await pick("crates/domotwin-ifc/tests/fixtures/house-ifc2x3.ifc");
+  await ifc.getByTestId("ifc-storeys").waitFor();
+  const picker = await ifc.screenshot();
+  await ifc.getByRole("button", { name: "Cancel" }).click();
+  await pick("examples/demo-apartment.ifc");
+  await ifc.waitForFunction(() => window.__view?.()?.debugState().summary?.rooms === 6, null, {
+    timeout: 60_000,
+  });
+  const imported = await ifc.evaluate(async () => {
+    const view = window.__view();
+    view.options = { quality: "high", view: "3d", cutaway: "auto", lighting: "day" };
+    await view.updateComplete;
+    view.overview();
+    return view.captureFrame();
+  });
+  const ifcPair = await ifc.evaluate(
+    async ([left, right]) => {
+      const decode = async (src) => {
+        const image = new Image();
+        image.src = src;
+        await image.decode();
+        return image;
+      };
+      const a = await decode(`data:image/png;base64,${left}`);
+      const b = await decode(right);
+      const canvas = document.createElement("canvas");
+      canvas.width = a.width * 2 + 30;
+      canvas.height = a.height + 20;
+      const g = canvas.getContext("2d");
+      g.fillStyle = "#f1f5f9";
+      g.fillRect(0, 0, canvas.width, canvas.height);
+      g.drawImage(a, 10, 10);
+      g.fillStyle = "#ffffff";
+      g.fillRect(a.width + 20, 10, a.width, a.height);
+      const scale = Math.min(a.width / b.width, a.height / b.height);
+      g.drawImage(
+        b,
+        a.width + 20 + (a.width - b.width * scale) / 2,
+        10 + (a.height - b.height * scale) / 2,
+        b.width * scale,
+        b.height * scale,
+      );
+      const labels = ["An IFC file: pick the storey", "Imported: rooms, doors, windows, furniture"];
+      labels.forEach((label, i) => {
+        const x = 10 + i * (a.width + 10);
+        g.fillStyle = "rgba(255,255,255,0.92)";
+        g.beginPath();
+        g.roundRect(x + 16, 72, 470, 44, 22);
+        g.fill();
+        g.fillStyle = "#0f172a";
+        g.font = "600 22px Inter, sans-serif";
+        g.fillText(label, x + 36, 101);
+      });
+      return canvas.toDataURL("image/png");
+    },
+    [picker.toString("base64"), imported],
+  );
+  await fs.writeFile(
+    join(root, "docs", "figures", "screenshot-ifc.png"),
+    Buffer.from(ifcPair.slice(ifcPair.indexOf(",") + 1), "base64"),
+  );
+  console.log("docs/figures/screenshot-ifc.png");
   await browser.close();
 } finally {
   server.kill();

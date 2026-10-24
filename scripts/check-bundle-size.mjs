@@ -42,8 +42,9 @@ for (const file of await files(out)) {
 rows.sort((a, b) => b.gzip - a.gzip);
 
 // Everything a view needs on first load: the entry, the chunks it imports statically, the engine
-// (imported on demand, but every view starts it) with its own imports, and the wasm. Panels and
-// editors imported on demand are listed apart.
+// (imported on demand, but every view starts it) with its own imports, and the engine's wasm.
+// Panels, editors and the IFC import, loaded on demand, are listed apart.
+const manifest = JSON.parse(await readFile(join(out, "build.json"), "utf8"));
 const sources = new Map();
 for (const row of rows) {
   if (row.kind === "js") sources.set(row.file, await readFile(join(out, row.file), "utf8"));
@@ -69,8 +70,10 @@ const visit = (file) => {
   dynamic.filter((spec) => spec.includes("domotwin_web")).forEach(visit);
 };
 visit("domotwin.js");
-const firstLoad = rows.filter((row) => row.kind === "wasm" || needed.has(row.file));
-const onDemand = rows.filter((row) => row.kind === "js" && !needed.has(row.file));
+const firstLoad = rows.filter((row) => row.file === manifest.wasm || needed.has(row.file));
+const onDemand = rows.filter(
+  (row) => (row.kind === "js" || row.kind === "wasm") && !firstLoad.includes(row),
+);
 const total = firstLoad.reduce((sum, row) => sum + row.gzip, 0);
 const later = onDemand.reduce((sum, row) => sum + row.gzip, 0);
 const kb = (n) => `${(n / 1000).toFixed(1)} kB`;
@@ -78,11 +81,12 @@ const kb = (n) => `${(n / 1000).toFixed(1)} kB`;
 console.log("| File | Raw | Gzipped |");
 console.log("| --- | ---: | ---: |");
 for (const row of rows) {
-  const when = row.kind === "other" ? "" : needed.has(row.file) || row.kind === "wasm" ? "" : " (on demand)";
+  const when =
+    row.kind === "other" || firstLoad.includes(row) ? "" : " (on demand)";
   console.log(`| ${row.file}${when} | ${kb(row.bytes)} | ${kb(row.gzip)} |`);
 }
 console.log(`\nFirst load (wasm + JS): ${kb(total)} gzipped, budget ${kb(BUDGET_GZIP_BYTES)}.`);
-console.log(`On demand (panels, editors): ${kb(later)} gzipped.`);
+console.log(`On demand (panels, editors, IFC import): ${kb(later)} gzipped.`);
 
 const jsonIndex = process.argv.indexOf("--json");
 if (jsonIndex > 0 && process.argv[jsonIndex + 1]) {

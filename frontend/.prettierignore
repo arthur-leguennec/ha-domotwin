@@ -1,5 +1,6 @@
 node_modules/
 src/engine/pkg/
+src/ifc/pkg/
 test-results/
 playwright-report/
 coverage/

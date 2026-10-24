@@ -14,14 +14,14 @@ Local, fast, Rust + WebAssembly.</p>
 
 > [!NOTE]
 > **Status: early development.** DomoTwin is built milestone by milestone
-> ([roadmap](docs/ROADMAP.md)). The integration, the panel, the card, the plan import, the 3D
-> and 2D views and live control (states, tap, long press, room panel, linking) work today; layers
-> and the edit mode come next. The features below describe version 0.1.0.
+> ([roadmap](docs/ROADMAP.md)). The integration, the panel, the card, the plan and IFC import, the
+> 3D and 2D views and live control (states, tap, long press, room panel, linking) work today; the
+> edit mode and layers come next. The features below describe version 0.1.0.
 
 ## Features
 
-- **Your floor plan in 3D and 2D.** Import a House Maquette plan (`*.plan.json`) and see it as a
-  clean 3D model. The walls facing the camera are lowered automatically, like an open dollhouse.
+- **Your floor plan in 3D and 2D.** Import a House Maquette plan (`*.plan.json`) or one storey of an
+  IFC model (`*.ifc`, from Revit, ArchiCAD, Bonsai, FreeCAD…) and see it as a clean 3D model. The walls facing the camera are lowered automatically, like an open dollhouse.
   Switch to a crisp 2D plan with a smooth animation.
 - **Tap to control.** Tap a lamp to toggle it, long-press for brightness and colour, long-press a
   room to get every light, scene, cover, climate and media player of that room.
@@ -51,8 +51,9 @@ Local, fast, Rust + WebAssembly.</p>
    as a custom repository of type *Integration*, install **DomoTwin** and restart Home Assistant.
 2. **Add the integration.** Settings → Devices & services → Add integration → **DomoTwin**. No YAML.
 3. **Import your plan.** Open **DomoTwin** in the sidebar → **Import plan** and pick your
-   `*.plan.json`. No plan yet? Try the fictional
-   [`examples/demo-apartment.plan.json`](examples/demo-apartment.plan.json).
+   `*.plan.json`, or an IFC file (`*.ifc`, see [IFC import](docs/ifc-import.md)). No plan yet? Try
+   the fictional [`examples/demo-apartment.plan.json`](examples/demo-apartment.plan.json) or
+   [`examples/demo-apartment.ifc`](examples/demo-apartment.ifc).
 
 Then add the **DomoTwin** card to any dashboard from the card picker.
 
