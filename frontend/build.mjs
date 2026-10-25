@@ -31,6 +31,7 @@ const engine = await wasmModule("src/engine/pkg", "domotwin_web");
 const planImport = await wasmModule("src/import/pkg", "domotwin_import");
 const models = await wasmModule("src/models/pkg", "domotwin_models");
 const planner = await wasmModule("src/planner/pkg", "domotwin_planner");
+const analysis = await wasmModule("src/analysis/pkg", "domotwin_analysis");
 const wasmFile = engine.file;
 
 // The bundled font (OFL, `fonts/OFL.txt` next to it), served under its content hash too.
@@ -63,6 +64,7 @@ const result = await build({
     __DOMOTWIN_IMPORT_WASM__: JSON.stringify(planImport.file),
     __DOMOTWIN_MODELS_WASM__: JSON.stringify(models.file),
     __DOMOTWIN_PLANNER_WASM__: JSON.stringify(planner.file),
+    __DOMOTWIN_ANALYSIS_WASM__: JSON.stringify(analysis.file),
     __DOMOTWIN_FONT__: JSON.stringify(fontFile),
   },
 });
@@ -71,6 +73,7 @@ await copyFile(engine.path, join(out, engine.file));
 await copyFile(planImport.path, join(out, planImport.file));
 await copyFile(models.path, join(out, models.file));
 await copyFile(planner.path, join(out, planner.file));
+await copyFile(analysis.path, join(out, analysis.file));
 await mkdir(join(out, "fonts"));
 await copyFile(fontPath, join(out, fontFile));
 await copyFile(resolve(here, "fonts/OFL.txt"), join(out, "fonts/OFL.txt"));
@@ -83,6 +86,7 @@ await writeFile(
       import: planImport.file,
       models: models.file,
       planner: planner.file,
+      analysis: analysis.file,
       font: fontFile,
       outputs: Object.keys(result.metafile.outputs),
     },

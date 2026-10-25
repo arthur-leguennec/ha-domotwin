@@ -9,6 +9,10 @@ interface BenchmarkView {
   benchmark(frames: number): Promise<FrameStats>;
 }
 
+interface ReadBackView extends HTMLElement {
+  engine?: { invalidate(): void; frame(time: number): boolean };
+}
+
 // Frame-time smoke test: logged as a CI artifact, compared across milestones in PERFORMANCE.md.
 test("frame time with the demo plan", async ({ page }, testInfo) => {
   await openHarness(page);
@@ -48,6 +52,51 @@ test("frame time of each look", async ({ page }, testInfo) => {
   const path = testInfo.outputPath("looks-frame-time.json");
   await writeFile(path, JSON.stringify(report, null, 2));
   await testInfo.attach("looks-frame-time", { path, contentType: "application/json" });
+  console.log(JSON.stringify(report));
+});
+
+// The quality presets (M12b): Eco, Balanced and High against each other, in the look that costs
+// the most (neon, its bloom), in the evening with the lamps on.
+test("frame time of each quality preset", async ({ page }, testInfo) => {
+  test.setTimeout(240_000);
+  const report: Record<string, FrameStats & { gpuMedianMs: number }> = {};
+  await openHarness(page, { theme: "neon", lighting: "evening", live: true });
+  await expect(page.getByTestId("summary")).toBeVisible();
+  for (const quality of ["eco", "balanced", "high"] as const) {
+    await page.evaluate((quality) => {
+      const view = (
+        window as never as { __view: () => { options: Record<string, unknown> } }
+      ).__view();
+      view.options = { ...view.options, quality };
+    }, quality);
+    await expect.poll(async () => (await viewState(page)).quality).toBe(quality);
+    await settle(page);
+    const stats = await page.evaluate(() =>
+      (window as never as { __view: () => BenchmarkView }).__view().benchmark(20),
+    );
+    expect(stats.frames).toBe(20);
+    // The GPU's share too: each frame read back, so that it is waited for (nine frames).
+    const gpuMedianMs = await page.evaluate(() => {
+      const view = (window as never as { __view: () => ReadBackView }).__view();
+      const canvas = view.shadowRoot?.querySelector("canvas");
+      const gl = canvas?.getContext("webgl2");
+      if (!view.engine || !gl) throw new Error("no engine");
+      const pixel = new Uint8Array(4);
+      const times: number[] = [];
+      for (let i = 0; i < 9; i += 1) {
+        const start = performance.now();
+        view.engine.invalidate();
+        view.engine.frame(start);
+        gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
+        times.push(performance.now() - start);
+      }
+      return times.sort((a, b) => a - b)[4] ?? Number.NaN;
+    });
+    report[quality] = { ...stats, gpuMedianMs };
+  }
+  const path = testInfo.outputPath("presets-frame-time.json");
+  await writeFile(path, JSON.stringify(report, null, 2));
+  await testInfo.attach("presets-frame-time", { path, contentType: "application/json" });
   console.log(JSON.stringify(report));
 });
 
@@ -108,8 +157,9 @@ test("frame time walking", async ({ page }, testInfo) => {
 });
 
 // The network map (D-031): the day look at High with the mesh drawn (its pulses held still, as
-// with reduce motion), against the same view without it; then what reading a large fictional mesh costs (300 devices, 8 neighbours each,
-// placed on the plan's pieces in turn), analysed and its wires built.
+// with reduce motion), against the same view without it; then what reading a large fictional mesh
+// costs (300 devices, 8 neighbours each, placed on the plan's pieces in turn): read and analysed by
+// the analysis module, its wires built by the engine.
 test("frame time with the network map", async ({ page }, testInfo) => {
   test.setTimeout(240_000);
   // The pulses held still, so that both measures draw the same frames.
@@ -133,15 +183,31 @@ test("frame time with the network map", async ({ page }, testInfo) => {
   await page.getByTestId("layer-menu").locator('[data-layer="network"]').click();
   await expect(page.locator("domotwin-network .node")).toHaveCount(5);
   const withMap = await benchmark();
-  const large = await page.evaluate(() => {
+  // The large mesh goes through the network panel: the analysis module reads it (D-043), the
+  // engine draws it, the analysis reports with the rooms.
+  const large = await page.evaluate(async () => {
     const view = (
       window as never as {
-        __view: () => {
-          engine: { setNetwork(snapshot: string): string; elementList(): { id: string }[] };
+        __view: () => HTMLElement & {
+          engine: { elementList(): { id: string }[]; setNetwork(text: string): string };
         };
       }
     ).__view();
-    const elements = view.engine.elementList().map((e) => e.id);
+    const panel = view.shadowRoot?.querySelector("domotwin-network") as
+      | (HTMLElement & {
+          devices: unknown[];
+          bindings: unknown;
+          names: Record<string, unknown>;
+          analysis?: { links: unknown[] };
+          updateComplete: Promise<unknown>;
+          show(): Promise<void>;
+        })
+      | null;
+    if (!panel) throw new Error("no network panel");
+    const elements = view.engine
+      .elementList()
+      .map((e) => e.id)
+      .filter((e) => e in panel.names);
     const count = 300;
     const id = (i: number) =>
       `00:00:00:00:00:00:${Math.floor(i / 256)
@@ -154,24 +220,58 @@ test("frame time with the network map", async ({ page }, testInfo) => {
       lqi: 40 + ((i * 37) % 215),
       seen: (i * 97) % 90_000,
       available: true,
-      element: elements[i % elements.length],
+      entities: [`sensor.device_${i}`],
       neighbours: Array.from({ length: 8 }, (_, k) => ({
         id: id((i + 1 + k * 13) % count),
         lqi: 30 + ((i * 11 + k * 29) % 225),
         relation: k === 0 ? "parent" : "sibling",
       })),
     }));
-    const snapshot = JSON.stringify({ devices });
-    const times: number[] = [];
-    let links = 0;
-    for (let run = 0; run < 7; run += 1) {
+    // Each device placed on the plan's pieces in turn, through one of its entities.
+    const bindings: { version: 1; rooms: object; elements: Record<string, unknown> } = {
+      version: 1,
+      rooms: {},
+      elements: {},
+    };
+    elements.forEach((element, e) => {
+      bindings.elements[element] = {
+        entities: devices
+          .filter((_, i) => i % elements.length === e)
+          .map((d) => ({ entity_id: d.entities[0], role: "sensor" })),
+      };
+    });
+    panel.devices = devices;
+    panel.bindings = bindings;
+    await panel.updateComplete;
+    await panel.show();
+    // The engine's share: what its `setNetwork` takes.
+    const engine = view.engine;
+    const setNetwork = engine.setNetwork.bind(engine);
+    let engineMs = 0;
+    engine.setNetwork = (text) => {
       const start = performance.now();
-      const text = view.engine.setNetwork(snapshot);
+      const answer = setNetwork(text);
+      engineMs += performance.now() - start;
+      return answer;
+    };
+    const times: number[] = [];
+    const engineTimes: number[] = [];
+    for (let run = 0; run < 15; run += 1) {
+      engineMs = 0;
+      const start = performance.now();
+      await panel.show();
+      // The panel's list of devices, drawn again.
+      await panel.updateComplete;
       times.push(performance.now() - start);
-      links = (JSON.parse(text) as { links: unknown[] }).links.length;
+      engineTimes.push(engineMs);
     }
-    times.sort((a, b) => a - b);
-    return { devices: count, links, medianMs: times[3], bytes: snapshot.length };
+    const median = (values: number[]) => values.sort((a, b) => a - b)[7];
+    return {
+      devices: count,
+      links: panel.analysis?.links.length ?? 0,
+      medianMs: median(times),
+      engineMedianMs: median(engineTimes),
+    };
   });
   const report = { without, withMap, large };
   const path = testInfo.outputPath("network-frame-time.json");
@@ -370,6 +470,8 @@ test("drag cost in the plan editor", async ({ page }, testInfo) => {
 // Two pieces drawn from a 3D file of 139 392 triangles (7 MB STL): fetching and reading it, giving
 // it to the engine (the whole scene rebuilt), then the frame time.
 test("a large 3D model", async ({ page }, testInfo) => {
+  // 60 frames of a scene of 300 000 triangles on a software GPU: about 40 s on an idle machine.
+  test.setTimeout(120_000);
   await openHarness(page, { models: "big" });
   await expect(page.getByTestId("summary")).toBeVisible();
   await expect

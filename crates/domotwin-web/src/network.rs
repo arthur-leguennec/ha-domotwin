@@ -1,9 +1,11 @@
-//! The network map for JavaScript (`DECISIONS.md`, D-031): the mesh a source describes, its links
-//! drawn as wires between the pieces its devices are placed at, and what a tap on a wire finds.
+//! The network map for JavaScript (`DECISIONS.md`, D-031): the links of a mesh drawn as wires
+//! between the pieces its devices are placed at, and what a tap on a wire finds. Reading a
+//! snapshot and analysing it is the analysis module's work (D-043): the engine is handed what it
+//! draws, `domotwin_core::network::Drawing`.
 
 use std::collections::HashMap;
 
-use domotwin_core::network::Mesh;
+use domotwin_core::network::Drawing;
 use domotwin_core::scene::ElementInfo;
 use domotwin_core::scene::wires::{self, Wire, segments};
 use domotwin_render::WireSet;
@@ -20,35 +22,31 @@ const TAP_REACH: f64 = 0.02;
 /// The mesh shown, and the wires drawn for it.
 #[derive(Debug, Default)]
 pub(crate) struct NetworkShown {
-    mesh: Mesh,
+    drawing: Drawing,
     /// Each drawn wire, with the index of its link.
     wires: Vec<(usize, Wire)>,
 }
 
 #[wasm_bindgen]
 impl Engine {
-    /// Shows the mesh of `snapshot` (JSON, see `domotwin_core::network`): its links are drawn
-    /// between the pieces its devices are placed at, coloured by quality, a pulse running towards
-    /// the coordinator. Returns the analysis as JSON (devices, links, health). An empty string
-    /// hides the map.
+    /// Shows the mesh drawn by `drawing` (JSON, the analysis module's `drawing()`): its links are
+    /// drawn between the pieces its devices are placed at, coloured by quality, a pulse running
+    /// towards the coordinator. Returns the room each device is in (a JSON array of names or
+    /// nulls), for the analysis's health. An empty string hides the map.
     #[wasm_bindgen(js_name = setNetwork)]
-    pub fn set_network(&mut self, snapshot: &str) -> String {
-        if snapshot.is_empty() {
+    pub fn set_network(&mut self, drawing: &str) -> String {
+        if drawing.is_empty() {
             self.network = None;
             self.renderer.set_wires(WireSet::Network, &[]);
             return String::new();
         }
-        let value: Value = serde_json::from_str(snapshot).unwrap_or(Value::Null);
+        let value: Value = serde_json::from_str(drawing).unwrap_or(Value::Null);
         self.network = Some(NetworkShown {
-            mesh: Mesh::read(&value),
+            drawing: Drawing::read(&value),
             wires: Vec::new(),
         });
         self.place_network();
-        let rooms = self.network_rooms();
-        self.network
-            .as_ref()
-            .map(|n| n.mesh.to_json(&rooms).to_string())
-            .unwrap_or_default()
+        json!(self.network_rooms()).to_string()
     }
 
     /// The link of the network map nearest the device pixel (`x`, `y`) from the top left, within
@@ -61,8 +59,8 @@ impl Engine {
         let found = self.nearest_wire(&shown.wires, x, y);
         found
             .and_then(|k| {
-                let link = shown.mesh.links.get(k)?;
-                let id = |i: usize| shown.mesh.devices[i].id.clone();
+                let link = shown.drawing.links.get(k)?;
+                let id = |i: usize| shown.drawing.devices[i].id.clone();
                 Some(json!({ "a": id(link.a), "b": id(link.b) }).to_string())
             })
             .unwrap_or_default()
@@ -78,7 +76,7 @@ impl Engine {
         };
         let elements = self.elements_by_id();
         let points: Vec<Option<([f32; 3], u8)>> = shown
-            .mesh
+            .drawing
             .devices
             .iter()
             .map(|d| {
@@ -89,7 +87,7 @@ impl Engine {
             .collect();
         // Only the wires drawn: a tap finds no link that is not on screen.
         let wires: Vec<(usize, Wire)> = shown
-            .mesh
+            .drawing
             .wires(&points)
             .into_iter()
             .filter(|(_, w)| wires::drawn(w))
@@ -124,7 +122,7 @@ impl Engine {
         };
         let elements = self.elements_by_id();
         shown
-            .mesh
+            .drawing
             .devices
             .iter()
             .map(|d| self.room_of(elements.get(d.element.as_deref()?)?).cloned())

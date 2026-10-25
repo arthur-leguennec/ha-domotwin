@@ -122,6 +122,10 @@ test.describe("automation wires (D-032)", () => {
   });
 
   test("others see the list without wires or edit links", async ({ page }) => {
+    const fetched: string[] = [];
+    page.on("request", (request) => {
+      if (request.url().includes("domotwin_analysis")) fetched.push(request.url());
+    });
     await openHarness(page, { live: true, automations: true, admin: false });
     await settle(page);
     await longPress(page, await pointOn(page, "floor-lamp"));
@@ -133,6 +137,8 @@ test.describe("automation wires (D-032)", () => {
     // Nor the layer of every automation.
     await page.getByTestId("layers").click();
     await expect(page.locator('[data-layer="automations"]')).toHaveCount(0);
+    // Nothing to read for them: the analysis module is not fetched (D-043).
+    expect(fetched).toEqual([]);
   });
 
   test("every automation of the home, from the layer menu", async ({ page }) => {
@@ -150,6 +156,23 @@ test.describe("automation wires (D-032)", () => {
     await expect(wires).toHaveCount(0);
     await page.getByTestId("layers").click();
     await expect(page.locator('[data-layer="off"]')).toHaveAttribute("aria-checked", "true");
+  });
+
+  test("says when what they do cannot be read", async ({ page }) => {
+    // The analysis module cannot be fetched (the connection went, an update changed the files).
+    await page.route(/domotwin_analysis_bg\.\w+\.wasm$/, (route) => route.abort());
+    await openHarness(page, { live: true, automations: true });
+    await settle(page);
+    await longPress(page, await pointOn(page, "floor-lamp"));
+    const section = page.locator("domotwin-controls").getByTestId("automations");
+    await expect(section.locator("[data-automation]")).toHaveCount(2);
+    await expect(section.getByRole("alert")).toHaveText(
+      "What they do could not be read. Try again in a moment.",
+    );
+    await expect(section.getByTestId("show-wires")).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    await chooseLayer(page, "automations");
+    await expect(page.getByTestId("wires")).toContainText("What they do could not be read");
   });
 
   test("many automations are bundled by room", async ({ page }) => {

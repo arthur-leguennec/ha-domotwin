@@ -1,4 +1,4 @@
-import { assetUrl } from "../assets";
+import { wasmLoader } from "../assets";
 import type { Rgb } from "../color";
 import type { CutawayMode, LightingMode, QualityName } from "../config";
 import type * as Wasm from "./pkg/domotwin_web.js";
@@ -216,21 +216,20 @@ export class EngineError extends Error {
   }
 }
 
-let wasmModule: Promise<typeof Wasm> | undefined;
 let wasmMemory: WebAssembly.Memory | undefined;
 let wasmLoaded: typeof Wasm | undefined;
 
+const loadEngineWasm = wasmLoader(
+  () => import("./pkg/domotwin_web.js"),
+  __DOMOTWIN_WASM__,
+  (output) => (wasmMemory = output.memory),
+);
+
 /** Loads the WebAssembly engine once per page (it is a separate chunk, fetched on demand). */
-export function loadWasm(): Promise<typeof Wasm> {
-  wasmModule ??= (async () => {
-    const wasm = await import("./pkg/domotwin_web.js");
-    const output = await wasm.default({ module_or_path: assetUrl(__DOMOTWIN_WASM__) });
-    wasmMemory = output.memory;
-    wasmLoaded = wasm;
-    return wasm;
-  })();
-  wasmModule.catch(() => (wasmModule = undefined));
-  return wasmModule;
+export async function loadWasm(): Promise<typeof Wasm> {
+  const wasm = await loadEngineWasm();
+  wasmLoaded = wasm;
+  return wasm;
 }
 
 /** Size of the engine's WebAssembly memory in bytes (it never shrinks; see PERFORMANCE.md). */
@@ -248,15 +247,6 @@ export function heatLegend(kind: string): HeatLegend | undefined {
     legends.set(kind, text ? (JSON.parse(text) as HeatLegend) : undefined);
   }
   return legends.get(kind);
-}
-
-/**
- * What an automation's configuration involves (D-032), as the engine's JSON text `{"ends":
- * [{"role", "entity" | "device" | "area" | "place" | "dynamic": name}], "skipped"}`, once the
- * engine is loaded.
- */
-export function readAutomation(config: string): string | undefined {
-  return wasmLoaded?.readAutomation(config);
 }
 
 /**
@@ -484,11 +474,12 @@ export class DomoTwinEngine {
   }
 
   /**
-   * Shows the radio mesh of `snapshot` (D-031) over the home, or hides it (an empty string).
-   * Returns the analysis as JSON text (empty when hidden).
+   * Shows the radio mesh `drawing` draws (D-031; the analysis module's drawing, D-043) over the
+   * home, or hides it (an empty string). Returns the room each device is in, as JSON text (an
+   * array of names or nulls; empty when hidden).
    */
-  setNetwork(snapshot: string): string {
-    return this.live.setNetwork(snapshot);
+  setNetwork(drawing: string): string {
+    return this.live.setNetwork(drawing);
   }
 
   /** The link of the network map nearest a device pixel, as JSON text `{"a", "b"}`, or "". */

@@ -5,7 +5,7 @@
  * user's session (`hass.fetchWithAuth`), uploaded by administrators, and embedded in exported
  * plans as `data:` URLs.
  */
-import { assetUrl } from "../assets";
+import { wasmLoader } from "../assets";
 import { EngineError, engineError } from "../engine/engine";
 import type { HomeAssistant } from "../ha/types";
 import type * as Wasm from "./pkg/domotwin_models.js";
@@ -49,17 +49,10 @@ export interface ReadModel {
   mesh: Uint8Array;
 }
 
-let wasmModule: Promise<typeof Wasm> | undefined;
-
-function loadModelsWasm(): Promise<typeof Wasm> {
-  wasmModule ??= (async () => {
-    const wasm = await import("./pkg/domotwin_models.js");
-    await wasm.default({ module_or_path: assetUrl(__DOMOTWIN_MODELS_WASM__) });
-    return wasm;
-  })();
-  wasmModule.catch(() => (wasmModule = undefined));
-  return wasmModule;
-}
+const loadModelsWasm = wasmLoader(
+  () => import("./pkg/domotwin_models.js"),
+  __DOMOTWIN_MODELS_WASM__,
+);
 
 /** The format of a file, from its name. */
 export function formatOf(name: string): ModelFormat | undefined {

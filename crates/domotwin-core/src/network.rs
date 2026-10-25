@@ -16,7 +16,8 @@
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 
-use serde_json::{Map, Value, json};
+use serde::Serialize;
+use serde_json::Value;
 
 use crate::scene::wires::{Flow, Wire};
 
@@ -187,7 +188,7 @@ pub struct Mesh {
 }
 
 /// A room that reaches the rest of the mesh only through weak links.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct WeakRoom {
     pub room: String,
     /// The weak links leaving it.
@@ -414,70 +415,243 @@ impl Mesh {
         }
     }
 
-    /// The analysis for the interface: each device with its role, quality, way to the
+    /// The analysis for the interface (JSON): each device with its role, quality, way to the
     /// coordinator and whether it is stale; each link with its ends, LQI and quality; the
     /// health summary. `rooms` as for [`Mesh::health`].
-    pub fn to_json(&self, rooms: &[Option<String>]) -> Value {
+    ///
+    /// It is written from what it borrows of the mesh: a large mesh's is a quarter of a megabyte,
+    /// and building it as JSON values first took most of the analysis's time (M12b).
+    pub fn report(&self, rooms: &[Option<String>]) -> String {
+        let id = |i: usize| self.devices[i].id.as_str();
         let health = self.health(rooms);
-        let devices: Vec<Value> = self
+        let devices = self
             .devices
             .iter()
             .enumerate()
             .map(|(i, d)| {
-                let mut out = Map::new();
-                out.insert("id".into(), json!(d.id));
-                out.insert("role".into(), json!(d.role.name()));
-                out.insert("quality".into(), json!(Quality::of(d.lqi).name()));
-                out.insert("stale".into(), json!(d.stale()));
-                if let Some(route) = self.routes.get(i).copied().flatten() {
-                    out.insert("hops".into(), json!(route.hops));
-                    if let Some(b) = route.bottleneck {
-                        out.insert("bottleneck".into(), json!(b));
-                    }
-                    if let Some(k) = route.link {
-                        out.insert("via".into(), json!(self.devices[self.links[k].other(i)].id));
-                    }
+                let route = self.routes.get(i).copied().flatten();
+                ReportedDevice {
+                    id: &d.id,
+                    role: d.role.name(),
+                    quality: Quality::of(d.lqi).name(),
+                    stale: d.stale(),
+                    hops: route.map(|r| r.hops),
+                    bottleneck: route.and_then(|r| r.bottleneck),
+                    via: route
+                        .and_then(|r| r.link)
+                        .map(|k| id(self.links[k].other(i))),
+                    room: rooms.get(i).and_then(Option::as_deref),
                 }
-                if let Some(r) = rooms.get(i).and_then(Option::as_deref) {
-                    out.insert("room".into(), json!(r));
-                }
-                Value::Object(out)
             })
             .collect();
-        let links: Vec<Value> = self
+        let links = self
             .links
             .iter()
-            .map(|l| {
-                json!({
-                    "a": self.devices[l.a].id, "b": self.devices[l.b].id,
-                    "lqi": l.lqi, "quality": l.quality().name()
-                })
+            .map(|l| ReportedLink {
+                a: id(l.a),
+                b: id(l.b),
+                lqi: l.lqi,
+                quality: l.quality().name(),
             })
             .collect();
-        json!({
-            "devices": devices,
-            "links": links,
-            "coordinator": self.coordinator.map(|c| self.devices[c].id.clone()),
-            "health": {
-                "weakLinks": health.weak_links.len(),
-                "stale": health.stale.iter().map(|&i| &self.devices[i].id).collect::<Vec<_>>(),
-                "weakRooms": health.weak_rooms.iter()
-                    .map(|w| json!({ "room": w.room, "links": w.links }))
-                    .collect::<Vec<_>>(),
+        let report = Report {
+            devices,
+            links,
+            coordinator: self.coordinator.map(id),
+            health: ReportedHealth {
+                weak_links: health.weak_links.len(),
+                stale: health.stale.iter().map(|&i| id(i)).collect(),
+                weak_rooms: &health.weak_rooms,
             },
-            "skipped": self.skipped,
-        })
+            skipped: self.skipped,
+        };
+        serde_json::to_string(&report).unwrap_or_default()
+    }
+}
+
+/// [`Mesh::report`]'s JSON.
+#[derive(Serialize)]
+struct Report<'a> {
+    devices: Vec<ReportedDevice<'a>>,
+    links: Vec<ReportedLink<'a>>,
+    coordinator: Option<&'a str>,
+    health: ReportedHealth<'a>,
+    skipped: usize,
+}
+
+#[derive(Serialize)]
+struct ReportedDevice<'a> {
+    id: &'a str,
+    role: &'static str,
+    quality: &'static str,
+    stale: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    hops: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    bottleneck: Option<u8>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    via: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    room: Option<&'a str>,
+}
+
+#[derive(Serialize)]
+struct ReportedLink<'a> {
+    a: &'a str,
+    b: &'a str,
+    lqi: Option<u8>,
+    quality: &'static str,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ReportedHealth<'a> {
+    weak_links: usize,
+    stale: Vec<&'a str>,
+    weak_rooms: &'a [WeakRoom],
+}
+
+/// What the engine draws of a mesh (`DECISIONS.md`, D-043): each device's id, piece and whether
+/// it is stale, and each link's ends, quality, pulse towards the coordinator and whether no device
+/// takes it there. The analysis module makes it from a snapshot ([`Mesh::drawing`]) and hands it
+/// to the engine as JSON, so that reading and analysing a mesh stay out of the engine:
+///
+/// ```json
+/// { "devices": [{ "id": "…", "element": "lamp-hall", "stale": true }],
+///   "links": [0, 1, 2, 1, 0] }
+/// ```
+///
+/// Each link is five numbers: its ends (indices), its quality (0 weak, 1 fair, 2 good,
+/// 3 unknown), its pulse (0 none, 1 forward, 2 back) and whether it is spare (0 or 1). A large
+/// mesh's drawing is small that way, and quick to write and to read.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct Drawing {
+    pub devices: Vec<DrawnDevice>,
+    pub links: Vec<DrawnLink>,
+}
+
+/// A device of a [`Drawing`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DrawnDevice {
+    pub id: String,
+    /// The plan element it is placed at.
+    pub element: Option<String>,
+    /// Not seen for a while: its links are dashed.
+    pub stale: bool,
+}
+
+/// A link of a [`Drawing`].
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct DrawnLink {
+    /// The devices it joins (indices).
+    pub a: usize,
+    pub b: usize,
+    pub quality: Quality,
+    /// Its pulse, from `a` to `b` (forward) or back, towards the coordinator.
+    pub flow: Flow,
+    /// No device takes it to the coordinator, and both ends have their own way: drawn lighter.
+    pub spare: bool,
+}
+
+impl Quality {
+    /// Its number in a drawing.
+    const fn code(self) -> u8 {
+        match self {
+            Quality::Weak => 0,
+            Quality::Fair => 1,
+            Quality::Good => 2,
+            Quality::Unknown => 3,
+        }
+    }
+
+    fn from_code(code: Option<u64>) -> Self {
+        match code {
+            Some(0) => Quality::Weak,
+            Some(1) => Quality::Fair,
+            Some(2) => Quality::Good,
+            _ => Quality::Unknown,
+        }
+    }
+}
+
+/// A pulse's number in a drawing.
+const fn flow_code(flow: Flow) -> u8 {
+    match flow {
+        Flow::None => 0,
+        Flow::Forward => 1,
+        Flow::Backward => 2,
+    }
+}
+
+fn flow_from_code(code: Option<u64>) -> Flow {
+    match code {
+        Some(1) => Flow::Forward,
+        Some(2) => Flow::Backward,
+        _ => Flow::None,
     }
 }
 
 impl Mesh {
-    /// The wires of the links whose two ends are placed (`points[i]`: where device `i` is
-    /// drawn, on its storey's floor, and that storey), coloured by their quality; each with the
-    /// index of its link. The links devices take to the coordinator carry a pulse towards it; the
-    /// others, between two devices that have their own way, are drawn lighter and still. A link
-    /// to a device not seen for a while is dashed.
-    pub fn wires(&self, points: &[Option<([f32; 3], u8)>]) -> Vec<(usize, Wire)> {
-        let at = |i: usize| points.get(i).copied().flatten();
+    /// What the engine draws of it.
+    pub fn drawing(&self) -> Drawing {
+        let devices = self
+            .devices
+            .iter()
+            .map(|d| DrawnDevice {
+                id: d.id.clone(),
+                element: d.element.clone(),
+                stale: d.stale(),
+            })
+            .collect();
+        Drawing {
+            devices,
+            links: self.drawn_links(),
+        }
+    }
+
+    /// [`Mesh::drawing`]'s JSON, for the engine ([`Drawing::read`]), written from what it borrows
+    /// of the mesh.
+    pub fn write_drawing(&self) -> String {
+        #[derive(Serialize)]
+        struct Device<'a> {
+            id: &'a str,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            element: Option<&'a str>,
+            #[serde(skip_serializing_if = "std::ops::Not::not")]
+            stale: bool,
+        }
+        #[derive(Serialize)]
+        struct Written<'a> {
+            devices: Vec<Device<'a>>,
+            links: Vec<usize>,
+        }
+        let devices = self
+            .devices
+            .iter()
+            .map(|d| Device {
+                id: &d.id,
+                element: d.element.as_deref(),
+                stale: d.stale(),
+            })
+            .collect();
+        let links = self
+            .drawn_links()
+            .iter()
+            .flat_map(|l| {
+                [
+                    l.a,
+                    l.b,
+                    usize::from(l.quality.code()),
+                    usize::from(flow_code(l.flow)),
+                    usize::from(l.spare),
+                ]
+            })
+            .collect();
+        serde_json::to_string(&Written { devices, links }).unwrap_or_default()
+    }
+
+    /// The links as the engine draws them: their pulses towards the coordinator, the spare ones.
+    fn drawn_links(&self) -> Vec<DrawnLink> {
         let taken: HashSet<usize> = self
             .routes
             .iter()
@@ -488,8 +662,7 @@ impl Mesh {
         self.links
             .iter()
             .enumerate()
-            .filter_map(|(k, link)| {
-                let ((from, pa), (to, pb)) = (at(link.a)?, at(link.b)?);
+            .map(|(k, link)| {
                 let spare = !taken.contains(&k) && routed(link.a) && routed(link.b);
                 let flow = match self.toward_coordinator(k) {
                     _ if spare => Flow::None,
@@ -497,14 +670,81 @@ impl Mesh {
                     Some(_) => Flow::Backward,
                     None => Flow::None,
                 };
+                DrawnLink {
+                    a: link.a,
+                    b: link.b,
+                    quality: link.quality(),
+                    flow,
+                    spare,
+                }
+            })
+            .collect()
+    }
+}
+
+impl Drawing {
+    /// Reads a drawing's JSON ([`Mesh::write_drawing`]) leniently: what is malformed is left out.
+    pub fn read(value: &Value) -> Self {
+        let devices: Vec<DrawnDevice> = value
+            .get("devices")
+            .and_then(Value::as_array)
+            .map(|list| {
+                list.iter()
+                    .take(MAX_DEVICES)
+                    .map(|d| DrawnDevice {
+                        id: text(d.get("id")).unwrap_or_default(),
+                        element: text(d.get("element")),
+                        stale: d.get("stale").and_then(Value::as_bool).unwrap_or(false),
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        let index = |v: Option<&Value>| {
+            let i = usize::try_from(v?.as_u64()?).ok()?;
+            (i < devices.len()).then_some(i)
+        };
+        let links = value
+            .get("links")
+            .and_then(Value::as_array)
+            .map(|list| {
+                list.chunks_exact(5)
+                    .take(MAX_DEVICES * MAX_NEIGHBOURS)
+                    .filter_map(|l| {
+                        Some(DrawnLink {
+                            a: index(l.first())?,
+                            b: index(l.get(1))?,
+                            quality: Quality::from_code(l.get(2).and_then(Value::as_u64)),
+                            flow: flow_from_code(l.get(3).and_then(Value::as_u64)),
+                            spare: l.get(4).and_then(Value::as_u64) == Some(1),
+                        })
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        Drawing { devices, links }
+    }
+
+    /// The wires of the links whose two ends are placed (`points[i]`: where device `i` is
+    /// drawn, on its storey's floor, and that storey), coloured by their quality; each with the
+    /// index of its link. The links devices take to the coordinator carry a pulse towards it; the
+    /// others, between two devices that have their own way, are drawn lighter and still. A link
+    /// to a device not seen for a while is dashed.
+    pub fn wires(&self, points: &[Option<([f32; 3], u8)>]) -> Vec<(usize, Wire)> {
+        let at = |i: usize| points.get(i).copied().flatten();
+        let stale = |i: usize| self.devices.get(i).is_some_and(|d| d.stale);
+        self.links
+            .iter()
+            .enumerate()
+            .filter_map(|(k, link)| {
+                let ((from, pa), (to, pb)) = (at(link.a)?, at(link.b)?);
                 let wire = Wire {
                     from,
                     to,
                     parts: [pa, pb],
-                    color: link.quality().color(),
-                    flow,
-                    dashed: self.devices[link.a].stale() || self.devices[link.b].stale(),
-                    weight: if spare { SPARE_WEIGHT } else { 1.0 },
+                    color: link.quality.color(),
+                    flow: link.flow,
+                    dashed: stale(link.a) || stale(link.b),
+                    weight: if link.spare { SPARE_WEIGHT } else { 1.0 },
                     bend: 1.0,
                 };
                 Some((k, wire))
@@ -525,6 +765,7 @@ fn better(x: &Route, y: &Route) -> std::cmp::Ordering {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
 
     /// A fictional mesh: the coordinator in the hall, a router in the living room and one in the
     /// bedroom, a sensor in the bathroom that only hears the bedroom router, badly.
@@ -691,7 +932,7 @@ mod tests {
             }]
         );
         // The bedroom has a weak link too, but good ones as well.
-        let json = mesh.to_json(&rooms(&mesh));
+        let json: Value = serde_json::from_str(&mesh.report(&rooms(&mesh))).unwrap();
         assert_eq!(json["health"]["weakRooms"][0]["room"], "bathroom");
         assert_eq!(json["devices"][2]["via"], "r1");
         assert_eq!(json["devices"][3]["bottleneck"], 40);
@@ -705,7 +946,10 @@ mod tests {
         points[1] = Some(([0.0, 100.0, 0.0], 0));
         points[2] = Some(([500.0, 100.0, 0.0], 0));
         points[3] = Some(([500.0, 50.0, 300.0], 1));
-        let wires = mesh.wires(&points);
+        // Through its JSON, as the engine reads it.
+        let drawing = Drawing::read(&serde_json::from_str(&mesh.write_drawing()).unwrap());
+        assert_eq!(drawing, mesh.drawing());
+        let wires = drawing.wires(&points);
         // c is not placed: its links are not drawn.
         assert_eq!(wires.len(), 2);
         let (k, r1_r2) = wires[0];
@@ -723,7 +967,7 @@ mod tests {
         // The coordinator placed: r2 goes through r1 (160) rather than straight to it (90), so
         // that link is spare: lighter, still.
         points[0] = Some(([0.0, 100.0, 500.0], 0));
-        let wires = mesh.wires(&points);
+        let wires = drawing.wires(&points);
         assert_eq!(wires.len(), 4);
         let ends = |(k, _): &(usize, Wire)| (mesh.links[*k].a, mesh.links[*k].b);
         let c_r1 = wires.iter().find(|w| ends(w) == (0, 1)).expect("c–r1").1;
@@ -731,6 +975,30 @@ mod tests {
         assert_eq!((c_r1.flow, c_r1.weight), (Flow::Backward, 1.0));
         assert_eq!((c_r2.flow, c_r2.weight), (Flow::None, SPARE_WEIGHT));
         assert_eq!(c_r2.color, Quality::Fair.color());
+    }
+
+    #[test]
+    fn a_drawing_read_leniently() {
+        let drawing = Drawing::read(&json!({
+            "devices": [{ "id": "a", "element": "lamp" }, { "id": "b", "stale": true }, 4],
+            // A link, one to no device, one with an end that is no index, then a part of one.
+            "links": [0, 1, 0, 2, 0,  0, 9, 2, 1, 0,  "0", 1, 2, 1, 0,  1, 0, 7, "x", 1,  1, 0]
+        }));
+        assert_eq!(drawing.devices.len(), 3);
+        assert_eq!(drawing.devices[0].element.as_deref(), Some("lamp"));
+        assert!(drawing.devices[1].stale);
+        assert_eq!(drawing.links.len(), 2, "a link to no device is left out");
+        assert_eq!(
+            (drawing.links[0].quality, drawing.links[0].flow),
+            (Quality::Weak, Flow::Backward)
+        );
+        // What is not a quality or a pulse is read as unknown, none.
+        let odd = drawing.links[1];
+        assert_eq!(
+            (odd.quality, odd.flow, odd.spare),
+            (Quality::Unknown, Flow::None, true)
+        );
+        assert_eq!(Drawing::read(&json!(null)), Drawing::default());
     }
 
     #[test]

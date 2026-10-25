@@ -6,7 +6,7 @@
 
 use std::collections::{BTreeMap, HashMap};
 
-use domotwin_core::automation::{Automation, Link, PlacedEnd, Role, Spot, Target, links};
+use domotwin_core::automation::{Link, PlacedEnd, Role, Spot, links};
 use domotwin_core::scene::wires::{self, Flow, Wire, segments};
 use domotwin_render::WireSet;
 use serde_json::{Value, json};
@@ -110,33 +110,6 @@ fn read_end(value: &Value) -> Option<PlacedEnd> {
         spot,
         dynamic: value.get("dynamic").and_then(Value::as_bool) == Some(true),
     })
-}
-
-/// What an automation's configuration (JSON, `automation/config`'s `config`) involves: JSON
-/// `{"ends": [{"role", "entity" | "device" | "area" | "place" | "dynamic": name}], "skipped"}`.
-#[wasm_bindgen(js_name = readAutomation)]
-pub fn read_automation(config: &str) -> String {
-    let value: Value = serde_json::from_str(config).unwrap_or(Value::Null);
-    let automation = Automation::read(&value);
-    let ends: Vec<Value> = automation
-        .ends
-        .iter()
-        .map(|end| {
-            let (kind, name) = match &end.target {
-                Target::Entity(id) => ("entity", id),
-                Target::Device(id) => ("device", id),
-                Target::Area(id) => ("area", id),
-                Target::Floor(id) => ("floor", id),
-                Target::Label(id) => ("label", id),
-                Target::Place(kind) => ("place", kind),
-                Target::Dynamic(label) => ("dynamic", label),
-            };
-            let mut entry = json!({ "role": end.role.name() });
-            entry[kind] = json!(name);
-            entry
-        })
-        .collect();
-    json!({ "ends": ends, "skipped": automation.skipped }).to_string()
 }
 
 #[wasm_bindgen]

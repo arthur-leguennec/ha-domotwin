@@ -7,6 +7,7 @@ members = [
   "crates/domotwin-import",
   "crates/domotwin-models",
   "crates/domotwin-planner",
+  "crates/domotwin-analysis",
 ]
 exclude = ["fuzz"]
 

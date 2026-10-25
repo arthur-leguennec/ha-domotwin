@@ -9,8 +9,9 @@ import { fileURLToPath } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
-// The four WebAssembly modules: the engine, the plan import, the 3D model readers and the plan editor.
-const crates = ["domotwin-web", "domotwin-import", "domotwin-models", "domotwin-planner"]
+// The five WebAssembly modules: the engine, the plan import, the 3D model readers, the plan editor
+// and the analysis.
+const crates = ["domotwin-web", "domotwin-import", "domotwin-models", "domotwin-planner", "domotwin-analysis"]
   .flatMap((module) =>
     execFileSync(
       "cargo",

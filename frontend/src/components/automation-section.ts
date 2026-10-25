@@ -7,7 +7,6 @@
 import { mdiPencilOutline, mdiVectorPolyline } from "@mdi/js";
 import { LitElement, css, html, nothing, type TemplateResult } from "lit";
 
-import { readAutomation } from "../engine/engine";
 import type { HomeAssistant } from "../ha/types";
 import { translatorFor, type Translator } from "../i18n";
 import { navigate } from "../live/actions";
@@ -41,6 +40,7 @@ export class DomoTwinAutomations extends LitElement {
     area: { attribute: false },
     ids: { state: true },
     reads: { state: true },
+    unread: { state: true },
   };
   static override styles = [
     baseStyles,
@@ -109,6 +109,8 @@ export class DomoTwinAutomations extends LitElement {
   protected ids?: string[];
   /** What each one involves, when its configuration could be read. */
   protected reads = new Map<string, ReadAutomation>();
+  /** The configurations came, but the module that reads them could not be loaded. */
+  protected unread = false;
   private asked = "";
 
   private get t(): Translator {
@@ -132,10 +134,11 @@ export class DomoTwinAutomations extends LitElement {
   private async load(hass: HomeAssistant, items: RelatedItem[], key: string): Promise<void> {
     this.ids = undefined;
     const ids = await relatedAutomations(hass, items);
-    const reads = await readAutomations(hass, ids, readAutomation);
+    const reads = await readAutomations(hass, ids);
     // Asked for something else meanwhile: that answer counts.
     if (key !== this.asked) return;
-    this.reads = reads;
+    this.reads = reads ?? new Map<string, ReadAutomation>();
+    this.unread = reads === undefined;
     this.ids = ids;
   }
 
@@ -214,9 +217,11 @@ export class DomoTwinAutomations extends LitElement {
                 ${icon(mdiVectorPolyline)}${t.t("automations.show_wires")}
               </button>
             </div>`
-          : ids && ids.length > 0 && drawable.length === 0
-            ? html`<p class="empty">${t.t("automations.admin_only")}</p>`
-            : nothing
+          : this.unread
+            ? html`<p class="empty" role="alert">${t.t("automations.unread")}</p>`
+            : ids && ids.length > 0 && drawable.length === 0
+              ? html`<p class="empty">${t.t("automations.admin_only")}</p>`
+              : nothing
       }
     </section>`;
   }

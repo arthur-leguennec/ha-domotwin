@@ -3,21 +3,14 @@
  * opens: the draft of the plan, in plan centimetres, with undo and redo. A change the plan reader
  * refuses throws an `EngineError` with the reader's code and leaves the draft as it was.
  */
-import { assetUrl } from "../assets";
+import { wasmLoader } from "../assets";
 import { engineError } from "../engine/engine";
 import type * as Wasm from "./pkg/domotwin_planner.js";
 
-let wasmModule: Promise<typeof Wasm> | undefined;
-
-function loadPlannerWasm(): Promise<typeof Wasm> {
-  wasmModule ??= (async () => {
-    const wasm = await import("./pkg/domotwin_planner.js");
-    await wasm.default({ module_or_path: assetUrl(__DOMOTWIN_PLANNER_WASM__) });
-    return wasm;
-  })();
-  wasmModule.catch(() => (wasmModule = undefined));
-  return wasmModule;
-}
+const loadPlannerWasm = wasmLoader(
+  () => import("./pkg/domotwin_planner.js"),
+  __DOMOTWIN_PLANNER_WASM__,
+);
 
 function checked<T>(change: () => T): T {
   try {

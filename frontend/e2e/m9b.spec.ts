@@ -139,6 +139,26 @@ test.describe("network map (D-031)", () => {
     await expect(editor).not.toContainText("sensor.garden_sensor_lqi");
   });
 
+  test("says when the mesh cannot be analysed", async ({ page }) => {
+    // The analysis module cannot be fetched (the connection went, an update changed the files).
+    await page.route(/domotwin_analysis_bg\.\w+\.wasm$/, (route) => route.abort());
+    await openHarness(page, { live: true, zha: true });
+    await chooseLayer(page, "network");
+    const panel = page.locator("domotwin-network");
+    await expect(panel.getByRole("alert")).toHaveText(
+      "The map could not be drawn. Close it and open it again in a moment.",
+    );
+    // No health of a mesh that was not read, and no wire drawn.
+    await expect(panel.getByTestId("network-health")).toHaveCount(0);
+    expect(
+      await page.evaluate(
+        () =>
+          (window as never as { __view: () => { engine: { layersAnimating: boolean } } }).__view()
+            .engine.layersAnimating,
+      ),
+    ).toBe(false);
+  });
+
   test("a map closed before ZHA answers leaves nothing drawn", async ({ page }) => {
     await openHarness(page, { live: true, zha: true });
     await page.evaluate(() => {

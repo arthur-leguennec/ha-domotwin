@@ -2,7 +2,8 @@
  * The network map's data (`DECISIONS.md`, D-031): the devices of the home's radio mesh, from a
  * source behind a small interface (ZHA only for now; Zigbee2MQTT or Thread can come later), placed
  * at the pieces their entities or their Home Assistant device are linked to, and handed to the
- * engine as a snapshot (`domotwin_core::network`). Loaded with the network map, not before.
+ * analysis module as a snapshot (`domotwin_core::network`, D-043). Loaded with the network map,
+ * not before.
  */
 import type { HomeAssistant } from "../ha/types";
 import type { BindingsJson } from "./bindings";
@@ -39,7 +40,7 @@ export interface NetworkSource {
   rescan(): void;
 }
 
-/** What the engine works out (`setNetwork`). */
+/** What the analysis module works out (`NetworkAnalysis.report`, D-043). */
 export interface NetworkAnalysis {
   devices: {
     id: string;
@@ -243,7 +244,7 @@ export function placeDevices(
   return placed;
 }
 
-/** The snapshot the engine reads (`setNetwork`). */
+/** The snapshot the analysis module reads (`NetworkAnalysis`, D-043). */
 export function snapshot(
   devices: readonly NetworkDevice[],
   placed: ReadonlyMap<string, string>,

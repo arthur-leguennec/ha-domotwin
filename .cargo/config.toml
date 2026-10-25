@@ -3,5 +3,6 @@ runner = "wasm-bindgen-test-runner"
 
 [env]
 # The engine's browser tests draw every look at every quality in a debug build, on a software GPU
-# in CI: more than the runner's default 20 s (about 80 s for all of them since walking, M10).
-WASM_BINDGEN_TEST_TIMEOUT = "180"
+# in CI: more than the runner's default 20 s. All of them take about 95 s on a CI runner, 150 s on
+# a slower machine, and once went past 180 s on a slow runner (M12b).
+WASM_BINDGEN_TEST_TIMEOUT = "300"

@@ -3,7 +3,7 @@
  * app is imported: an IFC file, a Sweet Home 3D home, a DXF drawing or a room scan. It finds the
  * format from the file's content, lists its storeys and converts one into a plan.
  */
-import { assetUrl } from "../assets";
+import { wasmLoader } from "../assets";
 import { engineError } from "../engine/engine";
 import type { PlanJson } from "../ha/client";
 import type { UpkeepCard } from "../live/upkeep";
@@ -51,17 +51,10 @@ const SCAN_ROOMS: ReadonlyMap<string, ScanRoom> = new Map([
   ["Dining room", "dining_room"],
 ]);
 
-let wasmModule: Promise<typeof Wasm> | undefined;
-
-function loadImportWasm(): Promise<typeof Wasm> {
-  wasmModule ??= (async () => {
-    const wasm = await import("./pkg/domotwin_import.js");
-    await wasm.default({ module_or_path: assetUrl(__DOMOTWIN_IMPORT_WASM__) });
-    return wasm;
-  })();
-  wasmModule.catch(() => (wasmModule = undefined));
-  return wasmModule;
-}
+const loadImportWasm = wasmLoader(
+  () => import("./pkg/domotwin_import.js"),
+  __DOMOTWIN_IMPORT_WASM__,
+);
 
 /** A file being imported. Errors are `EngineError`s with codes of `errors.plan`. */
 export class PlanFile {

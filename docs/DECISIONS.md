@@ -1329,3 +1329,50 @@ M12.
   - picking an element in link mode, arranging pieces in edit mode, drawing in the plan
     editor, picking a link in the network map and a wire among the automations;
   - error messages of the forms that are not yet tied to their field.
+
+## D-043 · Size and speed: the analysis in a module of its own, measured before and after
+
+M12b.
+
+- **Context.** The network map (D-031) and the automation wires (D-032) put their reading and
+  analysis in the engine, so in every view's first load, for panels that only administrators
+  open. Most of a large mesh's time went into writing it as JSON. The frame time on each preset,
+  the integration's work and the CI's time had not been measured.
+- **Decision.**
+  - **A fifth wasm module, `domotwin-analysis`**, loaded the first time the network map or the
+    automations are shown (as the plan import, the 3D models and the plan editor are, D-021,
+    D-025). It reads a mesh's snapshot, finds the routes and writes the analysis, and reads
+    automations' configurations. The engine keeps what it draws:
+    - for the map, a drawing: each device's piece and whether it is stale, each link's ends,
+      quality and pulse. The engine draws it and answers with the room of each device, which the
+      analysis needs for its health;
+    - for the automations, their ends placed, as before.
+
+    The module is fetched only when there is something for it to read. Home Assistant gives the
+    automations' configurations to administrators only, so a piece's sheet opened by anyone else
+    never fetches it. When it cannot be loaded, the sheet, the wires and the map say so.
+  - **Small JSON between them.** A link of the drawing is five numbers, not an object (48 kB for
+    a mesh of 2 400 links instead of 164 kB). The drawing and the analysis are written from what
+    they borrow of the mesh, without building JSON values first: the same JSON, ten times
+    faster.
+  - **Measured and left as they are**, since they are within their budgets:
+    - the frame time: the renderer did not change; the presets are now measured against each
+      other in `e2e/perf.spec.ts`;
+    - the integration's work: the Bluetooth tick, every two seconds, takes about 80 µs a device
+      followed, and a packet heard 3 µs (`PERFORMANCE.md`).
+  - **The CI's browser tests in four parts**, run side by side: the measurements on a runner of
+    their own (a Playwright project, `perf`), the rest split between three, test by test
+    (`fullyParallel`, `--shard`). One `e2e` check gathers them, so the required checks keep
+    their names.
+  - **Tried and dropped**:
+    - `opt-level = "s"`: the engine is 30 kB bigger gzipped;
+    - more of `wasm-opt`'s passes: about 1 kB, for a slower build;
+    - keeping the Bluetooth packets by receiver: the tick's time stayed within its noise.
+- **Consequences.**
+  - The first load goes from 480.5 kB to 468.7 kB gzipped.
+  - The map and the automations fetch 67 kB more the first time they are shown, cached
+    afterwards. That is more than left the engine: the module has its own copy of the JSON
+    reader and of what it uses of the standard library.
+  - A large mesh shows as fast as before, end to end. The engine's share falls from 27 ms to
+    18 ms.
+  - `setNetwork` takes a drawing, not a snapshot. `readAutomation` moves to the analysis module.

@@ -15,6 +15,7 @@ interface.
 | `domotwin-import` | core, models, `serde_json` | IFC, Sweet Home 3D, DXF, scans → plan JSON | GPU, browser, HA |
 | `domotwin-models` | `serde_json`, `miniz_oxide` | glTF, OBJ, STL, 3MF → meshes    | core, GPU, HA        |
 | `domotwin-planner` | core, `serde_json`     | the plan editor's draft (D-025)     | GPU, browser, HA     |
+| `domotwin-analysis` | core, `serde_json`    | radio meshes, automations' configurations (D-043) | GPU, browser, HA |
 
 `domotwin-import` imports the plans of other apps (`ifc-import.md`, `imports.md`, D-040): its own
 wasm module, loaded only when such a file is imported. Each reader gives one plan builder a draft;
@@ -25,6 +26,11 @@ when a plan shows a piece drawn from a 3D file or one is imported. It writes a c
 the core fits into the piece (`model_mesh`, `scene::imported`).
 `domotwin-planner` is the plan editor's draft (`plan-editor.md`, D-025): its own wasm module too,
 loaded only when the plan editor opens; the engine shows each version of the draft.
+`domotwin-analysis` reads and analyses what Home Assistant says of a radio mesh and of the
+automations (`network.md`, `automations.md`, D-043): its own wasm module too, loaded the first time
+the network map or the automations are shown. The engine is handed only what it draws: the mesh's
+drawing (the devices' pieces and the links' qualities and pulses), which it answers with the room
+of each device for the analysis's health, and the automations' placed ends.
 
 `domotwin-core` is where the logic lives and where the tests concentrate. It never panics on input:
 every reader returns `Result` with a stable error code that the frontend translates.
@@ -35,8 +41,8 @@ every reader returns `Result` with a stable error code that the frontend transla
   defines the custom elements and registers the card in the card picker. The engine, the panel UI
   and the editor are separate chunks loaded on demand.
 - `src/engine/` loads the wasm module once per page and wraps it in a typed API. `src/import/`,
-  `src/models/` and `src/planner/` load the plan import, the 3D model readers and the plan editor's
-  draft the same way, on demand.
+  `src/models/`, `src/planner/` and `src/analysis/` load the plan import, the 3D model readers,
+  the plan editor's draft and the analysis the same way, on demand.
 - `src/scheduler.ts` drives rendering **on demand** (see the figure below): a frame is requested only when the camera
   moves, a state changes, an animation runs or an edit is dragged; it stops when the engine reports
   that nothing is moving, and pauses entirely when the view is off-screen

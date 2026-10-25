@@ -52,6 +52,7 @@ export const fr: Dictionary = {
     show_wires: "Montrer les fils",
     admin_only:
       "Leurs fils demandent un administrateur : Home Assistant ne montre les automatisations qu’à eux.",
+    unread: "Ce qu’elles font n’a pas pu être lu. Réessayez dans un instant.",
     role: { trigger: "La déclenche", condition: "Vérifié", action: "Commandé" },
     wires: { one: "Fils de {count} automatisation", other: "Fils de {count} automatisations" },
     bundled: "{count} automatisations, regroupées par pièce",
@@ -84,6 +85,7 @@ export const fr: Dictionary = {
     rescan: "Rescanner",
     scanning: "Scan du réseau en cours : cela prend quelques minutes ; la carte suit.",
     failed: "Le réseau n’a pas pu être lu : {reason}",
+    unanalysed: "La carte n’a pas pu être dessinée. Fermez-la et rouvrez-la dans un instant.",
     good: "Bon",
     fair: "Moyen",
     weak: "Faible",

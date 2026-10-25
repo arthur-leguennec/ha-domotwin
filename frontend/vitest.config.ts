@@ -11,6 +11,7 @@ export default defineConfig({
     __DOMOTWIN_IMPORT_WASM__: JSON.stringify("domotwin_import_bg.wasm"),
     __DOMOTWIN_MODELS_WASM__: JSON.stringify("domotwin_models_bg.wasm"),
     __DOMOTWIN_PLANNER_WASM__: JSON.stringify("domotwin_planner_bg.wasm"),
+    __DOMOTWIN_ANALYSIS_WASM__: JSON.stringify("domotwin_analysis_bg.wasm"),
     __DOMOTWIN_FONT__: JSON.stringify("fonts/inter-variable.woff2"),
   },
   test: {

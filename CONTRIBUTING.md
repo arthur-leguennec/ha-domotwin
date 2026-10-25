@@ -45,14 +45,14 @@ The same commands run in CI:
 # Rust
 cargo fmt --all --check
 cargo clippy --workspace --all-targets -- -D warnings
-cargo clippy -p domotwin-web -p domotwin-import -p domotwin-models -p domotwin-planner --target wasm32-unknown-unknown --all-targets -- -D warnings
+cargo clippy -p domotwin-web -p domotwin-import -p domotwin-models -p domotwin-planner -p domotwin-analysis --target wasm32-unknown-unknown --all-targets -- -D warnings
 cargo test --workspace
 (cd crates/domotwin-web && CHROMEDRIVER=/path/to/chromedriver cargo test --target wasm32-unknown-unknown)
 cargo deny check
 
 # Frontend
 cd frontend && npm run lint && npm run format:check && npm run typecheck && npm test
-npx playwright test         # needs scripts/build.sh first
+npx playwright test         # needs scripts/build.sh first; --project=perf: the measurements alone
 
 # Python
 ruff check custom_components tests && ruff format --check custom_components tests
