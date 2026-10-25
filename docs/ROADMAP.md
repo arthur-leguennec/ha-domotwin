@@ -30,7 +30,7 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | 0.1.0     | First release: all of the above, `domotwin.zip` for HACS   | 🚧     |
 | M5b       | What cameras see, drawn on the floor behind the furniture  | ⏳     |
 | M11       | Imports: Sweet Home 3D, DXF, room scans                    | ⏳     |
-| M12       | Polish: design, fonts, accessibility, README               | ⏳     |
+| M12       | Polish: design, fonts, accessibility, voice, README        | ⏳     |
 | M12b      | Size and speed: a pass that keeps the picture as it is     | ⏳     |
 | M13       | Release 0.2.0 and HACS submission checklist                | ⏳     |
 
@@ -643,7 +643,16 @@ apps), turned into DomoTwin plans.
 
 Design pass, bundled variable font and `font_family` option, accessibility (keyboard, focus rings,
 screen-reader labels, reduced motion), README with real screenshots and a GIF made from the demo
-plan.
+plan, and voice (asked by the maintainer; Home Assistant's Assist does the listening, the
+recognition and the speech, with whatever pipeline the user set up, local Whisper and Piper
+included: DomoTwin embeds no voice engine):
+
+- **A microphone button** in the card and the panel opens Home Assistant's Assist already
+  listening (the dashboards' `assist` action), so a wall tablet without a voice satellite can
+  speak to it. The browser gives the microphone to pages served over HTTPS only: over HTTP, a
+  dialog says so and how to serve Home Assistant over HTTPS, instead of a button that does nothing.
+- **The voice blueprints at hand**: DomoTwin's settings offer to import "show the kitchen" and
+  "where is…" (`blueprints/`) in one tap, instead of a link in the documentation.
 
 ## M12b, size and speed
 
