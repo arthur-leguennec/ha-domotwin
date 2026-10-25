@@ -1,0 +1,4 @@
+# Hashed byte for byte by tests/test_brand.py (docs/brand/sources.sha256): the same line endings
+# on every checkout.
+docs/brand/icon.svg text eol=lf
+docs/brand/sources.sha256 text eol=lf

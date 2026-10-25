@@ -28,6 +28,8 @@ keywords = ["@"]
 regexes = [
   '''@users\.noreply\.github\.com''',
   '''@example\.(?:com|org|net)''',
+  # Images at twice the size, as Home Assistant's brand images (icon@2x.png).
+  '''@2x\.png$''',
 ]
 
 [[rules]]

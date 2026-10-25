@@ -102,6 +102,8 @@ pub fn heat_legend(kind: &str) -> String {
 #[derive(Debug)]
 pub struct Engine {
     pub(crate) renderer: Renderer,
+    /// The canvas's context, to stop drawing once it is lost (the renderer cannot draw on it).
+    gl: WebGl2RenderingContext,
     /// The stored plan's JSON, before the overlay (edit mode applies it again after each change).
     pub(crate) source: Option<serde_json::Value>,
     /// The edit overlay applied to it.
@@ -166,7 +168,8 @@ impl Engine {
     ///
     /// # Errors
     ///
-    /// Fails with `webgl2_unavailable` when the browser cannot create a WebGL2 context.
+    /// Fails with `webgl2_unavailable` when the browser cannot create a WebGL2 context, and with
+    /// `context_lost` when the canvas's context is already lost.
     #[wasm_bindgen(constructor)]
     pub fn new(canvas: HtmlCanvasElement) -> Result<Engine, JsError> {
         let attributes = WebGlContextAttributes::new();
@@ -181,17 +184,22 @@ impl Engine {
             .flatten()
             .and_then(|context| context.dyn_into::<WebGl2RenderingContext>().ok())
             .ok_or_else(|| JsError::new("webgl2_unavailable"))?;
+        // A lost context answers nothing (not even its extensions), which the renderer cannot take.
+        if gl.is_context_lost() {
+            return Err(JsError::new("context_lost"));
+        }
         let gpu = gpu_hint(&gl);
         // three-d takes the GL context in an `Arc`; WebAssembly here is single-threaded.
         #[allow(clippy::arc_with_non_send_sync)]
         let renderer = Renderer::new(
-            Arc::new(glow::Context::from_webgl2_context(gl)),
+            Arc::new(glow::Context::from_webgl2_context(gl.clone())),
             canvas.width(),
             canvas.height(),
         )
         .map_err(|_| JsError::new("webgl2_unavailable"))?;
         let mut engine = Engine {
             renderer,
+            gl,
             source: None,
             layout: Layout::new(),
             plan: None,
@@ -1383,8 +1391,12 @@ impl Engine {
         self.renderer.invalidate();
     }
 
-    /// Draws one frame. Returns `true` while an animation needs more frames.
+    /// Draws one frame. Returns `true` while an animation needs more frames. Draws nothing once
+    /// the context is lost: the view starts again on a fresh canvas.
     pub fn frame(&mut self, time_ms: f64) -> bool {
+        if self.gl.is_context_lost() {
+            return false;
+        }
         let dt = self.last_frame.map_or(16.0, |last| time_ms - last);
         self.last_frame = Some(time_ms);
         // A tapped camera's view goes faint again after its while (D-038).

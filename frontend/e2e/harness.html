@@ -17,6 +17,8 @@
         --primary-text-color: #212121;
         --secondary-text-color: #727272;
         --divider-color: rgba(0, 0, 0, 0.12);
+        --safe-area-inset-top: 0px;
+        --safe-area-inset-bottom: 0px;
       }
       body.dark {
         --card-background-color: #1c1c1c;
@@ -24,10 +26,15 @@
         --primary-text-color: #e1e1e1;
         background: #111111;
       }
-      #mount {
-        height: 100%;
+      /* As Home Assistant's custom panel (ha-panel-custom): as high as its content, padded by
+         the screen's safe areas. */
+      #mount:not(.card) {
+        box-sizing: border-box;
+        padding-top: var(--safe-area-inset-top);
+        padding-bottom: var(--safe-area-inset-bottom);
       }
       #mount.card {
+        height: 100%;
         width: 640px;
         padding: 16px;
       }

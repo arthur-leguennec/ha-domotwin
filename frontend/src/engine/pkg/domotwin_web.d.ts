@@ -147,7 +147,8 @@ export class Engine {
      */
     focusElement(id: string, time_ms: number): boolean;
     /**
-     * Draws one frame. Returns `true` while an animation needs more frames.
+     * Draws one frame. Returns `true` while an animation needs more frames. Draws nothing once
+     * the context is lost: the view starts again on a fresh canvas.
      */
     frame(time_ms: number): boolean;
     /**
@@ -230,7 +231,8 @@ export class Engine {
      *
      * # Errors
      *
-     * Fails with `webgl2_unavailable` when the browser cannot create a WebGL2 context.
+     * Fails with `webgl2_unavailable` when the browser cannot create a WebGL2 context, and with
+     * `context_lost` when the canvas's context is already lost.
      */
     constructor(canvas: HTMLCanvasElement);
     /**

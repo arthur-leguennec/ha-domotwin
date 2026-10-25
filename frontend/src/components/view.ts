@@ -238,6 +238,8 @@ const KEY_STEP = 40;
 const KEY_ZOOM = 0.85;
 /** How often the light follows the time of day without a `hass` update (ms). */
 const LIGHT_REFRESH_MS = 5 * 60 * 1000;
+/** A lost WebGL context starts the engine again, once a minute at most: more, the GPU is failing. */
+const CONTEXT_RESTART_MS = 60 * 1000;
 const FALLBACK_BACKGROUND: Rgb = { r: 242, g: 242, b: 240 };
 /** How long a notice (a failed action) stays (ms). */
 const NOTICE_MS = 5000;
@@ -670,6 +672,11 @@ export class DomoTwinView extends LitElement {
   private resizeObserver?: ResizeObserver;
   private intersectionObserver?: IntersectionObserver;
   private generation = 0;
+  /** When the engine last started again after a lost context. */
+  private contextRestart?: number;
+  /** The context was lost: the engine waits to start again (the page shown, the minute past). */
+  private contextLost = false;
+  private contextTimer?: number;
   private background?: Rgb;
   /** The look and accent last given to the engine. */
   private lookKey?: string;
@@ -743,6 +750,7 @@ export class DomoTwinView extends LitElement {
   private sheets?: Promise<unknown>;
   private readonly onVisibility = (): void => {
     this.scheduler?.setPageVisible(document.visibilityState === "visible");
+    this.startAgain();
   };
 
   static override styles = [
@@ -1506,14 +1514,19 @@ export class DomoTwinView extends LitElement {
     window.removeEventListener("keydown", this.onEditKey);
     window.removeEventListener("keydown", this.onPlanKey);
     window.clearTimeout(this.noticeTimer);
-    // The engine goes; the plan drawn is kept, to go on with if the view comes back.
+    window.clearTimeout(this.contextTimer);
+    this.parkPlanEditor();
+    this.stopEngine();
+  }
+
+  /** The engine goes; the plan drawn is kept, to go on with when it comes back. */
+  private parkPlanEditor(): void {
     if (this.planEditor) {
       this.parked = { planner: this.planEditor.release(), empty: this.planEditor.state.empty };
       this.planEditor = undefined;
     }
     this.planToken += 1;
     this.planOpening = false;
-    this.stopEngine();
   }
 
   protected override firstUpdated(): void {
@@ -2390,10 +2403,13 @@ export class DomoTwinView extends LitElement {
     if (this.canvas) return;
     const stage = this.renderRoot.querySelector<HTMLElement>(".stage");
     if (!stage) return;
+    this.contextLost = false;
+    window.clearTimeout(this.contextTimer);
     this.stage = stage;
     const generation = ++this.generation;
     const canvas = document.createElement("canvas");
     canvas.setAttribute("aria-hidden", "true");
+    canvas.addEventListener("webglcontextlost", this.onContextLost);
     stage.append(canvas);
     this.canvas = canvas;
     this.engineState = "loading";
@@ -2401,9 +2417,14 @@ export class DomoTwinView extends LitElement {
 
     let engine: DomoTwinEngine;
     try {
-      engine = await DomoTwinEngine.create(canvas);
+      // Not built at all when the view was stopped meanwhile (a card moved while it loads).
+      engine = await DomoTwinEngine.create(canvas, () => generation === this.generation);
     } catch (error) {
       if (generation !== this.generation) return;
+      if (error instanceof EngineError && error.code === "context_lost") {
+        this.loseEngine();
+        return;
+      }
       this.engineState =
         error instanceof EngineError && error.code === "webgl2_unavailable"
           ? "unsupported"
@@ -2472,9 +2493,10 @@ export class DomoTwinView extends LitElement {
     this.lightTimer = undefined;
     this.resizeObserver?.disconnect();
     this.intersectionObserver?.disconnect();
+    // The engine gives its context back. While it is still coming, its canvas has none: the
+    // engine is then not built at all.
+    this.canvas?.removeEventListener("webglcontextlost", this.onContextLost);
     this.engine?.dispose();
-    // Give the GPU memory back now rather than at garbage collection.
-    this.canvas?.getContext("webgl2")?.getExtension("WEBGL_lose_context")?.loseContext();
     this.canvas?.remove();
     this.scheduler = undefined;
     this.resizeObserver = undefined;
@@ -2482,6 +2504,43 @@ export class DomoTwinView extends LitElement {
     this.engine = undefined;
     this.canvas = undefined;
     this.engineState = "idle";
+  }
+
+  /**
+   * The view's WebGL context was lost (a GPU reset, the browser's limit on contexts, a phone that
+   * put the page away): what was drawn is gone, so the engine starts again on a fresh canvas. An
+   * engine still coming finds its context lost itself (`context_lost`).
+   */
+  private readonly onContextLost = (event: Event): void => {
+    if (event.target === this.canvas && this.engine) this.loseEngine();
+  };
+
+  private loseEngine(): void {
+    this.parkPlanEditor();
+    this.stopEngine();
+    this.contextLost = true;
+    this.startAgain();
+  }
+
+  /**
+   * Starts the engine again after a lost context, once the page is shown (a hidden page may lose
+   * a new one at once) and once a minute at most: lost again within the minute, the GPU is
+   * failing, and the view says so until the minute is past.
+   */
+  private startAgain(): void {
+    window.clearTimeout(this.contextTimer);
+    if (!this.contextLost || !this.isConnected || document.visibilityState !== "visible") return;
+    const wait =
+      this.contextRestart === undefined
+        ? 0
+        : this.contextRestart + CONTEXT_RESTART_MS - performance.now();
+    if (wait > 0) {
+      this.engineState = "failed";
+      this.contextTimer = window.setTimeout(() => this.startAgain(), wait);
+      return;
+    }
+    this.contextRestart = performance.now();
+    void this.startEngine();
   }
 
   /** Draws a frame and adapts the resolution to how long frames take. */

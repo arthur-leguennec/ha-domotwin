@@ -390,7 +390,11 @@ export class DomoTwinPanel extends LitElement {
       :host {
         display: flex;
         flex-direction: column;
-        height: 100%;
+        /* Home Assistant's custom panel (ha-panel-custom) is as high as its content, so a
+           percentage has no height to take. The panel is as high as the window (its visible part
+           on phones whose bars come and go), less the screen's safe areas that element pads. */
+        height: calc(100vh - var(--safe-area-inset-top, 0px) - var(--safe-area-inset-bottom, 0px));
+        height: calc(100dvh - var(--safe-area-inset-top, 0px) - var(--safe-area-inset-bottom, 0px));
         background: var(--primary-background-color, #fafafa);
       }
       .toolbar {

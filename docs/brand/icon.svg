@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <!-- DomoTwin's icon: a home seen from a corner, as the 3D view shows it, a window lit. -->
+  <!-- The walls: left, then right. -->
+  <polygon points="24,106 128,166 128,244 24,184" fill="#2563eb"/>
+  <polygon points="128,166 232,106 232,184 128,244" fill="#1d4ed8"/>
+  <!-- The roof, its two faces meeting on the ridge above the front corner. -->
+  <polygon points="24,106 128,16 128,166" fill="#22d3ee"/>
+  <polygon points="128,16 232,106 128,166" fill="#0891b2"/>
+  <!-- A door, and a window lit as a lamp is. -->
+  <polygon points="96.8,183.1 76,171.1 76,214 96.8,226" fill="#1e3a8a"/>
+  <polygon points="164.4,166.8 195.6,148.8 195.6,175.4 164.4,193.4" fill="#fbbf24"/>
+  <!-- The front corner and the ridge, catching the light. -->
+  <path d="M128 16 V244" stroke="#ffffff" stroke-opacity="0.35" stroke-width="2"/>
+</svg>

@@ -113,6 +113,18 @@ check(module.ok, "the frontend module is served");
 const build = await (await fetch(new URL("/domotwin_static/build.json", base))).json();
 const wasm = await fetch(new URL(`/domotwin_static/${build.wasm}`, base));
 check(wasm.ok && wasm.headers.get("content-type")?.includes("wasm"), "the engine is served as wasm");
+// The integration's own brand images (`brand/`), which Home Assistant serves from 2026.3 on.
+const { version } = await json("/api/config", { headers: auth });
+const [year, month] = version.split(".").map(Number);
+if (year > 2026 || (year === 2026 && month >= 3)) {
+  const icon = await fetch(
+    new URL("/api/brands/integration/domotwin/icon.png?placeholder=no", base),
+    { headers: auth },
+  );
+  check(icon.ok && icon.headers.get("content-type")?.includes("png"), "its brand icon is served");
+} else {
+  console.log(`skip - brand images: Home Assistant ${version} does not serve them`);
+}
 
 const ws = connect(token);
 await ws.ready;
