@@ -1,6 +1,7 @@
 import { LitElement, css, html, nothing, type TemplateResult } from "lit";
 
 import { ConfigError, normalizeConfig, type CardConfig } from "../config";
+import { fontFamily } from "../fonts";
 import { DomoTwinClient, type Settings, type StoreyInfo, type StoredPlan } from "../ha/client";
 import { isHassError, type HomeAssistant } from "../ha/types";
 import { readBindings, type BindingsJson } from "../live/bindings";
@@ -321,6 +322,7 @@ export class DomoTwinCard extends LitElement {
         orbit: config.orbit,
         nightDim: config.night_dim,
         tools: config.tools,
+        voice: config.voice,
       };
       if (config.room) options.room = config.room;
       if (config.theme) options.theme = config.theme;
@@ -353,7 +355,9 @@ export class DomoTwinCard extends LitElement {
     if (!this.config) return nothing;
     const style = [
       this.config.height ? `height:${this.config.height}` : "",
-      this.config.font_family ? `--domotwin-font-family:${this.config.font_family}` : "",
+      this.config.font_family
+        ? `--domotwin-font-family:${fontFamily(this.config.font_family)}`
+        : "",
     ]
       .filter(Boolean)
       .join(";");

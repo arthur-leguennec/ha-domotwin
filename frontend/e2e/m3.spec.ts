@@ -1,6 +1,14 @@
 import { expect, test, type Page } from "@playwright/test";
 
-import { canvasPng, elementPoint, openHarness, settle, stage, viewState } from "./fixtures";
+import {
+  canvasPng,
+  elementPoint,
+  fromMenu,
+  openHarness,
+  settle,
+  stage,
+  viewState,
+} from "./fixtures";
 
 /** The panel of the demo home in edit mode, on the 2D plan. */
 async function editing(page: Page, options: { lang?: "en" | "fr" } = {}): Promise<void> {
@@ -102,7 +110,7 @@ test.describe("M3: edit mode", () => {
 
     // Export writes the plan as it is now, with the sofa moved.
     const download = page.waitForEvent("download");
-    await page.getByRole("button", { name: "Export plan" }).click();
+    await fromMenu(page, "export");
     const file = await (await download).path();
     const { readFile } = await import("node:fs/promises");
     const plan = JSON.parse(await readFile(file, "utf8")) as {

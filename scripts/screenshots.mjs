@@ -758,9 +758,12 @@ try {
       () => window.__view().debugState().stats.closedRooms?.length === 2,
     );
     if (dialog) {
-      await page.evaluate(() =>
-        window.__element.shadowRoot.querySelector('[data-testid="privacy-settings"]').click(),
-      );
+      await page.evaluate(async () => {
+        const panel = window.__element;
+        panel.shadowRoot.querySelector('[data-testid="more"]').click();
+        await panel.updateComplete;
+        panel.shadowRoot.querySelector('[data-testid="privacy-settings"]').click();
+      });
       await page.waitForFunction(() =>
         window.__element.shadowRoot.querySelector("domotwin-private-rooms"),
       );
@@ -1196,6 +1199,7 @@ try {
   });
   await bluetoothPage.locator("domotwin-view .person-tag").first().waitFor();
   await bluetoothPage.evaluate(() => window.__view().settle());
+  await bluetoothPage.getByTestId("more").click();
   await bluetoothPage.getByTestId("bluetooth-settings").click();
   await bluetoothPage.getByTestId("bluetooth-find").click();
   await bluetoothPage.locator("[data-candidate]").first().waitFor();
@@ -1266,6 +1270,101 @@ try {
     Buffer.from(toonImage.slice(toonImage.indexOf(",") + 1), "base64"),
   );
   console.log("docs/figures/screenshot-cartoon-clay.png");
+
+  // Voice (D-041): the panel's voice settings, Assist without speech-to-text on a Supervisor,
+  // the apps that hear to choose from, and the voice blueprints to add.
+  const voicePage = await browser.newPage({
+    viewport: { width: 1280, height: 900 },
+    deviceScaleFactor: 1.5,
+  });
+  await voicePage.emulateMedia({ reducedMotion: "reduce" });
+  await voicePage.goto("http://127.0.0.1:4173/?mode=panel&live=1&voice=deaf&supervisor=1");
+  await voicePage.waitForFunction(() => window.__view?.()?.debugState().summary, null, {
+    timeout: 60_000,
+  });
+  await voicePage.evaluate(() => {
+    const view = window.__view();
+    view.options = { ...view.options, quality: "high" };
+  });
+  await voicePage.evaluate(() => window.__view().settle());
+  await voicePage.getByTestId("more").click();
+  await voicePage.getByTestId("voice-settings").click();
+  await voicePage.locator('[data-blueprint="show_by_voice"]').waitFor();
+  await voicePage.locator('input[value="speech-to-phrase"]').check();
+  await voicePage.waitForTimeout(500);
+  await fs.writeFile(
+    join(root, "docs", "figures", "screenshot-voice.png"),
+    await voicePage.screenshot(),
+  );
+  console.log("docs/figures/screenshot-voice.png");
+
+  // The README's animation (D-042): the demo apartment turned with the keyboard,
+  // then shown as its 2D plan and back. Frames taken one by one, put together by ffmpeg.
+  const gifPage = await browser.newPage({
+    viewport: { width: 960, height: 560 },
+    deviceScaleFactor: 1,
+  });
+  await gifPage.goto("http://127.0.0.1:4173/?mode=card&live=1");
+  await gifPage.waitForFunction(() => window.__view?.()?.debugState().summary, null, {
+    timeout: 60_000,
+  });
+  await gifPage.evaluate(() => {
+    const view = window.__view();
+    view.options = { ...view.options, quality: "high" };
+  });
+  await gifPage.evaluate(() => window.__view().settle());
+  const { mkdtemp, rm } = fs;
+  const { tmpdir } = await import("node:os");
+  const frames = await mkdtemp(join(tmpdir(), "domotwin-gif-"));
+  const list = [];
+  const card = gifPage.locator("domotwin-card");
+  const frame = async (seconds) => {
+    const file = join(frames, `${String(list.length).padStart(4, "0")}.png`);
+    await card.screenshot({ path: file });
+    list.push(`file '${file}'\nduration ${seconds}`);
+  };
+  await frame(1.2);
+  await gifPage.locator("domotwin-view .stage").focus();
+  for (let i = 0; i < 24; i += 1) {
+    await gifPage.keyboard.press("ArrowRight");
+    await gifPage.keyboard.press("ArrowRight");
+    await gifPage.evaluate(() => window.__view().settle());
+    await frame(0.08);
+  }
+  await frame(0.8);
+  for (const kept of [1.4, 1.2]) {
+    await gifPage.locator("domotwin-view").getByTestId("toggle-plan").click();
+    for (let i = 0; i < 6; i += 1) {
+      await gifPage.waitForTimeout(100);
+      await frame(0.1);
+    }
+    await gifPage.evaluate(() => window.__view().settle());
+    await frame(kept);
+  }
+  // ffmpeg's concat list repeats the last frame for its duration to be kept.
+  list.push(list.at(-1).split("\n")[0]);
+  await fs.writeFile(join(frames, "list.txt"), list.join("\n") + "\n");
+  const { spawnSync } = await import("node:child_process");
+  const gif = join(root, "docs", "figures", "demo.gif");
+  const made = spawnSync(
+    "ffmpeg",
+    [
+      "-y",
+      "-loglevel",
+      "error",
+      ...["-f", "concat", "-safe", "0", "-i", join(frames, "list.txt")],
+      "-vf",
+      // About 2 MB: small, few colours, an ordered dither that compresses well.
+      "scale=480:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=96:stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=3:diff_mode=rectangle",
+      "-loop",
+      "0",
+      gif,
+    ],
+    { stdio: "inherit" },
+  );
+  await rm(frames, { recursive: true, force: true });
+  if (made.status === 0) console.log("docs/figures/demo.gif");
+  else console.error("ffmpeg is needed for docs/figures/demo.gif");
   await browser.close();
 } finally {
   server.kill();

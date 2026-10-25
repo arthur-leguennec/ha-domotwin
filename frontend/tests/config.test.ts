@@ -24,6 +24,7 @@ describe("normalizeConfig", () => {
       orbit: false,
       night_dim: false,
       tools: true,
+      voice: true,
     });
   });
 
@@ -81,6 +82,7 @@ describe("normalizeConfig", () => {
       orbit: true,
       night_dim: true,
       tools: false,
+      voice: true,
       screen: "hallway",
     });
   });

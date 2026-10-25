@@ -1,0 +1,67 @@
+blueprint:
+  name: DomoTwin – show a room by voice
+  description: >-
+    Say "show the kitchen" (or "montre la cuisine") to Assist, from your phone, a voice satellite or
+    a tablet: DomoTwin frames the room on your screens, or on one of them. The room is found by its
+    name in your plan, on any storey; a storey's name ("Floor 1", "attic") shows that storey.
+  domain: automation
+  source_url: https://github.com/arthur-leguennec/ha-domotwin/blob/main/blueprints/automation/domotwin/show_by_voice.yaml
+  input:
+    sentences:
+      name: Sentences
+      description: >-
+        What to say; {room} is the room (or storey) to show. One sentence per line, with [optional
+        words].
+      default:
+        - "show [me] [the] {room} [on the screen]"
+        - "montre [moi] [le|la|les|l'] {room}"
+      selector:
+        text:
+          multiple: true
+    screen:
+      name: Screen
+      description: >-
+        The screen to show it on: the `screen` option of a DomoTwin card. Empty for every screen.
+      default: ""
+      selector:
+        text:
+    view:
+      name: View
+      description: How to show it.
+      default: overview
+      selector:
+        select:
+          options:
+            - label: Framed from above
+              value: overview
+            - label: Walking there, at eye level
+              value: walk
+            - label: On the 2D plan
+              value: 2d
+    answer:
+      name: Answer
+      description: What Assist says; {{ room }} is the room asked for.
+      default: "{{ room }}, on the screen."
+      selector:
+        text:
+
+mode: queued
+max: 5
+
+triggers:
+  - trigger: conversation
+    command: !input sentences
+
+variables:
+  room: "{{ trigger.slots.room }}"
+  screen: !input screen
+  view: !input view
+  answer: !input answer
+
+actions:
+  - action: domotwin.show
+    data:
+      room: "{{ room }}"
+      view: "{{ view }}"
+      screen: "{{ screen }}"
+  - set_conversation_response: "{{ answer }}"

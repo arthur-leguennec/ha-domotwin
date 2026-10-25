@@ -51,10 +51,7 @@ test.describe("3D view", () => {
     await openHarness(page, { view: "2d" });
     await ready(page);
     expect((await camera(page)).ortho).toBe(1);
-    await expect(page.getByRole("button", { name: "3D view" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
+    await expect(page.getByRole("button", { name: "3D view" })).toHaveClass("on");
   });
 
   test("turns with a drag and zooms with the wheel", async ({ page }) => {

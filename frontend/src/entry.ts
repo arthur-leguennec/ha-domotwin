@@ -7,9 +7,11 @@ import { DomoTwinCard } from "./components/card";
 import { define } from "./components/define";
 import { DomoTwinPanel } from "./components/panel";
 import { DomoTwinView } from "./components/view";
+import { declareBundledFont } from "./fonts";
 import { Translator } from "./i18n";
 
 setAssetBase(new URL(".", import.meta.url));
+declareBundledFont();
 
 define("domotwin-view", DomoTwinView);
 define("domotwin-card", DomoTwinCard);

@@ -19,9 +19,10 @@ Local, fast, Rust + WebAssembly.</p>
 > and 2D views, live control
 > (states, tap, long press, room panel, linking), the edit mode, your own 3D models, the layers, the
 > devices, the plan editor, storeys, the looks, every storey at once, walking, the kiosk, the
-> network map, the automation wires, the upkeep cards, the people in their rooms and Bluetooth
-> locating work today;
-> the polish comes next. The features below describe version 0.1.0 and what came after it.
+> network map, the automation wires, the upkeep cards, the people in their rooms, Bluetooth
+> locating, voice and the polish (font, keyboard, screen readers) work today; a pass over size and
+> speed comes next, then version 0.2.0. The features below describe version 0.1.0 and what came
+> after it.
 
 ## Features
 
@@ -96,9 +97,20 @@ Local, fast, Rust + WebAssembly.</p>
   room to room through the doors. On a wall tablet, a card goes back to its view when left alone,
   turns slowly and dims at night. Say "show the kitchen" to Assist and your screens show it. See
   [walking, kiosks and your voice](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/kiosk.md).
+- **Your voice.** A microphone button opens Home Assistant's Assist already listening, on a wall
+  tablet as on a phone. When Assist cannot hear yet, DomoTwin sets up local voice with your
+  consent: Whisper or Speech-to-Phrase and Piper, installed through the Supervisor, nothing
+  leaving your home. The voice blueprints are added in one tap. See [your
+  voice](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/voice.md).
 - **Light and smooth.** Rust compiled to WebAssembly, rendering only when something changes, quality
   presets for old wall tablets. The first load is budgeted at 1.2 MB, checked by CI.
 - **Yours.** English and French, follows your Home Assistant theme, works in the companion apps.
+  Its own font (Inter, served by your Home Assistant), and everything in reach of the keyboard and
+  screen readers: the rooms and their controls, the menus, the dialogs.
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/demo.gif" alt="The demo apartment: the view turns around the home, then shows it as a 2D plan and goes back to 3D" width="480">
+</p>
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-looks.png" alt="The demo apartment in the evening in three looks: neon, blueprint and day" width="100%">
@@ -216,8 +228,9 @@ YAML is never required. For reference, the card options are:
 | `orbit`       | `true`, `false`                     | `false`    | Kiosk: a slow turn around the home meanwhile. |
 | `night_dim`   | `true`, `false`                     | `false`    | Kiosk: dimmed at night meanwhile (unless an alert shows). |
 | `tools`       | `true`, `false`                     | `true`     | The view's buttons.                       |
+| `voice`       | `true`, `false`                     | `true`     | The microphone button, when Assist is there. |
 | `screen`      | a name (`hallway`…)                 | none       | This screen's name, for `domotwin.show`.  |
-| `font_family` | a font family                       | bundled    | Font of the card's texts.                 |
+| `font_family` | a font family, `theme`              | bundled    | Font of the card's texts; `theme`: your theme's. |
 
 Integration options (Settings → Devices & services → DomoTwin → Configure): show the panel in the
 sidebar, and show it to administrators only. Only administrators can import plans, edit and bind.

@@ -24,6 +24,7 @@ import {
   mdiLockAlert,
   mdiLockClock,
   mdiLockOpenVariant,
+  mdiMicrophone,
   mdiPlay,
   mdiPowerPlug,
   mdiPrinter,
@@ -135,11 +136,15 @@ import {
   type StoreyRooms,
 } from "../live/storeys";
 import { planRooms } from "../live/suggest";
+import { assistAvailable, canListen, listeningPipeline, openAssist } from "../live/voice";
 import { FrameScheduler } from "../scheduler";
 import { fire } from "./define";
 import { icon } from "./icon";
+import { DialogFocus } from "./dialog";
+import { focusBack, focusMenu, menuKeydown } from "./menu";
 import type { Planner } from "../planner/planner";
 import type { PlanEditState, PlanEditor, PlanTool } from "./plan-editor";
+import type { VoiceDialogMode } from "./voice-dialog";
 import { baseStyles, lookStyles } from "./styles";
 
 type EngineState = "idle" | "loading" | "ready" | "unsupported" | "failed";
@@ -186,6 +191,8 @@ export interface ViewOptions {
   nightDim?: boolean;
   /** The buttons (on unless `false`). */
   tools?: boolean;
+  /** The microphone among them, when Assist runs (on unless `false`, D-041). */
+  voice?: boolean;
 }
 
 /** The icon of each badge; running appliances show their own. */
@@ -269,6 +276,8 @@ const WALK_KEYS: Record<string, [number, number]> = {
   KeyA: [0, -1],
   KeyD: [0, 1],
 };
+/** The view's sheets: the focus goes into them and comes back (D-042). */
+const VIEW_SHEETS = "domotwin-controls, domotwin-piece, domotwin-room, domotwin-person";
 /** Alerts listed in the banner; the others are counted. */
 const MAX_ALERTS_SHOWN = 2;
 /** The power layer's colours, from a few watts to 3 kW (`shaders.rs`). */
@@ -469,6 +478,7 @@ export class DomoTwinView extends LitElement {
     pictures: { state: true },
     layer: { state: true },
     layersOpen: { state: true },
+    voiceHelp: { state: true },
     realSun: { state: true },
     alerts: { state: true },
     labels: { state: true },
@@ -560,6 +570,14 @@ export class DomoTwinView extends LitElement {
   protected planView = false;
   protected savedViews: SavedView[] = [];
   protected viewsOpen = false;
+  /** The focus goes into the sheet or dialog shown and comes back (D-042). */
+  private readonly dialogs = new DialogFocus();
+  private readonly onEscape = (event: KeyboardEvent): void => {
+    if (event.key === "Escape" && this.dialogs.escape(event)) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  };
   protected sheet?: Sheet;
   protected focusedRoom?: FocusedRoom;
   protected notice?: string;
@@ -583,6 +601,8 @@ export class DomoTwinView extends LitElement {
   protected wiresLoaded = false;
   private wiresModule?: Promise<unknown>;
   protected layersOpen = false;
+  /** Why voice cannot listen, shown over the view (D-041). */
+  protected voiceHelp?: VoiceDialogMode;
   /** Sunlight through the windows: the sun where it really is. */
   protected realSun = false;
   /** Rooms with an alert, dangers first (the other storeys' with their storey). */
@@ -842,7 +862,9 @@ export class DomoTwinView extends LitElement {
       .tools button:hover {
         background: color-mix(in srgb, var(--primary-text-color, #1f2328) 8%, transparent);
       }
-      .tools button[aria-pressed="true"] {
+      /* What is on: the button's label says what a press does (the storeys say which is shown). */
+      .tools button[aria-pressed="true"],
+      .tools button.on {
         color: var(--primary-color, #03a9f4);
       }
       .tools .storey {
@@ -883,9 +905,10 @@ export class DomoTwinView extends LitElement {
         padding: 0 3px;
         box-sizing: border-box;
         border-radius: 7px;
-        background: var(--primary-color, #03a9f4);
-        color: var(--text-primary-color, #fff);
-        font-size: 0.6rem;
+        background: color-mix(in srgb, var(--primary-color, #03a9f4) 65%, #000);
+        color: #fff;
+        font-size: 0.65rem;
+        font-weight: 700;
         line-height: 14px;
       }
       .tools .rule {
@@ -921,11 +944,69 @@ export class DomoTwinView extends LitElement {
         color: var(--primary-color, #03a9f4);
         font-weight: 600;
       }
+      .views .group {
+        display: grid;
+      }
       .views hr {
         width: 100%;
         margin: 4px 0;
         border: none;
         border-top: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+      }
+      .room-list {
+        position: absolute;
+        top: 12px;
+        left: 12px;
+        z-index: 4;
+        max-height: calc(100% - 24px);
+        overflow: auto;
+        padding: 6px;
+      }
+      /* Out of sight until the keyboard reaches it. */
+      .room-list:not(:focus-within) {
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        border: 0;
+        overflow: hidden;
+        clip-path: inset(50%);
+      }
+      .room-list ul {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+      .room-list button {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        width: 100%;
+        min-height: 40px;
+        padding: 0 12px;
+        border: none;
+        border-radius: 10px;
+        background: transparent;
+        color: inherit;
+        font: inherit;
+        text-align: start;
+        cursor: pointer;
+      }
+      .room-list button:hover,
+      .room-list button:focus-visible {
+        background: color-mix(in srgb, var(--primary-text-color, #1f2328) 8%, transparent);
+      }
+      .room-list small {
+        color: var(--secondary-text-color, #5f6368);
+      }
+      .room-list .value {
+        margin-inline-start: auto;
+        padding-inline-start: 16px;
+        color: var(--secondary-text-color, #5f6368);
+        font-variant-numeric: tabular-nums;
+      }
+      .room-list svg.icon {
+        width: 16px;
+        height: 16px;
       }
       .legend {
         position: absolute;
@@ -1058,6 +1139,9 @@ export class DomoTwinView extends LitElement {
         gap: 8px;
         max-height: calc(100% - 80px);
         overflow-y: auto;
+        /* Room for the focus rings. */
+        padding: 4px;
+        margin: -4px;
       }
       .picture {
         display: grid;
@@ -1353,7 +1437,13 @@ export class DomoTwinView extends LitElement {
         stroke-width: 2;
         stroke-linecap: round;
       }
+      /* SVG groups draw no outline: the circle grows a ring in the text's colour. */
+      .plan-handles .insert:focus {
+        outline: none;
+      }
       .plan-handles .insert:focus-visible circle {
+        r: 11px;
+        stroke: var(--primary-text-color, #1f2328);
         stroke-width: 3;
       }
       .plan-handles text {
@@ -1390,6 +1480,7 @@ export class DomoTwinView extends LitElement {
     super.connectedCallback();
     document.addEventListener("visibilitychange", this.onVisibility);
     this.motionQuery?.addEventListener("change", this.onMotion);
+    this.addEventListener("keydown", this.onEscape);
     // Any touch, click, key or wheel in the view counts for the kiosk.
     this.addEventListener("pointerdown", this.onTouch, true);
     this.addEventListener("click", this.onWakeClick, true);
@@ -1404,6 +1495,7 @@ export class DomoTwinView extends LitElement {
     super.disconnectedCallback();
     document.removeEventListener("visibilitychange", this.onVisibility);
     this.motionQuery?.removeEventListener("change", this.onMotion);
+    this.removeEventListener("keydown", this.onEscape);
     this.removeEventListener("pointerdown", this.onTouch, true);
     this.removeEventListener("click", this.onWakeClick, true);
     this.removeEventListener("keydown", this.onTouch, true);
@@ -1480,6 +1572,8 @@ export class DomoTwinView extends LitElement {
   }
 
   protected override updated(changed: PropertyValues<this>): void {
+    this.followMenus(changed);
+    this.followDialogs(changed);
     if (changed.has("bindings")) this.applyBindings();
     // A storey alone again before edit mode starts on it.
     if (changed.has("home")) this.applyPlan();
@@ -3464,6 +3558,31 @@ export class DomoTwinView extends LitElement {
     this.redraw();
   }
 
+  /** A sheet or the voice dialog shown takes the focus, and gives it back when it goes. */
+  private followDialogs(changed: Map<PropertyKey, unknown>): void {
+    if (!changed.has("sheet") && !changed.has("voiceHelp")) return;
+    // The voice dialog stands over a sheet: it has the focus first.
+    const root = this.renderRoot;
+    this.dialogs.update(
+      root.querySelector("domotwin-voice") ?? root.querySelector(VIEW_SHEETS) ?? undefined,
+    );
+  }
+
+  /** The menus take the focus when they open, and give it back to their button after a choice. */
+  private followMenus(changed: Map<PropertyKey, unknown>): void {
+    for (const [open, menu, opener] of [
+      ["viewsOpen", "views-menu", "views"],
+      ["layersOpen", "layer-menu", "layers"],
+    ] as const) {
+      if (!changed.has(open)) continue;
+      const root = this.renderRoot;
+      if (this[open]) focusMenu(root.querySelector<HTMLElement>(`[data-testid="${menu}"]`));
+      else if (changed.get(open) === true) {
+        focusBack(root.querySelector<HTMLElement>(`[data-testid="${opener}"]`));
+      }
+    }
+  }
+
   private readonly toggleViews = (): void => {
     this.viewsOpen = !this.viewsOpen;
     this.layersOpen = false;
@@ -3492,8 +3611,9 @@ export class DomoTwinView extends LitElement {
     return html`<div
         class="stage"
         tabindex=${ready ? "0" : "-1"}
-        role=${ready ? "img" : nothing}
+        role=${ready ? "application" : nothing}
         aria-label=${ready ? t.t("view.canvas_label", { title }) : nothing}
+        aria-describedby=${ready ? "stage-keys" : nothing}
         @pointerdown=${this.onPointerDown}
         @pointermove=${this.onPointerMove}
         @pointerup=${this.onPointerUp}
@@ -3506,15 +3626,26 @@ export class DomoTwinView extends LitElement {
           event.preventDefault();
         }}
       ></div>
-      ${ready ? this.renderLabels() : nothing} ${ready ? this.renderRoomNames() : nothing}
-      ${ready ? this.renderBadges() : nothing} ${ready ? this.renderPeople() : nothing}
-      ${ready ? this.renderStoreyLabels() : nothing} ${ready ? this.renderPictures() : nothing}
-      ${this.renderGuides()} ${this.renderPlanHandles()} ${this.renderOverlay()}
-      ${ready ? this.renderLegend() : nothing} ${ready ? this.renderAlerts() : nothing}
-      ${ready ? this.renderWalkPad() : nothing} ${ready ? this.renderNetwork() : nothing}
-      ${ready ? this.renderUpkeep() : nothing} ${ready ? this.renderWires() : nothing}
+      <p id="stage-keys" class="hidden-text">${t.t("view.keys")}</p>
+      ${ready ? this.renderRoomList() : nothing} ${ready ? this.renderLabels() : nothing}
+      ${ready ? this.renderRoomNames() : nothing} ${ready ? this.renderBadges() : nothing}
+      ${ready ? this.renderPeople() : nothing} ${ready ? this.renderStoreyLabels() : nothing}
+      ${ready ? this.renderPictures() : nothing} ${this.renderGuides()} ${this.renderPlanHandles()}
+      ${this.renderOverlay()} ${ready ? this.renderLegend() : nothing}
+      ${ready ? this.renderAlerts() : nothing} ${ready ? this.renderWalkPad() : nothing}
+      ${ready ? this.renderNetwork() : nothing} ${ready ? this.renderUpkeep() : nothing}
+      ${ready ? this.renderWires() : nothing}
       ${ready && this.options.tools !== false ? this.renderTools() : nothing}
       ${ready ? this.renderSheet() : nothing}
+      ${
+        this.voiceHelp
+          ? html`<domotwin-voice
+              .hass=${this.hass}
+              .mode=${this.voiceHelp}
+              @domotwin-close=${() => (this.voiceHelp = undefined)}
+            ></domotwin-voice>`
+          : nothing
+      }
       ${this.dimmed ? html`<div class="dim" data-testid="dim" aria-hidden="true"></div>` : nothing}
       ${
         this.notice
@@ -3725,7 +3856,7 @@ export class DomoTwinView extends LitElement {
         data-testid="spread"
         title=${spread}
         aria-label=${spread}
-        aria-pressed=${this.spread ? "true" : "false"}
+        class=${this.spread ? "on" : ""}
         @click=${() => {
           this.spread = !this.spread;
         }}
@@ -3736,7 +3867,7 @@ export class DomoTwinView extends LitElement {
         data-testid="roof"
         title=${roof}
         aria-label=${roof}
-        aria-pressed=${this.roof ? "true" : "false"}
+        class=${this.roof ? "on" : ""}
         @click=${() => {
           this.roof = !this.roof;
         }}
@@ -3919,6 +4050,35 @@ export class DomoTwinView extends LitElement {
     ></domotwin-room>`;
   }
 
+  /**
+   * The microphone: Home Assistant's Assist, already listening with a pipeline that hears; else
+   * why it cannot (a page over HTTP, voice not set up).
+   */
+  private readonly listen = async (): Promise<void> => {
+    const hass = this.hass;
+    if (!hass) return;
+    this.layersOpen = false;
+    let help: VoiceDialogMode | undefined;
+    if (!canListen(hass)) {
+      help = "https";
+    } else {
+      // Unknown (an old Home Assistant, a refusal): Assist decides.
+      const pipeline = await listeningPipeline(hass).catch(() => "last_used");
+      if (pipeline === undefined) help = "setup";
+      else openAssist(this, pipeline, true);
+    }
+    if (help) {
+      try {
+        await import("./voice-dialog");
+        this.voiceHelp = help;
+      } catch {
+        this.notify(
+          this.translator.t("view.action_failed", { reason: this.translator.error("unknown") }),
+        );
+      }
+    }
+  };
+
   private renderTools(): TemplateResult {
     const t = this.translator;
     const plan = this.planView;
@@ -3940,7 +4100,7 @@ export class DomoTwinView extends LitElement {
     return html`<div class="tools glass" role="toolbar" aria-label=${t.t("view.toolbar")}>
         <button
           data-testid="toggle-plan"
-          aria-pressed=${plan ? "true" : "false"}
+          class=${plan ? "on" : ""}
           title=${plan ? t.t("view.show_3d") : t.t("view.show_plan")}
           aria-label=${plan ? t.t("view.show_3d") : t.t("view.show_plan")}
           @click=${() => {
@@ -3963,7 +4123,7 @@ export class DomoTwinView extends LitElement {
           this.walkable
             ? html`<button
                 data-testid="walk"
-                aria-pressed=${this.walking ? "true" : "false"}
+                class=${this.walking ? "on" : ""}
                 title=${t.t(this.walking ? "walk.stop" : "walk.start")}
                 aria-label=${t.t(this.walking ? "walk.stop" : "walk.start")}
                 @click=${() => {
@@ -3977,14 +4137,26 @@ export class DomoTwinView extends LitElement {
         <button
           data-testid="layers"
           title=${t.t("layers.menu")}
-          aria-label=${t.t("layers.menu")}
+          aria-label=${this.layersLabel()}
           aria-haspopup="menu"
           aria-expanded=${this.layersOpen ? "true" : "false"}
-          aria-pressed=${this.shownLayer !== "off" || this.realSun ? "true" : "false"}
+          class=${this.shownLayer !== "off" || this.realSun ? "on" : ""}
           @click=${this.toggleLayers}
         >
           ${icon(mdiLayersOutline)}
         </button>
+        ${
+          this.options.voice !== false && assistAvailable(this.hass)
+            ? html`<button
+                data-testid="voice"
+                title=${t.t("voice.listen")}
+                aria-label=${t.t("voice.listen")}
+                @click=${this.listen}
+              >
+                ${icon(mdiMicrophone)}
+              </button>`
+            : nothing
+        }
         ${this.loadedHome && !this.planView ? this.renderHomeTools() : nothing}
         ${
           this.savedViews.length > 0
@@ -4004,7 +4176,19 @@ export class DomoTwinView extends LitElement {
       </div>
       ${
         this.viewsOpen
-          ? html`<div class="views glass" role="menu" aria-label=${t.t("view.views")}>
+          ? html`<div
+              class="views glass"
+              role="menu"
+              aria-label=${t.t("view.views")}
+              data-testid="views-menu"
+              @keydown=${(event: KeyboardEvent) => {
+                menuKeydown(
+                  event,
+                  () => (this.viewsOpen = false),
+                  this.renderRoot.querySelector<HTMLElement>('[data-testid="views"]'),
+                );
+              }}
+            >
               ${this.savedViews.map(
                 (view) =>
                   html`<button
@@ -4022,6 +4206,16 @@ export class DomoTwinView extends LitElement {
       ${this.layersOpen ? this.renderLayerMenu() : nothing}`;
   }
 
+  /** The layers button's name, with what is shown (its colour says it to the eye). */
+  private layersLabel(): string {
+    const t = this.translator;
+    const shown = [
+      this.shownLayer !== "off" ? t.t(`layers.${this.shownLayer}`) : "",
+      this.realSun ? t.t("layers.sun") : "",
+    ].filter(Boolean);
+    return shown.length > 0 ? `${t.t("layers.menu")}: ${shown.join(", ")}` : t.t("layers.menu");
+  }
+
   /** The layer menu: one layer at a time, and sunlight through the windows. */
   private renderLayerMenu(): TemplateResult {
     const t = this.translator;
@@ -4030,25 +4224,34 @@ export class DomoTwinView extends LitElement {
       role="menu"
       aria-label=${t.t("layers.menu")}
       data-testid="layer-menu"
+      @keydown=${(event: KeyboardEvent) => {
+        menuKeydown(
+          event,
+          () => (this.layersOpen = false),
+          this.renderRoot.querySelector<HTMLElement>('[data-testid="layers"]'),
+        );
+      }}
     >
-      ${LAYER_NAMES.filter(
-        (layer) =>
-          (layer !== "network" || this.networkAllowed) &&
-          (layer !== "automations" || automationsAvailable(this.hass)) &&
-          (layer !== "upkeep" || this.upkeep !== undefined),
-      ).map(
-        (layer) =>
-          html`<button
-            role="menuitemradio"
-            data-layer=${layer}
-            aria-checked=${this.shownLayer === layer ? "true" : "false"}
-            @click=${() => {
-              this.setLayer(layer);
-            }}
-          >
-            ${t.t(`layers.${layer}`)}
-          </button>`,
-      )}
+      <div class="group" role="group" aria-label=${t.t("layers.menu")}>
+        ${LAYER_NAMES.filter(
+          (layer) =>
+            (layer !== "network" || this.networkAllowed) &&
+            (layer !== "automations" || automationsAvailable(this.hass)) &&
+            (layer !== "upkeep" || this.upkeep !== undefined),
+        ).map(
+          (layer) =>
+            html`<button
+              role="menuitemradio"
+              data-layer=${layer}
+              aria-checked=${this.shownLayer === layer ? "true" : "false"}
+              @click=${() => {
+                this.setLayer(layer);
+              }}
+            >
+              ${t.t(`layers.${layer}`)}
+            </button>`,
+        )}
+      </div>
       <hr />
       <button
         role="menuitemcheckbox"
@@ -4105,6 +4308,60 @@ export class DomoTwinView extends LitElement {
     >
       ${this.translator.t("people.show_me")}
     </button>`;
+  }
+
+  /**
+   * The rooms as buttons, for the keyboard and screen readers: what a tap on a floor and a long
+   * press do, with the layer's value of each room. Out of sight until it has the focus.
+   */
+  private renderRoomList(): TemplateResult | typeof nothing {
+    if (this.rooms.length === 0 || this.editingAny || this.linking || this.walking) return nothing;
+    const t = this.translator;
+    const unit = (HEAT_KINDS as readonly string[]).includes(this.layer)
+      ? (heatLegend(this.layer)?.unit ?? "")
+      : "";
+    const values = new Map(
+      this.labels
+        .filter((label) => label.kind === "heat")
+        .map((label) => [label.id, formatHeat(label.value, unit, t.language, this.fahrenheit)]),
+    );
+    // Every storey at once: each room says its storey (two may share a name).
+    const rooms =
+      this.loadedHome && this.home
+        ? this.home.flatMap((storey) =>
+            planRooms(storey.plan).map((room) => ({ ...room, storey: storey.name })),
+          )
+        : this.rooms.map((room) => ({ ...room, storey: "" }));
+    return html`<nav
+      class="room-list glass"
+      aria-label=${t.t("view.room_list")}
+      data-testid="room-list"
+    >
+      <ul>
+        ${rooms.map((room) => {
+          const name = room.name || room.id;
+          const value = values.get(room.id);
+          const closed = this.closed.has(room.id);
+          return html`<li>
+            <button
+              data-room=${room.id}
+              @click=${() => {
+                // A private room is not framed, as a tap on its floor does nothing (D-039); its
+                // sheet says it is private.
+                if (!closed && this.engine?.focusElement(room.id)) {
+                  this.focusedRoom = { id: room.id, name };
+                }
+                void this.openRoom(room.id, name);
+              }}
+            >
+              ${closed ? icon(mdiLock) : nothing}<span>${name}</span>${
+                room.storey ? html`<small>${room.storey}</small>` : nothing
+              }${value ? html`<span class="value">${value}</span>` : nothing}
+            </button>
+          </li>`;
+        })}
+      </ul>
+    </nav>`;
   }
 
   /** The rooms' names, on their floor; the room framed has its own chip. */

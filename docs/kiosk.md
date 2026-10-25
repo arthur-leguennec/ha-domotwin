@@ -79,7 +79,8 @@ actions:
 
 ## Your voice: Assist
 
-Import the blueprint (Settings → Automations & scenes → Blueprints → **Import blueprint**) from
+Add the blueprint from the panel's voice settings (**More** → **Voice** → **Add**), or import it
+(Settings → Automations & scenes → Blueprints → **Import blueprint**) from
 `https://github.com/arthur-leguennec/ha-domotwin/blob/main/blueprints/automation/domotwin/show_by_voice.yaml`,
 then make an automation from it. Say "**show the kitchen**" (or "**montre la cuisine**") to Assist on
 your phone, a voice satellite or a tablet: the screens frame the kitchen, and Assist answers. The
@@ -87,7 +88,9 @@ blueprint chooses the sentences (with `{room}` in them), the screen and how to s
 walking there, on the 2D plan). A storey's name works too ("show the attic").
 
 Everything runs in Home Assistant: the speech is Assist's (local with Whisper and Piper, or the
-voice service you chose), and DomoTwin itself makes no call outside your Home Assistant.
+voice service you chose), and DomoTwin itself makes no call outside your Home Assistant. The
+card's microphone button opens Assist already listening, and sets voice up when Assist cannot
+hear yet: see [your voice](voice.md).
 
 ## Limits
 

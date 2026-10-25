@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 
 import { expect, test, type Page } from "@playwright/test";
 
-import { colorAt, openHarness, settle, viewState } from "./fixtures";
+import { colorAt, fromMenu, openHarness, settle, viewState } from "./fixtures";
 
 const MODELS = "../examples/models";
 
@@ -229,7 +229,7 @@ test.describe("M3b: your own 3D models", () => {
     await openHarness(page, { mode: "panel", models: true });
     await expect(page.getByTestId("summary")).toBeVisible();
     const download = page.waitForEvent("download");
-    await page.getByRole("button", { name: "Export plan" }).click();
+    await fromMenu(page, "export");
     const path = await (await download).path();
     const text = await readFile(path, "utf8");
     const exported = JSON.parse(text) as {

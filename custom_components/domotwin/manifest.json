@@ -2,7 +2,9 @@
   "domain": "domotwin",
   "name": "DomoTwin",
   "after_dependencies": [
+    "assist_pipeline",
     "bluetooth",
+    "hassio",
     "person"
   ],
   "codeowners": [

@@ -91,6 +91,8 @@ export interface CardConfig {
   night_dim: boolean;
   /** The view's buttons, on unless turned off. */
   tools: boolean;
+  /** The microphone among the buttons, when Assist runs (D-041). */
+  voice: boolean;
   /** The name of this screen, for `domotwin.show` (D-029). */
   screen?: string;
 }
@@ -175,6 +177,7 @@ export function normalizeConfig(raw: unknown): CardConfig {
     orbit: flag(input.orbit, false, "config.bad_orbit"),
     night_dim: flag(input.night_dim, false, "config.bad_night_dim"),
     tools: flag(input.tools, true, "config.bad_tools"),
+    voice: flag(input.voice, true, "config.bad_voice"),
   };
   const title = optionalString(input.title);
   if (title !== undefined) config.title = title;

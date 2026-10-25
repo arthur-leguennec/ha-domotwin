@@ -258,6 +258,7 @@ export class DomoTwinPeopleSettings extends LitElement {
         <h2 id="people-title">${t.t("people.settings")}</h2>
         <button
           class="round"
+          data-cancel
           aria-label=${t.t("panel.dismiss")}
           @click=${() => {
             this.close();

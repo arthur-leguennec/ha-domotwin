@@ -4,6 +4,18 @@ import type { DebugState } from "../src/components/view";
 
 export interface HarnessOptions {
   mode?: "card" | "panel";
+  /**
+   * Voice (D-041): Assist with a pipeline that hears (`true`), or none that hears (`"deaf"`);
+   * apps that can be installed; one blueprint edited; a page served over HTTP; the card's
+   * microphone turned off.
+   */
+  voice?: true | "deaf";
+  supervisor?: boolean;
+  blueprints?: "changed";
+  insecure?: boolean;
+  mic?: false;
+  /** The card's `font_family`. */
+  font?: string;
   lang?: "en" | "fr";
   plan?: "demo" | "none";
   admin?: boolean;
@@ -84,6 +96,7 @@ export async function openHarness(page: Page, options: HarnessOptions = {}): Pro
     dark: options.dark ? "1" : "0",
   });
   if (options.view) params.set("view", options.view);
+  if (options.font) params.set("font", options.font);
   if (options.cutaway) params.set("cutaway", options.cutaway);
   params.set("lighting", options.lighting ?? "day");
   if (options.sun) params.set("sun", `${options.sun.elevation},${options.sun.rising ? 1 : 0}`);
@@ -115,6 +128,11 @@ export async function openHarness(page: Page, options: HarnessOptions = {}): Pro
   if (options.privateFor) params.set("privatefor", options.privateFor);
   if (options.privateWhile) params.set("privatewhile", options.privateWhile);
   if (options.settingsDown) params.set("settingsdown", "1");
+  if (options.voice) params.set("voice", options.voice === true ? "1" : options.voice);
+  if (options.supervisor) params.set("supervisor", "1");
+  if (options.blueprints) params.set("blueprints", options.blueprints);
+  if (options.insecure) params.set("insecure", "1");
+  if (options.mic === false) params.set("mic", "0");
   if (options.automations) {
     params.set("automations", options.automations === true ? "1" : String(options.automations));
   }
@@ -232,4 +250,10 @@ export async function colorAt(page: Page, id: string): Promise<[number, number, 
     const data = image.data;
     return [data[at] ?? 0, data[at + 1] ?? 0, data[at + 2] ?? 0] as [number, number, number];
   }, id);
+}
+
+/** Picks an entry of the panel's "More" menu (the export, the home's settings). */
+export async function fromMenu(page: Page, testId: string): Promise<void> {
+  await page.getByTestId("more").click();
+  await page.getByTestId(testId).click();
 }

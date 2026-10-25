@@ -103,8 +103,13 @@ export class DomoTwinUpkeepCard extends LitElement {
       .notes {
         white-space: pre-wrap;
       }
+      /* Darkened (lightened in the dark) towards the text, for contrast. */
       .soon {
-        color: var(--warning-color, #b26a00);
+        color: color-mix(
+          in srgb,
+          var(--warning-color, #ffa600) 50%,
+          var(--primary-text-color, #1f2328)
+        );
       }
       ul {
         list-style: none;
@@ -135,10 +140,10 @@ export class DomoTwinUpkeepCard extends LitElement {
         color: #fff;
       }
       .chip.fine {
-        background: #2e9e57;
+        background: #23804a;
       }
       .chip.due {
-        background: #c27c00;
+        background: #a36500;
       }
       .chip.overdue {
         background: #d23a2f;

@@ -20,6 +20,7 @@ const types = {
   ".json": "application/json",
   ".wasm": "application/wasm",
   ".glb": "model/gltf-binary",
+  ".woff2": "font/woff2",
 };
 
 createServer(async (request, response) => {

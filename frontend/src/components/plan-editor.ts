@@ -584,7 +584,7 @@ export class PlanEditor {
       { x: 0, y: 0 },
     );
     const room = state.selection?.type === "room";
-    return svg`<svg class="plan-handles" data-testid="plan-handles" aria-hidden="true">
+    return svg`<svg class="plan-handles" data-testid="plan-handles" role="group">
       ${guides.map(
         (g) =>
           svg`<line class="snap" x1=${g.a[0] * k} y1=${g.a[1] * k} x2=${g.b[0] * k} y2=${g.b[1] * k}></line>`,
@@ -635,7 +635,7 @@ export class PlanEditor {
       // A button of the SVG: the only handles the pointer reaches (corners are grabbed under the
       // press, see `grab`).
       return svg`${length}
-        <g class="insert" role="button" tabindex="0" aria-label=${text} data-side=${side.i}
+        <g class="insert" role="button" tabindex="0" aria-label=${`${text} (${format.format(side.cm)} cm)`} data-side=${side.i}
           @click=${() => {
             this.insertCorner(side.i);
           }}

@@ -216,7 +216,8 @@ test.describe("linking", () => {
     await editor.getByRole("button", { name: "Link Bedside left" }).click();
     await editor.getByTestId("link-tap").selectOption("none");
     await editor.getByTestId("link-save").click();
-    await expect(page.getByRole("status").filter({ hasText: "Links saved." })).toBeVisible();
+    await expect(page.getByTestId("toast")).toContainText("Links saved.");
+    await expect(page.getByTestId("announcer")).toContainText("Links saved.");
     await expect(editor).toHaveCount(0);
     const bindings = await saved(page);
     expect(bindings.elements["table-lamp"]).toEqual({

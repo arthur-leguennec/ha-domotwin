@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 
-import { colorAt, openHarness, settle, viewState } from "./fixtures";
+import { colorAt, fromMenu, openHarness, settle, viewState } from "./fixtures";
 
 async function ready(page: Page): Promise<void> {
   await expect(page.getByTestId("summary")).toBeVisible();
@@ -173,7 +173,7 @@ test.describe("layers", () => {
     await expect.poll(async () => (await viewState(page)).sun).toBe("230:22:20");
 
     // An administrator sets north in the settings: the view follows while it is set.
-    await page.getByTestId("settings").click();
+    await fromMenu(page, "settings");
     const dialog = page.getByTestId("settings-dialog");
     await expect(dialog).toBeVisible();
     await dialog.getByTestId("settings-north").fill("90");

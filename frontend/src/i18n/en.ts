@@ -28,6 +28,8 @@ export const en = {
     toolbar: "View controls",
     action_failed: "That did not work: {reason}",
     room_panel: "Open the controls of {room}",
+    room_list: "Rooms",
+    keys: "Keys: arrows turn, Shift and arrows move, + and − zoom, Home shows the whole home, Enter opens the room framed. Tab reaches the list of rooms and the view's buttons.",
     models_failed: {
       one: "{count} 3D model could not be shown: its pieces are boxes.",
       other: "{count} 3D models could not be shown: their pieces are boxes.",
@@ -369,6 +371,68 @@ export const en = {
     no_area_admin: "Link it in the DomoTwin panel, or give the area the room's name.",
     private: "This room is private.",
   },
+  voice: {
+    title: "Voice",
+    listen: "Speak to Assist",
+    settings: "Voice",
+    https_title: "The microphone needs HTTPS",
+    https:
+      "Browsers lend the microphone only to pages served over HTTPS, or opened on the computer Home Assistant runs on. This page is served over HTTP.",
+    https_how:
+      "Serve Home Assistant over HTTPS (Home Assistant Cloud, the Let’s Encrypt or NGINX app, your own reverse proxy), or use the Home Assistant companion app, which listens itself.",
+    https_link: "How to reach Home Assistant safely",
+    type: "Type to Assist instead",
+    setup_title: "Voice is not set up",
+    reading: "Reading how Assist is set up…",
+    assist: "Assist",
+    ready: "Assist hears you: tap the microphone and speak.",
+    done: "Voice is set up, here in your Home Assistant: tap the microphone and speak.",
+    deaf: "Assist cannot hear yet: it has no speech-to-text.",
+    ask_admin:
+      "Assist cannot hear yet: it has no speech-to-text. Ask an administrator to set up voice from DomoTwin’s panel.",
+    app_whisper: "Whisper",
+    app_whisper_hint:
+      "Understands whatever you say. Needs a fairly strong computer to answer quickly.",
+    app_phrase: "Speech-to-Phrase",
+    app_phrase_hint:
+      "Understands the commands Home Assistant knows, quickly, even on a Raspberry Pi.",
+    consent:
+      "DomoTwin installs and starts this app and Piper (the voice that answers) from Home Assistant’s app store: a few hundred megabytes, downloaded by your Home Assistant. Then everything runs in your home: nothing you say leaves it.",
+    set_up: "Install and set up",
+    wait: "This can take a few minutes while the apps download.",
+    step_checking: "Looking at the apps…",
+    step_installing: "Installing {app}…",
+    step_starting: "Starting {app}…",
+    step_connecting: "Adding the apps to Home Assistant…",
+    step_pipeline: "Setting up Assist…",
+    failed_app:
+      "An app could not be installed or started. Look at Settings → Apps, then try again.",
+    failed_app_unavailable: "This app is not available for this computer.",
+    failed_not_found:
+      "Home Assistant did not find the apps. Add them in Settings → Devices & services, then try again.",
+    failed_language: "These apps do not speak the language Home Assistant is set to.",
+    failed_ignored:
+      "Home Assistant was told to ignore one of these apps. In Settings → Devices & services, show the ignored integrations, stop ignoring Wyoming, then try again.",
+    failed_unknown: "Voice could not be set up. Look at Home Assistant’s logs.",
+    container:
+      "This Home Assistant has no apps (Container or Core): run the speech services next to it, then add them.",
+    container_whisper: "Speech-to-text, Whisper:",
+    container_piper: "Text-to-speech, Piper:",
+    container_wyoming:
+      "Settings → Devices & services → Add integration → Wyoming Protocol, once for each: this computer’s address, ports 10300 and 10200.",
+    container_pipeline: "Settings → Voice assistants: choose them in your assistant.",
+    blueprints: "Voice commands",
+    blueprints_hint:
+      "Two automations DomoTwin brings, to make from these blueprints: say “show the kitchen” or “where are my keys?”.",
+    blueprint_show_by_voice: "Show a room by voice",
+    blueprint_where_by_voice: "Where is someone or something",
+    blueprint_missing: "Not in Home Assistant yet",
+    blueprint_installed: "Added",
+    blueprint_changed: "Edited, or from an older DomoTwin",
+    blueprints_add: "Add to Home Assistant",
+    blueprints_replace: "Replace with this version",
+    blueprints_use: "Make an automation",
+  },
   privacy: {
     title: "Private rooms",
     hint: "Whoever may not see a private room sees it closed: nothing inside, no controls, nobody in it, and the voice answers say “in a private room”. Administrators still see it in edit and plan modes.",
@@ -445,6 +509,7 @@ export const en = {
     title: "DomoTwin",
     import: "Import plan",
     export: "Export plan",
+    more: "More",
     imported: "Plan imported: {title}.",
     import_failed: "This file cannot be imported: {reason}",
     export_failed: "The plan cannot be exported: {reason}",
@@ -586,7 +651,7 @@ export const en = {
   walk: {
     start: "Walk through the home",
     stop: "Leave the walk",
-    hint: "Drag to look around · tap the floor to go there",
+    hint: "Drag to look around · tap the floor to go there · arrows or W A S D to walk · Escape to leave",
     pad: "Walk",
     ahead: "Ahead",
     back: "Back",
@@ -779,6 +844,9 @@ export const en = {
       models_too_large: "the 3D files of a plan total at most 20 MB.",
     },
     ws: {
+      no_supervisor: "this Home Assistant has no apps.",
+      busy: "voice is already being set up.",
+      blueprints_not_written: "the blueprints could not be written to Home Assistant’s folder.",
       revision_conflict: "someone saved in the meantime. Reload and try again.",
       unauthorized: "only administrators can do this.",
       not_loaded: "DomoTwin is not set up.",
@@ -831,7 +899,7 @@ export const en = {
     room_none: "The whole home",
     storey: "Storey shown first",
     storey_ground: "The ground floor",
-    font_family: "Font (for example Inter; empty: the default)",
+    font_family: "Font (empty: DomoTwin’s; theme: your theme’s; or a font’s name)",
     layer: "Layer shown first",
     alerts: "Room alerts (smoke, water, alarm…)",
     presence: "Rooms someone is in glow",
@@ -849,6 +917,7 @@ export const en = {
     orbit: "Turn slowly around the home meanwhile",
     night_dim: "Dim at night meanwhile",
     tools: "The view's buttons",
+    voice: "The microphone (Assist)",
     screen: "Screen name (for domotwin.show)",
   },
   config: {
@@ -874,6 +943,7 @@ export const en = {
     bad_orbit: "`orbit` must be true or false",
     bad_night_dim: "`night_dim` must be true or false",
     bad_tools: "`tools` must be true or false",
+    bad_voice: "`voice` must be true or false",
     bad_screen: "`screen` must be a name of letters, digits, _ and - (64 at most)",
   },
 } as const;

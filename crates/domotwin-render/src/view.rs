@@ -107,6 +107,9 @@ pub struct ViewState {
     pub dirty: bool,
     /// The cut-away changed since the last shadow map.
     pub shadows_dirty: bool,
+    /// The user prefers reduced motion: the camera, the storeys and the walls get where they go
+    /// at once.
+    pub still: bool,
 }
 
 impl Default for ViewState {
@@ -135,6 +138,7 @@ impl Default for ViewState {
             last_time: None,
             dirty: true,
             shadows_dirty: true,
+            still: false,
         }
     }
 }
@@ -437,7 +441,7 @@ impl ViewState {
             from: self.camera,
             to: to.clamped(),
             start: now,
-            duration: MOVE_MS,
+            duration: if self.still { 0.0 } else { MOVE_MS },
         });
         self.dirty = true;
     }
@@ -759,6 +763,9 @@ impl ViewState {
         if self.transition.is_some() {
             return;
         }
+        // Under reduced motion, a walk to somewhere goes a whole leg a frame and turns at once;
+        // the keys still walk at a walker's pace.
+        let still = self.still;
         let Some(walk) = self.walk.as_mut() else {
             return;
         };
@@ -766,6 +773,11 @@ impl ViewState {
         if step <= 0.0 {
             return;
         }
+        let (leg, most_turn) = if still {
+            (f64::INFINITY, PI)
+        } else {
+            (step, WALK_TURN * dt)
+        };
         let eye = self.camera.eye();
         let at = [eye[0], eye[2]];
         let (ahead, right) = self.camera.heading();
@@ -780,11 +792,11 @@ impl ViewState {
         } else if let Some(&next) = walk.path.last() {
             let (dx, dy) = (next[0] - at[0], next[1] - at[1]);
             let left = dx.hypot(dy);
-            let to = if left <= step {
+            let to = if left <= leg {
                 walk.path.pop();
                 next
             } else {
-                [at[0] + dx / left * step, at[1] + dy / left * step]
+                [at[0] + dx / left * leg, at[1] + dy / left * leg]
             };
             let reached = walk.floor.reach(at, to);
             if reached == at && to != at {
@@ -793,13 +805,13 @@ impl ViewState {
             }
             if left > 1.0 {
                 // Turn towards the way.
-                yaw = turned(yaw, [dx, dy], WALK_TURN * dt).0;
+                yaw = turned(yaw, [dx, dy], most_turn).0;
             }
             reached
         } else if let Some(face) = walk.face {
             // There: turn to face what was shown.
             let facing;
-            (yaw, facing) = turned(yaw, [face[0] - at[0], face[1] - at[1]], WALK_TURN * dt);
+            (yaw, facing) = turned(yaw, [face[0] - at[0], face[1] - at[1]], most_turn);
             if facing {
                 walk.face = None;
             }
@@ -846,7 +858,11 @@ impl ViewState {
             self.dirty = true;
         }
         if self.storeys_moving() {
-            let step = dt.max(1.0) / SPREAD_MS;
+            let step = if self.still {
+                1.0
+            } else {
+                dt.max(1.0) / SPREAD_MS
+            };
             self.spread += (self.spread_target - self.spread).clamp(-step, step);
             self.side += (self.side_target - self.side).clamp(-step, step);
             self.bounds = self.shown_bounds(self.spread, self.side);
@@ -858,7 +874,11 @@ impl ViewState {
             self.cuts.clone_from(&targets);
             self.shadows_dirty = true;
         }
-        let step = CUT_SPEED * dt.max(1.0);
+        let step = if self.still {
+            f64::INFINITY
+        } else {
+            CUT_SPEED * dt.max(1.0)
+        };
         for (cut, target) in self.cuts.iter_mut().zip(&targets) {
             let diff = target - *cut;
             if diff.abs() > 0.01 {
@@ -961,6 +981,41 @@ mod tests {
         }
         assert!(view.cuts.iter().all(|c| (c - CUT_HEIGHT).abs() < 1e-9));
         assert!(t - start > 200.0 && t - start < 1000.0, "{} ms", t - start);
+    }
+
+    #[test]
+    fn under_reduced_motion_everything_gets_there_at_once() {
+        let mut view = view();
+        view.still = true;
+        let mut to = view.camera;
+        to.yaw += 1.0;
+        view.go_to(to, 0.0);
+        view.update(0.0);
+        assert!((view.camera.yaw - to.clamped().yaw).abs() < 1e-9);
+        // The walls in front go down in one frame.
+        view.update(16.0);
+        assert!(!view.animating());
+        // A walk to somewhere: a leg a frame, turned at once.
+        use domotwin_core::geometry::walls::WallLayout;
+        use domotwin_core::walk::Floor;
+        let plan = read_plan(DEMO).unwrap();
+        view.start_walk(Floor::new(&plan, &WallLayout::new(&plan)), 0.0, 32.0);
+        let mut t = 32.0;
+        while view.update(t) {
+            t += 16.0;
+        }
+        let eye = view.camera.eye();
+        let (ahead, _) = view.camera.heading();
+        let to = [eye[0] + ahead[0] * 150.0, eye[2] + ahead[1] * 150.0];
+        view.walk_to(to);
+        let mut frames = 0;
+        while view.update(t) {
+            t += 16.0;
+            frames += 1;
+        }
+        assert!(frames <= 4, "{frames} frames");
+        let there = view.camera.eye();
+        assert!((there[0] - to[0]).hypot(there[2] - to[1]) < 1.0);
     }
 
     #[test]

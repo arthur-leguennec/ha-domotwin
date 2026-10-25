@@ -8,6 +8,8 @@ declare const __DOMOTWIN_IMPORT_WASM__: string;
 declare const __DOMOTWIN_MODELS_WASM__: string;
 /** File name of the plan editor's WebAssembly module, loaded only when the plan editor opens. */
 declare const __DOMOTWIN_PLANNER_WASM__: string;
+/** Path of the bundled font (content-hashed by the build). */
+declare const __DOMOTWIN_FONT__: string;
 
 interface CustomCardEntry {
   type: string;

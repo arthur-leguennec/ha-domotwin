@@ -444,16 +444,13 @@ export class DomoTwinCatalogue extends Sheet {
       </div>`;
   }
 
-  override firstUpdated(): void {
-    this.renderRoot.querySelector("input")?.focus();
-  }
-
   protected override render(): TemplateResult {
     const t = this.t;
     const groups = catalogueGroups(this.kinds, t, this.query);
     return this.frame(
       html`<input
           type="search"
+          data-autofocus
           data-testid="catalogue-search"
           placeholder=${t.t("edit.search")}
           aria-label=${t.t("edit.search")}

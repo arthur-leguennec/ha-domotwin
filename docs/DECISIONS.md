@@ -1233,3 +1233,99 @@ Planned since M3b (D-022, M11).
   (`plan_import`), and their limits are counted (elements, entities, nesting) so that a
   malicious file runs out of budget, not of memory. A DXF without layer names reads every line
   as a wall: its rooms come out right when its furniture is in blocks named for what they are.
+
+## D-041 · Voice at hand: Home Assistant's Assist, opened listening
+
+Asked by the maintainer for M12.
+
+- **Context.** A wall tablet showing DomoTwin is where people would like to say "show the
+  kitchen" or "turn off the living room". Home Assistant already has all of voice: Assist hears
+  (speech-to-text), understands (its intents, or a conversation agent) and answers
+  (text-to-speech), with a pipeline each user chooses, local Whisper and Piper included. Two
+  things stand in the way. The browser lends the microphone to pages served over HTTPS only, and
+  many homes reach Home Assistant over plain HTTP on their network. A fresh Home Assistant has
+  Assist without speech-to-text, so it can read but not hear.
+- **Decision.**
+  - **No voice engine in DomoTwin.** The card's and the panel's microphone button fires Home
+    Assistant's own `assist` action (`hass-action`, as a dashboard button does), with the
+    preferred pipeline when it hears, else the first that does. Assist's dialog listens, shows
+    what it heard and answers. Without Assist (no `conversation` integration), or with
+    `voice: false`, there is no button.
+  - **Over HTTP, a dialog says why.** No microphone means a button that does nothing, so
+    instead the dialog explains that HTTPS is needed and how to get it: Home Assistant Cloud, the
+    Let's Encrypt or NGINX app, or a reverse proxy. It also notes that the companion apps listen
+    themselves. It offers to type instead (Assist without listening).
+  - **Voice set up when Assist cannot hear.** Administrators are offered local voice, with
+    their consent and with what is downloaded said first.
+    - On Home Assistant OS and Supervised, DomoTwin installs and starts Whisper (or
+      Speech-to-Phrase, quicker on a Raspberry Pi) and Piper through the Supervisor's
+      `AddonManager`, as the Z-Wave JS and Matter integrations install theirs. An app it installs
+      is set to the home's language. One installed before keeps its user's settings and is only
+      started.
+    - Then it accepts the Wyoming integration's discoveries of these apps, and no other (another
+      Wyoming app waits for its user). It finds their engines by the apps' host names, so an
+      engine of another Wyoming server is never taken. The first start downloads the apps'
+      models, so it waits up to ten minutes for them; a discovery Home Assistant was told to
+      ignore is said at once, with how to stop ignoring it.
+    - It creates an Assist pipeline, "DomoTwin (local)", in the home's language
+      (`async_create_default_pipeline`). The integration makes it the preferred one, once and only
+      if the preferred one could not hear, so a pipeline chosen later is never taken back.
+    - The steps run in Home Assistant, in the background. The dialog follows them and says
+      which one failed.
+    - On Container and Core, which have no apps, the dialog gives the containers to run and
+      the integrations to add.
+    - Someone who is not an administrator is told to ask one.
+  - **The voice blueprints in one tap.** "Show the kitchen" and "where is…" (`blueprints/`)
+    ship inside the integration. The panel's voice settings install them into Home Assistant's
+    blueprint folder, say when one was edited there (kept unless replaced), and open the
+    blueprint page to make an automation from them. Nothing is fetched from the internet.
+- **Consequences.** DomoTwin calls no speech service and adds nothing to its bundles but a
+  dialog loaded on demand. What is heard and said stays in the home whenever the pipeline is
+  local. Installing apps goes through Home Assistant's Supervisor API and its usual permissions
+  (administrators only, websocket commands checked server-side). Setting up a pipeline needs the
+  `assist_pipeline` integration, which is imported only when used.
+
+## D-042 · Polish: a font of its own, the keyboard, a calmer header
+
+M12.
+
+- **Context.** DomoTwin drew its texts in whatever font Home Assistant's theme set, and its
+  buttons in the browser's default, Arial on most systems. Its header had eleven buttons in the
+  panel, so the title shrank to its first letter on a laptop. Everything in the 3D view could be
+  reached with a pointer, but the keyboard could only turn and zoom: no room, no lamp. Dialogs
+  did not take the focus, and closing them lost it.
+- **Decision.**
+  - **A bundled variable font.** Inter 4.1 (SIL Open Font License, no reserved name), its
+    optical size set for text, every weight from 100 to 900 in one file. It is cut down to the
+    characters of a home's names and DomoTwin's texts (Latin, punctuation, °, ², ₂, arrows):
+    about 60 kB (`scripts/subset-font.py`, reproducible). It is served by the integration under
+    its content hash, never from the internet, and declared once in the document (`FontFace`),
+    since shadow roots ignore `@font-face`. The browser fetches it only when a text uses it. The
+    card's `font_family` puts another font first (`theme`: the theme's), the bundled one still
+    covering what it lacks. Buttons and fields inherit it.
+  - **A menu for what is not done every day.** The panel's header keeps the actions of each day
+    (import, storeys, plan, arrange, link). The export and the settings (home, people,
+    Bluetooth, private rooms, voice) go in a "More" menu.
+  - **The keyboard everywhere a pointer goes in the view.**
+    - The 3D view is an `application` described by its keys. Tab from it reaches a list of the
+      rooms, out of sight until focused, with the layer's value of each room. A room's button
+      frames it and opens its controls, where every lamp, cover and scene is.
+    - Menus follow the WAI-ARIA menu pattern: arrows, Home, End, Escape, the focus in and back.
+    - Dialogs and sheets take the focus when they open. Escape presses their cancel button
+      (except in a field, which may hold what is being typed), and the focus goes back to what
+      opened them.
+  - **Names that say which.** A switch is named after its entity (the role says on or off), and
+    a row of buttons is a group named after its entity. A button whose label says what it does
+    (2D plan / 3D view, walk, spread) no longer also claims to be pressed. The layers button names
+    the layer shown.
+  - **Seen.** Focus rings on every control, in the header's text colour on the header. Warning
+    texts are mixed towards the text colour, and the chips and counts darkened, to reach WCAG's
+    4.5:1. Toasts are read by a live region that is always there.
+  - **Reduced motion, in the engine too.** Under *reduce motion*, camera moves, the storeys
+    spreading, the walls going down and a walk to where the floor was tapped happen at once, as
+    the layers and the people already held still. Walking with the keys keeps a walker's pace.
+- **Consequences.** The first load does not change (the font is outside it and fetched once,
+  cached by its hash). Some pointer-only work remains for later:
+  - picking an element in link mode, arranging pieces in edit mode, drawing in the plan
+    editor, picking a link in the network map and a wire among the automations;
+  - error messages of the forms that are not yet tied to their field.
