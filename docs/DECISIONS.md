@@ -961,3 +961,54 @@ Asked by the maintainer (M9e).
 - **Consequences.** The engine draws a new pass of up to a draw call per person and frames while
   someone walks; the walk floors know the pieces (for where people stand, not for walking). The
   settings dialog is a chunk of its own. See `PERFORMANCE.md`, M9e.
+
+## D-035 · Bluetooth locating: from the plan first, then learned, along the doors
+
+Asked by the maintainer (M9f, after M9e).
+
+- **Context.** People in their rooms (D-034) need something that says which room someone is in.
+  Bermuda and ESPresense do, but many homes have neither: they have Home Assistant's Bluetooth
+  receivers (its adapter, ESPHome proxies, Shelly devices) and phones, watches and tags. Room
+  locating by signal strength is noisy (bodies, walls, pockets) and fingerprinting it room by room
+  is a chore that most people stop halfway through. DomoTwin has what others lack: the plan, with
+  its walls, doors, storeys and the pieces receivers sit on.
+- **Decision.**
+  - **The integration locates, every two seconds.** It follows only the devices an administrator
+    chose: a Private BLE Device entry (its identity key resolves the phone's or watch's changing
+    addresses; the key is read from that entry and never stored, sent or logged), the iBeacon of
+    the companion app's transmitter (any address), or a tag's fixed address. Every packet of a
+    followed address is heard where Home Assistant offers it (2026.x), else the latest packet of
+    each receiver is read every second. The readings of the last six seconds make one observation
+    (the median of each receiver's).
+  - **A model from the plan first.** For each room and receiver, what a phone held in the room
+    should give: the log-distance law (exponent 2.2) with about 4 dB a wall, 0.4 of a wall for a
+    door, none for a side left open and 15 dB a floor (the multi-wall model), over a few points of
+    the room, as a mean and a spread. A receiver is placed in the room of its device's area, at the
+    piece linked to its device, or where an administrator says. It locates from the first minute,
+    without a calibration walk.
+  - **Then what is learned.** A room taught (a device held there for half a minute) and, for phones
+    and watches, readings in a room whose presence or occupancy sensor agrees, are learned as a
+    running mean and variance per room and receiver; the plan counts as eight readings, what is
+    learned up to four hundred. Each device's own loudness is learned when it is surely located,
+    so that a quiet tag and a loud phone are not confused with near and far.
+  - **Silence counts, strays do not.** A receiver listening that did not hear a device says it is
+    far (a censored reading); a reading off by far (a reflection) or a packet missed weighs little.
+  - **A filter along the doors.** A forward filter over the rooms: staying put is likeliest, a room
+    through a door, a side left open or stairs next, a jump across the home almost never. Presence
+    sensors are a weight on rooms for what people carry, never for things. The room told changes
+    only at a chance of 0.6 held twice in a row, or 0.85 at once.
+  - **A sensor per device, implicit sources of people.** `sensor.domotwin_<device>_bluetooth` names
+    the room; a phone or a watch with an owner is a source of their place (D-034), the owner placed
+    if they were not, so the figures walk from it. Things get their own sensor, and a
+    `left_behind` binary sensor for an owner away while they are heard at home. `domotwin.where`
+    finds devices by name; a person is meant before a device named alike.
+  - **Kept apart, saved sparingly.** Settings and what was learned are two stores of their own;
+    the learned store is saved a minute after it changes and when DomoTwin stops. The sensors are
+    written when the room changes, not at each reading: the recorder keeps no flood of rows.
+- **Consequences.** A home without Bluetooth loses nothing (the module is imported only when
+  Home Assistant has Bluetooth). The model is rebuilt when the plans, bindings or registries change
+  (a burst of changes is one rebuild) and when a receiver appears; one rebuild of the demo home
+  takes milliseconds, run in an executor. Accuracy is room-level, and depends on the receivers:
+  a simulated walk through the demo home with noisy readings is told right nine ticks in ten with a
+  receiver in each room, three in four with four receivers for ten rooms (`tests/test_locating.py`).
+  The settings dialog is a chunk of its own. See `PERFORMANCE.md`, M9f.

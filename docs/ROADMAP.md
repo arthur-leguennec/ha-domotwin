@@ -25,7 +25,7 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M9c       | Automation wires: what sets off what, drawn in 3D          | ✅     |
 | M9d       | Upkeep cards: makes, warranties, recurring tasks           | ✅     |
 | M9e       | People in their rooms, live                                | ✅     |
-| M9f       | Bluetooth locating, without Bermuda or ESPresense          | ⏳     |
+| M9f       | Bluetooth locating, without Bermuda or ESPresense          | ✅     |
 | M8b       | Two more looks: cartoon and clay                           | ⏳     |
 | M11       | Imports: Sweet Home 3D, DXF, room scans                    | ⏳     |
 | M12       | Polish: design, fonts, accessibility, performance, README  | ⏳     |
@@ -560,15 +560,37 @@ Who is home and in which room, live (`DECISIONS.md`, D-034; [`people.md`](people
 
 ![The people of the demo apartment](figures/screenshot-people.png)
 
-Left for later: DomoTwin's own Bluetooth locating (M9f), a history of where people went.
+Left for later: a history of where people went.
 
 ## M9f, Bluetooth locating
 
-DomoTwin's own room locating from Home Assistant's Bluetooth receivers (ESPHome proxies, Shelly
-devices, the adapter), for homes without Bermuda or ESPresense: phones, watches and tags (their
-keys from Private BLE Device, the companion app's transmitter), a signal model started from the
-plan (distances, walls, storeys) and learned as people live (presence sensors) or on a short walk,
-the doors between rooms, things left behind.
+DomoTwin's own room locating from Home Assistant's Bluetooth receivers, for homes without Bermuda
+or ESPresense (`DECISIONS.md`, D-035; [`bluetooth.md`](bluetooth.md)).
+
+- ✅ **Devices followed**: phones and watches by their Private BLE Device key (the key never leaves
+  Home Assistant), Android phones by the companion app's iBeacon, tags by their address; chosen by
+  administrators from what is heard.
+- ✅ **Receivers placed** from their device (its area, the piece linked to it) or by hand.
+- ✅ **A model from the plan**: distance, walls, doors, open sides, floors; it locates from the
+  first minute, without a calibration walk; silence from a receiver counts.
+- ✅ **Learned**: a room taught in half a minute, presence sensors agreeing as people live, each
+  device's loudness.
+- ✅ **Along the doors**: a filter over the rooms that follows the doors and stairs, slow to change
+  its mind; presence sensors weigh in for what people carry.
+- ✅ **Sensors**: `sensor.domotwin_<device>_bluetooth`, a source of its owner's room (D-034), and
+  `binary_sensor.domotwin_<device>_left_behind` for things left at home.
+- ✅ **In the views**: a person's devices in their sheet, the things in a room's panel; "where are
+  my keys?" by voice.
+- ✅ Tests: walls, ways and pieces of the demo home, the specification's key sample, iBeacons, the
+  model, the filter, a simulated walk with noisy readings (pytest); the locator with a mocked
+  Bluetooth (receivers placed, devices by address, key and beacon, teaching, presence, left
+  behind, the commands, voice); the frontend's helpers (vitest); the settings, teaching, sheets
+  and panels (Playwright).
+
+![The Bluetooth settings over the demo apartment](figures/screenshot-bluetooth.png)
+
+Left for later: a position inside the room (trilateration), a heat map of what each receiver
+hears.
 
 ## M11, imports
 

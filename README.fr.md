@@ -19,7 +19,8 @@ Local, rapide, Rust + WebAssembly.</p>
 > pilotage en direct (états, toucher, appui long, panneau de pièce, liaisons), le mode édition, vos
 > propres modèles 3D, les calques, les appareils, l’éditeur de plan, les étages, les apparences,
 > tous les étages à la fois, la promenade, le kiosque, la carte du réseau, les fils des
-> automatisations, les fiches d’entretien et les personnes dans leurs pièces fonctionnent déjà ;
+> automatisations, les fiches d’entretien, les personnes dans leurs pièces et la localisation
+> Bluetooth fonctionnent déjà ;
 > d’autres imports arrivent ensuite. Les fonctionnalités ci-dessous décrivent la version 0.1.0.
 
 ## Fonctionnalités
@@ -74,6 +75,14 @@ Local, rapide, Rust + WebAssembly.</p>
   d’ESPresense, ou toute entité qui nomme une pièce) ; le panneau de la pièce dit qui s’y trouve,
   et Assist répond à « où est Alex ? ». Chacun peut se masquer. Voir [les personnes dans leurs
   pièces](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/people.md) (en anglais).
+- **La localisation Bluetooth.** Pas de Bermuda ? DomoTwin trouve lui-même la pièce d’un
+  téléphone, d’une montre ou d’une balise, d’après ce qu’entendent les récepteurs Bluetooth de Home
+  Assistant (son adaptateur, les proxys ESPHome, les appareils Shelly). Il part du plan (distances,
+  murs, portes, étages) et marche dès la première minute, puis apprend des pièces enseignées et des
+  capteurs de présence. Les téléphones placent leur propriétaire ; les clés oubliées sont
+  signalées ; « où sont mes clés ? » à la voix. Voir [la localisation
+  Bluetooth](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/bluetooth.md) (en
+  anglais).
 - **Éditeur de plan.** Pas de plan à importer ? Dessinez-le dans le panneau : des pièces en
   polygones avec leurs longueurs, des cloisons, des portes et des fenêtres posées sur les murs, avec
   aimantation et annulation. Voir [l’éditeur de
@@ -133,6 +142,10 @@ Local, rapide, Rust + WebAssembly.</p>
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-people.png" alt="Les personnes dans leurs pièces : l’appartement de démonstration dans l’apparence néon, Sam en silhouette bleue lumineuse dans le séjour et Alex en rose dans la cuisine, chacun avec son nom au-dessus" width="100%">
+</p>
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-bluetooth.png" alt="La localisation Bluetooth : les réglages par-dessus l’appartement de démonstration, trois récepteurs et comment chacun est placé, le téléphone et les clés d’Alex suivis dans la cuisine, une montre entendue qui peut être suivie" width="100%">
 </p>
 
 <p align="center">

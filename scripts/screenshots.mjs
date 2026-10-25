@@ -962,6 +962,32 @@ try {
     await peoplePage.screenshot(),
   );
   console.log("docs/figures/screenshot-people.png");
+  // Bluetooth locating (D-035): the panel's settings over the demo apartment in the day look,
+  // the fictional receivers and devices of the harness, the devices heard that may be followed.
+  const bluetoothPage = await browser.newPage({
+    viewport: { width: 1280, height: 900 },
+    deviceScaleFactor: 1.5,
+  });
+  await bluetoothPage.emulateMedia({ reducedMotion: "reduce" });
+  await bluetoothPage.goto("http://127.0.0.1:4173/?mode=panel&live=1&people=1&bluetooth=1");
+  await bluetoothPage.waitForFunction(() => window.__view?.()?.debugState().summary, null, {
+    timeout: 60_000,
+  });
+  await bluetoothPage.evaluate(() => {
+    const view = window.__view();
+    view.options = { ...view.options, quality: "high" };
+  });
+  await bluetoothPage.locator("domotwin-view .person-tag").first().waitFor();
+  await bluetoothPage.evaluate(() => window.__view().settle());
+  await bluetoothPage.getByTestId("bluetooth-settings").click();
+  await bluetoothPage.getByTestId("bluetooth-find").click();
+  await bluetoothPage.locator("[data-candidate]").first().waitFor();
+  await bluetoothPage.waitForTimeout(800);
+  await fs.writeFile(
+    join(root, "docs", "figures", "screenshot-bluetooth.png"),
+    await bluetoothPage.screenshot(),
+  );
+  console.log("docs/figures/screenshot-bluetooth.png");
   await browser.close();
 } finally {
   server.kill();

@@ -58,15 +58,15 @@
     },
     "where": {
       "name": "Où",
-      "description": "Où est une personne, ou tout le monde à la maison : sa pièce, et une phrase pour répondre (dans la langue de Home Assistant).",
+      "description": "Où est une personne, ou un appareil que DomoTwin suit par Bluetooth, ou tout le monde à la maison : sa pièce, et une phrase pour répondre (dans la langue de Home Assistant).",
       "fields": {
         "name": {
           "name": "Nom",
-          "description": "Le nom d’une personne, tel que dit (un prénom suffit, une lettre de travers est pardonnée). Vide pour tout le monde à la maison."
+          "description": "Le nom d’une personne, ou d’un appareil suivi (« mes clés »), tel que dit (un prénom suffit, une lettre de travers est pardonnée). Vide pour tout le monde à la maison."
         },
         "show": {
           "name": "Montrer",
-          "description": "Montrer aussi la pièce de la personne sur les écrans DomoTwin."
+          "description": "Montrer aussi sa pièce sur les écrans DomoTwin."
         },
         "screen": {
           "name": "Écran",
@@ -114,6 +114,59 @@
           },
           "source": {
             "name": "Source"
+          }
+        }
+      },
+      "located": {
+        "name": "{name} : pièce",
+        "state_attributes": {
+          "device_name": {
+            "name": "Appareil"
+          },
+          "kind": {
+            "name": "Type",
+            "state": {
+              "phone": "Téléphone",
+              "watch": "Montre",
+              "thing": "Objet"
+            }
+          },
+          "person": {
+            "name": "Personne"
+          },
+          "room_id": {
+            "name": "Identifiant de la pièce"
+          },
+          "area_id": {
+            "name": "Zone"
+          },
+          "storey_id": {
+            "name": "Identifiant de l’étage"
+          },
+          "storey": {
+            "name": "Étage"
+          },
+          "since": {
+            "name": "Depuis"
+          },
+          "left_behind": {
+            "name": "Oublié"
+          }
+        }
+      }
+    },
+    "binary_sensor": {
+      "left_behind": {
+        "name": "Oubli : {name}",
+        "state_attributes": {
+          "person": {
+            "name": "Personne"
+          },
+          "room_id": {
+            "name": "Identifiant de la pièce"
+          },
+          "room": {
+            "name": "Pièce"
           }
         }
       }

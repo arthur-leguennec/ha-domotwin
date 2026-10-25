@@ -504,3 +504,25 @@ A person is one draw call for their shadow and one for them, of a shared mesh: t
 measurable. Ten people walking to other rooms take **0.6 ms** of CPU a frame (median, headless
 Chromium, `e2e/perf.spec.ts`, "frame time with ten people walking"), with their names following;
 frames are drawn only while someone walks or fades.
+
+### M9f (Bluetooth locating)
+
+Bundle: the first load is **455.8 kB gzipped** of 1 200 kB (+3.4 kB, mostly the English and French
+words of the Bluetooth settings). The settings are a chunk loaded when first opened:
+
+| File | Raw | Gzipped |
+| --- | ---: | ---: |
+| `domotwin.js` (entry) | 139.8 kB | 35.2 kB |
+| `chunks/sheets-<hash>.js` (on demand, with a person's devices and a room's things) | 24.5 kB | 6.8 kB |
+| `chunks/bluetooth-settings-<hash>.js` (on demand) | 14.6 kB | 4.1 kB |
+
+The engine is as it was: the locating runs in the integration. Its costs there, on the two storeys
+of the demo home (ten rooms), median of five runs:
+
+| Work | When | Time |
+| --- | --- | ---: |
+| What each receiver should hear in each room, from the plan (4 receivers) | plans, bindings, registries or receivers change; in an executor | 5.5 ms |
+| The same with 8 receivers | | 9.6 ms |
+| A tick: 30 devices weighed against 8 receivers, filtered along the doors | every 2 s | 4.4 ms |
+
+The sensors are written when a room changes, not at each tick, so the recorder gets a row per move.

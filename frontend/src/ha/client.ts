@@ -1,4 +1,5 @@
 import type { ThemeMode } from "../config";
+import type { LocatedCandidate, LocatedSettings, LocatingSettings } from "../live/locating";
 import type { PeopleSettings, PersonSettings } from "../live/people";
 import type { ShowRequest } from "../live/show";
 import type { Upkeep, UpkeepCard } from "../live/upkeep";
@@ -69,7 +70,10 @@ export interface StoredUpkeep {
 
 /** A save (its kind and revision), or a `domotwin.show` request (D-029). */
 export type UpdateEvent =
-  | { kind: "plan" | "bindings" | "settings" | "upkeep" | "people"; revision: number }
+  | {
+      kind: "plan" | "bindings" | "settings" | "upkeep" | "people" | "locating";
+      revision: number;
+    }
   | { kind: "show"; show: ShowRequest };
 
 type Listener = (event: UpdateEvent) => void;
@@ -297,6 +301,55 @@ export class DomoTwinClient {
   }
 
   /** Stores the bindings (admins only). `expectedRevision` as for `savePlan`. */
+  /** The Bluetooth locating (D-035): receivers, devices followed, their rooms (admins only). */
+  getLocating(): Promise<LocatingSettings> {
+    return this.connection.sendMessagePromise<LocatingSettings>({ type: "domotwin/locating/get" });
+  }
+
+  /** Stores where the receivers are and which devices are followed (admins only). */
+  async saveLocating(
+    receivers: Record<string, { room?: string; piece?: string }>,
+    devices: Record<string, LocatedSettings>,
+    learn: boolean,
+    expectedRevision?: number,
+  ): Promise<number> {
+    const message: HassMessage = { type: "domotwin/locating/save", receivers, devices, learn };
+    if (expectedRevision !== undefined) message.expected_revision = expectedRevision;
+    const result = await this.connection.sendMessagePromise<{ revision: number }>(message);
+    this.people = undefined;
+    return result.revision;
+  }
+
+  /** Devices that may be followed: Private BLE Device entries, iBeacons and tags heard. */
+  async locatingCandidates(): Promise<LocatedCandidate[]> {
+    const result = await this.connection.sendMessagePromise<{ candidates: LocatedCandidate[] }>({
+      type: "domotwin/locating/candidates",
+    });
+    return result.candidates;
+  }
+
+  /** Teaches a room: the integration listens to a device held there for `seconds`. */
+  teachRoom(
+    device: string,
+    room: string,
+    seconds: number,
+  ): Promise<{ readings: number; receivers: number }> {
+    return this.connection.sendMessagePromise({
+      type: "domotwin/locating/teach",
+      device,
+      room,
+      seconds,
+    });
+  }
+
+  /** Forgets what was learned in a room (every room without one). Returns how many were. */
+  async forgetLearned(room?: string): Promise<number> {
+    const message: HassMessage = { type: "domotwin/locating/forget" };
+    if (room !== undefined) message.room = room;
+    const result = await this.connection.sendMessagePromise<{ forgotten: number }>(message);
+    return result.forgotten;
+  }
+
   async saveBindings(bindings: Bindings, expectedRevision?: number): Promise<number> {
     const message: HassMessage = { type: "domotwin/bindings/save", bindings };
     if (expectedRevision !== undefined) message.expected_revision = expectedRevision;

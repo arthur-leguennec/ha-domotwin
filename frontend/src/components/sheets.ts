@@ -5,13 +5,22 @@
  * person's sheet. Loaded on demand, the first time one opens, so the module every page loads stays
  * small.
  */
-import { mdiDoorOpen, mdiEyeOffOutline, mdiInformationOutline, mdiLightbulbOff } from "@mdi/js";
+import {
+  mdiCellphone,
+  mdiDoorOpen,
+  mdiEyeOffOutline,
+  mdiInformationOutline,
+  mdiLightbulbOff,
+  mdiTagOutline,
+  mdiWatch,
+} from "@mdi/js";
 import { css, html, nothing, type TemplateResult } from "lit";
 
 import { DomoTwinClient } from "../ha/client";
 import { isHassError } from "../ha/types";
 import { areaEntities, entityName } from "../live/bindings";
 import type { Translator } from "../i18n";
+import type { LocatedKind, LocatedShown } from "../live/locating";
 import type { PersonShown } from "../live/people";
 import { define, fire } from "./define";
 import { entityRow, rowStyles } from "./entity-rows";
@@ -174,6 +183,30 @@ const peopleStyles = css`
     gap: 12px;
     margin: 4px 0 8px;
   }
+  .thing {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 36px;
+    padding: 2px 12px 2px 8px;
+    border-radius: 18px;
+    background: color-mix(in srgb, var(--primary-color, #03a9f4) 10%, transparent);
+  }
+  ul.devices {
+    margin: 4px 0 8px;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    gap: 4px;
+  }
+  ul.devices li {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  ul.devices li.left {
+    color: var(--warning-color, #c77700);
+  }
   .person p {
     margin: 2px 0;
   }
@@ -184,6 +217,26 @@ const peopleStyles = css`
     color: var(--error-color, #d23a2f);
   }
 `;
+
+const KIND_ICONS: Record<LocatedKind, string> = {
+  phone: mdiCellphone,
+  watch: mdiWatch,
+  thing: mdiTagOutline,
+};
+
+/** The devices followed by Bluetooth in a room (D-035): a phone, a watch, keys. */
+function thingsHere(sheet: DomoTwinRoom, t: Translator): TemplateResult | typeof nothing {
+  if (sheet.things.length === 0) return nothing;
+  return html`<h3>${t.t("people.things_here")}</h3>
+    <div class="people" data-testid="room-things">
+      ${sheet.things.map(
+        (thing) =>
+          html`<span class="thing" data-thing=${thing.sensor}
+            >${icon(KIND_ICONS[thing.kind])}${thing.name}</span
+          >`,
+      )}
+    </div>`;
+}
 
 /** Who is in a room (D-034): a chip each, a tap opens their sheet. */
 function peopleHere(sheet: DomoTwinRoom, t: Translator): TemplateResult | typeof nothing {
@@ -211,6 +264,7 @@ export class DomoTwinRoom extends Sheet {
     area: { attribute: false },
     admin: { attribute: false },
     people: { attribute: false },
+    things: { attribute: false },
   };
   static override styles = [baseStyles, rowStyles, sheetStyles, avatarStyles, peopleStyles];
 
@@ -218,13 +272,15 @@ export class DomoTwinRoom extends Sheet {
   admin = false;
   /** Who is in the room now (D-034). */
   people: PersonShown[] = [];
+  /** The devices followed by Bluetooth heard in it (D-035). */
+  things: LocatedShown[] = [];
 
   protected override render(): TemplateResult | typeof nothing {
     const hass = this.hass;
     if (!hass) return nothing;
     const t = this.t;
     const area = this.area;
-    const here = peopleHere(this, t);
+    const here = html`${peopleHere(this, t)}${thingsHere(this, t)}`;
     if (!area) {
       return this.frame(
         html`${here}
@@ -281,12 +337,15 @@ export class DomoTwinPerson extends Sheet {
   static override properties = {
     ...Sheet.properties,
     person: { attribute: false },
+    devices: { attribute: false },
     busy: { state: true },
     error: { state: true },
   };
   static override styles = [baseStyles, sheetStyles, avatarStyles, peopleStyles];
 
   person?: PersonShown;
+  /** Their devices followed by Bluetooth (D-035), and where each is. */
+  devices: LocatedShown[] = [];
   protected busy = false;
   protected error?: string;
 
@@ -308,6 +367,26 @@ export class DomoTwinPerson extends Sheet {
     } finally {
       this.busy = false;
     }
+  }
+
+  /** Their devices: where each is heard, the ones left behind first. */
+  private renderDevices(t: Translator): TemplateResult | typeof nothing {
+    if (this.devices.length === 0) return nothing;
+    const ordered = [...this.devices].sort((a, b) => Number(b.leftBehind) - Number(a.leftBehind));
+    return html`<h3>${t.t("people.devices")}</h3>
+      <ul class="devices" data-testid="person-devices">
+        ${ordered.map((device) => {
+          let text: string;
+          if (device.leftBehind && device.roomName) {
+            text = t.t("people.left_behind", { device: device.name, room: device.roomName });
+          } else if (device.roomName) {
+            text = t.t("people.device_where", { device: device.name, room: device.roomName });
+          } else text = t.t("people.device_unheard", { device: device.name });
+          return html`<li class=${device.leftBehind ? "left" : ""} data-device=${device.sensor}>
+            ${icon(KIND_ICONS[device.kind])}${text}
+          </li>`;
+        })}
+      </ul>`;
   }
 
   protected override render(): TemplateResult | typeof nothing {
@@ -342,6 +421,7 @@ export class DomoTwinPerson extends Sheet {
             ${sourceName ? html`<p><small>${t.t("people.told_by", { source: sourceName })}</small></p>` : nothing}
           </div>
         </div>
+        ${this.renderDevices(t)}
         ${this.error ? html`<p class="error" role="alert">${this.error}</p>` : nothing}`,
       html`<div class="footer">
         ${

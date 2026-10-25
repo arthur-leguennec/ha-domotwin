@@ -63,6 +63,8 @@ export interface HarnessOptions {
   people?: boolean;
   peopleShown?: "everyone" | "admins";
   peopleLook?: "figure" | "pin";
+  /** Bluetooth locating (D-035): fictional receivers and devices, or no Bluetooth at all. */
+  bluetooth?: true | "none";
 }
 
 /** Opens the mocked Home Assistant with the built frontend. */
@@ -101,6 +103,7 @@ export async function openHarness(page: Page, options: HarnessOptions = {}): Pro
   if (options.people !== undefined) params.set("people", options.people ? "1" : "0");
   if (options.peopleShown) params.set("peopleshown", options.peopleShown);
   if (options.peopleLook) params.set("peoplelook", options.peopleLook);
+  if (options.bluetooth) params.set("bluetooth", options.bluetooth === true ? "1" : "none");
   if (options.automations) {
     params.set("automations", options.automations === true ? "1" : String(options.automations));
   }

@@ -1,13 +1,14 @@
 import {
+  mdiAccountMultipleOutline,
+  mdiBluetooth,
   mdiCheck,
   mdiClose,
-  mdiAccountMultipleOutline,
   mdiCogOutline,
   mdiLinkVariant,
   mdiPencilOutline,
+  mdiStairs,
   mdiTrayArrowDown,
   mdiTrayArrowUp,
-  mdiStairs,
   mdiVectorSquareEdit,
 } from "@mdi/js";
 import { LitElement, css, html, nothing, type TemplateResult } from "lit";
@@ -62,6 +63,7 @@ import {
   type StoreyRooms,
 } from "../live/storeys";
 import { resolveShow, type ShowRequest } from "../live/show";
+import type { LocatingSettings } from "../live/locating";
 import type { PeopleSettings } from "../live/people";
 import { mergeCards, renamedPieces, type Upkeep, type UpkeepCard } from "../live/upkeep";
 import { applyLink, planElement, type LinkChange, type PlanElementInfo } from "../live/suggest";
@@ -190,6 +192,7 @@ export class DomoTwinPanel extends LitElement {
     people: { state: true },
     northDraft: { state: true },
     peopleOpen: { state: true },
+    bluetoothOpen: { state: true },
     lookDraft: { state: true },
     look: { reflect: true },
     planning: { state: true },
@@ -245,6 +248,10 @@ export class DomoTwinPanel extends LitElement {
   protected peopleOpen = false;
   private peopleSettings?: PeopleSettings;
   private peopleModule?: Promise<unknown>;
+  /** The Bluetooth locating's settings are open (D-035), their module loaded. */
+  protected bluetoothOpen = false;
+  private locating?: LocatingSettings;
+  private bluetoothModule?: Promise<unknown>;
   /** The look being chosen in the settings (shown as it is chosen), while they are open. */
   protected lookDraft?: { theme: ThemeMode; accent: string };
   /** The look shown (D-027), on the element for the colours of the header and the dialogs. */
@@ -678,6 +685,27 @@ export class DomoTwinPanel extends LitElement {
       this.settings = undefined;
     }
   }
+
+  /**
+   * Opens the Bluetooth locating's settings (D-035): their module (loaded the first time), the
+   * receivers and the devices followed.
+   */
+  private readonly openBluetooth = async (): Promise<void> => {
+    const client = this.client;
+    if (!client) return;
+    this.bluetoothModule ??= import("./bluetooth-settings");
+    this.busy = true;
+    try {
+      const [, locating] = await Promise.all([this.bluetoothModule, client.getLocating()]);
+      this.locating = locating;
+      this.bluetoothOpen = true;
+    } catch (error) {
+      this.bluetoothModule = undefined;
+      this.show(this.describe(error), true);
+    } finally {
+      this.busy = false;
+    }
+  };
 
   /**
    * Opens the people's settings (D-034): their module (loaded the first time) and the people with
@@ -1971,6 +1999,18 @@ export class DomoTwinPanel extends LitElement {
                 title=${t.t("people.settings")}
               >
                 ${icon(mdiAccountMultipleOutline)}
+              </button>
+              <button
+                class="action"
+                data-testid="bluetooth-settings"
+                ?disabled=${this.busy || this.people === undefined}
+                @click=${() => {
+                  void this.openBluetooth();
+                }}
+                aria-label=${t.t("bluetooth.settings")}
+                title=${t.t("bluetooth.settings")}
+              >
+                ${icon(mdiBluetooth)}
               </button>`
           : nothing
       }`;
@@ -2184,6 +2224,18 @@ export class DomoTwinPanel extends LitElement {
               this.show(this.t.t("people.saved"));
             }}
           ></domotwin-people-settings>`
+        : nothing
+    }
+    ${
+      this.bluetoothOpen
+        ? html`<domotwin-bluetooth-settings
+            .hass=${this._hass}
+            .settings=${this.locating}
+            @domotwin-close=${() => (this.bluetoothOpen = false)}
+            @domotwin-saved=${() => {
+              this.show(this.t.t("bluetooth.saved"));
+            }}
+          ></domotwin-bluetooth-settings>`
         : nothing
     }
     ${this.storeysOpen ? this.renderStoreysDialog() : nothing}`;

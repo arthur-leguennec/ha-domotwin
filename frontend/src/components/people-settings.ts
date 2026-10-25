@@ -380,6 +380,11 @@ export class DomoTwinPeopleSettings extends LitElement {
       return name === entity ? entity : `${name} (${entity})`;
     };
     const full = (settings?.sources.length ?? 0) >= MAX_SOURCES;
+    // Their devices followed by Bluetooth place them too (D-035): set in the Bluetooth settings.
+    const located = (this.settings?.people[id]?.located ?? []).map((sensor) => {
+      const device = hass.states[sensor]?.attributes.device_name;
+      return typeof device === "string" ? device : entityName(hass, sensor);
+    });
     return html`<div class="person" data-person=${id}>
       <div class="top">
         ${avatar(shown)}<strong>${name}</strong>
@@ -396,6 +401,13 @@ export class DomoTwinPeopleSettings extends LitElement {
           ${t.t("people.placed")}
         </label>
       </div>
+      ${
+        settings && located.length > 0
+          ? html`<p class="hint" data-testid="person-bluetooth">
+              ${t.t("people.from_bluetooth", { devices: located.join(", ") })}
+            </p>`
+          : nothing
+      }
       ${
         settings
           ? html`<div class="chips">

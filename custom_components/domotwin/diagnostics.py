@@ -10,7 +10,7 @@ from homeassistant.util import dt as dt_util
 
 from . import DomoTwinConfigEntry
 from .const import MODEL_ENTRY_PREFIX, PLAN_LISTS, VERSION
-from .data import PEOPLE_KEY
+from .data import LOCATOR_KEY, PEOPLE_KEY
 from .models import async_usage
 from .upkeep import due_tasks, piece_names
 
@@ -75,6 +75,26 @@ async def async_get_config_entry_diagnostics(
             "shown": people.config["shown"],
             "look": people.config["look"],
             "hidden": len(people.config["hidden"]),
+        }
+    # The Bluetooth locating counted (D-035): never addresses, keys, names or rooms.
+    if (locator := hass.data.get(LOCATOR_KEY)) is not None:
+        devices = locator.settings["devices"].values()
+        diagnostics["locating"] = {
+            "status": locator.status(),
+            "receivers": len(locator.receivers_now()),
+            "placed_receivers": sum(1 for place in locator.places.values() if place is not None),
+            "devices": {
+                kind: sum(1 for d in devices if d["kind"] == kind)
+                for kind in ("phone", "watch", "thing")
+            },
+            "known_by": {
+                how: sum(1 for d in devices if how in d["match"])
+                for how in ("address", "key", "beacon")
+            },
+            "missing_keys": len(locator.missing_keys),
+            "located": sum(1 for found in locator.located.values() if found.room is not None),
+            "rooms_learned": len(locator.learned_rooms()),
+            "learn": locator.settings.get("learn", True),
         }
     redacted: dict[str, Any] = async_redact_data(diagnostics, TO_REDACT)
     return redacted

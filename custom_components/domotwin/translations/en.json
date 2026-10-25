@@ -58,15 +58,15 @@
     },
     "where": {
       "name": "Where",
-      "description": "Where a person is, or everyone at home: their room, and a sentence to answer with (in Home Assistant's language).",
+      "description": "Where a person is, or a device DomoTwin follows by Bluetooth, or everyone at home: their room, and a sentence to answer with (in Home Assistant's language).",
       "fields": {
         "name": {
           "name": "Name",
-          "description": "A person's name, as said (a first name is enough, a letter off is forgiven). Empty for everyone at home."
+          "description": "A person's name, or a followed device's (\"my keys\"), as said (a first name is enough, a letter off is forgiven). Empty for everyone at home."
         },
         "show": {
           "name": "Show",
-          "description": "Also show the person's room on the DomoTwin screens."
+          "description": "Also show their room on the DomoTwin screens."
         },
         "screen": {
           "name": "Screen",
@@ -114,6 +114,59 @@
           },
           "source": {
             "name": "Source"
+          }
+        }
+      },
+      "located": {
+        "name": "{name}: room",
+        "state_attributes": {
+          "device_name": {
+            "name": "Device"
+          },
+          "kind": {
+            "name": "Kind",
+            "state": {
+              "phone": "Phone",
+              "watch": "Watch",
+              "thing": "Thing"
+            }
+          },
+          "person": {
+            "name": "Person"
+          },
+          "room_id": {
+            "name": "Room id"
+          },
+          "area_id": {
+            "name": "Area"
+          },
+          "storey_id": {
+            "name": "Storey id"
+          },
+          "storey": {
+            "name": "Storey"
+          },
+          "since": {
+            "name": "Since"
+          },
+          "left_behind": {
+            "name": "Left behind"
+          }
+        }
+      }
+    },
+    "binary_sensor": {
+      "left_behind": {
+        "name": "Left behind: {name}",
+        "state_attributes": {
+          "person": {
+            "name": "Person"
+          },
+          "room_id": {
+            "name": "Room id"
+          },
+          "room": {
+            "name": "Room"
           }
         }
       }

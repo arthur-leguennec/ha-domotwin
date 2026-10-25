@@ -72,6 +72,20 @@ PEOPLE_LOOKS: Final = ("figure", "pin")
 SIGNAL_PEOPLE: Final = f"{DOMAIN}_people"
 SERVICE_WHERE: Final = "where"
 
+# DomoTwin's own Bluetooth locating (docs/DECISIONS.md, D-035): its settings (receivers placed,
+# devices followed) and what it learned, each in a store of its own.
+LOCATING_STORAGE_KEY: Final = f"{DOMAIN}.locating"
+LOCATING_LEARNED_KEY: Final = f"{DOMAIN}.locating_learned"
+LOCATING_STORAGE_VERSION: Final = 1
+MAX_LOCATED: Final = 30
+MAX_RECEIVERS: Final = 64
+MAX_LOCATED_NAME: Final = 60
+LOCATED_KINDS: Final = ("phone", "watch", "thing")
+# A device taught in a room is listened to this long (seconds), at least and at most.
+TEACH_SECONDS: Final = (10, 120)
+# Dispatcher signal sent when a followed device moves, is lost or left behind: (device id,).
+SIGNAL_LOCATED: Final = f"{DOMAIN}_located"
+
 # Dispatcher signal sent after every write: (kind, revision).
 SIGNAL_UPDATED: Final = f"{DOMAIN}_updated"
 # `domotwin.show` (docs/DECISIONS.md, D-029): what to show, sent to the screens: (request,).
