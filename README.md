@@ -18,7 +18,8 @@ Local, fast, Rust + WebAssembly.</p>
 > integration, the panel, the card, the plan and IFC import, the 3D and 2D views, live control
 > (states, tap, long press, room panel, linking), the edit mode, your own 3D models, the layers, the
 > devices, the plan editor, storeys, the looks, every storey at once, walking, the kiosk, the
-> network map, the automation wires, the upkeep cards and the people in their rooms work today;
+> network map, the automation wires, the upkeep cards, the people in their rooms and Bluetooth
+> locating work today;
 > more imports come next. The features below describe version 0.1.0.
 
 ## Features
@@ -65,6 +66,12 @@ Local, fast, Rust + WebAssembly.</p>
   room); the room's panel says who is there, and Assist answers "where is Alex?". Anyone can hide
   themselves. See [people in their
   rooms](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/people.md).
+- **Bluetooth locating.** No Bermuda? DomoTwin finds the room of a phone, a watch or a tag itself,
+  from what Home Assistant's Bluetooth receivers hear (its adapter, ESPHome proxies, Shelly
+  devices). It starts from the plan (distances, walls, doors, floors), so it works from the first
+  minute, and learns as rooms are taught and presence sensors agree. Phones place their owners;
+  keys left behind are told; "where are my keys?" by voice. See [Bluetooth
+  locating](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/bluetooth.md).
 - **Plan editor.** No plan to import? Draw one in the panel: rooms as polygons with their lengths,
   partitions, doors and windows placed on the walls, with snapping and undo. See [plan
   editor](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/plan-editor.md).
@@ -120,6 +127,10 @@ Local, fast, Rust + WebAssembly.</p>
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-people.png" alt="People in their rooms: the demo apartment in the neon look, Sam a glowing blue figure in the living room and Alex a pink one in the kitchen, each with their name above" width="100%">
+</p>
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-bluetooth.png" alt="Bluetooth locating: the settings over the demo apartment, three receivers and how each is placed, Alex's phone and keys followed in the kitchen, a watch heard that may be followed" width="100%">
 </p>
 
 <p align="center">

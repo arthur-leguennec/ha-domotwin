@@ -15,16 +15,15 @@ DomoTwin places a person from entities that already say which room they are in:
   proxies or Shelly devices), whose state is an area's name and which carry its `area_id`;
 - the room sensors of ESPresense (MQTT room);
 - any entity whose state is the name of an area (or one of its aliases) or of a room of the plan: a
-  template sensor, a helper.
+  template sensor, a helper;
+- DomoTwin's own [Bluetooth locating](bluetooth.md), from Home Assistant's Bluetooth receivers
+  without Bermuda: a phone or a watch followed for someone places them, without being listed here.
 
 A room is found by its area (the room's binding, else the area with its name: see
 [bindings](bindings.md)), then by its name. A name two rooms have (a bathroom on each storey) is
 not guessed. When several entities place a person, the one that changed last wins: a watch that just
 walked into the kitchen says more than a phone left on the desk since the morning. A person is
 placed only while Home Assistant says they are `home`.
-
-DomoTwin's own Bluetooth locating, from Home Assistant's Bluetooth receivers without Bermuda, is
-the next milestone (see the [roadmap](ROADMAP.md)).
 
 ## Setting it up
 

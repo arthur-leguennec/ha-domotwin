@@ -115,7 +115,11 @@ every reader returns `Result` with a stable error code that the frontend transla
    (`tracker.py`, D-034) and writes each one's room in their sensor. The view reads those sensors
    from `hass`, sends who is in which room to the engine (`setPeople`), which places the figures,
    walks them through the doors and draws them; their names go over the picture
-   (`peoplePoints`).
+   (`peoplePoints`). Where the rooms come from Bluetooth (D-035), the locator (`locator.py`) hears
+   the followed devices through Home Assistant's Bluetooth (`locating/radio_ha.py`) and, every two
+   seconds, weighs what each receiver heard against what the plan says it should hear in each room
+   and what was learned (`locating/geometry.py`, `radio.py`), along the doors
+   (`locating/filter.py`); each device's room is a sensor of its own, a source of its owner's.
 6. **Show.** The `domotwin.show` action (`services.py`, D-029), run by a script, an automation or
    the voice blueprint (`blueprints/automation/domotwin/show_by_voice.yaml`), is sent as it was
    asked to every open view through `domotwin/subscribe` (`{kind: "show", show}`). Each card (the
@@ -178,6 +182,28 @@ every reader returns `Result` with a stable error code that the frontend transla
 `shown` is `everyone` or `admins`, `look` `figure` or `pin`, `hidden` the people who hid
 themselves; each person's `sources` (10 at most) and optional `color`. See [`people.md`](people.md).
 
+`.storage/domotwin.locating` (D-035, its own store, version 1): where the Bluetooth receivers are
+and which devices are followed.
+
+```json
+{
+  "revision": 3,
+  "learn": true,
+  "receivers": { "BB:00:00:00:00:01": { "room": "bedroom" } },
+  "devices": {
+    "alex_phone": { "name": "Alex's phone", "kind": "phone", "person": "person.alex",
+                    "match": { "key": "<Private BLE Device entry id>" } },
+    "keys": { "name": "Keys", "kind": "thing", "match": { "address": "F1:00:00:00:00:01" } }
+  }
+}
+```
+
+A receiver is placed by a `room` or a `piece` (else from its device); a device is known by its
+`address`, a `key` (a Private BLE Device entry: the key itself is never stored) or a `beacon`
+(`uuid`, `major`, `minor`); 30 devices at most. `.storage/domotwin.locating_learned` keeps what
+was learned: `rooms` (`{room: {receiver: [weight, mean, m2]}}`) and each device's `offsets` (dB).
+See [`bluetooth.md`](bluetooth.md).
+
 The 3D files of user models are not in `.storage`: they are kept under their SHA-256 in
 `<config>/domotwin/models/<sha256>.<format>` (D-021), uploaded with `POST /api/domotwin/models?format=…`
 (administrators; answers `{hash, bytes, format}`) and read with
@@ -202,13 +228,19 @@ when the integration is removed.
 | `domotwin/upkeep/get`    | user   | –                                              | `upkeep`, `revision`, `today` (where the home is) |
 | `domotwin/upkeep/save`   | admin  | `pieces` (`{piece: card \| null}`, only those change), `lead_days?`, `expected_revision?` | `revision` |
 | `domotwin/upkeep/done`   | user   | `piece`, `task`                                | `revision`, `last_done`          |
-| `domotwin/people/get`    | user   | `candidates?` (administrators: the entities that may say where someone is) | `revision`, `shown`, `look`, `hidden`, `people` (`{person: {sources, color, sensor}}`; none for others when shown to administrators only), `candidates?` |
+| `domotwin/people/get`    | user   | `candidates?` (administrators: the entities that may say where someone is) | `revision`, `shown`, `look`, `hidden`, `people` (`{person: {sources, color, sensor, located}}`; none for others when shown to administrators only), `candidates?` |
 | `domotwin/people/save`   | admin  | `people`, `shown?`, `look?`, `expected_revision?` | `revision`                     |
 | `domotwin/people/hide`   | user   | `person` (oneself; administrators anyone), `hidden` | `revision`                   |
+| `domotwin/locating/get`  | admin  | –                                              | `revision`, `status`, `learn`, `receivers`, `devices` (with their `room`, `confidence`, `last_seen`, `left_behind`, `missing_key`), `learned`, `rooms` |
+| `domotwin/locating/save` | admin  | `receivers`, `devices`, `learn?`, `expected_revision?` | `revision`                 |
+| `domotwin/locating/candidates` | admin | –                                        | `candidates` (`[{match, name, rssi?}]`) |
+| `domotwin/locating/teach` | admin | `device`, `room`, `seconds?` (10–120, 30)     | `readings`, `receivers`          |
+| `domotwin/locating/forget` | admin | `room?` (every room without one)             | `forgotten`                      |
 | `domotwin/subscribe`     | user   | –                                              | events `{kind, revision}`, and `{kind: "show", show}` for `domotwin.show` |
 
 Errors: `not_loaded`, `invalid_plan`, `invalid_layout`, `invalid_bindings`, `invalid_settings`,
-`invalid_upkeep`, `unknown_task`, `invalid_people`, `unknown_person`, `too_large`,
+`invalid_upkeep`, `unknown_task`, `invalid_people`, `unknown_person`, `invalid_locating`,
+`unknown_device`, `unknown_room`, `no_bluetooth`, `too_large`,
 `too_many_models`, `revision_conflict`, `unknown_storey`, `invalid_storey`, `too_many_storeys`,
 `duplicate_id`, and Home Assistant's `unauthorized` for non-admin writes.
 
@@ -220,12 +252,17 @@ Errors: `not_loaded`, `invalid_plan`, `invalid_layout`, `invalid_bindings`, `inv
 - `sensor.domotwin_<person>_room` (D-034), one per person placed: their room's name, `not_home`,
   or unknown; `room_id`, `area_id`, `storey_id`, `storey`, `since`, `source` in attributes
   (`sensor.py`, `tracker.py`, `people.py`).
+- `sensor.domotwin_<device>_bluetooth` (D-035), one per device followed by Bluetooth: its room's
+  name, or unknown; `device_name`, `kind`, `person`, `left_behind`, `room_id`, `area_id`,
+  `storey_id`, `storey`, `since` in attributes (`sensor.py`, `locator.py`).
+- `binary_sensor.domotwin_<device>_left_behind` (D-035), one per device with an owner: on while it
+  is heard at home and its owner has been away two minutes (`binary_sensor.py`).
 
 ## Actions
 
 - `domotwin.show` (D-029): a room, an element, a storey, a view or a person's room, on the screens.
-- `domotwin.where` (D-034, with a response): where a person is, or everyone at home, and a
-  sentence to say in Home Assistant's language.
+- `domotwin.where` (D-034, with a response): where a person is, a device followed by Bluetooth
+  (D-035), or everyone at home, and a sentence to say in Home Assistant's language.
 
 ## Privacy
 
