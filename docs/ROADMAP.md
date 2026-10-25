@@ -29,7 +29,7 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M8b       | Two more looks: cartoon and clay                           | ✅     |
 | 0.1.0     | First release: all of the above, `domotwin.zip` for HACS   | ✅     |
 | M5b       | What cameras see, drawn on the floor behind the furniture  | ✅     |
-| M9g       | Private rooms: locked, or kept for some people             | ⏳     |
+| M9g       | Private rooms: locked, or kept for some people             | ✅     |
 | M11       | Imports: Sweet Home 3D, DXF, room scans                    | ⏳     |
 | M12       | Polish: design, fonts, accessibility, voice, README        | ⏳     |
 | M12b      | Size and speed: a pass that keeps the picture as it is     | ⏳     |
@@ -654,25 +654,36 @@ on the floor of its room instead (`DECISIONS.md`, D-038):
 ## M9g, private rooms
 
 Asked by the maintainer: a room whose view and controls can be locked, or kept for some people
-only.
+only (`DECISIONS.md`, D-039; [`privacy.md`](privacy.md)).
 
-- **Per room**, in the panel's settings (administrators):
-  - **open** to everyone, as now (the default);
-  - **locked** for everyone, always or while a Home Assistant entity is on (an automation can then
-    lock the bedrooms when guests come);
-  - **kept for some people**: the people chosen, through the Home Assistant user of their
-    `person`. A shared wall tablet's user is no one's, so the room stays locked there.
-- **For whoever may not see it**:
-  - the room is drawn closed: its walls up, a frosted cover with a lock over its floor, its name
-    only;
-  - no furniture, devices, badges, layers' values, camera views or people inside;
-  - taps and long presses do nothing, and its panel says it is private;
-  - walking does not go through its doors;
-  - the people's sheets and the voice answers say "in a private room".
-- **Administrators** still see it in the edit and plan modes, to change the home.
-- **The limit, said in the settings**: DomoTwin locks its own views and controls. Home Assistant
-  gives every user every entity in its other dashboards and its API (its permissions are by user,
-  not by entity), so this keeps a room private on a shared screen, not behind a security barrier.
+- ✅ **Per room**, in the panel's *Private rooms* (administrators):
+  - **open** to everyone, as before (the default);
+  - **private**, kept for the people chosen (none: for nobody), through the Home Assistant user
+    of their `person`. A shared wall tablet's user is no one's, so the room stays private there;
+  - **always, or while an entity is on** (an automation can then close the bedrooms when guests
+    come); an entity unavailable or unknown keeps it private.
+- ✅ **For whoever may not see it**:
+  - the room is drawn closed: a frosted, hatched cover over its floor, its name with a lock;
+    its walls follow the cut-away like the others', so the rooms behind it stay in sight;
+  - no furniture, lamps, devices, badges, layers' values, camera views or people inside; its
+    alerts still show (a smoke alarm matters more);
+  - taps do nothing, and a long press opens its panel, which says it is private;
+  - walking does not go through its doors, and people's figures go round it where they can;
+  - the people's sheets and the voice answers say "in a private room"; `domotwin.show` and
+    `domotwin.where` do not show it.
+- ✅ **Administrators** see it whole in the edit and plan modes and while linking, to change the
+  home.
+- ✅ **The limit, said in the settings**: DomoTwin closes its own views, controls and answers.
+  Home Assistant gives every user every entity in its other dashboards and its API (its
+  permissions are by user, not by entity), so this keeps a room private on a shared screen, not
+  behind a security barrier.
+- ✅ Tests: the scene without the room's pieces, lamps or way in, the walking floor closed, the
+  room's flag (Rust); the engine closing and opening a room, its camera's view gone (wasm); who
+  may see which room, the settings checked, the voice answers (pytest, vitest); the room closed,
+  its badges and people gone, taps, the panel, kept for the user viewing, the entity's switch,
+  the settings and edit mode (Playwright).
+
+![The demo apartment with the living room and the bedroom private: their floors frosted, empty](figures/screenshot-private.png)
 
 ## M11, imports
 

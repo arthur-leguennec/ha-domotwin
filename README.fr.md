@@ -85,6 +85,12 @@ Local, rapide, Rust + WebAssembly.</p>
   signalées ; « où sont mes clés ? » à la voix. Voir [la localisation
   Bluetooth](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/bluetooth.md) (en
   anglais).
+- **Pièces privées.** Réservez une chambre ou un bureau à certaines personnes, toujours ou tant
+  qu’un interrupteur « Invités » est allumé : les autres la voient fermée, son sol givré, rien ni
+  personne à l’intérieur, aucune commande, et les réponses vocales disent « dans une pièce
+  privée ». Voir [pièces
+  privées](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/privacy.md) (en
+  anglais).
 - **Éditeur de plan.** Pas de plan à importer ? Dessinez-le dans le panneau : des pièces en
   polygones avec leurs longueurs, des cloisons, des portes et des fenêtres posées sur les murs, avec
   aimantation et annulation. Voir [l’éditeur de

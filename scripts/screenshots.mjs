@@ -665,6 +665,82 @@ try {
   );
   console.log("docs/figures/screenshot-camera-view.png");
 
+  // Private rooms (D-039): the living room and the bedroom closed for the administrator viewing,
+  // and the panel's settings of the private rooms.
+  const privateShots = [];
+  for (const [label, dialog] of [
+    ["Closed for whoever may not see them", false],
+    ["Private rooms, in the panel", true],
+  ]) {
+    const page = await browser.newPage({ viewport: { width: 1100, height: 760 } });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.goto(
+      "http://127.0.0.1:4173/?mode=panel&live=1&people=1&private=living,bedroom&privatefor=person.sam",
+    );
+    await page.waitForFunction(() => window.__view?.()?.debugState().summary, null, {
+      timeout: 60_000,
+    });
+    await page.evaluate(async () => {
+      const element = window.__view();
+      element.options = { ...element.options, quality: "high", lighting: "day" };
+      await element.updateComplete;
+    });
+    await page.waitForFunction(
+      () => window.__view().debugState().stats.closedRooms?.length === 2,
+    );
+    if (dialog) {
+      await page.evaluate(() =>
+        window.__element.shadowRoot.querySelector('[data-testid="privacy-settings"]').click(),
+      );
+      await page.waitForFunction(() =>
+        window.__element.shadowRoot.querySelector("domotwin-private-rooms"),
+      );
+    }
+    await page.evaluate(() => {
+      window.__view().settle();
+      window.__view().requestFrame();
+    });
+    await page.waitForTimeout(600);
+    privateShots.push([label, (await page.screenshot()).toString("base64")]);
+    await page.close();
+  }
+  const privateImage = await layersPage.evaluate(async (shots) => {
+    const decoded = await Promise.all(
+      shots.map(async ([label, base64]) => {
+        const image = new Image();
+        image.src = `data:image/png;base64,${base64}`;
+        await image.decode();
+        return [label, image];
+      }),
+    );
+    const [w, h] = [decoded[0][1].width, decoded[0][1].height];
+    const canvas = document.createElement("canvas");
+    canvas.width = w * 2 + 30;
+    canvas.height = h + 76;
+    const g = canvas.getContext("2d");
+    g.fillStyle = "#f1f5f9";
+    g.fillRect(0, 0, canvas.width, canvas.height);
+    decoded.forEach(([label, image], i) => {
+      const x = 10 + i * (w + 10);
+      g.drawImage(image, x, 10);
+      g.font = "600 22px Inter, sans-serif";
+      const width = g.measureText(label).width + 40;
+      g.fillStyle = "rgba(255,255,255,0.92)";
+      g.beginPath();
+      // Under the picture: the dialog fills the second one.
+      g.roundRect(x + w / 2 - width / 2, 20 + h, width, 44, 22);
+      g.fill();
+      g.fillStyle = "#0f172a";
+      g.fillText(label, x + w / 2 - width / 2 + 20, 49 + h);
+    });
+    return canvas.toDataURL("image/png");
+  }, privateShots);
+  await fs.writeFile(
+    join(root, "docs", "figures", "screenshot-private.png"),
+    Buffer.from(privateImage.slice(privateImage.indexOf(",") + 1), "base64"),
+  );
+  console.log("docs/figures/screenshot-private.png");
+
   // The plan editor (M6): a corner of the living room dragged with its guides and lengths, and a
   // new room drawn beside the home.
   const planShots = [];
