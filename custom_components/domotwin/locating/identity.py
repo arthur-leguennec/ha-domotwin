@@ -10,11 +10,11 @@ from __future__ import annotations
 from collections import OrderedDict
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
-import hmac
 import re
 from typing import Final
 
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from bluetooth_data_tools import get_cipher_for_irk, resolve_private_address
+from cryptography.hazmat.primitives.ciphers import Cipher, modes
 
 APPLE: Final = 0x004C
 IBEACON: Final = b"\x02\x15"
@@ -33,14 +33,14 @@ def resolves(key: bytes, address: str) -> bool:
     """Whether a resolvable private address was made with an identity key.
 
     The address's lower half is the AES-128 of its upper half under the key (Bluetooth Core,
-    vol. 3, part H, 2.2.2: the `ah` function).
+    vol. 3, part H, 2.2.2: the `ah` function), checked by the helper Home Assistant's Private BLE
+    Device uses.
     """
-    if len(key) != 16 or not resolvable(address):
-        return False
-    raw = bytes.fromhex(address.replace(":", ""))
-    encryptor = Cipher(algorithms.AES(key), modes.ECB()).encryptor()  # noqa: S305
-    hashed = encryptor.update(b"\x00" * 13 + raw[:3]) + encryptor.finalize()
-    return hmac.compare_digest(hashed[13:], raw[3:])
+    return (
+        len(key) == 16
+        and resolvable(address)
+        and resolve_private_address(get_cipher_for_irk(key), address)
+    )
 
 
 @dataclass(frozen=True)
@@ -85,13 +85,14 @@ class Matcher:
     def __init__(self, matches: Iterable[Match]) -> None:
         """Index the followed devices."""
         self._by_address: dict[str, str] = {}
-        self._keys: list[tuple[bytes, str]] = []
+        # The keys' ciphers, made once.
+        self._keys: list[tuple[Cipher[modes.Mode], str]] = []
         self._beacons: dict[tuple[str, int, int], str] = {}
         for match in matches:
             if match.address is not None:
                 self._by_address[match.address.upper()] = match.device
-            if match.key is not None:
-                self._keys.append((match.key, match.device))
+            if match.key is not None and len(match.key) == 16:
+                self._keys.append((get_cipher_for_irk(match.key), match.device))
             if match.beacon is not None:
                 self._beacons[match.beacon] = match.device
         # Addresses already looked at (None: no followed device), the oldest forgotten first.
@@ -115,7 +116,14 @@ class Matcher:
             return self._seen[address]
         found = None
         if self._keys and resolvable(address):
-            found = next((device for key, device in self._keys if resolves(key, address)), None)
+            found = next(
+                (
+                    device
+                    for cipher, device in self._keys
+                    if resolve_private_address(cipher, address)
+                ),
+                None,
+            )
         self._seen[address] = found
         if len(self._seen) > REMEMBERED:
             self._seen.popitem(last=False)
