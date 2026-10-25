@@ -29,6 +29,7 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M8b       | Two more looks: cartoon and clay                           | ✅     |
 | 0.1.0     | First release: all of the above, `domotwin.zip` for HACS   | 🚧     |
 | M5b       | What cameras see, drawn on the floor behind the furniture  | ⏳     |
+| M9g       | Private rooms: locked, or kept for some people             | ⏳     |
 | M11       | Imports: Sweet Home 3D, DXF, room scans                    | ⏳     |
 | M12       | Polish: design, fonts, accessibility, voice, README        | ⏳     |
 | M12b      | Size and speed: a pass that keeps the picture as it is     | ⏳     |
@@ -39,9 +40,10 @@ with no account and no network call outside Home Assistant. M8 became the looks 
 storeys seen together their own milestone (M9), so that the picture comes first (D-027). M10b
 replaced the plan format DomoTwin started from with its own (D-030); M9b to M9f and M8b were asked
 for after M10, and come before the imports. The maintainer then moved the first release forward
-(D-037): 0.1.0 is everything done up to M8b. What cameras see drawn on the floor (M5b), the imports
-(M11), the polish (M12) and a pass over size and speed that keeps the picture as it is (M12b) come
-before a second release, 0.2.0, with the submission to HACS's default list (M13).
+(D-037): 0.1.0 is everything done up to M8b. What cameras see drawn on the floor (M5b), private
+rooms (M9g), the imports (M11), the polish (M12) and a pass over size and speed that keeps the
+picture as it is (M12b) come before a second release, 0.2.0, with the submission to HACS's default
+list (M13).
 
 ## M0, scaffold
 
@@ -633,6 +635,29 @@ Moved forward by the maintainer, right after M8b (D-037): every milestone above,
 Raised by the maintainer: the view of a camera (D-024) was a flat shape laid over the picture, over
 the sofa and the people, and read like a room's outline. The engine draws it on the floor of its
 room instead, hidden by the furniture and the people standing on it, fading out from the camera.
+
+## M9g, private rooms
+
+Asked by the maintainer: a room whose view and controls can be locked, or kept for some people
+only.
+
+- **Per room**, in the panel's settings (administrators):
+  - **open** to everyone, as now (the default);
+  - **locked** for everyone, always or while a Home Assistant entity is on (an automation can then
+    lock the bedrooms when guests come);
+  - **kept for some people**: the people chosen, through the Home Assistant user of their
+    `person`. A shared wall tablet's user is no one's, so the room stays locked there.
+- **For whoever may not see it**:
+  - the room is drawn closed: its walls up, a frosted cover with a lock over its floor, its name
+    only;
+  - no furniture, devices, badges, layers' values, camera views or people inside;
+  - taps and long presses do nothing, and its panel says it is private;
+  - walking does not go through its doors;
+  - the people's sheets and the voice answers say "in a private room".
+- **Administrators** still see it in the edit and plan modes, to change the home.
+- **The limit, said in the settings**: DomoTwin locks its own views and controls. Home Assistant
+  gives every user every entity in its other dashboards and its API (its permissions are by user,
+  not by entity), so this keeps a room private on a shared screen, not behind a security barrier.
 
 ## M11, imports
 
