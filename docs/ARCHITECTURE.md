@@ -87,7 +87,7 @@ every reader returns `Result` with a stable error code that the frontend transla
 ![The four flows: load the home, follow live states, tap and long-press, edit and save](figures/data-flow.png)
 
 1. **Load.** The panel or card calls `domotwin/plan/get` (the storey shown, the ground floor by
-   default), `domotwin/bindings/get` and `domotwin/settings/get`, then passes the
+   default), `domotwin/bindings/get`, `domotwin/settings/get` and `domotwin/upkeep/get`, then passes the
    plan, the overlay and the bindings to the engine (`load_plan`). With several storeys, the other
    storeys' plans are fetched too, for their rooms' alerts (D-026); a storey switch loads another
    plan in the same engine, and every storey at once loads them all (`loadStoreys`, D-028). The core reads the plan leniently,
@@ -134,7 +134,8 @@ every reader returns `Result` with a stable error code that the frontend transla
   ],
   "bindings": { "version": 1, "rooms": {}, "elements": {} },
   "settings": {},
-  "revisions": { "plan": 2, "bindings": 3, "settings": 0 },
+  "upkeep": { "version": 1, "lead_days": 14, "pieces": {} },
+  "revisions": { "plan": 2, "bindings": 3, "settings": 0, "upkeep": 0 },
   "retired": []
 }
 ```
@@ -149,8 +150,10 @@ every reader returns `Result` with a stable error code that the frontend transla
 - `bindings`: see [`bindings.md`](bindings.md).
 - `settings`: the home's settings, `{"north": <degrees>}`: where north points on the plan,
   clockwise from its top, for the real sun (D-023).
+- `upkeep` (D-033, storage 4.1): the upkeep cards by piece id, and how many days before it a task
+  is due soon; see [`upkeep.md`](upkeep.md). Kept apart from the plan, like the bindings.
 - `revision`: bumped on every write. `revisions` keeps the revision of the last write of each kind
-  (`plan` for the plan and the overlay, `bindings`, `settings`): the `get` commands return it and a
+  (`plan` for the plan and the overlay, `bindings`, `settings`, `upkeep`): the `get` commands return it and a
   save with `expected_revision` is checked against it, so that saving the bindings or the settings
   does not refuse an edit of the plan started before (optimistic concurrency between devices).
 
@@ -175,12 +178,21 @@ when the integration is removed.
 | `domotwin/bindings/save` | admin  | `bindings`, `expected_revision?`               | `revision`                       |
 | `domotwin/settings/get`  | user   | –                                              | `settings`, `revision`           |
 | `domotwin/settings/save` | admin  | `settings` (`north`, 0 ≤ n < 360)              | `revision`                       |
+| `domotwin/upkeep/get`    | user   | –                                              | `upkeep`, `revision`, `today` (where the home is) |
+| `domotwin/upkeep/save`   | admin  | `pieces` (`{piece: card \| null}`, only those change), `lead_days?`, `expected_revision?` | `revision` |
+| `domotwin/upkeep/done`   | user   | `piece`, `task`                                | `revision`, `last_done`          |
 | `domotwin/subscribe`     | user   | –                                              | events `{kind, revision}`, and `{kind: "show", show}` for `domotwin.show` |
 
 Errors: `not_loaded`, `invalid_plan`, `invalid_layout`, `invalid_bindings`, `invalid_settings`,
-`too_large`,
+`invalid_upkeep`, `unknown_task`, `too_large`,
 `too_many_models`, `revision_conflict`, `unknown_storey`, `invalid_storey`, `too_many_storeys`,
 `duplicate_id`, and Home Assistant's `unauthorized` for non-admin writes.
+
+## Entities
+
+One only: `sensor.domotwin_upkeep_due` (D-033), the number of upkeep tasks due soon or overdue,
+the tasks in its `tasks` attribute, worked out again when the cards or the plans change and every
+midnight where the home is (`sensor.py`, `upkeep.py`).
 
 ## Privacy
 

@@ -18,8 +18,8 @@ Local, rapide, Rust + WebAssembly.</p>
 > L’intégration, le panneau, la carte, l’import du plan et de l’IFC, les vues 3D et 2D, le
 > pilotage en direct (états, toucher, appui long, panneau de pièce, liaisons), le mode édition, vos
 > propres modèles 3D, les calques, les appareils, l’éditeur de plan, les étages, les apparences,
-> tous les étages à la fois, la promenade, le kiosque, la carte du réseau et les fils des
-> automatisations fonctionnent déjà ; d’autres imports arrivent ensuite. Les fonctionnalités ci-dessous décrivent la version 0.1.0.
+> tous les étages à la fois, la promenade, le kiosque, la carte du réseau, les fils des
+> automatisations et les fiches d’entretien fonctionnent déjà ; d’autres imports arrivent ensuite. Les fonctionnalités ci-dessous décrivent la version 0.1.0.
 
 ## Fonctionnalités
 
@@ -59,6 +59,14 @@ Local, rapide, Rust + WebAssembly.</p>
   lance. Ou toutes les automatisations du logement à la fois. Voir [les fils des
   automatisations](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/automations.md)
   (en anglais).
+- **Fiches d’entretien.** Chaque appareil et chaque meuble peut porter sa marque, son modèle, son
+  numéro de série, sa garantie, sa notice et les tâches qui reviennent (changer le filtre tous les
+  3 mois). Un badge en forme de clé montre ce qui est à faire, le calque Entretien colore les
+  meubles en vert, orange ou rouge, et une liste par date a un bouton **Fait** pour tout le monde.
+  Un fichier IFC remplit les fiches ; un seul capteur, `sensor.domotwin_upkeep_due`, sert à vos
+  notifications. Voir [les fiches
+  d’entretien](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/upkeep.md) (en
+  anglais).
 - **Éditeur de plan.** Pas de plan à importer ? Dessinez-le dans le panneau : des pièces en
   polygones avec leurs longueurs, des cloisons, des portes et des fenêtres posées sur les murs, avec
   aimantation et annulation. Voir [l’éditeur de
@@ -117,6 +125,10 @@ Local, rapide, Rust + WebAssembly.</p>
 </p>
 
 <p align="center">
+  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-upkeep.png" alt="Le calque Entretien : le lave-linge de l’appartement de démonstration en rouge car son filtre est en retard, le réfrigérateur en orange car ses grilles sont bientôt à nettoyer, le ventilateur et la plaque en vert, à côté de la liste des tâches par date avec leurs boutons Fait" width="100%">
+</p>
+
+<p align="center">
   <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-plan-editor.png" alt="L’éditeur de plan : un coin du séjour déplacé avec les longueurs de ses côtés, et une pièce dessinée à côté du logement" width="100%">
 </p>
 
@@ -170,7 +182,7 @@ YAML n’est jamais nécessaire. Pour référence, les options de la carte :
 | `spread`      | `true`, `false`                     | `true`     | Tous les étages à la fois : écartés, ou empilés. |
 | `roof`        | `true`, `false`                     | `true`     | Tous les étages à la fois : le toit sur le dernier. |
 | `room`        | un identifiant de pièce du plan     | aucun      | Pièce à cadrer à l’ouverture de la carte.     |
-| `layer`       | `off`, `temperature`, `humidity`, `co2`, `pm25`, `power`, `network`, `automations` | `off` | Calque affiché à l’ouverture ; le menu des calques le change. `network` ne s’affiche qu’aux administrateurs, avec ZHA ; `automations` aux administrateurs. |
+| `layer`       | `off`, `temperature`, `humidity`, `co2`, `pm25`, `power`, `network`, `automations`, `upkeep` | `off` | Calque affiché à l’ouverture ; le menu des calques le change. `network` ne s’affiche qu’aux administrateurs, avec ZHA ; `automations` aux administrateurs. |
 | `alerts`      | `true`, `false`                     | `true`     | Alertes de sécurité des pièces (fumée, gaz, eau, alarme, fenêtre ouverte sous la pluie). |
 | `presence`    | `true`, `false`                     | `true`     | Les pièces occupées s’illuminent doucement.   |
 | `sun`         | `fixed`, `real`                     | `fixed`    | `real` : le soleil éclaire depuis sa vraie position (`sun.sun`), par les fenêtres. |

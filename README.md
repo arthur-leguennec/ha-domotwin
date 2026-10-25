@@ -18,7 +18,7 @@ Local, fast, Rust + WebAssembly.</p>
 > integration, the panel, the card, the plan and IFC import, the 3D and 2D views, live control
 > (states, tap, long press, room panel, linking), the edit mode, your own 3D models, the layers, the
 > devices, the plan editor, storeys, the looks, every storey at once, walking, the kiosk, the
-> network map and the automation wires work today; more imports come next. The features below describe version 0.1.0.
+> network map, the automation wires and the upkeep cards work today; more imports come next. The features below describe version 0.1.0.
 
 ## Features
 
@@ -52,6 +52,12 @@ Local, fast, Rust + WebAssembly.</p>
   on, and watch a pulse run along them when one runs. Or every automation of the home at once.
   See [automation
   wires](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/automations.md).
+- **Upkeep cards.** Every appliance and piece of furniture can carry its make, model, serial
+  number, warranty, manual and the tasks that come back (change the filter every 3 months). A
+  wrench badge shows what is due, the upkeep layer tints the pieces green, amber or red, and a
+  list by date has a **Done** button for everyone. An IFC file fills the cards; one sensor,
+  `sensor.domotwin_upkeep_due`, is there for your notifications. See [upkeep
+  cards](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/upkeep.md).
 - **Plan editor.** No plan to import? Draw one in the panel: rooms as polygons with their lengths,
   partitions, doors and windows placed on the walls, with snapping and undo. See [plan
   editor](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/plan-editor.md).
@@ -106,6 +112,10 @@ Local, fast, Rust + WebAssembly.</p>
 </p>
 
 <p align="center">
+  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-upkeep.png" alt="The upkeep layer: the washing machine of the demo apartment in red as its filter is late, the fridge in amber as its coils are due soon, the fan and the hob in green, beside the list of tasks by date with Done buttons" width="100%">
+</p>
+
+<p align="center">
   <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-plan-editor.png" alt="The plan editor: a corner of the living room dragged with the lengths of its sides, and a room drawn beside the home" width="100%">
 </p>
 
@@ -156,7 +166,7 @@ YAML is never required. For reference, the card options are:
 | `spread`      | `true`, `false`                     | `true`     | Every storey at once: spread apart, or stacked. |
 | `roof`        | `true`, `false`                     | `true`     | Every storey at once: the roof over the top one. |
 | `room`        | a room id of the plan               | none       | Room to focus on when the card opens.     |
-| `layer`       | `off`, `temperature`, `humidity`, `co2`, `pm25`, `power`, `network`, `automations` | `off` | Layer shown when the card opens; the layer menu changes it. `network` shows to administrators with ZHA only, `automations` to administrators. |
+| `layer`       | `off`, `temperature`, `humidity`, `co2`, `pm25`, `power`, `network`, `automations`, `upkeep` | `off` | Layer shown when the card opens; the layer menu changes it. `network` shows to administrators with ZHA only, `automations` to administrators. |
 | `alerts`      | `true`, `false`                     | `true`     | Safety alerts of the rooms (smoke, gas, water, alarm, a window open in the rain). |
 | `presence`    | `true`, `false`                     | `true`     | The rooms someone is in glow softly.      |
 | `sun`         | `fixed`, `real`                     | `fixed`    | `real`: the sun lights from where it is (`sun.sun`), through the windows. |
