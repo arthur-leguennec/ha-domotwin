@@ -16,6 +16,8 @@ mod engine;
 #[cfg(target_arch = "wasm32")]
 mod network;
 #[cfg(target_arch = "wasm32")]
+mod people;
+#[cfg(target_arch = "wasm32")]
 mod plan_editor;
 #[cfg(target_arch = "wasm32")]
 mod upkeep;

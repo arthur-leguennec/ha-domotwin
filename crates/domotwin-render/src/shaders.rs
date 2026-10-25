@@ -914,3 +914,88 @@ void main() {
     frag = vec4(scene + bloom * (1.0 - scene * 0.5), 1.0);
 }
 ";
+
+/// A person's figure, pin or shadow (D-034): the shape moved to where the person stands, turned
+/// the way they face.
+pub(crate) const FIGURE_VERTEX: &str = r"
+uniform mat4 u_view_proj;
+// Where the feet are (world cm) and which way the person faces (radians on the floor).
+uniform vec4 u_place;
+uniform float u_scale;
+
+in vec3 a_position;
+in vec3 a_normal;
+
+out vec3 v_world;
+out vec3 v_normal;
+out float v_rim;
+
+void main() {
+    float c = cos(u_place.w);
+    float s = sin(u_place.w);
+    vec3 p = a_position * u_scale;
+    v_world = u_place.xyz + vec3(p.x * c - p.z * s, p.y, p.x * s + p.z * c);
+    v_normal = vec3(a_normal.x * c - a_normal.z * s, a_normal.y, a_normal.x * s + a_normal.z * c);
+    v_rim = length(a_position.xz);
+    gl_Position = u_view_proj * vec4(v_world, 1.0);
+}
+";
+
+/// A person in their colour: lit by the sky and the sun, a rim of light around them, glowing in
+/// the looks that glow. Fading in or out, it dissolves (the depth stays right). Their shadow is
+/// a soft dark disc.
+pub(crate) const FIGURE_FRAGMENT: &str = r"
+// Linear colour, and how much the person shows.
+uniform vec4 u_color;
+uniform vec3 u_eye;
+uniform vec3 u_sun;
+uniform vec3 u_sun_color;
+uniform vec3 u_sky;
+uniform vec3 u_ground;
+uniform float u_exposure;
+uniform float u_glow;
+uniform float u_glow_alpha;
+uniform float u_flat;
+uniform float u_shadow_pass;
+
+in vec3 v_world;
+in vec3 v_normal;
+in float v_rim;
+
+out vec4 frag;
+
+vec3 aces(vec3 x) {
+    return clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14), 0.0, 1.0);
+}
+
+// An ordered threshold per pixel (a 4 × 4 Bayer matrix), to dissolve.
+float bayer(vec2 p) {
+    ivec2 q = ivec2(mod(p, 4.0));
+    int k = q.x + q.y * 4;
+    int m[16] = int[16](0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5);
+    return (float(m[k]) + 0.5) / 16.0;
+}
+
+void main() {
+    if (u_shadow_pass > 0.5) {
+        float a = (1.0 - smoothstep(0.15, 1.0, v_rim)) * 0.32 * u_color.a * (1.0 - u_flat);
+        frag = vec4(0.0, 0.0, 0.0, a);
+        return;
+    }
+    if (u_color.a < 0.999 && bayer(gl_FragCoord.xy) >= u_color.a) {
+        discard;
+    }
+    vec3 n = normalize(v_normal);
+    vec3 view = normalize(u_eye - v_world);
+    float facing = max(dot(n, view), 0.0);
+    float rim = pow(1.0 - facing, 2.2);
+    vec3 base = u_color.rgb;
+    vec3 ambient = mix(u_ground, u_sky, n.y * 0.5 + 0.5);
+    float sun = max(dot(n, u_sun), 0.0);
+    vec3 lit = base * (ambient * 0.85 + u_sun_color * sun * 0.75) + (base * 0.5 + 0.12) * rim;
+    lit = mix(lit, base * 1.4 + rim * base * 2.5, u_glow * 0.6);
+    vec3 shaded = mix(aces(lit * u_exposure), base, u_flat);
+    float a = u_glow_alpha > 0.5 ? clamp(u_glow * (0.25 + rim), 0.0, 1.0) : 1.0;
+    frag = vec4(pow(shaded, vec3(1.0 / 2.2)), a);
+}
+";

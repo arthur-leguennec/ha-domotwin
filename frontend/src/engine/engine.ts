@@ -419,6 +419,19 @@ export class DomoTwinEngine {
     this.live.setUpkeepLayer(shown);
   }
 
+  /**
+   * The people to draw in their rooms (D-034): JSON `[{"id", "room", "color", "look"}]`. A figure
+   * new to the home fades in, one whose room changed walks there, one gone fades out.
+   */
+  setPeople(json: string): void {
+    this.live.setPeople(json);
+  }
+
+  /** Where the people's names go: JSON `[{"id", "x", "y", "opacity"}]` in device pixels. */
+  peoplePoints(): string {
+    return this.live.peoplePoints();
+  }
+
   /** Lets the layers move, or holds them still (reduced motion). */
   setMotion(motion: boolean): void {
     this.live.setMotion(motion);

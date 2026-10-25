@@ -11,6 +11,7 @@
 //! partition its own): the renderer cuts away the groups facing the camera by lowering them to
 //! [`CUT_HEIGHT`](crate::geometry::heights::CUT_HEIGHT), in the vertex shader.
 
+pub mod figures;
 pub mod lines;
 pub mod mesh;
 pub mod wires;
@@ -606,6 +607,15 @@ impl Scene {
             )),
             _ => None,
         }
+    }
+
+    /// Where a walker can go on each storey of the scene (by index), `plan` being the plan of a
+    /// scene of one storey: where people stand and walk (D-034).
+    pub fn walk_floors(&self, plan: &Plan) -> Vec<crate::walk::Floor> {
+        self.parts
+            .iter()
+            .map(|part| crate::walk::Floor::new(part.plan.as_ref().unwrap_or(plan), &part.layout))
+            .collect()
     }
 
     /// Frees the meshes once they are on the GPU (what rebuilding the moving parts needs stays).

@@ -20,6 +20,8 @@ from .const import (
     MAX_MODEL_BYTES,
     MAX_MODELS,
     MAX_MODELS_BYTES,
+    MAX_PEOPLE,
+    MAX_PERSON_SOURCES,
     MAX_PLAN_BYTES,
     MAX_STOREY_NAME,
     MAX_STOREYS,
@@ -33,9 +35,12 @@ from .const import (
     MIN_ELEVATION,
     MODEL_ENTRY_PREFIX,
     MODEL_FORMATS,
+    PEOPLE_LOOKS,
+    PEOPLE_SHOWN,
     PLAN_FORMAT,
     PLAN_LISTS,
 )
+from .people import valid_color
 from .upkeep import parse_date
 
 MODEL_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{0,63}")
@@ -442,4 +447,42 @@ def validate_upkeep_change(
     if current is not None:
         merged = {key: card for key, card in {**current, **checked}.items() if card}
         _check_size(merged, MAX_UPKEEP_BYTES, "the upkeep cards")
+    return checked
+
+
+def validate_people(people: Any, shown: Any = None, look: Any = None) -> dict[str, Any]:
+    """Check who is placed from what (D-034), and `shown` and `look` when given.
+
+    `{person entity id: {"sources": [entity ids], "color"?: "#rrggbb"}}`, at most 50 people of 10
+    sources each.
+    """
+    if not isinstance(people, dict) or len(people) > MAX_PEOPLE:
+        raise InvalidPayloadError("invalid_people", f"at most {MAX_PEOPLE} people")
+    checked: dict[str, Any] = {}
+    for person, settings in people.items():
+        if not isinstance(person, str) or not person.startswith("person."):
+            raise InvalidPayloadError("invalid_people", f"`{person}` is not a person")
+        if not valid_entity_id(person):
+            raise InvalidPayloadError("invalid_people", f"`{person}` is not a person")
+        if not isinstance(settings, dict) or set(settings) - {"sources", "color"}:
+            raise InvalidPayloadError("invalid_people", "a person has `sources` and a `color`")
+        sources = settings.get("sources", [])
+        if (
+            not isinstance(sources, list)
+            or len(sources) > MAX_PERSON_SOURCES
+            or not all(isinstance(e, str) and valid_entity_id(e) for e in sources)
+        ):
+            raise InvalidPayloadError(
+                "invalid_people", f"a person has at most {MAX_PERSON_SOURCES} entities as sources"
+            )
+        entry: dict[str, Any] = {"sources": list(dict.fromkeys(sources))}
+        if "color" in settings and settings["color"] is not None:
+            if not valid_color(settings["color"]):
+                raise InvalidPayloadError("invalid_people", "`color` must be a colour #rrggbb")
+            entry["color"] = settings["color"].lower()
+        checked[person] = entry
+    if shown is not None and shown not in PEOPLE_SHOWN:
+        raise InvalidPayloadError("invalid_people", f"`shown` must be one of {PEOPLE_SHOWN}")
+    if look is not None and look not in PEOPLE_LOOKS:
+        raise InvalidPayloadError("invalid_people", f"`look` must be one of {PEOPLE_LOOKS}")
     return checked

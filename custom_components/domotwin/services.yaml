@@ -22,6 +22,27 @@ show:
             - 3d
             - 2d
             - walk
+    person:
+      example: person.alex
+      selector:
+        entity:
+          domain: person
+    screen:
+      example: hallway
+      selector:
+        text:
+where:
+  response:
+    optional: false
+  fields:
+    name:
+      example: Alex
+      selector:
+        text:
+    show:
+      default: false
+      selector:
+        boolean:
     screen:
       example: hallway
       selector:

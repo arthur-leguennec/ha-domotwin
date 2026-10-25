@@ -13,6 +13,7 @@ import {
   roomsElsewhere,
   type StoreyRooms,
 } from "../live/storeys";
+import type { PeopleSettings } from "../live/people";
 import type { Upkeep } from "../live/upkeep";
 import { translatorFor } from "../i18n";
 import { baseStyles } from "./styles";
@@ -30,6 +31,7 @@ export class DomoTwinCard extends LitElement {
     bindings: { state: true },
     settings: { state: true },
     upkeep: { state: true },
+    people: { state: true },
     storeys: { state: true },
     storey: { state: true },
     elsewhere: { state: true },
@@ -45,6 +47,8 @@ export class DomoTwinCard extends LitElement {
   protected settings?: Settings;
   /** The upkeep cards (D-033). */
   protected upkeep?: Upkeep;
+  /** The people placed in their rooms (D-034). */
+  protected people?: PeopleSettings;
   /** The storeys, and the one shown (chosen in the view, else the card's `storey`). */
   protected storeys: StoreyInfo[] = [];
   protected storey?: string;
@@ -129,12 +133,23 @@ export class DomoTwinCard extends LitElement {
       else if (event.kind === "plan") void this.loadPlan(client);
       else if (event.kind === "bindings") void this.loadBindings(client);
       else if (event.kind === "upkeep") void this.loadUpkeep(client);
+      else if (event.kind === "people") void this.loadPeople(client);
       else void this.loadSettings(client);
     });
     void this.loadPlan(client);
     void this.loadBindings(client);
     void this.loadSettings(client);
     void this.loadUpkeep(client);
+    void this.loadPeople(client);
+  }
+
+  /** Without people's settings (an integration older than D-034 too) nobody is drawn. */
+  private async loadPeople(client: DomoTwinClient): Promise<void> {
+    try {
+      this.people = await client.getPeople();
+    } catch {
+      this.people = undefined;
+    }
   }
 
   /** Without upkeep cards (an integration older than D-033 too) nothing is due. */
@@ -277,6 +292,7 @@ export class DomoTwinCard extends LitElement {
         layer: config.layer,
         alerts: config.alerts,
         presence: config.presence,
+        people: config.people,
         sun: config.sun,
         badges: config.badges,
         cameras: config.cameras,
@@ -333,6 +349,7 @@ export class DomoTwinCard extends LitElement {
         .home=${this.home}
         .bindings=${this.bindings}
         .upkeep=${this.upkeep}
+        .people=${this.people}
         .planError=${this.planError}
         .options=${this.viewOptions()}
         .north=${this.settings?.north ?? 0}

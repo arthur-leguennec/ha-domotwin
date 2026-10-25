@@ -46,6 +46,28 @@
           "name": "View",
           "description": "overview, 3d, 2d, walk (at eye level, to the room given), or the name of a saved viewpoint."
         },
+        "person": {
+          "name": "Person",
+          "description": "A person DomoTwin places (person.…): their room is shown, if they are at home in a room known."
+        },
+        "screen": {
+          "name": "Screen",
+          "description": "The screen to show it on: a card's screen option. Empty for every screen."
+        }
+      }
+    },
+    "where": {
+      "name": "Where",
+      "description": "Where a person is, or everyone at home: their room, and a sentence to answer with (in Home Assistant's language).",
+      "fields": {
+        "name": {
+          "name": "Name",
+          "description": "A person's name, as said (a first name is enough, a letter off is forgiven). Empty for everyone at home."
+        },
+        "show": {
+          "name": "Show",
+          "description": "Also show the person's room on the DomoTwin screens."
+        },
         "screen": {
           "name": "Screen",
           "description": "The screen to show it on: a card's screen option. Empty for every screen."
@@ -63,6 +85,35 @@
           },
           "more": {
             "name": "More"
+          }
+        }
+      },
+      "person_room": {
+        "name": "{person} room",
+        "state": {
+          "not_home": "Away"
+        },
+        "state_attributes": {
+          "person": {
+            "name": "Person"
+          },
+          "room_id": {
+            "name": "Room id"
+          },
+          "area_id": {
+            "name": "Area"
+          },
+          "storey_id": {
+            "name": "Storey id"
+          },
+          "storey": {
+            "name": "Storey"
+          },
+          "since": {
+            "name": "Since"
+          },
+          "source": {
+            "name": "Source"
           }
         }
       }

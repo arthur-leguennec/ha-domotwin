@@ -19,6 +19,7 @@ pub mod live;
 pub mod model_mesh;
 pub mod network;
 pub mod overlay;
+pub mod people;
 pub mod plan;
 pub mod scene;
 pub mod structure;

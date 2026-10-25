@@ -464,3 +464,51 @@ test("frame time with the upkeep layer, and 1 000 cards", async ({ page }, testI
   console.log(JSON.stringify(report));
   expect(layer.frames).toBe(20);
 });
+
+test("frame time with ten people walking", async ({ page }, testInfo) => {
+  test.setTimeout(240_000);
+  await openHarness(page, { theme: "day", lighting: "evening", live: true });
+  await expect(page.getByTestId("summary")).toBeVisible();
+  await page.evaluate(() => {
+    const view = (
+      window as never as { __view: () => { options: Record<string, unknown> } }
+    ).__view();
+    view.options = { ...view.options, quality: "high" };
+  });
+  await expect.poll(async () => (await viewState(page)).quality).toBe("high");
+  await settle(page);
+  const benchmark = () =>
+    page.evaluate(() =>
+      (window as never as { __view: () => BenchmarkView }).__view().benchmark(20),
+    );
+  /** Ten made-up people, spread over the demo apartment's rooms, `shift` rooms along. */
+  const people = (shift: number) =>
+    page.evaluate((shift) => {
+      const rooms = ["living", "kitchen", "bathroom", "hall", "bedroom"];
+      const view = (
+        window as never as { __view: () => { engine: { setPeople(json: string): void } } }
+      ).__view();
+      view.engine.setPeople(
+        JSON.stringify(
+          Array.from({ length: 10 }, (_, i) => ({
+            id: `person.p${i}`,
+            room: rooms[(i + shift) % rooms.length],
+            color: "#2f9fd8",
+          })),
+        ),
+      );
+    }, shift);
+  const without = await benchmark();
+  await people(0);
+  await settle(page);
+  const standing = await benchmark();
+  // Each one walks to another room: frames while they walk.
+  await people(2);
+  const walking = await benchmark();
+  const report = { without, standing, walking };
+  const path = testInfo.outputPath("people-frame-time.json");
+  await writeFile(path, JSON.stringify(report, null, 2));
+  await testInfo.attach("people-frame-time", { path, contentType: "application/json" });
+  console.log(JSON.stringify(report));
+  expect(walking.frames).toBe(20);
+});

@@ -1,19 +1,25 @@
 /**
  * The panels the view opens over the scene: the controls of an element (long press), a piece's own
- * sheet (a piece linked to nothing, for its upkeep card, D-033) and the panel of a room (its
- * lights, scenes, covers, climate and media from its Home Assistant area). Loaded on demand, the
- * first time one opens, so the module every page loads stays small.
+ * sheet (a piece linked to nothing, for its upkeep card, D-033), the panel of a room (its lights,
+ * scenes, covers, climate and media from its Home Assistant area, and who is there, D-034) and a
+ * person's sheet. Loaded on demand, the first time one opens, so the module every page loads stays
+ * small.
  */
-import { mdiDoorOpen, mdiInformationOutline, mdiLightbulbOff } from "@mdi/js";
-import { html, nothing, type TemplateResult } from "lit";
+import { mdiDoorOpen, mdiEyeOffOutline, mdiInformationOutline, mdiLightbulbOff } from "@mdi/js";
+import { css, html, nothing, type TemplateResult } from "lit";
 
-import { areaEntities } from "../live/bindings";
+import { DomoTwinClient } from "../ha/client";
+import { isHassError } from "../ha/types";
+import { areaEntities, entityName } from "../live/bindings";
+import type { Translator } from "../i18n";
+import type { PersonShown } from "../live/people";
 import { define, fire } from "./define";
 import { entityRow, rowStyles } from "./entity-rows";
 import { icon } from "./icon";
 import type { CardStanding, Upkeep } from "../live/upkeep";
 import "./automation-section";
 import "./upkeep-section";
+import { avatar, avatarStyles } from "./person-avatar";
 import { Sheet, sheetStyles } from "./sheet";
 import { baseStyles } from "./styles";
 
@@ -142,26 +148,87 @@ const GROUPS: readonly {
   { key: "switches", domains: ["switch", "fan", "input_boolean", "lock"] },
 ];
 
-/** `<domotwin-room>`: the room panel, from the room's Home Assistant area. */
+const peopleStyles = css`
+  .people {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 4px 0 8px;
+  }
+  .people button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 36px;
+    padding: 2px 10px 2px 4px;
+    border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.15));
+    border-radius: 18px;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+  }
+  .person {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 4px 0 8px;
+  }
+  .person p {
+    margin: 2px 0;
+  }
+  .person small {
+    color: var(--secondary-text-color, #5f6368);
+  }
+  p.error {
+    color: var(--error-color, #d23a2f);
+  }
+`;
+
+/** Who is in a room (D-034): a chip each, a tap opens their sheet. */
+function peopleHere(sheet: DomoTwinRoom, t: Translator): TemplateResult | typeof nothing {
+  if (sheet.people.length === 0) return nothing;
+  return html`<h3>${t.t("people.here")}</h3>
+    <div class="people" data-testid="room-people">
+      ${sheet.people.map(
+        (person) =>
+          html`<button
+            data-person=${person.id}
+            @click=${() => {
+              fire(sheet, "domotwin-open-person", person.id);
+            }}
+          >
+            ${avatar(person)}${person.name}
+          </button>`,
+      )}
+    </div>`;
+}
+
+/** `<domotwin-room>`: the room panel, from the room's Home Assistant area, and who is there. */
 export class DomoTwinRoom extends Sheet {
   static override properties = {
     ...Sheet.properties,
     area: { attribute: false },
     admin: { attribute: false },
+    people: { attribute: false },
   };
-  static override styles = [baseStyles, rowStyles, sheetStyles];
+  static override styles = [baseStyles, rowStyles, sheetStyles, avatarStyles, peopleStyles];
 
   area?: string;
   admin = false;
+  /** Who is in the room now (D-034). */
+  people: PersonShown[] = [];
 
   protected override render(): TemplateResult | typeof nothing {
     const hass = this.hass;
     if (!hass) return nothing;
     const t = this.t;
     const area = this.area;
+    const here = peopleHere(this, t);
     if (!area) {
       return this.frame(
-        html`<p class="empty">${t.t("room.no_area")}</p>
+        html`${here}
+          <p class="empty">${t.t("room.no_area")}</p>
           ${this.admin ? html`<p class="empty">${t.t("room.no_area_admin")}</p>` : nothing}`,
       );
     }
@@ -176,13 +243,14 @@ export class DomoTwinRoom extends Sheet {
     ></domotwin-automations>`;
     if (groups.length === 0) {
       return this.frame(
-        html`<p class="empty">${t.t("room.empty")}</p>
+        html`${here}
+          <p class="empty">${t.t("room.empty")}</p>
           ${automations}`,
       );
     }
     const anyOn = ids.some((id) => id.startsWith("light.") && hass.states[id]?.state === "on");
     return this.frame(
-      html`${groups.map(
+      html`${here}${groups.map(
         (group) =>
           html`<h3>${t.t(`room.${group.key}`)}</h3>
             ${group.ids.map((id) => entityRow(hass, t, id, false))}`,
@@ -205,6 +273,110 @@ export class DomoTwinRoom extends Sheet {
   }
 }
 
+/**
+ * `<domotwin-person>`: a person (D-034): the room they are in and since when, what said so, a
+ * button to the room's panel; to hide themselves from the views (an administrator anyone).
+ */
+export class DomoTwinPerson extends Sheet {
+  static override properties = {
+    ...Sheet.properties,
+    person: { attribute: false },
+    busy: { state: true },
+    error: { state: true },
+  };
+  static override styles = [baseStyles, sheetStyles, avatarStyles, peopleStyles];
+
+  person?: PersonShown;
+  protected busy = false;
+  protected error?: string;
+
+  private async hide(hidden: boolean): Promise<void> {
+    const hass = this.hass;
+    const person = this.person;
+    if (!hass || !person) return;
+    this.busy = true;
+    this.error = undefined;
+    try {
+      await DomoTwinClient.for(hass).hidePerson(person.id, hidden);
+      if (hidden) this.close();
+    } catch (error) {
+      this.error = this.t.t(
+        isHassError(error) && error.code === "unauthorized"
+          ? "people.hide_refused"
+          : "people.hide_error",
+      );
+    } finally {
+      this.busy = false;
+    }
+  }
+
+  protected override render(): TemplateResult | typeof nothing {
+    const hass = this.hass;
+    const person = this.person;
+    if (!hass || !person) return nothing;
+    const t = this.t;
+    let where: string;
+    if (!person.home) where = t.t("people.away");
+    else if (person.roomName) where = t.t("people.in_room", { room: person.roomName });
+    else where = t.t("people.somewhere");
+    const since = person.since ? new Date(person.since) : undefined;
+    const sinceText =
+      since && !Number.isNaN(since.getTime())
+        ? t.t("people.since", {
+            time: new Intl.DateTimeFormat(t.language, {
+              ...(Date.now() - since.getTime() > 86_400_000 ? { dateStyle: "short" } : {}),
+              timeStyle: "short",
+              timeZone: hass.config?.time_zone,
+            }).format(since),
+          })
+        : undefined;
+    const sourceName = person.source ? entityName(hass, person.source) : undefined;
+    const admin = hass.user?.is_admin === true;
+    const canHide = person.self || admin;
+    return this.frame(
+      html`<div class="person" data-testid="person-where">
+          ${avatar(person, true)}
+          <div>
+            <p>${where}</p>
+            ${sinceText ? html`<small>${sinceText}</small>` : nothing}
+            ${sourceName ? html`<p><small>${t.t("people.told_by", { source: sourceName })}</small></p>` : nothing}
+          </div>
+        </div>
+        ${this.error ? html`<p class="error" role="alert">${this.error}</p>` : nothing}`,
+      html`<div class="footer">
+        ${
+          canHide
+            ? html`<button
+                class="action quiet"
+                data-testid="person-hide"
+                ?disabled=${this.busy}
+                @click=${() => {
+                  void this.hide(true);
+                }}
+              >
+                ${icon(mdiEyeOffOutline)}${t.t(person.self ? "people.hide_me" : "people.hide")}
+              </button>`
+            : nothing
+        }
+        ${
+          person.room
+            ? html`<button
+                class="action quiet"
+                data-testid="person-room"
+                @click=${() => {
+                  fire(this, "domotwin-open-room", undefined);
+                }}
+              >
+                ${icon(mdiDoorOpen)}${t.t("upkeep.room_panel", { room: person.roomName ?? "" })}
+              </button>`
+            : nothing
+        }
+      </div>`,
+    );
+  }
+}
+
 define("domotwin-controls", DomoTwinControls);
 define("domotwin-piece", DomoTwinPiece);
 define("domotwin-room", DomoTwinRoom);
+define("domotwin-person", DomoTwinPerson);

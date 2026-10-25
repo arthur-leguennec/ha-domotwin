@@ -1,0 +1,129 @@
+import { describe, expect, it } from "vitest";
+
+import type { HomeAssistant } from "../src/ha/types";
+import {
+  colorOf,
+  homePicture,
+  ownHidden,
+  initials,
+  peopleByRoom,
+  peopleByStorey,
+  peopleJson,
+  peopleShown,
+  type PeopleSettings,
+} from "../src/live/people";
+
+/** Fictional people: Alex in the kitchen, Sam somewhere at home, Kim away, Lou hidden. */
+const settings: PeopleSettings = {
+  revision: 3,
+  shown: "everyone",
+  look: "figure",
+  hidden: ["person.lou"],
+  people: {
+    "person.alex": {
+      sources: ["sensor.alex_phone_area"],
+      color: "#e8508a",
+      sensor: "sensor.domotwin_alex_room",
+    },
+    "person.sam": { sources: [], color: "#2f9fd8", sensor: "sensor.domotwin_sam_room" },
+    "person.kim": { sources: [], color: "#3fae5a", sensor: "sensor.domotwin_kim_room" },
+    "person.lou": { sources: [], color: "#8a63d2", sensor: "sensor.domotwin_lou_room" },
+  },
+};
+
+function hass(admin = true): HomeAssistant {
+  const state = (entity_id: string, value: string, attributes: Record<string, unknown> = {}) => ({
+    entity_id,
+    state: value,
+    attributes,
+    last_changed: "",
+    last_updated: "",
+  });
+  return {
+    language: "en",
+    user: { id: "user-alex", name: "Alex", is_admin: admin },
+    connection: {} as HomeAssistant["connection"],
+    callService: () => Promise.resolve(),
+    states: {
+      "person.alex": state("person.alex", "home", {
+        friendly_name: "Alex Martin",
+        user_id: "user-alex",
+        entity_picture: "/api/image/serve/alex/512x512",
+      }),
+      "person.sam": state("person.sam", "home", {
+        friendly_name: "Sam",
+        entity_picture: "https://example.invalid/sam.png",
+      }),
+      "person.kim": state("person.kim", "not_home", { friendly_name: "Kim" }),
+      "person.lou": state("person.lou", "home", { friendly_name: "Lou" }),
+      "sensor.domotwin_alex_room": state("sensor.domotwin_alex_room", "Kitchen", {
+        room_id: "kitchen",
+        storey_id: "ground",
+        since: "2026-10-25T08:00:00+00:00",
+        source: "sensor.alex_phone_area",
+      }),
+      "sensor.domotwin_sam_room": state("sensor.domotwin_sam_room", "unknown", {}),
+      "sensor.domotwin_kim_room": state("sensor.domotwin_kim_room", "not_home", {}),
+    },
+  };
+}
+
+describe("people (D-034)", () => {
+  it("reads initials and pictures from Home Assistant only", () => {
+    expect(initials("Alex Martin")).toBe("AM");
+    expect(initials("Sam")).toBe("SA");
+    expect(initials("élodie")).toBe("ÉL");
+    expect(initials("  ")).toBe("?");
+    expect(homePicture("/api/image/serve/x/512x512")).toBe("/api/image/serve/x/512x512");
+    expect(homePicture("https://example.invalid/x.png")).toBeUndefined();
+    expect(homePicture("//example.invalid/x.png")).toBeUndefined();
+    expect(homePicture(42)).toBeUndefined();
+  });
+
+  it("shows the people at home, not hidden, in their rooms", () => {
+    const people = peopleShown(settings, hass());
+    expect(people.map((p) => [p.id, p.room ?? null, p.home])).toEqual([
+      ["person.alex", "kitchen", true],
+      ["person.kim", null, false],
+      ["person.sam", null, true],
+    ]);
+    expect(people[0]).toMatchObject({
+      name: "Alex Martin",
+      initials: "AM",
+      roomName: "Kitchen",
+      storey: "ground",
+      source: "sensor.alex_phone_area",
+      picture: "/api/image/serve/alex/512x512",
+      self: true,
+    });
+    expect(people[2]?.picture).toBeUndefined();
+    // The engine draws those in a room.
+    expect(JSON.parse(peopleJson(people, "pin"))).toEqual([
+      { id: "person.alex", room: "kitchen", color: "#e8508a", look: "pin" },
+    ]);
+    expect([...peopleByRoom(people)].map(([room, list]) => [room, list.length])).toEqual([
+      ["kitchen", 1],
+    ]);
+    expect([...peopleByStorey(people)]).toEqual([["ground", 1]]);
+  });
+
+  it("gives the colours the integration gives, and finds oneself hidden", () => {
+    // The same as `people.color_of` in the integration.
+    expect(["person.alex", "person.sam", "person.kim", "person.élodie"].map(colorOf)).toEqual([
+      "#8a63d2",
+      "#e3912b",
+      "#e3912b",
+      "#d8573c",
+    ]);
+    expect(ownHidden(settings, hass())).toBeUndefined();
+    expect(ownHidden({ ...settings, hidden: ["person.alex"] }, hass())).toBe("person.alex");
+    expect(ownHidden({ ...settings, hidden: ["person.lou"] }, hass())).toBeUndefined();
+  });
+
+  it("shows nobody to others when shown to administrators only", () => {
+    const admins: PeopleSettings = { ...settings, shown: "admins" };
+    expect(peopleShown(admins, hass(false))).toEqual([]);
+    expect(peopleShown(admins, hass(true))).toHaveLength(3);
+    expect(peopleShown(undefined, hass())).toEqual([]);
+  });
+});

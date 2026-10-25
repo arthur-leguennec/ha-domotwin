@@ -74,7 +74,7 @@ import {
   type Gesture,
   type PointerSample,
 } from "../gestures";
-import type { StoreyInfo, StoredPlan } from "../ha/client";
+import { DomoTwinClient, type StoreyInfo, type StoredPlan } from "../ha/client";
 import { isHassError, type HomeAssistant } from "../ha/types";
 import { translatorFor, type KindName, type Translator } from "../i18n";
 import { runAction } from "../live/actions";
@@ -110,6 +110,16 @@ import {
   type Standings,
   type Upkeep,
 } from "../live/upkeep";
+import {
+  peopleByRoom,
+  peopleByStorey,
+  peopleJson,
+  ownHidden,
+  peopleShown,
+  type PeopleSettings,
+  type PersonShown,
+} from "../live/people";
+import { avatar, avatarStyles } from "./person-avatar";
 import { spoken } from "../live/show";
 import { StateSync } from "../live/states";
 import {
@@ -152,6 +162,8 @@ export interface ViewOptions {
   alerts?: boolean;
   /** Rooms someone is in glow (on unless `false`). */
   presence?: boolean;
+  /** The people in their rooms, as figures (on unless `false`, D-034). */
+  people?: boolean;
   /** Where the sun lights from (`fixed` unless set). */
   sun?: SunMode;
   /** Badges over the devices (on unless `false`). */
@@ -308,7 +320,8 @@ type Sheet =
       piece?: string;
     }
   | { kind: "piece"; heading: string; piece: string; room?: FocusedRoom }
-  | { kind: "room"; heading: string; area?: string };
+  | { kind: "room"; heading: string; area?: string; room?: string }
+  | { kind: "person"; heading: string; person: string };
 
 /** A room framed by a tap. */
 interface FocusedRoom {
@@ -405,6 +418,9 @@ export class DomoTwinView extends LitElement {
     bindings: { attribute: false },
     upkeep: { attribute: false },
     upkeepLoaded: { state: true },
+    people: { attribute: false },
+    shownPeople: { state: true },
+    personPoints: { state: true },
     standings: { state: true },
     linking: { attribute: false },
     placeDevices: { attribute: false },
@@ -468,6 +484,8 @@ export class DomoTwinView extends LitElement {
   bindings?: BindingsJson;
   /** The upkeep cards (D-033; `undefined`: none, or an integration without them). */
   upkeep?: Upkeep;
+  /** The people placed in their rooms (D-034; `undefined`: none, or an older integration). */
+  people?: PeopleSettings;
   /**
    * Link mode (the panel's bindings editor): taps and long presses pick an element
    * (`domotwin-pick`, detail: the picked element) instead of acting.
@@ -600,6 +618,13 @@ export class DomoTwinView extends LitElement {
   private today = "";
   /** The upkeep list's module is loaded. */
   protected upkeepLoaded = false;
+  /** The people shown (D-034), and where their names go (device pixels). */
+  protected shownPeople: PersonShown[] = [];
+  private shownPeopleText = "[]";
+  protected personPoints: { id: string; x: number; y: number; opacity: number }[] = [];
+  private personPointsText = "[]";
+  /** What the engine was last told of the people, and which engine. */
+  private peopleSent?: { engine: DomoTwinEngine; json: string };
   private upkeepModule?: Promise<unknown>;
 
   private engine?: DomoTwinEngine;
@@ -681,6 +706,7 @@ export class DomoTwinView extends LitElement {
   static override styles = [
     baseStyles,
     lookStyles,
+    avatarStyles,
     css`
       :host {
         position: relative;
@@ -822,6 +848,24 @@ export class DomoTwinView extends LitElement {
       .tools .storey.alert.danger::after {
         background: var(--error-color, #db4437);
       }
+      /* How many people are on a storey (D-034). */
+      .tools .storey {
+        position: relative;
+      }
+      .tools .storey .people-count {
+        position: absolute;
+        bottom: 2px;
+        right: 2px;
+        min-width: 14px;
+        height: 14px;
+        padding: 0 3px;
+        box-sizing: border-box;
+        border-radius: 7px;
+        background: var(--primary-color, #03a9f4);
+        color: var(--text-primary-color, #fff);
+        font-size: 0.6rem;
+        line-height: 14px;
+      }
       .tools .rule {
         height: 1px;
         margin: 2px 6px;
@@ -930,12 +974,39 @@ export class DomoTwinView extends LitElement {
         stroke-dasharray: 5 4;
       }
       .badges,
+      .people,
       .room-names,
       .storey-labels {
         position: absolute;
         inset: 0;
         pointer-events: none;
         overflow: hidden;
+      }
+      /* A person's name over their figure (D-034), in their colour. */
+      .person-tag {
+        position: absolute;
+        transform: translate(-50%, -100%);
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        min-height: 28px;
+        padding: 2px 9px 2px 3px;
+        border: 2px solid var(--person);
+        border-radius: 16px;
+        background: color-mix(in srgb, var(--card-background-color, #fff) 90%, transparent);
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.22);
+        color: inherit;
+        font: inherit;
+        font-size: 0.8rem;
+        font-weight: 600;
+        white-space: nowrap;
+        cursor: pointer;
+        pointer-events: auto;
+        transition: opacity 0.2s;
+      }
+      :host([look="neon"]) .person-tag,
+      :host([look="blueprint"]) .person-tag {
+        box-shadow: 0 0 10px color-mix(in srgb, var(--person) 70%, transparent);
       }
       .storey-label {
         position: absolute;
@@ -1357,6 +1428,10 @@ export class DomoTwinView extends LitElement {
     }
     // Where the upkeep cards stand, before the sheets and the list show them.
     if (changed.has("upkeep") || changed.has("hass")) this.applyUpkeep();
+    // Who is shown where (D-034), before the sheets and the names show them.
+    if (changed.has("people") || changed.has("hass") || changed.has("options")) {
+      this.readPeople();
+    }
     // The room chip leaves room for the legend (`renderLegend`).
     this.toggleAttribute("legend", this.valueLayer && !this.editingAny);
     if (
@@ -1409,6 +1484,7 @@ export class DomoTwinView extends LitElement {
       this.applyLayers();
     }
     if (changed.has("north") || own.has("realSun") || changed.has("hass")) this.applySun();
+    this.applyPeople();
     if (
       changed.has("hass") ||
       changed.has("bindings") ||
@@ -1475,7 +1551,9 @@ export class DomoTwinView extends LitElement {
           ? `controls:${sheet.entities.join(",")}`
           : sheet.kind === "piece"
             ? `piece:${sheet.piece}`
-            : `room:${sheet.area ?? ""}`;
+            : sheet.kind === "person"
+              ? `person:${sheet.person}`
+              : `room:${sheet.area ?? ""}`;
     }
     const edit = this.edit;
     if (edit) {
@@ -2459,6 +2537,43 @@ export class DomoTwinView extends LitElement {
   }
 
   /**
+   * Who is shown where (D-034): the people placed, at home and not hidden, from their room
+   * sensors; nobody when the card says so. The view changes only when they did.
+   */
+  private readPeople(): void {
+    const hass = this.hass;
+    const people =
+      hass && this.options.people !== false
+        ? peopleShown(this.people, hass)
+        : ([] as PersonShown[]);
+    const text = JSON.stringify(people);
+    if (text === this.shownPeopleText) return;
+    this.shownPeopleText = text;
+    this.shownPeople = people;
+  }
+
+  /** Tells the engine who is in which room, when that or the engine changed. */
+  private applyPeople(): void {
+    const engine = this.engine;
+    if (!engine) return;
+    // Nobody stands in the way while the plan, its pieces or its links are edited.
+    const shown = this.editingAny || this.linking ? [] : this.shownPeople;
+    const json = peopleJson(shown, this.people?.look ?? "figure");
+    if (this.peopleSent?.engine === engine && this.peopleSent.json === json) return;
+    this.peopleSent = { engine, json };
+    engine.setPeople(json);
+    this.redraw();
+  }
+
+  /** A person's sheet (D-034). */
+  private async openPerson(id: string): Promise<void> {
+    const person = this.shownPeople.find((p) => p.id === id);
+    if (!person) return;
+    await this.loadSheets();
+    this.sheet = { kind: "person", heading: person.name, person: id };
+  }
+
+  /**
    * Works out where each upkeep card stands today, where the home is (D-033), when the cards, the
    * day or the engine changed, and tells the engine for the upkeep layer.
    */
@@ -2519,6 +2634,13 @@ export class DomoTwinView extends LitElement {
     if (cameras !== this.camerasText) {
       this.camerasText = cameras;
       this.cameraShapes = JSON.parse(cameras) as CameraShape[];
+    }
+    // Where the people's names go (D-034).
+    const placed = shown && this.shownPeople.some((p) => p.room !== undefined);
+    const people = placed ? engine.peoplePoints() : "[]";
+    if (people !== this.personPointsText) {
+      this.personPointsText = people;
+      this.personPoints = JSON.parse(people) as typeof this.personPoints;
     }
     // Where each storey of the home shown whole is.
     const storeys = this.loadedHome ? engine.storeyLabels() : [];
@@ -2941,7 +3063,7 @@ export class DomoTwinView extends LitElement {
   private async openRoom(id: string, name: string): Promise<void> {
     await this.loadSheets();
     const hass = this.hass;
-    const sheet: Sheet = { kind: "room", heading: name };
+    const sheet: Sheet = { kind: "room", heading: name, room: id };
     const area = hass
       ? roomArea(hass, this.bindings ?? { version: 1, rooms: {}, elements: {} }, id, name)
       : undefined;
@@ -3224,11 +3346,12 @@ export class DomoTwinView extends LitElement {
       ></div>
       ${ready ? this.renderCameras() : nothing} ${ready ? this.renderLabels() : nothing}
       ${ready ? this.renderRoomNames() : nothing} ${ready ? this.renderBadges() : nothing}
-      ${ready ? this.renderStoreyLabels() : nothing} ${ready ? this.renderPictures() : nothing}
-      ${this.renderGuides()} ${this.renderPlanHandles()} ${this.renderOverlay()}
-      ${ready ? this.renderLegend() : nothing} ${ready ? this.renderAlerts() : nothing}
-      ${ready ? this.renderWalkPad() : nothing} ${ready ? this.renderNetwork() : nothing}
-      ${ready ? this.renderUpkeep() : nothing} ${ready ? this.renderWires() : nothing}
+      ${ready ? this.renderPeople() : nothing} ${ready ? this.renderStoreyLabels() : nothing}
+      ${ready ? this.renderPictures() : nothing} ${this.renderGuides()} ${this.renderPlanHandles()}
+      ${this.renderOverlay()} ${ready ? this.renderLegend() : nothing}
+      ${ready ? this.renderAlerts() : nothing} ${ready ? this.renderWalkPad() : nothing}
+      ${ready ? this.renderNetwork() : nothing} ${ready ? this.renderUpkeep() : nothing}
+      ${ready ? this.renderWires() : nothing}
       ${ready && this.options.tools !== false ? this.renderTools() : nothing}
       ${ready ? this.renderSheet() : nothing}
       ${this.dimmed ? html`<div class="dim" data-testid="dim" aria-hidden="true"></div>` : nothing}
@@ -3367,6 +3490,7 @@ export class DomoTwinView extends LitElement {
     const t = this.translator;
     const levels = storeyLevels(this.storeys).reverse();
     const all = this.storey === ALL_STOREYS;
+    const people = peopleByStorey(this.shownPeople);
     return html`<span class="rule" aria-hidden="true"></span>
       <div role="group" aria-label=${t.t("storey.menu")} data-testid="storeys">
         <button
@@ -3385,7 +3509,11 @@ export class DomoTwinView extends LitElement {
           const name = storeyName(t, storey, level);
           // Another storey with an alert is marked (the most urgent's colour).
           const alert = this.alerts.find((a) => a.storey === storey.id);
-          const label = alert ? t.t("storey.with_alert", { name }) : name;
+          const count = people.get(storey.id) ?? 0;
+          const label = [
+            alert ? t.t("storey.with_alert", { name }) : name,
+            ...(count > 0 ? [t.tp("people.on_storey", count)] : []),
+          ].join(", ");
           return html`<button
             class="storey ${alert ? `alert ${alert.level}` : ""}"
             data-storey=${storey.id}
@@ -3396,7 +3524,11 @@ export class DomoTwinView extends LitElement {
               this.chooseStorey(storey.id);
             }}
           >
-            ${storeyShort(level)}
+            ${storeyShort(level)}${
+              count > 0
+                ? html`<span class="people-count" aria-hidden="true">${count}</span>`
+                : nothing
+            }
           </button>`;
         })}
       </div>`;
@@ -3575,14 +3707,32 @@ export class DomoTwinView extends LitElement {
         }}
       ></domotwin-piece>`;
     }
+    if (sheet.kind === "person") {
+      const person = this.shownPeople.find((p) => p.id === sheet.person);
+      return html`<domotwin-person
+        data-testid="person"
+        .hass=${this.hass}
+        .heading=${sheet.heading}
+        .person=${person}
+        @domotwin-close=${this.closeSheet}
+        @domotwin-open-room=${() => {
+          if (person?.room) void this.openRoom(person.room, person.roomName ?? person.room);
+        }}
+      ></domotwin-person>`;
+    }
+    const here = sheet.room ? (peopleByRoom(this.shownPeople).get(sheet.room) ?? []) : [];
     return html`<domotwin-room
       data-testid="room"
       .hass=${this.hass}
       .heading=${sheet.heading}
       .area=${sheet.area}
       .admin=${this.hass?.user?.is_admin === true}
+      .people=${here}
       @domotwin-close=${this.closeSheet}
       @domotwin-show-wires=${this.onShowWires}
+      @domotwin-open-person=${(event: CustomEvent<string>) => {
+        void this.openPerson(event.detail);
+      }}
     ></domotwin-room>`;
   }
 
@@ -3749,7 +3899,29 @@ export class DomoTwinView extends LitElement {
       >
         ${t.t("layers.cameras")}
       </button>
+      ${this.renderShowMe()}
     </div>`;
+  }
+
+  /** The user viewing hid themselves (D-034): they may show themselves again from here. */
+  private renderShowMe(): TemplateResult | typeof nothing {
+    const hass = this.hass;
+    const own = hass ? ownHidden(this.people, hass) : undefined;
+    if (!hass || !own) return nothing;
+    return html`<button
+      role="menuitem"
+      data-testid="show-me"
+      @click=${() => {
+        this.layersOpen = false;
+        void DomoTwinClient.for(hass)
+          .hidePerson(own, false)
+          .catch(() => {
+            this.notify(this.translator.t("people.hide_error"));
+          });
+      }}
+    >
+      ${this.translator.t("people.show_me")}
+    </button>`;
   }
 
   /** What the cameras see: their cones on the floor, red while recording. */
@@ -3834,6 +4006,38 @@ export class DomoTwinView extends LitElement {
                 }</span
               >`,
           )}
+        </button>`;
+      })}
+    </div>`;
+  }
+
+  /** The names over the people (D-034): a tap opens a person's sheet. */
+  private renderPeople(): TemplateResult | typeof nothing {
+    const canvas = this.canvas;
+    if (!canvas || this.personPoints.length === 0 || this.editingAny || this.linking) {
+      return nothing;
+    }
+    const t = this.translator;
+    const k = Math.max(1, canvas.clientWidth) / Math.max(1, canvas.width);
+    return html`<div class="people" data-testid="people">
+      ${this.personPoints.map((point) => {
+        const person = this.shownPeople.find((p) => p.id === point.id);
+        if (!person) return nothing;
+        const where = person.roomName
+          ? t.t("people.in_room", { room: person.roomName })
+          : t.t("people.somewhere");
+        const label = t.t("people.label", { name: person.name, where });
+        return html`<button
+          class="person-tag"
+          data-person=${person.id}
+          style="left:${point.x * k}px;top:${point.y * k}px;opacity:${point.opacity};--person:${person.color}"
+          aria-label=${label}
+          title=${label}
+          @click=${() => {
+            void this.openPerson(person.id);
+          }}
+        >
+          ${avatar(person)}<span class="name">${person.name.split(/\s+/)[0]}</span>
         </button>`;
       })}
     </div>`;
