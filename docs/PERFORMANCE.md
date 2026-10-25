@@ -722,3 +722,9 @@ The code did not change: keeping the packets by receiver, so that a tick does no
 no difference beyond the noise. Nothing else in the integration runs periodically, except the
 upkeep sensors' check of the day, once an hour, and polling Bluetooth every second on Home
 Assistant versions without its packet callbacks.
+
+The CI's time: the browser tests took one runner 11 minutes of a 13-minute run (M12). In four
+parts side by side, the first run of this pass took 3.5 to 5.7 minutes a part with its set-up,
+their tests 2.1 to 4.9 minutes (the measurements the longest), so about 7 minutes for the run.
+One part waited 10 minutes that time for the system packages Playwright installs (Ubuntu's mirror
+was slow), which no split helps.
