@@ -30,10 +30,11 @@ Local, rapide, Rust + WebAssembly.</p>
   étage ou tous, et voyez-le en maquette 3D. Les
   murs face à la caméra s’abaissent automatiquement, comme une maison de poupée ouverte. Passez à un
   plan 2D net avec une transition fluide.
-- **Trois apparences.** **Néon** : des murs de verre soulignés d’une couleur d’accent lumineuse
+- **Cinq apparences.** **Néon** : des murs de verre soulignés d’une couleur d’accent lumineuse
   sur une grille, des lampes et des écrans qui brillent ; **plan d’architecte** : des traits blancs
-  sur fond bleu ; **jour** : le logement tel qu’il est, à la lumière de l’heure. Automatique : néon
-  en mode sombre. Voir [les
+  sur fond bleu ; **jour** : le logement tel qu’il est, à la lumière de l’heure ; **dessin animé** :
+  des couleurs vives cernées d’encre noire, sous un ciel bleu ; **maquette d’argile** : le logement
+  en argile mate, comme une maquette d’architecte. Automatique : néon en mode sombre. Voir [les
   apparences](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/looks.md) (en
   anglais).
 - **Toucher pour piloter.** Touchez une lampe pour l’allumer ou l’éteindre, appuyez longuement pour
@@ -108,7 +109,11 @@ Local, rapide, Rust + WebAssembly.</p>
   mobiles.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-looks.png" alt="L’appartement de démonstration le soir dans les trois apparences : néon, plan d’architecte et jour" width="100%">
+  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-looks.png" alt="L’appartement de démonstration le soir dans trois apparences : néon, plan d’architecte et jour" width="100%">
+</p>
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-cartoon-clay.png" alt="L’appartement de démonstration en journée dans l’apparence dessin animé, ses meubles et ses habitants cernés de noir sur des sols vifs sous un ciel bleu, et en maquette d’argile, tout d’une même argile mate et chaude" width="100%">
 </p>
 
 <p align="center">
@@ -213,7 +218,7 @@ YAML n’est jamais nécessaire. Pour référence, les options de la carte :
 | `sun`         | `fixed`, `real`                     | `fixed`    | `real` : le soleil éclaire depuis sa vraie position (`sun.sun`), par les fenêtres. |
 | `badges`      | `true`, `false`                     | `true`     | Badges des appareils : serrures, caméras, lecture, batteries faibles, appareils en marche. |
 | `cameras`     | `true`, `false`                     | `true`     | Ce que voient les caméras liées, dessiné au sol. |
-| `theme`       | `auto`, `day`, `neon`, `blueprint`  | celle du logement | L’apparence ; `auto` : néon en mode sombre. |
+| `theme`       | `auto`, `day`, `neon`, `blueprint`, `cartoon`, `clay` | celle du logement | L’apparence ; `auto` : néon en mode sombre. |
 | `accent`      | une couleur `#rrggbb`               | celle du logement | Couleur d’accent (les contours lumineux du néon). |
 | `names`       | `true`, `false`                     | `true`     | Le nom des pièces au sol.                     |
 | `idle`        | secondes (0 à 86400)                | `0`        | Kiosque : revenir à cette vue après ce temps sans contact (0 : jamais). |

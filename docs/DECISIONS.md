@@ -1012,3 +1012,73 @@ Asked by the maintainer (M9f, after M9e).
   a simulated walk through the demo home with noisy readings is told right nine ticks in ten with a
   receiver in each room, three in four with four receivers for ten rooms (`tests/test_locating.py`).
   The settings dialog is a chunk of its own. See `PERFORMANCE.md`, M9f.
+
+## D-036 · Two more looks: a cartoon with ink, and a clay model
+
+Asked by the maintainer (M8b): two looks besides neon, blueprint and day, a cartoon among them,
+researched first. Decided while the maintainer was away; open to review.
+
+- **Context.** A cartoon look, as games and illustrated maps draw them, rests on four things: light
+  in a few flat bands with a hard edge (cel shading), flat vivid colours instead of textures, ink
+  around shapes, and a simple bright backdrop. The ink is the hard part. There are three usual
+  ways to draw it:
+  - an **inverted hull** draws every mesh a second time, a little larger and from behind. It
+    doubles the draw cost and breaks on thin parts (a lamp's stem, a chair's legs);
+  - **edges found in the picture**: one full-screen pass over the depth (and the normals, when
+    there are any) after the scene is drawn;
+  - **lines from the geometry**: DomoTwin already draws the home's outlines (D-027): walls,
+    corners, doors, windows and floors, as lines a few pixels wide.
+
+  The second look had to be as different from the others as the cartoon. The candidates were
+  watercolour (noisy, and hard to keep calm on small dashboards), low poly (DomoTwin's pieces are
+  already simple) and an **architect's clay model**. The clay model reads the space and the light
+  first, with one matte colour and soft shadows, which no other look does.
+- **Decision.**
+  - **The looks stay data.** A look (`domotwin-core::theme`) gains its shading (how much the
+    palette keeps each surface's lightness, steps of sunlight, vividness, patterns left out, rim
+    ink, shine), the width of its outlines, its **ink** (0: none), whether its background comes
+    from the dashboard and whether its bloom is drawn from the Balanced preset up. The renderer
+    asks the look, never its name; the looks of D-027 keep their values and draw as before.
+  - **The cartoon.** Sunlight in two steps (none, half, full) whose edges are smoothed over about
+    a pixel (`fwidth`), so they do not shimmer, on the furniture and the people alike; the sky's
+    light even, so that faces are flat colours. Colours are 1.55 times as vivid and patterns 60 %
+    left out. A highlight is a spot or nothing. The home's outlines are dark ink, 2.2 times as
+    wide. Ink comes in three layers:
+    - the outlines of the home, as before;
+    - rim ink in the shader where a curved piece turns away from the eye, only where the surface
+      curves (its normal changes from pixel to pixel), so that a flat wall or table top seen at a
+      grazing angle keeps its colour;
+    - **edges found in the depth**: the frame is drawn in two phases. What is opaque comes first
+      (the background, the home, the people wholly shown); its depth is resolved and turned back
+      into distances from the eye (the projection's third and fourth rows), and a pixel is inked
+      where the distance bends towards the eye. Then come glass, the outlines, the halos and the
+      wires in their usual order, so the ink never crosses them. Across a plane, however slanted, it barely bends. At the edge
+      of something in front of what is behind it, it bends by the gap between them. The bend is
+      measured in line widths at that distance (the size of a pixel there, in perspective or in
+      the 2D plan's orthographic view), so the ink does not change as the view zooms or moves to
+      the plan. Only the near side is inked, so the ink hugs the furniture, the people and the home
+      against the ground: the pixel next to the edge fully, the one after it by half (a softer
+      edge). Normals are not needed, so the scene is drawn once, without a second target. People
+      fading in or out (dissolved pixel by pixel, D-034) are drawn in the second phase, so their
+      holes are not inked. Nothing is read on the sky and the lawn.
+    - The sky is blue over a lawn. The rooms' names are inked like the lines; people's tags keep
+      their colour inside a ring of ink.
+  - **The clay model.** Every surface takes one warm matte clay, a little lighter or darker by its
+    material. Patterns are left out, the lines are faint and thin, and the look's shine also scales
+    reflections: metals and mirrors turn to clay too. The backdrop is the same clay. Sun shadows and
+    lamps stay: at night it reads like a lit model.
+  - **Both follow the time of day.** Their light, sky and ground dim with it, like day; neither
+    has glass walls. Their overlays (buttons, names, dialogs, the panel's header) stay light
+    whatever the dashboard's theme, as the night looks' stay dark. Automatic still means neon in
+    dark mode and day otherwise.
+  - **The ink costs a pass only where it shows.** The cartoon is drawn offscreen with MSAA from the
+    Balanced preset up, its depth resolved for the ink. Its bloom (lamps) is drawn on High only,
+    like day's; on Balanced the bloom's textures are not even made. On Eco it is drawn straight to
+    the screen, with the outlines and the rim ink but without the ink from the depth. The clay is
+    drawn like day.
+- **Consequences.** Five looks, one renderer and no new mesh: the cartoon's ink is a depth resolve
+  and a full-screen pass of nine depth reads a pixel over what is opaque. The steps of light and
+  the vividness are one piece of shader code shared by the home and the people. The ink is found in the depth, not in
+  the normals, so a crease between two faces of a box seen from the front is not inked (its bands
+  of light tell the faces apart); a deep fold is. Small pieces far away get a dot of ink. See
+  `PERFORMANCE.md`, M8b, and [`looks.md`](looks.md).
