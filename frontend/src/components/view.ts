@@ -119,6 +119,7 @@ import {
   type PeopleSettings,
   type PersonShown,
 } from "../live/people";
+import { locatedSensors, locatedShown, type LocatedShown } from "../live/locating";
 import { avatar, avatarStyles } from "./person-avatar";
 import { spoken } from "../live/show";
 import { StateSync } from "../live/states";
@@ -420,6 +421,7 @@ export class DomoTwinView extends LitElement {
     upkeepLoaded: { state: true },
     people: { attribute: false },
     shownPeople: { state: true },
+    located: { state: true },
     personPoints: { state: true },
     standings: { state: true },
     linking: { attribute: false },
@@ -621,6 +623,11 @@ export class DomoTwinView extends LitElement {
   /** The people shown (D-034), and where their names go (device pixels). */
   protected shownPeople: PersonShown[] = [];
   private shownPeopleText = "[]";
+  /** The devices followed by Bluetooth (D-035), for the room panels and the people's sheets. */
+  protected located: LocatedShown[] = [];
+  private locatedText = "[]";
+  /** Their room sensors, looked up again only when Home Assistant's registry changed. */
+  private locatedFrom?: { entities: unknown; sensors: string[] };
   protected personPoints: { id: string; x: number; y: number; opacity: number }[] = [];
   private personPointsText = "[]";
   /** What the engine was last told of the people, and which engine. */
@@ -2547,9 +2554,32 @@ export class DomoTwinView extends LitElement {
         ? peopleShown(this.people, hass)
         : ([] as PersonShown[]);
     const text = JSON.stringify(people);
-    if (text === this.shownPeopleText) return;
-    this.shownPeopleText = text;
-    this.shownPeople = people;
+    if (text !== this.shownPeopleText) {
+      this.shownPeopleText = text;
+      this.shownPeople = people;
+    }
+    // Someone's devices only where they could be shown: never without the people's settings (not
+    // loaded, an older integration), or on a card without people.
+    const settings = this.people;
+    const hidden = new Set(settings?.hidden ?? []);
+    const toldAny =
+      settings !== undefined && (settings.shown !== "admins" || hass?.user?.is_admin === true);
+    if (hass && this.locatedFrom?.entities !== hass.entities) {
+      this.locatedFrom = { entities: hass.entities, sensors: locatedSensors(hass) };
+    }
+    const located =
+      hass && this.options.people !== false
+        ? locatedShown(
+            hass,
+            (person) => toldAny && !hidden.has(person),
+            this.locatedFrom?.sensors ?? [],
+          )
+        : [];
+    const locatedText = JSON.stringify(located);
+    if (locatedText !== this.locatedText) {
+      this.locatedText = locatedText;
+      this.located = located;
+    }
   }
 
   /** Tells the engine who is in which room, when that or the engine changed. */
@@ -3714,6 +3744,7 @@ export class DomoTwinView extends LitElement {
         .hass=${this.hass}
         .heading=${sheet.heading}
         .person=${person}
+        .devices=${this.located.filter((d) => d.person === sheet.person)}
         @domotwin-close=${this.closeSheet}
         @domotwin-open-room=${() => {
           if (person?.room) void this.openRoom(person.room, person.roomName ?? person.room);
@@ -3728,6 +3759,7 @@ export class DomoTwinView extends LitElement {
       .area=${sheet.area}
       .admin=${this.hass?.user?.is_admin === true}
       .people=${here}
+      .things=${sheet.room ? this.located.filter((d) => d.room === sheet.room) : []}
       @domotwin-close=${this.closeSheet}
       @domotwin-show-wires=${this.onShowWires}
       @domotwin-open-person=${(event: CustomEvent<string>) => {

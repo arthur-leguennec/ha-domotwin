@@ -4,7 +4,8 @@
   element (by id or by name), a storey, a view, a person (their room, D-034), or several of them,
   and optionally the screen (a card's `screen` option) that shows it; every DomoTwin view
   listening gets it over `domotwin/subscribe` and finds the room in its plans.
-- `domotwin.where` (D-034): where a person is, or everyone at home, with a sentence to answer.
+- `domotwin.where` (D-034): where a person is, or everyone at home, with a sentence to answer;
+  where a device followed by Bluetooth is too (D-035: "where are my keys?").
 """
 
 from __future__ import annotations
@@ -32,8 +33,8 @@ from .const import (
     SERVICE_WHERE,
     SIGNAL_SHOW,
 )
-from .data import PEOPLE_KEY
-from .people import Place, likeness
+from .data import LOCATOR_KEY, PEOPLE_KEY
+from .people import Place, likeness, thing_likeness
 from .tracker import name_of
 
 SCREEN = re.compile(rf"^[A-Za-z0-9_-]{{1,{MAX_SCREEN_NAME}}}$")
@@ -84,6 +85,8 @@ SENTENCES = {
         "away": "{name} is not home.",
         "unknown": "I do not know who {name} is.",
         "private": "I cannot tell where {name} is.",
+        "unheard": "I cannot hear {name} now.",
+        "heard": "I hear {name} in the {room}.",
         "nobody": "Nobody is home.",
         "and": ", ",
         "also": "{name} in the {room}",
@@ -94,6 +97,8 @@ SENTENCES = {
         "away": "{name} n'est pas à la maison.",
         "unknown": "Je ne connais pas {name}.",
         "private": "Je ne peux pas dire où est {name}.",
+        "unheard": "Je n'entends pas {name} en ce moment.",
+        "heard": "J'entends {name} dans la pièce {room}.",
         "nobody": "Personne n'est à la maison.",
         "and": ", ",
         "also": "{name} dans la pièce {room}",
@@ -163,11 +168,24 @@ async def _async_where(hass: HomeAssistant, call: ServiceCall) -> ServiceRespons
         for person in placed
         if (score := likeness(asked, [name_of(hass, person), person.split(".", 1)[1]])) is not None
     ]
+    locator = hass.data.get(LOCATOR_KEY)
+    devices = locator.settings["devices"] if locator is not None else {}
+    scored += [
+        (score, f"@{device}")
+        for device, settings in devices.items()
+        if (score := thing_likeness(asked, settings["name"])) is not None
+    ]
     best = min((score for score, _ in scored), default=None)
     found = [person for score, person in scored if score == best]
+    # A person and a thing as alike ("Alex" and "Alex's phone"): the person is meant.
+    people_found = [person for person in found if not person.startswith("@")]
+    if people_found:
+        found = people_found
     if len(found) != 1:
         return {"people": [], "text": said["unknown"].format(name=asked)}
     person = found[0]
+    if person.startswith("@") and locator is not None:
+        return _where_thing(hass, call, said, untold, person[1:])
     name = name_of(hass, person)
     if person in untold:
         return {"people": [], "text": said["private"].format(name=name)}
@@ -178,6 +196,43 @@ async def _async_where(hass: HomeAssistant, call: ServiceCall) -> ServiceRespons
             request["screen"] = call.data["screen"]
         async_dispatcher_send(hass, SIGNAL_SHOW, request)
     return {"people": [_entry(name, person, place)], "text": _place_text(said, name, place)}
+
+
+def _where_thing(
+    hass: HomeAssistant, call: ServiceCall, said: dict[str, str], untold: set[str], device: str
+) -> ServiceResponse:
+    """Where a device followed by Bluetooth is; not told when its owner is not to be told about."""
+    locator, people = hass.data[LOCATOR_KEY], hass.data.get(PEOPLE_KEY)
+    settings = locator.settings["devices"][device]
+    name = settings["name"]
+    if settings.get("person") in untold:
+        return {"people": [], "things": [], "text": said["private"].format(name=name)}
+    located = locator.located.get(device)
+    room = (
+        people.finder.room(located.room)
+        if people is not None and located is not None and located.room
+        else None
+    )
+    entry: dict[str, Any] = {"device": device, "name": name, "kind": settings["kind"]}
+    if room is None or located is None:
+        return {"people": [], "things": [entry], "text": said["unheard"].format(name=name)}
+    entry.update(
+        room=room.name,
+        room_id=room.id,
+        storey=room.storey_name,
+        since=located.since.isoformat() if located.since else None,
+        left_behind=located.left_behind,
+    )
+    if call.data["show"]:
+        request = {"room": room.id}
+        if call.data["screen"]:
+            request["screen"] = call.data["screen"]
+        async_dispatcher_send(hass, SIGNAL_SHOW, request)
+    return {
+        "people": [],
+        "things": [entry],
+        "text": said["heard"].format(name=name, room=room.name),
+    }
 
 
 @callback

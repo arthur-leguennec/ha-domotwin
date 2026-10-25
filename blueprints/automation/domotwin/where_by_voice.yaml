@@ -3,20 +3,24 @@ blueprint:
   description: >-
     Ask Assist "where is Alex?" (or "où est Alex ?"): DomoTwin answers with the room Alex is in, and
     can show it on your screens. "Who is home?" ("qui est à la maison ?") names everyone at home and
-    their rooms. The people are the ones DomoTwin places (its panel, Settings, People).
+    their rooms. The people are the ones DomoTwin places (its panel, People); "where are my keys?"
+    ("où sont mes clés ?") finds a device DomoTwin follows by Bluetooth (its panel, Bluetooth).
   domain: automation
   source_url: https://github.com/arthur-leguennec/ha-domotwin/blob/main/blueprints/automation/domotwin/where_by_voice.yaml
   input:
     sentences:
-      name: Sentences for one person
+      name: Sentences for one person or thing
       description: >-
-        What to say to ask for one person; {name} is their name. One sentence per line, with
-        [optional words].
+        What to say to ask for one person or thing; {name} is their name. One sentence per line,
+        with [optional words].
       default:
         - "where is {name}"
         - "where's {name}"
+        - "where are {name}"
         - "où est {name}"
+        - "où sont {name}"
         - "où se trouve {name}"
+        - "où se trouvent {name}"
       selector:
         text:
           multiple: true

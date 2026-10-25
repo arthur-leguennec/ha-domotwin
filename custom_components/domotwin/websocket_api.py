@@ -13,8 +13,9 @@ from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.util import dt as dt_util
 
 from .compat import vol
-from .const import DOMAIN, SIGNAL_SHOW, SIGNAL_UPDATED, VERSION
-from .data import DATA_KEY, PEOPLE_KEY
+from .const import DOMAIN, SIGNAL_SHOW, SIGNAL_UPDATED, TEACH_SECONDS, VERSION
+from .data import DATA_KEY, LOCATOR_KEY, PEOPLE_KEY
+from .locator import PRIVATE_BLE, Locator
 from .models import async_remove_unused
 from .people import color_of
 from .storage import (
@@ -31,6 +32,7 @@ from .validation import (
     validate_bindings,
     validate_elevation,
     validate_layout,
+    validate_locating,
     validate_models,
     validate_people,
     validate_plan,
@@ -64,6 +66,11 @@ def async_register_commands(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_people_get)
     websocket_api.async_register_command(hass, ws_people_save)
     websocket_api.async_register_command(hass, ws_people_hide)
+    websocket_api.async_register_command(hass, ws_locating_get)
+    websocket_api.async_register_command(hass, ws_locating_save)
+    websocket_api.async_register_command(hass, ws_locating_candidates)
+    websocket_api.async_register_command(hass, ws_locating_teach)
+    websocket_api.async_register_command(hass, ws_locating_forget)
     websocket_api.async_register_command(hass, ws_subscribe)
 
 
@@ -549,6 +556,7 @@ def ws_people_get(
                 "sources": list(settings.get("sources", [])),
                 "color": settings.get("color") or color_of(person),
                 "sensor": _sensor_of(hass, person),
+                "located": people.located_sources(person),
             }
             for person, settings in shown_to.items()
         },
@@ -618,6 +626,185 @@ async def ws_people_hide(
         return
     revision = await people.async_hide(person, msg["hidden"])
     connection.send_result(msg["id"], {"revision": revision})
+
+
+def _get_locator(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> Locator | None:
+    locator = hass.data.get(LOCATOR_KEY)
+    if locator is None:
+        connection.send_error(msg["id"], "not_loaded", "DomoTwin is not set up")
+    return locator
+
+
+def _match_shown(hass: HomeAssistant, match: dict[str, Any]) -> dict[str, Any]:
+    """How a device is known, as the settings show it: a key by its entry's title, never itself."""
+    if "key" not in match:
+        return dict(match)
+    entry = hass.config_entries.async_get_entry(match["key"])
+    title = entry.title if entry is not None and entry.domain == PRIVATE_BLE else None
+    return {"key": match["key"], "title": title}
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command({vol.Required("type"): "domotwin/locating/get"})
+@callback
+def ws_locating_get(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Return the Bluetooth locating (D-035): the receivers, the devices followed and their rooms.
+
+    Administrators only. An identity key never leaves the server: a device known by one is shown
+    by its Private BLE Device entry.
+    """
+    if (locator := _get_locator(hass, connection, msg)) is None:
+        return
+    settings = locator.settings
+    now = {source: (name, idle) for source, name, idle in locator.receivers_now()}
+    receivers = []
+    for source in sorted(set(now) | set(settings["receivers"])):
+        name, idle = now.get(source, (None, None))
+        receivers.append(
+            {
+                "source": source,
+                "name": name,
+                "idle": round(idle) if idle is not None else None,
+                **settings["receivers"].get(source, {}),
+                "placed_by": locator.placed_by.get(source),
+            }
+        )
+    devices: dict[str, Any] = {}
+    for device, followed in settings["devices"].items():
+        located = locator.located.get(device)
+        devices[device] = {
+            **followed,
+            "match": _match_shown(hass, followed["match"]),
+            "sensor": locator.sensor_of(device),
+            "room": located.room if located else None,
+            "confidence": round(located.confidence, 2) if located else 0,
+            "last_seen": located.last_seen.isoformat() if located and located.last_seen else None,
+            "left_behind": bool(located and located.left_behind),
+            "missing_key": device in locator.missing_keys,
+        }
+    connection.send_result(
+        msg["id"],
+        {
+            "revision": locator.revision,
+            "status": locator.status(),
+            "learn": settings.get("learn", True),
+            "receivers": receivers,
+            "devices": devices,
+            "learned": locator.learned_rooms(),
+            "rooms": [
+                {"id": room.id, "name": room.name, "storey": room.storey_name}
+                for room in people.finder.rooms
+            ]
+            if (people := hass.data.get(PEOPLE_KEY)) is not None
+            else [],
+        },
+    )
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "domotwin/locating/save",
+        vol.Required("receivers"): dict,
+        vol.Required("devices"): dict,
+        vol.Optional("learn"): bool,
+        vol.Optional("expected_revision"): vol.All(int, vol.Range(min=0)),
+    }
+)
+@websocket_api.async_response
+async def ws_locating_save(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Store where the receivers are and which devices are followed. Admins only.
+
+    The owners of the phones and watches followed are placed (People) if they were not.
+    """
+    if (locator := _get_locator(hass, connection, msg)) is None:
+        return
+    if (people := _get_people(hass, connection, msg)) is None:
+        return
+    try:
+        receivers, devices = validate_locating(msg["receivers"], msg["devices"], msg.get("learn"))
+    except InvalidPayloadError as err:
+        connection.send_error(msg["id"], err.code, str(err))
+        return
+    try:
+        revision = await locator.async_save(
+            receivers, devices, msg.get("learn"), msg.get("expected_revision")
+        )
+    except RevisionConflictError as err:
+        connection.send_error(msg["id"], "revision_conflict", str(err))
+        return
+    await people.async_place(
+        [d["person"] for d in devices.values() if d.get("person") and d["kind"] != "thing"]
+    )
+    connection.send_result(msg["id"], {"revision": revision})
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command({vol.Required("type"): "domotwin/locating/candidates"})
+@callback
+def ws_locating_candidates(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Return the devices that may be followed. Admins only."""
+    if (locator := _get_locator(hass, connection, msg)) is None:
+        return
+    connection.send_result(msg["id"], {"candidates": locator.candidates()})
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "domotwin/locating/teach",
+        vol.Required("device"): str,
+        vol.Required("room"): str,
+        vol.Optional("seconds", default=30): vol.All(
+            vol.Coerce(float), vol.Range(min=TEACH_SECONDS[0], max=TEACH_SECONDS[1])
+        ),
+    }
+)
+@websocket_api.async_response
+async def ws_locating_teach(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Teach a room: listen to a device held there, then answer what was heard. Admins only."""
+    if (locator := _get_locator(hass, connection, msg)) is None:
+        return
+    if locator.radio is None:
+        connection.send_error(msg["id"], "no_bluetooth", "Home Assistant has no Bluetooth")
+        return
+    if msg["device"] not in locator.settings["devices"]:
+        connection.send_error(msg["id"], "unknown_device", "this device is not followed")
+        return
+    if msg["room"] not in locator.home.rooms:
+        connection.send_error(msg["id"], "unknown_room", "the plans have no such room")
+        return
+    connection.send_result(
+        msg["id"], await locator.async_teach(msg["device"], msg["room"], msg["seconds"])
+    )
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "domotwin/locating/forget",
+        vol.Optional("room"): str,
+    }
+)
+@websocket_api.async_response
+async def ws_locating_forget(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Forget what was learned in a room (in every room without one). Admins only."""
+    if (locator := _get_locator(hass, connection, msg)) is None:
+        return
+    forgotten = await locator.async_forget(msg.get("room"))
+    connection.send_result(msg["id"], {"forgotten": forgotten})
 
 
 @websocket_api.websocket_command({vol.Required("type"): "domotwin/subscribe"})

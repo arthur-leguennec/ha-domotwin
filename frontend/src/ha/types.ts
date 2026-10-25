@@ -41,6 +41,9 @@ export interface HassEntityEntry {
   entity_category?: string | null;
   /** The labels given in Home Assistant (their ids). */
   labels?: string[];
+  /** The integration it comes from, and what kind of its entities it is. */
+  platform?: string;
+  translation_key?: string | null;
 }
 
 /** An entry of the device registry. */

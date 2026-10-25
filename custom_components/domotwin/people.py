@@ -142,14 +142,18 @@ class RoomFinder:
         """The room a state names, or None.
 
         A state that names nowhere (unknown, away) names no room, whatever its attributes still
-        say. Else an `area_id` attribute (Bermuda's) wins; then an area's id, name or alias, when
-        a room reads that area; then a room's name. An area two rooms read, or a name two rooms
+        say. Else a `room_id` attribute naming a room of the plans (DomoTwin's own Bluetooth
+        locating) wins; then an `area_id` attribute (Bermuda's); then an area's id, name or alias,
+        when a room reads that area; then a room's name. An area two rooms read, or a name two rooms
         have (a bathroom on each storey), names neither: guessing would put someone on the wrong
         floor.
         """
         said = norm(state)
         if said in NOWHERE:
             return None
+        room_id = (attributes or {}).get("room_id")
+        if isinstance(room_id, str) and room_id in self._by_id:
+            return self._by_id[room_id]
         area = (attributes or {}).get("area_id")
         if isinstance(area, str) and area:
             return _single(self._by_area.get(area))
@@ -229,6 +233,37 @@ def likeness(said: str, names: Iterable[str]) -> int | None:
         elif best is None and _near(wanted, full, first):
             best = 2
     return best
+
+
+# Words before a thing's name: "where are my keys", "où sont les clés".
+DETERMINERS: Final = frozenset(
+    {"the", "my", "our", "your", "a", "le", "la", "les", "l", "mes", "mon", "ma", "nos", "notre"}
+)
+
+
+def _thing_words(text: str) -> str:
+    words = norm(text).split(" ")
+    while words and words[0] in DETERMINERS:
+        words.pop(0)
+    return " ".join(words)
+
+
+def thing_likeness(said: str, name: str) -> int | None:
+    """How well a name said matches a thing's name, the lower the better (as `likeness`).
+
+    0 the whole name, 1 its first or last words ("keys" for "Alex's keys"), 2 a letter off in a
+    name of five letters or more; the words before it ("my", "les") are left out.
+    """
+    wanted, full = _thing_words(said), _thing_words(name)
+    if not wanted or not full:
+        return None
+    if wanted == full:
+        return 0
+    if full.endswith(" " + wanted) or full.startswith(wanted + " "):
+        return 1
+    if len(wanted) >= 5 and _distance(wanted, full) <= 1:
+        return 2
+    return None
 
 
 def _near(wanted: str, full: str, first: str) -> bool:

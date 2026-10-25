@@ -21,11 +21,13 @@ from homeassistant.helpers.storage import Store
 
 from .const import (
     DOMAIN,
+    MAX_PEOPLE,
     PEOPLE_STORAGE_KEY,
     PEOPLE_STORAGE_VERSION,
     SIGNAL_PEOPLE,
     SIGNAL_UPDATED,
 )
+from .locator import Locator
 from .people import AWAY, Area, Place, Reading, RoomFinder, place_of, rooms_of
 from .storage import DomoTwinData, RevisionConflictError
 
@@ -37,9 +39,12 @@ MAX_CANDIDATES: Final = 60
 
 
 def _own(registry: er.EntityRegistry, entity: str) -> bool:
-    """Whether an entity is one of DomoTwin's own."""
+    """Whether an entity is one of DomoTwin's own people's room sensors (never a source).
+
+    The rooms of the devices DomoTwin follows by Bluetooth are sources, of their owner's place.
+    """
     entry = registry.async_get(entity)
-    return entry is not None and entry.platform == DOMAIN
+    return entry is not None and entry.platform == DOMAIN and "_located_" not in entry.unique_id
 
 
 def name_of(hass: HomeAssistant, person: str) -> str:
@@ -56,10 +61,16 @@ def empty_people() -> dict[str, Any]:
 class PeopleTracker:
     """The people's settings, kept in their own store, and where each person is now."""
 
-    def __init__(self, hass: HomeAssistant, data: DomoTwinData) -> None:
-        """Prepare the store; nothing is followed before `async_start`."""
+    def __init__(
+        self, hass: HomeAssistant, data: DomoTwinData, locator: Locator | None = None
+    ) -> None:
+        """Prepare the store; nothing is followed before `async_start`.
+
+        The phones and watches the `locator` follows place their owners too.
+        """
         self._hass = hass
         self._data = data
+        self._locator = locator
         self._store: Store[dict[str, Any]] = Store(
             hass, PEOPLE_STORAGE_VERSION, PEOPLE_STORAGE_KEY, private=True
         )
@@ -100,10 +111,29 @@ class PeopleTracker:
         return set(self._config["hidden"])
 
     def sources(self, person: str) -> list[str]:
-        """The entities that say where a person is."""
+        """The entities that say where a person is: those chosen, and their Bluetooth devices'."""
         settings = self._config["people"].get(person)
         sources = settings.get("sources") if isinstance(settings, dict) else None
-        return list(sources) if isinstance(sources, list) else []
+        found = list(sources) if isinstance(sources, list) else []
+        return found + [s for s in self.located_sources(person) if s not in found]
+
+    def located_sources(self, person: str) -> list[str]:
+        """The room sensors of the phones and watches DomoTwin follows for a person (D-035)."""
+        if self._locator is None:
+            return []
+        return [self._locator.sensor_of(device) for device in self._locator.owned_by(person)]
+
+    async def async_place(self, people: list[str]) -> None:
+        """Place people not placed yet (their Bluetooth devices were just chosen)."""
+        missing = [p for p in dict.fromkeys(people) if p not in self._config["people"]]
+        # Never past the people's limit, which their settings are checked against.
+        missing = missing[: max(0, MAX_PEOPLE - len(self._config["people"]))]
+        if missing:
+            self._config["people"] = {
+                **self._config["people"],
+                **{person: {"sources": []} for person in missing},
+            }
+            await self._async_commit()
 
     @callback
     def async_start(self) -> None:
@@ -209,7 +239,7 @@ class PeopleTracker:
 
     @callback
     def _saved(self, kind: str, revision: int) -> None:
-        if kind in ("plan", "bindings"):
+        if kind in ("plan", "bindings", "locating"):
             self._rebuild()
 
     @callback
@@ -276,7 +306,7 @@ class PeopleTracker:
         for state in self._hass.states.async_all("sensor"):
             entry = registry.async_get(state.entity_id)
             platform = entry.platform if entry is not None else None
-            if platform == DOMAIN:
+            if platform == DOMAIN and "_located_" not in (entry.unique_id if entry else ""):
                 continue
             names_room = self._finder.find(state.state, state.attributes) is not None
             if platform not in ROOM_PLATFORMS and not names_room:

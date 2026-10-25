@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 from typing import Any, Final
 
@@ -9,6 +10,7 @@ from homeassistant.core import valid_entity_id
 from homeassistant.helpers.json import json_bytes
 
 from .const import (
+    LOCATED_KINDS,
     MAX_BINDINGS_BYTES,
     MAX_BOUND_ELEMENTS,
     MAX_ELEMENTS,
@@ -17,12 +19,15 @@ from .const import (
     MAX_ID_LENGTH,
     MAX_LAYOUT_BYTES,
     MAX_LEAD_DAYS,
+    MAX_LOCATED,
+    MAX_LOCATED_NAME,
     MAX_MODEL_BYTES,
     MAX_MODELS,
     MAX_MODELS_BYTES,
     MAX_PEOPLE,
     MAX_PERSON_SOURCES,
     MAX_PLAN_BYTES,
+    MAX_RECEIVERS,
     MAX_STOREY_NAME,
     MAX_STOREYS,
     MAX_UPKEEP_BYTES,
@@ -44,6 +49,10 @@ from .people import valid_color
 from .upkeep import parse_date
 
 MODEL_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{0,63}")
+# Bluetooth locating (D-035): a receiver's or a tag's address, a followed device's id, an iBeacon.
+MAC = re.compile(r"[0-9A-F]{2}(:[0-9A-F]{2}){5}")
+LOCATED_ID = re.compile(r"[a-z0-9][a-z0-9_]{0,39}")
+BEACON_UUID = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
 SHA256 = re.compile(r"[0-9a-f]{64}")
 
 ACTIONS = frozenset(
@@ -486,3 +495,98 @@ def validate_people(people: Any, shown: Any = None, look: Any = None) -> dict[st
     if look is not None and look not in PEOPLE_LOOKS:
         raise InvalidPayloadError("invalid_people", f"`look` must be one of {PEOPLE_LOOKS}")
     return checked
+
+
+def _locating_error(message: str) -> InvalidPayloadError:
+    return InvalidPayloadError("invalid_locating", message)
+
+
+def _validate_match(match: Any) -> dict[str, Any]:
+    """How a followed device is known: exactly one of `address`, `key` and `beacon`."""
+    if not isinstance(match, dict) or len(match) != 1:
+        raise _locating_error("a device is known by one of `address`, `key` and `beacon`")
+    if "address" in match:
+        if not isinstance(match["address"], str) or not MAC.fullmatch(match["address"].upper()):
+            raise _locating_error("`address` must be a Bluetooth address")
+        return {"address": match["address"].upper()}
+    if "key" in match:
+        if not isinstance(match["key"], str) or not 0 < len(match["key"]) <= 64:
+            raise _locating_error("`key` must be a Private BLE Device entry id")
+        return {"key": match["key"]}
+    beacon = match.get("beacon")
+    if (
+        not isinstance(beacon, dict)
+        or set(beacon) != {"uuid", "major", "minor"}
+        or not isinstance(beacon["uuid"], str)
+        or not BEACON_UUID.fullmatch(beacon["uuid"].lower())
+        or not all(
+            isinstance(beacon[k], int)
+            and not isinstance(beacon[k], bool)
+            and 0 <= beacon[k] < 65536
+            for k in ("major", "minor")
+        )
+    ):
+        raise _locating_error("`beacon` must be an iBeacon's uuid, major and minor")
+    return {"beacon": {**beacon, "uuid": beacon["uuid"].lower()}}
+
+
+def _validate_receivers(receivers: Any) -> dict[str, Any]:
+    if not isinstance(receivers, dict) or len(receivers) > MAX_RECEIVERS:
+        raise _locating_error(f"at most {MAX_RECEIVERS} receivers")
+    placed: dict[str, Any] = {}
+    for source, place in receivers.items():
+        if not isinstance(source, str) or not MAC.fullmatch(source.upper()):
+            raise _locating_error("a receiver is known by its Bluetooth address")
+        if not isinstance(place, dict) or set(place) - {"room", "piece"}:
+            raise _locating_error("a receiver is placed by a `room` or a `piece`")
+        for key, value in place.items():
+            _check_id(value, f"a receiver's {key}", "invalid_locating")
+        placed[source.upper()] = dict(place)
+    return placed
+
+
+def _validate_located(device: Any, settings: Any) -> dict[str, Any]:
+    if not isinstance(device, str) or not LOCATED_ID.fullmatch(device):
+        raise _locating_error("a device's id is 1 to 40 lowercase letters, digits or _")
+    if not isinstance(settings, dict) or set(settings) - {"name", "kind", "person", "match"}:
+        raise _locating_error("a device has a `name`, a `kind`, a `person` and a `match`")
+    name = settings.get("name")
+    if not isinstance(name, str) or not 0 < len(name.strip()) <= MAX_LOCATED_NAME:
+        raise _locating_error(f"a device's name is 1 to {MAX_LOCATED_NAME} characters")
+    if settings.get("kind") not in LOCATED_KINDS:
+        raise _locating_error(f"`kind` must be one of {LOCATED_KINDS}")
+    person = settings.get("person")
+    if person is not None and (
+        not isinstance(person, str)
+        or not person.startswith("person.")
+        or not valid_entity_id(person)
+    ):
+        raise _locating_error("`person` must be a person")
+    entry: dict[str, Any] = {
+        "name": name.strip(),
+        "kind": settings["kind"],
+        "match": _validate_match(settings.get("match")),
+    }
+    if person is not None:
+        entry["person"] = person
+    return entry
+
+
+def validate_locating(
+    receivers: Any, devices: Any, learn: Any = None
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Check where the receivers are and which devices are followed (D-035).
+
+    `receivers`: `{address: {"room"?: id, "piece"?: id}}`; `devices`: `{id: {"name", "kind",
+    "person"?, "match"}}`, at most 30. Return both, cleaned.
+    """
+    placed = _validate_receivers(receivers)
+    if not isinstance(devices, dict) or len(devices) > MAX_LOCATED:
+        raise _locating_error(f"at most {MAX_LOCATED} devices")
+    followed = {device: _validate_located(device, settings) for device, settings in devices.items()}
+    known = [json.dumps(e["match"], sort_keys=True) for e in followed.values()]
+    if len(set(known)) != len(known):
+        raise _locating_error("two devices are known the same way")
+    if learn is not None and not isinstance(learn, bool):
+        raise _locating_error("`learn` must be true or false")
+    return placed, followed

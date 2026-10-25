@@ -1,7 +1,7 @@
 {
   "domain": "domotwin",
   "name": "DomoTwin",
-  "after_dependencies": ["person"],
+  "after_dependencies": ["bluetooth", "person"],
   "codeowners": ["@arthur-leguennec"],
   "config_flow": true,
   "dependencies": ["frontend", "http", "panel_custom", "websocket_api"],

@@ -17,6 +17,8 @@
 //   people=1 (fictional people: Alex, the user viewing, in the kitchen; Sam in the living room;
 //   Kim away), people=0 (an integration without people)  peopleshown=admins  peoplelook=pin
 //   window.__move(person, room) moves someone (their room sensor, as the integration writes it)
+//   bluetooth=1 (DomoTwin's own Bluetooth locating: three fictional receivers, Alex's phone and
+//   keys followed, both in the kitchen, the keys left behind), bluetooth=none (no Bluetooth)
 //   window.__show(request) sends a `domotwin.show` request to every screen
 import { applyService, demoHome } from "./demo-home.mjs";
 
@@ -48,6 +50,30 @@ const PEOPLE = {
   "person.alex": { name: "Alex Martin", color: "#e8508a", room: "kitchen", home: true },
   "person.sam": { name: "Sam", color: "#2f9fd8", room: "living", home: true },
   "person.kim": { name: "Kim", color: "#3fae5a", room: undefined, home: false },
+};
+
+// Bluetooth locating (D-035): fictional receivers and devices, their room sensors as the
+// integration writes them.
+const bluetoothParam = params.get("bluetooth");
+const LOCATED = {
+  alex_phone: {
+    name: "Alex's phone",
+    kind: "phone",
+    person: "person.alex",
+    match: { key: "entry-alex-phone", title: "Alex's iPhone" },
+    room: "kitchen",
+    roomName: "Kitchen",
+    left_behind: false,
+  },
+  keys: {
+    name: "Keys",
+    kind: "thing",
+    person: "person.alex",
+    match: { address: "F1:00:00:00:00:01" },
+    room: "kitchen",
+    roomName: "Kitchen",
+    left_behind: true,
+  },
 };
 
 /** Today's date where the mocked home is (the browser's time zone), as the integration gives it. */
@@ -154,6 +180,55 @@ const store = {
           )
         : {},
   },
+};
+store.locating = {
+  revision: 1,
+  status: bluetoothParam === "none" ? "no_bluetooth" : "ready",
+  learn: true,
+  receivers:
+    bluetoothParam === "none"
+      ? []
+      : [
+          {
+            source: "AA:00:00:00:00:03",
+            name: "living-proxy",
+            idle: 1,
+            placed_by: "device_area",
+          },
+          {
+            source: "BB:00:00:00:00:01",
+            name: "bedroom-proxy",
+            idle: 2,
+            room: "bedroom",
+            placed_by: "room",
+          },
+          { source: "CC:00:00:00:00:01", name: "hall-proxy", idle: 4, placed_by: null },
+        ],
+  devices: Object.fromEntries(
+    Object.entries(bluetoothParam === "1" ? LOCATED : {}).map(([id, d]) => [
+      id,
+      {
+        name: d.name,
+        kind: d.kind,
+        person: d.person,
+        match: d.match,
+        sensor: `sensor.domotwin_${id}_bluetooth`,
+        room: d.room,
+        confidence: 0.87,
+        last_seen: new Date().toISOString(),
+        left_behind: d.left_behind,
+        missing_key: false,
+      },
+    ]),
+  ),
+  learned: {},
+  rooms: [
+    { id: "living", name: "Living room", storey: "" },
+    { id: "kitchen", name: "Kitchen", storey: "" },
+    { id: "bathroom", name: "Bathroom", storey: "" },
+    { id: "hall", name: "Hall", storey: "" },
+    { id: "bedroom", name: "Bedroom", storey: "" },
+  ],
 };
 window.__store = store;
 
@@ -546,6 +621,9 @@ const connection = {
         for (const [id, person] of Object.entries(people.people)) {
           person.sensor = `sensor.domotwin_${id.slice(7)}_room`;
         }
+        if (bluetoothParam === "1") {
+          people.people["person.alex"].located = ["sensor.domotwin_alex_phone_bluetooth"];
+        }
         if (hass.user.is_admin && message.candidates) {
           people.candidates = Object.keys(PEOPLE).map((id) => ({
             entity: `sensor.${id.slice(7)}_watch_area`,
@@ -581,6 +659,53 @@ const connection = {
           listener({ kind: "people", revision: store.people.revision });
         }
         return { revision: store.people.revision };
+      }
+      case "domotwin/locating/get": {
+        if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        return structuredClone(store.locating);
+      }
+      case "domotwin/locating/candidates": {
+        if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        return {
+          candidates: [
+            { match: { key: "entry-sam-watch" }, name: "Sam's watch" },
+            {
+              match: {
+                beacon: { uuid: "e2c56db5-dffb-48d2-b060-d0f5a71096e0", major: 1, minor: 2 },
+              },
+              name: "iBeacon",
+              rssi: -63,
+            },
+            { match: { address: "F1:22:33:44:55:66" }, name: "Bag tag", rssi: -71 },
+          ],
+        };
+      }
+      case "domotwin/locating/save": {
+        if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        if (
+          message.expected_revision !== undefined &&
+          message.expected_revision !== store.locating.revision
+        ) {
+          throw { code: "revision_conflict", message: "saved meanwhile" };
+        }
+        store.locating.revision += 1;
+        for (const listener of listeners) {
+          listener({ kind: "locating", revision: store.locating.revision });
+        }
+        return { revision: store.locating.revision };
+      }
+      case "domotwin/locating/teach": {
+        if (!(message.device in store.locating.devices)) {
+          throw { code: "unknown_device", message: "not followed" };
+        }
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        store.locating.learned[message.room] = 42;
+        return { readings: 14, receivers: 3 };
+      }
+      case "domotwin/locating/forget": {
+        const forgotten = Object.keys(store.locating.learned).length;
+        store.locating.learned = {};
+        return { forgotten };
       }
       case "domotwin/bindings/save": {
         if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
@@ -700,6 +825,25 @@ if (peopleParam === "1") {
       state: person.home ? "Kitchen" : "not_home",
       attributes: { friendly_name: `${person.name.split(" ")[0]}'s phone area` },
     };
+  }
+}
+if (bluetoothParam === "1") {
+  for (const [id, device] of Object.entries(LOCATED)) {
+    const entity_id = `sensor.domotwin_${id}_bluetooth`;
+    states[entity_id] = {
+      entity_id,
+      state: device.roomName,
+      attributes: {
+        friendly_name: `DomoTwin ${device.name}: room`,
+        device_name: device.name,
+        kind: device.kind,
+        person: device.person,
+        left_behind: device.left_behind,
+        room_id: device.room,
+        area_id: device.room,
+      },
+    };
+    home.entities[entity_id] = { entity_id, platform: "domotwin", translation_key: "located" };
   }
 }
 if (sunParam) {

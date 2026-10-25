@@ -21,8 +21,9 @@ export interface PeopleSettings {
   look: "figure" | "pin";
   /** People who hid themselves. */
   hidden: string[];
-  /** Each person placed, with their colour and their room sensor. */
-  people: Record<string, PersonSettings & { color: string; sensor: string }>;
+  /** Each person placed, with their colour and their room sensor; the room sensors of their
+   * devices followed by Bluetooth place them too (`located`, D-035). */
+  people: Record<string, PersonSettings & { color: string; sensor: string; located?: string[] }>;
   /** Entities that may say where someone is (administrators only). */
   candidates?: { entity: string; person?: string }[];
 }
