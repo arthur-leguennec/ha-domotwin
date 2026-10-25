@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Final
 
 DOMAIN: Final = "domotwin"
-VERSION: Final = "0.1.0"  # x-release-please-version
+VERSION: Final = "0.2.0"  # x-release-please-version
 
 # Storage (.storage/domotwin.data), see docs/ARCHITECTURE.md.
 STORAGE_KEY: Final = f"{DOMAIN}.data"
