@@ -10,6 +10,7 @@ export default tseslint.config(
       "src/import/pkg/",
       "src/models/pkg/",
       "src/planner/pkg/",
+      "src/analysis/pkg/",
       "node_modules/",
       "test-results/",
       "playwright-report/",

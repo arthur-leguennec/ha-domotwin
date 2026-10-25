@@ -4,13 +4,14 @@
  * where each end of it is in the home, and when one runs. Loaded with the automations section or
  * layer, not before.
  */
+import { automationReader } from "../analysis/analysis";
 import type { HomeAssistant } from "../ha/types";
 import { areaOf, entityName, roomArea, type BindingsJson } from "./bindings";
 import type { PlanRoom } from "./layers";
 
 export type EndRole = "trigger" | "condition" | "action";
 
-/** An end of an automation, as the engine reads it (`readAutomation`). */
+/** An end of an automation, as the analysis module reads it (`readAutomation`, D-043). */
 export interface AutomationEnd {
   role: EndRole;
   entity?: string;
@@ -88,22 +89,34 @@ export async function automationConfig(hass: HomeAssistant, entityId: string): P
 }
 
 /**
- * What each automation of `ids` involves, read with `read` (the engine's `readAutomation`) from
- * its configuration; those whose configuration cannot be read are left out.
+ * What each automation of `ids` involves, read from its configuration by the analysis module;
+ * those whose configuration cannot be had, or read, are left out. The module is loaded once a
+ * configuration comes (Home Assistant gives them to administrators only), while the others are
+ * still asked for. Nothing when it cannot be loaded.
  */
 export async function readAutomations(
   hass: HomeAssistant,
   ids: readonly string[],
-  read: (config: string) => string | undefined,
-): Promise<Map<string, ReadAutomation>> {
+): Promise<Map<string, ReadAutomation> | undefined> {
   const reads = new Map<string, ReadAutomation>();
-  await Promise.all(
-    ids.map(async (id) => {
-      const config = await automationConfig(hass, id);
-      const text = config === undefined ? undefined : read(JSON.stringify(config));
-      if (text) reads.set(id, JSON.parse(text) as ReadAutomation);
-    }),
-  );
+  let reader: Promise<(config: string) => string> | undefined;
+  try {
+    await Promise.all(
+      ids.map(async (id) => {
+        const config = await automationConfig(hass, id);
+        if (config === undefined) return;
+        reader ??= automationReader();
+        const read = await reader;
+        try {
+          reads.set(id, JSON.parse(read(JSON.stringify(config))) as ReadAutomation);
+        } catch {
+          // One the reader cannot make sense of is left out; the others are kept.
+        }
+      }),
+    );
+  } catch {
+    return undefined;
+  }
   return reads;
 }
 

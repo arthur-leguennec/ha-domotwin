@@ -3,6 +3,7 @@ src/engine/pkg/
 src/import/pkg/
 src/models/pkg/
 src/planner/pkg/
+src/analysis/pkg/
 test-results/
 playwright-report/
 coverage/

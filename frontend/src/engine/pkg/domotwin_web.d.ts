@@ -351,12 +351,12 @@ export class Engine {
      */
     setMotion(motion: boolean): void;
     /**
-     * Shows the mesh of `snapshot` (JSON, see `domotwin_core::network`): its links are drawn
-     * between the pieces its devices are placed at, coloured by quality, a pulse running towards
-     * the coordinator. Returns the analysis as JSON (devices, links, health). An empty string
-     * hides the map.
+     * Shows the mesh drawn by `drawing` (JSON, the analysis module's `drawing()`): its links are
+     * drawn between the pieces its devices are placed at, coloured by quality, a pulse running
+     * towards the coordinator. Returns the room each device is in (a JSON array of names or
+     * nulls), for the analysis's health. An empty string hides the map.
      */
-    setNetwork(snapshot: string): string;
+    setNetwork(drawing: string): string;
     /**
      * The people to draw: JSON `[{"id", "room", "color": "#rrggbb", "look": "figure" | "pin"}]`,
      * each in a room of the plans shown (others are left out). A figure new to the home fades
@@ -525,12 +525,6 @@ export function engineVersion(): string;
 export function heatLegend(kind: string): string;
 
 /**
- * What an automation's configuration (JSON, `automation/config`'s `config`) involves: JSON
- * `{"ends": [{"role", "entity" | "device" | "area" | "place" | "dynamic": name}], "skipped"}`.
- */
-export function readAutomation(config: string): string;
-
-/**
  * Installs the panic hook so that a bug shows a readable message in the console.
  */
 export function start(): void;
@@ -656,7 +650,6 @@ export interface InitOutput {
     readonly engine_walking: (a: number) => number;
     readonly engine_zoom: (a: number, b: number, c: number, d: number) => void;
     readonly heatLegend: (a: number, b: number, c: number) => void;
-    readonly readAutomation: (a: number, b: number, c: number) => void;
     readonly start: () => void;
     readonly summarizePlan: (a: number, b: number, c: number) => void;
     readonly upkeepStates: (a: number, b: number, c: number, d: number, e: number) => void;

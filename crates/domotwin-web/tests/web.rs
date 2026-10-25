@@ -885,12 +885,16 @@ fn the_network_map_draws_links_between_pieces_and_finds_them() {
         { "id": "00:00:00:00:00:00:00:05", "role": "end", "element": "floor-lamp",
           "neighbours": [{ "id": "00:00:00:00:00:00:00:02", "lqi": 200 }] }
     ] });
-    let analysis: serde_json::Value =
-        serde_json::from_str(&engine.set_network(&snapshot.to_string())).unwrap();
+    // The analysis module reads it and hands the engine what it draws (D-043); the engine says
+    // the room each device is in, for the analysis's health.
+    let mesh = domotwin_core::network::Mesh::read(&snapshot);
+    let rooms: Vec<Option<String>> =
+        serde_json::from_str(&engine.set_network(&mesh.write_drawing())).unwrap();
+    assert_eq!(rooms[2].as_deref(), Some("bathroom"));
+    assert_eq!(rooms[3], None, "not placed");
+    let analysis: serde_json::Value = serde_json::from_str(&mesh.report(&rooms)).unwrap();
     assert_eq!(analysis["health"]["weakLinks"], 1);
     assert_eq!(analysis["health"]["weakRooms"][0]["room"], "bathroom");
-    assert_eq!(analysis["devices"][2]["room"], "bathroom");
-    assert_eq!(analysis["devices"][3].get("room"), None, "not placed");
     // The pulse needs frames while the map is shown.
     assert!(engine.frame(0.0), "a pulse runs");
     // A tap somewhere on a wire finds its link; one far from every wire finds none.
@@ -1028,20 +1032,6 @@ fn automation_wires_join_their_ends_and_pulse_when_one_runs() {
     );
     // Hidden: nothing drawn, nothing found.
     assert_eq!(engine.set_automations("{}"), "[]");
-    // The configuration reader, for the interface.
-    let read: serde_json::Value = serde_json::from_str(&domotwin_web::read_automation(
-        r#"{"triggers": [{"trigger": "sun"}], "actions": [{"action": "light.turn_on", "target": {"area_id": "living_room", "floor_id": "ground", "label_id": "evening"}}, {"fictional": 1}]}"#,
-    ))
-    .unwrap();
-    assert_eq!(
-        read,
-        serde_json::json!({ "ends": [
-            { "role": "trigger", "place": "sun" },
-            { "role": "action", "area": "living_room" },
-            { "role": "action", "floor": "ground" },
-            { "role": "action", "label": "evening" }
-        ], "skipped": 1 })
-    );
     assert!(engine.automation_at(160.0, 120.0).is_empty());
     assert_eq!(engine.automation_points(), "[]");
 }

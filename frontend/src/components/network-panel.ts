@@ -6,6 +6,7 @@
 import { mdiAccessPoint, mdiClose, mdiMapMarkerPlus, mdiRadar, mdiRouterWireless } from "@mdi/js";
 import { LitElement, css, html, nothing, type PropertyValues, type TemplateResult } from "lit";
 
+import { analyseNetwork } from "../analysis/analysis";
 import type { DomoTwinEngine } from "../engine/engine";
 import type { HomeAssistant } from "../ha/types";
 import { translatorFor, type Translator } from "../i18n";
@@ -33,6 +34,8 @@ const RESCAN_POLL_MS = 30_000;
 /** Between the markers of devices at the same piece (CSS pixels). */
 const MARKER_GAP = 36;
 const RESCAN_FOR_MS = 180_000;
+/** The health of a mesh with no device. */
+const NO_TROUBLE: NetworkAnalysis["health"] = { weakLinks: 0, stale: [], weakRooms: [] };
 
 /** The details a place request carries (`domotwin-network-place`). */
 export interface PlaceRequest {
@@ -52,7 +55,8 @@ export class DomoTwinNetwork extends LitElement {
     analysis: { state: true },
     points: { state: true },
     selected: { state: true },
-    error: { state: true },
+    loadError: { state: true },
+    analysisError: { state: true },
     scanning: { state: true },
   };
 
@@ -244,7 +248,10 @@ export class DomoTwinNetwork extends LitElement {
   /** Where each placed device's marker goes (CSS pixels). */
   protected points: Record<string, [number, number]> = {};
   protected selected?: Selected;
-  protected error?: string;
+  /** The devices could not be read from the source. */
+  protected loadError?: string;
+  /** They were, but the analysis module could not read them. */
+  protected analysisError?: string;
   protected scanning = false;
 
   private source?: NetworkSource;
@@ -257,6 +264,8 @@ export class DomoTwinNetwork extends LitElement {
   private pointsScale = 0;
   private scale = 1;
   private polls: number[] = [];
+  /** The latest showing of the mesh: an older one's analysis is dropped. */
+  private showing = 0;
 
   private get t(): Translator {
     return translatorFor(this.hass);
@@ -269,6 +278,8 @@ export class DomoTwinNetwork extends LitElement {
 
   override disconnectedCallback(): void {
     super.disconnectedCallback();
+    // A showing still under way is not this one's any more.
+    this.showing += 1;
     for (const timer of this.polls) window.clearTimeout(timer);
     this.polls = [];
     try {
@@ -281,7 +292,7 @@ export class DomoTwinNetwork extends LitElement {
   protected override willUpdate(changed: PropertyValues<this>): void {
     // Linked again, or another plan: the devices are placed again (not read again).
     if ((changed.has("bindings") || changed.has("names")) && this.devices.length > 0) {
-      this.show();
+      void this.show();
     }
   }
 
@@ -295,29 +306,62 @@ export class DomoTwinNetwork extends LitElement {
       // Closed meanwhile: the engine was already told to draw nothing, and must stay so.
       if (!this.isConnected) return;
       this.devices = devices;
-      this.error = undefined;
-      this.show();
+      this.loadError = undefined;
+      await this.show();
     } catch (error) {
       const t = this.t;
       const code = (error as { code?: unknown } | null)?.code;
-      this.error = t.t("network.failed", {
+      this.loadError = t.t("network.failed", {
         reason: typeof code === "string" ? t.error(code) : t.error("unknown"),
       });
     }
   }
 
-  /** Places the devices and hands the mesh to the engine. */
-  private show(): void {
-    this.byId = new Map(this.devices.map((d) => [d.id, d]));
+  /**
+   * Places the devices, has the analysis module read the mesh (D-043) and hands the engine what it
+   * draws. Never rejects: what fails is said in the panel.
+   */
+  private async show(): Promise<void> {
     const engine = this.engine;
     if (!engine) return;
+    const devices = this.devices;
     const bindings = this.bindings ?? { version: 1, rooms: {}, elements: {} };
-    this.placed = placeDevices(this.devices, bindings, (id) => id in this.names);
-    const text = engine.setNetwork(snapshot(this.devices, this.placed));
-    this.analysis = text ? (JSON.parse(text) as NetworkAnalysis) : undefined;
-    this.qualities = new Map((this.analysis?.devices ?? []).map((d) => [d.id, d.quality]));
-    this.pointsText = "";
-    this.reproject(this.scale);
+    this.byId = new Map(devices.map((d) => [d.id, d]));
+    this.placed = placeDevices(devices, bindings, (id) => id in this.names);
+    const run = (this.showing += 1);
+    // Shown again, closed or on another engine meanwhile: the newer run, or the close, has it.
+    const current = (): boolean =>
+      run === this.showing && this.isConnected && this.engine === engine;
+    try {
+      let analysis: NetworkAnalysis;
+      if (devices.length === 0) {
+        // Nothing to draw nor to analyse: the module is not fetched for it.
+        engine.setNetwork("");
+        analysis = { devices: [], links: [], coordinator: null, health: NO_TROUBLE };
+      } else {
+        const text = await analyseNetwork(snapshot(devices, this.placed), current, (drawing) =>
+          engine.setNetwork(drawing),
+        );
+        if (text === undefined) return;
+        analysis = JSON.parse(text) as NetworkAnalysis;
+      }
+      this.analysisError = undefined;
+      this.analysis = analysis;
+      this.qualities = new Map(analysis.devices.map((d) => [d.id, d.quality]));
+      this.pointsText = "";
+      this.reproject(this.scale);
+    } catch {
+      if (!current()) return;
+      // Nothing drawn rather than a mesh that is not this one.
+      this.analysis = undefined;
+      this.qualities = new Map();
+      try {
+        engine.setNetwork("");
+      } catch {
+        // The view went first and its engine with it: nothing is drawn any more.
+      }
+      this.analysisError = this.t.t("network.unanalysed");
+    }
     fire(this, "domotwin-redraw", undefined);
   }
 
@@ -447,7 +491,9 @@ export class DomoTwinNetwork extends LitElement {
         </button>
       </header>
       ${this.scanning ? html`<p class="hint" role="status">${t.t("network.scanning")}</p>` : nothing}
-      ${this.error ? html`<p class="hint" role="alert">${this.error}</p>` : nothing}
+      ${[this.loadError, this.analysisError].map((error) =>
+        error ? html`<p class="hint" role="alert">${error}</p>` : nothing,
+      )}
       <div class="legend">
         ${(["good", "fair", "weak"] as const).map(
           (q) => html`<span class="swatch ${q}">${t.t(`network.${q}`)}</span>`,

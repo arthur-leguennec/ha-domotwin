@@ -7,11 +7,26 @@ const chromiumArgs = [
   "--ignore-gpu-blocklist",
 ];
 
+const chromium = {
+  ...devices["Desktop Chrome"],
+  viewport: { width: 1000, height: 700 },
+  launchOptions: {
+    args: chromiumArgs,
+    ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE
+      ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE }
+      : {}),
+  },
+};
+
 export default defineConfig({
   testDir: "e2e",
   outputDir: "test-results",
   timeout: 60_000,
+  // One test at a time on a runner (software WebGL2 takes every core). The CI runs the
+  // measurements (`perf`) on a runner of their own and splits the rest between three, test by test
+  // (`--shard`), which needs them independent of each other: they are.
   workers: 1,
+  fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: 0,
   reporter: process.env.CI ? [["list"], ["html", { open: "never" }]] : "list",
@@ -27,19 +42,8 @@ export default defineConfig({
     trace: "retain-on-failure",
   },
   projects: [
-    {
-      name: "chromium",
-      use: {
-        ...devices["Desktop Chrome"],
-        viewport: { width: 1000, height: 700 },
-        launchOptions: {
-          args: chromiumArgs,
-          ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE
-            ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE }
-            : {}),
-        },
-      },
-    },
+    { name: "chromium", testIgnore: /perf\.spec\.ts$/, use: chromium },
+    { name: "perf", testMatch: /perf\.spec\.ts$/, use: chromium },
   ],
   webServer: {
     command: "node e2e/serve.mjs",

@@ -8,7 +8,7 @@
 import { mdiClose, mdiHelpRhombusOutline, mdiLightningBolt, mdiTarget } from "@mdi/js";
 import { LitElement, css, html, nothing, type PropertyValues, type TemplateResult } from "lit";
 
-import { readAutomation, type DomoTwinEngine } from "../engine/engine";
+import type { DomoTwinEngine } from "../engine/engine";
 import type { HomeAssistant } from "../ha/types";
 import { translatorFor, type MessageKey, type Translator } from "../i18n";
 import {
@@ -113,6 +113,7 @@ export class DomoTwinWires extends LitElement {
     points: { state: true },
     picked: { state: true },
     loading: { state: true },
+    unread: { state: true },
   };
   static override styles = [
     baseStyles,
@@ -207,6 +208,8 @@ export class DomoTwinWires extends LitElement {
   /** The automation picked out by a tap on its wire. */
   protected picked?: string;
   protected loading = true;
+  /** The configurations came, but the module that reads them could not be loaded. */
+  protected unread = false;
   /** The automations drawn, what each one involves, when each last ran. */
   private shown: string[] = [];
   private reads = new Map<string, ReadAutomation>();
@@ -252,12 +255,11 @@ export class DomoTwinWires extends LitElement {
     const ids = this.ids ?? allAutomations(hass);
     const known = this.known;
     const reads =
-      known && ids.every((id) => known.has(id))
-        ? new Map(known)
-        : await readAutomations(hass, ids, readAutomation);
+      known && ids.every((id) => known.has(id)) ? new Map(known) : await readAutomations(hass, ids);
     if (key !== this.asked || !this.isConnected) return;
-    this.reads = reads;
-    this.shown = ids.filter((id) => reads.has(id));
+    this.unread = reads === undefined;
+    this.reads = reads ?? new Map<string, ReadAutomation>();
+    this.shown = ids.filter((id) => this.reads.has(id));
     this.runs = lastRuns(hass, this.shown);
     this.loading = false;
     this.show();
@@ -398,7 +400,15 @@ export class DomoTwinWires extends LitElement {
               ></span>`
             : nothing
         }
-        <span>${this.loading ? t.t("automations.loading") : title}</span>
+        <span
+          >${
+            this.loading
+              ? t.t("automations.loading")
+              : this.unread
+                ? t.t("automations.unread")
+                : title
+          }</span
+        >
         <button
           aria-label=${t.t("automations.hide")}
           title=${t.t("automations.hide")}

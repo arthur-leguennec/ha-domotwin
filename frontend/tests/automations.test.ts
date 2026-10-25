@@ -10,6 +10,7 @@ import {
   lastRuns,
   placeEnds,
   ranSince,
+  readAutomations,
   relatedAutomations,
   rolesOf,
   type AutomationEnd,
@@ -117,6 +118,15 @@ describe("automation wires (D-032)", () => {
     expect(await automationConfig(home, "automation.a")).toEqual({ alias: "A" });
     expect(await automationConfig(home, "automation.b")).toBeUndefined();
     expect(allAutomations(home)).toEqual(["automation.a", "automation.b"]);
+  });
+
+  it("loads the reader only once a configuration comes, and says when it cannot", async () => {
+    // Kept from the user (not an administrator): nothing to read, nothing loaded.
+    const kept = vi.fn(() => Promise.reject(new Error("Unauthorized")));
+    expect(await readAutomations(hass(kept), ["automation.a", "automation.b"])).toEqual(new Map());
+    // A configuration comes, but the analysis module cannot be loaded (none is built here).
+    const given = vi.fn(() => Promise.resolve({ config: { alias: "A" } }));
+    expect(await readAutomations(hass(given), ["automation.a"])).toBeUndefined();
   });
 
   it("places each end at a piece, in a room or above one", () => {

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Builds the WebAssembly modules (the engine; the IFC import, loaded only to import a .ifc file; the
-# 3D model reader, loaded only for plans with pieces drawn from 3D files) and the frontend bundle
+# Builds the WebAssembly modules (the engine; the plan import, loaded only to import a file; the 3D
+# model reader, loaded only for plans with pieces drawn from 3D files; the plan editor; the analysis
+# of the network map and the automations, loaded only when they are shown) and the frontend bundle
 # into custom_components/domotwin/frontend/.
 #
 # Needs: the Rust toolchain of rust-toolchain.toml, wasm-bindgen-cli (same version as the
@@ -47,5 +48,6 @@ build_module domotwin-web domotwin_web "$root/frontend/src/engine/pkg"
 build_module domotwin-import domotwin_import "$root/frontend/src/import/pkg"
 build_module domotwin-models domotwin_models "$root/frontend/src/models/pkg"
 build_module domotwin-planner domotwin_planner "$root/frontend/src/planner/pkg"
+build_module domotwin-analysis domotwin_analysis "$root/frontend/src/analysis/pkg"
 
 (cd "$root/frontend" && node build.mjs $([[ "$mode" == "dev" ]] && echo --dev))
