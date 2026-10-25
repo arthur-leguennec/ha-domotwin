@@ -28,7 +28,7 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M9f       | Bluetooth locating, without Bermuda or ESPresense          | ✅     |
 | M8b       | Two more looks: cartoon and clay                           | ✅     |
 | 0.1.0     | First release: all of the above, `domotwin.zip` for HACS   | ✅     |
-| M5b       | What cameras see, drawn on the floor behind the furniture  | ⏳     |
+| M5b       | What cameras see, drawn on the floor behind the furniture  | ✅     |
 | M9g       | Private rooms: locked, or kept for some people             | ⏳     |
 | M11       | Imports: Sweet Home 3D, DXF, room scans                    | ⏳     |
 | M12       | Polish: design, fonts, accessibility, voice, README        | ⏳     |
@@ -634,14 +634,22 @@ Moved forward by the maintainer, right after M8b (D-037): every milestone above,
 
 Raised by the maintainer, twice: the view of a camera (D-024) was a flat shape laid over the
 picture, over the sofa and the people, and was taken for the room's outline. The engine draws it
-on the floor of its room instead:
+on the floor of its room instead (`DECISIONS.md`, D-038):
 
-- hidden by the furniture and the people standing on it;
-- a fan from the camera's badge, fading out with distance, in a look of its own (not a room's
-  highlight);
-- faint until the camera is tapped, then whole.
+- ✅ **On the floor**, hidden by the furniture and the people standing on it; moved with its
+  storey; not drawn while walking, nor in the storeys' pictures.
+- ✅ **A look of its own**, not a room's highlight: a fan from the camera, fading out with
+  distance, with a ring every metre from the camera and its two side rays as thin lines; never a
+  line along the walls. Blue (the look's accent), red while recording, grey when unavailable.
+- ✅ **Faint until the camera is tapped** (its piece or its badge), then whole for 15 seconds; a
+  tap anywhere else makes it faint again.
+- ✅ The card's `cameras: false` and the layer menu still leave the views out; editing and linking
+  too.
+- ✅ Tests: the fan's mesh and its states (wasm, no GL error, faint, whole, every tone, walking);
+  the views drawn, faint and whole, their tones, hidden, and narrower when the angle is changed
+  (Playwright, from the picture's pixels).
 
-The card's `cameras: false` still leaves the views out.
+![The demo apartment in neon: a camera's view, faint, then whole once the camera is tapped](figures/screenshot-camera-view.png)
 
 ## M9g, private rooms
 

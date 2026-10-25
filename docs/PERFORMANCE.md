@@ -552,3 +552,24 @@ is) and 5 % more on
 Balanced, where it is drawn offscreen for its ink alone while day goes straight to the screen;
 there it makes no bloom textures. Clay costs what day costs: its matte shading changes uniforms,
 not passes. Eco draws both straight to the screen, the cartoon without the ink from the depth.
+
+### M5b (what cameras see, on the floor)
+
+Bundle: the first load is **462.1 kB gzipped** of 1 200 kB (+3.1 kB). The engine grew by 3.2 kB
+(`domotwin_web_bg.<hash>.wasm`: 850.8 kB raw, 368.6 kB gzipped): the fan's mesh, its shaders and
+its pass. The JavaScript lost 0.1 kB: the SVG layer is gone.
+
+Frame time at 1280 × 720, the demo apartment in the evening, High, *reduce motion* on. The CPU
+time of a frame is unchanged (0.3 ms median, `e2e/perf.spec.ts`). The software GPU, the median of
+nine frames each read back, with the views hidden, faint and whole:
+
+| Look | Hidden | Faint | Whole |
+| --- | ---: | ---: | ---: |
+| Day, 3D | 260 ms | 250 ms | 248 ms |
+| Day, 2D plan | 259 ms | 248 ms | 236 ms |
+| Neon, 3D | 232 ms | 249 ms | 227 ms |
+| Neon, 2D plan | 216 ms | 236 ms | 225 ms |
+
+The fan's pass is lost in the noise of the measurement (about ±8 %): one draw call of a few dozen
+triangles over a part of the floor. Its mesh is made again only when the views change (a camera's
+state, a tap, the plan or the links), in 0.02 to 0.08 ms; other states do not touch it.

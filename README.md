@@ -45,7 +45,7 @@ Local, fast, Rust + WebAssembly.</p>
   windows, and what each appliance draws.
 - **Devices.** Badges over your devices (a lock's state, a camera recording, what plays, a battery
   running low, the washing machine running), and what each camera sees drawn on the floor of its
-  room; tap for the live picture.
+  room, behind the furniture, faint until you tap the camera; tap for the live picture.
 - **Network map.** Your Zigbee mesh drawn over the home: each device at its piece, each link an arc
   coloured by its quality, light running towards the coordinator, and the rooms that hang on a weak
   link named, with *a router here would help*. Tap a device or a link for the details, rescan,
@@ -120,7 +120,7 @@ Local, fast, Rust + WebAssembly.</p>
 </p>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-devices.png" alt="Devices: badges over the entrance door, the TV, the camera and the washing machine, and the cone of what the living room's camera sees on the 2D plan" width="100%">
+  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-devices.png" alt="Devices: badges over the entrance door, the TV, the camera and the washing machine, and what the living room's camera sees, a fan with a ring every metre on the floor of the 2D plan" width="100%">
 </p>
 
 <p align="center">

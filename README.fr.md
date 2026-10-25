@@ -49,7 +49,8 @@ Local, rapide, Rust + WebAssembly.</p>
   soleil qui entre par vos fenêtres, et ce que consomme chaque appareil.
 - **Appareils.** Des badges sur vos appareils (l’état d’une serrure, une caméra qui enregistre, ce
   qui est en lecture, une batterie faible, le lave-linge en marche), et ce que voit chaque caméra,
-  dessiné au sol de sa pièce ; touchez pour l’image en direct.
+  dessiné au sol de sa pièce, derrière les meubles, discret tant que vous ne touchez pas la
+  caméra ; touchez pour l’image en direct.
 - **Carte du réseau.** Votre maillage Zigbee dessiné sur le logement : chaque appareil sur son
   meuble, chaque lien en arc coloré selon sa qualité, une lumière qui court vers le coordinateur,
   et les pièces suspendues à un lien faible nommées, avec « un routeur ici aiderait ». Touchez un
@@ -134,7 +135,7 @@ Local, rapide, Rust + WebAssembly.</p>
 </p>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-devices.png" alt="Les appareils : des badges sur la porte d’entrée, la télévision, la caméra et le lave-linge, et le cône de ce que voit la caméra du séjour sur le plan 2D" width="100%">
+  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-devices.png" alt="Les appareils : des badges sur la porte d’entrée, la télévision, la caméra et le lave-linge, et ce que voit la caméra du séjour, un éventail avec un anneau par mètre au sol du plan 2D" width="100%">
 </p>
 
 <p align="center">

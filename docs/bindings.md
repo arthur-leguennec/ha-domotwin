@@ -126,9 +126,12 @@ on one element, the most urgent first.
 
 **What a camera sees.** A piece linked to a camera shows what it sees on the floor: from the
 centre of the piece towards its front (the `y + h` side, the way it faces), `fov` wide and `range`
-long, in the piece's room, its walls hiding what is behind them. It is blue, red while recording, grey and dashed when the camera is
-unavailable. The camera on the bookcase of the demo apartment looks into the living room. A tap
-opens Home Assistant's more-info dialog, with the live picture. The card's `badges: false` and
+long, in the piece's room, its walls hiding what is behind them. It is a fan on the floor, behind
+the furniture and the people, fading out with distance, with a ring every metre and its two side
+rays drawn as lines. It is blue, red while recording, grey when the camera is unavailable; faint
+until the camera is tapped, then whole for 15 seconds. It is not drawn while walking. The
+camera on the bookcase of the demo apartment looks into the living room. A tap opens Home
+Assistant's more-info dialog, with the live picture. The card's `badges: false` and
 `cameras: false` turn them off; so does the layer menu.
 
 ## Tap and long press

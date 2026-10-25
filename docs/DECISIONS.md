@@ -458,7 +458,8 @@ Decided while the maintainer was away (M5); open to review.
     corner included. It does so when the plan or the bindings change and only projects it on the
     floor when the view moves (`cameraViews`); the view draws it as an SVG polygon, blue, red while
     recording, grey and dashed when unavailable. No geometry is added to the scene, so nothing is
-    rebuilt when a camera's settings change.
+    rebuilt when a camera's settings change. *Since M5b, the engine draws it on the floor, behind
+    the furniture (D-038).*
   - **Kinds and names from the engine.** The badges take each piece's kind (for appliances) and
     name (for their labels) from the plan the engine shows, the edit overlay applied
     (`elementList`), so that pieces added in edit mode get them too.
@@ -1099,3 +1100,36 @@ Asked by the maintainer, after M8b.
 - **Consequences.** 0.1.0 ships the camera views as flat shapes over the picture (fixed in M5b) and
   without the install test on a clean Home Assistant and the measurements on real devices, which
   M13 does before the submission. The changelog of 0.1.0 lists every milestone so far.
+
+## D-038 · What cameras see, drawn by the engine on the floor
+
+Raised by the maintainer, twice (M5b).
+
+- **Context.** D-024 drew a camera's view as an SVG polygon over the picture: flat on the screen,
+  over the sofa and the people, its outline along the walls of the room. It was taken for the
+  room's outline, or its highlight.
+- **Decision.**
+  - **In the scene.** The engine draws the views in the frame, as a fan of triangles from the
+    camera to the points D-024 works out, 3 cm over the floor of its storey (over the rugs) and
+    moved with it (D-028). It is drawn after what is opaque and before the cartoon's ink (D-036)
+    and glass, with the depth tested and not written: the furniture and the people standing on
+    it hide it, the ink outlines them over it, and it blends with the floor. Its mesh is rebuilt only when the plan, the bindings, a camera's state or the
+    focus change; the frame costs one draw call for all the cameras.
+  - **A look of its own.** The fan's colour fades with the distance from the camera; a ring every
+    metre from the camera and its two side rays are drawn as lines about a pixel and a half wide
+    (from the screen-space derivatives, so they stay thin at any zoom). The side along the walls
+    is never drawn: it was what read as the room. Blue (the look's accent), red while recording,
+    grey when unavailable or unknown to Home Assistant, as its badge says. The tones are the
+    picture's, like the lamps' light, not the dashboard theme's; the badges keep the theme's.
+  - **Faint until tapped.** A tap on a camera's piece or badge draws its view whole for 15
+    seconds; the others stay faint. A tap anywhere else (a piece, a room, the floor) makes them all
+    faint again. The engine times the 15 seconds on its frames' clock; the view only asks for a
+    frame then.
+  - **Where it is not drawn.** While walking and on the way down to eye level or back up (it
+    would lie under the feet, D-029), in the storeys' pictures (D-028), and while editing or
+    linking; the card's `cameras: false` and the layer menu leave it out.
+  - **For tests and tools.** The engine's stats list the views drawn (`cameraViews`: the element,
+    the tone, whether tapped); `cameraViews()` still gives their points on the screen.
+- **Consequences.** The view no longer needs SVG nodes or a projection on every camera move. A
+  view is still not cut by the furniture (D-024): it is hidden by it, not stopped. The rings
+  measure from the camera's spot on the floor, not from its height.

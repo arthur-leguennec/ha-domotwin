@@ -39,8 +39,8 @@ and take the roof off (and put it back); both are animated.
   highest on top (in views wider than 560 pixels). A tap on one shows that storey alone.
 - **Everything is live**, on every storey: lamps light their storey, a tap on any lamp toggles it,
   a long press opens its controls, the walls facing the camera are lowered storey by storey, and
-  the layers (heatmap, alerts, presence, power), the badges and the cameras' cones show on every
-  storey.
+  the layers (heatmap, alerts, presence, power), the badges and what the cameras see show on
+  every storey.
 - **The roof** is a gable roof over the top storey's walls, its ridge along the longer side. It is
   of glass in the neon and blueprint looks, tiled in day. A tap goes through it to what is under it.
 - **On the 2D plan**, the storeys lie side by side, the ground floor on the left (down the view in
