@@ -11,17 +11,17 @@ const MAX_DEPTH: usize = 64;
 
 /// A start tag.
 #[derive(Debug, Clone, PartialEq)]
-pub(crate) struct Tag<'a> {
+pub struct Tag<'a> {
     /// Local name (without its prefix).
-    pub(crate) name: &'a str,
+    pub name: &'a str,
     attrs: Vec<(&'a str, Cow<'a, str>)>,
     /// `<name … />`: no content and no end tag.
-    pub(crate) empty: bool,
+    pub empty: bool,
 }
 
 impl Tag<'_> {
     /// An attribute by local name.
-    pub(crate) fn attr(&self, name: &str) -> Option<&str> {
+    pub fn attr(&self, name: &str) -> Option<&str> {
         self.attrs
             .iter()
             .find(|(n, _)| *n == name)
@@ -31,7 +31,7 @@ impl Tag<'_> {
 
 /// What the reader meets.
 #[derive(Debug, Clone, PartialEq)]
-pub(crate) enum Event<'a> {
+pub enum Event<'a> {
     /// A start tag (or an empty element).
     Start(Tag<'a>),
     /// An end tag, by local name.
@@ -40,7 +40,7 @@ pub(crate) enum Event<'a> {
 
 /// Reads events one by one.
 #[derive(Debug)]
-pub(crate) struct Reader<'a> {
+pub struct Reader<'a> {
     text: &'a str,
     at: usize,
     open: Vec<&'a str>,
@@ -87,7 +87,7 @@ fn unescape(value: &str) -> Result<Cow<'_, str>, Error> {
 
 impl<'a> Reader<'a> {
     /// A reader over UTF-8 bytes (a byte order mark is skipped).
-    pub(crate) fn new(bytes: &'a [u8]) -> Result<Self, Error> {
+    pub fn new(bytes: &'a [u8]) -> Result<Self, Error> {
         let text = std::str::from_utf8(bytes).map_err(|_| Error::NotModel)?;
         Ok(Self {
             text: text.strip_prefix('\u{feff}').unwrap_or(text),
@@ -104,7 +104,7 @@ impl<'a> Reader<'a> {
     }
 
     /// The next event; `None` at the end of a well-formed document.
-    pub(crate) fn next(&mut self) -> Result<Option<Event<'a>>, Error> {
+    pub fn next_event(&mut self) -> Result<Option<Event<'a>>, Error> {
         loop {
             let Some(found) = self.text[self.at..].find('<') else {
                 if self.open.is_empty() && self.closed_root {
@@ -218,7 +218,7 @@ mod tests {
     fn events(text: &str) -> Result<Vec<String>, Error> {
         let mut reader = Reader::new(text.as_bytes())?;
         let mut out = Vec::new();
-        while let Some(event) = reader.next()? {
+        while let Some(event) = reader.next_event()? {
             out.push(match event {
                 Event::Start(tag) => {
                     let attrs: Vec<String> =

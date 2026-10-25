@@ -17,9 +17,10 @@ pub mod mesh;
 mod obj;
 mod stl;
 mod threemf;
+#[cfg(feature = "web")]
 mod web;
-mod xml;
-mod zip;
+pub mod xml;
+pub mod zip;
 
 pub use mesh::{Finish, Mesh};
 

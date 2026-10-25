@@ -135,7 +135,7 @@ fn color(value: Option<&str>) -> Result<[u8; 4], Error> {
 fn start_part(archive: &Archive<'_>) -> Result<String, Error> {
     let rels = archive.read("_rels/.rels")?;
     let mut reader = Reader::new(&rels)?;
-    while let Some(event) = reader.next()? {
+    while let Some(event) = reader.next_event()? {
         if let Event::Start(tag) = event
             && tag.name == "Relationship"
             && tag.attr("Type").is_some_and(|t| t.ends_with("/3dmodel"))
@@ -154,7 +154,7 @@ fn parse(bytes: &[u8]) -> Result<Part, Error> {
     let mut group: Option<u32> = None;
     let mut object: Option<(u32, Object)> = None;
     let mut root = true;
-    while let Some(event) = reader.next()? {
+    while let Some(event) = reader.next_event()? {
         let tag = match event {
             Event::Start(tag) => tag,
             Event::End(name) => {

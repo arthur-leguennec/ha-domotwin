@@ -28,7 +28,7 @@ async function wasmModule(dir, name) {
   };
 }
 const engine = await wasmModule("src/engine/pkg", "domotwin_web");
-const ifc = await wasmModule("src/ifc/pkg", "domotwin_ifc");
+const planImport = await wasmModule("src/import/pkg", "domotwin_import");
 const models = await wasmModule("src/models/pkg", "domotwin_models");
 const planner = await wasmModule("src/planner/pkg", "domotwin_planner");
 const wasmFile = engine.file;
@@ -53,14 +53,14 @@ const result = await build({
   define: {
     __DOMOTWIN_VERSION__: JSON.stringify(version),
     __DOMOTWIN_WASM__: JSON.stringify(wasmFile),
-    __DOMOTWIN_IFC_WASM__: JSON.stringify(ifc.file),
+    __DOMOTWIN_IMPORT_WASM__: JSON.stringify(planImport.file),
     __DOMOTWIN_MODELS_WASM__: JSON.stringify(models.file),
     __DOMOTWIN_PLANNER_WASM__: JSON.stringify(planner.file),
   },
 });
 
 await copyFile(engine.path, join(out, engine.file));
-await copyFile(ifc.path, join(out, ifc.file));
+await copyFile(planImport.path, join(out, planImport.file));
 await copyFile(models.path, join(out, models.file));
 await copyFile(planner.path, join(out, planner.file));
 await writeFile(
@@ -69,7 +69,7 @@ await writeFile(
     {
       version,
       wasm: wasmFile,
-      ifc: ifc.file,
+      import: planImport.file,
       models: models.file,
       planner: planner.file,
       outputs: Object.keys(result.metafile.outputs),

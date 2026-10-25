@@ -2,7 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 
 import { openHarness } from "./fixtures";
 
-const FIXTURES = "../crates/domotwin-ifc/tests/fixtures";
+const FIXTURES = "../crates/domotwin-import/tests/fixtures";
 
 async function importFile(page: Page, path: string): Promise<void> {
   const chooser = page.waitForEvent("filechooser");
@@ -29,7 +29,7 @@ test.describe("IFC import", () => {
     await importFile(page, "../examples/demo-apartment.ifc");
     await expect(
       page.getByText(
-        "Imported from IFC: Fictional building – Level 0. Left out: 1 unknown or stray piece, 2 outside or overall spaces.",
+        "Imported from an IFC file: Fictional building – Level 0. Left out: 1 unknown or stray piece, 2 outside, overall or unreadable rooms.",
       ),
     ).toBeVisible();
     await expect(page.getByTestId("summary")).toContainText("6 rooms");
@@ -43,7 +43,7 @@ test.describe("IFC import", () => {
   test("asks which storey when there are several", async ({ page }) => {
     await openHarness(page, { mode: "panel", plan: "none", lang: "fr" });
     await importFile(page, `${FIXTURES}/house-ifc2x3.ifc`);
-    const picker = page.getByTestId("ifc-storeys");
+    const picker = page.getByTestId("import-storeys");
     await expect(picker.locator("button.storey")).toHaveCount(2);
     await expect(picker.locator("button.storey").first()).toContainText("Rez-de-chaussée");
     await expect(picker.locator("button.storey").first()).toContainText("4 pièces · 0 m");
@@ -51,7 +51,7 @@ test.describe("IFC import", () => {
     await expect(page.getByRole("button", { name: "Importer un plan" }).first()).toBeDisabled();
     await picker.getByRole("button", { name: /Étage/ }).click();
     await expect(
-      page.getByText("Importé depuis l’IFC : Maison des Exemples – Étage."),
+      page.getByText("Importé depuis un fichier IFC : Maison des Exemples – Étage."),
     ).toBeVisible();
     await expect(page.getByTestId("summary")).toContainText("2 pièces");
   });
@@ -60,7 +60,7 @@ test.describe("IFC import", () => {
     await openHarness(page, { mode: "panel", plan: "none" });
     await importFile(page, `${FIXTURES}/no-spaces-ifc4.ifc`);
     await expect(page.getByRole("alert")).toContainText(
-      "This file cannot be imported: this storey has no spaces (rooms).",
+      "This file cannot be imported: no room was found on this storey.",
     );
     expect(await saves(page)).toHaveLength(0);
   });
@@ -72,7 +72,7 @@ test.describe("IFC import", () => {
     });
     await openHarness(page, { mode: "panel" });
     await expect(page.getByTestId("summary")).toBeVisible();
-    expect(wasm.some((url) => url.includes("domotwin_ifc"))).toBe(false);
+    expect(wasm.some((url) => url.includes("domotwin_import"))).toBe(false);
     expect(wasm.some((url) => url.includes("domotwin_web"))).toBe(true);
   });
 });

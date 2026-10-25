@@ -129,6 +129,43 @@ pub fn signed_area2(points: &[P2]) -> f64 {
         .sum()
 }
 
+/// A point inside the polygon: the mean of its corners when it is inside (a convex room's), else
+/// the middle of the widest span across the polygon at that height (an L or a U whose mean falls
+/// outside it, maybe in the room next to it).
+pub fn interior_point(polygon: &[P2]) -> P2 {
+    #[allow(clippy::cast_precision_loss)]
+    let n = polygon.len().max(1) as f64;
+    let sum = polygon
+        .iter()
+        .fold([0.0, 0.0], |s, p| [s[0] + p[0], s[1] + p[1]]);
+    let mean = [sum[0] / n, sum[1] / n];
+    if point_in_polygon(mean, polygon) {
+        return mean;
+    }
+    let (lo, hi) = polygon
+        .iter()
+        .fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), p| {
+            (lo.min(p[1]), hi.max(p[1]))
+        });
+    for y in [mean[1], (lo + hi) / 2.0] {
+        let mut xs: Vec<f64> = (0..polygon.len())
+            .filter_map(|i| {
+                let (a, b) = (polygon[i], polygon[(i + 1) % polygon.len()]);
+                ((a[1] > y) != (b[1] > y))
+                    .then(|| a[0] + (b[0] - a[0]) * (y - a[1]) / (b[1] - a[1]))
+            })
+            .collect();
+        xs.sort_by(f64::total_cmp);
+        let widest = xs
+            .chunks_exact(2)
+            .max_by(|p, q| (p[1] - p[0]).total_cmp(&(q[1] - q[0])));
+        if let Some(span) = widest {
+            return [(span[0] + span[1]) / 2.0, y];
+        }
+    }
+    mean
+}
+
 /// Whether `p` is inside the polygon (even-odd rule).
 pub fn point_in_polygon(p: P2, polygon: &[P2]) -> bool {
     let n = polygon.len();
@@ -287,6 +324,23 @@ pub fn convex_hull(points: &[P2]) -> Vec<P2> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_point_inside_an_l() {
+        // An L whose corners' mean falls in its notch.
+        let l = [
+            [0.0, 0.0],
+            [400.0, 0.0],
+            [400.0, 100.0],
+            [100.0, 100.0],
+            [100.0, 400.0],
+            [0.0, 400.0],
+        ];
+        let p = interior_point(&l);
+        assert!(point_in_polygon(p, &l), "{p:?}");
+        let square = [[0.0, 0.0], [10.0, 0.0], [10.0, 10.0], [0.0, 10.0]];
+        assert_eq!(interior_point(&square), [5.0, 5.0]);
+    }
 
     #[test]
     fn frames_compose_and_invert() {

@@ -28,9 +28,9 @@ hassfest='^custom_components/'
 # HACS shows and checks the README (render_readme).
 hacs='^custom_components/|^(hacs\.json|README\.md)$'
 build="$rust|$frontend|^scripts/(build\\.sh|check-bundle-size\\.mjs)$"
-quiet='^\.github/(ISSUE_TEMPLATE/|PULL_REQUEST_TEMPLATE\.md$|CODEOWNERS$|dependabot\.yml$|workflows/(codeql|security|pr-title|release-please|nightly|fuzz)\.yml$)|^fuzz/|^(\.gitignore|\.gitleaks\.toml|\.pre-commit-config\.yaml|\.release-please-manifest\.json|release-please-config\.json)$|^scripts/(screenshots|render-figures|ha-smoke|third-party-notices)\.mjs$|^scripts/make-(ifc|model)-fixtures\.py$'
+quiet='^\.github/(ISSUE_TEMPLATE/|PULL_REQUEST_TEMPLATE\.md$|CODEOWNERS$|dependabot\.yml$|workflows/(codeql|security|pr-title|release-please|nightly|fuzz)\.yml$)|^fuzz/|^(\.gitignore|\.gitleaks\.toml|\.pre-commit-config\.yaml|\.release-please-manifest\.json|release-please-config\.json)$|^scripts/(screenshots|render-figures|ha-smoke|third-party-notices)\.mjs$|^scripts/make-(ifc|model|import)-fixtures\.py$'
 fuzz_core='^(crates/domotwin-core/|fuzz/|examples/)|^(Cargo\.(toml|lock)|rust-toolchain\.toml|\.github/workflows/fuzz\.yml)$'
-fuzz_ifc='^(crates/domotwin-(core|ifc)/|fuzz/)|^(Cargo\.(toml|lock)|rust-toolchain\.toml|\.github/workflows/fuzz\.yml)$'
+fuzz_ifc='^(crates/domotwin-(core|import|models)/|fuzz/)|^(Cargo\.(toml|lock)|rust-toolchain\.toml|\.github/workflows/fuzz\.yml)$'
 fuzz_models='^(crates/domotwin-(core|models)/|fuzz/|examples/models/)|^(Cargo\.(toml|lock)|rust-toolchain\.toml|\.github/workflows/fuzz\.yml)$'
 
 files=""

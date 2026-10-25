@@ -1,13 +1,14 @@
-//! Converts one storey of an IFC file to a plan, for development:
-//!   cargo run -p domotwin-ifc --example ifc2plan -- <file.ifc> [storey index] > out.domotwin.json
+//! Converts one storey of a plan of another app (IFC, Sweet Home 3D, DXF, room scan) to a
+//! DomoTwin plan, for development:
+//!   cargo run -p domotwin-import --example import -- <file> [storey index] > out.domotwin.json
 #![allow(clippy::print_stdout, clippy::print_stderr)]
 
-use domotwin_ifc::IfcFile;
+use domotwin_import::PlanFile;
 
 fn main() {
     let mut args = std::env::args().skip(1);
     let Some(path) = args.next() else {
-        eprintln!("usage: ifc2plan <file.ifc> [storey index]");
+        eprintln!("usage: import <file> [storey index]");
         std::process::exit(2);
     };
     let index: usize = args.next().and_then(|s| s.parse().ok()).unwrap_or(0);
@@ -18,7 +19,11 @@ fn main() {
             std::process::exit(1);
         }
     };
-    let file = match IfcFile::read(bytes) {
+    let title = std::path::Path::new(&path)
+        .file_stem()
+        .map(|s| s.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    let file = match PlanFile::read(bytes, &title) {
         Ok(file) => file,
         Err(code) => {
             eprintln!("{path}: {code}");

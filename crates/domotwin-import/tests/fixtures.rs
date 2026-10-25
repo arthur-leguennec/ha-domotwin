@@ -6,7 +6,7 @@ use domotwin_core::geometry::walls::on_contour;
 use domotwin_core::plan::{Element, Plan};
 use domotwin_core::read_plan;
 use domotwin_core::scene::{SceneOptions, build_scene};
-use domotwin_ifc::{IfcFile, Report};
+use domotwin_import::{IfcFile, Report};
 use serde_json::Value;
 
 fn fixture(name: &str) -> Vec<u8> {

@@ -44,7 +44,7 @@ build_module() {
 }
 
 build_module domotwin-web domotwin_web "$root/frontend/src/engine/pkg"
-build_module domotwin-ifc domotwin_ifc "$root/frontend/src/ifc/pkg"
+build_module domotwin-import domotwin_import "$root/frontend/src/import/pkg"
 build_module domotwin-models domotwin_models "$root/frontend/src/models/pkg"
 build_module domotwin-planner domotwin_planner "$root/frontend/src/planner/pkg"
 

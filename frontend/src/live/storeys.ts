@@ -16,9 +16,9 @@ import { planElements } from "./plan";
 export const ALL_STOREYS = "all";
 
 /** The storeys lowest first, each with its level (0: the ground floor, 1 above it, −1 below). */
-export function storeyLevels(
-  storeys: readonly StoreyInfo[],
-): { storey: StoreyInfo; level: number }[] {
+export function storeyLevels<T extends Pick<StoreyInfo, "elevation">>(
+  storeys: readonly T[],
+): { storey: T; level: number }[] {
   const sorted = [...storeys].sort((a, b) => a.elevation - b.elevation);
   let ground = 0;
   sorted.forEach((storey, i) => {
@@ -29,7 +29,7 @@ export function storeyLevels(
 }
 
 /** What a storey is called: its name, else its place. */
-export function storeyName(t: Translator, storey: StoreyInfo, level: number): string {
+export function storeyName(t: Translator, storey: Pick<StoreyInfo, "name">, level: number): string {
   if (storey.name) return storey.name;
   if (level === 0) return t.t("storey.ground");
   return level > 0 ? t.t("storey.above", { n: level }) : t.t("storey.below", { n: -level });

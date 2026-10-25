@@ -10,7 +10,7 @@ export const fr: Dictionary = {
     loading: "Chargement de DomoTwin…",
     no_plan: "Pas encore de plan",
     no_plan_admin:
-      "Dessinez votre plan dans le panneau DomoTwin, ou importez un plan DomoTwin (.domotwin.json) ou un fichier IFC (.ifc).",
+      "Dessinez votre plan dans le panneau DomoTwin, ou importez un plan DomoTwin (.domotwin.json), un fichier IFC, une maison Sweet Home 3D, un dessin DXF ou le scan d’une pièce.",
     no_plan_user: "Un administrateur peut importer le plan depuis le panneau DomoTwin.",
     untitled: "Plan sans titre",
     rooms: { one: "{count} pièce", other: "{count} pièces" },
@@ -456,11 +456,24 @@ export const fr: Dictionary = {
     nothing_to_export: "Il n’y a pas encore de plan à exporter.",
     dismiss: "Fermer",
     cancel: "Annuler",
-    ifc_reading: "Lecture de {name}…",
-    ifc_pick: "Quel étage de {name} ?",
-    ifc_imported: "Importé depuis l’IFC : {title}.",
-    ifc_left_out: "Laissés de côté : {list}.",
-    ifc_cards: {
+    import_reading: "Lecture de {name}…",
+    import_pick: "Quel étage de {name} ?",
+    import_from: "Importé depuis {source} : {title}.",
+    import_rooms: {
+      living_room: "Séjour",
+      bedroom: "Chambre",
+      bathroom: "Salle de bains",
+      kitchen: "Cuisine",
+      dining_room: "Salle à manger",
+    },
+    import_sources: {
+      ifc: "un fichier IFC",
+      sh3d: "Sweet Home 3D",
+      dxf: "un dessin DXF",
+      scan: "le scan d’une pièce",
+    },
+    import_left_out: "Laissés de côté : {list}.",
+    import_cards: {
       one: "Le fichier a rempli {count} fiche d’entretien.",
       other: "Le fichier a rempli {count} fiches d’entretien.",
     },
@@ -470,23 +483,23 @@ export const fr: Dictionary = {
         "Plan exporté. {count} de ses meubles ont une fiche d’entretien, gardée à part du plan.",
     },
     export_upkeep: "Exporter aussi les fiches d’entretien",
-    ifc_cards_failed: {
+    import_cards_failed: {
       one: "{count} fiche d’entretien n’a pas pu être remplie : {reason}",
       other: "{count} fiches d’entretien n’ont pas pu être remplies : {reason}",
     },
-    ifc_unplaced: {
+    import_unplaced: {
       one: "{count} porte ou fenêtre hors des murs",
       other: "{count} portes ou fenêtres hors des murs",
     },
-    ifc_skipped_furniture: {
+    import_skipped_furniture: {
       one: "{count} meuble inconnu ou égaré",
       other: "{count} meubles inconnus ou égarés",
     },
-    ifc_skipped_spaces: {
-      one: "{count} espace extérieur ou global",
-      other: "{count} espaces extérieurs ou globaux",
+    import_skipped_spaces: {
+      one: "{count} pièce extérieure, globale ou illisible",
+      other: "{count} pièces extérieures, globales ou illisibles",
     },
-    ifc_over_limit: {
+    import_over_limit: {
       one: "{count} élément au-delà de 500",
       other: "{count} éléments au-delà de 500",
     },
@@ -567,9 +580,9 @@ export const fr: Dictionary = {
     added: "Étage ajouté.",
     save_failed: "L’étage n’a pas pu être enregistré : {reason}",
     close: "Fermer",
-    ifc_all: "Importer tous les étages",
-    ifc_all_hint: "Remplace tous les étages du logement.",
-    ifc_all_imported: { one: "{count} étage importé.", other: "{count} étages importés." },
+    import_all: "Importer tous les étages",
+    import_all_hint: "Remplace tous les étages du logement.",
+    import_all_imported: { one: "{count} étage importé.", other: "{count} étages importés." },
     all: "Tous les étages",
     rooms: { one: "{count} pièce", other: "{count} pièces" },
     lights_on: { one: "{count} lumière allumée", other: "{count} lumières allumées" },
@@ -753,9 +766,18 @@ export const fr: Dictionary = {
       missing_model: "un objet utilise un modèle 3D absent du plan.",
       invalid_model: "un modèle 3D du plan n’est pas valide.",
       not_ifc: "ce n’est pas un fichier IFC.",
-      no_storeys: "le fichier IFC n’a aucun étage.",
+      no_storeys: "le fichier n’a aucun étage.",
       no_spaces:
-        "cet étage n’a aucun espace (pièce). Ajoutez des espaces dans votre logiciel de modélisation et exportez à nouveau.",
+        "aucune pièce n’a été trouvée à cet étage. Dessinez ses pièces (espaces) dans votre logiciel et exportez à nouveau.",
+      not_plan:
+        "ce n’est pas un plan lisible par l’application : un plan DomoTwin, un fichier IFC, une maison Sweet Home 3D (.sh3d), un dessin DXF ou le scan d’une pièce.",
+      sh3d_old:
+        "il a été enregistré par un Sweet Home 3D antérieur à 5.3 : ouvrez-le avec et enregistrez-le à nouveau.",
+      dxf_binary: "c’est un dessin DXF binaire : enregistrez-le en DXF ASCII.",
+      scan_usdz:
+        "c’est seulement la couche principale d’un scan : importez le fichier USDZ entier, ou le JSON du scan.",
+      scan_usdc:
+        "le scan a été réenregistré au format binaire de USD : importez l’USDZ ou le JSON exporté par l’application de scan.",
       not_model: "ce n’est pas un fichier 3D lisible par l’application, ou il est abîmé.",
       too_many_triangles: "le modèle a plus de 150 000 triangles.",
       too_many_meshes: "le modèle a plus de 5 000 parties une fois développé.",

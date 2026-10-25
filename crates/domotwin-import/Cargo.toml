@@ -1,6 +1,6 @@
 [package]
-name = "domotwin-ifc"
-description = "DomoTwin IFC import: reads one storey of an IFC file (ISO 16739) into a DomoTwin plan. Its own wasm module, loaded only to import a file."
+name = "domotwin-import"
+description = "DomoTwin plan import: reads a storey of an IFC file, a Sweet Home 3D home, a DXF drawing or a room scan into a DomoTwin plan. Its own wasm module, loaded only to import a file."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -13,6 +13,7 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 domotwin-core.workspace = true
+domotwin-models = { path = "../domotwin-models", default-features = false }
 serde_json.workspace = true
 wasm-bindgen.workspace = true
 console_error_panic_hook.workspace = true

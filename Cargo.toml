@@ -4,7 +4,7 @@ members = [
   "crates/domotwin-core",
   "crates/domotwin-render",
   "crates/domotwin-web",
-  "crates/domotwin-ifc",
+  "crates/domotwin-import",
   "crates/domotwin-models",
   "crates/domotwin-planner",
 ]

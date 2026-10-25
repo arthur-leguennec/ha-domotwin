@@ -97,11 +97,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "domotwin-ifc"
+name = "domotwin-import"
 version = "0.0.0"
 dependencies = [
  "console_error_panic_hook",
  "domotwin-core",
+ "domotwin-models",
  "serde_json",
  "wasm-bindgen",
 ]

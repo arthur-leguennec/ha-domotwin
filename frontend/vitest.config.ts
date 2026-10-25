@@ -8,7 +8,7 @@ export default defineConfig({
   define: {
     __DOMOTWIN_VERSION__: JSON.stringify("0.0.0-test"),
     __DOMOTWIN_WASM__: JSON.stringify("domotwin_web_bg.wasm"),
-    __DOMOTWIN_IFC_WASM__: JSON.stringify("domotwin_ifc_bg.wasm"),
+    __DOMOTWIN_IMPORT_WASM__: JSON.stringify("domotwin_import_bg.wasm"),
     __DOMOTWIN_MODELS_WASM__: JSON.stringify("domotwin_models_bg.wasm"),
     __DOMOTWIN_PLANNER_WASM__: JSON.stringify("domotwin_planner_bg.wasm"),
   },

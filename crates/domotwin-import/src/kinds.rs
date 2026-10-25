@@ -214,6 +214,27 @@ pub(crate) struct Clues<'a> {
     pub(crate) elevation: f64,
 }
 
+/// The kind of a piece of another app's file, named so: from its names, a lamp by its height,
+/// else a plain box of its size.
+pub(crate) fn kind_by_name(
+    names: &[&str],
+    size: [f64; 3],
+    elevation: f64,
+    lamp: bool,
+) -> &'static str {
+    let class = if lamp { "IFCLIGHTFIXTURE" } else { "" };
+    kind(
+        names,
+        Clues {
+            class,
+            predefined: None,
+            size,
+            elevation,
+        },
+    )
+    .unwrap_or("box")
+}
+
 /// The kind of a piece: from its names, else from its class and predefined type, else `None`
 /// for a building element proxy (left out) or a generic piece of furniture (`dresser`).
 pub(crate) fn kind(names: &[&str], clues: Clues<'_>) -> Option<&'static str> {

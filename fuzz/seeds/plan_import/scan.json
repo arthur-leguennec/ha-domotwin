@@ -1,0 +1,582 @@
+{
+ "version": 2,
+ "story": 0,
+ "coreModel": "",
+ "walls": [
+  {
+   "identifier": "00000000-0000-4000-8000-000000000001",
+   "category": {
+    "wall": {}
+   },
+   "transform": [
+    0.906308,
+    0.0,
+    -0.422618,
+    0.0,
+    0.0,
+    1.0,
+    0.0,
+    0.0,
+    0.422618,
+    0.0,
+    0.906308,
+    0.0,
+    2.7564,
+    -0.17,
+    -2.198807,
+    1.0
+   ],
+   "dimensions": [
+    5.2,
+    2.5,
+    0.0
+   ],
+   "story": 0,
+   "confidence": {
+    "high": {}
+   },
+   "parentIdentifier": null,
+   "curve": null,
+   "completedEdges": [],
+   "polygonCorners": []
+  },
+  {
+   "identifier": "00000000-0000-4000-8000-000000000002",
+   "category": {
+    "wall": {}
+   },
+   "transform": [
+    -0.422618,
+    0.0,
+    -0.906308,
+    0.0,
+    0.0,
+    1.0,
+    0.0,
+    0.0,
+    0.906308,
+    0.0,
+    -0.422618,
+    0.0,
+    5.958037,
+    -0.17,
+    -1.484999,
+    1.0
+   ],
+   "dimensions": [
+    4.0,
+    2.5,
+    0.0
+   ],
+   "story": 0,
+   "confidence": {
+    "high": {}
+   },
+   "parentIdentifier": null,
+   "curve": null,
+   "completedEdges": [],
+   "polygonCorners": []
+  },
+  {
+   "identifier": "00000000-0000-4000-8000-000000000003",
+   "category": {
+    "wall": {}
+   },
+   "transform": [
+    -0.906308,
+    0.0,
+    0.422618,
+    0.0,
+    0.0,
+    1.0,
+    0.0,
+    0.0,
+    -0.422618,
+    0.0,
+    -0.906308,
+    0.0,
+    4.446873,
+    -0.17,
+    1.426424,
+    1.0
+   ],
+   "dimensions": [
+    5.2,
+    2.5,
+    0.0
+   ],
+   "story": 0,
+   "confidence": {
+    "high": {}
+   },
+   "parentIdentifier": null,
+   "curve": null,
+   "completedEdges": [],
+   "polygonCorners": []
+  },
+  {
+   "identifier": "00000000-0000-4000-8000-000000000004",
+   "category": {
+    "wall": {}
+   },
+   "transform": [
+    0.422618,
+    0.0,
+    0.906308,
+    0.0,
+    0.0,
+    1.0,
+    0.0,
+    0.0,
+    -0.906308,
+    0.0,
+    0.422618,
+    0.0,
+    1.245237,
+    -0.17,
+    0.712616,
+    1.0
+   ],
+   "dimensions": [
+    4.0,
+    2.5,
+    0.0
+   ],
+   "story": 0,
+   "confidence": {
+    "high": {}
+   },
+   "parentIdentifier": null,
+   "curve": null,
+   "completedEdges": [],
+   "polygonCorners": []
+  }
+ ],
+ "doors": [
+  {
+   "identifier": "00000000-0000-4000-8000-000000000007",
+   "category": {
+    "door": {
+     "isOpen": false
+    }
+   },
+   "transform": [
+    -0.906308,
+    0.0,
+    0.422618,
+    0.0,
+    0.0,
+    1.0,
+    0.0,
+    0.0,
+    -0.422618,
+    0.0,
+    -0.906308,
+    0.0,
+    5.896966,
+    -0.395,
+    0.750234,
+    1.0
+   ],
+   "dimensions": [
+    0.9,
+    2.05,
+    0.0
+   ],
+   "story": 0,
+   "confidence": {
+    "high": {}
+   },
+   "parentIdentifier": "00000000-0000-4000-8000-000000000003",
+   "curve": null,
+   "completedEdges": [],
+   "polygonCorners": []
+  }
+ ],
+ "windows": [
+  {
+   "identifier": "00000000-0000-4000-8000-000000000006",
+   "category": {
+    "window": {}
+   },
+   "transform": [
+    0.906308,
+    0.0,
+    -0.422618,
+    0.0,
+    0.0,
+    1.0,
+    0.0,
+    0.0,
+    0.422618,
+    0.0,
+    0.906308,
+    0.0,
+    1.850092,
+    0.08,
+    -1.776189,
+    1.0
+   ],
+   "dimensions": [
+    1.4,
+    1.2,
+    0.0
+   ],
+   "story": 0,
+   "confidence": {
+    "high": {}
+   },
+   "parentIdentifier": "00000000-0000-4000-8000-000000000001",
+   "curve": null,
+   "completedEdges": [],
+   "polygonCorners": []
+  }
+ ],
+ "openings": [
+  {
+   "identifier": "00000000-0000-4000-8000-000000000008",
+   "category": {
+    "opening": {}
+   },
+   "transform": [
+    0.422618,
+    0.0,
+    0.906308,
+    0.0,
+    0.0,
+    1.0,
+    0.0,
+    0.0,
+    -0.906308,
+    0.0,
+    0.422618,
+    0.0,
+    1.583331,
+    -0.42,
+    1.437662,
+    1.0
+   ],
+   "dimensions": [
+    1.0,
+    2.0,
+    0.0
+   ],
+   "story": 0,
+   "confidence": {
+    "high": {}
+   },
+   "parentIdentifier": "00000000-0000-4000-8000-000000000004",
+   "curve": null,
+   "completedEdges": [],
+   "polygonCorners": []
+  }
+ ],
+ "floors": [
+  {
+   "identifier": "00000000-0000-4000-8000-000000000005",
+   "category": {
+    "floor": {}
+   },
+   "transform": [
+    0.906308,
+    0.0,
+    -0.422618,
+    0.0,
+    0.422618,
+    0.0,
+    0.906308,
+    0.0,
+    0.0,
+    1.0,
+    0.0,
+    0.0,
+    3.601637,
+    -1.42,
+    -0.386192,
+    1.0
+   ],
+   "dimensions": [
+    5.2,
+    4.0,
+    0.0
+   ],
+   "story": 0,
+   "confidence": {
+    "high": {}
+   },
+   "parentIdentifier": null,
+   "curve": null,
+   "completedEdges": [],
+   "polygonCorners": [
+    [
+     -2.6,
+     -2.0,
+     0.0
+    ],
+    [
+     2.6,
+     -2.0,
+     0.0
+    ],
+    [
+     2.6,
+     2.0,
+     0.0
+    ],
+    [
+     -2.6,
+     2.0,
+     0.0
+    ]
+   ]
+  }
+ ],
+ "objects": [
+  {
+   "identifier": "00000000-0000-4000-8000-000000000009",
+   "category": {
+    "sofa": {}
+   },
+   "transform": [
+    -0.906308,
+    0.0,
+    0.422618,
+    0.0,
+    0.0,
+    1.0,
+    0.0,
+    0.0,
+    -0.422618,
+    0.0,
+    -0.906308,
+    0.0,
+    4.012041,
+    -0.995,
+    0.967163,
+    1.0
+   ],
+   "dimensions": [
+    2.1,
+    0.85,
+    0.9
+   ],
+   "story": 0,
+   "confidence": {
+    "high": {}
+   },
+   "parentIdentifier": null,
+   "curve": null,
+   "completedEdges": [],
+   "polygonCorners": [],
+   "attributes": {
+    "SofaType": "rectangular"
+   }
+  },
+  {
+   "identifier": "00000000-0000-4000-8000-000000000010",
+   "category": {
+    "table": {}
+   },
+   "transform": [
+    0.906308,
+    0.0,
+    -0.422618,
+    0.0,
+    0.0,
+    1.0,
+    0.0,
+    0.0,
+    0.422618,
+    0.0,
+    0.906308,
+    0.0,
+    3.547161,
+    -1.22,
+    -0.029776,
+    1.0
+   ],
+   "dimensions": [
+    1.0,
+    0.4,
+    0.6
+   ],
+   "story": 0,
+   "confidence": {
+    "high": {}
+   },
+   "parentIdentifier": null,
+   "curve": null,
+   "completedEdges": [],
+   "polygonCorners": [],
+   "attributes": {
+    "TableType": "coffee",
+    "TableShapeType": "rectangular"
+   }
+  },
+  {
+   "identifier": "00000000-0000-4000-8000-000000000011",
+   "category": {
+    "television": {}
+   },
+   "transform": [
+    0.906308,
+    0.0,
+    -0.422618,
+    0.0,
+    0.0,
+    1.0,
+    0.0,
+    0.0,
+    0.422618,
+    0.0,
+    0.906308,
+    0.0,
+    2.617401,
+    -0.045,
+    -2.023653,
+    1.0
+   ],
+   "dimensions": [
+    1.2,
+    0.75,
+    0.1
+   ],
+   "story": 0,
+   "confidence": {
+    "high": {}
+   },
+   "parentIdentifier": null,
+   "curve": null,
+   "completedEdges": [],
+   "polygonCorners": []
+  },
+  {
+   "identifier": "00000000-0000-4000-8000-000000000012",
+   "category": {
+    "storage": {}
+   },
+   "transform": [
+    -0.422618,
+    0.0,
+    -0.906308,
+    0.0,
+    0.0,
+    1.0,
+    0.0,
+    0.0,
+    0.906308,
+    0.0,
+    -0.422618,
+    0.0,
+    5.34805,
+    -0.97,
+    -2.08326,
+    1.0
+   ],
+   "dimensions": [
+    1.6,
+    0.9,
+    0.45
+   ],
+   "story": 0,
+   "confidence": {
+    "high": {}
+   },
+   "parentIdentifier": null,
+   "curve": null,
+   "completedEdges": [],
+   "polygonCorners": [],
+   "attributes": {
+    "StorageType": "cabinet"
+   }
+  },
+  {
+   "identifier": "00000000-0000-4000-8000-000000000013",
+   "category": {
+    "sink": {}
+   },
+   "transform": [
+    -0.422618,
+    0.0,
+    -0.906308,
+    0.0,
+    0.0,
+    1.0,
+    0.0,
+    0.0,
+    0.906308,
+    0.0,
+    -0.422618,
+    0.0,
+    5.34805,
+    -0.57,
+    -2.08326,
+    1.0
+   ],
+   "dimensions": [
+    0.6,
+    0.2,
+    0.45
+   ],
+   "story": 0,
+   "confidence": {
+    "high": {}
+   },
+   "parentIdentifier": "00000000-0000-4000-8000-000000000012",
+   "curve": null,
+   "completedEdges": [],
+   "polygonCorners": []
+  },
+  {
+   "identifier": "00000000-0000-4000-8000-000000000014",
+   "category": {
+    "chair": {}
+   },
+   "transform": [
+    0.906308,
+    0.0,
+    -0.422618,
+    0.0,
+    0.0,
+    1.0,
+    0.0,
+    0.0,
+    0.422618,
+    0.0,
+    0.906308,
+    0.0,
+    1.547664,
+    -0.97,
+    -0.531787,
+    1.0
+   ],
+   "dimensions": [
+    0.5,
+    0.9,
+    0.55
+   ],
+   "story": 0,
+   "confidence": {
+    "high": {}
+   },
+   "parentIdentifier": null,
+   "curve": null,
+   "completedEdges": [],
+   "polygonCorners": [],
+   "attributes": {
+    "ChairType": "dining"
+   }
+  }
+ ],
+ "sections": [
+  {
+   "label": "livingRoom",
+   "story": 0,
+   "center": [
+    3.601637,
+    -1.42,
+    -0.386192
+   ]
+  }
+ ]
+}
