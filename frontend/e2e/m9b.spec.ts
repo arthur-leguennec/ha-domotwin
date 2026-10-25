@@ -191,7 +191,7 @@ test.describe("network map (D-031)", () => {
 
   test("a card set to the network map shows nothing of it to others", async ({ page }) => {
     await openHarness(page, { live: true, zha: true, admin: false, layer: "network" });
-    await expect(page.getByTestId("layers")).toHaveAttribute("aria-pressed", "false");
+    await expect(page.getByTestId("layers")).not.toHaveClass("on");
     await expect(page.locator("domotwin-view")).not.toHaveAttribute("legend");
     await page.getByTestId("layers").click();
     await expect(page.locator('[data-layer="off"]')).toHaveAttribute("aria-checked", "true");

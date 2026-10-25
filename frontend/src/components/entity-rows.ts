@@ -66,7 +66,8 @@ export function toggle(
     class="switch ${on ? "on" : ""}"
     role="switch"
     aria-checked=${on ? "true" : "false"}
-    aria-label=${t.t(on ? "controls.turn_off" : "controls.turn_on")}
+    aria-label=${entityName(hass, entityId)}
+    title=${t.t(on ? "controls.turn_off" : "controls.turn_on")}
     ?disabled=${disabled}
     @click=${() => {
       call(hass, "homeassistant", on ? "turn_off" : "turn_on", entityId);
@@ -136,7 +137,7 @@ export function entityRow(
   const entity = hass.states[entityId];
   const name = entityName(hass, entityId);
   if (!entity) {
-    return html`<div class="row">
+    return html`<div class="row" role="group" aria-label=${name}>
       <span class="name">${name}</span><span class="state">${t.t("controls.unavailable")}</span>
     </div>`;
   }
@@ -154,7 +155,7 @@ export function entityRow(
       const minK = number(entity.attributes.min_color_temp_kelvin) ?? 2000;
       const maxK = number(entity.attributes.max_color_temp_kelvin) ?? 6500;
       const colours = supported.some((m) => ["hs", "rgb", "rgbw", "rgbww", "xy"].includes(m));
-      return html`<div class="row">
+      return html`<div class="row" role="group" aria-label=${name}>
         ${head(toggle(hass, t, entityId, on, off))}
         ${
           full && on && dims
@@ -210,7 +211,7 @@ export function entityRow(
     case "fan": {
       const on = entity.state === "on";
       const percentage = number(entity.attributes.percentage);
-      return html`<div class="row">
+      return html`<div class="row" role="group" aria-label=${name}>
         ${head(toggle(hass, t, entityId, on, off))}
         ${
           full && on && domain === "fan" && percentage !== undefined
@@ -231,7 +232,7 @@ export function entityRow(
     }
     case "cover": {
       const position = number(entity.attributes.current_position);
-      return html`<div class="row">
+      return html`<div class="row" role="group" aria-label=${name}>
         ${head(
           html`<span class="buttons">
             ${button(
@@ -280,7 +281,7 @@ export function entityRow(
     case "media_player": {
       const volume = number(entity.attributes.volume_level);
       const playing = entity.state === "playing";
-      return html`<div class="row">
+      return html`<div class="row" role="group" aria-label=${name}>
         ${head(
           html`<span class="buttons">
             ${
@@ -344,7 +345,7 @@ export function entityRow(
     }
     case "lock": {
       const locked = entity.state === "locked";
-      return html`<div class="row">
+      return html`<div class="row" role="group" aria-label=${name}>
         ${head(
           html`<span class="state">${stateText(t, entity)}</span> ${button(
               locked ? mdiLockOpenVariant : mdiLock,
@@ -364,7 +365,7 @@ export function entityRow(
       const set = (value: number) => {
         call(hass, "climate", "set_temperature", entityId, { temperature: value });
       };
-      return html`<div class="row">
+      return html`<div class="row" role="group" aria-label=${name}>
         ${head(
           html`<span class="state"
               >${current !== undefined ? `${current}°` : stateText(t, entity)}</span
@@ -397,7 +398,7 @@ export function entityRow(
     }
     case "scene":
     case "script":
-      return html`<div class="row">
+      return html`<div class="row" role="group" aria-label=${name}>
         ${head(
           html`<button
             class="action quiet small"
@@ -410,7 +411,7 @@ export function entityRow(
         )}
       </div>`;
     default:
-      return html`<div class="row">
+      return html`<div class="row" role="group" aria-label=${name}>
         ${head(html`<span class="state">${stateText(t, entity)}</span>`)}
       </div>`;
   }

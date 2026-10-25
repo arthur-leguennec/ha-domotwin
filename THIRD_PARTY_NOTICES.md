@@ -11,7 +11,7 @@ packages are in their source distributions (crates.io, npm).
 | Demo apartment (`examples/`) | Fictional, created for DomoTwin | MIT |
 | Figures of `docs/figures/` | Drawn for DomoTwin | MIT |
 | Materials and textures | None yet; only procedural or CC0 materials will be added, listed here | – |
-| Fonts | None yet; the default font (SIL Open Font License) will be listed here | – |
+| Font: Inter 4.1, a subset (`frontend/fonts/`, made by `scripts/subset-font.py`) | [rsms/inter](https://github.com/rsms/inter), the Inter Project Authors | SIL Open Font License 1.1 (`frontend/fonts/OFL.txt`) |
 
 ## Rust crates compiled into the WebAssembly modules
 

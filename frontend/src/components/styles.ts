@@ -3,12 +3,19 @@ import { css } from "lit";
 /** Look shared by the card, the panel and the overlays; follows the Home Assistant theme. */
 export const baseStyles = css`
   :host {
-    font-family: var(
-      --domotwin-font-family,
-      var(--ha-font-family-body, var(--paper-font-body1_-_font-family, system-ui, sans-serif))
-    );
+    /* The card's font, then the bundled one (D-042) for what it lacks. */
+    font-family:
+      var(--domotwin-font-family, "DomoTwin Inter"), "DomoTwin Inter", system-ui, sans-serif;
     color: var(--primary-text-color, #1f2328);
     -webkit-font-smoothing: antialiased;
+  }
+
+  /* Browsers give controls their own font. */
+  button,
+  input,
+  select,
+  textarea {
+    font-family: inherit;
   }
 
   .glass {
@@ -53,9 +60,31 @@ export const baseStyles = css`
   }
 
   button:focus-visible,
-  [tabindex]:focus-visible {
+  [tabindex]:focus-visible,
+  a:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible,
+  summary:focus-visible {
     outline: 2px solid var(--primary-color, #03a9f4);
     outline-offset: 2px;
+  }
+
+  /* A dialog takes the focus to hand it on: no ring around all of it. */
+  [role="dialog"]:focus,
+  [role="alertdialog"]:focus {
+    outline: none;
+  }
+
+  /* For screen readers only. */
+  .hidden-text {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
 
   svg.icon {

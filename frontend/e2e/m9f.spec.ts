@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 
-import { openHarness, settle } from "./fixtures";
+import { fromMenu, openHarness, settle } from "./fixtures";
 
 /** The messages of a type the frontend sent to the mocked Home Assistant. */
 function sent(page: Page, type: string): Promise<Record<string, unknown>[]> {
@@ -17,7 +17,7 @@ test.describe("Bluetooth locating (D-035)", () => {
   test("administrators follow devices and place receivers", async ({ page }) => {
     await openHarness(page, { mode: "panel", live: true, people: true, bluetooth: true });
     await settle(page);
-    await page.getByTestId("bluetooth-settings").click();
+    await fromMenu(page, "bluetooth-settings");
     const dialog = page.getByTestId("bluetooth-settings-dialog");
     await expect(dialog.locator("[data-receiver]")).toHaveCount(3);
     await expect(dialog.locator('[data-receiver="AA:00:00:00:00:03"]')).toContainText(
@@ -75,7 +75,7 @@ test.describe("Bluetooth locating (D-035)", () => {
   test("a room is taught by holding a device in it", async ({ page }) => {
     await openHarness(page, { mode: "panel", live: true, people: true, bluetooth: true });
     await settle(page);
-    await page.getByTestId("bluetooth-settings").click();
+    await fromMenu(page, "bluetooth-settings");
     const dialog = page.getByTestId("bluetooth-settings-dialog");
     await expect(dialog.getByTestId("learned")).toContainText("Nothing learned yet");
     await dialog.getByTestId("teach-room").selectOption("living");
@@ -114,7 +114,7 @@ test.describe("Bluetooth locating (D-035)", () => {
   test("the people's settings say who Bluetooth places", async ({ page }) => {
     await openHarness(page, { mode: "panel", live: true, people: true, bluetooth: true });
     await settle(page);
-    await page.getByTestId("people-settings").click();
+    await fromMenu(page, "people-settings");
     await expect(
       page
         .getByTestId("people-settings-dialog")
@@ -126,7 +126,7 @@ test.describe("Bluetooth locating (D-035)", () => {
   test("without Bluetooth, the dialog says how to get it", async ({ page }) => {
     await openHarness(page, { mode: "panel", live: true, people: true, bluetooth: "none" });
     await settle(page);
-    await page.getByTestId("bluetooth-settings").click();
+    await fromMenu(page, "bluetooth-settings");
     const dialog = page.getByTestId("bluetooth-settings-dialog");
     await expect(dialog.getByTestId("bluetooth-status")).toContainText(
       "Home Assistant has no Bluetooth",

@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 
-import { canvasPng, openHarness, settle, viewState } from "./fixtures";
+import { canvasPng, fromMenu, openHarness, settle, viewState } from "./fixtures";
 
 /** Reads a fresh frame: the colour near its top left (the sky) and its share of inked pixels. */
 async function frame(page: Page): Promise<{ sky: [number, number, number]; ink: number }> {
@@ -105,7 +105,7 @@ test.describe("the cartoon and the clay (D-036)", () => {
   test("the panel's settings offer them", async ({ page }) => {
     await openHarness(page, { mode: "panel" });
     await expect(page.getByTestId("summary")).toBeVisible();
-    await page.getByRole("button", { name: "Settings" }).click();
+    await fromMenu(page, "settings");
     const dialog = page.getByTestId("settings-dialog");
     const select = dialog.getByTestId("settings-theme");
     await expect(select.locator("option")).toHaveText([

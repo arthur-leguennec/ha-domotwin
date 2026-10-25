@@ -205,8 +205,13 @@ const peopleStyles = css`
     align-items: center;
     gap: 6px;
   }
+  /* Darkened (lightened in the dark) towards the text, for contrast. */
   ul.devices li.left {
-    color: var(--warning-color, #c77700);
+    color: color-mix(
+      in srgb,
+      var(--warning-color, #ffa600) 50%,
+      var(--primary-text-color, #1f2328)
+    );
   }
   .person p {
     margin: 2px 0;

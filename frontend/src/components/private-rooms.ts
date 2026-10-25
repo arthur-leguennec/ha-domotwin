@@ -250,6 +250,7 @@ export class DomoTwinPrivateRooms extends LitElement {
         <h2 id="privacy-title">${t.t("privacy.title")}</h2>
         <button
           class="round"
+          data-cancel
           aria-label=${t.t("panel.dismiss")}
           @click=${() => {
             this.close();

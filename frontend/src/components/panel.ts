@@ -4,8 +4,10 @@ import {
   mdiCheck,
   mdiClose,
   mdiCogOutline,
+  mdiDotsVertical,
   mdiLinkVariant,
   mdiLockOutline,
+  mdiMicrophoneMessage,
   mdiPencilOutline,
   mdiStairs,
   mdiTrayArrowDown,
@@ -79,6 +81,8 @@ import type { ImportReport, ImportStorey, PlanFile, ScanRoom } from "../import/i
 import type { ModelFormat, ModelInfo } from "../models/models";
 import { translatorFor, type Translator } from "../i18n";
 import { icon } from "./icon";
+import { DialogFocus } from "./dialog";
+import { focusBack, focusMenu, menuKeydown } from "./menu";
 import { baseStyles, lookStyles } from "./styles";
 import type { ModelChoice } from "./edit-bar";
 import type { PlaceRequest } from "./network-panel";
@@ -199,6 +203,21 @@ function download(name: string, value: unknown): void {
   }, 1000);
 }
 
+/** The panel's dialogs and sheets, which the focus goes into and comes back from (D-042). */
+const PANEL_DIALOGS = [
+  '[role="dialog"]',
+  '[role="alertdialog"]',
+  "domotwin-people-settings",
+  "domotwin-bluetooth-settings",
+  "domotwin-private-rooms",
+  "domotwin-voice",
+  "domotwin-link",
+  "domotwin-catalogue",
+  "domotwin-model-import",
+]
+  .map((dialog) => `.body > ${dialog}`)
+  .join(", ");
+
 /** `<domotwin-panel>`: the full-screen DomoTwin in the sidebar, with import and export. */
 export class DomoTwinPanel extends LitElement {
   static override properties = {
@@ -230,6 +249,8 @@ export class DomoTwinPanel extends LitElement {
     peopleOpen: { state: true },
     bluetoothOpen: { state: true },
     privacyRooms: { state: true },
+    voiceOpen: { state: true },
+    moreOpen: { state: true },
     lookDraft: { state: true },
     look: { reflect: true },
     planning: { state: true },
@@ -289,6 +310,18 @@ export class DomoTwinPanel extends LitElement {
   protected peopleOpen = false;
   /** The rooms of the home while the private rooms' settings are open (D-039). */
   protected privacyRooms?: RoomChoice[];
+  /** The voice settings (D-041) are open. */
+  protected voiceOpen = false;
+  /** The menu of the export and the home's settings is open. */
+  protected moreOpen = false;
+  /** The focus goes into the dialog shown and comes back (D-042). */
+  private readonly dialogs = new DialogFocus();
+  private readonly onEscape = (event: KeyboardEvent): void => {
+    if (event.key === "Escape" && this.dialogs.escape(event)) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  };
   private privacyModule?: Promise<unknown>;
   private peopleSettings?: PeopleSettings;
   private peopleModule?: Promise<unknown>;
@@ -384,8 +417,54 @@ export class DomoTwinPanel extends LitElement {
         background: rgba(255, 255, 255, 0.16);
         color: inherit;
       }
+      /* The header is in the primary colour: its ring is in its text's. */
+      .toolbar button.action:focus-visible {
+        outline-color: var(--app-header-text-color, var(--text-primary-color, #fff));
+      }
       :host([narrow]) .toolbar .label {
         display: none;
+      }
+      .more {
+        position: relative;
+      }
+      .more .menu {
+        position: absolute;
+        top: calc(100% + 8px);
+        right: 0;
+        z-index: 5;
+        min-width: 220px;
+        padding: 6px;
+        display: grid;
+        color: var(--primary-text-color, #1f2328);
+      }
+      .menu button {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-height: 40px;
+        padding: 0 12px;
+        border: none;
+        border-radius: 10px;
+        background: transparent;
+        color: inherit;
+        font: inherit;
+        text-align: start;
+        white-space: nowrap;
+        cursor: pointer;
+      }
+      .menu button:hover:not([disabled]),
+      .menu button:focus-visible {
+        background: color-mix(in srgb, var(--primary-text-color, #1f2328) 8%, transparent);
+      }
+      .menu button[disabled] {
+        opacity: 0.5;
+        cursor: default;
+      }
+      .menu hr {
+        width: 100%;
+        margin: 4px 0;
+        border: none;
+        border-top: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
       }
       domotwin-view {
         flex: 1;
@@ -640,10 +719,14 @@ export class DomoTwinPanel extends LitElement {
   override connectedCallback(): void {
     super.connectedCallback();
     if (this._hass) this.connectData();
+    window.addEventListener("pointerdown", this.closeMore, true);
+    this.addEventListener("keydown", this.onEscape);
   }
 
   override disconnectedCallback(): void {
     super.disconnectedCallback();
+    window.removeEventListener("pointerdown", this.closeMore, true);
+    this.removeEventListener("keydown", this.onEscape);
     clearTimeout(this.settingsTimer);
     this.unsubscribe?.();
     this.unsubscribe = undefined;
@@ -1887,7 +1970,9 @@ export class DomoTwinPanel extends LitElement {
       )}
       <p class="hint">${t.t("storey.import_all_hint")}</p>
       <div class="footer">
-        <button class="action quiet" @click=${this.cancelIfc}>${t.t("panel.cancel")}</button>
+        <button class="action quiet" data-cancel @click=${this.cancelIfc}>
+          ${t.t("panel.cancel")}
+        </button>
         <button
           class="action"
           data-testid="import-all"
@@ -1909,6 +1994,24 @@ export class DomoTwinPanel extends LitElement {
       accent: draft?.accent ?? this.settings?.accent,
     };
   }
+
+  protected override updated(changed: Map<PropertyKey, unknown>): void {
+    if (changed.has("moreOpen")) {
+      if (this.moreOpen) {
+        focusMenu(this.renderRoot.querySelector<HTMLElement>('[data-testid="more-menu"]'));
+      } else if (changed.get("moreOpen") === true) {
+        focusBack(this.renderRoot.querySelector<HTMLElement>('[data-testid="more"]'));
+      }
+    }
+    // After the menu: a dialog opened from it gives the focus back to its button.
+    this.dialogs.update(this.renderRoot.querySelector(PANEL_DIALOGS) ?? undefined);
+  }
+
+  /** A press outside the open menu closes it. */
+  private readonly closeMore = (event: PointerEvent): void => {
+    const more = this.renderRoot.querySelector(".more");
+    if (this.moreOpen && more && !event.composedPath().includes(more)) this.moreOpen = false;
+  };
 
   protected override willUpdate(): void {
     const { theme, accent } = this.homeLook();
@@ -1992,7 +2095,10 @@ export class DomoTwinPanel extends LitElement {
               ? this.renderPlanTools()
               : this.renderSheets()
         }
-        ${this.renderToast()}
+        <div role="status" data-testid="announcer">
+          ${this.toast && !this.toast.error ? this.renderToast() : nothing}
+        </div>
+        ${this.toast?.error ? this.renderToast() : nothing}
       </div>
       <input
         class="plan-file"
@@ -2011,127 +2117,169 @@ export class DomoTwinPanel extends LitElement {
   private renderActions(admin: boolean): TemplateResult {
     const t = this.t;
     return html`${
-        admin
-          ? html`<button
-              class="action"
-              ?disabled=${this.busy || this.importChoice !== undefined}
-              @click=${this.chooseFile}
-              aria-label=${t.t("panel.import")}
+      admin
+        ? html`<button
+            class="action"
+            ?disabled=${this.busy || this.importChoice !== undefined}
+            @click=${this.chooseFile}
+            aria-label=${t.t("panel.import")}
+          >
+            ${icon(mdiTrayArrowUp)}<span class="label">${t.t("panel.import")}</span>
+          </button>`
+        : nothing
+    }
+    ${
+      admin && this.plan && !this.linking
+        ? html`<button
+            class="action"
+            data-testid="storeys-manage"
+            ?disabled=${this.busy || this.importChoice !== undefined}
+            @click=${this.openStoreys}
+            aria-label=${t.t("storey.manage")}
+            title=${t.t("storey.manage")}
+          >
+            ${icon(mdiStairs)}<span class="label">${t.t("storey.manage")}</span>
+          </button>`
+        : nothing
+    }
+    ${
+      admin && this.plan && !this.linking
+        ? html`<button
+            class="action"
+            data-testid="plan-mode"
+            ?disabled=${this.busy || this.importChoice !== undefined}
+            @click=${this.startPlan}
+            aria-label=${t.t("plan.mode")}
+            title=${t.t("plan.mode")}
+          >
+            ${icon(mdiVectorSquareEdit)}<span class="label">${t.t("plan.mode")}</span>
+          </button>`
+        : nothing
+    }
+    ${
+      admin && this.plan && !this.linking
+        ? html`<button
+            class="action"
+            data-testid="edit-mode"
+            ?disabled=${this.busy || this.importChoice !== undefined}
+            @click=${this.startEdit}
+            aria-label=${t.t("edit.mode")}
+          >
+            ${icon(mdiPencilOutline)}<span class="label">${t.t("edit.mode")}</span>
+          </button>`
+        : nothing
+    }
+    ${
+      admin && this.plan
+        ? html`<button
+            class="action"
+            data-testid="link-mode"
+            @click=${this.toggleLinking}
+            aria-label=${this.linking ? t.t("link.done") : t.t("link.mode")}
+          >
+            ${icon(this.linking ? mdiCheck : mdiLinkVariant)}<span class="label"
+              >${this.linking ? t.t("link.done") : t.t("link.mode")}</span
             >
-              ${icon(mdiTrayArrowUp)}<span class="label">${t.t("panel.import")}</span>
-            </button>`
-          : nothing
-      }
-      ${
-        admin && this.plan && !this.linking
-          ? html`<button
-              class="action"
-              data-testid="storeys-manage"
-              ?disabled=${this.busy || this.importChoice !== undefined}
-              @click=${this.openStoreys}
-              aria-label=${t.t("storey.manage")}
-              title=${t.t("storey.manage")}
-            >
-              ${icon(mdiStairs)}<span class="label">${t.t("storey.manage")}</span>
-            </button>`
-          : nothing
-      }
-      ${
-        admin && this.plan && !this.linking
-          ? html`<button
-              class="action"
-              data-testid="plan-mode"
-              ?disabled=${this.busy || this.importChoice !== undefined}
-              @click=${this.startPlan}
-              aria-label=${t.t("plan.mode")}
-              title=${t.t("plan.mode")}
-            >
-              ${icon(mdiVectorSquareEdit)}<span class="label">${t.t("plan.mode")}</span>
-            </button>`
-          : nothing
-      }
-      ${
-        admin && this.plan && !this.linking
-          ? html`<button
-              class="action"
-              data-testid="edit-mode"
-              ?disabled=${this.busy || this.importChoice !== undefined}
-              @click=${this.startEdit}
-              aria-label=${t.t("edit.mode")}
-            >
-              ${icon(mdiPencilOutline)}<span class="label">${t.t("edit.mode")}</span>
-            </button>`
-          : nothing
-      }
-      ${
-        admin && this.plan
-          ? html`<button
-              class="action"
-              data-testid="link-mode"
-              aria-pressed=${this.linking ? "true" : "false"}
-              @click=${this.toggleLinking}
-              aria-label=${this.linking ? t.t("link.done") : t.t("link.mode")}
-            >
-              ${icon(this.linking ? mdiCheck : mdiLinkVariant)}<span class="label"
-                >${this.linking ? t.t("link.done") : t.t("link.mode")}</span
-              >
-            </button>`
-          : nothing
-      }
-      <button class="action" @click=${this.exportPlan} aria-label=${t.t("panel.export")}>
-        ${icon(mdiTrayArrowDown)}<span class="label">${t.t("panel.export")}</span>
+          </button>`
+        : nothing
+    }
+    ${admin && this.plan && !this.linking ? this.renderMore() : this.renderExport()}`;
+  }
+
+  private renderExport(): TemplateResult {
+    const t = this.t;
+    return html`<button class="action" @click=${this.exportPlan} aria-label=${t.t("panel.export")}>
+      ${icon(mdiTrayArrowDown)}<span class="label">${t.t("panel.export")}</span>
+    </button>`;
+  }
+
+  /** The menu of what is not done every day: the export and the home's settings. */
+  private renderMore(): TemplateResult {
+    const t = this.t;
+    const close = (): void => {
+      this.moreOpen = false;
+    };
+    const item = (
+      testId: string,
+      glyph: string,
+      label: string,
+      disabled: boolean,
+      run: () => unknown,
+    ): TemplateResult =>
+      html`<button
+        role="menuitem"
+        data-testid=${testId}
+        ?disabled=${disabled}
+        @click=${() => {
+          close();
+          void run();
+        }}
+      >
+        ${icon(glyph)}<span>${label}</span>
+      </button>`;
+    return html`<div class="more">
+      <button
+        class="action"
+        data-testid="more"
+        aria-haspopup="menu"
+        aria-expanded=${this.moreOpen ? "true" : "false"}
+        aria-label=${t.t("panel.more")}
+        title=${t.t("panel.more")}
+        @click=${() => {
+          this.moreOpen = !this.moreOpen;
+        }}
+      >
+        ${icon(mdiDotsVertical)}
       </button>
       ${
-        admin && this.plan && !this.linking
-          ? html`<button
-                class="action"
-                data-testid="settings"
-                ?disabled=${this.busy}
-                @click=${this.openSettings}
-                aria-label=${t.t("settings.title")}
-                title=${t.t("settings.title")}
-              >
-                ${icon(mdiCogOutline)}
-              </button>
-              <button
-                class="action"
-                data-testid="people-settings"
-                ?disabled=${this.busy || this.people === undefined}
-                @click=${() => {
-                  void this.openPeople();
-                }}
-                aria-label=${t.t("people.settings")}
-                title=${t.t("people.settings")}
-              >
-                ${icon(mdiAccountMultipleOutline)}
-              </button>
-              <button
-                class="action"
-                data-testid="bluetooth-settings"
-                ?disabled=${this.busy || this.people === undefined}
-                @click=${() => {
-                  void this.openBluetooth();
-                }}
-                aria-label=${t.t("bluetooth.settings")}
-                title=${t.t("bluetooth.settings")}
-              >
-                ${icon(mdiBluetooth)}
-              </button>
-              <button
-                class="action"
-                data-testid="privacy-settings"
-                ?disabled=${this.busy}
-                @click=${() => {
-                  void this.openPrivacy();
-                }}
-                aria-label=${t.t("privacy.title")}
-                title=${t.t("privacy.title")}
-              >
-                ${icon(mdiLockOutline)}
-              </button>`
+        this.moreOpen
+          ? html`<div
+              class="menu glass"
+              role="menu"
+              aria-label=${t.t("panel.more")}
+              data-testid="more-menu"
+              @keydown=${(event: KeyboardEvent) => {
+                menuKeydown(
+                  event,
+                  close,
+                  this.renderRoot.querySelector<HTMLElement>(".more > button"),
+                );
+              }}
+            >
+              ${item("export", mdiTrayArrowDown, t.t("panel.export"), false, this.exportPlan)}
+              <hr />
+              ${item("settings", mdiCogOutline, t.t("settings.title"), this.busy, this.openSettings)}
+              ${item(
+                "people-settings",
+                mdiAccountMultipleOutline,
+                t.t("people.settings"),
+                this.busy || this.people === undefined,
+                this.openPeople,
+              )}
+              ${item(
+                "bluetooth-settings",
+                mdiBluetooth,
+                t.t("bluetooth.settings"),
+                this.busy || this.people === undefined,
+                this.openBluetooth,
+              )}
+              ${item("privacy-settings", mdiLockOutline, t.t("privacy.title"), this.busy, this.openPrivacy)}
+              ${item("voice-settings", mdiMicrophoneMessage, t.t("voice.settings"), this.busy, this.openVoice)}
+            </div>`
           : nothing
-      }`;
+      }
+    </div>`;
   }
+
+  /** Opens the voice settings (D-041): their module, loaded the first time. */
+  private readonly openVoice = async (): Promise<void> => {
+    try {
+      await import("./voice-dialog");
+      this.voiceOpen = true;
+    } catch (error) {
+      this.show(this.describe(error), true);
+    }
+  };
 
   /** The home's settings: where north points on the plan, shown live while it is set. */
   private renderSettings(north: number): TemplateResult {
@@ -2166,7 +2314,7 @@ export class DomoTwinPanel extends LitElement {
       <p class="hint">${t.t("settings.north_hint")}</p>
       ${this.renderLookSettings()}
       <div class="footer">
-        <button class="action quiet" @click=${() => (this.northDraft = undefined)}>
+        <button class="action quiet" data-cancel @click=${() => (this.northDraft = undefined)}>
           ${t.t("panel.cancel")}
         </button>
         <button
@@ -2296,10 +2444,20 @@ export class DomoTwinPanel extends LitElement {
     }
     ${
       this.planDiscardAsk
-        ? html`<div class="ask glass" role="alertdialog" data-testid="plan-discard">
-            <h2>${t.t("plan.discard_title")}</h2>
+        ? html`<div
+            class="ask glass"
+            role="alertdialog"
+            aria-labelledby="plan-discard-title"
+            data-testid="plan-discard"
+          >
+            <h2 id="plan-discard-title">${t.t("plan.discard_title")}</h2>
             <div class="footer">
-              <button class="action quiet" @click=${() => (this.planDiscardAsk = false)}>
+              <button
+                class="action quiet"
+                data-cancel
+                data-autofocus
+                @click=${() => (this.planDiscardAsk = false)}
+              >
                 ${t.t("edit.keep")}
               </button>
               <button class="action" data-testid="plan-discard-confirm" @click=${this.discardPlan}>
@@ -2369,6 +2527,15 @@ export class DomoTwinPanel extends LitElement {
           ></domotwin-private-rooms>`
         : nothing
     }
+    ${
+      this.voiceOpen
+        ? html`<domotwin-voice
+            .hass=${this._hass}
+            .mode=${"settings"}
+            @domotwin-close=${() => (this.voiceOpen = false)}
+          ></domotwin-voice>`
+        : nothing
+    }
     ${this.storeysOpen ? this.renderStoreysDialog() : nothing}`;
   }
 
@@ -2381,10 +2548,20 @@ export class DomoTwinPanel extends LitElement {
     if (ask) {
       const level = levels.find(({ storey }) => storey.id === ask.id)?.level ?? 0;
       const name = storeyName(t, ask, level);
-      return html`<div class="ask glass" role="alertdialog" data-testid="storey-remove">
-        <h2>${t.t("storey.remove_title", { name })}</h2>
+      return html`<div
+        class="ask glass"
+        role="alertdialog"
+        aria-labelledby="storey-remove-title"
+        data-testid="storey-remove"
+      >
+        <h2 id="storey-remove-title">${t.t("storey.remove_title", { name })}</h2>
         <div class="footer">
-          <button class="action quiet" @click=${() => (this.storeyRemoveAsk = undefined)}>
+          <button
+            class="action quiet"
+            data-cancel
+            data-autofocus
+            @click=${() => (this.storeyRemoveAsk = undefined)}
+          >
             ${t.t("panel.cancel")}
           </button>
           <button
@@ -2468,7 +2645,7 @@ export class DomoTwinPanel extends LitElement {
         <button class="action quiet" data-testid="storey-draw" @click=${this.drawStorey}>
           ${icon(mdiVectorSquareEdit)}${t.t("storey.draw")}
         </button>
-        <button class="action" @click=${() => (this.storeysOpen = false)}>
+        <button class="action" data-cancel @click=${() => (this.storeysOpen = false)}>
           ${t.t("storey.close")}
         </button>
       </div>
@@ -2480,7 +2657,7 @@ export class DomoTwinPanel extends LitElement {
     if (!toast) return nothing;
     return html`<div
       class="toast glass ${toast.error ? "error" : ""} ${this.editing || this.planning ? "top" : ""}"
-      role=${toast.error ? "alert" : "status"}
+      role=${toast.error ? "alert" : nothing}
       data-testid="toast"
     >
       <span>${toast.text}</span>
@@ -2559,10 +2736,20 @@ export class DomoTwinPanel extends LitElement {
     }
     ${
       this.discardAsk
-        ? html`<div class="ask glass" role="alertdialog" data-testid="edit-discard">
-            <h2>${t.t("edit.discard_title")}</h2>
+        ? html`<div
+            class="ask glass"
+            role="alertdialog"
+            aria-labelledby="edit-discard-title"
+            data-testid="edit-discard"
+          >
+            <h2 id="edit-discard-title">${t.t("edit.discard_title")}</h2>
             <div class="footer">
-              <button class="action quiet" @click=${() => (this.discardAsk = false)}>
+              <button
+                class="action quiet"
+                data-cancel
+                data-autofocus
+                @click=${() => (this.discardAsk = false)}
+              >
                 ${t.t("edit.keep")}
               </button>
               <button class="action" data-testid="edit-discard-confirm" @click=${this.discardEdit}>

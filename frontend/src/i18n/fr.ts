@@ -27,6 +27,8 @@ export const fr: Dictionary = {
     toolbar: "Commandes de la vue",
     action_failed: "Cela n’a pas marché : {reason}",
     room_panel: "Ouvrir les commandes de {room}",
+    room_list: "Pièces",
+    keys: "Touches : les flèches tournent, Maj et flèches déplacent, + et − zooment, Début montre tout le logement, Entrée ouvre la pièce cadrée. Tab mène à la liste des pièces et aux boutons de la vue.",
     models_failed: {
       one: "{count} modèle 3D n’a pas pu être affiché : ses meubles sont des boîtes.",
       other: "{count} modèles 3D n’ont pas pu être affichés : leurs meubles sont des boîtes.",
@@ -373,6 +375,68 @@ export const fr: Dictionary = {
     no_area_admin: "Liez-la dans le panneau DomoTwin, ou donnez à la zone le nom de la pièce.",
     private: "Cette pièce est privée.",
   },
+  voice: {
+    title: "Voix",
+    listen: "Parler à Assist",
+    settings: "Voix",
+    https_title: "Le micro a besoin de HTTPS",
+    https:
+      "Les navigateurs ne prêtent le micro qu’aux pages servies en HTTPS, ou ouvertes sur l’ordinateur où tourne Home Assistant. Cette page est servie en HTTP.",
+    https_how:
+      "Servez Home Assistant en HTTPS (Home Assistant Cloud, l’application Let’s Encrypt ou NGINX, votre propre proxy inverse), ou utilisez l’application compagnon Home Assistant, qui écoute elle-même.",
+    https_link: "Accéder à Home Assistant en toute sécurité",
+    type: "Écrire à Assist à la place",
+    setup_title: "La voix n’est pas configurée",
+    reading: "Lecture de la configuration d’Assist…",
+    assist: "Assist",
+    ready: "Assist vous entend : touchez le micro et parlez.",
+    done: "La voix est configurée, ici dans votre Home Assistant : touchez le micro et parlez.",
+    deaf: "Assist ne peut pas encore entendre : il n’a pas de reconnaissance vocale.",
+    ask_admin:
+      "Assist ne peut pas encore entendre : il n’a pas de reconnaissance vocale. Demandez à un administrateur de configurer la voix depuis le panneau DomoTwin.",
+    app_whisper: "Whisper",
+    app_whisper_hint:
+      "Comprend tout ce que vous dites. Demande un ordinateur assez puissant pour répondre vite.",
+    app_phrase: "Speech-to-Phrase",
+    app_phrase_hint:
+      "Comprend les commandes que Home Assistant connaît, vite, même sur un Raspberry Pi.",
+    consent:
+      "DomoTwin installe et démarre cette application et Piper (la voix qui répond) depuis la boutique d’applications de Home Assistant : quelques centaines de mégaoctets, téléchargés par votre Home Assistant. Ensuite tout tourne chez vous : rien de ce que vous dites n’en sort.",
+    set_up: "Installer et configurer",
+    wait: "Cela peut prendre quelques minutes, le temps de télécharger les applications.",
+    step_checking: "Examen des applications…",
+    step_installing: "Installation de {app}…",
+    step_starting: "Démarrage de {app}…",
+    step_connecting: "Ajout des applications à Home Assistant…",
+    step_pipeline: "Configuration d’Assist…",
+    failed_app:
+      "Une application n’a pas pu être installée ou démarrée. Regardez dans Paramètres → Applications, puis réessayez.",
+    failed_app_unavailable: "Cette application n’est pas disponible pour cet ordinateur.",
+    failed_not_found:
+      "Home Assistant n’a pas trouvé les applications. Ajoutez-les dans Paramètres → Appareils et services, puis réessayez.",
+    failed_language: "Ces applications ne parlent pas la langue de Home Assistant.",
+    failed_ignored:
+      "Home Assistant ignore l’une de ces applications. Dans Paramètres → Appareils et services, affichez les intégrations ignorées, n’ignorez plus Wyoming, puis réessayez.",
+    failed_unknown: "La voix n’a pas pu être configurée. Regardez le journal de Home Assistant.",
+    container:
+      "Ce Home Assistant n’a pas d’applications (Container ou Core) : lancez les services vocaux à côté, puis ajoutez-les.",
+    container_whisper: "Reconnaissance vocale, Whisper :",
+    container_piper: "Synthèse vocale, Piper :",
+    container_wyoming:
+      "Paramètres → Appareils et services → Ajouter une intégration → Wyoming Protocol, une fois pour chacun : l’adresse de cet ordinateur, ports 10300 et 10200.",
+    container_pipeline: "Paramètres → Assistants vocaux : choisissez-les dans votre assistant.",
+    blueprints: "Commandes vocales",
+    blueprints_hint:
+      "Deux automatisations qu’apporte DomoTwin, à créer depuis ces blueprints : dites « montre la cuisine » ou « où sont mes clés ? ».",
+    blueprint_show_by_voice: "Montrer une pièce à la voix",
+    blueprint_where_by_voice: "Où est quelqu’un ou quelque chose",
+    blueprint_missing: "Pas encore dans Home Assistant",
+    blueprint_installed: "Ajouté",
+    blueprint_changed: "Modifié, ou d’un DomoTwin plus ancien",
+    blueprints_add: "Ajouter à Home Assistant",
+    blueprints_replace: "Remplacer par cette version",
+    blueprints_use: "Créer une automatisation",
+  },
   privacy: {
     title: "Pièces privées",
     hint: "Qui ne peut pas voir une pièce privée la voit fermée : rien à l’intérieur, aucune commande, personne dedans, et les réponses vocales disent « dans une pièce privée ». Les administrateurs la voient toujours en mode édition et en mode plan.",
@@ -450,6 +514,7 @@ export const fr: Dictionary = {
     title: "DomoTwin",
     import: "Importer un plan",
     export: "Exporter le plan",
+    more: "Plus",
     imported: "Plan importé : {title}.",
     import_failed: "Ce fichier ne peut pas être importé : {reason}",
     export_failed: "Le plan ne peut pas être exporté : {reason}",
@@ -595,7 +660,7 @@ export const fr: Dictionary = {
   walk: {
     start: "Se promener dans le logement",
     stop: "Quitter la promenade",
-    hint: "Glissez pour regarder autour · touchez le sol pour y aller",
+    hint: "Glissez pour regarder autour · touchez le sol pour y aller · flèches ou Z Q S D pour marcher · Échap pour sortir",
     pad: "Marcher",
     ahead: "Avancer",
     back: "Reculer",
@@ -792,6 +857,10 @@ export const fr: Dictionary = {
       models_too_large: "les fichiers 3D d’un plan font au plus 20 Mo en tout.",
     },
     ws: {
+      no_supervisor: "ce Home Assistant n’a pas d’applications.",
+      busy: "la voix est déjà en cours de configuration.",
+      blueprints_not_written:
+        "les blueprints n’ont pas pu être écrits dans le dossier de Home Assistant.",
       revision_conflict: "quelqu’un a enregistré entre-temps. Rechargez et réessayez.",
       unauthorized: "seuls les administrateurs peuvent le faire.",
       not_loaded: "DomoTwin n’est pas configuré.",
@@ -844,7 +913,8 @@ export const fr: Dictionary = {
     room_none: "Tout le logement",
     storey: "Étage affiché d’abord",
     storey_ground: "Le rez-de-chaussée",
-    font_family: "Police (par exemple Inter ; vide : celle par défaut)",
+    font_family:
+      "Police (vide : celle de DomoTwin ; theme : celle de votre thème ; ou un nom de police)",
     layer: "Calque affiché au départ",
     alerts: "Alertes des pièces (fumée, eau, alarme…)",
     presence: "Les pièces occupées s’illuminent",
@@ -862,6 +932,7 @@ export const fr: Dictionary = {
     orbit: "Tourner lentement autour du logement entre-temps",
     night_dim: "Assombrir la nuit entre-temps",
     tools: "Les boutons de la vue",
+    voice: "Le micro (Assist)",
     screen: "Nom de l’écran (pour domotwin.show)",
   },
   config: {
@@ -887,6 +958,7 @@ export const fr: Dictionary = {
     bad_orbit: "`orbit` doit valoir true ou false",
     bad_night_dim: "`night_dim` doit valoir true ou false",
     bad_tools: "`tools` doit valoir true ou false",
+    bad_voice: "`voice` doit valoir true ou false",
     bad_screen: "`screen` doit être un nom fait de lettres, chiffres, _ et - (64 au plus)",
   },
 };

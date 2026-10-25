@@ -7,6 +7,7 @@ import { LitElement, css, html, nothing, type TemplateResult } from "lit";
 
 import type { HomeAssistant } from "../ha/types";
 import { translatorFor, type Translator } from "../i18n";
+import { fromField } from "./dialog";
 import { fire } from "./define";
 import { icon } from "./icon";
 
@@ -92,7 +93,7 @@ export abstract class Sheet extends LitElement {
   }
 
   private readonly onKey = (event: KeyboardEvent): void => {
-    if (event.key === "Escape") this.close();
+    if (event.key === "Escape" && !fromField(event)) this.close();
   };
 
   override connectedCallback(): void {
@@ -109,10 +110,11 @@ export abstract class Sheet extends LitElement {
     body: TemplateResult,
     footer: TemplateResult | typeof nothing = nothing,
   ): TemplateResult {
-    return html`<div class="sheet glass" role="dialog" aria-label=${this.heading}>
+    return html`<div class="sheet glass" role="dialog" tabindex="-1" aria-label=${this.heading}>
       <header>
         <h2>${this.heading}</h2>
         <button
+          data-cancel
           aria-label=${this.t.t("panel.dismiss")}
           @click=${() => {
             this.close();

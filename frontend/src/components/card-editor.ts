@@ -161,6 +161,7 @@ function schema(
     { name: "orbit", selector: { boolean: {} } },
     { name: "night_dim", selector: { boolean: {} } },
     { name: "tools", selector: { boolean: {} } },
+    { name: "voice", selector: { boolean: {} } },
     { name: "screen", selector: { text: {} } },
     { name: "font_family", selector: { text: {} } },
   ];
@@ -177,6 +178,7 @@ const ON_BY_DEFAULT = {
   spread: true,
   roof: true,
   tools: true,
+  voice: true,
 };
 
 /** Visual editor of `custom:domotwin-card` (YAML is never needed). */

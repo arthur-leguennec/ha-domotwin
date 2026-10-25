@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 
-import { openHarness, settle, viewState } from "./fixtures";
+import { fromMenu, openHarness, settle, viewState } from "./fixtures";
 
 /** The colour drawn near the top left of the view (the sky), from a fresh frame. */
 async function skyColor(page: Page): Promise<[number, number, number]> {
@@ -80,7 +80,7 @@ test.describe("looks", () => {
   test("the panel's settings choose the home's look, shown as it is chosen", async ({ page }) => {
     await openHarness(page, { mode: "panel" });
     await expect(page.getByTestId("summary")).toBeVisible();
-    await page.getByRole("button", { name: "Settings" }).click();
+    await fromMenu(page, "settings");
     const dialog = page.getByTestId("settings-dialog");
     await dialog.getByTestId("settings-theme").selectOption("neon");
     await expect.poll(async () => (await viewState(page)).look).toBe("neon #00d4ff");
@@ -90,7 +90,7 @@ test.describe("looks", () => {
     await dialog.getByRole("button", { name: "Cancel" }).click();
     await expect.poll(async () => (await viewState(page)).look).toBe("day #00d4ff");
     // Saved: kept.
-    await page.getByRole("button", { name: "Settings" }).click();
+    await fromMenu(page, "settings");
     await dialog.getByTestId("settings-theme").selectOption("blueprint");
     await dialog.getByTestId("settings-save").click();
     await expect(page.getByTestId("toast")).toContainText("Settings saved.");

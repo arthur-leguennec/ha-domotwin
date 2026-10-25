@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 
-import { canvasPng, openHarness, settle } from "./fixtures";
+import { canvasPng, fromMenu, openHarness, settle } from "./fixtures";
 
 /** The messages of a type the frontend sent to the mocked Home Assistant. */
 function sent(page: Page, type: string): Promise<Record<string, unknown>[]> {
@@ -119,7 +119,7 @@ test.describe("people in their rooms (D-034)", () => {
   test("administrators place people from what says where they are", async ({ page }) => {
     await openHarness(page, { mode: "panel", live: true, people: true });
     await settle(page);
-    await page.getByTestId("people-settings").click();
+    await fromMenu(page, "people-settings");
     const dialog = page.getByTestId("people-settings-dialog");
     const alex = dialog.locator('[data-person="person.alex"]');
     await expect(alex.locator('[data-source="sensor.alex_phone_area"]')).toBeVisible();

@@ -23,6 +23,9 @@
 //   private=<room>,<room> (private rooms, D-039, kept for nobody), privatefor=<person> (kept for
 //   that person instead), privatewhile=<entity> (private only while it is on), settingsdown=1
 //   (the settings cannot be read until window.__settingsUp())
+//   voice=1 (Assist with a pipeline that hears), voice=deaf (Assist that cannot hear),
+//   supervisor=1 (apps can be installed), blueprints=changed (one edited), insecure=1 (a page
+//   served over HTTP: no microphone), mic=0 (the card's microphone turned off)
 import { applyService, demoHome } from "./demo-home.mjs";
 
 const params = new URLSearchParams(location.search);
@@ -32,6 +35,24 @@ const live = params.get("live") === "1";
 const zha = params.get("zha") === "1";
 // Fictional automations (D-032): `automations=1` three of them, `automations=50` as many made up.
 const automationCount = Number(params.get("automations") ?? 0);
+// Voice (D-041): Assist and its pipelines, the voice blueprints, apps to install.
+const voiceParam = params.get("voice");
+if (params.get("insecure") === "1") {
+  Object.defineProperty(window, "isSecureContext", { value: false, configurable: true });
+}
+const voice = {
+  pipelines: [
+    { id: "home-assistant", name: "Home Assistant", stt_engine: null },
+    ...(voiceParam === "1" ? [{ id: "whisper", name: "Whisper", stt_engine: "stt.whisper" }] : []),
+  ],
+  preferred: "home-assistant",
+  blueprints: {
+    show_by_voice: "missing",
+    where_by_voice: params.get("blueprints") === "changed" ? "changed" : "missing",
+  },
+  setup: { step: "idle", app: null, error: null, pipeline: null },
+};
+const SETUP_STEPS = ["checking", "installing", "starting", "connecting", "pipeline", "done"];
 
 await import("/domotwin_static/domotwin.js?v=e2e");
 
@@ -733,6 +754,47 @@ const connection = {
         store.locating.learned = {};
         return { forgotten };
       }
+      case "assist_pipeline/pipeline/list":
+        return { pipelines: structuredClone(voice.pipelines), preferred_pipeline: voice.preferred };
+      case "assist_pipeline/pipeline/set_preferred":
+        if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        voice.preferred = message.pipeline_id;
+        return null;
+      case "domotwin/voice/get": {
+        // A set-up goes one step further each time it is asked about.
+        const at = SETUP_STEPS.indexOf(voice.setup.step);
+        if (at >= 0 && at < SETUP_STEPS.length - 1) {
+          const step = SETUP_STEPS[at + 1];
+          const app = { installing: "Whisper", starting: "Piper" }[step] ?? null;
+          voice.setup = { ...voice.setup, step, app };
+          if (step === "done") {
+            voice.setup.pipeline = "domotwin-local";
+            voice.pipelines.push({ id: "domotwin-local", name: "DomoTwin", stt_engine: "stt.w" });
+            // The integration makes it the preferred one where the preferred one did not hear.
+            if (!voice.pipelines.find((p) => p.id === voice.preferred)?.stt_engine) {
+              voice.preferred = "domotwin-local";
+            }
+          }
+        }
+        return {
+          supervisor: params.get("supervisor") === "1",
+          blueprints: { ...voice.blueprints },
+          setup: { ...voice.setup },
+          language: hass.language,
+          piper_voice: hass.language === "fr" ? "fr_FR-siwis-medium" : "en_US-lessac-medium",
+        };
+      }
+      case "domotwin/voice/blueprints":
+        if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        for (const [name, status] of Object.entries(voice.blueprints)) {
+          if (status === "missing" || message.replace) voice.blueprints[name] = "installed";
+        }
+        return { blueprints: { ...voice.blueprints } };
+      case "domotwin/voice/setup":
+        if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        if (params.get("supervisor") !== "1") throw { code: "no_supervisor", message: "no apps" };
+        voice.setup = { step: "checking", app: null, error: null, pipeline: null };
+        return { ...voice.setup };
       case "domotwin/bindings/save": {
         if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
         store.bindings = message.bindings;
@@ -897,7 +959,13 @@ let hass = {
   language,
   locale: { language },
   themes: { darkMode: params.get("dark") === "1" },
-  config: { components: zha ? ["domotwin", "zha"] : ["domotwin"] },
+  config: {
+    components: [
+      "domotwin",
+      ...(zha ? ["zha"] : []),
+      ...(voiceParam ? ["conversation", "assist_pipeline"] : []),
+    ],
+  },
   connection,
   fetchWithAuth,
   async callService(domain, service, data, target) {
@@ -964,9 +1032,15 @@ if (mode === "panel") {
     idle: params.get("idle") ? Number(params.get("idle")) : undefined,
     orbit: params.get("orbit") === "1" ? true : undefined,
     night_dim: params.get("nightdim") === "1" ? true : undefined,
+    voice: params.get("mic") === "0" ? false : undefined,
+    font_family: params.get("font") ?? undefined,
   });
 }
 element.hass = hass;
+// What Home Assistant's frontend is asked to do (an action, Assist).
+document.addEventListener("hass-action", (event) => {
+  calls.push({ type: "hass-action", detail: event.detail });
+});
 mount.append(element);
 window.__element = element;
 window.__view = () =>

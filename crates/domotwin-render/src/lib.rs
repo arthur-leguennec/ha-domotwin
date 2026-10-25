@@ -1055,6 +1055,7 @@ impl Renderer {
     pub fn set_motion(&mut self, motion: bool) {
         if motion != self.motion {
             self.motion = motion;
+            self.view.still = !motion;
             self.view.dirty = true;
         }
     }

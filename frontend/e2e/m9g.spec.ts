@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 
-import { openHarness, pointOn, settle, viewState } from "./fixtures";
+import { fromMenu, openHarness, pointOn, settle, viewState } from "./fixtures";
 
 /** The engine's figures that private rooms change (D-039). */
 interface Figures {
@@ -133,7 +133,7 @@ test.describe("private rooms (D-039)", () => {
   test("set in the panel; administrators still see everything while editing", async ({ page }) => {
     await openHarness(page, { mode: "panel", live: true, people: true });
     await expect.poll(async () => (await figures(page)).closedRooms).toEqual([]);
-    await page.getByTestId("privacy-settings").click();
+    await fromMenu(page, "privacy-settings");
     const dialog = page.getByTestId("private-rooms-dialog");
     await expect(dialog.getByTestId("privacy-limit")).toBeVisible();
     const bedroom = dialog.locator('[data-room="bedroom"]');

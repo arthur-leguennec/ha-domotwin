@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 
 import { expect, test } from "@playwright/test";
 
-import { canvasPng, openHarness, viewState } from "./fixtures";
+import { canvasPng, fromMenu, openHarness, viewState } from "./fixtures";
 
 test.describe("card", () => {
   test("loads the engine and the demo plan", async ({ page }) => {
@@ -96,7 +96,7 @@ test.describe("panel", () => {
   test("exports the stored plan", async ({ page }) => {
     await openHarness(page, { mode: "panel" });
     const download = page.waitForEvent("download");
-    await page.getByRole("button", { name: "Export plan" }).click();
+    await fromMenu(page, "export");
     const file = await download;
     expect(file.suggestedFilename()).toBe("demo-apartment.domotwin.json");
     const exported = JSON.parse(await readFile(await file.path(), "utf8")) as {

@@ -319,6 +319,7 @@ export class DomoTwinBluetoothSettings extends LitElement {
         <h2 id="bluetooth-title">${t.t("bluetooth.settings")}</h2>
         <button
           class="round"
+          data-cancel
           aria-label=${t.t("panel.dismiss")}
           @click=${() => {
             this.close();
@@ -633,7 +634,7 @@ export class DomoTwinBluetoothSettings extends LitElement {
       }
       ${
         this.teaching !== undefined && this.teachingRoom
-          ? html`<p role="status" data-testid="teach-status">
+          ? html`<p data-testid="teach-status">
               ${t.t("bluetooth.teach_listening", {
                 room: this.roomName(this.teachingRoom),
                 seconds: this.teaching,

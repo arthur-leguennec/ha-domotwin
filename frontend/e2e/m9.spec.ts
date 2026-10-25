@@ -55,10 +55,10 @@ test.describe("every storey at once", () => {
     await view.locator('.storey[data-storey="all"]').click();
     await expect.poll(async () => (await stats(page)).storeys).toBe(2);
     const spread = view.getByTestId("spread");
-    await expect(spread).toHaveAttribute("aria-pressed", "true");
+    await expect(spread).toHaveClass("on");
     await spread.click();
     await expect.poll(async () => (await stats(page)).spread).toBe(false);
-    await expect(spread).toHaveAttribute("aria-pressed", "false");
+    await expect(spread).not.toHaveClass("on");
     await view.getByTestId("roof").click();
     await expect.poll(async () => (await stats(page)).roof).toBe(false);
     await spread.click();
