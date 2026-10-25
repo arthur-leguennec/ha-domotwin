@@ -360,7 +360,8 @@ async def test_a_receiver_that_connects_late_is_placed_and_heard(
     radio.send(Advert(TAG, "EE:00:00:00:00:01", -60))
     home._tick()
     async_fire_time_changed(hass, dt_util.utcnow() + timedelta(seconds=3))
-    await hass.async_block_till_done()
+    # The rebuild runs as a background task.
+    await hass.async_block_till_done(wait_background_tasks=True)
     assert "EE:00:00:00:00:01" in home.places
     _ticks(home, radio, TAG, "bedroom", 6)
     assert home.located["keys"].room == "bedroom"
