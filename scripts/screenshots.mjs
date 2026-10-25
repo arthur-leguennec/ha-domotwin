@@ -235,8 +235,8 @@ try {
     await ifc.getByRole("button", { name: "Import plan" }).first().click();
     await (await chooser).setFiles(join(root, file));
   };
-  await pick("crates/domotwin-ifc/tests/fixtures/house-ifc2x3.ifc");
-  await ifc.getByTestId("ifc-storeys").waitFor();
+  await pick("crates/domotwin-import/tests/fixtures/house-ifc2x3.ifc");
+  await ifc.getByTestId("import-storeys").waitFor();
   const picker = await ifc.screenshot();
   await ifc.getByRole("button", { name: "Cancel" }).click();
   await pick("examples/demo-apartment.ifc");
@@ -297,6 +297,75 @@ try {
     Buffer.from(ifcPair.slice(ifcPair.indexOf(",") + 1), "base64"),
   );
   console.log("docs/figures/screenshot-ifc.png");
+
+  // Plans of other apps (M11): a Sweet Home 3D home, a DXF drawing and a room scan, imported.
+  const others = [];
+  for (const [file, label, rooms, picked] of [
+    ["cottage.sh3d", "A Sweet Home 3D home", 4, true],
+    ["studio.dxf", "A DXF drawing", 2, false],
+    ["scan.usdz", "A room scan (RoomPlan)", 1, false],
+  ]) {
+    await ifc.goto("http://127.0.0.1:4173/?mode=panel&plan=none");
+    await ifc.waitForFunction(() => window.__element !== undefined);
+    await pick(`crates/domotwin-import/tests/fixtures/${file}`);
+    if (picked) await ifc.getByTestId("import-storeys").locator("button.storey").first().click();
+    await ifc.waitForFunction(
+      (count) => window.__view?.()?.debugState().summary?.rooms === count,
+      rooms,
+      { timeout: 60_000 },
+    );
+    const frame = await ifc.evaluate(async () => {
+      const view = window.__view();
+      view.options = { quality: "high", view: "3d", cutaway: "auto", lighting: "day" };
+      await view.updateComplete;
+      view.overview();
+      return view.captureFrame();
+    });
+    others.push([label, frame]);
+  }
+  const othersImage = await ifc.evaluate(async (shots) => {
+    const images = await Promise.all(
+      shots.map(async ([, src]) => {
+        const image = new Image();
+        image.src = src;
+        await image.decode();
+        return image;
+      }),
+    );
+    const [w, h] = [620, 440];
+    const canvas = document.createElement("canvas");
+    canvas.width = shots.length * (w + 10) + 10;
+    canvas.height = h + 20;
+    const g = canvas.getContext("2d");
+    g.fillStyle = "#f1f5f9";
+    g.fillRect(0, 0, canvas.width, canvas.height);
+    images.forEach((image, i) => {
+      const x = 10 + i * (w + 10);
+      g.fillStyle = "#ffffff";
+      g.fillRect(x, 10, w, h);
+      const scale = Math.min(w / image.width, h / image.height);
+      g.drawImage(
+        image,
+        x + (w - image.width * scale) / 2,
+        10 + (h - image.height * scale) / 2,
+        image.width * scale,
+        image.height * scale,
+      );
+      g.fillStyle = "rgba(255,255,255,0.92)";
+      g.beginPath();
+      g.roundRect(x + 14, 24, 320, 40, 20);
+      g.fill();
+      g.fillStyle = "#0f172a";
+      g.font = "600 20px Inter, sans-serif";
+      g.fillText(shots[i][0], x + 32, 50);
+    });
+    return canvas.toDataURL("image/png");
+  }, others);
+  await fs.writeFile(
+    join(root, "docs", "figures", "screenshot-imports.png"),
+    Buffer.from(othersImage.slice(othersImage.indexOf(",") + 1), "base64"),
+  );
+  console.log("docs/figures/screenshot-imports.png");
 
   // Edit mode (M3): a piece dragged on the plan with its guides, and the catalogue.
   const edit = await browser.newPage({ viewport: { width: 1100, height: 760 } });

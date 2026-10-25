@@ -15,19 +15,22 @@ Local, rapide, Rust + WebAssembly.</p>
 > [!NOTE]
 > **État : développement en cours.** DomoTwin se construit étape par étape ([feuille de
 > route](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/ROADMAP.md), en anglais).
-> L’intégration, le panneau, la carte, l’import du plan et de l’IFC, les vues 3D et 2D, le
+> L’intégration, le panneau, la carte, l’import du plan (IFC, Sweet Home 3D, DXF, scans de
+> pièces), les vues 3D et 2D, le
 > pilotage en direct (états, toucher, appui long, panneau de pièce, liaisons), le mode édition, vos
 > propres modèles 3D, les calques, les appareils, l’éditeur de plan, les étages, les apparences,
 > tous les étages à la fois, la promenade, le kiosque, la carte du réseau, les fils des
 > automatisations, les fiches d’entretien, les personnes dans leurs pièces et la localisation
 > Bluetooth fonctionnent déjà ;
-> d’autres imports arrivent ensuite. Les fonctionnalités ci-dessous décrivent la version 0.1.0.
+> la finition arrive ensuite. Les fonctionnalités ci-dessous décrivent la version 0.1.0 et ce qui
+> a suivi.
 
 ## Fonctionnalités
 
-- **Votre plan en 3D et en 2D.** Dessinez-le dans le panneau, ou importez une maquette IFC
-  (`*.ifc`, depuis Revit, ArchiCAD, Bonsai, FreeCAD…) ou un plan DomoTwin (`*.domotwin.json`), un
-  étage ou tous, et voyez-le en maquette 3D. Les
+- **Votre plan en 3D et en 2D.** Dessinez-le dans le panneau, ou importez-le : une maquette IFC
+  (`*.ifc`, depuis Revit, ArchiCAD, Bonsai, FreeCAD…), une maison Sweet Home 3D (`*.sh3d`), un
+  dessin DXF, une pièce scannée avec un iPhone ou un iPad à LiDAR (`*.usdz`, le JSON de RoomPlan)
+  ou un plan DomoTwin (`*.domotwin.json`), un étage ou tous, et voyez-le en maquette 3D. Les
   murs face à la caméra s’abaissent automatiquement, comme une maison de poupée ouverte. Passez à un
   plan 2D net avec une transition fluide.
 - **Cinq apparences.** **Néon** : des murs de verre soulignés d’une couleur d’accent lumineuse
@@ -188,9 +191,12 @@ Local, rapide, Rust + WebAssembly.</p>
 2. **Ajouter l’intégration.** Paramètres → Appareils et services → Ajouter une intégration →
    **DomoTwin**. Aucun YAML.
 3. **Dessiner ou importer votre plan.** Ouvrez **DomoTwin** dans la barre latérale → **Dessiner un
-   plan**, ou **Importer un plan** et choisissez un plan DomoTwin (`*.domotwin.json`) ou un fichier
+   plan**, ou **Importer un plan** et choisissez un plan DomoTwin (`*.domotwin.json`), un fichier
    IFC (`*.ifc`, voir [l’import
-   IFC](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/ifc-import.md), en anglais).
+   IFC](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/ifc-import.md), en anglais),
+   une maison Sweet Home 3D, un dessin DXF ou le scan d’une pièce (voir [les plans d’autres
+   applications](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/imports.md), en
+   anglais).
    Pas encore de plan ? Essayez l’appartement fictif
    [`examples/demo-apartment.domotwin.json`](https://github.com/arthur-leguennec/ha-domotwin/blob/main/examples/demo-apartment.domotwin.json)
    ou
@@ -265,9 +271,13 @@ dans
 
 **Quels formats de plan DomoTwin lit-il ?** Son propre format de plan, décrit dans
 [`docs/plan-format.md`](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/plan-format.md)
-avec son schéma JSON, et les fichiers IFC (ISO 16739, exportés par FreeCAD, Blender avec Bonsai,
+avec son schéma JSON ; les fichiers IFC (ISO 16739, exportés par FreeCAD, Blender avec Bonsai,
 ArchiCAD ou Revit), un étage ou tous à la fois : voir [l’import
-IFC](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/ifc-import.md) (en anglais).
+IFC](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/ifc-import.md) (en anglais) ;
+les maisons Sweet Home 3D, les dessins DXF et les scans de pièces faits avec RoomPlan d’Apple
+(USDZ ou JSON) : voir [les plans d’autres
+applications](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/imports.md) (en
+anglais). Les fichiers DWG, l’USD binaire et les scans en maillage (OBJ) ne sont pas lus.
 
 **Puis-je le mettre sur une tablette murale, ou demander une pièce à la voix ?** Oui : les options
 `idle`, `orbit`, `night_dim` et `tools` font d’une carte un kiosque, et l’action `domotwin.show`

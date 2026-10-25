@@ -1183,3 +1183,53 @@ Asked by the maintainer (M9g).
   room to every Home Assistant user, as every entity does; the settings say so: private on a shared screen, not behind a
   security barrier. A closed room splitting a storey in two leaves people's figures no way round
   it: they walk straight, as between rooms with no door (D-034).
+
+## D-040 · Plans of other apps: one builder, a reader per format
+
+Planned since M3b (D-022, M11).
+
+- **Context.** People draw their homes in other apps. Sweet Home 3D is the free home planner,
+  DXF what every drawing app exports, and phones with LiDAR scan a room in a minute (Apple's
+  RoomPlan, which most room-scanning apps use). The IFC import (D-009, D-018) already turned a
+  storey into a plan: closing the gaps between rooms, placing the openings, turning the plan
+  square.
+- **Decision.**
+  - **One crate, one module.** `domotwin-ifc` became `domotwin-import`. A file's format comes
+    from its content (`PlanFile`: the STEP header, a ZIP holding `Home.xml` or a USD layer, the
+    DXF section marker, a JSON object with walls or rooms), not from its name. The module is still
+    fetched only to import a file. Its ZIP and XML readers are `domotwin-models`' (made public,
+    its wasm API behind a feature the import leaves out).
+  - **A draft, then one builder.** Each reader turns its file into a `Draft` in plan
+    coordinates: rooms inside their walls, wall thicknesses, openings with a centre, a direction
+    and a side, pieces with a kind. `build::build` does what the IFC conversion did, for every
+    format, and the IFC plans stayed byte for byte the same.
+  - **Rooms from lines.** Sweet Home 3D levels drawn with walls only, DXF drawings without room
+    outlines, and scans without floors get their rooms from `faces`: the lines are cut where they
+    cross or meet, the bounded faces are walked, and each is moved inside its walls. In a DXF,
+    the faces between a wall's two lines are walls (narrower than 65 cm). A face mostly covered
+    by others is the building around them; a small one inside a room is a table or a stair well
+    drawn with lines. Door gaps are closed by the doors' own jambs.
+  - **What is what, in a DXF**: from the names of its layers and blocks, in four languages; a
+    door from its swing's arc, the units from `$INSUNITS` or the drawing's size. This is a guess,
+    so the message says what was left out and the plan editor finishes the rest.
+  - **Room scans: RoomPlan's own files.** Its USDZ holds one text layer (`.usda`) per wall, door,
+    window, floor and object, with its category in `customData`. DomoTwin reads these layers
+    with a small USDA parser, without composing USD's references. Its JSON (`CapturedRoom`,
+    `CapturedStructure`) holds the same elements. A scan is in metres, `y` up, turned where the
+    phone pointed: the plan is turned square like an IFC model. Its stories are storeys (a USDZ
+    does not say them: the levels its floors and walls stand at), its sections name the rooms,
+    and its objects' categories and attributes give the kinds.
+  - **Left out, and said so.** USD's binary layers (`usdc`), which need a far larger reader, and
+    mesh scans (OBJ, PLY), which are triangles without walls or rooms. Telling walls from
+    furniture in a mesh is guesswork that would make plans no one can trust. Their furniture can
+    come in as 3D models (D-021). DWG and binary DXF files ask to be saved as ASCII DXF.
+  - **Ids.** A file's own ids are kept where it has stable ones (IFC `GlobalId`s, the ids Sweet
+    Home 3D writes since 6.4), so importing an updated file keeps the links. DXF drawings and
+    scans number their elements in their order.
+  - **Names in the user's language.** The rooms a scan names by their kind are named in the
+    panel's language. The others keep the file's names.
+- **Consequences.** The import module grows from 120 to 218 kB gzipped, still fetched only to
+  import a file (`PERFORMANCE.md`); the first load does not change. Readers are fuzzed together
+  (`plan_import`), and their limits are counted (elements, entities, nesting) so that a
+  malicious file runs out of budget, not of memory. A DXF without layer names reads every line
+  as a wall: its rooms come out right when its furniture is in blocks named for what they are.

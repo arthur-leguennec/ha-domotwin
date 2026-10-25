@@ -30,7 +30,7 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | 0.1.0     | First release: all of the above, `domotwin.zip` for HACS   | ✅     |
 | M5b       | What cameras see, drawn on the floor behind the furniture  | ✅     |
 | M9g       | Private rooms: locked, or kept for some people             | ✅     |
-| M11       | Imports: Sweet Home 3D, DXF, room scans                    | ⏳     |
+| M11       | Imports: Sweet Home 3D, DXF, room scans                    | ✅     |
 | M12       | Polish: design, fonts, accessibility, voice, README        | ⏳     |
 | M12b      | Size and speed: a pass that keeps the picture as it is     | ⏳     |
 | M13       | Release 0.2.0 and HACS submission checklist                | ⏳     |
@@ -148,8 +148,8 @@ Suggested by the maintainer during M0 and accepted on condition that it never de
 product (`DECISIONS.md`, D-009); done after M2 and before M3 as the maintainer confirmed. See
 [`ifc-import.md`](ifc-import.md).
 
-- ✅ A separate crate `domotwin-ifc` built as its **own wasm module (112 kB gzipped), loaded only
-  when an `.ifc` file is imported**: the first load does not change.
+- ✅ A separate crate `domotwin-ifc` (`domotwin-import` since M11) built as its **own wasm module
+  (112 kB gzipped), loaded only when an `.ifc` file is imported**: the first load does not change.
 - ✅ A STEP (ISO 10303-21) reader that indexes a file in one pass and parses attributes on demand,
   never panics, and is fuzzed like the plan reader.
 - ✅ IFC2x3, IFC4 and IFC4.3 subsets: units (SI prefixes, feet, inches), placements, the spatial
@@ -687,8 +687,36 @@ only (`DECISIONS.md`, D-039; [`privacy.md`](privacy.md)).
 
 ## M11, imports
 
-Plans from Sweet Home 3D (`.sh3d`), DXF drawings and room scans (USDZ or OBJ from phone LiDAR
-apps), turned into DomoTwin plans.
+Plans of other apps turned into DomoTwin plans (`DECISIONS.md`, D-040;
+[`imports.md`](imports.md)). **Import plan** finds the format from the file's content.
+
+- ✅ **One import** (`domotwin-import`, renamed from `domotwin-ifc`): each reader gives a draft to
+  one plan builder, which closes the gaps between rooms, places the openings, turns the plan square
+  and keeps 500 elements. The IFC plans did not change.
+- ✅ **Sweet Home 3D** (`.sh3d`, 5.3 and later): levels as storeys, rooms with their names, wall
+  thicknesses, doors and windows with their hinge and swing from their sash, pieces, lights and
+  groups by name; the home's own ids kept, so importing it again keeps the links. A level drawn
+  with walls only gets the rooms its walls enclose.
+- ✅ **DXF drawings** (ASCII, R12 to 2018): walls, doors, windows, furniture and rooms from the
+  names of layers and blocks (English, French, German, Spanish); units from `$INSUNITS` or the
+  drawing's size; rooms from room outlines or from the faces the wall lines make, named by the
+  text inside; doors from their swing.
+- ✅ **Room scans** from Apple's RoomPlan, as USDZ (its text layers, one per element) or JSON (one
+  room or a whole structure of rooms and stories): rooms from floors or walls, named by their
+  sections in the user's language, doors, openings and windows, objects by category and
+  attributes (a storage unit under a sink is a counter), turned square.
+- ✅ **Said, not guessed**: old Sweet Home 3D homes, binary DXF, DWG, binary USD (`usdc`) and mesh
+  scans (OBJ) are refused with what to do instead.
+- ✅ Tests: each reader and the builder (Rust), the fictional files of
+  `scripts/make-import-fixtures.py` converted end to end, refusals; the readers fuzzed together
+  (`plan_import`); the panel importing each format, a level picked, French messages and names
+  (Playwright).
+
+![Three fictional homes imported: a Sweet Home 3D cottage, a DXF studio and a scanned living room](figures/screenshot-imports.png)
+
+Measured at the end of M11: see [`PERFORMANCE.md`](PERFORMANCE.md).
+
+Left for later: OBJ and other mesh scans, USD's binary layers, DWG.
 
 ## M12, polish
 

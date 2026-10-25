@@ -15,18 +15,20 @@ Local, fast, Rust + WebAssembly.</p>
 > [!NOTE]
 > **Status: early development.** DomoTwin is built milestone by milestone
 > ([roadmap](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/ROADMAP.md)). The
-> integration, the panel, the card, the plan and IFC import, the 3D and 2D views, live control
+> integration, the panel, the card, the plan import (IFC, Sweet Home 3D, DXF, room scans), the 3D
+> and 2D views, live control
 > (states, tap, long press, room panel, linking), the edit mode, your own 3D models, the layers, the
 > devices, the plan editor, storeys, the looks, every storey at once, walking, the kiosk, the
 > network map, the automation wires, the upkeep cards, the people in their rooms and Bluetooth
 > locating work today;
-> more imports come next. The features below describe version 0.1.0.
+> the polish comes next. The features below describe version 0.1.0 and what came after it.
 
 ## Features
 
-- **Your floor plan in 3D and 2D.** Draw it in the panel, or import an IFC model (`*.ifc`, from
-  Revit, ArchiCAD, Bonsai, FreeCAD…) or a DomoTwin plan (`*.domotwin.json`), one storey or all of
-  them, and see it as a clean 3D model. The
+- **Your floor plan in 3D and 2D.** Draw it in the panel, or import it: an IFC model (`*.ifc`,
+  from Revit, ArchiCAD, Bonsai, FreeCAD…), a Sweet Home 3D home (`*.sh3d`), a DXF drawing, a room
+  scanned with an iPhone or iPad with LiDAR (`*.usdz`, RoomPlan's JSON) or a DomoTwin plan
+  (`*.domotwin.json`), one storey or all of them, and see it as a clean 3D model. The
   walls facing the camera are lowered automatically, like an open dollhouse. Switch to a crisp 2D
   plan with a smooth animation.
 - **Five looks.** **Neon**: walls of glass outlined in a glowing accent colour over a grid,
@@ -170,8 +172,10 @@ Local, fast, Rust + WebAssembly.</p>
    install **DomoTwin** and restart Home Assistant.
 2. **Add the integration.** Settings → Devices & services → Add integration → **DomoTwin**. No YAML.
 3. **Draw or import your plan.** Open **DomoTwin** in the sidebar → **Draw a plan**, or
-   **Import plan** and pick a DomoTwin plan (`*.domotwin.json`) or an IFC file (`*.ifc`, see [IFC
-   import](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/ifc-import.md)). No plan
+   **Import plan** and pick a DomoTwin plan (`*.domotwin.json`), an IFC file (`*.ifc`, see [IFC
+   import](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/ifc-import.md)), a Sweet
+   Home 3D home, a DXF drawing or a room scan (see [plans from other
+   apps](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/imports.md)). No plan
    yet? Try the fictional
    [`examples/demo-apartment.domotwin.json`](https://github.com/arthur-leguennec/ha-domotwin/blob/main/examples/demo-apartment.domotwin.json)
    or
@@ -241,9 +245,12 @@ WebAssembly) reads the plan, builds the geometry and draws it with WebGL2. More 
 
 **Which plan formats does DomoTwin read?** Its own plan format, documented in
 [`docs/plan-format.md`](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/plan-format.md)
-with its JSON Schema, and IFC files (ISO 16739, exported by FreeCAD, Blender with Bonsai, ArchiCAD
+with its JSON Schema; IFC files (ISO 16739, exported by FreeCAD, Blender with Bonsai, ArchiCAD
 or Revit), one storey or every storey at once: see [IFC
-import](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/ifc-import.md).
+import](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/ifc-import.md); Sweet Home
+3D homes, DXF drawings and room scans made with Apple's RoomPlan (USDZ or JSON): see [plans from
+other apps](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/imports.md). DWG files,
+binary USD and mesh scans (OBJ) are not read.
 
 **Can I put it on a wall tablet, or ask for a room by voice?** Yes: the `idle`, `orbit`,
 `night_dim` and `tools` options make a card a kiosk, and the `domotwin.show` action (with a
