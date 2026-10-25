@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 
-import { openHarness, settle } from "./fixtures";
+import { openHarness, pointOn, settle, viewState } from "./fixtures";
 
 async function ready(page: Page): Promise<void> {
   await expect(page.getByTestId("summary")).toBeVisible();
@@ -31,6 +31,74 @@ function badgesOf(page: Page, id: string): Promise<string[]> {
     .getByTestId("badges")
     .locator(`[data-element="${id}"] .badge`)
     .evaluateAll((spans) => spans.map((span) => span.getAttribute("data-kind") ?? ""));
+}
+
+/** What the cameras see, as the engine draws it (D-038). */
+async function cameraViews(page: Page): Promise<{ id: string; tone: string; focused: boolean }[]> {
+  const stats = (await viewState(page)).stats as unknown as {
+    cameraViews: { id: string; tone: string; focused: boolean }[];
+  };
+  return stats.cameraViews;
+}
+
+/** How wide what camera `id` sees is on the screen (device pixels). */
+function viewWidth(page: Page, id: string): Promise<number> {
+  return page.evaluate((element) => {
+    const view = (
+      window as never as { __view: () => { engine: { cameraViews(): string } } }
+    ).__view();
+    const views = JSON.parse(view.engine.cameraViews()) as {
+      id: string;
+      points: [number, number][];
+    }[];
+    const xs = views.find((v) => v.id === element)?.points.map(([x]) => x) ?? [];
+    return xs.length > 0 ? Math.max(...xs) - Math.min(...xs) : 0;
+  }, id);
+}
+
+/** Decodes a fresh frame in the page and keeps its pixels as `name`. */
+async function keepFrame(page: Page, name: string): Promise<void> {
+  await settle(page);
+  await page.evaluate(async (key) => {
+    const page = window as never as {
+      __framePixels: () => Promise<ImageData>;
+      __frames?: Record<string, Uint8ClampedArray>;
+    };
+    page.__frames ??= {};
+    page.__frames[key] = (await page.__framePixels()).data;
+  }, name);
+}
+
+/** The pixels of frame `b` unlike frame `a`'s: their share and their mean colour in each. */
+function frameChange(
+  page: Page,
+  a: string,
+  b: string,
+): Promise<{ share: number; before: number[]; after: number[] }> {
+  return page.evaluate(
+    ([from, to]) => {
+      const frames = (window as never as { __frames: Record<string, Uint8ClampedArray> }).__frames;
+      const x = frames[from];
+      const y = frames[to];
+      if (!x || !y || x.length !== y.length) throw new Error("no frames to compare");
+      let changed = 0;
+      const before = [0, 0, 0];
+      const after = [0, 0, 0];
+      for (let i = 0; i < x.length; i += 4) {
+        let d = 0;
+        for (let c = 0; c < 3; c += 1) d += Math.abs((x[i + c] ?? 0) - (y[i + c] ?? 0));
+        if (d <= 24) continue;
+        changed += 1;
+        for (let c = 0; c < 3; c += 1) {
+          before[c] = (before[c] ?? 0) + (x[i + c] ?? 0);
+          after[c] = (after[c] ?? 0) + (y[i + c] ?? 0);
+        }
+      }
+      const mean = (sum: number[]) => sum.map((v) => (changed > 0 ? v / changed : 0));
+      return { share: changed / (x.length / 4), before: mean(before), after: mean(after) };
+    },
+    [a, b] as const,
+  );
 }
 
 test.describe("devices", () => {
@@ -72,31 +140,64 @@ test.describe("devices", () => {
     await expect(page.getByTestId("badges")).toBeHidden();
   });
 
-  test("what a camera sees is drawn on the floor, red while it records", async ({ page }) => {
+  test("what a camera sees is drawn on the floor, faint until tapped, red while it records", async ({
+    page,
+  }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
     await openHarness(page, { live: true, view: "2d" });
     await ready(page);
-    const cone = page.getByTestId("cameras").locator('polygon[data-id="bookcase"]');
-    await expect(cone).toHaveAttribute("class", "on");
-    const box = await cone.boundingBox();
-    expect(box?.width).toBeGreaterThan(100);
-    await setState(page, "camera.living_room", "recording");
-    await expect(cone).toHaveAttribute("class", "recording");
-    await expect.poll(() => badgesOf(page, "bookcase")).toEqual(["recording"]);
-    await setState(page, "camera.living_room", "unavailable");
-    await expect(cone).toHaveAttribute("class", "off");
+    await expect
+      .poll(() => cameraViews(page))
+      .toEqual([{ id: "bookcase", tone: "on", focused: false }]);
+    expect(await viewWidth(page, "bookcase")).toBeGreaterThan(100);
+    await keepFrame(page, "faint");
+    // The layer menu hides them: the floor as it is.
     await page.getByTestId("layers").click();
     await page.getByTestId("show-cameras").click();
-    await expect(page.getByTestId("cameras")).toBeHidden();
+    await expect.poll(() => cameraViews(page)).toEqual([]);
+    await keepFrame(page, "none");
+    await page.getByTestId("layers").click();
+    await page.getByTestId("show-cameras").click();
+    await expect.poll(() => cameraViews(page)).toHaveLength(1);
+    const faint = await frameChange(page, "none", "faint");
+    expect(faint.share).toBeGreaterThan(0.005);
+    // Bluer than the floor under it (the accent).
+    expect((faint.after[2] ?? 0) - (faint.before[2] ?? 0)).toBeGreaterThan(5);
+    // Tapped (here its badge): whole, over more of the floor.
+    await page.getByTestId("badges").locator('[data-element="bookcase"]').click();
+    await expect
+      .poll(() => cameraViews(page))
+      .toEqual([{ id: "bookcase", tone: "on", focused: true }]);
+    await keepFrame(page, "whole");
+    expect((await frameChange(page, "none", "whole")).share).toBeGreaterThan(faint.share);
+    // Recording: from blue to red, where the view is (whole, or faint again should the tap's
+    // 15 seconds have passed on a slow machine).
+    await setState(page, "camera.living_room", "recording");
+    await expect.poll(async () => (await cameraViews(page))[0]?.tone).toBe("recording");
+    await expect.poll(() => badgesOf(page, "bookcase")).toEqual(["recording"]);
+    await keepFrame(page, "recording");
+    const red = await frameChange(page, "whole", "recording");
+    expect(red.share).toBeGreaterThan(0.005);
+    expect(red.after[0] ?? 0).toBeGreaterThan(red.before[0] ?? 0);
+    expect(red.after[2] ?? 0).toBeLessThan(red.before[2] ?? 0);
+    await setState(page, "camera.living_room", "unavailable");
+    await expect.poll(async () => (await cameraViews(page))[0]?.tone).toBe("off");
+    // Tapped again, then a piece linked to nothing: faint again at once.
+    await page.getByTestId("badges").locator('[data-element="bookcase"]').click();
+    await expect.poll(async () => (await cameraViews(page))[0]?.focused).toBe(true);
+    const sofa = await pointOn(page, "sofa");
+    await page.mouse.click(sofa.x, sofa.y);
+    await expect.poll(async () => (await cameraViews(page))[0]?.focused).toBe(false);
   });
 
   test("a camera's angle of view and reach are set when linking", async ({ page }) => {
     await openHarness(page, { mode: "panel", live: true, view: "2d" });
     await ready(page);
-    const cone = page.getByTestId("cameras").locator('polygon[data-id="bookcase"]');
-    const wide = (await cone.boundingBox())?.width ?? 0;
+    await expect.poll(() => cameraViews(page)).toHaveLength(1);
+    const wide = await viewWidth(page, "bookcase");
     await page.getByTestId("link-mode").click();
-    // The cones and badges leave the view to the linking.
-    await expect(page.getByTestId("cameras")).toBeHidden();
+    // What the cameras see and the badges leave the view to the linking.
+    await expect.poll(() => cameraViews(page)).toEqual([]);
     const point = await page.evaluate(() => {
       const view = (
         window as never as {
@@ -141,6 +242,7 @@ test.describe("devices", () => {
     });
     expect(saved).toEqual({ entities: [{ entity_id: "camera.living_room" }], fov: 40 });
     await page.getByTestId("link-mode").click();
-    await expect.poll(async () => (await cone.boundingBox())?.width ?? 0).toBeLessThan(wide);
+    await expect.poll(() => cameraViews(page)).toHaveLength(1);
+    await expect.poll(() => viewWidth(page, "bookcase")).toBeLessThan(wide);
   });
 });

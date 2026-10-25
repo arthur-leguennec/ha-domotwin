@@ -187,13 +187,6 @@ export interface ViewOptions {
   tools?: boolean;
 }
 
-/** What a camera sees, as drawn now (device pixels). */
-interface CameraShape {
-  id: string;
-  entity: string;
-  points: [number, number][];
-}
-
 /** The icon of each badge; running appliances show their own. */
 const BADGE_ICONS: Record<Exclude<BadgeKind, "running">, string> = {
   locked: mdiLock,
@@ -474,7 +467,6 @@ export class DomoTwinView extends LitElement {
     showCameras: { state: true },
     badges: { state: true },
     badgePoints: { state: true },
-    cameraShapes: { state: true },
   };
 
   hass?: HomeAssistant;
@@ -611,7 +603,6 @@ export class DomoTwinView extends LitElement {
   protected badges = new Map<string, Badge[]>();
   /** Where each element with badges is drawn (device pixels). */
   protected badgePoints: Record<string, [number, number] | undefined> = {};
-  protected cameraShapes: CameraShape[] = [];
   /** Where each upkeep card stands today (D-033), and what it was worked out from. */
   protected standings: Standings = {};
   private standingsFrom?: { upkeep: Upkeep; today: string; engine: DomoTwinEngine };
@@ -662,10 +653,13 @@ export class DomoTwinView extends LitElement {
   /** The rooms of the plan shown, and whether a heatmap found values in them. */
   private rooms: PlanRoom[] = [];
   private heatValues = 0;
-  /** The badges last worked out, and the badges' points and cameras last read from the engine. */
+  /** The badges last worked out, and the badges' points last read from the engine. */
   private badgesKey = "";
   private pointsText = "{}";
-  private camerasText = "[]";
+  /** Whether the engine was told to draw what the cameras see (D-038). */
+  private camerasShown: boolean | undefined;
+  /** A frame when a tapped camera's view goes back to faint (the engine times it, D-038). */
+  private cameraFocusTimer: ReturnType<typeof setTimeout> | undefined;
   /** The kind of each piece and the name and type of each element of the plan shown. */
   private kinds: Record<string, string> = {};
   private names: Record<string, { name: string; type: string; room?: string }> = {};
@@ -957,28 +951,6 @@ export class DomoTwinView extends LitElement {
       }
       .labels span.power {
         transform: translate(-50%, -130%);
-      }
-      .cameras {
-        position: absolute;
-        inset: 0;
-        width: 100%;
-        height: 100%;
-        pointer-events: none;
-      }
-      .cameras polygon {
-        fill: color-mix(in srgb, var(--primary-color, #03a9f4) 16%, transparent);
-        stroke: color-mix(in srgb, var(--primary-color, #03a9f4) 55%, transparent);
-        stroke-width: 1.5;
-        stroke-linejoin: round;
-      }
-      .cameras polygon.recording {
-        fill: color-mix(in srgb, var(--error-color, #db4437) 16%, transparent);
-        stroke: color-mix(in srgb, var(--error-color, #db4437) 60%, transparent);
-      }
-      .cameras polygon.off {
-        fill: color-mix(in srgb, var(--secondary-text-color, #5f6368) 10%, transparent);
-        stroke: color-mix(in srgb, var(--secondary-text-color, #5f6368) 40%, transparent);
-        stroke-dasharray: 5 4;
       }
       .badges,
       .people,
@@ -1409,6 +1381,7 @@ export class DomoTwinView extends LitElement {
     this.removeEventListener("wheel", this.onTouch, true);
     window.clearInterval(this.idleTimer);
     window.clearTimeout(this.walkHintTimer);
+    clearTimeout(this.cameraFocusTimer);
     window.removeEventListener("keydown", this.onEditKey);
     window.removeEventListener("keydown", this.onPlanKey);
     window.clearTimeout(this.noticeTimer);
@@ -1947,6 +1920,8 @@ export class DomoTwinView extends LitElement {
       return;
     }
     const picked = this.elementAt(x, y);
+    // A camera's piece tapped: its view whole for a while; anything else: all faint (D-038).
+    if (!this.linking) this.focusCamera(picked?.id ?? "");
     // A linked piece acts on a tap even under a wire passing over it.
     const acts = !this.linking && picked !== undefined && this.actingBinding(picked.id);
     if (this.wiresShown && !acts) {
@@ -2182,7 +2157,7 @@ export class DomoTwinView extends LitElement {
     let time = performance.now();
     // The layers' animation never ends: it does not count.
     for (let i = 0; i < 300 && engine.frame(time) && engine.moving; i += 1) time += 100;
-    // Labels, badges and cones where the home now is.
+    // Labels and badges where the home now is.
     this.readOverlays(engine);
   }
 
@@ -2248,6 +2223,7 @@ export class DomoTwinView extends LitElement {
     this.sunKey = undefined;
     this.layersKey = undefined;
     this.labelsText = "";
+    this.camerasShown = undefined;
     this.scheduler = new FrameScheduler((time) => this.drawFrame(engine, time));
     this.scheduler.setPageVisible(document.visibilityState === "visible");
     this.resizeObserver = new ResizeObserver(() => {
@@ -2331,13 +2307,20 @@ export class DomoTwinView extends LitElement {
         pictureUrl(engine.storeyPicture(i, PICTURE_WIDTH, PICTURE_HEIGHT)),
       );
     }
+    // What the cameras see is drawn by the engine on the floor (D-038), left out while editing
+    // or linking: told before the frame, so that the frame shows it.
+    const cameras = this.showCameras && !this.editingAny && !this.linking;
+    if (cameras !== this.camerasShown) {
+      this.camerasShown = cameras;
+      engine.setCameraViews(cameras);
+    }
     const movingBefore = engine.moving;
     const start = performance.now();
     const more = engine.frame(time);
     const cost = performance.now() - start;
     const movingAfter = engine.moving;
-    // The values, badges and cameras' views move with the camera (the kiosk's turn too), or
-    // change: not with the layers' own animation.
+    // The values and badges move with the camera (the kiosk's turn too), or change: not with
+    // the layers' own animation.
     if (this.labelsDue || movingBefore || movingAfter || engine.orbiting) {
       this.labelsDue = false;
       this.readOverlays(engine);
@@ -2640,7 +2623,7 @@ export class DomoTwinView extends LitElement {
     this.redraw();
   }
 
-  /** Reads where the layer's values, the badges and what the cameras see go now. */
+  /** Reads where the layer's values, the rooms' names and the badges go now. */
   private readOverlays(engine: DomoTwinEngine): void {
     this.planEditor?.reproject();
     const canvas = this.canvas;
@@ -2668,13 +2651,6 @@ export class DomoTwinView extends LitElement {
       this.pointsText = points;
       this.badgePoints = JSON.parse(points) as Record<string, [number, number]>;
     }
-    // What the cameras see is drawn flat over the picture, to be read from above: not at eye
-    // level, where it would lie over the furniture.
-    const cameras = shown && this.showCameras && !engine.walking ? engine.cameraViews() : "[]";
-    if (cameras !== this.camerasText) {
-      this.camerasText = cameras;
-      this.cameraShapes = JSON.parse(cameras) as CameraShape[];
-    }
     // Where the people's names go (D-034).
     const placed = shown && this.shownPeople.some((p) => p.room !== undefined);
     const people = placed ? engine.peoplePoints() : "[]";
@@ -2697,6 +2673,8 @@ export class DomoTwinView extends LitElement {
    */
   private tapElement(id: string): void {
     this.sheet = undefined;
+    // A camera's badge: its view whole for a while; another badge: all faint (D-038).
+    this.focusCamera(id);
     const binding = this.actingBinding(id);
     const hass = this.hass;
     const upkeep = this.badges
@@ -2729,6 +2707,16 @@ export class DomoTwinView extends LitElement {
       room: "",
     };
     void this.act(tapAction(binding, hass), binding, picked);
+    this.redraw();
+  }
+
+  /** A camera tapped: its view drawn whole for a while (D-038); anything else: all faint. */
+  private focusCamera(id: string): void {
+    const engine = this.engine;
+    if (!engine) return;
+    clearTimeout(this.cameraFocusTimer);
+    const whole = engine.focusCamera(id);
+    if (whole > 0) this.cameraFocusTimer = setTimeout(() => this.redraw(), whole + 50);
     this.redraw();
   }
 
@@ -3384,14 +3372,13 @@ export class DomoTwinView extends LitElement {
           event.preventDefault();
         }}
       ></div>
-      ${ready ? this.renderCameras() : nothing} ${ready ? this.renderLabels() : nothing}
-      ${ready ? this.renderRoomNames() : nothing} ${ready ? this.renderBadges() : nothing}
-      ${ready ? this.renderPeople() : nothing} ${ready ? this.renderStoreyLabels() : nothing}
-      ${ready ? this.renderPictures() : nothing} ${this.renderGuides()} ${this.renderPlanHandles()}
-      ${this.renderOverlay()} ${ready ? this.renderLegend() : nothing}
-      ${ready ? this.renderAlerts() : nothing} ${ready ? this.renderWalkPad() : nothing}
-      ${ready ? this.renderNetwork() : nothing} ${ready ? this.renderUpkeep() : nothing}
-      ${ready ? this.renderWires() : nothing}
+      ${ready ? this.renderLabels() : nothing} ${ready ? this.renderRoomNames() : nothing}
+      ${ready ? this.renderBadges() : nothing} ${ready ? this.renderPeople() : nothing}
+      ${ready ? this.renderStoreyLabels() : nothing} ${ready ? this.renderPictures() : nothing}
+      ${this.renderGuides()} ${this.renderPlanHandles()} ${this.renderOverlay()}
+      ${ready ? this.renderLegend() : nothing} ${ready ? this.renderAlerts() : nothing}
+      ${ready ? this.renderWalkPad() : nothing} ${ready ? this.renderNetwork() : nothing}
+      ${ready ? this.renderUpkeep() : nothing} ${ready ? this.renderWires() : nothing}
       ${ready && this.options.tools !== false ? this.renderTools() : nothing}
       ${ready ? this.renderSheet() : nothing}
       ${this.dimmed ? html`<div class="dim" data-testid="dim" aria-hidden="true"></div>` : nothing}
@@ -3964,28 +3951,6 @@ export class DomoTwinView extends LitElement {
     >
       ${this.translator.t("people.show_me")}
     </button>`;
-  }
-
-  /** What the cameras see: their cones on the floor, red while recording. */
-  private renderCameras(): TemplateResult | typeof nothing {
-    const canvas = this.canvas;
-    if (!canvas || !this.showCameras || this.editingAny || this.linking) return nothing;
-    if (this.cameraShapes.length === 0) return nothing;
-    const k = Math.max(1, canvas.clientWidth) / Math.max(1, canvas.width);
-    return html`<svg class="cameras" aria-hidden="true" data-testid="cameras">
-      ${this.cameraShapes.map((shape) => {
-        const state = this.hass?.states[shape.entity]?.state;
-        // A camera Home Assistant no longer has is off too.
-        const tone =
-          state === "recording"
-            ? "recording"
-            : state === undefined || state === "unavailable"
-              ? "off"
-              : "on";
-        const points = shape.points.map(([x, y]) => `${x * k},${y * k}`).join(" ");
-        return svg`<polygon class=${tone} data-id=${shape.id} points=${points}></polygon>`;
-      })}
-    </svg>`;
   }
 
   /** The rooms' names, on their floor; the room framed has its own chip. */

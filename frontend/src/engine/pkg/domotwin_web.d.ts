@@ -22,9 +22,10 @@ export class Engine {
      */
     beginEdit(): string;
     /**
-     * What the linked cameras see on the floor, as JSON `[{"id", "entity", "points": [[x, y]…]}]`
-     * in device pixels from the top left: each camera's cone cut to its room (`DECISIONS.md`,
-     * D-024). A cone partly behind the camera of the view is left out.
+     * Where what the linked cameras see is on the screen, as JSON `[{"id", "entity", "points":
+     * [[x, y]…]}]` in device pixels from the top left: each camera's fan cut to its room
+     * (`DECISIONS.md`, D-024), the camera first. A fan partly behind the camera of the view is
+     * left out. The engine draws them (D-038); these points are for tests and tools.
      */
     cameraViews(): string;
     /**
@@ -134,6 +135,13 @@ export class Engine {
      * Leaves edit mode, keeping the changes shown (`keep`) or going back to the overlay saved.
      */
     endEdit(keep: boolean): void;
+    /**
+     * Draws the view of the camera linked to element `id` whole from `time_ms` (the frames'
+     * clock) for a while, the others faint (D-038); another id, or none, draws them all faint.
+     * Returns how long it is drawn whole (ms), 0 when `id` is no camera's: a frame is needed
+     * then for it to go faint again.
+     */
+    focusCamera(id: string, time_ms: number): number;
     /**
      * Frames an element (a room, a piece). Returns `false` when it has no geometry.
      */
@@ -311,6 +319,10 @@ export class Engine {
      * Sets the bindings (the JSON stored by the integration). Malformed entries are skipped.
      */
     setBindings(json: string): void;
+    /**
+     * Draws what the linked cameras see on the floor, or not (D-038).
+     */
+    setCameraViews(shown: boolean): void;
     /**
      * Sets the cut-away mode: `auto`, `always` or `off`.
      */
@@ -567,6 +579,7 @@ export interface InitOutput {
     readonly engine_elementList: (a: number, b: number) => void;
     readonly engine_elementPoints: (a: number, b: number, c: number, d: number) => void;
     readonly engine_endEdit: (a: number, b: number) => void;
+    readonly engine_focusCamera: (a: number, b: number, c: number, d: number) => number;
     readonly engine_focusElement: (a: number, b: number, c: number, d: number) => number;
     readonly engine_frame: (a: number, b: number) => number;
     readonly engine_highlight: (a: number, b: number, c: number) => void;
@@ -601,6 +614,7 @@ export interface InitOutput {
     readonly engine_setAutomations: (a: number, b: number, c: number, d: number) => void;
     readonly engine_setBackground: (a: number, b: number, c: number, d: number) => void;
     readonly engine_setBindings: (a: number, b: number, c: number) => void;
+    readonly engine_setCameraViews: (a: number, b: number) => void;
     readonly engine_setCutaway: (a: number, b: number, c: number) => void;
     readonly engine_setLayers: (a: number, b: number, c: number) => void;
     readonly engine_setLightingMood: (a: number, b: number, c: number) => number;
