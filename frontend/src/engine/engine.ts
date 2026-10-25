@@ -275,21 +275,46 @@ export function engineError(error: unknown): EngineError {
   return new EngineError(message);
 }
 
+/** Gives a canvas's WebGL context back now rather than at garbage collection. */
+function releaseContext(canvas: HTMLCanvasElement): void {
+  canvas.getContext("webgl2")?.getExtension("WEBGL_lose_context")?.loseContext();
+}
+
 /** One engine per canvas: a typed wrapper around the WebAssembly `Engine`. */
 export class DomoTwinEngine {
-  private constructor(private engine: Wasm.Engine | undefined) {}
+  /** The canvas's context, which the engine made. */
+  private readonly gl: WebGL2RenderingContext | null;
 
-  static async create(canvas: HTMLCanvasElement): Promise<DomoTwinEngine> {
+  private constructor(
+    private engine: Wasm.Engine | undefined,
+    canvas: HTMLCanvasElement,
+  ) {
+    this.gl = canvas.getContext("webgl2");
+  }
+
+  /**
+   * Creates the engine on `canvas` once the WebAssembly is loaded, unless `wanted` says by then
+   * that it is no longer wanted (`cancelled`): the canvas is then left without a context.
+   */
+  static async create(
+    canvas: HTMLCanvasElement,
+    wanted: () => boolean = () => true,
+  ): Promise<DomoTwinEngine> {
     const wasm = await loadWasm();
+    if (!wanted()) throw new EngineError("cancelled");
     try {
-      return new DomoTwinEngine(new wasm.Engine(canvas));
+      return new DomoTwinEngine(new wasm.Engine(canvas), canvas);
     } catch (error) {
+      // The context may have been made before the engine failed.
+      releaseContext(canvas);
       throw engineError(error);
     }
   }
 
   private get live(): Wasm.Engine {
     if (!this.engine) throw new EngineError("disposed");
+    // A lost context makes nothing the renderer asks for: refused until the view starts again.
+    if (this.gl?.isContextLost()) throw new EngineError("context_lost");
     return this.engine;
   }
 
@@ -811,9 +836,12 @@ export class DomoTwinEngine {
     return this.live.frame(time);
   }
 
+  /** Frees the engine and gives its canvas's context back. */
   dispose(): void {
-    this.engine?.free();
+    if (!this.engine) return;
+    this.engine.free();
     this.engine = undefined;
+    this.gl?.getExtension("WEBGL_lose_context")?.loseContext();
   }
 }
 

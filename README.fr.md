@@ -21,9 +21,9 @@ Local, rapide, Rust + WebAssembly.</p>
 > propres modèles 3D, les calques, les appareils, l’éditeur de plan, les étages, les apparences,
 > tous les étages à la fois, la promenade, le kiosque, la carte du réseau, les fils des
 > automatisations, les fiches d’entretien, les personnes dans leurs pièces, la localisation
-> Bluetooth, la voix et la finition (police, clavier, lecteurs d’écran) fonctionnent déjà ; une
-> passe sur la taille et la vitesse arrive ensuite, puis la version 0.2.0. Les fonctionnalités
-> ci-dessous décrivent la version 0.1.0 et ce qui a suivi.
+> Bluetooth, la voix, la finition (police, clavier, lecteurs d’écran) et une passe sur la taille
+> et la vitesse fonctionnent déjà, et forment la version 0.2.0. La proposition à la liste par
+> défaut de HACS vient ensuite.
 
 ## Fonctionnalités
 

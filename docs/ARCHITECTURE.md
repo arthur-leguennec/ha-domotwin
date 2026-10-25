@@ -290,3 +290,7 @@ fonts from the internet. Every asset (wasm, JS, fonts, materials) is served by t
 
 The figures are drawn as SVG in `docs/figures/src/` and rendered to PNG with
 `node scripts/render-figures.mjs` (Inter and JetBrains Mono must be installed for the same look).
+
+The brand images Home Assistant shows for the integration (`custom_components/domotwin/brand/`)
+are drawn in `docs/brand/icon.svg` and rendered with `node scripts/render-brand.mjs`, which writes
+the name in the bundled Inter (D-044).

@@ -49,7 +49,9 @@ jobs:
         run: |
           cd custom_components/domotwin
           find . -name '__pycache__' -prune -exec rm -rf {} +
-          zip -r -9 "$GITHUB_WORKSPACE/domotwin.zip" . -x 'frontend/build.json'
+          # The whole integration, the build's manifest included, so that the smoke test
+          # (scripts/ha-smoke.mjs) runs on the zip as released.
+          zip -r -9 "$GITHUB_WORKSPACE/domotwin.zip" .
           cd "$GITHUB_WORKSPACE" && sha256sum domotwin.zip > domotwin.zip.sha256
       - name: Attach to the GitHub release
         env:

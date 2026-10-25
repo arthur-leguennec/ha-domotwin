@@ -185,6 +185,40 @@ test.describe("plan editor", () => {
     await expect(page.getByTestId("summary")).toContainText("2 rooms");
   });
 
+  test("a plan not saved is kept when the view's WebGL context is lost", async ({ page }) => {
+    await openHarness(page, { mode: "panel" });
+    await expect(page.getByTestId("summary")).toBeVisible();
+    await page.getByTestId("plan-mode").click();
+    await expect(page.locator("domotwin-plan-bar")).toBeVisible();
+    await expect.poll(async () => (await viewState(page)).stats?.planView).toBe(true);
+    await settle(page);
+    const sofa = await elementPoint(page, "sofa");
+    await page.mouse.click(sofa.x, sofa.y);
+    await page.keyboard.press("Delete");
+    await expect.poll(async () => (await planEdit(page)).dirty).toBe(true);
+    // A GPU reset: the view starts again on a fresh canvas, with the plan being drawn.
+    await page.evaluate(() => {
+      const scope = window as never as { __view: () => HTMLElement; __lost?: HTMLCanvasElement };
+      const canvas = scope.__view().shadowRoot?.querySelector("canvas");
+      if (!canvas) throw new Error("no canvas");
+      scope.__lost = canvas;
+      canvas.getContext("webgl2")?.getExtension("WEBGL_lose_context")?.loseContext();
+    });
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const scope = window as never as { __view: () => HTMLElement; __lost: HTMLCanvasElement };
+          const canvas = scope.__view().shadowRoot?.querySelector("canvas");
+          return canvas !== null && canvas !== scope.__lost;
+        }),
+      )
+      .toBe(true);
+    await expect.poll(async () => (await viewState(page)).planEdit?.dirty).toBe(true);
+    // With its history.
+    await page.keyboard.press("Control+z");
+    await expect.poll(async () => (await planEdit(page)).dirty).toBe(false);
+  });
+
   test("the keys undo and remove; a plan not saved is kept, and dropping it asks first", async ({
     page,
   }) => {

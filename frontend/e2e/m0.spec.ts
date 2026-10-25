@@ -55,6 +55,89 @@ test.describe("card", () => {
     expect(lost).toEqual({ lost: true, canvasLeft: null });
   });
 
+  test("starts when moved while its engine loads, as dashboards move cards", async ({ page }) => {
+    // The engine's WebAssembly waits until the card has moved.
+    let release = (): void => undefined;
+    const held = new Promise<void>((resolve) => (release = resolve));
+    await page.route("**/domotwin_web_bg*.wasm", async (route) => {
+      await held;
+      await route.continue();
+    });
+    const logged: string[] = [];
+    page.on("console", (message) => {
+      if (message.type() === "error") logged.push(message.text());
+    });
+    await openHarness(page);
+    await expect.poll(async () => (await viewState(page)).engine).toBe("loading");
+    await page.evaluate(() => {
+      const scope = window as never as {
+        __element: HTMLElement;
+        __view: () => HTMLElement;
+        __firstCanvas?: HTMLCanvasElement | null;
+      };
+      scope.__firstCanvas = scope.__view().shadowRoot?.querySelector("canvas");
+      const parent = scope.__element.parentElement;
+      scope.__element.remove();
+      parent?.append(scope.__element);
+    });
+    release();
+    await expect(page.getByTestId("summary")).toContainText("Demo apartment");
+    expect((await viewState(page)).engine).toBe("ready");
+    const canvases = await page.evaluate(() => {
+      const scope = window as never as {
+        __view: () => HTMLElement;
+        __firstCanvas: HTMLCanvasElement;
+      };
+      return {
+        shown: scope.__view().shadowRoot?.querySelectorAll("canvas").length,
+        // A canvas with a WebGL context has no 2D one: the first was never given a context.
+        firstUntouched: scope.__firstCanvas.getContext("2d") !== null,
+      };
+    });
+    expect(canvases).toEqual({ shown: 1, firstUntouched: true });
+    expect(logged.filter((text) => text.includes("panicked"))).toEqual([]);
+  });
+
+  test("starts again on a fresh canvas when its context is lost", async ({ page }) => {
+    const logged: string[] = [];
+    page.on("console", (message) => {
+      if (message.type() === "error") logged.push(message.text());
+    });
+    await openHarness(page);
+    await expect(page.getByTestId("summary")).toBeVisible();
+    const lose = () =>
+      page.evaluate(() => {
+        const scope = window as never as {
+          __view: () => HTMLElement;
+          __lostCanvas?: HTMLCanvasElement;
+        };
+        const canvas = scope.__view().shadowRoot?.querySelector("canvas");
+        if (!canvas) throw new Error("no canvas");
+        scope.__lostCanvas = canvas;
+        canvas.getContext("webgl2")?.getExtension("WEBGL_lose_context")?.loseContext();
+      });
+    await lose();
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const scope = window as never as {
+            __view: () => HTMLElement;
+            __lostCanvas: HTMLCanvasElement;
+          };
+          const canvas = scope.__view().shadowRoot?.querySelector("canvas");
+          return canvas !== null && canvas !== scope.__lostCanvas;
+        }),
+      )
+      .toBe(true);
+    await expect.poll(async () => (await viewState(page)).engine).toBe("ready");
+    await expect(page.getByTestId("summary")).toContainText("Demo apartment");
+    await expect.poll(async () => (await viewState(page)).frames).toBeGreaterThan(0);
+    // Lost again within a minute: the GPU keeps failing, and the view says so.
+    await lose();
+    await expect(page.getByText("DomoTwin could not start.")).toBeVisible();
+    expect(logged.filter((text) => text.includes("panicked"))).toEqual([]);
+  });
+
   test("canvas snapshot (software WebGL)", async ({ page }) => {
     await openHarness(page);
     await expect(page.getByTestId("summary")).toBeVisible();
@@ -63,6 +146,30 @@ test.describe("card", () => {
 });
 
 test.describe("panel", () => {
+  test("is as high as the window, less the safe areas, as in Home Assistant", async ({ page }) => {
+    await openHarness(page, { mode: "panel" });
+    await expect(page.getByTestId("summary")).toBeVisible();
+    const size = () =>
+      page.evaluate(() => ({
+        panel: Math.round(
+          (window as never as { __element: HTMLElement }).__element.getBoundingClientRect().height,
+        ),
+        page: document.documentElement.scrollHeight,
+        window: window.innerHeight,
+      }));
+    const plain = await size();
+    expect(plain.panel).toBe(plain.window);
+    expect(plain.page).toBe(plain.window);
+    // A phone's notch and home bar, which Home Assistant pads.
+    await page.evaluate(() => {
+      document.body.style.setProperty("--safe-area-inset-top", "20px");
+      document.body.style.setProperty("--safe-area-inset-bottom", "30px");
+    });
+    const phone = await size();
+    expect(phone.panel).toBe(phone.window - 50);
+    expect(phone.page).toBe(phone.window);
+  });
+
   test("imports a plan file and shows it", async ({ page }) => {
     await openHarness(page, { mode: "panel", plan: "none" });
     await expect(page.getByRole("heading", { name: "No plan yet" })).toBeVisible();

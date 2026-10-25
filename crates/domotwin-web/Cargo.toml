@@ -27,7 +27,12 @@ web-sys = { workspace = true, features = [
 
 [dev-dependencies]
 wasm-bindgen-test.workspace = true
-web-sys = { workspace = true, features = ["Document", "Window", "Element"] }
+web-sys = { workspace = true, features = [
+  "Document",
+  "Window",
+  "Element",
+  "WebglLoseContext",
+] }
 
 [lints]
 workspace = true

@@ -34,6 +34,50 @@ fn loads_the_demo_plan_and_draws_a_frame() {
     assert!(!engine.needs_frame());
 }
 
+/// Loses the canvas's WebGL2 context, as a GPU reset does.
+fn lose_context(canvas: &HtmlCanvasElement) {
+    canvas
+        .get_context("webgl2")
+        .unwrap()
+        .unwrap()
+        .dyn_into::<web_sys::WebGl2RenderingContext>()
+        .unwrap()
+        .get_extension("WEBGL_lose_context")
+        .unwrap()
+        .unwrap()
+        .unchecked_into::<web_sys::WebglLoseContext>()
+        .lose_context();
+}
+
+#[wasm_bindgen_test]
+fn refuses_a_lost_context_with_a_code() {
+    // As a canvas whose context was lost before the engine came (moved off the page meanwhile).
+    let canvas = canvas();
+    lose_context(&canvas);
+    let Err(err) = Engine::new(canvas) else {
+        panic!("a lost context cannot draw")
+    };
+    let message = wasm_bindgen::JsValue::from(err);
+    let text = js_sys::Reflect::get(&message, &"message".into())
+        .unwrap()
+        .as_string()
+        .unwrap();
+    assert_eq!(text, "context_lost");
+}
+
+#[wasm_bindgen_test]
+fn draws_nothing_once_its_context_is_lost() {
+    let canvas = canvas();
+    let mut engine = Engine::new(canvas.clone()).unwrap();
+    engine.load_plan(DEMO, None, None).unwrap();
+    assert!(!engine.frame(0.0));
+    lose_context(&canvas);
+    engine.invalidate();
+    assert!(!engine.frame(16.0));
+    // Nothing was drawn: the frame asked for is still to come.
+    assert!(engine.needs_frame());
+}
+
 #[wasm_bindgen_test]
 fn refuses_a_bad_plan_with_a_code() {
     let mut engine = Engine::new(canvas()).unwrap();

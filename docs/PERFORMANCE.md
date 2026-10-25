@@ -728,3 +728,16 @@ parts side by side, the first run of this pass took 3.5 to 5.7 minutes a part wi
 their tests 2.1 to 4.9 minutes (the measurements the longest), so about 7 minutes for the run.
 One part waited 10 minutes that time for the system packages Playwright installs (Ubuntu's mirror
 was slow), which no split helps.
+
+### M13 (release 0.2.0)
+
+Bundle: the first load is **469.1 kB gzipped** of 1 200 kB (+0.4 kB): the engine refuses a lost
+context and stops drawing on one, and the view starts again on a fresh canvas (D-044). A view
+moved while it loads no longer builds a second engine for the canvas it left. The brand images
+(81 kB of PNG in `brand/`) are served to Home Assistant's own pages, never to a view.
+
+Tried in a real Home Assistant (2026.10, a fresh configuration, Chromium on a 1 280 × 800 window):
+the panel takes the window's height under the sidebar's header, and a dashboard with the card
+next to a Markdown card shows the demo apartment in the card's 492 × 370 px. Neither asks for
+anything outside Home Assistant. Real devices are left to the maintainer
+(`HACS_SUBMISSION.md`).
