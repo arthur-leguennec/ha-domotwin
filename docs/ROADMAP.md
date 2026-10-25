@@ -32,7 +32,7 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M9g       | Private rooms: locked, or kept for some people             | ✅     |
 | M11       | Imports: Sweet Home 3D, DXF, room scans                    | ✅     |
 | M12       | Polish: design, fonts, accessibility, voice, README        | ✅     |
-| M12b      | Size and speed: a pass that keeps the picture as it is     | ⏳     |
+| M12b      | Size and speed: a pass that keeps the picture as it is     | ✅     |
 | M13       | Release 0.2.0 and HACS submission checklist                | ⏳     |
 
 M5 to M11 were added after M3b (`DECISIONS.md`, D-022): what people expect of a 3D home dashboard,
@@ -773,6 +773,18 @@ A pass over the whole of DomoTwin that keeps the picture as it is, measured befo
 first load (the network map's analysis and the automation reader in modules of their own, see
 `PERFORMANCE.md`), the frame time on the Balanced and Eco presets against the budgets, the
 integration's work in Home Assistant, and the CI's time.
+
+- ✅ **The first load**: the network map's analysis and the automation reader in a module of their
+  own (`domotwin-analysis`, D-043), loaded the first time they are shown. 480.5 kB → 468.7 kB
+  gzipped.
+- ✅ **A large mesh** (300 devices, 2 400 links): its drawing handed to the engine as numbers, its
+  analysis written as it is made. As fast as before end to end, with the analysis out of the
+  engine.
+- ✅ **The frame time** of Eco, Balanced and High measured against each other
+  (`e2e/perf.spec.ts`). The renderer did not change, nor did its times.
+- ✅ **The integration's work** measured: the Bluetooth tick, every two seconds, takes about
+  80 µs a device followed, and each packet heard about 3 µs.
+- ✅ **The CI's time**: the browser tests in four parts, run side by side.
 
 ## M13, release 0.2.0
 

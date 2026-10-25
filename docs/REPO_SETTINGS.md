@@ -53,7 +53,8 @@ fork and open pull requests, which the owner reviews and merges or closes.
     - `rust`, `rust wasm tests`, `cargo deny`
     - `frontend`
     - `python`, `hassfest`, `HACS validation`
-    - `bundle`, `e2e`
+    - `bundle`, `e2e` (it passes when the four parts of the browser tests, `e2e (1/3)` to
+      `e2e (3/3)` and `e2e (perf)`, all pass; they are not required themselves)
     - `gitleaks` (`security.yml`), `analyze (actions)`, `analyze (javascript-typescript)`,
       `analyze (python)`, `analyze (rust)` (`codeql.yml`, on every pull request)
     - `conventional commit title` (`pr-title.yml`)

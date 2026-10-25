@@ -29,8 +29,9 @@ lists the budgets, how they are measured, and the numbers measured at each miles
 - **Frame time.** `frontend/e2e/perf.spec.ts` loads the demo plan in headless Chromium with software
   WebGL2 (SwiftShader), forces 120 consecutive frames and reports the CPU time of a frame, the
   interval between frames and the WebAssembly memory. CI uploads it as the `frame-time` artifact.
-  Software rendering is slow and stable, which makes regressions visible; real devices are measured
-  by hand.
+  The software GPU's share of a frame is measured by reading a pixel of it back, which waits for
+  it to be drawn. Software rendering is slow and stable, which makes regressions visible; real
+  devices are measured by hand.
 - **Scene.** `crates/domotwin-core/tests/scene.rs` builds the demo plan and fails above 120 000
   triangles; `stats()` reports the triangles and wall groups of any plan.
 
@@ -646,3 +647,78 @@ fetch it.
 
 Nothing in the frame changes. Under *reduce motion* the camera's moves, the storeys and the walls
 take one frame instead of 650 to 700 ms, so fewer frames are drawn.
+
+### M12b (size and speed)
+
+A pass that keeps the picture as it is (D-043), each number measured on the branch and on the
+commit before it, the same way.
+
+Bundle: the first load is **468.7 kB gzipped** of 1 200 kB, down from 480.5 kB (−11.8 kB). The
+network map's analysis and the automation reader left the engine for a module of their own,
+fetched the first time either is shown:
+
+| File | Before (raw, gzipped) | After (raw, gzipped) |
+| --- | ---: | ---: |
+| `domotwin_web_bg.<hash>.wasm` | 866.6 kB, 374.7 kB | 836.4 kB, 362.6 kB |
+| `domotwin_analysis_bg.<hash>.wasm` (on demand) | | 142.9 kB, 65.2 kB |
+| `chunks/domotwin_analysis-<hash>.js` (glue, on demand) | | 5.0 kB, 2.0 kB |
+
+The module is bigger than what left the engine: it has its own copy of `serde_json` and of what
+it uses of the standard library. Two ways of making the engine smaller were tried and dropped:
+`opt-level = "s"` (about 30 kB bigger gzipped) and more of `wasm-opt`'s passes (about 1 kB
+smaller, for a slower build).
+
+A large mesh, 300 devices with 8 neighbours each (2 400 links), each placed on a piece of the demo
+apartment, shown by the network panel: read, analysed, drawn, and the panel's list made again
+(`e2e/perf.spec.ts`, "frame time with the network map"; the engine's share is its `setNetwork`).
+Headless Chromium, the median of five runs, each the median of 15:
+
+| | Before | After |
+| --- | ---: | ---: |
+| The whole | 31.9 ms | 31.7 ms |
+| The engine's share | 27.2 ms | 17.5 ms |
+
+Handing the engine the mesh's drawing as JSON objects first cost about 10 ms more than the engine
+doing it all. Two changes paid for it, measured natively (`cargo test --release`, the same mesh):
+
+| Step | Before | After |
+| --- | ---: | ---: |
+| The drawing written (164 kB of objects, then 48 kB of numbers) | 5.5 ms | 0.3 ms |
+| The drawing read by the engine | 2.7 ms | 0.7 ms |
+| The analysis written (259 kB, the same JSON) | 8.2 ms | 0.9 ms |
+
+Both are now written from what they borrow of the mesh, instead of being built as JSON values
+first.
+
+Frame time, the presets against each other (`e2e/perf.spec.ts`, "frame time of each quality
+preset"): neon in the evening with the lamps on, a 640 × 700 canvas, SwiftShader. The CPU's share
+is the median of 20 forced frames. The software GPU's is the median of nine frames, each read
+back so that it is waited for. One run each:
+
+| Preset | CPU, before | CPU, after | Software GPU, before | Software GPU, after |
+| --- | ---: | ---: | ---: | ---: |
+| Eco | 0.5 ms | 0.6 ms | 278 ms | 288 ms |
+| Balanced | 0.5 ms | 0.8 ms | 296 ms | 279 ms |
+| High | 0.4 ms | 0.4 ms | 323 ms | 279 ms |
+
+The renderer did not change, and the differences are the runs' noise (about 10 %). A software
+GPU counts pixels, not memory traffic. Neon has no sun shadows, so its three presets cost it about
+the same, while day's do not: 228, 274 and 315 ms, from its shadow map's size and softness. On an
+old tablet's GPU, Eco also saves the offscreen picture, its samples and its bloom, which a
+software GPU barely notices; real devices are measured by hand (M13).
+
+The integration's work in Home Assistant: the Bluetooth tick, every two seconds, on the demo
+apartment heard by three receivers, ten packets per receiver and device between two ticks
+(`tests/test_locator.py`'s set-up, Python 3.14, a 2.1 GHz Xeon; the median of 55 ticks):
+
+| Devices followed | A tick | A packet of theirs | A packet of another device |
+| ---: | ---: | ---: | ---: |
+| 0 | 0.006 ms | | 2 µs |
+| 1 | 0.08 ms | 3 µs | 2 µs |
+| 10 | 0.78 ms | 3 µs | 2 µs |
+| 30 | 2.7 ms | 3 µs | 2 µs |
+
+The code did not change: keeping the packets by receiver, so that a tick does not sort them, made
+no difference beyond the noise. Nothing else in the integration runs periodically, except the
+upkeep sensors' check of the day, once an hour, and polling Bluetooth every second on Home
+Assistant versions without its packet callbacks.
