@@ -1,0 +1,76 @@
+blueprint:
+  name: DomoTwin – where is someone, by voice
+  description: >-
+    Ask Assist "where is Alex?" (or "où est Alex ?"): DomoTwin answers with the room Alex is in, and
+    can show it on your screens. "Who is home?" ("qui est à la maison ?") names everyone at home and
+    their rooms. The people are the ones DomoTwin places (its panel, Settings, People).
+  domain: automation
+  source_url: https://github.com/arthur-leguennec/ha-domotwin/blob/main/blueprints/automation/domotwin/where_by_voice.yaml
+  input:
+    sentences:
+      name: Sentences for one person
+      description: >-
+        What to say to ask for one person; {name} is their name. One sentence per line, with
+        [optional words].
+      default:
+        - "where is {name}"
+        - "where's {name}"
+        - "où est {name}"
+        - "où se trouve {name}"
+      selector:
+        text:
+          multiple: true
+    everyone:
+      name: Sentences for everyone
+      description: What to say to ask who is home, and where.
+      default:
+        - "who is [at] home"
+        - "qui est à la maison"
+      selector:
+        text:
+          multiple: true
+    show:
+      name: Show the room
+      description: Also show the person's room on the DomoTwin screens.
+      default: true
+      selector:
+        boolean:
+    screen:
+      name: Screen
+      description: >-
+        The screen to show it on: the `screen` option of a DomoTwin card. Empty for every screen.
+      default: ""
+      selector:
+        text:
+
+mode: queued
+max: 5
+
+triggers:
+  - trigger: conversation
+    command: !input sentences
+    id: one
+  - trigger: conversation
+    command: !input everyone
+    id: everyone
+
+variables:
+  show: !input show
+  screen: !input screen
+
+actions:
+  - choose:
+      - conditions:
+          - condition: trigger
+            id: one
+        sequence:
+          - action: domotwin.where
+            data:
+              name: "{{ trigger.slots.name }}"
+              show: "{{ show }}"
+              screen: "{{ screen }}"
+            response_variable: where
+    default:
+      - action: domotwin.where
+        response_variable: where
+  - set_conversation_response: "{{ where.text }}"

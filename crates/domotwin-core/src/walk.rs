@@ -6,6 +6,7 @@
 //! partitions; a walker is a circle of [`RADIUS`] on the floor. Doors and the open sides between
 //! two rooms are the ways through. Furniture is not in the way.
 
+use crate::edit::Footprint;
 use crate::geometry::polygon::{
     P2, label_point, point_in_polygon, segment_distance, segments_meet,
 };
@@ -44,7 +45,15 @@ pub struct Floor {
     rooms: Vec<Vec<P2>>,
     room_ids: Vec<String>,
     doors: Vec<Door>,
+    /// The pieces standing on the floor: not in a walker's way (D-029), but where nobody is
+    /// drawn standing (D-034).
+    pieces: Vec<Footprint>,
 }
+
+/// Pieces whose underside is lower than this stand in the way of someone standing (cm)…
+const PIECE_BELOW: f64 = 120.0;
+/// …unless thinner than this (a rug).
+const PIECE_THICKER: f64 = 8.0;
 
 impl Floor {
     /// The walls and doors of a plan, from its wall layout.
@@ -129,11 +138,22 @@ impl Floor {
                 }
             })
             .collect();
+        let pieces = plan
+            .elements
+            .iter()
+            .filter_map(|e| match e {
+                Element::Furniture(f) if f.elevation < PIECE_BELOW && f.z >= PIECE_THICKER => {
+                    Some(Footprint::of(f))
+                }
+                _ => None,
+            })
+            .collect();
         let mut floor = Self {
             walls,
             rooms,
             room_ids,
             doors,
+            pieces,
         };
         // An open side between two rooms is a way through, where a walker fits.
         let mut open = Vec::new();
@@ -363,6 +383,31 @@ impl Floor {
     pub fn room_spot(&self, id: &str) -> Option<P2> {
         let k = self.room_ids.iter().position(|r| r == id)?;
         Some(label_point(&self.rooms[k]))
+    }
+
+    /// Whether `p` is in the room `id`.
+    pub fn in_room(&self, id: &str, p: P2) -> bool {
+        self.room_ids
+            .iter()
+            .position(|r| r == id)
+            .is_some_and(|k| point_in_polygon(p, &self.rooms[k], false))
+    }
+
+    /// Whether someone can be drawn standing at `p` in the room `id`: in it, clear of its walls,
+    /// and at least `margin` cm from every piece standing on the floor.
+    pub fn standing_room(&self, id: &str, p: P2, margin: f64) -> bool {
+        let clear = |f: &Footprint| {
+            !Footprint {
+                half: [f.half[0] + margin, f.half[1] + margin],
+                ..*f
+            }
+            .contains(p)
+        };
+        self.room_ids.iter().position(|r| r == id).is_some_and(|k| {
+            point_in_polygon(p, &self.rooms[k], false)
+                && self.clearance(p) >= RADIUS + margin / 2.0
+                && self.pieces.iter().all(clear)
+        })
     }
 
     /// Where to stand when walking starts near `near`: there when it is free in a room, else in

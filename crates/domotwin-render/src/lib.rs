@@ -18,6 +18,7 @@ use std::sync::Arc;
 use domotwin_core::camera::{Camera, CutawayMode};
 use domotwin_core::lighting::Lighting;
 use domotwin_core::live::Look;
+use domotwin_core::scene::figures::{self, Shape};
 use domotwin_core::scene::lines::Line;
 use domotwin_core::scene::mesh::Mesh;
 use domotwin_core::scene::wires::WireSegment;
@@ -113,6 +114,58 @@ impl GpuMesh {
         program.draw_elements(states, viewport, &self.indices);
     }
 }
+
+/// A person to draw (D-034).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Figure {
+    /// The storey they are on.
+    pub storey: usize,
+    /// Where their feet are on the storey's floor (plan cm: x, height above the floor, y).
+    pub at: [f32; 3],
+    /// Which way they face (radians on the plan, from +x towards +y).
+    pub heading: f32,
+    /// Their colour (linear RGB).
+    pub color: [f32; 3],
+    /// How much they show (0 … 1).
+    pub opacity: f32,
+    /// A pin rather than a figure.
+    pub pin: bool,
+}
+
+/// A shape of the people on the GPU.
+struct GpuShape {
+    positions: VertexBuffer<[f32; 3]>,
+    normals: VertexBuffer<[f32; 3]>,
+    indices: ElementBuffer<u32>,
+}
+
+impl GpuShape {
+    fn new(context: &Context, shape: &Shape) -> Self {
+        Self {
+            positions: VertexBuffer::new_with_data(context, &shape.positions),
+            normals: VertexBuffer::new_with_data(context, &shape.normals),
+            indices: ElementBuffer::new_with_data(context, &shape.indices),
+        }
+    }
+
+    fn draw(&self, program: &Program, states: RenderStates, viewport: Viewport) {
+        program.use_vertex_attribute("a_position", &self.positions);
+        if program.requires_attribute("a_normal") {
+            program.use_vertex_attribute("a_normal", &self.normals);
+        }
+        program.draw_elements(states, viewport, &self.indices);
+    }
+}
+
+/// The figure, the pin and the shadow, uploaded the first time someone is drawn.
+struct GpuPeople {
+    figure: GpuShape,
+    pin: GpuShape,
+    shadow: GpuShape,
+}
+
+/// The radius of a person's shadow (cm).
+const SHADOW_RADIUS: f32 = 30.0;
 
 /// The halos of lit bulbs on the GPU.
 struct GpuHalos {
@@ -452,6 +505,7 @@ pub struct Renderer {
     background_program: Program,
     line_program: Program,
     wire_program: Program,
+    figure_program: Program,
     bloom_down: Program,
     bloom_up: Program,
     composite: Program,
@@ -472,6 +526,9 @@ pub struct Renderer {
     rooms_animated: bool,
     /// The wires drawn over the home, by [`WireSet`].
     wires: [Option<GpuWires>; 2],
+    /// The people (D-034), and their shapes once one is drawn.
+    figures: Vec<Figure>,
+    people: Option<GpuPeople>,
     /// The frames' clock at the last frame, and when the last one-shot pulse is over (ms).
     frame_ms: f64,
     shots_until_ms: f64,
@@ -636,6 +693,8 @@ impl Renderer {
             Program::from_source(&context, shaders::LINE_VERTEX, shaders::LINE_FRAGMENT)?;
         let wire_program =
             Program::from_source(&context, shaders::WIRE_VERTEX, shaders::WIRE_FRAGMENT)?;
+        let figure_program =
+            Program::from_source(&context, shaders::FIGURE_VERTEX, shaders::FIGURE_FRAGMENT)?;
         let bloom_down = Program::from_source(&context, full, shaders::BLOOM_DOWN)?;
         let bloom_up = Program::from_source(&context, full, shaders::BLOOM_UP)?;
         let composite = Program::from_source(&context, full, shaders::COMPOSITE)?;
@@ -668,6 +727,7 @@ impl Renderer {
             background_program,
             line_program,
             wire_program,
+            figure_program,
             bloom_down,
             bloom_up,
             composite,
@@ -680,6 +740,8 @@ impl Renderer {
             rooms_shown: false,
             rooms_animated: false,
             wires: [None, None],
+            figures: Vec::new(),
+            people: None,
             frame_ms: 0.0,
             shots_until_ms: 0.0,
             power_layer: false,
@@ -835,6 +897,11 @@ impl Renderer {
         }
     }
 
+    /// Whether things may move (the user does not prefer reduced motion).
+    pub const fn motion(&self) -> bool {
+        self.motion
+    }
+
     /// The clock (ms) of the last frame drawn.
     pub const fn frame_ms(&self) -> f64 {
         self.frame_ms
@@ -869,6 +936,22 @@ impl Renderer {
             self.shots_until_ms = self.shots_until_ms.max(time_ms + f64::from(lasts) * 1000.0);
             self.view.dirty = true;
         }
+    }
+
+    /// The people to draw (D-034), where they are now.
+    pub fn set_figures(&mut self, figures: Vec<Figure>) {
+        if figures == self.figures {
+            return;
+        }
+        if !figures.is_empty() && self.people.is_none() {
+            self.people = Some(GpuPeople {
+                figure: GpuShape::new(&self.context, &figures::figure()),
+                pin: GpuShape::new(&self.context, &figures::pin()),
+                shadow: GpuShape::new(&self.context, &figures::shadow()),
+            });
+        }
+        self.figures = figures;
+        self.view.dirty = true;
     }
 
     /// Lights the scene from the real sun (`direction` towards it, `y` up), its light coming
@@ -1276,6 +1359,7 @@ impl Renderer {
         self.set_background_uniforms(&projection.view_proj, post, flat < 0.5);
         self.set_line_uniforms(&projection);
         self.set_wire_uniforms(&projection, time_ms);
+        self.set_figure_uniforms(&projection, flat, post);
         let halo = &self.halo;
         if self.halos.is_some() {
             halo.use_uniform_if_required("u_view_proj", mat4(&projection.view_proj));
@@ -1469,8 +1553,92 @@ impl Renderer {
         program.use_uniform_if_required("u_motion", if self.motion { 1.0_f32 } else { 0.0 });
     }
 
+    fn set_figure_uniforms(
+        &self,
+        projection: &domotwin_core::camera::Projection,
+        flat: f32,
+        post: bool,
+    ) {
+        if self.figures.is_empty() {
+            return;
+        }
+        let program = &self.figure_program;
+        #[allow(clippy::cast_possible_truncation)]
+        let v3 = |v: [f64; 3]| Vec3::new(v[0] as f32, v[1] as f32, v[2] as f32);
+        let rgb = |c: [f32; 3]| Vec3::new(c[0], c[1], c[2]);
+        let light = self.light();
+        program.use_uniform_if_required("u_view_proj", mat4(&projection.view_proj));
+        program.use_uniform_if_required("u_eye", v3(projection.eye));
+        program.use_uniform_if_required("u_sun", v3(self.sun_direction()));
+        program.use_uniform_if_required("u_sun_color", rgb(light.sun));
+        program.use_uniform_if_required("u_sky", rgb(light.sky));
+        program.use_uniform_if_required("u_ground", rgb(light.ground));
+        program.use_uniform_if_required("u_exposure", light.exposure);
+        program.use_uniform_if_required("u_glow", self.theme.line_glow.min(1.0));
+        program.use_uniform_if_required("u_glow_alpha", if post { 1.0_f32 } else { 0.0 });
+        program.use_uniform_if_required("u_flat", flat);
+    }
+
+    /// The people (D-034): their shadows, then them, in the depth of the picture.
+    fn draw_people(&self, viewport: Viewport) {
+        let Some(shapes) = self.people.as_ref() else {
+            return;
+        };
+        let program = &self.figure_program;
+        let shadow_states = RenderStates {
+            write_mask: WriteMask::COLOR,
+            depth_test: DepthTest::LessOrEqual,
+            blend: Blend::Enabled {
+                source_rgb_multiplier: BlendMultiplierType::SrcAlpha,
+                source_alpha_multiplier: BlendMultiplierType::Zero,
+                destination_rgb_multiplier: BlendMultiplierType::OneMinusSrcAlpha,
+                destination_alpha_multiplier: BlendMultiplierType::One,
+                rgb_equation: BlendEquationType::Add,
+                alpha_equation: BlendEquationType::Add,
+            },
+            cull: Cull::None,
+        };
+        let body_states = RenderStates {
+            write_mask: WriteMask::COLOR_AND_DEPTH,
+            depth_test: DepthTest::Less,
+            blend: Blend::Disabled,
+            cull: Cull::Back,
+        };
+        #[allow(clippy::cast_possible_truncation)]
+        let placed = |f: &Figure, lift: f32| {
+            let [x, y, z] = self
+                .view
+                .place(
+                    f.storey,
+                    [
+                        f64::from(f.at[0]),
+                        f64::from(f.at[1] + lift),
+                        f64::from(f.at[2]),
+                    ],
+                )
+                .map(|v| v as f32);
+            Vec4::new(x, y, z, f.heading)
+        };
+        let color = |f: &Figure| Vec4::new(f.color[0], f.color[1], f.color[2], f.opacity);
+        program.use_uniform_if_required("u_shadow_pass", 1.0_f32);
+        program.use_uniform_if_required("u_scale", SHADOW_RADIUS);
+        for f in self.figures.iter().filter(|f| f.opacity > 0.0) {
+            program.use_uniform("u_place", placed(f, 0.6 - f.at[1]));
+            program.use_uniform("u_color", color(f));
+            shapes.shadow.draw(program, shadow_states, viewport);
+        }
+        program.use_uniform_if_required("u_shadow_pass", 0.0_f32);
+        program.use_uniform_if_required("u_scale", 1.0_f32);
+        for f in self.figures.iter().filter(|f| f.opacity > 0.0) {
+            program.use_uniform("u_place", placed(f, 0.0));
+            program.use_uniform("u_color", color(f));
+            let shape = if f.pin { &shapes.pin } else { &shapes.figure };
+            shape.draw(program, body_states, viewport);
+        }
+    }
+
     /// Every pass of a frame, into the target being written: the background, what is opaque,
-    /// glass, glass walls, the outlines, the halos, the wires.
+    /// the people, glass, glass walls, the outlines, the halos, the wires.
     fn draw_passes(&self, viewport: Viewport, only: Option<usize>) {
         let behind = RenderStates {
             write_mask: WriteMask::COLOR,
@@ -1525,6 +1693,11 @@ impl Renderer {
         if let Some((mesh, offset, _)) = roof.filter(|_| !glass_walls) {
             self.use_storey(program, offset, &[], gain);
             mesh.draw(program, opaque_states, viewport);
+        }
+        // The people stand among the furniture; not in a storey's picture.
+        if only.is_none() && !self.figures.is_empty() {
+            self.draw_people(viewport);
+            self.bind_textures(program);
         }
         for (part, offset, lights) in &storeys {
             self.use_storey(program, *offset, lights, gain);

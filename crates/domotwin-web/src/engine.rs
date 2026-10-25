@@ -30,6 +30,7 @@ use web_sys::{HtmlCanvasElement, WebGl2RenderingContext, WebGlContextAttributes}
 
 use crate::automations::AutomationsShown;
 use crate::network::NetworkShown;
+use crate::people::PeopleShown;
 use crate::upkeep::UpkeepShades;
 
 /// Installs the panic hook so that a bug shows a readable message in the console.
@@ -133,6 +134,8 @@ pub struct Engine {
     pub(crate) automations: Option<AutomationsShown>,
     /// Where each piece's upkeep stands, for the upkeep layer (D-033).
     pub(crate) upkeep: UpkeepShades,
+    /// The people in their rooms (D-034).
+    pub(crate) people: PeopleShown,
 }
 
 /// A storey of the home shown whole: its id and name, its plan (its overlay applied) and the
@@ -198,6 +201,7 @@ impl Engine {
             network: None,
             automations: None,
             upkeep: UpkeepShades::new(),
+            people: PeopleShown::default(),
         };
         engine
             .renderer
@@ -489,6 +493,7 @@ impl Engine {
         self.place_network();
         self.place_automations();
         self.place_upkeep();
+        self.replace_people();
     }
 
     /// Shows no plan (a new plan drawn and dropped).
@@ -506,6 +511,7 @@ impl Engine {
         self.drop_network_wires();
         self.drop_automation_wires();
         self.renderer.set_upkeep(&[]);
+        self.replace_people();
     }
 
     /// Works out what the linked cameras see (`DECISIONS.md`, D-024).
@@ -883,10 +889,11 @@ impl Engine {
         serde_json::Value::Object(points).to_string()
     }
 
-    /// Whether a camera move, a wall animation or a fade is running: frames are then drawn at
-    /// the display's rate, else the layers' animation runs slower.
+    /// Whether a camera move, a wall animation, a fade or someone walking is running: frames are
+    /// then drawn at the display's rate (and what is drawn over the picture follows), else the
+    /// layers' animation runs slower.
     pub fn moving(&self) -> bool {
-        self.renderer.view.animating() || !self.live.is_settled()
+        self.renderer.view.animating() || !self.live.is_settled() || self.people_moving()
     }
 
     /// Where the values of the layers shown go on the picture, as JSON `[{"id", "kind": "heat"
@@ -1183,7 +1190,7 @@ impl Engine {
     /// Whether a frame is needed (something changed or an animation is running).
     #[wasm_bindgen(js_name = needsFrame)]
     pub fn needs_frame(&self) -> bool {
-        self.renderer.needs_frame() || !self.live.is_settled()
+        self.renderer.needs_frame() || !self.live.is_settled() || self.people_moving()
     }
 
     /// Asks for a new frame even though nothing changed.
@@ -1202,8 +1209,9 @@ impl Engine {
         if step.moving {
             self.rebuild_moving_parts();
         }
+        let people = self.step_people(dt);
         let camera = self.renderer.render(time_ms);
-        camera || !self.live.is_settled()
+        camera || !self.live.is_settled() || people
     }
 }
 

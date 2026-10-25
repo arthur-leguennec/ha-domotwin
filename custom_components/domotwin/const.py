@@ -60,6 +60,18 @@ MAX_UPKEEP_DAYS: Final = 3_650
 MAX_UPKEEP_MONTHS: Final = 120
 MAX_LEAD_DAYS: Final = 365
 
+# People in their rooms (docs/DECISIONS.md, D-034): their settings in a store of their own
+# (.storage/domotwin.people), so that a DomoTwin from before them leaves the main data alone.
+PEOPLE_STORAGE_KEY: Final = f"{DOMAIN}.people"
+PEOPLE_STORAGE_VERSION: Final = 1
+MAX_PEOPLE: Final = 50
+MAX_PERSON_SOURCES: Final = 10
+PEOPLE_SHOWN: Final = ("everyone", "admins")
+PEOPLE_LOOKS: Final = ("figure", "pin")
+# Dispatcher signal sent when a person moves: (person entity id,).
+SIGNAL_PEOPLE: Final = f"{DOMAIN}_people"
+SERVICE_WHERE: Final = "where"
+
 # Dispatcher signal sent after every write: (kind, revision).
 SIGNAL_UPDATED: Final = f"{DOMAIN}_updated"
 # `domotwin.show` (docs/DECISIONS.md, D-029): what to show, sent to the screens: (request,).

@@ -939,6 +939,29 @@ try {
     await upkeepPage.screenshot(),
   );
   console.log("docs/figures/screenshot-upkeep.png");
+  // People in their rooms (D-034): the panel, the neon look, the fictional people of the harness
+  // in the demo apartment, their names over them.
+  const peoplePage = await browser.newPage({
+    viewport: { width: 1280, height: 800 },
+    deviceScaleFactor: 1.5,
+  });
+  await peoplePage.emulateMedia({ reducedMotion: "reduce" });
+  await peoplePage.goto("http://127.0.0.1:4173/?mode=panel&live=1&people=1&hometheme=neon");
+  await peoplePage.waitForFunction(() => window.__view?.()?.debugState().summary, null, {
+    timeout: 60_000,
+  });
+  await peoplePage.evaluate(() => {
+    const view = window.__view();
+    view.options = { ...view.options, quality: "high" };
+  });
+  await peoplePage.locator("domotwin-view .person-tag").first().waitFor();
+  await peoplePage.evaluate(() => window.__view().settle());
+  await peoplePage.waitForTimeout(800);
+  await fs.writeFile(
+    join(root, "docs", "figures", "screenshot-people.png"),
+    await peoplePage.screenshot(),
+  );
+  console.log("docs/figures/screenshot-people.png");
   await browser.close();
 } finally {
   server.kill();

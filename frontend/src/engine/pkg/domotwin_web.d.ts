@@ -203,8 +203,9 @@ export class Engine {
      */
     modelsOverBudget(): number;
     /**
-     * Whether a camera move, a wall animation or a fade is running: frames are then drawn at
-     * the display's rate, else the layers' animation runs slower.
+     * Whether a camera move, a wall animation, a fade or someone walking is running: frames are
+     * then drawn at the display's rate (and what is drawn over the picture follows), else the
+     * layers' animation runs slower.
      */
     moving(): boolean;
     /**
@@ -236,6 +237,11 @@ export class Engine {
      * Pans by a pointer move of `dx`, `dy` CSS pixels on a view `height` CSS pixels high.
      */
     pan(dx: number, dy: number, height: number): void;
+    /**
+     * Where the names of the people shown go: JSON `[{"id", "x", "y", "opacity"}]` in device
+     * pixels from the top left, above each head; people behind the camera are left out.
+     */
+    peoplePoints(): string;
     /**
      * Picks out one automation (its id; empty: none): its wires drawn fully, the others lighter.
      */
@@ -339,6 +345,13 @@ export class Engine {
      * hides the map.
      */
     setNetwork(snapshot: string): string;
+    /**
+     * The people to draw: JSON `[{"id", "room", "color": "#rrggbb", "look": "figure" | "pin"}]`,
+     * each in a room of the plans shown (others are left out). A figure new to the home fades
+     * in, one whose room changed walks there through the doors, one gone fades out; at once
+     * under *reduce motion*.
+     */
+    setPeople(json: string): void;
     /**
      * Switches between the 3D view and the 2D plan (animated from `time_ms`).
      */
@@ -572,6 +585,7 @@ export interface InitOutput {
     readonly engine_orbiting: (a: number) => number;
     readonly engine_overview: (a: number, b: number) => void;
     readonly engine_pan: (a: number, b: number, c: number, d: number) => void;
+    readonly engine_peoplePoints: (a: number, b: number) => void;
     readonly engine_pick: (a: number, b: number, c: number, d: number) => void;
     readonly engine_pickAutomation: (a: number, b: number, c: number) => void;
     readonly engine_planPoint: (a: number, b: number, c: number, d: number) => void;
@@ -593,6 +607,7 @@ export interface InitOutput {
     readonly engine_setModelMesh: (a: number, b: number, c: number, d: number, e: number) => number;
     readonly engine_setMotion: (a: number, b: number) => void;
     readonly engine_setNetwork: (a: number, b: number, c: number, d: number) => void;
+    readonly engine_setPeople: (a: number, b: number, c: number) => void;
     readonly engine_setPlanView: (a: number, b: number, c: number) => void;
     readonly engine_setPowerLayer: (a: number, b: number) => void;
     readonly engine_setQuality: (a: number, b: number, c: number) => void;

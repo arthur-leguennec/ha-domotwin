@@ -151,6 +151,7 @@ function schema(
     },
     { name: "alerts", selector: { boolean: {} } },
     { name: "presence", selector: { boolean: {} } },
+    { name: "people", selector: { boolean: {} } },
     { name: "sun", selector: options(t, "editor.sun", ["fixed", "real"]) },
     { name: "badges", selector: { boolean: {} } },
     { name: "cameras", selector: { boolean: {} } },
@@ -169,6 +170,7 @@ function schema(
 const ON_BY_DEFAULT = {
   alerts: true,
   presence: true,
+  people: true,
   badges: true,
   cameras: true,
   names: true,

@@ -913,3 +913,51 @@ Asked by the maintainer (M9d).
   (an older 3.x reading a newer 3.x would have dropped them and saved at once). The card, the list
   and the IFC reading are in chunks loaded with the sheets, the layer and the import; the engine
   grew by the date reckoning and a layer flag (see `PERFORMANCE.md`, M9d).
+
+## D-034 · People in their rooms: placed by the integration from what already says where they are
+
+Asked by the maintainer (M9e).
+
+- **Context.** A twin of the home shows who is in it: a figure in each person's room, walking to
+  the next room when they move, the room's panel saying who is there, a voice assistant answering
+  "where is Alex?". Home Assistant knows who is home (`person`) but not in which room. Room-level
+  locating already exists around it: Bermuda's area sensors (Bluetooth, through ESPHome proxies or
+  Shelly devices), ESPresense's room sensors, template sensors. DomoTwin's own Bluetooth locating,
+  for homes without them, is a milestone of its own (M9f).
+- **Decision.**
+  - **The integration places people, not the browser.** For each person an administrator lists
+    the entities that say where they are (those on their phone's or watch's device are suggested).
+    The integration follows them and works out each person's room: the entity that changed last
+    wins (a watch that just walked into the kitchen says more than a phone left on the desk); only
+    a person `home` is placed; a state naming nowhere names no room whatever its attributes still
+    say. A room is found by Bermuda's `area_id`, then an area's id, name or alias read by a room
+    (its binding, else its name, D-022), then a room's name; a name two rooms have is not guessed.
+    Names are compared without case, accents or punctuation, as the frontend compares them.
+  - **A sensor per person.** `sensor.domotwin_<person>_room`: the room's name, `not_home`, or
+    unknown; its id, area, storey, since when and what said so in attributes. Automations and
+    other dashboards use them, every screen shows the same, and the voice answers need no screen
+    open. The upkeep sensor (D-033) is no longer DomoTwin's one entity.
+  - **Settings in a store of their own** (`.storage/domotwin.people`): an older DomoTwin leaves
+    them alone, and the main data's version (D-033) does not move for them. Saves are checked
+    against the revision they started from; a renamed entity (its id) is followed.
+  - **Figures, drawn by the engine.** A stylised person (a body turned on a lathe, arms, a head)
+    or a pin, in the person's colour, lit by the sky and the sun, glowing in the looks that glow,
+    with a soft shadow; one shared mesh, a draw call each. They stand around the middle of their
+    room, clear of its walls, its pieces and its name, each keeping their place while others come
+    and go. A move walks through the doors along the way a walker takes (D-029), at 1.3 m/s; to
+    another storey, out and in. *Reduce motion* places them at once. Their names are HTML over the
+    picture, as the badges; a tap opens their sheet.
+  - **Pictures only from Home Assistant.** A person's picture is shown when Home Assistant serves
+    it (a path); an outside address is never loaded (D-022): their initials instead.
+  - **Hiding and who sees.** Anyone can hide themselves from DomoTwin's views, and show themselves
+    again; administrators anyone. With people shown to administrators only, others see nobody and
+    `domotwin.where` tells nobody where anyone is unless an administrator calls it: a voice
+    question runs as an automation, whoever asks. Home Assistant has no per-entity permissions:
+    the sensors stay readable by every user, which the documentation says.
+  - **Voice through an action, as D-029.** `domotwin.where` returns where a person is (a name heard
+    a letter off is forgiven) or everyone at home, with a sentence in Home Assistant's language;
+    `domotwin.show` takes a person. The blueprint `where_by_voice.yaml` asks Assist's
+    conversation trigger; DomoTwin adds no intent and no agent.
+- **Consequences.** The engine draws a new pass of up to a draw call per person and frames while
+  someone walks; the walk floors know the pieces (for where people stand, not for walking). The
+  settings dialog is a chunk of its own. See `PERFORMANCE.md`, M9e.

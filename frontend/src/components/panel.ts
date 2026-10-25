@@ -1,6 +1,7 @@
 import {
   mdiCheck,
   mdiClose,
+  mdiAccountMultipleOutline,
   mdiCogOutline,
   mdiLinkVariant,
   mdiPencilOutline,
@@ -61,6 +62,7 @@ import {
   type StoreyRooms,
 } from "../live/storeys";
 import { resolveShow, type ShowRequest } from "../live/show";
+import type { PeopleSettings } from "../live/people";
 import { mergeCards, renamedPieces, type Upkeep, type UpkeepCard } from "../live/upkeep";
 import { applyLink, planElement, type LinkChange, type PlanElementInfo } from "../live/suggest";
 import type { IfcFile, IfcReport, IfcStorey } from "../ifc/ifc";
@@ -185,7 +187,9 @@ export class DomoTwinPanel extends LitElement {
     draft: { state: true },
     settings: { state: true },
     upkeep: { state: true },
+    people: { state: true },
     northDraft: { state: true },
+    peopleOpen: { state: true },
     lookDraft: { state: true },
     look: { reflect: true },
     planning: { state: true },
@@ -234,7 +238,13 @@ export class DomoTwinPanel extends LitElement {
   protected settings?: Settings;
   /** The upkeep cards (D-033). */
   protected upkeep?: Upkeep;
+  /** The people placed in their rooms (D-034). */
+  protected people?: PeopleSettings;
   protected northDraft?: number;
+  /** The people's settings are open (D-034), their module loaded, with the candidates. */
+  protected peopleOpen = false;
+  private peopleSettings?: PeopleSettings;
+  private peopleModule?: Promise<unknown>;
   /** The look being chosen in the settings (shown as it is chosen), while they are open. */
   protected lookDraft?: { theme: ThemeMode; accent: string };
   /** The look shown (D-027), on the element for the colours of the header and the dialogs. */
@@ -598,12 +608,25 @@ export class DomoTwinPanel extends LitElement {
       else if (event.kind === "plan") void this.loadPlan();
       else if (event.kind === "bindings") void this.loadBindings();
       else if (event.kind === "upkeep") void this.loadUpkeep();
+      else if (event.kind === "people") void this.loadPeople();
       else void this.loadSettings();
     });
     void this.loadPlan();
     void this.loadBindings();
     void this.loadSettings();
     void this.loadUpkeep();
+    void this.loadPeople();
+  }
+
+  /** Without people's settings (an integration older than D-034 too) nobody is drawn. */
+  private async loadPeople(): Promise<void> {
+    const client = this.client;
+    if (!client) return;
+    try {
+      this.people = await client.getPeople();
+    } catch {
+      this.people = undefined;
+    }
   }
 
   /** Without upkeep cards (an integration older than D-033 too) nothing is due. */
@@ -655,6 +678,27 @@ export class DomoTwinPanel extends LitElement {
       this.settings = undefined;
     }
   }
+
+  /**
+   * Opens the people's settings (D-034): their module (loaded the first time) and the people with
+   * the entities that may say where they are.
+   */
+  private readonly openPeople = async (): Promise<void> => {
+    const client = this.client;
+    if (!client) return;
+    this.peopleModule ??= import("./people-settings");
+    this.busy = true;
+    try {
+      const [, settings] = await Promise.all([this.peopleModule, client.getPeopleWithCandidates()]);
+      this.peopleSettings = settings;
+      this.peopleOpen = true;
+    } catch (error) {
+      this.peopleModule = undefined;
+      this.show(this.describe(error), true);
+    } finally {
+      this.busy = false;
+    }
+  };
 
   private readonly openSettings = (): void => {
     this.northDraft = this.settings?.north ?? 0;
@@ -1770,6 +1814,7 @@ export class DomoTwinPanel extends LitElement {
           .layout=${this.layout}
           .bindings=${this.bindings}
           .upkeep=${this.upkeep}
+          .people=${this.people}
           .planError=${this.planError}
           .options=${PANEL_OPTIONS}
           .north=${this.northDraft ?? this.settings?.north ?? 0}
@@ -1906,15 +1951,27 @@ export class DomoTwinPanel extends LitElement {
       ${
         admin && this.plan && !this.linking
           ? html`<button
-              class="action"
-              data-testid="settings"
-              ?disabled=${this.busy}
-              @click=${this.openSettings}
-              aria-label=${t.t("settings.title")}
-              title=${t.t("settings.title")}
-            >
-              ${icon(mdiCogOutline)}
-            </button>`
+                class="action"
+                data-testid="settings"
+                ?disabled=${this.busy}
+                @click=${this.openSettings}
+                aria-label=${t.t("settings.title")}
+                title=${t.t("settings.title")}
+              >
+                ${icon(mdiCogOutline)}
+              </button>
+              <button
+                class="action"
+                data-testid="people-settings"
+                ?disabled=${this.busy || this.people === undefined}
+                @click=${() => {
+                  void this.openPeople();
+                }}
+                aria-label=${t.t("people.settings")}
+                title=${t.t("people.settings")}
+              >
+                ${icon(mdiAccountMultipleOutline)}
+              </button>`
           : nothing
       }`;
   }
@@ -2117,6 +2174,18 @@ export class DomoTwinPanel extends LitElement {
     }
     ${this.ifcChoice ? this.renderStoreys(this.ifcChoice) : nothing}
     ${this.northDraft !== undefined ? this.renderSettings(this.northDraft) : nothing}
+    ${
+      this.peopleOpen
+        ? html`<domotwin-people-settings
+            .hass=${this._hass}
+            .settings=${this.peopleSettings}
+            @domotwin-close=${() => (this.peopleOpen = false)}
+            @domotwin-saved=${() => {
+              this.show(this.t.t("people.saved"));
+            }}
+          ></domotwin-people-settings>`
+        : nothing
+    }
     ${this.storeysOpen ? this.renderStoreysDialog() : nothing}`;
   }
 

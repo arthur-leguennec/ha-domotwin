@@ -1,4 +1,5 @@
 import type { ThemeMode } from "../config";
+import type { PeopleSettings, PersonSettings } from "../live/people";
 import type { ShowRequest } from "../live/show";
 import type { Upkeep, UpkeepCard } from "../live/upkeep";
 import type { HassConnection, HassMessage, HomeAssistant } from "./types";
@@ -68,7 +69,7 @@ export interface StoredUpkeep {
 
 /** A save (its kind and revision), or a `domotwin.show` request (D-029). */
 export type UpdateEvent =
-  | { kind: "plan" | "bindings" | "settings" | "upkeep"; revision: number }
+  | { kind: "plan" | "bindings" | "settings" | "upkeep" | "people"; revision: number }
   | { kind: "show"; show: ShowRequest };
 
 type Listener = (event: UpdateEvent) => void;
@@ -85,6 +86,7 @@ export class DomoTwinClient {
   private bindings?: Promise<StoredBindings>;
   private settings?: Promise<StoredSettings>;
   private upkeep?: Promise<StoredUpkeep>;
+  private people?: Promise<PeopleSettings>;
   private readonly listeners = new Set<Listener>();
   private unsubscribe?: Promise<() => Promise<void>>;
 
@@ -146,6 +148,53 @@ export class DomoTwinClient {
     if (leadDays !== undefined) message.lead_days = leadDays;
     const result = await this.connection.sendMessagePromise<{ revision: number }>(message);
     this.upkeep = undefined;
+    return result.revision;
+  }
+
+  /** The people placed in their rooms (D-034): from what, in which colour, who sees them. */
+  getPeople(): Promise<PeopleSettings> {
+    this.people ??= this.connection.sendMessagePromise<PeopleSettings>({
+      type: "domotwin/people/get",
+    });
+    this.people.catch(() => (this.people = undefined));
+    return this.people;
+  }
+
+  /**
+   * The same, with the entities that may say where someone is (`candidates`, administrators):
+   * for the people's settings, not cached (the integration looks at every sensor for it).
+   */
+  getPeopleWithCandidates(): Promise<PeopleSettings> {
+    return this.connection.sendMessagePromise<PeopleSettings>({
+      type: "domotwin/people/get",
+      candidates: true,
+    });
+  }
+
+  /** Stores who is placed from what, who sees the people and how they look (admins only). */
+  async savePeople(
+    people: Record<string, PersonSettings>,
+    shown?: PeopleSettings["shown"],
+    look?: PeopleSettings["look"],
+    expectedRevision?: number,
+  ): Promise<number> {
+    const message: HassMessage = { type: "domotwin/people/save", people };
+    if (shown !== undefined) message.shown = shown;
+    if (look !== undefined) message.look = look;
+    if (expectedRevision !== undefined) message.expected_revision = expectedRevision;
+    const result = await this.connection.sendMessagePromise<{ revision: number }>(message);
+    this.people = undefined;
+    return result.revision;
+  }
+
+  /** Hides a person from DomoTwin's views, or shows them again (oneself, or as an admin). */
+  async hidePerson(person: string, hidden: boolean): Promise<number> {
+    const result = await this.connection.sendMessagePromise<{ revision: number }>({
+      type: "domotwin/people/hide",
+      person,
+      hidden,
+    });
+    this.people = undefined;
     return result.revision;
   }
 
@@ -266,6 +315,7 @@ export class DomoTwinClient {
         if (event.kind === "bindings") this.bindings = undefined;
         else if (event.kind === "settings") this.settings = undefined;
         else if (event.kind === "upkeep") this.upkeep = undefined;
+        else if (event.kind === "people") this.people = undefined;
         else if (event.kind === "plan") this.plans.clear();
         for (const each of this.listeners) each(event);
       },

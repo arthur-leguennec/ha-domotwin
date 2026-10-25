@@ -166,7 +166,8 @@ The layers (`DECISIONS.md`, D-023) read the room's area too, with no binding nee
 
 The **power** layer uses the entities linked to each piece with the `power` role (a `sensor` with
 device class `power`, in W, kW or MW): pieces drawing more than 3 W are tinted from yellow to red
-and labelled. The card's `alerts: false` and `presence: false` turn those off.
+and labelled. The card's `alerts: false` and `presence: false` turn those off. Who is in a room
+is another matter: see [people in their rooms](people.md).
 
 The **network** layer, offered to administrators when ZHA is set up, draws the Zigbee mesh over
 the home: see [the network map](network.md). The **automations** layer, for administrators,

@@ -10,6 +10,7 @@ from homeassistant.util import dt as dt_util
 
 from . import DomoTwinConfigEntry
 from .const import MODEL_ENTRY_PREFIX, PLAN_LISTS, VERSION
+from .data import PEOPLE_KEY
 from .models import async_usage
 from .upkeep import due_tasks, piece_names
 
@@ -63,5 +64,17 @@ async def async_get_config_entry_diagnostics(
             "lead_days": data.upkeep.get("lead_days"),
         },
     }
+    # The people counted (D-034): never who they are, their sources or where they are.
+    if (people := hass.data.get(PEOPLE_KEY)) is not None:
+        placed = people.config["people"]
+        diagnostics["people"] = {
+            "placed": len(placed),
+            "sources": sum(len(people.sources(person)) for person in placed),
+            "located": sum(1 for place in people.places.values() if place.room is not None),
+            "rooms": len(people.finder.rooms),
+            "shown": people.config["shown"],
+            "look": people.config["look"],
+            "hidden": len(people.config["hidden"]),
+        }
     redacted: dict[str, Any] = async_redact_data(diagnostics, TO_REDACT)
     return redacted

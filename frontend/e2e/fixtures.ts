@@ -59,6 +59,10 @@ export interface HarnessOptions {
   automations?: true | number;
   /** Upkeep cards (D-033): the demo's (`true`), or an integration without them (`false`). */
   upkeep?: boolean;
+  /** People in their rooms (D-034): fictional ones (`true`), or an integration without them. */
+  people?: boolean;
+  peopleShown?: "everyone" | "admins";
+  peopleLook?: "figure" | "pin";
 }
 
 /** Opens the mocked Home Assistant with the built frontend. */
@@ -94,6 +98,9 @@ export async function openHarness(page: Page, options: HarnessOptions = {}): Pro
   if (options.nightDim) params.set("nightdim", "1");
   if (options.zha) params.set("zha", "1");
   if (options.upkeep !== undefined) params.set("upkeep", options.upkeep ? "1" : "0");
+  if (options.people !== undefined) params.set("people", options.people ? "1" : "0");
+  if (options.peopleShown) params.set("peopleshown", options.peopleShown);
+  if (options.peopleLook) params.set("peoplelook", options.peopleLook);
   if (options.automations) {
     params.set("automations", options.automations === true ? "1" : String(options.automations));
   }

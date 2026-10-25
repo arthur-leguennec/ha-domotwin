@@ -14,6 +14,9 @@
 //   screen=<name>  idle=<seconds>  orbit=1  nightdim=1 (the kiosk's card options)
 //   upkeep=1 (the demo apartment's fictional upkeep cards, examples/demo-apartment.upkeep.json)
 //   upkeep=0 (an integration without upkeep cards)
+//   people=1 (fictional people: Alex, the user viewing, in the kitchen; Sam in the living room;
+//   Kim away), people=0 (an integration without people)  peopleshown=admins  peoplelook=pin
+//   window.__move(person, room) moves someone (their room sensor, as the integration writes it)
 //   window.__show(request) sends a `domotwin.show` request to every screen
 import { applyService, demoHome } from "./demo-home.mjs";
 
@@ -37,6 +40,15 @@ const demoUpkeep =
   upkeepParam === "1"
     ? await (await fetch("/examples/demo-apartment.upkeep.json")).json()
     : { version: 1, lead_days: 14, pieces: {} };
+
+// People in their rooms (D-034): fictional people, their room sensors written as the integration
+// writes them.
+const peopleParam = params.get("people");
+const PEOPLE = {
+  "person.alex": { name: "Alex Martin", color: "#e8508a", room: "kitchen", home: true },
+  "person.sam": { name: "Sam", color: "#2f9fd8", room: "living", home: true },
+  "person.kim": { name: "Kim", color: "#3fae5a", room: undefined, home: false },
+};
 
 /** Today's date where the mocked home is (the browser's time zone), as the integration gives it. */
 function today() {
@@ -127,6 +139,21 @@ const store = {
   /** Model files kept by the mocked integration, by `<sha256>.<format>`. */
   files: new Map(),
   upkeep: demoUpkeep,
+  people: {
+    revision: 1,
+    shown: params.get("peopleshown") ?? "everyone",
+    look: params.get("peoplelook") ?? "figure",
+    hidden: [],
+    people:
+      peopleParam === "1"
+        ? Object.fromEntries(
+            Object.entries(PEOPLE).map(([id, p]) => [
+              id,
+              { sources: [`sensor.${id.slice(7)}_phone_area`], color: p.color },
+            ]),
+          )
+        : {},
+  },
 };
 window.__store = store;
 
@@ -513,6 +540,48 @@ const connection = {
         for (const listener of listeners) listener({ kind: "upkeep", revision: store.revision });
         return { revision: store.revision, last_done: task.last_done };
       }
+      case "domotwin/people/get": {
+        if (peopleParam === "0") throw { code: "unknown_command", message: message.type };
+        const people = structuredClone(store.people);
+        for (const [id, person] of Object.entries(people.people)) {
+          person.sensor = `sensor.domotwin_${id.slice(7)}_room`;
+        }
+        if (hass.user.is_admin && message.candidates) {
+          people.candidates = Object.keys(PEOPLE).map((id) => ({
+            entity: `sensor.${id.slice(7)}_watch_area`,
+            person: id,
+          }));
+        }
+        return people;
+      }
+      case "domotwin/people/save": {
+        if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        if (
+          message.expected_revision !== undefined &&
+          message.expected_revision !== store.people.revision
+        ) {
+          throw { code: "revision_conflict", message: "saved meanwhile" };
+        }
+        store.people.people = message.people;
+        if (message.shown) store.people.shown = message.shown;
+        if (message.look) store.people.look = message.look;
+        store.people.revision += 1;
+        for (const listener of listeners) {
+          listener({ kind: "people", revision: store.people.revision });
+        }
+        return { revision: store.people.revision };
+      }
+      case "domotwin/people/hide": {
+        const own = home.states[message.person]?.attributes.user_id === hass.user.id;
+        if (!own && !hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        store.people.hidden = store.people.hidden.filter((p) => p !== message.person);
+        if (message.hidden) store.people.hidden.push(message.person);
+        store.people.revision += 1;
+        for (const listener of listeners) {
+          listener({ kind: "people", revision: store.people.revision });
+        }
+        return { revision: store.people.revision };
+      }
       case "domotwin/bindings/save": {
         if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
         store.bindings = message.bindings;
@@ -592,6 +661,47 @@ if (live && params.get("storeys") === "2") {
   }
 }
 const states = home.states;
+/** A person's room sensor, as the integration writes it, in `room` (or away). */
+function roomSensor(id, room) {
+  const person = PEOPLE[id];
+  const named = demo.rooms.find((r) => r.id === room);
+  const sensor = `sensor.domotwin_${id.slice(7)}_room`;
+  states[id] = {
+    entity_id: id,
+    state: room === null ? "not_home" : "home",
+    attributes: {
+      friendly_name: person.name,
+      ...(id === "person.alex" ? { user_id: "e2e" } : {}),
+    },
+  };
+  states[sensor] = {
+    entity_id: sensor,
+    state: room === null ? "not_home" : (named?.name ?? "unknown"),
+    attributes: {
+      person: id,
+      ...(named
+        ? {
+            room_id: room,
+            area_id: room,
+            storey_id: "storey-1",
+            storey: "",
+            since: new Date(Date.now() - 600_000).toISOString(),
+            source: `sensor.${id.slice(7)}_phone_area`,
+          }
+        : {}),
+    },
+  };
+}
+if (peopleParam === "1") {
+  for (const [id, person] of Object.entries(PEOPLE)) {
+    roomSensor(id, person.home ? person.room : null);
+    states[`sensor.${id.slice(7)}_phone_area`] = {
+      entity_id: `sensor.${id.slice(7)}_phone_area`,
+      state: person.home ? "Kitchen" : "not_home",
+      attributes: { friendly_name: `${person.name.split(" ")[0]}'s phone area` },
+    };
+  }
+}
 if (sunParam) {
   const [elevation, rising] = sunParam.split(",");
   states["sun.sun"] = {
@@ -641,6 +751,10 @@ function publish() {
 }
 
 /** Changes an entity as if a device did (E2E tests). */
+window.__move = (person, room) => {
+  roomSensor(person, room);
+  publish();
+};
 window.__setState = (entityId, state, attributes = {}) => {
   const previous = home.states[entityId];
   home.states[entityId] = {

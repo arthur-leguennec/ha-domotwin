@@ -56,6 +56,8 @@ export interface CardConfig {
   alerts: boolean;
   /** Rooms someone is in glow softly. */
   presence: boolean;
+  /** The people in their rooms (D-034), as figures. */
+  people: boolean;
   sun: SunMode;
   /** Badges over the devices (locks, cameras, what plays, low batteries, appliances running). */
   badges: boolean;
@@ -152,6 +154,7 @@ export function normalizeConfig(raw: unknown): CardConfig {
     layer: pick(input.layer, LAYER_NAMES, "off", "config.bad_layer"),
     alerts: flag(input.alerts, true, "config.bad_alerts"),
     presence: flag(input.presence, true, "config.bad_presence"),
+    people: flag(input.people, true, "config.bad_people"),
     sun: pick(input.sun, SUNS, "fixed", "config.bad_sun"),
     badges: flag(input.badges, true, "config.bad_badges"),
     cameras: flag(input.cameras, true, "config.bad_cameras"),

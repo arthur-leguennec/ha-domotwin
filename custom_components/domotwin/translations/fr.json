@@ -46,9 +46,31 @@
           "name": "Vue",
           "description": "overview, 3d, 2d, walk (à hauteur des yeux, jusqu’à la pièce donnée), ou le nom d’un point de vue enregistré."
         },
+        "person": {
+          "name": "Personne",
+          "description": "Une personne que DomoTwin place (person.…) : sa pièce est montrée, si elle est à la maison dans une pièce connue."
+        },
         "screen": {
           "name": "Écran",
           "description": "L’écran où le montrer : l’option screen d’une carte. Vide pour tous les écrans."
+        }
+      }
+    },
+    "where": {
+      "name": "Où",
+      "description": "Où est une personne, ou tout le monde à la maison : sa pièce, et une phrase pour répondre (dans la langue de Home Assistant).",
+      "fields": {
+        "name": {
+          "name": "Nom",
+          "description": "Le nom d’une personne, tel que dit (un prénom suffit, une lettre de travers est pardonnée). Vide pour tout le monde à la maison."
+        },
+        "show": {
+          "name": "Montrer",
+          "description": "Montrer aussi la pièce de la personne sur les écrans DomoTwin."
+        },
+        "screen": {
+          "name": "Écran",
+          "description": "L’écran où la montrer : l’option screen d’une carte. Vide pour tous les écrans."
         }
       }
     }
@@ -63,6 +85,35 @@
           },
           "more": {
             "name": "Autres"
+          }
+        }
+      },
+      "person_room": {
+        "name": "Pièce de {person}",
+        "state": {
+          "not_home": "Absent"
+        },
+        "state_attributes": {
+          "person": {
+            "name": "Personne"
+          },
+          "room_id": {
+            "name": "Identifiant de la pièce"
+          },
+          "area_id": {
+            "name": "Zone"
+          },
+          "storey_id": {
+            "name": "Identifiant de l’étage"
+          },
+          "storey": {
+            "name": "Étage"
+          },
+          "since": {
+            "name": "Depuis"
+          },
+          "source": {
+            "name": "Source"
           }
         }
       }

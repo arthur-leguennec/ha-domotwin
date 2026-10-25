@@ -8,13 +8,15 @@ from typing import Any
 
 from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.util import dt as dt_util
 
 from .compat import vol
-from .const import SIGNAL_SHOW, SIGNAL_UPDATED, VERSION
-from .data import DATA_KEY
+from .const import DOMAIN, SIGNAL_SHOW, SIGNAL_UPDATED, VERSION
+from .data import DATA_KEY, PEOPLE_KEY
 from .models import async_remove_unused
+from .people import color_of
 from .storage import (
     UNSET,
     DomoTwinData,
@@ -22,6 +24,7 @@ from .storage import (
     UnknownStoreyError,
     UnknownTaskError,
 )
+from .tracker import PeopleTracker
 from .upkeep import piece_names
 from .validation import (
     InvalidPayloadError,
@@ -29,6 +32,7 @@ from .validation import (
     validate_elevation,
     validate_layout,
     validate_models,
+    validate_people,
     validate_plan,
     validate_settings,
     validate_storey_count,
@@ -57,6 +61,9 @@ def async_register_commands(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_upkeep_get)
     websocket_api.async_register_command(hass, ws_upkeep_save)
     websocket_api.async_register_command(hass, ws_upkeep_done)
+    websocket_api.async_register_command(hass, ws_people_get)
+    websocket_api.async_register_command(hass, ws_people_save)
+    websocket_api.async_register_command(hass, ws_people_hide)
     websocket_api.async_register_command(hass, ws_subscribe)
 
 
@@ -492,14 +499,136 @@ async def ws_upkeep_done(
     connection.send_result(msg["id"], {"revision": revision, "last_done": today.isoformat()})
 
 
+def _get_people(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> PeopleTracker | None:
+    people = hass.data.get(PEOPLE_KEY)
+    if people is None:
+        connection.send_error(msg["id"], "not_loaded", "DomoTwin is not set up")
+    return people
+
+
+def _sensor_of(hass: HomeAssistant, person: str) -> str:
+    """The room sensor of a person, as the user may have renamed it."""
+    registry = er.async_get(hass)
+    for entry in hass.config_entries.async_entries(DOMAIN):
+        found = registry.async_get_entity_id("sensor", DOMAIN, f"{entry.entry_id}_room_{person}")
+        if found is not None:
+            return found
+    return f"sensor.{DOMAIN}_{person.split('.', 1)[1]}_room"
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "domotwin/people/get",
+        vol.Optional("candidates", default=False): bool,
+    }
+)
+@callback
+def ws_people_get(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Return the people's settings (D-034): who is placed, from what, in which colour.
+
+    Each person's room is the state of their room sensor (`sensor`). Administrators who ask
+    (`candidates`) also get the entities that may say where someone is: a look at every sensor,
+    for the people's settings only.
+    """
+    if (people := _get_people(hass, connection, msg)) is None:
+        return
+    config = people.config
+    # Shown to administrators only: others learn nobody (not even who is placed).
+    shown_to = config["people"] if connection.user.is_admin or config["shown"] != "admins" else {}
+    result: dict[str, Any] = {
+        "revision": people.revision,
+        "shown": config["shown"],
+        "look": config["look"],
+        "hidden": [p for p in config["hidden"] if p in shown_to],
+        "people": {
+            person: {
+                "sources": list(settings.get("sources", [])),
+                "color": settings.get("color") or color_of(person),
+                "sensor": _sensor_of(hass, person),
+            }
+            for person, settings in shown_to.items()
+        },
+    }
+    if msg["candidates"] and connection.user.is_admin:
+        result["candidates"] = people.candidates()
+    connection.send_result(msg["id"], result)
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "domotwin/people/save",
+        vol.Required("people"): dict,
+        vol.Optional("shown"): str,
+        vol.Optional("look"): str,
+        vol.Optional("expected_revision"): vol.All(int, vol.Range(min=0)),
+    }
+)
+@websocket_api.async_response
+async def ws_people_save(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Store who is placed from what, who sees the people and how they are drawn. Admins only."""
+    if (people := _get_people(hass, connection, msg)) is None:
+        return
+    try:
+        checked = validate_people(msg["people"], msg.get("shown"), msg.get("look"))
+    except InvalidPayloadError as err:
+        connection.send_error(msg["id"], err.code, str(err))
+        return
+    try:
+        revision = await people.async_save(
+            checked, msg.get("shown"), msg.get("look"), msg.get("expected_revision")
+        )
+    except RevisionConflictError as err:
+        connection.send_error(msg["id"], "revision_conflict", str(err))
+        return
+    connection.send_result(msg["id"], {"revision": revision})
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "domotwin/people/hide",
+        vol.Required("person"): str,
+        vol.Required("hidden"): bool,
+    }
+)
+@websocket_api.async_response
+async def ws_people_hide(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Hide a person from DomoTwin's views, or show them again.
+
+    A user hides themselves (the person their user is); administrators anyone.
+    """
+    if (people := _get_people(hass, connection, msg)) is None:
+        return
+    person = msg["person"]
+    state = hass.states.get(person)
+    own = state is not None and state.attributes.get("user_id") == connection.user.id
+    if not (own or connection.user.is_admin):
+        connection.send_error(msg["id"], "unauthorized", "only yourself, or as an administrator")
+        return
+    if person not in people.config["people"]:
+        connection.send_error(msg["id"], "unknown_person", "this person is not placed")
+        return
+    revision = await people.async_hide(person, msg["hidden"])
+    connection.send_result(msg["id"], {"revision": revision})
+
+
 @websocket_api.websocket_command({vol.Required("type"): "domotwin/subscribe"})
 @callback
 def ws_subscribe(
     hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
 ) -> None:
-    """Send an event every time the plan, the bindings, the settings or the upkeep change.
+    """Send an event every time something stored changes: its kind and revision.
 
-    The plan's overlay counts as the plan.
+    The kinds: the plan (its overlay counts as the plan), the bindings, the settings, the upkeep
+    and the people's settings.
 
     Every `domotwin.show` is sent too: kind `show`, the request in `show`.
     """

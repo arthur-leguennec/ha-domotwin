@@ -880,3 +880,67 @@ fn upkeep_states_and_the_layer() {
     engine.set_upkeep_layer(false);
     engine.set_upkeep("{}");
 }
+
+#[wasm_bindgen_test]
+fn people_walk_from_room_to_room() {
+    // D-034: Alex fades in in the kitchen, then walks to the bedroom; Sam is in a room the plan
+    // does not have.
+    let mut engine = Engine::new(canvas()).unwrap();
+    engine.load_plan(DEMO, None, None).unwrap();
+    engine.set_people(
+        r##"[{"id": "person.alex", "room": "kitchen", "color": "#e8508a", "look": "figure"},
+            {"id": "person.sam", "room": "attic", "color": "#2f9fd8"}, {"room": "hall"}]"##,
+    );
+    assert!(engine.needs_frame());
+    let points = |engine: &Engine| -> Vec<serde_json::Value> {
+        serde_json::from_str(&engine.people_points()).unwrap()
+    };
+    let mut t = 0.0;
+    while engine.frame(t) && t < 2_000.0 {
+        t += 16.0;
+    }
+    let seen = points(&engine);
+    assert_eq!(seen.len(), 1);
+    assert_eq!(seen[0]["id"], "person.alex");
+    assert_eq!(seen[0]["opacity"], 1.0);
+    let before = (
+        seen[0]["x"].as_f64().unwrap(),
+        seen[0]["y"].as_f64().unwrap(),
+    );
+    engine.set_people(r##"[{"id": "person.alex", "room": "bedroom", "color": "#e8508a"}]"##);
+    engine.frame(t + 16.0);
+    assert!(engine.needs_frame(), "walking");
+    let mut frames = 0;
+    t += 32.0;
+    while engine.frame(t) && frames < 2_000 {
+        t += 16.0;
+        frames += 1;
+    }
+    assert!(frames > 30, "a walk takes a while: {frames} frames");
+    let after = points(&engine);
+    let moved = (after[0]["x"].as_f64().unwrap() - before.0)
+        .hypot(after[0]["y"].as_f64().unwrap() - before.1);
+    assert!(moved > 20.0, "{moved}");
+    // Held still: gone at once, no frames needed.
+    engine.set_motion(false);
+    engine.set_people("[]");
+    assert!(points(&engine).is_empty());
+    assert!(!engine.frame(t + 16.0));
+    // Every storey shown: someone upstairs stands on the upper floor.
+    engine.load_storeys(&home(), None).unwrap();
+    engine.set_people(
+        r#"[{"id": "person.alex", "room": "kitchen"}, {"id": "person.sam", "room": "up-office"}]"#,
+    );
+    engine.frame(t + 32.0);
+    let both = points(&engine);
+    assert_eq!(both.len(), 2);
+    let y = |id: &str| {
+        both.iter().find(|p| p["id"] == id).unwrap()["y"]
+            .as_f64()
+            .unwrap()
+    };
+    assert!(
+        y("person.sam") < y("person.alex"),
+        "upstairs is higher on the screen"
+    );
+}
