@@ -653,6 +653,17 @@ included: DomoTwin embeds no voice engine):
   dialog says so and how to serve Home Assistant over HTTPS, instead of a button that does nothing.
 - **The voice blueprints at hand**: DomoTwin's settings offer to import "show the kitchen" and
   "where is…" (`blueprints/`) in one tap, instead of a link in the documentation.
+- **Voice set up when it is not**: when Assist has no speech-to-text, the microphone button offers
+  to set it up, locally, with the administrator's consent and saying what is downloaded:
+  - on Home Assistant OS and Supervised, DomoTwin installs and starts the Whisper add-on (or
+    Speech-to-Phrase, faster on small hardware such as a Raspberry Pi) and Piper through the
+    Supervisor, as the Z-Wave JS and Matter integrations install theirs. Then it adds them
+    through the Wyoming integration and sets up an Assist pipeline in the user's language;
+  - on Home Assistant Container and Core, which have no add-ons, the dialog gives the steps (the
+    Wyoming containers to run) instead;
+  - someone who is not an administrator is told to ask one.
+
+  Nothing leaves the home: the models run in Home Assistant, and DomoTwin calls no other service.
 
 ## M12b, size and speed
 
