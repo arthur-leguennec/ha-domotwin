@@ -33,7 +33,7 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M11       | Imports: Sweet Home 3D, DXF, room scans                    | ✅     |
 | M12       | Polish: design, fonts, accessibility, voice, README        | ✅     |
 | M12b      | Size and speed: a pass that keeps the picture as it is     | ✅     |
-| M13       | Release 0.2.0 and HACS submission checklist                | ⏳     |
+| M13       | Release 0.2.0 and HACS submission checklist                | ✅     |
 
 M5 to M11 were added after M3b (`DECISIONS.md`, D-022): what people expect of a 3D home dashboard,
 with no account and no network call outside Home Assistant. M8 became the looks alone, and the
@@ -790,4 +790,28 @@ integration's work in Home Assistant, and the CI's time.
 
 Tag and release 0.2.0 with the `domotwin.zip` asset, install test as a HACS custom repository on a
 clean Home Assistant, measurements on real devices, and the checklist for the HACS default
-repository list in `HACS_SUBMISSION.md`.
+repository list in `HACS_SUBMISSION.md` (D-044):
+
+- ✅ **Brand images of its own**: the icon, the logo and the dark logo in the integration's
+  `brand/` folder, which Home Assistant shows from 2026.3. They are rendered from one drawing by
+  `scripts/render-brand.mjs`. The HACS check runs with nothing ignored.
+- ✅ **Install test on a clean Home Assistant** (2026.10), from a zip made as the release makes
+  it: the smoke test passes (it now also asks for the brand icon), then the panel and a dashboard
+  with the card work in a browser, with no request outside Home Assistant. Two faults found and
+  fixed:
+  - the panel was 216 px high in Home Assistant, whose custom panel element is as high as its
+    content: it now takes the window's height, less the phone's safe areas, and the browser
+    tests lay it out the same way;
+  - a card moved while its engine loaded, as dashboards place their cards, crashed that engine
+    on a lost WebGL context: the view no longer builds an engine for a canvas it left, nor
+    touches its context, and the engine refuses a lost context with a code;
+  - a context lost later (a GPU reset, the browser's limit on contexts) left the view drawing on
+    it: the engine now refuses calls on it, and the view starts again on a fresh canvas with
+    the plan being drawn, once the page is shown and once a minute at most.
+- ✅ **The release zip** keeps the build's manifest, so the smoke test runs on it as released.
+- ✅ **The checklist** in `HACS_SUBMISSION.md`, filled in.
+- **Release 0.2.0**: release-please's pull request, merged once this milestone is in `main`,
+  tags `v0.2.0` and attaches `domotwin.zip`.
+- Left to the maintainer: the install through HACS's own pages (it signs in to GitHub with the
+  maintainer's account), measurements on real devices, and the pull request to HACS's default
+  list.

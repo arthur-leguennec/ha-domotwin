@@ -1376,3 +1376,50 @@ M12b.
   - A large mesh shows as fast as before, end to end. The engine's share falls from 27 ms to
     18 ms.
   - `setNetwork` takes a drawing, not a snapshot. `readAutomation` moves to the analysis module.
+
+## D-044 · Release 0.2.0: brand images of its own, tried in a real Home Assistant
+
+M13.
+
+- **Context.** HACS's default list checks that an integration has brand images. Until Home
+  Assistant 2026.3 they went to the `home-assistant/brands` repository. Since 2026.3 a custom
+  integration ships them in a `brand/` folder of its own, which Home Assistant serves itself, and
+  that repository's folder for custom integrations is legacy. The browser tests use a mocked
+  `hass`; they had never been compared with Home Assistant's own frontend, which lays panels and
+  cards out its own way.
+- **Decision.**
+  - **Brand images in the integration** (`custom_components/domotwin/brand/`): the icon, the logo
+    and the dark logo, each with its `@2x`. They are rendered by `scripts/render-brand.mjs` from
+    one drawing (`docs/brand/icon.svg`) and the bundled font, as transparent PNG at the sizes
+    Home Assistant asks for (`tests/test_brand.py`). Home Assistant falls back on the icon for
+    any image left out, so none is asked of the internet. The HACS check runs with nothing
+    ignored.
+  - **Tried in a real Home Assistant** (2026.10, a fresh configuration), installed from a zip
+    made as the release makes it. First the smoke test (`scripts/ha-smoke.mjs`), which now also
+    asks for the brand icon; then the panel, and a dashboard with the card next to another, in a
+    browser. Two faults came out, both hidden by the mocked `hass`:
+    - **The panel was 216 px high.** Home Assistant's custom panel element
+      (`ha-panel-custom`) is as high as its content, so a percentage has no height to take,
+      and it pads the screen's safe areas. The panel now takes the window's height (`100dvh`,
+      the visible part on phones) less those areas, and the browser tests lay it out in an
+      element like Home Assistant's, with a test of its height.
+    - **A card moved while its engine loaded crashed that engine.** Dashboards place their
+      cards that way. On stopping, the view asked the canvas for a context to lose, which made
+      a lost one; the engine then panicked on it. The engine is now built only if its view
+      still wants it once the WebAssembly is loaded, it gives its own context back when freed,
+      and it refuses a lost context with a code (`context_lost`).
+  - **A context lost later** (a GPU reset, the browser's limit on contexts, a phone putting the
+    page away) loses everything drawn. The engine refuses every call on it rather than reach the
+    renderer, and the view starts again on a fresh canvas, keeping the plan being drawn, as
+    when it leaves the page and comes back. It starts again once the page is shown, and once a
+    minute at most: lost again within the minute, the GPU is failing, and the view says
+    DomoTwin could not start until the minute is past.
+  - **The release zip keeps the build's manifest** (`build.json`), so that the smoke test runs on
+    the zip as released. The smoke test asks for the brand icon only from Home Assistant 2026.3.
+- **Consequences.**
+  - From Home Assistant 2026.3, its integration pages show DomoTwin's icon and logo, served from
+    the integration's folder. Before 2026.3 they show the placeholder of any integration without
+    images, as 0.1.0 did.
+  - Three steps are left to the maintainer (`HACS_SUBMISSION.md`): measurements on real devices,
+    the install through HACS's own pages (it signs in to GitHub), and the pull request to HACS's
+    default list.

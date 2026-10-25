@@ -20,9 +20,8 @@ Local, fast, Rust + WebAssembly.</p>
 > (states, tap, long press, room panel, linking), the edit mode, your own 3D models, the layers, the
 > devices, the plan editor, storeys, the looks, every storey at once, walking, the kiosk, the
 > network map, the automation wires, the upkeep cards, the people in their rooms, Bluetooth
-> locating, voice and the polish (font, keyboard, screen readers) work today; a pass over size and
-> speed comes next, then version 0.2.0. The features below describe version 0.1.0 and what came
-> after it.
+> locating, voice, the polish (font, keyboard, screen readers) and a pass over size and speed work
+> today, and make up version 0.2.0. The submission to HACS's default list comes next.
 
 ## Features
 

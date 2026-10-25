@@ -10,8 +10,7 @@ These settings live on GitHub, not in the repository, so they are listed here to
 - **Topics:** `home-assistant`, `hacs`, `hacs-integration`, `3d`, `floorplan`, `digital-twin`,
   `smart-home`, `webassembly`, `rust`, `webgl`, `lovelace`.
 
-The HACS validation job checks them (only the `brands` check is ignored until the HACS submission,
-see `HACS_SUBMISSION.md`).
+The HACS validation job checks them, with nothing ignored (see `HACS_SUBMISSION.md`).
 
 ## Who can change the repository
 
