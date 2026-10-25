@@ -520,6 +520,21 @@ void main() {
         plan = mix(plan, tone, 0.75);
     }
 
+    // A private room the viewer may not see (D-039): a frosted cover over its floor, finely
+    // hatched. The hatching's width is worked out before the branch (derivatives).
+    float hatch_at = (v_plan.x + v_plan.y) / 22.0;
+    float hatch_px = fwidth(hatch_at);
+    if (on_floor && v_room > 0.5
+        && texelFetch(u_rooms, ivec2(int(v_room + 0.5) * 3 + 2, 0), 0).g > 0.5) {
+        float hatch = 1.0 - smoothstep(0.05, 0.05 + hatch_px * 1.5, abs(fract(hatch_at + 0.5) - 0.5));
+        // A pale cool grey, as light as the look's floor allows (not glowing in the dark looks).
+        vec3 frost = vec3(0.74, 0.78, 0.84) * (1.0 - 0.3 * hatch);
+        float lit = min(0.3 + dot(color, vec3(0.2126, 0.7152, 0.0722)), 0.85);
+        float lit_plan = min(0.3 + dot(plan, vec3(0.2126, 0.7152, 0.0722)), 0.85);
+        color = mix(color, frost * lit, 0.8);
+        plan = mix(plan, frost * lit_plan, 0.8);
+    }
+
     // Unavailable entities: greyed out. A tap: a short blue flash.
     float grey = v_flags.r * 0.85;
     color = mix(color, vec3(dot(color, vec3(0.2126, 0.7152, 0.0722))) * 0.7, grey);

@@ -47,6 +47,13 @@ export interface StoredBindings {
   revision: number;
 }
 
+/** A private room (D-039): kept for these people (none: for nobody), always or while an entity
+ * is on. */
+export interface PrivateRoom {
+  people: string[];
+  while?: string;
+}
+
 /** The home's settings, set by an administrator. */
 export interface Settings {
   /** Where north points on the plan, degrees clockwise from its top (0: up). */
@@ -54,6 +61,8 @@ export interface Settings {
   /** The look shown by default (D-027) and its accent (`#rrggbb`). */
   theme?: ThemeMode;
   accent?: string;
+  /** The private rooms, by room id (D-039). */
+  rooms?: Record<string, PrivateRoom>;
 }
 
 export interface StoredSettings {

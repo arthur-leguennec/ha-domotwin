@@ -18,7 +18,10 @@ const plans: Record<string, unknown> = {
       { id: "living", name: "Séjour et salle à manger" },
       { id: "bedroom-down", name: "Bedroom" },
     ],
-    items: [{ id: "kitchen-lamp", name: "Kitchen lamp" }],
+    items: [
+      { id: "kitchen-lamp", name: "Kitchen lamp" },
+      { id: "desk", name: "Desk", room: "bedroom-down" },
+    ],
   },
   "storey-3": {
     rooms: [
@@ -134,5 +137,21 @@ describe("domotwin.show", () => {
       { room: "kitchen" },
     );
     expect(alone).toEqual({ element: "kitchen" });
+  });
+
+  it("does nothing on a screen whose viewer may not see the room (D-039)", async () => {
+    const shown = { plan: plans["storey-1"], storey: "storey-1" };
+    const closed = new Set(["office", "bedroom-down"]);
+    // Not even the storey it is on.
+    expect(
+      await resolveShow(client, t, storeys, shown, { room: "office" }, closed),
+    ).toBeUndefined();
+    expect(
+      await resolveShow(client, t, storeys, shown, { element: "desk" }, closed),
+    ).toBeUndefined();
+    expect(await resolveShow(client, t, storeys, shown, { room: "kitchen" }, closed)).toEqual({
+      storey: "storey-1",
+      element: "kitchen",
+    });
   });
 });

@@ -177,13 +177,27 @@ impl People {
     }
 
     /// Forgets the figures whose room their floor no longer has (the plans shown changed:
-    /// another storey, a room gone); the others stay where they are, walking or not.
+    /// another storey, a room gone or closed); the others stay where they are, those walking on
+    /// their way, found again when a wall now stands across it (a room closed on it, D-039).
     pub fn retain_on(&mut self, floors: &[Option<Floor>]) {
-        self.walkers.retain(|w| {
-            floors
+        self.walkers.retain_mut(|w| {
+            let Some(floor) = floors
                 .get(w.storey)
                 .and_then(Option::as_ref)
-                .is_some_and(|f| f.room_spot(&w.room).is_some())
+                .filter(|f| f.room_spot(&w.room).is_some())
+            else {
+                return false;
+            };
+            if let Some(&to) = w.path.back() {
+                let mut legs = std::iter::once(w.at).chain(w.path.iter().copied());
+                let mut from = legs.next().unwrap_or(w.at);
+                let blocked =
+                    legs.any(|next| !floor.seen(std::mem::replace(&mut from, next), next));
+                if blocked {
+                    w.path = floor.path(w.at, to).into();
+                }
+            }
+            true
         });
     }
 
@@ -485,11 +499,18 @@ mod tests {
         people.set(&[wanted("person.alex", 0, "b")], &floors, false);
         people.retain_on(&floors);
         assert_eq!(people.walkers().len(), 1);
-        // On its way to another room, it stays too.
+        // On its way to another room, it stays too, on the same way.
         people.set(&[wanted("person.alex", 0, "c")], &floors, true);
         people.step(0.5, &floors, true);
         assert!(people.walkers()[0].walking());
+        let way = people.walkers()[0].path.clone();
         people.retain_on(&floors);
         assert!(people.walkers()[0].walking());
+        assert_eq!(people.walkers()[0].path, way);
+        // A room closed across it (D-039): its way is found again.
+        let mut closed = floor();
+        closed.close(&["b".to_owned()].into());
+        people.retain_on(&[Some(closed)]);
+        assert_ne!(people.walkers()[0].path, way);
     }
 }

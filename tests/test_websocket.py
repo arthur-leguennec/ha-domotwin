@@ -334,6 +334,22 @@ async def test_settings_round_trip(
             {"type": "domotwin/settings/save", "settings": {"north": 0, "theme": look}}
         )
         assert (await client.receive_json())["success"]
+    # Private rooms (D-039): people listed once, `while` kept when given.
+    rooms = {
+        "bedroom": {"people": ["person.alex", "person.alex", "person.sam"]},
+        "office": {"people": [], "while": "input_boolean.guests"},
+        "hall": {"people": [], "while": None},
+    }
+    await client.send_json_auto_id(
+        {"type": "domotwin/settings/save", "settings": {"north": 0, "rooms": rooms}}
+    )
+    assert (await client.receive_json())["success"]
+    await client.send_json_auto_id({"type": "domotwin/settings/get"})
+    assert (await client.receive_json())["result"]["settings"]["rooms"] == {
+        "bedroom": {"people": ["person.alex", "person.sam"]},
+        "office": {"people": [], "while": "input_boolean.guests"},
+        "hall": {"people": []},
+    }
 
 
 @pytest.mark.parametrize(
@@ -347,6 +363,14 @@ async def test_settings_round_trip(
         {"accent": "red"},
         {"accent": "#12345"},
         {"other": 1},
+        {"rooms": []},
+        {"rooms": {"": {"people": []}}},
+        {"rooms": {"bedroom": []}},
+        {"rooms": {"bedroom": {"people": ["light.lamp"]}}},
+        {"rooms": {"bedroom": {"people": "person.alex"}}},
+        {"rooms": {"bedroom": {"people": [], "while": "not an entity"}}},
+        {"rooms": {"bedroom": {"people": [], "who": []}}},
+        {"rooms": {f"room{k}": {"people": []} for k in range(201)}},
     ],
 )
 async def test_invalid_settings_are_refused(

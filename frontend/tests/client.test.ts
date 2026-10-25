@@ -1,7 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { DomoTwinClient, type UpdateEvent } from "../src/ha/client";
-import type { HassConnection, HassMessage, HomeAssistant } from "../src/ha/types";
+import {
+  isEntityId,
+  type HassConnection,
+  type HassMessage,
+  type HomeAssistant,
+} from "../src/ha/types";
 
 function fakeHass(): {
   hass: HomeAssistant;
@@ -74,5 +79,27 @@ describe("DomoTwinClient", () => {
       { type: "domotwin/plan/save", plan: null },
       { type: "domotwin/plan/save", layout: { sofa: { x: 10 } }, expected_revision: 6 },
     ]);
+  });
+});
+
+describe("isEntityId", () => {
+  it("takes the ids Home Assistant takes, and only those", () => {
+    for (const id of ["input_boolean.guests", "binary_sensor.door_2", "a.b"]) {
+      expect(isEntityId(id), id).toBe(true);
+    }
+    for (const id of [
+      "",
+      "guests",
+      "Input_boolean.guests",
+      "input_boolean.guests ",
+      "_input_boolean.guests",
+      "input_boolean._guests",
+      "input_boolean.guests_",
+      "input__boolean.guests",
+      "input_boolean.my__guests",
+      "input_boolean.guests.on",
+    ]) {
+      expect(isEntityId(id), id).toBe(false);
+    }
   });
 });

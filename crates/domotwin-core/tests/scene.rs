@@ -231,3 +231,66 @@ fn outlines_follow_the_walls() {
         }
     }
 }
+
+#[test]
+fn a_closed_room_keeps_its_floor_and_walls_but_nothing_in_it() {
+    let plan = read_plan(DEMO).unwrap();
+    let open = build_scene(&plan, &SceneOptions::default());
+    let options = SceneOptions {
+        closed_rooms: ["living".to_owned(), "nowhere".to_owned()].into(),
+        ..SceneOptions::default()
+    };
+    let scene = build_scene(&plan, &options);
+    assert_eq!(scene.closed, ["living".to_owned()].into());
+    let living = scene.rooms.iter().position(|r| r == "living").unwrap() + 1;
+    let info = |scene: &domotwin_core::scene::Scene, id: &str| {
+        scene.elements.iter().find(|e| e.id == id).unwrap().clone()
+    };
+    // Its pieces (and its curtain, a moving part) are not drawn; its floor and the others' are.
+    for id in ["sofa", "tv", "bookcase", "curtain-living"] {
+        assert!(info(&open, id).top().is_some(), "{id}");
+        assert!(info(&scene, id).top().is_none(), "{id}");
+    }
+    assert!(info(&scene, "living").top().is_some());
+    // Left out, they keep the room they are in.
+    assert_eq!(info(&scene, "sofa").room, info(&open, "sofa").room);
+    assert!(info(&scene, "bed").top().is_some());
+    assert_eq!(info(&scene, "living").room, u8::try_from(living).unwrap());
+    // Its door, drawn with the hall, tells it is beside it; a window, nothing beyond.
+    let hall = scene.rooms.iter().position(|r| r == "hall").unwrap() + 1;
+    let door = info(&scene, "door-living");
+    assert_eq!(
+        [door.room, door.beside],
+        [hall, living].map(|slot| u8::try_from(slot).unwrap())
+    );
+    assert_eq!(info(&scene, "win-living-1").beside, 0);
+    // Nor its lamps.
+    let lamps = |scene: &domotwin_core::scene::Scene| {
+        scene
+            .lights
+            .iter()
+            .filter(|l| {
+                matches!(
+                    plan.elements[l.element].id(),
+                    "floor-lamp" | "pendant-living"
+                )
+            })
+            .count()
+    };
+    assert!(lamps(&open) > 0);
+    assert_eq!(lamps(&scene), 0);
+    // Nobody walks in.
+    let floor = scene.walk_floor(&plan).unwrap();
+    assert!(floor.room_spot("living").is_none());
+    assert!(floor.room_spot("kitchen").is_some());
+    assert!(
+        open.walk_floor(&plan)
+            .unwrap()
+            .room_spot("living")
+            .is_some()
+    );
+    // The moving parts rebuilt leave its curtain out too.
+    let moving = domotwin_core::scene::build_dynamic(&plan, &scene, &Default::default());
+    let before = domotwin_core::scene::build_dynamic(&plan, &open, &Default::default());
+    assert!(moving[0].0.vertex_count() < before[0].0.vertex_count());
+}

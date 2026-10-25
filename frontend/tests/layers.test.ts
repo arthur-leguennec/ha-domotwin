@@ -111,6 +111,26 @@ describe("roomLayers", () => {
     expect(layers.values).toEqual({ living: 900, kitchen: 1650 });
   });
 
+  it("keeps a private room's dangers, not what would tell someone is in (D-039)", () => {
+    const hass = home([
+      ["binary_sensor.lounge_window", "lounge", "on", { device_class: "window" }],
+      ["weather.home", null, "pouring", {}],
+      ["binary_sensor.lounge_motion", "lounge", "on", { device_class: "motion" }],
+      ["sensor.lounge_temperature", "lounge", "21", temperature()],
+      ["sensor.kitchen_co2", "kitchen", "1650", { device_class: "carbon_dioxide" }],
+      ["binary_sensor.kitchen_leak", "kitchen", "on", { device_class: "moisture" }],
+    ]);
+    const closed = new Set(["living", "kitchen"]);
+    const layers = roomLayers(hass, BINDINGS, ROOMS, { layer: "temperature", ...ALL_ON, closed });
+    expect(layers.values).toEqual({});
+    expect(layers.presence).toEqual([]);
+    expect(layers.alerts.map((a) => [a.room, a.reason])).toEqual([["kitchen", "moisture"]]);
+    // The CO₂ alone, in the kitchen closed: nothing.
+    delete hass.states["binary_sensor.kitchen_leak"];
+    const air = roomLayers(hass, BINDINGS, ROOMS, { layer: "co2", ...ALL_ON, closed });
+    expect(air.alerts).toEqual([]);
+  });
+
   it("marks the rooms someone is in", () => {
     const hass = home([
       ["binary_sensor.lounge_motion", "lounge", "on", { device_class: "motion" }],

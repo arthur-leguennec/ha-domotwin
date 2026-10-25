@@ -33,8 +33,9 @@ from .const import (
     SERVICE_WHERE,
     SIGNAL_SHOW,
 )
-from .data import LOCATOR_KEY, PEOPLE_KEY
+from .data import DATA_KEY, LOCATOR_KEY, PEOPLE_KEY
 from .people import Place, likeness, thing_likeness
+from .privacy import private_rooms
 from .tracker import name_of
 
 SCREEN = re.compile(rf"^[A-Za-z0-9_-]{{1,{MAX_SCREEN_NAME}}}$")
@@ -90,6 +91,9 @@ SENTENCES = {
         "nobody": "Nobody is home.",
         "and": ", ",
         "also": "{name} in the {room}",
+        "private_room": "{name} is in a private room.",
+        "also_private": "{name} in a private room",
+        "heard_private": "I hear {name} in a private room.",
     },
     "fr": {
         "room": "{name} est dans la pièce {room}.",
@@ -102,21 +106,30 @@ SENTENCES = {
         "nobody": "Personne n'est à la maison.",
         "and": ", ",
         "also": "{name} dans la pièce {room}",
+        "private_room": "{name} est dans une pièce privée.",
+        "also_private": "{name} dans une pièce privée",
+        "heard_private": "J'entends {name} dans une pièce privée.",
     },
 }
 
 
-def _place_text(said: dict[str, str], name: str, place: Place | None) -> str:
+def _place_text(said: dict[str, str], name: str, place: Place | None, closed: set[str]) -> str:
     if place is None or not place.home:
         return said["away"].format(name=name)
     if place.room is None:
         return said["somewhere"].format(name=name)
+    if place.room.id in closed:
+        return said["private_room"].format(name=name)
     return said["room"].format(name=name, room=place.room.name)
 
 
-def _entry(name: str, person: str, place: Place | None) -> dict[str, Any]:
+def _entry(name: str, person: str, place: Place | None, closed: set[str]) -> dict[str, Any]:
     entry: dict[str, Any] = {"person": person, "name": name, "home": bool(place and place.home)}
     if place is not None and place.room is not None:
+        if place.room.id in closed:
+            # In a private room (D-039): not which.
+            entry["private"] = True
+            return entry
         entry.update(
             room=place.room.name,
             room_id=place.room.id,
@@ -126,14 +139,19 @@ def _entry(name: str, person: str, place: Place | None) -> dict[str, Any]:
     return entry
 
 
-async def _untold(hass: HomeAssistant, call: ServiceCall) -> set[str]:
-    """The people not to show or tell about to the one calling (`PeopleTracker.untold`)."""
-    people = hass.data.get(PEOPLE_KEY)
-    if people is None:
-        return set()
+async def _limits(hass: HomeAssistant, call: ServiceCall) -> tuple[set[str], set[str]]:
+    """What the one calling may not be told: people, and rooms.
+
+    The people not to show or tell about (`PeopleTracker.untold`), and the private rooms they may
+    not see (D-039).
+    """
     user_id = call.context.user_id
     user = await hass.auth.async_get_user(user_id) if user_id else None
-    return people.untold(user)
+    people = hass.data.get(PEOPLE_KEY)
+    untold = people.untold(user) if people is not None else set()
+    data = hass.data.get(DATA_KEY)
+    rooms = data.settings.get("rooms", {}) if data is not None else {}
+    return untold, private_rooms(rooms, hass.states.get, user.id if user else None)
 
 
 async def _async_where(hass: HomeAssistant, call: ServiceCall) -> ServiceResponse:
@@ -142,7 +160,7 @@ async def _async_where(hass: HomeAssistant, call: ServiceCall) -> ServiceRespons
     people = hass.data.get(PEOPLE_KEY)
     placed = list(people.config["people"]) if people is not None else []
     places = people.places if people is not None else {}
-    untold = await _untold(hass, call)
+    untold, closed = await _limits(hass, call)
     asked = call.data.get("name", "").strip()
     if not asked:
         # Everyone at home, and where (those not told about left out).
@@ -157,11 +175,12 @@ async def _async_where(hass: HomeAssistant, call: ServiceCall) -> ServiceRespons
         clauses: list[str] = []
         for person in home:
             name, place = name_of(hass, person), places.get(person)
-            entries.append(_entry(name, person, place))
+            entries.append(_entry(name, person, place, closed))
             if clauses and place is not None and place.room is not None:
-                clauses.append(said["also"].format(name=name, room=place.room.name))
+                also = said["also_private"] if place.room.id in closed else said["also"]
+                clauses.append(also.format(name=name, room=place.room.name))
             else:
-                clauses.append(_place_text(said, name, place).rstrip("."))
+                clauses.append(_place_text(said, name, place, closed).rstrip("."))
         return {"people": entries, "text": said["and"].join(clauses) + "."}
     scored = [
         (score, person)
@@ -185,24 +204,37 @@ async def _async_where(hass: HomeAssistant, call: ServiceCall) -> ServiceRespons
         return {"people": [], "text": said["unknown"].format(name=asked)}
     person = found[0]
     if person.startswith("@") and locator is not None:
-        return _where_thing(hass, call, said, untold, person[1:])
+        return _where_thing(hass, call, said, (untold, closed), person[1:])
     name = name_of(hass, person)
     if person in untold:
         return {"people": [], "text": said["private"].format(name=name)}
     place = places.get(person)
-    if call.data["show"] and place is not None and place.room is not None:
+    if (
+        call.data["show"]
+        and place is not None
+        and place.room is not None
+        and place.room.id not in closed
+    ):
         request = {"room": place.room.id}
         if call.data["screen"]:
             request["screen"] = call.data["screen"]
         async_dispatcher_send(hass, SIGNAL_SHOW, request)
-    return {"people": [_entry(name, person, place)], "text": _place_text(said, name, place)}
+    return {
+        "people": [_entry(name, person, place, closed)],
+        "text": _place_text(said, name, place, closed),
+    }
 
 
 def _where_thing(
-    hass: HomeAssistant, call: ServiceCall, said: dict[str, str], untold: set[str], device: str
+    hass: HomeAssistant,
+    call: ServiceCall,
+    said: dict[str, str],
+    limits: tuple[set[str], set[str]],
+    device: str,
 ) -> ServiceResponse:
     """Where a device followed by Bluetooth is; not told when its owner is not to be told about."""
     locator, people = hass.data[LOCATOR_KEY], hass.data.get(PEOPLE_KEY)
+    untold, closed = limits
     settings = locator.settings["devices"][device]
     name = settings["name"]
     if settings.get("person") in untold:
@@ -216,6 +248,9 @@ def _where_thing(
     entry: dict[str, Any] = {"device": device, "name": name, "kind": settings["kind"]}
     if room is None or located is None:
         return {"people": [], "things": [entry], "text": said["unheard"].format(name=name)}
+    if room.id in closed:
+        entry["private"] = True
+        return {"people": [], "things": [entry], "text": said["heard_private"].format(name=name)}
     entry.update(
         room=room.name,
         room_id=room.id,
@@ -245,10 +280,12 @@ def async_register_services(hass: HomeAssistant) -> None:
         if person is not None:
             # A person is shown in their room; nowhere when not placed, or not to be shown.
             people = hass.data.get(PEOPLE_KEY)
-            if people is None or person in await _untold(hass, call):
+            untold, closed = await _limits(hass, call)
+            if people is None or person in untold:
                 return
             place = people.places.get(person)
-            if place is None or place.room is None:
+            # Not in a private room either: showing it would tell where they are (D-039).
+            if place is None or place.room is None or place.room.id in closed:
                 return
             request["room"] = place.room.id
         async_dispatcher_send(hass, SIGNAL_SHOW, request)

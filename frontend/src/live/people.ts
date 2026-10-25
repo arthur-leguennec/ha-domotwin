@@ -47,6 +47,8 @@ export interface PersonShown {
   home: boolean;
   /** The user viewing is this person. */
   self: boolean;
+  /** In a private room the user viewing may not see (D-039): which one is not told. */
+  private?: true;
 }
 
 /** The letters of a word as people see them (an accent or an emoji is one, where the browser

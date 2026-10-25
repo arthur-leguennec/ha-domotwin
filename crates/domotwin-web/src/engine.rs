@@ -12,10 +12,10 @@ use domotwin_core::layers::{
     HeatKind, RoomLayers, legend, read_room_layers, room_shapes, room_texels,
 };
 use domotwin_core::lighting::{Mood, lighting_for_hour, lighting_for_sun, sun_direction};
-use domotwin_core::live::{EntityState, LiveState, read_states, targets};
+use domotwin_core::live::{EntityState, LiveState, Look, Targets, read_states, targets};
 use domotwin_core::model_mesh::ModelMesh;
 use domotwin_core::overlay::{Layout, apply, fit, parse_layout};
-use domotwin_core::plan::{Element, Plan, View, parse_plan_json, read_plan_value};
+use domotwin_core::plan::{Element, Furniture, Plan, View, parse_plan_json, read_plan_value};
 use domotwin_core::scene::{
     ElementInfo, ModelMeshes, Scene, SceneOptions, build_dynamic, build_home, build_scene_moving,
     stack_plans,
@@ -136,6 +136,8 @@ pub struct Engine {
     /// The cameras' tones and focus the renderer was last given; `None` when the fans must be
     /// given again (the plan or the links changed).
     camera_views_sent: Option<Vec<(CameraTone, bool)>>,
+    /// The private rooms the viewer may not see (D-039), drawn closed.
+    pub(crate) closed_rooms: BTreeSet<String>,
     /// The storeys of the home shown whole (D-028), lowest first; empty for a plan alone.
     pub(crate) home: Vec<HomeStorey>,
     /// The network map, while it is shown (D-031).
@@ -210,6 +212,7 @@ impl Engine {
             camera_views_shown: true,
             camera_focus: None,
             camera_views_sent: None,
+            closed_rooms: BTreeSet::new(),
             home: Vec::new(),
             network: None,
             automations: None,
@@ -450,6 +453,7 @@ impl Engine {
         self.models_dirty = false;
         SceneOptions {
             models: Rc::clone(&self.models),
+            closed_rooms: self.closed_rooms.clone(),
             ..SceneOptions::default()
         }
     }
@@ -491,14 +495,14 @@ impl Engine {
         // The meshes live on the GPU now: free the copies.
         scene.drop_meshes();
         self.elements.clone_from(&scene.elements);
-        let targets = targets(&plan, &scene.lights, &self.bindings, &self.states);
+        self.plan = Some(plan);
+        self.scene = Some(scene);
+        let targets = self.live_targets().unwrap_or_default();
         if fresh {
             self.live = LiveState::new(targets);
         } else {
             self.live.retarget_moved(targets, old);
         }
-        self.plan = Some(plan);
-        self.scene = Some(scene);
         self.renderer.set_looks(&self.live.looks);
         self.rebuild_moving_parts();
         self.upload_rooms();
@@ -567,6 +571,10 @@ impl Engine {
             else {
                 continue;
             };
+            // Not of a piece left out (in a room drawn closed, D-039).
+            if self.elements.get(index).is_some_and(|e| e.top().is_none()) {
+                continue;
+            }
             if let Some(cone) = camera_cone(plan, scene, index, self.bindings.view(id)) {
                 let storey = scene.storey_of(index).unwrap_or(0);
                 cones.push((id.clone(), camera.entity_id.clone(), storey, cone));
@@ -620,6 +628,25 @@ impl Engine {
         }
     }
 
+    /// Builds the scene shown again (the plan or the home, an edit session kept in step), the
+    /// camera and the looks kept. Returns whether there was one.
+    fn build_again(&mut self) -> bool {
+        let Some(moving) = self.scene.as_ref().map(|s| s.moving().clone()) else {
+            return false;
+        };
+        if !self.home.is_empty() {
+            self.show_home(true, false);
+        } else if let Some(plan) = self.plan.take() {
+            self.show(plan, true, &moving, false);
+            if let (Some(session), Some(plan), Some(scene)) =
+                (&mut self.edit, &self.plan, &self.scene)
+            {
+                session.sync(plan, scene.walls());
+            }
+        }
+        true
+    }
+
     /// Gives the renderer the room layers of the scene shown.
     fn upload_rooms(&mut self) {
         if let (Some(plan), Some(scene)) = (&self.plan, &self.scene) {
@@ -639,14 +666,7 @@ impl Engine {
     pub fn model_files(&self) -> String {
         let mut seen: Vec<&str> = Vec::new();
         let mut files = Vec::new();
-        for (plan, element) in self
-            .plans()
-            .into_iter()
-            .flat_map(|plan| plan.elements.iter().map(move |e| (plan, e)))
-        {
-            let Element::Furniture(f) = element else {
-                continue;
-            };
+        for (plan, f) in self.drawn_pieces() {
             let Some(file) = f
                 .model
                 .as_ref()
@@ -683,39 +703,60 @@ impl Engine {
             return false;
         };
         Rc::make_mut(&mut self.models).insert(hash.to_owned(), Rc::new(mesh));
-        let shown = self.plans().into_iter().any(|plan| {
-            plan.models.values().any(|m| {
-                m.get("file")
-                    .and_then(|f| f.get("hash"))
-                    .and_then(serde_json::Value::as_str)
-                    == Some(hash)
-            })
+        let shown = self.drawn_pieces().into_iter().any(|(plan, f)| {
+            f.model
+                .as_ref()
+                .and_then(|id| plan.models.get(id))
+                .and_then(|m| m.get("file"))
+                .and_then(|f| f.get("hash"))
+                .and_then(serde_json::Value::as_str)
+                == Some(hash)
         });
         self.models_dirty |= shown;
         true
+    }
+
+    /// The pieces of the plans shown, with their plan, but those of the rooms drawn closed
+    /// (D-039): their 3D files are neither fetched nor drawn.
+    fn drawn_pieces(&self) -> Vec<(&Plan, &Furniture)> {
+        let infos = self.elements_by_id();
+        self.plans()
+            .into_iter()
+            .flat_map(|plan| plan.elements.iter().map(move |e| (plan, e)))
+            .filter_map(|(plan, element)| match element {
+                Element::Furniture(f)
+                    if !infos.get(f.id.as_str()).is_some_and(|i| self.is_closed(i)) =>
+                {
+                    Some((plan, f))
+                }
+                _ => None,
+            })
+            .collect()
     }
 
     /// Draws the pieces whose 3D file came since the scene was built, in one rebuild for all of
     /// them. Returns whether it did.
     #[wasm_bindgen(js_name = showModels)]
     pub fn show_models(&mut self) -> bool {
-        if !self.models_dirty {
-            return false;
-        }
-        let Some(moving) = self.scene.as_ref().map(|s| s.moving().clone()) else {
+        self.models_dirty && self.build_again()
+    }
+
+    /// Draws the rooms `ids` (JSON array of element ids) closed, as private rooms the viewer may
+    /// not see (D-039): nothing in them, a frosted cover over their floor, no way in. Returns
+    /// whether the scene was built again: only when a room it shows closed or opened.
+    #[wasm_bindgen(js_name = setPrivateRooms)]
+    pub fn set_private_rooms(&mut self, ids: &str) -> bool {
+        // Unreadable, nothing changes (rather than opening every room).
+        let Ok(closed) = serde_json::from_str::<BTreeSet<String>>(ids) else {
             return false;
         };
-        if !self.home.is_empty() {
-            self.show_home(true, false);
-        } else if let Some(plan) = self.plan.take() {
-            self.show(plan, true, &moving, false);
-            if let (Some(session), Some(plan), Some(scene)) =
-                (&mut self.edit, &self.plan, &self.scene)
-            {
-                session.sync(plan, scene.walls());
-            }
-        }
-        true
+        let shown = self.scene.as_ref().is_some_and(|scene| {
+            closed
+                .symmetric_difference(&self.closed_rooms)
+                .any(|id| scene.rooms.contains(id))
+        });
+        self.closed_rooms = closed;
+        shown && self.build_again()
     }
 
     /// How many pieces are drawn as boxes because the 3D files of the plan pass the scene's
@@ -762,11 +803,30 @@ impl Engine {
     }
 
     fn retarget(&mut self) {
-        if let (Some(plan), Some(scene)) = (&self.plan, &self.scene) {
-            self.live
-                .set_targets(targets(plan, &scene.lights, &self.bindings, &self.states));
+        if let Some(targets) = self.live_targets() {
+            self.live.set_targets(targets);
             self.renderer.invalidate();
         }
+    }
+
+    /// What the elements of the scene shown look like from the states of their entities. The
+    /// doors and windows of a private room the viewer may not see are drawn as without Home
+    /// Assistant: their states would tell what goes on in it (D-039).
+    fn live_targets(&self) -> Option<Targets> {
+        let (plan, scene) = (self.plan.as_ref()?, self.scene.as_ref()?);
+        let mut targets = targets(plan, &scene.lights, &self.bindings, &self.states);
+        if !self.closed_rooms.is_empty() {
+            for (index, info) in self.elements.iter().enumerate() {
+                if self.is_closed(info) {
+                    if let Some(look) = targets.looks.get_mut(index) {
+                        *look = Look::default();
+                    }
+                    targets.overrides.open.remove(&index);
+                    targets.overrides.blind.remove(&index);
+                }
+            }
+        }
+        Some(targets)
     }
 
     pub(crate) fn rebuild_moving_parts(&mut self) {
@@ -948,11 +1008,17 @@ impl Engine {
             .flat_map(|plan| &plan.elements)
             .map(|element| {
                 let mut entry = serde_json::json!({ "id": element.id(), "name": element.name() });
-                // The room a piece stands in, as drawn.
-                if let Element::Furniture(_) = element
-                    && let Some(room) = infos.get(element.id()).and_then(|i| self.room_of(i))
+                // The room a piece, a door or a window is in, as drawn (a door, of the side drawn
+                // with it, and the room on its other side); a piece left out keeps its (D-039).
+                if let Element::Furniture(_) | Element::Door(_) | Element::Window(_) = element
+                    && let Some(info) = infos.get(element.id())
                 {
-                    entry["room"] = room.as_str().into();
+                    if let Some(room) = self.room_of(info) {
+                        entry["room"] = room.as_str().into();
+                    }
+                    if let Some(room) = self.room_in_slot(info.beside) {
+                        entry["beside"] = room.as_str().into();
+                    }
                 }
                 let (kind, piece) = match element {
                     Element::Room(_) => ("room", None),
@@ -1273,6 +1339,8 @@ impl Engine {
             "bound": self.bindings.elements.len(),
             "quality": self.renderer.quality().as_str(),
             "theme": self.renderer.theme().name.name(),
+            // The rooms drawn closed (D-039) among those of the scene shown.
+            "closedRooms": self.scene.as_ref().map(|s| s.closed.iter().collect::<Vec<_>>()),
             // What the cameras see, as given to the renderer and drawn: not at eye level.
             "cameraViews": match &self.camera_views_sent {
                 Some(sent) if self.renderer.camera_fans_drawable() => self
@@ -1351,8 +1419,23 @@ impl Engine {
 
     /// The id of the room an element is in (a room is its own).
     pub(crate) fn room_of(&self, info: &ElementInfo) -> Option<&String> {
-        let slot = usize::from(info.room).checked_sub(1)?;
+        self.room_in_slot(info.room)
+    }
+
+    /// The id of the room of a slot of the scene shown.
+    fn room_in_slot(&self, slot: u8) -> Option<&String> {
+        let slot = usize::from(slot).checked_sub(1)?;
         self.scene.as_ref()?.rooms.get(slot)
+    }
+
+    /// Whether an element is drawn closed (D-039): in a private room the viewer may not see, or
+    /// a door or a window of one.
+    pub(crate) fn is_closed(&self, info: &ElementInfo) -> bool {
+        !self.closed_rooms.is_empty()
+            && [info.room, info.beside]
+                .into_iter()
+                .filter_map(|slot| self.room_in_slot(slot))
+                .any(|room| self.closed_rooms.contains(room))
     }
 
     /// The plans shown: every storey's for the home shown whole, else the plan alone.

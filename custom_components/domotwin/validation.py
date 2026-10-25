@@ -27,6 +27,7 @@ from .const import (
     MAX_PEOPLE,
     MAX_PERSON_SOURCES,
     MAX_PLAN_BYTES,
+    MAX_PRIVATE_ROOMS,
     MAX_RECEIVERS,
     MAX_STOREY_NAME,
     MAX_STOREYS,
@@ -259,11 +260,11 @@ def validate_settings(settings: Any) -> dict[str, Any]:
     """Check the home's settings.
 
     `north`, degrees clockwise from the top of the plan; the look shown by default (`theme`) and
-    its accent colour (`accent`, `#rrggbb`).
+    its accent colour (`accent`, `#rrggbb`); the private rooms (`rooms`, D-039).
     """
-    if not isinstance(settings, dict) or set(settings) - {"north", "theme", "accent"}:
+    if not isinstance(settings, dict) or set(settings) - {"north", "theme", "accent", "rooms"}:
         raise InvalidPayloadError(
-            "invalid_settings", "settings hold only `north`, `theme` and `accent`"
+            "invalid_settings", "settings hold only `north`, `theme`, `accent` and `rooms`"
         )
     north = settings.get("north", 0)
     if not _is_number(north) or not 0 <= north < 360:
@@ -278,6 +279,41 @@ def validate_settings(settings: Any) -> dict[str, Any]:
         if not isinstance(accent, str) or not ACCENT.fullmatch(accent):
             raise InvalidPayloadError("invalid_settings", "`accent` must be a colour #rrggbb")
         checked["accent"] = accent.lower()
+    if "rooms" in settings:
+        checked["rooms"] = _private_rooms(settings["rooms"])
+    return checked
+
+
+def _private_rooms(rooms: Any) -> dict[str, Any]:
+    """The private rooms (D-039): `{room id: {"people": [person ids], "while"?: entity id}}`."""
+    if not isinstance(rooms, dict):
+        raise InvalidPayloadError("invalid_settings", "`rooms` must be an object of room ids")
+    if len(rooms) > MAX_PRIVATE_ROOMS:
+        raise InvalidPayloadError("invalid_settings", f"at most {MAX_PRIVATE_ROOMS} private rooms")
+    checked: dict[str, Any] = {}
+    for room, rule in rooms.items():
+        _check_id(room, "a room id", "invalid_settings")
+        if not isinstance(rule, dict) or set(rule) - {"people", "while"}:
+            raise InvalidPayloadError(
+                "invalid_settings", "a private room has `people` and, maybe, `while`"
+            )
+        people = rule.get("people", [])
+        if not isinstance(people, list) or not all(
+            isinstance(p, str) and p.startswith("person.") and valid_entity_id(p) for p in people
+        ):
+            raise InvalidPayloadError(
+                "invalid_settings", "a private room's `people` must be a list of `person` entities"
+            )
+        if len(people) > MAX_PEOPLE:
+            raise InvalidPayloadError(
+                "invalid_settings", f"a private room is kept for at most {MAX_PEOPLE} people"
+            )
+        entry: dict[str, Any] = {"people": list(dict.fromkeys(people))}
+        if rule.get("while") is not None:
+            if not isinstance(rule["while"], str) or not valid_entity_id(rule["while"]):
+                raise InvalidPayloadError("invalid_settings", "`while` must be an entity id")
+            entry["while"] = rule["while"]
+        checked[room] = entry
     return checked
 
 

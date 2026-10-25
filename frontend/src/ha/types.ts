@@ -109,3 +109,11 @@ export function isHassError(value: unknown): value is HassError {
     typeof (value as { code?: unknown }).code === "string"
   );
 }
+
+/** Home Assistant's own rule for an entity id (`homeassistant.core.valid_entity_id`). */
+const ENTITY_ID = /^(?!.+__)(?!_)[\da-z_]+(?<!_)\.(?!_)[\da-z_]+(?<!_)$/;
+
+/** Whether `id` is an entity id Home Assistant (and the integration) takes. */
+export function isEntityId(id: string): boolean {
+  return ENTITY_ID.test(id);
+}

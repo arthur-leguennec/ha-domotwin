@@ -4,6 +4,7 @@ import { ConfigError, normalizeConfig, type CardConfig } from "../config";
 import { DomoTwinClient, type Settings, type StoreyInfo, type StoredPlan } from "../ha/client";
 import { isHassError, type HomeAssistant } from "../ha/types";
 import { readBindings, type BindingsJson } from "../live/bindings";
+import { privateRooms } from "../live/privacy";
 import { forScreen, resolveShow, type ShowRequest } from "../live/show";
 import type { HomeStorey } from "../engine/engine";
 import {
@@ -19,6 +20,9 @@ import { translatorFor } from "../i18n";
 import { baseStyles } from "./styles";
 import type { DomoTwinView, ViewOptions } from "./view";
 
+/** How long before settings that could not be read are asked for again (ms). */
+const SETTINGS_RETRY_MS = 10_000;
+
 /** `custom:domotwin-card`: the twin on a dashboard. */
 export class DomoTwinCard extends LitElement {
   static override properties = {
@@ -30,6 +34,7 @@ export class DomoTwinCard extends LitElement {
     planError: { state: true },
     bindings: { state: true },
     settings: { state: true },
+    settingsRead: { state: true },
     upkeep: { state: true },
     people: { state: true },
     storeys: { state: true },
@@ -45,6 +50,10 @@ export class DomoTwinCard extends LitElement {
   protected planError?: string;
   protected bindings?: BindingsJson;
   protected settings?: Settings;
+  /** The settings were read once: the home is not shown before, its private rooms unknown
+   * (D-039). */
+  protected settingsRead = false;
+  private settingsTimer?: ReturnType<typeof setTimeout>;
   /** The upkeep cards (D-033). */
   protected upkeep?: Upkeep;
   /** The people placed in their rooms (D-034). */
@@ -121,6 +130,7 @@ export class DomoTwinCard extends LitElement {
 
   override disconnectedCallback(): void {
     super.disconnectedCallback();
+    clearTimeout(this.settingsTimer);
     this.unsubscribe?.();
     this.unsubscribe = undefined;
   }
@@ -161,12 +171,19 @@ export class DomoTwinCard extends LitElement {
     }
   }
 
-  /** Without settings the home shows with north up. */
+  /**
+   * The settings; unreadable, those read before stay (their private rooms, D-039), and never read,
+   * they are asked for again in a while, the home not shown meanwhile.
+   */
   private async loadSettings(client: DomoTwinClient): Promise<void> {
+    clearTimeout(this.settingsTimer);
     try {
       this.settings = (await client.getSettings()).settings;
+      this.settingsRead = true;
     } catch {
-      this.settings = undefined;
+      if (!this.settingsRead && this.unsubscribe) {
+        this.settingsTimer = setTimeout(() => void this.loadSettings(client), SETTINGS_RETRY_MS);
+      }
     }
   }
 
@@ -237,6 +254,7 @@ export class DomoTwinCard extends LitElement {
       this.storeys,
       { plan: this.plan, storey: this.storey },
       request,
+      privateRooms(this.settings?.rooms, hass),
     );
     if (!target || ticket !== this.shows) return;
     if (target.storey !== undefined && target.storey !== this.storey) {
@@ -344,15 +362,16 @@ export class DomoTwinCard extends LitElement {
         class=${this.config.height ? "fixed" : ""}
         style=${style}
         .hass=${this._hass}
-        .plan=${this.plan}
+        .plan=${this.settingsRead ? this.plan : undefined}
         .layout=${this.layout}
-        .home=${this.home}
+        .home=${this.settingsRead ? this.home : undefined}
         .bindings=${this.bindings}
         .upkeep=${this.upkeep}
         .people=${this.people}
         .planError=${this.planError}
         .options=${this.viewOptions()}
         .north=${this.settings?.north ?? 0}
+        .privateRooms=${this.settings?.rooms}
         .homeTheme=${this.settings?.theme}
         .homeAccent=${this.settings?.accent}
         .storeys=${this.storeys}

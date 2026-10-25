@@ -65,6 +65,13 @@ export interface HarnessOptions {
   peopleLook?: "figure" | "pin";
   /** Bluetooth locating (D-035): fictional receivers and devices, or no Bluetooth at all. */
   bluetooth?: true | "none";
+  /** Private rooms (D-039): kept for nobody, or for `privateFor`, maybe only while an entity is
+   * on. */
+  private?: string[];
+  privateFor?: string;
+  privateWhile?: string;
+  /** The settings cannot be read until `window.__settingsUp()`. */
+  settingsDown?: boolean;
 }
 
 /** Opens the mocked Home Assistant with the built frontend. */
@@ -104,6 +111,10 @@ export async function openHarness(page: Page, options: HarnessOptions = {}): Pro
   if (options.peopleShown) params.set("peopleshown", options.peopleShown);
   if (options.peopleLook) params.set("peoplelook", options.peopleLook);
   if (options.bluetooth) params.set("bluetooth", options.bluetooth === true ? "1" : "none");
+  if (options.private) params.set("private", options.private.join(","));
+  if (options.privateFor) params.set("privatefor", options.privateFor);
+  if (options.privateWhile) params.set("privatewhile", options.privateWhile);
+  if (options.settingsDown) params.set("settingsdown", "1");
   if (options.automations) {
     params.set("automations", options.automations === true ? "1" : String(options.automations));
   }

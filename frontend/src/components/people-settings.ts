@@ -8,7 +8,7 @@ import { mdiClose } from "@mdi/js";
 import { LitElement, css, html, nothing, type TemplateResult } from "lit";
 
 import { DomoTwinClient } from "../ha/client";
-import { isHassError, type HomeAssistant } from "../ha/types";
+import { isEntityId, isHassError, type HomeAssistant } from "../ha/types";
 import { entityName } from "../live/bindings";
 import { translatorFor, type Translator } from "../i18n";
 import { colorOf, initials, type PeopleSettings, type PersonSettings } from "../live/people";
@@ -17,8 +17,6 @@ import { icon } from "./icon";
 import { avatar, avatarStyles } from "./person-avatar";
 import { baseStyles } from "./styles";
 
-/** An entity id, as Home Assistant has them. */
-const ENTITY_ID = /^[a-z0-9_]+\.[a-z0-9_]+$/;
 /** Entities that say where one person is, at most (the integration's limit). */
 const MAX_SOURCES = 10;
 
@@ -453,7 +451,7 @@ export class DomoTwinPeopleSettings extends LitElement {
                     const input = event.target as HTMLInputElement;
                     const entity = input.value.trim();
                     if (!entity) return;
-                    if (!ENTITY_ID.test(entity)) {
+                    if (!isEntityId(entity)) {
                       this.error = t.t("people.bad_entity", { entity });
                       return;
                     }

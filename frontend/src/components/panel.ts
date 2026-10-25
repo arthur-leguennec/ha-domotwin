@@ -5,6 +5,7 @@ import {
   mdiClose,
   mdiCogOutline,
   mdiLinkVariant,
+  mdiLockOutline,
   mdiPencilOutline,
   mdiStairs,
   mdiTrayArrowDown,
@@ -62,11 +63,18 @@ import {
   storeyName,
   type StoreyRooms,
 } from "../live/storeys";
+import { privateRooms } from "../live/privacy";
 import { resolveShow, type ShowRequest } from "../live/show";
 import type { LocatingSettings } from "../live/locating";
 import type { PeopleSettings } from "../live/people";
 import { mergeCards, renamedPieces, type Upkeep, type UpkeepCard } from "../live/upkeep";
-import { applyLink, planElement, type LinkChange, type PlanElementInfo } from "../live/suggest";
+import {
+  applyLink,
+  planElement,
+  planRooms,
+  type LinkChange,
+  type PlanElementInfo,
+} from "../live/suggest";
 import type { IfcFile, IfcReport, IfcStorey } from "../ifc/ifc";
 import type { ModelFormat, ModelInfo } from "../models/models";
 import { translatorFor, type Translator } from "../i18n";
@@ -75,6 +83,7 @@ import { baseStyles, lookStyles } from "./styles";
 import type { ModelChoice } from "./edit-bar";
 import type { PlaceRequest } from "./network-panel";
 import type { PlanEditState, PlanTool } from "./plan-editor";
+import type { RoomChoice } from "./private-rooms";
 import type { DomoTwinView, EditCommand, PlanCommand, ViewOptions } from "./view";
 
 /** The plan format allows files up to 32 MB. */
@@ -88,6 +97,8 @@ const PANEL_OPTIONS: ViewOptions = {
   lighting: "auto",
 };
 const TOAST_MS = 6000;
+/** How long before settings that could not be read are asked for again (ms). */
+const SETTINGS_RETRY_MS = 10_000;
 /** Upkeep cards saved at once when a file fills them (the integration takes up to 2 000). */
 const CARDS_AT_ONCE = 400;
 /** The highest a storey's floor may be (cm), as the integration checks. */
@@ -188,11 +199,13 @@ export class DomoTwinPanel extends LitElement {
     discardAsk: { state: true },
     draft: { state: true },
     settings: { state: true },
+    settingsRead: { state: true },
     upkeep: { state: true },
     people: { state: true },
     northDraft: { state: true },
     peopleOpen: { state: true },
     bluetoothOpen: { state: true },
+    privacyRooms: { state: true },
     lookDraft: { state: true },
     look: { reflect: true },
     planning: { state: true },
@@ -239,6 +252,10 @@ export class DomoTwinPanel extends LitElement {
   protected draft?: Draft;
   /** The home's settings, and north being set (the settings dialog is open). */
   protected settings?: Settings;
+  /** The settings were read once: the home is not shown before, its private rooms unknown
+   * (D-039), except to change it. */
+  protected settingsRead = false;
+  private settingsTimer?: ReturnType<typeof setTimeout>;
   /** The upkeep cards (D-033). */
   protected upkeep?: Upkeep;
   /** The people placed in their rooms (D-034). */
@@ -246,6 +263,9 @@ export class DomoTwinPanel extends LitElement {
   protected northDraft?: number;
   /** The people's settings are open (D-034), their module loaded, with the candidates. */
   protected peopleOpen = false;
+  /** The rooms of the home while the private rooms' settings are open (D-039). */
+  protected privacyRooms?: RoomChoice[];
+  private privacyModule?: Promise<unknown>;
   private peopleSettings?: PeopleSettings;
   private peopleModule?: Promise<unknown>;
   /** The Bluetooth locating's settings are open (D-035), their module loaded. */
@@ -600,6 +620,7 @@ export class DomoTwinPanel extends LitElement {
 
   override disconnectedCallback(): void {
     super.disconnectedCallback();
+    clearTimeout(this.settingsTimer);
     this.unsubscribe?.();
     this.unsubscribe = undefined;
     window.clearTimeout(this.toastTimer);
@@ -662,6 +683,7 @@ export class DomoTwinPanel extends LitElement {
       this.storeys,
       { plan: this.plan, storey: shown },
       request,
+      privateRooms(this.settings?.rooms, this.hass),
     );
     if (!target || ticket !== this.shows) return;
     if (target.storey !== undefined && target.storey !== shown) {
@@ -675,14 +697,21 @@ export class DomoTwinPanel extends LitElement {
     if (ticket === this.shows) view?.show(target);
   }
 
-  /** Without settings the home shows with north up. */
+  /**
+   * The settings; unreadable, those read before stay (their private rooms, D-039), and never read,
+   * they are asked for again in a while, the home not shown meanwhile.
+   */
   private async loadSettings(): Promise<void> {
     const client = this.client;
     if (!client) return;
+    clearTimeout(this.settingsTimer);
     try {
       this.settings = (await client.getSettings()).settings;
+      this.settingsRead = true;
     } catch {
-      this.settings = undefined;
+      if (!this.settingsRead && this.unsubscribe) {
+        this.settingsTimer = setTimeout(() => void this.loadSettings(), SETTINGS_RETRY_MS);
+      }
     }
   }
 
@@ -722,6 +751,34 @@ export class DomoTwinPanel extends LitElement {
       this.peopleOpen = true;
     } catch (error) {
       this.peopleModule = undefined;
+      this.show(this.describe(error), true);
+    } finally {
+      this.busy = false;
+    }
+  };
+
+  /**
+   * Opens the private rooms' settings (D-039): their module (loaded the first time) and the rooms
+   * of every storey.
+   */
+  private readonly openPrivacy = async (): Promise<void> => {
+    const client = this.client;
+    if (!client) return;
+    this.privacyModule ??= import("./private-rooms");
+    this.busy = true;
+    try {
+      const [, home] = await Promise.all([
+        this.privacyModule,
+        this.storeys.length > 1 ? loadHome(client, this.storeys) : Promise.resolve([]),
+      ]);
+      this.privacyRooms =
+        home.length > 1
+          ? home.flatMap((storey) =>
+              planRooms(storey.plan).map((room) => ({ ...room, storey: storey.name })),
+            )
+          : planRooms(this.plan);
+    } catch (error) {
+      this.privacyModule = undefined;
       this.show(this.describe(error), true);
     } finally {
       this.busy = false;
@@ -1317,6 +1374,11 @@ export class DomoTwinPanel extends LitElement {
     this.renderRoot.querySelector<HTMLInputElement>("input.plan-file")?.click();
   };
 
+  /** Whether the home is shown: its settings read (D-039), or a tool changes it. */
+  private get homeShown(): boolean {
+    return this.settingsRead || this.editing || this.planning || this.linking;
+  }
+
   /** Whether the view shows every storey at once: chosen, and no tool works on a storey. */
   private wholeHome(): boolean {
     return (
@@ -1838,7 +1900,7 @@ export class DomoTwinPanel extends LitElement {
       <div class="body">
         <domotwin-view
           .hass=${this._hass}
-          .plan=${this.plan}
+          .plan=${this.homeShown ? this.plan : undefined}
           .layout=${this.layout}
           .bindings=${this.bindings}
           .upkeep=${this.upkeep}
@@ -1846,6 +1908,7 @@ export class DomoTwinPanel extends LitElement {
           .planError=${this.planError}
           .options=${PANEL_OPTIONS}
           .north=${this.northDraft ?? this.settings?.north ?? 0}
+          .privateRooms=${this.settings?.rooms}
           .linking=${this.linking}
           .editing=${this.editing}
           .planEditing=${this.planning}
@@ -1856,7 +1919,7 @@ export class DomoTwinPanel extends LitElement {
           .homeAccent=${this.homeLook().accent}
           .storeys=${this.storeys}
           .storey=${this.wholeHome() ? ALL_STOREYS : this.storey}
-          .home=${this.wholeHome() ? this.home : undefined}
+          .home=${this.wholeHome() && this.homeShown ? this.home : undefined}
           .elsewhere=${this.wholeHome() ? [] : this.elsewhere}
           @domotwin-storey=${this.onStorey}
           .multiSelect=${this.multi}
@@ -2011,6 +2074,18 @@ export class DomoTwinPanel extends LitElement {
                 title=${t.t("bluetooth.settings")}
               >
                 ${icon(mdiBluetooth)}
+              </button>
+              <button
+                class="action"
+                data-testid="privacy-settings"
+                ?disabled=${this.busy}
+                @click=${() => {
+                  void this.openPrivacy();
+                }}
+                aria-label=${t.t("privacy.title")}
+                title=${t.t("privacy.title")}
+              >
+                ${icon(mdiLockOutline)}
               </button>`
           : nothing
       }`;
@@ -2236,6 +2311,20 @@ export class DomoTwinPanel extends LitElement {
               this.show(this.t.t("bluetooth.saved"));
             }}
           ></domotwin-bluetooth-settings>`
+        : nothing
+    }
+    ${
+      this.privacyRooms
+        ? html`<domotwin-private-rooms
+            .hass=${this._hass}
+            .settings=${this.settings ?? {}}
+            .rooms=${this.privacyRooms}
+            @domotwin-close=${() => (this.privacyRooms = undefined)}
+            @domotwin-saved=${(event: CustomEvent<Settings>) => {
+              this.settings = event.detail;
+              this.show(this.t.t("settings.saved"));
+            }}
+          ></domotwin-private-rooms>`
         : nothing
     }
     ${this.storeysOpen ? this.renderStoreysDialog() : nothing}`;

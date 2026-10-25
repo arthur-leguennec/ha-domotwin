@@ -480,6 +480,85 @@ fn what_cameras_see_is_drawn_faint_whole_and_in_its_tone() {
 }
 
 #[wasm_bindgen_test]
+fn a_private_room_is_drawn_closed() {
+    let surface = canvas();
+    let mut engine = Engine::new(surface.clone()).unwrap();
+    engine.load_plan(DEMO, None, None).unwrap();
+    engine.set_bindings(BINDINGS);
+    engine.set_states(
+        r#"{
+            "camera.living_room": { "state": "idle", "attributes": {} },
+            "light.living_room_pendant": { "state": "on", "attributes": { "brightness": 255 } }
+        }"#,
+    );
+    let settle = |engine: &mut Engine| {
+        let mut t = 0.0;
+        while engine.frame(t) {
+            t += 16.0;
+            assert!(t < 10_000.0, "the fades end");
+        }
+    };
+    let gl = surface
+        .get_context("webgl2")
+        .unwrap()
+        .unwrap()
+        .dyn_into::<web_sys::WebGl2RenderingContext>()
+        .unwrap();
+    let stats =
+        |engine: &Engine| -> serde_json::Value { serde_json::from_str(&engine.stats()).unwrap() };
+    let open = stats(&engine)["triangles"].as_u64().unwrap();
+    settle(&mut engine);
+    let lit = stats(&engine)["lit"].as_u64().unwrap();
+    let sofa: [f64; 2] = serde_json::from_str::<serde_json::Value>(
+        &engine.element_points(r#"["sofa"]"#),
+    )
+    .unwrap()["sofa"]
+        .as_array()
+        .map(|p| [p[0].as_f64().unwrap(), p[1].as_f64().unwrap()])
+        .unwrap();
+    assert_eq!(stats(&engine)["cameraViews"].as_array().unwrap().len(), 1);
+    // The living room closed: its pieces and its camera's view gone, its floor still there.
+    assert!(engine.set_private_rooms(r#"["living"]"#));
+    assert!(!engine.set_private_rooms(r#"["living"]"#));
+    // A room of another storey: nothing to build again.
+    assert!(!engine.set_private_rooms(r#"["living", "upstairs"]"#));
+    assert!(stats(&engine)["triangles"].as_u64().unwrap() < open);
+    assert_eq!(stats(&engine)["cameraViews"], serde_json::json!([]));
+    // Nor are its lamps lit from Home Assistant: their states would tell what goes on in it.
+    settle(&mut engine);
+    assert!(stats(&engine)["lit"].as_u64().unwrap() < lit);
+    // Its door, drawn with the hall, is said to be beside it, for the views to close it too.
+    let list: Vec<serde_json::Value> = serde_json::from_str(&engine.element_list()).unwrap();
+    let door = list.iter().find(|e| e["id"] == "door-living").unwrap();
+    assert_eq!([&door["room"], &door["beside"]], ["hall", "living"]);
+    let points = engine.element_points(r#"["sofa", "bed"]"#);
+    assert!(
+        !points.contains("sofa") && points.contains("bed"),
+        "{points}"
+    );
+    for quality in ["eco", "high"] {
+        engine.set_quality(quality);
+        engine.frame(0.0);
+        assert_eq!(
+            gl.get_error(),
+            web_sys::WebGl2RenderingContext::NO_ERROR,
+            "{quality}"
+        );
+    }
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    let picked = engine.pick(sofa[0] as u32, sofa[1] as u32);
+    assert!(!picked.contains("\"sofa\""), "{picked}");
+    // The room itself can still be framed.
+    engine.set_quality("eco");
+    assert!(engine.focus_element("living", 0.0));
+    // Open again.
+    assert!(engine.set_private_rooms("[]"));
+    assert_eq!(stats(&engine)["triangles"].as_u64().unwrap(), open);
+    assert_eq!(stats(&engine)["cameraViews"].as_array().unwrap().len(), 1);
+    assert!(!engine.set_private_rooms("not json"));
+}
+
+#[wasm_bindgen_test]
 fn the_plan_editor_s_drafts_are_shown_and_points_turned_both_ways() {
     let mut engine = Engine::new(canvas()).unwrap();
     engine.load_plan(DEMO, None, None).unwrap();

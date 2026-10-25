@@ -513,3 +513,87 @@ async def test_sources_follow_renames_and_never_are_domotwin_own(
     # Saved meanwhile elsewhere: the revision tells.
     answer = await _save_people(client, {}, expected_revision=0)
     assert answer["error"]["code"] == "revision_conflict"
+
+
+async def _ask(hass: HomeAssistant, user: User | None, **data: Any) -> dict[str, Any]:
+    answer = await hass.services.async_call(
+        "domotwin",
+        "where",
+        data,
+        blocking=True,
+        return_response=True,
+        context=Context(user_id=user.id if user else None),
+    )
+    return cast("dict[str, Any]", answer)
+
+
+async def test_a_private_room_is_not_told_nor_shown(
+    hass: HomeAssistant,
+    home: MockConfigEntry,
+    hass_ws_client: WebSocketGenerator,
+    hass_read_only_user: User,
+    hass_admin_user: User,
+) -> None:
+    admin = await hass_ws_client(hass)
+    assert (
+        await _save_people(
+            admin,
+            {
+                "person.alex": {"sources": ["sensor.alex_phone_area"]},
+                "person.sam": {"sources": ["sensor.sam_watch_area"]},
+            },
+        )
+    )["success"]
+    hass.states.async_set("sensor.sam_watch_area", "Living room")
+    # The kitchen kept for Alex (D-039).
+    await admin.send_json_auto_id(
+        {
+            "type": "domotwin/settings/save",
+            "settings": {"rooms": {"kitchen": {"people": ["person.alex"]}}},
+        }
+    )
+    assert (await admin.receive_json())["success"]
+    await hass.async_block_till_done()
+    screen = await hass_ws_client(hass)
+    await screen.send_json_auto_id({"type": "domotwin/subscribe"})
+    assert (await screen.receive_json())["success"]
+
+    # Asked by nobody's voice, or by an administrator who is not Alex: in a private room, which
+    # is neither said nor shown.
+    for user in (None, hass_admin_user):
+        alex = await _ask(hass, user, name="alex", show=True)
+        assert alex["text"] == "Alex is in a private room."
+        assert alex["people"] == [
+            {"person": "person.alex", "name": "Alex", "home": True, "private": True}
+        ]
+    assert (await _ask(hass, None))["text"] == (
+        "Alex is in a private room, Samantha in the Living room."
+    )
+    await hass.services.async_call("domotwin", "show", {"person": "person.alex"}, blocking=True)
+    await hass.services.async_call("domotwin", "show", {"person": "person.sam"}, blocking=True)
+    # The first show request to come is Sam's: Alex's room was not shown.
+    assert (await screen.receive_json())["event"]["show"] == {"room": "living"}
+    # Alex (their user) is told.
+    told = await _ask(hass, hass_read_only_user, name="alex")
+    assert told["text"] == "Alex is in the Kitchen."
+    # In French.
+    hass.config.language = "fr"
+    assert (await _ask(hass, None, name="alex"))["text"] == "Alex est dans une pièce privée."
+    hass.config.language = "en"
+
+    # Private only while guests are here: open while the switch is off, private when it is on
+    # or cannot be read.
+    await admin.send_json_auto_id(
+        {
+            "type": "domotwin/settings/save",
+            "settings": {"rooms": {"kitchen": {"people": [], "while": "input_boolean.guests"}}},
+        }
+    )
+    assert (await admin.receive_json())["success"]
+    assert (await _ask(hass, None, name="alex"))["text"] == "Alex is in a private room."
+    hass.states.async_set("input_boolean.guests", "off")
+    assert (await _ask(hass, None, name="alex"))["text"] == "Alex is in the Kitchen."
+    hass.states.async_set("input_boolean.guests", "on")
+    assert (await _ask(hass, hass_read_only_user, name="alex"))["text"] == (
+        "Alex is in a private room."
+    )
