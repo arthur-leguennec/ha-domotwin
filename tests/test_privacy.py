@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 
 from custom_components.domotwin.privacy import private_rooms
@@ -16,7 +18,7 @@ STATES = {
     "binary_sensor.gone": State("binary_sensor.gone", "unavailable"),
 }
 
-ROOMS = {
+ROOMS: dict[str, dict[str, Any]] = {
     "bedroom": {"people": ["person.alex"]},
     "office": {"people": []},
     "guest": {"people": [], "while": "input_boolean.guests"},
