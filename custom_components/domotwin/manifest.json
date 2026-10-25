@@ -1,15 +1,25 @@
 {
   "domain": "domotwin",
   "name": "DomoTwin",
-  "after_dependencies": ["bluetooth", "person"],
-  "codeowners": ["@arthur-leguennec"],
+  "after_dependencies": [
+    "bluetooth",
+    "person"
+  ],
+  "codeowners": [
+    "@arthur-leguennec"
+  ],
   "config_flow": true,
-  "dependencies": ["frontend", "http", "panel_custom", "websocket_api"],
+  "dependencies": [
+    "frontend",
+    "http",
+    "panel_custom",
+    "websocket_api"
+  ],
   "documentation": "https://github.com/arthur-leguennec/ha-domotwin",
   "integration_type": "service",
   "iot_class": "calculated",
   "issue_tracker": "https://github.com/arthur-leguennec/ha-domotwin/issues",
   "requirements": [],
   "single_config_entry": true,
-  "version": "0.0.0"
+  "version": "0.1.0"
 }
