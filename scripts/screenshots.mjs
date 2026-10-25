@@ -525,7 +525,7 @@ try {
 
   // Devices (M5): badges in 3D, and what the living room's camera sees on the 2D plan.
   const deviceShots = [];
-  for (const [label, view, script] of [
+  for (const [label, view, script, focus = ""] of [
     [
       "Badges: lock, battery, TV, camera, washing machine",
       "3d",
@@ -534,9 +534,10 @@ try {
         "window.__setState('sensor.washing_machine_power', '450');",
     ],
     [
-      "What the camera sees, recording",
+      "What the camera sees, tapped, recording",
       "2d",
       "window.__setState('camera.living_room', 'recording');",
+      "bookcase",
     ],
   ]) {
     const page = await browser.newPage({ viewport: { width: 1100, height: 760 } });
@@ -553,6 +554,11 @@ try {
       element.settle();
       element.requestFrame();
     }, view);
+    // The camera tapped once linked (the bindings come after the plan).
+    if (focus) {
+      await page.waitForFunction((id) => window.__view().engine.focusCamera(id) > 0, focus);
+      await page.evaluate(() => window.__view().requestFrame());
+    }
     await page.waitForTimeout(500);
     deviceShots.push([label, (await page.screenshot()).toString("base64")]);
     await page.close();
@@ -592,6 +598,72 @@ try {
     Buffer.from(devicesImage.slice(devicesImage.indexOf(",") + 1), "base64"),
   );
   console.log("docs/figures/screenshot-devices.png");
+
+  // What a camera sees (D-038): the living room in neon, the view faint, then whole once the
+  // camera is tapped.
+  const cameraShots = [];
+  for (const [label, focus] of [
+    ["Faint", ""],
+    ["Tapped: whole", "bookcase"],
+  ]) {
+    const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.goto("http://127.0.0.1:4173/?mode=panel&live=1&people=1&hometheme=neon&sun=45,1");
+    await page.waitForFunction(() => window.__view?.()?.debugState().summary, null, {
+      timeout: 60_000,
+    });
+    await page.evaluate(async (id) => {
+      const element = window.__view();
+      element.options = { ...element.options, quality: "high" };
+      await element.updateComplete;
+      element.settle();
+      element.requestFrame();
+    }, focus);
+    // Tapped once the camera is linked (the bindings come after the plan).
+    if (focus) {
+      await page.waitForFunction((id) => window.__view().engine.focusCamera(id) > 0, focus);
+      await page.evaluate(() => window.__view().requestFrame());
+    }
+    await page.waitForTimeout(800);
+    const shot = await page.screenshot({ clip: { x: 230, y: 130, width: 560, height: 400 } });
+    cameraShots.push([label, shot.toString("base64")]);
+    await page.close();
+  }
+  const cameraImage = await layersPage.evaluate(async (shots) => {
+    const decoded = await Promise.all(
+      shots.map(async ([label, base64]) => {
+        const image = new Image();
+        image.src = `data:image/png;base64,${base64}`;
+        await image.decode();
+        return [label, image];
+      }),
+    );
+    const [w, h] = [decoded[0][1].width, decoded[0][1].height];
+    const canvas = document.createElement("canvas");
+    canvas.width = w * 2 + 30;
+    canvas.height = h + 20;
+    const g = canvas.getContext("2d");
+    g.fillStyle = "#0b1220";
+    g.fillRect(0, 0, canvas.width, canvas.height);
+    decoded.forEach(([label, image], i) => {
+      const x = 10 + i * (w + 10);
+      g.drawImage(image, x, 10);
+      g.font = "600 20px Inter, sans-serif";
+      const width = g.measureText(label).width + 36;
+      g.fillStyle = "rgba(15,23,42,0.88)";
+      g.beginPath();
+      g.roundRect(x + w / 2 - width / 2, 26, width, 40, 20);
+      g.fill();
+      g.fillStyle = "#e2e8f0";
+      g.fillText(label, x + w / 2 - width / 2 + 18, 53);
+    });
+    return canvas.toDataURL("image/png");
+  }, cameraShots);
+  await fs.writeFile(
+    join(root, "docs", "figures", "screenshot-camera-view.png"),
+    Buffer.from(cameraImage.slice(cameraImage.indexOf(",") + 1), "base64"),
+  );
+  console.log("docs/figures/screenshot-camera-view.png");
 
   // The plan editor (M6): a corner of the living room dragged with its guides and lengths, and a
   // new room drawn beside the home.

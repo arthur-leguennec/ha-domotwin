@@ -384,6 +384,102 @@ fn cameras_see_their_room_and_badges_have_places() {
 }
 
 #[wasm_bindgen_test]
+fn what_cameras_see_is_drawn_faint_whole_and_in_its_tone() {
+    let surface = canvas();
+    let mut engine = Engine::new(surface.clone()).unwrap();
+    engine.load_plan(DEMO, None, None).unwrap();
+    engine.set_bindings(BINDINGS);
+    let gl = surface
+        .get_context("webgl2")
+        .unwrap()
+        .unwrap()
+        .dyn_into::<web_sys::WebGl2RenderingContext>()
+        .unwrap();
+    let views = |engine: &Engine| {
+        let stats: serde_json::Value = serde_json::from_str(&engine.stats()).unwrap();
+        stats["cameraViews"].clone()
+    };
+    // A camera Home Assistant does not know is off, as its badge says.
+    assert_eq!(
+        views(&engine),
+        serde_json::json!([{ "id": "bookcase", "tone": "off", "focused": false }])
+    );
+    engine.set_states(r#"{ "camera.living_room": { "state": "idle", "attributes": {} } }"#);
+    assert_eq!(views(&engine)[0]["tone"], "on");
+    engine.set_states(r#"{ "camera.living_room": { "state": "unavailable", "attributes": {} } }"#);
+    assert_eq!(views(&engine)[0]["tone"], "off");
+    engine.set_states(r#"{ "camera.living_room": { "state": "unknown", "attributes": {} } }"#);
+    assert_eq!(views(&engine)[0]["tone"], "on");
+    for quality in ["eco", "high"] {
+        engine.set_quality(quality);
+        engine.frame(0.0);
+        assert_eq!(
+            gl.get_error(),
+            web_sys::WebGl2RenderingContext::NO_ERROR,
+            "{quality}"
+        );
+    }
+    // The rest on Eco: lighter frames.
+    engine.set_quality("eco");
+    let mut t = 0.0;
+    while engine.frame(t) {
+        t += 16.0;
+        assert!(t < 10_000.0, "the fades end");
+    }
+    // Tapped: whole for a while, a frame needed; then faint again by itself.
+    let whole = engine.focus_camera("bookcase", t);
+    assert!(whole > 1_000.0, "{whole}");
+    assert_eq!(views(&engine)[0]["focused"], true);
+    assert!(engine.needs_frame());
+    engine.frame(t + whole - 16.0);
+    assert_eq!(views(&engine)[0]["focused"], true);
+    t += whole;
+    engine.frame(t);
+    assert_eq!(views(&engine)[0]["focused"], false);
+    // Tapped, then another piece: faint again at once.
+    assert!(engine.focus_camera("bookcase", t) > 0.0);
+    assert!(engine.focus_camera("tv", t) <= 0.0);
+    assert_eq!(views(&engine)[0]["focused"], false);
+    // Recording: red.
+    engine.set_states(r#"{ "camera.living_room": { "state": "recording", "attributes": {} } }"#);
+    assert_eq!(views(&engine)[0]["tone"], "recording");
+    engine.frame(t + 16.0);
+    // In the 2D plan, and hidden.
+    engine.set_plan_view(true, t + 16.0);
+    engine.frame(t + 10_000.0);
+    assert_eq!(gl.get_error(), web_sys::WebGl2RenderingContext::NO_ERROR);
+    engine.set_camera_views(false);
+    assert_eq!(views(&engine), serde_json::json!([]));
+    engine.set_camera_views(true);
+    assert_eq!(views(&engine).as_array().unwrap().len(), 1);
+    // Not while walking.
+    t += 10_000.0;
+    engine.set_plan_view(false, t);
+    engine.frame(t + 10_000.0);
+    t += 10_000.0;
+    assert!(engine.set_walk(true, t));
+    assert_eq!(views(&engine), serde_json::json!([]));
+    engine.frame(t + 16.0);
+    assert_eq!(gl.get_error(), web_sys::WebGl2RenderingContext::NO_ERROR);
+    // Nor on the way back up, only once there.
+    t += 10_000.0;
+    engine.frame(t);
+    assert!(!engine.set_walk(false, t));
+    engine.frame(t + 16.0);
+    assert_eq!(views(&engine), serde_json::json!([]));
+    engine.frame(t + 10_000.0);
+    assert_eq!(views(&engine).as_array().unwrap().len(), 1);
+    // A camera tapped, then the plan dropped: nothing left, nor tapped when it comes back.
+    assert!(engine.focus_camera("bookcase", t + 10_000.0) > 0.0);
+    engine.clear_plan_shown();
+    assert_eq!(views(&engine), serde_json::json!([]));
+    engine.frame(t + 10_016.0);
+    assert_eq!(gl.get_error(), web_sys::WebGl2RenderingContext::NO_ERROR);
+    engine.load_plan(DEMO, None, None).unwrap();
+    assert_eq!(views(&engine)[0]["focused"], false);
+}
+
+#[wasm_bindgen_test]
 fn the_plan_editor_s_drafts_are_shown_and_points_turned_both_ways() {
     let mut engine = Engine::new(canvas()).unwrap();
     engine.load_plan(DEMO, None, None).unwrap();

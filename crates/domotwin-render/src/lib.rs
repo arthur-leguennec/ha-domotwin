@@ -115,6 +115,119 @@ impl GpuMesh {
     }
 }
 
+/// How a camera is, for the tone of what it sees.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CameraTone {
+    On,
+    Recording,
+    /// Unavailable, or unknown to Home Assistant.
+    Off,
+}
+
+impl CameraTone {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::On => "on",
+            Self::Recording => "recording",
+            Self::Off => "off",
+        }
+    }
+}
+
+/// What a camera sees (D-024, D-038), drawn as a fan on the floor of its room.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CameraFan {
+    /// The storey it is on.
+    pub storey: usize,
+    /// Where the camera sees from, then the far points across its angle of view, in order (plan
+    /// cm).
+    pub points: Vec<[f64; 2]>,
+    pub tone: CameraTone,
+    /// Tapped: drawn whole; else faint.
+    pub focused: bool,
+}
+
+/// What the cameras see, as triangles of a fan from each camera, all in one draw call.
+struct GpuCameraViews {
+    /// Plan x and y, then the camera's (plan cm).
+    place: VertexBuffer<[f32; 4]>,
+    /// Nearness to the two side rays, the tone, focused.
+    look: VertexBuffer<[f32; 4]>,
+    /// How far the view reaches (cm), the storey.
+    reach: VertexBuffer<[f32; 2]>,
+    count: u32,
+}
+
+impl GpuCameraViews {
+    fn new(context: &Context, views: &[CameraFan]) -> Option<Self> {
+        let mut place = Vec::new();
+        let mut look = Vec::new();
+        let mut reaches = Vec::new();
+        for view in views {
+            let Some((&apex, far)) = view.points.split_first() else {
+                continue;
+            };
+            if far.len() < 2 {
+                continue;
+            }
+            let distance = |p: [f64; 2]| (p[0] - apex[0]).hypot(p[1] - apex[1]);
+            let reach = far.iter().copied().map(distance).fold(1.0, f64::max);
+            let tone = match view.tone {
+                CameraTone::On => 0.0,
+                CameraTone::Recording => 1.0,
+                CameraTone::Off => 2.0,
+            };
+            let focus = if view.focused { 1.0 } else { 0.0 };
+            let storey = f32::from(
+                u8::try_from(view.storey).map_or(MAX_PARTS - 1, |s| s.min(MAX_PARTS - 1)),
+            );
+            let last = far.len() - 2;
+            for (i, pair) in far.windows(2).enumerate() {
+                // 0 along a side ray (the first triangle's first edge, the last one's last), 1
+                // across from it: the fragment shader draws the rays as lines.
+                let first = |k: usize| if i > 0 || k == 2 { 1.0 } else { 0.0 };
+                let end = |k: usize| if i < last || k == 1 { 1.0 } else { 0.0 };
+                for (k, p) in [apex, pair[0], pair[1]].into_iter().enumerate() {
+                    #[allow(clippy::cast_possible_truncation)]
+                    {
+                        place.push([p[0], p[1], apex[0], apex[1]].map(|v| v as f32));
+                        reaches.push([reach as f32, storey]);
+                    }
+                    look.push([first(k), end(k), tone, focus]);
+                }
+            }
+        }
+        if place.is_empty() {
+            return None;
+        }
+        Some(Self {
+            count: u32::try_from(place.len()).unwrap_or(u32::MAX),
+            place: VertexBuffer::new_with_data(context, &place),
+            look: VertexBuffer::new_with_data(context, &look),
+            reach: VertexBuffer::new_with_data(context, &reaches),
+        })
+    }
+}
+
+/// How high over its floor a camera's view lies (cm): over the rugs, under everything else.
+const CAMERA_VIEW_LIFT: f32 = 3.0;
+
+/// What lies on the floor (people's shadows, cameras' views): blended over it, hidden by what
+/// stands on it, the depth kept and the alpha (the glow's, D-027) left as it is.
+const ON_THE_FLOOR: RenderStates = RenderStates {
+    write_mask: WriteMask::COLOR,
+    depth_test: DepthTest::LessOrEqual,
+    blend: Blend::Enabled {
+        source_rgb_multiplier: BlendMultiplierType::SrcAlpha,
+        source_alpha_multiplier: BlendMultiplierType::Zero,
+        destination_rgb_multiplier: BlendMultiplierType::OneMinusSrcAlpha,
+        destination_alpha_multiplier: BlendMultiplierType::One,
+        rgb_equation: BlendEquationType::Add,
+        alpha_equation: BlendEquationType::Add,
+    },
+    cull: Cull::None,
+};
+
 /// A person to draw (D-034).
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Figure {
@@ -542,6 +655,7 @@ pub struct Renderer {
     line_program: Program,
     wire_program: Program,
     figure_program: Program,
+    camera_view_program: Program,
     bloom_down: Program,
     bloom_up: Program,
     composite: Program,
@@ -565,6 +679,7 @@ pub struct Renderer {
     wires: [Option<GpuWires>; 2],
     /// The people (D-034), and their shapes once one is drawn.
     figures: Vec<Figure>,
+    camera_views: Option<GpuCameraViews>,
     people: Option<GpuPeople>,
     /// The frames' clock at the last frame, and when the last one-shot pulse is over (ms).
     frame_ms: f64,
@@ -732,6 +847,11 @@ impl Renderer {
             Program::from_source(&context, shaders::WIRE_VERTEX, shaders::WIRE_FRAGMENT)?;
         let figure_program =
             Program::from_source(&context, shaders::FIGURE_VERTEX, shaders::FIGURE_FRAGMENT)?;
+        let camera_view_program = Program::from_source(
+            &context,
+            shaders::CAMERA_VIEW_VERTEX,
+            shaders::CAMERA_VIEW_FRAGMENT,
+        )?;
         let bloom_down = Program::from_source(&context, full, shaders::BLOOM_DOWN)?;
         let bloom_up = Program::from_source(&context, full, shaders::BLOOM_UP)?;
         let composite = Program::from_source(&context, full, shaders::COMPOSITE)?;
@@ -766,6 +886,7 @@ impl Renderer {
             line_program,
             wire_program,
             figure_program,
+            camera_view_program,
             bloom_down,
             bloom_up,
             composite,
@@ -780,6 +901,7 @@ impl Renderer {
             rooms_animated: false,
             wires: [None, None],
             figures: Vec::new(),
+            camera_views: None,
             people: None,
             frame_ms: 0.0,
             shots_until_ms: 0.0,
@@ -824,6 +946,7 @@ impl Renderer {
         self.parts.clear();
         self.roof = None;
         self.spots.clear();
+        self.camera_views = None;
         self.shadow_stale = true;
         self.view.dirty = true;
         self.relight();
@@ -975,6 +1098,18 @@ impl Renderer {
             self.shots_until_ms = self.shots_until_ms.max(time_ms + f64::from(lasts) * 1000.0);
             self.view.dirty = true;
         }
+    }
+
+    /// What the cameras see (D-038); none: nothing drawn.
+    pub fn set_camera_fans(&mut self, fans: &[CameraFan]) {
+        self.camera_views = GpuCameraViews::new(&self.context, fans);
+        self.view.dirty = true;
+    }
+
+    /// Whether what the cameras see is drawn: not at eye level, nor on the way to it or back
+    /// (D-038).
+    pub fn camera_fans_drawable(&self) -> bool {
+        !self.view.walking() && self.view.camera.walk <= 0.0
     }
 
     /// The people to draw (D-034), where they are now.
@@ -1432,8 +1567,10 @@ impl Renderer {
         let gain = self.set_main_uniforms(&projection, time_ms, flat, post);
         self.set_background_uniforms(&projection.view_proj, post, flat < 0.5);
         self.set_line_uniforms(&projection);
-        self.set_wire_uniforms(&projection, time_ms);
+        let offsets = self.part_offsets();
+        self.set_wire_uniforms(&projection, time_ms, &offsets);
         self.set_figure_uniforms(&projection, flat, post);
+        self.set_camera_view_uniforms(&projection, flat, &offsets);
         let halo = &self.halo;
         if self.halos.is_some() {
             halo.use_uniform_if_required("u_view_proj", mat4(&projection.view_proj));
@@ -1625,7 +1762,23 @@ impl Renderer {
         program.use_uniform_if_required("u_dark_lines", if t.dark_lines { 1.0_f32 } else { 0.0 });
     }
 
-    fn set_wire_uniforms(&self, projection: &domotwin_core::camera::Projection, time_ms: f64) {
+    /// Where each storey is drawn now (D-028), for the shaders' `u_offsets`: once a frame.
+    fn part_offsets(&self) -> Vec<Vec4> {
+        #[allow(clippy::cast_possible_truncation)]
+        (0..usize::from(MAX_PARTS))
+            .map(|k| {
+                let [x, y, z] = self.view.offset(k).map(|v| v as f32);
+                Vec4::new(x, y, z, 0.0)
+            })
+            .collect()
+    }
+
+    fn set_wire_uniforms(
+        &self,
+        projection: &domotwin_core::camera::Projection,
+        time_ms: f64,
+        offsets: &[Vec4],
+    ) {
         if self.wires.iter().all(Option::is_none) {
             return;
         }
@@ -1637,16 +1790,32 @@ impl Renderer {
             Vec2::new(self.width as f32, self.height as f32),
         );
         program.use_uniform_if_required("u_wire_width", (self.line_width() * 1.6).max(2.5));
-        #[allow(clippy::cast_possible_truncation)]
-        let offsets: Vec<Vec4> = (0..usize::from(MAX_PARTS))
-            .map(|k| {
-                let [x, y, z] = self.view.offset(k).map(|v| v as f32);
-                Vec4::new(x, y, z, 0.0)
-            })
-            .collect();
-        program.use_uniform_array("u_offsets", &offsets);
+        program.use_uniform_array("u_offsets", offsets);
         program.use_uniform_if_required("u_time", wire_clock(time_ms));
         program.use_uniform_if_required("u_motion", if self.motion { 1.0_f32 } else { 0.0 });
+    }
+
+    fn set_camera_view_uniforms(
+        &self,
+        projection: &domotwin_core::camera::Projection,
+        flat: f32,
+        offsets: &[Vec4],
+    ) {
+        if self.camera_views.is_none() {
+            return;
+        }
+        let program = &self.camera_view_program;
+        program.use_uniform_if_required("u_view_proj", mat4(&projection.view_proj));
+        program.use_uniform_array("u_offsets", offsets);
+        program.use_uniform_if_required("u_lift", CAMERA_VIEW_LIFT);
+        program.use_uniform_if_required("u_flat", flat);
+        let [r, g, b] = self.theme.accent;
+        let tones = [
+            Vec3::new(r, g, b),
+            Vec3::new(0.90, 0.22, 0.21),
+            Vec3::new(0.55, 0.58, 0.62),
+        ];
+        program.use_uniform_array("u_tones", &tones);
     }
 
     fn set_figure_uniforms(
@@ -1683,19 +1852,7 @@ impl Renderer {
             return;
         };
         let program = &self.figure_program;
-        let shadow_states = RenderStates {
-            write_mask: WriteMask::COLOR,
-            depth_test: DepthTest::LessOrEqual,
-            blend: Blend::Enabled {
-                source_rgb_multiplier: BlendMultiplierType::SrcAlpha,
-                source_alpha_multiplier: BlendMultiplierType::Zero,
-                destination_rgb_multiplier: BlendMultiplierType::OneMinusSrcAlpha,
-                destination_alpha_multiplier: BlendMultiplierType::One,
-                rgb_equation: BlendEquationType::Add,
-                alpha_equation: BlendEquationType::Add,
-            },
-            cull: Cull::None,
-        };
+        let shadow_states = ON_THE_FLOOR;
         let body_states = RenderStates {
             write_mask: WriteMask::COLOR_AND_DEPTH,
             depth_test: DepthTest::Less,
@@ -1818,6 +1975,20 @@ impl Renderer {
         if let Some(which) = people.filter(|_| only.is_none() && !self.figures.is_empty()) {
             self.draw_people(viewport, which);
             self.bind_textures(program);
+        }
+        // What the cameras see, on the floor (D-038): after what is opaque, so that what stands
+        // on it hides it, and before the ink, which outlines what stands on it; not in a
+        // storey's picture, nor at eye level.
+        if let Some(views) = self
+            .camera_views
+            .as_ref()
+            .filter(|_| phase != Phase::SeeThrough && only.is_none() && self.camera_fans_drawable())
+        {
+            let cameras = &self.camera_view_program;
+            cameras.use_vertex_attribute("a_place", &views.place);
+            cameras.use_vertex_attribute("a_look", &views.look);
+            cameras.use_vertex_attribute("a_reach", &views.reach);
+            cameras.draw_arrays(ON_THE_FLOOR, viewport, views.count);
         }
         if phase == Phase::Solid {
             return;

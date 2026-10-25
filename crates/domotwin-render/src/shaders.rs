@@ -1126,3 +1126,77 @@ void main() {
 }
 "
 );
+
+/// What a camera sees (D-024, D-038): a fan on the floor of its room from where the camera
+/// stands, moved with its storey, drawn after what is opaque so that the furniture and the people
+/// standing on it hide it.
+pub(crate) const CAMERA_VIEW_VERTEX: &str = r"
+uniform mat4 u_view_proj;
+// Where each storey is drawn (D-028), and how high over the floor the fan lies (cm).
+uniform vec4 u_offsets[20];
+uniform float u_lift;
+
+// Plan x and y, then the camera's (cm).
+in vec4 a_place;
+// Nearness to the fan's two side rays (0 on one), the tone (0 on, 1 recording, 2 off) and
+// whether the camera was tapped (1) or not (0).
+in vec4 a_look;
+// How far the view reaches (cm), the storey.
+in vec2 a_reach;
+
+out vec2 v_plan;
+out vec2 v_side;
+flat out vec2 v_camera;
+flat out float v_reach;
+flat out float v_tone;
+flat out float v_focus;
+
+void main() {
+    v_plan = a_place.xy;
+    v_camera = a_place.zw;
+    v_reach = a_reach.x;
+    v_side = a_look.xy;
+    v_tone = a_look.z;
+    v_focus = a_look.w;
+    vec3 p = vec3(a_place.x, u_lift, a_place.y) + u_offsets[int(a_reach.y)].xyz;
+    gl_Position = u_view_proj * vec4(p, 1.0);
+}
+";
+
+/// The fan in its tone, strongest at the camera and fading towards its reach, with a ring every
+/// metre from the camera and its two side rays drawn as thin lines, never the edge along the walls
+/// (it read as the room's outline). Faint until the camera is tapped, then whole.
+pub(crate) const CAMERA_VIEW_FRAGMENT: &str = r"
+// Display colours of the tones: on, recording, off.
+uniform vec3 u_tones[3];
+uniform float u_flat;
+
+in vec2 v_plan;
+in vec2 v_side;
+flat in vec2 v_camera;
+flat in float v_reach;
+flat in float v_tone;
+flat in float v_focus;
+
+out vec4 frag;
+
+// 1 on a line where `d` is 0, over about a pixel and a half, 0 away from it.
+float line_at(float d, float width) {
+    return 1.0 - smoothstep(0.5, 1.5, d / max(width, 1e-4));
+}
+
+void main() {
+    vec3 tone = u_tones[int(v_tone + 0.5)];
+    float metres = distance(v_plan, v_camera) / 100.0;
+    float near = 1.0 - clamp(metres * 100.0 / max(v_reach, 1.0), 0.0, 1.0);
+    float fill = mix(0.10, 0.30, v_focus) * mix(0.3, 1.0, near);
+    float side = min(v_side.x, v_side.y);
+    float ray = line_at(side, fwidth(side));
+    float ring = line_at(abs(fract(metres + 0.5) - 0.5), fwidth(metres)) * step(0.5, metres);
+    float line = max(ray, ring * 0.8) * mix(0.5, 0.95, v_focus) * mix(0.4, 1.0, near);
+    float a = max(fill, line);
+    // In the 2D plan a little stronger: it lies on flat colours.
+    a = min(a * mix(1.0, 1.3, u_flat), 1.0);
+    frag = vec4(tone, a);
+}
+";

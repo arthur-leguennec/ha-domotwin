@@ -8,6 +8,7 @@ interface Figures {
   storeys: number;
   planView: boolean;
   camera: { target: [number, number, number]; yaw: number; pitch: number };
+  cameraViews: unknown[];
 }
 
 async function figures(page: Page): Promise<Figures> {
@@ -34,14 +35,16 @@ test.describe("walking and the kiosk", () => {
   }) => {
     await openHarness(page, { live: true });
     const view = page.locator("domotwin-view");
+    // What the cameras see is drawn from above…
+    await expect.poll(async () => (await figures(page)).cameraViews).toHaveLength(1);
     await view.getByTestId("walk").click();
     await expect.poll(async () => (await figures(page)).walking).toBe(true);
     await settle(page);
     await expect(view.getByTestId("walk-hint")).toBeVisible();
-    // Eye level, looking a little down; no cones at eye level.
+    // Eye level, looking a little down; …not at eye level.
     const start = await figures(page);
     expect(start.camera.target[1]).toBeGreaterThan(100);
-    await expect(view.getByTestId("cameras")).toHaveCount(0);
+    expect(start.cameraViews).toEqual([]);
     // The pad, held: ahead.
     const ahead = view.getByTestId("walk-ahead");
     const box = await ahead.boundingBox();

@@ -23,7 +23,7 @@ use domotwin_core::scene::{
 use domotwin_core::theme::{DEFAULT_ACCENT, Theme, ThemeName, parse_hex};
 use domotwin_core::{ReadError, summarize_plan};
 use domotwin_render::lamps::power_level;
-use domotwin_render::{GpuHint, QualityPreset, Renderer, Rgb};
+use domotwin_render::{CameraFan, CameraTone, GpuHint, QualityPreset, Renderer, Rgb};
 use wasm_bindgen::JsCast;
 use wasm_bindgen::prelude::*;
 use web_sys::{HtmlCanvasElement, WebGl2RenderingContext, WebGlContextAttributes};
@@ -32,6 +32,9 @@ use crate::automations::AutomationsShown;
 use crate::network::NetworkShown;
 use crate::people::PeopleShown;
 use crate::upkeep::UpkeepShades;
+
+/// How long a tapped camera's view is drawn whole (ms, D-038).
+const CAMERA_FOCUS_MS: f64 = 15_000.0;
 
 /// Installs the panic hook so that a bug shows a readable message in the console.
 #[wasm_bindgen(start)]
@@ -126,6 +129,13 @@ pub struct Engine {
     /// What each linked camera sees on the floor (element id, camera entity, its storey, plan
     /// points), worked out when the plan shown or the bindings change.
     cones: Vec<(String, String, usize, Vec<[f64; 2]>)>,
+    /// What the cameras see is drawn (D-038), and the camera tapped, whose view is drawn whole
+    /// until then (frame time, ms).
+    camera_views_shown: bool,
+    camera_focus: Option<(String, f64)>,
+    /// The cameras' tones and focus the renderer was last given; `None` when the fans must be
+    /// given again (the plan or the links changed).
+    camera_views_sent: Option<Vec<(CameraTone, bool)>>,
     /// The storeys of the home shown whole (D-028), lowest first; empty for a plan alone.
     pub(crate) home: Vec<HomeStorey>,
     /// The network map, while it is shown (D-031).
@@ -197,6 +207,9 @@ impl Engine {
             models_dirty: false,
             layers: RoomLayers::default(),
             cones: Vec::new(),
+            camera_views_shown: true,
+            camera_focus: None,
+            camera_views_sent: None,
             home: Vec::new(),
             network: None,
             automations: None,
@@ -508,17 +521,38 @@ impl Engine {
         self.live = LiveState::default();
         self.renderer.set_looks(&self.live.looks);
         self.cones.clear();
+        self.camera_focus = None;
+        self.camera_views_sent = None;
+        self.upload_camera_views();
         self.drop_network_wires();
         self.drop_automation_wires();
         self.renderer.set_upkeep(&[]);
         self.replace_people();
     }
 
-    /// Works out what the linked cameras see (`DECISIONS.md`, D-024).
+    /// Works out what the linked cameras see (`DECISIONS.md`, D-024), and gives it to the
+    /// renderer when it changed (D-038).
     fn update_cones(&mut self) {
-        self.cones.clear();
+        let cones = self.work_out_cones();
+        if cones != self.cones {
+            self.cones = cones;
+            self.camera_views_sent = None;
+        }
+        // A camera tapped and since unlinked is forgotten.
+        if let Some((focus, _)) = &self.camera_focus
+            && !self.cones.iter().any(|(id, ..)| id == focus)
+        {
+            self.camera_focus = None;
+        }
+        self.upload_camera_views();
+    }
+
+    /// What each linked camera sees on the floor of the plan shown (element id, camera entity,
+    /// its storey, plan points).
+    fn work_out_cones(&self) -> Vec<(String, String, usize, Vec<[f64; 2]>)> {
+        let mut cones = Vec::new();
         let (Some(plan), Some(scene)) = (&self.plan, &self.scene) else {
-            return;
+            return cones;
         };
         for (id, entities) in &self.bindings.elements {
             let camera = entities.iter().find(|e| {
@@ -535,9 +569,54 @@ impl Engine {
             };
             if let Some(cone) = camera_cone(plan, scene, index, self.bindings.view(id)) {
                 let storey = scene.storey_of(index).unwrap_or(0);
-                self.cones
-                    .push((id.clone(), camera.entity_id.clone(), storey, cone));
+                cones.push((id.clone(), camera.entity_id.clone(), storey, cone));
             }
+        }
+        cones
+    }
+
+    /// Gives the renderer what the cameras see, in their tones (D-038), when it changed: states
+    /// come often, and most do not touch a camera.
+    fn upload_camera_views(&mut self) {
+        let looks: Vec<(CameraTone, bool)> = if self.camera_views_shown {
+            self.cones
+                .iter()
+                .map(|(id, entity, ..)| (self.camera_tone(entity), self.camera_focused(id)))
+                .collect()
+        } else {
+            Vec::new()
+        };
+        if self.camera_views_sent.as_ref() == Some(&looks) {
+            return;
+        }
+        let fans: Vec<CameraFan> = self
+            .cones
+            .iter()
+            .zip(&looks)
+            .map(|((_, _, storey, cone), &(tone, focused))| CameraFan {
+                storey: *storey,
+                points: cone.clone(),
+                tone,
+                focused,
+            })
+            .collect();
+        self.renderer.set_camera_fans(&fans);
+        self.camera_views_sent = Some(looks);
+    }
+
+    /// Whether the camera of element `id` was tapped: its view drawn whole (D-038).
+    fn camera_focused(&self, id: &str) -> bool {
+        self.camera_focus
+            .as_ref()
+            .is_some_and(|(focus, _)| focus == id)
+    }
+
+    /// Recording, on, or off (unavailable or unknown to Home Assistant), as its badge says.
+    fn camera_tone(&self, entity: &str) -> CameraTone {
+        match self.states.get(entity).map(|s| s.state.as_str()) {
+            Some("recording") => CameraTone::Recording,
+            None | Some("unavailable") => CameraTone::Off,
+            Some(_) => CameraTone::On,
         }
     }
 
@@ -671,6 +750,7 @@ impl Engine {
             }
         }
         self.retarget();
+        self.upload_camera_views();
     }
 
     /// Flashes an element briefly (tap feedback).
@@ -810,9 +890,31 @@ impl Engine {
         self.renderer.layers_animating()
     }
 
-    /// What the linked cameras see on the floor, as JSON `[{"id", "entity", "points": [[x, y]…]}]`
-    /// in device pixels from the top left: each camera's cone cut to its room (`DECISIONS.md`,
-    /// D-024). A cone partly behind the camera of the view is left out.
+    /// Draws what the linked cameras see on the floor, or not (D-038).
+    #[wasm_bindgen(js_name = setCameraViews)]
+    pub fn set_camera_views(&mut self, shown: bool) {
+        if shown != self.camera_views_shown {
+            self.camera_views_shown = shown;
+            self.upload_camera_views();
+        }
+    }
+
+    /// Draws the view of the camera linked to element `id` whole from `time_ms` (the frames'
+    /// clock) for a while, the others faint (D-038); another id, or none, draws them all faint.
+    /// Returns how long it is drawn whole (ms), 0 when `id` is no camera's: a frame is needed
+    /// then for it to go faint again.
+    #[wasm_bindgen(js_name = focusCamera)]
+    pub fn focus_camera(&mut self, id: &str, time_ms: f64) -> f64 {
+        let camera = self.cones.iter().any(|(cone, ..)| cone == id);
+        self.camera_focus = camera.then(|| (id.to_owned(), time_ms + CAMERA_FOCUS_MS));
+        self.upload_camera_views();
+        if camera { CAMERA_FOCUS_MS } else { 0.0 }
+    }
+
+    /// Where what the linked cameras see is on the screen, as JSON `[{"id", "entity", "points":
+    /// [[x, y]…]}]` in device pixels from the top left: each camera's fan cut to its room
+    /// (`DECISIONS.md`, D-024), the camera first. A fan partly behind the camera of the view is
+    /// left out. The engine draws them (D-038); these points are for tests and tools.
     #[wasm_bindgen(js_name = cameraViews)]
     pub fn camera_views(&self) -> String {
         let views: Vec<serde_json::Value> = self
@@ -1171,6 +1273,18 @@ impl Engine {
             "bound": self.bindings.elements.len(),
             "quality": self.renderer.quality().as_str(),
             "theme": self.renderer.theme().name.name(),
+            // What the cameras see, as given to the renderer and drawn: not at eye level.
+            "cameraViews": match &self.camera_views_sent {
+                Some(sent) if self.renderer.camera_fans_drawable() => self
+                    .cones
+                    .iter()
+                    .zip(sent)
+                    .map(|((id, ..), (tone, focused))| {
+                        serde_json::json!({ "id": id, "tone": tone.as_str(), "focused": focused })
+                    })
+                    .collect::<Vec<_>>(),
+                _ => Vec::new(),
+            },
             "offscreen": { "on": offscreen, "bloom": bloom, "ink": ink },
             "lines": self
                 .scene
@@ -1205,6 +1319,15 @@ impl Engine {
     pub fn frame(&mut self, time_ms: f64) -> bool {
         let dt = self.last_frame.map_or(16.0, |last| time_ms - last);
         self.last_frame = Some(time_ms);
+        // A tapped camera's view goes faint again after its while (D-038).
+        if self
+            .camera_focus
+            .as_ref()
+            .is_some_and(|(_, until)| time_ms >= *until)
+        {
+            self.camera_focus = None;
+            self.upload_camera_views();
+        }
         let step = self.live.step(dt);
         if step.looks {
             self.renderer.set_looks(&self.live.looks);

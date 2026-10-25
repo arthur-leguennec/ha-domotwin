@@ -452,9 +452,21 @@ export class DomoTwinEngine {
     return JSON.parse(this.live.elementList()) as PlanElement[];
   }
 
-  /** What the linked cameras see on the floor, as the engine's JSON text (device pixels). */
+  /** Where what the linked cameras see is on the screen, as the engine's JSON text (device
+   * pixels; for tests and tools: the engine draws them, D-038). */
   cameraViews(): string {
     return this.live.cameraViews();
+  }
+
+  /** Draws what the linked cameras see on the floor, or not (D-038). */
+  setCameraViews(shown: boolean): void {
+    this.live.setCameraViews(shown);
+  }
+
+  /** Draws the view of the camera linked to element `id` whole for a while, the others faint
+   * (another id, or "", draws them all faint); returns how long (ms), 0 for no camera. */
+  focusCamera(id: string): number {
+    return this.live.focusCamera(id, performance.now());
   }
 
   /** Where the elements `ids` (JSON array) are drawn now, as the engine's JSON text. */

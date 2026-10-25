@@ -946,3 +946,16 @@ window.__element = element;
 window.__view = () =>
   element.shadowRoot?.querySelector("domotwin-view") ??
   element.shadowRoot?.querySelector("ha-card domotwin-view");
+/** The pixels of a fresh frame of the view, without the overlays (E2E tests). */
+window.__framePixels = async () => {
+  const image = new Image();
+  image.src = window.__view().captureFrame();
+  await image.decode();
+  const canvas = document.createElement("canvas");
+  canvas.width = image.width;
+  canvas.height = image.height;
+  const context = canvas.getContext("2d");
+  if (!context) throw new Error("no 2d context");
+  context.drawImage(image, 0, 0);
+  return context.getImageData(0, 0, image.width, image.height);
+};

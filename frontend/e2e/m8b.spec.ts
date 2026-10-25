@@ -6,17 +6,10 @@ import { canvasPng, openHarness, settle, viewState } from "./fixtures";
 async function frame(page: Page): Promise<{ sky: [number, number, number]; ink: number }> {
   await settle(page);
   return page.evaluate(async () => {
-    const view = (window as never as { __view: () => { captureFrame(): string } }).__view();
-    const image = new Image();
-    image.src = view.captureFrame();
-    await image.decode();
-    const canvas = document.createElement("canvas");
-    canvas.width = image.width;
-    canvas.height = image.height;
-    const context = canvas.getContext("2d");
-    if (!context) throw new Error("no 2d context");
-    context.drawImage(image, 0, 0);
-    const data = context.getImageData(0, 0, image.width, image.height).data;
+    const image = await (
+      window as never as { __framePixels: () => Promise<ImageData> }
+    ).__framePixels();
+    const data = image.data;
     let inked = 0;
     for (let i = 0; i < data.length; i += 4) {
       const luma =
