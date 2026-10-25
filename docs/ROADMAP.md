@@ -27,7 +27,7 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M9e       | People in their rooms, live                                | ✅     |
 | M9f       | Bluetooth locating, without Bermuda or ESPresense          | ✅     |
 | M8b       | Two more looks: cartoon and clay                           | ✅     |
-| 0.1.0     | First release: all of the above, `domotwin.zip` for HACS   | 🚧     |
+| 0.1.0     | First release: all of the above, `domotwin.zip` for HACS   | ✅     |
 | M5b       | What cameras see, drawn on the floor behind the furniture  | ⏳     |
 | M9g       | Private rooms: locked, or kept for some people             | ⏳     |
 | M11       | Imports: Sweet Home 3D, DXF, room scans                    | ⏳     |
@@ -624,7 +624,7 @@ Left for later: ink on the creases of a piece (found in its normals), a watercol
 
 Moved forward by the maintainer, right after M8b (D-037): every milestone above, released as it is.
 
-- 🚧 release-please's pull request merged: the `v0.1.0` tag, the GitHub release with its changelog,
+- ✅ release-please's pull request merged: the `v0.1.0` tag, the GitHub release with its changelog,
   and `domotwin.zip` (the integration with its built frontend) attached for HACS.
 - HACS installs it as a custom repository (README, *Quick start*). The submission to HACS's default
   list waits for M13.
