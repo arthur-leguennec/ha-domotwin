@@ -4,7 +4,8 @@ DomoTwin can start from an **IFC file** (ISO 16739), the open standard for build
 of a plan drawn in the panel. In the DomoTwin panel, **Import plan** accepts `.ifc` files: DomoTwin reads
 one storey and turns it into an ordinary plan (`plan-format.md`), stored like an imported plan in
 the storey shown, or **imports every storey** of the file as the home's [storeys](storeys.md).
-Everything else (3D and 2D views, bindings, live states, export) works the same.
+Everything else (3D and 2D views, bindings, live states, export) works the same. Sweet Home 3D
+homes, DXF drawings and room scans are imported the same way ([plans from other apps](imports.md)).
 
 ![The storey picker of a two-storey file, and a fictional apartment imported](figures/screenshot-ifc.png)
 
@@ -72,13 +73,14 @@ about two seconds (`PERFORMANCE.md`).
 
 ## For developers
 
-- Crate `crates/domotwin-ifc`: `step.rs` (STEP physical file reader: one pass to index, attributes
-  parsed on demand), `model.rs` (units, placements, relations, geometry), `convert.rs` (storey →
-  plan), `kinds.rs` (furniture kinds). Its wasm API (`web.rs`) is wrapped by
-  `frontend/src/ifc/ifc.ts`.
-- `cargo run -p domotwin-ifc --example ifc2plan -- file.ifc [storey] > out.domotwin.json` converts a
-  file on the command line.
-- The test files in `crates/domotwin-ifc/tests/fixtures/` and `examples/demo-apartment.ifc` are
+- Crate `crates/domotwin-import` (the IFC files and the [other apps'](imports.md)): `step.rs` (STEP
+  physical file reader: one pass to index, attributes parsed on demand), `model.rs` (units,
+  placements, relations, geometry), `convert.rs` (storey → draft), `build.rs` (draft → plan, for
+  every format), `kinds.rs` (furniture kinds). Its wasm API (`web.rs`) is wrapped by
+  `frontend/src/import/import.ts`.
+- `cargo run -p domotwin-import --example import -- file.ifc [storey] > out.domotwin.json` converts
+  a file on the command line.
+- The test files in `crates/domotwin-import/tests/fixtures/` and `examples/demo-apartment.ifc` are
   fictional and written by `python3 scripts/make-ifc-fixtures.py`. Real IFC files never go in the
   repository (`.gitignore`).
 - The reader and the conversion are fuzzed (`fuzz/fuzz_targets/ifc_reader.rs`).

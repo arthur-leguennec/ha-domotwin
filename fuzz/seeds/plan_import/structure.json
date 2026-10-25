@@ -1,0 +1,728 @@
+{
+ "version": 2,
+ "rooms": [
+  {
+   "story": 0,
+   "version": 2
+  },
+  {
+   "story": 1,
+   "version": 2
+  }
+ ],
+ "walls": [
+  {
+   "identifier": "00000000-0000-4000-8000-000000000001",
+   "category": {
+    "wall": {}
+   },
+   "transform": [
+    0.978148,
+    0.0,
+    0.207912,
+    0.0,
+    0.0,
+    1.0,
+    0.0,
+    0.0,
+    -0.207912,
+    0.0,
+    0.978148,
+    0.0,
+    2.956295,
+    1.25,
+    0.915823,
+    1.0
+   ],
+   "dimensions": [
+    4.0,
+    2.5,
+    0.0
+   ],
+   "story": 0,
+   "confidence": {
+    "high": {}
+   },
+   "parentIdentifier": null,
+   "curve": null,
+   "completedEdges": [],
+   "polygonCorners": []
+  },
+  {
+   "identifier": "00000000-0000-4000-8000-000000000002",
+   "category": {
+    "wall": {}
+   },
+   "transform": [
+    0.207912,
+    0.0,
+    -0.978148,
+    0.0,
+    0.0,
+    1.0,
+    0.0,
+    0.0,
+    0.978148,
+    0.0,
+    0.207912,
+    0.0,
+    4.548745,
+    1.25,
+    3.043405,
+    1.0
+   ],
+   "dimensions": [
+    3.5,
+    2.5,
+    0.0
+   ],
+   "story": 0,
+   "confidence": {
+    "high": {}
+   },
+   "parentIdentifier": null,
+   "curve": null,
+   "completedEdges": [],
+   "polygonCorners": []
+  },
+  {
+   "identifier": "00000000-0000-4000-8000-000000000003",
+   "category": {
+    "wall": {}
+   },
+   "transform": [
+    -0.978148,
+    0.0,
+    -0.207912,
+    0.0,
+    0.0,
+    1.0,
+    0.0,
+    0.0,
+    0.207912,
+    0.0,
+    -0.978148,
+    0.0,
+    2.228604,
+    1.25,
+    4.33934,
+    1.0
+   ],
+   "dimensions": [
+    4.0,
+    2.5,
+    0.0
+   ],
+   "story": 0,
+   "confidence": {
+    "high": {}
+   },
+   "parentIdentifier": null,
+   "curve": null,
+   "completedEdges": [],
+   "polygonCorners": []
+  },
+  {
+   "identifier": "00000000-0000-4000-8000-000000000004",
+   "category": {
+    "wall": {}
+   },
+   "transform": [
+    -0.207912,
+    0.0,
+    0.978148,
+    0.0,
+    0.0,
+    1.0,
+    0.0,
+    0.0,
+    -0.978148,
+    0.0,
+    -0.207912,
+    0.0,
+    0.636155,
+    1.25,
+    2.211758,
+    1.0
+   ],
+   "dimensions": [
+    3.5,
+    2.5,
+    0.0
+   ],
+   "story": 0,
+   "confidence": {
+    "high": {}
+   },
+   "parentIdentifier": null,
+   "curve": null,
+   "completedEdges": [],
+   "polygonCorners": []
+  },
+  {
+   "identifier": "00000000-0000-4000-8000-000000000006",
+   "category": {
+    "wall": {}
+   },
+   "transform": [
+    0.978148,
+    0.0,
+    0.207912,
+    0.0,
+    0.0,
+    1.0,
+    0.0,
+    0.0,
+    -0.207912,
+    0.0,
+    0.978148,
+    0.0,
+    6.741726,
+    1.25,
+    1.720442,
+    1.0
+   ],
+   "dimensions": [
+    3.5,
+    2.5,
+    0.0
+   ],
+   "story": 0,
+   "confidence": {
+    "high": {}
+   },
+   "parentIdentifier": null,
+   "curve": null,
+   "completedEdges": [],
+   "polygonCorners": []
+  },
+  {
+   "identifier": "00000000-0000-4000-8000-000000000007",
+   "category": {
+    "wall": {}
+   },
+   "transform": [
+    0.207912,
+    0.0,
+    -0.978148,
+    0.0,
+    0.0,
+    1.0,
+    0.0,
+    0.0,
+    0.978148,
+    0.0,
+    0.207912,
+    0.0,
+    8.089639,
+    1.25,
+    3.796045,
+    1.0
+   ],
+   "dimensions": [
+    3.5,
+    2.5,
+    0.0
+   ],
+   "story": 0,
+   "confidence": {
+    "high": {}
+   },
+   "parentIdentifier": null,
+   "curve": null,
+   "completedEdges": [],
+   "polygonCorners": []
+  },
+  {
+   "identifier": "00000000-0000-4000-8000-000000000008",
+   "category": {
+    "wall": {}
+   },
+   "transform": [
+    -0.978148,
+    0.0,
+    -0.207912,
+    0.0,
+    0.0,
+    1.0,
+    0.0,
+    0.0,
+    0.207912,
+    0.0,
+    -0.978148,
+    0.0,
+    6.014035,
+    1.25,
+    5.143958,
+    1.0
+   ],
+   "dimensions": [
+    3.5,
+    2.5,
+    0.0
+   ],
+   "story": 0,
+   "confidence": {
+    "high": {}
+   },
+   "parentIdentifier": null,
+   "curve": null,
+   "completedEdges": [],
+   "polygonCorners": []
+  },
+  {
+   "identifier": "00000000-0000-4000-8000-000000000009",
+   "category": {
+    "wall": {}
+   },
+   "transform": [
+    -0.207912,
+    0.0,
+    0.978148,
+    0.0,
+    0.0,
+    1.0,
+    0.0,
+    0.0,
+    -0.978148,
+    0.0,
+    -0.207912,
+    0.0,
+    4.666123,
+    1.25,
+    3.068354,
+    1.0
+   ],
+   "dimensions": [
+    3.5,
+    2.5,
+    0.0
+   ],
+   "story": 0,
+   "confidence": {
+    "high": {}
+   },
+   "parentIdentifier": null,
+   "curve": null,
+   "completedEdges": [],
+   "polygonCorners": []
+  },
+  {
+   "identifier": "00000000-0000-4000-8000-000000000013",
+   "category": {
+    "wall": {}
+   },
+   "transform": [
+    0.978148,
+    0.0,
+    0.207912,
+    0.0,
+    0.0,
+    1.0,
+    0.0,
+    0.0,
+    -0.207912,
+    0.0,
+    0.978148,
+    0.0,
+    2.956295,
+    3.9,
+    0.915823,
+    1.0
+   ],
+   "dimensions": [
+    4.0,
+    2.4,
+    0.0
+   ],
+   "story": 1,
+   "confidence": {
+    "high": {}
+   },
+   "parentIdentifier": null,
+   "curve": null,
+   "completedEdges": [],
+   "polygonCorners": []
+  },
+  {
+   "identifier": "00000000-0000-4000-8000-000000000014",
+   "category": {
+    "wall": {}
+   },
+   "transform": [
+    0.207912,
+    0.0,
+    -0.978148,
+    0.0,
+    0.0,
+    1.0,
+    0.0,
+    0.0,
+    0.978148,
+    0.0,
+    0.207912,
+    0.0,
+    4.600723,
+    3.9,
+    2.798868,
+    1.0
+   ],
+   "dimensions": [
+    3.0,
+    2.4,
+    0.0
+   ],
+   "story": 1,
+   "confidence": {
+    "high": {}
+   },
+   "parentIdentifier": null,
+   "curve": null,
+   "completedEdges": [],
+   "polygonCorners": []
+  },
+  {
+   "identifier": "00000000-0000-4000-8000-000000000015",
+   "category": {
+    "wall": {}
+   },
+   "transform": [
+    -0.978148,
+    0.0,
+    -0.207912,
+    0.0,
+    0.0,
+    1.0,
+    0.0,
+    0.0,
+    0.207912,
+    0.0,
+    -0.978148,
+    0.0,
+    2.33256,
+    3.9,
+    3.850266,
+    1.0
+   ],
+   "dimensions": [
+    4.0,
+    2.4,
+    0.0
+   ],
+   "story": 1,
+   "confidence": {
+    "high": {}
+   },
+   "parentIdentifier": null,
+   "curve": null,
+   "completedEdges": [],
+   "polygonCorners": []
+  },
+  {
+   "identifier": "00000000-0000-4000-8000-000000000016",
+   "category": {
+    "wall": {}
+   },
+   "transform": [
+    -0.207912,
+    0.0,
+    0.978148,
+    0.0,
+    0.0,
+    1.0,
+    0.0,
+    0.0,
+    -0.978148,
+    0.0,
+    -0.207912,
+    0.0,
+    0.688132,
+    3.9,
+    1.967221,
+    1.0
+   ],
+   "dimensions": [
+    3.0,
+    2.4,
+    0.0
+   ],
+   "story": 1,
+   "confidence": {
+    "high": {}
+   },
+   "parentIdentifier": null,
+   "curve": null,
+   "completedEdges": [],
+   "polygonCorners": []
+  }
+ ],
+ "doors": [
+  {
+   "identifier": "00000000-0000-4000-8000-000000000011",
+   "category": {
+    "door": {
+     "isOpen": true
+    }
+   },
+   "transform": [
+    0.207912,
+    0.0,
+    -0.978148,
+    0.0,
+    0.0,
+    1.0,
+    0.0,
+    0.0,
+    0.978148,
+    0.0,
+    0.207912,
+    0.0,
+    4.704679,
+    1.025,
+    2.309794,
+    1.0
+   ],
+   "dimensions": [
+    0.85,
+    2.05,
+    0.0
+   ],
+   "story": 0,
+   "confidence": {
+    "high": {}
+   },
+   "parentIdentifier": "00000000-0000-4000-8000-000000000002",
+   "curve": null,
+   "completedEdges": [],
+   "polygonCorners": []
+  }
+ ],
+ "windows": [],
+ "openings": [],
+ "floors": [
+  {
+   "identifier": "00000000-0000-4000-8000-000000000005",
+   "category": {
+    "floor": {}
+   },
+   "transform": [
+    0.978148,
+    0.0,
+    0.207912,
+    0.0,
+    -0.207912,
+    0.0,
+    0.978148,
+    0.0,
+    0.0,
+    1.0,
+    0.0,
+    0.0,
+    2.59245,
+    0.0,
+    2.627582,
+    1.0
+   ],
+   "dimensions": [
+    4.0,
+    3.5,
+    0.0
+   ],
+   "story": 0,
+   "confidence": {
+    "high": {}
+   },
+   "parentIdentifier": null,
+   "curve": null,
+   "completedEdges": [],
+   "polygonCorners": [
+    [
+     -2.0,
+     -1.75,
+     0.0
+    ],
+    [
+     2.0,
+     -1.75,
+     0.0
+    ],
+    [
+     2.0,
+     1.75,
+     0.0
+    ],
+    [
+     -2.0,
+     1.75,
+     0.0
+    ]
+   ]
+  },
+  {
+   "identifier": "00000000-0000-4000-8000-000000000010",
+   "category": {
+    "floor": {}
+   },
+   "transform": [
+    0.978148,
+    0.0,
+    0.207912,
+    0.0,
+    -0.207912,
+    0.0,
+    0.978148,
+    0.0,
+    0.0,
+    1.0,
+    0.0,
+    0.0,
+    6.377881,
+    0.0,
+    3.4322,
+    1.0
+   ],
+   "dimensions": [
+    3.5,
+    3.5,
+    0.0
+   ],
+   "story": 0,
+   "confidence": {
+    "high": {}
+   },
+   "parentIdentifier": null,
+   "curve": null,
+   "completedEdges": [],
+   "polygonCorners": [
+    [
+     -1.75,
+     -1.75,
+     0.0
+    ],
+    [
+     1.75,
+     -1.75,
+     0.0
+    ],
+    [
+     1.75,
+     1.75,
+     0.0
+    ],
+    [
+     -1.75,
+     1.75,
+     0.0
+    ]
+   ]
+  }
+ ],
+ "objects": [
+  {
+   "identifier": "00000000-0000-4000-8000-000000000012",
+   "category": {
+    "bed": {}
+   },
+   "transform": [
+    0.978148,
+    0.0,
+    0.207912,
+    0.0,
+    0.0,
+    1.0,
+    0.0,
+    0.0,
+    -0.207912,
+    0.0,
+    0.978148,
+    0.0,
+    6.313665,
+    0.25,
+    3.878604,
+    1.0
+   ],
+   "dimensions": [
+    1.6,
+    0.5,
+    2.0
+   ],
+   "story": 0,
+   "confidence": {
+    "high": {}
+   },
+   "parentIdentifier": null,
+   "curve": null,
+   "completedEdges": [],
+   "polygonCorners": []
+  },
+  {
+   "identifier": "00000000-0000-4000-8000-000000000017",
+   "category": {
+    "table": {}
+   },
+   "transform": [
+    0.978148,
+    0.0,
+    0.207912,
+    0.0,
+    0.0,
+    1.0,
+    0.0,
+    0.0,
+    -0.207912,
+    0.0,
+    0.978148,
+    0.0,
+    2.831548,
+    3.075,
+    1.502712,
+    1.0
+   ],
+   "dimensions": [
+    1.4,
+    0.75,
+    0.7
+   ],
+   "story": 1,
+   "confidence": {
+    "high": {}
+   },
+   "parentIdentifier": null,
+   "curve": null,
+   "completedEdges": [],
+   "polygonCorners": [],
+   "attributes": {
+    "TableType": "unidentified"
+   }
+  }
+ ],
+ "sections": [
+  {
+   "label": "livingRoom",
+   "story": 0,
+   "center": [
+    2.59245,
+    0.0,
+    2.627582
+   ]
+  },
+  {
+   "label": "bedroom",
+   "story": 0,
+   "center": [
+    6.377881,
+    0.0,
+    3.4322
+   ]
+  },
+  {
+   "label": "unidentified",
+   "story": 1,
+   "center": [
+    2.644428,
+    2.7,
+    2.383045
+   ]
+  }
+ ]
+}

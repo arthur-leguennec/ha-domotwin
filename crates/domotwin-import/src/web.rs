@@ -1,9 +1,9 @@
-//! The WebAssembly API of the import, used by the panel when a `.ifc` file is picked.
+//! The WebAssembly API of the import, used by the panel when a plan of another app is picked.
 
 use serde_json::json;
 use wasm_bindgen::prelude::*;
 
-use crate::IfcFile;
+use crate::PlanFile;
 
 fn error(code: &str) -> JsError {
     JsError::new(&json!({ "code": code }).to_string())
@@ -12,24 +12,25 @@ fn error(code: &str) -> JsError {
 /// A file being imported.
 #[wasm_bindgen]
 #[derive(Debug)]
-pub struct IfcImport {
-    file: IfcFile,
+pub struct PlanImport {
+    file: PlanFile,
 }
 
 #[wasm_bindgen]
-impl IfcImport {
-    /// Reads the file's bytes. Errors are JSON `{"code"}`: `not_ifc`, `too_large`, `no_storeys`.
+impl PlanImport {
+    /// Reads the file's bytes; `title` names the plan when the file does not. Errors are JSON
+    /// `{"code"}`: `not_plan`, `not_ifc`, `too_large`, `no_storeys`, `sh3d_old`, `dxf_binary`.
     #[wasm_bindgen(constructor)]
-    pub fn new(bytes: Vec<u8>) -> Result<IfcImport, JsError> {
+    pub fn new(bytes: Vec<u8>, title: &str) -> Result<PlanImport, JsError> {
         console_error_panic_hook::set_once();
-        IfcFile::read(bytes)
-            .map(|file| IfcImport { file })
+        PlanFile::read(bytes, title)
+            .map(|file| PlanImport { file })
             .map_err(error)
     }
 
-    /// The schema named by the file.
-    pub fn schema(&self) -> String {
-        self.file.schema().to_owned()
+    /// The format found: `ifc`, `sh3d` or `dxf`.
+    pub fn format(&self) -> String {
+        self.file.format().to_owned()
     }
 
     /// The storeys, lowest first, as JSON

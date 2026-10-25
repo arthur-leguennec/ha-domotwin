@@ -6,18 +6,18 @@
 Every file describes an invented home; nothing comes from a real building. The output is
 deterministic (fixed ids and timestamp), so the files only change when this script does.
 
-- crates/domotwin-ifc/tests/fixtures/apartment-ifc4.ifc   IFC4, millimetres, one storey: spaces
+- crates/domotwin-import/tests/fixtures/apartment-ifc4.ifc   IFC4, millimetres, one storey: spaces
   with polyline, rectangle and indexed outlines, walls with material layers, doors filling
   openings (single, double, sliding, folding), windows, furniture with shared mapped geometry, an
   outside space and a gross-area space to leave out, an unknown proxy.
-- crates/domotwin-ifc/tests/fixtures/house-ifc2x3.ifc     IFC2x3, metres, two storeys, the
+- crates/domotwin-import/tests/fixtures/house-ifc2x3.ifc     IFC2x3, metres, two storeys, the
   building turned by 30° far from the origin, footprint curves, a brep, door styles, names only.
   The fridge carries what IFC2x3 says of its warranty (a calendar date and a period in seconds).
-- crates/domotwin-ifc/tests/fixtures/studio-feet-ifc4.ifc IFC4 in feet.
-- crates/domotwin-ifc/tests/fixtures/utility-ifc4.ifc     IFC4, a kitchen and a utility room whose
+- crates/domotwin-import/tests/fixtures/studio-feet-ifc4.ifc IFC4 in feet.
+- crates/domotwin-import/tests/fixtures/utility-ifc4.ifc     IFC4, a kitchen and a utility room whose
   appliances carry what is needed to look after them (D-033): manufacturer, model and serial
   number, installation, warranty and service life, on the piece, on its type and in an asset.
-- crates/domotwin-ifc/tests/fixtures/no-spaces-ifc4.ifc   walls only.
+- crates/domotwin-import/tests/fixtures/no-spaces-ifc4.ifc   walls only.
 - examples/demo-apartment.ifc                            the IFC4 apartment, to try the import.
 """
 
@@ -29,7 +29,7 @@ import shutil
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-FIXTURES = ROOT / "crates" / "domotwin-ifc" / "tests" / "fixtures"
+FIXTURES = ROOT / "crates" / "domotwin-import" / "tests" / "fixtures"
 ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_$"
 
 
@@ -624,7 +624,7 @@ def main() -> None:
     }
     for file, (make, name) in outputs.items():
         make().write(FIXTURES / file, name)
-        print(f"crates/domotwin-ifc/tests/fixtures/{file}")
+        print(f"crates/domotwin-import/tests/fixtures/{file}")
     shutil.copyfile(FIXTURES / "apartment-ifc4.ifc", ROOT / "examples" / "demo-apartment.ifc")
     print("examples/demo-apartment.ifc")
 

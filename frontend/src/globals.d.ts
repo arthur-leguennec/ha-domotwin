@@ -3,7 +3,7 @@ declare const __DOMOTWIN_VERSION__: string;
 /** File name of the engine's WebAssembly module (content-hashed by the build). */
 declare const __DOMOTWIN_WASM__: string;
 /** File name of the IFC import's WebAssembly module, loaded only to import a .ifc file. */
-declare const __DOMOTWIN_IFC_WASM__: string;
+declare const __DOMOTWIN_IMPORT_WASM__: string;
 /** File name of the 3D model reader's WebAssembly module, loaded only for plans with 3D files. */
 declare const __DOMOTWIN_MODELS_WASM__: string;
 /** File name of the plan editor's WebAssembly module, loaded only when the plan editor opens. */

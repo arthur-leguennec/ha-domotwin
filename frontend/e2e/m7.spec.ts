@@ -33,7 +33,7 @@ function expectIdsOfTheirOwn(home: StoredStorey[]): void {
   expect(new Set(ids).size).toBe(ids.length);
 }
 
-const IFC_FIXTURES = "../crates/domotwin-ifc/tests/fixtures";
+const IFC_FIXTURES = "../crates/domotwin-import/tests/fixtures";
 
 /** The switcher's storey buttons, not the one showing every storey. */
 const LEVELS = 'button:not([data-storey="all"])';
@@ -223,8 +223,8 @@ test.describe("storeys", () => {
     const chooser = page.waitForEvent("filechooser");
     await page.getByRole("button", { name: "Import plan" }).first().click();
     await (await chooser).setFiles(`${IFC_FIXTURES}/house-ifc2x3.ifc`);
-    await expect(page.getByTestId("ifc-storeys")).toBeVisible();
-    await page.getByTestId("ifc-all").click();
+    await expect(page.getByTestId("import-storeys")).toBeVisible();
+    await page.getByTestId("import-all").click();
     await expect(page.getByTestId("toast")).toContainText("storeys imported");
     const home = await storeys(page);
     // The file's storeys replace the home's.

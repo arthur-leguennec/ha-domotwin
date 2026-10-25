@@ -210,6 +210,26 @@ fn skip_blank(data: &[u8], mut i: usize) -> usize {
     }
 }
 
+/// Where a STEP file's header starts (past a byte-order mark, blanks and comments), when `data`
+/// is one.
+fn step_start(data: &[u8]) -> Option<usize> {
+    // A byte-order mark some editors add is not part of the file.
+    let bom = if data.starts_with(&[0xEF, 0xBB, 0xBF]) {
+        3
+    } else {
+        0
+    };
+    let start = skip_blank(data, bom);
+    let head = data.get(start..).unwrap_or_default();
+    let magic = b"ISO-10303-21";
+    (head.len() >= magic.len() && head[..magic.len()].eq_ignore_ascii_case(magic)).then_some(start)
+}
+
+/// Whether `data` is a STEP physical file (an IFC file's format).
+pub(crate) fn is_step(data: &[u8]) -> bool {
+    step_start(data).is_some()
+}
+
 impl StepFile {
     /// Indexes a file. Instances that cannot be indexed are skipped.
     ///
@@ -217,18 +237,7 @@ impl StepFile {
     ///
     /// `NotStep` when the file is not a STEP file, `TooLarge` past `MAX_ENTITIES` instances.
     pub fn new(data: Vec<u8>) -> Result<Self, StepError> {
-        // A byte-order mark some editors add is not part of the file.
-        let bom = if data.starts_with(&[0xEF, 0xBB, 0xBF]) {
-            3
-        } else {
-            0
-        };
-        let start = skip_blank(&data, bom);
-        let head = data.get(start..).unwrap_or_default();
-        let magic = b"ISO-10303-21";
-        if head.len() < magic.len() || !head[..magic.len()].eq_ignore_ascii_case(magic) {
-            return Err(StepError::NotStep);
-        }
+        let start = step_start(&data).ok_or(StepError::NotStep)?;
         let mut file = StepFile {
             data: Vec::new(),
             index: HashMap::new(),

@@ -5,7 +5,7 @@
 use libfuzzer_sys::fuzz_target;
 
 fuzz_target!(|data: &[u8]| {
-    if let Ok(file) = domotwin_ifc::IfcFile::read(data.to_vec()) {
+    if let Ok(file) = domotwin_import::IfcFile::read(data.to_vec()) {
         for storey in file.storeys() {
             let _ = file.convert(storey.id);
         }

@@ -62,8 +62,8 @@ In the panel, **Storeys** (administrators only) lists the storeys, highest first
   a value not understood is marked and not kept.
 - **Remove** (the cross) asks first, then removes the storey with its plan and overlay. The last
   storey stays.
-- **Import a plan as a new storey**: a DomoTwin plan (`*.domotwin.json`) or one storey of an IFC
-  file.
+- **Import a plan as a new storey**: a DomoTwin plan (`*.domotwin.json`) or one storey of a file
+  of another app ([IFC](ifc-import.md), [Sweet Home 3D, DXF, a room scan](imports.md)).
 - **Draw a new storey**: the [plan editor](plan-editor.md) on a new plan; saving it adds the
   storey.
 
@@ -74,21 +74,23 @@ A new storey goes 2.8 m above the highest one, or on the ground (0) when that is
 **Arrange** work on the storey shown. What is drawn or arranged and not saved is kept by the
 browser for its storey, and offered again on that storey only.
 
-### An IFC file with several storeys
+### A file with several storeys
 
-When the storeys of an IFC file have spaces, the import asks which one to import into the storey
-shown, or offers **Import every storey**: each storey of the file with spaces becomes a storey of
-the home, with its name and elevation, and they **replace every storey of the home** in one save
+When several storeys of a file have rooms (an IFC file's storeys, a Sweet Home 3D home's levels, a
+scan's stories), the import asks which one to import into the storey shown, or offers **Import
+every storey**: each storey of the file with rooms becomes a storey of the home, with its name and
+elevation, and they **replace every storey of the home** in one save
 (every plan is checked first: all of them are stored, or none). Their ids are given in order
 (`storey-1`, `storey-2`…), so a card set to show the floor above still does after the same
-building is imported again. Heights are measured from the file's storey nearest elevation 0 when
-one is within 2 m of it, else from its lowest storey.
+building is imported again. Heights are measured from an IFC file's storey nearest elevation 0
+when one is within 2 m of it (else from its lowest storey), a Sweet Home 3D home's level nearest 0,
+a scan's lowest story.
 
 ## Ids
 
 An element's id is the home's, not only its storey's: links and rooms' areas are kept by id, so no
 two storeys may use the same id (`duplicate_id`), nor the pieces added in edit mode. A plan imported
-as a new storey, or every storey of an IFC file, has its ids changed first where another storey
+as a new storey, or every storey of a file, has its ids changed first where another storey
 uses them (`living` becomes `living-2`, and the furniture in it follows). The plan editor and edit
 mode never give a new element an id another storey uses.
 

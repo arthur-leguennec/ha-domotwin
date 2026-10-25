@@ -4,7 +4,7 @@
 /**
  * A file being imported.
  */
-export class IfcImport {
+export class PlanImport {
     free(): void;
     [Symbol.dispose](): void;
     /**
@@ -13,13 +13,14 @@ export class IfcImport {
      */
     convert(storey: number): string;
     /**
-     * Reads the file's bytes. Errors are JSON `{"code"}`: `not_ifc`, `too_large`, `no_storeys`.
+     * The format found: `ifc`, `sh3d` or `dxf`.
      */
-    constructor(bytes: Uint8Array);
+    format(): string;
     /**
-     * The schema named by the file.
+     * Reads the file's bytes; `title` names the plan when the file does not. Errors are JSON
+     * `{"code"}`: `not_plan`, `not_ifc`, `too_large`, `no_storeys`, `sh3d_old`, `dxf_binary`.
      */
-    schema(): string;
+    constructor(bytes: Uint8Array, title: string);
     /**
      * The storeys, lowest first, as JSON
      * `[{"id", "name", "elevation", "spaces", "doors", "windows", "furniture"}]`.
@@ -31,11 +32,11 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 
 export interface InitOutput {
     readonly memory: WebAssembly.Memory;
-    readonly __wbg_ifcimport_free: (a: number, b: number) => void;
-    readonly ifcimport_convert: (a: number, b: number, c: number) => void;
-    readonly ifcimport_new: (a: number, b: number, c: number) => void;
-    readonly ifcimport_schema: (a: number, b: number) => void;
-    readonly ifcimport_storeys: (a: number, b: number) => void;
+    readonly __wbg_planimport_free: (a: number, b: number) => void;
+    readonly planimport_convert: (a: number, b: number, c: number) => void;
+    readonly planimport_format: (a: number, b: number) => void;
+    readonly planimport_new: (a: number, b: number, c: number, d: number, e: number) => void;
+    readonly planimport_storeys: (a: number, b: number) => void;
     readonly __wbindgen_export: (a: number, b: number, c: number) => void;
     readonly __wbindgen_export2: (a: number, b: number) => number;
     readonly __wbindgen_export3: (a: number, b: number, c: number, d: number) => number;

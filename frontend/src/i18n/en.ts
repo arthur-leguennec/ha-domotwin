@@ -11,7 +11,7 @@ export const en = {
     loading: "Loading DomoTwin…",
     no_plan: "No plan yet",
     no_plan_admin:
-      "Draw your plan in the DomoTwin panel, or import a DomoTwin plan (.domotwin.json) or an IFC file (.ifc).",
+      "Draw your plan in the DomoTwin panel, or import a DomoTwin plan (.domotwin.json), an IFC file, a Sweet Home 3D home, a DXF drawing or a room scan.",
     no_plan_user: "An administrator can import the plan from the DomoTwin panel.",
     untitled: "Untitled plan",
     rooms: { one: "{count} room", other: "{count} rooms" },
@@ -451,11 +451,24 @@ export const en = {
     nothing_to_export: "There is no plan to export yet.",
     dismiss: "Dismiss",
     cancel: "Cancel",
-    ifc_reading: "Reading {name}…",
-    ifc_pick: "Which storey of {name}?",
-    ifc_imported: "Imported from IFC: {title}.",
-    ifc_left_out: "Left out: {list}.",
-    ifc_cards: {
+    import_reading: "Reading {name}…",
+    import_pick: "Which storey of {name}?",
+    import_from: "Imported from {source}: {title}.",
+    import_rooms: {
+      living_room: "Living room",
+      bedroom: "Bedroom",
+      bathroom: "Bathroom",
+      kitchen: "Kitchen",
+      dining_room: "Dining room",
+    },
+    import_sources: {
+      ifc: "an IFC file",
+      sh3d: "Sweet Home 3D",
+      dxf: "a DXF drawing",
+      scan: "a room scan",
+    },
+    import_left_out: "Left out: {list}.",
+    import_cards: {
       one: "The file filled {count} upkeep card.",
       other: "The file filled {count} upkeep cards.",
     },
@@ -464,23 +477,23 @@ export const en = {
       other: "Plan exported. {count} of its pieces have an upkeep card, kept apart from the plan.",
     },
     export_upkeep: "Export the upkeep cards too",
-    ifc_cards_failed: {
+    import_cards_failed: {
       one: "{count} upkeep card could not be filled: {reason}",
       other: "{count} upkeep cards could not be filled: {reason}",
     },
-    ifc_unplaced: {
+    import_unplaced: {
       one: "{count} door or window off the walls",
       other: "{count} doors or windows off the walls",
     },
-    ifc_skipped_furniture: {
+    import_skipped_furniture: {
       one: "{count} unknown or stray piece",
       other: "{count} unknown or stray pieces",
     },
-    ifc_skipped_spaces: {
-      one: "{count} outside or overall space",
-      other: "{count} outside or overall spaces",
+    import_skipped_spaces: {
+      one: "{count} outside, overall or unreadable room",
+      other: "{count} outside, overall or unreadable rooms",
     },
-    ifc_over_limit: {
+    import_over_limit: {
       one: "{count} element past the 500 limit",
       other: "{count} elements past the 500 limit",
     },
@@ -558,9 +571,9 @@ export const en = {
     added: "Storey added.",
     save_failed: "The storey could not be saved: {reason}",
     close: "Close",
-    ifc_all: "Import every storey",
-    ifc_all_hint: "Replaces every storey of the home.",
-    ifc_all_imported: { one: "{count} storey imported.", other: "{count} storeys imported." },
+    import_all: "Import every storey",
+    import_all_hint: "Replaces every storey of the home.",
+    import_all_imported: { one: "{count} storey imported.", other: "{count} storeys imported." },
     all: "Every storey",
     rooms: { one: "{count} room", other: "{count} rooms" },
     lights_on: { one: "{count} light on", other: "{count} lights on" },
@@ -743,9 +756,17 @@ export const en = {
       missing_model: "an item uses a 3D model that is not in the plan.",
       invalid_model: "a 3D model of the plan is not valid.",
       not_ifc: "it is not an IFC file.",
-      no_storeys: "the IFC file has no storey.",
+      no_storeys: "the file has no storey.",
       no_spaces:
-        "this storey has no spaces (rooms). Add spaces in your modelling software and export again.",
+        "no room was found on this storey. Draw its rooms (spaces) in your app and export again.",
+      not_plan:
+        "it is not a plan this app can read: a DomoTwin plan, an IFC file, a Sweet Home 3D home (.sh3d), a DXF drawing or a room scan.",
+      sh3d_old: "it was saved by a Sweet Home 3D older than 5.3: open it there and save it again.",
+      dxf_binary: "it is a binary DXF drawing: save it as an ASCII DXF.",
+      scan_usdz:
+        "it is the main layer of a scan alone: import the whole USDZ file, or the scan’s JSON.",
+      scan_usdc:
+        "the scan was saved again in USD’s binary format: import the USDZ or the JSON the scanning app exported.",
       not_model: "it is not a 3D file this app can read, or it is damaged.",
       too_many_triangles: "the model has more than 150 000 triangles.",
       too_many_meshes: "the model has more than 5 000 parts once expanded.",

@@ -23,7 +23,7 @@ struct Entry {
 
 /// An archive, read lazily.
 #[derive(Debug)]
-pub(crate) struct Archive<'a> {
+pub struct Archive<'a> {
     bytes: &'a [u8],
     /// Entries by part name (see [`part_key`]).
     entries: HashMap<String, Entry>,
@@ -51,7 +51,7 @@ fn part_key(name: &str) -> String {
 
 impl<'a> Archive<'a> {
     /// Reads the central directory.
-    pub(crate) fn new(bytes: &'a [u8]) -> Result<Self, Error> {
+    pub fn new(bytes: &'a [u8]) -> Result<Self, Error> {
         if !bytes.starts_with(b"PK\x03\x04") {
             return Err(Error::NotModel);
         }
@@ -108,8 +108,13 @@ impl<'a> Archive<'a> {
         })
     }
 
+    /// The names of its parts, lower case and without a leading `/`.
+    pub fn names(&self) -> impl Iterator<Item = &str> {
+        self.entries.keys().map(String::as_str)
+    }
+
     /// Whether the archive has a part.
-    pub(crate) fn has(&self, name: &str) -> bool {
+    pub fn has(&self, name: &str) -> bool {
         self.entries.contains_key(&part_key(name))
     }
 
@@ -119,7 +124,7 @@ impl<'a> Archive<'a> {
     ///
     /// [`Error::NotModel`] for a missing, encrypted, corrupt or unknown-method part,
     /// [`Error::TooLarge`] past 32 MB unpacked in all.
-    pub(crate) fn read(&self, name: &str) -> Result<Vec<u8>, Error> {
+    pub fn read(&self, name: &str) -> Result<Vec<u8>, Error> {
         let entry = self.entries.get(&part_key(name)).ok_or(Error::NotModel)?;
         if entry.flags & 1 != 0 {
             return Err(Error::NotModel);

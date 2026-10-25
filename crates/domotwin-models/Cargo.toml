@@ -11,11 +11,16 @@ publish.workspace = true
 [lib]
 crate-type = ["cdylib", "rlib"]
 
+[features]
+# Its WebAssembly API: left out where only its readers are used (the plan import's ZIP and XML).
+default = ["web"]
+web = ["dep:wasm-bindgen", "dep:console_error_panic_hook"]
+
 [dependencies]
 serde_json.workspace = true
 miniz_oxide.workspace = true
-wasm-bindgen.workspace = true
-console_error_panic_hook.workspace = true
+wasm-bindgen = { workspace = true, optional = true }
+console_error_panic_hook = { workspace = true, optional = true }
 
 [dev-dependencies]
 domotwin-core.workspace = true

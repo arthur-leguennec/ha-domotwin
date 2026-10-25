@@ -7,7 +7,7 @@ export default tseslint.config(
   {
     ignores: [
       "src/engine/pkg/",
-      "src/ifc/pkg/",
+      "src/import/pkg/",
       "src/models/pkg/",
       "src/planner/pkg/",
       "node_modules/",

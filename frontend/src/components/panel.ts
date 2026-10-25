@@ -75,7 +75,7 @@ import {
   type LinkChange,
   type PlanElementInfo,
 } from "../live/suggest";
-import type { IfcFile, IfcReport, IfcStorey } from "../ifc/ifc";
+import type { ImportReport, ImportStorey, PlanFile, ScanRoom } from "../import/import";
 import type { ModelFormat, ModelInfo } from "../models/models";
 import { translatorFor, type Translator } from "../i18n";
 import { icon } from "./icon";
@@ -88,8 +88,10 @@ import type { DomoTwinView, EditCommand, PlanCommand, ViewOptions } from "./view
 
 /** The plan format allows files up to 32 MB. */
 const MAX_FILE_BYTES = 32_000_000;
-/** IFC files are read in the browser's memory: larger ones are refused. */
-const MAX_IFC_BYTES = 200_000_000;
+/** Plans of other apps are read in the browser's memory: larger ones are refused. */
+const MAX_IMPORT_BYTES = 200_000_000;
+/** The plans of other apps (D-040), by their files' names: read by the import module. */
+const IMPORTED_FILES = /\.(ifc|sh3d|dxf|usdz|usda|usdc)$/i;
 const PANEL_OPTIONS: ViewOptions = {
   quality: "auto",
   view: "3d",
@@ -113,11 +115,33 @@ interface Toast {
   action?: { label: string; run: () => void };
 }
 
-/** An IFC file waiting for the user to pick a storey. */
-interface IfcChoice {
-  file: IfcFile;
+/**
+ * Whether a JSON file is a room scan (RoomPlan's `CapturedRoom` or `CapturedStructure`, D-040)
+ * rather than a DomoTwin plan: read by the import module.
+ */
+async function isScan(file: File): Promise<boolean> {
+  // Larger than a plan may be: refused as one.
+  if (file.size > MAX_FILE_BYTES) return false;
+  try {
+    const text = await file.text();
+    // A DomoTwin plan says so: not parsed twice.
+    if (text.includes('"domotwin-plan"')) return false;
+    const read = JSON.parse(text.replace(/^\uFEFF/, "")) as unknown;
+    if (typeof read !== "object" || read === null || Array.isArray(read)) return false;
+    const fields = read as Record<string, unknown>;
+    return fields.format !== "domotwin-plan" && ("walls" in fields || "rooms" in fields);
+  } catch {
+    return false;
+  }
+}
+
+/** A plan of another app waiting for the user to pick a storey. */
+interface ImportChoice {
+  file: PlanFile;
   name: string;
-  storeys: IfcStorey[];
+  storeys: ImportStorey[];
+  /** Each storey's level among all the file's storeys (0: the ground floor), by id. */
+  levels: Map<number, number>;
 }
 
 /** A message already translated (a refused model of an imported plan). */
@@ -189,7 +213,7 @@ export class DomoTwinPanel extends LitElement {
     busy: { state: true },
     linking: { state: true },
     linkTarget: { state: true },
-    ifcChoice: { state: true },
+    importChoice: { state: true },
     editing: { state: true },
     edit: { state: true },
     multi: { state: true },
@@ -236,7 +260,7 @@ export class DomoTwinPanel extends LitElement {
   protected linkTarget?: LinkTarget;
   /** A device of the network map to place: the next piece picked stands for it (D-031). */
   private placing?: PlaceRequest;
-  protected ifcChoice?: IfcChoice;
+  protected importChoice?: ImportChoice;
   /** Edit mode: on, its state, taps adding to the selection, the catalogue open. */
   protected editing = false;
   protected edit?: EditState;
@@ -1369,7 +1393,7 @@ export class DomoTwinPanel extends LitElement {
 
   private readonly chooseFile = (): void => {
     // One import at a time: not while a file is read or its storey is being chosen.
-    if (this.busy || this.ifcChoice) return;
+    if (this.busy || this.importChoice) return;
     this.importTarget = "storey";
     this.renderRoot.querySelector<HTMLInputElement>("input.plan-file")?.click();
   };
@@ -1445,7 +1469,7 @@ export class DomoTwinPanel extends LitElement {
   };
 
   private readonly importStoreyFile = (): void => {
-    if (this.busy || this.ifcChoice) return;
+    if (this.busy || this.importChoice) return;
     this.storeysOpen = false;
     this.importTarget = "new";
     this.renderRoot.querySelector<HTMLInputElement>("input.plan-file")?.click();
@@ -1456,13 +1480,18 @@ export class DomoTwinPanel extends LitElement {
     const file = input.files?.[0];
     input.value = "";
     const client = this.client;
-    if (!file || !client || this.busy || this.ifcChoice) return;
-    if (/\.ifc$/i.test(file.name)) {
-      await this.readIfc(file);
+    if (!file || !client || this.busy || this.importChoice) return;
+    if (IMPORTED_FILES.test(file.name)) {
+      await this.readImport(file);
       return;
     }
     const t = this.t;
+    // Busy while the file is looked at: one import at a time.
     this.busy = true;
+    if (await isScan(file)) {
+      await this.readImport(file);
+      return;
+    }
     try {
       if (file.size > MAX_FILE_BYTES) throw new EngineError("too_large");
       const text = await file.text();
@@ -1517,49 +1546,59 @@ export class DomoTwinPanel extends LitElement {
     }
   }
 
-  /** Reads an IFC file with the IFC module (loaded now), then imports its storey or asks which. */
-  private async readIfc(file: File): Promise<void> {
+  /**
+   * Reads a plan of another app with the import module (loaded now), then imports its storey or
+   * asks which.
+   */
+  private async readImport(file: File): Promise<void> {
     const t = this.t;
     this.busy = true;
-    this.show(t.t("panel.ifc_reading", { name: file.name }));
-    let ifc: IfcFile | undefined;
+    this.show(t.t("panel.import_reading", { name: file.name }));
+    let read: PlanFile | undefined;
     try {
-      if (file.size > MAX_IFC_BYTES) throw new EngineError("too_large");
-      const { IfcFile } = await import("../ifc/ifc");
-      ifc = await IfcFile.read(new Uint8Array(await file.arrayBuffer()));
-      const storeys = ifc.storeys().filter((s) => s.spaces > 0);
+      if (file.size > MAX_IMPORT_BYTES) throw new EngineError("too_large");
+      const { PlanFile } = await import("../import/import");
+      // The file's name, for a plan the file does not name.
+      const title = file.name.replace(/\.[^.]*$/, "");
+      read = await PlanFile.read(new Uint8Array(await file.arrayBuffer()), title);
+      const all = read.storeys();
+      const storeys = all.filter((s) => s.spaces > 0);
       const only = storeys[0];
       if (!only) throw new EngineError("no_spaces");
       if (storeys.length > 1) {
-        this.ifcChoice = { file: ifc, name: file.name, storeys };
-        ifc = undefined;
+        const levels = new Map(storeyLevels(all).map(({ storey, level }) => [storey.id, level]));
+        this.importChoice = { file: read, name: file.name, storeys, levels };
+        read = undefined;
         this.toast = undefined;
         return;
       }
-      await this.importStorey(ifc, only);
+      await this.importStorey(read, only);
     } catch (error) {
       this.show(t.t("panel.import_failed", { reason: this.describe(error) }), true);
     } finally {
-      ifc?.dispose();
+      read?.dispose();
       this.busy = false;
     }
   }
 
   /** Converts a storey, has the engine check the plan, stores it and says what was left out. */
-  private async importStorey(ifc: IfcFile, storey: IfcStorey): Promise<void> {
+  private async importStorey(file: PlanFile, storey: ImportStorey): Promise<void> {
     const client = this.client;
     if (!client) return;
     const t = this.t;
-    const { plan, report, upkeep } = ifc.convert(storey.id);
+    const { plan, report, upkeep } = file.convert(storey.id, this.roomName);
     const summary = await summarizePlan(JSON.stringify(plan));
     const stored = await this.storePlan(plan);
     const cards = stored
       ? await this.fillCards([{ found: upkeep, before: plan, after: stored }])
       : { filled: 0 };
-    const imported = t.t("panel.ifc_imported", { title: summary.name || t.t("view.untitled") });
+    const imported = t.t("panel.import_from", {
+      source: t.t(`panel.import_sources.${file.format}`),
+      title: summary.name || t.t("view.untitled"),
+    });
     const left = this.leftOut(report);
     this.show(
-      (left ? `${imported} ${t.t("panel.ifc_left_out", { list: left })}` : imported) +
+      (left ? `${imported} ${t.t("panel.import_left_out", { list: left })}` : imported) +
         this.cardsText(cards),
       cards.failed !== undefined,
     );
@@ -1606,10 +1645,10 @@ export class DomoTwinPanel extends LitElement {
   private cardsText(result: { filled: number; failed?: { left: number; reason: string } }): string {
     const t = this.t;
     const parts: string[] = [];
-    if (result.filled > 0) parts.push(t.tp("panel.ifc_cards", result.filled));
+    if (result.filled > 0) parts.push(t.tp("panel.import_cards", result.filled));
     if (result.failed) {
       parts.push(
-        t.tp("panel.ifc_cards_failed", result.failed.left, { reason: result.failed.reason }),
+        t.tp("panel.import_cards_failed", result.failed.left, { reason: result.failed.reason }),
       );
     }
     return parts.map((part) => ` ${part}`).join("");
@@ -1639,10 +1678,10 @@ export class DomoTwinPanel extends LitElement {
   }
 
   /**
-   * Every storey of an IFC file with rooms: each plan read by the engine first, then they replace
+   * Every storey of a file with rooms: each plan read by the engine first, then they replace
    * the home's storeys in one save (all of them, or none if one is refused).
    */
-  private async importAllStoreys(choice: IfcChoice): Promise<void> {
+  private async importAllStoreys(choice: ImportChoice): Promise<void> {
     const client = this.client;
     if (!client) return;
     const t = this.t;
@@ -1651,7 +1690,7 @@ export class DomoTwinPanel extends LitElement {
     const taken: string[] = [];
     const { freeIds } = await import("../planner/planner");
     for (const storey of choice.storeys) {
-      const converted = choice.file.convert(storey.id);
+      const converted = choice.file.convert(storey.id, this.roomName);
       const plan = (await freeIds(converted.plan, taken)) as PlanJson;
       await summarizePlan(JSON.stringify(plan));
       taken.push(...storeyIds(plan));
@@ -1664,28 +1703,31 @@ export class DomoTwinPanel extends LitElement {
     this.storey = undefined;
     await this.loadPlan();
     this.show(
-      t.tp("storey.ifc_all_imported", storeys.length) + this.cardsText(cards),
+      t.tp("storey.import_all_imported", storeys.length) + this.cardsText(cards),
       cards.failed !== undefined,
     );
   }
 
-  private leftOut(report: IfcReport): string {
+  /** The name of a room a scan names by its kind, in the user's language. */
+  private readonly roomName = (key: ScanRoom): string => this.t.t(`panel.import_rooms.${key}`);
+
+  private leftOut(report: ImportReport): string {
     const t = this.t;
     const parts: string[] = [];
     if (report.unplacedOpenings > 0)
-      parts.push(t.tp("panel.ifc_unplaced", report.unplacedOpenings));
+      parts.push(t.tp("panel.import_unplaced", report.unplacedOpenings));
     if (report.skippedFurniture > 0)
-      parts.push(t.tp("panel.ifc_skipped_furniture", report.skippedFurniture));
+      parts.push(t.tp("panel.import_skipped_furniture", report.skippedFurniture));
     if (report.skippedSpaces > 0)
-      parts.push(t.tp("panel.ifc_skipped_spaces", report.skippedSpaces));
-    if (report.overLimit > 0) parts.push(t.tp("panel.ifc_over_limit", report.overLimit));
+      parts.push(t.tp("panel.import_skipped_spaces", report.skippedSpaces));
+    if (report.overLimit > 0) parts.push(t.tp("panel.import_over_limit", report.overLimit));
     return parts.join(", ");
   }
 
-  private async pickStorey(storey: IfcStorey): Promise<void> {
-    const choice = this.ifcChoice;
+  private async pickStorey(storey: ImportStorey): Promise<void> {
+    const choice = this.importChoice;
     if (!choice) return;
-    this.ifcChoice = undefined;
+    this.importChoice = undefined;
     this.busy = true;
     try {
       await this.importStorey(choice.file, storey);
@@ -1698,9 +1740,9 @@ export class DomoTwinPanel extends LitElement {
   }
 
   private async pickAllStoreys(): Promise<void> {
-    const choice = this.ifcChoice;
+    const choice = this.importChoice;
     if (!choice) return;
-    this.ifcChoice = undefined;
+    this.importChoice = undefined;
     this.busy = true;
     try {
       await this.importAllStoreys(choice);
@@ -1713,8 +1755,8 @@ export class DomoTwinPanel extends LitElement {
   }
 
   private readonly cancelIfc = (): void => {
-    this.ifcChoice?.file.dispose();
-    this.ifcChoice = undefined;
+    this.importChoice?.file.dispose();
+    this.importChoice = undefined;
   };
 
   private readonly exportPlan = async (): Promise<void> => {
@@ -1818,16 +1860,16 @@ export class DomoTwinPanel extends LitElement {
     return left.length;
   }
 
-  private renderStoreys(choice: IfcChoice): TemplateResult {
+  private renderStoreys(choice: ImportChoice): TemplateResult {
     const t = this.t;
     const metres = new Intl.NumberFormat(t.language, { maximumFractionDigits: 2 });
     return html`<div
       class="storeys glass"
       role="dialog"
-      aria-label=${t.t("panel.ifc_pick", { name: choice.name })}
-      data-testid="ifc-storeys"
+      aria-label=${t.t("panel.import_pick", { name: choice.name })}
+      data-testid="import-storeys"
     >
-      <h2>${t.t("panel.ifc_pick", { name: choice.name })}</h2>
+      <h2>${t.t("panel.import_pick", { name: choice.name })}</h2>
       ${choice.storeys.map(
         (storey) =>
           html`<button
@@ -1836,24 +1878,24 @@ export class DomoTwinPanel extends LitElement {
               void this.pickStorey(storey);
             }}
           >
-            <span class="name">${storey.name || t.t("view.untitled")}</span>
+            <span class="name">${storeyName(t, storey, choice.levels.get(storey.id) ?? 0)}</span>
             <span class="detail"
               >${t.tp("view.rooms", storey.spaces)} · ${metres.format(storey.elevation / 100)}
               m</span
             >
           </button>`,
       )}
-      <p class="hint">${t.t("storey.ifc_all_hint")}</p>
+      <p class="hint">${t.t("storey.import_all_hint")}</p>
       <div class="footer">
         <button class="action quiet" @click=${this.cancelIfc}>${t.t("panel.cancel")}</button>
         <button
           class="action"
-          data-testid="ifc-all"
+          data-testid="import-all"
           @click=${() => {
             void this.pickAllStoreys();
           }}
         >
-          ${t.t("storey.ifc_all")}
+          ${t.t("storey.import_all")}
         </button>
       </div>
     </div>`;
@@ -1955,7 +1997,7 @@ export class DomoTwinPanel extends LitElement {
       <input
         class="plan-file"
         type="file"
-        accept=".json,application/json,.ifc"
+        accept=".json,application/json,.ifc,.sh3d,.dxf,.usdz,.usda,.usdc"
         @change=${this.importFile}
       />
       <input
@@ -1972,7 +2014,7 @@ export class DomoTwinPanel extends LitElement {
         admin
           ? html`<button
               class="action"
-              ?disabled=${this.busy || this.ifcChoice !== undefined}
+              ?disabled=${this.busy || this.importChoice !== undefined}
               @click=${this.chooseFile}
               aria-label=${t.t("panel.import")}
             >
@@ -1985,7 +2027,7 @@ export class DomoTwinPanel extends LitElement {
           ? html`<button
               class="action"
               data-testid="storeys-manage"
-              ?disabled=${this.busy || this.ifcChoice !== undefined}
+              ?disabled=${this.busy || this.importChoice !== undefined}
               @click=${this.openStoreys}
               aria-label=${t.t("storey.manage")}
               title=${t.t("storey.manage")}
@@ -1999,7 +2041,7 @@ export class DomoTwinPanel extends LitElement {
           ? html`<button
               class="action"
               data-testid="plan-mode"
-              ?disabled=${this.busy || this.ifcChoice !== undefined}
+              ?disabled=${this.busy || this.importChoice !== undefined}
               @click=${this.startPlan}
               aria-label=${t.t("plan.mode")}
               title=${t.t("plan.mode")}
@@ -2013,7 +2055,7 @@ export class DomoTwinPanel extends LitElement {
           ? html`<button
               class="action"
               data-testid="edit-mode"
-              ?disabled=${this.busy || this.ifcChoice !== undefined}
+              ?disabled=${this.busy || this.importChoice !== undefined}
               @click=${this.startEdit}
               aria-label=${t.t("edit.mode")}
             >
@@ -2287,7 +2329,7 @@ export class DomoTwinPanel extends LitElement {
           ></domotwin-link>`
         : nothing
     }
-    ${this.ifcChoice ? this.renderStoreys(this.ifcChoice) : nothing}
+    ${this.importChoice ? this.renderStoreys(this.importChoice) : nothing}
     ${this.northDraft !== undefined ? this.renderSettings(this.northDraft) : nothing}
     ${
       this.peopleOpen

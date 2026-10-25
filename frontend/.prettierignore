@@ -1,6 +1,6 @@
 node_modules/
 src/engine/pkg/
-src/ifc/pkg/
+src/import/pkg/
 src/models/pkg/
 src/planner/pkg/
 test-results/

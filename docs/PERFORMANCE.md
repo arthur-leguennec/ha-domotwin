@@ -587,3 +587,43 @@ Closing or opening rooms builds the scene again, only when a room of the scene s
 opens (headless Chromium, the median of nine, the living room and the bedroom closed then open):
 **6.3 ms** for the demo apartment, 8.9 ms with its upper floor. The frame is unchanged: the cover
 is one texel read on the floors, and a closed room draws fewer triangles.
+
+### M11 (plans of other apps)
+
+Bundle: the first load is **471.9 kB gzipped** of 1 200 kB (+1.2 kB: the panel picks Sweet Home 3D
+homes, DXF drawings and scans). The import module, fetched only when such a
+file or an IFC file is picked, reads four formats instead of one:
+
+| File | Raw | Gzipped |
+| --- | --- | --- |
+| `domotwin_import_bg.<hash>.wasm` (on demand) | 490.1 kB | 217.6 kB (IFC alone: 120.4 kB) |
+| `chunks/domotwin_import-<hash>.js` (glue, on demand) | 5.3 kB | 2.1 kB |
+| `chunks/import-<hash>.js` (wrapper, scan rooms' names, on demand) | 1.0 kB | 0.6 kB |
+
+Most of the growth is the readers' own code (Sweet Home 3D, DXF, the scans and USDA, the faces of
+lines), the ZIP and XML readers of `domotwin-models` (its 3D formats and its wasm API left out) and
+`serde_json`'s reading of RoomPlan's JSON. M12b looks at the copies of the standard library's sorts
+and maps each reader brings.
+
+Import time (Node 22, the median of seven runs: read, list the storeys, convert one), on the
+fictional test files and on generated grids of 10 × 10 and 20 × 20 rooms with a door and furniture
+in each (500 elements kept, the rest reported):
+
+| File | Size | Time |
+| --- | --- | --- |
+| `cottage.sh3d` (4 rooms, 19 openings and pieces) | 1 kB | 3 ms |
+| `studio.dxf` (2 rooms, 7 openings and pieces) | 2 kB | 1 ms |
+| `scan.usdz` / `scan.json` (1 room, 9 elements) | 20 kB / 8 kB | 3 ms / 1 ms |
+| Sweet Home 3D, 100 rooms, 400 doors and pieces | 9 kB | 21 ms |
+| DXF, 100 rooms from wall lines, 100 pieces | 12 kB | 12 ms |
+| RoomPlan structure, 100 rooms, 200 doors and objects | 140 kB | 12 ms |
+| Sweet Home 3D, 400 rooms | 34 kB | 113 ms |
+| DXF, 400 rooms from wall lines | 44 kB | 95 ms |
+| RoomPlan structure, 400 rooms | 566 kB | 95 ms |
+| DXF, a grid of 80 × 80 lines 70 cm apart (6 400 faces, 500 kept) | 7 kB | 1.1 s |
+
+The last is the worst case found: the rooms past the 500-element limit are left out before the
+gaps between rooms are measured two by two (it took 6 s before), and the segments are swept from
+left to right to find where they cross. The fuzz target `plan_import` found two crashes, fixed:
+an overflow in the grid of `faces`, and blocks that insert themselves (now counted in the
+entities' budget). Once the readers were final, it ran 270 000 inputs in five minutes without a crash.

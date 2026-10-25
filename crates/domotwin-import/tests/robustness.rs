@@ -5,7 +5,7 @@
 use std::time::{Duration, Instant};
 
 use domotwin_core::read_plan;
-use domotwin_ifc::{IfcFile, Report};
+use domotwin_import::{IfcFile, Report};
 use serde_json::Value;
 
 /// A small IFC4 file in metres: one storey, spaces and elements added by the test.

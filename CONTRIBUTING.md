@@ -45,7 +45,7 @@ The same commands run in CI:
 # Rust
 cargo fmt --all --check
 cargo clippy --workspace --all-targets -- -D warnings
-cargo clippy -p domotwin-web -p domotwin-ifc -p domotwin-models -p domotwin-planner --target wasm32-unknown-unknown --all-targets -- -D warnings
+cargo clippy -p domotwin-web -p domotwin-import -p domotwin-models -p domotwin-planner --target wasm32-unknown-unknown --all-targets -- -D warnings
 cargo test --workspace
 (cd crates/domotwin-web && CHROMEDRIVER=/path/to/chromedriver cargo test --target wasm32-unknown-unknown)
 cargo deny check
@@ -63,10 +63,12 @@ node scripts/check-bundle-size.mjs
 ```
 
 `cargo fuzz run plan_reader` (in `fuzz/`, nightly toolchain) fuzzes the plan reader
-(`edit_layout`: the edit overlay, `ifc_reader`: the IFC import, `model_file`: the 3D model readers);
+(`edit_layout`: the edit overlay, `ifc_reader`: the IFC import, `plan_import`: the other imports,
+`model_file`: the 3D model readers);
 CI runs the targets a pull request concerns for a minute each, and all of them weekly.
 
-The fictional test files are written by scripts: `python3 scripts/make-ifc-fixtures.py` (IFC) and
+The fictional test files are written by scripts: `python3 scripts/make-ifc-fixtures.py` (IFC),
+`python3 scripts/make-import-fixtures.py` (Sweet Home 3D, DXF, room scans) and
 `python3 scripts/make-model-fixtures.py` (the 3D models of `examples/models/`).
 
 Visual-regression snapshots compare only the canvas pixels rendered by software WebGL2. After an
