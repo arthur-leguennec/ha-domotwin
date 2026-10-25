@@ -526,3 +526,29 @@ of the demo home (ten rooms), median of five runs:
 | A tick: 30 devices weighed against 8 receivers, filtered along the doors | every 2 s | 4.4 ms |
 
 The sensors are written when a room changes, not at each tick, so the recorder gets a row per move.
+
+### M8b (cartoon and clay)
+
+Bundle: the first load is **459.0 kB gzipped** of 1 200 kB (+3.2 kB). The engine grew by 2.9 kB
+(`domotwin_web_bg.<hash>.wasm`: 842.6 kB raw, 365.4 kB gzipped): the two looks' data, the
+shading in steps and the composite pass's ink. The rest is the options, the overlays' colours and
+the texts.
+
+Frame time at 1280 × 720, the demo apartment in the evening with its lamps on, *reduce motion* on.
+The CPU column is headless Chromium (`e2e/perf.spec.ts`, "frame time of each look", High). The
+software GPU column is SwiftShader, the median of nine frames each read back:
+
+| Look | CPU per frame, High (median, p95) | Software GPU, High | Software GPU, Balanced |
+| --- | ---: | ---: | ---: |
+| Day | 0.7 ms, 2.7 ms | 247 ms | 225 ms |
+| Neon | 0.4 ms, 0.8 ms | 243 ms | 251 ms |
+| Blueprint | 0.4 ms, 3.9 ms | 252 ms | 240 ms |
+| Cartoon | 0.4 ms, 4.7 ms | 269 ms | 237 ms |
+| Clay | 0.4 ms, 5.9 ms | 271 ms | 235 ms |
+
+The CPU's share does not change with the look. On the software GPU, the cartoon costs 9 % more
+than day on High (the depth resolve and the ink's pass, nine depth reads a pixel where the home
+is) and 5 % more on
+Balanced, where it is drawn offscreen for its ink alone while day goes straight to the screen;
+there it makes no bloom textures. Clay costs what day costs: its matte shading changes uniforms,
+not passes. Eco draws both straight to the screen, the cartoon without the ink from the depth.

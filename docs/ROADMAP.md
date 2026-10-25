@@ -26,7 +26,7 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M9d       | Upkeep cards: makes, warranties, recurring tasks           | ✅     |
 | M9e       | People in their rooms, live                                | ✅     |
 | M9f       | Bluetooth locating, without Bermuda or ESPresense          | ✅     |
-| M8b       | Two more looks: cartoon and clay                           | ⏳     |
+| M8b       | Two more looks: cartoon and clay                           | ✅     |
 | M11       | Imports: Sweet Home 3D, DXF, room scans                    | ⏳     |
 | M12       | Polish: design, fonts, accessibility, performance, README  | ⏳     |
 | M13       | Release 0.1.0 and HACS submission checklist                | ⏳     |
@@ -591,6 +591,27 @@ or ESPresense (`DECISIONS.md`, D-035; [`bluetooth.md`](bluetooth.md)).
 
 Left for later: a position inside the room (trilateration), a heat map of what each receiver
 hears.
+
+## M8b, two more looks
+
+A cartoon and a clay model besides neon, blueprint and day (`DECISIONS.md`, D-036;
+[`looks.md`](looks.md)).
+
+- ✅ **Researched**: cel shading, flat colours and the three usual ways to ink a 3D scene (an
+  inverted hull, edges found in the picture, lines from the geometry), and which second look.
+- ✅ **Cartoon**: two steps of sunlight, vivid flat colours, thick ink on the home's outlines, a
+  darker rim on curved pieces, and ink found in the picture's depth around the furniture, the
+  people and the home (from the Balanced quality up), under a blue sky on a lawn; inked labels.
+- ✅ **Clay model**: one warm matte clay, soft light and shadows, faint lines; lamps still glow.
+- ✅ Both follow the time of day, in the 3D view and the 2D plan; a card's `theme: cartoon` or
+  `clay`, and the panel's settings.
+- ✅ Tests: the looks' data (Rust); every look drawn at each quality, the cartoon's ink alone on
+  Balanced (wasm); the options (vitest, pytest); the sky, the ink by quality, the time of day, the
+  settings and a picture of each (Playwright); the frame time of each look.
+
+![The demo apartment in the day, in the cartoon and clay looks](figures/screenshot-cartoon-clay.png)
+
+Left for later: ink on the creases of a piece (found in its normals), a watercolour look.
 
 ## M11, imports
 

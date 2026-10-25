@@ -42,10 +42,10 @@ export interface HarnessOptions {
   /** Card option: the storey shown first. */
   storey?: string;
   /** Card options: the look and its accent. */
-  theme?: "auto" | "day" | "neon" | "blueprint";
+  theme?: "auto" | "day" | "neon" | "blueprint" | "cartoon" | "clay";
   accent?: string;
   /** The home's look (the stored settings). */
-  homeTheme?: "auto" | "day" | "neon" | "blueprint";
+  homeTheme?: "auto" | "day" | "neon" | "blueprint" | "cartoon" | "clay";
   /** Card option: the rooms' names off. */
   names?: false;
   /** Kiosk options (D-029): the card's screen name, `idle` seconds, `orbit`, `night_dim`. */

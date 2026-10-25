@@ -1015,6 +1015,16 @@ export class DomoTwinView extends LitElement {
       :host([look="blueprint"]) .person-tag {
         box-shadow: 0 0 10px color-mix(in srgb, var(--person) 70%, transparent);
       }
+      /* The cartoon's labels are inked like its outlines (D-036); a person keeps their colour. */
+      :host([look="cartoon"]) .room-name {
+        border: 2px solid var(--domotwin-ink);
+        box-shadow: 2px 2px 0 var(--domotwin-ink);
+      }
+      :host([look="cartoon"]) .person-tag {
+        box-shadow:
+          0 0 0 2px var(--domotwin-ink),
+          3px 3px 0 2px var(--domotwin-ink);
+      }
       .storey-label {
         position: absolute;
         transform: translate(14px, -50%);

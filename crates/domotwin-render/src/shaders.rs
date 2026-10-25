@@ -7,6 +7,31 @@
 //! `u_elements`.
 
 /// Vertex shader of every pass.
+/// The looks' steps of light and vividness (D-036), shared by the home's and the people's shaders:
+/// GLSL that needs `u_bands` and `u_saturation`.
+macro_rules! shading_glsl {
+    () => {
+        r"
+// Light in the look's steps (as drawn by hand), their edges smoothed over a pixel or so. Called
+// where every pixel of a quad runs (it takes a derivative).
+float band(float x) {
+    if (u_bands < 0.5) {
+        return x;
+    }
+    float s = x * u_bands;
+    float edge = max(fwidth(s), 1e-4);
+    return (floor(s) + smoothstep(0.5 - edge, 0.5 + edge, fract(s))) / u_bands;
+}
+
+// Colours more vivid (above 1) or duller (below 1).
+vec3 saturated(vec3 c) {
+    float grey = dot(c, vec3(0.2126, 0.7152, 0.0722));
+    return max(mix(vec3(grey), c, u_saturation), 0.0);
+}
+"
+    };
+}
+
 pub(crate) const VERTEX: &str = r"
 uniform mat4 u_view_proj;
 uniform vec4 u_cut[32];
@@ -94,7 +119,8 @@ void main() {
 ";
 
 /// Shading of the colour passes (opaque and transparent).
-pub(crate) const FRAGMENT: &str = r"
+pub(crate) const FRAGMENT: &str = concat!(
+    r"
 precision highp sampler2D;
 
 uniform vec3 u_eye;
@@ -134,6 +160,18 @@ uniform float u_floor_tint;
 uniform vec3 u_floor_palette;
 uniform vec3 u_plan_floor;
 uniform vec3 u_plan_cap;
+// How light falls and colours show in a look (D-036): the palette's contrast, bands of light (0:
+// smooth), vividness, patterns left out, ink on the edges of rounded pieces, shine.
+uniform float u_tint_contrast;
+uniform float u_bands;
+uniform float u_saturation;
+uniform float u_flatten;
+uniform float u_rim_ink;
+uniform float u_specular;
+
+",
+    shading_glsl!(),
+    r"
 uniform float u_glow_alpha;
 
 // The layers (D-023), three texels per room slot: heatmap colour (linear) and strength; the
@@ -334,16 +372,21 @@ void main() {
     } else if (surface == FABRIC) {
         albedo = base * (0.94 + 0.08 * noise(v_uv * 1.7));
     }
-    // The look's palette, keeping each surface's lightness.
+    // Patterns left out (the cartoon's flat colours, the clay's single matter).
+    albedo = mix(albedo, base, u_flatten);
+    // The look's palette, keeping each surface's lightness (as much as the look says).
     bool floor_surface = surface == PLANKS || surface == TILES || surface == FLOOR;
     float lightness = dot(albedo, vec3(0.2126, 0.7152, 0.0722));
     if (surface == WALL_CAP && u_glass_walls > 0.5) {
         albedo = to_linear(u_wall_cap);
     } else if (floor_surface) {
-        albedo = mix(albedo, to_linear(u_floor_palette) * (0.5 + 0.8 * lightness), u_floor_tint);
+        vec3 floor_tone = to_linear(u_floor_palette) * mix(1.0, 0.5 + 0.8 * lightness, u_tint_contrast);
+        albedo = mix(albedo, floor_tone, u_floor_tint);
     } else if (surface != GLOW && surface != SCREEN && surface != GLASS) {
-        albedo = mix(albedo, to_linear(u_palette) * (0.45 + 1.6 * lightness), u_tint);
+        vec3 tone = to_linear(u_palette) * mix(1.0, 0.45 + 1.6 * lightness, u_tint_contrast);
+        albedo = mix(albedo, tone, u_tint);
     }
+    albedo = saturated(albedo);
 
     // Room layers, on the floors: the heatmap as a soft halo from the centre of the room, its
     // edge moving slowly; a warm glow where someone is; an alert pulsing towards the walls.
@@ -388,8 +431,9 @@ void main() {
     float shadow = surface == CEILING ? 0.0 : sun_shadow(n);
     float ndl = dot(n, u_sun);
     float wrap = surface == LEAF ? 0.4 : 0.0;
-    float diffuse_sun = max((ndl + wrap) / (1.0 + wrap), 0.0) * shadow;
-    vec3 hemi = mix(u_ground, u_sky, n.y * 0.5 + 0.5);
+    float diffuse_sun = band(max((ndl + wrap) / (1.0 + wrap), 0.0) * shadow);
+    // In bands, the sky's light is even (flat colours), the sun's makes the bands.
+    vec3 hemi = mix(u_ground, u_sky, u_bands > 0.5 ? 0.7 : n.y * 0.5 + 0.5);
     // A ceiling sees the light the room sends back up, about as much as the walls get.
     if (surface == CEILING) {
         hemi = mix(u_ground, u_sky, 0.75);
@@ -402,20 +446,33 @@ void main() {
     float ao = mix(1.0, mix(u_ao, 1.0, smoothstep(0.0, 90.0, v_height)), 1.0 - abs(n.y));
     bool metal = surface == METAL || surface == MIRROR;
     vec3 bounce = u_sun_color * u_bounce * (1.0 - shadow) * (0.6 + 0.4 * max(n.y, 0.0));
-    vec3 diffuse =
-        albedo * (hemi * ao + u_sun_color * diffuse_sun + bounce) * (metal ? 0.3 : 1.0);
+    // Metals take little of the light themselves, as much as the look lets them shine.
+    float metal_diffuse = metal ? mix(1.0, 0.3, min(u_specular, 1.0)) : 1.0;
+    vec3 diffuse = albedo * (hemi * ao + u_sun_color * diffuse_sun + bounce) * metal_diffuse;
     vec3 h = normalize(u_sun + v);
     float shininess = exp2(11.0 * (1.0 - rough) + 1.0);
     float spec = pow(max(dot(n, h), 0.0), shininess) * (shininess + 8.0) / 25.0;
+    // In bands, a highlight is a spot or nothing.
+    spec = (u_bands > 0.5 ? smoothstep(0.4, 0.6, spec) * 0.8 : spec) * u_specular;
     float fresnel = pow(1.0 - max(dot(n, v), 0.0), 5.0);
     vec3 f0 = metal ? albedo : vec3(0.04);
     vec3 f = f0 + (1.0 - f0) * fresnel * (1.0 - rough);
     vec3 color = diffuse + u_sun_color * spec * f * shadow * step(0.0, ndl) * (1.0 - rough * 0.85);
-    color += env * f * (1.0 - rough) * 0.6;
+    color += env * f * (1.0 - rough) * 0.6 * u_specular;
     color += albedo * lamps(n) * (metal ? 0.4 : 1.0);
+    // Ink where curved pieces turn away, seen side on (the cartoon's outlines of furniture). Only
+    // where the surface curves: a flat face seen at a grazing angle keeps its colour.
+    float curved = smoothstep(0.01, 0.06, length(fwidth(n)));
+    bool inked = surface != GLOW && surface != SCREEN && surface != GLASS && surface != MIRROR
+        && surface != CEILING && surface != WALL_CAP && !floor_surface;
+    if (u_rim_ink > 0.0 && inked) {
+        float side = abs(dot(n, v));
+        color *= mix(1.0, smoothstep(0.06, 0.26, side), u_rim_ink * curved);
+    }
     float alpha = 1.0;
     if (surface == MIRROR) {
-        color = env * 0.9 + albedo * 0.1;
+        color = mix(albedo * (hemi + u_sun_color * diffuse_sun), env * 0.9 + albedo * 0.1,
+            min(u_specular, 1.0));
     } else if (surface == SCREEN) {
         color = albedo * 0.2 + env * (0.04 + 0.4 * fresnel);
     } else if (surface == GLASS) {
@@ -489,7 +546,8 @@ void main() {
     }
     frag = vec4(pow(shaded, vec3(1.0 / 2.2)), a);
 }
-";
+"
+);
 
 /// Depth only (shadow map).
 pub(crate) const DEPTH: &str = r"
@@ -915,6 +973,64 @@ void main() {
 }
 ";
 
+/// The cartoon's ink (D-036), laid over what is opaque before glass, outlines, halos and wires are
+/// drawn: where the distance from the eye bends towards it, read from the picture's depth.
+pub(crate) const INK: &str = r"
+precision highp sampler2D;
+
+// How much (0: none), the depth of what is opaque, how a depth turns into a distance from the eye
+// (the projection's third and fourth rows), the size of a usual line's width at a distance d
+// (x + y·d, cm), one step (texture coordinates) and the colour.
+uniform float u_outline;
+uniform sampler2D u_depth;
+uniform vec4 u_depth_to_distance;
+uniform vec2 u_pixel;
+uniform vec2 u_ink_step;
+uniform vec3 u_ink;
+
+in vec2 v_uv;
+out vec4 frag;
+
+// How far from the eye (cm) a depth is.
+float distance_of(float depth) {
+    float z = depth * 2.0 - 1.0;
+    vec4 p = u_depth_to_distance;
+    return (z * p.w - p.z) / (z * p.y - p.x);
+}
+
+float distance_at(vec2 uv) {
+    return distance_of(texture(u_depth, uv).r);
+}
+
+// How much the distance bends towards the eye over `step` on each side, in line widths there.
+// Across a plane, however slanted, it barely bends; at the edge of something before what is
+// behind it, by the gap between them.
+float bend(vec2 step, float c) {
+    float l = distance_at(v_uv - vec2(step.x, 0.0));
+    float r = distance_at(v_uv + vec2(step.x, 0.0));
+    float d = distance_at(v_uv - vec2(0.0, step.y));
+    float u = distance_at(v_uv + vec2(0.0, step.y));
+    return max(l + r - 2.0 * c, u + d - 2.0 * c) / max(u_pixel.x + u_pixel.y * c, 1e-3);
+}
+
+void main() {
+    float depth = texture(u_depth, v_uv).r;
+    // Nothing is nearer than the background: no ink on the sky and the lawn.
+    if (depth >= 1.0) {
+        discard;
+    }
+    float c = distance_of(depth);
+    // Whole next to the edge, by half a step further (a softer edge).
+    float next = smoothstep(10.0, 30.0, bend(u_ink_step * 0.5, c));
+    float further = smoothstep(10.0, 30.0, bend(u_ink_step, c));
+    float ink = 0.5 * (next + further) * u_outline;
+    if (ink <= 0.0) {
+        discard;
+    }
+    frag = vec4(u_ink, ink);
+}
+";
+
 /// A person's figure, pin or shadow (D-034): the shape moved to where the person stands, turned
 /// the way they face.
 pub(crate) const FIGURE_VERTEX: &str = r"
@@ -944,7 +1060,8 @@ void main() {
 /// A person in their colour: lit by the sky and the sun, a rim of light around them, glowing in
 /// the looks that glow. Fading in or out, it dissolves (the depth stays right). Their shadow is
 /// a soft dark disc.
-pub(crate) const FIGURE_FRAGMENT: &str = r"
+pub(crate) const FIGURE_FRAGMENT: &str = concat!(
+    r"
 // Linear colour, and how much the person shows.
 uniform vec4 u_color;
 uniform vec3 u_eye;
@@ -957,13 +1074,19 @@ uniform float u_glow;
 uniform float u_glow_alpha;
 uniform float u_flat;
 uniform float u_shadow_pass;
+uniform float u_bands;
+uniform float u_saturation;
+// Dissolved by how much the person shows (fading in or out), else whole.
+uniform float u_dissolve;
 
 in vec3 v_world;
 in vec3 v_normal;
 in float v_rim;
 
 out vec4 frag;
-
+",
+    shading_glsl!(),
+    r"
 vec3 aces(vec3 x) {
     return clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14), 0.0, 1.0);
 }
@@ -982,20 +1105,24 @@ void main() {
         frag = vec4(0.0, 0.0, 0.0, a);
         return;
     }
-    if (u_color.a < 0.999 && bayer(gl_FragCoord.xy) >= u_color.a) {
+    vec3 n = normalize(v_normal);
+    // The look's steps of sunlight (D-036), as on the furniture, worked out before any pixel is
+    // dissolved (it takes a derivative); in steps, the sky's light is even.
+    float sun = band(max(dot(n, u_sun), 0.0));
+    float up = u_bands > 0.5 ? 0.7 : n.y * 0.5 + 0.5;
+    if (u_dissolve > 0.5 && bayer(gl_FragCoord.xy) >= u_color.a) {
         discard;
     }
-    vec3 n = normalize(v_normal);
     vec3 view = normalize(u_eye - v_world);
     float facing = max(dot(n, view), 0.0);
     float rim = pow(1.0 - facing, 2.2);
-    vec3 base = u_color.rgb;
-    vec3 ambient = mix(u_ground, u_sky, n.y * 0.5 + 0.5);
-    float sun = max(dot(n, u_sun), 0.0);
+    vec3 base = saturated(u_color.rgb);
+    vec3 ambient = mix(u_ground, u_sky, up);
     vec3 lit = base * (ambient * 0.85 + u_sun_color * sun * 0.75) + (base * 0.5 + 0.12) * rim;
     lit = mix(lit, base * 1.4 + rim * base * 2.5, u_glow * 0.6);
     vec3 shaded = mix(aces(lit * u_exposure), base, u_flat);
     float a = u_glow_alpha > 0.5 ? clamp(u_glow * (0.25 + rim), 0.0, 1.0) : 1.0;
     frag = vec4(pow(shaded, vec3(1.0 / 2.2)), a);
 }
-";
+"
+);

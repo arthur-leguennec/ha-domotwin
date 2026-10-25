@@ -29,9 +29,11 @@ Local, fast, Rust + WebAssembly.</p>
   them, and see it as a clean 3D model. The
   walls facing the camera are lowered automatically, like an open dollhouse. Switch to a crisp 2D
   plan with a smooth animation.
-- **Three looks.** **Neon**: walls of glass outlined in a glowing accent colour over a grid,
+- **Five looks.** **Neon**: walls of glass outlined in a glowing accent colour over a grid,
   lamps and screens that shine; **blueprint**: white lines on blue; **day**: the home as it is, in
-  the light of the time of day. Automatic: neon in Home Assistant's dark mode. See
+  the light of the time of day; **cartoon**: flat bright colours inked in black, under a blue sky;
+  **clay model**: the home in matte clay, like an architect's model. Automatic: neon in Home
+  Assistant's dark mode. See
   [looks](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/looks.md).
 - **Tap to control.** Tap a lamp to toggle it, long-press for brightness and colour, long-press a
   room to get every light, scene, cover, climate and media player of that room.
@@ -93,7 +95,11 @@ Local, fast, Rust + WebAssembly.</p>
 - **Yours.** English and French, follows your Home Assistant theme, works in the companion apps.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-looks.png" alt="The demo apartment in the evening in the three looks: neon, blueprint and day" width="100%">
+  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-looks.png" alt="The demo apartment in the evening in three looks: neon, blueprint and day" width="100%">
+</p>
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-cartoon-clay.png" alt="The demo apartment in the day in the cartoon look, its furniture and people inked in black on bright floors under a blue sky, and in the clay model look, all in one warm matte clay" width="100%">
 </p>
 
 <p align="center">
@@ -195,7 +201,7 @@ YAML is never required. For reference, the card options are:
 | `sun`         | `fixed`, `real`                     | `fixed`    | `real`: the sun lights from where it is (`sun.sun`), through the windows. |
 | `badges`      | `true`, `false`                     | `true`     | Badges over the devices: locks, cameras, what plays, low batteries, appliances running. |
 | `cameras`     | `true`, `false`                     | `true`     | What the linked cameras see, drawn on the floor. |
-| `theme`       | `auto`, `day`, `neon`, `blueprint`  | the home's | The look; `auto` is neon in dark mode.    |
+| `theme`       | `auto`, `day`, `neon`, `blueprint`, `cartoon`, `clay` | the home's | The look; `auto` is neon in dark mode. |
 | `accent`      | a colour `#rrggbb`                  | the home's | Accent of the look (neon's glowing outlines). |
 | `names`       | `true`, `false`                     | `true`     | The rooms' names on their floors.         |
 | `idle`        | seconds (0 to 86400)                | `0`        | Kiosk: back to this view after this long untouched (0: never). |

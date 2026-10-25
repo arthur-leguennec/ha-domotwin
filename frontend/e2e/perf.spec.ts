@@ -24,13 +24,13 @@ test("frame time with the demo plan", async ({ page }, testInfo) => {
   expect(stats.frames).toBe(120);
 });
 
-// The looks (D-027) at High quality: day drawn straight to the screen, neon and blueprint offscreen
-// with MSAA and their bloom.
+// The looks (D-027, D-036) at High quality: each drawn offscreen with MSAA and its bloom, the
+// cartoon with its ink too.
 test("frame time of each look", async ({ page }, testInfo) => {
   // A software GPU draws a High frame in a fraction of a second.
   test.setTimeout(240_000);
   const report: Record<string, FrameStats> = {};
-  for (const theme of ["day", "neon", "blueprint"] as const) {
+  for (const theme of ["day", "neon", "blueprint", "cartoon", "clay"] as const) {
     await openHarness(page, { theme, lighting: "evening", live: true });
     await expect(page.getByTestId("summary")).toBeVisible();
     await page.evaluate(() => {

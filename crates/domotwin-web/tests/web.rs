@@ -452,9 +452,15 @@ fn every_look_draws_with_and_without_its_bloom() {
         .unwrap()
         .dyn_into::<web_sys::WebGl2RenderingContext>()
         .unwrap();
-    for quality in ["eco", "high"] {
+    for quality in ["eco", "balanced", "high"] {
         engine.set_quality(quality);
-        for (name, accent) in [("day", "#00d4ff"), ("neon", "#FF2D95"), ("blueprint", "x")] {
+        for (name, accent) in [
+            ("day", "#00d4ff"),
+            ("neon", "#FF2D95"),
+            ("blueprint", "x"),
+            ("cartoon", "#00d4ff"),
+            ("clay", "#00d4ff"),
+        ] {
             assert_eq!(engine.set_theme(name, accent), name);
             assert!(engine.stats().contains(&format!("\"theme\":\"{name}\"")));
             engine.frame(0.0);
@@ -467,6 +473,21 @@ fn every_look_draws_with_and_without_its_bloom() {
             assert!(engine.pick(160, 120).contains("\"id\""), "{name} {quality}");
         }
     }
+    // The cartoon on Balanced: offscreen for its ink alone, without the bloom (D-036).
+    engine.set_quality("balanced");
+    engine.set_theme("cartoon", "");
+    engine.frame(0.0);
+    let stats = engine.stats();
+    assert!(
+        stats.contains("\"offscreen\":{\"bloom\":false,\"ink\":true,\"on\":true}"),
+        "{stats}"
+    );
+    engine.set_quality("eco");
+    assert!(
+        engine
+            .stats()
+            .contains("\"offscreen\":{\"bloom\":false,\"ink\":false,\"on\":false}")
+    );
     // The 2D plan, at the end of its move.
     engine.set_plan_view(true, 0.0);
     engine.frame(10_000.0);
@@ -879,6 +900,50 @@ fn upkeep_states_and_the_layer() {
     assert!(!engine.frame(32.0));
     engine.set_upkeep_layer(false);
     engine.set_upkeep("{}");
+}
+
+#[wasm_bindgen_test]
+fn the_cartoons_ink_comes_before_people_fading_and_glass() {
+    // D-036: with the ink, a frame is drawn in two phases around it; people fading in are drawn
+    // after it.
+    let surface = canvas();
+    let mut engine = Engine::new(surface.clone()).unwrap();
+    engine.load_plan(DEMO, None, None).unwrap();
+    let gl = surface
+        .get_context("webgl2")
+        .unwrap()
+        .unwrap()
+        .dyn_into::<web_sys::WebGl2RenderingContext>()
+        .unwrap();
+    for quality in ["balanced", "high"] {
+        engine.set_quality(quality);
+        engine.set_theme("cartoon", "");
+        engine.set_people(r##"[{"id": "person.alex", "room": "kitchen", "color": "#e8508a"}]"##);
+        // A few frames while they fade in are enough (each is slow on a software GPU).
+        let mut t = 0.0;
+        let mut fading = 0;
+        while engine.frame(t) && fading < 4 && t < 2_000.0 {
+            let points: Vec<serde_json::Value> =
+                serde_json::from_str(&engine.people_points()).unwrap();
+            if points
+                .iter()
+                .any(|p| p["opacity"].as_f64().is_some_and(|o| o > 0.0 && o < 1.0))
+            {
+                fading += 1;
+            }
+            assert_eq!(
+                gl.get_error(),
+                web_sys::WebGl2RenderingContext::NO_ERROR,
+                "{quality} at {t}"
+            );
+            t += 50.0;
+        }
+        assert_eq!(fading, 4, "{quality}: {fading} frames fading");
+        assert!(engine.stats().contains("\"ink\":true"));
+        engine.set_motion(false);
+        engine.set_people("[]");
+        engine.set_motion(true);
+    }
 }
 
 #[wasm_bindgen_test]

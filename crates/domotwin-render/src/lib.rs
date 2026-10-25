@@ -23,7 +23,7 @@ use domotwin_core::scene::lines::Line;
 use domotwin_core::scene::mesh::Mesh;
 use domotwin_core::scene::wires::WireSegment;
 use domotwin_core::scene::{LightSpot, MovingParts, Scene, StoreyPart};
-use domotwin_core::theme::{Theme, ThemeName};
+use domotwin_core::theme::Theme;
 use lamps::{Halo, Mark, PointLight};
 pub use quality::{GpuHint, QualityPreset};
 pub use three_d::context::Context as GlContext;
@@ -130,6 +130,38 @@ pub struct Figure {
     pub opacity: f32,
     /// A pin rather than a figure.
     pub pin: bool,
+}
+
+impl Figure {
+    /// Fading in or out: shown, but not wholly.
+    fn fading(&self) -> bool {
+        self.opacity > 0.0 && self.opacity < FULLY_SHOWN
+    }
+}
+
+/// From this opacity a person is drawn whole; below it, dissolved (the figure shader's
+/// `u_dissolve`).
+const FULLY_SHOWN: f32 = 0.999;
+
+/// Which passes of a frame are drawn: all, or (with the ink, D-036) what is opaque, then what is
+/// seen through or over it.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Phase {
+    Whole,
+    /// The background, what is opaque, the people wholly shown.
+    Solid,
+    /// The people fading, glass, glass walls, the outlines, the halos, the wires.
+    SeeThrough,
+}
+
+/// Which people a pass draws.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum People {
+    All,
+    /// Those wholly shown.
+    Solid,
+    /// Those fading in or out.
+    Fading,
 }
 
 /// A shape of the people on the GPU.
@@ -412,13 +444,17 @@ struct GpuRoof {
     lines: Option<GpuLines>,
 }
 
-/// The offscreen targets of the bloom (D-027): the picture drawn with MSAA, resolved, and the
-/// levels of its glow, each half the size of the one before.
+/// The offscreen targets of the bloom (D-027) and the ink (D-036): the picture drawn with MSAA,
+/// resolved, its depth for the looks with ink, and the levels of its glow, each half the size of
+/// the one before.
 struct PostTargets {
     width: u32,
     height: u32,
     scene: RenderTargetMultisample<[u8; 4], f32>,
     resolved: Texture2D,
+    depth: Option<DepthTexture2D>,
+    /// The bloom's levels (none when nothing glows).
+    glow: bool,
     levels: Vec<Texture2D>,
 }
 
@@ -509,6 +545,7 @@ pub struct Renderer {
     bloom_down: Program,
     bloom_up: Program,
     composite: Program,
+    ink: Program,
     /// The look (D-027).
     theme: Theme,
     /// The offscreen targets, while the look glows.
@@ -698,6 +735,7 @@ impl Renderer {
         let bloom_down = Program::from_source(&context, full, shaders::BLOOM_DOWN)?;
         let bloom_up = Program::from_source(&context, full, shaders::BLOOM_UP)?;
         let composite = Program::from_source(&context, full, shaders::COMPOSITE)?;
+        let ink = Program::from_source(&context, full, shaders::INK)?;
         let (columns, rows, texels) = lamps::element_rows(lamps::element_texels(&[], &[], &[]));
         let elements = rows_texture(&context, columns, rows, &texels);
         let rooms = row_texture(&context, &[[0.0; 4]; 3]);
@@ -731,6 +769,7 @@ impl Renderer {
             bloom_down,
             bloom_up,
             composite,
+            ink,
             theme: Theme::default(),
             post: None,
             parts: Vec::new(),
@@ -1232,25 +1271,40 @@ impl Renderer {
             });
     }
 
-    /// Whether frames are drawn offscreen for the bloom (D-027): the looks that glow, on GPUs that
-    /// can afford it (day only on desktop GPUs).
+    /// Whether frames are drawn offscreen: for the bloom (D-027) or the ink (D-036), on GPUs that
+    /// can afford it.
     fn post_on(&self) -> bool {
+        self.glow_on() || self.ink_on()
+    }
+
+    /// Whether frames are drawn offscreen, with the bloom, with the ink (D-027, D-036).
+    pub fn effects(&self) -> (bool, bool, bool) {
+        (self.post_on(), self.glow_on(), self.ink_on())
+    }
+
+    /// Whether what glows blooms: on High, and from Balanced for the looks that say so.
+    fn glow_on(&self) -> bool {
         self.theme.bloom > 0.0
             && match self.quality {
                 QualityPreset::Eco => false,
-                QualityPreset::Balanced => self.theme.name != ThemeName::Day,
+                QualityPreset::Balanced => self.theme.bloom_on_balanced,
                 QualityPreset::High => true,
             }
+    }
+
+    /// Whether the look's ink is drawn (D-036): from the Balanced preset up.
+    fn ink_on(&self) -> bool {
+        self.theme.outline > 0.0 && self.quality != QualityPreset::Eco
     }
 
     /// The offscreen targets at the size of the view, made again when it changed.
     fn ensure_post(&mut self) {
         let (width, height) = (self.width, self.height);
-        if self
-            .post
-            .as_ref()
-            .is_some_and(|p| (p.width, p.height) == (width, height))
-        {
+        let ink = self.ink_on();
+        let glow = self.glow_on();
+        if self.post.as_ref().is_some_and(|p| {
+            (p.width, p.height, p.depth.is_some(), p.glow) == (width, height, ink, glow)
+        }) {
             return;
         }
         let texture = |w: u32, h: u32| {
@@ -1267,7 +1321,7 @@ impl Renderer {
         };
         let mut levels = Vec::new();
         let (mut w, mut h) = (width / 2, height / 2);
-        while levels.len() < BLOOM_LEVELS && w.min(h) >= 8 {
+        while glow && levels.len() < BLOOM_LEVELS && w.min(h) >= 8 {
             levels.push(texture(w, h));
             (w, h) = (w / 2, h / 2);
         }
@@ -1276,6 +1330,16 @@ impl Renderer {
             height,
             scene: RenderTargetMultisample::new(&self.context, width, height, MSAA_SAMPLES),
             resolved: texture(width, height),
+            depth: ink.then(|| {
+                DepthTexture2D::new::<f32>(
+                    &self.context,
+                    width.max(1),
+                    height.max(1),
+                    Wrapping::ClampToEdge,
+                    Wrapping::ClampToEdge,
+                )
+            }),
+            glow,
             levels,
         });
     }
@@ -1285,34 +1349,44 @@ impl Renderer {
         self.theme.lighting.unwrap_or(self.lighting)
     }
 
-    /// The background's colours: the look's, or for the day look, shades of the dashboard's, the
-    /// ground dimming with the light of the time of day.
+    /// The background's colours: the look's own (the night looks, D-027), or dimming with the light
+    /// of the time of day: the day look's shades of the dashboard's colours (its sky kept), the
+    /// sky and lawn of the cartoon and the clay's backdrop (D-036).
     fn backdrop(&self) -> ([f32; 3], [f32; 3], [f32; 3], [f32; 3]) {
         let t = &self.theme;
-        if t.name != ThemeName::Day {
+        if !t.follows_time() {
             return (t.sky_top, t.sky_horizon, t.ground, t.grid);
         }
-        let Rgb { r, g, b } = self.background;
-        let shade = |k: f32| [r * k, g * k, b * k];
         let sky = self.lighting.sky;
         let daylight = Lighting::default().sky;
         let luma = |c: [f32; 3]| 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
         let dim = (luma(sky) / luma(daylight).max(1e-3))
             .sqrt()
             .clamp(0.4, 1.0);
+        if !t.sky_from_dashboard {
+            let shade = |c: [f32; 3], k: f32| c.map(|v| v * k);
+            return (
+                shade(t.sky_top, dim),
+                shade(t.sky_horizon, dim),
+                shade(t.ground, dim),
+                shade(t.grid, dim),
+            );
+        }
+        let Rgb { r, g, b } = self.background;
+        let shade = |k: f32| [r * k, g * k, b * k];
         (shade(1.0), shade(0.95), shade(0.93 * dim), shade(0.8 * dim))
     }
 
     /// Width of the lines in device pixels.
     fn line_width(&self) -> f32 {
+        self.pixel_scale() * self.theme.line_width
+    }
+
+    /// A line's usual width in device pixels: wider on larger views.
+    fn pixel_scale(&self) -> f32 {
         #[allow(clippy::cast_precision_loss)]
         let side = self.width.min(self.height) as f32;
-        let base = (side / 650.0).clamp(1.0, 3.0);
-        match self.theme.name {
-            ThemeName::Day => base * 0.9,
-            ThemeName::Neon => base * 1.5,
-            ThemeName::Blueprint => base * 1.2,
-        }
+        (side / 650.0).clamp(1.0, 3.0)
     }
 
     /// Draws one frame at `time_ms`. Returns `true` while an animation needs more frames.
@@ -1372,13 +1446,28 @@ impl Renderer {
         let viewport = Viewport::new_at_origo(self.width, self.height);
         let [r, g, b] = self.backdrop().1;
         if let Some(targets) = self.post.as_ref() {
+            // With the ink (D-036): what is opaque, then the ink read from its depth, then what is
+            // seen through or over it, so that no ink crosses glass, outlines, halos or wires.
+            let first = if targets.depth.is_some() {
+                Phase::Solid
+            } else {
+                Phase::Whole
+            };
             let _ = targets
                 .scene
                 .clear(ClearState::color_and_depth(r, g, b, 0.0, 1.0))
                 .write::<CoreError>(|| {
-                    self.draw_passes(viewport, None);
+                    self.draw_passes(viewport, None, first);
                     Ok(())
                 });
+            if let Some(depth) = targets.depth.as_ref() {
+                targets.scene.resolve_depth_to(&depth.as_depth_target());
+                let _ = targets.scene.write::<CoreError>(|| {
+                    self.draw_ink(viewport, depth, &projection);
+                    self.draw_passes(viewport, None, Phase::SeeThrough);
+                    Ok(())
+                });
+            }
             targets
                 .scene
                 .resolve_color_to(&targets.resolved.as_color_target(None));
@@ -1387,7 +1476,7 @@ impl Renderer {
             let _ = RenderTarget::screen(&self.context, self.width, self.height)
                 .clear(ClearState::color_and_depth(r, g, b, 1.0, 1.0))
                 .write::<CoreError>(|| {
-                    self.draw_passes(viewport, None);
+                    self.draw_passes(viewport, None, Phase::Whole);
                     Ok(())
                 });
         }
@@ -1438,6 +1527,13 @@ impl Renderer {
         program.use_uniform_if_required("u_floor_palette", rgb(t.floor_palette));
         program.use_uniform_if_required("u_plan_floor", rgb(t.plan_floor));
         program.use_uniform_if_required("u_plan_cap", rgb(t.plan_cap));
+        let shading = &t.shading;
+        program.use_uniform_if_required("u_tint_contrast", shading.tint_contrast);
+        program.use_uniform_if_required("u_bands", shading.bands);
+        program.use_uniform_if_required("u_saturation", shading.saturation);
+        program.use_uniform_if_required("u_flatten", shading.flatten);
+        program.use_uniform_if_required("u_rim_ink", shading.rim_ink);
+        program.use_uniform_if_required("u_specular", shading.specular);
         program.use_uniform_if_required("u_glow_alpha", on(post));
         // Lamps and halos count less in daylight: a lamp lit at noon barely shows indoors.
         let gain = light.lamp_gain();
@@ -1577,10 +1673,12 @@ impl Renderer {
         program.use_uniform_if_required("u_glow", self.theme.line_glow.min(1.0));
         program.use_uniform_if_required("u_glow_alpha", if post { 1.0_f32 } else { 0.0 });
         program.use_uniform_if_required("u_flat", flat);
+        program.use_uniform_if_required("u_bands", self.theme.shading.bands);
+        program.use_uniform_if_required("u_saturation", self.theme.shading.saturation);
     }
 
     /// The people (D-034): their shadows, then them, in the depth of the picture.
-    fn draw_people(&self, viewport: Viewport) {
+    fn draw_people(&self, viewport: Viewport, which: People) {
         let Some(shapes) = self.people.as_ref() else {
             return;
         };
@@ -1620,18 +1718,27 @@ impl Renderer {
             Vec4::new(x, y, z, f.heading)
         };
         let color = |f: &Figure| Vec4::new(f.color[0], f.color[1], f.color[2], f.opacity);
-        program.use_uniform_if_required("u_shadow_pass", 1.0_f32);
-        program.use_uniform_if_required("u_scale", SHADOW_RADIUS);
-        for f in self.figures.iter().filter(|f| f.opacity > 0.0) {
-            program.use_uniform("u_place", placed(f, 0.6 - f.at[1]));
-            program.use_uniform("u_color", color(f));
-            shapes.shadow.draw(program, shadow_states, viewport);
+        // The shadows write no depth: all drawn with the first people drawn.
+        if which != People::Fading {
+            program.use_uniform_if_required("u_shadow_pass", 1.0_f32);
+            program.use_uniform_if_required("u_scale", SHADOW_RADIUS);
+            for f in self.figures.iter().filter(|f| f.opacity > 0.0) {
+                program.use_uniform("u_place", placed(f, 0.6 - f.at[1]));
+                program.use_uniform("u_color", color(f));
+                shapes.shadow.draw(program, shadow_states, viewport);
+            }
         }
         program.use_uniform_if_required("u_shadow_pass", 0.0_f32);
         program.use_uniform_if_required("u_scale", 1.0_f32);
-        for f in self.figures.iter().filter(|f| f.opacity > 0.0) {
+        let drawn = |f: &&Figure| match which {
+            People::All => f.opacity > 0.0,
+            People::Solid => f.opacity > 0.0 && !f.fading(),
+            People::Fading => f.fading(),
+        };
+        for f in self.figures.iter().filter(drawn) {
             program.use_uniform("u_place", placed(f, 0.0));
             program.use_uniform("u_color", color(f));
+            program.use_uniform_if_required("u_dissolve", if f.fading() { 1.0_f32 } else { 0.0 });
             let shape = if f.pin { &shapes.pin } else { &shapes.figure };
             shape.draw(program, body_states, viewport);
         }
@@ -1639,16 +1746,19 @@ impl Renderer {
 
     /// Every pass of a frame, into the target being written: the background, what is opaque,
     /// the people, glass, glass walls, the outlines, the halos, the wires.
-    fn draw_passes(&self, viewport: Viewport, only: Option<usize>) {
-        let behind = RenderStates {
-            write_mask: WriteMask::COLOR,
-            depth_test: DepthTest::Always,
-            blend: Blend::Disabled,
-            cull: Cull::None,
-        };
-        let background = &self.background_program;
-        self.bind_textures(background);
-        background.draw_arrays(behind, viewport, 3);
+    fn draw_passes(&self, viewport: Viewport, only: Option<usize>, phase: Phase) {
+        let solid = phase != Phase::SeeThrough;
+        if solid {
+            let behind = RenderStates {
+                write_mask: WriteMask::COLOR,
+                depth_test: DepthTest::Always,
+                blend: Blend::Disabled,
+                cull: Cull::None,
+            };
+            let background = &self.background_program;
+            self.bind_textures(background);
+            background.draw_arrays(behind, viewport, 3);
+        }
         let program = &self.main;
         self.bind_textures(program);
         let opaque_states = RenderStates {
@@ -1674,7 +1784,7 @@ impl Renderer {
             .and_then(|(roof, offset)| Some((roof.mesh.as_ref()?, offset, roof)));
         let storeys = self.drawn(only);
         // What is opaque, storey by storey; glass walls only have their tops drawn with it.
-        for (part, offset, lights) in &storeys {
+        for (part, offset, lights) in storeys.iter().filter(|_| solid) {
             self.use_storey(program, *offset, lights, gain);
             for mesh in part.meshes[..2].iter().flatten() {
                 mesh.draw(program, opaque_states, viewport);
@@ -1690,14 +1800,27 @@ impl Renderer {
                 ceiling.draw(program, opaque_states, viewport);
             }
         }
-        if let Some((mesh, offset, _)) = roof.filter(|_| !glass_walls) {
+        if let Some((mesh, offset, _)) = roof.filter(|_| solid && !glass_walls) {
             self.use_storey(program, offset, &[], gain);
             mesh.draw(program, opaque_states, viewport);
         }
-        // The people stand among the furniture; not in a storey's picture.
-        if only.is_none() && !self.figures.is_empty() {
-            self.draw_people(viewport);
+        // The people stand among the furniture; not in a storey's picture. Those fading in or out
+        // are dissolved pixel by pixel: with the ink, they come after it (their holes uninked).
+        let people = match phase {
+            Phase::Whole => Some(People::All),
+            Phase::Solid => Some(People::Solid),
+            Phase::SeeThrough => self
+                .figures
+                .iter()
+                .any(Figure::fading)
+                .then_some(People::Fading),
+        };
+        if let Some(which) = people.filter(|_| only.is_none() && !self.figures.is_empty()) {
+            self.draw_people(viewport, which);
             self.bind_textures(program);
+        }
+        if phase == Phase::Solid {
+            return;
         }
         for (part, offset, lights) in &storeys {
             self.use_storey(program, *offset, lights, gain);
@@ -1883,7 +2006,7 @@ impl Renderer {
         let _ = target
             .clear(ClearState::color_and_depth(r, g, b, 1.0, 1.0))
             .write::<CoreError>(|| {
-                self.draw_passes(viewport, Some(storey));
+                self.draw_passes(viewport, Some(storey), Phase::Whole);
                 Ok(())
             });
         let pixels = target.read_color::<[u8; 4]>();
@@ -1923,6 +2046,55 @@ impl Renderer {
             .use_uniform_if_required("u_light_count", lights.len().min(lamps::MAX_LIGHTS) as f32);
     }
 
+    /// The look's ink (D-036) over what is opaque, read from its resolved `depth`.
+    fn draw_ink(
+        &self,
+        viewport: Viewport,
+        depth: &DepthTexture2D,
+        projection: &domotwin_core::camera::Projection,
+    ) {
+        let ink = &self.ink;
+        ink.use_depth_texture("u_depth", depth);
+        ink.use_uniform_if_required("u_outline", self.theme.outline);
+        // A distance from a depth: the projection's third and fourth rows, at x = y = 0.
+        let p = &projection.proj;
+        let rows = Vec4::new(p[10], p[11], p[14], p[15]);
+        ink.use_uniform_if_required("u_depth_to_distance", rows);
+        // The size of a usual line's width (cm) at a distance d: x + y·d.
+        let scale = self.pixel_scale();
+        #[allow(clippy::cast_precision_loss)]
+        let height = self.height.max(1) as f32;
+        #[allow(clippy::cast_possible_truncation)]
+        let pixel = if projection.orthographic {
+            Vec2::new(2.0 * projection.half_height as f32 / height * scale, 0.0)
+        } else {
+            Vec2::new(0.0, 2.0 * projection.tan_half_fov as f32 / height * scale)
+        };
+        ink.use_uniform_if_required("u_pixel", pixel);
+        // Two usual pixels wide (the outer one half inked), in texture coordinates.
+        let px = scale * 2.0;
+        #[allow(clippy::cast_precision_loss)]
+        let step = Vec2::new(px / self.width.max(1) as f32, px / height);
+        ink.use_uniform_if_required("u_ink_step", step);
+        let [r, g, b] = self.theme.line;
+        ink.use_uniform_if_required("u_ink", Vec3::new(r, g, b));
+        // Over the picture; the alpha (what glows) left as it is.
+        let states = RenderStates {
+            write_mask: WriteMask::COLOR,
+            depth_test: DepthTest::Always,
+            blend: Blend::Enabled {
+                source_rgb_multiplier: BlendMultiplierType::SrcAlpha,
+                source_alpha_multiplier: BlendMultiplierType::Zero,
+                destination_rgb_multiplier: BlendMultiplierType::OneMinusSrcAlpha,
+                destination_alpha_multiplier: BlendMultiplierType::One,
+                rgb_equation: BlendEquationType::Add,
+                alpha_equation: BlendEquationType::Add,
+            },
+            cull: Cull::None,
+        };
+        ink.draw_arrays(states, viewport, 3);
+    }
+
     /// The bloom of what glows, then the picture with it onto the screen.
     fn draw_bloom(&self, targets: &PostTargets) {
         let replace = RenderStates {
@@ -1939,9 +2111,10 @@ impl Renderer {
             #[allow(clippy::cast_precision_loss)]
             Vec2::new(0.5 / t.width() as f32, 0.5 / t.height() as f32)
         };
+        let levels = &targets.levels;
         let down = &self.bloom_down;
         let mut source = &targets.resolved;
-        for (i, level) in targets.levels.iter().enumerate() {
+        for (i, level) in levels.iter().enumerate() {
             down.use_texture("u_source", source);
             down.use_uniform_if_required("u_texel", texel(source));
             down.use_uniform_if_required("u_first", if i == 0 { 1.0_f32 } else { 0.0 });
@@ -1956,7 +2129,7 @@ impl Renderer {
             source = level;
         }
         let up = &self.bloom_up;
-        for pair in targets.levels.windows(2).rev() {
+        for pair in levels.windows(2).rev() {
             let (larger, smaller) = (&pair[0], &pair[1]);
             up.use_texture("u_source", smaller);
             up.use_uniform_if_required("u_texel", texel(smaller));
@@ -1968,12 +2141,12 @@ impl Renderer {
         }
         let composite = &self.composite;
         composite.use_texture("u_scene", &targets.resolved);
-        if let Some(bloom) = targets.levels.first() {
+        if let Some(bloom) = levels.first() {
             composite.use_texture("u_bloom", bloom);
         } else {
             composite.use_texture("u_bloom", &targets.resolved);
         }
-        let strength = if targets.levels.is_empty() {
+        let strength = if levels.is_empty() {
             0.0
         } else {
             self.theme.bloom
