@@ -37,8 +37,9 @@ fn main() {
         std::process::exit(1);
     };
     match file.convert(storey.id) {
-        Ok((plan, report)) => {
+        Ok((plan, report, upkeep)) => {
             eprintln!("{report:?}");
+            eprintln!("{} upkeep cards", upkeep.len());
             println!("{plan:#}");
         }
         Err(code) => {

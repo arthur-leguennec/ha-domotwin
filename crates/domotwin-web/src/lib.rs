@@ -18,6 +18,10 @@ mod network;
 #[cfg(target_arch = "wasm32")]
 mod plan_editor;
 #[cfg(target_arch = "wasm32")]
+mod upkeep;
+#[cfg(target_arch = "wasm32")]
 pub use automations::read_automation;
 #[cfg(target_arch = "wasm32")]
 pub use engine::*;
+#[cfg(target_arch = "wasm32")]
+pub use upkeep::upkeep_states;

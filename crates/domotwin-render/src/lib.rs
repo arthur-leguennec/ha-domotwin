@@ -477,6 +477,10 @@ pub struct Renderer {
     shots_until_ms: f64,
     /// The power layer is shown.
     power_layer: bool,
+    /// Where each element's upkeep stands (D-033: 0 no card or no task, 1 fine, 2 due soon,
+    /// 3 overdue), and whether the upkeep layer tints them.
+    upkeep: Vec<u8>,
+    upkeep_layer: bool,
     /// Layers may move (off when the user prefers reduced motion).
     motion: bool,
     /// Direction towards the real sun (unit), when its position is used; else [`SUN`].
@@ -635,7 +639,7 @@ impl Renderer {
         let bloom_down = Program::from_source(&context, full, shaders::BLOOM_DOWN)?;
         let bloom_up = Program::from_source(&context, full, shaders::BLOOM_UP)?;
         let composite = Program::from_source(&context, full, shaders::COMPOSITE)?;
-        let (columns, rows, texels) = lamps::element_rows(lamps::element_texels(&[], &[]));
+        let (columns, rows, texels) = lamps::element_rows(lamps::element_texels(&[], &[], &[]));
         let elements = rows_texture(&context, columns, rows, &texels);
         let rooms = row_texture(&context, &[[0.0; 4]; 3]);
         let mut view = ViewState::default();
@@ -679,6 +683,8 @@ impl Renderer {
             frame_ms: 0.0,
             shots_until_ms: 0.0,
             power_layer: false,
+            upkeep: Vec::new(),
+            upkeep_layer: false,
             motion: true,
             sun: None,
             looks: Vec::new(),
@@ -766,8 +772,11 @@ impl Renderer {
     }
 
     fn upload_elements(&mut self) {
-        let (width, height, texels) =
-            lamps::element_rows(lamps::element_texels(&self.looks, &self.marks));
+        let (width, height, texels) = lamps::element_rows(lamps::element_texels(
+            &self.looks,
+            &self.marks,
+            &self.upkeep,
+        ));
         if (self.elements.width(), self.elements.height()) == (width, height) {
             self.elements.fill(&texels);
         } else {
@@ -800,6 +809,22 @@ impl Renderer {
     /// Whether the power layer is shown.
     pub const fn power_layer(&self) -> bool {
         self.power_layer
+    }
+
+    /// Sets where each element's upkeep stands, by element index (`element_texels`).
+    pub fn set_upkeep(&mut self, states: &[u8]) {
+        if states != self.upkeep.as_slice() {
+            self.upkeep = states.to_vec();
+            self.upload_elements();
+        }
+    }
+
+    /// Shows or hides the upkeep layer (D-033): the pieces tinted by where their upkeep stands.
+    pub fn set_upkeep_layer(&mut self, shown: bool) {
+        if shown != self.upkeep_layer {
+            self.upkeep_layer = shown;
+            self.view.dirty = true;
+        }
     }
 
     /// Lets the layers move, or holds them still (reduced motion).
@@ -1303,6 +1328,7 @@ impl Renderer {
         let on = |b: bool| if b { 1.0_f32 } else { 0.0 };
         program.use_uniform_if_required("u_layers", on(self.rooms_shown));
         program.use_uniform_if_required("u_power_layer", on(self.power_layer));
+        program.use_uniform_if_required("u_upkeep_layer", on(self.upkeep_layer));
         program.use_uniform_if_required("u_motion", on(self.motion));
         program.use_uniform_if_required("u_bounce", if self.roofed() { 0.16_f32 } else { 0.0 });
         // Every wave of the layers repeats within 600 s; f32 keeps them smooth over that.

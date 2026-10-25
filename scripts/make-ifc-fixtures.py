@@ -12,7 +12,11 @@ deterministic (fixed ids and timestamp), so the files only change when this scri
   outside space and a gross-area space to leave out, an unknown proxy.
 - crates/domotwin-ifc/tests/fixtures/house-ifc2x3.ifc     IFC2x3, metres, two storeys, the
   building turned by 30° far from the origin, footprint curves, a brep, door styles, names only.
+  The fridge carries what IFC2x3 says of its warranty (a calendar date and a period in seconds).
 - crates/domotwin-ifc/tests/fixtures/studio-feet-ifc4.ifc IFC4 in feet.
+- crates/domotwin-ifc/tests/fixtures/utility-ifc4.ifc     IFC4, a kitchen and a utility room whose
+  appliances carry what is needed to look after them (D-033): manufacturer, model and serial
+  number, installation, warranty and service life, on the piece, on its type and in an asset.
 - crates/domotwin-ifc/tests/fixtures/no-spaces-ifc4.ifc   walls only.
 - examples/demo-apartment.ifc                            the IFC4 apartment, to try the import.
 """
@@ -477,10 +481,11 @@ def house_ifc2x3() -> Ifc:
         if typed:
             ifc.add(f"IFCRELDEFINESBYTYPE('{b.gid('type')}',{b.owner},$,$,({element}),{typed})")
         b.contained[ground].append(element)
+        return element
 
     named("Canapé 3 places", (2.0, 0.9, 0.8), 2.6, 3.2, brep=True)
     named("Table basse", (1.0, 0.5, 0.4), 2.6, 2.0)
-    named("Réfrigérateur", (0.6, 0.65, 1.8), 7.6, 3.5)
+    fridge = named("Réfrigérateur", (0.6, 0.65, 1.8), 7.6, 3.5)
     wc_type = ifc.add(f"IFCSANITARYTERMINALTYPE('{b.gid('wctype')}',{b.owner},'Cuvette suspendue',$,$,$,$,$,$,.WCSEAT.)")
     named("Sanitary 1", (0.4, 0.55, 0.4), 3.9, 5.6, cls="IFCFLOWTERMINAL", typed=wc_type)
 
@@ -492,6 +497,86 @@ def house_ifc2x3() -> Ifc:
         f"IFCFURNISHINGELEMENT('{b.gid('bed')}',{b.owner},'Lit double',$,$,{bed_local},{ifc.shape(ctx, [ifc.box(-0.8, -1.0, 0.0, 0.8, 1.0, 0.5)])},$)"
     )
     b.contained[first].append(bed)
+    # The fridge's warranty as IFC2x3 writes it: a calendar date by reference, two years in seconds.
+    started = ifc.add("IFCCALENDARDATE(12,6,2022)")
+    values = [
+        ifc.add("IFCPROPERTYSINGLEVALUE('Manufacturer',$,IFCLABEL('Froid Fictif'),$)"),
+    ]
+    information = ifc.add(
+        f"IFCPROPERTYSET('{b.gid('pset')}',{b.owner},'Pset_ManufacturerTypeInformation',$,({','.join(values)}))"
+    )
+    warranty = ifc.add(
+        f"IFCPROPERTYSET('{b.gid('pset')}',{b.owner},'Pset_Warranty',$,("
+        + ifc.add(f"IFCPROPERTYREFERENCEVALUE('WarrantyStartDate',$,$,{started})")
+        + ","
+        + ifc.add("IFCPROPERTYSINGLEVALUE('WarrantyPeriod',$,IFCTIMEMEASURE(63072000.),$)")
+        + "))"
+    )
+    for pset in (information, warranty):
+        ifc.add(f"IFCRELDEFINESBYPROPERTIES('{b.gid('defines')}',{b.owner},$,$,({fridge}),{pset})")
+    b.finish()
+    return ifc
+
+
+def utility_ifc4() -> Ifc:
+    """A fictional kitchen and utility room whose appliances say how to look after them."""
+    ifc = Ifc("IFC4", 1.0)
+    b = Builder(ifc, "Fictional utility room", "Fictional house", ifc4_units(ifc, None))
+    storey, place = b.storey("Ground floor", 0.0)
+    ctx = b.context
+    b.space(storey, place, "U1", "Kitchen", ifc.extrusion(
+        ifc.add(f"IFCARBITRARYCLOSEDPROFILEDEF(.AREA.,$,{ifc.polyline(rectangle(0.0, 0.0, 3.0, 3.0))})"), 2.5))
+    b.space(storey, place, "U2", "Utility room", ifc.extrusion(
+        ifc.add(f"IFCARBITRARYCLOSEDPROFILEDEF(.AREA.,$,{ifc.polyline(rectangle(3.1, 0.0, 6.1, 2.5))})"), 2.5))
+    b.wall(storey, place, "Partition", (3.05, 0.0), (3.05, 3.0), 0.1, False)
+
+    def appliance(cls, name, size, x, y, predefined):
+        w, d, h = size
+        local = ifc.local(place, x, y, 0.0)
+        shape = ifc.shape(ctx, [ifc.box(-w / 2, -d / 2, 0.0, w / 2, d / 2, h)])
+        element = ifc.add(f"{cls}('{b.gid(name)}',{b.owner},{text(name)},$,$,{local},{shape},$,.{predefined}.)")
+        b.contained[storey].append(element)
+        return element
+
+    def pset(name, properties, objects=None):
+        values = [ifc.add(f"IFCPROPERTYSINGLEVALUE('{key}',$,{value},$)") for key, value in properties]
+        found = ifc.add(f"IFCPROPERTYSET('{b.gid('pset')}',{b.owner},'{name}',$,({','.join(values)}))")
+        if objects:
+            ifc.add(f"IFCRELDEFINESBYPROPERTIES('{b.gid('defines')}',{b.owner},$,$,({','.join(objects)}),{found})")
+        return found
+
+    # The washing machine: its make and model on its type; its serial number, purchase and
+    # installation dates, warranty (a start and two years) and service life on the piece.
+    washer = appliance("IFCELECTRICAPPLIANCE", "Washing machine", (0.6, 0.6, 0.85), 3.5, 0.4, "WASHINGMACHINE")
+    information = pset("Pset_ManufacturerTypeInformation", [
+        ("Manufacturer", "IFCLABEL('Fictional Appliances')"),
+        ("ModelLabel", "IFCLABEL('W-100')"),
+        ("ModelReference", "IFCLABEL('W100-EU')"),
+    ])
+    washer_type = ifc.add(
+        f"IFCELECTRICAPPLIANCETYPE('{b.gid('washer type')}',{b.owner},'W-100',$,$,({information}),$,$,$,.WASHINGMACHINE.)"
+    )
+    ifc.add(f"IFCRELDEFINESBYTYPE('{b.gid('type')}',{b.owner},$,$,({washer}),{washer_type})")
+    pset("Pset_ManufacturerOccurrence", [
+        ("SerialNumber", "IFCIDENTIFIER('FA-0001')"),
+        ("AcquisitionDate", "IFCDATE('2024-03-01')"),
+    ], [washer])
+    pset("COBie_Component", [("InstallationDate", "IFCDATE('2024-03-15')")], [washer])
+    pset("Pset_Warranty", [
+        ("WarrantyStartDate", "IFCDATE('2024-03-15')"),
+        ("WarrantyPeriod", "IFCDURATION('P2Y')"),
+    ], [washer])
+    pset("Pset_ServiceLife", [("ServiceLifeDuration", "IFCDURATION('P12Y')")], [washer])
+    # The fridge: in an asset incorporated into the works on a date, its warranty's end given.
+    fridge = appliance("IFCELECTRICAPPLIANCE", "Fridge", (0.6, 0.65, 1.8), 0.4, 2.5, "FRIDGE_FREEZER")
+    pset("Pset_ManufacturerTypeInformation", [("ModelReference", "IFCLABEL('FR-7')")], [fridge])
+    pset("Pset_Warranty", [("WarrantyEndDate", "IFCDATE('2028-11-20')")], [fridge])
+    asset = ifc.add(
+        f"IFCASSET('{b.gid('asset')}',{b.owner},'Kitchen appliances',$,$,'A-1',$,$,$,$,$,$,'2023-11-20',$)"
+    )
+    ifc.add(f"IFCRELASSIGNSTOGROUP('{b.gid('group')}',{b.owner},$,$,({fridge}),$,{asset})")
+    # Nothing said of the dryer: no card.
+    appliance("IFCELECTRICAPPLIANCE", "Dryer", (0.6, 0.6, 0.85), 4.2, 0.4, "TUMBLEDRYER")
     b.finish()
     return ifc
 
@@ -534,6 +619,7 @@ def main() -> None:
         "apartment-ifc4.ifc": (apartment_ifc4, "apartment-ifc4.ifc"),
         "house-ifc2x3.ifc": (house_ifc2x3, "house-ifc2x3.ifc"),
         "studio-feet-ifc4.ifc": (studio_feet, "studio-feet-ifc4.ifc"),
+        "utility-ifc4.ifc": (utility_ifc4, "utility-ifc4.ifc"),
         "no-spaces-ifc4.ifc": (no_spaces, "no-spaces-ifc4.ifc"),
     }
     for file, (make, name) in outputs.items():

@@ -6,10 +6,12 @@ from typing import Any
 
 from homeassistant.components.diagnostics import async_redact_data
 from homeassistant.core import HomeAssistant
+from homeassistant.util import dt as dt_util
 
 from . import DomoTwinConfigEntry
 from .const import MODEL_ENTRY_PREFIX, PLAN_LISTS, VERSION
 from .models import async_usage
+from .upkeep import due_tasks, piece_names
 
 # Addresses of the radio mesh (an IEEE address, a network address) and the Home Assistant device a
 # piece stands for (the network map, D-031): never in diagnostics, whatever part of them holds one.
@@ -35,6 +37,7 @@ async def async_get_config_entry_diagnostics(
         }
     bindings = data.bindings
     elements = bindings.get("elements", {})
+    cards = data.upkeep.get("pieces", {})
     diagnostics: dict[str, Any] = {
         "version": VERSION,
         "options": dict(entry.options),
@@ -52,6 +55,13 @@ async def async_get_config_entry_diagnostics(
         },
         # Which settings are set, not their values (north tells how the home faces).
         "settings": sorted(data.settings),
+        # The upkeep cards counted (D-033): never their makes, serial numbers, links or notes.
+        "upkeep": {
+            "cards": len(cards),
+            "tasks": sum(len(card.get("tasks", [])) for card in cards.values()),
+            "due": len(due_tasks(data.upkeep, piece_names(data.storeys), dt_util.now().date())),
+            "lead_days": data.upkeep.get("lead_days"),
+        },
     }
     redacted: dict[str, Any] = async_redact_data(diagnostics, TO_REDACT)
     return redacted

@@ -5,6 +5,7 @@
 import { assetUrl } from "../assets";
 import { engineError } from "../engine/engine";
 import type { PlanJson } from "../ha/client";
+import type { UpkeepCard } from "../live/upkeep";
 import type * as Wasm from "./pkg/domotwin_ifc.js";
 
 /** A storey of the file. */
@@ -69,12 +70,20 @@ export class IfcFile {
     return JSON.parse(this.live.storeys()) as IfcStorey[];
   }
 
-  /** The plan of a storey. */
-  convert(storey: number): { plan: PlanJson; report: IfcReport } {
+  /**
+   * The plan of a storey, what was left out, and the upkeep cards the file fills (D-033: make,
+   * model, serial number, dates), by piece id.
+   */
+  convert(storey: number): {
+    plan: PlanJson;
+    report: IfcReport;
+    upkeep: Record<string, UpkeepCard>;
+  } {
     try {
       return JSON.parse(this.live.convert(storey)) as {
         plan: PlanJson;
         report: IfcReport;
+        upkeep: Record<string, UpkeepCard>;
       };
     } catch (error) {
       throw engineError(error);

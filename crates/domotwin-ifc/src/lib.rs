@@ -9,6 +9,7 @@ mod kinds;
 pub mod math;
 pub mod model;
 pub mod step;
+mod upkeep;
 mod web;
 
 pub use convert::{Report, Storey};
@@ -55,12 +56,23 @@ impl IfcFile {
         convert::storeys(&self.model)
     }
 
-    /// The plan of one storey (by its instance number) and what was left out.
+    /// The plan of one storey (by its instance number), what was left out, and the upkeep cards
+    /// of its pieces from what the file says of them (`DECISIONS.md`, D-033), by piece id.
     ///
     /// # Errors
     ///
     /// `no_storeys` for an unknown storey, `no_spaces` when it has no space with an outline.
-    pub fn convert(&self, storey: u32) -> Result<(serde_json::Value, Report), &'static str> {
+    pub fn convert(
+        &self,
+        storey: u32,
+    ) -> Result<
+        (
+            serde_json::Value,
+            Report,
+            serde_json::Map<String, serde_json::Value>,
+        ),
+        &'static str,
+    > {
         if self.model.step.type_of(storey) != Some("IFCBUILDINGSTOREY") {
             return Err("no_storeys");
         }

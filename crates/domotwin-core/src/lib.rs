@@ -23,6 +23,7 @@ pub mod plan;
 pub mod scene;
 pub mod structure;
 pub mod theme;
+pub mod upkeep;
 pub mod walk;
 
 pub use error::{ErrorCode, ReadError};

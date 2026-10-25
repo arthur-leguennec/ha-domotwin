@@ -1,5 +1,6 @@
 import type { ThemeMode } from "../config";
 import type { ShowRequest } from "../live/show";
+import type { Upkeep, UpkeepCard } from "../live/upkeep";
 import type { HassConnection, HassMessage, HomeAssistant } from "./types";
 
 export type PlanJson = Record<string, unknown> & { name?: unknown; items?: unknown };
@@ -58,9 +59,16 @@ export interface StoredSettings {
   revision: number;
 }
 
+/** The upkeep cards (D-033), with today's date where the home is. */
+export interface StoredUpkeep {
+  upkeep: Upkeep;
+  revision: number;
+  today: string;
+}
+
 /** A save (its kind and revision), or a `domotwin.show` request (D-029). */
 export type UpdateEvent =
-  | { kind: "plan" | "bindings" | "settings"; revision: number }
+  | { kind: "plan" | "bindings" | "settings" | "upkeep"; revision: number }
   | { kind: "show"; show: ShowRequest };
 
 type Listener = (event: UpdateEvent) => void;
@@ -76,6 +84,7 @@ export class DomoTwinClient {
   private readonly plans = new Map<string, Promise<StoredPlan>>();
   private bindings?: Promise<StoredBindings>;
   private settings?: Promise<StoredSettings>;
+  private upkeep?: Promise<StoredUpkeep>;
   private readonly listeners = new Set<Listener>();
   private unsubscribe?: Promise<() => Promise<void>>;
 
@@ -118,6 +127,37 @@ export class DomoTwinClient {
     });
     this.settings.catch(() => (this.settings = undefined));
     return this.settings;
+  }
+
+  getUpkeep(): Promise<StoredUpkeep> {
+    this.upkeep ??= this.connection.sendMessagePromise<StoredUpkeep>({
+      type: "domotwin/upkeep/get",
+    });
+    this.upkeep.catch(() => (this.upkeep = undefined));
+    return this.upkeep;
+  }
+
+  /**
+   * Stores upkeep cards by piece id (`null` removes one) and, with `leadDays`, how many days
+   * before it a task is due soon (admins only). Only the pieces given change.
+   */
+  async saveUpkeep(pieces: Record<string, UpkeepCard | null>, leadDays?: number): Promise<number> {
+    const message: HassMessage = { type: "domotwin/upkeep/save", pieces };
+    if (leadDays !== undefined) message.lead_days = leadDays;
+    const result = await this.connection.sendMessagePromise<{ revision: number }>(message);
+    this.upkeep = undefined;
+    return result.revision;
+  }
+
+  /** Marks a task done today, where the home is (every user). Returns the date stored. */
+  async upkeepDone(piece: string, task: string): Promise<string> {
+    const result = await this.connection.sendMessagePromise<{ last_done: string }>({
+      type: "domotwin/upkeep/done",
+      piece,
+      task,
+    });
+    this.upkeep = undefined;
+    return result.last_done;
   }
 
   /** Stores the settings (admins only). */
@@ -225,6 +265,7 @@ export class DomoTwinClient {
         // request to show something changes nothing.
         if (event.kind === "bindings") this.bindings = undefined;
         else if (event.kind === "settings") this.settings = undefined;
+        else if (event.kind === "upkeep") this.upkeep = undefined;
         else if (event.kind === "plan") this.plans.clear();
         for (const each of this.listeners) each(event);
       },

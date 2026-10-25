@@ -57,4 +57,11 @@ test = false
 doc = false
 bench = false
 
+[[bin]]
+name = "upkeep"
+path = "fuzz_targets/upkeep.rs"
+test = false
+doc = false
+bench = false
+
 [workspace]

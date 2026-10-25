@@ -30,6 +30,7 @@ use web_sys::{HtmlCanvasElement, WebGl2RenderingContext, WebGlContextAttributes}
 
 use crate::automations::AutomationsShown;
 use crate::network::NetworkShown;
+use crate::upkeep::UpkeepShades;
 
 /// Installs the panic hook so that a bug shows a readable message in the console.
 #[wasm_bindgen(start)]
@@ -130,6 +131,8 @@ pub struct Engine {
     pub(crate) network: Option<NetworkShown>,
     /// The automations whose wires are shown (D-032).
     pub(crate) automations: Option<AutomationsShown>,
+    /// Where each piece's upkeep stands, for the upkeep layer (D-033).
+    pub(crate) upkeep: UpkeepShades,
 }
 
 /// A storey of the home shown whole: its id and name, its plan (its overlay applied) and the
@@ -194,6 +197,7 @@ impl Engine {
             home: Vec::new(),
             network: None,
             automations: None,
+            upkeep: UpkeepShades::new(),
         };
         engine
             .renderer
@@ -484,6 +488,7 @@ impl Engine {
         self.update_cones();
         self.place_network();
         self.place_automations();
+        self.place_upkeep();
     }
 
     /// Shows no plan (a new plan drawn and dropped).
@@ -500,6 +505,7 @@ impl Engine {
         self.cones.clear();
         self.drop_network_wires();
         self.drop_automation_wires();
+        self.renderer.set_upkeep(&[]);
     }
 
     /// Works out what the linked cameras see (`DECISIONS.md`, D-024).
@@ -826,12 +832,19 @@ impl Engine {
     /// "kind"}]` (`kind` for furniture only).
     #[wasm_bindgen(js_name = elementList)]
     pub fn element_list(&self) -> String {
+        let infos = self.elements_by_id();
         let list: Vec<serde_json::Value> = self
             .plan
             .iter()
             .flat_map(|plan| &plan.elements)
             .map(|element| {
                 let mut entry = serde_json::json!({ "id": element.id(), "name": element.name() });
+                // The room a piece stands in, as drawn.
+                if let Element::Furniture(_) = element
+                    && let Some(room) = infos.get(element.id()).and_then(|i| self.room_of(i))
+                {
+                    entry["room"] = room.as_str().into();
+                }
                 let (kind, piece) = match element {
                     Element::Room(_) => ("room", None),
                     Element::Wall(_) => ("wall", None),

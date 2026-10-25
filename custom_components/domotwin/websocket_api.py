@@ -9,12 +9,20 @@ from typing import Any
 from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
+from homeassistant.util import dt as dt_util
 
 from .compat import vol
 from .const import SIGNAL_SHOW, SIGNAL_UPDATED, VERSION
 from .data import DATA_KEY
 from .models import async_remove_unused
-from .storage import UNSET, DomoTwinData, RevisionConflictError, UnknownStoreyError
+from .storage import (
+    UNSET,
+    DomoTwinData,
+    RevisionConflictError,
+    UnknownStoreyError,
+    UnknownTaskError,
+)
+from .upkeep import piece_names
 from .validation import (
     InvalidPayloadError,
     validate_bindings,
@@ -27,6 +35,7 @@ from .validation import (
     validate_storey_name,
     validate_storeys_ids,
     validate_unique_ids,
+    validate_upkeep_change,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -45,6 +54,9 @@ def async_register_commands(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_bindings_save)
     websocket_api.async_register_command(hass, ws_settings_get)
     websocket_api.async_register_command(hass, ws_settings_save)
+    websocket_api.async_register_command(hass, ws_upkeep_get)
+    websocket_api.async_register_command(hass, ws_upkeep_save)
+    websocket_api.async_register_command(hass, ws_upkeep_done)
     websocket_api.async_register_command(hass, ws_subscribe)
 
 
@@ -405,12 +417,89 @@ async def ws_settings_save(
     connection.send_result(msg["id"], {"revision": revision})
 
 
+@websocket_api.websocket_command({vol.Required("type"): "domotwin/upkeep/get"})
+@callback
+def ws_upkeep_get(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Return the upkeep cards (D-033), with today's date where the home is."""
+    if (data := _get_data(hass, connection, msg)) is None:
+        return
+    connection.send_result(
+        msg["id"],
+        {
+            "upkeep": copy.deepcopy(data.upkeep),
+            "revision": data.revision_of("upkeep"),
+            "today": dt_util.now().date().isoformat(),
+        },
+    )
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "domotwin/upkeep/save",
+        vol.Required("pieces"): dict,
+        vol.Optional("lead_days"): int,
+        vol.Optional("expected_revision"): vol.All(int, vol.Range(min=0)),
+    }
+)
+@websocket_api.async_response
+async def ws_upkeep_save(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Store upkeep cards (`null` removes one) and how early a task is due. Admins only."""
+    if (data := _get_data(hass, connection, msg)) is None:
+        return
+    try:
+        # The cards of pieces no plan has any more are kept (a storey put back finds them), but
+        # do not count against the room the others need: they go first when room is short.
+        names = piece_names(data.storeys)
+        kept = {piece: card for piece, card in data.upkeep["pieces"].items() if piece in names}
+        pieces = validate_upkeep_change(msg["pieces"], msg.get("lead_days"), kept)
+        revision = await data.async_save_upkeep(
+            pieces, msg.get("lead_days"), msg.get("expected_revision"), names
+        )
+    except InvalidPayloadError as err:
+        connection.send_error(msg["id"], err.code, str(err))
+        return
+    except RevisionConflictError as err:
+        connection.send_error(msg["id"], "revision_conflict", str(err))
+        return
+    connection.send_result(msg["id"], {"revision": revision})
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "domotwin/upkeep/done",
+        vol.Required("piece"): str,
+        vol.Required("task"): str,
+    }
+)
+@websocket_api.async_response
+async def ws_upkeep_done(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Mark a task done today, where the home is. Every user: it is done in the home."""
+    if (data := _get_data(hass, connection, msg)) is None:
+        return
+    today = dt_util.now().date()
+    try:
+        revision = await data.async_upkeep_done(msg["piece"], msg["task"], today)
+    except UnknownTaskError as err:
+        connection.send_error(msg["id"], "unknown_task", f"no task {err}")
+        return
+    connection.send_result(msg["id"], {"revision": revision, "last_done": today.isoformat()})
+
+
 @websocket_api.websocket_command({vol.Required("type"): "domotwin/subscribe"})
 @callback
 def ws_subscribe(
     hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
 ) -> None:
-    """Send an event every time the plan, the overlay, the bindings or the settings change.
+    """Send an event every time the plan, the bindings, the settings or the upkeep change.
+
+    The plan's overlay counts as the plan.
 
     Every `domotwin.show` is sent too: kind `show`, the request in `show`.
     """

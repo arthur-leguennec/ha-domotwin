@@ -29,10 +29,12 @@ import {
   mdiPrinter,
   mdiPrinter3d,
   mdiRecordRec,
+  mdiShieldAlertOutline,
   mdiStove,
   mdiTumbleDryer,
   mdiWalk,
   mdiWashingMachine,
+  mdiWrenchClock,
 } from "@mdi/js";
 import { LitElement, css, html, nothing, svg, type PropertyValues, type TemplateResult } from "lit";
 
@@ -52,6 +54,7 @@ import {
   EngineError,
   engineError,
   heatLegend,
+  upkeepStates,
   wasmMemoryBytes,
   type EditState,
   type HomeStorey,
@@ -98,7 +101,15 @@ import {
   type LayerName,
   type PlanRoom,
 } from "../live/layers";
-import { deviceBadges, type Badge, type BadgeKind } from "../live/devices";
+import { deviceBadges, mergeBadges, type Badge, type BadgeKind } from "../live/devices";
+import {
+  readStandings,
+  todayIn,
+  upkeepBadges,
+  upkeepShades,
+  type Standings,
+  type Upkeep,
+} from "../live/upkeep";
 import { spoken } from "../live/show";
 import { StateSync } from "../live/states";
 import {
@@ -182,6 +193,9 @@ const BADGE_ICONS: Record<Exclude<BadgeKind, "running">, string> = {
   camera_off: mdiCctvOff,
   playing: mdiPlay,
   battery_low: mdiBatteryAlertVariantOutline,
+  upkeep_due: mdiWrenchClock,
+  upkeep_overdue: mdiWrenchClock,
+  warranty_ending: mdiShieldAlertOutline,
 };
 const APPLIANCE_ICONS: Record<string, string> = {
   washer: mdiWashingMachine,
@@ -280,9 +294,20 @@ function pictureUrl(pixels: Uint8Array): string {
   return canvas.toDataURL("image/png");
 }
 
-/** The panel open over the scene: an element's controls or a room's panel. */
+/**
+ * The panel open over the scene: an element's controls, a piece's own sheet (a piece linked to
+ * nothing, for its upkeep card, D-033) or a room's panel.
+ */
 type Sheet =
-  | { kind: "controls"; heading: string; entities: string[]; device?: string; area?: string }
+  | {
+      kind: "controls";
+      heading: string;
+      entities: string[];
+      device?: string;
+      area?: string;
+      piece?: string;
+    }
+  | { kind: "piece"; heading: string; piece: string; room?: FocusedRoom }
   | { kind: "room"; heading: string; area?: string };
 
 /** A room framed by a tap. */
@@ -378,6 +403,9 @@ export class DomoTwinView extends LitElement {
     plan: { attribute: false },
     layout: { attribute: false },
     bindings: { attribute: false },
+    upkeep: { attribute: false },
+    upkeepLoaded: { state: true },
+    standings: { state: true },
     linking: { attribute: false },
     placeDevices: { attribute: false },
     networkLoaded: { state: true },
@@ -438,6 +466,8 @@ export class DomoTwinView extends LitElement {
   layout?: StoredPlan["layout"];
   /** What the plan's elements and rooms are bound to (`undefined`: nothing bound). */
   bindings?: BindingsJson;
+  /** The upkeep cards (D-033; `undefined`: none, or an integration without them). */
+  upkeep?: Upkeep;
   /**
    * Link mode (the panel's bindings editor): taps and long presses pick an element
    * (`domotwin-pick`, detail: the picked element) instead of acting.
@@ -562,6 +592,15 @@ export class DomoTwinView extends LitElement {
   /** Where each element with badges is drawn (device pixels). */
   protected badgePoints: Record<string, [number, number] | undefined> = {};
   protected cameraShapes: CameraShape[] = [];
+  /** Where each upkeep card stands today (D-033), and what it was worked out from. */
+  protected standings: Standings = {};
+  private standingsFrom?: { upkeep: Upkeep; today: string; engine: DomoTwinEngine };
+  /** When today's date was last read (ms), and the date. */
+  private todayRead = 0;
+  private today = "";
+  /** The upkeep list's module is loaded. */
+  protected upkeepLoaded = false;
+  private upkeepModule?: Promise<unknown>;
 
   private engine?: DomoTwinEngine;
   private canvas?: HTMLCanvasElement;
@@ -597,7 +636,7 @@ export class DomoTwinView extends LitElement {
   private camerasText = "[]";
   /** The kind of each piece and the name and type of each element of the plan shown. */
   private kinds: Record<string, string> = {};
-  private names: Record<string, { name: string; type: string }> = {};
+  private names: Record<string, { name: string; type: string; room?: string }> = {};
   /** The labels' JSON last read from the engine, and whether they must be read again. */
   private labelsText = "";
   private labelsDue = true;
@@ -1316,6 +1355,8 @@ export class DomoTwinView extends LitElement {
       this.labels = [];
       this.labelsText = "";
     }
+    // Where the upkeep cards stand, before the sheets and the list show them.
+    if (changed.has("upkeep") || changed.has("hass")) this.applyUpkeep();
     // The room chip leaves room for the legend (`renderLegend`).
     this.toggleAttribute("legend", this.valueLayer && !this.editingAny);
     if (
@@ -1362,12 +1403,18 @@ export class DomoTwinView extends LitElement {
       changed.has("bindings") ||
       changed.has("options") ||
       changed.has("elsewhere") ||
+      changed.has("upkeep") ||
       own.has("layer")
     ) {
       this.applyLayers();
     }
     if (changed.has("north") || own.has("realSun") || changed.has("hass")) this.applySun();
-    if (changed.has("hass") || changed.has("bindings") || changed.has("plan")) {
+    if (
+      changed.has("hass") ||
+      changed.has("bindings") ||
+      changed.has("plan") ||
+      changed.has("upkeep")
+    ) {
       this.applyDevices();
     }
     if (changed.has("linking") || own.has("showBadges") || own.has("showCameras")) this.redraw();
@@ -1426,7 +1473,9 @@ export class DomoTwinView extends LitElement {
       state.sheet =
         sheet.kind === "controls"
           ? `controls:${sheet.entities.join(",")}`
-          : `room:${sheet.area ?? ""}`;
+          : sheet.kind === "piece"
+            ? `piece:${sheet.piece}`
+            : `room:${sheet.area ?? ""}`;
     }
     const edit = this.edit;
     if (edit) {
@@ -1894,10 +1943,32 @@ export class DomoTwinView extends LitElement {
     if (binding && this.hass) {
       this.engine?.highlight(picked.id);
       void this.act(holdAction(binding), binding, picked);
+    } else if (picked.type === "furniture" && this.hasPieceSheet(picked.id)) {
+      this.engine?.highlight(picked.id);
+      const room = picked.room ? { id: picked.room, name: this.roomName(picked) } : undefined;
+      void this.openPiece(picked.id, picked.name, room);
     } else if (picked.room) {
       void this.openRoom(picked.room, this.roomName(picked));
     }
     this.redraw();
+  }
+
+  /**
+   * Whether a piece linked to nothing has a sheet of its own (D-033): an upkeep card to show, or
+   * an administrator to write one. Others still open the room's panel.
+   */
+  private hasPieceSheet(id: string): boolean {
+    const upkeep = this.upkeep;
+    if (!upkeep) return false;
+    return upkeep.pieces[id] !== undefined || this.hass?.user?.is_admin === true;
+  }
+
+  /** A piece's own sheet: its upkeep card, and its room's panel a tap away. */
+  private async openPiece(id: string, name: string, room?: FocusedRoom): Promise<void> {
+    await this.loadSheets();
+    const sheet: Sheet = { kind: "piece", heading: name || id, piece: id };
+    if (room) sheet.room = room;
+    this.sheet = sheet;
   }
 
   /** The element at a point of the view (CSS pixels from its top left). */
@@ -1924,13 +1995,14 @@ export class DomoTwinView extends LitElement {
   private get shownLayer(): LayerName {
     if (this.layer === "network" && !this.networkAllowed) return "off";
     if (this.layer === "automations" && !automationsAvailable(this.hass)) return "off";
+    if (this.layer === "upkeep" && !this.upkeep) return "off";
     return this.layer;
   }
 
   /** The layer shown puts values on the home (a heatmap, the power drawn) and has a legend. */
   private get valueLayer(): boolean {
     const layer = this.shownLayer;
-    return layer !== "off" && layer !== "network" && layer !== "automations";
+    return layer !== "off" && layer !== "network" && layer !== "automations" && layer !== "upkeep";
   }
 
   /**
@@ -2100,6 +2172,8 @@ export class DomoTwinView extends LitElement {
     this.applyLighting();
     this.lightTimer = window.setInterval(() => {
       this.applyLighting();
+      // A new day where the home is (upkeep falls due), in a home where nothing changes.
+      this.applyDevices();
     }, LIGHT_REFRESH_MS);
     this.states.reset();
     this.modelsLoading.clear();
@@ -2336,6 +2410,7 @@ export class DomoTwinView extends LitElement {
       this.redraw();
     }
     engine.setPowerLayer(this.layer === "power");
+    engine.setUpkeepLayer(this.shownLayer === "upkeep");
     const values = Object.keys(layers?.values ?? {}).length;
     const here = layers?.alerts ?? [];
     const alerts =
@@ -2358,22 +2433,55 @@ export class DomoTwinView extends LitElement {
     this.names = {};
     for (const element of engine.elementList()) {
       if (element.kind) this.kinds[element.id] = element.kind;
-      this.names[element.id] = { name: element.name || element.id, type: element.type };
+      this.names[element.id] = {
+        name: element.name || element.id,
+        type: element.type,
+        ...(element.room ? { room: element.room } : {}),
+      };
     }
     this.applyDevices();
   }
 
-  /** Works out the devices' badges; the view changes only when they did. */
+  /** Works out the devices' and upkeep's badges; the view changes only when they did. */
   private applyDevices(): void {
     const hass = this.hass;
-    const badges =
+    this.applyUpkeep();
+    const devices =
       hass && this.bindings
         ? deviceBadges(hass, this.bindings, this.kinds)
         : new Map<string, Badge[]>();
+    const badges = mergeBadges(devices, upkeepBadges(this.standings));
     const key = JSON.stringify([...badges]);
     if (key === this.badgesKey) return;
     this.badgesKey = key;
     this.badges = badges;
+    this.redraw();
+  }
+
+  /**
+   * Works out where each upkeep card stands today, where the home is (D-033), when the cards, the
+   * day or the engine changed, and tells the engine for the upkeep layer.
+   */
+  private applyUpkeep(): void {
+    const engine = this.engine;
+    const upkeep = this.upkeep;
+    if (!engine || !upkeep) {
+      // Once: a new empty object would render the view again at every update.
+      if (this.standingsFrom) this.standings = {};
+      this.standingsFrom = undefined;
+      return;
+    }
+    // The date is read again at most once a minute.
+    const now = Date.now();
+    if (now - this.todayRead > 60_000) {
+      this.todayRead = now;
+      this.today = todayIn(this.hass?.config?.time_zone);
+    }
+    const from = this.standingsFrom;
+    if (from?.upkeep === upkeep && from.today === this.today && from.engine === engine) return;
+    this.standingsFrom = { upkeep, today: this.today, engine };
+    this.standings = readStandings(upkeepStates(JSON.stringify(upkeep), this.today));
+    engine.setUpkeep(JSON.stringify(upkeepShades(this.standings)));
     this.redraw();
   }
 
@@ -2421,11 +2529,32 @@ export class DomoTwinView extends LitElement {
     }
   }
 
-  /** A tap on an element's badges: the element's tap. */
+  /**
+   * A tap on an element's badges: the element's tap; where one says what upkeep is due (D-033),
+   * its card (with its controls, for a linked piece).
+   */
   private tapElement(id: string): void {
     this.sheet = undefined;
     const binding = this.actingBinding(id);
     const hass = this.hass;
+    const upkeep = this.badges
+      .get(id)
+      ?.some(
+        (b) =>
+          b.kind === "upkeep_due" || b.kind === "upkeep_overdue" || b.kind === "warranty_ending",
+      );
+    if (upkeep && this.upkeep?.pieces[id]) {
+      const info = this.names[id];
+      const name = info?.name ?? id;
+      const room = info?.room ?? "";
+      if (binding) {
+        void this.openControls(binding, { id, type: "furniture", name, room });
+      } else {
+        const named = this.rooms.find((r) => r.id === room);
+        void this.openPiece(id, name, named ? { id: room, name: named.name } : undefined);
+      }
+      return;
+    }
     if (!binding || !hass) return;
     this.engine?.highlight(id);
     // An action ran: a second tap soon after is a new tap, not a double tap.
@@ -2798,6 +2927,8 @@ export class DomoTwinView extends LitElement {
       entities: binding.entities.map((entity) => entity.entity_id),
     };
     if (binding.device) sheet.device = binding.device;
+    // A piece's upkeep card (D-033) shows with its controls.
+    if (picked.type === "furniture") sheet.piece = picked.id;
     // Its room's area: the automations of the room take part in it too.
     const room = picked.room;
     const roomName = this.rooms.find((r) => r.id === room)?.name ?? "";
@@ -3097,7 +3228,7 @@ export class DomoTwinView extends LitElement {
       ${this.renderGuides()} ${this.renderPlanHandles()} ${this.renderOverlay()}
       ${ready ? this.renderLegend() : nothing} ${ready ? this.renderAlerts() : nothing}
       ${ready ? this.renderWalkPad() : nothing} ${ready ? this.renderNetwork() : nothing}
-      ${ready ? this.renderWires() : nothing}
+      ${ready ? this.renderUpkeep() : nothing} ${ready ? this.renderWires() : nothing}
       ${ready && this.options.tools !== false ? this.renderTools() : nothing}
       ${ready ? this.renderSheet() : nothing}
       ${this.dimmed ? html`<div class="dim" data-testid="dim" aria-hidden="true"></div>` : nothing}
@@ -3106,6 +3237,38 @@ export class DomoTwinView extends LitElement {
           ? html`<div class="notice glass" role="alert" data-testid="notice">${this.notice}</div>`
           : nothing
       }`;
+  }
+
+  /**
+   * The upkeep layer's list (D-033) is shown: chosen, no tool at work over the view, and not
+   * walking (its sheet would cover the walk pad).
+   */
+  private get upkeepShown(): boolean {
+    return this.shownLayer === "upkeep" && !this.editingAny && !this.linking && !this.walking;
+  }
+
+  /** The upkeep layer's list: its module is loaded the first time it is shown. */
+  private renderUpkeep(): TemplateResult | typeof nothing {
+    if (!this.upkeepShown) return nothing;
+    if (!this.upkeepLoaded) {
+      this.upkeepModule ??= import("./upkeep-panel").then(
+        () => (this.upkeepLoaded = true),
+        () => (this.upkeepModule = undefined),
+      );
+      return nothing;
+    }
+    return html`<domotwin-upkeep-list
+      .hass=${this.hass}
+      .upkeep=${this.upkeep}
+      .standings=${this.standings}
+      .names=${this.names}
+      @domotwin-show-element=${(event: CustomEvent<string>) => {
+        this.showElement(event.detail);
+      }}
+      @domotwin-close=${() => {
+        this.setLayer("off");
+      }}
+    ></domotwin-upkeep-list>`;
   }
 
   /** The network map (D-031): its module is loaded the first time it is shown. */
@@ -3389,9 +3552,28 @@ export class DomoTwinView extends LitElement {
         .entities=${sheet.entities}
         .device=${sheet.device}
         .area=${sheet.area}
+        .piece=${sheet.piece}
+        .upkeep=${this.upkeep}
+        .standing=${sheet.piece ? this.standings[sheet.piece] : undefined}
         @domotwin-close=${this.closeSheet}
         @domotwin-show-wires=${this.onShowWires}
       ></domotwin-controls>`;
+    }
+    if (sheet.kind === "piece") {
+      const room = sheet.room;
+      return html`<domotwin-piece
+        data-testid="piece"
+        .hass=${this.hass}
+        .heading=${sheet.heading}
+        .piece=${sheet.piece}
+        .roomName=${room?.name}
+        .upkeep=${this.upkeep}
+        .standing=${this.standings[sheet.piece]}
+        @domotwin-close=${this.closeSheet}
+        @domotwin-open-room=${() => {
+          if (room) void this.openRoom(room.id, room.name);
+        }}
+      ></domotwin-piece>`;
     }
     return html`<domotwin-room
       data-testid="room"
@@ -3519,7 +3701,8 @@ export class DomoTwinView extends LitElement {
       ${LAYER_NAMES.filter(
         (layer) =>
           (layer !== "network" || this.networkAllowed) &&
-          (layer !== "automations" || automationsAvailable(this.hass)),
+          (layer !== "automations" || automationsAvailable(this.hass)) &&
+          (layer !== "upkeep" || this.upkeep !== undefined),
       ).map(
         (layer) =>
           html`<button

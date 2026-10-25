@@ -11,15 +11,17 @@ export const HEAT_KINDS = ["temperature", "humidity", "co2", "pm25"] as const;
 export type HeatKind = (typeof HEAT_KINDS)[number];
 /**
  * What the layer menu shows: nothing, a heatmap, the power layer, the network map (D-031,
- * offered to administrators with ZHA set up) or every automation's wires (D-032, administrators).
+ * offered to administrators with ZHA set up), every automation's wires (D-032, administrators)
+ * or upkeep (D-033: the pieces tinted by their tasks, and the list of them).
  */
-export type LayerName = "off" | HeatKind | "power" | "network" | "automations";
+export type LayerName = "off" | HeatKind | "power" | "network" | "automations" | "upkeep";
 export const LAYER_NAMES: readonly LayerName[] = [
   "off",
   ...HEAT_KINDS,
   "power",
   "network",
   "automations",
+  "upkeep",
 ];
 
 /**

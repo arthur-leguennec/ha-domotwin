@@ -912,6 +912,33 @@ try {
     await wiresPage.screenshot(),
   );
   console.log("docs/figures/screenshot-automations.png");
+
+  // Upkeep cards (D-033): the panel, the day look, the upkeep layer of the demo apartment on a
+  // fixed day, its list beside.
+  const upkeepPage = await browser.newPage({
+    viewport: { width: 1280, height: 800 },
+    deviceScaleFactor: 1.5,
+  });
+  await upkeepPage.clock.setSystemTime(new Date("2026-10-24T10:00:00"));
+  await upkeepPage.emulateMedia({ reducedMotion: "reduce" });
+  await upkeepPage.goto("http://127.0.0.1:4173/?mode=panel&live=1&upkeep=1&hometheme=day");
+  await upkeepPage.waitForFunction(() => window.__view?.()?.debugState().summary, null, {
+    timeout: 60_000,
+  });
+  await upkeepPage.evaluate(() => {
+    const view = window.__view();
+    view.options = { ...view.options, quality: "high" };
+  });
+  await upkeepPage.locator("domotwin-view").getByTestId("layers").click();
+  await upkeepPage.locator('domotwin-view [data-layer="upkeep"]').click();
+  await upkeepPage.locator("domotwin-upkeep-list li").first().waitFor();
+  await upkeepPage.evaluate(() => window.__view().settle());
+  await upkeepPage.waitForTimeout(800);
+  await fs.writeFile(
+    join(root, "docs", "figures", "screenshot-upkeep.png"),
+    await upkeepPage.screenshot(),
+  );
+  console.log("docs/figures/screenshot-upkeep.png");
   await browser.close();
 } finally {
   server.kill();

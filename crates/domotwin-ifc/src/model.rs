@@ -2,7 +2,7 @@
 //! relations between elements, properties, and the geometry reduced to points and outlines.
 //! Attribute positions follow IFC2x3 and IFC4 (they agree for everything read here).
 
-use std::cell::Cell;
+use std::cell::{Cell, OnceCell};
 use std::collections::HashMap;
 
 use crate::math::{P2, Transform, V3, convex_hull, normalize, signed_area2};
@@ -42,6 +42,9 @@ pub struct Model {
     pub materials: HashMap<u32, u32>,
     /// What is left of the current geometry walk (see `MAX_STEPS`).
     steps: Cell<u32>,
+    /// The asset each element belongs to, read the first time it is asked for
+    /// (`crate::upkeep::assets`).
+    pub(crate) assets: OnceCell<HashMap<u32, u32>>,
 }
 
 fn point3(values: &[Value]) -> Option<V3> {
@@ -66,6 +69,7 @@ impl Model {
             types: HashMap::new(),
             materials: HashMap::new(),
             steps: Cell::new(MAX_STEPS),
+            assets: OnceCell::new(),
         };
         model.read_units();
         model.read_relations();
@@ -234,20 +238,41 @@ impl Model {
     /// A property of an object or of its type: the first `name` found in any of its property sets
     /// (case-insensitive).
     pub fn property(&self, object: u32, name: &str) -> Option<Value> {
+        self.property_in(object, None, name)
+    }
+
+    /// A property of an object or of its type (the object's own first), in the property set named
+    /// `set` or in any (names compared case-insensitively): a single value's value, or what a
+    /// reference value refers to (`IFC2x3` dates are `IfcCalendarDate` instances).
+    pub fn property_in(&self, object: u32, set: Option<&str>, name: &str) -> Option<Value> {
         let mut sets: Vec<u32> = self.properties.get(&object).cloned().unwrap_or_default();
         if let Some(ty) = self.types.get(&object).and_then(|&t| self.get(t)) {
             sets.extend(ty.get(5).references());
         }
-        for set in sets {
-            let Some(set) = self.get(set) else { continue };
-            for property in set.get(4).references() {
+        for set_id in sets {
+            let Some(found) = self.get(set_id) else {
+                continue;
+            };
+            if found.ty != "IFCPROPERTYSET"
+                || set.is_some_and(|s| !found.text(2).is_some_and(|n| n.eq_ignore_ascii_case(s)))
+            {
+                continue;
+            }
+            for property in found.get(4).references() {
                 let Some(p) = self.get(property) else {
                     continue;
                 };
-                if p.ty == "IFCPROPERTYSINGLEVALUE"
-                    && p.text(0).is_some_and(|n| n.eq_ignore_ascii_case(name))
-                {
-                    return Some(p.get(2).clone());
+                if !p.text(0).is_some_and(|n| n.eq_ignore_ascii_case(name)) {
+                    continue;
+                }
+                let value = match p.ty {
+                    "IFCPROPERTYSINGLEVALUE" => p.get(2),
+                    "IFCPROPERTYREFERENCEVALUE" => p.get(3),
+                    _ => continue,
+                };
+                // Left empty here (`$`, `''`): the type, or another set, may say it.
+                if !is_empty(value) {
+                    return Some(value.clone());
                 }
             }
         }
@@ -958,4 +983,14 @@ fn ccw(mut points: Vec<P2>) -> Vec<P2> {
         points.reverse();
     }
     points
+}
+
+/// A property value that says nothing: not set, or an empty text.
+fn is_empty(value: &Value) -> bool {
+    match value {
+        Value::Null => true,
+        Value::Typed(_, inner) => is_empty(inner),
+        Value::Str(s) => s.trim().is_empty(),
+        _ => false,
+    }
 }

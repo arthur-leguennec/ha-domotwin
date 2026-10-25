@@ -150,8 +150,9 @@ export interface PlanElement {
   id: string;
   type: "room" | "wall" | "door" | "window" | "furniture";
   name: string;
-  /** Furniture only. */
+  /** Furniture only: its kind, and the room it stands in. */
   kind?: string;
+  room?: string;
 }
 
 /** A value of a layer and where it goes on the picture (device pixels from the top left). */
@@ -253,6 +254,15 @@ export function heatLegend(kind: string): HeatLegend | undefined {
  */
 export function readAutomation(config: string): string | undefined {
   return wasmLoaded?.readAutomation(config);
+}
+
+/**
+ * Where every upkeep card stands on `today` (`YYYY-MM-DD`, D-033), as the engine's JSON text
+ * `{piece: {"state", "warranty", "tasks": [{"id", "due", "state", "days"}]}}`, once the engine is
+ * loaded.
+ */
+export function upkeepStates(upkeep: string, today: string): string | undefined {
+  return wasmLoaded?.upkeepStates(upkeep, today);
 }
 
 /** The engine reports plan errors as JSON `{"code", "element"}`, other errors as a bare code. */
@@ -397,6 +407,16 @@ export class DomoTwinEngine {
   /** Shows or hides the power layer. */
   setPowerLayer(shown: boolean): void {
     this.live.setPowerLayer(shown);
+  }
+
+  /** Where each piece's upkeep stands (JSON `{piece: "fine" | "due" | "overdue"}`, D-033). */
+  setUpkeep(json: string): void {
+    this.live.setUpkeep(json);
+  }
+
+  /** Shows or hides the upkeep layer: the pieces tinted by where their upkeep stands. */
+  setUpkeepLayer(shown: boolean): void {
+    this.live.setUpkeepLayer(shown);
   }
 
   /** Lets the layers move, or holds them still (reduced motion). */

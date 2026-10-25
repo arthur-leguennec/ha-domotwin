@@ -1,18 +1,42 @@
 /**
- * The two panels the view opens over the scene: the controls of an element (long press) and the
- * panel of a room (its lights, scenes, covers, climate and media from its Home Assistant area).
- * Loaded on demand, the first time one opens, so the module every page loads stays small.
+ * The panels the view opens over the scene: the controls of an element (long press), a piece's own
+ * sheet (a piece linked to nothing, for its upkeep card, D-033) and the panel of a room (its
+ * lights, scenes, covers, climate and media from its Home Assistant area). Loaded on demand, the
+ * first time one opens, so the module every page loads stays small.
  */
-import { mdiInformationOutline, mdiLightbulbOff } from "@mdi/js";
+import { mdiDoorOpen, mdiInformationOutline, mdiLightbulbOff } from "@mdi/js";
 import { html, nothing, type TemplateResult } from "lit";
 
 import { areaEntities } from "../live/bindings";
 import { define, fire } from "./define";
 import { entityRow, rowStyles } from "./entity-rows";
 import { icon } from "./icon";
+import type { CardStanding, Upkeep } from "../live/upkeep";
 import "./automation-section";
+import "./upkeep-section";
 import { Sheet, sheetStyles } from "./sheet";
 import { baseStyles } from "./styles";
+
+/**
+ * A piece's upkeep card (D-033), where there is one or an administrator can write one; nothing
+ * without upkeep (an integration older than D-033).
+ */
+function upkeepCard(sheet: {
+  hass?: Sheet["hass"];
+  piece?: string;
+  upkeep?: Upkeep;
+  standing?: CardStanding;
+}): TemplateResult | typeof nothing {
+  const { hass, piece, upkeep } = sheet;
+  if (!hass || !piece || !upkeep) return nothing;
+  if (!upkeep.pieces[piece] && hass.user?.is_admin !== true) return nothing;
+  return html`<domotwin-upkeep-card
+    .hass=${hass}
+    .piece=${piece}
+    .upkeep=${upkeep}
+    .standing=${sheet.standing}
+  ></domotwin-upkeep-card>`;
+}
 
 /** `<domotwin-controls>`: the entities of one element, with their controls and automations. */
 export class DomoTwinControls extends Sheet {
@@ -21,6 +45,9 @@ export class DomoTwinControls extends Sheet {
     entities: { attribute: false },
     device: { attribute: false },
     area: { attribute: false },
+    piece: { attribute: false },
+    upkeep: { attribute: false },
+    standing: { attribute: false },
   };
   static override styles = [baseStyles, rowStyles, sheetStyles];
 
@@ -28,6 +55,10 @@ export class DomoTwinControls extends Sheet {
   /** The Home Assistant device it stands for, and its room's area: their automations too. */
   device?: string;
   area?: string;
+  /** The piece (its id), with the home's upkeep cards and where its own stands. */
+  piece?: string;
+  upkeep?: Upkeep;
+  standing?: CardStanding;
 
   protected override render(): TemplateResult | typeof nothing {
     const hass = this.hass;
@@ -41,7 +72,8 @@ export class DomoTwinControls extends Sheet {
           .entities=${this.entities}
           .device=${this.device}
           .area=${this.area}
-        ></domotwin-automations>`,
+        ></domotwin-automations>
+        ${upkeepCard(this)}`,
       first
         ? html`<div class="footer">
             <button
@@ -51,6 +83,46 @@ export class DomoTwinControls extends Sheet {
               }}
             >
               ${icon(mdiInformationOutline)}${t.t("controls.more_info")}
+            </button>
+          </div>`
+        : nothing,
+    );
+  }
+}
+
+/** `<domotwin-piece>`: a piece linked to nothing: its upkeep card, its room's panel a tap away. */
+export class DomoTwinPiece extends Sheet {
+  static override properties = {
+    ...Sheet.properties,
+    piece: { attribute: false },
+    roomName: { attribute: false },
+    upkeep: { attribute: false },
+    standing: { attribute: false },
+  };
+  static override styles = [baseStyles, rowStyles, sheetStyles];
+
+  piece = "";
+  /** The room it is in (none: no room panel to open). */
+  roomName?: string;
+  upkeep?: Upkeep;
+  standing?: CardStanding;
+
+  protected override render(): TemplateResult | typeof nothing {
+    if (!this.hass) return nothing;
+    const t = this.t;
+    const room = this.roomName;
+    return this.frame(
+      html`${upkeepCard(this)}`,
+      room
+        ? html`<div class="footer">
+            <button
+              class="action quiet"
+              data-testid="piece-room"
+              @click=${() => {
+                fire(this, "domotwin-open-room", undefined);
+              }}
+            >
+              ${icon(mdiDoorOpen)}${t.t("upkeep.room_panel", { room })}
             </button>
           </div>`
         : nothing,
@@ -134,4 +206,5 @@ export class DomoTwinRoom extends Sheet {
 }
 
 define("domotwin-controls", DomoTwinControls);
+define("domotwin-piece", DomoTwinPiece);
 define("domotwin-room", DomoTwinRoom);

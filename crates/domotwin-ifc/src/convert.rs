@@ -16,6 +16,7 @@ use crate::math::{
     simplify_polygon,
 };
 use crate::model::Model;
+use crate::upkeep;
 
 /// Most elements of a plan.
 const MAX_ELEMENTS: usize = 500;
@@ -748,7 +749,10 @@ fn local_box(model: &Model, product: u32) -> Option<(V3, V3)> {
 ///
 /// `no_spaces` when the storey has no space with an outline.
 #[allow(clippy::too_many_lines)]
-pub fn convert(model: &Model, storey: u32) -> Result<(Json, Report), &'static str> {
+pub fn convert(
+    model: &Model,
+    storey: u32,
+) -> Result<(Json, Report, Map<String, Json>), &'static str> {
     let mut report = Report::default();
     let (spaces, elements) = storey_content(model, storey);
     let floor = floor_level(model, storey);
@@ -1043,6 +1047,7 @@ pub fn convert(model: &Model, storey: u32) -> Result<(Json, Report), &'static st
 
     // Furniture.
     struct Piece {
+        entity: u32,
         id: String,
         name: String,
         kind: &'static str,
@@ -1146,6 +1151,7 @@ pub fn convert(model: &Model, storey: u32) -> Result<(Json, Report), &'static st
             continue;
         }
         pieces.push(Piece {
+            entity: e,
             id: unique(global_id(model, e)),
             name: element_name(model, e),
             kind,
@@ -1258,6 +1264,11 @@ pub fn convert(model: &Model, storey: u32) -> Result<(Json, Report), &'static st
         items.push(Json::Object(e));
     }
     report.furniture = pieces.len();
+    // What the file says about looking after each piece (D-033), by the piece's id.
+    let cards: Map<String, Json> = pieces
+        .iter()
+        .filter_map(|p| Some((p.id.clone(), upkeep::card(model, p.entity)?)))
+        .collect();
 
     let plan = json!({
         "format": "domotwin-plan",
@@ -1269,7 +1280,7 @@ pub fn convert(model: &Model, storey: u32) -> Result<(Json, Report), &'static st
         "windows": windows,
         "items": items,
     });
-    Ok((plan, report))
+    Ok((plan, report, cards))
 }
 
 fn centroid(points: &[P2]) -> P2 {

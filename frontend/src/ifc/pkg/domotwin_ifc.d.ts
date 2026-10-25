@@ -8,8 +8,8 @@ export class IfcImport {
     free(): void;
     [Symbol.dispose](): void;
     /**
-     * The plan of a storey and what was left out, as JSON `{"plan", "report"}`. Errors:
-     * `no_storeys`, `no_spaces`.
+     * The plan of a storey, what was left out and the upkeep cards the file fills (by piece
+     * id), as JSON `{"plan", "report", "upkeep"}`. Errors: `no_storeys`, `no_spaces`.
      */
     convert(storey: number): string;
     /**

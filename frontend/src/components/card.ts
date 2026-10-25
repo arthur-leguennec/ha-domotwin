@@ -13,6 +13,7 @@ import {
   roomsElsewhere,
   type StoreyRooms,
 } from "../live/storeys";
+import type { Upkeep } from "../live/upkeep";
 import { translatorFor } from "../i18n";
 import { baseStyles } from "./styles";
 import type { DomoTwinView, ViewOptions } from "./view";
@@ -28,6 +29,7 @@ export class DomoTwinCard extends LitElement {
     planError: { state: true },
     bindings: { state: true },
     settings: { state: true },
+    upkeep: { state: true },
     storeys: { state: true },
     storey: { state: true },
     elsewhere: { state: true },
@@ -41,6 +43,8 @@ export class DomoTwinCard extends LitElement {
   protected planError?: string;
   protected bindings?: BindingsJson;
   protected settings?: Settings;
+  /** The upkeep cards (D-033). */
+  protected upkeep?: Upkeep;
   /** The storeys, and the one shown (chosen in the view, else the card's `storey`). */
   protected storeys: StoreyInfo[] = [];
   protected storey?: string;
@@ -124,11 +128,22 @@ export class DomoTwinCard extends LitElement {
       if (event.kind === "show") void this.showRequest(client, event.show);
       else if (event.kind === "plan") void this.loadPlan(client);
       else if (event.kind === "bindings") void this.loadBindings(client);
+      else if (event.kind === "upkeep") void this.loadUpkeep(client);
       else void this.loadSettings(client);
     });
     void this.loadPlan(client);
     void this.loadBindings(client);
     void this.loadSettings(client);
+    void this.loadUpkeep(client);
+  }
+
+  /** Without upkeep cards (an integration older than D-033 too) nothing is due. */
+  private async loadUpkeep(client: DomoTwinClient): Promise<void> {
+    try {
+      this.upkeep = (await client.getUpkeep()).upkeep;
+    } catch {
+      this.upkeep = undefined;
+    }
   }
 
   /** Without settings the home shows with north up. */
@@ -317,6 +332,7 @@ export class DomoTwinCard extends LitElement {
         .layout=${this.layout}
         .home=${this.home}
         .bindings=${this.bindings}
+        .upkeep=${this.upkeep}
         .planError=${this.planError}
         .options=${this.viewOptions()}
         .north=${this.settings?.north ?? 0}

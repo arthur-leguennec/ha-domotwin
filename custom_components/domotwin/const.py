@@ -10,8 +10,9 @@ VERSION: Final = "0.0.0"  # x-release-please-version
 # Storage (.storage/domotwin.data), see docs/ARCHITECTURE.md.
 STORAGE_KEY: Final = f"{DOMAIN}.data"
 # 2: the storeys (1.1 kept one plan). 3: plans in DomoTwin's own format (docs/plan-format.md).
-# Major versions, so that an older DomoTwin refuses the data instead of misreading it.
-STORAGE_VERSION: Final = 3
+# 4: the upkeep cards (D-033). Major versions, so that an older DomoTwin refuses the data instead
+# of misreading it (a 3.x would drop the cards it does not know, and save at once).
+STORAGE_VERSION: Final = 4
 STORAGE_MINOR_VERSION: Final = 1
 
 # What a plan file says it is, and the lists of its elements (docs/plan-format.md).
@@ -48,6 +49,16 @@ MAX_STOREYS: Final = 20
 MAX_STOREY_NAME: Final = 60
 MIN_ELEVATION: Final = -10_000
 MAX_ELEVATION: Final = 100_000
+
+# Upkeep cards (docs/DECISIONS.md, D-033): one per piece at most, their texts and tasks.
+MAX_UPKEEP_BYTES: Final = 1_000_000
+MAX_UPKEEP_TEXT: Final = 100
+MAX_UPKEEP_LINK: Final = 500
+MAX_UPKEEP_NOTES: Final = 2_000
+MAX_UPKEEP_TASKS: Final = 20
+MAX_UPKEEP_DAYS: Final = 3_650
+MAX_UPKEEP_MONTHS: Final = 120
+MAX_LEAD_DAYS: Final = 365
 
 # Dispatcher signal sent after every write: (kind, revision).
 SIGNAL_UPDATED: Final = f"{DOMAIN}_updated"

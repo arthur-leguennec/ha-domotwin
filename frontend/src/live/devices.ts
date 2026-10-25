@@ -19,7 +19,11 @@ export type BadgeKind =
   | "camera_off"
   | "playing"
   | "battery_low"
-  | "running";
+  | "running"
+  // Upkeep (D-033): a task due soon, overdue, a warranty ending.
+  | "upkeep_due"
+  | "upkeep_overdue"
+  | "warranty_ending";
 
 /** How a badge looks: calm, neutral, to look at, or urgent. */
 export type BadgeTone = "ok" | "info" | "warning" | "danger";
@@ -82,6 +86,24 @@ function lockBadge(state: string): [BadgeKind, BadgeTone] | undefined {
     default:
       return undefined;
   }
+}
+
+/**
+ * Badges of two sources put together (the devices' and upkeep's), at most `MAX_BADGES` an
+ * element, the most urgent first.
+ */
+export function mergeBadges(
+  first: ReadonlyMap<string, Badge[]>,
+  second: ReadonlyMap<string, Badge[]>,
+): Map<string, Badge[]> {
+  if (second.size === 0) return new Map(first);
+  const out = new Map(first);
+  for (const [element, badges] of second) {
+    const all = [...(out.get(element) ?? []), ...badges];
+    all.sort((a, b) => TONE_ORDER[a.tone] - TONE_ORDER[b.tone]);
+    out.set(element, all.slice(0, MAX_BADGES));
+  }
+  return out;
 }
 
 /**

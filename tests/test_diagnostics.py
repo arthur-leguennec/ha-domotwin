@@ -27,9 +27,18 @@ async def test_diagnostics_are_counts_only(
     await data.async_save_plan(plan=demo_plan)
     await data.async_save_bindings(demo_bindings)
     await data.async_save_settings({"north": 37.5})
+    # A fictional card: its make, serial number, link and notes stay out.
+    card = {
+        "make": "Fictional Appliances",
+        "serial": "FA-0042",
+        "manual": "https://example.com/w-100",
+        "notes": "Behind the bottom flap.",
+        "tasks": [{"id": "filter", "name": "Clean the filter", "every": 3, "unit": "months"}],
+    }
+    await data.async_save_upkeep({"washer": card})
 
     diagnostics = await get_diagnostics_for_config_entry(hass, hass_client, setup_integration)
-    assert diagnostics["revision"] == 3
+    assert diagnostics["revision"] == 4
     assert diagnostics["plan"] == {
         "version": 1,
         "elements": {"rooms": 5, "doors": 4, "windows": 6, "items": 39},
@@ -38,8 +47,22 @@ async def test_diagnostics_are_counts_only(
     }
     assert diagnostics["bindings"] == {"rooms": 5, "elements": 20, "devices": 0}
     assert diagnostics["settings"] == ["north"]
+    # Never done, no install date: due now.
+    assert diagnostics["upkeep"] == {"cards": 1, "tasks": 1, "due": 1, "lead_days": 14}
     text = json.dumps(diagnostics)
-    for private in ("Living room", "light.", "living", "Demo apartment", "37.5"):
+    for private in (
+        "Living room",
+        "light.",
+        "living",
+        "Demo apartment",
+        "37.5",
+        "Fictional",
+        "FA-0042",
+        "example.com",
+        "flap",
+        "filter",
+        "washer",
+    ):
         assert private not in text
 
 

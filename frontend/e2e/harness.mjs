@@ -12,6 +12,8 @@
 //   theme=auto|day|neon|blueprint  accent=<#rrggbb>  names=0 (card options)
 //   hometheme=<look> (the stored settings)
 //   screen=<name>  idle=<seconds>  orbit=1  nightdim=1 (the kiosk's card options)
+//   upkeep=1 (the demo apartment's fictional upkeep cards, examples/demo-apartment.upkeep.json)
+//   upkeep=0 (an integration without upkeep cards)
 //   window.__show(request) sends a `domotwin.show` request to every screen
 import { applyService, demoHome } from "./demo-home.mjs";
 
@@ -29,6 +31,19 @@ const demo = await (await fetch("/examples/demo-apartment.domotwin.json")).json(
 const demoBindings = live
   ? await (await fetch("/examples/demo-apartment.bindings.json")).json()
   : { version: 1, rooms: {}, elements: {} };
+// Upkeep cards (D-033): the demo's, none yet, or an integration without them.
+const upkeepParam = params.get("upkeep");
+const demoUpkeep =
+  upkeepParam === "1"
+    ? await (await fetch("/examples/demo-apartment.upkeep.json")).json()
+    : { version: 1, lead_days: 14, pieces: {} };
+
+/** Today's date where the mocked home is (the browser's time zone), as the integration gives it. */
+function today() {
+  const now = new Date();
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+}
 const storeys = [];
 if (params.get("plan") !== "none") {
   storeys.push({ id: "storey-1", name: "", elevation: 0, plan: demo, layout: {} });
@@ -111,6 +126,7 @@ const store = {
   },
   /** Model files kept by the mocked integration, by `<sha256>.<format>`. */
   files: new Map(),
+  upkeep: demoUpkeep,
 };
 window.__store = store;
 
@@ -474,6 +490,28 @@ const connection = {
         store.revision += 1;
         for (const listener of listeners) listener({ kind: "plan", revision: store.revision });
         return { revision: store.revision };
+      }
+      case "domotwin/upkeep/get":
+        if (upkeepParam === "0") throw { code: "unknown_command", message: message.type };
+        return structuredClone({ upkeep: store.upkeep, revision: store.revision, today: today() });
+      case "domotwin/upkeep/save": {
+        if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        const pieces = { ...store.upkeep.pieces, ...message.pieces };
+        store.upkeep.pieces = Object.fromEntries(
+          Object.entries(pieces).filter(([, card]) => card !== null),
+        );
+        if (message.lead_days !== undefined) store.upkeep.lead_days = message.lead_days;
+        store.revision += 1;
+        for (const listener of listeners) listener({ kind: "upkeep", revision: store.revision });
+        return { revision: store.revision };
+      }
+      case "domotwin/upkeep/done": {
+        const task = store.upkeep.pieces[message.piece]?.tasks?.find((t) => t.id === message.task);
+        if (!task) throw { code: "unknown_task", message: "no such task" };
+        task.last_done = today();
+        store.revision += 1;
+        for (const listener of listeners) listener({ kind: "upkeep", revision: store.revision });
+        return { revision: store.revision, last_done: task.last_done };
       }
       case "domotwin/bindings/save": {
         if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
