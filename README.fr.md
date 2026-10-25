@@ -20,10 +20,10 @@ Local, rapide, Rust + WebAssembly.</p>
 > pilotage en direct (états, toucher, appui long, panneau de pièce, liaisons), le mode édition, vos
 > propres modèles 3D, les calques, les appareils, l’éditeur de plan, les étages, les apparences,
 > tous les étages à la fois, la promenade, le kiosque, la carte du réseau, les fils des
-> automatisations, les fiches d’entretien, les personnes dans leurs pièces et la localisation
-> Bluetooth fonctionnent déjà ;
-> la finition arrive ensuite. Les fonctionnalités ci-dessous décrivent la version 0.1.0 et ce qui
-> a suivi.
+> automatisations, les fiches d’entretien, les personnes dans leurs pièces, la localisation
+> Bluetooth, la voix et la finition (police, clavier, lecteurs d’écran) fonctionnent déjà ; une
+> passe sur la taille et la vitesse arrive ensuite, puis la version 0.2.0. Les fonctionnalités
+> ci-dessous décrivent la version 0.1.0 et ce qui a suivi.
 
 ## Fonctionnalités
 
@@ -112,11 +112,22 @@ Local, rapide, Rust + WebAssembly.</p>
   sa vue quand on la laisse, tourne lentement et s’assombrit la nuit. Dites « montre la cuisine » à
   Assist et vos écrans la montrent. Voir [la promenade, les kiosques et la
   voix](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/kiosk.md) (en anglais).
+- **Votre voix.** Un bouton micro ouvre Assist de Home Assistant déjà à l’écoute, sur une
+  tablette murale comme sur un téléphone. Quand Assist n’entend pas encore, DomoTwin installe la
+  voix en local avec votre accord : Whisper ou Speech-to-Phrase et Piper, installés par le
+  Supervisor, sans que rien ne quitte votre logement. Les blueprints vocaux s’ajoutent d’un geste.
+  Voir [votre voix](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/voice.md) (en
+  anglais).
 - **Léger et fluide.** Rust compilé en WebAssembly, un rendu seulement quand quelque chose change,
   des préréglages de qualité pour les vieilles tablettes murales. Le premier chargement est limité à
   1,2 Mo, vérifié par l’intégration continue.
 - **À vous.** Anglais et français, suit le thème de Home Assistant, fonctionne dans les applications
-  mobiles.
+  mobiles. Sa propre police (Inter, servie par votre Home Assistant), et tout à portée du clavier
+  et des lecteurs d’écran : les pièces et leurs commandes, les menus, les dialogues.
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/demo.gif" alt="L’appartement de démonstration : la vue tourne autour du logement, puis le montre en plan 2D et revient en 3D" width="480">
+</p>
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-looks.png" alt="L’appartement de démonstration le soir dans trois apparences : néon, plan d’architecte et jour" width="100%">
@@ -238,8 +249,9 @@ YAML n’est jamais nécessaire. Pour référence, les options de la carte :
 | `orbit`       | `true`, `false`                     | `false`    | Kiosque : tourner lentement autour du logement entre-temps. |
 | `night_dim`   | `true`, `false`                     | `false`    | Kiosque : assombri la nuit entre-temps (sauf alerte). |
 | `tools`       | `true`, `false`                     | `true`     | Les boutons de la vue.                        |
+| `voice`       | `true`, `false`                     | `true`     | Le bouton micro, quand Assist est là.         |
 | `screen`      | un nom (`hallway`…)                 | aucun      | Le nom de cet écran, pour `domotwin.show`.    |
-| `font_family` | une famille de police               | incluse    | Police des textes de la carte.                |
+| `font_family` | une famille de police, `theme`      | incluse    | Police des textes de la carte ; `theme` : celle de votre thème. |
 
 Options de l’intégration (Paramètres → Appareils et services → DomoTwin → Configurer) : afficher le
 panneau dans la barre latérale, et le réserver aux administrateurs. Seuls les administrateurs

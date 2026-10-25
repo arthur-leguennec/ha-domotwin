@@ -127,6 +127,12 @@ every reader returns `Result` with a stable error code that the frontend transla
    asked to every open view through `domotwin/subscribe` (`{kind: "show", show}`). Each card (the
    one with that `screen`, or all of them) and the panel find the room, element, storey or
    viewpoint named (`src/live/show.ts`), switch storey if they must and frame it.
+7. **Voice.** The microphone button fires Home Assistant's `assist` action (`hass-action`), which
+   opens Assist listening with the pipeline that hears (`src/live/voice.ts`, D-041). The
+   integration's `voice.py` installs the shipped blueprints into Home Assistant's blueprint
+   folder (`domotwin/voice/blueprints`) and, on the Supervisor, sets up local voice in the
+   background (`domotwin/voice/setup`: the apps through `AddonManager`, the Wyoming discovery,
+   an Assist pipeline), its steps read with `domotwin/voice/get`.
 
 ## Storage
 

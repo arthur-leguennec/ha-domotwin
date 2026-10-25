@@ -627,3 +627,22 @@ gaps between rooms are measured two by two (it took 6 s before), and the segment
 left to right to find where they cross. The fuzz target `plan_import` found two crashes, fixed:
 an overflow in the grid of `faces`, and blocks that insert themselves (now counted in the
 entities' budget). Once the readers were final, it ran 270 000 inputs in five minutes without a crash.
+
+### M12 (polish and voice)
+
+Bundle: the first load is **480.5 kB gzipped** of 1 200 kB (+8.6 kB). It holds the microphone
+button and its pipeline choice, the room list, the menus' and dialogs' keyboard, and the font's
+declaration. The rest comes on demand:
+
+| File | Raw | Gzipped |
+| --- | --- | --- |
+| `chunks/voice-dialog-<hash>.js` (the voice dialog, on demand) | 9.8 kB | 3.0 kB |
+| `fonts/inter-variable.<hash>.woff2` (fetched once a text uses it, cached by its hash) | 59.5 kB | 59.5 kB |
+
+The font is a subset of Inter's variable font (every weight; Latin, punctuation, units, arrows),
+cut from 880 kB. It is outside the budget, as the budget's script says of fonts, and it is
+fetched once: its name changes only when the font does. A card set to another font does not
+fetch it.
+
+Nothing in the frame changes. Under *reduce motion* the camera's moves, the storeys and the walls
+take one frame instead of 650 to 700 ms, so fewer frames are drawn.

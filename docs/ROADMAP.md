@@ -31,7 +31,7 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M5b       | What cameras see, drawn on the floor behind the furniture  | ✅     |
 | M9g       | Private rooms: locked, or kept for some people             | ✅     |
 | M11       | Imports: Sweet Home 3D, DXF, room scans                    | ✅     |
-| M12       | Polish: design, fonts, accessibility, voice, README        | ⏳     |
+| M12       | Polish: design, fonts, accessibility, voice, README        | ✅     |
 | M12b      | Size and speed: a pass that keeps the picture as it is     | ⏳     |
 | M13       | Release 0.2.0 and HACS submission checklist                | ⏳     |
 
@@ -724,25 +724,48 @@ Design pass, bundled variable font and `font_family` option, accessibility (keyb
 screen-reader labels, reduced motion), README with real screenshots and a GIF made from the demo
 plan, and voice (asked by the maintainer; Home Assistant's Assist does the listening, the
 recognition and the speech, with whatever pipeline the user set up, local Whisper and Piper
-included: DomoTwin embeds no voice engine):
+included: DomoTwin embeds no voice engine; D-041, D-042):
 
-- **A microphone button** in the card and the panel opens Home Assistant's Assist already
-  listening (the dashboards' `assist` action), so a wall tablet without a voice satellite can
-  speak to it. The browser gives the microphone to pages served over HTTPS only: over HTTP, a
-  dialog says so and how to serve Home Assistant over HTTPS, instead of a button that does nothing.
-- **The voice blueprints at hand**: DomoTwin's settings offer to import "show the kitchen" and
-  "where is…" (`blueprints/`) in one tap, instead of a link in the documentation.
-- **Voice set up when it is not**: when Assist has no speech-to-text, the microphone button offers
-  to set it up, locally, with the administrator's consent and saying what is downloaded:
-  - on Home Assistant OS and Supervised, DomoTwin installs and starts the Whisper add-on (or
+- ✅ **A microphone button** in the card and the panel opens Home Assistant's Assist already
+  listening (the dashboards' `assist` action), with the pipeline that hears, so a wall tablet
+  without a voice satellite can speak to it. The browser gives the microphone to pages served
+  over HTTPS only: over HTTP, a dialog says so and how to serve Home Assistant over HTTPS, and
+  offers to type instead. The card's `voice` option hides it.
+- ✅ **The voice blueprints at hand**: DomoTwin's voice settings add "show the kitchen" and
+  "where is…" to Home Assistant's blueprints in one tap, from the copies the integration ships,
+  say when one was edited there, and open the blueprint page to make an automation.
+- ✅ **Voice set up when it is not**: when Assist has no speech-to-text, the microphone button
+  offers to set it up, locally, with the administrator's consent and saying what is downloaded:
+  - on Home Assistant OS and Supervised, DomoTwin installs and starts the Whisper app (or
     Speech-to-Phrase, faster on small hardware such as a Raspberry Pi) and Piper through the
     Supervisor, as the Z-Wave JS and Matter integrations install theirs. Then it adds them
-    through the Wyoming integration and sets up an Assist pipeline in the user's language;
-  - on Home Assistant Container and Core, which have no add-ons, the dialog gives the steps (the
+    through the Wyoming integration and sets up an Assist pipeline in the user's language,
+    preferred when the preferred one could not hear;
+  - on Home Assistant Container and Core, which have no apps, the dialog gives the steps (the
     Wyoming containers to run) instead;
   - someone who is not an administrator is told to ask one.
 
   Nothing leaves the home: the models run in Home Assistant, and DomoTwin calls no other service.
+- ✅ **A font of its own**: Inter, variable, cut down to about 60 kB and served by the
+  integration under its content hash, fetched only when a text uses it. `font_family` puts
+  another first (`theme`: the theme's). Buttons and fields use it too.
+- ✅ **A calmer header**: the panel keeps its daily actions; the export and the settings go in a
+  **More** menu, so the title stays readable on a laptop.
+- ✅ **Accessibility**:
+  - the 3D view is described by its keys; Tab reaches a list of the rooms, with the layer's
+    values, which opens their controls;
+  - menus follow the WAI-ARIA menu pattern;
+  - dialogs and sheets take the focus, close with Escape and give it back;
+  - switches and rows are named after their entity, and toggles no longer claim a state their
+    label contradicts;
+  - focus rings everywhere, contrast raised to 4.5:1 where it fell short, toasts read by a live
+    region;
+  - *reduce motion* also stills the camera's moves, the storeys and the walls.
+- ✅ **README**: the screenshots of the demo plan in the bundled font, and a GIF of it from the
+  demo plan.
+
+Left for later (D-042): the keyboard for picking in link mode, arranging in edit mode and drawing
+in the plan editor, and form errors tied to their field.
 
 ## M12b, size and speed
 
