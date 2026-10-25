@@ -32,8 +32,6 @@ show:
       selector:
         text:
 where:
-  response:
-    optional: false
   fields:
     name:
       example: Alex
