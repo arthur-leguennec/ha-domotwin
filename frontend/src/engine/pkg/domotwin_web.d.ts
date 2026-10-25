@@ -374,6 +374,12 @@ export class Engine {
      */
     setPowerLayer(shown: boolean): void;
     /**
+     * Draws the rooms `ids` (JSON array of element ids) closed, as private rooms the viewer may
+     * not see (D-039): nothing in them, a frosted cover over their floor, no way in. Returns
+     * whether the scene was built again: only when a room it shows closed or opened.
+     */
+    setPrivateRooms(ids: string): boolean;
+    /**
      * Forces a quality preset (`eco`, `balanced`, `high`) or returns to automatic (`auto`).
      */
     setQuality(name: string): void;
@@ -625,6 +631,7 @@ export interface InitOutput {
     readonly engine_setPeople: (a: number, b: number, c: number) => void;
     readonly engine_setPlanView: (a: number, b: number, c: number) => void;
     readonly engine_setPowerLayer: (a: number, b: number) => void;
+    readonly engine_setPrivateRooms: (a: number, b: number, c: number) => number;
     readonly engine_setQuality: (a: number, b: number, c: number) => void;
     readonly engine_setRoof: (a: number, b: number) => void;
     readonly engine_setSpread: (a: number, b: number, c: number) => void;

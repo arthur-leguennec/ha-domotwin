@@ -573,3 +573,17 @@ nine frames each read back, with the views hidden, faint and whole:
 The fan's pass is lost in the noise of the measurement (about ±8 %): one draw call of a few dozen
 triangles over a part of the floor. Its mesh is made again only when the views change (a camera's
 state, a tap, the plan or the links), in 0.02 to 0.08 ms; other states do not touch it.
+
+### M9g (private rooms)
+
+Bundle: the first load is **470.7 kB gzipped** of 1 200 kB (+8.6 kB). The engine grew by 6.0 kB
+(`domotwin_web_bg.<hash>.wasm`: 866.5 kB raw, 374.6 kB gzipped): the scene built without a closed
+room's pieces, its doors' and windows' states and its 3D files, the walking floor closed, the
+frosted cover in the floors' shader. The JavaScript loaded first grew by 2.6 kB (who may see which
+room, what the views leave out); the panel's *Private rooms* is a chunk of its own, loaded when
+opened (2.5 kB).
+
+Closing or opening rooms builds the scene again, only when a room of the scene shown closes or
+opens (headless Chromium, the median of nine, the living room and the bedroom closed then open):
+**6.3 ms** for the demo apartment, 8.9 ms with its upper floor. The frame is unchanged: the cover
+is one texel read on the floors, and a closed room draws fewer triangles.

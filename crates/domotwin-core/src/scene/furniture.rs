@@ -220,7 +220,12 @@ pub(crate) fn build(builder: &mut Builder, plan: &Plan, layout: &WallLayout) {
         if moving != builder.dynamic {
             continue;
         }
-        piece(builder, plan, layout, index, item);
+        let room = builder.room_for(plan, &item.parent, item.center());
+        // Nothing of a room drawn closed (D-039).
+        if builder.closed.contains(&room) {
+            continue;
+        }
+        piece(builder, plan, layout, (index, item), room);
     }
 }
 
@@ -270,7 +275,14 @@ fn hanging_group(builder: &mut Builder, layout: &WallLayout, corners: &[P2; 4]) 
     best.map(|(_, n, inner)| builder.group(n, inner))
 }
 
-fn piece(builder: &mut Builder, plan: &Plan, layout: &WallLayout, index: usize, f: &Furniture) {
+/// Builds one piece of furniture, in the room of slot `room`.
+fn piece(
+    builder: &mut Builder,
+    plan: &Plan,
+    layout: &WallLayout,
+    (index, f): (usize, &Furniture),
+    room: u8,
+) {
     let info = f.kind.info();
     let (s, c) = f.angle.to_radians().sin_cos();
     let rotate = |v: P2| [v[0] * c - v[1] * s, v[0] * s + v[1] * c];
@@ -288,7 +300,7 @@ fn piece(builder: &mut Builder, plan: &Plan, layout: &WallLayout, index: usize, 
     };
     let tag = Tag {
         element,
-        room: builder.room_for(plan, &f.parent, centre),
+        room,
         group: group.unwrap_or(NO_GROUP),
         cut: if group.is_some() {
             CutMode::Hide

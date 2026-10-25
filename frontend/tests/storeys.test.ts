@@ -199,6 +199,12 @@ describe("storeys", () => {
     };
     // The same light linked twice counts once; switches are not lights.
     expect(storeyCounts(hass, bindings, plan)).toEqual({ rooms: 2, lights: 1 });
+    // The lights of a private room the viewer may not see are not told (D-039).
+    const inOffice = (id: string): boolean => id === "lamp" || id === "desk";
+    expect(storeyCounts(hass, bindings, plan, undefined, inOffice)).toEqual({
+      rooms: 2,
+      lights: 0,
+    });
     expect(storeyCounts(undefined, undefined, plan)).toEqual({ rooms: 2, lights: 0 });
     expect(storeyCounts(hass, bindings, null)).toEqual({ rooms: 0, lights: 0 });
     // A lamp added in edit mode counts too.

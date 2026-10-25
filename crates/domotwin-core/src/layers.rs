@@ -274,7 +274,7 @@ pub fn room_shapes<'a>(plan: &'a Plan, scene: &Scene) -> Vec<RoomShape<'a>> {
 
 /// What the renderer reads for each room slot (slot 0, no room, first): the heatmap colour
 /// (linear) and strength; the centre and reach of the room (its halo) and its alert (0 none, 0.5
-/// warning, 1 danger); presence.
+/// warning, 1 danger); presence, and whether the room is drawn closed (D-039).
 #[allow(clippy::cast_possible_truncation)]
 pub fn room_texels(plan: &Plan, scene: &Scene, layers: &RoomLayers) -> Vec<[f32; 4]> {
     let mut texels = vec![[0.0; 4]; ROOM_TEXELS * (scene.rooms.len() + 1)];
@@ -293,6 +293,9 @@ pub fn room_texels(plan: &Plan, scene: &Scene, layers: &RoomLayers) -> Vec<[f32;
         texels[at + 1] = [cx as f32, cz as f32, room.reach.max(1.0) as f32, alert];
         if layers.presence.contains(room.id) {
             texels[at + 2][0] = 1.0;
+        }
+        if scene.closed.contains(room.id) {
+            texels[at + 2][1] = 1.0;
         }
     }
     texels
@@ -440,6 +443,16 @@ mod tests {
         assert!((texels[at + 1][2] - 334.2).abs() < 0.5);
         assert_eq!(texels[at + 1][3], 1.0);
         assert_eq!(texels[at + 2][0], 1.0);
+        assert_eq!(texels[at + 2][1], 0.0);
+        // A room drawn closed (D-039).
+        let options = SceneOptions {
+            closed_rooms: ["living".to_owned()].into(),
+            ..SceneOptions::default()
+        };
+        let closed = room_texels(&plan, &build_scene(&plan, &options), &layers);
+        assert_eq!(closed[at + 2][1], 1.0);
+        let kitchen = scene.rooms.iter().position(|r| r == "kitchen").unwrap() + 1;
+        assert_eq!(closed[ROOM_TEXELS * kitchen + 2][1], 0.0);
         // Other rooms: no heat, no alert, no presence; slot 0 empty.
         let other = ROOM_TEXELS * if slot == 1 { 2 } else { 1 };
         assert_eq!(texels[other][3], 0.0);

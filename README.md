@@ -74,6 +74,10 @@ Local, fast, Rust + WebAssembly.</p>
   minute, and learns as rooms are taught and presence sensors agree. Phones place their owners;
   keys left behind are told; "where are my keys?" by voice. See [Bluetooth
   locating](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/bluetooth.md).
+- **Private rooms.** Keep a bedroom or an office for some people, always or while a "Guests"
+  switch is on: anyone else sees it closed, its floor frosted, nothing and nobody inside, no
+  controls, and the voice answers say "in a private room". See [private
+  rooms](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/privacy.md).
 - **Plan editor.** No plan to import? Draw one in the panel: rooms as polygons with their lengths,
   partitions, doors and windows placed on the walls, with snapping and undo. See [plan
   editor](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/plan-editor.md).

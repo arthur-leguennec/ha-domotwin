@@ -208,23 +208,21 @@ impl WallLayout {
 /// The footprint of a free partition: a quadrilateral along it as thick as it is, and its unit
 /// normal; none when it has no length.
 pub fn free_wall_quad(wall: &FreeWall) -> Option<([P2; 4], P2)> {
-    let (dx, dy) = (wall.x2 - wall.x, wall.y2 - wall.y);
+    segment_quad([wall.x, wall.y], [wall.x2, wall.y2], wall.thickness)
+}
+
+/// The footprint of a wall `thickness` thick centred on the segment `a`–`b` (its corners in
+/// order) and the unit normal of its first side; none for a segment shorter than 5 mm.
+pub fn segment_quad(a: P2, b: P2, thickness: f64) -> Option<([P2; 4], P2)> {
+    let (dx, dy) = (b[0] - a[0], b[1] - a[1]);
     let len = dx.hypot(dy);
     if len < 0.5 {
         return None;
     }
     let n = [-dy / len, dx / len];
-    let t = wall.thickness / 2.0;
-    let side = |x: f64, y: f64, k: f64| [x + n[0] * k, y + n[1] * k];
-    Some((
-        [
-            side(wall.x, wall.y, t),
-            side(wall.x2, wall.y2, t),
-            side(wall.x2, wall.y2, -t),
-            side(wall.x, wall.y, -t),
-        ],
-        n,
-    ))
+    let t = thickness / 2.0;
+    let side = |[x, y]: P2, k: f64| [x + n[0] * k, y + n[1] * k];
+    Some(([side(a, t), side(b, t), side(b, -t), side(a, -t)], n))
 }
 
 /// Unit vector `u` along an opening of direction `angle` (degrees) and `n` = `u` turned +90°.

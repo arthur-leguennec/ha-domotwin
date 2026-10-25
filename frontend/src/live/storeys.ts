@@ -164,10 +164,12 @@ export function storeyCounts(
   bindings: BindingsJson | undefined,
   plan: unknown,
   layout?: unknown,
+  hidden?: (id: string) => boolean,
 ): { rooms: number; lights: number } {
   const ids = storeyIds(plan, layout as Record<string, unknown> | undefined);
   const on = new Set<string>();
   for (const id of ids) {
+    if (hidden?.(id)) continue;
     for (const entity of bindings?.elements[id]?.entities ?? []) {
       const entityId = entity.entity_id;
       if (entityId.startsWith("light.") && hass?.states[entityId]?.state === "on") on.add(entityId);

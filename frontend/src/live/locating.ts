@@ -119,6 +119,8 @@ export interface LocatedShown {
   room?: string;
   roomName?: string;
   leftBehind: boolean;
+  /** Heard in a private room the user viewing may not see (D-039): which one is not told. */
+  private?: true;
 }
 
 const KINDS: readonly LocatedKind[] = ["phone", "watch", "thing"];

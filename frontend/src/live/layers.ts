@@ -98,6 +98,11 @@ export interface LayerChoice {
   /** Alerts (on unless turned off). */
   alerts: boolean;
   presence: boolean;
+  /**
+   * Private rooms the viewer may not see (D-039): no values nor presence, nor the warnings that
+   * would tell someone is in (CO₂) or a window is open (rain); their dangers stay.
+   */
+  closed?: Set<string>;
 }
 
 /** What the layers show now. */
@@ -305,9 +310,10 @@ export function roomLayers(
     const entities = area ? (byArea.get(area) ?? []) : [];
     if (entities.length === 0) continue;
     const reading = readRoom(hass, entities, heat, wet);
-    if (reading.value !== undefined) values[room.id] = reading.value;
-    if (choice.presence && reading.presence) presence.push(room.id);
-    if (choice.alerts && reading.alert) {
+    const closed = choice.closed?.has(room.id) === true;
+    if (!closed && reading.value !== undefined) values[room.id] = reading.value;
+    if (!closed && choice.presence && reading.presence) presence.push(room.id);
+    if (choice.alerts && reading.alert && (!closed || reading.alert.level === "danger")) {
       alerts.push({ room: room.id, name: room.name, ...reading.alert });
     }
   }

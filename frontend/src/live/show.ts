@@ -76,6 +76,8 @@ interface Named {
   id: string;
   name: string;
   type: string;
+  /** The room it follows, when the plan says. */
+  room?: string;
 }
 
 /** The elements of a plan with their names (the id when unnamed). */
@@ -84,6 +86,7 @@ function named(plan: unknown): Named[] {
     id,
     type,
     name: typeof fields.name === "string" && fields.name ? fields.name : id,
+    ...(typeof fields.room === "string" && fields.room ? { room: fields.room } : {}),
   }));
 }
 
@@ -93,10 +96,10 @@ export function findElement(
   plans: readonly { storey?: string; plan: unknown }[],
   wanted: string,
   room: boolean,
-): { id: string; storey?: string } | undefined {
+): { id: string; storey?: string; room?: string } | undefined {
   const all = plans.flatMap(({ storey, plan }) => named(plan).map((e) => ({ ...e, storey })));
   const byId = all.find((e) => e.id === wanted.trim());
-  if (byId) return { id: byId.id, storey: byId.storey };
+  if (byId) return { id: byId.id, storey: byId.storey, room: byId.room };
   const said = spoken(wanted);
   if (!said) return undefined;
   const rank = (e: Named): number => (room && e.type !== "room" ? 1 : 0);
@@ -104,11 +107,12 @@ export function findElement(
   const found =
     sorted.find((e) => spoken(e.name) === said) ??
     sorted.find((e) => ` ${spoken(e.name)} `.includes(` ${said} `));
-  return found && { id: found.id, storey: found.storey };
+  return found && { id: found.id, storey: found.storey, room: found.room };
 }
 
 /**
- * What a screen showing `shown` does with a request; `undefined` when it names nothing known. The
+ * What a screen showing `shown` does with a request; `undefined` when it names nothing known, or
+ * a private room the screen's viewer may not see (`closed`, D-039) or something in it. The
  * storeys' plans the client has are not fetched again.
  */
 export async function resolveShow(
@@ -117,6 +121,7 @@ export async function resolveShow(
   storeys: readonly StoreyInfo[],
   shown: { plan: unknown; storey?: string },
   request: ShowRequest,
+  closed: ReadonlySet<string> = new Set(),
 ): Promise<ShowTarget | undefined> {
   const target: ShowTarget = {};
   if (request.view) target.view = request.view;
@@ -149,6 +154,10 @@ export async function resolveShow(
         : [{ storey: shown.storey, plan: shown.plan }];
     const found = findElement(plans, wanted, request.element === undefined);
     if (found) {
+      // Not even its storey shown.
+      if (closed.has(found.id) || (found.room !== undefined && closed.has(found.room))) {
+        return undefined;
+      }
       target.element = found.id;
       // Its storey, unless every storey is shown (or asked for): it is framed there; walking
       // is on its storey alone.

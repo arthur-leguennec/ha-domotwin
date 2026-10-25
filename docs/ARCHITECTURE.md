@@ -159,7 +159,10 @@ every reader returns `Result` with a stable error code that the frontend transla
   migration to storage 3.1 with their overlays and their 3D files; nothing shows them.
 - `bindings`: see [`bindings.md`](bindings.md).
 - `settings`: the home's settings, `{"north": <degrees>}`: where north points on the plan,
-  clockwise from its top, for the real sun (D-023).
+  clockwise from its top, for the real sun (D-023); the look shown by default and its accent
+  (`theme`, `accent`, D-027); the private rooms (`rooms`, D-039), `{room id: {"people": [person
+  entity ids], "while"?: entity id}}`: kept for those people (none: for nobody), always or only
+  while that entity is on ([`privacy.md`](privacy.md)).
 - `upkeep` (D-033, storage 4.1): the upkeep cards by piece id, and how many days before it a task
   is due soon; see [`upkeep.md`](upkeep.md). Kept apart from the plan, like the bindings.
 - `revision`: bumped on every write. `revisions` keeps the revision of the last write of each kind
@@ -224,7 +227,7 @@ when the integration is removed.
 | `domotwin/bindings/get`  | user   | –                                              | `bindings`, `revision`           |
 | `domotwin/bindings/save` | admin  | `bindings`, `expected_revision?`               | `revision`                       |
 | `domotwin/settings/get`  | user   | –                                              | `settings`, `revision`           |
-| `domotwin/settings/save` | admin  | `settings` (`north`, 0 ≤ n < 360)              | `revision`                       |
+| `domotwin/settings/save` | admin  | `settings` (`north`, 0 ≤ n < 360; `theme`, `accent`; `rooms`, at most 200) | `revision` |
 | `domotwin/upkeep/get`    | user   | –                                              | `upkeep`, `revision`, `today` (where the home is) |
 | `domotwin/upkeep/save`   | admin  | `pieces` (`{piece: card \| null}`, only those change), `lead_days?`, `expected_revision?` | `revision` |
 | `domotwin/upkeep/done`   | user   | `piece`, `task`                                | `revision`, `last_done`          |

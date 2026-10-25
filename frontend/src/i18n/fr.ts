@@ -172,6 +172,7 @@ export const fr: Dictionary = {
   people: {
     here: "Ici maintenant",
     in_room: "Dans la pièce {room}",
+    in_private_room: "Dans une pièce privée",
     somewhere: "À la maison, dans une pièce inconnue",
     away: "Absent",
     since: "Depuis {time}",
@@ -211,6 +212,7 @@ export const fr: Dictionary = {
     from_bluetooth: "Suivie par Bluetooth : {devices}",
     devices: "Ses appareils",
     device_where: "{device} : dans la pièce {room}",
+    device_private: "{device} : dans une pièce privée",
     device_unheard: "{device} : pas entendu",
     left_behind: "{device} oublié, dans la pièce {room}",
     things_here: "Objets ici",
@@ -369,6 +371,22 @@ export const fr: Dictionary = {
     empty: "Rien à piloter dans la zone de cette pièce.",
     no_area: "Cette pièce n’est liée à aucune zone de Home Assistant.",
     no_area_admin: "Liez-la dans le panneau DomoTwin, ou donnez à la zone le nom de la pièce.",
+    private: "Cette pièce est privée.",
+  },
+  privacy: {
+    title: "Pièces privées",
+    hint: "Qui ne peut pas voir une pièce privée la voit fermée : rien à l’intérieur, aucune commande, personne dedans, et les réponses vocales disent « dans une pièce privée ». Les administrateurs la voient toujours en mode édition et en mode plan.",
+    open: "Ouverte à tous",
+    private: "Privée",
+    who: "Réservée à",
+    nobody: "Personne : aucune personne dans Home Assistant pour l’instant.",
+    when: "Quand",
+    always: "Toujours",
+    while_on: "Tant qu’une entité est allumée",
+    entity: "L’entité (son identifiant)",
+    bad_entity: "{room} : choisissez l’entité qui la rend privée.",
+    limit:
+      "DomoTwin ferme ses propres vues, commandes et réponses. Home Assistant donne toujours chaque entité à chaque utilisateur dans ses autres tableaux de bord et son API : cela garde une pièce privée sur un écran partagé, pas derrière une barrière de sécurité.",
   },
   link: {
     mode: "Lier des entités",

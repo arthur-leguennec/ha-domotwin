@@ -1133,3 +1133,53 @@ Raised by the maintainer, twice (M5b).
 - **Consequences.** The view no longer needs SVG nodes or a projection on every camera move. A
   view is still not cut by the furniture (D-024): it is hidden by it, not stopped. The rings
   measure from the camera's spot on the floor, not from its height.
+
+## D-039 · Private rooms: closed in the scene, for whoever may not see them
+
+Asked by the maintainer (M9g).
+
+- **Context.** A home is shared: a bedroom or an office should not show what is in it, who is
+  there, or give its lamps and blinds to anyone at a wall tablet, a guest's phone or a child's.
+  Home Assistant's permissions are by user, not by entity (D-034).
+- **Decision.**
+  - **Stored with the settings.** `settings.rooms`: `{room id: {"people": [person ids], "while"?:
+    entity id}}`, checked by the integration (at most 200 rooms, 50 people each). A room listed
+    is private; open while its `while` entity is `off` (unavailable or unknown keeps it private).
+  - **Who sees it.** Its people, through the Home Assistant user of their `person`. Nobody else:
+    not an administrator who is not among them, not a shared screen's user, not a voice
+    satellite (a voice question runs as nobody's user). The same rule in Python (`privacy.py`,
+    for the services) and TypeScript (`live/privacy.ts`, for the views), each with its tests.
+  - **Closed in the scene, not hidden on the GPU.** The engine builds the scene without the
+    pieces of a closed room (`SceneOptions.closed_rooms`): no mesh, lamp, pick, point or bounds
+    to leak them, and the moving parts rebuilt keep them out; its doors and windows (those drawn
+    with the room beside it too: each knows the room on its other side) are drawn as in the
+    plan, their states left out of the live looks, and the 3D files of its pieces are not
+    fetched. Building again costs what a
+    change of the plan costs, only when a room the scene shows closes or opens, and the rooms
+    closed are given before a plan is built. Its floor stays, under a
+    frosted, hatched cover drawn by the floors' shader from a flag in the rooms' texture
+    (D-023), toned to the look's light.
+  - **Walls as the others'.** The roadmap said "walls up": a private room in front would then hide
+    the rooms behind it in the cut-away. Its walls follow the cut-away; the cover and the lock on
+    its name say it is closed.
+  - **No way in.** The walking floor puts a wall across every door and open side into a closed
+    room; nobody starts or stops in it (D-029, D-034).
+  - **The views.** No badges, layer values, presence, camera views or people in it, nor its lit
+    lights in its storey's label; its dangers still show (smoke, gas, CO, a leak, an alarm), they
+    matter more than privacy, but not its warnings (CO₂, a window open in the rain), which would
+    tell someone is in. Taps do nothing; a long press opens its panel, which only says it is
+    private. People and things in it are "in a private room".
+  - **Not before the settings.** The card and the panel show the home once its settings are read
+    (asked again every 10 s until then; read once, they stay when a later read fails): before,
+    its private rooms are not known.
+  - **Administrators change the home.** In the edit and plan modes and while linking, nothing is
+    closed.
+  - **The services.** `domotwin.where` says "in a private room" and shows nothing;
+    `domotwin.show` does not show a person's room when it is private for the caller. Each screen
+    does nothing for a room its own viewer may not see or something in it, whoever asked, not
+    even switch to its storey.
+- **Consequences.** Closing or opening a room builds the scene again (6 ms on the demo, 9 ms with
+  its upper floor, `PERFORMANCE.md`). DomoTwin's own sensors of each person's room still say the
+  room to every Home Assistant user, as every entity does; the settings say so: private on a shared screen, not behind a
+  security barrier. A closed room splitting a storey in two leaves people's figures no way round
+  it: they walk straight, as between rooms with no door (D-034).

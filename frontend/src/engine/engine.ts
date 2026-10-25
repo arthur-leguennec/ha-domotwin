@@ -150,9 +150,12 @@ export interface PlanElement {
   id: string;
   type: "room" | "wall" | "door" | "window" | "furniture";
   name: string;
-  /** Furniture only: its kind, and the room it stands in. */
+  /** Furniture only: its kind. */
   kind?: string;
+  /** A piece's, a door's or a window's room (a door's, of the side drawn with it), and a door's
+   * or a window's room on its other side. */
   room?: string;
+  beside?: string;
 }
 
 /** A value of a layer and where it goes on the picture (device pixels from the top left). */
@@ -456,6 +459,12 @@ export class DomoTwinEngine {
    * pixels; for tests and tools: the engine draws them, D-038). */
   cameraViews(): string {
     return this.live.cameraViews();
+  }
+
+  /** Draws the rooms `ids` closed: private rooms this viewer may not see (D-039). Returns
+   * whether the scene was built again. */
+  setPrivateRooms(ids: string[]): boolean {
+    return this.live.setPrivateRooms(JSON.stringify(ids));
   }
 
   /** Draws what the linked cameras see on the floor, or not (D-038). */

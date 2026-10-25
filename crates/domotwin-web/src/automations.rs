@@ -521,10 +521,12 @@ impl Engine {
             .iter()
             .map(|spot| match spot {
                 Spot::Piece(id) => {
-                    let info = elements.get(id.as_str())?;
+                    // Nothing to or from a room drawn closed (D-039), its doors and windows.
+                    let info = elements.get(id.as_str()).filter(|i| !self.is_closed(i))?;
                     let [x, y, z] = info.top()?;
                     Some(([x, y + ABOVE, z], storey(info.storey)?))
                 }
+                Spot::Room(id) if self.closed_rooms.contains(id) => None,
                 Spot::Room(id) => {
                     let info = elements.get(id.as_str())?;
                     let [x, _, z] = info.top()?;
@@ -536,6 +538,7 @@ impl Engine {
                     #[allow(clippy::cast_precision_loss)]
                     let aside = (k as f32 - (list.len() - 1) as f32 / 2.0) * LABEL_GAP;
                     let (centre, height, part) = match room {
+                        Some(room) if self.closed_rooms.contains(room) => return None,
                         Some(room) => {
                             let info = elements.get(room.as_str())?;
                             (info.top()?, ABOVE_ROOM, info.storey)

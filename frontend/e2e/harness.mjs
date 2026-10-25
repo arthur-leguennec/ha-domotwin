@@ -20,6 +20,9 @@
 //   bluetooth=1 (DomoTwin's own Bluetooth locating: three fictional receivers, Alex's phone and
 //   keys followed, both in the kitchen, the keys left behind), bluetooth=none (no Bluetooth)
 //   window.__show(request) sends a `domotwin.show` request to every screen
+//   private=<room>,<room> (private rooms, D-039, kept for nobody), privatefor=<person> (kept for
+//   that person instead), privatewhile=<entity> (private only while it is on), settingsdown=1
+//   (the settings cannot be read until window.__settingsUp())
 import { applyService, demoHome } from "./demo-home.mjs";
 
 const params = new URLSearchParams(location.search);
@@ -161,6 +164,22 @@ const store = {
   settings: {
     ...(params.get("north") ? { north: Number(params.get("north")) } : {}),
     ...(params.get("hometheme") ? { theme: params.get("hometheme") } : {}),
+    ...(params.get("private")
+      ? {
+          rooms: Object.fromEntries(
+            params
+              .get("private")
+              .split(",")
+              .map((room) => [
+                room,
+                {
+                  people: params.get("privatefor") ? [params.get("privatefor")] : [],
+                  ...(params.get("privatewhile") ? { while: params.get("privatewhile") } : {}),
+                },
+              ]),
+          ),
+        }
+      : {}),
   },
   /** Model files kept by the mocked integration, by `<sha256>.<format>`. */
   files: new Map(),
@@ -324,6 +343,12 @@ async function fetchWithAuth(path, init = {}) {
 const listeners = new Set();
 const calls = [];
 window.__calls = calls;
+// settingsdown=1: the settings cannot be read until `window.__settingsUp()` (D-039).
+let settingsDown = params.get("settingsdown") === "1";
+window.__settingsUp = () => {
+  settingsDown = false;
+  for (const listener of listeners) listener({ kind: "settings", revision: store.revision });
+};
 // `domotwin.show` (D-029), as the integration sends it to every screen.
 window.__show = (request) => {
   for (const listener of listeners) listener({ kind: "show", show: request });
@@ -530,6 +555,7 @@ const connection = {
       case "domotwin/bindings/get":
         return structuredClone({ bindings: store.bindings, revision: store.revision });
       case "domotwin/settings/get":
+        if (settingsDown) throw { code: "timeout", message: "Timeout" };
         return structuredClone({ settings: store.settings, revision: store.revision });
       case "domotwin/settings/save": {
         if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };

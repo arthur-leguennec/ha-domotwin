@@ -6,12 +6,15 @@
 //! partitions; a walker is a circle of [`RADIUS`] on the floor. Doors and the open sides between
 //! two rooms are the ways through. Furniture is not in the way.
 
+use std::collections::BTreeSet;
+
 use crate::edit::Footprint;
 use crate::geometry::polygon::{
     P2, label_point, point_in_polygon, segment_distance, segments_meet,
 };
 use crate::geometry::walls::{
-    WallLayout, free_wall_quad, opening_axes, openings_on_side, side_segments, wall_openings,
+    WallLayout, free_wall_quad, opening_axes, openings_on_side, segment_quad, side_segments,
+    wall_openings,
 };
 use crate::plan::{Element, Plan};
 
@@ -36,6 +39,9 @@ struct Door {
     rooms: [Option<usize>; 2],
 }
 
+/// How thick the wall along the sides of a closed room is (cm).
+const CLOSED_WAY: f64 = 12.0;
+
 /// Where a walker can go on a storey.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Floor {
@@ -48,6 +54,8 @@ pub struct Floor {
     /// The pieces standing on the floor: not in a walker's way (D-029), but where nobody is
     /// drawn standing (D-034).
     pieces: Vec<Footprint>,
+    /// The rooms drawn closed (D-039), by index: no way in, nowhere to go or stand.
+    closed: BTreeSet<usize>,
 }
 
 /// Pieces whose underside is lower than this stand in the way of someone standing (cm)…
@@ -60,18 +68,7 @@ impl Floor {
     pub fn new(plan: &Plan, layout: &WallLayout) -> Self {
         let openings = wall_openings(plan);
         let mut walls = Vec::new();
-        let mut add = |quad: [P2; 4]| {
-            let mut bounds = [[f64::INFINITY; 2], [f64::NEG_INFINITY; 2]];
-            for p in quad {
-                for k in 0..2 {
-                    bounds[0][k] = bounds[0][k].min(p[k]);
-                    bounds[1][k] = bounds[1][k].max(p[k]);
-                }
-            }
-            if bounds[0].iter().chain(&bounds[1]).all(|v| v.is_finite()) {
-                walls.push((quad, bounds));
-            }
-        };
+        let mut add = |quad: [P2; 4]| add_wall(&mut walls, quad);
         for room in &layout.rooms {
             for (i, bands) in room.sides.iter().enumerate() {
                 let Some(bands) = bands else { continue };
@@ -154,6 +151,7 @@ impl Floor {
             room_ids,
             doors,
             pieces,
+            closed: BTreeSet::new(),
         };
         // An open side between two rooms is a way through, where a walker fits.
         let mut open = Vec::new();
@@ -180,6 +178,31 @@ impl Floor {
         }
         floor.doors.extend(open);
         floor
+    }
+
+    /// Closes the rooms `ids` (D-039): a wall along all their sides (across their doors and
+    /// open sides, whatever is near them), and nowhere to go or stand in them.
+    pub fn close(&mut self, ids: &BTreeSet<String>) {
+        let rooms: Vec<usize> = self
+            .room_ids
+            .iter()
+            .enumerate()
+            .filter(|(k, id)| ids.contains(*id) && !self.closed.contains(k))
+            .map(|(k, _)| k)
+            .collect();
+        for &k in &rooms {
+            let outline = &self.rooms[k];
+            for i in 0..outline.len() {
+                let (a, b) = (outline[i], outline[(i + 1) % outline.len()]);
+                if let Some((quad, _)) = segment_quad(a, b, CLOSED_WAY) {
+                    add_wall(&mut self.walls, quad);
+                }
+            }
+            self.closed.insert(k);
+        }
+        let closed = &self.closed;
+        self.doors
+            .retain(|d| !d.rooms.iter().flatten().any(|r| closed.contains(r)));
     }
 
     /// Whether `to` is in sight from `from` on the floor: no wall between them.
@@ -379,10 +402,11 @@ impl Floor {
         best.0
     }
 
-    /// A point well inside the room `id`, where a walker going there stops.
+    /// A point well inside the room `id`, where a walker going there stops; none for a room
+    /// closed.
     pub fn room_spot(&self, id: &str) -> Option<P2> {
         let k = self.room_ids.iter().position(|r| r == id)?;
-        Some(label_point(&self.rooms[k]))
+        (!self.closed.contains(&k)).then(|| label_point(&self.rooms[k]))
     }
 
     /// Whether `p` is in the room `id`.
@@ -413,18 +437,35 @@ impl Floor {
     /// Where to stand when walking starts near `near`: there when it is free in a room, else in
     /// the middle of the room it is in, or of the room nearest it.
     pub fn start(&self, near: P2) -> P2 {
-        if self.room_at(near).is_some() && self.free(near) {
+        let open = self.room_at(near).filter(|r| !self.closed.contains(r));
+        if open.is_some() && self.free(near) {
             return near;
         }
         let distance = |p: P2| (p[0] - near[0]).hypot(p[1] - near[1]);
-        let room = self.room_at(near).or_else(|| {
-            (0..self.rooms.len()).min_by(|a, b| {
-                let da = distance(label_point(&self.rooms[*a]));
-                let db = distance(label_point(&self.rooms[*b]));
-                da.total_cmp(&db)
-            })
+        let room = open.or_else(|| {
+            (0..self.rooms.len())
+                .filter(|r| !self.closed.contains(r))
+                .min_by(|a, b| {
+                    let da = distance(label_point(&self.rooms[*a]));
+                    let db = distance(label_point(&self.rooms[*b]));
+                    da.total_cmp(&db)
+                })
         });
         room.map_or(near, |r| label_point(&self.rooms[r]))
+    }
+}
+
+/// Adds a piece of wall (a convex quadrilateral) with its bounds, when its corners are finite.
+fn add_wall(walls: &mut Vec<([P2; 4], [P2; 2])>, quad: [P2; 4]) {
+    let mut bounds = [[f64::INFINITY; 2], [f64::NEG_INFINITY; 2]];
+    for p in quad {
+        for k in 0..2 {
+            bounds[0][k] = bounds[0][k].min(p[k]);
+            bounds[1][k] = bounds[1][k].max(p[k]);
+        }
+    }
+    if bounds[0].iter().chain(&bounds[1]).all(|v| v.is_finite()) {
+        walls.push((quad, bounds));
     }
 }
 
@@ -511,6 +552,64 @@ mod tests {
         assert!(!floor.seen([450.0, 250.0], [750.0, 250.0]));
         assert!(floor.seen([450.0, 145.0], [750.0, 145.0]));
         assert!(!floor.seen([50.0, 100.0], [250.0, 100.0]));
+    }
+
+    #[test]
+    fn a_closed_room_has_no_way_in_and_nowhere_to_go() {
+        // A and B open onto each other, a door from B to C; C closed, then B.
+        let plan = read_plan(
+            br#"{"format":"domotwin-plan","version":1,"rooms":[
+                {"id":"a","name":"A","outline":[[0,0],[300,0],[300,300],[0,300]],"sides":[null,{"open":true},null,null]},
+                {"id":"b","name":"B","outline":[[300,0],[600,0],[600,300],[300,300]],"sides":[null,null,null,{"open":true}]},
+                {"id":"c","name":"C","outline":[[600,0],[900,0],[900,300],[600,300]]}
+            ],"doors":[
+                {"id":"d","name":"D","from":[600,100],"to":[600,190]}
+            ]}"#,
+        )
+        .unwrap();
+        let mut floor = Floor::new(&plan, &WallLayout::new(&plan));
+        assert_eq!(floor.reach([450.0, 145.0], [750.0, 145.0]), [750.0, 145.0]);
+        floor.close(&BTreeSet::from(["c".to_owned()]));
+        // The door is a wall now: stopped before it, no way found, no spot to go to.
+        let stop = floor.reach([450.0, 145.0], [750.0, 145.0]);
+        assert!(stop[0] < 600.0 - RADIUS, "{stop:?}");
+        assert_eq!(
+            floor.path([450.0, 145.0], [750.0, 145.0]),
+            vec![[750.0, 145.0]]
+        );
+        assert!(floor.room_spot("c").is_none());
+        assert!(floor.room_spot("b").is_some());
+        // Starting inside it: the middle of the nearest open room.
+        let start = floor.start([750.0, 150.0]);
+        assert_eq!(floor.room_at(start), Some(1), "{start:?}");
+        // An open side closes too.
+        floor.close(&BTreeSet::from(["b".to_owned()]));
+        let stop = floor.reach([150.0, 150.0], [450.0, 150.0]);
+        assert!(stop[0] < 300.0, "{stop:?}");
+        assert_eq!(floor.room_at(floor.start([450.0, 150.0])), Some(0));
+    }
+
+    #[test]
+    fn closing_a_room_closes_only_its_own_sides() {
+        // A long room A open along its bottom side onto B and C, side by side; C closed.
+        let plan = read_plan(
+            br#"{"format":"domotwin-plan","version":1,"rooms":[
+                {"id":"a","name":"A","outline":[[0,0],[600,0],[600,300],[0,300]],"sides":[null,null,{"open":true},null]},
+                {"id":"b","name":"B","outline":[[0,300],[300,300],[300,600],[0,600]],"sides":[{"open":true},null,null,null]},
+                {"id":"c","name":"C","outline":[[300,300],[600,300],[600,600],[300,600]],"sides":[{"open":true},null,null,null]}
+            ]}"#,
+        )
+        .unwrap();
+        let mut floor = Floor::new(&plan, &WallLayout::new(&plan));
+        floor.close(&BTreeSet::from(["c".to_owned()]));
+        // From A into B, still; not into C.
+        assert_eq!(floor.reach([150.0, 150.0], [150.0, 450.0]), [150.0, 450.0]);
+        let stop = floor.reach([450.0, 150.0], [450.0, 450.0]);
+        assert!(stop[1] < 300.0, "{stop:?}");
+        // Closing again changes nothing.
+        let walls = floor.walls.len();
+        floor.close(&BTreeSet::from(["c".to_owned()]));
+        assert_eq!(floor.walls.len(), walls);
     }
 
     #[test]

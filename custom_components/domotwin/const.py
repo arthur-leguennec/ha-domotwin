@@ -65,6 +65,8 @@ MAX_LEAD_DAYS: Final = 365
 PEOPLE_STORAGE_KEY: Final = f"{DOMAIN}.people"
 PEOPLE_STORAGE_VERSION: Final = 1
 MAX_PEOPLE: Final = 50
+# Private rooms (D-039): at most this many.
+MAX_PRIVATE_ROOMS: Final = 200
 MAX_PERSON_SOURCES: Final = 10
 PEOPLE_SHOWN: Final = ("everyone", "admins")
 PEOPLE_LOOKS: Final = ("figure", "pin")

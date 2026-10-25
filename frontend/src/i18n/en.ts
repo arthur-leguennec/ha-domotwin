@@ -171,6 +171,7 @@ export const en = {
   people: {
     here: "Here now",
     in_room: "In the {room}",
+    in_private_room: "In a private room",
     somewhere: "At home, in a room not known",
     away: "Away",
     since: "Since {time}",
@@ -207,6 +208,7 @@ export const en = {
     from_bluetooth: "Followed by Bluetooth: {devices}",
     devices: "Their devices",
     device_where: "{device}: in the {room}",
+    device_private: "{device}: in a private room",
     device_unheard: "{device}: not heard",
     left_behind: "{device} left behind, in the {room}",
     things_here: "Things here",
@@ -365,6 +367,22 @@ export const en = {
     empty: "Nothing to control in this room's area.",
     no_area: "This room is not linked to a Home Assistant area.",
     no_area_admin: "Link it in the DomoTwin panel, or give the area the room's name.",
+    private: "This room is private.",
+  },
+  privacy: {
+    title: "Private rooms",
+    hint: "Whoever may not see a private room sees it closed: nothing inside, no controls, nobody in it, and the voice answers say “in a private room”. Administrators still see it in edit and plan modes.",
+    open: "Open to everyone",
+    private: "Private",
+    who: "Kept for",
+    nobody: "Nobody: no person in Home Assistant yet.",
+    when: "When",
+    always: "Always",
+    while_on: "While an entity is on",
+    entity: "The entity (its id)",
+    bad_entity: "{room}: choose the entity that makes it private.",
+    limit:
+      "DomoTwin closes its own views, controls and answers. Home Assistant still gives every user every entity in its other dashboards and its API: this keeps a room private on a shared screen, not behind a security barrier.",
   },
   link: {
     mode: "Link entities",

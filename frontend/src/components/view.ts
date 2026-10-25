@@ -74,7 +74,7 @@ import {
   type Gesture,
   type PointerSample,
 } from "../gestures";
-import { DomoTwinClient, type StoreyInfo, type StoredPlan } from "../ha/client";
+import { DomoTwinClient, type Settings, type StoreyInfo, type StoredPlan } from "../ha/client";
 import { isHassError, type HomeAssistant } from "../ha/types";
 import { translatorFor, type KindName, type Translator } from "../i18n";
 import { runAction } from "../live/actions";
@@ -120,6 +120,7 @@ import {
   type PersonShown,
 } from "../live/people";
 import { locatedSensors, locatedShown, type LocatedShown } from "../live/locating";
+import { outOfSight, privateRooms } from "../live/privacy";
 import { avatar, avatarStyles } from "./person-avatar";
 import { spoken } from "../live/show";
 import { StateSync } from "../live/states";
@@ -308,14 +309,22 @@ type Sheet =
   | {
       kind: "controls";
       heading: string;
+      /** The element whose controls these are. */
+      element: string;
       entities: string[];
       device?: string;
       area?: string;
       piece?: string;
     }
   | { kind: "piece"; heading: string; piece: string; room?: FocusedRoom }
-  | { kind: "room"; heading: string; area?: string; room?: string }
+  | { kind: "room"; heading: string; area?: string; room?: string; closed?: boolean }
   | { kind: "person"; heading: string; person: string };
+
+/**
+ * The name and type of each element of the plan shown, the room of its pieces, doors and windows,
+ * and the room on the other side of its doors and windows.
+ */
+type ElementNames = Record<string, { name: string; type: string; room?: string; beside?: string }>;
 
 /** A room framed by a tap. */
 interface FocusedRoom {
@@ -443,6 +452,7 @@ export class DomoTwinView extends LitElement {
     edit: { state: true },
     planEditor: { state: true },
     north: { attribute: false },
+    privateRooms: { attribute: false },
     homeTheme: { attribute: false },
     homeAccent: { attribute: false },
     look: { reflect: true },
@@ -515,6 +525,15 @@ export class DomoTwinView extends LitElement {
   planError?: string;
   /** Where north points on the plan, degrees clockwise from its top (the home's settings). */
   north = 0;
+  /** The home's private rooms (its settings, D-039). */
+  privateRooms?: Settings["rooms"];
+  /** The private rooms this viewer may not see now, drawn closed (none while editing or
+   * linking: administrators change the home). */
+  protected closed = new Set<string>();
+  private closedKey = "";
+  /** The closed rooms the engine was told, and whether the overlays still have to follow. */
+  private closedSent?: string;
+  private closedChanged = false;
   /** The home's look and accent (its settings), for views whose options do not choose one. */
   homeTheme?: ThemeMode;
   homeAccent?: string;
@@ -662,7 +681,9 @@ export class DomoTwinView extends LitElement {
   private cameraFocusTimer: ReturnType<typeof setTimeout> | undefined;
   /** The kind of each piece and the name and type of each element of the plan shown. */
   private kinds: Record<string, string> = {};
-  private names: Record<string, { name: string; type: string; room?: string }> = {};
+  private names: ElementNames = {};
+  /** `openNames`, and what it was worked out from. */
+  private openNamesFrom?: { names: ElementNames; closed: Set<string>; open: ElementNames };
   /** The labels' JSON last read from the engine, and whether they must be read again. */
   private labelsText = "";
   private labelsDue = true;
@@ -1074,6 +1095,14 @@ export class DomoTwinView extends LitElement {
         white-space: nowrap;
         text-overflow: ellipsis;
       }
+      /* A private room this viewer may not see (D-039): a lock before its name. */
+      .room-name svg {
+        width: 12px;
+        height: 12px;
+        margin-right: 3px;
+        vertical-align: -1px;
+        fill: currentColor;
+      }
       :host([look="neon"]) .room-name {
         border-color: color-mix(in srgb, var(--domotwin-accent, #00d4ff) 45%, transparent);
         box-shadow: 0 0 14px color-mix(in srgb, var(--domotwin-accent, #00d4ff) 22%, transparent);
@@ -1418,8 +1447,24 @@ export class DomoTwinView extends LitElement {
     }
     // Where the upkeep cards stand, before the sheets and the list show them.
     if (changed.has("upkeep") || changed.has("hass")) this.applyUpkeep();
+    // The private rooms this viewer may not see (D-039), before what is in them is shown.
+    const closed =
+      this.editingAny || this.linking
+        ? new Set<string>()
+        : privateRooms(this.privateRooms, this.hass);
+    const closedKey = [...closed].sort().join("\n");
+    if (closedKey !== this.closedKey) {
+      this.closedKey = closedKey;
+      this.closed = closed;
+      this.closedChanged = true;
+    }
     // Who is shown where (D-034), before the sheets and the names show them.
-    if (changed.has("people") || changed.has("hass") || changed.has("options")) {
+    if (
+      changed.has("people") ||
+      changed.has("hass") ||
+      changed.has("options") ||
+      this.closedChanged
+    ) {
       this.readPeople();
     }
     // The room chip leaves room for the legend (`renderLegend`).
@@ -1484,6 +1529,16 @@ export class DomoTwinView extends LitElement {
       this.applyDevices();
     }
     if (changed.has("linking") || own.has("showBadges") || own.has("showCameras")) this.redraw();
+    if (this.closedChanged) {
+      // What a room now closed (or open again) holds: its badges, values and people, and the
+      // sheet open on it or on something in it.
+      this.closedChanged = false;
+      this.closeSheetsInside();
+      this.applyDevices();
+      this.applyLayers();
+      this.applyPeople();
+      this.redraw();
+    }
     if ((own.has("spread") || own.has("roof")) && this.engine && this.loadedHome) {
       this.engine.setSpread(this.spread);
       this.engine.setRoof(this.roof);
@@ -1756,7 +1811,8 @@ export class DomoTwinView extends LitElement {
         if (saved) this.showView(saved.id);
       }
     }
-    if (target.element) this.showElement(target.element);
+    // A private room this viewer may not see, or a piece in it, is not framed here (D-039).
+    if (target.element && !this.inClosedRoom(target.element)) this.showElement(target.element);
     this.redraw();
   }
 
@@ -1894,6 +1950,38 @@ export class DomoTwinView extends LitElement {
     this.realSun = real;
   }
 
+  /**
+   * The sheet open when rooms close or open (D-039): a room's says whether it is private now; an
+   * element's in a room now closed is closed.
+   */
+  private closeSheetsInside(): void {
+    const sheet = this.sheet;
+    if (sheet?.kind === "room" && sheet.room !== undefined) {
+      const closed = this.closed.has(sheet.room);
+      if (closed !== (sheet.closed ?? false)) this.sheet = { ...sheet, closed };
+    } else if (sheet?.kind === "controls" || sheet?.kind === "piece") {
+      if (this.inClosedRoom(sheet.kind === "controls" ? sheet.element : sheet.piece)) {
+        this.sheet = undefined;
+      }
+    }
+  }
+
+  /**
+   * The private room this viewer may not see (D-039) that `id` is, is in, or is a door or a
+   * window of.
+   */
+  private closedRoomOf(id: string): string | undefined {
+    const info = this.names[id];
+    return [id, info?.room, info?.beside].find(
+      (room) => room !== undefined && this.closed.has(room),
+    );
+  }
+
+  /** Whether `id` is a private room this viewer may not see, or something of one (D-039). */
+  private inClosedRoom(id: string): boolean {
+    return this.closedRoomOf(id) !== undefined;
+  }
+
   /** Frames an element of the plan; false when it has nothing to show. */
   showElement(id: string): boolean {
     const done = this.engine?.focusElement(id) ?? false;
@@ -1922,6 +2010,11 @@ export class DomoTwinView extends LitElement {
     const picked = this.elementAt(x, y);
     // A camera's piece tapped: its view whole for a while; anything else: all faint (D-038).
     if (!this.linking) this.focusCamera(picked?.id ?? "");
+    // A private room this viewer may not see, or a door of one: a tap does nothing (D-039).
+    if (picked !== undefined && (this.closed.has(picked.room) || this.inClosedRoom(picked.id))) {
+      this.gestures.forgetTap();
+      return;
+    }
     // A linked piece acts on a tap even under a wire passing over it.
     const acts = !this.linking && picked !== undefined && this.actingBinding(picked.id);
     if (this.wiresShown && !acts) {
@@ -2007,6 +2100,18 @@ export class DomoTwinView extends LitElement {
     if (!picked) return;
     if (this.linking) {
       this.pick(picked);
+      return;
+    }
+    // A private room this viewer may not see (or a door of one): its panel says so, and nothing
+    // else (D-039).
+    const closed = this.closed.has(picked.room) ? picked.room : this.closedRoomOf(picked.id);
+    if (closed !== undefined) {
+      const name =
+        closed === picked.room
+          ? this.roomName(picked)
+          : (this.rooms.find((r) => r.id === closed)?.name ?? closed);
+      void this.openRoom(closed, name);
+      this.redraw();
       return;
     }
     const binding = this.actingBinding(picked.id);
@@ -2224,6 +2329,7 @@ export class DomoTwinView extends LitElement {
     this.layersKey = undefined;
     this.labelsText = "";
     this.camerasShown = undefined;
+    this.closedSent = undefined;
     this.scheduler = new FrameScheduler((time) => this.drawFrame(engine, time));
     this.scheduler.setPageVisible(document.visibilityState === "visible");
     this.resizeObserver = new ResizeObserver(() => {
@@ -2288,6 +2394,24 @@ export class DomoTwinView extends LitElement {
   private drawFrame(engine: DomoTwinEngine, time: number): boolean {
     this.flushDrag();
     this.planEditor?.flush();
+    // What the cameras see is drawn by the engine on the floor (D-038), left out while editing
+    // or linking: told before the frame, so that the frame shows it.
+    const cameras = this.showCameras && !this.editingAny && !this.linking;
+    if (cameras !== this.camerasShown) {
+      this.camerasShown = cameras;
+      engine.setCameraViews(cameras);
+    }
+    // The rooms drawn closed (D-039): built again when they change, with the models come so far,
+    // and the storeys' pictures with them.
+    if (this.closedKey !== this.closedSent) {
+      this.closedSent = this.closedKey;
+      if (engine.setPrivateRooms([...this.closed])) {
+        this.labelsDue = true;
+        this.picturesDue = this.loadedHome !== undefined;
+        // The 3D files of the pieces of a room open again.
+        this.loadModels();
+      }
+    }
     if (this.modelsCame) {
       // Every mesh that came since the last frame, in one rebuild.
       this.modelsCame = false;
@@ -2306,13 +2430,6 @@ export class DomoTwinView extends LitElement {
       this.pictures = this.loadedHome.map((_, i) =>
         pictureUrl(engine.storeyPicture(i, PICTURE_WIDTH, PICTURE_HEIGHT)),
       );
-    }
-    // What the cameras see is drawn by the engine on the floor (D-038), left out while editing
-    // or linking: told before the frame, so that the frame shows it.
-    const cameras = this.showCameras && !this.editingAny && !this.linking;
-    if (cameras !== this.camerasShown) {
-      this.camerasShown = cameras;
-      engine.setCameraViews(cameras);
     }
     const movingBefore = engine.moving;
     const start = performance.now();
@@ -2479,6 +2596,7 @@ export class DomoTwinView extends LitElement {
           layer: this.layer,
           alerts: this.options.alerts !== false,
           presence: this.options.presence !== false,
+          closed: this.closed,
         })
       : undefined;
     const json = layers?.json ?? "{}";
@@ -2515,6 +2633,7 @@ export class DomoTwinView extends LitElement {
         name: element.name || element.id,
         type: element.type,
         ...(element.room ? { room: element.room } : {}),
+        ...(element.beside ? { beside: element.beside } : {}),
       };
     }
     this.applyDevices();
@@ -2529,6 +2648,10 @@ export class DomoTwinView extends LitElement {
         ? deviceBadges(hass, this.bindings, this.kinds)
         : new Map<string, Badge[]>();
     const badges = mergeBadges(devices, upkeepBadges(this.standings));
+    // None for what a private room holds, nor for its doors and windows (D-039).
+    for (const id of badges.keys()) {
+      if (this.inClosedRoom(id)) badges.delete(id);
+    }
     const key = JSON.stringify([...badges]);
     if (key === this.badgesKey) return;
     this.badgesKey = key;
@@ -2544,7 +2667,7 @@ export class DomoTwinView extends LitElement {
     const hass = this.hass;
     const people =
       hass && this.options.people !== false
-        ? peopleShown(this.people, hass)
+        ? outOfSight(peopleShown(this.people, hass), this.closed)
         : ([] as PersonShown[]);
     const text = JSON.stringify(people);
     if (text !== this.shownPeopleText) {
@@ -2562,10 +2685,13 @@ export class DomoTwinView extends LitElement {
     }
     const located =
       hass && this.options.people !== false
-        ? locatedShown(
-            hass,
-            (person) => toldAny && !hidden.has(person),
-            this.locatedFrom?.sensors ?? [],
+        ? outOfSight(
+            locatedShown(
+              hass,
+              (person) => toldAny && !hidden.has(person),
+              this.locatedFrom?.sensors ?? [],
+            ),
+            this.closed,
           )
         : [];
     const locatedText = JSON.stringify(located);
@@ -2673,6 +2799,7 @@ export class DomoTwinView extends LitElement {
    */
   private tapElement(id: string): void {
     this.sheet = undefined;
+    if (this.inClosedRoom(id)) return;
     // A camera's badge: its view whole for a while; another badge: all faint (D-038).
     this.focusCamera(id);
     const binding = this.actingBinding(id);
@@ -2930,6 +3057,11 @@ export class DomoTwinView extends LitElement {
     this.storeyLabelsText = "[]";
     this.pictures = [];
     if (!home && !this.plan) return;
+    // The rooms drawn closed (D-039), before the scene is built rather than built again for them.
+    if (this.closedKey !== this.closedSent) {
+      this.closedSent = this.closedKey;
+      this.engine.setPrivateRooms([...this.closed]);
+    }
     try {
       if (home) {
         this.engine.setSpread(this.spread);
@@ -3074,6 +3206,7 @@ export class DomoTwinView extends LitElement {
     const sheet: Sheet = {
       kind: "controls",
       heading,
+      element: picked.id,
       entities: binding.entities.map((entity) => entity.entity_id),
     };
     if (binding.device) sheet.device = binding.device;
@@ -3092,6 +3225,7 @@ export class DomoTwinView extends LitElement {
     await this.loadSheets();
     const hass = this.hass;
     const sheet: Sheet = { kind: "room", heading: name, room: id };
+    if (this.closed.has(id)) sheet.closed = true;
     const area = hass
       ? roomArea(hass, this.bindings ?? { version: 1, rooms: {}, elements: {} }, id, name)
       : undefined;
@@ -3397,6 +3531,18 @@ export class DomoTwinView extends LitElement {
     return this.shownLayer === "upkeep" && !this.editingAny && !this.linking && !this.walking;
   }
 
+  /** The elements outside the private rooms this viewer may not see (D-039), worked out once. */
+  private openNames(): ElementNames {
+    if (this.closed.size === 0) return this.names;
+    const from = this.openNamesFrom;
+    if (from?.names === this.names && from.closed === this.closed) return from.open;
+    const open = Object.fromEntries(
+      Object.entries(this.names).filter(([id]) => !this.inClosedRoom(id)),
+    );
+    this.openNamesFrom = { names: this.names, closed: this.closed, open };
+    return open;
+  }
+
   /** The upkeep layer's list: its module is loaded the first time it is shown. */
   private renderUpkeep(): TemplateResult | typeof nothing {
     if (!this.upkeepShown) return nothing;
@@ -3411,7 +3557,7 @@ export class DomoTwinView extends LitElement {
       .hass=${this.hass}
       .upkeep=${this.upkeep}
       .standings=${this.standings}
-      .names=${this.names}
+      .names=${this.openNames()}
       @domotwin-show-element=${(event: CustomEvent<string>) => {
         this.showElement(event.detail);
       }}
@@ -3605,7 +3751,14 @@ export class DomoTwinView extends LitElement {
     const level = storeyLevels(this.storeys).find(({ storey }) => storey.id === id);
     const name = level ? storeyName(t, level.storey, level.level) : id;
     const storey = this.loadedHome?.find((s) => s.id === id);
-    const { rooms, lights } = storeyCounts(this.hass, this.bindings, storey?.plan, storey?.layout);
+    // The lights of a private room this viewer may not see are not counted (D-039).
+    const { rooms, lights } = storeyCounts(
+      this.hass,
+      this.bindings,
+      storey?.plan,
+      storey?.layout,
+      (element) => this.inClosedRoom(element),
+    );
     const counts = [t.tp("storey.rooms", rooms), lights > 0 ? t.tp("storey.lights_on", lights) : ""]
       .filter(Boolean)
       .join(" · ");
@@ -3755,6 +3908,7 @@ export class DomoTwinView extends LitElement {
       .heading=${sheet.heading}
       .area=${sheet.area}
       .admin=${this.hass?.user?.is_admin === true}
+      .closed=${sheet.closed === true}
       .people=${here}
       .things=${sheet.room ? this.located.filter((d) => d.room === sheet.room) : []}
       @domotwin-close=${this.closeSheet}
@@ -3964,8 +4118,9 @@ export class DomoTwinView extends LitElement {
           ? html`<span
               class="room-name"
               data-room=${room.id}
+              ?data-private=${this.closed.has(room.id)}
               style="left:${room.x * k}px;top:${room.y * k}px"
-              >${room.name}</span
+              >${this.closed.has(room.id) ? icon(mdiLock) : nothing}${room.name}</span
             >`
           : nothing,
       )}

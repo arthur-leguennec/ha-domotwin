@@ -11,6 +11,7 @@ import {
   mdiEyeOffOutline,
   mdiInformationOutline,
   mdiLightbulbOff,
+  mdiLock,
   mdiTagOutline,
   mdiWatch,
 } from "@mdi/js";
@@ -265,11 +266,14 @@ export class DomoTwinRoom extends Sheet {
     admin: { attribute: false },
     people: { attribute: false },
     things: { attribute: false },
+    closed: { attribute: false },
   };
   static override styles = [baseStyles, rowStyles, sheetStyles, avatarStyles, peopleStyles];
 
   area?: string;
   admin = false;
+  /** A private room the user viewing may not see (D-039): its name, and that it is private. */
+  closed = false;
   /** Who is in the room now (D-034). */
   people: PersonShown[] = [];
   /** The devices followed by Bluetooth heard in it (D-035). */
@@ -279,6 +283,13 @@ export class DomoTwinRoom extends Sheet {
     const hass = this.hass;
     if (!hass) return nothing;
     const t = this.t;
+    if (this.closed) {
+      return this.frame(
+        html`<p class="empty" data-testid="room-private">
+          ${icon(mdiLock)}${t.t("room.private")}
+        </p>`,
+      );
+    }
     const area = this.area;
     const here = html`${peopleHere(this, t)}${thingsHere(this, t)}`;
     if (!area) {
@@ -377,7 +388,9 @@ export class DomoTwinPerson extends Sheet {
       <ul class="devices" data-testid="person-devices">
         ${ordered.map((device) => {
           let text: string;
-          if (device.leftBehind && device.roomName) {
+          if (device.private) {
+            text = t.t("people.device_private", { device: device.name });
+          } else if (device.leftBehind && device.roomName) {
             text = t.t("people.left_behind", { device: device.name, room: device.roomName });
           } else if (device.roomName) {
             text = t.t("people.device_where", { device: device.name, room: device.roomName });
@@ -396,6 +409,7 @@ export class DomoTwinPerson extends Sheet {
     const t = this.t;
     let where: string;
     if (!person.home) where = t.t("people.away");
+    else if (person.private) where = t.t("people.in_private_room");
     else if (person.roomName) where = t.t("people.in_room", { room: person.roomName });
     else where = t.t("people.somewhere");
     const since = person.since ? new Date(person.since) : undefined;

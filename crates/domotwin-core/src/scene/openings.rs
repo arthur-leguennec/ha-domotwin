@@ -44,6 +44,13 @@ pub(crate) fn build(builder: &mut Builder, plan: &Plan, layout: &WallLayout) {
             .map(|p| builder.room_for(plan, &opening.parent, p))
             .find(|slot| *slot != 0)
             .unwrap_or(0);
+        // The room on its other side: a private room's doors and windows are its own too (D-039).
+        let beside = [25.0, -25.0]
+            .into_iter()
+            .map(|k| builder.room_at([middle[0] + n[0] * k, middle[1] + n[1] * k]))
+            .find(|slot| *slot != 0 && *slot != room)
+            .unwrap_or(0);
+        builder.beside.insert(builder.global(index), beside);
         let tag = Tag {
             element: builder.element_tag(index),
             group: group.unwrap_or(super::mesh::NO_GROUP),

@@ -83,6 +83,8 @@ pub struct ElementInfo {
     pub bounds: [[f32; 3]; 2],
     /// Room slot it belongs to (0: none).
     pub room: u8,
+    /// A door's or a window's room slot on its other side (0: none, or the same room).
+    pub beside: u8,
     /// The storey (part) it is on.
     pub storey: usize,
 }
@@ -177,6 +179,8 @@ pub struct Scene {
     pub bounds: [[f32; 3]; 2],
     /// Pieces drawn as boxes because their 3D files would pass [`MAX_FILE_TRIANGLES`].
     pub models_over_budget: usize,
+    /// The rooms drawn closed (D-039), by element id: nothing in them, no way in.
+    pub closed: BTreeSet<String>,
 }
 
 /// Scene options.
@@ -186,6 +190,9 @@ pub struct SceneOptions {
     pub wall_height: f64,
     /// The meshes of the 3D files loaded so far; pieces whose file is not among them are boxes.
     pub models: Rc<ModelMeshes>,
+    /// Rooms to draw closed (private rooms the viewer may not see, D-039), by element id: their
+    /// pieces are left out, and nobody walks in.
+    pub closed_rooms: BTreeSet<String>,
 }
 
 impl Default for SceneOptions {
@@ -193,6 +200,7 @@ impl Default for SceneOptions {
         Self {
             wall_height: WALL_HEIGHT,
             models: Rc::default(),
+            closed_rooms: BTreeSet::new(),
         }
     }
 }
@@ -228,6 +236,10 @@ pub(crate) struct Builder {
     /// The storey being built, and the index of its first element among the home's.
     pub(crate) storey: usize,
     pub(crate) base: usize,
+    /// The slots of the rooms drawn closed (D-039): their pieces are left out.
+    pub(crate) closed: BTreeSet<u8>,
+    /// The room slot on the other side of each door and window, by the home's element index.
+    pub(crate) beside: BTreeMap<usize, u8>,
 }
 
 impl Builder {
@@ -391,6 +403,9 @@ fn build(
             }
             rooms.push(room.id.clone());
             labels.push(label_point(&walls.points));
+            if options.closed_rooms.contains(&room.id) {
+                builder.closed.insert(slot);
+            }
             builder.room_slots.insert(walls.element, slot);
             builder.room_shapes.push((slot, walls.points.clone()));
         }
@@ -414,7 +429,18 @@ fn build(
             &dynamic_opaque,
             &dynamic_transparent,
         ];
-        infos.extend(element_infos(plan, &meshes, builder.base, storey));
+        let mut storey_infos = element_infos(plan, &meshes, builder.base, storey);
+        // Pieces left out (in a room drawn closed, D-039) keep the room they are in; doors and
+        // windows tell the room on their other side.
+        for (i, (info, element)) in storey_infos.iter_mut().zip(&plan.elements).enumerate() {
+            if info.room == 0
+                && let Element::Furniture(f) = element
+            {
+                info.room = builder.room_for(plan, &f.parent, f.center());
+            }
+            info.beside = builder.beside.get(&builder.global(i)).copied().unwrap_or(0);
+        }
+        infos.extend(storey_infos);
         let bounds = meshes.iter().map(|m| m.bounds()).fold([[0.0; 3]; 2], union);
         lights.append(&mut builder.lights);
         let mut ceiling = Mesh::default();
@@ -478,6 +504,11 @@ fn build(
             bounds = union(bounds, raised);
         }
     }
+    let closed = rooms
+        .iter()
+        .filter(|id| options.closed_rooms.contains(*id))
+        .cloned()
+        .collect();
     Scene {
         parts,
         roof,
@@ -489,6 +520,7 @@ fn build(
         wall_height,
         bounds,
         models_over_budget,
+        closed,
     }
 }
 
@@ -601,10 +633,12 @@ impl Scene {
     /// a home of several storeys.
     pub fn walk_floor(&self, plan: &Plan) -> Option<crate::walk::Floor> {
         match self.parts.as_slice() {
-            [part] => Some(crate::walk::Floor::new(
-                part.plan.as_ref().unwrap_or(plan),
-                &part.layout,
-            )),
+            [part] => {
+                let mut floor =
+                    crate::walk::Floor::new(part.plan.as_ref().unwrap_or(plan), &part.layout);
+                floor.close(&self.closed);
+                Some(floor)
+            }
             _ => None,
         }
     }
@@ -614,7 +648,12 @@ impl Scene {
     pub fn walk_floors(&self, plan: &Plan) -> Vec<crate::walk::Floor> {
         self.parts
             .iter()
-            .map(|part| crate::walk::Floor::new(part.plan.as_ref().unwrap_or(plan), &part.layout))
+            .map(|part| {
+                let mut floor =
+                    crate::walk::Floor::new(part.plan.as_ref().unwrap_or(plan), &part.layout);
+                floor.close(&self.closed);
+                floor
+            })
             .collect()
     }
 
@@ -692,6 +731,7 @@ fn element_infos(plan: &Plan, meshes: &[&Mesh], base: usize, storey: usize) -> V
                 [[0.0; 3]; 2]
             },
             room: room[i],
+            beside: 0,
             storey,
         })
         .collect()
