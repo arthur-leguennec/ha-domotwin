@@ -328,6 +328,12 @@ async def test_settings_round_trip(
         "theme": "neon",
         "accent": "#ff2d95",
     }
+    # The looks of D-036.
+    for look in ("cartoon", "clay"):
+        await client.send_json_auto_id(
+            {"type": "domotwin/settings/save", "settings": {"north": 0, "theme": look}}
+        )
+        assert (await client.receive_json())["success"]
 
 
 @pytest.mark.parametrize(

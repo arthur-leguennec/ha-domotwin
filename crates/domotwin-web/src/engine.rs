@@ -711,7 +711,8 @@ impl Engine {
         });
     }
 
-    /// Sets the look (D-027): `day`, `neon` or `blueprint` (anything else: `day`), with an accent
+    /// Sets the look (D-027, D-036): `day`, `neon`, `blueprint`, `cartoon` or `clay` (anything else:
+    /// `day`), with an accent
     /// colour `#rrggbb` (anything else: the default cyan). Returns the look's name.
     #[wasm_bindgen(js_name = setTheme)]
     pub fn set_theme(&mut self, name: &str, accent: &str) -> String {
@@ -1154,6 +1155,7 @@ impl Engine {
         let view = &self.renderer.view;
         let camera = &view.camera;
         let round = |v: f64| (v * 100.0).round() / 100.0;
+        let (offscreen, bloom, ink) = self.renderer.effects();
         serde_json::json!({
             "triangles": self.triangles,
             "groups": view.cuts.len(),
@@ -1169,6 +1171,7 @@ impl Engine {
             "bound": self.bindings.elements.len(),
             "quality": self.renderer.quality().as_str(),
             "theme": self.renderer.theme().name.name(),
+            "offscreen": { "on": offscreen, "bloom": bloom, "ink": ink },
             "lines": self
                 .scene
                 .as_ref()

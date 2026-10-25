@@ -251,7 +251,7 @@ def validate_bindings(bindings: Any) -> dict[str, Any]:
     return {"version": 1, "rooms": rooms, "elements": elements}
 
 
-THEMES: Final = ("auto", "day", "neon", "blueprint")
+THEMES: Final = ("auto", "day", "neon", "blueprint", "cartoon", "clay")
 ACCENT: Final = re.compile(r"#[0-9a-fA-F]{6}")
 
 

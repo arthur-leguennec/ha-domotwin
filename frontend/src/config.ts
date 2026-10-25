@@ -8,10 +8,20 @@ export type CutawayMode = "auto" | "always" | "off";
 export type LightingMode = "auto" | "morning" | "day" | "evening" | "night";
 /** Where the sun lights from: high in the south-east (`fixed`), or where it is (`real`). */
 export type SunMode = "fixed" | "real";
-/** The look (D-027): following Home Assistant's dark mode (`auto`: neon when dark), or fixed. */
-export type ThemeMode = "auto" | "day" | "neon" | "blueprint";
+/** The look (D-027, D-036): following Home Assistant's dark mode (`auto`: neon when dark), or
+ * fixed. */
+export type ThemeMode = "auto" | "day" | "neon" | "blueprint" | "cartoon" | "clay";
+/** A look drawn. */
+export type LookName = Exclude<ThemeMode, "auto">;
 
-export const THEME_MODES: readonly ThemeMode[] = ["auto", "day", "neon", "blueprint"];
+export const THEME_MODES: readonly ThemeMode[] = [
+  "auto",
+  "day",
+  "neon",
+  "blueprint",
+  "cartoon",
+  "clay",
+];
 /** The accent of the looks by default. */
 export const DEFAULT_ACCENT = "#00d4ff";
 const ACCENT = /^#[0-9a-f]{6}$/i;
@@ -20,7 +30,7 @@ const ACCENT = /^#[0-9a-f]{6}$/i;
 export function resolveLook(
   mode: ThemeMode | undefined,
   hass: { themes?: { darkMode?: boolean } } | undefined,
-): "day" | "neon" | "blueprint" {
+): LookName {
   const chosen = mode ?? "auto";
   if (chosen !== "auto") return chosen;
   return hass?.themes?.darkMode ? "neon" : "day";

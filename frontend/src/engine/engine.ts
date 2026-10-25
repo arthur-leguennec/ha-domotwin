@@ -772,7 +772,8 @@ export class DomoTwinEngine {
     this.live.setBackground(color.r, color.g, color.b);
   }
 
-  /** Sets the look (`day`, `neon`, `blueprint`) and its accent (`#rrggbb`). Returns the look. */
+  /** Sets the look (`day`, `neon`, `blueprint`, `cartoon`, `clay`) and its accent (`#rrggbb`).
+   * Returns the look. */
   setTheme(theme: string, accent: string): string {
     return this.live.setTheme(theme, accent);
   }

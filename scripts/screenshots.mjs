@@ -988,6 +988,67 @@ try {
     await bluetoothPage.screenshot(),
   );
   console.log("docs/figures/screenshot-bluetooth.png");
+
+  // The looks of D-036: the cartoon and the clay in the panel, in the light of the day.
+  const toonShots = [];
+  for (const [look, label] of [
+    ["cartoon", "Cartoon"],
+    ["clay", "Clay model"],
+  ]) {
+    const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.goto(`http://127.0.0.1:4173/?mode=panel&live=1&people=1&sun=45,1&hometheme=${look}`);
+    await page.waitForFunction(() => window.__view?.()?.debugState().summary, null, {
+      timeout: 60_000,
+    });
+    await page.evaluate(() => {
+      const view = window.__view();
+      view.options = { ...view.options, quality: "high" };
+    });
+    await page.waitForFunction(() => window.__view().debugState().quality === "high");
+    await page.locator("domotwin-view .person-tag").first().waitFor();
+    await page.evaluate(() => window.__view().settle());
+    await page.waitForTimeout(600);
+    toonShots.push([label, (await page.screenshot()).toString("base64")]);
+    await page.close();
+  }
+  const toonPage = await browser.newPage();
+  const toonImage = await toonPage.evaluate(async (shots) => {
+    const decoded = await Promise.all(
+      shots.map(async ([label, base64]) => {
+        const image = new Image();
+        image.src = `data:image/png;base64,${base64}`;
+        await image.decode();
+        return [label, image];
+      }),
+    );
+    const [w, h] = [1280, 800];
+    const canvas = document.createElement("canvas");
+    canvas.width = w * 2 + 30;
+    canvas.height = h + 20;
+    const g = canvas.getContext("2d");
+    g.fillStyle = "#f1f5f9";
+    g.fillRect(0, 0, canvas.width, canvas.height);
+    decoded.forEach(([label, image], i) => {
+      const x = 10 + i * (w + 10);
+      g.drawImage(image, x, 10, w, h);
+      g.font = "600 26px Inter, sans-serif";
+      const width = g.measureText(label).width + 44;
+      g.fillStyle = "rgba(255,255,255,0.92)";
+      g.beginPath();
+      g.roundRect(x + w / 2 - width / 2, 10 + h - 110, width, 48, 24);
+      g.fill();
+      g.fillStyle = "#0f172a";
+      g.fillText(label, x + w / 2 - width / 2 + 22, 10 + h - 77);
+    });
+    return canvas.toDataURL("image/png");
+  }, toonShots);
+  await toonPage.close();
+  await fs.writeFile(
+    join(root, "docs", "figures", "screenshot-cartoon-clay.png"),
+    Buffer.from(toonImage.slice(toonImage.indexOf(",") + 1), "base64"),
+  );
+  console.log("docs/figures/screenshot-cartoon-clay.png");
   await browser.close();
 } finally {
   server.kill();

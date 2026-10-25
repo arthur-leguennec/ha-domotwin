@@ -77,8 +77,9 @@ export const baseStyles = css`
 `;
 
 /**
- * The night looks (D-027) keep their overlays, dialogs and header dark, whatever the dashboard's
- * theme: on the element with the `look` attribute.
+ * The night looks (D-027) keep their overlays, dialogs and header dark, and the cartoon and the
+ * clay (D-036) light (their sky is always bright), whatever the dashboard's theme: on the element
+ * with the `look` attribute.
  */
 export const lookStyles = css`
   :host([look="neon"]) {
@@ -104,5 +105,27 @@ export const lookStyles = css`
     --text-primary-color: #0b2c63;
     --app-header-background-color: #0b2c63;
     --app-header-text-color: #f2f7ff;
+  }
+  :host([look="cartoon"]) {
+    /* The ink of its outlines (theme.rs). */
+    --domotwin-ink: #1b1d29;
+    --card-background-color: #ffffff;
+    --primary-background-color: #f4fbff;
+    --secondary-background-color: #e6f5ff;
+    --primary-text-color: var(--domotwin-ink);
+    --secondary-text-color: #4a4f63;
+    --divider-color: rgba(27, 29, 41, 0.22);
+    --app-header-background-color: #2b9cf2;
+    --app-header-text-color: #ffffff;
+  }
+  :host([look="clay"]) {
+    --card-background-color: #f8f6f2;
+    --primary-background-color: #efebe4;
+    --secondary-background-color: #e6e0d6;
+    --primary-text-color: #3c372f;
+    --secondary-text-color: #6a6257;
+    --divider-color: rgba(60, 55, 47, 0.18);
+    --app-header-background-color: #e2dbcf;
+    --app-header-text-color: #3c372f;
   }
 `;

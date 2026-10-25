@@ -391,7 +391,8 @@ export class Engine {
      */
     setSun(elevation: number, rising: boolean): void;
     /**
-     * Sets the look (D-027): `day`, `neon` or `blueprint` (anything else: `day`), with an accent
+     * Sets the look (D-027, D-036): `day`, `neon`, `blueprint`, `cartoon` or `clay` (anything else:
+     * `day`), with an accent
      * colour `#rrggbb` (anything else: the default cyan). Returns the look's name.
      */
     setTheme(name: string, accent: string): string;

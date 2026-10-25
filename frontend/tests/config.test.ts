@@ -97,6 +97,8 @@ describe("normalizeConfig", () => {
   it("keeps a look and an accent only when given", () => {
     const config = normalizeConfig({ theme: "neon", accent: " #FF2D95 " });
     expect([config.theme, config.accent]).toEqual(["neon", "#ff2d95"]);
+    expect(normalizeConfig({ theme: "cartoon" }).theme).toBe("cartoon");
+    expect(normalizeConfig({ theme: "clay" }).theme).toBe("clay");
     const plain = normalizeConfig({ theme: "", accent: null });
     expect("theme" in plain || "accent" in plain).toBe(false);
   });

@@ -9,7 +9,7 @@
 //   sunpos=<azimuth>,<elevation> (sun.sun's position)  realsun=1 (card option sun: real)
 //   north=<degrees> (the stored settings)  badges=0  cameras=0 (card options)
 //   storeys=2 (the fictional upper floor above the demo apartment)  storey=<id> (card option)
-//   theme=auto|day|neon|blueprint  accent=<#rrggbb>  names=0 (card options)
+//   theme=auto|day|neon|blueprint|cartoon|clay  accent=<#rrggbb>  names=0 (card options)
 //   hometheme=<look> (the stored settings)
 //   screen=<name>  idle=<seconds>  orbit=1  nightdim=1 (the kiosk's card options)
 //   upkeep=1 (the demo apartment's fictional upkeep cards, examples/demo-apartment.upkeep.json)
