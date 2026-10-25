@@ -393,3 +393,74 @@ test("a large 3D model", async ({ page }, testInfo) => {
   console.log(JSON.stringify(report));
   expect(report.triangles).toBeGreaterThan(2 * 139_392);
 });
+
+test("frame time with the upkeep layer, and 1 000 cards", async ({ page }, testInfo) => {
+  test.setTimeout(240_000);
+  await page.clock.setSystemTime(new Date("2026-10-24T10:00:00"));
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await openHarness(page, { theme: "day", lighting: "evening", live: true, upkeep: true });
+  await expect(page.getByTestId("summary")).toBeVisible();
+  await page.evaluate(() => {
+    const view = (
+      window as never as { __view: () => { options: Record<string, unknown> } }
+    ).__view();
+    view.options = { ...view.options, quality: "high" };
+  });
+  await expect.poll(async () => (await viewState(page)).quality).toBe("high");
+  await settle(page);
+  const benchmark = () =>
+    page.evaluate(() =>
+      (window as never as { __view: () => BenchmarkView }).__view().benchmark(20),
+    );
+  const without = await benchmark();
+  await page.getByTestId("layers").click();
+  await page.getByTestId("layer-menu").locator('[data-layer="upkeep"]').click();
+  await expect(page.getByTestId("upkeep-list")).toBeVisible();
+  const layer = await benchmark();
+  // 1 000 cards of five tasks each, every piece of the plan among them: where they all stand
+  // today, their badges and the tints, worked out and drawn.
+  const cards = await page.evaluate(async () => {
+    const view = (
+      window as never as {
+        __view: () => {
+          upkeep: unknown;
+          updateComplete: Promise<boolean>;
+          engine: { elementList(): { id: string; type: string }[] };
+        };
+      }
+    ).__view();
+    const pieces = view.engine
+      .elementList()
+      .filter((e) => e.type === "furniture")
+      .map((e) => e.id);
+    const times: number[] = [];
+    for (let run = 0; run < 7; run += 1) {
+      const all: Record<string, unknown> = {};
+      for (let i = 0; i < 1000; i += 1) {
+        all[pieces[i] ?? `made-up-${i}`] = {
+          installed: "2024-01-31",
+          warranty_end: `2026-11-${String(1 + (i % 28)).padStart(2, "0")}`,
+          tasks: Array.from({ length: 5 }, (_, k) => ({
+            id: `t${k}`,
+            name: `Task ${k}`,
+            every: 1 + ((i + k + run) % 12),
+            unit: k % 2 ? "months" : "days",
+            last_done: `2026-${String(1 + ((i + k) % 9)).padStart(2, "0")}-15`,
+          })),
+        };
+      }
+      const start = performance.now();
+      view.upkeep = { version: 1, lead_days: 14, pieces: all };
+      await view.updateComplete;
+      times.push(performance.now() - start);
+    }
+    times.sort((a, b) => a - b);
+    return { cards: 1000, tasks: 5000, medianMs: times[3] };
+  });
+  const report = { without, layer, cards };
+  const path = testInfo.outputPath("upkeep-frame-time.json");
+  await writeFile(path, JSON.stringify(report, null, 2));
+  await testInfo.attach("upkeep-frame-time", { path, contentType: "application/json" });
+  console.log(JSON.stringify(report));
+  expect(layer.frames).toBe(20);
+});

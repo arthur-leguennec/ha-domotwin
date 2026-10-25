@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.typing import ConfigType
@@ -22,6 +23,8 @@ from .storage import DomoTwinData
 from .websocket_api import async_register_commands
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
+# The upkeep sensor (D-033), DomoTwin's one entity.
+PLATFORMS = [Platform.SENSOR]
 
 type DomoTwinConfigEntry = ConfigEntry[DomoTwinData]
 
@@ -38,13 +41,14 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: DomoTwinConfigEntry) -> bool:
-    """Load the stored data and register the frontend."""
+    """Load the stored data, register the frontend and add the upkeep sensor."""
     data = DomoTwinData(hass)
     await data.async_load()
     entry.runtime_data = data
     hass.data[DATA_KEY] = data
     await async_register_frontend(hass)
     await async_update_panel(hass, entry)
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(_async_options_updated))
     return True
 
@@ -54,7 +58,9 @@ async def _async_options_updated(hass: HomeAssistant, entry: DomoTwinConfigEntry
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: DomoTwinConfigEntry) -> bool:
-    """Remove the panel and the module; keep the stored data."""
+    """Remove the panel, the module and the sensor; keep the stored data."""
+    if not await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
+        return False
     async_remove_panel(hass)
     async_unregister_frontend(hass)
     hass.data.pop(DATA_KEY, None)

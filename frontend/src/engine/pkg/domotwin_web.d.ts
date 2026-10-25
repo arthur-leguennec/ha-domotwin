@@ -383,6 +383,16 @@ export class Engine {
      */
     setTheme(name: string, accent: string): string;
     /**
+     * Shows or hides the upkeep layer: the pieces with tasks tinted green when fine, amber when
+     * one is due soon, red when one is overdue.
+     */
+    setUpkeepLayer(shown: boolean): void;
+    /**
+     * Where each piece's upkeep stands: JSON `{piece id: "fine" | "due" | "overdue"}` (as
+     * `upkeepStates` gives each card's `state`), for the upkeep layer.
+     */
+    setUpkeep(json: string): void;
+    /**
      * Walking: moves on its own ahead and to the right (−1…1 each, 0 to stop) while a key or
      * the pad is held.
      */
@@ -502,6 +512,14 @@ export function start(): void;
  */
 export function summarizePlan(json: string): string;
 
+/**
+ * Where every upkeep card stands on `today` (`YYYY-MM-DD`, where the home is), from the stored
+ * upkeep (`{"lead_days", "pieces": {id: card}}`): JSON `{id: {"state", "warranty", "tasks":
+ * [{"id", "due", "state", "days"}]}}` (`domotwin_core::upkeep::states`); `{}` for a date it
+ * cannot read.
+ */
+export function upkeepStates(upkeep: string, today: string): string;
+
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
 
 export interface InitOutput {
@@ -584,6 +602,8 @@ export interface InitOutput {
     readonly engine_setSun: (a: number, b: number, c: number) => void;
     readonly engine_setSunPosition: (a: number, b: number, c: number, d: number) => void;
     readonly engine_setTheme: (a: number, b: number, c: number, d: number, e: number, f: number) => void;
+    readonly engine_setUpkeep: (a: number, b: number, c: number) => void;
+    readonly engine_setUpkeepLayer: (a: number, b: number) => void;
     readonly engine_setWalk: (a: number, b: number, c: number) => number;
     readonly engine_setWalkVelocity: (a: number, b: number, c: number) => void;
     readonly engine_showDraft: (a: number, b: number, c: number, d: number, e: number, f: number) => void;
@@ -602,6 +622,7 @@ export interface InitOutput {
     readonly readAutomation: (a: number, b: number, c: number) => void;
     readonly start: () => void;
     readonly summarizePlan: (a: number, b: number, c: number) => void;
+    readonly upkeepStates: (a: number, b: number, c: number, d: number, e: number) => void;
     readonly __wbindgen_export: (a: number, b: number) => number;
     readonly __wbindgen_export2: (a: number, b: number, c: number, d: number) => number;
     readonly __wbindgen_export3: (a: number, b: number, c: number) => void;

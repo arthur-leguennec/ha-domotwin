@@ -379,6 +379,8 @@ fn cameras_see_their_room_and_badges_have_places() {
     assert_eq!(washer["kind"], "washer");
     assert_eq!(washer["type"], "furniture");
     assert_eq!(washer["name"], "Washing machine");
+    // The room it stands in, as drawn.
+    assert_eq!(washer["room"], "bathroom");
 }
 
 #[wasm_bindgen_test]
@@ -846,4 +848,35 @@ fn automation_wires_join_their_ends_and_pulse_when_one_runs() {
     );
     assert!(engine.automation_at(160.0, 120.0).is_empty());
     assert_eq!(engine.automation_points(), "[]");
+}
+
+#[wasm_bindgen_test]
+fn upkeep_states_and_the_layer() {
+    // Where the cards stand on a day (D-033): the washing machine's filter is late, the fridge's
+    // coils due soon; an unreadable day gives nothing.
+    let upkeep = serde_json::json!({ "lead_days": 14, "pieces": {
+        "washer": { "tasks": [{ "id": "filter", "name": "Filter", "every": 3, "unit": "months",
+                                "last_done": "2026-07-20" }] },
+        "fridge": { "tasks": [{ "id": "coils", "name": "Coils", "every": 6, "unit": "months",
+                                "last_done": "2026-05-01" }] }
+    } })
+    .to_string();
+    let states: serde_json::Value =
+        serde_json::from_str(&domotwin_web::upkeep_states(&upkeep, "2026-10-24")).unwrap();
+    assert_eq!(states["washer"]["state"], "overdue");
+    assert_eq!(states["fridge"]["state"], "due");
+    assert_eq!(states["fridge"]["tasks"][0]["due"], "2026-11-01");
+    assert_eq!(domotwin_web::upkeep_states(&upkeep, "24/10/2026"), "{}");
+    // The layer: shades for the pieces of the plan, kept when the plan is shown again.
+    let mut engine = Engine::new(canvas()).unwrap();
+    engine.load_plan(DEMO, None, None).unwrap();
+    engine.set_upkeep(r#"{"washer": "overdue", "fridge": "due", "gone": "fine", "sofa": 3}"#);
+    engine.set_upkeep_layer(true);
+    engine.frame(0.0);
+    engine.load_plan(DEMO, Some(true), None).unwrap();
+    engine.frame(16.0);
+    // Held still: no frames needed for it.
+    assert!(!engine.frame(32.0));
+    engine.set_upkeep_layer(false);
+    engine.set_upkeep("{}");
 }

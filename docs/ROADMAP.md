@@ -23,7 +23,7 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M10b      | DomoTwin's own plan format, `*.domotwin.json`              | ✅     |
 | M9b       | Network map: the Zigbee mesh over the home (ZHA)           | ✅     |
 | M9c       | Automation wires: what sets off what, drawn in 3D          | ✅     |
-| M9d       | Upkeep cards: makes, warranties, recurring tasks           | ⏳     |
+| M9d       | Upkeep cards: makes, warranties, recurring tasks           | ✅     |
 | M9e       | People in their rooms, live                                | ⏳     |
 | M8b       | Two more looks: cartoon and clay                           | ⏳     |
 | M11       | Imports: Sweet Home 3D, DXF, room scans                    | ⏳     |
@@ -504,6 +504,35 @@ What sets off what, drawn in the home, live (`DECISIONS.md`, D-032; [`automation
 
 Left for later: scripts followed into, a run's trace (which branch it took), wires between
 storeys shown apart.
+
+## M9d, upkeep cards
+
+What each piece needs to be looked after, and what is due (`DECISIONS.md`, D-033;
+[`upkeep.md`](upkeep.md)).
+
+- ✅ **A card per piece**: make, model, serial number, install date, warranty end, service life, a
+  manual link and notes, recurring tasks; written by administrators in the piece's sheet (a sheet
+  of its own for a piece linked to nothing), **Done** for everyone.
+- ✅ **Kept by the integration** by piece id, out of the plan (storage 4.1); a plan's export offers
+  its cards as a file of their own.
+- ✅ **Due soon and overdue**: the date reckoning in the core (months ending at the end of shorter
+  ones), the same in the integration, both tested on shared cases; badges joining the devices';
+  a warranty ending within 30 days.
+- ✅ **The upkeep layer**: the pieces tinted green, amber or red, the tasks listed by date with
+  **Done**, the lead set by administrators.
+- ✅ **From IFC files**: manufacturer, model, serial number, installation, warranty and service
+  life from the standard property sets and the assets, IFC2x3 and IFC4.
+- ✅ **One sensor**, `sensor.domotwin_upkeep_due`, the tasks in its attributes.
+- ✅ Tests: dates, ends of months and of February, states (Rust and Python on the same cases);
+  storage, migration, validation, commands, the sensor across days (pytest); the IFC reader on a
+  new fictional fixture and IFC2x3 (Rust); the engine's states and layer (headless Chromium);
+  badges, lists, merging (vitest); writing a card, a task falling due, Done, others, the layer's
+  picture (Playwright); a fuzz target.
+
+![The upkeep layer of the demo apartment](figures/screenshot-upkeep.png)
+
+Left for later: reminders sent by DomoTwin itself (the sensor is there for automations), tasks
+of a room rather than a piece, a history of what was done.
 
 ## M11, imports
 

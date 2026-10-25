@@ -54,12 +54,13 @@ impl IfcImport {
         serde_json::Value::Array(list).to_string()
     }
 
-    /// The plan of a storey and what was left out, as JSON `{"plan", "report"}`. Errors:
-    /// `no_storeys`, `no_spaces`.
+    /// The plan of a storey, what was left out and the upkeep cards the file fills (by piece
+    /// id), as JSON `{"plan", "report", "upkeep"}`. Errors: `no_storeys`, `no_spaces`.
     pub fn convert(&self, storey: u32) -> Result<String, JsError> {
-        let (plan, report) = self.file.convert(storey).map_err(error)?;
+        let (plan, report, upkeep) = self.file.convert(storey).map_err(error)?;
         Ok(json!({
             "plan": plan,
+            "upkeep": upkeep,
             "report": {
                 "rooms": report.rooms,
                 "doors": report.doors,

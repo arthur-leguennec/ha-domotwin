@@ -16,18 +16,27 @@ from .const import (
     MAX_ENTITIES_PER_ELEMENT,
     MAX_ID_LENGTH,
     MAX_LAYOUT_BYTES,
+    MAX_LEAD_DAYS,
     MAX_MODEL_BYTES,
     MAX_MODELS,
     MAX_MODELS_BYTES,
     MAX_PLAN_BYTES,
     MAX_STOREY_NAME,
     MAX_STOREYS,
+    MAX_UPKEEP_BYTES,
+    MAX_UPKEEP_DAYS,
+    MAX_UPKEEP_LINK,
+    MAX_UPKEEP_MONTHS,
+    MAX_UPKEEP_NOTES,
+    MAX_UPKEEP_TASKS,
+    MAX_UPKEEP_TEXT,
     MIN_ELEVATION,
     MODEL_ENTRY_PREFIX,
     MODEL_FORMATS,
     PLAN_FORMAT,
     PLAN_LISTS,
 )
+from .upkeep import parse_date
 
 MODEL_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{0,63}")
 SHA256 = re.compile(r"[0-9a-f]{64}")
@@ -322,3 +331,115 @@ def validate_storeys_ids(plans: list[dict[str, Any]]) -> None:
         ids = element_ids(plan)
         _check_shared(ids & taken)
         taken |= ids
+
+
+# What an upkeep card holds besides its dates and tasks: texts, at most so long.
+UPKEEP_TEXTS: Final = {
+    "make": MAX_UPKEEP_TEXT,
+    "model": MAX_UPKEEP_TEXT,
+    "serial": MAX_UPKEEP_TEXT,
+    "manual": MAX_UPKEEP_LINK,
+    "notes": MAX_UPKEEP_NOTES,
+}
+UPKEEP_DATES: Final = ("installed", "warranty_end")
+# How many years a piece should last (an IFC file's service life), at most.
+MAX_SERVICE_LIFE: Final = 200
+# A manual is a page of Home Assistant (`/local/…`) or a web address, never fetched by DomoTwin.
+MANUAL_LINK = re.compile(r"(/|https?://)\S*", re.IGNORECASE)
+
+
+def _upkeep_error(message: str) -> InvalidPayloadError:
+    return InvalidPayloadError("invalid_upkeep", message)
+
+
+def _validate_task(task: Any, ids: set[str]) -> dict[str, Any]:
+    if not isinstance(task, dict) or set(task) - {"id", "name", "every", "unit", "last_done"}:
+        raise _upkeep_error("a task holds `id`, `name`, `every`, `unit` and `last_done`")
+    _check_id(task.get("id"), "a task's `id`", "invalid_upkeep")
+    if task["id"] in ids:
+        raise _upkeep_error(f"two tasks of a card have the id {task['id']!r}")
+    ids.add(task["id"])
+    name = task.get("name")
+    if not isinstance(name, str) or not 0 < len(name.strip()) <= MAX_UPKEEP_TEXT:
+        raise _upkeep_error(f"a task's `name` is text of 1 to {MAX_UPKEEP_TEXT} characters")
+    unit = task.get("unit")
+    every = task.get("every")
+    longest = {"days": MAX_UPKEEP_DAYS, "months": MAX_UPKEEP_MONTHS}.get(str(unit))
+    if longest is None or isinstance(every, bool) or not isinstance(every, int):
+        raise _upkeep_error("a task is done `every` so many `days` or `months`")
+    if not 1 <= every <= longest:
+        raise _upkeep_error(f"a task is done every 1 to {longest} {unit}")
+    checked: dict[str, Any] = {"id": task["id"], "name": name.strip(), "every": every, "unit": unit}
+    if task.get("last_done") is not None:
+        if parse_date(task["last_done"]) is None:
+            raise _upkeep_error("a task's `last_done` is a date YYYY-MM-DD")
+        checked["last_done"] = task["last_done"]
+    return checked
+
+
+def validate_upkeep_card(card: Any) -> dict[str, Any]:
+    """Check a piece's upkeep card: its texts, dates and tasks (docs/upkeep.md)."""
+    if not isinstance(card, dict) or set(card) - {
+        *UPKEEP_TEXTS,
+        *UPKEEP_DATES,
+        "service_life",
+        "tasks",
+    }:
+        raise _upkeep_error(
+            "a card holds `make`, `model`, `serial`, `installed`, `warranty_end`, "
+            "`service_life`, `manual`, `notes` and `tasks`"
+        )
+    checked: dict[str, Any] = {}
+    for key, longest in UPKEEP_TEXTS.items():
+        value = card.get(key)
+        if value is None:
+            continue
+        if not isinstance(value, str) or len(value) > longest:
+            raise _upkeep_error(f"`{key}` is text of at most {longest} characters")
+        # Blank: not said. Notes keep their own spaces and lines.
+        if value.strip():
+            checked[key] = value if key == "notes" else value.strip()
+    if "manual" in checked and not MANUAL_LINK.fullmatch(checked["manual"]):
+        raise _upkeep_error("`manual` is a path of Home Assistant (/local/…) or a web address")
+    for key in UPKEEP_DATES:
+        if card.get(key) is not None:
+            if parse_date(card[key]) is None:
+                raise _upkeep_error(f"`{key}` is a date YYYY-MM-DD")
+            checked[key] = card[key]
+    life = card.get("service_life")
+    if life is not None:
+        if isinstance(life, bool) or not isinstance(life, int) or not 1 <= life <= MAX_SERVICE_LIFE:
+            raise _upkeep_error(f"`service_life` is a number of years from 1 to {MAX_SERVICE_LIFE}")
+        checked["service_life"] = life
+    tasks = card.get("tasks", [])
+    if not isinstance(tasks, list) or len(tasks) > MAX_UPKEEP_TASKS:
+        raise _upkeep_error(f"a card has at most {MAX_UPKEEP_TASKS} tasks")
+    ids: set[str] = set()
+    checked["tasks"] = [_validate_task(task, ids) for task in tasks]
+    return checked
+
+
+def validate_upkeep_change(
+    pieces: Any, lead_days: Any = None, current: dict[str, Any] | None = None
+) -> dict[str, Any]:
+    """Check a change of the upkeep cards: `{piece id: card, or None to remove it}`.
+
+    With the `current` cards, the cards once changed must fit in the size allowed too.
+    """
+    if not isinstance(pieces, dict) or len(pieces) > MAX_BOUND_ELEMENTS:
+        raise _upkeep_error(f"at most {MAX_BOUND_ELEMENTS} cards are changed at once")
+    _check_size(pieces, MAX_UPKEEP_BYTES, "the upkeep cards")
+    checked: dict[str, Any] = {}
+    for piece, card in pieces.items():
+        _check_id(piece, "a piece's id", "invalid_upkeep")
+        checked[piece] = None if card is None else validate_upkeep_card(card)
+    if lead_days is not None and (
+        isinstance(lead_days, bool)
+        or not isinstance(lead_days, int)
+        or not 0 <= lead_days <= MAX_LEAD_DAYS
+    ):
+        raise _upkeep_error(f"`lead_days` is a number of days from 0 to {MAX_LEAD_DAYS}")
+    if current is not None:
+        merged = {key: card for key, card in {**current, **checked}.items() if card}
+        _check_size(merged, MAX_UPKEEP_BYTES, "the upkeep cards")
+    return checked

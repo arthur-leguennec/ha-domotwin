@@ -442,3 +442,35 @@ configurations is one request each to Home Assistant, done once when the wires a
 draws frames for the length of its pulse (under 2 s), and nothing is watched while no wires are
 shown.
 
+
+### M9d (upkeep cards)
+
+Bundle: the first load is **437.1 kB gzipped** of 1 200 kB (+8.6 kB). The upkeep list is a chunk
+loaded when the layer is first shown; a piece's card comes with the sheets:
+
+| File | Raw | Gzipped |
+| --- | ---: | ---: |
+| `domotwin_web_bg.<hash>.wasm` | 809.9 kB | 351.5 kB |
+| `domotwin.js` (entry) | 132.1 kB | 33.6 kB |
+| `chunks/upkeep-panel-<hash>.js` (on demand) | 6.9 kB | 2.5 kB |
+| `chunks/sheets-<hash>.js` (on demand, with a piece's card) | 19.8 kB | 5.6 kB |
+| `domotwin_ifc_bg.<hash>.wasm` (on demand, IFC import) | 260.9 kB | 120.4 kB |
+
+The engine grew by 9.9 kB: the dates and the due arithmetic, and the reading of the cards into
+one shade a piece. The entry grew by 5.3 kB: the badges and the standings, worked out on every
+change of the cards and once a minute. The IFC importer, loaded on demand, also reads the
+cards' property sets.
+
+Frame time at the High preset, 1280 × 720, in the evening with the lamps on, the cards of the
+e2e harness (5 pieces, a washing machine overdue, a fridge due), *reduce motion* on; Chromium
+with SwiftShader (two runs, the second shown):
+
+| Look | Without the layer (CPU median, software GPU) | With it |
+| --- | ---: | ---: |
+| Day | 0.6 ms, 267 ms | 0.6 ms, 267 ms |
+| Neon | 0.6 ms, 233 ms | 0.7 ms, 250 ms |
+
+The tint is a channel of the texel each element already has, read by the shader: no extra draw
+call. Reading 1 000 cards of 5 tasks each into their standings, badges and shades takes **66 ms**
+median in headless Chromium (`e2e/perf.spec.ts`, "frame time with the upkeep layer, and 1 000
+cards"); it runs when a card changes and when the day does, not on each frame.

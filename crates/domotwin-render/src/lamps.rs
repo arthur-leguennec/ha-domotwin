@@ -145,8 +145,9 @@ pub fn power_level(watts: f32) -> f32 {
 }
 
 /// Three texels per element tag (index + 1, tag 0 = no element): the light (`rgb`, strength),
-/// the flags (greyed out, highlight, selected, in conflict) and the power layer's level.
-pub fn element_texels(looks: &[Look], marks: &[Mark]) -> Vec<[f32; 4]> {
+/// the flags (greyed out, highlight, selected, in conflict), and the power layer's level with
+/// the upkeep layer's state (0 none, 1 fine, 2 due soon, 3 overdue; D-033) in thirds.
+pub fn element_texels(looks: &[Look], marks: &[Mark], upkeep: &[u8]) -> Vec<[f32; 4]> {
     let mut texels = vec![[0.0; 4]; ELEMENT_TEXELS * (looks.len() + 1)];
     for (i, look) in looks.iter().enumerate() {
         let at = ELEMENT_TEXELS * (i + 1);
@@ -159,6 +160,7 @@ pub fn element_texels(looks: &[Look], marks: &[Mark]) -> Vec<[f32; 4]> {
             if mark.conflict { 1.0 } else { 0.0 },
         ];
         texels[at + 2][0] = power_level(look.power);
+        texels[at + 2][1] = f32::from(upkeep.get(i).copied().unwrap_or(0).min(3)) / 3.0;
     }
     texels
 }
@@ -240,7 +242,7 @@ mod tests {
             ..Look::default()
         }];
         assert!(point_lights(&spots, &looks).is_empty());
-        let texels = element_texels(&looks, &[]);
+        let texels = element_texels(&looks, &[], &[]);
         assert_eq!(texels.len(), 6);
         assert_eq!(texels[3][3], 0.0);
         assert_eq!(texels[4][0], 1.0);
@@ -250,8 +252,10 @@ mod tests {
                 selected: true,
                 conflict: true,
             }],
+            &[3],
         );
         assert_eq!(marked[4][2..], [1.0, 1.0]);
+        assert_eq!(marked[5][1], 1.0);
     }
 
     #[test]
@@ -266,17 +270,17 @@ mod tests {
             power: 300.0,
             ..Look::default()
         }];
-        assert!((element_texels(&looks, &[])[5][0] - 2.0 / 3.0).abs() < 1e-4);
+        assert!((element_texels(&looks, &[], &[])[5][0] - 2.0 / 3.0).abs() < 1e-4);
     }
 
     #[test]
     fn the_elements_texture_wraps_onto_rows() {
         // A few elements: one row, as wide as they need.
-        let (w, h, texels) = element_rows(element_texels(&[lit(1.0); 4], &[]));
+        let (w, h, texels) = element_rows(element_texels(&[lit(1.0); 4], &[], &[]));
         assert_eq!((w, h, texels.len()), (15, 1, 15));
         // A home of many: rows of 512 tags, 1 536 texels, the last one padded.
         let looks = vec![lit(1.0); 1500];
-        let (w, h, texels) = element_rows(element_texels(&looks, &[]));
+        let (w, h, texels) = element_rows(element_texels(&looks, &[], &[]));
         assert_eq!((w, h), (1536, 3));
         assert_eq!(texels.len(), 1536 * 3);
         // Tag 1 000 (element 999) is on the second row, where the shader reads it.

@@ -865,3 +865,51 @@ Asked by the maintainer (M9c).
 - **Consequences.** The section and the wires are chunks of their own; the engine grew by the
   reader and the wires' placing (see `PERFORMANCE.md`, M9c). A step DomoTwin does not know is
   missing from the wires until the reader learns it. Scripts called are ends, not followed into.
+
+## D-033 · Upkeep cards: what each piece needs, and what is due
+
+Asked by the maintainer (M9d).
+
+- **Context.** A home is looked after piece by piece: a washing machine's filter, a fridge's coils,
+  a boiler's yearly service, a warranty that ends. The information is on paper, in e-mails, in an
+  IFC file the architect gave; nothing ties it to the piece. DomoTwin knows every piece and shows it
+  in place, so each can carry its card, and the 3D view can show what is due.
+- **Decision.**
+  - **A card per piece, kept with the bindings.** Make, model, serial number, install date,
+    warranty end, service life, a manual link and notes, and recurring tasks (a name, every so many
+    days or months, when last done). The integration keeps them in its own storage by piece id
+    (storage 4.1), out of the plan: a plan shared or exported carries no serial number. Exporting a
+    plan offers its pieces' cards as a file of their own (`.upkeep.json`).
+  - **Dates are days where the home is.** A task is next due an interval after it was last done
+    (never done: after the piece was installed; neither known: now). A month after 31 January is the
+    end of February. It is due soon from 14 days before (the home can set another lead, 0 to 365),
+    overdue the day after. A warranty ending within 30 days is shown. The core works this out
+    (`domotwin_core::upkeep`) for the view; the integration's sensor does the same in Python. Both
+    are tested on the same cases (`tests/fixtures/upkeep-due.json`), so they cannot drift apart.
+  - **Who does what.** Every user sees the cards and marks a task done (it is done in the home,
+    by whoever did it); administrators write and change cards and the lead.
+  - **Shown where the pieces are.** The badges of D-024 gain three kinds (a task due soon, a task
+    overdue, a warranty ending), one badge system, the most urgent first. The `upkeep` layer tints
+    the pieces with tasks (green, amber, red) through a free channel of the elements' texture,
+    without frames of its own, and lists every task by date with **Done**.
+  - **A piece's own sheet.** A long press on a piece linked to nothing used to open its room's
+    panel. It now opens the piece's sheet when it has a card, or for administrators, who write
+    cards there; the room's panel is a tap away in it. Linked pieces show their card with their
+    controls.
+  - **From IFC files.** The import reads the standard property sets, checked against
+    buildingSMART's definitions of IFC2x3, IFC4 and IFC4.3: `Pset_ManufacturerTypeInformation`
+    (`Manufacturer`, `ModelLabel` else `ModelReference`, on the piece or its type),
+    `Pset_ManufacturerOccurrence` (`SerialNumber`, `AcquisitionDate`), `Pset_Warranty`
+    (`WarrantyEndDate`, else `WarrantyStartDate` and `WarrantyPeriod`), `Pset_ServiceLife`
+    (`ServiceLifeDuration`), an `InstallationDate` property in any set, and the `IncorporationDate`
+    of the `IfcAsset` a piece belongs to. IFC2x3 dates (an `IfcCalendarDate` by reference) and
+    periods in seconds are read too. Installed: said so, else incorporated, else bought. What a card
+    already says stays; the file fills what it lacks.
+  - **One entity.** `sensor.domotwin_upkeep_due`: the number of tasks due soon or overdue, the
+    tasks in its attributes (at most 50), for users' own notifications. It is named the same in
+    every language, and changes with the cards, the plans and at midnight. No other entity.
+- **Consequences.** The integration has a sensor platform and a service device, "DomoTwin". The
+  stored data is version 4: a DomoTwin from before upkeep refuses it rather than drop the cards
+  (an older 3.x reading a newer 3.x would have dropped them and saved at once). The card, the list
+  and the IFC reading are in chunks loaded with the sheets, the layer and the import; the engine
+  grew by the date reckoning and a layer flag (see `PERFORMANCE.md`, M9d).

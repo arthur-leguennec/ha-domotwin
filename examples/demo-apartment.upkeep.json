@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "lead_days": 14,
+  "pieces": {
+    "washer": {
+      "make": "Fictional Appliances",
+      "model": "W-100",
+      "serial": "FA-0001",
+      "installed": "2024-03-15",
+      "warranty_end": "2026-11-10",
+      "service_life": 12,
+      "manual": "/local/manuals/w-100.pdf",
+      "notes": "Drain filter behind the flap at the bottom right.",
+      "tasks": [
+        { "id": "filter", "name": "Clean the filter", "every": 3, "unit": "months", "last_done": "2026-07-20" },
+        { "id": "descale", "name": "Descale the drum", "every": 6, "unit": "months", "last_done": "2026-06-01" }
+      ]
+    },
+    "fridge": {
+      "make": "Cold & Co",
+      "model": "FR-7",
+      "installed": "2023-11-20",
+      "warranty_end": "2028-11-20",
+      "tasks": [
+        { "id": "coils", "name": "Clean the condenser coils", "every": 6, "unit": "months", "last_done": "2026-05-01" }
+      ]
+    },
+    "stove": {
+      "tasks": [
+        { "id": "degrease", "name": "Degrease the hob", "every": 1, "unit": "months", "last_done": "2026-10-10" }
+      ]
+    },
+    "fan-bedroom": {
+      "tasks": [
+        { "id": "dust", "name": "Dust the blades", "every": 2, "unit": "months", "last_done": "2026-10-01" }
+      ]
+    },
+    "tv": {
+      "make": "Fictional Vision",
+      "warranty_end": "2027-03-01"
+    }
+  }
+}

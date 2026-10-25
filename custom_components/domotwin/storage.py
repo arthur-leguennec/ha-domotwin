@@ -1,23 +1,27 @@
-"""Versioned storage of the storeys (a plan and its overlay each), the bindings, the settings."""
+"""Versioned storage of the storeys, the bindings, the settings and the upkeep cards."""
 
 from __future__ import annotations
 
 import copy
+from datetime import date
 from enum import Enum
 import logging
 from typing import Any, Final
 
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_send
+from homeassistant.helpers.json import json_bytes
 from homeassistant.helpers.storage import Store
 
 from .const import (
+    MAX_UPKEEP_BYTES,
     PLAN_FORMAT,
     SIGNAL_UPDATED,
     STORAGE_KEY,
     STORAGE_MINOR_VERSION,
     STORAGE_VERSION,
 )
+from .upkeep import LEAD_DAYS
 
 type StoredData = dict[str, Any]
 
@@ -34,12 +38,17 @@ UNSET: Final = _Unset.TOKEN
 
 # What a save changes. Each kind is checked against the revision of its own last write, so that
 # saving the bindings or the settings does not refuse an edit of the plan started before.
-KINDS: Final = ("plan", "bindings", "settings")
+KINDS: Final = ("plan", "bindings", "settings", "upkeep")
 
 
 def empty_bindings() -> dict[str, Any]:
     """Return bindings with nothing bound."""
     return {"version": 1, "rooms": {}, "elements": {}}
+
+
+def empty_upkeep() -> dict[str, Any]:
+    """Return upkeep without cards (D-033)."""
+    return {"version": 1, "lead_days": LEAD_DAYS, "pieces": {}}
 
 
 def empty_data() -> StoredData:
@@ -49,6 +58,7 @@ def empty_data() -> StoredData:
         "storeys": [],
         "bindings": empty_bindings(),
         "settings": {},
+        "upkeep": empty_upkeep(),
         "revisions": {},
         "retired": [],
     }
@@ -81,6 +91,8 @@ def normalise(stored: dict[str, Any]) -> StoredData:
         data["revisions"] = {}
     if not isinstance(data["retired"], list):
         data["retired"] = []
+    if not isinstance(data["upkeep"], dict) or not isinstance(data["upkeep"].get("pieces"), dict):
+        data["upkeep"] = empty_upkeep()
     return data
 
 
@@ -108,6 +120,10 @@ class UnknownStoreyError(Exception):
     """No storey has the id given."""
 
 
+class UnknownTaskError(Exception):
+    """No upkeep card has the piece and task given."""
+
+
 class RevisionConflictError(Exception):
     """Another client saved since the revision the caller started from."""
 
@@ -130,7 +146,9 @@ class DomoTwinStore(Store[StoredData]):
         # 1.x: the plan and its overlay become the first storey.
         data = normalise(old_data)
         # 1.x and 2.x: plans in a format DomoTwin no longer reads are set aside. The revision
-        # moves on, so that drafts browsers kept in that format are not offered again.
+        # moves on, so that drafts browsers kept in that format are not offered again. Before 4,
+        # no upkeep cards: they start empty, their revision the data's.
+        data["revisions"].setdefault("upkeep", data["revision"])
         if old_major_version >= 3:
             return data
         data["revision"] = int(data["revision"]) + 1
@@ -232,6 +250,12 @@ class DomoTwinData:
         """The home's settings (where north points on the plan)."""
         settings: dict[str, Any] = self._data["settings"]
         return settings
+
+    @property
+    def upkeep(self) -> dict[str, Any]:
+        """The upkeep cards (D-033): `lead_days`, `pieces` (a card by piece id)."""
+        upkeep: dict[str, Any] = self._data["upkeep"]
+        return upkeep
 
     def snapshot(self) -> StoredData:
         """Return a deep copy, safe to hand out."""
@@ -350,6 +374,42 @@ class DomoTwinData:
         self._check_revision("bindings", expected_revision)
         self._data["bindings"] = bindings
         return await self._async_commit("bindings")
+
+    async def async_save_upkeep(
+        self,
+        pieces: dict[str, Any],
+        lead_days: int | None = None,
+        expected_revision: int | None = None,
+        known: set[str] | dict[str, str] | None = None,
+    ) -> int:
+        """Store upkeep cards (`None` removes a piece's) and the lead. Return the new revision.
+
+        Only the pieces given change: two people editing two cards do not undo each other. With
+        the pieces `known` to the plans, the cards of others go when the cards grow too large.
+        """
+        self._check_revision("upkeep", expected_revision)
+        cards = self._data["upkeep"]["pieces"]
+        for piece, card in pieces.items():
+            if card is None:
+                cards.pop(piece, None)
+            else:
+                cards[piece] = card
+        if known is not None and len(json_bytes(cards)) > MAX_UPKEEP_BYTES:
+            for piece in [piece for piece in cards if piece not in known]:
+                del cards[piece]
+        if lead_days is not None:
+            self._data["upkeep"]["lead_days"] = lead_days
+        return await self._async_commit("upkeep")
+
+    async def async_upkeep_done(self, piece: str, task: str, today: date) -> int:
+        """Mark a task done `today`. Return the new revision."""
+        card = self._data["upkeep"]["pieces"].get(piece)
+        tasks = card.get("tasks", []) if isinstance(card, dict) else []
+        found = next((each for each in tasks if each.get("id") == task), None)
+        if found is None:
+            raise UnknownTaskError(f"{piece}/{task}")
+        found["last_done"] = today.isoformat()
+        return await self._async_commit("upkeep")
 
     async def async_save_settings(self, settings: dict[str, Any]) -> int:
         """Store new settings. Return the new revision."""

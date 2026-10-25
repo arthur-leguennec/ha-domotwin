@@ -22,7 +22,16 @@ export interface HarnessOptions {
    */
   models?: boolean | "big" | "unused";
   /** Card options of the layers. */
-  layer?: "off" | "temperature" | "humidity" | "co2" | "pm25" | "power" | "network" | "automations";
+  layer?:
+    | "off"
+    | "temperature"
+    | "humidity"
+    | "co2"
+    | "pm25"
+    | "power"
+    | "network"
+    | "automations"
+    | "upkeep";
   realSun?: boolean;
   /** `sun.sun`'s position (degrees). */
   sunPosition?: { azimuth: number; elevation: number };
@@ -48,6 +57,8 @@ export interface HarnessOptions {
   zha?: boolean;
   /** Fictional automations (D-032): `true` three of the demo apartment, a number made up ones. */
   automations?: true | number;
+  /** Upkeep cards (D-033): the demo's (`true`), or an integration without them (`false`). */
+  upkeep?: boolean;
 }
 
 /** Opens the mocked Home Assistant with the built frontend. */
@@ -82,6 +93,7 @@ export async function openHarness(page: Page, options: HarnessOptions = {}): Pro
   if (options.orbit) params.set("orbit", "1");
   if (options.nightDim) params.set("nightdim", "1");
   if (options.zha) params.set("zha", "1");
+  if (options.upkeep !== undefined) params.set("upkeep", options.upkeep ? "1" : "0");
   if (options.automations) {
     params.set("automations", options.automations === true ? "1" : String(options.automations));
   }

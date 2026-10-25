@@ -20,7 +20,7 @@ fn fixture(name: &str) -> Vec<u8> {
 fn convert(name: &str, storey: usize) -> (Value, Report, Plan) {
     let file = IfcFile::read(fixture(name)).unwrap();
     let storeys = file.storeys();
-    let (json, report) = file.convert(storeys[storey].id).unwrap();
+    let (json, report, _) = file.convert(storeys[storey].id).unwrap();
     let text = serde_json::to_vec(&json).unwrap();
     let plan =
         read_plan(&text).unwrap_or_else(|e| panic!("{name}: the core refuses the plan: {e:?}"));
@@ -260,4 +260,66 @@ fn refusals() {
         IfcFile::read(b"ISO-10303-21;\nDATA;\n#1=IFCWALL('x',$,$);\nENDSEC;".to_vec()).unwrap_err(),
         "not_ifc"
     );
+}
+
+/// The upkeep cards an IFC file fills (D-033), by the name of the piece they belong to.
+fn cards(name: &str) -> Vec<(String, Value)> {
+    let file = IfcFile::read(fixture(name)).unwrap();
+    let storeys = file.storeys();
+    let (json, _, cards) = file.convert(storeys[0].id).unwrap();
+    let mut out: Vec<(String, Value)> = json["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|item| {
+            let card = cards.get(item["id"].as_str()?)?;
+            Some((item["name"].as_str()?.to_owned(), card.clone()))
+        })
+        .collect();
+    assert_eq!(out.len(), cards.len(), "every card is a piece's");
+    out.sort_by(|a, b| a.0.cmp(&b.0));
+    out
+}
+
+#[test]
+fn upkeep_cards_from_the_property_sets_and_assets() {
+    let cards = cards("utility-ifc4.ifc");
+    assert_eq!(
+        cards,
+        [
+            (
+                // A model reference only; installed when its asset was incorporated.
+                "Fridge".to_owned(),
+                serde_json::json!({
+                    "model": "FR-7",
+                    "installed": "2023-11-20",
+                    "warranty_end": "2028-11-20",
+                }),
+            ),
+            (
+                // Make and model on its type, the rest on the piece; installed (not bought) on
+                // 15 March, two years of warranty from then.
+                "Washing machine".to_owned(),
+                serde_json::json!({
+                    "make": "Fictional Appliances",
+                    "model": "W-100",
+                    "serial": "FA-0001",
+                    "installed": "2024-03-15",
+                    "warranty_end": "2026-03-15",
+                    "service_life": 12,
+                }),
+            ),
+        ]
+    );
+    // IFC2x3: a calendar date by reference, two years in seconds (730 days, across 29 February).
+    let cards = self::cards("house-ifc2x3.ifc");
+    assert_eq!(
+        cards,
+        [(
+            "Réfrigérateur".to_owned(),
+            serde_json::json!({ "make": "Froid Fictif", "warranty_end": "2024-06-11" }),
+        )]
+    );
+    // Nothing said of the apartment's pieces: no cards.
+    assert!(self::cards("apartment-ifc4.ifc").is_empty());
 }

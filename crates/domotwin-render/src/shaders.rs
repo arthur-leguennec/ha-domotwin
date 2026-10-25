@@ -44,6 +44,7 @@ flat out uint v_element;
 flat out vec4 v_look;
 flat out vec4 v_flags;
 flat out float v_power;
+flat out float v_upkeep;
 flat out float v_room;
 flat out float v_glass;
 
@@ -83,7 +84,9 @@ void main() {
     ivec2 at = ivec2(int(v_element % ELEMENTS_PER_ROW) * 3, int(v_element / ELEMENTS_PER_ROW));
     v_look = texelFetch(u_elements, at, 0);
     v_flags = texelFetch(u_elements, at + ivec2(1, 0), 0);
-    v_power = texelFetch(u_elements, at + ivec2(2, 0), 0).r;
+    vec4 extra = texelFetch(u_elements, at + ivec2(2, 0), 0);
+    v_power = extra.r;
+    v_upkeep = extra.g;
     v_room = float(uint(a_normal.w) & 255u);
     // A hidden piece is moved outside the clip volume: all its vertices share the test.
     gl_Position = hidden ? vec4(0.0, 0.0, 2.0, 1.0) : u_view_proj * vec4(p, 1.0);
@@ -114,6 +117,7 @@ flat in uint v_element;
 flat in vec4 v_look;
 flat in vec4 v_flags;
 flat in float v_power;
+flat in float v_upkeep;
 flat in float v_room;
 flat in float v_glass;
 
@@ -137,6 +141,7 @@ uniform float u_glow_alpha;
 uniform sampler2D u_rooms;
 uniform float u_layers;
 uniform float u_power_layer;
+uniform float u_upkeep_layer;
 // Seconds, wrapping every 600 s (every wave below repeats within that); still without motion.
 uniform float u_time;
 uniform float u_motion;
@@ -446,6 +451,16 @@ void main() {
         float luma = dot(color, vec3(0.2126, 0.7152, 0.0722));
         color = mix(color, tone * (0.45 + luma), 0.5) + tone * (0.1 + 0.2 * wave(2.618, 1.0)) * v_power;
         plan = mix(plan, tone, 0.55);
+    }
+    // The upkeep layer (D-033): pieces with tasks tinted green when fine, amber when one is due
+    // soon, red when one is overdue.
+    if (u_upkeep_layer > 0.5 && v_upkeep > 0.1 && !on_floor) {
+        float state = floor(v_upkeep * 3.0 + 0.5);
+        vec3 tone = state > 2.5 ? vec3(0.95, 0.18, 0.12)
+            : state > 1.5 ? vec3(1.0, 0.68, 0.08) : vec3(0.22, 0.72, 0.36);
+        float luma = dot(color, vec3(0.2126, 0.7152, 0.0722));
+        color = mix(color, tone * (0.25 + 0.5 * luma), 0.85) + tone * 0.18;
+        plan = mix(plan, tone, 0.75);
     }
 
     // Unavailable entities: greyed out. A tap: a short blue flash.

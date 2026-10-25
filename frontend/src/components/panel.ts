@@ -61,6 +61,7 @@ import {
   type StoreyRooms,
 } from "../live/storeys";
 import { resolveShow, type ShowRequest } from "../live/show";
+import { mergeCards, renamedPieces, type Upkeep, type UpkeepCard } from "../live/upkeep";
 import { applyLink, planElement, type LinkChange, type PlanElementInfo } from "../live/suggest";
 import type { IfcFile, IfcReport, IfcStorey } from "../ifc/ifc";
 import type { ModelFormat, ModelInfo } from "../models/models";
@@ -83,6 +84,8 @@ const PANEL_OPTIONS: ViewOptions = {
   lighting: "auto",
 };
 const TOAST_MS = 6000;
+/** Upkeep cards saved at once when a file fills them (the integration takes up to 2 000). */
+const CARDS_AT_ONCE = 400;
 /** The highest a storey's floor may be (cm), as the integration checks. */
 const MAX_ELEVATION = 100_000;
 /** The plan drawn is kept by the browser once the drawing pauses this long (ms). */
@@ -91,6 +94,8 @@ const PLAN_DRAFT_MS = 800;
 interface Toast {
   text: string;
   error: boolean;
+  /** What the toast offers to do (a button beside its text). */
+  action?: { label: string; run: () => void };
 }
 
 /** An IFC file waiting for the user to pick a storey. */
@@ -142,6 +147,19 @@ function fileName(title: string): string {
   return `${slug || "plan"}.domotwin.json`;
 }
 
+/** Saves `value` as a JSON file named `name` (the browser's download). */
+function download(name: string, value: unknown): void {
+  const blob = new Blob([`${JSON.stringify(value, null, 2)}\n`], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = name;
+  link.click();
+  setTimeout(() => {
+    URL.revokeObjectURL(url);
+  }, 1000);
+}
+
 /** `<domotwin-panel>`: the full-screen DomoTwin in the sidebar, with import and export. */
 export class DomoTwinPanel extends LitElement {
   static override properties = {
@@ -166,6 +184,7 @@ export class DomoTwinPanel extends LitElement {
     discardAsk: { state: true },
     draft: { state: true },
     settings: { state: true },
+    upkeep: { state: true },
     northDraft: { state: true },
     lookDraft: { state: true },
     look: { reflect: true },
@@ -213,6 +232,8 @@ export class DomoTwinPanel extends LitElement {
   protected draft?: Draft;
   /** The home's settings, and north being set (the settings dialog is open). */
   protected settings?: Settings;
+  /** The upkeep cards (D-033). */
+  protected upkeep?: Upkeep;
   protected northDraft?: number;
   /** The look being chosen in the settings (shown as it is chosen), while they are open. */
   protected lookDraft?: { theme: ThemeMode; accent: string };
@@ -576,11 +597,24 @@ export class DomoTwinPanel extends LitElement {
       if (event.kind === "show") void this.showRequest(event.show);
       else if (event.kind === "plan") void this.loadPlan();
       else if (event.kind === "bindings") void this.loadBindings();
+      else if (event.kind === "upkeep") void this.loadUpkeep();
       else void this.loadSettings();
     });
     void this.loadPlan();
     void this.loadBindings();
     void this.loadSettings();
+    void this.loadUpkeep();
+  }
+
+  /** Without upkeep cards (an integration older than D-033 too) nothing is due. */
+  private async loadUpkeep(): Promise<void> {
+    const client = this.client;
+    if (!client) return;
+    try {
+      this.upkeep = (await client.getUpkeep()).upkeep;
+    } catch {
+      this.upkeep = undefined;
+    }
   }
 
   /** `domotwin.show` (D-029), when no tool runs (requests naming a screen are for cards): the
@@ -1382,36 +1416,92 @@ export class DomoTwinPanel extends LitElement {
     const client = this.client;
     if (!client) return;
     const t = this.t;
-    const { plan, report } = ifc.convert(storey.id);
+    const { plan, report, upkeep } = ifc.convert(storey.id);
     const summary = await summarizePlan(JSON.stringify(plan));
-    await this.storePlan(plan);
+    const stored = await this.storePlan(plan);
+    const cards = stored
+      ? await this.fillCards([{ found: upkeep, before: plan, after: stored }])
+      : { filled: 0 };
     const imported = t.t("panel.ifc_imported", { title: summary.name || t.t("view.untitled") });
     const left = this.leftOut(report);
-    this.show(left ? `${imported} ${t.t("panel.ifc_left_out", { list: left })}` : imported);
+    this.show(
+      (left ? `${imported} ${t.t("panel.ifc_left_out", { list: left })}` : imported) +
+        this.cardsText(cards),
+      cards.failed !== undefined,
+    );
+  }
+
+  /**
+   * Fills the upkeep cards of the pieces an imported file speaks of (D-033), under the ids the
+   * pieces got when stored: what a card says already stays. Returns how many cards changed.
+   */
+  private async fillCards(
+    imports: { found: Record<string, UpkeepCard>; before: PlanJson; after: PlanJson }[],
+  ): Promise<{ filled: number; failed?: { left: number; reason: string } }> {
+    const client = this.client;
+    if (!client) return { filled: 0 };
+    const cards: Record<string, UpkeepCard> = {};
+    for (const { found, before, after } of imports) {
+      const renamed = renamedPieces(before, after);
+      for (const [id, card] of Object.entries(found)) cards[renamed.get(id) ?? id] = card;
+    }
+    if (Object.keys(cards).length === 0) return { filled: 0 };
+    let kept: Record<string, UpkeepCard>;
+    try {
+      kept = (await client.getUpkeep()).upkeep.pieces;
+    } catch {
+      // An integration without upkeep cards: the plan is imported all the same.
+      return { filled: 0 };
+    }
+    const changed = Object.entries(mergeCards(kept, cards));
+    let filled = 0;
+    try {
+      // In parts, each well within what the integration takes at once.
+      for (let at = 0; at < changed.length; at += CARDS_AT_ONCE) {
+        const part = changed.slice(at, at + CARDS_AT_ONCE);
+        await client.saveUpkeep(Object.fromEntries(part));
+        filled += part.length;
+      }
+    } catch (error) {
+      return { filled, failed: { left: changed.length - filled, reason: this.describe(error) } };
+    }
+    return { filled };
+  }
+
+  /** What filling the cards from a file did, for the import's message. */
+  private cardsText(result: { filled: number; failed?: { left: number; reason: string } }): string {
+    const t = this.t;
+    const parts: string[] = [];
+    if (result.filled > 0) parts.push(t.tp("panel.ifc_cards", result.filled));
+    if (result.failed) {
+      parts.push(
+        t.tp("panel.ifc_cards_failed", result.failed.left, { reason: result.failed.reason }),
+      );
+    }
+    return parts.map((part) => ` ${part}`).join("");
   }
 
   /**
    * Stores an imported plan: in the storey shown (its overlay kept, for an updated plan), or as a
-   * new storey above the others; its ids that other storeys use are changed first.
+   * new storey above the others; its ids that other storeys use are changed first. Returns the
+   * plan stored.
    */
-  private async storePlan(read: PlanJson): Promise<void> {
+  private async storePlan(read: PlanJson): Promise<PlanJson | undefined> {
     const client = this.client;
-    if (!client) return;
+    if (!client) return undefined;
     const target = this.importTarget;
     this.importTarget = "storey";
+    let plan: PlanJson;
     if (target === "new") {
-      const plan = await this.ownIds(read);
+      plan = await this.ownIds(read);
       const added = await client.saveStorey({ plan, elevation: this.nextElevation() });
       this.storey = added.storey;
     } else {
-      await client.savePlan(
-        await this.ownIds(read, this.storey),
-        undefined,
-        undefined,
-        this.storey,
-      );
+      plan = await this.ownIds(read, this.storey);
+      await client.savePlan(plan, undefined, undefined, this.storey);
     }
     await this.loadPlan();
+    return plan;
   }
 
   /**
@@ -1423,20 +1513,26 @@ export class DomoTwinPanel extends LitElement {
     if (!client) return;
     const t = this.t;
     const storeys: { plan: PlanJson; name: string; elevation: number }[] = [];
+    const imports: { found: Record<string, UpkeepCard>; before: PlanJson; after: PlanJson }[] = [];
     const taken: string[] = [];
     const { freeIds } = await import("../planner/planner");
     for (const storey of choice.storeys) {
-      const converted = choice.file.convert(storey.id).plan;
-      const plan = (await freeIds(converted, taken)) as PlanJson;
+      const converted = choice.file.convert(storey.id);
+      const plan = (await freeIds(converted.plan, taken)) as PlanJson;
       await summarizePlan(JSON.stringify(plan));
       taken.push(...storeyIds(plan));
       storeys.push({ plan, name: storey.name.slice(0, 60), elevation: storey.elevation });
+      imports.push({ found: converted.upkeep, before: converted.plan, after: plan });
     }
     await client.replaceStoreys(storeys);
+    const cards = await this.fillCards(imports);
     // The server's ground floor.
     this.storey = undefined;
     await this.loadPlan();
-    this.show(t.tp("storey.ifc_all_imported", storeys.length));
+    this.show(
+      t.tp("storey.ifc_all_imported", storeys.length) + this.cardsText(cards),
+      cards.failed !== undefined,
+    );
   }
 
   private leftOut(report: IfcReport): string {
@@ -1503,26 +1599,57 @@ export class DomoTwinPanel extends LitElement {
       ) as PlanJson;
       const missing = await this.embedModels(plan);
       const title = typeof plan.name === "string" ? plan.name : "";
-      const blob = new Blob([`${JSON.stringify(plan, null, 2)}\n`], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
       // With several storeys, the file says which.
       const level = storeyLevels(this.storeys).find(({ storey }) => storey.id === this.storey);
-      link.download = fileName(
+      const name = fileName(
         level && this.storeys.length > 1
           ? `${title} ${storeyName(t, level.storey, level.level)}`
           : title,
       );
-      link.click();
-      setTimeout(() => {
-        URL.revokeObjectURL(url);
-      }, 1000);
-      if (missing > 0) this.show(t.tp("panel.models_not_embedded", missing), true);
+      download(name, plan);
+      const unembedded = missing > 0 ? t.tp("panel.models_not_embedded", missing) : "";
+      // The upkeep cards of its pieces (D-033), kept apart from the plan: offered as a file of
+      // their own, as they say what the home holds (makes, serial numbers).
+      const cards = this.cardsOf(plan);
+      const count = Object.keys(cards).length;
+      if (count === 0 && unembedded) this.show(unembedded, true);
+      if (count > 0) {
+        // The offer stays until it is taken or dismissed.
+        window.clearTimeout(this.toastTimer);
+        this.toast = {
+          text: [unembedded, t.tp("panel.export_upkeep_offer", count)].filter(Boolean).join(" "),
+          error: missing > 0,
+          action: {
+            label: t.t("panel.export_upkeep"),
+            run: () => {
+              download(name.replace(/\.domotwin\.json$/, ".upkeep.json"), {
+                format: "domotwin-upkeep",
+                version: 1,
+                lead_days: this.upkeep?.lead_days ?? 14,
+                pieces: cards,
+              });
+              this.toast = undefined;
+            },
+          },
+        };
+      }
     } catch (error) {
       this.show(t.t("panel.export_failed", { reason: this.describe(error) }), true);
     }
   };
+
+  /** The upkeep cards of a plan's pieces, by piece id. */
+  private cardsOf(plan: PlanJson): Record<string, UpkeepCard> {
+    const pieces = this.upkeep?.pieces ?? {};
+    const out: Record<string, UpkeepCard> = {};
+    const items = Array.isArray(plan.items) ? (plan.items as { id?: unknown }[]) : [];
+    for (const item of items) {
+      const id = item.id;
+      const card = typeof id === "string" ? pieces[id] : undefined;
+      if (typeof id === "string" && card) out[id] = card;
+    }
+    return out;
+  }
 
   /**
    * Embeds the plan's 3D files as `data:` URLs, so that it opens with its models elsewhere. A
@@ -1642,6 +1769,7 @@ export class DomoTwinPanel extends LitElement {
           .plan=${this.plan}
           .layout=${this.layout}
           .bindings=${this.bindings}
+          .upkeep=${this.upkeep}
           .planError=${this.planError}
           .options=${PANEL_OPTIONS}
           .north=${this.northDraft ?? this.settings?.north ?? 0}
@@ -2104,6 +2232,13 @@ export class DomoTwinPanel extends LitElement {
       data-testid="toast"
     >
       <span>${toast.text}</span>
+      ${
+        toast.action
+          ? html`<button class="action" data-testid="toast-action" @click=${toast.action.run}>
+              ${toast.action.label}
+            </button>`
+          : nothing
+      }
       <button @click=${() => (this.toast = undefined)} aria-label=${this.t.t("panel.dismiss")}>
         ${icon(mdiClose)}
       </button>

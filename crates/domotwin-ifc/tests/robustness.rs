@@ -142,7 +142,7 @@ impl Step {
 fn convert(bytes: Vec<u8>) -> (Value, Report) {
     let file = IfcFile::read(bytes).unwrap();
     let storey = file.storeys()[0].id;
-    let (plan, report) = file.convert(storey).unwrap();
+    let (plan, report, _) = file.convert(storey).unwrap();
     let text = serde_json::to_vec(&plan).unwrap();
     if let Err(e) = read_plan(&text) {
         panic!("the core refuses the plan: {e:?}\n{plan:#}");

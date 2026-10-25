@@ -52,5 +52,20 @@
         }
       }
     }
+  },
+  "entity": {
+    "sensor": {
+      "upkeep_due": {
+        "name": "Entretien à faire",
+        "state_attributes": {
+          "tasks": {
+            "name": "Tâches"
+          },
+          "more": {
+            "name": "Autres"
+          }
+        }
+      }
+    }
   }
 }

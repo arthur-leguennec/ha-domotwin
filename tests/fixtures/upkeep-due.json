@@ -1,0 +1,16 @@
+[
+  { "case": "a month after the 31st of January: the end of February", "every": 1, "unit": "months", "last_done": "2025-01-31", "today": "2025-02-20", "due": "2025-02-28", "state": "due" },
+  { "case": "the same in a leap year", "every": 1, "unit": "months", "last_done": "2024-01-31", "today": "2024-02-01", "due": "2024-02-29", "state": "fine" },
+  { "case": "a year after the 29th of February", "every": 12, "unit": "months", "last_done": "2024-02-29", "today": "2025-03-01", "due": "2025-02-28", "state": "overdue" },
+  { "case": "three months after the 30th of November, into a leap February", "every": 3, "unit": "months", "last_done": "2023-11-30", "today": "2024-02-29", "due": "2024-02-29", "state": "due" },
+  { "case": "across the year's end", "every": 2, "unit": "months", "last_done": "2025-11-15", "today": "2025-12-01", "due": "2026-01-15", "state": "fine" },
+  { "case": "days, across the end of February", "every": 10, "unit": "days", "last_done": "2024-02-25", "today": "2024-03-01", "due": "2024-03-06", "state": "due" },
+  { "case": "due today", "every": 7, "unit": "days", "last_done": "2026-10-17", "today": "2026-10-24", "due": "2026-10-24", "state": "due" },
+  { "case": "overdue the day after", "every": 7, "unit": "days", "last_done": "2026-10-17", "today": "2026-10-25", "due": "2026-10-24", "state": "overdue" },
+  { "case": "fifteen days ahead: fine", "every": 1, "unit": "months", "last_done": "2026-10-09", "today": "2026-10-24", "due": "2026-11-09", "state": "fine" },
+  { "case": "fourteen days ahead: due", "every": 1, "unit": "months", "last_done": "2026-10-07", "today": "2026-10-24", "due": "2026-11-07", "state": "due" },
+  { "case": "a lead of its own", "every": 1, "unit": "months", "last_done": "2026-10-09", "today": "2026-10-24", "lead_days": 30, "due": "2026-11-09", "state": "due" },
+  { "case": "never done: counted from the install date", "every": 6, "unit": "months", "installed": "2026-01-31", "today": "2026-07-01", "due": "2026-07-31", "state": "fine" },
+  { "case": "never done, install date unknown: due now", "every": 3, "unit": "months", "today": "2026-10-24", "due": "2026-10-24", "state": "due" },
+  { "case": "done since installed: from when it was done", "every": 1, "unit": "months", "installed": "2020-01-01", "last_done": "2026-10-01", "today": "2026-10-24", "due": "2026-11-01", "state": "due" }
+]

@@ -52,5 +52,20 @@
         }
       }
     }
+  },
+  "entity": {
+    "sensor": {
+      "upkeep_due": {
+        "name": "Upkeep due",
+        "state_attributes": {
+          "tasks": {
+            "name": "Tasks"
+          },
+          "more": {
+            "name": "More"
+          }
+        }
+      }
+    }
   }
 }
