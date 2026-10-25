@@ -474,3 +474,33 @@ The tint is a channel of the texel each element already has, read by the shader:
 call. Reading 1 000 cards of 5 tasks each into their standings, badges and shades takes **66 ms**
 median in headless Chromium (`e2e/perf.spec.ts`, "frame time with the upkeep layer, and 1 000
 cards"); it runs when a card changes and when the day does, not on each frame.
+
+### M9e (people in their rooms)
+
+Bundle: the first load is **452.4 kB gzipped** of 1 200 kB (+15.3 kB). The people's settings are a
+chunk loaded when first opened; a person's sheet comes with the sheets:
+
+| File | Raw | Gzipped |
+| --- | ---: | ---: |
+| `domotwin_web_bg.<hash>.wasm` | 834.5 kB | 362.5 kB |
+| `domotwin.js` (entry) | 138.1 kB | 34.9 kB |
+| `chunks/sheets-<hash>.js` (on demand, with a person's sheet) | 23.0 kB | 6.4 kB |
+| `chunks/people-settings-<hash>.js` (on demand) | 9.9 kB | 3.0 kB |
+
+The engine grew by 24.6 kB: the shapes of the figure, the pin and the shadow (built once, at the
+first person), the walking (places in a room clear of the furniture, the ways through the doors,
+fades between storeys) and the people's pass with its shaders. The entry grew by 6.0 kB: the
+people shown from their sensors, their names over the picture, the counts on the storeys.
+
+Frame time at the High preset, 1280 × 720, in the evening with the lamps on, *reduce motion* on;
+Chromium with SwiftShader (two runs, the second shown):
+
+| Look | Nobody (CPU median, software GPU) | Ten people standing |
+| --- | ---: | ---: |
+| Day | 0.6 ms, 250 ms | 0.7 ms, 250 ms |
+| Neon | 0.6 ms, 233 ms | 0.6 ms, 233 ms |
+
+A person is one draw call for their shadow and one for them, of a shared mesh: ten cost nothing
+measurable. Ten people walking to other rooms take **0.6 ms** of CPU a frame (median, headless
+Chromium, `e2e/perf.spec.ts`, "frame time with ten people walking"), with their names following;
+frames are drawn only while someone walks or fades.

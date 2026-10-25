@@ -24,7 +24,8 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M9b       | Network map: the Zigbee mesh over the home (ZHA)           | ✅     |
 | M9c       | Automation wires: what sets off what, drawn in 3D          | ✅     |
 | M9d       | Upkeep cards: makes, warranties, recurring tasks           | ✅     |
-| M9e       | People in their rooms, live                                | ⏳     |
+| M9e       | People in their rooms, live                                | ✅     |
+| M9f       | Bluetooth locating, without Bermuda or ESPresense          | ⏳     |
 | M8b       | Two more looks: cartoon and clay                           | ⏳     |
 | M11       | Imports: Sweet Home 3D, DXF, room scans                    | ⏳     |
 | M12       | Polish: design, fonts, accessibility, performance, README  | ⏳     |
@@ -33,7 +34,7 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 M5 to M11 were added after M3b (`DECISIONS.md`, D-022): what people expect of a 3D home dashboard,
 with no account and no network call outside Home Assistant. M8 became the looks alone, and the
 storeys seen together their own milestone (M9), so that the picture comes first (D-027). M10b
-replaced the plan format DomoTwin started from with its own (D-030); M9b to M9e and M8b were asked
+replaced the plan format DomoTwin started from with its own (D-030); M9b to M9f and M8b were asked
 for after M10, and come before the imports. After 0.1.0, a pass over size and speed that keeps the
 picture as it is.
 
@@ -533,6 +534,41 @@ What each piece needs to be looked after, and what is due (`DECISIONS.md`, D-033
 
 Left for later: reminders sent by DomoTwin itself (the sensor is there for automations), tasks
 of a room rather than a piece, a history of what was done.
+
+## M9e, people in their rooms
+
+Who is home and in which room, live (`DECISIONS.md`, D-034; [`people.md`](people.md)).
+
+- ✅ **Placed by the integration** from the entities that say where each person is (Bermuda's
+  area sensors, ESPresense, any entity naming a room or an area): the last to change wins, only
+  people at home; settings in a store of their own, chosen by administrators with suggestions.
+- ✅ **A sensor per person**, `sensor.domotwin_<person>_room`, for automations.
+- ✅ **Figures in the 3D view**: a person or a pin in their colour, glowing in the looks that glow,
+  standing clear of the walls, the furniture and the room's name; walking through the doors when
+  they change rooms (fading to another storey); still under *reduce motion*.
+- ✅ **Names over them**, a sheet each (where, since when, what said so), who is there in the
+  room's panel, how many on each storey's button; a card option `people`.
+- ✅ **Hiding**: anyone hides themselves and shows themselves again; administrators anyone; people
+  shown to administrators only.
+- ✅ **Asking**: `domotwin.where` with a sentence in English or French, `domotwin.show` for a
+  person, the `where_by_voice.yaml` blueprint for Assist.
+- ✅ Tests: rooms found, people placed, likeness of names (pytest); the sensors, the commands, who
+  may do what, renames, revisions, the voice blueprint (pytest); walking through the doors, places
+  clear of the furniture, storeys, plan changes (Rust); the engine in headless Chromium; the shown
+  people, colours, initials (vitest); names, sheets, walking, hiding, the settings, a picture per
+  look (Playwright); a frame-time case with ten people walking.
+
+![The people of the demo apartment](figures/screenshot-people.png)
+
+Left for later: DomoTwin's own Bluetooth locating (M9f), a history of where people went.
+
+## M9f, Bluetooth locating
+
+DomoTwin's own room locating from Home Assistant's Bluetooth receivers (ESPHome proxies, Shelly
+devices, the adapter), for homes without Bermuda or ESPresense: phones, watches and tags (their
+keys from Private BLE Device, the companion app's transmitter), a signal model started from the
+plan (distances, walls, storeys) and learned as people live (presence sensors) or on a short walk,
+the doors between rooms, things left behind.
 
 ## M11, imports
 

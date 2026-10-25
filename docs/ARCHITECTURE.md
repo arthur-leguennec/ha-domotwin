@@ -87,7 +87,8 @@ every reader returns `Result` with a stable error code that the frontend transla
 ![The four flows: load the home, follow live states, tap and long-press, edit and save](figures/data-flow.png)
 
 1. **Load.** The panel or card calls `domotwin/plan/get` (the storey shown, the ground floor by
-   default), `domotwin/bindings/get`, `domotwin/settings/get` and `domotwin/upkeep/get`, then passes the
+   default), `domotwin/bindings/get`, `domotwin/settings/get`, `domotwin/upkeep/get` and
+   `domotwin/people/get`, then passes the
    plan, the overlay and the bindings to the engine (`load_plan`). With several storeys, the other
    storeys' plans are fetched too, for their rooms' alerts (D-026); a storey switch loads another
    plan in the same engine, and every storey at once loads them all (`loadStoreys`, D-028). The core reads the plan leniently,
@@ -110,7 +111,12 @@ every reader returns `Result` with a stable error code that the frontend transla
    applied to the stored plan and read again. On save the frontend sends the overlay with
    `domotwin/plan/save` (admins only, with the revision it started from), and every open view
    reloads through `domotwin/subscribe`.
-5. **Show.** The `domotwin.show` action (`services.py`, D-029), run by a script, an automation or
+5. **People.** The integration follows the entities that say where each person is
+   (`tracker.py`, D-034) and writes each one's room in their sensor. The view reads those sensors
+   from `hass`, sends who is in which room to the engine (`setPeople`), which places the figures,
+   walks them through the doors and draws them; their names go over the picture
+   (`peoplePoints`).
+6. **Show.** The `domotwin.show` action (`services.py`, D-029), run by a script, an automation or
    the voice blueprint (`blueprints/automation/domotwin/show_by_voice.yaml`), is sent as it was
    asked to every open view through `domotwin/subscribe` (`{kind: "show", show}`). Each card (the
    one with that `screen`, or all of them) and the panel find the room, element, storey or
@@ -157,6 +163,21 @@ every reader returns `Result` with a stable error code that the frontend transla
   save with `expected_revision` is checked against it, so that saving the bindings or the settings
   does not refuse an edit of the plan started before (optimistic concurrency between devices).
 
+`.storage/domotwin.people` (D-034, its own store, version 1): who DomoTwin places in their rooms.
+
+```json
+{
+  "revision": 2,
+  "shown": "everyone",
+  "look": "figure",
+  "hidden": [],
+  "people": { "person.alex": { "sources": ["sensor.alex_phone_area"], "color": "#e8508a" } }
+}
+```
+
+`shown` is `everyone` or `admins`, `look` `figure` or `pin`, `hidden` the people who hid
+themselves; each person's `sources` (10 at most) and optional `color`. See [`people.md`](people.md).
+
 The 3D files of user models are not in `.storage`: they are kept under their SHA-256 in
 `<config>/domotwin/models/<sha256>.<format>` (D-021), uploaded with `POST /api/domotwin/models?format=…`
 (administrators; answers `{hash, bytes, format}`) and read with
@@ -181,18 +202,30 @@ when the integration is removed.
 | `domotwin/upkeep/get`    | user   | –                                              | `upkeep`, `revision`, `today` (where the home is) |
 | `domotwin/upkeep/save`   | admin  | `pieces` (`{piece: card \| null}`, only those change), `lead_days?`, `expected_revision?` | `revision` |
 | `domotwin/upkeep/done`   | user   | `piece`, `task`                                | `revision`, `last_done`          |
+| `domotwin/people/get`    | user   | `candidates?` (administrators: the entities that may say where someone is) | `revision`, `shown`, `look`, `hidden`, `people` (`{person: {sources, color, sensor}}`; none for others when shown to administrators only), `candidates?` |
+| `domotwin/people/save`   | admin  | `people`, `shown?`, `look?`, `expected_revision?` | `revision`                     |
+| `domotwin/people/hide`   | user   | `person` (oneself; administrators anyone), `hidden` | `revision`                   |
 | `domotwin/subscribe`     | user   | –                                              | events `{kind, revision}`, and `{kind: "show", show}` for `domotwin.show` |
 
 Errors: `not_loaded`, `invalid_plan`, `invalid_layout`, `invalid_bindings`, `invalid_settings`,
-`invalid_upkeep`, `unknown_task`, `too_large`,
+`invalid_upkeep`, `unknown_task`, `invalid_people`, `unknown_person`, `too_large`,
 `too_many_models`, `revision_conflict`, `unknown_storey`, `invalid_storey`, `too_many_storeys`,
 `duplicate_id`, and Home Assistant's `unauthorized` for non-admin writes.
 
 ## Entities
 
-One only: `sensor.domotwin_upkeep_due` (D-033), the number of upkeep tasks due soon or overdue,
-the tasks in its `tasks` attribute, worked out again when the cards or the plans change and every
-midnight where the home is (`sensor.py`, `upkeep.py`).
+- `sensor.domotwin_upkeep_due` (D-033), the number of upkeep tasks due soon or overdue, the tasks
+  in its `tasks` attribute, worked out again when the cards or the plans change and every midnight
+  where the home is (`sensor.py`, `upkeep.py`).
+- `sensor.domotwin_<person>_room` (D-034), one per person placed: their room's name, `not_home`,
+  or unknown; `room_id`, `area_id`, `storey_id`, `storey`, `since`, `source` in attributes
+  (`sensor.py`, `tracker.py`, `people.py`).
+
+## Actions
+
+- `domotwin.show` (D-029): a room, an element, a storey, a view or a person's room, on the screens.
+- `domotwin.where` (D-034, with a response): where a person is, or everyone at home, and a
+  sentence to say in Home Assistant's language.
 
 ## Privacy
 

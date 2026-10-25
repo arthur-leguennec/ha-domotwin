@@ -19,7 +19,8 @@ Local, rapide, Rust + WebAssembly.</p>
 > pilotage en direct (états, toucher, appui long, panneau de pièce, liaisons), le mode édition, vos
 > propres modèles 3D, les calques, les appareils, l’éditeur de plan, les étages, les apparences,
 > tous les étages à la fois, la promenade, le kiosque, la carte du réseau, les fils des
-> automatisations et les fiches d’entretien fonctionnent déjà ; d’autres imports arrivent ensuite. Les fonctionnalités ci-dessous décrivent la version 0.1.0.
+> automatisations, les fiches d’entretien et les personnes dans leurs pièces fonctionnent déjà ;
+> d’autres imports arrivent ensuite. Les fonctionnalités ci-dessous décrivent la version 0.1.0.
 
 ## Fonctionnalités
 
@@ -67,6 +68,12 @@ Local, rapide, Rust + WebAssembly.</p>
   notifications. Voir [les fiches
   d’entretien](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/upkeep.md) (en
   anglais).
+- **Les personnes dans leurs pièces.** Chaque personne à la maison se tient dans sa pièce, une
+  silhouette à sa couleur, son nom au-dessus, et passe par les portes quand elle change de pièce.
+  DomoTwin la place d’après ce qui dit déjà où elle est (les capteurs de pièce de Bermuda ou
+  d’ESPresense, ou toute entité qui nomme une pièce) ; le panneau de la pièce dit qui s’y trouve,
+  et Assist répond à « où est Alex ? ». Chacun peut se masquer. Voir [les personnes dans leurs
+  pièces](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/people.md) (en anglais).
 - **Éditeur de plan.** Pas de plan à importer ? Dessinez-le dans le panneau : des pièces en
   polygones avec leurs longueurs, des cloisons, des portes et des fenêtres posées sur les murs, avec
   aimantation et annulation. Voir [l’éditeur de
@@ -122,6 +129,10 @@ Local, rapide, Rust + WebAssembly.</p>
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-automations.png" alt="Les fils des automatisations : toutes les automatisations de l’appartement de démonstration tirées de la télévision et de la porte d’entrée jusqu’aux lampes et aux rideaux, avec des étiquettes au-dessus du logement pour le soleil, une heure, une notification et ce qu’un modèle décide" width="100%">
+</p>
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-people.png" alt="Les personnes dans leurs pièces : l’appartement de démonstration dans l’apparence néon, Sam en silhouette bleue lumineuse dans le séjour et Alex en rose dans la cuisine, chacun avec son nom au-dessus" width="100%">
 </p>
 
 <p align="center">
@@ -185,6 +196,7 @@ YAML n’est jamais nécessaire. Pour référence, les options de la carte :
 | `layer`       | `off`, `temperature`, `humidity`, `co2`, `pm25`, `power`, `network`, `automations`, `upkeep` | `off` | Calque affiché à l’ouverture ; le menu des calques le change. `network` ne s’affiche qu’aux administrateurs, avec ZHA ; `automations` aux administrateurs. |
 | `alerts`      | `true`, `false`                     | `true`     | Alertes de sécurité des pièces (fumée, gaz, eau, alarme, fenêtre ouverte sous la pluie). |
 | `presence`    | `true`, `false`                     | `true`     | Les pièces occupées s’illuminent doucement.   |
+| `people`      | `true`, `false`                     | `true`     | Les personnes dans leurs pièces, en silhouettes. |
 | `sun`         | `fixed`, `real`                     | `fixed`    | `real` : le soleil éclaire depuis sa vraie position (`sun.sun`), par les fenêtres. |
 | `badges`      | `true`, `false`                     | `true`     | Badges des appareils : serrures, caméras, lecture, batteries faibles, appareils en marche. |
 | `cameras`     | `true`, `false`                     | `true`     | Ce que voient les caméras liées, dessiné au sol. |

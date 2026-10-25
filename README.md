@@ -18,7 +18,8 @@ Local, fast, Rust + WebAssembly.</p>
 > integration, the panel, the card, the plan and IFC import, the 3D and 2D views, live control
 > (states, tap, long press, room panel, linking), the edit mode, your own 3D models, the layers, the
 > devices, the plan editor, storeys, the looks, every storey at once, walking, the kiosk, the
-> network map, the automation wires and the upkeep cards work today; more imports come next. The features below describe version 0.1.0.
+> network map, the automation wires, the upkeep cards and the people in their rooms work today;
+> more imports come next. The features below describe version 0.1.0.
 
 ## Features
 
@@ -58,6 +59,12 @@ Local, fast, Rust + WebAssembly.</p>
   list by date has a **Done** button for everyone. An IFC file fills the cards; one sensor,
   `sensor.domotwin_upkeep_due`, is there for your notifications. See [upkeep
   cards](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/upkeep.md).
+- **People in their rooms.** Everyone at home stands in their room as a figure in their colour,
+  their name above, and walks through the doors when they move. DomoTwin places them from what
+  already says where they are (Bermuda's or ESPresense's room sensors, or any entity naming a
+  room); the room's panel says who is there, and Assist answers "where is Alex?". Anyone can hide
+  themselves. See [people in their
+  rooms](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/people.md).
 - **Plan editor.** No plan to import? Draw one in the panel: rooms as polygons with their lengths,
   partitions, doors and windows placed on the walls, with snapping and undo. See [plan
   editor](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/plan-editor.md).
@@ -109,6 +116,10 @@ Local, fast, Rust + WebAssembly.</p>
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-automations.png" alt="Automation wires: every automation of the demo apartment drawn from the TV and the entrance door to the lamps and curtains, with labels floating above the home for the sun, a time, a notification and what a template decides" width="100%">
+</p>
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-people.png" alt="People in their rooms: the demo apartment in the neon look, Sam a glowing blue figure in the living room and Alex a pink one in the kitchen, each with their name above" width="100%">
 </p>
 
 <p align="center">
@@ -169,6 +180,7 @@ YAML is never required. For reference, the card options are:
 | `layer`       | `off`, `temperature`, `humidity`, `co2`, `pm25`, `power`, `network`, `automations`, `upkeep` | `off` | Layer shown when the card opens; the layer menu changes it. `network` shows to administrators with ZHA only, `automations` to administrators. |
 | `alerts`      | `true`, `false`                     | `true`     | Safety alerts of the rooms (smoke, gas, water, alarm, a window open in the rain). |
 | `presence`    | `true`, `false`                     | `true`     | The rooms someone is in glow softly.      |
+| `people`      | `true`, `false`                     | `true`     | The people in their rooms, as figures.    |
 | `sun`         | `fixed`, `real`                     | `fixed`    | `real`: the sun lights from where it is (`sun.sun`), through the windows. |
 | `badges`      | `true`, `false`                     | `true`     | Badges over the devices: locks, cameras, what plays, low batteries, appliances running. |
 | `cameras`     | `true`, `false`                     | `true`     | What the linked cameras see, drawn on the floor. |
