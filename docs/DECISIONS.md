@@ -1082,3 +1082,20 @@ researched first. Decided while the maintainer was away; open to review.
   the normals, so a crease between two faces of a box seen from the front is not inked (its bands
   of light tell the faces apart); a deep fold is. Small pieces far away get a dot of ink. See
   `PERFORMANCE.md`, M8b, and [`looks.md`](looks.md).
+
+## D-037 · The first release moved forward
+
+Asked by the maintainer, after M8b.
+
+- **Context.** The roadmap put 0.1.0 at the end, after the imports and the polish (D-022, M13).
+  Everything else it promised was done: the views, live control, editing, storeys, the looks, the
+  kiosk, the layers, the network map, the automations, the upkeep cards, people and Bluetooth
+  locating. Nobody could install it from HACS without a release.
+- **Decision.** Release 0.1.0 right after M8b, as it is, through release-please's pull request
+  (`CONTRIBUTING.md`, *Releases*). Then: what cameras see drawn on the floor (M5b), the imports
+  (M11), the polish (M12), a pass over size and speed (M12b), and a second release, 0.2.0, with
+  the HACS submission (M13). Before 1.0, a new feature raises the minor version
+  (`release-please-config.json`), so the next release with features is 0.2.0.
+- **Consequences.** 0.1.0 ships the camera views as flat shapes over the picture (fixed in M5b) and
+  without the install test on a clean Home Assistant and the measurements on real devices, which
+  M13 does before the submission. The changelog of 0.1.0 lists every milestone so far.

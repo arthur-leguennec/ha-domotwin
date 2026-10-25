@@ -383,7 +383,7 @@ The engine grew by 15.2 kB: the mesh's analysis (reading a snapshot, the widest 
 health, its JSON) and the wires (arcs, their pass and its shaders, the tap on a wire). The rest of
 the first load grew by 2.3 kB (the layer in the menu, the device row of the link editor, the
 texts). Moving the analysis out of the first load, into the map's chunk with a module of its own,
-is left for the pass over size after 0.1.0.
+is left for the pass over size and speed (M12b).
 
 Frame time at the High preset, 1280 × 720, in the evening with the lamps on, the mesh of the e2e
 harness shown (5 devices placed, 5 links), *reduce motion* on so that both columns draw the same
@@ -422,7 +422,7 @@ the reader's steps and their iterators), the wires' links and bundles, the placi
 a second wire set with its one-shot pulses, and the runs and the automation picked out kept
 when the wires are built again. With the network map's analysis (M9b), the
 reader is the first thing to move into a module of its own, loaded with the panels, in the pass
-over size after 0.1.0.
+over size and speed (M12b).
 
 Frame time at the High preset, 1280 × 720, in the evening with the lamps on, every automation of
 the e2e harness shown from the layer menu, *reduce motion* on; Chromium with SwiftShader (one

@@ -1,6 +1,7 @@
 # HACS submission checklist
 
-Filled in at milestone M13. The submission to the HACS default repository list is made by the
+Filled in at milestone M13, with release 0.2.0; 0.1.0 is released before it, without the
+submission (`ROADMAP.md`). The submission to the HACS default repository list is made by the
 maintainer.
 
 ## Before submitting

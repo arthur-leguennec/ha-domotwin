@@ -27,16 +27,23 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M9e       | People in their rooms, live                                | ✅     |
 | M9f       | Bluetooth locating, without Bermuda or ESPresense          | ✅     |
 | M8b       | Two more looks: cartoon and clay                           | ✅     |
+| 0.1.0     | First release: all of the above, `domotwin.zip` for HACS   | 🚧     |
+| M5b       | What cameras see, drawn on the floor behind the furniture  | ⏳     |
+| M9g       | Private rooms: locked, or kept for some people             | ⏳     |
 | M11       | Imports: Sweet Home 3D, DXF, room scans                    | ⏳     |
-| M12       | Polish: design, fonts, accessibility, performance, README  | ⏳     |
-| M13       | Release 0.1.0 and HACS submission checklist                | ⏳     |
+| M12       | Polish: design, fonts, accessibility, voice, README        | ⏳     |
+| M12b      | Size and speed: a pass that keeps the picture as it is     | ⏳     |
+| M13       | Release 0.2.0 and HACS submission checklist                | ⏳     |
 
 M5 to M11 were added after M3b (`DECISIONS.md`, D-022): what people expect of a 3D home dashboard,
 with no account and no network call outside Home Assistant. M8 became the looks alone, and the
 storeys seen together their own milestone (M9), so that the picture comes first (D-027). M10b
 replaced the plan format DomoTwin started from with its own (D-030); M9b to M9f and M8b were asked
-for after M10, and come before the imports. After 0.1.0, a pass over size and speed that keeps the
-picture as it is.
+for after M10, and come before the imports. The maintainer then moved the first release forward
+(D-037): 0.1.0 is everything done up to M8b. What cameras see drawn on the floor (M5b), private
+rooms (M9g), the imports (M11), the polish (M12) and a pass over size and speed that keeps the
+picture as it is (M12b) come before a second release, 0.2.0, with the submission to HACS's default
+list (M13).
 
 ## M0, scaffold
 
@@ -96,7 +103,7 @@ Measured at the end of M0: see [`PERFORMANCE.md`](PERFORMANCE.md).
 
 Measured at the end of M1: see [`PERFORMANCE.md`](PERFORMANCE.md). Not measured yet: real devices
 (an old wall tablet, a mid-range phone), which need hardware CI does not have; to be done by hand
-before 0.1.0.
+before the HACS submission (M13).
 
 ## M2, live control
 
@@ -613,6 +620,52 @@ A cartoon and a clay model besides neon, blueprint and day (`DECISIONS.md`, D-03
 
 Left for later: ink on the creases of a piece (found in its normals), a watercolour look.
 
+## 0.1.0, the first release
+
+Moved forward by the maintainer, right after M8b (D-037): every milestone above, released as it is.
+
+- 🚧 release-please's pull request merged: the `v0.1.0` tag, the GitHub release with its changelog,
+  and `domotwin.zip` (the integration with its built frontend) attached for HACS.
+- HACS installs it as a custom repository (README, *Quick start*). The submission to HACS's default
+  list waits for M13.
+- Left for M13: the install test on a clean Home Assistant and the measurements on real devices.
+
+## M5b, what cameras see, on the floor
+
+Raised by the maintainer, twice: the view of a camera (D-024) was a flat shape laid over the
+picture, over the sofa and the people, and was taken for the room's outline. The engine draws it
+on the floor of its room instead:
+
+- hidden by the furniture and the people standing on it;
+- a fan from the camera's badge, fading out with distance, in a look of its own (not a room's
+  highlight);
+- faint until the camera is tapped, then whole.
+
+The card's `cameras: false` still leaves the views out.
+
+## M9g, private rooms
+
+Asked by the maintainer: a room whose view and controls can be locked, or kept for some people
+only.
+
+- **Per room**, in the panel's settings (administrators):
+  - **open** to everyone, as now (the default);
+  - **locked** for everyone, always or while a Home Assistant entity is on (an automation can then
+    lock the bedrooms when guests come);
+  - **kept for some people**: the people chosen, through the Home Assistant user of their
+    `person`. A shared wall tablet's user is no one's, so the room stays locked there.
+- **For whoever may not see it**:
+  - the room is drawn closed: its walls up, a frosted cover with a lock over its floor, its name
+    only;
+  - no furniture, devices, badges, layers' values, camera views or people inside;
+  - taps and long presses do nothing, and its panel says it is private;
+  - walking does not go through its doors;
+  - the people's sheets and the voice answers say "in a private room".
+- **Administrators** still see it in the edit and plan modes, to change the home.
+- **The limit, said in the settings**: DomoTwin locks its own views and controls. Home Assistant
+  gives every user every entity in its other dashboards and its API (its permissions are by user,
+  not by entity), so this keeps a room private on a shared screen, not behind a security barrier.
+
 ## M11, imports
 
 Plans from Sweet Home 3D (`.sh3d`), DXF drawings and room scans (USDZ or OBJ from phone LiDAR
@@ -621,10 +674,38 @@ apps), turned into DomoTwin plans.
 ## M12, polish
 
 Design pass, bundled variable font and `font_family` option, accessibility (keyboard, focus rings,
-screen-reader labels, reduced motion), performance tuning against the budgets, README with real
-screenshots and a GIF made from the demo plan.
+screen-reader labels, reduced motion), README with real screenshots and a GIF made from the demo
+plan, and voice (asked by the maintainer; Home Assistant's Assist does the listening, the
+recognition and the speech, with whatever pipeline the user set up, local Whisper and Piper
+included: DomoTwin embeds no voice engine):
 
-## M13, release 0.1.0
+- **A microphone button** in the card and the panel opens Home Assistant's Assist already
+  listening (the dashboards' `assist` action), so a wall tablet without a voice satellite can
+  speak to it. The browser gives the microphone to pages served over HTTPS only: over HTTP, a
+  dialog says so and how to serve Home Assistant over HTTPS, instead of a button that does nothing.
+- **The voice blueprints at hand**: DomoTwin's settings offer to import "show the kitchen" and
+  "where is…" (`blueprints/`) in one tap, instead of a link in the documentation.
+- **Voice set up when it is not**: when Assist has no speech-to-text, the microphone button offers
+  to set it up, locally, with the administrator's consent and saying what is downloaded:
+  - on Home Assistant OS and Supervised, DomoTwin installs and starts the Whisper add-on (or
+    Speech-to-Phrase, faster on small hardware such as a Raspberry Pi) and Piper through the
+    Supervisor, as the Z-Wave JS and Matter integrations install theirs. Then it adds them
+    through the Wyoming integration and sets up an Assist pipeline in the user's language;
+  - on Home Assistant Container and Core, which have no add-ons, the dialog gives the steps (the
+    Wyoming containers to run) instead;
+  - someone who is not an administrator is told to ask one.
 
-Tag and release with the `domotwin.zip` asset, install test as a HACS custom repository, and the
-checklist for the HACS default repository list in `HACS_SUBMISSION.md`.
+  Nothing leaves the home: the models run in Home Assistant, and DomoTwin calls no other service.
+
+## M12b, size and speed
+
+A pass over the whole of DomoTwin that keeps the picture as it is, measured before and after: the
+first load (the network map's analysis and the automation reader in modules of their own, see
+`PERFORMANCE.md`), the frame time on the Balanced and Eco presets against the budgets, the
+integration's work in Home Assistant, and the CI's time.
+
+## M13, release 0.2.0
+
+Tag and release 0.2.0 with the `domotwin.zip` asset, install test as a HACS custom repository on a
+clean Home Assistant, measurements on real devices, and the checklist for the HACS default
+repository list in `HACS_SUBMISSION.md`.
