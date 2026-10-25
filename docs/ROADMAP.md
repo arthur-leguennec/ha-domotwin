@@ -27,16 +27,21 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M9e       | People in their rooms, live                                | ✅     |
 | M9f       | Bluetooth locating, without Bermuda or ESPresense          | ✅     |
 | M8b       | Two more looks: cartoon and clay                           | ✅     |
+| 0.1.0     | First release: all of the above, `domotwin.zip` for HACS   | 🚧     |
+| M5b       | What cameras see, drawn on the floor behind the furniture  | ⏳     |
 | M11       | Imports: Sweet Home 3D, DXF, room scans                    | ⏳     |
-| M12       | Polish: design, fonts, accessibility, performance, README  | ⏳     |
-| M13       | Release 0.1.0 and HACS submission checklist                | ⏳     |
+| M12       | Polish: design, fonts, accessibility, README               | ⏳     |
+| M12b      | Size and speed: a pass that keeps the picture as it is     | ⏳     |
+| M13       | Release 0.2.0 and HACS submission checklist                | ⏳     |
 
 M5 to M11 were added after M3b (`DECISIONS.md`, D-022): what people expect of a 3D home dashboard,
 with no account and no network call outside Home Assistant. M8 became the looks alone, and the
 storeys seen together their own milestone (M9), so that the picture comes first (D-027). M10b
 replaced the plan format DomoTwin started from with its own (D-030); M9b to M9f and M8b were asked
-for after M10, and come before the imports. After 0.1.0, a pass over size and speed that keeps the
-picture as it is.
+for after M10, and come before the imports. The maintainer then moved the first release forward
+(D-037): 0.1.0 is everything done up to M8b. What cameras see drawn on the floor (M5b), the imports
+(M11), the polish (M12) and a pass over size and speed that keeps the picture as it is (M12b) come
+before a second release, 0.2.0, with the submission to HACS's default list (M13).
 
 ## M0, scaffold
 
@@ -96,7 +101,7 @@ Measured at the end of M0: see [`PERFORMANCE.md`](PERFORMANCE.md).
 
 Measured at the end of M1: see [`PERFORMANCE.md`](PERFORMANCE.md). Not measured yet: real devices
 (an old wall tablet, a mid-range phone), which need hardware CI does not have; to be done by hand
-before 0.1.0.
+before the HACS submission (M13).
 
 ## M2, live control
 
@@ -613,6 +618,22 @@ A cartoon and a clay model besides neon, blueprint and day (`DECISIONS.md`, D-03
 
 Left for later: ink on the creases of a piece (found in its normals), a watercolour look.
 
+## 0.1.0, the first release
+
+Moved forward by the maintainer, right after M8b (D-037): every milestone above, released as it is.
+
+- 🚧 release-please's pull request merged: the `v0.1.0` tag, the GitHub release with its changelog,
+  and `domotwin.zip` (the integration with its built frontend) attached for HACS.
+- HACS installs it as a custom repository (README, *Quick start*). The submission to HACS's default
+  list waits for M13.
+- Left for M13: the install test on a clean Home Assistant and the measurements on real devices.
+
+## M5b, what cameras see, on the floor
+
+Raised by the maintainer: the view of a camera (D-024) was a flat shape laid over the picture, over
+the sofa and the people, and read like a room's outline. The engine draws it on the floor of its
+room instead, hidden by the furniture and the people standing on it, fading out from the camera.
+
 ## M11, imports
 
 Plans from Sweet Home 3D (`.sh3d`), DXF drawings and room scans (USDZ or OBJ from phone LiDAR
@@ -621,10 +642,18 @@ apps), turned into DomoTwin plans.
 ## M12, polish
 
 Design pass, bundled variable font and `font_family` option, accessibility (keyboard, focus rings,
-screen-reader labels, reduced motion), performance tuning against the budgets, README with real
-screenshots and a GIF made from the demo plan.
+screen-reader labels, reduced motion), README with real screenshots and a GIF made from the demo
+plan.
 
-## M13, release 0.1.0
+## M12b, size and speed
 
-Tag and release with the `domotwin.zip` asset, install test as a HACS custom repository, and the
-checklist for the HACS default repository list in `HACS_SUBMISSION.md`.
+A pass over the whole of DomoTwin that keeps the picture as it is, measured before and after: the
+first load (the network map's analysis and the automation reader in modules of their own, see
+`PERFORMANCE.md`), the frame time on the Balanced and Eco presets against the budgets, the
+integration's work in Home Assistant, and the CI's time.
+
+## M13, release 0.2.0
+
+Tag and release 0.2.0 with the `domotwin.zip` asset, install test as a HACS custom repository on a
+clean Home Assistant, measurements on real devices, and the checklist for the HACS default
+repository list in `HACS_SUBMISSION.md`.
