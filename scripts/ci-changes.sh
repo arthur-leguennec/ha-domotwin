@@ -21,8 +21,9 @@ head="${HEAD:-HEAD}"
 ci='^(\.github/workflows/ci\.yml|scripts/ci-changes\.sh)$|^\.github/actions/'
 rust='^(crates/|\.cargo/|examples/)|^(Cargo\.(toml|lock)|rust-toolchain\.toml|rustfmt\.toml|clippy\.toml|deny\.toml)$'
 frontend='^frontend/|^\.nvmrc$'
-# The Python tests also check the README's links: every file at the root and in docs/.
-python='^(custom_components/|tests/|examples/|schema/|docs/)|^(requirements_test\.txt|pyproject\.toml|[^/]+\.md|LICENSE)$'
+# The Python tests also check the README's links (every file at the root and in docs/) and load the
+# voice blueprints.
+python='^(custom_components/|tests/|examples/|schema/|docs/|blueprints/)|^(requirements_test\.txt|pyproject\.toml|[^/]+\.md|LICENSE)$'
 hassfest='^custom_components/'
 # HACS shows and checks the README (render_readme).
 hacs='^custom_components/|^(hacs\.json|README\.md)$'
