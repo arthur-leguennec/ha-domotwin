@@ -632,9 +632,16 @@ Moved forward by the maintainer, right after M8b (D-037): every milestone above,
 
 ## M5b, what cameras see, on the floor
 
-Raised by the maintainer: the view of a camera (D-024) was a flat shape laid over the picture, over
-the sofa and the people, and read like a room's outline. The engine draws it on the floor of its
-room instead, hidden by the furniture and the people standing on it, fading out from the camera.
+Raised by the maintainer, twice: the view of a camera (D-024) was a flat shape laid over the
+picture, over the sofa and the people, and was taken for the room's outline. The engine draws it
+on the floor of its room instead:
+
+- hidden by the furniture and the people standing on it;
+- a fan from the camera's badge, fading out with distance, in a look of its own (not a room's
+  highlight);
+- faint until the camera is tapped, then whole.
+
+The card's `cameras: false` still leaves the views out.
 
 ## M9g, private rooms
 
