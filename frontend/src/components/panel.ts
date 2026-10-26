@@ -99,6 +99,15 @@ import type { PlaceRequest } from "./network-panel";
 import type { PlanEditState, PlanTool } from "./plan-editor";
 import type { RoomChoice } from "./private-rooms";
 import type { DomoTwinView, EditCommand, PlanCommand, ViewOptions } from "./view";
+import {
+  energyCandidates,
+  preferredFromHome,
+  readEnergy,
+  type EnergySensor,
+  type EnergySettings,
+} from "../live/energy";
+import { watts } from "../live/devices";
+import { formatPower, numberOf } from "../live/layers";
 
 /** The plan format allows files up to 32 MB. */
 const MAX_FILE_BYTES = 32_000_000;
@@ -275,6 +284,8 @@ export class DomoTwinPanel extends LitElement {
     tight: { state: true },
     compact: { type: Boolean, reflect: true },
     lookDraft: { state: true },
+    energyDraft: { state: true },
+    energyPreferred: { state: true },
     look: { reflect: true },
     planning: { state: true },
     planState: { state: true },
@@ -373,6 +384,12 @@ export class DomoTwinPanel extends LitElement {
    * and its accent (none: the look's own).
    */
   protected lookDraft?: { theme: ThemeMode; accent?: string };
+  /** Where the energy is read, being chosen in the settings (D-049). */
+  protected energyDraft?: EnergySettings;
+  /** The draft last shown, and its settings as read. */
+  private energyShown?: { draft: EnergySettings; energy: EnergySettings | undefined };
+  /** The power sensors Home Assistant's own energy settings name, offered first. */
+  protected energyPreferred?: Record<EnergySensor, string[]>;
   /** The look shown (D-027), on the element for the colours of the header and the dialogs. */
   look: LookName = "day";
   /** The storeys, the one shown, the storeys dialog and a storey being removed. */
@@ -775,6 +792,20 @@ export class DomoTwinPanel extends LitElement {
         font-weight: 400;
         color: var(--secondary-text-color, #5f6368);
       }
+      .ask h3 {
+        margin: 8px 0 0;
+        font-size: 0.95rem;
+        font-weight: 600;
+      }
+      .ask .look select {
+        max-width: 60%;
+      }
+      .ask label.reversed {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.85rem;
+      }
     `,
   ];
 
@@ -990,7 +1021,23 @@ export class DomoTwinPanel extends LitElement {
     this.northDraft = this.settings?.north ?? 0;
     this.lookDraft = { theme: this.settings?.theme ?? "auto" };
     if (this.settings?.accent) this.lookDraft.accent = this.settings.accent;
+    this.energyDraft = { ...(this.settings?.energy ?? {}) };
+    void this.loadEnergyPreferred();
   };
+
+  /** Home Assistant's own energy settings, for the sensors they name (none when they cannot be
+   * read). */
+  private async loadEnergyPreferred(): Promise<void> {
+    if (this.energyPreferred || !this._hass) return;
+    try {
+      const prefs: unknown = await this._hass.connection.sendMessagePromise({
+        type: "energy/get_prefs",
+      });
+      this.energyPreferred = preferredFromHome(prefs);
+    } catch {
+      this.energyPreferred = preferredFromHome(null);
+    }
+  }
 
   private readonly saveSettings = async (): Promise<void> => {
     const client = this.client;
@@ -1006,6 +1053,11 @@ export class DomoTwinPanel extends LitElement {
       }
       if (look?.accent !== undefined) settings.accent = look.accent;
       else if (look) delete settings.accent;
+      if (this.energyDraft) {
+        const energy = readEnergy(this.energyDraft);
+        if (energy) settings.energy = energy;
+        else delete settings.energy;
+      }
       await client.saveSettings(settings);
       this.settings = settings;
       this.northDraft = undefined;
@@ -2215,6 +2267,7 @@ export class DomoTwinPanel extends LitElement {
           .planReserved=${this.planReserved}
           .homeTheme=${this.homeLook().theme}
           .homeAccent=${this.homeLook().accent}
+          .energy=${this.northDraft !== undefined ? this.energyPreview() : this.settings?.energy}
           .storeys=${this.storeys}
           .storey=${this.wholeHome() ? ALL_STOREYS : this.storey}
           .home=${this.wholeHome() && this.homeShown ? this.home : undefined}
@@ -2485,7 +2538,7 @@ export class DomoTwinPanel extends LitElement {
         />
       </label>
       <p class="hint">${t.t("settings.north_hint")}</p>
-      ${this.renderLookSettings()}
+      ${this.renderLookSettings()} ${this.renderEnergySettings()}
       <div class="footer">
         <button class="action quiet" data-cancel @click=${() => (this.northDraft = undefined)}>
           ${t.t("panel.cancel")}
@@ -2500,6 +2553,82 @@ export class DomoTwinPanel extends LitElement {
         </button>
       </div>
     </div>`;
+  }
+
+  /** The energy settings being chosen, as the view shows them (the same while the draft is). */
+  private energyPreview(): EnergySettings | undefined {
+    const draft = this.energyDraft;
+    if (!draft) return this.settings?.energy;
+    if (this.energyShown?.draft !== draft) {
+      this.energyShown = { draft, energy: readEnergy(draft) };
+    }
+    return this.energyShown.energy;
+  }
+
+  /** Where the home's energy is read (D-049): a sensor of each kind, the likeliest offered first. */
+  private renderEnergySettings(): TemplateResult | typeof nothing {
+    const t = this.t;
+    const draft = this.energyDraft;
+    const hass = this._hass;
+    if (!draft || !hass) return nothing;
+    const language = t.language;
+    // Each sensor with its name and what it says now: a power, or a charge.
+    const label = (id: string): string => {
+      const entity = hass.states[id];
+      const friendly = entity?.attributes.friendly_name;
+      const name = typeof friendly === "string" && friendly ? friendly : id;
+      const power = entity ? watts(entity) : undefined;
+      if (power !== undefined) {
+        return `${name} · ${power < 0 ? "−" : ""}${formatPower(Math.abs(power), language)}`;
+      }
+      const charge =
+        entity?.attributes.unit_of_measurement === "%" ? numberOf(entity.state) : undefined;
+      return charge === undefined ? name : `${name} · ${Math.round(charge)} %`;
+    };
+    const set = (patch: EnergySettings): void => {
+      this.energyDraft = { ...draft, ...patch };
+    };
+    const sensor = (key: EnergySensor) => {
+      const chosen = draft[key];
+      const offered = energyCandidates(hass, key, this.energyPreferred?.[key] ?? []);
+      if (chosen && !offered.includes(chosen)) offered.unshift(chosen);
+      return html`<label class="look">
+        <span>${t.t(`settings.energy_${key}`)}</span>
+        <select
+          data-testid=${`settings-energy-${key}`}
+          @change=${(event: Event) => {
+            const value = (event.target as HTMLSelectElement).value || undefined;
+            // A sensor left out takes its turned sign with it.
+            const sign = key === "grid" || key === "battery" ? `${key}_reversed` : undefined;
+            set({ [key]: value, ...(sign && !value ? { [sign]: undefined } : {}) });
+          }}
+        >
+          <option value="" ?selected=${!chosen}>${t.t("settings.energy_none")}</option>
+          ${offered.map(
+            (id) => html`<option value=${id} ?selected=${id === chosen}>${label(id)}</option>`,
+          )}
+        </select>
+      </label>`;
+    };
+    const reversed = (key: "grid_reversed" | "battery_reversed", shown: boolean) =>
+      shown
+        ? html`<label class="reversed">
+            <input
+              type="checkbox"
+              data-testid=${`settings-energy-${key}`}
+              .checked=${draft[key] === true}
+              @change=${(event: Event) => {
+                set({ [key]: (event.target as HTMLInputElement).checked || undefined });
+              }}
+            />
+            <span>${t.t(`settings.energy_${key}`)}</span>
+          </label>`
+        : nothing;
+    return html`<h3>${t.t("settings.energy")}</h3>
+      <p class="hint">${t.t("settings.energy_hint")}</p>
+      ${sensor("solar")} ${sensor("grid")} ${reversed("grid_reversed", Boolean(draft.grid))}
+      ${sensor("battery")} ${reversed("battery_reversed", Boolean(draft.battery))}
+      ${sensor("battery_level")}`;
   }
 
   /** The look of the home in the settings: shown as it is chosen, kept on Save. */

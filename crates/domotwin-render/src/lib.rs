@@ -241,8 +241,19 @@ pub struct Figure {
     pub color: [f32; 3],
     /// How much they show (0 … 1).
     pub opacity: f32,
-    /// A pin rather than a figure.
-    pub pin: bool,
+    /// What is drawn.
+    pub shape: FigureShape,
+}
+
+/// What a figure is drawn as.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FigureShape {
+    /// A person (D-034).
+    Person,
+    /// A person as a map pin.
+    Pin,
+    /// A robot vacuum (D-049).
+    Robot,
 }
 
 impl Figure {
@@ -306,11 +317,14 @@ impl GpuShape {
 struct GpuPeople {
     figure: GpuShape,
     pin: GpuShape,
+    robot: GpuShape,
     shadow: GpuShape,
 }
 
 /// The radius of a person's shadow (cm).
 const SHADOW_RADIUS: f32 = 30.0;
+/// The radius of a robot vacuum's shadow (cm): a little wider than it.
+const ROBOT_SHADOW_RADIUS: f32 = 21.0;
 
 /// The halos of lit bulbs on the GPU.
 struct GpuHalos {
@@ -1122,6 +1136,7 @@ impl Renderer {
             self.people = Some(GpuPeople {
                 figure: GpuShape::new(&self.context, &figures::figure()),
                 pin: GpuShape::new(&self.context, &figures::pin()),
+                robot: GpuShape::new(&self.context, &figures::robot()),
                 shadow: GpuShape::new(&self.context, &figures::shadow()),
             });
         }
@@ -1886,8 +1901,13 @@ impl Renderer {
         // The shadows write no depth: all drawn with the first people drawn.
         if which != People::Fading {
             program.use_uniform_if_required("u_shadow_pass", 1.0_f32);
-            program.use_uniform_if_required("u_scale", SHADOW_RADIUS);
             for f in self.figures.iter().filter(|f| f.opacity > 0.0) {
+                let radius = if f.shape == FigureShape::Robot {
+                    ROBOT_SHADOW_RADIUS
+                } else {
+                    SHADOW_RADIUS
+                };
+                program.use_uniform_if_required("u_scale", radius);
                 program.use_uniform("u_place", placed(f, 0.6 - f.at[1]));
                 program.use_uniform("u_color", color(f));
                 shapes.shadow.draw(program, shadow_states, viewport);
@@ -1904,7 +1924,11 @@ impl Renderer {
             program.use_uniform("u_place", placed(f, 0.0));
             program.use_uniform("u_color", color(f));
             program.use_uniform_if_required("u_dissolve", if f.fading() { 1.0_f32 } else { 0.0 });
-            let shape = if f.pin { &shapes.pin } else { &shapes.figure };
+            let shape = match f.shape {
+                FigureShape::Person => &shapes.figure,
+                FigureShape::Pin => &shapes.pin,
+                FigureShape::Robot => &shapes.robot,
+            };
             shape.draw(program, body_states, viewport);
         }
     }

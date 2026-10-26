@@ -20,6 +20,8 @@ mod people;
 #[cfg(target_arch = "wasm32")]
 mod plan_editor;
 #[cfg(target_arch = "wasm32")]
+mod robots;
+#[cfg(target_arch = "wasm32")]
 mod upkeep;
 #[cfg(target_arch = "wasm32")]
 pub use engine::*;

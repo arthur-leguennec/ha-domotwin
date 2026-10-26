@@ -50,7 +50,10 @@ Local, fast, Rust + WebAssembly.</p>
 - **Layers.** An animated heatmap of temperature, humidity, CO₂ or fine particles read from the
   sensors of each room's area, safety alerts that pulse in their room (smoke, gas, water leak,
   alarm, a window open in the rain), the rooms someone is in, the real sun coming in through your
-  windows, and what each appliance draws.
+  windows, and what each appliance draws, with the home's energy: the sun, the grid and the
+  battery around the home, the power flowing between them.
+- **Robot vacuums.** Its robot leaves its dock when it cleans, sweeps the rooms one by one and goes
+  home, on the plan.
 - **Devices.** Badges over your devices (a lock's state, a camera recording, what plays, a battery
   running low, the washing machine running), and what each camera sees drawn on the floor of its
   room, behind the furniture, faint until you tap the camera; tap for the live picture.
@@ -143,7 +146,7 @@ Local, fast, Rust + WebAssembly.</p>
 </p>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-layers.png" alt="Layers: the temperature of each room as a heatmap with its legend, the power drawn by the appliances, a smoke alert pulsing in the kitchen, and the sun coming in through the windows" width="100%">
+  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-layers.png" alt="Layers: the temperature of each room as a heatmap with its legend, the power drawn by the appliances with the home's energy flowing from the sun to the home, the battery and the grid, a smoke alert pulsing in the kitchen, and the sun coming in through the windows" width="100%">
 </p>
 
 <p align="center">

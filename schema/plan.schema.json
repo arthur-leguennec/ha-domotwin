@@ -521,6 +521,7 @@
             "console",
             "printer",
             "3d-printer",
+            "robot-vacuum",
             "stairs"
           ],
           "default": "box",

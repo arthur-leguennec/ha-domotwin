@@ -154,7 +154,7 @@ does.
 | Dining and working | `dining-table`, `round-table`, `chair`, `desk`, `office-chair`, `printer`, `3d-printer` (`enclosed`) |
 | Sleeping | `bed` (`metal`), `nightstand` (`one-drawer`, `three-drawers`), `dresser` (`antique`), `tall-cabinet` (`wardrobe`), `shoe-cabinet` |
 | Kitchen | `counter`, `sink`, `stove`, `fridge`, `dishwasher`, `hood`, `wall-cabinet`, `bulkhead`, `backsplash`, `trolley` |
-| Bathroom and laundry | `bathtub`, `vanity`, `toilet`, `washer`, `dryer`, `bin` |
+| Bathroom and laundry | `bathtub`, `vanity`, `toilet`, `washer`, `dryer`, `bin`, `robot-vacuum` (its dock; its robot is drawn moving, D-049) |
 | Walls | `radiator`, `curtain` (`closed`), `picture` (`engraving`, `portrait`, `comic`, `map`, `poster`), `picture-wall`, `mirror` (`white`) |
 | Lights | `floor-lamp`, `table-lamp`, `desk-lamp`, `lantern`, `pendant` (`cylinder`), `chandelier`, `ceiling-light` (`rosette`), `ceiling-fan`, `spotlight` (and `nightstand`, which has a lamp) |
 | Structure | `stairs`, `box` |

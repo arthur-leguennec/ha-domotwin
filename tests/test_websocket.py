@@ -376,6 +376,34 @@ async def test_settings_round_trip(
         "office": {"people": [], "while": "input_boolean.guests"},
         "hall": {"people": []},
     }
+    # Where the energy is read (D-049): sensors kept, those left out, signs as they come and a
+    # sign without its sensor dropped.
+    energy = {
+        "solar": "sensor.solar_power",
+        "grid": "sensor.grid_power",
+        "battery": None,
+        "battery_level": "sensor.battery_level",
+        "grid_reversed": True,
+        "battery_reversed": True,
+    }
+    await client.send_json_auto_id(
+        {"type": "domotwin/settings/save", "settings": {"north": 0, "energy": energy}}
+    )
+    assert (await client.receive_json())["success"]
+    await client.send_json_auto_id({"type": "domotwin/settings/get"})
+    assert (await client.receive_json())["result"]["settings"]["energy"] == {
+        "solar": "sensor.solar_power",
+        "grid": "sensor.grid_power",
+        "battery_level": "sensor.battery_level",
+        "grid_reversed": True,
+    }
+    # Nothing left: no `energy` at all.
+    await client.send_json_auto_id(
+        {"type": "domotwin/settings/save", "settings": {"north": 0, "energy": {"solar": None}}}
+    )
+    assert (await client.receive_json())["success"]
+    await client.send_json_auto_id({"type": "domotwin/settings/get"})
+    assert "energy" not in (await client.receive_json())["result"]["settings"]
 
 
 @pytest.mark.parametrize(
@@ -397,6 +425,12 @@ async def test_settings_round_trip(
         {"rooms": {"bedroom": {"people": [], "while": "not an entity"}}},
         {"rooms": {"bedroom": {"people": [], "who": []}}},
         {"rooms": {f"room{k}": {"people": []} for k in range(201)}},
+        {"energy": []},
+        {"energy": {"solar": "light.sun"}},
+        {"energy": {"grid": "not an entity"}},
+        {"energy": {"battery": 3}},
+        {"energy": {"grid_reversed": "yes"}},
+        {"energy": {"wind": "sensor.wind_power"}},
     ],
 )
 async def test_invalid_settings_are_refused(

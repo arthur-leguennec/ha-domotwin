@@ -4,8 +4,7 @@
 use domotwin_core::people::{People, Wanted};
 use domotwin_core::plan::Rgb8;
 use domotwin_core::scene::figures::{FIGURE_HEIGHT, PIN_HEIGHT};
-use domotwin_core::walk::Floor;
-use domotwin_render::Figure;
+use domotwin_render::{Figure, FigureShape};
 use serde_json::Value;
 use wasm_bindgen::prelude::*;
 
@@ -42,13 +41,11 @@ fn read_people(json: &str) -> Vec<PersonShown> {
         .unwrap_or_default()
 }
 
-/// The people the engine draws: who is wanted where, the figures, and the floors they walk on
-/// (worked out again when the plans change).
+/// The people the engine draws: who is wanted where, and the figures.
 #[derive(Debug, Default)]
 pub(crate) struct PeopleShown {
     wanted: Vec<PersonShown>,
     people: People,
-    floors: Option<Vec<Option<Floor>>>,
 }
 
 /// Room for the name above a head (cm).
@@ -95,10 +92,11 @@ impl Engine {
 }
 
 impl Engine {
-    /// The floors of the plans shown, worked out when they changed.
-    fn people_floors(&mut self) {
-        if self.people.floors.is_none() {
-            self.people.floors = Some(match (&self.plan, &self.scene) {
+    /// The floors of the plans shown, where people walk and robots clean, worked out when first
+    /// needed after the plans changed.
+    pub(crate) fn walk_floors(&mut self) {
+        if self.floors.is_none() {
+            self.floors = Some(match (&self.plan, &self.scene) {
                 (Some(plan), Some(scene)) => {
                     scene.walk_floors(plan).into_iter().map(Some).collect()
                 }
@@ -109,9 +107,9 @@ impl Engine {
 
     /// Places the people wanted in the plans shown, as they are now.
     pub(crate) fn place_people(&mut self) {
-        self.people_floors();
+        self.walk_floors();
         let shown = &mut self.people;
-        let floors = shown.floors.as_deref().unwrap_or_default();
+        let floors = self.floors.as_deref().unwrap_or_default();
         let wanted: Vec<Wanted> = shown
             .wanted
             .iter()
@@ -132,16 +130,15 @@ impl Engine {
         self.show_figures();
     }
 
-    /// The plans shown changed: the floors are worked out again, the figures no longer on their
-    /// floor forgotten (another storey shown), everyone placed anew.
+    /// The plans shown changed (their floors forgotten): the figures no longer on their floor
+    /// forgotten (another storey shown), everyone placed anew.
     pub(crate) fn replace_people(&mut self) {
-        self.people.floors = None;
         if self.plan.is_none() {
             self.people.people = People::default();
             self.show_figures();
         } else if !self.people.wanted.is_empty() || !self.people.people.walkers().is_empty() {
-            self.people_floors();
-            let floors = self.people.floors.as_deref().unwrap_or_default();
+            self.walk_floors();
+            let floors = self.floors.as_deref().unwrap_or_default();
             self.people.people.retain_on(floors);
             self.place_people();
         }
@@ -149,18 +146,16 @@ impl Engine {
 
     /// Moves the people on by `dt` ms (at most a tenth of a second a frame: after a long rest
     /// without frames, a walk starts from its start). Returns whether one still walks or fades.
+    /// The figures are shown by the frame.
     pub(crate) fn step_people(&mut self, dt: f64) -> bool {
         if self.people.people.walkers().is_empty() {
             return false;
         }
         let dt = dt.clamp(0.0, 100.0);
-        let floors = self.people.floors.as_deref().unwrap_or_default();
-        let moving = self
+        let floors = self.floors.as_deref().unwrap_or_default();
+        self.people
             .people
-            .people
-            .step(dt / 1000.0, floors, self.renderer.motion());
-        self.show_figures();
-        moving
+            .step(dt / 1000.0, floors, self.renderer.motion())
     }
 
     /// Whether a figure walks or fades.
@@ -168,9 +163,10 @@ impl Engine {
         self.people.people.moving()
     }
 
-    fn show_figures(&mut self) {
+    /// The people and the robot vacuums, as the renderer draws them.
+    pub(crate) fn show_figures(&mut self) {
         #[allow(clippy::cast_possible_truncation)]
-        let figures = self
+        let people: Vec<Figure> = self
             .people
             .people
             .walkers()
@@ -187,10 +183,15 @@ impl Engine {
                     heading: w.heading as f32,
                     color: w.color,
                     opacity: w.opacity as f32,
-                    pin: w.pin,
+                    shape: if w.pin {
+                        FigureShape::Pin
+                    } else {
+                        FigureShape::Person
+                    },
                 }
             })
             .collect();
+        let figures = people.into_iter().chain(self.robot_figures()).collect();
         self.renderer.set_figures(figures);
     }
 }

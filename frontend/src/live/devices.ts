@@ -62,7 +62,8 @@ export const MAX_BADGES = 2;
 
 const TONE_ORDER: Record<BadgeTone, number> = { danger: 0, warning: 1, ok: 2, info: 3 };
 
-function watts(entity: HassEntity): number | undefined {
+/** A power sensor's value in watts (from W, kW or MW); none for another unit or no number. */
+export function watts(entity: HassEntity): number | undefined {
   const value = numberOf(entity.state);
   if (value === undefined) return undefined;
   const unit = entity.attributes.unit_of_measurement;

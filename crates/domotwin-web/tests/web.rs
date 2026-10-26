@@ -741,6 +741,54 @@ fn a_tap_goes_through_glass_walls() {
     assert!(glass.iter().any(|n| n.contains("\"type\":\"room\"")));
 }
 
+#[wasm_bindgen_test]
+fn a_robot_vacuum_cleans_then_goes_home() {
+    let mut plan: serde_json::Value = serde_json::from_str(DEMO).unwrap();
+    plan["items"]
+        .as_array_mut()
+        .unwrap()
+        .push(serde_json::json!({
+            "id": "robot", "name": "Robot", "kind": "robot-vacuum", "at": [100, 395],
+            "size": [40, 50, 12], "rotation": 180, "room": "living"
+        }));
+    let surface = canvas();
+    let mut engine = Engine::new(surface.clone()).unwrap();
+    engine.load_plan(&plan.to_string(), None, None).unwrap();
+    engine.frame(0.0);
+    // On its dock, still.
+    assert!(!engine.layers_animating());
+    engine.set_robots(r#"[{"id":"robot","state":"cleaning"}]"#);
+    assert!(engine.layers_animating() && engine.needs_frame());
+    for k in 1..=20 {
+        engine.frame(f64::from(k) * 100.0);
+    }
+    let gl = surface
+        .get_context("webgl2")
+        .unwrap()
+        .unwrap()
+        .dyn_into::<web_sys::WebGl2RenderingContext>()
+        .unwrap();
+    assert_eq!(gl.get_error(), web_sys::WebGl2RenderingContext::NO_ERROR);
+    // At rest under reduce motion (drawn there once, then no pace of its own), on its way again
+    // after.
+    engine.set_motion(false);
+    assert!(!engine.layers_animating());
+    engine.set_motion(true);
+    assert!(engine.layers_animating());
+    // Home again: it stops there.
+    engine.set_robots(r#"[{"id":"robot","state":"returning"}]"#);
+    for k in 21..=200 {
+        engine.frame(f64::from(k) * 100.0);
+    }
+    assert!(!engine.layers_animating());
+    // A robot no longer named rests on its dock; a plan without docks has none.
+    engine.set_robots("[]");
+    assert!(!engine.layers_animating());
+    engine.load_plan(DEMO, None, None).unwrap();
+    engine.set_robots(r#"[{"id":"robot","state":"cleaning"}]"#);
+    assert!(!engine.layers_animating());
+}
+
 const UPPER: &str = include_str!("../../../examples/demo-upper-floor.domotwin.json");
 
 /// The fictional home of two storeys, as the frontend gives it to the engine.

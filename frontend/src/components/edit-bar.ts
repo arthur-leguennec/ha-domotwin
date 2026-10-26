@@ -68,7 +68,7 @@ export const GROUPS: [string, KindName[]][] = [
       "bin",
     ],
   ],
-  ["bathroom", ["bathtub", "vanity", "toilet", "washer", "dryer", "mirror"]],
+  ["bathroom", ["bathtub", "vanity", "toilet", "washer", "dryer", "robot-vacuum", "mirror"]],
   ["office", ["desk", "office-chair", "printer", "3d-printer"]],
   ["storage", ["bookcase", "glazed-bookcase", "open-shelving", "shelf", "shoe-cabinet"]],
   [

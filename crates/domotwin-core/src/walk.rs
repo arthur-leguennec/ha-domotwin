@@ -10,7 +10,7 @@ use std::collections::BTreeSet;
 
 use crate::edit::Footprint;
 use crate::geometry::polygon::{
-    P2, label_point, point_in_polygon, segment_distance, segments_meet,
+    P2, area, label_point, point_in_polygon, segment_distance, segments_meet,
 };
 use crate::geometry::walls::{
     WallLayout, free_wall_quad, opening_axes, openings_on_side, segment_quad, side_segments,
@@ -327,34 +327,8 @@ impl Floor {
         if start == end {
             return vec![to];
         }
-        // Breadth first over the rooms, through the doors.
-        let mut came: Vec<Option<(usize, usize)>> = vec![None; self.rooms.len()];
-        let mut seen = vec![false; self.rooms.len()];
-        seen[start] = true;
-        let mut queue = std::collections::VecDeque::from([start]);
-        while let Some(room) = queue.pop_front() {
-            if room == end {
-                break;
-            }
-            for (d, door) in self.doors.iter().enumerate() {
-                let [Some(a), Some(b)] = door.rooms else {
-                    continue;
-                };
-                let next = if a == room {
-                    b
-                } else if b == room {
-                    a
-                } else {
-                    continue;
-                };
-                if !seen[next] {
-                    seen[next] = true;
-                    came[next] = Some((room, d));
-                    queue.push_back(next);
-                }
-            }
-        }
-        if !seen[end] {
+        let (_, came) = self.through_doors(start, Some(end));
+        if came[end].is_none() {
             return vec![to];
         }
         let mut doors = Vec::new();
@@ -434,6 +408,264 @@ impl Floor {
         })
     }
 
+    /// The rooms one gets to from the room `start` through the doors, in the order reached (the
+    /// fewest doors first; a room drawn closed has none), up to the room `until` when there is
+    /// one; and for each room the room and the door it is reached through.
+    #[allow(clippy::type_complexity)]
+    fn through_doors(
+        &self,
+        start: usize,
+        until: Option<usize>,
+    ) -> (Vec<usize>, Vec<Option<(usize, usize)>>) {
+        let mut came: Vec<Option<(usize, usize)>> = vec![None; self.rooms.len()];
+        let mut seen = vec![false; self.rooms.len()];
+        seen[start] = true;
+        let mut order = Vec::new();
+        let mut queue = std::collections::VecDeque::from([start]);
+        while let Some(room) = queue.pop_front() {
+            order.push(room);
+            if until == Some(room) {
+                break;
+            }
+            for (d, door) in self.doors.iter().enumerate() {
+                let [Some(a), Some(b)] = door.rooms else {
+                    continue;
+                };
+                let next = if a == room {
+                    b
+                } else if b == room {
+                    a
+                } else {
+                    continue;
+                };
+                if !seen[next] {
+                    seen[next] = true;
+                    came[next] = Some((room, d));
+                    queue.push_back(next);
+                }
+            }
+        }
+        (order, came)
+    }
+
+    /// Whether `p` is in a room that is not drawn closed.
+    pub fn open_at(&self, p: P2) -> bool {
+        self.room_at(p).is_some_and(|r| !self.closed.contains(&r))
+    }
+
+    /// The open rooms one can get to from `from` through the doors, its own first; none when
+    /// `from` is in no open room.
+    fn reached(&self, from: P2) -> Vec<usize> {
+        self.room_at(from)
+            .filter(|r| !self.closed.contains(r))
+            .map_or_else(Vec::new, |start| self.through_doors(start, None).0)
+    }
+
+    /// The ids of the open rooms one can get to from `from` through the doors, its own first.
+    pub fn reachable_ids(&self, from: P2) -> Vec<String> {
+        self.reached(from)
+            .into_iter()
+            .map(|k| self.room_ids[k].clone())
+            .collect()
+    }
+
+    /// The open rooms one can get to from `from` through the doors, its own first, each with its
+    /// spot and its area (cm²); none when `from` is in no open room.
+    pub fn reachable(&self, from: P2) -> Vec<(String, P2, f64)> {
+        self.reached(from)
+            .into_iter()
+            .map(|k| {
+                let outline = &self.rooms[k];
+                (
+                    self.room_ids[k].clone(),
+                    label_point(outline),
+                    area(outline),
+                )
+            })
+            .collect()
+    }
+
+    /// Whether a robot `margin` cm wide each side going straight from `from` to `to` stays clear
+    /// of the walls (looked at every few cm; `margin` at most twice a walker's [`RADIUS`]).
+    pub fn clear(&self, from: P2, to: P2, margin: f64) -> bool {
+        let len = (to[0] - from[0]).hypot(to[1] - from[1]);
+        if !len.is_finite() {
+            return false;
+        }
+        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+        let steps = ((len / STEP).ceil() as usize).max(1);
+        #[allow(clippy::cast_precision_loss)]
+        (0..=steps).all(|k| {
+            let t = k as f64 / steps as f64;
+            let p = [
+                from[0] + (to[0] - from[0]) * t,
+                from[1] + (to[1] - from[1]) * t,
+            ];
+            self.clearance(p) >= margin
+        })
+    }
+
+    /// The lanes a robot cleaning the room `id` follows (`DECISIONS.md`, D-049), coming from
+    /// `from`: back and forth along the room's longer way, `lane` cm apart, every point of them at
+    /// least `margin` cm from the walls (at most twice a walker's [`RADIUS`]); turn after turn, in
+    /// order. A room whose lanes part (shaped like a U, or a wall jutting in) is swept in cells,
+    /// each a run of lanes one beside the next, the nearest next; from a lane to the next the
+    /// robot goes where both are. Empty for a room closed, unknown or too narrow.
+    pub fn sweep(&self, id: &str, from: P2, lane: f64, margin: f64) -> Vec<P2> {
+        let Some(k) = self.room_ids.iter().position(|r| r == id) else {
+            return Vec::new();
+        };
+        if self.closed.contains(&k) || lane <= 0.0 {
+            return Vec::new();
+        }
+        // Walls farther than that are not looked at by `clearance`.
+        let margin = margin.min(RADIUS * 2.0);
+        let outline = &self.rooms[k];
+        let (mut lo, mut hi) = ([f64::INFINITY; 2], [f64::NEG_INFINITY; 2]);
+        for p in outline {
+            for a in 0..2 {
+                lo[a] = lo[a].min(p[a]);
+                hi[a] = hi[a].max(p[a]);
+            }
+        }
+        // Lanes along `along` (the longer way), stepping across `across`.
+        let (along, across) = if hi[0] - lo[0] >= hi[1] - lo[1] {
+            (0, 1)
+        } else {
+            (1, 0)
+        };
+        let point = |a: f64, c: f64| {
+            let mut p = [0.0; 2];
+            p[along] = a;
+            p[across] = c;
+            p
+        };
+        // Each lane, and its stretches inside the room.
+        let mut lanes: Vec<(f64, Vec<[f64; 2]>)> = Vec::new();
+        let mut c = lo[across] + margin;
+        while c <= hi[across] - margin {
+            // Where the lane crosses the outline (each side counted from its lower end up to, not
+            // with, its upper one, so that a lane through a corner counts it rightly, where
+            // `line_inside` counts it once).
+            let mut cuts: Vec<f64> = Vec::new();
+            for i in 0..outline.len() {
+                let (p, q) = (outline[i], outline[(i + 1) % outline.len()]);
+                let (pc, qc) = (p[across], q[across]);
+                if (pc <= c) != (qc <= c) {
+                    let t = (c - pc) / (qc - pc);
+                    cuts.push(p[along] + (q[along] - p[along]) * t);
+                }
+            }
+            cuts.sort_by(f64::total_cmp);
+            let mut stretches = Vec::new();
+            for pair in cuts.chunks_exact(2) {
+                // The runs of the stretch clear of the walls (a wall jutting in parts it), looked
+                // at every few cm, those long enough.
+                let (a, b) = (pair[0] + margin, pair[1] - margin);
+                let mut run: Option<[f64; 2]> = None;
+                let mut x = a;
+                loop {
+                    if self.clearance(point(x, c)) >= margin {
+                        run = Some(run.map_or([x, x], |[start, _]| [start, x]));
+                    } else if let Some([start, end]) = run.take()
+                        && end - start >= STEP
+                    {
+                        stretches.push([start, end]);
+                    }
+                    if x >= b {
+                        break;
+                    }
+                    x = (x + STEP).min(b);
+                }
+                if let Some([start, end]) = run
+                    && end - start >= STEP
+                {
+                    stretches.push([start, end]);
+                }
+            }
+            lanes.push((c, stretches));
+            c += lane;
+        }
+        // The cells: runs of stretches, lane after lane, each overlapping the one before it and
+        // nothing else of that lane, or of its own.
+        let overlap = |s: [f64; 2], t: [f64; 2]| s[0] < t[1] && t[0] < s[1];
+        let mut cells: Vec<Vec<(f64, [f64; 2])>> = Vec::new();
+        let mut before: Vec<(usize, [f64; 2])> = Vec::new();
+        for (c, stretches) in &lanes {
+            let mut now = Vec::new();
+            for &s in stretches {
+                let under: Vec<(usize, [f64; 2])> = before
+                    .iter()
+                    .copied()
+                    .filter(|&(_, t)| overlap(t, s))
+                    .collect();
+                let cell = match under[..] {
+                    [(k, t)] if stretches.iter().filter(|&&u| overlap(t, u)).count() == 1 => k,
+                    _ => {
+                        cells.push(Vec::new());
+                        cells.len() - 1
+                    }
+                };
+                cells[cell].push((*c, s));
+                now.push((cell, s));
+            }
+            before = now;
+        }
+        // Cell after cell: the one starting nearest, in sight first; each from the end of its first
+        // or last lane, every other lane the other way.
+        let mut points: Vec<P2> = Vec::new();
+        let mut left: Vec<usize> = (0..cells.len()).collect();
+        while !left.is_empty() {
+            let here = points.last().copied().unwrap_or(from);
+            let mut best: Option<(bool, f64, usize, bool, bool)> = None;
+            for (i, &cell) in left.iter().enumerate() {
+                let lanes = &cells[cell];
+                for last in [false, true] {
+                    let Some(&(c, [a, b])) = (if last { lanes.last() } else { lanes.first() })
+                    else {
+                        continue;
+                    };
+                    for at_b in [false, true] {
+                        let start = point(if at_b { b } else { a }, c);
+                        let key = (
+                            !self.seen(here, start),
+                            (start[0] - here[0]).hypot(start[1] - here[1]),
+                        );
+                        if best.is_none_or(|(hidden, far, ..)| key < (hidden, far)) {
+                            best = Some((key.0, key.1, i, last, at_b));
+                        }
+                    }
+                }
+            }
+            let Some((_, _, i, last, mut at_b)) = best else {
+                break;
+            };
+            let mut lanes = cells[left.remove(i)].clone();
+            if last {
+                lanes.reverse();
+            }
+            let mut add = |p: P2| {
+                if points.last() != Some(&p) {
+                    points.push(p);
+                }
+            };
+            for (j, &(c, [a, b])) in lanes.iter().enumerate() {
+                if j > 0 {
+                    // Over to this lane where both lanes are.
+                    let (pc, [pa, pb]) = lanes[j - 1];
+                    let x = if at_b { pb.min(b) } else { pa.max(a) };
+                    add(point(x, pc));
+                    add(point(x, c));
+                }
+                let (start, end) = if at_b { (b, a) } else { (a, b) };
+                add(point(start, c));
+                add(point(end, c));
+                at_b = !at_b;
+            }
+        }
+        points
+    }
+
     /// Where to stand when walking starts near `near`: there when it is free in a room, else in
     /// the middle of the room it is in, or of the room nearest it.
     pub fn start(&self, near: P2) -> P2 {
@@ -496,6 +728,83 @@ mod tests {
         )
         .unwrap();
         Floor::new(&plan, &WallLayout::new(&plan))
+    }
+
+    #[test]
+    fn rooms_are_reached_through_doors_and_swept_lane_by_lane() {
+        let mut floor = floor();
+        let ids = |from: P2, floor: &Floor| -> Vec<String> {
+            floor.reachable(from).into_iter().map(|r| r.0).collect()
+        };
+        // From A: A, then B through the door; not C, behind a wall.
+        assert_eq!(ids([150.0, 150.0], &floor), ["a", "b"]);
+        assert_eq!(ids([750.0, 150.0], &floor), ["c"]);
+        assert!(ids([-50.0, -50.0], &floor).is_empty());
+        let (_, _, size) = floor.reachable([150.0, 150.0])[0].clone();
+        assert!((size - 90_000.0).abs() < 1e-6);
+        let lanes = floor.sweep("a", [10.0, 10.0], 30.0, 18.0);
+        assert!(lanes.len() >= 12, "{}", lanes.len());
+        for p in &lanes {
+            assert!(
+                floor.in_room("a", *p) && floor.clearance(*p) >= 18.0,
+                "{p:?}"
+            );
+        }
+        // Along a lane or straight over to the next, 30 cm on; one lane goes right, the next
+        // left; from the corner nearest where the robot comes from.
+        for w in lanes.windows(2) {
+            assert!(
+                (w[0][0] - w[1][0]).abs() < 1e-9 || (w[0][1] - w[1][1]).abs() < 1e-9,
+                "{w:?}"
+            );
+        }
+        let mut heights: Vec<f64> = lanes.iter().map(|p| p[1]).collect();
+        heights.dedup();
+        assert!(heights.len() >= 6);
+        for w in heights.windows(2) {
+            assert!((w[1] - w[0] - 30.0).abs() < 1e-9, "{heights:?}");
+        }
+        let lane = |k: usize| -> Vec<f64> {
+            let at = lanes.iter().filter(|p| p[1] == heights[k]);
+            at.map(|p| p[0]).collect()
+        };
+        assert!(lane(0)[0] < lane(0)[lane(0).len() - 1]);
+        assert!(lane(1)[0] > lane(1)[lane(1).len() - 1]);
+        assert!(lanes[0][0] < 60.0 && lanes[0][1] < 60.0);
+        // A closed room is neither reached nor swept.
+        floor.close(&BTreeSet::from(["b".to_owned()]));
+        assert_eq!(ids([150.0, 150.0], &floor), ["a"]);
+        assert!(floor.sweep("b", [10.0, 10.0], 30.0, 18.0).is_empty());
+        assert!(floor.sweep("nowhere", [10.0, 10.0], 30.0, 18.0).is_empty());
+    }
+
+    #[test]
+    fn a_wall_jutting_in_parts_the_lanes() {
+        // A room 400 × 300 whose top wall juts in 35 cm, 40 wide.
+        let plan = read_plan(
+            br#"{"format":"domotwin-plan","version":1,"rooms":[
+                {"id":"r","name":"R","outline":[[0,0],[400,0],[400,300],[220,300],[220,265],
+                    [180,265],[180,300],[0,300]]}
+            ]}"#,
+        )
+        .unwrap();
+        let floor = Floor::new(&plan, &WallLayout::new(&plan));
+        let lanes = floor.sweep("r", [10.0, 10.0], 30.0, 19.5);
+        assert!(lanes.len() >= 16, "{}", lanes.len());
+        for p in &lanes {
+            assert!(floor.clearance(*p) >= 19.5, "{p:?}");
+        }
+        // Along each lane, clear all the way; from one side of the jut to the other is no lane
+        // (the robot finds its way round, `robots::through_lanes`).
+        for w in lanes.windows(2) {
+            let round = w[0][0].min(w[1][0]) < 180.0 && w[0][0].max(w[1][0]) > 220.0;
+            if w[0][1] == w[1][1] && !(round && w[0][1] > 245.0) {
+                assert!(floor.clear(w[0], w[1], 19.5 - STEP), "{w:?}");
+            }
+        }
+        // The lanes under the jut go round it: some on each side of it.
+        assert!(lanes.iter().any(|p| p[1] > 235.0 && p[0] < 180.0));
+        assert!(lanes.iter().any(|p| p[1] > 235.0 && p[0] > 220.0));
     }
 
     #[test]

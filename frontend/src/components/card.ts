@@ -379,6 +379,7 @@ export class DomoTwinCard extends LitElement {
         .privateRooms=${this.settings?.rooms}
         .homeTheme=${this.settings?.theme}
         .homeAccent=${this.settings?.accent}
+        .energy=${this.settings?.energy}
         .storeys=${this.storeys}
         .storey=${this.storey}
         .elsewhere=${this.elsewhere}

@@ -166,8 +166,8 @@ export class Engine {
      */
     layerLabels(): string;
     /**
-     * Whether the layers shown move: a frame is then needed all the time, and the frontend
-     * draws fewer per second.
+     * Whether the layers shown move, or a robot vacuum (D-049): a frame is then needed all the
+     * time, and the frontend draws fewer per second.
      */
     layersAnimating(): boolean;
     /**
@@ -385,6 +385,13 @@ export class Engine {
      * Forces a quality preset (`eco`, `balanced`, `high`) or returns to automatic (`auto`).
      */
     setQuality(name: string): void;
+    /**
+     * What the robot vacuums do: JSON `[{"id": "<robot-vacuum piece>", "state": "docked" |
+     * "cleaning" | "returning" | "paused" | "idle" | "error", "rooms": ["<room>"]}]`, `rooms`
+     * the rooms it cleans in that order (absent: every room its dock leads to). A robot-vacuum
+     * piece not named stays on its dock.
+     */
+    setRobots(json: string): void;
     /**
      * Shows or hides the roof over the top storey of the home shown whole.
      */
@@ -629,6 +636,7 @@ export interface InitOutput {
     readonly engine_setPowerLayer: (a: number, b: number) => void;
     readonly engine_setPrivateRooms: (a: number, b: number, c: number) => number;
     readonly engine_setQuality: (a: number, b: number, c: number) => void;
+    readonly engine_setRobots: (a: number, b: number, c: number) => void;
     readonly engine_setRoof: (a: number, b: number) => void;
     readonly engine_setSpread: (a: number, b: number, c: number) => void;
     readonly engine_setStates: (a: number, b: number, c: number) => void;

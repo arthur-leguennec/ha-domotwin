@@ -21,6 +21,7 @@ pub mod network;
 pub mod overlay;
 pub mod people;
 pub mod plan;
+pub mod robots;
 pub mod scene;
 pub mod structure;
 pub mod theme;

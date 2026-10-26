@@ -643,6 +643,14 @@ impl Scene {
         }
     }
 
+    /// The plan of each storey shown, by index: `plan` for a scene of one.
+    pub fn storey_plans<'a>(&'a self, plan: &'a Plan) -> Vec<&'a Plan> {
+        self.parts
+            .iter()
+            .map(|part| part.plan.as_ref().unwrap_or(plan))
+            .collect()
+    }
+
     /// Where a walker can go on each storey of the scene (by index), `plan` being the plan of a
     /// scene of one storey: where people stand and walk (D-034).
     pub fn walk_floors(&self, plan: &Plan) -> Vec<crate::walk::Floor> {

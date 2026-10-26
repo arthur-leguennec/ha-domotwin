@@ -21,6 +21,7 @@ use domotwin_core::scene::{
     stack_plans,
 };
 use domotwin_core::theme::{Theme, ThemeName, parse_hex};
+use domotwin_core::walk::Floor;
 use domotwin_core::{ReadError, summarize_plan};
 use domotwin_render::lamps::power_level;
 use domotwin_render::{CameraFan, CameraTone, GpuHint, QualityPreset, Renderer, Rgb};
@@ -31,6 +32,7 @@ use web_sys::{HtmlCanvasElement, WebGl2RenderingContext, WebGlContextAttributes}
 use crate::automations::AutomationsShown;
 use crate::network::NetworkShown;
 use crate::people::PeopleShown;
+use crate::robots::RobotsShown;
 use crate::upkeep::UpkeepShades;
 
 /// How long a tapped camera's view is drawn whole (ms, D-038).
@@ -150,6 +152,11 @@ pub struct Engine {
     pub(crate) upkeep: UpkeepShades,
     /// The people in their rooms (D-034).
     pub(crate) people: PeopleShown,
+    /// The robot vacuums on the floor (D-049).
+    pub(crate) robots: RobotsShown,
+    /// Where people walk and robots clean on each storey shown, worked out when first needed
+    /// after the plans changed.
+    pub(crate) floors: Option<Vec<Option<Floor>>>,
 }
 
 /// A storey of the home shown whole: its id and name, its plan (its overlay applied) and the
@@ -226,6 +233,8 @@ impl Engine {
             automations: None,
             upkeep: UpkeepShades::new(),
             people: PeopleShown::default(),
+            robots: RobotsShown::default(),
+            floors: None,
         };
         engine
             .renderer
@@ -518,7 +527,9 @@ impl Engine {
         self.place_network();
         self.place_automations();
         self.place_upkeep();
+        self.floors = None;
         self.replace_people();
+        self.place_robots(true);
     }
 
     /// Shows no plan (a new plan drawn and dropped).
@@ -539,7 +550,9 @@ impl Engine {
         self.drop_network_wires();
         self.drop_automation_wires();
         self.renderer.set_upkeep(&[]);
+        self.floors = None;
         self.replace_people();
+        self.place_robots(true);
     }
 
     /// Works out what the linked cameras see (`DECISIONS.md`, D-024), and gives it to the
@@ -948,14 +961,19 @@ impl Engine {
     /// Lets the layers move, or holds them still (the user prefers reduced motion).
     #[wasm_bindgen(js_name = setMotion)]
     pub fn set_motion(&mut self, motion: bool) {
+        let changed = motion != self.renderer.motion();
         self.renderer.set_motion(motion);
+        if changed {
+            // The robots at rest, or on their way again.
+            self.place_robots(false);
+        }
     }
 
-    /// Whether the layers shown move: a frame is then needed all the time, and the frontend
-    /// draws fewer per second.
+    /// Whether the layers shown move, or a robot vacuum (D-049): a frame is then needed all the
+    /// time, and the frontend draws fewer per second.
     #[wasm_bindgen(js_name = layersAnimating)]
     pub fn layers_animating(&self) -> bool {
-        self.renderer.layers_animating()
+        self.renderer.layers_animating() || self.robots_moving()
     }
 
     /// Draws what the linked cameras see on the floor, or not (D-038).
@@ -1383,7 +1401,10 @@ impl Engine {
     /// Whether a frame is needed (something changed or an animation is running).
     #[wasm_bindgen(js_name = needsFrame)]
     pub fn needs_frame(&self) -> bool {
-        self.renderer.needs_frame() || !self.live.is_settled() || self.people_moving()
+        self.renderer.needs_frame()
+            || !self.live.is_settled()
+            || self.people_moving()
+            || self.robots_moving()
     }
 
     /// Asks for a new frame even though nothing changed.
@@ -1415,9 +1436,15 @@ impl Engine {
         if step.moving {
             self.rebuild_moving_parts();
         }
+        // The figures move only while someone walks or fades, or a robot goes.
+        let figures = self.people_moving() || self.robots_moving();
         let people = self.step_people(dt);
+        let robots = self.step_robots(dt);
+        if figures {
+            self.show_figures();
+        }
         let camera = self.renderer.render(time_ms);
-        camera || !self.live.is_settled() || people
+        camera || !self.live.is_settled() || people || robots
     }
 }
 

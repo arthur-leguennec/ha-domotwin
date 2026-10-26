@@ -24,6 +24,8 @@
 //   that person instead), privatewhile=<entity> (private only while it is on), settingsdown=1
 //   (the settings cannot be read until window.__settingsUp())
 //   voice=1 (Assist with a pipeline that hears), voice=deaf (Assist that cannot hear),
+//   robot=1 (a robot vacuum's dock in the hall, linked to vacuum.robbie, docked; D-049)
+//   energy=1 (fictional solar panels, meter and battery, named in the stored settings; D-049)
 //   supervisor=1 (apps can be installed), blueprints=changed (one edited), insecure=1 (a page
 //   served over HTTP: no microphone), mic=0 (the card's microphone turned off)
 import { applyService, demoHome } from "./demo-home.mjs";
@@ -67,6 +69,20 @@ const demo = await (await fetch("/examples/demo-apartment.domotwin.json")).json(
 const demoBindings = live
   ? await (await fetch("/examples/demo-apartment.bindings.json")).json()
   : { version: 1, rooms: {}, elements: {} };
+// A robot vacuum (D-049): its dock against the hall's far wall, facing in.
+const robot = params.get("robot") === "1";
+if (robot) {
+  demo.items.push({
+    id: "robot-dock",
+    name: "Robot vacuum",
+    kind: "robot-vacuum",
+    at: [340, 735],
+    size: [40, 50, 12],
+    rotation: 180,
+    room: "hall",
+  });
+  demoBindings.elements["robot-dock"] = { entities: [{ entity_id: "vacuum.robbie" }] };
+}
 // Upkeep cards (D-033): the demo's, none yet, or an integration without them.
 const upkeepParam = params.get("upkeep");
 const demoUpkeep =
@@ -192,6 +208,16 @@ const store = {
   settings: {
     ...(params.get("north") ? { north: Number(params.get("north")) } : {}),
     ...(params.get("hometheme") ? { theme: params.get("hometheme") } : {}),
+    ...(params.get("energy") === "1"
+      ? {
+          energy: {
+            solar: "sensor.solar_power",
+            grid: "sensor.grid_power",
+            battery: "sensor.home_battery_power",
+            battery_level: "sensor.home_battery_level",
+          },
+        }
+      : {}),
     ...(params.get("private")
       ? {
           rooms: Object.fromEntries(
@@ -878,6 +904,31 @@ const language = params.get("lang") ?? "en";
 const sunParam = params.get("sun");
 const sunPosition = params.get("sunpos");
 const home = live ? demoHome() : { states: {}, entities: {}, devices: {}, areas: {} };
+if (params.get("energy") === "1") {
+  // A sunny afternoon: the sun feeds the home, charges the battery and sends the rest away.
+  const power = { device_class: "power", unit_of_measurement: "W" };
+  const sensors = {
+    "sensor.solar_power": ["3200", { ...power, friendly_name: "Solar panels" }],
+    "sensor.grid_power": ["-500", { ...power, friendly_name: "Grid meter" }],
+    "sensor.home_battery_power": ["-700", { ...power, friendly_name: "Home battery power" }],
+    "sensor.home_battery_level": [
+      "78",
+      { device_class: "battery", unit_of_measurement: "%", friendly_name: "Home battery" },
+    ],
+  };
+  for (const [id, [state, attributes]] of Object.entries(sensors)) {
+    home.states[id] = { entity_id: id, state, attributes };
+  }
+}
+if (robot) {
+  home.entities["vacuum.robbie"] = { entity_id: "vacuum.robbie", area_id: "hallway" };
+  home.states["vacuum.robbie"] = {
+    entity_id: "vacuum.robbie",
+    state: "docked",
+    // Starts, pauses, goes home, reports its state.
+    attributes: { friendly_name: "Robbie", supported_features: 12_820 },
+  };
+}
 for (const [id, config] of Object.entries(automationConfigs())) {
   home.states[id] = {
     entity_id: id,
