@@ -1423,3 +1423,46 @@ M13.
   - Three steps are left to the maintainer (`HACS_SUBMISSION.md`): measurements on real devices,
     the install through HACS's own pages (it signs in to GitHub), and the pull request to HACS's
     default list.
+
+## D-045 · Phones and crowded names: icons in the toolbar, the rooms' names given way
+
+M13b.
+
+- **Context.** Tried on a phone and on a computer with a real home, the view was crowded: every
+  room had its name in full over its floor, closets and toilets included, and the names of small
+  rooms side by side covered one another. In the panel on a phone, the toolbar's buttons with
+  their names made the page wider than the screen, which scrolled sideways.
+- **Decision.**
+  - **The panel is never wider than the screen.** The toolbar can shrink (its title is cut
+    with an ellipsis), the buttons keep their size, and what is too long is cut, not scrolled;
+    menus and dialogs scroll within the screen's height. When the buttons' names do not fit
+    beside the title, or when Home Assistant says the screen is narrow, the buttons keep their
+    icons alone; their names stay as tooltips and for screen readers. Whether they fit is
+    measured, with them shown, whenever they change or a font loads: French names are longer
+    than English ones, and the languages to come (M21) longer still. Narrower than 560 px (a
+    phone), the import and the storeys move to the More menu, so the buttons left fit in
+    360 px; without that menu (while linking, or without a plan) the import stays in the
+    toolbar.
+  - **Each room's name has an icon** for its kind, read from its name in English or French
+    (kitchen, living room, bedroom, bathroom, toilet, office, laundry, hall, closet, garage,
+    stairs, outside), a plain room otherwise. The first word of the name that names a kind gives
+    it: "Chambre avec dressing" is a bedroom, "Salle de bains / WC" a bathroom. A private room
+    keeps its lock.
+  - **Small rooms are left out**: closets, whatever their size (the maintainer asked not to see
+    them), and rooms under 2.5 m², unless asked for (the layers menu's **Small rooms' names**,
+    shown while the names are; the card option `small_rooms`). The engine gives each name its
+    room's area, within its outline.
+  - **Names give way to the bigger rooms.** The names are placed from the biggest room to the
+    smallest: a name that would cover another keeps only its icon, and an icon that would too is
+    left out, as is a name outside the view. A name's width is measured in the view's font (the
+    card's `font_family` too), no wider than the 240 px or 40 % of the view past which it is
+    cut. A name keeps how it is shown while it covers nothing; to be shown, or shown whole, it
+    needs 12 px around it rather than 4, so that names do not come and go as the camera turns.
+- **Consequences.**
+  - A phone shows the plan without sideways scroll, and an apartment's names stay readable at any
+    zoom: zooming in gives the rooms left with their icon their names back.
+  - Rooms whose name says nothing of their kind keep the plain room icon; the words are those of
+    the languages DomoTwin speaks, and grow with them (M21).
+  - The names are placed again only when they move (the camera turns), the view changes size or
+    the small rooms are asked for: 0.18 ms for a hundred rooms (Node 22), each name measured
+    once.

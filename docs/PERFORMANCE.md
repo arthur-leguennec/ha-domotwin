@@ -741,3 +741,10 @@ the panel takes the window's height under the sidebar's header, and a dashboard 
 next to a Markdown card shows the demo apartment in the card's 492 × 370 px. Neither asks for
 anything outside Home Assistant. Real devices are left to the maintainer
 (`HACS_SUBMISSION.md`).
+
+### M13b (phones and crowded names)
+
+Bundle: the first load is **472.6 kB gzipped** of 1 200 kB (+3.5 kB): the icons of the kinds of
+room, the placing of the names and the panel's narrow toolbar (D-045). Placing the names of a
+hundred rooms takes 0.18 ms (Node 22); they are placed again only when they move, not every
+frame.

@@ -34,6 +34,7 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M12       | Polish: design, fonts, accessibility, voice, README        | ✅     |
 | M12b      | Size and speed: a pass that keeps the picture as it is     | ✅     |
 | M13       | Release 0.2.0 and HACS submission checklist                | ✅     |
+| M13b      | Phones and crowded names: icons, small rooms left out      | ✅     |
 
 M5 to M11 were added after M3b (`DECISIONS.md`, D-022): what people expect of a 3D home dashboard,
 with no account and no network call outside Home Assistant. M8 became the looks alone, and the
@@ -43,7 +44,7 @@ for after M10, and come before the imports. The maintainer then moved the first 
 (D-037): 0.1.0 is everything done up to M8b. What cameras see drawn on the floor (M5b), private
 rooms (M9g), the imports (M11), the polish (M12) and a pass over size and speed that keeps the
 picture as it is (M12b) come before a second release, 0.2.0, with the submission to HACS's default
-list (M13).
+list (M13). What a phone and a real home showed after it comes first (M13b, D-045).
 
 ## M0, scaffold
 
@@ -815,3 +816,20 @@ repository list in `HACS_SUBMISSION.md` (D-044):
 - Left to the maintainer: the install through HACS's own pages (it signs in to GitHub with the
   maintainer's account), measurements on real devices, and the pull request to HACS's default
   list.
+
+## M13b, phones and crowded names
+
+What a phone and a computer showed with a real home (D-045):
+
+- ✅ **No sideways scroll on a phone**: the panel is never wider than the screen. When their
+  names do not fit, in any language, its buttons keep their icons, their names as tooltips and
+  for screen readers; narrower than 560 px the import and the storeys go in the More menu.
+- ✅ **An icon for each kind of room** before its name (kitchen, bedroom, bathroom, office…), read
+  from the name in English or French.
+- ✅ **Small rooms left out** (closets, rooms under 2.5 m²), unless asked for: the layers menu's
+  **Small rooms' names**, the card option `small_rooms`.
+- ✅ **Names that give way**: the biggest rooms first, a name that would cover another keeps only
+  its icon, an icon that would too is left out.
+- ✅ Tests: kinds, widths, placing (vitest); the rooms' areas (Rust); a phone's toolbar without
+  sideways scroll, the More menu, French names giving way, names that never cover one another,
+  the dressing room shown on asking (Playwright).

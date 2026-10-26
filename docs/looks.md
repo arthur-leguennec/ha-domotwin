@@ -38,6 +38,7 @@ type: custom:domotwin-card
 theme: neon        # auto, day, neon, blueprint, cartoon or clay; absent: the home's look
 accent: "#ff2d95"  # the accent colour; absent: the home's
 names: true        # the rooms' names on their floors (true by default)
+small_rooms: false # closets' and small rooms' names too (false by default)
 ```
 
 The accent tints neon's outlines and grid, and the buttons of the view in neon.
