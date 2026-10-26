@@ -357,7 +357,7 @@ export class DomoTwinWires extends LitElement {
         this.pending.push({ entity, changed, until: now + ACTED_WITHIN_MS });
       }
     }
-    // When each last ran, now: a run seen, or a time gone back (the sandbox's day, D-058). An
+    // When each last ran, now: a run seen, or a time gone back (the sandbox's day, D-057). An
     // automation gone a moment (reloaded) keeps the time it had, not to pulse as it comes back.
     for (const [id, was] of this.runs) {
       const at = hass.states[id]?.attributes.last_triggered;

@@ -4,7 +4,7 @@ import type { HassEntity, HomeAssistant } from "../src/ha/types";
 import { Translator, en } from "../src/i18n";
 import { peakEn, peakFr } from "../src/i18n/peak";
 import type { BindingsJson } from "../src/live/bindings";
-import { heats, peakRooms } from "../src/live/peak-rooms";
+import { heatingOf, peakRooms } from "../src/live/peak-rooms";
 import { peaksAvailable } from "../src/live/peak-sources";
 import { peakNow, peakWords, phaseOf, zonedTime } from "../src/live/peaks";
 
@@ -56,6 +56,16 @@ describe("Hydro-Québec's peaks (D-058)", () => {
     expect(peaksAvailable(none)).toBe(false);
     expect(peakNow(none)).toBeUndefined();
     expect(peaksAvailable(undefined)).toBe(false);
+    // hydroqc writing its peaks in a calendar, none announced: its button says it reads them.
+    const calendar = home([
+      ["button.hydro_quebec_maison_refresh_peak_data", "unknown", {}, { platform: "hydroqc" }],
+      ["calendar.pointes", "off", {}],
+    ]);
+    expect(peaksAvailable(calendar)).toBe(true);
+    expect(peakNow(calendar)).toEqual({ phase: "none" });
+    // Another integration's button is not.
+    const other = home([["button.restart", "unknown", {}, { platform: "hassio" }]]);
+    expect(peaksAvailable(other)).toBe(false);
   });
 
   it("read hydroqc's Flex D peak by its kind, whatever its entity is called", () => {
@@ -103,6 +113,35 @@ describe("Hydro-Québec's peaks (D-058)", () => {
         preheat: at("2026-01-21T08:00:00Z"),
       },
     });
+  });
+
+  it("take the winter credit's pre-heating only when it is its critical peak's", () => {
+    const rows = (next: string): Row[] => [
+      hydroqc("wc_next_critical_peak_start", "2026-01-22T21:00:00+00:00"),
+      hydroqc("wc_next_critical_peak_end", "2026-01-23T01:00:00+00:00"),
+      hydroqc("wc_next_peak_start", next),
+      hydroqc("wc_next_pre_heat_start", "2026-01-22T18:00:00+00:00"),
+    ];
+    const at8 = at("2026-01-22T08:00:00Z");
+    expect(peakNow(home(rows("2026-01-22T21:00:00+00:00")), at8)?.peak?.preheat).toBe(
+      at("2026-01-22T18:00:00Z"),
+    );
+    // A daily window comes first: its pre-heating is not the critical peak's.
+    expect(peakNow(home(rows("2026-01-22T11:00:00+00:00")), at8)?.peak?.preheat).toBe(
+      at("2026-01-22T19:00:00Z"),
+    );
+  });
+
+  it("keep their default pre-heating when the one said is after the peak or long before", () => {
+    const rows = (preheat: string): Row[] => [
+      hydroqc("dpc_next_peak_start", "2026-01-21T21:00:00+00:00"),
+      hydroqc("dpc_next_peak_end", "2026-01-22T01:00:00+00:00"),
+      hydroqc("dpc_next_pre_heat_start", preheat),
+    ];
+    const noon = at("2026-01-19T12:00:00Z");
+    for (const preheat of ["2026-01-21T22:00:00+00:00", "2026-01-20T21:00:00+00:00"]) {
+      expect(peakNow(home(rows(preheat)), noon)?.peak?.preheat).toBe(at("2026-01-21T19:00:00Z"));
+    }
   });
 
   it("show the winter credit's critical peaks, and nothing off season", () => {
@@ -174,6 +213,11 @@ describe("Hydro-Québec's peaks (D-058)", () => {
       ],
     ]);
     expect(peaksAvailable(notCritical)).toBe(false);
+    // Read in Home Assistant's time zone, worked out again when it changes.
+    const paris = { ...hass, config: { time_zone: "Europe/Paris" } };
+    expect(peakNow(paris, at("2026-01-21T12:00:00Z"))?.peak?.start).toBe(
+      at("2026-01-21T15:00:00Z"),
+    );
   });
 
   it("turn a wall clock into a time, across a change of time", () => {
@@ -181,6 +225,11 @@ describe("Hydro-Québec's peaks (D-058)", () => {
     // Summer time from 8 March 2026.
     expect(zonedTime("2026-03-08 06:00:00", "America/Toronto")).toBe(at("2026-03-08T10:00:00Z"));
     expect(zonedTime("2026-03-07 23:30", "America/Toronto")).toBe(at("2026-03-08T04:30:00Z"));
+    // A wall clock the change skips is read before it (02:30 is 03:30); one it shows twice, the
+    // first time.
+    expect(zonedTime("2026-03-08 02:30:00", "America/Toronto")).toBe(at("2026-03-08T07:30:00Z"));
+    expect(zonedTime("2026-11-01 01:30:00", "America/Toronto")).toBe(at("2026-11-01T05:30:00Z"));
+    expect(zonedTime("2026-11-01 06:00:00", "America/Toronto")).toBe(at("2026-11-01T11:00:00Z"));
     expect(zonedTime("tomorrow", "America/Toronto")).toBeUndefined();
     expect(zonedTime(undefined, "America/Toronto")).toBeUndefined();
     // A zone this browser does not know: its own.
@@ -260,21 +309,49 @@ describe("the rooms around a peak (D-058)", () => {
     last_updated: "",
   });
 
-  it("know a thermostat heats from what it says, else from its target", () => {
+  it("know a thermostat heats, is set back, or holds the room", () => {
     const hass = home([]);
-    expect(heats(hass, heater("heat", { hvac_action: "heating" }))).toBe(true);
-    expect(heats(hass, heater("heat", { hvac_action: "idle", temperature: 25 }))).toBe(false);
-    expect(heats(hass, heater("off", {}))).toBe(false);
-    expect(heats(hass, heater("unavailable", {}))).toBeUndefined();
-    expect(heats(hass, heater("heat", { temperature: 22, current_temperature: 20 }))).toBe(true);
-    expect(heats(hass, heater("heat", { temperature: 17, current_temperature: 20 }))).toBe(false);
-    expect(heats(hass, heater("cool", { temperature: 25, current_temperature: 20 }))).toBe(false);
-    expect(heats(hass, heater("heat", { temperature: 22 }))).toBeUndefined();
+    const of = (state: string, attributes: Record<string, unknown>) =>
+      heatingOf(hass, heater(state, attributes));
+    expect(of("heat", { hvac_action: "heating" })).toBe("heating");
+    expect(of("off", {})).toBe("setback");
+    expect(of("heat", { hvac_action: "off" })).toBe("setback");
+    expect(of("unavailable", {})).toBeUndefined();
+    expect(of("cool", { temperature: 25, current_temperature: 20 })).toBeUndefined();
+    // Idle near its target, it holds the room: neither shed nor heating.
+    expect(of("heat", { hvac_action: "idle", temperature: 21, current_temperature: 21.2 })).toBe(
+      "holding",
+    );
+    expect(of("heat", { hvac_action: "idle", temperature: 25, current_temperature: 20 })).toBe(
+      "holding",
+    );
+    expect(of("heat", { hvac_action: "idle" })).toBe("holding");
+    // Set back below the room.
+    expect(of("heat", { hvac_action: "idle", temperature: 17, current_temperature: 20 })).toBe(
+      "setback",
+    );
+    // Without `hvac_action`, its target says.
+    expect(of("heat", { temperature: 22, current_temperature: 20 })).toBe("heating");
+    expect(of("heat", { temperature: 17, current_temperature: 20 })).toBe("setback");
+    expect(of("heat", { temperature: 20.1, current_temperature: 20 })).toBe("holding");
+    expect(of("heat", { temperature: 22 })).toBeUndefined();
+    // A prototype's key is no action.
+    expect(of("heat", { hvac_action: "toString", temperature: 22, current_temperature: 20 })).toBe(
+      "heating",
+    );
     // In °F, as Home Assistant's unit system says.
     const fahrenheit = { ...hass, config: { unit_system: { temperature: "°F" } } };
-    expect(heats(fahrenheit, heater("heat", { temperature: 70, current_temperature: 68 }))).toBe(
-      true,
-    );
+    expect(
+      heatingOf(fahrenheit, heater("heat", { temperature: 70, current_temperature: 68 })),
+    ).toBe("heating");
+    // In the sandbox's copy, whose `hvac_action` does not move, the target alone says (D-057).
+    const sandbox = { ...hass, sandbox: true };
+    expect(
+      heatingOf(
+        sandbox,
+        heater("heat", { hvac_action: "heating", temperature: 16, current_temperature: 20 }),
+      ),
+    ).toBe("setback");
   });
 
   const rows: Row[] = [
@@ -333,5 +410,25 @@ describe("the rooms around a peak (D-058)", () => {
     expect(rooms.draws.living).toBeUndefined();
     // Without the meters left out, the grid counts in the laundry.
     expect(rooms.draws.laundry).toBe(7500);
+    // Nor of another room on a private room's area, nor of what its pieces link.
+    const unseen = peakRooms(hass, BINDINGS, ROOMS, "peak", new Set(), new Set(), {
+      areas: new Set(["office"]),
+      entities: new Set(["sensor.water_heater_power"]),
+    });
+    expect(unseen.roles).toEqual({ living: "heating" });
+    expect(unseen.draws).toEqual({ living: 1200, laundry: 4500 });
+  });
+
+  it("count an area shared by several rooms once", () => {
+    const hass = home(rows);
+    const rooms = [...ROOMS, { id: "living-upstairs", name: "Lounge" }];
+    const both = {
+      ...BINDINGS,
+      rooms: { ...BINDINGS.rooms, "living-upstairs": { area: "lounge" } },
+    };
+    expect(peakRooms(hass, both, rooms, "peak", new Set()).roles).toEqual({
+      living: "heating",
+      office: "shed",
+    });
   });
 });

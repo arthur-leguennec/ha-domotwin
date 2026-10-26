@@ -92,8 +92,8 @@ QR code (M30) and a placement advisor for radios (M31) before a first launch in 
 (M33), rights (M34), automations in plain words (M35), a configuration history (M36), a weekly
 report (M37), history as reports (M38) and Hydro-Québec's peaks (M39) follow, among a library of
 objects (M17), the outdoors (M18), more imports (M20) and more languages (M21), before a sixth
-release, 0.6.0. The maintainer then moved Hydro-Québec's peaks (M39) forward, right after 0.4.0
-(D-058): its part in the sandbox (M29) and in the weekly report (M37) comes with them.
+release, 0.6.0. The maintainer then moved Hydro-Québec's peaks (M39) forward, right after the
+sandbox (M29), whose day it plays (D-058); its part in the weekly report (M37) comes with it.
 
 ## M0, scaffold
 
@@ -1112,27 +1112,34 @@ stored; nothing shown without them.
 
 - ✅ **Where the peak is read**: hydroqc's sensors (Flex D, the winter credit's announced peaks),
   HydroPeak's, or the calendar hydroqc writes its peaks in, as a wall clock in Home Assistant's
-  time zone. The peak under way, else the soonest; its pre-heating where the integration says it,
-  else hydroqc's own two hours.
+  time zone (hydroqc's button saying it reads them while none is announced). The peak under way,
+  else the soonest; its pre-heating where the integration says it, else the integration's own.
 - ✅ **What the rooms do**, from the thermostats of each room's area: pre-heating before the peak;
-  shed or still heating during it; what each room draws, the home's own meters left out; nothing
-  of a private room the viewer may not see.
+  shed (set back) or still heating during it, neither while a thermostat holds its room; what
+  each room draws, the home's own meters left out; nothing of a private room the viewer may not
+  see, of its area or of what its pieces link.
 - ✅ **In 3D**: a layer, *Hydro-Québec peaks*, offered only where an integration reads them: the
   rooms tinted (pre-heating amber, shed blue, still heating red), what each draws at its centre,
   a legend with when, how many rooms do what and what they draw; worked out again when the peak
   starts or ends. A card can be set to it.
 - ✅ **On the Home tab**: a chip while a peak is announced (the next one, the pre-heating, the peak
-  under way), opening when, the rooms and what they draw, and the layer in 3D.
-- ✅ Only whether an integration is there is in the first load; the rest is a chunk loaded when
-  the layer first shows, and with the Home tab's.
-- ✅ Tests: the integrations' entities found by their kind, the pre-heating said or hydroqc's, the
-  winter credit off season, several contracts, hydroqc's calendar and its time zone across a
-  change of time, the phases and their words in both languages, what a thermostat says, the
-  rooms' roles and draws, a private room (vitest); the peak's tints and labels (Rust, wasm);
-  nothing without an integration, a peak's rooms and legend, the pre-heating, the Home tab's chip
-  and the way to 3D, hydroqc's calendar in French (Playwright).
-- ⏳ Tomorrow's announced peak played in the sandbox, with **M29**; the week's peaks in the weekly
-  report, with **M37**.
+  under way), opening when, the rooms and what they draw, the layer in 3D and, for an
+  administrator, the peak's day in the sandbox.
+- ✅ **Tomorrow's announced peak played in the sandbox**: on its day the integrations' sensors go
+  through the pre-heating and the peak, the automations they set off run on the copy, the peak's
+  layer shows the rooms at the sandbox's time; *The day* leads to it, the day's line shows it, the
+  report says what each room did.
+- ✅ Only whether an integration is there is in the first load; the rest is a chunk shared by the
+  layer, the Home tab and the sandbox.
+- ✅ Tests: the integrations' entities found by their kind, hydroqc's button, the pre-heating said
+  or the integration's own, the winter credit's, several contracts, hydroqc's calendar and its
+  time zone across a change of time, the phases and their words in both languages, what a
+  thermostat does (in the sandbox too), the rooms' roles and draws, an area shared, a private
+  room, the peak's day in the sandbox and what each room did (vitest); the peak's tints and labels
+  (Rust, wasm); nothing without an integration, a peak's rooms and legend, the pre-heating, the
+  Home tab's chip and the way to 3D, hydroqc's calendar in French, the peak's day in the sandbox
+  from *The day* and from the Home tab (Playwright).
+- ⏳ The week's peaks in the weekly report, with **M37**.
 
 ## Then, from 0.4.0 to 0.5.0
 
@@ -1241,8 +1248,9 @@ milestone starts, which goes on with what needs no answer.
 - ⏳ **M18, outdoors**: the garden, the terrace, the lawn, a pool, the roofs; the lawn growing
   between two mowings.
 - ✅ **M39, Hydro-Québec's peaks**, moved forward (D-058, above): the next peak, the pre-heating
-  before it, which rooms shed and what they draw during it, in 3D and on the Home tab, from the
-  entities of hydroqc or HydroPeak. Its part in the sandbox and the report comes with M29 and M37.
+  before it, which rooms shed and what they draw during it, in 3D and on the Home tab, and
+  tomorrow's announced peak played in the sandbox, from the entities of hydroqc or HydroPeak. Its
+  part in the report comes with M37.
 - ⏳ **M21, more languages**: Italian, German, Spanish, Arabic (right to left), Chinese, Japanese,
   Korean, Portuguese (Portugal and Brazil) and others; last, once the texts of the rest are
   written, so that they are translated once.

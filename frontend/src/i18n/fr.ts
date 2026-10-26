@@ -1171,7 +1171,8 @@ export const fr: Dictionary = {
     bad_quality: "`quality` doit valoir auto, eco, balanced ou high",
     bad_cutaway: "`cutaway` doit valoir auto, always ou off",
     bad_lighting: "`lighting` doit valoir auto, morning, day, evening ou night",
-    bad_layer: "`layer` doit valoir off, temperature, humidity, co2, pm25 ou power",
+    bad_layer:
+      "`layer` doit valoir off, temperature, humidity, co2, pm25, power, peak, network, automations ou upkeep",
     bad_alerts: "`alerts` doit valoir true ou false",
     bad_presence: "`presence` doit valoir true ou false",
     bad_people: "`people` doit valoir true ou false",

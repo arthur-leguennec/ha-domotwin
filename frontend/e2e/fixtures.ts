@@ -72,7 +72,7 @@ export interface HarnessOptions {
   zha?: boolean;
   /** Fictional automations (D-032): `true` three of the demo apartment, a number made up ones. */
   automations?: true | number;
-  /** The sandbox's time zone and place, and its automations and script (D-058). */
+  /** The sandbox's time zone and place, and its automations and script (D-057). */
   sandbox?: boolean;
   /** Upkeep cards (D-033): the demo's (`true`), or an integration without them (`false`). */
   upkeep?: boolean;

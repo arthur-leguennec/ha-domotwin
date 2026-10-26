@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 
-import { openHarness, viewState } from "./fixtures";
+import { fromMenu, openHarness, viewState } from "./fixtures";
 
 /** The values written on the rooms and pieces. */
 function labels(page: Page): Promise<string[]> {
@@ -106,6 +106,61 @@ test.describe("Hydro-Québec's peaks (D-058)", () => {
     );
     await expect(page.getByTestId("home-peak-detail")).toContainText(
       /Préchauffage dès (demain )?\d\d:\d\d/,
+    );
+    // No peak announced: its calendar has no event, hydroqc's button says it reads the peaks.
+    await openHarness(page, { live: true, lang: "fr", peak: "calendar", peakPhase: "none" });
+    await page.getByTestId("layers").click();
+    await page.getByTestId("layer-menu").locator('[data-layer="peak"]').click();
+    await expect(page.locator("domotwin-view").getByTestId("legend")).toContainText(
+      "Aucune pointe annoncée",
+    );
+  });
+
+  test("tomorrow's announced peak, played in the sandbox", async ({ page }) => {
+    await openHarness(page, {
+      mode: "panel",
+      live: true,
+      sandbox: true,
+      peak: "hydroqc",
+      peakPhase: "upcoming",
+    });
+    await fromMenu(page, "sandbox-menu");
+    await expect(page.getByTestId("sandbox-bar")).toBeVisible();
+    await page.getByTestId("sandbox-day").click();
+    const said = page.getByTestId("sandbox-peak");
+    await expect(said).toBeVisible();
+    // The peak's day, unless it is today already.
+    const toItsDay = page.getByTestId("sandbox-peak-day");
+    if (await toItsDay.isVisible()) await toItsDay.click();
+    await expect(said).toContainText("The announced peak plays on this day");
+    await page.getByTestId("sandbox-day-apply").click();
+    // On the day's line, and in the report: what each room did.
+    await expect(page.getByTestId("sandbox-peak-band").first()).toBeVisible();
+    await page.getByTestId("sandbox-report").click();
+    const rooms = page.getByTestId("sandbox-peak-rooms");
+    await expect(rooms.locator('[data-room="living"]')).toContainText(/Living room: .*shed/);
+    await expect(rooms.locator('[data-room="bedroom"]')).toContainText(/Bedroom: .*still heating/);
+  });
+
+  test("from the Home tab, an administrator plays the peak's day in the sandbox", async ({
+    page,
+  }) => {
+    await openHarness(page, {
+      mode: "panel",
+      live: true,
+      sandbox: true,
+      start: "home",
+      peak: "hydroqc",
+      peakPhase: "upcoming",
+    });
+    await page.getByTestId("home-peak").click();
+    await page.getByTestId("home-peak-sandbox").click();
+    await expect(page.getByTestId("sandbox-bar")).toBeVisible();
+    // Shown from its pre-heating, on its day.
+    await expect(page.getByTestId("sandbox-peak-band").first()).toBeVisible();
+    await page.getByTestId("sandbox-day").click();
+    await expect(page.getByTestId("sandbox-peak")).toContainText(
+      "The announced peak plays on this day",
     );
   });
 });

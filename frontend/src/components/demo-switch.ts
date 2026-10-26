@@ -1,6 +1,6 @@
 /**
  * A home kept in the page shown in place of the home, for the panel and the card alike: the demo
- * house (D-050) or the sandbox (D-058). Its Home Assistant swapped in and out, its day held while
+ * house (D-050) or the sandbox (D-057). Its Home Assistant swapped in and out, its day held while
  * they are away, Home Assistant's own dialogs kept out of it. Each is a module loaded the first
  * time it is asked for.
  */

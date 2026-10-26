@@ -185,6 +185,15 @@ export function roomEntities(
   return (area ? areaIndex(hass).get(area) : undefined) ?? [];
 }
 
+/** The area of a room of the plan: its link's, else the area of its name (found once). */
+export function roomAreaOf(
+  hass: HomeAssistant,
+  bindings: BindingsJson,
+  room: PlanRoom,
+): string | undefined {
+  return areaOfRoom(hass, bindings, room);
+}
+
 /** A number from a state or an attribute (`"21.5"`, `21.5`); undefined otherwise. */
 export function numberOf(value: unknown): number | undefined {
   const n = typeof value === "number" ? value : typeof value === "string" ? Number(value) : NaN;

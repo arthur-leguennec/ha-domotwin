@@ -36,6 +36,9 @@ export interface PeakNow {
   next?: number;
 }
 
+/** The longest pre-heating believed (ms): one said to start earlier is the integration's default. */
+const LONGEST_PREHEAT = 12 * 3_600_000;
+
 /** A timestamp state (an ISO date with its offset); undefined otherwise. */
 function timeOf(entity: HassEntity | undefined): number | undefined {
   if (!entity) return undefined;
@@ -64,21 +67,8 @@ export function zonedTime(text: unknown, timeZone: string | undefined): number |
     number,
   ];
   const wall = Date.UTC(year, month - 1, day, hour, minute, second);
-  let format: Intl.DateTimeFormat;
-  try {
-    format = new Intl.DateTimeFormat("en-US", {
-      timeZone,
-      hourCycle: "h23",
-      year: "numeric",
-      month: "numeric",
-      day: "numeric",
-      hour: "numeric",
-      minute: "numeric",
-      second: "numeric",
-    });
-  } catch {
-    return new Date(year, month - 1, day, hour, minute, second).getTime();
-  }
+  const format = zoneFormat(timeZone);
+  if (!format) return new Date(year, month - 1, day, hour, minute, second).getTime();
   // How far the zone is from UTC at a time: its wall clock then, less the time.
   const offset = (at: number): number => {
     const parts = format.formatToParts(at);
@@ -95,9 +85,38 @@ export function zonedTime(text: unknown, timeZone: string | undefined): number |
       ) - at
     );
   };
-  // Twice, for a wall clock on the other side of a change of time from the first guess.
-  const first = wall - offset(wall);
-  return wall - offset(first);
+  // The offset of the day before, then the one found there: the wall clock if it is one of the
+  // zone's; one the clocks skip is read with the offset before the change (02:30 is 03:30).
+  const guess = wall - offset(wall);
+  const found = wall - offset(guess);
+  return found + offset(found) === wall ? found : guess;
+}
+
+/** A formatter of each time zone's wall clock, made once; none for a zone this browser lacks. */
+const formats = new Map<string, Intl.DateTimeFormat | null>();
+
+function zoneFormat(timeZone: string | undefined): Intl.DateTimeFormat | undefined {
+  const key = timeZone ?? "";
+  if (!formats.has(key)) {
+    try {
+      formats.set(
+        key,
+        new Intl.DateTimeFormat("en-US", {
+          timeZone,
+          hourCycle: "h23",
+          year: "numeric",
+          month: "numeric",
+          day: "numeric",
+          hour: "numeric",
+          minute: "numeric",
+          second: "numeric",
+        }),
+      );
+    } catch {
+      formats.set(key, null);
+    }
+  }
+  return formats.get(key) ?? undefined;
 }
 
 /** The peaks the sensors of a source say, one for each device (a contract, an offer). */
@@ -115,12 +134,11 @@ function sensorPeaks(hass: HomeAssistant, kinds: Kinds): Peak[] {
     const start = timeOf(hass.states[startId]);
     const end = timeOf(sibling(kinds.end));
     if (start === undefined || end === undefined || end <= start) continue;
-    const preheat = timeOf(sibling(kinds.preheat));
-    peaks.push({
-      start,
-      end,
-      preheat: preheat !== undefined && preheat <= start ? preheat : start - kinds.lead * 60_000,
-    });
+    // The pre-heating of another start (the winter credit's next window) is not this peak's.
+    const own = kinds.preheatFor === undefined || timeOf(sibling(kinds.preheatFor)) === start;
+    const preheat = own ? timeOf(sibling(kinds.preheat)) : undefined;
+    const sound = preheat !== undefined && preheat <= start && start - preheat <= LONGEST_PREHEAT;
+    peaks.push({ start, end, preheat: sound ? preheat : start - kinds.lead * 60_000 });
   }
   return peaks;
 }
@@ -134,21 +152,22 @@ function calendarPeak(hass: HomeAssistant, entity: HassEntity): Peak | undefined
   return { start, end, preheat: start - HYDROQC_PREHEAT * 60_000 };
 }
 
-/** The peaks the integrations say, worked out once per update. */
-const said = new WeakMap<object, { registry: unknown; peaks: Peak[] }>();
+/** The peaks the integrations say, worked out once per update (and registry, and time zone). */
+const said = new WeakMap<object, { registry: unknown; zone?: string; peaks: Peak[] }>();
 
 /** Every peak the integrations say, from their sensors and hydroqc's calendars. */
 function peaksOf(hass: HomeAssistant): Peak[] {
   const registry = hass.entities;
+  const zone = hass.config?.time_zone;
   const known = said.get(hass.states);
-  if (known && known.registry === registry) return known.peaks;
+  if (known && known.registry === registry && known.zone === zone) return known.peaks;
   const peaks = SOURCES.flatMap((kinds) => sensorPeaks(hass, kinds));
   for (const id of peakCalendars(hass)) {
     const entity = hass.states[id];
     const peak = entity ? calendarPeak(hass, entity) : undefined;
     if (peak) peaks.push(peak);
   }
-  said.set(hass.states, { registry, peaks });
+  said.set(hass.states, { registry, zone, peaks });
   return peaks;
 }
 

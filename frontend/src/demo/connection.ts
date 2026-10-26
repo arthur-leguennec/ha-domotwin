@@ -1,5 +1,5 @@
 /**
- * The websocket of a home kept in the page, the demo house's (D-050) or the sandbox's (D-058):
+ * The websocket of a home kept in the page, the demo house's (D-050) or the sandbox's (D-057):
  * DomoTwin's commands answered from what it keeps, as the integration would; Home Assistant's
  * few others the frontend asks (automations, the energy settings, what an area relates to).
  * Nothing goes out of the page.

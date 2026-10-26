@@ -1151,7 +1151,8 @@ export const en = {
     bad_quality: "`quality` must be auto, eco, balanced or high",
     bad_cutaway: "`cutaway` must be auto, always or off",
     bad_lighting: "`lighting` must be auto, morning, day, evening or night",
-    bad_layer: "`layer` must be off, temperature, humidity, co2, pm25 or power",
+    bad_layer:
+      "`layer` must be off, temperature, humidity, co2, pm25, power, peak, network, automations or upkeep",
     bad_alerts: "`alerts` must be true or false",
     bad_presence: "`presence` must be true or false",
     bad_people: "`people` must be true or false",

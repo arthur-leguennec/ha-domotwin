@@ -184,7 +184,7 @@ describe("glanceOf", () => {
 
   it("has Hydro-Québec's peak where an integration reads it, and what the rooms do (D-058)", () => {
     const hass = home([
-      ["climate.study", "study", "heat", { hvac_action: "idle" }],
+      ["climate.study", "study", "heat", { temperature: 16, current_temperature: 20 }],
       ["sensor.meter_power", "lounge", "5000", { device_class: "power", unit_of_measurement: "W" }],
     ]);
     expect(glanceOf(hass, sources()).peak).toBeUndefined();

@@ -1132,6 +1132,12 @@ export class DomoTwinPanel extends LitElement {
     }
   };
 
+  /** The day of Hydro-Québec's announced peak, played in the sandbox (D-058). */
+  private readonly playPeak = async (): Promise<void> => {
+    await this.enterSandbox();
+    this.sandbox?.playPeak();
+  };
+
   /** Back to the home from the demo house or the sandbox: what runs on it ends, nothing saved. */
   private readonly leaveDemo = (): void => {
     this.moreOpen = false;
@@ -3021,6 +3027,7 @@ export class DomoTwinPanel extends LitElement {
           .unseen=${unseen}
           @domotwin-go=${this.onGo}
           @domotwin-favourite=${this.onFavourite}
+          @domotwin-sandbox-peak=${this.playPeak}
         ></domotwin-home>`;
   }
 

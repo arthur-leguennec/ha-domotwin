@@ -150,7 +150,7 @@ import { peaksAvailable } from "../live/peak-sources";
 import type { PeakNow } from "../live/peaks";
 import type { PeakRooms } from "../live/peak-rooms";
 import { locatedSensors, locatedShown, type LocatedShown } from "../live/locating";
-import { outOfSight, privateRooms } from "../live/privacy";
+import { closedAreas, closedEntities, outOfSight, privateRooms } from "../live/privacy";
 import { avatar, avatarStyles } from "./person-avatar";
 import { spoken } from "../live/show";
 import { StateSync } from "../live/states";
@@ -886,7 +886,6 @@ export class DomoTwinView extends LitElement {
   /** The peak's layer (its chunk), once loaded; loading, or failed to. */
   private peakLayer?: typeof import("./peak-layer");
   private peakLoading = false;
-  private peakFailed = false;
   /** When the peak's phase changes next: the rooms are worked out again then. */
   private peakTimer: ReturnType<typeof setTimeout> | undefined;
   /** The badges last worked out, and the badges' points last read from the engine. */
@@ -2426,11 +2425,6 @@ export class DomoTwinView extends LitElement {
   setLayer(layer: LayerName): void {
     // Every automation of the home takes over from those of a panel.
     if (layer === "automations") this.wiresAsked = undefined;
-    // The peak's chunk tried again, if it failed to load (D-058).
-    if (layer === "peak" && this.peakFailed) {
-      this.peakFailed = false;
-      this.peakLoading = false;
-    }
     this.layersOpen = false;
     this.layer = layer;
     this.redraw();
@@ -2783,7 +2777,10 @@ export class DomoTwinView extends LitElement {
   /** The rooms' names are drawn: where no layer shows a value (the storeys' labels take their
    * place when every storey is shown). */
   private get namesShown(): boolean {
-    return this.options.names !== false && !this.valueLayer && !this.loadedHome;
+    // The peak's layer writes on the rooms only while they draw (D-058).
+    const quiet =
+      this.shownLayer === "peak" && Object.keys(this.peakShown?.rooms.draws ?? {}).length === 0;
+    return this.options.names !== false && (!this.valueLayer || quiet) && !this.loadedHome;
   }
 
   /** The layer shown puts values on the home (a heatmap, the power drawn) and has a legend. */
@@ -3341,7 +3338,7 @@ export class DomoTwinView extends LitElement {
     clearTimeout(this.peakTimer);
     const shown = hass !== undefined && this.shownLayer === "peak";
     if (shown && !this.peakLayer && !this.peakLoading) {
-      // Its chunk the first time; failed (offline, an update since), the layer shows nothing.
+      // Its chunk the first time; until it is there, the layer shows nothing.
       this.peakLoading = true;
       void import("./peak-layer").then(
         (layer) => {
@@ -3349,8 +3346,8 @@ export class DomoTwinView extends LitElement {
           this.applyLayers();
         },
         () => {
-          // Tried again when the layer is chosen again, not on every update.
-          this.peakFailed = true;
+          // Failed (offline, an update since): tried again when the layers are next worked out.
+          this.peakLoading = false;
         },
       );
     }
@@ -3367,13 +3364,26 @@ export class DomoTwinView extends LitElement {
     const meters = new Set(
       ENERGY_SENSORS.flatMap((key) => this.energy?.[key] ?? []).filter(Boolean),
     );
+    const bindings = this.bindings ?? NO_BINDINGS;
+    const unseen =
+      this.closed.size > 0
+        ? {
+            areas: closedAreas(hass, bindings, this.rooms, this.closed),
+            entities: closedEntities(
+              bindings,
+              [{ plan: this.plan, layout: this.layout }],
+              this.closed,
+            ),
+          }
+        : {};
     const rooms = layer.peakRooms(
       hass,
-      this.bindings ?? NO_BINDINGS,
+      bindings,
       this.rooms,
       now.phase,
       this.closed,
       meters,
+      unseen,
     );
     const key = JSON.stringify([now, rooms]);
     if (key !== this.peakShown?.key) {
@@ -3381,7 +3391,7 @@ export class DomoTwinView extends LitElement {
       this.requestUpdate();
     }
     if (now.next !== undefined) {
-      // At most a few hours ahead: a timer that long would be cut short anyway.
+      // Looked at again in six hours at most, should the clock have been changed meanwhile.
       const wait = Math.min(Math.max(now.next - nowOf(hass), 0) + 500, 6 * 3_600_000);
       this.peakTimer = setTimeout(() => {
         this.applyLayers();

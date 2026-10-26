@@ -80,8 +80,9 @@ Local, rapide, Rust + WebAssembly.</p>
 - **Les pointes d’Hydro-Québec.** Pour un logement au tarif Flex D ou au crédit hivernal, avec
   [hydroqc](https://github.com/hydroqc/hydroqc-ha) ou
   [HydroPeak](https://github.com/Beat-YT/hydropeak-ha) installé : la prochaine pointe et son
-  préchauffage dans l’onglet Accueil, et en 3D les pièces qui préchauffent, sont délestées ou
-  chauffent encore pendant la pointe, avec ce qu’elles consomment. Rien sans eux.
+  préchauffage dans l’onglet Accueil, en 3D les pièces qui préchauffent, sont délestées ou
+  chauffent encore pendant la pointe, avec ce qu’elles consomment, et la pointe annoncée pour
+  demain jouée d’abord dans le bac à sable. Rien sans eux.
 - **Aspirateurs robots.** Son robot quitte sa base quand il nettoie, passe les pièces une à une et
   rentre, sur le plan.
 - **Appareils.** Des badges sur vos appareils (l’état d’une serrure, une caméra qui enregistre, ce
@@ -285,7 +286,7 @@ YAML n’est jamais nécessaire. Pour référence, les options de la carte :
 | `spread`      | `true`, `false`                     | `true`     | Tous les étages à la fois : écartés, ou empilés. |
 | `roof`        | `true`, `false`                     | `true`     | Tous les étages à la fois : le toit sur le dernier. |
 | `room`        | un identifiant de pièce du plan     | aucun      | Pièce à cadrer à l’ouverture de la carte.     |
-| `layer`       | `off`, `temperature`, `humidity`, `co2`, `pm25`, `power`, `network`, `automations`, `upkeep` | `off` | Calque affiché à l’ouverture ; le menu des calques le change. `network` ne s’affiche qu’aux administrateurs, avec ZHA ; `automations` aux administrateurs. |
+| `layer`       | `off`, `temperature`, `humidity`, `co2`, `pm25`, `power`, `peak`, `network`, `automations`, `upkeep` | `off` | Calque affiché à l’ouverture ; le menu des calques le change. `peak` s’affiche là où hydroqc ou HydroPeak lit les pointes d’Hydro-Québec, `network` aux administrateurs avec ZHA seulement, `automations` aux administrateurs. |
 | `alerts`      | `true`, `false`                     | `true`     | Alertes de sécurité des pièces (fumée, gaz, eau, alarme, fenêtre ouverte sous la pluie). |
 | `presence`    | `true`, `false`                     | `true`     | Les pièces occupées s’illuminent doucement.   |
 | `people`      | `true`, `false`                     | `true`     | Les personnes dans leurs pièces, en silhouettes. |

@@ -2280,10 +2280,10 @@ M29, the first milestone after 0.4.0 (D-056).
     automation wires (D-032) take a run's time going back as well as on, so they pulse again when
     the day is played over.
 
-## D-058 · Hydro-Québec's peaks, on the plan and the Home tab (M39)
+## D-058 · Hydro-Québec's peaks, on the plan, the Home tab and in the sandbox (M39)
 
-M39, moved forward by the maintainer from the end of the way to 0.6.0 (D-056): it waits on nothing
-but its part in the sandbox (M29) and in the weekly report (M37), which come with them.
+M39, moved forward by the maintainer from the end of the way to 0.6.0 (D-056), right after the
+sandbox (M29, D-057), whose day it plays; its part in the weekly report (M37) comes with it.
 
 - **Context.** For a home on one of Hydro-Québec's offers with peak events (Flex D; the winter
   credit, kept by those who had it), each announced peak costs or earns: the home pre-heats before
@@ -2296,50 +2296,68 @@ but its part in the sandbox (M29) and in the weekly report (M37), which come wit
     timestamp sensors (`dpc_next_peak_start`, `dpc_next_peak_end`; for the winter credit, its
     announced peaks, `wc_next_critical_peak_start` and `_end`, its daily windows being
     `wc_next_peak_*`), in UTC, `unknown` without a peak and, for the winter credit, off season;
-    the pre-heating's start (`dpc_next_pre_heat_start`, off by default), 120 minutes before the
-    peak unless set. Since 0.7.0 they come from a calendar the user picks, where hydroqc writes
-    each announced peak (`🔴 Pointe critique`; its description says `Tarif:`, `Critique: Oui` and
-    `ID: hydroqc_…`); without an account (its open data mode) the calendar is all there is.
+    the pre-heating's start (`dpc_next_pre_heat_start`, off by default; `wc_next_pre_heat_start`,
+    its next window's), 120 minutes before the peak unless set; on/off sensors of the pre-heating
+    and the peak, the contract's state (`critical_peak` during one). Since 0.7.0 they come from a
+    calendar the user picks, where hydroqc writes each announced peak (`🔴 Pointe critique`; its
+    description says `Tarif:`, `Critique: Oui` and `ID: hydroqc_…`); without an account (its open
+    data mode) the calendar is all there is, with a *Refresh peak data* button hydroqc makes only
+    for Flex D or the winter credit with such a calendar.
   - **HydroPeak** (`hydropeak`), Hydro-Québec's open data, one device per offer: `event_start`,
-    `event_end` and `preheat_start` (180 minutes before, by default), with Hydro-Québec's offset;
-    every event is an announced peak.
+    `event_end` and `preheat_start` (180 minutes before, by default), with Hydro-Québec's offset,
+    and on/off sensors of the pre-heating and the peak; every event is an announced peak.
   - Both name their entities from their translations: the ids are in the home's language, and
     may be renamed. Their kind is in Home Assistant's entity registry as the frontend has it
     (`platform`, `translation_key`).
 - **Decision.**
   - **Where the peak is read**: hydroqc's sensors, HydroPeak's, and a calendar whose current or
     next event bears hydroqc's mark (its attributes say when, as a wall clock in Home Assistant's
-    time zone). Entities are found by their integration and kind, never by their id. With several
-    (two contracts, both integrations), the peak under way, else the soonest. Only announced peaks:
-    the winter credit's daily windows are not shown. The pre-heating where the integration says
-    it, else hydroqc's own 120 minutes, nothing else guessed.
+    time zone). Entities are found by their integration and kind, never by their id; hydroqc's
+    button says it reads the peaks while its calendar shows none. With several (two contracts,
+    both integrations), the peak under way, else the soonest. Only announced peaks: the winter
+    credit's daily windows are not shown. The pre-heating where the integration says it (the
+    winter credit's when it is its announced peak's; within twelve hours of the peak), else the
+    integration's own default (hydroqc's two hours, HydroPeak's three), nothing else guessed.
   - **Where it stands**: to come, pre-heating, under way, or none announced; worked out again
     when that changes, by a timer, since nothing in Home Assistant may change then.
   - **What the rooms do**, read from the thermostats of each room's area as the layers read
-    their sensors (D-023): a thermostat that says it heats (`hvac_action`), else whose target is
-    0.3 °C above the room, heats. While pre-heating, a room that heats pre-heats; during the peak
-    it still heats, and one whose heating is set back or off is shed; before and after, nothing.
-    What a room draws is what its area's power sensors read, the home's own meters (the energy
-    settings, D-049) left out, from 5 W. Seen, not set: whatever sheds the rooms (hydroqc's
+    their sensors (D-023): a thermostat heats when it says so (`hvac_action`), else when its
+    target is 0.3 °C above the room; it is set back when it is off or its target is 0.3 °C below
+    the room; otherwise it holds the room. While pre-heating, a room that heats pre-heats; during
+    the peak, a room set back is shed, one that heats still heats, one that holds the room is
+    neither; before and after, nothing. What a room draws is what its area's power sensors read,
+    the home's own meters (the energy settings, D-049) left out, from 5 W. An area shared by
+    several rooms counts once, for the first. Seen, not set: whatever sheds the rooms (hydroqc's
     blueprints, one's own automations), the plan shows what it did. Nothing of a private room the
-    viewer may not see (D-039).
+    viewer may not see (D-039), nor of its area, nor of what its pieces link.
   - **In 3D, a layer**: *Hydro-Québec peaks*, offered in the menu and the card's options only
     where an integration reads them. The rooms tinted as a heatmap is (the engine's `peak`:
     pre-heating amber, shed blue, still heating red, the ends of the temperature scale), what each
-    draws written at its centre (`draws`, labels of kind `draw`). Its legend says when (the peak
-    under way and until when; the pre-heating and the peak's hours; the next peak and its
-    pre-heating; or none announced), how many rooms do what, and what they draw.
+    draws written at its centre (`draws`, labels of kind `draw`), the rooms' names while nothing
+    is. Its legend says when (the peak under way and until when; the pre-heating and the peak's
+    hours; the next peak and its pre-heating; or none announced), how many rooms do what, and what
+    they draw.
   - **On the Home tab, a chip** while a peak is announced: the next one, the pre-heating, or the
-    peak under way (amber then). It opens when, each room with what it does and draws, and *See
-    it in 3D*, which opens the 3D tab on the layer.
+    peak under way (amber then). It opens when, each room with what it does and draws, *See it in
+    3D*, which opens the 3D tab on the layer, and, for an administrator before the peak, *Play its
+    day in the sandbox*.
+  - **In the sandbox (M29)**: the peak announced when the home is copied is played on its day.
+    Through it, the integrations' on/off sensors of the pre-heating and the peak go on and off,
+    hydroqc's contract says a critical peak, today's peaks are said from midnight and hydroqc's
+    calendar is on; their timestamps keep the copy's. So the home's automations set off by them
+    run on the copy, and the peak's layer shows what the rooms then do, at the sandbox's time.
+    *The day* says the announced peak and leads to its day; the day's line shows the pre-heating
+    and the peak; the report says what each room did, from the pre-heating to the peak's end, read
+    every five minutes. In the copy, whose rooms' temperatures and thermostats' `hvac_action` do
+    not move, a thermostat's target alone says what it does.
   - **Its cost**: only whether an integration is there is in the first load; the peak, the rooms
-    and the legend come in a chunk the first time the layer shows, and with the Home tab's, with
-    their texts in both languages.
+    and the legend come in a chunk the first time the layer shows, shared with the Home tab's
+    and the sandbox's, with their texts in both languages.
 - **Consequences.**
   - Nothing is stored and nothing is asked of Hydro-Québec: no setting, nothing in the
     integration; the peak comes from the states Home Assistant already sends.
   - The engine's layers read `peak` and `draws` (`setLayers`).
   - A home with neither integration sees nothing of it. A calendar that holds other events shows
     the peak only while it is its current or next one.
-  - Tomorrow's announced peak played in the sandbox comes with M29, and the week's peaks in the
-    weekly report with M37.
+  - A peak announced after the sandbox opened is played once it is opened again.
+  - The week's peaks in the weekly report come with M37.

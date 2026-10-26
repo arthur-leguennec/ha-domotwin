@@ -16,7 +16,12 @@ export interface Kinds {
   start: string;
   end: string;
   preheat?: string;
-  /** Pre-heating when its sensor is not there (minutes). */
+  /**
+   * The start the pre-heating sensor goes with, when it is not the peak's own: the pre-heating
+   * is this peak's only while that start is this peak's.
+   */
+  preheatFor?: string;
+  /** Pre-heating when its sensor says nothing (minutes): the integration's own default. */
   lead: number;
 }
 
@@ -36,6 +41,9 @@ export const SOURCES: readonly Kinds[] = [
     platform: "hydroqc",
     start: "wc_next_critical_peak_start",
     end: "wc_next_critical_peak_end",
+    // The winter credit's pre-heating is its next peak's, daily windows included.
+    preheat: "wc_next_pre_heat_start",
+    preheatFor: "wc_next_peak_start",
     lead: HYDROQC_PREHEAT,
   },
   {
@@ -48,6 +56,13 @@ export const SOURCES: readonly Kinds[] = [
   },
 ];
 
+/**
+ * hydroqc's *Refresh peak data* button, which it makes only for a contract on Flex D or the
+ * winter credit whose peaks it writes in a calendar: its peaks are read, even while none is
+ * announced and its calendar has no event to show.
+ */
+const HYDROQC_BUTTON = "hydroqc.button";
+
 /** The entities of the integrations, by `<platform>.<kind>`, found once per entity registry. */
 const found = new WeakMap<object, Map<string, string[]>>();
 
@@ -58,9 +73,12 @@ export function entitiesOf(hass: HomeAssistant): Map<string, string[]> {
   byKind = new Map();
   for (const entry of Object.values(registry)) {
     if (entry?.platform !== "hydroqc" && entry?.platform !== "hydropeak") continue;
-    if (!entry.translation_key) continue;
-    const key = `${entry.platform}.${entry.translation_key}`;
-    byKind.set(key, [...(byKind.get(key) ?? []), entry.entity_id]);
+    const kind = entry.translation_key
+      ? `${entry.platform}.${entry.translation_key}`
+      : entry.platform === "hydroqc" && entry.entity_id.startsWith("button.")
+        ? HYDROQC_BUTTON
+        : undefined;
+    if (kind) byKind.set(kind, [...(byKind.get(kind) ?? []), entry.entity_id]);
   }
   found.set(registry, byKind);
   return byKind;
@@ -94,14 +112,16 @@ export function peakCalendars(hass: HomeAssistant): string[] {
 }
 
 /**
- * Whether an integration reads Hydro-Québec's peaks here: the peak's layer and its chip are
- * offered only then.
+ * Whether an integration reads Hydro-Québec's peaks here: its sensors, hydroqc's button for the
+ * peaks it writes in a calendar, or such a calendar's event. The peak's layer is offered only
+ * then.
  */
 export function peaksAvailable(hass: HomeAssistant | undefined): boolean {
   if (!hass) return false;
   const byKind = entitiesOf(hass);
   return (
     SOURCES.some((kinds) => byKind.has(`${kinds.platform}.${kinds.start}`)) ||
+    byKind.has(HYDROQC_BUTTON) ||
     peakCalendars(hass).length > 0
   );
 }

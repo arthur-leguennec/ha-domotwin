@@ -118,7 +118,8 @@ every reader returns `Result` with a stable error code that the frontend transla
    value changes; the floors' shader draws them from a texture of rooms. Hydro-Québec's peak
    (D-058) is read from the entities of the integrations that read it, found by their kind
    (`src/live/peak-sources.ts`, `peaks.ts`); what each room's heating does then, and what the room
-   draws, go with the layers (`peak`, `draws`).
+   draws, go with the layers (`peak`, `draws`). The sandbox plays the announced peak's day on its
+   copy (`src/sandbox/peak-day.ts`) and reports what each room did (`peak-report.ts`).
 3. **Interaction.** Pointer events go to the engine (`pick`) which returns the element under the
    pointer. The frontend runs the binding's action: toggle through `callService`, more-info through
    the `hass-more-info` event, navigation, or the long-press popover.

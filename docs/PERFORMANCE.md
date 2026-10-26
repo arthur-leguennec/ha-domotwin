@@ -925,16 +925,20 @@ and gives the panel one new `hass` each time, as Home Assistant would.
 
 ### M39 (Hydro-Québec's peaks)
 
-Bundle: the first load is **516.9 kB gzipped** of 1 200 kB (+1.4 kB): whether an integration reads
+Bundle: the first load is **518.4 kB gzipped** of 1 200 kB (+2.0 kB): whether an integration reads
 the peaks (`peak-sources.ts`, 0.6 kB gzipped), the layer's place in the view, its styles and its
-name. The peak, the rooms and the legend come on demand, the first time the layer shows
-(`chunks/peak-layer-<hash>.js`, 0.7 kB gzipped, and 2.1 kB shared with the Home tab), with their
-texts in both languages; the Home tab's chunk grows by its chip (12.2 kB gzipped, +0.9 kB). The
-engine's wasm stays the same size with the peak's tints (380.3 kB gzipped).
+name, and a few modules the sandbox now shares with the view, split into chunks of their own. The
+peak, the rooms and the legend come on demand: `chunks/peak-layer-<hash>.js` (0.7 kB gzipped) the
+first time the layer shows, and 2.3 kB shared with the Home tab's and the sandbox's chunks, with
+their texts in both languages. The Home tab's chunk grows by its chip (12.4 kB gzipped, +1.1 kB),
+the sandbox's by the peak's day and report (33.5 kB gzipped, +2.0 kB). The engine's wasm stays
+the same size with the peak's tints (380.3 kB gzipped).
 
 The integrations' entities are found once per entity registry, their peaks once per update of the
-states; a home with neither does no more than look them up. The rooms' roles and draws are worked
-out with the layers, only while the peak's layer is shown, and sent to the engine only when they
-change; a timer works them out again when the peak's phase changes. Tinted, the rooms are drawn
-like a heatmap: at the layers' pace (24 frames a second), still under *reduce motion*; what they
-draw alone is written, not drawn, and needs no frame.
+states, only where the peak is asked for (its layer shown, the Home tab open). The rooms' roles and
+draws are worked out with the layers, only while the peak's layer is shown, and sent to the engine
+only when they change; a timer works them out again when the peak's phase changes. Tinted, the
+rooms are drawn like a heatmap: at the layers' pace (24 frames a second), still under *reduce
+motion*; what they draw alone is written, not drawn, and needs no frame. In the sandbox, the
+peak's day adds a few changes to the day played, and what each room did is read every five minutes
+from the pre-heating to the peak's end when the report opens, once for each day played.

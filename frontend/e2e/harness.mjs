@@ -39,7 +39,7 @@
 //   path=<path after /domotwin> (the address opened, with route=1), cards=1 (Home Assistant's
 //   card helpers, made up: a card says its type and entity), lists=1 (a calendar and a to-do
 //   list), firstpage=device|user (how Home Assistant keeps the page it opens first)
-//   sandbox=1 (D-058: Home Assistant's time zone and a fictional place; with automations=1, two
+//   sandbox=1 (D-057: Home Assistant's time zone and a fictional place; with automations=1, two
 //   automations working against each other, one set off from outside, and a script)
 import { applyService, demoHome } from "./demo-home.mjs";
 
@@ -454,7 +454,7 @@ window.__show = (request) => {
   for (const listener of listeners) listener({ kind: "show", show: request });
 };
 
-/** For the sandbox (D-058): automations working against each other, and one set off by MQTT. */
+/** For the sandbox (D-057): automations working against each other, and one set off by MQTT. */
 const SANDBOX_AUTOMATIONS = {
   "automation.away_lamp_off": {
     id: "1101",
@@ -1061,7 +1061,11 @@ if (peakSource) {
       timestamp,
       entry("preheat_start"),
     );
-  } else if (peakSource === "calendar" && start !== undefined) {
+  } else if (peakSource === "calendar") {
+    // hydroqc's button, which it makes for the peaks it writes in a calendar.
+    add("button.hydro_quebec_maison_refresh_peak_data", "unknown", {}, { platform: "hydroqc" });
+  }
+  if (peakSource === "calendar" && start !== undefined) {
     // A calendar's event, as its attributes say it: a wall clock where Home Assistant is.
     const wall = (time) => {
       const d = new Date(time);

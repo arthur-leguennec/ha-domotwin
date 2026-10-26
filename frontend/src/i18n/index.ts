@@ -27,7 +27,7 @@ type Leaves<T, Leaf, Prefix extends string = ""> = {
       : Leaves<T[K], Leaf, `${Prefix}${K}.`>;
 }[keyof T & string];
 
-/** Every message: the dictionaries', and those added by a chunk when it loads (D-055, D-058). */
+/** Every message: the dictionaries', and those chunks add as they load (D-055, D-057, D-058). */
 type AllMessages = typeof en & typeof practicalEn & typeof sandboxEn & typeof peakEn;
 /** Keys of plain messages, e.g. `view.loading`. */
 export type MessageKey = Leaves<AllMessages, string>;

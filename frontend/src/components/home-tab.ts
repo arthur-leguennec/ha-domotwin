@@ -171,9 +171,12 @@ export class DomoTwinHome extends LitElement {
   private readGlance(hass: HomeAssistant, sources: GlanceSources): void {
     clearTimeout(this.peakTimer);
     this.glance = glanceOf(hass, sources);
-    const next = this.glance.peak?.now.next;
+    // Its chip gone with the peak, its details go too.
+    const now = this.glance.peak?.now;
+    if (this.open === "peak" && (!now?.peak || now.phase === "none")) this.open = undefined;
+    const next = now?.next;
     if (next === undefined) return;
-    // At most a few hours ahead: a timer that long would be cut short anyway.
+    // Looked at again in six hours at most, should the clock have been changed meanwhile.
     const wait = Math.min(Math.max(next - nowOf(hass), 0) + 500, 6 * 3_600_000);
     this.peakTimer = setTimeout(() => {
       if (this.hass && this.sources) this.readGlance(this.hass, this.sources);
@@ -308,6 +311,22 @@ export class DomoTwinHome extends LitElement {
                 </li>`;
               })}
             </ul>`
+          : nothing
+      }
+      ${
+        // An administrator plays the day of a peak to come in the sandbox (D-058).
+        hass.user?.is_admin === true && hass.demo !== true && peak.now.phase !== "peak"
+          ? html`<button
+              class="action"
+              data-testid="home-peak-sandbox"
+              @click=${() => {
+                this.dispatchEvent(
+                  new CustomEvent("domotwin-sandbox-peak", { bubbles: true, composed: true }),
+                );
+              }}
+            >
+              ${t.t("home.peak_sandbox")}
+            </button>`
           : nothing
       }
       ${

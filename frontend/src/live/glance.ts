@@ -188,7 +188,10 @@ export function glanceOf(hass: HomeAssistant, sources: GlanceSources): Glance {
   if (weather) glance.weather = weather;
   const now = peakNow(hass);
   if (now) {
-    const rooms = peakRooms(hass, bindings, sources.rooms, now.phase, closed, sources.meters);
+    const rooms = peakRooms(hass, bindings, sources.rooms, now.phase, closed, sources.meters, {
+      areas,
+      ...(closedEntities ? { entities: closedEntities } : {}),
+    });
     glance.peak = { now, rooms };
   }
   return glance;
