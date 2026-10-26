@@ -34,9 +34,11 @@ from homeassistant.setup import async_setup_component
 from homeassistant.util import dt as dt_util
 
 
-def local(*args: int) -> datetime:
+def local(
+    year: int, month: int, day: int, hour: int = 0, minute: int = 0, second: int = 0
+) -> datetime:
     """A moment where the home is."""
-    return datetime(*args, tzinfo=dt_util.get_default_time_zone())
+    return datetime(year, month, day, hour, minute, second, tzinfo=dt_util.get_default_time_zone())
 
 
 @pytest.fixture
