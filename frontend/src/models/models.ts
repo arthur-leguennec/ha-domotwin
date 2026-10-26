@@ -77,12 +77,12 @@ async function decodePicture(
     const scale = Math.min(1, PICTURE_SIDE / Math.max(bitmap.width, bitmap.height));
     const width = Math.max(1, Math.round(bitmap.width * scale));
     const height = Math.max(1, Math.round(bitmap.height * scale));
-    const canvas =
+    // Each kind of canvas asked on its own: its context's type is then known, whatever else
+    // the type checker reads with this file.
+    const context: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null =
       typeof OffscreenCanvas === "undefined"
-        ? Object.assign(document.createElement("canvas"), { width, height })
-        : new OffscreenCanvas(width, height);
-    const context = canvas.getContext("2d") as
-      CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null;
+        ? Object.assign(document.createElement("canvas"), { width, height }).getContext("2d")
+        : new OffscreenCanvas(width, height).getContext("2d");
     if (!context) return undefined;
     context.drawImage(bitmap, 0, 0, width, height);
     bitmap.close();
