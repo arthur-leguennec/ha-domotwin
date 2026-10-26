@@ -45,6 +45,7 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M23       | The practical home: Home, Rooms and 3D, favourites         | ✅     |
 | 0.4.0     | Fourth release: the practical home, devices measured       | ✅     |
 | M29       | Sandbox: the home's automations played on a copy of it     | ✅     |
+| M38       | History as reports: tables, CSV, search by value           | ✅     |
 | M30       | The Wi-Fi QR code, for guests                              | ⏳     |
 | M23b      | Into Home Assistant's Overview, rather than a copy of it   | ⏳     |
 | M24       | History and energy, with Home Assistant's own cards        | ⏳     |
@@ -61,7 +62,6 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M17       | A library of objects: many pieces, free and well made      | ⏳     |
 | M36       | Configuration history: differences, one item put back      | ⏳     |
 | M37       | A weekly home report                                       | ⏳     |
-| M38       | History as reports: tables, CSV, search by value           | ⏳     |
 | M18       | Outdoors: garden, terrace, lawn, pool, roofs               | ⏳     |
 | M39       | Hydro-Québec's peaks, from the integrations that read them | ⏳     |
 | M21       | More languages, right to left too                          | ⏳     |
@@ -92,7 +92,8 @@ QR code (M30) and a placement advisor for radios (M31) before a first launch in 
 (M33), rights (M34), automations in plain words (M35), a configuration history (M36), a weekly
 report (M37), history as reports (M38) and Hydro-Québec's peaks (M39) follow, among a library of
 objects (M17), the outdoors (M18), more imports (M20) and more languages (M21), before a sixth
-release, 0.6.0.
+release, 0.6.0. After the sandbox, the maintainer asked for history as reports (M38, D-058) before
+the rest, which keeps its order.
 
 ## M0, scaffold
 
@@ -1102,6 +1103,47 @@ the page: nothing reaches a device (D-057).
   through by keyboard, a tap kept and forgotten, the report, back to the home with nothing
   written, for administrators only, in French (Playwright).
 
+## M38, history as reports
+
+Home Assistant records what every device did; its History draws graphs and its Logbook lists the
+changes, but neither says when the bedroom was above 24 °C for more than an hour, nor searches the
+logbook by value. Asked for by the maintainer right after the sandbox, ahead of the rest
+(D-058).
+
+- ✅ **History**, in a device's controls (a long press: its entities) and in a room's panel (its
+  air sensors, temperature first); entities added by a search (eight at most, nothing of a
+  private room the viewer may not see) and taken away.
+- ✅ **The period**: the last 24 hours, 7 days, 30 days or year, or two dates and times where the
+  home is; changes and the logbook read 31 days at most, and a note when the period goes further
+  back than the 10 days Home Assistant keeps each change by default.
+- ✅ **Each change** (Home Assistant's history, the states alone, with how long each lasted),
+  **each hour** (its statistics: mean, lowest, highest, a meter's change; worked out from 31 days
+  of history at most for an entity without them: a mean weighted by time, or the state held
+  longest), and **the logbook** with what caused each change (an automation, a person, an
+  action), searched by every word, accents and case aside.
+- ✅ **Filters**: above, below, equal to or not equal to a value, of one entity or all of them, for
+  at least some minutes or hours. Rows in a row that match make one period, with its lowest and
+  highest: "the bedroom above 24 °C for more than an hour" is one setting.
+- ✅ **CSV**: every row kept, oldest first, columns that stay the same in every language, times in
+  UTC, formulas kept from running; downloaded as Home Assistant's History does, or copied (by hand
+  where the clipboard is refused). Home Assistant's own History or Logbook on the same entities
+  and period, a tap away.
+- ✅ Read only, for every user, from Home Assistant's own commands (checked in 2025.1); nothing in
+  the integration, nothing kept. States as Home Assistant shows them (`formatEntityState`).
+- ✅ **The demo house** answers from its day: its history ten days back, its logbook with the
+  automations that made each change, no statistics. Not in the sandbox, whose day has its own
+  report (D-057).
+- ✅ Tests: periods and dates where the home is across a change of time, the answers read (the
+  history's compressed states, the statistics, the logbook and its causes), rows for each change
+  and each hour, filters by value and by how long and the periods they make, the search, the CSV
+  and its formulas, a room's sensors, the demo's history and logbook, the texts in both languages
+  (vitest); a device's changes, a filter, its hours and its logbook, the bedroom above 24 °C for
+  more than an hour as CSV and copied by hand, entities added and taken away with a private room
+  left out and one that turns private while open, the period's limits and a refusal in French,
+  the notes on what is kept, the demo house (Playwright).
+- Left for later: a report opened from the panel's menu or the Rooms tab, reports kept to open
+  again, and rows for each day, week or month (Home Assistant's statistics have them).
+
 ## Then, from 0.4.0 to 0.5.0
 
 Planned in D-056: the sandbox first, built during the two weeks of use since it does not wait on
@@ -1201,11 +1243,8 @@ milestone starts, which goes on with what needs no answer.
   Notes, Watchman, Spook) rather than doing their work again. A summary by the user's own
   conversation agent or AI task if there is one, plain lists otherwise; a notification of Home
   Assistant's and a page in the panel.
-- ⏳ **M38, history as reports**: Home Assistant's history as tables: chosen entities over a
-  period, a row per change or per hour, filtered by value or by how long ("the bedroom above
-  24 °C for more than an hour"), exported as CSV; the logbook searched by value. Read only, from
-  the recorder through Home Assistant's own history, statistics and logbook commands; opened from
-  a device on the plan.
+- ✅ **M38, history as reports** (D-058, above): done right after the sandbox, at the
+  maintainer's request.
 - ⏳ **M18, outdoors**: the garden, the terrace, the lawn, a pool, the roofs; the lawn growing
   between two mowings.
 - ⏳ **M39, Hydro-Québec's peaks** (optional): for a home on one of Hydro-Québec's offers with
