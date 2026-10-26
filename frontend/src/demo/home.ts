@@ -22,7 +22,8 @@ import type { PeopleSettings } from "../live/people";
 import type { Choices } from "../live/choices";
 import { MAX_SCHEDULE_ENTITIES, schedulable, type Schedule } from "../live/schedules";
 import type { Upkeep } from "../live/upkeep";
-import { demoConnection } from "./connection";
+import { demoConnection, type MemoryHome } from "./connection";
+import { demoHistory, demoLogbook } from "./history";
 import {
   DAY,
   at,
@@ -122,8 +123,33 @@ function dateOf(date: Date): string {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
+/** Home Assistant's energy settings in the demo house, naming its power sensors. */
+const ENERGY_PREFS = {
+  energy_sources: [
+    {
+      type: "solar",
+      stat_energy_from: "sensor.solar_energy",
+      stat_rate: "sensor.solar_power",
+    },
+    {
+      type: "grid",
+      flow_from: [],
+      flow_to: [],
+      power: [{ stat_rate: "sensor.grid_power" }],
+    },
+    {
+      type: "battery",
+      stat_energy_from: "sensor.battery_out",
+      stat_energy_to: "sensor.battery_in",
+      stat_rate: "sensor.battery_power",
+    },
+  ],
+  device_consumption: [],
+};
+
 /** The demo house, its day and its Home Assistant. */
-export class DemoHome {
+export class DemoHome implements MemoryHome {
+  readonly kind = "demo";
   /** The `hass` to give the panel or the card: a new object at each change. */
   hass: HomeAssistant;
   /** The minute of the demo's day, and how many days it has gone round. */
@@ -285,6 +311,33 @@ export class DemoHome {
   /** The area an entity is in. */
   area(id: string): string | undefined {
     return this.areaOf.get(id);
+  }
+
+  automationIds(): string[] {
+    return AUTOMATIONS.map((a) => a.id);
+  }
+
+  automationConfig(id: string): Record<string, unknown> | undefined {
+    return AUTOMATIONS.find((a) => a.id === id)?.config;
+  }
+
+  energyPrefs(): unknown {
+    return ENERGY_PREFS;
+  }
+
+  /** Its day as Home Assistant's history (D-058), up to the demo's clock. */
+  history(entities: readonly string[], start: number, end: number): unknown {
+    return demoHistory(entities, start, end, Date.parse(this.time()), (id) => {
+      return this.hass.states[id]?.state;
+    });
+  }
+
+  /** Its day's changes as Home Assistant's logbook, with the automations that made them. */
+  logbook(entities: readonly string[], start: number, end: number): unknown {
+    return demoLogbook(entities, start, end, Date.parse(this.time()), (id) => {
+      const name = this.hass.states[id]?.attributes.friendly_name;
+      return typeof name === "string" ? name : id;
+    });
   }
 
   /** Follows the `hass` objects to come. */

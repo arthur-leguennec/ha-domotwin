@@ -22,10 +22,11 @@ Local, fast, Rust + WebAssembly.</p>
 > their rooms, Bluetooth locating, voice, the polish (font, keyboard, screen readers), a pass over
 > size and speed, phones, actions done later, taps that say what they do, pieces that look made,
 > robot vacuums, the home's energy, the demo house, measuring a device's speed and the practical
-> home (the Home, Rooms and 3D tabs) work today, and make up version 0.4.0; the radio coverage,
-> where the next radio helps most, came since. A sandbox for the home's automations comes next,
-> then Home Assistant's own Overview joined rather than copied, towards version 0.5.0; the
-> submission to HACS's default list waits on measurements on real devices.
+> home (the Home, Rooms and 3D tabs) work today, and make up version 0.4.0. Since then, the
+> sandbox plays a day of the home's automations on a copy of it, and the radio coverage says where
+> the next radio helps most. The Wi-Fi QR code for guests comes next, then Home Assistant's own
+> Overview joined rather than copied, towards version 0.5.0; the submission to HACS's default list
+> waits on measurements on real devices.
 
 ## Features
 
@@ -77,6 +78,12 @@ Local, fast, Rust + WebAssembly.</p>
   link named, with *a router here would help*. Tap a device or a link for the details, rescan,
   and place the devices the map cannot find. For administrators, with ZHA. See [the network
   map](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/network.md).
+- **A sandbox for your automations.** Pick a day, its weather and who goes out and comes back
+  when, and watch your own automations, scripts and scenes play it on a copy of your home, in 3D
+  and on a timeline, an hour a second if you like. A report says what each one did and when, what
+  never ran and why, which ones work against each other, and what could not be played. Nothing
+  in the sandbox reaches a device. See [the
+  sandbox](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/sandbox.md).
 - **Automation wires.** Long-press a lamp: its panel lists the automations that involve it, with
   their switch and when they last ran. Show their wires, from what sets them off to what they act
   on, and watch a pulse run along them when one runs. Or every automation of the home at once.
@@ -130,6 +137,11 @@ Local, fast, Rust + WebAssembly.</p>
   automation (`domotwin.schedule`) or a voice assistant, DomoTwin does it on time, even across a
   restart, and shows a clock over the lamp meanwhile. See [actions done
   later](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/later.md).
+- **History as reports.** "When was the bedroom above 24 °C for more than an hour?" Long-press a
+  device or a room for its **History**: Home Assistant's history as a table, a row for each change
+  or each hour, filtered by value and by how long, or its logbook searched by value; as CSV. Read
+  only, from Home Assistant's own history, statistics and logbook. See [history as
+  reports](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/history.md).
 - **Your voice.** A microphone button opens Home Assistant's Assist already listening, on a wall
   tablet as on a phone. When Assist cannot hear yet, DomoTwin sets up local voice with your
   consent: Whisper or Speech-to-Phrase and Piper, installed through the Supervisor, nothing

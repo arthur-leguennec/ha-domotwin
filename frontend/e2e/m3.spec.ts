@@ -147,6 +147,8 @@ test.describe("M3: edit mode", () => {
   });
 
   test("marks the selection and the pieces in conflict", async ({ page }) => {
+    // The panel's light follows the clock: the picture is of the day's.
+    await page.clock.setSystemTime(new Date("2026-10-24T10:00:00"));
     await editing(page);
     await select(page, "armchair");
     // Onto the coffee table: both turn red.

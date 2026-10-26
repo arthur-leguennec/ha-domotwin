@@ -1,7 +1,9 @@
 import { en } from "./en";
 import { fr } from "./fr";
+import type { historyEn } from "./history";
 import type { placementEn } from "./placement";
 import type { practicalEn } from "./practical";
+import type { sandboxEn } from "./sandbox";
 
 /** A plural message: Intl.PluralRules picks the form. */
 export interface Plural {
@@ -26,8 +28,15 @@ type Leaves<T, Leaf, Prefix extends string = ""> = {
       : Leaves<T[K], Leaf, `${Prefix}${K}.`>;
 }[keyof T & string];
 
-/** Every message: the dictionaries', and those added by a chunk when it loads (D-055, D-059). */
-type AllMessages = typeof en & typeof practicalEn & typeof placementEn;
+/**
+ * Every message: the dictionaries', and those added by a chunk when it loads (D-055, D-058, D-059;
+ * the sandbox's, D-057).
+ */
+type AllMessages = typeof en &
+  typeof practicalEn &
+  typeof sandboxEn &
+  typeof historyEn &
+  typeof placementEn;
 /** Keys of plain messages, e.g. `view.loading`. */
 export type MessageKey = Leaves<AllMessages, string>;
 /** Keys of plural messages, e.g. `view.rooms`. */
@@ -39,7 +48,8 @@ export type KindName = keyof (typeof en)["kinds"];
 export type Language = "en" | "fr";
 
 const dictionaries: Record<Language, Dictionary> = { en, fr };
-/** The messages of chunks loaded since (the Home and Rooms tabs', D-055), by language. */
+/** The messages of chunks loaded since (the Home and Rooms tabs', D-055; the reports', D-058),
+ * by language. */
 const added: Record<Language, unknown[]> = { en: [], fr: [] };
 
 /** Adds a chunk's messages, in every language. */

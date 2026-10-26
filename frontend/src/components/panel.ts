@@ -13,6 +13,7 @@ import {
   mdiMicrophoneMessage,
   mdiPencilOutline,
   mdiSpeedometer,
+  mdiTestTube,
   mdiStairs,
   mdiTrayArrowDown,
   mdiTrayArrowUp,
@@ -50,6 +51,7 @@ import {
 } from "../ha/client";
 import { isHassError, type HomeAssistant } from "../ha/types";
 import type { DemoHome } from "../demo/home";
+import type { SandboxHome } from "../sandbox/home";
 import {
   MAX_ENTITIES,
   NO_BINDINGS,
@@ -81,7 +83,7 @@ import {
   storeyName,
   type StoreyRooms,
 } from "../live/storeys";
-import { closedAreas, closedEntities, privateRooms, type Unseen } from "../live/privacy";
+import { privateRooms, unseenOf, type Unseen } from "../live/privacy";
 import {
   NO_CHOICES,
   canDraw3d,
@@ -111,6 +113,7 @@ import type { ModelFormat, ModelInfo } from "../models/models";
 import { pickLanguage, translatorFor, type Translator } from "../i18n";
 import { documentFonts } from "../fonts";
 import { icon } from "./icon";
+import { saveText } from "./save";
 import { DemoSwitch } from "./demo-switch";
 import type { MeasureHost } from "./measure";
 import { DialogFocus } from "./dialog";
@@ -247,15 +250,7 @@ function fileName(title: string): string {
 
 /** Saves `value` as a JSON file named `name` (the browser's download). */
 function download(name: string, value: unknown): void {
-  const blob = new Blob([`${JSON.stringify(value, null, 2)}\n`], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = name;
-  link.click();
-  setTimeout(() => {
-    URL.revokeObjectURL(url);
-  }, 1000);
+  saveText(name, `${JSON.stringify(value, null, 2)}\n`, "application/json");
 }
 
 /** The panel's dialogs and sheets, which the focus goes into and comes back from (D-042). */
@@ -1015,8 +1010,8 @@ export class DomoTwinPanel extends LitElement {
 
   set hass(hass: HomeAssistant | undefined) {
     this.demoSwitch.realHass = hass;
-    // The demo house keeps its own Home Assistant.
-    if (this.demo) return;
+    // A home kept in the page (the demo house, the sandbox) has its own Home Assistant.
+    if (this.demoSwitch.home) return;
     const first = !this._hass && hass;
     const old = this._hass;
     this._hass = hass;
@@ -1077,7 +1072,14 @@ export class DomoTwinPanel extends LitElement {
 
   /** The demo house shown, if one is (D-050). */
   private get demo(): DemoHome | undefined {
-    return this.demoSwitch.home;
+    const home = this.demoSwitch.home;
+    return home?.kind === "demo" ? home : undefined;
+  }
+
+  /** The sandbox shown, if one is (D-057). */
+  private get sandbox(): SandboxHome | undefined {
+    const home = this.demoSwitch.home;
+    return home?.kind === "sandbox" ? home : undefined;
   }
 
   /**
@@ -1094,11 +1096,40 @@ export class DomoTwinPanel extends LitElement {
     await this.demoSwitch.start(() => this.switchable());
   };
 
-  /** Back to the home from the demo house: what runs on it ends, nothing of it saved there. */
+  /**
+   * Shows the sandbox (D-057): the home copied, its automations, scripts and scenes read (Home
+   * Assistant gives them to administrators), its day played on the copy.
+   */
+  private readonly enterSandbox = async (): Promise<void> => {
+    this.moreOpen = false;
+    const real = this.demoSwitch.realHass ?? this._hass;
+    if (!real || !this.switchable()) return;
+    const t = this.t;
+    this.show(t.t("sandbox.reading"));
+    try {
+      await this.demoSwitch.show(
+        () => this.switchable(),
+        async () => {
+          const { SandboxHome, copyHome } = await import("../sandbox/sandbox-bar");
+          return new SandboxHome(await copyHome(real), {
+            language: real.locale?.language ?? real.language,
+            ...(real.user ? { user: real.user } : {}),
+            darkMode: real.themes?.darkMode === true,
+          });
+        },
+      );
+      // The sandbox's day is watched on the 3D view.
+      if (this.sandbox && this.tab !== "3d") this.go("3d");
+    } catch (error) {
+      this.show(t.t("sandbox.failed", { reason: this.describe(error) }), true);
+    }
+  };
+
+  /** Back to the home from the demo house or the sandbox: what runs on it ends, nothing saved. */
   private readonly leaveDemo = (): void => {
     this.moreOpen = false;
     // An import running on the demo house finishes there first.
-    if (!this.demo || this.busy) return;
+    if (!this.demoSwitch.home || this.busy) return;
     if (this.editing) this.discardEdit();
     if (this.planning) this.discardPlan();
     this.cancelIfc();
@@ -1473,7 +1504,7 @@ export class DomoTwinPanel extends LitElement {
       }
       this.plan = stored.plan;
       // The first picture measured is of a plan there as the panel opened (D-053).
-      if (!this.demo) this.firstPlan ??= stored.plan !== null;
+      if (!this.demoSwitch.home) this.firstPlan ??= stored.plan !== null;
       this.layout = stored.layout;
       this.storeys = stored.storeys;
       this.storey = stored.storey ?? undefined;
@@ -1780,9 +1811,9 @@ export class DomoTwinPanel extends LitElement {
     return this.draftKey(this.storey ?? "");
   }
 
-  /** The drafts of the demo house (D-050) are its own, never the home's. */
+  /** The drafts of a home kept in the page (D-050, D-057) are its own, never the home's. */
   private draftKey(storey: string): string {
-    return this.demo ? `demo/${storey}` : storey;
+    return this.demoSwitch.home ? `demo/${storey}` : storey;
   }
 
   /** The ids every storey but `except` uses. */
@@ -2685,14 +2716,13 @@ export class DomoTwinPanel extends LitElement {
     if (shown && from.every((value, i) => value === shown.from[i])) return shown;
     const rooms = [...planRooms(this.plan), ...this.elsewhere.flatMap((storey) => storey.rooms)];
     const bindings = this.bindings ?? NO_BINDINGS;
-    const unseen: Unseen = {
-      areas: closedAreas(hass, bindings, rooms, closed),
-      entities: closedEntities(
-        bindings,
-        [{ plan: this.plan, layout: this.layout }, ...this.elsewhere],
-        closed,
-      ),
-    };
+    const unseen = unseenOf(
+      hass,
+      bindings,
+      rooms,
+      [{ plan: this.plan, layout: this.layout }, ...this.elsewhere],
+      closed,
+    );
     const sources: GlanceSources = {
       rooms,
       bindings,
@@ -2789,7 +2819,13 @@ export class DomoTwinPanel extends LitElement {
               ?held=${this.busy}
               @domotwin-demo-leave=${this.leaveDemo}
             ></domotwin-demo-bar>`
-          : nothing
+          : this.sandbox
+            ? html`<domotwin-sandbox-bar
+                .home=${this.sandbox}
+                ?held=${this.busy}
+                @domotwin-sandbox-leave=${this.leaveDemo}
+              ></domotwin-sandbox-bar>`
+            : nothing
       }
       <div class="main">
         ${tabs && !this.tight ? this.renderTabs("side") : nothing}
@@ -3180,12 +3216,21 @@ export class DomoTwinPanel extends LitElement {
               )}
               ${item("privacy-settings", mdiLockOutline, t.t("privacy.title"), this.busy, this.openPrivacy)}
               ${item("voice-settings", mdiMicrophoneMessage, t.t("voice.settings"), this.busy, this.openVoice)}
-              ${item("measure", mdiSpeedometer, t.t("measure.menu"), this.busy || this.measureOpen, this.openMeasure)}
+              ${item("measure", mdiSpeedometer, t.t("measure.menu"), this.busy || this.measureOpen || this.sandbox !== undefined, this.openMeasure)}
               <hr />
               ${
                 this.demo
                   ? item("demo-leave-menu", mdiClose, t.t("demo.leave"), this.busy, this.leaveDemo)
-                  : item("demo-menu", mdiFlaskOutline, t.t("demo.menu"), this.busy, this.enterDemo)
+                  : this.sandbox
+                    ? item(
+                        "sandbox-leave-menu",
+                        mdiClose,
+                        t.t("sandbox.leave"),
+                        this.busy,
+                        this.leaveDemo,
+                      )
+                    : html`${item("demo-menu", mdiFlaskOutline, t.t("demo.menu"), this.busy, this.enterDemo)}
+                      ${item("sandbox-menu", mdiTestTube, t.t("sandbox.menu"), this.busy, this.enterSandbox)}`
               }
             </div>`
           : nothing
