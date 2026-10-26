@@ -143,9 +143,9 @@ const round = (value: number, digits: number): string => {
   return String(Math.round(value * k) / k);
 };
 
-/** A cell: no pipe nor line break of its own. */
+/** A cell: its backslashes and pipes escaped, no line break of its own. */
 function cell(text: string): string {
-  return text.replace(/\|/g, "\\|").replace(/\s+/g, " ").trim() || MISSING;
+  return text.replace(/\\/g, "\\\\").replace(/\|/g, "\\|").replace(/\s+/g, " ").trim() || MISSING;
 }
 
 function speed(stats: FrameStats): string {

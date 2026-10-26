@@ -149,9 +149,9 @@ describe("markdownRows", () => {
     const base = report();
     const row = markdownRows({
       ...base,
-      device: { ...base.device, renderer: "A | B\nC" },
+      device: { ...base.device, renderer: "A\\ | B\nC" },
     });
-    expect(row).toContain("| A \\| B C |");
+    expect(row).toContain("| A\\\\ \\| B C |");
   });
 
   it("has no frames a second without frames", () => {
