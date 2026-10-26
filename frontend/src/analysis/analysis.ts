@@ -37,7 +37,8 @@ export async function wifiQrCode(
   hidden: boolean,
 ): Promise<QrCode | undefined> {
   const wasm = await loadAnalysisWasm();
-  const read = JSON.parse(wasm.wifiQr(name, password, security, hidden)) as {
+  // The network as one JSON object, as the module reads it.
+  const read = JSON.parse(wasm.wifiQr(JSON.stringify({ name, password, security, hidden }))) as {
     size?: number;
     modules?: string;
   };
