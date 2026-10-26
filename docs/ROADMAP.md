@@ -38,6 +38,7 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M14       | Actions done later: sheet, automations, voice              | ✅     |
 | M16       | Taps that say what they do: bubbles, plain actions, rooms  | ✅     |
 | M15       | Pieces that look made, and a neon of its own               | ✅     |
+| M16b      | Robot vacuums on the floor, the home's energy at a glance  | ✅     |
 
 M5 to M11 were added after M3b (`DECISIONS.md`, D-022): what people expect of a 3D home dashboard,
 with no account and no network call outside Home Assistant. M8 became the looks alone, and the
@@ -894,3 +895,24 @@ Better plants and furniture at no cost in speed, and a neon look of DomoTwin's o
 - ✅ Tests: the soft box closed and facing out, the leaf's two faces and pointed ends, the new neon
   (cargo); the accent of each look, chosen, saved and back to the look's own (Playwright); the
   screenshots of the looks made again.
+
+## M16b, robot vacuums and energy
+
+The first half of the demo house: what it shows, built for every home (D-049):
+
+- ✅ **A robot vacuum on the plan**: a dock to place (`robot-vacuum`), linked to its vacuum; the
+  robot leaves it to clean, sweeps the rooms its dock leads to one by one in lanes, goes home and
+  stops where it is when paused, at a real robot's pace, drawn at the layers' pace.
+- ✅ **The home's energy**: the sensors of the sun, the grid and the battery chosen in the
+  settings, the likeliest first; shown with the power layer as the power flowing between them and
+  the home.
+- ✅ Tests: the lanes and the rooms a robot gets to, a room shaped like a U and a wall jutting in
+  swept part by part clear of the walls, cleaning room by room without a room twice, going home
+  and turning on the dock, the rooms asked, reduce motion and back, new floors (a room closed,
+  another storey shown, no way home), a dock moved to another storey, a vacuum's states, the
+  robot's shape (cargo); the robot drawn, at rest under reduce motion and sent home, without a
+  dock (wasm); the docks told from the links and the robots from the states, the energy read,
+  its flows and the sensors offered, a sign kept only with its sensor (vitest); the energy
+  settings checked (pytest); a robot cleaning at the layers' pace and resting under reduce motion
+  and while arranging, the energy shown, above the room chip on a phone, and chosen
+  (Playwright).

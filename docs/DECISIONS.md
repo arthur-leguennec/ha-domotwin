@@ -1608,3 +1608,56 @@ M15.
   - A home whose accent was never chosen shows neon in amber; one whose accent was chosen keeps it.
   - The pictures of the docs are made again with the new pieces and the new neon.
   - Nothing else changes for the plans: the kinds and their styles are those of before.
+
+## D-049 · Robot vacuums on the floor, and the home's energy at a glance
+
+M16b, the first half of the demo house milestone: what the demo house shows, built for every home.
+
+- **Context.** A robot vacuum was a vacuum entity with a bubble: nothing on the plan said it was
+  cleaning, or where. The power layer said what each piece draws, but not where the home's power
+  came from: the sun, the grid, a battery. The maintainer asked for a demo house with a robot
+  vacuum and energy, shown in a way anyone understands.
+- **Decision.**
+  - **A robot-vacuum piece** (`robot-vacuum`, 40 × 50 × 12 cm) is its dock: a station against the
+    wall and the ramp in front of it. Its robot is drawn moving, like the people: a low round
+    body with a turret, the colour of its dock, on its own shadow.
+  - **What it does comes from its vacuum** (linked as any entity, suggested first for a dock):
+    `cleaning` sends it out, `returning` brings it home (it turns on its dock to face out),
+    `docked` puts it on its dock, `paused`, `idle` and `error` stop it where it is. Where it is,
+    Home Assistant does not say (most robots keep their map), so its way is drawn from the plan:
+    the rooms its dock's room leads to through the doors, its own first then the nearest next,
+    closets left out, each swept back and forth in lanes 30 cm apart from its corner nearest the
+    robot, every point of them clear of the walls, from a lane to the next where both are; a
+    room whose lanes part (shaped like a U, or round a wall jutting in) is swept part by part,
+    back the way it came between them, its body clear of the corners. Around again while it
+    cleans, the room it just cleaned last. It goes at a real robot's pace (30 cm/s) and turns on
+    the spot. A dock left out of the scene (in a room drawn closed, D-039) has no robot; a robot
+    in a room closed while it cleans is back on its dock and leaves that room out, and one sent
+    home where no door leads is put on its dock, never through a wall. When another storey is
+    shown, or the plan is built again, it carries on its way while no wall stands in it. Under
+    *reduce motion* it rests: on its dock, or in the room it cleans, which it starts again when
+    it moves. While the plan, its pieces or its links are edited, every robot rests on its dock
+    and follows it when it is moved.
+  - **It costs little.** A cleaning robot is drawn at the layers' pace (24 frames a second), not
+    the display's; a home without a dock works nothing out, and the floors are worked out only
+    for a robot away from its dock or leaving it; the robot's shape is drawn once and moved,
+    like a person.
+  - **The home's energy** is chosen in the settings (**Energy**): the sensors of the power from
+    the sun, from the grid (positive when drawn from it) and from the home battery (positive
+    when drawn from it), and the battery's charge, each sign turned when a sensor counts the
+    other way. The likeliest sensors are offered first: those Home Assistant's own energy
+    settings name, then those whose name says it (solar, inverter, grid, meter, battery…), each
+    with what it says now. They are stored with the settings (`energy`), checked by the
+    integration.
+  - **Shown with the power layer**: in its legend, the sun, the grid and the battery around the
+    home, a line where power flows, its dots going from where it comes to where it goes, faster
+    the more there is; what each gives or takes, the battery's charge, what the home uses. What
+    comes in feeds the home first, then the battery, then the grid. Said in words for screen
+    readers; still under *reduce motion*. On a narrow view (under 480 px) it stands above the
+    room chip, which keeps the whole width.
+- **Consequences.**
+  - A new kind in the plan format and its schema; plans without it read as before.
+  - The settings may hold `energy`; an older integration refuses it, so the panel and the
+    integration go together, as always.
+  - Nothing is sent anywhere new: the robot and the energy are read from the states Home
+    Assistant already sends.

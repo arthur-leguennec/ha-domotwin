@@ -510,12 +510,13 @@ try {
   );
   console.log("docs/figures/screenshot-models.png");
 
-  // Layers (M4): the temperature heatmap, the power layer, a smoke alert and the sun through the
-  // windows, with the legend, the values and the banner over the view.
+  // Layers (M4): the temperature heatmap, the power layer with the home's energy (D-049), a smoke
+  // alert and the sun through the windows, with the legend, the values and the banner over the
+  // view.
   const layerShots = [];
   for (const [label, query, options, script] of [
     ["Temperature", "", { lighting: "day", layer: "temperature" }, ""],
-    ["Power", "", { lighting: "evening", layer: "power" }, ""],
+    ["Power and energy", "&energy=1", { lighting: "evening", layer: "power" }, ""],
     [
       "Smoke alert",
       "",

@@ -55,7 +55,11 @@ Local, rapide, Rust + WebAssembly.</p>
 - **Calques.** Une carte de chaleur animée (température, humidité, CO₂ ou particules fines) tirée
   des capteurs de la zone de chaque pièce, des alertes de sécurité qui pulsent dans leur pièce
   (fumée, gaz, fuite d’eau, alarme, fenêtre ouverte sous la pluie), les pièces occupées, le vrai
-  soleil qui entre par vos fenêtres, et ce que consomme chaque appareil.
+  soleil qui entre par vos fenêtres, et ce que consomme chaque appareil, avec l’énergie du
+  logement : le soleil, le réseau et la batterie autour de la maison, l’électricité qui circule
+  entre eux.
+- **Aspirateurs robots.** Son robot quitte sa base quand il nettoie, passe les pièces une à une et
+  rentre, sur le plan.
 - **Appareils.** Des badges sur vos appareils (l’état d’une serrure, une caméra qui enregistre, ce
   qui est en lecture, une batterie faible, le lave-linge en marche), et ce que voit chaque caméra,
   dessiné au sol de sa pièce, derrière les meubles, discret tant que vous ne touchez pas la
@@ -162,7 +166,7 @@ Local, rapide, Rust + WebAssembly.</p>
 </p>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-layers.png" alt="Les calques : la température de chaque pièce en carte de chaleur avec sa légende, la consommation des appareils, une alerte de fumée qui pulse dans la cuisine, et le soleil qui entre par les fenêtres" width="100%">
+  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-layers.png" alt="Les calques : la température de chaque pièce en carte de chaleur avec sa légende, la consommation des appareils avec l'énergie de la maison, du soleil vers la maison, la batterie et le réseau, une alerte de fumée qui pulse dans la cuisine, et le soleil qui entre par les fenêtres" width="100%">
 </p>
 
 <p align="center">

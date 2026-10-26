@@ -809,3 +809,29 @@ each read back, "frame time of each quality preset"):
 Neon costs less than before: its walls are drawn once, opaque, instead of a pass of glass over
 what is behind them, and the upright lines it leaves out are moved out of the view instead of
 being drawn at no strength.
+
+### M16b (robot vacuums and energy)
+
+Bundle: the first load is **504.4 kB gzipped** of 1 200 kB (+16.6 kB). The engine grew by 11.9
+kB (`domotwin_web_bg.<hash>.wasm`: 877.0 kB raw, 380.5 kB gzipped, from 849.1 kB and 368.6 kB):
+the robots' rounds through the rooms (the rooms reached through the doors, the lanes of each room
+in parts, the way back between them), the dock and the robot's shape. `domotwin.js` grew by 3.6
+kB (183.9 kB raw, 48.7 kB gzipped): the energy card, the choice of its sensors in the settings
+and their texts. The sheets are the same.
+
+A home without a dock does no robot work at all: the robots are placed only when the pieces,
+the links or the vacuums' states change, and only where a robot-vacuum piece is; the view hands
+the engine its robots only when one of them changed, reading only the docks' vacuums at each
+state change. A robot on its dock, docked or stopped there, needs no floor: the walls and doors
+of the storeys are worked out only once a robot is away (or for the people, who share them). A
+plan built again (3D models loaded, a room closed) keeps a robot on its way while no wall
+stands in it, without planning its room again. A robot is about 400 triangles and its shadow 20, drawn
+with the people's figures, which are handed to the renderer once a frame, and only while
+someone or something moves. A robot cleaning or on its way keeps the view drawing at the
+layers' pace (24 frames a second), not at the display's; a robot on its dock, stopped, or any
+robot under reduced motion draws nothing more. Its round is planned once per room, when it gets
+there: the room's lanes, and its way along them for its whole body, looked at every 4 cm for
+the walls.
+
+The energy card reads four sensors at each state change and draws one small picture (an SVG of
+four ends and at most seven lines); its dots move by CSS, without the engine.
