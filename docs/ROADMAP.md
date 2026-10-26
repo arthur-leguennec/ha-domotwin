@@ -36,6 +36,7 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M13       | Release 0.2.0 and HACS submission checklist                | ✅     |
 | M13b      | Phones and crowded names: icons, small rooms left out      | ✅     |
 | M14       | Actions done later: sheet, automations, voice              | ✅     |
+| M16       | Taps that say what they do: bubbles, plain actions, rooms  | ✅     |
 
 M5 to M11 were added after M3b (`DECISIONS.md`, D-022): what people expect of a 3D home dashboard,
 with no account and no network call outside Home Assistant. M8 became the looks alone, and the
@@ -45,7 +46,8 @@ for after M10, and come before the imports. The maintainer then moved the first 
 (D-037): 0.1.0 is everything done up to M8b. What cameras see drawn on the floor (M5b), private
 rooms (M9g), the imports (M11), the polish (M12) and a pass over size and speed that keeps the
 picture as it is (M12b) come before a second release, 0.2.0, with the submission to HACS's default
-list (M13). What a phone and a real home showed after it comes first (M13b, D-045).
+list (M13). What a phone and a real home showed after it comes first (M13b, D-045). Taps that say
+what they do (M16) come before the better-looking pieces (M15), so that the demo house shows them.
 
 ## M0, scaffold
 
@@ -854,3 +856,21 @@ What a phone and a computer showed with a real home (D-045):
   (pytest); reading, ordering, badges, times in Home Assistant's time zone and an unknown one
   (vitest); setting, showing and cancelling from a lamp's sheet, the clock that opens it, a
   refusal in French (Playwright).
+
+## M16, taps that say what they do
+
+A tap shows what it did and what else the piece does; linking says what a device does in words; a
+room has buttons of its own (D-047, `docs/bindings.md`):
+
+- ✅ **A bubble over the piece** after a tap: its device as it is now, its main control, a way to
+  everything about it. A piece linked to nothing offers an administrator its room's devices that
+  fit it, linked with one tap. A tip, once per device.
+- ✅ **Plain actions per device** in the link editor (switch on, dimmer, volume up, mute, open,
+  start cleaning…), stored as ordinary actions; an **advanced mode** for any action with its data,
+  or a page.
+- ✅ **A room's buttons**: its lights, blinds and media together, and up to eight actions of its
+  own, on its chip when it is framed and in its panel; its lights or blinds **later**.
+- ✅ Tests: plain actions, drafts and data, a room's devices and commands, lenient reading
+  (vitest); the room's actions checked by the integration, an action on 25 devices (pytest); a
+  lamp's bubble, a sensor's bubble, the tip, a room's chip and its panel's Later, a TV's plain
+  and advanced actions in French, a room's own action (Playwright).

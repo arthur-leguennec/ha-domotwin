@@ -4,7 +4,8 @@
  * handled by the view.
  */
 import { fire } from "../components/define";
-import type { HomeAssistant } from "../ha/types";
+import { isHassError, type HomeAssistant } from "../ha/types";
+import type { Translator } from "../i18n";
 import type { Action, ElementBinding } from "./bindings";
 import { primaryEntity } from "./bindings";
 
@@ -73,4 +74,12 @@ export async function runAction(
 export function navigate(path: string): void {
   history.pushState(null, "", path);
   window.dispatchEvent(new CustomEvent("location-changed", { detail: { replace: false } }));
+}
+
+/** Why Home Assistant did not do an action, in the viewer's words. */
+export function failureText(t: Translator, error: unknown): string {
+  const reason = isHassError(error)
+    ? error.message || t.error(error.code)
+    : t.error(error instanceof Error ? error.name : "unknown");
+  return t.t("view.action_failed", { reason });
 }

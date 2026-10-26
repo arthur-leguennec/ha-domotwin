@@ -47,9 +47,21 @@ export interface ElementBinding {
   range?: number;
 }
 
+/** An action an administrator gave a room (D-047): its name and what it does. */
+export interface RoomAction {
+  name: string;
+  action: Action;
+}
+
+/** A room's link: its Home Assistant area and its own actions. */
+export interface RoomBinding {
+  area?: string;
+  actions?: RoomAction[];
+}
+
 export interface BindingsJson {
   version: 1;
-  rooms: Record<string, { area?: string }>;
+  rooms: Record<string, RoomBinding>;
   elements: Record<string, ElementBinding>;
 }
 
@@ -111,19 +123,35 @@ export function primaryEntity(binding: ElementBinding, hass?: HomeAssistant): st
   return binding.entities[0]?.entity_id;
 }
 
-/** The tap action: the binding's, else toggle for lights, switches, fans and covers. */
+/**
+ * The tap action: the binding's, else toggle for lights, switches, fans and covers, Home
+ * Assistant's dialog for a camera (its live picture), and DomoTwin's controls for anything else (a
+ * TV, a thermostat, a sensor: D-047).
+ */
 export function tapAction(binding: ElementBinding, hass?: HomeAssistant): Action {
   if (binding.tap_action) return binding.tap_action;
   const primary = binding.entities.find((e) => e.entity_id === primaryEntity(binding, hass));
   const role = primary ? roleOf(primary, hass) : "sensor";
-  return ["light", "switch", "fan", "cover"].includes(role)
-    ? { action: "toggle" }
-    : { action: "more-info" };
+  if (["light", "switch", "fan", "cover"].includes(role)) return { action: "toggle" };
+  return role === "camera" ? { action: "more-info" } : { action: "controls" };
 }
 
 /** The long-press action: the binding's, else DomoTwin's controls. */
 export function holdAction(binding: ElementBinding): Action {
   return binding.hold_action ?? { action: "controls" };
+}
+
+/** Whether a stored room action has a name and an action. */
+function isRoomAction(value: unknown): value is RoomAction {
+  if (typeof value !== "object" || value === null) return false;
+  const { name, action } = value as { name?: unknown; action?: unknown };
+  return (
+    typeof name === "string" &&
+    name.trim() !== "" &&
+    typeof action === "object" &&
+    action !== null &&
+    typeof (action as { action?: unknown }).action === "string"
+  );
 }
 
 /** Reads stored bindings leniently: anything malformed is left out. */
@@ -133,8 +161,12 @@ export function readBindings(value: unknown): BindingsJson {
   const raw = value as { rooms?: unknown; elements?: unknown };
   if (typeof raw.rooms === "object" && raw.rooms !== null) {
     for (const [room, entry] of Object.entries(raw.rooms as Record<string, unknown>)) {
-      const area = (entry as { area?: unknown } | null)?.area;
-      if (typeof area === "string") out.rooms[room] = { area };
+      const stored = entry as { area?: unknown; actions?: unknown } | null;
+      const binding: RoomBinding = {};
+      if (typeof stored?.area === "string") binding.area = stored.area;
+      const actions = Array.isArray(stored?.actions) ? stored.actions.filter(isRoomAction) : [];
+      if (actions.length > 0) binding.actions = actions;
+      if (binding.area !== undefined || binding.actions) out.rooms[room] = binding;
     }
   }
   if (typeof raw.elements === "object" && raw.elements !== null) {
@@ -191,12 +223,15 @@ export function shownEntity(hass: HomeAssistant, id: string): boolean {
   return hass.states[id] !== undefined && entry?.hidden !== true && !entry?.entity_category;
 }
 
-/** The visible entities of an area (hidden and configuration entities left out). */
-export function areaEntities(hass: HomeAssistant, areaId: string): string[] {
+/**
+ * The visible entities of an area (hidden and configuration entities left out); with `present`,
+ * only those Home Assistant has a state for.
+ */
+export function areaEntities(hass: HomeAssistant, areaId: string, present = true): string[] {
   return Object.values(hass.entities ?? {})
     .filter((e) => e && !e.hidden && !e.entity_category && areaOf(hass, e.entity_id) === areaId)
     .map((e) => e?.entity_id ?? "")
-    .filter((id) => id !== "" && hass.states[id] !== undefined)
+    .filter((id) => id !== "" && (!present || hass.states[id] !== undefined))
     .sort();
 }
 

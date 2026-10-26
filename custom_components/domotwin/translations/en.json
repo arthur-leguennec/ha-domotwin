@@ -225,7 +225,7 @@
       "message": "Name at least one entity to switch."
     },
     "schedule_too_many_entities": {
-      "message": "At most 10 entities in one action."
+      "message": "At most 25 entities in one action."
     },
     "schedule_unknown_entity": {
       "message": "One of the entities does not exist."

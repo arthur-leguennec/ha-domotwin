@@ -289,7 +289,7 @@ async def test_actions_that_cannot_be_done_are_refused(
         {"entity_id": "light.lantern", "delay": 60, "until": "08:00", "duration": 60},
         {"entity_id": "light.lantern", "delay": 60, "brightness": 0},
         {"entity_id": "light.lantern", "delay": 60, "action": "toggle"},
-        {"entity_id": [f"light.l{i}" for i in range(11)], "delay": 60},
+        {"entity_id": [f"light.l{i}" for i in range(26)], "delay": 60},
     ],
 )
 async def test_malformed_requests_are_refused(

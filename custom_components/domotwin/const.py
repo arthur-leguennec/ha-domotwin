@@ -44,6 +44,9 @@ MAX_ELEMENTS: Final = 500
 MAX_ID_LENGTH: Final = 100
 MAX_BOUND_ELEMENTS: Final = 2_000
 MAX_ENTITIES_PER_ELEMENT: Final = 16
+# A room's own actions (docs/DECISIONS.md, D-047): at most this many, each named this long.
+MAX_ROOM_ACTIONS: Final = 8
+MAX_ROOM_ACTION_NAME: Final = 40
 # Storeys of a home, the length of their names and their elevation (cm, from the ground).
 MAX_STOREYS: Final = 20
 MAX_STOREY_NAME: Final = 60
@@ -96,7 +99,8 @@ SERVICE_UNSCHEDULE: Final = "unschedule"
 # Dispatcher signal sent every time the actions waiting change: ().
 SIGNAL_SCHEDULES: Final = f"{DOMAIN}_schedules"
 MAX_SCHEDULES: Final = 100
-MAX_SCHEDULE_ENTITIES: Final = 10
+# A room's lights switched together (D-047) fit in one action.
+MAX_SCHEDULE_ENTITIES: Final = 25
 # How far ahead an action may be set, and how long it may leave a device on (days).
 MAX_SCHEDULE_DAYS: Final = 366
 MAX_SCHEDULE_SPAN_DAYS: Final = 7

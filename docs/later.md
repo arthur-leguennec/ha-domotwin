@@ -73,6 +73,6 @@ hour.
 
 ## Limits
 
-At most 100 actions wait at once, each on 10 devices at most. An action is set at most a year
+At most 100 actions wait at once, each on 25 devices at most. An action is set at most a year
 ahead, and leaves a device on for a week at most. Diagnostics count the actions waiting, never
 which devices or when.

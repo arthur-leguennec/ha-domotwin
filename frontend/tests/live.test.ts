@@ -49,6 +49,12 @@ describe("bindings", () => {
     expect(primaryEntity(lamp, h)).toBe("light.a");
     expect(tapAction(lamp, h)).toEqual({ action: "toggle" });
     expect(tapAction({ entities: [{ entity_id: "sensor.t" }] }, h)).toEqual({
+      action: "controls",
+    });
+    expect(tapAction({ entities: [{ entity_id: "media_player.tv" }] }, h)).toEqual({
+      action: "controls",
+    });
+    expect(tapAction({ entities: [{ entity_id: "camera.door" }] }, h)).toEqual({
       action: "more-info",
     });
     expect(holdAction(lamp)).toEqual({ action: "controls" });

@@ -1,20 +1,27 @@
 /**
  * Rows that control one Home Assistant entity, shared by the long-press controls and the room
  * panel: a light's switch, brightness, colour temperature and colours; a cover's buttons and
- * position; a media player's buttons and volume; a fan, a switch, a lock, a thermostat, a scene.
+ * position; a media player's buttons and volume; a fan, a switch, a lock, a thermostat, a robot
+ * vacuum, a button, a scene.
  */
 import {
   mdiArrowDown,
   mdiArrowUp,
+  mdiHomeImportOutline,
   mdiLock,
   mdiLockOpenVariant,
   mdiMinus,
+  mdiPause,
+  mdiPlay,
   mdiPlayPause,
   mdiPlus,
   mdiPower,
   mdiSkipNext,
   mdiSkipPrevious,
   mdiStop,
+  mdiVolumeMinus,
+  mdiVolumeOff,
+  mdiVolumePlus,
 } from "@mdi/js";
 import { css, html, nothing, type TemplateResult } from "lit";
 
@@ -208,6 +215,8 @@ export function entityRow(
     }
     case "switch":
     case "input_boolean":
+    case "humidifier":
+    case "siren":
     case "fan": {
       const on = entity.state === "on";
       const percentage = number(entity.attributes.percentage);
@@ -396,6 +405,56 @@ export function entityRow(
         )}
       </div>`;
     }
+    case "vacuum":
+    case "lawn_mower": {
+      const vacuum = domain === "vacuum";
+      return html`<div class="row" role="group" aria-label=${name}>
+        ${head(
+          html`<span class="state">${stateText(t, entity)}</span>
+            <span class="buttons">
+              ${button(
+                mdiPlay,
+                t.t("controls.start"),
+                () => {
+                  call(hass, domain, vacuum ? "start" : "start_mowing", entityId);
+                },
+                off,
+              )}
+              ${button(
+                mdiPause,
+                t.t("controls.pause"),
+                () => {
+                  call(hass, domain, "pause", entityId);
+                },
+                off,
+              )}
+              ${button(
+                mdiHomeImportOutline,
+                t.t("controls.home"),
+                () => {
+                  call(hass, domain, vacuum ? "return_to_base" : "dock", entityId);
+                },
+                off,
+              )}
+            </span>`,
+        )}
+      </div>`;
+    }
+    case "button":
+    case "input_button":
+      return html`<div class="row" role="group" aria-label=${name}>
+        ${head(
+          html`<button
+            class="action quiet small"
+            ?disabled=${off}
+            @click=${() => {
+              call(hass, domain, "press", entityId);
+            }}
+          >
+            ${t.t("controls.press")}
+          </button>`,
+        )}
+      </div>`;
     case "scene":
     case "script":
       return html`<div class="row" role="group" aria-label=${name}>
@@ -415,6 +474,77 @@ export function entityRow(
         ${head(html`<span class="state">${stateText(t, entity)}</span>`)}
       </div>`;
   }
+}
+
+/**
+ * What a tap's bubble adds to an entity's row (D-047): a light's brightness or a fan's speed while
+ * it is on, a blind's position, a player's volume down and up.
+ */
+export function quickControls(
+  hass: HomeAssistant,
+  t: Translator,
+  entityId: string,
+): TemplateResult | typeof nothing {
+  const entity = hass.states[entityId];
+  if (!entity || entity.state === "unavailable" || entity.state === "unknown") return nothing;
+  const domain = entityId.split(".")[0];
+  if (domain === "light" && entity.state === "on" && modes(entity).some((m) => m !== "onoff")) {
+    return slider(
+      t.t("controls.brightness"),
+      Math.round((number(entity.attributes.brightness) ?? 255) / 2.55),
+      1,
+      100,
+      1,
+      (v) => {
+        call(hass, "light", "turn_on", entityId, { brightness_pct: v });
+      },
+      false,
+    );
+  }
+  const percentage = number(entity.attributes.percentage);
+  if (domain === "fan" && entity.state === "on" && percentage !== undefined) {
+    return slider(
+      t.t("controls.speed"),
+      percentage,
+      0,
+      100,
+      1,
+      (v) => {
+        call(hass, "fan", "set_percentage", entityId, { percentage: v });
+      },
+      false,
+    );
+  }
+  const position = number(entity.attributes.current_position);
+  if (domain === "cover" && position !== undefined) {
+    return slider(
+      t.t("controls.position"),
+      position,
+      0,
+      100,
+      1,
+      (v) => {
+        call(hass, "cover", "set_cover_position", entityId, { position: v });
+      },
+      false,
+    );
+  }
+  if (domain === "media_player" && entity.state !== "off") {
+    return html`<div class="buttons quick" role="group" aria-label=${t.t("controls.volume")}>
+      ${button(mdiVolumeMinus, t.t("controls.volume_down"), () => {
+        call(hass, "media_player", "volume_down", entityId);
+      })}
+      ${button(mdiVolumeOff, t.t("controls.mute"), () => {
+        call(hass, "media_player", "volume_mute", entityId, {
+          is_volume_muted: entity.attributes.is_volume_muted !== true,
+        });
+      })}
+      ${button(mdiVolumePlus, t.t("controls.volume_up"), () => {
+        call(hass, "media_player", "volume_up", entityId);
+      })}
+    </div>`;
+  }
+  return nothing;
 }
 
 /** Styles of the rows. */

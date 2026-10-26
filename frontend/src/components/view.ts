@@ -89,18 +89,20 @@ import {
 import { DomoTwinClient, type Settings, type StoreyInfo, type StoredPlan } from "../ha/client";
 import { isHassError, type HomeAssistant } from "../ha/types";
 import { translatorFor, type KindName, type Translator } from "../i18n";
-import { runAction } from "../live/actions";
+import { failureText, runAction } from "../live/actions";
 import type { ReadAutomation } from "../live/automations";
 import {
   boundEntityIds,
   entityName,
   holdAction,
   primaryEntity,
+  readBindings,
   roomArea,
   tapAction,
   type Action,
   type BindingsJson,
   type ElementBinding,
+  type RoomAction,
 } from "../live/bindings";
 import {
   HEAT_KINDS,
@@ -138,6 +140,16 @@ import { avatar, avatarStyles } from "./person-avatar";
 import { spoken } from "../live/show";
 import { StateSync } from "../live/states";
 import {
+  presentDevices,
+  roomActions,
+  roomCommands,
+  roomDevices,
+  runRoom,
+  type RoomCommand,
+  type RoomDevices,
+} from "../live/room-actions";
+import { roomBarStyles, roomButtons } from "./room-bar";
+import {
   ALL_STOREYS,
   storeyCounts,
   storeyLevels,
@@ -147,7 +159,7 @@ import {
   type StoreyAlert,
   type StoreyRooms,
 } from "../live/storeys";
-import { planRooms } from "../live/suggest";
+import { applyLink, planElement, planRooms, suggestions } from "../live/suggest";
 import {
   placeLabels,
   textWidth,
@@ -157,6 +169,7 @@ import {
 } from "../live/room-labels";
 import { assistAvailable, canListen, listeningPipeline, openAssist } from "../live/voice";
 import { FrameScheduler } from "../scheduler";
+import { readTip, tipRead } from "../live/draft";
 import { fire } from "./define";
 import { icon } from "./icon";
 import { DialogFocus } from "./dialog";
@@ -325,6 +338,7 @@ const MAX_ALERTS_SHOWN = 2;
 /** The power layer's colours, from a few watts to 3 kW (`shaders.rs`). */
 const POWER_GRADIENT = ["#ffe459", "#ff7b2b"];
 const NO_BINDINGS: BindingsJson = { version: 1, rooms: {}, elements: {} };
+const NO_ACTIONS: RoomAction[] = [];
 /** Size of the storeys' pictures (device pixels; shown at half that). */
 const PICTURE_WIDTH = 280;
 const PICTURE_HEIGHT = 180;
@@ -376,6 +390,20 @@ type Sheet =
  * and the room on the other side of its doors and windows.
  */
 type ElementNames = Record<string, { name: string; type: string; room?: string; beside?: string }>;
+
+/** The bubble over a piece: its device and main control, or the devices it could be linked to. */
+interface Bubble {
+  element: string;
+  heading: string;
+  entity?: string;
+  suggestions: string[];
+}
+
+/** A bubble goes this long after it was last touched (ms). */
+const BUBBLE_MS = 8000;
+/** A bubble's width (the bubble's own, `bubble.ts`), and how far it keeps from the view's edges. */
+const BUBBLE_WIDTH = 300;
+const EDGE = 12;
 
 /** A room framed by a tap. */
 interface FocusedRoom {
@@ -479,6 +507,10 @@ export class DomoTwinView extends LitElement {
     standings: { state: true },
     linking: { attribute: false },
     placeDevices: { attribute: false },
+    linkable: { attribute: false },
+    bubble: { state: true },
+    tip: { state: true },
+    bubbleBusy: { state: true },
     networkLoaded: { state: true },
     wiresAsked: { state: true },
     wiresLoaded: { state: true },
@@ -551,6 +583,11 @@ export class DomoTwinView extends LitElement {
   /** Devices of the network map can be placed in the home (the panel, which links them). */
   placeDevices = false;
   /**
+   * A link editor is at hand (the panel): a piece's bubble offers it (`domotwin-link-element`,
+   * detail: the piece, as `domotwin-pick`'s).
+   */
+  linkable = false;
+  /**
    * Edit mode (the panel's): a tap selects a piece, dragging a selected piece moves it. Every
    * change fires `domotwin-edit` (detail: the `EditState`).
    */
@@ -622,7 +659,33 @@ export class DomoTwinView extends LitElement {
     }
   };
   protected sheet?: Sheet;
+  /** The bubble a tap left over a piece (D-047), and a link of its being saved. */
+  protected bubble?: Bubble;
+  /** The piece whose link a bubble is saving. */
+  protected bubbleBusy?: string;
+  private bubbleTimer?: number;
+  /** Taps and long presses so far: a bubble still loading for an older one is not shown. */
+  private gestureCount = 0;
+  /** The tip on what a tap does, until it is read once on this device (D-047). */
+  protected tip = false;
+  /** Where the mouse last was over the scene, looked up at the next frame. */
+  private hoverAt?: { x: number; y: number };
+  private hoverFrame = 0;
   protected focusedRoom?: FocusedRoom;
+  /** The framed room's devices, and what they were read from (`roomDevicesOf`). */
+  private devicesMemo?: {
+    id: string;
+    name: string;
+    entities: HomeAssistant["entities"];
+    areas: HomeAssistant["areas"];
+    devices: HomeAssistant["devices"];
+    bindings: BindingsJson;
+    names: ElementNames;
+    value: RoomDevices;
+    /** Those Home Assistant has, for these states. */
+    states?: HomeAssistant["states"];
+    present?: RoomDevices;
+  };
   protected notice?: string;
   /** The edit session's state while edit mode is on. */
   protected edit?: EditState;
@@ -825,6 +888,7 @@ export class DomoTwinView extends LitElement {
     baseStyles,
     lookStyles,
     avatarStyles,
+    roomBarStyles,
     css`
       :host {
         position: relative;
@@ -848,6 +912,10 @@ export class DomoTwinView extends LitElement {
         user-select: none;
         -webkit-user-select: none;
         -webkit-touch-callout: none;
+      }
+      /* Over what a tap acts on (D-047); dragging still grabs. */
+      .stage.acts:not(:active) {
+        cursor: pointer;
       }
       .stage:active {
         cursor: grabbing;
@@ -1280,6 +1348,32 @@ export class DomoTwinView extends LitElement {
         border-color: color-mix(in srgb, var(--domotwin-accent, #00d4ff) 45%, transparent);
         box-shadow: 0 0 14px color-mix(in srgb, var(--domotwin-accent, #00d4ff) 22%, transparent);
       }
+      /* The tip on what a tap does (D-047), once. */
+      /* Above the chip at the bottom of the view. */
+      .tip {
+        position: absolute;
+        left: 50%;
+        bottom: 64px;
+        z-index: 3;
+        transform: translateX(-50%);
+        width: max-content;
+        max-width: calc(100% - 32px);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 6px 6px 14px;
+        border-radius: 22px;
+      }
+      /* A piece's bubble (D-047), above it, or below it near the top of the view. */
+      .bubble-at {
+        position: absolute;
+        z-index: 3;
+        transform: translate(-50%, calc(-100% - 20px));
+        filter: drop-shadow(0 4px 14px rgba(0, 0, 0, 0.18));
+      }
+      .bubble-at.below {
+        transform: translate(-50%, 20px);
+      }
       .badge-group {
         position: absolute;
         transform: translate(-50%, calc(-100% - 6px));
@@ -1443,6 +1537,60 @@ export class DomoTwinView extends LitElement {
         width: 18px;
         height: 18px;
       }
+      .chip.room-bar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 2px;
+        padding: 4px;
+      }
+      .room-bar button.room-open {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        min-width: 0;
+        min-height: 40px;
+        padding: 0 10px;
+        border: none;
+        border-radius: 20px;
+        background: transparent;
+        color: inherit;
+        font: inherit;
+        cursor: pointer;
+      }
+      .room-bar button.room-open span {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .room-bar button.room-open svg.icon {
+        flex: none;
+        width: 18px;
+        height: 18px;
+      }
+      .room-bar button.round {
+        width: 40px;
+        height: 40px;
+        display: grid;
+        place-items: center;
+        border: none;
+        border-radius: 50%;
+        background: transparent;
+        color: inherit;
+        cursor: pointer;
+      }
+      .room-bar button.round:hover {
+        background: color-mix(in srgb, currentColor 10%, transparent);
+      }
+      .room-bar button.round svg {
+        width: 20px;
+        height: 20px;
+        fill: currentColor;
+      }
+      .room-bar button.pill {
+        min-height: 32px;
+        max-width: 160px;
+      }
       .notice {
         position: absolute;
         left: 50%;
@@ -1600,6 +1748,9 @@ export class DomoTwinView extends LitElement {
     window.clearTimeout(this.contextTimer);
     this.stopSchedules?.();
     this.stopSchedules = undefined;
+    window.clearTimeout(this.bubbleTimer);
+    cancelAnimationFrame(this.hoverFrame);
+    this.hoverFrame = 0;
     this.schedulesOn = undefined;
     this.parkPlanEditor();
     this.stopEngine();
@@ -2203,6 +2354,8 @@ export class DomoTwinView extends LitElement {
   /** What a tap at a point of the view does (CSS pixels from its top left). */
   tap(x: number, y: number): void {
     this.sheet = undefined;
+    this.bubble = undefined;
+    this.gestureCount += 1;
     const engine = this.engine;
     if (!engine) return;
     if (this.planEditor) {
@@ -2268,15 +2421,108 @@ export class DomoTwinView extends LitElement {
       engine.highlight(picked.id);
       // An action ran: a second tap soon after is a new tap, not a double tap.
       this.gestures.forgetTap();
-      void this.act(tapAction(binding, this.hass), binding, picked);
+      this.tapPiece(picked, binding);
     } else if (this.kinds[picked.id] === "stairs" && this.nextStorey()) {
       // Stairs lead to the storey above (from the top one, to the one below).
       this.gestures.forgetTap();
       this.chooseStorey(this.nextStorey() ?? "");
-    } else if (picked.room && engine.focusElement(picked.room)) {
-      this.focusedRoom = { id: picked.room, name: this.roomName(picked) };
+    } else {
+      if (picked.room && engine.focusElement(picked.room)) {
+        this.focusedRoom = { id: picked.room, name: this.roomName(picked) };
+      }
+      // A piece linked to nothing: an administrator may link it there and then.
+      if (picked.type === "furniture" && this.hass?.user?.is_admin === true) {
+        void this.showBubble(picked);
+      }
     }
     this.redraw();
+  }
+
+  /**
+   * The bubble over a piece just tapped (D-047): with its device, as it is now and its main
+   * control; or, linked to nothing, the devices of its room that fit it.
+   */
+  private async showBubble(
+    picked: PickedElement,
+    binding?: ElementBinding,
+    entity?: string,
+  ): Promise<void> {
+    const hass = this.hass;
+    if (!hass) return;
+    // A gesture made while the sheets load wins over this bubble.
+    const gesture = this.gestureCount;
+    await this.loadSheets();
+    if (gesture !== this.gestureCount) return;
+    const heading = this.names[picked.id]?.name ?? (picked.name || picked.id);
+    let suggested: string[] = [];
+    if (!binding) {
+      // A piece of another storey, every storey shown: linked from its own storey.
+      const info = planElement(this.plan, picked.id);
+      if (!info) return;
+      const roomId = this.names[picked.id]?.room ?? picked.room;
+      const room = this.rooms.find((r) => r.id === roomId);
+      const area = room
+        ? roomArea(hass, this.bindings ?? NO_BINDINGS, room.id, room.name)
+        : undefined;
+      suggested = suggestions(hass, info, area, [...this.bound]).slice(0, 3);
+    }
+    this.bubble = {
+      element: picked.id,
+      heading,
+      entity: binding ? (entity ?? primaryEntity(binding, hass)) : undefined,
+      suggestions: suggested,
+    };
+    this.keepBubble();
+    this.redraw();
+  }
+
+  /** The tip on what a tap does was read, or done. */
+  private readonly readTapTip = (): void => {
+    this.tip = false;
+    readTip("tap");
+  };
+
+  /** The bubble stays a while longer after a touch. */
+  private readonly keepBubble = (): void => {
+    window.clearTimeout(this.bubbleTimer);
+    this.bubbleTimer = window.setTimeout(() => {
+      if (this.bubbleBusy === undefined) this.bubble = undefined;
+    }, BUBBLE_MS);
+  };
+
+  /** Links a piece to a device from its bubble, saved at once (administrators). */
+  private async quickLink(element: string, entity: string): Promise<void> {
+    const hass = this.hass;
+    if (!hass) return;
+    this.bubbleBusy = element;
+    try {
+      const client = DomoTwinClient.for(hass);
+      const stored = await client.getBindings();
+      const latest = readBindings(stored.bindings);
+      // Added to what the piece has (a device it stands for, D-031), as saved now.
+      const before = latest.elements[element];
+      const entities = before?.entities ?? [];
+      const bindings = applyLink(latest, {
+        element,
+        binding: {
+          ...before,
+          entities: entities.some((e) => e.entity_id === entity)
+            ? entities
+            : [...entities, { entity_id: entity }],
+        },
+      });
+      await client.saveBindings(bindings, stored.revision);
+      this.notify(this.translator.t("bubble.linked", { name: entityName(hass, entity) }));
+      // Its own bubble, not another piece's tapped since.
+      if (this.bubble?.element === element) this.bubble = undefined;
+    } catch (error) {
+      const t = this.translator;
+      this.notify(t.error(isHassError(error) ? error.code : "unknown"));
+    } finally {
+      this.bubbleBusy = undefined;
+      // Its time ran out while it saved: it goes in a while.
+      if (this.bubble) this.keepBubble();
+    }
   }
 
   /**
@@ -2300,6 +2546,8 @@ export class DomoTwinView extends LitElement {
   /** What a long press at a point of the view does (CSS pixels from its top left). */
   hold(x: number, y: number): void {
     if (this.planEditor) return;
+    this.bubble = undefined;
+    this.gestureCount += 1;
     const picked = this.elementAt(x, y);
     if (this.edit) {
       // Edit mode: a long press adds a piece to the selection (or takes it out).
@@ -3036,6 +3284,7 @@ export class DomoTwinView extends LitElement {
       this.roomNames = JSON.parse(names) as typeof this.roomNames;
     }
     const ids = shown && this.showBadges ? [...this.badges.keys()] : [];
+    if (this.bubble && !ids.includes(this.bubble.element)) ids.push(this.bubble.element);
     const points = ids.length > 0 ? engine.elementPoints(JSON.stringify(ids)) : "{}";
     if (points !== this.pointsText) {
       this.pointsText = points;
@@ -3063,6 +3312,8 @@ export class DomoTwinView extends LitElement {
    */
   private tapElement(id: string): void {
     this.sheet = undefined;
+    this.bubble = undefined;
+    this.gestureCount += 1;
     if (this.inClosedRoom(id)) return;
     // A camera's badge: its view whole for a while; another badge: all faint (D-038).
     this.focusCamera(id);
@@ -3102,8 +3353,30 @@ export class DomoTwinView extends LitElement {
     this.engine?.highlight(id);
     // An action ran: a second tap soon after is a new tap, not a double tap.
     this.gestures.forgetTap();
-    void this.act(tapAction(binding, hass), binding, picked);
+    this.tapPiece(picked, binding);
     this.redraw();
+  }
+
+  /**
+   * A linked piece tapped, or its badge (D-047): its tap action, then its bubble: DomoTwin's
+   * controls are the bubble itself (a long press opens them all), a switch or an action shows
+   * what it did.
+   */
+  private tapPiece(picked: PickedElement, binding: ElementBinding): void {
+    const hass = this.hass;
+    if (!hass) return;
+    this.bubble = undefined;
+    this.gestureCount += 1;
+    const action = tapAction(binding, hass);
+    if (this.tip) this.readTapTip();
+    if (action.action !== "controls") void this.act(action, binding, picked);
+    if (["controls", "toggle", "perform-action", "call-service"].includes(action.action)) {
+      // The device the action was aimed at, when it is one of the piece's; its main one otherwise.
+      const target = action.target?.entity_id;
+      const aimed = action.entity_id ?? (typeof target === "string" ? target : undefined);
+      const linked = binding.entities.some((e) => e.entity_id === aimed);
+      void this.showBubble(picked, binding, linked ? aimed : undefined);
+    }
   }
 
   /** A camera tapped: its view drawn whole for a while (D-038); anything else: all faint. */
@@ -3425,6 +3698,9 @@ export class DomoTwinView extends LitElement {
     // Links added meanwhile: their ids are not given to new elements either.
     this.planEditor?.reserve(this.takenIds());
     this.bound = boundEntityIds(bindings);
+    // Something to tap: the tip on what a tap does, once (not on a kiosk without buttons).
+    this.tip =
+      this.bound.size > 0 && this.options.tools !== false && !this.linking && !tipRead("tap");
     this.syncStates();
     this.redraw();
   }
@@ -3453,11 +3729,7 @@ export class DomoTwinView extends LitElement {
         await this.openControls(binding, picked);
       }
     } catch (error) {
-      const t = this.translator;
-      const reason = isHassError(error)
-        ? error.message || t.error(error.code)
-        : t.error(error instanceof Error ? error.name : "unknown");
-      this.notify(t.t("view.action_failed", { reason }));
+      this.notify(failureText(this.translator, error));
     }
   }
 
@@ -3577,9 +3849,40 @@ export class DomoTwinView extends LitElement {
       }
       return;
     }
-    if (this.gestures.active === 0) return;
+    if (this.gestures.active === 0) {
+      this.hover(event);
+      return;
+    }
     this.apply(this.gestures.move(this.sample(event)));
   };
+
+  /**
+   * The mouse over the scene: a hand over what a tap acts on (D-047), a piece linked to nothing
+   * for an administrator, anything while linking. Looked up once a frame at most.
+   */
+  private hover(event: PointerEvent): void {
+    if (event.pointerType !== "mouse") return;
+    if (this.editingAny) {
+      this.stage?.classList.remove("acts");
+      return;
+    }
+    this.hoverAt = { x: event.offsetX, y: event.offsetY };
+    if (this.hoverFrame !== 0) return;
+    this.hoverFrame = requestAnimationFrame(() => {
+      this.hoverFrame = 0;
+      const at = this.hoverAt;
+      const stage = this.stage;
+      if (!at || !stage) return;
+      const picked = this.elementAt(at.x, at.y);
+      const acts =
+        picked !== undefined &&
+        !this.closed.has(picked.room) &&
+        (this.linking ||
+          this.actingBinding(picked.id) !== undefined ||
+          (picked.type === "furniture" && this.hass?.user?.is_admin === true));
+      stage.classList.toggle("acts", acts);
+    });
+  }
 
   private readonly onPointerUp = (event: PointerEvent): void => {
     window.clearTimeout(this.holdTimer);
@@ -3811,7 +4114,13 @@ export class DomoTwinView extends LitElement {
       ${ready ? this.renderNetwork() : nothing} ${ready ? this.renderUpkeep() : nothing}
       ${ready ? this.renderWires() : nothing}
       ${ready && this.options.tools !== false ? this.renderTools() : nothing}
-      ${ready ? this.renderSheet() : nothing}
+      ${ready ? this.renderBubble() : nothing} ${ready ? this.renderSheet() : nothing}
+      ${
+        // Not over a framed room's buttons, nor under a notice.
+        ready && this.tip && !this.sheet && !this.editingAny && !this.focusedRoom && !this.notice
+          ? this.renderTip()
+          : nothing
+      }
       ${
         this.voiceHelp
           ? html`<domotwin-voice
@@ -4159,6 +4468,84 @@ export class DomoTwinView extends LitElement {
     </svg>`;
   }
 
+  /** The tip on what a tap does, along the bottom of the view. */
+  private renderTip(): TemplateResult {
+    const t = this.translator;
+    return html`<div class="tip glass" role="status" data-testid="tip">
+      <span>${t.t("bubble.hint")}</span>
+      <button class="action quiet" @click=${this.readTapTip}>${t.t("bubble.hint_ok")}</button>
+    </div>`;
+  }
+
+  /** The bubble over the piece last tapped, above it (below, near the top of the view). */
+  private renderBubble(): TemplateResult | typeof nothing {
+    const bubble = this.bubble;
+    const canvas = this.canvas;
+    if (!bubble || !canvas || this.sheet || this.editingAny || this.linking) return nothing;
+    const point = this.badgePoints[bubble.element];
+    if (!point) return nothing;
+    const k = Math.max(1, canvas.clientWidth) / Math.max(1, canvas.width);
+    // Within the view, and clear of the toolbar on its right when there is room beside it.
+    const width = canvas.clientWidth;
+    const tools = this.renderRoot.querySelector<HTMLElement>(".tools")?.offsetLeft ?? width;
+    const right = tools - BUBBLE_WIDTH - 2 * EDGE >= 0 ? tools - EDGE : width - EDGE;
+    const half = Math.min(BUBBLE_WIDTH / 2, (right - EDGE) / 2);
+    const x = Math.min(Math.max(point[0] * k, EDGE + half), right - half);
+    const y = point[1] * k;
+    const below = y < 200;
+    return html`<div
+      class="bubble-at ${below ? "below" : ""}"
+      data-testid="bubble"
+      data-element=${bubble.element}
+      style="left:${x}px;top:${y}px"
+      @pointerdown=${this.keepBubble}
+      @focusin=${this.keepBubble}
+      @keydown=${(event: KeyboardEvent) => {
+        if (event.key === "Escape") this.bubble = undefined;
+        else this.keepBubble();
+      }}
+    >
+      <domotwin-bubble
+        .hass=${this.hass}
+        .heading=${bubble.heading}
+        .entity=${bubble.entity}
+        .suggestions=${bubble.suggestions}
+        .linkable=${this.linkable}
+        .busy=${this.bubbleBusy === bubble.element}
+        @domotwin-close=${() => {
+          this.bubble = undefined;
+        }}
+        @domotwin-bubble-more=${() => {
+          const binding = this.actingBinding(bubble.element);
+          this.bubble = undefined;
+          if (binding) {
+            const info = this.names[bubble.element];
+            void this.openControls(binding, {
+              id: bubble.element,
+              type: (info?.type ?? "furniture") as PickedElement["type"],
+              name: bubble.heading,
+              room: info?.room ?? "",
+            });
+          }
+        }}
+        @domotwin-bubble-link=${(event: CustomEvent<{ entity: string }>) => {
+          void this.quickLink(bubble.element, event.detail.entity);
+        }}
+        @domotwin-bubble-link-more=${() => {
+          this.bubble = undefined;
+          const info = this.names[bubble.element];
+          const picked: PickedElement = {
+            id: bubble.element,
+            type: (info?.type ?? "furniture") as PickedElement["type"],
+            name: bubble.heading,
+            room: info?.room ?? "",
+          };
+          fire(this, "domotwin-link-element", picked);
+        }}
+      ></domotwin-bubble>
+    </div>`;
+  }
+
   private renderSheet(): TemplateResult | typeof nothing {
     const sheet = this.sheet;
     if (!sheet) return nothing;
@@ -4213,6 +4600,8 @@ export class DomoTwinView extends LitElement {
       .hass=${this.hass}
       .heading=${sheet.heading}
       .area=${sheet.area}
+      .devices=${sheet.room ? this.roomDevicesOf(sheet.room, sheet.heading) : undefined}
+      .actions=${sheet.room ? roomActions(this.bindings ?? NO_BINDINGS, sheet.room) : NO_ACTIONS}
       .admin=${this.hass?.user?.is_admin === true}
       .closed=${sheet.closed === true}
       .people=${here}
@@ -4856,18 +5245,7 @@ export class DomoTwinView extends LitElement {
       </div>`;
     }
     const room = this.focusedRoom;
-    if (room) {
-      return html`<button
-        class="chip glass"
-        data-testid="room-chip"
-        aria-label=${t.t("view.room_panel", { room: room.name })}
-        @click=${() => {
-          void this.openRoom(room.id, room.name);
-        }}
-      >
-        <span>${room.name}</span>${icon(mdiChevronUp)}
-      </button>`;
-    }
+    if (room) return this.renderRoomBar(t, room);
     const title = this.summary.name || t.t("view.untitled");
     return html`<div class="chip glass" role="status" data-testid="summary">
       <span
@@ -4875,6 +5253,96 @@ export class DomoTwinView extends LitElement {
         ${t.tp("view.pieces", this.summary.furniture)}</span
       >
     </div>`;
+  }
+
+  /**
+   * The framed room's chip: its name, which opens its panel, and what it does with a tap (D-047):
+   * its lights, its blinds, its media, its own actions.
+   */
+  private renderRoomBar(t: Translator, room: FocusedRoom): TemplateResult {
+    const name = html`<button
+      class=${this.hass ? "room-open" : "chip glass"}
+      data-testid="room-chip"
+      aria-label=${t.t("view.room_panel", { room: room.name })}
+      @click=${() => {
+        void this.openRoom(room.id, room.name);
+      }}
+    >
+      <span>${room.name}</span>${icon(mdiChevronUp)}
+    </button>`;
+    const hass = this.hass;
+    if (!hass) return name;
+    const devices = this.roomDevicesOf(room.id, room.name);
+    const commands = devices ? roomCommands(hass, devices) : [];
+    const actions = devices ? roomActions(this.bindings ?? NO_BINDINGS, room.id) : [];
+    return html`<div
+      class="chip glass room-bar"
+      role="group"
+      aria-label=${room.name}
+      data-testid="room-bar"
+    >
+      ${name} ${roomButtons(t, commands, actions, (what) => void this.roomRun(what), false)}
+    </div>`;
+  }
+
+  /**
+   * A room's devices (its area's and its pieces') that Home Assistant has now. Read from the
+   * registries and the links again only when they or the pieces change; none for a private room
+   * this viewer may not see (D-039).
+   */
+  private roomDevicesOf(id: string, name: string): RoomDevices | undefined {
+    const hass = this.hass;
+    if (!hass || this.closed.has(id)) return undefined;
+    const bindings = this.bindings ?? NO_BINDINGS;
+    const memo = this.devicesMemo;
+    if (
+      memo?.id === id &&
+      memo.name === name &&
+      memo.entities === hass.entities &&
+      memo.areas === hass.areas &&
+      memo.devices === hass.devices &&
+      memo.bindings === bindings &&
+      memo.names === this.names
+    ) {
+      if (memo.states !== hass.states || !memo.present) {
+        memo.states = hass.states;
+        memo.present = presentDevices(hass, memo.value);
+      }
+      return memo.present;
+    }
+    const area = roomArea(hass, bindings, id, name);
+    const value = roomDevices(hass, bindings, area, this.piecesIn(id));
+    this.devicesMemo = {
+      id,
+      name,
+      entities: hass.entities,
+      areas: hass.areas,
+      devices: hass.devices,
+      bindings,
+      names: this.names,
+      value,
+      states: hass.states,
+      present: presentDevices(hass, value),
+    };
+    return this.devicesMemo.present;
+  }
+
+  /** The pieces in a room, where the plan and its edits place them (D-047's room devices). */
+  piecesIn(room: string): string[] {
+    return Object.entries(this.names)
+      .filter(([, info]) => info.room === room)
+      .map(([piece]) => piece);
+  }
+
+  /** A command of the framed room or one of its own actions (D-047). */
+  private async roomRun(what: RoomCommand | RoomAction): Promise<void> {
+    const hass = this.hass;
+    if (!hass) return;
+    try {
+      await runRoom(this, hass, what);
+    } catch (error) {
+      this.notify(failureText(this.translator, error));
+    }
   }
 
   private message(
