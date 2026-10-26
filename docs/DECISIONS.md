@@ -2218,3 +2218,156 @@ D-054 planned them.
     Assistant's cards, dialogs and now pages reused rather than rebuilt.
   - Many of them read what only administrators may (automations, traces, the radios): each says
     what other users see.
+
+## D-057 · The car: its charge, where its power comes from, warmed before it leaves
+
+After 0.4.0: a plan only, nothing built now (M40).
+
+- **Context.** The maintainer asked whether DomoTwin could show what a connected car says: its
+  battery, how fast it charges, where the power it charges with comes from, and warm it before
+  leaving. DomoTwin knows the home's energy (D-049), but no car. Checked in Home Assistant's core
+  at 2026.10.4, its frontend at 20260930.2, the HACS default lists and the community forum, in
+  October 2026.
+- **What Home Assistant gives, checked.**
+  - **No car of its own.** Home Assistant has no vehicle entity: its entity platforms have none
+    ([`entity_platforms.py`](https://github.com/home-assistant/core/blob/2026.10.4/homeassistant/generated/entity_platforms.py)),
+    and each car integration makes its car of ordinary entities, its own way. What they share is
+    Home Assistant's device classes: the charge a `battery` sensor in %, the range a `distance`
+    sensor, the charging power a `power` sensor, plugged in and charging `plug` and
+    `battery_charging` binary sensors, where it is a `device_tracker`. A car is read by them,
+    whatever its make, as the energy and the layers already are.
+  - **Warming it differs by make.** Tesla's integrations (Tesla Fleet, Teslemetry, Tessie) give a
+    `climate` entity, switched on to warm or cool
+    ([Tesla Fleet](https://github.com/home-assistant/core/blob/2026.10.4/homeassistant/components/tesla_fleet/climate.py#L67));
+    Renault a button, *start air conditioner*, next to *start charge*
+    ([`button.py`](https://github.com/home-assistant/core/blob/2026.10.4/homeassistant/components/renault/button.py#L57-L70));
+    Volvo a *climatization start* button next to an *engine start* one
+    ([`button.py`](https://github.com/home-assistant/core/blob/2026.10.4/homeassistant/components/volvo/button.py#L33-L43));
+    the Nissan Leaf a switch
+    ([`switch.py`](https://github.com/home-assistant/core/blob/2026.10.4/homeassistant/components/nissan_leaf/switch.py#L36));
+    Subaru a *remote start* button, which starts the engine of a car that has one
+    ([`button.py`](https://github.com/home-assistant/core/blob/2026.10.4/homeassistant/components/subaru/button.py#L31-L57)).
+  - **The makes.** In Home Assistant's core: Tesla (three integrations), Renault, Volvo, Škoda,
+    Subaru and the Nissan Leaf, all through their maker's cloud. BMW Connected Drive was removed,
+    pointing to a custom integration
+    ([`__init__.py`](https://github.com/home-assistant/core/blob/2026.10.4/homeassistant/components/bmw_connected_drive/__init__.py#L18-L21)),
+    and Mazda before it. In HACS's default list: Kia and Hyundai
+    ([kia_uvo](https://github.com/Hyundai-Kia-Connect/kia_uvo)), Volkswagen
+    ([volkswagencarnet](https://github.com/robinostlund/homeassistant-volkswagencarnet)), Škoda
+    ([MySkoda](https://github.com/skodaconnect/homeassistant-myskoda)), Peugeot, Citroën, Opel
+    and the other Stellantis makes
+    ([stellantis-vehicles](https://github.com/andreadegiovine/homeassistant-stellantis-vehicles)),
+    Mercedes ([mbapi2020](https://github.com/ReneNulschDE/mbapi2020)), Polestar
+    ([polestar_api](https://github.com/pypolestar/polestar_api)), Toyota
+    ([ha_toyota](https://github.com/pytoyoda/ha_toyota)), MG
+    ([mg-saic-ha](https://github.com/townsmcp/mg-saic-ha)), Audi, Porsche, Cupra, Ford,
+    [Smartcar](https://github.com/wbyoung/smartcar) (many makes through one service) and
+    [OVMS](https://github.com/enoch85/ovms-home-assistant) (a box in the car). Each gives what its
+    maker's service gives, read every few minutes for most: a charge or a warm-up shows after a
+    while.
+  - **Chargers.** In the core: Wallbox, Ohme, Peblar, OpenEVSE, Tesla Wall Connector, V2C,
+    NRGkick, Blue Current, Keba; in HACS's default list: Easee, Zaptec, go-e, myenergi, Alfen, and
+    [OCPP](https://github.com/lbbrhzn/ocpp) for any charger that speaks it. Their charging power
+    is a `power` sensor, measured at the wall.
+  - **Home Assistant's energy** names a charger as one of the home's devices, with its power
+    sensor (`device_consumption` and its `stat_rate`,
+    [`data.py`](https://github.com/home-assistant/core/blob/2026.10.4/homeassistant/components/energy/data.py#L237-L251)),
+    and gives the grid's price (`entity_energy_price`, `number_energy_price`,
+    [`data.py`](https://github.com/home-assistant/core/blob/2026.10.4/homeassistant/components/energy/data.py#L126-L127));
+    `energy/get_prefs` answers any user, its saving only administrators
+    ([`websocket_api.py`](https://github.com/home-assistant/core/blob/2026.10.4/homeassistant/components/energy/websocket_api.py#L104-L127)).
+    Its energy page splits the grid's part into low-carbon and fossil where the Electricity Maps
+    integration is set up
+    ([`hui-energy-distribution-card.ts`](https://github.com/home-assistant/frontend/blob/20260930.2/src/panels/lovelace/cards/energy/hui-energy-distribution-card.ts#L326-L349)).
+    The recorder's statistics keep each power sensor's mean every five minutes, ten days by
+    default, and every hour after; `recorder/statistics_during_period` answers any user
+    ([`websocket_api.py`](https://github.com/home-assistant/core/blob/2026.10.4/homeassistant/components/recorder/websocket_api.py#L286-L307)).
+  - **Around it.** Cards that draw a car (Vehicle Status Card, Ultra Vehicle Card) and power
+    flows with a car among the home's devices (Power Flow Card Plus), in HACS's default list;
+    charging on the sun's surplus or in the cheap hours:
+    [evcc](https://github.com/marq24/ha-evcc)'s integration,
+    [EV Smart Charging](https://github.com/jonasbkarlsson/ev_smart_charging) and
+    [SolarCharger](https://github.com/flashg1/SolarCharger) (HACS default). Asked for on the
+    forum: a card for any car
+    ([generic vehicle card](https://community.home-assistant.io/t/generic-vehicle-card/397844)).
+    Nothing found draws the car in the home, says where its charge came from over a charge or a
+    month, or warms it the same way whatever its make.
+- **Decision: M40, the car.**
+  - **A car and a charger, as pieces.** `car` (450 × 185 × 150 cm: a body with its wheels and
+    windows, the colour of the piece) and `ev-charger` (a wall box, 25 × 15 × 40 cm, hung 90 cm
+    up). An item's room is optional and its place anywhere on the plan (plan format), so a car
+    stands in a garage drawn as a room, or on the drive outside the walls; the outdoors around it
+    are M18's. One's own model of one's car (D-021) works as for any piece.
+  - **Linked from its device.** Linking a car offers first the devices that look like one (a
+    `device_tracker` with a `battery` sensor, or a charge sensor with a `plug` binary sensor) and
+    takes their entities by device class: the charge, the range, the charging power, plugged in,
+    charging, where it is, and its warm-up. New roles, derived on a car as the others are
+    elsewhere; each can be changed, as any link. A charger links its own power sensor, and is the
+    car's when it stands within 5 m of it on the plan: the car's charging power is then the
+    charger's, measured at the wall, else the car's own.
+  - **In the 3D view.** At home (its tracker `home`, or no tracker), the car stands in its place,
+    its charge on a small gauge above it. Plugged in, a cable from its charger; charging, a bolt,
+    its power in kW and when it will be full: the car's own time where it gives one, else worked
+    out from its power and what is left, and said to be a guess. The cable's dots go in the
+    colours of where its power comes from (D-049's sun, grid and battery). Away, an outline in its
+    place and where it is (the zone's name, else "away"). Warming, a soft glow inside. A tap: its
+    bubble (D-047) with the charge, the range, the power, full at, the share of sun, and **Warm
+    up**. A long press: its sheet, with the same, start or stop charging and the charge limit
+    where the car or the charger has them, **Later**, and Home Assistant's more-info dialog of
+    each entity, its map for where the car is.
+  - **Where its power comes from, now.** The car is part of what the home uses (its charger is
+    behind the home's meter), so it gets the home's mix at that moment: of the sun, the battery
+    and the grid, in the shares they feed the home (D-049's flows); a car said to draw more than
+    the whole home counts as the whole home. Shown beside the home in the energy at a glance, a
+    line from the home to the car, said in words for screen readers.
+  - **Over a charge, and over the month.** Worked out in the page from Home Assistant's
+    statistics of the same sensors: five minutes at a time for a charge of the last ten days, an
+    hour at a time for the month, which is a guess and said so (an hour can mix the sun of noon
+    with the grid of the evening). In kWh and in shares: "18 kWh, 72 % from the sun". The cost of
+    the grid's part where Home Assistant's energy settings give a price; the grid's part split
+    into low-carbon and fossil where Home Assistant has the Electricity Maps integration, as its
+    energy page does. Nothing is kept by DomoTwin.
+  - **Warming it.** **Warm up** acts on the car's own warm-up: a `climate` switched on
+    (`climate.turn_on`), a button pressed, a switch switched on; **Stop** where there is one
+    (`climate.turn_off`, the switch off, a stop button). Suggested only from what says it is the
+    climate: a `climate` entity, a button or a switch whose name says climate, air conditioning or
+    preconditioning. Never an action that starts an engine (Volvo's *engine start*, Subaru's
+    *remote start* on a car with an engine): an engine left running in a closed garage kills. In
+    the advanced mode the person chooses, as for any action. **Warm at…** is an action done later
+    (D-046), which learns to press a button; every weekday is an automation, from a blueprint
+    DomoTwin ships: warm the car at a time on chosen days, when it is colder outside than a chosen
+    temperature, and only while plugged in if one wishes. Each warm-up is done in the name of who
+    asked, with their rights, as D-046's actions are.
+  - **On the practical side** (D-054): the car on the Home tab, made of Home Assistant's tile
+    cards for its charge, its range and its warm-up where they fit (checked in its frontend for
+    each version, as D-054 asks), and a row of DomoTwin's own for what no entity says (where its
+    charge comes from, when it is full); in the Rooms tab with its garage's room; on M24's Energy
+    tab with the rest.
+  - **The demo house** gets an electric car on its drive and a charger by the door: warmed before
+    it leaves in the morning, away for part of the day, charging from the sun once back, then from
+    the grid.
+  - **It costs little.** A home with no car works nothing out; the statistics are read when a
+    car's bubble or sheet opens, not before; the car's shape is drawn once and moved, like the
+    robot's.
+- **Not done.**
+  - Charging on the sun's surplus or in the cheap hours: evcc, EV Smart Charging and SolarCharger
+    do it, and must run while no page is open. DomoTwin shows their entities (a mode, a target)
+    on the car's sheet when they are linked, and does not drive the charge itself ❓.
+  - An entity for the share of sun in the car's charges, for automations or the Overview: the
+    integration would have to follow the sensors itself. Deferred until someone asks.
+  - The car's trips, its doors, its tyres: Home Assistant's more-info dialogs and the makers' own
+    cards show them.
+- **Questions for the maintainer (❓).**
+  1. The order. Proposed: after M33 and M34 (the maintainer's order puts M32 and M33 first after
+     0.5.0, and M34 goes with M33), before M35. Sooner, right after M24's Energy tab, puts it
+     before the first launch in five minutes (M22).
+  2. Charging on the sun's surplus: left to evcc and the others (proposed), or a switch of
+     DomoTwin's own, which would have to run in the integration.
+- **Consequences.**
+  - Two new kinds in the plan format and its schema, and the car's roles in the links; plans and
+    links without them read as before. The panel and the integration go together, as always.
+  - The actions done later learn to press a button.
+  - Nothing is sent anywhere new: the states Home Assistant already sends and its statistics are
+    read; DomoTwin calls no maker's service, and warming the car goes through the car's own
+    integration. Where the car is, is never kept by DomoTwin, nor in its diagnostics.
+  - Tests, docs and screenshots use a fictional car: no make's logo, no number plate, no VIN.

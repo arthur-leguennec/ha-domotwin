@@ -56,6 +56,7 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M32       | "Why?": who or what changed a device, drawn in 3D          | ⏳     |
 | M33       | Guest access: chosen rooms, for a while                    | ⏳     |
 | M34       | Per-person rights: what DomoTwin shows each one            | ⏳     |
+| M40       | The car: its charge, where its power comes from, warmed    | ⏳     |
 | M35       | Automations in plain words, played in the sandbox first    | ⏳     |
 | M20       | More imports: robot vacuum maps, Floorplanner, meshes      | ⏳     |
 | M17       | A library of objects: many pieces, free and well made      | ⏳     |
@@ -92,7 +93,9 @@ QR code (M30) and a placement advisor for radios (M31) before a first launch in 
 (M33), rights (M34), automations in plain words (M35), a configuration history (M36), a weekly
 report (M37), history as reports (M38) and Hydro-Québec's peaks (M39) follow, among a library of
 objects (M17), the outdoors (M18), more imports (M20) and more languages (M21), before a sixth
-release, 0.6.0.
+release, 0.6.0. The maintainer then asked for the car (D-057): its charge, how fast it charges,
+where the power it charges with comes from, and warming it before it leaves (M40), after rights
+(M34), where it waits for the maintainer to say when ❓.
 
 ## M0, scaffold
 
@@ -1164,6 +1167,19 @@ milestone starts, which goes on with what needs no answer.
   on the plan in one place. DomoTwin can hide; Home Assistant decides what is enforced, and today
   lets every user act on every entity: said where the rights are set. Real enforcement needs Home
   Assistant ❓.
+- ⏳ **M40, the car** (D-057): a `car` piece and an `ev-charger` piece, the car linked from its
+  device in Home Assistant, its entities taken by device class, whatever its make (Home
+  Assistant has no vehicle entity; Tesla, Renault, Volvo, Kia, Volkswagen, Stellantis and the
+  others each give sensors, buttons and a tracker of their own). In 3D: its charge over it, a
+  cable from the charger while plugged in, its charging power and when it will be full, away as
+  an outline with the zone it is in. Where its power comes from: now, the home's mix of the sun,
+  the battery and the grid (D-049's flows), the car beside the home in the energy at a glance;
+  over a charge and over the month, from Home Assistant's statistics, in kWh and shares, with
+  the grid's cost and its low-carbon part where Home Assistant gives them. **Warm up** through
+  the car's own climate, button or switch, never an engine start; **Warm at…** as an action done
+  later (D-046), and a blueprint for weekdays. On the Home tab with Home Assistant's tile cards,
+  in the demo house on its drive. Charging on the sun's surplus stays evcc's and the others' ❓.
+  When it comes ❓.
 - ⏳ **M35, automations in plain words, tested first**: one says what one wants ("when the last
   person leaves, switch the lights off and lock the door"); Home Assistant's own AI task, the one
   the user set up, writes the automation; DomoTwin says it back in plain words, checks it with
