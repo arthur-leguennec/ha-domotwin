@@ -23,7 +23,7 @@ A version is kept:
 - when DomoTwin starts, once Home Assistant has started: what changed while it was stopped, or
   by hand in the files, is kept then;
 - after Home Assistant reloads its automations or scenes, and a few seconds after its scripts are
-  reloaded (the editors reload after each save);
+  reloaded, then again half a minute later (the editors reload after each save);
 - when an automation, a script or a scene is deleted in its editor;
 - when a dashboard is saved, or its configuration deleted;
 - after DomoTwin puts an item back.
@@ -80,10 +80,10 @@ newest, said to be *the same as* the one it came from.
 
 ## Size
 
-The history is limited to 4 MB in all, 50 versions an item and 1 MB a version (a larger one keeps
-its date, not its content), for 2 000 items at most. Past that, the oldest versions go first; an
-item's newest version is always kept, and a removed item with nothing else kept is forgotten. The
-dialog says how much is used.
+The history is limited to 4 MB in all and 50 versions an item: past that, the oldest versions go
+first, an item's newest version always kept. A version is kept up to 1 MB (a larger one keeps its
+date, not its content). A removed item with nothing else kept is forgotten, and past 2 000 items
+the removed ones are, the longest removed first. The dialog says how much is used.
 
 ## Privacy
 

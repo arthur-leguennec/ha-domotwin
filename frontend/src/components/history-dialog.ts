@@ -445,13 +445,15 @@ export class DomoTwinHistory extends LitElement {
     if (!this.isConnected) return;
     this.status = t.t("history.put_back_done", { name, when });
     // The integration reads it again: its newest version is the one put back.
+    let failed: string | undefined;
     try {
       await refreshHistory(hass, detail.item.kind);
     } catch (error) {
-      this.error = t.t("history.read_failed", { reason: this.reason(error) });
+      failed = t.t("history.read_failed", { reason: this.reason(error) });
     }
     void this.readList();
     await this.openItem(detail.item.id, "[data-status]");
+    if (failed) this.error = failed;
   }
 
   private close(): void {

@@ -53,14 +53,21 @@ from .const import (
 _LOGGER = logging.getLogger(__name__)
 
 #: How long after what announces a change it is read (seconds): Home Assistant fires no event
-#: after `script.reload`, so the scripts are read once it has surely reloaded them.
+#: after `script.reload`, so the scripts are read once it has most likely reloaded them…
 READ_DELAY = {"automation": 1.0, "script": 5.0, "scene": 1.0, "dashboard": 1.0}
+#: …and again this long after, for a reload slower than that.
+LATE_SCRIPT_READ = 30.0
 #: The store is written this long after a change (seconds), several changes at once.
 SAVE_DELAY = 10
 #: Home Assistant's own events for the automations and scenes reloaded.
 RELOADED = {"automation_reloaded": "automation", "scene_reloaded": "scene"}
 #: An item's name, at most this long.
 MAX_NAME = 200
+#: What a dashboard that cannot be read raises, besides Home Assistant's own errors; and what a
+#: configuration that cannot be written as JSON does. (Kept as tuples: Python before 3.14 needs
+#: the parentheses the formatter would take away from an `except` clause.)
+DASHBOARD_ERRORS = (HomeAssistantError, AttributeError, TypeError)
+JSON_ERRORS = (TypeError, ValueError)
 
 
 class HistoryError(Exception):
@@ -135,11 +142,9 @@ def _name(value: Any) -> str | None:
     return value.strip()[:MAX_NAME]
 
 
-def _encoded(config: Any) -> tuple[str, str]:
-    """The configuration as JSON, as it is ordered, and its fingerprint (keys sorted)."""
-    text = json_bytes(config).decode("utf-8")
-    digest = hashlib.sha256(json_bytes_sorted(config)).hexdigest()[:32]
-    return text, digest
+def _fingerprint(config: Any) -> str:
+    """What tells two configurations apart, their keys in any order."""
+    return hashlib.sha256(json_bytes_sorted(config)).hexdigest()[:32]
 
 
 async def _read_file(hass: HomeAssistant, name: str) -> Any:
@@ -275,7 +280,7 @@ async def _read_dashboards(hass: HomeAssistant) -> Reading:
         except ConfigNotFound:
             # Made by Home Assistant, not kept: nothing of one's own to keep.
             continue
-        except HomeAssistantError, AttributeError, TypeError:
+        except DASHBOARD_ERRORS:
             reading.unread.add(key)
             continue
         if not isinstance(config, dict):
@@ -310,6 +315,10 @@ class ConfigHistory:
         self._debouncers: dict[str, Debouncer[Any]] = {}
         #: One reading at a time, so that an older one is never kept after a newer one.
         self._lock = asyncio.Lock()
+        #: Stopped (unloaded): a reading still running keeps nothing, and nothing is written.
+        self._stopped = False
+        #: A write of the store is waiting (`async_flush` does it at once).
+        self._dirty = False
 
     async def async_load(self) -> None:
         """Read the store, leaving out what cannot be read."""
@@ -336,6 +345,13 @@ class ConfigHistory:
                 immediate=False,
                 function=partial(self.async_snapshot, (kind,)),
             )
+        self._debouncers["script_late"] = Debouncer(
+            hass,
+            _LOGGER,
+            cooldown=LATE_SCRIPT_READ,
+            immediate=False,
+            function=partial(self.async_snapshot, ("script",)),
+        )
         for event_type, kind in RELOADED.items():
             self._unsubscribe.append(
                 hass.bus.async_listen(event_type, partial(self._announced, kind))
@@ -345,10 +361,13 @@ class ConfigHistory:
         def script_reload(data: Any) -> bool:
             return bool(data.get("domain") == "script" and data.get("service") == "reload")
 
+        @callback
+        def scripts_reloading(_event: Event[Any]) -> None:
+            self._later("script")
+            self._later("script_late")
+
         self._unsubscribe.append(
-            hass.bus.async_listen(
-                EVENT_CALL_SERVICE, partial(self._announced, "script"), event_filter=script_reload
-            )
+            hass.bus.async_listen(EVENT_CALL_SERVICE, scripts_reloading, event_filter=script_reload)
         )
 
         @callback
@@ -375,7 +394,8 @@ class ConfigHistory:
 
     @callback
     def async_stop(self) -> None:
-        """Stop following; what is waiting to be read is not read."""
+        """Stop following; what is waiting to be read is not read, what is being read not kept."""
+        self._stopped = True
         for unsubscribe in self._unsubscribe:
             unsubscribe()
         self._unsubscribe.clear()
@@ -402,28 +422,44 @@ class ConfigHistory:
                 except UnreadableError as err:
                     _LOGGER.debug("The %s cannot be read now (%s): left as they were", kind, err)
                     continue
+                if self._stopped:
+                    return 0
                 changed += self._keep(kind, reading, dt_util.utcnow())
         if changed:
             self._prune()
-            self._store.async_delay_save(self._data, SAVE_DELAY)
+            self._dirty = True
+            self._store.async_delay_save(self._saved, SAVE_DELAY)
         return changed
+
+    async def async_flush(self) -> None:
+        """Write the store now if a write is waiting (the integration unloaded)."""
+        if self._dirty:
+            await self._store.async_save(self._saved())
+
+    def _saved(self) -> dict[str, Any]:
+        """What the store holds, as it is written (no write waits after it)."""
+        self._dirty = False
+        return self._data()
 
     def _keep(self, kind: str, reading: Reading, now: datetime) -> int:
         changed = 0
         for key, found in reading.found.items():
             try:
-                text, digest = _encoded(found.config)
-            except TypeError, ValueError:
+                digest = _fingerprint(found.config)
+                item = self._items.get(f"{kind}:{key}")
+                if item is not None and item.versions and item.versions[-1].hash == digest:
+                    item.name = found.name or item.name
+                    item.source = found.source
+                    continue
+                text = json_bytes(found.config).decode("utf-8")
+            except JSON_ERRORS:
                 _LOGGER.debug("The %s %s cannot be kept as JSON", kind, key)
                 reading.unread.add(key)
                 continue
-            item = self._items.get(f"{kind}:{key}")
             if item is None:
                 item = self._items[f"{kind}:{key}"] = Item(kind, key, found.name, found.source)
             item.name = found.name or item.name
             item.source = found.source
-            if item.versions and item.versions[-1].hash == digest:
-                continue
             size = len(text.encode("utf-8"))
             kept = text if size <= MAX_HISTORY_VERSION_BYTES else None
             item.versions.append(self._version(now, digest, kept))

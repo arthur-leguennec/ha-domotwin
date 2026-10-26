@@ -110,6 +110,8 @@ async def _async_start_history(hass: HomeAssistant, entry: DomoTwinConfigEntry) 
     """The configuration history (D-057): read once Home Assistant has started, then on changes."""
     history = ConfigHistory(hass)
     await history.async_load()
+    # Written at once on unload, once stopped (the callbacks run last added first).
+    entry.async_on_unload(history.async_flush)
     history.async_start()
 
     @callback

@@ -242,8 +242,8 @@ history, each item by `<kind>:<key>` (`automation`, `script` and `scene` by thei
 written by Home Assistant's editors; `yaml`: in one's own YAML files) and its `versions`, oldest
 first: `{id, at, hash, json}`, the configuration as JSON (`null` when removed or too large to keep)
 and the fingerprint of its keys sorted (`null` when removed); `next`, the next version's id. 4 MB
-in all, 50 versions an item, 1 MB a version, 2 000 items: the oldest versions go first. See
-[`history.md`](history.md).
+in all and 50 versions an item (the oldest versions go first), 1 MB a version; past 2 000 items,
+the removed ones are forgotten. See [`history.md`](history.md).
 
 The 3D files of user models are not in `.storage`: they are kept under their SHA-256 in
 `<config>/domotwin/models/<sha256>.<format>` (D-021), uploaded with `POST /api/domotwin/models?format=…`

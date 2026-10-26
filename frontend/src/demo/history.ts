@@ -4,14 +4,10 @@
  */
 import type { HistoryDetail, HistoryKind, HistoryList, HistoryVersion } from "../live/history";
 import { canonical } from "../live/history";
+import { DemoError } from "./home";
 import { AUTOMATIONS, say, type Words } from "./house";
 
 const DAY_MS = 86_400_000;
-
-/** A refusal, as the integration gives it: a code. */
-function refused(code: string): Error {
-  return Object.assign(new Error(code), { code });
-}
 
 interface Kept {
   id: number;
@@ -127,7 +123,7 @@ export class DemoHistory {
 
   private find(id: unknown): DemoItem {
     const item = this.items.find((each) => `${each.kind}:${each.key}` === id);
-    if (!item) throw refused("unknown_item");
+    if (!item) throw new DemoError("unknown_item");
     return item;
   }
 
@@ -179,7 +175,7 @@ export class DemoHistory {
 
   version(id: unknown, version: unknown): unknown {
     const kept = this.find(id).versions.find((each) => each.id === version);
-    if (!kept) throw refused("unknown_version");
+    if (!kept) throw new DemoError("unknown_version");
     return structuredClone(kept.config);
   }
 

@@ -2237,17 +2237,19 @@ waits on nothing the other milestones build.
     Scenes made by `scene.create` are not configuration and are left out.
   - **When**: once Home Assistant has started (what changed while it was stopped, or by hand),
     after Home Assistant reloads automations or scenes (its `automation_reloaded` and
-    `scene_reloaded`), five seconds after `script.reload` is called (Home Assistant fires no event
-    of its own after it), when one of them is removed from the entity registry (its editors
+    `scene_reloaded`), five seconds after `script.reload` is called and again thirty seconds
+    after (Home Assistant fires no event of its own after it), when one of them is removed from
+    the entity registry (its editors
     delete that way, without a reload), when a dashboard is saved or removed (`lovelace_updated`),
     and when DomoTwin has put an item back. A version is kept when the item's configuration, its
     keys in any order, is not the one kept last; an item no longer there is kept as removed. A
     file Home Assistant cannot read is left alone: nothing in it is taken for removed.
   - **Where**: in a store of its own (`.storage/domotwin.history`, private), each version as
-    the JSON of its configuration with its date. **Limited in size**: 4 MB in all, 50 versions an
-    item, 1 MB a version (a larger one keeps its date, not its content), 2 000 items; past them,
-    the oldest versions go first, an item's newest always kept, and a removed item with nothing
-    else kept is forgotten. Removed with the integration; kept when it is only unloaded.
+    the JSON of its configuration with its date. **Limited in size**: 4 MB in all and 50
+    versions an item, past which the oldest versions go first, an item's newest always kept; 1 MB
+    a version (a larger one keeps its date, not its content); a removed item with nothing else
+    kept is forgotten, and past 2 000 items the removed ones are, the longest removed first.
+    Removed with the integration; written at once and kept when it is only unloaded.
   - **What changed, in words**: worked out in the page between any two versions: what was
     added, removed or changed, and where, in words for the parts known (the name, description and
     mode; the triggers, conditions and actions of an automation; the steps and fields of a

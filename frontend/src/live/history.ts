@@ -323,8 +323,21 @@ function match(left: string[], right: string[]): [number, number][] {
 }
 
 /**
- * Items between two matched ones: those of a sort compared with each other, in order; the
- * others removed or added.
+ * Two items alike: of a sort, and, when both say more, the same in one thing at least (a view's
+ * title, a card's entity). An item edited in place is compared with what it was, rather than a
+ * neighbour removed beside it.
+ */
+function akin(a: unknown, b: unknown): boolean {
+  if (sortOf(a) !== sortOf(b)) return false;
+  if (!isObject(a) || !isObject(b)) return true;
+  const shared = Object.keys(a).filter((key) => !SORT_KEYS.includes(key) && Object.hasOwn(b, key));
+  return shared.length === 0 || shared.some((key) => same(a[key], b[key]));
+}
+
+/**
+ * Items between two matched ones: those of a sort compared with each other, in order, unless one
+ * of them is akin to an item further on; the others removed or added. Their places are the
+ * after's, but for what was removed.
  */
 function gap(
   before: unknown[],
@@ -337,8 +350,24 @@ function gap(
   let i = 0;
   let j = 0;
   while (i < before.length || j < after.length) {
-    if (i < before.length && j < after.length && sortOf(before[i]) === sortOf(after[j])) {
-      walk(before[i], after[j], [...path, afterAt + j], out);
+    const left = before[i];
+    const right = after[j];
+    const both = i < before.length && j < after.length;
+    if (both && sortOf(left) === sortOf(right) && !akin(left, right)) {
+      // A neighbour removed or added beside an item edited: the item goes with its like.
+      if (before.slice(i + 1).some((item) => akin(item, right))) {
+        out.push({ op: "remove", path: [...path, beforeAt + i], before: left });
+        i++;
+        continue;
+      }
+      if (after.slice(j + 1).some((item) => akin(left, item))) {
+        out.push({ op: "add", path: [...path, afterAt + j], after: right });
+        j++;
+        continue;
+      }
+    }
+    if (both && sortOf(left) === sortOf(right)) {
+      walk(left, right, [...path, afterAt + j], out);
       i++;
       j++;
     } else if (
@@ -438,10 +467,11 @@ export function placeOf(
   hass?: HomeAssistant,
 ): string {
   const parts: string[] = [];
-  const root = change.op === "remove" ? before : after;
   change.path.forEach((part, index) => {
     const parent = change.path[index - 1];
     if (typeof part === "number") {
+      // Items compared are at their places in the after; an item removed, at its place before.
+      const root = change.op === "remove" && index === change.path.length - 1 ? before : after;
       // An item of a list: "Action 2" rather than "Actions › 2".
       const list = typeof parent === "string" ? LISTS.get(parent) : undefined;
       const last = parts.pop() ?? "";

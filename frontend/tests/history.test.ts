@@ -234,6 +234,24 @@ describe("what changed between two versions (D-057)", () => {
     ]);
   });
 
+  it("goes with an item's like when a neighbour beside it was removed", () => {
+    const before = {
+      views: [
+        { title: "Garden", path: "garden" },
+        { title: "Kitchen", icon: "mdi:fridge", cards: [] },
+      ],
+    };
+    const after = { views: [{ title: "Kitchen", cards: [] }] };
+    expect(said("dashboard", before, after)).toEqual([
+      "remove View “Garden”: “Garden” (path “garden”)",
+      "remove View “Kitchen” › Icon: “mdi:fridge”",
+    ]);
+    expect(said("dashboard", after, before)).toEqual([
+      "add View “Garden”: “Garden” (path “garden”)",
+      "add View “Kitchen” › Icon: “mdi:fridge”",
+    ]);
+  });
+
   it("says at most a number of changes and counts the rest", () => {
     const before = Object.fromEntries(Array.from({ length: 250 }, (_, i) => [`k${i}`, i]));
     const after = Object.fromEntries(Array.from({ length: 250 }, (_, i) => [`k${i}`, i + 1]));

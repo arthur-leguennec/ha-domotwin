@@ -130,8 +130,9 @@ MAX_CALENDARS: Final = 10
 
 # The configuration history (docs/DECISIONS.md, D-057): each change of an automation, a script,
 # a scene or a dashboard, in a store of its own (.storage/domotwin.history). At most this many
-# bytes in all, versions an item, bytes a version (a larger one keeps its date, not its content),
-# and items; the oldest versions go first.
+# bytes in all and versions an item (the oldest versions go first, an item's newest always kept),
+# bytes a version (a larger one keeps its date, not its content); past this many items, those
+# removed are forgotten, the longest removed first.
 HISTORY_STORAGE_KEY: Final = f"{DOMAIN}.history"
 HISTORY_STORAGE_VERSION: Final = 1
 HISTORY_KINDS: Final = ("automation", "script", "scene", "dashboard")

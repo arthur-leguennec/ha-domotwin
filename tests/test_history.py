@@ -18,10 +18,11 @@ from pytest_homeassistant_custom_component.typing import (
 
 from custom_components.domotwin.const import HISTORY_STORAGE_KEY
 from custom_components.domotwin.data import HISTORY_KEY
-from custom_components.domotwin.history import SAVE_DELAY, _encoded
+from custom_components.domotwin.history import LATE_SCRIPT_READ, SAVE_DELAY, _fingerprint
 from homeassistant.const import EVENT_CALL_SERVICE
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers.json import json_bytes
 from homeassistant.setup import async_setup_component
 from homeassistant.util import dt as dt_util
 from homeassistant.util.yaml import dump
@@ -198,6 +199,11 @@ async def test_scripts_are_read_after_their_reload(
     assert len(await _versions(client, "script:good_night")) == 1
     await _later(hass, 6)
     assert len(await _versions(client, "script:good_night")) == 2
+    # Read again later, for a reload slower than that.
+    later = {**changed, "mode": "restart"}
+    _write(config_dir, "scripts.yaml", {"good_night": later})
+    await _later(hass, LATE_SCRIPT_READ + 1)
+    assert len(await _versions(client, "script:good_night")) == 3
     # Another service called: nothing read.
     _write(config_dir, "scripts.yaml", {})
     hass.bus.async_fire(EVENT_CALL_SERVICE, {"domain": "script", "service": "turn_on"})
@@ -374,7 +380,7 @@ async def test_kept_in_the_store_and_read_leniently(
     hass_storage: dict[str, Any],
 ) -> None:
     wake_up = {"alias": "Wake up", "sequence": []}
-    text, digest = _encoded(wake_up)
+    text, digest = json_bytes(wake_up).decode(), _fingerprint(wake_up)
     hass_storage[HISTORY_STORAGE_KEY] = {
         "version": 1,
         "key": HISTORY_STORAGE_KEY,
@@ -534,6 +540,30 @@ async def test_never_in_the_diagnostics(
     assert "history" not in text
     assert "Evening lights" not in text
     assert "1700000000001" not in text
+
+
+async def test_written_when_unloaded_and_nothing_after(
+    hass: HomeAssistant,
+    config_dir: Path,
+    config_entry: MockConfigEntry,
+    hass_storage: dict[str, Any],
+) -> None:
+    _write(config_dir, "automations.yaml", [EVENING])
+    config_entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+    history = hass.data[HISTORY_KEY]
+    # Unloaded before its write was due: written then.
+    assert HISTORY_STORAGE_KEY not in hass_storage
+    assert await hass.config_entries.async_unload(config_entry.entry_id)
+    await hass.async_block_till_done()
+    stored = hass_storage[HISTORY_STORAGE_KEY]["data"]
+    assert list(stored["items"]) == ["automation:1700000000001"]
+    # Stopped: a reading keeps nothing more.
+    _write(config_dir, "automations.yaml", [EVENING, CURTAINS])
+    assert await history.async_snapshot() == 0
+    await _later(hass, SAVE_DELAY + 1)
+    assert list(hass_storage[HISTORY_STORAGE_KEY]["data"]["items"]) == ["automation:1700000000001"]
 
 
 async def test_removed_with_the_integration(

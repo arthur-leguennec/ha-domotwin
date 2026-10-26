@@ -1090,7 +1090,7 @@ maintainer right after 0.4.0, ahead of the order of D-056 (D-057).
   removed; a file Home Assistant cannot read left alone.
 - ✅ **In Home Assistant's storage**, a store of its own: 4 MB in all, 50 versions an item, 1 MB a
   version, the oldest versions first to go; for administrators; never in the diagnostics; deleted
-  with the integration.
+  with the integration, written at once when it is unloaded.
 - ✅ **What changed, in words**, between a version and the one before it, or the current one:
   the triggers, conditions, actions and steps numbered, a scene's entities by their names, a
   dashboard's views by their titles and their cards; a list's items matched first, so that one
