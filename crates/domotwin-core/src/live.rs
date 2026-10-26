@@ -641,8 +641,13 @@ mod tests {
             "binary_sensor.entrance_door_contact": { "state": "off", "attributes": {} },
         }));
         live.set_targets(targets(&plan, &lights, &bindings, &lit));
-        // Half way: the lamp coming on, the door closing.
+        let lamp = index(&plan, "pendant-living");
+        let door = index(&plan, "door-entrance");
+        let opened = live.overrides.open[&door];
+        // On their way: the lamp no longer greyed out (its light came), the door closing.
         assert!(live.step(100.0).animating);
+        assert!(live.looks[lamp] != live.target.looks[lamp]);
+        assert!(live.overrides.open[&door] > 0.0 && live.overrides.open[&door] < opened);
         let before = live.clone();
         assert!(!live.step(-30_000.0).animating);
         assert!(live == before);

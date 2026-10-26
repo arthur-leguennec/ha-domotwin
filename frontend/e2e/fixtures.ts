@@ -287,6 +287,7 @@ export function entityState(page: Page, id: string): Promise<string | undefined>
 
 /** The colour drawn at the centre of an element, from a fresh frame. */
 export async function colorAt(page: Page, id: string): Promise<[number, number, number]> {
+  await drawn(page);
   return page.evaluate(async (element) => {
     const page = window as never as {
       __view: () => HTMLElement & {
