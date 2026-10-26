@@ -1661,3 +1661,63 @@ M16b, the first half of the demo house milestone: what the demo house shows, bui
     integration go together, as always.
   - Nothing is sent anywhere new: the robot and the energy are read from the states Home
     Assistant already sends.
+
+## D-050 · The demo house
+
+M16c, the second half of the demo house milestone: a home to try DomoTwin on before drawing one's
+own.
+
+- **Context.** Trying DomoTwin meant drawing or importing a plan, then linking entities, before
+  anything moved. The maintainer asked for a realistic demo of a home with a lot of automation, a
+  robot vacuum and its energy, understood at a glance.
+- **Decision.**
+  - **A demo house** of two storeys, fictional like every example
+    (`examples/demo-house.domotwin.json`, `examples/demo-house-upper.domotwin.json`): on the
+    ground floor a living room open to the kitchen with the robot vacuum's dock, an office, the
+    hall with the stairs, a WC, a cloakroom and the laundry; upstairs the main bedroom, the
+    bathroom, a children's room, the landing, a playroom and a guest room.
+  - **Its own Home Assistant, in the page.** About seventy entities (lamps, curtains, TVs,
+    thermostats, temperature, humidity and CO₂ sensors, motion, the front door's lock, the robot
+    vacuum, the appliances and their power, solar panels, the grid meter, a battery), thirteen
+    areas on two floors, three people, eight automations, upkeep cards and the energy settings,
+    named in English or French as the visitor's Home Assistant is. Its connection answers
+    DomoTwin's commands from memory as the integration would (plans, links, settings, upkeep,
+    people, actions to do later), and the few of Home Assistant's the frontend asks (an
+    automation's configuration, the energy settings, what an area relates to); what it has not
+    (Bluetooth, ZHA, voice) it says so. The panel and the card run on it unchanged.
+  - **A day of its own**, a spring day at a minute a second. The sun rises and sets (the light and
+    the real sun follow it), the panels give with it, the battery charges from them and is drawn
+    at night, the grid takes the rest. The family wakes up, has breakfast; two leave, one works in
+    the office; they come back, cook, watch TV, go to bed. The washing machine, the dryer, the
+    dishwasher (when the sun gives enough) and the oven run; the robot vacuum cleans while the
+    house is quiet. Automations light the evening, follow people after dark, open the curtains in
+    the morning, lock the door, put the house to bed, each running as it acts, so that its wire
+    pulses. Temperatures, humidity and CO₂ follow who is where.
+  - **What the visitor does stays**: a lamp switched off stays off until the day changes it again,
+    a robot sent out comes home after a while, an action set for later runs on the demo's clock
+    (checked as the integration checks it). The day held by the visitor stays held when they come
+    back from another page; going on, it waits while they are away.
+    Edits, links and settings change the demo's copy only, gone when it is left.
+  - **Nothing reaches the home**: no service, no save, no subscription goes to the visitor's Home
+    Assistant (only Home Assistant's own menu button keeps it, for the sidebar). Its `hass` says it
+    is the demo's: nothing hands over to Home Assistant's own dialogs or pages, which would show
+    the home's entities (*more info* opens DomoTwin's controls, an automation has no edit link).
+    Its edit drafts are kept apart from the home's, and forgotten when it is left or shown again;
+    leaving it ends what runs on it (edit mode, the plan editor, link mode) without saving, and
+    waits for an import being read; answers the home or the demo had on their way are dropped, and
+    what the client read of the home is read again on coming back. The panel and the card share
+    one controller for all this. The demo is a chunk loaded when asked for.
+  - **Its own clock**: its `hass` tells its time, which the sheets, the schedules, the
+    automations' "ran … ago" and the upkeep read instead of the device's; it is a wall clock in
+    the device's time zone.
+  - **In the panel**, *Try the demo house* where there is no plan yet, and *Demo house* in the
+    menu. A bar over the view says it is the demo and that nothing touches the home, shows its
+    time, holds it or lets it go on, goes to the morning, midday, the evening or the night, and
+    leaves it. **A card** with `demo: true` shows it (a dashboard showing DomoTwin), its bar
+    without the way out.
+  - The robot vacuum's dock, and its robot, are graphite by default: light ones were lost on light
+    floors.
+- **Consequences.**
+  - The demo house is an example plan too, imported like any other.
+  - The first load grows by the entry points only; the demo itself comes on demand.
+  - Docks placed with the default colour before change colour.

@@ -8,12 +8,13 @@ import { mdiClockOutline, mdiClose, mdiPlus } from "@mdi/js";
 import { LitElement, css, html, nothing, type PropertyValues, type TemplateResult } from "lit";
 
 import { DomoTwinClient } from "../ha/client";
-import { isHassError, type HomeAssistant } from "../ha/types";
+import { isHassError, nowOf, type HomeAssistant } from "../ha/types";
 import { translatorFor, type MessageKey, type Translator } from "../i18n";
 import { entityName } from "../live/bindings";
 import {
   MAX_SCHEDULE_ENTITIES,
   nextStep,
+  schedulable,
   schedulesOf,
   soonIn,
   timeStyle,
@@ -25,23 +26,6 @@ import { define } from "./define";
 import { rowStyles } from "./entity-rows";
 import { icon } from "./icon";
 import { baseStyles } from "./styles";
-
-/** What an action can switch (the integration's `SCHEDULABLE_DOMAINS`). */
-const SCHEDULABLE = new Set([
-  "light",
-  "switch",
-  "fan",
-  "input_boolean",
-  "media_player",
-  "climate",
-  "humidifier",
-  "siren",
-  "cover",
-]);
-
-function schedulable(entity: string): boolean {
-  return SCHEDULABLE.has(entity.split(".")[0] ?? "");
-}
 
 /** How long a device switched on stays on (minutes; 0: until switched off otherwise). */
 const DURATIONS = [0, 5, 15, 30, 60, 120, 240, 480];
@@ -232,7 +216,7 @@ export class DomoTwinSchedules extends LitElement {
     if (!hass || !this.items || entities.length === 0) return nothing;
     const t = this.t;
     const style = timeStyle(hass);
-    const now = new Date();
+    const now = new Date(nowOf(hass));
     const mine = schedulesOf(this.items, entities);
     return html`<h3>${t.t("schedules.title")}</h3>
       ${mine.map((item) => this.renderItem(hass, t, item, style, now))}
@@ -299,7 +283,7 @@ export class DomoTwinSchedules extends LitElement {
         @click=${() => {
           this.adding = true;
           this.action = "on";
-          this.at = soonIn(new Date(), timeStyle(hass).timeZone);
+          this.at = soonIn(new Date(nowOf(hass)), timeStyle(hass).timeZone);
           this.duration = 0;
           this.brightness = 100;
           this.said = undefined;

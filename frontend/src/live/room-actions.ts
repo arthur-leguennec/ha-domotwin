@@ -179,14 +179,21 @@ export async function runCommand(hass: HomeAssistant, command: RoomCommand): Pro
   if (refused) throw refused.reason;
 }
 
-/** A command of the room or one of its own actions, run; throws what Home Assistant said. */
+/**
+ * A command of the room or one of its own actions, run; throws what Home Assistant said. Returns
+ * whether it was done (not a dialog of Home Assistant's that the demo house has not, D-050).
+ */
 export async function runRoom(
   node: HTMLElement,
   hass: HomeAssistant,
   what: RoomCommand | RoomAction,
-): Promise<void> {
-  if ("calls" in what) await runCommand(hass, what);
-  else await runAction(node, hass, what.action, { entities: [] });
+): Promise<boolean> {
+  if ("calls" in what) {
+    await runCommand(hass, what);
+    return true;
+  }
+  const result = await runAction(node, hass, what.action, { entities: [] });
+  return !(hass.demo && result === "controls");
 }
 
 /** The actions an administrator gave a room (`readBindings` left out anything malformed). */

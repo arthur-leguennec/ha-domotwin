@@ -27,6 +27,12 @@ Local, rapide, Rust + WebAssembly.</p>
 
 ## Fonctionnalités
 
+- **Une maison de démo à essayer d’abord.** Avant de dessiner quoi que ce soit, ouvrez DomoTwin et
+  **Essayer la maison de démo** : une maison familiale fictive sur deux niveaux, avec ses lampes,
+  rideaux, télés, thermostats, capteurs, un aspirateur robot, des panneaux solaires et une
+  batterie, trois personnes et huit automatisations, qui vit une journée de printemps à une minute
+  par seconde. Allez au matin, à midi, au soir ou à la nuit, touchez à tout, modifiez-la : rien ne
+  touche votre maison. Une carte avec `demo: true` la montre sur un tableau de bord.
 - **Votre plan en 3D et en 2D.** Dessinez-le dans le panneau, ou importez-le : une maquette IFC
   (`*.ifc`, depuis Revit, ArchiCAD, Bonsai, FreeCAD…), une maison Sweet Home 3D (`*.sh3d`), un
   dessin DXF, une pièce scannée avec un iPhone ou un iPad à LiDAR (`*.usdz`, le JSON de RoomPlan)
@@ -145,6 +151,10 @@ Local, rapide, Rust + WebAssembly.</p>
 </p>
 
 <p align="center">
+  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-demo.png" alt="La maison de démo : le matin, son aspirateur robot nettoie le salon pendant que Sam travaille dans le bureau et que le soleil charge la batterie, montrés avec le calque de consommation et l’énergie de la maison ; le soir, ses lampes sont allumées dans le salon, où la famille regarde la télé" width="100%">
+</p>
+
+<p align="center">
   <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-looks.png" alt="L’appartement de démonstration le soir dans trois apparences : néon, plan d’architecte et jour" width="100%">
 </p>
 
@@ -223,7 +233,8 @@ Local, rapide, Rust + WebAssembly.</p>
    une maison Sweet Home 3D, un dessin DXF ou le scan d’une pièce (voir [les plans d’autres
    applications](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/imports.md), en
    anglais).
-   Pas encore de plan ? Essayez l’appartement fictif
+   Pas encore de plan ? **Essayez la maison de démo** dans le panneau, ou importez l’appartement
+   fictif
    [`examples/demo-apartment.domotwin.json`](https://github.com/arthur-leguennec/ha-domotwin/blob/main/examples/demo-apartment.domotwin.json)
    ou
    [`examples/demo-apartment.ifc`](https://github.com/arthur-leguennec/ha-domotwin/blob/main/examples/demo-apartment.ifc),
@@ -268,6 +279,7 @@ YAML n’est jamais nécessaire. Pour référence, les options de la carte :
 | `voice`       | `true`, `false`                     | `true`     | Le bouton micro, quand Assist est là.         |
 | `screen`      | un nom (`hallway`…)                 | aucun      | Le nom de cet écran, pour `domotwin.show`.    |
 | `font_family` | une famille de police, `theme`      | incluse    | Police des textes de la carte ; `theme` : celle de votre thème. |
+| `demo`        | `true`, `false`                     | `false`    | La maison de démo et sa journée au lieu de votre maison ; rien de votre maison n’est touché. |
 
 Options de l’intégration (Paramètres → Appareils et services → DomoTwin → Configurer) : afficher le
 panneau dans la barre latérale, et le réserver aux administrateurs. Seuls les administrateurs

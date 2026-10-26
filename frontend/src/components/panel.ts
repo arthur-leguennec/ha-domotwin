@@ -3,6 +3,7 @@ import {
   mdiBluetooth,
   mdiCheck,
   mdiClose,
+  mdiFlaskOutline,
   mdiCogOutline,
   mdiDotsVertical,
   mdiLinkVariant,
@@ -43,6 +44,7 @@ import {
   type StoredPlan,
 } from "../ha/client";
 import { isHassError, type HomeAssistant } from "../ha/types";
+import type { DemoHome } from "../demo/home";
 import {
   MAX_ENTITIES,
   readBindings,
@@ -91,6 +93,7 @@ import type { ModelFormat, ModelInfo } from "../models/models";
 import { translatorFor, type Translator } from "../i18n";
 import { documentFonts } from "../fonts";
 import { icon } from "./icon";
+import { DemoSwitch } from "./demo-switch";
 import { DialogFocus } from "./dialog";
 import { focusBack, focusMenu, menuKeydown } from "./menu";
 import { baseStyles, lookStyles } from "./styles";
@@ -441,6 +444,8 @@ export class DomoTwinPanel extends LitElement {
   private _hass?: HomeAssistant;
   private unsubscribe?: () => void;
   private toastTimer?: number;
+  /** The demo house shown instead of the home (D-050). */
+  private readonly demoSwitch = new DemoSwitch(this);
 
   static override styles = [
     baseStyles,
@@ -814,6 +819,9 @@ export class DomoTwinPanel extends LitElement {
   }
 
   set hass(hass: HomeAssistant | undefined) {
+    this.demoSwitch.realHass = hass;
+    // The demo house keeps its own Home Assistant.
+    if (this.demo) return;
     const first = !this._hass && hass;
     const old = this._hass;
     this._hass = hass;
@@ -860,6 +868,87 @@ export class DomoTwinPanel extends LitElement {
     this.cancelIfc();
   }
 
+  /** The demo house shown, if one is (D-050). */
+  private get demo(): DemoHome | undefined {
+    return this.demoSwitch.home;
+  }
+
+  /**
+   * Whether the home shown may change for the demo house or back: nothing running on it (edit
+   * mode, the plan editor, link mode, an import being read or a storey to pick).
+   */
+  private switchable(): boolean {
+    return !this.busy && !this.importChoice && !this.editing && !this.planning && !this.linking;
+  }
+
+  /** Shows the demo house (D-050): its own Home Assistant, the home's left as it is. */
+  private readonly enterDemo = async (): Promise<void> => {
+    this.moreOpen = false;
+    await this.demoSwitch.start(() => this.switchable());
+  };
+
+  /** Back to the home from the demo house: what runs on it ends, nothing of it saved there. */
+  private readonly leaveDemo = (): void => {
+    this.moreOpen = false;
+    // An import running on the demo house finishes there first.
+    if (!this.demo || this.busy) return;
+    if (this.editing) this.discardEdit();
+    if (this.planning) this.discardPlan();
+    this.cancelIfc();
+    this.demoSwitch.stop();
+  };
+
+  /** A new `hass` of the demo house's day (D-050). */
+  demoChanged(hass: HomeAssistant): void {
+    const old = this._hass;
+    this._hass = hass;
+    this.requestUpdate("hass", old);
+  }
+
+  /**
+   * Shows another home's Home Assistant: what was read of the one before forgotten, its dialogs
+   * closed, its answers still on their way dropped.
+   */
+  showHome(hass: HomeAssistant | undefined): void {
+    this.unsubscribe?.();
+    this.unsubscribe = undefined;
+    clearTimeout(this.settingsTimer);
+    this.loads += 1;
+    this.linking = false;
+    this.linkTarget = undefined;
+    this.placing = undefined;
+    this.northDraft = undefined;
+    this.lookDraft = undefined;
+    this.energyDraft = undefined;
+    this.energyPreferred = undefined;
+    this.peopleOpen = false;
+    this.peopleSettings = undefined;
+    this.bluetoothOpen = false;
+    this.locating = undefined;
+    this.privacyRooms = undefined;
+    this.voiceOpen = false;
+    this.storeysOpen = false;
+    this.storeyRemoveAsk = undefined;
+    this.plan = undefined;
+    this.layout = undefined;
+    this.planError = undefined;
+    this.bindings = undefined;
+    this.settings = undefined;
+    this.settingsRead = false;
+    this.upkeep = undefined;
+    this.people = undefined;
+    this.storeys = [];
+    this.storey = undefined;
+    this.showAll = false;
+    this.home = undefined;
+    this.elsewhere = [];
+    this.toast = undefined;
+    const old = this._hass;
+    this._hass = hass;
+    this.requestUpdate("hass", old);
+    if (hass && this.isConnected) this.connectData();
+  }
+
   private connectData(): void {
     const client = this.client;
     if (!client || this.unsubscribe) return;
@@ -883,9 +972,10 @@ export class DomoTwinPanel extends LitElement {
     const client = this.client;
     if (!client) return;
     try {
-      this.people = await client.getPeople();
+      const people = await client.getPeople();
+      if (client === this.client) this.people = people;
     } catch {
-      this.people = undefined;
+      if (client === this.client) this.people = undefined;
     }
   }
 
@@ -894,9 +984,10 @@ export class DomoTwinPanel extends LitElement {
     const client = this.client;
     if (!client) return;
     try {
-      this.upkeep = (await client.getUpkeep()).upkeep;
+      const { upkeep } = await client.getUpkeep();
+      if (client === this.client) this.upkeep = upkeep;
     } catch {
-      this.upkeep = undefined;
+      if (client === this.client) this.upkeep = undefined;
     }
   }
 
@@ -938,10 +1029,13 @@ export class DomoTwinPanel extends LitElement {
     if (!client) return;
     clearTimeout(this.settingsTimer);
     try {
-      this.settings = (await client.getSettings()).settings;
+      const { settings } = await client.getSettings();
+      // Another home's meanwhile (the demo house, D-050): not this one's.
+      if (client !== this.client) return;
+      this.settings = settings;
       this.settingsRead = true;
     } catch {
-      if (!this.settingsRead && this.unsubscribe) {
+      if (client === this.client && !this.settingsRead && this.unsubscribe) {
         this.settingsTimer = setTimeout(() => void this.loadSettings(), SETTINGS_RETRY_MS);
       }
     }
@@ -1028,15 +1122,15 @@ export class DomoTwinPanel extends LitElement {
   /** Home Assistant's own energy settings, for the sensors they name (none when they cannot be
    * read). */
   private async loadEnergyPreferred(): Promise<void> {
-    if (this.energyPreferred || !this._hass) return;
+    const hass = this._hass;
+    if (this.energyPreferred || !hass) return;
+    let prefs: unknown = null;
     try {
-      const prefs: unknown = await this._hass.connection.sendMessagePromise({
-        type: "energy/get_prefs",
-      });
-      this.energyPreferred = preferredFromHome(prefs);
+      prefs = await hass.connection.sendMessagePromise({ type: "energy/get_prefs" });
     } catch {
-      this.energyPreferred = preferredFromHome(null);
+      // None read: none preferred.
     }
+    if (hass.connection === this._hass?.connection) this.energyPreferred = preferredFromHome(prefs);
   }
 
   private readonly saveSettings = async (): Promise<void> => {
@@ -1076,9 +1170,10 @@ export class DomoTwinPanel extends LitElement {
     const client = this.client;
     if (!client) return;
     try {
-      this.bindings = readBindings((await client.getBindings()).bindings);
+      const bindings = readBindings((await client.getBindings()).bindings);
+      if (client === this.client) this.bindings = bindings;
     } catch {
-      this.bindings = undefined;
+      if (client === this.client) this.bindings = undefined;
     }
   }
 
@@ -1110,6 +1205,8 @@ export class DomoTwinPanel extends LitElement {
       this.showAll &&= home !== undefined;
       this.home = home;
     } catch (error) {
+      // A later load's, or another home's (the demo house, D-050), is not this one's.
+      if (ticket !== this.loads) return;
       this.planError = isHassError(error) ? error.code : "unknown";
     }
   }
@@ -1118,8 +1215,10 @@ export class DomoTwinPanel extends LitElement {
   private async loadElsewhere(client: DomoTwinClient, stored: StoredPlan): Promise<void> {
     const elsewhere =
       stored.storeys.length > 1 ? await roomsElsewhere(client, stored.storeys, stored.storey) : [];
-    // Another storey shown meanwhile: its own load sets them.
-    if ((stored.storey ?? undefined) === this.storey) this.elsewhere = elsewhere;
+    // Another storey shown meanwhile, or another home: its own load sets them.
+    if (client === this.client && (stored.storey ?? undefined) === this.storey) {
+      this.elsewhere = elsewhere;
+    }
   }
 
   private show(text: string, error = false): void {
@@ -1160,7 +1259,7 @@ export class DomoTwinPanel extends LitElement {
     this.editRevision = this.revision;
     this.editChanges = 0;
     const draft =
-      this.revision === undefined ? undefined : readDraft(this.revision, this.storey ?? "");
+      this.revision === undefined ? undefined : readDraft(this.revision, this.editDraftStorey());
     if (draft && JSON.stringify(draft.layout) !== JSON.stringify(this.layout ?? {})) {
       this.draft = draft;
     }
@@ -1189,16 +1288,16 @@ export class DomoTwinPanel extends LitElement {
       const draft =
         this.editRevision === undefined
           ? undefined
-          : readDraft(this.editRevision, this.storey ?? "");
+          : readDraft(this.editRevision, this.editDraftStorey());
       if (draft) this.draft = draft;
       return;
     }
     const layout = state.dirty ? this.view?.editLayout() : undefined;
     if (layout && this.editRevision !== undefined) {
-      writeDraft({ revision: this.editRevision, storey: this.storey ?? "", layout });
+      writeDraft({ revision: this.editRevision, storey: this.editDraftStorey(), layout });
     } else if (!this.draft) {
       // Undone back to what is stored: nothing left to keep.
-      clearDraft(this.storey ?? "");
+      clearDraft(this.editDraftStorey());
     }
   };
 
@@ -1306,7 +1405,7 @@ export class DomoTwinPanel extends LitElement {
 
   private readonly forgetDraft = (): void => {
     this.draft = undefined;
-    clearDraft(this.storey ?? "");
+    clearDraft(this.editDraftStorey());
   };
 
   /**
@@ -1329,9 +1428,9 @@ export class DomoTwinPanel extends LitElement {
       view.editSaved(sent);
       const now = view.editLayout();
       if (now && JSON.stringify(now) !== JSON.stringify(sent)) {
-        writeDraft({ revision, storey: this.storey ?? "", layout: now });
+        writeDraft({ revision, storey: this.editDraftStorey(), layout: now });
       } else {
-        clearDraft(this.storey ?? "");
+        clearDraft(this.editDraftStorey());
         this.stopEditing();
       }
       await this.loadPlan();
@@ -1354,7 +1453,7 @@ export class DomoTwinPanel extends LitElement {
 
   private readonly discardEdit = (): void => {
     // A draft still offered stays, unless changes were discarded on purpose.
-    if (this.edit?.dirty || !this.draft) clearDraft(this.storey ?? "");
+    if (this.edit?.dirty || !this.draft) clearDraft(this.editDraftStorey());
     this.view?.endEdit(false);
     this.stopEditing();
   };
@@ -1394,7 +1493,17 @@ export class DomoTwinPanel extends LitElement {
 
   /** What the plan editor's draft is kept for: the storey shown, or "" for a new storey. */
   private draftStorey(): string {
-    return this.planNew ? "" : (this.storey ?? "");
+    return this.draftKey(this.planNew ? "" : (this.storey ?? ""));
+  }
+
+  /** What edit mode's draft is kept for: the storey shown. */
+  private editDraftStorey(): string {
+    return this.draftKey(this.storey ?? "");
+  }
+
+  /** The drafts of the demo house (D-050) are its own, never the home's. */
+  private draftKey(storey: string): string {
+    return this.demo ? `demo/${storey}` : storey;
   }
 
   /** The ids every storey but `except` uses. */
@@ -2229,7 +2338,10 @@ export class DomoTwinPanel extends LitElement {
     const admin = this._hass?.user?.is_admin === true;
     // One template in both modes: the view stays the same element (engine, camera, 2D or 3D).
     return html`<div class="toolbar">
-        <ha-menu-button .hass=${this._hass} .narrow=${this.narrow}></ha-menu-button>
+        <ha-menu-button
+          .hass=${this.demoSwitch.realHass ?? this._hass}
+          .narrow=${this.narrow}
+        ></ha-menu-button>
         <h1>
           ${
             this.editing
@@ -2247,6 +2359,16 @@ export class DomoTwinPanel extends LitElement {
               : this.renderActions(admin)
         }
       </div>
+      ${
+        this.demo
+          ? html`<domotwin-demo-bar
+              .home=${this.demo}
+              leave
+              ?held=${this.busy}
+              @domotwin-demo-leave=${this.leaveDemo}
+            ></domotwin-demo-bar>`
+          : nothing
+      }
       <div class="body">
         <domotwin-view
           .hass=${this._hass}
@@ -2283,18 +2405,26 @@ export class DomoTwinPanel extends LitElement {
           @domotwin-link-element=${this.onLinkElement}
           @domotwin-network-place=${this.onNetworkPlace}
         >
-          ${
-            admin
-              ? html`<span slot="empty-action" class="empty-actions">
-                  <button class="action" @click=${this.chooseFile}>
-                    ${icon(mdiTrayArrowUp)}${t.t("panel.import")}
-                  </button>
-                  <button class="action" data-testid="plan-new" @click=${this.startPlan}>
-                    ${icon(mdiVectorSquareEdit)}${t.t("plan.new")}
-                  </button>
-                </span>`
-              : nothing
-          }
+          <span slot="empty-action" class="empty-actions">
+            ${
+              admin
+                ? html`<button class="action" @click=${this.chooseFile}>
+                      ${icon(mdiTrayArrowUp)}${t.t("panel.import")}
+                    </button>
+                    <button class="action" data-testid="plan-new" @click=${this.startPlan}>
+                      ${icon(mdiVectorSquareEdit)}${t.t("plan.new")}
+                    </button>`
+                : nothing
+            }
+            <button
+              class="action"
+              data-testid="demo-try"
+              ?disabled=${this.busy}
+              @click=${this.enterDemo}
+            >
+              ${icon(mdiFlaskOutline)}${t.t("demo.try")}
+            </button>
+          </span>
         </domotwin-view>
         ${
           this.editing
@@ -2491,6 +2621,12 @@ export class DomoTwinPanel extends LitElement {
               )}
               ${item("privacy-settings", mdiLockOutline, t.t("privacy.title"), this.busy, this.openPrivacy)}
               ${item("voice-settings", mdiMicrophoneMessage, t.t("voice.settings"), this.busy, this.openVoice)}
+              <hr />
+              ${
+                this.demo
+                  ? item("demo-leave-menu", mdiClose, t.t("demo.leave"), this.busy, this.leaveDemo)
+                  : item("demo-menu", mdiFlaskOutline, t.t("demo.menu"), this.busy, this.enterDemo)
+              }
             </div>`
           : nothing
       }

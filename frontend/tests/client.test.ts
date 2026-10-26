@@ -68,6 +68,19 @@ describe("DomoTwinClient", () => {
     stop();
   });
 
+  it("reads again what it read once nobody follows the home any more", async () => {
+    const { hass, sent } = fakeHass();
+    const client = DomoTwinClient.for(hass);
+    const stop = client.subscribe(() => undefined);
+    await client.getPlan();
+    await client.getSettings();
+    stop();
+    await client.getPlan();
+    await client.getSettings();
+    expect(sent.filter((m) => m.type === "domotwin/plan/get")).toHaveLength(2);
+    expect(sent.filter((m) => m.type === "domotwin/settings/get")).toHaveLength(2);
+  });
+
   it("sends the expected revision when asked", async () => {
     const { hass, sent } = fakeHass();
     const client = DomoTwinClient.for(hass);

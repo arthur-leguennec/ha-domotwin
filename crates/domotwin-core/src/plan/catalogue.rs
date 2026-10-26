@@ -183,7 +183,7 @@ kinds! {
     Console = "console", [90, 45, 75], 0x7a4a2c, 0, NONE, [];
     Printer = "printer", [42, 38, 25], 0xe8e8e6, 0, NONE, [];
     Printer3d = "3d-printer", [35, 36, 49], 0x1f2022, 0, NONE, ["enclosed"];
-    RobotVacuum = "robot-vacuum", [40, 50, 12], 0xe9e9e6, 0, NONE, [];
+    RobotVacuum = "robot-vacuum", [40, 50, 12], 0x3d4147, 0, NONE, [];
     Stairs = "stairs", [100, 280, 270], 0xb79268, 0, NONE, [];
 }
 

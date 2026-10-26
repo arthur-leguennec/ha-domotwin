@@ -43,3 +43,16 @@ def test_upper_floor_matches_the_schema_with_ids_of_its_own(demo_plan: dict[str,
     assert list(jsonschema.Draft202012Validator(schema).iter_errors(upper)) == []
     assert validate_plan(upper) is upper
     assert not element_ids(demo_plan) & element_ids(upper)
+
+
+def test_demo_house_matches_the_schema_with_ids_of_its_own() -> None:
+    schema = json.loads((ROOT / "schema" / "plan.schema.json").read_text(encoding="utf-8"))
+    validator = jsonschema.Draft202012Validator(schema)
+    storeys = [
+        json.loads((ROOT / "examples" / name).read_text(encoding="utf-8"))
+        for name in ("demo-house.domotwin.json", "demo-house-upper.domotwin.json")
+    ]
+    for plan in storeys:
+        assert list(validator.iter_errors(plan)) == []
+        assert validate_plan(plan) is plan
+    assert not element_ids(storeys[0]) & element_ids(storeys[1])

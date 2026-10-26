@@ -12,6 +12,24 @@ import type { Badge } from "./devices";
 /** An action switches this many devices at most (the integration's `MAX_SCHEDULE_ENTITIES`). */
 export const MAX_SCHEDULE_ENTITIES = 25;
 
+/** What an action can switch (the integration's `SCHEDULABLE_DOMAINS`). */
+const SCHEDULABLE = new Set([
+  "light",
+  "switch",
+  "fan",
+  "input_boolean",
+  "media_player",
+  "climate",
+  "humidifier",
+  "siren",
+  "cover",
+]);
+
+/** Whether an action can switch `entity`. */
+export function schedulable(entity: string): boolean {
+  return SCHEDULABLE.has(entity.split(".")[0] ?? "");
+}
+
 /** An action waiting, as the integration lists it (times in ISO 8601, UTC). */
 export interface Schedule {
   id: string;

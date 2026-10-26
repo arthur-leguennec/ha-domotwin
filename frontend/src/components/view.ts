@@ -89,7 +89,7 @@ import {
   type PointerSample,
 } from "../gestures";
 import { DomoTwinClient, type Settings, type StoreyInfo, type StoredPlan } from "../ha/client";
-import { isHassError, type HomeAssistant } from "../ha/types";
+import { isHassError, nowOf, type HomeAssistant } from "../ha/types";
 import { translatorFor, type KindName, type Translator } from "../i18n";
 import { failureText, runAction } from "../live/actions";
 import type { ReadAutomation } from "../live/automations";
@@ -1817,6 +1817,14 @@ export class DomoTwinView extends LitElement {
   }
 
   protected override willUpdate(changed: PropertyValues<this>): void {
+    // Another home's Home Assistant (the demo house's, D-050): what was open on the one before
+    // is closed.
+    const before = changed.get("hass");
+    if (before && this.hass && before.connection !== this.hass.connection) {
+      this.sheet = undefined;
+      this.focusedRoom = undefined;
+      this.wiresAsked = undefined;
+    }
     if (changed.has("options")) {
       // The layer and the sun start as the options say; the layer menu changes them after.
       const previous = changed.get("options");
@@ -2334,7 +2342,7 @@ export class DomoTwinView extends LitElement {
     const sun = this.hass?.states["sun.sun"]?.state;
     if (sun === "below_horizon") return true;
     if (sun === "above_horizon") return false;
-    const hour = new Date().getHours();
+    const hour = new Date(nowOf(this.hass)).getHours();
     return hour >= 22 || hour < 7;
   }
 
@@ -3097,7 +3105,7 @@ export class DomoTwinView extends LitElement {
           engine.setSun(rounded, rising);
         };
       } else {
-        const now = new Date();
+        const now = new Date(nowOf(this.hass));
         const hour = Math.round((now.getHours() + now.getMinutes() / 60) * 12) / 12;
         key = `clock:${hour}`;
         apply = () => {
@@ -3201,7 +3209,7 @@ export class DomoTwinView extends LitElement {
         ? deviceBadges(hass, this.bindings, this.kinds)
         : new Map<string, Badge[]>();
     const style = hass ? timeStyle(hass) : undefined;
-    const now = new Date();
+    const now = new Date(nowOf(hass));
     const later =
       style && this.bindings
         ? scheduleBadges(this.bindings, this.schedules, (at) => whenText(at, now, style))
@@ -3316,11 +3324,12 @@ export class DomoTwinView extends LitElement {
       this.standingsFrom = undefined;
       return;
     }
-    // The date is read again at most once a minute.
-    const now = Date.now();
-    if (now - this.todayRead > 60_000) {
+    // The date is read again at most once a minute (of its clock: the demo house's goes back
+    // when it is left, D-050).
+    const now = nowOf(this.hass);
+    if (Math.abs(now - this.todayRead) > 60_000) {
       this.todayRead = now;
-      this.today = todayIn(this.hass?.config?.time_zone);
+      this.today = todayIn(this.hass?.config?.time_zone, new Date(now));
     }
     const from = this.standingsFrom;
     if (from?.upkeep === upkeep && from.today === this.today && from.engine === engine) return;
@@ -3654,6 +3663,7 @@ export class DomoTwinView extends LitElement {
     if (!sameHome) {
       this.sheet = undefined;
       this.focusedRoom = undefined;
+      this.wiresAsked = undefined;
     }
     this.summary = undefined;
     this.loadError = undefined;
@@ -5418,7 +5428,7 @@ export class DomoTwinView extends LitElement {
     const hass = this.hass;
     if (!hass) return;
     try {
-      await runRoom(this, hass, what);
+      if (!(await runRoom(this, hass, what))) this.notify(this.translator.t("demo.no_dialog"));
     } catch (error) {
       this.notify(failureText(this.translator, error));
     }

@@ -25,6 +25,11 @@ Local, fast, Rust + WebAssembly.</p>
 
 ## Features
 
+- **A demo house to try first.** Before drawing anything, open DomoTwin and **Try the demo
+  house**: a fictional family home of two storeys, with its lamps, curtains, TVs, thermostats,
+  sensors, a robot vacuum, solar panels and a battery, three people and eight automations, living
+  a spring day a minute a second. Go to the morning, midday, evening or night, tap anything, edit
+  it: nothing touches your home. A card with `demo: true` shows it on a dashboard.
 - **Your floor plan in 3D and 2D.** Draw it in the panel, or import it: an IFC model (`*.ifc`,
   from Revit, ArchiCAD, Bonsai, FreeCAD…), a Sweet Home 3D home (`*.sh3d`), a DXF drawing, a room
   scanned with an iPhone or iPad with LiDAR (`*.usdz`, RoomPlan's JSON) or a DomoTwin plan
@@ -125,6 +130,10 @@ Local, fast, Rust + WebAssembly.</p>
 </p>
 
 <p align="center">
+  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-demo.png" alt="The demo house: in the morning its robot vacuum cleans the living room while Sam works in the office and the sun charges the battery, shown with the power layer and the home's energy; in the evening its lamps are on in the living room, where the family watches TV" width="100%">
+</p>
+
+<p align="center">
   <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-looks.png" alt="The demo apartment in the evening in three looks: neon, blueprint and day" width="100%">
 </p>
 
@@ -200,7 +209,7 @@ Local, fast, Rust + WebAssembly.</p>
    import](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/ifc-import.md)), a Sweet
    Home 3D home, a DXF drawing or a room scan (see [plans from other
    apps](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/imports.md)). No plan
-   yet? Try the fictional
+   yet? **Try the demo house** in the panel, or import the fictional
    [`examples/demo-apartment.domotwin.json`](https://github.com/arthur-leguennec/ha-domotwin/blob/main/examples/demo-apartment.domotwin.json)
    or
    [`examples/demo-apartment.ifc`](https://github.com/arthur-leguennec/ha-domotwin/blob/main/examples/demo-apartment.ifc),
@@ -244,6 +253,7 @@ YAML is never required. For reference, the card options are:
 | `voice`       | `true`, `false`                     | `true`     | The microphone button, when Assist is there. |
 | `screen`      | a name (`hallway`…)                 | none       | This screen's name, for `domotwin.show`.  |
 | `font_family` | a font family, `theme`              | bundled    | Font of the card's texts; `theme`: your theme's. |
+| `demo`        | `true`, `false`                     | `false`    | The demo house and its day instead of your home; nothing of your home is touched. |
 
 Integration options (Settings → Devices & services → DomoTwin → Configure): show the panel in the
 sidebar, and show it to administrators only. Only administrators can import plans, edit and bind.

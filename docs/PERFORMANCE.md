@@ -835,3 +835,19 @@ the walls.
 
 The energy card reads four sensors at each state change and draws one small picture (an SVG of
 four ends and at most seven lines); its dots move by CSS, without the engine.
+
+### M16c (the demo house)
+
+Bundle: the first load is **506.4 kB gzipped** of 1 200 kB (+2.0 kB): the panel's and the card's
+ways in (one controller for both), the bar's element name and the demo's texts. The demo house
+comes on demand, the first time it is asked for (`chunks/demo-bar-<hash>.js`: 66.0 kB raw,
+19.0 kB gzipped): its two plans, its entities, its day and its connection.
+
+The demo's day goes on a minute a second: once a second it works out the minute's sensors and
+what the day sets (a few dozen entities), and the panel or the card gets one new `hass`, as from
+Home Assistant. The battery's planned day is worked out once, in steps of five minutes (288
+steps), the first time the demo goes to a moment; going to another is then a lookup. The demo is held while its panel or card is away, and stopped when it is
+left.
+
+The house's ground floor is 19 460 triangles, its upper floor 18 106; the view draws one storey
+at a time, as for any home.

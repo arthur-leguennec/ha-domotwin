@@ -4,6 +4,7 @@ import { ConfigError, normalizeConfig, type CardConfig } from "../config";
 import { fontFamily } from "../fonts";
 import { DomoTwinClient, type Settings, type StoreyInfo, type StoredPlan } from "../ha/client";
 import { isHassError, type HomeAssistant } from "../ha/types";
+import type { DemoHome } from "../demo/home";
 import { readBindings, type BindingsJson } from "../live/bindings";
 import { privateRooms } from "../live/privacy";
 import { forScreen, resolveShow, type ShowRequest } from "../live/show";
@@ -18,6 +19,7 @@ import {
 import type { PeopleSettings } from "../live/people";
 import type { Upkeep } from "../live/upkeep";
 import { translatorFor } from "../i18n";
+import { DemoSwitch } from "./demo-switch";
 import { baseStyles } from "./styles";
 import type { DomoTwinView, ViewOptions } from "./view";
 
@@ -72,6 +74,8 @@ export class DomoTwinCard extends LitElement {
   protected elsewhere: StoreyRooms[] = [];
   private _hass?: HomeAssistant;
   private unsubscribe?: () => void;
+  /** The demo house shown instead of the home (`demo: true`, D-050). */
+  private readonly demoSwitch = new DemoSwitch(this);
   private options?: { source: CardConfig; value: ViewOptions };
 
   static override styles = [
@@ -98,6 +102,9 @@ export class DomoTwinCard extends LitElement {
     try {
       const before = this.config?.storey;
       this.config = normalizeConfig(config);
+      // The demo house asked for, or no longer.
+      if (this.config.demo && this.demoSwitch.realHass) void this.startDemo();
+      if (!this.config.demo) this.demoSwitch.stop();
       if (this.config.storey !== before) {
         // Another storey asked for (the visual editor): it wins over the switcher's choice.
         this.chosen = undefined;
@@ -117,6 +124,12 @@ export class DomoTwinCard extends LitElement {
   }
 
   set hass(hass: HomeAssistant | undefined) {
+    this.demoSwitch.realHass = hass;
+    if (this.config?.demo) {
+      // The demo house keeps its own Home Assistant.
+      void this.startDemo();
+      return;
+    }
     const first = !this._hass && hass;
     const old = this._hass;
     this._hass = hass;
@@ -134,6 +147,51 @@ export class DomoTwinCard extends LitElement {
     clearTimeout(this.settingsTimer);
     this.unsubscribe?.();
     this.unsubscribe = undefined;
+  }
+
+  /** The demo house shown, if one is. */
+  private get demo(): DemoHome | undefined {
+    return this.demoSwitch.home;
+  }
+
+  /** Shows the demo house (D-050) instead of the home, while the card is set to. */
+  private startDemo(): Promise<void> {
+    return this.demoSwitch.start(() => this.config?.demo === true);
+  }
+
+  /** A new `hass` of the demo house's day. */
+  demoChanged(hass: HomeAssistant): void {
+    const old = this._hass;
+    this._hass = hass;
+    this.requestUpdate("hass", old);
+  }
+
+  /**
+   * Shows another home's Home Assistant: what was read of the one before forgotten, its answers
+   * still on their way dropped.
+   */
+  showHome(hass: HomeAssistant | undefined): void {
+    this.unsubscribe?.();
+    this.unsubscribe = undefined;
+    clearTimeout(this.settingsTimer);
+    this.loads += 1;
+    this.chosen = undefined;
+    this.plan = undefined;
+    this.layout = undefined;
+    this.home = undefined;
+    this.planError = undefined;
+    this.bindings = undefined;
+    this.settings = undefined;
+    this.settingsRead = false;
+    this.upkeep = undefined;
+    this.people = undefined;
+    this.storeys = [];
+    this.storey = undefined;
+    this.elsewhere = [];
+    const old = this._hass;
+    this._hass = hass;
+    this.requestUpdate("hass", old);
+    if (hass && this.isConnected) this.connectData();
   }
 
   private connectData(): void {
@@ -154,21 +212,28 @@ export class DomoTwinCard extends LitElement {
     void this.loadPeople(client);
   }
 
+  /** Whether `client` is the home's shown (not the one before the demo house, or after it). */
+  private current(client: DomoTwinClient): boolean {
+    return this._hass !== undefined && DomoTwinClient.for(this._hass) === client;
+  }
+
   /** Without people's settings (an integration older than D-034 too) nobody is drawn. */
   private async loadPeople(client: DomoTwinClient): Promise<void> {
     try {
-      this.people = await client.getPeople();
+      const people = await client.getPeople();
+      if (this.current(client)) this.people = people;
     } catch {
-      this.people = undefined;
+      if (this.current(client)) this.people = undefined;
     }
   }
 
   /** Without upkeep cards (an integration older than D-033 too) nothing is due. */
   private async loadUpkeep(client: DomoTwinClient): Promise<void> {
     try {
-      this.upkeep = (await client.getUpkeep()).upkeep;
+      const { upkeep } = await client.getUpkeep();
+      if (this.current(client)) this.upkeep = upkeep;
     } catch {
-      this.upkeep = undefined;
+      if (this.current(client)) this.upkeep = undefined;
     }
   }
 
@@ -179,10 +244,12 @@ export class DomoTwinCard extends LitElement {
   private async loadSettings(client: DomoTwinClient): Promise<void> {
     clearTimeout(this.settingsTimer);
     try {
-      this.settings = (await client.getSettings()).settings;
+      const { settings } = await client.getSettings();
+      if (!this.current(client)) return;
+      this.settings = settings;
       this.settingsRead = true;
     } catch {
-      if (!this.settingsRead && this.unsubscribe) {
+      if (this.current(client) && !this.settingsRead && this.unsubscribe) {
         this.settingsTimer = setTimeout(() => void this.loadSettings(client), SETTINGS_RETRY_MS);
       }
     }
@@ -231,6 +298,8 @@ export class DomoTwinCard extends LitElement {
       }
       this.planError = undefined;
     } catch (error) {
+      // A later load's, or another home's (the demo house, D-050), is not this one's.
+      if (ticket !== this.loads) return;
       this.planError = isHassError(error) ? error.code : "unknown";
     }
   }
@@ -239,8 +308,10 @@ export class DomoTwinCard extends LitElement {
   private async loadElsewhere(client: DomoTwinClient, stored: StoredPlan): Promise<void> {
     const elsewhere =
       stored.storeys.length > 1 ? await roomsElsewhere(client, stored.storeys, stored.storey) : [];
-    // Another storey shown meanwhile: its own load sets them.
-    if ((stored.storey ?? undefined) === this.storey) this.elsewhere = elsewhere;
+    // Another storey shown meanwhile, or another home: its own load sets them.
+    if (this.current(client) && (stored.storey ?? undefined) === this.storey) {
+      this.elsewhere = elsewhere;
+    }
   }
 
   /** `domotwin.show` (D-029): on this screen (or every one), the storey asked for, then what to
@@ -292,9 +363,10 @@ export class DomoTwinCard extends LitElement {
   /** Without bindings the home still shows, without live states. */
   private async loadBindings(client: DomoTwinClient): Promise<void> {
     try {
-      this.bindings = readBindings((await client.getBindings()).bindings);
+      const bindings = readBindings((await client.getBindings()).bindings);
+      if (this.current(client)) this.bindings = bindings;
     } catch {
-      this.bindings = undefined;
+      if (this.current(client)) this.bindings = undefined;
     }
   }
 
@@ -363,6 +435,7 @@ export class DomoTwinCard extends LitElement {
       .filter(Boolean)
       .join(";");
     return html`<ha-card .header=${this.config.title}>
+      ${this.demo ? html`<domotwin-demo-bar .home=${this.demo}></domotwin-demo-bar>` : nothing}
       <domotwin-view
         class=${this.config.height ? "fixed" : ""}
         style=${style}
