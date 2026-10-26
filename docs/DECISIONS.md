@@ -1807,3 +1807,67 @@ M16d, after 0.3.0: the measurements on real devices that HACS's default list wai
     a computer, a phone and a tablet, then ticks the box of `HACS_SUBMISSION.md`.
   - The first load grows by the menu item, the view's run and first picture, and the texts
     (+3.5 kB gzipped).
+
+## D-054 · The practical home, made of Home Assistant's cards (amends D-051)
+
+After M16d, before M23: how DomoTwin becomes the one place for the home.
+
+- **Context.** D-051 planned six milestones (M23 to M28) for DomoTwin to be the only dashboard a
+  home needs, DomoTwin drawing everything itself: its own controls for each kind of device, its
+  own charts, cameras, agenda and lists. Using it at home, the maintainer found the 3D view
+  beautiful but not practical every day: to switch on a lamp or check the heating, a list or a
+  tile is faster than turning a model. And one person keeps DomoTwin up: what Home Assistant
+  already draws well, redrawn by DomoTwin, would be theirs to keep up for good.
+- **Decision.**
+  - **The goal stays**: one place for the home. **The way changes**: a practical side next to the
+    3D view, made of what Home Assistant already has, as DomoTwin does already
+    (`window.loadCardHelpers()` and `createCardElement` in the card editor, `hass-more-info` in
+    the sheets).
+  - **Reuse Home Assistant, do not rebuild it.** An entity's controls are its tile card and its
+    more-info dialog, not DomoTwin's own climate, cover, media, lock or alarm controls, which stay
+    on the 3D view only. History and graphs are the history-graph and statistics-graph cards and
+    links to Home Assistant's History, Logbook and Energy pages: no chart drawn by DomoTwin.
+    Cameras, the alarm, the weather, calendars and lists are the picture-glance and camera,
+    alarm-panel, weather-forecast, calendar and todo-list cards.
+  - **Checked, not remembered.** A card type, a helper or an event is relied on only once found
+    in Home Assistant's frontend for the oldest version DomoTwin supports (2025.1, `hacs.json`).
+    Checked for this plan in that frontend (20250103.0): the tile, history-graph,
+    statistics-graph, picture-glance, picture-entity, alarm-panel, weather-forecast, calendar,
+    todo-list and energy cards, `loadCardHelpers` and `hass-more-info` are there.
+    `loadCardHelpers` is set by the dashboards' own module only, so DomoTwin opened before any
+    dashboard loads that module first, and shows plain rows if it cannot. The page Home
+    Assistant opens first is a choice of each device there (its `hass-default-panel` event); a
+    choice of each user, or of everyone, came later: DomoTwin uses what the Home Assistant it
+    runs in has.
+  - **Smaller milestones, a new order.**
+    1. **M23, the practical home**, the one that matters: tabs (at the bottom of a phone, on the
+       side of a tablet or a computer) *Home*, *Rooms* and *3D*. *Home* at a glance: who is in,
+       the lamps on, the doors and windows open, the alerts, the weather, the favourite scenes as
+       big buttons, and the cards chosen in the settings (an agenda, a list). *Rooms*: Home
+       Assistant's floors and areas, each room a list of tile cards, with a search. The 3D view
+       becomes a tab; a room tapped in it opens its room's tab, and back. Favourites, chosen with
+       a star, kept by the integration for each user. The tab DomoTwin opens on is a setting of
+       each user, which a device can change for itself; a device that cannot draw 3D opens on the
+       others. DomoTwin can be the page Home Assistant opens first, with Home Assistant's own
+       setting.
+    2. **Release 0.4.0** after M23, then **two weeks of use** at home before the rest: what is
+       missed decides the order of what follows.
+    3. **M24, history and energy**: a sheet for each room with its sensors' history-graph cards;
+       an Energy tab made of Home Assistant's energy cards. Replay (M19) stays a 3D feature, later.
+    4. **M25, safety**: the cameras side by side, the doorbell full screen when it rings, the
+       alarm, the full-screen alerts already in the 3D view shown on every tab.
+    5. **M26, the wall screen**: a screen saver (the clock, the weather, the photos of Home
+       Assistant's media) woken by motion; a layout for each device.
+    6. **Deferred** until someone asks: one's dashboards taken over and pages arranged without
+       YAML (the former M28). The agenda and lists of the former M27 are cards of the Home tab,
+       chosen in the settings, not a milestone.
+  - **The rules stay**: each milestone its own pull request, every string through `t()` in
+    English and French, no network call outside Home Assistant, the first load and its budget as
+    they are (each tab a chunk loaded the first time it opens), tests in vitest and Playwright.
+- **Consequences.**
+  - The roadmap lists M23 to M26 and 0.4.0 as above; M17, M18, M20 to M22 and 0.5.0 follow as
+    before. The former M24 to M28 of D-051 are replaced, not kept as well.
+  - What was begun for the former M23 on DomoTwin's own (its rooms page drawn by DomoTwin) is set
+    aside; what fits the new M23 (the glance, the tabs, the address of a page, Home Assistant's
+    choice of the first page) is kept for it.
+  - The plan is written first, in its own pull request, before M23 starts.

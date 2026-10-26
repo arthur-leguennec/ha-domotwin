@@ -42,13 +42,11 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M16c      | The demo house: a home, its automations and its day        | ✅     |
 | 0.3.0     | Third release: actions later to the demo house             | ✅     |
 | M16d      | Measured on real devices: a button in the panel            | ✅     |
-| M23       | An app: tabs, the home at a glance, the default dashboard  | ⏳     |
-| M24       | Rooms, devices and favourites: all of Home Assistant       | ⏳     |
-| M25       | History, graphs, energy over time, and Replay              | ⏳     |
-| M26       | Safety and cameras: live views, the alarm, alerts          | ⏳     |
-| M27       | Daily life and the wall screen: weather, agenda, music     | ⏳     |
-| M28       | Arranged without YAML, your dashboards taken over          | ⏳     |
-| 0.4.0     | Fourth release: DomoTwin, the only dashboard               | ⏳     |
+| M23       | The practical home: Home, Rooms and 3D, favourites         | ⏳     |
+| 0.4.0     | Fourth release: the practical home, then two weeks of use  | ⏳     |
+| M24       | History and energy, with Home Assistant's own cards        | ⏳     |
+| M25       | Safety: cameras, the doorbell, the alarm, alerts           | ⏳     |
+| M26       | The wall screen: a screen saver, a layout per device       | ⏳     |
 | M17       | A library of objects: many pieces, free and well made      | ⏳     |
 | M18       | Outdoors: garden, terrace, lawn, pool, roofs               | ⏳     |
 | M20       | More imports: robot vacuum maps, Floorplanner, meshes      | ⏳     |
@@ -69,9 +67,12 @@ what they do (M16) come before the better-looking pieces (M15), so that the demo
 The demo house (M16b, M16c) closes a third release, 0.3.0 (D-051). A button that measures any
 device comes right after it (M16d, D-053), for the measurements on real devices that HACS's list
 waits for. The maintainer then asked for
-DomoTwin to be the only dashboard a home needs: what the 3D view cannot do alone comes first (M23
-to M28, with Replay, once M19, in M25), before a fourth release, 0.4.0. A library of objects
-(M17), the outdoors (M18), more imports (M20) and more languages (M21) come after it, and a first
+DomoTwin to be the only place for the home (D-051); used at home, the 3D view showed it is not
+practical every day, and the way there became a practical side next to it, made of Home
+Assistant's own cards rather than rebuilt (D-054): the practical home (M23) closes a fourth
+release, 0.4.0, used for two weeks before the rest; history and energy (M24), safety (M25) and
+the wall screen (M26) follow, in the order those two weeks decide. A library of objects (M17),
+the outdoors (M18), more imports (M20) and more languages (M21) come after them, and a first
 launch in five minutes (M22) last, before a fifth release, 0.5.0.
 
 ## M0, scaffold
@@ -1001,38 +1002,46 @@ waits for need a way any device has (D-053).
   measure of the demo house to its row with no request elsewhere, the copy and its fallback, in
   French (Playwright).
 
-## Next: the only dashboard, to 0.4.0
+## Next: the practical home, to 0.4.0
 
-The 3D view shows the home and what is placed on it. To leave every other dashboard, DomoTwin
-needs what has no place on a plan, a way to act without the 3D view, the screens of history,
-energy and safety, daily life, and to open straight on it (D-051). Home Assistant's settings,
-integrations, automation editor and add-ons stay Home Assistant's: DomoTwin links to them.
+The 3D view is the home as it is; to switch on a lamp or check the heating, a list or a tile is
+faster. DomoTwin gets a practical side next to the 3D view, made of **Home Assistant's own
+cards**, not rebuilt (D-054): an entity's controls are its **tile card** and its **more-info
+dialog**; history and graphs its **history-graph** and **statistics-graph** cards and links to
+its History, Logbook and Energy pages; cameras, the alarm, the weather, calendars and lists its
+**picture-glance** and camera, **alarm-panel**, **weather-forecast**, **calendar** and
+**todo-list** cards. DomoTwin's own controls stay on the 3D view. A card type, a helper or an
+event is used only once checked in Home Assistant's frontend for the oldest version DomoTwin
+supports (2025.1, `hacs.json`). Each tab is a chunk loaded the first time it opens: the first
+load stays as it is. Home Assistant's settings, integrations, automation editor and add-ons stay
+Home Assistant's.
 
-- ⏳ **M23, an app**: tabs (at the bottom on a phone, on the side on a tablet or a computer): the
-  home in 3D, rooms, favourites, energy, safety, more; a home screen at a glance (who is in, the
-  weather, alerts, lamps on, doors and windows open, today's energy); DomoTwin as the default
-  dashboard, in the mobile app too; a light mode without the 3D view for older devices.
-- ⏳ **M24, rooms, devices and favourites**: every entity of Home Assistant by floor and area,
-  placed on the plan or not; a search; favourites; scenes and scripts as large buttons; full
-  controls for each kind: lights, heating and cooling (modes, presets), covers (position, tilt),
-  media (a whole remote, sources, artwork), robot vacuums (room by room), locks, the alarm (its
-  keypad), fans, water heaters, inputs and selects.
-- ⏳ **M25, history, graphs and energy over time**: each sensor's curve (a day, a week, a month)
-  and a log of who did what, from Home Assistant's history; energy produced, used, used from the
-  sun and its cost, by day, week and month and by device; Replay, going back over the home's past
-  (once M19); every chart drawn by DomoTwin, no library from the internet.
-- ⏳ **M26, safety and cameras**: live cameras (Home Assistant's streams), side by side; the
-  doorbell's camera full screen when it rings; the alarm armed or disarmed; doors and windows open
-  at a glance; full-screen alerts (smoke, leak, intrusion) that say what to do; the notifications
-  in one place (Home Assistant's, low batteries, devices unreachable, upkeep due).
-- ⏳ **M27, daily life and the wall screen**: the weather and its forecast, the family's
-  calendars, lists (shopping, chores), what plays in each room, spoken announcements, a screen
-  saver (the clock, the weather, photos kept in Home Assistant) woken by motion, a layout for each
-  screen (the kitchen's tablet is not a phone).
-- ⏳ **M28, arranged without YAML**: the sections of each page chosen and ordered, for each person
-  and each screen (a child's view of their own room); the dashboards one has taken over, their
-  favourites and scenes offered, to change in a few minutes.
-- ⏳ **Release 0.4.0**.
+- ⏳ **M23, the practical home**: tabs (at the bottom of a phone, on the side of a tablet or a
+  computer): **Home**, **Rooms** and **3D**.
+  - *Home*, at a glance: who is in, the lamps on, the doors and windows open, the alerts, the
+    weather, the favourite scenes as big buttons, and below them the cards chosen in the settings
+    (an agenda, a list).
+  - *Rooms*: Home Assistant's floors and areas, each room a list of tile cards, with a search.
+  - *3D*: the 3D view; a room tapped in it opens its room in *Rooms*, and back.
+  - Favourites, chosen with a star, kept by the integration for each user.
+  - The tab DomoTwin opens on: a setting of each user, which a device can change for itself; a
+    device that cannot draw 3D opens on the others. DomoTwin as the page Home Assistant opens
+    first, with Home Assistant's own setting.
+- ⏳ **Release 0.4.0**, then **two weeks of use** at home before the rest: what is missed then
+  decides the order of what follows.
+
+## Then: what the two weeks ask for
+
+- ⏳ **M24, history and energy**: a sheet for each room with its sensors' history-graph cards; an
+  Energy tab made of Home Assistant's energy cards. Replay, the home's past in 3D (M19), stays a
+  3D feature, later.
+- ⏳ **M25, safety**: the cameras side by side, the doorbell full screen when it rings, the alarm,
+  and the full-screen alerts of the 3D view shown on every tab.
+- ⏳ **M26, the wall screen**: a screen saver (the clock, the weather, the photos of Home
+  Assistant's media) woken by motion; a layout for each device.
+- **Deferred** until someone asks: one's dashboards taken over, and pages arranged without YAML
+  (the former M28). An agenda and lists are cards of the Home tab (M23), not a milestone of their
+  own (the former M27).
 
 ## Then, to 0.5.0
 
@@ -1044,5 +1053,5 @@ integrations, automation editor and add-ons stay Home Assistant's: DomoTwin link
 - ⏳ **M21, more languages**: Italian, German, Spanish, Arabic (right to left), Chinese, Japanese,
   Korean, Portuguese (Portugal and Brazil) and others.
 - ⏳ **M22, a first launch in five minutes**: from the install to one's own home live, in five
-  minutes, with what comes before it (the objects, the imports, one's dashboards taken over).
+  minutes, with what comes before it (the objects, the imports).
 - ⏳ **Release 0.5.0**.
