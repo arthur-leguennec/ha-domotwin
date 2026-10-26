@@ -36,7 +36,8 @@ combine-as-imports = true
 convention = "google"
 
 [tool.mypy]
-python_version = "3.14"
+# As ruff: the integration's syntax and standard library are checked against Python 3.12 (D-010).
+python_version = "3.12"
 files = ["custom_components/domotwin", "tests"]
 strict = true
 warn_unreachable = true

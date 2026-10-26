@@ -121,9 +121,9 @@ explains why. Each entry: context, decision, consequences.
   is the first on 3.14), so the integration must parse and run on 3.12, whatever the tests run on
   (D-011). Ruff targeted `py314` at first: its formatter wrote `except A, B:` (3.14 only) in
   `schedules.py`, and in 0.3.0 and 0.4.0 the whole integration failed to load before Home
-  Assistant 2026.3. Ruff now targets 3.12 (its checker rejects newer syntax too), and CI
-  byte-compiles `custom_components/domotwin` with Python 3.12 before the other checks. Raising the
-  floor means raising `hacs.json`, that target and that step together.
+  Assistant 2026.3. Ruff and mypy now target 3.12 (both reject newer syntax, mypy also the newer
+  standard library), and CI byte-compiles `custom_components/domotwin` with Python 3.12 before the
+  other checks. Raising the floor means raising `hacs.json`, these targets and that step together.
 
 ## D-011 · Versions
 
