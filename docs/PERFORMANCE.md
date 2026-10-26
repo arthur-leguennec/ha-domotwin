@@ -889,3 +889,18 @@ the first time its menu item is used (`chunks/measure-<hash>.js`: 14.6 kB raw, 4
 Nothing of it runs until it is asked for. While it measures, the view's own frames are held
 (`benchmark()` draws the measured ones); the lamp it dims is told ten times a second; the demo
 house is put back as it was from a copy of its states.
+
+### M23 (the practical home)
+
+Bundle: the first load is **515.5 kB gzipped** of 1 200 kB (+5.6 kB): the tabs, Home Assistant's
+address, the favourites' client and their few texts. What the tabs show comes on demand, the first
+time *Home*, *Rooms* or the choices show (`chunks/practical-<hash>.js`: 39.4 kB raw, 11.3 kB
+gzipped), with its texts in both languages.
+
+Opened on *Home*, the panel no longer loads the engine: 135.0 kB gzipped (the JavaScript) and the
+tab's 11.3 kB, the engine's 380.5 kB when the 3D tab first shows. The 3D view, once shown, stays on
+the other tabs hidden: it draws nothing (its frames follow whether it is on screen) and Home
+Assistant's changes do not update it until it shows again. Home Assistant's cards are made once
+for each configuration and given each new `hass`; the rooms are sorted again when an entity comes,
+goes or moves, not on every state; a search runs again when it or the home changes.
+

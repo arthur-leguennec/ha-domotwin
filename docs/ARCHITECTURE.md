@@ -221,6 +221,12 @@ A receiver is placed by a `room` or a `piece` (else from its device); a device i
 was learned: `rooms` (`{room: {receiver: [weight, mean, m2]}}`) and each device's `offsets` (dB).
 See [`bluetooth.md`](bluetooth.md).
 
+`.storage/domotwin.users` (D-055, its own store, version 1): each user's own choices, by user
+id: `favourites` (entity ids, 100 at most), `start` (`home`, `rooms` or `3d`, when chosen) and
+`cards` (the Home tab's, 6 at most: `{type: "calendar", entities}` with 10 calendars at most, or
+`{type: "todo-list", entity}`). A user removed from Home Assistant is forgotten when DomoTwin
+starts.
+
 The 3D files of user models are not in `.storage`: they are kept under their SHA-256 in
 `<config>/domotwin/models/<sha256>.<format>` (D-021), uploaded with `POST /api/domotwin/models?format=…`
 (administrators; answers `{hash, bytes, format}`) and read with
@@ -253,11 +259,14 @@ when the integration is removed.
 | `domotwin/locating/candidates` | admin | –                                        | `candidates` (`[{match, name, rssi?}]`) |
 | `domotwin/locating/teach` | admin | `device`, `room`, `seconds?` (10–120, 30)     | `readings`, `receivers`          |
 | `domotwin/locating/forget` | admin | `room?` (every room without one)             | `forgotten`                      |
+| `domotwin/choices/get`   | user   | – (their own)                                  | `favourites`, `cards`, `start?`  |
+| `domotwin/choices/favourite` | user | `entity_id`, `favourite` (their own)        | `favourites`                     |
+| `domotwin/choices/save`  | user   | `start?` (`""`: none chosen), `cards?` (their own) | `favourites`, `cards`, `start?` |
 | `domotwin/subscribe`     | user   | –                                              | events `{kind, revision}`, and `{kind: "show", show}` for `domotwin.show` |
 
 Errors: `not_loaded`, `invalid_plan`, `invalid_layout`, `invalid_bindings`, `invalid_settings`,
 `invalid_upkeep`, `unknown_task`, `invalid_people`, `unknown_person`, `invalid_locating`,
-`unknown_device`, `unknown_room`, `no_bluetooth`, `too_large`,
+`unknown_device`, `unknown_room`, `no_bluetooth`, `too_large`, `too_many_favourites`,
 `too_many_models`, `revision_conflict`, `unknown_storey`, `invalid_storey`, `too_many_storeys`,
 `duplicate_id`, and Home Assistant's `unauthorized` for non-admin writes.
 

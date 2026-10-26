@@ -42,7 +42,7 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M16c      | The demo house: a home, its automations and its day        | ✅     |
 | 0.3.0     | Third release: actions later to the demo house             | ✅     |
 | M16d      | Measured on real devices: a button in the panel            | ✅     |
-| M23       | The practical home: Home, Rooms and 3D, favourites         | ⏳     |
+| M23       | The practical home: Home, Rooms and 3D, favourites         | ✅     |
 | 0.4.0     | Fourth release: the practical home, then two weeks of use  | ⏳     |
 | M24       | History and energy, with Home Assistant's own cards        | ⏳     |
 | M25       | Safety: cameras, the doorbell, the alarm, alerts           | ⏳     |
@@ -1002,6 +1002,35 @@ waits for need a way any device has (D-053).
   measure of the demo house to its row with no request elsewhere, the copy and its fallback, in
   French (Playwright).
 
+## M23, the practical home
+
+The 3D view is the home as it is; to switch on a lamp or check the heating, a list or a tile is
+faster (D-054). The panel gets a practical side next to it, made of Home Assistant's own cards
+(D-055).
+
+- ✅ **Tabs**: *Home*, *Rooms* and *3D*, on the side of a tablet or a computer and at the bottom
+  of a phone, in Home Assistant's address (back, bookmarks and links work); they give way while a
+  tool works on the 3D view.
+- ✅ **Home**: who is in, the lamps on (all off at once), the doors and windows open, the alerts;
+  the weather; the favourite scenes and scripts as big buttons, the other favourites as tiles; the
+  user's agenda and lists.
+- ✅ **Rooms**: Home Assistant's floors and areas, each room's entities as tile cards, what one
+  acts on first; a search through the home.
+- ✅ **3D**: the 3D view, drawn once its tab is shown; a room tapped in it opens its room, and
+  back. `domotwin.show` shows it.
+- ✅ **Home Assistant's cards**: tile, button, weather-forecast, calendar and todo-list, through its
+  card helpers, loaded before any dashboard if needed; DomoTwin's own rows where there are none and
+  in the demo house.
+- ✅ **Favourites and choices**, kept by the integration for each user: a star on any entity; the
+  tab DomoTwin opens on (a device may have its own); the Home tab's cards; DomoTwin opened first,
+  with Home Assistant's own setting.
+- ✅ Private rooms (D-039) keep what they hold, in every tab.
+- ✅ Tests: the floors, rooms, search and what a private room holds; the choices, the address,
+  the start tab, the tabs' texts in both languages (vitest); the users' choices kept each their
+  own, refused when wrong, forgotten with their user (pytest); Home without the engine, the rooms,
+  a favourite, a scene's button, the cards or plain rows, the address and back from 3D, a private
+  room, the choices, a phone in French, `domotwin.show` (Playwright).
+
 ## Next: the practical home, to 0.4.0
 
 The 3D view is the home as it is; to switch on a lamp or check the heating, a list or a tile is
@@ -1013,20 +1042,10 @@ its History, Logbook and Energy pages; cameras, the alarm, the weather, calendar
 **todo-list** cards. DomoTwin's own controls stay on the 3D view. A card type, a helper or an
 event is used only once checked in Home Assistant's frontend for the oldest version DomoTwin
 supports (2025.1, `hacs.json`). Each tab is a chunk loaded the first time it opens: the first
-load stays as it is. Home Assistant's settings, integrations, automation editor and add-ons stay
+load grows by the tabs alone. Home Assistant's settings, integrations, automation editor and add-ons stay
 Home Assistant's.
 
-- ⏳ **M23, the practical home**: tabs (at the bottom of a phone, on the side of a tablet or a
-  computer): **Home**, **Rooms** and **3D**.
-  - *Home*, at a glance: who is in, the lamps on, the doors and windows open, the alerts, the
-    weather, the favourite scenes as big buttons, and below them the cards chosen in the settings
-    (an agenda, a list).
-  - *Rooms*: Home Assistant's floors and areas, each room a list of tile cards, with a search.
-  - *3D*: the 3D view; a room tapped in it opens its room in *Rooms*, and back.
-  - Favourites, chosen with a star, kept by the integration for each user.
-  - The tab DomoTwin opens on: a setting of each user, which a device can change for itself; a
-    device that cannot draw 3D opens on the others. DomoTwin as the page Home Assistant opens
-    first, with Home Assistant's own setting.
+- ✅ **M23, the practical home** (D-055, above).
 - ⏳ **Release 0.4.0**, then **two weeks of use** at home before the rest: what is missed then
   decides the order of what follows.
 

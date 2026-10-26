@@ -23,8 +23,9 @@ Local, rapide, Rust + WebAssembly.</p>
 > pièces, la localisation Bluetooth, la voix, la finition (police, clavier, lecteurs d’écran), une
 > passe sur la taille et la vitesse, les téléphones, les actions à faire plus tard, des touchers
 > qui disent ce qu’ils font, des meubles qui ont l’air faits, les aspirateurs robots, l’énergie de
-> la maison et la maison de démo fonctionnent déjà, et forment la version 0.3.0. La proposition à
-> la liste par défaut de HACS vient ensuite.
+> la maison et la maison de démo fonctionnent déjà, et forment la version 0.3.0. La maison
+> pratique (les onglets Accueil, Pièces et 3D) vient ensuite, avec la version 0.4.0, et la
+> proposition à la liste par défaut de HACS.
 
 ## Fonctionnalités
 
@@ -34,6 +35,13 @@ Local, rapide, Rust + WebAssembly.</p>
   batterie, trois personnes et huit automatisations, qui vit une journée de printemps à une minute
   par seconde. Allez au matin, à midi, au soir ou à la nuit, touchez à tout, modifiez-la : rien ne
   touche votre maison. Une carte avec `demo: true` la montre sur un tableau de bord.
+- **Accueil, Pièces et 3D.** L’onglet *Accueil* du panneau montre la maison d’un coup d’œil (qui
+  est là, les lampes allumées, les portes et fenêtres ouvertes, les alertes, la météo), vos scènes
+  favorites en grands boutons et vos favoris ; *Pièces* liste les étages et pièces de Home
+  Assistant, les appareils de chaque pièce en cartes tuiles de Home Assistant, avec une
+  recherche ; *3D* est la vue 3D, où une pièce touchée ouvre sa pièce. Mettez une étoile à ce qui
+  sert le plus ; choisissez l’onglet sur lequel DomoTwin s’ouvre, pour vous ou pour un écran, et
+  un agenda ou une liste pour votre onglet Accueil.
 - **Votre plan en 3D et en 2D.** Dessinez-le dans le panneau, ou importez-le : une maquette IFC
   (`*.ifc`, depuis Revit, ArchiCAD, Bonsai, FreeCAD…), une maison Sweet Home 3D (`*.sh3d`), un
   dessin DXF, une pièce scannée avec un iPhone ou un iPad à LiDAR (`*.usdz`, le JSON de RoomPlan)
