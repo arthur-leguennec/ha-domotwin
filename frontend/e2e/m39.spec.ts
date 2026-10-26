@@ -7,7 +7,7 @@ function labels(page: Page): Promise<string[]> {
   return page.locator("domotwin-view").getByTestId("labels").locator("span").allTextContents();
 }
 
-test.describe("Hydro-Québec's peaks (D-057)", () => {
+test.describe("Hydro-Québec's peaks (D-058)", () => {
   test("nothing without an integration that reads them", async ({ page }) => {
     await openHarness(page, { live: true, layer: "peak" });
     // A card set to the peak's layer shows none, and the menu does not offer it.

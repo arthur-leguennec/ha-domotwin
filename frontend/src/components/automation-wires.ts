@@ -350,14 +350,19 @@ export class DomoTwinWires extends LitElement {
     for (const id of this.runs.size > 0 ? ranSince(this.runs, hass) : []) {
       engine.pulseAutomation(id, performance.now());
       redraw = true;
-      const at = hass.states[id]?.attributes.last_triggered;
-      this.runs.set(id, typeof at === "string" ? at : "");
       // What it acts on is watched a while: what changes then flashes, in this update (an
       // action at once) or a later one (after a delay, or the device's answer).
       for (const entity of actedOn(this.reads.get(id)?.ends ?? [])) {
         const changed = before?.states[entity]?.last_changed ?? "";
         this.pending.push({ entity, changed, until: now + ACTED_WITHIN_MS });
       }
+    }
+    // When each last ran, now: a run seen, or a time gone back (the sandbox's day, D-058). An
+    // automation gone a moment (reloaded) keeps the time it had, not to pulse as it comes back.
+    for (const [id, was] of this.runs) {
+      const at = hass.states[id]?.attributes.last_triggered;
+      if (typeof at === "string" && at !== was) this.runs.set(id, at);
+      else if (at === null) this.runs.set(id, "");
     }
     const still: typeof this.pending = [];
     for (const wait of this.pending) {

@@ -904,6 +904,25 @@ Assistant's changes do not update it until it shows again. Home Assistant's card
 for each configuration and given each new `hass`; the rooms are sorted again when an entity comes,
 goes or moves, not on every state; a search runs again when it or the home changes.
 
+### M29 (the sandbox)
+
+Bundle: the first load is **516.4 kB gzipped** of 1 200 kB (+0.9 kB): the menu entry, the switch
+showing either home kept in the page, and the entry's few texts. The sandbox comes on demand, the
+first time it opens (`chunks/sandbox-bar-<hash>.js`: 100.1 kB raw, 31.5 kB gzipped): the copy, the
+engine, the templates' reader, the day's scenario, the report, the bar and their texts in both
+languages.
+
+Opening it reads the home once: its plan, links and settings, and one answer for each automation,
+script and scene (eight of each kind asked at a time, the kinds side by side). The day is then
+played at once and kept: a busy day, a hundred automations of every kind (times, states, templates
+read each minute, a pattern every ten minutes, two lamps toggled a minute apart in each) set off
+3 023 times and changing the home 12 698 times (each run's count of runs, the sun's next times), is
+played in **171 ms** (median of seven, Node 22 on a 2.1 GHz Xeon core of the CI's kind), 663 ms
+before the zone's offset was kept by quarter-hour rather than asked of `Intl` at each change. A day
+is played again when it is changed or a tap is done in it. Showing a moment of it applies the day's
+changes up to there (from midnight when going back); playing moves the moment on ten times a second
+and gives the panel one new `hass` each time, as Home Assistant would.
+
 ### M39 (Hydro-Québec's peaks)
 
 Bundle: the first load is **516.9 kB gzipped** of 1 200 kB (+1.4 kB): whether an integration reads

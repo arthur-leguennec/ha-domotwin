@@ -24,10 +24,12 @@ Local, rapide, Rust + WebAssembly.</p>
 > passe sur la taille et la vitesse, les téléphones, les actions à faire plus tard, des touchers
 > qui disent ce qu’ils font, des meubles qui ont l’air faits, les aspirateurs robots, l’énergie de
 > la maison, la maison de démo, la mesure de la vitesse d’un appareil et la maison pratique (les
-> onglets Accueil, Pièces et 3D) fonctionnent déjà, et forment la version 0.4.0 ; les pointes
-> d’Hydro-Québec l’ont suivie. Un bac à sable pour les automatisations de la maison vient
-> ensuite, puis la Vue d’ensemble de Home Assistant rejointe plutôt que copiée, vers la version
-> 0.5.0 ; la proposition à la liste par défaut de HACS attend des mesures sur de vrais appareils.
+> onglets Accueil, Pièces et 3D) fonctionnent déjà, et forment la version 0.4.0. Depuis, le bac à
+> sable joue une journée des automatisations de la maison sur une copie de celle-ci, et les pointes
+> d’Hydro-Québec se voient sur le plan et dans l’onglet Accueil. Le code QR du Wi-Fi pour les
+> invités vient ensuite, puis la Vue d’ensemble de Home Assistant rejointe plutôt que copiée, vers
+> la version 0.5.0 ; la proposition à la liste par défaut de HACS attend des mesures sur de vrais
+> appareils.
 
 ## Fonctionnalités
 
@@ -92,6 +94,12 @@ Local, rapide, Rust + WebAssembly.</p>
   appareil ou un lien pour le détail, relancez un scan, placez les appareils que la carte ne trouve
   pas. Pour les administrateurs, avec ZHA. Voir [la carte du
   réseau](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/network.md) (en anglais).
+- **Un bac à sable pour vos automatisations.** Choisissez une journée, sa météo, qui sort et qui
+  rentre quand, et regardez vos automatisations, scripts et scènes la jouer sur une copie de votre
+  maison, en 3D et sur une frise, une heure par seconde si vous voulez. Un rapport dit ce que
+  chacune a fait et quand, ce qui ne s’est jamais exécuté et pourquoi, lesquelles se contredisent,
+  et ce qui n’a pas pu être joué. Rien dans le bac à sable n’atteint un appareil. Voir [le bac à
+  sable](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/sandbox.md) (en anglais).
 - **Fils des automatisations.** Un appui long sur une lampe : son panneau liste les automatisations
   qui la concernent, avec leur interrupteur et leur dernier lancement. Montrez leurs fils, de ce
   qui les déclenche à ce qu’elles commandent, et voyez une impulsion les parcourir quand l’une se

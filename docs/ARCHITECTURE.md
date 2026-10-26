@@ -53,6 +53,12 @@ every reader returns `Result` with a stable error code that the frontend transla
 - `src/components/` holds the card, the panel, `<domotwin-view>` (one canvas, one engine), the
   panels over the scene (`sheets.ts`: an element's controls, a room's panel) and the link editor;
   the last two are chunks loaded the first time they open.
+- `src/demo/` is the demo house (D-050) and `src/sandbox/` the sandbox (D-057): homes kept in the
+  page, each with its own `hass` and a connection answering DomoTwin's commands from memory
+  (`demo/connection.ts`), shown by the panel in place of the home (`components/demo-switch.ts`).
+  The sandbox reads the home once (`sandbox/copy.ts`), plays its day at once
+  (`sandbox/engine.ts`, with `templates.ts`, `effects.ts`, `scenario.ts`, `sun.ts`) and says what
+  it did (`sandbox/report.ts`); nothing it does is written to Home Assistant.
 - `src/i18n/` holds the English and French dictionaries. Every visible string goes through `t()`.
 
 ![Render on demand: frames only when something changes, nothing while idle or off-screen](figures/render-on-demand.png)
@@ -110,7 +116,7 @@ every reader returns `Result` with a stable error code that the frontend transla
    targets and asks for frames until they are reached. The layers (D-023) are worked out in the
    frontend from the sensors of each room's area and sent as one small JSON (`set_layers`) when a
    value changes; the floors' shader draws them from a texture of rooms. Hydro-Québec's peak
-   (D-057) is read from the entities of the integrations that read it, found by their kind
+   (D-058) is read from the entities of the integrations that read it, found by their kind
    (`src/live/peak-sources.ts`, `peaks.ts`); what each room's heating does then, and what the room
    draws, go with the layers (`peak`, `draws`).
 3. **Interaction.** Pointer events go to the engine (`pick`) which returns the element under the

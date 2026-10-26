@@ -50,7 +50,7 @@ const hydropeak = (key: string, state: string): Row => [
 
 const at = (iso: string): number => Date.parse(iso);
 
-describe("Hydro-Québec's peaks (D-057)", () => {
+describe("Hydro-Québec's peaks (D-058)", () => {
   it("are offered only where an integration reads them", () => {
     const none = home([["sensor.next_peak_start", "2026-01-21T11:00:00+00:00", {}, {}]]);
     expect(peaksAvailable(none)).toBe(false);
@@ -224,7 +224,7 @@ describe("Hydro-Québec's peaks (D-057)", () => {
   });
 });
 
-describe("the peak's texts (D-057)", () => {
+describe("the peak's texts (D-058)", () => {
   const keys = (value: unknown, prefix = ""): string[] =>
     typeof value === "object" && value !== null
       ? Object.entries(value).flatMap(([key, child]) =>
@@ -241,7 +241,7 @@ describe("the peak's texts (D-057)", () => {
   });
 });
 
-describe("the rooms around a peak (D-057)", () => {
+describe("the rooms around a peak (D-058)", () => {
   const ROOMS = [
     { id: "living", name: "Living room" },
     { id: "office", name: "Office" },

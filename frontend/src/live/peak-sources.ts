@@ -1,5 +1,5 @@
 /**
- * Where Hydro-Québec's peaks are read (D-057): the integrations that read them, hydroqc (Flex D
+ * Where Hydro-Québec's peaks are read (D-058): the integrations that read them, hydroqc (Flex D
  * and the winter credit, its sensors or the calendar it writes its peaks in) and HydroPeak
  * (Hydro-Québec's open data). Their entities are found by their integration and their kind
  * (`platform`, `translation_key`), never by their id, which each home names in its own language.

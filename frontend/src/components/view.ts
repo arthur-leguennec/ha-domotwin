@@ -881,7 +881,7 @@ export class DomoTwinView extends LitElement {
   /** The rooms of the plan shown, and whether a heatmap found values in them. */
   private rooms: PlanRoom[] = [];
   private heatValues = 0;
-  /** Hydro-Québec's peak and what the rooms do, while its layer is shown (D-057). */
+  /** Hydro-Québec's peak and what the rooms do, while its layer is shown (D-058). */
   private peakShown?: { now: PeakNow; rooms: PeakRooms; key: string };
   /** The peak's layer (its chunk), once loaded; loading, or failed to. */
   private peakLayer?: typeof import("./peak-layer");
@@ -1237,7 +1237,7 @@ export class DomoTwinView extends LitElement {
       .legend .name {
         font-weight: 600;
       }
-      /* Hydro-Québec's peak (D-057): when, the rooms by colour, what they draw. */
+      /* Hydro-Québec's peak (D-058): when, the rooms by colour, what they draw. */
       .legend.peak {
         width: 200px;
       }
@@ -2426,7 +2426,7 @@ export class DomoTwinView extends LitElement {
   setLayer(layer: LayerName): void {
     // Every automation of the home takes over from those of a panel.
     if (layer === "automations") this.wiresAsked = undefined;
-    // The peak's chunk tried again, if it failed to load (D-057).
+    // The peak's chunk tried again, if it failed to load (D-058).
     if (layer === "peak" && this.peakFailed) {
       this.peakFailed = false;
       this.peakLoading = false;
@@ -3334,7 +3334,7 @@ export class DomoTwinView extends LitElement {
   }
 
   /**
-   * Hydro-Québec's peak now and what the rooms do (D-057), while its layer is shown; worked out
+   * Hydro-Québec's peak now and what the rooms do (D-058), while its layer is shown; worked out
    * again when its phase changes, as nothing in Home Assistant may change then.
    */
   private readPeak(hass: HomeAssistant | undefined): PeakRooms | undefined {
@@ -5681,7 +5681,9 @@ export class DomoTwinView extends LitElement {
     const hass = this.hass;
     if (!hass) return;
     try {
-      if (!(await runRoom(this, hass, what))) this.notify(this.translator.t("demo.no_dialog"));
+      if (!(await runRoom(this, hass, what))) {
+        this.notify(this.translator.t(hass.sandbox ? "sandbox.no_dialog" : "demo.no_dialog"));
+      }
     } catch (error) {
       this.notify(failureText(this.translator, error));
     }

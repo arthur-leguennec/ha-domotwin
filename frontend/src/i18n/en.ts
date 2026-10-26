@@ -638,6 +638,14 @@ export const en = {
     leave: "Leave the demo",
     no_dialog: "Home Assistant's own dialogs do not open in the demo.",
   },
+  sandbox: {
+    menu: "Sandbox: play a day of your automations",
+    title: "Sandbox",
+    reading: "Reading your automations, scripts and scenes…",
+    failed: "The sandbox could not open: {reason}",
+    leave: "Leave the sandbox",
+    no_dialog: "Home Assistant's own dialogs do not open in the sandbox.",
+  },
   tabs: {
     label: "DomoTwin's tabs",
     home: "Home",
@@ -1045,6 +1053,7 @@ export const en = {
       models_too_large: "the 3D files of a plan total at most 20 MB.",
     },
     ws: {
+      not_in_sandbox: "actions for later belong to your home, not to the sandbox.",
       too_many_favourites: "you have 100 favourites already: take a star away first.",
       no_supervisor: "this Home Assistant has no apps.",
       busy: "voice is already being set up.",

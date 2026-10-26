@@ -251,7 +251,9 @@ export class DomoTwinRooms extends LitElement {
         (what) => {
           void runRoom(this, hass, what).then(
             (done) => {
-              this.refused = done ? undefined : t.t("demo.no_dialog");
+              this.refused = done
+                ? undefined
+                : t.t(hass.sandbox ? "sandbox.no_dialog" : "demo.no_dialog");
             },
             (error: unknown) => {
               this.refused = failureText(t, error);

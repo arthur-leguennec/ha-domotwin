@@ -182,7 +182,7 @@ describe("glanceOf", () => {
     expect(glance.lights).toEqual(["light.pendant"]);
   });
 
-  it("has Hydro-Québec's peak where an integration reads it, and what the rooms do (D-057)", () => {
+  it("has Hydro-Québec's peak where an integration reads it, and what the rooms do (D-058)", () => {
     const hass = home([
       ["climate.study", "study", "heat", { hvac_action: "idle" }],
       ["sensor.meter_power", "lounge", "5000", { device_class: "power", unit_of_measurement: "W" }],

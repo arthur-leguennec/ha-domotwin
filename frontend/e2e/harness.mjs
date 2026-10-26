@@ -26,7 +26,7 @@
 //   voice=1 (Assist with a pipeline that hears), voice=deaf (Assist that cannot hear),
 //   robot=1 (a robot vacuum's dock in the hall, linked to vacuum.robbie, docked; D-049)
 //   energy=1 (fictional solar panels, meter and battery, named in the stored settings; D-049)
-//   peak=hydroqc|hydropeak|calendar (Hydro-Québec's peaks, D-057: hydroqc's Flex D sensors,
+//   peak=hydroqc|hydropeak|calendar (Hydro-Québec's peaks, D-058: hydroqc's Flex D sensors,
 //   HydroPeak's, or the calendar hydroqc writes its peaks in), peakphase=upcoming|preheat|peak|none
 //   (where the peak stands now; `peak` unless asked), with the bedroom heating and the living
 //   room's thermostat set back
@@ -39,6 +39,8 @@
 //   path=<path after /domotwin> (the address opened, with route=1), cards=1 (Home Assistant's
 //   card helpers, made up: a card says its type and entity), lists=1 (a calendar and a to-do
 //   list), firstpage=device|user (how Home Assistant keeps the page it opens first)
+//   sandbox=1 (D-058: Home Assistant's time zone and a fictional place; with automations=1, two
+//   automations working against each other, one set off from outside, and a script)
 import { applyService, demoHome } from "./demo-home.mjs";
 
 const params = new URLSearchParams(location.search);
@@ -63,6 +65,7 @@ const live = params.get("live") === "1";
 const zha = params.get("zha") === "1";
 // Fictional automations (D-032): `automations=1` three of them, `automations=50` as many made up.
 const automationCount = Number(params.get("automations") ?? 0);
+const sandbox = params.get("sandbox") === "1";
 // Voice (D-041): Assist and its pipelines, the voice blueprints, apps to install.
 const voiceParam = params.get("voice");
 if (params.get("insecure") === "1") {
@@ -451,11 +454,45 @@ window.__show = (request) => {
   for (const listener of listeners) listener({ kind: "show", show: request });
 };
 
+/** For the sandbox (D-058): automations working against each other, and one set off by MQTT. */
+const SANDBOX_AUTOMATIONS = {
+  "automation.away_lamp_off": {
+    id: "1101",
+    alias: "Lamp off when Alex goes out",
+    triggers: [{ trigger: "state", entity_id: "person.alex", to: "not_home" }],
+    actions: [{ action: "light.turn_off", target: { entity_id: "light.living_room_floor_lamp" } }],
+  },
+  "automation.lamp_back_on": {
+    id: "1102",
+    alias: "Lamp back on",
+    triggers: [{ trigger: "state", entity_id: "light.living_room_floor_lamp", to: "off" }],
+    actions: [{ action: "light.turn_on", target: { entity_id: "light.living_room_floor_lamp" } }],
+  },
+  "automation.doorbell_from_outside": {
+    id: "1103",
+    alias: "Doorbell",
+    triggers: [{ trigger: "mqtt", topic: "home/doorbell" }],
+    actions: [{ action: "script.movie_night" }],
+  },
+};
+
+/** For the sandbox: a script, as Home Assistant's script editor keeps it. */
+const SANDBOX_SCRIPTS = {
+  "script.movie_night": {
+    alias: "Movie night",
+    sequence: [
+      { action: "light.turn_off", target: { area_id: "living_room" } },
+      { action: "cover.close_cover", target: { entity_id: "cover.living_room_curtains" } },
+    ],
+  },
+};
+
 /** Fictional automations of the demo apartment, by entity id, with their configurations. */
 function automationConfigs() {
   if (automationCount <= 0) return {};
   if (automationCount === 1) {
     return {
+      ...(sandbox ? SANDBOX_AUTOMATIONS : {}),
       "automation.evening_lights": {
         id: "1001",
         alias: "Evening lights",
@@ -632,6 +669,15 @@ const connection = {
           .map(([id]) => id);
         return automation.length > 0 ? { automation } : {};
       }
+      case "script/config": {
+        if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        const config = (sandbox ? SANDBOX_SCRIPTS : {})[message.entity_id];
+        if (!config) throw { code: "not_found", message: "Entity not found" };
+        return { config: structuredClone(config) };
+      }
+      case "config/entity_registry/list":
+        if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        return Object.keys(home.states).map((id, k) => ({ id: `e2e${k}`, entity_id: id }));
       case "automation/config": {
         // Kept for administrators, as recent Home Assistant versions do.
         if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
@@ -975,7 +1021,7 @@ if (robot) {
     attributes: { friendly_name: "Robbie", supported_features: 12_820 },
   };
 }
-// Hydro-Québec's peaks (D-057), named as a French home names them: they are found by their
+// Hydro-Québec's peaks (D-058), named as a French home names them: they are found by their
 // integration and kind, not their id.
 const peakSource = params.get("peak");
 if (peakSource) {
@@ -1044,6 +1090,11 @@ if (peakSource) {
     { friendly_name: "Bedroom baseboard", device_class: "power", unit_of_measurement: "W" },
     { area_id: "bedroom" },
   );
+}
+if (sandbox) {
+  for (const [id, config] of Object.entries(SANDBOX_SCRIPTS)) {
+    home.states[id] = { entity_id: id, state: "off", attributes: { friendly_name: config.alias } };
+  }
 }
 for (const [id, config] of Object.entries(automationConfigs())) {
   home.states[id] = {
@@ -1218,6 +1269,8 @@ let hass = {
       ...(zha ? ["zha"] : []),
       ...(voiceParam ? ["conversation", "assist_pipeline"] : []),
     ],
+    // A fictional place, rounded: the sandbox's sun.
+    ...(sandbox ? { time_zone: "Europe/Paris", latitude: 46, longitude: 2 } : {}),
   },
   connection,
   fetchWithAuth,

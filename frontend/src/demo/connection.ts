@@ -1,17 +1,35 @@
 /**
- * The demo house's websocket (D-050): DomoTwin's commands answered from what the demo keeps, as
- * the integration would; Home Assistant's few others the frontend asks (automations, the energy
- * settings, what an area relates to). Nothing goes out of the page.
+ * The websocket of a home kept in the page, the demo house's (D-050) or the sandbox's (D-058):
+ * DomoTwin's commands answered from what it keeps, as the integration would; Home Assistant's
+ * few others the frontend asks (automations, the energy settings, what an area relates to).
+ * Nothing goes out of the page.
  */
 import type { NewSchedule, PlanJson, StoredPlan, UpdateEvent } from "../ha/client";
-import type { HassConnection, HassMessage } from "../ha/types";
+import type { HassConnection, HassMessage, HomeAssistant } from "../ha/types";
 import type { PeopleSettings } from "../live/people";
 import { readChoices } from "../live/choices";
 import { storeyIds } from "../live/storeys";
 import type { Schedule } from "../live/schedules";
 import type { Upkeep } from "../live/upkeep";
-import { DemoError, type DemoHome, type DemoStore } from "./home";
-import { AUTOMATIONS } from "./house";
+import { DemoError, type DemoStore } from "./home";
+
+/** A home kept in the page: what its connection asks of it. */
+export interface MemoryHome {
+  readonly store: DemoStore;
+  readonly hass: HomeAssistant;
+  readonly updateListeners: Set<(event: UpdateEvent) => void>;
+  readonly scheduleListeners: Set<(schedules: Schedule[]) => void>;
+  today(): string;
+  area(id: string): string | undefined;
+  saved(kind: "plan" | "bindings" | "settings" | "upkeep" | "people" | "locating"): number;
+  addSchedule(request: NewSchedule): { schedule: Schedule; text: string };
+  cancelSchedule(id: string): number;
+  /** Its automations (their entity ids), and the configuration of each. */
+  automationIds(): string[];
+  automationConfig(id: string): Record<string, unknown> | undefined;
+  /** Home Assistant's energy settings, as `energy/get_prefs` gives them, if it has some. */
+  energyPrefs(): unknown;
+}
 
 /** A websocket error, as Home Assistant gives one. */
 function failure(code: string, message = code): DemoError {
@@ -19,7 +37,7 @@ function failure(code: string, message = code): DemoError {
 }
 
 /** The demo's answers to the frontend's commands. */
-export function demoConnection(home: DemoHome): HassConnection {
+export function demoConnection(home: MemoryHome): HassConnection {
   const store = home.store;
   // Storey `id` (`unknown_storey` when no storey has it), else the ground floor: the one nearest
   // elevation 0, as the integration's.
@@ -200,48 +218,28 @@ export function demoConnection(home: DemoHome): HassConnection {
       case "domotwin/schedules/cancel":
         return { cancelled: home.cancelSchedule(String(message.schedule_id)) };
       case "automation/config": {
-        const automation = AUTOMATIONS.find((a) => a.id === message.entity_id);
-        if (!automation) throw failure("not_found", "Entity not found");
-        const alias = home.hass.states[automation.id]?.attributes.friendly_name;
-        return {
-          config: { id: automation.id.slice(11), alias, ...structuredClone(automation.config) },
-        };
+        const id = String(message.entity_id);
+        const config = home.automationConfig(id);
+        if (!config) throw failure("not_found", "Entity not found");
+        const alias = home.hass.states[id]?.attributes.friendly_name;
+        return { config: { id: id.slice(11), alias, ...structuredClone(config) } };
       }
       case "search/related": {
         // The automations that name the entity, or an entity of the area.
         const inArea = (id: string): boolean =>
           message.item_type === "area" && home.area(id) === message.item_id;
-        const automation = AUTOMATIONS.filter((a) => {
-          const text = JSON.stringify(a.config);
+        const automation = home.automationIds().filter((id) => {
+          const text = JSON.stringify(home.automationConfig(id) ?? {});
           if (text.includes(`"${String(message.item_id)}"`)) return true;
-          return Object.keys(home.hass.states).some((id) => inArea(id) && text.includes(`"${id}"`));
-        }).map((a) => a.id);
+          return Object.keys(home.hass.states).some((e) => inArea(e) && text.includes(`"${e}"`));
+        });
         return automation.length > 0 ? { automation } : {};
       }
-      case "energy/get_prefs":
-        // Home Assistant's energy settings, naming the demo's power sensors.
-        return {
-          energy_sources: [
-            {
-              type: "solar",
-              stat_energy_from: "sensor.solar_energy",
-              stat_rate: "sensor.solar_power",
-            },
-            {
-              type: "grid",
-              flow_from: [],
-              flow_to: [],
-              power: [{ stat_rate: "sensor.grid_power" }],
-            },
-            {
-              type: "battery",
-              stat_energy_from: "sensor.battery_out",
-              stat_energy_to: "sensor.battery_in",
-              stat_rate: "sensor.battery_power",
-            },
-          ],
-          device_consumption: [],
-        };
+      case "energy/get_prefs": {
+        const prefs = home.energyPrefs();
+        if (prefs === undefined) throw failure("not_found", "No energy settings");
+        return structuredClone(prefs);
+      }
       default:
         // What the demo has not: ZHA, Assist, voice, Bluetooth learning…
         throw failure("unknown_command", message.type);

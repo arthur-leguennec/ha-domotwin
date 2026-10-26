@@ -142,7 +142,7 @@ describe("roomLayers", () => {
     expect(off.presence).toEqual([]);
   });
 
-  it("sends what the rooms do around a peak, and what they draw (D-057)", () => {
+  it("sends what the rooms do around a peak, and what they draw (D-058)", () => {
     const hass = home([]);
     const peak = { roles: { living: "shed" as const }, draws: { living: 40, kitchen: 900 } };
     const layers = roomLayers(hass, BINDINGS, ROOMS, { layer: "peak", ...ALL_ON, peak });

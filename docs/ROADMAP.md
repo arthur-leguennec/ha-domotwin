@@ -44,8 +44,8 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M16d      | Measured on real devices: a button in the panel            | ✅     |
 | M23       | The practical home: Home, Rooms and 3D, favourites         | ✅     |
 | 0.4.0     | Fourth release: the practical home, devices measured       | ✅     |
+| M29       | Sandbox: the home's automations played on a copy of it     | ✅     |
 | M39       | Hydro-Québec's peaks, from the integrations that read them | ✅     |
-| M29       | Sandbox: the home's automations played on a copy of it     | ⏳     |
 | M30       | The Wi-Fi QR code, for guests                              | ⏳     |
 | M23b      | Into Home Assistant's Overview, rather than a copy of it   | ⏳     |
 | M24       | History and energy, with Home Assistant's own cards        | ⏳     |
@@ -93,7 +93,7 @@ QR code (M30) and a placement advisor for radios (M31) before a first launch in 
 report (M37), history as reports (M38) and Hydro-Québec's peaks (M39) follow, among a library of
 objects (M17), the outdoors (M18), more imports (M20) and more languages (M21), before a sixth
 release, 0.6.0. The maintainer then moved Hydro-Québec's peaks (M39) forward, right after 0.4.0
-(D-057): its part in the sandbox (M29) and in the weekly report (M37) comes with them.
+(D-058): its part in the sandbox (M29) and in the weekly report (M37) comes with them.
 
 ## M0, scaffold
 
@@ -1077,10 +1077,36 @@ Home Assistant's.
 - ⏳ **Two weeks of use** at home before the rest: what is missed then decides the order of M24 to
   M26.
 
+## M29, the sandbox
+
+The home's own automations, scripts and scenes played over a whole day on a copy of the home, in
+the page: nothing reaches a device (D-057).
+
+- ✅ **The copy**: the home's states and registries, DomoTwin's plan, links and settings, and the
+  configurations of the automations, scripts and scenes, read once when an administrator opens
+  the sandbox from the ⋮ menu; nothing written, no service called.
+- ✅ **The day picked**: its date (the sun as it rises and sets there), its weather and outdoor
+  temperatures, who is home at midnight and when each goes out and comes back.
+- ✅ **Played as Home Assistant plays them**: the usual triggers, conditions, actions and modes,
+  `for`, delays and waits, what one automation changes setting off another, and what the usual
+  services do; Home Assistant's templates read for the usual. A day of a hundred automations in a
+  fifth of a second.
+- ✅ **Watched**: the 3D view at a moment of the day, played a minute, ten minutes or an hour a
+  second, or gone through on the day's line, its runs and conflicts marked; a tap in the sandbox
+  done at that moment, the day going on with it.
+- ✅ **The report**: what each automation did and when, what never ran and why, the automations
+  working against each other, what goes back and forth, what sets itself off over and over, and
+  what could not be played, named, never guessed.
+- ✅ Tests: the time zone, durations and the sun; templates; triggers, `for`, times, sunset,
+  patterns, levels crossed, chains, modes, choices, repeats and waits, scripts, scenes, conflicts,
+  loops, what cannot be played (vitest); opened from the menu, the day picked, played, gone
+  through by keyboard, a tap kept and forgotten, the report, back to the home with nothing
+  written, for administrators only, in French (Playwright).
+
 ## M39, Hydro-Québec's peaks
 
 For a home on one of Hydro-Québec's offers with peak events (Flex D, the winter credit kept by
-those who had it), moved forward by the maintainer (D-057). Read from the integrations that read
+those who had it), moved forward by the maintainer (D-058). Read from the integrations that read
 the peaks, by their kind, never their entities' ids; nothing scraped, no account asked, nothing
 stored; nothing shown without them.
 
@@ -1117,18 +1143,7 @@ it. Each milestone its own pull request; no network call outside Home Assistant;
 tests and docs; every string through `t()` in English and French. A ❓ is asked before its
 milestone starts, which goes on with what needs no answer.
 
-- ⏳ **M29, the sandbox**: the home's own automations, scripts and scenes played against a copy
-  of the home in the page, built on the demo house's Home Assistant in memory (M16c), which holds
-  the home's entities as they are, its plan and its links. One picks a day, the weather and who
-  leaves and comes back when, then watches the 3D view and a timeline as the day plays, faster
-  than real time. Nothing reaches a device: no action leaves the page. At the end, a report: what
-  each automation did and when, what never fired, and the conflicts (two automations setting the
-  same device against each other, one undoing what another just did). The common triggers,
-  conditions and actions are played as Home Assistant plays them, with the effect of the common
-  actions on their devices; what the sandbox cannot play (a template beyond what it reads, an
-  action whose effect it cannot know) is named in the report, not guessed. For administrators,
-  since only they can read automations. Where M39 reads Hydro-Québec's peaks, tomorrow's
-  announced peak can be the day played.
+- ✅ **M29, the sandbox** (D-057, above).
 - ⏳ **M30, the Wi-Fi QR code**: an administrator gives the home's Wi-Fi name and password once,
   and DomoTwin draws the QR code a phone's camera joins with (`WIFI:T:WPA;S:<name>;P:<password>;;`,
   with `\`, `;`, `,`, `:` and `"` escaped), in the page, by a small encoder whose licence
@@ -1225,7 +1240,7 @@ milestone starts, which goes on with what needs no answer.
   a device on the plan.
 - ⏳ **M18, outdoors**: the garden, the terrace, the lawn, a pool, the roofs; the lawn growing
   between two mowings.
-- ✅ **M39, Hydro-Québec's peaks**, moved forward (D-057, above): the next peak, the pre-heating
+- ✅ **M39, Hydro-Québec's peaks**, moved forward (D-058, above): the next peak, the pre-heating
   before it, which rooms shed and what they draw during it, in 3D and on the Home tab, from the
   entities of hydroqc or HydroPeak. Its part in the sandbox and the report comes with M29 and M37.
 - ⏳ **M21, more languages**: Italian, German, Spanish, Arabic (right to left), Chinese, Japanese,

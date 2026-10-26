@@ -1,7 +1,7 @@
 //! The layers drawn over the home (`DECISIONS.md`, D-023): a **heatmap** of one quantity per room
 //! (temperature, humidity, CO₂ or fine particles) on a perceptual colour scale, **alerts** pulsing
 //! on the floor of their room (warnings amber, dangers red) and **presence** (a room someone is in
-//! glows softly). During a Hydro-Québec peak (D-057), the **peak** tints each room by what its
+//! glows softly). During a Hydro-Québec peak (D-058), the **peak** tints each room by what its
 //! heating does: pre-heating before the peak, shed or still heating during it. The frontend
 //! gathers the values from Home Assistant (areas, device classes, units); the core turns them into
 //! colours and into the per-room data the renderer reads.
@@ -142,7 +142,7 @@ impl Alert {
     }
 }
 
-/// What a room's heating does around a Hydro-Québec peak (D-057).
+/// What a room's heating does around a Hydro-Québec peak (D-058).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PeakRole {
     /// It heats before the peak, to store warmth.
@@ -189,7 +189,7 @@ pub struct RoomLayers {
     pub heat: Option<HeatKind>,
     /// Its value in each room that has one.
     pub values: BTreeMap<String, f64>,
-    /// What each room's heating does around a peak (D-057), when the peak is shown.
+    /// What each room's heating does around a peak (D-058), when the peak is shown.
     pub peak: BTreeMap<String, PeakRole>,
     /// What each room draws (W), written at its centre.
     pub draws: BTreeMap<String, f64>,

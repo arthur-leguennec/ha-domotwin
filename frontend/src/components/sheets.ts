@@ -389,7 +389,9 @@ export class DomoTwinRoom extends Sheet {
     if (!hass) return;
     this.refused = undefined;
     try {
-      if (!(await runRoom(this, hass, what))) this.refused = this.t.t("demo.no_dialog");
+      if (!(await runRoom(this, hass, what))) {
+        this.refused = this.t.t(hass.sandbox ? "sandbox.no_dialog" : "demo.no_dialog");
+      }
     } catch (error) {
       this.refused = failureText(this.t, error);
     }

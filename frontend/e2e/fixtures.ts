@@ -72,6 +72,8 @@ export interface HarnessOptions {
   zha?: boolean;
   /** Fictional automations (D-032): `true` three of the demo apartment, a number made up ones. */
   automations?: true | number;
+  /** The sandbox's time zone and place, and its automations and script (D-058). */
+  sandbox?: boolean;
   /** Upkeep cards (D-033): the demo's (`true`), or an integration without them (`false`). */
   upkeep?: boolean;
   /** People in their rooms (D-034): fictional ones (`true`), or an integration without them. */
@@ -83,7 +85,7 @@ export interface HarnessOptions {
   /** The card's `demo`: the demo house instead of this home (D-050). */
   demo?: boolean;
   /**
-   * Hydro-Québec's peaks (D-057): the integration that reads them (hydroqc's sensors, HydroPeak's,
+   * Hydro-Québec's peaks (D-058): the integration that reads them (hydroqc's sensors, HydroPeak's,
    * or hydroqc's calendar) and where its peak stands now (`peak` unless asked).
    */
   peak?: "hydroqc" | "hydropeak" | "calendar";
@@ -176,6 +178,7 @@ export async function openHarness(page: Page, options: HarnessOptions = {}): Pro
   if (options.insecure) params.set("insecure", "1");
   if (options.mic === false) params.set("mic", "0");
   if (options.tip) params.set("tip", "1");
+  if (options.sandbox) params.set("sandbox", "1");
   if (options.automations) {
     params.set("automations", options.automations === true ? "1" : String(options.automations));
   }

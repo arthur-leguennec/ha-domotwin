@@ -1,5 +1,5 @@
 /**
- * The legend of Hydro-Québec's peaks on the 3D view (D-057): when the peak is and its
+ * The legend of Hydro-Québec's peaks on the 3D view (D-058): when the peak is and its
  * pre-heating, the colours of what the rooms do, and what they draw.
  */
 import { html, nothing, type TemplateResult } from "lit";
