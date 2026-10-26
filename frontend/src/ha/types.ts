@@ -1,11 +1,20 @@
 /** The small part of Home Assistant's frontend API that DomoTwin uses. */
 
+/** What a state was written in (`homeassistant.core.Context`): who asked for it, and what set it
+ * off (the context of an automation's trigger, for an automation's run). */
+export interface HassContext {
+  id: string;
+  parent_id?: string | null;
+  user_id?: string | null;
+}
+
 export interface HassEntity {
   entity_id: string;
   state: string;
   attributes: Record<string, unknown>;
   last_changed: string;
   last_updated: string;
+  context?: HassContext;
 }
 
 export interface HassUser {

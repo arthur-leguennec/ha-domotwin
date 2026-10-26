@@ -1,7 +1,7 @@
 /**
  * The demo house's websocket (D-050): DomoTwin's commands answered from what the demo keeps, as
  * the integration would; Home Assistant's few others the frontend asks (automations, the energy
- * settings, what an area relates to). Nothing goes out of the page.
+ * settings, what an area relates to, the logbook). Nothing goes out of the page.
  */
 import type { NewSchedule, PlanJson, StoredPlan, UpdateEvent } from "../ha/client";
 import type { HassConnection, HassMessage } from "../ha/types";
@@ -217,6 +217,26 @@ export function demoConnection(home: DemoHome): HassConnection {
           return Object.keys(home.hass.states).some((id) => inArea(id) && text.includes(`"${id}"`));
         }).map((a) => a.id);
         return automation.length > 0 ? { automation } : {};
+      }
+      case "logbook/get_events": {
+        // What the demo's Home Assistant recorded (D-058), as its logbook answers.
+        const time = (value: unknown): number | undefined =>
+          typeof value === "string" && !Number.isNaN(Date.parse(value))
+            ? Date.parse(value)
+            : undefined;
+        const start = time(message.start_time);
+        if (start === undefined) throw failure("invalid_start_time", "Invalid start_time");
+        const end = time(message.end_time);
+        const entities = Array.isArray(message.entity_ids)
+          ? message.entity_ids.filter((id): id is string => typeof id === "string")
+          : undefined;
+        const context = typeof message.context_id === "string" ? message.context_id : undefined;
+        return home.logbook.events({
+          start,
+          ...(end !== undefined ? { end } : {}),
+          ...(entities ? { entities } : {}),
+          ...(context !== undefined ? { context } : {}),
+        });
       }
       case "energy/get_prefs":
         // Home Assistant's energy settings, naming the demo's power sensors.
