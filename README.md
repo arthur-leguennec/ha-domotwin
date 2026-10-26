@@ -16,12 +16,13 @@ Local, fast, Rust + WebAssembly.</p>
 > **Status: early development.** DomoTwin is built milestone by milestone
 > ([roadmap](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/ROADMAP.md)). The
 > integration, the panel, the card, the plan import (IFC, Sweet Home 3D, DXF, room scans), the 3D
-> and 2D views, live control
-> (states, tap, long press, room panel, linking), the edit mode, your own 3D models, the layers, the
-> devices, the plan editor, storeys, the looks, every storey at once, walking, the kiosk, the
-> network map, the automation wires, the upkeep cards, the people in their rooms, Bluetooth
-> locating, voice, the polish (font, keyboard, screen readers) and a pass over size and speed work
-> today, and make up version 0.2.0. The submission to HACS's default list comes next.
+> and 2D views, live control (states, tap, long press, room panel, linking), the edit mode, your
+> own 3D models, the layers, the devices, the plan editor, storeys, the looks, every storey at
+> once, walking, the kiosk, the network map, the automation wires, the upkeep cards, the people in
+> their rooms, Bluetooth locating, voice, the polish (font, keyboard, screen readers), a pass over
+> size and speed, phones, actions done later, taps that say what they do, pieces that look made,
+> robot vacuums, the home's energy and the demo house work today, and make up version 0.3.0. The
+> submission to HACS's default list comes next.
 
 ## Features
 

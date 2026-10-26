@@ -1721,3 +1721,39 @@ own.
   - The demo house is an example plan too, imported like any other.
   - The first load grows by the entry points only; the demo itself comes on demand.
   - Docks placed with the default colour before change colour.
+
+## D-051 · Release 0.3.0, then DomoTwin as the only dashboard
+
+After M16c.
+
+- **Context.** Since 0.2.0, DomoTwin has learnt phones and crowded names (M13b), actions done
+  later (M14), taps that say what they do (M16), pieces that look made and a neon of its own
+  (M15), robot vacuums and the home's energy (M16b), and the demo house (M16c). The maintainer
+  asked for a release once the demo house is in. A library of objects, the outdoors and the lawn,
+  Replay, more imports, more languages and a first launch in five minutes were planned next; the
+  maintainer then asked for DomoTwin to be the only dashboard a home uses, and chose to do that
+  first.
+- **Decision.**
+  - **0.3.0 is everything up to M16c.** As 0.2.0 was (D-044), it is tried in a fresh Home
+    Assistant (2026.10) from the build the zip is made of: the smoke test, then the panel in a
+    browser, the demo house opened from its menu, its day going on, its evening, and the home
+    again on leaving it, with no error in the console and no request outside Home Assistant.
+  - **release-please's pull request makes the release**: the version in the manifest and the
+    frontend, the notes from the commits, the `v0.3.0` tag and `domotwin.zip`.
+  - **DomoTwin, the only dashboard, next.** The maintainer wants a home to need no other
+    dashboard. The 3D view cannot do that alone: what has no place on a plan (scenes, scripts,
+    the weather, calendars, lists, the alarm, inputs), a way to act without it on a phone, the
+    screens of history, energy and safety, daily life, and opening straight on DomoTwin. Six
+    milestones come first, in this order: an app with its tabs and a home screen (M23), rooms,
+    devices and favourites for all of Home Assistant (M24), history, graphs and energy over time
+    with Replay (M25, which takes M19 in), safety and cameras (M26), daily life and the wall
+    screen (M27), and pages arranged without YAML, one's dashboards taken over (M28); then 0.4.0.
+    Home Assistant's settings, integrations, automation editor and add-ons stay its own.
+  - **Then** a library of objects (M17), the outdoors (M18), more imports (M20), more languages
+    (M21), and a first launch in five minutes (M22) last, as it is made of what comes before it;
+    then 0.5.0.
+- **Consequences.**
+  - The submission to HACS's default list still waits on the maintainer's steps
+    (`HACS_SUBMISSION.md`); 0.3.0 changes nothing it checks.
+  - The roadmap lists M23 to M28 and 0.4.0, then M17, M18, M20 to M22 and 0.5.0, as planned;
+    M19 is part of M25.

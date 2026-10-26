@@ -40,6 +40,20 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M15       | Pieces that look made, and a neon of its own               | ✅     |
 | M16b      | Robot vacuums on the floor, the home's energy at a glance  | ✅     |
 | M16c      | The demo house: a home, its automations and its day        | ✅     |
+| 0.3.0     | Third release: actions later to the demo house             | ✅     |
+| M23       | An app: tabs, the home at a glance, the default dashboard  | ⏳     |
+| M24       | Rooms, devices and favourites: all of Home Assistant       | ⏳     |
+| M25       | History, graphs, energy over time, and Replay              | ⏳     |
+| M26       | Safety and cameras: live views, the alarm, alerts          | ⏳     |
+| M27       | Daily life and the wall screen: weather, agenda, music     | ⏳     |
+| M28       | Arranged without YAML, your dashboards taken over          | ⏳     |
+| 0.4.0     | Fourth release: DomoTwin, the only dashboard               | ⏳     |
+| M17       | A library of objects: many pieces, free and well made      | ⏳     |
+| M18       | Outdoors: garden, terrace, lawn, pool, roofs               | ⏳     |
+| M20       | More imports: robot vacuum maps, Floorplanner, meshes      | ⏳     |
+| M21       | More languages, right to left too                          | ⏳     |
+| M22       | A first launch in five minutes                             | ⏳     |
+| 0.5.0     | Fifth release: all of the above                            | ⏳     |
 
 M5 to M11 were added after M3b (`DECISIONS.md`, D-022): what people expect of a 3D home dashboard,
 with no account and no network call outside Home Assistant. M8 became the looks alone, and the
@@ -51,6 +65,11 @@ rooms (M9g), the imports (M11), the polish (M12) and a pass over size and speed 
 picture as it is (M12b) come before a second release, 0.2.0, with the submission to HACS's default
 list (M13). What a phone and a real home showed after it comes first (M13b, D-045). Taps that say
 what they do (M16) come before the better-looking pieces (M15), so that the demo house shows them.
+The demo house (M16b, M16c) closes a third release, 0.3.0 (D-051). The maintainer then asked for
+DomoTwin to be the only dashboard a home needs: what the 3D view cannot do alone comes first (M23
+to M28, with Replay, once M19, in M25), before a fourth release, 0.4.0. A library of objects
+(M17), the outdoors (M18), more imports (M20) and more languages (M21) come after it, and a first
+launch in five minutes (M22) last, before a fifth release, 0.5.0.
 
 ## M0, scaffold
 
@@ -943,3 +962,61 @@ The second half of the demo house: a home to try DomoTwin on (D-050):
   forgotten, the client reading the home again (vitest); the demo offered with no plan, living
   its day, nothing reaching the home, link mode ended on the way out, from the menu in French
   with its upper floor and back, on a card (Playwright).
+
+## Release 0.3.0
+
+Everything above, released (D-051): actions done later (M14), taps that say what they do (M16),
+pieces that look made and a neon of its own (M15), robot vacuums and the home's energy (M16b),
+and the demo house (M16c).
+
+- ✅ Tried in a fresh Home Assistant (2026.10): the smoke test, then the panel in a browser, the
+  demo house opened from its menu, living its day, its evening, and left for the home, with no
+  error and no request outside Home Assistant.
+- ✅ **Release 0.3.0**: release-please's pull request, merged once this is in `main`, tags
+  `v0.3.0` and attaches `domotwin.zip`.
+
+## Next: the only dashboard, to 0.4.0
+
+The 3D view shows the home and what is placed on it. To leave every other dashboard, DomoTwin
+needs what has no place on a plan, a way to act without the 3D view, the screens of history,
+energy and safety, daily life, and to open straight on it (D-051). Home Assistant's settings,
+integrations, automation editor and add-ons stay Home Assistant's: DomoTwin links to them.
+
+- ⏳ **M23, an app**: tabs (at the bottom on a phone, on the side on a tablet or a computer): the
+  home in 3D, rooms, favourites, energy, safety, more; a home screen at a glance (who is in, the
+  weather, alerts, lamps on, doors and windows open, today's energy); DomoTwin as the default
+  dashboard, in the mobile app too; a light mode without the 3D view for older devices.
+- ⏳ **M24, rooms, devices and favourites**: every entity of Home Assistant by floor and area,
+  placed on the plan or not; a search; favourites; scenes and scripts as large buttons; full
+  controls for each kind: lights, heating and cooling (modes, presets), covers (position, tilt),
+  media (a whole remote, sources, artwork), robot vacuums (room by room), locks, the alarm (its
+  keypad), fans, water heaters, inputs and selects.
+- ⏳ **M25, history, graphs and energy over time**: each sensor's curve (a day, a week, a month)
+  and a log of who did what, from Home Assistant's history; energy produced, used, used from the
+  sun and its cost, by day, week and month and by device; Replay, going back over the home's past
+  (once M19); every chart drawn by DomoTwin, no library from the internet.
+- ⏳ **M26, safety and cameras**: live cameras (Home Assistant's streams), side by side; the
+  doorbell's camera full screen when it rings; the alarm armed or disarmed; doors and windows open
+  at a glance; full-screen alerts (smoke, leak, intrusion) that say what to do; the notifications
+  in one place (Home Assistant's, low batteries, devices unreachable, upkeep due).
+- ⏳ **M27, daily life and the wall screen**: the weather and its forecast, the family's
+  calendars, lists (shopping, chores), what plays in each room, spoken announcements, a screen
+  saver (the clock, the weather, photos kept in Home Assistant) woken by motion, a layout for each
+  screen (the kitchen's tablet is not a phone).
+- ⏳ **M28, arranged without YAML**: the sections of each page chosen and ordered, for each person
+  and each screen (a child's view of their own room); the dashboards one has taken over, their
+  favourites and scenes offered, to change in a few minutes.
+- ⏳ **Release 0.4.0**.
+
+## Then, to 0.5.0
+
+- ⏳ **M17, a library of objects**: many more pieces, free and well made, drawn from real
+  references, still fast.
+- ⏳ **M18, outdoors**: the garden, the terrace, the lawn, a pool, the roofs; the lawn growing
+  between two mowings.
+- ⏳ **M20, more imports**: robot vacuum maps (Valetudo and others), Floorplanner, meshes.
+- ⏳ **M21, more languages**: Italian, German, Spanish, Arabic (right to left), Chinese, Japanese,
+  Korean, Portuguese (Portugal and Brazil) and others.
+- ⏳ **M22, a first launch in five minutes**: from the install to one's own home live, in five
+  minutes, with what comes before it (the objects, the imports, one's dashboards taken over).
+- ⏳ **Release 0.5.0**.

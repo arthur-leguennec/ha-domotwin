@@ -16,14 +16,15 @@ Local, rapide, Rust + WebAssembly.</p>
 > **État : développement en cours.** DomoTwin se construit étape par étape ([feuille de
 > route](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/ROADMAP.md), en anglais).
 > L’intégration, le panneau, la carte, l’import du plan (IFC, Sweet Home 3D, DXF, scans de
-> pièces), les vues 3D et 2D, le
-> pilotage en direct (états, toucher, appui long, panneau de pièce, liaisons), le mode édition, vos
-> propres modèles 3D, les calques, les appareils, l’éditeur de plan, les étages, les apparences,
-> tous les étages à la fois, la promenade, le kiosque, la carte du réseau, les fils des
-> automatisations, les fiches d’entretien, les personnes dans leurs pièces, la localisation
-> Bluetooth, la voix, la finition (police, clavier, lecteurs d’écran) et une passe sur la taille
-> et la vitesse fonctionnent déjà, et forment la version 0.2.0. La proposition à la liste par
-> défaut de HACS vient ensuite.
+> pièces), les vues 3D et 2D, le pilotage en direct (états, toucher, appui long, panneau de pièce,
+> liaisons), le mode édition, vos propres modèles 3D, les calques, les appareils, l’éditeur de
+> plan, les étages, les apparences, tous les étages à la fois, la promenade, le kiosque, la carte
+> du réseau, les fils des automatisations, les fiches d’entretien, les personnes dans leurs
+> pièces, la localisation Bluetooth, la voix, la finition (police, clavier, lecteurs d’écran), une
+> passe sur la taille et la vitesse, les téléphones, les actions à faire plus tard, des touchers
+> qui disent ce qu’ils font, des meubles qui ont l’air faits, les aspirateurs robots, l’énergie de
+> la maison et la maison de démo fonctionnent déjà, et forment la version 0.3.0. La proposition à
+> la liste par défaut de HACS vient ensuite.
 
 ## Fonctionnalités
 
