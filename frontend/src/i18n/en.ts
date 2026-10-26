@@ -358,6 +358,8 @@ export const en = {
     theme_cartoon: "Cartoon",
     theme_clay: "Clay model",
     accent: "Accent colour",
+    accent_default: "Default",
+    accent_reset: "Back to the look's own accent colour",
     theme_hint: "The look of the panel and of the cards that do not choose one.",
     save: "Save",
     saved: "Settings saved.",

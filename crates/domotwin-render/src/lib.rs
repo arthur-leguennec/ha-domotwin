@@ -1661,9 +1661,11 @@ impl Renderer {
         program.use_uniform_if_required("u_wall_cap", rgb(t.wall_cap));
         program.use_uniform_if_required("u_tint", t.tint);
         program.use_uniform_if_required("u_palette", rgb(t.palette));
+        program.use_uniform_if_required("u_leaf_tint", t.leaf_tint);
         program.use_uniform_if_required("u_floor_tint", t.floor_tint);
         program.use_uniform_if_required("u_floor_palette", rgb(t.floor_palette));
-        program.use_uniform_if_required("u_plan_floor", rgb(t.plan_floor));
+        program.use_uniform_if_required("u_plan_floor", rgb(t.plan_floor.unwrap_or_default()));
+        program.use_uniform_if_required("u_plan_floors", on(t.plan_floor.is_some()));
         program.use_uniform_if_required("u_plan_cap", rgb(t.plan_cap));
         let shading = &t.shading;
         program.use_uniform_if_required("u_tint_contrast", shading.tint_contrast);
@@ -1717,6 +1719,10 @@ impl Renderer {
         program.use_uniform_if_required("u_ground", rgb(ground));
         program.use_uniform_if_required("u_grid", rgb(grid));
         program.use_uniform_if_required("u_grid_strength", self.theme.grid_strength);
+        program.use_uniform_if_required(
+            "u_grid_dots",
+            if self.theme.grid_dots { 1.0_f32 } else { 0.0 },
+        );
         #[allow(clippy::cast_possible_truncation)]
         program.use_uniform_if_required("u_ground_y", GROUND_Y as f32);
         let [cx, _, cz] = self.view.centre();
@@ -1756,6 +1762,7 @@ impl Renderer {
             Vec2::new(self.width as f32, self.height as f32),
         );
         program.use_uniform_if_required("u_line_width", self.line_width());
+        program.use_uniform_if_required("u_line_rise", self.theme.line_rise);
         let t = &self.theme;
         program.use_uniform_if_required("u_line_color", Vec3::new(t.line[0], t.line[1], t.line[2]));
         program.use_uniform_if_required("u_line_strength", t.line_strength);

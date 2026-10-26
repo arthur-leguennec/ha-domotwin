@@ -6,7 +6,7 @@ use std::rc::Rc;
 
 use super::Builder;
 use super::imported;
-use super::mesh::{CutMode, Material, NO_GROUP, Painter, ROUND, Surface, Tag, V3, Xform};
+use super::mesh::{Blade, CutMode, Material, NO_GROUP, Painter, ROUND, Surface, Tag, V3, Xform};
 use crate::geometry::polygon::P2;
 use crate::geometry::walls::WallLayout;
 use crate::model_mesh::ModelMesh;
@@ -124,14 +124,47 @@ impl Model<'_> {
         self.p.cylinder(&self.x, at, r, h, ROUND, true);
     }
 
+    /// An ellipsoid, with as many sides as its size shows: a caster or a bulb needs fewer
+    /// than a globe.
     pub(crate) fn sph(&mut self, m: Material, c: V3, r: V3) {
         self.p.material = m;
-        self.p.sphere(&self.x, c, r, ROUND);
+        let size = r[0].max(r[1]).max(r[2]);
+        let segments = if size < 4.0 {
+            8
+        } else if size < 12.0 {
+            12
+        } else {
+            ROUND
+        };
+        self.p.sphere(&self.x, c, r, segments);
     }
 
     pub(crate) fn rod(&mut self, m: Material, a: V3, b: V3, r: f64) {
         self.p.material = m;
         self.p.rod(&self.x, a, b, r, 8);
+    }
+
+    /// A thin rod (a stem, a cane): four sides are enough at its size, and its ends are hidden
+    /// in a joint, the soil or a leaf.
+    pub(crate) fn twig(&mut self, m: Material, a: V3, b: V3, r: f64) {
+        self.p.material = m;
+        self.p.tube(&self.x, a, b, r, 4, false);
+    }
+
+    /// A box with soft edges (a cushion, a mattress, a top), `r` the edge's cut.
+    pub(crate) fn soft(&mut self, m: Material, min: V3, max: V3, r: f64) {
+        if m.surface == Surface::Glass {
+            self.bx(m, min, max);
+        } else {
+            self.p.material = m;
+            self.p.soft_box(&self.x, min, max, r);
+        }
+    }
+
+    /// A leaf from `stem` pointing along `along`, facing up.
+    pub(crate) fn leaf(&mut self, m: Material, stem: V3, along: V3, form: &Blade) {
+        self.p.material = m;
+        self.p.blade(&self.x, stem, along, form);
     }
 
     /// The glowing part of a lamp: `off` is its look when the lamp is off; the light itself
@@ -442,7 +475,13 @@ fn draw(m: &mut Model<'_>, f: &Furniture) {
                 3.5
             };
             let wood = surface(c);
-            m.bx(wood, [-w / 2.0, h - top, -d / 2.0], [w / 2.0, h, d / 2.0]);
+            // Its top's edge eased, catching the light.
+            m.soft(
+                wood,
+                [-w / 2.0, h - top, -d / 2.0],
+                [w / 2.0, h, d / 2.0],
+                0.8,
+            );
             let leg = (w.min(d) * 0.07).clamp(3.0, 6.0);
             m.legs(wood, leg / 2.0 + 2.0, leg, h - top);
             if f.kind == Kind::Desk || f.kind == Kind::Console {
@@ -924,24 +963,28 @@ fn sofa(m: &mut Model<'_>, leather: bool, seats: Option<usize>) {
             );
         }
     }
-    m.bx(
+    // Upholstery is soft: every block has eased edges.
+    m.soft(
         fabric,
         [-w / 2.0, leg_h, -d / 2.0],
         [w / 2.0, base_top, d / 2.0],
+        2.5,
     );
     let arm_top = (h * 0.74).min(seat_top + 18.0);
     for sx in [-1.0, 1.0] {
         let x0 = sx * (w / 2.0 - arm / 2.0);
-        m.bx(
+        m.soft(
             fabric,
             [x0 - arm / 2.0, leg_h, -d / 2.0],
             [x0 + arm / 2.0, arm_top, d / 2.0],
+            4.5,
         );
     }
-    m.bx(
+    m.soft(
         fabric,
         [-w / 2.0 + arm, leg_h, -d / 2.0],
         [w / 2.0 - arm, h, -d / 2.0 + back],
+        4.0,
     );
     let inner = w - 2.0 * arm;
     let n = seats.unwrap_or(if inner > 150.0 {
@@ -956,17 +999,19 @@ fn sofa(m: &mut Model<'_>, leather: bool, seats: Option<usize>) {
     for i in 0..n {
         #[allow(clippy::cast_precision_loss)]
         let x = -inner / 2.0 + cw * (i as f64 + 0.5);
-        m.bx(
+        m.soft(
             cushion,
             [x - cw / 2.0 + 0.6, base_top, -d / 2.0 + back],
             [x + cw / 2.0 - 0.6, seat_top, d / 2.0 - 1.0],
+            3.5,
         );
         let bh = h - seat_top - 3.0;
         if bh > 8.0 {
-            m.bx(
+            m.soft(
                 cushion,
                 [x - cw / 2.0 + 1.0, seat_top, -d / 2.0 + back],
                 [x + cw / 2.0 - 1.0, seat_top + bh, -d / 2.0 + back + 13.0],
+                4.5,
             );
         }
     }
@@ -1010,10 +1055,11 @@ fn chair(m: &mut Model<'_>) {
         [-w / 2.0 + 2.0, seat_h - 4.0, -d / 2.0 + 2.0],
         [w / 2.0 - 2.0, seat_h - 1.0, d / 2.0 - 2.0],
     );
-    m.bx(
+    m.soft(
         Material::fabric(Rgb8::from_u32(0x1f1d1c)),
         [-w / 2.0 + 3.0, seat_h - 1.0, -d / 2.0 + 4.0],
         [w / 2.0 - 3.0, seat_h + 2.5, d / 2.0 - 3.0],
+        1.1,
     );
     for sx in [-1.0, 1.0] {
         let x0 = sx * (w / 2.0 - 3.5);
@@ -1048,20 +1094,22 @@ fn office_chair(m: &mut Model<'_>) {
         seat - 10.0,
     );
     let fabric = Material::fabric(c);
-    m.bx(
+    m.soft(
         fabric,
         [-w / 2.0 + 4.0, seat - 6.0, -d / 2.0 + 6.0],
         [w / 2.0 - 4.0, seat, d / 2.0 - 3.0],
+        2.0,
     );
     m.bx(
         dark,
         [-2.0, seat - 4.0, -d / 2.0 + 4.0],
         [2.0, seat + 8.0, -d / 2.0 + 7.0],
     );
-    m.bx(
+    m.soft(
         fabric,
         [-w / 2.0 + 6.0, seat + 6.0, -d / 2.0 + 3.0],
         [w / 2.0 - 6.0, h, -d / 2.0 + 8.0],
+        1.6,
     );
     for sx in [-1.0, 1.0] {
         let x0 = sx * (w / 2.0 - 5.0);
@@ -1131,116 +1179,203 @@ fn bed(m: &mut Model<'_>, metal: bool) {
         );
     }
     let low = (h - 22.0).max(20.0);
-    m.bx(
+    m.soft(
         mattress,
         [-w / 2.0 + 2.0, low, -d / 2.0 + 6.0],
         [w / 2.0 - 2.0, mattress_top, d / 2.0 - 1.0],
+        3.5,
     );
-    // Duvet over the lower two thirds, and pillows.
+    // Duvet over the lower two thirds, falling over the sides, and pillows.
     let duvet = Material::fabric(c);
-    m.bx(
+    m.soft(
         duvet,
-        [-w / 2.0 + 1.0, mattress_top - 6.0, -d / 2.0 + d * 0.35],
-        [w / 2.0 - 1.0, mattress_top + 3.0, d / 2.0],
+        [-w / 2.0 + 0.5, mattress_top - 9.0, -d / 2.0 + d * 0.35],
+        [w / 2.0 - 0.5, mattress_top + 3.0, d / 2.0 + 0.5],
+        2.8,
+    );
+    // Its edge folded back.
+    m.soft(
+        Material::fabric(shade(c, 1.08)),
+        [
+            -w / 2.0 + 0.4,
+            mattress_top + 1.0,
+            -d / 2.0 + d * 0.35 - 1.5,
+        ],
+        [
+            w / 2.0 - 0.4,
+            mattress_top + 4.0,
+            -d / 2.0 + d * 0.35 + 14.0,
+        ],
+        1.4,
     );
     let pillows = if w > 120.0 { 2 } else { 1 };
     #[allow(clippy::cast_precision_loss)]
     let pw = (w - 12.0) / f64::from(pillows);
     for k in 0..pillows {
         let x0 = -w / 2.0 + 6.0 + pw * f64::from(k);
-        m.sph(
+        m.soft(
             Material::fabric(WHITE),
-            [x0 + pw / 2.0, mattress_top + 4.0, -d / 2.0 + 22.0],
-            [pw / 2.0 - 3.0, 6.0, 15.0],
+            [x0 + 3.0, mattress_top - 1.0, -d / 2.0 + 8.0],
+            [x0 + pw - 3.0, mattress_top + 11.0, -d / 2.0 + 36.0],
+            4.5,
         );
     }
 }
 
+/// A broad leaf with a heart at its base (monstera, pothos).
+fn heart(t: f64) -> f64 {
+    (0.45 + 0.55 * (std::f64::consts::PI * t.powf(0.8)).sin()) * (1.0 - t.powi(6))
+}
+
+/// A long, narrow leaf (dracaena, palms): widest a third of the way, to a point.
+fn strap(t: f64) -> f64 {
+    (std::f64::consts::PI * t.powf(0.7)).sin().max(0.0).sqrt() * (1.0 - t.powi(3))
+}
+
+/// A plant in its pot (`DECISIONS.md`, D-048): leaves are folded blades, seen from above and
+/// below, on stems; each plant is laid out from its own seed, so two are never alike. The piece's
+/// footprint is the plant's spread: the leaves stay within it, over a narrower pot.
 fn plant(m: &mut Model<'_>, variant: Option<&str>) {
     let (w, h, c) = (m.w, m.h, m.c);
     let r = w.min(m.d) / 2.0;
     let pot_h = (h * 0.3).clamp(10.0, 45.0);
-    m.cyl(
-        Material::ceramic(Rgb8::from_u32(0xd9d2c3)),
-        [0.0; 3],
-        [r * 0.7, r * 0.9],
-        pot_h,
-    );
+    // The pot's radius at its rim.
+    let pr = r * 0.62;
+    let pot = Material::ceramic(Rgb8::from_u32(0xd9d2c3));
+    m.cyl(pot, [0.0; 3], [pr * 0.78, pr], pot_h - 2.0);
+    // A rolled rim, and the soil within it (just over the rim's top, which would hide it).
+    m.cyl(pot, [0.0, pot_h - 2.5, 0.0], [pr * 1.02, pr * 1.05], 2.5);
     m.cyl(
         Material::paint(Rgb8::from_u32(0x4a3a2a)),
-        [0.0, pot_h - 0.5, 0.0],
-        [r * 0.85, r * 0.85],
+        [0.0, pot_h - 0.3, 0.0],
+        [pr * 0.93, pr * 0.93],
         0.6,
     );
-    let leaf = Material::new(
-        if c == Rgb8::from_u32(0x536c42) {
-            LEAF
-        } else {
-            c
-        },
-        0.7,
-        Surface::Leaf,
-    );
+    let green = if c == Rgb8::from_u32(0x536c42) {
+        LEAF
+    } else {
+        c
+    };
+    // Leaves a little lighter or darker each, as real ones are.
+    let tone = |m: &mut Model<'_>| {
+        Material::new(shade(green, 0.82 + 0.36 * m.rng.next()), 0.6, Surface::Leaf)
+    };
     let top = h - pot_h;
+    let soil = pot_h - 1.0;
     match variant {
         Some("dracaena") => {
+            let cane = Material::wood(Rgb8::from_u32(0x6a5038));
             for k in 0..3 {
-                let x = (f64::from(k) - 1.0) * r * 0.3;
-                let stem_top = pot_h + top * (0.55 + 0.15 * f64::from(k % 2));
-                m.rod(
-                    Material::wood(Rgb8::from_u32(0x6a5038)),
-                    [x, pot_h, 0.0],
-                    [x, stem_top, 0.0],
-                    1.4,
-                );
-                m.sph(
-                    leaf,
-                    [x, stem_top + top * 0.12, 0.0],
-                    [r * 0.6, top * 0.18, r * 0.6],
-                );
+                let kf = f64::from(k);
+                let x = (kf - 1.0) * pr * 0.3;
+                let z = (m.rng.next() - 0.5) * pr * 0.3;
+                let crown = soil + top * (0.45 + 0.17 * kf);
+                let head = [x * 1.3, crown, z];
+                m.twig(cane, [x, soil, z], head, 1.5);
+                // A crown of long leaves, rising then arching over, within the spread.
+                let room = r * 0.95 - head[0].hypot(z);
+                let n = 11;
+                for j in 0..n {
+                    let a = f64::from(j) / f64::from(n) * std::f64::consts::TAU + m.rng.next();
+                    let rise = 0.25 + 0.9 * m.rng.next();
+                    let (s, co) = a.sin_cos();
+                    let length =
+                        ((r * 0.9).max(top * 0.3) * (0.75 + 0.35 * m.rng.next())).min(room);
+                    let leaf = Blade {
+                        size: [length, (length * 0.12).clamp(2.0, 5.0)],
+                        shape: strap,
+                        fold: 0.35,
+                        droop: length * 0.45,
+                        segments: 4,
+                    };
+                    let tone = tone(m);
+                    m.leaf(tone, head, [co, rise, s], &leaf);
+                }
             }
         }
         Some("pothos") => {
-            m.sph(
-                leaf,
-                [0.0, pot_h + 4.0, 0.0],
-                [r * 1.05, top * 0.35, r * 1.05],
-            );
-            for k in 0..5 {
-                let a = f64::from(k) * 1.3;
+            // A low mound of heart leaves, and vines trailing over the rim down the pot's side.
+            let size = (r * 0.42).clamp(5.0, 12.0);
+            let vine = Material::wood(Rgb8::from_u32(0x5f7a3a));
+            for j in 0..7 {
+                let a = f64::from(j) * 0.9 + m.rng.next();
                 let (s, co) = a.sin_cos();
-                m.sph(
-                    leaf,
-                    [co * r * 0.9, pot_h - top * 0.15, s * r * 0.9],
-                    [r * 0.25, top * 0.3, r * 0.25],
-                );
+                let leaf = Blade {
+                    size: [size, size * 0.8],
+                    shape: heart,
+                    fold: 0.2,
+                    droop: size * 0.2,
+                    segments: 4,
+                };
+                let tone = tone(m);
+                let at = [co * pr * 0.35, soil + 1.0, s * pr * 0.35];
+                let rise = 0.8 + 0.4 * m.rng.next();
+                m.leaf(tone, at, [co, rise, s], &leaf);
+            }
+            for j in 0..5 {
+                let a = f64::from(j) / 5.0 * std::f64::consts::TAU + m.rng.next() * 0.6;
+                let (s, co) = a.sin_cos();
+                // Down the pot's side, never below its foot.
+                let fall = ((top * 0.5 + pot_h * 0.6) * (0.6 + 0.4 * m.rng.next())).min(soil - 2.0);
+                let path = [
+                    [co * pr * 0.95, soil + 1.0, s * pr * 0.95],
+                    [co * pr * 1.1, soil, s * pr * 1.1],
+                    [co * pr * 1.15, soil - fall * 0.45, s * pr * 1.15],
+                    [co * pr * 1.18, soil - fall, s * pr * 1.18],
+                ];
+                for pair in path.windows(2) {
+                    m.twig(vine, pair[0], pair[1], 0.35);
+                    // Two small leaves on each length of vine, on either side.
+                    for (side, t) in [(1.0, 0.35), (-1.0, 0.85)] {
+                        let p = [0, 1, 2].map(|k| pair[0][k] + (pair[1][k] - pair[0][k]) * t);
+                        let out = [co - side * s * 0.6, 0.2, s + side * co * 0.6];
+                        let leaf = Blade {
+                            size: [size * 0.65, size * 0.5],
+                            shape: heart,
+                            fold: 0.25,
+                            droop: size * 0.25,
+                            segments: 4,
+                        };
+                        let tone = tone(m);
+                        m.leaf(tone, p, out, &leaf);
+                    }
+                }
             }
         }
         _ => {
-            let n = 7;
+            // Monstera: broad leaves held out on long stems, the young ones higher, within the
+            // spread.
+            let stem = Material::wood(Rgb8::from_u32(0x5b6b3c));
+            let n = 9;
             for k in 0..n {
-                let a = f64::from(k) / f64::from(n) * std::f64::consts::TAU + m.rng.next();
+                let a = f64::from(k) / f64::from(n) * std::f64::consts::TAU + m.rng.next() * 0.5;
                 let (s, co) = a.sin_cos();
-                let reach = r * (0.6 + 0.5 * m.rng.next());
-                let y = pot_h + top * (0.45 + 0.45 * m.rng.next());
-                let stem = Material::wood(Rgb8::from_u32(0x5b6b3c));
-                m.rod(
-                    stem,
-                    [0.0, pot_h, 0.0],
-                    [co * reach * 0.7, y, s * reach * 0.7],
-                    0.6,
-                );
-                m.sph(
-                    leaf,
-                    [co * reach, y, s * reach],
-                    [r * 0.45, 1.5_f64.max(top * 0.05), r * 0.35],
-                );
+                let lift = m.rng.next();
+                let reach = r * (0.25 + 0.3 * (1.0 - lift));
+                let y = soil + top * (0.4 + 0.5 * lift);
+                let end = [co * reach, y, s * reach];
+                // The stem rises, then bends out to hold its leaf.
+                let bend = [
+                    co * reach * 0.35,
+                    soil + (y - soil) * 0.88,
+                    s * reach * 0.35,
+                ];
+                m.twig(stem, [co * pr * 0.15, soil, s * pr * 0.15], bend, 0.6);
+                m.twig(stem, bend, end, 0.55);
+                let length = (r * (0.55 + 0.3 * m.rng.next()))
+                    .min(top * 0.6)
+                    .max(6.0)
+                    .min(r - reach);
+                let leaf = Blade {
+                    size: [length, length * 0.85],
+                    shape: heart,
+                    fold: 0.18,
+                    droop: length * 0.3,
+                    segments: 6,
+                };
+                let tone = tone(m);
+                m.leaf(tone, end, [co, 0.25 + 0.3 * lift, s], &leaf);
             }
-            m.sph(
-                leaf,
-                [0.0, pot_h + top * 0.35, 0.0],
-                [r * 0.6, top * 0.3, r * 0.6],
-            );
         }
     }
 }

@@ -53,9 +53,11 @@ import { LitElement, css, html, nothing, svg, type PropertyValues, type Template
 import { themeBackground, type Rgb } from "../color";
 import {
   DEFAULT_ACCENT,
+  defaultAccent,
   resolveLook,
   type CutawayMode,
   type LightingMode,
+  type LookName,
   type QualityName,
   type SunMode,
   type ThemeMode,
@@ -628,7 +630,7 @@ export class DomoTwinView extends LitElement {
   homeTheme?: ThemeMode;
   homeAccent?: string;
   /** The look shown (D-027), on the element as an attribute for the overlays' colours. */
-  look = "day";
+  look: LookName = "day";
   /**
    * The storeys of the home and the one shown (its `plan`): with several, a switcher fires
    * `domotwin-storey` (detail: the storey's id) for the host to show it.
@@ -1345,8 +1347,8 @@ export class DomoTwinView extends LitElement {
         vertical-align: 0;
       }
       :host([look="neon"]) .room-name {
-        border-color: color-mix(in srgb, var(--domotwin-accent, #00d4ff) 45%, transparent);
-        box-shadow: 0 0 14px color-mix(in srgb, var(--domotwin-accent, #00d4ff) 22%, transparent);
+        border-color: color-mix(in srgb, var(--domotwin-accent, #ffae45) 45%, transparent);
+        box-shadow: 0 0 14px color-mix(in srgb, var(--domotwin-accent, #ffae45) 22%, transparent);
       }
       /* The tip on what a tap does (D-047), once. */
       /* Above the chip at the bottom of the view. */
@@ -3014,7 +3016,7 @@ export class DomoTwinView extends LitElement {
    */
   private updateLook(): void {
     this.look = resolveLook(this.options.theme ?? this.homeTheme, this.hass);
-    this.accent = this.options.accent ?? this.homeAccent ?? DEFAULT_ACCENT;
+    this.accent = this.options.accent ?? this.homeAccent ?? defaultAccent(this.look);
     this.style.setProperty("--domotwin-accent", this.accent);
   }
 

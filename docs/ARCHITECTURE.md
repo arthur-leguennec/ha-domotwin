@@ -71,9 +71,9 @@ every reader returns `Result` with a stable error code that the frontend transla
   it, the doors it goes through, the way from room to room, the widest view, D-029); `bindings`
   and `live` turn entity states into the look of each element and fade towards it (D-016).
 - `domotwin-render` uploads the meshes once and draws them with its own shaders (`shaders.rs`):
-  the sun shadow map (Balanced and High, day look), the background (sky, ground and grid), the
-  opaque home and the walls (their tops alone in neon and blueprint), then glass and contact
-  shadows, the glass faces of the walls (neon and blueprint), the outlines of the home
+  the sun shadow map (Balanced and High, day look), the background (sky, ground and its grid or
+  dots), the opaque home and the walls (their tops alone in blueprint), then glass and contact
+  shadows, the glass faces of the walls (blueprint), the outlines of the home
   (`scene::lines`), then the halos of lit bulbs. In the looks that glow, all of it is drawn
   offscreen with 4× MSAA, and a bloom of what glows is added on the way to the screen (D-027).
   The look of every element (glow, greyed out, flash) is a small texture the vertex shader reads;

@@ -37,6 +37,7 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M13b      | Phones and crowded names: icons, small rooms left out      | ✅     |
 | M14       | Actions done later: sheet, automations, voice              | ✅     |
 | M16       | Taps that say what they do: bubbles, plain actions, rooms  | ✅     |
+| M15       | Pieces that look made, and a neon of its own               | ✅     |
 
 M5 to M11 were added after M3b (`DECISIONS.md`, D-022): what people expect of a 3D home dashboard,
 with no account and no network call outside Home Assistant. M8 became the looks alone, and the
@@ -874,3 +875,22 @@ room has buttons of its own (D-047, `docs/bindings.md`):
   (vitest); the room's actions checked by the integration, an action on 25 devices (pytest); a
   lamp's bubble, a sensor's bubble, the tip, a room's chip and its panel's Later, a TV's plain
   and advanced actions in French, a room's own action (Playwright).
+
+## M15, pieces that look made
+
+Better plants and furniture at no cost in speed, and a neon look of DomoTwin's own (D-048,
+`docs/looks.md`):
+
+- ✅ **Plants leaf by leaf**: each leaf a folded blade with its outline (a heart, a long strap),
+  seen from above and below; a monstera on curved stems, a pothos with trailing vines, a dracaena
+  with its crowns, in a pot with a rim and soil.
+- ✅ **Soft edges**: sofas, beds, cushions, chair pads and the tops of tables are boxes with round
+  edges that catch the light.
+- ✅ **Fewer triangles**: the demo apartment has 12 551, down from 13 843; no frame is slower, and
+  neon is drawn faster than before (`docs/PERFORMANCE.md`).
+- ✅ **Neon at dusk**: a deep violet home on a ground of dots, solid walls topped with lit strips
+  in amber, the furniture keeping its colours; each look has its own default accent, and the
+  settings can go back to it.
+- ✅ Tests: the soft box closed and facing out, the leaf's two faces and pointed ends, the new neon
+  (cargo); the accent of each look, chosen, saved and back to the look's own (Playwright); the
+  screenshots of the looks made again.

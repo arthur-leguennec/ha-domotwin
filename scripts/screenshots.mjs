@@ -1030,14 +1030,14 @@ try {
   );
   console.log("docs/figures/screenshot-looks.png");
 
-  // Every storey at once (D-028): the panel in the evening, neon, both storeys spread apart under
-  // their roof, with their labels and pictures.
+  // Every storey at once (D-028): the panel in the evening, blueprint, both storeys spread apart
+  // under their glass roof, with their labels and pictures.
   const homePage = await browser.newPage({
     viewport: { width: 1280, height: 800 },
     deviceScaleFactor: 1.5,
   });
   await homePage.goto(
-    "http://127.0.0.1:4173/?mode=panel&live=1&storeys=2&lighting=evening&hometheme=neon",
+    "http://127.0.0.1:4173/?mode=panel&live=1&storeys=2&lighting=evening&hometheme=blueprint",
   );
   await homePage.waitForFunction(() => window.__view?.()?.debugState().summary, null, {
     timeout: 60_000,

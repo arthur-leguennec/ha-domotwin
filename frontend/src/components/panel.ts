@@ -27,7 +27,14 @@ import {
   type PickedElement,
   type UserModel,
 } from "../engine/engine";
-import { DEFAULT_ACCENT, THEME_MODES, readAccent, resolveLook, type ThemeMode } from "../config";
+import {
+  THEME_MODES,
+  defaultAccent,
+  readAccent,
+  resolveLook,
+  type LookName,
+  type ThemeMode,
+} from "../config";
 import {
   DomoTwinClient,
   type PlanJson,
@@ -361,10 +368,13 @@ export class DomoTwinPanel extends LitElement {
   protected bluetoothOpen = false;
   private locating?: LocatingSettings;
   private bluetoothModule?: Promise<unknown>;
-  /** The look being chosen in the settings (shown as it is chosen), while they are open. */
-  protected lookDraft?: { theme: ThemeMode; accent: string };
+  /**
+   * The look being chosen in the settings (shown as it is chosen), while they are open: its mode,
+   * and its accent (none: the look's own).
+   */
+  protected lookDraft?: { theme: ThemeMode; accent?: string };
   /** The look shown (D-027), on the element for the colours of the header and the dialogs. */
-  look = "day";
+  look: LookName = "day";
   /** The storeys, the one shown, the storeys dialog and a storey being removed. */
   protected storeys: StoreyInfo[] = [];
   protected storey?: string;
@@ -648,14 +658,14 @@ export class DomoTwinPanel extends LitElement {
         width: 100%;
         accent-color: var(--primary-color, #03a9f4);
       }
-      .ask label.look {
+      .ask .look {
         display: flex;
         align-items: center;
         justify-content: space-between;
         gap: 12px;
         margin-top: 10px;
       }
-      .ask label.look select {
+      .ask .look select {
         min-height: 36px;
         padding: 0 8px;
         border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
@@ -664,7 +674,22 @@ export class DomoTwinPanel extends LitElement {
         color: inherit;
         font: inherit;
       }
-      .ask label.look input[type="color"] {
+      .ask .look .accent {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .ask .look .reset {
+        min-height: 32px;
+        padding: 0 8px;
+        border: none;
+        border-radius: 8px;
+        background: none;
+        color: var(--primary-color, #03a9f4);
+        font: inherit;
+        cursor: pointer;
+      }
+      .ask .look input[type="color"] {
         width: 48px;
         height: 32px;
         padding: 0;
@@ -963,10 +988,8 @@ export class DomoTwinPanel extends LitElement {
 
   private readonly openSettings = (): void => {
     this.northDraft = this.settings?.north ?? 0;
-    this.lookDraft = {
-      theme: this.settings?.theme ?? "auto",
-      accent: this.settings?.accent ?? DEFAULT_ACCENT,
-    };
+    this.lookDraft = { theme: this.settings?.theme ?? "auto" };
+    if (this.settings?.accent) this.lookDraft.accent = this.settings.accent;
   };
 
   private readonly saveSettings = async (): Promise<void> => {
@@ -981,9 +1004,8 @@ export class DomoTwinPanel extends LitElement {
       if (look && (look.theme !== "auto" || settings.theme !== undefined)) {
         settings.theme = look.theme;
       }
-      if (look && (look.accent !== DEFAULT_ACCENT || settings.accent !== undefined)) {
-        settings.accent = look.accent;
-      }
+      if (look?.accent !== undefined) settings.accent = look.accent;
+      else if (look) delete settings.accent;
       await client.saveSettings(settings);
       this.settings = settings;
       this.northDraft = undefined;
@@ -2074,10 +2096,9 @@ export class DomoTwinPanel extends LitElement {
   /** The home's look (as being chosen, while the settings are open). */
   private homeLook(): { theme?: ThemeMode; accent?: string } {
     const draft = this.northDraft !== undefined ? this.lookDraft : undefined;
-    return {
-      theme: draft?.theme ?? this.settings?.theme,
-      accent: draft?.accent ?? this.settings?.accent,
-    };
+    // While the settings are open, the draft says it all: no accent in it is the look's own.
+    if (draft) return { theme: draft.theme, accent: draft.accent };
+    return { theme: this.settings?.theme, accent: this.settings?.accent };
   }
 
   protected override updated(changed: Map<PropertyKey, unknown>): void {
@@ -2148,7 +2169,7 @@ export class DomoTwinPanel extends LitElement {
   protected override willUpdate(): void {
     const { theme, accent } = this.homeLook();
     this.look = resolveLook(theme, this._hass);
-    this.style.setProperty("--domotwin-accent", accent ?? DEFAULT_ACCENT);
+    this.style.setProperty("--domotwin-accent", accent ?? defaultAccent(this.look));
   }
 
   protected override render(): TemplateResult {
@@ -2503,18 +2524,40 @@ export class DomoTwinPanel extends LitElement {
           )}
         </select>
       </label>
-      <label class="look">
-        <span>${t.t("settings.accent")}</span>
-        <input
-          type="color"
-          data-testid="settings-accent"
-          .value=${draft.accent}
-          @input=${(event: Event) => {
-            const accent = readAccent((event.target as HTMLInputElement).value);
-            if (accent) this.lookDraft = { ...draft, accent };
-          }}
-        />
-      </label>
+      <div class="look">
+        <label for="settings-accent">${t.t("settings.accent")}</label>
+        <span class="accent">
+          ${
+            draft.accent === undefined
+              ? nothing
+              : html`<button
+                  type="button"
+                  class="reset"
+                  data-testid="settings-accent-default"
+                  aria-label=${t.t("settings.accent_reset")}
+                  @click=${async () => {
+                    // Back to the look's own accent (each look has one); the button goes, the
+                    // focus stays on the colour.
+                    this.lookDraft = { theme: draft.theme };
+                    await this.updateComplete;
+                    this.renderRoot.querySelector<HTMLElement>("#settings-accent")?.focus();
+                  }}
+                >
+                  ${t.t("settings.accent_default")}
+                </button>`
+          }
+          <input
+            id="settings-accent"
+            type="color"
+            data-testid="settings-accent"
+            .value=${draft.accent ?? defaultAccent(this.look)}
+            @input=${(event: Event) => {
+              const accent = readAccent((event.target as HTMLInputElement).value);
+              if (accent) this.lookDraft = { ...draft, accent };
+            }}
+          />
+        </span>
+      </div>
       <p class="hint">${t.t("settings.theme_hint")}</p>`;
   }
 

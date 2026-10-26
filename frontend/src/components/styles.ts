@@ -112,16 +112,16 @@ export const baseStyles = css`
  */
 export const lookStyles = css`
   :host([look="neon"]) {
-    --card-background-color: #0b1426;
-    --primary-background-color: #070c18;
-    --secondary-background-color: #101c33;
-    --primary-text-color: #e8f2ff;
-    --secondary-text-color: #9fb3cf;
-    --divider-color: rgba(130, 200, 255, 0.22);
-    --primary-color: var(--domotwin-accent, #00d4ff);
-    --text-primary-color: #04121f;
-    --app-header-background-color: #0b1426;
-    --app-header-text-color: #e8f2ff;
+    --card-background-color: #15112b;
+    --primary-background-color: #0b0920;
+    --secondary-background-color: #1e1838;
+    --primary-text-color: #f4efff;
+    --secondary-text-color: #b3a9d4;
+    --divider-color: rgba(200, 180, 255, 0.2);
+    --primary-color: var(--domotwin-accent, #ffae45);
+    --text-primary-color: #1a1206;
+    --app-header-background-color: #15112b;
+    --app-header-text-color: #f4efff;
   }
   :host([look="blueprint"]) {
     --card-background-color: #0e3474;

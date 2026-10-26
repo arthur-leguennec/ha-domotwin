@@ -63,8 +63,9 @@ test.describe("looks", () => {
   test("automatic: neon in Home Assistant's dark mode, day otherwise; else the home's", async ({
     page,
   }) => {
+    // Neon brings its own amber unless an accent is chosen.
     await openHarness(page, { dark: true });
-    await expect.poll(async () => (await viewState(page)).look).toBe("neon #00d4ff");
+    await expect.poll(async () => (await viewState(page)).look).toBe("neon #ffae45");
     await openHarness(page);
     await expect.poll(async () => (await viewState(page)).look).toBe("day #00d4ff");
     const [r, g, b] = await skyColor(page);
@@ -83,7 +84,14 @@ test.describe("looks", () => {
     await fromMenu(page, "settings");
     const dialog = page.getByTestId("settings-dialog");
     await dialog.getByTestId("settings-theme").selectOption("neon");
-    await expect.poll(async () => (await viewState(page)).look).toBe("neon #00d4ff");
+    await expect.poll(async () => (await viewState(page)).look).toBe("neon #ffae45");
+    await expect(dialog.getByTestId("settings-accent-default")).toHaveCount(0);
+    await dialog.getByTestId("settings-accent").fill("#ff2d95");
+    await expect.poll(async () => (await viewState(page)).look).toBe("neon #ff2d95");
+    // Back to the look's own, the focus kept on the colour.
+    await dialog.getByTestId("settings-accent-default").click();
+    await expect.poll(async () => (await viewState(page)).look).toBe("neon #ffae45");
+    await expect(dialog.getByTestId("settings-accent")).toBeFocused();
     await dialog.getByTestId("settings-accent").fill("#ffb000");
     await expect.poll(async () => (await viewState(page)).look).toBe("neon #ffb000");
     // Cancelled: back to the home's.
@@ -101,6 +109,25 @@ test.describe("looks", () => {
     // The accent left as it was is not stored.
     expect(stored).toEqual({ north: 0, theme: "blueprint" });
     expect(await lookAttribute(page)).toBe("blueprint");
+    // One chosen is, until the look's own is chosen again.
+    const settings = () =>
+      page.evaluate(() => (window as never as { __store: { settings: unknown } }).__store.settings);
+    await fromMenu(page, "settings");
+    await dialog.getByTestId("settings-accent").fill("#ff2d95");
+    await dialog.getByTestId("settings-save").click();
+    await expect.poll(settings).toEqual({ north: 0, theme: "blueprint", accent: "#ff2d95" });
+    await fromMenu(page, "settings");
+    await expect.poll(async () => (await viewState(page)).look).toBe("blueprint #ff2d95");
+    // The colour picker is named by its label; Default shows the look's own at once.
+    await expect(dialog.getByLabel("Accent colour", { exact: true })).toHaveAttribute(
+      "type",
+      "color",
+    );
+    await dialog.getByTestId("settings-accent-default").click();
+    await expect.poll(async () => (await viewState(page)).look).toBe("blueprint #00d4ff");
+    await dialog.getByTestId("settings-save").click();
+    await expect.poll(settings).toEqual({ north: 0, theme: "blueprint" });
+    await expect.poll(async () => (await viewState(page)).look).toBe("blueprint #00d4ff");
   });
 
   test("the rooms' names stand on their floor, unless a layer shows its values", async ({

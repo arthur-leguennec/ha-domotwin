@@ -155,10 +155,14 @@ uniform vec3 u_wall_tint;
 uniform float u_wall_alpha;
 uniform vec3 u_wall_cap;
 uniform float u_tint;
+// The share of the tint leaves take (D-048).
+uniform float u_leaf_tint;
 uniform vec3 u_palette;
 uniform float u_floor_tint;
 uniform vec3 u_floor_palette;
 uniform vec3 u_plan_floor;
+// The plan's floors are all `u_plan_floor` (the looks of their own colours), else their own.
+uniform float u_plan_floors;
 uniform vec3 u_plan_cap;
 // How light falls and colours show in a look (D-036): the palette's contrast, bands of light (0:
 // smooth), vividness, patterns left out, ink on the edges of rounded pieces, shine.
@@ -384,7 +388,9 @@ void main() {
         albedo = mix(albedo, floor_tone, u_floor_tint);
     } else if (surface != GLOW && surface != SCREEN && surface != GLASS) {
         vec3 tone = to_linear(u_palette) * mix(1.0, 0.45 + 1.6 * lightness, u_tint_contrast);
-        albedo = mix(albedo, tone, u_tint);
+        // Leaves keep some of their green in a look's palette (D-048), unless it is one matter.
+        float tint = surface == LEAF ? u_tint * u_leaf_tint : u_tint;
+        albedo = mix(albedo, tone, tint);
     }
     albedo = saturated(albedo);
 
@@ -489,11 +495,11 @@ void main() {
         color += emission * 1.4;
     }
 
-    // The 2D plan: flat colours, the look's wall tops (and floors, for the looks with glass walls).
+    // The 2D plan: flat colours, the look's wall tops (and floors, for the looks that colour them).
     vec3 plan = albedo * (0.86 + 0.14 * max(n.y, 0.0));
     if (surface == WALL_CAP) {
         plan = to_linear(u_plan_cap);
-    } else if (on_floor && u_glass_walls > 0.5) {
+    } else if (on_floor && u_plan_floors > 0.5) {
         plan = to_linear(u_plan_floor) * (0.92 + 0.16 * lightness);
     }
     if (surface == GLOW || surface == SCREEN) {
@@ -646,6 +652,8 @@ uniform vec3 u_sky_horizon;
 uniform vec3 u_ground;
 uniform vec3 u_grid;
 uniform float u_grid_strength;
+// The grid as dots where its lines cross (D-048).
+uniform float u_grid_dots;
 uniform float u_ground_y;
 uniform vec2 u_centre;
 uniform float u_radius;
@@ -666,6 +674,15 @@ float grid(vec2 p, float size) {
     return max(line.x, line.y) * (1.0 - smoothstep(0.06, 0.25, density));
 }
 
+// Dots every `size` cm, a couple of pixels wide, fading out when they crowd.
+float dots(vec2 p, float size) {
+    vec2 w = fwidth(p);
+    vec2 d = abs(fract(p / size - 0.5) - 0.5) * size / max(w, vec2(1e-4));
+    float dot_ = 1.0 - smoothstep(1.0, 2.2, length(d));
+    float density = max(w.x, w.y) / size;
+    return dot_ * (1.0 - smoothstep(0.04, 0.2, density));
+}
+
 void main() {
     vec2 ndc = v_uv * 2.0 - 1.0;
     vec4 near = u_inv_view_proj * vec4(ndc, -1.0, 1.0);
@@ -677,7 +694,9 @@ void main() {
     if (dir.y < -1e-5) {
         vec3 g = p0 + dir * ((u_ground_y - p0.y) / dir.y);
         float far_away = smoothstep(u_radius * 1.4, u_radius * 4.5, length(g.xz - u_centre));
-        float lines = max(grid(g.xz, 100.0) * 0.55, grid(g.xz, 500.0));
+        float lines = u_grid_dots > 0.5
+            ? max(dots(g.xz, 100.0) * 0.7, dots(g.xz, 500.0))
+            : max(grid(g.xz, 100.0) * 0.55, grid(g.xz, 500.0));
         vec3 ground = mix(u_ground, u_grid, lines * u_grid_strength);
         if (u_shadows > 0.5) {
             vec4 s = u_shadow_matrix * vec4(g, 1.0);
@@ -709,6 +728,8 @@ uniform vec3 u_offset;
 // a couple of pixels where the line is.
 uniform vec4 u_toward;
 uniform float u_line_lift;
+// How strongly lines that rise are drawn against level ones (D-048).
+uniform float u_line_rise;
 
 // First end and wall group; second end and the height of the bottom of what the line outlines;
 // along (0 or 1), across (-1 or 1) and weight.
@@ -737,10 +758,16 @@ void main() {
     v_weight = a_corner.z;
     vec3 pa = a_a.xyz;
     vec3 pb = a_b.xyz;
-    bool hidden = false;
+    vec3 run = pb - pa;
+    // Walls stand upright: a line that rises is a corner or the side of a door or a window.
+    if (abs(run.y) > 0.9 * length(run)) {
+        v_weight *= u_line_rise;
+    }
+    // A line drawn at no strength is left out, not drawn for nothing.
+    bool hidden = v_weight <= 0.0;
     if (a_a.w < 127.5) {
         float cut = cut_height(uint(a_a.w));
-        hidden = a_b.w >= cut - 0.01;
+        hidden = hidden || a_b.w >= cut - 0.01;
         pa.y = min(pa.y, cut);
         pb.y = min(pb.y, cut);
     }

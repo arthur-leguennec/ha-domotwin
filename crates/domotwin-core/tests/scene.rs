@@ -125,6 +125,46 @@ fn every_kind_builds_at_any_size() {
 }
 
 #[test]
+fn plants_stay_within_their_spread() {
+    // The piece's footprint is the plant's spread: its leaves do not reach into a wall beside it.
+    let mut items = Vec::new();
+    for (i, style) in ["monstera", "pothos", "dracaena"].iter().enumerate() {
+        for (j, [w, d, h]) in [[40.0, 40.0, 80.0], [30.0, 30.0, 40.0], [35.0, 50.0, 160.0]]
+            .iter()
+            .enumerate()
+        {
+            items.push(serde_json::json!({
+                "id": format!("p{i}-{j}"), "name": "x", "kind": "plant", "style": style,
+                "at": [100 + i * 200, 100 + j * 200], "size": [w, d, h],
+            }));
+        }
+    }
+    let plan = serde_json::json!({ "format": "domotwin-plan", "version": 1, "items": items });
+    let plan = read_plan(plan.to_string().as_bytes()).unwrap();
+    let scene = build_scene(&plan, &SceneOptions::default());
+    for (info, element) in scene.elements.iter().zip(&plan.elements) {
+        let Element::Furniture(f) = element else {
+            continue;
+        };
+        let [lo, hi] = info.bounds;
+        // x, y is the box's top left on the plan (y down the plan is the scene's z).
+        let (x0, x1) = (f.x - 0.5, f.x + f.w + 0.5);
+        let (z0, z1) = (f.y - 0.5, f.y + f.h + 0.5);
+        assert!(
+            f64::from(lo[0]) >= x0 && f64::from(hi[0]) <= x1,
+            "{} spreads to {lo:?}..{hi:?}",
+            info.id
+        );
+        assert!(
+            f64::from(lo[2]) >= z0 && f64::from(hi[2]) <= z1,
+            "{} spreads to {lo:?}..{hi:?}",
+            info.id
+        );
+        assert!(f64::from(lo[1]) >= -0.01, "{} under the floor", info.id);
+    }
+}
+
+#[test]
 fn moving_parts_rebuild_with_overrides() {
     use domotwin_core::scene::{Overrides, build_dynamic};
     let plan = read_plan(DEMO).unwrap();

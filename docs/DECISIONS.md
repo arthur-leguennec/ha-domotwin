@@ -1561,3 +1561,50 @@ M16.
   - The room panel's **All lights off** becomes **Lights off** among the room's buttons, and
     switches the room's lights by name rather than the whole area.
   - Nothing new is sent anywhere: the bubble and the buttons call the same services as before.
+
+## D-048 · Pieces that look made, and a neon of its own
+
+M15.
+
+- **Context.** The plants were balls of green on sticks, and the sofas, beds and cushions were
+  boxes with sharp edges: the home read as a sketch next to the light and the looks around it.
+  The neon look (walls of tinted glass, every edge glowing in cyan, a square grid on a black
+  ground) looked like other 3D home dashboards. The maintainer asked for better pieces with no
+  loss of speed, and for a neon that is DomoTwin's own and still beautiful.
+- **Decision.**
+  - **Leaves are folded blades.** A leaf is a midrib and its two edges, in a few lengths, its
+    outline given by a shape (a heart for the monstera and the pothos, a long strap for the
+    dracaena), folded along its midrib and falling towards its tip. Both faces are drawn with
+    their own normals, so a leaf reads from above and from below; where its outline comes to a
+    point, the strip closes with one triangle a side. Each leaf is a little lighter or darker than
+    the next. The monstera holds nine leaves out on stems that rise and bend; the pothos is a mound
+    with vines trailing over the rim of its pot; the dracaena has three canes, each with a crown of
+    eleven arching leaves. The pot has a rolled rim and soil. The piece's footprint is the plant's
+    spread: its leaves stay within it, over a pot narrower than it, so that a plant beside a wall
+    does not reach into it.
+  - **Soft pieces have round edges.** Sofas (base, arms, back, cushions), beds (mattress, duvet,
+    pillows), chair pads and seats, and the tops of tables, desks and consoles are boxes whose
+    edges and corners are cut and shaded round: 48 vertices and 44 triangles a box, the light
+    rolling over each edge by its normals and its fabric or grain running on over it, the radius
+    at most a third of the box's thinnest side.
+    Pillows are soft boxes instead of spheres.
+  - **No more triangles.** Spheres take fewer segments when they are small, the pillows and
+    plants that were made of them are drawn otherwise, and stems have no ends hidden in a joint: the demo apartment has 12 551 triangles,
+    down from 13 843.
+  - **Neon at dusk.** The home stands in a deep violet dusk, on a ground of dots rather than a
+    grid. Its walls are solid, in violet; their tops are drawn as lit strips in the accent and the
+    corners have no upright lines. The accent is amber by default (`#ffae45`). The furniture keeps
+    more of its colours, tinted towards violet, and the leaves keep part of their green. The view's
+    buttons and the panel take the same violet and amber. Glass walls stay blueprint's.
+  - **Each look says** whether its plants keep part of their green (neon) and whether its 2D plan
+    colours every floor alike (neon's violet, blueprint's blue).
+  - **Each look has its own default accent**: amber in neon, cyan in the others. An accent chosen
+    in the settings or a card's options is kept whatever the look; the settings' **Default** goes
+    back to the look's own.
+- **Consequences.**
+  - Neon no longer shows through its walls: it cuts them away as day does, and a tap on a wall in
+    front of a room no longer reaches the room behind it. Walking, its rooms have their ceilings;
+    with every storey shown, its roof is solid. Blueprint keeps its glass.
+  - A home whose accent was never chosen shows neon in amber; one whose accent was chosen keeps it.
+  - The pictures of the docs are made again with the new pieces and the new neon.
+  - Nothing else changes for the plans: the kinds and their styles are those of before.

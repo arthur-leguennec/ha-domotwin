@@ -362,6 +362,8 @@ export const fr: Dictionary = {
     theme_cartoon: "Dessin animé",
     theme_clay: "Maquette d’argile",
     accent: "Couleur d’accent",
+    accent_default: "Par défaut",
+    accent_reset: "Revenir à la couleur d’accent de l’apparence",
     theme_hint: "L’apparence du panneau et des cartes qui n’en choisissent pas.",
     save: "Enregistrer",
     saved: "Réglages enregistrés.",

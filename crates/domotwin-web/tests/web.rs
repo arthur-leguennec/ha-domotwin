@@ -728,17 +728,17 @@ fn a_tap_goes_through_glass_walls() {
         picked
     };
     let day = picks(&mut engine);
-    engine.set_theme("neon", "#00d4ff");
-    let neon = picks(&mut engine);
+    engine.set_theme("blueprint", "#00d4ff");
+    let glass = picks(&mut engine);
     // Where a wall stood in front of the view, what is behind its glass.
     let through = day
         .iter()
-        .zip(&neon)
+        .zip(&glass)
         .filter(|(d, n)| d.contains("\"type\":\"room\"") && d != n)
         .count();
     assert!(through > 0);
     // The rooms are still there to tap.
-    assert!(neon.iter().any(|n| n.contains("\"type\":\"room\"")));
+    assert!(glass.iter().any(|n| n.contains("\"type\":\"room\"")));
 }
 
 const UPPER: &str = include_str!("../../../examples/demo-upper-floor.domotwin.json");
@@ -772,7 +772,7 @@ fn the_whole_home_stands_storey_above_storey() {
         .unwrap()
         .dyn_into::<web_sys::WebGl2RenderingContext>()
         .unwrap();
-    for look in ["day", "neon"] {
+    for look in ["day", "neon", "blueprint"] {
         engine.set_theme(look, "#00d4ff");
         engine.frame(0.0);
         assert_eq!(
