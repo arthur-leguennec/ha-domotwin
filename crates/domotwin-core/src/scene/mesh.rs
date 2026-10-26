@@ -340,6 +340,29 @@ fn cross3(a: V3, b: V3) -> V3 {
     ]
 }
 
+/// A leaf's form for [`Painter::blade`]: its length and widest width (cm), its outline along it
+/// (0 at the stem … 1 at the tip, as a share of its width, 0 to 1), its fold along the midrib
+/// (radians, each half lifted) and how far its tip falls (cm).
+#[derive(Debug, Clone, Copy)]
+pub struct Blade {
+    pub size: [f64; 2],
+    pub shape: fn(f64) -> f64,
+    pub fold: f64,
+    pub droop: f64,
+    /// Stations along it: more for a big leaf whose outline shows.
+    pub segments: usize,
+}
+
+/// The height of the lowest corner of the box between `min` and `max` (frame `x`), in world space:
+/// the bottom its cut-away keeps.
+fn lowest(x: &Xform, min: V3, max: V3) -> f64 {
+    (0..8)
+        .map(|k: usize| {
+            x.point([0, 1, 2].map(|a| if k >> a & 1 == 0 { min[a] } else { max[a] }))[1]
+        })
+        .fold(f64::INFINITY, f64::min)
+}
+
 fn normalize(v: V3) -> V3 {
     let len = (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt();
     if len > 1e-12 {
@@ -458,19 +481,7 @@ impl<'a> Painter<'a> {
         if (0..3).any(|k| max[k] - min[k] < 0.02) {
             return;
         }
-        let base = self.base.unwrap_or_else(|| {
-            // The lowest corner in world space.
-            (0..8)
-                .map(|k| {
-                    let p = [
-                        if k & 1 == 0 { min[0] } else { max[0] },
-                        if k & 2 == 0 { min[1] } else { max[1] },
-                        if k & 4 == 0 { min[2] } else { max[2] },
-                    ];
-                    x.point(p)[1]
-                })
-                .fold(f64::INFINITY, f64::min)
-        });
+        let base = self.base.unwrap_or_else(|| lowest(x, min, max));
         let corner = |i: usize, j: usize, k: usize| {
             x.point([
                 if i == 0 { min[0] } else { max[0] },
@@ -549,6 +560,214 @@ impl<'a> Painter<'a> {
                 .collect::<Vec<_>>();
             self.mesh.triangle(ids[0], ids[1], ids[2]);
             self.mesh.triangle(ids[0], ids[2], ids[3]);
+        }
+    }
+
+    /// A box between `min` and `max` (frame `x`) whose edges are cut by `r` and shaded round:
+    /// each edge and corner joins the faces around it with their own normals, so the light rolls
+    /// over it (a cushion, a mattress, a table's top). 48 vertices and 44 triangles; `r` is at
+    /// most a third of the box's thinnest side.
+    #[allow(clippy::needless_range_loop)]
+    pub fn soft_box(&mut self, x: &Xform, min: V3, max: V3, r: f64) {
+        let thin = (0..3)
+            .map(|k| max[k] - min[k])
+            .fold(f64::INFINITY, f64::min);
+        let r = r.min(thin / 3.0);
+        if thin < 0.02 || r < 0.05 {
+            self.cuboid(x, min, max);
+            return;
+        }
+        let base = self.base.unwrap_or_else(|| lowest(x, min, max));
+        let (lo, hi) = (min.map(|v| v + r), max.map(|v| v - r));
+        let material = self.material;
+        // Face `axis, side` (side 0: min, 1: max): its four corners, keyed by the two other axes'
+        // sides.
+        let mut ids = [[[0_u32; 4]; 2]; 3];
+        let mut spots = [[[[0.0; 3]; 4]; 2]; 3];
+        // Texture axes as a box's: x along the top and the front, z along the sides.
+        let frame = |axis: usize| match axis {
+            0 => (2, 1),
+            1 => (0, 2),
+            _ => (0, 1),
+        };
+        let normal = |axis: usize, side: usize| {
+            let mut n = [0.0; 3];
+            n[axis] = if side == 0 { -1.0 } else { 1.0 };
+            n
+        };
+        for axis in 0..3 {
+            let (a, b) = ((axis + 1) % 3, (axis + 2) % 3);
+            let (u, v) = frame(axis);
+            for side in 0..2 {
+                for corner in 0..4 {
+                    let (sa, sb) = (corner & 1, corner >> 1);
+                    let mut p = [0.0; 3];
+                    p[axis] = if side == 0 { min[axis] } else { max[axis] };
+                    p[a] = if sa == 0 { lo[a] } else { hi[a] };
+                    p[b] = if sb == 0 { lo[b] } else { hi[b] };
+                    spots[axis][side][corner] = p;
+                    ids[axis][side][corner] = self.mesh.vertex(
+                        x.point(p),
+                        base,
+                        x.dir(normal(axis, side)),
+                        [p[u] - min[u], p[v] - min[v]],
+                        &material,
+                        self.tag,
+                    );
+                }
+            }
+        }
+        // Faces.
+        for face in ids.iter().flatten() {
+            self.outward(face[0], face[1], face[3]);
+            self.outward(face[0], face[3], face[2]);
+        }
+        // Edges: between the face of `axis` and the face of `next`, along the third axis.
+        for axis in 0..3 {
+            let next = (axis + 1) % 3;
+            for side in 0..2 {
+                for next_side in 0..2 {
+                    // On `axis`'s face, `next` is its first other axis (bit 0); on `next`'s
+                    // face, `axis` is its second other axis (bit 1).
+                    let on_a = |k: usize| ids[axis][side][next_side | (k << 1)];
+                    // `next`'s side again, with `axis`'s texture axes: the patterns run on
+                    // over the edge instead of crowding into it.
+                    let (u, v) = frame(axis);
+                    let mut on_b = [0_u32; 2];
+                    for (k, id) in on_b.iter_mut().enumerate() {
+                        let p = spots[next][next_side][k | (side << 1)];
+                        *id = self.mesh.vertex(
+                            x.point(p),
+                            base,
+                            x.dir(normal(next, next_side)),
+                            [p[u] - min[u], p[v] - min[v]],
+                            &material,
+                            self.tag,
+                        );
+                    }
+                    self.outward(on_a(0), on_a(1), on_b[1]);
+                    self.outward(on_a(0), on_b[1], on_b[0]);
+                }
+            }
+        }
+        // Corners: the three faces meeting there.
+        for corner in 0..8 {
+            let s = [corner & 1, (corner >> 1) & 1, corner >> 2];
+            let at = |axis: usize| {
+                let (a, b) = ((axis + 1) % 3, (axis + 2) % 3);
+                ids[axis][s[axis]][s[a] | (s[b] << 1)]
+            };
+            self.outward(at(0), at(1), at(2));
+        }
+    }
+
+    /// A triangle wound to face where its vertices' normals point.
+    fn outward(&mut self, a: u32, b: u32, c: u32) {
+        let at = |i: u32| {
+            let p = self.mesh.positions[i as usize];
+            [f64::from(p[0]), f64::from(p[1]), f64::from(p[2])]
+        };
+        let n = |i: u32| self.mesh.normals[i as usize];
+        let face = cross3(sub(at(b), at(a)), sub(at(c), at(a)));
+        let want = [0, 1, 2].map(|k| f64::from(n(a)[k]) + f64::from(n(b)[k]) + f64::from(n(c)[k]));
+        if face[0] * want[0] + face[1] * want[1] + face[2] * want[2] < 0.0 {
+            self.mesh.triangle(a, c, b);
+        } else {
+            self.mesh.triangle(a, b, c);
+        }
+    }
+
+    /// A leaf: a blade from `stem` pointing along `along`, its face turned up as far as it can
+    /// (towards +x when it points straight up or down), its form given by `blade`. Both faces are drawn, each with
+    /// its own normals, so it reads from above and below.
+    #[allow(clippy::cast_precision_loss)]
+    pub fn blade(&mut self, x: &Xform, stem: V3, along: V3, blade: &Blade) {
+        let Blade {
+            size: [length, width],
+            shape,
+            fold,
+            droop,
+            segments,
+        } = *blade;
+        let reach = (along[0] * along[0] + along[1] * along[1] + along[2] * along[2]).sqrt();
+        if length < 0.2 || width < 0.05 || reach < 1e-9 {
+            return;
+        }
+        let along = along.map(|v| v / reach);
+        // Up, square to the leaf: it turns smoothly however steep the leaf is, but for a leaf
+        // pointing straight up or down, which has no up of its own.
+        let up = if along[0].hypot(along[2]) < 1e-6 {
+            [1.0, 0.0, 0.0]
+        } else {
+            [0.0, 1.0, 0.0]
+        };
+        let segments = segments.max(2);
+        let side = normalize(cross3(along, up));
+        let up = normalize(cross3(side, along));
+        let base = self.base.unwrap_or_else(|| x.point(stem)[1] - length);
+        let material = self.material;
+        let (fs, fc) = fold.sin_cos();
+        // Midrib and both edges at each station.
+        let mut rows: Vec<[V3; 3]> = Vec::with_capacity(segments + 1);
+        // Rows narrowed to a point (a pointed stem or tip): the strip closes there with one
+        // triangle a side instead of two.
+        let mut pointed: Vec<bool> = Vec::with_capacity(segments + 1);
+        for i in 0..=segments {
+            let t = i as f64 / segments as f64;
+            let fall = droop * t * t;
+            let c = [0, 1, 2].map(|k| stem[k] + along[k] * length * t - up[k] * fall);
+            let half = width / 2.0 * shape(t).clamp(0.0, 1.0);
+            let edge =
+                |s: f64| [0, 1, 2].map(|k| c[k] + side[k] * s * half * fc + up[k] * half * fs);
+            rows.push([edge(-1.0), c, edge(1.0)]);
+            pointed.push(half < width * 1e-3);
+        }
+        for flip in [false, true] {
+            let mut ids: Vec<[u32; 3]> = Vec::with_capacity(rows.len());
+            for (i, row) in rows.iter().enumerate() {
+                let next = rows[(i + 1).min(segments)];
+                let prev = rows[i.saturating_sub(1)];
+                let tangent = normalize(sub(next[1], prev[1]));
+                // The face along the midrib, and each half's, turned the same way.
+                let face = normalize(cross3(side, tangent));
+                let mut out = [0_u32; 3];
+                for (j, p) in row.iter().enumerate() {
+                    let mut n = if j == 1 || i == segments || pointed[i] {
+                        face
+                    } else {
+                        normalize(cross3(tangent, sub(*p, row[1])))
+                    };
+                    if n[0] * face[0] + n[1] * face[1] + n[2] * face[2] < 0.0 {
+                        n = n.map(|v| -v);
+                    }
+                    if flip {
+                        n = n.map(|v| -v);
+                    }
+                    out[j] = self.mesh.vertex(
+                        x.point(*p),
+                        base,
+                        x.dir(n),
+                        [
+                            (j as f64 - 1.0) * width,
+                            i as f64 / segments as f64 * length,
+                        ],
+                        &material,
+                        self.tag,
+                    );
+                }
+                ids.push(out);
+            }
+            for i in 0..segments {
+                for (j, k) in [(0, 1), (1, 2)] {
+                    let quad = [ids[i][j], ids[i][k], ids[i + 1][k], ids[i + 1][j]];
+                    if !pointed[i] {
+                        self.outward(quad[0], quad[1], quad[2]);
+                    }
+                    if !pointed[i + 1] {
+                        self.outward(quad[0], quad[2], quad[3]);
+                    }
+                }
+            }
         }
     }
 
@@ -672,8 +891,13 @@ impl<'a> Painter<'a> {
         }
     }
 
-    /// A rod of radius `r` from `a` to `b` (frame `x`), open ends.
+    /// A rod of radius `r` from `a` to `b` (frame `x`), its ends closed.
     pub fn rod(&mut self, x: &Xform, a: V3, b: V3, r: f64, segments: usize) {
+        self.tube(x, a, b, r, segments, true);
+    }
+
+    /// A rod from `a` to `b`, its ends closed by `caps` or left open (hidden in a joint).
+    pub fn tube(&mut self, x: &Xform, a: V3, b: V3, r: f64, segments: usize, caps: bool) {
         let d = sub(b, a);
         let len = (d[0] * d[0] + d[1] * d[1] + d[2] * d[2]).sqrt();
         if len < 0.05 {
@@ -691,7 +915,7 @@ impl<'a> Painter<'a> {
             axes: [xa, y, za],
             origin: a,
         };
-        self.cylinder(&x.then(&local), [0.0; 3], [r, r], len, segments, true);
+        self.cylinder(&x.then(&local), [0.0; 3], [r, r], len, segments, caps);
     }
 
     /// An ellipsoid of radii `r` centred on `c` (frame `x`).
@@ -854,6 +1078,86 @@ mod tests {
         let mut mesh = Mesh::default();
         painter(&mut mesh).polygon(&reversed, 0.0, true, 0.0);
         assert!(faces_out(&mesh, [50.0, -1.0, 50.0]));
+    }
+
+    #[test]
+    fn soft_boxes_are_closed_and_face_out() {
+        let mut mesh = Mesh::default();
+        let frame = Xform::plan([40.0, 0.0, 20.0], [0.6, 0.8]);
+        painter(&mut mesh).soft_box(&frame, [0.0, 5.0, 0.0], [80.0, 25.0, 40.0], 4.0);
+        assert_eq!(mesh.vertex_count(), 48);
+        assert_eq!(mesh.triangle_count(), 44);
+        assert!(faces_out(&mesh, frame.point([40.0, 15.0, 20.0])));
+        // Every edge is shared by exactly two triangles: no gap where the light could leak.
+        #[allow(clippy::cast_possible_truncation)]
+        let key = |i: u32| mesh.positions[i as usize].map(|c| (c * 100.0).round() as i64);
+        let mut edges = std::collections::HashMap::new();
+        for t in mesh.indices.chunks_exact(3) {
+            for (a, b) in [(t[0], t[1]), (t[1], t[2]), (t[2], t[0])] {
+                let (a, b) = (key(a), key(b));
+                *edges.entry((a.min(b), a.max(b))).or_insert(0) += 1;
+            }
+        }
+        assert!(edges.values().all(|&n| n == 2));
+        // Turned over, it still knows its lowest point.
+        let mut mesh = Mesh::default();
+        let tipped = Xform::IDENTITY.turned_z(0.6);
+        painter(&mut mesh).soft_box(&tipped, [0.0; 3], [80.0, 25.0, 40.0], 4.0);
+        let corners = (0..8).map(|k: usize| {
+            let p = tipped.point([0, 1, 2].map(|a| [0.0, [80.0, 25.0, 40.0][a]][k >> a & 1]));
+            p[1]
+        });
+        let low = corners.fold(f64::INFINITY, f64::min);
+        #[allow(clippy::cast_possible_truncation)]
+        let low = low as f32;
+        assert!(mesh.positions.iter().all(|v| (v[3] - low).abs() < 1e-3));
+        // Too thin to round: a plain box.
+        let mut mesh = Mesh::default();
+        painter(&mut mesh).soft_box(&frame, [0.0; 3], [80.0, 0.1, 40.0], 4.0);
+        assert_eq!(mesh.triangle_count(), 12);
+    }
+
+    #[test]
+    fn blades_show_both_faces() {
+        let mut mesh = Mesh::default();
+        let leaf = |t: f64| (std::f64::consts::PI * t).sin();
+        let form = Blade {
+            size: [20.0, 8.0],
+            shape: leaf,
+            fold: 0.3,
+            droop: 4.0,
+            segments: 5,
+        };
+        // Not of unit length, and steep: still a leaf facing up.
+        painter(&mut mesh).blade(&Xform::IDENTITY, [0.0, 30.0, 0.0], [2.0, 1.8, 0.0], &form);
+        assert_eq!(mesh.vertex_count(), 2 * 3 * 6);
+        // Pointed at both ends: one triangle a side there instead of two.
+        assert_eq!(mesh.triangle_count(), 2 * (4 * 5 - 4));
+        // Each triangle is wound the way its normals point, and half of them look up.
+        let mut up = 0;
+        for t in mesh.indices.chunks_exact(3) {
+            let p = |i: u32| {
+                let v = mesh.positions[i as usize];
+                [f64::from(v[0]), f64::from(v[1]), f64::from(v[2])]
+            };
+            let n = cross3(sub(p(t[1]), p(t[0])), sub(p(t[2]), p(t[0])));
+            let want = mesh.normals[t[0] as usize].map(f64::from);
+            let len = (n[0] * n[0] + n[1] * n[1] + n[2] * n[2]).sqrt();
+            assert!(len > 1e-6, "no flat triangle");
+            assert!(n[0] * want[0] + n[1] * want[1] + n[2] * want[2] > 0.0);
+            if n[1] > 0.0 {
+                up += 1;
+            }
+        }
+        assert_eq!(up, 16);
+        // Too small to see: nothing.
+        let mut mesh = Mesh::default();
+        let tiny = Blade {
+            size: [0.1, 8.0],
+            ..form
+        };
+        painter(&mut mesh).blade(&Xform::IDENTITY, [0.0; 3], [1.0, 0.0, 0.0], &tiny);
+        assert_eq!(mesh.triangle_count(), 0);
     }
 
     #[test]

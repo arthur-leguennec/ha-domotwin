@@ -24,6 +24,13 @@ export const THEME_MODES: readonly ThemeMode[] = [
 ];
 /** The accent of the looks by default. */
 export const DEFAULT_ACCENT = "#00d4ff";
+/** The neon look's own: the warm light of its walls' tops against its dusk violet (D-048). */
+export const NEON_ACCENT = "#ffae45";
+
+/** The accent of `look` when none was chosen (the engine's `ThemeName::default_accent` too). */
+export function defaultAccent(look: LookName): string {
+  return look === "neon" ? NEON_ACCENT : DEFAULT_ACCENT;
+}
 const ACCENT = /^#[0-9a-f]{6}$/i;
 
 /** The look drawn for `mode` (absent: `auto`): `auto` is neon in Home Assistant's dark mode. */

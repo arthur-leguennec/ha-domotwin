@@ -20,7 +20,7 @@ use domotwin_core::scene::{
     ElementInfo, ModelMeshes, Scene, SceneOptions, build_dynamic, build_home, build_scene_moving,
     stack_plans,
 };
-use domotwin_core::theme::{DEFAULT_ACCENT, Theme, ThemeName, parse_hex};
+use domotwin_core::theme::{Theme, ThemeName, parse_hex};
 use domotwin_core::{ReadError, summarize_plan};
 use domotwin_render::lamps::power_level;
 use domotwin_render::{CameraFan, CameraTone, GpuHint, QualityPreset, Renderer, Rgb};
@@ -860,12 +860,12 @@ impl Engine {
     }
 
     /// Sets the look (D-027, D-036): `day`, `neon`, `blueprint`, `cartoon` or `clay` (anything else:
-    /// `day`), with an accent
-    /// colour `#rrggbb` (anything else: the default cyan). Returns the look's name.
+    /// `day`), with an accent colour `#rrggbb` (anything else: the look's own, D-048). Returns the
+    /// look's name.
     #[wasm_bindgen(js_name = setTheme)]
     pub fn set_theme(&mut self, name: &str, accent: &str) -> String {
         let theme = ThemeName::from_name(name).unwrap_or_default();
-        let accent = parse_hex(accent).unwrap_or(DEFAULT_ACCENT);
+        let accent = parse_hex(accent).unwrap_or_else(|| theme.default_accent());
         self.renderer.set_theme(Theme::new(theme, accent));
         theme.name().to_owned()
     }

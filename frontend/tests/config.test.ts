@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { ConfigError, normalizeConfig } from "../src/config";
+import {
+  ConfigError,
+  DEFAULT_ACCENT,
+  NEON_ACCENT,
+  defaultAccent,
+  normalizeConfig,
+} from "../src/config";
 
 describe("normalizeConfig", () => {
   it("fills in the defaults", () => {
@@ -142,5 +148,14 @@ describe("normalizeConfig", () => {
   ])("refuses %o", (config, key) => {
     expect(() => normalizeConfig(config)).toThrow(ConfigError);
     expect(() => normalizeConfig(config)).toThrow(key);
+  });
+});
+
+describe("defaultAccent", () => {
+  it("gives each look its own", () => {
+    expect(defaultAccent("neon")).toBe(NEON_ACCENT);
+    for (const look of ["day", "blueprint", "cartoon", "clay"] as const) {
+      expect(defaultAccent(look)).toBe(DEFAULT_ACCENT);
+    }
   });
 });
