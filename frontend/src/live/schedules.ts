@@ -9,6 +9,9 @@ import type { BindingsJson } from "./bindings";
 import { todayIn } from "./upkeep";
 import type { Badge } from "./devices";
 
+/** An action switches this many devices at most (the integration's `MAX_SCHEDULE_ENTITIES`). */
+export const MAX_SCHEDULE_ENTITIES = 25;
+
 /** An action waiting, as the integration lists it (times in ISO 8601, UTC). */
 export interface Schedule {
   id: string;

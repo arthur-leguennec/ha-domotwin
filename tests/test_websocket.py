@@ -14,6 +14,9 @@ from homeassistant.core import HomeAssistant
 
 from .conftest import one_room_plan
 
+# An action that does nothing, for the room actions refused below.
+NONE = {"action": "none"}
+
 
 async def test_empty_installation(
     hass: HomeAssistant, setup_integration: MockConfigEntry, hass_ws_client: WebSocketGenerator
@@ -83,6 +86,22 @@ async def test_bindings_round_trip(
     with_device = {**demo_bindings, "elements": {**demo_bindings["elements"], "hub": hub}}
     await client.send_json_auto_id({"type": "domotwin/bindings/save", "bindings": with_device})
     assert (await client.receive_json())["success"]
+    # A room with actions of its own and no area (D-047).
+    film = {
+        "name": "Film",
+        "action": {"action": "perform-action", "perform_action": "scene.turn_on"},
+    }
+    # Null actions are none, as the frontend reads them.
+    nulls = {**demo_bindings, "rooms": {"hall": {"area": "hallway", "actions": None}}}
+    await client.send_json_auto_id({"type": "domotwin/bindings/save", "bindings": nulls})
+    assert (await client.receive_json())["success"]
+    with_actions = {**demo_bindings, "rooms": {"study": {"actions": [film]}}}
+    await client.send_json_auto_id({"type": "domotwin/bindings/save", "bindings": with_actions})
+    assert (await client.receive_json())["success"]
+    await client.send_json_auto_id({"type": "domotwin/bindings/get"})
+    assert (await client.receive_json())["result"]["bindings"]["rooms"] == {
+        "study": {"actions": [film]}
+    }
 
 
 async def test_revision_conflict(
@@ -233,6 +252,13 @@ async def test_a_null_list_is_an_empty_one(
         },
         {"version": 1, "elements": {"": {"entities": [{"entity_id": "light.a"}]}}},
         {"version": 1, "rooms": {"living": {"area": 3}}},
+        # A room's own actions (D-047): a list, each named, each an action, eight at most.
+        {"version": 1, "rooms": {"living": {"actions": {"name": "Film"}}}},
+        {"version": 1, "rooms": {"living": {"actions": [{"name": " ", "action": NONE}]}}},
+        {"version": 1, "rooms": {"living": {"actions": [{"name": "x" * 41, "action": NONE}]}}},
+        {"version": 1, "rooms": {"living": {"actions": [{"name": "Film", "action": "on"}]}}},
+        {"version": 1, "rooms": {"living": {"actions": [{"name": "Film"}]}}},
+        {"version": 1, "rooms": {"living": {"actions": [{"name": "a", "action": NONE}] * 9}}},
         {"version": 1, "elements": {"cam": {"entities": [{"entity_id": "camera.a"}], "fov": 5}}},
         {
             "version": 1,

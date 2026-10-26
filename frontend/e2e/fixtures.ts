@@ -14,6 +14,8 @@ export interface HarnessOptions {
   blueprints?: "changed";
   insecure?: boolean;
   mic?: false;
+  /** The tip on what a tap does, not read yet (D-047). */
+  tip?: boolean;
   /** The card's `font_family`. */
   font?: string;
   lang?: "en" | "fr";
@@ -133,6 +135,7 @@ export async function openHarness(page: Page, options: HarnessOptions = {}): Pro
   if (options.blueprints) params.set("blueprints", options.blueprints);
   if (options.insecure) params.set("insecure", "1");
   if (options.mic === false) params.set("mic", "0");
+  if (options.tip) params.set("tip", "1");
   if (options.automations) {
     params.set("automations", options.automations === true ? "1" : String(options.automations));
   }

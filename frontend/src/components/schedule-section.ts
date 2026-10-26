@@ -1,7 +1,8 @@
 /**
  * A piece's actions done later (`DECISIONS.md`, D-046), in its sheet: those waiting on its
  * entities, each with its time and a Cancel, and a short form to add one: switch on at a time
- * (a light at a brightness), off again after a while, or switch off. Loaded with the sheets.
+ * (a light at a brightness), off again after a while, or switch off. In a room's panel, the form
+ * first asks which of its devices: its lights or its blinds (D-047). Loaded with the sheets.
  */
 import { mdiClockOutline, mdiClose, mdiPlus } from "@mdi/js";
 import { LitElement, css, html, nothing, type PropertyValues, type TemplateResult } from "lit";
@@ -11,6 +12,7 @@ import { isHassError, type HomeAssistant } from "../ha/types";
 import { translatorFor, type MessageKey, type Translator } from "../i18n";
 import { entityName } from "../live/bindings";
 import {
+  MAX_SCHEDULE_ENTITIES,
   nextStep,
   schedulesOf,
   soonIn,
@@ -37,14 +39,27 @@ const SCHEDULABLE = new Set([
   "cover",
 ]);
 
+function schedulable(entity: string): boolean {
+  return SCHEDULABLE.has(entity.split(".")[0] ?? "");
+}
+
 /** How long a device switched on stays on (minutes; 0: until switched off otherwise). */
 const DURATIONS = [0, 5, 15, 30, 60, 120, 240, 480];
 
-/** `<domotwin-schedules>`: the actions done later on a piece's entities. */
+/** Devices set together, in a room's panel: its lights, its blinds. */
+export interface ScheduleGroup {
+  key: string;
+  label: string;
+  entities: string[];
+}
+
+/** `<domotwin-schedules>`: the actions done later on a piece's entities, or a room's. */
 export class DomoTwinSchedules extends LitElement {
   static override properties = {
     hass: { attribute: false },
     entities: { attribute: false },
+    groups: { attribute: false },
+    group: { state: true },
     items: { state: true },
     adding: { state: true },
     action: { state: true },
@@ -147,6 +162,9 @@ export class DomoTwinSchedules extends LitElement {
   hass?: HomeAssistant;
   /** The piece's entities. */
   entities: string[] = [];
+  /** A room's devices set together (instead of `entities`), and the one chosen in the form. */
+  groups: ScheduleGroup[] = [];
+  protected group = 0;
   /** Every action waiting (none yet: the integration has not said, or cannot). */
   protected items?: Schedule[];
   protected adding = false;
@@ -165,9 +183,17 @@ export class DomoTwinSchedules extends LitElement {
     return translatorFor(this.hass);
   }
 
-  /** The piece's entities an action can switch. */
+  /** The entities an action can switch: the piece's, or every one of the room's groups. */
   private get schedulable(): string[] {
-    return this.entities.filter((id) => SCHEDULABLE.has(id.split(".")[0] ?? ""));
+    const all = this.groups.length > 0 ? this.groups.flatMap((g) => g.entities) : this.entities;
+    return [...new Set(all)].filter(schedulable);
+  }
+
+  /** The groups an action can switch, with only what it can switch. */
+  private get shownGroups(): ScheduleGroup[] {
+    return this.groups
+      .map((group) => ({ ...group, entities: group.entities.filter(schedulable) }))
+      .filter((group) => group.entities.length > 0);
   }
 
   override disconnectedCallback(): void {
@@ -178,11 +204,18 @@ export class DomoTwinSchedules extends LitElement {
   }
 
   protected override willUpdate(changed: PropertyValues<this>): void {
-    // Another piece's sheet: its own form and words.
+    // Another piece's sheet, or another room's: its own form and words.
     const before = changed.get("entities");
-    if (before && before.join() !== this.entities.join()) {
+    const groups = changed.get("groups");
+    const keys = (list: ScheduleGroup[]): string =>
+      list.map((g) => `${g.key}:${g.entities.join()}`).join(";");
+    if (
+      (before && before.join() !== this.entities.join()) ||
+      (groups && keys(groups) !== keys(this.groups))
+    ) {
       this.adding = false;
       this.said = undefined;
+      this.group = 0;
     }
     const hass = this.hass;
     if (!hass || !this.isConnected || this.following === hass.connection) return;
@@ -203,7 +236,7 @@ export class DomoTwinSchedules extends LitElement {
     const mine = schedulesOf(this.items, entities);
     return html`<h3>${t.t("schedules.title")}</h3>
       ${mine.map((item) => this.renderItem(hass, t, item, style, now))}
-      ${this.adding ? this.renderForm(hass, t, entities) : this.renderAdd(hass, t)}
+      ${this.adding ? this.renderForm(hass, t, this.formEntities) : this.renderAdd(hass, t)}
       ${
         this.said
           ? html`<p class="said" role=${this.said.error ? "alert" : "status"}>${this.said.text}</p>`
@@ -277,6 +310,34 @@ export class DomoTwinSchedules extends LitElement {
     </div>`;
   }
 
+  /** What the form's action switches: the piece's entities, or the room's group chosen. */
+  private get formEntities(): string[] {
+    const groups = this.shownGroups;
+    if (groups.length === 0) return this.schedulable;
+    return (groups[this.group] ?? groups[0])?.entities ?? [];
+  }
+
+  /** In a room's panel, which of its devices: its lights, its blinds. */
+  private renderGroups(t: Translator): TemplateResult | typeof nothing {
+    const groups = this.shownGroups;
+    if (groups.length < 2) return nothing;
+    return html`<div class="choice" role="group" aria-label=${t.t("schedules.which")}>
+      ${groups.map(
+        (group, index) =>
+          html`<button
+            class="action ${this.group === index ? "" : "quiet"}"
+            aria-pressed=${this.group === index ? "true" : "false"}
+            data-testid=${`schedule-group-${group.key}`}
+            @click=${() => {
+              this.group = index;
+            }}
+          >
+            ${group.label}
+          </button>`,
+      )}
+    </div>`;
+  }
+
   private renderForm(hass: HomeAssistant, t: Translator, entities: string[]): TemplateResult {
     const cover = entities.every((id) => id.startsWith("cover."));
     const light = entities.some((id) => id.startsWith("light."));
@@ -293,6 +354,7 @@ export class DomoTwinSchedules extends LitElement {
         ${t.t(key)}
       </button>`;
     return html`<div class="form" data-testid="schedule-form">
+      ${this.renderGroups(t)}
       <div class="choice" role="group" aria-label=${t.t("schedules.what")}>
         ${choice("on", cover ? "schedules.open" : "schedules.on")}
         ${choice("off", cover ? "schedules.close" : "schedules.off")}
@@ -376,18 +438,25 @@ export class DomoTwinSchedules extends LitElement {
   private async save(hass: HomeAssistant, entities: string[], light: boolean): Promise<void> {
     this.busy = true;
     const on = this.action === "on";
+    // A room's many lights: as many actions as the integration takes devices at once.
+    const said: string[] = [];
     try {
-      const { text } = await DomoTwinClient.for(hass).addSchedule({
-        entities,
-        action: this.action,
-        at: this.at,
-        ...(on && this.duration > 0 ? { duration: this.duration * 60 } : {}),
-        ...(on && light ? { brightness: this.brightness } : {}),
-      });
-      this.said = { text, error: false };
+      for (let i = 0; i < entities.length; i += MAX_SCHEDULE_ENTITIES) {
+        const { text } = await DomoTwinClient.for(hass).addSchedule({
+          entities: entities.slice(i, i + MAX_SCHEDULE_ENTITIES),
+          action: this.action,
+          at: this.at,
+          ...(on && this.duration > 0 ? { duration: this.duration * 60 } : {}),
+          ...(on && light ? { brightness: this.brightness } : {}),
+        });
+        said.push(text);
+      }
+      this.said = { text: said.join(" "), error: false };
       this.adding = false;
     } catch (err) {
-      this.said = { text: this.refusal(err), error: true };
+      // Some were set: the form closes on what was, and why the rest was not.
+      this.said = { text: [...said, this.refusal(err)].join(" "), error: true };
+      if (said.length > 0) this.adding = false;
     } finally {
       this.busy = false;
     }

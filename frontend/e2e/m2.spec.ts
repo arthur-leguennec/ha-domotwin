@@ -128,7 +128,8 @@ test.describe("live control", () => {
     const room = page.locator("domotwin-room");
     await expect(room.getByRole("dialog", { name: "Living room" })).toBeVisible();
     await expect(room.getByText("Lights", { exact: true })).toBeVisible();
-    await room.getByRole("button", { name: "All lights off" }).click();
+    // The room's lights together (D-047): those of its area and of its pieces.
+    await room.getByTestId("room-commands").getByRole("button", { name: "Lights off" }).click();
     await expect.poll(() => entityState(page, "light.living_room_pendant")).toBe("off");
     await expect.poll(() => entityState(page, "light.living_room_floor_lamp")).toBe("off");
     expect(await serviceCalls(page)).toContainEqual({
@@ -136,9 +137,14 @@ test.describe("live control", () => {
       domain: "light",
       service: "turn_off",
       data: {},
-      target: { area_id: "living_room" },
+      target: {
+        entity_id: [
+          "light.living_room_floor_lamp",
+          "light.living_room_pendant",
+          "light.sideboard_lamp",
+        ],
+      },
     });
-    await expect(room.getByRole("button", { name: "All lights off" })).toHaveCount(0);
   });
 
   test("a tap on a room frames it, and its chip opens the room panel", async ({ page }) => {
@@ -259,6 +265,8 @@ test.describe("linking", () => {
     await page.mouse.click(...xy(await pointOn(page, "table-lamp")));
     const editor = page.locator("domotwin-link");
     await editor.getByTestId("role-light.sideboard_lamp").selectOption("switch");
+    // Any action and a page: the advanced mode (D-047).
+    await editor.getByTestId("link-advanced").check();
     await editor.getByTestId("link-hold").selectOption("perform-action");
     await editor.getByTestId("link-hold-service").fill("scene turn on");
     await expect(editor.getByText("Write it as domain.action")).toBeVisible();

@@ -29,6 +29,8 @@ from .const import (
     MAX_PLAN_BYTES,
     MAX_PRIVATE_ROOMS,
     MAX_RECEIVERS,
+    MAX_ROOM_ACTION_NAME,
+    MAX_ROOM_ACTIONS,
     MAX_STOREY_NAME,
     MAX_STOREYS,
     MAX_UPKEEP_BYTES,
@@ -231,6 +233,26 @@ def _validate_element_binding(binding: Any) -> None:
             )
 
 
+def _validate_room_binding(room: Any) -> None:
+    """A room's area, and its own actions (D-047): each a name and an action."""
+    if not isinstance(room, dict) or not isinstance(room.get("area", ""), str):
+        raise InvalidPayloadError("invalid_bindings", "a room binding needs a string `area`")
+    # Missing or null: none, as the frontend reads it.
+    actions = room.get("actions") or []
+    if not isinstance(actions, list) or len(actions) > MAX_ROOM_ACTIONS:
+        raise InvalidPayloadError(
+            "invalid_bindings", f"a room's `actions` hold at most {MAX_ROOM_ACTIONS} actions"
+        )
+    for entry in actions:
+        name = entry.get("name") if isinstance(entry, dict) else None
+        if not isinstance(name, str) or not 0 < len(name.strip()) <= MAX_ROOM_ACTION_NAME:
+            raise InvalidPayloadError(
+                "invalid_bindings",
+                f"a room's action needs a `name` of 1 to {MAX_ROOM_ACTION_NAME} characters",
+            )
+        _validate_action(entry.get("action"))
+
+
 def validate_bindings(bindings: Any) -> dict[str, Any]:
     """Check bindings (see docs/bindings.md)."""
     if not isinstance(bindings, dict) or bindings.get("version") != 1:
@@ -243,8 +265,7 @@ def validate_bindings(bindings: Any) -> dict[str, Any]:
         raise InvalidPayloadError("invalid_bindings", "too many bound elements")
     for room_id, room in rooms.items():
         _check_id(room_id, "a room id", "invalid_bindings")
-        if not isinstance(room, dict) or not isinstance(room.get("area", ""), str):
-            raise InvalidPayloadError("invalid_bindings", "a room binding needs a string `area`")
+        _validate_room_binding(room)
     for element_id, binding in elements.items():
         _check_id(element_id, "an element id", "invalid_bindings")
         _validate_element_binding(binding)

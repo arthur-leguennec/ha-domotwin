@@ -4,7 +4,14 @@
  */
 import type { HomeAssistant } from "../ha/types";
 import type { KindName } from "../i18n";
-import { areaEntities, entityName, type BindingsJson, type ElementBinding } from "./bindings";
+import {
+  areaEntities,
+  entityName,
+  type BindingsJson,
+  type ElementBinding,
+  type RoomAction,
+  type RoomBinding,
+} from "./bindings";
 import { APPLIANCES } from "./devices";
 import { unaccented } from "./text";
 import { planElements } from "./plan";
@@ -20,9 +27,10 @@ export interface PlanElementInfo {
   parent?: string;
 }
 
-/** One edit of the bindings: an element's entities and tap, or a room's area. */
+/** One edit of the bindings: an element's entities and tap, or a room's area and actions (kept when not said). */
 export type LinkChange =
-  { element: string; binding: ElementBinding | null } | { room: string; area: string | null };
+  | { element: string; binding: ElementBinding | null }
+  | { room: string; area: string | null; actions?: RoomAction[] };
 
 const MAX_RESULTS = 8;
 
@@ -71,6 +79,13 @@ export function planElement(plan: unknown, id: string): PlanElementInfo | undefi
   }
   if (typeof fields.room === "string") info.parent = fields.room;
   return info;
+}
+
+/** The ids of the elements of the plan JSON that stand in `room` (its pieces). */
+export function roomPieces(plan: unknown, room: string): string[] {
+  return planElements(plan)
+    .filter(({ fields }) => fields.room === room)
+    .map(({ id }) => id);
 }
 
 /** The rooms of the plan JSON, in plan order (for the card editor). */
@@ -160,8 +175,8 @@ export function searchEntities(
 }
 
 /**
- * The bindings after an edit (an element without entities or device, a room without area:
- * removed).
+ * The bindings after an edit (an element without entities or device, a room without area or
+ * actions: removed).
  */
 export function applyLink(bindings: BindingsJson, change: LinkChange): BindingsJson {
   const without = <T>(entries: Record<string, T>, id: string): Record<string, T> =>
@@ -174,6 +189,11 @@ export function applyLink(bindings: BindingsJson, change: LinkChange): BindingsJ
     return { version: 1, rooms: { ...bindings.rooms }, elements };
   }
   const rooms = without(bindings.rooms, change.room);
-  if (change.area) rooms[change.room] = { area: change.area };
+  const room: RoomBinding = {};
+  if (change.area) room.area = change.area;
+  // Actions not said: those it had.
+  const actions = change.actions ?? bindings.rooms[change.room]?.actions;
+  if (actions && actions.length > 0) room.actions = actions;
+  if (room.area || room.actions) rooms[change.room] = room;
   return { version: 1, rooms, elements: { ...bindings.elements } };
 }

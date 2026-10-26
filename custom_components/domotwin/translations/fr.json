@@ -225,7 +225,7 @@
       "message": "Indiquez au moins une entité à actionner."
     },
     "schedule_too_many_entities": {
-      "message": "10 entités au plus par action."
+      "message": "25 entités au plus par action."
     },
     "schedule_unknown_entity": {
       "message": "Une des entités n'existe pas."

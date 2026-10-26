@@ -43,6 +43,7 @@ import {
   shownEntity,
   type BindingsJson,
   type ElementBinding,
+  type RoomAction,
 } from "../live/bindings";
 import {
   clearDraft,
@@ -74,6 +75,7 @@ import {
   applyLink,
   planElement,
   planRooms,
+  roomPieces,
   type LinkChange,
   type PlanElementInfo,
 } from "../live/suggest";
@@ -156,6 +158,9 @@ class TranslatedError extends Error {
 
 /** The 3D files of a plan total at most this (`plan-format.md`). */
 const MAX_MODELS_BYTES = 20_000_000;
+/** A link editor's room without actions, or without linked pieces (one value, not a new one). */
+const NO_ACTIONS: RoomAction[] = [];
+const NO_ENTITIES: string[] = [];
 
 /** A 3D file read, waiting for its name and size. */
 interface ModelImport {
@@ -178,6 +183,9 @@ interface LinkTarget {
   binding?: ElementBinding;
   area?: string;
   roomArea?: string;
+  /** A room's own actions, and the entities linked to its pieces (D-047). */
+  roomActions?: RoomAction[];
+  pieceEntities?: string[];
 }
 
 function fileName(title: string): string {
@@ -1454,6 +1462,14 @@ export class DomoTwinPanel extends LitElement {
     this.northDraft = undefined;
   };
 
+  /** A piece's bubble asked for its links (D-047): link mode, with its editor open. */
+  private readonly onLinkElement = async (event: Event): Promise<void> => {
+    this.linking = true;
+    this.linkTarget = undefined;
+    this.placing = undefined;
+    await this.onPick(event);
+  };
+
   /** Link mode: an element was picked in the view, open its editor. */
   private readonly onPick = async (event: Event): Promise<void> => {
     const picked = (event as CustomEvent<PickedElement>).detail;
@@ -1499,6 +1515,14 @@ export class DomoTwinPanel extends LitElement {
     if (binding) target.binding = binding;
     const area = element.type === "room" ? bindings.rooms[element.id]?.area : undefined;
     if (area) target.area = area;
+    if (element.type === "room") {
+      target.roomActions = bindings.rooms[element.id]?.actions ?? [];
+      // Where the view places the pieces (the plan's own rooms, its edits); the plan's otherwise.
+      const pieces = this.view?.piecesIn(element.id) ?? roomPieces(this.plan, element.id);
+      target.pieceEntities = pieces.flatMap(
+        (id) => bindings.elements[id]?.entities.map((entity) => entity.entity_id) ?? [],
+      );
+    }
     if (roomId) {
       const room = roomArea(hass, bindings, roomId, planElement(this.plan, roomId)?.name ?? "");
       if (room) target.roomArea = room;
@@ -2181,6 +2205,8 @@ export class DomoTwinPanel extends LitElement {
           @domotwin-edit=${this.onEdit}
           @domotwin-plan-edit=${this.onPlanEdit}
           .placeDevices=${admin}
+          .linkable=${admin}
+          @domotwin-link-element=${this.onLinkElement}
           @domotwin-network-place=${this.onNetworkPlace}
         >
           ${
@@ -2611,6 +2637,8 @@ export class DomoTwinPanel extends LitElement {
             .binding=${target.binding}
             .area=${target.area}
             .roomArea=${target.roomArea}
+            .roomActions=${target.roomActions ?? NO_ACTIONS}
+            .pieceEntities=${target.pieceEntities ?? NO_ENTITIES}
             .busy=${this.busy}
             @domotwin-link-save=${this.onLinkSave}
             @domotwin-close=${() => (this.linkTarget = undefined)}

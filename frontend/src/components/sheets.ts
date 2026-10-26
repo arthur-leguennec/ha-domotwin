@@ -10,7 +10,6 @@ import {
   mdiDoorOpen,
   mdiEyeOffOutline,
   mdiInformationOutline,
-  mdiLightbulbOff,
   mdiLock,
   mdiTagOutline,
   mdiWatch,
@@ -19,16 +18,26 @@ import { css, html, nothing, type TemplateResult } from "lit";
 
 import { DomoTwinClient } from "../ha/client";
 import { isHassError } from "../ha/types";
-import { areaEntities, entityName } from "../live/bindings";
+import { failureText } from "../live/actions";
+import { areaEntities, entityName, type RoomAction } from "../live/bindings";
+import {
+  roomCommands,
+  runRoom,
+  schedulableGroups,
+  type RoomCommand,
+  type RoomDevices,
+} from "../live/room-actions";
 import type { Translator } from "../i18n";
 import type { LocatedKind, LocatedShown } from "../live/locating";
 import type { PersonShown } from "../live/people";
 import { define, fire } from "./define";
 import { entityRow, rowStyles } from "./entity-rows";
+import { roomBarStyles, roomButtons } from "./room-bar";
 import { icon } from "./icon";
 import type { CardStanding, Upkeep } from "../live/upkeep";
 import "./automation-section";
 import "./schedule-section";
+import "./bubble";
 import "./upkeep-section";
 import { avatar, avatarStyles } from "./person-avatar";
 import { Sheet, sheetStyles } from "./sheet";
@@ -265,18 +274,36 @@ function peopleHere(sheet: DomoTwinRoom, t: Translator): TemplateResult | typeof
     </div>`;
 }
 
-/** `<domotwin-room>`: the room panel, from the room's Home Assistant area, and who is there. */
+/**
+ * `<domotwin-room>`: the room panel: what the room does together and its own actions (D-047),
+ * its devices from its Home Assistant area, what it will do later, and who is there.
+ */
 export class DomoTwinRoom extends Sheet {
   static override properties = {
     ...Sheet.properties,
+    devices: { attribute: false },
+    actions: { attribute: false },
+    refused: { state: true },
     area: { attribute: false },
     admin: { attribute: false },
     people: { attribute: false },
     things: { attribute: false },
     closed: { attribute: false },
   };
-  static override styles = [baseStyles, rowStyles, sheetStyles, avatarStyles, peopleStyles];
+  static override styles = [
+    baseStyles,
+    rowStyles,
+    sheetStyles,
+    avatarStyles,
+    peopleStyles,
+    roomBarStyles,
+  ];
 
+  /** The room's devices (its area's and its pieces'), and the actions an administrator gave it. */
+  devices?: RoomDevices;
+  actions: RoomAction[] = [];
+  /** What Home Assistant refused last. */
+  protected refused?: string;
   area?: string;
   admin = false;
   /** A private room the user viewing may not see (D-039): its name, and that it is private. */
@@ -298,12 +325,13 @@ export class DomoTwinRoom extends Sheet {
       );
     }
     const area = this.area;
-    const here = html`${peopleHere(this, t)}${thingsHere(this, t)}`;
+    const here = html`${peopleHere(this, t)}${thingsHere(this, t)}${this.renderActions(t)}`;
+    const later = this.renderLater(t);
     if (!area) {
       return this.frame(
         html`${here}
           <p class="empty">${t.t("room.no_area")}</p>
-          ${this.admin ? html`<p class="empty">${t.t("room.no_area_admin")}</p>` : nothing}`,
+          ${this.admin ? html`<p class="empty">${t.t("room.no_area_admin")}</p>` : nothing} ${later}`,
       );
     }
     const ids = areaEntities(hass, area);
@@ -319,31 +347,52 @@ export class DomoTwinRoom extends Sheet {
       return this.frame(
         html`${here}
           <p class="empty">${t.t("room.empty")}</p>
-          ${automations}`,
+          ${later}${automations}`,
       );
     }
-    const anyOn = ids.some((id) => id.startsWith("light.") && hass.states[id]?.state === "on");
     return this.frame(
       html`${here}${groups.map(
         (group) =>
           html`<h3>${t.t(`room.${group.key}`)}</h3>
             ${group.ids.map((id) => entityRow(hass, t, id, false))}`,
-      )}${automations}`,
-      anyOn
-        ? html`<div class="footer">
-            <button
-              class="action"
-              @click=${() => {
-                void hass
-                  .callService("light", "turn_off", {}, { area_id: area })
-                  .catch(() => undefined);
-              }}
-            >
-              ${icon(mdiLightbulbOff)}${t.t("room.all_off")}
-            </button>
-          </div>`
-        : nothing,
+      )}${later}${automations}`,
     );
+  }
+
+  /** What the room does together, then its own actions: a tap each. */
+  private renderActions(t: Translator): TemplateResult | typeof nothing {
+    const hass = this.hass;
+    if (!hass) return nothing;
+    const commands = this.devices ? roomCommands(hass, this.devices) : [];
+    if (commands.length === 0 && this.actions.length === 0) return nothing;
+    return html`<h3>${t.t("room.actions")}</h3>
+      <div class="room-commands" data-testid="room-commands">
+        ${roomButtons(t, commands, this.actions, (what) => void this.run(what), true)}
+      </div>
+      ${this.refused ? html`<p class="empty" role="alert">${this.refused}</p>` : nothing}`;
+  }
+
+  /** What the room will do later (D-046): its lights or its blinds, at a time. */
+  private renderLater(t: Translator): TemplateResult | typeof nothing {
+    const hass = this.hass;
+    if (!hass || !this.devices) return nothing;
+    const groups = schedulableGroups(this.devices).map((group) => ({
+      ...group,
+      label: t.t(group.key === "lights" ? "room.later_lights" : "room.later_covers"),
+    }));
+    if (groups.length === 0) return nothing;
+    return html`<domotwin-schedules .hass=${hass} .groups=${groups}></domotwin-schedules>`;
+  }
+
+  private async run(what: RoomCommand | RoomAction): Promise<void> {
+    const hass = this.hass;
+    if (!hass) return;
+    this.refused = undefined;
+    try {
+      await runRoom(this, hass, what);
+    } catch (error) {
+      this.refused = failureText(this.t, error);
+    }
   }
 }
 

@@ -29,6 +29,13 @@
 import { applyService, demoHome } from "./demo-home.mjs";
 
 const params = new URLSearchParams(location.search);
+// The tip on what a tap does (D-047) is read already, unless a test looks at it.
+try {
+  if (params.get("tip") === "1") localStorage.removeItem("domotwin-tip-tap");
+  else localStorage.setItem("domotwin-tip-tap", "read");
+} catch {
+  // No storage: the tip shows.
+}
 const mode = params.get("mode") ?? "card";
 const live = params.get("live") === "1";
 // A mocked ZHA (D-031): a fictional Zigbee mesh over the demo apartment.

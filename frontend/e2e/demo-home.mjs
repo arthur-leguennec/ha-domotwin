@@ -37,14 +37,15 @@ const entities = [
     "media_player.living_room_tv",
     "living_room",
     "playing",
-    { volume_level: 0.3, media_title: "Nature documentary" },
+    // Plays, pauses, sets and steps its volume, mutes, switches on and off.
+    { volume_level: 0.3, media_title: "Nature documentary", supported_features: 17805 },
   ],
   ["sensor.tv_power", "living_room", "84", { device_class: "power", unit_of_measurement: "W" }],
   [
     "cover.living_room_curtains",
     "living_room",
     "closed",
-    { current_position: 0, device_class: "curtain" },
+    { current_position: 0, device_class: "curtain", supported_features: 15 },
   ],
   ["binary_sensor.living_room_window_contact", "living_room", "off", { device_class: "window" }],
   ["scene.living_room_evening", "living_room", "2026-01-01T18:00:00+00:00", {}],
@@ -72,7 +73,12 @@ const entities = [
   ["light.bedside_right", "bedroom", "off", { ...warm }],
   ["fan.bedroom_ceiling_fan", "bedroom", "off", { percentage: 0 }],
   ["light.bedroom_fan_light", "bedroom", "off", { ...warm }],
-  ["cover.bedroom_curtains", "bedroom", "open", { current_position: 100, device_class: "curtain" }],
+  [
+    "cover.bedroom_curtains",
+    "bedroom",
+    "open",
+    { current_position: 100, device_class: "curtain", supported_features: 15 },
+  ],
   [
     "climate.bedroom",
     "bedroom",

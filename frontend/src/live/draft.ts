@@ -110,3 +110,21 @@ export function writePlanDraft(draft: PlanDraft): void {
 export function clearPlanDraft(storey: string): void {
   clear(keyOf(PLAN_KEY, storey));
 }
+
+/** A tip once read is not shown again on this device (D-047): whether `tip` was. */
+export function tipRead(tip: string): boolean {
+  try {
+    return storage()?.getItem(`domotwin-tip-${tip}`) === "read";
+  } catch {
+    return false;
+  }
+}
+
+/** Remembers on this device that `tip` was read. */
+export function readTip(tip: string): void {
+  try {
+    storage()?.setItem(`domotwin-tip-${tip}`, "read");
+  } catch {
+    // Storage full or disabled: the tip may come back.
+  }
+}
