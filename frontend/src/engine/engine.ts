@@ -292,6 +292,15 @@ export class DomoTwinEngine {
     this.gl = canvas.getContext("webgl2");
   }
 
+  /** The GPU, as WebGL names it (as the engine reads it for its quality): the measure (D-053). */
+  get renderer(): string | undefined {
+    const gl = this.gl;
+    if (!gl) return undefined;
+    const info = gl.getExtension("WEBGL_debug_renderer_info");
+    const name: unknown = gl.getParameter(info ? info.UNMASKED_RENDERER_WEBGL : gl.RENDERER);
+    return typeof name === "string" && name !== "" ? name : undefined;
+  }
+
   /**
    * Creates the engine on `canvas` once the WebAssembly is loaded, unless `wanted` says by then
    * that it is no longer wanted (`cancelled`): the canvas is then left without a context.

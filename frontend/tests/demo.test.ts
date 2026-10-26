@@ -323,3 +323,30 @@ describe("the demo house (D-050)", () => {
     home.stop();
   });
 });
+
+describe("the demo house put back after a measure (D-053)", () => {
+  it("keeps its moment, its clock and what the visitor changed", () => {
+    const home = new DemoHome({ language: "en" });
+    home.play(true);
+    void home.hass.callService("light", "turn_off", {}, { entity_id: "light.living_floor_lamp" });
+    const before = home.snapshot();
+    const minute = home.minute;
+    const today = home.today();
+    const lamp = structuredClone(home.hass.states["light.living_floor_lamp"]);
+    home.play(false);
+    home.jump(19 * 60 + 40);
+    void home.hass.callService(
+      "light",
+      "turn_on",
+      { brightness_pct: 20 },
+      { entity_id: "light.living_pendant" },
+    );
+    home.restore(before);
+    expect(home.minute).toBe(minute);
+    expect(home.today()).toBe(today);
+    expect(home.playing).toBe(true);
+    expect(home.hass.states["light.living_floor_lamp"]).toEqual(lamp);
+    expect(home.hass.states["light.living_pendant"]).toEqual(before.states["light.living_pendant"]);
+    home.stop();
+  });
+});
