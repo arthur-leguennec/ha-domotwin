@@ -923,3 +923,21 @@ is played again when it is changed or a tap is done in it. Showing a moment of i
 changes up to there (from midnight when going back); playing moves the moment on ten times a second
 and gives the panel one new `hass` each time, as Home Assistant would.
 
+
+### M30 (the Wi-Fi for guests)
+
+Bundle: the first load is **517.4 kB gzipped** of 1 200 kB (+1.0 kB): reading the network's answer,
+the Wi-Fi button over the view, the ⋮ menu entry, the integration's three commands and their few
+texts. The dialog comes on demand, the first time it opens (`chunks/wifi-dialog-<hash>.js`:
+18.4 kB raw, 5.7 kB gzipped): the code drawn, the form and their texts in both languages.
+
+The QR code is encoded by the analysis module, already loaded on demand for the network map and
+the automations (`qrcodegen`, MIT): it grew from 142.8 kB to 156.4 kB raw, by about 7 kB gzipped
+(71.8 kB). The code is encoded once each time the network changes and drawn as one SVG path (a few
+hundred modules), so showing it again costs nothing; nothing is fetched. The network (without its
+password) is asked of the integration when the panel or a card opens and again only when it
+changes; its password once each time the dialog opens.
+
+A long press acts on what was under the finger when it landed: the view picks it then (one pixel,
+drawn in the pick pass), and a tap uses that same pick, so a tap or a long press costs one pick as
+before and only the start of a drag one more.

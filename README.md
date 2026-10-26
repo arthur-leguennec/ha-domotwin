@@ -23,9 +23,9 @@ Local, fast, Rust + WebAssembly.</p>
 > size and speed, phones, actions done later, taps that say what they do, pieces that look made,
 > robot vacuums, the home's energy, the demo house, measuring a device's speed and the practical
 > home (the Home, Rooms and 3D tabs) work today, and make up version 0.4.0. Since then, the
-> sandbox plays a day of the home's automations on a copy of it. The Wi-Fi QR code for guests
-> comes next, then Home Assistant's own Overview joined rather than copied, towards version 0.5.0;
-> the submission to HACS's default list waits on measurements on real devices.
+> sandbox plays a day of the home's automations on a copy of it, and the Wi-Fi QR code welcomes
+> guests. Home Assistant's own Overview, joined rather than copied, comes next, towards version
+> 0.5.0; the submission to HACS's default list waits on measurements on real devices.
 
 ## Features
 
@@ -83,6 +83,10 @@ Local, fast, Rust + WebAssembly.</p>
   never ran and why, which ones work against each other, and what could not be played. Nothing
   in the sandbox reaches a device. See [the
   sandbox](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/sandbox.md).
+- **The Wi-Fi for guests.** Give your Wi-Fi once, and DomoTwin draws the QR code a phone's camera
+  joins it with, in the page; or shows your router's own code. For administrators, and on the wall
+  screens you choose; the password stays in DomoTwin's private storage. See [the Wi-Fi for
+  guests](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/wifi.md).
 - **Automation wires.** Long-press a lamp: its panel lists the automations that involve it, with
   their switch and when they last ran. Show their wires, from what sets them off to what they act
   on, and watch a pulse run along them when one runs. Or every automation of the home at once.

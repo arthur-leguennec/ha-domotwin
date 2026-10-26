@@ -25,9 +25,9 @@ Local, rapide, Rust + WebAssembly.</p>
 > qui disent ce qu’ils font, des meubles qui ont l’air faits, les aspirateurs robots, l’énergie de
 > la maison, la maison de démo, la mesure de la vitesse d’un appareil et la maison pratique (les
 > onglets Accueil, Pièces et 3D) fonctionnent déjà, et forment la version 0.4.0. Depuis, le bac à
-> sable joue une journée des automatisations de la maison sur une copie de celle-ci. Le code QR du
-> Wi-Fi pour les invités vient ensuite, puis la Vue d’ensemble de Home Assistant rejointe plutôt
-> que copiée, vers la version 0.5.0 ; la proposition à la liste par défaut de HACS attend des
+> sable joue une journée des automatisations de la maison sur une copie de celle-ci, et le code QR
+> du Wi-Fi accueille les invités. La Vue d’ensemble de Home Assistant, rejointe plutôt que copiée,
+> vient ensuite, vers la version 0.5.0 ; la proposition à la liste par défaut de HACS attend des
 > mesures sur de vrais appareils.
 
 ## Fonctionnalités
@@ -94,6 +94,11 @@ Local, rapide, Rust + WebAssembly.</p>
   chacune a fait et quand, ce qui ne s’est jamais exécuté et pourquoi, lesquelles se contredisent,
   et ce qui n’a pas pu être joué. Rien dans le bac à sable n’atteint un appareil. Voir [le bac à
   sable](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/sandbox.md) (en anglais).
+- **Le Wi-Fi des invités.** Donnez votre Wi-Fi une fois, et DomoTwin dessine le code QR que
+  l’appareil photo d’un téléphone rejoint, dans la page ; ou montre le code de votre box. Pour les
+  administrateurs, et sur les écrans muraux que vous choisissez ; le mot de passe reste dans le
+  stockage privé de DomoTwin. Voir [le Wi-Fi des
+  invités](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/wifi.md) (en anglais).
 - **Fils des automatisations.** Un appui long sur une lampe : son panneau liste les automatisations
   qui la concernent, avec leur interrupteur et leur dernier lancement. Montrez leurs fils, de ce
   qui les déclenche à ce qu’elles commandent, et voyez une impulsion les parcourir quand l’une se
