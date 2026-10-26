@@ -593,6 +593,78 @@ try {
   );
   console.log("docs/figures/screenshot-layers.png");
 
+  // The demo house (D-050): its morning, the robot out and the sun charging the battery, and
+  // its evening, the lamps on and the family at home.
+  const demoShots = [];
+  for (const [label, minute, options] of [
+    ["Morning: the robot cleans, the sun charges the battery", 9 * 60 + 5, { layer: "power" }],
+    ["Evening: the lamps, the family, the TV", 21 * 60 + 15, {}],
+  ]) {
+    const page = await browser.newPage({ viewport: { width: 1100, height: 760 } });
+    await page.goto("http://127.0.0.1:4173/?mode=panel&plan=none");
+    await page.locator("domotwin-panel").getByTestId("demo-try").click();
+    await page.waitForFunction(() => window.__view?.()?.debugState().summary?.name === "Demo house", null, {
+      timeout: 60_000,
+    });
+    await page.evaluate((minute) => {
+      const demo = window.__element.demo;
+      demo.play(false);
+      demo.jump(minute);
+    }, minute);
+    // The moment's states first: the panel gives the view its own options again when they come.
+    await page.waitForTimeout(500);
+    await page.evaluate(async (options) => {
+      const view = window.__view();
+      view.options = { ...view.options, quality: "high", view: "3d", cutaway: "auto", ...options };
+      await view.updateComplete;
+      // At rest, the robot in the room it cleans, so that the picture is the same every time.
+      view.engine.setMotion(false);
+      view.settle();
+      view.requestFrame();
+    }, options);
+    await page.waitForTimeout(1500);
+    demoShots.push([label, (await page.screenshot()).toString("base64")]);
+    await page.close();
+  }
+  const demoPage = await browser.newPage();
+  const demoImage = await demoPage.evaluate(async (shots) => {
+    const decoded = await Promise.all(
+      shots.map(async ([label, base64]) => {
+        const image = new Image();
+        image.src = `data:image/png;base64,${base64}`;
+        await image.decode();
+        return [label, image];
+      }),
+    );
+    const [w, h] = [decoded[0][1].width, decoded[0][1].height];
+    const canvas = document.createElement("canvas");
+    canvas.width = w * 2 + 30;
+    canvas.height = h + 20;
+    const g = canvas.getContext("2d");
+    g.fillStyle = "#f1f5f9";
+    g.fillRect(0, 0, canvas.width, canvas.height);
+    decoded.forEach(([label, image], i) => {
+      const x = 10 + i * (w + 10);
+      const y = 10;
+      g.drawImage(image, x, y);
+      g.font = "600 22px Inter, sans-serif";
+      const width = g.measureText(label).width + 40;
+      g.fillStyle = "rgba(255,255,255,0.92)";
+      g.beginPath();
+      // Under the demo bar: the energy card is at the bottom.
+      g.roundRect(x + w / 2 - width / 2, y + 112, width, 44, 22);
+      g.fill();
+      g.fillStyle = "#0f172a";
+      g.fillText(label, x + w / 2 - width / 2 + 20, y + 141);
+    });
+    return canvas.toDataURL("image/png");
+  }, demoShots);
+  await fs.writeFile(
+    join(root, "docs", "figures", "screenshot-demo.png"),
+    Buffer.from(demoImage.slice(demoImage.indexOf(",") + 1), "base64"),
+  );
+  console.log("docs/figures/screenshot-demo.png");
+
   // Devices (M5): badges in 3D, and what the living room's camera sees on the 2D plan.
   const deviceShots = [];
   for (const [label, view, script, focus = ""] of [

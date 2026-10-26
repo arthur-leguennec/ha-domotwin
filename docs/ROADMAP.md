@@ -39,6 +39,7 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M16       | Taps that say what they do: bubbles, plain actions, rooms  | ✅     |
 | M15       | Pieces that look made, and a neon of its own               | ✅     |
 | M16b      | Robot vacuums on the floor, the home's energy at a glance  | ✅     |
+| M16c      | The demo house: a home, its automations and its day        | ✅     |
 
 M5 to M11 were added after M3b (`DECISIONS.md`, D-022): what people expect of a 3D home dashboard,
 with no account and no network call outside Home Assistant. M8 became the looks alone, and the
@@ -916,3 +917,29 @@ The first half of the demo house: what it shows, built for every home (D-049):
   settings checked (pytest); a robot cleaning at the layers' pace and resting under reduce motion
   and while arranging, the energy shown, above the room chip on a phone, and chosen
   (Playwright).
+
+## M16c, the demo house
+
+The second half of the demo house: a home to try DomoTwin on (D-050):
+
+- ✅ **The demo house**: a fictional family home of two storeys, thirteen rooms, its furniture,
+  lamps, curtains and appliances, an example plan too.
+- ✅ **Its Home Assistant, in the page**: its entities, areas, people, automations, upkeep cards
+  and energy settings, in English or French; its connection answering DomoTwin's commands from
+  memory; the panel and the card running on it unchanged, nothing reaching the home.
+- ✅ **Its day**: the sun and the panels, the battery and the grid, the family coming and going,
+  the appliances, the robot vacuum cleaning while the house is quiet, the automations acting and
+  their wires pulsing; what the visitor changes kept until the day changes it.
+- ✅ **In the panel and the card**: *Try the demo house* and *Demo house* in the menu, a bar with
+  its time, held or going on, the morning, midday, the evening and the night, and the way out;
+  `demo: true` on a card.
+- ✅ **Kept apart from the home**: Home Assistant's own dialogs and pages kept out, its own
+  clock read by the sheets and the schedules, its drafts its own, what runs on it ended on the
+  way out, answers of the home before dropped.
+- ✅ Tests: the two storeys read, their ids their own, every room reached (cargo, pytest); the
+  sun, the family, the robot, the evening, the battery, the services, the links, the answers in
+  the visitor's language, the visitor's changes kept, actions on the demo's clock and checked as
+  the integration checks them, the automations credited, the day held while away, its drafts
+  forgotten, the client reading the home again (vitest); the demo offered with no plan, living
+  its day, nothing reaching the home, link mode ended on the way out, from the menu in French
+  with its upper floor and back, on a card (Playwright).
