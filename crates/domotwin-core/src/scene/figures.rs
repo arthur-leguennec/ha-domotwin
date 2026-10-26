@@ -19,6 +19,8 @@ pub struct Shape {
 pub const FIGURE_HEIGHT: f32 = 158.0;
 /// Height of a pin's top (cm).
 pub const PIN_HEIGHT: f32 = 170.0;
+/// Height of a robot vacuum's top, its turret's (cm).
+pub const ROBOT_HEIGHT: f32 = 11.5;
 
 /// Sides around a turned shape.
 const AROUND: usize = 20;
@@ -168,6 +170,33 @@ pub fn pin() -> Shape {
     shape
 }
 
+/// A robot vacuum (D-049): a low round body with a rounded edge, a turret on top towards its
+/// back. Facing +x.
+pub fn robot() -> Shape {
+    #[allow(clippy::cast_possible_truncation)]
+    let r = crate::robots::RADIUS as f32;
+    let mut shape = Shape::default();
+    let body = [
+        [0.0, 0.6],
+        [r - 1.5, 0.6],
+        [r, 2.0],
+        [r, 6.5],
+        [r - 1.0, 8.0],
+        [r - 3.0, 8.6],
+        [0.0, 8.8],
+    ];
+    shape.lathe(&body, 1.0, [0.0, 0.0]);
+    let turret = [
+        [0.0, 8.6],
+        [4.2, 8.6],
+        [4.2, 10.8],
+        [3.6, 11.4],
+        [0.0, ROBOT_HEIGHT],
+    ];
+    shape.lathe(&turret, 1.0, [-4.5, 0.0]);
+    shape
+}
+
 /// The shadow on the floor: a disc of radius 1, its rim in the normals' y (0 at the middle, 1
 /// at the rim) for the shader to soften.
 pub fn shadow() -> Shape {
@@ -208,7 +237,11 @@ mod tests {
 
     #[test]
     fn shapes_stand_on_the_floor_and_are_whole() {
-        for (shape, top) in [(figure(), FIGURE_HEIGHT), (pin(), PIN_HEIGHT)] {
+        for (shape, top) in [
+            (figure(), FIGURE_HEIGHT),
+            (pin(), PIN_HEIGHT),
+            (robot(), ROBOT_HEIGHT),
+        ] {
             let (lo, hi) = bounds(&shape);
             assert!(lo[1] >= -0.01, "{lo:?}");
             assert!((hi[1] - top).abs() < 0.5, "{hi:?}");
@@ -228,6 +261,9 @@ mod tests {
         let (lo, hi) = bounds(&figure());
         assert!(hi[2] - lo[2] > (hi[0] - lo[0]) * 1.2);
         assert!(hi[2] > 22.0);
+        // A robot is as wide as it says, its turret at its back.
+        let (lo, hi) = bounds(&robot());
+        assert!((hi[0] - 17.5).abs() < 0.1 && (lo[2] + 17.5).abs() < 0.1);
         let disc = shadow();
         assert_eq!(disc.indices.len(), AROUND * 3);
     }

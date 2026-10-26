@@ -127,6 +127,8 @@ export function fit(element: PlanElementInfo, entityId: string, hass: HomeAssist
     return deviceClass === "curtain" ? 4 : 2;
   }
   if (kind === TV) return domain === "media_player" ? 3 : domain === "switch" || power ? 1 : 0;
+  // A robot vacuum's dock (D-049): its vacuum moves the robot on the floor.
+  if (kind === "robot-vacuum") return domain === "vacuum" ? 3 : 0;
   if (kind === RADIATOR) return domain === "climate" ? 3 : domain === "switch" ? 2 : 0;
   if (APPLIANCE_KINDS.has(kind)) return power || domain === "switch" ? 2 : 0;
   return domain === "switch" || power ? 1 : 0;

@@ -445,6 +445,14 @@ export class DomoTwinEngine {
     this.live.setPeople(json);
   }
 
+  /**
+   * What the robot vacuums do (D-049): JSON `[{"id": "<robot-vacuum piece>", "state"}]`, the
+   * state its vacuum's. A robot-vacuum piece not named rests on its dock.
+   */
+  setRobots(json: string): void {
+    this.live.setRobots(json);
+  }
+
   /** Where the people's names go: JSON `[{"id", "x", "y", "opacity"}]` in device pixels. */
   peoplePoints(): string {
     return this.live.peoplePoints();

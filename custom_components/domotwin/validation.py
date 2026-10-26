@@ -281,11 +281,19 @@ def validate_settings(settings: Any) -> dict[str, Any]:
     """Check the home's settings.
 
     `north`, degrees clockwise from the top of the plan; the look shown by default (`theme`) and
-    its accent colour (`accent`, `#rrggbb`); the private rooms (`rooms`, D-039).
+    its accent colour (`accent`, `#rrggbb`); the private rooms (`rooms`, D-039); where the
+    home's energy is read (`energy`, D-049).
     """
-    if not isinstance(settings, dict) or set(settings) - {"north", "theme", "accent", "rooms"}:
+    if not isinstance(settings, dict) or set(settings) - {
+        "north",
+        "theme",
+        "accent",
+        "rooms",
+        "energy",
+    }:
         raise InvalidPayloadError(
-            "invalid_settings", "settings hold only `north`, `theme`, `accent` and `rooms`"
+            "invalid_settings",
+            "settings hold only `north`, `theme`, `accent`, `rooms` and `energy`",
         )
     north = settings.get("north", 0)
     if not _is_number(north) or not 0 <= north < 360:
@@ -302,6 +310,51 @@ def validate_settings(settings: Any) -> dict[str, Any]:
         checked["accent"] = accent.lower()
     if "rooms" in settings:
         checked["rooms"] = _private_rooms(settings["rooms"])
+    if "energy" in settings:
+        energy = _energy(settings["energy"])
+        if energy:
+            checked["energy"] = energy
+    return checked
+
+
+# The sensors the energy view reads (D-049), and the signs a sensor may count the other way.
+ENERGY_SENSORS = ("solar", "grid", "battery", "battery_level")
+ENERGY_REVERSED = ("grid_reversed", "battery_reversed")
+
+
+def _energy(energy: Any) -> dict[str, Any]:
+    """Where the home's energy is read (D-049).
+
+    `solar`, `grid` and `battery`: sensors of the power from the sun, from the grid (positive:
+    drawn from it) and from the home battery (positive: drawn from it); `battery_level`, its
+    charge; `grid_reversed` and `battery_reversed` when a sensor counts the other way, kept only
+    with their sensor. A sensor left out (or `null`) is not shown.
+    """
+    if not isinstance(energy, dict) or set(energy) - {*ENERGY_SENSORS, *ENERGY_REVERSED}:
+        raise InvalidPayloadError(
+            "invalid_settings",
+            "`energy` holds `solar`, `grid`, `battery`, `battery_level`, `grid_reversed` and "
+            "`battery_reversed`",
+        )
+    checked: dict[str, Any] = {}
+    for key in ENERGY_SENSORS:
+        sensor = energy.get(key)
+        if sensor is None:
+            continue
+        if (
+            not isinstance(sensor, str)
+            or not sensor.startswith("sensor.")
+            or not valid_entity_id(sensor)
+        ):
+            raise InvalidPayloadError("invalid_settings", f"`energy.{key}` must be a sensor")
+        checked[key] = sensor
+    for key in ENERGY_REVERSED:
+        if key not in energy:
+            continue
+        if not isinstance(energy[key], bool):
+            raise InvalidPayloadError("invalid_settings", f"`energy.{key}` must be true or false")
+        if energy[key] and key.removesuffix("_reversed") in checked:
+            checked[key] = True
     return checked
 
 

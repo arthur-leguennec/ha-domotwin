@@ -5,6 +5,7 @@ import { readSchedules, type Schedule } from "../live/schedules";
 import type { ShowRequest } from "../live/show";
 import type { Upkeep, UpkeepCard } from "../live/upkeep";
 import type { HassConnection, HassMessage, HomeAssistant } from "./types";
+import type { EnergySettings } from "../live/energy";
 
 export type PlanJson = Record<string, unknown> & { name?: unknown; items?: unknown };
 
@@ -64,6 +65,8 @@ export interface Settings {
   accent?: string;
   /** The private rooms, by room id (D-039). */
   rooms?: Record<string, PrivateRoom>;
+  /** Where the home's energy is read (D-049). */
+  energy?: EnergySettings;
 }
 
 export interface StoredSettings {

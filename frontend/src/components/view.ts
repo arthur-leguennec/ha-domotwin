@@ -136,6 +136,9 @@ import {
   type PeopleSettings,
   type PersonShown,
 } from "../live/people";
+import { robotDocks, robotsShown, type RobotDock } from "../live/robots";
+import { energyFlows, energyNow, type EnergyNow, type EnergySettings } from "../live/energy";
+import { energyFlow, energyStyles } from "./energy-flow";
 import { locatedSensors, locatedShown, type LocatedShown } from "../live/locating";
 import { outOfSight, privateRooms } from "../live/privacy";
 import { avatar, avatarStyles } from "./person-avatar";
@@ -346,6 +349,8 @@ const PICTURE_WIDTH = 280;
 const PICTURE_HEIGHT = 180;
 /** The narrowest view (CSS pixels) that shows them beside the home. */
 const PICTURES_MIN_WIDTH = 560;
+/** Under this width (CSS pixels) the energy legend stands above the room chip (D-049). */
+const NARROW_WIDTH = 480;
 /** Room kept on the right of a storey's label for itself and the toolbar (CSS pixels). */
 const STOREY_LABEL_ROOM = 250;
 /** About half the width and the height (with its gap) of a label over a storey (CSS pixels). */
@@ -476,6 +481,8 @@ export interface DebugState {
   stats?: SceneStats;
   /** The open panel: `controls:<entities>` or `room:<area>`. */
   sheet?: string;
+  /** What the engine was told the robot vacuums do (D-049), as JSON. */
+  robots?: string;
   /** Edit mode, when on. */
   edit?: { selection: string[]; conflicts: string[]; guides: number; dirty: boolean };
   /** The plan editor, when on: its tool, the element selected, its corners, unsaved changes. */
@@ -540,6 +547,7 @@ export class DomoTwinView extends LitElement {
     privateRooms: { attribute: false },
     homeTheme: { attribute: false },
     homeAccent: { attribute: false },
+    energy: { attribute: false },
     look: { reflect: true },
     storeys: { attribute: false },
     storey: { attribute: false },
@@ -629,6 +637,8 @@ export class DomoTwinView extends LitElement {
   /** The home's look and accent (its settings), for views whose options do not choose one. */
   homeTheme?: ThemeMode;
   homeAccent?: string;
+  /** Where the home's energy is read (its settings, D-049): shown with the power layer. */
+  energy?: EnergySettings;
   /** The look shown (D-027), on the element as an attribute for the overlays' colours. */
   look: LookName = "day";
   /**
@@ -797,6 +807,14 @@ export class DomoTwinView extends LitElement {
   private personPointsText = "[]";
   /** What the engine was last told of the people, and which engine. */
   private peopleSent?: { engine: DomoTwinEngine; json: string };
+  /** What the engine was last told of the robot vacuums (D-049), and which engine. */
+  private robotsSent?: { engine: DomoTwinEngine; json: string };
+  /** The docks and their vacuums, for the links and the pieces they were read from. */
+  private docks?: {
+    bindings: BindingsJson | undefined;
+    kinds: Record<string, string>;
+    docks: RobotDock[];
+  };
   private upkeepModule?: Promise<unknown>;
 
   private engine?: DomoTwinEngine;
@@ -891,6 +909,7 @@ export class DomoTwinView extends LitElement {
     lookStyles,
     avatarStyles,
     roomBarStyles,
+    energyStyles,
     css`
       :host {
         position: relative;
@@ -1164,6 +1183,9 @@ export class DomoTwinView extends LitElement {
         gap: 4px;
         font-size: 0.75rem;
       }
+      .legend.with-energy {
+        width: 220px;
+      }
       .legend .bar {
         height: 8px;
         border-radius: 4px;
@@ -1178,6 +1200,16 @@ export class DomoTwinView extends LitElement {
       }
       :host([legend]) .chip {
         max-width: calc(100% - 216px);
+      }
+      :host([legend="energy"]) .chip {
+        max-width: calc(100% - 268px);
+      }
+      /* A narrow view: the energy legend above the chip, which keeps the whole width. */
+      :host([narrow][legend="energy"]) .chip {
+        max-width: calc(100% - 24px);
+      }
+      :host([narrow]) .legend.with-energy {
+        bottom: 76px;
       }
       .labels {
         position: absolute;
@@ -1828,8 +1860,13 @@ export class DomoTwinView extends LitElement {
     ) {
       this.readPeople();
     }
-    // The room chip leaves room for the legend (`renderLegend`).
-    this.toggleAttribute("legend", this.valueLayer && !this.editingAny);
+    // The room chip leaves room for the legend (`renderLegend`), wider with the energy.
+    if (this.valueLayer && !this.editingAny) {
+      const energy = this.layer === "power" && this.energyShown() !== undefined;
+      this.setAttribute("legend", energy ? "energy" : "");
+    } else {
+      this.removeAttribute("legend");
+    }
     if (
       changed.has("hass") ||
       changed.has("options") ||
@@ -1884,6 +1921,7 @@ export class DomoTwinView extends LitElement {
     }
     if (changed.has("north") || own.has("realSun") || changed.has("hass")) this.applySun();
     this.applyPeople();
+    this.applyRobots();
     if (
       changed.has("hass") ||
       changed.has("bindings") ||
@@ -1938,6 +1976,7 @@ export class DomoTwinView extends LitElement {
     if (this.sunKey) state.sun = this.sunKey;
     state.layer = this.layer;
     if (this.layersKey) state.layers = this.layersKey;
+    if (this.robotsSent) state.robots = this.robotsSent.json;
     state.alerts = this.alerts.map((alert) =>
       alert.storey ? `${alert.storey}:${alert.room}` : alert.room,
     );
@@ -2980,6 +3019,7 @@ export class DomoTwinView extends LitElement {
   }
 
   private resize(stage: HTMLElement): void {
+    this.toggleAttribute("narrow", stage.clientWidth < NARROW_WIDTH);
     if (!this.canvas) return;
     const ratio = Math.min(window.devicePixelRatio || 1, MAX_PIXEL_RATIO) * this.resolution;
     const width = Math.max(1, Math.round(stage.clientWidth * ratio));
@@ -3218,6 +3258,28 @@ export class DomoTwinView extends LitElement {
       this.locatedText = locatedText;
       this.located = located;
     }
+  }
+
+  /** Tells the engine what the robot vacuums do (D-049), when that or the engine changed. */
+  private applyRobots(): void {
+    const engine = this.engine;
+    if (!engine) return;
+    let docks = this.docks;
+    if (docks?.bindings !== this.bindings || docks?.kinds !== this.kinds) {
+      docks = {
+        bindings: this.bindings,
+        kinds: this.kinds,
+        docks: robotDocks(this.bindings, this.kinds),
+      };
+      this.docks = docks;
+    }
+    // At rest on their docks while the plan, its pieces or its links are edited.
+    const shown = this.editingAny || this.linking ? [] : robotsShown(this.hass, docks.docks);
+    const json = JSON.stringify(shown);
+    if (this.robotsSent?.engine === engine && this.robotsSent.json === json) return;
+    this.robotsSent = { engine, json };
+    engine.setRobots(json);
+    this.redraw();
   }
 
   /** Tells the engine who is in which room, when that or the engine changed. */
@@ -5087,6 +5149,13 @@ export class DomoTwinView extends LitElement {
     </div>`;
   }
 
+  /** What the home's energy sensors say now, when one says something (D-049). */
+  private energyShown(): EnergyNow | undefined {
+    if (!this.hass || !this.energy) return undefined;
+    const now = energyNow(this.hass, this.energy);
+    return Object.keys(now).length > 0 ? now : undefined;
+  }
+
   /** The legend of the layer shown: its colours from end to end, or why it shows nothing. */
   private renderLegend(): TemplateResult | typeof nothing {
     const t = this.translator;
@@ -5095,7 +5164,15 @@ export class DomoTwinView extends LitElement {
     const name = t.t(`layers.${layer}`);
     if (layer === "power") {
       const gradient = `linear-gradient(to right, ${POWER_GRADIENT.join(", ")})`;
-      return html`<div class="legend glass" data-testid="legend" role="note">
+      // The home's energy above the power of its pieces, when its sensors say something.
+      const energy = this.energyShown();
+      const flow = energy ? energyFlow(t, energy, energyFlows(energy)) : nothing;
+      return html`<div
+        class="legend glass ${flow === nothing ? "" : "with-energy"}"
+        data-testid="legend"
+        role="note"
+      >
+        ${flow}
         <span class="name">${name}</span>
         <div class="bar" style="background:${gradient}"></div>
         <div class="ends"><span>3 W</span><span>3 kW</span></div>

@@ -469,6 +469,8 @@ impl Engine {
             .collect();
         spots.extend(lights);
         self.renderer.set_spots(&spots);
+        // A dock dragged takes its robot with it.
+        self.place_robots(false);
     }
 
     /// Marks the selected pieces and those in conflict.

@@ -75,6 +75,10 @@ export interface HarnessOptions {
   upkeep?: boolean;
   /** People in their rooms (D-034): fictional ones (`true`), or an integration without them. */
   people?: boolean;
+  /** A robot vacuum's dock in the hall, linked to `vacuum.robbie` (D-049). */
+  robot?: boolean;
+  /** Fictional solar panels, meter and battery, named in the stored settings (D-049). */
+  energy?: boolean;
   peopleShown?: "everyone" | "admins";
   peopleLook?: "figure" | "pin";
   /** Bluetooth locating (D-035): fictional receivers and devices, or no Bluetooth at all. */
@@ -123,6 +127,8 @@ export async function openHarness(page: Page, options: HarnessOptions = {}): Pro
   if (options.zha) params.set("zha", "1");
   if (options.upkeep !== undefined) params.set("upkeep", options.upkeep ? "1" : "0");
   if (options.people !== undefined) params.set("people", options.people ? "1" : "0");
+  if (options.robot) params.set("robot", "1");
+  if (options.energy) params.set("energy", "1");
   if (options.peopleShown) params.set("peopleshown", options.peopleShown);
   if (options.peopleLook) params.set("peoplelook", options.peopleLook);
   if (options.bluetooth) params.set("bluetooth", options.bluetooth === true ? "1" : "none");

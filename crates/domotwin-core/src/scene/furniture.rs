@@ -916,6 +916,36 @@ fn draw(m: &mut Model<'_>, f: &Furniture) {
             );
         }
         Kind::Printer3d => printer3d(m, variant),
+        Kind::RobotVacuum => {
+            // Its dock against the wall, and the ramp it climbs onto; the robot itself is drawn
+            // moving (D-049).
+            let tower = (d * 0.25).clamp(6.0, 14.0);
+            m.soft(
+                Material::satin(c),
+                [-w * 0.45, 0.0, -d / 2.0],
+                [w * 0.45, h, -d / 2.0 + tower],
+                2.0,
+            );
+            m.soft(
+                Material::satin(shade(c, 0.86)),
+                [-w * 0.42, 0.0, -d / 2.0 + tower - 1.0],
+                [w * 0.42, 0.8, d / 2.0 - 2.0],
+                0.25,
+            );
+            // Its light, and its two contacts.
+            m.bx(
+                Material::new(Rgb8::from_u32(0x7fd3ff), 0.2, Surface::Screen),
+                [-1.5, h * 0.62, -d / 2.0 + tower],
+                [1.5, h * 0.62 + 1.2, -d / 2.0 + tower + 0.4],
+            );
+            for sx in [-1.0, 1.0] {
+                m.bx(
+                    Material::metal(CHROME),
+                    [sx * w * 0.12 - 2.0, 0.8, -d / 2.0 + tower + 1.0],
+                    [sx * w * 0.12 + 2.0, 1.1, -d / 2.0 + tower + 5.0],
+                );
+            }
+        }
         Kind::Box => {
             // A piece drawn from a 3D file once its mesh came; a box until then.
             let drawn = match m.file.take() {
