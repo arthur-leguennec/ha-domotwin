@@ -10,6 +10,7 @@ import {
   mdiLockOutline,
   mdiMicrophoneMessage,
   mdiPencilOutline,
+  mdiSpeedometer,
   mdiStairs,
   mdiTrayArrowDown,
   mdiTrayArrowUp,
@@ -94,6 +95,7 @@ import { translatorFor, type Translator } from "../i18n";
 import { documentFonts } from "../fonts";
 import { icon } from "./icon";
 import { DemoSwitch } from "./demo-switch";
+import type { MeasureHost } from "./measure";
 import { DialogFocus } from "./dialog";
 import { focusBack, focusMenu, menuKeydown } from "./menu";
 import { baseStyles, lookStyles } from "./styles";
@@ -242,6 +244,7 @@ const PANEL_DIALOGS = [
   "domotwin-link",
   "domotwin-catalogue",
   "domotwin-model-import",
+  "domotwin-measure",
 ]
   .map((dialog) => `.body > ${dialog}`)
   .join(", ");
@@ -304,6 +307,8 @@ export class DomoTwinPanel extends LitElement {
     storeyRemoveAsk: { state: true },
     planNew: { state: true },
     planReserved: { state: true },
+    measureOpen: { state: true },
+    measureLook: { state: true },
   };
 
   narrow = false;
@@ -446,6 +451,62 @@ export class DomoTwinPanel extends LitElement {
   private toastTimer?: number;
   /** The demo house shown instead of the home (D-050). */
   private readonly demoSwitch = new DemoSwitch(this);
+  /** When the panel was opened (`performance.now()`), for the measure's first picture (D-053). */
+  private openedAt?: number;
+  /** The measure of this device is open (D-053), and the look it draws meanwhile. */
+  protected measureOpen = false;
+  protected measureLook?: LookName;
+  /** What the measure is lent of the panel. */
+  private readonly measureHost: MeasureHost = {
+    view: () => this.view,
+    // Held by the measure already: nothing else may run on the home meanwhile.
+    openDemo: async () => {
+      if (!this.demo) {
+        await this.demoSwitch.start(
+          () => !this.importChoice && !this.editing && !this.planning && !this.linking,
+        );
+      }
+      return this.demo;
+    },
+    oneStorey: async () => {
+      // Its ground floor alone, as every device draws it; the storey shown before, after.
+      const before = { showAll: this.showAll, storey: this.storey };
+      this.showAll = false;
+      this.storey = undefined;
+      await this.loadPlan();
+      return async () => {
+        // On the demo house still, when it showed another storey or all of them.
+        if (!this.demo || (!before.showAll && before.storey === this.storey)) return;
+        this.showAll = before.showAll;
+        this.storey = before.storey;
+        await this.loadPlan();
+      };
+    },
+    setLook: async (look) => {
+      this.measureLook = look;
+      await this.updateComplete;
+    },
+    look: () => this.look,
+    hold: (held) => {
+      if (held && this.busy) return false;
+      this.busy = held;
+      return true;
+    },
+    firstPictureMs: () => {
+      const drawn = this.view?.firstPictureAt;
+      // The home's plan drawn as the panel opened, the page shown meanwhile.
+      return drawn !== undefined && this.openedAt !== undefined && this.firstPlan === true
+        ? drawn - this.openedAt
+        : undefined;
+    },
+  };
+  /** Whether the home had a plan when the panel opened, the page shown until it was drawn. */
+  private firstPlan?: boolean;
+  private readonly onPageHidden = (): void => {
+    if (document.visibilityState !== "visible" && this.view?.firstPictureAt === undefined) {
+      this.firstPlan = false;
+    }
+  };
 
   static override styles = [
     baseStyles,
@@ -839,6 +900,11 @@ export class DomoTwinPanel extends LitElement {
 
   override connectedCallback(): void {
     super.connectedCallback();
+    if (this.openedAt === undefined) {
+      this.openedAt = performance.now();
+      if (document.visibilityState !== "visible") this.firstPlan = false;
+    }
+    document.addEventListener("visibilitychange", this.onPageHidden);
     if (this._hass) this.connectData();
     window.addEventListener("pointerdown", this.closeMore, true);
     this.addEventListener("keydown", this.onEscape);
@@ -857,6 +923,7 @@ export class DomoTwinPanel extends LitElement {
     super.disconnectedCallback();
     window.removeEventListener("pointerdown", this.closeMore, true);
     this.removeEventListener("keydown", this.onEscape);
+    document.removeEventListener("visibilitychange", this.onPageHidden);
     this.sizeObserver?.disconnect();
     this.sizeObserver = undefined;
     documentFonts()?.removeEventListener("loadingdone", this.onFonts);
@@ -1196,6 +1263,8 @@ export class DomoTwinPanel extends LitElement {
         this.show(this.t.t("edit.changed_elsewhere"), true);
       }
       this.plan = stored.plan;
+      // The first picture measured is of a plan there as the panel opened (D-053).
+      if (!this.demo) this.firstPlan ??= stored.plan !== null;
       this.layout = stored.layout;
       this.storeys = stored.storeys;
       this.storey = stored.storey ?? undefined;
@@ -1208,6 +1277,7 @@ export class DomoTwinPanel extends LitElement {
       // A later load's, or another home's (the demo house, D-050), is not this one's.
       if (ticket !== this.loads) return;
       this.planError = isHassError(error) ? error.code : "unknown";
+      this.firstPlan ??= false;
     }
   }
 
@@ -2256,6 +2326,8 @@ export class DomoTwinPanel extends LitElement {
 
   /** The home's look (as being chosen, while the settings are open). */
   private homeLook(): { theme?: ThemeMode; accent?: string } {
+    // Measuring (D-053), each look with its own accent.
+    if (this.measureLook) return { theme: this.measureLook };
     const draft = this.northDraft !== undefined ? this.lookDraft : undefined;
     // While the settings are open, the draft says it all: no accent in it is the look's own.
     if (draft) return { theme: draft.theme, accent: draft.accent };
@@ -2432,6 +2504,17 @@ export class DomoTwinPanel extends LitElement {
             : this.planning
               ? this.renderPlanTools()
               : this.renderSheets()
+        }
+        ${
+          this.measureOpen
+            ? html`<domotwin-measure
+                .hass=${this._hass}
+                .host=${this.measureHost}
+                @domotwin-close=${() => {
+                  this.measureOpen = false;
+                }}
+              ></domotwin-measure>`
+            : nothing
         }
         <div role="status" data-testid="announcer">
           ${this.toast && !this.toast.error ? this.renderToast() : nothing}
@@ -2621,6 +2704,7 @@ export class DomoTwinPanel extends LitElement {
               )}
               ${item("privacy-settings", mdiLockOutline, t.t("privacy.title"), this.busy, this.openPrivacy)}
               ${item("voice-settings", mdiMicrophoneMessage, t.t("voice.settings"), this.busy, this.openVoice)}
+              ${item("measure", mdiSpeedometer, t.t("measure.menu"), this.busy || this.measureOpen, this.openMeasure)}
               <hr />
               ${
                 this.demo
@@ -2632,6 +2716,16 @@ export class DomoTwinPanel extends LitElement {
       }
     </div>`;
   }
+
+  /** Opens the measure of this device (D-053): its module, loaded the first time. */
+  private readonly openMeasure = async (): Promise<void> => {
+    try {
+      await import("./measure");
+      this.measureOpen = true;
+    } catch (error) {
+      this.show(this.describe(error), true);
+    }
+  };
 
   /** Opens the voice settings (D-041): their module, loaded the first time. */
   private readonly openVoice = async (): Promise<void> => {

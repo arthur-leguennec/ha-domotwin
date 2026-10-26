@@ -37,7 +37,8 @@ export class DomoTwinDemoBar extends LitElement {
   home?: DemoHome;
   /** Offers the way out (the panel; a card set to the demo stays on it). */
   leave = false;
-  /** The way out held while something runs on the demo house (an import being read). */
+  /** Its time and its way out held while something runs on the demo house (an import being read,
+   * a measure of the device, D-053). */
   held = false;
   private unwatch?: () => void;
 
@@ -163,6 +164,7 @@ export class DomoTwinDemoBar extends LitElement {
         <button
           class="round"
           data-testid="demo-play"
+          ?disabled=${this.held}
           aria-pressed=${playing ? "true" : "false"}
           aria-label=${t.t(playing ? "demo.pause" : "demo.play")}
           title=${t.t(playing ? "demo.pause" : "demo.play")}
@@ -178,6 +180,7 @@ export class DomoTwinDemoBar extends LitElement {
           ([name, minute]) =>
             html`<button
               data-testid=${`demo-${name}`}
+              ?disabled=${this.held}
               @click=${() => {
                 home.jump(minute);
               }}

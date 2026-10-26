@@ -21,6 +21,8 @@ export class FrameScheduler {
   private wanted = false;
   private onScreen = true;
   private pageVisible = true;
+  /** Someone else draws the frames meanwhile (a measure, D-053). */
+  private held = false;
   private interval = 0;
   /** When the next capped frame is due. */
   private due = Number.NEGATIVE_INFINITY;
@@ -46,6 +48,12 @@ export class FrameScheduler {
     this.update();
   }
 
+  /** Holds the frames while someone else draws them (a measure, D-053), and lets them go. */
+  setHeld(held: boolean): void {
+    this.held = held;
+    this.update();
+  }
+
   /** Whether the page is visible (`document.visibilityState`). */
   setPageVisible(visible: boolean): void {
     this.pageVisible = visible;
@@ -67,7 +75,7 @@ export class FrameScheduler {
   }
 
   get paused(): boolean {
-    return !this.onScreen || !this.pageVisible;
+    return !this.onScreen || !this.pageVisible || this.held;
   }
 
   dispose(): void {

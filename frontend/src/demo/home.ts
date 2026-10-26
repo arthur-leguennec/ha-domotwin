@@ -91,6 +91,18 @@ export interface DemoVisitor {
 }
 
 /** A websocket error, as Home Assistant gives one: a code, and words. */
+/** The house at a moment, to put back as it was (after a measure, D-053). */
+export interface DemoSnapshot {
+  minute: number;
+  day: number;
+  playing: boolean;
+  battery: number;
+  robotBattery: number;
+  states: Record<string, HassEntity>;
+  said: [string, string][];
+  since: [string, number][];
+}
+
 export class DemoError extends Error {
   constructor(
     readonly code: string,
@@ -305,6 +317,36 @@ export class DemoHome {
     this.play(false);
     this.listeners.clear();
     this.clockListeners.clear();
+  }
+
+  /** The house now: its moment, its clock and everything in it as it is. */
+  snapshot(): DemoSnapshot {
+    return {
+      minute: this.minute,
+      day: this.day,
+      playing: this.playing,
+      battery: this.battery,
+      robotBattery: this.robotBattery,
+      states: structuredClone(this.states),
+      said: [...this.said],
+      since: [...this.since],
+    };
+  }
+
+  /** Puts the house back as `snapshot` had it: what the visitor changed with it. */
+  restore(snapshot: DemoSnapshot): void {
+    this.minute = snapshot.minute;
+    this.day = snapshot.day;
+    this.battery = snapshot.battery;
+    this.robotBattery = snapshot.robotBattery;
+    // The house's entities never change: their states are put back.
+    Object.assign(this.states, structuredClone(snapshot.states));
+    this.said.clear();
+    for (const [id, said] of snapshot.said) this.said.set(id, said);
+    this.since.clear();
+    for (const [id, since] of snapshot.since) this.since.set(id, since);
+    this.publish();
+    this.play(snapshot.playing);
   }
 
   /** Goes to `minute` of the day (the next day when it is earlier): the house as it is then. */

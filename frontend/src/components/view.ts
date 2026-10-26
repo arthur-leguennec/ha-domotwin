@@ -447,6 +447,21 @@ export function planCommandFor(event: KeyboardEvent): PlanCommand | undefined {
   return undefined;
 }
 
+/** The next frame's time (`requestAnimationFrame`). */
+export function nextFrame(): Promise<number> {
+  return new Promise<number>((resolve) => requestAnimationFrame(resolve));
+}
+
+/** A run of `benchmark()` that lasts a time (the "Measure performance" button, D-053). */
+export interface BenchmarkRun {
+  /** How long it runs (ms). */
+  ms: number;
+  /** The camera turns around the home meanwhile (radians a second). */
+  turn?: number;
+  /** Called before each frame with how far the run is (0–1). */
+  step?: (fraction: number) => void;
+}
+
 /** Frame timings measured by `benchmark()` (frame-time smoke test). */
 export interface FrameStats {
   frames: number;
@@ -455,6 +470,8 @@ export interface FrameStats {
   cpuP95Ms: number;
   intervalMedianMs: number;
   intervalP95Ms: number;
+  /** The page was hidden during the run: its intervals mean nothing. */
+  interrupted?: boolean;
 }
 
 /** What `debugState()` reports. */
@@ -658,6 +675,8 @@ export class DomoTwinView extends LitElement {
 
   protected engineState: EngineState = "idle";
   protected summary?: PlanSummary;
+  /** When the home's first picture was drawn (`performance.now()`), for the measure (D-053). */
+  firstPictureAt?: number;
   protected loadError?: EngineError;
   protected planView = false;
   protected savedViews: SavedView[] = [];
@@ -2307,17 +2326,22 @@ export class DomoTwinView extends LitElement {
     if (!this.idleNow) {
       this.idleNow = true;
       if (idle > 0) this.goBack();
-      if (orbit && !this.planView) this.engine.setAutoOrbit(ORBIT_SPEED);
+      this.engine.setAutoOrbit(this.kioskTurn());
       this.redraw();
     }
     const dimmed = dim && this.isNight() && this.alerts.length === 0;
     if (dimmed !== this.dimmed) {
       this.dimmed = dimmed;
-      // No turn in the dark.
-      this.engine.setAutoOrbit(!dimmed && orbit && !this.planView ? ORBIT_SPEED : 0);
+      this.engine.setAutoOrbit(this.kioskTurn());
       this.redraw();
     }
   };
+
+  /** The kiosk's slow turn now (radians a second): idle, chosen, not in the dark, not in 2D. */
+  private kioskTurn(): number {
+    const orbit = this.options.orbit === true && !this.motionQuery?.matches;
+    return this.idleNow && !this.dimmed && orbit && !this.planView ? ORBIT_SPEED : 0;
+  }
 
   /** The kiosk: back to the view it opened on (2D or 3D, its room), the panels closed. */
   private goBack(): void {
@@ -2780,21 +2804,81 @@ export class DomoTwinView extends LitElement {
     this.readOverlays(engine);
   }
 
-  /** Forces `frames` consecutive frames and measures them (frame-time smoke test). */
-  async benchmark(frames = 120): Promise<FrameStats> {
+  /** The GPU drawing the view, as WebGL names it (the measure, D-053), when it says. */
+  renderer(): string | undefined {
+    return this.engine?.renderer;
+  }
+
+  /**
+   * Whether the view draws the demo house in `look`, one storey of it (the measure, D-053):
+   * `failed` when it cannot draw at all.
+   */
+  readyFor(look: string): "ready" | "waiting" | "failed" {
+    if (this.engineState === "failed" || this.engineState === "unsupported") return "failed";
+    const ready =
+      this.engineState === "ready" &&
+      this.summary !== undefined &&
+      this.loadedHome === undefined &&
+      this.hass?.demo === true &&
+      (this.lookKey ?? this.look).startsWith(look);
+    return ready ? "ready" : "waiting";
+  }
+
+  /**
+   * Forces consecutive frames and measures them: `length` frames of the engine alone (the
+   * frame-time smoke test), or for a time as a frame is drawn in use, its labels and badges read
+   * and its resolution adapted, the camera turning or something changing at each frame (D-053).
+   * The view draws no frame of its own meanwhile. A run during which the page was hidden says
+   * so (`interrupted`): its intervals mean nothing.
+   */
+  async benchmark(length: number | BenchmarkRun = 120): Promise<FrameStats> {
     const engine = this.engine;
     if (!engine) throw new Error("engine not ready");
+    const run = typeof length === "number" ? undefined : length;
+    const count = typeof length === "number" ? length : Number.POSITIVE_INFINITY;
     const cpu: number[] = [];
     const intervals: number[] = [];
+    let first: number | undefined;
     let last: number | undefined;
-    for (let i = 0; i < frames; i += 1) {
-      const time = await new Promise<number>((resolve) => requestAnimationFrame(resolve));
-      if (last !== undefined) intervals.push(time - last);
-      last = time;
-      engine.invalidate();
-      const start = performance.now();
-      engine.frame(time);
-      cpu.push(performance.now() - start);
+    let frames = 0;
+    let interrupted = document.visibilityState !== "visible";
+    const onVisibility = (): void => {
+      if (document.visibilityState !== "visible") interrupted = true;
+    };
+    try {
+      document.addEventListener("visibilitychange", onVisibility);
+      this.scheduler?.setHeld(true);
+      if (run?.turn) engine.setAutoOrbit(run.turn);
+      for (;;) {
+        const time = await nextFrame();
+        // The view left the page, or its engine was lost meanwhile.
+        if (this.engine !== engine) throw new Error("engine lost");
+        first ??= time;
+        if (run ? time - first >= run.ms : frames >= count) break;
+        if (last !== undefined) intervals.push(time - last);
+        last = time;
+        run?.step?.((time - first) / run.ms);
+        engine.invalidate();
+        const start = performance.now();
+        engine.frame(time);
+        const cost = performance.now() - start;
+        if (run && (run.turn !== undefined || this.labelsDue || engine.moving)) {
+          // As in use: the labels and badges read when the camera moves or something changed.
+          this.labelsDue = false;
+          this.readOverlays(engine);
+        }
+        cpu.push(run ? performance.now() - start : cost);
+        // As in use, the resolution follows what frames cost.
+        if (run) this.adaptResolution(time, cost, true);
+        frames += 1;
+      }
+    } finally {
+      document.removeEventListener("visibilitychange", onVisibility);
+      this.scheduler?.setHeld(false);
+      // The kiosk's own turn again, if it was turning.
+      if (run?.turn && this.engine === engine) engine.setAutoOrbit(this.kioskTurn());
+      // The labels and badges where the camera now is, the view's own frames again.
+      this.redraw();
     }
     return {
       frames,
@@ -2803,7 +2887,15 @@ export class DomoTwinView extends LitElement {
       cpuP95Ms: percentile(cpu, 95),
       intervalMedianMs: percentile(intervals, 50),
       intervalP95Ms: percentile(intervals, 95),
+      ...(interrupted ? { interrupted } : {}),
     };
+  }
+
+  /** The home as a measure starts from it (D-053): in 3D, not walking, framed whole. */
+  restView(): void {
+    if (this.walking) this.setWalk(false);
+    this.setPlanView(false);
+    this.overview();
   }
 
   private async startEngine(): Promise<void> {
@@ -2995,6 +3087,10 @@ export class DomoTwinView extends LitElement {
     const start = performance.now();
     const more = engine.frame(time);
     const cost = performance.now() - start;
+    // The home's first picture (not the demo house's), for the measure (D-053).
+    if (this.firstPictureAt === undefined && this.summary && this.hass && !this.hass.demo) {
+      this.firstPictureAt = performance.now();
+    }
     const movingAfter = engine.moving;
     // The values and badges move with the camera (the kiosk's turn too), or change: not with
     // the layers' own animation.
@@ -3010,9 +3106,18 @@ export class DomoTwinView extends LitElement {
     this.scheduler?.setMinInterval(
       more && (engine.layersAnimating || engine.orbiting) && !engine.moving ? slow : 0,
     );
+    this.adaptResolution(time, cost, more);
+    return more;
+  }
+
+  /**
+   * The drawing buffer's scale follows what frames cost: lower while they are slow, back up when
+   * they are fast. Only animations tell: a single frame after an idle period is not
+   * representative.
+   */
+  private adaptResolution(time: number, cost: number, animating: boolean): void {
     this.frameCost = this.frameCost === 0 ? cost : this.frameCost * 0.8 + cost * 0.2;
-    // Only animations tell: a single frame after an idle period is not representative.
-    if (more && time - this.lastResolutionChange > 600 && this.stage) {
+    if (animating && time - this.lastResolutionChange > 600 && this.stage) {
       const slow = this.frameCost > SLOW_FRAME_MS && this.resolution > MIN_RESOLUTION;
       const fast = this.frameCost < FAST_FRAME_MS && this.resolution < 1;
       if (slow || fast) {
@@ -3023,7 +3128,6 @@ export class DomoTwinView extends LitElement {
         this.resize(this.stage);
       }
     }
-    return more;
   }
 
   private resize(stage: HTMLElement): void {
