@@ -1929,3 +1929,292 @@ M23, the first milestone of D-054.
   - In the panel, a tap on a room no longer frames it with its chip (the card's still does): the
     room's own actions are on its page in *Rooms*.
   - What was begun for the former M23 with DomoTwin's own rooms page is not kept; its glance is.
+
+## D-056 · Into Home Assistant's Overview, and ten ideas after 0.4.0 (amends D-054, D-055)
+
+After M23, before 0.4.0: a plan only, nothing built now; 0.4.0 and its two weeks of use stay as
+D-054 planned them.
+
+- **Context.** Home Assistant now opens on an Overview of its own, which shows much of what the
+  Home and Rooms tabs of M23 show. The maintainer asked for M23 to plug into it rather than copy
+  it, if it has what it was said to have, and for ten new milestones, each with what exists
+  already, what would be new, and whether a custom integration can do it or it needs Home
+  Assistant itself. Checked in Home Assistant's frontend at the versions its releases pin
+  (2026.1.0: 20260107.0; 2026.2.0: 20260128.6; 2026.10.0: 20260930.2), its core on `dev`, its
+  release notes, the HACS default lists, GitHub and the community forum, in October 2026.
+- **The Overview, checked.**
+  - **The page Home Assistant opens on** since 2026.2, for new installs: "The Home Dashboard is
+    now Overview as it becomes the official default standard"
+    ([2026.2](https://www.home-assistant.io/blog/2026/02/04/release-20262/#a-new-way-to-view-your-home);
+    `DEFAULT_PANEL = "home"` in
+    [`src/data/panel.ts`](https://github.com/home-assistant/frontend/blob/20260128.6/src/data/panel.ts#L16-L19),
+    `"lovelace"` in
+    [2026.1](https://github.com/home-assistant/frontend/blob/20260107.0/src/data/panel.ts#L16)). An
+    install whose old Overview was edited keeps it as its first page
+    ([core's migration](https://github.com/home-assistant/core/blob/2026.2.0/homeassistant/components/lovelace/__init__.py#L389-L469)).
+  - **Summaries**: the lights, the climate, security, media players, the weather and energy, each
+    shown when the home has them: "summary cards (like lights, climate, security, media players,
+    weather, and energy)" ([2026.1](https://www.home-assistant.io/blog/2026/01/07/release-20261/);
+    [`home-overview-view-strategy.ts`](https://github.com/home-assistant/frontend/blob/20260107.0/src/panels/lovelace/strategies/home/home-overview-view-strategy.ts#L199-L367)).
+    Maintenance and shortcuts came in 2026.5
+    ([`home_shortcuts.ts`](https://github.com/home-assistant/frontend/blob/20260930.2/src/data/home_shortcuts.ts)).
+  - **Favourites**: chosen by an administrator in *Edit Overview*, the same for every user (the
+    frontend's system data, `home.favorite_entities`, written by an administrator only), shown as
+    tile cards with suggestions
+    ([`dialog-edit-home.ts`](https://github.com/home-assistant/frontend/blob/20260930.2/src/panels/home/dialogs/dialog-edit-home.ts#L104-L172),
+    [`frontend.ts`](https://github.com/home-assistant/frontend/blob/20260930.2/src/data/frontend.ts#L34-L52)).
+  - **A page for each area**, at `/home/areas-<area_id>`, by floor
+    ([`home-dashboard-strategy.ts`](https://github.com/home-assistant/frontend/blob/20260930.2/src/panels/lovelace/strategies/home/home-dashboard-strategy.ts#L63-L120),
+    [`home-area-view-strategy.ts`](https://github.com/home-assistant/frontend/blob/20260930.2/src/panels/lovelace/strategies/home/home-area-view-strategy.ts)).
+  - **Active alerts** since 2026.10: "The Home dashboard now shows active alerts too"
+    ([2026.10](https://www.home-assistant.io/blog/2026/10/07/release-202610/#other-noteworthy-changes)):
+    the entities an administrator chose on the Security page (2026.9) with the *alert* severity,
+    shown while one is active
+    ([`security-alerts.ts`](https://github.com/home-assistant/frontend/blob/20260930.2/src/panels/security/strategies/security-alerts.ts#L14-L105),
+    [the summary](https://github.com/home-assistant/frontend/blob/20260930.2/src/panels/lovelace/strategies/home/home-overview-view-strategy.ts#L348-L357)).
+  - **No place for a card that is not its own.** The Overview cannot be edited (`no-edit`; edit
+    and save do nothing,
+    [`ha-panel-home.ts`](https://github.com/home-assistant/frontend/blob/20260930.2/src/panels/home/ha-panel-home.ts#L336-L431));
+    its options are a fixed list (favourites, alerts, shortcuts, the welcome message, the
+    suggestions,
+    [`home-dashboard-strategy.ts`](https://github.com/home-assistant/frontend/blob/20260930.2/src/panels/lovelace/strategies/home/home-dashboard-strategy.ts#L21-L29));
+    its summaries are a fixed list, and one it does not know is dropped. Nothing found on an area
+    page links out to another page. So DomoTwin's 3D view cannot be put at the top of the Overview or of an area page,
+    and an area page cannot open DomoTwin on its room, from a custom integration.
+  - **What can be done.** A shortcut of the Overview (2026.5 and later) opens any path, DomoTwin's
+    panel too
+    ([`dialog-edit-shortcut.ts`](https://github.com/home-assistant/frontend/blob/20260930.2/src/panels/home/dialogs/dialog-edit-shortcut.ts#L58-L76)).
+    An entity put in an area can show on that area's page, and any entity can be a favourite. A
+    custom dashboard strategy is documented
+    ([strategies](https://contributors.home-assistant.io/frontend/custom-ui/strategy/)) but makes
+    a dashboard of its own, not the Overview: one with the 3D view on top would be a copy of it,
+    and the Overview's own parts are not an API to build on.
+- **Decision: M23 amended, as M23b.** M23 was merged before this request; its amendment is a
+  milestone of its own, after 0.4.0 (nothing is built now), after the sandbox and the Wi-Fi QR code,
+  and before M24 and M25, which follow the same rule.
+  - Home Assistant's cards and dialogs are reused, not rebuilt (D-054), and now its pages too:
+    where Home Assistant has the Overview, a room tapped in 3D opens that room's area page, and
+    the room's own actions (D-047) stay in its 3D panel. Where it has none, or the room has no
+    area page, its page in *Rooms*. The versions whose Overview has area pages at that address are
+    checked in Home Assistant's frontend when M23b is built (its *Home* dashboard came before 2026.1,
+    hidden, [2025.12](https://www.home-assistant.io/blog/2025/12/03/release-202512/#experimental-dashboards-have-graduated)).
+  - What DomoTwin knows and the Overview does not show becomes entities, in the area of their
+    room where they have one, so that Home Assistant's own cards can show them on the area pages
+    (which ones it shows is checked when M23b is built) and an administrator can make them
+    favourites of the Overview: who is in which room (M9e already
+    has a sensor for each person), the weak spots of the network (M9b), the upkeep due (M9d,
+    already a sensor), where the robots are (M16b).
+  - DomoTwin summary cards, in the Overview's manner, for what an entity does not say well:
+    people in their rooms, the network, the wires, the upkeep, the robots; for one's own
+    dashboards and the Home tab, each opening the 3D view on what it sums up.
+  - The docs show how to put DomoTwin among the Overview's shortcuts. DomoTwin does not write
+    Home Assistant's system data itself: its format is Home Assistant's own, shared by every user.
+  - Each card type, helper and path used is checked in Home Assistant's frontend for each version
+    it is used on, as D-054 asks.
+- **Decision: ten ideas, eleven new milestones** (the Wi-Fi QR code apart from guest access),
+  after 0.4.0, numbered from M29 (M27 and M28 stay the former ones of D-051, deferred). "HACS
+  default" means in HACS's default lists today.
+  1. **M29, the sandbox.**
+     - *Exists*: [Event Simulator](https://github.com/eseverson/hass-event-simulator) (HACS
+       default, MIT) replays recorded history against one automation, in a separate process
+       running Home Assistant's own code, every action recorded, none made; one automation at a
+       time, actions with no effect on the states. Home Assistant's own testing runs actions "for
+       real" ([docs](https://www.home-assistant.io/docs/automation/testing/)). Developers have
+       [pytest-homeassistant-custom-component](https://github.com/MatthewFlamm/pytest-homeassistant-custom-component)
+       and the [Appdaemon Test Framework](https://github.com/HelloThisIsFlo/Appdaemon-Test-Framework);
+       virtual devices in the real home exist ([hass-virtual](https://github.com/twrecked/hass-virtual)).
+       Asked for on the forum
+       ([testing framework](https://community.home-assistant.io/t/automations-testing-framework/688889)).
+       Automations that have not fired are listed by
+       [HA Automation Analyzer](https://github.com/MacSiem/ha-automation-analyzer) (HACS default),
+       with no simulation; nothing found finds two automations working against each other.
+     - *New*: the whole home at once, every automation, script and scene, their actions changing
+       the copy, so that one setting off another, and two fighting, show; a day made up (its
+       weather, who leaves when) rather than recorded; the day on the 3D view and a timeline; the
+       report.
+     - *Feasible*: as a custom integration, in the page, on the demo house's Home Assistant in
+       memory, as asked. Home Assistant's templates are Jinja with hundreds of its own functions
+       and can only be read in part in the page; Home Assistant renders them against the real
+       home only. The sandbox plays what it reads and names the rest. Reading automations,
+       scripts and scenes is for administrators. A player on the server running Home Assistant's
+       own code, as Event Simulator does, would play every template but depends on Home
+       Assistant's insides and costs a small host's memory ❓.
+  2. **M30, the Wi-Fi QR code** (the first part of item 5, early because it is small).
+     - *Exists*: routers that give their guest network's QR code as an entity
+       ([FRITZ!Box](https://www.home-assistant.io/integrations/fritz/),
+       [UniFi](https://www.home-assistant.io/integrations/unifi/));
+       [QR-Code Generator](https://github.com/DeerMaximum/QR-Code-Generator) (HACS default) draws a
+       QR code from a template; the format is ZXing's `WIFI:` code
+       ([its definition](https://github.com/zxing/zxing/wiki/Barcode-Contents)), now in the Wi-Fi
+       Alliance's WPA3 specification. Encoders: Nayuki's
+       [QR Code generator](https://github.com/nayuki/QR-Code-generator) (MIT, in Rust as
+       `qrcodegen` and in TypeScript) and others under MIT.
+     - *New*: the code drawn in the page with no service, the password kept private, shown on a
+       chosen screen.
+     - *Feasible*: as a custom integration. The password in the integration's private storage,
+       left out of the diagnostics, the exports and the logs; the encoder a crate `cargo deny`
+       checks.
+  3. **M31, the placement advisor.**
+     - *Exists*: locating, with no advice on placement:
+       [Bermuda](https://github.com/agittins/bermuda), [BPS](https://github.com/Hogster/BPS)
+       (HACS default) and [ESPresense](https://github.com/ESPresense/ESPresense-companion), whose
+       docs give rules of thumb for nodes. [Spatial Context](https://github.com/Greminn/ha-spatial-context)
+       (HACS default) draws the Zigbee, Wi-Fi, Thread and Bluetooth links measured on a plan with
+       walls. Home Assistant draws the Bluetooth (2025.6), Zigbee and Matter (2026.9) networks.
+       Wi-Fi surveys are walked with a laptop
+       ([wifi-heatmapper](https://github.com/hnykda/wifi-heatmapper)) or bought (Ekahau, NetSpot).
+       Asked for on the forum
+       ([RF heat maps](https://community.home-assistant.io/t/wifi-and-other-rf-heat-maps/161759)).
+       Nothing found predicts coverage from a plan or says where the next radio should go.
+     - *New*: coverage predicted from the plan and checked against what was measured; the next
+       proxy, router or access point, ranked by what it changes.
+     - *Feasible*: as a custom integration; the Bluetooth receivers and the Zigbee mesh are read
+       by administrators only; Wi-Fi is known only through the devices that report their signal
+       (ESPHome's `wifi_signal`, routers' integrations).
+  4. **M32, "Why?".**
+     - *Exists*: Home Assistant does most of it since 2026.9: a row of its Activity opens "the
+       full story": what started it (a person, a state change, a schedule, an integration, a
+       restart), the automations or scripts it passed through, then the change, each step opening
+       its entity or its trace
+       ([2026.9, "From what changed to why it changed"](https://www.home-assistant.io/blog/2026/09/02/release-20269/));
+       since 2026.7 each row shows its cause
+       ([2026.7](https://www.home-assistant.io/blog/2026/07/01/release-20267/)). Some triggers make
+       no parent context ([data model](https://contributors.home-assistant.io/data/reference/data-model/)).
+       Around it: [HA Trace Viewer](https://github.com/MacSiem/ha-trace-viewer) (HACS default).
+     - *New*: the chain drawn in the home, room to room, with the wires of M9c; the same on Home
+       Assistant before 2026.9, read from the logbook's context; "why did it not" from the sandbox.
+     - *Feasible*: in the frontend; the logbook gives the chain to any user, the traces to
+       administrators only. Smaller than asked, since Home Assistant has the list.
+  5. **M33, guest access.**
+     - *Exists*: [Guest Mode](https://github.com/Darkdragon14/ha-guest-mode) (HACS default; a fork
+       of [Virtual Keys](https://github.com/kcsoft/virtual-keys)) makes temporary sign-in links,
+       with a QR code; Home Assistant users can be local only and read only, which Home Assistant
+       enforces, but no user can be limited to some devices through Home Assistant's settings
+       ([permissions](https://contributors.home-assistant.io/core/internals/permissions/)).
+     - *New*: one flow for a guest: the Wi-Fi, a link, the rooms they may use, on the plan, ending
+       on its own.
+     - *Feasible*: the link and its expiry as a custom integration. Limiting a guest to chosen
+       devices is enforced only by a page of DomoTwin's own that acts for the guest, served
+       outside Home Assistant's sign-in, which needs a security review; a guest given a Home
+       Assistant user sees every entity ❓.
+  6. **M34, per-person rights.**
+     - *Exists*: in Home Assistant, an administrator or a user, and dashboards and cards hidden
+       for some, which is not enforcement. Roles are its most asked-for feature
+       ([discussion #22](https://github.com/orgs/home-assistant/discussions/22), 443 votes); a
+       proof of concept was declined in April 2026: "today we are not in a position to accept
+       changes to authentication and authorization"
+       ([architecture #1374](https://github.com/home-assistant/architecture/discussions/1374)).
+       [Access Control Manager](https://github.com/Darkdragon14/ha-access-control-manager) (HACS
+       default) edits Home Assistant's groups' policies;
+       [user-rbac](https://github.com/SamAthanas/user-rbac) (HACS default) patches Home Assistant;
+       [ha-rbac](https://github.com/FezVrasta/ha-rbac) is a proxy in front of it;
+       [kiosk-mode](https://github.com/NemesisRE/kiosk-mode) and
+       [browser_mod](https://github.com/thomasloven/hass-browser_mod) only hide.
+     - *New*: rights set on the plan, room by room, from private rooms (M9g), and one place that
+       says what each person sees and does in DomoTwin.
+     - *Feasible*: what DomoTwin shows and its own services, as a custom integration, said to be
+       that and no more. Enforcement needs Home Assistant; patching it or rewriting its groups is
+       not proposed ❓.
+  7. **M35, automations in plain words, tested first.**
+     - *Exists*: Home Assistant's AI task (2025.8) gives structured answers from the agent the
+       user chose ([AI Task](https://www.home-assistant.io/integrations/ai_task/)); "Suggest with
+       AI" names an automation but does not write one
+       ([2025.8](https://www.home-assistant.io/blog/2025/08/06/release-20258/)).
+       [AI Automation Suggester](https://github.com/ITSpecialist111/ai_automation_suggester) and
+       [Home Generative Agent](https://github.com/goruck/home-generative-agent) (HACS default)
+       write automations with a provider of their own, with no replay.
+     - *New*: the user's own agent, through Home Assistant; the draft played in the sandbox before
+       it is saved; shown on the plan.
+     - *Feasible*: as a custom integration, on Home Assistant 2025.8 and later, for administrators;
+       the AI task rather than a conversation agent, which might act instead of drafting. Depends
+       on M29.
+  8. **M36, configuration history.**
+     - *Exists*: [Home Assistant Version Control](https://github.com/saihgupr/HomeAssistantVersionControl)
+       (an add-on, Git, files) and
+       [Home Assistant Time Machine](https://github.com/saihgupr/HomeAssistantTimeMachine) (one
+       automation or dashboard back from a backup); [HA GitOps](https://github.com/ckrl/ha-gitops)
+       (HACS default). Home Assistant's backups put back whole parts, and its editor's undo lasts
+       one session ([2025.10](https://www.home-assistant.io/blog/2025/10/01/release-202510/)).
+     - *New*: one item at a time, inside Home Assistant, with no add-on and no Git; its changes in
+       words; one item put back.
+     - *Feasible*: as a custom integration, through the commands Home Assistant's editors use;
+       what is written in one's own YAML files is shown, not put back.
+  9. **M37, a weekly home report.**
+     - *Exists*: [Battery Notes](https://github.com/andrew-codechimp/HA-Battery-Notes),
+       [Watchman](https://github.com/dummylabs/thewatchman), [Spook](https://github.com/frenck/spook),
+       [Unavailable Devices Report](https://github.com/VilniusTechnology/ha-unavailable-devices-report),
+       [Maintenance Supporter](https://github.com/iluebbe/maintenance_supporter) (HACS default);
+       Home Assistant's Maintenance page (2026.5). No weekly summary of all of them found.
+     - *New*: one report a week, room by room on the plan, what changed since the last, with
+       DomoTwin's own findings (upkeep, radios, automations that never fired).
+     - *Feasible*: as a custom integration, reading those integrations' entities when they are
+       installed rather than redoing their work.
+  10. **M38, history as reports.**
+      - *Exists*: Home Assistant's History downloads CSV since 2024.2
+        ([2024.2](https://www.home-assistant.io/blog/2024/02/07/release-20242/)), its Activity
+        since 2026.8 ([2026.8](https://www.home-assistant.io/blog/2026/08/05/release-20268/)); no
+        table, no search by value. [History Table Card](https://github.com/LiBe-net/history_table_card),
+        [flex-table-card](https://github.com/custom-cards/flex-table-card) and
+        [logbook-card](https://github.com/royto/logbook-card); history-explorer-card is no longer
+        kept up.
+      - *New*: tables filtered by value and duration, the logbook searched by value, opened from a
+        device on the plan.
+      - *Feasible*: in the frontend, read only, from the recorder's own commands; raw history is
+        kept ten days by default, hourly statistics after.
+  11. **M39, Hydro-Québec's peaks** (optional).
+      - *Exists*: [hydroqc-ha](https://github.com/hydroqc/hydroqc-ha) (HACS default, AGPL-3.0)
+        gives the peaks and pre-heating of Flex D and the winter credit as entities, a calendar and
+        blueprints; [HydroPeak](https://github.com/Beat-YT/hydropeak-ha) (HACS default) reads
+        Hydro-Québec's open data with no account. The winter credit is closed to new contracts
+        since March 2026
+        ([Hydro-Québec](https://www.hydroquebec.com/residential/customer-space/rates/winter-credit-option.html));
+        Flex D is open
+        ([Hydro-Québec](https://www.hydroquebec.com/residential/customer-space/rates/rate-flex-d.html)).
+      - *New*: the peak on the plan (which rooms pre-heat, which shed), tomorrow's peak played in
+        the sandbox, the week's peaks in the report.
+      - *Feasible*: as a custom integration, reading their entities only; no code of hydroqc's
+        copied (AGPL).
+- **Decision: the order.**
+  1. **0.4.0** and its two weeks of use, as planned.
+  2. **M29, the sandbox**, first: the maintainer's first wish, built during the two weeks since it
+     does not wait on what they show.
+  3. **M30, the Wi-Fi QR code**: small, and asked for early if cheap.
+  4. **M23b**, before M24 and M25, which follow its rule (Home Assistant's Energy and Security
+     pages opened rather than copied where it has them).
+  5. **M24 to M26**, in the order the two weeks decide, as D-054 planned.
+  6. **M31, the placement advisor**: the maintainer's second wish.
+  7. **M22, a first launch in five minutes**: eighth after 0.4.0, where it was (after M24 to M26,
+     M17, M18, M20 and M21): the new milestones before it take the place of M17, M18, M20 and
+     M21, which come after, so that it does not slip further. It uses the imports and pieces
+     there are; robot maps and more pieces join it later.
+  8. **0.5.0**, right after M22, so that a first launch in five minutes reaches people first.
+  9. Then, to **0.6.0**: M32 and M33 (the maintainer's order, after M29 and M31); M34 next to M33,
+     both about who may see what; M35, once the sandbox is there; M20 and M17, which make the
+     first launch richer; M36, M37 and M38; M18; M39, optional and for one region; M21 last, once
+     the texts of the rest are written, so that they are translated once.
+- **Questions for the maintainer (❓).** Each is asked before its milestone starts, which goes on
+  with what needs no answer.
+  1. The 3D view at the top of the Overview and of its area pages, and an area page opening
+     DomoTwin on its room, need Home Assistant's frontend to give them a place. Asking Home
+     Assistant for it is the maintainer's call. A script DomoTwin would load on every page of
+     Home Assistant to add them is not proposed: it would break with Home Assistant's releases.
+  2. The Home and Rooms tabs where the Overview is. They keep what it does not have: each user's
+     own favourites (the Overview's are everyone's, set by an administrator), private rooms
+     (D-039), the rooms' own actions (D-047), the demo house. They also show again what it shows.
+     Proposed: kept where Home Assistant does not open on its Overview (before 2026.2, or an
+     install that kept its old one); where it does, DomoTwin opens on 3D and the Rooms tab hands
+     its rooms to the area pages. Keep them, slim them down, or remove them.
+  3. The sandbox in the page only, or also a player on the server for the templates it cannot
+     read.
+  4. Guest access: a page of DomoTwin's own outside Home Assistant's sign-in, enforced by
+     DomoTwin, or Home Assistant users only, which see every entity.
+  5. Per-person rights: what DomoTwin shows and does only, or a way to enforce them that touches
+     Home Assistant.
+- **Consequences.**
+  - The roadmap lists M29 to M39 and M23b with ⏳ in that order, 0.5.0 after M22, and a sixth
+    release, 0.6.0, after the rest.
+  - The rules hold for each: its own pull request, no network call outside Home Assistant,
+    fictional data in tests and docs, every string through `t()` in English and French, Home
+    Assistant's cards, dialogs and now pages reused rather than rebuilt.
+  - Many of them read what only administrators may (automations, traces, the radios): each says
+    what other users see.

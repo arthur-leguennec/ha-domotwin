@@ -44,15 +44,28 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M16d      | Measured on real devices: a button in the panel            | ✅     |
 | M23       | The practical home: Home, Rooms and 3D, favourites         | ✅     |
 | 0.4.0     | Fourth release: the practical home, then two weeks of use  | ⏳     |
+| M29       | Sandbox: the home's automations played on a copy of it     | ⏳     |
+| M30       | The Wi-Fi QR code, for guests                              | ⏳     |
+| M23b      | Into Home Assistant's Overview, rather than a copy of it   | ⏳     |
 | M24       | History and energy, with Home Assistant's own cards        | ⏳     |
 | M25       | Safety: cameras, the doorbell, the alarm, alerts           | ⏳     |
 | M26       | The wall screen: a screen saver, a layout per device       | ⏳     |
-| M17       | A library of objects: many pieces, free and well made      | ⏳     |
-| M18       | Outdoors: garden, terrace, lawn, pool, roofs               | ⏳     |
-| M20       | More imports: robot vacuum maps, Floorplanner, meshes      | ⏳     |
-| M21       | More languages, right to left too                          | ⏳     |
+| M31       | Placement advisor: where the next radio helps most         | ⏳     |
 | M22       | A first launch in five minutes                             | ⏳     |
 | 0.5.0     | Fifth release: all of the above                            | ⏳     |
+| M32       | "Why?": who or what changed a device, drawn in 3D          | ⏳     |
+| M33       | Guest access: chosen rooms, for a while                    | ⏳     |
+| M34       | Per-person rights: what DomoTwin shows each one            | ⏳     |
+| M35       | Automations in plain words, played in the sandbox first    | ⏳     |
+| M20       | More imports: robot vacuum maps, Floorplanner, meshes      | ⏳     |
+| M17       | A library of objects: many pieces, free and well made      | ⏳     |
+| M36       | Configuration history: differences, one item put back      | ⏳     |
+| M37       | A weekly home report                                       | ⏳     |
+| M38       | History as reports: tables, CSV, search by value           | ⏳     |
+| M18       | Outdoors: garden, terrace, lawn, pool, roofs               | ⏳     |
+| M39       | Hydro-Québec's peaks, from the integrations that read them | ⏳     |
+| M21       | More languages, right to left too                          | ⏳     |
+| 0.6.0     | Sixth release: all of the above                            | ⏳     |
 
 M5 to M11 were added after M3b (`DECISIONS.md`, D-022): what people expect of a 3D home dashboard,
 with no account and no network call outside Home Assistant. M8 became the looks alone, and the
@@ -71,9 +84,15 @@ DomoTwin to be the only place for the home (D-051); used at home, the 3D view sh
 practical every day, and the way there became a practical side next to it, made of Home
 Assistant's own cards rather than rebuilt (D-054): the practical home (M23) closes a fourth
 release, 0.4.0, used for two weeks before the rest; history and energy (M24), safety (M25) and
-the wall screen (M26) follow, in the order those two weeks decide. A library of objects (M17),
-the outdoors (M18), more imports (M20) and more languages (M21) come after them, and a first
-launch in five minutes (M22) last, before a fifth release, 0.5.0.
+the wall screen (M26) follow, in the order those two weeks decide. The maintainer then asked for
+DomoTwin to plug into Home Assistant's own Overview rather than copy it (M23b), and for ten new
+ideas, planned after 0.4.0 (D-056): a sandbox for the home's automations first (M29), the Wi-Fi
+QR code (M30) and a placement advisor for radios (M31) before a first launch in five minutes
+(M22), kept where it was, and a fifth release, 0.5.0, right after it. "Why?" (M32), guest access
+(M33), rights (M34), automations in plain words (M35), a configuration history (M36), a weekly
+report (M37), history as reports (M38) and Hydro-Québec's peaks (M39) follow, among a library of
+objects (M17), the outdoors (M18), more imports (M20) and more languages (M21), before a sixth
+release, 0.6.0.
 
 ## M0, scaffold
 
@@ -1049,28 +1068,129 @@ Home Assistant's.
 - ⏳ **Release 0.4.0**, then **two weeks of use** at home before the rest: what is missed then
   decides the order of what follows.
 
-## Then: what the two weeks ask for
+## Then, from 0.4.0 to 0.5.0
 
+Planned in D-056: the sandbox first, built during the two weeks of use since it does not wait on
+what they show; Home Assistant's Overview joined rather than copied before M24 and M25, which
+follow the same rule; the first launch in five minutes kept where it was, and 0.5.0 right after
+it. Each milestone its own pull request; no network call outside Home Assistant; fictional data in
+tests and docs; every string through `t()` in English and French. A ❓ is asked before its
+milestone starts, which goes on with what needs no answer.
+
+- ⏳ **M29, the sandbox**: the home's own automations, scripts and scenes played against a copy
+  of the home in the page, built on the demo house's Home Assistant in memory (M16c), which holds
+  the home's entities as they are, its plan and its links. One picks a day, the weather and who
+  leaves and comes back when, then watches the 3D view and a timeline as the day plays, faster
+  than real time. Nothing reaches a device: no action leaves the page. At the end, a report: what
+  each automation did and when, what never fired, and the conflicts (two automations setting the
+  same device against each other, one undoing what another just did). The common triggers,
+  conditions and actions are played as Home Assistant plays them, with the effect of the common
+  actions on their devices; what the sandbox cannot play (a template beyond what it reads, an
+  action whose effect it cannot know) is named in the report, not guessed. For administrators,
+  since only they can read automations.
+- ⏳ **M30, the Wi-Fi QR code**: an administrator gives the home's Wi-Fi name and password once,
+  and DomoTwin draws the QR code a phone's camera joins with (`WIFI:T:WPA;S:<name>;P:<password>;;`,
+  with `\`, `;`, `,`, `:` and `"` escaped), in the page, by a small encoder whose licence
+  `cargo deny` checks; no network. The password is kept in the integration's private storage
+  only: never in the plan, the logs, the diagnostics, an export or the repository. Shown to
+  administrators, or on a screen an administrator chose (a wall screen in the hall); a router
+  that already gives its guest network's QR code as an entity (FRITZ!Box, UniFi) is shown as it
+  is. The first part of guest access (M33), small enough to come early.
+- ⏳ **M23b, into Home Assistant's Overview**: since 2026.2, Home Assistant opens on its own
+  Overview: summaries of the lights, the climate, security, media and energy, the weather,
+  favourites, a page for each area, and since 2026.10 the active alerts (D-056). DomoTwin plugs
+  into it rather than copying it, with Home Assistant's own cards and dialogs. Where Home
+  Assistant has it, a room tapped in 3D opens that room's area page (`/home/areas-<area>`), the
+  room's own actions staying in its 3D panel; elsewhere, its page in *Rooms*. What DomoTwin knows
+  and the Overview does not show (who is in which room, the weak spots of the network, the
+  upkeep due, where the robots are) becomes entities, which Home Assistant shows on the area page
+  of their room and lets an administrator make favourites of the Overview; and DomoTwin summary
+  cards, in the Overview's manner, for one's own dashboards and the Home tab (people in their
+  rooms, the network, the wires, the upkeep, the robots), each opening the 3D view on what it
+  sums up. The docs show how to put DomoTwin among the Overview's shortcuts (2026.5 and later).
+  The Overview has no place for a card that is not its own, on its home page or its area pages:
+  the 3D view at their top, and an area page opening DomoTwin on its room, need Home Assistant
+  ❓. Whether the Home and Rooms tabs stay where the Overview is ❓.
 - ⏳ **M24, history and energy**: a sheet for each room with its sensors' history-graph cards; an
-  Energy tab made of Home Assistant's energy cards. Replay, the home's past in 3D (M19), stays a
-  3D feature, later.
+  Energy tab made of Home Assistant's energy cards, or Home Assistant's own Energy page opened
+  where it has one, as M23b does (D-056). Replay, the home's past in 3D (M19), stays a 3D feature,
+  later.
 - ⏳ **M25, safety**: the cameras side by side, the doorbell full screen when it rings, the alarm,
-  and the full-screen alerts of the 3D view shown on every tab.
+  and the full-screen alerts of the 3D view shown on every tab; Home Assistant's own Security
+  page and its alerts (2026.9, 2026.10) opened rather than copied where it has them (D-056).
 - ⏳ **M26, the wall screen**: a screen saver (the clock, the weather, the photos of Home
   Assistant's media) woken by motion; a layout for each device.
+- M24 to M26 come in the order the two weeks of use decide.
+- ⏳ **M31, the placement advisor**: the Bluetooth model of M9f turned around, from where a
+  device is to where a receiver would hear the most. The rooms badly covered coloured on the
+  plan, for the Bluetooth receivers, the Zigbee mesh (its links and weak rooms, M9b) and the Wi-Fi
+  access points placed on the plan; and the spots where the next Bluetooth proxy, Zigbee router
+  or Wi-Fi access point helps most, ranked, each with what it changes. Worked out from the plan's
+  walls and floors and what the radios measured (the receivers, the mesh's links, the devices
+  that report their Wi-Fi signal); nothing sent. A model, said to be one: what was measured comes
+  before what is predicted. For administrators, since only they can read the radios.
+- ⏳ **M22, a first launch in five minutes**: from the install to one's own home live, in five
+  minutes, with the imports and pieces DomoTwin has then (M11, M15, the demo house as a start);
+  robot vacuum maps (M20) and more pieces (M17) join it when they come.
+- ⏳ **Release 0.5.0**.
 - **Deferred** until someone asks: one's dashboards taken over, and pages arranged without YAML
   (the former M28). An agenda and lists are cards of the Home tab (M23), not a milestone of their
   own (the former M27).
 
-## Then, to 0.5.0
+## Then, to 0.6.0
 
+- ⏳ **M32, "Why?"**: who or what last changed a device, as a chain: the lamp switched on by an
+  automation, set off by the hall's motion sensor, itself set off by someone coming home; or by
+  a person in the app, by voice, by a script, on the device itself. Read from Home Assistant's
+  context ids, its logbook and its traces; drawn in 3D with the wires of M9c, from the device's
+  sheet, with a link to the trace (administrators) and to Home Assistant's Activity, which shows
+  the same chain as a list since 2026.9 (D-056). Only what Home Assistant recorded: a change it
+  did not attribute says so. Why something did not happen is the sandbox's (M29).
+- ⏳ **M33, guest access**: a guest gets a QR code or a link that opens chosen rooms and devices
+  for a set time and ends on its own, with the Wi-Fi QR code of M30. What can be enforced is said
+  plainly: a Home Assistant user for the guest, local only and possibly read only, is enforced by
+  Home Assistant, but sees every entity; a page of DomoTwin's own that shows and acts on the
+  chosen devices only would be enforced by DomoTwin, outside Home Assistant's sign-in ❓.
+- ⏳ **M34, per-person rights**: building on private rooms (M9g), the rooms and devices DomoTwin
+  shows each person and lets them act on, its own services checked against them, all of it set
+  on the plan in one place. DomoTwin can hide; Home Assistant decides what is enforced, and today
+  lets every user act on every entity: said where the rights are set. Real enforcement needs Home
+  Assistant ❓.
+- ⏳ **M35, automations in plain words, tested first**: one says what one wants ("when the last
+  person leaves, switch the lights off and lock the door"); Home Assistant's own AI task, the one
+  the user set up, writes the automation; DomoTwin says it back in plain words, checks it with
+  Home Assistant, plays it in the sandbox (M29) on days one picks, and only then saves it, Home
+  Assistant's automation editor a tap away. DomoTwin calls no model itself; without an AI task,
+  nothing is offered. For administrators.
+- ⏳ **M20, more imports**: robot vacuum maps (Valetudo and others), Floorplanner, meshes.
 - ⏳ **M17, a library of objects**: many more pieces, free and well made, drawn from real
   references, still fast.
+- ⏳ **M36, configuration history**: each change of an automation, script, scene or dashboard
+  kept, by item and date; what changed between two versions, in words where it can; one item put
+  back as it was, through Home Assistant's own configuration commands. Kept by the integration in
+  Home Assistant's storage, limited in size (the oldest versions go first), for administrators,
+  never in the diagnostics. Items written in YAML files of one's own are shown, not put back.
+- ⏳ **M37, a weekly home report**: once a week, what needs a look: batteries low, devices
+  unavailable, updates and repairs waiting, upkeep due (M9d), weak radio links (M9b, M31),
+  automations that failed or never fired, the week's energy against the last, room by room on
+  the plan. It reads what other integrations already give where they are installed (Battery
+  Notes, Watchman, Spook) rather than doing their work again. A summary by the user's own
+  conversation agent or AI task if there is one, plain lists otherwise; a notification of Home
+  Assistant's and a page in the panel.
+- ⏳ **M38, history as reports**: Home Assistant's history as tables: chosen entities over a
+  period, a row per change or per hour, filtered by value or by how long ("the bedroom above
+  24 °C for more than an hour"), exported as CSV; the logbook searched by value. Read only, from
+  the recorder through Home Assistant's own history, statistics and logbook commands; opened from
+  a device on the plan.
 - ⏳ **M18, outdoors**: the garden, the terrace, the lawn, a pool, the roofs; the lawn growing
   between two mowings.
-- ⏳ **M20, more imports**: robot vacuum maps (Valetudo and others), Floorplanner, meshes.
+- ⏳ **M39, Hydro-Québec's peaks** (optional): for a home on one of Hydro-Québec's offers with
+  peak events (Flex D, the winter credit kept by those who had it): the next peak, the
+  pre-heating before it, which rooms shed and what they draw during it, in 3D and on the Home tab,
+  and tomorrow's announced peak played in the sandbox. Read from the entities of the hydroqc or
+  HydroPeak integrations when one is installed; nothing scraped, no account asked; nothing shown
+  without them.
 - ⏳ **M21, more languages**: Italian, German, Spanish, Arabic (right to left), Chinese, Japanese,
-  Korean, Portuguese (Portugal and Brazil) and others.
-- ⏳ **M22, a first launch in five minutes**: from the install to one's own home live, in five
-  minutes, with what comes before it (the objects, the imports).
-- ⏳ **Release 0.5.0**.
+  Korean, Portuguese (Portugal and Brazil) and others; last, once the texts of the rest are
+  written, so that they are translated once.
+- ⏳ **Release 0.6.0**.
