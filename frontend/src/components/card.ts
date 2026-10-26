@@ -316,6 +316,7 @@ export class DomoTwinCard extends LitElement {
         badges: config.badges,
         cameras: config.cameras,
         names: config.names,
+        small_rooms: config.small_rooms,
         spread: config.spread,
         roof: config.roof,
         idle: config.idle,

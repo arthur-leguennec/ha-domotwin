@@ -545,7 +545,7 @@ export class DomoTwinEngine {
     return this.live.layerLabels();
   }
 
-  /** Where the rooms' names go: JSON `[{id, name, x, y}]` (device pixels). */
+  /** Where the rooms' names go: JSON `[{id, name, x, y, area}]` (device pixels, m²). */
   roomLabels(): string {
     return this.live.roomLabels();
   }

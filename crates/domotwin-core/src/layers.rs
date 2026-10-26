@@ -8,6 +8,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use serde_json::Value;
 
+use crate::geometry::polygon;
 use crate::plan::{Plan, Rgb8};
 use crate::scene::Scene;
 
@@ -237,10 +238,12 @@ pub struct RoomShape<'a> {
     pub label: [f64; 2],
     /// Distance from the centre to its farthest corner.
     pub reach: f64,
+    /// Floor area (m²), within its outline.
+    pub area: f64,
 }
 
-/// The rooms of `scene` (built from `plan`, every storey's for a home) with their slot, centre
-/// and reach.
+/// The rooms of `scene` (built from `plan`, every storey's for a home) with their slot, centre,
+/// reach and area.
 pub fn room_shapes<'a>(plan: &'a Plan, scene: &Scene) -> Vec<RoomShape<'a>> {
     scene
         .storey_walls()
@@ -267,6 +270,7 @@ pub fn room_shapes<'a>(plan: &'a Plan, scene: &Scene) -> Vec<RoomShape<'a>> {
                 centre: [cx, cz],
                 label: scene.labels.get(slot - 1).copied().unwrap_or([cx, cz]),
                 reach,
+                area: polygon::area(&walls.points) / 10_000.0,
             })
         })
         .collect()
@@ -419,6 +423,17 @@ mod tests {
         assert_eq!(colors[2].0, 22.0);
         assert_eq!(colors[2].1, "#90eb9d");
         assert_eq!(legend(HeatKind::Co2, 0).len(), 2);
+    }
+
+    #[test]
+    fn shapes_know_their_floor_area() {
+        let plan = crate::read_plan(DEMO.as_bytes()).unwrap();
+        let scene = build_scene(&plan, &SceneOptions::default());
+        let shapes = room_shapes(&plan, &scene);
+        let living = shapes.iter().find(|room| room.id == "living").unwrap();
+        // The living room of the demo: 520 × 420 cm.
+        assert!((living.area - 21.84).abs() < 1e-9, "{}", living.area);
+        assert!(shapes.iter().all(|room| room.area > 0.0));
     }
 
     #[test]

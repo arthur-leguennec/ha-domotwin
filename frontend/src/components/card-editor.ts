@@ -156,6 +156,7 @@ function schema(
     { name: "badges", selector: { boolean: {} } },
     { name: "cameras", selector: { boolean: {} } },
     { name: "names", selector: { boolean: {} } },
+    { name: "small_rooms", selector: { boolean: {} } },
     // The kiosk (D-029): back after a while untouched, turning slowly, dimmed at night.
     { name: "idle", selector: { number: { min: 0, max: MAX_IDLE, step: 10, mode: "box" } } },
     { name: "orbit", selector: { boolean: {} } },

@@ -78,6 +78,8 @@ export interface HomeAssistant {
   language: string;
   locale?: { language: string };
   themes?: { darkMode?: boolean };
+  /** Home Assistant's sidebar: docked (`docked`), always hidden (`always_hidden`) or `auto`. */
+  dockedSidebar?: string;
   /** Home Assistant's configuration: the units of climate entities, the integrations loaded. */
   config?: {
     unit_system?: { temperature?: string };

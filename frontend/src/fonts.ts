@@ -21,6 +21,11 @@ export function declareBundledFont(): void {
   );
 }
 
+/** The document's fonts, to know when one loads (not every test DOM has them). */
+export function documentFonts(): FontFaceSet | undefined {
+  return typeof document === "undefined" ? undefined : document.fonts;
+}
+
 /** The CSS font family of a card's `font_family`: `theme` is the Home Assistant theme's font. */
 export function fontFamily(option: string): string {
   return option.toLowerCase() === "theme"
