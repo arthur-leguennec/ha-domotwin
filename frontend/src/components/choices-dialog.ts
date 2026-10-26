@@ -383,7 +383,11 @@ export class DomoTwinChoices extends LitElement {
           ${icon(mdiClose)}
         </button>
       </header>
-      ${hass.demo ? html`<p class="hint">${t.t("choices.demo")}</p>` : nothing}
+      ${
+        hass.demo
+          ? html`<p class="hint">${t.t(hass.sandbox ? "choices.sandbox" : "choices.demo")}</p>`
+          : nothing
+      }
       <label class="row">
         <span>${t.t("choices.start")}<br /><small>${t.t("choices.start_hint")}</small></span>
         <select

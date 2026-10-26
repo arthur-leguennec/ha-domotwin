@@ -146,7 +146,7 @@ test.describe("the panel's menu", () => {
     await page.keyboard.press("ArrowDown");
     await expect(page.getByTestId("settings")).toBeFocused();
     await page.keyboard.press("End");
-    await expect(page.getByTestId("demo-menu")).toBeFocused();
+    await expect(page.getByTestId("sandbox-menu")).toBeFocused();
     await page.keyboard.press("ArrowDown");
     await expect(page.getByTestId("export")).toBeFocused();
     await page.keyboard.press("Escape");

@@ -86,6 +86,7 @@ export const practicalEn = {
     cancel: "Cancel",
     failed: "Your choices were not saved: {reason}",
     demo: "In the demo house, your choices last until you leave it.",
+    sandbox: "In the sandbox, your choices last until you leave it.",
   },
 };
 
@@ -175,5 +176,6 @@ export const practicalFr: PracticalDictionary = {
     cancel: "Annuler",
     failed: "Vos choix n’ont pas été enregistrés : {reason}",
     demo: "Dans la maison de démo, vos choix durent jusqu’à ce que vous la quittiez.",
+    sandbox: "Dans le bac à sable, vos choix durent jusqu’à ce que vous le quittiez.",
   },
 };
