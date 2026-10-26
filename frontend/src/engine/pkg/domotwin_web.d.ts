@@ -285,8 +285,8 @@ export class Engine {
      */
     resize(width: number, height: number): void;
     /**
-     * Where the rooms' names go on the picture, as JSON `[{"id", "name", "x", "y"}]` in device
-     * pixels from the top left: the middle of each room's floor.
+     * Where the rooms' names go on the picture, as JSON `[{"id", "name", "x", "y", "area"}]` in
+     * device pixels from the top left: the middle of each room's floor, and its area (m²).
      */
     roomLabels(): string;
     /**

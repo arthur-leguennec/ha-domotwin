@@ -75,6 +75,8 @@ export interface CardConfig {
   cameras: boolean;
   /** The rooms' names over their floor. */
   names: boolean;
+  /** The names of small rooms too (closets, rooms under 2.5 m²). */
+  small_rooms: boolean;
   /** Every storey at once (D-028): spread apart (else stacked), the roof over the top one. */
   spread: boolean;
   roof: boolean;
@@ -171,6 +173,7 @@ export function normalizeConfig(raw: unknown): CardConfig {
     badges: flag(input.badges, true, "config.bad_badges"),
     cameras: flag(input.cameras, true, "config.bad_cameras"),
     names: flag(input.names, true, "config.bad_names"),
+    small_rooms: flag(input.small_rooms, false, "config.bad_small_rooms"),
     spread: flag(input.spread, true, "config.bad_spread"),
     roof: flag(input.roof, true, "config.bad_roof"),
     idle: seconds(input.idle),

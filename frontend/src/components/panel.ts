@@ -80,6 +80,7 @@ import {
 import type { ImportReport, ImportStorey, PlanFile, ScanRoom } from "../import/import";
 import type { ModelFormat, ModelInfo } from "../models/models";
 import { translatorFor, type Translator } from "../i18n";
+import { documentFonts } from "../fonts";
 import { icon } from "./icon";
 import { DialogFocus } from "./dialog";
 import { focusBack, focusMenu, menuKeydown } from "./menu";
@@ -218,6 +219,11 @@ const PANEL_DIALOGS = [
   .map((dialog) => `.body > ${dialog}`)
   .join(", ");
 
+/** Narrower than this (CSS pixels), the panel's toolbar keeps only the daily actions. */
+const TIGHT_WIDTH = 560;
+/** The room the panel's title keeps beside the buttons' names before they give way (CSS px). */
+const TITLE_ROOM = 120;
+
 /** `<domotwin-panel>`: the full-screen DomoTwin in the sidebar, with import and export. */
 export class DomoTwinPanel extends LitElement {
   static override properties = {
@@ -251,6 +257,8 @@ export class DomoTwinPanel extends LitElement {
     privacyRooms: { state: true },
     voiceOpen: { state: true },
     moreOpen: { state: true },
+    tight: { state: true },
+    compact: { type: Boolean, reflect: true },
     lookDraft: { state: true },
     look: { reflect: true },
     planning: { state: true },
@@ -314,6 +322,22 @@ export class DomoTwinPanel extends LitElement {
   protected voiceOpen = false;
   /** The menu of the export and the home's settings is open. */
   protected moreOpen = false;
+  /** Too narrow for every button (a phone): the import and the storeys go in the More menu. */
+  protected tight = false;
+  /** The toolbar's buttons keep their icons alone (their names stay as tooltips and for screen
+   * readers): their names do not fit, or Home Assistant says the screen is narrow. */
+  protected compact = false;
+  /** The panel's width (CSS pixels), and the width its toolbar needs with these names. */
+  private panelWidth = 0;
+  private namesWidth?: { names: string; width: number };
+  /** What the toolbar's buttons were last fitted for (the mode, the language, the width…). */
+  private fitted = "";
+  private sizeObserver?: ResizeObserver;
+  /** A font loaded (the bundled one comes after the first picture) widens the names. */
+  private readonly onFonts = (): void => {
+    this.namesWidth = undefined;
+    this.fitToolbar();
+  };
   /** The focus goes into the dialog shown and comes back (D-042). */
   private readonly dialogs = new DialogFocus();
   private readonly onEscape = (event: KeyboardEvent): void => {
@@ -396,6 +420,11 @@ export class DomoTwinPanel extends LitElement {
         height: calc(100vh - var(--safe-area-inset-top, 0px) - var(--safe-area-inset-bottom, 0px));
         height: calc(100dvh - var(--safe-area-inset-top, 0px) - var(--safe-area-inset-bottom, 0px));
         background: var(--primary-background-color, #fafafa);
+        /* Never wider than the screen: a toolbar too long is cut, the page does not scroll
+           sideways. Menus and dialogs still go past it downwards. */
+        min-width: 0;
+        overflow-x: hidden; /* Safari before 16 */
+        overflow-x: clip;
       }
       .toolbar {
         display: flex;
@@ -413,11 +442,13 @@ export class DomoTwinPanel extends LitElement {
         font-size: 1.25rem;
         font-weight: 400;
         flex: 1;
+        min-width: 0;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
       }
       .toolbar button.action {
+        flex: none;
         background: rgba(255, 255, 255, 0.16);
         color: inherit;
       }
@@ -425,8 +456,17 @@ export class DomoTwinPanel extends LitElement {
       .toolbar button.action:focus-visible {
         outline-color: var(--app-header-text-color, var(--text-primary-color, #fff));
       }
-      :host([narrow]) .toolbar .label {
+      /* Phones and narrow windows: the buttons keep their icons (their names stay for screen
+         readers and as tooltips). */
+      :host([compact]) .toolbar {
+        gap: 4px;
+        padding: 0 4px;
+      }
+      :host([compact]) .toolbar .label {
         display: none;
+      }
+      :host([compact]) .toolbar button.action {
+        padding: 0 8px;
       }
       .more {
         position: relative;
@@ -437,6 +477,9 @@ export class DomoTwinPanel extends LitElement {
         right: 0;
         z-index: 5;
         min-width: 220px;
+        max-height: calc(100vh - 80px);
+        max-height: calc(100dvh - 80px);
+        overflow-y: auto;
         padding: 6px;
         display: grid;
         color: var(--primary-text-color, #1f2328);
@@ -557,6 +600,8 @@ export class DomoTwinPanel extends LitElement {
         left: 50%;
         transform: translate(-50%, -50%);
         width: min(380px, calc(100% - 32px));
+        max-height: calc(100% - 32px);
+        overflow: auto;
         padding: 16px;
         display: grid;
         gap: 12px;
@@ -725,12 +770,24 @@ export class DomoTwinPanel extends LitElement {
     if (this._hass) this.connectData();
     window.addEventListener("pointerdown", this.closeMore, true);
     this.addEventListener("keydown", this.onEscape);
+    this.sizeObserver = new ResizeObserver((entries) => {
+      const width = entries[entries.length - 1]?.contentRect.width;
+      if (!width) return;
+      this.panelWidth = width;
+      this.tight = width < TIGHT_WIDTH;
+      this.fitToolbar();
+    });
+    this.sizeObserver.observe(this);
+    documentFonts()?.addEventListener("loadingdone", this.onFonts);
   }
 
   override disconnectedCallback(): void {
     super.disconnectedCallback();
     window.removeEventListener("pointerdown", this.closeMore, true);
     this.removeEventListener("keydown", this.onEscape);
+    this.sizeObserver?.disconnect();
+    this.sizeObserver = undefined;
+    documentFonts()?.removeEventListener("loadingdone", this.onFonts);
     clearTimeout(this.settingsTimer);
     this.unsubscribe?.();
     this.unsubscribe = undefined;
@@ -2009,6 +2066,53 @@ export class DomoTwinPanel extends LitElement {
     }
     // After the menu: a dialog opened from it gives the focus back to its button.
     this.dialogs.update(this.renderRoot.querySelector(PANEL_DIALOGS) ?? undefined);
+    const hass = this._hass;
+    const fitting = [
+      hass?.locale?.language ?? hass?.language,
+      hass?.user?.is_admin,
+      hass?.dockedSidebar,
+      this.editing,
+      this.planning,
+      this.linking,
+      Boolean(this.plan),
+      this.tight,
+      this.narrow,
+      this.compact,
+    ].join("|");
+    if (fitting !== this.fitted) {
+      this.fitted = fitting;
+      this.fitToolbar();
+    }
+  }
+
+  /**
+   * Whether the buttons' names fit beside the title (D-045), whatever the language and the
+   * buttons shown: measured with them shown, again whenever they change, before the page is
+   * drawn.
+   */
+  private fitToolbar(): void {
+    const toolbar = this.renderRoot.querySelector<HTMLElement>(".toolbar");
+    const title = toolbar?.querySelector("h1");
+    if (!toolbar || !title || this.panelWidth === 0) return;
+    if (this.narrow) {
+      this.compact = true;
+      return;
+    }
+    // The names, and Home Assistant's menu button (hidden while its sidebar is docked).
+    const menu = toolbar.querySelector("ha-menu-button")?.getBoundingClientRect().width ?? 0;
+    const names = [...toolbar.querySelectorAll(".label")]
+      .map((label) => label.textContent)
+      .concat(String(menu))
+      .join("|");
+    if (this.namesWidth?.names !== names) {
+      if (this.compact) {
+        // Shown to be measured on the next update.
+        this.compact = false;
+        return;
+      }
+      this.namesWidth = { names, width: toolbar.scrollWidth - title.offsetWidth + TITLE_ROOM };
+    }
+    this.compact = this.panelWidth < this.namesWidth.width;
   }
 
   /** A press outside the open menu closes it. */
@@ -2120,20 +2224,23 @@ export class DomoTwinPanel extends LitElement {
 
   private renderActions(admin: boolean): TemplateResult {
     const t = this.t;
+    // On a phone, the import and the storeys go in the More menu, when it is there.
+    const more = admin && Boolean(this.plan) && !this.linking;
     return html`${
-      admin
+      admin && !(this.tight && more)
         ? html`<button
             class="action"
             ?disabled=${this.busy || this.importChoice !== undefined}
             @click=${this.chooseFile}
             aria-label=${t.t("panel.import")}
+            title=${t.t("panel.import")}
           >
             ${icon(mdiTrayArrowUp)}<span class="label">${t.t("panel.import")}</span>
           </button>`
         : nothing
     }
     ${
-      admin && this.plan && !this.linking
+      more && !this.tight
         ? html`<button
             class="action"
             data-testid="storeys-manage"
@@ -2168,6 +2275,7 @@ export class DomoTwinPanel extends LitElement {
             ?disabled=${this.busy || this.importChoice !== undefined}
             @click=${this.startEdit}
             aria-label=${t.t("edit.mode")}
+            title=${t.t("edit.mode")}
           >
             ${icon(mdiPencilOutline)}<span class="label">${t.t("edit.mode")}</span>
           </button>`
@@ -2180,6 +2288,7 @@ export class DomoTwinPanel extends LitElement {
             data-testid="link-mode"
             @click=${this.toggleLinking}
             aria-label=${this.linking ? t.t("link.done") : t.t("link.mode")}
+            title=${this.linking ? t.t("link.done") : t.t("link.mode")}
           >
             ${icon(this.linking ? mdiCheck : mdiLinkVariant)}<span class="label"
               >${this.linking ? t.t("link.done") : t.t("link.mode")}</span
@@ -2187,12 +2296,17 @@ export class DomoTwinPanel extends LitElement {
           </button>`
         : nothing
     }
-    ${admin && this.plan && !this.linking ? this.renderMore() : this.renderExport()}`;
+    ${more ? this.renderMore() : this.renderExport()}`;
   }
 
   private renderExport(): TemplateResult {
     const t = this.t;
-    return html`<button class="action" @click=${this.exportPlan} aria-label=${t.t("panel.export")}>
+    return html`<button
+      class="action"
+      @click=${this.exportPlan}
+      aria-label=${t.t("panel.export")}
+      title=${t.t("panel.export")}
+    >
       ${icon(mdiTrayArrowDown)}<span class="label">${t.t("panel.export")}</span>
     </button>`;
   }
@@ -2203,6 +2317,7 @@ export class DomoTwinPanel extends LitElement {
     const close = (): void => {
       this.moreOpen = false;
     };
+    const busy = this.busy || this.importChoice !== undefined;
     const item = (
       testId: string,
       glyph: string,
@@ -2250,6 +2365,13 @@ export class DomoTwinPanel extends LitElement {
                 );
               }}
             >
+              ${
+                // On a phone, the import and the storeys, which have no room in the toolbar.
+                this.tight
+                  ? html`${item("more-import", mdiTrayArrowUp, t.t("panel.import"), busy, this.chooseFile)}
+                    ${item("more-storeys", mdiStairs, t.t("storey.manage"), busy, this.openStoreys)}`
+                  : nothing
+              }
               ${item("export", mdiTrayArrowDown, t.t("panel.export"), false, this.exportPlan)}
               <hr />
               ${item("settings", mdiCogOutline, t.t("settings.title"), this.busy, this.openSettings)}
@@ -2379,6 +2501,7 @@ export class DomoTwinPanel extends LitElement {
         ?disabled=${this.busy}
         @click=${this.cancelEdit}
         aria-label=${t.t("edit.cancel")}
+        title=${t.t("edit.cancel")}
       >
         ${icon(mdiClose)}<span class="label">${t.t("edit.cancel")}</span>
       </button>
@@ -2388,6 +2511,7 @@ export class DomoTwinPanel extends LitElement {
         ?disabled=${this.busy || !this.edit?.dirty}
         @click=${this.saveEdit}
         aria-label=${t.t("edit.save")}
+        title=${t.t("edit.save")}
       >
         ${icon(mdiCheck)}<span class="label">${t.t("edit.save")}</span>
       </button>`;
@@ -2402,6 +2526,7 @@ export class DomoTwinPanel extends LitElement {
         ?disabled=${this.busy}
         @click=${this.cancelPlan}
         aria-label=${t.t("edit.cancel")}
+        title=${t.t("edit.cancel")}
       >
         ${icon(mdiClose)}<span class="label">${t.t("edit.cancel")}</span>
       </button>
@@ -2411,6 +2536,7 @@ export class DomoTwinPanel extends LitElement {
         ?disabled=${this.busy || !this.planState?.dirty}
         @click=${this.savePlanEdit}
         aria-label=${t.t("edit.save")}
+        title=${t.t("edit.save")}
       >
         ${icon(mdiCheck)}<span class="label">${t.t("edit.save")}</span>
       </button>`;

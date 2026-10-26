@@ -245,6 +245,7 @@ YAML n’est jamais nécessaire. Pour référence, les options de la carte :
 | `theme`       | `auto`, `day`, `neon`, `blueprint`, `cartoon`, `clay` | celle du logement | L’apparence ; `auto` : néon en mode sombre. |
 | `accent`      | une couleur `#rrggbb`               | celle du logement | Couleur d’accent (les contours lumineux du néon). |
 | `names`       | `true`, `false`                     | `true`     | Le nom des pièces au sol.                     |
+| `small_rooms` | `true`, `false`                     | `false`    | Le nom des petites pièces aussi (placards, pièces de moins de 2,5 m²). |
 | `idle`        | secondes (0 à 86400)                | `0`        | Kiosque : revenir à cette vue après ce temps sans contact (0 : jamais). |
 | `orbit`       | `true`, `false`                     | `false`    | Kiosque : tourner lentement autour du logement entre-temps. |
 | `night_dim`   | `true`, `false`                     | `false`    | Kiosque : assombri la nuit entre-temps (sauf alerte). |

@@ -223,6 +223,7 @@ YAML is never required. For reference, the card options are:
 | `theme`       | `auto`, `day`, `neon`, `blueprint`, `cartoon`, `clay` | the home's | The look; `auto` is neon in dark mode. |
 | `accent`      | a colour `#rrggbb`                  | the home's | Accent of the look (neon's glowing outlines). |
 | `names`       | `true`, `false`                     | `true`     | The rooms' names on their floors.         |
+| `small_rooms` | `true`, `false`                     | `false`    | The names of small rooms too (closets, rooms under 2.5 m²). |
 | `idle`        | seconds (0 to 86400)                | `0`        | Kiosk: back to this view after this long untouched (0: never). |
 | `orbit`       | `true`, `false`                     | `false`    | Kiosk: a slow turn around the home meanwhile. |
 | `night_dim`   | `true`, `false`                     | `false`    | Kiosk: dimmed at night meanwhile (unless an alert shows). |

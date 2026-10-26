@@ -1107,8 +1107,8 @@ impl Engine {
         serde_json::Value::Array(labels).to_string()
     }
 
-    /// Where the rooms' names go on the picture, as JSON `[{"id", "name", "x", "y"}]` in device
-    /// pixels from the top left: the middle of each room's floor.
+    /// Where the rooms' names go on the picture, as JSON `[{"id", "name", "x", "y", "area"}]` in
+    /// device pixels from the top left: the middle of each room's floor, and its area (m²).
     #[wasm_bindgen(js_name = roomLabels)]
     pub fn room_labels(&self) -> String {
         let mut labels = Vec::new();
@@ -1119,7 +1119,7 @@ impl Engine {
                 let at = self.renderer.view.place(room.storey, [x, 1.0, z]);
                 if let Some([sx, sy]) = self.renderer.screen_point(at) {
                     labels.push(serde_json::json!({
-                        "id": room.id, "name": name, "x": sx, "y": sy,
+                        "id": room.id, "name": name, "x": sx, "y": sy, "area": room.area,
                     }));
                 }
             }

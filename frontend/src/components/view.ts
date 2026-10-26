@@ -1,4 +1,14 @@
 import {
+  mdiBathtubOutline,
+  mdiBedKingOutline,
+  mdiDesk,
+  mdiGarage,
+  mdiSilverwareForkKnife,
+  mdiSofaOutline,
+  mdiStairs,
+  mdiToilet,
+  mdiTree,
+  mdiWardrobeOutline,
   mdiAlert,
   mdiAlertCircleOutline,
   mdiArrowCollapseVertical,
@@ -136,6 +146,13 @@ import {
   type StoreyRooms,
 } from "../live/storeys";
 import { planRooms } from "../live/suggest";
+import {
+  placeLabels,
+  textWidth,
+  type PlacedLabel,
+  type RoomKind,
+  type RoomLabel,
+} from "../live/room-labels";
 import { assistAvailable, canListen, listeningPipeline, openAssist } from "../live/voice";
 import { FrameScheduler } from "../scheduler";
 import { fire } from "./define";
@@ -143,6 +160,7 @@ import { icon } from "./icon";
 import { DialogFocus } from "./dialog";
 import { focusBack, focusMenu, menuKeydown } from "./menu";
 import type { Planner } from "../planner/planner";
+import { documentFonts } from "../fonts";
 import type { PlanEditState, PlanEditor, PlanTool } from "./plan-editor";
 import type { VoiceDialogMode } from "./voice-dialog";
 import { baseStyles, lookStyles } from "./styles";
@@ -179,6 +197,8 @@ export interface ViewOptions {
   cameras?: boolean;
   /** The rooms' names over their floor (on unless `false`). */
   names?: boolean;
+  /** The names of small rooms too (closets, rooms under 2.5 m²; off unless `true`). */
+  small_rooms?: boolean;
   /** Every storey at once (D-028): spread apart and the roof shown, unless `false`. */
   spread?: boolean;
   roof?: boolean;
@@ -238,6 +258,23 @@ const KEY_STEP = 40;
 const KEY_ZOOM = 0.85;
 /** How often the light follows the time of day without a `hass` update (ms). */
 const LIGHT_REFRESH_MS = 5 * 60 * 1000;
+/** The icon of each kind of room, before its name over the view. */
+const ROOM_ICONS: Record<RoomKind, string> = {
+  kitchen: mdiStove,
+  living: mdiSofaOutline,
+  dining: mdiSilverwareForkKnife,
+  bedroom: mdiBedKingOutline,
+  bathroom: mdiBathtubOutline,
+  toilet: mdiToilet,
+  office: mdiDesk,
+  laundry: mdiWashingMachine,
+  hall: mdiDoorOpen,
+  closet: mdiWardrobeOutline,
+  garage: mdiGarage,
+  stairs: mdiStairs,
+  outdoor: mdiTree,
+  room: mdiHomeOutline,
+};
 /** A lost WebGL context starts the engine again, once a minute at most: more, the GPU is failing. */
 const CONTEXT_RESTART_MS = 60 * 1000;
 const FALLBACK_BACKGROUND: Rgb = { r: 242, g: 242, b: 240 };
@@ -487,6 +524,7 @@ export class DomoTwinView extends LitElement {
     roomNames: { state: true },
     showBadges: { state: true },
     showCameras: { state: true },
+    smallRooms: { state: true },
     badges: { state: true },
     badgePoints: { state: true },
   };
@@ -613,9 +651,30 @@ export class DomoTwinView extends LitElement {
   private focusAfterLoad?: { id: string; name: string };
   /** The values of the layer shown and where they go (device pixels). */
   protected labels: LayerLabel[] = [];
-  /** The rooms' names and where they go (device pixels), while no layer shows its values. */
-  protected roomNames: { id: string; name: string; x: number; y: number }[] = [];
+  /** The rooms' names, where they go (device pixels) and their areas, while no layer shows its
+   * values. */
+  protected roomNames: RoomLabel[] = [];
   private roomNamesText = "[]";
+  /** The names placed last, and what for: placed again only when that changes. */
+  private placedNames?: {
+    names: RoomLabel[];
+    focused?: string;
+    width: number;
+    height: number;
+    small: boolean;
+    placed: PlacedLabel[];
+  };
+  /** How wide each name is drawn in the view's font (CSS pixels), measured once. */
+  private readonly nameWidths = new Map<string, number>();
+  private nameFont?: string;
+  private measuring?: CanvasRenderingContext2D | null;
+  /** A font loaded (the bundled one comes after the first picture): the names are measured again. */
+  private readonly onFonts = (): void => {
+    this.nameWidths.clear();
+    this.nameFont = undefined;
+    this.placedNames = undefined;
+    this.requestUpdate();
+  };
   /** The home shown whole: its storeys spread apart, its roof, where each storey is drawn, and a
    * picture of each (data URLs, lowest first). */
   protected spread = true;
@@ -641,6 +700,8 @@ export class DomoTwinView extends LitElement {
   /** The devices' badges and what the cameras see (the layer menu turns them off). */
   protected showBadges = true;
   protected showCameras = true;
+  /** The names of small rooms too (closets, rooms under 2.5 m²). */
+  protected smallRooms = false;
   protected badges = new Map<string, Badge[]>();
   /** Where each element with badges is drawn (device pixels). */
   protected badgePoints: Record<string, [number, number] | undefined> = {};
@@ -1174,7 +1235,9 @@ export class DomoTwinView extends LitElement {
       .room-name {
         position: absolute;
         transform: translate(-50%, -50%);
-        max-width: 40%;
+        /* As the names are placed (room-labels.ts), padding and border included. */
+        box-sizing: border-box;
+        max-width: min(240px, 40%);
         overflow: hidden;
         padding: 3px 10px;
         border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
@@ -1189,11 +1252,22 @@ export class DomoTwinView extends LitElement {
       }
       /* A private room this viewer may not see (D-039): a lock before its name. */
       .room-name svg {
-        width: 12px;
-        height: 12px;
-        margin-right: 3px;
-        vertical-align: -1px;
+        width: 13px;
+        height: 13px;
+        margin-right: 4px;
+        vertical-align: -2px;
         fill: currentColor;
+      }
+      /* Only the icon: the name covered another, bigger room's. */
+      .room-name.compact {
+        padding: 4px;
+        line-height: 0;
+      }
+      .room-name.compact svg {
+        width: 16px;
+        height: 16px;
+        margin: 0;
+        vertical-align: 0;
       }
       :host([look="neon"]) .room-name {
         border-color: color-mix(in srgb, var(--domotwin-accent, #00d4ff) 45%, transparent);
@@ -1494,6 +1568,7 @@ export class DomoTwinView extends LitElement {
     this.addEventListener("click", this.onWakeClick, true);
     this.addEventListener("keydown", this.onTouch, true);
     this.addEventListener("wheel", this.onTouch, { capture: true, passive: true });
+    documentFonts()?.addEventListener("loadingdone", this.onFonts);
     this.lastTouch = performance.now();
     this.idleTimer = window.setInterval(this.checkIdle, 1000);
     if (this.hasUpdated) void this.startEngine();
@@ -1508,6 +1583,7 @@ export class DomoTwinView extends LitElement {
     this.removeEventListener("click", this.onWakeClick, true);
     this.removeEventListener("keydown", this.onTouch, true);
     this.removeEventListener("wheel", this.onTouch, true);
+    documentFonts()?.removeEventListener("loadingdone", this.onFonts);
     window.clearInterval(this.idleTimer);
     window.clearTimeout(this.walkHintTimer);
     clearTimeout(this.cameraFocusTimer);
@@ -1540,6 +1616,11 @@ export class DomoTwinView extends LitElement {
       if (previous?.layer !== this.options.layer) this.layer = this.options.layer ?? "off";
       if (previous?.sun !== this.options.sun) this.realSun = this.options.sun === "real";
       if (previous?.badges !== this.options.badges) this.showBadges = this.options.badges !== false;
+      // The card's font (`font_family`) may have changed: the names are measured again.
+      if (previous !== this.options) this.onFonts();
+      if (previous?.small_rooms !== this.options.small_rooms) {
+        this.smallRooms = this.options.small_rooms === true;
+      }
       if (previous?.cameras !== this.options.cameras) {
         this.showCameras = this.options.cameras !== false;
       }
@@ -2281,6 +2362,12 @@ export class DomoTwinView extends LitElement {
     return this.layer;
   }
 
+  /** The rooms' names are drawn: where no layer shows a value (the storeys' labels take their
+   * place when every storey is shown). */
+  private get namesShown(): boolean {
+    return this.options.names !== false && !this.valueLayer && !this.loadedHome;
+  }
+
   /** The layer shown puts values on the home (a heatmap, the power drawn) and has a legend. */
   private get valueLayer(): boolean {
     const layer = this.shownLayer;
@@ -2914,12 +3001,7 @@ export class DomoTwinView extends LitElement {
     }
     if (this.valueLayer) this.readLabels(engine);
     const shown = !this.editingAny && !this.linking;
-    // The rooms' names, where no layer shows a value (the storeys' labels take their place when
-    // every storey is shown).
-    const names =
-      shown && this.options.names !== false && !this.valueLayer && !this.loadedHome
-        ? engine.roomLabels()
-        : "[]";
+    const names = shown && this.namesShown ? engine.roomLabels() : "[]";
     if (names !== this.roomNamesText) {
       this.roomNamesText = names;
       this.roomNames = JSON.parse(names) as typeof this.roomNames;
@@ -4344,6 +4426,21 @@ export class DomoTwinView extends LitElement {
       >
         ${t.t("layers.cameras")}
       </button>
+      ${
+        this.namesShown
+          ? html`<button
+              role="menuitemcheckbox"
+              data-testid="show-small-rooms"
+              aria-checked=${this.smallRooms ? "true" : "false"}
+              @click=${() => {
+                this.layersOpen = false;
+                this.smallRooms = !this.smallRooms;
+              }}
+            >
+              ${t.t("layers.small_rooms")}
+            </button>`
+          : nothing
+      }
       ${this.renderShowMe()}
     </div>`;
   }
@@ -4427,21 +4524,65 @@ export class DomoTwinView extends LitElement {
   private renderRoomNames(): TemplateResult | typeof nothing {
     const canvas = this.canvas;
     if (!canvas || this.roomNames.length === 0 || this.editingAny || this.linking) return nothing;
-    const k = Math.max(1, canvas.clientWidth) / Math.max(1, canvas.width);
+    const last = this.placedNames;
+    const now = {
+      names: this.roomNames,
+      focused: this.focusedRoom?.id,
+      width: canvas.clientWidth,
+      height: canvas.clientHeight,
+      small: this.smallRooms,
+    };
+    let placed = last?.placed;
+    if (
+      !last ||
+      last.names !== now.names ||
+      last.focused !== now.focused ||
+      last.width !== now.width ||
+      last.height !== now.height ||
+      last.small !== now.small
+    ) {
+      const k = Math.max(1, now.width) / Math.max(1, canvas.width);
+      placed = placeLabels(
+        now.names
+          .filter((room) => room.id !== now.focused)
+          .map((room) => ({ ...room, x: room.x * k, y: room.y * k })),
+        {
+          ...now,
+          measure: this.measureName,
+          before: new Map(last?.placed.map((room) => [room.id, room.compact])),
+        },
+      );
+      this.placedNames = { ...now, placed };
+    }
     return html`<div class="room-names" data-testid="room-names" aria-hidden="true">
-      ${this.roomNames.map((room) =>
-        room.name && room.id !== this.focusedRoom?.id
-          ? html`<span
-              class="room-name"
-              data-room=${room.id}
-              ?data-private=${this.closed.has(room.id)}
-              style="left:${room.x * k}px;top:${room.y * k}px"
-              >${this.closed.has(room.id) ? icon(mdiLock) : nothing}${room.name}</span
-            >`
-          : nothing,
-      )}
+      ${(placed ?? []).map((room) => {
+        const closed = this.closed.has(room.id);
+        return html`<span
+          class="room-name ${room.compact ? "compact" : ""}"
+          data-room=${room.id}
+          data-kind=${room.kind}
+          ?data-private=${closed}
+          style="left:${room.x}px;top:${room.y}px"
+          >${icon(closed ? mdiLock : ROOM_ICONS[room.kind])}${room.compact ? nothing : room.name}</span
+        >`;
+      })}
     </div>`;
   }
+
+  /** How wide a name is drawn: measured in the view's font, the names' weight and size. */
+  private readonly measureName = (name: string): number => {
+    let width = this.nameWidths.get(name);
+    if (width === undefined) {
+      this.measuring ??= document.createElement("canvas").getContext("2d");
+      if (!this.measuring) return textWidth(name);
+      this.nameFont ??= `600 12px ${getComputedStyle(this).fontFamily}`;
+      this.measuring.font = this.nameFont;
+      // A little more, for the rounding of the text's layout.
+      width = this.measuring.measureText(name).width + 1;
+      this.nameWidths.set(name, width);
+    }
+    return width;
+  };
 
   /** The devices' badges over their elements; a tap does what a tap on the element does. */
   private renderBadges(): TemplateResult | typeof nothing {
