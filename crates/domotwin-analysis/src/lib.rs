@@ -1,15 +1,66 @@
 //! DomoTwin's analysis module (`DECISIONS.md`, D-043): reading what Home Assistant hands over
-//! about a radio mesh and about automations, and analysing it, for JavaScript. It is built as its
-//! own WebAssembly module, which the frontend loads only when the network map or the automations
-//! are shown; the engine is handed what it draws (`domotwin_core::network::Drawing`, the
-//! automations' placed ends), so that none of this is in the first load.
+//! about a radio mesh and about automations, and analysing it, for JavaScript; and the home's
+//! Wi-Fi QR code (D-058). It is built as its own WebAssembly module, which the frontend loads only
+//! when the network map, the automations or the QR code are shown; the engine is handed what it
+//! draws (`domotwin_core::network::Drawing`, the automations' placed ends), so that none of this
+//! is in the first load.
 
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used, clippy::panic))]
 
 use domotwin_core::automation::{Automation, Target};
 use domotwin_core::network::Mesh;
+use qrcodegen::{QrCode, QrCodeEcc};
 use serde_json::{Value, json};
 use wasm_bindgen::prelude::*;
+
+/// What a phone's camera reads to join a Wi-Fi network: `WIFI:T:WPA;S:<name>;P:<password>;;`,
+/// with `\`, `;`, `,`, `:` and `"` escaped by a backslash. `security` is `WPA` (WPA2 and WPA3
+/// too), `WEP` or `nopass` (an open network, no password); a hidden network says so (`H:true`).
+pub fn wifi_payload(name: &str, password: &str, security: &str, hidden: bool) -> String {
+    fn escaped(text: &str) -> String {
+        let mut out = String::with_capacity(text.len());
+        for c in text.chars() {
+            if matches!(c, '\\' | ';' | ',' | ':' | '"') {
+                out.push('\\');
+            }
+            out.push(c);
+        }
+        out
+    }
+    let security = match security {
+        "WEP" => "WEP",
+        "nopass" => "nopass",
+        _ => "WPA",
+    };
+    let mut payload = format!("WIFI:T:{security};S:{};", escaped(name));
+    if security != "nopass" {
+        payload.push_str(&format!("P:{};", escaped(password)));
+    }
+    if hidden {
+        payload.push_str("H:true;");
+    }
+    payload.push(';');
+    payload
+}
+
+/// The QR code joining a Wi-Fi network (`wifi_payload`): JSON `{"size": modules on a side,
+/// "modules": "0110…" row by row, 1 dark}`, or `{"size": 0}` when it does not fit in one.
+#[wasm_bindgen(js_name = wifiQr)]
+pub fn wifi_qr(name: &str, password: &str, security: &str, hidden: bool) -> String {
+    console_error_panic_hook::set_once();
+    let payload = wifi_payload(name, password, security, hidden);
+    let Ok(code) = QrCode::encode_text(&payload, QrCodeEcc::Medium) else {
+        return json!({ "size": 0 }).to_string();
+    };
+    let size = code.size();
+    let mut modules = String::with_capacity(usize::try_from(size * size).unwrap_or_default());
+    for y in 0..size {
+        for x in 0..size {
+            modules.push(if code.get_module(x, y) { '1' } else { '0' });
+        }
+    }
+    json!({ "size": size, "modules": modules }).to_string()
+}
 
 /// What an automation's configuration (JSON, `automation/config`'s `config`) involves: JSON
 /// `{"ends": [{"role", "entity" | "device" | "area" | "floor" | "label" | "place" | "dynamic":
@@ -107,6 +158,44 @@ mod tests {
                 { "role": "action", "label": "evening" }
             ], "skipped": 1 })
         );
+    }
+
+    #[test]
+    fn a_wifi_network_s_payload_with_its_characters_escaped() {
+        assert_eq!(
+            wifi_payload("Fictional Guests", "tea;and,cake", "WPA", false),
+            r"WIFI:T:WPA;S:Fictional Guests;P:tea\;and\,cake;;"
+        );
+        assert_eq!(
+            wifi_payload(r#"a:b"c\d"#, "x", "WEP", true),
+            r#"WIFI:T:WEP;S:a\:b\"c\\d;P:x;H:true;;"#
+        );
+        // An open network has no password; an unknown kind is WPA.
+        assert_eq!(
+            wifi_payload("Open", "ignored", "nopass", false),
+            "WIFI:T:nopass;S:Open;;"
+        );
+        assert_eq!(
+            wifi_payload("N", "p", "WPA3", false),
+            "WIFI:T:WPA;S:N;P:p;;"
+        );
+    }
+
+    #[test]
+    fn a_wifi_qr_code_s_modules() {
+        let read: Value =
+            serde_json::from_str(&wifi_qr("Fictional Guests", "correct horse", "WPA", false))
+                .unwrap();
+        let size = read["size"].as_i64().unwrap();
+        // Version 3 at least (29 modules), each one given, finder patterns in the corners.
+        assert!(size >= 29 && (size - 17) % 4 == 0);
+        let modules = read["modules"].as_str().unwrap();
+        assert_eq!(modules.len() as i64, size * size);
+        assert_eq!(&modules[..7], "1111111");
+        // Too long for any QR code: no code, said so.
+        let read: Value =
+            serde_json::from_str(&wifi_qr(&"n".repeat(3000), "p", "WPA", false)).unwrap();
+        assert_eq!(read, json!({ "size": 0 }));
     }
 
     #[test]

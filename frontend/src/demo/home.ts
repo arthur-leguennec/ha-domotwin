@@ -7,6 +7,7 @@ import type {
   Bindings,
   NewSchedule,
   PlanJson,
+  SaveKind,
   Settings,
   StoreyInfo,
   UpdateEvent,
@@ -22,6 +23,7 @@ import type { PeopleSettings } from "../live/people";
 import type { Choices } from "../live/choices";
 import { MAX_SCHEDULE_ENTITIES, schedulable, type Schedule } from "../live/schedules";
 import type { Upkeep } from "../live/upkeep";
+import type { StoredWifi } from "../live/wifi";
 import { demoConnection, type MemoryHome } from "./connection";
 import {
   DAY,
@@ -84,6 +86,8 @@ export interface DemoStore {
   schedules: Schedule[];
   /** The visitor's own choices (D-055), until they leave. */
   choices: Choices;
+  /** The home's Wi-Fi for guests (D-058): the demo house's is fictional. */
+  wifi?: StoredWifi;
 }
 
 /** Who opens the demo: their language, name and look, from their own Home Assistant. */
@@ -196,6 +200,14 @@ export class DemoHome implements MemoryHome {
       upkeep: demoUpkeep(dateOf(today), language),
       people: demoPeople(),
       schedules: [],
+      // A fictional network: its code joins nothing.
+      wifi: {
+        name: "Demo house guests",
+        password: "fictional-demo-network",
+        security: "WPA",
+        hidden: false,
+        screens: [],
+      },
       choices: {
         favourites: [
           "light.living_floor_lamp",
@@ -595,7 +607,7 @@ export class DemoHome implements MemoryHome {
   }
 
   /** A save: its kind and the new revision, told to who follows them. */
-  saved(kind: "plan" | "bindings" | "settings" | "upkeep" | "people" | "locating"): number {
+  saved(kind: SaveKind): number {
     this.store.revision += 1;
     for (const listener of this.updateListeners) listener({ kind, revision: this.store.revision });
     return this.store.revision;

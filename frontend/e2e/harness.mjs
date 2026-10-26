@@ -12,6 +12,8 @@
 //   theme=auto|day|neon|blueprint|cartoon|clay  accent=<#rrggbb>  names=0 (card options)
 //   hometheme=<look> (the stored settings)
 //   screen=<name>  idle=<seconds>  orbit=1  nightdim=1 (the kiosk's card options)
+//   wifi=typed|image (the home's Wi-Fi for guests, D-058: a fictional network, or a router's code)
+//   wifiscreens=<names> (the screens that show it, comma-separated)  tools=0 (the card's tools hidden)
 //   upkeep=1 (the demo apartment's fictional upkeep cards, examples/demo-apartment.upkeep.json)
 //   upkeep=0 (an integration without upkeep cards)
 //   people=1 (fictional people: Alex, the user viewing, in the kitchen; Sam in the living room;
@@ -434,6 +436,42 @@ const calls = [];
 window.__calls = calls;
 // settingsdown=1: the settings cannot be read until `window.__settingsUp()` (D-039).
 let settingsDown = params.get("settingsdown") === "1";
+/** The home's Wi-Fi for guests (D-058), as the integration keeps it: fictional. */
+let wifi =
+  params.get("wifi") === "typed"
+    ? {
+        name: "Fictional Guests",
+        password: "tea-and-cake-42",
+        security: "WPA",
+        hidden: false,
+        screens: params.get("wifiscreens") ? params.get("wifiscreens").split(",") : [],
+      }
+    : params.get("wifi") === "image"
+      ? {
+          image: "image.router_guest_wifi",
+          security: "WPA",
+          hidden: false,
+          screens: params.get("wifiscreens") ? params.get("wifiscreens").split(",") : [],
+        }
+      : undefined;
+window.__wifi = () => wifi;
+/** What `domotwin/wifi/get` answers, as the integration does: its password only when asked. */
+window.__wifiAsked = [];
+function wifiAnswer(admin, screen, password) {
+  window.__wifiAsked.push({ screen, password });
+  if (!wifi) return { set: false, shown: false };
+  const chosen = wifi.screens.some((name) => name.toLowerCase() === screen.toLowerCase());
+  if (!admin && !(screen && chosen)) return { set: true, shown: false };
+  const { screens, password: secret, ...shown } = wifi;
+  return {
+    set: true,
+    shown: true,
+    ...shown,
+    ...(password && secret !== undefined ? { password: secret } : {}),
+    ...(admin ? { screens: [...screens] } : {}),
+  };
+}
+let wifiRevision = 0;
 /** The user's own choices (D-055). */
 const choices = {
   favourites: params.get("favourites") ? params.get("favourites").split(",") : [],
@@ -834,6 +872,39 @@ const connection = {
         }
         return { revision: store.people.revision };
       }
+      case "domotwin/wifi/get":
+        return wifiAnswer(hass.user.is_admin, message.screen ?? "", message.password === true);
+      case "domotwin/wifi/save": {
+        if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        const change = message.wifi;
+        const next = {
+          security: change.security,
+          hidden: change.hidden === true,
+          screens: change.screens ?? [],
+        };
+        if (change.image) next.image = change.image;
+        else {
+          if (!change.name) throw { code: "no_name", message: "no_name" };
+          next.name = change.name;
+          if (change.security !== "nopass") {
+            const same = wifi?.name === change.name && wifi?.security === change.security;
+            next.password = change.password ?? (same ? wifi.password : "");
+            if (change.security === "WPA" && next.password.length < 8) {
+              throw { code: "bad_wpa", message: "bad_wpa" };
+            }
+          }
+        }
+        wifi = next;
+        wifiRevision += 1;
+        for (const listener of listeners) listener({ kind: "wifi", revision: wifiRevision });
+        return wifiAnswer(true, "", true);
+      }
+      case "domotwin/wifi/clear":
+        if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        wifi = undefined;
+        wifiRevision += 1;
+        for (const listener of listeners) listener({ kind: "wifi", revision: wifiRevision });
+        return { set: false, shown: false };
       case "domotwin/people/hide": {
         const own = home.states[message.person]?.attributes.user_id === hass.user.id;
         if (!own && !hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
@@ -1086,6 +1157,22 @@ home.floors = {
 for (const area of Object.values(home.areas)) {
   area.floor_id = area.area_id === "office" ? "upper" : "ground";
 }
+if (params.get("wifi") === "image") {
+  // A router's own code, as an image entity (FRITZ!Box, UniFi): a picture made here, nothing
+  // fetched.
+  home.states["image.router_guest_wifi"] = {
+    entity_id: "image.router_guest_wifi",
+    state: "2026-06-15T08:00:00+00:00",
+    attributes: {
+      friendly_name: "Router guest Wi-Fi",
+      entity_picture:
+        "data:image/svg+xml," +
+        encodeURIComponent(
+          '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 4 4"><rect width="4" height="4" fill="#fff"/><rect width="2" height="2" fill="#000"/></svg>',
+        ),
+    },
+  };
+}
 if (params.get("lists") === "1") {
   home.states["calendar.family"] = {
     entity_id: "calendar.family",
@@ -1312,6 +1399,7 @@ if (mode === "panel") {
     accent: params.get("accent") ?? undefined,
     screen: params.get("screen") ?? undefined,
     idle: params.get("idle") ? Number(params.get("idle")) : undefined,
+    tools: params.get("tools") === "0" ? false : undefined,
     orbit: params.get("orbit") === "1" ? true : undefined,
     night_dim: params.get("nightdim") === "1" ? true : undefined,
     voice: params.get("mic") === "0" ? false : undefined,

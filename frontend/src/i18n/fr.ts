@@ -652,6 +652,10 @@ export const fr: Dictionary = {
     leave: "Quitter le bac à sable",
     no_dialog: "Les fenêtres de Home Assistant ne s’ouvrent pas dans le bac à sable.",
   },
+  wifi: {
+    menu: "Wi-Fi des invités",
+    button: "Wi-Fi des invités : son code QR",
+  },
   tabs: {
     label: "Onglets de DomoTwin",
     home: "Accueil",

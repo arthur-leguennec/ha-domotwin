@@ -286,39 +286,23 @@ test.describe("linking", () => {
         target: { entity_id: "light.sideboard_lamp" },
       },
     });
-    // Out of link mode, a long press runs the action. The press is given where the lamp is drawn
-    // at that very moment: the view may still move between a point taken and a press held 750 ms
-    // later, and a press on the floor opens the room.
+    // Out of link mode, a long press runs the action: given where the lamp is drawn once the view
+    // has settled, it acts on what was under it when it landed.
     await page.getByTestId("link-mode").click();
+    let point: { x: number; y: number } | undefined;
     await expect
-      .poll(() =>
-        page.evaluate(() => {
-          const view = (
-            window as never as {
-              __view: () => {
-                elementPoint(id: string): { x: number; y: number } | undefined;
-                elementAt(x: number, y: number): { id: string } | undefined;
-                hold(x: number, y: number): void;
-              };
-            }
-          ).__view();
-          const centre = view.elementPoint("table-lamp");
-          if (!centre) return false;
-          for (let r = 0; r <= 24; r += 3) {
-            for (let dy = -r; dy <= r; dy += 3) {
-              for (let dx = -r; dx <= r; dx += 3) {
-                const [x, y] = [centre.x + dx, centre.y + dy];
-                if (view.elementAt(x, y)?.id === "table-lamp") {
-                  view.hold(x, y);
-                  return true;
-                }
-              }
-            }
-          }
-          return false;
-        }),
-      )
+      .poll(async () => {
+        const next = await pointOn(page, "table-lamp").catch(() => undefined);
+        const still =
+          next !== undefined &&
+          point !== undefined &&
+          Math.hypot(next.x - point.x, next.y - point.y) < 1;
+        point = next;
+        return still;
+      })
       .toBe(true);
+    if (!point) throw new Error("the lamp cannot be pressed");
+    await longPress(page, point);
     await expect.poll(() => entityState(page, "light.sideboard_lamp")).toBe("on");
   });
 

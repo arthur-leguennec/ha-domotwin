@@ -40,6 +40,7 @@ packages are in their source distributions (crates.io, npm).
 | open-enum-derive | 0.5.3 | Apache-2.0 |
 | pin-project-lite | 0.2.17 | Apache-2.0 OR MIT |
 | proc-macro2 | 1.0.107 | MIT OR Apache-2.0 |
+| qrcodegen | 1.8.0 | MIT |
 | quote | 1.0.47 | MIT OR Apache-2.0 |
 | serde | 1.0.229 | MIT OR Apache-2.0 |
 | serde_core | 1.0.229 | MIT OR Apache-2.0 |

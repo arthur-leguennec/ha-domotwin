@@ -2,6 +2,7 @@ import { en } from "./en";
 import { fr } from "./fr";
 import type { practicalEn } from "./practical";
 import type { sandboxEn } from "./sandbox";
+import type { wifiEn } from "./wifi";
 
 /** A plural message: Intl.PluralRules picks the form. */
 export interface Plural {
@@ -27,7 +28,7 @@ type Leaves<T, Leaf, Prefix extends string = ""> = {
 }[keyof T & string];
 
 /** Every message: the dictionaries', and those added by a chunk when it loads (D-055). */
-type AllMessages = typeof en & typeof practicalEn & typeof sandboxEn;
+type AllMessages = typeof en & typeof practicalEn & typeof sandboxEn & typeof wifiEn;
 /** Keys of plain messages, e.g. `view.loading`. */
 export type MessageKey = Leaves<AllMessages, string>;
 /** Keys of plural messages, e.g. `view.rooms`. */
