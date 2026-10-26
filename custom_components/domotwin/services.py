@@ -6,10 +6,12 @@
   listening gets it over `domotwin/subscribe` and finds the room in its plans.
 - `domotwin.where` (D-034): where a person is, or everyone at home, with a sentence to answer;
   where a device followed by Bluetooth is too (D-035: "where are my keys?").
+- `domotwin.schedule` and `domotwin.unschedule` (D-046): an action done later, and cancelled.
 """
 
 from __future__ import annotations
 
+from datetime import timedelta
 import re
 from typing import Any
 
@@ -20,6 +22,7 @@ from homeassistant.core import (
     SupportsResponse,
     callback,
 )
+from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.util.json import JsonValueType
@@ -27,15 +30,20 @@ from homeassistant.util.json import JsonValueType
 from .compat import vol
 from .const import (
     DOMAIN,
+    MAX_SCHEDULE_DAYS,
+    MAX_SCHEDULE_ENTITIES,
     MAX_SCREEN_NAME,
     MAX_SHOW_TEXT,
+    SERVICE_SCHEDULE,
     SERVICE_SHOW,
+    SERVICE_UNSCHEDULE,
     SERVICE_WHERE,
     SIGNAL_SHOW,
 )
-from .data import DATA_KEY, LOCATOR_KEY, PEOPLE_KEY
+from .data import DATA_KEY, LOCATOR_KEY, PEOPLE_KEY, SCHEDULER_KEY
 from .people import Place, likeness, thing_likeness
 from .privacy import private_rooms
+from .schedules import ScheduleError, describe, moment, times
 from .tracker import name_of
 
 SCREEN = re.compile(rf"^[A-Za-z0-9_-]{{1,{MAX_SCREEN_NAME}}}$")
@@ -77,6 +85,34 @@ WHERE_SCHEMA = vol.Schema(
         vol.Optional("screen", default=""): _screen,
     }
 )
+
+
+SCHEDULE_SCHEMA = vol.All(
+    vol.Schema(
+        {
+            vol.Required("entity_id"): vol.All(
+                cv.entity_ids, vol.Length(min=1, max=MAX_SCHEDULE_ENTITIES)
+            ),
+            vol.Optional("action", default="on"): vol.In(("on", "off")),
+            vol.Exclusive("at", "start"): moment,
+            vol.Exclusive("delay", "start"): vol.All(
+                cv.positive_time_period, vol.Range(max=timedelta(days=MAX_SCHEDULE_DAYS))
+            ),
+            vol.Exclusive("until", "end"): moment,
+            vol.Exclusive("duration", "end"): vol.All(
+                cv.positive_time_period, vol.Range(max=timedelta(days=MAX_SCHEDULE_DAYS))
+            ),
+            vol.Optional("brightness"): vol.All(vol.Coerce(int), vol.Range(min=1, max=100)),
+        }
+    ),
+    cv.has_at_least_one_key("at", "delay"),
+)
+
+UNSCHEDULE_SCHEMA = vol.All(
+    vol.Schema({vol.Optional("id"): cv.string, vol.Optional("entity_id"): cv.entity_ids}),
+    cv.has_at_least_one_key("id", "entity_id"),
+)
+
 
 # What `domotwin.where` says, in English and in French (Home Assistant's language).
 SENTENCES = {
@@ -272,7 +308,7 @@ def _where_thing(
 
 @callback
 def async_register_services(hass: HomeAssistant) -> None:
-    """Register `domotwin.show` and `domotwin.where` (once, at integration setup)."""
+    """Register DomoTwin's actions (once, at integration setup)."""
 
     async def show(call: ServiceCall) -> None:
         request = {key: value for key, value in call.data.items() if value != ""}
@@ -293,6 +329,44 @@ def async_register_services(hass: HomeAssistant) -> None:
     async def where(call: ServiceCall) -> ServiceResponse:
         return await _async_where(hass, call)
 
+    async def schedule(call: ServiceCall) -> ServiceResponse:
+        scheduler = hass.data.get(SCHEDULER_KEY)
+        if scheduler is None:
+            raise HomeAssistantError("DomoTwin is not set up")
+        start, end = times(
+            call.data.get("at"),
+            call.data.get("delay"),
+            call.data.get("until"),
+            call.data.get("duration"),
+        )
+        try:
+            item = await scheduler.async_add(
+                call.data["entity_id"],
+                call.data["action"],
+                start,
+                end,
+                call.data.get("brightness"),
+                user_id=call.context.user_id,
+            )
+        except ScheduleError as err:
+            raise ServiceValidationError(
+                translation_domain=DOMAIN, translation_key=f"schedule_{err.code}"
+            ) from err
+        return {**item.as_dict(), "text": describe(hass, item)}
+
+    async def unschedule(call: ServiceCall) -> ServiceResponse:
+        scheduler = hass.data.get(SCHEDULER_KEY)
+        if scheduler is None:
+            raise HomeAssistantError("DomoTwin is not set up")
+        ids = [call.data["id"]] if "id" in call.data else []
+        ids += [item.id for item in scheduler.of_entities(call.data.get("entity_id", []))]
+        try:
+            return {"cancelled": await scheduler.async_cancel(ids, call.context.user_id)}
+        except ScheduleError as err:
+            raise ServiceValidationError(
+                translation_domain=DOMAIN, translation_key=f"schedule_{err.code}"
+            ) from err
+
     hass.services.async_register(DOMAIN, SERVICE_SHOW, show, schema=SHOW_SCHEMA)
     hass.services.async_register(
         DOMAIN,
@@ -300,4 +374,18 @@ def async_register_services(hass: HomeAssistant) -> None:
         where,
         schema=WHERE_SCHEMA,
         supports_response=SupportsResponse.ONLY,
+    )
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_SCHEDULE,
+        schedule,
+        schema=SCHEDULE_SCHEMA,
+        supports_response=SupportsResponse.OPTIONAL,
+    )
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_UNSCHEDULE,
+        unschedule,
+        schema=UNSCHEDULE_SCHEMA,
+        supports_response=SupportsResponse.OPTIONAL,
     )

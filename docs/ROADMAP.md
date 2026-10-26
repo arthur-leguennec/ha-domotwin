@@ -35,6 +35,7 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M12b      | Size and speed: a pass that keeps the picture as it is     | ✅     |
 | M13       | Release 0.2.0 and HACS submission checklist                | ✅     |
 | M13b      | Phones and crowded names: icons, small rooms left out      | ✅     |
+| M14       | Actions done later: sheet, automations, voice              | ✅     |
 
 M5 to M11 were added after M3b (`DECISIONS.md`, D-022): what people expect of a 3D home dashboard,
 with no account and no network call outside Home Assistant. M8 became the looks alone, and the
@@ -833,3 +834,23 @@ What a phone and a computer showed with a real home (D-045):
 - ✅ Tests: kinds, widths, placing (vitest); the rooms' areas (Rust); a phone's toolbar without
   sideways scroll, the More menu, French names giving way, names that never cover one another,
   the dressing room shown on asking (Playwright).
+
+## M14, actions done later
+
+"Switch the lantern on tomorrow at 6:30 until 6:45", done by DomoTwin even across a restart
+(D-046, `docs/later.md`):
+
+- ✅ **The integration keeps the actions** and does them at their time: switch on (a light at a
+  brightness) and off again after a while or at a time, or switch off; covers open and close. A
+  restart does what is still worth doing and always switches off what was left on.
+- ✅ **`domotwin.schedule` and `domotwin.unschedule`**, for automations and scripts, answering what
+  will happen in Home Assistant's language.
+- ✅ **Voice**: three tools for the assistants driven by a language model (set, list, cancel), on
+  the devices exposed to them, with nothing to install.
+- ✅ **The sheet's Later section**: what waits, with Cancel, and a form (on or off, a time of day,
+  a duration, a brightness). A clock over the piece shows its next step.
+- ✅ Tests: the store, the steps, covers, restarts (missed steps in order, switching off always,
+  a device back after being unavailable), rights, the actions, the tools, the commands
+  (pytest); reading, ordering, badges, times in Home Assistant's time zone and an unknown one
+  (vitest); setting, showing and cancelling from a lamp's sheet, the clock that opens it, a
+  refusal in French (Playwright).

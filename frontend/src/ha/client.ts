@@ -1,6 +1,7 @@
 import type { ThemeMode } from "../config";
 import type { LocatedCandidate, LocatedSettings, LocatingSettings } from "../live/locating";
 import type { PeopleSettings, PersonSettings } from "../live/people";
+import { readSchedules, type Schedule } from "../live/schedules";
 import type { ShowRequest } from "../live/show";
 import type { Upkeep, UpkeepCard } from "../live/upkeep";
 import type { HassConnection, HassMessage, HomeAssistant } from "./types";
@@ -87,6 +88,20 @@ export type UpdateEvent =
 
 type Listener = (event: UpdateEvent) => void;
 
+/**
+ * An action to do later (D-046): switch the entities on at `at` (a time of day, the next one, or
+ * an ISO date), and off again `duration` seconds later or at `until`; or switch them off.
+ */
+export interface NewSchedule {
+  entities: string[];
+  action?: "on" | "off";
+  at: string;
+  until?: string;
+  duration?: number;
+  /** For lights switched on (%). */
+  brightness?: number;
+}
+
 const clients = new WeakMap<HassConnection, DomoTwinClient>();
 
 /**
@@ -102,6 +117,10 @@ export class DomoTwinClient {
   private people?: Promise<PeopleSettings>;
   private readonly listeners = new Set<Listener>();
   private unsubscribe?: Promise<() => Promise<void>>;
+  /** The actions waiting (D-046), as last listed, and who follows them. */
+  private schedules?: Schedule[];
+  private readonly scheduleListeners = new Set<(items: Schedule[]) => void>();
+  private unsubscribeSchedules?: Promise<() => Promise<void>>;
 
   private constructor(private readonly connection: HassConnection) {}
 
@@ -365,6 +384,53 @@ export class DomoTwinClient {
     const result = await this.connection.sendMessagePromise<{ revision: number }>(message);
     this.bindings = undefined;
     return result.revision;
+  }
+
+  /**
+   * Calls `listener` with the actions waiting, at once if they are known and whenever they
+   * change (D-046). Without them (an integration older than D-046), it is never called. Returns a
+   * function that stops it.
+   */
+  subscribeSchedules(listener: (items: Schedule[]) => void): () => void {
+    this.scheduleListeners.add(listener);
+    if (this.schedules) listener(this.schedules);
+    if (!this.unsubscribeSchedules) {
+      const subscribed = this.connection.subscribeMessage<unknown>(
+        (event) => {
+          this.schedules = readSchedules(event);
+          for (const each of this.scheduleListeners) each(this.schedules);
+        },
+        { type: "domotwin/schedules/subscribe" },
+      );
+      this.unsubscribeSchedules = subscribed;
+      subscribed.catch(() => {
+        if (this.unsubscribeSchedules === subscribed) this.unsubscribeSchedules = undefined;
+      });
+    }
+    return () => {
+      this.scheduleListeners.delete(listener);
+      if (this.scheduleListeners.size === 0 && this.unsubscribeSchedules) {
+        const unsubscribe = this.unsubscribeSchedules;
+        this.unsubscribeSchedules = undefined;
+        this.schedules = undefined;
+        void unsubscribe.then((stop) => stop()).catch(() => undefined);
+      }
+    };
+  }
+
+  /** Sets an action to do later; answers it and what will happen, in Home Assistant's words. */
+  addSchedule(item: NewSchedule): Promise<{ schedule: Schedule; text: string }> {
+    const message: HassMessage = { type: "domotwin/schedules/add", ...item };
+    return this.connection.sendMessagePromise(message);
+  }
+
+  /** Cancels an action; answers whether it was still waiting. */
+  async cancelSchedule(id: string): Promise<boolean> {
+    const result = await this.connection.sendMessagePromise<{ cancelled: number }>({
+      type: "domotwin/schedules/cancel",
+      schedule_id: id,
+    });
+    return result.cancelled > 0;
   }
 
   /** Calls `listener` after every save, from any device. Returns a function that stops it. */

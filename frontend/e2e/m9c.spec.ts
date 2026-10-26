@@ -134,7 +134,8 @@ test.describe("automation wires (D-032)", () => {
     await expect(section.getByRole("link")).toHaveCount(0);
     await expect(section.getByTestId("show-wires")).toHaveCount(0);
     await expect(section).toContainText("Their wires need an administrator");
-    // Nor the layer of every automation.
+    // Nor the layer of every automation (the sheet closed: it may cover the view's buttons).
+    await page.locator("domotwin-controls").getByRole("button", { name: "Dismiss" }).click();
     await page.getByTestId("layers").click();
     await expect(page.locator('[data-layer="automations"]')).toHaveCount(0);
     // Nothing to read for them: the analysis module is not fetched (D-043).

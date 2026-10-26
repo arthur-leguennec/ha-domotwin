@@ -88,6 +88,33 @@ TEACH_SECONDS: Final = (10, 120)
 # Dispatcher signal sent when a followed device moves, is lost or left behind: (device id,).
 SIGNAL_LOCATED: Final = f"{DOMAIN}_located"
 
+# Actions done later (docs/DECISIONS.md, D-046), kept in their own store.
+SCHEDULES_STORAGE_KEY: Final = f"{DOMAIN}.schedules"
+SCHEDULES_STORAGE_VERSION: Final = 1
+SERVICE_SCHEDULE: Final = "schedule"
+SERVICE_UNSCHEDULE: Final = "unschedule"
+# Dispatcher signal sent every time the actions waiting change: ().
+SIGNAL_SCHEDULES: Final = f"{DOMAIN}_schedules"
+MAX_SCHEDULES: Final = 100
+MAX_SCHEDULE_ENTITIES: Final = 10
+# How far ahead an action may be set, and how long it may leave a device on (days).
+MAX_SCHEDULE_DAYS: Final = 366
+MAX_SCHEDULE_SPAN_DAYS: Final = 7
+# A step missed while Home Assistant was stopped is still done this late (seconds).
+SCHEDULE_GRACE_SECONDS: Final = 900
+# What an action can switch, through Home Assistant's `turn_on` and `turn_off`.
+SCHEDULABLE_DOMAINS: Final = (
+    "light",
+    "switch",
+    "fan",
+    "input_boolean",
+    "media_player",
+    "climate",
+    "humidifier",
+    "siren",
+    "cover",
+)
+
 # Dispatcher signal sent after every write: (kind, revision).
 SIGNAL_UPDATED: Final = f"{DOMAIN}_updated"
 # `domotwin.show` (docs/DECISIONS.md, D-029): what to show, sent to the screens: (request,).
