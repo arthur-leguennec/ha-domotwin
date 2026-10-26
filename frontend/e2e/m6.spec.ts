@@ -168,6 +168,8 @@ test.describe("plan editor", () => {
     // A tap drops a room of 3 × 3 m.
     await page.mouse.click(box.x + 60, box.y + 60);
     await expect(bar.getByTestId("plan-fields")).toContainText("Room");
+    // The camera frames the new room: a drag before it has would be measured at another zoom.
+    await settle(page);
     // A room too small is refused, and said each time.
     for (let i = 0; i < 2; i += 1) {
       await page.mouse.move(box.x + 40, box.y + box.height - 160);
