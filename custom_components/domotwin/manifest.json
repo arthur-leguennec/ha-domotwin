@@ -5,6 +5,7 @@
     "assist_pipeline",
     "bluetooth",
     "hassio",
+    "lovelace",
     "person"
   ],
   "codeowners": [

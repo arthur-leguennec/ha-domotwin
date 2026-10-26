@@ -114,6 +114,15 @@ export interface HomeAssistant {
   systemData?: FrontendCoreData | null;
   /** A request to Home Assistant with the user's session (the frontend's `fetchWithAuth`). */
   fetchWithAuth?(path: string, init?: RequestInit): Promise<Response>;
+  /**
+   * A request to Home Assistant's REST API with the user's session (`/api/<path>`): what its
+   * configuration editors use. Its refusal is `{ error, status_code, body }`.
+   */
+  callApi?<T = unknown>(
+    method: "GET" | "POST" | "PUT" | "DELETE",
+    path: string,
+    parameters?: Record<string, unknown>,
+  ): Promise<T>;
   callService(
     domain: string,
     service: string,

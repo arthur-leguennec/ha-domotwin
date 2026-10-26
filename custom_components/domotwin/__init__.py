@@ -12,13 +12,14 @@ from homeassistant.helpers.typing import ConfigType
 
 from .choices import Choices
 from .const import DOMAIN, SIGNAL_SCHEDULES
-from .data import CHOICES_KEY, DATA_KEY, LOCATOR_KEY, PEOPLE_KEY, SCHEDULER_KEY
+from .data import CHOICES_KEY, DATA_KEY, HISTORY_KEY, LOCATOR_KEY, PEOPLE_KEY, SCHEDULER_KEY
 from .frontend import (
     async_register_frontend,
     async_remove_panel,
     async_unregister_frontend,
     async_update_panel,
 )
+from .history import ConfigHistory
 from .http import async_register_views
 from .locator import Locator
 from .models import async_remove_all
@@ -97,11 +98,34 @@ async def async_setup_entry(hass: HomeAssistant, entry: DomoTwinConfigEntry) -> 
 
     entry.async_on_unload(drop_choices)
     hass.data[CHOICES_KEY] = choices
+    await _async_start_history(hass, entry)
     await async_register_frontend(hass)
     await async_update_panel(hass, entry)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(_async_options_updated))
     return True
+
+
+async def _async_start_history(hass: HomeAssistant, entry: DomoTwinConfigEntry) -> None:
+    """The configuration history (D-057): read once Home Assistant has started, then on changes."""
+    history = ConfigHistory(hass)
+    await history.async_load()
+    history.async_start()
+
+    @callback
+    def read_history(_hass: HomeAssistant) -> None:
+        hass.async_create_task(history.async_snapshot(), eager_start=True)
+
+    entry.async_on_unload(async_at_started(hass, read_history))
+
+    @callback
+    def drop_history() -> None:
+        history.async_stop()
+        if hass.data.get(HISTORY_KEY) is history:
+            hass.data.pop(HISTORY_KEY)
+
+    entry.async_on_unload(drop_history)
+    hass.data[HISTORY_KEY] = history
 
 
 async def _async_options_updated(hass: HomeAssistant, entry: DomoTwinConfigEntry) -> None:
@@ -121,10 +145,11 @@ async def async_unload_entry(hass: HomeAssistant, entry: DomoTwinConfigEntry) ->
 
 
 async def async_remove_entry(hass: HomeAssistant, entry: DomoTwinConfigEntry) -> None:
-    """Delete everything DomoTwin keeps: data, settings, actions waiting, choices, model files."""
+    """Delete all DomoTwin keeps: data, settings, actions waiting, choices, history, model files."""
     await DomoTwinData(hass).async_remove()
     await Scheduler(hass).async_remove()
     await Choices(hass).async_remove()
+    await ConfigHistory(hass).async_remove()
     await PeopleTracker(hass, DomoTwinData(hass)).async_remove()
     await Locator(hass, DomoTwinData(hass), entry.entry_id).async_remove()
     await async_remove_all(hass)

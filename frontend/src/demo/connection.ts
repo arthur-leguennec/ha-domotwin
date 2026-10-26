@@ -199,6 +199,22 @@ export function demoConnection(home: DemoHome): HassConnection {
         return home.addSchedule(message as unknown as NewSchedule & HassMessage);
       case "domotwin/schedules/cancel":
         return { cancelled: home.cancelSchedule(String(message.schedule_id)) };
+      case "domotwin/history/list":
+        return home.history.list();
+      case "domotwin/history/item":
+        return home.history.item(message.item);
+      case "domotwin/history/version":
+        return { config: home.history.version(message.item, message.version) };
+      case "domotwin/history/refresh":
+        // Put back already, as Home Assistant's editors would have saved it.
+        return { changed: 0 };
+      case "lovelace/config/save":
+        home.history.putBack(
+          "dashboard",
+          typeof message.url_path === "string" ? message.url_path : "",
+          message.config,
+        );
+        return null;
       case "automation/config": {
         const automation = AUTOMATIONS.find((a) => a.id === message.entity_id);
         if (!automation) throw failure("not_found", "Entity not found");
