@@ -769,9 +769,10 @@ fn a_robot_vacuum_cleans_then_goes_home() {
         .dyn_into::<web_sys::WebGl2RenderingContext>()
         .unwrap();
     assert_eq!(gl.get_error(), web_sys::WebGl2RenderingContext::NO_ERROR);
-    // At rest under reduce motion, on its way again after.
+    // At rest under reduce motion (drawn there once, then no pace of its own), on its way again
+    // after.
     engine.set_motion(false);
-    assert!(!engine.layers_animating() && !engine.needs_frame());
+    assert!(!engine.layers_animating());
     engine.set_motion(true);
     assert!(engine.layers_animating());
     // Home again: it stops there.
