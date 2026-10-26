@@ -1,7 +1,8 @@
 /**
- * The analysis module (`docs/DECISIONS.md`, D-043), loaded the first time the network map or the
- * automations are shown: it reads a radio mesh's snapshot and automations' configurations, and
- * analyses them. The engine is handed what it draws, so none of this is in the first load.
+ * The analysis module (`docs/DECISIONS.md`, D-043), loaded the first time the network map, the
+ * automations or the radio coverage are shown: it reads a radio mesh's snapshot and automations'
+ * configurations, and analyses them, and advises where the next radio helps most (D-057). The
+ * engine is handed what it draws, so none of this is in the first load.
  */
 import { wasmLoader } from "../assets";
 
@@ -38,4 +39,17 @@ export async function analyseNetwork(
   } finally {
     analysis.free();
   }
+}
+
+/**
+ * How well one radio covers the home and where the next one helps most (D-057), for `input`
+ * (`placementInput`), unless it is no longer `wanted` once the module is loaded: the advice as
+ * JSON text (nothing when not wanted). Rejects when the module cannot be loaded.
+ */
+export async function advisePlacement(
+  input: string,
+  wanted: () => boolean,
+): Promise<string | undefined> {
+  const wasm = await loadAnalysisWasm();
+  return wanted() ? wasm.advisePlacement(input) : undefined;
 }

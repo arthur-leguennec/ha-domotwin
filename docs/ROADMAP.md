@@ -44,13 +44,13 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M16d      | Measured on real devices: a button in the panel            | ✅     |
 | M23       | The practical home: Home, Rooms and 3D, favourites         | ✅     |
 | 0.4.0     | Fourth release: the practical home, devices measured       | ✅     |
+| M31       | Placement advisor: where the next radio helps most         | ✅     |
 | M29       | Sandbox: the home's automations played on a copy of it     | ⏳     |
 | M30       | The Wi-Fi QR code, for guests                              | ⏳     |
 | M23b      | Into Home Assistant's Overview, rather than a copy of it   | ⏳     |
 | M24       | History and energy, with Home Assistant's own cards        | ⏳     |
 | M25       | Safety: cameras, the doorbell, the alarm, alerts           | ⏳     |
 | M26       | The wall screen: a screen saver, a layout per device       | ⏳     |
-| M31       | Placement advisor: where the next radio helps most         | ⏳     |
 | M22       | A first launch in five minutes                             | ⏳     |
 | 0.5.0     | Fifth release: all of the above                            | ⏳     |
 | M32       | "Why?": who or what changed a device, drawn in 3D          | ⏳     |
@@ -92,7 +92,8 @@ QR code (M30) and a placement advisor for radios (M31) before a first launch in 
 (M33), rights (M34), automations in plain words (M35), a configuration history (M36), a weekly
 report (M37), history as reports (M38) and Hydro-Québec's peaks (M39) follow, among a library of
 objects (M17), the outdoors (M18), more imports (M20) and more languages (M21), before a sixth
-release, 0.6.0.
+release, 0.6.0. The maintainer then asked for the placement advisor first (M31, D-057), before
+the sandbox; the order of the rest stays.
 
 ## M0, scaffold
 
@@ -1076,6 +1077,51 @@ Home Assistant's.
 - ⏳ **Two weeks of use** at home before the rest: what is missed then decides the order of M24 to
   M26.
 
+## M31, the placement advisor
+
+Asked for first after 0.4.0, before the sandbox (D-057): where the next Bluetooth proxy, Zigbee
+router or Wi-Fi access point helps most ([`placement.md`](placement.md)).
+
+- ✅ **Radio coverage**, a layer for administrators: each room coloured for the radio chosen
+  (Bluetooth, Zigbee with ZHA, Wi-Fi), good, fair, weak or out of reach, with the heatmap's halo
+  on a scale of its own; the radios placed and the spots advised as markers; the sheet lists the
+  spots, then the rooms worst covered first.
+- ✅ **What was measured first**: a Bluetooth room a receiver learned (from eight readings), a
+  Zigbee device's best link to the coordinator or a router heard from in the last day, a
+  device's Wi-Fi signal (ESPHome, Shelly, Tasmota, WLED; never ZHA's, Z-Wave's, Bluetooth's nor a
+  phone's); each room says what measured it, the others what is predicted.
+- ✅ **The locating's model (D-035)** for each radio, from the plan's walls, doors, sides left open
+  and floors, each radio with its loudness at a metre and its thresholds; written again in the
+  core, and checked against the integration's on the demo apartment
+  (`tests/fixtures/coverage-walls.json`, read by both sides' tests). **Checked against what was
+  measured**: moved by the median error from two measurements (12 dB at most), Zigbee's levels
+  compared room by room.
+- ✅ **The spots**: each room's middle and up to four of its points, for the next radio alone,
+  worth the levels it raises (a measured room's counting double), then the signal it adds where a
+  room is not covered well; a router, and an access point, only where one already there reaches
+  it fairly; three at most, each with what it changes and the piece it stands by. A spot tapped
+  shows the rooms as they would be.
+- ✅ **The radios**: the receivers where the locating places them (`domotwin/locating/get` gives
+  their places and what each learned, to administrators only); the coordinator and the routers at
+  their pieces; the Wi-Fi access points placed with a tap on the floor in the panel and kept in
+  the settings (`access_points`, 16 at most). Those placed nowhere are listed, the Bluetooth
+  settings a tap away.
+- ✅ **In the page**: in the analysis module (D-043), loaded with the layer; the sheet a chunk of its
+  own with its texts in both languages. Nothing sent outside Home Assistant. An open menu now
+  stands over the layers' sheets (the network map's too).
+- ✅ Tests: the walls the integration counts, the signal, the levels, what was measured first, the
+  model checked, the spots, a router's reach, a large home (Rust); the same walls from the
+  integration's side, the receivers' places and what they learned, the access points kept or
+  refused (pytest); each radio's readings, Wi-Fi signals told from other radios', the rooms'
+  colours, the texts in both languages (vitest); the layer for administrators only, each radio's
+  sheet, the markers, a spot shown, an access point placed and removed, the card without placing,
+  in French (Playwright).
+
+![Radio coverage over the demo apartment](figures/screenshot-placement.png)
+
+Left for later: Thread and Matter, Zigbee2MQTT and Z-Wave as sources; Wi-Fi at 5 and 6 GHz; a
+heat map inside a room; the weak spots in the weekly report (M37).
+
 ## Then, from 0.4.0 to 0.5.0
 
 Planned in D-056: the sandbox first, built during the two weeks of use since it does not wait on
@@ -1129,14 +1175,14 @@ milestone starts, which goes on with what needs no answer.
 - ⏳ **M26, the wall screen**: a screen saver (the clock, the weather, the photos of Home
   Assistant's media) woken by motion; a layout for each device.
 - M24 to M26 come in the order the two weeks of use decide.
-- ⏳ **M31, the placement advisor**: the Bluetooth model of M9f turned around, from where a
-  device is to where a receiver would hear the most. The rooms badly covered coloured on the
-  plan, for the Bluetooth receivers, the Zigbee mesh (its links and weak rooms, M9b) and the Wi-Fi
-  access points placed on the plan; and the spots where the next Bluetooth proxy, Zigbee router
-  or Wi-Fi access point helps most, ranked, each with what it changes. Worked out from the plan's
-  walls and floors and what the radios measured (the receivers, the mesh's links, the devices
-  that report their Wi-Fi signal); nothing sent. A model, said to be one: what was measured comes
-  before what is predicted. For administrators, since only they can read the radios.
+- ✅ **M31, the placement advisor** (D-057, above), built first at the maintainer's request: the
+  Bluetooth model of M9f turned around, from where a device is to where a receiver would hear the
+  most. The rooms badly covered coloured on the plan, for the Bluetooth receivers, the Zigbee mesh
+  (its links, M9b) and the Wi-Fi access points placed on the plan; and the spots where the next
+  Bluetooth proxy, Zigbee router or Wi-Fi access point helps most, ranked, each with what it
+  changes. Worked out from the plan's walls and floors and what the radios measured; nothing
+  sent. A model, said to be one: what was measured comes before what is predicted. For
+  administrators, since only they can read the radios.
 - ⏳ **M22, a first launch in five minutes**: from the install to one's own home live, in five
   minutes, with the imports and pieces DomoTwin has then (M11, M15, the demo house as a start);
   robot vacuum maps (M20) and more pieces (M17) join it when they come.

@@ -47,6 +47,9 @@ export interface ReceiverInfo {
   /** What placed it: by hand (`room`, `piece`), from its device (`device_area`, `device_piece`),
    * or nothing. */
   placed_by: "room" | "piece" | "device_area" | "device_piece" | null;
+  /** Where it stands (D-057): its storey, its point (cm) and its height (cm, from the lowest
+   * floor); none when nothing places it. */
+  place?: { storey: string; at: [number, number]; z: number } | null;
 }
 
 /** The locating's settings and state, as `domotwin/locating/get` gives them. */
@@ -58,6 +61,9 @@ export interface LocatingSettings {
   devices: Record<string, LocatedDevice>;
   /** How much was learned in each room (readings). */
   learned: Record<string, number>;
+  /** What each receiver learned in each room (D-057): the mean signal, a phone's as the model
+   * has it, and of how many readings. */
+  heard?: Record<string, Record<string, { signal: number; readings: number }>>;
   rooms: { id: string; name: string; storey: string }[];
 }
 

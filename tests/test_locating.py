@@ -69,6 +69,36 @@ def test_walls_doors_and_open_sides_between_rooms() -> None:
     assert home.floors(living, home.middle("up-office")) == 1
 
 
+def test_the_placement_advisor_counts_the_same_walls() -> None:
+    """The advisor (D-057) counts walls in the page as the locating does: both match a fixture.
+
+    `scripts/make-coverage-fixture.py` writes it from this geometry; the core's tests read it too.
+    """
+    fixture = json.loads((ROOT / "tests" / "fixtures" / "coverage-walls.json").read_text())
+    home = Home(
+        [
+            {**storey, "plan": json.loads((ROOT / storey["plan"]).read_text())}
+            for storey in fixture["storeys"]
+        ]
+    )
+
+    def spot(found: Spot | None) -> list[float] | None:
+        # As the fixture writes places: to a millionth of a centimetre.
+        if found is None:
+            return None
+        return [found.storey, round(found.x, 6), round(found.y, 6), round(found.z, 6)]
+
+    assert list(home.rooms) == fixture["rooms"]
+    for room, points in fixture["points"].items():
+        assert [spot(p) for p in home.points(room)] == points
+        assert spot(home.middle(room)) == fixture["middles"][room]
+    for piece, wanted in fixture["pieces"].items():
+        assert spot(home.pieces.get(piece)) == wanted
+    spots = [Spot(int(p[0]), p[1], p[2], p[3]) for p in fixture["spots"]]
+    walls = [[home.walls(a, b) for b in spots] for a in spots]
+    assert walls == [pytest.approx(row) for row in fixture["walls"]]
+
+
 def test_rooms_lead_to_rooms_through_doors_open_sides_and_stairs() -> None:
     home = _demo()
     assert home.neighbours["living"] == {"kitchen", "hall"}

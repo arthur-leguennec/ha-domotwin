@@ -1,6 +1,6 @@
 [package]
 name = "domotwin-analysis"
-description = "DomoTwin analysis: reads a radio mesh's snapshot and an automation's configuration, and analyses them. Its own wasm module, loaded only when the network map or the automations are shown."
+description = "DomoTwin analysis: reads a radio mesh's snapshot and an automation's configuration, and analyses them; advises where the next radio helps most. Its own wasm module, loaded only when the network map, the automations or the radio coverage are shown."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

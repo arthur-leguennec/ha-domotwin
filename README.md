@@ -22,10 +22,10 @@ Local, fast, Rust + WebAssembly.</p>
 > their rooms, Bluetooth locating, voice, the polish (font, keyboard, screen readers), a pass over
 > size and speed, phones, actions done later, taps that say what they do, pieces that look made,
 > robot vacuums, the home's energy, the demo house, measuring a device's speed and the practical
-> home (the Home, Rooms and 3D tabs) work today, and make up version 0.4.0. A sandbox for the
-> home's automations comes next, then Home Assistant's own Overview joined rather than copied,
-> towards version 0.5.0; the submission to HACS's default list waits on measurements on real
-> devices.
+> home (the Home, Rooms and 3D tabs) work today, and make up version 0.4.0; the radio coverage,
+> where the next radio helps most, came since. A sandbox for the home's automations comes next,
+> then Home Assistant's own Overview joined rather than copied, towards version 0.5.0; the
+> submission to HACS's default list waits on measurements on real devices.
 
 ## Features
 
@@ -100,6 +100,12 @@ Local, fast, Rust + WebAssembly.</p>
   minute, and learns as rooms are taught and presence sensors agree. Phones place their owners;
   keys left behind are told; "where are my keys?" by voice. See [Bluetooth
   locating](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/bluetooth.md).
+- **Radio coverage.** Where the next Bluetooth proxy, Zigbee router or Wi-Fi access point helps
+  most: each room coloured by how well your receivers, your mesh or your access points reach it,
+  and the best spots numbered on the plan, each with the rooms it raises. Worked out from the
+  plan's walls, doors and floors, and checked against what your radios measured, which comes
+  first. For administrators. See [radio
+  coverage](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/placement.md).
 - **Private rooms.** Keep a bedroom or an office for some people, always or while a "Guests"
   switch is on: anyone else sees it closed, its floor frosted, nothing and nobody inside, no
   controls, and the voice answers say "in a private room". See [private
@@ -189,6 +195,10 @@ Local, fast, Rust + WebAssembly.</p>
 </p>
 
 <p align="center">
+  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-placement.png" alt="Radio coverage: Wi-Fi over the demo apartment from the kitchen's access point, the bathroom in orange, the hall in yellow, three numbered spots for the next access point, and the sheet with what each changes" width="100%">
+</p>
+
+<p align="center">
   <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-upkeep.png" alt="The upkeep layer: the washing machine of the demo apartment in red as its filter is late, the fridge in amber as its coils are due soon, the fan and the hob in green, beside the list of tasks by date with Done buttons" width="100%">
 </p>
 
@@ -245,7 +255,7 @@ YAML is never required. For reference, the card options are:
 | `spread`      | `true`, `false`                     | `true`     | Every storey at once: spread apart, or stacked. |
 | `roof`        | `true`, `false`                     | `true`     | Every storey at once: the roof over the top one. |
 | `room`        | a room id of the plan               | none       | Room to focus on when the card opens.     |
-| `layer`       | `off`, `temperature`, `humidity`, `co2`, `pm25`, `power`, `network`, `automations`, `upkeep` | `off` | Layer shown when the card opens; the layer menu changes it. `network` shows to administrators with ZHA only, `automations` to administrators. |
+| `layer`       | `off`, `temperature`, `humidity`, `co2`, `pm25`, `power`, `network`, `coverage`, `automations`, `upkeep` | `off` | Layer shown when the card opens; the layer menu changes it. `network` shows to administrators with ZHA only, `coverage` and `automations` to administrators. |
 | `alerts`      | `true`, `false`                     | `true`     | Safety alerts of the rooms (smoke, gas, water, alarm, a window open in the rain). |
 | `presence`    | `true`, `false`                     | `true`     | The rooms someone is in glow softly.      |
 | `people`      | `true`, `false`                     | `true`     | The people in their rooms, as figures.    |

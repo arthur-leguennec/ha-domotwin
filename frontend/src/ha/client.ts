@@ -7,6 +7,7 @@ import type { ShowRequest } from "../live/show";
 import type { Upkeep, UpkeepCard } from "../live/upkeep";
 import type { HassConnection, HassMessage, HomeAssistant } from "./types";
 import type { EnergySettings } from "../live/energy";
+import type { AccessPoint } from "../live/placement";
 
 export type PlanJson = Record<string, unknown> & { name?: unknown; items?: unknown };
 
@@ -68,6 +69,8 @@ export interface Settings {
   rooms?: Record<string, PrivateRoom>;
   /** Where the home's energy is read (D-049). */
   energy?: EnergySettings;
+  /** The Wi-Fi access points placed on the plan (D-057). */
+  access_points?: AccessPoint[];
 }
 
 export interface StoredSettings {

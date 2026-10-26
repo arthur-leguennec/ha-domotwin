@@ -1,12 +1,14 @@
 //! DomoTwin's analysis module (`DECISIONS.md`, D-043): reading what Home Assistant hands over
-//! about a radio mesh and about automations, and analysing it, for JavaScript. It is built as its
-//! own WebAssembly module, which the frontend loads only when the network map or the automations
-//! are shown; the engine is handed what it draws (`domotwin_core::network::Drawing`, the
-//! automations' placed ends), so that none of this is in the first load.
+//! about a radio mesh and about automations, and analysing it, for JavaScript; and where the next
+//! radio helps most (D-057). It is built as its own WebAssembly module, which the frontend loads
+//! only when the network map, the automations or the radio coverage are shown; the engine is
+//! handed what it draws (`domotwin_core::network::Drawing`, the automations' placed ends, the
+//! rooms' coverage as a layer), so that none of this is in the first load.
 
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used, clippy::panic))]
 
 use domotwin_core::automation::{Automation, Target};
+use domotwin_core::coverage;
 use domotwin_core::network::Mesh;
 use serde_json::{Value, json};
 use wasm_bindgen::prelude::*;
@@ -38,6 +40,15 @@ pub fn read_automation(config: &str) -> String {
         })
         .collect();
     json!({ "ends": ends, "skipped": automation.skipped }).to_string()
+}
+
+/// How well one radio covers the home, and where the next one helps most (JSON in and out, see
+/// `domotwin_core::coverage`): `{"rooms", "radios", "spots", "check", "agreement"}`.
+#[wasm_bindgen(js_name = advisePlacement)]
+pub fn advise_placement(input: &str) -> String {
+    console_error_panic_hook::set_once();
+    let value: Value = serde_json::from_str(input).unwrap_or(Value::Null);
+    coverage::advise(&value).write()
 }
 
 /// A radio mesh read from a snapshot (JSON, see `domotwin_core::network`).
@@ -106,6 +117,29 @@ mod tests {
                 { "role": "action", "floor": "ground" },
                 { "role": "action", "label": "evening" }
             ], "skipped": 1 })
+        );
+    }
+
+    #[test]
+    fn placement_advised() {
+        let advice: Value = serde_json::from_str(&advise_placement(
+            &json!({
+                "radio": "wifi",
+                "storeys": [{ "id": "ground", "plan": { "rooms": [
+                    { "id": "near", "outline": [[0, 0], [400, 0], [400, 400], [0, 400]] },
+                    { "id": "far", "outline": [[4000, 0], [4400, 0], [4400, 400], [4000, 400]] }
+                ] } }],
+                "radios": [{ "id": "ap", "storey": "ground", "at": [200, 200] }]
+            })
+            .to_string(),
+        ))
+        .unwrap();
+        assert_eq!(advice["rooms"][0]["level"], "good");
+        assert_eq!(advice["rooms"][1]["level"], "weak");
+        assert_eq!(advice["radios"][0]["room"], "near");
+        assert_eq!(
+            advise_placement("not json"),
+            r#"{"rooms":[],"radios":[],"spots":[]}"#
         );
     }
 

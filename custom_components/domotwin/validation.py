@@ -11,6 +11,8 @@ from homeassistant.helpers.json import json_bytes
 
 from .const import (
     LOCATED_KINDS,
+    MAX_ACCESS_POINT_NAME,
+    MAX_ACCESS_POINTS,
     MAX_BINDINGS_BYTES,
     MAX_BOUND_ELEMENTS,
     MAX_ELEMENTS,
@@ -27,6 +29,7 @@ from .const import (
     MAX_PEOPLE,
     MAX_PERSON_SOURCES,
     MAX_PLAN_BYTES,
+    MAX_PLAN_REACH,
     MAX_PRIVATE_ROOMS,
     MAX_RECEIVERS,
     MAX_ROOM_ACTION_NAME,
@@ -282,7 +285,8 @@ def validate_settings(settings: Any) -> dict[str, Any]:
 
     `north`, degrees clockwise from the top of the plan; the look shown by default (`theme`) and
     its accent colour (`accent`, `#rrggbb`); the private rooms (`rooms`, D-039); where the
-    home's energy is read (`energy`, D-049).
+    home's energy is read (`energy`, D-049); the Wi-Fi access points placed on the plan
+    (`access_points`, D-057).
     """
     if not isinstance(settings, dict) or set(settings) - {
         "north",
@@ -290,10 +294,11 @@ def validate_settings(settings: Any) -> dict[str, Any]:
         "accent",
         "rooms",
         "energy",
+        "access_points",
     }:
         raise InvalidPayloadError(
             "invalid_settings",
-            "settings hold only `north`, `theme`, `accent`, `rooms` and `energy`",
+            "settings hold only `north`, `theme`, `accent`, `rooms`, `energy` and `access_points`",
         )
     north = settings.get("north", 0)
     if not _is_number(north) or not 0 <= north < 360:
@@ -314,6 +319,49 @@ def validate_settings(settings: Any) -> dict[str, Any]:
         energy = _energy(settings["energy"])
         if energy:
             checked["energy"] = energy
+    if "access_points" in settings:
+        access_points = _access_points(settings["access_points"])
+        if access_points:
+            checked["access_points"] = access_points
+    return checked
+
+
+def _access_points(points: Any) -> list[dict[str, Any]]:
+    """The Wi-Fi access points placed on the plan (D-057): `[{"storey", "at": [x, y], "name"}]`.
+
+    `storey` is a storey's id, `at` a point of its plan (cm), `name` text of at most 60
+    characters (empty: none).
+    """
+    if not isinstance(points, list):
+        raise InvalidPayloadError("invalid_settings", "`access_points` must be a list")
+    if len(points) > MAX_ACCESS_POINTS:
+        raise InvalidPayloadError("invalid_settings", f"at most {MAX_ACCESS_POINTS} access points")
+    checked: list[dict[str, Any]] = []
+    for point in points:
+        if not isinstance(point, dict) or set(point) - {"storey", "at", "name"}:
+            raise InvalidPayloadError(
+                "invalid_settings", "an access point has `storey`, `at` and, maybe, `name`"
+            )
+        _check_id(point.get("storey"), "an access point's storey", "invalid_settings")
+        at = point.get("at")
+        if (
+            not isinstance(at, list)
+            or len(at) != 2
+            or not all(_is_number(v) and abs(v) <= MAX_PLAN_REACH for v in at)
+        ):
+            raise InvalidPayloadError(
+                "invalid_settings", "an access point's `at` must be a point [x, y] of the plan"
+            )
+        name = point.get("name", "")
+        if not isinstance(name, str) or len(name) > MAX_ACCESS_POINT_NAME:
+            raise InvalidPayloadError(
+                "invalid_settings",
+                f"an access point's name is text of at most {MAX_ACCESS_POINT_NAME} characters",
+            )
+        entry: dict[str, Any] = {"storey": point["storey"], "at": [float(v) for v in at]}
+        if name.strip():
+            entry["name"] = name.strip()
+        checked.append(entry)
     return checked
 
 

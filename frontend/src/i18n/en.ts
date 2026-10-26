@@ -290,6 +290,7 @@ export const en = {
     pm25: "Fine particles (PM2.5)",
     power: "Power",
     network: "Zigbee network",
+    coverage: "Radio coverage",
     automations: "Automations",
     upkeep: "Upkeep",
     sun: "Sunlight through the windows",

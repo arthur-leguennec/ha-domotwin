@@ -4,7 +4,12 @@ import { MAX_IDLE, THEME_MODES } from "../config";
 import { DomoTwinClient, type StoreyInfo } from "../ha/client";
 import type { HomeAssistant } from "../ha/types";
 import { translatorFor, type MessageKey, type Translator } from "../i18n";
-import { LAYER_NAMES, automationsAvailable, networkAvailable } from "../live/layers";
+import {
+  LAYER_NAMES,
+  automationsAvailable,
+  coverageAvailable,
+  networkAvailable,
+} from "../live/layers";
 import { ALL_STOREYS, loadHome, storeyLevels, storeyName } from "../live/storeys";
 import { planRooms } from "../live/suggest";
 import { define, fire } from "./define";
@@ -89,7 +94,13 @@ export function storeyField(
 
 function schema(
   t: Translator,
-  home: { rooms: RoomOption[]; storeys: StoreyInfo[]; network: boolean; automations: boolean },
+  home: {
+    rooms: RoomOption[];
+    storeys: StoreyInfo[];
+    network: boolean;
+    coverage: boolean;
+    automations: boolean;
+  },
   config: Record<string, unknown>,
 ): FormField[] {
   const storey = storeyField(t, home.storeys, config.storey);
@@ -136,11 +147,13 @@ function schema(
       selector: {
         select: {
           mode: "dropdown",
-          // The network map only where it can be shown (D-031), or kept where it is set.
+          // The network map and the radio coverage only where they can be shown (D-031, D-057),
+          // or kept where they are set.
           options: LAYER_NAMES.filter(
             (value) =>
               config.layer === value ||
               ((value !== "network" || home.network) &&
+                (value !== "coverage" || home.coverage) &&
                 (value !== "automations" || home.automations)),
           ).map((value) => ({
             value,
@@ -270,6 +283,7 @@ export class DomoTwinCardEditor extends LitElement {
           rooms: this.rooms,
           storeys: this.storeys,
           network: networkAvailable(this.hass),
+          coverage: coverageAvailable(this.hass),
           automations: automationsAvailable(this.hass),
         },
         this.config,

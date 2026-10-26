@@ -1,5 +1,6 @@
 //! The layers drawn over the home (`DECISIONS.md`, D-023): a **heatmap** of one quantity per room
-//! (temperature, humidity, CO₂ or fine particles) on a perceptual colour scale, **alerts** pulsing
+//! (temperature, humidity, CO₂ or fine particles, or how well a radio covers it, D-057) on a
+//! perceptual colour scale, **alerts** pulsing
 //! on the floor of their room (warnings amber, dangers red) and **presence** (a room someone is in
 //! glows softly). The frontend gathers the values from Home Assistant (areas, device classes,
 //! units); the core turns them into colours and into the per-room data the renderer reads.
@@ -23,15 +24,19 @@ pub enum HeatKind {
     Co2,
     /// Fine particles PM2.5 (µg/m³).
     Pm25,
+    /// How well a radio covers the room (D-057): its level's rank, from 0 (out of reach) to 3
+    /// (good).
+    Coverage,
 }
 
 impl HeatKind {
-    /// Every kind, in menu order.
-    pub const ALL: [HeatKind; 4] = [
+    /// Every kind, the heatmap menu's in its order, then the radio coverage.
+    pub const ALL: [HeatKind; 5] = [
         HeatKind::Temperature,
         HeatKind::Humidity,
         HeatKind::Co2,
         HeatKind::Pm25,
+        HeatKind::Coverage,
     ];
 
     /// The name in card options and in the API.
@@ -41,6 +46,7 @@ impl HeatKind {
             HeatKind::Humidity => "humidity",
             HeatKind::Co2 => "co2",
             HeatKind::Pm25 => "pm25",
+            HeatKind::Coverage => "coverage",
         }
     }
 
@@ -56,11 +62,13 @@ impl HeatKind {
             HeatKind::Humidity => "%",
             HeatKind::Co2 => "ppm",
             HeatKind::Pm25 => "µg/m³",
+            HeatKind::Coverage => "",
         }
     }
 
     /// The colour scale: values and their sRGB colours. Cold to hot for temperatures, dry to damp
-    /// for humidity, good to bad for the air (with the usual thresholds of indoor air quality).
+    /// for humidity, good to bad for the air (with the usual thresholds of indoor air quality),
+    /// out of reach to good for a radio.
     pub const fn stops(self) -> &'static [(f64, u32)] {
         match self {
             HeatKind::Temperature => &[
@@ -96,6 +104,12 @@ impl HeatKind {
                 (50.0, 0xfc_8d_59),
                 (75.0, 0xd7_30_27),
                 (150.0, 0x7b_32_94),
+            ],
+            HeatKind::Coverage => &[
+                (0.0, 0xd7_19_1c),
+                (1.0, 0xf2_8a_2e),
+                (2.0, 0xf2_d0_3a),
+                (3.0, 0x2a_b0_5a),
             ],
         }
     }

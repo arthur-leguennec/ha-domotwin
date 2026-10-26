@@ -294,6 +294,7 @@ export const fr: Dictionary = {
     pm25: "Particules fines (PM2,5)",
     power: "Consommation",
     network: "Réseau Zigbee",
+    coverage: "Couverture radio",
     automations: "Automatisations",
     upkeep: "Entretien",
     sun: "Soleil par les fenêtres",

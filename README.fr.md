@@ -24,10 +24,11 @@ Local, rapide, Rust + WebAssembly.</p>
 > passe sur la taille et la vitesse, les téléphones, les actions à faire plus tard, des touchers
 > qui disent ce qu’ils font, des meubles qui ont l’air faits, les aspirateurs robots, l’énergie de
 > la maison, la maison de démo, la mesure de la vitesse d’un appareil et la maison pratique (les
-> onglets Accueil, Pièces et 3D) fonctionnent déjà, et forment la version 0.4.0. Un bac à sable
-> pour les automatisations de la maison vient ensuite, puis la Vue d’ensemble de Home Assistant
-> rejointe plutôt que copiée, vers la version 0.5.0 ; la proposition à la liste par défaut de
-> HACS attend des mesures sur de vrais appareils.
+> onglets Accueil, Pièces et 3D) fonctionnent déjà, et forment la version 0.4.0 ; la couverture
+> radio, où la prochaine radio aide le plus, est venue depuis. Un bac à sable pour les
+> automatisations de la maison vient ensuite, puis la Vue d’ensemble de Home Assistant rejointe
+> plutôt que copiée, vers la version 0.5.0 ; la proposition à la liste par défaut de HACS attend
+> des mesures sur de vrais appareils.
 
 ## Fonctionnalités
 
@@ -114,6 +115,13 @@ Local, rapide, Rust + WebAssembly.</p>
   capteurs de présence. Les téléphones placent leur propriétaire ; les clés oubliées sont
   signalées ; « où sont mes clés ? » à la voix. Voir [la localisation
   Bluetooth](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/bluetooth.md) (en
+  anglais).
+- **La couverture radio.** Où le prochain proxy Bluetooth, routeur Zigbee ou point d’accès Wi-Fi
+  aide le plus : chaque pièce colorée selon ce que vos récepteurs, votre réseau ou vos points
+  d’accès y portent, et les meilleurs emplacements numérotés sur le plan, chacun avec les pièces
+  qu’il améliore. Calculée d’après les murs, les portes et les étages du plan, et vérifiée par ce
+  que vos radios ont mesuré, qui passe en premier. Pour les administrateurs. Voir [la couverture
+  radio](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/placement.md) (en
   anglais).
 - **Pièces privées.** Réservez une chambre ou un bureau à certaines personnes, toujours ou tant
   qu’un interrupteur « Invités » est allumé : les autres la voient fermée, son sol givré, rien ni
@@ -211,6 +219,10 @@ Local, rapide, Rust + WebAssembly.</p>
 </p>
 
 <p align="center">
+  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-placement.png" alt="La couverture radio : le Wi-Fi par-dessus l’appartement de démonstration depuis le point d’accès de la cuisine, la salle de bains en orange, l’entrée en jaune, trois emplacements numérotés pour le prochain point d’accès, et la fiche avec ce que chacun change" width="100%">
+</p>
+
+<p align="center">
   <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-upkeep.png" alt="Le calque Entretien : le lave-linge de l’appartement de démonstration en rouge car son filtre est en retard, le réfrigérateur en orange car ses grilles sont bientôt à nettoyer, le ventilateur et la plaque en vert, à côté de la liste des tâches par date avec leurs boutons Fait" width="100%">
 </p>
 
@@ -272,7 +284,7 @@ YAML n’est jamais nécessaire. Pour référence, les options de la carte :
 | `spread`      | `true`, `false`                     | `true`     | Tous les étages à la fois : écartés, ou empilés. |
 | `roof`        | `true`, `false`                     | `true`     | Tous les étages à la fois : le toit sur le dernier. |
 | `room`        | un identifiant de pièce du plan     | aucun      | Pièce à cadrer à l’ouverture de la carte.     |
-| `layer`       | `off`, `temperature`, `humidity`, `co2`, `pm25`, `power`, `network`, `automations`, `upkeep` | `off` | Calque affiché à l’ouverture ; le menu des calques le change. `network` ne s’affiche qu’aux administrateurs, avec ZHA ; `automations` aux administrateurs. |
+| `layer`       | `off`, `temperature`, `humidity`, `co2`, `pm25`, `power`, `network`, `coverage`, `automations`, `upkeep` | `off` | Calque affiché à l’ouverture ; le menu des calques le change. `network` ne s’affiche qu’aux administrateurs, avec ZHA ; `coverage` et `automations` aux administrateurs. |
 | `alerts`      | `true`, `false`                     | `true`     | Alertes de sécurité des pièces (fumée, gaz, eau, alarme, fenêtre ouverte sous la pluie). |
 | `presence`    | `true`, `false`                     | `true`     | Les pièces occupées s’illuminent doucement.   |
 | `people`      | `true`, `false`                     | `true`     | Les personnes dans leurs pièces, en silhouettes. |

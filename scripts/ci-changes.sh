@@ -19,7 +19,8 @@ base="${BASE:-}"
 head="${HEAD:-HEAD}"
 
 ci='^(\.github/workflows/ci\.yml|scripts/ci-changes\.sh)$|^\.github/actions/'
-rust='^(crates/|\.cargo/|examples/)|^(Cargo\.(toml|lock)|rust-toolchain\.toml|rustfmt\.toml|clippy\.toml|deny\.toml)$'
+# The core's tests read the walls the integration counts (tests/fixtures/coverage-walls.json, D-057).
+rust='^(crates/|\.cargo/|examples/)|^(Cargo\.(toml|lock)|rust-toolchain\.toml|rustfmt\.toml|clippy\.toml|deny\.toml|tests/fixtures/coverage-walls\.json)$'
 frontend='^frontend/|^\.nvmrc$'
 # The Python tests also check the README's links (every file at the root and in docs/), load the
 # voice blueprints and check that the brand images are rendered from their sources (the font
@@ -29,7 +30,7 @@ hassfest='^custom_components/'
 # HACS shows and checks the README (render_readme).
 hacs='^custom_components/|^(hacs\.json|README\.md)$'
 build="$rust|$frontend|^scripts/(build\\.sh|check-bundle-size\\.mjs)$"
-quiet='^\.github/(ISSUE_TEMPLATE/|PULL_REQUEST_TEMPLATE\.md$|CODEOWNERS$|dependabot\.yml$|workflows/(codeql|security|pr-title|release-please|nightly|fuzz)\.yml$)|^fuzz/|^(\.gitattributes|\.gitignore|\.gitleaks\.toml|\.pre-commit-config\.yaml|\.release-please-manifest\.json|release-please-config\.json)$|^scripts/(screenshots|render-figures|render-brand|ha-smoke|third-party-notices|lib/chromium)\.mjs$|^scripts/make-(ifc|model|import)-fixtures\.py$'
+quiet='^\.github/(ISSUE_TEMPLATE/|PULL_REQUEST_TEMPLATE\.md$|CODEOWNERS$|dependabot\.yml$|workflows/(codeql|security|pr-title|release-please|nightly|fuzz)\.yml$)|^fuzz/|^(\.gitattributes|\.gitignore|\.gitleaks\.toml|\.pre-commit-config\.yaml|\.release-please-manifest\.json|release-please-config\.json)$|^scripts/(screenshots|render-figures|render-brand|ha-smoke|third-party-notices|lib/chromium)\.mjs$|^scripts/make-(ifc|model|import)-fixtures\.py$|^scripts/make-coverage-fixture\.py$'
 fuzz_core='^(crates/domotwin-core/|fuzz/|examples/)|^(Cargo\.(toml|lock)|rust-toolchain\.toml|\.github/workflows/fuzz\.yml)$'
 fuzz_ifc='^(crates/domotwin-(core|import|models)/|fuzz/)|^(Cargo\.(toml|lock)|rust-toolchain\.toml|\.github/workflows/fuzz\.yml)$'
 fuzz_models='^(crates/domotwin-(core|models)/|fuzz/|examples/models/)|^(Cargo\.(toml|lock)|rust-toolchain\.toml|\.github/workflows/fuzz\.yml)$'

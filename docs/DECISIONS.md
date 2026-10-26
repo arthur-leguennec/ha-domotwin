@@ -2218,3 +2218,103 @@ D-054 planned them.
     Assistant's cards, dialogs and now pages reused rather than rebuilt.
   - Many of them read what only administrators may (automations, traces, the radios): each says
     what other users see.
+
+## D-057 · The placement advisor: where the next radio helps most (M31)
+
+Asked by the maintainer after 0.4.0: M31 now, before M29, M30, M23b and M24 to M26, out of the
+order D-056 set, as M16d was brought forward (D-053). The two weeks of use go on meanwhile; M31
+does not wait on what they show, and the order of the rest stays.
+
+- **Context.** The locating (D-035) works out from the plan what each Bluetooth receiver should
+  hear in each room, and learns what it really heard; the network map (D-031) reads the Zigbee
+  mesh's links and names the rooms reached only through weak ones. Neither says where the next
+  radio would help: a Bluetooth proxy, a Zigbee router or a Wi-Fi access point is placed by
+  guesswork, and moved until it works. Nothing found predicts coverage from a plan or says where
+  the next radio should go (D-056).
+- **Decision.**
+  - **A layer for administrators.** *Radio coverage* (`coverage`) joins the layers, offered to
+    administrators only: they alone may read the receivers and the mesh. Its sheet chooses the
+    radio: Bluetooth, Zigbee (with ZHA set up) or Wi-Fi. Each room of the plan is coloured for the
+    radio chosen, with the heatmap's halo (D-023) on a scale of its own: good (green), fair
+    (yellow), weak (orange), out of reach (red). The radios known are markers; the spots advised
+    are numbered markers. The sheet lists the rooms, the worst first, then the spots.
+  - **What was measured comes before what is predicted.** A room is measured when:
+    - Bluetooth: a receiver learned it (taught, or presence sensors agreeing, D-035) for at least
+      as many readings as the plan counts for (eight): the best receiver's mean, the device's own
+      loudness taken away (a phone as the model has it);
+    - Zigbee: a device placed in it (D-031) has a link of known LQI to the coordinator or a router
+      heard from in the last day: the best one, read as the map reads it (good from 150, fair
+      from 80, weak below);
+    - Wi-Fi: a device placed in it reports its Wi-Fi signal: a sensor of the `signal_strength`
+      class in dBm of an ESPHome, Shelly, Tasmota, WLED or other Wi-Fi device, or named after
+      Wi-Fi; never one of ZHA's, Z-Wave's or Bluetooth's, nor a phone's, which moves. The best of
+      them.
+
+    A measured room shows what was measured, and by what; the others what the model predicts.
+  - **The model is D-035's, for each radio.** The signal falls with the distance (exponent 2.2),
+    4 dB a wall, 0.4 of a wall for a door, none for a side left open, 15 dB a floor, worked out
+    over the same points of each room as the locating (up to twelve, clear of its sides) at
+    110 cm. A radio stands at its piece's centre, else at 120 cm where it was placed. What changes
+    is how loud it is at a metre, and the thresholds (dBm), guides rather than measures:
+
+    | Radio                               | At 1 m | Good  | Fair  | Weak   | Out of reach |
+    | ----------------------------------- | ------ | ----- | ----- | ------ | ------------ |
+    | Bluetooth: a phone, by a receiver   | −59    | ≥ −80 | ≥ −90 | ≥ −100 | below        |
+    | Zigbee: a device, by a router       | −45    | ≥ −75 | ≥ −85 | ≥ −95  | below        |
+    | Wi-Fi: an access point, by a device | −35    | ≥ −67 | ≥ −75 | ≥ −85  | below        |
+
+    A room's signal is the mean over its points of the best radio's.
+  - **Checked against what was measured.** Where a signal was measured (a Bluetooth room learned,
+    a Wi-Fi device), the model's error is what was measured less what it predicts there. From two
+    measurements, the predictions are moved by the errors' median (12 dB at most), and the sheet
+    says by how much and how far off the model still is on average. Zigbee measures its links in
+    LQI, not in dBm: the rooms both measured and predicted are compared by level, and the sheet
+    says in how many they agree.
+  - **The spots advised.** Each room offers its middle and up to four of its points as spots for
+    the next radio, at 120 cm. With a radio there, each room gets the better of what it has
+    (measured or predicted) and what the new radio alone gives it (with the model's correction).
+    A spot's worth is the levels it raises, a measured room's counting double (something there
+    uses the radio now), then the signal it adds where a room is not covered well yet (20 dB at
+    most a room), by the rooms' areas; a room measured by its level alone (Zigbee) has the least
+    signal of its level. A Zigbee router, and a
+    Wi-Fi access point, must be reached at least fairly where it stands by one of its kind that
+    is already there (when there is one): a router joins the mesh through its neighbours, and an
+    access point without a cable through the first one. The best spot of each room is kept, then
+    the three best, each with what it changes ("Bathroom: weak → good") and the piece of its room
+    it stands by (within 1.5 m; not a finish of the room nor what hangs from its ceiling or walls);
+    none when no spot raises a room's level ("every room is covered well"). Each spot is the next
+    radio alone, not one of three to add; a spot tapped shows the rooms as they would be with it.
+  - **The radios.**
+    - The Bluetooth receivers, where the locating places them (D-035): `domotwin/locating/get`
+      gives each one's place (storey, point, height) and what each learned in each room (mean and
+      readings), to administrators only as before. A receiver placed nowhere is listed, with the
+      Bluetooth settings a tap away in the panel.
+    - The Zigbee coordinator and routers placed at their pieces (D-031), but not those not heard
+      from for a day: they relay for no one.
+    - The Wi-Fi access points an administrator placed: in the panel, *Place an access point*
+      asks for a tap on the floor of the storey shown where it stands, and keeps it in DomoTwin's
+      settings (`access_points`: its storey, its point, a name; 16 at most); the sheet removes
+      one. A router's integration does not say where its access points are in the home.
+  - **Where it runs: in the page.** The model is the analysis module's (D-043), loaded the first
+    time the layer is shown, from what the page already has: the storeys' plans and overlays, the
+    bindings, ZHA's mesh, the Wi-Fi sensors and the locating's answer. It is written again in the
+    core (`domotwin_core::coverage`), reading the plans as the integration does (rooms, doors,
+    sides left open, pieces moved by the overlay), and tested against it: the walls between the
+    same places of the demo apartment are the integration's. Each spot is weighed against every
+    point of every room, the walls counted along each line: in the integration that would take
+    seconds for a home of thirty rooms on a small host (D-001 keeps the Python side free of
+    geometry; the locating needs its own), in the page milliseconds. Nothing is sent outside Home
+    Assistant (D-022); nothing is kept but the access points.
+  - **Said to be a model.** The sheet says so: from the plan's walls, doors and floors, what was
+    measured first. Furniture, what walls are made of and how thick, a fridge or a mirror, and
+    the outdoors are not in it.
+- **Consequences.**
+  - `domotwin/locating/get` gives each receiver's `place` and what was learned (`heard`), to
+    administrators only.
+  - DomoTwin's settings gain `access_points`, checked by the integration.
+  - The analysis module grows by the model; the first load by the layer's name and the coverage
+    scale. The sheet is a chunk of its own, with its texts in both languages.
+  - An open menu of the view stands over the layers' sheets: the coverage's sheet is tall enough
+    to cover the layer menu, the network map's could be.
+  - Thread and Matter, Zigbee2MQTT, Z-Wave, Wi-Fi at 5 or 6 GHz and a heat map inside a room are
+    left for later.
