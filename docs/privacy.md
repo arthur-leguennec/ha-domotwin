@@ -44,6 +44,8 @@ A viewer is one of the people chosen through the Home Assistant **user** of thei
 - **No way in**: walking at eye level does not go through its doors, and people's figures go
   round it when another way exists.
 - **People and things** in it are at home, "in a private room", in their sheets.
+- **"Why?"** (`why.md`) says "in a private room" for a step of what it holds, leaves it out of
+  the link to Home Assistant's Activity and does not draw it.
 
 ## Voice
 

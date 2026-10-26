@@ -24,7 +24,8 @@ Local, rapide, Rust + WebAssembly.</p>
 > passe sur la taille et la vitesse, les téléphones, les actions à faire plus tard, des touchers
 > qui disent ce qu’ils font, des meubles qui ont l’air faits, les aspirateurs robots, l’énergie de
 > la maison, la maison de démo, la mesure de la vitesse d’un appareil et la maison pratique (les
-> onglets Accueil, Pièces et 3D) fonctionnent déjà, et forment la version 0.4.0. Un bac à sable
+> onglets Accueil, Pièces et 3D) fonctionnent déjà, et forment la version 0.4.0 ; « Pourquoi ? »,
+> qui ou quoi a changé un appareil, est venu juste après. Un bac à sable
 > pour les automatisations de la maison vient ensuite, puis la Vue d’ensemble de Home Assistant
 > rejointe plutôt que copiée, vers la version 0.5.0 ; la proposition à la liste par défaut de
 > HACS attend des mesures sur de vrais appareils.
@@ -93,6 +94,13 @@ Local, rapide, Rust + WebAssembly.</p>
   lance. Ou toutes les automatisations du logement à la fois. Voir [les fils des
   automatisations](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/automations.md)
   (en anglais).
+- **Pourquoi ?** Un appui long sur une lampe, et demandez qui ou quoi l’a changée :
+  l’automatisation qui l’a allumée, le mouvement qui a déclenché l’automatisation, la personne qui
+  l’a fait dans l’application, ou personne (son propre interrupteur), comme Home Assistant l’a
+  noté. Dessiné dans le logement comme un fil depuis là où tout a commencé, avec la trace du
+  lancement pour les administrateurs et l’Activité de Home Assistant à portée de doigt. Voir
+  [Pourquoi ?](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/why.md) (en
+  anglais).
 - **Fiches d’entretien.** Chaque appareil et chaque meuble peut porter sa marque, son modèle, son
   numéro de série, sa garantie, sa notice et les tâches qui reviennent (changer le filtre tous les
   3 mois). Un badge en forme de clé montre ce qui est à faire, le calque Entretien colore les

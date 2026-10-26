@@ -139,6 +139,13 @@ every reader returns `Result` with a stable error code that the frontend transla
    folder (`domotwin/voice/blueprints`) and, on the Supervisor, sets up local voice in the
    background (`domotwin/voice/setup`: the apps through `AddonManager`, the Wyoming discovery,
    an Assist pipeline), its steps read with `domotwin/voice/get`.
+8. **Why?** A device's sheet asks, when told to, why its entity is as it is (`why-section.ts`,
+   D-058): `src/live/why.ts` reads the state's context, the logbook's rows of that context and of
+   the entities around it (`logbook/get_events`) and, for administrators, the traces' contexts
+   (`trace/contexts`), and follows the change back to what started it. The chain is listed in the
+   sheet and drawn in the home (`why-wires.ts`) with the automations' wire set: the engine's
+   `setAutomations`, one wire per step, unchanged. Nothing of it is in the integration. The demo
+   house records its own (`src/demo/logbook.ts`) and answers the logbook as Home Assistant does.
 
 ## Storage
 

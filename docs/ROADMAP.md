@@ -45,6 +45,7 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M23       | The practical home: Home, Rooms and 3D, favourites         | ✅     |
 | 0.4.0     | Fourth release: the practical home, devices measured       | ✅     |
 | M29       | Sandbox: the home's automations played on a copy of it     | ⏳     |
+| M32       | "Why?": who or what changed a device, drawn in 3D          | ✅     |
 | M30       | The Wi-Fi QR code, for guests                              | ⏳     |
 | M23b      | Into Home Assistant's Overview, rather than a copy of it   | ⏳     |
 | M24       | History and energy, with Home Assistant's own cards        | ⏳     |
@@ -53,7 +54,6 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M31       | Placement advisor: where the next radio helps most         | ⏳     |
 | M22       | A first launch in five minutes                             | ⏳     |
 | 0.5.0     | Fifth release: all of the above                            | ⏳     |
-| M32       | "Why?": who or what changed a device, drawn in 3D          | ⏳     |
 | M33       | Guest access: chosen rooms, for a while                    | ⏳     |
 | M34       | Per-person rights: what DomoTwin shows each one            | ⏳     |
 | M35       | Automations in plain words, played in the sandbox first    | ⏳     |
@@ -92,7 +92,8 @@ QR code (M30) and a placement advisor for radios (M31) before a first launch in 
 (M33), rights (M34), automations in plain words (M35), a configuration history (M36), a weekly
 report (M37), history as reports (M38) and Hydro-Québec's peaks (M39) follow, among a library of
 objects (M17), the outdoors (M18), more imports (M20) and more languages (M21), before a sixth
-release, 0.6.0.
+release, 0.6.0. The maintainer then asked for "Why?" (M32) next to the sandbox, right after
+0.4.0 rather than after 0.5.0 (D-058); the rest keeps its order.
 
 ## M0, scaffold
 
@@ -1076,6 +1077,44 @@ Home Assistant's.
 - ⏳ **Two weeks of use** at home before the rest: what is missed then decides the order of M24 to
   M26.
 
+## M32, "Why?"
+
+Who or what last changed a device, as Home Assistant recorded it, followed back to what started
+it and drawn in the home (D-058, `docs/why.md`). Asked by the maintainer next to the sandbox
+(M29), right after 0.4.0.
+
+- ✅ **From the device's sheet**: **Why**, under the controls, and **Who or what changed it?**;
+  the chain from what started it to the device, each step with when it happened: someone signed
+  in and the action they asked for, an action with nobody signed in, a change of state, an
+  automation or a script that ran, what set it off (a time, the sun, a start, an event, a
+  trigger in Home Assistant's words), "nobody, as far as Home Assistant knows" (the device itself
+  or its integration), "not in the logbook". Asked again when the device changes while it shows;
+  not offered for a sensor that measures.
+- ✅ **Read as Home Assistant reads it**: the state's context, the logbook's rows of that context
+  (`logbook/get_events`, every user), the run found as Home Assistant 2026.9 finds it when the
+  state was written again since, and the trigger's change followed back the same way, up to six
+  changes; the same on 2025.1. Without the logbook, what the state's context says.
+- ✅ **Drawn in 3D** with the wires of M9c: a wire from each step to the next, through the runs
+  between them, pulses one after the other from the start to the device; a tap names the runs.
+- ✅ **Home Assistant's pages**: the run's trace for administrators (`trace/contexts`), the
+  Activity on the chain's entities around it for everyone; not in the demo house.
+- ✅ **Names and private rooms**: users by their `person` (by Home Assistant's users for an
+  administrator); what a private room the viewer may not see holds (D-039) is "in a private
+  room", left out of the Activity's address and not drawn.
+- ✅ **The demo house** records as Home Assistant does: the visitor's actions, its automations'
+  runs and their triggers, the moment the visitor goes to; its logbook answers as Home
+  Assistant's.
+- ✅ Tests: Home Assistant's words for triggers in both versions, a lamp followed back through
+  its automation to the motion (by context, and by the automation's runs when written again
+  since), someone, an action with nobody, a script, the device itself, not in the logbook, two
+  automations back to a time, an automation another ran, a run by hand (2026), a thermostat's
+  heater, what ran after left out, six changes and no more, without the logbook, the traces for
+  administrators only, the Activity's address, the users' names, the wires and no end in a
+  private room, the words in both languages, the demo house's logbook as it opens (vitest); a
+  lamp lit by an automation the door set off with its trace, its Activity and its wire, someone
+  in the app and nobody's doing in French for a user, no Why for a sensor that measures, the demo
+  house's lamp as it opens and switched on by the visitor (Playwright).
+
 ## Then, from 0.4.0 to 0.5.0
 
 Planned in D-056: the sandbox first, built during the two weeks of use since it does not wait on
@@ -1147,13 +1186,8 @@ milestone starts, which goes on with what needs no answer.
 
 ## Then, to 0.6.0
 
-- ⏳ **M32, "Why?"**: who or what last changed a device, as a chain: the lamp switched on by an
-  automation, set off by the hall's motion sensor, itself set off by someone coming home; or by
-  a person in the app, by voice, by a script, on the device itself. Read from Home Assistant's
-  context ids, its logbook and its traces; drawn in 3D with the wires of M9c, from the device's
-  sheet, with a link to the trace (administrators) and to Home Assistant's Activity, which shows
-  the same chain as a list since 2026.9 (D-056). Only what Home Assistant recorded: a change it
-  did not attribute says so. Why something did not happen is the sandbox's (M29).
+- ✅ **M32, "Why?"**: done next to the sandbox, right after 0.4.0 (above, D-058). Why something
+  did not happen is the sandbox's (M29).
 - ⏳ **M33, guest access**: a guest gets a QR code or a link that opens chosen rooms and devices
   for a set time and ends on its own, with the Wi-Fi QR code of M30. What can be enforced is said
   plainly: a Home Assistant user for the guest, local only and possibly read only, is enforced by
