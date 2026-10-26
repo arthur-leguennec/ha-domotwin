@@ -23,7 +23,9 @@ export type BadgeKind =
   // Upkeep (D-033): a task due soon, overdue, a warranty ending.
   | "upkeep_due"
   | "upkeep_overdue"
-  | "warranty_ending";
+  | "warranty_ending"
+  // An action done later (D-046), with the time of its next step.
+  | "scheduled";
 
 /** How a badge looks: calm, neutral, to look at, or urgent. */
 export type BadgeTone = "ok" | "info" | "warning" | "danger";

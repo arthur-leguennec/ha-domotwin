@@ -73,6 +73,54 @@
           "description": "The screen to show it on: a card's screen option. Empty for every screen."
         }
       }
+    },
+    "schedule": {
+      "name": "Schedule",
+      "description": "Switches devices on or off later, at a time or after a delay, and on again until a time or for a while: kept by DomoTwin, even across restarts. Answers what was set, with a sentence to say.",
+      "fields": {
+        "entity_id": {
+          "name": "Entities",
+          "description": "What to switch: lights, switches, fans, media players, climate, covers (opened and closed)…"
+        },
+        "action": {
+          "name": "Action",
+          "description": "on to switch on (open a cover), off to switch off (close it)."
+        },
+        "at": {
+          "name": "At",
+          "description": "When: a date and time (Home Assistant's time zone unless one is given), or a time of day for the next one. Or give a delay."
+        },
+        "delay": {
+          "name": "Delay",
+          "description": "When, from now: instead of at."
+        },
+        "until": {
+          "name": "Until",
+          "description": "With on: when to switch off again, a date and time or a time of day (the next one after the start)."
+        },
+        "duration": {
+          "name": "Duration",
+          "description": "With on: how long to leave it on, instead of until."
+        },
+        "brightness": {
+          "name": "Brightness",
+          "description": "With on: the lights' brightness (%)."
+        }
+      }
+    },
+    "unschedule": {
+      "name": "Unschedule",
+      "description": "Cancels actions set with domotwin.schedule: one by its id, or all those of some entities. A device already switched on stays on.",
+      "fields": {
+        "id": {
+          "name": "Id",
+          "description": "The id domotwin.schedule answered."
+        },
+        "entity_id": {
+          "name": "Entities",
+          "description": "Every action waiting on these entities."
+        }
+      }
     }
   },
   "entity": {
@@ -170,6 +218,41 @@
           }
         }
       }
+    }
+  },
+  "exceptions": {
+    "schedule_no_entities": {
+      "message": "Name at least one entity to switch."
+    },
+    "schedule_too_many_entities": {
+      "message": "At most 10 entities in one action."
+    },
+    "schedule_unknown_entity": {
+      "message": "One of the entities does not exist."
+    },
+    "schedule_not_schedulable": {
+      "message": "Only lights, switches, fans, input booleans, media players, climate, humidifiers, sirens and covers can be scheduled."
+    },
+    "schedule_in_the_past": {
+      "message": "That time has passed."
+    },
+    "schedule_too_far": {
+      "message": "An action is set at most a year ahead."
+    },
+    "schedule_off_with_end": {
+      "message": "An end or a brightness goes with switching on, not off."
+    },
+    "schedule_end_before_start": {
+      "message": "The end comes before the start."
+    },
+    "schedule_too_long": {
+      "message": "A device is left on at most a week."
+    },
+    "schedule_too_many": {
+      "message": "100 actions are already waiting: cancel some first."
+    },
+    "schedule_not_allowed": {
+      "message": "You may not control one of these devices."
     }
   }
 }

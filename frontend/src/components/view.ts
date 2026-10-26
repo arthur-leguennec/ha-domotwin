@@ -46,6 +46,7 @@ import {
   mdiWalk,
   mdiWashingMachine,
   mdiWrenchClock,
+  mdiClockOutline,
 } from "@mdi/js";
 import { LitElement, css, html, nothing, svg, type PropertyValues, type TemplateResult } from "lit";
 
@@ -113,6 +114,7 @@ import {
   type PlanRoom,
 } from "../live/layers";
 import { deviceBadges, mergeBadges, type Badge, type BadgeKind } from "../live/devices";
+import { scheduleBadges, timeStyle, whenText, type Schedule } from "../live/schedules";
 import {
   readStandings,
   todayIn,
@@ -230,6 +232,7 @@ const BADGE_ICONS: Record<Exclude<BadgeKind, "running">, string> = {
   upkeep_due: mdiWrenchClock,
   upkeep_overdue: mdiWrenchClock,
   warranty_ending: mdiShieldAlertOutline,
+  scheduled: mdiClockOutline,
 };
 const APPLIANCE_ICONS: Record<string, string> = {
   washer: mdiWashingMachine,
@@ -703,6 +706,10 @@ export class DomoTwinView extends LitElement {
   /** The names of small rooms too (closets, rooms under 2.5 m²). */
   protected smallRooms = false;
   protected badges = new Map<string, Badge[]>();
+  /** The actions waiting (D-046), and the connection they are followed on. */
+  private schedules: Schedule[] = [];
+  private schedulesOn?: HomeAssistant["connection"];
+  private stopSchedules?: () => void;
   /** Where each element with badges is drawn (device pixels). */
   protected badgePoints: Record<string, [number, number] | undefined> = {};
   /** Where each upkeep card stands today (D-033), and what it was worked out from. */
@@ -1591,8 +1598,23 @@ export class DomoTwinView extends LitElement {
     window.removeEventListener("keydown", this.onPlanKey);
     window.clearTimeout(this.noticeTimer);
     window.clearTimeout(this.contextTimer);
+    this.stopSchedules?.();
+    this.stopSchedules = undefined;
+    this.schedulesOn = undefined;
     this.parkPlanEditor();
     this.stopEngine();
+  }
+
+  /** The actions waiting (D-046), followed on this view's connection: their clocks over the pieces. */
+  private followSchedules(): void {
+    const hass = this.hass;
+    if (!hass || !this.isConnected || this.schedulesOn === hass.connection) return;
+    this.stopSchedules?.();
+    this.schedulesOn = hass.connection;
+    this.stopSchedules = DomoTwinClient.for(hass).subscribeSchedules((items) => {
+      this.schedules = items;
+      this.applyDevices();
+    });
   }
 
   /** The engine goes; the plan drawn is kept, to go on with when it comes back. */
@@ -1692,6 +1714,7 @@ export class DomoTwinView extends LitElement {
       this.applyTheme();
       this.applyLighting();
       this.syncStates();
+      this.followSchedules();
     }
     this.applyLook();
     // `layer` and `realSun` are this view's own state.
@@ -2887,7 +2910,13 @@ export class DomoTwinView extends LitElement {
       hass && this.bindings
         ? deviceBadges(hass, this.bindings, this.kinds)
         : new Map<string, Badge[]>();
-    const badges = mergeBadges(devices, upkeepBadges(this.standings));
+    const style = hass ? timeStyle(hass) : undefined;
+    const now = new Date();
+    const later =
+      style && this.bindings
+        ? scheduleBadges(this.bindings, this.schedules, (at) => whenText(at, now, style))
+        : new Map<string, Badge[]>();
+    const badges = mergeBadges(mergeBadges(devices, upkeepBadges(this.standings)), later);
     // None for what a private room holds, nor for its doors and windows (D-039).
     for (const id of badges.keys()) {
       if (this.inClosedRoom(id)) badges.delete(id);
@@ -3058,9 +3087,6 @@ export class DomoTwinView extends LitElement {
       return;
     }
     if (!binding || !hass) return;
-    this.engine?.highlight(id);
-    // An action ran: a second tap soon after is a new tap, not a double tap.
-    this.gestures.forgetTap();
     const info = this.names[id];
     const picked: PickedElement = {
       id,
@@ -3068,6 +3094,14 @@ export class DomoTwinView extends LitElement {
       name: info?.name ?? id,
       room: "",
     };
+    // A clock tapped: the actions waiting, in the sheet, rather than the device switched.
+    if (this.badges.get(id)?.some((b) => b.kind === "scheduled")) {
+      void this.openControls(binding, picked);
+      return;
+    }
+    this.engine?.highlight(id);
+    // An action ran: a second tap soon after is a new tap, not a double tap.
+    this.gestures.forgetTap();
     void this.act(tapAction(binding, hass), binding, picked);
     this.redraw();
   }
@@ -4619,7 +4653,7 @@ export class DomoTwinView extends LitElement {
             (badge) =>
               html`<span class="badge ${badge.tone} ${badge.kind}" data-kind=${badge.kind}
                 >${icon(badgeIcon(badge))}${
-                  badge.kind === "battery_low" && badge.text
+                  (badge.kind === "battery_low" || badge.kind === "scheduled") && badge.text
                     ? html`<small>${badge.text}</small>`
                     : nothing
                 }</span

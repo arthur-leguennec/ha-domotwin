@@ -362,6 +362,23 @@ async function fetchWithAuth(path, init = {}) {
   return new Response(bytes);
 }
 const listeners = new Set();
+// Actions done later (D-046), as the integration lists them to its subscribers.
+const schedules = [];
+const scheduleListeners = new Set();
+let scheduleCount = 0;
+const publishSchedules = () => {
+  for (const listener of scheduleListeners) listener({ schedules: structuredClone(schedules) });
+};
+const SCHEDULABLE = ["light", "switch", "fan", "input_boolean", "media_player", "cover"];
+/** The next time `hhmm` comes (the browser's clock), or a date. */
+const nextMoment = (moment) => {
+  const clock = /^(\d{2}):(\d{2})$/.exec(moment);
+  if (!clock) return new Date(moment);
+  const at = new Date();
+  at.setHours(Number(clock[1]), Number(clock[2]), 0, 0);
+  if (at <= new Date()) at.setDate(at.getDate() + 1);
+  return at;
+};
 const calls = [];
 window.__calls = calls;
 // settingsdown=1: the settings cannot be read until `window.__settingsUp()` (D-039).
@@ -802,12 +819,49 @@ const connection = {
         for (const listener of listeners) listener({ kind: "bindings", revision: store.revision });
         return { revision: store.revision };
       }
+      case "domotwin/schedules/add": {
+        if (window.__failSchedules) throw { code: "in_the_past", message: "in_the_past" };
+        if (!message.entities.every((id) => SCHEDULABLE.includes(id.split(".")[0]))) {
+          throw { code: "not_schedulable", message: "not_schedulable" };
+        }
+        const at = nextMoment(message.at);
+        const until = message.duration
+          ? new Date(at.getTime() + message.duration * 1000)
+          : message.until
+            ? nextMoment(message.until)
+            : null;
+        scheduleCount += 1;
+        const item = {
+          id: `schedule-${scheduleCount}`,
+          entities: message.entities,
+          action: message.action ?? "on",
+          at: at.toISOString(),
+          until: until?.toISOString() ?? null,
+          brightness: message.brightness ?? null,
+          started: false,
+        };
+        schedules.push(item);
+        publishSchedules();
+        const names = item.entities.map((id) => home.states[id]?.attributes.friendly_name ?? id);
+        return { schedule: item, text: `${names.join(", ")} will switch ${item.action}.` };
+      }
+      case "domotwin/schedules/cancel": {
+        const at = schedules.findIndex((item) => item.id === message.schedule_id);
+        if (at >= 0) schedules.splice(at, 1);
+        publishSchedules();
+        return { cancelled: at >= 0 ? 1 : 0 };
+      }
       default:
         throw { code: "unknown_command", message: message.type };
     }
   },
   async subscribeMessage(callback, message) {
     calls.push(message);
+    if (message.type === "domotwin/schedules/subscribe") {
+      scheduleListeners.add(callback);
+      queueMicrotask(() => callback({ schedules: structuredClone(schedules) }));
+      return async () => scheduleListeners.delete(callback);
+    }
     listeners.add(callback);
     return async () => listeners.delete(callback);
   },

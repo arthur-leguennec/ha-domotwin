@@ -28,6 +28,7 @@ import { entityRow, rowStyles } from "./entity-rows";
 import { icon } from "./icon";
 import type { CardStanding, Upkeep } from "../live/upkeep";
 import "./automation-section";
+import "./schedule-section";
 import "./upkeep-section";
 import { avatar, avatarStyles } from "./person-avatar";
 import { Sheet, sheetStyles } from "./sheet";
@@ -83,6 +84,7 @@ export class DomoTwinControls extends Sheet {
     const first = this.entities[0];
     return this.frame(
       html`${this.entities.map((id) => entityRow(hass, t, id, true))}
+        <domotwin-schedules .hass=${hass} .entities=${this.entities}></domotwin-schedules>
         <domotwin-automations
           .hass=${hass}
           .entities=${this.entities}

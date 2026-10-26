@@ -4,12 +4,14 @@ from __future__ import annotations
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers.dispatcher import async_dispatcher_send
+from homeassistant.helpers.start import async_at_started
 from homeassistant.helpers.typing import ConfigType
 
-from .const import DOMAIN
-from .data import DATA_KEY, LOCATOR_KEY, PEOPLE_KEY
+from .const import DOMAIN, SIGNAL_SCHEDULES
+from .data import DATA_KEY, LOCATOR_KEY, PEOPLE_KEY, SCHEDULER_KEY
 from .frontend import (
     async_register_frontend,
     async_remove_panel,
@@ -19,6 +21,7 @@ from .frontend import (
 from .http import async_register_views
 from .locator import Locator
 from .models import async_remove_all
+from .schedules import Scheduler
 from .services import async_register_services
 from .storage import DomoTwinData
 from .tracker import PeopleTracker
@@ -60,6 +63,28 @@ async def async_setup_entry(hass: HomeAssistant, entry: DomoTwinConfigEntry) -> 
     locator.async_start()
     entry.async_on_unload(locator.async_flush)
     entry.async_on_unload(locator.async_stop)
+    # The actions done later (D-046).
+    scheduler = Scheduler(hass)
+    await scheduler.async_load()
+
+    @callback
+    def start_scheduler(_hass: HomeAssistant) -> None:
+        scheduler.async_start()
+
+    # Once every integration is set up, so that the steps missed find their devices.
+    entry.async_on_unload(async_at_started(hass, start_scheduler))
+
+    @callback
+    def drop_scheduler() -> None:
+        # Stopped and forgotten, even when setting up failed further on; the sheets are told.
+        scheduler.async_stop()
+        if hass.data.get(SCHEDULER_KEY) is scheduler:
+            hass.data.pop(SCHEDULER_KEY)
+        async_dispatcher_send(hass, SIGNAL_SCHEDULES)
+
+    entry.async_on_unload(drop_scheduler)
+    hass.data[SCHEDULER_KEY] = scheduler
+    async_dispatcher_send(hass, SIGNAL_SCHEDULES)
     await async_register_frontend(hass)
     await async_update_panel(hass, entry)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
@@ -84,8 +109,9 @@ async def async_unload_entry(hass: HomeAssistant, entry: DomoTwinConfigEntry) ->
 
 
 async def async_remove_entry(hass: HomeAssistant, entry: DomoTwinConfigEntry) -> None:
-    """Delete the stored data, the people's and the locating's settings, the model files."""
+    """Delete everything DomoTwin keeps: data, settings, actions waiting, model files."""
     await DomoTwinData(hass).async_remove()
+    await Scheduler(hass).async_remove()
     await PeopleTracker(hass, DomoTwinData(hass)).async_remove()
     await Locator(hass, DomoTwinData(hass), entry.entry_id).async_remove()
     await async_remove_all(hass)
