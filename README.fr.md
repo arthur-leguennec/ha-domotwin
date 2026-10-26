@@ -24,10 +24,10 @@ Local, rapide, Rust + WebAssembly.</p>
 > passe sur la taille et la vitesse, les téléphones, les actions à faire plus tard, des touchers
 > qui disent ce qu’ils font, des meubles qui ont l’air faits, les aspirateurs robots, l’énergie de
 > la maison, la maison de démo, la mesure de la vitesse d’un appareil et la maison pratique (les
-> onglets Accueil, Pièces et 3D) fonctionnent déjà, et forment la version 0.4.0. Un bac à sable
-> pour les automatisations de la maison vient ensuite, puis la Vue d’ensemble de Home Assistant
-> rejointe plutôt que copiée, vers la version 0.5.0 ; la proposition à la liste par défaut de
-> HACS attend des mesures sur de vrais appareils.
+> onglets Accueil, Pièces et 3D) fonctionnent déjà, et forment la version 0.4.0 ; les pointes
+> d’Hydro-Québec l’ont suivie. Un bac à sable pour les automatisations de la maison vient
+> ensuite, puis la Vue d’ensemble de Home Assistant rejointe plutôt que copiée, vers la version
+> 0.5.0 ; la proposition à la liste par défaut de HACS attend des mesures sur de vrais appareils.
 
 ## Fonctionnalités
 
@@ -75,6 +75,11 @@ Local, rapide, Rust + WebAssembly.</p>
   soleil qui entre par vos fenêtres, et ce que consomme chaque appareil, avec l’énergie du
   logement : le soleil, le réseau et la batterie autour de la maison, l’électricité qui circule
   entre eux.
+- **Les pointes d’Hydro-Québec.** Pour un logement au tarif Flex D ou au crédit hivernal, avec
+  [hydroqc](https://github.com/hydroqc/hydroqc-ha) ou
+  [HydroPeak](https://github.com/Beat-YT/hydropeak-ha) installé : la prochaine pointe et son
+  préchauffage dans l’onglet Accueil, et en 3D les pièces qui préchauffent, sont délestées ou
+  chauffent encore pendant la pointe, avec ce qu’elles consomment. Rien sans eux.
 - **Aspirateurs robots.** Son robot quitte sa base quand il nettoie, passe les pièces une à une et
   rentre, sur le plan.
 - **Appareils.** Des badges sur vos appareils (l’état d’une serrure, une caméra qui enregistre, ce

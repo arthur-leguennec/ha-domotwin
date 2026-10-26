@@ -22,10 +22,10 @@ Local, fast, Rust + WebAssembly.</p>
 > their rooms, Bluetooth locating, voice, the polish (font, keyboard, screen readers), a pass over
 > size and speed, phones, actions done later, taps that say what they do, pieces that look made,
 > robot vacuums, the home's energy, the demo house, measuring a device's speed and the practical
-> home (the Home, Rooms and 3D tabs) work today, and make up version 0.4.0. A sandbox for the
-> home's automations comes next, then Home Assistant's own Overview joined rather than copied,
-> towards version 0.5.0; the submission to HACS's default list waits on measurements on real
-> devices.
+> home (the Home, Rooms and 3D tabs) work today, and make up version 0.4.0; Hydro-Québec's peaks
+> came after it. A sandbox for the home's automations comes next, then Home Assistant's own Overview
+> joined rather than copied, towards version 0.5.0; the submission to HACS's default list waits on
+> measurements on real devices.
 
 ## Features
 
@@ -67,6 +67,11 @@ Local, fast, Rust + WebAssembly.</p>
   alarm, a window open in the rain), the rooms someone is in, the real sun coming in through your
   windows, and what each appliance draws, with the home's energy: the sun, the grid and the
   battery around the home, the power flowing between them.
+- **Hydro-Québec's peaks.** For a home on Flex D or the winter credit, with
+  [hydroqc](https://github.com/hydroqc/hydroqc-ha) or
+  [HydroPeak](https://github.com/Beat-YT/hydropeak-ha) installed: the next peak and its pre-heating
+  on the Home tab, and in 3D the rooms that pre-heat, shed or still heat during it, with what they
+  draw. Nothing shown without them.
 - **Robot vacuums.** Its robot leaves its dock when it cleans, sweeps the rooms one by one and goes
   home, on the plan.
 - **Devices.** Badges over your devices (a lock's state, a camera recording, what plays, a battery

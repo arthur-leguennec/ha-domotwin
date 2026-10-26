@@ -904,3 +904,18 @@ Assistant's changes do not update it until it shows again. Home Assistant's card
 for each configuration and given each new `hass`; the rooms are sorted again when an entity comes,
 goes or moves, not on every state; a search runs again when it or the home changes.
 
+### M39 (Hydro-Québec's peaks)
+
+Bundle: the first load is **516.9 kB gzipped** of 1 200 kB (+1.4 kB): whether an integration reads
+the peaks (`peak-sources.ts`, 0.6 kB gzipped), the layer's place in the view, its styles and its
+name. The peak, the rooms and the legend come on demand, the first time the layer shows
+(`chunks/peak-layer-<hash>.js`, 0.7 kB gzipped, and 2.1 kB shared with the Home tab), with their
+texts in both languages; the Home tab's chunk grows by its chip (12.2 kB gzipped, +0.9 kB). The
+engine's wasm stays the same size with the peak's tints (380.3 kB gzipped).
+
+The integrations' entities are found once per entity registry, their peaks once per update of the
+states; a home with neither does no more than look them up. The rooms' roles and draws are worked
+out with the layers, only while the peak's layer is shown, and sent to the engine only when they
+change; a timer works them out again when the peak's phase changes. Tinted, the rooms are drawn
+like a heatmap: at the layers' pace (24 frames a second), still under *reduce motion*; what they
+draw alone is written, not drawn, and needs no frame.

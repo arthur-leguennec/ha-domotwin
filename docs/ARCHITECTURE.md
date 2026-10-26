@@ -109,7 +109,10 @@ every reader returns `Result` with a stable error code that the frontend transla
    (light colour and intensity, cover position, glow, power…). The renderer animates towards the
    targets and asks for frames until they are reached. The layers (D-023) are worked out in the
    frontend from the sensors of each room's area and sent as one small JSON (`set_layers`) when a
-   value changes; the floors' shader draws them from a texture of rooms.
+   value changes; the floors' shader draws them from a texture of rooms. Hydro-Québec's peak
+   (D-057) is read from the entities of the integrations that read it, found by their kind
+   (`src/live/peak-sources.ts`, `peaks.ts`); what each room's heating does then, and what the room
+   draws, go with the layers (`peak`, `draws`).
 3. **Interaction.** Pointer events go to the engine (`pick`) which returns the element under the
    pointer. The frontend runs the binding's action: toggle through `callService`, more-info through
    the `hass-more-info` event, navigation, or the long-press popover.
