@@ -127,6 +127,7 @@ import {
   type ViewOptions,
 } from "./view";
 import {
+  ENERGY_SENSORS,
   energyCandidates,
   preferredFromHome,
   readEnergy,
@@ -134,7 +135,7 @@ import {
   type EnergySettings,
 } from "../live/energy";
 import { watts } from "../live/devices";
-import { formatPower, numberOf } from "../live/layers";
+import { formatPower, numberOf, type LayerName } from "../live/layers";
 
 /** The plan format allows files up to 32 MB. */
 const MAX_FILE_BYTES = 32_000_000;
@@ -366,6 +367,8 @@ export class DomoTwinPanel extends LitElement {
   private practicalFailed = false;
   /** The 3D view was shown once: it stays, hidden on the other tabs, its engine and camera. */
   private shown3d = false;
+  /** A layer the Home tab asked the 3D view to show (D-057), until it is shown. */
+  private layerAsked?: LayerName;
   /** What the 3D view was last given of Home Assistant. */
   private viewHass?: HomeAssistant;
   /** The tab this device opens on, when it has one of its own. */
@@ -2550,6 +2553,11 @@ export class DomoTwinPanel extends LitElement {
     }
     // After the menu: a dialog opened from it gives the focus back to its button.
     this.dialogs.update(this.renderRoot.querySelector(PANEL_DIALOGS) ?? undefined);
+    const view = this.layerAsked && this.tab === "3d" ? this.view : null;
+    if (view && this.layerAsked) {
+      view.setLayer(this.layerAsked);
+      this.layerAsked = undefined;
+    }
     const hass = this._hass;
     const fitting = [
       hass?.locale?.language ?? hass?.language,
@@ -2652,7 +2660,11 @@ export class DomoTwinPanel extends LitElement {
     this.address(replace);
   }
 
-  private readonly onGo = (event: CustomEvent<{ tab: Tab; area?: string }>): void => {
+  private readonly onGo = (
+    event: CustomEvent<{ tab: Tab; area?: string; layer?: LayerName }>,
+  ): void => {
+    // A layer asked for (the peak's, D-057): shown once the 3D view is there.
+    this.layerAsked = event.detail.tab === "3d" ? event.detail.layer : undefined;
     // A room opened from one opened from the 3D view: back to the rooms, not to the 3D view.
     this.go(event.detail.tab, event.detail.area);
   };
@@ -2696,6 +2708,9 @@ export class DomoTwinPanel extends LitElement {
       closed,
       closedAreas: unseen.areas,
       closedEntities: unseen.entities,
+      meters: new Set(
+        ENERGY_SENSORS.flatMap((key) => this.settings?.energy?.[key] ?? []).filter(Boolean),
+      ),
     };
     if (this.people) sources.people = this.people;
     // The rooms' own actions (D-047), on their area's page.
@@ -2956,6 +2971,7 @@ export class DomoTwinPanel extends LitElement {
       : html`<domotwin-home
           .hass=${hass}
           .t=${this.t}
+          ?can3d=${canDraw3d()}
           .choices=${this.choices ?? NO_CHOICES}
           .sources=${sources}
           .unseen=${unseen}

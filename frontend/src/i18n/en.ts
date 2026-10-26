@@ -289,6 +289,7 @@ export const en = {
     co2: "CO₂",
     pm25: "Fine particles (PM2.5)",
     power: "Power",
+    peak: "Hydro-Québec peaks",
     network: "Zigbee network",
     automations: "Automations",
     upkeep: "Upkeep",

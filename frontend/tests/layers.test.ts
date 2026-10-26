@@ -142,6 +142,23 @@ describe("roomLayers", () => {
     expect(off.presence).toEqual([]);
   });
 
+  it("sends what the rooms do around a peak, and what they draw (D-057)", () => {
+    const hass = home([]);
+    const peak = { roles: { living: "shed" as const }, draws: { living: 40, kitchen: 900 } };
+    const layers = roomLayers(hass, BINDINGS, ROOMS, { layer: "peak", ...ALL_ON, peak });
+    expect(JSON.parse(layers.json)).toEqual({
+      peak: { living: "shed" },
+      draws: { living: 40, kitchen: 900 },
+    });
+    // Nothing to say: nothing sent.
+    const quiet = roomLayers(hass, BINDINGS, ROOMS, {
+      layer: "peak",
+      ...ALL_ON,
+      peak: { roles: {}, draws: {} },
+    });
+    expect(quiet.json).toBe("{}");
+  });
+
   it("leaves out configuration entities and entities of no area", () => {
     const hass = home([["sensor.loose", null, "30", temperature()]]);
     hass.entities = {

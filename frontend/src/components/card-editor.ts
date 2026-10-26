@@ -5,6 +5,7 @@ import { DomoTwinClient, type StoreyInfo } from "../ha/client";
 import type { HomeAssistant } from "../ha/types";
 import { translatorFor, type MessageKey, type Translator } from "../i18n";
 import { LAYER_NAMES, automationsAvailable, networkAvailable } from "../live/layers";
+import { peaksAvailable } from "../live/peak-sources";
 import { ALL_STOREYS, loadHome, storeyLevels, storeyName } from "../live/storeys";
 import { planRooms } from "../live/suggest";
 import { define, fire } from "./define";
@@ -89,7 +90,13 @@ export function storeyField(
 
 function schema(
   t: Translator,
-  home: { rooms: RoomOption[]; storeys: StoreyInfo[]; network: boolean; automations: boolean },
+  home: {
+    rooms: RoomOption[];
+    storeys: StoreyInfo[];
+    network: boolean;
+    automations: boolean;
+    peak: boolean;
+  },
   config: Record<string, unknown>,
 ): FormField[] {
   const storey = storeyField(t, home.storeys, config.storey);
@@ -136,12 +143,14 @@ function schema(
       selector: {
         select: {
           mode: "dropdown",
-          // The network map only where it can be shown (D-031), or kept where it is set.
+          // The network map (D-031) and the peaks (D-057) only where they can be shown, or kept
+          // where they are set.
           options: LAYER_NAMES.filter(
             (value) =>
               config.layer === value ||
               ((value !== "network" || home.network) &&
-                (value !== "automations" || home.automations)),
+                (value !== "automations" || home.automations) &&
+                (value !== "peak" || home.peak)),
           ).map((value) => ({
             value,
             label: t.t(`layers.${value}` as MessageKey),
@@ -271,6 +280,7 @@ export class DomoTwinCardEditor extends LitElement {
           storeys: this.storeys,
           network: networkAvailable(this.hass),
           automations: automationsAvailable(this.hass),
+          peak: peaksAvailable(this.hass),
         },
         this.config,
       )}

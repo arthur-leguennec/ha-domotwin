@@ -293,6 +293,7 @@ export const fr: Dictionary = {
     co2: "CO₂",
     pm25: "Particules fines (PM2,5)",
     power: "Consommation",
+    peak: "Pointes d’Hydro-Québec",
     network: "Réseau Zigbee",
     automations: "Automatisations",
     upkeep: "Entretien",

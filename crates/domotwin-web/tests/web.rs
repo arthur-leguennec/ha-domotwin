@@ -350,6 +350,33 @@ fn layers_show_move_and_label() {
 }
 
 #[wasm_bindgen_test]
+fn the_peak_tints_rooms_and_says_what_they_draw() {
+    let mut engine = Engine::new(canvas()).unwrap();
+    engine.load_plan(DEMO, None, None).unwrap();
+    engine.frame(0.0);
+    engine.set_layers(
+        r#"{"peak": {"living": "shed", "bedroom": "heating"}, "draws": {"bedroom": 1450, "kitchen": 48}}"#,
+    );
+    assert!(engine.layers_animating(), "the peak's halo moves");
+    let labels: serde_json::Value = serde_json::from_str(&engine.layer_labels()).unwrap();
+    let mut labels = labels.as_array().unwrap().clone();
+    labels.sort_by_key(|label| label["id"].as_str().unwrap_or_default().to_owned());
+    assert_eq!(labels.len(), 2, "{labels:?}");
+    assert_eq!(
+        (&labels[0]["id"], &labels[0]["kind"], &labels[0]["value"]),
+        (&"bedroom".into(), &"draw".into(), &1450.0.into())
+    );
+    assert_eq!(labels[1]["id"], "kitchen");
+    // What rooms draw alone is written, not drawn on the floor.
+    engine.set_layers(r#"{"draws": {"kitchen": 48}}"#);
+    assert!(!engine.layers_animating());
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&engine.layer_labels()).unwrap()[0]["kind"],
+        "draw"
+    );
+}
+
+#[wasm_bindgen_test]
 fn the_power_layer_tints_running_appliances() {
     let mut engine = Engine::new(canvas()).unwrap();
     engine.load_plan(DEMO, None, None).unwrap();
