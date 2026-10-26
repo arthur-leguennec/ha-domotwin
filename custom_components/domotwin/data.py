@@ -6,11 +6,13 @@ from homeassistant.util.hass_dict import HassKey
 
 from .const import DOMAIN
 from .locator import Locator
+from .schedules import Scheduler
 from .storage import DomoTwinData
 from .tracker import PeopleTracker
 
 DATA_KEY: HassKey[DomoTwinData] = HassKey(DOMAIN)
 PEOPLE_KEY: HassKey[PeopleTracker] = HassKey(f"{DOMAIN}_people")
 LOCATOR_KEY: HassKey[Locator] = HassKey(f"{DOMAIN}_locator")
+SCHEDULER_KEY: HassKey[Scheduler] = HassKey(f"{DOMAIN}_scheduler")
 STATIC_REGISTERED_KEY: HassKey[bool] = HassKey(f"{DOMAIN}_static_registered")
 VIEWS_REGISTERED_KEY: HassKey[bool] = HassKey(f"{DOMAIN}_views_registered")

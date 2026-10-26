@@ -9,7 +9,7 @@ from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.typing import ConfigType
 
 from .const import DOMAIN
-from .data import DATA_KEY, LOCATOR_KEY, PEOPLE_KEY
+from .data import DATA_KEY, LOCATOR_KEY, PEOPLE_KEY, SCHEDULER_KEY
 from .frontend import (
     async_register_frontend,
     async_remove_panel,
@@ -19,6 +19,7 @@ from .frontend import (
 from .http import async_register_views
 from .locator import Locator
 from .models import async_remove_all
+from .schedules import Scheduler
 from .services import async_register_services
 from .storage import DomoTwinData
 from .tracker import PeopleTracker
@@ -60,6 +61,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: DomoTwinConfigEntry) -> 
     locator.async_start()
     entry.async_on_unload(locator.async_flush)
     entry.async_on_unload(locator.async_stop)
+    # The actions done later (D-045).
+    scheduler = Scheduler(hass)
+    await scheduler.async_load()
+    scheduler.async_start()
+    entry.async_on_unload(scheduler.async_stop)
+    hass.data[SCHEDULER_KEY] = scheduler
     await async_register_frontend(hass)
     await async_update_panel(hass, entry)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
@@ -80,12 +87,14 @@ async def async_unload_entry(hass: HomeAssistant, entry: DomoTwinConfigEntry) ->
     hass.data.pop(DATA_KEY, None)
     hass.data.pop(PEOPLE_KEY, None)
     hass.data.pop(LOCATOR_KEY, None)
+    hass.data.pop(SCHEDULER_KEY, None)
     return True
 
 
 async def async_remove_entry(hass: HomeAssistant, entry: DomoTwinConfigEntry) -> None:
-    """Delete the stored data, the people's and the locating's settings, the model files."""
+    """Delete everything DomoTwin keeps: data, settings, actions waiting, model files."""
     await DomoTwinData(hass).async_remove()
+    await Scheduler(hass).async_remove()
     await PeopleTracker(hass, DomoTwinData(hass)).async_remove()
     await Locator(hass, DomoTwinData(hass), entry.entry_id).async_remove()
     await async_remove_all(hass)
