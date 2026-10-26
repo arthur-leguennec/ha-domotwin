@@ -15,7 +15,7 @@ interface.
 | `domotwin-import` | core, models, `serde_json` | IFC, Sweet Home 3D, DXF, scans → plan JSON | GPU, browser, HA |
 | `domotwin-models` | `serde_json`, `miniz_oxide` | glTF, OBJ, STL, 3MF → meshes    | core, GPU, HA        |
 | `domotwin-planner` | core, `serde_json`     | the plan editor's draft (D-025)     | GPU, browser, HA     |
-| `domotwin-analysis` | core, `serde_json`    | radio meshes, automations' configurations, radio coverage (D-043, D-057) | GPU, browser, HA |
+| `domotwin-analysis` | core, `serde_json`    | radio meshes, automations' configurations, radio coverage (D-043, D-059) | GPU, browser, HA |
 
 `domotwin-import` imports the plans of other apps (`ifc-import.md`, `imports.md`, D-040): its own
 wasm module, loaded only when such a file is imported. Each reader gives one plan builder a draft;
@@ -31,7 +31,7 @@ automations (`network.md`, `automations.md`, D-043): its own wasm module too, lo
 the network map, the automations or the radio coverage are shown. The engine is handed only what
 it draws: the mesh's drawing (the devices' pieces and the links' qualities and pulses), which it
 answers with the room of each device for the analysis's health, and the automations' placed ends.
-It also advises where the next radio helps most (`placement.md`, D-057), from the storeys' plans,
+It also advises where the next radio helps most (`placement.md`, D-059), from the storeys' plans,
 the radios placed and what they measured, with the core's `coverage` module: the locating's model
 (D-035), its walls counted as the integration counts them; the engine draws the rooms' levels as a
 layer.
@@ -181,7 +181,7 @@ every reader returns `Result` with a stable error code that the frontend transla
   (`theme`, `accent`, D-027); the private rooms (`rooms`, D-039), `{room id: {"people": [person
   entity ids], "while"?: entity id}}`: kept for those people (none: for nobody), always or only
   while that entity is on ([`privacy.md`](privacy.md)); where the home's energy is read
-  (`energy`, D-049); the Wi-Fi access points placed on the plan (`access_points`, D-057),
+  (`energy`, D-049); the Wi-Fi access points placed on the plan (`access_points`, D-059),
   `[{"storey": id, "at": [x, y], "name"?}]`, 16 at most ([`placement.md`](placement.md)).
 - `upkeep` (D-033, storage 4.1): the upkeep cards by piece id, and how many days before it a task
   is due soon; see [`upkeep.md`](upkeep.md). Kept apart from the plan, like the bindings.
@@ -260,7 +260,7 @@ when the integration is removed.
 | `domotwin/people/get`    | user   | `candidates?` (administrators: the entities that may say where someone is) | `revision`, `shown`, `look`, `hidden`, `people` (`{person: {sources, color, sensor, located}}`; none for others when shown to administrators only), `candidates?` |
 | `domotwin/people/save`   | admin  | `people`, `shown?`, `look?`, `expected_revision?` | `revision`                     |
 | `domotwin/people/hide`   | user   | `person` (oneself; administrators anyone), `hidden` | `revision`                   |
-| `domotwin/locating/get`  | admin  | –                                              | `revision`, `status`, `learn`, `receivers` (with their `place`, D-057), `devices` (with their `room`, `confidence`, `last_seen`, `left_behind`, `missing_key`), `learned`, `heard` (`{room: {source: {signal, readings}}}`, D-057), `rooms` |
+| `domotwin/locating/get`  | admin  | –                                              | `revision`, `status`, `learn`, `receivers` (with their `place`, D-059), `devices` (with their `room`, `confidence`, `last_seen`, `left_behind`, `missing_key`), `learned`, `heard` (`{room: {source: {signal, readings}}}`, D-059), `rooms` |
 | `domotwin/locating/save` | admin  | `receivers`, `devices`, `learn?`, `expected_revision?` | `revision`                 |
 | `domotwin/locating/candidates` | admin | –                                        | `candidates` (`[{match, name, rssi?}]`) |
 | `domotwin/locating/teach` | admin | `device`, `room`, `seconds?` (10–120, 30)     | `readings`, `receivers`          |

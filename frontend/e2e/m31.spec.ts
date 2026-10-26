@@ -27,7 +27,7 @@ async function coverage(page: Page): Promise<Record<string, number> | undefined>
   return read.heat === "coverage" ? read.values : undefined;
 }
 
-test.describe("radio coverage (D-057)", () => {
+test.describe("radio coverage (D-059)", () => {
   test.beforeEach(({ page }) => {
     // The radio chosen last is the device's: each test starts from the first.
     void page.addInitScript(() => {

@@ -85,7 +85,7 @@ export interface HarnessOptions {
   peopleLook?: "figure" | "pin";
   /** Bluetooth locating (D-035): fictional receivers and devices, or no Bluetooth at all. */
   bluetooth?: true | "none";
-  /** The radio coverage's fictional radios (D-057): receivers placed, Wi-Fi signals, an access
+  /** The radio coverage's fictional radios (D-059): receivers placed, Wi-Fi signals, an access
    * point. */
   radios?: boolean;
   /** Private rooms (D-039): kept for nobody, or for `privateFor`, maybe only while an entity is

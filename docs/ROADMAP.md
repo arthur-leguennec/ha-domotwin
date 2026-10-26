@@ -92,7 +92,7 @@ QR code (M30) and a placement advisor for radios (M31) before a first launch in 
 (M33), rights (M34), automations in plain words (M35), a configuration history (M36), a weekly
 report (M37), history as reports (M38) and Hydro-Québec's peaks (M39) follow, among a library of
 objects (M17), the outdoors (M18), more imports (M20) and more languages (M21), before a sixth
-release, 0.6.0. The maintainer then asked for the placement advisor first (M31, D-057), before
+release, 0.6.0. The maintainer then asked for the placement advisor first (M31, D-059), before
 the sandbox; the order of the rest stays.
 
 ## M0, scaffold
@@ -1079,7 +1079,7 @@ Home Assistant's.
 
 ## M31, the placement advisor
 
-Asked for first after 0.4.0, before the sandbox (D-057): where the next Bluetooth proxy, Zigbee
+Asked for first after 0.4.0, before the sandbox (D-059): where the next Bluetooth proxy, Zigbee
 router or Wi-Fi access point helps most ([`placement.md`](placement.md)).
 
 - ✅ **Radio coverage**, a layer for administrators: each room coloured for the radio chosen
@@ -1176,7 +1176,7 @@ milestone starts, which goes on with what needs no answer.
 - ⏳ **M26, the wall screen**: a screen saver (the clock, the weather, the photos of Home
   Assistant's media) woken by motion; a layout for each device.
 - M24 to M26 come in the order the two weeks of use decide.
-- ✅ **M31, the placement advisor** (D-057, above), built first at the maintainer's request: the
+- ✅ **M31, the placement advisor** (D-059, above), built first at the maintainer's request: the
   Bluetooth model of M9f turned around, from where a device is to where a receiver would hear the
   most. The rooms badly covered coloured on the plan, for the Bluetooth receivers, the Zigbee mesh
   (its links, M9b) and the Wi-Fi access points placed on the plan; and the spots where the next

@@ -217,7 +217,7 @@ export function zhaSource(hass: HomeAssistant, now: () => number = Date.now): Ne
 
 /**
  * The piece linked to each Home Assistant device and to each entity (the first one), among the
- * elements `known`: what places a device (D-031) or a sensor (D-057).
+ * elements `known`: what places a device (D-031) or a sensor (D-059).
  */
 export function pieceIndex(
   bindings: BindingsJson,

@@ -186,7 +186,7 @@ export function storeyCounts(
 }
 
 /**
- * Every storey of the home, lowest first, as the radio coverage reads them (D-057): a storey with
+ * Every storey of the home, lowest first, as the radio coverage reads them (D-059): a storey with
  * no plan (none drawn yet, or not fetched) is still there, so that the floors between the others
  * are counted as the integration counts them. `plans` gives each storey's plan and overlay.
  */

@@ -2219,7 +2219,7 @@ D-054 planned them.
   - Many of them read what only administrators may (automations, traces, the radios): each says
     what other users see.
 
-## D-057 · The placement advisor: where the next radio helps most (M31)
+## D-059 · The placement advisor: where the next radio helps most (M31)
 
 Asked by the maintainer after 0.4.0: M31 now, before M29, M30, M23b and M24 to M26, out of the
 order D-056 set, as M16d was brought forward (D-053). The two weeks of use go on meanwhile; M31

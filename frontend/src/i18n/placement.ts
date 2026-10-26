@@ -1,5 +1,5 @@
 /**
- * The messages of the radio coverage and its advice (D-057), in both languages: loaded with its
+ * The messages of the radio coverage and its advice (D-059), in both languages: loaded with its
  * chunk, not with the first picture.
  */
 import type { Widen } from "./index";

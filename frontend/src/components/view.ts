@@ -691,7 +691,7 @@ export class DomoTwinView extends LitElement {
   home?: HomeStorey[];
   /** The rooms of the other storeys: their alerts show too, and a tap on one goes there. */
   elsewhere: StoreyRooms[] = [];
-  /** The Wi-Fi access points placed on the plan (the home's settings, D-057). */
+  /** The Wi-Fi access points placed on the plan (the home's settings, D-059). */
   accessPoints: AccessPoint[] = NO_ACCESS_POINTS;
 
   protected engineState: EngineState = "idle";
@@ -754,7 +754,7 @@ export class DomoTwinView extends LitElement {
   /** The network map's module is loaded (D-031). */
   protected networkLoaded = false;
   private networkModule?: Promise<unknown>;
-  /** The radio coverage's module is loaded (D-057), and the rooms' levels it gave. */
+  /** The radio coverage's module is loaded (D-059), and the rooms' levels it gave. */
   protected placementLoaded = false;
   private placementModule?: Promise<unknown>;
   private coverage?: Record<string, number>;
@@ -2467,7 +2467,7 @@ export class DomoTwinView extends LitElement {
     }
     const placement = this.coverageShown ? this.placementElement() : null;
     if (placement?.placing) {
-      // The radio coverage asks where an access point stands (D-057): the floor tapped.
+      // The radio coverage asks where an access point stands (D-059): the floor tapped.
       const point = this.devicePoint(x, y);
       const at = engine.planPoint(point.x, point.y);
       this.gestures.forgetTap();
@@ -2828,7 +2828,7 @@ export class DomoTwinView extends LitElement {
   }
 
   /**
-   * The radio coverage is shown (D-057): chosen, allowed, no tool at work over the view, and not
+   * The radio coverage is shown (D-059): chosen, allowed, no tool at work over the view, and not
    * walking.
    */
   private get coverageShown(): boolean {
@@ -2841,7 +2841,7 @@ export class DomoTwinView extends LitElement {
   }
 
   /**
-   * Every storey of the home, lowest first, as the radio coverage reads them (D-057): their plans
+   * Every storey of the home, lowest first, as the radio coverage reads them (D-059): their plans
    * and overlays from the home shown whole, else from the storey shown and the others'; one with
    * no plan still counts as a floor. The same array while they stay.
    */
@@ -4503,7 +4503,7 @@ export class DomoTwinView extends LitElement {
     ></domotwin-network>`;
   }
 
-  /** The radio coverage (D-057): its module is loaded the first time it is shown. */
+  /** The radio coverage (D-059): its module is loaded the first time it is shown. */
   private renderPlacement(): TemplateResult | typeof nothing {
     if (!this.coverageShown) return nothing;
     if (!this.placementLoaded) {
