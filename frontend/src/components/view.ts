@@ -5672,7 +5672,9 @@ export class DomoTwinView extends LitElement {
     const hass = this.hass;
     if (!hass) return;
     try {
-      if (!(await runRoom(this, hass, what))) this.notify(this.translator.t("demo.no_dialog"));
+      if (!(await runRoom(this, hass, what))) {
+        this.notify(this.translator.t(hass.sandbox ? "sandbox.no_dialog" : "demo.no_dialog"));
+      }
     } catch (error) {
       this.notify(failureText(this.translator, error));
     }

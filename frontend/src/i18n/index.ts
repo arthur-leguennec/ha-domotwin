@@ -1,6 +1,7 @@
 import { en } from "./en";
 import { fr } from "./fr";
 import type { practicalEn } from "./practical";
+import type { sandboxEn } from "./sandbox";
 import type { whyEn } from "./why";
 
 /** A plural message: Intl.PluralRules picks the form. */
@@ -26,8 +27,9 @@ type Leaves<T, Leaf, Prefix extends string = ""> = {
       : Leaves<T[K], Leaf, `${Prefix}${K}.`>;
 }[keyof T & string];
 
-/** Every message: the dictionaries', and those added by a chunk when it loads (D-055, D-058). */
-type AllMessages = typeof en & typeof practicalEn & typeof whyEn;
+/** Every message: the dictionaries', and those added by a chunk when it loads (D-055, D-057,
+ * D-058). */
+type AllMessages = typeof en & typeof practicalEn & typeof sandboxEn & typeof whyEn;
 /** Keys of plain messages, e.g. `view.loading`. */
 export type MessageKey = Leaves<AllMessages, string>;
 /** Keys of plural messages, e.g. `view.rooms`. */

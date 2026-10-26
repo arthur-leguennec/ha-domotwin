@@ -149,9 +149,10 @@ export class DomoTwinCard extends LitElement {
     this.unsubscribe = undefined;
   }
 
-  /** The demo house shown, if one is. */
+  /** The demo house shown, if one is (a card shows no sandbox). */
   private get demo(): DemoHome | undefined {
-    return this.demoSwitch.home;
+    const home = this.demoSwitch.home;
+    return home?.kind === "demo" ? home : undefined;
   }
 
   /** Shows the demo house (D-050) instead of the home, while the card is set to. */

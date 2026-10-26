@@ -40,7 +40,7 @@ const clamp = (value: number, low: number, high: number): number =>
   Math.min(high, Math.max(low, value));
 
 /** What `service` does to one entity of `domain`: its new state and attributes, or nothing. */
-function apply(
+export function serviceEffect(
   entity: HassEntity,
   domain: string,
   service: string,
@@ -204,7 +204,7 @@ export function callService(
     const entity = states[id];
     if (!entity || entity.state === "unavailable") continue;
     const own = id.slice(0, id.indexOf("."));
-    const result = apply(entity, domain === "homeassistant" ? own : domain, service, data);
+    const result = serviceEffect(entity, domain === "homeassistant" ? own : domain, service, data);
     if (!result) continue;
     const moved = result.state !== entity.state;
     states[id] = {

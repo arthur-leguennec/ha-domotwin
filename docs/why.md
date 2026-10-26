@@ -55,7 +55,8 @@ Only from what Home Assistant recorded, as its own Activity reads it:
 DomoTwin explains the device's last change of **state** (on, off, open, heating…), as Home
 Assistant's Activity lists them: a change of its attributes alone (a lamp's brightness) is not
 one. A sensor that measures (with a unit, a state class, or a kind that is a number) is not in
-Home Assistant's logbook: it has no **Why**. It follows the chain back through the state changes
+Home Assistant's logbook: it has no **Why**. Without Home Assistant's logbook (not loaded, or in the sandbox's copy of the home), there is no
+**Why**. It follows the chain back through the state changes
 that set automations off, the automations that ran others, and what was done in another's name
 (a thermostat switching its heater on for whoever set it), up to six changes; what came before is
 in the Activity. What ran after the change in the same context (a notification sent a moment

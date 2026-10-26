@@ -35,6 +35,8 @@
 //   path=<path after /domotwin> (the address opened, with route=1), cards=1 (Home Assistant's
 //   card helpers, made up: a card says its type and entity), lists=1 (a calendar and a to-do
 //   list), firstpage=device|user (how Home Assistant keeps the page it opens first)
+//   sandbox=1 (D-057: Home Assistant's time zone and a fictional place; with automations=1, two
+//   automations working against each other, one set off from outside, and a script)
 //   why=1 (D-058: Home Assistant's logbook and traces of a fictional evening, with live=1: the
 //   entrance door opened five minutes ago and set off "Hall light at the door", which lit the
 //   hall's spots; Sam switched the floor lamp on two minutes ago; the kitchen's ceiling light was
@@ -63,6 +65,7 @@ const live = params.get("live") === "1";
 const zha = params.get("zha") === "1";
 // Fictional automations (D-032): `automations=1` three of them, `automations=50` as many made up.
 const automationCount = Number(params.get("automations") ?? 0);
+const sandbox = params.get("sandbox") === "1";
 // Home Assistant's logbook and traces of a fictional evening (D-058).
 const why = params.get("why") === "1";
 /** The logbook's rows, as `logbook/get_events` gives them, each with the context it is in. */
@@ -460,11 +463,45 @@ window.__show = (request) => {
   for (const listener of listeners) listener({ kind: "show", show: request });
 };
 
+/** For the sandbox (D-057): automations working against each other, and one set off by MQTT. */
+const SANDBOX_AUTOMATIONS = {
+  "automation.away_lamp_off": {
+    id: "1101",
+    alias: "Lamp off when Alex goes out",
+    triggers: [{ trigger: "state", entity_id: "person.alex", to: "not_home" }],
+    actions: [{ action: "light.turn_off", target: { entity_id: "light.living_room_floor_lamp" } }],
+  },
+  "automation.lamp_back_on": {
+    id: "1102",
+    alias: "Lamp back on",
+    triggers: [{ trigger: "state", entity_id: "light.living_room_floor_lamp", to: "off" }],
+    actions: [{ action: "light.turn_on", target: { entity_id: "light.living_room_floor_lamp" } }],
+  },
+  "automation.doorbell_from_outside": {
+    id: "1103",
+    alias: "Doorbell",
+    triggers: [{ trigger: "mqtt", topic: "home/doorbell" }],
+    actions: [{ action: "script.movie_night" }],
+  },
+};
+
+/** For the sandbox: a script, as Home Assistant's script editor keeps it. */
+const SANDBOX_SCRIPTS = {
+  "script.movie_night": {
+    alias: "Movie night",
+    sequence: [
+      { action: "light.turn_off", target: { area_id: "living_room" } },
+      { action: "cover.close_cover", target: { entity_id: "cover.living_room_curtains" } },
+    ],
+  },
+};
+
 /** Fictional automations of the demo apartment, by entity id, with their configurations. */
 function automationConfigs() {
   if (automationCount <= 0) return {};
   if (automationCount === 1) {
     return {
+      ...(sandbox ? SANDBOX_AUTOMATIONS : {}),
       "automation.evening_lights": {
         id: "1001",
         alias: "Evening lights",
@@ -641,6 +678,15 @@ const connection = {
           .map(([id]) => id);
         return automation.length > 0 ? { automation } : {};
       }
+      case "script/config": {
+        if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        const config = (sandbox ? SANDBOX_SCRIPTS : {})[message.entity_id];
+        if (!config) throw { code: "not_found", message: "Entity not found" };
+        return { config: structuredClone(config) };
+      }
+      case "config/entity_registry/list":
+        if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        return Object.keys(home.states).map((id, k) => ({ id: `e2e${k}`, entity_id: id }));
       case "automation/config": {
         // Kept for administrators, as recent Home Assistant versions do.
         if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
@@ -1006,6 +1052,11 @@ if (robot) {
     attributes: { friendly_name: "Robbie", supported_features: 12_820 },
   };
 }
+if (sandbox) {
+  for (const [id, config] of Object.entries(SANDBOX_SCRIPTS)) {
+    home.states[id] = { entity_id: id, state: "off", attributes: { friendly_name: config.alias } };
+  }
+}
 for (const [id, config] of Object.entries(automationConfigs())) {
   home.states[id] = {
     entity_id: id,
@@ -1269,6 +1320,8 @@ let hass = {
       ...(voiceParam ? ["conversation", "assist_pipeline"] : []),
       ...(why ? ["logbook"] : []),
     ],
+    // A fictional place, rounded: the sandbox's sun.
+    ...(sandbox ? { time_zone: "Europe/Paris", latitude: 46, longitude: 2 } : {}),
   },
   connection,
   fetchWithAuth,

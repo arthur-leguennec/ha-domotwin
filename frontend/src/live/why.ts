@@ -494,11 +494,14 @@ const CONTINUOUS = ["counter", "image", "proximity"];
 const NOT_NUMBERS = ["date", "enum", "timestamp", "uptime"];
 
 /**
- * Whether the logbook can say why `entity` is as it is: not a sensor that measures (with a unit,
- * a state class or, since 2026, a kind that is a number), which Home Assistant's logbook leaves
- * out, as it does counters.
+ * Whether the logbook can say why `entity` is as it is: Home Assistant has its logbook (not a
+ * home without it, nor the sandbox's copy), and it is not a sensor that measures (with a unit, a
+ * state class or, since 2026, a kind that is a number), which the logbook leaves out, as it does
+ * counters.
  */
 export function explainable(hass: HomeAssistant, entity: string): boolean {
+  const components = hass.config?.components;
+  if (components && !components.includes("logbook")) return false;
   const domain = entity.slice(0, entity.indexOf("."));
   if (CONTINUOUS.includes(domain)) return false;
   if (domain !== "sensor") return true;

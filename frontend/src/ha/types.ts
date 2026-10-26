@@ -107,6 +107,9 @@ export interface HomeAssistant {
     components?: string[];
     /** Home Assistant's time zone (an IANA name). */
     time_zone?: string;
+    /** Where the home is: for the sun of the sandbox's day (D-057). */
+    latitude?: number;
+    longitude?: number;
   };
   connection: HassConnection;
   /**
@@ -114,6 +117,8 @@ export interface HomeAssistant {
    * would show the home's entities, not the demo's.
    */
   demo?: boolean;
+  /** The sandbox's copy of the home (D-057): a home kept in the page as the demo house is. */
+  sandbox?: boolean;
   /** The time it is for this Home Assistant (ms): the demo house's own clock (D-050). */
   now?(): number;
   /** The page Home Assistant opens first on this device (2025.1: its `hass-default-panel`). */

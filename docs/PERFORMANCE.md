@@ -904,16 +904,34 @@ Assistant's changes do not update it until it shows again. Home Assistant's card
 for each configuration and given each new `hass`; the rooms are sorted again when an entity comes,
 goes or moves, not on every state; a search runs again when it or the home changes.
 
+### M29 (the sandbox)
+
+Bundle: the first load is **516.4 kB gzipped** of 1 200 kB (+0.9 kB): the menu entry, the switch
+showing either home kept in the page, and the entry's few texts. The sandbox comes on demand, the
+first time it opens (`chunks/sandbox-bar-<hash>.js`: 100.1 kB raw, 31.5 kB gzipped): the copy, the
+engine, the templates' reader, the day's scenario, the report, the bar and their texts in both
+languages.
+
+Opening it reads the home once: its plan, links and settings, and one answer for each automation,
+script and scene (eight of each kind asked at a time, the kinds side by side). The day is then
+played at once and kept: a busy day, a hundred automations of every kind (times, states, templates
+read each minute, a pattern every ten minutes, two lamps toggled a minute apart in each) set off
+3 023 times and changing the home 12 698 times (each run's count of runs, the sun's next times), is
+played in **171 ms** (median of seven, Node 22 on a 2.1 GHz Xeon core of the CI's kind), 663 ms
+before the zone's offset was kept by quarter-hour rather than asked of `Intl` at each change. A day
+is played again when it is changed or a tap is done in it. Showing a moment of it applies the day's
+changes up to there (from midnight when going back); playing moves the moment on ten times a second
+and gives the panel one new `hass` each time, as Home Assistant would.
 
 ### M32 ("Why?")
 
-Bundle: the first load is **516.4 kB gzipped** of 1 200 kB (+0.9 kB): the view's part (the chain
+Bundle: the first load is **517.4 kB gzipped** of 1 200 kB (+1.0 kB): the view's part (the chain
 asked for, shown and hidden, what a private room hides from it) and five icons. The section comes
 with the sheets (`chunks/sheets-<hash>.js`: 44.1 kB raw, 11.0 kB gzipped, +1.3 kB) with its texts
 in both languages, the chain drawn in the home on demand, the first time it is
 (`chunks/why-wires-<hash>.js`: 3.6 kB raw, 1.7 kB gzipped); the spots and chip it shares with the
 automation wires moved out of theirs (`chunks/automation-wires-<hash>.js`: 2.9 → 1.9 kB gzipped).
-The demo house's logbook adds 1.5 kB gzipped to its chunk.
+The demo house's logbook adds 1.5 kB gzipped to the demo house's code.
 
 Nothing is asked of Home Assistant until **Who or what changed it?** is: a chain read by contexts
 is two or three logbook questions, one through an automation's runs a few more (its last three of

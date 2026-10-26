@@ -2219,6 +2219,67 @@ D-054 planned them.
   - Many of them read what only administrators may (automations, traces, the radios): each says
     what other users see.
 
+## D-057 · The sandbox: the home's day played on a copy of it (M29)
+
+M29, the first milestone after 0.4.0 (D-056).
+
+- **Context.** The maintainer wanted to see what the home's automations do over a whole day before
+  living it: a day picked, its weather, who goes out and comes back when; the 3D view and a
+  timeline as it plays; a report of what ran, what never did, what worked against what. Nothing
+  may reach a device. Home Assistant has no dry run ("the actions of the automation run for
+  real"); Event Simulator (HACS) replays recorded history against one automation at a time in a
+  separate process, its actions changing nothing (D-056).
+- **Decision.**
+  - **In the page, on a copy.** As D-056 planned, on the demo house's way of keeping a home in
+    the page (D-050): the home's states, registries, DomoTwin's plan, links and settings are read
+    once, with the configurations of the automations, scripts and scenes and the entity registry
+    (for administrators: Home Assistant gives them to them only). The copy has its own `hass` and
+    its own connection, which answers DomoTwin's commands from memory; the panel runs on it
+    unchanged. Nothing is written to Home Assistant, no service is called: the tests check it.
+  - **The day is played at once.** An engine of its own (`src/sandbox/engine.ts`) plays the day
+    from midnight to midnight as a queue of moments, in Home Assistant's time zone: a trigger sets
+    its automation off after the change that fired it, its conditions first, then its mode
+    (single, restart, queued, parallel); `for`, delays and waits take their time; what an action
+    changes can set off another. Runs are generators the engine steps through, so a day of a
+    hundred automations is played in a fifth of a second here and gives the same day each time.
+    The 3D view then shows the copy at a moment of it: playing moves that moment on.
+  - **Played as Home Assistant plays them**: the usual triggers, conditions and actions
+    (`docs/sandbox.md`), both spellings of each (`trigger`/`platform`, `action`/`service`), and
+    what the usual services do to the states, from the demo house's effects (D-050) and more.
+    Templates are read by a small reader of Home Assistant's Jinja for the usual (states, the
+    time, what set it off, numbers, texts, areas). **What cannot be played is said, never
+    guessed**: a template beyond it, an integration's own service, a scene written in YAML, what
+    comes from outside the home's day (MQTT, webhooks, Home Assistant starting…), each named
+    with its automation in the report. The page is enough for most homes; a player on the server
+    running Home Assistant's own code stays a question (D-056 ❓3).
+  - **The day picked**: a date (the sun rises and sets as it does there, from Home Assistant's
+    latitude and longitude), a weather (the weather entities' state by day and by night, their
+    temperature each hour between a lowest and a highest), who is home at midnight and when each
+    goes out and comes back (their trackers with them). A tap in the sandbox is done at the moment
+    shown and kept with the day, which is played again with it.
+  - **The report**: what each automation did and when (what set it off, what each action changed
+    or said, how it ended), what never ran and why (stopped by its conditions, running already,
+    never set off), two automations working against each other (an entity one set and another set
+    otherwise within two minutes), an entity going back and forth (six changes within ten
+    minutes), an automation setting itself off over and over (more than sixty times a minute:
+    stopped for the rest of the day), what could not be played.
+  - **The way in**: an entry of the panel's ⋮ menu, for administrators; the bar of the sandbox
+    under the toolbar (the time, play, speed, the day's line with its runs and conflicts, the day,
+    the report, the way out). The demo house and the measure wait until it is left. The sandbox is
+    a chunk loaded the first time it opens, with its texts in both languages.
+- **Consequences.**
+  - The demo house's connection serves any home kept in the page (`MemoryHome`): the demo
+    house's automations and energy settings are its own, the sandbox's are the copy's. The switch
+    between the home and a home kept in the page (`DemoSwitch`) shows either.
+  - The first load grows by the menu entry and its texts (+0.9 kB gzipped); the sandbox is
+    31.5 kB gzipped when opened.
+  - The copy is a model: sensors change only as the day makes them and as automations and taps set
+    them. Said in the guide and in the bar.
+  - At the played day's midnight no automation or script runs, and what the home ran later than
+    that has not run yet; the people's room sensors (D-034) follow them out and back. The
+    automation wires (D-032) take a run's time going back as well as on, so they pulse again when
+    the day is played over.
+
 ## D-058 · "Why?": who or what changed a device, as Home Assistant recorded it (M32)
 
 M32, moved forward by the maintainer: asked right after 0.4.0, next to the sandbox (M29), rather
@@ -2278,8 +2339,9 @@ than after 0.5.0; the rest of D-056's order keeps its place.
   - **Only what Home Assistant recorded.** A change whose context began with itself is "nobody, as
     far as Home Assistant knows" (the device itself, or its integration); one whose parent the
     logbook does not have, or that the logbook does not have at all, is "not in the logbook";
-    further back, a change that began with itself is where the chain starts. Without the logbook
-    (not loaded, or failing), what the state's context says, and that it could not be read.
+    further back, a change that began with itself is where the chain starts. Without Home
+    Assistant's logbook (not loaded, or the sandbox's copy, D-057), no **Why**; when it cannot be
+    read, what the state's context says, and that it could not be read.
   - **Drawn with the wires of M9c** (`setAutomations`, no change in the engine): a wire from each
     step to the next that has a place, through the automations and scripts that ran between them,
     in the first one's colour; a person, a time, an action float as labels; pulses one after the
@@ -2299,7 +2361,7 @@ than after 0.5.0; the rest of D-056's order keeps its place.
 - **Consequences.**
   - The section and its texts come with the sheets, the drawing is a chunk of its own
     (`chunks/why-wires-<hash>.js`); the first load grows by the view's part and five icons
-    (+0.9 kB gzipped). The automation wires and the chain share their spots and chip
+    (+1.0 kB gzipped). The automation wires and the chain share their spots and chip
     (`wire-spots.ts`).
   - On 2026.9 and later, Home Assistant's own Activity shows the same chain as a list: DomoTwin's
     is the same read, drawn in the home, followed further back, and on 2025.1 too.

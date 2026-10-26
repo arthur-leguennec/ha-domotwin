@@ -854,6 +854,9 @@ describe("the words of a chain", () => {
     ]).hass;
     expect(explainable(classes, "sensor.outside")).toBe(false);
     expect(explainable(classes, "sensor.mode")).toBe(true);
+    // No logbook (a home without it, the sandbox's copy): nothing to ask.
+    const without = home(new DemoLogbook(), [], { config: { components: ["domotwin"] } }).hass;
+    expect(explainable(without, "light.hall")).toBe(false);
     expect(explainable(sensors, "light.hall")).toBe(true);
   });
 });
