@@ -1,5 +1,6 @@
 import { en } from "./en";
 import { fr } from "./fr";
+import type { practicalEn } from "./practical";
 
 /** A plural message: Intl.PluralRules picks the form. */
 export interface Plural {
@@ -7,7 +8,7 @@ export interface Plural {
   other: string;
 }
 
-type Widen<T> = T extends string
+export type Widen<T> = T extends string
   ? string
   : T extends Plural
     ? Plural
@@ -24,10 +25,12 @@ type Leaves<T, Leaf, Prefix extends string = ""> = {
       : Leaves<T[K], Leaf, `${Prefix}${K}.`>;
 }[keyof T & string];
 
+/** Every message: the dictionaries', and those added by a chunk when it loads (D-055). */
+type AllMessages = typeof en & typeof practicalEn;
 /** Keys of plain messages, e.g. `view.loading`. */
-export type MessageKey = Leaves<typeof en, string>;
+export type MessageKey = Leaves<AllMessages, string>;
 /** Keys of plural messages, e.g. `view.rooms`. */
-export type PluralKey = Leaves<typeof en, Plural>;
+export type PluralKey = Leaves<AllMessages, Plural>;
 
 /** A kind of item of the plan format (`docs/plan-format.md`), as the catalogue names it. */
 export type KindName = keyof (typeof en)["kinds"];
@@ -35,6 +38,20 @@ export type KindName = keyof (typeof en)["kinds"];
 export type Language = "en" | "fr";
 
 const dictionaries: Record<Language, Dictionary> = { en, fr };
+/** The messages of chunks loaded since (the Home and Rooms tabs', D-055), by language. */
+const added: Record<Language, unknown[]> = { en: [], fr: [] };
+
+/** Adds a chunk's messages, in every language. */
+export function addMessages(messages: Record<Language, unknown>): void {
+  for (const language of ["en", "fr"] as const) added[language].push(messages[language]);
+}
+
+/** A message of the language: its dictionary's, else a chunk's. */
+function find(language: Language, key: string): unknown {
+  let found = lookup(dictionaries[language], key);
+  for (const part of added[language]) found ??= lookup(part, key);
+  return found;
+}
 
 /** The supported language closest to Home Assistant's, English otherwise. */
 export function pickLanguage(language: string | undefined): Language {
@@ -42,7 +59,7 @@ export function pickLanguage(language: string | undefined): Language {
   return base === "fr" ? "fr" : "en";
 }
 
-function lookup(dictionary: Dictionary, key: string): unknown {
+function lookup(dictionary: unknown, key: string): unknown {
   let node: unknown = dictionary;
   for (const part of key.split(".")) {
     if (typeof node !== "object" || node === null) return undefined;
@@ -69,13 +86,13 @@ export class Translator {
 
   /** A plain message. */
   t(key: MessageKey, params: Record<string, string | number> = {}): string {
-    const text = lookup(dictionaries[this.language], key) ?? lookup(en, key);
+    const text = find(this.language, key) ?? find("en", key);
     return typeof text === "string" ? format(text, params) : key;
   }
 
   /** A plural message; `{count}` is the number. */
   tp(key: PluralKey, count: number, params: Record<string, string | number> = {}): string {
-    const forms = lookup(dictionaries[this.language], key) as Plural | undefined;
+    const forms = find(this.language, key) as Plural | undefined;
     const form = forms?.[this.plurals.select(count) === "one" ? "one" : "other"];
     return form ? format(form, { ...params, count }) : key;
   }

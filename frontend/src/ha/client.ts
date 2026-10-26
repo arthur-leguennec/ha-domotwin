@@ -1,4 +1,5 @@
 import type { ThemeMode } from "../config";
+import { readChoices, type Choices, type HomeCard, type Tab } from "../live/choices";
 import type { LocatedCandidate, LocatedSettings, LocatingSettings } from "../live/locating";
 import type { PeopleSettings, PersonSettings } from "../live/people";
 import { readSchedules, type Schedule } from "../live/schedules";
@@ -434,6 +435,28 @@ export class DomoTwinClient {
       schedule_id: id,
     });
     return result.cancelled > 0;
+  }
+
+  /** The user's own choices (D-055): favourites, the tab DomoTwin opens on, the Home cards. */
+  async getChoices(): Promise<Choices> {
+    return readChoices(await this.connection.sendMessagePromise({ type: "domotwin/choices/get" }));
+  }
+
+  /** Stars an entity, or takes its star away; answers the favourites. */
+  async setFavourite(entityId: string, favourite: boolean): Promise<string[]> {
+    const result = await this.connection.sendMessagePromise<unknown>({
+      type: "domotwin/choices/favourite",
+      entity_id: entityId,
+      favourite,
+    });
+    return readChoices(result).favourites;
+  }
+
+  /** Sets the tab DomoTwin opens on (`""`: none chosen) and the Home tab's cards. */
+  async saveChoices(change: { start?: Tab | ""; cards?: HomeCard[] }): Promise<Choices> {
+    return readChoices(
+      await this.connection.sendMessagePromise({ type: "domotwin/choices/save", ...change }),
+    );
   }
 
   /** Calls `listener` after every save, from any device. Returns a function that stops it. */

@@ -6,6 +6,7 @@
 import type { NewSchedule, PlanJson, StoredPlan, UpdateEvent } from "../ha/client";
 import type { HassConnection, HassMessage } from "../ha/types";
 import type { PeopleSettings } from "../live/people";
+import { readChoices } from "../live/choices";
 import { storeyIds } from "../live/storeys";
 import type { Schedule } from "../live/schedules";
 import type { Upkeep } from "../live/upkeep";
@@ -181,6 +182,19 @@ export function demoConnection(home: DemoHome): HassConnection {
         };
       case "domotwin/locating/candidates":
         return { candidates: [] };
+      case "domotwin/choices/get":
+        return structuredClone(store.choices);
+      case "domotwin/choices/favourite": {
+        const entity = String(message.entity_id);
+        const others = store.choices.favourites.filter((id) => id !== entity);
+        store.choices.favourites = message.favourite === true ? [...others, entity] : others;
+        return { favourites: [...store.choices.favourites] };
+      }
+      case "domotwin/choices/save": {
+        // "" for the start: none chosen.
+        store.choices = readChoices({ ...store.choices, ...message });
+        return structuredClone(store.choices);
+      }
       case "domotwin/schedules/add":
         return home.addSchedule(message as unknown as NewSchedule & HassMessage);
       case "domotwin/schedules/cancel":

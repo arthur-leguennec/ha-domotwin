@@ -29,6 +29,12 @@
 //   demo=1 (the card's `demo`: the demo house instead of this home, D-050)
 //   supervisor=1 (apps can be installed), blueprints=changed (one edited), insecure=1 (a page
 //   served over HTTP: no microphone), mic=0 (the card's microphone turned off)
+//   start=home|rooms|3d|none (the tab this device opens on, D-055: 3d unless asked; none: the
+//   user's), userstart=<tab> (the user's), favourites=<id>,<id> (the user's), route=1 (Home
+//   Assistant's address: /domotwin and the path after it, navigation and back as it does them)
+//   path=<path after /domotwin> (the address opened, with route=1), cards=1 (Home Assistant's
+//   card helpers, made up: a card says its type and entity), lists=1 (a calendar and a to-do
+//   list), firstpage=device|user (how Home Assistant keeps the page it opens first)
 import { applyService, demoHome } from "./demo-home.mjs";
 
 const params = new URLSearchParams(location.search);
@@ -40,6 +46,14 @@ try {
   // No storage: the tip shows.
 }
 const mode = params.get("mode") ?? "card";
+// The tab this device opens on (D-055): the 3D view, as before the tabs, unless a test asks.
+try {
+  const start = params.get("start") ?? "3d";
+  if (start === "none") localStorage.removeItem("domotwin-start");
+  else localStorage.setItem("domotwin-start", start);
+} catch {
+  // Storage disabled.
+}
 const live = params.get("live") === "1";
 // A mocked ZHA (D-031): a fictional Zigbee mesh over the demo apartment.
 const zha = params.get("zha") === "1";
@@ -417,6 +431,13 @@ const calls = [];
 window.__calls = calls;
 // settingsdown=1: the settings cannot be read until `window.__settingsUp()` (D-039).
 let settingsDown = params.get("settingsdown") === "1";
+/** The user's own choices (D-055). */
+const choices = {
+  favourites: params.get("favourites") ? params.get("favourites").split(",") : [],
+  cards: [],
+  ...(params.get("userstart") ? { start: params.get("userstart") } : {}),
+};
+window.__choices = choices;
 window.__settingsUp = () => {
   settingsDown = false;
   for (const listener of listeners) listener({ kind: "settings", revision: store.revision });
@@ -613,6 +634,26 @@ const connection = {
         const config = automationConfigs()[message.entity_id];
         if (!config) throw { code: "not_found", message: "Entity not found" };
         return { config: structuredClone(config) };
+      }
+      case "domotwin/choices/get":
+        return structuredClone(choices);
+      case "domotwin/choices/favourite": {
+        const others = choices.favourites.filter((id) => id !== message.entity_id);
+        choices.favourites = message.favourite ? [...others, message.entity_id] : others;
+        return { favourites: [...choices.favourites] };
+      }
+      case "domotwin/choices/save": {
+        if (message.start !== undefined) {
+          if (message.start) choices.start = message.start;
+          else delete choices.start;
+        }
+        if (message.cards !== undefined) choices.cards = message.cards;
+        return structuredClone(choices);
+      }
+      case "frontend/set_user_data": {
+        hass = { ...hass, userData: message.value };
+        if (element) element.hass = hass;
+        return null;
       }
       case "domotwin/plan/get": {
         const storey = storeyOf(message.storey);
@@ -986,6 +1027,26 @@ if (live && params.get("storeys") === "2") {
     store.bindings.elements["up-lamp"] = { entities: [{ entity_id: "light.office_lamp" }] };
   }
 }
+// Home Assistant's floors (D-055): the apartment on the ground floor, the office above.
+home.floors = {
+  ground: { floor_id: "ground", name: "Ground floor", level: 0 },
+  ...(home.areas.office ? { upper: { floor_id: "upper", name: "Upper floor", level: 1 } } : {}),
+};
+for (const area of Object.values(home.areas)) {
+  area.floor_id = area.area_id === "office" ? "upper" : "ground";
+}
+if (params.get("lists") === "1") {
+  home.states["calendar.family"] = {
+    entity_id: "calendar.family",
+    state: "off",
+    attributes: { friendly_name: "Family" },
+  };
+  home.states["todo.shopping"] = {
+    entity_id: "todo.shopping",
+    state: "2",
+    attributes: { friendly_name: "Shopping" },
+  };
+}
 const states = home.states;
 /** A person's room sensor, as the integration writes it, in `room` (or away). */
 function roomSensor(id, room) {
@@ -1068,6 +1129,11 @@ let hass = {
   entities: home.entities,
   devices: home.devices,
   areas: home.areas,
+  floors: home.floors,
+  ...(params.get("firstpage") === "device" ? { defaultPanel: "lovelace" } : {}),
+  // 2025.1 has the user's data too; everyone's came with the page kept for each user.
+  userData: { showAdvanced: false },
+  ...(params.get("firstpage") === "user" ? { systemData: {} } : {}),
   user: { id: "e2e", name: "E2E", is_admin: params.get("admin") !== "0" },
   language,
   locale: { language },
@@ -1117,6 +1183,56 @@ window.__setState = (entityId, state, attributes = {}) => {
 };
 if (hass.themes.darkMode) document.body.classList.add("dark");
 
+if (params.get("cards") === "1") {
+  // Home Assistant's card helpers (D-055), made up: a card says its type and entity, and a
+  // button card runs its scene.
+  window.loadCardHelpers = async () => ({
+    createCardElement(config) {
+      const card = document.createElement("div");
+      card.className = "ha-card";
+      card.dataset.type = config.type;
+      card.dataset.entity = config.entity ?? (config.entities ?? []).join(",");
+      card.dataset.config = JSON.stringify(config);
+      const draw = (h) => {
+        const state = h?.states[config.entity];
+        card.textContent = `${config.type} ${state?.attributes.friendly_name ?? config.entity ?? ""} ${state?.state ?? ""}`;
+      };
+      Object.defineProperty(card, "hass", {
+        set(value) {
+          card._hass = value;
+          draw(value);
+        },
+        get() {
+          return card._hass;
+        },
+      });
+      card.addEventListener("click", () => {
+        const [domain] = String(config.entity).split(".");
+        if (config.type === "button")
+          void card._hass.callService(domain, "turn_on", {}, { entity_id: config.entity });
+        else
+          card.dispatchEvent(
+            new CustomEvent("hass-more-info", {
+              detail: { entityId: config.entity },
+              bubbles: true,
+              composed: true,
+            }),
+          );
+      });
+      return card;
+    },
+  });
+}
+// The page Home Assistant opens first, on this device (2025.1).
+document.addEventListener("hass-default-panel", (event) => {
+  calls.push({ type: "hass-default-panel", detail: event.detail });
+  hass = { ...hass, defaultPanel: event.detail.defaultPanel };
+  if (element) element.hass = hass;
+});
+document.addEventListener("hass-more-info", (event) => {
+  calls.push({ type: "hass-more-info", detail: event.detail });
+});
+
 const mount = document.getElementById("mount");
 let element;
 if (mode === "panel") {
@@ -1151,6 +1267,16 @@ if (mode === "panel") {
   });
 }
 element.hass = hass;
+if (mode === "panel" && params.get("route") === "1") {
+  // Home Assistant's address (D-055): the panel's path, and the page's after it.
+  history.replaceState(null, "", `/domotwin${params.get("path") ?? ""}${location.search}`);
+  const follow = () => {
+    element.route = { prefix: "/domotwin", path: location.pathname.slice("/domotwin".length) };
+  };
+  follow();
+  window.addEventListener("location-changed", follow);
+  window.addEventListener("popstate", follow);
+}
 // What Home Assistant's frontend is asked to do (an action, Assist).
 document.addEventListener("hass-action", (event) => {
   calls.push({ type: "hass-action", detail: event.detail });

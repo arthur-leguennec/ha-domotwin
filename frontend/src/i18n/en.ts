@@ -637,6 +637,21 @@ export const en = {
     leave: "Leave the demo",
     no_dialog: "Home Assistant's own dialogs do not open in the demo.",
   },
+  tabs: {
+    label: "DomoTwin's tabs",
+    home: "Home",
+    rooms: "Rooms",
+    three_d: "3D",
+  },
+  rooms: {
+    star_failed: "Your favourites did not change: {reason}",
+  },
+  choices: {
+    title: "Your choices",
+    saved: "Your choices are saved.",
+    first_failed:
+      "Your choices are saved, but Home Assistant did not keep the page it opens first: {reason}",
+  },
   measure: {
     menu: "Measure performance",
     title: "Measure performance",
@@ -1029,6 +1044,7 @@ export const en = {
       models_too_large: "the 3D files of a plan total at most 20 MB.",
     },
     ws: {
+      too_many_favourites: "you have 100 favourites already: take a star away first.",
       no_supervisor: "this Home Assistant has no apps.",
       busy: "voice is already being set up.",
       blueprints_not_written: "the blueprints could not be written to Home Assistant’s folder.",

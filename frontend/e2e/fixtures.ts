@@ -92,6 +92,20 @@ export interface HarnessOptions {
   privateWhile?: string;
   /** The settings cannot be read until `window.__settingsUp()`. */
   settingsDown?: boolean;
+  /** The tab this device opens on (D-055): the 3D view unless asked; `none`: the user's. */
+  start?: "home" | "rooms" | "3d" | "none";
+  /** The tab the user chose, and their favourites. */
+  userStart?: "home" | "rooms" | "3d";
+  favourites?: string[];
+  /** Home Assistant's address: the panel's path, and the path after it opened. */
+  route?: boolean;
+  path?: string;
+  /** Home Assistant's card helpers, made up (a card says its type and entity). */
+  cards?: boolean;
+  /** A calendar and a to-do list. */
+  lists?: boolean;
+  /** How Home Assistant keeps the page it opens first. */
+  firstPage?: "device" | "user";
 }
 
 /** Opens the mocked Home Assistant with the built frontend. */
@@ -139,6 +153,14 @@ export async function openHarness(page: Page, options: HarnessOptions = {}): Pro
   if (options.privateFor) params.set("privatefor", options.privateFor);
   if (options.privateWhile) params.set("privatewhile", options.privateWhile);
   if (options.settingsDown) params.set("settingsdown", "1");
+  if (options.start) params.set("start", options.start);
+  if (options.userStart) params.set("userstart", options.userStart);
+  if (options.favourites) params.set("favourites", options.favourites.join(","));
+  if (options.route) params.set("route", "1");
+  if (options.path) params.set("path", options.path);
+  if (options.cards) params.set("cards", "1");
+  if (options.lists) params.set("lists", "1");
+  if (options.firstPage) params.set("firstpage", options.firstPage);
   if (options.voice) params.set("voice", options.voice === true ? "1" : options.voice);
   if (options.supervisor) params.set("supervisor", "1");
   if (options.blueprints) params.set("blueprints", options.blueprints);
