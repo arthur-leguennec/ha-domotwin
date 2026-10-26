@@ -80,8 +80,9 @@ describe("storeys", () => {
           : Promise.reject(new Error("gone")),
     };
     const home = [storey("ground", 0), storey("up", 280), storey("gone", 560)];
+    // With the plan and its overlay: what a private room holds (D-055).
     expect(await roomsElsewhere(client as never, home, "ground")).toEqual([
-      { storey: "up", rooms: [{ id: "office", name: "Office" }] },
+      { storey: "up", rooms: [{ id: "office", name: "Office" }], plan: plans.up, layout: {} },
     ]);
   });
 

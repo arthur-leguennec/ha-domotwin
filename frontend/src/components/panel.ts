@@ -5,7 +5,9 @@ import {
   mdiClose,
   mdiFlaskOutline,
   mdiCogOutline,
+  mdiCubeOutline,
   mdiDotsVertical,
+  mdiHomeOutline,
   mdiLinkVariant,
   mdiLockOutline,
   mdiMicrophoneMessage,
@@ -14,9 +16,11 @@ import {
   mdiStairs,
   mdiTrayArrowDown,
   mdiTrayArrowUp,
+  mdiTuneVariant,
   mdiVectorSquareEdit,
+  mdiViewGridOutline,
 } from "@mdi/js";
-import { LitElement, css, html, nothing, type TemplateResult } from "lit";
+import { LitElement, css, html, nothing, type PropertyValues, type TemplateResult } from "lit";
 
 import {
   EngineError,
@@ -48,6 +52,7 @@ import { isHassError, type HomeAssistant } from "../ha/types";
 import type { DemoHome } from "../demo/home";
 import {
   MAX_ENTITIES,
+  NO_BINDINGS,
   readBindings,
   roomArea,
   shownEntity,
@@ -76,7 +81,18 @@ import {
   storeyName,
   type StoreyRooms,
 } from "../live/storeys";
-import { privateRooms } from "../live/privacy";
+import { closedAreas, closedEntities, privateRooms, type Unseen } from "../live/privacy";
+import {
+  NO_CHOICES,
+  canDraw3d,
+  pathOf,
+  readDeviceStart,
+  routeOf,
+  startTab,
+  type Choices,
+  type Tab,
+} from "../live/choices";
+import type { GlanceSources } from "../live/glance";
 import { resolveShow, type ShowRequest } from "../live/show";
 import type { LocatingSettings } from "../live/locating";
 import type { PeopleSettings } from "../live/people";
@@ -91,7 +107,7 @@ import {
 } from "../live/suggest";
 import type { ImportReport, ImportStorey, PlanFile, ScanRoom } from "../import/import";
 import type { ModelFormat, ModelInfo } from "../models/models";
-import { translatorFor, type Translator } from "../i18n";
+import { pickLanguage, translatorFor, type Translator } from "../i18n";
 import { documentFonts } from "../fonts";
 import { icon } from "./icon";
 import { DemoSwitch } from "./demo-switch";
@@ -103,7 +119,13 @@ import type { ModelChoice } from "./edit-bar";
 import type { PlaceRequest } from "./network-panel";
 import type { PlanEditState, PlanTool } from "./plan-editor";
 import type { RoomChoice } from "./private-rooms";
-import type { DomoTwinView, EditCommand, PlanCommand, ViewOptions } from "./view";
+import {
+  nextFrame,
+  type DomoTwinView,
+  type EditCommand,
+  type PlanCommand,
+  type ViewOptions,
+} from "./view";
 import {
   energyCandidates,
   preferredFromHome,
@@ -245,6 +267,7 @@ const PANEL_DIALOGS = [
   "domotwin-catalogue",
   "domotwin-model-import",
   "domotwin-measure",
+  "domotwin-choices",
 ]
   .map((dialog) => `.body > ${dialog}`)
   .join(", ");
@@ -309,10 +332,51 @@ export class DomoTwinPanel extends LitElement {
     planReserved: { state: true },
     measureOpen: { state: true },
     measureLook: { state: true },
+    route: { attribute: false },
+    tab: { state: true },
+    roomOpen: { state: true },
+    from3d: { state: true },
+    choices: { state: true },
+    choicesRead: { state: true },
+    choicesOpen: { state: true },
+    practicalReady: { state: true },
   };
 
   narrow = false;
   panel?: unknown;
+  /** Where Home Assistant shows the panel: its own path, and the page's after it. */
+  route?: { prefix: string; path: string };
+  /** The tab shown (D-055); unknown until the tab to open on is. */
+  protected tab?: Tab;
+  /** The room open in the Rooms tab (an area), and whether it was opened from the 3D view. */
+  protected roomOpen?: string;
+  protected from3d = false;
+  /** The user's own choices (D-055); undefined until read, or until reading them failed. */
+  protected choices?: Choices;
+  /** They were read: the dialog that changes them may open. */
+  protected choicesRead = false;
+  private choicesTimer?: ReturnType<typeof setTimeout>;
+  /** Counts the stars given or taken away: the answer to the last one sets the favourites. */
+  private stars = 0;
+  protected choicesOpen = false;
+  /** The Home and Rooms tabs' module is loaded. */
+  protected practicalReady = false;
+  private practicalModule?: Promise<void>;
+  /** Its module could not be loaded: tried again when a tab is chosen. */
+  private practicalFailed = false;
+  /** The 3D view was shown once: it stays, hidden on the other tabs, its engine and camera. */
+  private shown3d = false;
+  /** What the 3D view was last given of Home Assistant. */
+  private viewHass?: HomeAssistant;
+  /** The tab this device opens on, when it has one of its own. */
+  private deviceStart = readDeviceStart();
+  /** What the Home and Rooms tabs were given last, and what it was read from. */
+  private practicalShown?: {
+    from: unknown[];
+    sources: GlanceSources;
+    unseen: Unseen;
+    actions: Map<string, RoomAction[]>;
+  };
   protected plan?: StoredPlan["plan"];
   protected layout?: StoredPlan["layout"];
   protected planError?: string;
@@ -617,6 +681,72 @@ export class DomoTwinPanel extends LitElement {
       domotwin-view {
         flex: 1;
       }
+      /* The 3D view stays while another tab shows: its engine and camera (D-055). */
+      domotwin-view[hidden] {
+        display: none;
+      }
+      domotwin-home,
+      domotwin-rooms {
+        flex: 1;
+        min-width: 0;
+      }
+      .main {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+      }
+      /* The tabs (D-055): a rail on the side of a tablet or a computer. */
+      .tabs {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        padding: 8px 4px;
+        background: var(--card-background-color, #fff);
+        border-right: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+      }
+      .tabs a {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 2px;
+        min-width: 64px;
+        min-height: 56px;
+        padding: 4px;
+        border-radius: 12px;
+        color: var(--secondary-text-color, #5f6368);
+        font-size: 0.75rem;
+        text-decoration: none;
+      }
+      .tabs a[aria-current="page"] {
+        color: var(--domotwin-accent, var(--primary-color, #03a9f4));
+        background: color-mix(
+          in srgb,
+          var(--domotwin-accent, var(--primary-color, #03a9f4)) 12%,
+          transparent
+        );
+      }
+      .tabs a:focus-visible {
+        outline: 2px solid var(--domotwin-accent, var(--primary-color, #03a9f4));
+        outline-offset: -2px;
+      }
+      .tabs svg {
+        width: 24px;
+        height: 24px;
+        fill: currentColor;
+      }
+      /* On a phone, at the bottom, under the thumb. */
+      .tabs.bottom {
+        flex-direction: row;
+        gap: 0;
+        padding: 0;
+        border-right: none;
+        border-top: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+      }
+      .tabs.bottom a {
+        flex: 1;
+        border-radius: 0;
+      }
       .toast {
         position: absolute;
         left: 50%;
@@ -643,6 +773,7 @@ export class DomoTwinPanel extends LitElement {
       .body {
         position: relative;
         flex: 1;
+        min-width: 0;
         display: flex;
       }
       input[type="file"] {
@@ -890,9 +1021,14 @@ export class DomoTwinPanel extends LitElement {
     if (first && this.isConnected) this.connectData();
   }
 
+  /** The translator of the language shown, the same object while it is (the tabs keep theirs). */
   private get t(): Translator {
-    return translatorFor(this._hass);
+    const hass = this._hass;
+    const language = pickLanguage(hass?.locale?.language ?? hass?.language);
+    if (this.translator?.language !== language) this.translator = translatorFor(hass);
+    return this.translator;
   }
+  private translator?: Translator;
 
   private get client(): DomoTwinClient | undefined {
     return this._hass ? DomoTwinClient.for(this._hass) : undefined;
@@ -928,6 +1064,7 @@ export class DomoTwinPanel extends LitElement {
     this.sizeObserver = undefined;
     documentFonts()?.removeEventListener("loadingdone", this.onFonts);
     clearTimeout(this.settingsTimer);
+    clearTimeout(this.choicesTimer);
     this.unsubscribe?.();
     this.unsubscribe = undefined;
     window.clearTimeout(this.toastTimer);
@@ -1010,6 +1147,10 @@ export class DomoTwinPanel extends LitElement {
     this.home = undefined;
     this.elsewhere = [];
     this.toast = undefined;
+    this.choices = undefined;
+    this.choicesRead = false;
+    clearTimeout(this.choicesTimer);
+    this.choicesOpen = false;
     const old = this._hass;
     this._hass = hass;
     this.requestUpdate("hass", old);
@@ -1032,7 +1173,62 @@ export class DomoTwinPanel extends LitElement {
     void this.loadSettings();
     void this.loadUpkeep();
     void this.loadPeople();
+    void this.loadChoices();
   }
+
+  /**
+   * The user's own choices (D-055). Not read (Home Assistant starting), none are shown and they
+   * are asked for again in a while, the dialog that changes them closed meanwhile; an integration
+   * older than D-055 has none.
+   */
+  private async loadChoices(): Promise<void> {
+    const client = this.client;
+    if (!client) return;
+    clearTimeout(this.choicesTimer);
+    try {
+      const choices = await client.getChoices();
+      if (client === this.client) {
+        this.choices = choices;
+        this.choicesRead = true;
+      }
+    } catch (error) {
+      if (client !== this.client) return;
+      this.choices ??= NO_CHOICES;
+      if (isHassError(error) && error.code === "unknown_command") return;
+      if (this.unsubscribe) {
+        this.choicesTimer = setTimeout(() => void this.loadChoices(), SETTINGS_RETRY_MS);
+      }
+    }
+  }
+
+  /** Stars an entity, or takes its star away (D-055): shown at once, kept by the integration. */
+  private readonly onFavourite = async (
+    event: CustomEvent<{ entity: string; favourite: boolean }>,
+  ): Promise<void> => {
+    const client = this.client;
+    if (!client) return;
+    const { entity, favourite } = event.detail;
+    // Shown at once; the integration's list is taken from the answer to the last star only, so
+    // that a quicker answer to an earlier one does not take a later star away meanwhile.
+    const star = (on: boolean): void => {
+      const choices = this.choices ?? NO_CHOICES;
+      const others = choices.favourites.filter((id) => id !== entity);
+      this.choices = { ...choices, favourites: on ? [...others, entity] : others };
+    };
+    star(favourite);
+    const ticket = ++this.stars;
+    try {
+      const favourites = await client.setFavourite(entity, favourite);
+      if (client === this.client && ticket === this.stars) {
+        this.choices = { ...(this.choices ?? NO_CHOICES), favourites };
+      }
+    } catch (error) {
+      if (client !== this.client) return;
+      // This star alone, put back.
+      star(!favourite);
+      this.show(this.t.t("rooms.star_failed", { reason: this.describe(error) }), true);
+    }
+  };
 
   /** Without people's settings (an integration older than D-034 too) nobody is drawn. */
   private async loadPeople(): Promise<void> {
@@ -1076,6 +1272,11 @@ export class DomoTwinPanel extends LitElement {
       privateRooms(this.settings?.rooms, this.hass),
     );
     if (!target || ticket !== this.shows) return;
+    // Shown in 3D, from the other tabs too (not one more step back for each request).
+    if (this.tab !== "3d") {
+      this.go("3d", undefined, false, true);
+      await this.updateComplete;
+    }
     if (target.storey !== undefined && target.storey !== shown) {
       this.showAll = target.storey === ALL_STOREYS;
       if (!this.showAll) this.storey = target.storey;
@@ -1084,6 +1285,11 @@ export class DomoTwinPanel extends LitElement {
     }
     const view = this.view;
     await view?.updateComplete;
+    // The 3D view shown for the first time: its engine loads and draws the plan first.
+    while (view?.planDrawn() === "waiting") {
+      await nextFrame();
+      if (ticket !== this.shows) return;
+    }
     if (ticket === this.shows) view?.show(target);
   }
 
@@ -2356,6 +2562,7 @@ export class DomoTwinPanel extends LitElement {
       this.tight,
       this.narrow,
       this.compact,
+      this.tab,
     ].join("|");
     if (fitting !== this.fitted) {
       this.fitted = fitting;
@@ -2393,13 +2600,146 @@ export class DomoTwinPanel extends LitElement {
     this.compact = this.panelWidth < this.namesWidth.width;
   }
 
+  /**
+   * The tab of Home Assistant's address (D-055); the panel's own address alone opens on the tab
+   * chosen, once the user's choices are known (this device's own at once), and says it.
+   */
+  private followRoute(): void {
+    const { tab, area } = routeOf(this.route?.path);
+    if (tab) {
+      // Opened from the 3D view, the room's way back leads there, also come back to by back.
+      const state: unknown = window.history.state;
+      const from3d = (state as { domotwin?: unknown } | null)?.domotwin === "from3d";
+      if (tab !== "rooms" || area !== this.roomOpen)
+        this.from3d = tab === "rooms" && !!area && from3d;
+      this.tab = tab;
+      this.roomOpen = tab === "rooms" ? area : undefined;
+    } else {
+      if (this.deviceStart === undefined && this.choices === undefined) return;
+      this.tab = startTab(this.choices ?? NO_CHOICES, this.deviceStart, canDraw3d());
+      this.roomOpen = undefined;
+      this.from3d = false;
+      this.address(true);
+    }
+    // The first picture measured is of the 3D view shown as the panel opened (D-053).
+    if (this.tab !== "3d" && !this.shown3d) this.firstPlan = false;
+  }
+
+  /** Home Assistant's address says the tab shown: replacing the one there, or after it. */
+  private address(replace: boolean): void {
+    const route = this.route;
+    const tab = this.tab;
+    if (!route || !tab) return;
+    const path = `${route.prefix}${pathOf(tab, this.roomOpen)}`;
+    if (window.location.pathname === path) return;
+    // What the address says beyond the page (a kiosk's choices) stays.
+    const url = `${path}${window.location.search}${window.location.hash}`;
+    // A room opened from the 3D view leads back there, whichever way it is come back to.
+    const state = this.from3d ? { domotwin: "from3d" } : null;
+    if (replace) window.history.replaceState(state, "", url);
+    else window.history.pushState(state, "", url);
+    window.dispatchEvent(new CustomEvent("location-changed", { detail: { replace } }));
+  }
+
+  /** Shows a tab, and a room in the Rooms tab: through Home Assistant's address, so that back
+   * works. */
+  private go(tab: Tab, area?: string, from3d = false, replace = false): void {
+    this.retryPractical();
+    this.tab = tab;
+    this.roomOpen = tab === "rooms" ? area : undefined;
+    this.from3d = from3d;
+    this.moreOpen = false;
+    this.address(replace);
+  }
+
+  private readonly onGo = (event: CustomEvent<{ tab: Tab; area?: string }>): void => {
+    // A room opened from one opened from the 3D view: back to the rooms, not to the 3D view.
+    this.go(event.detail.tab, event.detail.area);
+  };
+
+  /**
+   * What the Home and Rooms tabs read beyond Home Assistant's states (D-055): the rooms of every
+   * storey, the private rooms the viewer may not see and their areas; the same while nothing
+   * they come from changes.
+   */
+  private practical(hass: HomeAssistant): {
+    sources: GlanceSources;
+    unseen: Unseen;
+    actions: Map<string, RoomAction[]>;
+  } {
+    const closed = privateRooms(this.settings?.rooms, hass);
+    const from = [
+      this.plan,
+      this.layout,
+      this.elsewhere,
+      this.bindings,
+      this.people,
+      this.settings,
+      hass.areas,
+      [...closed].sort().join("\n"),
+    ];
+    const shown = this.practicalShown;
+    if (shown && from.every((value, i) => value === shown.from[i])) return shown;
+    const rooms = [...planRooms(this.plan), ...this.elsewhere.flatMap((storey) => storey.rooms)];
+    const bindings = this.bindings ?? NO_BINDINGS;
+    const unseen: Unseen = {
+      areas: closedAreas(hass, bindings, rooms, closed),
+      entities: closedEntities(
+        bindings,
+        [{ plan: this.plan, layout: this.layout }, ...this.elsewhere],
+        closed,
+      ),
+    };
+    const sources: GlanceSources = {
+      rooms,
+      bindings,
+      closed,
+      closedAreas: unseen.areas,
+      closedEntities: unseen.entities,
+    };
+    if (this.people) sources.people = this.people;
+    // The rooms' own actions (D-047), on their area's page.
+    const actions = new Map<string, RoomAction[]>();
+    for (const room of rooms) {
+      const own = bindings.rooms[room.id]?.actions;
+      const area = own?.length ? roomArea(hass, bindings, room.id, room.name) : undefined;
+      if (own && area) actions.set(area, [...(actions.get(area) ?? []), ...own]);
+    }
+    this.practicalShown = { from, sources, unseen, actions };
+    return this.practicalShown;
+  }
+
+  /** A room tapped in the 3D view opens its room in the Rooms tab, and back (D-055). */
+  private readonly onRoomOpen = (event: CustomEvent<{ area: string }>): void => {
+    this.go("rooms", event.detail.area, true);
+  };
+
   /** A press outside the open menu closes it. */
   private readonly closeMore = (event: PointerEvent): void => {
     const more = this.renderRoot.querySelector(".more");
     if (this.moreOpen && more && !event.composedPath().includes(more)) this.moreOpen = false;
   };
 
-  protected override willUpdate(): void {
+  protected override willUpdate(changed: PropertyValues): void {
+    if (changed.has("route") || this.tab === undefined) this.followRoute();
+    if (this.tab === "3d") this.shown3d = true;
+    // The Home and Rooms tabs, and the choices: their module the first time one shows; failed
+    // (offline, an update since), tried again when a tab is chosen, not on every update.
+    if (
+      (this.tab === "home" || this.tab === "rooms" || this.choicesOpen) &&
+      !this.practicalModule
+    ) {
+      this.practicalModule = import("./practical").then(
+        () => {
+          this.practicalReady = true;
+        },
+        (error: unknown) => {
+          this.practicalFailed = true;
+          this.choicesOpen = false;
+          this.show(this.describe(error), true);
+        },
+      );
+    }
     const { theme, accent } = this.homeLook();
     this.look = resolveLook(theme, this._hass);
     this.style.setProperty("--domotwin-accent", accent ?? defaultAccent(this.look));
@@ -2408,6 +2748,11 @@ export class DomoTwinPanel extends LitElement {
   protected override render(): TemplateResult {
     const t = this.t;
     const admin = this._hass?.user?.is_admin === true;
+    const tool = this.editing || this.planning || this.linking;
+    // The 3D view's tab, or a tool working on it (D-055).
+    const on3d = this.tab === "3d" || tool;
+    // The tabs, unless a tool works on the 3D view: at the bottom of a phone, else on the side.
+    const tabs = !tool && this.tab !== undefined;
     // One template in both modes: the view stays the same element (engine, camera, 2D or 3D).
     return html`<div class="toolbar">
         <ha-menu-button
@@ -2428,7 +2773,9 @@ export class DomoTwinPanel extends LitElement {
             ? this.renderEditActions()
             : this.planning
               ? this.renderPlanActions()
-              : this.renderActions(admin)
+              : on3d
+                ? this.renderActions(admin)
+                : this.renderPracticalActions(admin)
         }
       </div>
       ${
@@ -2441,86 +2788,49 @@ export class DomoTwinPanel extends LitElement {
             ></domotwin-demo-bar>`
           : nothing
       }
-      <div class="body">
-        <domotwin-view
-          .hass=${this._hass}
-          .plan=${this.homeShown ? this.plan : undefined}
-          .layout=${this.layout}
-          .bindings=${this.bindings}
-          .upkeep=${this.upkeep}
-          .people=${this.people}
-          .planError=${this.planError}
-          .options=${PANEL_OPTIONS}
-          .north=${this.northDraft ?? this.settings?.north ?? 0}
-          .privateRooms=${this.settings?.rooms}
-          .linking=${this.linking}
-          .editing=${this.editing}
-          .planEditing=${this.planning}
-          .planTool=${this.planTool}
-          .planBlank=${this.planNew}
-          .planReserved=${this.planReserved}
-          .homeTheme=${this.homeLook().theme}
-          .homeAccent=${this.homeLook().accent}
-          .energy=${this.northDraft !== undefined ? this.energyPreview() : this.settings?.energy}
-          .storeys=${this.storeys}
-          .storey=${this.wholeHome() ? ALL_STOREYS : this.storey}
-          .home=${this.wholeHome() && this.homeShown ? this.home : undefined}
-          .elsewhere=${this.wholeHome() ? [] : this.elsewhere}
-          @domotwin-storey=${this.onStorey}
-          .multiSelect=${this.multi}
-          .editKeys=${!this.catalogue && !this.discardAsk && !this.modelImport && !this.planDiscardAsk}
-          @domotwin-pick=${this.onPick}
-          @domotwin-edit=${this.onEdit}
-          @domotwin-plan-edit=${this.onPlanEdit}
-          .placeDevices=${admin}
-          .linkable=${admin}
-          @domotwin-link-element=${this.onLinkElement}
-          @domotwin-network-place=${this.onNetworkPlace}
-        >
-          <span slot="empty-action" class="empty-actions">
-            ${
-              admin
-                ? html`<button class="action" @click=${this.chooseFile}>
-                      ${icon(mdiTrayArrowUp)}${t.t("panel.import")}
-                    </button>
-                    <button class="action" data-testid="plan-new" @click=${this.startPlan}>
-                      ${icon(mdiVectorSquareEdit)}${t.t("plan.new")}
-                    </button>`
-                : nothing
-            }
-            <button
-              class="action"
-              data-testid="demo-try"
-              ?disabled=${this.busy}
-              @click=${this.enterDemo}
-            >
-              ${icon(mdiFlaskOutline)}${t.t("demo.try")}
-            </button>
-          </span>
-        </domotwin-view>
-        ${
-          this.editing
-            ? this.renderEditTools()
-            : this.planning
-              ? this.renderPlanTools()
-              : this.renderSheets()
-        }
-        ${
-          this.measureOpen
-            ? html`<domotwin-measure
-                .hass=${this._hass}
-                .host=${this.measureHost}
-                @domotwin-close=${() => {
-                  this.measureOpen = false;
-                }}
-              ></domotwin-measure>`
-            : nothing
-        }
-        <div role="status" data-testid="announcer">
-          ${this.toast && !this.toast.error ? this.renderToast() : nothing}
+      <div class="main">
+        ${tabs && !this.tight ? this.renderTabs("side") : nothing}
+        <div class="body">
+          ${this.shown3d || tool ? this.renderView(admin, on3d) : nothing}
+          ${on3d ? nothing : this.renderPractical()}
+          ${
+            this.editing
+              ? this.renderEditTools()
+              : this.planning
+                ? this.renderPlanTools()
+                : this.renderSheets()
+          }
+          ${
+            this.choicesOpen && this.choicesRead && this.practicalReady && this._hass
+              ? html`<domotwin-choices
+                  .hass=${this._hass}
+                  .t=${t}
+                  .choices=${this.choices ?? NO_CHOICES}
+                  .deviceStart=${this.deviceStart}
+                  .panelPath=${this.panelPath()}
+                  @domotwin-close=${() => (this.choicesOpen = false)}
+                  @domotwin-saved=${this.onChoicesSaved}
+                ></domotwin-choices>`
+              : nothing
+          }
+          ${
+            this.measureOpen
+              ? html`<domotwin-measure
+                  .hass=${this._hass}
+                  .host=${this.measureHost}
+                  @domotwin-close=${() => {
+                    this.measureOpen = false;
+                  }}
+                ></domotwin-measure>`
+              : nothing
+          }
+          <div role="status" data-testid="announcer">
+            ${this.toast && !this.toast.error ? this.renderToast() : nothing}
+          </div>
+          ${this.toast?.error ? this.renderToast() : nothing}
         </div>
-        ${this.toast?.error ? this.renderToast() : nothing}
       </div>
+      ${tabs && this.tight ? this.renderTabs("bottom") : nothing}
       <input
         class="plan-file"
         type="file"
@@ -2533,6 +2843,167 @@ export class DomoTwinPanel extends LitElement {
         accept=".glb,.gltf,.obj,.stl,.3mf"
         @change=${this.readModelFile}
       />`;
+  }
+
+  /**
+   * The 3D view, kept on the other tabs (hidden, not drawn): its engine, its camera. Hidden, it
+   * keeps the `hass` it had, so that Home Assistant's changes do not update it for nothing.
+   */
+  private renderView(admin: boolean, shown: boolean): TemplateResult {
+    const t = this.t;
+    if (shown || !this.viewHass) this.viewHass = this._hass;
+    return html`<domotwin-view
+      ?hidden=${!shown}
+      .hass=${this.viewHass}
+      .plan=${this.homeShown ? this.plan : undefined}
+      .layout=${this.layout}
+      .bindings=${this.bindings}
+      .upkeep=${this.upkeep}
+      .people=${this.people}
+      .planError=${this.planError}
+      .options=${PANEL_OPTIONS}
+      .north=${this.northDraft ?? this.settings?.north ?? 0}
+      .privateRooms=${this.settings?.rooms}
+      .linking=${this.linking}
+      .editing=${this.editing}
+      .planEditing=${this.planning}
+      .planTool=${this.planTool}
+      .planBlank=${this.planNew}
+      .planReserved=${this.planReserved}
+      .homeTheme=${this.homeLook().theme}
+      .homeAccent=${this.homeLook().accent}
+      .energy=${this.northDraft !== undefined ? this.energyPreview() : this.settings?.energy}
+      .storeys=${this.storeys}
+      .storey=${this.wholeHome() ? ALL_STOREYS : this.storey}
+      .home=${this.wholeHome() && this.homeShown ? this.home : undefined}
+      .elsewhere=${this.wholeHome() ? [] : this.elsewhere}
+      @domotwin-storey=${this.onStorey}
+      .multiSelect=${this.multi}
+      .editKeys=${!this.catalogue && !this.discardAsk && !this.modelImport && !this.planDiscardAsk}
+      @domotwin-pick=${this.onPick}
+      @domotwin-edit=${this.onEdit}
+      @domotwin-plan-edit=${this.onPlanEdit}
+      .placeDevices=${admin}
+      .linkable=${admin}
+      @domotwin-link-element=${this.onLinkElement}
+      @domotwin-network-place=${this.onNetworkPlace}
+      .roomTab=${true}
+      @domotwin-room-open=${this.onRoomOpen}
+    >
+      <span slot="empty-action" class="empty-actions">
+        ${
+          admin
+            ? html`<button class="action" @click=${this.chooseFile}>
+                  ${icon(mdiTrayArrowUp)}${t.t("panel.import")}
+                </button>
+                <button class="action" data-testid="plan-new" @click=${this.startPlan}>
+                  ${icon(mdiVectorSquareEdit)}${t.t("plan.new")}
+                </button>`
+            : nothing
+        }
+        <button
+          class="action"
+          data-testid="demo-try"
+          ?disabled=${this.busy}
+          @click=${this.enterDemo}
+        >
+          ${icon(mdiFlaskOutline)}${t.t("demo.try")}
+        </button>
+      </span>
+    </domotwin-view>`;
+  }
+
+  /** The tabs (D-055): on the side of a tablet or a computer, at the bottom of a phone. */
+  private renderTabs(where: "side" | "bottom"): TemplateResult {
+    const t = this.t;
+    const tab = (id: Tab, glyph: string, label: string): TemplateResult =>
+      html`<a
+        href=${this.route ? `${this.route.prefix}${pathOf(id)}` : `#${id}`}
+        data-testid="tab-${id}"
+        aria-current=${this.tab === id ? "page" : "false"}
+        @click=${(event: MouseEvent) => {
+          // A new window or tab opened as the browser does it.
+          if (event.ctrlKey || event.metaKey || event.shiftKey || event.button !== 0) return;
+          event.preventDefault();
+          this.go(id);
+        }}
+        >${icon(glyph)}<span>${label}</span></a
+      >`;
+    return html`<nav class="tabs ${where}" aria-label=${t.t("tabs.label")}>
+      ${tab("home", mdiHomeOutline, t.t("tabs.home"))}
+      ${tab("rooms", mdiViewGridOutline, t.t("tabs.rooms"))}
+      ${tab("3d", mdiCubeOutline, t.t("tabs.three_d"))}
+    </nav>`;
+  }
+
+  /** The Home or Rooms tab (D-055), once its module is loaded and the private rooms known. */
+  private renderPractical(): TemplateResult | typeof nothing {
+    const hass = this._hass;
+    if (!hass || !this.practicalReady || !this.settingsRead) return nothing;
+    const { sources, unseen, actions } = this.practical(hass);
+    return this.tab === "rooms"
+      ? html`<domotwin-rooms
+          .hass=${hass}
+          .t=${this.t}
+          .favourites=${this.choices?.favourites ?? []}
+          .unseen=${unseen}
+          .actions=${actions}
+          .area=${this.roomOpen}
+          ?from3d=${this.from3d}
+          @domotwin-go=${this.onGo}
+          @domotwin-favourite=${this.onFavourite}
+        ></domotwin-rooms>`
+      : html`<domotwin-home
+          .hass=${hass}
+          .t=${this.t}
+          .choices=${this.choices ?? NO_CHOICES}
+          .sources=${sources}
+          .unseen=${unseen}
+          @domotwin-go=${this.onGo}
+          @domotwin-favourite=${this.onFavourite}
+        ></domotwin-home>`;
+  }
+
+  /** The toolbar of the Home and Rooms tabs: the user's choices, and the home's settings. */
+  private renderPracticalActions(admin: boolean): TemplateResult {
+    const t = this.t;
+    return html`<button
+        class="action"
+        data-testid="choices-open"
+        ?disabled=${this.choicesOpen || !this.choicesRead}
+        @click=${this.openChoices}
+        aria-label=${t.t("choices.title")}
+        title=${t.t("choices.title")}
+      >
+        ${icon(mdiTuneVariant)}<span class="label">${t.t("choices.title")}</span>
+      </button>
+      ${admin && this.plan ? this.renderMore() : nothing}`;
+  }
+
+  private readonly openChoices = (): void => {
+    this.moreOpen = false;
+    this.retryPractical();
+    this.choicesOpen = true;
+  };
+
+  /** The tabs' module, tried again after it failed to load. */
+  private retryPractical(): void {
+    if (!this.practicalFailed) return;
+    this.practicalFailed = false;
+    this.practicalModule = undefined;
+  }
+
+  private readonly onChoicesSaved = (
+    event: CustomEvent<{ choices: Choices; device?: Tab }>,
+  ): void => {
+    this.choices = event.detail.choices;
+    this.deviceStart = event.detail.device;
+    this.show(this.t.t("choices.saved"));
+  };
+
+  /** The panel's path in Home Assistant (`domotwin`). */
+  private panelPath(): string {
+    return this.route?.prefix.replace(/^\//, "") || "domotwin";
   }
 
   private renderActions(admin: boolean): TemplateResult {
@@ -2720,6 +3191,8 @@ export class DomoTwinPanel extends LitElement {
   /** Opens the measure of this device (D-053): its module, loaded the first time. */
   private readonly openMeasure = async (): Promise<void> => {
     try {
+      // It measures the 3D view.
+      if (this.tab !== "3d") this.go("3d");
       await import("./measure");
       this.measureOpen = true;
     } catch (error) {

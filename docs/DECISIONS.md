@@ -1871,3 +1871,61 @@ After M16d, before M23: how DomoTwin becomes the one place for the home.
     aside; what fits the new M23 (the glance, the tabs, the address of a page, Home Assistant's
     choice of the first page) is kept for it.
   - The plan is written first, in its own pull request, before M23 starts.
+
+## D-055 · The practical home: Home, Rooms and 3D (M23)
+
+M23, the first milestone of D-054.
+
+- **Context.** D-054 gave DomoTwin a practical side next to the 3D view, made of Home Assistant's
+  own cards. M23 is that side: tabs, the home at a glance, the rooms of Home Assistant, each
+  user's favourites, the tab DomoTwin opens on.
+- **Decision.**
+  - **Tabs**: *Home*, *Rooms*, *3D*; a rail on the side of a tablet or a computer, a bar at the
+    bottom of a phone (a panel narrower than 560 px). They give way while a tool works on the 3D
+    view (edit mode, the plan editor, link mode). The tab is in Home Assistant's address
+    (`/domotwin/home`, `/domotwin/rooms/<area>`, `/domotwin/3d`), so that back, a bookmark and a
+    link work; the panel's own address opens on the tab chosen and says which, keeping what the
+    address says beyond the page.
+  - **The 3D view is a tab**: drawn once shown (its engine not loaded before), then kept, hidden
+    and not drawn, on the other tabs (its camera, its storey). A room tapped in it opens its room
+    in *Rooms* when the room has an area of Home Assistant, its own actions (D-047) above its
+    devices, with a way back to the 3D view; the room's own panel stays a long press.
+    `domotwin.show` and the measure (D-053) show the 3D tab.
+  - **Home**: who is in, the lamps on (and all of them off at once), the doors and windows open,
+    the alerts, each opening its tiles or its words (D-023's alerts); the weather
+    (`weather-forecast`, `weather.home` first); the favourite scenes and scripts as big buttons
+    (the `button` card: a tap runs it, a hold its more-info); the other favourites as tiles; the
+    user's cards (an agenda, `calendar`; a list, `todo-list`).
+  - **Rooms**: Home Assistant's floors, by level, and their areas, by name; areas on no floor
+    last. A room's page shows its entities as tile cards, what one acts on first; updates,
+    events, hidden, configuration and diagnostic entities are left out. A search finds every word
+    in a name, an entity id or an area's name, accents and case aside (60 at most).
+  - **Home Assistant's cards** come from its card helpers, which its dashboards' own module sets
+    (`window.loadCardHelpers`, in 2025.1 and since): opened before any dashboard, DomoTwin loads
+    that module as Home Assistant's panel resolver does. Where it cannot, and in the demo house
+    (whose entities Home Assistant's dialogs do not know, D-050), DomoTwin's own rows stand in.
+  - **Each user's own choices**, kept by the integration in a store of their own
+    (`.storage/domotwin.users`), by user id: the favourites (100 at most, each starred or not on
+    its own, so that two devices do not overwrite each other), the tab DomoTwin opens on, the Home
+    tab's cards (6 at most; an agenda of 10 calendars at most). Any signed-in user, their own
+    only; a user removed from Home Assistant is forgotten when DomoTwin starts; all removed with
+    the integration. A device may open on a tab of its own (kept by its browser); one that cannot
+    draw 3D does not open on it. Home opens when nothing was chosen.
+  - **Opened first**: *Open DomoTwin when Home Assistant opens*, in the choices, sets Home
+    Assistant's own setting: 2025.1 keeps it for each device (its `hass-default-panel` event),
+    later versions for each user (`frontend/set_user_data`, `core`'s `default_panel`, known by
+    `systemData` being there). Not in the demo house.
+  - **Private rooms (D-039)**: the area of a private room the viewer may not see shows its name
+    and that it is private. Its entities, and those linked to the room and to what it holds on
+    any storey, whatever their area, are left out of the glance, the rooms, the search and the
+    favourites.
+- **Consequences.**
+  - What the tabs show is a chunk loaded the first time one shows (`chunks/practical-<hash>.js`),
+    with its texts in both languages, added to the translator as it loads. The first load grows
+    by the tabs, the address, the favourites' client and their few texts (+5.6 kB gzipped).
+    Opened on *Home*, the engine is not loaded until the 3D tab is.
+  - The panel opens on *Home* unless the user or the device chose otherwise: a wall screen that
+    showed the 3D view chooses it, on that device.
+  - In the panel, a tap on a room no longer frames it with its chip (the card's still does): the
+    room's own actions are on its page in *Rooms*.
+  - What was begun for the former M23 with DomoTwin's own rooms page is not kept; its glance is.

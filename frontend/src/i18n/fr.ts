@@ -644,6 +644,21 @@ export const fr: Dictionary = {
     leave: "Quitter la démo",
     no_dialog: "Les fenêtres de Home Assistant ne s’ouvrent pas dans la démo.",
   },
+  tabs: {
+    label: "Onglets de DomoTwin",
+    home: "Accueil",
+    rooms: "Pièces",
+    three_d: "3D",
+  },
+  rooms: {
+    star_failed: "Vos favoris n’ont pas changé : {reason}",
+  },
+  choices: {
+    title: "Vos choix",
+    saved: "Vos choix sont enregistrés.",
+    first_failed:
+      "Vos choix sont enregistrés, mais Home Assistant n’a pas gardé la page qu’il ouvre en premier : {reason}",
+  },
   measure: {
     menu: "Mesurer les performances",
     title: "Mesurer les performances",
@@ -1046,6 +1061,7 @@ export const fr: Dictionary = {
       models_too_large: "les fichiers 3D d’un plan font au plus 20 Mo en tout.",
     },
     ws: {
+      too_many_favourites: "vous avez déjà 100 favoris : retirez d’abord une étoile.",
       no_supervisor: "ce Home Assistant n’a pas d’applications.",
       busy: "la voix est déjà en cours de configuration.",
       blueprints_not_written:

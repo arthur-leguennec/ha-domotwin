@@ -174,8 +174,9 @@ test.describe("links in plain words (D-047)", () => {
       ],
     });
     await page.getByTestId("link-mode").click();
+    // In the panel, a room tapped opens its room in the Rooms tab, with its own actions (D-055).
     await tap(page, "living");
-    await page.getByTestId("room-bar").getByRole("button", { name: "Evening" }).click();
+    await page.getByTestId("room-actions").getByRole("button", { name: "Evening" }).click();
     await expect
       .poll(async () =>
         (await calls(page)).some((c) => c.domain === "scene" && c.service === "turn_on"),

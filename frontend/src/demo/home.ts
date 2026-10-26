@@ -19,6 +19,7 @@ import type {
   HomeAssistant,
 } from "../ha/types";
 import type { PeopleSettings } from "../live/people";
+import type { Choices } from "../live/choices";
 import { MAX_SCHEDULE_ENTITIES, schedulable, type Schedule } from "../live/schedules";
 import type { Upkeep } from "../live/upkeep";
 import { demoConnection } from "./connection";
@@ -81,6 +82,8 @@ export interface DemoStore {
   upkeep: Upkeep;
   people: PeopleSettings;
   schedules: Schedule[];
+  /** The visitor's own choices (D-055), until they leave. */
+  choices: Choices;
 }
 
 /** Who opens the demo: their language, name and look, from their own Home Assistant. */
@@ -168,6 +171,15 @@ export class DemoHome {
       upkeep: demoUpkeep(dateOf(today), language),
       people: demoPeople(),
       schedules: [],
+      choices: {
+        favourites: [
+          "light.living_floor_lamp",
+          "climate.living_room",
+          "cover.living_curtains",
+          "lock.front_door",
+        ],
+        cards: [],
+      },
     };
     const entities: Record<string, HassEntityEntry> = {};
     const now = this.time();

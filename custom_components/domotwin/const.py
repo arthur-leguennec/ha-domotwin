@@ -119,6 +119,15 @@ SCHEDULABLE_DOMAINS: Final = (
     "cover",
 )
 
+# Each user's own choices (docs/DECISIONS.md, D-055): their favourites, the tab DomoTwin opens on
+# and their Home tab's cards, in a store of their own (.storage/domotwin.users).
+CHOICES_STORAGE_KEY: Final = f"{DOMAIN}.users"
+CHOICES_STORAGE_VERSION: Final = 1
+START_TABS: Final = ("home", "rooms", "3d")
+MAX_FAVOURITES: Final = 100
+MAX_HOME_CARDS: Final = 6
+MAX_CALENDARS: Final = 10
+
 # Dispatcher signal sent after every write: (kind, revision).
 SIGNAL_UPDATED: Final = f"{DOMAIN}_updated"
 # `domotwin.show` (docs/DECISIONS.md, D-029): what to show, sent to the screens: (request,).

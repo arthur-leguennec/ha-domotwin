@@ -74,10 +74,12 @@ export async function idsElsewhere(
   return plans.flatMap((stored) => storeyIds(stored.plan, stored.layout));
 }
 
-/** The rooms of a storey not shown, for its alerts. */
+/** The rooms of a storey not shown, for its alerts, and its plan and overlay. */
 export interface StoreyRooms {
   storey: string;
   rooms: PlanRoom[];
+  plan?: unknown;
+  layout?: Record<string, unknown>;
 }
 
 /** An alert of a room, with the storey it is on when that is not the one shown. */
@@ -94,7 +96,12 @@ export async function roomsElsewhere(
       .filter((storey) => storey.id !== shown)
       .map((storey) =>
         client.getPlan(storey.id).then(
-          (stored) => ({ storey: storey.id, rooms: planRooms(stored.plan) }),
+          (stored) => ({
+            storey: storey.id,
+            rooms: planRooms(stored.plan),
+            plan: stored.plan,
+            layout: stored.layout,
+          }),
           () => undefined,
         ),
       ),

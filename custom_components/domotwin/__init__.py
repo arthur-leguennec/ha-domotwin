@@ -10,8 +10,9 @@ from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.start import async_at_started
 from homeassistant.helpers.typing import ConfigType
 
+from .choices import Choices
 from .const import DOMAIN, SIGNAL_SCHEDULES
-from .data import DATA_KEY, LOCATOR_KEY, PEOPLE_KEY, SCHEDULER_KEY
+from .data import CHOICES_KEY, DATA_KEY, LOCATOR_KEY, PEOPLE_KEY, SCHEDULER_KEY
 from .frontend import (
     async_register_frontend,
     async_remove_panel,
@@ -85,6 +86,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: DomoTwinConfigEntry) -> 
     entry.async_on_unload(drop_scheduler)
     hass.data[SCHEDULER_KEY] = scheduler
     async_dispatcher_send(hass, SIGNAL_SCHEDULES)
+    # Each user's own choices (D-055).
+    choices = Choices(hass)
+    await choices.async_load()
+
+    @callback
+    def drop_choices() -> None:
+        if hass.data.get(CHOICES_KEY) is choices:
+            hass.data.pop(CHOICES_KEY)
+
+    entry.async_on_unload(drop_choices)
+    hass.data[CHOICES_KEY] = choices
     await async_register_frontend(hass)
     await async_update_panel(hass, entry)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
@@ -109,9 +121,10 @@ async def async_unload_entry(hass: HomeAssistant, entry: DomoTwinConfigEntry) ->
 
 
 async def async_remove_entry(hass: HomeAssistant, entry: DomoTwinConfigEntry) -> None:
-    """Delete everything DomoTwin keeps: data, settings, actions waiting, model files."""
+    """Delete everything DomoTwin keeps: data, settings, actions waiting, choices, model files."""
     await DomoTwinData(hass).async_remove()
     await Scheduler(hass).async_remove()
+    await Choices(hass).async_remove()
     await PeopleTracker(hass, DomoTwinData(hass)).async_remove()
     await Locator(hass, DomoTwinData(hass), entry.entry_id).async_remove()
     await async_remove_all(hass)

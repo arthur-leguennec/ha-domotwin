@@ -65,6 +65,9 @@ export interface BindingsJson {
   elements: Record<string, ElementBinding>;
 }
 
+/** No links yet. */
+export const NO_BINDINGS: BindingsJson = { version: 1, rooms: {}, elements: {} };
+
 /** The roles shown in the scene, in the order a primary entity is chosen. */
 const VISUAL: readonly Role[] = [
   "light",

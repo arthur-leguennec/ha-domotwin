@@ -94,6 +94,7 @@ import { translatorFor, type KindName, type Translator } from "../i18n";
 import { failureText, runAction } from "../live/actions";
 import type { ReadAutomation } from "../live/automations";
 import {
+  NO_BINDINGS,
   boundEntityIds,
   entityName,
   holdAction,
@@ -342,7 +343,6 @@ const VIEW_SHEETS = "domotwin-controls, domotwin-piece, domotwin-room, domotwin-
 const MAX_ALERTS_SHOWN = 2;
 /** The power layer's colours, from a few watts to 3 kW (`shaders.rs`). */
 const POWER_GRADIENT = ["#ffe459", "#ff7b2b"];
-const NO_BINDINGS: BindingsJson = { version: 1, rooms: {}, elements: {} };
 const NO_ACTIONS: RoomAction[] = [];
 /** Size of the storeys' pictures (device pixels; shown at half that). */
 const PICTURE_WIDTH = 280;
@@ -534,6 +534,7 @@ export class DomoTwinView extends LitElement {
     linking: { attribute: false },
     placeDevices: { attribute: false },
     linkable: { attribute: false },
+    roomTab: { attribute: false },
     bubble: { state: true },
     tip: { state: true },
     bubbleBusy: { state: true },
@@ -614,6 +615,8 @@ export class DomoTwinView extends LitElement {
    * detail: the piece, as `domotwin-pick`'s).
    */
   linkable = false;
+  /** The panel's Rooms tab (D-055): a room tapped opens its room there, by its area. */
+  roomTab = false;
   /**
    * Edit mode (the panel's): a tap selects a piece, dragging a selected piece moves it. Every
    * change fires `domotwin-edit` (detail: the `EditState`).
@@ -2500,6 +2503,22 @@ export class DomoTwinView extends LitElement {
       this.gestures.forgetTap();
       this.chooseStorey(this.nextStorey() ?? "");
     } else {
+      const area =
+        this.roomTab && picked.type === "room" && this.hass
+          ? roomArea(this.hass, this.bindings ?? NO_BINDINGS, picked.room, this.roomName(picked))
+          : undefined;
+      if (area) {
+        // Its room in the Rooms tab, and back (D-055).
+        this.gestures.forgetTap();
+        this.dispatchEvent(
+          new CustomEvent("domotwin-room-open", {
+            detail: { room: picked.room, area },
+            bubbles: true,
+            composed: true,
+          }),
+        );
+        return;
+      }
       if (picked.room && engine.focusElement(picked.room)) {
         this.focusedRoom = { id: picked.room, name: this.roomName(picked) };
       }
@@ -2813,6 +2832,12 @@ export class DomoTwinView extends LitElement {
    * Whether the view draws the demo house in `look`, one storey of it (the measure, D-053):
    * `failed` when it cannot draw at all.
    */
+  /** Whether the plan is drawn, or cannot be: a request to show something waits for it (D-055). */
+  planDrawn(): "ready" | "waiting" | "failed" {
+    if (this.engineState === "failed" || this.engineState === "unsupported") return "failed";
+    return this.engineState === "ready" && this.summary !== undefined ? "ready" : "waiting";
+  }
+
   readyFor(look: string): "ready" | "waiting" | "failed" {
     if (this.engineState === "failed" || this.engineState === "unsupported") return "failed";
     const ready =
@@ -3131,6 +3156,8 @@ export class DomoTwinView extends LitElement {
   }
 
   private resize(stage: HTMLElement): void {
+    // Hidden (the panel's other tabs, D-055): the size it had is kept for when it shows again.
+    if (stage.clientWidth === 0 && stage.clientHeight === 0) return;
     this.toggleAttribute("narrow", stage.clientWidth < NARROW_WIDTH);
     if (!this.canvas) return;
     const ratio = Math.min(window.devicePixelRatio || 1, MAX_PIXEL_RATIO) * this.resolution;

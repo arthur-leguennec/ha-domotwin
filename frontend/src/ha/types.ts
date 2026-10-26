@@ -60,12 +60,24 @@ export interface HassAreaEntry {
   area_id: string;
   name: string;
   floor_id?: string | null;
+  /** Its icon (`mdi:sofa`), when one was chosen. */
+  icon?: string | null;
 }
 
 /** An entry of the floor registry. */
 export interface HassFloorEntry {
   floor_id: string;
   name: string;
+  /** Its level (0 the ground floor), which orders the floors. */
+  level?: number | null;
+  icon?: string | null;
+}
+
+/** What Home Assistant's frontend keeps of a user's choices (`core`), since after 2025.1. */
+export interface FrontendCoreData {
+  /** The dashboard or panel opened first (its URL path). */
+  default_panel?: string;
+  [key: string]: unknown;
 }
 
 export interface HomeAssistant {
@@ -95,6 +107,11 @@ export interface HomeAssistant {
   demo?: boolean;
   /** The time it is for this Home Assistant (ms): the demo house's own clock (D-050). */
   now?(): number;
+  /** The page Home Assistant opens first on this device (2025.1: its `hass-default-panel`). */
+  defaultPanel?: string;
+  /** The user's own choices in Home Assistant's frontend, and everyone's (after 2025.1). */
+  userData?: FrontendCoreData | null;
+  systemData?: FrontendCoreData | null;
   /** A request to Home Assistant with the user's session (the frontend's `fetchWithAuth`). */
   fetchWithAuth?(path: string, init?: RequestInit): Promise<Response>;
   callService(
@@ -126,6 +143,11 @@ export function isHassError(value: unknown): value is HassError {
 
 /** Home Assistant's own rule for an entity id (`homeassistant.core.valid_entity_id`). */
 const ENTITY_ID = /^(?!.+__)(?!_)[\da-z_]+(?<!_)\.(?!_)[\da-z_]+(?<!_)$/;
+
+/** The domain of an entity id (`light` of `light.kitchen`). */
+export function domainOf(id: string): string {
+  return id.slice(0, id.indexOf("."));
+}
 
 /** Whether `id` is an entity id Home Assistant (and the integration) takes. */
 export function isEntityId(id: string): boolean {

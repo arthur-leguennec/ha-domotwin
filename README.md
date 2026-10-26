@@ -22,7 +22,8 @@ Local, fast, Rust + WebAssembly.</p>
 > their rooms, Bluetooth locating, voice, the polish (font, keyboard, screen readers), a pass over
 > size and speed, phones, actions done later, taps that say what they do, pieces that look made,
 > robot vacuums, the home's energy and the demo house work today, and make up version 0.3.0. The
-> submission to HACS's default list comes next.
+> practical home (the Home, Rooms and 3D tabs) comes next, with version 0.4.0, and the
+> submission to HACS's default list.
 
 ## Features
 
@@ -31,6 +32,12 @@ Local, fast, Rust + WebAssembly.</p>
   sensors, a robot vacuum, solar panels and a battery, three people and eight automations, living
   a spring day a minute a second. Go to the morning, midday, evening or night, tap anything, edit
   it: nothing touches your home. A card with `demo: true` shows it on a dashboard.
+- **Home, Rooms and 3D.** The panel's *Home* tab shows the home at a glance (who is in, the
+  lamps on, the doors and windows open, the alerts, the weather), your favourite scenes as big
+  buttons and your favourites; *Rooms* lists Home Assistant's floors and areas, each room's
+  devices as Home Assistant's own tile cards, with a search; *3D* is the 3D view, where a room
+  tapped opens its room. Star what you use most; choose the tab DomoTwin opens on, for you or for
+  one screen, and an agenda or a list for your Home tab.
 - **Your floor plan in 3D and 2D.** Draw it in the panel, or import it: an IFC model (`*.ifc`,
   from Revit, ArchiCAD, Bonsai, FreeCAD…), a Sweet Home 3D home (`*.sh3d`), a DXF drawing, a room
   scanned with an iPhone or iPad with LiDAR (`*.usdz`, RoomPlan's JSON) or a DomoTwin plan
