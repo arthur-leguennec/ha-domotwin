@@ -73,54 +73,6 @@
           "description": "L’écran où la montrer : l’option screen d’une carte. Vide pour tous les écrans."
         }
       }
-    },
-    "schedule": {
-      "name": "Programmer",
-      "description": "Allume ou éteint des appareils plus tard, à une heure ou après un délai, et les rallume jusqu'à une heure ou pendant un moment : DomoTwin le garde, même après un redémarrage. Répond ce qui est programmé, avec une phrase à dire.",
-      "fields": {
-        "entity_id": {
-          "name": "Entités",
-          "description": "Ce qu'il faut actionner : lumières, prises, ventilateurs, lecteurs, chauffage, volets (ouverts et fermés)…"
-        },
-        "action": {
-          "name": "Action",
-          "description": "on pour allumer (ouvrir un volet), off pour éteindre (le fermer)."
-        },
-        "at": {
-          "name": "À",
-          "description": "Quand : une date et une heure (dans le fuseau de Home Assistant sauf s'il est donné), ou une heure, la prochaine. Ou bien un délai."
-        },
-        "delay": {
-          "name": "Délai",
-          "description": "Quand, à partir de maintenant : au lieu de « À »."
-        },
-        "until": {
-          "name": "Jusqu'à",
-          "description": "Avec on : quand éteindre à nouveau, une date et une heure ou une heure (la prochaine après le début)."
-        },
-        "duration": {
-          "name": "Durée",
-          "description": "Avec on : combien de temps laisser allumé, au lieu de « Jusqu'à »."
-        },
-        "brightness": {
-          "name": "Luminosité",
-          "description": "Avec on : la luminosité des lumières (%)."
-        }
-      }
-    },
-    "unschedule": {
-      "name": "Annuler une programmation",
-      "description": "Annule des actions programmées avec domotwin.schedule : une par son identifiant, ou toutes celles de certaines entités. Un appareil déjà allumé le reste.",
-      "fields": {
-        "id": {
-          "name": "Identifiant",
-          "description": "L'identifiant répondu par domotwin.schedule."
-        },
-        "entity_id": {
-          "name": "Entités",
-          "description": "Toutes les actions en attente sur ces entités."
-        }
-      }
     }
   },
   "entity": {
@@ -218,38 +170,6 @@
           }
         }
       }
-    }
-  },
-  "exceptions": {
-    "schedule_no_entities": {
-      "message": "Indiquez au moins une entité à actionner."
-    },
-    "schedule_too_many_entities": {
-      "message": "10 entités au plus par action."
-    },
-    "schedule_unknown_entity": {
-      "message": "Une des entités n'existe pas."
-    },
-    "schedule_not_schedulable": {
-      "message": "Seuls les lumières, prises, ventilateurs, booléens, lecteurs, chauffages, humidificateurs, sirènes et volets peuvent être programmés."
-    },
-    "schedule_in_the_past": {
-      "message": "Cette heure est passée."
-    },
-    "schedule_too_far": {
-      "message": "Une action se programme au plus un an à l'avance."
-    },
-    "schedule_off_with_end": {
-      "message": "Une fin ou une luminosité va avec l'allumage, pas l'extinction."
-    },
-    "schedule_end_before_start": {
-      "message": "La fin vient avant le début."
-    },
-    "schedule_too_long": {
-      "message": "Un appareil reste allumé une semaine au plus."
-    },
-    "schedule_too_many": {
-      "message": "100 actions attendent déjà : annulez-en d'abord."
     }
   }
 }

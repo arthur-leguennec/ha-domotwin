@@ -10,7 +10,7 @@ from homeassistant.util import dt as dt_util
 
 from . import DomoTwinConfigEntry
 from .const import MODEL_ENTRY_PREFIX, PLAN_LISTS, VERSION
-from .data import LOCATOR_KEY, PEOPLE_KEY, SCHEDULER_KEY
+from .data import LOCATOR_KEY, PEOPLE_KEY
 from .models import async_usage
 from .upkeep import due_tasks, piece_names
 
@@ -95,13 +95,6 @@ async def async_get_config_entry_diagnostics(
             "located": sum(1 for found in locator.located.values() if found.room is not None),
             "rooms_learned": len(locator.learned_rooms()),
             "learn": locator.settings.get("learn", True),
-        }
-    # The actions done later counted (D-045): never which devices or when.
-    if (scheduler := hass.data.get(SCHEDULER_KEY)) is not None:
-        waiting = scheduler.items()
-        diagnostics["schedules"] = {
-            "waiting": len(waiting),
-            "started": sum(1 for item in waiting if item.started),
         }
     redacted: dict[str, Any] = async_redact_data(diagnostics, TO_REDACT)
     return redacted
