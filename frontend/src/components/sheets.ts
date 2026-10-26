@@ -17,7 +17,7 @@ import {
 import { css, html, nothing, type TemplateResult } from "lit";
 
 import { DomoTwinClient } from "../ha/client";
-import { isHassError } from "../ha/types";
+import { isHassError, nowOf } from "../ha/types";
 import { failureText } from "../live/actions";
 import { areaEntities, entityName, type RoomAction } from "../live/bindings";
 import {
@@ -101,7 +101,7 @@ export class DomoTwinControls extends Sheet {
           .area=${this.area}
         ></domotwin-automations>
         ${upkeepCard(this)}`,
-      first
+      first && !hass.demo
         ? html`<div class="footer">
             <button
               class="action quiet"
@@ -389,7 +389,7 @@ export class DomoTwinRoom extends Sheet {
     if (!hass) return;
     this.refused = undefined;
     try {
-      await runRoom(this, hass, what);
+      if (!(await runRoom(this, hass, what))) this.refused = this.t.t("demo.no_dialog");
     } catch (error) {
       this.refused = failureText(this.t, error);
     }
@@ -473,7 +473,7 @@ export class DomoTwinPerson extends Sheet {
       since && !Number.isNaN(since.getTime())
         ? t.t("people.since", {
             time: new Intl.DateTimeFormat(t.language, {
-              ...(Date.now() - since.getTime() > 86_400_000 ? { dateStyle: "short" } : {}),
+              ...(nowOf(hass) - since.getTime() > 86_400_000 ? { dateStyle: "short" } : {}),
               timeStyle: "short",
               timeZone: hass.config?.time_zone,
             }).format(since),

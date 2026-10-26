@@ -104,6 +104,8 @@ export interface CardConfig {
   voice: boolean;
   /** The name of this screen, for `domotwin.show` (D-029). */
   screen?: string;
+  /** The demo house instead of this home (D-050): its day, nothing of the home touched. */
+  demo: boolean;
 }
 
 /** A configuration problem; `key` is translated by the card. */
@@ -188,6 +190,7 @@ export function normalizeConfig(raw: unknown): CardConfig {
     night_dim: flag(input.night_dim, false, "config.bad_night_dim"),
     tools: flag(input.tools, true, "config.bad_tools"),
     voice: flag(input.voice, true, "config.bad_voice"),
+    demo: flag(input.demo, false, "config.bad_demo"),
   };
   const title = optionalString(input.title);
   if (title !== undefined) config.title = title;

@@ -458,6 +458,12 @@ export class DomoTwinClient {
         const unsubscribe = this.unsubscribe;
         this.unsubscribe = undefined;
         void unsubscribe.then((stop) => stop()).catch(() => undefined);
+        // Followed by nobody, what was read may change unseen: read again next time.
+        this.plans.clear();
+        this.bindings = undefined;
+        this.settings = undefined;
+        this.upkeep = undefined;
+        this.people = undefined;
       }
     };
   }

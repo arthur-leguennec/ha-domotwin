@@ -79,6 +79,8 @@ export interface HarnessOptions {
   robot?: boolean;
   /** Fictional solar panels, meter and battery, named in the stored settings (D-049). */
   energy?: boolean;
+  /** The card's `demo`: the demo house instead of this home (D-050). */
+  demo?: boolean;
   peopleShown?: "everyone" | "admins";
   peopleLook?: "figure" | "pin";
   /** Bluetooth locating (D-035): fictional receivers and devices, or no Bluetooth at all. */
@@ -129,6 +131,7 @@ export async function openHarness(page: Page, options: HarnessOptions = {}): Pro
   if (options.people !== undefined) params.set("people", options.people ? "1" : "0");
   if (options.robot) params.set("robot", "1");
   if (options.energy) params.set("energy", "1");
+  if (options.demo) params.set("demo", "1");
   if (options.peopleShown) params.set("peopleshown", options.peopleShown);
   if (options.peopleLook) params.set("peoplelook", options.peopleLook);
   if (options.bluetooth) params.set("bluetooth", options.bluetooth === true ? "1" : "none");

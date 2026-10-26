@@ -165,6 +165,7 @@ function schema(
     { name: "voice", selector: { boolean: {} } },
     { name: "screen", selector: { text: {} } },
     { name: "font_family", selector: { text: {} } },
+    { name: "demo", selector: { boolean: {} } },
   ];
 }
 

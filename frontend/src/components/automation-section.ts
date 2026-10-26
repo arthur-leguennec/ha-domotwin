@@ -7,7 +7,7 @@
 import { mdiPencilOutline, mdiVectorPolyline } from "@mdi/js";
 import { LitElement, css, html, nothing, type TemplateResult } from "lit";
 
-import type { HomeAssistant } from "../ha/types";
+import { nowOf, type HomeAssistant } from "../ha/types";
 import { translatorFor, type Translator } from "../i18n";
 import { navigate } from "../live/actions";
 import {
@@ -148,7 +148,7 @@ export class DomoTwinAutomations extends LitElement {
     const time = typeof at === "string" ? Date.parse(at) : NaN;
     if (!Number.isFinite(time)) return t.t("automations.never");
     return t.t("automations.ran", {
-      when: timeAgo(t.language, Math.max(0, (Date.now() - time) / 1000)),
+      when: timeAgo(t.language, Math.max(0, (nowOf(this.hass) - time) / 1000)),
     });
   }
 
@@ -180,7 +180,7 @@ export class DomoTwinAutomations extends LitElement {
                   >
                 </span>
                 ${
-                  admin && typeof editId === "string"
+                  admin && !hass.demo && typeof editId === "string"
                     ? html`<a
                         class="edit"
                         href=${`/config/automation/edit/${encodeURIComponent(editId)}`}

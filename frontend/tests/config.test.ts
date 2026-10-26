@@ -32,6 +32,7 @@ describe("normalizeConfig", () => {
       night_dim: false,
       tools: true,
       voice: true,
+      demo: false,
     });
   });
 
@@ -93,6 +94,7 @@ describe("normalizeConfig", () => {
       tools: false,
       voice: true,
       screen: "hallway",
+      demo: false,
     });
   });
 
@@ -135,6 +137,7 @@ describe("normalizeConfig", () => {
     [{ idle: 90_000 }, "config.bad_idle"],
     [{ idle: "soon" }, "config.bad_idle"],
     [{ orbit: "yes" }, "config.bad_orbit"],
+    [{ demo: "yes" }, "config.bad_demo"],
     [{ night_dim: 1 }, "config.bad_night_dim"],
     [{ tools: "no" }, "config.bad_tools"],
     [{ screen: "hall way" }, "config.bad_screen"],

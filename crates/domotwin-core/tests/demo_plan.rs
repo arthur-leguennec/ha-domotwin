@@ -152,3 +152,33 @@ fn the_demo_home_is_built_storey_by_storey_with_its_roof() {
     // A storey alone has no roof.
     assert!(alone.roof.is_none());
 }
+
+const HOUSE: &str = include_str!("../../../examples/demo-house.domotwin.json");
+const HOUSE_UPPER: &str = include_str!("../../../examples/demo-house-upper.domotwin.json");
+
+#[test]
+fn the_demo_house_reads_storey_by_storey_with_ids_of_its_own() {
+    let ground = read_plan(HOUSE.as_bytes()).unwrap();
+    let upper = read_plan(HOUSE_UPPER.as_bytes()).unwrap();
+    let (g, u) = (ground.summary(), upper.summary());
+    assert_eq!((g.rooms, g.doors, g.windows, g.furniture), (7, 7, 5, 49));
+    assert_eq!((u.rooms, u.doors, u.windows, u.furniture), (6, 5, 6, 40));
+    // Its robot's dock, and the stairs up.
+    assert!(ground.furniture().any(|f| f.kind == Kind::RobotVacuum));
+    assert!(ground.furniture().any(|f| f.kind == Kind::Stairs));
+    // Ids are the home's (`DECISIONS.md`, D-026).
+    for element in &upper.elements {
+        assert!(ground.element(element.id()).is_none(), "{}", element.id());
+    }
+    for plan in [&ground, &upper] {
+        let scene =
+            domotwin_core::scene::build_scene(plan, &domotwin_core::scene::SceneOptions::default());
+        assert!(scene.parts[0].opaque.triangle_count() > 1000);
+        // Every room is reached from another through a door or an open side.
+        let walls = domotwin_core::geometry::walls::WallLayout::new(plan);
+        let floor = domotwin_core::walk::Floor::new(plan, &walls);
+        let first = plan.rooms().next().unwrap();
+        let spot = floor.room_spot(&first.id).unwrap();
+        assert_eq!(floor.reachable_ids(spot).len(), plan.rooms().count());
+    }
+}

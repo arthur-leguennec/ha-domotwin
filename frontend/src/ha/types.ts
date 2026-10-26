@@ -88,6 +88,13 @@ export interface HomeAssistant {
     time_zone?: string;
   };
   connection: HassConnection;
+  /**
+   * The demo house's own (D-050): nothing hands over to Home Assistant's pages or dialogs, which
+   * would show the home's entities, not the demo's.
+   */
+  demo?: boolean;
+  /** The time it is for this Home Assistant (ms): the demo house's own clock (D-050). */
+  now?(): number;
   /** A request to Home Assistant with the user's session (the frontend's `fetchWithAuth`). */
   fetchWithAuth?(path: string, init?: RequestInit): Promise<Response>;
   callService(
@@ -96,6 +103,11 @@ export interface HomeAssistant {
     data?: Record<string, unknown>,
     target?: Record<string, unknown>,
   ): Promise<unknown>;
+}
+
+/** The time it is for `hass` (ms): this device's, or the demo house's own (D-050). */
+export function nowOf(hass: HomeAssistant | undefined): number {
+  return hass?.now?.() ?? Date.now();
 }
 
 /** An error returned by the websocket API: `{ code, message }`. */

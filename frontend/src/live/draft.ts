@@ -111,6 +111,22 @@ export function clearPlanDraft(storey: string): void {
   clear(keyOf(PLAN_KEY, storey));
 }
 
+/** Forgets the demo house's drafts (D-050): its edits are gone once it is left. */
+export function clearDemoDrafts(): void {
+  const store = storage();
+  try {
+    if (!store) return;
+    const keys: string[] = [];
+    for (let i = 0; i < store.length; i += 1) {
+      const key = store.key(i);
+      if (key?.startsWith(`${KEY}:demo/`) || key?.startsWith(`${PLAN_KEY}:demo/`)) keys.push(key);
+    }
+    for (const key of keys) store.removeItem(key);
+  } catch {
+    // Disabled.
+  }
+}
+
 /** A tip once read is not shown again on this device (D-047): whether `tip` was. */
 export function tipRead(tip: string): boolean {
   try {

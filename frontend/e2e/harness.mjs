@@ -26,6 +26,7 @@
 //   voice=1 (Assist with a pipeline that hears), voice=deaf (Assist that cannot hear),
 //   robot=1 (a robot vacuum's dock in the hall, linked to vacuum.robbie, docked; D-049)
 //   energy=1 (fictional solar panels, meter and battery, named in the stored settings; D-049)
+//   demo=1 (the card's `demo`: the demo house instead of this home, D-050)
 //   supervisor=1 (apps can be installed), blueprints=changed (one edited), insecure=1 (a page
 //   served over HTTP: no microphone), mic=0 (the card's microphone turned off)
 import { applyService, demoHome } from "./demo-home.mjs";
@@ -1146,6 +1147,7 @@ if (mode === "panel") {
     night_dim: params.get("nightdim") === "1" ? true : undefined,
     voice: params.get("mic") === "0" ? false : undefined,
     font_family: params.get("font") ?? undefined,
+    demo: params.get("demo") === "1" ? true : undefined,
   });
 }
 element.hass = hass;
