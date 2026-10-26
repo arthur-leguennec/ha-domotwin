@@ -768,3 +768,44 @@ link editor's plain actions and advanced mode with the editor (+2.9 kB). A room'
 worked out once while the registries, the links and the pieces stay the same, not at every state
 change; what the buttons offer (media off while one plays) is read from the states then.
 
+
+### M15 (pieces that look made, and a neon of its own)
+
+Bundle: the first load is **487.8 kB gzipped** of 1 200 kB (+6.2 kB). The engine grew by 5.9 kB
+(`domotwin_web_bg.<hash>.wasm`: 849.1 kB raw, 368.6 kB gzipped, from 836.7 kB and 362.7 kB): the
+leaves, the soft boxes, the three plants and the new neon. The rest is the settings' **Default**
+and its texts.
+
+The demo apartment has **12 551 triangles**, down from 13 843 (−9 %), and 14 480 + 3 612 + 104
+vertices (`cargo test -p domotwin-core --test scene`): small spheres take fewer segments, pillows
+are soft boxes instead of spheres, plants are drawn leaf by leaf instead of balls of leaves, and
+stems have no ends hidden in a joint. A soft box is 48 vertices and 44 triangles where a box is 24
+and 12; the leaves are drawn on both faces. The wasm memory after loading the demo is 2.69 MB, from
+2.82 MB.
+
+Frame time, the branch against `main` measured the same way one after the other
+(`e2e/perf.spec.ts`, headless Chromium, SwiftShader). The CPU's share, the median of 120 frames
+for the demo plan and of 20 for each look at High, evening, lamps on:
+
+| | Before (median, p95) | After (median, p95) |
+| --- | ---: | ---: |
+| Demo plan | 0.4 ms, 1.3 ms | 0.4 ms, 2.3 ms |
+| Day | 0.9 ms, 4.9 ms | 0.8 ms, 6.6 ms |
+| Neon | 0.5 ms, 0.8 ms | 0.4 ms, 1.6 ms |
+| Blueprint | 0.5 ms, 5.5 ms | 0.4 ms, 0.6 ms |
+| Cartoon | 0.6 ms, 12.3 ms | 0.5 ms, 1.3 ms |
+| Clay | 0.5 ms, 4.4 ms | 0.7 ms, 5.5 ms |
+
+The medians are the same within the noise; the p95s move with whatever else the machine was
+doing. The software GPU's share, neon in the evening with the lamps on (the median of nine frames,
+each read back, "frame time of each quality preset"):
+
+| Preset | Before | After |
+| --- | ---: | ---: |
+| Eco | 271 ms | 232 ms |
+| Balanced | 319 ms | 273 ms |
+| High | 298 ms | 235 ms |
+
+Neon costs less than before: its walls are drawn once, opaque, instead of a pass of glass over
+what is behind them, and the upright lines it leaves out are moved out of the view instead of
+being drawn at no strength.

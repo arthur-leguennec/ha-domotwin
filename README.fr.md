@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-neon.png" alt="DomoTwin : un appartement fictif dans l’apparence néon, ses murs de verre soulignés de cyan, ses lampes allumées, le nom des pièces au sol" width="100%">
+  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-neon.png" alt="DomoTwin : un appartement fictif dans l’apparence néon, au crépuscule dans un violet profond, le haut de ses murs éclairé d’ambre, ses lampes allumées, le nom des pièces au sol" width="100%">
 </p>
 
 <p align="center"><b>Votre logement en jumeau 3D vivant dans Home Assistant.</b><br>
@@ -33,8 +33,10 @@ Local, rapide, Rust + WebAssembly.</p>
   ou un plan DomoTwin (`*.domotwin.json`), un étage ou tous, et voyez-le en maquette 3D. Les
   murs face à la caméra s’abaissent automatiquement, comme une maison de poupée ouverte. Passez à un
   plan 2D net avec une transition fluide.
-- **Cinq apparences.** **Néon** : des murs de verre soulignés d’une couleur d’accent lumineuse
-  sur une grille, des lampes et des écrans qui brillent ; **plan d’architecte** : des traits blancs
+- **Des meubles qui ont l’air vrais.** Des plantes feuille à feuille, des canapés et des lits aux
+  bords arrondis, sans rien perdre en vitesse.
+- **Cinq apparences.** **Néon** : le logement au crépuscule dans un violet profond, le haut de ses
+  murs éclairé d’ambre, des lampes et des écrans qui brillent ; **plan d’architecte** : des traits blancs
   sur fond bleu ; **jour** : le logement tel qu’il est, à la lumière de l’heure ; **dessin animé** :
   des couleurs vives cernées d’encre noire, sous un ciel bleu ; **maquette d’argile** : le logement
   en argile mate, comme une maquette d’architecte. Automatique : néon en mode sombre. Voir [les
@@ -196,7 +198,7 @@ Local, rapide, Rust + WebAssembly.</p>
 </p>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-home.png" alt="Tous les étages à la fois : les deux étages de l’appartement de démonstration écartés sous un toit de verre dans l’apparence néon, chacun avec son étiquette (pièces, lumières allumées) et une image de chaque étage à gauche" width="100%">
+  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-home.png" alt="Tous les étages à la fois : les deux étages de l’appartement de démonstration écartés sous un toit de verre dans l’apparence plan d’architecte, chacun avec son étiquette (pièces, lumières allumées) et une image de chaque étage à gauche" width="100%">
 </p>
 
 <p align="center">
@@ -252,7 +254,7 @@ YAML n’est jamais nécessaire. Pour référence, les options de la carte :
 | `badges`      | `true`, `false`                     | `true`     | Badges des appareils : serrures, caméras, lecture, batteries faibles, appareils en marche. |
 | `cameras`     | `true`, `false`                     | `true`     | Ce que voient les caméras liées, dessiné au sol. |
 | `theme`       | `auto`, `day`, `neon`, `blueprint`, `cartoon`, `clay` | celle du logement | L’apparence ; `auto` : néon en mode sombre. |
-| `accent`      | une couleur `#rrggbb`               | celle du logement | Couleur d’accent (les contours lumineux du néon). |
+| `accent`      | une couleur `#rrggbb`               | celle du logement | Couleur d’accent (le haut des murs éclairé du néon) ; sinon celle de l’apparence. |
 | `names`       | `true`, `false`                     | `true`     | Le nom des pièces au sol.                     |
 | `small_rooms` | `true`, `false`                     | `false`    | Le nom des petites pièces aussi (placards, pièces de moins de 2,5 m²). |
 | `idle`        | secondes (0 à 86400)                | `0`        | Kiosque : revenir à cette vue après ce temps sans contact (0 : jamais). |

@@ -42,7 +42,7 @@ and take the roof off (and put it back); both are animated.
   the layers (heatmap, alerts, presence, power), the badges and what the cameras see show on
   every storey.
 - **The roof** is a gable roof over the top storey's walls, its ridge along the longer side. It is
-  of glass in the neon and blueprint looks, tiled in day. A tap goes through it to what is under it.
+  of glass in the blueprint look, tiled in the others. A tap goes through it to what is under it.
 - **On the 2D plan**, the storeys lie side by side, the ground floor on the left (down the view in
   a view taller than wide, the highest on top), each with its label over it.
 

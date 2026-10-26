@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-neon.png" alt="DomoTwin: a fictional apartment in the neon look, its walls of glass outlined in cyan, its lamps on, the rooms named on their floors" width="100%">
+  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-neon.png" alt="DomoTwin: a fictional apartment in the neon look, at dusk in deep violet, the tops of its walls lit in amber, its lamps on, the rooms named on their floors" width="100%">
 </p>
 
 <p align="center"><b>Your home as a live 3D twin in Home Assistant.</b><br>
@@ -31,7 +31,9 @@ Local, fast, Rust + WebAssembly.</p>
   (`*.domotwin.json`), one storey or all of them, and see it as a clean 3D model. The
   walls facing the camera are lowered automatically, like an open dollhouse. Switch to a crisp 2D
   plan with a smooth animation.
-- **Five looks.** **Neon**: walls of glass outlined in a glowing accent colour over a grid,
+- **Pieces that look made.** Plants leaf by leaf, sofas and beds with soft edges, at no cost in
+  speed.
+- **Five looks.** **Neon**: the home at dusk in deep violet, the tops of its walls lit in amber,
   lamps and screens that shine; **blueprint**: white lines on blue; **day**: the home as it is, in
   the light of the time of day; **cartoon**: flat bright colours inked in black, under a blue sky;
   **clay model**: the home in matte clay, like an architect's model. Automatic: neon in Home
@@ -177,7 +179,7 @@ Local, fast, Rust + WebAssembly.</p>
 </p>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-home.png" alt="Every storey at once: the demo apartment's two storeys spread apart under a glass roof in the neon look, each with its label (rooms, lights on) and a picture of each storey on the left" width="100%">
+  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-home.png" alt="Every storey at once: the demo apartment's two storeys spread apart under a glass roof in the blueprint look, each with its label (rooms, lights on) and a picture of each storey on the left" width="100%">
 </p>
 
 <p align="center">
@@ -229,7 +231,7 @@ YAML is never required. For reference, the card options are:
 | `badges`      | `true`, `false`                     | `true`     | Badges over the devices: locks, cameras, what plays, low batteries, appliances running. |
 | `cameras`     | `true`, `false`                     | `true`     | What the linked cameras see, drawn on the floor. |
 | `theme`       | `auto`, `day`, `neon`, `blueprint`, `cartoon`, `clay` | the home's | The look; `auto` is neon in dark mode. |
-| `accent`      | a colour `#rrggbb`                  | the home's | Accent of the look (neon's glowing outlines). |
+| `accent`      | a colour `#rrggbb`                  | the home's | Accent of the look (neon's lit wall tops); else the look's own. |
 | `names`       | `true`, `false`                     | `true`     | The rooms' names on their floors.         |
 | `small_rooms` | `true`, `false`                     | `false`    | The names of small rooms too (closets, rooms under 2.5 m²). |
 | `idle`        | seconds (0 to 86400)                | `0`        | Kiosk: back to this view after this long untouched (0: never). |
