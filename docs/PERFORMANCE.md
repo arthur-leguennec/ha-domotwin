@@ -748,3 +748,14 @@ Bundle: the first load is **472.6 kB gzipped** of 1 200 kB (+3.5 kB): the icons 
 room, the placing of the names and the panel's narrow toolbar (D-045). Placing the names of a
 hundred rooms takes 0.18 ms (Node 22); they are placed again only when they move, not every
 frame.
+
+### M14 (actions done later)
+
+Bundle: the first load is **475.3 kB gzipped** of 1 200 kB (+2.7 kB): the client's commands, the
+clock badge, the times in Home Assistant's time zone and the texts. The sheet's section comes with
+the sheets, on demand (+1.6 kB). The view follows the list of actions on one subscription per
+connection, and works out the clocks only when the list, the bindings or the states change.
+
+The integration sets one timer per action waiting, for its next step, and none while nothing waits;
+the store is written when an action is set, done or cancelled.
+

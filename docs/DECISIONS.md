@@ -1466,3 +1466,50 @@ M13b.
   - The names are placed again only when they move (the camera turns), the view changes size or
     the small rooms are asked for: 0.18 ms for a hundred rooms (Node 22), each name measured
     once.
+
+## D-046 · Actions done later: kept by DomoTwin, set from the sheet, an automation or a voice
+
+M14.
+
+- **Context.** Asked to "switch the lantern on tomorrow at 6:30 until 6:45", Home Assistant's Assist
+  refused: it controls devices now, and Home Assistant has no way to do something once, later,
+  short of writing an automation. Its timers say when, but act only on what a person does then.
+  A piece's sheet is where its device is controlled; the clock of what waits belongs over the piece.
+- **Decision.**
+  - **DomoTwin keeps the actions** in a store of its own (`domotwin.schedules`), and does each at
+    its time with Home Assistant's `homeassistant.turn_on` and `turn_off`, a light's brightness
+    with `light.turn_on`, covers with `cover.open_cover` and `close_cover` (the generic actions
+    leave covers out). An action switches devices on, a light at a brightness, and off again at a time or
+    after a while; or switches them off. At most 100 wait, each on 10 devices at most, a year
+    ahead at most, a device left on a week at most.
+  - **A restart loses nothing.** Once Home Assistant has started (every integration set up, so
+    the devices are there), the steps missed are done in the order they were due. Switching off
+    is always done, however late: it is the safe way. Switching on is done if it was missed by
+    less than 15 minutes, or if the device should be on by now (its end to come). Anything else
+    missed is dropped and logged. A device that cannot be switched off (unavailable, failing) is
+    tried again every minute for an hour.
+  - **Three ways in, one rule.** The piece's sheet (a section **Later**, with what waits and a
+    short form), the actions `domotwin.schedule` and `domotwin.unschedule` (for automations and
+    scripts; they answer what will happen, in Home Assistant's language), and three tools for the
+    voice assistants driven by a language model (set, list, cancel), offered by the integration
+    (`llm.py`) with nothing to install, on the devices exposed to the assistant only. Each checks
+    the same way: devices that exist, that can be switched, times to come.
+  - **The sheet's form asks for a time of day** ("06:30": the next one) and a duration, which the
+    integration turns into dates in Home Assistant's time zone, not the browser's.
+  - **Rights are Home Assistant's.** Only someone who may control the devices may set or cancel
+    an action on them (a read-only user may not); each step is done in the name of who set it,
+    with their rights, and shows in the logbook as theirs. Automations without a user act as
+    Home Assistant. A device failing, however it fails, is logged and the action done with.
+  - **A clock over the piece** says the time of its next step, in Home Assistant's time zone and
+    12 or 24 hours; a tap on it opens the sheet. The list is followed live
+    (`domotwin/schedules/subscribe`), on one subscription per connection however many views show
+    it, even while DomoTwin is not set up (a screen kept open across a restart). Each user gets
+    the actions on what they may see, never who set them.
+- **Consequences.**
+  - "Switch the lantern on at 6:30 for a quarter of an hour" works from the sheet, an automation or
+    a voice assistant driven by a language model. Home Assistant's built-in agent, without one,
+    cannot use tools: there, the sheet or an automation set them. The tools need a Home
+    Assistant that hands integrations' tools to its assistants (tried with 2026.10); an older
+    one, down to DomoTwin's 2025.1, leaves them out.
+  - The actions are DomoTwin's: they show in its sheets and its diagnostics (counted, never which
+    devices or when), not in Home Assistant's automations.

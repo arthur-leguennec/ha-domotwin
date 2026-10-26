@@ -68,6 +68,12 @@ choose to replace it. **Make an automation** opens Home Assistant's blueprint pa
 becomes an automation in a few clicks. You can still import them by their link from
 `blueprints/` in this repository.
 
+## Later, by voice
+
+With a voice assistant driven by a language model, "switch the lantern on tomorrow at 6:30 until
+6:45" works: DomoTwin gives it tools to set, list and cancel actions done later. See [actions done
+later](later.md).
+
 ## Privacy
 
 DomoTwin sends nothing anywhere: it opens Home Assistant's own Assist dialog. With a local

@@ -112,6 +112,11 @@ Local, rapide, Rust + WebAssembly.</p>
   sa vue quand on la laisse, tourne lentement et s’assombrit la nuit. Dites « montre la cuisine » à
   Assist et vos écrans la montrent. Voir [la promenade, les kiosques et la
   voix](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/kiosk.md) (en anglais).
+- **Plus tard.** « Allume la lanterne demain à 6 h 30 jusqu’à 6 h 45 » : depuis la fiche d’une
+  lampe, une automatisation (`domotwin.schedule`) ou un assistant vocal, DomoTwin le fait à
+  l’heure, même après un redémarrage, et montre une horloge sur la lampe en attendant. Voir [les
+  actions faites plus tard](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/later.md)
+  (en anglais).
 - **Votre voix.** Un bouton micro ouvre Assist de Home Assistant déjà à l’écoute, sur une
   tablette murale comme sur un téléphone. Quand Assist n’entend pas encore, DomoTwin installe la
   voix en local avec votre accord : Whisper ou Speech-to-Phrase et Piper, installés par le

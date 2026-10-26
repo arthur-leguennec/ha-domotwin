@@ -96,6 +96,10 @@ Local, fast, Rust + WebAssembly.</p>
   room to room through the doors. On a wall tablet, a card goes back to its view when left alone,
   turns slowly and dims at night. Say "show the kitchen" to Assist and your screens show it. See
   [walking, kiosks and your voice](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/kiosk.md).
+- **Later.** "Switch the lantern on tomorrow at 6:30 until 6:45": from a lamp's sheet, an
+  automation (`domotwin.schedule`) or a voice assistant, DomoTwin does it on time, even across a
+  restart, and shows a clock over the lamp meanwhile. See [actions done
+  later](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/later.md).
 - **Your voice.** A microphone button opens Home Assistant's Assist already listening, on a wall
   tablet as on a phone. When Assist cannot hear yet, DomoTwin sets up local voice with your
   consent: Whisper or Speech-to-Phrase and Piper, installed through the Supervisor, nothing
