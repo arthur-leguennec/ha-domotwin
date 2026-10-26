@@ -22,10 +22,10 @@ Local, fast, Rust + WebAssembly.</p>
 > their rooms, Bluetooth locating, voice, the polish (font, keyboard, screen readers), a pass over
 > size and speed, phones, actions done later, taps that say what they do, pieces that look made,
 > robot vacuums, the home's energy, the demo house, measuring a device's speed and the practical
-> home (the Home, Rooms and 3D tabs) work today, and make up version 0.4.0. A sandbox for the
-> home's automations comes next, then Home Assistant's own Overview joined rather than copied,
-> towards version 0.5.0; the submission to HACS's default list waits on measurements on real
-> devices.
+> home (the Home, Rooms and 3D tabs) work today, and make up version 0.4.0; a configuration
+> history came right after it. A sandbox for the home's automations comes next, then Home
+> Assistant's own Overview joined rather than copied, towards version 0.5.0; the submission to
+> HACS's default list waits on measurements on real devices.
 
 ## Features
 
@@ -124,6 +124,11 @@ Local, fast, Rust + WebAssembly.</p>
   automation (`domotwin.schedule`) or a voice assistant, DomoTwin does it on time, even across a
   restart, and shows a clock over the lamp meanwhile. See [actions done
   later](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/later.md).
+- **Configuration history.** Each change of an automation, a script, a scene or a dashboard is
+  kept, by item and date, inside Home Assistant: what changed, in words ("Trigger 1 › offset:
+  -00:30:00 → -00:20:00", "Action 2 added"), and one item put back as it was, through the commands
+  Home Assistant's own editors use. For administrators; no add-on, no Git. See [configuration
+  history](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/history.md).
 - **Your voice.** A microphone button opens Home Assistant's Assist already listening, on a wall
   tablet as on a phone. When Assist cannot hear yet, DomoTwin sets up local voice with your
   consent: Whisper or Speech-to-Phrase and Piper, installed through the Supervisor, nothing

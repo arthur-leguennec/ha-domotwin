@@ -24,10 +24,11 @@ Local, rapide, Rust + WebAssembly.</p>
 > passe sur la taille et la vitesse, les téléphones, les actions à faire plus tard, des touchers
 > qui disent ce qu’ils font, des meubles qui ont l’air faits, les aspirateurs robots, l’énergie de
 > la maison, la maison de démo, la mesure de la vitesse d’un appareil et la maison pratique (les
-> onglets Accueil, Pièces et 3D) fonctionnent déjà, et forment la version 0.4.0. Un bac à sable
-> pour les automatisations de la maison vient ensuite, puis la Vue d’ensemble de Home Assistant
-> rejointe plutôt que copiée, vers la version 0.5.0 ; la proposition à la liste par défaut de
-> HACS attend des mesures sur de vrais appareils.
+> onglets Accueil, Pièces et 3D) fonctionnent déjà, et forment la version 0.4.0 ; un historique
+> de la configuration est venu juste après. Un bac à sable pour les automatisations de la maison
+> vient ensuite, puis la Vue d’ensemble de Home Assistant rejointe plutôt que copiée, vers la
+> version 0.5.0 ; la proposition à la liste par défaut de HACS attend des mesures sur de vrais
+> appareils.
 
 ## Fonctionnalités
 
@@ -144,6 +145,13 @@ Local, rapide, Rust + WebAssembly.</p>
   l’heure, même après un redémarrage, et montre une horloge sur la lampe en attendant. Voir [les
   actions faites plus tard](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/later.md)
   (en anglais).
+- **Historique de la configuration.** Chaque changement d’une automatisation, d’un script, d’une
+  scène ou d’un tableau de bord est gardé, par élément et par date, dans Home Assistant : ce qui a
+  changé, en mots (« Déclencheur 1 › offset : -00:30:00 → -00:20:00 », « Ajout · Action 2 »), et un
+  élément remis comme il était, par les commandes qu’utilisent les éditeurs de Home Assistant.
+  Pour les administrateurs ; sans module complémentaire ni Git. Voir [l’historique de la
+  configuration](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/history.md) (en
+  anglais).
 - **Votre voix.** Un bouton micro ouvre Assist de Home Assistant déjà à l’écoute, sur une
   tablette murale comme sur un téléphone. Quand Assist n’entend pas encore, DomoTwin installe la
   voix en local avec votre accord : Whisper ou Speech-to-Phrase et Piper, installés par le

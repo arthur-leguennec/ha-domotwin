@@ -2218,3 +2218,64 @@ D-054 planned them.
     Assistant's cards, dialogs and now pages reused rather than rebuilt.
   - Many of them read what only administrators may (automations, traces, the radios): each says
     what other users see.
+
+## D-057 · Configuration history: each change kept, one item put back (M36, amends D-056)
+
+M36, asked for by the maintainer right after 0.4.0, ahead of the order of D-056 (M29 first): it
+waits on nothing the other milestones build.
+
+- **Context.** Home Assistant keeps no history of its own configuration: its editors' undo lasts
+  one session, and a backup puts back a whole part, not one automation. What exists does it with
+  an add-on and Git, or from backups (D-056, item 8). M36 keeps each change of an automation, a
+  script, a scene and a dashboard inside Home Assistant, says what changed in words, and puts one
+  item back, with Home Assistant's own configuration commands.
+- **Decision.**
+  - **What is kept**: the automations, scripts and scenes Home Assistant's editors write
+    (`automations.yaml`, `scripts.yaml`, `scenes.yaml`, read as its editors read them), those
+    written in YAML files of one's own (configuration.yaml, packages), read from their entities as
+    Home Assistant loaded them, and the dashboards that have a configuration (storage or YAML).
+    Scenes made by `scene.create` are not configuration and are left out.
+  - **When**: once Home Assistant has started (what changed while it was stopped, or by hand),
+    after Home Assistant reloads automations or scenes (its `automation_reloaded` and
+    `scene_reloaded`), five seconds after `script.reload` is called (Home Assistant fires no event
+    of its own after it), when one of them is removed from the entity registry (its editors
+    delete that way, without a reload), when a dashboard is saved or removed (`lovelace_updated`),
+    and when DomoTwin has put an item back. A version is kept when the item's configuration, its
+    keys in any order, is not the one kept last; an item no longer there is kept as removed. A
+    file Home Assistant cannot read is left alone: nothing in it is taken for removed.
+  - **Where**: in a store of its own (`.storage/domotwin.history`, private), each version as
+    the JSON of its configuration with its date. **Limited in size**: 4 MB in all, 50 versions an
+    item, 1 MB a version (a larger one keeps its date, not its content), 2 000 items; past them,
+    the oldest versions go first, an item's newest always kept, and a removed item with nothing
+    else kept is forgotten. Removed with the integration; kept when it is only unloaded.
+  - **What changed, in words**: worked out in the page between any two versions: what was
+    added, removed or changed, and where, in words for the parts known (the name, description and
+    mode; the triggers, conditions and actions of an automation; the steps and fields of a
+    script; a scene's entities and their states; a dashboard's title, views, sections and cards),
+    by the place in the configuration otherwise, each value said in short. A list's items are
+    matched before they are compared, so that an action added does not read as every action after
+    it changed. A version is compared with the one before it, or with the current one: what
+    putting it back would change. Its whole content can be read.
+  - **Put back** through the commands Home Assistant's editors use: the configuration API
+    (`POST /api/config/<automation|script|scene>/config/<id>`), which checks the configuration,
+    writes the file and reloads, and `lovelace/config/save` for a dashboard. A removed
+    automation, script or scene can be put back; a removed dashboard only once it exists again.
+    Home Assistant's refusal (an entity or an integration gone) is shown as it gives it. Shown,
+    not put back: what is written in one's own YAML files, a version too large to keep, a removed
+    one. After putting back, DomoTwin reads the item again: the item put back is its newest
+    version, said to be the same as the one it came from.
+  - **Where it is**: *Configuration history* in the panel's ⋮ menu, for administrators, who
+    alone may read and change Home Assistant's configuration; its commands refuse anyone else.
+    The items by kind, with a search, the most recently changed first; an item's versions, newest
+    first, with what each changed; a link to Home Assistant's editor of the item. The dialog is a
+    chunk loaded when it opens. The demo house shows a history of its own automations, put back
+    in the page.
+  - **Never in the diagnostics**, not even counted; nothing sent anywhere.
+- **Consequences.**
+  - The integration reads Home Assistant's automations, scripts, scenes and dashboards as they
+    are loaded (their entities' configuration, the dashboards Lovelace keeps), in the forms Home
+    Assistant has had since 2025.1; a form it does not know is left out rather than misread.
+  - Who made a change is not known: Home Assistant's editors do not say it.
+  - The history begins when DomoTwin first sees the configuration: what changed before is not
+    known, and the oldest version kept says so.
+  - The first load grows by the menu item and its text; the rest comes when the dialog opens.
