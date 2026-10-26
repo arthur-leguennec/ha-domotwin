@@ -23,7 +23,7 @@ pub mod home;
 use serde::{Serialize, Serializer};
 use serde_json::Value;
 
-use home::{Home, Point, RADIO_AT, Spot};
+use home::{Home, Point, RADIO_AT, Spot, number, point};
 
 /// How fast the signal falls with the distance indoors (the log-distance law, D-035).
 pub const EXPONENT: f64 = 2.2;
@@ -48,8 +48,9 @@ const NEAR_PIECE: f64 = 150.0;
 const GAIN_CAP_DB: f64 = 20.0;
 /// What a room no radio reaches is taken to hear (dBm).
 const SILENCE_DB: f64 = -130.0;
-/// Beyond this many rooms, each is weighed from fewer points and offers its middle alone.
-const MANY_ROOMS: usize = 40;
+/// Beyond this many rooms, each is weighed from fewer points and offers its middle alone: the
+/// advice then takes tens of milliseconds, not hundreds.
+const MANY_ROOMS: usize = 24;
 const FEW_POINTS: usize = 4;
 /// Most radios and measurements read.
 const MAX_RADIOS: usize = 256;
@@ -316,10 +317,6 @@ fn text(value: Option<&Value>) -> Option<String> {
     (!text.is_empty()).then(|| text.chars().take(MAX_TEXT).collect())
 }
 
-fn number(value: Option<&Value>) -> Option<f64> {
-    value.and_then(Value::as_f64).filter(|v| v.is_finite())
-}
-
 fn round1(value: f64) -> f64 {
     (value * 10.0).round() / 10.0
 }
@@ -356,16 +353,12 @@ fn spread<T: Clone>(items: &[T], k: usize) -> Vec<T> {
 /// A place given by a piece, or by a storey and a point (and a height above the lowest floor;
 /// [`RADIO_AT`] above its own floor without).
 fn place_of(home: &Home, value: &Value) -> Option<Spot> {
-    let at = value.get("at").and_then(Value::as_array).and_then(|at| {
-        let [x, y] = at.as_slice() else { return None };
-        Some([number(Some(x))?, number(Some(y))?])
-    });
     if let (Some(storey), Some([x, y])) = (
         value
             .get("storey")
             .and_then(Value::as_str)
             .and_then(|id| home.storey_index(id)),
-        at,
+        point(value.get("at")),
     ) {
         let floor = home.elevations.get(storey).copied().unwrap_or(0.0);
         let z = number(value.get("z")).unwrap_or(floor + RADIO_AT);
@@ -566,7 +559,7 @@ pub fn advise(input: &Value) -> Advice {
     let mut best: Vec<(u32, f64, usize, AdvisedSpot)> = Vec::new();
     for (r, room) in home.rooms.iter().enumerate() {
         let floor = home.elevations.get(room.storey).copied().unwrap_or(0.0);
-        let mut offered: Vec<Spot> = home.middle(r).into_iter().collect();
+        let mut offered: Vec<Spot> = home.middle_of(&points[r]).into_iter().collect();
         if !many {
             for p in spread(&points[r], SPOTS_PER_ROOM) {
                 let spot = Spot {

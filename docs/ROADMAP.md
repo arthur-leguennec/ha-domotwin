@@ -1087,9 +1087,10 @@ router or Wi-Fi access point helps most ([`placement.md`](placement.md)).
   on a scale of its own; the radios placed and the spots advised as markers; the sheet lists the
   spots, then the rooms worst covered first.
 - ✅ **What was measured first**: a Bluetooth room a receiver learned (from eight readings), a
-  Zigbee device's best link to the coordinator or a router heard from in the last day, a
+  Zigbee end device's best link to the coordinator or a router heard from in the last day, a
   device's Wi-Fi signal (ESPHome, Shelly, Tasmota, WLED; never ZHA's, Z-Wave's, Bluetooth's nor a
-  phone's); each room says what measured it, the others what is predicted.
+  phone's); each room says what measured it, the others what is predicted. A private room the
+  viewer may not see shows nothing of it.
 - ✅ **The locating's model (D-035)** for each radio, from the plan's walls, doors, sides left open
   and floors, each radio with its loudness at a metre and its thresholds; written again in the
   core, and checked against the integration's on the demo apartment

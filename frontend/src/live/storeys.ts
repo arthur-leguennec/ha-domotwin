@@ -184,3 +184,27 @@ export function storeyCounts(
   }
   return { rooms: planRooms(plan).length, lights: on.size };
 }
+
+/**
+ * Every storey of the home, lowest first, as the radio coverage reads them (D-057): a storey with
+ * no plan (none drawn yet, or not fetched) is still there, so that the floors between the others
+ * are counted as the integration counts them. `plans` gives each storey's plan and overlay.
+ */
+export function homeStoreys(
+  storeys: readonly StoreyInfo[],
+  plans: (id: string) => { plan?: unknown; layout?: Record<string, unknown> } | undefined,
+): HomeStorey[] {
+  return [...storeys]
+    .sort((a, b) => a.elevation - b.elevation)
+    .map((info) => {
+      const found = plans(info.id);
+      const storey: HomeStorey = {
+        id: info.id,
+        name: info.name,
+        elevation: info.elevation,
+        plan: found?.plan ?? null,
+      };
+      if (found?.layout) storey.layout = found.layout;
+      return storey;
+    });
+}

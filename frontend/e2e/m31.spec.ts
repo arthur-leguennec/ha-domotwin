@@ -9,13 +9,13 @@ async function chooseLayer(page: Page, layer: string): Promise<void> {
 }
 
 /** Picks a radio in the coverage's sheet, and waits for its rooms. */
-async function chooseRadio(page: Page, radio: string): Promise<void> {
+async function chooseRadio(page: Page, radio: string, rooms = 5): Promise<void> {
   await page.locator(`domotwin-placement [data-radio-kind="${radio}"]`).click();
   await expect(page.locator(`[data-radio-kind="${radio}"]`)).toHaveAttribute(
     "aria-pressed",
     "true",
   );
-  await expect(page.getByTestId("placement-rooms").locator("li")).toHaveCount(5);
+  await expect(page.getByTestId("placement-rooms").locator("li")).toHaveCount(rooms);
 }
 
 /** What the engine was given for the rooms (`setLayers`). */
@@ -186,22 +186,37 @@ test.describe("radio coverage (D-057)", () => {
     if (!box) throw new Error("no stage");
     await page.mouse.click(box.x + floor.x, box.y + floor.y);
     await expect(points).toHaveCount(2);
-    await expect(points.nth(1)).toContainText("Access point 2");
+    await expect(points.nth(1)).toContainText("Access point 1");
     const saved = await page.evaluate(
       () =>
         (window as never as { __store: { settings: { access_points: unknown[] } } }).__store
           .settings.access_points,
     );
     expect(saved).toHaveLength(2);
-    expect(saved[1]).toMatchObject({ storey: "storey-1", name: "Access point 2" });
+    expect(saved[1]).toMatchObject({ storey: "storey-1", name: "Access point 1" });
     const at = (saved[1] as { at: [number, number] }).at;
     expect(Math.abs(at[0] - 620)).toBeLessThan(15);
     expect(Math.abs(at[1] - 600)).toBeLessThan(15);
     // Both access points are marked on the plan.
     await expect(page.locator("domotwin-placement .marker.radio")).toHaveCount(2);
     // Removed again.
-    await page.getByRole("button", { name: "Remove Access point 2" }).click();
+    await page.getByRole("button", { name: "Remove Access point 1" }).click();
     await expect(points).toHaveCount(1);
+  });
+
+  test("a private room the viewer may not see shows nothing of its coverage", async ({ page }) => {
+    await openHarness(page, { mode: "panel", live: true, radios: true, private: ["bathroom"] });
+    await chooseLayer(page, "coverage");
+    await chooseRadio(page, "wifi", 4);
+    const sheet = page.getByTestId("placement");
+    await expect(page.getByTestId("placement-rooms").locator('[data-room="bathroom"]')).toHaveCount(
+      0,
+    );
+    await expect(sheet).not.toContainText("Washer plug");
+    await expect(page.getByTestId("placement-spots")).not.toContainText("Bathroom");
+    await expect
+      .poll(async () => Object.keys((await coverage(page)) ?? {}).sort())
+      .toEqual(["bedroom", "hall", "kitchen", "living"]);
   });
 
   test("the card shows the coverage without placing", async ({ page }) => {

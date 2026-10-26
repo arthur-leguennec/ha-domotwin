@@ -50,8 +50,12 @@ addMessages({ en: placementEn, fr: placementFr });
 
 /** The radio chosen last, kept by this device's browser. */
 const RADIO_KEY = "domotwin-coverage-radio";
-/** How often the Wi-Fi signals are read again as Home Assistant's states change (ms). */
-const WIFI_EVERY_MS = 2000;
+/**
+ * How often, at most, the Wi-Fi signals are read again as Home Assistant's states change (ms):
+ * devices report theirs every minute or so, and working the advice out takes up to tens of
+ * milliseconds.
+ */
+const WIFI_EVERY_MS = 30_000;
 const LEVELS: readonly CoverageLevel[] = ["good", "fair", "weak", "out"];
 const RADIO_ICONS: Record<RadioKind, string> = {
   bluetooth: mdiBluetooth,
@@ -93,6 +97,7 @@ export class DomoTwinPlacement extends LitElement {
     storey: { attribute: false },
     placeable: { attribute: false },
     accessPoints: { attribute: false },
+    closed: { attribute: false },
     radio: { state: true },
     advice: { state: true },
     readings: { state: true },
@@ -349,6 +354,11 @@ export class DomoTwinPlacement extends LitElement {
   placeable = false;
   /** The Wi-Fi access points placed (the home's settings). */
   accessPoints: AccessPoint[] = [];
+  /**
+   * The private rooms this viewer may not see (D-039): their coverage, what measured it and the
+   * spots in them are not shown, as their floors are not coloured.
+   */
+  closed: ReadonlySet<string> = new Set();
 
   protected radio: RadioKind = "bluetooth";
   protected advice?: PlacementAdvice;
@@ -416,6 +426,15 @@ export class DomoTwinPlacement extends LitElement {
 
   protected override willUpdate(changed: PropertyValues<this>): void {
     if (changed.has("accessPoints")) this.saved = undefined;
+    if (changed.has("closed") && this.advice) {
+      // A private room closed or opened (D-039): its spots go or come back.
+      if (this.selected !== undefined && this.selected > this.spots().length) {
+        this.selected = undefined;
+      }
+      this.pointsKey = "";
+      this.recolour();
+      this.reproject(this.scale);
+    }
     if (!this.isConnected || !this.hass) return;
     const inputs = [this.storeys, this.bindings, this.accessPoints];
     if (!this.inputs || inputs.some((input, k) => input !== this.inputs?.[k])) {
@@ -516,7 +535,7 @@ export class DomoTwinPlacement extends LitElement {
       this.readings = readings;
       this.advice = JSON.parse(text) as PlacementAdvice;
       this.error = undefined;
-      if (this.selected !== undefined && this.selected > this.advice.spots.length) {
+      if (this.selected !== undefined && this.selected > this.spots().length) {
         this.selected = undefined;
       }
     } catch {
@@ -530,6 +549,26 @@ export class DomoTwinPlacement extends LitElement {
     this.reproject(this.scale);
   }
 
+  private shown?: { advice: PlacementAdvice; closed: ReadonlySet<string>; spots: AdvisedSpot[] };
+
+  /**
+   * The spots shown, ranked: not those in a private room the viewer may not see (D-039), nor what
+   * they change in one; a spot left with nothing to change is not shown.
+   */
+  private spots(): AdvisedSpot[] {
+    const advice = this.advice;
+    if (!advice) return [];
+    const kept = this.shown;
+    if (kept?.advice === advice && kept.closed === this.closed) return kept.spots;
+    const closed = this.closed;
+    const spots = advice.spots
+      .filter((spot) => !closed.has(spot.room))
+      .map((spot) => ({ ...spot, changes: spot.changes.filter((c) => !closed.has(c.room)) }))
+      .filter((spot) => spot.changes.length > 0);
+    this.shown = { advice, closed, spots };
+    return spots;
+  }
+
   /** The rooms' colours: as covered now, or with the spot chosen. */
   private recolour(): void {
     const advice = this.advice;
@@ -538,7 +577,7 @@ export class DomoTwinPlacement extends LitElement {
       return;
     }
     const values = coverageValues(advice);
-    const spot = this.selected !== undefined ? advice.spots[this.selected - 1] : undefined;
+    const spot = this.selected !== undefined ? this.spots()[this.selected - 1] : undefined;
     for (const change of spot?.changes ?? []) values[change.room] = LEVEL_RANK[change.to];
     fire(this, "domotwin-coverage", values);
   }
@@ -556,7 +595,7 @@ export class DomoTwinPlacement extends LitElement {
       ...advice.radios
         .filter((r) => r.storey === this.storey)
         .map((r) => ({ kind: "radio" as const, id: r.id, at: r.at })),
-      ...advice.spots.flatMap((s, k) =>
+      ...this.spots().flatMap((s, k) =>
         s.storey === this.storey ? [{ kind: "spot" as const, id: String(k + 1), at: s.at }] : [],
       ),
     ];
@@ -583,24 +622,37 @@ export class DomoTwinPlacement extends LitElement {
       this.error = this.t.t("placement.place_full");
       return;
     }
+    // The first name not taken: after a removal, no two of the same name.
+    const names = new Set(now.map((point) => point.name));
+    let n = 1;
+    while (names.has(this.t.t("placement.access_point", { n }))) n += 1;
     const point: AccessPoint = {
       storey,
       at: [Math.round(at[0]), Math.round(at[1])],
-      name: this.t.t("placement.access_point", { n: now.length + 1 }),
+      name: this.t.t("placement.access_point", { n }),
     };
     void this.saveAccessPoints([...now, point]);
   }
 
+  /**
+   * Keeps the access points: shown at once, so that a second change starts from this one; saved
+   * with the settings; shown as they were again when the save is refused.
+   */
   private async saveAccessPoints(points: AccessPoint[]): Promise<void> {
     const hass = this.hass;
     if (!hass) return;
+    const before = this.saved;
+    this.saved = points;
+    if (this.radio === "wifi") void this.load();
     const client = DomoTwinClient.for(hass);
     try {
       const { settings } = await client.getSettings();
       await client.saveSettings({ ...settings, access_points: points });
-      this.saved = points;
-      if (this.radio === "wifi") void this.load();
     } catch (error) {
+      if (this.saved === points) {
+        this.saved = before;
+        if (this.radio === "wifi") void this.load();
+      }
       const t = this.t;
       const code = (error as { code?: unknown } | null)?.code;
       this.error = t.t("placement.save_failed", {
@@ -693,7 +745,6 @@ export class DomoTwinPlacement extends LitElement {
 
   private renderMarkers(): TemplateResult {
     const t = this.t;
-    const advice = this.advice;
     return html`${this.markers.map((marker) => {
       const style = `left:${marker.x}px;top:${marker.y}px`;
       if (marker.kind === "radio") {
@@ -709,7 +760,7 @@ export class DomoTwinPlacement extends LitElement {
         >`;
       }
       const rank = Number(marker.id);
-      const spot = advice?.spots[rank - 1];
+      const spot = this.spots()[rank - 1];
       const label = spot
         ? t.t("placement.spot_marker", { n: rank, place: this.spotPlace(spot) })
         : marker.id;
@@ -794,10 +845,10 @@ export class DomoTwinPlacement extends LitElement {
       }
       <h3>${t.t(`placement.next_${radio}`)}</h3>
       ${
-        advice.spots.length === 0
+        this.spots().length === 0
           ? html`<p class="hint" data-testid="placement-covered">${t.t("placement.covered")}</p>`
           : html`<ol data-testid="placement-spots">
-                ${advice.spots.map((spot, k) => this.renderSpot(spot, k + 1))}
+                ${this.spots().map((spot, k) => this.renderSpot(spot, k + 1))}
               </ol>
               <p class="hint">${t.t("placement.alone")}</p>
               ${
@@ -813,7 +864,9 @@ export class DomoTwinPlacement extends LitElement {
       }
       <h3>${t.t("placement.rooms")}</h3>
       <ul data-testid="placement-rooms">
-        ${worstFirst(advice.rooms).map((room) => this.renderRoom(room))}
+        ${worstFirst(advice.rooms.filter((room) => !this.closed.has(room.id))).map((room) =>
+          this.renderRoom(room),
+        )}
       </ul>`;
   }
 

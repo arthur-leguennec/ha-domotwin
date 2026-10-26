@@ -2242,15 +2242,17 @@ does not wait on what they show, and the order of the rest stays.
     - Bluetooth: a receiver learned it (taught, or presence sensors agreeing, D-035) for at least
       as many readings as the plan counts for (eight): the best receiver's mean, the device's own
       loudness taken away (a phone as the model has it);
-    - Zigbee: a device placed in it (D-031) has a link of known LQI to the coordinator or a router
-      heard from in the last day: the best one, read as the map reads it (good from 150, fair
-      from 80, weak below);
+    - Zigbee: an end device placed in it (D-031) has a link of known LQI to the coordinator or a
+      router heard from in the last day: the best one, read as the map reads it (good from 150,
+      fair from 80, weak below). A room with the coordinator or a router is covered by it: its
+      links to the others are the mesh's health, the network map's;
     - Wi-Fi: a device placed in it reports its Wi-Fi signal: a sensor of the `signal_strength`
       class in dBm of an ESPHome, Shelly, Tasmota, WLED or other Wi-Fi device, or named after
       Wi-Fi; never one of ZHA's, Z-Wave's or Bluetooth's, nor a phone's, which moves. The best of
       them.
 
     A measured room shows what was measured, and by what; the others what the model predicts.
+    Its Wi-Fi signals are read again as they change, to a decibel, at most every 30 seconds.
   - **The model is D-035's, for each radio.** The signal falls with the distance (exponent 2.2),
     4 dB a wall, 0.4 of a wall for a door, none for a side left open, 15 dB a floor, worked out
     over the same points of each room as the locating (up to twelve, clear of its sides) at
@@ -2284,6 +2286,10 @@ does not wait on what they show, and the order of the rest stays.
     it stands by (within 1.5 m; not a finish of the room nor what hangs from its ceiling or walls);
     none when no spot raises a room's level ("every room is covered well"). Each spot is the next
     radio alone, not one of three to add; a spot tapped shows the rooms as they would be with it.
+    Beyond 24 rooms, each room is weighed from four of its points and offers its middle alone:
+    the advice takes tens of milliseconds there, not hundreds.
+  - **Private rooms (D-039)** the viewer may not see show nothing of their coverage, as their
+    floors are not coloured: not in the sheet, no spot in them, nothing they would gain.
   - **The radios.**
     - The Bluetooth receivers, where the locating places them (D-035): `domotwin/locating/get`
       gives each one's place (storey, point, height) and what each learned in each room (mean and
@@ -2296,8 +2302,9 @@ does not wait on what they show, and the order of the rest stays.
       settings (`access_points`: its storey, its point, a name; 16 at most); the sheet removes
       one. A router's integration does not say where its access points are in the home.
   - **Where it runs: in the page.** The model is the analysis module's (D-043), loaded the first
-    time the layer is shown, from what the page already has: the storeys' plans and overlays, the
-    bindings, ZHA's mesh, the Wi-Fi sensors and the locating's answer. It is written again in the
+    time the layer is shown, from what the page already has: the storeys' plans and overlays (a
+    storey without a plan still a floor), the bindings, ZHA's mesh, the Wi-Fi sensors and the
+    locating's answer. It is written again in the
     core (`domotwin_core::coverage`), reading the plans as the integration does (rooms, doors,
     sides left open, pieces moved by the overlay), and tested against it: the walls between the
     same places of the demo apartment are the integration's. Each spot is weighed against every

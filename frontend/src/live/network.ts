@@ -216,15 +216,13 @@ export function zhaSource(hass: HomeAssistant, now: () => number = Date.now): Ne
 }
 
 /**
- * The piece each device is placed at: the element linked to its Home Assistant device, else the
- * first element one of its entities is linked to. Elements the plan shown does not have (`known`)
- * are left out.
+ * The piece linked to each Home Assistant device and to each entity (the first one), among the
+ * elements `known`: what places a device (D-031) or a sensor (D-057).
  */
-export function placeDevices(
-  devices: readonly NetworkDevice[],
+export function pieceIndex(
   bindings: BindingsJson,
   known: (element: string) => boolean,
-): Map<string, string> {
+): { byDevice: Map<string, string>; byEntity: Map<string, string> } {
   const byDevice = new Map<string, string>();
   const byEntity = new Map<string, string>();
   for (const [element, binding] of Object.entries(bindings.elements)) {
@@ -234,6 +232,20 @@ export function placeDevices(
       if (!byEntity.has(entity.entity_id)) byEntity.set(entity.entity_id, element);
     }
   }
+  return { byDevice, byEntity };
+}
+
+/**
+ * The piece each device is placed at: the element linked to its Home Assistant device, else the
+ * first element one of its entities is linked to. Elements the plan shown does not have (`known`)
+ * are left out.
+ */
+export function placeDevices(
+  devices: readonly NetworkDevice[],
+  bindings: BindingsJson,
+  known: (element: string) => boolean,
+): Map<string, string> {
+  const { byDevice, byEntity } = pieceIndex(bindings, known);
   const placed = new Map<string, string>();
   for (const device of devices) {
     const element =

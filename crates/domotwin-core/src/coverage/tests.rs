@@ -133,6 +133,25 @@ fn reads_leniently() {
 }
 
 #[test]
+fn a_storey_without_a_plan_is_a_floor_and_keeps_its_overlay_s_pieces() {
+    let home = Home::read(&json!([
+        { "id": "ground", "plan": plan(DEMO) },
+        { "id": "first", "elevation": 280, "plan": null,
+          "layout": { "router": { "add": { "kind": "box", "size": [20, 20, 10] }, "at": [100, 100] } } },
+        { "id": "second", "elevation": 560, "plan": plan(UPPER) }
+    ]));
+    assert_eq!(home.storey_ids, ["ground", "first", "second"]);
+    let router = &home.pieces["router"].spot;
+    assert_eq!(
+        (router.storey, router.x, router.y, router.z),
+        (1, 100.0, 100.0, 285.0)
+    );
+    let living = home.middle(home.room_index("living").unwrap()).unwrap();
+    let office = home.middle(home.room_index("up-office").unwrap()).unwrap();
+    assert_eq!(home.floors(&living, &office), 2);
+}
+
+#[test]
 fn the_signal_falls_with_the_distance_the_walls_and_the_floors() {
     let fixture = plan(FIXTURE);
     let home = Home::read(&fixture_storeys(&fixture));

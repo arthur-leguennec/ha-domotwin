@@ -8,6 +8,7 @@ import type { BindingsJson } from "../src/live/bindings";
 import { coverageAvailable, roomLayers } from "../src/live/layers";
 import type { LocatingSettings } from "../src/live/locating";
 import type { NetworkAnalysis, NetworkDevice } from "../src/live/network";
+import { homeStoreys } from "../src/live/storeys";
 import {
   bluetoothReadings,
   coverageValues,
@@ -71,7 +72,7 @@ function home(): HomeAssistant {
         ...WIFI,
         friendly_name: "Display signal",
       }),
-      "sensor.lamp_wifi": state("sensor.lamp_wifi", "-63", { ...WIFI, friendly_name: "Lamp" }),
+      "sensor.lamp_wifi": state("sensor.lamp_wifi", "-63.4", { ...WIFI, friendly_name: "Lamp" }),
       "sensor.desk_wifi_signal": state("sensor.desk_wifi_signal", "-80", WIFI),
       "sensor.nowhere_wifi_signal": state("sensor.nowhere_wifi_signal", "-60", WIFI),
       "sensor.broken_wifi_signal": state("sensor.broken_wifi_signal", "unavailable", WIFI),
@@ -230,11 +231,10 @@ describe("the Zigbee mesh (D-031)", () => {
     expect(readings.unplaced).toEqual(["Device far"]);
   });
 
-  it("measures each device placed by its best link of known quality to a relay", () => {
+  it("measures each end device placed by its best link of known quality to a relay", () => {
+    // A relay covers its own room: its links to the others are the network map's. The plug's
+    // link to the router not heard from for a day does not count; the shelf's has no quality.
     expect(zigbeeReadings(devices, placed, analysis).measured).toEqual([
-      { piece: "sideboard", level: "good", name: "Device c" },
-      { piece: "lamp", level: "good", name: "Device r" },
-      // Its link to the router not heard from for a day does not count.
       { piece: "washer", level: "fair", name: "Device s" },
     ]);
   });
@@ -255,7 +255,7 @@ describe("Wi-Fi", () => {
     expect(wifiSignal(hass, "light.nothing")).toBe(false);
   });
 
-  it("places the devices' signals at their pieces, else in their area's room", () => {
+  it("places the devices' signals, to a decibel, at their pieces, else in their area's room", () => {
     const readings = wifiReadings(home(), BINDINGS, STOREYS, [
       { storey: "ground", at: [10, 20], name: "Hall access point" },
       { storey: "upper", at: [30, 40] },
@@ -270,6 +270,26 @@ describe("Wi-Fi", () => {
       { piece: "lamp-added-1", signal: -63, name: "Lamp" },
       { piece: "shelf", signal: -71, name: "Plug WiFi signal" },
     ]);
+  });
+});
+
+describe("the home's storeys", () => {
+  it("are all there, lowest first, one without a plan too: it is a floor", () => {
+    const storeys = homeStoreys(
+      [
+        { id: "upper", name: "First floor", elevation: 280 },
+        { id: "attic", name: "", elevation: 560 },
+        { id: "ground", name: "", elevation: 0 },
+      ],
+      (id) => STOREYS.find((storey) => storey.id === id),
+    );
+    expect(storeys.map((s) => [s.id, s.elevation, s.plan === null])).toEqual([
+      ["ground", 0, false],
+      ["upper", 280, false],
+      ["attic", 560, true],
+    ]);
+    expect(storeys[0]?.layout).toEqual(STOREYS[0]?.layout);
+    expect("layout" in (storeys[2] ?? {})).toBe(false);
   });
 });
 

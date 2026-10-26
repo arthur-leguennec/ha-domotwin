@@ -22,9 +22,10 @@ ZHA set up) or **Wi-Fi**. Nothing leaves Home Assistant: the coverage is worked 
   - Bluetooth: a receiver learned the room ([Bluetooth locating](bluetooth.md): a room taught, or
     presence sensors agreeing) from at least eight readings; the best receiver's signal, the
     device's own loudness taken away;
-  - Zigbee: a device placed in the room ([the network map](network.md)) has a link to the
+  - Zigbee: an end device placed in the room ([the network map](network.md)) has a link to the
     coordinator or a router heard from in the last day; its best link, good from LQI 150, fair
-    from 80, weak below;
+    from 80, weak below. A room with the coordinator or a router is covered by it; how well that
+    one reaches the rest of the mesh is the network map's health;
   - Wi-Fi: a device placed in the room reports its Wi-Fi signal (ESPHome's *WiFi Signal*, a Shelly
     or Tasmota device's signal, WLED's); the best of them.
 
@@ -36,7 +37,9 @@ ZHA set up) or **Wi-Fi**. Nothing leaves Home Assistant: the coverage is worked 
   covered well* means no spot would raise a room.
 - **The radios.** Each one placed is marked on the plan. Those that cannot be placed are listed.
 
-Spots are marked on the storey shown; with every storey at once, the sheet lists them.
+Spots are marked on the storey shown; with every storey at once, the sheet lists them. A private
+room you may not see ([private rooms](privacy.md)) shows nothing of its coverage, and no spot in
+it.
 
 ## The radios
 
@@ -83,6 +86,8 @@ predicted levels agree.
 - Wi-Fi is 2.4 GHz as most devices of a home use it; 5 and 6 GHz go less far through walls.
 - Thread and Matter, Zigbee2MQTT and Z-Wave are not read yet.
 - The Bluetooth receivers' places and what they learned are read when the layer opens; the Wi-Fi
-  signals as they change.
+  signals as they change, at most every 30 seconds.
+- In a home of more than 24 rooms, each room is weighed from four of its points and offers its
+  middle alone as a spot, so that the advice stays quick.
 
 See `DECISIONS.md`, D-057, for the reasons behind these choices.

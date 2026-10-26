@@ -29,6 +29,8 @@ const ACROSS: f64 = 25.0;
 /// Most storeys, rooms, doors and pieces read.
 const MAX_STOREYS: usize = 64;
 const MAX_ITEMS: usize = 5_000;
+/// The plan of a storey that has none.
+static EMPTY: Value = Value::Null;
 
 /// A place in the home: a storey (lowest first), a point on its plan and a height (cm, from the
 /// lowest storey's floor).
@@ -79,14 +81,7 @@ impl Room {
 
     /// Its floor area (m²).
     pub fn area(&self) -> f64 {
-        let n = self.outline.len();
-        let twice: f64 = (0..n)
-            .map(|k| {
-                let (a, b) = (self.outline[(k + n - 1) % n], self.outline[k]);
-                a[0] * b[1] - b[0] * a[1]
-            })
-            .sum();
-        twice.abs() / 2.0 / 10_000.0
+        twice_area(&self.outline).abs() / 2.0 / 10_000.0
     }
 
     /// Whether a point may be inside: in the box around the room.
@@ -122,11 +117,13 @@ pub struct Home {
     open: BTreeSet<(usize, usize)>,
 }
 
-fn number(value: Option<&Value>) -> Option<f64> {
+/// A finite number, else nothing (a boolean is not one).
+pub(crate) fn number(value: Option<&Value>) -> Option<f64> {
     value.and_then(Value::as_f64).filter(|v| v.is_finite())
 }
 
-fn point(value: Option<&Value>) -> Option<Point> {
+/// A point `[x, y]` of finite numbers, else nothing.
+pub(crate) fn point(value: Option<&Value>) -> Option<Point> {
     let list = value?.as_array()?;
     if list.len() != 2 {
         return None;
@@ -208,16 +205,20 @@ fn across(a: Point, b: Point) -> [Point; 2] {
     [[mx + nx, my + ny], [mx - nx, my - ny]]
 }
 
-/// Whether an outline has no room in it (its corners on one line or one point).
-fn flat(outline: &[Point]) -> bool {
+/// Twice an outline's signed area (cm²).
+fn twice_area(outline: &[Point]) -> f64 {
     let n = outline.len();
-    let twice: f64 = (0..n)
+    (0..n)
         .map(|k| {
             let (a, b) = (outline[(k + n - 1) % n], outline[k]);
             a[0] * b[1] - b[0] * a[1]
         })
-        .sum();
-    twice.abs() < 2.0
+        .sum()
+}
+
+/// Whether an outline has no room in it (its corners on one line or one point).
+fn flat(outline: &[Point]) -> bool {
+    twice_area(outline).abs() < 2.0
 }
 
 /// `t` rounded to nine decimals, as the integration keeps the crossings.
@@ -256,6 +257,8 @@ impl Home {
             let plan = storey.get("plan").filter(|p| p.is_object());
             let layout = storey.get("layout").filter(|l| l.is_object());
             let mut doors = Vec::new();
+            // A storey without a plan still counts as a floor, and its overlay may add pieces.
+            home.read_pieces(index, plan.unwrap_or(&EMPTY), layout);
             if let Some(plan) = plan {
                 for room in listed(plan, "rooms") {
                     let outline: Vec<Point> = room
@@ -295,7 +298,6 @@ impl Home {
                         doors.push((a, b));
                     }
                 }
-                home.read_pieces(index, plan, layout);
             }
             home.doors.push(doors);
         }
@@ -438,13 +440,17 @@ impl Home {
     /// Where a radio stands when only its room is known: the room's point nearest its middle,
     /// at [`RADIO_AT`].
     pub fn middle(&self, room: usize) -> Option<Spot> {
-        let points = self.points(room);
+        self.middle_of(&self.points(room))
+    }
+
+    /// Of a room's points (`points`), the one nearest their middle, at [`RADIO_AT`].
+    pub fn middle_of(&self, points: &[Spot]) -> Option<Spot> {
         #[allow(clippy::cast_precision_loss)]
         let n = points.len().max(1) as f64;
         let cx = points.iter().map(|p| p.x).sum::<f64>() / n;
         let cy = points.iter().map(|p| p.y).sum::<f64>() / n;
         let mut best: Option<&Spot> = None;
-        for p in &points {
+        for p in points {
             if best.is_none_or(|b| (p.x - cx).hypot(p.y - cy) < (b.x - cx).hypot(b.y - cy)) {
                 best = Some(p);
             }

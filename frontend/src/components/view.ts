@@ -159,6 +159,7 @@ import {
 import { roomBarStyles, roomButtons } from "./room-bar";
 import {
   ALL_STOREYS,
+  homeStoreys,
   storeyCounts,
   storeyLevels,
   storeyName,
@@ -2840,8 +2841,9 @@ export class DomoTwinView extends LitElement {
   }
 
   /**
-   * Every storey's plan and overlay, lowest first, as the radio coverage reads them: the home
-   * shown whole, else the storey shown and the others' (the same array while they stay).
+   * Every storey of the home, lowest first, as the radio coverage reads them (D-057): their plans
+   * and overlays from the home shown whole, else from the storey shown and the others'; one with
+   * no plan still counts as a floor. The same array while they stay.
    */
   private placementStoreys(): HomeStorey[] {
     const from: unknown[] = [
@@ -2854,24 +2856,13 @@ export class DomoTwinView extends LitElement {
     ];
     const kept = this.placementHome;
     if (kept && kept.from.every((part, k) => part === from[k])) return kept.storeys;
-    let storeys: HomeStorey[];
-    if (this.home) {
-      storeys = this.home;
-    } else {
-      const shown = this.shownStorey();
-      const known =
-        this.storeys.length > 0 ? this.storeys : [{ id: shown, name: "", elevation: 0 }];
-      storeys = [...known]
-        .sort((a, b) => a.elevation - b.elevation)
-        .flatMap((info) => {
-          const other = this.elsewhere.find((e) => e.storey === info.id);
-          const here = info.id === shown;
-          const plan = here ? this.plan : other?.plan;
-          const layout = here ? this.layout : other?.layout;
-          if (plan === undefined || plan === null) return [];
-          return [{ id: info.id, name: info.name, elevation: info.elevation, plan, layout }];
-        });
-    }
+    const shown = this.shownStorey();
+    const known = this.storeys.length > 0 ? this.storeys : [{ id: shown, name: "", elevation: 0 }];
+    const storeys = homeStoreys(known, (id) => {
+      if (this.home) return this.home.find((storey) => storey.id === id);
+      if (id === shown) return { plan: this.plan, layout: this.layout };
+      return this.elsewhere.find((other) => other.storey === id);
+    });
     this.placementHome = { from, storeys };
     return storeys;
   }
@@ -4530,6 +4521,7 @@ export class DomoTwinView extends LitElement {
       .storey=${this.loadedHome ? undefined : this.shownStorey()}
       .placeable=${this.placeDevices}
       .accessPoints=${this.accessPoints}
+      .closed=${this.closed}
       @domotwin-coverage=${(event: CustomEvent<Record<string, number> | undefined>) => {
         event.stopPropagation();
         this.coverage = event.detail;

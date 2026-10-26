@@ -8,7 +8,7 @@ import type { HomeStorey } from "../engine/engine";
 import type { HomeAssistant } from "../ha/types";
 import { roomArea, type BindingsJson } from "./bindings";
 import type { LocatingSettings } from "./locating";
-import type { NetworkAnalysis, NetworkDevice } from "./network";
+import { pieceIndex, type NetworkAnalysis, type NetworkDevice } from "./network";
 import { planElements } from "./plan";
 
 export type RadioKind = "bluetooth" | "zigbee" | "wifi";
@@ -141,9 +141,10 @@ export function bluetoothReadings(locating: LocatingSettings): RadioReadings {
 }
 
 /**
- * The Zigbee coordinator and routers at their pieces (D-031), and how well each device placed is
- * linked: its best link of known quality to the coordinator or a router, as the network map reads
- * it. Devices not heard from for a day relay for no one and measure nothing.
+ * The Zigbee coordinator and routers at their pieces (D-031), and how well each end device placed
+ * is linked: its best link of known quality to the coordinator or a router, as the network map
+ * reads it. A relay covers its own room, whatever its links to the others (the network map's); a
+ * device not heard from for a day relays for no one and measures nothing.
  */
 export function zigbeeReadings(
   devices: readonly NetworkDevice[],
@@ -165,7 +166,7 @@ export function zigbeeReadings(
       if (piece) radios.push({ id: device.id, name: device.name, piece });
       else unplaced.push(device.name);
     }
-    if (!piece || info.get(device.id)?.stale !== false) continue;
+    if (!piece || info.get(device.id)?.stale !== false || relays(device.id)) continue;
     let best: keyof typeof rank | undefined;
     for (const link of analysis.links) {
       const other = link.a === device.id ? link.b : link.b === device.id ? link.a : undefined;
@@ -247,15 +248,7 @@ export function wifiReadings(
     at: ap.at,
   }));
   const pieces = pieceIds(storeys);
-  const byEntity = new Map<string, string>();
-  const byDevice = new Map<string, string>();
-  for (const [element, binding] of Object.entries(bindings.elements)) {
-    if (!pieces.has(element)) continue;
-    if (binding.device && !byDevice.has(binding.device)) byDevice.set(binding.device, element);
-    for (const entity of binding.entities) {
-      if (!byEntity.has(entity.entity_id)) byEntity.set(entity.entity_id, element);
-    }
-  }
+  const { byDevice, byEntity } = pieceIndex(bindings, (id) => pieces.has(id));
   const entitiesOf = new Map<string, string[]>();
   for (const entry of Object.values(hass.entities ?? {})) {
     if (!entry?.device_id) continue;
@@ -274,7 +267,8 @@ export function wifiReadings(
   for (const id of Object.keys(hass.states).sort()) {
     if (!wifiSignal(hass, id)) continue;
     const state = hass.states[id];
-    const signal = Number(state?.state);
+    // To a decibel: what changes less does not work the advice out again.
+    const signal = Math.round(Number(state?.state));
     if (!state || state.state.trim() === "" || !Number.isFinite(signal) || signal > 0) continue;
     const entry = hass.entities?.[id];
     const device = entry?.device_id ?? undefined;
