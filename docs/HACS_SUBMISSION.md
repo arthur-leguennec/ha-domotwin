@@ -28,7 +28,7 @@ maintainer.
 - [ ] Install test as a HACS custom repository, through HACS's own pages (the maintainer: HACS
       signs in to GitHub with the maintainer's account).
 - [ ] Measurements on real devices (`PERFORMANCE.md`): a recent phone, a wall tablet, a laptop
-      (the maintainer).
+      (the maintainer, with the panel's **Measure performance**, D-053).
 
 ## Submission
 

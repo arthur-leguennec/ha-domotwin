@@ -35,6 +35,34 @@ lists the budgets, how they are measured, and the numbers measured at each miles
 - **Scene.** `crates/domotwin-core/tests/scene.rs` builds the demo plan and fails above 120 000
   triangles; `stats()` reports the triangles and wall groups of any plan.
 
+## Real devices
+
+What DomoTwin does on the devices it is used on: a computer, a phone, a wall tablet, in a browser
+or in Home Assistant's companion app. One row per device and look, as the panel's
+**Measure performance** gives it (D-053).
+
+| Device | Screen | Cores, memory | GPU | DomoTwin | Look | Quality, scale | First picture | Turning: fps, p95 interval | Turning: CPU median, p95 | Still: fps, p95 interval | Still: CPU median, p95 | Wasm memory | Triangles |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+
+**How to measure.** In DomoTwin's panel, as an administrator: the **⋮** menu → **Measure
+performance** → **Start**, and leave the screen alone. DomoTwin opens the demo house in the
+evening, its lamps on, and draws it for five seconds while the camera turns around it, then for
+five seconds still while a lamp dims, in the look shown (or in each of the five looks, an option
+that takes about a minute). It then shows what it measured and the rows above, to copy with
+**Copy** (or to select by hand where an app refuses the clipboard). The first picture counts from
+opening the panel to the first frame of the home's own plan, when the home had one as the panel
+opened and the page stayed shown until it was drawn, so open the panel afresh on the home before
+measuring. Without a plan of the home yet, the menu shows once the demo house is open (**Try
+the demo house**); the first picture is then not measured. Keep the screen on: a run during which
+it was hidden is not counted. Nothing is sent or kept.
+
+- **fps** is a second over the median interval between frames, and **p95 interval** the interval
+  that 95 % of them stay under: the display's rate when the device keeps up (60 or 120).
+- **CPU** is the processor's time to prepare a frame, its labels and badges read (median and p95);
+  the graphics card's own time shows in the interval. The resolution adapts as in use.
+- **Quality, scale** is what `auto` chose (eco, balanced, high) and the resolution scale it had
+  then; **Wasm memory** the engine's WebAssembly memory; **Triangles** those of the scene drawn.
+
 ## Measurements
 
 ### M0 (scaffold: the engine only clears the view)
@@ -851,3 +879,13 @@ left.
 
 The house's ground floor is 19 460 triangles, its upper floor 18 106; the view draws one storey
 at a time, as for any home.
+
+### M16d (measured on real devices)
+
+Bundle: the first load is **509.9 kB gzipped** of 1 200 kB (+3.5 kB): the menu item, the view's
+timed run and first picture, and the texts in both languages. The measure itself comes on demand,
+the first time its menu item is used (`chunks/measure-<hash>.js`: 14.6 kB raw, 4.9 kB gzipped).
+
+Nothing of it runs until it is asked for. While it measures, the view's own frames are held
+(`benchmark()` draws the measured ones); the lamp it dims is told ten times a second; the demo
+house is put back as it was from a copy of its states.

@@ -1757,3 +1757,53 @@ After M16c.
     (`HACS_SUBMISSION.md`); 0.3.0 changes nothing it checks.
   - The roadmap lists M23 to M28 and 0.4.0, then M17, M18, M20 to M22 and 0.5.0, as planned;
     M19 is part of M25.
+
+## D-053 · Measure performance: a button for any device
+
+M16d, after 0.3.0: the measurements on real devices that HACS's default list waits for
+(`HACS_SUBMISSION.md`).
+
+- **Context.** `benchmark()` measured the view only from the tests, and a device only with the
+  developer tools, which a phone does not have and an iPhone needs a Mac for. A wall tablet in
+  the companion app had no way at all.
+- **Decision.**
+  - **Measure performance**, in the panel's ⋮ menu, for administrators. It opens the demo house
+    (or keeps it), in the evening with its lamps on and its day held, so that every device draws
+    the same home: its ground floor, in 3D, framed whole, not walking; waits until it is drawn in the
+    look; draws a few frames that are not counted
+    (the look's shaders are built then); then measures for five seconds while the camera turns
+    half around the home, and five seconds still while a lamp dims ten times a second. It
+    measures the look shown, or, as an option off by default, each of the five looks (about a
+    minute). A line says what runs and asks not to touch the screen; the panel's tools and the
+    demo's time and way out wait meanwhile, and a measure starts only when nothing else runs. The
+    demo house is put back exactly as it was (a copy of its states: its moment, its clock, its
+    lamps, what the visitor changed), with the storey and the 2D view shown before, and the home's
+    look comes back. A measure left (the panel closed, a phone locked) says
+    so when the panel shows again. Under reduced motion, the intro says the camera will still
+    turn.
+  - **`benchmark()`** runs for a time as well as for a number of frames, turning the camera or
+    calling back before each frame; the view's own frames are held meanwhile (its scheduler), so
+    that only the measured frames are drawn. A timed run draws a frame as in use: its labels and badges read
+    (counted in its CPU time) and its resolution adapted; a run during which the page was hidden
+    is not counted, and the measure asks to start again.
+  - **What it measures**, for each look: the frames a second (a second over the median interval
+    between frames) and the p95 interval, the CPU time of a frame (median, p95), the WebAssembly
+    memory, the quality `auto` chose and the resolution scale, the scene's triangles. And once:
+    the first picture, from opening the panel to the first frame of the home's own plan (not
+    the demo's; none when the home had no plan as the panel opened, or the page was hidden before
+    it was drawn); the device's user agent, screen and pixel
+    ratio, logical processors, memory where the browser says it (`deviceMemory`), the GPU where
+    WebGL names it (`WEBGL_debug_renderer_info`, else what WebGL says), browser or Home
+    Assistant's companion app (its bridge to the page, or its user agent), DomoTwin's version.
+  - **The result** in a sheet, readable, and as rows of the table of real devices in
+    `PERFORMANCE.md` (one a look), with **Copy**; where the clipboard is refused (some companion
+    apps), the text is selected to copy by hand.
+  - **Nothing is sent or kept** (D-022): no request, no storage; the rows are the user's to paste.
+    The measure is a chunk loaded when the menu item is used; nothing of it runs otherwise.
+- **Consequences.**
+  - The menu is the administrator's of a home with a plan; without one, it shows once the demo
+    house is open.
+  - `PERFORMANCE.md` has a table of real devices and how to fill it; the maintainer fills it from
+    a computer, a phone and a tablet, then ticks the box of `HACS_SUBMISSION.md`.
+  - The first load grows by the menu item, the view's run and first picture, and the texts
+    (+3.5 kB gzipped).

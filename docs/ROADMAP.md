@@ -41,6 +41,7 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M16b      | Robot vacuums on the floor, the home's energy at a glance  | ✅     |
 | M16c      | The demo house: a home, its automations and its day        | ✅     |
 | 0.3.0     | Third release: actions later to the demo house             | ✅     |
+| M16d      | Measured on real devices: a button in the panel            | ✅     |
 | M23       | An app: tabs, the home at a glance, the default dashboard  | ⏳     |
 | M24       | Rooms, devices and favourites: all of Home Assistant       | ⏳     |
 | M25       | History, graphs, energy over time, and Replay              | ⏳     |
@@ -65,7 +66,9 @@ rooms (M9g), the imports (M11), the polish (M12) and a pass over size and speed 
 picture as it is (M12b) come before a second release, 0.2.0, with the submission to HACS's default
 list (M13). What a phone and a real home showed after it comes first (M13b, D-045). Taps that say
 what they do (M16) come before the better-looking pieces (M15), so that the demo house shows them.
-The demo house (M16b, M16c) closes a third release, 0.3.0 (D-051). The maintainer then asked for
+The demo house (M16b, M16c) closes a third release, 0.3.0 (D-051). A button that measures any
+device comes right after it (M16d, D-053), for the measurements on real devices that HACS's list
+waits for. The maintainer then asked for
 DomoTwin to be the only dashboard a home needs: what the 3D view cannot do alone comes first (M23
 to M28, with Replay, once M19, in M25), before a fourth release, 0.4.0. A library of objects
 (M17), the outdoors (M18), more imports (M20) and more languages (M21) come after it, and a first
@@ -974,6 +977,29 @@ and the demo house (M16c).
   error and no request outside Home Assistant.
 - ✅ **Release 0.3.0**: release-please's pull request, merged once this is in `main`, tags
   `v0.3.0` and attaches `domotwin.zip`.
+
+## M16d, measured on real devices
+
+A device was measured only with the developer tools (`benchmark()` was the tests'), which a phone
+does not have and an iPhone needs a Mac for. The measurements on real devices that HACS's list
+waits for need a way any device has (D-053).
+
+- ✅ **Measure performance**, in the panel's ⋮ menu, for administrators: the demo house opened
+  (or kept), drawn in the evening, then five seconds with the camera turning around it and five
+  seconds still while a lamp dims, in the look shown or, as an option, in each of the five looks.
+- ✅ What it measures: the first picture (from opening the panel to the home's first frame), the
+  frames a second with the median and p95 of the interval between frames, the CPU time of a
+  frame (median, p95), the WebAssembly memory, the quality `auto` chose and the resolution scale,
+  the triangles; and the device: its user agent, screen and pixel ratio, cores, memory where the
+  browser says it, the GPU's name where WebGL gives it, browser or companion app, DomoTwin's
+  version.
+- ✅ The result in a sheet, and a row per look for the table of real devices in `PERFORMANCE.md`,
+  copied with a button, or selected to copy by hand where the clipboard is refused. Nothing sent,
+  nothing kept; a chunk loaded only when the menu item is used.
+- ✅ Tests: the device's name from its user agent, what the browser does not give, the rows and
+  the table's columns, a GPU's name kept in its cell (vitest); the item an administrator's, a
+  measure of the demo house to its row with no request elsewhere, the copy and its fallback, in
+  French (Playwright).
 
 ## Next: the only dashboard, to 0.4.0
 
