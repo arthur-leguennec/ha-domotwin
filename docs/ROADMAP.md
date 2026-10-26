@@ -43,7 +43,7 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | 0.3.0     | Third release: actions later to the demo house             | ✅     |
 | M16d      | Measured on real devices: a button in the panel            | ✅     |
 | M23       | The practical home: Home, Rooms and 3D, favourites         | ✅     |
-| 0.4.0     | Fourth release: the practical home, then two weeks of use  | ⏳     |
+| 0.4.0     | Fourth release: the practical home, devices measured       | ✅     |
 | M29       | Sandbox: the home's automations played on a copy of it     | ⏳     |
 | M30       | The Wi-Fi QR code, for guests                              | ⏳     |
 | M23b      | Into Home Assistant's Overview, rather than a copy of it   | ⏳     |
@@ -1065,8 +1065,16 @@ load grows by the tabs alone. Home Assistant's settings, integrations, automatio
 Home Assistant's.
 
 - ✅ **M23, the practical home** (D-055, above).
-- ⏳ **Release 0.4.0**, then **two weeks of use** at home before the rest: what is missed then
-  decides the order of what follows.
+- ✅ Tried in a fresh Home Assistant (2026.10.2), which opens on its own Overview: the smoke test,
+  then the panel in a browser. DomoTwin opens on *Home*; an entity starred in *Rooms* is shown on
+  *Home* as Home Assistant's own tile card, loaded with no dashboard opened before, and kept
+  across a restart; the 3D tab draws the plan, and back returns to *Home*; *Open DomoTwin when
+  Home Assistant opens* is offered as the user's own setting, and Home Assistant then opens on
+  DomoTwin. No error, no request outside Home Assistant.
+- ✅ **Release 0.4.0**: release-please's pull request, merged once this is in `main`, tags
+  `v0.4.0` and attaches `domotwin.zip`, with M16d and M23.
+- ⏳ **Two weeks of use** at home before the rest: what is missed then decides the order of M24 to
+  M26.
 
 ## Then, from 0.4.0 to 0.5.0
 
