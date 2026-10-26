@@ -23,9 +23,11 @@ Local, rapide, Rust + WebAssembly.</p>
 > pièces, la localisation Bluetooth, la voix, la finition (police, clavier, lecteurs d’écran), une
 > passe sur la taille et la vitesse, les téléphones, les actions à faire plus tard, des touchers
 > qui disent ce qu’ils font, des meubles qui ont l’air faits, les aspirateurs robots, l’énergie de
-> la maison et la maison de démo fonctionnent déjà, et forment la version 0.3.0. La maison
-> pratique (les onglets Accueil, Pièces et 3D) vient ensuite, avec la version 0.4.0, et la
-> proposition à la liste par défaut de HACS.
+> la maison, la maison de démo, la mesure de la vitesse d’un appareil et la maison pratique (les
+> onglets Accueil, Pièces et 3D) fonctionnent déjà, et forment la version 0.4.0. Un bac à sable
+> pour les automatisations de la maison vient ensuite, puis la Vue d’ensemble de Home Assistant
+> rejointe plutôt que copiée, vers la version 0.5.0 ; la proposition à la liste par défaut de
+> HACS attend des mesures sur de vrais appareils.
 
 ## Fonctionnalités
 

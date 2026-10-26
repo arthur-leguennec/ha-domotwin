@@ -21,9 +21,11 @@ Local, fast, Rust + WebAssembly.</p>
 > once, walking, the kiosk, the network map, the automation wires, the upkeep cards, the people in
 > their rooms, Bluetooth locating, voice, the polish (font, keyboard, screen readers), a pass over
 > size and speed, phones, actions done later, taps that say what they do, pieces that look made,
-> robot vacuums, the home's energy and the demo house work today, and make up version 0.3.0. The
-> practical home (the Home, Rooms and 3D tabs) comes next, with version 0.4.0, and the
-> submission to HACS's default list.
+> robot vacuums, the home's energy, the demo house, measuring a device's speed and the practical
+> home (the Home, Rooms and 3D tabs) work today, and make up version 0.4.0. A sandbox for the
+> home's automations comes next, then Home Assistant's own Overview joined rather than copied,
+> towards version 0.5.0; the submission to HACS's default list waits on measurements on real
+> devices.
 
 ## Features
 
