@@ -40,9 +40,13 @@ Local, rapide, Rust + WebAssembly.</p>
   en argile mate, comme une maquette d’architecte. Automatique : néon en mode sombre. Voir [les
   apparences](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/looks.md) (en
   anglais).
-- **Toucher pour piloter.** Touchez une lampe pour l’allumer ou l’éteindre, appuyez longuement pour
-  la luminosité et la couleur, appuyez longuement sur une pièce pour retrouver ses lumières, scènes,
-  volets, chauffage et lecteurs.
+- **Toucher pour piloter.** Touchez une lampe pour l’allumer ou l’éteindre ; une bulle au-dessus
+  dit ce qui s’est passé, montre sa luminosité et mène au reste. Touchez la télé pour l’allumer et
+  monter le son, l’aspirateur robot pour lancer le ménage. Touchez une pièce pour ses lumières, ses
+  volets et ses propres boutons (une scène, un script) ; appuyez longuement pour retrouver ses
+  lumières, scènes, volets, chauffage et lecteurs, et programmer ses lumières. Lier un appareil
+  propose ce qu’il sait faire en mots (monter le son, ouvrir, baisser la lumière), avec un mode
+  avancé pour toute action.
 - **En direct.** Les lampes éclairent leur pièce dans leur vraie couleur et luminosité, la
   télévision s’illumine, volets et rideaux bougent, portes et fenêtres s’ouvrent avec leurs
   capteurs.

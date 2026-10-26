@@ -759,3 +759,12 @@ connection, and works out the clocks only when the list, the bindings or the sta
 The integration sets one timer per action waiting, for its next step, and none while nothing waits;
 the store is written when an action is set, done or cancelled.
 
+### M16 (taps that say what they do)
+
+Bundle: the first load is **481.6 kB gzipped** of 1 200 kB (+6.3 kB): the framed room's buttons,
+its devices, the bubble's place over the piece, and the words of the plain actions in both
+languages. The bubble and the room panel's buttons come with the sheets, on demand (+1.1 kB); the
+link editor's plain actions and advanced mode with the editor (+2.9 kB). A room's devices are
+worked out once while the registries, the links and the pieces stay the same, not at every state
+change; what the buttons offer (media off while one plays) is read from the states then.
+

@@ -7,7 +7,8 @@ integration beside the plan, keyed by element id, so re-importing an updated pla
 > Status: the stored format below has not changed since M0. Since M2 the scene follows the bound
 > entities, taps and long presses act on them, and administrators link elements from the panel.
 > Since M3 the panel's editor also sets roles and the long-press action, runs an action or opens a
-> page.
+> page. Since M16 a tap leaves a bubble over the piece, the editor offers each device's plain
+> actions first, and rooms get actions of their own (`DECISIONS.md`, D-047).
 
 ![Long press on a lamp: its controls. Long press on a floor: the room panel](figures/screenshot-live.png)
 
@@ -17,7 +18,19 @@ integration beside the plan, keyed by element id, so re-importing an updated pla
 {
   "version": 1,
   "rooms": {
-    "living": { "area": "living_room" }
+    "living": {
+      "area": "living_room",
+      "actions": [
+        {
+          "name": "Evening",
+          "action": {
+            "action": "perform-action",
+            "perform_action": "scene.turn_on",
+            "target": { "entity_id": "scene.living_room_evening" }
+          }
+        }
+      ]
+    }
   },
   "elements": {
     "pendant-living": {
@@ -40,9 +53,12 @@ A complete example for the demo apartment is in
 
 ### `rooms`
 
-| Field  | Type   | Notes                                                                      |
-| ------ | ------ | -------------------------------------------------------------------------- |
-| `area` | string | Home Assistant area id. Room panels and layers use the area's entities.    |
+| Field     | Type   | Notes                                                                   |
+| --------- | ------ | ----------------------------------------------------------------------- |
+| `area`    | string | Home Assistant area id. Room panels and layers use the area's entities. |
+| `actions` | array  | At most 8 `{ name, action }`: buttons of the room, besides its lights and blinds (D-047). A name is 1 to 40 characters; an action is one of those below. |
+
+A room is kept with either: an area, actions of its own, or both.
 
 ### `elements`
 
@@ -84,10 +100,28 @@ The same shape as Home Assistant dashboard actions:
 | `more-info`      | `entity_id?`                                   | Opens Home Assistant's more-info dialog.     |
 | `perform-action` | `perform_action`, `data?`, `target?`           | Calls a service (`call-service` and `service` are accepted as aliases). |
 | `navigate`       | `navigation_path`                              | Navigates inside Home Assistant.             |
-| `controls`       | –                                              | Opens DomoTwin's in-scene popover.           |
+| `controls`       | –                                              | DomoTwin's controls: a bubble over the piece on a tap, its sheet on a long press. |
 | `none`           | –                                              | Does nothing.                                |
 
-Default tap: `toggle` for lights, switches, fans and covers, `more-info` otherwise.
+Default tap: `toggle` for lights, switches, fans and covers, `more-info` for a camera (its live
+picture), `controls` otherwise (a TV, a thermostat, a sensor: its bubble).
+
+**Plain actions.** What the link editor offers first for each device (D-047), each written as one
+of the actions above, so it works anywhere:
+
+| Domain | Plain actions |
+| --- | --- |
+| `light` | switch on or off, on, off, brighter, dimmer (`brightness_step_pct` ±20) |
+| `switch`, `input_boolean`, `humidifier`, `siren` | switch on or off, on, off |
+| `fan` | switch on or off, on, off, faster, slower |
+| `cover`, `valve` | open or close, open, close, stop (covers) |
+| `media_player` | switch on or off (`media_player.toggle`), on, off, play or pause, volume up, volume down, mute, sound back on, next |
+| `lock` | lock or unlock, lock, unlock |
+| `climate`, `water_heater` | on, off |
+| `vacuum` | start cleaning, pause, back to its base, find it |
+| `lawn_mower` | start mowing, pause, back to its base |
+| `scene`, `script` | activate, run |
+| `button`, `input_button` | press |
 
 ## In the scene
 
@@ -137,14 +171,24 @@ Assistant's more-info dialog, with the live picture. The card's `badges: false` 
 ## Tap and long press
 
 - **Tap** a bound element: its `tap_action`, with a short blue flash. A failed action shows a short
-  message with Home Assistant's reason.
-- **Tap** anything else: frames its room. The room's name appears at the bottom; tap it (or press
-  Enter) for the room panel.
+  message with Home Assistant's reason. After a switch or an action, and for DomoTwin's controls,
+  a **bubble** shows over the piece for 8 seconds: its device as it is now with its main control
+  (a lamp's switch and brightness, a fan's speed, a blind's buttons and position, a TV's power,
+  play, volume down, mute and volume up, a robot vacuum's start, pause and base, a lock, a
+  thermostat), and a way to everything about it. Over a piece linked to nothing, an administrator
+  gets the devices of its room that fit it, each linked with one tap, and **Link…**.
+- **Tap** anything else: frames its room. Its name appears at the bottom with what the room does
+  with a tap: its lights on and off, its blinds open and closed (never a garage door or a gate),
+  its media off while one plays (those that can switch off), and its own actions. Tap the name (or press Enter) for the room panel.
+- A tip says once, on each device, what a tap and a long press do.
 - **Long press** a bound element: its `hold_action`, by default DomoTwin's controls: a switch,
   brightness, warmth and colours for lights, open/stop/close and position for covers, media
   buttons and volume, lock, climate target, scene activation, the state of sensors.
-- **Long press** the floor of a room: the room panel, from the room's area (below): lights, scenes,
-  blinds and curtains, climate, media, other devices, and **All lights off**.
+- **Long press** the floor of a room: the room panel: what the room does together and its own
+  actions, then from the room's area (below) its lights, scenes, blinds and curtains, climate,
+  media and other devices; **Later**, to switch its lights or its blinds at a time
+  ([actions done later](later.md)); its automations. A room's lights are those of its area and
+  those linked to its pieces (a lamp on a smart plug linked as a light counts).
 - **Double tap**: the whole home.
 
 ### The room's area
@@ -190,12 +234,17 @@ instead of acting on it, and opens its editor:
   covers, appliances power sensors and switches, shelves, frames, spots and models cameras.
 - **Search** by name or entity id, accents ignored.
 - **On tap** and **On long press**: automatic (on tap from the first role, on long press
-  DomoTwin's controls), toggle, more info, DomoTwin's controls, **run an action** (`domain.action`,
-  for example `scene.turn_on`, on one of the linked entities or none), **open a page** (a path of
-  Home Assistant such as `/lovelace/0`) or nothing. The fields are checked before saving. An action
-  written by hand with fields the editor does not show (`data`, another target) is kept as it is.
+  DomoTwin's controls), the **plain actions** of each linked device (above: switch on, volume up,
+  open…), DomoTwin's controls, more info, or nothing.
+- **Advanced mode**: also toggle the main device, **run an action** (`domain.action`, for example
+  `scene.turn_on`, on one of the linked entities or none, with its data as JSON), **open a page**
+  (a path of Home Assistant such as `/lovelace/0`). The fields are checked before saving. An
+  action the plain choices cannot show opens the editor in this mode; one written by hand with
+  fields the editor does not show (another kind of target) is kept as it is.
 - For a camera: **what it sees**, its angle of view and reach (empty: 90° and 600 cm).
-- For a room: its **Home Assistant area**, with the one found by name preselected.
+- For a room: its **Home Assistant area**, with the one found by name preselected, and its
+  **actions**: up to eight, each a name and what it does, from the plain actions of the room's
+  devices (a scene, a script, a speaker…) or, in the advanced mode, any action or page.
 
 Each save applies this one change to the latest stored bindings and sends the revision it read: if
 another device saved in between, the save is refused with a message instead of overwriting it.

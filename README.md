@@ -37,8 +37,12 @@ Local, fast, Rust + WebAssembly.</p>
   **clay model**: the home in matte clay, like an architect's model. Automatic: neon in Home
   Assistant's dark mode. See
   [looks](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/looks.md).
-- **Tap to control.** Tap a lamp to toggle it, long-press for brightness and colour, long-press a
-  room to get every light, scene, cover, climate and media player of that room.
+- **Tap to control.** Tap a lamp to toggle it; a bubble over it shows what it did, its
+  brightness, and a way to everything else. Tap a TV for its power and volume, a robot vacuum to
+  send it cleaning. Tap a room for its lights, blinds and its own buttons (a scene, a script);
+  long-press it for every light, scene, cover, climate and media player there, and to switch its
+  lights later. Linking a device offers what it does in words (volume up, open, dimmer), with an
+  advanced mode for any action.
 - **Live.** Lamps light their room in their real colour and brightness, the TV glows, blinds and
   curtains move, doors and windows open with their contact sensors.
 - **Layers.** An animated heatmap of temperature, humidity, CO₂ or fine particles read from the

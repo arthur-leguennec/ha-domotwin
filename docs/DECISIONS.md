@@ -1480,7 +1480,7 @@ M14.
     its time with Home Assistant's `homeassistant.turn_on` and `turn_off`, a light's brightness
     with `light.turn_on`, covers with `cover.open_cover` and `close_cover` (the generic actions
     leave covers out). An action switches devices on, a light at a brightness, and off again at a time or
-    after a while; or switches them off. At most 100 wait, each on 10 devices at most, a year
+    after a while; or switches them off. At most 100 wait, each on 25 devices at most, a year
     ahead at most, a device left on a week at most.
   - **A restart loses nothing.** Once Home Assistant has started (every integration set up, so
     the devices are there), the steps missed are done in the order they were due. Switching off
@@ -1513,3 +1513,51 @@ M14.
     one, down to DomoTwin's 2025.1, leaves them out.
   - The actions are DomoTwin's: they show in its sheets and its diagnostics (counted, never which
     devices or when), not in Home Assistant's automations.
+
+## D-047 · Taps that say what they do: a bubble, plain actions, a room's own buttons
+
+M16.
+
+- **Context.** On a phone, a tap on a lamp switched it with nothing to show what happened; a tap
+  on a TV opened Home Assistant's dialog, far from the home drawn. Linking a TV offered "toggle",
+  "more info" and "run an action" with a service to type: nothing said "volume up". A room did
+  nothing with a tap but frame itself, and switching its lights off took its panel.
+- **Decision.**
+  - **A tap leaves a bubble** over the piece for 8 seconds (longer while it is touched or used
+    from the keyboard): its name, its device as it is now and
+    its main control (a lamp's switch and brightness, a fan's speed, a blind's buttons and
+    position, a TV's power, play and volume, a robot vacuum's start, pause and base, a lock, a
+    thermostat), and a way to the whole sheet. A long press still opens the sheet. Lights,
+    switches, fans and covers still switch on a tap, the bubble saying so; a camera still shows
+    its picture; anything else (a TV, a thermostat, a sensor) shows its bubble. A piece linked
+    to nothing shows an administrator the devices of its room that fit it, each linked with one
+    tap. A tip says once, per device, what a tap and a long press do.
+  - **Plain actions first.** The link editor offers, for each linked device, what it does in
+    words (switch on, dimmer, volume up, mute, open, stop, start cleaning, back to its base…),
+    grouped by device in a native list a phone shows well. An action left as it was is saved as
+    it was written, and one with fields the editor does not show stays as written. Each is
+    stored as an ordinary Home Assistant action (`perform-action` with its target and data, or a toggle), so a file written
+    by hand, a dashboard or an older DomoTwin reads it the same. An **advanced mode** adds the
+    main device's toggle, any action with its data (JSON) and a page; an action the plain list
+    cannot show opens the editor in it, and it cannot be left while one needs it.
+  - **A room has buttons.** A framed room's chip shows what it does with a tap: its lights on and
+    off, its blinds open and closed, its media off while one plays (icons), and the actions an
+    administrator gave it (names). Its panel shows the same with words, and **Later** switches its
+    lights or its blinds at a time (D-046).
+    A room's devices are those of its area and those linked to its pieces (where the view places
+    them, edits included): a lamp on a plug linked as a light is one of its lights. Its blinds
+    leave out garage doors, gates and doors, which a tap on a room must not open, and covers that
+    cannot open and close (a tilt-only one); its media off
+    leaves out players that cannot switch off, which would fail the whole call. More lights than
+    an action takes at once are set later in several actions. Lights switch through `light`, the others through
+    `homeassistant`; nothing targets the area itself, so a device of the area kept out (hidden,
+    configuration) is left alone.
+  - **A room's own actions** are stored with its area (`rooms.<id>.actions`, at most 8, each a
+    name of 40 characters at most and an action), checked by the integration like a piece's.
+  - An action switches up to 25 devices at once (was 10), so that a room's lights fit in one.
+- **Consequences.**
+  - The default tap of a TV changes from Home Assistant's dialog to its bubble; a binding that
+    says `more-info` keeps it.
+  - The room panel's **All lights off** becomes **Lights off** among the room's buttons, and
+    switches the room's lights by name rather than the whole area.
+  - Nothing new is sent anywhere: the bubble and the buttons call the same services as before.
