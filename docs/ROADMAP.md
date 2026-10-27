@@ -51,6 +51,7 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M23b      | Into Home Assistant's Overview, rather than a copy of it   | ✅     |
 | M36       | Configuration history: differences, one item put back      | ✅     |
 | M39       | Hydro-Québec's peaks, from the integrations that read them | ✅     |
+| M35       | Automations in plain words, played in the sandbox first    | ✅     |
 | M24       | History and energy, with Home Assistant's own cards        | ⏳     |
 | M25       | Safety: cameras, the doorbell, the alarm, alerts           | ⏳     |
 | M26       | The wall screen: a screen saver, a layout per device       | ⏳     |
@@ -59,7 +60,6 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | 0.5.0     | Fifth release: all of the above                            | ⏳     |
 | M33       | Guest access: chosen rooms, for a while                    | ⏳     |
 | M34       | Per-person rights: what DomoTwin shows each one            | ⏳     |
-| M35       | Automations in plain words, played in the sandbox first    | ⏳     |
 | M20       | More imports: robot vacuum maps, Floorplanner, meshes      | ⏳     |
 | M17       | A library of objects: many pieces, free and well made      | ⏳     |
 | M37       | A weekly home report                                       | ⏳     |
@@ -95,7 +95,8 @@ objects (M17), the outdoors (M18), more imports (M20) and more languages (M21), 
 release, 0.6.0. After the sandbox, the maintainer asked for history as reports (M38, D-058),
 "Why?" (M32, D-059) and the configuration history (M36, D-062) before the rest, which keeps its
 order. The maintainer then moved Hydro-Québec's peaks (M39) forward too (D-063): it plays
-its peak in the sandbox; its part in the weekly report (M37) comes with it.
+its peak in the sandbox; its part in the weekly report (M37) comes with it. Automations in plain
+words (M35) came next, at the maintainer's request (D-064), on the sandbox it plays its drafts in.
 
 ## M0, scaffold
 
@@ -1303,6 +1304,55 @@ stored; nothing shown without them.
   from *The day* and from the Home tab (Playwright).
 - ⏳ The week's peaks in the weekly report, with **M37**.
 
+## M35, automations in plain words
+
+One says what should happen; Home Assistant's own AI task, the one the user set up, writes the
+automation; DomoTwin says it back, has Home Assistant check it, plays it in the sandbox (M29) on
+the days one picks, and only then saves it (D-064). Moved forward by the maintainer, once the
+sandbox was in. DomoTwin calls no model itself.
+
+- ✅ **The way in**: *An automation in plain words* in the panel's ⋮ menu, for administrators,
+  only where Home Assistant (2025.8 and later) has an AI task that generates data, the one it
+  prefers first; not in the demo house nor in the sandbox. A chunk loaded when it opens.
+- ✅ **What goes to the AI task**, said before it is sent: the request, what an automation is, the
+  home's areas, entities (id, name, area, a sensor's kind and unit, a select's options, a
+  thermostat's modes) and actions; never their states; hidden, configuration and diagnostic
+  entities and a private room the viewer may not see left out; 1 000 entities at most, those in
+  an area first.
+- ✅ **Its answer read**: a name, the automation as JSON and the model's notes, read leniently
+  (code fences, words around it, an object as such), refused when it has no trigger or no action;
+  written as Home Assistant's editor writes it today (`triggers`, `conditions`, `actions`,
+  `mode`), the request as its description.
+- ✅ **Said back in plain words**, from the configuration alone, in English and French: *When*,
+  *Only if*, *Then*, nested; entities, areas and devices by their names, states as Home Assistant
+  says them, times, the sun, durations, a zone left empty; what Home Assistant does not have
+  marked, a step switched off said so.
+- ✅ **Checked with Home Assistant** (`validate_config`), and every entity, area, device, floor and
+  action it names looked up, since Home Assistant's check does not.
+- ✅ **Changed by asking** (the request, the draft and the change sent again), its name by hand;
+  *Copy* and Home Assistant's editor a tap away.
+- ✅ **Played in the sandbox**: added to the copy beside the home's automations, its wires on the
+  plan; the bar says what it did that day, the report puts it first; each day played kept (the
+  latest ten), listed back in the dialog.
+- ✅ **Only then saved**, as Home Assistant's editor saves (its configuration API, a new id),
+  Home Assistant's refusal shown as it gives it; then Home Assistant's editor of it.
+- ✅ **The sandbox's home zone** counts who is in it as people go out and come back, as Home
+  Assistant's zones do, so that "when the last person leaves" plays.
+- ✅ Nothing in the integration; the draft is kept in the page, across the sandbox and back.
+- ✅ Tests: the AI tasks offered, what the AI task is told and never told, the request and a
+  change, the answer read in its forms, the names Home Assistant lacks, its check, the save, the
+  entity in the sandbox, the words in both languages (times, the sun, durations, choices, ifs,
+  repeats, what runs at once, notifications, what is missing), the draft played beside the home's
+  automations and what it did each day, the home zone, the session's gates (vitest); offered or
+  not, written, said back, played in the sandbox and back, saved through Home Assistant's
+  configuration API, changed and played again, what Home Assistant lacks or refuses, an answer
+  that is no automation, an AI task that refuses, an answer cancelled, the draft kept, French
+  (Playwright).
+- Measured: see [`PERFORMANCE.md`](PERFORMANCE.md), M35.
+- Left for later: a draft opened in Home Assistant's own editor before it is saved (its editor
+  takes one only from inside its frontend); an automation of the home changed in plain words; the
+  sandbox playing several days at once.
+
 ## Then, from 0.4.0 to 0.5.0
 
 Planned in D-056: the sandbox first, built during the two weeks of use since it does not wait on
@@ -1357,12 +1407,8 @@ milestone starts, which goes on with what needs no answer.
   on the plan in one place. DomoTwin can hide; Home Assistant decides what is enforced, and today
   lets every user act on every entity: said where the rights are set. Real enforcement needs Home
   Assistant ❓.
-- ⏳ **M35, automations in plain words, tested first**: one says what one wants ("when the last
-  person leaves, switch the lights off and lock the door"); Home Assistant's own AI task, the one
-  the user set up, writes the automation; DomoTwin says it back in plain words, checks it with
-  Home Assistant, plays it in the sandbox (M29) on days one picks, and only then saves it, Home
-  Assistant's automation editor a tap away. DomoTwin calls no model itself; without an AI task,
-  nothing is offered. For administrators.
+- ✅ **M35, automations in plain words, tested first** (D-064, above): moved forward by the
+  maintainer once the sandbox was in.
 - ⏳ **M20, more imports**: robot vacuum maps (Valetudo and others), Floorplanner, meshes.
 - ⏳ **M17, a library of objects**: many more pieces, free and well made, drawn from real
   references, still fast.

@@ -1031,3 +1031,22 @@ rooms are drawn like a heatmap: at the layers' pace (24 frames a second), still 
 motion*; what they draw alone is written, not drawn, and needs no frame. In the sandbox, the
 peak's day adds a few changes to the day played, and what each room did is read every five minutes
 from the pre-heating to the peak's end when the report opens, once for each day played.
+
+### M35 (automations in plain words)
+
+Bundle: the first load is **524.9 kB gzipped** of 1 200 kB (+0.9 kB): whether Home Assistant has an
+AI task (`ai-task.ts`), the menu item and its text, the view's way to draw a draft's wires, and
+the shared reading of Home Assistant's refusals. The dialog, the plain words and the reading of
+the AI task's answer come on demand, the first time the dialog opens
+(`chunks/plain-dialog-<hash>.js`: 71.1 kB raw, 20.5 kB gzipped, of which 21.7 kB raw are its texts
+in both languages). The sandbox's chunk grows by the draft's part (110.3 kB raw, +1.3 kB; the
+same 34.3 kB gzipped, the configuration's reading and the time it shares with the dialog split out).
+
+Nothing runs until the dialog opens, and nothing is asked of Home Assistant then but the AI task
+it prefers. The home is told once for each question: for 2 000 entities in 40 areas, the 1 000
+named (60 kB of text) are written in 8 ms (median of seven, Node 22 on a 2.1 GHz Xeon core); an
+automation of 270 triggers, conditions and actions is said in words in 8 ms and its names looked
+up in 3 ms, once for each draft, not at each state of the home, which does not draw the dialog
+again. The AI task is asked once for each draft and Home Assistant's check once after it. In the
+sandbox, the draft is one more automation of the day played; what it did is read from the day's
+report, once for each day played.
