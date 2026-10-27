@@ -908,7 +908,7 @@ goes or moves, not on every state; a search runs again when it or the home chang
 
 Bundle: the first load is **516.0 kB gzipped** of 1 200 kB (+0.5 kB): the menu item and its text,
 and two error texts. The dialog, its texts in both languages and the comparison come on demand the
-first time it opens (`chunks/history-dialog-<hash>.js`: 24.3 kB raw, 7.1 kB gzipped).
+first time it opens (`chunks/config-history-dialog-<hash>.js`: 24.3 kB raw, 7.1 kB gzipped).
 
 The integration reads a kind only after Home Assistant announces a change to it, a second later
 (five for the scripts, whose reload announces nothing), one reading at a time, and once when it

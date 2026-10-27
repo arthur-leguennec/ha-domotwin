@@ -128,7 +128,7 @@ Local, fast, Rust + WebAssembly.</p>
   kept, by item and date, inside Home Assistant: what changed, in words ("Trigger 1 › offset:
   -00:30:00 → -00:20:00", "Action 2 added"), and one item put back as it was, through the commands
   Home Assistant's own editors use. For administrators; no add-on, no Git. See [configuration
-  history](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/history.md).
+  history](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/config-history.md).
 - **Your voice.** A microphone button opens Home Assistant's Assist already listening, on a wall
   tablet as on a phone. When Assist cannot hear yet, DomoTwin sets up local voice with your
   consent: Whisper or Speech-to-Phrase and Piper, installed through the Supervisor, nothing

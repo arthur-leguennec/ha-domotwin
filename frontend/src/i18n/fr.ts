@@ -659,7 +659,7 @@ export const fr: Dictionary = {
     first_failed:
       "Vos choix sont enregistrés, mais Home Assistant n’a pas gardé la page qu’il ouvre en premier : {reason}",
   },
-  history: {
+  config_history: {
     menu: "Historique de la configuration",
   },
   measure: {

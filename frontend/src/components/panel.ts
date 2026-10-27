@@ -264,7 +264,7 @@ const PANEL_DIALOGS = [
   "domotwin-bluetooth-settings",
   "domotwin-private-rooms",
   "domotwin-voice",
-  "domotwin-history",
+  "domotwin-config-history",
   "domotwin-link",
   "domotwin-catalogue",
   "domotwin-model-import",
@@ -311,7 +311,7 @@ export class DomoTwinPanel extends LitElement {
     bluetoothOpen: { state: true },
     privacyRooms: { state: true },
     voiceOpen: { state: true },
-    historyOpen: { state: true },
+    configHistoryOpen: { state: true },
     moreOpen: { state: true },
     tight: { state: true },
     compact: { type: Boolean, reflect: true },
@@ -421,8 +421,8 @@ export class DomoTwinPanel extends LitElement {
   protected privacyRooms?: RoomChoice[];
   /** The voice settings (D-041) are open. */
   protected voiceOpen = false;
-  /** The configuration history (D-057) is open, its module loaded. */
-  protected historyOpen = false;
+  /** The configuration history (D-059) is open, its module loaded. */
+  protected configHistoryOpen = false;
   /** The menu of the export and the home's settings is open. */
   protected moreOpen = false;
   /** Too narrow for every button (a phone): the import and the storeys go in the More menu. */
@@ -1136,7 +1136,7 @@ export class DomoTwinPanel extends LitElement {
     this.locating = undefined;
     this.privacyRooms = undefined;
     this.voiceOpen = false;
-    this.historyOpen = false;
+    this.configHistoryOpen = false;
     this.storeysOpen = false;
     this.storeyRemoveAsk = undefined;
     this.plan = undefined;
@@ -3181,7 +3181,7 @@ export class DomoTwinPanel extends LitElement {
               )}
               ${item("privacy-settings", mdiLockOutline, t.t("privacy.title"), this.busy, this.openPrivacy)}
               ${item("voice-settings", mdiMicrophoneMessage, t.t("voice.settings"), this.busy, this.openVoice)}
-              ${item("history", mdiHistory, t.t("history.menu"), this.busy, this.openHistory)}
+              ${item("config-history", mdiHistory, t.t("config_history.menu"), this.busy, this.openConfigHistory)}
               ${item("measure", mdiSpeedometer, t.t("measure.menu"), this.busy || this.measureOpen, this.openMeasure)}
               <hr />
               ${
@@ -3207,11 +3207,11 @@ export class DomoTwinPanel extends LitElement {
     }
   };
 
-  /** Opens the configuration history (D-057): its module and texts, loaded the first time. */
-  private readonly openHistory = async (): Promise<void> => {
+  /** Opens the configuration history (D-059): its module and texts, loaded the first time. */
+  private readonly openConfigHistory = async (): Promise<void> => {
     try {
-      await import("./history-dialog");
-      this.historyOpen = true;
+      await import("./config-history-dialog");
+      this.configHistoryOpen = true;
     } catch (error) {
       this.show(this.describe(error), true);
     }
@@ -3587,11 +3587,11 @@ export class DomoTwinPanel extends LitElement {
         : nothing
     }
     ${
-      this.historyOpen
-        ? html`<domotwin-history
+      this.configHistoryOpen
+        ? html`<domotwin-config-history
             .hass=${this._hass}
-            @domotwin-close=${() => (this.historyOpen = false)}
-          ></domotwin-history>`
+            @domotwin-close=${() => (this.configHistoryOpen = false)}
+          ></domotwin-config-history>`
         : nothing
     }
     ${this.storeysOpen ? this.renderStoreysDialog() : nothing}`;

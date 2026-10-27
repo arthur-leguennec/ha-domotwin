@@ -1,5 +1,5 @@
 /**
- * The configuration history (D-057): each change of an automation, a script, a scene or a
+ * The configuration history (D-059): each change of an automation, a script, a scene or a
  * dashboard, kept by the integration; what changed between two versions, in words where it can;
  * one item put back through Home Assistant's own configuration commands.
  */
@@ -8,14 +8,14 @@ import { isEntityId } from "../ha/types";
 import type { MessageKey, Translator } from "../i18n";
 import { unaccented } from "./text";
 
-export type HistoryKind = "automation" | "script" | "scene" | "dashboard";
-export const HISTORY_KINDS: readonly HistoryKind[] = ["automation", "script", "scene", "dashboard"];
+export type ConfigKind = "automation" | "script" | "scene" | "dashboard";
+export const CONFIG_KINDS: readonly ConfigKind[] = ["automation", "script", "scene", "dashboard"];
 
-/** An item kept, as `domotwin/history/list` gives it. */
-export interface HistoryItem {
+/** An item kept, as `domotwin/config_history/list` gives it. */
+export interface ConfigItem {
   /** `<kind>:<key>`. */
   id: string;
-  kind: HistoryKind;
+  kind: ConfigKind;
   /** Its id (an automation's, a scene's), its key (a script's), its URL path (a dashboard's,
    * empty for the default one). */
   key: string;
@@ -29,8 +29,8 @@ export interface HistoryItem {
   changed: string;
 }
 
-/** A version of an item, as `domotwin/history/item` gives it. */
-export interface HistoryVersion {
+/** A version of an item, as `domotwin/config_history/item` gives it. */
+export interface ConfigVersion {
   id: number;
   at: string;
   removed: boolean;
@@ -40,35 +40,38 @@ export interface HistoryVersion {
   same_as?: number;
 }
 
-export interface HistoryList {
-  items: HistoryItem[];
+export interface ConfigList {
+  items: ConfigItem[];
   /** The room the versions take, and the most they may (bytes). */
   bytes: number;
   max_bytes: number;
 }
 
-export interface HistoryDetail {
-  item: HistoryItem;
+export interface ConfigDetail {
+  item: ConfigItem;
   /** Newest first. */
-  versions: HistoryVersion[];
+  versions: ConfigVersion[];
 }
 
-export function historyList(hass: HomeAssistant): Promise<HistoryList> {
-  return hass.connection.sendMessagePromise<HistoryList>({ type: "domotwin/history/list" });
+export function configHistoryList(hass: HomeAssistant): Promise<ConfigList> {
+  return hass.connection.sendMessagePromise<ConfigList>({ type: "domotwin/config_history/list" });
 }
 
-export function historyItem(hass: HomeAssistant, item: string): Promise<HistoryDetail> {
-  return hass.connection.sendMessagePromise<HistoryDetail>({ type: "domotwin/history/item", item });
+export function configHistoryItem(hass: HomeAssistant, item: string): Promise<ConfigDetail> {
+  return hass.connection.sendMessagePromise<ConfigDetail>({
+    type: "domotwin/config_history/item",
+    item,
+  });
 }
 
 /** A version's configuration; null when it was removed or too large to keep. */
-export async function historyVersion(
+export async function configHistoryVersion(
   hass: HomeAssistant,
   item: string,
   version: number,
 ): Promise<unknown> {
   const result = await hass.connection.sendMessagePromise<{ config: unknown }>({
-    type: "domotwin/history/version",
+    type: "domotwin/config_history/version",
     item,
     version,
   });
@@ -81,7 +84,7 @@ export async function historyVersion(
  */
 export async function putBack(
   hass: HomeAssistant,
-  item: HistoryItem,
+  item: ConfigItem,
   config: unknown,
 ): Promise<void> {
   if (item.kind === "dashboard") {
@@ -101,9 +104,9 @@ export async function putBack(
 }
 
 /** Has the integration read a kind again now (after an item was put back): the versions kept. */
-export async function refreshHistory(hass: HomeAssistant, kind: HistoryKind): Promise<number> {
+export async function refreshConfigHistory(hass: HomeAssistant, kind: ConfigKind): Promise<number> {
   const result = await hass.connection.sendMessagePromise<{ changed: number }>({
-    type: "domotwin/history/refresh",
+    type: "domotwin/config_history/refresh",
     kind,
   });
   return result.changed;
@@ -126,9 +129,9 @@ export function refusal(error: unknown): string | undefined {
 
 /** Whether a version can be put back: not the current one, nor what Home Assistant cannot take. */
 export function canPutBack(
-  item: HistoryItem,
-  version: HistoryVersion,
-  newest: HistoryVersion | undefined,
+  item: ConfigItem,
+  version: ConfigVersion,
+  newest: ConfigVersion | undefined,
 ): boolean {
   if (item.source !== "editor" || !version.kept || version.removed) return false;
   if (newest?.id === version.id) return false;
@@ -137,7 +140,7 @@ export function canPutBack(
 }
 
 /** The page of Home Assistant for the item: its editor, or the dashboard. */
-export function editorPath(item: HistoryItem): string | undefined {
+export function editorPath(item: ConfigItem): string | undefined {
   if (item.removed) return undefined;
   if (item.kind === "dashboard") return `/${item.key || "lovelace"}`;
   if (item.source !== "editor") return undefined;
@@ -146,10 +149,10 @@ export function editorPath(item: HistoryItem): string | undefined {
 
 /** The items of a kind (every kind without one) whose name or key holds every word searched. */
 export function filterItems(
-  items: readonly HistoryItem[],
-  kind: HistoryKind | undefined,
+  items: readonly ConfigItem[],
+  kind: ConfigKind | undefined,
   search: string,
-): HistoryItem[] {
+): ConfigItem[] {
   const words = unaccented(search).split(/\s+/).filter(Boolean);
   return items.filter((item) => {
     if (kind && item.kind !== kind) return false;
@@ -395,49 +398,49 @@ export interface ChangeWords {
 /** The lists whose items are numbered, by their key, and the word of an item. */
 const LISTS = new Map<string, MessageKey>(
   Object.entries({
-    triggers: "history.place.trigger",
-    trigger: "history.place.trigger",
-    conditions: "history.place.condition",
-    condition: "history.place.condition",
-    actions: "history.place.action",
-    action: "history.place.action",
-    sequence: "history.place.step",
-    then: "history.place.action",
-    else: "history.place.action",
-    default: "history.place.action",
-    choose: "history.place.choice",
-    options: "history.place.option",
-    views: "history.place.view",
-    cards: "history.place.card",
-    sections: "history.place.section",
-    badges: "history.place.badge",
+    triggers: "config_history.place.trigger",
+    trigger: "config_history.place.trigger",
+    conditions: "config_history.place.condition",
+    condition: "config_history.place.condition",
+    actions: "config_history.place.action",
+    action: "config_history.place.action",
+    sequence: "config_history.place.step",
+    then: "config_history.place.action",
+    else: "config_history.place.action",
+    default: "config_history.place.action",
+    choose: "config_history.place.choice",
+    options: "config_history.place.option",
+    views: "config_history.place.view",
+    cards: "config_history.place.card",
+    sections: "config_history.place.section",
+    badges: "config_history.place.badge",
   } as const),
 );
 
 /** The fields said in words, by their key. */
 const FIELDS = new Map<string, MessageKey>(
   Object.entries({
-    alias: "history.field.name",
-    name: "history.field.name",
-    title: "history.field.title",
-    description: "history.field.description",
-    mode: "history.field.mode",
-    max: "history.field.max",
-    icon: "history.field.icon",
-    variables: "history.field.variables",
-    fields: "history.field.fields",
-    use_blueprint: "history.field.blueprint",
-    entities: "history.field.entities",
-    path: "history.field.path",
-    triggers: "history.field.triggers",
-    trigger: "history.field.triggers",
-    conditions: "history.field.conditions",
-    condition: "history.field.conditions",
-    actions: "history.field.actions",
-    action: "history.field.actions",
-    sequence: "history.field.sequence",
-    views: "history.field.views",
-    cards: "history.field.cards",
+    alias: "config_history.field.name",
+    name: "config_history.field.name",
+    title: "config_history.field.title",
+    description: "config_history.field.description",
+    mode: "config_history.field.mode",
+    max: "config_history.field.max",
+    icon: "config_history.field.icon",
+    variables: "config_history.field.variables",
+    fields: "config_history.field.fields",
+    use_blueprint: "config_history.field.blueprint",
+    entities: "config_history.field.entities",
+    path: "config_history.field.path",
+    triggers: "config_history.field.triggers",
+    trigger: "config_history.field.triggers",
+    conditions: "config_history.field.conditions",
+    condition: "config_history.field.conditions",
+    actions: "config_history.field.actions",
+    action: "config_history.field.actions",
+    sequence: "config_history.field.sequence",
+    views: "config_history.field.views",
+    cards: "config_history.field.cards",
   } as const),
 );
 
@@ -460,7 +463,7 @@ function at(root: unknown, path: Path): unknown {
 /** Where a change is, in words: "Action 2 › data › brightness", "View “Kitchen” › Card 3". */
 export function placeOf(
   t: Translator,
-  kind: HistoryKind,
+  kind: ConfigKind,
   change: Change,
   before: unknown,
   after: unknown,
@@ -479,7 +482,7 @@ export function placeOf(
       const title = (at(root, change.path.slice(0, index + 1)) as { title?: unknown } | undefined)
         ?.title;
       if (parent === "views" && typeof title === "string" && title) {
-        label = t.t("history.place.view_named", { title });
+        label = t.t("config_history.place.view_named", { title });
       }
       parts.push(label);
     } else if (kind === "scene" && index === 1 && parent === "entities") {
@@ -490,26 +493,27 @@ export function placeOf(
       parts.push(field ? t.t(field) : part);
     }
   });
-  return parts.length ? parts.join(" › ") : t.t("history.place.all");
+  return parts.length ? parts.join(" › ") : t.t("config_history.place.all");
 }
 
 /** A value in short: “a text”, a number, yes or no, an entity's name, a list, what an item is. */
 export function sayValue(t: Translator, value: unknown, hass?: HomeAssistant): string {
-  if (value === undefined || value === null) return t.t("history.value.none");
-  if (typeof value === "boolean") return t.t(value ? "history.value.yes" : "history.value.no");
+  if (value === undefined || value === null) return t.t("config_history.value.none");
+  if (typeof value === "boolean")
+    return t.t(value ? "config_history.value.yes" : "config_history.value.no");
   if (typeof value === "number") return String(value);
   if (typeof value === "string") {
     if (isEntityId(value)) return entityName(hass, value);
     return `“${value.length > 60 ? `${value.slice(0, 59)}…` : value}”`;
   }
   if (Array.isArray(value)) {
-    if (value.length === 0) return t.t("history.value.empty");
+    if (value.length === 0) return t.t("config_history.value.empty");
     const said = value.slice(0, 3).map((item) => sayValue(t, item, hass));
     return value.length > 3
-      ? t.t("history.value.more", { items: said.join(", "), count: value.length - 3 })
+      ? t.t("config_history.value.more", { items: said.join(", "), count: value.length - 3 })
       : said.join(", ");
   }
-  if (!isObject(value)) return t.t("history.value.none");
+  if (!isObject(value)) return t.t("config_history.value.none");
   return sayItem(t, value, hass);
 }
 
@@ -543,13 +547,13 @@ function sayItem(t: Translator, item: Record<string, unknown>, hass?: HomeAssist
     .map(([key, value]) => `${key} ${sayValue(t, value, hass)}`);
   const said = parts.join(" · ");
   if (settings.length) return said ? `${said} (${settings.join(", ")})` : settings.join(", ");
-  return said || t.tp("history.value.settings", Object.keys(item).length);
+  return said || t.tp("config_history.value.settings", Object.keys(item).length);
 }
 
 /** A change in words. */
 export function sayChange(
   t: Translator,
-  kind: HistoryKind,
+  kind: ConfigKind,
   change: Change,
   before: unknown,
   after: unknown,
@@ -558,7 +562,7 @@ export function sayChange(
   const place = placeOf(t, kind, change, before, after, hass);
   const text =
     change.op === "change"
-      ? t.t("history.value.from_to", {
+      ? t.t("config_history.value.from_to", {
           before: sayValue(t, change.before, hass),
           after: sayValue(t, change.after, hass),
         })
@@ -567,8 +571,8 @@ export function sayChange(
 }
 
 /** The name of an item: its own, else what it is (the default dashboard), else its key. */
-export function itemName(t: Translator, item: HistoryItem): string {
+export function itemName(t: Translator, item: ConfigItem): string {
   if (item.name) return item.name;
-  if (item.kind === "dashboard" && !item.key) return t.t("history.default_dashboard");
+  if (item.kind === "dashboard" && !item.key) return t.t("config_history.default_dashboard");
   return item.key;
 }

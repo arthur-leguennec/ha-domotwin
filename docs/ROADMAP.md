@@ -93,7 +93,7 @@ QR code (M30) and a placement advisor for radios (M31) before a first launch in 
 report (M37), history as reports (M38) and Hydro-Québec's peaks (M39) follow, among a library of
 objects (M17), the outdoors (M18), more imports (M20) and more languages (M21), before a sixth
 release, 0.6.0. The maintainer then asked for the configuration history (M36) right after 0.4.0,
-ahead of that order, since it waits on nothing the others build (D-057).
+ahead of that order, since it waits on nothing the others build (D-059).
 
 ## M0, scaffold
 
@@ -1081,7 +1081,7 @@ Home Assistant's.
 
 Home Assistant keeps no history of its own configuration: its editors' undo lasts one session, a
 backup puts back a whole part, and what exists needs an add-on and Git (D-056). Asked for by the
-maintainer right after 0.4.0, ahead of the order of D-056 (D-057).
+maintainer right after 0.4.0, ahead of the order of D-056 (D-059).
 
 - ✅ **Each change kept**: the automations, scripts and scenes of Home Assistant's editors and of
   one's own YAML files, and the dashboards; read once Home Assistant has started, after it
@@ -1211,7 +1211,7 @@ milestone starts, which goes on with what needs no answer.
 - ⏳ **M20, more imports**: robot vacuum maps (Valetudo and others), Floorplanner, meshes.
 - ⏳ **M17, a library of objects**: many more pieces, free and well made, drawn from real
   references, still fast.
-- ✅ **M36, configuration history** (D-057, above): done right after 0.4.0, at the maintainer's
+- ✅ **M36, configuration history** (D-059, above): done right after 0.4.0, at the maintainer's
   request.
 - ⏳ **M37, a weekly home report**: once a week, what needs a look: batteries low, devices
   unavailable, updates and repairs waiting, upkeep due (M9d), weak radio links (M9b, M31),

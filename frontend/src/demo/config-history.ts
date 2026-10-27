@@ -1,9 +1,9 @@
 /**
- * The demo house's configuration history (D-057): a few changes of its automations, a script
+ * The demo house's configuration history (D-059): a few changes of its automations, a script
  * removed and its dashboard, answered as the integration would; a version put back in the page.
  */
-import type { HistoryDetail, HistoryKind, HistoryList, HistoryVersion } from "../live/history";
-import { canonical } from "../live/history";
+import type { ConfigDetail, ConfigKind, ConfigList, ConfigVersion } from "../live/config-history";
+import { canonical } from "../live/config-history";
 import { DemoError } from "./home";
 import { AUTOMATIONS, say, type Words } from "./house";
 
@@ -17,7 +17,7 @@ interface Kept {
 }
 
 interface DemoItem {
-  kind: HistoryKind;
+  kind: ConfigKind;
   key: string;
   names: Words;
   versions: Kept[];
@@ -30,7 +30,7 @@ function automation(id: string): { key: string; names: Words; config: Record<str
   return { key: id.slice(11), names: found.names, config: found.config };
 }
 
-export class DemoHistory {
+export class DemoConfigHistory {
   private readonly items: DemoItem[];
   private next = 1;
 
@@ -127,7 +127,7 @@ export class DemoHistory {
     return item;
   }
 
-  private summary(item: DemoItem): HistoryList["items"][number] {
+  private summary(item: DemoItem): ConfigList["items"][number] {
     const newest = item.versions.at(-1) as Kept;
     return {
       id: `${item.kind}:${item.key}`,
@@ -141,7 +141,7 @@ export class DemoHistory {
     };
   }
 
-  list(): HistoryList {
+  list(): ConfigList {
     // The most recently changed first.
     const items = [...this.items].sort(
       (a, b) => (b.versions.at(-1)?.at ?? 0) - (a.versions.at(-1)?.at ?? 0),
@@ -152,11 +152,11 @@ export class DemoHistory {
     return { items: items.map((item) => this.summary(item)), bytes, max_bytes: 4_000_000 };
   }
 
-  item(id: unknown): HistoryDetail {
+  item(id: unknown): ConfigDetail {
     const item = this.find(id);
     const seen = new Map<string, number>();
-    const versions: HistoryVersion[] = item.versions.map((kept) => {
-      const version: HistoryVersion = {
+    const versions: ConfigVersion[] = item.versions.map((kept) => {
+      const version: ConfigVersion = {
         id: kept.id,
         at: new Date(kept.at).toISOString(),
         removed: kept.config === null,
@@ -180,7 +180,7 @@ export class DemoHistory {
   }
 
   /** A configuration put back, as Home Assistant's editors would save it: its newest version. */
-  putBack(kind: HistoryKind, key: string, config: unknown): void {
+  putBack(kind: ConfigKind, key: string, config: unknown): void {
     const item = this.find(`${kind}:${key}`);
     const newest = item.versions.at(-1);
     const copy = structuredClone(config) as Record<string, unknown>;

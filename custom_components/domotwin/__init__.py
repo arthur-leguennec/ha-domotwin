@@ -11,15 +11,15 @@ from homeassistant.helpers.start import async_at_started
 from homeassistant.helpers.typing import ConfigType
 
 from .choices import Choices
+from .config_history import ConfigHistory
 from .const import DOMAIN, SIGNAL_SCHEDULES
-from .data import CHOICES_KEY, DATA_KEY, HISTORY_KEY, LOCATOR_KEY, PEOPLE_KEY, SCHEDULER_KEY
+from .data import CHOICES_KEY, CONFIG_HISTORY_KEY, DATA_KEY, LOCATOR_KEY, PEOPLE_KEY, SCHEDULER_KEY
 from .frontend import (
     async_register_frontend,
     async_remove_panel,
     async_unregister_frontend,
     async_update_panel,
 )
-from .history import ConfigHistory
 from .http import async_register_views
 from .locator import Locator
 from .models import async_remove_all
@@ -107,7 +107,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: DomoTwinConfigEntry) -> 
 
 
 async def _async_start_history(hass: HomeAssistant, entry: DomoTwinConfigEntry) -> None:
-    """The configuration history (D-057): read once Home Assistant has started, then on changes."""
+    """The configuration history (D-059): read once Home Assistant has started, then on changes."""
     history = ConfigHistory(hass)
     await history.async_load()
     # Written at once on unload, once stopped (the callbacks run last added first).
@@ -123,11 +123,11 @@ async def _async_start_history(hass: HomeAssistant, entry: DomoTwinConfigEntry) 
     @callback
     def drop_history() -> None:
         history.async_stop()
-        if hass.data.get(HISTORY_KEY) is history:
-            hass.data.pop(HISTORY_KEY)
+        if hass.data.get(CONFIG_HISTORY_KEY) is history:
+            hass.data.pop(CONFIG_HISTORY_KEY)
 
     entry.async_on_unload(drop_history)
-    hass.data[HISTORY_KEY] = history
+    hass.data[CONFIG_HISTORY_KEY] = history
 
 
 async def _async_options_updated(hass: HomeAssistant, entry: DomoTwinConfigEntry) -> None:

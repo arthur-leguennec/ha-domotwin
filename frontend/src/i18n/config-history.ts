@@ -1,11 +1,11 @@
 /**
- * The messages of the configuration history (D-057), in both languages: loaded with its dialog,
+ * The messages of the configuration history (D-059), in both languages: loaded with its dialog,
  * not with the first picture. The menu item's own is in the dictionaries.
  */
 import type { Widen } from "./index";
 
-export const historyEn = {
-  history: {
+export const configHistoryEn = {
+  config_history: {
     title: "Configuration history",
     intro:
       "Each change of an automation, a script, a scene or a dashboard, kept by DomoTwin in Home Assistant. Pick one to see what changed, and put a version back.",
@@ -108,8 +108,8 @@ export const historyEn = {
   },
 };
 
-export const historyFr: Widen<typeof historyEn> = {
-  history: {
+export const configHistoryFr: Widen<typeof configHistoryEn> = {
+  config_history: {
     title: "Historique de la configuration",
     intro:
       "Chaque changement d’une automatisation, d’un script, d’une scène ou d’un tableau de bord, gardé par DomoTwin dans Home Assistant. Choisissez-en un pour voir ce qui a changé, et remettre une version.",

@@ -1,4 +1,4 @@
-"""The configuration history (D-057): each change kept, by item and date; one item put back."""
+"""The configuration history (D-059): each change kept, by item and date; one item put back."""
 
 from __future__ import annotations
 
@@ -16,9 +16,9 @@ from pytest_homeassistant_custom_component.typing import (
     WebSocketGenerator,
 )
 
-from custom_components.domotwin.const import HISTORY_STORAGE_KEY
-from custom_components.domotwin.data import HISTORY_KEY
-from custom_components.domotwin.history import LATE_SCRIPT_READ, SAVE_DELAY, _fingerprint
+from custom_components.domotwin.config_history import LATE_SCRIPT_READ, SAVE_DELAY, _fingerprint
+from custom_components.domotwin.const import CONFIG_HISTORY_STORAGE_KEY
+from custom_components.domotwin.data import CONFIG_HISTORY_KEY
 from homeassistant.const import EVENT_CALL_SERVICE
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
@@ -56,13 +56,13 @@ async def _send(client: Any, message: dict[str, Any]) -> dict[str, Any]:
 
 
 async def _items(client: Any) -> dict[str, dict[str, Any]]:
-    answer = await _send(client, {"type": "domotwin/history/list"})
+    answer = await _send(client, {"type": "domotwin/config_history/list"})
     assert answer["success"], answer
     return {item["id"]: item for item in answer["result"]["items"]}
 
 
 async def _versions(client: Any, item: str) -> list[dict[str, Any]]:
-    answer = await _send(client, {"type": "domotwin/history/item", "item": item})
+    answer = await _send(client, {"type": "domotwin/config_history/item", "item": item})
     assert answer["success"], answer
     versions: list[dict[str, Any]] = answer["result"]["versions"]
     return versions
@@ -70,7 +70,7 @@ async def _versions(client: Any, item: str) -> list[dict[str, Any]]:
 
 async def _config(client: Any, item: str, version: int) -> Any:
     answer = await _send(
-        client, {"type": "domotwin/history/version", "item": item, "version": version}
+        client, {"type": "domotwin/config_history/version", "item": item, "version": version}
     )
     assert answer["success"], answer
     return answer["result"]["config"]
@@ -142,7 +142,7 @@ async def test_editor_automations_are_kept_on_each_change(
 
     # Put back as it first was: the same as that version.
     _write(config_dir, "automations.yaml", [CURTAINS, EVENING])
-    answer = await _send(client, {"type": "domotwin/history/refresh", "kind": "automation"})
+    answer = await _send(client, {"type": "domotwin/config_history/refresh", "kind": "automation"})
     assert answer["result"] == {"changed": 1}
     versions = await _versions(client, "automation:1700000000001")
     assert versions[0]["same_as"] == oldest["id"]
@@ -162,16 +162,16 @@ async def test_an_unreadable_file_is_left_alone(
     client = await hass_ws_client(hass)
     # A typo in the file: Home Assistant cannot read it, nothing in it is taken for removed.
     (config_dir / "automations.yaml").write_text("- id: [unclosed\n", encoding="utf-8")
-    answer = await _send(client, {"type": "domotwin/history/refresh"})
+    answer = await _send(client, {"type": "domotwin/config_history/refresh"})
     assert answer["result"] == {"changed": 0}
     assert (await _items(client))["automation:1700000000001"]["removed"] is False
     # A file that holds something else than a list of automations, the same.
     _write(config_dir, "automations.yaml", {"not": "a list"})
-    answer = await _send(client, {"type": "domotwin/history/refresh", "kind": "automation"})
+    answer = await _send(client, {"type": "domotwin/config_history/refresh", "kind": "automation"})
     assert answer["result"] == {"changed": 0}
     # No file at all: the automations were removed.
     (config_dir / "automations.yaml").unlink()
-    answer = await _send(client, {"type": "domotwin/history/refresh", "kind": "automation"})
+    answer = await _send(client, {"type": "domotwin/config_history/refresh", "kind": "automation"})
     assert answer["result"] == {"changed": 1}
     assert (await _items(client))["automation:1700000000001"]["removed"] is True
 
@@ -259,7 +259,7 @@ async def test_own_yaml_is_shown_not_editable(
     # Made by `scene.create`: not configuration.
     made = {"scene_id": "made_now", "entities": {"light.lamp": "off"}}
     await hass.services.async_call("scene", "create", made, blocking=True)
-    await _send(client, {"type": "domotwin/history/refresh"})
+    await _send(client, {"type": "domotwin/config_history/refresh"})
 
     items = await _items(client)
     assert items["automation:hall_motion"]["source"] == "yaml"
@@ -280,7 +280,7 @@ async def test_own_yaml_is_shown_not_editable(
     # The automations' integration not there (failed to set up): one's own are not known, and
     # left as they were; the editor's file is still read.
     component = hass.data.pop("automation")
-    answer = await _send(client, {"type": "domotwin/history/refresh", "kind": "automation"})
+    answer = await _send(client, {"type": "domotwin/config_history/refresh", "kind": "automation"})
     assert answer["result"] == {"changed": 0}
     assert (await _items(client))["automation:hall_motion"]["removed"] is False
     hass.data["automation"] = component
@@ -334,10 +334,10 @@ async def test_the_oldest_versions_go_first(
     async def change(offset: int, *more: dict[str, Any]) -> None:
         evening = {**EVENING, "description": "x" * offset}
         _write(config_dir, "automations.yaml", [evening, *more])
-        await _send(client, {"type": "domotwin/history/refresh", "kind": "automation"})
+        await _send(client, {"type": "domotwin/config_history/refresh", "kind": "automation"})
 
     # At most 3 versions an item.
-    with patch("custom_components.domotwin.history.MAX_HISTORY_VERSIONS", 3):
+    with patch("custom_components.domotwin.config_history.MAX_CONFIG_HISTORY_VERSIONS", 3):
         for offset in range(5):
             await change(offset)
     versions = await _versions(client, "automation:1700000000001")
@@ -348,17 +348,17 @@ async def test_the_oldest_versions_go_first(
     assert oldest["description"] == "xx"
 
     # In all, the oldest versions first, whatever their item; each item's newest kept.
-    size = (await _send(client, {"type": "domotwin/history/list"}))["result"]["bytes"]
-    with patch("custom_components.domotwin.history.MAX_HISTORY_BYTES", size + 100):
+    size = (await _send(client, {"type": "domotwin/config_history/list"}))["result"]["bytes"]
+    with patch("custom_components.domotwin.config_history.MAX_CONFIG_HISTORY_BYTES", size + 100):
         await change(5, CURTAINS)
     versions = await _versions(client, "automation:1700000000001")
     assert len(versions) == 2
     assert len(await _versions(client, "automation:1700000000002")) == 1
-    answer = await _send(client, {"type": "domotwin/history/list"})
+    answer = await _send(client, {"type": "domotwin/config_history/list"})
     assert answer["result"]["bytes"] <= size + 100
 
     # A version too large to keep: its date, not its content.
-    with patch("custom_components.domotwin.history.MAX_HISTORY_VERSION_BYTES", 300):
+    with patch("custom_components.domotwin.config_history.MAX_CONFIG_HISTORY_VERSION_BYTES", 300):
         await change(400, CURTAINS)
     versions = await _versions(client, "automation:1700000000001")
     assert versions[0]["kept"] is False
@@ -366,9 +366,9 @@ async def test_the_oldest_versions_go_first(
     assert await _config(client, "automation:1700000000001", versions[0]["id"]) is None
 
     # A removed item with nothing else kept is forgotten.
-    with patch("custom_components.domotwin.history.MAX_HISTORY_BYTES", 0):
+    with patch("custom_components.domotwin.config_history.MAX_CONFIG_HISTORY_BYTES", 0):
         _write(config_dir, "automations.yaml", [EVENING])
-        await _send(client, {"type": "domotwin/history/refresh", "kind": "automation"})
+        await _send(client, {"type": "domotwin/config_history/refresh", "kind": "automation"})
     assert "automation:1700000000002" not in await _items(client)
 
 
@@ -381,9 +381,9 @@ async def test_kept_in_the_store_and_read_leniently(
 ) -> None:
     wake_up = {"alias": "Wake up", "sequence": []}
     text, digest = json_bytes(wake_up).decode(), _fingerprint(wake_up)
-    hass_storage[HISTORY_STORAGE_KEY] = {
+    hass_storage[CONFIG_HISTORY_STORAGE_KEY] = {
         "version": 1,
-        "key": HISTORY_STORAGE_KEY,
+        "key": CONFIG_HISTORY_STORAGE_KEY,
         "data": {
             "next": 3,
             "items": {
@@ -422,9 +422,9 @@ async def test_kept_in_the_store_and_read_leniently(
 
     # A change is written to the store a few seconds later, with the ids going on.
     _write(config_dir, "scripts.yaml", {"wake_up": {"alias": "Wake up!", "sequence": []}})
-    await _send(client, {"type": "domotwin/history/refresh", "kind": "script"})
+    await _send(client, {"type": "domotwin/config_history/refresh", "kind": "script"})
     await _later(hass, SAVE_DELAY + 1)
-    stored = hass_storage[HISTORY_STORAGE_KEY]["data"]
+    stored = hass_storage[CONFIG_HISTORY_STORAGE_KEY]["data"]
     versions = stored["items"]["script:wake_up"]["versions"]
     assert [v["id"] for v in versions] == [1, 2, 3]
     assert stored["next"] == 4
@@ -439,17 +439,17 @@ async def test_for_administrators_only(
 ) -> None:
     user = await hass_ws_client(hass, hass_read_only_access_token)
     for message in (
-        {"type": "domotwin/history/list"},
-        {"type": "domotwin/history/item", "item": "automation:1"},
-        {"type": "domotwin/history/version", "item": "automation:1", "version": 1},
-        {"type": "domotwin/history/refresh"},
+        {"type": "domotwin/config_history/list"},
+        {"type": "domotwin/config_history/item", "item": "automation:1"},
+        {"type": "domotwin/config_history/version", "item": "automation:1", "version": 1},
+        {"type": "domotwin/config_history/refresh"},
     ):
         answer = await _send(user, message)
         assert answer["error"]["code"] == "unauthorized"
     admin = await hass_ws_client(hass)
-    answer = await _send(admin, {"type": "domotwin/history/item", "item": "automation:1"})
+    answer = await _send(admin, {"type": "domotwin/config_history/item", "item": "automation:1"})
     assert answer["error"]["code"] == "unknown_item"
-    answer = await _send(admin, {"type": "domotwin/history/refresh", "kind": "group"})
+    answer = await _send(admin, {"type": "domotwin/config_history/refresh", "kind": "group"})
     assert answer["error"]["code"] == "invalid_format"
 
 
@@ -466,14 +466,18 @@ async def test_unknown_version_and_not_loaded(
     client = await hass_ws_client(hass)
     answer = await _send(
         client,
-        {"type": "domotwin/history/version", "item": "automation:1700000000001", "version": 999},
+        {
+            "type": "domotwin/config_history/version",
+            "item": "automation:1700000000001",
+            "version": 999,
+        },
     )
     assert answer["error"]["code"] == "unknown_version"
     # Unloaded: the commands say so, the history is followed no more.
     assert await hass.config_entries.async_unload(config_entry.entry_id)
     await hass.async_block_till_done()
-    assert HISTORY_KEY not in hass.data
-    answer = await _send(client, {"type": "domotwin/history/list"})
+    assert CONFIG_HISTORY_KEY not in hass.data
+    answer = await _send(client, {"type": "domotwin/config_history/list"})
     assert answer["error"]["code"] == "not_loaded"
 
 
@@ -513,7 +517,7 @@ async def test_put_back_through_home_assistants_own_command(
     first = await _config(client, "automation:1700000000004", versions[-1]["id"])
     response = await http.post(f"/api/config/automation/config/{hall['id']}", json=first)
     assert response.status == 200
-    answer = await _send(client, {"type": "domotwin/history/refresh", "kind": "automation"})
+    answer = await _send(client, {"type": "domotwin/config_history/refresh", "kind": "automation"})
     assert answer["result"] == {"changed": 1}
     versions = await _versions(client, "automation:1700000000004")
     assert versions[0]["same_as"] == versions[-1]["id"]
@@ -534,7 +538,7 @@ async def test_never_in_the_diagnostics(
     config_entry.add_to_hass(hass)
     assert await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
-    assert hass.data[HISTORY_KEY].items()
+    assert hass.data[CONFIG_HISTORY_KEY].items()
     diagnostics = await get_diagnostics_for_config_entry(hass, hass_client, config_entry)
     text = str(diagnostics)
     assert "history" not in text
@@ -552,18 +556,20 @@ async def test_written_when_unloaded_and_nothing_after(
     config_entry.add_to_hass(hass)
     assert await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
-    history = hass.data[HISTORY_KEY]
+    history = hass.data[CONFIG_HISTORY_KEY]
     # Unloaded before its write was due: written then.
-    assert HISTORY_STORAGE_KEY not in hass_storage
+    assert CONFIG_HISTORY_STORAGE_KEY not in hass_storage
     assert await hass.config_entries.async_unload(config_entry.entry_id)
     await hass.async_block_till_done()
-    stored = hass_storage[HISTORY_STORAGE_KEY]["data"]
+    stored = hass_storage[CONFIG_HISTORY_STORAGE_KEY]["data"]
     assert list(stored["items"]) == ["automation:1700000000001"]
     # Stopped: a reading keeps nothing more.
     _write(config_dir, "automations.yaml", [EVENING, CURTAINS])
     assert await history.async_snapshot() == 0
     await _later(hass, SAVE_DELAY + 1)
-    assert list(hass_storage[HISTORY_STORAGE_KEY]["data"]["items"]) == ["automation:1700000000001"]
+    assert list(hass_storage[CONFIG_HISTORY_STORAGE_KEY]["data"]["items"]) == [
+        "automation:1700000000001"
+    ]
 
 
 async def test_removed_with_the_integration(
@@ -577,7 +583,7 @@ async def test_removed_with_the_integration(
     assert await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
     await _later(hass, SAVE_DELAY + 1)
-    assert HISTORY_STORAGE_KEY in hass_storage
+    assert CONFIG_HISTORY_STORAGE_KEY in hass_storage
     assert await hass.config_entries.async_remove(config_entry.entry_id)
     await hass.async_block_till_done()
-    assert HISTORY_STORAGE_KEY not in hass_storage
+    assert CONFIG_HISTORY_STORAGE_KEY not in hass_storage

@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { DemoHome } from "../src/demo/home";
 import type { HassEntity, HomeAssistant } from "../src/ha/types";
 import { Translator, addMessages, en, fr } from "../src/i18n";
-import { historyEn, historyFr } from "../src/i18n/history";
+import { configHistoryEn, configHistoryFr } from "../src/i18n/config-history";
 import {
   MAX_CHANGES,
   canPutBack,
@@ -13,16 +13,16 @@ import {
   filterItems,
   itemName,
   putBack,
-  refreshHistory,
+  refreshConfigHistory,
   refusal,
   sayChange,
   sayValue,
-  type HistoryItem,
-  type HistoryKind,
-  type HistoryVersion,
-} from "../src/live/history";
+  type ConfigItem,
+  type ConfigKind,
+  type ConfigVersion,
+} from "../src/live/config-history";
 
-addMessages({ en: historyEn, fr: historyFr });
+addMessages({ en: configHistoryEn, fr: configHistoryFr });
 
 const english = new Translator("en");
 const french = new Translator("fr");
@@ -66,7 +66,7 @@ function home(): { hass: HomeAssistant; asked: unknown[] } {
 
 /** The changes between two configurations of a kind, in words. */
 function said(
-  kind: HistoryKind,
+  kind: ConfigKind,
   before: unknown,
   after: unknown,
   t = english,
@@ -87,7 +87,7 @@ const EVENING = {
   mode: "single",
 };
 
-function item(changes: Partial<HistoryItem> = {}): HistoryItem {
+function item(changes: Partial<ConfigItem> = {}): ConfigItem {
   return {
     id: "automation:1700000000001",
     kind: "automation",
@@ -101,11 +101,11 @@ function item(changes: Partial<HistoryItem> = {}): HistoryItem {
   };
 }
 
-function version(id: number, changes: Partial<HistoryVersion> = {}): HistoryVersion {
+function version(id: number, changes: Partial<ConfigVersion> = {}): ConfigVersion {
   return { id, at: "2026-10-20T18:00:00+00:00", removed: false, kept: true, ...changes };
 }
 
-describe("what changed between two versions (D-057)", () => {
+describe("what changed between two versions (D-059)", () => {
   it("takes keys named as JavaScript's own (constructor) as any other", () => {
     expect(said("dashboard", { title: "Home" }, { title: "Home", constructor: "x" })).toEqual([
       "add constructor: “x”",
@@ -286,7 +286,7 @@ describe("a value in short", () => {
 });
 
 describe("the items and what can be done with them", () => {
-  const items: HistoryItem[] = [
+  const items: ConfigItem[] = [
     item(),
     item({ id: "script:entree", kind: "script", key: "entree", name: "Entrée" }),
     item({ id: "dashboard:", kind: "dashboard", key: "", name: null }),
@@ -304,8 +304,8 @@ describe("the items and what can be done with them", () => {
   });
 
   it("names the default dashboard", () => {
-    expect(itemName(english, items[2] as HistoryItem)).toBe("Overview");
-    expect(itemName(french, items[2] as HistoryItem)).toBe("Aperçu");
+    expect(itemName(english, items[2] as ConfigItem)).toBe("Overview");
+    expect(itemName(french, items[2] as ConfigItem)).toBe("Aperçu");
     expect(itemName(english, item({ name: null }))).toBe("1700000000001");
   });
 
@@ -338,10 +338,10 @@ describe("putting a version back", () => {
   it("goes through Home Assistant's configuration API, then has the item read again", async () => {
     const { hass, asked } = home();
     await putBack(hass, item({ key: "1700000000001" }), EVENING);
-    await refreshHistory(hass, "automation").catch(() => undefined);
+    await refreshConfigHistory(hass, "automation").catch(() => undefined);
     expect(asked).toEqual([
       { api: "POST", path: "config/automation/config/1700000000001", parameters: EVENING },
-      { type: "domotwin/history/refresh", kind: "automation" },
+      { type: "domotwin/config_history/refresh", kind: "automation" },
     ]);
   });
 
@@ -387,18 +387,18 @@ describe("the history's messages", () => {
   }
 
   it("have the same keys and placeholders in both languages, none the dictionaries'", () => {
-    expect(keys(historyFr).sort()).toEqual(keys(historyEn).sort());
+    expect(keys(configHistoryFr).sort()).toEqual(keys(configHistoryEn).sort());
     const main = new Set([...keys(en), ...keys(fr)]);
-    expect(keys(historyEn).filter((key) => main.has(key))).toEqual([]);
+    expect(keys(configHistoryEn).filter((key) => main.has(key))).toEqual([]);
     const lookup = (dict: unknown, key: string): unknown =>
       key.split(".").reduce<unknown>((node, part) => (node as Record<string, unknown>)[part], dict);
     const placeholders = (text: unknown): string[] =>
       typeof text === "string"
         ? [...text.matchAll(/\{(\w+)\}/g)].map((m) => m[1] ?? "").sort()
         : [];
-    for (const key of keys(historyEn)) {
-      expect(placeholders(lookup(historyFr, key)), key).toEqual(
-        placeholders(lookup(historyEn, key)),
+    for (const key of keys(configHistoryEn)) {
+      expect(placeholders(lookup(configHistoryFr, key)), key).toEqual(
+        placeholders(lookup(configHistoryEn, key)),
       );
     }
   });
@@ -409,7 +409,7 @@ describe("the demo house's history", () => {
     const demo = new DemoHome({ language: "en" });
     const send = <T>(message: Record<string, unknown>): Promise<T> =>
       demo.hass.connection.sendMessagePromise<T>(message as never);
-    const list = await send<{ items: HistoryItem[] }>({ type: "domotwin/history/list" });
+    const list = await send<{ items: ConfigItem[] }>({ type: "domotwin/config_history/list" });
     expect(list.items.map((each) => each.id)).toEqual([
       "automation:evening_lights",
       "automation:morning_curtains",
@@ -417,27 +417,27 @@ describe("the demo house's history", () => {
       "dashboard:",
     ]);
     expect(list.items.find((each) => each.id === "script:good_night")?.removed).toBe(true);
-    const detail = await send<{ versions: HistoryVersion[] }>({
-      type: "domotwin/history/item",
+    const detail = await send<{ versions: ConfigVersion[] }>({
+      type: "domotwin/config_history/item",
       item: "automation:evening_lights",
     });
     expect(detail.versions).toHaveLength(3);
-    const oldest = detail.versions.at(-1) as HistoryVersion;
+    const oldest = detail.versions.at(-1) as ConfigVersion;
     const config = await send<{ config: Record<string, unknown> }>({
-      type: "domotwin/history/version",
+      type: "domotwin/config_history/version",
       item: "automation:evening_lights",
       version: oldest.id,
     });
     expect(config.config.alias).toBe("Evening lights");
-    await putBack(demo.hass, list.items[0] as HistoryItem, config.config);
-    const after = await send<{ versions: HistoryVersion[] }>({
-      type: "domotwin/history/item",
+    await putBack(demo.hass, list.items[0] as ConfigItem, config.config);
+    const after = await send<{ versions: ConfigVersion[] }>({
+      type: "domotwin/config_history/item",
       item: "automation:evening_lights",
     });
     expect(after.versions).toHaveLength(4);
     expect(after.versions[0]?.same_as).toBe(oldest.id);
     await expect(
-      send({ type: "domotwin/history/item", item: "automation:nothing" }),
+      send({ type: "domotwin/config_history/item", item: "automation:nothing" }),
     ).rejects.toMatchObject({ code: "unknown_item" });
   });
 });

@@ -12,7 +12,7 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.util import dt as dt_util
 
-from . import choices, history, schedules, voice
+from . import choices, config_history, schedules, voice
 from .compat import vol
 from .const import DOMAIN, SIGNAL_SHOW, SIGNAL_UPDATED, TEACH_SECONDS, VERSION
 from .data import DATA_KEY, LOCATOR_KEY, PEOPLE_KEY
@@ -76,7 +76,7 @@ def async_register_commands(hass: HomeAssistant) -> None:
     voice.async_register_commands(hass)
     schedules.async_register_commands(hass)
     choices.async_register_commands(hass)
-    history.async_register_commands(hass)
+    config_history.async_register_commands(hass)
 
 
 def _get_data(

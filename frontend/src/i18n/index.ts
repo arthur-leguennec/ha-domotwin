@@ -1,6 +1,6 @@
 import { en } from "./en";
 import { fr } from "./fr";
-import type { historyEn } from "./history";
+import type { configHistoryEn } from "./config-history";
 import type { practicalEn } from "./practical";
 
 /** A plural message: Intl.PluralRules picks the form. */
@@ -28,9 +28,9 @@ type Leaves<T, Leaf, Prefix extends string = ""> = {
 
 /**
  * Every message: the dictionaries', and those added by a chunk when it loads (D-055: the tabs';
- * D-057: the configuration history's).
+ * D-059: the configuration history's).
  */
-type AllMessages = typeof en & typeof practicalEn & typeof historyEn;
+type AllMessages = typeof en & typeof practicalEn & typeof configHistoryEn;
 /** Keys of plain messages, e.g. `view.loading`. */
 export type MessageKey = Leaves<AllMessages, string>;
 /** Keys of plural messages, e.g. `view.rooms`. */

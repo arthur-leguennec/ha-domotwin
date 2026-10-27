@@ -652,7 +652,7 @@ export const en = {
     first_failed:
       "Your choices are saved, but Home Assistant did not keep the page it opens first: {reason}",
   },
-  history: {
+  config_history: {
     menu: "Configuration history",
   },
   measure: {

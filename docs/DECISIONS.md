@@ -2219,7 +2219,7 @@ D-054 planned them.
   - Many of them read what only administrators may (automations, traces, the radios): each says
     what other users see.
 
-## D-057 · Configuration history: each change kept, one item put back (M36, amends D-056)
+## D-059 · Configuration history: each change kept, one item put back (M36, amends D-056)
 
 M36, asked for by the maintainer right after 0.4.0, ahead of the order of D-056 (M29 first): it
 waits on nothing the other milestones build.
@@ -2244,7 +2244,7 @@ waits on nothing the other milestones build.
     and when DomoTwin has put an item back. A version is kept when the item's configuration, its
     keys in any order, is not the one kept last; an item no longer there is kept as removed. A
     file Home Assistant cannot read is left alone: nothing in it is taken for removed.
-  - **Where**: in a store of its own (`.storage/domotwin.history`, private), each version as
+  - **Where**: in a store of its own (`.storage/domotwin.config_history`, private), each version as
     the JSON of its configuration with its date. **Limited in size**: 4 MB in all and 50
     versions an item, past which the oldest versions go first, an item's newest always kept; 1 MB
     a version (a larger one keeps its date, not its content); a removed item with nothing else

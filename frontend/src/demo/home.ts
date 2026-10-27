@@ -20,11 +20,11 @@ import type {
 } from "../ha/types";
 import type { PeopleSettings } from "../live/people";
 import type { Choices } from "../live/choices";
-import type { HistoryKind } from "../live/history";
+import type { ConfigKind } from "../live/config-history";
 import { MAX_SCHEDULE_ENTITIES, schedulable, type Schedule } from "../live/schedules";
 import type { Upkeep } from "../live/upkeep";
 import { demoConnection } from "./connection";
-import { DemoHistory } from "./history";
+import { DemoConfigHistory } from "./config-history";
 import {
   DAY,
   at,
@@ -136,8 +136,8 @@ export class DemoHome {
   /** Held while its panel or card is away, as the visitor left it otherwise. */
   private held = false;
   readonly store: DemoStore;
-  /** Its configuration history (D-057), put back in the page. */
-  readonly history: DemoHistory;
+  /** Its configuration history (D-059), put back in the page. */
+  readonly configHistory: DemoConfigHistory;
   private readonly language: string;
   private readonly states: Record<string, HassEntity> = {};
   private readonly areaOf = new Map<string, string>();
@@ -235,7 +235,7 @@ export class DemoHome {
       const id = `${storey.info.id}_floor`;
       floors[id] = { floor_id: id, name: say(storey.names, language) };
     }
-    this.history = new DemoHistory(Date.parse(this.time()), language, () =>
+    this.configHistory = new DemoConfigHistory(Date.parse(this.time()), language, () =>
       Date.parse(this.time()),
     );
     const connection = demoConnection(this);
@@ -262,7 +262,7 @@ export class DemoHome {
         this.callService(domain, service, data ?? {}, target ?? {});
         return Promise.resolve();
       },
-      // Home Assistant's configuration API, for what the history puts back (D-057).
+      // Home Assistant's configuration API, for what the configuration history puts back (D-059).
       callApi: <T>(method: string, path: string, parameters?: Record<string, unknown>) => {
         const found = /^config\/(automation|script|scene)\/config\/(.+)$/.exec(path);
         if (method !== "POST" || !found) {
@@ -270,8 +270,8 @@ export class DemoHome {
             new DemoError("not_found", `${method} /api/${path} is not in the demo house`),
           );
         }
-        this.history.putBack(
-          found[1] as HistoryKind,
+        this.configHistory.putBack(
+          found[1] as ConfigKind,
           decodeURIComponent(found[2] ?? ""),
           parameters,
         );

@@ -35,10 +35,11 @@
 //   path=<path after /domotwin> (the address opened, with route=1), cards=1 (Home Assistant's
 //   card helpers, made up: a card says its type and entity), lists=1 (a calendar and a to-do
 //   list), firstpage=device|user (how Home Assistant keeps the page it opens first)
-//   history=1 (the configuration history, D-057: fictional automations, a script removed, one in
-//   YAML files of one's own and a dashboard, as the integration keeps them; Home Assistant's
-//   configuration API and `lovelace/config/save` put one back, read again on
-//   `domotwin/history/refresh`; window.__refuseConfig = "<message>" makes Home Assistant refuse)
+//   confighistory=1 (the configuration history, D-059: fictional automations, a script removed,
+//   one in YAML files of one's own and a dashboard, as the integration keeps them; Home
+//   Assistant's configuration API and `lovelace/config/save` put one back, read again on
+//   `domotwin/config_history/refresh`; window.__refuseConfig = "<message>" makes Home Assistant
+//   refuse)
 import { applyService, demoHome } from "./demo-home.mjs";
 
 const params = new URLSearchParams(location.search);
@@ -413,13 +414,13 @@ async function fetchWithAuth(path, init = {}) {
     return Response.json({ code: "not_found" }, { status: 404 });
   return new Response(bytes);
 }
-// The configuration history (D-057), as the integration keeps it: each item's versions, oldest
+// The configuration history (D-059), as the integration keeps it: each item's versions, oldest
 // first, and what Home Assistant's editors saved since it last read them.
-const historyItems = params.get("history") === "1" ? fictionalHistory() : [];
-const historyPending = new Map();
-let historyNext = 100;
+const configItems = params.get("confighistory") === "1" ? fictionalConfigHistory() : [];
+const configPending = new Map();
+let configNext = 100;
 
-function fictionalHistory() {
+function fictionalConfigHistory() {
   const day = 86_400_000;
   const at = (days) => new Date(Date.parse("2026-10-26T18:00:00Z") - days * day).toISOString();
   const evening = (offset, actions) => ({
@@ -485,7 +486,7 @@ function fictionalHistory() {
   ];
 }
 
-function historySummary(item) {
+function configSummary(item) {
   const newest = item.versions.at(-1);
   return {
     id: `${item.kind}:${item.key}`,
@@ -499,9 +500,9 @@ function historySummary(item) {
   };
 }
 
-function historyItem(id) {
+function configItem(id) {
   if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
-  const item = historyItems.find((each) => `${each.kind}:${each.key}` === id);
+  const item = configItems.find((each) => `${each.kind}:${each.key}` === id);
   if (!item) throw { code: "unknown_item", message: "unknown_item" };
   return item;
 }
@@ -516,7 +517,7 @@ async function callApi(method, path, parameters) {
   }
   const found = /^config\/(automation|script|scene)\/config\/(.+)$/.exec(path);
   if (method !== "POST" || !found) throw { error: "Response error: 404", status_code: 404 };
-  historyPending.set(`${found[1]}:${decodeURIComponent(found[2])}`, structuredClone(parameters));
+  configPending.set(`${found[1]}:${decodeURIComponent(found[2])}`, structuredClone(parameters));
   return { result: "ok" };
 }
 
@@ -1037,17 +1038,17 @@ const connection = {
         publishSchedules();
         return { cancelled: at >= 0 ? 1 : 0 };
       }
-      case "domotwin/history/list":
+      case "domotwin/config_history/list":
         if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
         return {
-          items: historyItems
-            .map(historySummary)
+          items: configItems
+            .map(configSummary)
             .sort((a, b) => Date.parse(b.changed) - Date.parse(a.changed)),
           bytes: 12_400,
           max_bytes: 4_000_000,
         };
-      case "domotwin/history/item": {
-        const item = historyItem(message.item);
+      case "domotwin/config_history/item": {
+        const item = configItem(message.item);
         const seen = new Map();
         const versions = item.versions.map((kept) => {
           const version = {
@@ -1063,28 +1064,28 @@ const connection = {
           }
           return version;
         });
-        return { item: historySummary(item), versions: versions.reverse() };
+        return { item: configSummary(item), versions: versions.reverse() };
       }
-      case "domotwin/history/version": {
-        const kept = historyItem(message.item).versions.find((each) => each.id === message.version);
+      case "domotwin/config_history/version": {
+        const kept = configItem(message.item).versions.find((each) => each.id === message.version);
         if (!kept) throw { code: "unknown_version", message: "unknown_version" };
         return { config: structuredClone(kept.config) };
       }
-      case "domotwin/history/refresh": {
+      case "domotwin/config_history/refresh": {
         if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
         let changed = 0;
-        for (const [id, config] of historyPending) {
-          const item = historyItems.find((each) => `${each.kind}:${each.key}` === id);
+        for (const [id, config] of configPending) {
+          const item = configItems.find((each) => `${each.kind}:${each.key}` === id);
           if (!item || (message.kind && item.kind !== message.kind)) continue;
-          item.versions.push({ id: historyNext++, at: new Date().toISOString(), config });
-          historyPending.delete(id);
+          item.versions.push({ id: configNext++, at: new Date().toISOString(), config });
+          configPending.delete(id);
           changed += 1;
         }
         return { changed };
       }
       case "lovelace/config/save":
         if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
-        historyPending.set(`dashboard:${message.url_path ?? ""}`, structuredClone(message.config));
+        configPending.set(`dashboard:${message.url_path ?? ""}`, structuredClone(message.config));
         return null;
       default:
         throw { code: "unknown_command", message: message.type };

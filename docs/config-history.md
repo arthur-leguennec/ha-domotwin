@@ -3,7 +3,7 @@
 Home Assistant keeps no history of its own configuration: its editors' undo lasts one session, and
 a backup puts back a whole part, not one automation. DomoTwin keeps each change of an automation,
 a script, a scene and a dashboard, says what changed in words, and puts one item back as it was,
-with Home Assistant's own configuration commands (`DECISIONS.md`, D-057). No add-on, no Git.
+with Home Assistant's own configuration commands (`DECISIONS.md`, D-059). No add-on, no Git.
 
 It is for administrators: the panel's ⋮ menu, **Configuration history**.
 
@@ -88,8 +88,8 @@ the removed ones are, the longest removed first. The dialog says how much is use
 ## Privacy
 
 - Administrators only: the commands refuse anyone else, as Home Assistant's own configuration does.
-- Kept in Home Assistant's storage (`.storage/domotwin.history`), with Home Assistant's own files,
-  and so in its backups. Nothing is sent anywhere.
+- Kept in Home Assistant's storage (`.storage/domotwin.config_history`), with Home Assistant's
+  own files, and so in its backups. Nothing is sent anywhere.
 - Never in the diagnostics, not even counted.
 - Deleted when DomoTwin is removed; kept when it is only disabled or reloaded.
 

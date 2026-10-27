@@ -150,7 +150,7 @@ Local, rapide, Rust + WebAssembly.</p>
   changé, en mots (« Déclencheur 1 › offset : -00:30:00 → -00:20:00 », « Ajout · Action 2 »), et un
   élément remis comme il était, par les commandes qu’utilisent les éditeurs de Home Assistant.
   Pour les administrateurs ; sans module complémentaire ni Git. Voir [l’historique de la
-  configuration](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/history.md) (en
+  configuration](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/config-history.md) (en
   anglais).
 - **Votre voix.** Un bouton micro ouvre Assist de Home Assistant déjà à l’écoute, sur une
   tablette murale comme sur un téléphone. Quand Assist n’entend pas encore, DomoTwin installe la

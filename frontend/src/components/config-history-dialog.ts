@@ -1,5 +1,5 @@
 /**
- * `<domotwin-history>`: the configuration history (D-057). The automations, scripts, scenes and
+ * `<domotwin-config-history>`: the configuration history (D-059). The automations, scripts, scenes and
  * dashboards the integration kept, by kind and with a search; an item's versions, newest first,
  * with what each changed in words; one version put back through Home Assistant's own commands.
  * For administrators. Loaded, with its texts, when first opened.
@@ -9,35 +9,35 @@ import { LitElement, css, html, nothing, type PropertyValues, type TemplateResul
 
 import { isHassError, type HomeAssistant } from "../ha/types";
 import { addMessages, translatorFor, type Translator } from "../i18n";
-import { historyEn, historyFr } from "../i18n/history";
+import { configHistoryEn, configHistoryFr } from "../i18n/config-history";
 import { navigate } from "../live/actions";
 import {
-  HISTORY_KINDS,
+  CONFIG_KINDS,
   canPutBack,
   changesBetween,
   editorPath,
   filterItems,
-  historyItem,
-  historyList,
-  historyVersion,
+  configHistoryItem,
+  configHistoryList,
+  configHistoryVersion,
   itemName,
   putBack,
-  refreshHistory,
+  refreshConfigHistory,
   refusal,
   sayChange,
   type ChangeWords,
-  type HistoryDetail,
-  type HistoryItem,
-  type HistoryKind,
-  type HistoryList,
-  type HistoryVersion,
-} from "../live/history";
+  type ConfigDetail,
+  type ConfigItem,
+  type ConfigKind,
+  type ConfigList,
+  type ConfigVersion,
+} from "../live/config-history";
 import { timeStyle } from "../live/schedules";
 import { define, fire } from "./define";
 import { icon } from "./icon";
 import { baseStyles } from "./styles";
 
-addMessages({ en: historyEn, fr: historyFr });
+addMessages({ en: configHistoryEn, fr: configHistoryFr });
 
 /** What a version is compared with: the one before it, or the current one. */
 type Compare = "before" | "current";
@@ -50,7 +50,7 @@ interface Worked {
   note?: string;
 }
 
-export class DomoTwinHistory extends LitElement {
+export class DomoTwinConfigHistory extends LitElement {
   static override properties = {
     hass: { attribute: false },
     list: { state: true },
@@ -293,11 +293,11 @@ export class DomoTwinHistory extends LitElement {
   ];
 
   hass?: HomeAssistant;
-  protected list?: HistoryList;
-  protected kind?: HistoryKind;
+  protected list?: ConfigList;
+  protected kind?: ConfigKind;
   protected search = "";
   /** The item open, and its version shown. */
-  protected detail?: HistoryDetail;
+  protected detail?: ConfigDetail;
   protected selected?: number;
   protected compare: Compare = "before";
   /** The configurations read, by version id (null: none kept), for the item open. */
@@ -344,13 +344,13 @@ export class DomoTwinHistory extends LitElement {
     const hass = this.hass;
     if (!hass) return;
     try {
-      const list = await historyList(hass);
+      const list = await configHistoryList(hass);
       if (!this.isConnected) return;
       this.list = list;
       this.error = undefined;
     } catch (error) {
       if (!this.isConnected) return;
-      this.error = this.t.t("history.read_failed", { reason: this.reason(error) });
+      this.error = this.t.t("config_history.read_failed", { reason: this.reason(error) });
     }
   }
 
@@ -360,7 +360,7 @@ export class DomoTwinHistory extends LitElement {
     if (!hass) return;
     this.busy = true;
     try {
-      const detail = await historyItem(hass, id);
+      const detail = await configHistoryItem(hass, id);
       if (!this.isConnected) return;
       if (this.detail?.item.id !== id) this.configs = new Map();
       this.detail = detail;
@@ -370,7 +370,7 @@ export class DomoTwinHistory extends LitElement {
       await this.select(detail.versions[0]?.id);
     } catch (error) {
       if (!this.isConnected) return;
-      this.error = this.t.t("history.read_failed", { reason: this.reason(error) });
+      this.error = this.t.t("config_history.read_failed", { reason: this.reason(error) });
     } finally {
       this.busy = false;
     }
@@ -395,10 +395,10 @@ export class DomoTwinHistory extends LitElement {
     if (!detail || this.selected === undefined) return;
     const index = detail.versions.findIndex((version) => version.id === this.selected);
     const wanted = [detail.versions[index], detail.versions[index + 1], detail.versions[0]];
-    await this.read(wanted.filter((version): version is HistoryVersion => version?.kept === true));
+    await this.read(wanted.filter((version): version is ConfigVersion => version?.kept === true));
   }
 
-  private async read(versions: HistoryVersion[]): Promise<void> {
+  private async read(versions: ConfigVersion[]): Promise<void> {
     const hass = this.hass;
     const item = this.detail?.item.id;
     if (!hass || !item) return;
@@ -406,13 +406,16 @@ export class DomoTwinHistory extends LitElement {
     if (missing.length === 0) return;
     try {
       const read = await Promise.all(
-        missing.map(async (version) => [version.id, await historyVersion(hass, item, version.id)]),
+        missing.map(async (version) => [
+          version.id,
+          await configHistoryVersion(hass, item, version.id),
+        ]),
       );
       if (!this.isConnected || this.detail?.item.id !== item) return;
       this.configs = new Map([...this.configs, ...(read as [number, unknown][])]);
     } catch (error) {
       if (!this.isConnected) return;
-      this.error = this.t.t("history.read_failed", { reason: this.reason(error) });
+      this.error = this.t.t("config_history.read_failed", { reason: this.reason(error) });
     }
   }
 
@@ -436,20 +439,20 @@ export class DomoTwinHistory extends LitElement {
       if (!this.isConnected) return;
       // Home Assistant's refusal as it gives it.
       const reason = refusal(error) ?? this.reason(error);
-      this.error = t.t("history.put_back_failed", { reason });
+      this.error = t.t("config_history.put_back_failed", { reason });
       return;
     } finally {
       this.asking = false;
       this.busy = false;
     }
     if (!this.isConnected) return;
-    this.status = t.t("history.put_back_done", { name, when });
+    this.status = t.t("config_history.put_back_done", { name, when });
     // The integration reads it again: its newest version is the one put back.
     let failed: string | undefined;
     try {
-      await refreshHistory(hass, detail.item.kind);
+      await refreshConfigHistory(hass, detail.item.kind);
     } catch (error) {
-      failed = t.t("history.read_failed", { reason: this.reason(error) });
+      failed = t.t("config_history.read_failed", { reason: this.reason(error) });
     }
     void this.readList();
     await this.openItem(detail.item.id, "[data-status]");
@@ -489,13 +492,13 @@ export class DomoTwinHistory extends LitElement {
   protected override render(): TemplateResult {
     const t = this.t;
     const detail = this.detail;
-    const title = detail ? itemName(t, detail.item) : t.t("history.title");
+    const title = detail ? itemName(t, detail.item) : t.t("config_history.title");
     return html`<div
       class="dialog glass"
       role="dialog"
-      aria-labelledby="history-title"
+      aria-labelledby="config-history-title"
       aria-busy=${this.busy ? "true" : "false"}
-      data-testid="history-dialog"
+      data-testid="config-history-dialog"
     >
       <header>
         ${
@@ -503,9 +506,9 @@ export class DomoTwinHistory extends LitElement {
             ? html`<button
                 class="round"
                 data-back
-                data-testid="history-back"
-                aria-label=${t.t("history.back")}
-                title=${t.t("history.back")}
+                data-testid="config-history-back"
+                aria-label=${t.t("config_history.back")}
+                title=${t.t("config_history.back")}
                 @click=${() => {
                   this.closeItem();
                 }}
@@ -514,12 +517,12 @@ export class DomoTwinHistory extends LitElement {
               </button>`
             : nothing
         }
-        <h2 id="history-title">${title}</h2>
+        <h2 id="config-history-title">${title}</h2>
         <button
           class="round"
           ?data-cancel=${!this.asking}
-          aria-label=${t.t("history.close")}
-          title=${t.t("history.close")}
+          aria-label=${t.t("config_history.close")}
+          title=${t.t("config_history.close")}
           @click=${() => {
             this.close();
           }}
@@ -529,11 +532,11 @@ export class DomoTwinHistory extends LitElement {
       </header>
       ${detail ? this.renderItem(detail) : this.renderList()}
       <div role="status" data-status tabindex="-1">
-        ${this.status ? html`<p data-testid="history-status">${this.status}</p>` : nothing}
+        ${this.status ? html`<p data-testid="config-history-status">${this.status}</p>` : nothing}
       </div>
       ${
         this.error
-          ? html`<p class="error" role="alert" data-testid="history-error">${this.error}</p>`
+          ? html`<p class="error" role="alert" data-testid="config-history-error">${this.error}</p>`
           : nothing
       }
     </div>`;
@@ -542,21 +545,21 @@ export class DomoTwinHistory extends LitElement {
   private renderList(): TemplateResult {
     const t = this.t;
     const list = this.list;
-    const intro = html`<p class="hint">${t.t("history.intro")}</p>
-      ${this.hass?.demo ? html`<p class="hint">${t.t("history.demo")}</p>` : nothing}`;
+    const intro = html`<p class="hint">${t.t("config_history.intro")}</p>
+      ${this.hass?.demo ? html`<p class="hint">${t.t("config_history.demo")}</p>` : nothing}`;
     if (!list) {
-      return html`${intro}${this.error ? nothing : html`<p class="hint">${t.t("history.reading")}</p>`}`;
+      return html`${intro}${this.error ? nothing : html`<p class="hint">${t.t("config_history.reading")}</p>`}`;
     }
     if (list.items.length === 0) {
       return html`${intro}
-        <p data-testid="history-empty">${t.t("history.empty")}</p>`;
+        <p data-testid="config-history-empty">${t.t("config_history.empty")}</p>`;
     }
     const shown = filterItems(list.items, this.kind, this.search);
-    const counts = new Map<HistoryKind, number>();
+    const counts = new Map<ConfigKind, number>();
     for (const item of list.items) counts.set(item.kind, (counts.get(item.kind) ?? 0) + 1);
-    const kinds = HISTORY_KINDS.filter((kind) => counts.has(kind));
+    const kinds = CONFIG_KINDS.filter((kind) => counts.has(kind));
     return html`${intro}
-      <div class="kinds" role="group" aria-label=${t.t("history.title")}>
+      <div class="kinds" role="group" aria-label=${t.t("config_history.title")}>
         ${[undefined, ...kinds].map(
           (kind) =>
             html`<button
@@ -566,16 +569,16 @@ export class DomoTwinHistory extends LitElement {
                 this.kind = kind;
               }}
             >
-              ${kind ? t.t(`history.kinds.${kind}`) : t.t("history.kinds.all")}
+              ${kind ? t.t(`config_history.kinds.${kind}`) : t.t("config_history.kinds.all")}
               (${kind ? counts.get(kind) : list.items.length})
             </button>`,
         )}
       </div>
       <input
         type="search"
-        data-testid="history-search"
-        aria-label=${t.t("history.search")}
-        placeholder=${t.t("history.search")}
+        data-testid="config-history-search"
+        aria-label=${t.t("config_history.search")}
+        placeholder=${t.t("config_history.search")}
         .value=${this.search}
         @input=${(event: Event) => {
           this.search = (event.target as HTMLInputElement).value;
@@ -583,17 +586,17 @@ export class DomoTwinHistory extends LitElement {
       />
       ${
         shown.length === 0
-          ? html`<p class="hint">${t.t("history.none_found")}</p>`
-          : html`<ul class="items" data-testid="history-items">
+          ? html`<p class="hint">${t.t("config_history.none_found")}</p>`
+          : html`<ul class="items" data-testid="config-history-items">
               ${shown.map((item) => this.renderRow(item))}
             </ul>`
       }
-      <p class="hint" data-testid="history-size">
-        ${t.t("history.size", { used: this.bytes(list.bytes), max: this.bytes(list.max_bytes) })}
+      <p class="hint" data-testid="config-history-size">
+        ${t.t("config_history.size", { used: this.bytes(list.bytes), max: this.bytes(list.max_bytes) })}
       </p>`;
   }
 
-  private renderRow(item: HistoryItem): TemplateResult {
+  private renderRow(item: ConfigItem): TemplateResult {
     const t = this.t;
     return html`<li>
       <button
@@ -608,36 +611,38 @@ export class DomoTwinHistory extends LitElement {
           ${itemName(t, item)}
           ${
             item.removed
-              ? html`<span class="badge removed">${t.t("history.removed_badge")}</span>`
+              ? html`<span class="badge removed">${t.t("config_history.removed_badge")}</span>`
               : nothing
           }
           ${
             item.source === "yaml"
-              ? html`<span class="badge">${t.t("history.yaml_badge")}</span>`
+              ? html`<span class="badge">${t.t("config_history.yaml_badge")}</span>`
               : nothing
           }
         </span>
         <span class="meta">
-          ${t.t(`history.kind.${item.kind}`)} · ${t.tp("history.versions", item.versions)} ·
-          ${t.t("history.changed", { when: this.when(item.changed) })}
+          ${t.t(`config_history.kind.${item.kind}`)} ·
+          ${t.tp("config_history.versions", item.versions)} ·
+          ${t.t("config_history.changed", { when: this.when(item.changed) })}
         </span>
       </button>
     </li>`;
   }
 
-  private renderItem(detail: HistoryDetail): TemplateResult {
+  private renderItem(detail: ConfigDetail): TemplateResult {
     const t = this.t;
     const { item, versions } = detail;
     const path = this.hass?.demo ? undefined : editorPath(item);
     const notes = [
-      item.source === "yaml" ? t.t("history.yaml_note") : undefined,
-      item.removed ? t.t("history.removed_note") : undefined,
+      item.source === "yaml" ? t.t("config_history.yaml_note") : undefined,
+      item.removed ? t.t("config_history.removed_note") : undefined,
       item.removed && item.kind === "dashboard" && item.source === "editor"
-        ? t.t("history.dashboard_gone")
+        ? t.t("config_history.dashboard_gone")
         : undefined,
     ].filter((note): note is string => note !== undefined);
     return html`<p class="meta">
-        ${t.t(`history.kind.${item.kind}`)} · ${t.tp("history.versions", item.versions)}
+        ${t.t(`config_history.kind.${item.kind}`)} ·
+        ${t.tp("config_history.versions", item.versions)}
       </p>
       ${notes.map((note) => html`<p class="hint">${note}</p>`)}
       ${
@@ -645,33 +650,33 @@ export class DomoTwinHistory extends LitElement {
           ? html`<a
               class="open"
               href=${path}
-              data-testid="history-open"
+              data-testid="config-history-open"
               @click=${(event: MouseEvent) => {
                 if (event.ctrlKey || event.metaKey || event.shiftKey || event.button !== 0) return;
                 event.preventDefault();
                 this.close();
                 navigate(path);
               }}
-              >${icon(mdiOpenInNew)}${t.t("history.open")}</a
+              >${icon(mdiOpenInNew)}${t.t("config_history.open")}</a
             >`
           : nothing
       }
-      <ul class="versions" data-testid="history-versions">
+      <ul class="versions" data-testid="config-history-versions">
         ${versions.map((version, index) => this.renderVersion(detail, version, index))}
       </ul>`;
   }
 
   private renderVersion(
-    detail: HistoryDetail,
-    version: HistoryVersion,
+    detail: ConfigDetail,
+    version: ConfigVersion,
     index: number,
   ): TemplateResult {
     const t = this.t;
     const open = this.selected === version.id;
     const label = version.removed
-      ? t.t("history.version_removed")
+      ? t.t("config_history.version_removed")
       : index === 0
-        ? t.t("history.current")
+        ? t.t("config_history.current")
         : undefined;
     return html`<li data-version=${version.id}>
       <button
@@ -691,11 +696,7 @@ export class DomoTwinHistory extends LitElement {
   }
 
   /** A version shown: what it changed (or what putting it back changes), its content, put back. */
-  private renderBody(
-    detail: HistoryDetail,
-    version: HistoryVersion,
-    index: number,
-  ): TemplateResult {
+  private renderBody(detail: ConfigDetail, version: ConfigVersion, index: number): TemplateResult {
     const t = this.t;
     const { item, versions } = detail;
     const newest = versions[0];
@@ -704,32 +705,32 @@ export class DomoTwinHistory extends LitElement {
     const compare: Compare = comparable ? this.compare : "before";
     const worked = this.work(detail, version, index, compare);
     const config = this.configs.get(version.id);
-    return html`<div class="body" data-testid="history-version">
-      ${version.removed ? html`<p>${t.t("history.removed_note")}</p>` : nothing}
-      ${!version.removed && !version.kept ? html`<p class="hint">${t.t("history.too_large")}</p>` : nothing}
-      ${same ? html`<p class="hint">${t.t("history.same_as", { when: this.when(same.at) })}</p>` : nothing}
+    return html`<div class="body" data-testid="config-history-version">
+      ${version.removed ? html`<p>${t.t("config_history.removed_note")}</p>` : nothing}
+      ${!version.removed && !version.kept ? html`<p class="hint">${t.t("config_history.too_large")}</p>` : nothing}
+      ${same ? html`<p class="hint">${t.t("config_history.same_as", { when: this.when(same.at) })}</p>` : nothing}
       ${
         comparable
           ? html`<div
               class="compare"
               role="radiogroup"
-              aria-label=${t.t("history.version", { when: this.when(version.at) })}
+              aria-label=${t.t("config_history.version", { when: this.when(version.at) })}
             >
               ${(["before", "current"] as const).map(
                 (choice) =>
                   html`<label>
                     <input
                       type="radio"
-                      name="history-compare"
+                      name="config-history-compare"
                       value=${choice}
-                      data-testid=${`history-compare-${choice}`}
+                      data-testid=${`config-history-compare-${choice}`}
                       .checked=${compare === choice}
                       @change=${() => {
                         this.compare = choice;
                         this.worked = undefined;
                       }}
                     />
-                    ${t.t(choice === "before" ? "history.compare_before" : "history.compare_current")}
+                    ${t.t(choice === "before" ? "config_history.compare_before" : "config_history.compare_current")}
                   </label>`,
               )}
             </div>`
@@ -739,12 +740,12 @@ export class DomoTwinHistory extends LitElement {
       ${
         worked?.changes
           ? worked.changes.length === 0
-            ? html`<p class="hint">${t.t("history.no_change")}</p>`
-            : html`<ul class="changes" data-testid="history-changes">
+            ? html`<p class="hint">${t.t("config_history.no_change")}</p>`
+            : html`<ul class="changes" data-testid="config-history-changes">
                 ${worked.changes.map(
                   (change) =>
                     html`<li data-op=${change.op}>
-                      <span class="op">${t.t(`history.op.${change.op}`)}</span>
+                      <span class="op">${t.t(`config_history.op.${change.op}`)}</span>
                       <span class="place">${change.place}</span>
                       <span class="text">${change.text}</span>
                     </li>`,
@@ -752,12 +753,12 @@ export class DomoTwinHistory extends LitElement {
               </ul>`
           : nothing
       }
-      ${worked && worked.more > 0 ? html`<p class="hint">${t.tp("history.more_changes", worked.more)}</p>` : nothing}
+      ${worked && worked.more > 0 ? html`<p class="hint">${t.tp("config_history.more_changes", worked.more)}</p>` : nothing}
       ${
         config !== undefined && config !== null
           ? html`<details>
-              <summary>${t.t("history.whole")}</summary>
-              <pre data-testid="history-whole">${JSON.stringify(config, null, 2)}</pre>
+              <summary>${t.t("config_history.whole")}</summary>
+              <pre data-testid="config-history-whole">${JSON.stringify(config, null, 2)}</pre>
             </details>`
           : nothing
       }
@@ -765,46 +766,48 @@ export class DomoTwinHistory extends LitElement {
     </div>`;
   }
 
-  private renderPutBack(item: HistoryItem, version: HistoryVersion): TemplateResult {
+  private renderPutBack(item: ConfigItem, version: ConfigVersion): TemplateResult {
     const t = this.t;
     if (!this.asking) {
       return html`<div class="footer">
         <button
           class="action"
-          data-testid="history-put-back"
+          data-testid="config-history-put-back"
           ?disabled=${this.busy}
           @click=${() => {
             this.asking = true;
             this.focusNext = "[data-ask] [data-cancel]";
           }}
         >
-          ${t.t("history.put_back")}
+          ${t.t("config_history.put_back")}
         </button>
       </div>`;
     }
-    return html`<div class="ask" role="alertdialog" data-ask aria-labelledby="history-ask">
-      <h3 id="history-ask">${t.t("history.put_back_title", { name: itemName(t, item) })}</h3>
-      <p class="hint">${t.t("history.put_back_text", { when: this.when(version.at) })}</p>
+    return html`<div class="ask" role="alertdialog" data-ask aria-labelledby="config-history-ask">
+      <h3 id="config-history-ask">
+        ${t.t("config_history.put_back_title", { name: itemName(t, item) })}
+      </h3>
+      <p class="hint">${t.t("config_history.put_back_text", { when: this.when(version.at) })}</p>
       <div class="footer">
         <button
           class="action quiet"
           data-cancel
           @click=${() => {
             this.asking = false;
-            this.focusNext = '[data-testid="history-put-back"]';
+            this.focusNext = '[data-testid="config-history-put-back"]';
           }}
         >
-          ${t.t("history.cancel")}
+          ${t.t("config_history.cancel")}
         </button>
         <button
           class="action"
-          data-testid="history-put-back-confirm"
+          data-testid="config-history-put-back-confirm"
           ?disabled=${this.busy}
           @click=${() => {
             void this.putBackShown();
           }}
         >
-          ${t.t("history.put_back_confirm")}
+          ${t.t("config_history.put_back_confirm")}
         </button>
       </div>
     </div>`;
@@ -812,8 +815,8 @@ export class DomoTwinHistory extends LitElement {
 
   /** What a version changed, or what putting it back would change, worked out once. */
   private work(
-    detail: HistoryDetail,
-    version: HistoryVersion,
+    detail: ConfigDetail,
+    version: ConfigVersion,
     index: number,
     compare: Compare,
   ): Worked | undefined {
@@ -826,9 +829,9 @@ export class DomoTwinHistory extends LitElement {
     };
     if (version.removed || !version.kept) return done({ more: 0 });
     const other = compare === "current" ? detail.versions[0] : detail.versions[index + 1];
-    if (!other) return done({ more: 0, note: t.t("history.oldest") });
-    if (other.removed) return done({ more: 0, note: t.t("history.after_removed") });
-    if (!other.kept) return done({ more: 0, note: t.t("history.before_unknown") });
+    if (!other) return done({ more: 0, note: t.t("config_history.oldest") });
+    if (other.removed) return done({ more: 0, note: t.t("config_history.after_removed") });
+    if (!other.kept) return done({ more: 0, note: t.t("config_history.before_unknown") });
     if (!this.configs.has(version.id) || !this.configs.has(other.id)) return undefined;
     // From the one before to it; or, putting it back, from the current one to it.
     const from = this.configs.get(other.id);
@@ -841,4 +844,4 @@ export class DomoTwinHistory extends LitElement {
   }
 }
 
-define("domotwin-history", DomoTwinHistory);
+define("domotwin-config-history", DomoTwinConfigHistory);

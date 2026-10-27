@@ -1,10 +1,11 @@
-"""The configuration history (`docs/DECISIONS.md`, D-057).
+"""The configuration history (`docs/DECISIONS.md`, D-059).
 
 Each change of an automation, a script, a scene or a dashboard is kept, by item and date, in a
-store of its own (.storage/domotwin.history), so that an administrator sees what changed and puts
-one item back. The automations, scripts and scenes Home Assistant's editors write are read from
-their files, as its editors read them; those written in YAML files of one's own from their
-entities, as Home Assistant loaded them (shown, not put back); the dashboards from Lovelace.
+store of its own (.storage/domotwin.config_history), so that an administrator sees what changed
+and puts one item back. The automations, scripts and scenes Home Assistant's editors write are
+read from their files, as its editors read them; those written in YAML files of one's own from
+their entities, as Home Assistant loaded them (shown, not put back); the dashboards from
+Lovelace.
 
 A version is kept when Home Assistant has started, after it reloads automations or scenes, after
 `script.reload`, when one of them leaves the entity registry, when a dashboard is saved or
@@ -41,13 +42,13 @@ from homeassistant.util.yaml import load_yaml
 
 from .compat import vol
 from .const import (
-    HISTORY_KINDS,
-    HISTORY_STORAGE_KEY,
-    HISTORY_STORAGE_VERSION,
-    MAX_HISTORY_BYTES,
-    MAX_HISTORY_ITEMS,
-    MAX_HISTORY_VERSION_BYTES,
-    MAX_HISTORY_VERSIONS,
+    CONFIG_HISTORY_KINDS,
+    CONFIG_HISTORY_STORAGE_KEY,
+    CONFIG_HISTORY_STORAGE_VERSION,
+    MAX_CONFIG_HISTORY_BYTES,
+    MAX_CONFIG_HISTORY_ITEMS,
+    MAX_CONFIG_HISTORY_VERSION_BYTES,
+    MAX_CONFIG_HISTORY_VERSIONS,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -307,7 +308,7 @@ class ConfigHistory:
         """Prepare the store; nothing is read before `async_load`, nothing followed before start."""
         self._hass = hass
         self._store: Store[dict[str, Any]] = Store(
-            hass, HISTORY_STORAGE_VERSION, HISTORY_STORAGE_KEY, private=True
+            hass, CONFIG_HISTORY_STORAGE_VERSION, CONFIG_HISTORY_STORAGE_KEY, private=True
         )
         self._items: dict[str, Item] = {}
         self._next = 1
@@ -337,7 +338,7 @@ class ConfigHistory:
     def async_start(self) -> None:
         """Follow what announces a change. The first reading is the caller's, once started."""
         hass = self._hass
-        for kind in HISTORY_KINDS:
+        for kind in CONFIG_HISTORY_KINDS:
             self._debouncers[kind] = Debouncer(
                 hass,
                 _LOGGER,
@@ -412,7 +413,7 @@ class ConfigHistory:
         if (debouncer := self._debouncers.get(kind)) is not None:
             debouncer.async_schedule_call()
 
-    async def async_snapshot(self, kinds: Iterable[str] = HISTORY_KINDS) -> int:
+    async def async_snapshot(self, kinds: Iterable[str] = CONFIG_HISTORY_KINDS) -> int:
         """Read each kind and keep what changed since its last version; how many were kept."""
         changed = 0
         async with self._lock:
@@ -461,7 +462,7 @@ class ConfigHistory:
             item.name = found.name or item.name
             item.source = found.source
             size = len(text.encode("utf-8"))
-            kept = text if size <= MAX_HISTORY_VERSION_BYTES else None
+            kept = text if size <= MAX_CONFIG_HISTORY_VERSION_BYTES else None
             item.versions.append(self._version(now, digest, kept))
             changed += 1
         for item in list(self._items.values()):
@@ -482,16 +483,16 @@ class ConfigHistory:
     def _prune(self) -> None:
         """The oldest versions go first; an item's newest is always kept."""
         for item in self._items.values():
-            del item.versions[:-MAX_HISTORY_VERSIONS]
+            del item.versions[:-MAX_CONFIG_HISTORY_VERSIONS]
         total = sum(v.bytes for item in self._items.values() for v in item.versions)
-        if total > MAX_HISTORY_BYTES:
+        if total > MAX_CONFIG_HISTORY_BYTES:
             older = [
                 (version.id, item.id)
                 for item in self._items.values()
                 for version in item.versions[:-1]
             ]
             heapq.heapify(older)
-            while total > MAX_HISTORY_BYTES and older:
+            while total > MAX_CONFIG_HISTORY_BYTES and older:
                 version_id, item_id = heapq.heappop(older)
                 item = self._items[item_id]
                 index = next(i for i, v in enumerate(item.versions) if v.id == version_id)
@@ -500,12 +501,12 @@ class ConfigHistory:
         for item_id, item in list(self._items.items()):
             if all(version.removed for version in item.versions):
                 del self._items[item_id]
-        if len(self._items) > MAX_HISTORY_ITEMS:
+        if len(self._items) > MAX_CONFIG_HISTORY_ITEMS:
             gone = sorted(
                 (item for item in self._items.values() if item.versions[-1].removed),
                 key=lambda item: item.versions[-1].id,
             )
-            for item in gone[: len(self._items) - MAX_HISTORY_ITEMS]:
+            for item in gone[: len(self._items) - MAX_CONFIG_HISTORY_ITEMS]:
                 del self._items[item.id]
 
     def items(self) -> list[dict[str, Any]]:
@@ -605,7 +606,11 @@ def _read_item(raw: Any) -> Item | None:
     if not isinstance(raw, dict):
         return None
     kind, key, name, source = raw.get("kind"), raw.get("key"), raw.get("name"), raw.get("source")
-    if kind not in HISTORY_KINDS or not isinstance(key, str) or source not in ("editor", "yaml"):
+    if (
+        kind not in CONFIG_HISTORY_KINDS
+        or not isinstance(key, str)
+        or source not in ("editor", "yaml")
+    ):
         return None
     versions = raw.get("versions")
     kept = [v for v in map(_read_version, versions if isinstance(versions, list) else []) if v]
@@ -621,27 +626,27 @@ def _read_item(raw: Any) -> Item | None:
 @callback
 def async_register_commands(hass: HomeAssistant) -> None:
     """Register the commands of the configuration history (once, at integration setup)."""
-    websocket_api.async_register_command(hass, ws_history_list)
-    websocket_api.async_register_command(hass, ws_history_item)
-    websocket_api.async_register_command(hass, ws_history_version)
-    websocket_api.async_register_command(hass, ws_history_refresh)
+    websocket_api.async_register_command(hass, ws_config_history_list)
+    websocket_api.async_register_command(hass, ws_config_history_item)
+    websocket_api.async_register_command(hass, ws_config_history_version)
+    websocket_api.async_register_command(hass, ws_config_history_refresh)
 
 
 def _history(
     hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
 ) -> ConfigHistory | None:
-    from .data import HISTORY_KEY  # noqa: PLC0415 (data imports this module)
+    from .data import CONFIG_HISTORY_KEY  # noqa: PLC0415 (data imports this module)
 
-    history = hass.data.get(HISTORY_KEY)
+    history = hass.data.get(CONFIG_HISTORY_KEY)
     if history is None:
         connection.send_error(msg["id"], "not_loaded", "DomoTwin is not set up")
     return history
 
 
 @websocket_api.require_admin
-@websocket_api.websocket_command({vol.Required("type"): "domotwin/history/list"})
+@websocket_api.websocket_command({vol.Required("type"): "domotwin/config_history/list"})
 @callback
-def ws_history_list(
+def ws_config_history_list(
     hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
 ) -> None:
     """Every item kept, the most recently changed first, and the room the history takes."""
@@ -649,16 +654,16 @@ def ws_history_list(
         return
     connection.send_result(
         msg["id"],
-        {"items": history.items(), "bytes": history.size(), "max_bytes": MAX_HISTORY_BYTES},
+        {"items": history.items(), "bytes": history.size(), "max_bytes": MAX_CONFIG_HISTORY_BYTES},
     )
 
 
 @websocket_api.require_admin
 @websocket_api.websocket_command(
-    {vol.Required("type"): "domotwin/history/item", vol.Required("item"): str}
+    {vol.Required("type"): "domotwin/config_history/item", vol.Required("item"): str}
 )
 @callback
-def ws_history_item(
+def ws_config_history_item(
     hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
 ) -> None:
     """An item and its versions, newest first."""
@@ -673,13 +678,13 @@ def ws_history_item(
 @websocket_api.require_admin
 @websocket_api.websocket_command(
     {
-        vol.Required("type"): "domotwin/history/version",
+        vol.Required("type"): "domotwin/config_history/version",
         vol.Required("item"): str,
         vol.Required("version"): int,
     }
 )
 @callback
-def ws_history_version(
+def ws_config_history_version(
     hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
 ) -> None:
     """A version's configuration (`null`: removed, or too large to keep)."""
@@ -693,14 +698,17 @@ def ws_history_version(
 
 @websocket_api.require_admin
 @websocket_api.websocket_command(
-    {vol.Required("type"): "domotwin/history/refresh", vol.Optional("kind"): vol.In(HISTORY_KINDS)}
+    {
+        vol.Required("type"): "domotwin/config_history/refresh",
+        vol.Optional("kind"): vol.In(CONFIG_HISTORY_KINDS),
+    }
 )
 @websocket_api.async_response
-async def ws_history_refresh(
+async def ws_config_history_refresh(
     hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
 ) -> None:
     """Reads a kind (every kind without one) now, after an item was put back; the versions kept."""
     if (history := _history(hass, connection, msg)) is None:
         return
-    kinds = (msg["kind"],) if "kind" in msg else HISTORY_KINDS
+    kinds = (msg["kind"],) if "kind" in msg else CONFIG_HISTORY_KINDS
     connection.send_result(msg["id"], {"changed": await history.async_snapshot(kinds)})

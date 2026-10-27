@@ -128,18 +128,18 @@ MAX_FAVOURITES: Final = 100
 MAX_HOME_CARDS: Final = 6
 MAX_CALENDARS: Final = 10
 
-# The configuration history (docs/DECISIONS.md, D-057): each change of an automation, a script,
-# a scene or a dashboard, in a store of its own (.storage/domotwin.history). At most this many
-# bytes in all and versions an item (the oldest versions go first, an item's newest always kept),
-# bytes a version (a larger one keeps its date, not its content); past this many items, those
-# removed are forgotten, the longest removed first.
-HISTORY_STORAGE_KEY: Final = f"{DOMAIN}.history"
-HISTORY_STORAGE_VERSION: Final = 1
-HISTORY_KINDS: Final = ("automation", "script", "scene", "dashboard")
-MAX_HISTORY_BYTES: Final = 4_000_000
-MAX_HISTORY_VERSIONS: Final = 50
-MAX_HISTORY_VERSION_BYTES: Final = 1_000_000
-MAX_HISTORY_ITEMS: Final = 2_000
+# The configuration history (docs/DECISIONS.md, D-059): each change of an automation, a script,
+# a scene or a dashboard, in a store of its own (.storage/domotwin.config_history). At most this
+# many bytes in all and versions an item (the oldest versions go first, an item's newest always
+# kept), bytes a version (a larger one keeps its date, not its content); past this many items,
+# those removed are forgotten, the longest removed first.
+CONFIG_HISTORY_STORAGE_KEY: Final = f"{DOMAIN}.config_history"
+CONFIG_HISTORY_STORAGE_VERSION: Final = 1
+CONFIG_HISTORY_KINDS: Final = ("automation", "script", "scene", "dashboard")
+MAX_CONFIG_HISTORY_BYTES: Final = 4_000_000
+MAX_CONFIG_HISTORY_VERSIONS: Final = 50
+MAX_CONFIG_HISTORY_VERSION_BYTES: Final = 1_000_000
+MAX_CONFIG_HISTORY_ITEMS: Final = 2_000
 
 # Dispatcher signal sent after every write: (kind, revision).
 SIGNAL_UPDATED: Final = f"{DOMAIN}_updated"
