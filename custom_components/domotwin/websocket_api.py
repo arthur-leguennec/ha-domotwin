@@ -12,7 +12,7 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.util import dt as dt_util
 
-from . import choices, config_history, schedules, voice, wifi
+from . import choices, config_history, report, schedules, voice, wifi
 from .compat import vol
 from .const import DOMAIN, SIGNAL_SHOW, SIGNAL_UPDATED, TEACH_SECONDS, VERSION
 from .data import DATA_KEY, LOCATOR_KEY, PEOPLE_KEY
@@ -78,6 +78,7 @@ def async_register_commands(hass: HomeAssistant) -> None:
     choices.async_register_commands(hass)
     wifi.async_register_commands(hass)
     config_history.async_register_commands(hass)
+    report.async_register_commands(hass)
 
 
 def _get_data(
@@ -821,7 +822,8 @@ def ws_subscribe(
     """Send an event every time something stored changes: its kind and revision.
 
     The kinds: the plan (its overlay counts as the plan), the bindings, the settings, the upkeep,
-    the people's settings and the home's Wi-Fi (`wifi`: only that it changed, D-060).
+    the people's settings, the home's Wi-Fi (`wifi`: only that it changed, D-060) and the weekly
+    report (`report`: a report written or its settings changed, D-066).
 
     Every `domotwin.show` is sent too: kind `show`, the request in `show`.
     """

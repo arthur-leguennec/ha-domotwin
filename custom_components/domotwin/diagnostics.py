@@ -10,7 +10,7 @@ from homeassistant.util import dt as dt_util
 
 from . import DomoTwinConfigEntry
 from .const import MODEL_ENTRY_PREFIX, PLAN_LISTS, VERSION
-from .data import LOCATOR_KEY, PEOPLE_KEY, SCHEDULER_KEY, WIFI_KEY
+from .data import LOCATOR_KEY, PEOPLE_KEY, REPORT_KEY, SCHEDULER_KEY, WIFI_KEY
 from .models import async_usage
 from .upkeep import due_tasks, piece_names
 
@@ -106,5 +106,18 @@ async def async_get_config_entry_diagnostics(
     # Whether the home's Wi-Fi is given (D-060): never its name, its password or its screens.
     if (wifi := hass.data.get(WIFI_KEY)) is not None:
         diagnostics["wifi"] = {"set": wifi.is_set, "router_code": wifi.from_image}
+    # The weekly report's settings (D-066), whether an AI task sums it up, and how many reports are
+    # kept: never what they say.
+    if (report := hass.data.get(REPORT_KEY)) is not None:
+        settings = report.settings
+        diagnostics["report"] = {
+            "weekly": settings["weekly"],
+            "weekday": settings["weekday"],
+            "hour": settings["hour"],
+            "notify": settings["notify"],
+            "summary": settings["summary"] is not None,
+            "battery": settings["battery"],
+            "kept": len(report.list()),
+        }
     redacted: dict[str, Any] = async_redact_data(diagnostics, TO_REDACT)
     return redacted

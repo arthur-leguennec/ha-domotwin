@@ -19,6 +19,7 @@ from .data import (
     DATA_KEY,
     LOCATOR_KEY,
     PEOPLE_KEY,
+    REPORT_KEY,
     SCHEDULER_KEY,
     WIFI_KEY,
 )
@@ -31,6 +32,7 @@ from .frontend import (
 from .http import async_register_views
 from .locator import Locator
 from .models import async_remove_all
+from .report import WeeklyReport
 from .schedules import Scheduler
 from .services import async_register_services
 from .storage import DomoTwinData
@@ -119,6 +121,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: DomoTwinConfigEntry) -> 
     entry.async_on_unload(drop_wifi)
     hass.data[WIFI_KEY] = wifi
     await _async_start_history(hass, entry)
+    await _async_start_report(hass, entry)
     await async_register_frontend(hass)
     await async_update_panel(hass, entry)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
@@ -150,6 +153,28 @@ async def _async_start_history(hass: HomeAssistant, entry: DomoTwinConfigEntry) 
     hass.data[CONFIG_HISTORY_KEY] = history
 
 
+async def _async_start_report(hass: HomeAssistant, entry: DomoTwinConfigEntry) -> None:
+    """The weekly report (D-066): looked for every hour; a week missed written once started."""
+    report = WeeklyReport(hass, entry.runtime_data)
+    await report.async_load()
+    report.async_start()
+
+    @callback
+    def catch_up(_hass: HomeAssistant) -> None:
+        report.async_catch_up()
+
+    entry.async_on_unload(async_at_started(hass, catch_up))
+
+    @callback
+    def drop_report() -> None:
+        report.async_stop()
+        if hass.data.get(REPORT_KEY) is report:
+            hass.data.pop(REPORT_KEY)
+
+    entry.async_on_unload(drop_report)
+    hass.data[REPORT_KEY] = report
+
+
 async def _async_options_updated(hass: HomeAssistant, entry: DomoTwinConfigEntry) -> None:
     await async_update_panel(hass, entry)
 
@@ -167,12 +192,13 @@ async def async_unload_entry(hass: HomeAssistant, entry: DomoTwinConfigEntry) ->
 
 
 async def async_remove_entry(hass: HomeAssistant, entry: DomoTwinConfigEntry) -> None:
-    """Delete all DomoTwin keeps: data, choices, Wi-Fi, actions, config history, model files."""
+    """Delete all DomoTwin keeps: data, choices, Wi-Fi, actions, config history, reports, models."""
     await DomoTwinData(hass).async_remove()
     await Scheduler(hass).async_remove()
     await Choices(hass).async_remove()
     await Wifi(hass).async_remove()
     await ConfigHistory(hass).async_remove()
+    await WeeklyReport(hass, DomoTwinData(hass)).async_remove()
     await PeopleTracker(hass, DomoTwinData(hass)).async_remove()
     await Locator(hass, DomoTwinData(hass), entry.entry_id).async_remove()
     await async_remove_all(hass)

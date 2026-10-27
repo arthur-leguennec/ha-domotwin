@@ -176,3 +176,26 @@ MAX_MODELS: Final = 50
 MODEL_GRACE_SECONDS: Final = 86_400
 # Overlay entries of the models imported in edit mode: "@model:<model id>".
 MODEL_ENTRY_PREFIX: Final = "@model:"
+
+# The weekly report (docs/DECISIONS.md, D-066): its settings and the last reports, in a store of its
+# own (.storage/domotwin.reports), private. At most this many reports kept (the oldest go first),
+# items a section of a report (the others counted), and a summary's characters.
+REPORT_STORAGE_KEY: Final = f"{DOMAIN}.reports"
+REPORT_STORAGE_VERSION: Final = 1
+MAX_REPORTS: Final = 8
+MAX_REPORT_ITEMS: Final = 100
+MAX_SUMMARY: Final = 2_000
+# What needs a look, in the order a report says it.
+REPORT_SECTIONS: Final = (
+    "batteries",
+    "unavailable",
+    "updates",
+    "repairs",
+    "upkeep",
+    "automations",
+    "radios",
+)
+# The event fired after each report written on its day, for automations of one's own; and Home
+# Assistant's notification of it, replaced by the next one.
+REPORT_EVENT: Final = f"{DOMAIN}_weekly_report"
+REPORT_NOTIFICATION: Final = f"{DOMAIN}_weekly_report"
