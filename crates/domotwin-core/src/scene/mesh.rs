@@ -42,6 +42,16 @@ pub enum Surface {
     Leaf = 14,
     /// A room's ceiling, seen from below when walking (D-029): lit like the room, not by the sun.
     Ceiling = 15,
+    /// A lawn (D-077): its grass as long as it has grown since it was mown, striped just after.
+    Grass = 16,
+    /// Gravel.
+    Gravel = 17,
+    /// Water (a pool, a hot tub).
+    Water = 18,
+    /// Bare soil (a bed, a vegetable patch).
+    Soil = 19,
+    /// Paving slabs, 60 cm.
+    Paving = 20,
 }
 
 /// How a vertex reacts to the cut-away of its wall group. Stored in the vertex (2 bits).

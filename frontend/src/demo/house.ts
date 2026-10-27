@@ -57,6 +57,8 @@ export const AREAS: readonly { id: string; names: Words; room: string; storey: s
   { id: "landing", names: ["Landing", "Palier"], room: "u-landing", storey: "upper" },
   { id: "playroom", names: ["Playroom", "Salle de jeux"], room: "u-playroom", storey: "upper" },
   { id: "guest_room", names: ["Guest room", "Chambre d’amis"], room: "u-guest", storey: "upper" },
+  { id: "terrace", names: ["Terrace", "Terrasse"], room: "terrace", storey: "ground" },
+  { id: "garden", names: ["Garden", "Jardin"], room: "back-garden", storey: "ground" },
 ];
 
 /** The French names of the plans' pieces, doors and windows, by their English name. */
@@ -146,6 +148,30 @@ const FRENCH: Readonly<Record<string, string>> = {
   "Landing window": "Fenêtre du palier",
   "Playroom window": "Fenêtre de la salle de jeux",
   "Guest room window": "Fenêtre de la chambre d’amis",
+  // The garden (D-077).
+  "Front garden": "Jardin de devant",
+  Path: "Allée",
+  Driveway: "Allée du garage",
+  "Garden table": "Table de jardin",
+  "Garden chair": "Chaise de jardin",
+  Parasol: "Parasol",
+  Barbecue: "Barbecue",
+  "Terrace lights": "Guirlande de la terrasse",
+  Pool: "Piscine",
+  "Sun lounger": "Transat",
+  Oak: "Chêne",
+  "Apple tree": "Pommier",
+  Hedge: "Haie",
+  Shed: "Abri de jardin",
+  "Robot mower": "Tondeuse robot",
+  Boxwood: "Buis",
+  "Rose bush": "Rosier",
+  "Path light": "Balise",
+  Gate: "Portail",
+  Fence: "Clôture",
+  "Letter box": "Boîte aux lettres",
+  "Lamp post": "Lampadaire",
+  Car: "Voiture",
 };
 
 /** A storey's plan in the language: its rooms named as their areas, its pieces translated. */
@@ -521,6 +547,53 @@ export const THINGS: readonly Thing[] = [
     pieces: ["robot-dock"],
     state: "100",
     attributes: { device_class: "battery", unit_of_measurement: "%" },
+  },
+  // The garden (D-077): the robot mower on the back lawn, the lights, the pool's pump, the gate.
+  {
+    id: "lawn_mower.mowy",
+    area: "garden",
+    names: ["Robot mower", "Tondeuse robot"],
+    pieces: ["mower-dock"],
+    state: "docked",
+    // Starts, pauses, goes home.
+    attributes: { supported_features: 7 },
+  },
+  {
+    id: "light.terrace",
+    area: "terrace",
+    names: ["Terrace lights", "Guirlande de la terrasse"],
+    pieces: ["terrace-lights"],
+    state: "off",
+    attributes: { ...warm, color_temp_kelvin: 2400, brightness: 150 },
+  },
+  {
+    id: "light.garden_path",
+    names: ["Path lights", "Balises de l’allée"],
+    pieces: ["path-light-1", "path-light-2", "lamp-post"],
+    state: "off",
+    attributes: { ...warm, color_temp_kelvin: 3000 },
+  },
+  {
+    id: "switch.pool_pump",
+    area: "garden",
+    names: ["Pool pump", "Pompe de la piscine"],
+    pieces: ["pool"],
+    state: "off",
+  },
+  {
+    id: "sensor.pool_temperature",
+    area: "garden",
+    names: ["Pool temperature", "Température de la piscine"],
+    pieces: ["pool"],
+    state: "24.5",
+    attributes: celsius,
+  },
+  {
+    id: "cover.gate",
+    names: ["Gate", "Portail"],
+    pieces: ["gate"],
+    state: "closed",
+    attributes: { device_class: "gate", supported_features: 3, current_position: 0 },
   },
   // Upper floor: the main bedroom.
   {
@@ -937,6 +1010,27 @@ export const AUTOMATIONS: readonly { id: string; names: Words; config: Record<st
           { condition: "state", entity_id: "person.robin", state: "not_home" },
         ],
         actions: [{ action: "vacuum.start", target: { entity_id: "vacuum.robot" } }],
+      },
+    },
+    {
+      id: "automation.mow_the_lawn",
+      names: ["Mow the lawn", "Tondre la pelouse"],
+      config: {
+        triggers: [{ trigger: "time", at: "10:30:00" }],
+        actions: [{ action: "lawn_mower.start_mowing", target: { entity_id: "lawn_mower.mowy" } }],
+      },
+    },
+    {
+      id: "automation.garden_lights",
+      names: ["Garden lights at dusk", "Jardin éclairé à la tombée du jour"],
+      config: {
+        triggers: [{ trigger: "sun", event: "sunset", offset: "-00:20:00" }],
+        actions: [
+          {
+            action: "light.turn_on",
+            target: { entity_id: ["light.terrace", "light.garden_path"] },
+          },
+        ],
       },
     },
     {

@@ -380,28 +380,36 @@ async def test_where_answers_and_shows(
     await hass.services.async_call("domotwin", "show", {"person": "person.sam"}, blocking=True)
 
 
-async def test_the_voice_blueprint_says_where_someone_is(
-    hass: HomeAssistant,
-    home: MockConfigEntry,
-    hass_ws_client: WebSocketGenerator,
-    config_dir: Path,
-) -> None:
-    """Imported as is, "where is Alex" answers with Alex's room and shows it."""
-    admin = await hass_ws_client(hass)
-    assert (await _save_people(admin, {"person.alex": {"sources": ["sensor.alex_phone_area"]}}))[
-        "success"
-    ]
+@pytest.fixture
+async def assist(hass: HomeAssistant, config_dir: Path) -> None:
+    """Assist and the voice blueprint, set up before a client starts the web server.
+
+    Assist's intents add their views to it, which a started server no longer takes.
+    """
     target = config_dir / "blueprints" / "automation" / "domotwin"
     target.mkdir(parents=True)
     shutil.copy(BLUEPRINT, target / BLUEPRINT.name)
     assert await async_setup_component(hass, "homeassistant", {})
     assert await async_setup_component(hass, "conversation", {})
+
+
+async def test_the_voice_blueprint_says_where_someone_is(
+    hass: HomeAssistant,
+    assist: None,
+    home: MockConfigEntry,
+    hass_ws_client: WebSocketGenerator,
+) -> None:
+    """Imported as is, "where is Alex" answers with Alex's room and shows it."""
     assert await async_setup_component(
         hass,
         "automation",
         {"automation": {"use_blueprint": {"path": "domotwin/where_by_voice.yaml", "input": {}}}},
     )
     await hass.async_block_till_done()
+    admin = await hass_ws_client(hass)
+    assert (await _save_people(admin, {"person.alex": {"sources": ["sensor.alex_phone_area"]}}))[
+        "success"
+    ]
     screen = await hass_ws_client(hass)
     await screen.send_json_auto_id({"type": "domotwin/subscribe"})
     assert (await screen.receive_json())["success"]

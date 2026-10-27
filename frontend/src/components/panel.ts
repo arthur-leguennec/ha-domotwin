@@ -54,6 +54,7 @@ import {
 import {
   DomoTwinClient,
   type PlanJson,
+  type RoofSettings,
   type Settings,
   type StoreyInfo,
   type StoredPlan,
@@ -191,6 +192,12 @@ import { navigate } from "../live/actions";
 import { areaPage, energyPage, energySetUp } from "../live/overview";
 import type { PeriodChoice } from "../live/history";
 
+/** The roofs' shapes, and the slope and colours they have before one is chosen (D-077): tiles,
+ * a flat roof's membrane, as the engine draws them. */
+const ROOF_SHAPES = ["gable", "hip", "shed", "flat"] as const;
+const ROOF_PITCH = 30;
+const ROOF_TILES = "#6b5a52";
+const ROOF_MEMBRANE = "#5d6062";
 /** The plan format allows files up to 32 MB. */
 const MAX_FILE_BYTES = 32_000_000;
 /** Plans of other apps are read in the browser's memory: larger ones are refused. */
@@ -384,6 +391,7 @@ export class DomoTwinPanel extends LitElement {
     energyDraft: { state: true },
     energyPreferred: { state: true },
     weatherDraft: { state: true },
+    roofDraft: { state: true },
     look: { reflect: true },
     planning: { state: true },
     planState: { state: true },
@@ -606,6 +614,8 @@ export class DomoTwinPanel extends LitElement {
   /** The weather drawn around the home, being chosen in the settings (D-072): an entity, `none`,
    * or `""` for the usual one. */
   protected weatherDraft?: string;
+  /** How the roofs are drawn, being chosen in the settings (D-077). */
+  protected roofDraft?: RoofSettings;
   /** The draft last shown, and its settings as read. */
   private energyShown?: { draft: EnergySettings; energy: EnergySettings | undefined };
   /** The power sensors Home Assistant's own energy settings name, offered first. */
@@ -1428,6 +1438,7 @@ export class DomoTwinPanel extends LitElement {
     this.energyDraft = undefined;
     this.energyPreferred = undefined;
     this.weatherDraft = undefined;
+    this.roofDraft = undefined;
     this.peopleOpen = false;
     this.peopleSettings = undefined;
     this.bluetoothOpen = false;
@@ -1483,7 +1494,8 @@ export class DomoTwinPanel extends LitElement {
       else if (event.kind === "people") void this.loadPeople();
       else if (event.kind === "wifi") void this.loadWifi();
       else if (event.kind === "screens") void this.loadScreens();
-      else void this.loadSettings();
+      // The lawns (D-077) are the view's.
+      else if (event.kind !== "garden") void this.loadSettings();
     });
     void this.loadPlan();
     void this.loadBindings();
@@ -1928,6 +1940,7 @@ export class DomoTwinPanel extends LitElement {
     if (this.settings?.accent) this.lookDraft.accent = this.settings.accent;
     this.energyDraft = { ...(this.settings?.energy ?? {}) };
     this.weatherDraft = this.settings?.weather ?? "";
+    this.roofDraft = { ...this.settings?.roof };
     void this.loadEnergyPreferred();
   };
 
@@ -1966,6 +1979,10 @@ export class DomoTwinPanel extends LitElement {
       }
       if (this.weatherDraft) settings.weather = this.weatherDraft;
       else if (this.weatherDraft !== undefined) delete settings.weather;
+      // The roof as chosen; all its defaults, none stored.
+      const roof = this.roofDraft;
+      if (roof && Object.keys(roof).length > 0) settings.roof = roof;
+      else if (roof) delete settings.roof;
       await client.saveSettings(settings);
       this.settings = settings;
       this.northDraft = undefined;
@@ -3717,6 +3734,9 @@ export class DomoTwinPanel extends LitElement {
           ? this.weatherDraft || undefined
           : this.settings?.weather
       }
+      .roofStyle=${
+        this.northDraft !== undefined && this.roofDraft ? this.roofDraft : this.settings?.roof
+      }
       .storeys=${this.storeys}
       .storey=${this.wholeHome() ? ALL_STOREYS : this.storey}
       .home=${this.wholeHome() && this.homeShown ? this.home : undefined}
@@ -4419,7 +4439,8 @@ export class DomoTwinPanel extends LitElement {
         />
       </label>
       <p class="hint">${t.t("settings.north_hint")}</p>
-      ${this.renderLookSettings()} ${this.renderWeatherSettings()} ${this.renderEnergySettings()}
+      ${this.renderLookSettings()} ${this.renderRoofSettings()} ${this.renderWeatherSettings()}
+      ${this.renderEnergySettings()}
       <div class="footer">
         <button class="action quiet" data-cancel @click=${() => (this.northDraft = undefined)}>
           ${t.t("panel.cancel")}
@@ -4510,6 +4531,81 @@ export class DomoTwinPanel extends LitElement {
       ${sensor("solar")} ${sensor("grid")} ${reversed("grid_reversed", Boolean(draft.grid))}
       ${sensor("battery")} ${reversed("battery_reversed", Boolean(draft.battery))}
       ${sensor("battery_level")}`;
+  }
+
+  /** How the roofs are drawn (D-077): their shape, slope and colour, shown as they are chosen. */
+  private renderRoofSettings(): TemplateResult | typeof nothing {
+    const t = this.t;
+    const draft = this.roofDraft;
+    if (!draft) return nothing;
+    const shape = draft.shape ?? "gable";
+    const pitch = draft.pitch ?? ROOF_PITCH;
+    return html`<h3>${t.t("settings.roof")}</h3>
+      <p class="hint">${t.t("settings.roof_hint")}</p>
+      <label class="look">
+        <span>${t.t("settings.roof_shape")}</span>
+        <select
+          data-testid="settings-roof-shape"
+          @change=${(event: Event) => {
+            const value = (event.target as HTMLSelectElement).value as RoofSettings["shape"];
+            this.roofDraft = { ...draft, shape: value };
+          }}
+        >
+          ${ROOF_SHAPES.map(
+            (s) =>
+              html`<option value=${s} ?selected=${s === shape}>
+                ${t.t(`settings.roof_${s}`)}
+              </option>`,
+          )}
+        </select>
+      </label>
+      ${
+        shape === "flat"
+          ? nothing
+          : html`<label class="look">
+              <span>${t.t("settings.roof_pitch", { degrees: pitch })}</span>
+              <input
+                type="range"
+                data-testid="settings-roof-pitch"
+                min="5"
+                max="60"
+                step="5"
+                .value=${String(pitch)}
+                @change=${(event: Event) => {
+                  this.roofDraft = {
+                    ...draft,
+                    pitch: Number((event.target as HTMLInputElement).value),
+                  };
+                }}
+              />
+            </label>`
+      }
+      <label class="look">
+        <span>${t.t("settings.roof_color")}</span>
+        <input
+          type="color"
+          data-testid="settings-roof-color"
+          .value=${draft.color ?? (shape === "flat" ? ROOF_MEMBRANE : ROOF_TILES)}
+          @change=${(event: Event) => {
+            this.roofDraft = { ...draft, color: (event.target as HTMLInputElement).value };
+          }}
+        />
+      </label>
+      ${
+        draft.color
+          ? html`<button
+              class="quiet"
+              data-testid="settings-roof-color-default"
+              @click=${() => {
+                const rest = { ...draft };
+                delete rest.color;
+                this.roofDraft = rest;
+              }}
+            >
+              ${t.t("settings.roof_color_default")}
+            </button>`
+          : nothing
+      }`;
   }
 
   /** The weather drawn around the home (D-072): the usual entity, one chosen, or none; shown as

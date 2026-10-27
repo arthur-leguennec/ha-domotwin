@@ -1,54 +1,201 @@
-//! The roof over the top storey of a home (D-028): a gable roof over the smallest rectangle around
-//! the storey's walls, its ridge along the longer side, its eaves a little out from the walls, and
-//! its outlines (eaves, ridge, gable edges).
+//! The roofs of a home (D-028, D-077): over each storey where no storey above covers it, a roof of
+//! the shape the home's settings say (gable, hip, shed or flat), made of wings: the rectangles its
+//! footprint is made of (an L-shaped home has two, their roofs meeting in valleys), found on a
+//! grid along the home's own axes; a home whose walls are not square to each other has one, over
+//! the smallest rectangle around it.
 
 use super::lines::{LineKind, Lines};
 use super::mesh::{Material, Mesh, NO_GROUP, Painter, Surface, Tag, V3};
 use super::{Roof, RoofShape, StoreyPart};
-use crate::geometry::polygon::P2;
+use crate::geometry::polygon::{P2, point_in_polygon};
 use crate::plan::Rgb8;
 
-/// How far the eaves stand out from the walls (cm).
+/// How far the eaves stand out from the walls (cm); a flat roof's edge, less.
 const OVERHANG: f64 = 30.0;
-/// Pitch of the slopes (degrees), and the highest a ridge goes above the eaves (cm).
-const PITCH: f64 = 30.0;
+const FLAT_OVERHANG: f64 = 10.0;
+/// The highest a ridge goes above the eaves (cm).
 const MAX_RISE: f64 = 320.0;
-/// Thickness of the roof (cm).
+/// Thickness of a pitched roof, and of a flat one (cm).
 const THICKNESS: f64 = 14.0;
-/// The tiles, the underside and edges, the gable walls.
-const TILES: Material = Material::new(Rgb8::from_u32(0x6b5a52), 0.85, Surface::Matte);
+const FLAT_THICKNESS: f64 = 22.0;
+/// The tiles, the underside and edges, the gable walls, a flat roof's membrane.
+const TILES: Rgb8 = Rgb8::from_u32(0x6b5a52);
 const UNDERSIDE: Material = Material::satin(Rgb8::from_u32(0xe9e6de));
 const GABLE: Material = Material::new(Rgb8::from_u32(0xe9e6de), 0.95, Surface::Matte);
+const MEMBRANE: Rgb8 = Rgb8::from_u32(0x5d6062);
+/// Most wings a roof has, and the narrowest one (cm).
+pub const MAX_WINGS: usize = 4;
+const NARROWEST: f64 = 150.0;
+/// Most cells along the longer side of the grid a footprint is read on, and the smallest (cm).
+const CELLS: f64 = 120.0;
+const SMALLEST_CELL: f64 = 12.0;
+/// The share of a footprint its wings may leave uncovered before it is roofed whole, as a home
+/// whose walls are not square to each other.
+const LEFT_OVER: f64 = 0.12;
 
-/// The roof over the highest storey of `parts`; `None` without walls to cover.
-pub(crate) fn build(parts: &[StoreyPart], wall_height: f64) -> Option<Roof> {
-    let (storey, top) = parts
-        .iter()
-        .enumerate()
-        .max_by(|a, b| a.1.elevation.total_cmp(&b.1.elevation))?;
-    // The rooms and the outer faces of their walls.
-    let mut points: Vec<P2> = Vec::new();
-    for room in &top.layout.rooms {
-        points.extend(&room.points);
-        for band in room.sides.iter().flatten().flatten() {
-            points.extend(band.quad);
-        }
-    }
-    let rectangle = smallest_rectangle(&convex_hull(points))?;
-    let mut mesh = Mesh::default();
-    let mut lines = Lines::default();
-    let shape = gable_roof(&mut mesh, &mut lines, &rectangle, wall_height);
-    (mesh.vertex_count() > 0).then_some(Roof {
-        elevation: top.elevation,
-        storey,
-        mesh,
-        lines: lines.list,
-        shape,
-    })
+/// The shape of a home's roofs (D-077).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum RoofKind {
+    /// Two slopes meeting at a ridge, a gable at each end.
+    #[default]
+    Gable,
+    /// Four slopes: the ends slope too.
+    Hip,
+    /// One slope (a lean-to).
+    Shed,
+    /// Flat.
+    Flat,
 }
 
-/// A rectangle on the plan: its centre, its unit axes (`u` along the longer side) and half its
-/// length and width.
+impl RoofKind {
+    /// Every shape, as the settings name them.
+    pub const ALL: [RoofKind; 4] = [
+        RoofKind::Gable,
+        RoofKind::Hip,
+        RoofKind::Shed,
+        RoofKind::Flat,
+    ];
+
+    /// The name in the settings.
+    pub const fn name(self) -> &'static str {
+        match self {
+            RoofKind::Gable => "gable",
+            RoofKind::Hip => "hip",
+            RoofKind::Shed => "shed",
+            RoofKind::Flat => "flat",
+        }
+    }
+
+    /// Reads a name; an unknown one is a gable roof.
+    pub fn from_name(name: &str) -> RoofKind {
+        RoofKind::ALL
+            .into_iter()
+            .find(|kind| kind.name() == name)
+            .unwrap_or_default()
+    }
+}
+
+/// How the home's roofs are drawn (its settings, D-077).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct RoofStyle {
+    pub kind: RoofKind,
+    /// The pitch of its slopes (degrees, 5–60).
+    pub pitch: f64,
+    /// The colour of its tiles (a flat roof's membrane), else the usual one.
+    pub color: Option<Rgb8>,
+}
+
+/// The pitch a roof has unless its settings say otherwise, and the range they may say (degrees).
+pub const PITCH: f64 = 30.0;
+pub const PITCH_RANGE: (f64, f64) = (5.0, 60.0);
+
+impl Default for RoofStyle {
+    fn default() -> Self {
+        Self {
+            kind: RoofKind::Gable,
+            pitch: PITCH,
+            color: None,
+        }
+    }
+}
+
+impl RoofStyle {
+    /// Reads the settings' `roof` leniently: `{"shape": "hip", "pitch": 35, "color": "#7a4a3a"}`.
+    pub fn read(value: &serde_json::Value) -> RoofStyle {
+        let defaults = RoofStyle::default();
+        RoofStyle {
+            kind: value
+                .get("shape")
+                .and_then(serde_json::Value::as_str)
+                .map_or(defaults.kind, RoofKind::from_name),
+            pitch: value
+                .get("pitch")
+                .and_then(serde_json::Value::as_f64)
+                .filter(|p| p.is_finite())
+                .map_or(defaults.pitch, |p| p.clamp(PITCH_RANGE.0, PITCH_RANGE.1)),
+            color: value
+                .get("color")
+                .and_then(serde_json::Value::as_str)
+                .and_then(Rgb8::from_hex),
+        }
+    }
+}
+
+/// The roofs over every storey of `parts` where no storey above covers it, each on its storey's
+/// walls (`wall_height`); none over a storey without rooms.
+pub(crate) fn build(parts: &[StoreyPart], wall_height: f64, style: &RoofStyle) -> Vec<Roof> {
+    let mut roofs = Vec::new();
+    for (storey, part) in parts.iter().enumerate() {
+        // The rooms with their walls, not the places outside.
+        let footprint = outlines(part, false);
+        // What the storeys above stand on: their rooms with their walls, and places outside.
+        let above: Vec<Vec<P2>> = parts
+            .iter()
+            .filter(|other| other.elevation > part.elevation + 1.0)
+            .flat_map(|other| outlines(other, true))
+            .collect();
+        let above: Vec<&[P2]> = above.iter().map(Vec::as_slice).collect();
+        let wings = wings(&footprint, &above);
+        if wings.is_empty() {
+            continue;
+        }
+        let mut mesh = Mesh::default();
+        let mut lines = Lines::default();
+        let main = wings[0].centre;
+        let shapes = wings
+            .iter()
+            .enumerate()
+            .map(|(k, wing)| {
+                // A lean-to's high side is towards the main wing; the main wing's to +v.
+                let high = if k == 0 {
+                    1.0
+                } else {
+                    let d = [main[0] - wing.centre[0], main[1] - wing.centre[1]];
+                    if d[0] * wing.v[0] + d[1] * wing.v[1] >= 0.0 {
+                        1.0
+                    } else {
+                        -1.0
+                    }
+                };
+                draw_wing(&mut mesh, &mut lines, wing, wall_height, style, high)
+            })
+            .collect();
+        if mesh.vertex_count() > 0 {
+            roofs.push(Roof {
+                elevation: part.elevation,
+                storey,
+                mesh,
+                lines: lines.list,
+                wings: shapes,
+            });
+        }
+    }
+    roofs
+}
+
+/// The outlines of a storey's rooms, their walls and corners, and of its places outside when
+/// `outside`.
+fn outlines(part: &StoreyPart, outside: bool) -> Vec<Vec<P2>> {
+    let mut found = Vec::new();
+    for room in part
+        .layout
+        .rooms
+        .iter()
+        .filter(|room| outside || !room.outside)
+    {
+        found.push(room.points.clone());
+        for band in room.sides.iter().flatten().flatten() {
+            found.push(band.quad.to_vec());
+        }
+        for corner in &room.corners {
+            found.push(corner.quad.to_vec());
+        }
+    }
+    found
+}
+
+/// A rectangle on the plan: its centre, its unit axes (`u` along the longer side, `v` = `u` turned
+/// a quarter clockwise on the plan, as `RoofShape` reads across) and half its length and width.
 #[derive(Debug, Clone, Copy, PartialEq)]
 struct Rectangle {
     centre: P2,
@@ -58,18 +205,344 @@ struct Rectangle {
     half_width: f64,
 }
 
-/// Draws a gable roof over `r` (grown by the overhang), its eaves at height `eaves` (the walls'
-/// tops: the shaders darken what stands near its floor, which a roof is not); returns its shape.
-fn gable_roof(mesh: &mut Mesh, lines: &mut Lines, r: &Rectangle, eaves: f64) -> RoofShape {
-    let (hl, hw) = (r.half_length + OVERHANG, r.half_width + OVERHANG);
-    let rise = (hw * PITCH.to_radians().tan()).min(MAX_RISE);
+impl Rectangle {
+    /// The rectangle of centre `centre` and half sizes `half` along the unit `axis` and across it,
+    /// its ridge along the longer.
+    fn new(centre: P2, axis: P2, half: [f64; 2]) -> Rectangle {
+        let across = [-axis[1], axis[0]];
+        let (u, half_length, half_width) = if half[0] >= half[1] {
+            (axis, half[0], half[1])
+        } else {
+            (across, half[1], half[0])
+        };
+        Rectangle {
+            centre,
+            u,
+            v: [-u[1], u[0]],
+            half_length,
+            half_width,
+        }
+    }
+}
+
+/// The wings of a footprint (polygons whose union it is) where `above` does not cover it, the
+/// largest first.
+fn wings(footprint: &[Vec<P2>], above: &[&[P2]]) -> Vec<Rectangle> {
+    let points: Vec<P2> = footprint.iter().flatten().copied().collect();
+    let Some(frame) = smallest_rectangle(&convex_hull(points)) else {
+        return Vec::new();
+    };
+    // A grid along the home's axes, over the rectangle around it.
+    let (hl, hw) = (frame.half_length, frame.half_width);
+    let cell = (2.0 * hl / CELLS).max(SMALLEST_CELL);
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    let (nx, ny) = (
+        ((2.0 * hl / cell).ceil() as usize).max(1),
+        ((2.0 * hw / cell).ceil() as usize).max(1),
+    );
+    #[allow(clippy::cast_precision_loss)]
+    let at = |i: f64, j: f64| -> P2 {
+        let (s, t) = (-hl + i * cell, -hw + j * cell);
+        [
+            frame.centre[0] + frame.u[0] * s + frame.v[0] * t,
+            frame.centre[1] + frame.u[1] * s + frame.v[1] * t,
+        ]
+    };
+    let boxed = |poly: &[P2]| {
+        let (mut lo, mut hi) = ([f64::INFINITY; 2], [f64::NEG_INFINITY; 2]);
+        for p in poly {
+            for k in 0..2 {
+                lo[k] = lo[k].min(p[k]);
+                hi[k] = hi[k].max(p[k]);
+            }
+        }
+        (lo, hi)
+    };
+    let within = |polys: &[(&[P2], (P2, P2))], p: P2, edge: bool| {
+        polys.iter().any(|(poly, (lo, hi))| {
+            p[0] >= lo[0]
+                && p[0] <= hi[0]
+                && p[1] >= lo[1]
+                && p[1] <= hi[1]
+                && point_in_polygon(p, poly, edge)
+        })
+    };
+    let footprint: Vec<(&[P2], (P2, P2))> =
+        footprint.iter().map(|p| (p.as_slice(), boxed(p))).collect();
+    let above: Vec<(&[P2], (P2, P2))> = above.iter().map(|p| (*p, boxed(p))).collect();
+    let mut roofed = vec![false; nx * ny];
+    #[allow(clippy::cast_precision_loss)]
+    for j in 0..ny {
+        for i in 0..nx {
+            let p = at(i as f64 + 0.5, j as f64 + 0.5);
+            roofed[j * nx + i] = within(&footprint, p, true) && !within(&above, p, false);
+        }
+    }
+    let total = roofed.iter().filter(|c| **c).count();
+    if total == 0 {
+        return Vec::new();
+    }
+    let mut covered = vec![false; nx * ny];
+    let mut found: Vec<[usize; 4]> = Vec::new();
+    // Each wing the largest rectangle of what is left, grown over what is roofed; slivers set
+    // aside.
+    for _ in 0..MAX_WINGS * 4 {
+        if found.len() >= MAX_WINGS {
+            break;
+        }
+        let left: Vec<bool> = roofed
+            .iter()
+            .zip(&covered)
+            .map(|(r, c)| *r && !*c)
+            .collect();
+        #[allow(clippy::cast_precision_loss)]
+        if (left.iter().filter(|c| **c).count() as f64) < total as f64 * 0.03 {
+            break;
+        }
+        let Some(rect) = largest_rectangle(&left, nx, ny) else {
+            break;
+        };
+        let rect = grow(&roofed, nx, ny, rect);
+        let [i0, j0, i1, j1] = rect;
+        for j in j0..j1 {
+            for i in i0..i1 {
+                covered[j * nx + i] = true;
+            }
+        }
+        #[allow(clippy::cast_precision_loss)]
+        if ((i1 - i0) as f64 * cell).min((j1 - j0) as f64 * cell) >= NARROWEST {
+            found.push(rect);
+        }
+    }
+    let wing = |[i0, j0, i1, j1]: [usize; 4]| {
+        #[allow(clippy::cast_precision_loss)]
+        let (a, b) = (at(i0 as f64, j0 as f64), at(i1 as f64, j1 as f64));
+        #[allow(clippy::cast_precision_loss)]
+        let half = [(i1 - i0) as f64 * cell / 2.0, (j1 - j0) as f64 * cell / 2.0];
+        Rectangle::new(
+            [f64::midpoint(a[0], b[0]), f64::midpoint(a[1], b[1])],
+            frame.u,
+            half,
+        )
+    };
+    let wings_area: usize = {
+        let mut union = vec![false; nx * ny];
+        for &[i0, j0, i1, j1] in &found {
+            for j in j0..j1 {
+                for i in i0..i1 {
+                    union[j * nx + i] = roofed[j * nx + i];
+                }
+            }
+        }
+        union.iter().filter(|c| **c).count()
+    };
+    if found.is_empty() {
+        // Slivers alone (the rim of walls a storey above leaves out): no roof.
+        return Vec::new();
+    }
+    #[allow(clippy::cast_precision_loss)]
+    let left_over = 1.0 - wings_area as f64 / total as f64;
+    if left_over > LEFT_OVER {
+        // Walls not square to each other: one wing over the smallest rectangle around what is
+        // roofed, unless it would run over a storey above (what is left over is a rim round it).
+        #[allow(clippy::cast_precision_loss)]
+        let cells: Vec<P2> = (0..nx * ny)
+            .filter(|k| roofed[*k])
+            .flat_map(|k| {
+                let (i, j) = ((k % nx) as f64, (k / nx) as f64);
+                [
+                    at(i, j),
+                    at(i + 1.0, j),
+                    at(i + 1.0, j + 1.0),
+                    at(i, j + 1.0),
+                ]
+            })
+            .collect();
+        #[allow(clippy::cast_precision_loss)]
+        let over_above = |r: &Rectangle| {
+            (0..nx * ny).any(|k| {
+                let p = at((k % nx) as f64 + 0.5, (k / nx) as f64 + 0.5);
+                let d = [p[0] - r.centre[0], p[1] - r.centre[1]];
+                let (s, t) = (d[0] * r.u[0] + d[1] * r.u[1], d[0] * r.v[0] + d[1] * r.v[1]);
+                s.abs() < r.half_length
+                    && t.abs() < r.half_width
+                    && within(&above, p, false)
+                    && within(&footprint, p, true)
+            })
+        };
+        if let Some(whole) = smallest_rectangle(&convex_hull(cells))
+            .map(|r| Rectangle::new(r.centre, r.u, [r.half_length, r.half_width]))
+            .filter(|r| !over_above(r))
+        {
+            return vec![whole];
+        }
+    }
+    found.into_iter().map(wing).collect()
+}
+
+/// The largest rectangle of `true` cells of a grid `nx` wide, as `[i0, j0, i1, j1]` (ends
+/// excluded).
+fn largest_rectangle(cells: &[bool], nx: usize, ny: usize) -> Option<[usize; 4]> {
+    let mut heights = vec![0usize; nx];
+    let mut best: Option<(usize, [usize; 4])> = None;
+    for j in 0..ny {
+        for i in 0..nx {
+            heights[i] = if cells[j * nx + i] { heights[i] + 1 } else { 0 };
+        }
+        // The largest rectangle under the histogram of the rows up to this one.
+        let mut stack: Vec<usize> = Vec::new();
+        for i in 0..=nx {
+            let h = if i < nx { heights[i] } else { 0 };
+            while let Some(&top) = stack.last() {
+                if heights[top] < h {
+                    break;
+                }
+                stack.pop();
+                let height = heights[top];
+                let start = stack.last().map_or(0, |s| s + 1);
+                let area = height * (i - start);
+                if height > 0 && best.is_none_or(|(a, _)| area > a) {
+                    best = Some((area, [start, j + 1 - height, i, j + 1]));
+                }
+            }
+            stack.push(i);
+        }
+    }
+    best.map(|(_, rect)| rect)
+}
+
+/// `rect` grown row by row and column by column while what it takes in is all `true`.
+fn grow(cells: &[bool], nx: usize, ny: usize, rect: [usize; 4]) -> [usize; 4] {
+    let [mut i0, mut j0, mut i1, mut j1] = rect;
+    let column = |i: usize, j0: usize, j1: usize| (j0..j1).all(|j| cells[j * nx + i]);
+    let row = |j: usize, i0: usize, i1: usize| (i0..i1).all(|i| cells[j * nx + i]);
+    loop {
+        let mut grew = false;
+        if i0 > 0 && column(i0 - 1, j0, j1) {
+            i0 -= 1;
+            grew = true;
+        }
+        if i1 < nx && column(i1, j0, j1) {
+            i1 += 1;
+            grew = true;
+        }
+        if j0 > 0 && row(j0 - 1, i0, i1) {
+            j0 -= 1;
+            grew = true;
+        }
+        if j1 < ny && row(j1, i0, i1) {
+            j1 += 1;
+            grew = true;
+        }
+        if !grew {
+            return [i0, j0, i1, j1];
+        }
+    }
+}
+
+/// The normal of a flat face (its first three corners), turned up.
+fn up_normal(face: &[V3]) -> V3 {
+    let (a, b, c) = (face[0], face[1], face[2]);
+    let (e, f) = (
+        [b[0] - a[0], b[1] - a[1], b[2] - a[2]],
+        [c[0] - a[0], c[1] - a[1], c[2] - a[2]],
+    );
+    let n = [
+        e[1] * f[2] - e[2] * f[1],
+        e[2] * f[0] - e[0] * f[2],
+        e[0] * f[1] - e[1] * f[0],
+    ];
+    if n[1] < 0.0 { [-n[0], -n[1], -n[2]] } else { n }
+}
+
+/// A slope of a roof: `top` its corners (3 or 4), tiles over it, its underside `thickness` below,
+/// the edges flagged in `edges` (`k`: from corner `k` to the next) closed, and its outlines.
+fn slope(
+    painter: &mut Painter<'_>,
+    lines: &mut Lines,
+    tiles: Material,
+    top: &[V3],
+    edges: &[bool],
+    thickness: f64,
+) {
+    let n = top.len();
+    let quad = |pts: &[V3]| -> [V3; 4] {
+        if pts.len() == 3 {
+            [pts[0], pts[1], pts[2], pts[2]]
+        } else {
+            [pts[0], pts[1], pts[2], pts[3]]
+        }
+    };
+    let none = [[0.0; 2]; 4];
+    let up = up_normal(top);
+    painter.material = tiles;
+    painter.quad(quad(top), none, Some(up), 0.0);
+    let below: Vec<V3> = top.iter().map(|v| [v[0], v[1] - thickness, v[2]]).collect();
+    painter.material = UNDERSIDE;
+    painter.quad(quad(&below), none, Some([-up[0], -up[1], -up[2]]), 0.0);
+    #[allow(clippy::cast_precision_loss)]
+    let centre = [
+        top.iter().map(|v| v[0]).sum::<f64>() / n as f64,
+        top.iter().map(|v| v[2]).sum::<f64>() / n as f64,
+    ];
+    for k in 0..n {
+        let (a, b) = (top[k], top[(k + 1) % n]);
+        if (a[0] - b[0]).hypot(a[2] - b[2]) + (a[1] - b[1]).abs() < 0.01 {
+            continue;
+        }
+        lines.push(
+            [a[0], a[2]],
+            a[1],
+            [b[0], b[2]],
+            b[1],
+            NO_GROUP,
+            LineKind::Wall,
+        );
+        if !edges[k] {
+            continue;
+        }
+        let out = [
+            f64::midpoint(a[0], b[0]) - centre[0],
+            0.0,
+            f64::midpoint(a[2], b[2]) - centre[1],
+        ];
+        painter.quad([a, b, below[(k + 1) % n], below[k]], none, Some(out), 0.0);
+    }
+}
+
+/// Draws a wing's roof over `r` (the walls' rectangle), its eaves on the walls' tops at `eaves`
+/// (the shaders darken what stands near a floor, which a roof is not); a lean-to's high side
+/// towards `high` (±1 along `v`); returns its shape.
+fn draw_wing(
+    mesh: &mut Mesh,
+    lines: &mut Lines,
+    r: &Rectangle,
+    eaves: f64,
+    style: &RoofStyle,
+    high: f64,
+) -> RoofShape {
+    let flat = style.kind == RoofKind::Flat;
+    let over = if flat { FLAT_OVERHANG } else { OVERHANG };
+    let (hl, hw) = (r.half_length + over, r.half_width + over);
+    let tan = style
+        .pitch
+        .clamp(PITCH_RANGE.0, PITCH_RANGE.1)
+        .to_radians()
+        .tan();
+    let rise = match style.kind {
+        RoofKind::Flat => FLAT_THICKNESS,
+        RoofKind::Shed => (2.0 * hw * tan).min(MAX_RISE),
+        RoofKind::Gable | RoofKind::Hip => (hw * tan).min(MAX_RISE),
+    };
     let shape = RoofShape {
+        kind: style.kind,
         centre: r.centre,
         ridge: r.u,
         half_length: hl,
         half_width: hw,
         eaves,
         rise,
+        high,
     };
     let at = |s: f64, t: f64| -> P2 {
         [
@@ -77,95 +550,142 @@ fn gable_roof(mesh: &mut Mesh, lines: &mut Lines, r: &Rectangle, eaves: f64) -> 
             r.centre[1] + r.u[1] * s + r.v[1] * t,
         ]
     };
-    let p = |q: P2, y: f64| -> V3 { [q[0], eaves + y, q[1]] };
-    let (c0, c1, c2, c3) = (at(-hl, -hw), at(hl, -hw), at(hl, hw), at(-hl, hw));
-    let (r0, r1) = (at(-hl, 0.0), at(hl, 0.0));
-    let out = |k: f64| -> V3 { [r.v[0] * k, 1.0, r.v[1] * k] };
-    let end = |k: f64| -> V3 { [r.u[0] * k, 0.0, r.u[1] * k] };
-    let down = |k: f64| -> V3 { [-r.v[0] * k, -1.0, -r.v[1] * k] };
+    let p = |s: f64, t: f64, y: f64| -> V3 {
+        let q = at(s, t);
+        [q[0], eaves + y, q[1]]
+    };
     let tag = Tag {
         group: NO_GROUP,
         ..Tag::default()
     };
+    let colour = style.color.unwrap_or(if flat { MEMBRANE } else { TILES });
+    let tiles = Material::new(colour, 0.85, Surface::Matte);
+    let mut painter = Painter::new(mesh, tiles, tag);
     let none = [[0.0; 2]; 4];
-    let mut painter = Painter::new(mesh, TILES, tag);
-    // The slopes, their undersides and edges.
-    for (side, (a, b)) in [(-1.0, (c0, c1)), (1.0, (c3, c2))] {
-        painter.material = TILES;
-        painter.quad(
-            [p(a, 0.0), p(b, 0.0), p(r1, rise), p(r0, rise)],
-            none,
-            Some(out(side)),
-            0.0,
-        );
-        painter.material = UNDERSIDE;
-        painter.quad(
-            [
-                p(a, -THICKNESS),
-                p(b, -THICKNESS),
-                p(r1, rise - THICKNESS),
-                p(r0, rise - THICKNESS),
-            ],
-            none,
-            Some(down(side)),
-            0.0,
-        );
-        // The eave's edge.
-        painter.quad(
-            [p(a, 0.0), p(b, 0.0), p(b, -THICKNESS), p(a, -THICKNESS)],
-            none,
-            Some([r.v[0] * side, 0.0, r.v[1] * side]),
-            0.0,
-        );
-        // The rakes at both ends.
-        for (corner, ridge, k) in [(a, r0, -1.0), (b, r1, 1.0)] {
+    // The walls' line under it, for the gables.
+    let (gl, gw) = (r.half_length, r.half_width);
+    match style.kind {
+        RoofKind::Flat => {
+            let corners = [
+                p(-hl, -hw, rise),
+                p(hl, -hw, rise),
+                p(hl, hw, rise),
+                p(-hl, hw, rise),
+            ];
+            slope(&mut painter, lines, tiles, &corners, &[true; 4], rise);
+        }
+        RoofKind::Gable => {
+            for side in [-1.0, 1.0] {
+                let face = [
+                    p(-hl, side * hw, 0.0),
+                    p(hl, side * hw, 0.0),
+                    p(hl, 0.0, rise),
+                    p(-hl, 0.0, rise),
+                ];
+                slope(
+                    &mut painter,
+                    lines,
+                    tiles,
+                    &face,
+                    &[true, true, false, true],
+                    THICKNESS,
+                );
+            }
+            // The gable walls, up to the underside.
+            painter.material = GABLE;
+            let under = |t: f64| rise * (1.0 - t.abs() / hw) - THICKNESS;
+            for k in [-1.0, 1.0] {
+                let s = gl * k;
+                let eave = under(gw).max(0.0);
+                painter.quad(
+                    [
+                        p(s, -gw, 0.0),
+                        p(s, gw, 0.0),
+                        p(s, gw, eave),
+                        p(s, -gw, eave),
+                    ],
+                    none,
+                    Some([r.u[0] * k, 0.0, r.u[1] * k]),
+                    0.0,
+                );
+                painter.quad(
+                    [
+                        p(s, -gw, eave),
+                        p(s, gw, eave),
+                        p(s, 0.0, under(0.0)),
+                        p(s, 0.0, under(0.0)),
+                    ],
+                    none,
+                    Some([r.u[0] * k, 0.0, r.u[1] * k]),
+                    0.0,
+                );
+            }
+        }
+        RoofKind::Hip => {
+            let ridge = (hl - hw).max(0.0);
+            let (r0, r1) = (p(-ridge, 0.0, rise), p(ridge, 0.0, rise));
+            for side in [-1.0, 1.0] {
+                let face = [p(-hl, side * hw, 0.0), p(hl, side * hw, 0.0), r1, r0];
+                slope(
+                    &mut painter,
+                    lines,
+                    tiles,
+                    &face,
+                    &[true, false, false, false],
+                    THICKNESS,
+                );
+            }
+            for (k, ridge_end) in [(-1.0, r0), (1.0, r1)] {
+                let face = [p(k * hl, -hw, 0.0), p(k * hl, hw, 0.0), ridge_end];
+                slope(
+                    &mut painter,
+                    lines,
+                    tiles,
+                    &face,
+                    &[true, false, false],
+                    THICKNESS,
+                );
+            }
+        }
+        RoofKind::Shed => {
+            // Low along −high, high along +high.
+            let face = [
+                p(-hl, -high * hw, 0.0),
+                p(hl, -high * hw, 0.0),
+                p(hl, high * hw, rise),
+                p(-hl, high * hw, rise),
+            ];
+            slope(&mut painter, lines, tiles, &face, &[true; 4], THICKNESS);
+            // Its walls: the high one and the two sides, up to the underside.
+            painter.material = GABLE;
+            let under = |t: f64| (rise * (t * high + hw) / (2.0 * hw) - THICKNESS).max(0.0);
+            let top = under(gw * high);
             painter.quad(
                 [
-                    p(corner, 0.0),
-                    p(ridge, rise),
-                    p(ridge, rise - THICKNESS),
-                    p(corner, -THICKNESS),
+                    p(-gl, high * gw, 0.0),
+                    p(gl, high * gw, 0.0),
+                    p(gl, high * gw, top),
+                    p(-gl, high * gw, top),
                 ],
                 none,
-                Some(end(k)),
+                Some([r.v[0] * high, 0.0, r.v[1] * high]),
                 0.0,
             );
+            for k in [-1.0, 1.0] {
+                let s = gl * k;
+                painter.quad(
+                    [
+                        p(s, -gw, 0.0),
+                        p(s, gw, 0.0),
+                        p(s, gw, under(gw)),
+                        p(s, -gw, under(-gw)),
+                    ],
+                    none,
+                    Some([r.u[0] * k, 0.0, r.u[1] * k]),
+                    0.0,
+                );
+            }
         }
-    }
-    // The gable walls, at the walls' line, up to the underside.
-    painter.material = GABLE;
-    let (gl, gw) = (r.half_length, r.half_width);
-    let under = |t: f64| rise * (1.0 - t.abs() / hw) - THICKNESS;
-    for k in [-1.0, 1.0] {
-        let s = gl * k;
-        let (a, b, top) = (at(s, -gw), at(s, gw), at(s, 0.0));
-        let eave = under(gw).max(0.0);
-        painter.quad(
-            [p(a, 0.0), p(b, 0.0), p(b, eave), p(a, eave)],
-            none,
-            Some(end(k)),
-            0.0,
-        );
-        painter.quad(
-            [
-                p(a, eave),
-                p(b, eave),
-                p(top, under(0.0)),
-                p(top, under(0.0)),
-            ],
-            none,
-            Some(end(k)),
-            0.0,
-        );
-    }
-    // Its outlines: the eaves, the ridge, the edges of the gables.
-    let kind = LineKind::Wall;
-    let top = eaves + rise;
-    lines.push(c0, eaves, c1, eaves, NO_GROUP, kind);
-    lines.push(c3, eaves, c2, eaves, NO_GROUP, kind);
-    lines.push(r0, top, r1, top, NO_GROUP, kind);
-    for (corner, ridge) in [(c0, r0), (c3, r0), (c1, r1), (c2, r1)] {
-        lines.push(corner, eaves, ridge, top, NO_GROUP, kind);
     }
     shape
 }
@@ -226,24 +746,7 @@ fn smallest_rectangle(hull: &[P2]) -> Option<Rectangle> {
         }
         let (ms, mt) = (f64::midpoint(lo[0], hi[0]), f64::midpoint(lo[1], hi[1]));
         let centre = [d[0] * ms + e[0] * mt, d[1] * ms + e[1] * mt];
-        let rectangle = if along >= across {
-            Rectangle {
-                centre,
-                u: d,
-                v: e,
-                half_length: along / 2.0,
-                half_width: across / 2.0,
-            }
-        } else {
-            Rectangle {
-                centre,
-                u: e,
-                v: d,
-                half_length: across / 2.0,
-                half_width: along / 2.0,
-            }
-        };
-        best = Some((area, rectangle));
+        best = Some((area, Rectangle::new(centre, d, [along / 2.0, across / 2.0])));
     }
     best.map(|(_, r)| r)
 }
@@ -270,40 +773,143 @@ mod tests {
         assert!((r.half_length - 500.0).abs() < 1e-6, "{r:?}");
         assert!((r.half_width - 300.0).abs() < 1e-6, "{r:?}");
         assert!((r.centre[0] - 50.0).abs() < 1e-6 && (r.centre[1] + 20.0).abs() < 1e-6);
-        // The ridge runs along the longer side.
+        // The ridge runs along the longer side; `v` is `u` turned a quarter.
         assert!((r.u[0].abs() - c).abs() < 1e-6, "{r:?}");
+        assert!((r.v[0] + r.u[1]).abs() < 1e-9 && (r.v[1] - r.u[0]).abs() < 1e-9);
         // Too few points: no rectangle.
         assert!(convex_hull(vec![[0.0, 0.0], [1.0, 1.0]]).is_empty());
         assert!(smallest_rectangle(&[]).is_none());
     }
 
+    fn square(x0: f64, y0: f64, x1: f64, y1: f64) -> Vec<P2> {
+        vec![[x0, y0], [x1, y0], [x1, y1], [x0, y1]]
+    }
+
     #[test]
-    fn a_gable_roof_has_two_slopes_and_its_outlines() {
-        let r = Rectangle {
-            centre: [500.0, 300.0],
-            u: [1.0, 0.0],
-            v: [0.0, 1.0],
-            half_length: 500.0,
-            half_width: 300.0,
+    fn an_l_shaped_home_has_two_wings_and_a_storey_above_leaves_what_it_covers() {
+        // An L: a 1000 × 500 body and a 400 × 400 wing south of its west end.
+        let footprint = vec![
+            square(0.0, 0.0, 1000.0, 500.0),
+            square(0.0, 500.0, 400.0, 900.0),
+        ];
+        let found = wings(&footprint, &[]);
+        assert_eq!(found.len(), 2, "{found:?}");
+        let main = found[0];
+        assert!((main.half_length - 500.0).abs() < 10.0 && (main.half_width - 250.0).abs() < 10.0);
+        // The second wing reaches over the L's other arm, into the body (their roofs meet).
+        let other = found[1];
+        assert!((other.u[0].abs() < 1e-9) && (other.half_length * 2.0 - 900.0).abs() < 15.0);
+        // A storey above over the east half: the wings keep to the rest.
+        let above = square(500.0, 0.0, 1000.0, 500.0);
+        let left = wings_of(&footprint, &[&above]);
+        assert!(
+            left.iter().all(|w| w.centre[0]
+                + w.u[0].abs() * w.half_length
+                + w.v[0].abs() * w.half_width
+                <= 510.0),
+            "{left:?}"
+        );
+        // Covered whole: no roof; covered but for a rim of walls 25 cm wide: none either.
+        let all = square(-10.0, -10.0, 1010.0, 910.0);
+        assert!(wings_of(&footprint, &[&all]).is_empty());
+        let body = vec![square(-25.0, -25.0, 1025.0, 525.0)];
+        let inner = square(0.0, 0.0, 1000.0, 500.0);
+        assert!(wings_of(&body, &[&inner]).is_empty());
+        // A storey above set in a little on three sides: the rim round it is no roof, the strip it
+        // leaves on the fourth one is, never over it.
+        let ground = vec![square(0.0, 0.0, 1000.0, 800.0)];
+        for inset in [15.0, 30.0] {
+            let upper = square(inset, inset, 1000.0 - inset, 600.0);
+            let found = wings_of(&ground, &[&upper]);
+            assert!(!found.is_empty());
+            for w in &found {
+                let low = w.centre[1] - w.u[1].abs() * w.half_length - w.v[1].abs() * w.half_width;
+                assert!(low >= 590.0, "{inset}: {w:?}");
+            }
+        }
+        // Narrow slivers are no wings.
+        let bay = vec![
+            square(0.0, 0.0, 1000.0, 500.0),
+            square(400.0, 500.0, 480.0, 560.0),
+        ];
+        assert_eq!(wings(&bay, &[]).len(), 1);
+    }
+
+    fn wings_of(footprint: &[Vec<P2>], above: &[&Vec<P2>]) -> Vec<Rectangle> {
+        let above: Vec<&[P2]> = above.iter().map(|p| p.as_slice()).collect();
+        wings(footprint, &above)
+    }
+
+    #[test]
+    fn a_home_turned_off_square_gets_one_wing_round_it() {
+        // A triangle-ish footprint: walls not square to each other.
+        let footprint = vec![vec![[0.0, 0.0], [1000.0, 0.0], [500.0, 800.0]]];
+        assert_eq!(wings(&footprint, &[]).len(), 1);
+    }
+
+    #[test]
+    fn every_shape_lands_rain_on_its_mesh() {
+        let r = Rectangle::new([500.0, 300.0], [1.0, 0.0], [500.0, 300.0]);
+        for kind in RoofKind::ALL {
+            let style = RoofStyle {
+                kind,
+                ..RoofStyle::default()
+            };
+            let mut mesh = Mesh::default();
+            let mut lines = Lines::default();
+            let shape = draw_wing(&mut mesh, &mut lines, &r, 250.0, &style, 1.0);
+            let [lo, hi] = mesh.bounds();
+            assert!(
+                mesh.triangle_count() > 4 && !lines.list.is_empty(),
+                "{kind:?}"
+            );
+            // The eaves stand out from the walls; the top is as high as the shape says.
+            let over = if kind == RoofKind::Flat {
+                FLAT_OVERHANG
+            } else {
+                OVERHANG
+            };
+            assert!((f64::from(lo[0]) + over).abs() < 1e-3, "{kind:?}");
+            assert!(
+                (f64::from(hi[1]) - 250.0 - shape.rise).abs() < 1e-3,
+                "{kind:?}"
+            );
+            // What falls on it meets its top: at the middle, at an eave.
+            let at = |p: P2| shape.height_at(p).unwrap();
+            match kind {
+                RoofKind::Gable | RoofKind::Hip => {
+                    assert!((at([500.0, 300.0]) - 250.0 - shape.rise).abs() < 1e-9);
+                    assert!((at([500.0, 300.0 + 330.0]) - 250.0).abs() < 1e-9);
+                }
+                RoofKind::Shed => {
+                    assert!((at([500.0, 300.0 + 330.0]) - 250.0 - shape.rise).abs() < 1e-9);
+                    assert!((at([500.0, -30.0]) - 250.0).abs() < 1e-9);
+                }
+                RoofKind::Flat => assert!((at([700.0, 100.0]) - 250.0 - shape.rise).abs() < 1e-9),
+            }
+            assert!(shape.height_at([500.0, 1000.0]).is_none());
+        }
+        // A hip roof slopes at its ends too.
+        let style = RoofStyle {
+            kind: RoofKind::Hip,
+            ..RoofStyle::default()
         };
         let mut mesh = Mesh::default();
-        let mut lines = Lines::default();
-        let shape = gable_roof(&mut mesh, &mut lines, &r, 250.0);
-        let [lo, hi] = mesh.bounds();
-        // The eaves stand out from the walls, on their tops; the ridge rises at the pitch.
-        assert!((f64::from(lo[0]) + OVERHANG).abs() < 1e-3);
-        assert!((f64::from(hi[2]) - 600.0 - OVERHANG).abs() < 1e-3);
-        let rise = (330.0 * PITCH.to_radians().tan()).min(MAX_RISE);
-        assert!((f64::from(hi[1]) - 250.0 - rise).abs() < 1e-3);
-        assert!((f64::from(lo[1]) - 250.0 + THICKNESS).abs() < 1e-3);
-        // Two eaves, the ridge and four gable edges.
-        assert_eq!(lines.list.len(), 7);
-        // What falls on it meets the ridge in the middle and the eaves at its edges (D-072).
-        let at = |p: [f64; 2]| shape.height_at(p).unwrap();
-        assert!((at([500.0, 300.0]) - 250.0 - rise).abs() < 1e-9);
-        assert!((at([0.0, 300.0 + 330.0]) - 250.0).abs() < 1e-9);
-        assert!((at([500.0, 300.0 - 165.0]) - 250.0 - rise / 2.0).abs() < 1e-9);
-        assert!(shape.height_at([500.0, 1000.0]).is_none());
-        assert!(shape.height_at([-31.0, 300.0]).is_none());
+        let shape = draw_wing(&mut mesh, &mut Lines::default(), &r, 250.0, &style, 1.0);
+        assert!((shape.height_at([-30.0, 300.0]).unwrap() - 250.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn the_settings_say_the_shape_its_pitch_and_colour() {
+        let style = RoofStyle::read(
+            &serde_json::json!({ "shape": "hip", "pitch": 80, "color": "#7a4a3a" }),
+        );
+        assert_eq!(style.kind, RoofKind::Hip);
+        assert_eq!(style.pitch, PITCH_RANGE.1);
+        assert_eq!(style.color, Some(Rgb8::from_u32(0x7a4a3a)));
+        assert_eq!(
+            RoofStyle::read(&serde_json::json!({ "shape": "dome" })),
+            RoofStyle::default()
+        );
     }
 }

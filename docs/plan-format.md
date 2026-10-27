@@ -86,7 +86,9 @@ A plan has at least one element (a room, a partition, a door, a window or an ite
 | `name`    | text            | `""`      | |
 | `outline` | array of points | —         | Required: 3 to 64 corners, a simple polygon (its sides do not cross) of at least 25 cm². |
 | `color`   | colour          | `#e5e9dc` | Its fill on the 2D plan. |
-| `floor`   | object          |           | `material`: `plain` (default), `oak`, `grey-wood`, `painted-wood`, `beige-tiles` or `white-tiles`; `angle`: the direction of boards or tiles (default 0). |
+| `floor`   | object          |           | `material`: `plain` (default), `oak`, `grey-wood`, `painted-wood`, `beige-tiles` or `white-tiles`; outside, `lawn` (default there), `decking`, `paving`, `gravel` or `soil`; `angle`: the direction of boards or tiles (default 0). |
+| `outside` | boolean         | `false`   | A place outside (D-077): a garden, a terrace, a balcony, a path. No walls, no ceiling, no roof over it. |
+| `railing` | boolean         | `false`   | A place outside only: a railing of glass along its free sides (a balcony). |
 | `walls`   | object          |           | `finish`: `plain` (default), `wainscot` (green panels below a rail) or `chair-rail`; `paint`: the colour of the inner faces; `moulding`: a crown moulding under the ceiling (`false`). |
 | `sides`   | array           | `[]`      | One entry per side (side `i` runs from corner `i` to the next), `null` or an object: `open` (`true`: no wall on that side), `thickness` (1–100 cm), `finish` (`"tiles"` or a paint colour, for that side's inner face). |
 
@@ -94,6 +96,14 @@ A plan has at least one element (a room, a partition, a door, a window or an ite
 with another room is one wall between them, `wallThickness.interior` thick and centred on the
 shared line; a side on the outside is a façade, `wallThickness.exterior` thick and built outward,
 so the room keeps its size inside. A side's `thickness` overrides either.
+
+**Places outside** (`outside`, D-077) have no walls: the sides of the rooms beside them are
+façades, and between two places outside nothing stands. A garden may be drawn around the house:
+wherever a room of the home and a place outside overlap, the room wins (what stands there is in
+it, a walker is in it), and between two places outside the smaller wins (a terrace drawn in the
+garden). A lawn, gravel and soil lie a little under the floors (4 cm); decking and paving just
+under them (1.5 cm), with an edge. No roof covers a place outside, and the roofs are worked out from the
+rooms alone.
 
 ## Partitions
 
@@ -135,7 +145,7 @@ does.
 | `name`     | text      | `""`    | |
 | `kind`     | kind      | `box`   | One of the kinds below; an unknown kind is drawn as a plain box. |
 | `at`       | point     | —       | Required: the centre of its footprint. |
-| `size`     | `[width, depth, height]` | — | Required: width and depth 1–10 000 cm, height 1–300 cm. Its front is the side towards `+y` before turning. |
+| `size`     | `[width, depth, height]` | — | Required: width and depth 1–10 000 cm, height 1–300 cm (1–1 000 cm for a piece of the garden: a tree). Its front is the side towards `+y` before turning. |
 | `rotation` | degrees   | 0       | Clockwise, about its centre. |
 | `lift`     | cm        | 0       | The height of its underside (0–300): a wall cabinet, a hanging lamp. |
 | `color`    | colour    | the kind's | Its main colour. |
@@ -143,7 +153,7 @@ does.
 | `room`     | id        | none    | The room it belongs to. |
 | `fixed`    | boolean   | `false` | Built in: edit mode does not move it. |
 | `light`    | object    |         | Lamps only: `on` (`true`), `color` (a colour) or `kelvin` (1 800–6 500), `power` (0.1–2, a fraction of the kind’s usual light). |
-| `open`     | fraction  | `1`     | Curtains only: how open they are drawn. |
+| `open`     | fraction  | `1`     | Curtains and gates only: how open they are drawn (a gate is shut by default, `0`). |
 | `model`    | id        | none    | A 3D model of `models`: the piece is drawn from it, fitted into its size. |
 
 ### Kinds
@@ -164,11 +174,13 @@ does.
 | Decoration and walls | `plant` (`monstera`, `pothos`, `dracaena`, `fiddle-leaf`, `snake-plant`), `vase` (`flowers`, `branches`), `books` (`upright`), `clock`, `rug` (`round`, `striped`), `aquarium`, `curtain` (`closed`), `picture` (`engraving`, `portrait`, `comic`, `map`, `poster`), `picture-wall` |
 | Fitness | `treadmill`, `exercise-bike` |
 | Pets | `pet-bed`, `cat-tree`, `litter-box` (`self-cleaning`), `pet-feeder` |
+| Garden | `tree` (`conifer`, `fruit`, `palm`), `shrub` (`boxwood`, `flowering`), `hedge`, `planter` (`raised-bed`), `garden-table` (`round`), `garden-chair`, `sun-lounger`, `parasol` (`closed`, `cantilever`), `barbecue` (`kettle`), `fire-pit`, `garden-light` (`post`, `string`), `pool` (`round`, `above-ground`), `hot-tub`, `robot-mower` (its dock; its robot is drawn mowing, D-077), `shed` (`metal`), `pergola` (`bioclimatic`), `greenhouse`, `trampoline`, `swing`, `fence` (`picket`, `metal`), `gate` (`sliding`), `mailbox` |
 | Structure | `stairs`, `box` |
 
 The groups are the catalogue's (D-074). The lights (the *Lights* row, `nightstand`, which has a
 lamp, and `aquarium`, whose light is cool unless `light` says otherwise) light their room and can
-be switched; a `fireplace` burns while what it is linked to is on or heats. A kind's usual size,
+be switched, `garden-light` among them; a `fireplace` and a `fire-pit` burn while what they are
+linked to is on or heats; a `gate` opens with its cover, or its contact. A kind's usual size,
 colour and lift, and a style's where it has its own (a `soundbar` is 90 × 10 × 7 cm, a
 `chesterfield` oxblood), are used where edit mode's catalogue adds a piece; an item without
 `color` takes its style's colour, else its kind's. An unknown style is drawn as its kind.

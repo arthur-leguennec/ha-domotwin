@@ -70,6 +70,44 @@ def test_walls_doors_and_open_sides_between_rooms() -> None:
     assert home.floors(living, home.middle("up-office")) == 1
 
 
+def test_places_outside_have_no_walls_and_lie_under_the_rooms() -> None:
+    """A garden drawn round a fictional house, a deck beside it (D-077), as the core counts them."""
+
+    def square(x0: int, y0: int, x1: int, y1: int) -> list[list[int]]:
+        return [[x0, y0], [x1, y0], [x1, y1], [x0, y1]]
+
+    plan = {
+        "format": "domotwin-plan",
+        "version": 1,
+        "rooms": [
+            {"id": "living", "outline": square(0, 0, 500, 400)},
+            {"id": "kitchen", "outline": square(500, 0, 900, 400)},
+            {"id": "garden", "outside": True, "outline": square(-400, -300, 1300, 1200)},
+            {"id": "deck", "outside": True, "outline": square(0, 400, 500, 700)},
+        ],
+    }
+    home = Home([{"id": "ground", "elevation": 0, "plan": plan}])
+    assert home.room_at(0, (250, 200)) == "living"
+    assert home.room_at(0, (-200, 600)) == "garden"
+    # The deck in the garden drawn round it: the deck's.
+    assert home.room_at(0, (250, 600)) == "deck"
+    # The deck and the garden: open; the garden and the living room: one façade.
+    assert home.walls(Spot(0, 250, 600, 100), Spot(0, 250, 900, 100)) == 0
+    assert home.walls(Spot(0, 400, 600, 100), Spot(0, 400, 200, 100)) == 1
+    assert home.walls(Spot(0, 250, -200, 100), Spot(0, 250, 200, 100)) == 1
+    # Where a receiver may be held in the garden: round the house.
+    assert all(not (0 <= p.x <= 900 and 0 <= p.y <= 400) for p in home.points("garden"))
+    # Two rooms drawn 20 cm apart (the wall between them) in the garden: one wall, not two.
+    plan["rooms"] = [
+        {"id": "a", "outline": square(0, 0, 400, 400)},
+        {"id": "b", "outline": square(420, 0, 800, 400)},
+        {"id": "garden", "outside": True, "outline": square(-300, -300, 1100, 700)},
+    ]
+    home = Home([{"id": "ground", "elevation": 0, "plan": plan}])
+    assert home.room_at(0, (410, 200)) == "garden"
+    assert home.walls(Spot(0, 200, 200, 100), Spot(0, 600, 200, 100)) == 1
+
+
 def test_the_placement_advisor_counts_the_same_walls() -> None:
     """The advisor (D-066) counts walls in the page as the locating does: both match a fixture.
 

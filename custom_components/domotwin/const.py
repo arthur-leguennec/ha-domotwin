@@ -178,6 +178,15 @@ MAX_SAVER_MINUTES: Final = 240
 MAX_MEDIA_ID: Final = 512
 PHOTO_SECONDS: Final = (5, 3600)
 
+# The garden (docs/DECISIONS.md, D-077): when each lawn was last mown, said by someone or by its
+# robot mower, in a store of its own (.storage/domotwin.garden). At most this many lawns and mowers.
+GARDEN_STORAGE_KEY: Final = f"{DOMAIN}.garden"
+GARDEN_STORAGE_VERSION: Final = 1
+MAX_LAWNS: Final = 100
+MAX_MOWERS: Final = 20
+#: A robot mower at work (Home Assistant's `lawn_mower` entities).
+MOWING: Final = "mowing"
+
 # The home's Wi-Fi for guests (docs/DECISIONS.md, D-060), in a private store of its own
 # (.storage/domotwin.wifi): never in the plan, the logs, the diagnostics or an export.
 WIFI_STORAGE_KEY: Final = f"{DOMAIN}.wifi"

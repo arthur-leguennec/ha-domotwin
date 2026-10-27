@@ -15,6 +15,8 @@ pub struct KindFlags {
     pub hanging: bool,
     /// Fixed to a wall: hidden with that wall when it is cut away.
     pub wall_decor: bool,
+    /// Of the garden (D-077): stands outside, and may be as tall as a tree.
+    pub outdoor: bool,
 }
 
 /// Default values of a kind.
@@ -43,6 +45,7 @@ const NONE: KindFlags = KindFlags {
     soft: false,
     hanging: false,
     wall_decor: false,
+    outdoor: false,
 };
 const LIGHT: KindFlags = KindFlags {
     light: true,
@@ -83,6 +86,20 @@ const SOFT_WALL_LIGHT: KindFlags = KindFlags {
     light: true,
     soft: true,
     wall_decor: true,
+    ..NONE
+};
+const GARDEN: KindFlags = KindFlags {
+    outdoor: true,
+    ..NONE
+};
+const SOFT_GARDEN: KindFlags = KindFlags {
+    soft: true,
+    outdoor: true,
+    ..NONE
+};
+const GARDEN_LIGHT: KindFlags = KindFlags {
+    light: true,
+    outdoor: true,
     ..NONE
 };
 
@@ -264,7 +281,35 @@ kinds! {
     PetFeeder = "pet-feeder", [22, 30, 32], 0xf0efea, 0, NONE, [];
     Car = "car", [180, 445, 148], 0x5a6d7c, 0, NONE, [];
     Stairs = "stairs", [100, 280, 270], 0xb79268, 0, NONE, [];
+    // The garden (M18, D-077): pieces that stand outside, some as tall as a tree.
+    Tree = "tree", [300, 300, 600], 0x4f7a3a, 0, SOFT_GARDEN, ["conifer", "fruit", "palm"];
+    Shrub = "shrub", [100, 100, 90], 0x557a3c, 0, GARDEN, ["boxwood", "flowering"];
+    Hedge = "hedge", [300, 60, 160], 0x3f6a34, 0, GARDEN, [];
+    Planter = "planter", [100, 40, 45], 0x8a6a4a, 0, GARDEN, ["raised-bed"];
+    GardenTable = "garden-table", [150, 90, 74], 0x9a9a94, 0, GARDEN, ["round"];
+    GardenChair = "garden-chair", [56, 60, 86], 0x9a9a94, 0, GARDEN, [];
+    SunLounger = "sun-lounger", [70, 195, 40], 0xd9d4c7, 0, GARDEN, [];
+    Parasol = "parasol", [300, 300, 250], 0xe8e0cc, 0, SOFT_GARDEN, ["closed", "cantilever"];
+    Barbecue = "barbecue", [130, 60, 110], 0x2d2f31, 0, GARDEN, ["kettle"];
+    FirePit = "fire-pit", [90, 90, 35], 0x5a5a56, 0, GARDEN, [];
+    GardenLight = "garden-light", [20, 20, 70], 0x2d2f31, 0, GARDEN_LIGHT, ["post", "string"];
+    Pool = "pool", [800, 400, 150], 0x5fb8d6, 0, GARDEN, ["round", "above-ground"];
+    HotTub = "hot-tub", [210, 210, 90], 0x6b5440, 0, GARDEN, [];
+    RobotMower = "robot-mower", [60, 75, 30], 0x5a5f63, 0, GARDEN, [];
+    Shed = "shed", [250, 200, 230], 0x8a6a4a, 0, GARDEN, ["metal"];
+    Pergola = "pergola", [400, 300, 250], 0xb59a72, 0, SOFT_GARDEN, ["bioclimatic"];
+    Greenhouse = "greenhouse", [300, 200, 230], 0xdfe8e4, 0, GARDEN, [];
+    Trampoline = "trampoline", [366, 366, 250], 0x2a2c2e, 0, GARDEN, [];
+    Swing = "swing", [250, 160, 210], 0x8a6a4a, 0, GARDEN, [];
+    Fence = "fence", [300, 4, 120], 0x8a6a4a, 0, GARDEN, ["picket", "metal"];
+    Gate = "gate", [300, 6, 150], 0x3d4147, 0, GARDEN, ["sliding"];
+    Mailbox = "mailbox", [40, 30, 120], 0x3d4147, 0, GARDEN, [];
 }
+
+/// The tallest a piece may be with its lift (cm): under a ceiling.
+pub const MAX_HEIGHT: f64 = 300.0;
+/// The tallest a piece of the garden may be with its lift (cm): as tall as a tree.
+pub const MAX_OUTDOOR_HEIGHT: f64 = 1_000.0;
 
 /// The usual size, colour and lift of a piece of a kind in one of its styles.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -284,9 +329,29 @@ impl Kind {
     }
 
     /// Whether the kind has a fire that burns while what it is linked to is on: a switch on, or a
-    /// climate entity not off (D-074).
+    /// climate entity not off (D-074); a fire pit too (D-077).
     pub const fn burns(self) -> bool {
-        matches!(self, Kind::Fireplace)
+        matches!(self, Kind::Fireplace | Kind::FirePit)
+    }
+
+    /// Whether the kind moves as what it is linked to says, its opening redrawn alone: curtains
+    /// (a cover), gates (a cover or a contact, D-077).
+    pub const fn moves(self) -> bool {
+        matches!(self, Kind::Curtain | Kind::Gate)
+    }
+
+    /// Whether the kind stands in the garden (D-077).
+    pub const fn outdoor(self) -> bool {
+        self.info().flags.outdoor
+    }
+
+    /// The tallest a piece of the kind may be (cm), its lift with it.
+    pub const fn max_height(self) -> f64 {
+        if self.outdoor() {
+            MAX_OUTDOOR_HEIGHT
+        } else {
+            MAX_HEIGHT
+        }
     }
 
     /// Whether `variant` is one of this kind's alternative models.
@@ -348,6 +413,25 @@ impl Kind {
             (Kind::Sensor, "motion") => ([8, 6, 8], None, Some(210)),
             (Kind::WallLight, "swing-arm") => ([16, 40, 30], Some(0x2f3133), Some(115)),
             (Kind::LitterBox, "self-cleaning") => ([60, 68, 74], Some(0xe9e9e6), None),
+            (Kind::Tree, "conifer") => ([250, 250, 800], Some(0x2f5a34), None),
+            (Kind::Tree, "fruit") => ([350, 350, 450], Some(0x5a8a3a), None),
+            (Kind::Tree, "palm") => ([300, 300, 700], Some(0x5d8a3e), None),
+            (Kind::Shrub, "boxwood") => ([70, 70, 70], Some(0x3f6a34), None),
+            (Kind::Shrub, "flowering") => ([120, 120, 120], Some(0x5f8a44), None),
+            (Kind::Planter, "raised-bed") => ([240, 120, 40], None, None),
+            (Kind::GardenTable, "round") => ([100, 100, 74], None, None),
+            (Kind::Parasol, "closed") => ([40, 40, 250], None, None),
+            (Kind::Parasol, "cantilever") => ([300, 300, 260], None, None),
+            (Kind::Barbecue, "kettle") => ([60, 60, 100], None, None),
+            (Kind::GardenLight, "post") => ([25, 25, 200], None, None),
+            (Kind::GardenLight, "string") => ([500, 2, 2], None, Some(220)),
+            (Kind::Pool, "round") => ([450, 450, 120], None, None),
+            (Kind::Pool, "above-ground") => ([450, 450, 120], Some(0x6aa9c4), None),
+            (Kind::Shed, "metal") => ([250, 200, 200], Some(0x7d8a86), None),
+            (Kind::Pergola, "bioclimatic") => ([400, 300, 260], Some(0x3d4147), None),
+            (Kind::Fence, "picket") => ([300, 4, 100], Some(0xf2f1ec), None),
+            (Kind::Fence, "metal") => ([300, 4, 120], Some(0x2d2f31), None),
+            (Kind::Gate, "sliding") => ([400, 6, 150], None, None),
             _ => return own,
         };
         StyleInfo {
@@ -404,8 +488,22 @@ name_enum!(
         WoodPainted = "painted-wood",
         TilesBeige = "beige-tiles",
         TilesWhite = "white-tiles",
+        // Outside (M18, D-077).
+        Lawn = "lawn",
+        Decking = "decking",
+        Paving = "paving",
+        Gravel = "gravel",
+        Soil = "soil",
     }
 );
+
+impl Floor {
+    /// Whether it is a ground of the garden (D-077), drawn at the ground's height rather than as a
+    /// floor on its slab.
+    pub const fn ground(self) -> bool {
+        matches!(self, Floor::Lawn | Floor::Gravel | Floor::Soil)
+    }
+}
 
 name_enum!(
     /// Finishes of a room's walls (`walls.finish`).
@@ -444,12 +542,16 @@ mod tests {
 
     #[test]
     fn every_kind_round_trips_and_has_sane_defaults() {
-        assert_eq!(Kind::ALL.len(), 117);
+        assert_eq!(Kind::ALL.len(), 139);
         for kind in Kind::ALL {
             assert_eq!(Kind::from_name(kind.name()), Some(*kind));
             let info = kind.info();
             assert!(info.size.iter().all(|v| *v > 0.0), "{}", kind.name());
-            assert!(info.elevation + info.size[2] <= 300.0, "{}", kind.name());
+            assert!(
+                info.elevation + info.size[2] <= kind.max_height(),
+                "{}",
+                kind.name()
+            );
         }
         assert_eq!(Kind::from_name("box"), Some(Kind::Box));
         assert_eq!(Kind::from_name("sofa-bed"), None);
@@ -478,7 +580,8 @@ mod tests {
                 "aquarium",
                 "wall-light",
                 "light-strip",
-                "track-light"
+                "track-light",
+                "garden-light"
             ]
         );
     }
@@ -506,7 +609,7 @@ mod tests {
                 (own.size, own.color, 0.0)
             );
         }
-        // Every style of every kind fits under the ceiling.
+        // Every style of every kind fits under the ceiling, or as a tree in the garden.
         for kind in Kind::ALL {
             for style in kind.info().variants {
                 let info = kind.style_info(Some(style));
@@ -516,7 +619,7 @@ mod tests {
                     kind.name()
                 );
                 assert!(
-                    info.elevation + info.size[2] <= 300.0,
+                    info.elevation + info.size[2] <= kind.max_height(),
                     "{} {style}",
                     kind.name()
                 );

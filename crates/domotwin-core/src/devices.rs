@@ -70,8 +70,11 @@ pub fn camera_cone(
             plan.elements.get(first + r.element).map(Element::id) == Some(piece.parent.as_str())
         })
         .or_else(|| {
-            rooms
+            // A room before a place outside around it (D-077).
+            layout
+                .lookup_order()
                 .iter()
+                .map(|&k| &rooms[k])
                 .find(|r| point_in_polygon(centre, &r.points, false))
         })?;
     let (s, c) = piece.angle.to_radians().sin_cos();

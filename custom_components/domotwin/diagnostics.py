@@ -10,7 +10,15 @@ from homeassistant.util import dt as dt_util
 
 from . import DomoTwinConfigEntry
 from .const import MODEL_ENTRY_PREFIX, PLAN_LISTS, VERSION
-from .data import GUESTS_KEY, LOCATOR_KEY, PEOPLE_KEY, SCHEDULER_KEY, SCREENS_KEY, WIFI_KEY
+from .data import (
+    GARDEN_KEY,
+    GUESTS_KEY,
+    LOCATOR_KEY,
+    PEOPLE_KEY,
+    SCHEDULER_KEY,
+    SCREENS_KEY,
+    WIFI_KEY,
+)
 from .guests import status_of
 from .models import async_usage
 from .upkeep import due_tasks, piece_names
@@ -115,6 +123,9 @@ async def async_get_config_entry_diagnostics(
     # The wall screens counted (D-076): never their names, sensors or folders.
     if (screens := hass.data.get(SCREENS_KEY)) is not None:
         diagnostics["screens"] = {"screens": screens.count, "photos": screens.with_photos()}
+    # The lawns and robot mowers whose mowing is known (D-077): never which or when.
+    if (garden := hass.data.get(GARDEN_KEY)) is not None:
+        diagnostics["garden"] = garden.counts
     # The guest passes counted (D-067): never their names, links, rooms or devices.
     if (guests := hass.data.get(GUESTS_KEY)) is not None:
         now = dt_util.utcnow()

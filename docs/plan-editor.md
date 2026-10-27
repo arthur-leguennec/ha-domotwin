@@ -25,7 +25,9 @@ plan** starts a new one with one room of 4 × 3 m. The view shows the 2D plan; t
 - **Draw a partition**: drag from one end to the other.
 - **Place a door** or **a window**: tap near a side of a room (within 60 cm). It is centred there,
   kept within the side, and a door opens into the room. Doors are 83 cm wide, windows 120 cm.
-- **Fields of the selection**, in the bar: the name of everything; a room's floor; a door's width,
+- **Fields of the selection**, in the bar: the name of everything; a room's floor, whether it is a
+  place outside (a garden, a terrace, a balcony: its ground then, and a railing, D-077,
+  [`outdoors.md`](outdoors.md)); a door's width,
   kind (hinged, glazed, double, folding, sliding, barn, opening without a door, closed for good) and
   the side it opens to; a window's width; a partition's thickness. A value out of range is marked
   and not kept; a door or a window wider than its side is refused.

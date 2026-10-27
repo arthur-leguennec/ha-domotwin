@@ -268,6 +268,14 @@ pub fn targets(
                         _ => 0.0,
                     };
                 }
+                // A gate is open while its contact is on (D-077); a cover says how far.
+                if item.kind == crate::plan::Kind::Gate
+                    && let Some(contact) = on(Role::Contact).first()
+                {
+                    overrides
+                        .open
+                        .insert(index, if contact.state == "on" { 1.0 } else { 0.0 });
+                }
                 if let Some(open) = on(Role::Cover).first().and_then(|c| cover_open(c)) {
                     overrides.open.insert(index, open);
                 }

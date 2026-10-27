@@ -10,6 +10,7 @@ use super::mesh::{Blade, CutMode, Material, NO_GROUP, Painter, ROUND, Surface, T
 
 // The library's pieces (M17, D-074), by where they are found.
 mod devices;
+mod garden;
 mod kitchen;
 mod leisure;
 mod lights;
@@ -313,9 +314,9 @@ pub(crate) fn build(builder: &mut Builder, plan: &Plan, layout: &WallLayout) {
         let Element::Furniture(item) = element else {
             continue;
         };
-        // Curtains move (live control), and pieces being moved in edit mode: they are built
-        // with the moving parts.
-        let moving = item.kind == Kind::Curtain || builder.moving.contains(&builder.global(index));
+        // Curtains and gates move (live control), and pieces being moved in edit mode: they are
+        // built with the moving parts.
+        let moving = item.kind.moves() || builder.moving.contains(&builder.global(index));
         if moving != builder.dynamic {
             continue;
         }
@@ -409,7 +410,14 @@ fn piece(
     };
     // Width along the item's x, depth along its y, its front towards +y.
     let (u, w, d) = (rotate([1.0, 0.0]), f.w, f.h);
-    let x = Xform::plan([centre[0], f.elevation, centre[1]], u);
+    // On the ground in a garden, a little under the floors (D-077).
+    let standing = f.elevation < 2.0 && !flags.wall_decor && !flags.hanging;
+    let ground = if standing {
+        builder.floor_level(plan, room)
+    } else {
+        0.0
+    };
+    let x = Xform::plan([centre[0], f.elevation + ground, centre[1]], u);
     let open = builder.overrides.open.get(&builder.global(index)).copied();
     let ceiling = (builder.wall_height - f.elevation - f.z).max(0.0);
     let base = Material::paint(f.color);
@@ -488,7 +496,7 @@ fn piece(
         });
     }
     // A soft contact shadow under pieces standing on the floor.
-    if f.elevation < 2.0 && !flags.wall_decor && !flags.hanging && f.z > 8.0 {
+    if standing && f.z > 8.0 && !garden::no_contact_shadow(f.kind, f.variant.as_deref()) {
         contact_shadow(builder, &x, w, d);
     }
 }
@@ -1099,6 +1107,34 @@ fn draw(m: &mut Model<'_>, f: &Furniture) {
         Kind::LitterBox => leisure::litter_box(m, variant == Some("self-cleaning")),
         Kind::PetFeeder => leisure::pet_feeder(m),
         Kind::Car => leisure::car(m),
+        Kind::Tree => garden::tree(m, variant),
+        Kind::Shrub => garden::shrub(m, variant),
+        Kind::Hedge => garden::hedge(m),
+        Kind::Planter => garden::planter(m, variant),
+        Kind::GardenTable => garden::garden_table(m, variant),
+        Kind::GardenChair => garden::garden_chair(m),
+        Kind::SunLounger => garden::sun_lounger(m),
+        Kind::Parasol => garden::parasol(m, variant),
+        Kind::Barbecue => garden::barbecue(m, variant),
+        Kind::FirePit => garden::fire_pit(m),
+        Kind::GardenLight => garden::garden_light(m, variant),
+        Kind::Pool => garden::pool(m, variant),
+        Kind::HotTub => garden::hot_tub(m),
+        Kind::RobotMower => garden::robot_mower(m),
+        Kind::Shed => garden::shed(m, variant),
+        Kind::Pergola => garden::pergola(m, variant),
+        Kind::Greenhouse => garden::greenhouse(m),
+        Kind::Trampoline => garden::trampoline(m),
+        Kind::Swing => garden::swing(m),
+        Kind::Fence => garden::fence(m, variant),
+        Kind::Gate => {
+            // Shut unless its cover or contact, or the plan, says otherwise.
+            let open = m
+                .open
+                .unwrap_or_else(|| f.open.map_or(0.0, |o| f64::from(o) / 100.0));
+            garden::gate(m, variant, open);
+        }
+        Kind::Mailbox => garden::mailbox(m),
         Kind::Box => {
             // A piece drawn from a 3D file once its mesh came; a box until then.
             let drawn = match m.file.take() {

@@ -138,14 +138,28 @@ every reader returns `Result` with a stable error code that the frontend transla
   that fit a ten-minute loop), keeps it off the home as seen from the eye (a line against the
   home's box; on the roof's slope when the roof is shown), and slants it with the wind. The fog is mixed in the home's fragment shader and the background's, by the distance from
   the home; a flash brightens the exposure and the background.
+- The outdoors (D-077): places outside are rooms marked `outside`, without walls (the wall layout
+  leaves them out of every room's neighbours, so the rooms beside them get façades) or ceiling;
+  wherever they overlap a room, the room comes first, and the smaller place outside before the
+  larger, in the scene's room lookup, the walk's `Floor`, the edit session, and the radios' model
+  (core and integration). Their grounds carry a surface (grass, gravel, soil, paving, water) that
+  the floor's shader draws (tufts, a mower's stripes from the rooms texture's grass length and
+  freshness, ripples), a lawn 4 cm under the floors: in a variant of the main program compiled
+  with `GARDEN` once a scene has them, for the meshes that have them only (a software GPU runs
+  every branch of a shader, taken or not). `scene::roof` splits each uncovered storey's
+  outline into up to four rectangles (wings), each drawn in the shape chosen; the weather's shader
+  takes each wing's ridge, half sizes and shape to land on it. A robot mower is a `robots::Robots`
+  of its own body, on its storey's `Floor` with the home's rooms closed but its dock's
+  (`Floor::outdoors`).
 - `domotwin-web` exposes a small API: `loadPlan` (or `loadStoreys`, with `setSpread`, `setRoof`,
   `storeyLabels` and `storeyPicture`, for every storey at once), `setBindings`, `setStates`, `highlight`,
   `orbit`, `pan`, `zoom`, `setPlanView`, `overview`, `focusElement`, `views`, `showView`, `pick`,
   `screenPoint`, `stats`, `frame`, walking (`setWalk`, `setWalkVelocity`, `walkTo`) and the kiosk's
   `setAutoOrbit`, for 3D files `modelFiles` (what to fetch) and `setModelMesh`, `setWeather` (a
-  condition, the wind's speed and bearing, the home's north) with its `weather` getter, and for the
+  condition, the wind's speed and bearing, the home's north) with its `weather` getter, for the
   catalogue `editCatalogue` and `piecePicture`, a piece of the library drawn alone by an engine of
-  its own (D-074).
+  its own (D-074), and for the outdoors `setRoofStyle`, `setLawns` (each lawn's grass and
+  freshness) and `mowerLawns` (the lawns each robot mower can get to, D-077).
 - In the frontend, `src/gestures.ts` turns pointer events into drags, pans, pinches, taps and long
   presses, and `<domotwin-view>` applies them, runs the actions and draws the toolbar.
 
@@ -282,7 +296,8 @@ every reader returns `Result` with a stable error code that the frontend transla
   rights}}`, each `{"rooms"?: {room id: level}, "entities"?: {entity id: level}}`, a level `use`,
   `see` or `hidden`; at most 50 people, 200 rooms and 500 devices each
   ([`rights.md`](rights.md)); the weather drawn around the home (`weather`, D-072): a `weather`
-  entity, or `none`; absent, the Home tab's.
+  entity, or `none`; absent, the Home tab's; the roofs (`roof`, D-077): `{"shape"?: "gable" |
+  "hip" | "shed" | "flat", "pitch"?: 5–60, "color"?: "#rrggbb"}`.
 - `upkeep` (D-033, storage 4.1): the upkeep cards by piece id, and how many days before it a task
   is due soon; see [`upkeep.md`](upkeep.md). Kept apart from the plan, like the bindings.
 - `revision`: bumped on every write. `revisions` keeps the revision of the last write of each kind
@@ -346,6 +361,12 @@ name (a card's `screen`, matched whatever the case, 20 at most): `start` (a tab,
 3 600; `dim` at night). Which screen a device is stays on the device (`domotwin-screen` in its
 local storage); every signed-in user reads the layouts, administrators change them.
 
+`.storage/domotwin.garden` (D-077, its own store, version 1): when each lawn was last said mown,
+`lawns` (`{room id: ISO time}`, 100 at most), and each robot mower last stopped mowing, `mowers`
+(`{lawn_mower entity id: ISO time}`, 20 at most); the latest kept past the limits. Noted from Home
+Assistant's state changes (a `lawn_mower` leaving `mowing`), written 10 s later; nothing in it is
+private. See [`outdoors.md`](outdoors.md).
+
 `.storage/domotwin.config_history` (D-062, its own store, version 1, private): the configuration
 history, each item by `<kind>:<key>` (`automation`, `script` and `scene` by their id or key,
 `dashboard` by its URL path, empty for the default one) with its `name`, its `source` (`editor`:
@@ -382,7 +403,7 @@ when the integration is removed.
 | `domotwin/bindings/get`  | user   | –                                              | `bindings`, `revision`           |
 | `domotwin/bindings/save` | admin  | `bindings`, `expected_revision?`               | `revision`                       |
 | `domotwin/settings/get`  | user   | –                                              | `settings`, `revision`           |
-| `domotwin/settings/save` | admin  | `settings` (`north`, 0 ≤ n < 360; `theme`, `accent`; `rooms`, at most 200; `energy`; `access_points`, at most 16; `rights`; `weather`) | `revision` |
+| `domotwin/settings/save` | admin  | `settings` (`north`, 0 ≤ n < 360; `theme`, `accent`; `rooms`, at most 200; `energy`; `access_points`, at most 16; `rights`; `weather`; `roof`) | `revision` |
 | `domotwin/upkeep/get`    | user   | –                                              | `upkeep`, `revision`, `today` (where the home is) |
 | `domotwin/upkeep/save`   | admin  | `pieces` (`{piece: card \| null}`, only those change), `lead_days?`, `expected_revision?` | `revision` |
 | `domotwin/upkeep/done`   | user   | `piece`, `task`                                | `revision`, `last_done`          |
@@ -410,13 +431,15 @@ when the integration is removed.
 | `domotwin/guests/get`    | admin  | –                                              | `passes` (`[{id, name, rooms, entities, starts, ends, act, wifi, anywhere, path, url, status}]`) |
 | `domotwin/guests/save`   | admin  | `pass` (`{id?, name, rooms, entities, starts, ends, act?, wifi?, anywhere?, renew?}`) | the pass, as `get` lists it |
 | `domotwin/guests/remove` | admin  | `pass` (its id)                                | `removed`                        |
-| `domotwin/subscribe`     | user   | –                                              | events `{kind, revision}` (`screens` too, D-076), and `{kind: "show", show}` for `domotwin.show` |
+| `domotwin/garden/get`    | user   | –                                              | `lawns`, `mowers` (ISO times, D-077) |
+| `domotwin/garden/mowed`  | user   | `room` (a lawn of the plans)                   | `lawns`, `mowers` (`unknown_lawn` otherwise) |
+| `domotwin/subscribe`     | user   | –                                              | events `{kind, revision}` (`screens` too, D-076; `garden`, D-077), and `{kind: "show", show}` for `domotwin.show` |
 
 Errors: `not_loaded`, `invalid_plan`, `invalid_layout`, `invalid_bindings`, `invalid_settings`,
 `invalid_upkeep`, `unknown_task`, `invalid_people`, `unknown_person`, `invalid_locating`,
 `unknown_device`, `unknown_room`, `no_bluetooth`, `invalid_key`, `key_not_heard`, `key_refused`,
 `too_large`, `too_many_favourites`, `too_many_models`, `revision_conflict`, `unknown_storey`, `invalid_storey`, `too_many_storeys`,
-`duplicate_id`, `unknown_item`, `unknown_version`, a pass's (`ends_before`, `already_ended`,
+`duplicate_id`, `unknown_item`, `unknown_version`, `unknown_lawn` (D-077), a pass's (`ends_before`, `already_ended`,
 `too_long`, `too_far`, `unknown_room`, `not_for_guests`, `nothing_open`, `too_many`,
 `unknown_pass`), and Home Assistant's `unauthorized` for non-admin writes (and the history's and
 the passes' reads).

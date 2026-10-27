@@ -224,8 +224,8 @@ export class DomoTwinCard extends LitElement {
       else if (event.kind === "upkeep") void this.loadUpkeep(client);
       else if (event.kind === "people") void this.loadPeople(client);
       else if (event.kind === "wifi") void this.loadWifi(client);
-      // The wall screens (D-076) are the panel's.
-      else if (event.kind !== "screens") void this.loadSettings(client);
+      // The wall screens (D-076) are the panel's, the lawns (D-077) the view's.
+      else if (event.kind !== "screens" && event.kind !== "garden") void this.loadSettings(client);
     });
     void this.loadPlan(client);
     void this.loadBindings(client);
@@ -531,6 +531,7 @@ export class DomoTwinCard extends LitElement {
         .homeAccent=${this.settings?.accent}
         .energy=${this.settings?.energy}
         .weather=${this.settings?.weather}
+        .roofStyle=${this.settings?.roof}
         .storeys=${this.storeys}
         .storey=${this.storey}
         .elsewhere=${this.elsewhere}

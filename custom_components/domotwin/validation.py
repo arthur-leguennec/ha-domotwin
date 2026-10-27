@@ -283,6 +283,9 @@ def validate_bindings(bindings: Any) -> dict[str, Any]:
 
 THEMES: Final = ("auto", "day", "neon", "blueprint", "cartoon", "clay")
 ACCENT: Final = re.compile(r"#[0-9a-fA-F]{6}")
+#: The roofs' shapes and slopes (degrees), as the engine draws them (D-077).
+ROOF_SHAPES: Final = ("gable", "hip", "shed", "flat")
+ROOF_PITCH: Final = (5, 60)
 
 
 def validate_settings(settings: Any) -> dict[str, Any]:
@@ -292,7 +295,7 @@ def validate_settings(settings: Any) -> dict[str, Any]:
     its accent colour (`accent`, `#rrggbb`); the private rooms (`rooms`, D-039); where the
     home's energy is read (`energy`, D-049); the Wi-Fi access points placed on the plan
     (`access_points`, D-066); each person's rights (`rights`, D-071); the weather drawn around it
-    (`weather`, D-072: a `weather` entity, or `none`).
+    (`weather`, D-072: a `weather` entity, or `none`); how its roofs are drawn (`roof`, D-077).
     """
     if not isinstance(settings, dict) or set(settings) - {
         "north",
@@ -303,11 +306,12 @@ def validate_settings(settings: Any) -> dict[str, Any]:
         "access_points",
         "rights",
         "weather",
+        "roof",
     }:
         raise InvalidPayloadError(
             "invalid_settings",
             "settings hold only `north`, `theme`, `accent`, `rooms`, `energy`, `access_points`, "
-            "`rights` and `weather`",
+            "`rights`, `weather` and `roof`",
         )
     north = settings.get("north", 0)
     if not _is_number(north) or not 0 <= north < 360:
@@ -331,6 +335,7 @@ def validate_settings(settings: Any) -> dict[str, Any]:
         ("energy", _energy),
         ("access_points", _access_points),
         ("rights", _rights),
+        ("roof", _roof),
     )
     for key, check in optional:
         if key in settings and (found := check(settings[key])):
@@ -415,6 +420,37 @@ def _weather(weather: Any) -> str:
             "invalid_settings", "`weather` must be a weather entity or `none`"
         )
     return weather
+
+
+def _roof(roof: Any) -> dict[str, Any]:
+    """How the roofs are drawn (D-077).
+
+    `{"shape"?: "gable" | "hip" | "shed" | "flat", "pitch"?: degrees from 5 to 60, "color"?:
+    "#rrggbb"}`; what is left out is drawn as by default.
+    """
+    if not isinstance(roof, dict) or set(roof) - {"shape", "pitch", "color"}:
+        raise InvalidPayloadError("invalid_settings", "`roof` has `shape`, `pitch` and `color`")
+    checked: dict[str, Any] = {}
+    if "shape" in roof:
+        if roof["shape"] not in ROOF_SHAPES:
+            raise InvalidPayloadError(
+                "invalid_settings", f"`roof.shape` is one of {', '.join(ROOF_SHAPES)}"
+            )
+        checked["shape"] = roof["shape"]
+    if "pitch" in roof:
+        pitch = roof["pitch"]
+        if not _is_number(pitch) or not ROOF_PITCH[0] <= pitch <= ROOF_PITCH[1]:
+            raise InvalidPayloadError(
+                "invalid_settings",
+                f"`roof.pitch` is a number of degrees from {ROOF_PITCH[0]} to {ROOF_PITCH[1]}",
+            )
+        checked["pitch"] = pitch
+    if "color" in roof:
+        color = roof["color"]
+        if not isinstance(color, str) or not ACCENT.fullmatch(color):
+            raise InvalidPayloadError("invalid_settings", "`roof.color` must be a colour #rrggbb")
+        checked["color"] = color.lower()
+    return checked
 
 
 def _access_points(points: Any) -> list[dict[str, Any]]:

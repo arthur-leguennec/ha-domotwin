@@ -93,6 +93,12 @@ Local, fast, Rust + WebAssembly.</p>
   your weather entity, drawn in 3D: around an apartment and never in it, on the roof of a house,
   slanted by the wind. See [the
   weather](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/weather.md).
+- **The garden too.** Draw a garden, a terrace, a balcony with its railing, a path: places
+  outside, with their lawn, decking, paving or gravel, and the garden's pieces (trees, hedges, a
+  pool, a shed, garden lights, a gate). The lawn is drawn as long as it has grown since it was
+  last mown, with the season where the home is; your robot mower goes round it, never through the
+  house. Roofs follow the house's shape, in the shape, slope and colour you choose. See [the
+  outdoors](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/outdoors.md).
 - **Layers.** An animated heatmap of temperature, humidity, CO₂ or fine particles read from the
   sensors of each room's area, safety alerts that pulse in their room (smoke, gas, water leak,
   alarm, a window open in the rain), the rooms someone is in, the real sun coming in through your

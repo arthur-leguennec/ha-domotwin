@@ -206,6 +206,13 @@ export function vacuumAt(minute: number): "docked" | "cleaning" | "returning" {
   return "docked";
 }
 
+/** What the robot mower does at `minute` (D-077): out on the back lawn late in the morning. */
+export function mowerAt(minute: number): "docked" | "mowing" | "returning" {
+  if (within(minute, at(10, 30), at(12, 0))) return "mowing";
+  if (within(minute, at(12, 0), at(12, 6))) return "returning";
+  return "docked";
+}
+
 /** A change the day makes, and the automation that makes it, if one does. */
 export interface Change {
   state: string;
@@ -334,6 +341,22 @@ export function wantedAt(minute: number): Map<string, Change> {
   wanted.set("switch.towel_rail", {
     state: towels ? "on" : "off",
     ...(towels ? { automation: "automation.bathroom_humidity" } : {}),
+  });
+  // The garden (D-077): the mower on the back lawn, the pool's pump in the sun, the lights from
+  // dusk to bedtime, the gate as the car goes and comes back.
+  const mower = mowerAt(m);
+  wanted.set("lawn_mower.mowy", {
+    state: mower,
+    ...(mower === "mowing" ? { automation: "automation.mow_the_lawn" } : {}),
+  });
+  wanted.set("switch.pool_pump", { state: within(m, at(10, 0), at(16, 0)) ? "on" : "off" });
+  for (const id of ["light.terrace", "light.garden_path"]) {
+    light(id, within(m, at(19, 30), at(23, 0)), "automation.garden_lights");
+  }
+  const gateOpen = [at(7, 54), at(18, 2)].some((t) => within(m, t, t + 3));
+  wanted.set("cover.gate", {
+    state: gateOpen ? "open" : "closed",
+    attributes: { current_position: gateOpen ? 100 : 0 },
   });
   // The heating, lower at night: the good night's in the living room and the bedroom.
   for (const id of ["climate.living_room", "climate.bedroom", "climate.office"]) {

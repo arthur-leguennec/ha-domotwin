@@ -24,6 +24,7 @@ import type { PeopleSettings } from "../live/people";
 import type { Choices } from "../live/choices";
 import type { ConfigKind } from "../live/config-history";
 import { MAX_SCHEDULE_ENTITIES, schedulable, type Schedule } from "../live/schedules";
+import type { Garden } from "../live/lawn";
 import type { Upkeep } from "../live/upkeep";
 import type { StoredWifi } from "../live/wifi";
 import { DemoConfigHistory } from "./config-history";
@@ -96,6 +97,8 @@ export interface DemoStore {
   choices: Choices;
   /** The home's Wi-Fi for guests (D-060): the demo house's is fictional. */
   wifi?: StoredWifi;
+  /** When each lawn was last mown and each robot mower last mowed (D-077). */
+  garden?: Garden;
 }
 
 /** Who opens the demo: their language, name and look, from their own Home Assistant. */
@@ -129,6 +132,11 @@ export class DemoError extends Error {
 }
 
 const pad = (n: number): string => String(n).padStart(2, "0");
+
+/** `days` after the day `day` (its midnight), at `hour` o'clock. */
+function dayAt(day: Date, days: number, hour: number): Date {
+  return new Date(day.getFullYear(), day.getMonth(), day.getDate() + days, hour);
+}
 
 /** A local date as `YYYY-MM-DD`. */
 function dateOf(date: Date): string {
@@ -219,6 +227,11 @@ export class DemoHome implements MemoryHome {
       bindings: demoBindings(),
       settings: demoSettings(),
       upkeep: demoUpkeep(dateOf(today), language),
+      // The front lawn mown three days ago; the robot mower out on the back one yesterday.
+      garden: {
+        lawns: { "front-garden": dayAt(today, -3, 17).toISOString() },
+        mowers: { "lawn_mower.mowy": dayAt(today, -1, 12).toISOString() },
+      },
       people: demoPeople(),
       schedules: [],
       // A fictional network: its code joins nothing.
@@ -674,7 +687,10 @@ export class DemoHome implements MemoryHome {
       return;
     }
     const moved = before?.state !== change.state;
-    if (moved) this.since.set(id, this.elapsed());
+    if (moved) {
+      this.since.set(id, this.elapsed());
+      this.noteMower(id, before?.state, change.state, now);
+    }
     const written = context ?? this.writing ?? this.context();
     this.states[id] = {
       entity_id: id,
@@ -792,6 +808,7 @@ export class DemoHome implements MemoryHome {
     for (const id of changed) {
       this.since.set(id, this.elapsed());
       const state = this.states[id]?.state;
+      if (state !== undefined) this.noteMower(id, before.get(id), state, now);
       if (state !== undefined && state !== before.get(id))
         this.recordChange(id, state, context, now);
     }
@@ -803,6 +820,14 @@ export class DemoHome implements MemoryHome {
     this.hass = { ...this.hass, states: { ...this.states } };
     for (const listener of this.listeners) listener(this.hass);
     for (const listener of this.clockListeners) listener();
+  }
+
+  /** A robot mower that stops mowing (D-077): noted in the garden, as the integration notes it. */
+  private noteMower(id: string, before: string | undefined, after: string, now: string): void {
+    if (!id.startsWith("lawn_mower.") || before !== "mowing" || after === "mowing") return;
+    const garden = (this.store.garden ??= { lawns: {}, mowers: {} });
+    garden.mowers = { ...garden.mowers, [id]: now };
+    this.saved("garden");
   }
 
   /** A save: its kind and the new revision, told to who follows them. */

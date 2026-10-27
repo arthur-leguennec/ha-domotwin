@@ -358,7 +358,7 @@ const EMBERS: Rgb8 = Rgb8::from_u32(0x2b221d);
 
 /// Flames rising from `at`, `spread` wide and up to `tall` high, leaning back a little: glowing
 /// blades facing the front.
-fn flames(m: &mut Model<'_>, at: V3, spread: f64, tall: f64) {
+pub(super) fn flames(m: &mut Model<'_>, at: V3, spread: f64, tall: f64) {
     let fire = m.glow(EMBERS);
     let n = ((spread / 6.0).round() as usize).clamp(3, 9);
     for k in 0..n {

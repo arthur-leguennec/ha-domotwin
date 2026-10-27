@@ -49,6 +49,7 @@ const LIGHT_KINDS = new Set<string>([
   "light-strip",
   "track-light",
   "aquarium",
+  "garden-light",
 ] satisfies KindName[]);
 /** Kinds of items a camera is often placed on or drawn as. */
 const CAMERA_KINDS = new Set<string>([
@@ -94,6 +95,17 @@ const DEVICE_FITS: Partial<Record<KindName, [string, string[]?][]>> = {
   "electrical-panel": [["sensor", ["power", "energy"]]],
   "pet-feeder": [["button"], ["switch"]],
   "litter-box": [["sensor"], ["switch"]],
+  // The garden (D-077): a gate opens with its cover or its contact, a pool's pump, a hot tub's
+  // heating, a planter's watering.
+  gate: [["cover"], ["binary_sensor", ["opening", "door", "garage_door"]], ["lock"]],
+  pool: [["switch"], ["sensor", ["temperature"]], ["water_heater"], ["climate"]],
+  "hot-tub": [["climate"], ["water_heater"], ["switch"]],
+  barbecue: [["sensor", ["temperature"]]],
+  "fire-pit": [["switch"]],
+  greenhouse: [["sensor", ["temperature", "humidity"]], ["fan"], ["binary_sensor"]],
+  planter: [["valve"], ["sensor", ["moisture"]], ["switch"]],
+  shed: [["binary_sensor", ["door", "opening"]], ["lock"], ["light"]],
+  mailbox: [["binary_sensor"], ["sensor"]],
 };
 
 /** The plan element with this id, from the plan JSON. */
@@ -160,8 +172,10 @@ export function fit(element: PlanElementInfo, entityId: string, hass: HomeAssist
     return deviceClass === "curtain" ? 4 : 2;
   }
   if (kind === TV) return domain === "media_player" ? 3 : domain === "switch" || power ? 1 : 0;
-  // A robot vacuum's dock (D-049): its vacuum moves the robot on the floor.
+  // A robot vacuum's dock (D-049): its vacuum moves the robot on the floor; a robot mower's
+  // (D-077), its lawn mower on the lawns.
   if (kind === "robot-vacuum") return domain === "vacuum" ? 3 : 0;
+  if (kind === "robot-mower") return domain === "lawn_mower" ? 3 : 0;
   if (kind === RADIATOR) return domain === "climate" ? 3 : domain === "switch" ? 2 : 0;
   const fits = DEVICE_FITS[kind as KindName];
   if (fits) {

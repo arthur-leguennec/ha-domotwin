@@ -75,6 +75,11 @@ export interface SceneStats {
   storeys: number;
   spread: boolean;
   roof: boolean;
+  /** The roofs over the home, and their shape (D-077). */
+  roofs: number;
+  roofShape: string;
+  /** Where the robots are, and the room each cleans or mows (D-049, D-077). */
+  robots: { id: string; at: [number, number]; cleaning: string | null }[];
   /** Walking at eye level (D-029). */
   walking: boolean;
   camera: {
@@ -156,6 +161,8 @@ export interface PlanElement {
    * or a window's room on its other side. */
   room?: string;
   beside?: string;
+  /** Rooms only: a place outside whose ground is a lawn (D-077). */
+  lawn?: boolean;
 }
 
 /** A value of a layer and where it goes on the picture (device pixels from the top left). */
@@ -478,11 +485,34 @@ export class DomoTwinEngine {
   }
 
   /**
-   * What the robot vacuums do (D-049): JSON `[{"id": "<robot-vacuum piece>", "state"}]`, the
-   * state its vacuum's. A robot-vacuum piece not named rests on its dock.
+   * What the robot vacuums (D-049) and mowers (D-077) do: JSON `[{"id": "<robot-vacuum or
+   * robot-mower piece>", "state"}]`, the state its vacuum's or lawn mower's. A piece not named
+   * rests on its dock.
    */
   setRobots(json: string): void {
     this.live.setRobots(json);
+  }
+
+  /**
+   * How long each lawn's grass is and how fresh its mowing (D-077): JSON `{room id: {"length":
+   * cm, "fresh": 0–1}}`; a lawn not named is drawn with about a week's grass.
+   */
+  setLawns(json: string): void {
+    this.live.setLawns(json);
+  }
+
+  /** The lawns each robot mower mows (D-077): those of its storey it can get to from its dock. */
+  mowerLawns(): Record<string, string[]> {
+    return JSON.parse(this.live.mowerLawns()) as Record<string, string[]>;
+  }
+
+  /**
+   * The roofs' shape, pitch and colour (D-077): JSON `{"shape": "gable" | "hip" | "shed" | "flat",
+   * "pitch": degrees, "color": "#rrggbb"}`; `build`: the home shown is built again with it (not
+   * when one is about to be loaded). Returns whether the home was built again.
+   */
+  setRoofStyle(json: string, build = true): boolean {
+    return this.live.setRoofStyle(json, build);
   }
 
   /** Where the people's names go: JSON `[{"id", "x", "y", "opacity"}]` in device pixels. */

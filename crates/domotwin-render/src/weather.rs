@@ -3,21 +3,25 @@
 //! weather shaders, from their number and the time.
 
 use domotwin_core::lighting::Lighting;
-use domotwin_core::scene::{RoofShape, Scene};
+use domotwin_core::scene::{MAX_WINGS, RoofShape, Scene};
 use domotwin_core::weather::{Fall, Weather};
 
 use crate::quality::QualityPreset;
 
-/// The home's footprint for what falls: every storey's bounds and the roof's rectangle with its
-/// eaves, on the plan's axes. Things fall around it, and on the roof when it is shown.
-#[derive(Debug, Clone, Copy, PartialEq)]
+/// The home's footprint for what falls: its rooms with their walls on every storey (the scene's
+/// bounds without any) and the roof's rectangle with its eaves, on the plan's axes. Things fall
+/// around it, on the places outside (D-077), and on the roof when it is shown.
+#[derive(Debug, Clone, PartialEq)]
 pub(crate) struct Footprint {
     /// Its centre on the plan.
     pub(crate) centre: [f64; 2],
     /// Half its size along the plan's x and y (cm).
     pub(crate) half: [f64; 2],
-    /// The roof over the home, when it has one.
-    pub(crate) roof: Option<RoofShape>,
+    /// The wings of the home's roofs, each with the index of its roof, the largest first (four
+    /// at most).
+    pub(crate) wings: Vec<(usize, RoofShape)>,
+    /// How far out from it the places outside reach (cm).
+    pub(crate) grounds: f64,
 }
 
 /// How long the weather's shader loops (s): each particle's turn fits a whole number of times in it.
@@ -31,10 +35,23 @@ impl Footprint {
     /// The footprint of a scene, `None` when it has nothing to stand on.
     pub(crate) fn of(scene: &Scene) -> Option<Self> {
         let [min, max] = scene.bounds;
-        let mut lo = [f64::from(min[0]), f64::from(min[2])];
-        let mut hi = [f64::from(max[0]), f64::from(max[2])];
-        let roof = scene.roof.as_ref().map(|roof| roof.shape);
-        if let Some(shape) = roof {
+        let [mut lo, mut hi] = scene.home_area.unwrap_or([
+            [f64::from(min[0]), f64::from(min[2])],
+            [f64::from(max[0]), f64::from(max[2])],
+        ]);
+        let mut wings: Vec<(usize, RoofShape)> = scene
+            .roofs
+            .iter()
+            .enumerate()
+            .flat_map(|(k, roof)| roof.wings.iter().map(move |wing| (k, *wing)))
+            .collect();
+        // The largest, whichever roof they are on (a lower roof's wings do not crowd out the top
+        // one's).
+        wings.sort_by(|(_, a), (_, b)| {
+            (b.half_length * b.half_width).total_cmp(&(a.half_length * a.half_width))
+        });
+        wings.truncate(MAX_WINGS);
+        for (_, shape) in &wings {
             // The eaves stand out of the walls: their corners widen the footprint.
             let [ux, uz] = shape.ridge;
             for (a, b) in [(1.0, 1.0), (1.0, -1.0), (-1.0, 1.0), (-1.0, -1.0)] {
@@ -53,16 +70,26 @@ impl Footprint {
         if !(w > 0.0 && d > 0.0) {
             return None;
         }
+        let centre = [f64::midpoint(lo[0], hi[0]), f64::midpoint(lo[1], hi[1])];
+        let half = [w / 2.0, d / 2.0];
+        let grounds = scene.grounds.map_or(0.0, |[glo, ghi]| {
+            (0..2)
+                .map(|k| (centre[k] - glo[k]).max(ghi[k] - centre[k]) - half[k])
+                .fold(0.0, f64::max)
+        });
         Some(Self {
-            centre: [f64::midpoint(lo[0], hi[0]), f64::midpoint(lo[1], hi[1])],
-            half: [w / 2.0, d / 2.0],
-            roof,
+            centre,
+            half,
+            wings,
+            grounds,
         })
     }
 
-    /// How far out around it things fall (cm).
+    /// How far out around it things fall (cm): over the places outside too.
     pub(crate) fn margin(&self) -> f64 {
-        MARGIN.max(MARGIN_SHARE * self.half[0].max(self.half[1]))
+        MARGIN
+            .max(MARGIN_SHARE * self.half[0].max(self.half[1]))
+            .max(self.grounds)
     }
 }
 

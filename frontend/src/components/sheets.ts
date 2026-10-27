@@ -13,6 +13,7 @@ import {
   mdiHistory,
   mdiInformationOutline,
   mdiLock,
+  mdiMower,
   mdiTagOutline,
   mdiWatch,
 } from "@mdi/js";
@@ -40,6 +41,8 @@ import { entityRow, rowStyles } from "./entity-rows";
 import { roomBarStyles, roomButtons } from "./room-bar";
 import { icon } from "./icon";
 import type { CardStanding, Upkeep } from "../live/upkeep";
+import type { Garden } from "../live/lawn";
+import { timeAgo } from "../live/text";
 import "./automation-section";
 import "./schedule-section";
 import "./bubble";
@@ -347,6 +350,9 @@ export class DomoTwinRoom extends Sheet {
     things: { attribute: false },
     closed: { attribute: false },
     graphs: { attribute: false },
+    lawn: { attribute: false },
+    mowing: { state: true },
+    lawnRefused: { state: true },
   };
   static override styles = [
     baseStyles,
@@ -372,6 +378,14 @@ export class DomoTwinRoom extends Sheet {
   things: LocatedShown[] = [];
   /** Its graphs can open, in the panel's Rooms tab (D-069). */
   graphs = false;
+  /**
+   * A lawn (D-077): the room's id, how long its grass is (cm) and when it was last mown (ms), when
+   * known.
+   */
+  lawn?: { room: string; length?: number; mown?: number };
+  /** Saying it was just mown, and why that failed. */
+  protected mowing = false;
+  protected lawnRefused?: string;
 
   protected override render(): TemplateResult | typeof nothing {
     const hass = this.hass;
@@ -385,7 +399,7 @@ export class DomoTwinRoom extends Sheet {
       );
     }
     const area = this.area;
-    const here = html`${peopleHere(this, t)}${thingsHere(this, t)}${this.renderActions(t)}`;
+    const here = html`${peopleHere(this, t)}${thingsHere(this, t)}${this.renderActions(t)}${this.renderLawn(t)}`;
     const later = this.renderLater(t);
     if (!area) {
       return this.frame(
@@ -459,6 +473,55 @@ export class DomoTwinRoom extends Sheet {
         ${roomButtons(t, commands, this.actions, (what) => void this.run(what), true)}
       </div>
       ${this.refused ? html`<p class="empty" role="alert">${this.refused}</p>` : nothing}`;
+  }
+
+  /** A lawn's grass and its last mowing (D-077), and who mowed it says so. */
+  private renderLawn(t: Translator): TemplateResult | typeof nothing {
+    const hass = this.hass;
+    const lawn = this.lawn;
+    if (!hass || !lawn) return nothing;
+    const said =
+      lawn.mown !== undefined && lawn.length !== undefined
+        ? t.t("room.lawn_grass", {
+            cm: Math.round(lawn.length),
+            when: timeAgo(t.language, Math.max(0, (nowOf(hass) - lawn.mown) / 1000)),
+          })
+        : t.t("room.lawn_unknown");
+    return html`<h3>${t.t("room.lawn")}</h3>
+      <p class="empty" data-testid="room-lawn">${said}</p>
+      ${
+        hass.guest || hass.sandbox
+          ? nothing
+          : html`<div class="room-commands">
+              <button
+                class="action"
+                data-testid="lawn-mowed"
+                ?disabled=${this.mowing}
+                @click=${() => void this.mowed(lawn.room)}
+              >
+                ${icon(mdiMower)}${t.t("room.lawn_mowed")}
+              </button>
+            </div>`
+      }
+      ${this.lawnRefused ? html`<p class="empty" role="alert">${this.lawnRefused}</p>` : nothing}`;
+  }
+
+  /** Says the lawn was just mown; the view draws it short again. */
+  private async mowed(room: string): Promise<void> {
+    const hass = this.hass;
+    if (!hass || this.mowing) return;
+    this.mowing = true;
+    this.lawnRefused = undefined;
+    try {
+      const garden: Garden = await DomoTwinClient.for(hass).lawnMowed(room);
+      fire(this, "domotwin-lawn-mowed", garden);
+    } catch (error) {
+      const t = this.t;
+      const reason = isHassError(error) ? t.error(error.code) : t.error("unknown");
+      this.lawnRefused = t.t("view.action_failed", { reason });
+    } finally {
+      this.mowing = false;
+    }
   }
 
   /** What the room will do later (D-046): its lights or its blinds, at a time. */
