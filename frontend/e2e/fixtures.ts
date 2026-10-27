@@ -49,6 +49,7 @@ export interface HarnessOptions {
     | "co2"
     | "pm25"
     | "power"
+    | "peak"
     | "network"
     | "automations"
     | "upkeep";
@@ -97,6 +98,12 @@ export interface HarnessOptions {
   energy?: boolean;
   /** The card's `demo`: the demo house instead of this home (D-050). */
   demo?: boolean;
+  /**
+   * Hydro-Québec's peaks (D-063): the integration that reads them (hydroqc's sensors, HydroPeak's,
+   * or hydroqc's calendar) and where its peak stands now (`peak` unless asked).
+   */
+  peak?: "hydroqc" | "hydropeak" | "calendar";
+  peakPhase?: "upcoming" | "preheat" | "peak" | "none";
   peopleShown?: "everyone" | "admins";
   peopleLook?: "figure" | "pin";
   /** Bluetooth locating (D-035): fictional receivers and devices, or no Bluetooth at all. */
@@ -177,6 +184,8 @@ export async function openHarness(page: Page, options: HarnessOptions = {}): Pro
   if (options.robot) params.set("robot", "1");
   if (options.energy) params.set("energy", "1");
   if (options.demo) params.set("demo", "1");
+  if (options.peak) params.set("peak", options.peak);
+  if (options.peakPhase) params.set("peakphase", options.peakPhase);
   if (options.peopleShown) params.set("peopleshown", options.peopleShown);
   if (options.peopleLook) params.set("peoplelook", options.peopleLook);
   if (options.bluetooth) params.set("bluetooth", options.bluetooth === true ? "1" : "none");

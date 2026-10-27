@@ -182,6 +182,35 @@ describe("glanceOf", () => {
     expect(glance.lights).toEqual(["light.pendant"]);
   });
 
+  it("has Hydro-Québec's peak where an integration reads it, and what the rooms do (D-063)", () => {
+    const hass = home([
+      ["climate.study", "study", "heat", { temperature: 16, current_temperature: 20 }],
+      ["sensor.meter_power", "lounge", "5000", { device_class: "power", unit_of_measurement: "W" }],
+    ]);
+    expect(glanceOf(hass, sources()).peak).toBeUndefined();
+    // Home Assistant gives new states and a new registry when they change.
+    hass.states = { ...hass.states };
+    hass.entities = { ...hass.entities };
+    for (const [key, state] of [
+      ["event_start", "2026-01-21T16:00:00-05:00"],
+      ["event_end", "2026-01-21T20:00:00-05:00"],
+    ] as const) {
+      const id = `sensor.peak_${key}`;
+      hass.states[id] = {
+        entity_id: id,
+        state,
+        attributes: {},
+        last_changed: "",
+        last_updated: "",
+      };
+      hass.entities[id] = { entity_id: id, platform: "hydropeak", translation_key: key };
+    }
+    hass.now = () => Date.parse("2026-01-21T22:00:00Z");
+    const glance = glanceOf(hass, sources({ meters: new Set(["sensor.meter_power"]) }));
+    expect(glance.peak?.now.phase).toBe("peak");
+    expect(glance.peak?.rooms).toEqual({ roles: { study: "shed" }, draws: {} });
+  });
+
   it("works without bindings", () => {
     const hass = home([["light.pendant", "lounge", "on", {}]]);
     expect(glanceOf(hass, { rooms: ROOMS, closed: new Set() }).lights).toEqual(["light.pendant"]);

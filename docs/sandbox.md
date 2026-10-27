@@ -38,6 +38,32 @@ your home as it is: nothing done in the sandbox is kept, nothing was written.
 
 **Play this day** plays it again from midnight.
 
+## Hydro-Québec's peak
+
+Where [hydroqc](https://github.com/hydroqc/hydroqc-ha) or
+[HydroPeak](https://github.com/Beat-YT/hydropeak-ha) reads Hydro-Québec's peaks, the peak announced
+when the sandbox opens can be played (D-063). **The day** says it, and **Choose its day** sets the
+date to it, shown from its pre-heating once played; from the Home tab, the peak's chip has **Play
+its day in the sandbox** for administrators.
+
+On that day, the integrations' sensors go through it as they would: their pre-heating and peak
+sensors on and off at their times, hydroqc's contract in a critical peak, today's peaks said from
+midnight, hydroqc's calendar on through the peak (their next peak's times are the copy's). The
+automations they set off run, the day's line shows the pre-heating and the peak, the peak's layer
+shows the rooms at the moment shown, and the report says what each room's heating did, from the
+pre-heating to the end of the peak: pre-heating, shed, still heating, read every five minutes. In
+the copy, the rooms' temperatures do not move: a thermostat heats when its target is above the
+room, and is set back when it is below; a thermostat shed by a preset (eco, away) alone, its
+target unchanged, is not seen as shed. An automation set off by a calendar's own trigger (an event
+starting) is not played, as with any calendar; one set off by the calendar's state or by the
+integrations' sensors is.
+
+Only the announced peak's times are known: when another peak is announced the same day (the
+morning's and the evening's), the integrations say so from midnight, but only the first is played,
+and **The day** says it. Only the devices and calendars that say this peak are moved (another
+contract with another peak stays without one), and a pre-heating that starts the day before is
+already on at midnight.
+
 ## Watching it
 
 - **Play** lets the day go by, a minute, ten minutes or an hour a second; the 3D view shows the

@@ -133,6 +133,7 @@ import {
   type ViewOptions,
 } from "./view";
 import {
+  ENERGY_SENSORS,
   energyCandidates,
   preferredFromHome,
   readEnergy,
@@ -140,7 +141,7 @@ import {
   type EnergySettings,
 } from "../live/energy";
 import { watts } from "../live/devices";
-import { formatPower, layerAsked, numberOf } from "../live/layers";
+import { formatPower, layerAsked, numberOf, type LayerName } from "../live/layers";
 import { navigate } from "../live/actions";
 import { areaPage } from "../live/overview";
 
@@ -374,6 +375,8 @@ export class DomoTwinPanel extends LitElement {
   private practicalFailed = false;
   /** The 3D view was shown once: it stays, hidden on the other tabs, its engine and camera. */
   private shown3d = false;
+  /** A layer the Home tab asked the 3D view to show (D-063), until it is shown. */
+  private layerWanted?: LayerName;
   /** What the 3D view was last given of Home Assistant. */
   private viewHass?: HomeAssistant;
   /** The tab this device opens on, when it has one of its own. */
@@ -1115,7 +1118,7 @@ export class DomoTwinPanel extends LitElement {
    * Shows the sandbox (D-057): the home copied, its automations, scripts and scenes read (Home
    * Assistant gives them to administrators), its day played on the copy.
    */
-  private readonly enterSandbox = async (): Promise<void> => {
+  private readonly enterSandbox = async (peakDay = false): Promise<void> => {
     this.moreOpen = false;
     const real = this.demoSwitch.realHass ?? this._hass;
     if (!real || !this.switchable()) return;
@@ -1130,6 +1133,7 @@ export class DomoTwinPanel extends LitElement {
             language: real.locale?.language ?? real.language,
             ...(real.user ? { user: real.user } : {}),
             darkMode: real.themes?.darkMode === true,
+            peakDay,
           });
         },
       );
@@ -1138,6 +1142,14 @@ export class DomoTwinPanel extends LitElement {
     } catch (error) {
       this.show(t.t("sandbox.failed", { reason: this.describe(error) }), true);
     }
+  };
+
+  /** The day of Hydro-Québec's announced peak, played in the sandbox (D-063). */
+  private readonly playPeak = async (): Promise<void> => {
+    await this.enterSandbox(true);
+    // The copy said no peak after all (it ended meanwhile): its own day, and why.
+    const sandbox = this.sandbox;
+    if (sandbox && !sandbox.peakToday()) this.show(this.t.t("sandbox.no_peak"), true);
   };
 
   /** Back to the home from the demo house or the sandbox: what runs on it ends, nothing saved. */
@@ -2625,6 +2637,11 @@ export class DomoTwinPanel extends LitElement {
     }
     // After the menu: a dialog opened from it gives the focus back to its button.
     this.dialogs.update(this.renderRoot.querySelector(PANEL_DIALOGS) ?? undefined);
+    const view = this.layerWanted && this.tab === "3d" ? this.view : null;
+    if (view && this.layerWanted) {
+      view.setLayer(this.layerWanted);
+      this.layerWanted = undefined;
+    }
     const hass = this._hass;
     const fitting = [
       hass?.locale?.language ?? hass?.language,
@@ -2728,7 +2745,11 @@ export class DomoTwinPanel extends LitElement {
     this.address(replace);
   }
 
-  private readonly onGo = (event: CustomEvent<{ tab: Tab; area?: string }>): void => {
+  private readonly onGo = (
+    event: CustomEvent<{ tab: Tab; area?: string; layer?: LayerName }>,
+  ): void => {
+    // A layer asked for (the peak's, D-063): shown once the 3D view is there.
+    this.layerWanted = event.detail.tab === "3d" ? event.detail.layer : undefined;
     // A room opened from one opened from the 3D view: back to the rooms, not to the 3D view.
     this.go(event.detail.tab, event.detail.area);
   };
@@ -2771,6 +2792,9 @@ export class DomoTwinPanel extends LitElement {
       closed,
       closedAreas: unseen.areas,
       closedEntities: unseen.entities,
+      meters: new Set(
+        ENERGY_SENSORS.flatMap((key) => this.settings?.energy?.[key] ?? []).filter(Boolean),
+      ),
     };
     if (this.people) sources.people = this.people;
     // The rooms' own actions (D-047), on their area's page.
@@ -3077,11 +3101,13 @@ export class DomoTwinPanel extends LitElement {
       : html`<domotwin-home
           .hass=${hass}
           .t=${this.t}
+          ?can3d=${canDraw3d()}
           .choices=${this.choices ?? NO_CHOICES}
           .sources=${sources}
           .unseen=${unseen}
           @domotwin-go=${this.onGo}
           @domotwin-favourite=${this.onFavourite}
+          @domotwin-sandbox-peak=${this.playPeak}
         ></domotwin-home>`;
   }
 
