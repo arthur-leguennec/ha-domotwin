@@ -15,9 +15,9 @@ Local, fast, Rust + WebAssembly.</p>
 > [!NOTE]
 > **Status: early development, version 0.4.0.** DomoTwin is built milestone by milestone
 > ([roadmap](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/ROADMAP.md)), and
-> everything under *Features* works today. Since 0.4.0 came the sandbox, history as reports,
-> "Why?", the Wi-Fi QR code for guests, the configuration history, Hydro-Québec's peaks, more
-> imports (robot vacuum maps, Floorplanner, mesh scans) and each room's graphs with Home
+> everything under *Features* works today. Since 0.4.0 came the sandbox, history as reports, "Why?",
+> the Wi-Fi QR code for guests, the configuration history, Hydro-Québec's peaks, more imports (robot
+> vacuum maps, Floorplanner, mesh scans), the radio coverage and each room's graphs with Home
 > Assistant's Energy page a tab away, and DomoTwin joined Home Assistant's own Overview; the
 > weather around the home, safety and the wall screen come next, towards 0.5.0. The submission to
 > HACS's default list waits on measurements on real devices.
@@ -138,6 +138,12 @@ Local, fast, Rust + WebAssembly.</p>
   minute, and learns as rooms are taught and presence sensors agree. Phones place their owners;
   keys left behind are told; "where are my keys?" by voice. See [Bluetooth
   locating](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/bluetooth.md).
+- **Radio coverage.** Where the next Bluetooth proxy, Zigbee router or Wi-Fi access point helps
+  most: each room coloured by how well your receivers, your mesh or your access points reach it,
+  and the best spots numbered on the plan, each with the rooms it raises. Worked out from the
+  plan's walls, doors and floors, and checked against what your radios measured, which comes
+  first. For administrators. See [radio
+  coverage](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/placement.md).
 - **Private rooms.** Keep a bedroom or an office for some people, always or while a "Guests"
   switch is on: anyone else sees it closed, its floor frosted, nothing and nobody inside, no
   controls, and the voice answers say "in a private room". See [private
@@ -237,6 +243,10 @@ Local, fast, Rust + WebAssembly.</p>
 </p>
 
 <p align="center">
+  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-placement.png" alt="Radio coverage: Wi-Fi over the demo apartment from the kitchen's access point, the bathroom in orange, the hall in yellow, three numbered spots for the next access point, and the sheet with what each changes" width="100%">
+</p>
+
+<p align="center">
   <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-upkeep.png" alt="The upkeep layer: the washing machine of the demo apartment in red as its filter is late, the fridge in amber as its coils are due soon, the fan and the hob in green, beside the list of tasks by date with Done buttons" width="100%">
 </p>
 
@@ -294,7 +304,7 @@ YAML is never required. For reference, the card options are:
 | `spread`      | `true`, `false`                     | `true`     | Every storey at once: spread apart, or stacked. |
 | `roof`        | `true`, `false`                     | `true`     | Every storey at once: the roof over the top one. |
 | `room`        | a room id of the plan               | none       | Room to focus on when the card opens.     |
-| `layer`       | `off`, `temperature`, `humidity`, `co2`, `pm25`, `power`, `peak`, `network`, `automations`, `upkeep` | `off` | Layer shown when the card opens; the layer menu changes it. `peak` shows where hydroqc or HydroPeak reads Hydro-Québec's peaks, `network` to administrators with ZHA only, `automations` to administrators. |
+| `layer`       | `off`, `temperature`, `humidity`, `co2`, `pm25`, `power`, `peak`, `network`, `coverage`, `automations`, `upkeep` | `off` | Layer shown when the card opens; the layer menu changes it. `peak` shows where hydroqc or HydroPeak reads Hydro-Québec's peaks, `network` to administrators with ZHA only, `coverage` and `automations` to administrators. |
 | `alerts`      | `true`, `false`                     | `true`     | Safety alerts of the rooms (smoke, gas, water, alarm, a window open in the rain). |
 | `presence`    | `true`, `false`                     | `true`     | The rooms someone is in glow softly.      |
 | `people`      | `true`, `false`                     | `true`     | The people in their rooms, as figures.    |

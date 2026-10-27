@@ -766,6 +766,31 @@ class Locator:
             found[room] = found.get(room, 0.0) + learned.weight
         return {room: round(weight, 1) for room, weight in found.items()}
 
+    def heard(self) -> dict[str, dict[str, dict[str, float]]]:
+        """What each receiver learned in each room (D-066): `{room: {source: {signal, readings}}}`.
+
+        The signal is the mean of what it heard, each device's own loudness taken away: what it
+        hears of a phone as the model has it (`AT_1M`).
+        """
+        found: dict[str, dict[str, dict[str, float]]] = {}
+        for (room, source), learned in self._learned.items():
+            found.setdefault(room, {})[source] = {
+                "signal": round(learned.mean, 1),
+                "readings": round(learned.weight, 1),
+            }
+        return found
+
+    def place_of(self, source: str) -> dict[str, Any] | None:
+        """Where a receiver stands (D-066): its storey's id, its point (cm) and height, or None."""
+        spot = self.places.get(source)
+        if spot is None or not 0 <= spot.storey < len(self.home.storey_ids):
+            return None
+        return {
+            "storey": self.home.storey_ids[spot.storey],
+            "at": [round(spot.x, 1), round(spot.y, 1)],
+            "z": round(spot.z, 1),
+        }
+
     def status(self) -> str:
         """`no_bluetooth`, `no_receivers` or `ready`."""
         if self.radio is None:
