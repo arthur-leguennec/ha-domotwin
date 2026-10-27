@@ -5,7 +5,7 @@
  * administrator, the form that gives it. Loaded the first time it opens.
  */
 import { mdiClose, mdiEye, mdiEyeOff } from "@mdi/js";
-import { LitElement, css, html, nothing, svg, type PropertyValues, type TemplateResult } from "lit";
+import { LitElement, css, html, nothing, type PropertyValues, type TemplateResult } from "lit";
 
 import { wifiQrCode, type QrCode } from "../analysis/analysis";
 import { DomoTwinClient } from "../ha/client";
@@ -27,15 +27,13 @@ import {
 import { define, fire } from "./define";
 import { focusDialog } from "./dialog";
 import { icon } from "./icon";
+import { qrSvg } from "./qr";
 import { baseStyles } from "./styles";
 
 addMessages({ en: wifiEn, fr: wifiFr });
 
 /** The integration's reasons for refusing a network, said in the user's language. */
 const WIFI_ERRORS = ["no_name", "long_name", "bad_wpa", "bad_wep"] as const;
-
-/** The modules of quiet border a reader needs around a QR code. */
-const QUIET = 4;
 
 /** What the form holds while it is changed. */
 interface Draft {
@@ -397,24 +395,6 @@ export class DomoTwinWifi extends LitElement {
     return t.error(error.code);
   }
 
-  /** The code as squares on white, a quiet border around it. */
-  private renderCode(code: QrCode): TemplateResult {
-    const side = code.size + 2 * QUIET;
-    let path = "";
-    for (let y = 0; y < code.size; y += 1) {
-      for (let x = 0; x < code.size; x += 1) {
-        if (code.dark(x, y)) path += `M${x + QUIET} ${y + QUIET}h1v1h-1z`;
-      }
-    }
-    return html`${svg`<svg
-      viewBox="0 0 ${side} ${side}"
-      shape-rendering="crispEdges"
-      role="img"
-      aria-label=${this.t?.t("wifi.scan") ?? ""}
-      data-testid="wifi-code"
-    ><rect width=${side} height=${side} fill="#fff"></rect><path d=${path} fill="#000"></path></svg>`}`;
-  }
-
   private renderShown(wifi: Wifi, t: Translator, hass: HomeAssistant): TemplateResult {
     let picture: TemplateResult | typeof nothing = nothing;
     if (wifi.image !== undefined) {
@@ -430,7 +410,7 @@ export class DomoTwinWifi extends LitElement {
     } else if (this.code === null) {
       picture = html`<p class="error" role="alert">${t.t("wifi.too_long")}</p>`;
     } else if (this.code) {
-      picture = html`<div class="code">${this.renderCode(this.code)}</div>`;
+      picture = html`<div class="code">${qrSvg(this.code, t.t("wifi.scan"), "wifi-code")}</div>`;
     }
     const password = this.full?.password;
     const secret = password !== undefined && wifi.security !== "nopass";

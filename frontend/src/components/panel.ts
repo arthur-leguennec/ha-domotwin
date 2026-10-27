@@ -1,5 +1,6 @@
 import {
   mdiAccountMultipleOutline,
+  mdiAccountKeyOutline,
   mdiBluetooth,
   mdiCheck,
   mdiClose,
@@ -270,6 +271,7 @@ const PANEL_DIALOGS = [
   "domotwin-private-rooms",
   "domotwin-voice",
   "domotwin-config-history",
+  "domotwin-guests",
   "domotwin-link",
   "domotwin-catalogue",
   "domotwin-model-import",
@@ -317,6 +319,7 @@ export class DomoTwinPanel extends LitElement {
     peopleOpen: { state: true },
     bluetoothOpen: { state: true },
     privacyRooms: { state: true },
+    guestsStoreys: { state: true },
     voiceOpen: { state: true },
     configHistoryOpen: { state: true },
     moreOpen: { state: true },
@@ -433,6 +436,8 @@ export class DomoTwinPanel extends LitElement {
   protected peopleOpen = false;
   /** The rooms of the home while the private rooms' settings are open (D-039). */
   protected privacyRooms?: RoomChoice[];
+  /** Guest access (D-067), open: every storey's plan, whose rooms and devices a pass opens. */
+  protected guestsStoreys?: HomeStorey[];
   /** The voice settings (D-041) are open. */
   protected voiceOpen = false;
   /** The configuration history (D-062) is open, its module loaded. */
@@ -1195,6 +1200,7 @@ export class DomoTwinPanel extends LitElement {
     this.bluetoothOpen = false;
     this.locating = undefined;
     this.privacyRooms = undefined;
+    this.guestsStoreys = undefined;
     this.voiceOpen = false;
     this.configHistoryOpen = false;
     this.storeysOpen = false;
@@ -3477,6 +3483,7 @@ export class DomoTwinPanel extends LitElement {
               ${item("privacy-settings", mdiLockOutline, t.t("privacy.title"), this.busy, this.openPrivacy)}
               ${item("voice-settings", mdiMicrophoneMessage, t.t("voice.settings"), this.busy, this.openVoice)}
               ${item("wifi-menu", mdiWifi, t.t("wifi.menu"), this.busy || this.wifi === undefined || this.sandbox !== undefined, this.openWifi)}
+              ${item("guests-menu", mdiAccountKeyOutline, t.t("guests.menu"), this.busy || this.demo !== undefined || this.sandbox !== undefined, this.openGuests)}
               ${item("config-history", mdiHistory, t.t("config_history.menu"), this.busy || this.sandbox !== undefined, this.openConfigHistory)}
               ${item("measure", mdiSpeedometer, t.t("measure.menu"), this.busy || this.measureOpen || this.sandbox !== undefined, this.openMeasure)}
               <hr />
@@ -3519,6 +3526,27 @@ export class DomoTwinPanel extends LitElement {
       this.configHistoryOpen = true;
     } catch (error) {
       this.show(this.describe(error), true);
+    }
+  };
+
+  /** Opens guest access (D-067): its module (loaded the first time) and every storey's plan. */
+  private readonly openGuests = async (): Promise<void> => {
+    const client = this.client;
+    if (!client) return;
+    this.busy = true;
+    try {
+      const [, home] = await Promise.all([
+        import("./guests-dialog"),
+        this.storeys.length > 1 ? loadHome(client, this.storeys) : Promise.resolve([]),
+      ]);
+      const shown: HomeStorey[] = this.plan
+        ? [{ id: this.storey ?? "", name: "", elevation: 0, plan: this.plan, layout: this.layout }]
+        : [];
+      this.guestsStoreys = home.length > 0 ? home : shown;
+    } catch (error) {
+      this.show(this.describe(error), true);
+    } finally {
+      this.busy = false;
     }
   };
 
@@ -3897,6 +3925,17 @@ export class DomoTwinPanel extends LitElement {
             .mode=${"settings"}
             @domotwin-close=${() => (this.voiceOpen = false)}
           ></domotwin-voice>`
+        : nothing
+    }
+    ${
+      this.guestsStoreys
+        ? html`<domotwin-guests
+            .hass=${this._hass}
+            .storeys=${this.guestsStoreys}
+            .bindings=${this.bindings}
+            ?wifiSet=${this.wifi?.set === true}
+            @domotwin-close=${() => (this.guestsStoreys = undefined)}
+          ></domotwin-guests>`
         : nothing
     }
     ${

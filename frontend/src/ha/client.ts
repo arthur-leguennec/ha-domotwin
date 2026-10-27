@@ -6,6 +6,7 @@ import { readSchedules, type Schedule } from "../live/schedules";
 import type { ShowRequest } from "../live/show";
 import type { Upkeep, UpkeepCard } from "../live/upkeep";
 import { readWifi, type Wifi, type WifiChange } from "../live/wifi";
+import { readPass, readPasses, type GuestPass, type GuestPassChange } from "../live/guest-pass";
 import type { HassConnection, HassMessage, HomeAssistant } from "./types";
 import type { EnergySettings } from "../live/energy";
 import type { AccessPoint } from "../live/placement";
@@ -87,7 +88,8 @@ export interface StoredUpkeep {
 }
 
 /** What a save changed: told to every screen listening, with its revision. */
-export type SaveKind = "plan" | "bindings" | "settings" | "upkeep" | "people" | "locating" | "wifi";
+export type SaveKind =
+  "plan" | "bindings" | "settings" | "upkeep" | "people" | "locating" | "wifi" | "guests";
 
 /** A save (its kind and revision), or a `domotwin.show` request (D-029). */
 export type UpdateEvent =
@@ -481,6 +483,29 @@ export class DomoTwinClient {
   /** Forgets the home's Wi-Fi (administrators). */
   async clearWifi(): Promise<Wifi> {
     return readWifi(await this.connection.sendMessagePromise({ type: "domotwin/wifi/clear" }));
+  }
+
+  /** The guest passes (D-067), with their links: administrators only. */
+  async getGuests(): Promise<GuestPass[]> {
+    return readPasses(await this.connection.sendMessagePromise({ type: "domotwin/guests/get" }));
+  }
+
+  /** Makes or changes a guest pass (administrators); answers it as kept. */
+  async saveGuest(pass: GuestPassChange): Promise<GuestPass> {
+    const saved = readPass(
+      await this.connection.sendMessagePromise({ type: "domotwin/guests/save", pass }),
+    );
+    if (!saved) throw Object.assign(new Error("invalid"), { code: "invalid" });
+    return saved;
+  }
+
+  /** Removes a guest pass (administrators): its link stops working at once. */
+  async removeGuest(id: string): Promise<boolean> {
+    const result = await this.connection.sendMessagePromise<{ removed: boolean }>({
+      type: "domotwin/guests/remove",
+      pass: id,
+    });
+    return result.removed;
   }
 
   /** Calls `listener` after every save, from any device. Returns a function that stops it. */
