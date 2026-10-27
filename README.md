@@ -13,20 +13,21 @@ Local, fast, Rust + WebAssembly.</p>
 <p align="center"><a href="https://github.com/arthur-leguennec/ha-domotwin/blob/main/README.fr.md">Lire en français</a></p>
 
 > [!NOTE]
-> **Status: early development, version 0.4.0.** DomoTwin is built milestone by milestone
+> **Status: early development, version 0.5.0.** DomoTwin is built milestone by milestone
 > ([roadmap](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/ROADMAP.md)), and
-> everything under *Features* works today. Since 0.4.0 came the sandbox, history as reports, "Why?",
-> the Wi-Fi QR code for guests, the configuration history, Hydro-Québec's peaks, more imports (robot
-> vacuum maps, Floorplanner, mesh scans), the radio coverage, guest passes, each person's rights,
-> safety (the cameras, the doorbell, the alarm, the alerts on every tab), each room's graphs with
-> Home Assistant's Energy page a tab away, automations in plain words played in the sandbox before
-> they are saved, the weather around the home, how well the rooms are found, measured beside
-> Bermuda, a library of 195 pieces with their pictures, an iPhone followed without a Mac, the wall
-> screen (its screen saver woken by whoever comes), a weekly report of what needs a look, the
-> outdoors and the lawn growing, split levels, a spot in the room, presence radars merged with
-> Bluetooth, ten more languages, DomoTwin joined Home Assistant's own Overview, and a first launch
-> in five minutes, the home drawn from Home Assistant's areas with its devices in it, closes the way
-> to 0.5.0. The submission to HACS's default list waits on measurements on real devices.
+> everything under *Features* works today. Version 0.5.0 brings the sandbox, history as reports,
+> "Why?", the Wi-Fi QR code for guests, the configuration history, Hydro-Québec's peaks, more
+> imports (robot vacuum maps, Floorplanner, mesh scans), the radio coverage, guest passes, each
+> person's rights, safety (the cameras, the doorbell, the alarm, the alerts on every tab), each
+> room's graphs with Home Assistant's Energy page a tab away, automations in plain words played in
+> the sandbox before they are saved, the weather around the home, how well the rooms are found,
+> measured beside Bermuda, a library of 195 pieces with their pictures, an iPhone followed without a
+> Mac, the wall screen (its screen saver woken by whoever comes), a weekly report of what needs a
+> look, the outdoors and the lawn growing, split levels, a spot in the room, presence radars merged
+> with Bluetooth, ten more languages, DomoTwin joined to Home Assistant's own Overview, and a first
+> launch in five minutes, the home drawn from Home Assistant's areas with its devices in it. What
+> comes next waits on what using it asks for. The submission to HACS's default list waits on
+> measurements on real devices.
 
 ## What sets it apart
 

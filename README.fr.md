@@ -13,10 +13,10 @@ Local, rapide, Rust + WebAssembly.</p>
 <p align="center"><a href="https://github.com/arthur-leguennec/ha-domotwin/blob/main/README.md">Read in English</a></p>
 
 > [!NOTE]
-> **État : en développement, version 0.4.0.** DomoTwin se construit étape par étape
+> **État : en développement, version 0.5.0.** DomoTwin se construit étape par étape
 > ([feuille de route](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/ROADMAP.md), en
-> anglais), et tout ce que décrit *Fonctionnalités* marche déjà. Depuis la 0.4.0 sont arrivés le bac
-> à sable, l’historique en tableaux, « Pourquoi ? », le code QR du Wi-Fi pour les invités,
+> anglais), et tout ce que décrit *Fonctionnalités* marche déjà. La version 0.5.0 apporte le bac à
+> sable, l’historique en tableaux, « Pourquoi ? », le code QR du Wi-Fi pour les invités,
 > l’historique de la configuration, les pointes d’Hydro-Québec, d’autres imports (cartes de robots
 > aspirateurs, Floorplanner, scans en maillage), la couverture radio, les pass d’invité, les droits
 > de chacun, la sécurité (les caméras, la sonnette, l’alarme, les alertes sur chaque onglet), les
@@ -26,10 +26,10 @@ Local, rapide, Rust + WebAssembly.</p>
 > meubles et objets avec leurs images, un iPhone suivi sans Mac, l’écran mural (son économiseur
 > réveillé par qui arrive), un bilan de la semaine de ce qui est à surveiller, l’extérieur et la
 > pelouse qui pousse, les demi-niveaux, une place dans la pièce, les radars de présence fondus avec
-> le Bluetooth, dix langues de plus, DomoTwin a rejoint la Vue d’ensemble de Home Assistant, et un
+> le Bluetooth, dix langues de plus, DomoTwin intégré à la Vue d’ensemble de Home Assistant, et un
 > premier lancement en cinq minutes, le logement dessiné depuis les zones de Home Assistant avec ses
-> appareils dedans, ferme le chemin vers la 0.5.0. La proposition à la liste par défaut de HACS
-> attend des mesures sur de vrais appareils.
+> appareils dedans. La suite attend ce que son usage demandera. La proposition à la liste par défaut
+> de HACS attend des mesures sur de vrais appareils.
 
 ## Ce qui le distingue
 
