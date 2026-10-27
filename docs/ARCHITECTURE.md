@@ -153,6 +153,13 @@ every reader returns `Result` with a stable error code that the frontend transla
    entities, the period or the way to read them change. `src/live/history.ts` reads the answers
    into rows (a change, an hour, a period of rows that match a value), filters and searches them
    and writes the CSV, which the browser downloads; nothing is kept once the report closes.
+9. **Why?** A device's sheet asks, when told to, why its entity is as it is (`why-section.ts`,
+   D-059): `src/live/why.ts` reads the state's context, the logbook's rows of that context and of
+   the entities around it (`logbook/get_events`) and, for administrators, the traces' contexts
+   (`trace/contexts`), and follows the change back to what started it. The chain is listed in the
+   sheet and drawn in the home (`why-wires.ts`) with the automations' wire set: the engine's
+   `setAutomations`, one wire per step, unchanged. Nothing of it is in the integration. The demo
+   house records its own (`src/demo/logbook.ts`) and answers the logbook as Home Assistant does.
 
 ## Storage
 

@@ -18,7 +18,8 @@ Assistant device, or its room's area. Each row has:
 - a switch that turns it on or off;
 - for administrators, a pencil that opens it in Home Assistant's automation editor.
 
-**Show wires** closes the panel and draws those automations' wires.
+**Show wires** closes the panel and draws those automations' wires. Above them, **Why** says
+which of them, or who or what else, last changed the piece (`why.md`).
 
 ## The wires
 

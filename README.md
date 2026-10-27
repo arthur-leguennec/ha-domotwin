@@ -23,9 +23,10 @@ Local, fast, Rust + WebAssembly.</p>
 > size and speed, phones, actions done later, taps that say what they do, pieces that look made,
 > robot vacuums, the home's energy, the demo house, measuring a device's speed and the practical
 > home (the Home, Rooms and 3D tabs) work today, and make up version 0.4.0. Since then, the
-> sandbox plays a day of the home's automations on a copy of it. The Wi-Fi QR code for guests
-> comes next, then Home Assistant's own Overview joined rather than copied, towards version 0.5.0;
-> the submission to HACS's default list waits on measurements on real devices.
+> sandbox plays a day of the home's automations on a copy of it, and "Why?" says who or what
+> changed a device. The Wi-Fi QR code for guests comes next, then Home Assistant's own Overview
+> joined rather than copied, towards version 0.5.0; the submission to HACS's default list waits on
+> measurements on real devices.
 
 ## Features
 
@@ -88,6 +89,11 @@ Local, fast, Rust + WebAssembly.</p>
   on, and watch a pulse run along them when one runs. Or every automation of the home at once.
   See [automation
   wires](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/automations.md).
+- **Why?** Long-press a lamp and ask who or what changed it: the automation that switched it on,
+  the motion that set the automation off, or the person who did it in the app, or nobody (its
+  own switch), as Home Assistant recorded it. Drawn in the home as a wire from where it started,
+  with the run's trace for administrators and Home Assistant's Activity a tap away. See
+  [Why?](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/why.md).
 - **Upkeep cards.** Every appliance and piece of furniture can carry its make, model, serial
   number, warranty, manual and the tasks that come back (change the filter every 3 months). A
   wrench badge shows what is due, the upkeep layer tints the pieces green, amber or red, and a
