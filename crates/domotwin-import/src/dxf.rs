@@ -941,6 +941,7 @@ impl Reading<'_> {
                 id: format!("room-{}", k + 1),
                 name,
                 points,
+                floor: None,
             });
         }
         draft

@@ -1,0 +1,713 @@
+{
+ "id": 3001,
+ "name": "Fictional apartment",
+ "description": "Made up for the tests.",
+ "public": false,
+ "settings": {
+  "wallHeight": 270,
+  "wallThickness": 10,
+  "wallOuterThickness": 20,
+  "useMetric": true
+ },
+ "floors": [
+  {
+   "id": 1001,
+   "name": "Ground floor",
+   "level": 0,
+   "height": 270.0,
+   "cameras": [
+    {
+     "id": 1,
+     "name": "Camera 1",
+     "type_name": "walkthrough",
+     "fov": 60,
+     "x": 450.0,
+     "y": 300.0,
+     "z": 165.0,
+     "dx": 0.0,
+     "dy": -1.0,
+     "dz": 0.0,
+     "ux": 0.0,
+     "uy": 0.0,
+     "uz": 1.0
+    }
+   ],
+   "drawing": {
+    "id": 1,
+    "x": 0,
+    "y": 0,
+    "width": 900,
+    "height": 600,
+    "visible": false,
+    "rotation": 0,
+    "alpha": 50,
+    "depth": "LOW"
+   },
+   "designs": [
+    {
+     "id": 2001,
+     "name": "First design",
+     "areas": [
+      {
+       "color": "#F2D8B0",
+       "showAreaLabel": true,
+       "poly": [
+        {
+         "x": 10,
+         "y": 10
+        },
+        {
+         "x": 495,
+         "y": 10
+        },
+        {
+         "x": 495,
+         "y": 345
+        },
+        {
+         "x": 10,
+         "y": 345
+        }
+       ],
+       "name": "Living room"
+      },
+      {
+       "color": "#D8E8F2",
+       "showAreaLabel": true,
+       "poly": [
+        {
+         "x": 505,
+         "y": 10
+        },
+        {
+         "x": 890,
+         "y": 10
+        },
+        {
+         "x": 890,
+         "y": 345
+        },
+        {
+         "x": 505,
+         "y": 345
+        }
+       ]
+      },
+      {
+       "color": "#E0F0E0",
+       "showAreaLabel": true,
+       "poly": [
+        {
+         "x": 505,
+         "y": 355
+        },
+        {
+         "x": 890,
+         "y": 355
+        },
+        {
+         "x": 890,
+         "y": 590
+        },
+        {
+         "x": 505,
+         "y": 590
+        }
+       ],
+       "name": "Bathroom"
+      },
+      {
+       "color": "#F0F0F0",
+       "showAreaLabel": true,
+       "poly": [
+        {
+         "x": 10,
+         "y": 355
+        },
+        {
+         "x": 495,
+         "y": 355
+        },
+        {
+         "x": 495,
+         "y": 590
+        },
+        {
+         "x": 10,
+         "y": 590
+        }
+       ],
+       "name": "Hall"
+      }
+     ],
+     "labels": [
+      {
+       "x": 700,
+       "y": 180,
+       "text": "Kitchen",
+       "fontFamily": "arial",
+       "fontSize": 20,
+       "letterSpacing": 0,
+       "fontColor": "#000000",
+       "backgroundColor": "#FFFFFF",
+       "align": "center",
+       "rotation": 0
+      },
+      {
+       "x": 700,
+       "y": 210,
+       "text": "12.9 m\u00b2",
+       "fontFamily": "arial",
+       "fontSize": 14,
+       "letterSpacing": 0,
+       "fontColor": "#000000",
+       "backgroundColor": "#FFFFFF",
+       "align": "center",
+       "rotation": 0
+      }
+     ],
+     "walls": [
+      {
+       "a": {
+        "x": 0,
+        "y": 0
+       },
+       "b": {
+        "x": 900,
+        "y": 0
+       },
+       "c": null,
+       "az": {
+        "z": 0,
+        "h": 270
+       },
+       "bz": {
+        "z": 0,
+        "h": 270
+       },
+       "thickness": 20,
+       "balance": 0.5,
+       "decor": {
+        "left": null,
+        "right": null,
+        "top": null,
+        "outline": 0
+       },
+       "openings": [
+        {
+         "refid": "fp-window-140",
+         "t": 0.25,
+         "type": "window",
+         "width": 140,
+         "z": 90,
+         "z_height": 120,
+         "mirrored": [
+          0,
+          0
+         ],
+         "frameColor": "#FFFFFF"
+        },
+        {
+         "refid": "fp-window-100",
+         "t": 0.75,
+         "type": "window",
+         "width": 100,
+         "z": 90,
+         "z_height": 120,
+         "mirrored": [
+          0,
+          0
+         ],
+         "frameColor": "#FFFFFF"
+        }
+       ]
+      },
+      {
+       "a": {
+        "x": 900,
+        "y": 0
+       },
+       "b": {
+        "x": 900,
+        "y": 600
+       },
+       "c": null,
+       "az": {
+        "z": 0,
+        "h": 270
+       },
+       "bz": {
+        "z": 0,
+        "h": 270
+       },
+       "thickness": 20,
+       "balance": 0.5,
+       "decor": {
+        "left": null,
+        "right": null,
+        "top": null,
+        "outline": 0
+       },
+       "openings": []
+      },
+      {
+       "a": {
+        "x": 900,
+        "y": 600
+       },
+       "b": {
+        "x": 0,
+        "y": 600
+       },
+       "c": null,
+       "az": {
+        "z": 0,
+        "h": 270
+       },
+       "bz": {
+        "z": 0,
+        "h": 270
+       },
+       "thickness": 20,
+       "balance": 0.5,
+       "decor": {
+        "left": null,
+        "right": null,
+        "top": null,
+        "outline": 0
+       },
+       "openings": [
+        {
+         "refid": "fp-window-80",
+         "t": 0.2,
+         "type": "window",
+         "width": 80,
+         "z": 90,
+         "z_height": 120,
+         "mirrored": [
+          0,
+          0
+         ],
+         "frameColor": "#FFFFFF"
+        }
+       ]
+      },
+      {
+       "a": {
+        "x": 0,
+        "y": 600
+       },
+       "b": {
+        "x": 0,
+        "y": 0
+       },
+       "c": null,
+       "az": {
+        "z": 0,
+        "h": 270
+       },
+       "bz": {
+        "z": 0,
+        "h": 270
+       },
+       "thickness": 20,
+       "balance": 0.5,
+       "decor": {
+        "left": null,
+        "right": null,
+        "top": null,
+        "outline": 0
+       },
+       "openings": [
+        {
+         "refid": "fp-door-90",
+         "t": 0.25,
+         "type": "door",
+         "width": 90,
+         "z": 0,
+         "z_height": 205,
+         "mirrored": [
+          1,
+          0
+         ],
+         "frameColor": "#FFFFFF"
+        }
+       ]
+      },
+      {
+       "a": {
+        "x": 500,
+        "y": 0
+       },
+       "b": {
+        "x": 500,
+        "y": 600
+       },
+       "c": null,
+       "az": {
+        "z": 0,
+        "h": 270
+       },
+       "bz": {
+        "z": 0,
+        "h": 270
+       },
+       "thickness": 10,
+       "balance": 0.5,
+       "decor": {
+        "left": null,
+        "right": null,
+        "top": null,
+        "outline": 0
+       },
+       "openings": [
+        {
+         "refid": "fp-door-140",
+         "t": 0.29,
+         "type": "door",
+         "width": 140,
+         "z": 0,
+         "z_height": 205,
+         "mirrored": [
+          0,
+          0
+         ],
+         "frameColor": "#FFFFFF"
+        },
+        {
+         "refid": "fp-door-80",
+         "t": 0.79,
+         "type": "door",
+         "width": 80,
+         "z": 0,
+         "z_height": 205,
+         "mirrored": [
+          0,
+          1
+         ],
+         "frameColor": "#FFFFFF"
+        }
+       ]
+      },
+      {
+       "a": {
+        "x": 0,
+        "y": 350
+       },
+       "b": {
+        "x": 500,
+        "y": 350
+       },
+       "c": null,
+       "az": {
+        "z": 0,
+        "h": 270
+       },
+       "bz": {
+        "z": 0,
+        "h": 270
+       },
+       "thickness": 10,
+       "balance": 0.5,
+       "decor": {
+        "left": null,
+        "right": null,
+        "top": null,
+        "outline": 0
+       },
+       "openings": [
+        {
+         "refid": "fp-door-83",
+         "t": 0.5,
+         "type": "door",
+         "width": 83,
+         "z": 0,
+         "z_height": 205,
+         "mirrored": [
+          0,
+          0
+         ],
+         "frameColor": "#FFFFFF"
+        }
+       ]
+      },
+      {
+       "a": {
+        "x": 500,
+        "y": 350
+       },
+       "b": {
+        "x": 900,
+        "y": 350
+       },
+       "c": null,
+       "az": {
+        "z": 0,
+        "h": 270
+       },
+       "bz": {
+        "z": 0,
+        "h": 270
+       },
+       "thickness": 10,
+       "balance": 0.5,
+       "decor": {
+        "left": null,
+        "right": null,
+        "top": null,
+        "outline": 0
+       },
+       "openings": []
+      }
+     ],
+     "items": [
+      {
+       "refid": "5fde815109db6138037f911f48b6fb5578dfcdf1",
+       "name": "Sofa 3 seats",
+       "x": 250.0,
+       "y": 290.0,
+       "z": 0,
+       "width": 210.0,
+       "height": 90.0,
+       "z_height": 85.0,
+       "rotation": 180.0
+      },
+      {
+       "refid": "a41c62e40f0b3c0e8f9a3df2c0b5d8a1e7f6c3b2",
+       "x": 250.0,
+       "y": 150.0,
+       "z": 0,
+       "width": 120.0,
+       "height": 60.0,
+       "z_height": 45.0,
+       "rotation": 0.0
+      },
+      {
+       "refid": "c0ffee00c0ffee00c0ffee00c0ffee00c0ffee00",
+       "name": "Fridge",
+       "x": 860.0,
+       "y": 50.0,
+       "z": 0,
+       "width": 60.0,
+       "height": 65.0,
+       "z_height": 180.0,
+       "rotation": 270.0
+      },
+      {
+       "refid": "0badc0de0badc0de0badc0de0badc0de0badc0de",
+       "name": "Bathtub",
+       "x": 815.0,
+       "y": 520.0,
+       "z": 0,
+       "width": 170.0,
+       "height": 75.0,
+       "z_height": 55.0,
+       "rotation": 0.0
+      }
+     ],
+     "lines": [
+      {
+       "type": "solid_line",
+       "color": 4013372,
+       "thickness": 4,
+       "a": {
+        "x": -50,
+        "y": -50
+       },
+       "b": {
+        "x": 950,
+        "y": -50
+       }
+      }
+     ],
+     "dimensions": [
+      {
+       "type": "custom_dimension",
+       "a": {
+        "x": 0,
+        "y": -80
+       },
+       "b": {
+        "x": 900,
+        "y": -80
+       }
+      }
+     ],
+     "surfaces": [
+      {
+       "color": "#ABABAC",
+       "rotation": 0,
+       "showAreaLabel": true,
+       "poly": [
+        {
+         "x": 0,
+         "y": 610,
+         "z": 0
+        },
+        {
+         "x": 400,
+         "y": 610,
+         "z": 0
+        },
+        {
+         "x": 400,
+         "y": 800,
+         "z": 0
+        },
+        {
+         "x": 0,
+         "y": 800,
+         "z": 0
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": 1002,
+   "name": "Attic",
+   "level": 1,
+   "height": 240.0,
+   "cameras": [],
+   "designs": [
+    {
+     "id": 2002,
+     "name": "First design",
+     "areas": [],
+     "items": [],
+     "labels": [],
+     "walls": [
+      {
+       "a": {
+        "x": 0,
+        "y": 0
+       },
+       "b": {
+        "x": 900,
+        "y": 0
+       },
+       "c": null,
+       "az": {
+        "z": 0,
+        "h": 270
+       },
+       "bz": {
+        "z": 0,
+        "h": 270
+       },
+       "thickness": 20,
+       "balance": 0.5,
+       "decor": {
+        "left": null,
+        "right": null,
+        "top": null,
+        "outline": 0
+       },
+       "openings": [
+        {
+         "refid": "fp-window-100",
+         "t": 0.5,
+         "type": "window",
+         "width": 100,
+         "z": 90,
+         "z_height": 120,
+         "mirrored": [
+          0,
+          0
+         ],
+         "frameColor": "#FFFFFF"
+        }
+       ]
+      },
+      {
+       "a": {
+        "x": 900,
+        "y": 0
+       },
+       "b": {
+        "x": 900,
+        "y": 600
+       },
+       "c": null,
+       "az": {
+        "z": 0,
+        "h": 270
+       },
+       "bz": {
+        "z": 0,
+        "h": 270
+       },
+       "thickness": 20,
+       "balance": 0.5,
+       "decor": {
+        "left": null,
+        "right": null,
+        "top": null,
+        "outline": 0
+       },
+       "openings": []
+      },
+      {
+       "a": {
+        "x": 900,
+        "y": 600
+       },
+       "b": {
+        "x": 0,
+        "y": 600
+       },
+       "c": null,
+       "az": {
+        "z": 0,
+        "h": 270
+       },
+       "bz": {
+        "z": 0,
+        "h": 270
+       },
+       "thickness": 20,
+       "balance": 0.5,
+       "decor": {
+        "left": null,
+        "right": null,
+        "top": null,
+        "outline": 0
+       },
+       "openings": []
+      },
+      {
+       "a": {
+        "x": 0,
+        "y": 600
+       },
+       "b": {
+        "x": 0,
+        "y": 0
+       },
+       "c": null,
+       "az": {
+        "z": 0,
+        "h": 270
+       },
+       "bz": {
+        "z": 0,
+        "h": 270
+       },
+       "thickness": 20,
+       "balance": 0.5,
+       "decor": {
+        "left": null,
+        "right": null,
+        "top": null,
+        "outline": 0
+       },
+       "openings": []
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

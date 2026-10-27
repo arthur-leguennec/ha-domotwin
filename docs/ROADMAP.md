@@ -51,6 +51,7 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M23b      | Into Home Assistant's Overview, rather than a copy of it   | ✅     |
 | M36       | Configuration history: differences, one item put back      | ✅     |
 | M39       | Hydro-Québec's peaks, from the integrations that read them | ✅     |
+| M20       | More imports: robot vacuum maps, Floorplanner, meshes      | ✅     |
 | M40       | The weather around the home, in 3D                         | ⏳     |
 | M41       | Locating measured, next to Bermuda's on the same days      | ⏳     |
 | M45       | An iPhone's key, without a Mac: the ways to get it         | ⏳     |
@@ -65,7 +66,6 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M33       | Guest access: chosen rooms, for a while                    | ⏳     |
 | M34       | Per-person rights: what DomoTwin shows each one            | ⏳     |
 | M35       | Automations in plain words, played in the sandbox first    | ⏳     |
-| M20       | More imports: robot vacuum maps, Floorplanner, meshes      | ⏳     |
 | M17       | A library of objects: many pieces, free and well made      | ⏳     |
 | M37       | A weekly home report                                       | ⏳     |
 | M18       | Outdoors: garden, terrace, lawn, pool, roofs               | ⏳     |
@@ -97,14 +97,15 @@ QR code (M30) and a placement advisor for radios (M31) before a first launch in 
 (M22), kept where it was, and a fifth release, 0.5.0, right after it. "Why?" (M32), guest access
 (M33), rights (M34), automations in plain words (M35), a configuration history (M36), a weekly
 report (M37), history as reports (M38) and Hydro-Québec's peaks (M39) follow, among a library of
-objects (M17), the outdoors (M18), more imports (M20) and more languages (M21), before a sixth
-release, 0.6.0. After the sandbox, the maintainer asked for history as reports (M38, D-058),
-"Why?" (M32, D-059) and the configuration history (M36, D-062) before the rest, which keeps its
-order. The maintainer then moved Hydro-Québec's peaks (M39) forward too (D-063): it plays
-its peak in the sandbox; its part in the weekly report (M37) comes with it.
-Then the weather around the home (M40), locating measured (M41) and an iPhone's key without
-a Mac (M45) were put before M24, and finer locating (M42), mmWave sensors merged (M43) and split
-levels (M44) after 0.5.0 (D-065).
+objects (M17), the outdoors (M18) and more languages (M21), before a sixth release, 0.6.0. After the
+sandbox, the maintainer asked for history as reports (M38, D-058), "Why?" (M32, D-059) and the
+configuration history (M36, D-062) before the rest, which keeps its order. The maintainer then moved
+Hydro-Québec's peaks (M39) forward too (D-063): it plays its peak in the sandbox; its part in the
+weekly report (M37) comes with it. More imports (M20, D-064) were moved before 0.5.0 too: robot
+vacuum maps, Floorplanner plans and mesh scans, which the first launch in five minutes (M22) uses.
+Then the weather around the home (M40), locating measured (M41) and an iPhone's key without a Mac
+(M45) were put before M24, and finer locating (M42), mmWave sensors merged (M43) and split levels
+(M44) after 0.5.0 (D-065).
 
 ## M0, scaffold
 
@@ -1312,6 +1313,57 @@ stored; nothing shown without them.
   from *The day* and from the Home tab (Playwright).
 - ⏳ The week's peaks in the weekly report, with **M37**.
 
+## M20, more imports
+
+Homes already mapped by something else: the robot vacuum, Floorplanner, a phone or a camera that
+scans in 3D (`DECISIONS.md`, D-064; [`imports.md`](imports.md)). Moved forward by the maintainer,
+before 0.5.0, after Hydro-Québec's peaks (M39).
+
+- ✅ **Robot vacuum maps**: Valetudo's, as its REST API gives it (JSON), as it publishes it over
+  MQTT (deflated) or as Home Assistant's camera receives it (a PNG holding it), and Roborock's own
+  (`rr`), gzipped as Valetudo RE serves it. Each segment a room, kept by its id and named as in
+  Valetudo; its pixels closed over what the robot went round, squared to the walls, the map turned
+  square; a door where two rooms touch with no wall between them (an opening past 1.6 m), opening
+  into the room with fewer doors; the floors the robot knows (tiles, wood and its direction); the
+  dock a robot vacuum's dock, its back to the nearest wall.
+- ✅ **Straight from Home Assistant**: *Import a robot's map*, for administrators, in the panel's
+  ⋮ menu and beside *Import plan* on a home without a plan, reads the *Map data* camera of
+  Valetudo's MQTT discovery through Home Assistant, asks which robot when there are several, and
+  links the dock to the robot's vacuum. Nothing reaches the robot.
+- ✅ **Floorplanner** (FML 3.0): its floors as storeys by level and height, the first design of
+  each; its areas the rooms, named by their name or a label inside them, else the rooms its walls
+  enclose; its walls' thicknesses and openings (centred at `t`, the hinge and swing from their
+  mirroring); its items the furniture, a box of their size unless their name says a kind. The
+  older XML FML is refused with what to do.
+- ✅ **Mesh scans** (OBJ, PLY, GLB, STL), amending D-040: the axis up and the unit found, the
+  storeys from the floors, the mesh turned square by its walls; the rooms the spaces the walls
+  enclose above the doors under the ceiling, where furniture does not reach (a wardrobe, wall
+  cabinets left in their room), 60 cm wide at least; the doors and windows from the gaps of cuts
+  at 0.4, 1.0 and 1.5 m. No furniture and no names: a mesh does not say them. Point clouds, FBX,
+  glTF in several files and compressed GLB are refused with what to do.
+- ✅ **Within budget**: 4 million pixels and cells for a map (16 million with its rooms' grids, a
+  million two rooms share) and 100 rooms, 5 million triangles and the cells they cover for a mesh,
+  64 MB unpacked: a few seconds at worst; the readers fuzzed with the others.
+- ✅ Tests: the cells (distances, closing, parts, outlines, simplifying, squaring, walls on shared
+  lines), each reader (Valetudo, Roborock, FML, OBJ, PLY, GLB, STL, a mesh cut into a plan:
+  turned, in centimetres with `z` up, two storeys), the fictional files of
+  `make-import-fixtures.py` end to end (a flat as Valetudo's map, its PNG, deflated, and as
+  Roborock's, not mirrored; an apartment of Floorplanner; a house scanned as OBJ, GLB and PLY),
+  refusals, files cut short anywhere, hostile maps and meshes (cargo); the robots' maps found in
+  Home Assistant, the files sent to the import (vitest); a Valetudo map imported, a robot's map
+  from Home Assistant with its dock linked (and the link failing, the plan kept), two robots in
+  French, none offered to those who cannot import, a Floorplanner floor, a mesh's every storey, a
+  point cloud refused (Playwright).
+
+![Three more fictional homes imported: a robot vacuum's map, a Floorplanner plan and a house scanned as a mesh](figures/screenshot-more-imports.png)
+
+Measured at the end of M20: see [`PERFORMANCE.md`](PERFORMANCE.md).
+
+Left for later: the robot drawn where Valetudo says it is, rather than along the plan (D-049);
+rooms' names of a Roborock map (they are in Roborock's cloud); the maps of robots that keep them
+in their maker's cloud (pictures, with no rooms to read); kinds of Floorplanner's catalogue
+pieces; furniture and names in a mesh scan; DWG and USD's binary layers, as in M11.
+
 ## Then, from 0.4.0 to 0.5.0
 
 Planned in D-056, with D-065's additions: the sandbox first, built during the two weeks of use since
@@ -1368,8 +1420,9 @@ before its milestone starts, which goes on with what needs no answer.
   that report their Wi-Fi signal); nothing sent. A model, said to be one: what was measured comes
   before what is predicted. For administrators, since only they can read the radios.
 - ⏳ **M22, a first launch in five minutes**: from the install to one's own home live, in five
-  minutes, with the imports and pieces DomoTwin has then (M11, M15, the demo house as a start);
-  robot vacuum maps (M20) and more pieces (M17) join it when they come.
+  minutes, with the imports and pieces DomoTwin has then (M11, M15, the demo house as a start,
+  and the robot vacuum maps, Floorplanner plans and mesh scans of M20); more pieces (M17) join it
+  when they come.
 - ⏳ **Release 0.5.0**.
 - **Deferred** until someone asks: one's dashboards taken over, and pages arranged without YAML
   (the former M28). An agenda and lists are cards of the Home tab (M23), not a milestone of their
@@ -1412,7 +1465,7 @@ before its milestone starts, which goes on with what needs no answer.
   Home Assistant, plays it in the sandbox (M29) on days one picks, and only then saves it, Home
   Assistant's automation editor a tap away. DomoTwin calls no model itself; without an AI task,
   nothing is offered. For administrators.
-- ⏳ **M20, more imports**: robot vacuum maps (Valetudo and others), Floorplanner, meshes.
+- ✅ **M20, more imports** (D-064, above): done before 0.5.0, at the maintainer's request.
 - ⏳ **M17, a library of objects**: many more pieces, free and well made, drawn from real
   references, still fast.
 - ✅ **M36, configuration history** (D-062, above): done after Home Assistant's Overview, at
