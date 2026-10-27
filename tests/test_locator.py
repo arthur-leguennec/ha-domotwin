@@ -820,8 +820,8 @@ async def test_bermuda_unpaired_or_another_device_starts_its_figures_again(
     shown = (await _call(client, "measure"))["result"]["devices"]["alex_phone"]
     assert set(shown) == {"domotwin"}
     # Known another way (another tag under its id): its figures start again.
-    other = {**phone, "match": {"address": "F1:22:33:44:55:88"}}
-    del other["bermuda"]
-    assert (await _follow(client, {"alex_phone": other}))["success"]
+    retagged = {**phone, "match": {"address": "F1:22:33:44:55:88"}}
+    del retagged["bermuda"]
+    assert (await _follow(client, {"alex_phone": retagged}))["success"]
     await hass.async_block_till_done()
     assert "alex_phone" not in home.measure.devices

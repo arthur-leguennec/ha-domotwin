@@ -72,7 +72,7 @@ def test_witnesses_and_bermuda_side_by_side() -> None:
     assert shown["bermuda"]["storey_changes_per_hour"] == shown["bermuda"]["changes_per_hour"]
     assert shown["agreement"] == round(120 / 180, 3)
     # A device without Bermuda shows DomoTwin's figures alone.
-    phone = {"phone": (BERMUDA, "office", 1)}
+    phone: dict[str, tuple[str, str | None, int | None]] = {"phone": (BERMUDA, "office", 1)}
     measure.tick(2, {"phone": ("office", 1, "office"), "keys": (None, None, None)}, phone, {})
     assert set(measure.figures()["keys"]) == {"domotwin"}
     # Paired with another of Bermuda's sensors: its figures start again; unpaired, they go.
