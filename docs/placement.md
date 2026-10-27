@@ -90,4 +90,4 @@ predicted levels agree.
 - In a home of more than 24 rooms, each room is weighed from four of its points and offers its
   middle alone as a spot, so that the advice stays quick.
 
-See `DECISIONS.md`, D-064, for the reasons behind these choices.
+See `DECISIONS.md`, D-065, for the reasons behind these choices.

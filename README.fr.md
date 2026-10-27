@@ -29,7 +29,8 @@ Local, rapide, Rust + WebAssembly.</p>
 > Home Assistant se lit en rapports, « Pourquoi ? » dit qui ou quoi a changé un appareil, le code QR
 > du Wi-Fi accueille les invités, DomoTwin rejoint la Vue d’ensemble de Home Assistant plutôt que de
 > la copier, chaque changement de la configuration est gardé, les pointes d’Hydro-Québec se voient
-> sur le plan, dans l’onglet Accueil et dans le bac à sable, et la couverture radio dit où la
+> sur le plan, dans l’onglet Accueil et dans le bac à sable, les cartes de robots aspirateurs, les
+> plans Floorplanner et les scans en maillage s’importent aussi, et la couverture radio dit où la
 > prochaine radio aide le plus. L’historique et l’énergie, la sécurité et l’écran mural viennent
 > ensuite, vers la version 0.5.0 ; la proposition à la liste par défaut de HACS attend des mesures
 > sur de vrais appareils.
@@ -51,10 +52,12 @@ Local, rapide, Rust + WebAssembly.</p>
   un agenda ou une liste pour votre onglet Accueil.
 - **Votre plan en 3D et en 2D.** Dessinez-le dans le panneau, ou importez-le : une maquette IFC
   (`*.ifc`, depuis Revit, ArchiCAD, Bonsai, FreeCAD…), une maison Sweet Home 3D (`*.sh3d`), un
-  dessin DXF, une pièce scannée avec un iPhone ou un iPad à LiDAR (`*.usdz`, le JSON de RoomPlan)
-  ou un plan DomoTwin (`*.domotwin.json`), un étage ou tous, et voyez-le en maquette 3D. Les
-  murs face à la caméra s’abaissent automatiquement, comme une maison de poupée ouverte. Passez à un
-  plan 2D net avec une transition fluide.
+  dessin DXF, une pièce scannée avec un iPhone ou un iPad à LiDAR (`*.usdz`, le JSON de RoomPlan),
+  un plan Floorplanner (`*.fml`), un scan en maillage (OBJ, PLY, GLB, STL de Polycam, Scaniverse,
+  Matterport…), la carte de votre robot aspirateur (celle de Valetudo, directement depuis Home
+  Assistant, sa base liée) ou un plan DomoTwin (`*.domotwin.json`), un étage ou tous, et voyez-le en
+  maquette 3D. Les murs face à la caméra s’abaissent automatiquement, comme une maison de poupée
+  ouverte. Passez à un plan 2D net avec une transition fluide.
 - **Des meubles qui ont l’air vrais.** Des plantes feuille à feuille, des canapés et des lits aux
   bords arrondis, sans rien perdre en vitesse.
 - **Cinq apparences.** **Néon** : le logement au crépuscule dans un violet profond, le haut de ses
@@ -302,9 +305,11 @@ Local, rapide, Rust + WebAssembly.</p>
    plan**, ou **Importer un plan** et choisissez un plan DomoTwin (`*.domotwin.json`), un fichier
    IFC (`*.ifc`, voir [l’import
    IFC](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/ifc-import.md), en anglais),
-   une maison Sweet Home 3D, un dessin DXF ou le scan d’une pièce (voir [les plans d’autres
+   une maison Sweet Home 3D, un dessin DXF, le scan d’une pièce, un plan Floorplanner ou un scan
+   en maillage (voir [les plans d’autres
    applications](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/imports.md), en
-   anglais).
+   anglais) ; un robot aspirateur sous Valetudo donne sa carte avec **Importer la carte d’un
+   robot**.
    Pas encore de plan ? **Essayez la maison de démo** dans le panneau, ou importez l’appartement
    fictif
    [`examples/demo-apartment.domotwin.json`](https://github.com/arthur-leguennec/ha-domotwin/blob/main/examples/demo-apartment.domotwin.json)
@@ -386,10 +391,12 @@ dans
 avec son schéma JSON ; les fichiers IFC (ISO 16739, exportés par FreeCAD, Blender avec Bonsai,
 ArchiCAD ou Revit), un étage ou tous à la fois : voir [l’import
 IFC](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/ifc-import.md) (en anglais) ;
-les maisons Sweet Home 3D, les dessins DXF et les scans de pièces faits avec RoomPlan d’Apple
-(USDZ ou JSON) : voir [les plans d’autres
+les maisons Sweet Home 3D, les dessins DXF, les scans de pièces faits avec RoomPlan d’Apple (USDZ
+ou JSON), les cartes de robots aspirateurs (celles de Valetudo, depuis Home Assistant ou un
+fichier ; celles de Roborock), les plans Floorplanner (FML) et les scans en maillage (OBJ, PLY,
+GLB, STL) : voir [les plans d’autres
 applications](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/imports.md) (en
-anglais). Les fichiers DWG, l’USD binaire et les scans en maillage (OBJ) ne sont pas lus.
+anglais). Les fichiers DWG, l’USD binaire, le FBX et les nuages de points ne sont pas lus.
 
 **Puis-je le mettre sur une tablette murale, ou demander une pièce à la voix ?** Oui : les options
 `idle`, `orbit`, `night_dim` et `tools` font d’une carte un kiosque, et l’action `domotwin.show`

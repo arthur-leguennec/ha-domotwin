@@ -2,7 +2,7 @@
  * The analysis module (`docs/DECISIONS.md`, D-043), loaded the first time the network map, the
  * automations, the Wi-Fi QR code or the radio coverage are shown: it reads a radio mesh's snapshot
  * and automations' configurations, and analyses them, draws the home's Wi-Fi QR code (D-060) and
- * advises where the next radio helps most (D-064). The engine is handed what it draws, so none of
+ * advises where the next radio helps most (D-065). The engine is handed what it draws, so none of
  * this is in the first load.
  */
 import { wasmLoader } from "../assets";
@@ -71,7 +71,7 @@ export async function analyseNetwork(
 }
 
 /**
- * How well one radio covers the home and where the next one helps most (D-064), for `input`
+ * How well one radio covers the home and where the next one helps most (D-065), for `input`
  * (`placementInput`), unless it is no longer `wanted` once the module is loaded: the advice as
  * JSON text (nothing when not wanted). Rejects when the module cannot be loaded.
  */

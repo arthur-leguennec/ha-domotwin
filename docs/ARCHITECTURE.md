@@ -12,15 +12,17 @@ interface.
 | `domotwin-core`   | `serde`, `serde_json`   | plans, geometry, bindings, states   | GPU, browser, HA API |
 | `domotwin-render` | core, `three-d`, `glow` | meshes, materials, cameras, passes  | browser, HA          |
 | `domotwin-web`    | core, render, `web-sys` | canvas, JS values, timing           | HA                   |
-| `domotwin-import` | core, models, `serde_json` | IFC, Sweet Home 3D, DXF, scans → plan JSON | GPU, browser, HA |
+| `domotwin-import` | core, models, `serde_json`, `miniz_oxide` | IFC, Sweet Home 3D, DXF, scans, robot maps, FML, meshes → plan JSON | GPU, browser, HA |
 | `domotwin-models` | `serde_json`, `miniz_oxide` | glTF, OBJ, STL, 3MF → meshes    | core, GPU, HA        |
 | `domotwin-planner` | core, `serde_json`     | the plan editor's draft (D-025)     | GPU, browser, HA     |
-| `domotwin-analysis` | core, `serde_json`, `qrcodegen` | radio meshes, automations' configurations (D-043), the Wi-Fi QR code (D-060), radio coverage (D-064) | GPU, browser, HA |
+| `domotwin-analysis` | core, `serde_json`, `qrcodegen` | radio meshes, automations' configurations (D-043), the Wi-Fi QR code (D-060), radio coverage (D-065) | GPU, browser, HA |
 
-`domotwin-import` imports the plans of other apps (`ifc-import.md`, `imports.md`, D-040): its own
-wasm module, loaded only when such a file is imported. Each reader gives one plan builder a draft;
-the builder writes an ordinary plan that the core then reads like any other. It reads ZIP archives
-and XML with `domotwin-models`' readers (without its wasm API).
+`domotwin-import` imports the plans of other apps (`ifc-import.md`, `imports.md`, D-040, D-064):
+its own wasm module, loaded only when such a file is imported. Each reader gives one plan builder a
+draft; the builder writes an ordinary plan that the core then reads like any other. It reads ZIP
+archives and XML with `domotwin-models`' readers (without its wasm API), and zlib and gzip with
+`miniz_oxide`. Robot vacuum maps and mesh scans are cells before they are rooms (`grid`): a robot's
+map is cells already, a mesh is cut into them at the heights where furniture is not.
 `domotwin-models` reads the 3D files of user models (D-021): its own wasm module too, loaded only
 when a plan shows a piece drawn from a 3D file or one is imported. It writes a compact mesh that
 the core fits into the piece (`model_mesh`, `scene::imported`).
@@ -31,7 +33,7 @@ automations (`network.md`, `automations.md`, D-043): its own wasm module too, lo
 the network map, the automations or the radio coverage are shown. The engine is handed only what
 it draws: the mesh's drawing (the devices' pieces and the links' qualities and pulses), which it
 answers with the room of each device for the analysis's health, and the automations' placed ends.
-It also advises where the next radio helps most (`placement.md`, D-064), from the storeys' plans,
+It also advises where the next radio helps most (`placement.md`, D-065), from the storeys' plans,
 the radios placed and what they measured, with the core's `coverage` module: the locating's model
 (D-035), its walls counted as the integration counts them; the engine draws the rooms' levels as a
 layer.
@@ -224,7 +226,7 @@ every reader returns `Result` with a stable error code that the frontend transla
   (`theme`, `accent`, D-027); the private rooms (`rooms`, D-039), `{room id: {"people": [person
   entity ids], "while"?: entity id}}`: kept for those people (none: for nobody), always or only
   while that entity is on ([`privacy.md`](privacy.md)); where the home's energy is read
-  (`energy`, D-049); the Wi-Fi access points placed on the plan (`access_points`, D-064),
+  (`energy`, D-049); the Wi-Fi access points placed on the plan (`access_points`, D-065),
   `[{"storey": id, "at": [x, y], "name"?}]`, 16 at most ([`placement.md`](placement.md)).
 - `upkeep` (D-033, storage 4.1): the upkeep cards by piece id, and how many days before it a task
   is due soon; see [`upkeep.md`](upkeep.md). Kept apart from the plan, like the bindings.
@@ -312,7 +314,7 @@ when the integration is removed.
 | `domotwin/people/get`    | user   | `candidates?` (administrators: the entities that may say where someone is) | `revision`, `shown`, `look`, `hidden`, `people` (`{person: {sources, color, sensor, located}}`; none for others when shown to administrators only), `candidates?` |
 | `domotwin/people/save`   | admin  | `people`, `shown?`, `look?`, `expected_revision?` | `revision`                     |
 | `domotwin/people/hide`   | user   | `person` (oneself; administrators anyone), `hidden` | `revision`                   |
-| `domotwin/locating/get`  | admin  | –                                              | `revision`, `status`, `learn`, `receivers` (with their `place`, D-064), `devices` (with their `room`, `confidence`, `last_seen`, `left_behind`, `missing_key`), `learned`, `heard` (`{room: {source: {signal, readings}}}`, D-064), `rooms` |
+| `domotwin/locating/get`  | admin  | –                                              | `revision`, `status`, `learn`, `receivers` (with their `place`, D-065), `devices` (with their `room`, `confidence`, `last_seen`, `left_behind`, `missing_key`), `learned`, `heard` (`{room: {source: {signal, readings}}}`, D-065), `rooms` |
 | `domotwin/locating/save` | admin  | `receivers`, `devices`, `learn?`, `expected_revision?` | `revision`                 |
 | `domotwin/locating/candidates` | admin | –                                        | `candidates` (`[{match, name, rssi?}]`) |
 | `domotwin/locating/teach` | admin | `device`, `room`, `seconds?` (10–120, 30)     | `readings`, `receivers`          |
