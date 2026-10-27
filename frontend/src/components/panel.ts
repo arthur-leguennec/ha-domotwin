@@ -468,8 +468,11 @@ export class DomoTwinPanel extends LitElement {
   private wifiTimer?: ReturnType<typeof setTimeout>;
   /** Counts the stars given or taken away: the answer to the last one sets the favourites. */
   private stars = 0;
-  /** The shortcuts kept last (D-084): only the answer to the last change is taken. */
+  /** The shortcuts' changes (D-084): the last one's answer sets them. */
   private shortcutSaves = 0;
+  /** Changes on their way, and what the integration keeps meanwhile. */
+  private shortcutsSaving = 0;
+  private shortcutsKept: readonly unknown[] = [];
   protected choicesOpen = false;
   /** The Home and Rooms tabs' module is loaded. */
   protected practicalReady = false;
@@ -1803,27 +1806,34 @@ export class DomoTwinPanel extends LitElement {
   };
 
   /**
-   * The Home tab's shortcuts changed (D-084): shown at once, kept by the integration; put back as
-   * they were if it refused, and the last change kept wins over an earlier one answered later.
+   * The Home tab's shortcuts changed (D-084): shown at once, kept by the integration. Each change
+   * sends the whole list, in order: the answer to the last one sets them; if that one is refused,
+   * they go back to what the integration answered last (what it keeps), and it is said.
    */
   private readonly onShortcuts = async (
     event: CustomEvent<{ shortcuts: Shortcut[] }>,
   ): Promise<void> => {
     const client = this.client;
     if (!client) return;
-    const before = this.choices?.shortcuts ?? [];
+    // What the integration keeps, while changes are on their way.
+    if (this.shortcutsSaving === 0) this.shortcutsKept = this.choices?.shortcuts ?? [];
+    this.shortcutsSaving += 1;
     const { shortcuts } = event.detail;
     this.choices = { ...(this.choices ?? NO_CHOICES), shortcuts };
     const ticket = ++this.shortcutSaves;
     try {
       const saved = await client.saveChoices({ shortcuts });
-      if (client === this.client && ticket === this.shortcutSaves) {
+      if (client !== this.client) return;
+      this.shortcutsKept = saved.shortcuts;
+      if (ticket === this.shortcutSaves) {
         this.choices = { ...(this.choices ?? NO_CHOICES), shortcuts: saved.shortcuts };
       }
     } catch (error) {
       if (client !== this.client || ticket !== this.shortcutSaves) return;
-      this.choices = { ...(this.choices ?? NO_CHOICES), shortcuts: before };
+      this.choices = { ...(this.choices ?? NO_CHOICES), shortcuts: this.shortcutsKept };
       this.show(this.t.t("shortcuts.not_kept", { reason: this.describe(error) }), true);
+    } finally {
+      this.shortcutsSaving -= 1;
     }
   };
 

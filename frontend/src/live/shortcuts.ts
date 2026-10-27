@@ -9,11 +9,13 @@
  */
 import { domainOf, type HomeAssistant } from "../ha/types";
 import type { MessageKey, PluralKey, Translator } from "../i18n";
-import { areaOf, entityName } from "./bindings";
+import { areaOf, entityName, shownEntity } from "./bindings";
 import { NOTHING_UNSEEN, seen, type Unseen } from "./privacy";
-import { MAX_NAME, type Shortcut, type Step, type StepKind } from "./shortcut-model";
+import { NOT_BLINDS, OPEN_CLOSE, TURN_OFF } from "./room-actions";
+import { clipName, type Shortcut, type Step, type StepKind } from "./shortcut-model";
 
 export {
+  clipName,
   MAX_LISTED,
   MAX_NAME,
   MAX_SHORTCUTS,
@@ -43,14 +45,18 @@ export function newId(taken: Iterable<string>, random: () => number = Math.rando
 
 // What a step acts on.
 
-/** Covers that are not blinds: a garage door, a gate, a door, a damper. */
-const NOT_BLINDS = new Set(["garage", "gate", "door", "damper"]);
-/** `CoverEntityFeature`: open and close, and set a position. */
-const OPEN_CLOSE = 3;
+/** `CoverEntityFeature.SET_POSITION`; `MediaPlayerEntityFeature.PAUSE`. */
 const SET_POSITION = 4;
-/** `MediaPlayerEntityFeature.TURN_OFF` and `PAUSE`. */
-const MEDIA_TURN_OFF = 256;
 const MEDIA_PAUSE = 1;
+/** `ClimateEntityFeature`: one target temperature, presets. */
+const TARGET_TEMPERATURE = 1;
+const PRESET_MODE = 16;
+/** `VacuumEntityFeature`: back to its dock, start. */
+const RETURN_HOME = 16;
+const START = 8192;
+/** `AlarmControlPanelEntityFeature`, by what a step arms. */
+const ARM: Readonly<Record<string, number>> = { arm_home: 1, arm_away: 2, arm_night: 4 };
+
 /** What a step of each kind may run. */
 const RUNNABLE = new Set(["scene", "script", "button", "input_button"]);
 
@@ -106,12 +112,18 @@ function floorOf(hass: HomeAssistant, id: string): string | undefined {
  */
 export function candidates(hass: HomeAssistant, kind: StepKind): string[] {
   return Object.keys(hass.states)
-    .filter((id) => {
-      const entry = hass.entities?.[id];
-      if (entry?.hidden === true || entry?.entity_category) return false;
-      return fits(hass, kind, id);
-    })
+    .filter((id) => shownEntity(hass, id) && fits(hass, kind, id))
     .sort();
+}
+
+/** Whether the viewer may see an entity (D-039) and use it (D-071). */
+export function usable(hass: HomeAssistant, id: string, unseen: Unseen): boolean {
+  return seen(unseen, id, areaOf(hass, id)) && (!hass.canAct || hass.canAct(id));
+}
+
+/** A usual temperature for heating, in the home's unit. */
+export function usualTemperature(hass: HomeAssistant): number {
+  return hass.config?.unit_system?.temperature === "°F" ? 66 : 19;
 }
 
 /** Whether an entity is in a step's place: its floor, its room, or among those chosen. */
@@ -122,23 +134,43 @@ export function inPlace(hass: HomeAssistant, step: Step, id: string): boolean {
   return true;
 }
 
-/** Whether a step does something to this entity now (eco for a thermostat that has it). */
+/**
+ * Whether a step does something to this entity now: what Home Assistant would refuse for it is
+ * not asked (eco of a thermostat without it, a night arming the alarm cannot do), as a call that
+ * names one entity that cannot is refused whole.
+ */
 function capable(hass: HomeAssistant, step: Step, id: string): boolean {
   const attributes = hass.states[id]?.attributes ?? {};
+  const has = (flag: number): boolean => (features(hass, id) & flag) === flag;
   switch (`${step.kind}:${step.do}`) {
     case "covers:position":
-      return (features(hass, id) & SET_POSITION) === SET_POSITION;
+      return has(SET_POSITION);
     case "climate:eco":
-      return Array.isArray(attributes.preset_modes) && attributes.preset_modes.includes("eco");
+      return (
+        has(PRESET_MODE) &&
+        Array.isArray(attributes.preset_modes) &&
+        attributes.preset_modes.includes("eco")
+      );
+    case "climate:temperature":
+      return has(TARGET_TEMPERATURE);
+    case "vacuum:start":
+      return has(START);
+    case "vacuum:dock":
+      return has(RETURN_HOME);
+    case "alarm:arm_away":
+    case "alarm:arm_home":
+    case "alarm:arm_night":
+      // One that wants a code is armed from its own keypad (the Safety tab).
+      return has(ARM[step.do] ?? 0) && attributes.code_arm_required !== true;
     case "climate:heat":
     case "climate:off": {
       const modes = attributes.hvac_modes;
       return !Array.isArray(modes) || modes.includes(step.do);
     }
     case "media:off":
-      return (features(hass, id) & MEDIA_TURN_OFF) === MEDIA_TURN_OFF;
+      return has(TURN_OFF);
     case "media:pause":
-      return (features(hass, id) & MEDIA_PAUSE) === MEDIA_PAUSE;
+      return has(MEDIA_PAUSE);
     default:
       return true;
   }
@@ -163,14 +195,7 @@ function scoped(hass: HomeAssistant, step: Step, unseen: Unseen): string[] {
   const pool = step.entities
     ? step.entities.filter((id) => fits(hass, step.kind, id))
     : candidates(hass, step.kind);
-  const canAct = hass.canAct;
-  return pool.filter(
-    (id) =>
-      !left.has(id) &&
-      inPlace(hass, step, id) &&
-      seen(unseen, id, areaOf(hass, id)) &&
-      (!canAct || canAct(id)),
-  );
+  return pool.filter((id) => !left.has(id) && inPlace(hass, step, id) && usable(hass, id, unseen));
 }
 
 /** A call to Home Assistant: domain, service, data, the entities. */
@@ -470,11 +495,6 @@ export function sameShortcut(a: Omit<Shortcut, "id">, b: Omit<Shortcut, "id">): 
   return key(a) === key(b);
 }
 
-/** A usual temperature for heating, in the home's unit. */
-function usualTemperature(hass: HomeAssistant): number {
-  return hass.config?.unit_system?.temperature === "°F" ? 66 : 19;
-}
-
 /**
  * The shortcuts DomoTwin suggests for the home, those already added left out: the lamps off in
  * the whole home and on each floor, a good night and a leaving home, the shutters, the locks, the
@@ -496,7 +516,8 @@ export function suggestions(
     n: number,
   ): void => {
     if (n === 0 || existing.some((s) => sameShortcut(s, shortcut))) return;
-    found.push({ key, group, shortcut, count: n });
+    // A device's or a floor's name may make it long: cut as the integration keeps it.
+    found.push({ key, group, shortcut: { ...shortcut, name: clipName(shortcut.name) }, count: n });
   };
   const has = (kind: StepKind, does: string): Step | undefined => {
     const step: Step = { kind, do: does };
@@ -705,7 +726,7 @@ export function suggestions(
   // The scenes and scripts, a few.
   const runnable = candidates(hass, "run")
     .filter((id) => domainOf(id) === "scene" || domainOf(id) === "script")
-    .filter((id) => seen(unseen, id, areaOf(hass, id)) && (!hass.canAct || hass.canAct(id)))
+    .filter((id) => usable(hass, id, unseen))
     .sort((a, b) => entityName(hass, a).localeCompare(entityName(hass, b)))
     .slice(0, 8);
   for (const id of runnable) {
@@ -713,7 +734,7 @@ export function suggestions(
       `run:${id}`,
       "scenes",
       {
-        name: entityName(hass, id).slice(0, MAX_NAME),
+        name: entityName(hass, id),
         icon: "play",
         steps: [{ kind: "run", do: "run", entities: [id] }],
       },

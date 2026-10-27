@@ -62,7 +62,7 @@ function cardOf(home: HomeCard): CardConfig {
 }
 
 /** What the shortcuts' dialog is open on: suggestions to add, or a shortcut to change. */
-type ShortcutDialog = { mode: "add" } | { mode: "edit"; shortcut: Shortcut; fresh: boolean };
+type ShortcutDialog = { mode: "add" } | { mode: "edit"; shortcut: Shortcut };
 
 /** How long a shortcut shows it was pressed (ms). */
 const RAN_MS = 1200;
@@ -558,6 +558,9 @@ export class DomoTwinHome extends LitElement {
 
   /** Asks the panel to keep the shortcuts so (it saves them for the user). */
   private keep(shortcuts: Shortcut[]): void {
+    // None left to change: presses act again when the next is added.
+    if (shortcuts.length === 0) this.editing = false;
+    if (!shortcuts.some((s) => s.id === this.asking)) this.asking = undefined;
     fire(this, "domotwin-shortcuts", { shortcuts });
   }
 
@@ -580,10 +583,16 @@ export class DomoTwinHome extends LitElement {
       if (shortcut.show) fire(this, "hass-more-info", { entityId: shortcut.show });
       return;
     }
-    if (shortcut.confirm && this.asking !== shortcut.id) {
+    // One that asks first runs only from its question's Yes: a second press does not answer it.
+    if (shortcut.confirm) {
       this.asking = shortcut.id;
       return;
     }
+    void this.runIt(shortcut);
+  }
+
+  /** Yes to the question of a shortcut that asks first. */
+  private confirmed(shortcut: Shortcut): void {
     this.asking = undefined;
     void this.runIt(shortcut);
   }
@@ -623,7 +632,7 @@ export class DomoTwinHome extends LitElement {
   }
 
   private openShortcut(shortcut: Shortcut): void {
-    this.openDialog({ mode: "edit", shortcut, fresh: false });
+    this.openDialog({ mode: "edit", shortcut });
   }
 
   private readonly onSave = (event: CustomEvent<{ shortcut: Shortcut }>): void => {
@@ -785,7 +794,7 @@ export class DomoTwinHome extends LitElement {
                 class="action"
                 data-testid="shortcut-yes"
                 @click=${() => {
-                  this.press(asking);
+                  this.confirmed(asking);
                 }}
               >
                 ${t.t("shortcuts.yes")}

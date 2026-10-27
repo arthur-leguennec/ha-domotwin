@@ -12,6 +12,7 @@ import type { Translator } from "../i18n";
 import { areaOf, entityName } from "../live/bindings";
 import { NOTHING_UNSEEN, seen, type Unseen } from "../live/privacy";
 import {
+  MAX_LISTED,
   MAX_NAME,
   MAX_STEPS,
   SHORTCUT_ICONS,
@@ -19,11 +20,14 @@ import {
   STEP_KINDS,
   SUGGESTION_GROUPS,
   candidates,
+  clipName,
   inPlace,
   newId,
   suggestions,
   takesValue,
   targets,
+  usable,
+  usualTemperature,
   type Shortcut,
   type Step,
   type StepKind,
@@ -292,6 +296,18 @@ export class DomoTwinShortcutDialog extends LitElement {
   private suggested?: Suggestion[];
   private opener: HTMLElement | null = null;
 
+  /** Each kind's entities and the values, worked out once a render. */
+  private pools = new Map<StepKind, string[]>();
+  private valueIds?: string[];
+
+  /**
+   * Not drawn again at each state of Home Assistant (several a second): what is being made is
+   * drawn again as it changes, with the states of then.
+   */
+  override shouldUpdate(changed: PropertyValues<this>): boolean {
+    return !(changed.size === 1 && changed.has("hass") && this.hasUpdated);
+  }
+
   override connectedCallback(): void {
     super.connectedCallback();
     this.opener = deepActive();
@@ -313,6 +329,14 @@ export class DomoTwinShortcutDialog extends LitElement {
   }
 
   protected override updated(changed: PropertyValues): void {
+    // Each list shows what the shortcut holds: an option chosen once by hand no longer follows its
+    // `selected`, so the value is set again after each draw.
+    for (const select of this.renderRoot.querySelectorAll<HTMLSelectElement>(
+      "select[data-value]",
+    )) {
+      const value = select.dataset.value ?? "";
+      if (select.value !== value) select.value = value;
+    }
     // The focus into the dialog when it opens, and when it goes from suggestions to a shortcut.
     if (!changed.has("draft")) return;
     if (changed.get("draft") === undefined && this.draft !== undefined) void focusDialog(this);
@@ -355,13 +379,16 @@ export class DomoTwinShortcutDialog extends LitElement {
     this.change({ steps });
   }
 
-  /** The entities of a kind the viewer may see and use. */
+  /** The entities of a kind the viewer may see and use, once a draw. */
   private pool(kind: StepKind): string[] {
     const hass = this.hass;
     if (!hass) return [];
-    return candidates(hass, kind).filter(
-      (id) => seen(this.unseen, id, areaOf(hass, id)) && (!hass.canAct || hass.canAct(id)),
-    );
+    let ids = this.pools.get(kind);
+    if (!ids) {
+      ids = candidates(hass, kind).filter((id) => usable(hass, id, this.unseen));
+      this.pools.set(kind, ids);
+    }
+    return ids;
   }
 
   /** A step of another kind: what it does first, the same place unless it is a chosen list. */
@@ -380,8 +407,8 @@ export class DomoTwinShortcutDialog extends LitElement {
     }
     if (step.value !== undefined) return step;
     if (step.kind === "covers") return { ...step, value: 50 };
-    if (step.kind === "climate") {
-      return { ...step, value: this.hass?.config?.unit_system?.temperature === "°F" ? 66 : 19 };
+    if (step.kind === "climate" && this.hass) {
+      return { ...step, value: usualTemperature(this.hass) };
     }
     return step;
   }
@@ -391,7 +418,10 @@ export class DomoTwinShortcutDialog extends LitElement {
     if (place === "chosen") {
       // Those it acts on now, to start from.
       const hass = this.hass;
-      return { ...rest, entities: hass ? targets(hass, step, this.unseen).slice(0, 50) : [] };
+      return {
+        ...rest,
+        entities: hass ? targets(hass, step, this.unseen).slice(0, MAX_LISTED) : [],
+      };
     }
     if (place.startsWith("floor:")) return { ...rest, floor: place.slice(6) };
     if (place.startsWith("area:")) return { ...rest, area: place.slice(5) };
@@ -421,7 +451,7 @@ export class DomoTwinShortcutDialog extends LitElement {
       this.problem = t.t("shortcuts.dialog.empty");
       return;
     }
-    const shortcut: Shortcut = { ...draft, name: name.slice(0, MAX_NAME), steps };
+    const shortcut: Shortcut = { ...draft, name: clipName(name), steps };
     for (const step of shortcut.steps) {
       if (step.except?.length === 0) delete step.except;
     }
@@ -530,6 +560,9 @@ export class DomoTwinShortcutDialog extends LitElement {
     const floors = new Set(
       [...areas].map((a) => hass.areas?.[a]?.floor_id).filter((f): f is string => Boolean(f)),
     );
+    // Its own place is always offered, even with nothing of its kind there now.
+    if (step.area) areas.add(step.area);
+    if (step.floor) floors.add(step.floor);
     const name = (value: { name: string } | undefined, id: string): string => value?.name ?? id;
     const byName = (a: [string, string], b: [string, string]): number => a[1].localeCompare(b[1]);
     const floorList = [...floors]
@@ -543,7 +576,7 @@ export class DomoTwinShortcutDialog extends LitElement {
         ${t.t("shortcuts.dialog.whole_home")}
       </option>
       ${
-        floorList.length > 1
+        floorList.length > 1 || step.floor
           ? html`<optgroup label=${t.t("shortcuts.dialog.floors")}>
               ${floorList.map(
                 ([id, label]) =>
@@ -621,6 +654,7 @@ export class DomoTwinShortcutDialog extends LitElement {
           >${t.t("shortcuts.dialog.kind")}
           <select
             data-field="kind"
+            data-value=${step.kind}
             @change=${(event: Event) => {
               const kind = (event.target as HTMLSelectElement).value as StepKind;
               this.changeStep(index, this.kindChanged(step, kind));
@@ -638,6 +672,7 @@ export class DomoTwinShortcutDialog extends LitElement {
           >${t.t("shortcuts.dialog.does")}
           <select
             data-field="do"
+            data-value=${step.do}
             @change=${(event: Event) => {
               const does = (event.target as HTMLSelectElement).value;
               this.changeStep(index, this.withValue({ ...step, do: does }));
@@ -660,7 +695,7 @@ export class DomoTwinShortcutDialog extends LitElement {
                 type="number"
                 data-field="value"
                 min=${percent ? 0 : -50}
-                max=${percent ? 100 : 100}
+                max="100"
                 step=${percent ? 1 : 0.5}
                 .value=${step.value === undefined ? "" : String(step.value)}
                 @input=${(event: Event) => {
@@ -682,6 +717,7 @@ export class DomoTwinShortcutDialog extends LitElement {
               >${t.t("shortcuts.dialog.where")}
               <select
                 data-field="where"
+                data-value=${placeOf(step)}
                 @change=${(event: Event) => {
                   this.changeStep(
                     index,
@@ -705,7 +741,7 @@ export class DomoTwinShortcutDialog extends LitElement {
                 (id, on) => {
                   this.changeStep(index, {
                     ...step,
-                    entities: this.toggleIn(step.entities, id, on).slice(0, 50),
+                    entities: this.toggleIn(step.entities, id, on).slice(0, MAX_LISTED),
                   });
                 },
               )}
@@ -721,7 +757,7 @@ export class DomoTwinShortcutDialog extends LitElement {
                 placed,
                 (id) => step.except?.includes(id) ?? false,
                 (id, on) => {
-                  const except = this.toggleIn(step.except, id, on).slice(0, 50);
+                  const except = this.toggleIn(step.except, id, on).slice(0, MAX_LISTED);
                   const rest = without(step, "except");
                   this.changeStep(index, except.length > 0 ? { ...rest, except } : rest);
                 },
@@ -751,12 +787,14 @@ export class DomoTwinShortcutDialog extends LitElement {
 
   /** What a value may be read from: sensors and binary sensors the viewer may see, by name. */
   private values(hass: HomeAssistant): string[] {
-    return Object.keys(hass.states)
+    if (this.valueIds) return this.valueIds;
+    this.valueIds = Object.keys(hass.states)
       .filter((id) => id.startsWith("sensor.") || id.startsWith("binary_sensor."))
       .filter(
         (id) => hass.entities?.[id]?.hidden !== true && seen(this.unseen, id, areaOf(hass, id)),
       )
       .sort((a, b) => entityName(hass, a).localeCompare(entityName(hass, b)));
+    return this.valueIds;
   }
 
   private renderMore(hass: HomeAssistant, t: Translator, draft: Shortcut): TemplateResult {
@@ -780,6 +818,7 @@ export class DomoTwinShortcutDialog extends LitElement {
         >${t.t("shortcuts.dialog.shows")}
         <select
           data-field="shows"
+          data-value=${shows}
           @change=${(event: Event) => {
             const value = (event.target as HTMLSelectElement).value as Shows;
             const rest = without(draft, "show", "quiet");
@@ -805,6 +844,7 @@ export class DomoTwinShortcutDialog extends LitElement {
               >${t.t("shortcuts.dialog.value")}
               <select
                 data-field="show"
+                data-value=${draft.show ?? ""}
                 @change=${(event: Event) => {
                   this.change({ show: (event.target as HTMLSelectElement).value });
                 }}
@@ -968,6 +1008,8 @@ export class DomoTwinShortcutDialog extends LitElement {
     const hass = this.hass;
     const t = this.t;
     if (!hass || !t) return nothing;
+    this.pools.clear();
+    this.valueIds = undefined;
     return this.draft ? this.renderShortcut(hass, t, this.draft) : this.renderSuggestions(t);
   }
 }

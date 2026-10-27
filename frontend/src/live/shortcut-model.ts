@@ -99,6 +99,14 @@ export const MAX_NAME = 40;
 const ID = /^[a-z0-9]{1,12}$/;
 const ENTITY = /^[a-z0-9_]+\.[a-z0-9_]+$/;
 
+/**
+ * A name cut to `MAX_NAME` characters, as the integration counts them (code points): an emoji is
+ * never cut in two.
+ */
+export function clipName(name: string): string {
+  return Array.from(name).slice(0, MAX_NAME).join("");
+}
+
 function isIcon(value: unknown): value is ShortcutIcon {
   return typeof value === "string" && (SHORTCUT_ICONS as readonly string[]).includes(value);
 }
@@ -148,7 +156,7 @@ export function readShortcut(raw: unknown): Shortcut | undefined {
   if (steps.length === 0 && !show) return undefined;
   const shortcut: Shortcut = {
     id: value.id,
-    name: value.name.slice(0, MAX_NAME),
+    name: clipName(value.name),
     icon: isIcon(value.icon) ? value.icon : "play",
     steps,
   };

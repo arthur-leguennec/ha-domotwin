@@ -2,14 +2,26 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+import re
 from typing import Any
 
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 from pytest_homeassistant_custom_component.typing import WebSocketGenerator
 
-from custom_components.domotwin.const import CHOICES_STORAGE_KEY, MAX_FAVOURITES, MAX_SHORTCUTS
+from custom_components.domotwin.choices import SHORTCUT_ICONS, STEP_DOES
+from custom_components.domotwin.const import (
+    CHOICES_STORAGE_KEY,
+    MAX_FAVOURITES,
+    MAX_LISTED,
+    MAX_SHORTCUT_NAME,
+    MAX_SHORTCUTS,
+    MAX_STEPS,
+)
 from homeassistant.core import HomeAssistant
+
+MODEL = Path(__file__).parent.parent / "frontend" / "src" / "live" / "shortcut-model.ts"
 
 
 async def _send(client: Any, message: dict[str, Any]) -> dict[str, Any]:
@@ -343,3 +355,24 @@ async def test_shortcuts_not_understood_are_left_out(
     await hass.async_block_till_done()
     client = await hass_ws_client(hass)
     assert (await _send(client, {"type": "domotwin/choices/get"}))["result"]["shortcuts"] == [good]
+
+
+def test_the_frontend_makes_the_same_shortcuts() -> None:
+    """What a step does, the icons and the limits, here and in `shortcut-model.ts`."""
+    text = MODEL.read_text(encoding="utf-8")
+    does = re.search(r"export const STEP_DOES[^=]*= \{(.*?)\n\};", text, re.DOTALL)
+    assert does is not None
+    assert {
+        kind: tuple(re.findall(r'"(\w+)"', listed))
+        for kind, listed in re.findall(r"(\w+): \[([^\]]*)\]", does.group(1))
+    } == STEP_DOES
+    icons = re.search(r"export const SHORTCUT_ICONS = \[(.*?)\] as const;", text, re.DOTALL)
+    assert icons is not None
+    assert tuple(re.findall(r'"(\w+)"', icons.group(1))) == SHORTCUT_ICONS
+    limits = dict(re.findall(r"export const (MAX_\w+) = (\d+);", text))
+    assert limits == {
+        "MAX_SHORTCUTS": str(MAX_SHORTCUTS),
+        "MAX_STEPS": str(MAX_STEPS),
+        "MAX_LISTED": str(MAX_LISTED),
+        "MAX_NAME": str(MAX_SHORTCUT_NAME),
+    }

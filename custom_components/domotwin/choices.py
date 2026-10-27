@@ -84,7 +84,8 @@ SHORTCUT_ICONS = (
 )
 
 _ENTITIES = vol.All([cv.entity_id], vol.Length(max=MAX_LISTED))
-_PLACE = vol.All(str, vol.Length(min=1, max=64))
+#: An area or a floor id, as Home Assistant slugifies it from a name of any length.
+_PLACE = vol.All(str, vol.Length(min=1, max=255))
 
 
 def _step_does(step: dict[str, Any]) -> dict[str, Any]:

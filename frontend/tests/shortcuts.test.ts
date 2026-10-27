@@ -5,8 +5,10 @@ import { Translator, addMessages } from "../src/i18n";
 import { shortcutsEn, shortcutsFr } from "../src/i18n/shortcuts";
 import { readChoices } from "../src/live/choices";
 import {
+  MAX_NAME,
   MAX_SHORTCUTS,
   carBatteries,
+  clipName,
   firstSuggestions,
   newId,
   readShortcuts,
@@ -88,12 +90,31 @@ const HOUSE: Record<string, Thing> = {
   "climate.living": {
     state: "heat",
     area: "living",
-    attributes: { preset_modes: ["eco", "comfort"], hvac_modes: ["off", "heat"] },
+    // A target temperature and presets (`ClimateEntityFeature`).
+    attributes: {
+      preset_modes: ["eco", "comfort"],
+      hvac_modes: ["off", "heat"],
+      supported_features: 17,
+    },
   },
-  "climate.bedroom": { state: "off", area: "bedroom", attributes: { hvac_modes: ["off", "heat"] } },
+  "climate.bedroom": {
+    state: "off",
+    area: "bedroom",
+    attributes: { hvac_modes: ["off", "heat"], supported_features: 1 },
+  },
+  // A heat pump of a range only: no single temperature to set.
+  "climate.heat_pump": {
+    state: "heat_cool",
+    attributes: { hvac_modes: ["off", "heat_cool"], supported_features: 2 },
+  },
   "media_player.tv": { state: "playing", area: "living", attributes: { supported_features: 257 } },
-  "vacuum.robot": { state: "docked", area: "kitchen" },
-  "alarm_control_panel.home": { state: "disarmed" },
+  "vacuum.robot": {
+    state: "docked",
+    area: "kitchen",
+    attributes: { supported_features: 8192 | 16 },
+  },
+  // Away and at home, no night arming.
+  "alarm_control_panel.home": { state: "disarmed", attributes: { supported_features: 3 } },
   "scene.evening": { state: "unknown", attributes: { friendly_name: "Evening" } },
   "sensor.car_battery": {
     state: "78",
@@ -285,7 +306,6 @@ describe("shortcuts (D-084)", () => {
       "covers_open",
       "locks_lock",
       "alarm_away",
-      "alarm_night",
       "climate_eco",
       "climate_temperature",
       "battery:sensor.car_battery",
@@ -294,12 +314,8 @@ describe("shortcuts (D-084)", () => {
       "run:scene.evening",
     ]);
     const night = all.find((s) => s.key === "good_night");
-    expect(night?.shortcut.steps.map((s) => s.kind)).toEqual([
-      "lights",
-      "covers",
-      "locks",
-      "alarm",
-    ]);
+    // The alarm cannot be armed for the night: not in it.
+    expect(night?.shortcut.steps.map((s) => s.kind)).toEqual(["lights", "covers", "locks"]);
     expect(all.find((s) => s.key === "lights_off:ground")?.shortcut.name).toBe(
       "Lights off: Ground floor",
     );
@@ -326,6 +342,62 @@ describe("shortcuts (D-084)", () => {
       "good_night",
       "covers_close",
     ]);
+  });
+
+  it("acts only on what can do it", () => {
+    const hass = home(HOUSE);
+    // The heat pump keeps a range: no single temperature for it.
+    expect(targets(hass, { kind: "climate", do: "temperature" })).toEqual([
+      "climate.bedroom",
+      "climate.living",
+    ]);
+    expect(targets(hass, { kind: "climate", do: "heat" })).toEqual([
+      "climate.bedroom",
+      "climate.living",
+    ]);
+    expect(targets(hass, { kind: "vacuum", do: "start" })).toEqual(["vacuum.robot"]);
+    expect(targets(hass, { kind: "alarm", do: "arm_night" })).toEqual([]);
+    expect(targets(hass, { kind: "alarm", do: "arm_away" })).toEqual(["alarm_control_panel.home"]);
+    // A robot without a dock, an alarm that wants a code, a TV that cannot pause.
+    const other = home({
+      ...HOUSE,
+      "vacuum.robot": { state: "docked", attributes: { supported_features: 8192 } },
+      "alarm_control_panel.home": {
+        state: "disarmed",
+        attributes: { supported_features: 3, code_arm_required: true },
+      },
+      "media_player.tv": { state: "playing", attributes: { supported_features: 256 } },
+    });
+    expect(targets(other, { kind: "vacuum", do: "dock" })).toEqual([]);
+    expect(targets(other, { kind: "alarm", do: "arm_away" })).toEqual([]);
+    expect(targets(other, { kind: "media", do: "pause" })).toEqual([]);
+    expect(targets(other, { kind: "media", do: "off" })).toEqual(["media_player.tv"]);
+    const keys = suggestions(other, en).map((s) => s.key);
+    expect(keys).not.toContain("alarm_away");
+    expect(keys).not.toContain("media_pause");
+    expect(keys).toContain("media_off");
+  });
+
+  it("cuts a long name where the integration does, never in a character", () => {
+    const long = `${"🚗".repeat(MAX_NAME - 1)}ab`;
+    expect(Array.from(clipName(long))).toHaveLength(MAX_NAME);
+    expect(clipName(long).endsWith("a")).toBe(true);
+    expect(clipName("Car")).toBe("Car");
+    const hass = home({
+      ...HOUSE,
+      "sensor.long_car_battery": {
+        state: "60",
+        platform: "tesla",
+        attributes: {
+          device_class: "battery",
+          unit_of_measurement: "%",
+          friendly_name: "A".repeat(60),
+        },
+      },
+    });
+    for (const suggestion of suggestions(hass, en)) {
+      expect(Array.from(suggestion.shortcut.name).length).toBeLessThanOrEqual(MAX_NAME);
+    }
   });
 
   it("finds a car's battery by its integration or its name, one per car", () => {

@@ -38,8 +38,10 @@ A shortcut is one step or more. Each step says:
 - **Where**: the whole home, a floor, a room (Home Assistant's floors and areas), or the devices you
   choose. It is read again at each press: a lamp you add to the living room is switched with it.
 
-It acts only on what it can do something to: eco on a thermostat that has it, a position on a blind
-that takes one, never a garage door or a gate as a blind, pause on what plays. And only on what your
+It acts only on what it can do something to: eco on a thermostat that has it, a temperature on one
+that takes a single one, a position on a blind that takes one, never a garage door or a gate as a
+blind, pause on what plays and can pause, an alarm only in a way it can be armed, never one that asks
+for a code (that one is armed from its keypad, on *Safety*). And only on what your
 rights in DomoTwin let you use (`rights.md`), never in a private room you may not see
 (`privacy.md`). Its steps run one after the other; if Home Assistant refuses one, the others still
 run, and the button says so.
