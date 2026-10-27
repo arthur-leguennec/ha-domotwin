@@ -1,12 +1,11 @@
 /**
  * `<domotwin-home>`, the Home tab (D-055): the home at a glance (who is in, the lamps on, the
- * doors and windows open, the alerts, Hydro-Québec's next peak, D-063), the weather, the
- * favourite scenes as big buttons, the other favourites, and the cards the user chose. Every
- * control is Home Assistant's own card.
+ * doors and windows open, Hydro-Québec's next peak, D-063), the weather, the favourite scenes as
+ * big buttons, the other favourites, and the cards the user chose. Every control is Home
+ * Assistant's own card. The alerts are above every tab (D-068).
  */
 import {
   mdiAccountGroupOutline,
-  mdiAlertOutline,
   mdiDoorOpen,
   mdiLightbulbGroupOutline,
   mdiStar,
@@ -33,7 +32,7 @@ import { practicalStyles, starButton } from "./practical-styles";
 import { baseStyles } from "./styles";
 
 /** What a chip of the glance opens. */
-type Detail = "people" | "lights" | "openings" | "alerts" | "peak";
+type Detail = "people" | "lights" | "openings" | "peak";
 
 /** Home Assistant's card for a card of the Home tab. */
 function cardOf(home: HomeCard): CardConfig {
@@ -102,11 +101,6 @@ export class DomoTwinHome extends LitElement {
       button.chip[aria-expanded="true"] {
         border-color: var(--domotwin-accent, var(--primary-color, #03a9f4));
       }
-      button.chip.danger {
-        background: var(--error-color, #db4437);
-        border-color: transparent;
-        color: #fff;
-      }
       button.chip.warning {
         background: var(--warning-color, #ffa600);
         border-color: transparent;
@@ -127,15 +121,6 @@ export class DomoTwinHome extends LitElement {
         display: inline-flex;
         align-items: center;
         gap: 6px;
-      }
-      .alert {
-        padding: 8px 12px;
-        border-radius: 12px;
-        background: var(--card-background-color, #fff);
-        border-left: 4px solid var(--warning-color, #ffa600);
-      }
-      .alert.danger {
-        border-left-color: var(--error-color, #db4437);
       }
       .peak-rooms {
         display: grid;
@@ -204,12 +189,7 @@ export class DomoTwinHome extends LitElement {
     }
   };
 
-  private chip(
-    detail: Detail,
-    glyph: string,
-    label: string,
-    level?: "danger" | "warning",
-  ): TemplateResult {
+  private chip(detail: Detail, glyph: string, label: string, level?: "warning"): TemplateResult {
     return html`<button
       class="chip ${level ?? ""}"
       data-testid="home-${detail}"
@@ -271,15 +251,6 @@ export class DomoTwinHome extends LitElement {
         return html`<div class="detail">${this.tiles(glance.openings, false)}</div>`;
       case "peak":
         return this.renderPeak(glance);
-      case "alerts":
-        return html`<div class="detail" role="list">
-          ${glance.alerts.map(
-            (alert) =>
-              html`<div class="alert ${alert.level}" role="listitem">
-                ${t.t(`layers.alert_${alert.reason}`, { room: alert.name })}
-              </div>`,
-          )}
-        </div>`;
       default:
         return nothing;
     }
@@ -390,7 +361,6 @@ export class DomoTwinHome extends LitElement {
     const others = favourites.filter((id) => !isPressed(id));
     const cards = this.choices?.cards ?? [];
     const weather = glance.weather;
-    const danger = glance.alerts.some((alert) => alert.level === "danger");
     const people = glance.people;
     return html`<div class="page" data-testid="home-tab">
       <section aria-label=${t.t("home.glance")}>
@@ -418,16 +388,6 @@ export class DomoTwinHome extends LitElement {
               ? t.tp("home.openings", glance.openings.length)
               : t.t("home.all_closed"),
           )}
-          ${
-            glance.alerts.length > 0
-              ? this.chip(
-                  "alerts",
-                  mdiAlertOutline,
-                  t.tp("home.alerts", glance.alerts.length),
-                  danger ? "danger" : "warning",
-                )
-              : nothing
-          }
           ${this.peakChip(glance)}
         </div>
         ${this.renderDetail(glance)}

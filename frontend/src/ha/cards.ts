@@ -1,9 +1,9 @@
 /**
  * Home Assistant's own cards (D-055): the tile card of an entity, the button card of a scene, the
- * weather, an agenda, a list, made by Home Assistant's card helpers. Those helpers are set by
- * the dashboards' own module only (`window.loadCardHelpers`, in 2025.1 and since): DomoTwin opened
- * before any dashboard loads that module first, the way Home Assistant's panel resolver does,
- * and shows its own plain rows when it cannot.
+ * weather, an agenda, a list, a camera, an alarm (D-068), made by Home Assistant's card helpers.
+ * Those helpers are set by the dashboards' own module only (`window.loadCardHelpers`, in 2025.1
+ * and since): DomoTwin opened before any dashboard loads that module first, the way Home
+ * Assistant's panel resolver does, and shows its own plain rows when it cannot.
  */
 
 /** A card's configuration, as Home Assistant takes it. */
@@ -96,6 +96,40 @@ export function pressCard(entity: string): CardConfig {
       target: { entity_id: entity },
     },
     hold_action: { action: "more-info" },
+  }));
+}
+
+/**
+ * A camera's picture (D-068): a still Home Assistant refreshes, live in its dialog on a tap; live
+ * itself on a doorbell's full screen, where a tap does nothing. `camera_view` is in 2025.1's
+ * picture-entity card.
+ */
+export function cameraCard(entity: string, live = false): CardConfig {
+  return once(`camera:${entity}:${live ? "live" : "auto"}`, () =>
+    live
+      ? {
+          type: "picture-entity",
+          entity,
+          camera_view: "live",
+          show_name: false,
+          show_state: false,
+          tap_action: { action: "none" },
+        }
+      : { type: "picture-entity", entity, camera_view: "auto", show_state: false },
+  );
+}
+
+/** An alarm's keypad and modes: the alarm-panel card. */
+export function alarmCard(entity: string): CardConfig {
+  return once(`alarm:${entity}`, () => ({ type: "alarm-panel", entity }));
+}
+
+/** A lock's tile with its buttons (the `lock-commands` feature, in 2025.1's tile card). */
+export function lockTile(entity: string): CardConfig {
+  return once(`lock:${entity}`, () => ({
+    type: "tile",
+    entity,
+    features: [{ type: "lock-commands" }],
   }));
 }
 
