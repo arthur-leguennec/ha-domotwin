@@ -44,6 +44,8 @@ export interface HassEntityEntry {
   /** The integration it comes from, and what kind of its entities it is. */
   platform?: string;
   translation_key?: string | null;
+  /** The decimals its numbers are shown with, when set in Home Assistant. */
+  display_precision?: number;
 }
 
 /** An entry of the device registry. */
@@ -119,6 +121,8 @@ export interface HomeAssistant {
   systemData?: FrontendCoreData | null;
   /** A request to Home Assistant with the user's session (the frontend's `fetchWithAuth`). */
   fetchWithAuth?(path: string, init?: RequestInit): Promise<Response>;
+  /** A state as Home Assistant shows it, in the user's language with its unit (2025.1 and since). */
+  formatEntityState?(entity: HassEntity, state?: string): string;
   callService(
     domain: string,
     service: string,

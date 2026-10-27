@@ -186,11 +186,13 @@ Assistant's more-info dialog, with the live picture. The card's `badges: false` 
 - A tip says once, on each device, what a tap and a long press do.
 - **Long press** a bound element: its `hold_action`, by default DomoTwin's controls: a switch,
   brightness, warmth and colours for lights, open/stop/close and position for covers, media
-  buttons and volume, lock, climate target, scene activation, the state of sensors.
+  buttons and volume, lock, climate target, scene activation, the state of sensors; **History**,
+  a report of their history ([history as reports](history.md)).
 - **Long press** the floor of a room: the room panel: what the room does together and its own
   actions, then from the room's area (below) its lights, scenes, blinds and curtains, climate,
   media and other devices; **Later**, to switch its lights or its blinds at a time
-  ([actions done later](later.md)); its automations. A room's lights are those of its area and
+  ([actions done later](later.md)); its automations; **History**, when its area has air sensors
+  ([history as reports](history.md)). A room's lights are those of its area and
   those linked to its pieces (a lamp on a smart plug linked as a light counts).
 - **Double tap**: the whole home.
 

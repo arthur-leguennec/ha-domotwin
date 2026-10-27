@@ -151,6 +151,13 @@ Local, rapide, Rust + WebAssembly.</p>
   l’heure, même après un redémarrage, et montre une horloge sur la lampe en attendant. Voir [les
   actions faites plus tard](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/later.md)
   (en anglais).
+- **L’historique en rapports.** « Quand la chambre a-t-elle dépassé 24 °C plus d’une heure ? »
+  Un appui long sur un appareil ou une pièce donne son **Historique** : celui de Home Assistant en
+  tableau, une ligne par changement ou par heure, filtré par valeur et par durée, ou son journal
+  cherché par valeur ; en CSV. En lecture seule, depuis l’historique, les statistiques et le
+  journal de Home Assistant. Voir [l’historique en
+  rapports](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/history.md) (en
+  anglais).
 - **Votre voix.** Un bouton micro ouvre Assist de Home Assistant déjà à l’écoute, sur une
   tablette murale comme sur un téléphone. Quand Assist n’entend pas encore, DomoTwin installe la
   voix en local avec votre accord : Whisper ou Speech-to-Phrase et Piper, installés par le

@@ -130,6 +130,11 @@ Local, fast, Rust + WebAssembly.</p>
   automation (`domotwin.schedule`) or a voice assistant, DomoTwin does it on time, even across a
   restart, and shows a clock over the lamp meanwhile. See [actions done
   later](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/later.md).
+- **History as reports.** "When was the bedroom above 24 °C for more than an hour?" Long-press a
+  device or a room for its **History**: Home Assistant's history as a table, a row for each change
+  or each hour, filtered by value and by how long, or its logbook searched by value; as CSV. Read
+  only, from Home Assistant's own history, statistics and logbook. See [history as
+  reports](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/history.md).
 - **Your voice.** A microphone button opens Home Assistant's Assist already listening, on a wall
   tablet as on a phone. When Assist cannot hear yet, DomoTwin sets up local voice with your
   consent: Whisper or Speech-to-Phrase and Piper, installed through the Supervisor, nothing
