@@ -806,6 +806,9 @@ export const main: Dictionary = {
   plain: {
     menu: "Un'automazione a parole tue",
   },
+  weekly: {
+    menu: "Resoconto settimanale",
+  },
   config_history: {
     menu: "Cronologia della configurazione",
   },

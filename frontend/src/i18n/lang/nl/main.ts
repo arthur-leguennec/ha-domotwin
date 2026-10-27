@@ -805,6 +805,9 @@ export const main: Dictionary = {
   plain: {
     menu: "Een automatisering in gewone woorden",
   },
+  weekly: {
+    menu: "Weekverslag",
+  },
   config_history: {
     menu: "Configuratiegeschiedenis",
   },
