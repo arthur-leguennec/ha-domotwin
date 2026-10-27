@@ -50,7 +50,12 @@ export function opensFirst(hass: HomeAssistant, path: string): boolean {
 }
 
 /** The names of a tab's words. */
-const TAB_KEYS = { home: "tabs.home", rooms: "tabs.rooms", "3d": "tabs.three_d" } as const;
+const TAB_KEYS = {
+  home: "tabs.home",
+  rooms: "tabs.rooms",
+  safety: "tabs.safety",
+  "3d": "tabs.three_d",
+} as const;
 
 export class DomoTwinChoices extends LitElement {
   static override properties = {

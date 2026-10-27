@@ -83,6 +83,12 @@ every reader returns `Result` with a stable error code that the frontend transla
   (`components/summary-body.ts`, `live/summaries.ts`) is a chunk of its own. The integration gives
   each room a device in its area with two sensors (`custom_components/domotwin/sensor.py`,
   `overview.py`: the people in it, the upkeep due for its pieces).
+- Safety (D-068): `live/doorbell.ts` watches the home's doorbells on every `hass`, and
+  `live/security.ts` reads the alerts chosen on Home Assistant's Security page (its system data,
+  followed by the panel) and says those on now beside the rooms' (`live/storeys.ts`); both are in
+  the first load. The Safety tab (`components/safety-tab.ts`, `live/safety.ts`) and the alerts'
+  bar above the other tabs (`components/alert-bar.ts`) are in the tabs' chunk; the doorbell's full
+  screen (`components/doorbell.ts`) is a chunk loaded at the first ring.
 - `src/i18n/` holds the English and French dictionaries. Every visible string goes through `t()`.
 
 ![Render on demand: frames only when something changes, nothing while idle or off-screen](figures/render-on-demand.png)
@@ -197,7 +203,7 @@ every reader returns `Result` with a stable error code that the frontend transla
    (`src/live/config-history.ts`), and puts a version back with Home Assistant's own commands:
    `POST /api/config/<kind>/config/<id>` (`hass.callApi`) or `lovelace/config/save`, then
    `domotwin/config_history/refresh`.
-11. **Automations in plain words.** The dialog (`src/components/plain-dialog.ts`, a chunk, D-068)
+11. **Automations in plain words.** The dialog (`src/components/plain-dialog.ts`, a chunk, D-069)
    is offered where Home Assistant has an AI task (`src/live/ai-task.ts`). It asks Home
    Assistant's own service `ai_task.generate_data` (`call_service` with `return_response`) with
    the request, the rules of an automation and the home's names (`src/live/plain-request.ts`:

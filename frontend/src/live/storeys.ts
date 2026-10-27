@@ -8,7 +8,7 @@ import type { DomoTwinClient, StoredPlan, StoreyInfo } from "../ha/client";
 import { isHassError, type HomeAssistant } from "../ha/types";
 import type { Translator } from "../i18n";
 import type { BindingsJson } from "./bindings";
-import { roomLayers, type PlanRoom, type RoomAlert } from "./layers";
+import { roomLayers, type LayerChoice, type PlanRoom, type RoomAlert } from "./layers";
 import { planRooms } from "./suggest";
 import { planElements } from "./plan";
 
@@ -111,7 +111,8 @@ export async function roomsElsewhere(
 
 /**
  * The alerts of the rooms of the storey shown, then those of the other storeys (`elsewhere`),
- * dangers first: a smoke alarm upstairs shows on the ground floor too.
+ * dangers first: a smoke alarm upstairs shows on the ground floor too. Of a private room the
+ * viewer may not see (`closed`, D-039), only the dangers, as on the storey shown.
  */
 export function withAlertsElsewhere(
   hass: HomeAssistant,
@@ -119,13 +120,15 @@ export function withAlertsElsewhere(
   here: readonly RoomAlert[],
   elsewhere: readonly StoreyRooms[],
   shown: string | undefined,
+  closed?: Set<string>,
 ): StoreyAlert[] {
   const alerts: StoreyAlert[] = [...here];
   // One alert per sensor: rooms of the same name on two storeys find the same area.
   const raised = new Set(here.map((alert) => alert.entity));
   for (const { storey, rooms } of elsewhere) {
     if (storey === shown) continue;
-    const choice = { layer: "off", alerts: true, presence: false } as const;
+    const choice: LayerChoice = { layer: "off", alerts: true, presence: false };
+    if (closed) choice.closed = closed;
     for (const alert of roomLayers(hass, bindings, rooms, choice).alerts) {
       if (raised.has(alert.entity)) continue;
       raised.add(alert.entity);
@@ -134,6 +137,22 @@ export function withAlertsElsewhere(
   }
   // A stable sort: the storey shown first within each level.
   return alerts.sort((a, b) => (a.level === b.level ? 0 : a.level === "danger" ? -1 : 1));
+}
+
+/** What a room's alert says; on another storey, which one. */
+export function alertText(
+  t: Translator,
+  alert: StoreyAlert,
+  storeys: readonly Pick<StoreyInfo, "id" | "name" | "elevation">[],
+): string {
+  const text = t.t(`layers.alert_${alert.reason}`, { room: alert.name });
+  if (!alert.storey) return text;
+  const level = storeyLevels(storeys).find(({ storey }) => storey.id === alert.storey);
+  if (!level) return text;
+  return t.t("storey.alert_on", {
+    alert: text,
+    storey: storeyName(t, level.storey, level.level),
+  });
 }
 
 /**

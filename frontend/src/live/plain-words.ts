@@ -1,5 +1,5 @@
 /**
- * An automation said back in plain words (D-068): *When* each trigger, *Only if* each condition,
+ * An automation said back in plain words (D-069): *When* each trigger, *Only if* each condition,
  * *Then* each action, in order and nested, in the user's language. Worked out from the
  * configuration alone, never from what a model said of it: entities, areas and devices by their
  * names, states as Home Assistant says them, times and durations in words. What has no words of

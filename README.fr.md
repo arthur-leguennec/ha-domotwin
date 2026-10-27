@@ -18,10 +18,11 @@ Local, rapide, Rust + WebAssembly.</p>
 > anglais), et tout ce que décrit *Fonctionnalités* marche déjà. Depuis la 0.4.0 sont arrivés le bac
 > à sable, l’historique en tableaux, « Pourquoi ? », le code QR du Wi-Fi pour les invités,
 > l’historique de la configuration, les pointes d’Hydro-Québec, d’autres imports (cartes de robots
-> aspirateurs, Floorplanner, scans en maillage), la couverture radio, les pass d’invité et les
+> aspirateurs, Floorplanner, scans en maillage), la couverture radio, les pass d’invité, la
+> sécurité (les caméras, la sonnette, l’alarme, les alertes sur chaque onglet) et les
 > automatisations dites avec vos mots, jouées dans le bac à sable avant d’être enregistrées, et
-> DomoTwin a rejoint la Vue d’ensemble de Home Assistant ; la météo autour du logement, l’historique
-> et l’énergie, la sécurité et l’écran mural suivent, vers la 0.5.0. La proposition à la liste par
+> DomoTwin a rejoint la Vue d’ensemble de Home Assistant ; la météo autour du logement,
+> l’historique et l’énergie et l’écran mural suivent, vers la 0.5.0. La proposition à la liste par
 > défaut de HACS attend des mesures sur de vrais appareils.
 
 ## Ce qui le distingue
@@ -43,13 +44,22 @@ Local, rapide, Rust + WebAssembly.</p>
   batterie, trois personnes et huit automatisations, qui vit une journée de printemps à une minute
   par seconde. Allez au matin, à midi, au soir ou à la nuit, touchez à tout, modifiez-la : rien ne
   touche votre maison. Une carte avec `demo: true` la montre sur un tableau de bord.
-- **Accueil, Pièces et 3D.** L’onglet *Accueil* du panneau montre la maison d’un coup d’œil (qui est
-  là, les lampes allumées, les portes et fenêtres ouvertes, les alertes, la météo), vos scènes
+- **Accueil, Pièces, Sécurité et 3D.** L’onglet *Accueil* du panneau montre la maison d’un coup
+  d’œil (qui est là, les lampes allumées, les portes et fenêtres ouvertes, la météo), vos scènes
   favorites en grands boutons et vos favoris ; *Pièces* liste les étages et pièces de Home
-  Assistant, les appareils de chaque pièce en cartes tuiles de Home Assistant, avec une recherche ;
-  *3D* est la vue en 3D, où toucher une pièce ouvre sa page. Mettez en favori ce qui vous sert le
-  plus ; choisissez l’onglet sur lequel DomoTwin s’ouvre, pour vous ou pour un écran, et un agenda
-  ou une liste pour votre onglet Accueil.
+  Assistant, les appareils de chaque pièce en cartes tuiles de Home Assistant, avec une
+  recherche ; *Sécurité* réunit l’alarme et les caméras côte à côte ; *3D* est la vue en 3D, où
+  toucher une pièce ouvre sa page. Les alertes s’affichent au-dessus de chaque onglet. Mettez en
+  favori ce qui vous sert le plus ; choisissez l’onglet sur lequel DomoTwin s’ouvre, pour vous ou
+  pour un écran, et un agenda ou une liste pour votre onglet Accueil.
+- **Sécurité.** Les alertes de chaque pièce (fumée, eau, l’alarme…) et celles choisies dans la page
+  Sécurité de Home Assistant, au-dessus de chaque onglet, à un toucher de la pièce en 3D.
+  L’onglet *Sécurité* réunit le clavier de l’alarme, les sonnettes et toutes les caméras côte à
+  côte, celle de la sonnette d’abord, et la page Sécurité de Home Assistant à un toucher. Quand
+  on sonne, la sonnette s’affiche en plein écran, quel que soit l’onglet : sa caméra en direct et
+  la serrure de la porte. Voir
+  [la sécurité](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/safety.md) (en
+  anglais).
 - **Votre plan en 3D et en 2D.** Dessinez-le dans le panneau, ou importez-le : une maquette IFC
   (`*.ifc`, depuis Revit, ArchiCAD, Bonsai, FreeCAD…), une maison Sweet Home 3D (`*.sh3d`), un
   dessin DXF, une pièce scannée avec un iPhone ou un iPad à LiDAR (`*.usdz`, le JSON de RoomPlan),

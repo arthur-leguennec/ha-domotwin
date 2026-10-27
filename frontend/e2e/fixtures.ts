@@ -121,9 +121,9 @@ export interface HarnessOptions {
   /** The settings cannot be read until `window.__settingsUp()`. */
   settingsDown?: boolean;
   /** The tab this device opens on (D-055): the 3D view unless asked; `none`: the user's. */
-  start?: "home" | "rooms" | "3d" | "none";
+  start?: "home" | "rooms" | "safety" | "3d" | "none";
   /** The tab the user chose, and their favourites. */
-  userStart?: "home" | "rooms" | "3d";
+  userStart?: "home" | "rooms" | "safety" | "3d";
   favourites?: string[];
   /** Home Assistant's address: the panel's path, and the path after it opened. */
   route?: boolean;
@@ -143,7 +143,15 @@ export interface HarnessOptions {
   formatState?: boolean;
   /** The configuration history (D-062): fictional items and their versions. */
   configHistory?: boolean;
-  /** Home Assistant's AI task (D-068): a fictional one, its actions and its check. */
+  /**
+   * Safety (D-068), with `live`: a doorbell at the front door with its camera, and an alarm
+   * (`window.__ring()` rings it); Home Assistant 2026.10 with its Security page (`security`), and
+   * the alerts chosen on it (`securityAlerts`, `entity` or `entity:severity`).
+   */
+  safety?: boolean;
+  security?: boolean;
+  securityAlerts?: string[];
+  /** Home Assistant's AI task (D-069): a fictional one, its actions and its check. */
   aiTask?: boolean;
 }
 
@@ -214,6 +222,9 @@ export async function openHarness(page: Page, options: HarnessOptions = {}): Pro
   if (options.noStats) params.set("nostats", "1");
   if (options.formatState) params.set("formatstate", "1");
   if (options.configHistory) params.set("confighistory", "1");
+  if (options.safety) params.set("safety", "1");
+  if (options.security) params.set("security", "1");
+  if (options.securityAlerts) params.set("securityalerts", options.securityAlerts.join(","));
   if (options.aiTask) params.set("aitask", "1");
   if (options.voice) params.set("voice", options.voice === true ? "1" : options.voice);
   if (options.supervisor) params.set("supervisor", "1");

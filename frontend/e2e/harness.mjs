@@ -58,12 +58,16 @@
 //   entrance door opened five minutes ago and set off "Hall light at the door", which lit the
 //   hall's spots; Sam switched the floor lamp on two minutes ago; the kitchen's ceiling light was
 //   switched off on its own switch)
+//   safety=1 (D-068, with live=1: a doorbell at the front door with its camera, beside the hall's
+//   lock, and an alarm, quiet; window.__ring() rings it now), security=1 (Home Assistant 2026.10
+//   and its Security page), securityalerts=<entity>[:alert|warning],… (the alerts chosen on it;
+//   window.__securityAlerts(list) chooses others)
 //   confighistory=1 (the configuration history, D-062: fictional automations, a script removed,
 //   one in YAML files of one's own and a dashboard, as the integration keeps them; Home
 //   Assistant's configuration API and `lovelace/config/save` put one back, read again on
 //   `domotwin/config_history/refresh`; window.__refuseConfig = "<message>" makes Home Assistant
 //   refuse)
-//   aitask=1 (D-068: Home Assistant's AI task, a fictional one that writes the automation asked
+//   aitask=1 (D-069: Home Assistant's AI task, a fictional one that writes the automation asked
 //   for in plain words from the demo apartment's entities; Home Assistant's actions, its check
 //   `validate_config` and the home zone counting who is home; window.__aiAnswer = <data> answers
 //   that instead, window.__aiHold (a promise) holds the answer back, window.__aiFail = "<message>"
@@ -94,7 +98,7 @@ const zha = params.get("zha") === "1";
 // Fictional automations (D-032): `automations=1` three of them, `automations=50` as many made up.
 const automationCount = Number(params.get("automations") ?? 0);
 const sandbox = params.get("sandbox") === "1";
-// Home Assistant's AI task (D-068), a fictional one.
+// Home Assistant's AI task (D-069), a fictional one.
 const aiTask = params.get("aitask") === "1";
 const AI_TASK = "ai_task.fictional_assistant";
 // Home Assistant's logbook and traces of a fictional evening (D-059).
@@ -964,7 +968,7 @@ function whyEvents(message) {
 }
 
 /**
- * What the fictional AI task writes (D-068): the automation of the roadmap's example from the
+ * What the fictional AI task writes (D-069): the automation of the roadmap's example from the
  * demo apartment's entities, in the request's language, or that automation changed (five minutes
  * before locking) when a change is asked.
  */
@@ -999,7 +1003,7 @@ function fictionalAutomation(instructions) {
   };
 }
 
-/** Home Assistant's actions, by domain, for the domains the home has (D-068). */
+/** Home Assistant's actions, by domain, for the domains the home has (D-069). */
 function servicesOf(states) {
   const SERVICES = {
     light: ["turn_on", "turn_off", "toggle"],
@@ -1029,6 +1033,22 @@ function servicesOf(states) {
   return services;
 }
 
+// Home Assistant's Security page (D-068) and the alerts an administrator chose on it.
+const security = params.get("security") === "1";
+let securityChoices = (params.get("securityalerts") ?? "")
+  .split(",")
+  .filter(Boolean)
+  .map((item) => {
+    const [entity, severity] = item.split(":");
+    return severity ? { entity, severity } : { entity };
+  });
+const securityListeners = new Set();
+window.__securityAlerts = (choices) => {
+  securityChoices = choices;
+  for (const listener of securityListeners) {
+    listener({ value: { alert_entities: structuredClone(choices) } });
+  }
+};
 const connection = {
   sendMessage(message) {
     calls.push(message);
@@ -1496,7 +1516,7 @@ const connection = {
         if (!aiTask) throw { code: "unknown_command", message: message.type };
         return { gen_data_entity_id: AI_TASK };
       case "call_service": {
-        // Home Assistant's AI task (D-068): the only service DomoTwin asks for a response of.
+        // Home Assistant's AI task (D-069): the only service DomoTwin asks for a response of.
         if (!aiTask || message.domain !== "ai_task" || message.service !== "generate_data") {
           throw { code: "unknown_command", message: message.type };
         }
@@ -1532,6 +1552,15 @@ const connection = {
   },
   async subscribeMessage(callback, message) {
     calls.push(message);
+    if (message.type === "frontend/subscribe_system_data") {
+      // Home Assistant's own (D-068): what its Security page keeps, sent at once and on change.
+      if (message.key !== "security" || !security) throw { code: "unknown_command" };
+      securityListeners.add(callback);
+      queueMicrotask(() =>
+        callback({ value: { alert_entities: structuredClone(securityChoices) } }),
+      );
+      return async () => securityListeners.delete(callback);
+    }
     if (message.type === "domotwin/schedules/subscribe") {
       scheduleListeners.add(callback);
       queueMicrotask(() => callback({ schedules: structuredClone(schedules) }));
@@ -1881,6 +1910,37 @@ if (overview) {
   });
   own("sensor.domotwin_upkeep_due", "upkeep_due");
 }
+// safety=1 (D-068): a doorbell at the front door, its camera on the same device, in the hall
+// beside its lock; an alarm, disarmed. The doorbell last rang long ago.
+if (params.get("safety") === "1") {
+  home.devices.front_door_bell = { id: "front_door_bell", area_id: "hallway", name: "Front door" };
+  states["event.front_door_doorbell"] = state(
+    "event.front_door_doorbell",
+    "2026-10-24T07:30:00.000+00:00",
+    {
+      friendly_name: "Front door doorbell",
+      device_class: "doorbell",
+      event_type: "ring",
+      event_types: ["ring"],
+    },
+  );
+  home.entities["event.front_door_doorbell"] = {
+    entity_id: "event.front_door_doorbell",
+    device_id: "front_door_bell",
+  };
+  states["camera.front_door"] = state("camera.front_door", "idle", {
+    friendly_name: "Front door camera",
+  });
+  home.entities["camera.front_door"] = {
+    entity_id: "camera.front_door",
+    device_id: "front_door_bell",
+  };
+  states["alarm_control_panel.home"] = state("alarm_control_panel.home", "disarmed", {
+    friendly_name: "Home alarm",
+    code_arm_required: false,
+  });
+  home.entities["alarm_control_panel.home"] = { entity_id: "alarm_control_panel.home" };
+}
 /** A person's room sensor, as the integration writes it, in `room` (or away). */
 function roomSensor(id, room) {
   const person = PEOPLE[id];
@@ -2054,13 +2114,15 @@ let hass = {
     ],
     // A fictional place, rounded: the sandbox's sun.
     ...(sandbox ? { time_zone: "Europe/Paris", latitude: 46, longitude: 2 } : {}),
-    // overview=1: a Home Assistant that opens on its Overview, an area page each (D-061).
-    ...(overview ? { version: "2026.10.0" } : { version: "2026.1.0" }),
+    // overview=1: a Home Assistant that opens on its Overview, an area page each (D-061);
+    // security=1: with its Security page (D-068).
+    ...(overview || security ? { version: "2026.10.0" } : { version: "2026.1.0" }),
   },
-  ...(overview
+  ...(overview || security
     ? {
         panels: {
-          home: { url_path: "home" },
+          ...(overview ? { home: { url_path: "home" } } : {}),
+          ...(security ? { security: { url_path: "security" } } : {}),
           ...(params.get("nopanel") === "1" ? {} : { domotwin: { url_path: "domotwin" } }),
         },
       }
@@ -2113,6 +2175,8 @@ window.__setState = (entityId, state, attributes = {}) => {
   };
   publish();
 };
+/** The front door's doorbell rings now (safety=1, D-068): its event entity says when. */
+window.__ring = () => window.__setState("event.front_door_doorbell", new Date().toISOString());
 if (hass.themes.darkMode) document.body.classList.add("dark");
 
 if (params.get("cards") === "1") {

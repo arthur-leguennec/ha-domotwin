@@ -15,6 +15,7 @@ import {
   mdiMicrophoneMessage,
   mdiPencilOutline,
   mdiRobotVacuum,
+  mdiShieldHomeOutline,
   mdiSpeedometer,
   mdiStarFourPointsOutline,
   mdiTestTube,
@@ -54,13 +55,14 @@ import {
   type StoreyInfo,
   type StoredPlan,
 } from "../ha/client";
-import { isHassError, type HomeAssistant } from "../ha/types";
+import { isHassError, nowOf, type HomeAssistant } from "../ha/types";
 import type { DemoHome } from "../demo/home";
 import type { DraftDay, SandboxHome } from "../sandbox/home";
 import type { Config } from "../sandbox/config";
 import {
   MAX_ENTITIES,
   NO_BINDINGS,
+  areaOf,
   readBindings,
   roomArea,
   shownEntity,
@@ -87,9 +89,22 @@ import {
   storeyIds,
   storeyLevels,
   storeyName,
+  withAlertsElsewhere,
+  type StoreyAlert,
   type StoreyRooms,
 } from "../live/storeys";
-import { privateRooms, unseenOf, type Unseen } from "../live/privacy";
+import { NOTHING_UNSEEN, privateRooms, seen, unseenOf, type Unseen } from "../live/privacy";
+import { DoorbellWatch, RING_FRESH_MS, RING_SHOWN_MS, type Ring } from "../live/doorbell";
+import {
+  readSecurityAlerts,
+  securityAlerts,
+  securityAlertsKept,
+  securityPage,
+  shownAlerts,
+  type SecurityAlert,
+  type SecurityAlertChoice,
+  type ShownAlert,
+} from "../live/security";
 import { plainWordsOffered } from "../live/ai-task";
 import {
   NO_CHOICES,
@@ -150,7 +165,7 @@ import {
   type EnergySettings,
 } from "../live/energy";
 import { watts } from "../live/devices";
-import { formatPower, layerAsked, numberOf, type LayerName } from "../live/layers";
+import { formatPower, layerAsked, numberOf, roomLayers, type LayerName } from "../live/layers";
 import { navigate } from "../live/actions";
 import { areaPage } from "../live/overview";
 
@@ -268,6 +283,8 @@ function download(name: string, value: unknown): void {
 
 /** The panel's dialogs and sheets, which the focus goes into and comes back from (D-042). */
 const PANEL_DIALOGS = [
+  // A doorbell ringing (D-068), over everything else.
+  "domotwin-doorbell",
   '[role="dialog"]',
   '[role="alertdialog"]',
   "domotwin-people-settings",
@@ -361,6 +378,9 @@ export class DomoTwinPanel extends LitElement {
     choicesRead: { state: true },
     choicesOpen: { state: true },
     practicalReady: { state: true },
+    securityChoices: { state: true },
+    ring: { state: true },
+    doorbellReady: { state: true },
   };
 
   narrow = false;
@@ -388,6 +408,22 @@ export class DomoTwinPanel extends LitElement {
   private practicalFailed = false;
   /** The 3D view was shown once: it stays, hidden on the other tabs, its engine and camera. */
   private shown3d = false;
+  /** The alerts chosen on Home Assistant's Security page (D-068), followed while it shows. */
+  protected securityChoices: SecurityAlertChoice[] = [];
+  private securityFollowed?: Promise<(() => Promise<void>) | undefined>;
+  /** Home Assistant's alerts last given to the 3D view: the same list while they are the same. */
+  private securityShown: { key: string; alerts: SecurityAlert[] } = { key: "[]", alerts: [] };
+  /** The alerts last given to the other tabs, the same way. */
+  private homeAlertsShown: { key: string; alerts: ShownAlert[] } = { key: "[]", alerts: [] };
+  /** The home's doorbells, watched on every tab (D-068), and the ring shown full screen. */
+  private readonly doorbells = new DoorbellWatch();
+  protected ring?: Ring;
+  private ringTimer?: ReturnType<typeof setTimeout>;
+  /** A ring heard before the settings were read, shown once they are if still fresh. */
+  private ringWaiting?: Ring;
+  /** The full screen's module, loaded when a doorbell first rings. */
+  protected doorbellReady = false;
+  private doorbellModule?: Promise<void>;
   /** A layer the Home tab asked the 3D view to show (D-063), until it is shown. */
   private layerWanted?: LayerName;
   /** What the 3D view was last given of Home Assistant. */
@@ -454,7 +490,7 @@ export class DomoTwinPanel extends LitElement {
   protected voiceOpen = false;
   /** The configuration history (D-062) is open, its module loaded. */
   protected configHistoryOpen = false;
-  /** An automation in plain words (D-068) is being written, its module loaded. */
+  /** An automation in plain words (D-069) is being written, its module loaded. */
   protected plainOpen = false;
   /** The automation being written in plain words: it outlives its dialog and the sandbox. */
   private plainSession?: PlainSession;
@@ -726,9 +762,18 @@ export class DomoTwinPanel extends LitElement {
         display: none;
       }
       domotwin-home,
-      domotwin-rooms {
+      domotwin-rooms,
+      domotwin-safety {
         flex: 1;
         min-width: 0;
+        min-height: 0;
+      }
+      /* The alerts above the Home and Rooms tabs (D-068). */
+      .practical {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
       }
       .main {
         flex: 1;
@@ -1052,6 +1097,12 @@ export class DomoTwinPanel extends LitElement {
 
   set hass(hass: HomeAssistant | undefined) {
     this.demoSwitch.realHass = hass;
+    if (hass) {
+      // The home's doorbells and Home Assistant's alerts, whatever home is shown (D-068).
+      const ring = this.doorbells.check(hass);
+      if (ring) this.showRing(hass, ring);
+      if (this.isConnected) this.followSecurity();
+    }
     // A home kept in the page (the demo house, the sandbox) has its own Home Assistant.
     if (this.demoSwitch.home) return;
     const first = !this._hass && hass;
@@ -1082,6 +1133,7 @@ export class DomoTwinPanel extends LitElement {
     }
     document.addEventListener("visibilitychange", this.onPageHidden);
     if (this._hass) this.connectData();
+    this.followSecurity();
     window.addEventListener("pointerdown", this.closeMore, true);
     this.addEventListener("keydown", this.onEscape);
     this.sizeObserver = new ResizeObserver((entries) => {
@@ -1106,6 +1158,9 @@ export class DomoTwinPanel extends LitElement {
     clearTimeout(this.settingsTimer);
     clearTimeout(this.choicesTimer);
     clearTimeout(this.wifiTimer);
+    clearTimeout(this.ringTimer);
+    this.ring = undefined;
+    this.unfollowSecurity();
     this.unsubscribe?.();
     this.unsubscribe = undefined;
     window.clearTimeout(this.toastTimer);
@@ -1152,7 +1207,7 @@ export class DomoTwinPanel extends LitElement {
     if (!real || !this.switchable()) return;
     const t = this.t;
     this.show(t.t("sandbox.reading"));
-    // An automation written in plain words (D-068), as an entity of its own.
+    // An automation written in plain words (D-069), as an entity of its own.
     const session = draft ? this.plainSession : undefined;
     const revision = session?.revision;
     const played = draft
@@ -1199,7 +1254,7 @@ export class DomoTwinPanel extends LitElement {
   };
 
   /**
-   * Draws a draft's wires (D-068) once the sandbox's plan is drawn: a plan loaded after them
+   * Draws a draft's wires (D-069) once the sandbox's plan is drawn: a plan loaded after them
    * would forget them. Given up when the sandbox is left, or after a few minutes.
    */
   private async showDraftWires(entity: string): Promise<void> {
@@ -1219,7 +1274,7 @@ export class DomoTwinPanel extends LitElement {
     }
   }
 
-  /** Opens an automation in plain words (D-068): its module and texts, loaded the first time. */
+  /** Opens an automation in plain words (D-069): its module and texts, loaded the first time. */
   private readonly openPlain = async (): Promise<void> => {
     try {
       const { PlainSession } = await import("./plain-dialog");
@@ -1230,7 +1285,7 @@ export class DomoTwinPanel extends LitElement {
     }
   };
 
-  /** The draft played in the sandbox, beside the home's automations (D-068). */
+  /** The draft played in the sandbox, beside the home's automations (D-069). */
   private readonly playPlain = async (
     event: CustomEvent<{ entity: string; name: string; config: Config }>,
   ): Promise<void> => {
@@ -1240,7 +1295,7 @@ export class DomoTwinPanel extends LitElement {
     if (!this.sandbox) this.plainOpen = true;
   };
 
-  /** From the sandbox back to the draft it played (D-068). */
+  /** From the sandbox back to the draft it played (D-069). */
   private readonly backToPlain = (): void => {
     this.leaveDemo();
     if (!this.demoSwitch.home && this.plainSession) this.plainOpen = true;
@@ -1280,6 +1335,7 @@ export class DomoTwinPanel extends LitElement {
     this.unsubscribe?.();
     this.unsubscribe = undefined;
     clearTimeout(this.settingsTimer);
+    this.ringWaiting = undefined;
     this.loads += 1;
     this.linking = false;
     this.linkTarget = undefined;
@@ -1347,6 +1403,65 @@ export class DomoTwinPanel extends LitElement {
     void this.loadChoices();
     void this.loadWifi();
   }
+
+  /**
+   * Follows the alerts an administrator chose on Home Assistant's Security page (D-068), where Home
+   * Assistant keeps them (2026.9 and later): its system data, sent again whenever it changes.
+   */
+  private followSecurity(): void {
+    const hass = this.demoSwitch.realHass ?? this._hass;
+    if (this.securityFollowed || !hass || !securityAlertsKept(hass)) return;
+    this.securityFollowed = hass.connection
+      .subscribeMessage<{ value?: unknown }>(
+        (message) => {
+          this.securityChoices = readSecurityAlerts(message.value);
+        },
+        { type: "frontend/subscribe_system_data", key: "security" },
+      )
+      // Refused (a Home Assistant that changed it): no alert of its own is shown.
+      .catch(() => undefined);
+  }
+
+  private unfollowSecurity(): void {
+    const followed = this.securityFollowed;
+    this.securityFollowed = undefined;
+    this.securityChoices = [];
+    void followed?.then((unsubscribe) => unsubscribe?.()).catch(() => undefined);
+  }
+
+  /**
+   * A doorbell rang (D-068): shown full screen, its module loaded the first time, for two minutes
+   * unless closed or rung again. Not one the viewer may not see (D-039), nor over the demo house or
+   * the sandbox, which are homes of their own.
+   */
+  private showRing(hass: HomeAssistant, ring: Ring): void {
+    if (this.demoSwitch.home) return;
+    // Who may see what is known once the settings are read (D-039): the ring waits for them.
+    if (!this.settingsRead) {
+      this.ringWaiting = ring;
+      return;
+    }
+    if (!seen(this.practical(hass).unseen, ring.entity, areaOf(hass, ring.entity))) return;
+    this.ring = ring;
+    clearTimeout(this.ringTimer);
+    this.ringTimer = setTimeout(() => {
+      this.ring = undefined;
+    }, RING_SHOWN_MS);
+    this.doorbellModule ??= import("./doorbell").then(
+      () => {
+        this.doorbellReady = true;
+      },
+      () => {
+        // Offline, or DomoTwin updated meanwhile: tried again at the next ring.
+        this.doorbellModule = undefined;
+      },
+    );
+  }
+
+  private readonly closeRing = (): void => {
+    clearTimeout(this.ringTimer);
+    this.ring = undefined;
+  };
 
   /**
    * The Wi-Fi as this user may see it in the panel. Not read (Home Assistant starting), it is asked
@@ -1476,14 +1591,22 @@ export class DomoTwinPanel extends LitElement {
       await this.loadPlan();
       await this.updateComplete;
     }
+    const view = await this.drawnView(ticket);
+    view?.show(target);
+  }
+
+  /**
+   * The 3D view once it has drawn the plan (shown for the first time, its engine loads first);
+   * none if another request (`ticket`, of `shows`) came meanwhile.
+   */
+  private async drawnView(ticket: number): Promise<DomoTwinView | undefined> {
     const view = this.view;
     await view?.updateComplete;
-    // The 3D view shown for the first time: its engine loads and draws the plan first.
     while (view?.planDrawn() === "waiting") {
       await nextFrame();
-      if (ticket !== this.shows) return;
+      if (ticket !== this.shows) return undefined;
     }
-    if (ticket === this.shows) view?.show(target);
+    return ticket === this.shows ? (view ?? undefined) : undefined;
   }
 
   /**
@@ -1500,6 +1623,11 @@ export class DomoTwinPanel extends LitElement {
       if (client !== this.client) return;
       this.settings = settings;
       this.settingsRead = true;
+      const waiting = this.ringWaiting;
+      this.ringWaiting = undefined;
+      if (waiting && this._hass && nowOf(this._hass) - waiting.at <= RING_FRESH_MS) {
+        this.showRing(this._hass, waiting);
+      }
     } catch {
       if (client === this.client && !this.settingsRead && this.unsubscribe) {
         this.settingsTimer = setTimeout(() => void this.loadSettings(), SETTINGS_RETRY_MS);
@@ -3100,12 +3228,10 @@ export class DomoTwinPanel extends LitElement {
   protected override willUpdate(changed: PropertyValues): void {
     if (changed.has("route") || this.tab === undefined) this.followRoute();
     if (this.tab === "3d") this.shown3d = true;
-    // The Home and Rooms tabs, and the choices: their module the first time one shows; failed
-    // (offline, an update since), tried again when a tab is chosen, not on every update.
-    if (
-      (this.tab === "home" || this.tab === "rooms" || this.choicesOpen) &&
-      !this.practicalModule
-    ) {
+    // The Home, Rooms and Safety tabs, and the choices: their module the first time one shows;
+    // failed (offline, an update since), tried again when a tab is chosen, not on every update.
+    const practical = this.tab === "home" || this.tab === "rooms" || this.tab === "safety";
+    if ((practical || this.choicesOpen) && !this.practicalModule) {
       this.practicalModule = import("./practical").then(
         () => {
           this.practicalReady = true;
@@ -3175,7 +3301,7 @@ export class DomoTwinPanel extends LitElement {
       <div class="main">
         ${tabs && !this.tight ? this.renderTabs("side") : nothing}
         <div class="body">
-          ${this.shown3d || tool ? this.renderView(admin, on3d) : nothing}
+          ${this.renderDoorbell()} ${this.shown3d || tool ? this.renderView(admin, on3d) : nothing}
           ${on3d ? nothing : this.renderPractical()}
           ${
             this.editing
@@ -3270,6 +3396,7 @@ export class DomoTwinPanel extends LitElement {
       .accessPoints=${this.settings?.access_points ?? NO_ACCESS_POINTS}
       @domotwin-open-bluetooth=${this.openBluetooth}
       .roomTab=${true}
+      .securityAlerts=${shown ? this.securityAlertsShown() : this.securityShown.alerts}
       @domotwin-room-open=${this.onRoomOpen}
     >
       <span slot="empty-action" class="empty-actions">
@@ -3326,38 +3453,150 @@ export class DomoTwinPanel extends LitElement {
     return html`<nav class="tabs ${where}" aria-label=${t.t("tabs.label")}>
       ${tab("home", mdiHomeOutline, t.t("tabs.home"))}
       ${tab("rooms", mdiViewGridOutline, t.t("tabs.rooms"))}
+      ${tab("safety", mdiShieldHomeOutline, t.t("tabs.safety"))}
       ${tab("3d", mdiCubeOutline, t.t("tabs.three_d"))}
     </nav>`;
   }
 
-  /** The Home or Rooms tab (D-055), once its module is loaded and the private rooms known. */
+  /**
+   * The Home, Rooms or Safety tab (D-055, D-068), once its module is loaded and the private rooms
+   * known; above the Home and Rooms tabs, the alerts the 3D view shows (the Safety tab lists them).
+   */
   private renderPractical(): TemplateResult | typeof nothing {
     const hass = this._hass;
     if (!hass || !this.practicalReady || !this.settingsRead) return nothing;
     const { sources, unseen, actions } = this.practical(hass);
-    return this.tab === "rooms"
-      ? html`<domotwin-rooms
-          .hass=${hass}
-          .t=${this.t}
-          .favourites=${this.choices?.favourites ?? []}
-          .unseen=${unseen}
-          .actions=${actions}
-          .area=${this.roomOpen}
-          ?from3d=${this.from3d}
-          @domotwin-go=${this.onGo}
-          @domotwin-favourite=${this.onFavourite}
-        ></domotwin-rooms>`
-      : html`<domotwin-home
-          .hass=${hass}
-          .t=${this.t}
-          ?can3d=${canDraw3d()}
-          .choices=${this.choices ?? NO_CHOICES}
-          .sources=${sources}
-          .unseen=${unseen}
-          @domotwin-go=${this.onGo}
-          @domotwin-favourite=${this.onFavourite}
-          @domotwin-sandbox-peak=${this.playPeak}
-        ></domotwin-home>`;
+    const alerts = this.homeAlerts(hass, sources.closed, unseen);
+    const page = securityPage(hass);
+    if (this.tab === "safety") {
+      return html`<domotwin-safety
+        .hass=${hass}
+        .t=${this.t}
+        .alerts=${alerts}
+        .storeys=${this.storeys}
+        .unseen=${unseen}
+        .page=${page}
+        @domotwin-alert-room=${this.onAlertRoom}
+      ></domotwin-safety>`;
+    }
+    return html`<div class="practical">
+      <domotwin-alert-bar
+        .t=${this.t}
+        .alerts=${alerts}
+        .storeys=${this.storeys}
+        .page=${page}
+        @domotwin-alert-room=${this.onAlertRoom}
+        @domotwin-go=${this.onGo}
+      ></domotwin-alert-bar>
+      ${
+        this.tab === "rooms"
+          ? html`<domotwin-rooms
+              .hass=${hass}
+              .t=${this.t}
+              .favourites=${this.choices?.favourites ?? []}
+              .unseen=${unseen}
+              .actions=${actions}
+              .area=${this.roomOpen}
+              ?from3d=${this.from3d}
+              @domotwin-go=${this.onGo}
+              @domotwin-favourite=${this.onFavourite}
+            ></domotwin-rooms>`
+          : html`<domotwin-home
+              .hass=${hass}
+              .t=${this.t}
+              ?can3d=${canDraw3d()}
+              .choices=${this.choices ?? NO_CHOICES}
+              .sources=${sources}
+              .unseen=${unseen}
+              @domotwin-go=${this.onGo}
+              @domotwin-favourite=${this.onFavourite}
+              @domotwin-sandbox-peak=${this.playPeak}
+            ></domotwin-home>`
+      }
+    </div>`;
+  }
+
+  /**
+   * The alerts the 3D view shows, for the other tabs (D-068): the rooms' of the storey shown, then
+   * those of the other storeys, and Home Assistant's own, dangers first.
+   */
+  private homeAlerts(hass: HomeAssistant, closed: Set<string>, unseen: Unseen): ShownAlert[] {
+    const bindings = this.bindings ?? NO_BINDINGS;
+    const here = roomLayers(hass, bindings, planRooms(this.plan), {
+      layer: "off",
+      alerts: true,
+      presence: false,
+      closed,
+    }).alerts;
+    const rooms = withAlertsElsewhere(hass, bindings, here, this.elsewhere, this.storey, closed);
+    const alerts = shownAlerts(
+      rooms,
+      this.securityAlertsOf(hass, () => unseen),
+    );
+    // The same list while it says the same: the bar and the Safety tab are not drawn again.
+    const key = JSON.stringify(alerts);
+    if (key !== this.homeAlertsShown.key) this.homeAlertsShown = { key, alerts };
+    return this.homeAlertsShown.alerts;
+  }
+
+  /**
+   * Home Assistant's alerts on now, for the home itself (not the demo house's, D-068); what the
+   * viewer may not see is worked out only when some are chosen.
+   */
+  private securityAlertsOf(hass: HomeAssistant, unseen: () => Unseen): SecurityAlert[] {
+    if (this.securityChoices.length === 0 || !securityAlertsKept(hass)) return [];
+    return securityAlerts(hass, this.securityChoices, unseen());
+  }
+
+  /** Home Assistant's alerts for the 3D view shown: the same list while they say the same. */
+  private securityAlertsShown(): SecurityAlert[] {
+    const hass = this._hass;
+    const alerts =
+      hass && this.settingsRead
+        ? this.securityAlertsOf(hass, () => this.practical(hass).unseen)
+        : [];
+    const key = JSON.stringify(alerts);
+    if (key !== this.securityShown.key) this.securityShown = { key, alerts };
+    return this.securityShown.alerts;
+  }
+
+  /**
+   * A room's alert tapped on another tab (D-068): the 3D view framing it, its storey shown first,
+   * as a tap on the 3D view's own banner does; where the 3D view cannot draw, its room's page.
+   */
+  private readonly onAlertRoom = async (
+    event: CustomEvent<Pick<StoreyAlert, "room" | "name" | "storey">>,
+  ): Promise<void> => {
+    const alert = event.detail;
+    const hass = this._hass;
+    if (!canDraw3d()) {
+      const area = hass
+        ? roomArea(hass, this.bindings ?? NO_BINDINGS, alert.room, alert.name)
+        : undefined;
+      const page = area ? areaPage(hass, area) : undefined;
+      if (page) navigate(page);
+      else this.go("rooms", area);
+      return;
+    }
+    const ticket = ++this.shows;
+    this.go("3d");
+    await this.updateComplete;
+    const view = await this.drawnView(ticket);
+    // Every storey shown at once: the room is framed among them.
+    view?.frameAlert(this.wholeHome() ? { room: alert.room, name: alert.name } : alert);
+  };
+
+  /** A doorbell ringing (D-068), full screen over every tab, once its module is loaded. */
+  private renderDoorbell(): TemplateResult | typeof nothing {
+    const hass = this._hass;
+    if (!this.ring || !this.doorbellReady || !hass || this.demoSwitch.home) return nothing;
+    return html`<domotwin-doorbell
+      .hass=${hass}
+      .t=${this.t}
+      .ring=${this.ring}
+      .unseen=${this.settingsRead ? this.practical(hass).unseen : NOTHING_UNSEEN}
+      @domotwin-close=${this.closeRing}
+    ></domotwin-doorbell>`;
   }
 
   /** The toolbar of the Home and Rooms tabs: the user's choices, and the home's settings. */
@@ -3586,7 +3825,7 @@ export class DomoTwinPanel extends LitElement {
               ${item("guests-menu", mdiAccountKeyOutline, t.t("guests.menu"), this.busy || this.demo !== undefined || this.sandbox !== undefined, this.openGuests)}
               ${item("config-history", mdiHistory, t.t("config_history.menu"), this.busy || this.sandbox !== undefined, this.openConfigHistory)}
               ${
-                // Where Home Assistant has an AI task, for administrators (D-068).
+                // Where Home Assistant has an AI task, for administrators (D-069).
                 plainWordsOffered(this._hass)
                   ? item(
                       "plain-words",
@@ -4065,7 +4304,7 @@ export class DomoTwinPanel extends LitElement {
   /**
    * Whether what the viewer may not see is known (D-039): the settings, the plan (or that there
    * is none), its links and the other storeys' rooms read. Until then nothing is named to an AI
-   * task (D-068).
+   * task (D-069).
    */
   private homeRead(): boolean {
     return (
@@ -4076,7 +4315,7 @@ export class DomoTwinPanel extends LitElement {
     );
   }
 
-  /** An automation in plain words (D-068), with what the viewer may not see left out of it. */
+  /** An automation in plain words (D-069), with what the viewer may not see left out of it. */
   private renderPlain(hass: HomeAssistant, session: PlainSession): TemplateResult {
     return html`<domotwin-plain
       .hass=${hass}

@@ -1,7 +1,7 @@
 /**
  * What Home Assistant answered when it refused: its configuration API's message (`{ body }`), or
  * its websocket's (`{ code, message }`). Shared by the dialogs that write Home Assistant's
- * configuration (D-062, D-068).
+ * configuration (D-062, D-069).
  */
 export function refusal(error: unknown): string | undefined {
   if (typeof error !== "object" || error === null || error instanceof Error) return undefined;
