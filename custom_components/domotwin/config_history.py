@@ -1,4 +1,4 @@
-"""The configuration history (`docs/DECISIONS.md`, D-061).
+"""The configuration history (`docs/DECISIONS.md`, D-062).
 
 Each change of an automation, a script, a scene or a dashboard is kept, by item and date, in a
 store of its own (.storage/domotwin.config_history), so that an administrator sees what changed

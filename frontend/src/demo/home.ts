@@ -172,7 +172,7 @@ export class DemoHome implements MemoryHome {
   /** Held while its panel or card is away, as the visitor left it otherwise. */
   private held = false;
   readonly store: DemoStore;
-  /** Its configuration history (D-061), put back in the page. */
+  /** Its configuration history (D-062), put back in the page. */
   readonly configHistory: DemoConfigHistory;
   private readonly language: string;
   private readonly states: Record<string, HassEntity> = {};
@@ -325,7 +325,7 @@ export class DemoHome implements MemoryHome {
         this.callService(domain, service, data ?? {}, target ?? {});
         return Promise.resolve();
       },
-      // Home Assistant's configuration API, for what the configuration history puts back (D-061).
+      // Home Assistant's configuration API, for what the configuration history puts back (D-062).
       callApi: <T>(method: string, path: string, parameters?: Record<string, unknown>) => {
         const found = /^config\/(automation|script|scene)\/config\/(.+)$/.exec(path);
         if (method !== "POST" || !found) {

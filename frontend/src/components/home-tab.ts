@@ -32,11 +32,15 @@ type Detail = "people" | "lights" | "openings" | "alerts";
 
 /** Home Assistant's card for a card of the Home tab. */
 function cardOf(home: HomeCard): CardConfig {
-  return card(
-    home.type === "calendar"
-      ? { type: "calendar", entities: home.entities, initial_view: "listWeek" }
-      : { type: "todo-list", entity: home.entity },
-  );
+  switch (home.type) {
+    case "calendar":
+      return card({ type: "calendar", entities: home.entities, initial_view: "listWeek" });
+    case "todo-list":
+      return card({ type: "todo-list", entity: home.entity });
+    case "summary":
+      // DomoTwin's own (D-061), made as Home Assistant makes any custom card.
+      return card({ type: "custom:domotwin-summary-card", summary: home.summary });
+  }
 }
 
 export class DomoTwinHome extends LitElement {

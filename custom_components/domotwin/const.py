@@ -129,7 +129,7 @@ MAX_FAVOURITES: Final = 100
 MAX_HOME_CARDS: Final = 6
 MAX_CALENDARS: Final = 10
 
-# The configuration history (docs/DECISIONS.md, D-061): each change of an automation, a script,
+# The configuration history (docs/DECISIONS.md, D-062): each change of an automation, a script,
 # a scene or a dashboard, in a store of its own (.storage/domotwin.config_history). At most this
 # many bytes in all and versions an item (the oldest versions go first, an item's newest always
 # kept), bytes a version (a larger one keeps its date, not its content); past this many items,

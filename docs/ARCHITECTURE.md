@@ -63,6 +63,11 @@ every reader returns `Result` with a stable error code that the frontend transla
 - The Wi-Fi for guests (D-060): `components/wifi-dialog.ts` (its own chunk) draws the QR code the
   analysis module encodes (`wifiQr`), from what `domotwin/wifi/get` answers (`live/wifi.ts`); the
   integration keeps the network in a private store of its own (`custom_components/domotwin/wifi.py`).
+- Home Assistant's Overview (D-061): `live/overview.ts` says where an area's page is (the panel
+  opens it for a room tapped in 3D); `components/summary-card.ts` is the summary card, whose body
+  (`components/summary-body.ts`, `live/summaries.ts`) is a chunk of its own. The integration gives
+  each room a device in its area with two sensors (`custom_components/domotwin/sensor.py`,
+  `overview.py`: the people in it, the upkeep due for its pieces).
 - `src/i18n/` holds the English and French dictionaries. Every visible string goes through `t()`.
 
 ![Render on demand: frames only when something changes, nothing while idle or off-screen](figures/render-on-demand.png)
@@ -163,7 +168,7 @@ every reader returns `Result` with a stable error code that the frontend transla
    sheet and drawn in the home (`why-wires.ts`) with the automations' wire set: the engine's
    `setAutomations`, one wire per step, unchanged. Nothing of it is in the integration. The demo
    house records its own (`src/demo/logbook.ts`) and answers the logbook as Home Assistant does.
-10. **Configuration history.** The integration's `config_history.py` (D-061) reads the
+10. **Configuration history.** The integration's `config_history.py` (D-062) reads the
    automations, scripts and scenes from the files Home Assistant's editors write and from their
    entities, and the dashboards from Lovelace, once Home Assistant has started and after each
    change it announces (`automation_reloaded`, `scene_reloaded`, `script.reload` called, one of
@@ -261,7 +266,7 @@ id: `favourites` (entity ids, 100 at most), `start` (`home`, `rooms` or `3d`, wh
 `{type: "todo-list", entity}`). A user removed from Home Assistant is forgotten when DomoTwin
 starts.
 
-`.storage/domotwin.config_history` (D-061, its own store, version 1, private): the configuration
+`.storage/domotwin.config_history` (D-062, its own store, version 1, private): the configuration
 history, each item by `<kind>:<key>` (`automation`, `script` and `scene` by their id or key,
 `dashboard` by its URL path, empty for the default one) with its `name`, its `source` (`editor`:
 written by Home Assistant's editors; `yaml`: in one's own YAML files) and its `versions`, oldest

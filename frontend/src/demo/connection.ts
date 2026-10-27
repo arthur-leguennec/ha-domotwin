@@ -50,7 +50,7 @@ export interface MemoryHome {
   /** What its Home Assistant recorded, by context, as its logbook answers (D-059); none:
    * nothing recorded. */
   readonly recorded?: DemoLogbook;
-  /** Its configuration history (D-061), where it keeps one (the demo house's). */
+  /** Its configuration history (D-062), where it keeps one (the demo house's). */
   readonly configHistory?: DemoConfigHistory;
 }
 

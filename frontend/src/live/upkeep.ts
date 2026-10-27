@@ -61,21 +61,33 @@ export type Standings = Record<string, CardStanding | undefined>;
 
 /** Today's date (`YYYY-MM-DD`) where the home is (Home Assistant's time zone), else here. */
 export function todayIn(timeZone: string | undefined, now = new Date()): string {
-  try {
-    const parts = new Intl.DateTimeFormat("en-CA", {
-      timeZone,
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    }).formatToParts(now);
+  const key = timeZone ?? "";
+  let format = dayFormats.get(key);
+  if (format === undefined) {
+    try {
+      format = new Intl.DateTimeFormat("en-CA", {
+        timeZone,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      });
+    } catch {
+      // An unknown time zone: the device's.
+      format = null;
+    }
+    dayFormats.set(key, format);
+  }
+  if (format) {
+    const parts = format.formatToParts(now);
     const part = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
     return `${part("year")}-${part("month")}-${part("day")}`;
-  } catch {
-    // An unknown time zone: the device's.
-    const pad = (n: number) => String(n).padStart(2, "0");
-    return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
   }
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 }
+
+/** The formatter of days of each time zone, made once (`null`: a zone this browser does not know). */
+const dayFormats = new Map<string, Intl.DateTimeFormat | null>();
 
 /** The standings the engine wrote (`upkeepStates`), or none. */
 export function readStandings(text: string | undefined): Standings {

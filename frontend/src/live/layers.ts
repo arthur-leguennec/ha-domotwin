@@ -32,6 +32,14 @@ export function automationsAvailable(hass: HomeAssistant | undefined): boolean {
   return hass?.user?.is_admin === true;
 }
 
+/**
+ * A layer asked for by its name (a summary card's address, D-061). Whether this user may see it is
+ * the view's to say, as for a layer chosen in its menu: it shows none it may not.
+ */
+export function layerAsked(name: string | null): LayerName | undefined {
+  return LAYER_NAMES.find((known) => known === name);
+}
+
 /** Whether the network map can be offered: to administrators, with ZHA set up (D-031). */
 export function networkAvailable(hass: HomeAssistant | undefined): boolean {
   return hass?.user?.is_admin === true && (hass.config?.components ?? []).includes("zha");

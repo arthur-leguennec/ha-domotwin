@@ -48,8 +48,8 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M38       | History as reports: tables, CSV, search by value           | ✅     |
 | M32       | "Why?": who or what changed a device, drawn in 3D          | ✅     |
 | M30       | The Wi-Fi QR code, for guests                              | ✅     |
+| M23b      | Into Home Assistant's Overview, rather than a copy of it   | ✅     |
 | M36       | Configuration history: differences, one item put back      | ✅     |
-| M23b      | Into Home Assistant's Overview, rather than a copy of it   | ⏳     |
 | M24       | History and energy, with Home Assistant's own cards        | ⏳     |
 | M25       | Safety: cameras, the doorbell, the alarm, alerts           | ⏳     |
 | M26       | The wall screen: a screen saver, a layout per device       | ⏳     |
@@ -93,7 +93,7 @@ QR code (M30) and a placement advisor for radios (M31) before a first launch in 
 report (M37), history as reports (M38) and Hydro-Québec's peaks (M39) follow, among a library of
 objects (M17), the outdoors (M18), more imports (M20) and more languages (M21), before a sixth
 release, 0.6.0. After the sandbox, the maintainer asked for history as reports (M38, D-058),
-"Why?" (M32, D-059) and the configuration history (M36, D-061) before the rest, which keeps its
+"Why?" (M32, D-059) and the configuration history (M36, D-062) before the rest, which keeps its
 order.
 
 ## M0, scaffold
@@ -1202,12 +1202,36 @@ The QR code a phone's camera joins the home's Wi-Fi with, drawn in the page (D-0
   never in the diagnostics (pytest); given, drawn, changed, forgotten, a chosen screen and
   others, a router's code, in French (Playwright).
 
+## M23b, into Home Assistant's Overview
+
+DomoTwin joined to Home Assistant's own Overview rather than copying it (D-061).
+
+- ✅ **Area pages**: in the panel, a room tapped in 3D opens its area's page of the Overview
+  (`/home/areas-<area>`, Home Assistant 2026.2 and later); before, and in the demo house and the
+  sandbox, its page in *Rooms*. The room's own actions stay in its 3D panel.
+- ✅ **What DomoTwin knows, on them**: a device for each room, in its area, with the people at home
+  in it (unknown while private) and the upkeep due for its pieces; it follows the room's area,
+  goes with the room. The mesh and the robots have summaries instead (worked out in the browser,
+  drawn by the engine).
+- ✅ **Summaries**: `custom:domotwin-summary-card` for the people, the network, the automations,
+  the upkeep and the robots, each opening the 3D view on what it sums up (`?layer=`); in one's
+  dashboards and the Home tab. Loaded on demand.
+- ✅ **Shortcuts**: the guide shows how to put DomoTwin among the Overview's (2026.5 and later).
+- ❓ **Asked**: the 3D view at the top of the Overview or of an area's page, and an area's page
+  opening DomoTwin, need Home Assistant; the Home and Rooms tabs stay until it is said whether
+  they should where the Overview is.
+- ✅ Tests: pieces in their rooms, each room's device in its area, who is there, a private room,
+  the upkeep due in it, a room renamed, given another area, removed (pytest); versions, area
+  pages, summaries, the layers a user may see (Vitest); a room tapped opening its area's page and
+  back, the Rooms tab before the Overview, a layer from the address, the summaries in English and
+  French, the network's read, a summary on the Home tab (Playwright).
+
 ## M36, configuration history
 
 Home Assistant keeps no history of its own configuration: its editors' undo lasts one session, a
 backup puts back a whole part, and what exists needs an add-on and Git (D-056). Asked for by the
-maintainer right after 0.4.0, done once the sandbox, history as reports, "Why?" and the Wi-Fi
-for guests were in (D-061).
+maintainer right after 0.4.0, done once the sandbox, history as reports, "Why?", the Wi-Fi for
+guests and Home Assistant's Overview were in (D-062).
 
 - ✅ **Each change kept**: the automations, scripts and scenes of Home Assistant's editors and of
   one's own YAML files, and the dashboards; read once Home Assistant has started, after it
@@ -1251,21 +1275,9 @@ milestone starts, which goes on with what needs no answer.
 
 - ✅ **M29, the sandbox** (D-057, above).
 - ✅ **M30, the Wi-Fi QR code** (D-060, above).
-- ⏳ **M23b, into Home Assistant's Overview**: since 2026.2, Home Assistant opens on its own
-  Overview: summaries of the lights, the climate, security, media and energy, the weather,
-  favourites, a page for each area, and since 2026.10 the active alerts (D-056). DomoTwin plugs
-  into it rather than copying it, with Home Assistant's own cards and dialogs. Where Home
-  Assistant has it, a room tapped in 3D opens that room's area page (`/home/areas-<area>`), the
-  room's own actions staying in its 3D panel; elsewhere, its page in *Rooms*. What DomoTwin knows
-  and the Overview does not show (who is in which room, the weak spots of the network, the
-  upkeep due, where the robots are) becomes entities, which Home Assistant shows on the area page
-  of their room and lets an administrator make favourites of the Overview; and DomoTwin summary
-  cards, in the Overview's manner, for one's own dashboards and the Home tab (people in their
-  rooms, the network, the wires, the upkeep, the robots), each opening the 3D view on what it
-  sums up. The docs show how to put DomoTwin among the Overview's shortcuts (2026.5 and later).
-  The Overview has no place for a card that is not its own, on its home page or its area pages:
-  the 3D view at their top, and an area page opening DomoTwin on its room, need Home Assistant
-  ❓. Whether the Home and Rooms tabs stay where the Overview is ❓.
+- ✅ **M23b, into Home Assistant's Overview** (D-061, above). Still asked ❓: the 3D view at the
+  top of the Overview or of an area's page, and an area's page opening DomoTwin, need Home
+  Assistant; whether the Home and Rooms tabs stay where the Overview is.
 - ⏳ **M24, history and energy**: a sheet for each room with its sensors' history-graph cards; an
   Energy tab made of Home Assistant's energy cards, or Home Assistant's own Energy page opened
   where it has one, as M23b does (D-056). Replay, the home's past in 3D (M19), stays a 3D feature,
@@ -1315,8 +1327,8 @@ milestone starts, which goes on with what needs no answer.
 - ⏳ **M20, more imports**: robot vacuum maps (Valetudo and others), Floorplanner, meshes.
 - ⏳ **M17, a library of objects**: many more pieces, free and well made, drawn from real
   references, still fast.
-- ✅ **M36, configuration history** (D-061, above): done after history as reports, at the
-  maintainer's request.
+- ✅ **M36, configuration history** (D-062, above): done after Home Assistant's Overview, at
+  the maintainer's request.
 - ⏳ **M37, a weekly home report**: once a week, what needs a look: batteries low, devices
   unavailable, updates and repairs waiting, upkeep due (M9d), weak radio links (M9b, M31),
   automations that failed or never fired, the week's energy against the last, room by room on

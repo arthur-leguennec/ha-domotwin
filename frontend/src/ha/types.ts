@@ -112,7 +112,11 @@ export interface HomeAssistant {
     /** Where the home is: for the sun of the sandbox's day (D-057). */
     latitude?: number;
     longitude?: number;
+    /** Home Assistant's version (`2026.2.0`): what its frontend has (D-061). */
+    version?: string;
   };
+  /** The panels Home Assistant has, by URL path: its Overview's is `home` (D-061). */
+  panels?: Record<string, { url_path?: string } | undefined>;
   connection: HassConnection;
   /**
    * The demo house's own (D-050): nothing hands over to Home Assistant's pages or dialogs, which

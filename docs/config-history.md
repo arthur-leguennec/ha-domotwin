@@ -3,7 +3,7 @@
 Home Assistant keeps no history of its own configuration: its editors' undo lasts one session, and
 a backup puts back a whole part, not one automation. DomoTwin keeps each change of an automation,
 a script, a scene and a dashboard, says what changed in words, and puts one item back as it was,
-with Home Assistant's own configuration commands (`DECISIONS.md`, D-061). No add-on, no Git.
+with Home Assistant's own configuration commands (`DECISIONS.md`, D-062). No add-on, no Git.
 
 It is for administrators: the panel's ⋮ menu, **Configuration history**.
 

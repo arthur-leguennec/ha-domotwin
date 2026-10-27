@@ -105,7 +105,7 @@ function version(id: number, changes: Partial<ConfigVersion> = {}): ConfigVersio
   return { id, at: "2026-10-20T18:00:00+00:00", removed: false, kept: true, ...changes };
 }
 
-describe("what changed between two versions (D-061)", () => {
+describe("what changed between two versions (D-062)", () => {
   it("takes keys named as JavaScript's own (constructor) as any other", () => {
     expect(said("dashboard", { title: "Home" }, { title: "Home", constructor: "x" })).toEqual([
       "add constructor: “x”",
