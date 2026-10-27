@@ -794,6 +794,9 @@ export const main: Dictionary = {
   plain: {
     menu: "쉬운 말로 만드는 자동화",
   },
+  report: {
+    menu: "주간 보고서",
+  },
   config_history: {
     menu: "구성 기록",
   },

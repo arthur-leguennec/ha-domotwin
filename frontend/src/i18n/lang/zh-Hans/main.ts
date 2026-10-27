@@ -785,6 +785,9 @@ export const main: Dictionary = {
   plain: {
     menu: "用日常语言写自动化",
   },
+  report: {
+    menu: "每周报告",
+  },
   config_history: {
     menu: "配置历史",
   },

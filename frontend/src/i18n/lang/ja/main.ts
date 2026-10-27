@@ -802,6 +802,9 @@ export const main: Dictionary = {
   plain: {
     menu: "普段の言葉でオートメーション",
   },
+  report: {
+    menu: "週間レポート",
+  },
   config_history: {
     menu: "設定の履歴",
   },
