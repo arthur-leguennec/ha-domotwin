@@ -347,7 +347,8 @@ def ask(report: Mapping[str, Any], language: str, rooms: Mapping[str, str]) -> s
     """What the AI task is asked: the report's facts, and how to sum them up.
 
     The automations and the radios counted, not named: the summary is written into Home
-    Assistant's notification, which every user sees.
+    Assistant's notification, which every user sees. Only the rooms in `rooms` (their names, by
+    id) are said: a private room is not.
     """
     words = WORDS[language]
     said = words["facts"]
@@ -401,9 +402,10 @@ def ask(report: Mapping[str, Any], language: str, rooms: Mapping[str, str]) -> s
     facts.extend(
         "- "
         + str(said["room_energy"]).format(
-            room=rooms.get(room, room), week=kwh(pair, "week"), before=kwh(pair, "before")
+            room=rooms[room], week=kwh(pair, "week"), before=kwh(pair, "before")
         )
         for room, pair in sorted((energy.get("rooms") or {}).items())
+        if room in rooms
     )
     facts.extend(
         "- "

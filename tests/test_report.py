@@ -1007,6 +1007,13 @@ async def test_the_summary_by_the_ai_task(
         "5",
         {"device_class": "battery", "unit_of_measurement": "%", "friendly_name": "Smoke alarm"},
     )
+    other = MockConfigEntry(domain="test")
+    other.add_to_hass(hass)
+    kitchen = _device(hass, other, "Kitchen smoke alarm", "kitchen")
+    _entity(hass, other, "sensor.kitchen_smoke_battery", device=kitchen)
+    hass.states.async_set(
+        "sensor.kitchen_smoke_battery", "5", {"device_class": "battery", "unit_of_measurement": "%"}
+    )
     asked: list[ServiceCall] = []
     answer: dict[str, Any] = {"data": "  The smoke alarm needs a battery.  "}
 
@@ -1026,8 +1033,16 @@ async def test_the_summary_by_the_ai_task(
     report = await _write(client)
     assert report["summary"] == {"by": "ai_task.helper", "text": "The smoke alarm needs a battery."}
     assert asked[0].data["entity_id"] == "ai_task.helper"
+    assert "(in the Kitchen)" in asked[0].data["instructions"]
     assert "Battery low: Smoke alarm (5 %)" in asked[0].data["instructions"]
     assert "In English" in asked[0].data["instructions"]
+    # The kitchen kept private for nobody: the AI task is not told the room.
+    settings = (await _send(client, {"type": "domotwin/settings/get"}))["result"]["settings"]
+    private = {**settings, "rooms": {"kitchen": {"people": []}}}
+    assert (await _send(client, {"type": "domotwin/settings/save", "settings": private}))["success"]
+    await _write(client)
+    assert "(in the Kitchen)" not in asked[1].data["instructions"]
+    assert "Kitchen smoke alarm (5 %)" in asked[1].data["instructions"]
     answer["refuse"] = "The model is not available"
     report = await _write(client)
     assert report["summary"] == {"by": "ai_task.helper", "error": "The model is not available"}
@@ -1155,7 +1170,10 @@ def test_the_notification_and_the_question_in_words() -> None:
             ],
         },
         "more": {"batteries": 3},
-        "energy": {"home": {"week": 90.04, "before": 100}, "rooms": {"hall": {"week": 4.5}}},
+        "energy": {
+            "home": {"week": 90.04, "before": 100},
+            "rooms": {"hall": {"week": 4.5}, "bedroom": {"week": 2.0}},
+        },
         "peaks": [
             {"start": "2026-10-20T10:00:00+00:00", "end": "2026-10-20T13:00:00+00:00", "grid": 1.5},
             {"start": "2026-10-22T20:00:00+00:00", "end": "2026-10-23T00:00:00+00:00"},
@@ -1189,7 +1207,9 @@ def test_the_notification_and_the_question_in_words() -> None:
         assert "Ouvrir le bilan" not in french
         empty = {**report, "sections": {}, "more": {}, "energy": None, "peaks": []}
         assert "Nothing needs a look this week." in notification(empty, "en", None, None)[1]
+        # The bedroom is private: not named.
         question = ask(report, "fr", {"hall": "Entrée"})
+        assert "bedroom" not in question
         assert "In French" in question
         assert (
             "- Mise à jour en attente : Router (1 → 2) (pièce : Entrée), nouveau cette semaine"

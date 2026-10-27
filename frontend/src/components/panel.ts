@@ -442,6 +442,7 @@ export class DomoTwinPanel extends LitElement {
   private reportAsked?: number;
   /** The plans the report is drawn on, the same while they are. */
   private reportShown?: { from: unknown[]; plans: ReportPlan[] };
+  private reportClosedShown?: Set<string>;
   /** The menu of the export and the home's settings is open. */
   protected moreOpen = false;
   /** Too narrow for every button (a phone): the import and the storeys go in the More menu. */
@@ -3584,6 +3585,17 @@ export class DomoTwinPanel extends LitElement {
     return plans;
   }
 
+  /** The rooms the viewer may not see now (D-039), the same set while they are the same. */
+  private reportClosed(): Set<string> {
+    const closed = privateRooms(this.settings?.rooms, this._hass);
+    const kept = this.reportClosedShown;
+    if (kept && kept.size === closed.size && [...closed].every((room) => kept.has(room))) {
+      return kept;
+    }
+    this.reportClosedShown = closed;
+    return closed;
+  }
+
   /** "Show in 3D" from the report: closed, the element framed in the 3D view. */
   private readonly onReportShow = (event: CustomEvent<{ element: string }>): void => {
     this.reportOpen = false;
@@ -3980,6 +3992,7 @@ export class DomoTwinPanel extends LitElement {
         ? html`<domotwin-report
             .hass=${this._hass}
             .plans=${this.reportPlans()}
+            .closed=${this.reportClosed()}
             .asked=${this.reportAsked}
             @domotwin-close=${() => (this.reportOpen = false)}
             @domotwin-show=${this.onReportShow}

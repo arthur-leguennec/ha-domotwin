@@ -1380,7 +1380,8 @@ Once a week, what needs a look in the home, room by room on the plans (`DECISION
   Hydro-Québec peaks** (M39): when the integrations' sensors said one was under way and those
   hydroqc wrote in a calendar kept in Home Assistant, with what the home and each room drew.
 - ✅ **Room by room**: an item in the room of the piece, opening or room linked to it or to its
-  device, else of its area; what is new since the last report, and what was done.
+  device, else of its area; what is new since the last report, and what was done. A private room
+  the viewer may not see is closed in the page (D-039).
 - ✅ **Told** by Home Assistant's notification (its link opens the report): names what every user
   may see, counts the automations and the radios, which only administrators may read; an event,
   `domotwin_weekly_report`, for one's own automations.
@@ -1398,15 +1399,18 @@ Once a week, what needs a look in the home, room by room on the plans (`DECISION
   so, updates and one skipped, repairs and one ignored, Watchman's both sensors, upkeep, failed runs
   in and out of the week, automations broken and never run, rooms from links, devices and areas,
   weak radios by the network map's rules, the energy settings in both shapes, the week's energy
-  and peaks through the recorder, new and done since the last, written on its day and told once,
-  a week caught up, a new home waiting, the AI task's summary and refusal, the settings for
+  and peaks through the recorder, new and done since the last, a device unavailable across a
+  restart, written on its day and told once (two hours at once, writing by hand), a week caught
+  up, a new home waiting, unloaded while writing, the AI task's summary, its refusal and a private
+  room it is not told, the settings for
   administrators, kept leniently and in bounds, the words in both languages, the day across a
   change of time, the diagnostics, removed with the integration (pytest); the report read
   leniently, each item in words and where it opens, the AI tasks offered, the plans' rooms and
   labels, the demo house's reports, the messages' placeholders (vitest); the sections and the
   rooms, a room picked, the energy and the peaks, opening items and showing one in 3D, writing
   one, an earlier week, the settings, the integration refusing, the notification's link and a
-  user who is not an administrator, none yet, a summary, French, the demo house (Playwright).
+  user who is not an administrator, none yet, a summary, a private room closed, French, the demo
+  house (Playwright).
 
 Measured at the end of M37: see [`PERFORMANCE.md`](PERFORMANCE.md).
 

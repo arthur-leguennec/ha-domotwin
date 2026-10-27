@@ -60,6 +60,7 @@ export class DomoTwinReport extends LitElement {
   static override properties = {
     hass: { attribute: false },
     plans: { attribute: false },
+    closed: { attribute: false },
     asked: { attribute: false },
     answer: { state: true },
     room: { state: true },
@@ -218,6 +219,11 @@ export class DomoTwinReport extends LitElement {
         stroke: var(--primary-color, #03a9f4);
         stroke-width: calc(var(--line, 2) * 3);
       }
+      .room.closed polygon {
+        cursor: default;
+        fill: color-mix(in srgb, var(--secondary-text-color, #5f6368) 22%, transparent);
+        stroke-dasharray: calc(var(--line, 2) * 3);
+      }
       .room:focus-visible {
         outline: none;
       }
@@ -346,6 +352,11 @@ export class DomoTwinReport extends LitElement {
   hass?: HomeAssistant;
   /** Every storey's plan, to draw the rooms on. */
   plans: ReportPlan[] = [];
+  /**
+   * The private rooms the viewer may not see now (D-039): drawn closed, nothing said of what is
+   * in them, their energy left out, as DomoTwin's views close them.
+   */
+  closed: Set<string> = new Set();
   /** The report asked for (the notification's link), else the newest. */
   asked?: number;
   protected answer?: ReportAnswer;
@@ -760,6 +771,13 @@ export class DomoTwinReport extends LitElement {
         data-storey=${storey.storey}
       >
         ${storey.rooms.map((room) => {
+          if (this.closed.has(room.id)) {
+            const [cx, cy] = room.label;
+            return svg`<g class="room closed" data-room=${room.id} role="img" aria-label=${t.t("report.plan.private", { room: room.name })}>
+              <polygon points=${room.points.map((p) => p.join(",")).join(" ")}></polygon>
+              <text x=${cx} y=${cy} font-size=${size}>${t.t("report.plan.private", { room: room.name })}</text>
+            </g>`;
+          }
           const count = rooms.get(room.id)?.length ?? 0;
           const kwh = energy[room.id]?.week;
           const label =
@@ -802,8 +820,10 @@ export class DomoTwinReport extends LitElement {
     const all = report.sections[section];
     if (!all || countOf(report, section) === 0) return nothing;
     const room = this.room;
-    const items = room ? all.filter((item) => item.room === room) : all;
-    if (items.length === 0) return nothing;
+    const seen = all.filter((item) => !item.room || !this.closed.has(item.room));
+    const items = room ? seen.filter((item) => item.room === room) : seen;
+    const hidden = room ? 0 : all.length - seen.length;
+    if (items.length === 0 && hidden === 0) return nothing;
     const t = this.t;
     const more = room ? 0 : (report.more?.[section] ?? 0);
     const hass = this.hass;
@@ -821,6 +841,7 @@ export class DomoTwinReport extends LitElement {
         ${items.map((item) => this.renderItem(section, item, outside))}
       </ul>
       ${more > 0 ? html`<p class="hint">${t.tp("report.more", more)}</p>` : nothing}
+      ${hidden > 0 ? html`<p class="hint" data-private>${t.tp("report.private_items", hidden)}</p>` : nothing}
     </section>`;
   }
 
@@ -898,7 +919,7 @@ export class DomoTwinReport extends LitElement {
     if (energy.grid) rows.push([t.t("report.energy.grid"), energy.grid]);
     if (energy.solar) rows.push([t.t("report.energy.solar"), energy.solar]);
     const rooms = Object.entries(energy.rooms ?? {})
-      .filter(([room]) => !this.room || room === this.room)
+      .filter(([room]) => !this.closed.has(room) && (!this.room || room === this.room))
       .sort(([, a], [, b]) => (b.week ?? 0) - (a.week ?? 0));
     for (const [room, pair] of rooms) rows.push([names.get(room) ?? room, pair, room]);
     if (rows.length === 0) return nothing;
@@ -954,6 +975,7 @@ export class DomoTwinReport extends LitElement {
           : html`<ul class="items">
               ${peaks.map((peak) => {
                 const rooms = Object.entries(peak.rooms ?? {})
+                  .filter(([room]) => !this.closed.has(room))
                   .sort(([, a], [, b]) => b - a)
                   .map(([room, kwh]) => `${names.get(room) ?? room} ${formatKwh(kwh, language)}`);
                 const parts = [

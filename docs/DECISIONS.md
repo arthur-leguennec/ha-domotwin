@@ -2884,6 +2884,11 @@ M37, moved forward by the maintainer from the way to 0.6.0 (D-056), after Hydro-
     piece, a door, a window or a partition that names its room, a room), else in the first room
     whose area is its entity's or its device's, as the layers read the rooms' areas (D-023). An
     item in no room is said in its section only.
+  - **Private rooms** (D-039): the page closes a room its viewer may not see now, as DomoTwin's
+    views do: drawn closed, nothing of what is in it shown (counted only), its energy and its
+    part of the peaks left out. The report itself keeps every room: whether one is private
+    depends on who looks, and when. The AI task is not told a room private now for nobody; the
+    notification names no room.
   - **What changed since the last**: an item is new when the report before did not have it (its
     key stays the same while it is the same thing to look at: an update waiting, whichever version
     it waits for); what the report before had and this one has not is listed as done. The week's

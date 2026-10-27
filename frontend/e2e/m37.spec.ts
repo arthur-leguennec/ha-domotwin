@@ -261,6 +261,24 @@ test.describe("the weekly report (D-066)", () => {
     );
   });
 
+  test("a private room is closed in it, as in DomoTwin's views", async ({ page }) => {
+    await openHarness(page, { mode: "panel", weekly: true, private: ["kitchen"] });
+    const dialog = await openReport(page);
+    await expect(room(dialog, "kitchen")).toHaveClass(/closed/);
+    await expect(room(dialog, "kitchen")).toHaveAttribute("aria-label", "Kitchen: private");
+    await expect(room(dialog, "kitchen")).not.toHaveAttribute("data-count");
+    // What is in it is not shown, only counted; its energy is left out.
+    const unavailable = dialog.locator('[data-section="unavailable"]');
+    await expect(unavailable.locator("li")).toHaveCount(0);
+    await expect(unavailable.locator("[data-private]")).toHaveText(
+      "1 more in a private room, not shown.",
+    );
+    await expect(page.getByTestId("report-energy").locator('tr[data-room="kitchen"]')).toHaveCount(
+      0,
+    );
+    await expect(page.getByTestId("report-peaks")).not.toContainText("Kitchen");
+  });
+
   test("speaks French", async ({ page }) => {
     await openHarness(page, { mode: "panel", weekly: true, lang: "fr" });
     await page.getByTestId("more").click();

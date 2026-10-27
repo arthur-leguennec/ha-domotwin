@@ -53,6 +53,10 @@ export const reportEn = {
       radios: "Zigbee devices on a weak link",
     },
     more: { one: "And {count} more.", other: "And {count} more." },
+    private_items: {
+      one: "{count} more in a private room, not shown.",
+      other: "{count} more in private rooms, not shown.",
+    },
     new: "New",
     open: "Open",
     show: "Show in 3D",
@@ -86,6 +90,7 @@ export const reportEn = {
         other: "{room}: {count} things to look at",
       },
       label_none: "{room}: nothing to look at",
+      private: "{room}: private",
       only: "Only what is in {room}",
       all: "Every room",
       elsewhere: {
@@ -194,6 +199,10 @@ export const reportFr: Widen<typeof reportEn> = {
       radios: "Appareils Zigbee sur un lien faible",
     },
     more: { one: "Et {count} de plus.", other: "Et {count} de plus." },
+    private_items: {
+      one: "{count} de plus dans une pièce privée, pas affiché.",
+      other: "{count} de plus dans des pièces privées, pas affichés.",
+    },
     new: "Nouveau",
     open: "Ouvrir",
     show: "Voir en 3D",
@@ -233,6 +242,7 @@ export const reportFr: Widen<typeof reportEn> = {
         other: "{room} : {count} choses à surveiller",
       },
       label_none: "{room} : rien à surveiller",
+      private: "{room} : pièce privée",
       only: "Seulement ce qui est dans la pièce {room}",
       all: "Toutes les pièces",
       elsewhere: {

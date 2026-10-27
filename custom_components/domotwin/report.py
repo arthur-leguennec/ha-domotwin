@@ -49,6 +49,7 @@ from .const import (
     SIGNAL_UPDATED,
 )
 from .overview import piece_rooms
+from .privacy import private_rooms
 from .report_look import Look, Places, async_failed_runs
 from .report_radios import weak_radios, zha_radios
 from .report_week import (
@@ -337,7 +338,11 @@ class WeeklyReport:
             if by == "schedule" and not self.due(now):
                 return None
             report, places = await self._work_out(by, now)
-            rooms = {room.id: room.name for room in places.rooms}
+            # The rooms the AI task may name: not those private now for nobody (D-039).
+            closed = private_rooms(
+                self._data.settings.get("rooms", {}), self._hass.states.get, None
+            )
+            rooms = {room.id: room.name for room in places.rooms if room.id not in closed}
             language = language_of(self._hass.config.language)
             if self.settings["summary"]:
                 report["summary"] = await self._summarise(report, language, rooms)

@@ -57,6 +57,10 @@ the layers read the rooms. The report's page draws each storey's plan: the more 
 at, the deeper its colour; its week's energy is written in it. Pick a room to see only what is in
 it, and **Show in 3D** to go there.
 
+A [private room](privacy.md) you may not see is closed in the page as in the rest of DomoTwin:
+drawn closed, what is in it counted but not shown, its energy left out. The notification names no
+room, and the AI task is not told a room that is private for nobody.
+
 ## Where
 
 - **Home Assistant's notification**, replaced each week, if you keep it on: the week, the summary,
@@ -113,7 +117,8 @@ and how many reports are kept; they are deleted with the integration.
 
 - A run that failed and has left the traces Home Assistant keeps (the last five of each
   automation) by the time the report is written is not counted.
-- An automation never run is named once Home Assistant has known it for a week.
+- An automation never run is named once Home Assistant has known it for a week; one written in
+  YAML without an `id` is not, since Home Assistant does not say when it was made.
 - The radios are read from ZHA's own code; a version of ZHA that answers differently is left out,
   and the network map still reads it.
 - The energy and the peaks need Home Assistant's recorder; the energy, its energy settings or
