@@ -387,13 +387,10 @@ async def test_the_voice_blueprint_says_where_someone_is(
     config_dir: Path,
 ) -> None:
     """Imported as is, "where is Alex" answers with Alex's room and shows it."""
-    admin = await hass_ws_client(hass)
-    assert (await _save_people(admin, {"person.alex": {"sources": ["sensor.alex_phone_area"]}}))[
-        "success"
-    ]
     target = config_dir / "blueprints" / "automation" / "domotwin"
     target.mkdir(parents=True)
     shutil.copy(BLUEPRINT, target / BLUEPRINT.name)
+    # Set up before a client starts the web server: Assist's intents add their views to it.
     assert await async_setup_component(hass, "homeassistant", {})
     assert await async_setup_component(hass, "conversation", {})
     assert await async_setup_component(
@@ -402,6 +399,10 @@ async def test_the_voice_blueprint_says_where_someone_is(
         {"automation": {"use_blueprint": {"path": "domotwin/where_by_voice.yaml", "input": {}}}},
     )
     await hass.async_block_till_done()
+    admin = await hass_ws_client(hass)
+    assert (await _save_people(admin, {"person.alex": {"sources": ["sensor.alex_phone_area"]}}))[
+        "success"
+    ]
     screen = await hass_ws_client(hass)
     await screen.send_json_auto_id({"type": "domotwin/subscribe"})
     assert (await screen.receive_json())["success"]
