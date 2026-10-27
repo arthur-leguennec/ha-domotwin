@@ -654,6 +654,11 @@ export const fr: Dictionary = {
     leave: "Quitter le bac à sable",
     no_dialog: "Les fenêtres de Home Assistant ne s’ouvrent pas dans le bac à sable.",
   },
+  summary: {
+    name: "Résumé DomoTwin",
+    description:
+      "Un des résumés de DomoTwin, à la manière de l’Aperçu : les personnes à la maison, le réseau radio, les automatisations, l’entretien ou les robots.",
+  },
   wifi: {
     menu: "Wi-Fi des invités",
     button: "Wi-Fi des invités : son code QR",
@@ -1196,5 +1201,6 @@ export const fr: Dictionary = {
     bad_tools: "`tools` doit valoir true ou false",
     bad_voice: "`voice` doit valoir true ou false",
     bad_screen: "`screen` doit être un nom fait de lettres, chiffres, _ et - (64 au plus)",
+    bad_summary: "`summary` doit être people, network, automations, upkeep ou robots",
   },
 };

@@ -182,6 +182,11 @@ test.describe("the practical home (D-055)", () => {
     await dialog.getByText("Shopping").click();
     await dialog.getByTestId("choices-pick-add").click();
     await expect(dialog.getByTestId("choices-cards")).toContainText("List: Shopping");
+    // One of DomoTwin's summaries too (D-061).
+    await dialog.getByTestId("choices-add-summary").click();
+    await dialog.getByText("Upkeep").click();
+    await dialog.getByTestId("choices-pick-add").click();
+    await expect(dialog.getByTestId("choices-cards")).toContainText("Summary: Upkeep");
     await dialog.getByTestId("choices-first").check();
     await dialog.getByTestId("choices-save").click();
     await expect(dialog).toHaveCount(0);
@@ -189,7 +194,10 @@ test.describe("the practical home (D-055)", () => {
       () => (window as never as { __choices: { start?: string; cards: unknown[] } }).__choices,
     );
     expect(saved.start).toBe("rooms");
-    expect(saved.cards).toEqual([{ type: "todo-list", entity: "todo.shopping" }]);
+    expect(saved.cards).toEqual([
+      { type: "todo-list", entity: "todo.shopping" },
+      { type: "summary", summary: "upkeep" },
+    ]);
     expect(await page.evaluate(() => localStorage.getItem("domotwin-start"))).toBe("home");
     expect((await calls(page)).filter((c) => c.type === "hass-default-panel")).toEqual([
       { type: "hass-default-panel", detail: { defaultPanel: "domotwin" } },
@@ -198,6 +206,7 @@ test.describe("the practical home (D-055)", () => {
     await expect(
       page.getByTestId("home-cards").locator(".ha-card[data-type='todo-list']"),
     ).toHaveAttribute("data-entity", "todo.shopping");
+    await expect(page.getByTestId("home-cards").getByTestId("summary-upkeep")).toBeVisible();
   });
 
   test("on a phone, the tabs are at the bottom; in French", async ({ page }) => {
