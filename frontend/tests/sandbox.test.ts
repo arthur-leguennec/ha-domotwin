@@ -958,7 +958,7 @@ describe("the sandbox's clock on the day the clocks change", () => {
   // 25 October 2026 in Paris: two in the morning comes twice, the day has 25 hours.
   const day = moment(ZONE, 2026, 10, 25);
 
-  it("counts who is in the home zone as people go out and come back (D-064)", () => {
+  it("counts who is in the home zone as people go out and come back (D-066)", () => {
     const copy: Record<string, HassEntity> = {
       "person.alex": entity("person.alex", "home"),
       "person.sam": entity("person.sam", "home"),

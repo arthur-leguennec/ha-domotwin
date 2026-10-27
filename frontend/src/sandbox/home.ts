@@ -40,7 +40,7 @@ export interface SandboxVisitor {
   draft?: SandboxDraft;
 }
 
-/** A draft of an automation, played in the sandbox beside the home's (D-064). */
+/** A draft of an automation, played in the sandbox beside the home's (D-066). */
 export interface SandboxDraft {
   /** The entity id it has in the copy (none of the home's). */
   entity: string;
@@ -50,7 +50,7 @@ export interface SandboxDraft {
   onDay?: (day: DraftDay) => void;
 }
 
-/** What a draft did on a day played (D-064). */
+/** What a draft did on a day played (D-066). */
 export interface DraftDay {
   /** The day played, told from another (its scenario, what was done by hand too). */
   key: string;
@@ -131,7 +131,7 @@ export class SandboxHome implements MemoryHome {
   private readonly clockListeners = new Set<() => void>();
   private readonly areaOf: (id: string) => string | undefined;
   private readonly copy: HomeCopy;
-  /** The automation written in plain words played beside the home's, if one is (D-064). */
+  /** The automation written in plain words played beside the home's, if one is (D-066). */
   readonly draft?: { entity: string; name: string };
   private readonly onDraftDay?: (day: DraftDay) => void;
 
@@ -259,7 +259,7 @@ export class SandboxHome implements MemoryHome {
     return this.report;
   }
 
-  /** What the draft did on the day played, when there is one (D-064). */
+  /** What the draft did on the day played, when there is one (D-066). */
   draftDay(): DraftDay | undefined {
     const draft = this.draft;
     if (!draft) return undefined;

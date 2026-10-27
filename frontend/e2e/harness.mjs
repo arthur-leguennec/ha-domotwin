@@ -30,6 +30,9 @@
 //   (the settings cannot be read until window.__settingsUp())
 //   voice=1 (Assist with a pipeline that hears), voice=deaf (Assist that cannot hear),
 //   robot=1 (a robot vacuum's dock in the hall, linked to vacuum.robbie, docked; D-049)
+//   valetudo=1 (a robot running Valetudo: its vacuum and its Map data camera over MQTT, whose
+//   picture is the fictional map of crates/domotwin-import/tests/fixtures/robot.png; D-064),
+//   valetudo=2 (two of them)
 //   energy=1 (fictional solar panels, meter and battery, named in the stored settings; D-049)
 //   peak=hydroqc|hydropeak|calendar (Hydro-Québec's peaks, D-063: hydroqc's Flex D sensors,
 //   HydroPeak's, or the calendar hydroqc writes its peaks in), peakphase=upcoming|preheat|peak|none
@@ -58,7 +61,7 @@
 //   Assistant's configuration API and `lovelace/config/save` put one back, read again on
 //   `domotwin/config_history/refresh`; window.__refuseConfig = "<message>" makes Home Assistant
 //   refuse)
-//   aitask=1 (D-064: Home Assistant's AI task, a fictional one that writes the automation asked
+//   aitask=1 (D-066: Home Assistant's AI task, a fictional one that writes the automation asked
 //   for in plain words from the demo apartment's entities; Home Assistant's actions, its check
 //   `validate_config` and the home zone counting who is home; window.__aiAnswer = <data> answers
 //   that instead, window.__aiHold (a promise) holds the answer back, window.__aiFail = "<message>"
@@ -88,7 +91,7 @@ const zha = params.get("zha") === "1";
 // Fictional automations (D-032): `automations=1` three of them, `automations=50` as many made up.
 const automationCount = Number(params.get("automations") ?? 0);
 const sandbox = params.get("sandbox") === "1";
-// Home Assistant's AI task (D-064), a fictional one.
+// Home Assistant's AI task (D-066), a fictional one.
 const aiTask = params.get("aitask") === "1";
 const AI_TASK = "ai_task.fictional_assistant";
 // Home Assistant's logbook and traces of a fictional evening (D-059).
@@ -432,10 +435,19 @@ if (modelsParam && store.plan) {
   }
 }
 
-/** The integration's model file views (`/api/domotwin/models`), with the user's session. */
+/**
+ * The integration's model file views (`/api/domotwin/models`), and the cameras' pictures
+ * (`/api/camera_proxy`), with the user's session.
+ */
 async function fetchWithAuth(path, init = {}) {
   calls.push({ type: "fetch", method: init.method ?? "GET", path });
   const url = new URL(path, location.origin);
+  if (url.pathname.startsWith("/api/camera_proxy/")) {
+    const camera = decodeURIComponent(url.pathname.slice("/api/camera_proxy/".length));
+    if (!home.states[camera]) return new Response("", { status: 404 });
+    // Valetudo's map for Home Assistant: a picture holding the robot's map.
+    return fetch("/fixtures/robot.png");
+  }
   if (url.pathname === "/api/domotwin/models" && init.method === "POST") {
     if (!hass.user.is_admin) return Response.json({ code: "unauthorized" }, { status: 403 });
     const format = url.searchParams.get("format");
@@ -931,7 +943,7 @@ function whyEvents(message) {
 }
 
 /**
- * What the fictional AI task writes (D-064): the automation of the roadmap's example from the
+ * What the fictional AI task writes (D-066): the automation of the roadmap's example from the
  * demo apartment's entities, in the request's language, or that automation changed (five minutes
  * before locking) when a change is asked.
  */
@@ -966,7 +978,7 @@ function fictionalAutomation(instructions) {
   };
 }
 
-/** Home Assistant's actions, by domain, for the domains the home has (D-064). */
+/** Home Assistant's actions, by domain, for the domains the home has (D-066). */
 function servicesOf(states) {
   const SERVICES = {
     light: ["turn_on", "turn_off", "toggle"],
@@ -1333,6 +1345,8 @@ const connection = {
         return { ...voice.setup };
       case "domotwin/bindings/save": {
         if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        if (window.__failBindings)
+          throw { code: "revision_conflict", message: "revision_conflict" };
         store.bindings = message.bindings;
         store.revision += 1;
         for (const listener of listeners) listener({ kind: "bindings", revision: store.revision });
@@ -1432,7 +1446,7 @@ const connection = {
         if (!aiTask) throw { code: "unknown_command", message: message.type };
         return { gen_data_entity_id: AI_TASK };
       case "call_service": {
-        // Home Assistant's AI task (D-064): the only service DomoTwin asks for a response of.
+        // Home Assistant's AI task (D-066): the only service DomoTwin asks for a response of.
         if (!aiTask || message.domain !== "ai_task" || message.service !== "generate_data") {
           throw { code: "unknown_command", message: message.type };
         }
@@ -1496,6 +1510,24 @@ if (params.get("energy") === "1") {
   };
   for (const [id, [state, attributes]] of Object.entries(sensors)) {
     home.states[id] = { entity_id: id, state, attributes };
+  }
+}
+// Robots running Valetudo (D-064): a vacuum and its Map data camera, of MQTT, on one device.
+const valetudo = Number(params.get("valetudo") ?? 0);
+for (const [k, [id, name]] of [
+  ["rockrobo", "Rockrobo"],
+  ["dreamy", "Dreamy"],
+]
+  .slice(0, valetudo)
+  .entries()) {
+  const device = `dev-valetudo-${k}`;
+  home.devices[device] = { id: device, name };
+  for (const [entity_id, state, friendly_name] of [
+    [`vacuum.${id}`, "docked", name],
+    [`camera.${id}_map_data`, "idle", `${name} Map data`],
+  ]) {
+    home.entities[entity_id] = { entity_id, device_id: device, platform: "mqtt" };
+    home.states[entity_id] = { entity_id, state, attributes: { friendly_name } };
   }
 }
 if (robot) {

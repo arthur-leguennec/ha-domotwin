@@ -70,7 +70,8 @@ node scripts/check-bundle-size.mjs
 CI runs the targets a pull request concerns for a minute each, and all of them weekly.
 
 The fictional test files are written by scripts: `python3 scripts/make-ifc-fixtures.py` (IFC),
-`python3 scripts/make-import-fixtures.py` (Sweet Home 3D, DXF, room scans) and
+`python3 scripts/make-import-fixtures.py` (Sweet Home 3D, DXF, room scans, robot vacuum maps,
+Floorplanner, mesh scans) and
 `python3 scripts/make-model-fixtures.py` (the 3D models of `examples/models/`).
 
 Visual-regression snapshots compare only the canvas pixels rendered by software WebGL2. After an

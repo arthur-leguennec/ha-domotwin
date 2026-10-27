@@ -1,5 +1,6 @@
 //! The import of other apps' plans must never panic, whatever the bytes: finding the format,
-//! reading, listing storeys, converting (IFC, Sweet Home 3D, DXF, room scans).
+//! reading, listing storeys, converting (IFC, Sweet Home 3D, DXF, room scans, robot vacuum maps,
+//! Floorplanner plans, mesh scans).
 
 #![no_main]
 

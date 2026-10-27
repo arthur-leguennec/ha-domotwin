@@ -2501,7 +2501,7 @@ export class DomoTwinView extends LitElement {
     this.redraw();
   }
 
-  /** Shows the wires of these automations, as a panel's list asks for them (a draft, D-064). */
+  /** Shows the wires of these automations, as a panel's list asks for them (a draft, D-066). */
   showWires(ids: string[]): void {
     this.sheet = undefined;
     this.whyAsked = undefined;

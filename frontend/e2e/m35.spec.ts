@@ -56,7 +56,7 @@ async function everyoneOutAtNine(page: Page): Promise<void> {
   await expect(page.getByTestId("sandbox-day-sheet")).toHaveCount(0);
 }
 
-test.describe("an automation in plain words (D-064)", () => {
+test.describe("an automation in plain words (D-066)", () => {
   test("is offered only where Home Assistant has an AI task, to administrators", async ({
     page,
   }) => {

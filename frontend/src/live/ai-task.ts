@@ -1,5 +1,5 @@
 /**
- * Home Assistant's AI tasks (2025.8, D-064): the entities that generate data, which write an
+ * Home Assistant's AI tasks (2025.8, D-066): the entities that generate data, which write an
  * automation in plain words. Without one nothing is offered: DomoTwin calls no model itself. In
  * the first load, for the menu; the rest comes with the dialog.
  */
