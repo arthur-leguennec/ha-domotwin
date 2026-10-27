@@ -3672,3 +3672,65 @@ have no Mac to read its identity key from.
     0.2 kB (the client's command and three refusals' texts).
   - If Private BLE Device's setup changes its field or its errors, DomoTwin's command says "not
     taken"; its test pins what it expects.
+
+## D-076 · The wall screen: a screen saver woken by motion, a layout for each screen (M26)
+
+D-054 planned it among M24 to M26, in the order two weeks of use would decide; M25 (D-068) and
+M24 (D-069) came first, then M40, M41, M17 and M45. The doorbell on a dashboard's card, which
+D-068 left for the wall screen, is left for later again (below).
+
+- **Context.** DomoTwin lives on wall tablets as much as on phones (D-029): a screen by the door
+  or in the kitchen, often signed in as a shared account, on all day. Left alone it should look
+  like something (the time, the weather, the family's photos) and, when someone comes, be back on
+  its own tab at once. Home Assistant has what it needs: its motion, occupancy and presence
+  sensors, its weather entities (D-072), and its media (Media source), whose photos it serves
+  with addresses it signs. A card already names its screen (`screen`, D-029) for `domotwin.show`
+  and for the Wi-Fi (D-060); the panel did not.
+- **Decision.**
+  - **A layout for each screen, kept by the integration** (`.storage/domotwin.screens`, at most
+    20): by its name, as a card's `screen` (letters, digits, `_` and `-`, matched whatever the
+    case), the tab it opens on and its screen saver: after how many minutes (0: never), the
+    sensors that wake it (motion, occupancy, presence; 10 at most), whether it shows the weather,
+    a folder of Home Assistant's media for its photos, how long each shows, and whether at night
+    it is the clock alone, dimmed. Administrators set them (the ⋮ menu's *Wall screens*, or a
+    button on the Home tab where there is no plan); every signed-in user reads them (a wall
+    screen is often a shared account's); nothing in them is private. Kept by the integration, a
+    layout is set from any device and followed by the screen, whoever is signed in there.
+  - **A device names itself a screen**, in *Your choices* (`domotwin-screen` in its own storage,
+    as its own tab, D-055), among the screens there are. The panel then opens on the screen's tab
+    (over the device's own and the user's), answers the `domotwin.show` requests naming it, shows
+    the Wi-Fi when the Wi-Fi names it (D-060), and runs its saver. A screen keeps its name: the
+    devices, cards and automations that name it would not follow a new one; a screen removed
+    leaves its devices ordinary, said so in their choices.
+  - **The saver comes when nobody is there**: after its minutes with nothing touched, no key and
+    no wake sensor on (asked every 5 s; the time starts again when the page is shown again). Not
+    while a tool runs (what is drawn, linked or arranged would wait under it), a doorbell rings,
+    or the demo house or the sandbox is shown. As it comes, the panel goes back to the screen's
+    tab alone (a room, its graphs or a report closed), for whoever comes next.
+  - **It goes when someone is**: a tap on it (the tap does nothing else), a key (the same), a
+    wake sensor turning on (and while one stays on, it does not come), a doorbell ringing (its
+    full screen, D-068, over the saver), a `domotwin.show` for this screen or every screen.
+  - **What it shows** (a chunk loaded the first time it comes, its texts with it): the time and
+    the day in Home Assistant's language and time zone, big, in a corner, moved a few pixels
+    every minute so that nothing stays lit in place for hours; the weather (the entity chosen
+    for the 3D view, else the usual one, even where none is drawn there), its picture,
+    temperature and words as the Home tab says them; the folder's photos one after another in
+    another order each round, slowly brought closer and cross-faded, read again after each round
+    for the photos added (and every five minutes while the folder is empty), their addresses
+    asked of Home Assistant (`media_source/resolve_media`, signed for an hour), so that nothing
+    leaves it. At night (the sun down, `sun.sun`) and when the layout says so, the clock alone,
+    dimmed. Motion reduced: no cross-fade, no closer. Under it the 3D view is not drawn.
+  - **Not done**: the screen's light turned off (a page cannot; Fully Kiosk Browser's own
+    settings can), a Home tab of its own for each screen (a screen signed in as its own user has
+    its own already, D-055), the saver on a dashboard's card, and the doorbell on a dashboard's
+    card (a card shows one storey and does not know the private rooms of the others, to hide a
+    doorbell in them as the panel does).
+- **Consequences.**
+  - The first load grows by 2.8 kB gzipped (the screens' reading and choosing, the wait and the
+    wake, the menu's entry); the saver (6.0 kB, its weather pictures written into it rather than
+    taken from the first load's icons) and the dialog (4.4 kB) come when needed.
+  - Choosing a screen is open to every user, as a card's screen is; the Wi-Fi a screen shows was
+    always for whoever stands before it (D-060), and any signed-in user could already ask for it
+    under a screen's name.
+  - The diagnostics count the screens and those with photos, never their names, sensors or
+    folders.

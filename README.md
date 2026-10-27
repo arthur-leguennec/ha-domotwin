@@ -21,9 +21,10 @@ Local, fast, Rust + WebAssembly.</p>
 > safety (the cameras, the doorbell, the alarm, the alerts on every tab), each room's graphs with
 > Home Assistant's Energy page a tab away, automations in plain words played in the sandbox before
 > they are saved, the weather around the home, how well the rooms are found, measured beside
-> Bermuda, and a library of 195 pieces with their pictures, and DomoTwin joined Home Assistant's
-> own Overview; the wall screen comes next, towards 0.5.0. The submission to HACS's default list
-> waits on measurements on real devices.
+> Bermuda, a library of 195 pieces with their pictures, an iPhone followed without a Mac, and the
+> wall screen (its screen saver woken by whoever comes), and DomoTwin joined Home Assistant's own
+> Overview; a first launch in five minutes closes the way to 0.5.0. The submission to HACS's
+> default list waits on measurements on real devices.
 
 ## What sets it apart
 
@@ -129,6 +130,12 @@ Local, fast, Rust + WebAssembly.</p>
   joins it with, in the page; or shows your router's own code. For administrators, and on the wall
   screens you choose; the password stays in DomoTwin's private storage. See [the Wi-Fi for
   guests](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/wifi.md).
+- **The wall screen.** A tablet by the door or in the kitchen opens on its own tab and, when nobody
+  is there, shows the time, the weather and your photos from Home Assistant's media, gone as soon
+  as someone touches it, a motion sensor sees them or the doorbell rings. Each screen's layout is
+  set once by an administrator and followed by the device that is it, whoever is signed in there.
+  See [the wall
+  screen](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/wall-screen.md).
 - **Guest access.** A pass opens chosen rooms and devices to your guests for a few days: its link
   or QR code opens them on their phones, in 3D, without a Home Assistant account, with the Wi-Fi if
   you like, and ends on its own. By default it opens only on the home's network; DomoTwin checks

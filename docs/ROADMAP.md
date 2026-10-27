@@ -62,7 +62,7 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M41       | Locating measured, next to Bermuda's on the same days      | ✅     |
 | M17       | A library of objects: many pieces, free and well made      | ✅     |
 | M45       | An iPhone's key, without a Mac: the ways to get it         | ✅     |
-| M26       | The wall screen: a screen saver, a layout per device       | ⏳     |
+| M26       | The wall screen: a screen saver, a layout per device       | ✅     |
 | M22       | A first launch in five minutes                             | ⏳     |
 | 0.5.0     | Fifth release: all of the above                            | ⏳     |
 | M42       | Finer locating: a spot in the room, storeys by the stairs  | ⏳     |
@@ -114,7 +114,8 @@ plays its drafts in.
 Per-person rights (M34, D-071) followed: what DomoTwin shows each person and lets them do, set in
 one place, and said not to be Home Assistant's enforcement.
 After the weather around the home (M40, D-072) and locating measured (M41, D-073), the library of
-objects (M17) was moved forward as well (D-074).
+objects (M17) was moved forward as well (D-074). An iPhone's key without a Mac (M45, D-075) and the
+wall screen (M26, D-076) closed M24 to M26 and D-065's order.
 
 ## M0, scaffold
 
@@ -1758,6 +1759,34 @@ identity key from (D-075, [`bluetooth.md`](bluetooth.md)).
 
 Measured at the end of M45: see [`PERFORMANCE.md`](PERFORMANCE.md).
 
+## M26, the wall screen
+
+A device left on a wall: on its own tab, and, when nobody is there, the time, the weather and the
+family's photos, gone as soon as someone is (D-076, [`wall-screen.md`](wall-screen.md)).
+
+- ✅ **A layout for each screen**, kept by the integration (20 at most), set by administrators
+  from the ⋮ menu (or the Home tab, without a plan): the tab it opens on; its screen saver after
+  how long, woken by which motion, occupancy or presence sensors, with the weather or not, the
+  photos of which folder of Home Assistant's media and for how long each, dimmed at night or not.
+- ✅ **A device becomes a screen** in *Your choices*: it opens on the screen's tab, answers the
+  `domotwin.show` requests naming the screen, shows the Wi-Fi where it is one of its screens, and
+  runs its saver. A screen keeps its name; one removed is said so on its devices.
+- ✅ **The saver**: the time and the day (moved a little every minute), the weather in words and
+  picture, the photos cross-faded and slowly brought closer, read again for those added; at night
+  the clock alone, dimmed. Comes back to the screen's tab; never while a tool runs or a doorbell
+  rings; under it the 3D view is not drawn. Gone on a tap or a key (which do nothing else), a
+  sensor on, a doorbell, a `domotwin.show` for the screen.
+- ✅ Tests: the layouts kept, read whatever their case, checked, refused (a name taken, too many,
+  a sensor or a folder that is none), told to the screens, counted in the diagnostics (pytest);
+  the layouts and Home Assistant's media read, the wait, the sensors, the night, the order of the
+  photos, the clock's moves, the texts in both languages (vitest); a screen set and a device made
+  it, the saver coming and going (motion, a tap, a key, the doorbell), `domotwin.show` for this
+  screen or another, without a plan, at night in French (Playwright).
+- Left for later: the screen's light itself (Fully Kiosk Browser's own settings do it); the
+  saver and the doorbell on a dashboard's card.
+
+Measured at the end of M26: see [`PERFORMANCE.md`](PERFORMANCE.md).
+
 ## Then, from 0.4.0 to 0.5.0
 
 Planned in D-056, with D-065's additions: the sandbox first, built during the two weeks of use since
@@ -1792,10 +1821,11 @@ before its milestone starts, which goes on with what needs no answer.
   as the tool wrote it and hands it to Home Assistant's Private BLE Device; the device then
   followed. No firmware of DomoTwin's own.
 - ✅ **M25, safety** (D-068, above): done after M20, M31 and M33, at the maintainer's request.
-- ⏳ **M26, the wall screen**: a screen saver (the clock, the weather, the photos of Home
-  Assistant's media) woken by motion; a layout for each device.
+- ✅ **M26, the wall screen** (D-076, above): a screen saver (the clock, the weather, the photos of
+  Home Assistant's media) woken by motion, a touch, a key, the doorbell or `domotwin.show`; a
+  layout for each screen, kept by the integration, that a device chooses to be.
 - M25 and M24 came ahead of M40, M41 and M45, at the maintainer's request (D-068, D-069); M26
-  comes in the order the two weeks of use decide.
+  came after M45.
 - ✅ **M31, the placement advisor** (D-066, above), built after M29, M38 and M32 at the maintainer's
   request: the Bluetooth model of M9f turned around, from where a device is to where a receiver
   would hear the most. The rooms badly covered coloured on the plan, for the Bluetooth receivers,

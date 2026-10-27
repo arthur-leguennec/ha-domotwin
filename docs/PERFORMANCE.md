@@ -1285,3 +1285,14 @@ Bundle: the first load is **601.2 kB gzipped** of 1 200 kB (+0.2 kB: the client'
 three refusals' texts). The Bluetooth settings, loaded when opened, grow by 1.5 kB gzipped
 (8.6 kB): the key's field, its texts in both languages and the link to the guide. Nothing runs
 until a key is added: the integration reads it and runs Private BLE Device's setup once.
+
+### M26 (the wall screen)
+
+Bundle: the first load is **604.0 kB gzipped** of 1 200 kB (+2.8 kB: the screens' reading and
+choosing, the wait and the wake, the menu's entry and their texts). The screen saver is a chunk
+of its own, loaded the first time it comes (6.0 kB gzipped, its fifteen weather pictures written
+into it: taken from `@mdi/js`, they would have joined the first load's icons, +2.8 kB); the wall
+screens' dialog another (4.4 kB), with Home Assistant's media read by a module both share. The
+practical tabs' chunk shrank by 2.4 kB: their texts, which the saver shares for the weather's
+words, are a chunk of their own. While the saver shows, the 3D view is not drawn; a device that is
+not a wall screen only asks itself every 5 s whether it is one.

@@ -339,6 +339,13 @@ id: `favourites` (entity ids, 100 at most), `start` (`home`, `rooms` or `3d`, wh
 `{type: "todo-list", entity}`). A user removed from Home Assistant is forgotten when DomoTwin
 starts.
 
+`.storage/domotwin.screens` (D-076, its own store, version 1): each wall screen's layout, by its
+name (a card's `screen`, matched whatever the case, 20 at most): `start` (a tab, when chosen) and
+`saver` (`after` minutes, 0 to 240, 0 for never; `wake`, 10 binary sensors at most; `weather`;
+`photos`, a folder of Home Assistant's media, `media-source://…`; `every` photo's seconds, 5 to
+3 600; `dim` at night). Which screen a device is stays on the device (`domotwin-screen` in its
+local storage); every signed-in user reads the layouts, administrators change them.
+
 `.storage/domotwin.config_history` (D-062, its own store, version 1, private): the configuration
 history, each item by `<kind>:<key>` (`automation`, `script` and `scene` by their id or key,
 `dashboard` by its URL path, empty for the default one) with its `name`, its `source` (`editor`:
@@ -393,6 +400,9 @@ when the integration is removed.
 | `domotwin/choices/get`   | user   | – (their own)                                  | `favourites`, `cards`, `start?`  |
 | `domotwin/choices/favourite` | user | `entity_id`, `favourite` (their own)        | `favourites`                     |
 | `domotwin/choices/save`  | user   | `start?` (`""`: none chosen), `cards?` (their own) | `favourites`, `cards`, `start?` |
+| `domotwin/screens/get`   | user   | –                                              | `screens` (each wall screen's layout by name, D-076: `start?`, `saver` `{after, wake, weather, photos?, every, dim}`) |
+| `domotwin/screens/save`  | admin  | `name`, `layout`, `new?` (a new screen: refused, `screen_exists`, when the name is taken) | `screens` (`invalid_screen`, `too_many_screens` past 20) |
+| `domotwin/screens/remove` | admin | `name`                                         | `screens`                        |
 | `domotwin/config_history/list`  | admin  | –                                              | `items` (`[{id, kind, key, name, source, removed, versions, changed}]`, the most recently changed first), `bytes`, `max_bytes` |
 | `domotwin/config_history/item`  | admin  | `item`                                         | `item`, `versions` (`[{id, at, removed, kept, same_as?}]`, newest first) |
 | `domotwin/config_history/version` | admin | `item`, `version`                            | `config` (`null`: removed, or too large to keep) |
@@ -400,7 +410,7 @@ when the integration is removed.
 | `domotwin/guests/get`    | admin  | –                                              | `passes` (`[{id, name, rooms, entities, starts, ends, act, wifi, anywhere, path, url, status}]`) |
 | `domotwin/guests/save`   | admin  | `pass` (`{id?, name, rooms, entities, starts, ends, act?, wifi?, anywhere?, renew?}`) | the pass, as `get` lists it |
 | `domotwin/guests/remove` | admin  | `pass` (its id)                                | `removed`                        |
-| `domotwin/subscribe`     | user   | –                                              | events `{kind, revision}`, and `{kind: "show", show}` for `domotwin.show` |
+| `domotwin/subscribe`     | user   | –                                              | events `{kind, revision}` (`screens` too, D-076), and `{kind: "show", show}` for `domotwin.show` |
 
 Errors: `not_loaded`, `invalid_plan`, `invalid_layout`, `invalid_bindings`, `invalid_settings`,
 `invalid_upkeep`, `unknown_task`, `invalid_people`, `unknown_person`, `invalid_locating`,
