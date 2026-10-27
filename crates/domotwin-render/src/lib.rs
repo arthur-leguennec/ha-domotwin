@@ -11,6 +11,7 @@ pub mod lamps;
 mod quality;
 mod shaders;
 pub mod view;
+mod weather;
 
 use std::borrow::Cow;
 use std::sync::Arc;
@@ -24,6 +25,7 @@ use domotwin_core::scene::mesh::Mesh;
 use domotwin_core::scene::wires::WireSegment;
 use domotwin_core::scene::{LightSpot, MovingParts, Scene, StoreyPart};
 use domotwin_core::theme::Theme;
+use domotwin_core::weather::Weather;
 use lamps::{Halo, Mark, PointLight};
 pub use quality::{GpuHint, QualityPreset};
 pub use three_d::context::Context as GlContext;
@@ -272,7 +274,7 @@ const FULLY_SHOWN: f32 = 0.999;
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Phase {
     Whole,
-    /// Everything but the background: a piece on its own, on a plain colour (D-072).
+    /// Everything but the background: a piece on its own, on a plain colour (D-073).
     Piece,
     /// The background, what is opaque, the people wholly shown.
     Solid,
@@ -596,7 +598,7 @@ const GROUND_Y: f64 = -6.0;
 /// How far the outlines are moved towards the camera, in device pixels where they are.
 const LINE_LIFT: f64 = 2.0;
 
-/// Where a piece's picture is taken from (D-072): in front of it, a little to its right, `pitch`
+/// Where a piece's picture is taken from (D-073): in front of it, a little to its right, `pitch`
 /// above it (below it when negative), as a catalogue shows a piece, close enough for the piece to
 /// fill the picture: its box's corners within the field of view, with a margin.
 fn piece_camera(bounds: [[f64; 3]; 2], aspect: f64, pitch: f64) -> Camera {
@@ -711,6 +713,7 @@ pub struct Renderer {
     bloom_up: Program,
     composite: Program,
     ink: Program,
+    weather_program: Program,
     /// The look (D-027).
     theme: Theme,
     /// The offscreen targets, while the look glows.
@@ -761,6 +764,13 @@ pub struct Renderer {
     no_shadow: DepthTexture2D,
     pick_target: Option<PickTarget>,
     lighting: Lighting,
+    /// The weather around the home (D-072), the footprint things fall around, and how bright a
+    /// storm's flash is this frame.
+    weather: Weather,
+    footprint: Option<weather::Footprint>,
+    flash: f32,
+    /// How far the view is on its way to the plan this frame (what falls is not drawn on it).
+    flat: f32,
     /// What the view shows and how it moves.
     pub view: ViewState,
 }
@@ -907,6 +917,8 @@ impl Renderer {
         let bloom_up = Program::from_source(&context, full, shaders::BLOOM_UP)?;
         let composite = Program::from_source(&context, full, shaders::COMPOSITE)?;
         let ink = Program::from_source(&context, full, shaders::INK)?;
+        let weather_program =
+            Program::from_source(&context, shaders::WEATHER_VERTEX, shaders::WEATHER_FRAGMENT)?;
         let (columns, rows, texels) = lamps::element_rows(lamps::element_texels(&[], &[], &[]));
         let elements = rows_texture(&context, columns, rows, &texels);
         let rooms = row_texture(&context, &[[0.0; 4]; 3]);
@@ -942,6 +954,7 @@ impl Renderer {
             bloom_up,
             composite,
             ink,
+            weather_program,
             theme: Theme::default(),
             post: None,
             parts: Vec::new(),
@@ -971,6 +984,10 @@ impl Renderer {
             no_shadow,
             pick_target: None,
             lighting: Lighting::default(),
+            weather: Weather::CLEAR,
+            footprint: None,
+            flash: 0.0,
+            flat: 0.0,
             view,
         })
     }
@@ -988,6 +1005,7 @@ impl Renderer {
         });
         self.shadow_stale = true;
         self.spots.clone_from(&scene.lights);
+        self.footprint = weather::Footprint::of(scene);
         self.view.set_scene(scene, keep_camera);
         self.relight();
     }
@@ -996,6 +1014,7 @@ impl Renderer {
     pub fn clear_scene(&mut self) {
         self.parts.clear();
         self.roof = None;
+        self.footprint = None;
         self.spots.clear();
         self.camera_views = None;
         self.shadow_stale = true;
@@ -1130,7 +1149,145 @@ impl Renderer {
             && (self.rooms_animated
                 || self.wires.iter().flatten().any(|w| w.pulsing)
                 || (self.power_layer
-                    && self.looks.iter().any(|l| lamps::power_level(l.power) > 0.0)))
+                    && self.looks.iter().any(|l| lamps::power_level(l.power) > 0.0))
+                || self.weather_moving())
+    }
+
+    /// Sets the weather around the home (D-072).
+    pub fn set_weather(&mut self, weather: Weather) {
+        if weather != self.weather {
+            self.weather = weather;
+            self.view.dirty = true;
+        }
+    }
+
+    /// The weather around the home.
+    pub fn weather(&self) -> Weather {
+        self.weather
+    }
+
+    /// How thick the weather's fog is, from 0 (none) to 1: none at eye level, walking inside.
+    fn fog(&self) -> f32 {
+        if self.view.walking() || self.view.camera.walk > 0.0 {
+            return 0.0;
+        }
+        #[allow(clippy::cast_possible_truncation)]
+        let fog = (self.weather.fog.clamp(0.0, 1.0) * 0.85) as f32;
+        fog
+    }
+
+    /// Whether what falls is drawn: something falls, around a home, in 3D (not on the plan).
+    fn weather_drawn(&self) -> bool {
+        self.footprint.is_some()
+            && !self.view.plan_view
+            && self.flat < 0.5
+            && weather::particles(&self.weather, self.quality) > 0
+    }
+
+    /// Whether the weather moves: something falling is drawn, or a storm flashes (in 3D only).
+    fn weather_moving(&self) -> bool {
+        let storm = self.weather.lightning
+            && self.footprint.is_some()
+            && !self.view.plan_view
+            && self.flat < 0.5;
+        self.weather.animated() && (self.weather_drawn() || storm)
+    }
+
+    /// Sets what the weather's program needs for a frame (D-072).
+    fn set_weather_uniforms(&self, projection: &domotwin_core::camera::Projection, time_ms: f64) {
+        let Some(footprint) = self.footprint.filter(|_| self.weather_drawn()) else {
+            return;
+        };
+        let program = &self.weather_program;
+        #[allow(clippy::cast_possible_truncation)]
+        let f = |v: f64| v as f32;
+        let v3 = |v: [f64; 3]| Vec3::new(f(v[0]), f(v[1]), f(v[2]));
+        program.use_uniform_if_required("u_view_proj", mat4(&projection.view_proj));
+        program.use_uniform_if_required("u_eye", v3(projection.eye));
+        #[allow(clippy::cast_precision_loss)]
+        program.use_uniform_if_required(
+            "u_viewport",
+            Vec2::new(self.width as f32, self.height as f32),
+        );
+        program.use_uniform_if_required("u_line", self.pixel_scale() * 1.2);
+        // Under reduced motion, what falls holds still: a picture of the rain. The shader's turns
+        // fit whole in its loop.
+        let time = if self.motion {
+            (time_ms / 1000.0).rem_euclid(weather::LOOP_S)
+        } else {
+            37.0
+        };
+        program.use_uniform_if_required("u_time", f(time));
+        program.use_uniform_if_required("u_loop", f(weather::LOOP_S));
+        let [cx, cz] = footprint.centre;
+        program.use_uniform_if_required("u_area", Vec4::new(f(cx), f(cz), 1.0, 0.0));
+        program.use_uniform_if_required(
+            "u_half",
+            Vec3::new(
+                f(footprint.half[0]),
+                f(footprint.half[1]),
+                f(footprint.margin()),
+            ),
+        );
+        // From above the highest the home stands, spread or not: the same turns while it moves.
+        let [lo, hi] = self.view.bounds;
+        program.use_uniform_if_required(
+            "u_heights",
+            Vec2::new(f(self.view.highest() + 200.0), f(GROUND_Y)),
+        );
+        program.use_uniform_if_required("u_home", Vec2::new(f(lo[1]), f(hi[1])));
+        // On the roof when it is shown, else outside the walls only.
+        let roof = footprint.roof.zip(self.view.roof_offset());
+        let (roof_at, area, shape) = match roof {
+            Some((shape, offset)) => (
+                Vec4::new(f(offset[0]), f(offset[1]), f(offset[2]), 1.0),
+                Vec4::new(
+                    f(shape.centre[0]),
+                    f(shape.centre[1]),
+                    f(shape.ridge[0]),
+                    f(shape.ridge[1]),
+                ),
+                Vec4::new(
+                    f(shape.half_length),
+                    f(shape.half_width),
+                    f(shape.eaves),
+                    f(shape.rise),
+                ),
+            ),
+            None => (
+                Vec4::new(0.0, 0.0, 0.0, 0.0),
+                Vec4::new(0.0, 0.0, 1.0, 0.0),
+                Vec4::new(1.0, 1.0, 0.0, 0.0),
+            ),
+        };
+        program.use_uniform_if_required("u_roof", roof_at);
+        program.use_uniform_if_required("u_roof_area", area);
+        program.use_uniform_if_required("u_roof_shape", shape);
+        let [wx, wz] = self.weather.wind;
+        program.use_uniform_if_required("u_wind", Vec2::new(f(wx), f(wz)));
+        let (kind, speed) = weather::fall(&self.weather);
+        let drips = if roof.is_some() { 0.15 } else { 0.0 };
+        let splashes = if matches!(self.quality, QualityPreset::Eco) {
+            0.0
+        } else {
+            1.0
+        };
+        program.use_uniform_if_required("u_fall", Vec4::new(kind, speed, drips, splashes));
+        // Against the ground it mostly falls in front of.
+        let [r, g, b, a] = weather::tint(self.backdrop_of_look().2);
+        program.use_uniform_if_required("u_tint", Vec4::new(r, g, b, a));
+        program.use_uniform_if_required("u_flash", self.flash);
+    }
+
+    /// Draws what falls around the home (D-072): over the home, hidden behind it, writing no
+    /// depth and leaving the glow below as it is.
+    fn draw_weather(&self, viewport: Viewport) {
+        if !self.weather_drawn() {
+            return;
+        }
+        let count = weather::particles(&self.weather, self.quality);
+        self.weather_program
+            .draw_arrays_instanced(ON_THE_FLOOR, viewport, 6, count);
     }
 
     /// Draws `segments` as the wires of `set` (none: no wires), each end moved with its storey
@@ -1532,27 +1689,49 @@ impl Renderer {
         });
     }
 
-    /// The light of the scene: the look's own, else the time of day's.
+    /// The light of the scene: the look's own, else the time of day's, greyed by the clouds
+    /// (D-072).
     fn light(&self) -> Lighting {
-        self.theme.lighting.unwrap_or(self.lighting)
+        match self.theme.lighting {
+            Some(own) => own,
+            None => weather::overcast(self.lighting, self.clouds()),
+        }
+    }
+
+    /// How cloudy the sky is drawn (D-072): not on the plan.
+    fn clouds(&self) -> f64 {
+        self.weather.overcast * f64::from(1.0 - self.flat)
+    }
+
+    /// The exposure of a frame: the light's, brighter for a storm's flash.
+    fn exposure(&self) -> f32 {
+        self.light().exposure * (1.0 + 1.4 * self.flash)
     }
 
     /// The background's colours: the look's own (the night looks, D-027), or dimming with the light
     /// of the time of day: the day look's shades of the dashboard's colours (its sky kept), the
     /// sky and lawn of the cartoon and the clay's backdrop (D-036).
     fn backdrop(&self) -> ([f32; 3], [f32; 3], [f32; 3], [f32; 3]) {
+        let (top, horizon, ground, grid) = self.backdrop_of_look();
+        let lit = |c: [f32; 3]| weather::flashed(c, self.flash);
+        (lit(top), lit(horizon), lit(ground), lit(grid))
+    }
+
+    /// The background's colours before a storm's flash: see [`Renderer::backdrop`].
+    fn backdrop_of_look(&self) -> ([f32; 3], [f32; 3], [f32; 3], [f32; 3]) {
         let t = &self.theme;
         if !t.follows_time() {
             return (t.sky_top, t.sky_horizon, t.ground, t.grid);
         }
-        let sky = self.lighting.sky;
+        let sky = self.light().sky;
         let daylight = Lighting::default().sky;
-        let luma = |c: [f32; 3]| 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+        let luma = weather::luma;
         let dim = (luma(sky) / luma(daylight).max(1e-3))
             .sqrt()
             .clamp(0.4, 1.0);
         if !t.sky_from_dashboard {
-            let shade = |c: [f32; 3], k: f32| c.map(|v| v * k);
+            let cover = self.clouds();
+            let shade = |c: [f32; 3], k: f32| weather::grey(c.map(|v| v * k), cover);
             return (
                 shade(t.sky_top, dim),
                 shade(t.sky_horizon, dim),
@@ -1617,7 +1796,16 @@ impl Renderer {
             .projection(self.view.aspect, self.view.depth());
         #[allow(clippy::cast_possible_truncation)]
         let flat = self.view.camera.ortho.clamp(0.0, 1.0) as f32;
+        self.flat = flat;
+        #[allow(clippy::cast_possible_truncation)]
+        let flash = if self.weather.lightning && self.motion && flat < 0.5 {
+            domotwin_core::weather::flash(time_ms / 1000.0) as f32
+        } else {
+            0.0
+        };
+        self.flash = flash;
         let gain = self.set_main_uniforms(&projection, time_ms, flat, post);
+        self.set_weather_uniforms(&projection, time_ms);
         self.set_background_uniforms(&projection.view_proj, post, flat < 0.5);
         self.set_line_uniforms(&projection);
         let offsets = self.part_offsets();
@@ -1703,8 +1891,19 @@ impl Renderer {
         program.use_uniform_if_required("u_sky", rgb(light.sky));
         program.use_uniform_if_required("u_ground", rgb(light.ground));
         program.use_uniform_if_required("u_sun_color", rgb(light.sun));
-        program.use_uniform_if_required("u_exposure", light.exposure);
+        program.use_uniform_if_required("u_exposure", self.exposure());
         program.use_uniform_if_required("u_ao", light.ao);
+        // The weather's fog fades into the horizon (D-072), around the home.
+        program.use_uniform_if_required("u_fog", self.fog());
+        let [cx, _, cz] = self.view.centre();
+        #[allow(clippy::cast_possible_truncation)]
+        program.use_uniform_if_required(
+            "u_fog_area",
+            Vec3::new(cx as f32, cz as f32, self.view.radius().max(300.0) as f32),
+        );
+        let horizon = self.backdrop().1;
+        program
+            .use_uniform_if_required("u_fog_color", Vec3::new(horizon[0], horizon[1], horizon[2]));
         let t = &self.theme;
         program.use_uniform_if_required("u_glass_walls", on(t.glass_walls));
         program.use_uniform_if_required("u_wall_pass", 0.0_f32);
@@ -1783,6 +1982,13 @@ impl Renderer {
         #[allow(clippy::cast_possible_truncation)]
         program.use_uniform_if_required("u_radius", self.view.radius().max(300.0) as f32);
         program.use_uniform_if_required("u_glow_alpha", if post { 1.0_f32 } else { 0.0 });
+        program.use_uniform_if_required("u_fog", self.fog() * (1.0 - self.flat));
+        let sun_left = if self.theme.follows_time() {
+            weather::sun_left(self.clouds())
+        } else {
+            1.0
+        };
+        program.use_uniform_if_required("u_sun_left", sun_left);
         let shadow = self.shadow.as_ref().filter(|_| shadows);
         program.use_uniform_if_required("u_shadows", if shadow.is_some() { 1.0_f32 } else { 0.0 });
         let matrix = shadow.map_or([0.0; 16], |s| s.matrix);
@@ -1898,7 +2104,7 @@ impl Renderer {
         program.use_uniform_if_required("u_sun_color", rgb(light.sun));
         program.use_uniform_if_required("u_sky", rgb(light.sky));
         program.use_uniform_if_required("u_ground", rgb(light.ground));
-        program.use_uniform_if_required("u_exposure", light.exposure);
+        program.use_uniform_if_required("u_exposure", self.exposure());
         program.use_uniform_if_required("u_glow", self.theme.line_glow.min(1.0));
         program.use_uniform_if_required("u_glow_alpha", if post { 1.0_f32 } else { 0.0 });
         program.use_uniform_if_required("u_flat", flat);
@@ -2140,6 +2346,11 @@ impl Renderer {
             halo.use_vertex_attribute("a_corner", &h.corners);
             halo.draw_elements(halo_states, viewport, &h.indices);
         }
+        // What falls around the home, after the glass so that it shows in front of the windows;
+        // not in a storey's picture.
+        if only.is_none() {
+            self.draw_weather(viewport);
+        }
         // Wires over everything, so that a link is seen through the walls it crosses; not in a
         // storey's picture.
         for w in self.wires.iter().flatten().filter(|_| only.is_none()) {
@@ -2227,7 +2438,7 @@ impl Renderer {
     /// A picture of the first storey's pieces alone on `background` (sRGB 0–1), `width` ×
     /// `height` device pixels, seen from in front of them, a little to their right and above
     /// (`below`: under them, for what is fixed to a ceiling), and filling the picture: RGBA rows
-    /// from the top (the catalogue's pictures of a piece, D-072). `None` without a scene.
+    /// from the top (the catalogue's pictures of a piece, D-073). `None` without a scene.
     pub fn piece_picture(
         &mut self,
         width: u32,
@@ -2276,6 +2487,10 @@ impl Renderer {
         let cuts = self.view.cuts_for(camera);
         let view_cuts = std::mem::replace(&mut self.view.cuts, cuts);
         let shadow = self.shadow.take();
+        // No weather on a storey's picture (clouds, fog, a flash): the storey as it is, whatever
+        // the sky.
+        let flash = std::mem::replace(&mut self.flash, 0.0);
+        let weather = std::mem::replace(&mut self.weather, Weather::CLEAR);
         self.set_main_uniforms(&projection, 0.0, 0.0, false);
         self.set_background_uniforms(&projection.view_proj, false, false);
         self.set_line_uniforms(&projection);
@@ -2310,6 +2525,8 @@ impl Renderer {
         (self.width, self.height) = size;
         self.view.cuts = view_cuts;
         self.shadow = shadow;
+        self.flash = flash;
+        self.weather = weather;
         self.view.dirty = true;
         pixels.into_iter().flatten().collect()
     }

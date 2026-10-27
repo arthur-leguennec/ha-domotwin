@@ -1,4 +1,4 @@
-//! The library's pieces for working, keeping fit, the pets and the garage (D-072): a monitor and
+//! The library's pieces for working, keeping fit, the pets and the garage (D-073): a monitor and
 //! a computer, a filing cabinet, a standing desk, a treadmill and an exercise bike, a pet's bed,
 //! a cat tree, litter boxes, a feeder, and a car.
 

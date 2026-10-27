@@ -58,8 +58,8 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M24       | History and energy, with Home Assistant's own cards        | ✅     |
 | M35       | Automations in plain words, played in the sandbox first    | ✅     |
 | M34       | Per-person rights: what DomoTwin shows each one            | ✅     |
+| M40       | The weather around the home, in 3D                         | ✅     |
 | M17       | A library of objects: many pieces, free and well made      | ✅     |
-| M40       | The weather around the home, in 3D                         | ⏳     |
 | M41       | Locating measured, next to Bermuda's on the same days      | ⏳     |
 | M45       | An iPhone's key, without a Mac: the ways to get it         | ⏳     |
 | M26       | The wall screen: a screen saver, a layout per device       | ⏳     |
@@ -113,7 +113,8 @@ Automations in plain words (M35) came next, at the maintainer's request (D-070),
 plays its drafts in.
 Per-person rights (M34, D-071) followed: what DomoTwin shows each person and lets them do, set in
 one place, and said not to be Home Assistant's enforcement.
-The library of objects (M17, D-072) was then moved forward as well.
+After the weather around the home (M40, D-072), the library of objects (M17) was moved forward as
+well (D-073).
 
 ## M0, scaffold
 
@@ -1639,10 +1640,34 @@ D-056's question (❓5) answered: DomoTwin's own, said plainly not to be enforce
 - Left for later: a preview of the home as someone sees it; rights by time of day (a private room
   while an entity is on already does it for a room); enforcement, which needs Home Assistant.
 
+## M40, the weather around the home
+
+Asked for by the maintainer after 0.4.0: a beautiful animation of the weather around the house or
+the apartment, the rain outside an apartment, on the roof of a house (D-065, D-072).
+
+- ✅ **Read from Home Assistant**: the `weather` entity the Home tab shows (`weather.home` first),
+  or one chosen in the settings, or none; its condition, its wind (any of Home Assistant's units,
+  Beaufort too) and where it comes from (degrees or a point of the compass), turned with the
+  home's north. A card turns it off with `weather: false`.
+- ✅ **Drawn by the engine**: rain in streaks that splash, snow in soft flakes that sway, hail,
+  sleet; a greyer, dimmer light under clouds, the sun's shadow on the ground fading with it; fog
+  thickening around the home; a storm's flashes. Around an apartment and never in it, on the roof
+  of a house and off its eaves; seen from inside, through the windows. Nothing on the 2D plan nor
+  on a storey's picture.
+- ✅ **Light**: one instanced draw worked out by the graphics card, a few thousand particles at
+  most, fewer in Eco; frames at the layers' pace while something falls, none for clouds and fog;
+  still with reduced motion.
+- ✅ **The demo house** has its weather: a fine day, a shower and a storm around three.
+- ✅ Tests: conditions, wind and flashes (cargo); the footprint, the counts, the light under clouds
+  (cargo); rain, snow, storms and the plan in the engine (wasm); the wind's units and bearings, the
+  entity chosen or the usual one, the demo's day (vitest); the settings' `weather` validated
+  (pytest); rain, snow, hail and fog drawn and still, an entity that says nothing, the card's
+  option, the settings' choice shown as it is chosen and saved, in French (Playwright).
+
 ## M17, a library of objects
 
 Many more pieces, free and well made, drawn from real references, still fast; moved forward by the
-maintainer (D-072).
+maintainer (D-073).
 
 - ✅ **The pieces**: 61 kinds more (117) and 54 styles more (78): 195 pieces, from a corner sofa, a
   piano and a wood stove to a heat pump, a water heater, an electrical panel, an EV charger and a
@@ -1676,7 +1701,7 @@ maintainer (D-072).
   search, every style named in both languages, the devices' suggestions and badges (vitest); the
   pictures, a Chesterfield added at its size and colour, the search in French and a soundbar
   (Playwright).
-- Measured: the engine grows by 52.6 kB gzipped and the first load is 592.2 kB of 1 200; a new
+- Measured: the engine grows by 52.5 kB gzipped and the first load is 600.8 kB of 1 200; a new
   piece is at most 1 202 triangles (the wine cooler), the demo house's ground floor 19 286
   (+3 846); the catalogue's 195 pictures take 8.1 s in software WebGL (the first twelve 4.5 s, most
   of it the second engine's shaders), then come back at once ([`PERFORMANCE.md`](PERFORMANCE.md),
@@ -1700,12 +1725,12 @@ before its milestone starts, which goes on with what needs no answer.
   Assistant; whether the Home and Rooms tabs stay where the Overview is.
 - ✅ **M24, history and energy** (D-069, above). Replay, the home's past in 3D (M19), stays a 3D
   feature, later.
-- ⏳ **M40, the weather around the home** (asked for by the maintainer): the weather of Home
-  Assistant's `weather` entity drawn around the home in 3D: rain or snow falling outside the walls
-  of an apartment and splashing on the ground around it, on the roof of a house and running off it;
-  a storm's flashes, fog, an overcast light, the wind slanting what falls. Drawn by the engine,
-  light on a phone, still with reduced motion and in Eco; a card's `weather` option, the entity
-  chosen in the settings.
+- ✅ **M40, the weather around the home** (asked for by the maintainer, D-072, above): the weather
+  of Home Assistant's `weather` entity drawn around the home in 3D: rain or snow falling outside the
+  walls of an apartment and splashing on the ground around it, on the roof of a house and running
+  off it; a storm's flashes, fog, an overcast light, the wind slanting what falls. Drawn by the
+  engine, light on a phone, still with reduced motion, fewer particles in Eco; a card's `weather`
+  option, the entity chosen in the settings.
 - ⏳ **M41, locating measured** (D-065), before any new locating feature: a diagnostic for
   administrators that records, for each device followed, its room changes per hour, its storey
   changes per hour and its time in "unknown", and, where Bermuda is installed, the same figures
@@ -1774,7 +1799,7 @@ before its milestone starts, which goes on with what needs no answer.
 - ✅ **M35, automations in plain words, tested first** (D-070, above): moved forward by the
   maintainer once the sandbox was in.
 - ✅ **M20, more imports** (D-064, above): done before 0.5.0, at the maintainer's request.
-- ✅ **M17, a library of objects**, moved forward (D-072, above): 195 pieces in fourteen groups,
+- ✅ **M17, a library of objects**, moved forward (D-073, above): 195 pieces in fourteen groups,
   each with its picture drawn by the engine, free and well made, at the usual sizes of real ones.
 - ✅ **M36, configuration history** (D-062, above): done after Home Assistant's Overview, at
   the maintainer's request.

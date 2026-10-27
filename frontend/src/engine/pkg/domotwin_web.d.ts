@@ -39,7 +39,7 @@ export class Engine {
      */
     editAddModel(model: string, definition: string, x: number, y: number): string;
     /**
-     * Adds a piece of the catalogue `kind` in `style` (none or empty: its own, D-072) named
+     * Adds a piece of the catalogue `kind` in `style` (none or empty: its own, D-073) named
      * `name` under the device pixel `x`, `y` (or in the middle of the view when the floor is not
      * there), and selects it. The state has `refused: true` when it could not be added (the plan
      * holds 500 elements).
@@ -47,7 +47,7 @@ export class Engine {
     editAdd(kind: string, name: string, x: number, y: number, style?: string | null): string;
     /**
      * The catalogue of kinds a piece can be added as, as JSON `[{"kind", "w", "d", "h",
-     * "light", "styles": [{"style", "w", "d", "h"}]}]` (usual sizes in cm, D-072).
+     * "light", "styles": [{"style", "w", "d", "h"}]}]` (usual sizes in cm, D-073).
      */
     static editCatalogue(): string;
     /**
@@ -265,7 +265,7 @@ export class Engine {
      */
     pick(x: number, y: number): string;
     /**
-     * A picture of a piece of the catalogue alone (D-072): `kind` in `style` (empty: its own),
+     * A picture of a piece of the catalogue alone (D-073): `kind` in `style` (empty: its own),
      * at its usual size and in its colour, on `background` (`#rrggbb`), `width` × `height`
      * device pixels: RGBA rows from the top, empty for a kind this version does not know. The
      * piece takes the place of the plan shown: the catalogue draws its pictures with an engine
@@ -456,6 +456,13 @@ export class Engine {
      */
     setWalk(on: boolean, time_ms: number): boolean;
     /**
+     * Draws the weather around the home (D-072) for one of Home Assistant's conditions
+     * (`rainy`, `snowy`, `fog`…; any other is a clear sky), with its wind: `wind_speed` in m/s
+     * and `wind_bearing` in degrees clockwise from north where it comes from (`NaN`: unknown), for
+     * a plan whose north is `north` degrees clockwise from its top.
+     */
+    setWeather(condition: string, wind_speed: number, wind_bearing: number, north: number): void;
+    /**
      * Shows a plan drawn in the plan editor (JSON text, no overlay), element `selected` marked.
      * The plan stored and its overlay stay as they are, to come back to (`loadPlan`); the camera
      * stays, unless nothing was shown.
@@ -521,6 +528,10 @@ export class Engine {
      * Whether walking through the storey shown.
      */
     readonly walking: boolean;
+    /**
+     * What falls around the home now: `none`, `rain`, `snow`, `sleet` or `hail` (D-072).
+     */
+    readonly weather: string;
 }
 
 /**
@@ -659,6 +670,7 @@ export interface InitOutput {
     readonly engine_setUpkeepLayer: (a: number, b: number) => void;
     readonly engine_setWalk: (a: number, b: number, c: number) => number;
     readonly engine_setWalkVelocity: (a: number, b: number, c: number) => void;
+    readonly engine_setWeather: (a: number, b: number, c: number, d: number, e: number, f: number) => void;
     readonly engine_showDraft: (a: number, b: number, c: number, d: number, e: number, f: number) => void;
     readonly engine_showModels: (a: number) => number;
     readonly engine_showView: (a: number, b: number, c: number, d: number) => number;
@@ -670,6 +682,7 @@ export interface InitOutput {
     readonly engine_views: (a: number, b: number) => void;
     readonly engine_walkTo: (a: number, b: number, c: number) => number;
     readonly engine_walking: (a: number) => number;
+    readonly engine_weather: (a: number, b: number) => void;
     readonly engine_zoom: (a: number, b: number, c: number, d: number) => void;
     readonly heatLegend: (a: number, b: number, c: number) => void;
     readonly start: () => void;

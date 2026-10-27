@@ -56,7 +56,39 @@ export function solarAt(minute: number): number {
   if (elevation <= 0) return 0;
   const m = ofDay(minute);
   const clouds = 0.3 * Math.max(0, Math.sin(m / 23) * Math.sin(m / 61));
-  return Math.round(5000 * 0.86 * Math.sin((elevation * Math.PI) / 180) * (1 - clouds));
+  const shade = SHADE[weatherAt(m).condition] ?? 1;
+  return Math.round(5000 * 0.86 * Math.sin((elevation * Math.PI) / 180) * (1 - clouds) * shade);
+}
+
+/** The day's weather (D-072): fine, clouding over after lunch, a shower and a storm at three. */
+const WEATHER: readonly (readonly [number, string])[] = [
+  [at(11, 30), "partlycloudy"],
+  [at(14, 30), "cloudy"],
+  [at(15, 0), "rainy"],
+  [at(15, 30), "lightning-rainy"],
+  [at(15, 50), "pouring"],
+  [at(16, 10), "rainy"],
+  [at(16, 30), "cloudy"],
+  [at(17, 0), "partlycloudy"],
+  [at(18, 0), "sunny"],
+];
+
+/** How much of the sun the clouds let through, by condition. */
+const SHADE: Readonly<Record<string, number>> = {
+  cloudy: 0.5,
+  rainy: 0.25,
+  pouring: 0.15,
+  "lightning-rainy": 0.15,
+};
+
+/** The weather at `minute`: its condition, and the wind (km/h, from degrees clockwise from north). */
+export function weatherAt(minute: number): { condition: string; wind: number; bearing: number } {
+  const m = ofDay(minute);
+  let condition = "sunny";
+  for (const [from, then] of WEATHER) if (m >= from) condition = then;
+  if (condition === "sunny" && sunAt(m).elevation <= 0) condition = "clear-night";
+  const stormy = m >= at(15, 0) && m < at(16, 30);
+  return { condition, wind: stormy ? 32 : 11, bearing: stormy ? 225 : 270 };
 }
 
 /** Where each person is, from when: a room of the plans, or away (`null`). */
@@ -339,8 +371,8 @@ function occupancy(room: string, minute: number): number {
 }
 
 /**
- * The sensors at `minute` (which the day always sets): the sun, temperatures, humidity, CO₂,
- * motion, the appliances' power, the robot's battery.
+ * The sensors at `minute` (which the day always sets): the sun, the weather, temperatures,
+ * humidity, CO₂, motion, the appliances' power, the robot's battery.
  */
 export function sensorsAt(minute: number): Map<string, Change> {
   const m = ofDay(minute);
@@ -387,6 +419,17 @@ export function sensorsAt(minute: number): Map<string, Change> {
   motion("binary_sensor.landing_motion", "u-landing");
   sensors.set("binary_sensor.living_motion", {
     state: peopleIn("living", m).length > 0 ? "on" : "off",
+  });
+  const weather = weatherAt(m);
+  sensors.set("weather.home", {
+    state: weather.condition,
+    attributes: {
+      temperature: Math.round(outside(m) * 10) / 10,
+      temperature_unit: "°C",
+      wind_speed: weather.wind,
+      wind_speed_unit: "km/h",
+      wind_bearing: weather.bearing,
+    },
   });
   const power = appliancesAt(m);
   value("sensor.washer_power", power.washer);

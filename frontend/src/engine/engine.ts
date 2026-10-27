@@ -178,7 +178,7 @@ export interface HeatLegend {
   gradient: string[];
 }
 
-/** A style of a kind of the catalogue (D-072), with its usual size (cm). */
+/** A style of a kind of the catalogue (D-073), with its usual size (cm). */
 export interface CatalogueStyle {
   style: string;
   w: number;
@@ -428,6 +428,20 @@ export class DomoTwinEngine {
    */
   setSunPosition(azimuth: number, elevation: number, north: number): void {
     this.live.setSunPosition(azimuth, elevation, north);
+  }
+
+  /**
+   * Draws the weather around the home (D-072) for one of Home Assistant's conditions, with its
+   * wind in m/s and where it comes from in degrees clockwise from north (`NaN`: unknown), for a
+   * plan whose north is `north` degrees clockwise from its top.
+   */
+  setWeather(condition: string, windSpeed: number, windBearing: number, north: number): void {
+    this.live.setWeather(condition, windSpeed, windBearing, north);
+  }
+
+  /** What falls around the home now: `none`, `rain`, `snow`, `sleet` or `hail`. */
+  get weather(): string {
+    return this.live.weather;
   }
 
   /** Back to the default sun, high in the south-east of the plan. */
@@ -891,7 +905,7 @@ export async function catalogue(): Promise<CatalogueKind[]> {
 }
 
 /**
- * Draws the catalogue's pictures of its pieces (D-072) with an engine of its own, on a canvas
+ * Draws the catalogue's pictures of its pieces (D-073) with an engine of its own, on a canvas
  * nobody sees, in the look of the view: made when the catalogue opens, freed when it closes.
  */
 export class PieceArtist {

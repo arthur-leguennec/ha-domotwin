@@ -1,4 +1,4 @@
-//! The bedroom's and the bathroom's pieces of the library (D-072): a cot, bunk beds, a clothes
+//! The bedroom's and the bathroom's pieces of the library (D-073): a cot, bunk beds, a clothes
 //! rail, showers, a towel radiator, a laundry basket, and other styles of beds, tubs, toilets,
 //! basins and wardrobes.
 

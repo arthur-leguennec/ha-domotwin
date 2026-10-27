@@ -4,7 +4,7 @@
 
 use super::lines::{LineKind, Lines};
 use super::mesh::{Material, Mesh, NO_GROUP, Painter, Surface, Tag, V3};
-use super::{Roof, StoreyPart};
+use super::{Roof, RoofShape, StoreyPart};
 use crate::geometry::polygon::P2;
 use crate::plan::Rgb8;
 
@@ -37,12 +37,13 @@ pub(crate) fn build(parts: &[StoreyPart], wall_height: f64) -> Option<Roof> {
     let rectangle = smallest_rectangle(&convex_hull(points))?;
     let mut mesh = Mesh::default();
     let mut lines = Lines::default();
-    gable_roof(&mut mesh, &mut lines, &rectangle, wall_height);
+    let shape = gable_roof(&mut mesh, &mut lines, &rectangle, wall_height);
     (mesh.vertex_count() > 0).then_some(Roof {
         elevation: top.elevation,
         storey,
         mesh,
         lines: lines.list,
+        shape,
     })
 }
 
@@ -58,10 +59,18 @@ struct Rectangle {
 }
 
 /// Draws a gable roof over `r` (grown by the overhang), its eaves at height `eaves` (the walls'
-/// tops: the shaders darken what stands near its floor, which a roof is not).
-fn gable_roof(mesh: &mut Mesh, lines: &mut Lines, r: &Rectangle, eaves: f64) {
+/// tops: the shaders darken what stands near its floor, which a roof is not); returns its shape.
+fn gable_roof(mesh: &mut Mesh, lines: &mut Lines, r: &Rectangle, eaves: f64) -> RoofShape {
     let (hl, hw) = (r.half_length + OVERHANG, r.half_width + OVERHANG);
     let rise = (hw * PITCH.to_radians().tan()).min(MAX_RISE);
+    let shape = RoofShape {
+        centre: r.centre,
+        ridge: r.u,
+        half_length: hl,
+        half_width: hw,
+        eaves,
+        rise,
+    };
     let at = |s: f64, t: f64| -> P2 {
         [
             r.centre[0] + r.u[0] * s + r.v[0] * t,
@@ -158,6 +167,7 @@ fn gable_roof(mesh: &mut Mesh, lines: &mut Lines, r: &Rectangle, eaves: f64) {
     for (corner, ridge) in [(c0, r0), (c3, r0), (c1, r1), (c2, r1)] {
         lines.push(corner, eaves, ridge, top, NO_GROUP, kind);
     }
+    shape
 }
 
 /// The convex hull of points, counter-clockwise in the plan's axes (empty under three points).
@@ -278,7 +288,7 @@ mod tests {
         };
         let mut mesh = Mesh::default();
         let mut lines = Lines::default();
-        gable_roof(&mut mesh, &mut lines, &r, 250.0);
+        let shape = gable_roof(&mut mesh, &mut lines, &r, 250.0);
         let [lo, hi] = mesh.bounds();
         // The eaves stand out from the walls, on their tops; the ridge rises at the pitch.
         assert!((f64::from(lo[0]) + OVERHANG).abs() < 1e-3);
@@ -288,5 +298,12 @@ mod tests {
         assert!((f64::from(lo[1]) - 250.0 + THICKNESS).abs() < 1e-3);
         // Two eaves, the ridge and four gable edges.
         assert_eq!(lines.list.len(), 7);
+        // What falls on it meets the ridge in the middle and the eaves at its edges (D-072).
+        let at = |p: [f64; 2]| shape.height_at(p).unwrap();
+        assert!((at([500.0, 300.0]) - 250.0 - rise).abs() < 1e-9);
+        assert!((at([0.0, 300.0 + 330.0]) - 250.0).abs() < 1e-9);
+        assert!((at([500.0, 300.0 - 165.0]) - 250.0 - rise / 2.0).abs() < 1e-9);
+        assert!(shape.height_at([500.0, 1000.0]).is_none());
+        assert!(shape.height_at([-31.0, 300.0]).is_none());
     }
 }

@@ -291,7 +291,8 @@ def validate_settings(settings: Any) -> dict[str, Any]:
     `north`, degrees clockwise from the top of the plan; the look shown by default (`theme`) and
     its accent colour (`accent`, `#rrggbb`); the private rooms (`rooms`, D-039); where the
     home's energy is read (`energy`, D-049); the Wi-Fi access points placed on the plan
-    (`access_points`, D-066); each person's rights (`rights`, D-071).
+    (`access_points`, D-066); each person's rights (`rights`, D-071); the weather drawn around it
+    (`weather`, D-072: a `weather` entity, or `none`).
     """
     if not isinstance(settings, dict) or set(settings) - {
         "north",
@@ -301,11 +302,12 @@ def validate_settings(settings: Any) -> dict[str, Any]:
         "energy",
         "access_points",
         "rights",
+        "weather",
     }:
         raise InvalidPayloadError(
             "invalid_settings",
-            "settings hold only `north`, `theme`, `accent`, `rooms`, `energy`, `access_points` "
-            "and `rights`",
+            "settings hold only `north`, `theme`, `accent`, `rooms`, `energy`, `access_points`, "
+            "`rights` and `weather`",
         )
     north = settings.get("north", 0)
     if not _is_number(north) or not 0 <= north < 360:
@@ -322,6 +324,8 @@ def validate_settings(settings: Any) -> dict[str, Any]:
         checked["accent"] = accent.lower()
     if "rooms" in settings:
         checked["rooms"] = _private_rooms(settings["rooms"])
+    if "weather" in settings:
+        checked["weather"] = _weather(settings["weather"])
     # Left out when empty.
     optional: tuple[tuple[str, Callable[[Any], Any]], ...] = (
         ("energy", _energy),
@@ -396,6 +400,21 @@ def _rights(rights: Any) -> dict[str, Any]:
     if own:
         checked["people"] = own
     return checked
+
+
+def _weather(weather: Any) -> str:
+    """The weather drawn around the home (D-072): a `weather` entity, or `none`."""
+    if weather == "none":
+        return "none"
+    if (
+        not isinstance(weather, str)
+        or not weather.startswith("weather.")
+        or not valid_entity_id(weather)
+    ):
+        raise InvalidPayloadError(
+            "invalid_settings", "`weather` must be a weather entity or `none`"
+        )
+    return weather
 
 
 def _access_points(points: Any) -> list[dict[str, Any]]:
