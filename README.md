@@ -182,7 +182,8 @@ Local, fast, Rust + WebAssembly.</p>
 - **Bluetooth locating.** No Bermuda? DomoTwin finds the room of a phone, a watch or a tag itself,
   from what Home Assistant's Bluetooth receivers hear (its adapter, ESPHome proxies, Shelly
   devices). It starts from the plan (distances, walls, doors, floors), so it works from the first
-  minute, and learns as rooms are taught and presence sensors agree. Phones place their owners;
+  minute, and learns as rooms are taught and presence sensors agree; within the room, where, on a
+  grid of half-metre cells, and another storey only by its stairs. Phones place their owners;
   keys left behind are told; "where are my keys?" by voice. How well it finds rooms is measured,
   Bermuda's figures beside where it runs, and copied as a table to share. An iPhone's identity key,
   read without a Mac by an ESP32 in ten minutes, is pasted in DomoTwin as the tool gave it. See

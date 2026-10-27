@@ -173,21 +173,44 @@ In the panel, the **Bluetooth** button (administrators):
 3. **Devices differ.** A tag whispers, a phone shouts: each device's own loudness is learned, so a
    loud phone far away is not taken for a quiet one close by.
 4. **Rooms lead to rooms.** Someone stays put most of the time, goes through a door to the next
-   room, takes the stairs; they do not cross the home in two seconds. The room told changes only
-   once DomoTwin is sure enough twice in a row (or very sure once), so that a phone on a desk by a
-   wall does not flap between two rooms.
+   room, takes the stairs; they do not cross the home in two seconds, and they reach another
+   storey by its stairs only (where the plan has stairs that lead there, D-079). The room told
+   changes only once DomoTwin is sure enough twice in a row (or very sure once), so that a phone
+   on a desk by a wall does not flap between two rooms.
 5. **Presence sensors weigh in** for what people carry: a room whose presence sensor is on is more
    likely, one empty for half a minute less. Keys lying on a shelf are left alone.
 
 A device is weighed every two seconds, from what it sent in the last six. Not heard for two
 minutes, it is no longer located.
 
+## Where in the room
+
+Within the room told, DomoTwin also works out where the device is (D-079). The plans are cut into
+cells of half a metre (larger in a very large home), and each receiver's expected signal is worked
+out for every cell, as for the rooms, what was learned of a room moving its cells too. Around the
+room told (that room and the rooms it leads to), a cloud of likely cells follows the device: a few
+cells at a time, through the doors, up and down the stairs, never through a wall. The spot told is
+the middle of the cloud in the room told; how far the cloud spreads says how sure it is. A room
+narrower than a cell tells no spot.
+
+- On the sensor: `x` and `y` (metres on the storey's plan, from its origin), `z` (metres, the
+  height of a hand held on that storey) and `accuracy` (metres around the spot). They are told
+  again once the spot moved a metre or the accuracy changed by a quarter, and are not kept in Home
+  Assistant's history.
+- A person placed by their phone stands at its spot in the views, and walks there as it moves.
+- With one receiver, or receivers whose place is not known, the spot says little: the cloud stays
+  as wide as the room. Three or more receivers placed on the plan, around the rooms, find it best.
+- It is the plan's estimate, said to be one: a metre or two off is usual, more in a large open
+  room or a garden.
+
 ## Sensors
 
 Each device followed gets `sensor.domotwin_<device>_bluetooth` (`alex_phone` gives
 `sensor.domotwin_alex_phone_bluetooth`): the room's name, unknown when not heard. Attributes:
 `device_name`, `kind`, `person`, `left_behind`, `room_id`, `area_id`, `storey_id`, `storey`,
-`since`. It is written when the room changes, not at every reading: the history stays small.
+`since`, and where in the room (`x`, `y`, `z`, `accuracy`, [above](#where-in-the-room)). It is
+written when the room changes, the spot moves a metre or its accuracy changes by a quarter, not
+at every reading: the history stays small.
 
 A device with an owner also gets `binary_sensor.domotwin_<device>_left_behind`: on while it is
 heard at home and its owner has been away for two minutes (going from one zone to another is still
@@ -206,7 +229,8 @@ actions:
 
 ## In the views
 
-- A phone or a watch with an owner places them: their figure walks there ([people](people.md)).
+- A phone or a watch with an owner places them: their figure walks there ([people](people.md)),
+  to where in the room it is.
 - A person's sheet lists their devices and where each is, those left behind first.
 - A room's panel lists the devices heard in it ("Things here").
 - The devices of someone hidden, or of everyone when people are shown to administrators only, are

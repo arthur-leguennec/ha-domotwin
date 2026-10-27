@@ -3866,3 +3866,53 @@ names of the storeys.
     longer a floor apart.
   - Nothing new is stored: the names come from the storeys' heights, the retaining walls from the
     plans.
+
+## D-079 · Finer locating: a spot in the room, storeys by the stairs (M42)
+
+D-065 put it after the placement advisor (M31), "only if M41's figures justify it"; the maintainer
+then asked for it next, after split levels (M44, D-078). It amends D-035's room filter.
+
+- **Context.** The Bluetooth locating (D-035) says which room a device is in, not where in it; its
+  room filter lets a little chance flow to every room of the home, another storey too, so a phone
+  could be told upstairs for a reading or two without anyone taking the stairs. A user's own twin
+  (D-065) found where in the room on a grid of half-metre cells, with a cloud of likely spots that
+  changes floor only through the stairs.
+- **Decision.**
+  - **Cells.** The plans are cut into cells of 50 cm (1.25 times larger, as often as needed, for a
+    home of more than 6 000 cells), on a grid laid from each plan's origin; a cell belongs to the
+    room the locating finds at its middle (a room narrower than a cell may have none: no spot is
+    told in it). A cell leads to the cells around it in its room, across a side left open (a step
+    over that side), through the door between two rooms (a step that crosses its opening, a
+    wall's thickness at most), and from the foot of stairs to where they land on the next storey;
+    to a room no door leads to, across the side they share. Never through another wall. What each
+    receiver should hear in each cell is worked out from the plan (the same radio model) when the
+    plans or the receivers change; what was learned of a room moves its cells by as much, its
+    spread becoming that of a reading at one spot.
+  - **A cloud around the room told.** The room filter still decides the room (its sureness rule
+    stays). Around the room told (that room and those it leads to), each device has a cloud of
+    likely cells: a share of each cell's chance moves a step at each second (six steps at most
+    between two readings), what was heard is weighed cell by cell (the device's loudness as found
+    for its room), the presence sensors' weights too; the likeliest 400 cells are kept. The room
+    told holds at least half of the cloud, spread across it when the filter moved there first.
+  - **The spot.** The middle of the cloud in the room told (the nearest of its cells when that
+    middle falls out of a room that is not convex), and how far it spreads (a cell's own size
+    counted), as the device sensor's `x`, `y`, `z` and `accuracy` (metres). They are written again
+    once the spot moved a metre, or how far it spreads changed by a quarter (30 cm at least), and
+    are left out of Home Assistant's history. The person a phone places carries its `x` and `y`
+    (from whichever of their sources tells a spot in the room they are placed in), and their
+    figure stands there in the views, walking there as it moves (to the nearest place clear of the
+    furniture and of the others in the room).
+  - **Storeys by the stairs.** In the room filter, chance flows across the home only within a
+    storey, and to another storey only through the rooms stairs join (D-029's ways), where the
+    plan has stairs that lead there; between storeys no stairs join, as before.
+  - **Not done.** A cloud over the whole home at once (the cost of every cell weighed at every
+    reading, in Home Assistant's own loop, without a numeric library); the spot of a thing kept
+    in a drawer drawn in the views (things are listed in their room); M41's figures for the spot,
+    which the maintainer measures at home as for the rooms.
+- **Consequences.**
+  - A phone stays on its storey until it is heard where the stairs lead; homes without stairs on
+    their plan behave as before.
+  - The rebuild (the plans as stored or the receivers changed; not a registry change alone) works
+    the cells out too: 0.25 s with four receivers on the demo house, in Home Assistant's executor. Each reading costs about a millisecond more per
+    device in a room, a few in a garden (PERFORMANCE.md).
+  - Nothing new is stored: the cells come from the plans, the clouds start again after a restart.

@@ -67,7 +67,7 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M44       | Split levels and walk-out basements                        | ✅     |
 | M22       | A first launch in five minutes                             | ⏳     |
 | 0.5.0     | Fifth release: all of the above                            | ⏳     |
-| M42       | Finer locating: a spot in the room, storeys by the stairs  | ⏳     |
+| M42       | Finer locating: a spot in the room, storeys by the stairs  | ✅     |
 | M43       | mmWave sensors merged into one picture of the home         | ⏳     |
 | M37       | A weekly home report                                       | ⏳     |
 | M21       | More languages, right to left too                          | ⏳     |
@@ -117,7 +117,8 @@ After the weather around the home (M40, D-072) and locating measured (M41, D-073
 objects (M17) was moved forward as well (D-074). An iPhone's key without a Mac (M45, D-075) and the
 wall screen (M26, D-076) closed M24 to M26 and D-065's order. The maintainer then asked for the
 outdoors (M18, D-077) before the first launch in five minutes too, and split levels (M44, D-078)
-right after it, whose ground they share.
+right after it, whose ground they share; then finer locating (M42, D-079) and the mmWave sensors
+merged (M43), before more languages (M21) and the first launch (M22).
 
 ## M0, scaffold
 
@@ -1846,6 +1847,27 @@ the maintainer's request.
 
 Measured at the end of M44: see [`PERFORMANCE.md`](PERFORMANCE.md).
 
+## M42, finer locating
+
+Where in the room a device is, not only which room (D-079,
+[`bluetooth.md`](bluetooth.md#where-in-the-room)), at the maintainer's request after split levels.
+
+- ✅ **Half-metre cells over the plans**, each leading to the cells around it in its room, through
+  doors and sides left open, and up or down the stairs: never through a wall.
+- ✅ **A cloud of likely cells** around the room told, weighed reading by reading with the plan's
+  radio model, what was learned of each room, the device's own loudness and the presence sensors.
+- ✅ **The spot**: the device sensor's `x`, `y`, `z` and `accuracy` (metres), written again once it
+  moved a metre or its accuracy changed by a quarter, not kept in the history; a person placed by
+  their phone stands there in the views.
+- ✅ **Storeys by the stairs**: the room filter reaches another storey through the rooms stairs
+  join only, where the plan has stairs that lead there.
+- ✅ Tested: the cells and their ways, the cloud finding a phone in a corner within a metre, the
+  storeys reached by the stairs, the sensor's and the person's spot (pytest); a figure standing at
+  its spot and walking as it moves (cargo); the spot handed to the engine (vitest).
+- Left for later: a cloud over the whole home at once; the spot measured at home with M41.
+
+Measured at the end of M42: see [`PERFORMANCE.md`](PERFORMANCE.md).
+
 ## Then, from 0.4.0 to 0.5.0
 
 Planned in D-056, with D-065's additions: the sandbox first, built during the two weeks of use since
@@ -1906,14 +1928,8 @@ before its milestone starts, which goes on with what needs no answer.
 
 - ✅ **M32, "Why?"**: done next to the sandbox, right after 0.4.0 (above, D-059). Why something
   did not happen is the sandbox's (M29).
-- ⏳ **M42, finer locating** (D-065), after the placement advisor (M31), and only if the
-  figures of M41 say it is worth it: a spot inside the room rather than the room alone, worked out
-  on a grid of half-metre cells over the plan, as a cloud of likely spots that changes storey only
-  through the stairs (the ways of the walk, D-029, already know them); its X, Y and Z, and how sure
-  it is, as the room sensor's attributes. Reused from M9f (D-035): the radio model of the plan
-  (distance, walls, floors), each device's own loudness, the rooms taught (cells known for sure),
-  the presence sensors' weight and the rule that a room changes only when sure twice. Measured
-  again with M41 against what it replaces.
+- ✅ **M42, finer locating** (D-079, above): moved forward at the maintainer's request, after
+  split levels.
 - ⏳ **M43, mmWave sensors merged** (D-065), after M31: mmWave presence sensors placed on the plan
   (where each stands and which way it faces), their zones and their targets turned into the home's
   own coordinates, and merged with each other and with Bluetooth into one picture of who is where:

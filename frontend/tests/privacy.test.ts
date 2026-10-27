@@ -69,6 +69,7 @@ describe("private rooms (D-039)", () => {
         storey: "up",
         since: "now",
         source: "binary_sensor.bedroom_motion",
+        at: [120, 340] as [number, number],
         home: true,
       },
       { id: "b", room: "kitchen", roomName: "Kitchen", home: true },

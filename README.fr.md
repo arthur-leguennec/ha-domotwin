@@ -214,7 +214,8 @@ Local, rapide, Rust + WebAssembly.</p>
   téléphone, d’une montre ou d’une balise, d’après ce qu’entendent les récepteurs Bluetooth de Home
   Assistant (son adaptateur, les proxys ESPHome, les appareils Shelly). Il part du plan (distances,
   murs, portes, étages) et marche dès la première minute, puis apprend des pièces enseignées et des
-  capteurs de présence. Les téléphones placent leur propriétaire ; les clés oubliées sont
+  capteurs de présence ; dans la pièce, où, sur une grille de cellules d’un demi-mètre, et un autre
+  étage par son escalier seulement. Les téléphones placent leur propriétaire ; les clés oubliées sont
   signalées ; « où sont mes clés ? » à la voix. La justesse des pièces trouvées est mesurée, les
   chiffres de Bermuda à côté là où il tourne, et se copie en tableau à partager. La clé d’identité
   d’un iPhone, lue sans Mac par un ESP32 en dix minutes, se colle dans DomoTwin telle que l’outil la

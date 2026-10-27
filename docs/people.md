@@ -40,7 +40,9 @@ And for everyone: **who sees the people** (everyone, or administrators only) and
 ## In the 3D view
 
 - People stand around the middle of their room, clear of its walls, its furniture and its name,
-  each keeping their place while others come and go.
+  each keeping their place while others come and go. Someone placed by DomoTwin's Bluetooth
+  locating stands where in the room their phone is (D-079), and walks there as it moves a metre
+  or more.
 - When someone changes rooms, they walk there through the doors (on another storey, they fade out
   and in again upstairs). Under *reduce motion* they are there at once.
 - A tap on a name opens the person's sheet: where they are, since when, what said so, and their

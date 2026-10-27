@@ -107,6 +107,21 @@ describe("people (D-034)", () => {
     expect([...peopleByStorey(people)]).toEqual([["ground", 1]]);
   });
 
+  it("stands someone where the locating says they are in their room (D-079)", () => {
+    const placed = hass();
+    const sensor = placed.states["sensor.domotwin_alex_room"];
+    if (!sensor) throw new Error("no sensor");
+    sensor.attributes = { ...sensor.attributes, x: 2.4, y: 1.15 };
+    const [alex] = peopleShown(settings, placed);
+    expect(alex?.at).toEqual([240, 115]);
+    expect(JSON.parse(peopleJson(alex ? [alex] : [], "figure"))).toEqual([
+      { id: "person.alex", room: "kitchen", color: "#e8508a", look: "figure", at: [240, 115] },
+    ]);
+    // Not a number: no spot.
+    sensor.attributes = { ...sensor.attributes, x: "2.4" };
+    expect(peopleShown(settings, placed)[0]?.at).toBeUndefined();
+  });
+
   it("gives the colours the integration gives, and finds oneself hidden", () => {
     // The same as `people.color_of` in the integration.
     expect(["person.alex", "person.sam", "person.kim", "person.élodie"].map(colorOf)).toEqual([

@@ -10,6 +10,7 @@ import asyncio
 from collections.abc import AsyncGenerator, Callable
 from datetime import timedelta
 import importlib
+import math
 import sys
 from types import ModuleType, SimpleNamespace
 from typing import Any, cast
@@ -289,6 +290,19 @@ async def test_a_phone_is_followed_from_room_to_room_and_places_its_owner(
     assert phone.state == "Living room"
     assert phone.attributes["room_id"] == "living"
     assert phone.attributes["area_id"] == "living_room"
+    # Where in the room (D-079), in metres on the storey's plan: held in its middle.
+    middle = home.home.middle("living")
+    spot = (phone.attributes["x"], phone.attributes["y"])
+    assert math.dist(spot, (middle.x / 100, middle.y / 100)) < 1.2
+    assert phone.attributes["z"] == pytest.approx(1.1)
+    assert 0 < phone.attributes["accuracy"] < 3
+    # Alex stands there too.
+    alex = _state(hass, "sensor.domotwin_alex_room")
+    assert (alex.attributes["x"], alex.attributes["y"]) == spot
+    # Still there: the spot is not told again for the little it wanders.
+    told = home.located["alex_phone"].spot
+    _ticks(home, radio, TAG, "living")
+    assert home.located["alex_phone"].spot is told
     # How sure, and heard by how many: for the settings, not written into the history.
     assert "confidence" not in phone.attributes
     assert home.located["alex_phone"].receivers == 3
@@ -316,6 +330,27 @@ async def test_a_phone_is_followed_from_room_to_room_and_places_its_owner(
     await hass.async_block_till_done()
     assert hass.states.get(PHONE) is None
     assert er.async_get(hass).async_get(PHONE) is None
+
+
+async def test_a_rebuild_for_nothing_keeps_the_cells_and_the_clouds(
+    hass: HomeAssistant, home: Locator, radio: FakeRadio, hass_ws_client: WebSocketGenerator
+) -> None:
+    client = await hass_ws_client(hass)
+    tag = {"name": "Keys", "kind": "thing", "match": {"address": TAG}}
+    assert (await _follow(client, {"keys": tag}))["success"]
+    _ticks(home, radio, TAG, "bedroom", 6)
+    # The same plans and receivers (a registry changed): the cells and the cloud are kept.
+    cells, cloud = home.cells, home._clouds["keys"]
+    await home.async_rebuild()
+    assert home.cells is cells
+    assert home._clouds["keys"] is cloud
+    assert home.located["keys"].spot is not None
+    # A side of a room left open, nothing else: worked out again.
+    room = home._data.storeys[0]["plan"]["rooms"][0]
+    room["sides"] = [{"open": True}] * len(room["outline"])
+    await home.async_rebuild()
+    assert home.cells is not cells
+    assert home._clouds["keys"] is not cloud
 
 
 async def test_phones_by_their_key_and_beacons_by_their_ids(
@@ -396,9 +431,13 @@ async def test_another_tag_under_the_same_name_starts_again(
     assert (await _follow(client, {"keys": tag}))["success"]
     _ticks(home, radio, TAG, "bedroom", 6)
     assert TAG in home._addresses
+    cloud = home._clouds["keys"]
     other = "F9:99:99:99:99:99"
     assert (await _follow(client, {"keys": {**tag, "match": {"address": other}}}))["success"]
+    await hass.async_block_till_done()
     assert TAG not in home._addresses
+    # Where in the room it was is forgotten too.
+    assert home._clouds.get("keys") is not cloud
     assert home.located.get("keys") is None or home.located["keys"].room is None
     # The old tag heard again says nothing of the keys; an old packet replayed neither.
     _ticks(home, radio, TAG, "living", 3)
