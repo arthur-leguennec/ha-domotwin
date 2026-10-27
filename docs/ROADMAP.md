@@ -102,7 +102,7 @@ release, 0.6.0. After the sandbox, the maintainer asked for history as reports (
 "Why?" (M32, D-059) and the configuration history (M36, D-062) before the rest, which keeps its
 order. Then the weather around the home (M40), locating measured (M41) and an iPhone's key without
 a Mac (M45) were put before M24, and finer locating (M42), mmWave sensors merged (M43) and split
-levels (M44) after 0.5.0 (D-063).
+levels (M44) after 0.5.0 (D-064).
 
 ## M0, scaffold
 
@@ -1274,7 +1274,7 @@ guests and Home Assistant's Overview were in (D-062).
 
 ## Then, from 0.4.0 to 0.5.0
 
-Planned in D-056, with D-063's additions: the sandbox first, built during the two weeks of use since
+Planned in D-056, with D-064's additions: the sandbox first, built during the two weeks of use since
 it does not wait on what they show; Home Assistant's Overview joined rather than copied before M24
 and M25, which follow the same rule; the first launch in five minutes kept where it was, and 0.5.0
 right after it. Each milestone its own pull request; no network call outside Home Assistant;
@@ -1292,14 +1292,14 @@ before its milestone starts, which goes on with what needs no answer.
   a storm's flashes, fog, an overcast light, the wind slanting what falls. Drawn by the engine,
   light on a phone, still with reduced motion and in Eco; a card's `weather` option, the entity
   chosen in the settings.
-- ⏳ **M41, locating measured** (D-063), before any new locating feature: a diagnostic for
+- ⏳ **M41, locating measured** (D-064), before any new locating feature: a diagnostic for
   administrators that records, for each device followed, its room changes per hour, its storey
   changes per hour and its time in "unknown", and, where Bermuda is installed, the same figures
   from Bermuda's area sensors for the same devices over the same hours. Shown in the Bluetooth
   settings and in the diagnostics, as figures only: no addresses, no names. The maintainer runs it
   at home and the figures are published in `docs/bluetooth.md`, as they are, whichever way they
   fall. Small, so it comes soon after 0.4.0.
-- ⏳ **M45, an iPhone's key without a Mac** (D-063): in the Bluetooth settings, for an iPhone or an
+- ⏳ **M45, an iPhone's key without a Mac** (D-064): in the Bluetooth settings, for an iPhone or an
   Apple Watch, the ways to get its identity key: the Mac's Keychain; an ESP32 flashed for ten
   minutes with an existing tool, irk-capture (an ESPHome package, MIT, explained in Home Assistant's
   [community
@@ -1339,7 +1339,7 @@ before its milestone starts, which goes on with what needs no answer.
 
 - ✅ **M32, "Why?"**: done next to the sandbox, right after 0.4.0 (above, D-059). Why something
   did not happen is the sandbox's (M29).
-- ⏳ **M42, finer locating** (D-063), after the placement advisor (M31), and only if the
+- ⏳ **M42, finer locating** (D-064), after the placement advisor (M31), and only if the
   figures of M41 say it is worth it: a spot inside the room rather than the room alone, worked out
   on a grid of half-metre cells over the plan, as a cloud of likely spots that changes storey only
   through the stairs (the ways of the walk, D-029, already know them); its X, Y and Z, and how sure
@@ -1347,7 +1347,7 @@ before its milestone starts, which goes on with what needs no answer.
   (distance, walls, floors), each device's own loudness, the rooms taught (cells known for sure),
   the presence sensors' weight and the rule that a room changes only when sure twice. Measured
   again with M41 against what it replaces.
-- ⏳ **M43, mmWave sensors merged** (D-063), after M31: mmWave presence sensors placed on the plan
+- ⏳ **M43, mmWave sensors merged** (D-064), after M31: mmWave presence sensors placed on the plan
   (where each stands and which way it faces), their zones and their targets turned into the home's
   own coordinates, and merged with each other and with Bluetooth into one picture of who is where:
   Bluetooth says who, mmWave says where, and says it fast. What Home Assistant gives is checked
@@ -1388,7 +1388,7 @@ before its milestone starts, which goes on with what needs no answer.
   maintainer's request.
 - ⏳ **M18, outdoors**: the garden, the terrace, the lawn, a pool, the roofs; the lawn growing
   between two mowings.
-- ⏳ **M44, split levels and walk-out basements** (D-063), next to the outdoors (M18), whose ground
+- ⏳ **M44, split levels and walk-out basements** (D-064), next to the outdoors (M18), whose ground
   it needs. What works already: a storey can sit at any height (half a storey up), it is drawn
   there, and stairs join it to the next, for a tap and for the walk. What does not: the Bluetooth
   model counts a floor between any two storeys, even a half level beside the other rather than over

@@ -2640,7 +2640,7 @@ ahead of the order D-056 gave it. It waits on nothing the other milestones build
     `domotwin/config_history/*`, `.storage/domotwin.config_history`), beside the history
     reports of M38, which read Home Assistant's history of states.
 
-## D-063 · What Home Assistant's users say of 3D twins: said plainly, measured first (amends D-056)
+## D-064 · What Home Assistant's users say of 3D twins: said plainly, measured first (amends D-056)
 
 Read by the maintainer on r/homeassistant in October 2026, and passed on in their own words.
 
