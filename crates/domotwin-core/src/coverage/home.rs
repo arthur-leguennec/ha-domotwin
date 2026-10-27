@@ -8,6 +8,8 @@ use std::collections::{BTreeSet, HashMap};
 
 use serde_json::Value;
 
+use crate::geometry::walls::lookup_order;
+
 /// A point of a storey's plan.
 pub type Point = [f64; 2];
 
@@ -18,8 +20,13 @@ pub const RADIO_AT: f64 = 120.0;
 /// A room is looked at from this many points at most, kept this far from its sides.
 pub const MAX_POINTS: usize = 12;
 const POINT_MARGIN: f64 = 25.0;
+/// A storey at least this much over the one under it is a full storey over it, whose floor is
+/// that one's ceiling; less, a half level (D-078). Twice this, it is over another storey's.
+pub const FULL_STOREY: f64 = 200.0;
 /// A gap between two rooms narrower than this is the wall between them.
 const WALL_GAP: f64 = 60.0;
+/// A point this near two rooms is under the wall between them, on their floor (D-078).
+const UNDER_WALLS: f64 = WALL_GAP / 2.0;
 /// A door at the crossing: the wall is mostly not there.
 const DOOR_NEAR: f64 = 25.0;
 /// What a door in the way counts for, in walls.
@@ -32,8 +39,8 @@ const MAX_ITEMS: usize = 5_000;
 /// The plan of a storey that has none.
 static EMPTY: Value = Value::Null;
 
-/// A place in the home: a storey (lowest first), a point on its plan and a height (cm, from the
-/// lowest storey's floor).
+/// A place in the home: a storey (lowest first), a point on its plan and a height (cm, on the
+/// storeys' elevations: its storey's elevation and the height above that floor).
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Spot {
     pub storey: usize,
@@ -50,18 +57,20 @@ impl Spot {
     }
 }
 
-/// A room of a storey, with the box around it.
+/// A room of a storey, with the box around it; or a place outside (D-077), without walls, under
+/// the rooms around it.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Room {
     pub id: String,
     pub storey: usize,
     pub outline: Vec<Point>,
+    pub outside: bool,
     low: Point,
     high: Point,
 }
 
 impl Room {
-    fn new(id: String, storey: usize, outline: Vec<Point>) -> Self {
+    fn new(id: String, storey: usize, outline: Vec<Point>, outside: bool) -> Self {
         let mut low = [f64::INFINITY; 2];
         let mut high = [f64::NEG_INFINITY; 2];
         for p in &outline {
@@ -74,6 +83,7 @@ impl Room {
             id,
             storey,
             outline,
+            outside,
             low,
             high,
         }
@@ -87,6 +97,15 @@ impl Room {
     /// Whether a point may be inside: in the box around the room.
     fn may_hold(&self, p: Point) -> bool {
         p[0] >= self.low[0] && p[0] <= self.high[0] && p[1] >= self.low[1] && p[1] <= self.high[1]
+    }
+
+    /// Whether a point is no more than `reach` from the room (inside it, or near its sides).
+    fn near(&self, p: Point, reach: f64) -> bool {
+        p[0] >= self.low[0] - reach
+            && p[0] <= self.high[0] + reach
+            && p[1] >= self.low[1] - reach
+            && p[1] <= self.high[1] + reach
+            && (inside(&self.outline, p) || edge_distance(&self.outline, p) <= reach)
     }
 
     /// Whether the segment a-b may cross the room's sides: their boxes meet.
@@ -115,6 +134,12 @@ pub struct Home {
     doors: Vec<Vec<(Point, Point)>>,
     /// The rooms joined by a side left open, by index, the smaller first.
     open: BTreeSet<(usize, usize)>,
+    /// The order the rooms are looked up in at a point (`geometry::walls::lookup_order`).
+    order: Vec<usize>,
+    /// Whether each storey has rooms (D-078: one without is a floor wherever it is crossed).
+    has_rooms: Vec<bool>,
+    /// Each storey's rooms that are not places outside, by index.
+    indoor: Vec<Vec<usize>>,
 }
 
 /// A finite number, else nothing (a boolean is not one).
@@ -277,13 +302,17 @@ impl Home {
                     // A room id read again replaces the first, where it was (as a dict does).
                     let slot = by_id.get(id).copied().unwrap_or(home.rooms.len());
                     let n = outline.len();
+                    let outside = room.get("outside") == Some(&Value::Bool(true));
                     let sides = room.get("sides").and_then(Value::as_array);
-                    for (k, side) in sides.into_iter().flatten().enumerate() {
-                        if side.get("open") == Some(&Value::Bool(true)) && k < n {
+                    // A place outside has no walls: every side of it is open (to another place
+                    // outside: a room beside it has its façade).
+                    for k in 0..n {
+                        let side = sides.and_then(|s| s.get(k));
+                        if outside || side.and_then(|s| s.get("open")) == Some(&Value::Bool(true)) {
                             open_sides.push((index, slot, outline[k], outline[(k + 1) % n]));
                         }
                     }
-                    let read = Room::new(id.to_owned(), index, outline);
+                    let read = Room::new(id.to_owned(), index, outline, outside);
                     if slot < home.rooms.len() {
                         home.rooms[slot] = read;
                     } else {
@@ -301,10 +330,23 @@ impl Home {
             }
             home.doors.push(doors);
         }
+        home.order = lookup_order(home.rooms.iter().map(|r| (r.outline.as_slice(), r.outside)));
+        home.has_rooms = (0..home.elevations.len())
+            .map(|k| home.rooms.iter().any(|r| r.storey == k))
+            .collect();
+        home.indoor = (0..home.elevations.len())
+            .map(|k| {
+                (0..home.rooms.len())
+                    .filter(|&r| home.rooms[r].storey == k && !home.rooms[r].outside)
+                    .collect()
+            })
+            .collect();
         for (storey, room, a, b) in open_sides {
+            let outside = home.rooms.get(room).is_some_and(|r| r.outside);
             for p in across(a, b) {
                 if let Some(other) = home.room_at(storey, p)
                     && other != room
+                    && (!outside || home.rooms[other].outside)
                 {
                     home.open.insert((room.min(other), room.max(other)));
                 }
@@ -365,11 +407,13 @@ impl Home {
         }
     }
 
-    /// The room a point of a storey is in (by index).
+    /// The room a point of a storey is in (by index): a room before a place outside around it, a
+    /// deck before the garden around it.
     pub fn room_at(&self, storey: usize, p: Point) -> Option<usize> {
-        self.rooms
-            .iter()
-            .position(|room| room.storey == storey && room.may_hold(p) && inside(&room.outline, p))
+        self.order.iter().copied().find(|&k| {
+            let room = &self.rooms[k];
+            room.storey == storey && room.may_hold(p) && inside(&room.outline, p)
+        })
     }
 
     /// The index of a room by its id.
@@ -379,6 +423,7 @@ impl Home {
 
     /// Places a device may be held in a room: a grid inside it, clear of its sides.
     pub fn points(&self, room: usize) -> Vec<Spot> {
+        let index = room;
         let Some(room) = self.rooms.get(room) else {
             return Vec::new();
         };
@@ -401,7 +446,11 @@ impl Home {
                         low[0] + step / 2.0 + i as f64 * step,
                         low[1] + step / 2.0 + j as f64 * step,
                     ];
-                    if inside(&room.outline, p) && edge_distance(&room.outline, p) >= POINT_MARGIN {
+                    // A place outside around the home: not in its rooms.
+                    if inside(&room.outline, p)
+                        && edge_distance(&room.outline, p) >= POINT_MARGIN
+                        && !(room.outside && self.room_at(room.storey, p) != Some(index))
+                    {
                         found.push(p);
                     }
                 }
@@ -466,7 +515,7 @@ impl Home {
     ///
     /// Each change of room along the line is a wall; a side left open is none, a door in the way
     /// less than one. A line out of the home and back in crosses two façades; a gap between two
-    /// rooms no wider than a wall is the wall between them.
+    /// rooms no wider than a wall is the wall between them, in a garden drawn round them or not.
     pub fn walls(&self, a: &Spot, b: &Spot) -> f64 {
         let storey = a.storey;
         let (pa, pb) = ([a.x, a.y], [b.x, b.y]);
@@ -499,17 +548,23 @@ impl Home {
                 _ => runs.push((room, t0, t1)),
             }
         }
+        let indoors = |room: Option<usize>| room.is_some_and(|k| !self.rooms[k].outside);
         let mut total = 0.0;
         let mut i = 0;
         while i + 1 < runs.len() {
             let (here, _, end) = runs[i];
             let (there, start, gap_end) = runs[i + 1];
-            if there.is_none()
+            let beyond = runs.get(i + 2).map(|run| run.0);
+            // A gap between rooms, out of the home or in the garden drawn round it.
+            let gap = there.is_none()
+                || (there.is_some_and(|k| self.rooms[k].outside)
+                    && indoors(here)
+                    && beyond.is_some_and(indoors));
+            if gap
                 && here.is_some()
-                && i + 2 < runs.len()
+                && let Some(beyond) = beyond
                 && (gap_end - start) * length <= WALL_GAP
             {
-                let beyond = runs[i + 2].0;
                 total += self.wall(storey, here, beyond, at((start + gap_end) / 2.0));
                 i += 2;
                 continue;
@@ -540,9 +595,73 @@ impl Home {
         if near_door { DOOR_WALL } else { 1.0 }
     }
 
-    /// The floors between two places' storeys.
+    /// The floors between two places (D-078): the floors of the storeys over the lower place's
+    /// storey, up to the higher place's, each counted where the line between the two places goes
+    /// through its height under one of that storey's rooms (or a wall between two), or over a
+    /// room of a full storey under it, whose ceiling it is (a half level beside another is not
+    /// over it, nor two storeys over a room); a storey without rooms is a floor wherever it is
+    /// crossed. Storeys at one height are one floor.
     pub fn floors(&self, a: &Spot, b: &Spot) -> usize {
-        a.storey.abs_diff(b.storey)
+        let height = |s: &Spot| self.elevations.get(s.storey).copied().unwrap_or(0.0);
+        let (lo, hi) = if (height(a), a.z) <= (height(b), b.z) {
+            (a, b)
+        } else {
+            (b, a)
+        };
+        let (bottom, top) = (height(lo), height(hi));
+        let mut levels: Vec<f64> = self
+            .elevations
+            .iter()
+            .copied()
+            .filter(|&e| bottom < e && e <= top)
+            .collect();
+        levels.sort_by(f64::total_cmp);
+        levels.dedup();
+        let storeys = 0..self.elevations.len();
+        let rise = hi.z - lo.z;
+        levels
+            .into_iter()
+            .filter(|&level| {
+                let t = if rise.abs() < 1e-9 {
+                    0.5
+                } else {
+                    ((level - lo.z) / rise).clamp(0.0, 1.0)
+                };
+                let p = [lo.x + (hi.x - lo.x) * t, lo.y + (hi.y - lo.y) * t];
+                // A storey at that height without rooms, or with one there.
+                let here = storeys.clone().any(|k| {
+                    self.elevations[k] == level
+                        && (!self.has_rooms.get(k).copied().unwrap_or(false) || self.indoors(k, p))
+                });
+                // The highest storey under it with a room there, a full storey lower (not two):
+                // its ceiling.
+                let under = storeys
+                    .clone()
+                    .filter(|&k| self.elevations[k] < level && self.indoors(k, p))
+                    .map(|k| self.elevations[k])
+                    .reduce(f64::max);
+                here || under
+                    .is_some_and(|e| (FULL_STOREY..2.0 * FULL_STOREY).contains(&(level - e)))
+            })
+            .count()
+    }
+
+    /// Whether `p` is in one of a storey's rooms (not a place outside), or under a wall between
+    /// two of them.
+    fn indoors(&self, storey: usize, p: Point) -> bool {
+        let rooms = || {
+            self.indoor
+                .get(storey)
+                .into_iter()
+                .flatten()
+                .map(|&r| &self.rooms[r])
+        };
+        rooms().any(|room| room.may_hold(p) && inside(&room.outline, p))
+            || rooms()
+                .filter(|room| room.near(p, UNDER_WALLS))
+                .take(2)
+                .count()
+                == 2
     }
 
     /// The index of a storey by its id.

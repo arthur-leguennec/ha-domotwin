@@ -91,7 +91,8 @@ removes it, in the link editor. A device id is not kept in the integration's dia
 | `sensor`   | any other entity                                              | labels, layers                 |
 
 A `vacuum.*` entity linked to a `robot-vacuum` piece (its role derived as `sensor`) draws the
-piece's robot on the floor, doing what the vacuum does (D-049).
+piece's robot on the floor, doing what the vacuum does (D-049); a `lawn_mower.*` entity linked to a
+`robot-mower` piece, its robot on the lawns (D-077, [`outdoors.md`](outdoors.md)).
 
 ### Actions
 

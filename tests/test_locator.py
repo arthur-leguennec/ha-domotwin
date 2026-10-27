@@ -6,11 +6,15 @@ things left behind, the commands and `where`.
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import AsyncGenerator, Callable
 from datetime import timedelta
-from types import SimpleNamespace
+import importlib
+import math
+import sys
+from types import ModuleType, SimpleNamespace
 from typing import Any, cast
-from unittest.mock import patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry, async_fire_time_changed
@@ -18,10 +22,17 @@ from pytest_homeassistant_custom_component.typing import WebSocketGenerator
 
 from custom_components.domotwin.const import LOCATING_LEARNED_KEY, LOCATING_STORAGE_KEY
 from custom_components.domotwin.data import DATA_KEY, LOCATOR_KEY, PEOPLE_KEY
+from custom_components.domotwin.locating.radar import Reading
 from custom_components.domotwin.locating.radio import expected_at
 from custom_components.domotwin.locating.radio_ha import Advert, HaRadio, Receiver, ha_radio
-from custom_components.domotwin.locator import Locator
+from custom_components.domotwin.locator import KeyNotTakenError, Locator
 from homeassistant.core import HomeAssistant, State
+from homeassistant.data_entry_flow import (
+    FlowResultType,
+    InvalidData,
+    UnknownFlow,
+    UnknownHandler,
+)
 from homeassistant.helpers import (
     area_registry as ar,
     device_registry as dr,
@@ -280,6 +291,19 @@ async def test_a_phone_is_followed_from_room_to_room_and_places_its_owner(
     assert phone.state == "Living room"
     assert phone.attributes["room_id"] == "living"
     assert phone.attributes["area_id"] == "living_room"
+    # Where in the room (D-079), in metres on the storey's plan: held in its middle.
+    middle = home.home.middle("living")
+    spot = (phone.attributes["x"], phone.attributes["y"])
+    assert math.dist(spot, (middle.x / 100, middle.y / 100)) < 1.2
+    assert phone.attributes["z"] == pytest.approx(1.1)
+    assert 0 < phone.attributes["accuracy"] < 3
+    # Alex stands there too.
+    alex = _state(hass, "sensor.domotwin_alex_room")
+    assert (alex.attributes["x"], alex.attributes["y"]) == spot
+    # Still there: the spot is not told again for the little it wanders.
+    told = home.located["alex_phone"].spot
+    _ticks(home, radio, TAG, "living")
+    assert home.located["alex_phone"].spot is told
     # How sure, and heard by how many: for the settings, not written into the history.
     assert "confidence" not in phone.attributes
     assert home.located["alex_phone"].receivers == 3
@@ -307,6 +331,27 @@ async def test_a_phone_is_followed_from_room_to_room_and_places_its_owner(
     await hass.async_block_till_done()
     assert hass.states.get(PHONE) is None
     assert er.async_get(hass).async_get(PHONE) is None
+
+
+async def test_a_rebuild_for_nothing_keeps_the_cells_and_the_clouds(
+    hass: HomeAssistant, home: Locator, radio: FakeRadio, hass_ws_client: WebSocketGenerator
+) -> None:
+    client = await hass_ws_client(hass)
+    tag = {"name": "Keys", "kind": "thing", "match": {"address": TAG}}
+    assert (await _follow(client, {"keys": tag}))["success"]
+    _ticks(home, radio, TAG, "bedroom", 6)
+    # The same plans and receivers (a registry changed): the cells and the cloud are kept.
+    cells, cloud = home.cells, home._clouds["keys"]
+    await home.async_rebuild()
+    assert home.cells is cells
+    assert home._clouds["keys"] is cloud
+    assert home.located["keys"].spot is not None
+    # A side of a room left open, nothing else: worked out again.
+    room = home._data.storeys[0]["plan"]["rooms"][0]
+    room["sides"] = [{"open": True}] * len(room["outline"])
+    await home.async_rebuild()
+    assert home.cells is not cells
+    assert home._clouds["keys"] is not cloud
 
 
 async def test_phones_by_their_key_and_beacons_by_their_ids(
@@ -379,6 +424,302 @@ async def test_a_receiver_that_connects_late_is_placed_and_heard(
     assert home.located["keys"].room == "bedroom"
 
 
+async def _radar(hass: HomeAssistant, locator: Locator, client: Any) -> dict[str, str]:
+    """An LD2450 through ESPHome on the living room's bookcase, looking into the room (D-080).
+
+    The bookcase stands by the south wall turned to face north: a target ahead of it is up the
+    plan, one to its right towards the kitchen.
+    """
+    entry = MockConfigEntry(domain="esphome")
+    entry.add_to_hass(hass)
+    device = dr.async_get(hass).async_get_or_create(
+        config_entry_id=entry.entry_id,
+        connections={(dr.CONNECTION_NETWORK_MAC, "ee:00:00:00:00:09")},
+        name="Living radar",
+    )
+    registry = er.async_get(hass)
+    entities = {}
+    for n in (1, 2):
+        for axis in ("x", "y"):
+            entry_ = registry.async_get_or_create(
+                "sensor",
+                "esphome",
+                f"radar-{n}-{axis}",
+                device_id=device.id,
+                suggested_object_id=f"living_radar_target_{n}_{axis}",
+                original_name=f"Target {n} {axis.upper()}",
+            )
+            entities[f"{n}{axis}"] = entry_.entity_id
+            hass.states.async_set(entry_.entity_id, "0", {"unit_of_measurement": "mm"})
+    await client.send_json_auto_id({"type": "domotwin/bindings/get"})
+    bindings = (await client.receive_json())["result"]["bindings"]
+    bindings["elements"]["bookcase"] = {"device": device.id, "entities": []}
+    await client.send_json_auto_id({"type": "domotwin/bindings/save", "bindings": bindings})
+    assert (await client.receive_json())["success"]
+    await locator.async_rebuild()
+    return entities
+
+
+def _target(
+    hass: HomeAssistant, entities: dict[str, str], n: int, across: float, ahead: float
+) -> None:
+    hass.states.async_set(entities[f"{n}x"], str(across * 10), {"unit_of_measurement": "mm"})
+    hass.states.async_set(entities[f"{n}y"], str(ahead * 10), {"unit_of_measurement": "mm"})
+
+
+async def _radars_read(hass: HomeAssistant) -> None:
+    async_fire_time_changed(hass, dt_util.utcnow() + timedelta(seconds=1))
+    await hass.async_block_till_done()
+
+
+async def test_a_radar_on_the_plan_sees_people_and_who_carries_a_phone(
+    hass: HomeAssistant, home: Locator, radio: FakeRadio, hass_ws_client: WebSocketGenerator
+) -> None:
+    client = await hass_ws_client(hass)
+    entities = await _radar(hass, home, client)
+    [radar] = home.radar.radars
+    bookcase = home.home.pieces["bookcase"]
+    assert (radar.id, radar.room) == ("bookcase", "living")
+    assert (radar.x, radar.y) == (bookcase.x, bookcase.y)
+    # Nobody seen: the sensor is there, saying so.
+    await _radars_read(hass)
+    assert _state(hass, "sensor.domotwin_people_seen").state == "0"
+    # Someone two metres ahead of it, one to its right: up the plan, towards the kitchen.
+    _target(hass, entities, 1, 100, 200)
+    await _radars_read(hass)
+    seen = _state(hass, "sensor.domotwin_people_seen")
+    assert seen.state == "1"
+    [someone] = seen.attributes["seen"]
+    assert someone["room_id"] == "living"
+    assert (someone["x"], someone["y"]) == pytest.approx(
+        ((bookcase.x + 100) / 100, (bookcase.y - 200) / 100), abs=0.01
+    )
+    # The settings show it: where, what it says, what it sees now.
+    shown = (await _call(client, "get"))["result"]["radars"]
+    assert shown == [
+        {
+            "piece": "bookcase",
+            "name": "Bookcase",
+            "room": "living",
+            "kind": "targets",
+            "working": True,
+            "seeing": 1,
+            "mirror": False,
+        }
+    ]
+    # Alex's phone heard in the living room: Alex is the one seen, where the radar sees them.
+    phone = {"name": "Alex's phone", "kind": "phone", "person": "person.alex"}
+    assert (await _follow(client, {"alex_phone": {**phone, "match": {"address": TAG}}}))["success"]
+    _ticks(home, radio, TAG, "living")
+    await hass.async_block_till_done()
+    located = _state(hass, PHONE)
+    assert (located.attributes["x"], located.attributes["y"]) == (someone["x"], someone["y"])
+    assert located.attributes["accuracy"] == pytest.approx(0.4)
+    assert _state(hass, "sensor.domotwin_people_seen").attributes["seen"] == []
+    alex = _state(hass, "sensor.domotwin_alex_room")
+    assert (alex.attributes["x"], alex.attributes["y"]) == (someone["x"], someone["y"])
+    # Alex walks a metre and a half towards the kitchen: told at once, between the ticks.
+    _target(hass, entities, 1, 250, 200)
+    await _radars_read(hass)
+    assert _state(hass, PHONE).attributes["x"] == pytest.approx((bookcase.x + 250) / 100)
+    # Another person comes in: seen, no device naming them; through the wall, nobody.
+    _target(hass, entities, 2, -50, 150)
+    await _radars_read(hass)
+    seen = _state(hass, "sensor.domotwin_people_seen")
+    assert seen.state == "2"
+    assert [s["room_id"] for s in seen.attributes["seen"]] == ["living"]
+    _target(hass, entities, 2, 0, -150)
+    await _radars_read(hass)
+    assert _state(hass, "sensor.domotwin_people_seen").state == "1"
+
+
+async def test_a_radar_mirrored_unavailable_or_unlinked(
+    hass: HomeAssistant, home: Locator, radio: FakeRadio, hass_ws_client: WebSocketGenerator
+) -> None:
+    client = await hass_ws_client(hass)
+    entities = await _radar(hass, home, client)
+    bookcase = home.home.pieces["bookcase"]
+    phone = {"name": "Alex's phone", "kind": "phone", "person": "person.alex"}
+    assert (await _follow(client, {"alex_phone": {**phone, "match": {"address": TAG}}}))["success"]
+    _target(hass, entities, 1, 100, 200)
+    _ticks(home, radio, TAG, "living")
+    await _radars_read(hass)
+    assert _state(hass, PHONE).attributes["x"] == pytest.approx((bookcase.x + 100) / 100)
+    # Counted the other way round: mirrored in the settings.
+    answer = await _call(
+        client,
+        "save",
+        receivers={BEDROOM_PROXY: {"room": "bedroom"}},
+        devices={"alex_phone": {**phone, "match": {"address": TAG}}},
+        radars={"bookcase": {"mirror": True}},
+    )
+    assert answer["success"], answer
+    assert home.radar.radars[0].mirror
+    _target(hass, entities, 1, -60, 200)
+    await _radars_read(hass)
+    assert _state(hass, PHONE).attributes["x"] == pytest.approx((bookcase.x + 60) / 100)
+    # Its entities unavailable: it says nothing, the phone is where its cloud says.
+    for entity in entities.values():
+        hass.states.async_set(entity, "unavailable")
+    await _radars_read(hass)
+    assert _state(hass, "sensor.domotwin_people_seen").state == "0"
+    assert (await _call(client, "get"))["result"]["radars"][0]["working"] is False
+    # Unlinked: no radar, no sensor.
+    await client.send_json_auto_id({"type": "domotwin/bindings/get"})
+    bindings = (await client.receive_json())["result"]["bindings"]
+    del bindings["elements"]["bookcase"]
+    await client.send_json_auto_id({"type": "domotwin/bindings/save", "bindings": bindings})
+    assert (await client.receive_json())["success"]
+    await home.async_rebuild()
+    await hass.async_block_till_done()
+    assert home.radar.radars == []
+    assert hass.states.get("sensor.domotwin_people_seen") is None
+
+
+async def test_a_radar_names_a_person_once_and_tells_nothing_of_a_private_room(
+    hass: HomeAssistant, home: Locator, radio: FakeRadio, hass_ws_client: WebSocketGenerator
+) -> None:
+    client = await hass_ws_client(hass)
+    entities = await _radar(hass, home, client)
+    # Alex carries a phone and a watch; a guest stands two metres from them.
+    watch = "F2:22:33:44:55:66"
+    alex = {"person": "person.alex"}
+    devices: dict[str, dict[str, Any]] = {
+        "alex_phone": {**alex, "name": "Phone", "kind": "phone", "match": {"address": TAG}},
+        "alex_watch": {**alex, "name": "Watch", "kind": "watch", "match": {"address": watch}},
+    }
+    assert (await _follow(client, devices))["success"]
+    _target(hass, entities, 1, 100, 200)
+    _target(hass, entities, 2, -50, 120)
+    clock = cast("Clock", locator_clock(home))
+    for _ in range(4):
+        clock.now += 2
+        _hear(radio, home, TAG, "living")
+        _hear(radio, home, watch, "living")
+        home._tick()
+    await _radars_read(hass)
+    phone = _state(hass, PHONE).attributes
+    watched = _state(hass, "sensor.domotwin_alex_watch_bluetooth").attributes
+    # One person: both where Alex is seen; the guest stays someone no device names.
+    assert (watched["x"], watched["y"]) == (phone["x"], phone["y"])
+    seen = _state(hass, "sensor.domotwin_people_seen")
+    assert seen.state == "2"
+    assert len(seen.attributes["seen"]) == 1
+    # Its sensor, as the people's settings name it.
+    people = (await _call_people(client))["result"]
+    assert people["seen"] == "sensor.domotwin_people_seen"
+    # A phone left behind is no one's.
+    home.located["alex_phone"].left_behind = True
+    home.located["alex_watch"].left_behind = True
+    await home.async_rebuild()
+    assert len(_state(hass, "sensor.domotwin_people_seen").attributes["seen"]) == 2
+    # The living room private while guests are in: the sensor says nothing of it then.
+    hass.states.async_set("input_boolean.guests", "off")
+    await client.send_json_auto_id({"type": "domotwin/settings/get"})
+    settings = (await client.receive_json())["result"]["settings"]
+    settings["rooms"] = {"living": {"people": [], "while": "input_boolean.guests"}}
+    await client.send_json_auto_id({"type": "domotwin/settings/save", "settings": settings})
+    assert (await client.receive_json())["success"]
+    await hass.async_block_till_done()
+    assert _state(hass, "sensor.domotwin_people_seen").state == "2"
+    hass.states.async_set("input_boolean.guests", "on")
+    await hass.async_block_till_done()
+    seen = _state(hass, "sensor.domotwin_people_seen")
+    assert (seen.state, seen.attributes["seen"]) == ("0", [])
+
+
+async def _call_people(client: Any) -> dict[str, Any]:
+    await client.send_json_auto_id({"type": "domotwin/people/get"})
+    answer: dict[str, Any] = await client.receive_json()
+    return answer
+
+
+async def test_a_radar_s_mirror_is_kept_while_it_is_away_and_a_distance_one_says_how_far(
+    hass: HomeAssistant, home: Locator, hass_ws_client: WebSocketGenerator
+) -> None:
+    client = await hass_ws_client(hass)
+    await _radar(hass, home, client)
+    mirrored = {"bookcase": {"mirror": True}}
+    assert (await _call(client, "save", receivers={}, devices={}, radars=mirrored))["success"]
+    # Its device away for a moment (no radar found), the settings saved meanwhile: kept.
+    radar_entities = [e for e in er.async_get(hass).entities.values() if "radar" in e.entity_id]
+    for entry in radar_entities:
+        er.async_get(hass).async_update_entity(
+            entry.entity_id, disabled_by=er.RegistryEntryDisabler.USER
+        )
+    await home.async_rebuild()
+    assert home.radar.radars == []
+    assert (await _call(client, "save", receivers={}, devices={}, radars={}))["success"]
+    assert home.settings["radars"] == mirrored
+    # Unticked meanwhile, said of: not mirrored any more; ticked again.
+    unticked = {"bookcase": {"mirror": False}}
+    assert (await _call(client, "save", receivers={}, devices={}, radars=unticked))["success"]
+    assert home.settings["radars"] == {}
+    assert (await _call(client, "save", receivers={}, devices={}, radars=mirrored))["success"]
+    for entry in radar_entities:
+        er.async_get(hass).async_update_entity(entry.entity_id, disabled_by=None)
+    await home.async_rebuild()
+    assert home.radar.radars[0].mirror
+    # An LD2410 on the hall's shoe cabinet: how far its target is, while its presence is on.
+    entry = MockConfigEntry(domain="esphome")
+    entry.add_to_hass(hass)
+    device = dr.async_get(hass).async_get_or_create(
+        config_entry_id=entry.entry_id,
+        connections={(dr.CONNECTION_NETWORK_MAC, "ee:00:00:00:00:0a")},
+        name="Hall radar",
+    )
+    registry = er.async_get(hass)
+    made = {}
+    for kind, key, name in (
+        ("sensor", "detection", "Detection distance"),
+        ("binary_sensor", "target", "Has target"),
+    ):
+        made[key] = registry.async_get_or_create(
+            kind,
+            "esphome",
+            f"hall-{key}",
+            device_id=device.id,
+            suggested_object_id=f"hall_radar_{key}",
+            original_name=name,
+        ).entity_id
+    await client.send_json_auto_id({"type": "domotwin/bindings/get"})
+    bindings = (await client.receive_json())["result"]["bindings"]
+    bindings["elements"]["shoe-cabinet"] = {"device": device.id, "entities": []}
+    await client.send_json_auto_id({"type": "domotwin/bindings/save", "bindings": bindings})
+    assert (await client.receive_json())["success"]
+    hass.states.async_set(made["detection"], "150", {"unit_of_measurement": "cm"})
+    hass.states.async_set(made["target"], "on")
+    await home.async_rebuild()
+    readings = home._radar_readings()
+    assert readings["shoe-cabinet"].distance == pytest.approx(150.0)
+    # Off: nobody there; on with no distance: nothing said now.
+    hass.states.async_set(made["target"], "off")
+    assert home._radar_readings()["shoe-cabinet"].present is False
+    hass.states.async_set(made["target"], "on")
+    hass.states.async_set(made["detection"], "0", {"unit_of_measurement": "cm"})
+    assert home._radar_readings()["shoe-cabinet"] == Reading(present=True)
+    hass.states.async_set(made["target"], "unknown")
+    assert "shoe-cabinet" not in home._radar_readings()
+    kinds = {r["piece"]: r["kind"] for r in (await _call(client, "get"))["result"]["radars"]}
+    assert kinds == {"bookcase": "targets", "shoe-cabinet": "distance"}
+
+
+async def test_a_radar_s_settings_are_checked(
+    hass: HomeAssistant, home: Locator, hass_ws_client: WebSocketGenerator
+) -> None:
+    client = await hass_ws_client(hass)
+    wrong: list[Any] = [{"bookcase": {"mirror": "yes"}}, {"bookcase": {"turn": 3}}, {"": {}}, []]
+    for radars in wrong:
+        answer = await _call(client, "save", receivers={}, devices={}, radars=radars)
+        assert not answer["success"], radars
+    answer = await _call(
+        client, "save", receivers={}, devices={}, radars={"bookcase": {"mirror": False}}
+    )
+    assert answer["success"]
+    # Not mirrored is as if not said.
+    assert home.settings["radars"] == {}
+
+
 async def test_another_tag_under_the_same_name_starts_again(
     hass: HomeAssistant, home: Locator, radio: FakeRadio, hass_ws_client: WebSocketGenerator
 ) -> None:
@@ -387,9 +728,13 @@ async def test_another_tag_under_the_same_name_starts_again(
     assert (await _follow(client, {"keys": tag}))["success"]
     _ticks(home, radio, TAG, "bedroom", 6)
     assert TAG in home._addresses
+    cloud = home._clouds["keys"]
     other = "F9:99:99:99:99:99"
     assert (await _follow(client, {"keys": {**tag, "match": {"address": other}}}))["success"]
+    await hass.async_block_till_done()
     assert TAG not in home._addresses
+    # Where in the room it was is forgotten too.
+    assert home._clouds.get("keys") is not cloud
     assert home.located.get("keys") is None or home.located["keys"].room is None
     # The old tag heard again says nothing of the keys; an old packet replayed neither.
     _ticks(home, radio, TAG, "living", 3)
@@ -697,3 +1042,349 @@ async def test_home_assistant_bluetooth_is_heard_both_ways(hass: HomeAssistant) 
     assert [p.rssi for p in polled] == [-70, -70]
     stop()
     assert radio._stop_polling is None
+
+
+async def test_the_rooms_found_are_measured_beside_bermuda(
+    hass: HomeAssistant,
+    home: Locator,
+    radio: FakeRadio,
+    hass_ws_client: WebSocketGenerator,
+    hass_storage: dict[str, Any],
+) -> None:
+    """M41: DomoTwin's rooms counted, Bermuda's area sensor of the same phone beside them."""
+    client = await hass_ws_client(hass)
+    bermuda = er.async_get(hass).async_get_or_create(
+        "sensor", "bermuda", "f1:22:33:44:55:66_area", suggested_object_id="alex_phone_area"
+    )
+    er.async_get(hass).async_get_or_create("sensor", "bermuda", "f1:22:33:44:55:66_distance")
+    sensor = er.async_get(hass).async_get_or_create(
+        "binary_sensor", "mmwave", "living-1", original_device_class="occupancy"
+    )
+    er.async_get(hass).async_update_entity(sensor.entity_id, area_id="living_room")
+    hass.states.async_set(sensor.entity_id, "on", {"device_class": "occupancy"})
+    answer = await _call(client, "get")
+    # Only Bermuda's area sensors are offered.
+    assert answer["result"]["bermuda"] == [bermuda.entity_id]
+    phone = {
+        "name": "Alex's phone",
+        "kind": "phone",
+        "person": "person.alex",
+        "match": {"address": TAG},
+        "bermuda": bermuda.entity_id,
+    }
+    assert (await _follow(client, {"alex_phone": phone}))["success"]
+    await hass.async_block_till_done()
+    assert (await _call(client, "get"))["result"]["devices"]["alex_phone"]["bermuda"] == (
+        bermuda.entity_id
+    )
+
+    # The rooms settle for a minute after a start: Bermuda agrees meanwhile.
+    hass.states.async_set(bermuda.entity_id, "living room")
+    _ticks(home, radio, TAG, "living", 31)
+    # Then Bermuda flickers between the living room and the bedroom, by name or by area id.
+    for k in range(12):
+        if k % 2:
+            hass.states.async_set(bermuda.entity_id, "Bedroom", {"area_id": "bedroom"})
+        else:
+            hass.states.async_set(bermuda.entity_id, "living room")
+        _ticks(home, radio, TAG, "living", 1)
+    measured = (await _call(client, "measure"))["result"]
+    shown = measured["devices"]["alex_phone"]
+    assert shown["domotwin"]["changes_per_hour"] == 0.0
+    assert shown["domotwin"]["short_stays"] == 0
+    assert shown["bermuda"]["changes_per_hour"] > 100
+    assert shown["bermuda"]["short_stays"] >= 9
+    assert 0.5 < shown["agreement"] < 0.95
+    # Alex alone at home, the living room's presence sensor alone on: DomoTwin right.
+    assert shown["domotwin"]["right_share"] == 1.0
+    assert shown["bermuda"]["right_share"] < 0.95
+    # Away from Bermuda's sensor: unknown for Bermuda.
+    hass.states.async_set(bermuda.entity_id, "unknown")
+    _ticks(home, radio, TAG, "living", 2)
+    shown = (await _call(client, "measure"))["result"]["devices"]["alex_phone"]
+    assert shown["bermuda"]["unknown_share"] > 0
+
+    # Kept with what is learned (a save always waiting while measuring, written within ten
+    # minutes, or when Home Assistant stops), figures only in the diagnostics.
+    assert home._save_due is not None
+    async_fire_time_changed(hass, dt_util.utcnow() + timedelta(minutes=11))
+    await hass.async_block_till_done()
+    kept = hass_storage[LOCATING_LEARNED_KEY]["data"]["measure"]
+    assert kept["devices"]["alex_phone"]["bermuda"]["changes"] >= 10
+    from custom_components.domotwin.diagnostics import (  # noqa: PLC0415
+        async_get_config_entry_diagnostics,
+    )
+
+    entry = hass.config_entries.async_entries("domotwin")[0]
+    found = await async_get_config_entry_diagnostics(hass, entry)
+    assert found["locating"]["measured"]["devices"][0]["bermuda"]["short_stays"] >= 9
+    assert "alex_phone" not in str(found["locating"])
+    assert "Alex" not in str(found["locating"])
+
+    # Started again.
+    again = await _call(client, "measure/reset")
+    assert again["success"]
+    assert (await _call(client, "measure"))["result"]["devices"] == {}
+
+
+async def test_bermuda_unpaired_or_another_device_starts_its_figures_again(
+    hass: HomeAssistant, home: Locator, radio: FakeRadio, hass_ws_client: WebSocketGenerator
+) -> None:
+    """M41: figures of a sensor no longer paired, or of a tag no longer followed, go."""
+    client = await hass_ws_client(hass)
+    phone = {
+        "name": "Alex's phone",
+        "kind": "phone",
+        "person": "person.alex",
+        "match": {"address": TAG},
+        "bermuda": "sensor.alex_phone_area",
+    }
+    bad = {**phone, "bermuda": "light.lamp"}
+    refused = await _follow(client, {"alex_phone": bad})
+    assert refused["error"]["code"] == "invalid_locating"
+    # A sensor Home Assistant knows as another integration's is not Bermuda's.
+    other = er.async_get(hass).async_get_or_create(
+        "sensor", "demo", "living-temperature", suggested_object_id="living_temperature"
+    )
+    refused = await _follow(client, {"alex_phone": {**phone, "bermuda": other.entity_id}})
+    assert refused["error"]["code"] == "invalid_locating"
+    # One Bermuda sensor, one device.
+    watch = {**phone, "name": "Watch", "kind": "watch", "match": {"address": "F1:22:33:44:55:77"}}
+    refused = await _follow(client, {"alex_phone": phone, "watch": watch})
+    assert refused["error"]["code"] == "invalid_locating"
+    assert (await _follow(client, {"alex_phone": phone}))["success"]
+    await hass.async_block_till_done()
+    hass.states.async_set("sensor.alex_phone_area", "Living room", {"area_id": "living_room"})
+    _ticks(home, radio, TAG, "living", 3)
+    shown = (await _call(client, "measure"))["result"]["devices"]["alex_phone"]
+    assert set(shown) == {"domotwin", "domotwin_areas", "bermuda", "agreement"}
+    # Paired no more: Bermuda's figures go with it.
+    assert (await _follow(client, {"alex_phone": {**phone, "bermuda": None}}))["success"]
+    await hass.async_block_till_done()
+    _ticks(home, radio, TAG, "living", 1)
+    shown = (await _call(client, "measure"))["result"]["devices"]["alex_phone"]
+    assert set(shown) == {"domotwin"}
+    # Known another way (another tag under its id): its figures start again.
+    retagged = {**phone, "match": {"address": "F1:22:33:44:55:88"}}
+    del retagged["bermuda"]
+    assert (await _follow(client, {"alex_phone": retagged}))["success"]
+    await hass.async_block_till_done()
+    assert "alex_phone" not in home.measure.devices
+
+
+async def test_an_iphones_key_goes_to_private_ble_device(
+    hass: HomeAssistant, home: Locator, hass_ws_client: WebSocketGenerator
+) -> None:
+    """D-075: the key, however it is written, handed to Private BLE Device; never said back."""
+    client = await hass_ws_client(hass)
+    written = "irk:11111111 22222222 33333333 44444444"
+    flows = hass.config_entries.flow
+
+    async def add(key: str) -> dict[str, Any]:
+        return await _call(client, "add_key", key=key)
+
+    assert (await add("not a key"))["error"]["code"] == "invalid_key"
+    # Too long: refused by the locator, not by the schema, whose error would say it back.
+    long = await add("1111" * 30)
+    assert long["error"]["code"] == "invalid_key"
+    assert "1111" not in long["error"]["message"]
+    # Home Assistant has no Bluetooth: Private BLE Device says so.
+    abort = {"type": FlowResultType.ABORT, "reason": "bluetooth_not_available"}
+    with patch.object(flows, "async_init", AsyncMock(return_value=abort)):
+        assert (await add(written))["error"]["code"] == "no_bluetooth"
+    # The phone not heard: the flow left is closed.
+    opened = {"type": FlowResultType.FORM, "flow_id": "f1", "errors": {}}
+    unheard = {"type": FlowResultType.FORM, "flow_id": "f1", "errors": {"irk": "irk_not_found"}}
+    closed = Mock()
+    with (
+        patch.object(flows, "async_init", AsyncMock(return_value=opened)),
+        patch.object(flows, "async_configure", AsyncMock(return_value=unheard)) as configure,
+        patch.object(flows, "async_abort", closed),
+    ):
+        answer = await add(written)
+    assert answer["error"]["code"] == "key_not_heard"
+    assert "1111" not in answer["error"]["message"]
+    closed.assert_called_once_with("f1")
+    # Sent as hex, whatever the tool wrote.
+    assert configure.call_args.args[1] == {"irk": "11111111222222223333333344444444"}
+    # Taken: its entry, by its title; the device can be followed by it.
+    entry = MockConfigEntry(
+        domain="private_ble_device",
+        title="Sam's iPhone",
+        data={"irk": "11111111222222223333333344444444"},
+    )
+    created = {"type": FlowResultType.CREATE_ENTRY, "flow_id": "f1", "result": entry}
+    with (
+        patch.object(flows, "async_init", AsyncMock(return_value=opened)),
+        patch.object(flows, "async_configure", AsyncMock(return_value=created)),
+    ):
+        answer = await add(written)
+    assert answer["result"] == {
+        "entry": entry.entry_id,
+        "title": "Sam's iPhone",
+        "named": True,
+        "added": True,
+    }
+    # Already there: its entry given back, Private BLE Device not asked again.
+    entry.add_to_hass(hass)
+    with patch.object(flows, "async_init", AsyncMock()) as asked:
+        answer = await add("RERERDMzMzMiIiIiEREREQ==")
+    assert answer["result"]["added"] is False
+    assert answer["result"]["entry"] == entry.entry_id
+    asked.assert_not_called()
+    candidates = (await _call(client, "candidates"))["result"]["candidates"]
+    assert {"match": {"key": entry.entry_id}, "name": "Sam's iPhone"} in candidates
+
+
+async def test_a_key_refused_leaves_no_flow_open(hass: HomeAssistant, home: Locator) -> None:
+    """D-075: what Private BLE Device answers, each said plainly; its setup never left open."""
+    written = "11111111222222223333333344444444"
+    flows = hass.config_entries.flow
+    opened = {"type": FlowResultType.FORM, "flow_id": "f1", "errors": {}}
+
+    async def code(configure: AsyncMock, init: AsyncMock | None = None) -> str:
+        closed = Mock()
+        with (
+            patch.object(flows, "async_init", init or AsyncMock(return_value=opened)),
+            patch.object(flows, "async_configure", configure),
+            patch.object(flows, "async_abort", closed),
+            pytest.raises(KeyNotTakenError) as refused,
+        ):
+            await home.async_add_key(written)
+        if configure.await_count:
+            closed.assert_called_once_with("f1")
+        return refused.value.code
+
+    def answers(**result: Any) -> AsyncMock:
+        return AsyncMock(return_value={"flow_id": "f1", **result})
+
+    form = FlowResultType.FORM
+    assert await code(answers(type=form, errors={"irk": "irk_not_valid"})) == "invalid_key"
+    assert await code(answers(type=form, errors={"irk": "something_new"})) == "key_refused"
+    # Bluetooth gone between the two steps.
+    gone = answers(type=FlowResultType.ABORT, reason="bluetooth_not_available")
+    assert await code(gone) == "no_bluetooth"
+    busy = answers(type=FlowResultType.ABORT, reason="already_in_progress")
+    assert await code(busy) == "key_refused"
+    # Private BLE Device cannot be set up, or its setup fails: refused, the flow closed.
+    missing = AsyncMock(side_effect=UnknownHandler)
+    assert await code(AsyncMock(), missing) == "key_refused"
+    assert await code(AsyncMock(side_effect=UnknownFlow)) == "key_refused"
+    # Its form asking for another field: refused, never said with the command (the key in it).
+    other = InvalidData("extra keys not allowed", ["irk"], None, {"irk": "extra"})
+    assert await code(AsyncMock(side_effect=other)) == "key_refused"
+    # Without Bluetooth, Private BLE Device is not asked: its first step would fail.
+    radio, home.radio = home.radio, None
+    with (
+        patch.object(flows, "async_init", AsyncMock()) as asked,
+        pytest.raises(KeyNotTakenError) as refusal,
+    ):
+        await home.async_add_key(written)
+    home.radio = radio
+    assert refusal.value.code == "no_bluetooth"
+    asked.assert_not_called()
+
+
+async def test_one_key_added_twice_at_once_makes_one_entry(
+    hass: HomeAssistant, home: Locator
+) -> None:
+    """D-075: two clicks at once: one entry, the second given it back; known by its unique id."""
+    flows = hass.config_entries.flow
+    opened = {"type": FlowResultType.FORM, "flow_id": "f1", "errors": {}}
+    entry = MockConfigEntry(
+        domain="private_ble_device",
+        title="AB:CD:EF:01:23:45",
+        unique_id="11111111222222223333333344444444",
+        data={"irk": "something else"},
+    )
+
+    async def create(flow: str, data: dict[str, Any]) -> dict[str, Any]:
+        await asyncio.sleep(0)
+        entry.add_to_hass(hass)
+        return {"type": FlowResultType.CREATE_ENTRY, "flow_id": flow, "result": entry}
+
+    with (
+        patch.object(flows, "async_init", AsyncMock(return_value=opened)) as init,
+        patch.object(flows, "async_configure", AsyncMock(side_effect=create)),
+    ):
+        first, second = await asyncio.gather(
+            home.async_add_key("11111111222222223333333344444444"),
+            home.async_add_key("irk:11111111222222223333333344444444"),
+        )
+    init.assert_awaited_once()
+    # Titled by an address: not a name (the frontend calls it an iPhone).
+    assert first == {
+        "entry": entry.entry_id,
+        "title": "AB:CD:EF:01:23:45",
+        "named": False,
+        "added": True,
+    }
+    assert second == {**first, "added": False}
+
+
+async def test_private_ble_devices_own_setup_takes_the_key(
+    hass: HomeAssistant, home: Locator
+) -> None:
+    """D-075: Private BLE Device's real setup, its field, errors and titles as DomoTwin reads them.
+
+    Only Bluetooth is played: a receiver, and the phone heard (or not), with or without a name.
+    """
+    flows = hass.config_entries.flow
+    heard: SimpleNamespace | None = None
+    receivers = 1
+    # Bluetooth played by stand-ins of the two modules Private BLE Device's setup reads it from
+    # (Home Assistant's own needs libraries a home's adapters use, not installed here); the setup
+    # itself is Private BLE Device's own, imported afresh beside them and forgotten after.
+    bluetooth = ModuleType("homeassistant.components.bluetooth")
+    bluetooth.async_scanner_count = lambda *_, **__: receivers  # type: ignore[attr-defined]
+    coordinator = ModuleType("homeassistant.components.private_ble_device.coordinator")
+    coordinator.async_last_service_info = lambda *_: heard  # type: ignore[attr-defined]
+    stand_ins = {
+        "homeassistant.components.bluetooth": bluetooth,
+        "homeassistant.components.private_ble_device.coordinator": coordinator,
+    }
+    package = importlib.import_module("homeassistant.components.private_ble_device")
+    components = importlib.import_module("homeassistant.components")
+
+    async def add(key: str) -> dict[str, Any]:
+        with (
+            patch.dict(sys.modules, stand_ins),
+            patch.object(components, "bluetooth", bluetooth, create=True),
+            # Bluetooth is not set up either: only what Private BLE Device asks of it.
+            patch("homeassistant.config_entries.async_process_deps_reqs", return_value=None),
+            patch.object(hass.config_entries, "async_setup", AsyncMock(return_value=True)),
+        ):
+            sys.modules.pop("homeassistant.components.private_ble_device.config_flow", None)
+            try:
+                return await home.async_add_key(key)
+            finally:
+                vars(package).pop("config_flow", None)
+                vars(package).pop("coordinator", None)
+
+    async def refused(key: str) -> str:
+        with pytest.raises(KeyNotTakenError) as refusal:
+            await add(key)
+        # Its setup is never left open.
+        assert flows.async_progress_by_handler("private_ble_device") == []
+        return refusal.value.code
+
+    assert await refused("11111111222222223333333344444444") == "key_not_heard"
+    receivers = 0
+    assert await refused("11111111222222223333333344444444") == "no_bluetooth"
+    receivers = 1
+    # Heard, sending no name: Private BLE Device's default title, not a name.
+    heard = SimpleNamespace(name=None)
+    answer = await add("RERERDMzMzMiIiIiEREREQ==")
+    assert answer["named"] is False
+    assert answer["added"] is True
+    entry = hass.config_entries.async_get_entry(answer["entry"])
+    assert entry is not None
+    assert entry.data == {"irk": "11111111222222223333333344444444"}
+    assert entry.unique_id == "11111111222222223333333344444444"
+    # Heard by its name.
+    heard = SimpleNamespace(name="Sam's watch")
+    answer = await add("irk:55555555666666667777777788888888")
+    assert (answer["title"], answer["named"], answer["added"]) == ("Sam's watch", True, True)
+    # Given again: the entry already there.
+    again = await add("55555555 66666666 77777777 88888888")
+    assert again == {**answer, "added": False}

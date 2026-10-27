@@ -66,7 +66,13 @@ export function findStorey(
   if (WHOLE_HOME.has(said) || wanted === ALL_STOREYS)
     return storeys.length > 1 ? ALL_STOREYS : undefined;
   const levels = storeyLevels(storeys);
-  const number = /^-?\d+$/.test(wanted.trim()) ? Number(wanted.trim()) : undefined;
+  // A level as its button writes it too: −1, ½, 1½ (a half level, D-078).
+  const written = wanted
+    .trim()
+    .replace("\u2212", "-")
+    .replace(/^(-?)½$/, (_, sign: string) => `${sign}0.5`)
+    .replace("½", ".5");
+  const number = /^-?\d+(\.5)?$/.test(written) ? Number(written) : undefined;
   const found = levels.find(
     ({ storey, level }) =>
       storey.id === wanted.trim() ||

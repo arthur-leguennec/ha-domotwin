@@ -26,6 +26,8 @@
 //   window.__move(person, room) moves someone (their room sensor, as the integration writes it)
 //   bluetooth=1 (DomoTwin's own Bluetooth locating: three fictional receivers, Alex's phone and
 //   keys followed, both in the kitchen, the keys left behind), bluetooth=none (no Bluetooth)
+//   radars=1 (presence radars, D-080: the living room's bookcase seeing someone no device names,
+//   the hall's distance radar not working)
 //   radios=1 (the radio coverage, D-066: two of the receivers placed, the hall taught, two Wi-Fi
 //   devices reporting their signal, an access point in the kitchen's far corner)
 //   window.__show(request) sends a `domotwin.show` request to every screen
@@ -57,6 +59,9 @@
 //   Home Assistant's history, statistics and logbook (D-058) answer a fictional day of the
 //   bedroom (`HISTORY` below); historyfail=1 makes the history refuse, nostats=1 leaves the
 //   statistics out; formatstate=1 gives `hass.formatEntityState` (states in words, "°C" after).
+//   weather=<condition> (D-072: a fictional `weather.home` in that condition, wind 18 km/h from
+//   the south-west, and a `weather.coast` pouring), homeweather=<entity|none> (the stored
+//   settings' choice), weatheroption=0 (the card's `weather: false`)
 //   why=1 (D-059: Home Assistant's logbook and traces of a fictional evening, with live=1: the
 //   entrance door opened five minutes ago and set off "Hall light at the door", which lit the
 //   hall's spots; Sam switched the floor lamp on two minutes ago; the kitchen's ceiling light was
@@ -76,7 +81,7 @@
 //   that instead, window.__aiHold (a promise) holds the answer back, window.__aiFail = "<message>"
 //   makes it refuse, window.__invalidConfig = { part, error } makes Home Assistant's check refuse;
 //   window.__apiHold (a promise) holds Home Assistant's configuration API back)
-//   weekly=1 (the weekly report, D-072: two fictional reports of the demo apartment, last week's
+//   weekly=1 (the weekly report, D-081: two fictional reports of the demo apartment, last week's
 //   and this week's, written on Monday mornings; Home Assistant 2026.10's Maintenance page),
 //   weekly=summary (this week's summed up by a fictional AI task, ai_task.helper), weekly=none
 //   (no report yet); report=<id> asks the panel for a report, as the notification's link does
@@ -92,6 +97,14 @@ try {
   // No storage: the tip shows.
 }
 const mode = params.get("mode") ?? "card";
+// The wall screen this device is (D-076), when a test says.
+try {
+  const deviceScreen = params.get("devicescreen");
+  if (deviceScreen) localStorage.setItem("domotwin-screen", deviceScreen);
+  else localStorage.removeItem("domotwin-screen");
+} catch {
+  // Storage disabled.
+}
 // The tab this device opens on (D-055): the 3D view, as before the tabs, unless a test asks.
 try {
   const start = params.get("start") ?? "3d";
@@ -176,6 +189,7 @@ const PEOPLE = {
 // Bluetooth locating (D-035): fictional receivers and devices, their room sensors as the
 // integration writes them.
 const bluetoothParam = params.get("bluetooth");
+const radarsParam = params.get("radars") === "1";
 const LOCATED = {
   alex_phone: {
     name: "Alex's phone",
@@ -282,6 +296,7 @@ const store = {
   settings: {
     ...(params.get("north") ? { north: Number(params.get("north")) } : {}),
     ...(params.get("hometheme") ? { theme: params.get("hometheme") } : {}),
+    ...(params.get("homeweather") ? { weather: params.get("homeweather") } : {}),
     ...(params.get("energy") === "1"
       ? {
           energy: {
@@ -329,6 +344,56 @@ const store = {
         : {},
   },
 };
+// How well the rooms are found (M41): a fictional afternoon, Bermuda's figures beside the phone's.
+let measured = {
+  since: "2026-03-02T13:00:00+00:00",
+  devices:
+    bluetoothParam === "1"
+      ? {
+          alex_phone: {
+            domotwin: {
+              hours: 5.5,
+              changes_per_hour: 6.8,
+              storey_changes_per_hour: 0,
+              short_stays: 2,
+              unknown_share: 0.03,
+              witnessed_hours: 2.4,
+              right_share: 0.97,
+            },
+            domotwin_areas: {
+              hours: 5.5,
+              changes_per_hour: 5.9,
+              storey_changes_per_hour: 0,
+              short_stays: 1,
+              unknown_share: 0.03,
+              witnessed_hours: 2.4,
+              right_share: 0.97,
+            },
+            bermuda: {
+              hours: 5.5,
+              changes_per_hour: 38.4,
+              storey_changes_per_hour: 0,
+              short_stays: 157,
+              unknown_share: 0.08,
+              witnessed_hours: 2.4,
+              right_share: 0.81,
+            },
+            agreement: 0.88,
+          },
+          keys: {
+            domotwin: {
+              hours: 5.5,
+              changes_per_hour: 0.4,
+              storey_changes_per_hour: 0,
+              short_stays: 0,
+              unknown_share: 0,
+              witnessed_hours: 0,
+              right_share: null,
+            },
+          },
+        }
+      : {},
+};
 store.locating = {
   revision: 1,
   status: bluetoothParam === "none" ? "no_bluetooth" : "ready",
@@ -370,6 +435,33 @@ store.locating = {
     ]),
   ),
   learned: {},
+  // Bermuda's area sensors (M41): a fictional phone's.
+  bermuda: bluetoothParam === "1" ? ["sensor.alex_iphone_area"] : [],
+  // The presence radars (D-080): an integration before them gives none.
+  ...(radarsParam
+    ? {
+        radars: [
+          {
+            piece: "bookcase",
+            name: "Bookcase",
+            room: "living",
+            kind: "targets",
+            working: true,
+            seeing: 1,
+            mirror: false,
+          },
+          {
+            piece: "shoe-cabinet",
+            name: "Shoe cabinet",
+            room: "hall",
+            kind: "distance",
+            working: false,
+            seeing: 0,
+            mirror: false,
+          },
+        ],
+      }
+    : {}),
   rooms: [
     { id: "living", name: "Living room", storey: "" },
     { id: "kitchen", name: "Kitchen", storey: "" },
@@ -478,7 +570,7 @@ async function fetchWithAuth(path, init = {}) {
     return Response.json({ code: "not_found" }, { status: 404 });
   return new Response(bytes);
 }
-// The weekly report (D-072), as the integration keeps it: the reports, oldest first, and its
+// The weekly report (D-081), as the integration keeps it: the reports, oldest first, and its
 // settings.
 const weekly = params.get("weekly");
 const reports = weekly && weekly !== "none" ? fictionalReports(weekly === "summary") : [];
@@ -793,6 +885,73 @@ let wifi =
         }
       : undefined;
 window.__wifi = () => wifi;
+/**
+ * The wall screens (wall=1, D-076), as the integration keeps them: the hall's, whose saver comes
+ * after a minute, woken by the hall's motion sensor, with the weather and the fictional holidays'
+ * photos; and what `media_source` gives of Home Assistant's media, fictional pictures drawn here.
+ */
+let screens =
+  params.get("wall") === "1"
+    ? {
+        hall: {
+          start: "home",
+          saver: {
+            after: 1,
+            wake: ["binary_sensor.hall_motion"],
+            weather: true,
+            photos: "media-source://media_source/local/holidays",
+            every: 10,
+            dim: true,
+          },
+        },
+      }
+    : {};
+let screensRevision = 0;
+window.__screens = () => screens;
+const PHOTO_COLOURS = { beach: "#e0b060", hills: "#5a9a60", lake: "#4a7ab0" };
+function mediaFolder(id) {
+  const folder = (title, id) => ({
+    title,
+    media_class: "directory",
+    media_content_id: id,
+    can_expand: true,
+  });
+  if (!id) return { title: "Media", children: [folder("My media", "media-source://media_source")] };
+  if (id === "media-source://media_source") {
+    return {
+      title: "My media",
+      children: [
+        folder("holidays", "media-source://media_source/local/holidays"),
+        folder("recipes", "media-source://media_source/local/recipes"),
+      ],
+    };
+  }
+  if (id === "media-source://media_source/local/holidays") {
+    return {
+      title: "holidays",
+      children: Object.keys(PHOTO_COLOURS).map((name) => ({
+        title: `${name}.jpg`,
+        media_class: "image",
+        media_content_type: "image/jpeg",
+        media_content_id: `${id}/${name}.jpg`,
+        can_expand: false,
+      })),
+    };
+  }
+  if (id === "media-source://media_source/local/recipes") return { title: "recipes", children: [] };
+  throw { code: "browse_media_failed", message: "Unknown source" };
+}
+function mediaPhoto(id) {
+  const name = id.split("/").pop().replace(".jpg", "");
+  const colour = PHOTO_COLOURS[name];
+  if (!colour) throw { code: "resolve_media_failed", message: "Unknown media" };
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="320" height="200"><rect width="320" height="200" fill="${colour}"/><text x="20" y="40" font-size="24" fill="#fff">${name}</text></svg>`;
+  return { url: `data:image/svg+xml,${encodeURIComponent(svg)}`, mime_type: "image/svg+xml" };
+}
+function tellScreens() {
+  screensRevision += 1;
+  for (const listener of listeners) listener({ kind: "screens", revision: screensRevision });
+}
 // Guest access (D-067): the passes kept, as the integration keeps them, and what was saved.
 let guestPasses = [];
 let guestTokens = 0;
@@ -1466,6 +1625,44 @@ const connection = {
         for (const listener of listeners) listener({ kind: "wifi", revision: wifiRevision });
         return wifiAnswer(true, "", true);
       }
+      case "domotwin/screens/get":
+        return structuredClone({ screens });
+      case "domotwin/screens/save": {
+        // As the integration keeps them (D-076): a name matched whatever its case and kept as
+        // first spelled; a new screen under a name taken refused.
+        if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        const name = String(message.name).trim();
+        if (!/^[A-Za-z0-9_-]{1,64}$/.test(name)) {
+          throw { code: "invalid_screen", message: "invalid_screen" };
+        }
+        const same = Object.keys(screens).find((k) => k.toLowerCase() === name.toLowerCase());
+        if (message.new === true && same) {
+          throw { code: "screen_exists", message: "screen_exists" };
+        }
+        const layout = structuredClone(message.layout);
+        layout.saver = { after: 0, wake: [], weather: true, every: 30, dim: true, ...layout.saver };
+        const next = { ...screens, [same ?? name]: layout };
+        screens = Object.fromEntries(
+          Object.keys(next)
+            .sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()))
+            .map((k) => [k, next[k]]),
+        );
+        tellScreens();
+        return structuredClone({ screens });
+      }
+      case "domotwin/screens/remove": {
+        if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        const name = String(message.name).toLowerCase();
+        screens = Object.fromEntries(
+          Object.entries(screens).filter(([k]) => k.toLowerCase() !== name),
+        );
+        tellScreens();
+        return structuredClone({ screens });
+      }
+      case "media_source/browse_media":
+        return mediaFolder(message.media_content_id);
+      case "media_source/resolve_media":
+        return mediaPhoto(String(message.media_content_id));
       case "domotwin/guests/get":
         if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
         return { passes: guestPasses.map(guestView) };
@@ -1516,6 +1713,30 @@ const connection = {
         if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
         return structuredClone(store.locating);
       }
+      case "domotwin/locating/add_key": {
+        // An identity key (D-075): the fictional `1111…4444` is heard as Sam's iPhone, whichever
+        // way it is written (hex, irk:, a Mac's base64); `aaaa…dddd` as a phone sending no name
+        // (Private BLE Device's default title); `2222…5555` is Sam's watch, already in Private BLE
+        // Device; `5555…8888` is not heard.
+        if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        const written = String(message.key).replace(/\s/g, "").replace(/^irk:/i, "");
+        const hex = /^[0-9a-f:-]+$/i.test(written)
+          ? written.replace(/[:-]/g, "").toLowerCase()
+          : written === "RERERDMzMzMiIiIiEREREQ=="
+            ? "11111111222222223333333344444444"
+            : "";
+        if (!/^[0-9a-f]{32}$/.test(hex)) throw { code: "invalid_key", message: "not taken" };
+        if (hex === "aaaaaaaabbbbbbbbccccccccdddddddd") {
+          return { entry: "entry-unnamed", title: "BLE Device Tracker", named: false, added: true };
+        }
+        if (hex === "22222222333333334444444455555555") {
+          return { entry: "entry-sam-watch", title: "Sam's watch", named: true, added: false };
+        }
+        if (hex !== "11111111222222223333333344444444") {
+          throw { code: "key_not_heard", message: "not taken" };
+        }
+        return { entry: "entry-sam-iphone", title: "Sam's iPhone", named: true, added: true };
+      }
       case "domotwin/locating/candidates": {
         if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
         return {
@@ -1553,6 +1774,15 @@ const connection = {
         await new Promise((resolve) => setTimeout(resolve, 300));
         store.locating.learned[message.room] = 42;
         return { readings: 14, receivers: 3 };
+      }
+      case "domotwin/locating/measure": {
+        if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        return structuredClone(measured);
+      }
+      case "domotwin/locating/measure/reset": {
+        if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        measured = { since: new Date().toISOString(), devices: {} };
+        return { since: measured.since };
       }
       case "domotwin/locating/forget": {
         const forgotten = Object.keys(store.locating.learned).length;
@@ -2109,6 +2339,14 @@ if (live && why) {
   ];
 }
 const states = home.states;
+if (params.get("wall") === "1") {
+  // The hall's motion sensor, which wakes its wall screen (D-076).
+  states["binary_sensor.hall_motion"] = {
+    entity_id: "binary_sensor.hall_motion",
+    state: "off",
+    attributes: { friendly_name: "Hall motion", device_class: "motion" },
+  };
+}
 // overview=1: what DomoTwin's sensors say of the rooms and the upkeep (D-061), and who is home.
 const overview = params.get("overview") === "1";
 // energypage=1: Home Assistant's Energy page, its grid set up; energypage=empty: nothing set up.
@@ -2214,6 +2452,17 @@ if (peopleParam === "1") {
     };
   }
 }
+if (radarsParam) {
+  // Someone the bookcase's radar sees in the living room, whom no device names (D-080).
+  states["sensor.domotwin_people_seen"] = {
+    entity_id: "sensor.domotwin_people_seen",
+    state: "1",
+    attributes: {
+      friendly_name: "DomoTwin People seen",
+      seen: [{ id: 0, room_id: "living", storey_id: "", x: 1.95, y: 2.03 }],
+    },
+  };
+}
 if (bluetoothParam === "1") {
   for (const [id, device] of Object.entries(LOCATED)) {
     const entity_id = `sensor.domotwin_${id}_bluetooth`;
@@ -2232,6 +2481,12 @@ if (bluetoothParam === "1") {
     };
     home.entities[entity_id] = { entity_id, platform: "domotwin", translation_key: "located" };
   }
+  // Bermuda's area sensor of the same phone (M41).
+  states["sensor.alex_iphone_area"] = {
+    entity_id: "sensor.alex_iphone_area",
+    state: "Kitchen",
+    attributes: { friendly_name: "Alex iPhone Area", area_id: "kitchen" },
+  };
 }
 if (params.get("radios") === "1") {
   // Where the locating places two of the receivers, and the hall it learned from the living
@@ -2299,6 +2554,25 @@ if (sunParam) {
     attributes: { elevation: Number(elevation), rising: rising === "1" },
   };
 }
+const weatherParam = params.get("weather");
+if (weatherParam) {
+  states["weather.home"] = {
+    entity_id: "weather.home",
+    state: weatherParam,
+    attributes: {
+      friendly_name: "Forecast Home",
+      temperature: 9,
+      wind_speed: 18,
+      wind_speed_unit: "km/h",
+      wind_bearing: "SW",
+    },
+  };
+  states["weather.coast"] = {
+    entity_id: "weather.coast",
+    state: "pouring",
+    attributes: { friendly_name: "Forecast Coast", wind_speed: 40, wind_bearing: 270 },
+  };
+}
 if (aiTask) {
   states[AI_TASK] = state(AI_TASK, "unknown", {
     friendly_name: "Fictional assistant",
@@ -2321,7 +2595,7 @@ if (sunPosition) {
     attributes: { azimuth, elevation, rising: azimuth < 180 },
   };
 }
-// The AI task that sums the weekly report up (D-072).
+// The AI task that sums the weekly report up (D-081).
 if (weekly === "summary") {
   states["ai_task.helper"] = {
     entity_id: "ai_task.helper",
@@ -2366,7 +2640,7 @@ let hass = {
           ...(params.get("nopanel") === "1" ? {} : { domotwin: { url_path: "domotwin" } }),
           // energypage=1: Home Assistant's Energy page (D-069).
           ...(energyPage ? { energy: { url_path: "energy" } } : {}),
-          // Home Assistant's Maintenance page (2026.5 and later), for the weekly report (D-072).
+          // Home Assistant's Maintenance page (2026.5 and later), for the weekly report (D-081).
           ...(weekly ? { maintenance: { url_path: "maintenance" } } : {}),
         },
       }
@@ -2516,6 +2790,7 @@ if (mode === "panel") {
     voice: params.get("mic") === "0" ? false : undefined,
     font_family: params.get("font") ?? undefined,
     demo: params.get("demo") === "1" ? true : undefined,
+    weather: params.get("weatheroption") === "0" ? false : undefined,
   });
 }
 element.hass = hass;

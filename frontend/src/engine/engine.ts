@@ -75,6 +75,11 @@ export interface SceneStats {
   storeys: number;
   spread: boolean;
   roof: boolean;
+  /** The roofs over the home, and their shape (D-077). */
+  roofs: number;
+  roofShape: string;
+  /** Where the robots are, and the room each cleans or mows (D-049, D-077). */
+  robots: { id: string; at: [number, number]; cleaning: string | null }[];
   /** Walking at eye level (D-029). */
   walking: boolean;
   camera: {
@@ -156,6 +161,8 @@ export interface PlanElement {
    * or a window's room on its other side. */
   room?: string;
   beside?: string;
+  /** Rooms only: a place outside whose ground is a lawn (D-077). */
+  lawn?: boolean;
 }
 
 /** A value of a layer and where it goes on the picture (device pixels from the top left). */
@@ -178,13 +185,22 @@ export interface HeatLegend {
   gradient: string[];
 }
 
-/** A kind of the catalogue, with its default size (cm). */
+/** A style of a kind of the catalogue (D-074), with its usual size (cm). */
+export interface CatalogueStyle {
+  style: string;
+  w: number;
+  d: number;
+  h: number;
+}
+
+/** A kind of the catalogue, with its default size (cm) and its styles. */
 export interface CatalogueKind {
   kind: string;
   w: number;
   d: number;
   h: number;
   light: boolean;
+  styles: CatalogueStyle[];
 }
 
 const NOT_EDITING: EditState = {
@@ -421,6 +437,20 @@ export class DomoTwinEngine {
     this.live.setSunPosition(azimuth, elevation, north);
   }
 
+  /**
+   * Draws the weather around the home (D-072) for one of Home Assistant's conditions, with its
+   * wind in m/s and where it comes from in degrees clockwise from north (`NaN`: unknown), for a
+   * plan whose north is `north` degrees clockwise from its top.
+   */
+  setWeather(condition: string, windSpeed: number, windBearing: number, north: number): void {
+    this.live.setWeather(condition, windSpeed, windBearing, north);
+  }
+
+  /** What falls around the home now: `none`, `rain`, `snow`, `sleet` or `hail`. */
+  get weather(): string {
+    return this.live.weather;
+  }
+
   /** Back to the default sun, high in the south-east of the plan. */
   useDefaultSun(): void {
     this.live.useDefaultSun();
@@ -455,11 +485,34 @@ export class DomoTwinEngine {
   }
 
   /**
-   * What the robot vacuums do (D-049): JSON `[{"id": "<robot-vacuum piece>", "state"}]`, the
-   * state its vacuum's. A robot-vacuum piece not named rests on its dock.
+   * What the robot vacuums (D-049) and mowers (D-077) do: JSON `[{"id": "<robot-vacuum or
+   * robot-mower piece>", "state"}]`, the state its vacuum's or lawn mower's. A piece not named
+   * rests on its dock.
    */
   setRobots(json: string): void {
     this.live.setRobots(json);
+  }
+
+  /**
+   * How long each lawn's grass is and how fresh its mowing (D-077): JSON `{room id: {"length":
+   * cm, "fresh": 0–1}}`; a lawn not named is drawn with about a week's grass.
+   */
+  setLawns(json: string): void {
+    this.live.setLawns(json);
+  }
+
+  /** The lawns each robot mower mows (D-077): those of its storey it can get to from its dock. */
+  mowerLawns(): Record<string, string[]> {
+    return JSON.parse(this.live.mowerLawns()) as Record<string, string[]>;
+  }
+
+  /**
+   * The roofs' shape, pitch and colour (D-077): JSON `{"shape": "gable" | "hip" | "shed" | "flat",
+   * "pitch": degrees, "color": "#rrggbb"}`; `build`: the home shown is built again with it (not
+   * when one is about to be loaded). Returns whether the home was built again.
+   */
+  setRoofStyle(json: string, build = true): boolean {
+    return this.live.setRoofStyle(json, build);
   }
 
   /** Where the people's names go: JSON `[{"id", "x", "y", "opacity"}]` in device pixels. */
@@ -725,9 +778,12 @@ export class DomoTwinEngine {
     return editState(this.live.editRemove());
   }
 
-  /** Adds a piece of the catalogue under the device pixel `x`, `y` (or mid-view) and selects it. */
-  editAdd(kind: string, name: string, x: number, y: number): EditState {
-    return editState(this.live.editAdd(kind, name, x, y));
+  /**
+   * Adds a piece of the catalogue in `style` (none: the kind's own) under the device pixel `x`,
+   * `y` (or mid-view) and selects it.
+   */
+  editAdd(kind: string, name: string, x: number, y: number, style?: string): EditState {
+    return editState(this.live.editAdd(kind, name, x, y, style ?? null));
   }
 
   /**
@@ -872,10 +928,65 @@ export async function summarizePlan(json: string): Promise<PlanSummary> {
   }
 }
 
-/** The kinds a piece can be added as, with their default sizes. */
+/** The kinds a piece can be added as, with their default sizes and their styles. */
 export async function catalogue(): Promise<CatalogueKind[]> {
   const wasm = await loadWasm();
   return JSON.parse(wasm.Engine.editCatalogue()) as CatalogueKind[];
+}
+
+/**
+ * Draws the catalogue's pictures of its pieces (D-074) with an engine of its own, on a canvas
+ * nobody sees, in the look of the view: made when the catalogue opens, freed when it closes.
+ */
+export class PieceArtist {
+  private constructor(
+    private engine: Wasm.Engine | undefined,
+    private readonly canvas: HTMLCanvasElement,
+  ) {}
+
+  /** An artist drawing in `look` with `accent` (`#rrggbb`), by daylight. */
+  static async create(look: string, accent: string): Promise<PieceArtist> {
+    const wasm = await loadWasm();
+    const canvas = document.createElement("canvas");
+    canvas.width = 1;
+    canvas.height = 1;
+    try {
+      const engine = new wasm.Engine(canvas);
+      engine.setTheme(look, accent);
+      engine.setLightingMood("day");
+      return new PieceArtist(engine, canvas);
+    } catch (error) {
+      releaseContext(canvas);
+      throw engineError(error);
+    }
+  }
+
+  /**
+   * A picture of `kind` in `style` (empty: its own) on `background` (`#rrggbb`), `width` ×
+   * `height` device pixels; none once freed, when the context is lost or for a kind the engine
+   * does not know.
+   */
+  draw(
+    kind: string,
+    style: string,
+    width: number,
+    height: number,
+    background: string,
+  ): ImageData | undefined {
+    const engine = this.engine;
+    if (!engine || this.canvas.getContext("webgl2")?.isContextLost()) return undefined;
+    const pixels = engine.piecePicture(kind, style, width, height, background);
+    if (pixels.length !== width * height * 4) return undefined;
+    return new ImageData(new Uint8ClampedArray(pixels), width, height);
+  }
+
+  /** Frees the engine and gives its canvas's context back. */
+  dispose(): void {
+    if (!this.engine) return;
+    this.engine.free();
+    this.engine = undefined;
+    releaseContext(this.canvas);
+  }
 }
 
 /** The plan with its edit overlay applied, as **Export plan** writes it. */

@@ -2,7 +2,7 @@
 
 Once a week, DomoTwin writes what needs a look in the home: batteries low, devices unavailable,
 updates and repairs waiting, upkeep due, automations to look at, Zigbee devices on a weak link,
-and the week's energy against the week before, room by room on the plans (`DECISIONS.md`, D-072).
+and the week's energy against the week before, room by room on the plans (`DECISIONS.md`, D-081).
 Home Assistant's notification says it; the panel shows it.
 
 ![The weekly report of the fictional demo apartment and its upper floor: the week, a summary by a fictional AI task, what needs a look, room by room on the plans](figures/screenshot-report.png)

@@ -32,7 +32,7 @@ function room(dialog: Locator, id: string): Locator {
   return dialog.locator(`g.room[data-room="${id}"]`);
 }
 
-test.describe("the weekly report (D-072)", () => {
+test.describe("the weekly report (D-081)", () => {
   test("says what needs a look this week, room by room and section by section", async ({
     page,
   }) => {

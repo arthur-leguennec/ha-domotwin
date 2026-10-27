@@ -179,6 +179,12 @@ export function serviceEffect(
       }
       if (service === "locate" || service === "clean_spot") return { state, attributes };
       return undefined;
+    // A robot mower (D-077).
+    case "lawn_mower":
+      if (service === "start_mowing") return { state: "mowing", attributes };
+      if (service === "pause") return { state: "paused", attributes };
+      if (service === "dock") return { state: "returning", attributes };
+      return undefined;
     default:
       return undefined;
   }

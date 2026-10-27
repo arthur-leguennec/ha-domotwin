@@ -69,6 +69,12 @@ export interface HarnessOptions {
   accent?: string;
   /** The home's look (the stored settings). */
   homeTheme?: "auto" | "day" | "neon" | "blueprint" | "cartoon" | "clay";
+  /** A fictional `weather.home` in this condition, and a `weather.coast` pouring (D-072). */
+  weather?: string;
+  /** The stored settings' weather: an entity, or `none`. */
+  homeWeather?: string;
+  /** The card's `weather` option. */
+  weatherOption?: boolean;
   /** Card option: the rooms' names off. */
   names?: false;
   /** Kiosk options (D-029): the card's screen name, `idle` seconds, `orbit`, `night_dim`. */
@@ -115,6 +121,8 @@ export interface HarnessOptions {
   /** The radio coverage's fictional radios (D-066): receivers placed, Wi-Fi signals, an access
    * point. */
   radios?: boolean;
+  /** Presence radars (D-080): one seeing someone no device names, one not working. */
+  radars?: boolean;
   /** Private rooms (D-039): kept for nobody, or for `privateFor`, maybe only while an entity is
    * on. */
   private?: string[];
@@ -148,7 +156,7 @@ export interface HarnessOptions {
   /** The configuration history (D-062): fictional items and their versions. */
   configHistory?: boolean;
   /**
-   * The weekly report (D-072): last week's and this week's (`true`), this week's summed up by an
+   * The weekly report (D-081): last week's and this week's (`true`), this week's summed up by an
    * AI task (`summary`), or none yet (`none`); `report` asks the panel for one, as the weekly
    * notification's link does.
    */
@@ -164,6 +172,12 @@ export interface HarnessOptions {
   securityAlerts?: string[];
   /** Home Assistant's AI task (D-070): a fictional one, its actions and its check. */
   aiTask?: boolean;
+  /**
+   * The wall screens (D-076): the hall's (`wall`), its saver after a minute woken by
+   * `binary_sensor.hall_motion`, with fictional photos; and the screen this device is.
+   */
+  wall?: boolean;
+  deviceScreen?: string;
 }
 
 /** Opens the mocked Home Assistant with the built frontend. */
@@ -193,6 +207,9 @@ export async function openHarness(page: Page, options: HarnessOptions = {}): Pro
   if (options.theme) params.set("theme", options.theme);
   if (options.accent) params.set("accent", options.accent);
   if (options.homeTheme) params.set("hometheme", options.homeTheme);
+  if (options.weather) params.set("weather", options.weather);
+  if (options.homeWeather) params.set("homeweather", options.homeWeather);
+  if (options.weatherOption === false) params.set("weatheroption", "0");
   if (options.names === false) params.set("names", "0");
   if (options.screen) params.set("screen", options.screen);
   if (options.wifi) params.set("wifi", options.wifi);
@@ -218,12 +235,15 @@ export async function openHarness(page: Page, options: HarnessOptions = {}): Pro
   if (options.peopleLook) params.set("peoplelook", options.peopleLook);
   if (options.bluetooth) params.set("bluetooth", options.bluetooth === true ? "1" : "none");
   if (options.radios) params.set("radios", "1");
+  if (options.radars) params.set("radars", "1");
   if (options.private) params.set("private", options.private.join(","));
   if (options.privateFor) params.set("privatefor", options.privateFor);
   if (options.privateWhile) params.set("privatewhile", options.privateWhile);
   if (options.rights) params.set("rights", JSON.stringify(options.rights));
   if (options.settingsDown) params.set("settingsdown", "1");
   if (options.start) params.set("start", options.start);
+  if (options.wall) params.set("wall", "1");
+  if (options.deviceScreen) params.set("devicescreen", options.deviceScreen);
   if (options.userStart) params.set("userstart", options.userStart);
   if (options.favourites) params.set("favourites", options.favourites.join(","));
   if (options.route) params.set("route", "1");

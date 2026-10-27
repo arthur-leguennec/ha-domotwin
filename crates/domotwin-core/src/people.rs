@@ -5,7 +5,8 @@
 //! that changes rooms walks there through the doors (the way [`Floor::path`] finds, the one a
 //! walker takes); one that changes storeys fades out and in again upstairs; one no longer wanted
 //! fades out. Held still (*reduce motion*), figures go at once. People in one room stand around
-//! its middle, each keeping their place while others come and go.
+//! its middle, each keeping their place while others come and go; one whose spot in the room is
+//! known (the Bluetooth locating's, D-079) stands there, and walks there as it moves.
 
 use std::collections::{HashMap, VecDeque};
 use std::f64::consts::TAU;
@@ -27,6 +28,10 @@ const RINGS: usize = 8;
 const AROUND: usize = 12;
 /// How far from the furniture people stand (cm).
 const MARGIN: f64 = 12.0;
+/// A spot that moved less than this (cm) is not walked to: the locating's spots wander a little.
+const SPOT_STEP: f64 = 30.0;
+/// How far from a spot taken by the furniture a figure may stand instead (cm).
+const SPOT_REACH: f64 = 120.0;
 
 /// A person wanted somewhere.
 #[derive(Debug, Clone, PartialEq)]
@@ -40,6 +45,8 @@ pub struct Wanted {
     pub color: [f32; 3],
     /// Drawn as a pin rather than a figure.
     pub pin: bool,
+    /// Where in the room they are, when known (plan cm, D-079).
+    pub spot: Option<P2>,
 }
 
 /// A figure: where it stands or walks, and how much it shows.
@@ -60,9 +67,11 @@ pub struct Walker {
     room: String,
     slot: usize,
     path: VecDeque<P2>,
-    /// Fading out: then gone, or to appear in another room of another storey.
+    /// The spot it stands at or walks to, when it was told one (D-079).
+    spot: Option<P2>,
+    /// Fading out: then gone, or to appear in another room of another storey (at a spot there).
     leaving: bool,
-    next: Option<(usize, String)>,
+    next: Option<(usize, String, Option<P2>)>,
 }
 
 impl Walker {
@@ -118,6 +127,55 @@ fn places(floor: &Floor, room: &str, count: usize) -> Vec<P2> {
         chosen.push(middle);
     }
     chosen
+}
+
+/// The nearest place around `spot` that is `ok`: on rings `step` apart, up to `SPOT_REACH`.
+fn around(spot: P2, step: f64, ok: impl Fn(P2) -> bool) -> Option<P2> {
+    let mut radius = step;
+    while radius <= SPOT_REACH {
+        for k in 0..AROUND {
+            #[allow(clippy::cast_precision_loss)]
+            let angle = k as f64 * TAU / AROUND as f64;
+            let p = [
+                spot[0] + radius * angle.cos(),
+                spot[1] + radius * angle.sin(),
+            ];
+            if ok(p) {
+                return Some(p);
+            }
+        }
+        radius += step;
+    }
+    None
+}
+
+/// Where to stand for a spot of a room: the spot, else the nearest place clear of the furniture
+/// around it, else the spot itself when in the room; none outside the room.
+fn stand_at(floor: &Floor, room: &str, spot: P2) -> Option<P2> {
+    if floor.standing_room(room, spot, MARGIN) {
+        return Some(spot);
+    }
+    around(spot, RING_STEP / 2.0, |p| {
+        floor.standing_room(room, p, MARGIN)
+    })
+    .or_else(|| floor.in_room(room, spot).then_some(spot))
+}
+
+/// A place kept `SPACING` away from `others` in the room: the nearest place clear of the
+/// furniture that is, else the place itself.
+fn apart(floor: &Floor, room: &str, spot: P2, others: &[P2]) -> P2 {
+    let free = |p: P2| {
+        others
+            .iter()
+            .all(|q| (p[0] - q[0]).hypot(p[1] - q[1]) >= SPACING)
+    };
+    if free(spot) {
+        return spot;
+    }
+    around(spot, SPACING / 2.0, |p| {
+        free(p) && floor.standing_room(room, p, MARGIN)
+    })
+    .unwrap_or(spot)
 }
 
 /// The places of the rooms, worked out once for each room a change looks at.
@@ -176,6 +234,21 @@ impl People {
             .unwrap_or(0)
     }
 
+    /// Where the others in a room stand, or walk to: all of them, or those at a spot only.
+    fn others(&self, id: &str, storey: usize, room: &str, at_spots: bool) -> Vec<P2> {
+        self.walkers
+            .iter()
+            .filter(|w| {
+                w.id != id
+                    && !w.leaving
+                    && w.storey == storey
+                    && w.room == room
+                    && (!at_spots || w.spot.is_some())
+            })
+            .map(|w| w.path.back().copied().unwrap_or(w.at))
+            .collect()
+    }
+
     /// Forgets the figures whose room their floor no longer has (the plans shown changed:
     /// another storey, a room gone or closed); the others stay where they are, those walking on
     /// their way, found again when a wall now stands across it (a room closed on it, D-039).
@@ -221,9 +294,22 @@ impl People {
                 continue;
             };
             let slot = self.free_slot(person.storey, &person.room, &person.id);
+            // A spot keeps away from the others in the room; a place of the room, from those
+            // standing at their spots (the places keep away from each other).
+            let others = self.others(&person.id, person.storey, &person.room, false);
+            let at_spots = self.others(&person.id, person.storey, &person.room, true);
+            let spot = person
+                .spot
+                .and_then(|spot| stand_at(floor, &person.room, spot))
+                .map(|spot| apart(floor, &person.room, spot, &others));
+            let mut place = |slot: usize| {
+                places
+                    .get(person.storey, &person.room, slot)
+                    .map(|p| apart(floor, &person.room, p, &at_spots))
+            };
             match self.walkers.iter().position(|w| w.id == person.id) {
                 None => {
-                    let Some(at) = places.get(person.storey, &person.room, slot) else {
+                    let Some(at) = spot.or_else(|| place(slot)) else {
                         continue;
                     };
                     self.walkers.push(Walker {
@@ -238,6 +324,7 @@ impl People {
                         room: person.room.clone(),
                         slot,
                         path: VecDeque::new(),
+                        spot,
                         leaving: false,
                         next: None,
                     });
@@ -248,23 +335,43 @@ impl People {
                     w.pin = person.pin;
                     let same = w.storey == person.storey && w.room == person.room;
                     if same && !w.leaving {
+                        // In the same room: to its new spot, once it moved more than a little; its
+                        // place in the room again when its spot is no longer known.
+                        match spot {
+                            Some(to)
+                                if w.spot.is_none_or(|s| {
+                                    (s[0] - to[0]).hypot(s[1] - to[1]) >= SPOT_STEP
+                                }) =>
+                            {
+                                w.path = floor.path(w.at, to).into();
+                                w.spot = Some(to);
+                            }
+                            None if w.spot.is_some() => {
+                                if let Some(to) = place(w.slot) {
+                                    w.path = floor.path(w.at, to).into();
+                                }
+                                w.spot = None;
+                            }
+                            _ => {}
+                        }
                         continue;
                     }
                     if w.storey == person.storey && (!w.leaving || w.next.is_none()) {
                         // Another room of the same storey: walk there through the doors.
-                        let Some(to) = places.get(person.storey, &person.room, slot) else {
+                        let Some(to) = spot.or_else(|| place(slot)) else {
                             continue;
                         };
                         w.path = floor.path(w.at, to).into();
                         w.room.clone_from(&person.room);
                         w.slot = slot;
+                        w.spot = spot;
                         w.leaving = false;
                         w.next = None;
                     } else {
                         // Another storey: out here, in there.
                         w.leaving = true;
                         w.path.clear();
-                        w.next = Some((person.storey, person.room.clone()));
+                        w.next = Some((person.storey, person.room.clone(), spot));
                     }
                 }
             }
@@ -309,13 +416,20 @@ impl People {
         // Gone, or to another storey: placed there now, to fade in.
         let mut places = Places::new(floors);
         for k in arrivals.into_iter().rev() {
-            let Some((storey, room)) = self.walkers[k].next.take() else {
+            let Some((storey, room, spot)) = self.walkers[k].next.take() else {
                 self.walkers.remove(k);
                 continue;
             };
             let id = self.walkers[k].id.clone();
             let slot = self.free_slot(storey, &room, &id);
-            let Some(at) = places.get(storey, &room, slot) else {
+            let at_spots = self.others(&id, storey, &room, true);
+            let place = places.get(storey, &room, slot).map(|p| {
+                floors
+                    .get(storey)
+                    .and_then(Option::as_ref)
+                    .map_or(p, |floor| apart(floor, &room, p, &at_spots))
+            });
+            let Some(at) = spot.or(place) else {
                 self.walkers.remove(k);
                 continue;
             };
@@ -323,6 +437,7 @@ impl People {
             w.storey = storey;
             w.room = room;
             w.slot = slot;
+            w.spot = spot;
             w.at = at;
             w.leaving = false;
             w.opacity = if motion { 0.0 } else { 1.0 };
@@ -360,7 +475,99 @@ mod tests {
             room: room.into(),
             color: [1.0, 0.0, 0.5],
             pin: false,
+            spot: None,
         }
+    }
+
+    #[test]
+    fn a_figure_stands_where_its_spot_is_and_walks_as_it_moves() {
+        let floors = [Some(floor())];
+        let mut people = People::default();
+        let at = |spot: P2| Wanted {
+            spot: Some(spot),
+            ..wanted("person.alex", 0, "a")
+        };
+        people.set(&[at([100.0, 60.0])], &floors, false);
+        assert_eq!(people.walkers()[0].at, [100.0, 60.0]);
+        // A few centimetres: it stays; half a metre: it walks there.
+        people.set(&[at([110.0, 65.0])], &floors, true);
+        assert!(!people.moving());
+        people.set(&[at([160.0, 60.0])], &floors, true);
+        assert!(people.walkers()[0].walking());
+        run(&mut people, &floors, 2.0);
+        assert_eq!(people.walkers()[0].at, [160.0, 60.0]);
+        // Into another room, to its spot there, through the door.
+        people.set(
+            &[Wanted {
+                spot: Some([450.0, 150.0]),
+                ..wanted("person.alex", 0, "b")
+            }],
+            &floors,
+            true,
+        );
+        run(&mut people, &floors, 10.0);
+        assert_eq!(people.walkers()[0].at, [450.0, 150.0]);
+        // Sam at the same spot: a little apart; their spot no longer known, back to their place.
+        let with_sam = |sam: Option<P2>| {
+            [
+                Wanted {
+                    spot: Some([450.0, 150.0]),
+                    ..wanted("person.alex", 0, "b")
+                },
+                Wanted {
+                    spot: sam,
+                    ..wanted("person.sam", 0, "b")
+                },
+            ]
+        };
+        people.set(&with_sam(Some([450.0, 150.0])), &floors, false);
+        let [alex, sam] = [&people.walkers()[0], &people.walkers()[1]];
+        assert!((alex.at[0] - sam.at[0]).hypot(alex.at[1] - sam.at[1]) >= SPACING - 1e-6);
+        people.set(&with_sam(None), &floors, true);
+        run(&mut people, &floors, 10.0);
+        assert!(people.walkers()[1].spot.is_none());
+        assert!(
+            floors[0]
+                .as_ref()
+                .unwrap()
+                .in_room("b", people.walkers()[1].at)
+        );
+        // A spot outside the room it is said to be in: a place of the room instead.
+        let mut other = People::default();
+        other.set(
+            &[Wanted {
+                spot: Some([450.0, 150.0]),
+                ..wanted("person.sam", 0, "a")
+            }],
+            &floors,
+            false,
+        );
+        assert!(
+            floors[0]
+                .as_ref()
+                .unwrap()
+                .in_room("a", other.walkers()[0].at)
+        );
+    }
+
+    #[test]
+    fn a_figure_at_its_place_keeps_away_from_one_at_its_spot() {
+        let floors = [Some(floor())];
+        // Alex stands at their spot, just where Sam's place in the room (the second) is.
+        let second = places(floors[0].as_ref().unwrap(), "a", RING_PLACES)[1];
+        let mut people = People::default();
+        let both = [
+            Wanted {
+                spot: Some(second),
+                ..wanted("person.alex", 0, "a")
+            },
+            wanted("person.sam", 0, "a"),
+        ];
+        people.set(&both, &floors, false);
+        let [alex, sam] = [&people.walkers()[0], &people.walkers()[1]];
+        assert_eq!(alex.at, second);
+        assert!((alex.at[0] - sam.at[0]).hypot(alex.at[1] - sam.at[1]) >= SPACING - 1e-6);
+        assert!(floors[0].as_ref().unwrap().in_room("a", sam.at));
     }
 
     fn run(people: &mut People, floors: &[Option<Floor>], seconds: f64) {

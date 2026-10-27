@@ -90,13 +90,19 @@ LOCATING_STORAGE_KEY: Final = f"{DOMAIN}.locating"
 LOCATING_LEARNED_KEY: Final = f"{DOMAIN}.locating_learned"
 LOCATING_STORAGE_VERSION: Final = 1
 MAX_LOCATED: Final = 30
+# The presence radars given settings of their own (D-080), at most.
+MAX_RADARS: Final = 50
 MAX_RECEIVERS: Final = 64
 MAX_LOCATED_NAME: Final = 60
+# An identity key as the tools that read one write it (spaces, `irk:`), at most (D-075).
+MAX_KEY_TEXT: Final = 80
 LOCATED_KINDS: Final = ("phone", "watch", "thing")
 # A device taught in a room is listened to this long (seconds), at least and at most.
 TEACH_SECONDS: Final = (10, 120)
 # Dispatcher signal sent when a followed device moves, is lost or left behind: (device id,).
 SIGNAL_LOCATED: Final = f"{DOMAIN}_located"
+# Dispatcher signal sent when the people the presence radars see change (D-080).
+SIGNAL_SEEN: Final = f"{DOMAIN}_seen"
 # The placement advisor (docs/DECISIONS.md, D-066): the Wi-Fi access points placed on the plan, at
 # most this many, each named this long, at a point this far from the plan's origin at most (cm).
 MAX_ACCESS_POINTS: Final = 16
@@ -164,6 +170,27 @@ MAX_SCREEN_NAME: Final = 64
 #: A screen's name (a card's `screen`, D-029): letters, digits, `_` and `-`, in any case.
 SCREEN_NAME: Final = re.compile(rf"^[A-Za-z0-9_-]{{1,{MAX_SCREEN_NAME}}}$")
 
+# The wall screens (docs/DECISIONS.md, D-076): each one's layout (the tab it opens on, its screen
+# saver), by its name, in a store of their own (.storage/domotwin.screens). At most this many
+# screens, sensors waking one, minutes before its saver comes, and characters of a media folder's
+# id; a photo shown this many seconds at least and at most.
+SCREENS_STORAGE_KEY: Final = f"{DOMAIN}.screens"
+SCREENS_STORAGE_VERSION: Final = 1
+MAX_SCREENS: Final = 20
+MAX_WAKE_SENSORS: Final = 10
+MAX_SAVER_MINUTES: Final = 240
+MAX_MEDIA_ID: Final = 512
+PHOTO_SECONDS: Final = (5, 3600)
+
+# The garden (docs/DECISIONS.md, D-077): when each lawn was last mown, said by someone or by its
+# robot mower, in a store of its own (.storage/domotwin.garden). At most this many lawns and mowers.
+GARDEN_STORAGE_KEY: Final = f"{DOMAIN}.garden"
+GARDEN_STORAGE_VERSION: Final = 1
+MAX_LAWNS: Final = 100
+MAX_MOWERS: Final = 20
+#: A robot mower at work (Home Assistant's `lawn_mower` entities).
+MOWING: Final = "mowing"
+
 # The home's Wi-Fi for guests (docs/DECISIONS.md, D-060), in a private store of its own
 # (.storage/domotwin.wifi): never in the plan, the logs, the diagnostics or an export.
 WIFI_STORAGE_KEY: Final = f"{DOMAIN}.wifi"
@@ -213,7 +240,7 @@ MODEL_GRACE_SECONDS: Final = 86_400
 # Overlay entries of the models imported in edit mode: "@model:<model id>".
 MODEL_ENTRY_PREFIX: Final = "@model:"
 
-# The weekly report (docs/DECISIONS.md, D-072): its settings and the last reports, in a store of its
+# The weekly report (docs/DECISIONS.md, D-081): its settings and the last reports, in a store of its
 # own (.storage/domotwin.reports), private. At most this many reports kept (the oldest go first),
 # items a section of a report (the others counted), and a summary's characters.
 REPORT_STORAGE_KEY: Final = f"{DOMAIN}.reports"

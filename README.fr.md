@@ -20,11 +20,14 @@ Local, rapide, Rust + WebAssembly.</p>
 > l’historique de la configuration, les pointes d’Hydro-Québec, d’autres imports (cartes de robots
 > aspirateurs, Floorplanner, scans en maillage), la couverture radio, les pass d’invité, les droits
 > de chacun, la sécurité (les caméras, la sonnette, l’alarme, les alertes sur chaque onglet), les
-> graphiques de chaque pièce avec la page Énergie de Home Assistant à un onglet, les
-> automatisations dites avec vos mots, jouées dans le bac à sable avant d’être enregistrées, et un
-> bilan de la semaine de ce qui est à surveiller, et DomoTwin a rejoint la Vue d’ensemble de Home
-> Assistant ; la météo autour du logement et l’écran mural suivent, vers la 0.5.0. La proposition à
-> la liste par défaut de HACS attend des mesures sur de vrais appareils.
+> graphiques de chaque pièce avec la page Énergie de Home Assistant à un onglet, les automatisations
+> dites avec vos mots, jouées dans le bac à sable avant d’être enregistrées, la météo autour du
+> logement, la justesse des pièces trouvées, mesurée à côté de Bermuda, une bibliothèque de 195
+> meubles et objets avec leurs images, un iPhone suivi sans Mac, l’écran mural (son économiseur
+> réveillé par qui arrive) et un bilan de la semaine de ce qui est à surveiller, et DomoTwin a
+> rejoint la Vue d’ensemble de Home Assistant ; un premier lancement en cinq minutes ferme le chemin
+> vers la 0.5.0. La proposition à la liste par défaut de HACS attend des mesures sur de vrais
+> appareils.
 
 ## Ce qui le distingue
 
@@ -77,8 +80,12 @@ Local, rapide, Rust + WebAssembly.</p>
   Assistant, sa base liée) ou un plan DomoTwin (`*.domotwin.json`), un étage ou tous, et voyez-le en
   maquette 3D. Les murs face à la caméra s’abaissent automatiquement, comme une maison de poupée
   ouverte. Passez à un plan 2D net avec une transition fluide.
-- **Des meubles qui ont l’air vrais.** Des plantes feuille à feuille, des canapés et des lits aux
-  bords arrondis, sans rien perdre en vitesse.
+- **Des meubles qui ont l’air vrais, toute une bibliothèque.** Des plantes feuille à feuille, des
+  canapés et des lits aux bords arrondis, sans rien perdre en vitesse ; 195 meubles et objets en
+  117 sortes et leurs styles, aux tailles habituelles des vrais : un Chesterfield, un piano, un
+  poêle à bois, une thermopompe, un chauffe-eau, une borne de recharge et une voiture, des
+  enceintes, un thermostat, un détecteur de fumée, des caméras, un routeur, des appliques et des
+  rubans LED, un tapis de course, un arbre à chat. Tous dessinés par DomoTwin, rien de téléchargé.
 - **Cinq apparences.** **Néon** : le logement au crépuscule dans un violet profond, le haut de ses
   murs éclairé d’ambre, des lampes et des écrans qui brillent ; **plan d’architecte** : des traits blancs
   sur fond bleu ; **jour** : le logement tel qu’il est, à la lumière de l’heure ; **dessin animé** :
@@ -96,6 +103,18 @@ Local, rapide, Rust + WebAssembly.</p>
 - **En direct.** Les lampes éclairent leur pièce dans leur vraie couleur et luminosité, la
   télévision s’illumine, volets et rideaux bougent, portes et fenêtres s’ouvrent avec leurs
   capteurs.
+- **La météo autour du logement.** Pluie, neige, grêle, brouillard, ciel gris et éclairs d’orage,
+  d’après votre entité météo, dessinés en 3D : autour d’un appartement et jamais dedans, sur le
+  toit d’une maison, penchés par le vent. Voir [la
+  météo](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/weather.md) (en anglais).
+- **Le jardin aussi.** Dessinez un jardin, une terrasse, un balcon et son garde-corps, une allée :
+  des lieux extérieurs, avec leur pelouse, leur terrasse en bois, leur dallage ou leur gravier, et
+  les objets du jardin (arbres, haies, piscine, abri, lampes de jardin, portail). La pelouse est
+  dessinée aussi haute qu’elle a poussé depuis la dernière tonte, selon la saison là où est le
+  logement ; votre tondeuse robot en fait le tour, jamais à travers la maison. Les toits suivent
+  la forme de la maison, avec la forme, la pente et la couleur que vous choisissez. Voir
+  [l’extérieur](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/outdoors.md) (en
+  anglais).
 - **Calques.** Une carte de chaleur animée (température, humidité, CO₂ ou particules fines) tirée
   des capteurs de la zone de chaque pièce, des alertes de sécurité qui pulsent dans leur pièce
   (fumée, gaz, fuite d’eau, alarme, fenêtre ouverte sous la pluie), les pièces occupées, le vrai
@@ -140,6 +159,13 @@ Local, rapide, Rust + WebAssembly.</p>
   administrateurs, et sur les écrans muraux que vous choisissez ; le mot de passe reste dans le
   stockage privé de DomoTwin. Voir [le Wi-Fi des
   invités](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/wifi.md) (en anglais).
+- **L’écran mural.** Une tablette près de la porte ou dans la cuisine s’ouvre sur son propre
+  onglet et, quand personne n’est là, montre l’heure, la météo et vos photos des médias de Home
+  Assistant, partis dès que quelqu’un la touche, qu’un capteur de mouvement le voit ou que la
+  sonnette retentit. La mise en page de chaque écran est réglée une fois par un administrateur et
+  suivie par l’appareil qui l’est, quel que soit le compte connecté. Voir [l’écran
+  mural](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/wall-screen.md) (en
+  anglais).
 - **L’accès invités.** Un pass ouvre des pièces et des appareils choisis à vos invités pour
   quelques jours : son lien ou son code QR les ouvre sur leur téléphone, en 3D, sans compte Home
   Assistant, avec le Wi-Fi si vous voulez, et se termine tout seul. Par défaut il ne s’ouvre que sur
@@ -189,8 +215,14 @@ Local, rapide, Rust + WebAssembly.</p>
   téléphone, d’une montre ou d’une balise, d’après ce qu’entendent les récepteurs Bluetooth de Home
   Assistant (son adaptateur, les proxys ESPHome, les appareils Shelly). Il part du plan (distances,
   murs, portes, étages) et marche dès la première minute, puis apprend des pièces enseignées et des
-  capteurs de présence. Les téléphones placent leur propriétaire ; les clés oubliées sont
-  signalées ; « où sont mes clés ? » à la voix. Voir [la localisation
+  capteurs de présence ; dans la pièce, où, sur une grille de cellules d’un demi-mètre, et un autre
+  étage par son escalier seulement. Les téléphones placent leur propriétaire ; les clés oubliées sont
+  signalées ; « où sont mes clés ? » à la voix. La justesse des pièces trouvées est mesurée, les
+  chiffres de Bermuda à côté là où il tourne, et se copie en tableau à partager. La clé d’identité
+  d’un iPhone, lue sans Mac par un ESP32 en dix minutes, se colle dans DomoTwin telle que l’outil la
+  donne. Les radars de présence (un LD2450, un Everything Presence Lite, un LD2410) placés sur le
+  plan s’y ajoutent : le Bluetooth dit qui, le radar dit où, au demi-mètre et vite, et toute autre
+  personne est quelqu’un, une silhouette grise. Voir [la localisation
   Bluetooth](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/bluetooth.md) (en
   anglais).
 - **La couverture radio.** Où le prochain proxy Bluetooth, routeur Zigbee ou point d’accès Wi-Fi
@@ -213,12 +245,15 @@ Local, rapide, Rust + WebAssembly.</p>
 - **Étages.** Une cave, des étages, des combles : un plan chacun, un sélecteur dans la vue, un
   escalier qui vous fait monter d’une touche, et les alertes de chaque étage où que vous soyez. Ou
   tout le logement d’un coup, ses étages écartés sous un toit, chacun avec son étiquette et son
-  image, en direct à chaque niveau. Voir [les étages](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/storeys.md) (en
+  image, en direct à chaque niveau. Les demi-niveaux et les sous-sols ouverts sur le jardin aussi :
+  des demi-niveaux nommés comme tels, un plancher compté par la localisation Bluetooth là seulement
+  où un niveau est au-dessus de l’autre, le jardin d’un sous-sol de son côté. Voir [les étages](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/storeys.md) (en
   anglais).
 - **Mode édition.** Déplacez, tournez et empilez les meubles avec aimantation, repères et
-  annulation, ajoutez des meubles depuis un catalogue, liez n’importe quel objet à des entités (avec
-  des suggestions tirées de vos pièces), et ajoutez votre propre meuble ou appareil avec son modèle
-  3D (glTF/GLB, OBJ, STL ou 3MF). Voir [le mode édition](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/edit-mode.md) (en anglais).
+  annulation, ajoutez des meubles depuis une bibliothèque avec une image de chacun, par pièce et
+  usage, cherchés dans votre langue, liez n’importe quel objet à des entités (avec des suggestions
+  tirées de vos pièces), et ajoutez votre propre meuble ou appareil avec son modèle 3D (glTF/GLB,
+  OBJ, STL ou 3MF). Voir [le mode édition](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/edit-mode.md) (en anglais).
 - **Promenez-vous, accrochez-le au mur, demandez-le.** Promenez-vous dans votre logement à
   hauteur des yeux, de pièce en pièce par les portes. Sur une tablette murale, une carte revient à
   sa vue quand on la laisse, tourne lentement et s’assombrit la nuit. Dites « montre la cuisine » à
@@ -287,7 +322,7 @@ Local, rapide, Rust + WebAssembly.</p>
 </p>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-edit.png" alt="Le mode édition : un meuble glissé sur le plan 2D s’aimante contre un mur, avec les distances aux autres murs ; le catalogue des meubles à ajouter" width="100%">
+  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-edit.png" alt="Le mode édition : un meuble glissé sur le plan 2D s’aimante contre un mur, avec les distances aux autres murs ; la bibliothèque des meubles à ajouter, chacun avec son image" width="100%">
 </p>
 
 <p align="center">
@@ -391,6 +426,7 @@ YAML n’est jamais nécessaire. Pour référence, les options de la carte :
 | `presence`    | `true`, `false`                     | `true`     | Les pièces occupées s’illuminent doucement.   |
 | `people`      | `true`, `false`                     | `true`     | Les personnes dans leurs pièces, en silhouettes. |
 | `sun`         | `fixed`, `real`                     | `fixed`    | `real` : le soleil éclaire depuis sa vraie position (`sun.sun`), par les fenêtres. |
+| `weather`     | `true`, `false`                     | `true`     | La météo autour du logement : pluie, neige, brouillard et orages. |
 | `badges`      | `true`, `false`                     | `true`     | Badges des appareils : serrures, caméras, lecture, batteries faibles, appareils en marche. |
 | `cameras`     | `true`, `false`                     | `true`     | Ce que voient les caméras liées, dessiné au sol. |
 | `theme`       | `auto`, `day`, `neon`, `blueprint`, `cartoon`, `clay` | celle du logement | L’apparence ; `auto` : néon en mode sombre. |

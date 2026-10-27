@@ -118,6 +118,9 @@ void main() {
 }
 ";
 
+/// What the variant of [`FRAGMENT`] drawing the garden's grounds (D-077) starts with.
+pub(crate) const GARDEN: &str = "#define GARDEN\n";
+
 /// Shading of the colour passes (opaque and transparent).
 pub(crate) const FRAGMENT: &str = concat!(
     r"
@@ -127,6 +130,10 @@ uniform vec3 u_eye;
 uniform vec3 u_sun;
 uniform float u_flat;
 uniform float u_shadows;
+uniform float u_fog;
+// Where the fog thins: the home's centre on the ground and its size (cm).
+uniform vec3 u_fog_area;
+uniform vec3 u_fog_color;
 uniform sampler2D u_shadow_map;
 uniform mat4 u_shadow_matrix;
 uniform float u_shadow_texel;
@@ -213,6 +220,12 @@ const uint FLOOR = 12u;
 const uint WOOD = 13u;
 const uint LEAF = 14u;
 const uint CEILING = 15u;
+// The garden's (D-077).
+const uint GRASS = 16u;
+const uint GRAVEL = 17u;
+const uint WATER = 18u;
+const uint SOIL = 19u;
+const uint PAVING = 20u;
 
 // The light of the moment (`domotwin_core::lighting`): morning, day, evening or night.
 uniform vec3 u_sky;
@@ -279,6 +292,38 @@ vec3 subway(vec3 base, vec2 uv) {
     return mix(c, base * 0.78, line);
 }
 
+// The garden's grounds (D-077) are in the variant of this program compiled with `GARDEN`, which
+// draws the meshes that have them: a software GPU runs every branch of a shader, taken or not.
+#ifdef GARDEN
+// A lawn (D-077): fine blades over clumps, its grass `grown` from just mown (0) to long (1):
+// even and light when short, darker and tufted as it grows, seed heads paler when long; striped
+// the width of a mower along its floor's direction just after a mowing (`fresh`).
+vec3 lawn(vec3 base, vec2 uv, float grown, float fresh) {
+    float fine = noise(uv * 0.9) * 0.6 + noise(uv * 3.1) * 0.4;
+    float clumps = noise(uv * 0.045) * 0.7 + noise(uv * 0.17) * 0.3;
+    // Patches a metre or two across, drier or lusher, as a lawn is.
+    float patches = noise(uv * 0.0045) * 0.65 + noise(uv * 0.013) * 0.35;
+    vec3 c = base * (0.86 + 0.26 * fine) * (0.86 + 0.28 * patches) * mix(1.08, 0.86, grown);
+    c = mix(c, c * vec3(1.18, 1.08, 0.78), smoothstep(0.62, 0.9, patches) * 0.35);
+    float tuft = smoothstep(0.4, 0.85, clumps) * grown;
+    c = mix(c, base * vec3(0.7, 0.86, 0.6), tuft * 0.75);
+    float seeds = smoothstep(0.72, 0.95, noise(uv * 0.55)) * smoothstep(0.55, 1.0, grown);
+    c = mix(c, base * vec3(1.3, 1.22, 0.86), seeds * 0.55);
+    float across = uv.y / 120.0;
+    float edge = max(fwidth(across), 1e-4) * 1.5;
+    float band = smoothstep(0.5 - edge, 0.5 + edge, fract(across))
+        - smoothstep(1.0 - edge, 1.0, fract(across));
+    return c * (1.0 + (band - 0.5) * 0.18 * fresh);
+}
+
+// Gravel: small stones, light and dark, a little shadow between them.
+vec3 gravel(vec3 base, vec2 uv) {
+    float stones = noise(uv * 0.7) * 0.5 + noise(uv * 1.9) * 0.5;
+    float pick = hash(floor(uv * 0.9));
+    return base * (0.72 + 0.4 * stones) * (0.92 + 0.16 * pick);
+}
+#endif
+
 float sun_shadow(vec3 n) {
     if (u_shadows < 0.5) {
         return 1.0;
@@ -343,6 +388,17 @@ void main() {
     if (!gl_FrontFacing) {
         n = -n;
     }
+#ifdef GARDEN
+    if (surface == WATER) {
+        // Ripples on the water, moving only with motion.
+        float drift = u_motion > 0.5 ? u_time * 0.6 : 0.0;
+        vec2 q = v_uv * 0.035 + vec2(drift * 0.05, drift * 0.03);
+        float e = 0.5;
+        float dx = noise(q + vec2(e, 0.0)) - noise(q - vec2(e, 0.0));
+        float dz = noise(q + vec2(0.0, e)) - noise(q - vec2(0.0, e));
+        n = normalize(n + vec3(dx, 0.0, dz) * 0.35);
+    }
+#endif
     if (v_glass > 0.5) {
         // Tinted glass, brighter at grazing angles, catching the lamps of its room.
         vec3 view = normalize(u_eye - v_world);
@@ -375,11 +431,29 @@ void main() {
         albedo = base * (0.93 + 0.1 * noise(vec2(v_uv.x * 0.05, v_uv.y * 0.9)));
     } else if (surface == FABRIC) {
         albedo = base * (0.94 + 0.08 * noise(v_uv * 1.7));
+#ifdef GARDEN
+    } else if (surface == GRASS) {
+        // Without its room, a lawn whose mowing is not known (`layers::GRASS_UNKNOWN`'s share).
+        vec4 lawn_of = v_room > 0.5
+            ? texelFetch(u_rooms, ivec2(int(v_room + 0.5) * 3 + 2, 0), 0)
+            : vec4(0.0, 0.0, 0.1875, 0.0);
+        albedo = lawn(base, v_uv, lawn_of.b, lawn_of.a);
+    } else if (surface == GRAVEL) {
+        albedo = gravel(base, v_uv);
+    } else if (surface == SOIL) {
+        albedo = base * (0.8 + 0.3 * noise(v_uv * 0.4) + 0.1 * noise(v_uv * 2.3));
+    } else if (surface == PAVING) {
+        albedo = tiles(base * (0.95 + 0.1 * noise(v_uv * 0.6)), v_uv, 60.0);
+    } else if (surface == WATER) {
+        // The pool's tiles seen through the water.
+        albedo = base * (1.0 - 0.12 * grout(v_uv, vec2(25.0), 0.4));
+#endif
     }
     // Patterns left out (the cartoon's flat colours, the clay's single matter).
     albedo = mix(albedo, base, u_flatten);
     // The look's palette, keeping each surface's lightness (as much as the look says).
-    bool floor_surface = surface == PLANKS || surface == TILES || surface == FLOOR;
+    bool floor_surface = surface == PLANKS || surface == TILES || surface == FLOOR
+        || surface == GRASS || surface == GRAVEL || surface == SOIL || surface == PAVING;
     float lightness = dot(albedo, vec3(0.2126, 0.7152, 0.0722));
     if (surface == WALL_CAP && u_glass_walls > 0.5) {
         albedo = to_linear(u_wall_cap);
@@ -470,7 +544,7 @@ void main() {
     // where the surface curves: a flat face seen at a grazing angle keeps its colour.
     float curved = smoothstep(0.01, 0.06, length(fwidth(n)));
     bool inked = surface != GLOW && surface != SCREEN && surface != GLASS && surface != MIRROR
-        && surface != CEILING && surface != WALL_CAP && !floor_surface;
+        && surface != CEILING && surface != WALL_CAP && surface != WATER && !floor_surface;
     if (u_rim_ink > 0.0 && inked) {
         float side = abs(dot(n, v));
         color *= mix(1.0, smoothstep(0.06, 0.26, side), u_rim_ink * curved);
@@ -484,6 +558,13 @@ void main() {
     } else if (surface == GLASS) {
         color = albedo * hemi * 0.4 + env * (0.3 + 0.6 * fresnel);
         alpha = 0.22 + 0.5 * fresnel;
+#ifdef GARDEN
+    } else if (surface == WATER) {
+        // Its colour from below, the sky on it, brighter at a grazing angle, and the sun's glint.
+        color = albedo * (hemi * 0.75 + u_sun_color * diffuse_sun * 0.45)
+            + env * (0.08 + 0.55 * fresnel) * mix(1.0, 0.6, u_bands)
+            + u_sun_color * spec * shadow * 0.8 * u_specular;
+#endif
     }
 
     // Lamps and screens that are on glow with their element's light.
@@ -558,6 +639,13 @@ void main() {
     plan = mix(plan, vec3(0.95, 0.12, 0.08), bad * 0.7);
     vec3 shaded = mix(aces(color * u_exposure), plan, u_flat);
     shaded = mix(shaded, alert_tone, alert);
+    // The weather's fog (D-072): a veil over the home, thicker around it, where it fades into the
+    // sky's colour; not on the plan.
+    float out_of_home = smoothstep(
+        u_fog_area.z * 0.5, u_fog_area.z * 1.6, length(v_world.xz - u_fog_area.xy)
+    );
+    float fog = u_fog * mix(0.12, 1.0, out_of_home) * (1.0 - u_flat);
+    shaded = mix(shaded, to_linear(u_fog_color), fog);
     float a = mix(alpha, max(alpha, 0.35), u_flat);
     // Drawn offscreen, an opaque surface's alpha is how much it glows (lamps and screens that are
     // on); glass keeps its alpha to blend with (and leaves the glow below it as it is).
@@ -661,6 +749,10 @@ uniform float u_glow_alpha;
 uniform float u_shadows;
 uniform sampler2D u_shadow_map;
 uniform mat4 u_shadow_matrix;
+// The weather's fog (D-072): the ground fades into the sky closer to the home.
+uniform float u_fog;
+// How much of the sun the clouds let through (D-072): the shadow on the ground fades with it.
+uniform float u_sun_left;
 
 in vec2 v_uv;
 out vec4 frag;
@@ -693,7 +785,11 @@ void main() {
     float glow = 0.0;
     if (dir.y < -1e-5) {
         vec3 g = p0 + dir * ((u_ground_y - p0.y) / dir.y);
-        float far_away = smoothstep(u_radius * 1.4, u_radius * 4.5, length(g.xz - u_centre));
+        float from_home = length(g.xz - u_centre);
+        float far_away = max(
+            smoothstep(u_radius * 1.4, u_radius * 4.5, from_home),
+            u_fog * smoothstep(u_radius * 0.5, u_radius * 1.6, from_home)
+        );
         float lines = u_grid_dots > 0.5
             ? max(dots(g.xz, 100.0) * 0.7, dots(g.xz, 500.0))
             : max(grid(g.xz, 100.0) * 0.55, grid(g.xz, 500.0));
@@ -703,7 +799,7 @@ void main() {
             vec3 c = s.xyz / s.w * 0.5 + 0.5;
             bool inside = c.x > 0.0 && c.x < 1.0 && c.y > 0.0 && c.y < 1.0 && c.z < 1.0;
             if (inside && c.z - 0.002 > texture(u_shadow_map, c.xy).r) {
-                ground *= 0.86;
+                ground *= 1.0 - 0.14 * u_sun_left;
             }
         }
         color = mix(ground, color, far_away);
@@ -1240,5 +1336,334 @@ void main() {
     // In the 2D plan a little stronger: it lies on flat colours.
     a = min(a * mix(1.0, 1.3, u_flat), 1.0);
     frag = vec4(tone, a);
+}
+";
+
+/// What falls around the home (D-072): one particle per instance, its place worked out from its
+/// number and the time, so that nothing is stored. Rain falls in streaks and splashes where it
+/// lands, on the ground or on the roof, and runs off the eaves; snow drifts down in flakes; hail
+/// falls in small hard grains. Outside the walls of a home without its roof shown.
+pub(crate) const WEATHER_VERTEX: &str = r"
+uniform mat4 u_view_proj;
+uniform vec2 u_viewport;
+// Seconds, starting again every `u_loop` seconds: each particle's turn fits a whole number of
+// times in it, so that nothing jumps when it starts again.
+uniform float u_time;
+uniform float u_loop;
+uniform vec3 u_eye;
+// The home's footprint, every storey's and the roof's eaves: its centre and the unit direction of
+// its length, half its length and width, and how far out around it things fall.
+uniform vec4 u_area;
+uniform vec3 u_half;
+// Where falling starts and the ground; the home's lowest and highest heights.
+uniform vec2 u_heights;
+uniform vec2 u_home;
+// The wings of the roofs shown (D-077), `u_wings` of them: where each is drawn (its storey's
+// offset) and its shape (0 gable, 1 hip, 2 shed, 3 flat); its centre on the plan and the unit
+// direction of its ridge; half its length and width, its eaves' height and its rise above its
+// storey's floor; a lean-to's high side; as `RoofShape::height_at` reads them.
+uniform float u_wings;
+uniform vec4 u_wing_at[4];
+uniform vec4 u_wing_area[4];
+uniform vec4 u_wing_shape[4];
+uniform float u_wing_high[4];
+uniform vec2 u_wind;
+// What falls (0 rain, 1 snow, 2 hail, 3 sleet), its speed (cm/s), the share running off the
+// eaves, whether it splashes.
+uniform vec4 u_fall;
+// A streak's width, in device pixels.
+uniform float u_line;
+
+out vec2 v_uv;
+flat out float v_kind;
+out float v_fade;
+
+
+uint mix_bits(uint x) {
+    x ^= x >> 16;
+    x *= 0x7feb352du;
+    x ^= x >> 15;
+    x *= 0x846ca68bu;
+    x ^= x >> 16;
+    return x;
+}
+
+float hash(uint a, uint b) {
+    return float(mix_bits(a * 0x9e3779b9u ^ mix_bits(b + 0x632be5abu))) / 4294967295.0;
+}
+
+const vec2 CORNERS[6] = vec2[6](
+    vec2(-1.0, -1.0), vec2(1.0, -1.0), vec2(1.0, 1.0),
+    vec2(-1.0, -1.0), vec2(1.0, 1.0), vec2(-1.0, 1.0)
+);
+
+void hide() {
+    gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+    v_uv = vec2(0.0);
+    v_kind = 0.0;
+    v_fade = 0.0;
+}
+
+float away(float d) {
+    return abs(d) < 1e-6 ? (d < 0.0 ? -1e-6 : 1e-6) : d;
+}
+
+// Whether `p` is seen over the home from the eye, in front of it or behind it: whether the line
+// from the eye through `p` crosses the home's box. What falls around the home is not drawn there,
+// so that it falls around the home rather than in it (on its roof, when it has one).
+bool over_home(vec3 p, vec2 u, vec2 v) {
+    vec2 e = u_eye.xz - u_area.xy;
+    vec3 o = vec3(dot(e, u), u_eye.y, dot(e, v));
+    vec3 lo = vec3(-u_half.x, u_home.x, -u_half.y);
+    vec3 hi = vec3(u_half.x, u_home.y, u_half.y);
+    if (all(greaterThan(o, lo)) && all(lessThan(o, hi))) {
+        // From inside (walking): what falls outside shows through the windows.
+        return false;
+    }
+    vec3 w = p - u_eye;
+    vec3 d = vec3(away(dot(w.xz, u)), away(w.y), away(dot(w.xz, v)));
+    vec3 t0 = (lo - o) / d;
+    vec3 t1 = (hi - o) / d;
+    vec3 near = min(t0, t1);
+    vec3 far = max(t0, t1);
+    float enter = max(max(near.x, near.y), near.z);
+    float leave = min(min(far.x, far.y), far.z);
+    return leave >= max(enter, 0.0);
+}
+
+// The top of the roofs over a point of the plan (their highest wing there), and that wing; -1
+// where there is none.
+float roof_over(vec2 p, out int which) {
+    float best = -1.0;
+    which = -1;
+    for (int k = 0; k < 4; k++) {
+        if (float(k) >= u_wings) {
+            break;
+        }
+        vec4 at = u_wing_at[k];
+        vec4 shape = u_wing_shape[k];
+        vec2 ru = u_wing_area[k].zw;
+        vec2 r = p - u_wing_area[k].xy;
+        float along = dot(r, ru);
+        float across = dot(r, vec2(-ru.y, ru.x));
+        if (abs(along) > shape.x || abs(across) > shape.y) {
+            continue;
+        }
+        float kind = at.w;
+        float up = 1.0;
+        if (kind < 0.5) {
+            up = 1.0 - abs(across) / shape.y;
+        } else if (kind < 1.5) {
+            up = min(1.0 - abs(across) / shape.y, (shape.x - abs(along)) / shape.y);
+        } else if (kind < 2.5) {
+            up = (across * u_wing_high[k] + shape.y) / (2.0 * shape.y);
+        }
+        float h = at.y + shape.z + shape.w * clamp(up, 0.0, 1.0);
+        if (h > best) {
+            best = h;
+            which = k;
+        }
+    }
+    return best;
+}
+
+void main() {
+    uint id = uint(gl_InstanceID);
+    vec2 q = CORNERS[gl_VertexID % 6];
+    float kind = u_fall.x;
+    if (kind > 2.5) {
+        kind = hash(id, 7u) < 0.5 ? 0.0 : 1.0;
+    }
+    bool snow = kind > 0.5 && kind < 1.5;
+    float speed = u_fall.y * (snow ? 1.0 : 1.4) * (0.8 + 0.4 * hash(id, 1u));
+    if (snow && u_fall.x > 2.5) {
+        speed *= 0.12;
+    }
+    bool roofed = u_wings > 0.5;
+    // Off the eaves of a wing with slopes: one of them, picked as it falls.
+    int eaves = int(min(floor(hash(id, 9u) * u_wings), 3.0));
+    bool drip = roofed && kind < 0.5 && hash(id, 2u) < u_fall.z
+        && u_wing_at[eaves].w < 2.5;
+    float top = u_heights.x;
+    float ground = u_heights.y;
+    float height = top - ground;
+    float splash = u_fall.w > 0.5 && !snow ? 0.18 : 0.0;
+    // Its turn, long enough to fall and splash, a whole number of times in the loop.
+    float turns = max(1.0, floor(u_loop / (height / speed + splash + 0.05)));
+    float period = u_loop / turns;
+    float turn = u_time / period + hash(id, 3u);
+    uint cycle = uint(floor(turn)) % uint(turns);
+    float tau = fract(turn) * period;
+    // Where it lands, a new spot each turn: in the footprint's own axes.
+    vec2 u = u_area.zw;
+    vec2 v = vec2(-u.y, u.x);
+    float margin = u_half.z;
+    float s = (hash(id, cycle * 4u + 11u) * 2.0 - 1.0) * (u_half.x + margin);
+    float t = (hash(id, cycle * 4u + 12u) * 2.0 - 1.0) * (u_half.y + margin);
+    bool inside = abs(s) < u_half.x && abs(t) < u_half.y;
+    vec2 ru = u_wing_area[eaves].zw;
+    vec2 rv = vec2(-ru.y, ru.x);
+    vec4 drip_at = u_wing_at[eaves];
+    float from = top;
+    float stop = ground;
+    vec2 land;
+    if (drip) {
+        // Off the eaves: along one of them, from their height (a lean-to's low one).
+        vec4 shape = u_wing_shape[eaves];
+        float a = (hash(id, cycle * 4u + 13u) * 2.0 - 1.0) * shape.x;
+        float b = (hash(id, cycle * 4u + 14u) < 0.5 ? -1.0 : 1.0) * (shape.y + 3.0);
+        if (drip_at.w > 1.5) {
+            b = -u_wing_high[eaves] * (shape.y + 3.0);
+        }
+        land = u_wing_area[eaves].xy + ru * a + rv * b + drip_at.xz;
+        from = drip_at.y + shape.z;
+        inside = false;
+    } else {
+        land = u_area.xy + u * s + v * t;
+        int wing;
+        float over = roofed ? roof_over(land, wing) : -1.0;
+        bool covered = over > -0.5;
+        if (inside && !covered) {
+            // No roof over it: what would land in the home lands in the band around it instead.
+            float ks = abs(s) / u_half.x;
+            float kt = abs(t) / u_half.y;
+            if (ks > kt) {
+                s = (s < 0.0 ? -1.0 : 1.0) * (u_half.x + ks * margin);
+            } else {
+                t = (t < 0.0 ? -1.0 : 1.0) * (u_half.y + kt * margin);
+            }
+            inside = false;
+            land = u_area.xy + u * s + v * t;
+        } else if (covered) {
+            // On the roof's slope.
+            stop = over;
+            // From as high above the roof as the rest above the ground: as many seen falling on it.
+            from = stop + height;
+            land += u_wing_at[wing].xz;
+            inside = true;
+        }
+    }
+    float landing = (from - stop) / speed;
+    // Its way down, slanted by the wind: no more than so far across for each metre down, or the
+    // slow flakes would blow out of sight.
+    vec2 slope = u_wind * (snow ? 0.6 : 0.25) / speed;
+    float steep = length(slope);
+    float most = snow ? 0.8 : 0.6;
+    if (steep > most) {
+        slope *= most / steep;
+    }
+    if (drip) {
+        // Its way starts at the eave and leads away from the walls (straight down the windward
+        // side, where the wind blows it back against them): it lands downwind of the eave.
+        float side = dot(land - drip_at.xz - u_wing_area[eaves].xy, rv) < 0.0 ? -1.0 : 1.0;
+        float outward = dot(slope, rv) * side;
+        if (outward < 0.0) {
+            slope -= rv * side * outward;
+        }
+        land += slope * (from - stop);
+    }
+    vec3 way = vec3(-slope.x, 1.0, -slope.y);
+    if (tau < landing) {
+        float left = landing - tau;
+        vec3 p = vec3(land.x, stop, land.y) + way * speed * left;
+        if (!inside && !drip && over_home(p, u, v)) {
+            hide();
+            return;
+        }
+        if (snow) {
+            float phase = hash(id, 5u) * 6.2832;
+            // Swaying a whole number of times in the loop.
+            float sway = 6.2831853 / u_loop;
+            p.xz += vec2(sin(u_time * sway * 124.0 + phase), cos(u_time * sway * 105.0 + phase)) * 9.0;
+            // A few pixels wide however far it is, so that it shows.
+            vec4 c = u_view_proj * vec4(p, 1.0);
+            if (c.w <= 0.01) {
+                hide();
+                return;
+            }
+            float size = u_line * (1.4 + 1.6 * hash(id, 6u));
+            c.xy += q * size * 2.0 / u_viewport * c.w;
+            gl_Position = c;
+            v_uv = q;
+            v_kind = 1.0;
+            v_fade = 1.0;
+            return;
+        }
+        // A streak along its way, its head where it is now; hail's are short.
+        float length_s = kind > 1.5 ? 0.014 : (drip ? 0.055 : 0.04);
+        vec3 tail = p + way * speed * length_s;
+        vec4 a = u_view_proj * vec4(p, 1.0);
+        vec4 b = u_view_proj * vec4(tail, 1.0);
+        if (a.w <= 0.01 || b.w <= 0.01) {
+            hide();
+            return;
+        }
+        vec2 sa = a.xy / a.w * u_viewport;
+        vec2 sb = b.xy / b.w * u_viewport;
+        vec2 dir = sb - sa;
+        float len = length(dir);
+        dir = len > 1e-4 ? dir / len : vec2(0.0, 1.0);
+        vec2 side = vec2(-dir.y, dir.x) * u_line * (kind > 1.5 ? 1.6 : 1.0);
+        vec4 end = q.x < 0.0 ? a : b;
+        end.xy += side * q.y * 2.0 / u_viewport * end.w;
+        gl_Position = end;
+        v_uv = q;
+        v_kind = 0.0;
+        v_fade = kind > 1.5 ? 1.3 : 1.0;
+        return;
+    }
+    float after = tau - landing;
+    vec3 above = vec3(land.x, stop, land.y) + way * 100.0;
+    if (after < splash && !inside && (drip || !over_home(above, u, v))) {
+        // A ring where it landed on the ground, widening and fading: none on the roof's slope,
+        // none where its fall was not drawn.
+        float k = after / splash;
+        float r = mix(2.0, 10.0, k);
+        vec3 p = vec3(land.x, stop + 0.6, land.y) + vec3(q.x, 0.0, q.y) * r;
+        gl_Position = u_view_proj * vec4(p, 1.0);
+        v_uv = q;
+        v_kind = 2.0;
+        v_fade = 1.0 - k;
+        return;
+    }
+    hide();
+}
+";
+
+/// A streak, a flake or a splash, in the weather's tint; lit by a storm's flash.
+pub(crate) const WEATHER_FRAGMENT: &str = r"
+uniform vec4 u_tint;
+uniform float u_flash;
+
+in vec2 v_uv;
+flat in float v_kind;
+in float v_fade;
+
+out vec4 frag;
+
+void main() {
+    float a;
+    float rim = 0.0;
+    if (v_kind < 0.5) {
+        // Thin across, brighter at its head.
+        a = (1.0 - abs(v_uv.y)) * mix(1.0, 0.25, v_uv.x * 0.5 + 0.5);
+    } else if (v_kind < 1.5) {
+        // A soft flake, white at its heart, its edge in the tint so that it shows on a light sky.
+        float d2 = dot(v_uv, v_uv);
+        if (d2 >= 1.0) {
+            discard;
+        }
+        a = 1.0 - smoothstep(0.35, 1.0, d2);
+        rim = smoothstep(0.0, 0.7, d2);
+    } else {
+        float d = length(v_uv);
+        if (d >= 1.0) {
+            discard;
+        }
+        a = smoothstep(0.5, 0.85, d) * (1.0 - smoothstep(0.85, 1.0, d));
+    }
+    float snow = v_kind > 0.5 && v_kind < 1.5 ? 1.0 : 0.0;
+    vec3 color = mix(u_tint.rgb, mix(vec3(1.0), u_tint.rgb, 0.25 + rim * 0.45), snow) + u_flash * 0.5;
+    frag = vec4(min(color, vec3(1.0)), clamp(a * mix(u_tint.a, 0.95, snow) * v_fade, 0.0, 1.0));
 }
 ";

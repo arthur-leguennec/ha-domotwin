@@ -39,14 +39,15 @@ export class Engine {
      */
     editAddModel(model: string, definition: string, x: number, y: number): string;
     /**
-     * Adds a piece of the catalogue `kind` named `name` under the device pixel `x`, `y` (or in
-     * the middle of the view when the floor is not there), and selects it. The state has
-     * `refused: true` when it could not be added (the plan holds 500 elements).
+     * Adds a piece of the catalogue `kind` in `style` (none or empty: its own, D-074) named
+     * `name` under the device pixel `x`, `y` (or in the middle of the view when the floor is not
+     * there), and selects it. The state has `refused: true` when it could not be added (the plan
+     * holds 500 elements).
      */
-    editAdd(kind: string, name: string, x: number, y: number): string;
+    editAdd(kind: string, name: string, x: number, y: number, style?: string | null): string;
     /**
      * The catalogue of kinds a piece can be added as, as JSON `[{"kind", "w", "d", "h",
-     * "light"}]` (default sizes in cm).
+     * "light", "styles": [{"style", "w", "d", "h"}]}]` (usual sizes in cm, D-074).
      */
     static editCatalogue(): string;
     /**
@@ -122,7 +123,8 @@ export class Engine {
     editUndo(): string;
     /**
      * The elements of the plan shown (the edit overlay applied), as JSON `[{"id", "type", "name",
-     * "kind"}]` (`kind` for furniture only).
+     * "kind", "room", "beside", "lawn"}]` (`kind` for furniture only; `lawn` for a lawn,
+     * D-077).
      */
     elementList(): string;
     /**
@@ -219,6 +221,11 @@ export class Engine {
      */
     moving(): boolean;
     /**
+     * The lawns each robot mower mows (D-077): JSON `{"<robot-mower piece>": ["<room>"]}`, the
+     * lawns of its storey it can get to from its dock, as its robot goes.
+     */
+    mowerLawns(): string;
+    /**
      * Whether a frame is needed (something changed or an animation is running).
      */
     needsFrame(): boolean;
@@ -263,6 +270,14 @@ export class Engine {
      * empty string.
      */
     pick(x: number, y: number): string;
+    /**
+     * A picture of a piece of the catalogue alone (D-074): `kind` in `style` (empty: its own),
+     * at its usual size and in its colour, on `background` (`#rrggbb`), `width` × `height`
+     * device pixels: RGBA rows from the top, empty for a kind this version does not know. The
+     * piece takes the place of the plan shown: the catalogue draws its pictures with an engine
+     * of its own.
+     */
+    piecePicture(kind: string, style: string, width: number, height: number, background: string): Uint8Array;
     /**
      * The plan point (cm, `[x, y]`) on the floor under the device pixel `x`, `y`; empty when
      * the floor is not there.
@@ -331,6 +346,11 @@ export class Engine {
      */
     setCutaway(name: string): void;
     /**
+     * How long each lawn's grass is and how fresh its mowing (D-077): JSON `{room id: {"length":
+     * cm, "fresh": 0–1}}`; a lawn not named is drawn with about a week's grass.
+     */
+    setLawns(json: string): void;
+    /**
      * Shows the room layers: JSON `{"heat": "temperature", "values": {room id: value},
      * "peak": {room id: "preheat" | "shed" | "heating"}, "draws": {room id: watts},
      * "alerts": {room id: "warning" | "danger"}, "presence": [room id…]}`; `{}` shows none.
@@ -388,12 +408,20 @@ export class Engine {
      */
     setQuality(name: string): void;
     /**
-     * What the robot vacuums do: JSON `[{"id": "<robot-vacuum piece>", "state": "docked" |
-     * "cleaning" | "returning" | "paused" | "idle" | "error", "rooms": ["<room>"]}]`, `rooms`
-     * the rooms it cleans in that order (absent: every room its dock leads to). A robot-vacuum
-     * piece not named stays on its dock.
+     * What the robot vacuums and mowers do: JSON `[{"id": "<robot-vacuum or robot-mower
+     * piece>", "state": "docked" | "cleaning" | "mowing" | "returning" | "paused" | "idle" |
+     * "error", "rooms": ["<room>"]}]`, `rooms` the rooms a vacuum cleans in that order (absent:
+     * every room its dock leads to); a mower mows the lawns of its storey. A piece not named
+     * stays on its dock.
      */
     setRobots(json: string): void;
+    /**
+     * How the home's roofs are drawn (D-077): JSON `{"shape": "gable" | "hip" | "shed" | "flat",
+     * "pitch": degrees, "color": "#rrggbb"}`, what is not understood the default (a gable roof at
+     * 30°). `build`: the home shown is built again with it (not when it is about to be loaded).
+     * Returns whether the scene was built again: only for a home shown with its roofs.
+     */
+    setRoofStyle(json: string, build: boolean): boolean;
     /**
      * Shows or hides the roof over the top storey of the home shown whole.
      */
@@ -446,6 +474,13 @@ export class Engine {
      * shown, without a plan or in edit mode.
      */
     setWalk(on: boolean, time_ms: number): boolean;
+    /**
+     * Draws the weather around the home (D-072) for one of Home Assistant's conditions
+     * (`rainy`, `snowy`, `fog`…; any other is a clear sky), with its wind: `wind_speed` in m/s
+     * and `wind_bearing` in degrees clockwise from north where it comes from (`NaN`: unknown), for
+     * a plan whose north is `north` degrees clockwise from its top.
+     */
+    setWeather(condition: string, wind_speed: number, wind_bearing: number, north: number): void;
     /**
      * Shows a plan drawn in the plan editor (JSON text, no overlay), element `selected` marked.
      * The plan stored and its overlay stay as they are, to come back to (`loadPlan`); the camera
@@ -512,6 +547,10 @@ export class Engine {
      * Whether walking through the storey shown.
      */
     readonly walking: boolean;
+    /**
+     * What falls around the home now: `none`, `rain`, `snow`, `sleet` or `hail` (D-072).
+     */
+    readonly weather: string;
 }
 
 /**
@@ -569,7 +608,7 @@ export interface InitOutput {
     readonly engine_beginEdit: (a: number, b: number) => void;
     readonly engine_cameraViews: (a: number, b: number) => void;
     readonly engine_clearPlan: (a: number) => void;
-    readonly engine_editAdd: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => void;
+    readonly engine_editAdd: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number) => void;
     readonly engine_editAddModel: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => void;
     readonly engine_editCatalogue: (a: number) => void;
     readonly engine_editDragEnd: (a: number, b: number) => void;
@@ -603,6 +642,7 @@ export interface InitOutput {
     readonly engine_modelFiles: (a: number, b: number) => void;
     readonly engine_modelsOverBudget: (a: number) => number;
     readonly engine_moving: (a: number) => number;
+    readonly engine_mowerLawns: (a: number, b: number) => void;
     readonly engine_needsFrame: (a: number) => number;
     readonly engine_networkAt: (a: number, b: number, c: number, d: number) => void;
     readonly engine_new: (a: number, b: number) => void;
@@ -613,6 +653,7 @@ export interface InitOutput {
     readonly engine_peoplePoints: (a: number, b: number) => void;
     readonly engine_pick: (a: number, b: number, c: number, d: number) => void;
     readonly engine_pickAutomation: (a: number, b: number, c: number) => void;
+    readonly engine_piecePicture: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number) => void;
     readonly engine_planPoint: (a: number, b: number, c: number, d: number) => void;
     readonly engine_planView: (a: number) => number;
     readonly engine_pulseAutomation: (a: number, b: number, c: number, d: number) => number;
@@ -627,6 +668,7 @@ export interface InitOutput {
     readonly engine_setBindings: (a: number, b: number, c: number) => void;
     readonly engine_setCameraViews: (a: number, b: number) => void;
     readonly engine_setCutaway: (a: number, b: number, c: number) => void;
+    readonly engine_setLawns: (a: number, b: number, c: number) => void;
     readonly engine_setLayers: (a: number, b: number, c: number) => void;
     readonly engine_setLightingMood: (a: number, b: number, c: number) => number;
     readonly engine_setLocalHour: (a: number, b: number) => void;
@@ -640,6 +682,7 @@ export interface InitOutput {
     readonly engine_setQuality: (a: number, b: number, c: number) => void;
     readonly engine_setRobots: (a: number, b: number, c: number) => void;
     readonly engine_setRoof: (a: number, b: number) => void;
+    readonly engine_setRoofStyle: (a: number, b: number, c: number, d: number) => number;
     readonly engine_setSpread: (a: number, b: number, c: number) => void;
     readonly engine_setStates: (a: number, b: number, c: number) => void;
     readonly engine_setSun: (a: number, b: number, c: number) => void;
@@ -649,6 +692,7 @@ export interface InitOutput {
     readonly engine_setUpkeepLayer: (a: number, b: number) => void;
     readonly engine_setWalk: (a: number, b: number, c: number) => number;
     readonly engine_setWalkVelocity: (a: number, b: number, c: number) => void;
+    readonly engine_setWeather: (a: number, b: number, c: number, d: number, e: number, f: number) => void;
     readonly engine_showDraft: (a: number, b: number, c: number, d: number, e: number, f: number) => void;
     readonly engine_showModels: (a: number) => number;
     readonly engine_showView: (a: number, b: number, c: number, d: number) => number;
@@ -660,6 +704,7 @@ export interface InitOutput {
     readonly engine_views: (a: number, b: number) => void;
     readonly engine_walkTo: (a: number, b: number, c: number) => number;
     readonly engine_walking: (a: number) => number;
+    readonly engine_weather: (a: number, b: number) => void;
     readonly engine_zoom: (a: number, b: number, c: number, d: number) => void;
     readonly heatLegend: (a: number, b: number, c: number) => void;
     readonly start: () => void;

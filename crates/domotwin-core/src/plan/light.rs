@@ -1,6 +1,6 @@
 //! Lamps: their colour, colour temperature and power.
 
-use super::{Furniture, Rgb8};
+use super::{Furniture, Kind, Rgb8};
 
 /// Colour of a light without `lightColor` or `lightKelvin`.
 pub const DEFAULT_LIGHT_COLOR: Rgb8 = Rgb8 {
@@ -42,11 +42,22 @@ pub fn kelvin_to_rgb(kelvin: f64) -> Rgb8 {
     }
 }
 
-/// The colour a fitting emits: its picked colour, else its temperature's, else the default.
+/// Colour of an aquarium's light without `lightColor` or `lightKelvin`: cool, as its lamps are.
+pub const AQUARIUM_LIGHT_COLOR: Rgb8 = Rgb8 {
+    r: 0xd4,
+    g: 0xec,
+    b: 0xff,
+};
+
+/// The colour a fitting emits: its picked colour, else its temperature's, else its kind's.
 pub fn light_color(item: &Furniture) -> Rgb8 {
     item.light_color
         .or_else(|| item.light_kelvin.map(|k| kelvin_to_rgb(f64::from(k))))
-        .unwrap_or(DEFAULT_LIGHT_COLOR)
+        .unwrap_or(if item.kind == Kind::Aquarium {
+            AQUARIUM_LIGHT_COLOR
+        } else {
+            DEFAULT_LIGHT_COLOR
+        })
 }
 
 /// The fitting's intensity as a factor of its default (1 = 100 %).
@@ -67,5 +78,26 @@ mod tests {
         assert_eq!(kelvin_to_rgb(6500.0).to_hex(), "#fffefa");
         assert_eq!(kelvin_to_rgb(100.0), kelvin_to_rgb(1800.0));
         assert_eq!(kelvin_to_rgb(f64::NAN), kelvin_to_rgb(2700.0));
+    }
+
+    #[test]
+    fn an_aquarium_lights_cool() {
+        let plan = crate::plan::read_plan(
+            br#"{"format": "domotwin-plan", "version": 1, "items": [
+                {"id": "a", "kind": "aquarium", "at": [0, 0], "size": [100, 40, 140]},
+                {"id": "b", "kind": "aquarium", "at": [200, 0], "size": [100, 40, 140], "light": {"kelvin": 2700}},
+                {"id": "c", "kind": "floor-lamp", "at": [400, 0], "size": [35, 35, 160]}
+            ]}"#,
+        )
+        .unwrap();
+        let colors: Vec<Rgb8> = plan.furniture().map(light_color).collect();
+        assert_eq!(
+            colors,
+            [
+                AQUARIUM_LIGHT_COLOR,
+                kelvin_to_rgb(2700.0),
+                DEFAULT_LIGHT_COLOR
+            ]
+        );
     }
 }

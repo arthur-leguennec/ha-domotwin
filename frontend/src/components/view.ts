@@ -47,6 +47,12 @@ import {
   mdiWashingMachine,
   mdiWrenchClock,
   mdiClockOutline,
+  mdiCoffeeMaker,
+  mdiDesktopTower,
+  mdiEvStation,
+  mdiKettle,
+  mdiMicrowave,
+  mdiToaster,
 } from "@mdi/js";
 import { LitElement, css, html, nothing, svg, type PropertyValues, type TemplateResult } from "lit";
 
@@ -88,7 +94,13 @@ import {
   type Gesture,
   type PointerSample,
 } from "../gestures";
-import { DomoTwinClient, type Settings, type StoreyInfo, type StoredPlan } from "../ha/client";
+import {
+  DomoTwinClient,
+  type RoofSettings,
+  type Settings,
+  type StoreyInfo,
+  type StoredPlan,
+} from "../ha/client";
 import { isHassError, nowOf, type HomeAssistant } from "../ha/types";
 import { translatorFor, type KindName, type Translator } from "../i18n";
 import { failureText, runAction } from "../live/actions";
@@ -137,9 +149,12 @@ import {
   ownHidden,
   peopleShown,
   type PeopleSettings,
+  seenShown,
   type PersonShown,
+  type SeenShown,
 } from "../live/people";
 import { robotDocks, robotsShown, type RobotDock } from "../live/robots";
+import { grassLength, lastMown, lawnsShown, type Garden } from "../live/lawn";
 import {
   ENERGY_SENSORS,
   energyFlows,
@@ -147,6 +162,7 @@ import {
   type EnergyNow,
   type EnergySettings,
 } from "../live/energy";
+import { weatherShown, type WeatherChoice } from "../live/weather";
 import { energyFlow, energyStyles } from "./energy-flow";
 import { peaksAvailable } from "../live/peak-sources";
 import type { PeakNow } from "../live/peaks";
@@ -231,6 +247,8 @@ export interface ViewOptions {
   people?: boolean;
   /** Where the sun lights from (`fixed` unless set). */
   sun?: SunMode;
+  /** The weather around the home (on unless `false`, D-072). */
+  weather?: boolean;
   /** Badges over the devices (on unless `false`). */
   badges?: boolean;
   /** What the cameras see, on the floor (on unless `false`). */
@@ -280,6 +298,13 @@ const APPLIANCE_ICONS: Record<string, string> = {
   hood: mdiFan,
   printer: mdiPrinter,
   "3d-printer": mdiPrinter3d,
+  microwave: mdiMicrowave,
+  oven: mdiStove,
+  "coffee-machine": mdiCoffeeMaker,
+  kettle: mdiKettle,
+  toaster: mdiToaster,
+  computer: mdiDesktopTower,
+  "ev-charger": mdiEvStation,
 } satisfies Partial<Record<KindName, string>>;
 
 function badgeIcon(badge: Badge): string {
@@ -299,6 +324,8 @@ const KEY_STEP = 40;
 const KEY_ZOOM = 0.85;
 /** How often the light follows the time of day without a `hass` update (ms). */
 const LIGHT_REFRESH_MS = 5 * 60 * 1000;
+/** How often the lawns' grass is worked out again as it grows (D-077). */
+const LAWNS_EVERY_MS = 10 * 60 * 1000;
 /** The icon of each kind of room, before its name over the view. */
 const ROOM_ICONS: Record<RoomKind, string> = {
   kitchen: mdiStove,
@@ -534,6 +561,10 @@ export interface DebugState {
   look?: string;
   /** Where the sun lights from: `default`, or `<azimuth>:<elevation>:<north>` (the real sun). */
   sun?: string;
+  /** The weather drawn (D-072): `clear`, or `<entity> <condition> <wind m/s> <bearing>:<north>`. */
+  weather?: string;
+  /** What the engine draws falling: `none`, `rain`, `snow`, `sleet` or `hail`. */
+  falling?: string;
   /** The layer shown and what the engine was given for the rooms (`setLayers`). */
   layer?: string;
   layers?: string;
@@ -613,6 +644,8 @@ export class DomoTwinView extends LitElement {
     edit: { state: true },
     planEditor: { state: true },
     north: { attribute: false },
+    weather: { attribute: false },
+    roofStyle: { attribute: false },
     privateRooms: { attribute: false },
     rights: { attribute: false },
     homeTheme: { attribute: false },
@@ -705,6 +738,12 @@ export class DomoTwinView extends LitElement {
   planError?: string;
   /** Where north points on the plan, degrees clockwise from its top (the home's settings). */
   north = 0;
+  /** The weather entity drawn around the home, `none`, or nothing for the usual one (D-072). */
+  weather?: WeatherChoice;
+  /** How the roofs are drawn (the home's settings, D-077). */
+  roofStyle?: RoofSettings;
+  /** The roof style last given to the engine, and which engine. */
+  private roofStyleSent?: { engine: DomoTwinEngine; json: string };
   /** The home's private rooms (its settings, D-039). */
   privateRooms?: Settings["rooms"];
   /** What each person uses, only sees or does not see (its settings, D-071). */
@@ -900,6 +939,8 @@ export class DomoTwinView extends LitElement {
   /** The people shown (D-034), and where their names go (device pixels). */
   protected shownPeople: PersonShown[] = [];
   private shownPeopleText = "[]";
+  /** The people the presence radars see whom no device names (D-080). */
+  private shownSeen: SeenShown[] = [];
   /** The devices followed by Bluetooth (D-035), for the room panels and the people's sheets. */
   protected located: LocatedShown[] = [];
   private locatedText = "[]";
@@ -911,6 +952,16 @@ export class DomoTwinView extends LitElement {
   private peopleSent?: { engine: DomoTwinEngine; json: string };
   /** What the engine was last told of the robot vacuums (D-049), and which engine. */
   private robotsSent?: { engine: DomoTwinEngine; json: string };
+  /** The lawns of the plan shown (D-077). */
+  private lawnRooms: string[] = [];
+  /** The lawns each robot mower mows, by its dock (D-077). */
+  private mowerRooms: Record<string, string[]> = {};
+  /** When each lawn was last mown (D-077), followed on this connection while lawns are shown. */
+  private garden?: Garden;
+  private gardenOn?: HomeAssistant["connection"];
+  private stopGarden?: () => void;
+  /** What the engine was last told of the lawns, which engine, and when (the grass grows). */
+  private lawnsSent?: { engine: DomoTwinEngine; json: string; at: number };
   /** The docks and their vacuums, for the links and the pieces they were read from. */
   private docks?: {
     bindings: BindingsJson | undefined;
@@ -948,6 +999,7 @@ export class DomoTwinView extends LitElement {
   private lightKey?: string;
   /** Where the sun was last set from, and the room layers last sent, to skip repeats. */
   private sunKey?: string;
+  private weatherKey?: string;
   private layersKey?: string;
   /** The rooms of the plan shown, and whether a heatmap found values in them. */
   private rooms: PlanRoom[] = [];
@@ -1935,6 +1987,9 @@ export class DomoTwinView extends LitElement {
     window.clearTimeout(this.contextTimer);
     this.stopSchedules?.();
     this.stopSchedules = undefined;
+    this.stopGarden?.();
+    this.stopGarden = undefined;
+    this.gardenOn = undefined;
     window.clearTimeout(this.bubbleTimer);
     cancelAnimationFrame(this.hoverFrame);
     this.hoverFrame = 0;
@@ -1954,6 +2009,109 @@ export class DomoTwinView extends LitElement {
       this.applyDevices();
     });
   }
+
+  /**
+   * When each lawn was last mown (D-077), followed on this view's connection while the plan shown
+   * has lawns; an integration older than D-077 has none.
+   */
+  private followGarden(): void {
+    const hass = this.hass;
+    const on = hass && this.isConnected && this.lawnRooms.length > 0 ? hass.connection : undefined;
+    if (this.gardenOn === on) return;
+    this.stopGarden?.();
+    this.stopGarden = undefined;
+    this.gardenOn = on;
+    this.garden = undefined;
+    if (!hass || !on) return;
+    const client = DomoTwinClient.for(hass);
+    const read = (): void => {
+      client.getGarden().then(
+        (garden) => {
+          if (this.gardenOn !== on) return;
+          this.garden = garden;
+          this.applyLawns(true);
+          this.requestUpdate();
+        },
+        () => undefined,
+      );
+    };
+    this.stopGarden = client.subscribe((event) => {
+      if (event.kind === "garden") read();
+    });
+    read();
+  }
+
+  /**
+   * Tells the engine how the roofs are drawn (D-077), when that or the engine changed; the
+   * storeys' pictures follow a home built again. `build`: false just before a home is loaded.
+   */
+  private applyRoofStyle(build = true): void {
+    const engine = this.engine;
+    if (!engine) return;
+    const json = JSON.stringify(this.roofStyle ?? {});
+    if (this.roofStyleSent?.engine === engine && this.roofStyleSent.json === json) return;
+    this.roofStyleSent = { engine, json };
+    if (engine.setRoofStyle(json, build)) {
+      this.picturesDue = this.loadedHome !== undefined;
+      this.redraw();
+    }
+  }
+
+  /** The lawns each lawn mower mows (D-077): those its dock's robot can get to. */
+  private mowerLawns(): Record<string, string[]> {
+    const mowers: Record<string, string[]> = {};
+    for (const dock of this.robotDocksNow()) {
+      const lawns = this.mowerRooms[dock.id];
+      if (lawns) mowers[dock.entity] = lawns;
+    }
+    return mowers;
+  }
+
+  /**
+   * Tells the engine how long each lawn's grass is (D-077): when the garden, the plan or the
+   * links changed (`force`), else every few minutes as it grows.
+   */
+  private applyLawns(force = false): void {
+    const engine = this.engine;
+    if (!engine) return;
+    const now = nowOf(this.hass);
+    const sent = this.lawnsSent;
+    if (!force && sent?.engine === engine && Math.abs(now - sent.at) < LAWNS_EVERY_MS) return;
+    const lawns = lawnsShown(
+      this.lawnRooms,
+      this.garden,
+      this.mowerLawns(),
+      new Date(now),
+      this.hass?.config?.latitude,
+    );
+    const json = JSON.stringify(lawns);
+    this.lawnsSent = { engine, json, at: now };
+    if (sent?.engine === engine && sent.json === json) return;
+    engine.setLawns(json);
+    this.redraw();
+  }
+
+  /** A lawn's grass and last mowing, for its room's panel (D-077); none for another room. */
+  private lawnOf(
+    room: string | undefined,
+  ): { room: string; length?: number; mown?: number } | undefined {
+    if (!room || !this.lawnRooms.includes(room)) return undefined;
+    const now = new Date(nowOf(this.hass));
+    const mown = lastMown(room, this.garden, this.mowerLawns(), now);
+    if (!mown) return { room };
+    return {
+      room,
+      length: grassLength(mown, now, this.hass?.config?.latitude),
+      mown: mown.getTime(),
+    };
+  }
+
+  /** A lawn was just said mown, from its room's panel: drawn short at once. */
+  private readonly onLawnMowed = (event: CustomEvent<Garden>): void => {
+    this.garden = event.detail;
+    this.applyLawns(true);
+    this.requestUpdate();
+  };
 
   /** The engine goes; the plan drawn is kept, to go on with when it comes back. */
   private parkPlanEditor(): void {
@@ -2073,6 +2231,7 @@ export class DomoTwinView extends LitElement {
       this.applyLighting();
       this.syncStates();
       this.followSchedules();
+      this.followGarden();
     }
     this.applyLook();
     // `layer` and `realSun` are this view's own state.
@@ -2088,8 +2247,18 @@ export class DomoTwinView extends LitElement {
       this.applyLayers();
     }
     if (changed.has("north") || own.has("realSun") || changed.has("hass")) this.applySun();
+    if (changed.has("roofStyle")) this.applyRoofStyle();
+    if (
+      changed.has("hass") ||
+      changed.has("weather") ||
+      changed.has("north") ||
+      changed.has("options")
+    ) {
+      this.applyWeather();
+    }
     this.applyPeople();
     this.applyRobots();
+    this.applyLawns(changed.has("bindings"));
     if (
       changed.has("hass") ||
       changed.has("bindings") ||
@@ -2142,6 +2311,7 @@ export class DomoTwinView extends LitElement {
     if (this.lightKey) state.light = this.lightKey;
     state.look = this.lookKey ?? this.look;
     if (this.sunKey) state.sun = this.sunKey;
+    if (this.weatherKey) state.weather = this.weatherKey;
     state.layer = this.layer;
     if (this.layersKey) state.layers = this.layersKey;
     if (this.robotsSent) state.robots = this.robotsSent.json;
@@ -2151,6 +2321,7 @@ export class DomoTwinView extends LitElement {
     if (this.engine) {
       state.quality = this.engine.quality;
       state.stats = this.engine.stats;
+      state.falling = this.engine.weather;
     }
     if (this.summary) state.summary = this.summary;
     if (this.modelsLoading.size > 0) {
@@ -2222,12 +2393,20 @@ export class DomoTwinView extends LitElement {
     }
   }
 
-  /** Adds a piece of the catalogue in the middle of the view and selects it. */
-  editAdd(kind: string, name: string): void {
+  /** The accent the view draws in (the catalogue's pictures take it, with `look`, D-074). */
+  get accentShown(): string {
+    return this.accent;
+  }
+
+  /**
+   * Adds a piece of the catalogue in `style` (none: its kind's own) in the middle of the view
+   * and selects it.
+   */
+  editAdd(kind: string, name: string, style?: string): void {
     const engine = this.engine;
     const canvas = this.canvas;
     if (!engine || !canvas || !this.edit) return;
-    const state = engine.editAdd(kind, name, canvas.width / 2, canvas.height / 2);
+    const state = engine.editAdd(kind, name, canvas.width / 2, canvas.height / 2, style);
     this.setEdit(state);
     if (state.refused) this.notify(this.translator.t("edit.too_many"));
   }
@@ -3257,6 +3436,7 @@ export class DomoTwinView extends LitElement {
     engine.setMotion(!this.motionQuery?.matches);
     this.lightKey = undefined;
     this.sunKey = undefined;
+    this.weatherKey = undefined;
     this.layersKey = undefined;
     this.labelsText = "";
     this.camerasShown = undefined;
@@ -3297,6 +3477,7 @@ export class DomoTwinView extends LitElement {
     this.applyEditing();
     this.applyPlanEditing();
     this.applySun();
+    this.applyWeather();
     this.resize(stage);
     this.scheduler.request();
   }
@@ -3565,6 +3746,26 @@ export class DomoTwinView extends LitElement {
     this.redraw();
   }
 
+  /**
+   * Draws the weather around the home (D-072): the chosen entity's, else the usual one; none when
+   * the option is off or no entity says anything.
+   */
+  private applyWeather(): void {
+    const engine = this.engine;
+    if (!engine) return;
+    const shown =
+      this.options.weather === false ? undefined : weatherShown(this.hass, this.weather);
+    const north = Number.isFinite(this.north) ? this.north : 0;
+    // A tenth of a metre per second and a degree: the wind is set again only when it moved.
+    const speed = shown ? Math.round(shown.windSpeed * 10) / 10 : NaN;
+    const bearing = shown ? Math.round(shown.windBearing) : NaN;
+    const key = shown ? `${shown.entity} ${shown.condition} ${speed} ${bearing}:${north}` : "clear";
+    if (key === this.weatherKey) return;
+    this.weatherKey = key;
+    engine.setWeather(shown?.condition ?? "clear", speed, bearing, north);
+    this.redraw();
+  }
+
   /** Temperatures are shown in °F when Home Assistant uses them (the scales stay in °C). */
   private get fahrenheit(): boolean {
     return this.hass?.config?.unit_system?.temperature === "°F";
@@ -3705,8 +3906,10 @@ export class DomoTwinView extends LitElement {
   private readElements(engine: DomoTwinEngine): void {
     this.kinds = {};
     this.names = {};
+    const lawns: string[] = [];
     for (const element of engine.elementList()) {
       if (element.kind) this.kinds[element.id] = element.kind;
+      if (element.lawn) lawns.push(element.id);
       this.names[element.id] = {
         name: element.name || element.id,
         type: element.type,
@@ -3714,6 +3917,10 @@ export class DomoTwinView extends LitElement {
         ...(element.beside ? { beside: element.beside } : {}),
       };
     }
+    this.lawnRooms = lawns;
+    this.mowerRooms = Object.values(this.kinds).includes("robot-mower") ? engine.mowerLawns() : {};
+    this.followGarden();
+    this.applyLawns(true);
     this.applyDevices();
   }
 
@@ -3758,6 +3965,8 @@ export class DomoTwinView extends LitElement {
       this.shownPeopleText = text;
       this.shownPeople = people;
     }
+    this.shownSeen =
+      hass && this.options.people !== false ? seenShown(this.people, hass, this.closed) : [];
     // Someone's devices only where they could be shown: never without the people's settings (not
     // loaded, an older integration), or on a card without people.
     const settings = this.people;
@@ -3785,10 +3994,8 @@ export class DomoTwinView extends LitElement {
     }
   }
 
-  /** Tells the engine what the robot vacuums do (D-049), when that or the engine changed. */
-  private applyRobots(): void {
-    const engine = this.engine;
-    if (!engine) return;
+  /** The robots' docks (D-049, D-077), read again when the links or the pieces changed. */
+  private robotDocksNow(): RobotDock[] {
     let docks = this.docks;
     if (docks?.bindings !== this.bindings || docks?.kinds !== this.kinds) {
       docks = {
@@ -3798,8 +4005,19 @@ export class DomoTwinView extends LitElement {
       };
       this.docks = docks;
     }
+    return docks.docks;
+  }
+
+  /**
+   * Tells the engine what the robot vacuums and mowers do (D-049, D-077), when that or the engine
+   * changed.
+   */
+  private applyRobots(): void {
+    const engine = this.engine;
+    if (!engine) return;
     // At rest on their docks while the plan, its pieces or its links are edited.
-    const shown = this.editingAny || this.linking ? [] : robotsShown(this.hass, docks.docks);
+    const shown =
+      this.editingAny || this.linking ? [] : robotsShown(this.hass, this.robotDocksNow());
     const json = JSON.stringify(shown);
     if (this.robotsSent?.engine === engine && this.robotsSent.json === json) return;
     this.robotsSent = { engine, json };
@@ -3812,8 +4030,9 @@ export class DomoTwinView extends LitElement {
     const engine = this.engine;
     if (!engine) return;
     // Nobody stands in the way while the plan, its pieces or its links are edited.
-    const shown = this.editingAny || this.linking ? [] : this.shownPeople;
-    const json = peopleJson(shown, this.people?.look ?? "figure");
+    const editing = this.editingAny || this.linking;
+    const shown = editing ? [] : this.shownPeople;
+    const json = peopleJson(shown, this.people?.look ?? "figure", editing ? [] : this.shownSeen);
     if (this.peopleSent?.engine === engine && this.peopleSent.json === json) return;
     this.peopleSent = { engine, json };
     engine.setPeople(json);
@@ -4205,6 +4424,8 @@ export class DomoTwinView extends LitElement {
       if (home) {
         this.engine.setSpread(this.spread);
         this.engine.setRoof(this.roof);
+        // Built with it just below.
+        this.applyRoofStyle(false);
         this.summary = this.engine.loadStoreys(home, keep);
         this.picturesDue = true;
       } else {
@@ -5351,6 +5572,8 @@ export class DomoTwinView extends LitElement {
       .people=${here}
       .things=${sheet.room ? this.located.filter((d) => d.room === sheet.room) : []}
       .graphs=${this.roomTab}
+      .lawn=${this.lawnOf(sheet.room)}
+      @domotwin-lawn-mowed=${this.onLawnMowed}
       @domotwin-close=${this.closeSheet}
       @domotwin-show-wires=${this.onShowWires}
       @domotwin-open-history=${this.onOpenHistory}

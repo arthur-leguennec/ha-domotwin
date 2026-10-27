@@ -12,11 +12,11 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.util import dt as dt_util
 
-from . import choices, config_history, guests, report, schedules, voice, wifi
+from . import choices, config_history, garden, guests, report, schedules, screens, voice, wifi
 from .compat import vol
 from .const import DOMAIN, SIGNAL_SHOW, SIGNAL_UPDATED, TEACH_SECONDS, VERSION
 from .data import DATA_KEY, LOCATOR_KEY, PEOPLE_KEY
-from .locator import PRIVATE_BLE, Locator
+from .locator import PRIVATE_BLE, KeyNotTakenError, Locator, seen_unique_id
 from .models import async_remove_unused
 from .people import color_of
 from .storage import (
@@ -37,6 +37,7 @@ from .validation import (
     validate_models,
     validate_people,
     validate_plan,
+    validate_radars,
     validate_settings,
     validate_storey_count,
     validate_storey_name,
@@ -72,10 +73,15 @@ def async_register_commands(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_locating_candidates)
     websocket_api.async_register_command(hass, ws_locating_teach)
     websocket_api.async_register_command(hass, ws_locating_forget)
+    websocket_api.async_register_command(hass, ws_locating_add_key)
+    websocket_api.async_register_command(hass, ws_locating_measure)
+    websocket_api.async_register_command(hass, ws_locating_measure_reset)
     websocket_api.async_register_command(hass, ws_subscribe)
     voice.async_register_commands(hass)
     schedules.async_register_commands(hass)
     choices.async_register_commands(hass)
+    screens.async_register_commands(hass)
+    garden.async_register_commands(hass)
     wifi.async_register_commands(hass)
     guests.async_register_commands(hass)
     config_history.async_register_commands(hass)
@@ -533,6 +539,18 @@ def _sensor_of(hass: HomeAssistant, person: str) -> str:
     return f"sensor.{DOMAIN}_{person.split('.', 1)[1]}_room"
 
 
+def _seen_sensor(hass: HomeAssistant) -> str:
+    """The sensor of the people the presence radars see (D-080), as the user may have renamed it.
+
+    Its own id while no radar made it: it is made with it.
+    """
+    registry = er.async_get(hass)
+    for entry in hass.config_entries.async_entries(DOMAIN):
+        if found := registry.async_get_entity_id("sensor", DOMAIN, seen_unique_id(entry.entry_id)):
+            return found
+    return f"sensor.{DOMAIN}_people_seen"
+
+
 @websocket_api.websocket_command(
     {
         vol.Required("type"): "domotwin/people/get",
@@ -553,7 +571,8 @@ def ws_people_get(
         return
     config = people.config
     # Shown to administrators only: others learn nobody (not even who is placed).
-    shown_to = config["people"] if connection.user.is_admin or config["shown"] != "admins" else {}
+    shown = connection.user.is_admin or config["shown"] != "admins"
+    shown_to = config["people"] if shown else {}
     result: dict[str, Any] = {
         "revision": people.revision,
         "shown": config["shown"],
@@ -568,6 +587,8 @@ def ws_people_get(
             }
             for person, settings in shown_to.items()
         },
+        # Those the radars see whom no device names (D-080): where the people are shown only.
+        "seen": _seen_sensor(hass) if shown else None,
     }
     if msg["candidates"] and connection.user.is_admin:
         result["candidates"] = people.candidates()
@@ -706,6 +727,8 @@ def ws_locating_get(
             "devices": devices,
             "learned": locator.learned_rooms(),
             "heard": locator.heard(),
+            "radars": locator.radars_shown(),
+            "bermuda": locator.bermuda_sensors(),
             "rooms": [
                 {"id": room.id, "name": room.name, "storey": room.storey_name}
                 for room in people.finder.rooms
@@ -723,6 +746,7 @@ def ws_locating_get(
         vol.Required("receivers"): dict,
         vol.Required("devices"): dict,
         vol.Optional("learn"): bool,
+        vol.Optional("radars"): dict,
         vol.Optional("expected_revision"): vol.All(int, vol.Range(min=0)),
     }
 )
@@ -740,12 +764,22 @@ async def ws_locating_save(
         return
     try:
         receivers, devices = validate_locating(msg["receivers"], msg["devices"], msg.get("learn"))
+        radars = validate_radars(msg["radars"]) if "radars" in msg else None
     except InvalidPayloadError as err:
         connection.send_error(msg["id"], err.code, str(err))
         return
+    # A sensor paired as Bermuda's is one of Bermuda's, when Home Assistant knows it (D-073).
+    registry = er.async_get(hass)
+    for device in devices.values():
+        entry = registry.async_get(device["bermuda"]) if "bermuda" in device else None
+        if entry is not None and entry.platform != "bermuda":
+            connection.send_error(
+                msg["id"], "invalid_locating", "`bermuda` must be one of Bermuda's sensors"
+            )
+            return
     try:
         revision = await locator.async_save(
-            receivers, devices, msg.get("learn"), msg.get("expected_revision")
+            receivers, devices, msg.get("learn"), msg.get("expected_revision"), radars
         )
     except RevisionConflictError as err:
         connection.send_error(msg["id"], "revision_conflict", str(err))
@@ -818,6 +852,60 @@ async def ws_locating_forget(
     connection.send_result(msg["id"], {"forgotten": forgotten})
 
 
+@websocket_api.require_admin
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "domotwin/locating/add_key",
+        # Its length is checked by the locator: an error made here would say the key back.
+        vol.Required("key"): str,
+    }
+)
+@websocket_api.async_response
+async def ws_locating_add_key(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Hand an iPhone's or a watch's identity key to Private BLE Device (D-075). Admins only.
+
+    The key is never said back, nor in an error.
+    """
+    if (locator := _get_locator(hass, connection, msg)) is None:
+        return
+    try:
+        added = await locator.async_add_key(msg["key"])
+    except KeyNotTakenError as err:
+        connection.send_error(msg["id"], err.code, "the identity key was not taken")
+        return
+    connection.send_result(msg["id"], added)
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command({vol.Required("type"): "domotwin/locating/measure"})
+@callback
+def ws_locating_measure(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """How well the rooms are found (M41): each device's figures, Bermuda's beside. Admins only."""
+    if (locator := _get_locator(hass, connection, msg)) is None:
+        return
+    connection.send_result(
+        msg["id"],
+        {"since": locator.measure.started.isoformat(), "devices": locator.measure.figures()},
+    )
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command({vol.Required("type"): "domotwin/locating/measure/reset"})
+@websocket_api.async_response
+async def ws_locating_measure_reset(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Start the measurements again from nothing. Admins only."""
+    if (locator := _get_locator(hass, connection, msg)) is None:
+        return
+    await locator.async_measure_reset()
+    connection.send_result(msg["id"], {"since": locator.measure.started.isoformat()})
+
+
 @websocket_api.websocket_command({vol.Required("type"): "domotwin/subscribe"})
 @callback
 def ws_subscribe(
@@ -827,8 +915,9 @@ def ws_subscribe(
 
     The kinds: the plan (its overlay counts as the plan), the bindings, the settings, the upkeep,
     the people's settings, the home's Wi-Fi (`wifi`: only that it changed, D-060), the guest
-    passes (`guests`: only that they changed, D-067) and the weekly report (`report`: a report
-    written or its settings changed, D-072).
+    passes (`guests`: only that they changed, D-067), the wall screens (`screens`, D-076), the
+    garden's mowings (`garden`, D-077) and the weekly report (`report`: a report written or its
+    settings changed, D-081).
 
     Every `domotwin.show` is sent too: kind `show`, the request in `show`.
     """

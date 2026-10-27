@@ -190,7 +190,7 @@ fn edit_mode_moves_turns_adds_and_undoes() {
     assert!(state.contains("\"canUndo\":true"), "{state}");
     // The sofa stands turned a quarter in the plan: a step turns it 15° more.
     assert!(engine.edit_layout().contains("\"rotation\":105"));
-    engine.edit_add("plant", "Plant", x, y);
+    engine.edit_add("plant", "Plant", x, y, None);
     assert!(engine.edit_layout().contains("plant-added-1"));
     for _ in 0..3 {
         engine.edit_undo();
@@ -211,6 +211,98 @@ fn edit_mode_moves_turns_adds_and_undoes() {
     assert!(engine.edit_state().contains("\"editing\":false"));
     assert!(Engine::edit_catalogue().contains("\"kind\":\"sofa\""));
     assert!(!engine.edit_drag_start(x, y), "not editing");
+}
+
+#[wasm_bindgen_test]
+fn the_library_lists_its_styles_adds_them_and_draws_each_piece() {
+    // Each style comes with its own size.
+    let catalogue: serde_json::Value = serde_json::from_str(&Engine::edit_catalogue()).unwrap();
+    let kinds = catalogue.as_array().unwrap();
+    assert!(kinds.len() > 100, "{}", kinds.len());
+    let speaker = kinds.iter().find(|k| k["kind"] == "speaker").unwrap();
+    let soundbar = speaker["styles"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|s| s["style"] == "soundbar")
+        .unwrap();
+    assert_eq!(
+        (soundbar["w"].as_f64(), soundbar["h"].as_f64()),
+        (Some(90.0), Some(7.0))
+    );
+
+    // A piece is added in its style, at that style's size.
+    let mut engine = Engine::new(canvas()).unwrap();
+    engine.load_plan(DEMO, None, None).unwrap();
+    engine.begin_edit();
+    let state = engine.edit_add("speaker", "Soundbar", 160.0, 120.0, Some("soundbar".into()));
+    assert!(!state.contains("\"refused\""), "{state}");
+    let layout: serde_json::Value = serde_json::from_str(&engine.edit_layout()).unwrap();
+    let added = &layout["speaker-added-1"]["add"];
+    assert_eq!(added["style"], "soundbar", "{layout}");
+    assert_eq!(added["size"][0].as_f64(), Some(90.0), "{layout}");
+    // An unknown style is no style.
+    engine.edit_add(
+        "speaker",
+        "Speaker",
+        160.0,
+        120.0,
+        Some("gramophone".into()),
+    );
+    let layout: serde_json::Value = serde_json::from_str(&engine.edit_layout()).unwrap();
+    assert!(
+        layout["speaker-added-2"]["add"].get("style").is_none(),
+        "{layout}"
+    );
+    engine.end_edit(false);
+
+    // A picture of every piece, in each of its styles, on the background asked.
+    let mut artist = Engine::new(canvas()).unwrap();
+    let (w, h) = (48, 36);
+    let background = [0xf4, 0xf2, 0xee];
+    for entry in kinds {
+        let kind = entry["kind"].as_str().unwrap();
+        let styles = entry["styles"].as_array().unwrap();
+        for style in std::iter::once("").chain(styles.iter().map(|s| s["style"].as_str().unwrap()))
+        {
+            let picture = artist.piece_picture(kind, style, w, h, "#f4f2ee");
+            assert_eq!(picture.len(), (w * h * 4) as usize, "{kind} {style}");
+            assert_eq!(
+                &picture[..3],
+                &background,
+                "{kind} {style}: the corner is background"
+            );
+            assert!(
+                picture.chunks(4).any(|p| p[..3] != background),
+                "{kind} {style} drawn"
+            );
+        }
+    }
+    assert!(artist.piece_picture("box", "", w, h, "#ffffff").is_empty());
+    assert!(
+        artist
+            .piece_picture("spaceship", "", w, h, "#ffffff")
+            .is_empty()
+    );
+
+    // Rows come from the top: a floor lamp's shade is up, its foot down, and a rug lies low.
+    let (w, h) = (64, 96);
+    let rows = |picture: &[u8], from: u32, to: u32| {
+        (from..to)
+            .flat_map(|y| (0..w).map(move |x| ((y * w + x) * 4) as usize))
+            .filter(|&i| picture[i..i + 3] != background)
+            .count()
+    };
+    let lamp = artist.piece_picture("floor-lamp", "", w, h, "#f4f2ee");
+    assert!(
+        rows(&lamp, 0, h / 3) > rows(&lamp, h / 3, 2 * h / 3),
+        "the shade is at the top"
+    );
+    // Drawn again, the same piece comes out the same.
+    assert_eq!(
+        artist.piece_picture("floor-lamp", "", w, h, "#f4f2ee"),
+        lamp
+    );
 }
 
 #[wasm_bindgen_test]
@@ -398,6 +490,54 @@ fn the_power_layer_tints_running_appliances() {
     assert_eq!(labels[0]["id"], "fridge");
     assert_eq!(labels[0]["value"], 85.0);
     engine.set_power_layer(false);
+    assert!(!engine.layers_animating());
+}
+
+#[wasm_bindgen_test]
+fn the_weather_falls_around_the_home() {
+    let mut engine = Engine::new(canvas()).unwrap();
+    engine.load_plan(DEMO, None, None).unwrap();
+    engine.frame(0.0);
+    assert_eq!(engine.weather(), "none");
+    assert!(!engine.layers_animating());
+    // Rain from the west: it falls, and frames go on while it does (D-072).
+    engine.set_weather("rainy", 6.0, 270.0, 0.0);
+    assert_eq!(engine.weather(), "rain");
+    assert!(engine.needs_frame());
+    assert!(engine.frame(16.0), "the rain keeps drawing");
+    assert!(engine.layers_animating());
+    // Held still for reduced motion: a picture of the rain, drawn once.
+    engine.set_motion(false);
+    assert!(!engine.layers_animating());
+    assert!(!engine.frame(32.0));
+    engine.set_motion(true);
+    // On the plan, nothing falls.
+    engine.set_plan_view(true, 48.0);
+    for t in 1..40 {
+        engine.frame(48.0 + f64::from(t) * 50.0);
+    }
+    assert!(!engine.layers_animating());
+    engine.set_plan_view(false, 2_100.0);
+    for t in 1..40 {
+        engine.frame(2_100.0 + f64::from(t) * 50.0);
+    }
+    // Snow, fog and clouds; a storm flashes even without rain; an unknown sky is clear.
+    engine.set_weather("snowy", f64::NAN, f64::NAN, 0.0);
+    assert_eq!(engine.weather(), "snow");
+    engine.set_weather("fog", f64::NAN, f64::NAN, 0.0);
+    assert_eq!(engine.weather(), "none");
+    assert!(!engine.layers_animating(), "fog holds still");
+    engine.set_weather("lightning", 3.0, 90.0, 0.0);
+    assert!(engine.layers_animating(), "a storm flashes");
+    // Not on the plan, where it does not flash.
+    engine.set_plan_view(true, 4_200.0);
+    for t in 1..40 {
+        engine.frame(4_200.0 + f64::from(t) * 50.0);
+    }
+    assert!(!engine.layers_animating(), "no storm on the plan");
+    engine.set_plan_view(false, 6_200.0);
+    engine.set_weather("unavailable", f64::NAN, f64::NAN, 0.0);
+    assert_eq!(engine.weather(), "none");
     assert!(!engine.layers_animating());
 }
 

@@ -1,0 +1,35 @@
+{
+  "format": "domotwin-plan",
+  "version": 1,
+  "name": "Split-level house, lower level",
+  "wallThickness": {"interior": 10, "exterior": 20},
+  "rooms": [
+    {"id": "s-laundry", "name": "Laundry", "outline": [[700, 0], [1000, 0], [1000, 300], [700, 300]], "floor": {"material": "white-tiles"}},
+    {"id": "s-workshop", "name": "Workshop", "outline": [[1000, 0], [1300, 0], [1300, 300], [1000, 300]]},
+    {"id": "s-family", "name": "Family room", "outline": [[700, 300], [1300, 300], [1300, 800], [700, 800]], "floor": {"material": "grey-wood"}},
+    {"id": "s-back-garden", "name": "Back garden", "outline": [[700, 800], [1600, 800], [1600, 1300], [700, 1300]], "outside": true},
+    {"id": "s-patio", "name": "Patio", "outline": [[850, 800], [1150, 800], [1150, 1000], [850, 1000]], "outside": true, "floor": {"material": "paving"}}
+  ],
+  "doors": [
+    {"id": "s-door-laundry", "name": "Laundry door", "from": [750, 300], "to": [830, 300], "room": "s-family"},
+    {"id": "s-door-workshop", "name": "Workshop door", "from": [1150, 300], "to": [1230, 300], "room": "s-family"},
+    {"id": "s-door-garden", "name": "Garden door", "from": [920, 800], "to": [1080, 800], "room": "s-family", "style": "glazed"}
+  ],
+  "windows": [
+    {"id": "s-win-family", "name": "Family room window", "from": [1300, 450], "to": [1300, 650], "room": "s-family"},
+    {"id": "s-win-workshop", "name": "Workshop window", "from": [1300, 100], "to": [1300, 200], "room": "s-workshop"}
+  ],
+  "items": [
+    {"id": "s-stairs-lower", "name": "Half flight up", "kind": "stairs", "at": [760, 560], "size": [90, 240, 140], "room": "s-family"},
+    {"id": "s-family-sofa", "name": "Sofa", "kind": "sofa", "at": [1050, 450], "size": [210, 90, 80], "room": "s-family"},
+    {"id": "s-family-tv-stand", "name": "TV stand", "kind": "tv-stand", "at": [1050, 770], "size": [160, 40, 50], "room": "s-family", "rotation": 180},
+    {"id": "s-family-tv", "name": "TV", "kind": "tv", "at": [1050, 780], "size": [130, 8, 75], "room": "s-family", "rotation": 180, "lift": 55},
+    {"id": "s-family-light", "name": "Family room light", "kind": "ceiling-light", "at": [1000, 550], "size": [40, 40, 10], "room": "s-family", "lift": 240},
+    {"id": "s-washer", "name": "Washer", "kind": "washer", "at": [740, 40], "size": [60, 60, 85], "room": "s-laundry"},
+    {"id": "s-dryer", "name": "Dryer", "kind": "dryer", "at": [810, 40], "size": [60, 60, 85], "room": "s-laundry"},
+    {"id": "s-workbench", "name": "Workbench", "kind": "desk", "at": [1150, 40], "size": [160, 60, 90], "room": "s-workshop"},
+    {"id": "s-garden-chair-1", "name": "Garden chair", "kind": "garden-chair", "at": [950, 900], "size": [55, 55, 85], "room": "s-patio"},
+    {"id": "s-garden-chair-2", "name": "Garden chair", "kind": "garden-chair", "at": [1050, 900], "size": [55, 55, 85], "room": "s-patio"},
+    {"id": "s-apple", "name": "Apple tree", "kind": "tree", "at": [1400, 1150], "size": [300, 300, 450], "room": "s-back-garden", "style": "fruit"}
+  ]
+}

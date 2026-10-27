@@ -8,11 +8,12 @@ long enough, so that a device on a desk by a wall does not flap between two room
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping
+from collections.abc import Collection, Iterable, Mapping
 import math
 from typing import Final
 
-# How often someone leaves a room (per second), towards a room through a door or across the home.
+# How often someone leaves a room (per second), towards a room through a door or across the home:
+# across its storey, not to another storey the stairs lead to but by them (D-079).
 LEAVE_RATE: Final = 1 / 30
 THROUGH_DOOR: Final = 1.0
 ACROSS_HOME: Final = 0.02
@@ -52,13 +53,69 @@ def presence_weight(sensors: Iterable[tuple[str, bool, float]]) -> float:
     return weight
 
 
+def _moves(
+    rooms: list[str],
+    near: Mapping[str, frozenset[str]],
+    storeys: Mapping[str, int],
+    outside: frozenset[str],
+) -> dict[str, list[tuple[str, float]]]:
+    """Where a room's chance goes when someone leaves it: its share for each room.
+
+    Through a door most; across the home a little, not to a storey the stairs join to its own
+    (one after the other: from the cellar to the attic too) but by them, unless both are outside.
+    """
+    group: dict[int, int] = {storey: storey for storey in storeys.values()}
+
+    def root(storey: int) -> int:
+        while group[storey] != storey:
+            storey = group[storey]
+        return storey
+
+    for a in rooms:
+        for b in near[a]:
+            if a in storeys and b in storeys and storeys[a] != storeys[b]:
+                group[root(storeys[a])] = root(storeys[b])
+    found: dict[str, list[tuple[str, float]]] = {}
+    for room in rooms:
+        weights = {}
+        for other in rooms:
+            if other == room:
+                continue
+            if other in near[room]:
+                weights[other] = THROUGH_DOOR
+                continue
+            here, there = storeys.get(room), storeys.get(other)
+            stairs = (
+                here is not None
+                and there is not None
+                and here != there
+                and root(here) == root(there)
+            )
+            if not stairs or (room in outside and other in outside):
+                weights[other] = ACROSS_HOME
+        total = sum(weights.values())
+        found[room] = [(other, w / total) for other, w in weights.items()] if total > 0 else []
+    return found
+
+
 class RoomFilter:
     """The chance of each room for one device, and the room told."""
 
-    def __init__(self, neighbours: Mapping[str, Iterable[str]]) -> None:
-        """Start knowing nothing: every room as likely."""
+    def __init__(
+        self,
+        neighbours: Mapping[str, Iterable[str]],
+        storeys: Mapping[str, int] | None = None,
+        outside: Collection[str] = (),
+    ) -> None:
+        """Start knowing nothing: every room as likely.
+
+        With each room's storey (`storeys`), the storeys stairs join, one to the next, are reached
+        from each other by them only; places outside (`outside`) are not: one walks round the home
+        from a garden to another.
+        """
         self._rooms = sorted(neighbours)
         self._near = {room: frozenset(neighbours[room]) for room in self._rooms}
+        self._moves = _moves(self._rooms, self._near, dict(storeys or {}), frozenset(outside))
         self.chances = {room: 1 / len(self._rooms) for room in self._rooms} if self._rooms else {}
         self.room: str | None = None
         self._candidate: str | None = None
@@ -106,15 +163,11 @@ class RoomFilter:
         leave = 1 - math.exp(-LEAVE_RATE * max(0.0, seconds))
         moved = {room: p * (1 - leave) for room, p in self.chances.items()}
         for room, p in self.chances.items():
-            near = self._near[room]
-            weights = {
-                other: THROUGH_DOOR if other in near else ACROSS_HOME
-                for other in self._rooms
-                if other != room
-            }
-            total = sum(weights.values())
-            for other, weight in weights.items():
-                moved[other] += p * leave * weight / total
+            moves = self._moves[room]
+            if not moves:
+                moved[room] += p * leave
+            for other, share in moves:
+                moved[other] += p * leave * share
         self.chances = moved
         self._normalise()
 

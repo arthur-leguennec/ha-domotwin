@@ -1,11 +1,14 @@
 import type { ThemeMode } from "../config";
 import { readChoices, type Choices, type HomeCard, type Tab } from "../live/choices";
 import type { LocatedCandidate, LocatedSettings, LocatingSettings } from "../live/locating";
+import type { LocatingMeasure } from "../live/measured";
 import type { PeopleSettings, PersonSettings } from "../live/people";
 import { readSchedules, type Schedule } from "../live/schedules";
 import type { ShowRequest } from "../live/show";
+import type { Garden } from "../live/lawn";
 import type { Upkeep, UpkeepCard } from "../live/upkeep";
 import { readWifi, type Wifi, type WifiChange } from "../live/wifi";
+import { readScreens, type ScreenLayout, type Screens } from "../live/screens";
 import { readPass, readPasses, type GuestPass, type GuestPassChange } from "../live/guest-pass";
 import type { HassConnection, HassMessage, HomeAssistant } from "./types";
 import type { EnergySettings } from "../live/energy";
@@ -62,6 +65,13 @@ export interface PrivateRoom {
 }
 
 /** The home's settings, set by an administrator. */
+/** The roofs' shape, pitch (degrees, 5–60) and colour (`#rrggbb`), D-077. */
+export interface RoofSettings {
+  shape?: "gable" | "hip" | "shed" | "flat";
+  pitch?: number;
+  color?: string;
+}
+
 export interface Settings {
   /** Where north points on the plan, degrees clockwise from its top (0: up). */
   north?: number;
@@ -76,6 +86,11 @@ export interface Settings {
   access_points?: AccessPoint[];
   /** What each person uses, only sees or does not see in DomoTwin (D-071). */
   rights?: Rights;
+  /** The weather drawn around the home (D-072): a `weather` entity, or `none`; absent, the one
+   * the Home tab shows. */
+  weather?: string;
+  /** How the roofs are drawn (D-077); absent, a gable roof at 30° in the look's colour. */
+  roof?: RoofSettings;
 }
 
 export interface StoredSettings {
@@ -92,7 +107,16 @@ export interface StoredUpkeep {
 
 /** What a save changed: told to every screen listening, with its revision. */
 export type SaveKind =
-  "plan" | "bindings" | "settings" | "upkeep" | "people" | "locating" | "wifi" | "guests";
+  | "plan"
+  | "bindings"
+  | "settings"
+  | "upkeep"
+  | "people"
+  | "locating"
+  | "wifi"
+  | "guests"
+  | "screens"
+  | "garden";
 
 /** A save (its kind and revision), or a `domotwin.show` request (D-029). */
 export type UpdateEvent =
@@ -127,6 +151,7 @@ export class DomoTwinClient {
   private settings?: Promise<StoredSettings>;
   private upkeep?: Promise<StoredUpkeep>;
   private people?: Promise<PeopleSettings>;
+  private garden?: Promise<Garden>;
   private readonly listeners = new Set<Listener>();
   private unsubscribe?: Promise<() => Promise<void>>;
   /** The actions waiting (D-046), as last listed, and who follows them. */
@@ -242,6 +267,23 @@ export class DomoTwinClient {
     return result.revision;
   }
 
+  /** When each lawn was last mown and each robot mower last mowed (D-077). */
+  getGarden(): Promise<Garden> {
+    this.garden ??= this.connection.sendMessagePromise<Garden>({ type: "domotwin/garden/get" });
+    this.garden.catch(() => (this.garden = undefined));
+    return this.garden;
+  }
+
+  /** Says a lawn was just mown (every user). Returns the garden. */
+  async lawnMowed(room: string): Promise<Garden> {
+    const garden = await this.connection.sendMessagePromise<Garden>({
+      type: "domotwin/garden/mowed",
+      room,
+    });
+    this.garden = Promise.resolve(garden);
+    return garden;
+  }
+
   /** Marks a task done today, where the home is (every user). Returns the date stored. */
   async upkeepDone(piece: string, task: string): Promise<string> {
     const result = await this.connection.sendMessagePromise<{ last_done: string }>({
@@ -352,9 +394,12 @@ export class DomoTwinClient {
     devices: Record<string, LocatedSettings>,
     learn: boolean,
     expectedRevision?: number,
+    radars?: Record<string, { mirror: boolean }>,
   ): Promise<number> {
     const message: HassMessage = { type: "domotwin/locating/save", receivers, devices, learn };
     if (expectedRevision !== undefined) message.expected_revision = expectedRevision;
+    // The presence radars' own settings (D-080), only when there are some to say.
+    if (radars !== undefined) message.radars = radars;
     const result = await this.connection.sendMessagePromise<{ revision: number }>(message);
     this.people = undefined;
     return result.revision;
@@ -380,6 +425,29 @@ export class DomoTwinClient {
       room,
       seconds,
     });
+  }
+
+  /** Hands an identity key to Home Assistant's Private BLE Device (D-075): its entry, its title
+   * and whether that title names the device (not an address or Private BLE Device's default). */
+  addLocatingKey(
+    key: string,
+  ): Promise<{ entry: string; title: string; named: boolean; added: boolean }> {
+    return this.connection.sendMessagePromise({ type: "domotwin/locating/add_key", key });
+  }
+
+  /** How well the rooms are found (M41): each device's figures, Bermuda's beside (admins). */
+  getLocatingMeasure(): Promise<LocatingMeasure> {
+    return this.connection.sendMessagePromise<LocatingMeasure>({
+      type: "domotwin/locating/measure",
+    });
+  }
+
+  /** Starts the measurements again from nothing (admins). */
+  async resetLocatingMeasure(): Promise<string> {
+    const result = await this.connection.sendMessagePromise<{ since: string }>({
+      type: "domotwin/locating/measure/reset",
+    });
+    return result.since;
   }
 
   /** Forgets what was learned in a room (every room without one). Returns how many were. */
@@ -467,6 +535,31 @@ export class DomoTwinClient {
     );
   }
 
+  /** The wall screens' layouts (D-076), by name; everyone reads them. */
+  async getScreens(): Promise<Screens> {
+    return readScreens(await this.connection.sendMessagePromise({ type: "domotwin/screens/get" }));
+  }
+
+  /** Sets a screen's layout, or adds a screen (`fresh`: refused if the name is taken); for
+   * administrators. Answers every screen. */
+  async saveScreen(name: string, layout: ScreenLayout, fresh = false): Promise<Screens> {
+    return readScreens(
+      await this.connection.sendMessagePromise({
+        type: "domotwin/screens/save",
+        name,
+        layout,
+        new: fresh,
+      }),
+    );
+  }
+
+  /** Removes a screen (administrators); answers every screen. */
+  async removeScreen(name: string): Promise<Screens> {
+    return readScreens(
+      await this.connection.sendMessagePromise({ type: "domotwin/screens/remove", name }),
+    );
+  }
+
   /**
    * The home's Wi-Fi for guests (D-060), as this user may see it on `screen` (a card's, else
    * none): all of it for an administrator, what draws its code on a screen an administrator chose.
@@ -522,6 +615,7 @@ export class DomoTwinClient {
         else if (event.kind === "settings") this.settings = undefined;
         else if (event.kind === "upkeep") this.upkeep = undefined;
         else if (event.kind === "people") this.people = undefined;
+        else if (event.kind === "garden") this.garden = undefined;
         else if (event.kind === "plan") this.plans.clear();
         for (const each of this.listeners) each(event);
       },
@@ -539,6 +633,7 @@ export class DomoTwinClient {
         this.settings = undefined;
         this.upkeep = undefined;
         this.people = undefined;
+        this.garden = undefined;
       }
     };
   }

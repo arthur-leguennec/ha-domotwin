@@ -143,14 +143,13 @@ fn the_demo_home_is_built_storey_by_storey_with_its_roof() {
     );
     // The bounds hold both storeys; the roof covers the upper one, above its walls.
     assert!(f64::from(home.bounds[1][1]) > 280.0 + 200.0);
-    let roof = home.roof.as_ref().unwrap();
-    assert_eq!(roof.storey, 1);
+    let roof = home.roofs.iter().find(|r| r.storey == 1).unwrap();
     assert_eq!(roof.elevation, 280.0);
     let [low, _] = roof.mesh.bounds();
     assert!(f64::from(low[1]) > home.wall_height - 20.0, "{low:?}");
-    assert!(roof.mesh.triangle_count() > 10 && roof.lines.len() == 7);
+    assert!(roof.mesh.triangle_count() > 10 && !roof.wings.is_empty());
     // A storey alone has no roof.
-    assert!(alone.roof.is_none());
+    assert!(alone.roofs.is_empty());
 }
 
 const HOUSE: &str = include_str!("../../../examples/demo-house.domotwin.json");
@@ -161,10 +160,14 @@ fn the_demo_house_reads_storey_by_storey_with_ids_of_its_own() {
     let ground = read_plan(HOUSE.as_bytes()).unwrap();
     let upper = read_plan(HOUSE_UPPER.as_bytes()).unwrap();
     let (g, u) = (ground.summary(), upper.summary());
-    assert_eq!((g.rooms, g.doors, g.windows, g.furniture), (7, 7, 5, 49));
-    assert_eq!((u.rooms, u.doors, u.windows, u.furniture), (6, 5, 6, 40));
-    // Its robot's dock, and the stairs up.
+    assert_eq!((g.rooms, g.doors, g.windows, g.furniture), (12, 7, 5, 87));
+    assert_eq!((u.rooms, u.doors, u.windows, u.furniture), (6, 5, 6, 42));
+    // Its garden all round (D-077): five places outside, a lawn behind and in front.
+    assert_eq!(ground.rooms().filter(|r| r.outside).count(), 5);
+    assert!(upper.rooms().all(|r| !r.outside));
+    // Its robots' docks, and the stairs up.
     assert!(ground.furniture().any(|f| f.kind == Kind::RobotVacuum));
+    assert!(ground.furniture().any(|f| f.kind == Kind::RobotMower));
     assert!(ground.furniture().any(|f| f.kind == Kind::Stairs));
     // Ids are the home's (`DECISIONS.md`, D-026).
     for element in &upper.elements {

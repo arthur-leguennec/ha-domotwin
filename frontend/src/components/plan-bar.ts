@@ -37,6 +37,8 @@ export const FLOORS = [
   "beige-tiles",
   "white-tiles",
 ] as const;
+/** The grounds of a place outside (`plan-format.md`, D-077), a lawn first. */
+export const OUTDOOR_FLOORS = ["lawn", "decking", "paving", "gravel", "soil"] as const;
 /** The kinds of doors (`plan-format.md`). */
 export const DOOR_STYLES = [
   "hinged",
@@ -138,6 +140,19 @@ export class DomoTwinPlanBar extends LitElement {
       }
       input.name {
         width: 150px;
+      }
+      label.check {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        min-height: 36px;
+        font-size: 0.875rem;
+        color: var(--primary-text-color, #1f2328);
+      }
+      label.check input {
+        min-height: 0;
+        width: 18px;
+        height: 18px;
       }
       input.length {
         width: 72px;
@@ -260,8 +275,19 @@ export class DomoTwinPlanBar extends LitElement {
     const state = this.state;
     let extra: TemplateResult | typeof nothing;
     if (selection.type === "room") {
+      // A place outside (D-077) has a ground of its own, a lawn when none is said.
+      const outside = selection.outside === true;
       const material = (selection.floor as { material?: unknown } | undefined)?.material;
-      const floor = typeof material === "string" ? material : "plain";
+      const offered: readonly string[] = outside ? OUTDOOR_FLOORS : FLOORS;
+      const known = [...FLOORS, ...OUTDOOR_FLOORS] as readonly string[];
+      const floor =
+        typeof material === "string" && known.includes(material)
+          ? material
+          : outside
+            ? OUTDOOR_FLOORS[0]
+            : FLOORS[0];
+      // A ground of the other list (decking indoors, oak outside) is shown as it is, and kept.
+      const floors = offered.includes(floor) ? offered : [...offered, floor];
       const corners = state?.cornerCount ?? 0;
       extra = html`<label
           >${t.t("plan.floor")}
@@ -271,7 +297,7 @@ export class DomoTwinPlanBar extends LitElement {
               this.send({ floor: { material: (event.target as HTMLSelectElement).value } });
             }}
           >
-            ${FLOORS.map(
+            ${floors.map(
               (f) =>
                 html`<option value=${f} ?selected=${f === floor}>
                   ${t.t(`plan.floor_${key(f)}` as MessageKey)}
@@ -279,6 +305,35 @@ export class DomoTwinPlanBar extends LitElement {
             )}
           </select></label
         >
+        <label class="check"
+          ><input
+            type="checkbox"
+            data-testid="plan-outside"
+            .checked=${outside}
+            @change=${(event: Event) => {
+              const now = (event.target as HTMLInputElement).checked;
+              // Out, on a lawn; back in, on a plain floor.
+              this.send({
+                outside: now,
+                floor: { material: now ? OUTDOOR_FLOORS[0] : FLOORS[0] },
+              });
+            }}
+          />${t.t("plan.outside")}</label
+        >
+        ${
+          outside
+            ? html`<label class="check"
+                ><input
+                  type="checkbox"
+                  data-testid="plan-railing"
+                  .checked=${selection.railing === true}
+                  @change=${(event: Event) => {
+                    this.send({ railing: (event.target as HTMLInputElement).checked });
+                  }}
+                />${t.t("plan.railing")}</label
+              >`
+            : nothing
+        }
         ${
           state?.corner !== null && corners > 3
             ? this.command("remove-corner", mdiVectorPolylineMinus, "plan.remove_corner", true)

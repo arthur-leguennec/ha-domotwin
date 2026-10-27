@@ -53,7 +53,7 @@ import { searchEntities } from "../live/rooms";
 import { define, fire } from "./define";
 import { fromField } from "./dialog";
 import { icon } from "./icon";
-import { saveText, toClipboard } from "./save";
+import { copyText, saveText } from "./save";
 import { baseStyles } from "./styles";
 
 addMessages({ en: historyEn, fr: historyFr });
@@ -761,15 +761,7 @@ export class DomoTwinHistory extends LitElement {
   private async copy(): Promise<void> {
     this.copiedText = this.csv();
     // Some companion apps refuse the clipboard: the text is then selected to copy by hand.
-    if (await toClipboard(this.copiedText)) {
-      this.copied = "done";
-      return;
-    }
-    this.copied = "manual";
-    await this.updateComplete;
-    const area = this.renderRoot.querySelector("textarea");
-    area?.focus();
-    area?.select();
+    await copyText(this.copiedText, this, (copied) => (this.copied = copied));
   }
 
   private add(entity: string): void {

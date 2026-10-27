@@ -19,10 +19,12 @@ Local, fast, Rust + WebAssembly.</p>
 > the Wi-Fi QR code for guests, the configuration history, Hydro-Québec's peaks, more imports (robot
 > vacuum maps, Floorplanner, mesh scans), the radio coverage, guest passes, each person's rights,
 > safety (the cameras, the doorbell, the alarm, the alerts on every tab), each room's graphs with
-> Home Assistant's Energy page a tab away, automations in plain words, played in the sandbox before
-> they are saved, and a weekly report of what needs a look, and DomoTwin joined Home Assistant's
-> own Overview; the weather around the home and the wall screen come next, towards 0.5.0. The
-> submission to HACS's default list waits on measurements on real devices.
+> Home Assistant's Energy page a tab away, automations in plain words played in the sandbox before
+> they are saved, the weather around the home, how well the rooms are found, measured beside
+> Bermuda, a library of 195 pieces with their pictures, an iPhone followed without a Mac, the wall
+> screen (its screen saver woken by whoever comes) and a weekly report of what needs a look, and
+> DomoTwin joined Home Assistant's own Overview; a first launch in five minutes closes the way to
+> 0.5.0. The submission to HACS's default list waits on measurements on real devices.
 
 ## What sets it apart
 
@@ -68,8 +70,11 @@ Local, fast, Rust + WebAssembly.</p>
   (`*.domotwin.json`), one storey or all of them, and see it as a clean 3D model. The
   walls facing the camera are lowered automatically, like an open dollhouse. Switch to a crisp 2D
   plan with a smooth animation.
-- **Pieces that look made.** Plants leaf by leaf, sofas and beds with soft edges, at no cost in
-  speed.
+- **Pieces that look made, a library of them.** Plants leaf by leaf, sofas and beds with soft
+  edges, at no cost in speed; 195 pieces in 117 kinds and their styles, at the usual sizes of real
+  ones: a Chesterfield, a piano, a wood stove, a heat pump, a water heater, an EV charger and a car,
+  speakers, a thermostat, a smoke detector, cameras, a router, wall lights and light strips, a
+  treadmill, a cat tree. All drawn by DomoTwin, nothing downloaded.
 - **Five looks.** **Neon**: the home at dusk in deep violet, the tops of its walls lit in amber,
   lamps and screens that shine; **blueprint**: white lines on blue; **day**: the home as it is, in
   the light of the time of day; **cartoon**: flat bright colours inked in black, under a blue sky;
@@ -84,6 +89,16 @@ Local, fast, Rust + WebAssembly.</p>
   advanced mode for any action.
 - **Live.** Lamps light their room in their real colour and brightness, the TV glows, blinds and
   curtains move, doors and windows open with their contact sensors.
+- **The weather around the home.** Rain, snow, hail, fog, grey skies and a storm's flashes, from
+  your weather entity, drawn in 3D: around an apartment and never in it, on the roof of a house,
+  slanted by the wind. See [the
+  weather](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/weather.md).
+- **The garden too.** Draw a garden, a terrace, a balcony with its railing, a path: places
+  outside, with their lawn, decking, paving or gravel, and the garden's pieces (trees, hedges, a
+  pool, a shed, garden lights, a gate). The lawn is drawn as long as it has grown since it was
+  last mown, with the season where the home is; your robot mower goes round it, never through the
+  house. Roofs follow the house's shape, in the shape, slope and colour you choose. See [the
+  outdoors](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/outdoors.md).
 - **Layers.** An animated heatmap of temperature, humidity, CO₂ or fine particles read from the
   sensors of each room's area, safety alerts that pulse in their room (smoke, gas, water leak,
   alarm, a window open in the rain), the rooms someone is in, the real sun coming in through your
@@ -121,6 +136,12 @@ Local, fast, Rust + WebAssembly.</p>
   joins it with, in the page; or shows your router's own code. For administrators, and on the wall
   screens you choose; the password stays in DomoTwin's private storage. See [the Wi-Fi for
   guests](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/wifi.md).
+- **The wall screen.** A tablet by the door or in the kitchen opens on its own tab and, when nobody
+  is there, shows the time, the weather and your photos from Home Assistant's media, gone as soon
+  as someone touches it, a motion sensor sees them or the doorbell rings. Each screen's layout is
+  set once by an administrator and followed by the device that is it, whoever is signed in there.
+  See [the wall
+  screen](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/wall-screen.md).
 - **Guest access.** A pass opens chosen rooms and devices to your guests for a few days: its link
   or QR code opens them on their phones, in 3D, without a Home Assistant account, with the Wi-Fi if
   you like, and ends on its own. By default it opens only on the home's network; DomoTwin checks
@@ -161,9 +182,15 @@ Local, fast, Rust + WebAssembly.</p>
 - **Bluetooth locating.** No Bermuda? DomoTwin finds the room of a phone, a watch or a tag itself,
   from what Home Assistant's Bluetooth receivers hear (its adapter, ESPHome proxies, Shelly
   devices). It starts from the plan (distances, walls, doors, floors), so it works from the first
-  minute, and learns as rooms are taught and presence sensors agree. Phones place their owners;
-  keys left behind are told; "where are my keys?" by voice. See [Bluetooth
-  locating](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/bluetooth.md).
+  minute, and learns as rooms are taught and presence sensors agree; within the room, where, on a
+  grid of half-metre cells, and another storey only by its stairs. Phones place their owners;
+  keys left behind are told; "where are my keys?" by voice. How well it finds rooms is measured,
+  Bermuda's figures beside where it runs, and copied as a table to share. An iPhone's identity key,
+  read without a Mac by an ESP32 in ten minutes, is pasted in DomoTwin as the tool gave it.
+  Presence radars (an LD2450, an Everything Presence Lite, an LD2410) placed on the plan merge in:
+  Bluetooth says who, the radar says where, to half a metre and fast, and anyone else is someone,
+  a grey figure. See
+  [Bluetooth locating](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/bluetooth.md).
 - **Radio coverage.** Where the next Bluetooth proxy, Zigbee router or Wi-Fi access point helps
   most: each room coloured by how well your receivers, your mesh or your access points reach it,
   and the best spots numbered on the plan, each with the rooms it raises. Worked out from the
@@ -180,11 +207,14 @@ Local, fast, Rust + WebAssembly.</p>
 - **Storeys.** A cellar, floors above, an attic: one plan each, a switcher in the view, stairs that
   take you up a tap at a time, and the alerts of every storey wherever you are. Or the whole home
   at once, its storeys spread apart under a roof, each with its label and a picture, live on every
-  floor. See
+  floor. Split levels and walk-out basements too: half levels named as such, a floor counted by the
+  Bluetooth locating only where one level lies over the other, a basement's garden on its side.
+  See
   [storeys](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/storeys.md).
 - **Edit mode.** Move, rotate and stack furniture with snapping, guides and undo, add pieces from
-  a catalogue, link any object to entities (with suggestions from your areas), and add your own
-  furniture or appliance with its 3D model (glTF/GLB, OBJ, STL or 3MF). See
+  a library with a picture of each, by room and use, searched in your language, link any object
+  to entities (with suggestions from your areas), and add your own furniture or appliance with its
+  3D model (glTF/GLB, OBJ, STL or 3MF). See
   [edit mode](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/edit-mode.md).
 - **Walk through it, hang it on the wall, ask for it.** Walk through your home at eye level, from
   room to room through the doors. On a wall tablet, a card goes back to its view when left alone,
@@ -244,7 +274,7 @@ Local, fast, Rust + WebAssembly.</p>
 </p>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-edit.png" alt="Edit mode: a piece dragged on the 2D plan snaps onto a wall, with the distances to the other walls; the catalogue of pieces to add" width="100%">
+  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-edit.png" alt="Edit mode: a piece dragged on the 2D plan snaps onto a wall, with the distances to the other walls; the library of pieces to add, each with its picture" width="100%">
 </p>
 
 <p align="center">
@@ -342,6 +372,7 @@ YAML is never required. For reference, the card options are:
 | `presence`    | `true`, `false`                     | `true`     | The rooms someone is in glow softly.      |
 | `people`      | `true`, `false`                     | `true`     | The people in their rooms, as figures.    |
 | `sun`         | `fixed`, `real`                     | `fixed`    | `real`: the sun lights from where it is (`sun.sun`), through the windows. |
+| `weather`     | `true`, `false`                     | `true`     | The weather around the home: rain, snow, fog and storms. |
 | `badges`      | `true`, `false`                     | `true`     | Badges over the devices: locks, cameras, what plays, low batteries, appliances running. |
 | `cameras`     | `true`, `false`                     | `true`     | What the linked cameras see, drawn on the floor. |
 | `theme`       | `auto`, `day`, `neon`, `blueprint`, `cartoon`, `clay` | the home's | The look; `auto` is neon in dark mode. |

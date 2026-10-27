@@ -11,6 +11,7 @@ pub mod lamps;
 mod quality;
 mod shaders;
 pub mod view;
+mod weather;
 
 use std::borrow::Cow;
 use std::sync::Arc;
@@ -20,10 +21,11 @@ use domotwin_core::lighting::Lighting;
 use domotwin_core::live::Look;
 use domotwin_core::scene::figures::{self, Shape};
 use domotwin_core::scene::lines::Line;
-use domotwin_core::scene::mesh::Mesh;
+use domotwin_core::scene::mesh::{Mesh, Surface};
 use domotwin_core::scene::wires::WireSegment;
-use domotwin_core::scene::{LightSpot, MovingParts, Scene, StoreyPart};
+use domotwin_core::scene::{LightSpot, MAX_WINGS, MovingParts, RoofKind, Scene, StoreyPart};
 use domotwin_core::theme::Theme;
+use domotwin_core::weather::Weather;
 use lamps::{Halo, Mark, PointLight};
 pub use quality::{GpuHint, QualityPreset};
 pub use three_d::context::Context as GlContext;
@@ -54,6 +56,15 @@ struct GpuMesh {
     extras: VertexBuffer<[u8; 4]>,
     uvs: VertexBuffer<[f32; 2]>,
     indices: ElementBuffer<u32>,
+    /// Whether it has grounds of the garden (D-077): drawn with the garden's program.
+    garden: bool,
+}
+
+/// Whether `mesh` has grounds of the garden (D-077): its surfaces come after all the others.
+fn has_garden(mesh: &Mesh) -> bool {
+    mesh.extras
+        .iter()
+        .any(|e| e[1] >> 2 >= Surface::Grass as u8)
 }
 
 impl std::fmt::Debug for GpuMesh {
@@ -76,6 +87,7 @@ impl GpuMesh {
             extras: VertexBuffer::new_with_data(context, &mesh.extras),
             uvs: VertexBuffer::new_with_data(context, &mesh.uvs),
             indices: ElementBuffer::new_with_data(context, &mesh.indices),
+            garden: has_garden(mesh),
         })
     }
 
@@ -89,6 +101,7 @@ impl GpuMesh {
                 gpu.extras.fill(&mesh.extras);
                 gpu.uvs.fill(&mesh.uvs);
                 gpu.indices.fill(&mesh.indices);
+                gpu.garden = has_garden(mesh);
             }
             _ => *slot = Self::new(context, mesh),
         }
@@ -235,6 +248,9 @@ pub struct Figure {
     pub storey: usize,
     /// Where their feet are on the storey's floor (plan cm: x, height above the floor, y).
     pub at: [f32; 3],
+    /// The height of the ground under them above the floor (cm; a lawn's is a little under it):
+    /// their shadow lies on it.
+    pub ground: f32,
     /// Which way they face (radians on the plan, from +x towards +y).
     pub heading: f32,
     /// Their colour (linear RGB).
@@ -254,6 +270,8 @@ pub enum FigureShape {
     Pin,
     /// A robot vacuum (D-049).
     Robot,
+    /// A robot mower (D-077).
+    Mower,
 }
 
 impl Figure {
@@ -272,6 +290,8 @@ const FULLY_SHOWN: f32 = 0.999;
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Phase {
     Whole,
+    /// Everything but the background: a piece on its own, on a plain colour (D-074).
+    Piece,
     /// The background, what is opaque, the people wholly shown.
     Solid,
     /// The people fading, glass, glass walls, the outlines, the halos, the wires.
@@ -318,6 +338,7 @@ struct GpuPeople {
     figure: GpuShape,
     pin: GpuShape,
     robot: GpuShape,
+    mower: GpuShape,
     shadow: GpuShape,
 }
 
@@ -325,6 +346,8 @@ struct GpuPeople {
 const SHADOW_RADIUS: f32 = 30.0;
 /// The radius of a robot vacuum's shadow (cm): a little wider than it.
 const ROBOT_SHADOW_RADIUS: f32 = 21.0;
+/// The radius of a robot mower's shadow (cm).
+const MOWER_SHADOW_RADIUS: f32 = 34.0;
 
 /// The halos of lit bulbs on the GPU.
 struct GpuHalos {
@@ -565,7 +588,7 @@ impl GpuPart {
     }
 }
 
-/// The roof on the GPU, and its outlines.
+/// A roof on the GPU, and its outlines.
 struct GpuRoof {
     mesh: Option<GpuMesh>,
     lines: Option<GpuLines>,
@@ -593,6 +616,41 @@ const MSAA_SAMPLES: u32 = 4;
 const GROUND_Y: f64 = -6.0;
 /// How far the outlines are moved towards the camera, in device pixels where they are.
 const LINE_LIFT: f64 = 2.0;
+
+/// Where a piece's picture is taken from (D-074): in front of it, a little to its right, `pitch`
+/// above it (below it when negative), as a catalogue shows a piece, close enough for the piece to
+/// fill the picture: its box's corners within the field of view, with a margin.
+fn piece_camera(bounds: [[f64; 3]; 2], aspect: f64, pitch: f64) -> Camera {
+    const YAW: f64 = 0.55;
+    const MARGIN: f64 = 1.08;
+    let [min, max] = bounds;
+    let target = [0, 1, 2].map(|k| f64::midpoint(min[k], max[k]));
+    let (sy, cy) = YAW.sin_cos();
+    let (sp, cp) = pitch.sin_cos();
+    let back = [cp * sy, sp, cp * cy];
+    let right = [cy, 0.0, -sy];
+    let up = [-sp * sy, cp, -sp * cy];
+    let tan = (domotwin_core::camera::FOV / 2.0).tan();
+    let dot = |a: [f64; 3], b: [f64; 3]| a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+    // Each corner seen from the target: across, up, and towards the camera. The camera stands
+    // back until every corner is in the field of view.
+    let distance = (0..8)
+        .map(|k: usize| {
+            let corner = [0, 1, 2].map(|a| if k >> a & 1 == 0 { min[a] } else { max[a] });
+            let d = [0, 1, 2].map(|a| corner[a] - target[a]);
+            let (x, y, z) = (dot(d, right), dot(d, up), dot(d, back));
+            z + (x.abs() / (tan * aspect)).max(y.abs() / tan) * MARGIN
+        })
+        .fold(1.0, f64::max);
+    Camera {
+        target,
+        yaw: YAW,
+        pitch,
+        distance,
+        ortho: 0.0,
+        walk: 0.0,
+    }
+}
 
 /// The inverse of a column-major 4 × 4 matrix, computed in double precision (zero when it has
 /// none).
@@ -662,6 +720,9 @@ pub struct Renderer {
     background: Rgb,
     quality: QualityPreset,
     main: Program,
+    /// The main program with the garden's grounds (D-077), compiled once a scene has them: the
+    /// others' fragments never pay for them.
+    garden: Option<Program>,
     depth: Program,
     pick: Program,
     halo: Program,
@@ -674,13 +735,14 @@ pub struct Renderer {
     bloom_up: Program,
     composite: Program,
     ink: Program,
+    weather_program: Program,
     /// The look (D-027).
     theme: Theme,
     /// The offscreen targets, while the look glows.
     post: Option<PostTargets>,
     /// The storeys of the scene (one for a plan alone), and the roof over the top one.
     parts: Vec<GpuPart>,
-    roof: Option<GpuRoof>,
+    roofs: Vec<GpuRoof>,
     /// The live look of every element, three texels each (see `lamps::element_texels`).
     elements: Texture2D,
     /// The room layers, three texels per room slot (`domotwin_core::layers::room_texels`).
@@ -724,6 +786,13 @@ pub struct Renderer {
     no_shadow: DepthTexture2D,
     pick_target: Option<PickTarget>,
     lighting: Lighting,
+    /// The weather around the home (D-072), the footprint things fall around, and how bright a
+    /// storm's flash is this frame.
+    weather: Weather,
+    footprint: Option<weather::Footprint>,
+    flash: f32,
+    /// How far the view is on its way to the plan this frame (what falls is not drawn on it).
+    flat: f32,
     /// What the view shows and how it moves.
     pub view: ViewState,
 }
@@ -870,6 +939,8 @@ impl Renderer {
         let bloom_up = Program::from_source(&context, full, shaders::BLOOM_UP)?;
         let composite = Program::from_source(&context, full, shaders::COMPOSITE)?;
         let ink = Program::from_source(&context, full, shaders::INK)?;
+        let weather_program =
+            Program::from_source(&context, shaders::WEATHER_VERTEX, shaders::WEATHER_FRAGMENT)?;
         let (columns, rows, texels) = lamps::element_rows(lamps::element_texels(&[], &[], &[]));
         let elements = rows_texture(&context, columns, rows, &texels);
         let rooms = row_texture(&context, &[[0.0; 4]; 3]);
@@ -893,6 +964,7 @@ impl Renderer {
             },
             quality: QualityPreset::Balanced,
             main,
+            garden: None,
             depth,
             pick,
             halo,
@@ -905,10 +977,11 @@ impl Renderer {
             bloom_up,
             composite,
             ink,
+            weather_program,
             theme: Theme::default(),
             post: None,
             parts: Vec::new(),
-            roof: None,
+            roofs: Vec::new(),
             elements,
             rooms,
             rooms_shown: false,
@@ -934,6 +1007,10 @@ impl Renderer {
             no_shadow,
             pick_target: None,
             lighting: Lighting::default(),
+            weather: Weather::CLEAR,
+            footprint: None,
+            flash: 0.0,
+            flat: 0.0,
             view,
         })
     }
@@ -945,20 +1022,43 @@ impl Renderer {
             .iter()
             .map(|part| GpuPart::new(&self.context, part))
             .collect();
-        self.roof = scene.roof.as_ref().map(|roof| GpuRoof {
-            mesh: GpuMesh::new(&self.context, &roof.mesh),
-            lines: GpuLines::new(&self.context, &roof.lines),
-        });
+        self.roofs = scene
+            .roofs
+            .iter()
+            .map(|roof| GpuRoof {
+                mesh: GpuMesh::new(&self.context, &roof.mesh),
+                lines: GpuLines::new(&self.context, &roof.lines),
+            })
+            .collect();
         self.shadow_stale = true;
         self.spots.clone_from(&scene.lights);
+        self.footprint = weather::Footprint::of(scene);
         self.view.set_scene(scene, keep_camera);
+        self.ensure_garden();
         self.relight();
+    }
+
+    /// Compiles the garden's program (D-077) once a mesh needs it. Where it does not compile, the
+    /// garden's grounds are drawn in their plain colours.
+    fn ensure_garden(&mut self) {
+        if self.garden.is_some()
+            || !self
+                .parts
+                .iter()
+                .flat_map(|part| part.meshes.iter().flatten())
+                .any(|mesh| mesh.garden)
+        {
+            return;
+        }
+        let fragment = format!("{}{}", shaders::GARDEN, shaders::FRAGMENT);
+        self.garden = Program::from_source(&self.context, shaders::VERTEX, &fragment).ok();
     }
 
     /// Draws nothing but the background (no plan shown any more).
     pub fn clear_scene(&mut self) {
         self.parts.clear();
-        self.roof = None;
+        self.roofs.clear();
+        self.footprint = None;
         self.spots.clear();
         self.camera_views = None;
         self.shadow_stale = true;
@@ -972,6 +1072,7 @@ impl Renderer {
             GpuMesh::replace(&mut gpu.meshes[1], &self.context, opaque);
             GpuMesh::replace(&mut gpu.meshes[3], &self.context, transparent);
         }
+        self.ensure_garden();
         self.shadow_stale = true;
         self.view.dirty = true;
     }
@@ -981,7 +1082,7 @@ impl Renderer {
         self.view.set_spread(spread, now);
     }
 
-    /// Shows or hides the roof over the top storey.
+    /// Shows or hides the roofs.
     pub fn set_roof(&mut self, shown: bool) {
         self.view.set_roof(shown);
         self.relight();
@@ -1093,7 +1194,163 @@ impl Renderer {
             && (self.rooms_animated
                 || self.wires.iter().flatten().any(|w| w.pulsing)
                 || (self.power_layer
-                    && self.looks.iter().any(|l| lamps::power_level(l.power) > 0.0)))
+                    && self.looks.iter().any(|l| lamps::power_level(l.power) > 0.0))
+                || self.weather_moving())
+    }
+
+    /// Sets the weather around the home (D-072).
+    pub fn set_weather(&mut self, weather: Weather) {
+        if weather != self.weather {
+            self.weather = weather;
+            self.view.dirty = true;
+        }
+    }
+
+    /// The weather around the home.
+    pub fn weather(&self) -> Weather {
+        self.weather
+    }
+
+    /// How thick the weather's fog is, from 0 (none) to 1: none at eye level, walking inside.
+    fn fog(&self) -> f32 {
+        if self.view.walking() || self.view.camera.walk > 0.0 {
+            return 0.0;
+        }
+        #[allow(clippy::cast_possible_truncation)]
+        let fog = (self.weather.fog.clamp(0.0, 1.0) * 0.85) as f32;
+        fog
+    }
+
+    /// Whether what falls is drawn: something falls, around a home, in 3D (not on the plan).
+    fn weather_drawn(&self) -> bool {
+        self.footprint.is_some()
+            && !self.view.plan_view
+            && self.flat < 0.5
+            && weather::particles(&self.weather, self.quality) > 0
+    }
+
+    /// Whether the weather moves: something falling is drawn, or a storm flashes (in 3D only).
+    fn weather_moving(&self) -> bool {
+        let storm = self.weather.lightning
+            && self.footprint.is_some()
+            && !self.view.plan_view
+            && self.flat < 0.5;
+        self.weather.animated() && (self.weather_drawn() || storm)
+    }
+
+    /// Sets what the weather's program needs for a frame (D-072).
+    fn set_weather_uniforms(&self, projection: &domotwin_core::camera::Projection, time_ms: f64) {
+        let Some(footprint) = self.footprint.as_ref().filter(|_| self.weather_drawn()) else {
+            return;
+        };
+        let program = &self.weather_program;
+        #[allow(clippy::cast_possible_truncation)]
+        let f = |v: f64| v as f32;
+        let v3 = |v: [f64; 3]| Vec3::new(f(v[0]), f(v[1]), f(v[2]));
+        program.use_uniform_if_required("u_view_proj", mat4(&projection.view_proj));
+        program.use_uniform_if_required("u_eye", v3(projection.eye));
+        #[allow(clippy::cast_precision_loss)]
+        program.use_uniform_if_required(
+            "u_viewport",
+            Vec2::new(self.width as f32, self.height as f32),
+        );
+        program.use_uniform_if_required("u_line", self.pixel_scale() * 1.2);
+        // Under reduced motion, what falls holds still: a picture of the rain. The shader's turns
+        // fit whole in its loop.
+        let time = if self.motion {
+            (time_ms / 1000.0).rem_euclid(weather::LOOP_S)
+        } else {
+            37.0
+        };
+        program.use_uniform_if_required("u_time", f(time));
+        program.use_uniform_if_required("u_loop", f(weather::LOOP_S));
+        let [cx, cz] = footprint.centre;
+        program.use_uniform_if_required("u_area", Vec4::new(f(cx), f(cz), 1.0, 0.0));
+        program.use_uniform_if_required(
+            "u_half",
+            Vec3::new(
+                f(footprint.half[0]),
+                f(footprint.half[1]),
+                f(footprint.margin()),
+            ),
+        );
+        // From above the highest the home stands, spread or not: the same turns while it moves.
+        let [lo, hi] = self.view.bounds;
+        program.use_uniform_if_required(
+            "u_heights",
+            Vec2::new(f(self.view.highest() + 200.0), f(GROUND_Y)),
+        );
+        program.use_uniform_if_required("u_home", Vec2::new(f(lo[1]), f(hi[1])));
+        // On the roofs shown, else outside the walls only: each wing where its storey is drawn.
+        let wings: Vec<_> = footprint
+            .wings
+            .iter()
+            .filter_map(|(roof, shape)| Some((shape, self.view.roof_offset(*roof)?)))
+            .collect();
+        let mut at = [Vec4::new(0.0, 0.0, 0.0, 0.0); MAX_WINGS];
+        let mut area = [Vec4::new(0.0, 0.0, 1.0, 0.0); MAX_WINGS];
+        let mut shape = [Vec4::new(1.0, 1.0, 0.0, 0.0); MAX_WINGS];
+        let mut high = [1.0_f32; MAX_WINGS];
+        for (k, (wing, offset)) in wings.iter().enumerate().take(MAX_WINGS) {
+            let kind = match wing.kind {
+                RoofKind::Gable => 0.0,
+                RoofKind::Hip => 1.0,
+                RoofKind::Shed => 2.0,
+                RoofKind::Flat => 3.0,
+            };
+            at[k] = Vec4::new(f(offset[0]), f(offset[1]), f(offset[2]), kind);
+            area[k] = Vec4::new(
+                f(wing.centre[0]),
+                f(wing.centre[1]),
+                f(wing.ridge[0]),
+                f(wing.ridge[1]),
+            );
+            shape[k] = Vec4::new(
+                f(wing.half_length),
+                f(wing.half_width),
+                f(wing.eaves),
+                f(wing.rise),
+            );
+            high[k] = f(wing.high);
+        }
+        #[allow(clippy::cast_precision_loss)]
+        program.use_uniform_if_required("u_wings", wings.len().min(MAX_WINGS) as f32);
+        if program.requires_uniform("u_wing_at") {
+            program.use_uniform_array("u_wing_at", &at);
+            program.use_uniform_array("u_wing_area", &area);
+            program.use_uniform_array("u_wing_shape", &shape);
+            program.use_uniform_array("u_wing_high", &high);
+        }
+        let [wx, wz] = self.weather.wind;
+        program.use_uniform_if_required("u_wind", Vec2::new(f(wx), f(wz)));
+        let (kind, speed) = weather::fall(&self.weather);
+        // Rain runs off the eaves of sloping roofs.
+        let drips = if wings.iter().any(|(wing, _)| wing.kind != RoofKind::Flat) {
+            0.15
+        } else {
+            0.0
+        };
+        let splashes = if matches!(self.quality, QualityPreset::Eco) {
+            0.0
+        } else {
+            1.0
+        };
+        program.use_uniform_if_required("u_fall", Vec4::new(kind, speed, drips, splashes));
+        // Against the ground it mostly falls in front of.
+        let [r, g, b, a] = weather::tint(self.backdrop_of_look().2);
+        program.use_uniform_if_required("u_tint", Vec4::new(r, g, b, a));
+        program.use_uniform_if_required("u_flash", self.flash);
+    }
+
+    /// Draws what falls around the home (D-072): over the home, hidden behind it, writing no
+    /// depth and leaving the glow below as it is.
+    fn draw_weather(&self, viewport: Viewport) {
+        if !self.weather_drawn() {
+            return;
+        }
+        let count = weather::particles(&self.weather, self.quality);
+        self.weather_program
+            .draw_arrays_instanced(ON_THE_FLOOR, viewport, 6, count);
     }
 
     /// Draws `segments` as the wires of `set` (none: no wires), each end moved with its storey
@@ -1137,6 +1394,7 @@ impl Renderer {
                 figure: GpuShape::new(&self.context, &figures::figure()),
                 pin: GpuShape::new(&self.context, &figures::pin()),
                 robot: GpuShape::new(&self.context, &figures::robot()),
+                mower: GpuShape::new(&self.context, &figures::mower()),
                 shadow: GpuShape::new(&self.context, &figures::shadow()),
             });
         }
@@ -1495,27 +1753,49 @@ impl Renderer {
         });
     }
 
-    /// The light of the scene: the look's own, else the time of day's.
+    /// The light of the scene: the look's own, else the time of day's, greyed by the clouds
+    /// (D-072).
     fn light(&self) -> Lighting {
-        self.theme.lighting.unwrap_or(self.lighting)
+        match self.theme.lighting {
+            Some(own) => own,
+            None => weather::overcast(self.lighting, self.clouds()),
+        }
+    }
+
+    /// How cloudy the sky is drawn (D-072): not on the plan.
+    fn clouds(&self) -> f64 {
+        self.weather.overcast * f64::from(1.0 - self.flat)
+    }
+
+    /// The exposure of a frame: the light's, brighter for a storm's flash.
+    fn exposure(&self) -> f32 {
+        self.light().exposure * (1.0 + 1.4 * self.flash)
     }
 
     /// The background's colours: the look's own (the night looks, D-027), or dimming with the light
     /// of the time of day: the day look's shades of the dashboard's colours (its sky kept), the
     /// sky and lawn of the cartoon and the clay's backdrop (D-036).
     fn backdrop(&self) -> ([f32; 3], [f32; 3], [f32; 3], [f32; 3]) {
+        let (top, horizon, ground, grid) = self.backdrop_of_look();
+        let lit = |c: [f32; 3]| weather::flashed(c, self.flash);
+        (lit(top), lit(horizon), lit(ground), lit(grid))
+    }
+
+    /// The background's colours before a storm's flash: see [`Renderer::backdrop`].
+    fn backdrop_of_look(&self) -> ([f32; 3], [f32; 3], [f32; 3], [f32; 3]) {
         let t = &self.theme;
         if !t.follows_time() {
             return (t.sky_top, t.sky_horizon, t.ground, t.grid);
         }
-        let sky = self.lighting.sky;
+        let sky = self.light().sky;
         let daylight = Lighting::default().sky;
-        let luma = |c: [f32; 3]| 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+        let luma = weather::luma;
         let dim = (luma(sky) / luma(daylight).max(1e-3))
             .sqrt()
             .clamp(0.4, 1.0);
         if !t.sky_from_dashboard {
-            let shade = |c: [f32; 3], k: f32| c.map(|v| v * k);
+            let cover = self.clouds();
+            let shade = |c: [f32; 3], k: f32| weather::grey(c.map(|v| v * k), cover);
             return (
                 shade(t.sky_top, dim),
                 shade(t.sky_horizon, dim),
@@ -1580,7 +1860,16 @@ impl Renderer {
             .projection(self.view.aspect, self.view.depth());
         #[allow(clippy::cast_possible_truncation)]
         let flat = self.view.camera.ortho.clamp(0.0, 1.0) as f32;
+        self.flat = flat;
+        #[allow(clippy::cast_possible_truncation)]
+        let flash = if self.weather.lightning && self.motion && flat < 0.5 {
+            domotwin_core::weather::flash(time_ms / 1000.0) as f32
+        } else {
+            0.0
+        };
+        self.flash = flash;
         let gain = self.set_main_uniforms(&projection, time_ms, flat, post);
+        self.set_weather_uniforms(&projection, time_ms);
         self.set_background_uniforms(&projection.view_proj, post, flat < 0.5);
         self.set_line_uniforms(&projection);
         let offsets = self.part_offsets();
@@ -1637,7 +1926,12 @@ impl Renderer {
         animating || self.layers_animating()
     }
 
-    /// Sets what the main program needs for a frame. Returns the lamps' gain.
+    /// The main program, and the garden's once compiled (D-077).
+    fn surface_programs(&self) -> impl Iterator<Item = &Program> {
+        std::iter::once(&self.main).chain(self.garden.as_ref())
+    }
+
+    /// Sets what the main program (and the garden's) needs for a frame. Returns the lamps' gain.
     fn set_main_uniforms(
         &self,
         projection: &domotwin_core::camera::Projection,
@@ -1645,7 +1939,22 @@ impl Renderer {
         flat: f32,
         post: bool,
     ) -> f32 {
-        let program = &self.main;
+        for program in self.surface_programs() {
+            self.set_surface_uniforms(program, projection, time_ms, flat, post);
+        }
+        // Lamps and halos count less in daylight: a lamp lit at noon barely shows indoors.
+        self.light().lamp_gain()
+    }
+
+    /// Sets what `program`, the main one or the garden's, needs for a frame.
+    fn set_surface_uniforms(
+        &self,
+        program: &Program,
+        projection: &domotwin_core::camera::Projection,
+        time_ms: f64,
+        flat: f32,
+        post: bool,
+    ) {
         self.use_common(program, &projection.view_proj, false);
         #[allow(clippy::cast_possible_truncation)]
         let v3 = |v: [f64; 3]| Vec3::new(v[0] as f32, v[1] as f32, v[2] as f32);
@@ -1666,8 +1975,19 @@ impl Renderer {
         program.use_uniform_if_required("u_sky", rgb(light.sky));
         program.use_uniform_if_required("u_ground", rgb(light.ground));
         program.use_uniform_if_required("u_sun_color", rgb(light.sun));
-        program.use_uniform_if_required("u_exposure", light.exposure);
+        program.use_uniform_if_required("u_exposure", self.exposure());
         program.use_uniform_if_required("u_ao", light.ao);
+        // The weather's fog fades into the horizon (D-072), around the home.
+        program.use_uniform_if_required("u_fog", self.fog());
+        let [cx, _, cz] = self.view.centre();
+        #[allow(clippy::cast_possible_truncation)]
+        program.use_uniform_if_required(
+            "u_fog_area",
+            Vec3::new(cx as f32, cz as f32, self.view.radius().max(300.0) as f32),
+        );
+        let horizon = self.backdrop().1;
+        program
+            .use_uniform_if_required("u_fog_color", Vec3::new(horizon[0], horizon[1], horizon[2]));
         let t = &self.theme;
         program.use_uniform_if_required("u_glass_walls", on(t.glass_walls));
         program.use_uniform_if_required("u_wall_pass", 0.0_f32);
@@ -1690,8 +2010,6 @@ impl Renderer {
         program.use_uniform_if_required("u_rim_ink", shading.rim_ink);
         program.use_uniform_if_required("u_specular", shading.specular);
         program.use_uniform_if_required("u_glow_alpha", on(post));
-        // Lamps and halos count less in daylight: a lamp lit at noon barely shows indoors.
-        let gain = light.lamp_gain();
         let shadows = self.shadow.as_ref().filter(|_| flat < 0.5);
         program.use_uniform_if_required("u_shadows", on(shadows.is_some()));
         if let Some(shadow) = self.shadow.as_ref() {
@@ -1704,7 +2022,6 @@ impl Renderer {
             program.use_uniform_if_required("u_shadow_texel", 1.0_f32);
             program.use_uniform_if_required("u_shadow_matrix", mat4(&[0.0; 16]));
         }
-        gain
     }
 
     /// Binds the textures of `program`: a texture unit is shared by every program, so each binds
@@ -1746,6 +2063,13 @@ impl Renderer {
         #[allow(clippy::cast_possible_truncation)]
         program.use_uniform_if_required("u_radius", self.view.radius().max(300.0) as f32);
         program.use_uniform_if_required("u_glow_alpha", if post { 1.0_f32 } else { 0.0 });
+        program.use_uniform_if_required("u_fog", self.fog() * (1.0 - self.flat));
+        let sun_left = if self.theme.follows_time() {
+            weather::sun_left(self.clouds())
+        } else {
+            1.0
+        };
+        program.use_uniform_if_required("u_sun_left", sun_left);
         let shadow = self.shadow.as_ref().filter(|_| shadows);
         program.use_uniform_if_required("u_shadows", if shadow.is_some() { 1.0_f32 } else { 0.0 });
         let matrix = shadow.map_or([0.0; 16], |s| s.matrix);
@@ -1861,7 +2185,7 @@ impl Renderer {
         program.use_uniform_if_required("u_sun_color", rgb(light.sun));
         program.use_uniform_if_required("u_sky", rgb(light.sky));
         program.use_uniform_if_required("u_ground", rgb(light.ground));
-        program.use_uniform_if_required("u_exposure", light.exposure);
+        program.use_uniform_if_required("u_exposure", self.exposure());
         program.use_uniform_if_required("u_glow", self.theme.line_glow.min(1.0));
         program.use_uniform_if_required("u_glow_alpha", if post { 1.0_f32 } else { 0.0 });
         program.use_uniform_if_required("u_flat", flat);
@@ -1902,13 +2226,13 @@ impl Renderer {
         if which != People::Fading {
             program.use_uniform_if_required("u_shadow_pass", 1.0_f32);
             for f in self.figures.iter().filter(|f| f.opacity > 0.0) {
-                let radius = if f.shape == FigureShape::Robot {
-                    ROBOT_SHADOW_RADIUS
-                } else {
-                    SHADOW_RADIUS
+                let radius = match f.shape {
+                    FigureShape::Robot => ROBOT_SHADOW_RADIUS,
+                    FigureShape::Mower => MOWER_SHADOW_RADIUS,
+                    FigureShape::Person | FigureShape::Pin => SHADOW_RADIUS,
                 };
                 program.use_uniform_if_required("u_scale", radius);
-                program.use_uniform("u_place", placed(f, 0.6 - f.at[1]));
+                program.use_uniform("u_place", placed(f, f.ground + 0.6 - f.at[1]));
                 program.use_uniform("u_color", color(f));
                 shapes.shadow.draw(program, shadow_states, viewport);
             }
@@ -1928,6 +2252,7 @@ impl Renderer {
                 FigureShape::Person => &shapes.figure,
                 FigureShape::Pin => &shapes.pin,
                 FigureShape::Robot => &shapes.robot,
+                FigureShape::Mower => &shapes.mower,
             };
             shape.draw(program, body_states, viewport);
         }
@@ -1937,7 +2262,7 @@ impl Renderer {
     /// the people, glass, glass walls, the outlines, the halos, the wires.
     fn draw_passes(&self, viewport: Viewport, only: Option<usize>, phase: Phase) {
         let solid = phase != Phase::SeeThrough;
-        if solid {
+        if solid && phase != Phase::Piece {
             let behind = RenderStates {
                 write_mask: WriteMask::COLOR,
                 depth_test: DepthTest::Always,
@@ -1965,19 +2290,18 @@ impl Renderer {
         let gain = self.light().lamp_gain();
         let glass_walls = self.theme.glass_walls;
         let walking = self.view.walking() && only.is_none();
-        let roof = self
-            .roof
-            .as_ref()
+        let roofs: Vec<(&GpuMesh, [f64; 3], &GpuRoof)> = self
+            .roofs
+            .iter()
+            .enumerate()
             .filter(|_| only.is_none())
-            .zip(self.view.roof_offset())
-            .and_then(|(roof, offset)| Some((roof.mesh.as_ref()?, offset, roof)));
+            .filter_map(|(k, roof)| Some((roof.mesh.as_ref()?, self.view.roof_offset(k)?, roof)))
+            .collect();
         let storeys = self.drawn(only);
         // What is opaque, storey by storey; glass walls only have their tops drawn with it.
         for (part, offset, lights) in storeys.iter().filter(|_| solid) {
-            self.use_storey(program, *offset, lights, gain);
-            for mesh in part.meshes[..2].iter().flatten() {
-                mesh.draw(program, opaque_states, viewport);
-            }
+            self.use_storey(*offset, lights, gain);
+            self.draw_meshes(part.meshes[..2].iter().flatten(), opaque_states, viewport);
             if let Some(walls) = part.walls.as_ref() {
                 let pass = if glass_walls { 1.0_f32 } else { 0.0 };
                 program.use_uniform_if_required("u_wall_pass", pass);
@@ -1989,14 +2313,15 @@ impl Renderer {
                 ceiling.draw(program, opaque_states, viewport);
             }
         }
-        if let Some((mesh, offset, _)) = roof.filter(|_| solid && !glass_walls) {
-            self.use_storey(program, offset, &[], gain);
+        for (mesh, offset, _) in roofs.iter().filter(|_| solid && !glass_walls) {
+            self.use_storey(*offset, &[], gain);
             mesh.draw(program, opaque_states, viewport);
         }
         // The people stand among the furniture; not in a storey's picture. Those fading in or out
         // are dissolved pixel by pixel: with the ink, they come after it (their holes uninked).
         let people = match phase {
             Phase::Whole => Some(People::All),
+            Phase::Piece => None,
             Phase::Solid => Some(People::Solid),
             Phase::SeeThrough => self
                 .figures
@@ -2026,10 +2351,8 @@ impl Renderer {
             return;
         }
         for (part, offset, lights) in &storeys {
-            self.use_storey(program, *offset, lights, gain);
-            for mesh in part.meshes[2..].iter().flatten() {
-                mesh.draw(program, glass_states, viewport);
-            }
+            self.use_storey(*offset, lights, gain);
+            self.draw_meshes(part.meshes[2..].iter().flatten(), glass_states, viewport);
         }
         if glass_walls {
             // The faces of glass walls (and a glass roof), after everything else.
@@ -2040,17 +2363,19 @@ impl Renderer {
             };
             for (part, offset, lights) in &storeys {
                 if let Some(walls) = part.walls.as_ref() {
-                    self.use_storey(program, *offset, lights, gain);
+                    self.use_storey(*offset, lights, gain);
                     walls.draw(program, states, viewport);
                 }
             }
-            if let Some((mesh, offset, _)) = roof {
-                self.use_storey(program, offset, &[], gain);
+            for (mesh, offset, _) in &roofs {
+                self.use_storey(*offset, &[], gain);
                 mesh.draw(program, states, viewport);
             }
             program.use_uniform_if_required("u_wall_pass", 0.0_f32);
         }
-        set_offset(program, NO_OFFSET);
+        for program in self.surface_programs() {
+            set_offset(program, NO_OFFSET);
+        }
         if self.theme.line_strength > 0.0 {
             // Light lines keep the brightest of what is drawn where they cross (a partition's
             // line comes from both its rooms); dark lines the darkest. The glow keeps the most.
@@ -2077,7 +2402,9 @@ impl Renderer {
             let outlines = storeys
                 .iter()
                 .map(|(part, offset, _)| (part.lines.as_ref(), *offset));
-            let roof_lines = roof.map(|(_, offset, roof)| (roof.lines.as_ref(), offset));
+            let roof_lines = roofs
+                .iter()
+                .map(|(_, offset, roof)| (roof.lines.as_ref(), *offset));
             for (lines, offset) in outlines.chain(roof_lines) {
                 if let Some(lines) = lines {
                     set_offset(line, offset);
@@ -2101,6 +2428,11 @@ impl Renderer {
             halo.use_vertex_attribute("a_tint", &h.tints);
             halo.use_vertex_attribute("a_corner", &h.corners);
             halo.draw_elements(halo_states, viewport, &h.indices);
+        }
+        // What falls around the home, after the glass so that it shows in front of the windows;
+        // not in a storey's picture.
+        if only.is_none() {
+            self.draw_weather(viewport);
         }
         // Wires over everything, so that a link is seen through the walls it crosses; not in a
         // storey's picture.
@@ -2175,14 +2507,73 @@ impl Renderer {
             .hypot(max[1] - min[1])
             .hypot(max[2] - min[2])
             / 2.0;
-        let projection = camera.projection(aspect, radius.max(100.0));
+        let [r, g, b] = self.backdrop().1;
+        Some(self.offscreen(
+            storey,
+            &camera,
+            radius.max(100.0),
+            [width, height],
+            [r, g, b],
+            Phase::Whole,
+        ))
+    }
+
+    /// A picture of the first storey's pieces alone on `background` (sRGB 0–1), `width` ×
+    /// `height` device pixels, seen from in front of them, a little to their right and above
+    /// (`below`: under them, for what is fixed to a ceiling), and filling the picture: RGBA rows
+    /// from the top (the catalogue's pictures of a piece, D-074). `None` without a scene.
+    pub fn piece_picture(
+        &mut self,
+        width: u32,
+        height: u32,
+        background: [f32; 3],
+        below: bool,
+    ) -> Option<Vec<u8>> {
+        let bounds = self.view.storey_bounds(0)?;
+        let (width, height) = (width.clamp(16, 1024), height.clamp(16, 1024));
+        let aspect = f64::from(width) / f64::from(height);
+        let camera = piece_camera(bounds, aspect, if below { -0.5 } else { 0.42 });
+        let [min, max] = bounds;
+        let radius = (max[0] - min[0])
+            .hypot(max[1] - min[1])
+            .hypot(max[2] - min[2])
+            / 2.0;
+        // The picture is written in sRGB, as the shaders write it.
+        Some(self.offscreen(
+            0,
+            &camera,
+            radius,
+            [width, height],
+            background,
+            Phase::Piece,
+        ))
+    }
+
+    /// Draws storey `storey` alone, seen by `camera` (`reach`: how far it spreads around what
+    /// it looks at, cm), into a picture of `size` device pixels cleared to `clear` (sRGB): RGBA
+    /// rows from the top.
+    fn offscreen(
+        &mut self,
+        storey: usize,
+        camera: &Camera,
+        reach: f64,
+        [width, height]: [u32; 2],
+        clear: [f32; 3],
+        phase: Phase,
+    ) -> Vec<u8> {
+        let aspect = f64::from(width) / f64::from(height);
+        let projection = camera.projection(aspect, reach);
         // The view's frame state, as this picture needs it: its size, its cut-away, no sun
         // shadows (the shadow map has the storeys where the view shows them).
         let size = (self.width, self.height);
         (self.width, self.height) = (width, height);
-        let cuts = self.view.cuts_for(&camera);
+        let cuts = self.view.cuts_for(camera);
         let view_cuts = std::mem::replace(&mut self.view.cuts, cuts);
         let shadow = self.shadow.take();
+        // No weather on a storey's picture (clouds, fog, a flash): the storey as it is, whatever
+        // the sky.
+        let flash = std::mem::replace(&mut self.flash, 0.0);
+        let weather = std::mem::replace(&mut self.weather, Weather::CLEAR);
         self.set_main_uniforms(&projection, 0.0, 0.0, false);
         self.set_background_uniforms(&projection.view_proj, false, false);
         self.set_line_uniforms(&projection);
@@ -2204,34 +2595,28 @@ impl Renderer {
             Wrapping::ClampToEdge,
         );
         let target = RenderTarget::new(color.as_color_target(None), depth.as_depth_target());
-        let [r, g, b] = self.backdrop().1;
+        let [r, g, b] = clear;
         let viewport = Viewport::new_at_origo(width, height);
         let _ = target
             .clear(ClearState::color_and_depth(r, g, b, 1.0, 1.0))
             .write::<CoreError>(|| {
-                self.draw_passes(viewport, Some(storey), Phase::Whole);
+                self.draw_passes(viewport, Some(storey), phase);
                 Ok(())
             });
+        // three-d reads the rows from the top already (GL's go from the bottom).
         let pixels = target.read_color::<[u8; 4]>();
         (self.width, self.height) = size;
         self.view.cuts = view_cuts;
         self.shadow = shadow;
+        self.flash = flash;
+        self.weather = weather;
         self.view.dirty = true;
-        // GL rows go from the bottom.
-        let row = width as usize;
-        Some(
-            pixels
-                .chunks(row)
-                .rev()
-                .flatten()
-                .flat_map(|p| *p)
-                .collect(),
-        )
+        pixels.into_iter().flatten().collect()
     }
 
-    /// Draws storey parts moved by `offset` (cm), lit by `lights` (their colours times `gain`).
-    fn use_storey(&self, program: &Program, offset: [f64; 3], lights: &[PointLight], gain: f32) {
-        set_offset(program, offset);
+    /// Draws storey parts moved by `offset` (cm), lit by `lights` (their colours times `gain`),
+    /// with the main program and the garden's.
+    fn use_storey(&self, offset: [f64; 3], lights: &[PointLight], gain: f32) {
         let mut positions = [Vec4::new(0.0, 0.0, 0.0, 1.0); lamps::MAX_LIGHTS];
         let mut colors = [Vec4::new(0.0, 0.0, 0.0, 0.0); lamps::MAX_LIGHTS];
         for (i, lamp) in lights.iter().enumerate().take(lamps::MAX_LIGHTS) {
@@ -2240,13 +2625,44 @@ impl Renderer {
             let [r, g, b] = lamp.color;
             colors[i] = Vec4::new(r * gain, g * gain, b * gain, f32::from(lamp.room));
         }
-        if program.requires_uniform("u_light_pos") {
-            program.use_uniform_array("u_light_pos", &positions);
-            program.use_uniform_array("u_light_color", &colors);
-        }
         #[allow(clippy::cast_precision_loss)]
-        program
-            .use_uniform_if_required("u_light_count", lights.len().min(lamps::MAX_LIGHTS) as f32);
+        let count = lights.len().min(lamps::MAX_LIGHTS) as f32;
+        for program in self.surface_programs() {
+            set_offset(program, offset);
+            if program.requires_uniform("u_light_pos") {
+                program.use_uniform_array("u_light_pos", &positions);
+                program.use_uniform_array("u_light_color", &colors);
+            }
+            program.use_uniform_if_required("u_light_count", count);
+        }
+    }
+
+    /// Draws `meshes` with the main program, those with grounds of the garden with the garden's
+    /// (D-077), its textures bound for them.
+    fn draw_meshes<'a>(
+        &self,
+        meshes: impl Iterator<Item = &'a GpuMesh> + Clone,
+        states: RenderStates,
+        viewport: Viewport,
+    ) {
+        let garden = self.garden.as_ref();
+        for mesh in meshes.clone().filter(|m| !m.garden || garden.is_none()) {
+            mesh.draw(&self.main, states, viewport);
+        }
+        let Some(garden) = garden else {
+            return;
+        };
+        let mut bound = false;
+        for mesh in meshes.filter(|m| m.garden) {
+            if !bound {
+                self.bind_textures(garden);
+                bound = true;
+            }
+            mesh.draw(garden, states, viewport);
+        }
+        if bound {
+            self.bind_textures(&self.main);
+        }
     }
 
     /// The look's ink (D-036) over what is opaque, read from its resolved `depth`.
@@ -2459,6 +2875,50 @@ mod tests {
     use super::*;
 
     #[test]
+    fn the_garden_s_grounds_have_their_own_program() {
+        let mesh = |surface: Surface| Mesh {
+            extras: vec![[0, 1, 0, 0], [0, 1 | ((surface as u8) << 2), 0, 0]],
+            ..Mesh::default()
+        };
+        for surface in [
+            Surface::Grass,
+            Surface::Gravel,
+            Surface::Water,
+            Surface::Soil,
+            Surface::Paving,
+        ] {
+            assert!(has_garden(&mesh(surface)), "{surface:?}");
+        }
+        for surface in [
+            Surface::Matte,
+            Surface::Planks,
+            Surface::Leaf,
+            Surface::Ceiling,
+        ] {
+            assert!(!has_garden(&mesh(surface)), "{surface:?}");
+        }
+        // The main program leaves out what only the garden needs: its blocks open and close.
+        let main = shaders::FRAGMENT;
+        assert_eq!(main.matches("#ifdef GARDEN").count(), 4);
+        assert_eq!(
+            main.matches("#ifdef GARDEN").count(),
+            main.matches("#endif").count()
+        );
+        let mut without = String::new();
+        let mut rest = main;
+        while let Some(at) = rest.find("#ifdef GARDEN") {
+            without.push_str(&rest[..at]);
+            let end = rest[at..].find("#endif").unwrap() + at;
+            rest = &rest[end..];
+        }
+        without.push_str(rest);
+        for garden_only in ["lawn(", "gravel(", "surface == WATER"] {
+            assert!(main.contains(garden_only), "{garden_only}");
+            assert!(!without.contains(garden_only), "{garden_only}");
+        }
+    }
+
+    #[test]
     fn the_shaders_know_the_surfaces() {
         use domotwin_core::scene::mesh::Surface;
         let value = |source: &str, name: &str| {
@@ -2484,6 +2944,11 @@ mod tests {
             ("WOOD", Surface::Wood),
             ("LEAF", Surface::Leaf),
             ("CEILING", Surface::Ceiling),
+            ("GRASS", Surface::Grass),
+            ("GRAVEL", Surface::Gravel),
+            ("WATER", Surface::Water),
+            ("SOIL", Surface::Soil),
+            ("PAVING", Surface::Paving),
         ];
         for (name, surface) in surfaces {
             assert_eq!(value(shaders::FRAGMENT, name), surface as u8, "{name}");

@@ -28,6 +28,7 @@ pub mod structure;
 pub mod theme;
 pub mod upkeep;
 pub mod walk;
+pub mod weather;
 
 pub use error::{ErrorCode, ReadError};
 pub use plan::{Plan, PlanSummary, read_plan, summarize_plan};

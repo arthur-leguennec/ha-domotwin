@@ -1202,9 +1202,204 @@ slower). An administrator, the demo house and the sandbox have no gate. The inte
 where each device is once a request it checks (an action set or cancelled for later, the list of
 those waiting): 0.8 ms for the same plan (Python 3.14).
 
+### M40 (the weather around the home)
+
+Bundle: the first load is **545.0 kB gzipped** of 1 200 kB (+8.7 kB). The engine's wasm grows by
+7.2 kB (387.6 kB gzipped): the weather's shaders (3.1 kB of it, their comments kept as in every
+shader), what a condition means and the footprint, and the fog in the home's and the background's
+shaders. The page grows by 1.5 kB: reading the weather entity and its wind (a chunk of its own,
+0.7 kB gzipped, shared by the view and the Home tab), the view's and the settings' part, and the
+texts. The demo house's weather comes with the demo.
+
+What falls is drawn by the graphics card from its number alone: one instanced draw, six vertices
+a particle, no buffer and no work in the page or in the engine's frame but a dozen uniforms. Its
+counts by quality, rain when it pours: 1 200 (Eco), 3 000 (Balanced) and 6 000 (High); snow 900,
+2 200 and 4 000; hail 600, 1 500 and 3 000; fewer when less falls (two thirds for `rainy`). While something falls
+or a storm flashes, frames come at the layers' pace (24 a second), none while the page is hidden;
+clouds and fog are drawn once.
+
+Measured with the demo apartment at 1 000 × 700 on SwiftShader (software WebGL2, 60 frames each;
+CPU time of a frame, median and 95th percentile, and the interval between frames):
+
+| Quality | Weather | CPU median | CPU p95 | Interval median |
+| --- | --- | --- | --- | --- |
+| Eco | sunny | 0.4 ms | 1.4 ms | 16.7 ms |
+| Eco | pouring | 0.4 ms | 4.1 ms | 16.7 ms |
+| Eco | snowy | 0.3 ms | 1.4 ms | 16.7 ms |
+| Eco | fog | 0.3 ms | 0.8 ms | 16.7 ms |
+| Balanced | sunny | 0.3 ms | 1.4 ms | 16.7 ms |
+| Balanced | pouring | 0.4 ms | 2.8 ms | 16.7 ms |
+| Balanced | snowy | 0.4 ms | 2.5 ms | 16.7 ms |
+| Balanced | fog | 0.3 ms | 0.9 ms | 16.7 ms |
+
+The CPU's part of a frame does not change; the software GPU keeps up with every frame in every
+case. The 95th percentile of the CPU time moves by a few milliseconds from run to run on a shared
+core.
+
+### M41 (locating measured)
+
+Bundle: the first load is **545.2 kB gzipped** of 1 200 kB (+0.2 kB: the client's two commands
+and the pairing kept with a device). The measurements' texts and tables come with the Bluetooth
+settings, loaded when opened, which grow by 2.8 kB gzipped (7.1 kB): the figures' tables, their
+texts in both languages, the pairing with Bermuda and asking before starting again.
+
+The integration counts on the locating's tick, every two seconds: a tally per device and per way,
+no list of rooms or times. On a 2.1 GHz Xeon core of the CI's kind (the mean of 3 000 ticks), the
+measurements add about **0.12 ms** to a tick for 30 devices (the most followed) each paired with
+Bermuda, whether Bermuda's sensors give their area's id or its name (the areas' names are indexed
+when the plan or the areas change); the figures take about 0.15 ms when asked for. They add about
+470 bytes a device to `domotwin.locating_learned`, written ten minutes after they change at most.
+
+### M17 (a library of objects)
+
+Bundle: the first load is **601.0 kB gzipped** of 1 200 kB (+55.9 kB). The engine grew by 52.5 kB
+(`domotwin_web_bg.<hash>.wasm`: 1 062.4 kB raw, 440.1 kB gzipped, from 896.9 kB and 387.6 kB):
+the 61 new kinds and 54 new styles are code, and the code of the pieces went from 47.6 kB to
+190.3 kB before `wasm-opt`, most of it the floats of their parts (keeping the painter's helpers
+out of line changes nothing: they already are). The kinds' names in both languages, the devices'
+suggestions and the badges' icons add 3.4 kB to the first load. The catalogue's chunk grows to
+8.5 kB gzipped (+4.1 kB, on demand): the library's groups, styles and search words in both
+languages, and the drawing of its pictures. The plan editor's wasm (99.1 kB, +3.7 kB) and the
+import's (285.9 kB, +5.6 kB) read the new kinds.
+
+A piece is built once, when the plan is: nothing of the library runs at each frame. Every piece in
+every style is tested alone at its usual size (`cargo test -p domotwin-core --test scene`): at most
+1 600 triangles, the new ones at most 1 202 (the wine cooler, its bottles behind glass); the 195
+pieces are 71 884 triangles together, 369 each on average. The demo apartment is unchanged
+(12 551 triangles). The demo house, with fourteen pieces of the library more, is 19 286 triangles
+on its ground floor (from 15 440) and 15 510 upstairs (from 14 146).
+
+The catalogue's pictures are drawn when it opens, by a second engine on a hidden canvas
+(headless Chromium, SwiftShader, the panel at 1 000 × 700 on the demo apartment's plan in edit
+mode, measured from the tap on *Add*): the first twelve, the pieces shown first, come in 4.5 s,
+most of it the second engine compiling its shaders on the software GPU (a GPU compiles them in a
+fraction of that); then about 20 ms each, all 195 in 8.1 s. They are drawn a few each frame within
+10 ms, one a frame when one takes longer: the page's longest frame meanwhile is 333 ms, while a
+shader compiles, the others under 85 ms. A picture is a 272 × 204 PNG of 17 kB on average (3.4 MB
+for the 195), kept for the session: opened again, the catalogue shows them all in 0.2 s. Without a
+second WebGL context the pieces go without pictures; the engine and its context are given back
+when the catalogue closes.
+
+### M45 (an iPhone's key without a Mac)
+
+Bundle: the first load is **601.2 kB gzipped** of 1 200 kB (+0.2 kB: the client's command and the
+three refusals' texts). The Bluetooth settings, loaded when opened, grow by 1.5 kB gzipped
+(8.6 kB): the key's field, its texts in both languages and the link to the guide. Nothing runs
+until a key is added: the integration reads it and runs Private BLE Device's setup once.
+
+### M26 (the wall screen)
+
+Bundle: the first load is **604.0 kB gzipped** of 1 200 kB (+2.8 kB: the screens' reading and
+choosing, the wait and the wake, the menu's entry and their texts). The screen saver is a chunk
+of its own, loaded the first time it comes (6.0 kB gzipped, its fifteen weather pictures written
+into it: taken from `@mdi/js`, they would have joined the first load's icons, +2.8 kB); the wall
+screens' dialog another (4.4 kB), with Home Assistant's media read by a module both share. The
+practical tabs' chunk shrank by 2.4 kB: their texts, which the saver shares for the weather's
+words, are a chunk of their own. While the saver shows, the 3D view is not drawn; a device that is
+not a wall screen only asks itself every 5 s whether it is one.
+
+### M18 (the outdoors)
+
+Bundle: the first load is **650.4 kB gzipped** of 1 200 kB (+46.4 kB). The engine's wasm grows by
+43.6 kB (483.7 kB gzipped): the garden's 22 kinds and their styles (the most of it), the roofs in
+wings and their four shapes, the grounds' shaders (grass, gravel, paving, soil, water, in a program
+of their own: below), the robot mower and the places outside's walls, labels and ways. The page
+grows by 2.8 kB: the lawns' growth,
+the garden's reading, the mowers' docks, the roof's settings and the texts. On demand, the demo
+house's garden comes with the demo (+1.8 kB), the catalogue's *Garden* group with edit mode
+(+0.8 kB), and the plan editor's wasm (100.9 kB, +1.8 kB) and the import's (287.5 kB, +1.6 kB)
+read the new fields and kinds.
+
+The demo house's ground floor, with its garden (five places outside, 26 garden pieces), is 36 284
+triangles (from 23 306). Measured at 1 000 × 700 on SwiftShader (software WebGL2), the demo's
+morning, 60 frames each (CPU time of a frame, median and 95th percentile, and the interval between
+frames):
+
+| Quality | | Triangles | CPU median | CPU p95 | Interval median |
+| --- | --- | --- | --- | --- | --- |
+| Eco | before (M26) | 23 306 | 0.5 ms | 1.6 ms | 267 ms |
+| Eco | with the garden | 36 284 | 0.6 ms | 3.8 ms | 250 ms |
+| Balanced | before (M26) | 23 306 | 0.5 ms | 2.4 ms | 300 ms |
+| Balanced | with the garden | 36 284 | 0.6 ms | 1.6 ms | 300 ms |
+
+The CPU's part of a frame barely moves: the garden is built once, with the plan. The software GPU
+is the interval's bottleneck, with or without the garden. The grass, gravel and water are drawn by
+the floor's shader from the surface their vertices carry: no texture, no extra pass.
+
+A software GPU runs every branch of a shader, taken or not: with the garden's grounds in the main
+program, a home without a garden drew each frame 10 to 35 % slower on SwiftShader (the GPU's part
+of a frame, read back, the demo apartment at Eco: 260 to 364 ms from 224 to 302 ms). They are now
+in a variant of it, compiled once a scene has them and used for the meshes that have them only:
+224 to 279 ms (M26: 224 to 287 ms), and the demo house's garden is drawn as before (208 ms). A robot mower
+moves as a robot vacuum does (frames at the layers' pace while it moves, none on its dock); its way
+round the house is worked out once, when it leaves (the storey's floor with the home's rooms
+closed), as a vacuum's is (the places outside closed). The lawns' grass is worked out in the page every ten minutes and sent when it changed.
+
+### M44 (split levels and walk-out basements)
+
+Bundle: the first load is **651.6 kB gzipped** of 1 200 kB (+1.2 kB). The engine's wasm grows by
+0.8 kB (484.5 kB gzipped): the retaining walls and the floors counted where a storey lies over
+another, which the placement advisor's module counts too (108.2 kB, +0.8 kB). The page's half
+levels' names are a few lines.
+
+Counting a floor where it is crossed costs a look at each storey's rooms at a point per storey
+crossed (its rooms listed once, with the home), instead of a difference of ranks. The integration's
+model of what each receiver should hear in each room (the locating's prior, D-035), on the demo
+house (two storeys, 18 rooms, 4 receivers): **21.7 ms** (19.6 ms before); on the fictional
+split-level house (three levels, 17 rooms, 4 receivers): 20.0 ms. It is worked out when the plans
+or the receivers change, not on the locating's tick. The retaining walls are a few boxes, built once
+with the home's scene, each side's ground looked for among the gardens high enough over it only.
+
+### M42 (finer locating)
+
+Bundle: the first load is **653.0 kB gzipped** of 1 200 kB (+1.4 kB). The engine's wasm grows by
+1.3 kB (485.8 kB gzipped): a figure stands at the spot its person's phone is at, the nearest place
+clear of the furniture and of the others in the room. The page's part is a few lines.
+
+The work is the integration's (D-079), measured on the fictional demo house (two storeys and a
+garden, 4 receivers) in Python:
+
+| | |
+| --- | --- |
+| The plans in cells (1 390 cells of 50 cm) | 64 ms |
+| What each receiver should hear in each cell | 178 ms |
+| A device's cloud at a reading, in the living room (84 cells kept) | 0.8 ms (1.8 ms at most) |
+| A device's cloud at a reading, in the back garden (325 cells kept) | 2.8 ms (4.5 ms at most) |
+
+The cells and what each receiver should hear in them are worked out with the rooms', in Home
+Assistant's executor, when the plans or the receivers change (not when a registry changes alone):
+about 60 ms a receiver on the demo house. A step from a cell to another room is checked for the
+walls on its way; the locating's walls now skip the rooms whose box the line misses, which makes
+the rooms' expectations faster too (14.1 ms on the demo house, 22.6 ms before). A reading costs a
+device a millisecond or a few more, every two seconds, in Home Assistant's loop: ten phones in the
+garden at once, about 30 ms every two seconds. Pure Python, no numeric library: the cloud lives
+around the room told (its 400 likeliest cells) rather than over the whole home. The spot is
+written again only once it moved a metre (or its accuracy changed by a quarter), and not recorded
+in the history.
+
+### M43 (presence radars merged)
+
+Bundle: the first load is **653.3 kB gzipped** of 1 200 kB (+0.3 kB): the people the radars see,
+read from their sensor and handed to the engine as figures. The Bluetooth settings, loaded when
+opened, list the radars (9.6 kB gzipped for the whole dialog). The engine is unchanged.
+
+The work is the integration's (D-080), measured on the fictional demo house's living room with one
+radar seeing three people, in Python:
+
+| | |
+| --- | --- |
+| What the radars see (their targets on the plan, merged) | 0.02 ms |
+| The weights of a cloud's cells from it (304 cells) | 0.32 ms |
+
+The radars are read a second after one of their entities changes at most, and at the locating's
+two-second readings; the cells' weights are worked out once a reading for every device. A
+person's spot where a radar sees them is told again every half metre, and the people no device
+names likewise, not recorded in the history: about one write a second while someone walks, none
+while they stand.
+
 ### M37 (the weekly report)
 
-Bundle: the first load is **536.9 kB gzipped** of 1 200 kB (+0.6 kB): the menu item, its text and
+Bundle: the first load is **653.9 kB gzipped** of 1 200 kB (+0.6 kB): the menu item, its text and
 the address the notification's link opens. The page, its texts in both languages and the plans
 drawn as SVG come on demand the first time it opens (`chunks/report-dialog-<hash>.js`: 34.6 kB
 raw, 9.9 kB gzipped).

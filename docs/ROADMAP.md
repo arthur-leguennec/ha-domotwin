@@ -58,18 +58,18 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M24       | History and energy, with Home Assistant's own cards        | ✅     |
 | M35       | Automations in plain words, played in the sandbox first    | ✅     |
 | M34       | Per-person rights: what DomoTwin shows each one            | ✅     |
-| M37       | A weekly home report                                       | ✅     |
-| M40       | The weather around the home, in 3D                         | ⏳     |
-| M41       | Locating measured, next to Bermuda's on the same days      | ⏳     |
-| M45       | An iPhone's key, without a Mac: the ways to get it         | ⏳     |
-| M26       | The wall screen: a screen saver, a layout per device       | ⏳     |
+| M40       | The weather around the home, in 3D                         | ✅     |
+| M41       | Locating measured, next to Bermuda's on the same days      | ✅     |
+| M17       | A library of objects: many pieces, free and well made      | ✅     |
+| M45       | An iPhone's key, without a Mac: the ways to get it         | ✅     |
+| M26       | The wall screen: a screen saver, a layout per device       | ✅     |
+| M18       | Outdoors: garden, terrace, lawn, pool, roofs               | ✅     |
+| M44       | Split levels and walk-out basements                        | ✅     |
 | M22       | A first launch in five minutes                             | ⏳     |
 | 0.5.0     | Fifth release: all of the above                            | ⏳     |
-| M42       | Finer locating: a spot in the room, storeys by the stairs  | ⏳     |
-| M43       | mmWave sensors merged into one picture of the home         | ⏳     |
-| M17       | A library of objects: many pieces, free and well made      | ⏳     |
-| M18       | Outdoors: garden, terrace, lawn, pool, roofs               | ⏳     |
-| M44       | Split levels and walk-out basements                        | ⏳     |
+| M42       | Finer locating: a spot in the room, storeys by the stairs  | ✅     |
+| M43       | mmWave sensors merged into one picture of the home         | ✅     |
+| M37       | A weekly home report                                       | ✅     |
 | M21       | More languages, right to left too                          | ⏳     |
 | 0.6.0     | Sixth release: all of the above                            | ⏳     |
 
@@ -113,8 +113,14 @@ Automations in plain words (M35) came next, at the maintainer's request (D-070),
 plays its drafts in.
 Per-person rights (M34, D-071) followed: what DomoTwin shows each person and lets them do, set in
 one place, and said not to be Home Assistant's enforcement.
-The maintainer then asked for the weekly report (M37, D-072), which reports Hydro-Québec's peaks
-of the week and each room's energy with the rest.
+After the weather around the home (M40, D-072) and locating measured (M41, D-073), the library of
+objects (M17) was moved forward as well (D-074). An iPhone's key without a Mac (M45, D-075) and the
+wall screen (M26, D-076) closed M24 to M26 and D-065's order. The maintainer then asked for the
+outdoors (M18, D-077) before the first launch in five minutes too, and split levels (M44, D-078)
+right after it, whose ground they share; then finer locating (M42, D-079) and the mmWave sensors
+merged (M43, D-080), before more languages (M21) and the first launch (M22).
+The weekly report (M37, D-081), asked for by the maintainer, came after them: it reports
+Hydro-Québec's peaks of the week and each room's energy with the rest.
 
 ## M0, scaffold
 
@@ -1320,7 +1326,7 @@ stored; nothing shown without them.
   (Rust, wasm); nothing without an integration, a peak's rooms and legend, the pre-heating, the
   Home tab's chip and the way to 3D, hydroqc's calendar in French, the peak's day in the sandbox
   from *The day* and from the Home tab (Playwright).
-- ✅ The week's peaks in the weekly report, with **M37** (D-072, below): each peak, and what the
+- ✅ The week's peaks in the weekly report, with **M37** (D-081, below): each peak, and what the
   home drew from the grid and each room during it.
 
 ## M20, more imports
@@ -1547,7 +1553,7 @@ D-069). After safety (M25), ahead of M40, M41 and M45 (D-065's order), at the ma
   back to the room, the graphs from a room's panel in 3D and back there, a private room, the
   Energy tab and back, none without an Energy page or with nothing set up, the demo house's power
   layer and plain rows, a phone in French (Playwright).
-- ✅ A room's energy over the week on the plan, with the weekly report (**M37**, D-072, below).
+- ✅ A room's energy over the week on the plan, with the weekly report (**M37**, D-081, below).
 - Left for later: graphs of a device from its controls in 3D (its history report is there, M38).
 
 ## M35, automations in plain words
@@ -1641,10 +1647,262 @@ D-056's question (❓5) answered: DomoTwin's own, said plainly not to be enforce
 - Left for later: a preview of the home as someone sees it; rights by time of day (a private room
   while an entity is on already does it for a room); enforcement, which needs Home Assistant.
 
+## M40, the weather around the home
+
+Asked for by the maintainer after 0.4.0: a beautiful animation of the weather around the house or
+the apartment, the rain outside an apartment, on the roof of a house (D-065, D-072).
+
+- ✅ **Read from Home Assistant**: the `weather` entity the Home tab shows (`weather.home` first),
+  or one chosen in the settings, or none; its condition, its wind (any of Home Assistant's units,
+  Beaufort too) and where it comes from (degrees or a point of the compass), turned with the
+  home's north. A card turns it off with `weather: false`.
+- ✅ **Drawn by the engine**: rain in streaks that splash, snow in soft flakes that sway, hail,
+  sleet; a greyer, dimmer light under clouds, the sun's shadow on the ground fading with it; fog
+  thickening around the home; a storm's flashes. Around an apartment and never in it, on the roof
+  of a house and off its eaves; seen from inside, through the windows. Nothing on the 2D plan nor
+  on a storey's picture.
+- ✅ **Light**: one instanced draw worked out by the graphics card, a few thousand particles at
+  most, fewer in Eco; frames at the layers' pace while something falls, none for clouds and fog;
+  still with reduced motion.
+- ✅ **The demo house** has its weather: a fine day, a shower and a storm around three.
+- ✅ Tests: conditions, wind and flashes (cargo); the footprint, the counts, the light under clouds
+  (cargo); rain, snow, storms and the plan in the engine (wasm); the wind's units and bearings, the
+  entity chosen or the usual one, the demo's day (vitest); the settings' `weather` validated
+  (pytest); rain, snow, hail and fog drawn and still, an entity that says nothing, the card's
+  option, the settings' choice shown as it is chosen and saved, in French (Playwright).
+
+## M41, locating measured
+
+Before any new locating feature (D-065): how well DomoTwin finds rooms, in figures, with Bermuda's
+beside (D-073, [`bluetooth.md`](bluetooth.md)).
+
+- ✅ **Counted every two seconds** by the integration, for each device followed: hours followed,
+  room changes and storey changes per hour, stays shorter than 30 seconds, the share of the time
+  in no room. Counters only; kept with what is learned, across restarts, until started again.
+- ✅ **Bermuda beside**: each device paired by hand with Bermuda's area sensor of the same device,
+  counted the same way on the same ticks, DomoTwin's rooms counted by area beside it to compare
+  alike, and how often the two say the same area.
+- ✅ **A witness**: while one person alone is home and one room alone has its presence sensor on,
+  their phones and watches are taken to be there; the share of that time each way was right.
+- ✅ **Shown as figures only**: a small table per device in the Bluetooth settings, DomoTwin's and
+  Bermuda's columns; *Copy as a table* gives a Markdown table, the devices numbered, for the
+  guide; the diagnostics carry the same, without the devices' ids.
+- ✅ Tests: the tallies (changes between known rooms only, storeys, flickers, time in no room, the
+  rooms settling, by area, pauses, devices forgotten, kept and read back, what is wrong read as
+  nothing), the witness and Bermuda side by side, the pairing checked (Bermuda's, one device's),
+  saved within ten minutes, the diagnostics without names (pytest); the copied table, numbered and
+  sorted, the texts in both languages (vitest); the figures shown, copied, a device paired and
+  saved, started again once asked, in French (Playwright).
+
+Measured at the end of M41: see [`PERFORMANCE.md`](PERFORMANCE.md). Left for the maintainer: the
+figures of a real home, with Bermuda's, published in [`bluetooth.md`](bluetooth.md).
+
+## M17, a library of objects
+
+Many more pieces, free and well made, drawn from real references, still fast; moved forward by the
+maintainer (D-074).
+
+- ✅ **The pieces**: 61 kinds more (117) and 54 styles more (78): 195 pieces, from a corner sofa, a
+  piano and a wood stove to a heat pump, a water heater, an electrical panel, an EV charger and a
+  car, the smart home's devices (speakers, a wall tablet, a thermostat, sensors, a smoke detector,
+  cameras, a router), new lights (a wall light, a light strip, a track light), fitness and pets.
+  Each is DomoTwin's own code, drawn from its size: nothing downloaded, nothing to license.
+- ✅ **From real references**: each kind and style at the usual size, lift and colour of the real
+  piece (a soundbar 90 × 10 × 7 cm, a thermostat at 1.45 m, a Chesterfield oxblood), its common
+  form rather than one maker's design. A style can have its own size, colour and lift, which the
+  catalogue adds a piece at.
+- ✅ **Well made**: turned, bent and extruded parts (`lathe`, `pipe`, `slab`); every piece in every
+  style closed, lit from the right side, at most 1 600 triangles and within 3 cm of its footprint.
+- ✅ **The catalogue as a library**: fourteen groups by room or use; each kind and style with its
+  picture, name and size; a search through names, styles and other words in English and French,
+  accents ignored. The pictures are drawn by the engine in the view's look and accent, a few each
+  frame, kept for the session; none without a second WebGL context.
+- ✅ **Live and edit mode**: the new lights are switched like the others, an aquarium lights cool, a
+  fireplace burns while what it is linked to is on or heats; linking suggests what each device is;
+  small appliances show their *running* badge with their icon; new pieces carry or stand on others.
+- ✅ **Imports**: the new kinds read from the names of Sweet Home 3D's, IFC's and DXF's pieces, and
+  RoomPlan's ovens and fireplaces.
+- ✅ **The demo house** has some of them: a rug, a TV stand, a speaker, a heat pump, a coffee
+  machine, a kettle, a monitor, a wall tablet, a thermostat, a coat rack, a water heater, a laundry
+  basket, two rugs and a towel radiator upstairs.
+- ✅ Fixed on the way: the pictures of the storeys were drawn upside down.
+- ✅ Tests: every piece in every style alone (closed, lit, triangles, footprint), the turned, bent
+  and extruded shapes, the styles' sizes, colours and lifts, a piece added in its style, the
+  aquarium's light, a fireplace burning, the kinds of the imports' names and RoomPlan's
+  categories, what stands on what, the demo house (Rust); the catalogue's styles, a styled piece
+  added, a picture of every piece in every style, its rows from the top (wasm); the groups, the
+  search, every style named in both languages, the devices' suggestions and badges (vitest); the
+  pictures, a Chesterfield added at its size and colour, the search in French and a soundbar
+  (Playwright).
+- Measured: the engine grows by 52.5 kB gzipped and the first load is 601.0 kB of 1 200; a new
+  piece is at most 1 202 triangles (the wine cooler), the demo house's ground floor 19 286
+  (+3 846); the catalogue's 195 pictures take 8.1 s in software WebGL (the first twelve 4.5 s, most
+  of it the second engine's shaders), then come back at once ([`PERFORMANCE.md`](PERFORMANCE.md),
+  M17).
+- Left for later: pictures of one's own 3D models in *My models*; the outdoors' pieces, with
+  **M18**; the other words of the search in more languages, with **M21**.
+
+## M45, an iPhone's key without a Mac
+
+Next to locating measured (D-065): an iPhone or an Apple Watch followed without a Mac to read its
+identity key from (D-075, [`bluetooth.md`](bluetooth.md)).
+
+- ✅ **The ways to get it**: a Mac's Keychain, or an ESP32 for ten minutes with irk-capture (an
+  ESPHome package) or ESPresense's Enroll, said in a line in the Bluetooth settings and step by
+  step in the guide, linked from there. DomoTwin builds no firmware of its own.
+- ✅ **The key as the tool wrote it**: hex (spaces, colons or dashes between the digits are fine),
+  `irk:` and hex, or a Mac's base64; refused when it is none.
+- ✅ **Handed to Private BLE Device**, which keeps it: its own setup run with the key; a key it
+  already has gives its entry back; not heard, no Bluetooth or refused, said plainly. DomoTwin
+  keeps nothing of the key, never shows it again nor says it in an error.
+- ✅ **Then followed**: the device added to the devices followed, by its entry's title, its kind
+  and owner chosen before saving.
+- ✅ Tests: the key in each form and what is not one (pytest); Private BLE Device's setup run,
+  aborted without Bluetooth, the device not heard (its setup closed), the entry created, a key
+  already there, never said back (pytest); the texts in both languages (vitest); a key not one,
+  not heard, then a Mac's base64 added and followed, again already followed, saved without the
+  key, in French (Playwright).
+
+Measured at the end of M45: see [`PERFORMANCE.md`](PERFORMANCE.md).
+
+## M26, the wall screen
+
+A device left on a wall: on its own tab, and, when nobody is there, the time, the weather and the
+family's photos, gone as soon as someone is (D-076, [`wall-screen.md`](wall-screen.md)).
+
+- ✅ **A layout for each screen**, kept by the integration (20 at most), set by administrators
+  from the ⋮ menu (or the Home tab, without a plan): the tab it opens on; its screen saver after
+  how long, woken by which motion, occupancy or presence sensors, with the weather or not, the
+  photos of which folder of Home Assistant's media and for how long each, dimmed at night or not.
+- ✅ **A device becomes a screen** in *Your choices*: it opens on the screen's tab, answers the
+  `domotwin.show` requests naming the screen, shows the Wi-Fi where it is one of its screens, and
+  runs its saver. A screen keeps its name; one removed is said so on its devices.
+- ✅ **The saver**: the time and the day (moved a little every minute), the weather in words and
+  picture, the photos cross-faded and slowly brought closer, read again for those added; at night
+  the clock alone, dimmed. Comes back to the screen's tab; never while a tool runs or a doorbell
+  rings; under it the 3D view is not drawn. Gone on a tap or a key (which do nothing else), a
+  sensor on, a doorbell, a `domotwin.show` for the screen.
+- ✅ Tests: the layouts kept, read whatever their case, checked, refused (a name taken, too many,
+  a sensor or a folder that is none), told to the screens, counted in the diagnostics (pytest);
+  the layouts and Home Assistant's media read, the wait, the sensors, the night, the order of the
+  photos, the clock's moves, the texts in both languages (vitest); a screen set and a device made
+  it, the saver coming and going (motion, a tap, a key, the doorbell), `domotwin.show` for this
+  screen or another, without a plan, at night in French (Playwright).
+- Left for later: the screen's light itself (Fully Kiosk Browser's own settings do it); the
+  saver and the doorbell on a dashboard's card.
+
+Measured at the end of M26: see [`PERFORMANCE.md`](PERFORMANCE.md).
+
+## M18, the outdoors
+
+The garden, the terrace and the roofs: places outside, the garden's pieces, the lawn as long as it
+has grown and the robot mower going round, and roofs that follow the house (D-077,
+[`outdoors.md`](outdoors.md)).
+
+- ✅ **Places outside** (`outside` on a room): no walls, no ceiling, no roof; the rooms beside
+  them have façades; a garden may be drawn around the house (the room wins where they overlap, the
+  smaller place outside between two). Their grounds: a lawn, decking, paving, gravel, soil, a lawn
+  a little under the floors; a railing along a balcony's free sides. In the plan editor:
+  *Outside*, its ground, *Railing*.
+- ✅ **The garden's pieces**: 22 kinds in a *Garden* group of the catalogue, up to 10 m tall,
+  linked as the others are (a garden light, a fire pit, a gate that opens, a pool's pump).
+- ✅ **Roofs storey by storey**, over what no storey above covers, in wings that meet (an L, a T),
+  their shape (gable, hip, shed, flat), slope and colour chosen in the settings; the weather falls
+  on them.
+- ✅ **The lawn grows** with the season where the home is, from its last mowing: said by anyone
+  in its panel (*Just mowed*), or noted by the integration when its robot mower stops mowing.
+- ✅ **The robot mower**: a `robot-mower` dock linked to a `lawn_mower`, mowing the lawns its
+  robot can get to, keeping out of the house.
+- ✅ **The demo house's garden**: a terrace, two lawns, a pool, trees, a shed, its mower, the
+  garden lit at dusk, the gate.
+- ✅ Tests: places outside read, walled, drawn, walked, swept and counted by the radios, the
+  garden's pieces drawn in every style, the roofs in wings with the rain on them, the mower round the
+  house (cargo); the garden's store, its mowers noted, its commands checked (pytest); the grass's
+  growth by season and latitude, the mowers' docks, the garden's links (vitest); the demo's
+  mower, a lawn said mown, a place outside drawn, the roof chosen (Playwright).
+- Left for later: the grass browning or growing after rain; a mower's real position. (The ground's
+  height on each side of the home came with M44, below.)
+
+Measured at the end of M18: see [`PERFORMANCE.md`](PERFORMANCE.md).
+
+## M44, split levels and walk-out basements
+
+A home on more than one level that is not one storey over another: a split level, half a flight of
+stairs between its levels, and a basement opening onto its garden on one side (D-078,
+[`storeys.md`](storeys.md#split-levels-and-walk-out-basements)). Moved before the first launch, at
+the maintainer's request.
+
+- ✅ **A floor counted where one level lies over the other**: the Bluetooth locating and the
+  placement advisor count a storey's floor only where the line between two places goes through it
+  under one of that storey's rooms, at its height; a half level beside another is a wall away, not
+  a floor.
+- ✅ **Half levels named as such**: a storey less than 1.8 m over or under the last full one is
+  a half level (*Half level up*, *Half level down*, *Floor 1½*…), **½** on its button.
+- ✅ **The ground on each side**: a garden drawn on the lower level is the ground on that side; a
+  retaining wall of stone stands where it meets the higher ground of the storey above.
+- ✅ **Half flights**: stairs that land beside the other level, not over it, lead to its nearest
+  room (the locating's ways from room to room).
+- ✅ **A fictional split-level house** in `examples/` (`split-level-lower`, `-entry`, `-upper`), with
+  its tests: its floors and walls counted alike by the core and the integration, its retaining
+  wall, its roofs (cargo, pytest); its levels named (vitest).
+- Left for later: a garden that slopes (a ground with its own height across it); rain on a lower
+  garden falls to the upper ground's height; a storey shown alone draws no retaining wall.
+
+Measured at the end of M44: see [`PERFORMANCE.md`](PERFORMANCE.md).
+
+## M42, finer locating
+
+Where in the room a device is, not only which room (D-079,
+[`bluetooth.md`](bluetooth.md#where-in-the-room)), at the maintainer's request after split levels.
+
+- ✅ **Half-metre cells over the plans**, each leading to the cells around it in its room, through
+  doors and sides left open, and up or down the stairs: never through a wall.
+- ✅ **A cloud of likely cells** around the room told, weighed reading by reading with the plan's
+  radio model, what was learned of each room, the device's own loudness and the presence sensors.
+- ✅ **The spot**: the device sensor's `x`, `y`, `z` and `accuracy` (metres), written again once it
+  moved a metre or its accuracy changed by a quarter, not kept in the history; a person placed by
+  their phone stands there in the views.
+- ✅ **Storeys by the stairs**: the room filter reaches another storey through the rooms stairs
+  join only, where the plan has stairs that lead there.
+- ✅ Tested: the cells and their ways, the cloud finding a phone in a corner within a metre, the
+  storeys reached by the stairs, the sensor's and the person's spot (pytest); a figure standing at
+  its spot and walking as it moves (cargo); the spot handed to the engine (vitest).
+- Left for later: a cloud over the whole home at once; the spot measured at home with M41.
+
+Measured at the end of M42: see [`PERFORMANCE.md`](PERFORMANCE.md).
+
+## M43, presence radars merged
+
+Who is where: Bluetooth says who, mmWave says where, and fast (D-080,
+[`bluetooth.md`](bluetooth.md#presence-radars)), right after finer locating, whose cells it weighs.
+
+- ✅ **A radar placed by its piece**: linked to its device or entities, it stands where the piece
+  is and looks the way its front faces, across the link's angle of view and reach; its room is
+  the piece's own. *Mirrored* for one that counts across the other way.
+- ✅ **Each for what it says**: an LD2450's or an Everything Presence Lite's targets turned into
+  the plan's coordinates (none behind a wall or out of its field), an LD2410's distance as a ring,
+  zones and an FP2's occupancy as presence sensors of their rooms; lengths in their units.
+- ✅ **Merged**: two radars seeing one person make one; a room where someone is seen weighs as a
+  presence sensor on; the cells near them likelier in a carried device's cloud, those of a radar
+  saying nobody less likely.
+- ✅ **Who each is**: the nearest person told in the room (a phone and a watch are one), their
+  devices' spot then the radar's, told again every 50 cm; the others someone.
+- ✅ **One picture**: `sensor.domotwin_people_seen` (how many, and where those no device names
+  are, not recorded, nothing of a private room); grey figures in the views, where people are
+  shown; the radars in the Bluetooth settings, what each says and sees.
+- ✅ Tested: what a radar's entities say, its targets on the plan, the people they make, the
+  cells' weights, a phone's spot pulled to the person seen (pytest); a radar on the demo
+  apartment's bookcase seeing Alex and a guest, a phone and a watch one person, a private room,
+  mirrored, a distance radar (pytest); the figures and the settings (vitest, e2e).
+- Left for later: the radars' zones and fields drawn on the plan; the picture measured at home with
+  M41.
+
+Measured at the end of M43: see [`PERFORMANCE.md`](PERFORMANCE.md).
+
 ## M37, a weekly home report
 
-Once a week, what needs a look in the home, room by room on the plans (`DECISIONS.md`, D-072;
-[`report.md`](report.md)). Moved forward by the maintainer, after per-person rights (M34).
+Once a week, what needs a look in the home, room by room on the plans (`DECISIONS.md`, D-081;
+[`report.md`](report.md)). Moved forward by the maintainer, after presence radars merged (M43).
 
 - ✅ **Written by the integration**, on the day and at the hour an administrator chose (Monday at
   8), where the home is: no screen open. Looked for every hour; a week missed written once Home
@@ -1719,34 +1977,29 @@ before its milestone starts, which goes on with what needs no answer.
   Assistant; whether the Home and Rooms tabs stay where the Overview is.
 - ✅ **M24, history and energy** (D-069, above). Replay, the home's past in 3D (M19), stays a 3D
   feature, later.
-- ⏳ **M40, the weather around the home** (asked for by the maintainer): the weather of Home
-  Assistant's `weather` entity drawn around the home in 3D: rain or snow falling outside the walls
-  of an apartment and splashing on the ground around it, on the roof of a house and running off it;
-  a storm's flashes, fog, an overcast light, the wind slanting what falls. Drawn by the engine,
-  light on a phone, still with reduced motion and in Eco; a card's `weather` option, the entity
-  chosen in the settings.
-- ⏳ **M41, locating measured** (D-065), before any new locating feature: a diagnostic for
-  administrators that records, for each device followed, its room changes per hour, its storey
-  changes per hour and its time in "unknown", and, where Bermuda is installed, the same figures
-  from Bermuda's area sensors for the same devices over the same hours. Shown in the Bluetooth
-  settings and in the diagnostics, as figures only: no addresses, no names. The maintainer runs it
-  at home and the figures are published in `docs/bluetooth.md`, as they are, whichever way they
-  fall. Small, so it comes soon after 0.4.0.
-- ⏳ **M45, an iPhone's key without a Mac** (D-065): in the Bluetooth settings, for an iPhone or an
-  Apple Watch, the ways to get its identity key: the Mac's Keychain; an ESP32 flashed for ten
-  minutes with an existing tool, irk-capture (an ESPHome package, MIT, explained in Home Assistant's
-  [community
-  guide](https://community.home-assistant.io/t/guide-grabbing-your-phone-watch-bluetooth-irks-2026-edition/968791))
-  or [ESPresense](https://espresense.com/beacons/apple)'s *Enroll* (AGPL); and a field that takes
-  the key in any of their forms (hex, a Mac's base64, `irk:…`) and hands it to Home Assistant's
-  Private BLE Device. Checked first: those tools exist, work without a Mac and are kept up, so
-  DomoTwin links to them rather than building a firmware of its own; one of its own only if they
-  stop being kept.
+- ✅ **M40, the weather around the home** (asked for by the maintainer, D-072, above): the weather
+  of Home Assistant's `weather` entity drawn around the home in 3D: rain or snow falling outside the
+  walls of an apartment and splashing on the ground around it, on the roof of a house and running
+  off it; a storm's flashes, fog, an overcast light, the wind slanting what falls. Drawn by the
+  engine, light on a phone, still with reduced motion, fewer particles in Eco; a card's `weather`
+  option, the entity chosen in the settings.
+- ✅ **M41, locating measured** (D-065, D-073, above), before any new locating feature: for each
+  device followed, its room changes and storey changes per hour, its flickers and its time in no
+  room, and, while a presence sensor alone says where its owner is, how often its room is right;
+  Bermuda's figures beside, from the same device's area sensor over the same hours. Shown in the
+  Bluetooth settings and in the diagnostics, as figures only. The maintainer's figures go in
+  `docs/bluetooth.md` as they fall.
+- ✅ **M45, an iPhone's key without a Mac** (D-065, D-075, above): in the Bluetooth settings, for
+  an iPhone or an Apple Watch, the ways to get its identity key (a Mac's Keychain; an ESP32 for ten
+  minutes with irk-capture or ESPresense's Enroll, in the guide), and a field that takes the key
+  as the tool wrote it and hands it to Home Assistant's Private BLE Device; the device then
+  followed. No firmware of DomoTwin's own.
 - ✅ **M25, safety** (D-068, above): done after M20, M31 and M33, at the maintainer's request.
-- ⏳ **M26, the wall screen**: a screen saver (the clock, the weather, the photos of Home
-  Assistant's media) woken by motion; a layout for each device.
+- ✅ **M26, the wall screen** (D-076, above): a screen saver (the clock, the weather, the photos of
+  Home Assistant's media) woken by motion, a touch, a key, the doorbell or `domotwin.show`; a
+  layout for each screen, kept by the integration, that a device chooses to be.
 - M25 and M24 came ahead of M40, M41 and M45, at the maintainer's request (D-068, D-069); M26
-  comes in the order the two weeks of use decide.
+  came after M45.
 - ✅ **M31, the placement advisor** (D-066, above), built after M29, M38 and M32 at the maintainer's
   request: the Bluetooth model of M9f turned around, from where a device is to where a receiver
   would hear the most. The rooms badly covered coloured on the plan, for the Bluetooth receivers,
@@ -1757,8 +2010,8 @@ before its milestone starts, which goes on with what needs no answer.
   administrators, since only they can read the radios.
 - ⏳ **M22, a first launch in five minutes**: from the install to one's own home live, in five
   minutes, with the imports and pieces DomoTwin has then (M11, M15, the demo house as a start,
-  and the robot vacuum maps, Floorplanner plans and mesh scans of M20); more pieces (M17) join it
-  when they come.
+  the robot vacuum maps, Floorplanner plans and mesh scans of M20, and the library of pieces of
+  M17).
 - ⏳ **Release 0.5.0**.
 - **Deferred** until someone asks: one's dashboards taken over, and pages arranged without YAML
   (the former M28). An agenda and lists are cards of the Home tab (M23), not a milestone of their
@@ -1768,23 +2021,10 @@ before its milestone starts, which goes on with what needs no answer.
 
 - ✅ **M32, "Why?"**: done next to the sandbox, right after 0.4.0 (above, D-059). Why something
   did not happen is the sandbox's (M29).
-- ⏳ **M42, finer locating** (D-065), after the placement advisor (M31), and only if the
-  figures of M41 say it is worth it: a spot inside the room rather than the room alone, worked out
-  on a grid of half-metre cells over the plan, as a cloud of likely spots that changes storey only
-  through the stairs (the ways of the walk, D-029, already know them); its X, Y and Z, and how sure
-  it is, as the room sensor's attributes. Reused from M9f (D-035): the radio model of the plan
-  (distance, walls, floors), each device's own loudness, the rooms taught (cells known for sure),
-  the presence sensors' weight and the rule that a room changes only when sure twice. Measured
-  again with M41 against what it replaces.
-- ⏳ **M43, mmWave sensors merged** (D-065), after M31: mmWave presence sensors placed on the plan
-  (where each stands and which way it faces), their zones and their targets turned into the home's
-  own coordinates, and merged with each other and with Bluetooth into one picture of who is where:
-  Bluetooth says who, mmWave says where, and says it fast. What Home Assistant gives is checked
-  first and differs by family: an Aqara FP2 (through HomeKit) gives one occupancy per zone and no
-  coordinates; an Everything Presence Lite gives its targets' X and Y in millimetres and its zones'
-  occupancy; ESPHome's LD2450 gives three targets' X, Y and speed and three zones; an LD2410 or an
-  Everything Presence One gives a distance or an occupancy only, so a zone or a room. Each is used
-  for what it says, no more.
+- ✅ **M42, finer locating** (D-079, above): moved forward at the maintainer's request, after
+  split levels.
+- ✅ **M43, mmWave sensors merged** (D-080, above): right after finer locating, at the
+  maintainer's request.
 - ✅ **M33, guest access** (D-067, above): moved forward by the maintainer; a page of DomoTwin's
   own outside Home Assistant's sign-in, enforced by DomoTwin, which answers D-056's ❓4.
 - ✅ **M34, per-person rights** (D-071, above): moved forward with guest access; what DomoTwin
@@ -1793,25 +2033,17 @@ before its milestone starts, which goes on with what needs no answer.
 - ✅ **M35, automations in plain words, tested first** (D-070, above): moved forward by the
   maintainer once the sandbox was in.
 - ✅ **M20, more imports** (D-064, above): done before 0.5.0, at the maintainer's request.
-- ⏳ **M17, a library of objects**: many more pieces, free and well made, drawn from real
-  references, still fast.
+- ✅ **M17, a library of objects**, moved forward (D-074, above): 195 pieces in fourteen groups,
+  each with its picture drawn by the engine, free and well made, at the usual sizes of real ones.
 - ✅ **M36, configuration history** (D-062, above): done after Home Assistant's Overview, at
   the maintainer's request.
-- ✅ **M37, a weekly home report** (D-072, above): done after M31, M33, M25, M24, M35 and M34, at
+- ✅ **M37, a weekly home report** (D-081, above): done after presence radars merged (M43), at
   the maintainer's request; the weak spots M31 works out in the page are left for later.
 - ✅ **M38, history as reports** (D-058, above): done right after the sandbox, at the
   maintainer's request.
-- ⏳ **M18, outdoors**: the garden, the terrace, the lawn, a pool, the roofs; the lawn growing
-  between two mowings.
-- ⏳ **M44, split levels and walk-out basements** (D-065), next to the outdoors (M18), whose ground
-  it needs. What works already: a storey can sit at any height (half a storey up), it is drawn
-  there, and stairs join it to the next, for a tap and for the walk. What does not: the Bluetooth
-  model counts a floor between any two storeys, even a half level beside the other rather than over
-  it; a storey given no name is called by its rank (Floor 1, Floor 2), not as a half level; and the
-  ground is one flat level, so a basement cannot open onto the garden on one side. The milestone: a
-  floor counted only where one storey's room lies over the other's, by the height between them; half
-  levels named as such; the ground's height on each side of the home; and a fictional split-level
-  house in `examples/`, with its tests.
+- ✅ **M18, outdoors** (D-077, above): moved before the first launch, at the maintainer's request.
+- ✅ **M44, split levels and walk-out basements** (D-078, above): moved before the first launch,
+  at the maintainer's request, next to the outdoors (M18), whose ground it needs.
 - ✅ **M39, Hydro-Québec's peaks**, moved forward (D-063, above): the next peak, the pre-heating
   before it, which rooms shed and what they draw during it, in 3D and on the Home tab, and
   tomorrow's announced peak played in the sandbox, from the entities of hydroqc or HydroPeak. Its

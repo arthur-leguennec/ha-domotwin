@@ -822,7 +822,11 @@ fn piece_kind(
     let attr = |k: &str| attributes.get(k).map(String::as_str);
     match category {
         "refrigerator" => "fridge",
-        "stove" | "oven" => "stove",
+        "stove" => "stove",
+        // An oven in a tall housing, else in a counter under its hob.
+        "oven" if h >= 150.0 => "oven",
+        "oven" => "stove",
+        "fireplace" => "fireplace",
         "bed" => "bed",
         "sink" => "sink",
         "washerdryer" => "washer",
@@ -988,6 +992,18 @@ mod tests {
         );
         assert_eq!(
             piece_kind("fireplace", &none, [100.0, 60.0, 100.0], 0.0, false),
+            "fireplace"
+        );
+        assert_eq!(
+            piece_kind("oven", &none, [60.0, 60.0, 210.0], 0.0, false),
+            "oven"
+        );
+        assert_eq!(
+            piece_kind("oven", &none, [60.0, 60.0, 60.0], 30.0, true),
+            "stove"
+        );
+        assert_eq!(
+            piece_kind("plant", &none, [40.0, 40.0, 100.0], 0.0, false),
             "box"
         );
         assert_eq!(ScanFile::from_json(b"{}", "x").err(), Some("not_plan"));

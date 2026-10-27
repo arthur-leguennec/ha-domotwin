@@ -1,5 +1,5 @@
 /**
- * The weekly report (D-072): what the integration wrote on its day, read leniently; what each
+ * The weekly report (D-081): what the integration wrote on its day, read leniently; what each
  * item says in words; where it opens in Home Assistant; the rooms of the plans it is drawn on.
  * Loaded with the report's page, not with the first picture.
  */

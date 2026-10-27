@@ -31,9 +31,9 @@ from homeassistant.util import dt as dt_util, slugify
 
 from . import DomoTwinConfigEntry
 from .compat import device_of
-from .const import DOMAIN, SIGNAL_LOCATED, SIGNAL_PEOPLE, SIGNAL_UPDATED
+from .const import DOMAIN, SIGNAL_LOCATED, SIGNAL_PEOPLE, SIGNAL_SEEN, SIGNAL_UPDATED
 from .data import LOCATOR_KEY, PEOPLE_KEY
-from .locator import Locator, located_unique_id
+from .locator import Locator, located_unique_id, seen_unique_id
 from .overview import people_in, piece_rooms, tasks_by_room
 from .people import Room
 from .privacy import private_rooms
@@ -91,6 +91,30 @@ async def async_setup_entry(
         lambda settings: True,
         async_add_entities,
     )
+    follow_seen(hass, entry, locator, async_add_entities)
+
+
+def follow_seen(
+    hass: HomeAssistant,
+    entry: DomoTwinConfigEntry,
+    locator: Locator,
+    async_add_entities: AddEntitiesCallback,
+) -> None:
+    """Add the people seen by the presence radars (D-080) while a radar is on the plans."""
+    added: PeopleSeenSensor | None = None
+
+    @callback
+    def follow() -> None:
+        nonlocal added
+        if locator.radar.radars and added is None:
+            added = PeopleSeenSensor(hass, entry, locator)
+            async_add_entities([added])
+        elif not locator.radar.radars and added is not None:
+            _remove_entity(hass, added)
+            added = None
+
+    follow()
+    entry.async_on_unload(async_dispatcher_connect(hass, SIGNAL_SEEN, follow))
 
 
 def follow_located(
@@ -131,21 +155,27 @@ def follow_located(
                 hass.async_create_task(replace(old, entity))
         if new:
             async_add_entities(new)
-        registry = er.async_get(hass)
         for device in [device for device in added if device not in devices]:
-            entity = added.pop(device)
-            # Its registry entry goes (the entity with it), found by its unique id: disabled, it
-            # was never added.
-            found = registry.async_get_entity_id(
-                entity.entity_id.split(".", 1)[0], DOMAIN, entity.unique_id or ""
-            )
-            if found is not None:
-                registry.async_remove(found)
-            elif entity.hass is not None and entity.platform is not None:
-                hass.async_create_task(entity.async_remove(force_remove=True))
+            _remove_entity(hass, added.pop(device))
 
     follow()
     entry.async_on_unload(async_dispatcher_connect(hass, SIGNAL_UPDATED, follow))
+
+
+def _remove_entity(hass: HomeAssistant, entity: Entity) -> None:
+    """Remove an entity of DomoTwin's.
+
+    Its registry entry goes (the entity with it), found by its unique id: disabled, it was never
+    added.
+    """
+    registry = er.async_get(hass)
+    found = registry.async_get_entity_id(
+        entity.entity_id.split(".", 1)[0], DOMAIN, entity.unique_id or ""
+    )
+    if found is not None:
+        registry.async_remove(found)
+    elif entity.hass is not None and entity.platform is not None:
+        hass.async_create_task(entity.async_remove(force_remove=True))
 
 
 class LocatedEntity(Entity):
@@ -229,6 +259,8 @@ class PersonRoomSensor(SensorEntity):
     _attr_has_entity_name = True
     _attr_translation_key = "person_room"
     _attr_should_poll = False
+    # Where in the room (D-079): told as it moves, not kept in the history.
+    _unrecorded_attributes = frozenset({"x", "y"})
 
     def __init__(
         self, entry: DomoTwinConfigEntry, people: PeopleTracker, person: str, name: str
@@ -270,6 +302,8 @@ class PersonRoomSensor(SensorEntity):
                 since=place.since.isoformat() if place.since else None,
                 source=place.source,
             )
+            if place.at is not None:
+                attributes.update(x=place.at[0], y=place.at[1])
         self._attr_extra_state_attributes = attributes
 
 
@@ -279,6 +313,8 @@ class LocatedSensor(SensorEntity, LocatedEntity):
     _attr_has_entity_name = True
     _attr_translation_key = "located"
     _attr_should_poll = False
+    # Where in the room (D-079): told as it moves, not kept in the history.
+    _unrecorded_attributes = frozenset({"x", "y", "z", "accuracy"})
 
     def __init__(
         self,
@@ -330,7 +366,130 @@ class LocatedSensor(SensorEntity, LocatedEntity):
                 storey=room.storey_name,
                 since=located.since.isoformat() if located.since else None,
             )
+            if located.spot is not None:
+                # Where in the room (D-079): on its storey's plan and how high, in metres, and
+                # how far around it the device may be.
+                x, y, z, spread = located.spot
+                attributes.update(
+                    x=round(x / 100, 2),
+                    y=round(y / 100, 2),
+                    z=round(z / 100, 2),
+                    accuracy=round(spread / 100, 1),
+                )
         self._attr_extra_state_attributes = attributes
+
+
+class PeopleSeenSensor(SensorEntity):
+    """How many people the presence radars see (D-080), and where those no device names are.
+
+    Nothing of a room closed to everyone (D-039, D-071): an entity is everyone's, as the rooms' own
+    sensors say nothing of who is in one.
+    """
+
+    _attr_has_entity_name = True
+    _attr_translation_key = "people_seen"
+    _attr_should_poll = False
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    # Where they are: told as they move, not kept in the history.
+    _unrecorded_attributes = frozenset({"seen"})
+
+    def __init__(self, hass: HomeAssistant, entry: DomoTwinConfigEntry, locator: Locator) -> None:
+        """One for the home: `sensor.domotwin_people_seen`."""
+        self._locator = locator
+        self._closed = ClosedRooms(hass, entry.runtime_data, self._changed)
+        self._closed.work_out()
+        self.entity_id = f"sensor.{DOMAIN}_people_seen"
+        self._attr_unique_id = seen_unique_id(entry.entry_id)
+        self._attr_device_info = device_info(entry)
+        self._work_out()
+
+    async def async_added_to_hass(self) -> None:
+        """Follow what the radars see, and the rooms closed to everyone."""
+        self.async_on_remove(async_dispatcher_connect(self.hass, SIGNAL_SEEN, self._changed))
+        self.async_on_remove(async_dispatcher_connect(self.hass, SIGNAL_UPDATED, self._saved))
+        self.async_on_remove(self._closed.stop)
+        self._closed.watch()
+        self._work_out()
+
+    @callback
+    def _changed(self) -> None:
+        self._work_out()
+        self.async_write_ha_state()
+
+    @callback
+    def _saved(self, kind: str, revision: int) -> None:
+        if kind == "settings":
+            self._closed.watch()
+            self._changed()
+
+    def _work_out(self) -> None:
+        home = self._locator.home
+        closed = self._closed.rooms
+        targets = [t for t in self._locator.radar.sight.targets if t.room not in closed]
+        self._attr_native_value = len(targets)
+        # Those no device names: on their storey's plan, in metres, numbered as they are followed.
+        self._attr_extra_state_attributes = {
+            "seen": [
+                {
+                    "id": n,
+                    "room_id": target.room,
+                    "storey_id": home.storey_ids[target.storey],
+                    "x": round(target.x / 100, 2),
+                    "y": round(target.y / 100, 2),
+                }
+                for n, target in sorted(self._locator.radar.seen.items())
+                if target.room not in closed and target.storey < len(home.storey_ids)
+            ]
+        }
+
+
+class ClosedRooms:
+    """The rooms closed now to everyone (an entity is everyone's), followed as they open and close.
+
+    Private, as D-039 locks them, or hidden from everyone by the rights (D-071). `changed` is told
+    when an entity that opens or closes one changed them.
+    """
+
+    def __init__(
+        self, hass: HomeAssistant, data: DomoTwinData, changed: Callable[[], None]
+    ) -> None:
+        """Nothing is followed before `watch`."""
+        self._hass = hass
+        self._data = data
+        self._changed = changed
+        self.rooms: set[str] = set()
+        self._unwatch: Callable[[], None] | None = None
+
+    def work_out(self) -> None:
+        """Work the rooms closed now out."""
+        settings = self._data.settings
+        rules: dict[str, Any] = settings.get("rooms", {})
+        self.rooms = private_rooms(rules, self._hass.states.get, None) | hidden_rooms(
+            self._hass, settings, None
+        )
+
+    def watch(self) -> None:
+        """Work them out, and follow the entities that open or close them."""
+        self.work_out()
+        self.stop()
+        rules: dict[str, Any] = self._data.settings.get("rooms", {})
+        watched = sorted({rule["while"] for rule in rules.values() if "while" in rule})
+        if watched:
+            self._unwatch = async_track_state_change_event(self._hass, watched, self._while_changed)
+
+    @callback
+    def stop(self) -> None:
+        """Follow nothing more."""
+        if self._unwatch is not None:
+            self._unwatch()
+            self._unwatch = None
+
+    @callback
+    def _while_changed(self, event: Event[EventStateChangedData]) -> None:
+        before = self.rooms
+        self.work_out()
+        if self.rooms != before:
+            self._changed()
 
 
 class RoomSensors:
@@ -365,15 +524,19 @@ class RoomSensors:
         # Each piece's room, worked out again only when the plans change.
         self._pieces: dict[str, str] = {}
         self.tasks: dict[str, list[dict[str, Any]]] = {}
-        self.private: set[str] = set()
-        self._unwatch: Callable[[], None] | None = None
+        self._closed = ClosedRooms(hass, self._data, lambda: self._write(people=True))
+
+    @property
+    def private(self) -> set[str]:
+        """The rooms closed now to everyone."""
+        return self._closed.rooms
 
     def start(self) -> None:
         """Add the rooms' sensors; follow the rooms, areas, people, cards and days."""
         entry = self._entry
         self._pieces = piece_rooms(self._data.storeys)
         self._work_out_tasks()
-        self._watch_private()
+        self._closed.watch()
         self._sync()
         entry.async_on_unload(async_dispatcher_connect(self._hass, SIGNAL_UPDATED, self._saved))
         entry.async_on_unload(async_dispatcher_connect(self._hass, SIGNAL_PEOPLE, self._moved))
@@ -383,13 +546,7 @@ class RoomSensors:
         entry.async_on_unload(
             async_track_time_change(self._hass, self._new_day, minute=0, second=2)
         )
-        entry.async_on_unload(self._stop_watching)
-
-    @callback
-    def _stop_watching(self) -> None:
-        if self._unwatch is not None:
-            self._unwatch()
-            self._unwatch = None
+        entry.async_on_unload(self._closed.stop)
 
     @callback
     def _saved(self, kind: str, revision: int) -> None:
@@ -404,7 +561,7 @@ class RoomSensors:
             self._work_out_tasks()
             self._write(upkeep=True)
         elif kind == "settings":
-            self._watch_private()
+            self._closed.watch()
             self._write(people=True)
         elif kind == "people":
             # Someone no longer placed, or hidden: nothing else tells.
@@ -425,37 +582,10 @@ class RoomSensors:
             self._work_out_tasks()
             self._write(upkeep=True)
 
-    @callback
-    def _while_changed(self, event: Event[EventStateChangedData]) -> None:
-        before = self.private
-        self._work_out_private()
-        if self.private != before:
-            self._write(people=True)
-
     def _work_out_tasks(self) -> None:
         self._day = dt_util.now().date()
         tasks = due_tasks(self._data.upkeep, piece_names(self._data.storeys), self._day)
         self.tasks = tasks_by_room(tasks, self._pieces)
-
-    def _work_out_private(self) -> None:
-        """The rooms closed now for nobody (an entity is everyone's).
-
-        Private, as D-039 locks them, or hidden from everyone by the rights (D-071).
-        """
-        settings = self._data.settings
-        rules: dict[str, Any] = settings.get("rooms", {})
-        self.private = private_rooms(rules, self._hass.states.get, None) | hidden_rooms(
-            self._hass, settings, None
-        )
-
-    def _watch_private(self) -> None:
-        """Work the private rooms out, and follow the entities that open or close them."""
-        self._work_out_private()
-        rules: dict[str, Any] = self._data.settings.get("rooms", {})
-        watched = sorted({rule["while"] for rule in rules.values() if "while" in rule})
-        self._stop_watching()
-        if watched:
-            self._unwatch = async_track_state_change_event(self._hass, watched, self._while_changed)
 
     def _write(
         self, *, people: bool = False, upkeep: bool = False, changed_only: bool = False
