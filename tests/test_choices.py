@@ -239,7 +239,7 @@ async def test_shortcuts_are_kept(
     hass_storage: dict[str, Any],
 ) -> None:
     client = await hass_ws_client(hass)
-    shortcuts = [
+    shortcuts: list[dict[str, Any]] = [
         {
             "id": "lights",
             "name": "All the lights off",
