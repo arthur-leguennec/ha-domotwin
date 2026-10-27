@@ -1,4 +1,4 @@
-//! Floorplanner's plans (`DECISIONS.md`, D-057): FML 3.0, the JSON that Floorplanner exports and
+//! Floorplanner's plans (`DECISIONS.md`, D-062): FML 3.0, the JSON that Floorplanner exports and
 //! that apps exporting to it write. In centimetres, `y` down as on a plan.
 //!
 //! A project has floors (storeys, by level, each of its height), each with designs (variants of

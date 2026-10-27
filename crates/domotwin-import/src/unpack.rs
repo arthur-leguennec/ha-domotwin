@@ -1,4 +1,4 @@
-//! What other files come packed in (`DECISIONS.md`, D-057): a zlib stream (Valetudo's map over
+//! What other files come packed in (`DECISIONS.md`, D-062): a zlib stream (Valetudo's map over
 //! MQTT), gzip (Roborock's map as Valetudo RE serves it) and a PNG's compressed text (Valetudo's
 //! map for Home Assistant's camera).
 

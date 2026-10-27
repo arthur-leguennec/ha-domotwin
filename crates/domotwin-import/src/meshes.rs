@@ -1,4 +1,4 @@
-//! The triangles of a mesh scan (`DECISIONS.md`, D-057): OBJ, PLY (text or binary), GLB and STL,
+//! The triangles of a mesh scan (`DECISIONS.md`, D-062): OBJ, PLY (text or binary), GLB and STL,
 //! read for their positions alone (no colour, no texture, no normal), within budget. What a
 //! scanning app exports: Polycam, Scaniverse, 3D Scanner App, Matterport's OBJ…
 

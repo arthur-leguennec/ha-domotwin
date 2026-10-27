@@ -23,7 +23,7 @@ output is deterministic, so the files only change when this script does.
   upstairs with its walls only.
 - crates/domotwin-import/tests/fixtures/structure.usdz  the same structure as its USDZ.
 
-And for the imports of D-057:
+And for the imports of D-062:
 
 - crates/domotwin-import/tests/fixtures/robot.json    a robot vacuum's map as Valetudo's REST API
   gives it: a flat of four rooms (segments, named, two with their floor), the walls the robot's
@@ -595,7 +595,7 @@ def usdz(scan: Scan) -> bytes:
     return buffer.getvalue()
 
 
-# --- Robot vacuum maps (D-057) ---------------------------------------------------------------
+# --- Robot vacuum maps (D-062) ---------------------------------------------------------------
 
 # A flat in centimetres, `y` down: the rooms inside their walls, the walls 10 cm thick, the
 # doors as gaps in them (x0, y0, x1, y1).
@@ -750,7 +750,7 @@ def roborock_map() -> bytes:
     return gzip.compress(header + blocks, 9, mtime=0)
 
 
-# --- Floorplanner (D-057) ----------------------------------------------------------------------
+# --- Floorplanner (D-062) ----------------------------------------------------------------------
 
 
 def fml_point(x: float, y: float) -> dict:
@@ -854,7 +854,7 @@ def floorplanner() -> dict:
             "floors": [ground, attic]}
 
 
-# --- Mesh scans (D-057) ------------------------------------------------------------------------
+# --- Mesh scans (D-062) ------------------------------------------------------------------------
 
 
 class Mesh:

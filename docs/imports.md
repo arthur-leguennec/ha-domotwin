@@ -166,7 +166,7 @@ Elements are numbered in their order (`room-1`, `door-1`…).
 
 A mesh is triangles: a scanning app's export (Polycam, Scaniverse, 3D Scanner App, Matterport's
 OBJ…) as OBJ, PLY (text or binary), GLB or STL. A mesh does not say which triangles are walls and
-which are furniture, so DomoTwin reads it where furniture is not (D-057):
+which are furniture, so DomoTwin reads it where furniture is not (D-062):
 
 - **Up and unit**: `y` is up (`z` for STL), unless another axis holds twice as much horizontal
   surface at one height (a floor). GLB is in metres; another file's unit is the one that makes a

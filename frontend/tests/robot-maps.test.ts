@@ -45,7 +45,7 @@ function hass(): HomeAssistant {
   };
 }
 
-describe("robot vacuum maps in Home Assistant (D-057)", () => {
+describe("robot vacuum maps in Home Assistant (D-062)", () => {
   it("are the map data cameras of Valetudo's discovery, with their robot's vacuum", () => {
     expect(robotMaps(hass())).toEqual([
       { camera: "camera.rockrobo_map_data", name: "Rockrobo", vacuum: "vacuum.rockrobo" },
@@ -72,7 +72,7 @@ describe("robot vacuum maps in Home Assistant (D-057)", () => {
   });
 });
 
-describe("the files the import reads (D-040, D-057)", () => {
+describe("the files the import reads (D-040, D-062)", () => {
   it("by their names", () => {
     for (const name of [
       "home.ifc",

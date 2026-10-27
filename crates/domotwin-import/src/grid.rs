@@ -1,4 +1,4 @@
-//! Rooms from cells (`DECISIONS.md`, D-057): a robot vacuum's map is cells already, and a mesh
+//! Rooms from cells (`DECISIONS.md`, D-062): a robot vacuum's map is cells already, and a mesh
 //! scan is cut into them. A mask of cells, the distance from its cells, its parts, and a room's
 //! outline from its cells: traced, simplified, then squared to the walls.
 

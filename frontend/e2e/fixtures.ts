@@ -77,7 +77,7 @@ export interface HarnessOptions {
   people?: boolean;
   /** A robot vacuum's dock in the hall, linked to `vacuum.robbie` (D-049). */
   robot?: boolean;
-  /** Robots running Valetudo, their map data cameras in Home Assistant (D-057). */
+  /** Robots running Valetudo, their map data cameras in Home Assistant (D-062). */
   valetudo?: 1 | 2;
   /** Fictional solar panels, meter and battery, named in the stored settings (D-049). */
   energy?: boolean;

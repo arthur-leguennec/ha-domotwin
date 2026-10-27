@@ -1,5 +1,5 @@
 /**
- * Which files the plan import reads (D-040, D-057): by their names, else by what their JSON
+ * Which files the plan import reads (D-040, D-062): by their names, else by what their JSON
  * holds. The others are read as DomoTwin plans. Kept apart from the import module, which is
  * fetched only once such a file is picked.
  */

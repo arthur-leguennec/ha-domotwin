@@ -2219,7 +2219,7 @@ D-054 planned them.
   - Many of them read what only administrators may (automations, traces, the radios): each says
     what other users see.
 
-## D-057 · More imports: robot vacuum maps, Floorplanner, mesh scans (amends D-040)
+## D-062 · More imports: robot vacuum maps, Floorplanner, mesh scans (amends D-040)
 
 M20, moved forward by the maintainer: built after 0.4.0, before the sandbox (M29), so that the
 first launch in five minutes (M22) has it.

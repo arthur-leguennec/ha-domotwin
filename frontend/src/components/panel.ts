@@ -168,7 +168,7 @@ interface Toast {
 
 /**
  * Whether a JSON file is a plan of another app (a room scan, a robot's map, a Floorplanner
- * project, D-040, D-057) rather than a DomoTwin plan: read by the import module.
+ * project, D-040, D-062) rather than a DomoTwin plan: read by the import module.
  */
 async function isOtherApp(file: File): Promise<boolean> {
   // Larger than a plan may be: refused as one.
@@ -387,7 +387,7 @@ export class DomoTwinPanel extends LitElement {
   /** A device of the network map to place: the next piece picked stands for it (D-031). */
   private placing?: PlaceRequest;
   protected importChoice?: ImportChoice;
-  /** The robots whose map Home Assistant has, one to pick (D-057). */
+  /** The robots whose map Home Assistant has, one to pick (D-062). */
   protected robotChoice?: RobotMapSource[];
   /** Edit mode: on, its state, taps adding to the selection, the catalogue open. */
   protected editing = false;
@@ -2211,7 +2211,7 @@ export class DomoTwinPanel extends LitElement {
 
   /**
    * Converts a storey, has the engine check the plan, stores it and says what was left out. A
-   * robot's map links its dock to `robot`'s vacuum (D-057).
+   * robot's map links its dock to `robot`'s vacuum (D-062).
    */
   private async importStorey(
     file: PlanFile,
@@ -2244,7 +2244,7 @@ export class DomoTwinPanel extends LitElement {
 
   /**
    * Links the dock of a robot's map, under the id it got when stored, to the robot's vacuum
-   * (D-049, D-057). Returns what it did, for the import's message, and whether it failed.
+   * (D-049, D-062). Returns what it did, for the import's message, and whether it failed.
    */
   private async linkDock(
     before: PlanJson,
@@ -2276,7 +2276,7 @@ export class DomoTwinPanel extends LitElement {
     }
   }
 
-  /** The robots whose map Home Assistant has: one imported, or one to pick (D-057). */
+  /** The robots whose map Home Assistant has: one imported, or one to pick (D-062). */
   private readonly chooseRobotMap = (): void => {
     if (this.busy || this.importChoice || this.robotChoice) return;
     this.moreOpen = false;
@@ -2582,7 +2582,7 @@ export class DomoTwinPanel extends LitElement {
     return left.length;
   }
 
-  /** The robots whose map Home Assistant has, to pick one (D-057). */
+  /** The robots whose map Home Assistant has, to pick one (D-062). */
   private renderRobotMaps(maps: RobotMapSource[]): TemplateResult {
     const t = this.t;
     return html`<div
