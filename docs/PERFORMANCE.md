@@ -904,3 +904,48 @@ Assistant's changes do not update it until it shows again. Home Assistant's card
 for each configuration and given each new `hass`; the rooms are sorted again when an entity comes,
 goes or moves, not on every state; a search runs again when it or the home changes.
 
+
+### M20 (more imports)
+
+Bundle: the first load is **517.7 kB gzipped** of 1 200 kB (+2.2 kB): the robot's map in the menu
+and beside *Import plan*, the robots' maps found in Home Assistant, which files go to the import,
+and the texts. The import module, fetched only when such a file is picked or a robot's map is
+imported, reads three more kinds of files:
+
+| File | Raw | Gzipped |
+| --- | --- | --- |
+| `domotwin_import_bg.<hash>.wasm` (on demand) | 635.2 kB | 279.4 kB (217.8 kB before) |
+| `chunks/domotwin_import-<hash>.js` (glue, on demand) | 5.3 kB | 2.1 kB |
+| `chunks/import-<hash>.js` (wrapper, on demand) | 0.9 kB | 0.5 kB |
+
+The growth is the readers' own code, spread over them (`twiggy diff`): the mesh readers and the
+cutting of a mesh into rooms, doors and windows, the robot maps, Floorplanner, and the cells shared
+by maps and meshes (an exact distance transform, parts, outlines, simplifying and squaring). Their
+inflating is `miniz_oxide`'s, already in the module for ZIP archives.
+
+Import time (Node 22, the median of seven runs: read, list the storeys, convert one), on the
+fictional test files and on generated ones, with the WebAssembly memory after the last run:
+
+| File | Size | Time | Memory |
+| --- | --- | --- | --- |
+| `robot.json` (Valetudo, 4 rooms, 3 doors, the dock) | 8 kB | 14 ms | |
+| `robot.png` (the same, as Home Assistant's camera has it) | 2 kB | 13 ms | |
+| `roborock.gz` (the same as Roborock's map) | 0.5 kB | 18 ms | |
+| `apartment.fml` (Floorplanner, 2 floors, 4 rooms, 11 openings and pieces) | 12 kB | 0.7 ms | |
+| `house.obj` / `house.glb` (2 storeys, 4 000 triangles) | 133 kB / 84 kB | 48 ms / 45 ms | |
+| `house.ply` (its ground floor, `z` up, in centimetres) | 51 kB | 22 ms | |
+| Valetudo, 30 rooms and 49 doors (490 × 410 pixels) | 64 kB | 109 ms | 13 MB |
+| Floorplanner, 400 rooms (500 elements kept) | 132 kB | 109 ms | 3 MB |
+| The house scanned finely: 1.33 million triangles (GLB) | 23.6 MB | 1.31 s | 99 MB |
+| The house scanned more finely: 3.71 million triangles (GLB) | 65.5 MB | 3.47 s | 219 MB |
+| A map made to be slow, within budget: two rooms as large as its grid (2 000 × 2 000 pixels) | 0.1 kB | 2.23 s | 160 MB |
+| A map of rooms drawn over one another, past budget (refused) | 48 kB | 1.49 s | 214 MB |
+
+A robot's map costs its distances worked out a few times on its grid (a few hundred thousand
+cells) and on each room's own; the budget (16 million cells in all, a million two rooms share)
+keeps a file made to be slow to a few seconds, which the fuzzer found before it was set. A mesh is read once into positions and triangles, then gone over four times (the axis up,
+the floors, the walls' direction, each storey's cells); each storey is cut in cells of 5 cm (at
+most 1 600 a side, larger cells for a larger storey), and the rooms and openings are found on
+those. The plan found is the same however finely the house was scanned. Memory is the file, its
+copy in the module, its positions and its triangles: what a browser on a computer has; a scan of
+millions of triangles is best imported from one.

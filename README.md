@@ -15,7 +15,8 @@ Local, fast, Rust + WebAssembly.</p>
 > [!NOTE]
 > **Status: early development.** DomoTwin is built milestone by milestone
 > ([roadmap](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/ROADMAP.md)). The
-> integration, the panel, the card, the plan import (IFC, Sweet Home 3D, DXF, room scans), the 3D
+> integration, the panel, the card, the plan import (IFC, Sweet Home 3D, DXF, room scans, robot
+> vacuum maps, Floorplanner, mesh scans), the 3D
 > and 2D views, live control (states, tap, long press, room panel, linking), the edit mode, your
 > own 3D models, the layers, the devices, the plan editor, storeys, the looks, every storey at
 > once, walking, the kiosk, the network map, the automation wires, the upkeep cards, the people in
@@ -42,7 +43,9 @@ Local, fast, Rust + WebAssembly.</p>
   one screen, and an agenda or a list for your Home tab.
 - **Your floor plan in 3D and 2D.** Draw it in the panel, or import it: an IFC model (`*.ifc`,
   from Revit, ArchiCAD, Bonsai, FreeCAD…), a Sweet Home 3D home (`*.sh3d`), a DXF drawing, a room
-  scanned with an iPhone or iPad with LiDAR (`*.usdz`, RoomPlan's JSON) or a DomoTwin plan
+  scanned with an iPhone or iPad with LiDAR (`*.usdz`, RoomPlan's JSON), a Floorplanner plan
+  (`*.fml`), a mesh scan (OBJ, PLY, GLB, STL from Polycam, Scaniverse, Matterport…), your robot
+  vacuum's map (Valetudo's, straight from Home Assistant, its dock linked) or a DomoTwin plan
   (`*.domotwin.json`), one storey or all of them, and see it as a clean 3D model. The
   walls facing the camera are lowered automatically, like an open dollhouse. Switch to a crisp 2D
   plan with a smooth animation.
@@ -217,8 +220,9 @@ Local, fast, Rust + WebAssembly.</p>
 3. **Draw or import your plan.** Open **DomoTwin** in the sidebar → **Draw a plan**, or
    **Import plan** and pick a DomoTwin plan (`*.domotwin.json`), an IFC file (`*.ifc`, see [IFC
    import](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/ifc-import.md)), a Sweet
-   Home 3D home, a DXF drawing or a room scan (see [plans from other
-   apps](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/imports.md)). No plan
+   Home 3D home, a DXF drawing, a room scan, a Floorplanner plan or a mesh scan (see [plans from
+   other apps](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/imports.md)); a
+   robot vacuum running Valetudo gives its map with **Import a robot's map**. No plan
    yet? **Try the demo house** in the panel, or import the fictional
    [`examples/demo-apartment.domotwin.json`](https://github.com/arthur-leguennec/ha-domotwin/blob/main/examples/demo-apartment.domotwin.json)
    or
@@ -294,9 +298,11 @@ WebAssembly) reads the plan, builds the geometry and draws it with WebGL2. More 
 with its JSON Schema; IFC files (ISO 16739, exported by FreeCAD, Blender with Bonsai, ArchiCAD
 or Revit), one storey or every storey at once: see [IFC
 import](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/ifc-import.md); Sweet Home
-3D homes, DXF drawings and room scans made with Apple's RoomPlan (USDZ or JSON): see [plans from
-other apps](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/imports.md). DWG files,
-binary USD and mesh scans (OBJ) are not read.
+3D homes, DXF drawings, room scans made with Apple's RoomPlan (USDZ or JSON), robot vacuum maps
+(Valetudo's, from Home Assistant or a file; Roborock's own), Floorplanner plans (FML) and mesh
+scans (OBJ, PLY, GLB, STL): see [plans from other
+apps](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/imports.md). DWG files,
+binary USD, FBX and point clouds are not read.
 
 **Can I put it on a wall tablet, or ask for a room by voice?** Yes: the `idle`, `orbit`,
 `night_dim` and `tools` options make a card a kiosk, and the `domotwin.show` action (with a

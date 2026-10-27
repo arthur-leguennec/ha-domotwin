@@ -13,12 +13,12 @@ export class PlanImport {
      */
     convert(storey: number): string;
     /**
-     * The format found: `ifc`, `sh3d` or `dxf`.
+     * The format found: `ifc`, `sh3d`, `dxf`, `scan`, `robot`, `fml` or `mesh`.
      */
     format(): string;
     /**
      * Reads the file's bytes; `title` names the plan when the file does not. Errors are JSON
-     * `{"code"}`: `not_plan`, `not_ifc`, `too_large`, `no_storeys`, `sh3d_old`, `dxf_binary`.
+     * `{"code"}`: those of `PlanFile::read`.
      */
     constructor(bytes: Uint8Array, title: string);
     /**

@@ -68,6 +68,8 @@ pub struct DraftRoom {
     pub id: String,
     pub name: String,
     pub points: Vec<P2>,
+    /// Its floor's material and the direction of its boards or tiles, when the file says.
+    pub floor: Option<(&'static str, f64)>,
 }
 
 /// A wall of the file: how thick (cm), and whether it is a façade when the file says.
@@ -202,6 +204,7 @@ pub fn build(draft: Draft) -> Result<(Json, Report, Map<String, Json>), &'static
             points,
             thickness: Vec::new(),
             frame: None,
+            floor: room.floor,
         });
     }
     // Overlapping spaces (gross areas, zones drawn over rooms): where one holds the centre of
@@ -435,8 +438,21 @@ pub fn build(draft: Draft) -> Result<(Json, Report, Map<String, Json>), &'static
                 .collect();
             e.insert("sides".into(), Json::Array(sides));
         }
-        if let Some(floor) = floor_for(&room.name) {
-            e.insert("floor".into(), json!({ "material": floor }));
+        match room.floor {
+            Some((material, angle)) if angle != 0.0 => {
+                e.insert(
+                    "floor".into(),
+                    json!({ "material": material, "angle": angle }),
+                );
+            }
+            Some((material, _)) => {
+                e.insert("floor".into(), json!({ "material": material }));
+            }
+            None => {
+                if let Some(floor) = floor_for(&room.name) {
+                    e.insert("floor".into(), json!({ "material": floor }));
+                }
+            }
         }
         out_rooms.push(Json::Object(e));
     }
@@ -716,6 +732,8 @@ struct RoomOut {
     thickness: Vec<Option<f64>>,
     /// The outline written, once checked.
     frame: Option<Vec<P2>>,
+    /// Its floor, when the file says it.
+    floor: Option<(&'static str, f64)>,
 }
 
 fn bounds(points: &[P2]) -> [f64; 4] {
@@ -907,6 +925,7 @@ mod tests {
             id: id.to_owned(),
             name: id.to_owned(),
             points: points.to_vec(),
+            floor: None,
         };
         let draft = Draft {
             rooms: vec![
@@ -939,6 +958,7 @@ mod tests {
                 id: "room".to_owned(),
                 name: String::new(),
                 points: vec![[0.0, 0.0], [400.0, 0.0], [400.0, 300.0], [0.0, 300.0]],
+                floor: None,
             }],
             pieces: vec![DraftPiece {
                 id: "piece".to_owned(),

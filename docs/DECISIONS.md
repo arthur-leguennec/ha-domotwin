@@ -2218,3 +2218,93 @@ D-054 planned them.
     Assistant's cards, dialogs and now pages reused rather than rebuilt.
   - Many of them read what only administrators may (automations, traces, the radios): each says
     what other users see.
+
+## D-057 · More imports: robot vacuum maps, Floorplanner, mesh scans (amends D-040)
+
+M20, moved forward by the maintainer: built after 0.4.0, before the sandbox (M29), so that the
+first launch in five minutes (M22) has it.
+
+- **Context.** Many homes already have a map, drawn by something other than a planning app: the
+  robot vacuum's, made while it cleans; a Floorplanner plan, and the plans other apps export to
+  it; a mesh scanned with a phone or a Matterport camera. D-040 read Sweet Home 3D homes, DXF
+  drawings and RoomPlan's own files, and refused meshes. Checked at their sources in October
+  2026: Valetudo's map classes and its MQTT map handle
+  ([`MapLayer.js`](https://github.com/Hypfer/Valetudo/blob/master/backend/lib/entities/map/MapLayer.js),
+  [`ValetudoMap.js`](https://github.com/Hypfer/Valetudo/blob/master/backend/lib/entities/map/ValetudoMap.js),
+  [`MapNodeMqttHandle.js`](https://github.com/Hypfer/Valetudo/blob/master/backend/lib/mqtt/handles/MapNodeMqttHandle.js)),
+  Valetudo RE's reader of Roborock's map
+  ([`RRMapParser.js`](https://github.com/rand256/valetudo/blob/master/lib/RRMapParser.js)), and
+  Floorplanner's FML 3.0 specification ([fml.floorplanner.dev](https://fml.floorplanner.dev/intro/)).
+- **Decision.**
+  - **Robot vacuum maps.**
+    - **Valetudo**, which runs on many robots (Roborock, Dreame, Xiaomi, Viomi…) without their
+      maker's cloud: its map as its REST API gives it (`/api/v2/robot/state/map`, JSON), as it
+      publishes it over MQTT (`map-data`, the JSON deflated), or as Home Assistant receives it
+      (`map-data-hass`: a PNG whose `zTXt` chunk `ValetudoMap` holds the deflated JSON, the
+      *Map data* camera of its MQTT discovery). Layers are pixels of `pixelSize` cm (1 to 100), as
+      run-length triples (`compressedPixels`) or, before Valetudo compressed them, as pairs;
+      entities are in cm; the origin is the top left, `y` down, as on a plan.
+    - **Roborock's own map** (`rr`), as Valetudo RE serves it (`/api/map/latest`, gzipped) and as
+      the Xiaomi Cloud Map Extractor stores it (`store_map_raw`): its image block, 5 cm a pixel,
+      `y` up (turned, not mirrored), each pixel a wall, a floor or a room (its id in the upper
+      five bits, on robots that have rooms); the dock's place in millimetres.
+    - **What a map becomes.** Each segment is a room, kept by its id (`segment-16`), so that
+      importing the map again keeps the links; named by Valetudo's name for it. A map without
+      segments is one room, its largest floor. A room is its pixels closed over the furniture
+      the robot went round (holes and notches under 30 cm), its outline traced, simplified and
+      squared to the map's walls, the map turned so that they run along the axes. A door is
+      where two rooms touch without a wall between them, as wide as they touch; wider than
+      1.6 m, an opening; it opens into the room with fewer doors (a bedroom off the hall). The
+      floors Valetudo knows (tiles, wood and its direction) are the rooms' floors. The dock is a
+      robot vacuum's dock (`robot-vacuum`, D-049), its back to the nearest wall. A robot map has
+      no windows, no furniture, one storey.
+    - **From Home Assistant itself**: *Import a robot's map* lists the cameras of Valetudo's MQTT
+      discovery, reads the one picked through Home Assistant (`/api/camera_proxy`, the user's
+      session), and links the dock to the vacuum of the same device. Nothing reaches the robot.
+    - **Other robots** keep their map in their maker's app and cloud; their integrations show it
+      as a picture (Roborock's, the Xiaomi Cloud Map Extractor's camera), whose rooms are
+      colours and boxes, not outlines. A picture is refused with what to do instead.
+  - **Floorplanner** (`.fml`, FML 3.0, JSON, centimetres): each floor a storey (its name, its
+    level, its height), its first design read; its areas the rooms (inside their walls, as
+    D-040's drafts are), named by their name or a label inside them; its walls the wall
+    thicknesses, the rooms their faces enclose when the design has no areas; the walls' openings
+    doors and windows (centred at `t` along their wall, the hinge and swing from `mirrored`);
+    its items the furniture, a box of their size unless their name says a kind. Curved walls
+    are straight; surfaces (a terrace), lines, dimensions, cameras and the drawing are left out.
+    The older XML FML is refused with what to do instead.
+  - **Mesh scans** (OBJ, PLY, GLB, STL), amending D-040. Telling walls from furniture in a mesh
+    is still guesswork, so DomoTwin does not try: it reads the heights where furniture is not.
+    - **Up and unit.** The axis up is the format's (`y`, `z` for STL), unless another holds twice
+      the horizontal surface at one height (a floor: the walls of storeys over one another are in
+      one plane, their floors are not); the unit is the one whose storey height (floor to ceiling)
+      is a storey's, else the one whose size is a home's.
+    - **Storeys** are the floors: the heights holding the most surface facing up, more than
+      1.8 m apart; each storey's ceiling the most surface facing down above it.
+    - **Turned square** by the directions of the walls (the vertical surfaces), before anything
+      is drawn, so that the rooms come out square.
+    - **Rooms** are the spaces under the ceiling (or over the floor where the ceiling was not
+      scanned) that the walls enclose above the doors, between 2.1 m and the ceiling: there the
+      walls are whole, lintels included, and furniture does not reach. The walls are cut there
+      into lines, drawn 5 cm a cell; a space narrower than 60 cm is the inside of a wall or a
+      cupboard, not a room.
+    - **Doors** are where the wall between two rooms, or to the outside, is open at 0.4, 1.0 and
+      1.5 m; **windows** where a room's wall to the outside is open at 1.0 and 1.5 m over a sill at
+      0.4 m (glass the scan saw through). Wider than 1.6 m, a door is an opening.
+    - **No furniture**: a mesh does not say what a piece is. Its furniture can still come in as
+      one's own 3D models (D-021). Points without faces (a point cloud), FBX and glTF with its
+      buffers apart are refused with what to do instead.
+  - **One import, as before** (D-040): each reader gives the builder a draft; the format comes
+    from the content (the JSON's keys, the PNG's chunk, the `rr`, `ply`, `glTF` and STL headers,
+    OBJ's lines, a deflated or gzipped stream opened first); limits counted while reading
+    (4 million map pixels and cells, 16 million with the grids of its rooms, a million cells two
+    rooms share, 100 rooms; 5 million triangles and the cells they cover; 64 MB inflated) so that
+    a malicious file runs out of budget, not of memory or of time. Rooms traced from cells share
+    one module (`grid`).
+- **Consequences.**
+  - The import module grows, still fetched only to import a file; the first load grows by the
+    menu item and the formats' names (`PERFORMANCE.md`).
+  - Valetudo, FML and mesh files are numbered in their order, except a robot's segments; a
+    Floorplanner plan imported again keeps its links only if nothing was added before them.
+  - A mesh's rooms and doors are measured, not guessed, but only where the scan saw: a door
+    scanned closed is a wall, a room scanned without its ceiling stops at its furniture. The
+    plan editor finishes the rest, as for every import.

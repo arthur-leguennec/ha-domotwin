@@ -10,8 +10,13 @@ plans (`plan-format.md`):
 | `.sh3d` | [Sweet Home 3D](#sweet-home-3d) homes | the home's levels |
 | `.dxf` | [DXF drawings](#dxf-drawings) (LibreCAD, QCAD, AutoCAD, DraftSight…) | one |
 | `.usdz`, `.json` | [room scans](#room-scans) made with a phone's LiDAR (Apple's RoomPlan) | the scan's stories |
+| `.json`, `.png`, `.gz` | [robot vacuum maps](#robot-vacuum-maps): Valetudo's, Roborock's | one |
+| `.fml` | [Floorplanner plans](#floorplanner), and the apps that export to it | the project's floors |
+| `.obj`, `.ply`, `.glb`, `.stl` | [mesh scans](#mesh-scans) (Polycam, Scaniverse, 3D Scanner App, Matterport…) | the scan's floors |
 
 ![Three fictional homes imported: a Sweet Home 3D cottage, a DXF studio and a scanned living room](figures/screenshot-imports.png)
+
+![Three more: a robot vacuum's map, a Floorplanner plan and a house scanned as a mesh](figures/screenshot-more-imports.png)
 
 The import runs in your browser, in a separate WebAssembly module downloaded only when you pick
 one of these files. Dashboards never load it, and nothing leaves your Home Assistant. The format
@@ -110,15 +115,86 @@ so (`scan_usdc`), and so does a root `.usda` layer alone without the layers it r
 | fireplace, others | a box of its size |
 
 A scan follows where the phone pointed: the plan is turned so that its walls run along the axes.
-Elements are numbered (`room-1`, `piece-1`…): after importing a new scan, check the links. OBJ
-and other mesh scans are not read: they are triangles without walls or rooms (D-040). Their
-furniture can still come in as [your own 3D models](edit-mode.md).
+Elements are numbered (`room-1`, `piece-1`…): after importing a new scan, check the links. A scan
+exported as a mesh (OBJ, PLY…) is read as a [mesh scan](#mesh-scans).
+
+## Robot vacuum maps
+
+A robot vacuum maps the home as it cleans: its rooms, the walls its laser sees, its dock. DomoTwin
+reads the map of robots running [Valetudo](https://valetudo.cloud) (many Roborock, Dreame, Xiaomi
+and Viomi robots), and Roborock's own map. Nothing reaches the robot.
+
+- **From Home Assistant**: with Valetudo's MQTT and Home Assistant's discovery on, each robot has a
+  *Map data* camera. **Import a robot's map**, in the panel's ⋮ menu (or beside *Import plan* on a
+  home without a plan), reads it through Home Assistant and links the dock to the robot's vacuum.
+  With several robots, it asks which.
+- **From a file**: the map Valetudo's REST API gives (`http://<robot>/api/v2/robot/state/map`,
+  saved as `.json`), what it publishes over MQTT (`MapData/map-data`, deflated), or the camera's
+  picture (`.png`). Roborock's own map as Valetudo RE serves it (`/api/map/latest`) or as the
+  Xiaomi Cloud Map Extractor stores it (`store_map_raw`), gzipped (`.gz`).
+
+| Map | Becomes | Notes |
+| --- | --- | --- |
+| segment | a room | Kept by its id (`segment-16`): importing the map again keeps your links. Named as in Valetudo. A map without segments is one room. |
+| its pixels | the room's outline | Closed over what the robot went round (chair and table legs, gaps under 30 cm), squared to the walls; the map is turned so that they run along the axes. Furniture the robot could not go behind (a sofa against a wall) leaves its notch: finish it in the plan editor. |
+| two rooms touching | a door | Where they touch with no wall between them, as wide; wider than 1.6 m, an opening. It opens into the room with fewer doors (a bedroom off the hall). |
+| floor material | the room's floor | Tiles, wood and its direction (Valetudo's, when the robot knows them). |
+| dock | a robot vacuum's dock | Its back to the nearest wall, facing into the room. |
+
+A robot's map has no windows and no furniture: it is the floor the robot reached. Other robots
+keep their map in their maker's app and cloud; their integrations show it as a picture, whose rooms
+are colours, not outlines. A picture is refused (`picture`).
+
+## Floorplanner
+
+Projects of [Floorplanner](https://floorplanner.com) in FML 3.0 (`.fml`, JSON, in centimetres),
+which Floorplanner exports, and which apps exporting to Floorplanner write (magicplan, iGUIDE…).
+The older FML in XML is refused (`fml_xml`): export it again from Floorplanner.
+
+| FML | Becomes | Notes |
+| --- | --- | --- |
+| floor | a storey | Its name, its level; its height sets the storeys above. The first design of each floor is read. |
+| area | a room | Its outline (inside its walls) and name, else the text of a label inside it. A floor without areas gets the rooms its walls enclose. |
+| wall | wall thicknesses | Partitions and façades, as drawn. Curved walls are straight. |
+| opening | a door, a window or an opening | Centred at its place along its wall (`t`), its width; the hinge and the side it opens to from its mirroring. |
+| item | furniture | Its place, size, height above the floor and rotation. Its kind from its name, else a box of its size (Floorplanner's catalogue ids say nothing). |
+
+Not read: surfaces (a terrace), lines, dimensions, cameras, the drawing behind the plan.
+Elements are numbered in their order (`room-1`, `door-1`…).
+
+## Mesh scans
+
+A mesh is triangles: a scanning app's export (Polycam, Scaniverse, 3D Scanner App, Matterport's
+OBJ…) as OBJ, PLY (text or binary), GLB or STL. A mesh does not say which triangles are walls and
+which are furniture, so DomoTwin reads it where furniture is not (D-057):
+
+- **Up and unit**: `y` is up (`z` for STL), unless another axis holds twice as much horizontal
+  surface at one height (a floor). GLB is in metres; another file's unit is the one that makes a
+  storey's height (floor to ceiling) between 1.9 and 4.5 m, else a home's size.
+- **Storeys**: the floors, the heights holding the most surface facing up, more than 1.8 m apart;
+  each with the ceiling above it, when it was scanned.
+- **Turned square** by the directions of the walls.
+- **Rooms**: the spaces under the ceiling (or over the floor where the ceiling was not scanned)
+  that the walls enclose between 2.1 m and the ceiling, above the doors, where furniture does not
+  reach: a wall cabinet or a wardrobe is left in its room. Cut in cells of 5 cm; a space narrower
+  than 60 cm is a cupboard or the inside of a wall, not a room.
+- **Doors** where the wall between two rooms, or to the outside, is open at 0.4, 1.0 and 1.5 m;
+  **windows** where a wall to the outside is open at 1.0 and 1.5 m over a sill at 0.4 m.
+
+What a scan did not see is not there: a door scanned closed is a wall, a window whose glass was
+scanned is a wall, a room scanned without its ceiling stops at its furniture. Rooms have no names
+and furniture is not read: a mesh does not say what a piece is (your own 3D models can be added in
+[edit mode](edit-mode.md)). Refused with what to do instead: points without faces (a point cloud,
+`mesh_points`), a glTF with its data in other files (`mesh_gltf`), FBX (`mesh_fbx`), compressed
+GLB (`unsupported`), and USD's binary format (`scan_usdc`).
 
 ## Limits
 
 Files up to 200 MB. A Sweet Home 3D home holds at most 20 000 elements, a scan 5 000, a drawing
-200 000 entities; a plan keeps 500 elements (rooms first, then doors and windows, then the
-largest pieces). Reading and converting take well under a second for a home (`PERFORMANCE.md`).
+200 000 entities, a Floorplanner project 20 000 elements, a robot's map 4 million pixels and 100
+rooms, a mesh 5 million triangles (64 MB once unpacked, for what comes packed); a plan keeps 500
+elements (rooms first, then doors and windows, then the largest pieces). Reading and converting
+take well under a second for a home, a few seconds for a large mesh (`PERFORMANCE.md`).
 
 ## For developers
 
@@ -126,7 +202,11 @@ largest pieces). Reading and converting take well under a second for a home (`PE
   (the plan builder every reader gives a `Draft`), `convert.rs`, `step.rs`, `model.rs` (IFC),
   `sh3d.rs` (Sweet Home 3D, with the ZIP and XML readers of `domotwin-models`), `dxf.rs`,
   `scan.rs` and `usda.rs` (RoomPlan), `faces.rs` (rooms from lines), `kinds.rs` (furniture
-  kinds). Its wasm API (`web.rs`) is wrapped by `frontend/src/import/import.ts`.
+  kinds), `robot.rs` (robot vacuum maps), `fml.rs` (Floorplanner), `meshes.rs` and
+  `mesh_scan.rs` (mesh scans), `grid.rs` (rooms from cells: distances, parts, outlines, squaring),
+  `unpack.rs` (zlib, gzip, a PNG's text). Its wasm API (`web.rs`) is wrapped by
+  `frontend/src/import/import.ts`; `frontend/src/import/files.ts` says which files go to it and
+  `frontend/src/live/robot-maps.ts` finds the robots' maps in Home Assistant.
 - `cargo run -p domotwin-import --example import -- file [storey] > out.domotwin.json` converts a
   file on the command line.
 - The test files in `crates/domotwin-import/tests/fixtures/` are fictional, written by
