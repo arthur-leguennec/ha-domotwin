@@ -105,6 +105,15 @@ export const sandboxEn = {
       looping: "It set itself off again and again: stopped for the rest of the day.",
       cut: "The day stopped at {time}: too much happened in it.",
       go: "Go to {time}",
+      draft: "The draft",
+      draft_against: "Works against {names} this day.",
+      draft_flap: "Sets something back and forth this day.",
+    },
+    draft: {
+      title: "Draft: {name}",
+      note: "Not saved: it plays on the copy, beside your automations.",
+      ran: { one: "Ran once this day.", other: "Ran {count} times this day." },
+      back: "Back to the draft",
     },
     why: {
       config:
@@ -227,6 +236,15 @@ export const sandboxFr: Widen<typeof sandboxEn> = {
       looping: "Elle s’est déclenchée encore et encore : arrêtée pour le reste de la journée.",
       cut: "La journée s’est arrêtée à {time} : il s’y passait trop de choses.",
       go: "Aller à {time}",
+      draft: "Le brouillon",
+      draft_against: "Contrarie {names} ce jour-là.",
+      draft_flap: "Fait changer quelque chose sans cesse ce jour-là.",
+    },
+    draft: {
+      title: "Brouillon : {name}",
+      note: "Pas encore enregistrée : elle joue sur la copie, à côté de vos automatisations.",
+      ran: { one: "Lancée une fois ce jour-là.", other: "Lancée {count} fois ce jour-là." },
+      back: "Revenir au brouillon",
     },
     why: {
       config:

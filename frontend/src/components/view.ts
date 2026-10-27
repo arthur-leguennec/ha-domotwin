@@ -2534,6 +2534,13 @@ export class DomoTwinView extends LitElement {
     this.redraw();
   }
 
+  /** Shows the wires of these automations, as a panel's list asks for them (a draft, D-070). */
+  showWires(ids: string[]): void {
+    this.sheet = undefined;
+    this.whyAsked = undefined;
+    this.wiresAsked = { ids };
+  }
+
   /** Lights the rooms from where the sun really is (through the windows), or not. */
   setRealSun(real: boolean): void {
     this.layersOpen = false;

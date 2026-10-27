@@ -33,7 +33,8 @@ your home as it is: nothing done in the sandbox is kept, nothing was written.
   temperatures**: the weather entities say it, by day and by night, their temperature each hour;
 - **who goes out and comes back**: for each of Home Assistant's people, home at midnight or not,
   and when they go out and come back (on a working day each goes out at half past eight and is
-  back at six, at first). Their trackers go with them;
+  back at six, at first). Their trackers go with them, and the home zone (`zone.home`) counts who
+  is in it, as Home Assistant's zones do: `0` once the last one has gone out;
 - what was **done by hand** (below), each with a way to forget it.
 
 **Play this day** plays it again from midnight.
@@ -63,6 +64,13 @@ morning's and the evening's), the integrations say so from midnight, but only th
 and **The day** says it. Only the devices and calendars that say this peak are moved (another
 contract with another peak stays without one), and a pre-heating that starts the day before is
 already on at midnight.
+
+## An automation in plain words
+
+An automation written in [plain words](plain-words.md) is played here before it is saved: the
+sandbox opens with it added to the copy as an automation of its own, beside your automations, its
+wires on the plan. The bar says it is a draft and what it did on the day played, and the report
+puts it first. Each day played is kept with what it did; **Back to the draft** goes back to it.
 
 ## Watching it
 

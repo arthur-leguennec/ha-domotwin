@@ -5,10 +5,12 @@
  */
 import {
   mdiAlertOutline,
+  mdiArrowLeft,
   mdiCalendarEdit,
   mdiClose,
   mdiPause,
   mdiPlay,
+  mdiStarFourPointsOutline,
   mdiTestTube,
   mdiTextBoxSearchOutline,
 } from "@mdi/js";
@@ -207,6 +209,19 @@ export class DomoTwinSandboxBar extends LitElement {
         width: 2px;
         background: var(--primary-text-color, #1f2328);
         pointer-events: none;
+      }
+      /* The automation written in plain words, played beside the home's (D-070). */
+      .draft {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 4px 10px;
+        padding: 4px 12px;
+        border-bottom: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+        background: var(--card-background-color, #fff);
+      }
+      .draft .what {
+        overflow-wrap: anywhere;
       }
       .sheet {
         max-height: min(55vh, 520px);
@@ -500,8 +515,60 @@ export class DomoTwinSandboxBar extends LitElement {
           ${icon(mdiClose)}${t.t("sandbox.leave")}
         </button>
       </div>
-      ${this.renderLine(home, t)} ${this.open === "day" ? this.renderDay(home, t) : nothing}
+      ${this.renderDraft(home, t)} ${this.renderLine(home, t)}
+      ${this.open === "day" ? this.renderDay(home, t) : nothing}
       ${this.open === "report" ? this.renderReport(home, report, t) : nothing}`;
+  }
+
+  /** What the draft did on the day shown, in a sentence or two. */
+  private draftSummary(home: SandboxHome, t: Translator): string {
+    const day = home.draftDay();
+    if (!day) return "";
+    const said = [
+      day.runs.length > 0
+        ? t.tp("sandbox.draft.ran", day.runs.length)
+        : day.stopped > 0
+          ? t.tp("sandbox.report.stopped_by_conditions", day.stopped)
+          : day.busy > 0
+            ? t.tp("sandbox.report.busy", day.busy)
+            : t.t("sandbox.report.never_set_off"),
+    ];
+    if (day.against.length > 0) {
+      said.push(
+        t.t("sandbox.report.draft_against", {
+          names: day.against.map((id) => home.name(id)).join(", "),
+        }),
+      );
+    } else if (day.backAndForth) said.push(t.t("sandbox.report.draft_flap"));
+    if (day.looping) said.push(t.t("sandbox.report.looping"));
+    return said.join(" ");
+  }
+
+  /** The automation written in plain words, played beside the home's (D-070), and the way back. */
+  private renderDraft(home: SandboxHome, t: Translator): TemplateResult | typeof nothing {
+    const draft = home.draft;
+    if (!draft) return nothing;
+    return html`<div
+      class="draft"
+      role="group"
+      aria-label=${t.t("sandbox.draft.title", { name: draft.name })}
+      data-testid="sandbox-draft"
+    >
+      <span class="what"
+        >${icon(mdiStarFourPointsOutline)}${t.t("sandbox.draft.title", { name: draft.name })}</span
+      >
+      <span class="note">${t.t("sandbox.draft.note")}</span>
+      <span role="status" data-testid="sandbox-draft-day">${this.draftSummary(home, t)}</span>
+      <button
+        data-testid="sandbox-draft-back"
+        ?disabled=${this.held}
+        @click=${() => {
+          fire(this, "domotwin-sandbox-draft", {});
+        }}
+      >
+        ${icon(mdiArrowLeft)}${t.t("sandbox.draft.back")}
+      </button>
+    </div>`;
   }
 
   private toggle(what: "day" | "report"): void {
@@ -865,6 +932,60 @@ export class DomoTwinSandboxBar extends LitElement {
       }`;
   }
 
+  /** The draft first (D-070): its runs, or why it never ran; what it worked against; what could
+   * not be played of it. */
+  private renderDraftReport(
+    home: SandboxHome,
+    report: DayReport,
+    t: Translator,
+  ): TemplateResult | typeof nothing {
+    const draft = home.draft;
+    const owner = draft ? report.owners.find((each) => each.id === draft.entity) : undefined;
+    if (!draft || !owner) return nothing;
+    const conflicts = report.conflicts.filter(
+      (conflict) => conflict.first.owner === draft.entity || conflict.second.owner === draft.entity,
+    );
+    return html`<h3>${t.t("sandbox.report.draft")} · ${draft.name}</h3>
+      <ul data-testid="sandbox-draft-report">
+        ${
+          owner.runs.length > 0
+            ? html`<li>
+                ${t.tp("sandbox.report.runs", owner.runs.length)}
+                <ul>
+                  ${owner.runs.slice(0, RUNS_LISTED).map((run) => this.renderRun(home, run, t))}
+                  ${owner.runs.length > RUNS_LISTED ? html`<li class="muted">…</li>` : nothing}
+                </ul>
+              </li>`
+            : html`<li>
+                ${
+                  owner.stoppedByConditions > 0
+                    ? t.tp("sandbox.report.stopped_by_conditions", owner.stoppedByConditions)
+                    : owner.busy > 0
+                      ? t.tp("sandbox.report.busy", owner.busy)
+                      : t.t("sandbox.report.never_set_off")
+                }
+              </li>`
+        }
+        ${owner.looping ? html`<li class="error">${t.t("sandbox.report.looping")}</li>` : nothing}
+        ${conflicts.map(
+          (conflict) =>
+            html`<li class="error">
+              ${this.goTo(home, conflict.at, t)}
+              ${t.t("sandbox.report.conflict", {
+                entity: home.name(conflict.entity),
+                first: home.name(conflict.first.owner),
+                first_state: conflict.first.state,
+                first_time: clockOf(conflict.first.at, home.zone),
+                second: home.name(conflict.second.owner),
+                second_state: conflict.second.state,
+                second_time: clockOf(conflict.second.at, home.zone),
+              })}
+            </li>`,
+        )}
+        ${owner.notPlayed.map((note) => html`<li class="muted">${this.why(note, t)}</li>`)}
+      </ul>`;
+  }
+
   private renderReport(home: SandboxHome, report: DayReport, t: Translator): TemplateResult {
     const byName = (a: OwnerReport, b: OwnerReport) =>
       home.name(a.id).localeCompare(home.name(b.id));
@@ -885,6 +1006,7 @@ export class DomoTwinSandboxBar extends LitElement {
             </p>`
           : nothing
       }
+      ${this.renderDraftReport(home, report, t)}
       <h3>${t.t("sandbox.report.against")}</h3>
       ${
         report.conflicts.length === 0
@@ -1016,5 +1138,5 @@ declare global {
   }
 }
 
-export { SandboxHome } from "./home";
+export { SandboxHome, type DraftDay, type SandboxDraft } from "./home";
 export { copyHome } from "./copy";
