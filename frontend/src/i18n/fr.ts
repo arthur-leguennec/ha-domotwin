@@ -481,6 +481,7 @@ export const fr: Dictionary = {
     no_area_admin: "Liez-la dans le panneau DomoTwin, ou donnez à la zone le nom de la pièce.",
     private: "Cette pièce est privée.",
     history: "Historique",
+    graphs: "Graphiques",
   },
   voice: {
     title: "Voix",
@@ -670,6 +671,7 @@ export const fr: Dictionary = {
     home: "Accueil",
     rooms: "Pièces",
     three_d: "3D",
+    energy: "Énergie",
   },
   rooms: {
     star_failed: "Vos favoris n’ont pas changé : {reason}",

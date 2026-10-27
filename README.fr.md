@@ -28,10 +28,11 @@ Local, rapide, Rust + WebAssembly.</p>
 > sable joue une journée des automatisations de la maison sur une copie de celle-ci, l’historique
 > de Home Assistant se lit en rapports, « Pourquoi ? » dit qui ou quoi a changé un appareil, le
 > code QR du Wi-Fi accueille les invités, DomoTwin rejoint la Vue d’ensemble de Home Assistant
-> plutôt que de la copier, chaque changement de la configuration est gardé, et les pointes
-> d’Hydro-Québec se voient sur le plan, dans l’onglet Accueil et dans le bac à sable. L’historique
-> et l’énergie, la sécurité et l’écran mural viennent ensuite, vers la version 0.5.0 ; la
-> proposition à la liste par défaut de HACS attend des mesures sur de vrais appareils.
+> plutôt que de la copier, chaque changement de la configuration est gardé, les pointes
+> d’Hydro-Québec se voient sur le plan, dans l’onglet Accueil et dans le bac à sable, et chaque
+> pièce a ses graphiques, la page Énergie de Home Assistant à un onglet. La sécurité et l’écran
+> mural viennent ensuite, vers la version 0.5.0 ; la proposition à la liste par défaut de HACS
+> attend des mesures sur de vrais appareils.
 
 ## Fonctionnalités
 
@@ -48,6 +49,13 @@ Local, rapide, Rust + WebAssembly.</p>
   recherche ; *3D* est la vue 3D, où une pièce touchée ouvre sa pièce. Mettez une étoile à ce qui
   sert le plus ; choisissez l’onglet sur lequel DomoTwin s’ouvre, pour vous ou pour un écran, et
   un agenda ou une liste pour votre onglet Accueil.
+- **Les graphiques de chaque pièce, l’énergie de la maison.** *Graphiques*, sur la page d’une
+  pièce ou son panneau en 3D : ce que ses capteurs ont mesuré sur le dernier jour ou la dernière
+  semaine (température, humidité, CO₂, puissance, les compteurs heure par heure, les portes et
+  fenêtres, la présence) en graphiques de Home Assistant, la même chose en tableau ou dans
+  l’historique de Home Assistant à portée de doigt. *Énergie* ouvre la page Énergie de Home
+  Assistant, dont la flèche de retour ramène à DomoTwin. Voir
+  [graphiques](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/graphs.md) (en anglais).
 - **Votre plan en 3D et en 2D.** Dessinez-le dans le panneau, ou importez-le : une maquette IFC
   (`*.ifc`, depuis Revit, ArchiCAD, Bonsai, FreeCAD…), une maison Sweet Home 3D (`*.sh3d`), un
   dessin DXF, une pièce scannée avec un iPhone ou un iPad à LiDAR (`*.usdz`, le JSON de RoomPlan)

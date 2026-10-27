@@ -477,6 +477,7 @@ export const en = {
     no_area_admin: "Link it in the DomoTwin panel, or give the area the room's name.",
     private: "This room is private.",
     history: "History",
+    graphs: "Graphs",
   },
   voice: {
     title: "Voice",
@@ -663,6 +664,7 @@ export const en = {
     home: "Home",
     rooms: "Rooms",
     three_d: "3D",
+    energy: "Energy",
   },
   rooms: {
     star_failed: "Your favourites did not change: {reason}",

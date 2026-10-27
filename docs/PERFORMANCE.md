@@ -1031,3 +1031,19 @@ rooms are drawn like a heatmap: at the layers' pace (24 frames a second), still 
 motion*; what they draw alone is written, not drawn, and needs no frame. In the sandbox, the
 peak's day adds a few changes to the day played, and what each room did is read every five minutes
 from the pre-heating to the peak's end when the report opens, once for each day played.
+
+### M24 (history and energy)
+
+Bundle: the first load is **525.1 kB gzipped** of 1 200 kB (+1.1 kB): the Energy tab, its address
+and its word, whether Home Assistant's energy is set up, the graphs' address and the room panel's
+word. A room's graphs come with the Rooms tab's chunk (`chunks/practical-<hash>.js`: 49.3 kB raw,
+13.6 kB gzipped, +1.7 kB) and a chunk it shares with the room's panel in 3D (the kinds of measure
+and Home Assistant's card configurations, 1.6 kB gzipped); the room's panel grows by its button
+(11.4 kB gzipped, +0.1 kB).
+
+The graphs are Home Assistant's own cards: each reads the recorder once when it shows, and is told
+of new states as Home Assistant's dashboards are, no more. DomoTwin finds a room's kinds of measure
+when its page opens, and again only when an entity comes or goes, not at each new state. The
+Energy tab is a link: Home Assistant's Energy page loads as it always does. Whether something is
+set up on it is asked once for each connection to Home Assistant (`energy/get_prefs`, a few hundred
+bytes), only where Home Assistant has the page.

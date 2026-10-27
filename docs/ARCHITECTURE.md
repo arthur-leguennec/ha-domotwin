@@ -68,6 +68,10 @@ every reader returns `Result` with a stable error code that the frontend transla
   (`components/summary-body.ts`, `live/summaries.ts`) is a chunk of its own. The integration gives
   each room a device in its area with two sensors (`custom_components/domotwin/sensor.py`,
   `overview.py`: the people in it, the upkeep due for its pieces).
+- History and energy (D-064): `live/graphs.ts` sorts a room's entities into Home Assistant's
+  history-graph and statistics-graph cards, which `components/room-graphs.ts` shows in the Rooms
+  tab's chunk; `live/overview.ts` gives the address of Home Assistant's Energy page, which the
+  panel's Energy tab opens.
 - `src/i18n/` holds the English and French dictionaries. Every visible string goes through `t()`.
 
 ![Render on demand: frames only when something changes, nothing while idle or off-screen](figures/render-on-demand.png)

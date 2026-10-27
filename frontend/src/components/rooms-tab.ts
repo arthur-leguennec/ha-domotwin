@@ -1,9 +1,9 @@
 /**
  * `<domotwin-rooms>`, the Rooms tab (D-055): Home Assistant's floors and areas, a room opened
- * with its entities as Home Assistant's tile cards, and a search through the whole home. Each
- * entity has a star that makes it a favourite of the Home tab.
+ * with its entities as Home Assistant's tile cards and its graphs (D-064), and a search through
+ * the whole home. Each entity has a star that makes it a favourite of the Home tab.
  */
-import { mdiArrowLeft, mdiChevronRight, mdiLockOutline, mdiMagnify } from "@mdi/js";
+import { mdiArrowLeft, mdiChartLine, mdiChevronRight, mdiLockOutline, mdiMagnify } from "@mdi/js";
 import { LitElement, css, html, nothing, type PropertyValues, type TemplateResult } from "lit";
 
 import { tileCard } from "../ha/cards";
@@ -11,12 +11,14 @@ import type { HomeAssistant } from "../ha/types";
 import type { Translator } from "../i18n";
 import { entityName } from "../live/bindings";
 import { failureText } from "../live/actions";
+import { graphable } from "../live/graphs";
 import { NOTHING_UNSEEN, type Unseen } from "../live/privacy";
 import { runRoom, type RoomAction } from "../live/room-actions";
 import { homeFloors, searchEntities, type RoomsArea, type RoomsFloor } from "../live/rooms";
 import { define } from "./define";
 import "./ha-card";
 import { icon } from "./icon";
+import "./room-graphs";
 import { practicalStyles, starButton } from "./practical-styles";
 import { roomBarStyles, roomButtons } from "./room-bar";
 import { baseStyles } from "./styles";
@@ -30,6 +32,7 @@ export class DomoTwinRooms extends LitElement {
     actions: { attribute: false },
     refused: { state: true },
     area: { attribute: false },
+    graphs: { type: Boolean },
     from3d: { type: Boolean },
     query: { state: true },
   };
@@ -45,6 +48,8 @@ export class DomoTwinRooms extends LitElement {
   protected refused?: string;
   /** The room open, an area of Home Assistant. */
   area?: string;
+  /** Its graphs are shown (D-064). */
+  graphs = false;
   /** The room was opened from the 3D view: its way back leads there. */
   from3d = false;
   protected query = "";
@@ -167,10 +172,10 @@ export class DomoTwinRooms extends LitElement {
     if (changed.has("area") && this.area) this.query = "";
   }
 
-  private go(area: string | undefined): void {
+  private go(area: string | undefined, graphs = false): void {
     this.dispatchEvent(
       new CustomEvent("domotwin-go", {
-        detail: { tab: "rooms", area },
+        detail: { tab: "rooms", area, graphs },
         bubbles: true,
         composed: true,
       }),
@@ -213,11 +218,25 @@ export class DomoTwinRooms extends LitElement {
     const t = this.t;
     if (!t) return html``;
     const area = this.findArea(id);
+    if (area && !area.closed && this.graphs) return this.renderGraphs(area);
     return html`<div class="page" data-testid="room-page" data-area=${id}>
       <div class="room-head">
         <button class="action" data-testid="room-back" @click=${this.back}>
           ${icon(mdiArrowLeft)}${this.from3d ? t.t("rooms.back_3d") : t.t("rooms.back")}
         </button>
+        ${
+          area?.entities.some((entity) => graphable(this.hass?.states[entity]))
+            ? html`<button
+                class="action quiet"
+                data-testid="room-graphs"
+                @click=${() => {
+                  this.go(id, true);
+                }}
+              >
+                ${icon(mdiChartLine)}${t.t("graphs.open")}
+              </button>`
+            : nothing
+        }
       </div>
       ${
         area
@@ -234,6 +253,33 @@ export class DomoTwinRooms extends LitElement {
               }`
           : html`<p class="muted">${t.t("rooms.unknown_room")}</p>`
       }
+    </div>`;
+  }
+
+  /** The room's graphs (D-064), with the way back to its page. */
+  private renderGraphs(area: RoomsArea): TemplateResult {
+    const t = this.t;
+    if (!t) return html``;
+    return html`<div class="page" data-testid="room-graphs-page" data-area=${area.id}>
+      <div class="room-head">
+        <button
+          class="action"
+          data-testid="graphs-back"
+          @click=${() => {
+            this.go(area.id);
+          }}
+        >
+          ${icon(mdiArrowLeft)}${t.t("graphs.back", { room: area.name })}
+        </button>
+      </div>
+      <h2>${t.t("graphs.heading", { room: area.name })}</h2>
+      <domotwin-room-graphs
+        .hass=${this.hass}
+        .t=${t}
+        .area=${area.id}
+        .name=${area.name}
+        .unseen=${this.unseen.entities}
+      ></domotwin-room-graphs>
     </div>`;
   }
 

@@ -26,9 +26,10 @@ Local, fast, Rust + WebAssembly.</p>
 > sandbox plays a day of the home's automations on a copy of it, Home Assistant's history reads
 > as reports, "Why?" says who or what changed a device, the Wi-Fi QR code welcomes guests,
 > DomoTwin joins Home Assistant's own Overview rather than copying it, each change of the
-> configuration is kept, and Hydro-Québec's peaks show on the plan, the Home tab and in the
-> sandbox. History and energy, safety and the wall screen come next, towards version 0.5.0; the
-> submission to HACS's default list waits on measurements on real devices.
+> configuration is kept, Hydro-Québec's peaks show on the plan, the Home tab and in the
+> sandbox, and each room has its graphs, with Home Assistant's Energy page a tab away. Safety and
+> the wall screen come next, towards version 0.5.0; the submission to HACS's default list waits
+> on measurements on real devices.
 
 ## Features
 
@@ -43,6 +44,12 @@ Local, fast, Rust + WebAssembly.</p>
   devices as Home Assistant's own tile cards, with a search; *3D* is the 3D view, where a room
   tapped opens its room. Star what you use most; choose the tab DomoTwin opens on, for you or for
   one screen, and an agenda or a list for your Home tab.
+- **Each room's graphs, the home's energy.** *Graphs*, on a room's page or its panel in 3D: what
+  its sensors measured over the last day or week (temperature, humidity, CO₂, power, the meters
+  hour by hour, the doors and windows, presence) as Home Assistant's own graphs, the same as a
+  table or in Home Assistant's History a tap away. *Energy* opens Home Assistant's own Energy
+  page, whose back arrow leads back to DomoTwin. See
+  [graphs](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/graphs.md).
 - **Your floor plan in 3D and 2D.** Draw it in the panel, or import it: an IFC model (`*.ifc`,
   from Revit, ArchiCAD, Bonsai, FreeCAD…), a Sweet Home 3D home (`*.sh3d`), a DXF drawing, a room
   scanned with an iPhone or iPad with LiDAR (`*.usdz`, RoomPlan's JSON) or a DomoTwin plan

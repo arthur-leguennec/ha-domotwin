@@ -175,6 +175,7 @@ export class DomoTwinHistory extends LitElement {
     heading: { attribute: false },
     entities: { attribute: false },
     unseen: { attribute: false },
+    opensOn: { attribute: false },
     chosen: { state: true },
     mode: { state: true },
     choice: { state: true },
@@ -201,6 +202,8 @@ export class DomoTwinHistory extends LitElement {
   entities: string[] = [];
   /** What the viewer may not see (D-039): the search leaves it out. */
   unseen: Unseen = NOTHING_UNSEEN;
+  /** The period it opens on: a room's graphs' (D-064); the last day otherwise. */
+  opensOn?: PeriodChoice;
   protected chosen: string[] = [];
   protected mode: ReportMode = "changes";
   protected choice: PeriodChoice = "day";
@@ -498,6 +501,7 @@ export class DomoTwinHistory extends LitElement {
 
   protected override willUpdate(changed: PropertyValues): void {
     if (changed.has("entities")) this.chosen = this.entities.slice(0, MAX_REPORT_ENTITIES);
+    if (changed.has("opensOn") && this.opensOn) this.choice = this.opensOn;
     // A room that turned private takes its entities away (D-039).
     const viewer = this.hass;
     if (viewer && (changed.has("unseen") || changed.has("entities"))) {

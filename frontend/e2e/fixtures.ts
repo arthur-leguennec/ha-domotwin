@@ -10,6 +10,8 @@ export interface HarnessOptions {
   overview?: boolean;
   /** With the Overview: no DomoTwin panel for this user (left out of the sidebar, or admins'). */
   noPanel?: boolean;
+  /** Home Assistant's Energy page, its energy integration's (D-064); `empty`: nothing set up. */
+  energyPage?: boolean | "empty";
   /**
    * Voice (D-041): Assist with a pipeline that hears (`true`), or none that hears (`"deaf"`);
    * apps that can be installed; one blueprint edited; a page served over HTTP; the card's
@@ -175,6 +177,7 @@ export async function openHarness(page: Page, options: HarnessOptions = {}): Pro
   if (options.tools === false) params.set("tools", "0");
   if (options.summary) params.set("summary", options.summary);
   if (options.overview) params.set("overview", "1");
+  if (options.energyPage) params.set("energypage", options.energyPage === true ? "1" : "empty");
   if (options.noPanel) params.set("nopanel", "1");
   if (options.orbit) params.set("orbit", "1");
   if (options.nightDim) params.set("nightdim", "1");
