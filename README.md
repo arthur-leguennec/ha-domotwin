@@ -16,9 +16,10 @@ Local, fast, Rust + WebAssembly.</p>
 > **Status: early development, version 0.4.0.** DomoTwin is built milestone by milestone
 > ([roadmap](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/ROADMAP.md)), and
 > everything under *Features* works today. Since 0.4.0 came the sandbox, history as reports,
-> "Why?" and the Wi-Fi QR code for guests, and DomoTwin joined Home Assistant's own Overview; the
-> weather around the home, history and energy, safety and the wall screen come next, towards
-> 0.5.0. The submission to HACS's default list waits on measurements on real devices.
+> "Why?", the Wi-Fi QR code for guests and the configuration history, and DomoTwin joined Home
+> Assistant's own Overview; the weather around the home, history and energy, safety and the wall
+> screen come next, towards 0.5.0. The submission to HACS's default list waits on measurements on
+> real devices.
 
 ## What sets it apart
 
@@ -152,6 +153,11 @@ Local, fast, Rust + WebAssembly.</p>
   or each hour, filtered by value and by how long, or its logbook searched by value; as CSV. Read
   only, from Home Assistant's own history, statistics and logbook. See [history as
   reports](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/history.md).
+- **Configuration history.** Each change of an automation, a script, a scene or a dashboard is
+  kept, by item and date, inside Home Assistant: what changed, in words ("Trigger 1 › offset:
+  -00:30:00 → -00:20:00", "Action 2 added"), and one item put back as it was, through the commands
+  Home Assistant's own editors use. For administrators; no add-on, no Git. See [configuration
+  history](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/config-history.md).
 - **Your voice.** A microphone button opens Home Assistant's Assist already listening, on a wall
   tablet as on a phone. When Assist cannot hear yet, DomoTwin sets up local voice with your
   consent: Whisper or Speech-to-Phrase and Piper, installed through the Supervisor, nothing

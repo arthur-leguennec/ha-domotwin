@@ -5,6 +5,7 @@ import {
   mdiClose,
   mdiFlaskOutline,
   mdiCogOutline,
+  mdiHistory,
   mdiCubeOutline,
   mdiDotsVertical,
   mdiHomeOutline,
@@ -266,6 +267,7 @@ const PANEL_DIALOGS = [
   "domotwin-bluetooth-settings",
   "domotwin-private-rooms",
   "domotwin-voice",
+  "domotwin-config-history",
   "domotwin-link",
   "domotwin-catalogue",
   "domotwin-model-import",
@@ -313,6 +315,7 @@ export class DomoTwinPanel extends LitElement {
     bluetoothOpen: { state: true },
     privacyRooms: { state: true },
     voiceOpen: { state: true },
+    configHistoryOpen: { state: true },
     moreOpen: { state: true },
     tight: { state: true },
     compact: { type: Boolean, reflect: true },
@@ -425,6 +428,8 @@ export class DomoTwinPanel extends LitElement {
   protected privacyRooms?: RoomChoice[];
   /** The voice settings (D-041) are open. */
   protected voiceOpen = false;
+  /** The configuration history (D-062) is open, its module loaded. */
+  protected configHistoryOpen = false;
   /** The menu of the export and the home's settings is open. */
   protected moreOpen = false;
   /** Too narrow for every button (a phone): the import and the storeys go in the More menu. */
@@ -1175,6 +1180,7 @@ export class DomoTwinPanel extends LitElement {
     this.locating = undefined;
     this.privacyRooms = undefined;
     this.voiceOpen = false;
+    this.configHistoryOpen = false;
     this.storeysOpen = false;
     this.storeyRemoveAsk = undefined;
     this.plan = undefined;
@@ -3291,6 +3297,7 @@ export class DomoTwinPanel extends LitElement {
               ${item("privacy-settings", mdiLockOutline, t.t("privacy.title"), this.busy, this.openPrivacy)}
               ${item("voice-settings", mdiMicrophoneMessage, t.t("voice.settings"), this.busy, this.openVoice)}
               ${item("wifi-menu", mdiWifi, t.t("wifi.menu"), this.busy || this.wifi === undefined || this.sandbox !== undefined, this.openWifi)}
+              ${item("config-history", mdiHistory, t.t("config_history.menu"), this.busy || this.sandbox !== undefined, this.openConfigHistory)}
               ${item("measure", mdiSpeedometer, t.t("measure.menu"), this.busy || this.measureOpen || this.sandbox !== undefined, this.openMeasure)}
               <hr />
               ${
@@ -3320,6 +3327,16 @@ export class DomoTwinPanel extends LitElement {
       if (this.tab !== "3d") this.go("3d");
       await import("./measure");
       this.measureOpen = true;
+    } catch (error) {
+      this.show(this.describe(error), true);
+    }
+  };
+
+  /** Opens the configuration history (D-062): its module and texts, loaded the first time. */
+  private readonly openConfigHistory = async (): Promise<void> => {
+    try {
+      await import("./config-history-dialog");
+      this.configHistoryOpen = true;
     } catch (error) {
       this.show(this.describe(error), true);
     }
@@ -3699,6 +3716,14 @@ export class DomoTwinPanel extends LitElement {
             .mode=${"settings"}
             @domotwin-close=${() => (this.voiceOpen = false)}
           ></domotwin-voice>`
+        : nothing
+    }
+    ${
+      this.configHistoryOpen
+        ? html`<domotwin-config-history
+            .hass=${this._hass}
+            @domotwin-close=${() => (this.configHistoryOpen = false)}
+          ></domotwin-config-history>`
         : nothing
     }
     ${this.storeysOpen ? this.renderStoreysDialog() : nothing}`;

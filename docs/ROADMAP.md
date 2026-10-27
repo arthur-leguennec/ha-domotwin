@@ -49,6 +49,7 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M32       | "Why?": who or what changed a device, drawn in 3D          | ✅     |
 | M30       | The Wi-Fi QR code, for guests                              | ✅     |
 | M23b      | Into Home Assistant's Overview, rather than a copy of it   | ✅     |
+| M36       | Configuration history: differences, one item put back      | ✅     |
 | M40       | The weather around the home, in 3D                         | ⏳     |
 | M41       | Locating measured, next to Bermuda's on the same days      | ⏳     |
 | M45       | An iPhone's key, without a Mac: the ways to get it         | ⏳     |
@@ -65,7 +66,6 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M35       | Automations in plain words, played in the sandbox first    | ⏳     |
 | M20       | More imports: robot vacuum maps, Floorplanner, meshes      | ⏳     |
 | M17       | A library of objects: many pieces, free and well made      | ⏳     |
-| M36       | Configuration history: differences, one item put back      | ⏳     |
 | M37       | A weekly home report                                       | ⏳     |
 | M18       | Outdoors: garden, terrace, lawn, pool, roofs               | ⏳     |
 | M44       | Split levels and walk-out basements                        | ⏳     |
@@ -98,10 +98,11 @@ QR code (M30) and a placement advisor for radios (M31) before a first launch in 
 (M33), rights (M34), automations in plain words (M35), a configuration history (M36), a weekly
 report (M37), history as reports (M38) and Hydro-Québec's peaks (M39) follow, among a library of
 objects (M17), the outdoors (M18), more imports (M20) and more languages (M21), before a sixth
-release, 0.6.0. After the sandbox, the maintainer asked for history as reports (M38, D-058) and
-"Why?" (M32, D-059) before the rest, which keeps its order. Then the weather around the home
-(M40), locating measured (M41) and an iPhone's key without a Mac (M45) were put before M24, and
-finer locating (M42), mmWave sensors merged (M43) and split levels (M44) after 0.5.0 (D-062).
+release, 0.6.0. After the sandbox, the maintainer asked for history as reports (M38, D-058),
+"Why?" (M32, D-059) and the configuration history (M36, D-062) before the rest, which keeps its
+order. Then the weather around the home (M40), locating measured (M41) and an iPhone's key without
+a Mac (M45) were put before M24, and finer locating (M42), mmWave sensors merged (M43) and split
+levels (M44) after 0.5.0 (D-063).
 
 ## M0, scaffold
 
@@ -1233,9 +1234,47 @@ DomoTwin joined to Home Assistant's own Overview rather than copying it (D-061).
   back, the Rooms tab before the Overview, a layer from the address, the summaries in English and
   French, the network's read, a summary on the Home tab (Playwright).
 
+## M36, configuration history
+
+Home Assistant keeps no history of its own configuration: its editors' undo lasts one session, a
+backup puts back a whole part, and what exists needs an add-on and Git (D-056). Asked for by the
+maintainer right after 0.4.0, done once the sandbox, history as reports, "Why?", the Wi-Fi for
+guests and Home Assistant's Overview were in (D-062).
+
+- ✅ **Each change kept**: the automations, scripts and scenes of Home Assistant's editors and of
+  one's own YAML files, and the dashboards; read once Home Assistant has started, after it
+  reloads them, when one is deleted in its editor, when a dashboard is saved or its configuration
+  deleted. Only real changes (the same keys in another order are the same); an item gone kept as
+  removed; a file Home Assistant cannot read left alone.
+- ✅ **In Home Assistant's storage**, a store of its own: 4 MB in all, 50 versions an item, 1 MB a
+  version, the oldest versions first to go; for administrators; never in the diagnostics; deleted
+  with the integration, written at once when it is unloaded.
+- ✅ **What changed, in words**, between a version and the one before it, or the current one:
+  the triggers, conditions, actions and steps numbered, a scene's entities by their names, a
+  dashboard's views by their titles and their cards; a list's items matched first, so that one
+  added reads as one added; the whole configuration of a version to read.
+- ✅ **One item put back** through Home Assistant's own configuration API, or
+  `lovelace/config/save` for a dashboard; a deleted automation, script or scene too; Home
+  Assistant's refusal shown as it gives it; what is in one's own YAML files shown, not put back.
+- ✅ **The dialog**: *Configuration history* in the panel's ⋮ menu, by kind and with a search, a
+  link to Home Assistant's editor; a chunk loaded when it opens. The demo house has a history of
+  its own, put back in the page.
+- ✅ Tests: kept on each change and not for the same configuration, removed and put back, a file
+  that cannot be read left alone, scripts read after their reload, one's own YAML shown,
+  dashboards, the limits, the store read leniently, administrators only, put back through Home
+  Assistant's own command, never in the diagnostics, deleted with the integration (pytest); the
+  changes and their words in both languages, lists matched, values in short, the filters, what can
+  be put back and the commands used, the demo house's history (vitest); the list, the words,
+  putting back, Home Assistant's refusal, what was removed and what is in one's own YAML, French,
+  the demo house (Playwright).
+- Measured: the first load grows by 0.5 kB; the dialog is 7.2 kB gzipped, on demand
+  ([`PERFORMANCE.md`](PERFORMANCE.md), M36).
+- Left for later: who made a change (Home Assistant's editors do not say it); helpers, blueprints
+  and Home Assistant's other settings; the changes of a dashboard shown on the dashboard itself.
+
 ## Then, from 0.4.0 to 0.5.0
 
-Planned in D-056, with D-062's additions: the sandbox first, built during the two weeks of use since
+Planned in D-056, with D-063's additions: the sandbox first, built during the two weeks of use since
 it does not wait on what they show; Home Assistant's Overview joined rather than copied before M24
 and M25, which follow the same rule; the first launch in five minutes kept where it was, and 0.5.0
 right after it. Each milestone its own pull request; no network call outside Home Assistant;
@@ -1253,14 +1292,14 @@ before its milestone starts, which goes on with what needs no answer.
   a storm's flashes, fog, an overcast light, the wind slanting what falls. Drawn by the engine,
   light on a phone, still with reduced motion and in Eco; a card's `weather` option, the entity
   chosen in the settings.
-- ⏳ **M41, locating measured** (D-062), before any new locating feature: a diagnostic for
+- ⏳ **M41, locating measured** (D-063), before any new locating feature: a diagnostic for
   administrators that records, for each device followed, its room changes per hour, its storey
   changes per hour and its time in "unknown", and, where Bermuda is installed, the same figures
   from Bermuda's area sensors for the same devices over the same hours. Shown in the Bluetooth
   settings and in the diagnostics, as figures only: no addresses, no names. The maintainer runs it
   at home and the figures are published in `docs/bluetooth.md`, as they are, whichever way they
   fall. Small, so it comes soon after 0.4.0.
-- ⏳ **M45, an iPhone's key without a Mac** (D-062): in the Bluetooth settings, for an iPhone or an
+- ⏳ **M45, an iPhone's key without a Mac** (D-063): in the Bluetooth settings, for an iPhone or an
   Apple Watch, the ways to get its identity key: the Mac's Keychain; an ESP32 flashed for ten
   minutes with an existing tool, irk-capture (an ESPHome package, MIT, explained in Home Assistant's
   [community
@@ -1300,7 +1339,7 @@ before its milestone starts, which goes on with what needs no answer.
 
 - ✅ **M32, "Why?"**: done next to the sandbox, right after 0.4.0 (above, D-059). Why something
   did not happen is the sandbox's (M29).
-- ⏳ **M42, finer locating** (D-062), after the placement advisor (M31), and only if the
+- ⏳ **M42, finer locating** (D-063), after the placement advisor (M31), and only if the
   figures of M41 say it is worth it: a spot inside the room rather than the room alone, worked out
   on a grid of half-metre cells over the plan, as a cloud of likely spots that changes storey only
   through the stairs (the ways of the walk, D-029, already know them); its X, Y and Z, and how sure
@@ -1308,7 +1347,7 @@ before its milestone starts, which goes on with what needs no answer.
   (distance, walls, floors), each device's own loudness, the rooms taught (cells known for sure),
   the presence sensors' weight and the rule that a room changes only when sure twice. Measured
   again with M41 against what it replaces.
-- ⏳ **M43, mmWave sensors merged** (D-062), after M31: mmWave presence sensors placed on the plan
+- ⏳ **M43, mmWave sensors merged** (D-063), after M31: mmWave presence sensors placed on the plan
   (where each stands and which way it faces), their zones and their targets turned into the home's
   own coordinates, and merged with each other and with Bluetooth into one picture of who is where:
   Bluetooth says who, mmWave says where, and says it fast. What Home Assistant gives is checked
@@ -1336,11 +1375,8 @@ before its milestone starts, which goes on with what needs no answer.
 - ⏳ **M20, more imports**: robot vacuum maps (Valetudo and others), Floorplanner, meshes.
 - ⏳ **M17, a library of objects**: many more pieces, free and well made, drawn from real
   references, still fast.
-- ⏳ **M36, configuration history**: each change of an automation, script, scene or dashboard
-  kept, by item and date; what changed between two versions, in words where it can; one item put
-  back as it was, through Home Assistant's own configuration commands. Kept by the integration in
-  Home Assistant's storage, limited in size (the oldest versions go first), for administrators,
-  never in the diagnostics. Items written in YAML files of one's own are shown, not put back.
+- ✅ **M36, configuration history** (D-062, above): done after Home Assistant's Overview, at
+  the maintainer's request.
 - ⏳ **M37, a weekly home report**: once a week, what needs a look: batteries low, devices
   unavailable, updates and repairs waiting, upkeep due (M9d), weak radio links (M9b, M31),
   automations that failed or never fired, the week's energy against the last, room by room on
@@ -1352,7 +1388,7 @@ before its milestone starts, which goes on with what needs no answer.
   maintainer's request.
 - ⏳ **M18, outdoors**: the garden, the terrace, the lawn, a pool, the roofs; the lawn growing
   between two mowings.
-- ⏳ **M44, split levels and walk-out basements** (D-062), next to the outdoors (M18), whose ground
+- ⏳ **M44, split levels and walk-out basements** (D-063), next to the outdoors (M18), whose ground
   it needs. What works already: a storey can sit at any height (half a storey up), it is drawn
   there, and stairs join it to the next, for a tap and for the walk. What does not: the Bluetooth
   model counts a floor between any two storeys, even a half level beside the other rather than over

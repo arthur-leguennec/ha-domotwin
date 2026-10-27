@@ -168,6 +168,16 @@ every reader returns `Result` with a stable error code that the frontend transla
    sheet and drawn in the home (`why-wires.ts`) with the automations' wire set: the engine's
    `setAutomations`, one wire per step, unchanged. Nothing of it is in the integration. The demo
    house records its own (`src/demo/logbook.ts`) and answers the logbook as Home Assistant does.
+10. **Configuration history.** The integration's `config_history.py` (D-062) reads the
+   automations, scripts and scenes from the files Home Assistant's editors write and from their
+   entities, and the dashboards from Lovelace, once Home Assistant has started and after each
+   change it announces (`automation_reloaded`, `scene_reloaded`, `script.reload` called, one of
+   them removed from the entity registry, `lovelace_updated`), and keeps a version of what
+   changed. The dialog (`src/components/config-history-dialog.ts`, a chunk) reads them over
+   `domotwin/config_history/*`, works out what changed in words in the page
+   (`src/live/config-history.ts`), and puts a version back with Home Assistant's own commands:
+   `POST /api/config/<kind>/config/<id>` (`hass.callApi`) or `lovelace/config/save`, then
+   `domotwin/config_history/refresh`.
 
 ## Storage
 
@@ -256,6 +266,15 @@ id: `favourites` (entity ids, 100 at most), `start` (`home`, `rooms` or `3d`, wh
 `{type: "todo-list", entity}`). A user removed from Home Assistant is forgotten when DomoTwin
 starts.
 
+`.storage/domotwin.config_history` (D-062, its own store, version 1, private): the configuration
+history, each item by `<kind>:<key>` (`automation`, `script` and `scene` by their id or key,
+`dashboard` by its URL path, empty for the default one) with its `name`, its `source` (`editor`:
+written by Home Assistant's editors; `yaml`: in one's own YAML files) and its `versions`, oldest
+first: `{id, at, hash, json}`, the configuration as JSON (`null` when removed or too large to keep)
+and the fingerprint of its keys sorted (`null` when removed); `next`, the next version's id. 4 MB
+in all and 50 versions an item (the oldest versions go first), 1 MB a version; past 2 000 items,
+the removed ones are forgotten. See [`config-history.md`](config-history.md).
+
 The 3D files of user models are not in `.storage`: they are kept under their SHA-256 in
 `<config>/domotwin/models/<sha256>.<format>` (D-021), uploaded with `POST /api/domotwin/models?format=…`
 (administrators; answers `{hash, bytes, format}`) and read with
@@ -291,13 +310,18 @@ when the integration is removed.
 | `domotwin/choices/get`   | user   | – (their own)                                  | `favourites`, `cards`, `start?`  |
 | `domotwin/choices/favourite` | user | `entity_id`, `favourite` (their own)        | `favourites`                     |
 | `domotwin/choices/save`  | user   | `start?` (`""`: none chosen), `cards?` (their own) | `favourites`, `cards`, `start?` |
+| `domotwin/config_history/list`  | admin  | –                                              | `items` (`[{id, kind, key, name, source, removed, versions, changed}]`, the most recently changed first), `bytes`, `max_bytes` |
+| `domotwin/config_history/item`  | admin  | `item`                                         | `item`, `versions` (`[{id, at, removed, kept, same_as?}]`, newest first) |
+| `domotwin/config_history/version` | admin | `item`, `version`                            | `config` (`null`: removed, or too large to keep) |
+| `domotwin/config_history/refresh` | admin | `kind?` (every kind without one)             | `changed` (the versions kept)    |
 | `domotwin/subscribe`     | user   | –                                              | events `{kind, revision}`, and `{kind: "show", show}` for `domotwin.show` |
 
 Errors: `not_loaded`, `invalid_plan`, `invalid_layout`, `invalid_bindings`, `invalid_settings`,
 `invalid_upkeep`, `unknown_task`, `invalid_people`, `unknown_person`, `invalid_locating`,
 `unknown_device`, `unknown_room`, `no_bluetooth`, `too_large`, `too_many_favourites`,
 `too_many_models`, `revision_conflict`, `unknown_storey`, `invalid_storey`, `too_many_storeys`,
-`duplicate_id`, and Home Assistant's `unauthorized` for non-admin writes.
+`duplicate_id`, `unknown_item`, `unknown_version`, and Home Assistant's `unauthorized` for
+non-admin writes (and the history's reads).
 
 ## Entities
 
