@@ -626,4 +626,31 @@ mod tests {
         live.highlight(lamp);
         assert!(live.step(16.0).looks);
     }
+
+    #[test]
+    fn a_step_back_in_time_moves_nothing() {
+        // The frontend's `settle()` draws frames ahead of the page's clock: the page's next frame
+        // then comes earlier than the last one.
+        let (plan, lights, bindings) = setup();
+        let open = states(serde_json::json!({
+            "binary_sensor.entrance_door_contact": { "state": "on", "attributes": {} },
+        }));
+        let mut live = LiveState::new(targets(&plan, &lights, &bindings, &open));
+        let lit = states(serde_json::json!({
+            "light.living_room_pendant": { "state": "on", "attributes": {} },
+            "binary_sensor.entrance_door_contact": { "state": "off", "attributes": {} },
+        }));
+        live.set_targets(targets(&plan, &lights, &bindings, &lit));
+        let lamp = index(&plan, "pendant-living");
+        let door = index(&plan, "door-entrance");
+        let opened = live.overrides.open[&door];
+        // On their way: the lamp no longer greyed out (its light came), the door closing.
+        assert!(live.step(100.0).animating);
+        assert!(live.looks[lamp] != live.target.looks[lamp]);
+        assert!(live.overrides.open[&door] > 0.0 && live.overrides.open[&door] < opened);
+        let before = live.clone();
+        assert!(!live.step(-30_000.0).animating);
+        assert!(live == before);
+        assert!(live.step(16.0).animating);
+    }
 }

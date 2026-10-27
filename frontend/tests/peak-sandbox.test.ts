@@ -105,7 +105,7 @@ function copy(): HomeCopy {
   };
 }
 
-describe("Hydro-Québec's announced peak in the sandbox (D-058)", () => {
+describe("Hydro-Québec's announced peak in the sandbox (D-062)", () => {
   it("says what the integrations say through the peak's day", () => {
     const home = copy();
     const end = moment(ZONE, 2026, 1, 23);

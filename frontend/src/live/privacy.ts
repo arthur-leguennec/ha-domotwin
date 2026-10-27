@@ -84,6 +84,24 @@ export interface Unseen {
 
 export const NOTHING_UNSEEN: Unseen = { areas: new Set(), entities: new Set() };
 
+/**
+ * What the viewer may not see of the home (D-039): the areas of the private rooms they may not
+ * see (`closed`) among `rooms`, and what is linked to those rooms and to what they hold on any
+ * of `storeys`. For the Home and Rooms tabs (D-055) and the history reports' search (D-058).
+ */
+export function unseenOf(
+  hass: HomeAssistant,
+  bindings: BindingsJson,
+  rooms: readonly PlanRoom[],
+  storeys: readonly { plan?: unknown; layout?: Record<string, unknown> }[],
+  closed: ReadonlySet<string>,
+): Unseen {
+  return {
+    areas: closedAreas(hass, bindings, rooms, closed),
+    entities: closedEntities(bindings, storeys, closed),
+  };
+}
+
 /** Whether the viewer may see an entity, by its area (`area`) and its links. */
 export function seen(unseen: Unseen, entity: string, area: string | undefined): boolean {
   return !unseen.entities.has(entity) && (area === undefined || !unseen.areas.has(area));

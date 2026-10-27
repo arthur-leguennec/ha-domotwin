@@ -11,7 +11,7 @@ import type { PeakRooms } from "./peak-rooms";
 export const HEAT_KINDS = ["temperature", "humidity", "co2", "pm25"] as const;
 export type HeatKind = (typeof HEAT_KINDS)[number];
 /**
- * What the layer menu shows: nothing, a heatmap, the power layer, Hydro-Québec's peaks (D-058,
+ * What the layer menu shows: nothing, a heatmap, the power layer, Hydro-Québec's peaks (D-062,
  * offered where an integration reads them), the network map (D-031, offered to administrators
  * with ZHA set up), every automation's wires (D-032, administrators) or upkeep (D-033: the pieces
  * tinted by their tasks, and the list of them).
@@ -33,6 +33,14 @@ export const LAYER_NAMES: readonly LayerName[] = [
  */
 export function automationsAvailable(hass: HomeAssistant | undefined): boolean {
   return hass?.user?.is_admin === true;
+}
+
+/**
+ * A layer asked for by its name (a summary card's address, D-061). Whether this user may see it is
+ * the view's to say, as for a layer chosen in its menu: it shows none it may not.
+ */
+export function layerAsked(name: string | null): LayerName | undefined {
+  return LAYER_NAMES.find((known) => known === name);
 }
 
 /** Whether the network map can be offered: to administrators, with ZHA set up (D-031). */
@@ -106,7 +114,7 @@ export interface LayerChoice {
    * would tell someone is in (CO₂) or a window is open (rain); their dangers stay.
    */
   closed?: Set<string>;
-  /** What the rooms do around a peak (D-058), when its layer is shown. */
+  /** What the rooms do around a peak (D-062), when its layer is shown. */
   peak?: PeakRooms;
 }
 

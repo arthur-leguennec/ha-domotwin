@@ -412,6 +412,7 @@ export const en = {
     activate: "Activate",
     unavailable: "Unavailable",
     more_info: "More info",
+    history: "History",
     start: "Start",
     home: "Back to its base",
     press: "Press",
@@ -475,6 +476,7 @@ export const en = {
     no_area: "This room is not linked to a Home Assistant area.",
     no_area_admin: "Link it in the DomoTwin panel, or give the area the room's name.",
     private: "This room is private.",
+    history: "History",
   },
   voice: {
     title: "Voice",
@@ -646,6 +648,15 @@ export const en = {
     leave: "Leave the sandbox",
     no_dialog: "Home Assistant's own dialogs do not open in the sandbox.",
     no_peak: "No peak is announced any more: the sandbox plays today.",
+  },
+  summary: {
+    name: "DomoTwin summary",
+    description:
+      "One of DomoTwin's summaries, in the manner of the Overview: the people at home, the radio mesh, the automations, the upkeep or the robots.",
+  },
+  wifi: {
+    menu: "Wi-Fi for guests",
+    button: "Wi-Fi for guests: its QR code",
   },
   tabs: {
     label: "DomoTwin's tabs",
@@ -1173,5 +1184,6 @@ export const en = {
     bad_tools: "`tools` must be true or false",
     bad_voice: "`voice` must be true or false",
     bad_screen: "`screen` must be a name of letters, digits, _ and - (64 at most)",
+    bad_summary: "`summary` must be people, network, automations, upkeep or robots",
   },
 } as const;

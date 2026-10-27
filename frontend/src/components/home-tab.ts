@@ -1,6 +1,6 @@
 /**
  * `<domotwin-home>`, the Home tab (D-055): the home at a glance (who is in, the lamps on, the
- * doors and windows open, the alerts, Hydro-Québec's next peak, D-058), the weather, the
+ * doors and windows open, the alerts, Hydro-Québec's next peak, D-062), the weather, the
  * favourite scenes as big buttons, the other favourites, and the cards the user chose. Every
  * control is Home Assistant's own card.
  */
@@ -37,11 +37,15 @@ type Detail = "people" | "lights" | "openings" | "alerts" | "peak";
 
 /** Home Assistant's card for a card of the Home tab. */
 function cardOf(home: HomeCard): CardConfig {
-  return card(
-    home.type === "calendar"
-      ? { type: "calendar", entities: home.entities, initial_view: "listWeek" }
-      : { type: "todo-list", entity: home.entity },
-  );
+  switch (home.type) {
+    case "calendar":
+      return card({ type: "calendar", entities: home.entities, initial_view: "listWeek" });
+    case "todo-list":
+      return card({ type: "todo-list", entity: home.entity });
+    case "summary":
+      // DomoTwin's own (D-061), made as Home Assistant makes any custom card.
+      return card({ type: "custom:domotwin-summary-card", summary: home.summary });
+  }
 }
 
 export class DomoTwinHome extends LitElement {
@@ -153,7 +157,7 @@ export class DomoTwinHome extends LitElement {
     `,
   ];
 
-  /** When the peak's phase changes next (D-058): the glance is worked out again then. */
+  /** When the peak's phase changes next (D-062): the glance is worked out again then. */
   private peakTimer: ReturnType<typeof setTimeout> | undefined;
 
   override disconnectedCallback(): void {
@@ -281,7 +285,7 @@ export class DomoTwinHome extends LitElement {
     }
   }
 
-  /** Hydro-Québec's peak (D-058): when, the rooms that pre-heat, shed or still heat, the 3D. */
+  /** Hydro-Québec's peak (D-062): when, the rooms that pre-heat, shed or still heat, the 3D. */
   private renderPeak(glance: Glance): TemplateResult | typeof nothing {
     const hass = this.hass;
     const t = this.t;
@@ -314,7 +318,7 @@ export class DomoTwinHome extends LitElement {
           : nothing
       }
       ${
-        // An administrator plays the day of a peak to come in the sandbox (D-058).
+        // An administrator plays the day of a peak to come in the sandbox (D-062).
         hass.user?.is_admin === true && hass.demo !== true && peak.now.phase !== "peak"
           ? html`<button
               class="action"

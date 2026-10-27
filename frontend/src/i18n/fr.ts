@@ -416,6 +416,7 @@ export const fr: Dictionary = {
     activate: "Activer",
     unavailable: "Indisponible",
     more_info: "Plus d’infos",
+    history: "Historique",
     start: "Démarrer",
     home: "Retour à la base",
     press: "Appuyer",
@@ -479,6 +480,7 @@ export const fr: Dictionary = {
     no_area: "Cette pièce n’est liée à aucune zone de Home Assistant.",
     no_area_admin: "Liez-la dans le panneau DomoTwin, ou donnez à la zone le nom de la pièce.",
     private: "Cette pièce est privée.",
+    history: "Historique",
   },
   voice: {
     title: "Voix",
@@ -653,6 +655,15 @@ export const fr: Dictionary = {
     leave: "Quitter le bac à sable",
     no_dialog: "Les fenêtres de Home Assistant ne s’ouvrent pas dans le bac à sable.",
     no_peak: "Aucune pointe n’est plus annoncée : le bac à sable joue aujourd’hui.",
+  },
+  summary: {
+    name: "Résumé DomoTwin",
+    description:
+      "Un des résumés de DomoTwin, à la manière de l’Aperçu : les personnes à la maison, le réseau radio, les automatisations, l’entretien ou les robots.",
+  },
+  wifi: {
+    menu: "Wi-Fi des invités",
+    button: "Wi-Fi des invités : son code QR",
   },
   tabs: {
     label: "Onglets de DomoTwin",
@@ -1193,5 +1204,6 @@ export const fr: Dictionary = {
     bad_tools: "`tools` doit valoir true ou false",
     bad_voice: "`voice` doit valoir true ou false",
     bad_screen: "`screen` doit être un nom fait de lettres, chiffres, _ et - (64 au plus)",
+    bad_summary: "`summary` doit être people, network, automations, upkeep ou robots",
   },
 };

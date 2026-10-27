@@ -1,17 +1,28 @@
 /**
  * The websocket of a home kept in the page, the demo house's (D-050) or the sandbox's (D-057):
  * DomoTwin's commands answered from what it keeps, as the integration would; Home Assistant's
- * few others the frontend asks (automations, the energy settings, what an area relates to).
- * Nothing goes out of the page.
+ * few others the frontend asks (automations, the energy settings, what an area relates to, the
+ * history and the logbook where it keeps them, D-058). Nothing goes out of the page.
  */
-import type { NewSchedule, PlanJson, StoredPlan, UpdateEvent } from "../ha/client";
+import type { NewSchedule, PlanJson, SaveKind, StoredPlan, UpdateEvent } from "../ha/client";
 import type { HassConnection, HassMessage, HomeAssistant } from "../ha/types";
 import type { PeopleSettings } from "../live/people";
 import { readChoices } from "../live/choices";
 import { storeyIds } from "../live/storeys";
 import type { Schedule } from "../live/schedules";
 import type { Upkeep } from "../live/upkeep";
+import {
+  MAX_WIFI_SCREENS,
+  SCREEN_NAME,
+  WIFI_SECURITIES,
+  nameProblem,
+  passwordProblem,
+  screensOf,
+  wifiAnswer,
+  type StoredWifi,
+} from "../live/wifi";
 import { DemoError, type DemoStore } from "./home";
+import type { DemoLogbook } from "./logbook";
 
 /** A home kept in the page: what its connection asks of it. */
 export interface MemoryHome {
@@ -21,7 +32,7 @@ export interface MemoryHome {
   readonly scheduleListeners: Set<(schedules: Schedule[]) => void>;
   today(): string;
   area(id: string): string | undefined;
-  saved(kind: "plan" | "bindings" | "settings" | "upkeep" | "people" | "locating"): number;
+  saved(kind: SaveKind): number;
   addSchedule(request: NewSchedule): { schedule: Schedule; text: string };
   cancelSchedule(id: string): number;
   /** Its automations (their entity ids), and the configuration of each. */
@@ -29,11 +40,54 @@ export interface MemoryHome {
   automationConfig(id: string): Record<string, unknown> | undefined;
   /** Home Assistant's energy settings, as `energy/get_prefs` gives them, if it has some. */
   energyPrefs(): unknown;
+  /**
+   * Its history and its logbook (D-058), where it keeps them (the demo house's day), as
+   * `history/history_during_period` and `logbook/get_events` answer, for a period (ms).
+   */
+  history?(entities: readonly string[], start: number, end: number): unknown;
+  logbook?(entities: readonly string[], start: number, end: number): unknown;
+  /** What its Home Assistant recorded, by context, as its logbook answers (D-059); none:
+   * nothing recorded. */
+  readonly recorded?: DemoLogbook;
 }
 
 /** A websocket error, as Home Assistant gives one. */
 function failure(code: string, message = code): DemoError {
   return new DemoError(code, message);
+}
+
+/** A Wi-Fi to keep, read as the integration reads it (`Wifi.async_save`); refused as it is. */
+function storedWifi(raw: unknown, kept: StoredWifi | undefined): StoredWifi {
+  const value = typeof raw === "object" && raw !== null ? (raw as Record<string, unknown>) : {};
+  const security = WIFI_SECURITIES.find((s) => s === value.security);
+  if (!security) throw failure("invalid", "security");
+  const screens = Array.isArray(value.screens)
+    ? screensOf(value.screens.filter((s) => typeof s === "string").join(" "))
+    : [];
+  if (screens.length > MAX_WIFI_SCREENS || screens.some((screen) => !SCREEN_NAME.test(screen))) {
+    throw failure("invalid", "screens");
+  }
+  const wifi: StoredWifi = { security, hidden: value.hidden === true, screens };
+  if (value.image !== undefined) {
+    if (typeof value.image !== "string" || !value.image.startsWith("image.")) {
+      throw failure("invalid", "image");
+    }
+    wifi.image = value.image;
+    return wifi;
+  }
+  const name = typeof value.name === "string" ? value.name : "";
+  const wrong = nameProblem(name);
+  if (wrong) throw failure(wrong);
+  wifi.name = name;
+  if (security === "nopass") return wifi;
+  // Left out, the same network's password is kept.
+  const same = kept?.name === wifi.name && kept.security === security;
+  const password =
+    typeof value.password === "string" ? value.password : same ? (kept.password ?? "") : "";
+  const problem = passwordProblem(security, password);
+  if (problem) throw failure(problem);
+  wifi.password = password;
+  return wifi;
 }
 
 /** The demo's answers to the frontend's commands. */
@@ -73,6 +127,18 @@ export function demoConnection(home: MemoryHome): HassConnection {
     store.storeys.push(kept);
     return kept;
   };
+
+  // A period asked of the history or the logbook (ms): its end now when not given.
+  const span = (message: HassMessage): { start: number; end: number } => {
+    const now = home.hass.now?.() ?? Date.now();
+    const start = Date.parse(String(message.start_time));
+    const end = typeof message.end_time === "string" ? Date.parse(message.end_time) : now;
+    if (Number.isNaN(start)) throw failure("invalid_start_time", "Invalid start_time");
+    if (Number.isNaN(end)) throw failure("invalid_end_time", "Invalid end_time");
+    return { start, end };
+  };
+  const entityIds = (message: HassMessage): string[] =>
+    Array.isArray(message.entity_ids) ? message.entity_ids.map(String) : [];
 
   const answer = (message: HassMessage): unknown => {
     switch (message.type) {
@@ -213,6 +279,25 @@ export function demoConnection(home: MemoryHome): HassConnection {
         store.choices = readChoices({ ...store.choices, ...message });
         return structuredClone(store.choices);
       }
+      case "domotwin/wifi/get":
+        return wifiAnswer(
+          store.wifi,
+          home.hass.user?.is_admin === true,
+          typeof message.screen === "string" ? message.screen : "",
+          message.password === true,
+        );
+      case "domotwin/wifi/save": {
+        if (home.hass.user?.is_admin !== true) throw failure("unauthorized");
+        const wifi = storedWifi(message.wifi, store.wifi);
+        store.wifi = wifi;
+        home.saved("wifi");
+        return wifiAnswer(wifi, true, "", true);
+      }
+      case "domotwin/wifi/clear":
+        if (home.hass.user?.is_admin !== true) throw failure("unauthorized");
+        delete store.wifi;
+        home.saved("wifi");
+        return wifiAnswer(undefined, true);
       case "domotwin/schedules/add":
         return home.addSchedule(message as unknown as NewSchedule & HassMessage);
       case "domotwin/schedules/cancel":
@@ -239,6 +324,24 @@ export function demoConnection(home: MemoryHome): HassConnection {
         const prefs = home.energyPrefs();
         if (prefs === undefined) throw failure("not_found", "No energy settings");
         return structuredClone(prefs);
+      }
+      case "history/history_during_period": {
+        if (!home.history) throw failure("unknown_command", message.type);
+        const { start, end } = span(message);
+        return home.history(entityIds(message), start, end);
+      }
+      case "recorder/statistics_during_period":
+        // No statistics: the report works its hours out from the history.
+        if (!home.history) throw failure("unknown_command", message.type);
+        return {};
+      case "logbook/get_events": {
+        const { start, end } = span(message);
+        // The rows of a context: what its Home Assistant recorded (D-059, "Why?").
+        if (typeof message.context_id === "string") {
+          return home.recorded?.events({ start, end, context: message.context_id }) ?? [];
+        }
+        if (!home.logbook) throw failure("unknown_command", message.type);
+        return home.logbook(entityIds(message), start, end);
       }
       default:
         // What the demo has not: ZHA, Assist, voice, Bluetooth learning…

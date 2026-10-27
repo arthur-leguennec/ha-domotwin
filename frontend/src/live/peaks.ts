@@ -1,5 +1,5 @@
 /**
- * Hydro-Québec's peak now (D-058), from what the integrations that read it say
+ * Hydro-Québec's peak now (D-062), from what the integrations that read it say
  * (`peak-sources.ts`): the one under way or the next, its pre-heating, and where it stands.
  * Nothing is fetched, nothing guessed but hydroqc's own pre-heating where it does not say it.
  */
@@ -187,7 +187,7 @@ function peaksOf(hass: HomeAssistant): Said[] {
 
 /**
  * Where `peak` is said: the devices (contracts, offers) whose sensors say it and the calendars
- * that hold it, at the same times; what plays it (the sandbox, D-058) moves those alone.
+ * that hold it, at the same times; what plays it (the sandbox, D-062) moves those alone.
  */
 export function peakSources(hass: HomeAssistant, peak: Peak): Set<string> {
   return new Set(

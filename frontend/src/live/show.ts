@@ -23,7 +23,12 @@ export interface ShowTarget {
 
 /** Whether a request is for this screen: for every screen, or for the one named so. */
 export function forScreen(request: ShowRequest, screen: string | undefined): boolean {
-  return !request.screen || request.screen.toLowerCase() === (screen ?? "").toLowerCase();
+  return !request.screen || sameScreen(request.screen, screen ?? "");
+}
+
+/** Whether two names are of the same screen: whatever their case. */
+export function sameScreen(a: string, b: string): boolean {
+  return a.toLowerCase() === b.toLowerCase();
 }
 
 /** Words that mean the whole home, as said in English or French. */

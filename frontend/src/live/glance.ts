@@ -1,6 +1,6 @@
 /**
  * The home at a glance, on the Home tab (D-055): who is in, the weather, the alerts, the lamps on,
- * the doors and windows open, Hydro-Québec's next peak (D-058), read from Home Assistant's states.
+ * the doors and windows open, Hydro-Québec's next peak (D-062), read from Home Assistant's states.
  * What a private room holds (D-039) is left out for a viewer who may not see it, its dangers
  * aside, as the layers do.
  */
@@ -44,7 +44,7 @@ export interface Glance {
   lights: string[];
   /** Doors, windows and gates open. */
   openings: string[];
-  /** Hydro-Québec's peak (D-058), where an integration reads it, and what the rooms do. */
+  /** Hydro-Québec's peak (D-062), where an integration reads it, and what the rooms do. */
   peak?: { now: PeakNow; rooms: PeakRooms };
 }
 

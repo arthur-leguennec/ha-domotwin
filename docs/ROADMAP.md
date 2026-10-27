@@ -45,16 +45,17 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M23       | The practical home: Home, Rooms and 3D, favourites         | ✅     |
 | 0.4.0     | Fourth release: the practical home, devices measured       | ✅     |
 | M29       | Sandbox: the home's automations played on a copy of it     | ✅     |
+| M38       | History as reports: tables, CSV, search by value           | ✅     |
+| M32       | "Why?": who or what changed a device, drawn in 3D          | ✅     |
+| M30       | The Wi-Fi QR code, for guests                              | ✅     |
+| M23b      | Into Home Assistant's Overview, rather than a copy of it   | ✅     |
 | M39       | Hydro-Québec's peaks, from the integrations that read them | ✅     |
-| M30       | The Wi-Fi QR code, for guests                              | ⏳     |
-| M23b      | Into Home Assistant's Overview, rather than a copy of it   | ⏳     |
 | M24       | History and energy, with Home Assistant's own cards        | ⏳     |
 | M25       | Safety: cameras, the doorbell, the alarm, alerts           | ⏳     |
 | M26       | The wall screen: a screen saver, a layout per device       | ⏳     |
 | M31       | Placement advisor: where the next radio helps most         | ⏳     |
 | M22       | A first launch in five minutes                             | ⏳     |
 | 0.5.0     | Fifth release: all of the above                            | ⏳     |
-| M32       | "Why?": who or what changed a device, drawn in 3D          | ⏳     |
 | M33       | Guest access: chosen rooms, for a while                    | ⏳     |
 | M34       | Per-person rights: what DomoTwin shows each one            | ⏳     |
 | M35       | Automations in plain words, played in the sandbox first    | ⏳     |
@@ -62,7 +63,6 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M17       | A library of objects: many pieces, free and well made      | ⏳     |
 | M36       | Configuration history: differences, one item put back      | ⏳     |
 | M37       | A weekly home report                                       | ⏳     |
-| M38       | History as reports: tables, CSV, search by value           | ⏳     |
 | M18       | Outdoors: garden, terrace, lawn, pool, roofs               | ⏳     |
 | M21       | More languages, right to left too                          | ⏳     |
 | 0.6.0     | Sixth release: all of the above                            | ⏳     |
@@ -92,8 +92,10 @@ QR code (M30) and a placement advisor for radios (M31) before a first launch in 
 (M33), rights (M34), automations in plain words (M35), a configuration history (M36), a weekly
 report (M37), history as reports (M38) and Hydro-Québec's peaks (M39) follow, among a library of
 objects (M17), the outdoors (M18), more imports (M20) and more languages (M21), before a sixth
-release, 0.6.0. The maintainer then moved Hydro-Québec's peaks (M39) forward, right after the
-sandbox (M29), whose day it plays (D-058); its part in the weekly report (M37) comes with it.
+release, 0.6.0. After the sandbox, the maintainer asked for history as reports (M38, D-058) and
+"Why?" (M32, D-059) before the rest, which keeps its order. The maintainer then moved
+Hydro-Québec's peaks (M39) forward too (D-062): it plays its peak in the sandbox; its part in the
+weekly report (M37) comes with it.
 
 ## M0, scaffold
 
@@ -1103,10 +1105,132 @@ the page: nothing reaches a device (D-057).
   through by keyboard, a tap kept and forgotten, the report, back to the home with nothing
   written, for administrators only, in French (Playwright).
 
+## M38, history as reports
+
+Home Assistant records what every device did; its History draws graphs and its Logbook lists the
+changes, but neither says when the bedroom was above 24 °C for more than an hour, nor searches the
+logbook by value. Asked for by the maintainer right after the sandbox, ahead of the rest
+(D-058).
+
+- ✅ **History**, in a device's controls (a long press: its entities) and in a room's panel (its
+  air sensors, temperature first); entities added by a search (eight at most, nothing of a
+  private room the viewer may not see) and taken away.
+- ✅ **The period**: the last 24 hours, 7 days, 30 days or year, or two dates and times where the
+  home is; changes and the logbook read 31 days at most, and a note when the period goes further
+  back than the 10 days Home Assistant keeps each change by default.
+- ✅ **Each change** (Home Assistant's history, the states alone, with how long each lasted),
+  **each hour** (its statistics: mean, lowest, highest, a meter's change; worked out from 31 days
+  of history at most for an entity without them: a mean weighted by time, or the state held
+  longest), and **the logbook** with what caused each change (an automation, a person, an
+  action), searched by every word, accents and case aside.
+- ✅ **Filters**: above, below, equal to or not equal to a value, of one entity or all of them, for
+  at least some minutes or hours. Rows in a row that match make one period, with its lowest and
+  highest: "the bedroom above 24 °C for more than an hour" is one setting.
+- ✅ **CSV**: every row kept, oldest first, columns that stay the same in every language, times in
+  UTC, formulas kept from running; downloaded as Home Assistant's History does, or copied (by hand
+  where the clipboard is refused). Home Assistant's own History or Logbook on the same entities
+  and period, a tap away.
+- ✅ Read only, for every user, from Home Assistant's own commands (checked in 2025.1); nothing in
+  the integration, nothing kept. States as Home Assistant shows them (`formatEntityState`).
+- ✅ **The demo house** answers from its day: its history ten days back, its logbook with the
+  automations that made each change, no statistics. Not in the sandbox, whose day has its own
+  report (D-057).
+- ✅ Tests: periods and dates where the home is across a change of time, the answers read (the
+  history's compressed states, the statistics, the logbook and its causes), rows for each change
+  and each hour, filters by value and by how long and the periods they make, the search, the CSV
+  and its formulas, a room's sensors, the demo's history and logbook, the texts in both languages
+  (vitest); a device's changes, a filter, its hours and its logbook, the bedroom above 24 °C for
+  more than an hour as CSV and copied by hand, entities added and taken away with a private room
+  left out and one that turns private while open, the period's limits and a refusal in French,
+  the notes on what is kept, the demo house (Playwright).
+- Left for later: a report opened from the panel's menu or the Rooms tab, reports kept to open
+  again, and rows for each day, week or month (Home Assistant's statistics have them).
+
+## M32, "Why?"
+
+Who or what last changed a device, as Home Assistant recorded it, followed back to what started
+it and drawn in the home (D-059, `docs/why.md`). Asked by the maintainer next to the sandbox
+(M29), right after 0.4.0.
+
+- ✅ **From the device's sheet**: **Why**, under the controls, and **Who or what changed it?**;
+  the chain from what started it to the device, each step with when it happened: someone signed
+  in and the action they asked for, an action with nobody signed in, a change of state, an
+  automation or a script that ran, what set it off (a time, the sun, a start, an event, a
+  trigger in Home Assistant's words), "nobody, as far as Home Assistant knows" (the device itself
+  or its integration), "not in the logbook". Asked again when the device changes while it shows;
+  not offered for a sensor that measures.
+- ✅ **Read as Home Assistant reads it**: the state's context, the logbook's rows of that context
+  (`logbook/get_events`, every user), the run found as Home Assistant 2026.9 finds it when the
+  state was written again since, and the trigger's change followed back the same way, up to six
+  changes; the same on 2025.1. Not offered without Home Assistant's logbook (nor in the sandbox);
+  when it cannot be read, what the state's context says.
+- ✅ **Drawn in 3D** with the wires of M9c: a wire from each step to the next, through the runs
+  between them, pulses one after the other from the start to the device; a tap names the runs.
+- ✅ **Home Assistant's pages**: the run's trace for administrators (`trace/contexts`), the
+  Activity on the chain's entities around it for everyone; not in the demo house.
+- ✅ **Names and private rooms**: users by their `person` (by Home Assistant's users for an
+  administrator); what a private room the viewer may not see holds (D-039) is "in a private
+  room", left out of the Activity's address and not drawn.
+- ✅ **The demo house** records as Home Assistant does: the visitor's actions, its automations'
+  runs and their triggers, the moment the visitor goes to; its logbook answers as Home
+  Assistant's.
+- ✅ Tests: Home Assistant's words for triggers in both versions, a lamp followed back through
+  its automation to the motion (by context, and by the automation's runs when written again
+  since), someone, an action with nobody, a script, the device itself, not in the logbook, two
+  automations back to a time, an automation another ran, a run by hand (2026), a thermostat's
+  heater, what ran after left out, six changes and no more, without the logbook, the traces for
+  administrators only, the Activity's address, the users' names, the wires and no end in a
+  private room, the words in both languages, the demo house's logbook as it opens (vitest); a
+  lamp lit by an automation the door set off with its trace, its Activity and its wire, someone
+  in the app and nobody's doing in French for a user, no Why for a sensor that measures, the demo
+  house's lamp as it opens and switched on by the visitor (Playwright).
+
+## M30, the Wi-Fi QR code
+
+The QR code a phone's camera joins the home's Wi-Fi with, drawn in the page (D-060).
+
+- ✅ **Given once**: by an administrator, from the ⋮ menu: the network's name, its password
+  (checked against its kind, WPA, WEP or open), whether it is hidden; or the router's own code, an
+  image entity (FRITZ!Box, UniFi), shown as it is. Kept in a private store of its own: never in
+  the plan, the logs, the diagnostics or an export.
+- ✅ **Drawn in the page**: the code a phone reads (`WIFI:T:WPA;S:<name>;P:<password>;;`, its
+  characters escaped), encoded by `qrcodegen` (MIT, checked by `cargo deny`) in the analysis
+  module, loaded the first time; no network.
+- ✅ **Shown where chosen**: to administrators, and on the screens an administrator chose (a
+  card's `screen`), a Wi-Fi button among the view's; the password hidden until asked for.
+- ✅ Tests: the payload and its escapes, the code's modules (Rust); kept apart, shown where
+  chosen, refused when it cannot be joined, read again after a restart, deleted with DomoTwin,
+  never in the diagnostics (pytest); given, drawn, changed, forgotten, a chosen screen and
+  others, a router's code, in French (Playwright).
+
+## M23b, into Home Assistant's Overview
+
+DomoTwin joined to Home Assistant's own Overview rather than copying it (D-061).
+
+- ✅ **Area pages**: in the panel, a room tapped in 3D opens its area's page of the Overview
+  (`/home/areas-<area>`, Home Assistant 2026.2 and later); before, and in the demo house and the
+  sandbox, its page in *Rooms*. The room's own actions stay in its 3D panel.
+- ✅ **What DomoTwin knows, on them**: a device for each room, in its area, with the people at home
+  in it (unknown while private) and the upkeep due for its pieces; it follows the room's area,
+  goes with the room. The mesh and the robots have summaries instead (worked out in the browser,
+  drawn by the engine).
+- ✅ **Summaries**: `custom:domotwin-summary-card` for the people, the network, the automations,
+  the upkeep and the robots, each opening the 3D view on what it sums up (`?layer=`); in one's
+  dashboards and the Home tab. Loaded on demand.
+- ✅ **Shortcuts**: the guide shows how to put DomoTwin among the Overview's (2026.5 and later).
+- ❓ **Asked**: the 3D view at the top of the Overview or of an area's page, and an area's page
+  opening DomoTwin, need Home Assistant; the Home and Rooms tabs stay until it is said whether
+  they should where the Overview is.
+- ✅ Tests: pieces in their rooms, each room's device in its area, who is there, a private room,
+  the upkeep due in it, a room renamed, given another area, removed (pytest); versions, area
+  pages, summaries, the layers a user may see (Vitest); a room tapped opening its area's page and
+  back, the Rooms tab before the Overview, a layer from the address, the summaries in English and
+  French, the network's read, a summary on the Home tab (Playwright).
+
 ## M39, Hydro-Québec's peaks
 
 For a home on one of Hydro-Québec's offers with peak events (Flex D, the winter credit kept by
-those who had it), moved forward by the maintainer (D-058). Read from the integrations that read
+those who had it), moved forward by the maintainer (D-062). Read from the integrations that read
 the peaks, by their kind, never their entities' ids; nothing scraped, no account asked, nothing
 stored; nothing shown without them.
 
@@ -1151,29 +1275,10 @@ tests and docs; every string through `t()` in English and French. A ❓ is asked
 milestone starts, which goes on with what needs no answer.
 
 - ✅ **M29, the sandbox** (D-057, above).
-- ⏳ **M30, the Wi-Fi QR code**: an administrator gives the home's Wi-Fi name and password once,
-  and DomoTwin draws the QR code a phone's camera joins with (`WIFI:T:WPA;S:<name>;P:<password>;;`,
-  with `\`, `;`, `,`, `:` and `"` escaped), in the page, by a small encoder whose licence
-  `cargo deny` checks; no network. The password is kept in the integration's private storage
-  only: never in the plan, the logs, the diagnostics, an export or the repository. Shown to
-  administrators, or on a screen an administrator chose (a wall screen in the hall); a router
-  that already gives its guest network's QR code as an entity (FRITZ!Box, UniFi) is shown as it
-  is. The first part of guest access (M33), small enough to come early.
-- ⏳ **M23b, into Home Assistant's Overview**: since 2026.2, Home Assistant opens on its own
-  Overview: summaries of the lights, the climate, security, media and energy, the weather,
-  favourites, a page for each area, and since 2026.10 the active alerts (D-056). DomoTwin plugs
-  into it rather than copying it, with Home Assistant's own cards and dialogs. Where Home
-  Assistant has it, a room tapped in 3D opens that room's area page (`/home/areas-<area>`), the
-  room's own actions staying in its 3D panel; elsewhere, its page in *Rooms*. What DomoTwin knows
-  and the Overview does not show (who is in which room, the weak spots of the network, the
-  upkeep due, where the robots are) becomes entities, which Home Assistant shows on the area page
-  of their room and lets an administrator make favourites of the Overview; and DomoTwin summary
-  cards, in the Overview's manner, for one's own dashboards and the Home tab (people in their
-  rooms, the network, the wires, the upkeep, the robots), each opening the 3D view on what it
-  sums up. The docs show how to put DomoTwin among the Overview's shortcuts (2026.5 and later).
-  The Overview has no place for a card that is not its own, on its home page or its area pages:
-  the 3D view at their top, and an area page opening DomoTwin on its room, need Home Assistant
-  ❓. Whether the Home and Rooms tabs stay where the Overview is ❓.
+- ✅ **M30, the Wi-Fi QR code** (D-060, above).
+- ✅ **M23b, into Home Assistant's Overview** (D-061, above). Still asked ❓: the 3D view at the
+  top of the Overview or of an area's page, and an area's page opening DomoTwin, need Home
+  Assistant; whether the Home and Rooms tabs stay where the Overview is.
 - ⏳ **M24, history and energy**: a sheet for each room with its sensors' history-graph cards; an
   Energy tab made of Home Assistant's energy cards, or Home Assistant's own Energy page opened
   where it has one, as M23b does (D-056). Replay, the home's past in 3D (M19), stays a 3D feature,
@@ -1202,13 +1307,8 @@ milestone starts, which goes on with what needs no answer.
 
 ## Then, to 0.6.0
 
-- ⏳ **M32, "Why?"**: who or what last changed a device, as a chain: the lamp switched on by an
-  automation, set off by the hall's motion sensor, itself set off by someone coming home; or by
-  a person in the app, by voice, by a script, on the device itself. Read from Home Assistant's
-  context ids, its logbook and its traces; drawn in 3D with the wires of M9c, from the device's
-  sheet, with a link to the trace (administrators) and to Home Assistant's Activity, which shows
-  the same chain as a list since 2026.9 (D-056). Only what Home Assistant recorded: a change it
-  did not attribute says so. Why something did not happen is the sandbox's (M29).
+- ✅ **M32, "Why?"**: done next to the sandbox, right after 0.4.0 (above, D-059). Why something
+  did not happen is the sandbox's (M29).
 - ⏳ **M33, guest access**: a guest gets a QR code or a link that opens chosen rooms and devices
   for a set time and ends on its own, with the Wi-Fi QR code of M30. What can be enforced is said
   plainly: a Home Assistant user for the guest, local only and possibly read only, is enforced by
@@ -1240,14 +1340,11 @@ milestone starts, which goes on with what needs no answer.
   already give where they are installed (Battery Notes, Watchman, Spook) rather than doing their
   work again. A summary by the user's own conversation agent or AI task if there is one, plain lists
   otherwise; a notification of Home Assistant's and a page in the panel.
-- ⏳ **M38, history as reports**: Home Assistant's history as tables: chosen entities over a
-  period, a row per change or per hour, filtered by value or by how long ("the bedroom above
-  24 °C for more than an hour"), exported as CSV; the logbook searched by value. Read only, from
-  the recorder through Home Assistant's own history, statistics and logbook commands; opened from
-  a device on the plan.
+- ✅ **M38, history as reports** (D-058, above): done right after the sandbox, at the
+  maintainer's request.
 - ⏳ **M18, outdoors**: the garden, the terrace, the lawn, a pool, the roofs; the lawn growing
   between two mowings.
-- ✅ **M39, Hydro-Québec's peaks**, moved forward (D-058, above): the next peak, the pre-heating
+- ✅ **M39, Hydro-Québec's peaks**, moved forward (D-062, above): the next peak, the pre-heating
   before it, which rooms shed and what they draw during it, in 3D and on the Home tab, and
   tomorrow's announced peak played in the sandbox, from the entities of hydroqc or HydroPeak. Its
   part in the report comes with M37.
