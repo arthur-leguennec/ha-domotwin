@@ -10,6 +10,7 @@ import { cardHelpers, type CardConfig } from "../ha/cards";
 import type { HomeAssistant } from "../ha/types";
 import type { MessageKey, Translator } from "../i18n";
 import { entityName } from "../live/bindings";
+import { lookOnly } from "../live/rights";
 import { define } from "./define";
 import { entityRow, rowStyles } from "./entity-rows";
 
@@ -54,6 +55,8 @@ export class DomoTwinHaCard extends LitElement {
   /** The configuration the card was made for, and whether for the demo house. */
   private madeFor?: string;
   private demo?: boolean;
+  /** Whether the viewer may only look at its entity (their rights, D-071). */
+  private looks?: boolean;
 
   static override styles = [
     rowStyles,
@@ -106,16 +109,27 @@ export class DomoTwinHaCard extends LitElement {
   protected override willUpdate(changed: PropertyValues): void {
     // Made again for another configuration, or on the way into the demo house or out of it.
     const demo = this.hass?.demo === true;
-    if (changed.has("config") || demo !== this.demo) {
+    const looks = this.looksOnly();
+    if (changed.has("config") || demo !== this.demo || looks !== this.looks) {
       this.demo = demo;
+      this.looks = looks;
       void this.make();
     }
     if (this.card && changed.has("hass")) this.card.hass = this.hass;
   }
 
-  /** Makes Home Assistant's card, once for each configuration. */
+  /** Whether the viewer may only look at the card's entity (their rights, D-071). */
+  private looksOnly(): boolean {
+    const entity = this.config?.entity;
+    return typeof entity === "string" && this.hass?.canAct?.(entity) === false;
+  }
+
+  /**
+   * Makes Home Assistant's card, once for each configuration; one the viewer may only look at
+   * does nothing on a tap (D-071).
+   */
   private async make(): Promise<void> {
-    const config = this.config;
+    const config = this.config && this.looksOnly() ? lookOnly(this.config) : this.config;
     const hass = this.hass;
     if (!config || !hass) return;
     // The demo house's cards are DomoTwin's own rows (D-050): made again on the way in or out.
@@ -173,6 +187,7 @@ export class DomoTwinHaCard extends LitElement {
           ? html`<button
               class="press"
               data-entity=${entity}
+              ?disabled=${hass.canAct?.(entity) === false}
               @click=${() => {
                 const domain = entity.slice(0, entity.indexOf("."));
                 void hass

@@ -1181,9 +1181,29 @@ again. The AI task is asked once for each draft and Home Assistant's check once 
 sandbox, the draft is one more automation of the day played; what it did is read from the day's
 report, once for each day played.
 
+
+### M34 (per-person rights)
+
+Bundle: the first load is **536.3 kB gzipped** of 1 200 kB (+3.1 kB): the viewer's gate
+(`live/rights.ts`: whose rights apply, a device's level, a call's entities, the views' `hass`),
+the checks in DomoTwin's controls (the rows, a tap, a room's commands and own actions, the
+schedules, Home Assistant's cards), the panel's and the card's wiring and the ⋮ menu's *Rights*.
+The administrators' dialog comes on demand the first time it opens
+(`chunks/rights-dialog-<hash>.js`: 17.6 kB raw, 6.3 kB gzipped), with its texts in both languages;
+the listing of each room's devices it shares with guest access's dialog. A guest's page grows by
+the checks it shares (`guest.js`: 45.0 kB gzipped).
+
+The page works the gate out once for the home as it is (the rights, the links, the plans, the
+registries and the rooms closed), not on each change of a state: **1.0 ms** for a plan of 500
+elements (100 rooms, 400 pieces) and 1 000 entities, 30 rooms set; then a device's level is a few
+set lookups (0.9 µs; median of 31, Node 22 on a 2.1 GHz Xeon core, a phone some five times
+slower). An administrator, the demo house and the sandbox have no gate. The integration works out
+where each device is once a request it checks (an action set or cancelled for later, the list of
+those waiting): 0.8 ms for the same plan (Python 3.14).
+
 ### M40 (the weather around the home)
 
-Bundle: the first load is **541.8 kB gzipped** of 1 200 kB (+8.7 kB). The engine's wasm grows by
+Bundle: the first load is **545.0 kB gzipped** of 1 200 kB (+8.7 kB). The engine's wasm grows by
 7.2 kB (387.6 kB gzipped): the weather's shaders (3.1 kB of it, their comments kept as in every
 shader), what a condition means and the footprint, and the fog in the home's and the background's
 shaders. The page grows by 1.5 kB: reading the weather entity and its wind (a chunk of its own,

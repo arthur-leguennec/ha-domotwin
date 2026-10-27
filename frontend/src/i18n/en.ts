@@ -425,6 +425,7 @@ export const en = {
     start: "Start",
     home: "Back to its base",
     press: "Press",
+    look_only: "You may look at this device, not use it.",
   },
   presets: {
     toggle: "Switch on or off",
@@ -670,6 +671,9 @@ export const en = {
   },
   guests: {
     menu: "Guest access",
+  },
+  rights: {
+    menu: "Rights",
   },
   tabs: {
     label: "DomoTwin's tabs",

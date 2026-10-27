@@ -408,7 +408,7 @@ fn the_weather_falls_around_the_home() {
     engine.frame(0.0);
     assert_eq!(engine.weather(), "none");
     assert!(!engine.layers_animating());
-    // Rain from the west: it falls, and frames go on while it does (D-071).
+    // Rain from the west: it falls, and frames go on while it does (D-072).
     engine.set_weather("rainy", 6.0, 270.0, 0.0);
     assert_eq!(engine.weather(), "rain");
     assert!(engine.needs_frame());

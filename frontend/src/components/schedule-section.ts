@@ -173,10 +173,18 @@ export class DomoTwinSchedules extends LitElement {
     return [...new Set(all)].filter(schedulable);
   }
 
-  /** The groups an action can switch, with only what it can switch. */
+  /** Whether the viewer may use an entity (their rights, D-071). */
+  private usable(entity: string): boolean {
+    return this.hass?.canAct?.(entity) !== false;
+  }
+
+  /** The groups an action can switch, with only what it can switch and the viewer may use. */
   private get shownGroups(): ScheduleGroup[] {
     return this.groups
-      .map((group) => ({ ...group, entities: group.entities.filter(schedulable) }))
+      .map((group) => ({
+        ...group,
+        entities: group.entities.filter((id) => schedulable(id) && this.usable(id)),
+      }))
       .filter((group) => group.entities.length > 0);
   }
 
@@ -218,9 +226,18 @@ export class DomoTwinSchedules extends LitElement {
     const style = timeStyle(hass);
     const now = new Date(nowOf(hass));
     const mine = schedulesOf(this.items, entities);
+    // What the viewer may only look at (D-071): its actions listed, none set nor cancelled.
+    const form = this.formEntities;
+    if (mine.length === 0 && form.length === 0) return nothing;
     return html`<h3>${t.t("schedules.title")}</h3>
       ${mine.map((item) => this.renderItem(hass, t, item, style, now))}
-      ${this.adding ? this.renderForm(hass, t, this.formEntities) : this.renderAdd(hass, t)}
+      ${
+        form.length === 0
+          ? nothing
+          : this.adding
+            ? this.renderForm(hass, t, form)
+            : this.renderAdd(hass, t)
+      }
       ${
         this.said
           ? html`<p class="said" role=${this.said.error ? "alert" : "status"}>${this.said.text}</p>`
@@ -262,16 +279,20 @@ export class DomoTwinSchedules extends LitElement {
       <span
         >${text}${item.entities.length > 1 ? html`<br /><small>${names}</small>` : nothing}</span
       >
-      <button
-        class="cancel"
-        data-testid="schedule-cancel"
-        aria-label=${t.t("schedules.cancel")}
-        title=${t.t("schedules.cancel")}
-        ?disabled=${this.busy}
-        @click=${() => void this.cancel(item.id)}
-      >
-        ${icon(mdiClose)}
-      </button>
+      ${
+        item.entities.every((id) => this.usable(id))
+          ? html`<button
+              class="cancel"
+              data-testid="schedule-cancel"
+              aria-label=${t.t("schedules.cancel")}
+              title=${t.t("schedules.cancel")}
+              ?disabled=${this.busy}
+              @click=${() => void this.cancel(item.id)}
+            >
+              ${icon(mdiClose)}
+            </button>`
+          : nothing
+      }
     </div>`;
   }
 
@@ -297,7 +318,7 @@ export class DomoTwinSchedules extends LitElement {
   /** What the form's action switches: the piece's entities, or the room's group chosen. */
   private get formEntities(): string[] {
     const groups = this.shownGroups;
-    if (groups.length === 0) return this.schedulable;
+    if (this.groups.length === 0) return this.schedulable.filter((id) => this.usable(id));
     return (groups[this.group] ?? groups[0])?.entities ?? [];
   }
 

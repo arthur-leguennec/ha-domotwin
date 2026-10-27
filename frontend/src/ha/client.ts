@@ -10,6 +10,7 @@ import { readPass, readPasses, type GuestPass, type GuestPassChange } from "../l
 import type { HassConnection, HassMessage, HomeAssistant } from "./types";
 import type { EnergySettings } from "../live/energy";
 import type { AccessPoint } from "../live/placement";
+import type { Rights } from "../live/rights";
 
 export type PlanJson = Record<string, unknown> & { name?: unknown; items?: unknown };
 
@@ -73,7 +74,9 @@ export interface Settings {
   energy?: EnergySettings;
   /** The Wi-Fi access points placed on the plan (D-066). */
   access_points?: AccessPoint[];
-  /** The weather drawn around the home (D-071): a `weather` entity, or `none`; absent, the one
+  /** What each person uses, only sees or does not see in DomoTwin (D-071). */
+  rights?: Rights;
+  /** The weather drawn around the home (D-072): a `weather` entity, or `none`; absent, the one
    * the Home tab shows. */
   weather?: string;
 }

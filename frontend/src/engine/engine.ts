@@ -422,7 +422,7 @@ export class DomoTwinEngine {
   }
 
   /**
-   * Draws the weather around the home (D-071) for one of Home Assistant's conditions, with its
+   * Draws the weather around the home (D-072) for one of Home Assistant's conditions, with its
    * wind in m/s and where it comes from in degrees clockwise from north (`NaN`: unknown), for a
    * plan whose north is `north` degrees clockwise from its top.
    */

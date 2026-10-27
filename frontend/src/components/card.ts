@@ -5,8 +5,9 @@ import { fontFamily } from "../fonts";
 import { DomoTwinClient, type Settings, type StoreyInfo, type StoredPlan } from "../ha/client";
 import { isHassError, type HomeAssistant } from "../ha/types";
 import type { DemoHome } from "../demo/home";
-import { readBindings, type BindingsJson } from "../live/bindings";
-import { privateRooms } from "../live/privacy";
+import { NO_BINDINGS, readBindings, type BindingsJson } from "../live/bindings";
+import { closedRooms, gatedHass, RightsCache, type Gate } from "../live/rights";
+import { planRooms } from "../live/suggest";
 import { forScreen, resolveShow, type ShowRequest } from "../live/show";
 import type { HomeStorey } from "../engine/engine";
 import {
@@ -80,6 +81,8 @@ export class DomoTwinCard extends LitElement {
   private shows = 0;
   /** The rooms of the storeys not shown, for their alerts. */
   protected elsewhere: StoreyRooms[] = [];
+  /** The viewer's rights as last worked out (D-071). */
+  private readonly rightsCache = new RightsCache();
   private _hass?: HomeAssistant;
   private unsubscribe?: () => void;
   /** The demo house shown instead of the home (`demo: true`, D-050). */
@@ -364,7 +367,7 @@ export class DomoTwinCard extends LitElement {
       this.storeys,
       { plan: this.plan, storey: this.storey },
       request,
-      privateRooms(this.settings?.rooms, hass),
+      closedRooms(this.settings?.rooms, this.settings?.rights, hass),
     );
     if (!target || ticket !== this.shows) return;
     if (target.storey !== undefined && target.storey !== this.storey) {
@@ -463,8 +466,38 @@ export class DomoTwinCard extends LitElement {
     return { view: "3d" };
   }
 
+  /**
+   * The viewer's rights (D-071): their gate, and the bindings without the devices they may not
+   * see; the same while nothing they read changes. None for an administrator.
+   */
+  private rightsOf(hass: HomeAssistant): { gate?: Gate; bindings: BindingsJson } {
+    const settings = this.settings;
+    const home = this.home;
+    return this.rightsCache.read(
+      hass,
+      settings?.rights,
+      {
+        bindings: this.bindings ?? NO_BINDINGS,
+        closed: closedRooms(settings?.rooms, settings?.rights, hass),
+      },
+      () =>
+        home
+          ? {
+              rooms: home.flatMap((storey) => planRooms(storey.plan)),
+              storeys: home.map(({ plan, layout }) => ({ plan, layout })),
+            }
+          : {
+              rooms: [...planRooms(this.plan), ...this.elsewhere.flatMap((s) => s.rooms)],
+              storeys: [{ plan: this.plan, layout: this.layout }, ...this.elsewhere],
+            },
+      [home, this.plan, this.layout, this.elsewhere],
+    );
+  }
+
   protected override render(): TemplateResult | typeof nothing {
     if (!this.config) return nothing;
+    // Under the viewer's rights (D-071): what they may do, the devices they may not see unlinked.
+    const rights = this._hass ? this.rightsOf(this._hass) : undefined;
     const style = [
       this.config.height ? `height:${this.config.height}` : "",
       this.config.font_family
@@ -478,11 +511,11 @@ export class DomoTwinCard extends LitElement {
       <domotwin-view
         class=${this.config.height ? "fixed" : ""}
         style=${style}
-        .hass=${this._hass}
+        .hass=${this._hass && gatedHass(this._hass, rights?.gate)}
         .plan=${this.settingsRead ? this.plan : undefined}
         .layout=${this.layout}
         .home=${this.settingsRead ? this.home : undefined}
-        .bindings=${this.bindings}
+        .bindings=${rights && this.bindings ? rights.bindings : this.bindings}
         .upkeep=${this.upkeep}
         .people=${this.people}
         .wifi=${this.wifi}
@@ -491,6 +524,7 @@ export class DomoTwinCard extends LitElement {
         .options=${this.viewOptions()}
         .north=${this.settings?.north ?? 0}
         .privateRooms=${this.settings?.rooms}
+        .rights=${this.settings?.rights}
         .accessPoints=${this.settings?.access_points ?? NO_ACCESS_POINTS}
         .homeTheme=${this.settings?.theme}
         .homeAccent=${this.settings?.accent}

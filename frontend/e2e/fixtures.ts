@@ -69,7 +69,7 @@ export interface HarnessOptions {
   accent?: string;
   /** The home's look (the stored settings). */
   homeTheme?: "auto" | "day" | "neon" | "blueprint" | "cartoon" | "clay";
-  /** A fictional `weather.home` in this condition, and a `weather.coast` pouring (D-071). */
+  /** A fictional `weather.home` in this condition, and a `weather.coast` pouring (D-072). */
   weather?: string;
   /** The stored settings' weather: an entity, or `none`. */
   homeWeather?: string;
@@ -126,6 +126,8 @@ export interface HarnessOptions {
   private?: string[];
   privateFor?: string;
   privateWhile?: string;
+  /** Each person's rights (D-071), as the stored settings keep them. */
+  rights?: unknown;
   /** The settings cannot be read until `window.__settingsUp()`. */
   settingsDown?: boolean;
   /** The tab this device opens on (D-055): the 3D view unless asked; `none`: the user's. */
@@ -221,6 +223,7 @@ export async function openHarness(page: Page, options: HarnessOptions = {}): Pro
   if (options.private) params.set("private", options.private.join(","));
   if (options.privateFor) params.set("privatefor", options.privateFor);
   if (options.privateWhile) params.set("privatewhile", options.privateWhile);
+  if (options.rights) params.set("rights", JSON.stringify(options.rights));
   if (options.settingsDown) params.set("settingsdown", "1");
   if (options.start) params.set("start", options.start);
   if (options.userStart) params.set("userstart", options.userStart);

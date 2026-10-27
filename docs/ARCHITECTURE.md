@@ -78,6 +78,13 @@ every reader returns `Result` with a stable error code that the frontend transla
   The integration keeps the passes (`custom_components/domotwin/guests.py`) and serves the page and
   what it asks outside Home Assistant's sign-in (`http.py`), checking each request against the
   pass; `logbook.py` says a guest's actions in Home Assistant's logbook.
+- Per-person rights (D-071): `live/rights.ts` works out what the viewer uses, only sees or does not
+  see (the same rule as `custom_components/domotwin/rights.py`): the rooms not seen join the
+  private ones closed (`closedRooms`), the devices not seen are unlinked (`Gate.shown`), and the
+  panel and the card give their views a `hass` whose `canAct` and `canSee` DomoTwin's controls
+  read and whose calls on what may not be used are refused (`gatedHass`).
+  `components/rights-dialog.ts` (its own chunk) sets them. The integration checks its own
+  services against them (`schedules.py`, `services.py`, `llm.py`, `sensor.py`).
 - Home Assistant's Overview (D-061): `live/overview.ts` says where an area's page is (the panel
   opens it for a room tapped in 3D); `components/summary-card.ts` is the summary card, whose body
   (`components/summary-body.ts`, `live/summaries.ts`) is a chunk of its own. The integration gives
@@ -122,7 +129,7 @@ every reader returns `Result` with a stable error code that the frontend transla
   and spread apart in 3D, side by side on the 2D plan, the roof above the top one; and the walk:
   a walker's steps on the floor, its way through the doors, the slow turn of a kiosk. Walking
   draws the walls whole and the rooms' ceilings (day look). See D-014, D-016, D-028 and D-029.
-- The weather (D-071): `domotwin-core::weather` turns Home Assistant's condition and wind into
+- The weather (D-072): `domotwin-core::weather` turns Home Assistant's condition and wind into
   what falls, how grey the sky is, the fog and the storm's flashes; `domotwin-render::weather`
   takes the home's footprint (every storey's bounds and the roof's eaves) and the roof's slope,
   how many particles the quality allows, their tint and the clouds' light. What falls is one
@@ -266,9 +273,12 @@ every reader returns `Result` with a stable error code that the frontend transla
   entity ids], "while"?: entity id}}`: kept for those people (none: for nobody), always or only
   while that entity is on ([`privacy.md`](privacy.md)); where the home's energy is read
   (`energy`, D-049); the Wi-Fi access points placed on the plan (`access_points`, D-066),
-  `[{"storey": id, "at": [x, y], "name"?}]`, 16 at most ([`placement.md`](placement.md)); the
-  weather drawn around the home (`weather`, D-071): a `weather` entity, or `none`; absent, the
-  Home tab's.
+  `[{"storey": id, "at": [x, y], "name"?}]`, 16 at most ([`placement.md`](placement.md)); each
+  person's rights (`rights`, D-071), `{"everyone"?: rights, "people"?: {person entity id:
+  rights}}`, each `{"rooms"?: {room id: level}, "entities"?: {entity id: level}}`, a level `use`,
+  `see` or `hidden`; at most 50 people, 200 rooms and 500 devices each
+  ([`rights.md`](rights.md)); the weather drawn around the home (`weather`, D-072): a `weather`
+  entity, or `none`; absent, the Home tab's.
 - `upkeep` (D-033, storage 4.1): the upkeep cards by piece id, and how many days before it a task
   is due soon; see [`upkeep.md`](upkeep.md). Kept apart from the plan, like the bindings.
 - `revision`: bumped on every write. `revisions` keeps the revision of the last write of each kind
@@ -355,7 +365,7 @@ when the integration is removed.
 | `domotwin/bindings/get`  | user   | –                                              | `bindings`, `revision`           |
 | `domotwin/bindings/save` | admin  | `bindings`, `expected_revision?`               | `revision`                       |
 | `domotwin/settings/get`  | user   | –                                              | `settings`, `revision`           |
-| `domotwin/settings/save` | admin  | `settings` (`north`, 0 ≤ n < 360; `theme`, `accent`; `rooms`, at most 200; `energy`; `access_points`, at most 16; `weather`) | `revision` |
+| `domotwin/settings/save` | admin  | `settings` (`north`, 0 ≤ n < 360; `theme`, `accent`; `rooms`, at most 200; `energy`; `access_points`, at most 16; `rights`; `weather`) | `revision` |
 | `domotwin/upkeep/get`    | user   | –                                              | `upkeep`, `revision`, `today` (where the home is) |
 | `domotwin/upkeep/save`   | admin  | `pieces` (`{piece: card \| null}`, only those change), `lead_days?`, `expected_revision?` | `revision` |
 | `domotwin/upkeep/done`   | user   | `piece`, `task`                                | `revision`, `last_done`          |

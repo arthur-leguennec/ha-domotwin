@@ -32,6 +32,7 @@
 //   private=<room>,<room> (private rooms, D-039, kept for nobody), privatefor=<person> (kept for
 //   that person instead), privatewhile=<entity> (private only while it is on), settingsdown=1
 //   (the settings cannot be read until window.__settingsUp())
+//   rights=<JSON> (each person's rights, D-071, as the stored settings keep them)
 //   voice=1 (Assist with a pipeline that hears), voice=deaf (Assist that cannot hear),
 //   robot=1 (a robot vacuum's dock in the hall, linked to vacuum.robbie, docked; D-049)
 //   valetudo=1 (a robot running Valetudo: its vacuum and its Map data camera over MQTT, whose
@@ -56,7 +57,7 @@
 //   Home Assistant's history, statistics and logbook (D-058) answer a fictional day of the
 //   bedroom (`HISTORY` below); historyfail=1 makes the history refuse, nostats=1 leaves the
 //   statistics out; formatstate=1 gives `hass.formatEntityState` (states in words, "°C" after).
-//   weather=<condition> (D-071: a fictional `weather.home` in that condition, wind 18 km/h from
+//   weather=<condition> (D-072: a fictional `weather.home` in that condition, wind 18 km/h from
 //   the south-west, and a `weather.coast` pouring), homeweather=<entity|none> (the stored
 //   settings' choice), weatheroption=0 (the card's `weather: false`)
 //   why=1 (D-059: Home Assistant's logbook and traces of a fictional evening, with live=1: the
@@ -290,6 +291,7 @@ const store = {
           },
         }
       : {}),
+    ...(params.get("rights") ? { rights: JSON.parse(params.get("rights")) } : {}),
     ...(params.get("private")
       ? {
           rooms: Object.fromEntries(
@@ -1479,8 +1481,8 @@ const connection = {
       case "config/auth/list":
         if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
         return [
-          { id: "e2e", name: "E2E" },
-          { id: "user-sam", name: "Sam" },
+          { id: "e2e", name: "E2E", group_ids: ["system-admin"] },
+          { id: "user-sam", name: "Sam", group_ids: ["system-users"] },
         ];
       case "domotwin/config_history/list":
         if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };

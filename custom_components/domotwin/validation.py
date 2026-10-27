@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 import json
 import re
 from typing import Any, Final
@@ -32,6 +33,9 @@ from .const import (
     MAX_PLAN_REACH,
     MAX_PRIVATE_ROOMS,
     MAX_RECEIVERS,
+    MAX_RIGHTS_ENTITIES,
+    MAX_RIGHTS_PEOPLE,
+    MAX_RIGHTS_ROOMS,
     MAX_ROOM_ACTION_NAME,
     MAX_ROOM_ACTIONS,
     MAX_STOREY_NAME,
@@ -50,6 +54,7 @@ from .const import (
     PEOPLE_SHOWN,
     PLAN_FORMAT,
     PLAN_LISTS,
+    RIGHTS_LEVELS,
 )
 from .people import valid_color
 from .upkeep import parse_date
@@ -286,8 +291,8 @@ def validate_settings(settings: Any) -> dict[str, Any]:
     `north`, degrees clockwise from the top of the plan; the look shown by default (`theme`) and
     its accent colour (`accent`, `#rrggbb`); the private rooms (`rooms`, D-039); where the
     home's energy is read (`energy`, D-049); the Wi-Fi access points placed on the plan
-    (`access_points`, D-066); the weather drawn around it (`weather`, D-071: a `weather` entity,
-    or `none`).
+    (`access_points`, D-066); each person's rights (`rights`, D-071); the weather drawn around it
+    (`weather`, D-072: a `weather` entity, or `none`).
     """
     if not isinstance(settings, dict) or set(settings) - {
         "north",
@@ -296,12 +301,13 @@ def validate_settings(settings: Any) -> dict[str, Any]:
         "rooms",
         "energy",
         "access_points",
+        "rights",
         "weather",
     }:
         raise InvalidPayloadError(
             "invalid_settings",
-            "settings hold only `north`, `theme`, `accent`, `rooms`, `energy`, `access_points` "
-            "and `weather`",
+            "settings hold only `north`, `theme`, `accent`, `rooms`, `energy`, `access_points`, "
+            "`rights` and `weather`",
         )
     north = settings.get("north", 0)
     if not _is_number(north) or not 0 <= north < 360:
@@ -318,21 +324,86 @@ def validate_settings(settings: Any) -> dict[str, Any]:
         checked["accent"] = accent.lower()
     if "rooms" in settings:
         checked["rooms"] = _private_rooms(settings["rooms"])
-    if "energy" in settings:
-        energy = _energy(settings["energy"])
-        if energy:
-            checked["energy"] = energy
     if "weather" in settings:
         checked["weather"] = _weather(settings["weather"])
-    if "access_points" in settings:
-        access_points = _access_points(settings["access_points"])
-        if access_points:
-            checked["access_points"] = access_points
+    # Left out when empty.
+    optional: tuple[tuple[str, Callable[[Any], Any]], ...] = (
+        ("energy", _energy),
+        ("access_points", _access_points),
+        ("rights", _rights),
+    )
+    for key, check in optional:
+        if key in settings and (found := check(settings[key])):
+            checked[key] = found
+    return checked
+
+
+def _rights_set(levels: Any, what: str) -> dict[str, dict[str, str]]:
+    """One person's rights, or everyone's (D-071).
+
+    `{"rooms"?: {room id: level}, "entities"?: {entity id: level}}`, each level `use`, `see` or
+    `hidden`. Empty lists are left out.
+    """
+    if not isinstance(levels, dict) or set(levels) - {"rooms", "entities"}:
+        raise InvalidPayloadError("invalid_settings", f"{what} has `rooms` and `entities`")
+    checked: dict[str, dict[str, str]] = {}
+    for kind, limit in (("rooms", MAX_RIGHTS_ROOMS), ("entities", MAX_RIGHTS_ENTITIES)):
+        given = levels.get(kind, {})
+        if not isinstance(given, dict):
+            raise InvalidPayloadError("invalid_settings", f"{what}'s `{kind}` must be an object")
+        if len(given) > limit:
+            raise InvalidPayloadError("invalid_settings", f"{what} names at most {limit} {kind}")
+        for key, level in given.items():
+            if kind == "rooms":
+                _check_id(key, "a room id", "invalid_settings")
+            elif not isinstance(key, str) or not valid_entity_id(key):
+                raise InvalidPayloadError("invalid_settings", f"`{key}` is not an entity id")
+            if level not in RIGHTS_LEVELS:
+                raise InvalidPayloadError(
+                    "invalid_settings", f"a level is one of {', '.join(RIGHTS_LEVELS)}"
+                )
+        if given:
+            checked[kind] = dict(given)
+    return checked
+
+
+def _rights(rights: Any) -> dict[str, Any]:
+    """Each person's rights (D-071).
+
+    `{"everyone"?: rights, "people"?: {person entity id: rights}}`, each as `_rights_set` checks
+    it.
+    """
+    if not isinstance(rights, dict) or set(rights) - {"everyone", "people"}:
+        raise InvalidPayloadError("invalid_settings", "`rights` has `everyone` and `people`")
+    checked: dict[str, Any] = {}
+    everyone = _rights_set(rights.get("everyone", {}), "everyone's rights")
+    if everyone:
+        checked["everyone"] = everyone
+    people = rights.get("people", {})
+    if not isinstance(people, dict):
+        raise InvalidPayloadError("invalid_settings", "`rights.people` must be an object")
+    if len(people) > MAX_RIGHTS_PEOPLE:
+        raise InvalidPayloadError(
+            "invalid_settings", f"rights are set for at most {MAX_RIGHTS_PEOPLE} people"
+        )
+    own: dict[str, Any] = {}
+    for person, levels in people.items():
+        if (
+            not isinstance(person, str)
+            or not person.startswith("person.")
+            or not valid_entity_id(person)
+        ):
+            raise InvalidPayloadError("invalid_settings", "rights are set for `person` entities")
+        found = _rights_set(levels, "a person's rights")
+        if found:
+            own[person] = found
+    if own:
+        checked["people"] = own
     return checked
 
 
 def _weather(weather: Any) -> str:
-    """The weather drawn around the home (D-071): a `weather` entity, or `none`."""
+    """The weather drawn around the home (D-072): a `weather` entity, or `none`."""
     if weather == "none":
         return "none"
     if (

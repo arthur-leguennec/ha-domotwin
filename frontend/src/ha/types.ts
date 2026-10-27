@@ -133,6 +133,15 @@ export interface HomeAssistant {
    * dialogs or history.
    */
   guest?: boolean;
+  /**
+   * What the viewer's rights let them do in DomoTwin (D-071), on the `hass` DomoTwin gives its
+   * views: whether they may act on an entity, and see it. Missing: everything. DomoTwin's own; Home
+   * Assistant still lets every user act on every entity elsewhere.
+   */
+  canAct?: (entity: string) => boolean;
+  canSee?: (entity: string) => boolean;
+  /** Whether a call on these entities may be made (`undefined`: they cannot be told). */
+  canCall?: (entities: string[] | undefined) => boolean;
   /** The time it is for this Home Assistant (ms): the demo house's own clock (D-050). */
   now?(): number;
   /** The page Home Assistant opens first on this device (2025.1: its `hass-default-panel`). */

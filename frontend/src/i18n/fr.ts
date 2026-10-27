@@ -429,6 +429,7 @@ export const fr: Dictionary = {
     start: "Démarrer",
     home: "Retour à la base",
     press: "Appuyer",
+    look_only: "Vous pouvez regarder cet appareil, pas vous en servir.",
   },
   presets: {
     toggle: "Allumer ou éteindre",
@@ -677,6 +678,9 @@ export const fr: Dictionary = {
   },
   guests: {
     menu: "Accès invités",
+  },
+  rights: {
+    menu: "Droits",
   },
   tabs: {
     label: "Onglets de DomoTwin",
