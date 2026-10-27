@@ -1,4 +1,4 @@
-/** The demo house's names and words in ko, by their English (D-050, D-081). */
+/** The demo house's names and words in ko, by their English (D-050, D-082). */
 export const demo: Readonly<Record<string, string>> = {
   "Apple tree": "사과나무",
   Armchair: "안락의자",

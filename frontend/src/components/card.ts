@@ -496,7 +496,7 @@ export class DomoTwinCard extends LitElement {
     );
   }
 
-  /** Drawn once Home Assistant's language is here (D-081). */
+  /** Drawn once Home Assistant's language is here (D-082). */
   protected override scheduleUpdate(): Promise<unknown> | undefined {
     return inLanguage(
       this,

@@ -1,4 +1,4 @@
-"""The language DomoTwin speaks for Home Assistant's (D-081), as its frontend picks it."""
+"""The language DomoTwin speaks for Home Assistant's (D-082), as its frontend picks it."""
 
 from __future__ import annotations
 

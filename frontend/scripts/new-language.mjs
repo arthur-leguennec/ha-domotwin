@@ -1,4 +1,4 @@
-// Starts a language of DomoTwin's (D-081): `node scripts/new-language.mjs <code>` writes
+// Starts a language of DomoTwin's (D-082): `node scripts/new-language.mjs <code>` writes
 // `src/i18n/lang/<code>.ts` and `src/i18n/lang/<code>/` from the English messages, every key in
 // place, for a translator to translate the texts (never the keys, the `{placeholders}` or the
 // plural forms' names).
@@ -51,7 +51,7 @@ writeFileSync(
 // Its own module, named after it (`<code>-<hash>.js` once built).
 writeFileSync(
   join(folder, "..", `${code}.ts`),
-  `/** DomoTwin in ${code} (D-081), loaded when Home Assistant speaks it. */\nimport type { Pack } from "../pack";\nimport { chunks } from "./${code}/chunks";\nimport { main } from "./${code}/main";\n\nexport const pack: Pack = { main, chunks };\n`,
+  `/** DomoTwin in ${code} (D-082), loaded when Home Assistant speaks it. */\nimport type { Pack } from "../pack";\nimport { chunks } from "./${code}/chunks";\nimport { main } from "./${code}/main";\n\nexport const pack: Pack = { main, chunks };\n`,
 );
 console.log(
   `Written ${folder}: translate main.ts and chunks.ts, then add "${code}" to LANGUAGES and LOADERS in src/i18n/index.ts and to LANGUAGES in custom_components/domotwin/language.py (CONTRIBUTING.md).`,

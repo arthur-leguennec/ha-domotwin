@@ -56,7 +56,7 @@ const options = {
   chunkNames: "chunks/[name]-[hash]",
   legalComments: "eof",
   // Every language's letters as they are, not escaped: a module is always read as UTF-8, and
-  // Arabic, Chinese, Japanese and Korean are a third smaller so (D-081).
+  // Arabic, Chinese, Japanese and Korean are a third smaller so (D-082).
   charset: "utf8",
   metafile: true,
   logLevel: "warning",

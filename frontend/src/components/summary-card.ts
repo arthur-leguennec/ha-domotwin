@@ -32,7 +32,7 @@ export class DomoTwinSummaryCard extends LitElement {
     :host {
       display: block;
     }
-    /* Right to left (D-081): what points back or on turns round. */
+    /* Right to left (D-082): what points back or on turns round. */
     :host([dir="rtl"]) {
       --domotwin-mirror: -1;
     }
@@ -84,7 +84,7 @@ export class DomoTwinSummaryCard extends LitElement {
     }
   }
 
-  /** Drawn once Home Assistant's language is here (D-081). */
+  /** Drawn once Home Assistant's language is here (D-082). */
   protected override scheduleUpdate(): Promise<unknown> | undefined {
     return inLanguage(
       this,

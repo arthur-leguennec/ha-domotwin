@@ -1,4 +1,4 @@
-/** The demo house's names and words in ar, by their English (D-050, D-081). */
+/** The demo house's names and words in ar, by their English (D-050, D-082). */
 export const demo: Readonly<Record<string, string>> = {
   "Apple tree": "شجرة تفاح",
   Armchair: "كرسي بذراعين",

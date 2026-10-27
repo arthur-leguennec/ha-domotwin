@@ -14,7 +14,7 @@ function host(): ReactiveElement {
   return { dir: "" } as unknown as ReactiveElement;
 }
 
-describe("languages loaded on demand (D-081)", () => {
+describe("languages loaded on demand (D-082)", () => {
   it("draws in English and French at once", () => {
     const element = host();
     const update = vi.fn();

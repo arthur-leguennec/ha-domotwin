@@ -7,7 +7,7 @@ vi.mock("../src/i18n/lang/ar", () => {
   throw new Error("offline");
 });
 
-describe("a right-to-left language that cannot be loaded (D-081)", () => {
+describe("a right-to-left language that cannot be loaded (D-082)", () => {
   it("is spoken in English, left to right", async () => {
     await loadLanguage("ar");
     expect(languageReady("ar")).toBe(true);

@@ -126,7 +126,7 @@ export const energyStyles = css`
     width: 100%;
     height: auto;
     overflow: visible;
-    /* Its labels beside their discs, whichever way the language is written (D-081). */
+    /* Its labels beside their discs, whichever way the language is written (D-082). */
     direction: ltr;
   }
   .energy .disc {

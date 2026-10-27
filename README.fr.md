@@ -23,12 +23,12 @@ Local, rapide, Rust + WebAssembly.</p>
 > graphiques de chaque pièce avec la page Énergie de Home Assistant à un onglet, les automatisations
 > dites avec vos mots, jouées dans le bac à sable avant d’être enregistrées, la météo autour du
 > logement, la justesse des pièces trouvées, mesurée à côté de Bermuda, une bibliothèque de 195
-> meubles et objets avec leurs images, un iPhone suivi sans Mac et l’écran mural (son économiseur
-> réveillé par qui arrive), l’extérieur et la pelouse qui pousse, les demi-niveaux, une place dans
-> la pièce, les radars de présence fondus avec le Bluetooth, dix langues de plus, et DomoTwin a
-> rejoint la Vue d’ensemble de Home Assistant ; un premier lancement en cinq minutes ferme le chemin
-> vers la 0.5.0. La proposition à la liste par défaut de
-> HACS attend des mesures sur de vrais appareils.
+> meubles et objets avec leurs images, un iPhone suivi sans Mac, l’écran mural (son économiseur
+> réveillé par qui arrive), un bilan de la semaine de ce qui est à surveiller, l’extérieur et la
+> pelouse qui pousse, les demi-niveaux, une place dans la pièce, les radars de présence fondus avec
+> le Bluetooth, dix langues de plus, et DomoTwin a rejoint la Vue d’ensemble de Home Assistant ; un
+> premier lancement en cinq minutes ferme le chemin vers la 0.5.0. La proposition à la liste par
+> défaut de HACS attend des mesures sur de vrais appareils.
 
 ## Ce qui le distingue
 
@@ -279,6 +279,15 @@ Local, rapide, Rust + WebAssembly.</p>
   Pour les administrateurs ; sans module complémentaire ni Git. Voir [l’historique de la
   configuration](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/config-history.md) (en
   anglais).
+- **Le bilan de la semaine.** Une fois par semaine, ce qui est à surveiller : les piles faibles
+  (avec la pile à acheter, d’après Battery Notes), les appareils indisponibles, les mises à jour et
+  les réparations en attente (celles de Spook, et ce que Watchman trouve manquant), l’entretien à
+  faire, les automatisations en échec ou qui n’ont jamais tourné, les appareils Zigbee sur un lien
+  faible, l’énergie de la semaine face à la précédente et les pointes d’Hydro-Québec ; pièce par
+  pièce sur les plans, ce qui est nouveau et ce qui a été fait. La notification de Home Assistant
+  le dit, résumé par votre tâche d’IA si vous en choisissez une ; le panneau le montre. Voir [le
+  bilan de la semaine](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/report.md)
+  (en anglais).
 - **Votre voix.** Un bouton micro ouvre Assist de Home Assistant déjà à l’écoute, sur une
   tablette murale comme sur un téléphone. Quand Assist n’entend pas encore, DomoTwin installe la
   voix en local avec votre accord : Whisper ou Speech-to-Phrase et Piper, installés par le

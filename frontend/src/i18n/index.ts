@@ -10,6 +10,7 @@ import type { peakEn } from "./peak";
 import type { plainEn } from "./plain";
 import type { placementEn } from "./placement";
 import type { practicalEn } from "./practical";
+import type { reportEn } from "./report";
 import type { safetyEn } from "./safety";
 import type { rightsEn } from "./rights";
 import type { sandboxEn } from "./sandbox";
@@ -53,7 +54,7 @@ type Leaves<T, Leaf, Prefix extends string = ""> = {
 /**
  * Every message: the dictionaries', and those added by a chunk when it loads (D-055, D-058,
  * D-059, D-060, D-061, D-062, D-063, D-066, D-067, D-068, D-070, D-071, D-073, D-074, D-075,
- * D-076; the sandbox's, D-057).
+ * D-076, D-081; the sandbox's, D-057).
  */
 type AllMessages = typeof en &
   typeof practicalEn &
@@ -67,6 +68,7 @@ type AllMessages = typeof en &
   typeof plainEn &
   typeof placementEn &
   typeof guestsEn &
+  typeof reportEn &
   typeof safetyEn &
   typeof rightsEn &
   typeof measuredEn &
@@ -83,7 +85,7 @@ export type PluralKey = Leaves<AllMessages, Plural>;
 export type KindName = keyof (typeof en)["kinds"];
 
 /**
- * The languages DomoTwin speaks (D-081), as Home Assistant names them: English and French with
+ * The languages DomoTwin speaks (D-082), as Home Assistant names them: English and French with
  * the first picture, the others loaded when Home Assistant speaks them.
  */
 export const LANGUAGES = [

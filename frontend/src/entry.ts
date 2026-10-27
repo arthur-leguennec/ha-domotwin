@@ -21,7 +21,7 @@ define("domotwin-summary-card", DomoTwinSummaryCard);
 
 const cards = (window.customCards ??= []);
 // Named when the card picker reads them: in the page's language once DomoTwin has loaded it for an
-// element shown (D-081), not loaded for the picker alone; in English until then.
+// element shown (D-082), not loaded for the picker alone; in English until then.
 const t = new Translator(document.documentElement.lang || navigator.language);
 const card = {
   type: "domotwin-card",

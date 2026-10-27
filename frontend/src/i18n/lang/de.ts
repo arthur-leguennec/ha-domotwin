@@ -1,4 +1,4 @@
-/** DomoTwin in de (D-081), loaded when Home Assistant speaks it. */
+/** DomoTwin in de (D-082), loaded when Home Assistant speaks it. */
 import type { Pack } from "../pack";
 import { chunks } from "./de/chunks";
 import { demo } from "./de/demo";

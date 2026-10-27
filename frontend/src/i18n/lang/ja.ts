@@ -1,4 +1,4 @@
-/** DomoTwin in ja (D-081), loaded when Home Assistant speaks it. */
+/** DomoTwin in ja (D-082), loaded when Home Assistant speaks it. */
 import type { Pack } from "../pack";
 import { chunks } from "./ja/chunks";
 import { demo } from "./ja/demo";

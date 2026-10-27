@@ -94,7 +94,7 @@ export const baseStyles = css`
     flex: none;
   }
   /*
-   * Right to left (D-081): the element Home Assistant shows turns round (its \`dir\`), and with
+   * Right to left (D-082): the element Home Assistant shows turns round (its \`dir\`), and with
    * it what points back or on, every browser alike.
    */
   :host([dir="rtl"]) {

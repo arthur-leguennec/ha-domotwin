@@ -1161,6 +1161,7 @@ when its page opens, and again only when an entity comes or goes, not at each ne
 Energy tab is a link: Home Assistant's Energy page loads as it always does. Whether something is
 set up on it is asked once for each connection to Home Assistant (`energy/get_prefs`, a few hundred
 bytes), only where Home Assistant has the page.
+
 ### M35 (automations in plain words)
 
 Bundle: the first load is **533.1 kB gzipped** of 1 200 kB (+1.2 kB): whether Home Assistant has an
@@ -1396,11 +1397,27 @@ person's spot where a radar sees them is told again every half metre, and the pe
 names likewise, not recorded in the history: about one write a second while someone walks, none
 while they stand.
 
+### M37 (the weekly report)
+
+Bundle: the first load is **653.9 kB gzipped** of 1 200 kB (+0.6 kB): the menu item, its text and
+the address the notification's link opens. The page, its texts in both languages and the plans
+drawn as SVG come on demand the first time it opens (`chunks/report-dialog-<hash>.js`: 34.6 kB
+raw, 9.9 kB gzipped).
+
+The integration looks once an hour whether the report is due, a comparison of two dates; it
+writes it once a week. Writing it on a fictional home of 2 141 entities on 400 devices, 100
+automations and 30 updates takes 5 ms (the median of seven, Python 3.14, the tests' Home
+Assistant, without the recorder); the energy adds one query of the recorder's hourly statistics
+for the meters it reads, over two weeks, and the peaks one of their sensors' history. Finding the
+Zigbee devices on a weak link in a mesh of 300 routers, each hearing ten others, takes 4 ms. An AI
+task, when one is chosen, is waited for two minutes at most. The page works out nothing but the
+plans' outlines once, and the rooms' counts when a report is shown.
+
 ### M21 (more languages)
 
 Bundle: the first load is **654.6 kB gzipped** of 1 200 kB (+1.3 kB): the languages' loader, the
 elements waiting for theirs, and the layout in logical properties. Each of the ten languages is its
-own module, loaded only where Home Assistant speaks it (D-081), with every message of the first
+own module, loaded only where Home Assistant speaks it (D-082), with every message of the first
 picture and of every chunk, and the demo house's names:
 
 | Language | Gzipped | Language | Gzipped |

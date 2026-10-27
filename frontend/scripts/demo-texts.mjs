@@ -1,4 +1,4 @@
-// The demo house's texts by their English (D-050, D-081): every `[English, French]` pair of
+// The demo house's texts by their English (D-050, D-082): every `[English, French]` pair of
 // `src/demo/` and every English name of its plans' pieces (`FRENCH` in `src/demo/house.ts`), which
 // each language's pack translates in `src/i18n/lang/<code>/demo.ts`.
 import { readdirSync, readFileSync } from "node:fs";

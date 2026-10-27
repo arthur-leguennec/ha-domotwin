@@ -13,7 +13,7 @@ import { DomoTwinGuest } from "./page";
 
 setAssetBase(new URL(".", import.meta.url));
 declareBundledFont();
-// The page in the guest's own language (D-081), Arabic right to left once it is here.
+// The page in the guest's own language (D-082), Arabic right to left once it is here.
 const guest = new Translator(navigator.language);
 document.documentElement.lang = guest.language;
 void loadLanguage(guest.language).then(() => {

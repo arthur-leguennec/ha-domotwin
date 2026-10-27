@@ -475,7 +475,7 @@ class Scheduler:
         async_dispatcher_send(self._hass, SIGNAL_SCHEDULES)
 
 
-# What is said of an action, in each language DomoTwin speaks (Home Assistant's, D-081): the
+# What is said of an action, in each language DomoTwin speaks (Home Assistant's, D-082): the
 # sentence, with who, the verb (one thing, several), the brightness, when, and the end after it.
 _SAID = {
     "en": {

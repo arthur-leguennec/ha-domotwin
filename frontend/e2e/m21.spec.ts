@@ -13,7 +13,7 @@ function plural(language: string, forms: Plural, count: number): string {
   return form.replace("{count}", String(count));
 }
 
-test.describe("more languages (M21, D-081)", () => {
+test.describe("more languages (M21, D-082)", () => {
   test("German is loaded when Home Assistant speaks it, and the view speaks it", async ({
     page,
   }) => {

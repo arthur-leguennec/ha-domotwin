@@ -89,7 +89,7 @@ new images before committing them.
   in `custom_components/domotwin/translations/`, and what the integration says aloud in
   `services.py` and `schedules.py`, in every language.
 - **Languages.** English and French come with the first picture; the others are loaded when Home
-  Assistant speaks them (D-081): `frontend/src/i18n/lang/<code>.ts` and its folder hold every
+  Assistant speaks them (D-082): `frontend/src/i18n/lang/<code>.ts` and its folder hold every
   message, the main dictionary's and the chunks'. A new message in English and French is added to
   them too (in English until translated: `tests/languages.test.ts` says which are left). A new
   language starts with `node scripts/new-language.mjs <code>` in `frontend/`, its code as Home

@@ -12,7 +12,7 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.util import dt as dt_util
 
-from . import choices, config_history, garden, guests, schedules, screens, voice, wifi
+from . import choices, config_history, garden, guests, report, schedules, screens, voice, wifi
 from .compat import vol
 from .const import DOMAIN, SIGNAL_SHOW, SIGNAL_UPDATED, TEACH_SECONDS, VERSION
 from .data import DATA_KEY, LOCATOR_KEY, PEOPLE_KEY
@@ -85,6 +85,7 @@ def async_register_commands(hass: HomeAssistant) -> None:
     wifi.async_register_commands(hass)
     guests.async_register_commands(hass)
     config_history.async_register_commands(hass)
+    report.async_register_commands(hass)
 
 
 def _get_data(
@@ -914,8 +915,9 @@ def ws_subscribe(
 
     The kinds: the plan (its overlay counts as the plan), the bindings, the settings, the upkeep,
     the people's settings, the home's Wi-Fi (`wifi`: only that it changed, D-060), the guest
-    passes (`guests`: only that they changed, D-067), the wall screens (`screens`, D-076) and the
-    garden's mowings (`garden`, D-077).
+    passes (`guests`: only that they changed, D-067), the wall screens (`screens`, D-076), the
+    garden's mowings (`garden`, D-077) and the weekly report (`report`: a report written or its
+    settings changed, D-081).
 
     Every `domotwin.show` is sent too: kind `show`, the request in `show`.
     """

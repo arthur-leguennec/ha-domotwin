@@ -113,7 +113,7 @@ UNSCHEDULE_SCHEMA = vol.All(
 )
 
 
-# What `domotwin.where` says, in each language DomoTwin speaks (Home Assistant's, D-081).
+# What `domotwin.where` says, in each language DomoTwin speaks (Home Assistant's, D-082).
 SENTENCES = {
     "en": {
         "room": "{name} is in the {room}.",

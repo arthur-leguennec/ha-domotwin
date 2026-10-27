@@ -370,7 +370,7 @@ export class DomoTwinGuest extends LitElement {
     });
   }
 
-  /** Drawn once the guest's own language, as their browser says it, is here (D-081). */
+  /** Drawn once the guest's own language, as their browser says it, is here (D-082). */
   protected override scheduleUpdate(): Promise<unknown> | undefined {
     return inLanguage(
       this,

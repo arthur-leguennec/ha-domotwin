@@ -1,4 +1,4 @@
-/** DomoTwin in pt-BR (D-081), loaded when Home Assistant speaks it. */
+/** DomoTwin in pt-BR (D-082), loaded when Home Assistant speaks it. */
 import type { Pack } from "../pack";
 import { chunks } from "./pt-BR/chunks";
 import { demo } from "./pt-BR/demo";

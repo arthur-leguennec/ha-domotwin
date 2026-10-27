@@ -157,6 +157,13 @@ export interface HarnessOptions {
   /** The configuration history (D-062): fictional items and their versions. */
   configHistory?: boolean;
   /**
+   * The weekly report (D-081): last week's and this week's (`true`), this week's summed up by an
+   * AI task (`summary`), or none yet (`none`); `report` asks the panel for one, as the weekly
+   * notification's link does.
+   */
+  weekly?: true | "summary" | "none";
+  report?: number;
+  /**
    * Safety (D-068), with `live`: a doorbell at the front door with its camera, and an alarm
    * (`window.__ring()` rings it); Home Assistant 2026.10 with its Security page (`security`), and
    * the alerts chosen on it (`securityAlerts`, `entity` or `entity:severity`).
@@ -249,6 +256,8 @@ export async function openHarness(page: Page, options: HarnessOptions = {}): Pro
   if (options.noStats) params.set("nostats", "1");
   if (options.formatState) params.set("formatstate", "1");
   if (options.configHistory) params.set("confighistory", "1");
+  if (options.weekly) params.set("weekly", options.weekly === true ? "1" : options.weekly);
+  if (options.report !== undefined) params.set("report", String(options.report));
   if (options.safety) params.set("safety", "1");
   if (options.security) params.set("security", "1");
   if (options.securityAlerts) params.set("securityalerts", options.securityAlerts.join(","));

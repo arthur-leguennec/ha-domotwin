@@ -34,7 +34,7 @@ describe("dictionaries", () => {
 });
 
 describe("Translator", () => {
-  it("picks the language Home Assistant speaks, English otherwise (D-081)", () => {
+  it("picks the language Home Assistant speaks, English otherwise (D-082)", () => {
     expect(pickLanguage("fr")).toBe("fr");
     expect(pickLanguage("fr-CA")).toBe("fr");
     expect(pickLanguage("FR_be")).toBe("fr");

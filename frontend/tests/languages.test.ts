@@ -49,7 +49,7 @@ function placeholders(text: string): string[] {
 
 const loaded = LANGUAGES.filter((language) => language !== "en" && language !== "fr");
 
-describe("the languages loaded on demand (D-081)", async () => {
+describe("the languages loaded on demand (D-082)", async () => {
   const packs = new Map<Language, Pack>();
   for (const language of loaded) {
     const folder = language;

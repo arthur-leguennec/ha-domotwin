@@ -404,7 +404,7 @@ export const en = {
     saved: "Settings saved.",
     save_failed: "The settings could not be saved: {reason}",
   },
-  /** A state shown as a word where Home Assistant does not say it (the demo house, a guest's page, D-081). */
+  /** A state shown as a word where Home Assistant does not say it (the demo house, a guest's page, D-082). */
   states: {
     on: "On",
     off: "Off",
@@ -742,6 +742,9 @@ export const en = {
   },
   plain: {
     menu: "An automation in plain words",
+  },
+  report: {
+    menu: "Weekly report",
   },
   config_history: {
     menu: "Configuration history",

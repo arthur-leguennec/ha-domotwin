@@ -128,7 +128,7 @@ function button(
 
 /**
  * The state shown next to an entity's name: as Home Assistant says it where it can, else in
- * DomoTwin's words for the usual states (D-081), else as it is.
+ * DomoTwin's words for the usual states (D-082), else as it is.
  */
 function stateText(hass: HomeAssistant, t: Translator, entity: HassEntity): string {
   if (entity.state === "unavailable" || entity.state === "unknown")
@@ -600,7 +600,7 @@ export const rowStyles = css`
     min-width: 0;
   }
   .name {
-    /* Its controls go under it rather than leave it a letter or two (D-081). */
+    /* Its controls go under it rather than leave it a letter or two (D-082). */
     flex: 1 1 7em;
     min-width: 0;
     overflow: hidden;
@@ -655,7 +655,7 @@ export const rowStyles = css`
     background: #fff;
     transition: transform 150ms ease;
   }
-  /* At the end of the switch, whichever way the language is written (D-081). */
+  /* At the end of the switch, whichever way the language is written (D-082). */
   button.switch.on .knob {
     transform: translateX(calc(20px * var(--domotwin-mirror, 1)));
   }

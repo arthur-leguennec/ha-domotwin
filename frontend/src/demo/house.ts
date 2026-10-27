@@ -13,7 +13,7 @@ import type { Upkeep, UpkeepTask, UpkeepUnit } from "../live/upkeep";
 
 /**
  * A text in English and in French; the other languages have it in their pack, by its English
- * (D-081).
+ * (D-082).
  */
 export type Words = readonly [en: string, fr: string];
 
@@ -75,7 +75,7 @@ export const AREAS: readonly { id: string; names: Words; room: string; storey: s
 
 /**
  * The French names of the plans' pieces, doors and windows, by their English name (the other
- * languages have them in their pack, D-081).
+ * languages have them in their pack, D-082).
  */
 const FRENCH: Readonly<Record<string, string>> = {
   "Demo house": "Maison de démo",

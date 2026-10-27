@@ -15,6 +15,7 @@ from .data import (
     GUESTS_KEY,
     LOCATOR_KEY,
     PEOPLE_KEY,
+    REPORT_KEY,
     SCHEDULER_KEY,
     SCREENS_KEY,
     WIFI_KEY,
@@ -142,5 +143,18 @@ async def async_get_config_entry_diagnostics(
             for status in ("upcoming", "open", "ended")
         }
         diagnostics["guests"]["anywhere"] = sum(1 for p in guests.passes if p["anywhere"])
+    # The weekly report's settings (D-081), whether an AI task sums it up, and how many reports are
+    # kept: never what they say.
+    if (report := hass.data.get(REPORT_KEY)) is not None:
+        settings = report.settings
+        diagnostics["report"] = {
+            "weekly": settings["weekly"],
+            "weekday": settings["weekday"],
+            "hour": settings["hour"],
+            "notify": settings["notify"],
+            "summary": settings["summary"] is not None,
+            "battery": settings["battery"],
+            "kept": len(report.list()),
+        }
     redacted: dict[str, Any] = async_redact_data(diagnostics, TO_REDACT)
     return redacted

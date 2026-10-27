@@ -1303,6 +1303,29 @@ try {
     await upkeepPage.screenshot(),
   );
   console.log("docs/figures/screenshot-upkeep.png");
+  // The weekly report (D-081): the panel, the day look, the harness's fictional report of the
+  // demo apartment and its upper floor, summed up by a fictional AI task, read in Montréal.
+  const reportPage = await browser.newPage({
+    viewport: { width: 1280, height: 900 },
+    deviceScaleFactor: 1.5,
+    timezoneId: "America/Toronto",
+  });
+  await reportPage.emulateMedia({ reducedMotion: "reduce" });
+  await reportPage.goto(
+    "http://127.0.0.1:4173/?mode=panel&weekly=summary&storeys=2&hometheme=day",
+  );
+  await reportPage.waitForFunction(() => window.__view?.()?.debugState().summary, null, {
+    timeout: 60_000,
+  });
+  await reportPage.getByTestId("more").click();
+  await reportPage.getByTestId("report-menu").click();
+  await reportPage.locator('[data-testid="report-dialog"] g.room').first().waitFor();
+  await reportPage.waitForTimeout(500);
+  await fs.writeFile(
+    join(root, "docs", "figures", "screenshot-report.png"),
+    await reportPage.screenshot(),
+  );
+  console.log("docs/figures/screenshot-report.png");
   // People in their rooms (D-034): the panel, the neon look, the fictional people of the harness
   // in the demo apartment, their names over them.
   const peoplePage = await browser.newPage({

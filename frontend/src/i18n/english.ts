@@ -1,5 +1,5 @@
 /**
- * Every chunk's messages in English, by chunk (D-081): the one list a language's pack follows
+ * Every chunk's messages in English, by chunk (D-082): the one list a language's pack follows
  * (`pack.ts`), the tests check it against, and `scripts/new-language.mjs` starts it from. Not
  * imported by the app (each chunk adds its own when it loads), only its type.
  */

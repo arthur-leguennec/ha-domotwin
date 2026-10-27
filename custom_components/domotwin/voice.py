@@ -44,7 +44,7 @@ STT_APPS = {
     "speech-to-phrase": ("Speech-to-Phrase", "core_speech-to-phrase"),
 }
 TTS_APP = ("Piper", "core_piper")
-#: Piper's voice for the languages DomoTwin speaks (D-081); Piper has none in Japanese or
+#: Piper's voice for the languages DomoTwin speaks (D-082); Piper has none in Japanese or
 #: Korean, which keep the app's own.
 PIPER_VOICES = {
     "en": "en_US-lessac-medium",

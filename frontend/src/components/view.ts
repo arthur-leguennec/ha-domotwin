@@ -1142,7 +1142,7 @@ export class DomoTwinView extends LitElement {
         position: absolute;
         inset-inline-end: 12px;
         bottom: 12px;
-        /* Its arrows point where they move, whichever way the language is written (D-081). */
+        /* Its arrows point where they move, whichever way the language is written (D-082). */
         direction: ltr;
         display: grid;
         grid-template-columns: repeat(3, 44px);
@@ -5299,7 +5299,7 @@ export class DomoTwinView extends LitElement {
       return nothing;
     }
     const k = Math.max(1, canvas.clientWidth) / Math.max(1, canvas.width);
-    // The toolbar is on the left when the language is written right to left (D-081).
+    // The toolbar is on the left when the language is written right to left (D-082).
     const rtl = this.translator.dir === "rtl";
     return html`<div class="storey-labels" data-testid="storey-labels">
       ${this.storeyLabels.map((label) => {
@@ -5402,7 +5402,7 @@ export class DomoTwinView extends LitElement {
     if (!point) return nothing;
     const k = Math.max(1, canvas.clientWidth) / Math.max(1, canvas.width);
     // Within the view, and clear of the toolbar when there is room beside it: on its right, or
-    // its left when the language is written right to left (D-081).
+    // its left when the language is written right to left (D-082).
     const width = canvas.clientWidth;
     const tools = this.renderRoot.querySelector<HTMLElement>(".tools");
     let [left, right] = [EDGE, width - EDGE];

@@ -14,7 +14,7 @@ export function fire(node: HTMLElement, type: string, detail: unknown): void {
 
 /**
  * An update of an element Home Assistant shows (its `scheduleUpdate`), once DomoTwin speaks Home
- * Assistant's language (D-081): at once in English and French, once its messages are loaded in
+ * Assistant's language (D-082): at once in English and French, once its messages are loaded in
  * another. Meanwhile the element shows what it showed, and its `updateComplete` waits too. It
  * turns the way the language is written: Arabic right to left.
  */

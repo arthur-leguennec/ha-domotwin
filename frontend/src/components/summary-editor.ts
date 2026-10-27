@@ -45,7 +45,7 @@ export class DomoTwinSummaryCardEditor extends LitElement {
     fire(this, "config-changed", { config: this.config });
   };
 
-  /** Drawn once Home Assistant's language is here (D-081). */
+  /** Drawn once Home Assistant's language is here (D-082). */
   protected override scheduleUpdate(): Promise<unknown> | undefined {
     return inLanguage(
       this,

@@ -15,7 +15,7 @@ export function icon(path: string, label?: string, mirrored = false): TemplateRe
 
 /**
  * An arrow that points back or on (a "back" button, a row that opens): drawn the other way round
- * when the language is written right to left (D-081).
+ * when the language is written right to left (D-082).
  */
 export function mirroredIcon(path: string): TemplateResult {
   return icon(path, undefined, true);

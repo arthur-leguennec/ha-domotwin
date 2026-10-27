@@ -250,7 +250,7 @@ def test_whisper_s_language_by_its_own_code() -> None:
 
 
 def test_piper_s_voice_in_each_language_it_speaks() -> None:
-    """D-081: a voice in the language when Piper has one, the app's own when it has none."""
+    """D-082: a voice in the language when Piper has one, the app's own when it has none."""
     assert voice._options("core_piper", {"voice": "x"}, "de-CH") == {
         "voice": "de_DE-thorsten-medium"
     }
