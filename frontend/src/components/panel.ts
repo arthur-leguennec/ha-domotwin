@@ -27,6 +27,7 @@ import {
   mdiTuneVariant,
   mdiVectorSquareEdit,
   mdiViewGridOutline,
+  mdiTabletDashboard,
   mdiWifi,
 } from "@mdi/js";
 import { LitElement, css, html, nothing, type PropertyValues, type TemplateResult } from "lit";
@@ -127,9 +128,17 @@ import {
   type Choices,
   type Tab,
 } from "../live/choices";
+import {
+  readDeviceScreen,
+  saverDue,
+  screenNamed,
+  someoneThere,
+  type ScreenLayout,
+  type Screens,
+} from "../live/screens";
 import type { GlanceSources } from "../live/glance";
 import { usualWeather, weatherEntities } from "../live/weather";
-import { resolveShow, type ShowRequest } from "../live/show";
+import { forScreen, resolveShow, type ShowRequest } from "../live/show";
 import type { LocatingSettings } from "../live/locating";
 import type { PeopleSettings } from "../live/people";
 import type { AccessPoint } from "../live/placement";
@@ -199,6 +208,10 @@ const LAYER_WAIT_MS = 5 * 60_000;
 const LAYER_POLL_MS = 250;
 /** How long before settings that could not be read are asked for again (ms). */
 const SETTINGS_RETRY_MS = 10_000;
+/** How often a wall screen asks itself whether its saver is due (ms, D-076). */
+const SAVER_CHECK_MS = 5_000;
+/** What says someone is before the screen, besides its sensors. */
+const ACTIVITY = ["pointerdown", "keydown", "wheel"] as const;
 /** No Wi-Fi access point placed (D-066): the same array every time. */
 const NO_ACCESS_POINTS: AccessPoint[] = [];
 /** Upkeep cards saved at once when a file fills them (the integration takes up to 2 000). */
@@ -313,6 +326,7 @@ const PANEL_DIALOGS = [
   "domotwin-model-import",
   "domotwin-measure",
   "domotwin-choices",
+  "domotwin-screens",
   "domotwin-history",
 ]
   .map((dialog) => `.body > ${dialog}`)
@@ -401,6 +415,11 @@ export class DomoTwinPanel extends LitElement {
     securityChoices: { state: true },
     ring: { state: true },
     doorbellReady: { state: true },
+    screens: { state: true },
+    saverShown: { state: true },
+    saverReady: { state: true },
+    screensOpen: { state: true },
+    screensReady: { state: true },
   };
 
   narrow = false;
@@ -462,6 +481,22 @@ export class DomoTwinPanel extends LitElement {
   private readonly rightsCache = new RightsCache();
   /** The tab this device opens on, when it has one of its own. */
   private deviceStart = readDeviceStart();
+  /** The wall screen this device is (D-076), and every screen's layout once read. */
+  private deviceScreen = readDeviceScreen();
+  protected screens?: Screens;
+  private screensRead = false;
+  private screensTimer?: ReturnType<typeof setTimeout>;
+  /** When the screen was last touched, or someone last moved before it (ms). */
+  private quietSince = Date.now();
+  private saverTimer?: ReturnType<typeof setInterval>;
+  /** The screen saver shows, its module loaded the first time it comes. */
+  protected saverShown = false;
+  protected saverReady = false;
+  private saverModule?: Promise<void>;
+  /** The wall screens' dialog (administrators), its module loaded the first time it opens. */
+  protected screensOpen = false;
+  protected screensReady = false;
+  private screensModule?: Promise<void>;
   /** What the Home and Rooms tabs were given last, and what it was read from. */
   private practicalShown?: {
     from: unknown[];
@@ -683,6 +718,8 @@ export class DomoTwinPanel extends LitElement {
     if (document.visibilityState !== "visible" && this.view?.firstPictureAt === undefined) {
       this.firstPlan = false;
     }
+    // The page shown again (the screen woken): someone is there (D-076).
+    if (document.visibilityState === "visible") this.quietSince = Date.now();
   };
 
   static override styles = [
@@ -1134,6 +1171,7 @@ export class DomoTwinPanel extends LitElement {
 
   set hass(hass: HomeAssistant | undefined) {
     this.demoSwitch.realHass = hass;
+    this.watchWake(hass);
     if (hass) {
       // The home's doorbells and Home Assistant's alerts, whatever home is shown (D-068).
       const ring = this.doorbells.check(hass);
@@ -1173,6 +1211,10 @@ export class DomoTwinPanel extends LitElement {
     this.followSecurity();
     window.addEventListener("pointerdown", this.closeMore, true);
     this.addEventListener("keydown", this.onEscape);
+    for (const type of ACTIVITY) window.addEventListener(type, this.onActivity, true);
+    // Shown again (the screen woken, the panel opened): someone is there.
+    this.quietSince = Date.now();
+    this.saverTimer = setInterval(this.checkSaver, SAVER_CHECK_MS);
     this.sizeObserver = new ResizeObserver((entries) => {
       const width = entries[entries.length - 1]?.contentRect.width;
       if (!width) return;
@@ -1188,6 +1230,10 @@ export class DomoTwinPanel extends LitElement {
     super.disconnectedCallback();
     window.removeEventListener("pointerdown", this.closeMore, true);
     this.removeEventListener("keydown", this.onEscape);
+    for (const type of ACTIVITY) window.removeEventListener(type, this.onActivity, true);
+    clearInterval(this.saverTimer);
+    clearTimeout(this.screensTimer);
+    this.saverShown = false;
     document.removeEventListener("visibilitychange", this.onPageHidden);
     this.sizeObserver?.disconnect();
     this.sizeObserver = undefined;
@@ -1416,6 +1462,10 @@ export class DomoTwinPanel extends LitElement {
     clearTimeout(this.choicesTimer);
     clearTimeout(this.wifiTimer);
     this.choicesOpen = false;
+    this.screens = undefined;
+    this.screensRead = false;
+    clearTimeout(this.screensTimer);
+    this.screensOpen = false;
     const old = this._hass;
     this._hass = hass;
     this.requestUpdate("hass", old);
@@ -1432,6 +1482,7 @@ export class DomoTwinPanel extends LitElement {
       else if (event.kind === "upkeep") void this.loadUpkeep();
       else if (event.kind === "people") void this.loadPeople();
       else if (event.kind === "wifi") void this.loadWifi();
+      else if (event.kind === "screens") void this.loadScreens();
       else void this.loadSettings();
     });
     void this.loadPlan();
@@ -1441,6 +1492,7 @@ export class DomoTwinPanel extends LitElement {
     void this.loadPeople();
     void this.loadChoices();
     void this.loadWifi();
+    void this.loadScreens();
   }
 
   /**
@@ -1482,6 +1534,7 @@ export class DomoTwinPanel extends LitElement {
     }
     if (!seen(this.practical(hass).unseen, ring.entity, areaOf(hass, ring.entity))) return;
     this.ring = ring;
+    this.wakeScreen();
     clearTimeout(this.ringTimer);
     this.ringTimer = setTimeout(() => {
       this.ring = undefined;
@@ -1511,7 +1564,7 @@ export class DomoTwinPanel extends LitElement {
     if (!client) return;
     clearTimeout(this.wifiTimer);
     try {
-      const wifi = await client.getWifi();
+      const wifi = await client.getWifi(this.deviceScreen ?? "");
       if (client === this.client) this.wifi = wifi;
     } catch (error) {
       if (client !== this.client) return;
@@ -1546,6 +1599,129 @@ export class DomoTwinPanel extends LitElement {
         this.choicesTimer = setTimeout(() => void this.loadChoices(), SETTINGS_RETRY_MS);
       }
     }
+  }
+
+  /**
+   * The wall screens' layouts (D-076). Not read (Home Assistant starting), a screen opens on what
+   * it would without and they are asked for again in a while; an integration older than D-076 has
+   * none.
+   */
+  private async loadScreens(): Promise<void> {
+    const client = this.client;
+    if (!client) return;
+    clearTimeout(this.screensTimer);
+    try {
+      const screens = await client.getScreens();
+      if (client === this.client) {
+        this.screens = screens;
+        this.screensRead = true;
+        // This device's screen removed meanwhile: its saver goes with it.
+        if (!this.screenLayout) this.saverShown = false;
+      }
+    } catch (error) {
+      if (client !== this.client) return;
+      // Not known is not none: the screens stay unknown (a device's own not said removed), and
+      // the device opens on what it would without.
+      this.screensRead = true;
+      if (isHassError(error) && error.code === "unknown_command") return;
+      if (this.unsubscribe) {
+        this.screensTimer = setTimeout(() => void this.loadScreens(), SETTINGS_RETRY_MS);
+      }
+    }
+  }
+
+  /** The layout of the wall screen this device is, when it is one and the screen is still there. */
+  private get screenLayout(): ScreenLayout | undefined {
+    const screens = this.screens;
+    const name = screens ? screenNamed(screens, this.deviceScreen) : undefined;
+    return name ? screens?.[name] : undefined;
+  }
+
+  /**
+   * Someone touched the screen, pressed a key or scrolled: not quiet. A key wakes it, and does
+   * nothing else; so does a touch while the saver is not drawn yet (its module on its way), lest
+   * it come later over someone using the screen. A touch on the saver drawn wakes it on its own.
+   */
+  private readonly onActivity = (event: Event): void => {
+    this.quietSince = Date.now();
+    if (!this.saverShown) return;
+    if (event.type === "keydown") {
+      event.preventDefault();
+      event.stopPropagation();
+      this.wakeScreen();
+    } else if (!this.saverDrawn) this.wakeScreen();
+  };
+
+  /** The saver is drawn over the panel: its module loaded, this device's screen still there. */
+  private get saverDrawn(): boolean {
+    return this.saverShown && this.saverReady && !!this.screenLayout;
+  }
+
+  /** Someone before the screen, as its sensors say (D-076): not quiet, and woken. */
+  private watchWake(hass: HomeAssistant | undefined): void {
+    const wake = this.screenLayout?.saver.wake;
+    if (!wake?.length || !someoneThere(hass, wake)) return;
+    this.quietSince = Date.now();
+    if (this.saverShown) this.wakeScreen();
+  }
+
+  /**
+   * The screen saver comes once the screen was quiet long enough (D-076): not while a tool runs
+   * (what is drawn or linked would wait under it), a doorbell rings, another home is shown or the
+   * page is hidden.
+   */
+  private readonly checkSaver = (): void => {
+    if (!this.deviceScreen) return;
+    const layout = this.screenLayout;
+    if (!layout || this.saverShown || this.ring || this.demoSwitch.home) return;
+    if (this.editing || this.planning || this.linking || document.visibilityState !== "visible") {
+      return;
+    }
+    // Someone still there, the sensor on and nothing else changed meanwhile: not quiet.
+    if (someoneThere(this.demoSwitch.realHass, layout.saver.wake)) {
+      this.quietSince = Date.now();
+      return;
+    }
+    if (!saverDue(layout.saver, this.quietSince, Date.now())) return;
+    this.saverShown = true;
+    // Back on its tab under the saver, for whoever comes next.
+    const own = layout.start ?? this.deviceStart;
+    const start = startTab(this.choices ?? NO_CHOICES, own, canDraw3d());
+    // Its tab alone: a room, its graphs or a report left open are closed.
+    if (this.tab !== start || this.roomOpen !== undefined || this.report !== undefined) {
+      this.go(start, undefined, false, true);
+    }
+    this.saverModule ??= import("./saver").then(
+      () => {
+        this.saverReady = true;
+      },
+      () => {
+        // Offline, or DomoTwin updated meanwhile: tried again the next time it is due.
+        this.saverModule = undefined;
+        this.saverShown = false;
+        this.quietSince = Date.now();
+      },
+    );
+  };
+
+  /** The screen woken: the saver goes, and the wait starts again. */
+  private readonly wakeScreen = (): void => {
+    this.quietSince = Date.now();
+    this.saverShown = false;
+  };
+
+  /** A wall screen's saver (D-076), over every tab but a doorbell ringing. */
+  private renderSaver(): TemplateResult | typeof nothing {
+    const saver = this.screenLayout?.saver;
+    const hass = this._hass;
+    if (!this.saverDrawn || !saver || !hass) return nothing;
+    return html`<domotwin-saver
+      .hass=${hass}
+      .t=${this.t}
+      .saver=${saver}
+      .weather=${this.settings?.weather}
+      @domotwin-wake=${this.wakeScreen}
+    ></domotwin-saver>`;
   }
 
   /** Stars an entity, or takes its star away (D-055): shown at once, kept by the integration. */
@@ -1601,13 +1777,15 @@ export class DomoTwinPanel extends LitElement {
     }
   }
 
-  /** `domotwin.show` (D-029), when no tool runs (requests naming a screen are for cards): the
-   * storey asked for, then what to frame and how. */
+  /** `domotwin.show` (D-029), when no tool runs; a request naming a screen is this device's if
+   * it is that wall screen (D-076), else a card's: the storey asked for, then what to frame. */
   private async showRequest(request: ShowRequest): Promise<void> {
     const client = this.client;
-    if (!client || !this.hass || request.screen || this.editing || this.planning || this.linking) {
+    const mine = forScreen(request, this.deviceScreen);
+    if (!client || !this.hass || !mine || this.editing || this.planning || this.linking) {
       return;
     }
+    this.wakeScreen();
     const shown = this.wholeHome() ? ALL_STOREYS : this.storey;
     const ticket = ++this.shows;
     const target = await resolveShow(
@@ -3123,8 +3301,11 @@ export class DomoTwinPanel extends LitElement {
       this.roomGraphs = tab === "rooms" && graphs === true;
       if (tab === "3d") void this.showLayerAsked();
     } else {
-      if (this.deviceStart === undefined && this.choices === undefined) return;
-      this.tab = startTab(this.choices ?? NO_CHOICES, this.deviceStart, canDraw3d());
+      // A wall screen opens on its own tab, once its layout is read (D-076).
+      if (this.deviceScreen && !this.screensRead) return;
+      const own = this.screenLayout?.start ?? this.deviceStart;
+      if (own === undefined && this.choices === undefined) return;
+      this.tab = startTab(this.choices ?? NO_CHOICES, own, canDraw3d());
       this.roomOpen = undefined;
       this.roomGraphs = false;
       this.from3d = false;
@@ -3430,7 +3611,11 @@ export class DomoTwinPanel extends LitElement {
       <div class="main">
         ${tabs && !this.tight ? this.renderTabs("side") : nothing}
         <div class="body">
-          ${this.renderDoorbell()} ${this.shown3d || tool ? this.renderView(admin, on3d) : nothing}
+          ${this.renderDoorbell()} ${this.renderSaver()}
+          ${
+            // Under the saver, the 3D view is not drawn (D-076).
+            this.shown3d || tool ? this.renderView(admin, on3d && !this.saverDrawn) : nothing
+          }
           ${on3d ? nothing : this.renderPractical()} ${on3d ? nothing : this.renderReport()}
           ${
             this.editing
@@ -3446,10 +3631,24 @@ export class DomoTwinPanel extends LitElement {
                   .t=${t}
                   .choices=${this.choices ?? NO_CHOICES}
                   .deviceStart=${this.deviceStart}
+                  .screens=${this.screens}
+                  .deviceScreen=${this.deviceScreen}
                   .panelPath=${this.panelPath()}
                   @domotwin-close=${() => (this.choicesOpen = false)}
                   @domotwin-saved=${this.onChoicesSaved}
                 ></domotwin-choices>`
+              : nothing
+          }
+          ${
+            this.screensOpen && this.screensReady && this._hass
+              ? html`<domotwin-screens
+                  .hass=${this._hass}
+                  .t=${t}
+                  .screens=${this.screens ?? {}}
+                  .current=${this.deviceScreen}
+                  @domotwin-close=${() => (this.screensOpen = false)}
+                  @domotwin-saved=${this.onScreensSaved}
+                ></domotwin-screens>`
               : nothing
           }
           ${
@@ -3815,6 +4014,21 @@ export class DomoTwinPanel extends LitElement {
       >
         ${icon(mdiTuneVariant)}<span class="label">${t.t("choices.title")}</span>
       </button>
+      ${
+        // Without a plan there is no More menu: the wall screens are reached from here (D-076).
+        admin && !this.plan
+          ? html`<button
+              class="action"
+              data-testid="screens-open"
+              ?disabled=${this.screensOpen || this.screens === undefined || !!this.demoSwitch.home}
+              @click=${this.openScreens}
+              aria-label=${t.t("screens.menu")}
+              title=${t.t("screens.menu")}
+            >
+              ${icon(mdiTabletDashboard)}<span class="label">${t.t("screens.menu")}</span>
+            </button>`
+          : nothing
+      }
       ${admin && this.plan ? this.renderMore() : nothing}`;
   }
 
@@ -3832,11 +4046,40 @@ export class DomoTwinPanel extends LitElement {
   }
 
   private readonly onChoicesSaved = (
-    event: CustomEvent<{ choices: Choices; device?: Tab }>,
+    event: CustomEvent<{ choices: Choices; device?: Tab; screen?: string }>,
   ): void => {
     this.choices = event.detail.choices;
     this.deviceStart = event.detail.device;
+    if (event.detail.screen !== this.deviceScreen) {
+      this.deviceScreen = event.detail.screen;
+      this.quietSince = Date.now();
+      // The Wi-Fi a screen shows (D-060) is that screen's.
+      void this.loadWifi();
+    }
     this.show(this.t.t("choices.saved"));
+  };
+
+  /** The wall screens' dialog (D-076), for administrators: its module the first time. */
+  private readonly openScreens = (): void => {
+    this.moreOpen = false;
+    this.screensOpen = true;
+    this.screensModule ??= import("./screens-dialog").then(
+      () => {
+        this.screensReady = true;
+      },
+      (error: unknown) => {
+        // Offline, or DomoTwin updated meanwhile: tried again the next time.
+        this.screensModule = undefined;
+        this.screensOpen = false;
+        this.show(this.describe(error), true);
+      },
+    );
+  };
+
+  /** Screens saved or removed: kept; a saver whose screen is gone goes too. */
+  private readonly onScreensSaved = (event: CustomEvent<{ screens: Screens }>): void => {
+    this.screens = event.detail.screens;
+    if (!this.screenLayout) this.saverShown = false;
   };
 
   /** The panel's path in Home Assistant (`domotwin`). */
@@ -4026,6 +4269,7 @@ export class DomoTwinPanel extends LitElement {
               ${item("rights-menu", mdiAccountLockOutline, t.t("rights.menu"), this.busy || this.demo !== undefined || this.sandbox !== undefined, this.openRights)}
               ${item("voice-settings", mdiMicrophoneMessage, t.t("voice.settings"), this.busy, this.openVoice)}
               ${item("wifi-menu", mdiWifi, t.t("wifi.menu"), this.busy || this.wifi === undefined || this.sandbox !== undefined, this.openWifi)}
+              ${item("screens-menu", mdiTabletDashboard, t.t("screens.menu"), this.busy || this.screens === undefined || this.demo !== undefined || this.sandbox !== undefined, this.openScreens)}
               ${item("guests-menu", mdiAccountKeyOutline, t.t("guests.menu"), this.busy || this.demo !== undefined || this.sandbox !== undefined, this.openGuests)}
               ${item("config-history", mdiHistory, t.t("config_history.menu"), this.busy || this.sandbox !== undefined, this.openConfigHistory)}
               ${

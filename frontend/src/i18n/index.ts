@@ -14,6 +14,7 @@ import type { safetyEn } from "./safety";
 import type { rightsEn } from "./rights";
 import type { sandboxEn } from "./sandbox";
 import type { summaryEn } from "./summary";
+import type { wallEn } from "./wall";
 import type { whyEn } from "./why";
 import type { wifiEn } from "./wifi";
 
@@ -42,8 +43,8 @@ type Leaves<T, Leaf, Prefix extends string = ""> = {
 
 /**
  * Every message: the dictionaries', and those added by a chunk when it loads (D-055, D-058,
- * D-059, D-060, D-061, D-062, D-063, D-066, D-067, D-068, D-070, D-071, D-073, D-074, D-075;
- * the sandbox's, D-057).
+ * D-059, D-060, D-061, D-062, D-063, D-066, D-067, D-068, D-070, D-071, D-073, D-074, D-075,
+ * D-076; the sandbox's, D-057).
  */
 type AllMessages = typeof en &
   typeof practicalEn &
@@ -61,7 +62,8 @@ type AllMessages = typeof en &
   typeof rightsEn &
   typeof measuredEn &
   typeof libraryEn &
-  typeof iphoneEn;
+  typeof iphoneEn &
+  typeof wallEn;
 /** Keys of plain messages, e.g. `view.loading`. */
 export type MessageKey = Leaves<AllMessages, string>;
 /** Keys of plural messages, e.g. `view.rooms`. */

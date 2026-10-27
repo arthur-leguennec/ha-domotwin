@@ -4,6 +4,7 @@
  * clouds and the storm are the engine's to draw; this reads what it needs.
  */
 import { domainOf, type HomeAssistant } from "../ha/types";
+import type { MessageKey, Translator } from "../i18n";
 
 /** The settings' choice: an entity, `none` (no weather drawn), or nothing (the usual one). */
 export type WeatherChoice = string | undefined;
@@ -105,6 +106,13 @@ export function usualWeather(hass: HomeAssistant): string | undefined {
     usual.set(hass.states, id);
   }
   return id ?? undefined;
+}
+
+/** The weather's condition in words, as the Home tab says it; else as Home Assistant says it. */
+export function conditionWords(t: Translator, state: string): string {
+  const key = `home.conditions.${state}`;
+  const text = t.t(key as MessageKey);
+  return text === key ? state : text;
 }
 
 /** The `weather` entities to choose from, sorted by name. */

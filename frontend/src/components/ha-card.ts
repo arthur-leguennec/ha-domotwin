@@ -8,20 +8,14 @@ import { LitElement, css, html, nothing, type PropertyValues, type TemplateResul
 
 import { cardHelpers, type CardConfig } from "../ha/cards";
 import type { HomeAssistant } from "../ha/types";
-import type { MessageKey, Translator } from "../i18n";
+import type { Translator } from "../i18n";
+import { conditionWords } from "../live/weather";
 import { entityName } from "../live/bindings";
 import { lookOnly } from "../live/rights";
 import { define } from "./define";
 import { entityRow, rowStyles } from "./entity-rows";
 
 type HassCard = HTMLElement & { hass?: unknown };
-
-/** The weather's condition in words, else as Home Assistant says it. */
-export function condition(t: Translator, state: string): string {
-  const key = `home.conditions.${state}`;
-  const text = t.t(key as MessageKey);
-  return text === key ? state : text;
-}
 
 /** A `custom:` card whose element is defined, made and given its configuration; else none. */
 function customCard(config: CardConfig): HassCard | undefined {
@@ -206,7 +200,7 @@ export class DomoTwinHaCard extends LitElement {
           ? html`<div class="plain" data-entity=${entity}>
               <span class="name">${entityName(hass, entity)}</span>
               <span class="state"
-                >${condition(t, state.state)}${
+                >${conditionWords(t, state.state)}${
                   typeof temperature === "number"
                     ? ` · ${temperature} ${typeof unit === "string" ? unit : ""}`
                     : ""

@@ -21,6 +21,7 @@ from .data import (
     LOCATOR_KEY,
     PEOPLE_KEY,
     SCHEDULER_KEY,
+    SCREENS_KEY,
     WIFI_KEY,
 )
 from .frontend import (
@@ -34,6 +35,7 @@ from .http import async_register_views
 from .locator import Locator
 from .models import async_remove_all
 from .schedules import Scheduler
+from .screens import Screens
 from .services import async_register_services
 from .storage import DomoTwinData
 from .tracker import PeopleTracker
@@ -109,6 +111,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: DomoTwinConfigEntry) -> 
 
     entry.async_on_unload(drop_choices)
     hass.data[CHOICES_KEY] = choices
+    # The wall screens' layouts (D-076).
+    screens = Screens(hass)
+    await screens.async_load()
+
+    @callback
+    def drop_screens() -> None:
+        if hass.data.get(SCREENS_KEY) is screens:
+            hass.data.pop(SCREENS_KEY)
+
+    entry.async_on_unload(drop_screens)
+    hass.data[SCREENS_KEY] = screens
     await _async_start_guests(hass, entry)
     await _async_start_history(hass, entry)
     await async_register_frontend(hass)
@@ -185,10 +198,11 @@ async def async_unload_entry(hass: HomeAssistant, entry: DomoTwinConfigEntry) ->
 
 
 async def async_remove_entry(hass: HomeAssistant, entry: DomoTwinConfigEntry) -> None:
-    """Delete all DomoTwin keeps: data, choices, Wi-Fi, passes, actions, history, models."""
+    """Delete all DomoTwin keeps: its data, choices, screens, Wi-Fi, passes and models."""
     await DomoTwinData(hass).async_remove()
     await Scheduler(hass).async_remove()
     await Choices(hass).async_remove()
+    await Screens(hass).async_remove()
     await Wifi(hass).async_remove()
     await Guests(hass).async_remove()
     await ConfigHistory(hass).async_remove()

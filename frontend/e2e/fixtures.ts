@@ -163,6 +163,12 @@ export interface HarnessOptions {
   securityAlerts?: string[];
   /** Home Assistant's AI task (D-070): a fictional one, its actions and its check. */
   aiTask?: boolean;
+  /**
+   * The wall screens (D-076): the hall's (`wall`), its saver after a minute woken by
+   * `binary_sensor.hall_motion`, with fictional photos; and the screen this device is.
+   */
+  wall?: boolean;
+  deviceScreen?: string;
 }
 
 /** Opens the mocked Home Assistant with the built frontend. */
@@ -226,6 +232,8 @@ export async function openHarness(page: Page, options: HarnessOptions = {}): Pro
   if (options.rights) params.set("rights", JSON.stringify(options.rights));
   if (options.settingsDown) params.set("settingsdown", "1");
   if (options.start) params.set("start", options.start);
+  if (options.wall) params.set("wall", "1");
+  if (options.deviceScreen) params.set("devicescreen", options.deviceScreen);
   if (options.userStart) params.set("userstart", options.userStart);
   if (options.favourites) params.set("favourites", options.favourites.join(","));
   if (options.route) params.set("route", "1");
