@@ -45,6 +45,10 @@ const LIGHT_KINDS = new Set<string>([
   "ceiling-light",
   "spotlight",
   "nightstand",
+  "wall-light",
+  "light-strip",
+  "track-light",
+  "aquarium",
 ] satisfies KindName[]);
 /** Kinds of items a camera is often placed on or drawn as. */
 const CAMERA_KINDS = new Set<string>([
@@ -61,7 +65,36 @@ const CURTAIN: KindName = "curtain";
 const TV: KindName = "tv";
 const RADIATOR: KindName = "radiator";
 /** Furniture kinds with a plug: power sensors and switches fit them. */
-const APPLIANCE_KINDS = new Set([...APPLIANCES, "fridge"]);
+const APPLIANCE_KINDS = new Set([...APPLIANCES, "fridge", "freezer", "wine-cooler"]);
+/**
+ * The library's devices (D-064): the domains, and device classes where they matter, of the
+ * entities that are them, the best first. A power sensor or a switch fits them too, less.
+ */
+const DEVICE_FITS: Partial<Record<KindName, [string, string[]?][]>> = {
+  speaker: [["media_player"]],
+  "wall-tablet": [["media_player"], ["light"]],
+  monitor: [["media_player"]],
+  thermostat: [["climate"]],
+  "heat-pump": [["climate"]],
+  furnace: [["climate"]],
+  boiler: [["climate"], ["water_heater"]],
+  "towel-radiator": [["climate"], ["switch"]],
+  "water-heater": [["water_heater"], ["climate"]],
+  fireplace: [["switch"], ["climate"]],
+  fan: [["fan"], ["switch"]],
+  "air-purifier": [["fan"]],
+  humidifier: [["humidifier"]],
+  dehumidifier: [["humidifier"]],
+  "smoke-detector": [["binary_sensor", ["smoke", "gas", "carbon_monoxide", "safety"]]],
+  sensor: [["binary_sensor"], ["sensor"]],
+  router: [["binary_sensor", ["connectivity"]], ["device_tracker"]],
+  "access-point": [["binary_sensor", ["connectivity"]], ["device_tracker"]],
+  car: [["device_tracker"], ["sensor", ["battery"]]],
+  "ev-charger": [["sensor", ["power", "energy", "current"]], ["switch"]],
+  "electrical-panel": [["sensor", ["power", "energy"]]],
+  "pet-feeder": [["button"], ["switch"]],
+  "litter-box": [["sensor"], ["switch"]],
+};
 
 /** The plan element with this id, from the plan JSON. */
 export function planElement(plan: unknown, id: string): PlanElementInfo | undefined {
@@ -118,8 +151,8 @@ export function fit(element: PlanElementInfo, entityId: string, hass: HomeAssist
   }
   if (element.type !== "furniture") return 0;
   const kind = element.kind ?? "";
-  // A camera stands on a shelf, hangs on a wall or is a model of its own.
-  if (domain === "camera") return CAMERA_KINDS.has(kind) ? 2 : 0;
+  // A camera is drawn as one, stands on a shelf, hangs on a wall or is a model of its own.
+  if (domain === "camera") return kind === "camera" ? 4 : CAMERA_KINDS.has(kind) ? 2 : 0;
   if (LIGHT_KINDS.has(kind)) return domain === "light" ? 3 : domain === "switch" ? 2 : 0;
   if (kind === FAN) return domain === "fan" ? 3 : domain === "light" ? 2 : 0;
   if (kind === CURTAIN) {
@@ -130,6 +163,14 @@ export function fit(element: PlanElementInfo, entityId: string, hass: HomeAssist
   // A robot vacuum's dock (D-049): its vacuum moves the robot on the floor.
   if (kind === "robot-vacuum") return domain === "vacuum" ? 3 : 0;
   if (kind === RADIATOR) return domain === "climate" ? 3 : domain === "switch" ? 2 : 0;
+  const fits = DEVICE_FITS[kind as KindName];
+  if (fits) {
+    const at = fits.findIndex(
+      ([d, classes]) => d === domain && (!classes || classes.includes(deviceClass)),
+    );
+    if (at >= 0) return at === 0 ? 3 : 2;
+    return power || domain === "switch" ? 1 : 0;
+  }
   if (APPLIANCE_KINDS.has(kind)) return power || domain === "switch" ? 2 : 0;
   return domain === "switch" || power ? 1 : 0;
 }

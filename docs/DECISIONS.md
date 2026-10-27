@@ -2726,3 +2726,76 @@ sandbox (M29, D-057), whose day it plays; its part in the weekly report (M37) co
     the peak only while it is its current or next one.
   - A peak announced after the sandbox opened is played once it is opened again.
   - The week's peaks in the weekly report come with M37.
+
+## D-064 · A library of objects: the pieces, their styles and their pictures (M17)
+
+M17, moved forward by the maintainer from the way to 0.6.0 (D-056), as M39 was (D-063); the rest
+keeps its order.
+
+- **Context.** The plan format had 56 kinds and 24 styles: enough for the rooms of the demo
+  apartment, not for a real home's heat pump, router, smoke detector, car in the garage or cat
+  tree, which were boxes. The catalogue listed the kinds by room, without pictures, and a style
+  could only be set in the plan's JSON. M17 asks for "many more pieces, free and well made, drawn
+  from real references, still fast".
+- **Decision.**
+  - **The pieces**: 61 kinds more (117) and 54 styles more (78), 195 pieces in all, from the living
+    room (a corner sofa, a piano, a fireplace) to the utility room (a water heater, a furnace, an
+    electrical panel, an EV charger, a car), the smart home's devices (a speaker, a wall tablet, a
+    thermostat, sensors, a smoke detector, cameras, a router, an access point), heating and air (a
+    heat pump's indoor unit, fans, an air purifier, a dehumidifier), new lights (a wall light, a
+    light strip, a track light), fitness and pets.
+  - **Free**: each piece is DomoTwin's own code, drawn by the engine from its size like the others
+    (D-048): no model downloaded, no file of anyone else's, nothing to license; MIT like the rest.
+  - **From real references**: each kind and each style has the usual size of the real piece, which
+    the catalogue shows and adds (a counter 90 cm high and 60 deep, an island 91, a soundbar 90 ×
+    10 × 7 cm, a crib 66 × 126, a bunk bed 100 × 212 × 160, a car 180 × 445 × 148), the lift it is
+    usually fixed at (a thermostat at 1.45 m, a heat pump's head at 2.10 m, a smoke detector on the
+    ceiling) and its usual colour (a Chesterfield oxblood, a soundbar black). Shapes follow the
+    common form of each object (a wood stove's window, a heat pump's louvre, a wingback's wings), a
+    type rather than one maker's design: no brand, no logo.
+  - **Well made**: the painter turns profiles (`lathe`: vases, kettles, lamps, stools), bends tubes
+    (`pipe`: an arc lamp, a bistro chair, a coat rack) and extrudes outlines (`slab`: a rocking
+    chair's runners, a quadrant shower). Every piece in every style is tested alone at its usual
+    size: closed, lit from the right side, at most 1 600 triangles, and within 3 cm of its
+    footprint (a handle, a knob), so that edit mode's conflicts stay true.
+  - **Styles of their own**: a style can have its own size, colour and lift (`style_info`); edit
+    mode's catalogue adds a piece at its style's, and an item without `color` takes its style's
+    colour, else its kind's. An unknown style is its kind's.
+  - **The catalogue, a library**: fourteen groups by room or use (living room, dining, kitchen,
+    bedroom, bathroom, laundry and utility, heating and air, smart home, office, storage, lights,
+    decoration and walls, fitness, pets); each kind and each of its styles an entry with its
+    picture, its name and its size. The search reads the names, the styles and other words for each
+    kind in the panel's language ("couch", "mini-split", « pompe à chaleur »), every word to be
+    found, accents ignored.
+  - **Pictures drawn, not shipped**: the engine draws each picture, so it shows the piece in the
+    view's look and accent, and the bundle carries no image. A second engine on a hidden canvas
+    (`PieceArtist`) is made when the catalogue opens and released when it closes; it draws the
+    pieces shown first, a few each frame (10 ms), each alone, framed on its bounds, a ceiling's
+    piece seen from below, a lamp lit and a fire burning. They are kept for the session, by look,
+    accent and background. Without a second WebGL context, the pieces go without pictures.
+  - **Live**: the new lights light their room and are switched like the others; an aquarium lights
+    cool. A fireplace burns (its flames glow) while what it is linked to is on, or a climate entity
+    is not off. Linking suggests what each device is (a heat pump's climate, a speaker's media
+    player, a smoke detector's smoke sensor, a camera drawn as one first), a power sensor or a
+    switch after it; a microwave, an oven, a coffee machine, a kettle, a toaster, a computer and an
+    EV charger show their *running* badge with their own icons.
+  - **Edit mode**: a TV stand, a sideboard, a kitchen island, a wine cooler, a freezer, a filing
+    cabinet, a piano, a fireplace and a wall shelf carry what is put on them; speakers, vases,
+    books, a microwave, a coffee machine, a kettle, a toaster, a monitor, a router, a camera and a
+    humidifier stand on what they are put on.
+  - **Imports**: the new kinds are read from the names of Sweet Home 3D's, IFC's and DXF's pieces
+    (English, French and German words, the longer phrases first: a "corner sofa" before a "sofa"),
+    and RoomPlan's ovens and fireplaces.
+  - **The demo house** shows some: a rug, a TV stand, a speaker and a heat pump in the living
+    room, a coffee machine and a kettle in the kitchen, a monitor in the office, a wall tablet, a
+    thermostat and a coat rack in the hall, a water heater and a laundry basket, two rugs and a
+    towel radiator upstairs.
+- **Consequences.**
+  - The plan format stays at version 1: new kinds and styles. An older DomoTwin draws a new kind
+    as a box and a new style as its kind.
+  - The engine's wasm grows by 52.5 kB gzipped (380.3 to 432.8 kB): the pieces are code, the floats
+    of their parts most of it. The first load is 579.9 kB gzipped of 1 200; the frames do not
+    change, a piece being built once when the plan is.
+  - While the catalogue is open, a second WebGL context is used (browsers allow about sixteen).
+  - Fixed on the way: the pictures of the storeys (D-028) were drawn upside down; three-d already
+    reads the rows from the top.

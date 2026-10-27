@@ -466,6 +466,17 @@ impl Engine {
         self.put(plan, scene, keep_camera, &old, fresh);
     }
 
+    /// Shows a plan of a piece alone (the catalogue's pictures, D-064) under a ceiling at
+    /// `wall_height`: a hood's chimney or a stove's flue reaches up to it, not to a room's.
+    pub(crate) fn show_piece(&mut self, plan: Plan, wall_height: f64) {
+        let options = SceneOptions {
+            wall_height,
+            ..self.scene_options()
+        };
+        let scene = build_scene_moving(&plan, &options, &BTreeSet::new());
+        self.put(plan, scene, false, &[], true);
+    }
+
     fn scene_options(&mut self) -> SceneOptions {
         self.models_dirty = false;
         SceneOptions {

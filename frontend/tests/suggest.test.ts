@@ -73,6 +73,44 @@ describe("suggestions", () => {
     expect(fit(piece("3d-printer"), "sensor.printer_power", h)).toBe(2);
   });
 
+  it("fits the library's devices to what they are (D-064)", () => {
+    const h = hass();
+    const piece = (kind: string): PlanElementInfo => ({
+      id: kind,
+      type: "furniture",
+      name: "",
+      kind,
+    });
+    h.states["climate.heat_pump"] = entity("heat", { friendly_name: "Heat pump" });
+    h.states["media_player.kitchen"] = entity("idle", { friendly_name: "Kitchen speaker" });
+    h.states["camera.porch"] = entity("idle", { friendly_name: "Porch" });
+    h.states["binary_sensor.smoke"] = entity("off", { device_class: "smoke" });
+    h.states["binary_sensor.motion"] = entity("off", { device_class: "motion" });
+    h.states["sensor.microwave_power"] = entity("900", { device_class: "power" });
+    h.states["water_heater.tank"] = entity("eco", { friendly_name: "Tank" });
+    // What the piece is comes first, then what can also stand for it, then a plug.
+    expect(fit(piece("heat-pump"), "climate.heat_pump", h)).toBe(3);
+    expect(fit(piece("heat-pump"), "switch.plug", h)).toBe(1);
+    expect(fit(piece("heat-pump"), "light.reading", h)).toBe(0);
+    expect(fit(piece("speaker"), "media_player.kitchen", h)).toBe(3);
+    expect(fit(piece("boiler"), "water_heater.tank", h)).toBe(2);
+    expect(fit(piece("water-heater"), "water_heater.tank", h)).toBe(3);
+    // A smoke detector is a smoke sensor, not any binary sensor.
+    expect(fit(piece("smoke-detector"), "binary_sensor.smoke", h)).toBe(3);
+    expect(fit(piece("smoke-detector"), "binary_sensor.motion", h)).toBe(0);
+    expect(fit(piece("sensor"), "binary_sensor.motion", h)).toBe(3);
+    // A camera drawn as one fits a camera best.
+    expect(fit(piece("camera"), "camera.porch", h)).toBe(4);
+    expect(fit(piece("shelf"), "camera.porch", h)).toBe(2);
+    // The new lamps and appliances.
+    expect(fit(piece("wall-light"), "light.reading", h)).toBe(3);
+    expect(fit(piece("aquarium"), "switch.plug", h)).toBe(2);
+    expect(fit(piece("microwave"), "sensor.microwave_power", h)).toBe(2);
+    expect(fit(piece("freezer"), "sensor.fridge_power", h)).toBe(2);
+    expect(fit(piece("fireplace"), "switch.plug", h)).toBe(3);
+    expect(fit(piece("fireplace"), "climate.heat_pump", h)).toBe(2);
+  });
+
   it("suggests the area's entities that fit, best first, not those already linked", () => {
     const h = hass();
     expect(suggestions(h, lamp, "living", [])).toEqual([

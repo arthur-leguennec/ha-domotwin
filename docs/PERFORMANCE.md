@@ -1031,3 +1031,33 @@ rooms are drawn like a heatmap: at the layers' pace (24 frames a second), still 
 motion*; what they draw alone is written, not drawn, and needs no frame. In the sandbox, the
 peak's day adds a few changes to the day played, and what each room did is read every five minutes
 from the pre-heating to the peak's end when the report opens, once for each day played.
+
+### M17 (a library of objects)
+
+Bundle: the first load is **579.9 kB gzipped** of 1 200 kB (+55.9 kB). The engine grew by 52.5 kB
+(`domotwin_web_bg.<hash>.wasm`: 1 043.5 kB raw, 432.8 kB gzipped, from 878.1 kB and 380.3 kB):
+the 61 new kinds and 54 new styles are code, and the code of the pieces went from 47.6 kB to
+190.3 kB before `wasm-opt`, most of it the floats of their parts (keeping the painter's helpers
+out of line changes nothing: they already are). The kinds' names in both languages, the devices'
+suggestions and the badges' icons add 3.4 kB to the first load. The catalogue's chunk grows to
+8.5 kB gzipped (+4.1 kB, on demand): the library's groups, styles and search words in both
+languages, and the drawing of its pictures. The plan editor's wasm (99.1 kB, +3.8 kB) and the
+import's (223.1 kB, +5.3 kB) read the new kinds.
+
+A piece is built once, when the plan is: nothing of the library runs at each frame. Every piece in
+every style is tested alone at its usual size (`cargo test -p domotwin-core --test scene`): at most
+1 600 triangles, the new ones at most 1 202 (the wine cooler, its bottles behind glass); the 195
+pieces are 71 884 triangles together, 369 each on average. The demo apartment is unchanged
+(12 551 triangles). The demo house, with fourteen pieces of the library more, is 19 286 triangles
+on its ground floor (from 15 440) and 15 510 upstairs (from 14 146).
+
+The catalogue's pictures are drawn when it opens, by a second engine on a hidden canvas
+(headless Chromium, SwiftShader, the panel at 1 000 × 700 on the demo apartment's plan in edit
+mode, measured from the tap on *Add*): the first twelve, the pieces shown first, come in 4.5 s,
+most of it the second engine compiling its shaders on the software GPU (a GPU compiles them in a
+fraction of that); then about 20 ms each, all 195 in 8.1 s. They are drawn a few each frame within
+10 ms, one a frame when one takes longer: the page's longest frame meanwhile is 333 ms, while a
+shader compiles, the others under 85 ms. A picture is a 272 × 204 PNG of 17 kB on average (3.4 MB
+for the 195), kept for the session: opened again, the catalogue shows them all in 0.2 s. Without a
+second WebGL context the pieces go without pictures; the engine and its context are given back
+when the catalogue closes.

@@ -26,9 +26,10 @@ Local, fast, Rust + WebAssembly.</p>
 > sandbox plays a day of the home's automations on a copy of it, Home Assistant's history reads
 > as reports, "Why?" says who or what changed a device, the Wi-Fi QR code welcomes guests,
 > DomoTwin joins Home Assistant's own Overview rather than copying it, each change of the
-> configuration is kept, and Hydro-Québec's peaks show on the plan, the Home tab and in the
-> sandbox. History and energy, safety and the wall screen come next, towards version 0.5.0; the
-> submission to HACS's default list waits on measurements on real devices.
+> configuration is kept, Hydro-Québec's peaks show on the plan, the Home tab and in the
+> sandbox, and a library of 195 pieces fills the home. History and energy, safety and the wall
+> screen come next, towards version 0.5.0; the submission to HACS's default list waits on
+> measurements on real devices.
 
 ## Features
 
@@ -49,8 +50,11 @@ Local, fast, Rust + WebAssembly.</p>
   (`*.domotwin.json`), one storey or all of them, and see it as a clean 3D model. The
   walls facing the camera are lowered automatically, like an open dollhouse. Switch to a crisp 2D
   plan with a smooth animation.
-- **Pieces that look made.** Plants leaf by leaf, sofas and beds with soft edges, at no cost in
-  speed.
+- **Pieces that look made, a library of them.** Plants leaf by leaf, sofas and beds with soft
+  edges, at no cost in speed; 195 pieces in 117 kinds and their styles, at the usual sizes of real
+  ones: a Chesterfield, a piano, a wood stove, a heat pump, a water heater, an EV charger and a car,
+  speakers, a thermostat, a smoke detector, cameras, a router, wall lights and light strips, a
+  treadmill, a cat tree. All drawn by DomoTwin, nothing downloaded.
 - **Five looks.** **Neon**: the home at dusk in deep violet, the tops of its walls lit in amber,
   lamps and screens that shine; **blueprint**: white lines on blue; **day**: the home as it is, in
   the light of the time of day; **cartoon**: flat bright colours inked in black, under a blue sky;
@@ -141,8 +145,9 @@ Local, fast, Rust + WebAssembly.</p>
   floor. See
   [storeys](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/storeys.md).
 - **Edit mode.** Move, rotate and stack furniture with snapping, guides and undo, add pieces from
-  a catalogue, link any object to entities (with suggestions from your areas), and add your own
-  furniture or appliance with its 3D model (glTF/GLB, OBJ, STL or 3MF). See
+  a library with a picture of each, by room and use, searched in your language, link any object
+  to entities (with suggestions from your areas), and add your own furniture or appliance with its
+  3D model (glTF/GLB, OBJ, STL or 3MF). See
   [edit mode](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/edit-mode.md).
 - **Walk through it, hang it on the wall, ask for it.** Walk through your home at eye level, from
   room to room through the doors. On a wall tablet, a card goes back to its view when left alone,
@@ -195,7 +200,7 @@ Local, fast, Rust + WebAssembly.</p>
 </p>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-edit.png" alt="Edit mode: a piece dragged on the 2D plan snaps onto a wall, with the distances to the other walls; the catalogue of pieces to add" width="100%">
+  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-edit.png" alt="Edit mode: a piece dragged on the 2D plan snaps onto a wall, with the distances to the other walls; the library of pieces to add, each with its picture" width="100%">
 </p>
 
 <p align="center">

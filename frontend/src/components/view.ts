@@ -48,6 +48,12 @@ import {
   mdiWashingMachine,
   mdiWrenchClock,
   mdiClockOutline,
+  mdiCoffeeMaker,
+  mdiDesktopTower,
+  mdiEvStation,
+  mdiKettle,
+  mdiMicrowave,
+  mdiToaster,
 } from "@mdi/js";
 import { LitElement, css, html, nothing, svg, type PropertyValues, type TemplateResult } from "lit";
 
@@ -281,6 +287,13 @@ const APPLIANCE_ICONS: Record<string, string> = {
   hood: mdiFan,
   printer: mdiPrinter,
   "3d-printer": mdiPrinter3d,
+  microwave: mdiMicrowave,
+  oven: mdiStove,
+  "coffee-machine": mdiCoffeeMaker,
+  kettle: mdiKettle,
+  toaster: mdiToaster,
+  computer: mdiDesktopTower,
+  "ev-charger": mdiEvStation,
 } satisfies Partial<Record<KindName, string>>;
 
 function badgeIcon(badge: Badge): string {
@@ -2191,12 +2204,20 @@ export class DomoTwinView extends LitElement {
     }
   }
 
-  /** Adds a piece of the catalogue in the middle of the view and selects it. */
-  editAdd(kind: string, name: string): void {
+  /** The accent the view draws in (the catalogue's pictures take it, with `look`, D-064). */
+  get accentShown(): string {
+    return this.accent;
+  }
+
+  /**
+   * Adds a piece of the catalogue in `style` (none: its kind's own) in the middle of the view
+   * and selects it.
+   */
+  editAdd(kind: string, name: string, style?: string): void {
     const engine = this.engine;
     const canvas = this.canvas;
     if (!engine || !canvas || !this.edit) return;
-    const state = engine.editAdd(kind, name, canvas.width / 2, canvas.height / 2);
+    const state = engine.editAdd(kind, name, canvas.width / 2, canvas.height / 2, style);
     this.setEdit(state);
     if (state.refused) this.notify(this.translator.t("edit.too_many"));
   }

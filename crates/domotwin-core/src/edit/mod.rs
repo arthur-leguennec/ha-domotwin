@@ -280,12 +280,22 @@ pub fn can_support(kind: Kind) -> bool {
             | Kind::Washer
             | Kind::Dryer
             | Kind::Fridge
+            | Kind::TvStand
+            | Kind::Sideboard
+            | Kind::KitchenIsland
+            | Kind::WineCooler
+            | Kind::Freezer
+            | Kind::FilingCabinet
+            | Kind::Piano
+            | Kind::Fireplace
+            | Kind::WallShelf
     )
 }
 
 /// Whether a piece of `kind`, drawn from one of the user's models or not (`model`), is set on top
-/// of a piece it is dropped over: small objects (lamps, plants, screens, printers), a dryer on a
-/// washer, and the user's own models. A plain box, or a kind this version does not know, is not.
+/// of a piece it is dropped over: small objects (lamps, plants, screens, printers, a speaker, a
+/// vase, books, small appliances, a router, a camera), a dryer on a washer, and the user's own
+/// models. A plain box, or a kind this version does not know, is not.
 pub fn can_stack(kind: Kind, model: bool) -> bool {
     model
         || matches!(
@@ -298,6 +308,17 @@ pub fn can_stack(kind: Kind, model: bool) -> bool {
                 | Kind::Printer
                 | Kind::Printer3d
                 | Kind::Dryer
+                | Kind::Speaker
+                | Kind::Vase
+                | Kind::Books
+                | Kind::Microwave
+                | Kind::CoffeeMachine
+                | Kind::Kettle
+                | Kind::Toaster
+                | Kind::Monitor
+                | Kind::Router
+                | Kind::Camera
+                | Kind::Humidifier
         )
 }
 
@@ -544,6 +565,26 @@ mod tests {
         let footprints: Vec<Footprint> = pieces.iter().map(|p| p.0).collect();
         assert_eq!(carried(0, &footprints), [1]);
         assert!(carried(2, &footprints).is_empty());
+        // The library's (D-064): a vase on a mantel, a kettle on an island, a speaker on a TV
+        // stand; a car is no support and does not stack.
+        let mantel = (fp(200.0, 150.0, 150.0, 40.0, 0.0, 115.0), Kind::Fireplace);
+        let vase = fp(200.0, 150.0, 16.0, 16.0, 0.0, 30.0);
+        assert_eq!(
+            support_under(&vase, can_stack(Kind::Vase, false), &[mantel], &[]),
+            Some((0, 115.0))
+        );
+        for (support, small) in [
+            (Kind::KitchenIsland, Kind::Kettle),
+            (Kind::TvStand, Kind::Speaker),
+            (Kind::Sideboard, Kind::Books),
+            (Kind::Freezer, Kind::Microwave),
+        ] {
+            assert!(
+                can_support(support) && can_stack(small, false),
+                "{support:?}"
+            );
+        }
+        assert!(!can_support(Kind::Car) && !can_stack(Kind::Car, false));
     }
 
     #[test]

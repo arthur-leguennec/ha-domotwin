@@ -367,7 +367,7 @@ try {
   );
   console.log("docs/figures/screenshot-imports.png");
 
-  // Edit mode (M3): a piece dragged on the plan with its guides, and the catalogue.
+  // Edit mode (M3): a piece dragged on the plan with its guides, and the library (M17).
   const edit = await browser.newPage({ viewport: { width: 1100, height: 760 } });
   await edit.goto("http://127.0.0.1:4173/?mode=panel");
   await edit.waitForFunction(() => window.__view?.()?.debugState().summary, null, {
@@ -406,6 +406,8 @@ try {
   await edit.evaluate(() => window.__view().settle());
   await edit.getByTestId("edit-add").click();
   await edit.getByTestId("catalogue").waitFor();
+  // The library's pictures (M17), drawn a few each frame, the pieces shown first.
+  await edit.getByTestId("catalogue").locator("img.picture").nth(29).waitFor();
   await edit.waitForTimeout(200);
   const adding = await edit.screenshot();
   const editPair = await edit.evaluate(
@@ -418,7 +420,7 @@ try {
           return image;
         }),
       );
-      const labels = ["Drag: snapping and distances to the walls", "Add a piece from the catalogue"];
+      const labels = ["Drag: snapping and distances to the walls", "Add a piece from the library"];
       const [w, h] = [decoded[0].width, decoded[0].height];
       const canvas = document.createElement("canvas");
       canvas.width = w * 2 + 30;

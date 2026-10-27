@@ -39,14 +39,15 @@ export class Engine {
      */
     editAddModel(model: string, definition: string, x: number, y: number): string;
     /**
-     * Adds a piece of the catalogue `kind` named `name` under the device pixel `x`, `y` (or in
-     * the middle of the view when the floor is not there), and selects it. The state has
-     * `refused: true` when it could not be added (the plan holds 500 elements).
+     * Adds a piece of the catalogue `kind` in `style` (none or empty: its own, D-064) named
+     * `name` under the device pixel `x`, `y` (or in the middle of the view when the floor is not
+     * there), and selects it. The state has `refused: true` when it could not be added (the plan
+     * holds 500 elements).
      */
-    editAdd(kind: string, name: string, x: number, y: number): string;
+    editAdd(kind: string, name: string, x: number, y: number, style?: string | null): string;
     /**
      * The catalogue of kinds a piece can be added as, as JSON `[{"kind", "w", "d", "h",
-     * "light"}]` (default sizes in cm).
+     * "light", "styles": [{"style", "w", "d", "h"}]}]` (usual sizes in cm, D-064).
      */
     static editCatalogue(): string;
     /**
@@ -263,6 +264,14 @@ export class Engine {
      * empty string.
      */
     pick(x: number, y: number): string;
+    /**
+     * A picture of a piece of the catalogue alone (D-064): `kind` in `style` (empty: its own),
+     * at its usual size and in its colour, on `background` (`#rrggbb`), `width` × `height`
+     * device pixels: RGBA rows from the top, empty for a kind this version does not know. The
+     * piece takes the place of the plan shown: the catalogue draws its pictures with an engine
+     * of its own.
+     */
+    piecePicture(kind: string, style: string, width: number, height: number, background: string): Uint8Array;
     /**
      * The plan point (cm, `[x, y]`) on the floor under the device pixel `x`, `y`; empty when
      * the floor is not there.
@@ -569,7 +578,7 @@ export interface InitOutput {
     readonly engine_beginEdit: (a: number, b: number) => void;
     readonly engine_cameraViews: (a: number, b: number) => void;
     readonly engine_clearPlan: (a: number) => void;
-    readonly engine_editAdd: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => void;
+    readonly engine_editAdd: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number) => void;
     readonly engine_editAddModel: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => void;
     readonly engine_editCatalogue: (a: number) => void;
     readonly engine_editDragEnd: (a: number, b: number) => void;
@@ -613,6 +622,7 @@ export interface InitOutput {
     readonly engine_peoplePoints: (a: number, b: number) => void;
     readonly engine_pick: (a: number, b: number, c: number, d: number) => void;
     readonly engine_pickAutomation: (a: number, b: number, c: number) => void;
+    readonly engine_piecePicture: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number) => void;
     readonly engine_planPoint: (a: number, b: number, c: number, d: number) => void;
     readonly engine_planView: (a: number) => number;
     readonly engine_pulseAutomation: (a: number, b: number, c: number, d: number) => number;

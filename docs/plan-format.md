@@ -150,17 +150,28 @@ does.
 
 | Group | Kinds (styles) |
 | --- | --- |
-| Living | `sofa` (`leather`), `armchair` (`leather`), `coffee-table`, `side-table` (`marble`, `hairpin`), `tv` (`wall-mounted`), `plant` (`monstera`, `pothos`, `dracaena`), `bookcase`, `glazed-bookcase`, `open-shelving` (`metal`), `shelf`, `console`, `chest` |
-| Dining and working | `dining-table`, `round-table`, `chair`, `desk`, `office-chair`, `printer`, `3d-printer` (`enclosed`) |
-| Sleeping | `bed` (`metal`), `nightstand` (`one-drawer`, `three-drawers`), `dresser` (`antique`), `tall-cabinet` (`wardrobe`), `shoe-cabinet` |
-| Kitchen | `counter`, `sink`, `stove`, `fridge`, `dishwasher`, `hood`, `wall-cabinet`, `bulkhead`, `backsplash`, `trolley` |
-| Bathroom and laundry | `bathtub`, `vanity`, `toilet`, `washer`, `dryer`, `bin`, `robot-vacuum` (its dock; its robot is drawn moving, D-049) |
-| Walls | `radiator`, `curtain` (`closed`), `picture` (`engraving`, `portrait`, `comic`, `map`, `poster`), `picture-wall`, `mirror` (`white`) |
-| Lights | `floor-lamp`, `table-lamp`, `desk-lamp`, `lantern`, `pendant` (`cylinder`), `chandelier`, `ceiling-light` (`rosette`), `ceiling-fan`, `spotlight` (and `nightstand`, which has a lamp) |
+| Living room | `sofa` (`leather`, `chesterfield`), `corner-sofa` (`left`), `armchair` (`leather`, `wingback`), `rocking-chair`, `ottoman` (`round`), `coffee-table` (`round`, `glass`), `side-table` (`marble`, `hairpin`), `round-table`, `console`, `tv` (`wall-mounted`), `tv-stand`, `piano` (`digital`), `fireplace` (`stove`, `electric`), `chest`, `bench` (`upholstered`) |
+| Dining | `dining-table` (`pedestal`), `chair` (`bistro`, `upholstered`), `bar-stool` (`backrest`), `sideboard` |
+| Kitchen | `counter`, `kitchen-island` (`sink`, `hob`), `sink`, `stove` (`gas`), `oven` (`double`), `fridge` (`french-door`), `freezer` (`upright`), `wine-cooler`, `dishwasher`, `microwave`, `coffee-machine` (`espresso`), `kettle`, `toaster`, `hood`, `wall-cabinet`, `bulkhead`, `backsplash`, `trolley`, `bin` |
+| Bedroom | `bed` (`metal`, `upholstered`, `four-poster`), `bunk-bed`, `crib`, `nightstand` (`three-drawers`, `one-drawer`), `dresser` (`antique`), `tall-cabinet` (`wardrobe`, `sliding`), `clothes-rack` |
+| Bathroom | `bathtub` (`freestanding`), `shower` (`walk-in`, `quadrant`), `vanity` (`pedestal`, `double`), `toilet` (`wall-hung`), `towel-radiator`, `mirror` (`white`), `laundry-basket` |
+| Laundry and utility | `washer`, `dryer`, `robot-vacuum` (its dock; its robot is drawn moving, D-049), `water-heater`, `boiler`, `furnace`, `electrical-panel`, `ev-charger`, `car` |
+| Heating and air | `heat-pump`, `radiator`, `fan` (`tower`, `desk`), `air-purifier`, `dehumidifier`, `humidifier` |
+| Smart home | `speaker` (`display`, `floor`, `soundbar`), `wall-tablet`, `thermostat`, `sensor` (`motion`), `smoke-detector`, `camera` (`wall`, `dome`), `router` (`mesh`), `access-point` |
+| Office | `desk` (`standing`), `office-chair`, `monitor`, `computer`, `filing-cabinet`, `printer`, `3d-printer` (`enclosed`) |
+| Storage | `bookcase`, `glazed-bookcase`, `open-shelving` (`metal`), `shelf`, `wall-shelf`, `shoe-cabinet`, `coat-rack` |
+| Lights | `floor-lamp` (`arc`, `tripod`), `table-lamp`, `desk-lamp`, `wall-light` (`swing-arm`), `light-strip`, `lantern`, `pendant` (`cylinder`, `globe`, `dome`), `chandelier`, `ceiling-light` (`rosette`, `panel`), `track-light`, `spotlight`, `ceiling-fan` |
+| Decoration and walls | `plant` (`monstera`, `pothos`, `dracaena`, `fiddle-leaf`, `snake-plant`), `vase` (`flowers`, `branches`), `books` (`upright`), `clock`, `rug` (`round`, `striped`), `aquarium`, `curtain` (`closed`), `picture` (`engraving`, `portrait`, `comic`, `map`, `poster`), `picture-wall` |
+| Fitness | `treadmill`, `exercise-bike` |
+| Pets | `pet-bed`, `cat-tree`, `litter-box` (`self-cleaning`), `pet-feeder` |
 | Structure | `stairs`, `box` |
 
-Lamps light their room and can be switched; a kind's usual size, colour and lift are used where the
-plan editor and the catalogue add a piece.
+The groups are the catalogue's (D-064). The lights (the *Lights* row, `nightstand`, which has a
+lamp, and `aquarium`, whose light is cool unless `light` says otherwise) light their room and can
+be switched; a `fireplace` burns while what it is linked to is on or heats. A kind's usual size,
+colour and lift, and a style's where it has its own (a `soundbar` is 90 × 10 × 7 cm, a
+`chesterfield` oxblood), are used where edit mode's catalogue adds a piece; an item without
+`color` takes its style's colour, else its kind's. An unknown style is drawn as its kind.
 
 ## Viewpoints
 

@@ -423,7 +423,7 @@ fn read_item(
             .get("rotation")
             .and_then(Value::as_f64)
             .map_or(0.0, normal_angle),
-        color: color(e.get("color")).unwrap_or(kind.info().color),
+        color: color(e.get("color")).unwrap_or(kind.style_info(variant.as_deref()).color),
         kind,
         model,
         variant,

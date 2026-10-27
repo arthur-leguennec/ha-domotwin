@@ -161,8 +161,8 @@ fn the_demo_house_reads_storey_by_storey_with_ids_of_its_own() {
     let ground = read_plan(HOUSE.as_bytes()).unwrap();
     let upper = read_plan(HOUSE_UPPER.as_bytes()).unwrap();
     let (g, u) = (ground.summary(), upper.summary());
-    assert_eq!((g.rooms, g.doors, g.windows, g.furniture), (7, 7, 5, 49));
-    assert_eq!((u.rooms, u.doors, u.windows, u.furniture), (6, 5, 6, 40));
+    assert_eq!((g.rooms, g.doors, g.windows, g.furniture), (7, 7, 5, 61));
+    assert_eq!((u.rooms, u.doors, u.windows, u.furniture), (6, 5, 6, 42));
     // Its robot's dock, and the stairs up.
     assert!(ground.furniture().any(|f| f.kind == Kind::RobotVacuum));
     assert!(ground.furniture().any(|f| f.kind == Kind::Stairs));

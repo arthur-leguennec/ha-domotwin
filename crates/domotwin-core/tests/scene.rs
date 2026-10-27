@@ -334,3 +334,75 @@ fn a_closed_room_keeps_its_floor_and_walls_but_nothing_in_it() {
     let before = domotwin_core::scene::build_dynamic(&plan, &open, &Default::default());
     assert!(moving[0].0.vertex_count() < before[0].0.vertex_count());
 }
+
+/// Each piece of the catalogue in each of its styles at its usual size, alone: its triangles, and
+/// how far it reaches past its footprint (cm, on the plan).
+fn library() -> Vec<(String, usize, f64)> {
+    let mut pieces = Vec::new();
+    for kind in Kind::ALL {
+        let styles = std::iter::once(None).chain(kind.info().variants.iter().map(|s| Some(*s)));
+        for style in styles {
+            let info = kind.style_info(style);
+            let [w, d, h] = info.size;
+            let mut item = serde_json::json!({
+                "id": "piece", "kind": kind.name(), "at": [500, 500], "size": [w, d, h],
+                "lift": info.elevation,
+            });
+            if let Some(style) = style {
+                item["style"] = style.into();
+            }
+            let plan =
+                serde_json::json!({ "format": "domotwin-plan", "version": 1, "items": [item] });
+            let plan = read_plan(plan.to_string().as_bytes()).unwrap();
+            let scene = build_scene(&plan, &SceneOptions::default());
+            let part = &scene.parts[0];
+            check_mesh(&part.opaque);
+            check_mesh(&part.transparent);
+            // The contact shadow is drawn past the footprint on purpose: not counted.
+            let triangles = part.opaque.triangle_count() + part.transparent.triangle_count();
+            let [lo, hi] = scene.elements[0].bounds;
+            let reach = [
+                500.0 - w / 2.0 - f64::from(lo[0]),
+                f64::from(hi[0]) - 500.0 - w / 2.0,
+                500.0 - d / 2.0 - f64::from(lo[2]),
+                f64::from(hi[2]) - 500.0 - d / 2.0,
+            ]
+            .into_iter()
+            .fold(0.0, f64::max);
+            let name = match style {
+                Some(style) => format!("{} ({style})", kind.name()),
+                None => kind.name().to_owned(),
+            };
+            pieces.push((name, triangles, reach));
+        }
+    }
+    pieces
+}
+
+#[test]
+fn every_piece_is_light_and_stays_on_its_footprint() {
+    // A piece costs no more than the heaviest before the library (a chandelier, 1 528), and
+    // reaches past its footprint by its handles at most, but a curtain's rod, a 3D printer's
+    // spool and a desk lamp's head, as before.
+    const TRIANGLES: usize = 1_600;
+    const HANDLES: f64 = 3.0;
+    let past = [
+        "curtain",
+        "curtain (closed)",
+        "3d-printer",
+        "3d-printer (enclosed)",
+        "desk-lamp",
+    ];
+    let pieces = library();
+    assert_eq!(pieces.len(), 195);
+    for (name, triangles, reach) in &pieces {
+        println!("{name}: {triangles} triangles, {reach:.1} cm past its footprint");
+        assert!(*triangles <= TRIANGLES, "{name}: {triangles} triangles");
+        assert!(
+            *reach <= HANDLES || past.contains(&name.as_str()),
+            "{name} reaches {reach:.1} cm past its footprint"
+        );
+    }
+    let total: usize = pieces.iter().map(|p| p.1).sum();
+    println!("{} pieces, {total} triangles", pieces.len());
+}

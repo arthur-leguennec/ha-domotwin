@@ -4,8 +4,9 @@
  * - `<domotwin-edit-bar>`: the bar at the bottom of the view (undo, redo, turn, remove, select
  *   several, add) and what is selected. It fires `domotwin-edit-command` (detail: the command),
  *   `domotwin-edit-multi` (detail: on or off) and `domotwin-edit-catalogue`;
- * - `<domotwin-catalogue>`: the pieces that can be added, by room, with a search, and the plan's
- *   own 3D models (« My models »). It fires `domotwin-add` (detail: `{ kind, name }`),
+ * - `<domotwin-catalogue>`: the pieces that can be added in each of their styles, by room, with a
+ *   search and a picture of each drawn by an engine of its own (D-064), and the plan's own 3D
+ *   models (« My models »). It fires `domotwin-add` (detail: `{ kind, style, name }`),
  *   `domotwin-add-model` and `domotwin-forget-model` (detail: `{ id }`) and
  *   `domotwin-import-model`;
  * - `<domotwin-model-import>`: the name, size, unit and up axis of a 3D file being imported. It
@@ -25,9 +26,17 @@ import {
 } from "@mdi/js";
 import { LitElement, css, html, nothing, type TemplateResult } from "lit";
 
-import type { CatalogueKind, EditState, UserModel } from "../engine/engine";
+import { themeBackground } from "../color";
+import { PieceArtist, type CatalogueKind, type EditState, type UserModel } from "../engine/engine";
 import type { HomeAssistant } from "../ha/types";
-import { translatorFor, type KindName, type MessageKey, type Translator } from "../i18n";
+import {
+  addMessages,
+  translatorFor,
+  type KindName,
+  type MessageKey,
+  type Translator,
+} from "../i18n";
+import { libraryEn, libraryFr } from "../i18n/library";
 import {
   UNITS,
   guessUnit,
@@ -43,50 +52,164 @@ import { Sheet, sheetStyles } from "./sheet";
 import { baseStyles } from "./styles";
 import type { EditCommand } from "./view";
 
+addMessages({ en: libraryEn, fr: libraryFr });
+
 /** The catalogue's groups, in order; kinds in none go to "Other". */
 export const GROUPS: [string, KindName[]][] = [
   [
     "living",
-    ["sofa", "armchair", "coffee-table", "round-table", "tv", "side-table", "console", "chest"],
+    [
+      "sofa",
+      "corner-sofa",
+      "armchair",
+      "rocking-chair",
+      "ottoman",
+      "coffee-table",
+      "side-table",
+      "round-table",
+      "console",
+      "tv",
+      "tv-stand",
+      "piano",
+      "fireplace",
+      "chest",
+      "bench",
+    ],
   ],
-  ["bedroom", ["bed", "nightstand", "dresser", "tall-cabinet"]],
+  ["dining", ["dining-table", "chair", "bar-stool", "sideboard"]],
   [
     "kitchen",
     [
       "counter",
+      "kitchen-island",
       "sink",
       "stove",
+      "oven",
       "fridge",
+      "freezer",
+      "wine-cooler",
       "dishwasher",
+      "microwave",
+      "coffee-machine",
+      "kettle",
+      "toaster",
       "hood",
       "wall-cabinet",
       "bulkhead",
       "backsplash",
-      "dining-table",
-      "chair",
       "trolley",
       "bin",
     ],
   ],
-  ["bathroom", ["bathtub", "vanity", "toilet", "washer", "dryer", "robot-vacuum", "mirror"]],
-  ["office", ["desk", "office-chair", "printer", "3d-printer"]],
-  ["storage", ["bookcase", "glazed-bookcase", "open-shelving", "shelf", "shoe-cabinet"]],
+  ["bedroom", ["bed", "bunk-bed", "crib", "nightstand", "dresser", "tall-cabinet", "clothes-rack"]],
+  [
+    "bathroom",
+    ["bathtub", "shower", "vanity", "toilet", "towel-radiator", "mirror", "laundry-basket"],
+  ],
+  [
+    "utility",
+    [
+      "washer",
+      "dryer",
+      "robot-vacuum",
+      "water-heater",
+      "boiler",
+      "furnace",
+      "electrical-panel",
+      "ev-charger",
+      "car",
+    ],
+  ],
+  ["climate", ["heat-pump", "radiator", "fan", "air-purifier", "dehumidifier", "humidifier"]],
+  [
+    "devices",
+    [
+      "speaker",
+      "wall-tablet",
+      "thermostat",
+      "sensor",
+      "smoke-detector",
+      "camera",
+      "router",
+      "access-point",
+    ],
+  ],
+  [
+    "office",
+    ["desk", "office-chair", "monitor", "computer", "filing-cabinet", "printer", "3d-printer"],
+  ],
+  [
+    "storage",
+    [
+      "bookcase",
+      "glazed-bookcase",
+      "open-shelving",
+      "shelf",
+      "wall-shelf",
+      "shoe-cabinet",
+      "coat-rack",
+    ],
+  ],
   [
     "lights",
     [
       "floor-lamp",
       "table-lamp",
       "desk-lamp",
+      "wall-light",
+      "light-strip",
       "lantern",
       "pendant",
       "chandelier",
       "ceiling-light",
+      "track-light",
       "spotlight",
       "ceiling-fan",
     ],
   ],
-  ["decor", ["plant", "curtain", "picture", "picture-wall", "radiator"]],
+  [
+    "decor",
+    ["plant", "vase", "books", "clock", "rug", "aquarium", "curtain", "picture", "picture-wall"],
+  ],
+  ["fitness", ["treadmill", "exercise-bike"]],
+  ["pets", ["pet-bed", "cat-tree", "litter-box", "pet-feeder"]],
 ];
+
+/** A piece of the catalogue: a kind in one of its styles (none: its own), its usual size (cm). */
+export interface CataloguePiece {
+  kind: string;
+  style?: string;
+  w: number;
+  d: number;
+  h: number;
+}
+
+/** A piece's key: its kind, and its style after a dot. */
+export function pieceKey(piece: CataloguePiece): string {
+  return piece.style ? `${piece.kind}.${piece.style}` : piece.kind;
+}
+
+/** The name of a kind's style (D-064), else the style. */
+export function styleName(t: Translator, kind: string, style: string): string {
+  const key = `library.styles.${kind}.${style}` as MessageKey;
+  const text = t.t(key);
+  return text === key ? style : text;
+}
+
+/** The other words a kind is searched by, in the language; empty without any. */
+function searchWords(t: Translator, kind: string): string {
+  const key = `library.search.${kind}` as MessageKey;
+  const text = t.t(key);
+  return text === key ? "" : text;
+}
+
+/** Every piece of a kind: its own, then its styles. */
+function piecesOf(kind: CatalogueKind): CataloguePiece[] {
+  return [
+    { kind: kind.kind, w: kind.w, d: kind.d, h: kind.h },
+    ...kind.styles.map(({ style, w, d, h }) => ({ kind: kind.kind, style, w, d, h })),
+  ];
+}
 
 /** Text folded for a search: lower case, without accents. */
 function folded(text: string, t: Translator): string {
@@ -99,27 +222,47 @@ export function matchingModels(models: UserModel[], t: Translator, query = ""): 
   return models.filter((model) => !wanted || folded(model.name, t).includes(wanted));
 }
 
-/** The catalogue in groups, translated and filtered by `query` (name or kind). */
+/**
+ * The catalogue's pieces in groups, translated and filtered by `query`: every word of it found in
+ * the kind's name, its style's, the kind or the style themselves, or the other words the kind is
+ * searched by (D-064).
+ */
 export function catalogueGroups(
   kinds: CatalogueKind[],
   t: Translator,
   query = "",
-): { group: string; kinds: CatalogueKind[] }[] {
-  const wanted = folded(query.trim(), t);
-  const matches = (kind: CatalogueKind): boolean =>
-    !wanted || folded(t.kind(kind.kind), t).includes(wanted) || kind.kind.includes(wanted);
+): { group: string; pieces: CataloguePiece[] }[] {
+  const words = folded(query.trim(), t).split(/\s+/).filter(Boolean);
+  const matches = (piece: CataloguePiece): boolean => {
+    if (words.length === 0) return true;
+    const text = folded(
+      [
+        t.kind(piece.kind),
+        piece.kind,
+        searchWords(t, piece.kind),
+        piece.style ? `${styleName(t, piece.kind, piece.style)} ${piece.style}` : "",
+      ].join(" "),
+      t,
+    );
+    return words.every((word) => text.includes(word));
+  };
   const placed = new Set<string>(GROUPS.flatMap(([, list]) => list));
   const groups = GROUPS.map(([group, list]) => ({
     group,
-    kinds: list
+    pieces: list
       .map((name) => kinds.find((kind) => kind.kind === name))
-      .filter((kind): kind is CatalogueKind => kind !== undefined && matches(kind)),
+      .filter((kind): kind is CatalogueKind => kind !== undefined)
+      .flatMap(piecesOf)
+      .filter(matches),
   }));
   groups.push({
     group: "other",
-    kinds: kinds.filter((kind) => !placed.has(kind.kind) && matches(kind)),
+    pieces: kinds
+      .filter((kind) => !placed.has(kind.kind))
+      .flatMap(piecesOf)
+      .filter(matches),
   });
-  return groups.filter((group) => group.kinds.length > 0);
+  return groups.filter((group) => group.pieces.length > 0);
 }
 
 export class DomoTwinEditBar extends LitElement {
@@ -308,17 +451,32 @@ export class DomoTwinEditBar extends LitElement {
   }
 }
 
+/** The size of a piece's picture in the catalogue (CSS pixels), drawn at twice that. */
+const PICTURE = { width: 136, height: 102 };
+/** Time given to the pictures in a frame (ms), so that the view and the sheet stay smooth. */
+const PICTURE_BUDGET_MS = 10;
+/** The pictures drawn this session, by look, accent, background and piece: drawn once. */
+const drawnPictures = new Map<string, string>();
+
 export class DomoTwinCatalogue extends Sheet {
   static override properties = {
     ...Sheet.properties,
     kinds: { attribute: false },
     models: { attribute: false },
+    look: { attribute: false },
+    accent: { attribute: false },
     query: { state: true },
+    pictures: { state: true },
   };
   static override styles = [
     baseStyles,
     sheetStyles,
     css`
+      @media (min-width: 640px) {
+        :host {
+          width: 520px;
+        }
+      }
       input {
         box-sizing: border-box;
         width: 100%;
@@ -335,6 +493,23 @@ export class DomoTwinCatalogue extends Sheet {
         grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
         gap: 6px;
         margin-top: 6px;
+      }
+      .kinds .piece {
+        align-content: start;
+        padding: 6px 6px 8px;
+      }
+      .kinds .picture {
+        display: block;
+        width: 100%;
+        aspect-ratio: 4 / 3;
+        margin-bottom: 4px;
+        border-radius: 8px;
+        background: color-mix(in srgb, var(--primary-text-color, #1f2328) 5%, transparent);
+        object-fit: contain;
+      }
+      .kinds .piece span,
+      .kinds .piece small {
+        padding: 0 4px;
       }
       .kinds button {
         display: grid;
@@ -387,7 +562,122 @@ export class DomoTwinCatalogue extends Sheet {
 
   kinds: CatalogueKind[] = [];
   models: UserModel[] = [];
+  /** The look and accent the view draws in: the pictures take them. */
+  look = "day";
+  accent = "";
   protected query = "";
+  /** The pictures drawn so far, by piece (D-064). */
+  protected pictures = new Map<string, string>();
+  private artist?: PieceArtist;
+  /** Waiting for its engine, or its engine refused (no picture then). */
+  private artistDue?: Promise<void>;
+  /** The look and accent the artist draws in. */
+  private artistLook = "";
+  private queue: CataloguePiece[] = [];
+  private frameRequest?: number;
+  private background = "#ffffff";
+
+  override connectedCallback(): void {
+    super.connectedCallback();
+    const { r, g, b } = themeBackground(this, { r: 255, g: 255, b: 255 });
+    this.background = `#${[r, g, b].map((v) => v.toString(16).padStart(2, "0")).join("")}`;
+  }
+
+  override disconnectedCallback(): void {
+    super.disconnectedCallback();
+    if (this.frameRequest !== undefined) cancelAnimationFrame(this.frameRequest);
+    this.frameRequest = undefined;
+    this.queue = [];
+    this.artist?.dispose();
+    this.artist = undefined;
+    this.artistDue = undefined;
+  }
+
+  protected override updated(changed: Map<string, unknown>): void {
+    super.updated(changed);
+    if (["kinds", "query", "look", "accent"].some((key) => changed.has(key))) this.drawPictures();
+  }
+
+  /** The key of a piece's picture among those drawn this session. */
+  private pictureKey(piece: CataloguePiece): string {
+    return `${this.look} ${this.accent} ${this.background} ${pieceKey(piece)}`;
+  }
+
+  /** Draws the pictures not drawn yet, the pieces shown first, a few each frame. */
+  private drawPictures(): void {
+    // Another look is drawn by another artist.
+    const look = `${this.look} ${this.accent}`;
+    if (look !== this.artistLook) {
+      this.artist?.dispose();
+      this.artist = undefined;
+      this.artistDue = undefined;
+      this.artistLook = look;
+      this.pictures = new Map();
+    }
+    const shown = catalogueGroups(this.kinds, this.t, this.query).flatMap((g) => g.pieces);
+    const all = this.kinds.flatMap(piecesOf);
+    const missing = (piece: CataloguePiece): boolean =>
+      !this.pictures.has(pieceKey(piece)) && !drawnPictures.has(this.pictureKey(piece));
+    // Those drawn before, at once.
+    const pictures = new Map(this.pictures);
+    for (const piece of all) {
+      const url = drawnPictures.get(this.pictureKey(piece));
+      if (url) pictures.set(pieceKey(piece), url);
+    }
+    if (pictures.size !== this.pictures.size) this.pictures = pictures;
+    this.queue = [...shown.filter(missing), ...all.filter((p) => missing(p) && !shown.includes(p))];
+    if (this.queue.length === 0) return;
+    this.artistDue ??= PieceArtist.create(this.look, this.accent).then(
+      (artist) => {
+        if (this.isConnected && this.artistLook === look) this.artist = artist;
+        else artist.dispose();
+      },
+      () => {
+        // No second WebGL context: the pieces go without pictures.
+        this.queue = [];
+      },
+    );
+    void this.artistDue.then(() => {
+      this.schedule();
+    });
+  }
+
+  private schedule(): void {
+    if (this.frameRequest !== undefined || !this.artist || this.queue.length === 0) return;
+    this.frameRequest = requestAnimationFrame(() => {
+      this.frameRequest = undefined;
+      this.drawSome();
+    });
+  }
+
+  /** Draws pictures for a few milliseconds, then leaves the frame to the rest. */
+  private drawSome(): void {
+    const artist = this.artist;
+    if (!artist) return;
+    const started = performance.now();
+    const canvas = document.createElement("canvas");
+    canvas.width = PICTURE.width * 2;
+    canvas.height = PICTURE.height * 2;
+    const context = canvas.getContext("2d");
+    const pictures = new Map(this.pictures);
+    while (this.queue.length > 0 && performance.now() - started < PICTURE_BUDGET_MS && context) {
+      const piece = this.queue.shift() as CataloguePiece;
+      const picture = artist.draw(
+        piece.kind,
+        piece.style ?? "",
+        canvas.width,
+        canvas.height,
+        this.background,
+      );
+      if (!picture) continue;
+      context.putImageData(picture, 0, 0);
+      const url = canvas.toDataURL("image/png");
+      drawnPictures.set(this.pictureKey(piece), url);
+      pictures.set(pieceKey(piece), url);
+    }
+    this.pictures = pictures;
+    this.schedule();
+  }
 
   /** « My models »: the plan's own models, and the import of a 3D file. */
   private renderModels(): TemplateResult {
@@ -462,19 +752,29 @@ export class DomoTwinCatalogue extends Sheet {
         ${this.renderModels()}
         ${groups.length === 0 ? html`<p class="empty">${t.t("edit.no_match")}</p>` : nothing}
         ${groups.map(
-          ({ group, kinds }) =>
+          ({ group, pieces }) =>
             html`<h3>${t.t(`edit.group_${group}` as MessageKey)}</h3>
               <div class="kinds">
-                ${kinds.map((kind) => {
-                  const name = t.kind(kind.kind);
+                ${pieces.map((piece) => {
+                  const name = t.kind(piece.kind);
+                  const size = t.t("edit.size", { w: piece.w, d: piece.d, h: piece.h });
+                  const style = piece.style ? styleName(t, piece.kind, piece.style) : undefined;
+                  const picture = this.pictures.get(pieceKey(piece));
                   return html`<button
-                    data-testid=${`catalogue-${kind.kind}`}
+                    class="piece"
+                    data-testid=${`catalogue-${pieceKey(piece)}`}
+                    title=${style ? `${name} · ${style}` : name}
                     @click=${() => {
-                      fire(this, "domotwin-add", { kind: kind.kind, name });
+                      fire(this, "domotwin-add", { kind: piece.kind, style: piece.style, name });
                     }}
                   >
+                    ${
+                      picture
+                        ? html`<img class="picture" src=${picture} alt="" />`
+                        : html`<span class="picture" aria-hidden="true"></span>`
+                    }
                     <span>${name}</span>
-                    <small>${t.t("edit.size", { w: kind.w, d: kind.d, h: kind.h })}</small>
+                    <small>${style ? t.t("library.style_size", { style, size }) : size}</small>
                   </button>`;
                 })}
               </div>`,

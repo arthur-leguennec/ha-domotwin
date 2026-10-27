@@ -105,9 +105,10 @@ so (`scan_usdc`), and so does a root `.usda` layer alone without the layers it r
 | chair | chair (an office chair when it swivels) |
 | table | coffee table, dining table or side table, by its type or its size |
 | bed, sink, toilet, bathtub, dishwasher, stairs | the same |
-| refrigerator, stove and oven, washer-dryer, television | fridge, stove, washer, TV |
+| refrigerator, stove, washer-dryer, television, fireplace | fridge, stove, washer, TV, fireplace |
+| oven | an oven in a tall housing (1.50 m or more), else a stove |
 | storage | a counter when a sink or a hob is in it or on it, else a bookcase (shelves), a wall cabinet (above 1 m), a tall cabinet (1.50 m or more) or a dresser |
-| fireplace, others | a box of its size |
+| others | a box of its size |
 
 A scan follows where the phone pointed: the plan is turned so that its walls run along the axes.
 Elements are numbered (`room-1`, `piece-1`…): after importing a new scan, check the links. OBJ

@@ -114,6 +114,26 @@ describe("deviceBadges", () => {
     expect(badges.has("oven")).toBe(false);
   });
 
+  it("shows the library's appliances running (D-064)", () => {
+    const home = hass([
+      ["sensor.kettle_power", "1800", POWER],
+      ["sensor.charger_power", "7.2", { ...POWER, unit_of_measurement: "kW" }],
+      ["sensor.speaker_power", "40", POWER],
+    ]);
+    const badges = deviceBadges(
+      home,
+      bindings({
+        kettle: ["sensor.kettle_power"],
+        charger: ["sensor.charger_power"],
+        speaker: ["sensor.speaker_power"],
+      }),
+      { kettle: "kettle", charger: "ev-charger", speaker: "speaker" },
+    );
+    expect(badges.get("kettle")?.[0]).toMatchObject({ kind: "running", appliance: "kettle" });
+    expect(badges.get("charger")?.[0]).toMatchObject({ kind: "running", appliance: "ev-charger" });
+    expect(badges.has("speaker")).toBe(false);
+  });
+
   it("keeps at most two badges per element", () => {
     const home = hass([
       ["lock.a", "open"],
