@@ -1,4 +1,4 @@
-//! Mesh scans as plans (`DECISIONS.md`, D-063, amending D-040). A mesh is triangles without walls
+//! Mesh scans as plans (`DECISIONS.md`, D-064, amending D-040). A mesh is triangles without walls
 //! or rooms, and telling walls from furniture in it is guesswork: so the plan is read where
 //! furniture is not.
 //!

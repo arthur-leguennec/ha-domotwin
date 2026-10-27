@@ -1,5 +1,5 @@
 /**
- * The plan import (D-009, D-040, D-063): its own WebAssembly module, fetched only when a plan of
+ * The plan import (D-009, D-040, D-064): its own WebAssembly module, fetched only when a plan of
  * another app is imported: an IFC file, a Sweet Home 3D home, a DXF drawing, a room scan, a robot
  * vacuum's map, a Floorplanner plan or a mesh scan. It finds the format from the file's content,
  * lists its storeys and converts one into a plan.

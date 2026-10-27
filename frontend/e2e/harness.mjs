@@ -31,7 +31,7 @@
 //   voice=1 (Assist with a pipeline that hears), voice=deaf (Assist that cannot hear),
 //   robot=1 (a robot vacuum's dock in the hall, linked to vacuum.robbie, docked; D-049)
 //   valetudo=1 (a robot running Valetudo: its vacuum and its Map data camera over MQTT, whose
-//   picture is the fictional map of crates/domotwin-import/tests/fixtures/robot.png; D-063),
+//   picture is the fictional map of crates/domotwin-import/tests/fixtures/robot.png; D-064),
 //   valetudo=2 (two of them)
 //   energy=1 (fictional solar panels, meter and battery, named in the stored settings; D-049)
 //   demo=1 (the card's `demo`: the demo house instead of this home, D-050)
@@ -1400,7 +1400,7 @@ if (params.get("energy") === "1") {
     home.states[id] = { entity_id: id, state, attributes };
   }
 }
-// Robots running Valetudo (D-063): a vacuum and its Map data camera, of MQTT, on one device.
+// Robots running Valetudo (D-064): a vacuum and its Map data camera, of MQTT, on one device.
 const valetudo = Number(params.get("valetudo") ?? 0);
 for (const [k, [id, name]] of [
   ["rockrobo", "Rockrobo"],

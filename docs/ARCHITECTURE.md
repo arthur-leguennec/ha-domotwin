@@ -17,7 +17,7 @@ interface.
 | `domotwin-planner` | core, `serde_json`     | the plan editor's draft (D-025)     | GPU, browser, HA     |
 | `domotwin-analysis` | core, `serde_json`, `qrcodegen` | radio meshes, automations' configurations (D-043), the Wi-Fi QR code (D-060) | GPU, browser, HA |
 
-`domotwin-import` imports the plans of other apps (`ifc-import.md`, `imports.md`, D-040, D-063):
+`domotwin-import` imports the plans of other apps (`ifc-import.md`, `imports.md`, D-040, D-064):
 its own wasm module, loaded only when such a file is imported. Each reader gives one plan builder a
 draft; the builder writes an ordinary plan that the core then reads like any other. It reads ZIP
 archives and XML with `domotwin-models`' readers (without its wasm API), and zlib and gzip with

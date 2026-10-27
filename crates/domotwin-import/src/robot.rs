@@ -1,4 +1,4 @@
-//! Robot vacuum maps (`DECISIONS.md`, D-063): what a robot draws as it cleans. Valetudo's map, as
+//! Robot vacuum maps (`DECISIONS.md`, D-064): what a robot draws as it cleans. Valetudo's map, as
 //! its REST API gives it (JSON), as it publishes it over MQTT (deflated) or as Home Assistant's
 //! camera receives it (in a PNG); and Roborock's own map (`rr`), as Valetudo RE serves it and the
 //! Xiaomi Cloud Map Extractor stores it.

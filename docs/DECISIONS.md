@@ -2640,7 +2640,7 @@ ahead of the order D-056 gave it. It waits on nothing the other milestones build
     `domotwin/config_history/*`, `.storage/domotwin.config_history`), beside the history
     reports of M38, which read Home Assistant's history of states.
 
-## D-063 · More imports: robot vacuum maps, Floorplanner, mesh scans (amends D-040)
+## D-064 · More imports: robot vacuum maps, Floorplanner, mesh scans (amends D-040)
 
 M20, moved forward by the maintainer from after 0.5.0 (D-056) to before it, so that the first
 launch in five minutes (M22) has it.
