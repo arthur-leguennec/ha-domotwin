@@ -56,7 +56,8 @@ export const main: Dictionary = {
     never: "nunca executada",
     edit: "Editar {name}",
     show_wires: "Mostrar os fios",
-    admin_only: "Os fios precisam de um administrador: o Home Assistant só mostra as automações para eles.",
+    admin_only:
+      "Os fios precisam de um administrador: o Home Assistant só mostra as automações para eles.",
     unread: "Não foi possível ler o que elas fazem. Tente novamente em instantes.",
     role: {
       trigger: "Dispara",
@@ -143,7 +144,8 @@ export const main: Dictionary = {
     place_taken: "Este objeto já representa outro dispositivo: toque em outro para {name}.",
     place_full: {
       one: "Um objeto vincula no máximo 16 entidades: {count} entidade do dispositivo ficou de fora.",
-      other: "Um objeto vincula no máximo 16 entidades: {count} entidades do dispositivo ficaram de fora.",
+      other:
+        "Um objeto vincula no máximo 16 entidades: {count} entidades do dispositivo ficaram de fora.",
     },
   },
   upkeep: {
@@ -212,7 +214,8 @@ export const main: Dictionary = {
       warranty: "Garantia",
     },
     list_empty: "Nenhuma ficha de manutenção ainda.",
-    list_empty_admin: "Nenhuma ficha de manutenção ainda: mantenha um objeto pressionado para escrever uma.",
+    list_empty_admin:
+      "Nenhuma ficha de manutenção ainda: mantenha um objeto pressionado para escrever uma.",
     lead: "Em breve a partir de",
     lead_days: "dias antes",
     room_panel: "Painel de {room}",
@@ -660,7 +663,7 @@ export const main: Dictionary = {
     target_none: "Nenhuma entidade em particular",
     path: "Página",
     path_invalid: "Uma página do Home Assistant começa com /, por exemplo /lovelace/0.",
-    role_auto: "Automático ({role})",
+    role_auto: "Automática ({role})",
     role_of: "Função de {name}",
     action_auto: "Automática ({action})",
     action_toggle: "Alternar",
@@ -668,7 +671,8 @@ export const main: Dictionary = {
     action_none: "Nada",
     action_custom: "Como escrito no arquivo de vínculos",
     advanced: "Modo avançado",
-    advanced_hint: "Qualquer ação do Home Assistant com seus dados, uma página, o alternar do dispositivo principal.",
+    advanced_hint:
+      "Qualquer ação do Home Assistant com seus dados, uma página, o alternar do dispositivo principal.",
     advanced_needed: "Esta ação precisa do modo avançado.",
     data: "Dados (JSON)",
     data_invalid: 'Escreva os dados como um objeto JSON, por exemplo {"brightness_pct": 50}.',
@@ -777,8 +781,7 @@ export const main: Dictionary = {
     every_look: "Em cada uma das cinco aparências (cerca de um minuto)",
     start: "Iniciar",
     opening: "Abrindo a casa de demonstração…",
-    turning:
-      "{look}: a câmera gira ao redor da casa ({step} de {steps}). Não toque na tela.",
+    turning: "{look}: a câmera gira ao redor da casa ({step} de {steps}). Não toque na tela.",
     still: "{look}: uma lâmpada diminui, a câmera parada ({step} de {steps}). Não toque na tela.",
     interrupted: "o painel foi fechado, ou a vista 3D se perdeu: meça de novo",
     hidden: "a tela foi ocultada nesse meio-tempo: meça de novo, com a tela ligada",
@@ -817,7 +820,8 @@ export const main: Dictionary = {
     row_hint: "Uma linha por aparência, para a tabela de dispositivos reais.",
     copy: "Copiar",
     copied: "Copiado.",
-    copy_manual: "Este aplicativo não deixa o DomoTwin copiar: o texto está selecionado, copie você mesmo.",
+    copy_manual:
+      "Este aplicativo não deixa o DomoTwin copiar: o texto está selecionado, copie você mesmo.",
     unknown: "não informado",
   },
   panel: {
@@ -862,7 +866,8 @@ export const main: Dictionary = {
     },
     export_upkeep_offer: {
       one: "Planta exportada. {count} dos seus objetos tem uma ficha de manutenção, guardada à parte da planta.",
-      other: "Planta exportada. {count} dos seus objetos têm uma ficha de manutenção, guardada à parte da planta.",
+      other:
+        "Planta exportada. {count} dos seus objetos têm uma ficha de manutenção, guardada à parte da planta.",
     },
     export_upkeep: "Exportar também as fichas de manutenção",
     import_cards_failed: {
@@ -889,7 +894,8 @@ export const main: Dictionary = {
     models_reading: "Lendo os modelos 3D da planta…",
     models_not_embedded: {
       one: "{count} arquivo 3D não pôde ser incluído na exportação: o modelo dele ficou de fora.",
-      other: "{count} arquivos 3D não puderam ser incluídos na exportação: os modelos deles ficaram de fora.",
+      other:
+        "{count} arquivos 3D não puderam ser incluídos na exportação: os modelos deles ficaram de fora.",
     },
   },
   edit: {
@@ -918,7 +924,8 @@ export const main: Dictionary = {
     locked: "{name} está fixo na planta.",
     conflict: "Sobrepõe outro objeto ou uma parede.",
     too_many: "Esta planta já tem 500 elementos: remova alguns antes de adicionar.",
-    model_refused: "Não é possível adicionar este modelo: uma planta tem no máximo 500 elementos e 50 modelos.",
+    model_refused:
+      "Não é possível adicionar este modelo: uma planta tem no máximo 500 elementos e 50 modelos.",
     my_models: "Meus modelos",
     import_model: "Importar um modelo 3D…",
     import_model_hint: "glTF, GLB, OBJ, STL ou 3MF, até 8 MB",
@@ -1272,13 +1279,16 @@ export const main: Dictionary = {
         "é uma planta do Floorplanner do tipo antigo (XML): exporte-a de novo do Floorplanner como FML.",
       mesh_points:
         "contém pontos sem faces (uma nuvem de pontos): exporte o escaneamento como malha (OBJ, PLY ou GLB).",
-      mesh_gltf: "é um glTF com os dados em outros arquivos: exporte o escaneamento como um único arquivo GLB.",
+      mesh_gltf:
+        "é um glTF com os dados em outros arquivos: exporte o escaneamento como um único arquivo GLB.",
       mesh_fbx: "é um arquivo FBX: exporte o escaneamento como OBJ, PLY ou GLB.",
-      mesh_too_large: "o escaneamento tem mais de 5 milhões de triângulos: exporte-o com menos detalhes.",
+      mesh_too_large:
+        "o escaneamento tem mais de 5 milhões de triângulos: exporte-o com menos detalhes.",
       robot_map_missing:
         "o Home Assistant ainda não tem um mapa deste robô: verifique se o Valetudo publica o mapa por MQTT.",
       not_robot_map: "esta câmera não contém um mapa de robô do Valetudo.",
-      sh3d_old: "foi salvo por um Sweet Home 3D anterior à versão 5.3: abra-o nele e salve de novo.",
+      sh3d_old:
+        "foi salvo por um Sweet Home 3D anterior à versão 5.3: abra-o nele e salve de novo.",
       dxf_binary: "é um desenho DXF binário: salve-o como DXF ASCII.",
       scan_usdz:
         "é só a camada principal de um escaneamento: importe o arquivo USDZ inteiro ou o JSON do escaneamento.",
@@ -1287,8 +1297,10 @@ export const main: Dictionary = {
       not_model: "não é um arquivo 3D que este aplicativo consegue ler, ou está danificado.",
       too_many_triangles: "o modelo tem mais de 150.000 triângulos.",
       too_many_meshes: "o modelo tem mais de 5.000 partes depois de expandido.",
-      external_reference: "o modelo precisa de outros arquivos: exporte-o como um único arquivo (GLB).",
-      unsupported: "o modelo usa um recurso que este aplicativo não consegue ler (malhas compactadas…).",
+      external_reference:
+        "o modelo precisa de outros arquivos: exporte-o como um único arquivo (GLB).",
+      unsupported:
+        "o modelo usa um recurso que este aplicativo não consegue ler (malhas compactadas…).",
       no_geometry: "o arquivo não contém nenhum triângulo.",
       image_too_large: "uma imagem do modelo é maior que 4.096 × 4.096 pixels.",
       model_missing: "o arquivo 3D dele não está no Home Assistant.",
@@ -1317,13 +1329,15 @@ export const main: Dictionary = {
       unknown_storey: "este andar não existe mais.",
       unknown_lawn: "as plantas não têm esse gramado.",
       invalid_storey: "o nome ou a altura do andar não é válido.",
-      invalid_people: "quem é posicionado a partir de quê não é válido (no máximo 10 entidades por pessoa).",
+      invalid_people:
+        "quem é posicionado a partir de quê não é válido (no máximo 10 entidades por pessoa).",
       unknown_person: "esta pessoa não é mostrada no seu cômodo.",
       invalid_locating:
         "as configurações de Bluetooth não são válidas (no máximo 30 dispositivos, cada um reconhecido de uma só forma).",
       unknown_device: "este dispositivo não é seguido.",
       unknown_room: "as plantas não têm esse cômodo.",
-      invalid_key: "isto não é uma chave de identidade: 32 dígitos hexadecimais, irk:… ou o base64 de um Mac.",
+      invalid_key:
+        "isto não é uma chave de identidade: 32 dígitos hexadecimais, irk:… ou o base64 de um Mac.",
       key_not_heard:
         "o Home Assistant não capta nenhum dispositivo com esta chave: desbloqueie o celular, mantenha-o perto de um receptor e tente novamente.",
       key_refused: "o Private BLE Device não aceitou a chave.",

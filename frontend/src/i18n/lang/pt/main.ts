@@ -295,7 +295,8 @@ export const main: Dictionary = {
     owner: "De quem",
     owner_none: "De ninguém",
     known_key: "Pela sua chave: {title}",
-    known_key_missing: "A sua entrada do Private BLE Device desapareceu: deixou de ser reconhecido.",
+    known_key_missing:
+      "A sua entrada do Private BLE Device desapareceu: deixou de ser reconhecido.",
     known_beacon: "Pelo seu iBeacon {major}/{minor}",
     known_address: "Pelo seu endereço {address}",
     now_in: "Agora na divisão {room} ({confidence} %)",
@@ -677,8 +678,7 @@ export const main: Dictionary = {
     data: "Dados (JSON)",
     data_invalid: 'Escreva os dados como um objeto JSON, por exemplo {"brightness_pct": 50}.',
     room_actions: "Ações da divisão",
-    room_actions_hint:
-      "Botões mostrados quando se toca na divisão, além das suas luzes e estores.",
+    room_actions_hint: "Botões mostrados quando se toca na divisão, além das suas luzes e estores.",
     room_action_name: "Nome",
     room_action_what: "O que faz",
     room_action_add: "Adicionar uma ação",
@@ -782,8 +782,7 @@ export const main: Dictionary = {
     every_look: "Em cada um dos cinco aspetos (cerca de um minuto)",
     start: "Começar",
     opening: "A abrir a casa de demonstração…",
-    turning:
-      "{look}: a câmara roda à volta da casa ({step} de {steps}). Não toque no ecrã.",
+    turning: "{look}: a câmara roda à volta da casa ({step} de {steps}). Não toque no ecrã.",
     still:
       "{look}: um candeeiro baixa de intensidade, a câmara parada ({step} de {steps}). Não toque no ecrã.",
     interrupted: "o painel foi fechado, ou a vista 3D perdida: meça novamente",
@@ -1319,8 +1318,7 @@ export const main: Dictionary = {
       too_many_screens: "já existem 20 ecrãs de parede: remova primeiro um.",
       no_supervisor: "este Home Assistant não tem aplicações.",
       busy: "a voz já está a ser configurada.",
-      blueprints_not_written:
-        "não foi possível escrever os blueprints na pasta do Home Assistant.",
+      blueprints_not_written: "não foi possível escrever os blueprints na pasta do Home Assistant.",
       revision_conflict: "alguém guardou entretanto. Recarregue e tente novamente.",
       unauthorized: "só os administradores podem fazer isto.",
       not_loaded: "o DomoTwin não está configurado.",

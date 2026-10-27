@@ -1408,7 +1408,8 @@ export const main: Dictionary = {
       not_robot_map: "لا تحتوي هذه الكاميرا على خريطة روبوت من Valetudo.",
       sh3d_old: "حُفظ بإصدار من Sweet Home 3D أقدم من 5.3: افتحه هناك واحفظه مرة أخرى.",
       dxf_binary: "إنه رسم DXF ثنائي: احفظه بصيغة DXF من نوع ASCII.",
-      scan_usdz: "إنه الطبقة الرئيسية لمسح وحدها: استورد ملف USDZ كاملًا، أو ملف JSON الخاص بالمسح.",
+      scan_usdz:
+        "إنه الطبقة الرئيسية لمسح وحدها: استورد ملف USDZ كاملًا، أو ملف JSON الخاص بالمسح.",
       scan_usdc:
         "أُعيد حفظ المسح بصيغة USD الثنائية: استورد ملف USDZ أو JSON الذي صدّره تطبيق المسح.",
       not_model: "ليس ملفًا ثلاثي الأبعاد يستطيع هذا التطبيق قراءته، أو أنه تالف.",
@@ -1444,7 +1445,8 @@ export const main: Dictionary = {
       unknown_storey: "لم يعد هذا الطابق موجودًا.",
       unknown_lawn: "لا يوجد هذا العشب في المخططات.",
       invalid_storey: "اسم الطابق أو ارتفاعه غير صالح.",
-      invalid_people: "ربط الأشخاص بالكيانات التي تحدد مواضعهم غير صالح (10 كيانات للشخص على الأكثر).",
+      invalid_people:
+        "ربط الأشخاص بالكيانات التي تحدد مواضعهم غير صالح (10 كيانات للشخص على الأكثر).",
       unknown_person: "هذا الشخص لا يظهر في غرفته.",
       invalid_locating:
         "إعدادات Bluetooth غير صالحة (30 جهازًا على الأكثر، يُتعرَّف على كل منها بطريقة واحدة).",
@@ -1531,7 +1533,8 @@ export const main: Dictionary = {
     bad_height: "يجب أن تكون قيمة `height` طولًا بصيغة CSS مثل 400px أو 60vh",
     bad_quality: "يجب أن تكون قيمة `quality` إحدى القيم auto أو eco أو balanced أو high",
     bad_cutaway: "يجب أن تكون قيمة `cutaway` إحدى القيم auto أو always أو off",
-    bad_lighting: "يجب أن تكون قيمة `lighting` إحدى القيم auto أو morning أو day أو evening أو night",
+    bad_lighting:
+      "يجب أن تكون قيمة `lighting` إحدى القيم auto أو morning أو day أو evening أو night",
     bad_layer:
       "يجب أن تكون قيمة `layer` إحدى القيم off أو temperature أو humidity أو co2 أو pm25 أو power أو peak أو network أو automations أو upkeep",
     bad_alerts: "يجب أن تكون قيمة `alerts` إما true أو false",
@@ -1545,7 +1548,8 @@ export const main: Dictionary = {
     bad_spread: "يجب أن تكون قيمة `spread` إما true أو false",
     bad_roof: "يجب أن تكون قيمة `roof` إما true أو false",
     bad_weather: "يجب أن تكون قيمة `weather` إما true أو false",
-    bad_theme: "يجب أن تكون قيمة `theme` إحدى القيم auto أو day أو neon أو blueprint أو cartoon أو clay",
+    bad_theme:
+      "يجب أن تكون قيمة `theme` إحدى القيم auto أو day أو neon أو blueprint أو cartoon أو clay",
     bad_accent: "يجب أن تكون قيمة `accent` لونًا مثل #00d4ff",
     bad_idle: "يجب أن تكون قيمة `idle` عددًا من الثواني من 0 إلى 86400",
     bad_orbit: "يجب أن تكون قيمة `orbit` إما true أو false",

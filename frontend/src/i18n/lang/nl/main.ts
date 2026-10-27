@@ -41,11 +41,13 @@ export const main: Dictionary = {
     },
     models_over_budget: {
       one: "{count} object is een blok: de 3D-modellen van deze plattegrond hebben te veel driehoeken.",
-      other: "{count} objecten zijn blokken: de 3D-modellen van deze plattegrond hebben te veel driehoeken.",
+      other:
+        "{count} objecten zijn blokken: de 3D-modellen van deze plattegrond hebben te veel driehoeken.",
     },
     layout_refused: {
       one: "{count} wijziging kon niet op deze plattegrond worden toegepast en is weggelaten.",
-      other: "{count} wijzigingen konden niet op deze plattegrond worden toegepast en zijn weggelaten.",
+      other:
+        "{count} wijzigingen konden niet op deze plattegrond worden toegepast en zijn weggelaten.",
     },
   },
   automations: {
@@ -56,10 +58,11 @@ export const main: Dictionary = {
     never: "nooit uitgevoerd",
     edit: "{name} bewerken",
     show_wires: "Draden tonen",
-    admin_only: "Voor hun draden is een beheerder nodig: Home Assistant toont automatiseringen alleen aan beheerders.",
+    admin_only:
+      "Voor hun draden is een beheerder nodig: Home Assistant toont automatiseringen alleen aan beheerders.",
     unread: "Wat ze doen kon niet worden gelezen. Probeer het zo opnieuw.",
     role: {
-      trigger: "Zet ze in gang",
+      trigger: "Start de automatisering",
       condition: "Gecontroleerd",
       action: "Aangestuurd",
     },
@@ -121,7 +124,8 @@ export const main: Dictionary = {
     },
     weak_room: {
       one: "{room} bereikt het mesh-netwerk alleen via een zwakke verbinding: een router hier zou helpen.",
-      other: "{room} bereikt het mesh-netwerk alleen via {count} zwakke verbindingen: een router hier zou helpen.",
+      other:
+        "{room} bereikt het mesh-netwerk alleen via {count} zwakke verbindingen: een router hier zou helpen.",
     },
     link: "Verbinding",
     reported: "LQI die elke kant meldt",
@@ -140,10 +144,12 @@ export const main: Dictionary = {
     place: "{name} in het huis plaatsen",
     place_short: "Plaatsen",
     place_hint: "Tik op het object, de deur of het raam waar {name} zich bevindt.",
-    place_taken: "Dit object staat al voor een ander apparaat: tik op een ander object voor {name}.",
+    place_taken:
+      "Dit object staat al voor een ander apparaat: tik op een ander object voor {name}.",
     place_full: {
       one: "Een object koppelt maximaal 16 entiteiten: {count} entiteit van het apparaat is weggelaten.",
-      other: "Een object koppelt maximaal 16 entiteiten: {count} entiteiten van het apparaat zijn weggelaten.",
+      other:
+        "Een object koppelt maximaal 16 entiteiten: {count} entiteiten van het apparaat zijn weggelaten.",
     },
   },
   upkeep: {
@@ -311,7 +317,8 @@ export const main: Dictionary = {
     teach_start: "Aanleren",
     teach_listening: "Aan het luisteren: blijf in {room} ({seconds} s)",
     teach_done: "Geleerd van {readings} metingen door {receivers} ontvangers.",
-    teach_nothing: "Er is niets van gehoord: staat het aan, en is het in de buurt van een ontvanger?",
+    teach_nothing:
+      "Er is niets van gehoord: staat het aan, en is het in de buurt van een ontvanger?",
     teach_save_first: "Sla eerst op: het apparaat wordt nog niet gevolgd.",
     learn: "Leren van aanwezigheidssensoren in het dagelijks leven",
     learned: "Aangeleerde kamers",
@@ -644,7 +651,8 @@ export const main: Dictionary = {
     suggestions: "Suggesties uit {area}",
     suggestions_title: "Suggesties",
     suggestions_empty: "Geen andere entiteit uit deze ruimte past. Zoek hieronder.",
-    suggestions_no_area: "Koppel de kamer aan een ruimte om suggesties te krijgen, of zoek hieronder.",
+    suggestions_no_area:
+      "Koppel de kamer aan een ruimte om suggesties te krijgen, of zoek hieronder.",
     search: "Zoeken",
     search_hint: "Naam of entiteit-ID",
     add: "{name} koppelen",
@@ -668,12 +676,14 @@ export const main: Dictionary = {
     action_none: "Niets",
     action_custom: "Zoals geschreven in het koppelingsbestand",
     advanced: "Geavanceerde modus",
-    advanced_hint: "Elke actie van Home Assistant met haar gegevens, een pagina, het omschakelen van het hoofdapparaat.",
+    advanced_hint:
+      "Elke actie van Home Assistant met haar gegevens, een pagina, het omschakelen van het hoofdapparaat.",
     advanced_needed: "Deze actie heeft de geavanceerde modus nodig.",
     data: "Gegevens (JSON)",
     data_invalid: 'Schrijf de gegevens als een JSON-object, bijvoorbeeld {"brightness_pct": 50}.',
     room_actions: "Acties van de kamer",
-    room_actions_hint: "Knoppen die worden getoond als je op de kamer tikt, naast de lampen en rolluiken.",
+    room_actions_hint:
+      "Knoppen die worden getoond als je op de kamer tikt, naast de lampen en rolluiken.",
     room_action_name: "Naam",
     room_action_what: "Wat het doet",
     room_action_add: "Actie toevoegen",
@@ -779,7 +789,8 @@ export const main: Dictionary = {
     opening: "Het demohuis openen…",
     turning:
       "{look}: de camera draait rond het huis ({step} van {steps}). Raak het scherm niet aan.",
-    still: "{look}: een lamp dimt, de camera staat stil ({step} van {steps}). Raak het scherm niet aan.",
+    still:
+      "{look}: een lamp dimt, de camera staat stil ({step} van {steps}). Raak het scherm niet aan.",
     interrupted: "het paneel is verlaten, of de 3D-weergave is verloren: meet opnieuw",
     hidden: "het scherm was intussen verborgen: meet opnieuw, met het scherm aan",
     motion: "Dit apparaat vraagt om minder beweging: de camera draait toch 5 seconden.",
@@ -817,7 +828,8 @@ export const main: Dictionary = {
     row_hint: "Eén rij per stijl, voor de tabel met echte apparaten.",
     copy: "Kopiëren",
     copied: "Gekopieerd.",
-    copy_manual: "Deze app laat DomoTwin niet kopiëren: de tekst is geselecteerd, kopieer hem zelf.",
+    copy_manual:
+      "Deze app laat DomoTwin niet kopiëren: de tekst is geselecteerd, kopieer hem zelf.",
     unknown: "niet opgegeven",
   },
   panel: {
@@ -862,7 +874,8 @@ export const main: Dictionary = {
     },
     export_upkeep_offer: {
       one: "Plattegrond geëxporteerd. {count} van de objecten heeft een onderhoudskaart, apart van de plattegrond bewaard.",
-      other: "Plattegrond geëxporteerd. {count} van de objecten hebben een onderhoudskaart, apart van de plattegrond bewaard.",
+      other:
+        "Plattegrond geëxporteerd. {count} van de objecten hebben een onderhoudskaart, apart van de plattegrond bewaard.",
     },
     export_upkeep: "Ook de onderhoudskaarten exporteren",
     import_cards_failed: {
@@ -889,7 +902,8 @@ export const main: Dictionary = {
     models_reading: "De 3D-modellen van de plattegrond lezen…",
     models_not_embedded: {
       one: "{count} 3D-bestand kon niet aan de export worden toegevoegd: het model is weggelaten.",
-      other: "{count} 3D-bestanden konden niet aan de export worden toegevoegd: de modellen zijn weggelaten.",
+      other:
+        "{count} 3D-bestanden konden niet aan de export worden toegevoegd: de modellen zijn weggelaten.",
     },
   },
   edit: {
@@ -917,8 +931,10 @@ export const main: Dictionary = {
     },
     locked: "{name} ligt vast in de plattegrond.",
     conflict: "Overlapt een ander object of een muur.",
-    too_many: "Deze plattegrond bevat al 500 elementen: verwijder er een paar voordat je iets toevoegt.",
-    model_refused: "Dit model kan niet worden toegevoegd: een plattegrond bevat maximaal 500 elementen en 50 modellen.",
+    too_many:
+      "Deze plattegrond bevat al 500 elementen: verwijder er een paar voordat je iets toevoegt.",
+    model_refused:
+      "Dit model kan niet worden toegevoegd: een plattegrond bevat maximaal 500 elementen en 50 modellen.",
     my_models: "Mijn modellen",
     import_model: "3D-model importeren…",
     import_model_hint: "glTF, GLB, OBJ, STL of 3MF, tot 8 MB",
@@ -928,7 +944,8 @@ export const main: Dictionary = {
     draft: "Niet-opgeslagen wijzigingen zijn op dit apparaat bewaard.",
     restore: "Herstellen",
     forget: "Vergeten",
-    changed_elsewhere: "De plattegrond is op een ander apparaat gewijzigd: opslaan wordt geweigerd.",
+    changed_elsewhere:
+      "De plattegrond is op een ander apparaat gewijzigd: opslaan wordt geweigerd.",
     search: "Zoeken",
     no_match: "Niets gevonden.",
     size: "{w} × {d} × {h} cm",
@@ -1272,13 +1289,16 @@ export const main: Dictionary = {
         "het is een Floorplanner-plattegrond van het oudere soort (XML): exporteer hem opnieuw uit Floorplanner als FML.",
       mesh_points:
         "het bevat punten zonder vlakken (een puntenwolk): exporteer de scan als mesh (OBJ, PLY of GLB).",
-      mesh_gltf: "het is een glTF met zijn gegevens in andere bestanden: exporteer de scan als één GLB-bestand.",
+      mesh_gltf:
+        "het is een glTF met zijn gegevens in andere bestanden: exporteer de scan als één GLB-bestand.",
       mesh_fbx: "het is een FBX-bestand: exporteer de scan als OBJ, PLY of GLB.",
-      mesh_too_large: "de scan heeft meer dan 5 miljoen driehoeken: exporteer hem met minder detail.",
+      mesh_too_large:
+        "de scan heeft meer dan 5 miljoen driehoeken: exporteer hem met minder detail.",
       robot_map_missing:
         "Home Assistant heeft nog geen kaart van deze robot: controleer of Valetudo zijn kaart via MQTT publiceert.",
       not_robot_map: "deze camera bevat geen robotkaart van Valetudo.",
-      sh3d_old: "het is opgeslagen door een Sweet Home 3D ouder dan 5.3: open het daar en sla het opnieuw op.",
+      sh3d_old:
+        "het is opgeslagen door een Sweet Home 3D ouder dan 5.3: open het daar en sla het opnieuw op.",
       dxf_binary: "het is een binaire DXF-tekening: sla hem op als ASCII-DXF.",
       scan_usdz:
         "het is alleen de hoofdlaag van een scan: importeer het hele USDZ-bestand, of de JSON van de scan.",
@@ -1287,8 +1307,10 @@ export const main: Dictionary = {
       not_model: "het is geen 3D-bestand dat deze app kan lezen, of het is beschadigd.",
       too_many_triangles: "het model heeft meer dan 150.000 driehoeken.",
       too_many_meshes: "het model heeft na uitpakken meer dan 5000 onderdelen.",
-      external_reference: "het model heeft andere bestanden nodig: exporteer het als één bestand (GLB).",
-      unsupported: "het model gebruikt een functie die deze app niet kan lezen (gecomprimeerde meshes…).",
+      external_reference:
+        "het model heeft andere bestanden nodig: exporteer het als één bestand (GLB).",
+      unsupported:
+        "het model gebruikt een functie die deze app niet kan lezen (gecomprimeerde meshes…).",
       no_geometry: "het bestand bevat geen enkele driehoek.",
       image_too_large: "een afbeelding van het model is groter dan 4096 × 4096 pixels.",
       model_missing: "het 3D-bestand ontbreekt in Home Assistant.",
@@ -1303,7 +1325,8 @@ export const main: Dictionary = {
       too_many_screens: "er zijn al 20 wandschermen: verwijder er eerst een.",
       no_supervisor: "deze Home Assistant heeft geen apps.",
       busy: "spraak wordt al ingesteld.",
-      blueprints_not_written: "de blauwdrukken konden niet naar de map van Home Assistant worden geschreven.",
+      blueprints_not_written:
+        "de blauwdrukken konden niet naar de map van Home Assistant worden geschreven.",
       revision_conflict: "iemand heeft intussen opgeslagen. Laad opnieuw en probeer het nog eens.",
       unauthorized: "alleen beheerders kunnen dit doen.",
       not_loaded: "DomoTwin is niet ingesteld.",
@@ -1317,13 +1340,15 @@ export const main: Dictionary = {
       unknown_storey: "deze verdieping bestaat niet meer.",
       unknown_lawn: "de plattegronden hebben zo'n gazon niet.",
       invalid_storey: "de naam of hoogte van de verdieping is niet geldig.",
-      invalid_people: "wie op basis waarvan geplaatst wordt, is niet geldig (maximaal 10 entiteiten per persoon).",
+      invalid_people:
+        "wie op basis waarvan geplaatst wordt, is niet geldig (maximaal 10 entiteiten per persoon).",
       unknown_person: "deze persoon wordt niet in zijn kamer getoond.",
       invalid_locating:
         "de Bluetooth-instellingen zijn niet geldig (maximaal 30 apparaten, elk op één manier herkend).",
       unknown_device: "dit apparaat wordt niet gevolgd.",
       unknown_room: "de plattegronden hebben zo'n kamer niet.",
-      invalid_key: "dit is geen identiteitssleutel: 32 hexadecimale cijfers, irk:… of de base64 van een Mac.",
+      invalid_key:
+        "dit is geen identiteitssleutel: 32 hexadecimale cijfers, irk:… of de base64 van een Mac.",
       key_not_heard:
         "Home Assistant hoort geen apparaat met deze sleutel: ontgrendel de telefoon, houd hem bij een ontvanger en probeer het opnieuw.",
       key_refused: "Private BLE Device heeft de sleutel niet aangenomen.",
@@ -1374,7 +1399,8 @@ export const main: Dictionary = {
     room_none: "Het hele huis",
     storey: "Eerst getoonde verdieping",
     storey_ground: "De begane grond",
-    font_family: "Lettertype (leeg: dat van DomoTwin; theme: dat van je thema; of de naam van een lettertype)",
+    font_family:
+      "Lettertype (leeg: dat van DomoTwin; theme: dat van je thema; of de naam van een lettertype)",
     layer: "Eerst getoonde laag",
     alerts: "Waarschuwingen in kamers (rook, water, alarm…)",
     presence: "Kamers waar iemand is, gloeien op",

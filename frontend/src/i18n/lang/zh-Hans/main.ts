@@ -165,8 +165,7 @@ export const main: Dictionary = {
       other: "{count} 年",
     },
     manual: "说明书",
-    manual_hint:
-      "Home Assistant 的路径（/local/…）或网址。DomoTwin 自己从不打开它。",
+    manual_hint: "Home Assistant 的路径（/local/…）或网址。DomoTwin 自己从不打开它。",
     open_manual: "打开说明书",
     notes: "备注",
     tasks: "定期任务",
@@ -412,8 +411,7 @@ export const main: Dictionary = {
   settings: {
     title: "设置",
     north: "平面图上的北方",
-    north_hint:
-      "北方所指的方向，从平面图顶部顺时针计算。太阳会从其真实位置照亮房间。",
+    north_hint: "北方所指的方向，从平面图顶部顺时针计算。太阳会从其真实位置照亮房间。",
     degrees: "{value}°",
     theme: "外观",
     theme_auto: "自动（深色模式下为霓虹）",
@@ -427,16 +425,14 @@ export const main: Dictionary = {
     accent_reset: "恢复为外观自带的强调色",
     theme_hint: "面板以及未自选外观的卡片所用的外观。",
     energy: "能源",
-    energy_hint:
-      "随功率图层显示：电力从哪里来、到哪里去。请选择太阳能板、电表和电池提供的传感器。",
+    energy_hint: "随功率图层显示：电力从哪里来、到哪里去。请选择太阳能板、电表和电池提供的传感器。",
     energy_solar: "太阳能功率",
     energy_grid: "电网功率",
     energy_battery: "电池功率",
     energy_battery_level: "电池电量",
     energy_none: "无",
     weather: "家周围的天气",
-    weather_hint:
-      "根据 Home Assistant 的某个天气实体，在 3D 中绘制家周围的雨、雪、雾和雷暴。",
+    weather_hint: "根据 Home Assistant 的某个天气实体，在 3D 中绘制家周围的雨、雪、雾和雷暴。",
     weather_source: "天气实体",
     weather_auto: "自动（{entity}）",
     weather_auto_none: "自动（未找到）",
@@ -573,14 +569,11 @@ export const main: Dictionary = {
     ready: "Assist 能听到你：点击麦克风并说话。",
     done: "语音已在你的 Home Assistant 中设置好：点击麦克风并说话。",
     deaf: "Assist 还听不到：它没有语音转文字。",
-    ask_admin:
-      "Assist 还听不到：它没有语音转文字。请让管理员在 DomoTwin 面板中设置语音。",
+    ask_admin: "Assist 还听不到：它没有语音转文字。请让管理员在 DomoTwin 面板中设置语音。",
     app_whisper: "Whisper",
-    app_whisper_hint:
-      "能听懂你说的任何话。需要性能较强的电脑才能快速回应。",
+    app_whisper_hint: "能听懂你说的任何话。需要性能较强的电脑才能快速回应。",
     app_phrase: "Speech-to-Phrase",
-    app_phrase_hint:
-      "能快速听懂 Home Assistant 所知的命令，即使在 Raspberry Pi 上也可以。",
+    app_phrase_hint: "能快速听懂 Home Assistant 所知的命令，即使在 Raspberry Pi 上也可以。",
     consent:
       "DomoTwin 会从 Home Assistant 的应用商店安装并启动此应用和 Piper（负责回答的语音）：几百兆字节，由你的 Home Assistant 下载。之后一切都在你家中运行：你说的话不会离开家。",
     set_up: "安装并设置",
@@ -590,11 +583,9 @@ export const main: Dictionary = {
     step_starting: "正在启动 {app}…",
     step_connecting: "正在将应用添加到 Home Assistant…",
     step_pipeline: "正在设置 Assist…",
-    failed_app:
-      "有应用无法安装或启动。请查看“设置 → 应用”，然后重试。",
+    failed_app: "有应用无法安装或启动。请查看“设置 → 应用”，然后重试。",
     failed_app_unavailable: "此应用不适用于这台电脑。",
-    failed_not_found:
-      "Home Assistant 没有找到这些应用。请在“设置 → 设备与服务”中添加，然后重试。",
+    failed_not_found: "Home Assistant 没有找到这些应用。请在“设置 → 设备与服务”中添加，然后重试。",
     failed_language: "这些应用不支持 Home Assistant 所设置的语言。",
     failed_ignored:
       "Home Assistant 被设置为忽略其中一个应用。请在“设置 → 设备与服务”中显示已忽略的集成，取消忽略 Wyoming，然后重试。",
@@ -759,8 +750,7 @@ export const main: Dictionary = {
   choices: {
     title: "你的选择",
     saved: "你的选择已保存。",
-    first_failed:
-      "你的选择已保存，但 Home Assistant 未保留其首先打开的页面：{reason}",
+    first_failed: "你的选择已保存，但 Home Assistant 未保留其首先打开的页面：{reason}",
   },
   plain: {
     menu: "用日常语言写自动化",
@@ -777,8 +767,7 @@ export const main: Dictionary = {
     every_look: "在五种外观下各测一次（约一分钟）",
     start: "开始",
     opening: "正在打开演示房屋…",
-    turning:
-      "{look}：摄像机绕着房屋旋转（第 {step} 步，共 {steps} 步）。请不要触摸屏幕。",
+    turning: "{look}：摄像机绕着房屋旋转（第 {step} 步，共 {steps} 步）。请不要触摸屏幕。",
     still: "{look}：一盏灯逐渐变暗，摄像机静止（第 {step} 步，共 {steps} 步）。请不要触摸屏幕。",
     interrupted: "已离开面板，或 3D 视图丢失：请重新测量",
     hidden: "期间屏幕被隐藏：请在屏幕开启时重新测量",
@@ -1019,8 +1008,7 @@ export const main: Dictionary = {
     tool_wall: "绘制隔墙",
     tool_door: "放置门",
     tool_window: "放置窗",
-    hint_select:
-      "点击房间、隔墙、门或窗以选中，然后拖动它或房间的某个角。",
+    hint_select: "点击房间、隔墙、门或窗以选中，然后拖动它或房间的某个角。",
     hint_room: "拖动以绘制房间，或点击放置一个 3 × 3 m 的房间。",
     hint_wall: "拖动以绘制隔墙。",
     hint_door: "点击房间某一边附近，在其上放置门。",
@@ -1262,16 +1250,13 @@ export const main: Dictionary = {
       invalid_model: "平面图中的某个 3D 模型无效。",
       not_ifc: "这不是 IFC 文件。",
       no_storeys: "文件中没有楼层。",
-      no_spaces:
-        "在此楼层上未找到房间。请在你的应用中绘制其房间（空间）后重新导出。",
+      no_spaces: "在此楼层上未找到房间。请在你的应用中绘制其房间（空间）后重新导出。",
       not_plan:
         "这不是本应用能读取的平面图：DomoTwin 平面图、IFC 文件、Sweet Home 3D 住宅（.sh3d）、DXF 图纸、房间扫描、扫地机器人的地图、Floorplanner 平面图（.fml）或网格扫描（OBJ、PLY、GLB、STL）。",
       picture:
         "这是一张图片，没有可读取的房间：请在平面图编辑器中绘制平面图，或从 Valetudo 导入机器人的地图。",
-      fml_xml:
-        "这是旧格式（XML）的 Floorplanner 平面图：请从 Floorplanner 重新导出为 FML。",
-      mesh_points:
-        "它只包含点而没有面（点云）：请将扫描导出为网格（OBJ、PLY 或 GLB）。",
+      fml_xml: "这是旧格式（XML）的 Floorplanner 平面图：请从 Floorplanner 重新导出为 FML。",
+      mesh_points: "它只包含点而没有面（点云）：请将扫描导出为网格（OBJ、PLY 或 GLB）。",
       mesh_gltf: "这是数据存放在其他文件中的 glTF：请将扫描导出为单个 GLB 文件。",
       mesh_fbx: "这是 FBX 文件：请将扫描导出为 OBJ、PLY 或 GLB。",
       mesh_too_large: "扫描的三角形超过 500 万个：请以较低细节导出。",
@@ -1280,10 +1265,8 @@ export const main: Dictionary = {
       not_robot_map: "此摄像头不包含来自 Valetudo 的机器人地图。",
       sh3d_old: "它由低于 5.3 版本的 Sweet Home 3D 保存：请在其中打开并重新保存。",
       dxf_binary: "这是二进制 DXF 图纸：请另存为 ASCII DXF。",
-      scan_usdz:
-        "这只是扫描的主图层：请导入整个 USDZ 文件，或扫描的 JSON。",
-      scan_usdc:
-        "扫描已被重新保存为 USD 的二进制格式：请导入扫描应用导出的 USDZ 或 JSON。",
+      scan_usdz: "这只是扫描的主图层：请导入整个 USDZ 文件，或扫描的 JSON。",
+      scan_usdc: "扫描已被重新保存为 USD 的二进制格式：请导入扫描应用导出的 USDZ 或 JSON。",
       not_model: "这不是本应用能读取的 3D 文件，或文件已损坏。",
       too_many_triangles: "模型的三角形超过 150 000 个。",
       too_many_meshes: "模型展开后超过 5 000 个部件。",
@@ -1319,8 +1302,7 @@ export const main: Dictionary = {
       invalid_storey: "楼层的名称或高度无效。",
       invalid_people: "人员的定位来源设置无效（每人最多 10 个实体）。",
       unknown_person: "此人员未显示在其房间中。",
-      invalid_locating:
-        "Bluetooth 设置无效（最多 30 个设备，每个设备只能以一种方式识别）。",
+      invalid_locating: "Bluetooth 设置无效（最多 30 个设备，每个设备只能以一种方式识别）。",
       unknown_device: "此设备未被跟踪。",
       unknown_room: "平面图中没有这个房间。",
       invalid_key: "这不是身份密钥：应为 32 位十六进制数字、irk:… 或 Mac 的 base64。",

@@ -3969,3 +3969,54 @@ next. It adds to D-035's room filter and D-079's cloud, and to D-034's people in
   - A radar costs a few hundredths of a millisecond a reading, and its cells' weights a third of a
     millisecond a tick for all the devices together (PERFORMANCE.md).
   - Nothing new is stored but a radar's *mirrored*; the people seen start again after a restart.
+
+## D-081 · More languages: loaded when Home Assistant speaks them, Arabic right to left (M21)
+
+Last of the milestones before the first launch (M22), once the texts of the rest were written, so
+that they are translated once (D-056). It extends D-001's rule (every visible string through `t()`,
+English and French) to ten more languages.
+
+- **Context.** DomoTwin spoke English and French, both in the first picture's bundle. Home
+  Assistant speaks some sixty languages; the most used after English are German, Spanish, French,
+  Italian, Dutch, Portuguese (Portugal's and Brazil's), Chinese, Japanese, Korean and Arabic, the
+  last written right to left. A language is some 26 kB gzipped of messages (the main dictionary
+  and the chunks'): ten of them in the first load would cost a fifth of it for one of them used.
+- **Decision.**
+  - **Twelve languages**: English and French with the first picture, as before; German, Spanish,
+    Italian, Dutch, Portuguese (`pt`), Brazilian Portuguese (`pt-BR`), Arabic (`ar`), Simplified
+    Chinese (`zh-Hans`), Japanese and Korean each one module (`src/i18n/lang/<code>.ts`) with every
+    message, the main dictionary's and every chunk's, **loaded when Home Assistant speaks it** and
+    only then. Home Assistant's language is matched as itself, else without its region (`de-CH` is
+    German); Portuguese of Brazil has its own, every Chinese is the simplified one, and any other
+    language is English.
+  - **Checked as English is.** TypeScript checks that a language gives every key; the tests that
+    each message keeps its `{placeholders}`, gives the plural forms the language counts with
+    (`Intl.PluralRules`: Arabic six, Japanese one), and is not left in English. A message added in
+    English and French is added to the others in English until translated, and the tests say which.
+  - **Drawn in it, not after.** The elements Home Assistant shows (the card, the panel, the
+    summaries, their editors, the guests' page) draw nothing until their language is here, a few
+    milliseconds from Home Assistant, then draw in it; what they hold does not need to know. A
+    language that cannot be loaded is spoken in English, not asked for again. The card picker's
+    names follow once loaded.
+  - **Right to left.** Each element sets its `dir` from the language: Arabic is written right to
+    left, and so is the layout, written in logical properties (`inset-inline-end`,
+    `margin-inline-start`, `text-align: start`): the tabs, the toolbar, the tools and the sheets
+    change sides, as Home Assistant's own. What is pinned to a point of the 3D view (a storey's
+    label) keeps its side.
+  - **The integration says it too.** Its entities, settings and services in Home Assistant's
+    translations (`translations/<code>.json`), and what it says aloud (where someone is, an action
+    planned for later) in the same language as the frontend picks; the voice blueprints hear their
+    sentences in each.
+  - **Translated by machine, written to be read.** The translations follow Home Assistant's own
+    words in each language (Bereich, Entität…) and DomoTwin's (a piece, a storey, a look); they are
+    marked as such for native speakers to correct (`CONTRIBUTING.md`).
+  - **The library searched in them**: each piece's name and the other words it is searched by
+    (M17) are part of each language.
+- **Not done.** Other languages (one starts with `node scripts/new-language.mjs <code>`); the
+  local voice's set-up still sets Piper's voice in English or French only, the others keeping the
+  app's own (a wrong voice name would stop the app).
+- **Consequences.**
+  - The first load is the same for everyone (+0.8 kB: the loader and the logical layout); a home in
+    another language loads its own once, kept by the browser like the rest.
+  - Every new message is written in English and French and added in English to the ten others;
+    the tests say what is left to translate.

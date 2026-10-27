@@ -56,7 +56,8 @@ export const main: Dictionary = {
     never: "실행된 적 없음",
     edit: "{name} 편집",
     show_wires: "연결선 보기",
-    admin_only: "연결선을 보려면 관리자여야 합니다: Home Assistant는 관리자에게만 자동화를 보여 줍니다.",
+    admin_only:
+      "연결선을 보려면 관리자여야 합니다: Home Assistant는 관리자에게만 자동화를 보여 줍니다.",
     unread: "자동화가 하는 일을 읽을 수 없습니다. 잠시 후 다시 시도하세요.",
     role: {
       trigger: "작동시킴",
@@ -121,7 +122,8 @@ export const main: Dictionary = {
     },
     weak_room: {
       one: "{room}: 약한 링크 {count}개로만 메시에 연결됩니다. 이곳에 라우터를 두면 도움이 됩니다.",
-      other: "{room}: 약한 링크 {count}개로만 메시에 연결됩니다. 이곳에 라우터를 두면 도움이 됩니다.",
+      other:
+        "{room}: 약한 링크 {count}개로만 메시에 연결됩니다. 이곳에 라우터를 두면 도움이 됩니다.",
     },
     link: "링크",
     reported: "양쪽 끝이 보고한 LQI",
@@ -166,8 +168,7 @@ export const main: Dictionary = {
       other: "{count}년",
     },
     manual: "설명서",
-    manual_hint:
-      "Home Assistant 경로(/local/…) 또는 웹 주소. DomoTwin이 직접 열지는 않습니다.",
+    manual_hint: "Home Assistant 경로(/local/…) 또는 웹 주소. DomoTwin이 직접 열지는 않습니다.",
     open_manual: "설명서 열기",
     notes: "메모",
     tasks: "반복 작업",
@@ -413,8 +414,7 @@ export const main: Dictionary = {
   settings: {
     title: "설정",
     north: "평면도의 북쪽",
-    north_hint:
-      "평면도 위쪽에서 시계 방향으로 잰 북쪽의 방향. 태양이 실제 위치에서 방을 비춥니다.",
+    north_hint: "평면도 위쪽에서 시계 방향으로 잰 북쪽의 방향. 태양이 실제 위치에서 방을 비춥니다.",
     degrees: "{value}°",
     theme: "스타일",
     theme_auto: "자동 (다크 모드에서는 네온)",
@@ -580,8 +580,7 @@ export const main: Dictionary = {
     app_whisper_hint:
       "무엇이든 말하는 대로 알아듣습니다. 빠르게 응답하려면 꽤 성능 좋은 컴퓨터가 필요합니다.",
     app_phrase: "Speech-to-Phrase",
-    app_phrase_hint:
-      "Home Assistant가 아는 명령을 Raspberry Pi에서도 빠르게 알아듣습니다.",
+    app_phrase_hint: "Home Assistant가 아는 명령을 Raspberry Pi에서도 빠르게 알아듣습니다.",
     consent:
       "DomoTwin이 Home Assistant 앱 스토어에서 이 앱과 Piper(응답하는 음성)를 설치하고 시작합니다: 수백 메가바이트를 Home Assistant가 내려받습니다. 그다음에는 모든 것이 집 안에서 실행되며, 말한 내용은 집 밖으로 나가지 않습니다.",
     set_up: "설치 및 설정",
@@ -591,8 +590,7 @@ export const main: Dictionary = {
     step_starting: "{app} 시작 중…",
     step_connecting: "Home Assistant에 앱 추가 중…",
     step_pipeline: "Assist 설정 중…",
-    failed_app:
-      "앱을 설치하거나 시작할 수 없습니다. 설정 → 앱을 확인한 뒤 다시 시도하세요.",
+    failed_app: "앱을 설치하거나 시작할 수 없습니다. 설정 → 앱을 확인한 뒤 다시 시도하세요.",
     failed_app_unavailable: "이 앱은 이 컴퓨터에서 사용할 수 없습니다.",
     failed_not_found:
       "Home Assistant가 앱을 찾지 못했습니다. 설정 → 기기 및 서비스에서 추가한 뒤 다시 시도하세요.",
@@ -778,9 +776,9 @@ export const main: Dictionary = {
     every_look: "다섯 가지 스타일 각각에서 (약 1분)",
     start: "시작",
     opening: "데모 하우스 여는 중…",
-    turning:
-      "{look}: 카메라가 집 주위를 돕니다 ({step}/{steps}). 화면을 만지지 마세요.",
-    still: "{look}: 조명이 어두워지고 카메라는 멈춰 있습니다 ({step}/{steps}). 화면을 만지지 마세요.",
+    turning: "{look}: 카메라가 집 주위를 돕니다 ({step}/{steps}). 화면을 만지지 마세요.",
+    still:
+      "{look}: 조명이 어두워지고 카메라는 멈춰 있습니다 ({step}/{steps}). 화면을 만지지 마세요.",
     interrupted: "패널을 벗어났거나 3D 보기가 사라졌습니다: 다시 측정하세요",
     hidden: "측정 중에 화면이 가려졌습니다: 화면을 켠 채로 다시 측정하세요",
     motion: "이 기기는 동작 줄이기를 요청합니다: 그래도 카메라는 5초 동안 회전합니다.",
@@ -818,7 +816,8 @@ export const main: Dictionary = {
     row_hint: "스타일마다 한 행, 실제 기기 표에 넣을 내용.",
     copy: "복사",
     copied: "복사했습니다.",
-    copy_manual: "이 앱에서는 DomoTwin이 복사할 수 없습니다: 텍스트가 선택되어 있으니 직접 복사하세요.",
+    copy_manual:
+      "이 앱에서는 DomoTwin이 복사할 수 없습니다: 텍스트가 선택되어 있으니 직접 복사하세요.",
     unknown: "제공되지 않음",
   },
   panel: {
@@ -919,7 +918,8 @@ export const main: Dictionary = {
     locked: "{name}: 평면도에 고정되어 있습니다.",
     conflict: "다른 물건이나 벽과 겹칩니다.",
     too_many: "이 평면도에는 이미 요소가 500개 있습니다: 추가하기 전에 일부를 삭제하세요.",
-    model_refused: "이 모델을 추가할 수 없습니다: 평면도에는 요소 500개, 모델 50개까지만 넣을 수 있습니다.",
+    model_refused:
+      "이 모델을 추가할 수 없습니다: 평면도에는 요소 500개, 모델 50개까지만 넣을 수 있습니다.",
     my_models: "내 모델",
     import_model: "3D 모델 가져오기…",
     import_model_hint: "glTF, GLB, OBJ, STL 또는 3MF, 최대 8MB",
@@ -1279,10 +1279,10 @@ export const main: Dictionary = {
       robot_map_missing:
         "Home Assistant에 아직 이 로봇의 지도가 없습니다: Valetudo가 MQTT로 지도를 게시하는지 확인하세요.",
       not_robot_map: "이 카메라에는 Valetudo의 로봇 지도가 없습니다.",
-      sh3d_old: "Sweet Home 3D 5.3 이전 버전으로 저장된 파일입니다: 그 앱에서 열어 다시 저장하세요.",
+      sh3d_old:
+        "Sweet Home 3D 5.3 이전 버전으로 저장된 파일입니다: 그 앱에서 열어 다시 저장하세요.",
       dxf_binary: "바이너리 DXF 도면입니다: ASCII DXF로 저장하세요.",
-      scan_usdz:
-        "스캔의 주 레이어만 들어 있습니다: USDZ 파일 전체 또는 스캔의 JSON을 가져오세요.",
+      scan_usdz: "스캔의 주 레이어만 들어 있습니다: USDZ 파일 전체 또는 스캔의 JSON을 가져오세요.",
       scan_usdc:
         "스캔이 USD 바이너리 형식으로 다시 저장되었습니다: 스캔 앱이 내보낸 USDZ 또는 JSON을 가져오세요.",
       not_model: "이 앱이 읽을 수 있는 3D 파일이 아니거나 손상되었습니다.",

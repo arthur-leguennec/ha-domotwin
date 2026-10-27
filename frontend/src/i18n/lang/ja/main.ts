@@ -41,7 +41,8 @@ export const main: Dictionary = {
     },
     models_over_budget: {
       one: "{count} 個のアイテムが箱で表示されています：この間取り図の 3D モデルは三角形が多すぎます。",
-      other: "{count} 個のアイテムが箱で表示されています：この間取り図の 3D モデルは三角形が多すぎます。",
+      other:
+        "{count} 個のアイテムが箱で表示されています：この間取り図の 3D モデルは三角形が多すぎます。",
     },
     layout_refused: {
       one: "{count} 件の編集はこの間取り図に適用できなかったため、除外されました。",
@@ -56,7 +57,8 @@ export const main: Dictionary = {
     never: "未実行",
     edit: "{name} を編集",
     show_wires: "配線を表示",
-    admin_only: "配線の表示には管理者が必要です：Home Assistant はオートメーションを管理者にのみ表示します。",
+    admin_only:
+      "配線の表示には管理者が必要です：Home Assistant はオートメーションを管理者にのみ表示します。",
     unread: "動作内容を読み込めませんでした。しばらくしてからもう一度お試しください。",
     role: {
       trigger: "トリガー",
@@ -121,7 +123,8 @@ export const main: Dictionary = {
     },
     weak_room: {
       one: "{room} は {count} 件の弱いリンクでしかメッシュにつながっていません：ここにルーターを置くと改善します。",
-      other: "{room} は {count} 件の弱いリンクでしかメッシュにつながっていません：ここにルーターを置くと改善します。",
+      other:
+        "{room} は {count} 件の弱いリンクでしかメッシュにつながっていません：ここにルーターを置くと改善します。",
     },
     link: "リンク",
     reported: "両端それぞれが報告する LQI",
@@ -140,10 +143,12 @@ export const main: Dictionary = {
     place: "{name} を家に配置",
     place_short: "配置",
     place_hint: "{name} がある場所のアイテム、ドア、または窓をタップしてください。",
-    place_taken: "このアイテムはすでに別のデバイスを表しています：{name} には別のアイテムをタップしてください。",
+    place_taken:
+      "このアイテムはすでに別のデバイスを表しています：{name} には別のアイテムをタップしてください。",
     place_full: {
       one: "1 つのアイテムにリンクできるエンティティは最大 16 個です：デバイスの {count} 個のエンティティは除外されました。",
-      other: "1 つのアイテムにリンクできるエンティティは最大 16 個です：デバイスの {count} 個のエンティティは除外されました。",
+      other:
+        "1 つのアイテムにリンクできるエンティティは最大 16 個です：デバイスの {count} 個のエンティティは除外されました。",
     },
   },
   upkeep: {
@@ -217,7 +222,8 @@ export const main: Dictionary = {
     lead_days: "日前から「まもなく期限」",
     room_panel: "{room} のパネル",
     saved_error: "保存できませんでした：{reason}",
-    invalid_link: "取扱説明書には / で始まるパス、または Web アドレス（http、https）を指定してください。",
+    invalid_link:
+      "取扱説明書には / で始まるパス、または Web アドレス（http、https）を指定してください。",
   },
   people: {
     here: "現在ここにいる人",
@@ -579,8 +585,7 @@ export const main: Dictionary = {
     app_whisper_hint:
       "話した内容を何でも理解します。素早く応答するには、ある程度高性能なコンピューターが必要です。",
     app_phrase: "Speech-to-Phrase",
-    app_phrase_hint:
-      "Home Assistant が知っているコマンドを、Raspberry Pi でも素早く理解します。",
+    app_phrase_hint: "Home Assistant が知っているコマンドを、Raspberry Pi でも素早く理解します。",
     consent:
       "DomoTwin は、このアプリと Piper（応答する音声）を Home Assistant のアプリストアからインストールして起動します：数百メガバイトを Home Assistant がダウンロードします。その後はすべて家の中で動作し、話した内容が外部に送られることはありません。",
     set_up: "インストールして設定",
@@ -644,7 +649,8 @@ export const main: Dictionary = {
     suggestions: "{area} からの候補",
     suggestions_title: "候補",
     suggestions_empty: "このエリアには他に該当するエンティティがありません。下で検索してください。",
-    suggestions_no_area: "部屋をエリアにリンクすると候補が表示されます。または下で検索してください。",
+    suggestions_no_area:
+      "部屋をエリアにリンクすると候補が表示されます。または下で検索してください。",
     search: "検索",
     search_hint: "名前またはエンティティ ID",
     add: "{name} をリンク",
@@ -668,7 +674,8 @@ export const main: Dictionary = {
     action_none: "なし",
     action_custom: "バインディングファイルの記述どおり",
     advanced: "詳細モード",
-    advanced_hint: "データ付きの任意の Home Assistant アクション、ページ、メインデバイスの切り替え。",
+    advanced_hint:
+      "データ付きの任意の Home Assistant アクション、ページ、メインデバイスの切り替え。",
     advanced_needed: "このアクションには詳細モードが必要です。",
     data: "データ（JSON）",
     data_invalid: 'データを JSON オブジェクトで入力してください（例：{"brightness_pct": 50}）。',
@@ -777,9 +784,9 @@ export const main: Dictionary = {
     every_look: "5 つの外観それぞれで（約 1 分）",
     start: "開始",
     opening: "デモハウスを開いています…",
-    turning:
-      "{look}：カメラが家の周りを回っています（{step}/{steps}）。画面に触れないでください。",
-    still: "{look}：ランプが暗くなり、カメラは静止しています（{step}/{steps}）。画面に触れないでください。",
+    turning: "{look}：カメラが家の周りを回っています（{step}/{steps}）。画面に触れないでください。",
+    still:
+      "{look}：ランプが暗くなり、カメラは静止しています（{step}/{steps}）。画面に触れないでください。",
     interrupted: "パネルを離れたか、3D ビューが失われました：もう一度測定してください",
     hidden: "途中で画面が非表示になりました：画面をオンにしたまま、もう一度測定してください",
     motion: "このデバイスでは動きを減らす設定が有効です：それでもカメラは 5 秒間回転します。",
@@ -817,7 +824,8 @@ export const main: Dictionary = {
     row_hint: "実機の表に載せる、外観ごとに 1 行のデータです。",
     copy: "コピー",
     copied: "コピーしました。",
-    copy_manual: "このアプリでは DomoTwin がコピーできません：テキストを選択してあるので、手動でコピーしてください。",
+    copy_manual:
+      "このアプリでは DomoTwin がコピーできません：テキストを選択してあるので、手動でコピーしてください。",
     unknown: "不明",
   },
   panel: {
@@ -862,7 +870,8 @@ export const main: Dictionary = {
     },
     export_upkeep_offer: {
       one: "間取り図をエクスポートしました。{count} 個のアイテムにメンテナンス情報があり、間取り図とは別に保存されています。",
-      other: "間取り図をエクスポートしました。{count} 個のアイテムにメンテナンス情報があり、間取り図とは別に保存されています。",
+      other:
+        "間取り図をエクスポートしました。{count} 個のアイテムにメンテナンス情報があり、間取り図とは別に保存されています。",
     },
     export_upkeep: "メンテナンス情報もエクスポート",
     import_cards_failed: {
@@ -889,7 +898,8 @@ export const main: Dictionary = {
     models_reading: "間取り図の 3D モデルを読み込み中…",
     models_not_embedded: {
       one: "{count} 個の 3D ファイルをエクスポートに追加できなかったため、そのモデルは除外されました。",
-      other: "{count} 個の 3D ファイルをエクスポートに追加できなかったため、そのモデルは除外されました。",
+      other:
+        "{count} 個の 3D ファイルをエクスポートに追加できなかったため、そのモデルは除外されました。",
     },
   },
   edit: {
@@ -917,8 +927,10 @@ export const main: Dictionary = {
     },
     locked: "{name} は間取り図に固定されています。",
     conflict: "別のアイテムまたは壁と重なっています。",
-    too_many: "この間取り図にはすでに 500 個の要素があります：追加する前にいくつか削除してください。",
-    model_refused: "このモデルは追加できません：1 つの間取り図に入れられるのは最大 500 個の要素と 50 個のモデルです。",
+    too_many:
+      "この間取り図にはすでに 500 個の要素があります：追加する前にいくつか削除してください。",
+    model_refused:
+      "このモデルは追加できません：1 つの間取り図に入れられるのは最大 500 個の要素と 50 個のモデルです。",
     my_models: "マイモデル",
     import_model: "3D モデルをインポート…",
     import_model_hint: "glTF、GLB、OBJ、STL、3MF（最大 8 MB）",
@@ -1019,8 +1031,7 @@ export const main: Dictionary = {
     tool_wall: "間仕切りを描く",
     tool_door: "ドアを配置",
     tool_window: "窓を配置",
-    hint_select:
-      "部屋、間仕切り、ドア、窓をタップして選択し、それ自体か部屋の角をドラッグします。",
+    hint_select: "部屋、間仕切り、ドア、窓をタップして選択し、それ自体か部屋の角をドラッグします。",
     hint_room: "ドラッグして部屋を描くか、タップして 3 × 3 m の部屋を置きます。",
     hint_wall: "ドラッグして間仕切りを描きます。",
     hint_door: "部屋の辺の近くをタップすると、その辺にドアを配置します。",
@@ -1243,7 +1254,8 @@ export const main: Dictionary = {
       not_a_plan: "DomoTwin の間取り図ではありません。",
       no_elements: "間取り図に要素がありません。",
       too_many_elements: "間取り図の要素が 500 個を超えています。",
-      newer_version: "この間取り図は新しいバージョンの DomoTwin で作成されています。DomoTwin を更新してください。",
+      newer_version:
+        "この間取り図は新しいバージョンの DomoTwin で作成されています。DomoTwin を更新してください。",
       empty: "ファイルが空です。",
       wall_thickness: "壁の厚さが無効です。",
       invalid_element: "無効な要素があります。",
@@ -1272,13 +1284,17 @@ export const main: Dictionary = {
         "古い形式（XML）の Floorplanner の間取り図です：Floorplanner から FML として再度エクスポートしてください。",
       mesh_points:
         "面のない点（点群）しか含まれていません：スキャンをメッシュ（OBJ、PLY、または GLB）としてエクスポートしてください。",
-      mesh_gltf: "データが別ファイルにある glTF です：スキャンを 1 つの GLB ファイルとしてエクスポートしてください。",
-      mesh_fbx: "FBX ファイルです：スキャンを OBJ、PLY、または GLB としてエクスポートしてください。",
-      mesh_too_large: "スキャンの三角形が 500 万個を超えています：詳細度を下げてエクスポートしてください。",
+      mesh_gltf:
+        "データが別ファイルにある glTF です：スキャンを 1 つの GLB ファイルとしてエクスポートしてください。",
+      mesh_fbx:
+        "FBX ファイルです：スキャンを OBJ、PLY、または GLB としてエクスポートしてください。",
+      mesh_too_large:
+        "スキャンの三角形が 500 万個を超えています：詳細度を下げてエクスポートしてください。",
       robot_map_missing:
         "Home Assistant にこのロボットのマップがまだありません：Valetudo が MQTT でマップを公開しているか確認してください。",
       not_robot_map: "このカメラには Valetudo のロボットのマップがありません。",
-      sh3d_old: "5.3 より古い Sweet Home 3D で保存されています：Sweet Home 3D で開いて保存し直してください。",
+      sh3d_old:
+        "5.3 より古い Sweet Home 3D で保存されています：Sweet Home 3D で開いて保存し直してください。",
       dxf_binary: "バイナリ形式の DXF 図面です：ASCII DXF として保存してください。",
       scan_usdz:
         "スキャンのメインレイヤーだけです：USDZ ファイル全体、またはスキャンの JSON をインポートしてください。",
@@ -1287,7 +1303,8 @@ export const main: Dictionary = {
       not_model: "このアプリで読み込める 3D ファイルではないか、破損しています。",
       too_many_triangles: "モデルの三角形が 150,000 個を超えています。",
       too_many_meshes: "展開するとモデルのパーツが 5,000 個を超えます。",
-      external_reference: "モデルに他のファイルが必要です：単一のファイル（GLB）としてエクスポートしてください。",
+      external_reference:
+        "モデルに他のファイルが必要です：単一のファイル（GLB）としてエクスポートしてください。",
       unsupported: "このアプリが読み込めない機能（圧縮メッシュなど）がモデルに使われています。",
       no_geometry: "ファイルに三角形が含まれていません。",
       image_too_large: "モデルの画像が 4,096 × 4,096 ピクセルを超えています。",
@@ -1297,13 +1314,15 @@ export const main: Dictionary = {
     },
     ws: {
       not_in_sandbox: "予約アクションは実際の家のためのもので、サンドボックスでは使えません。",
-      too_many_favourites: "お気に入りがすでに 100 件あります：先にどれかのスターを外してください。",
+      too_many_favourites:
+        "お気に入りがすでに 100 件あります：先にどれかのスターを外してください。",
       invalid_screen: "この画面のレイアウトは保存できません。",
       screen_exists: "この名前の画面がすでにあります。",
       too_many_screens: "壁掛け画面がすでに 20 台あります：先に 1 台削除してください。",
       no_supervisor: "この Home Assistant にはアプリがありません。",
       busy: "音声はすでに設定中です。",
-      blueprints_not_written: "ブループリントを Home Assistant のフォルダーに書き込めませんでした。",
+      blueprints_not_written:
+        "ブループリントを Home Assistant のフォルダーに書き込めませんでした。",
       revision_conflict: "その間に他の誰かが保存しました。再読み込みしてもう一度お試しください。",
       unauthorized: "この操作は管理者のみ可能です。",
       not_loaded: "DomoTwin が設定されていません。",
@@ -1323,7 +1342,8 @@ export const main: Dictionary = {
         "Bluetooth の設定が無効です（デバイスは最大 30 台、それぞれ 1 つの方法で識別）。",
       unknown_device: "このデバイスは追跡されていません。",
       unknown_room: "間取り図にそのような部屋はありません。",
-      invalid_key: "識別キーではありません：16 進数 32 桁、irk:…、または Mac の base64 を入力してください。",
+      invalid_key:
+        "識別キーではありません：16 進数 32 桁、irk:…、または Mac の base64 を入力してください。",
       key_not_heard:
         "このキーを持つデバイスを Home Assistant が受信できません：スマートフォンのロックを解除し、受信機の近くに置いてから、もう一度お試しください。",
       key_refused: "Private BLE Device がキーを受け付けませんでした。",
@@ -1418,7 +1438,8 @@ export const main: Dictionary = {
     bad_spread: "`spread` は true または false である必要があります",
     bad_roof: "`roof` は true または false である必要があります",
     bad_weather: "`weather` は true または false である必要があります",
-    bad_theme: "`theme` は auto、day、neon、blueprint、cartoon、clay のいずれかである必要があります",
+    bad_theme:
+      "`theme` は auto、day、neon、blueprint、cartoon、clay のいずれかである必要があります",
     bad_accent: "`accent` は #00d4ff のような色である必要があります",
     bad_idle: "`idle` は 0〜86400 の秒数である必要があります",
     bad_orbit: "`orbit` は true または false である必要があります",
@@ -1427,6 +1448,7 @@ export const main: Dictionary = {
     bad_tools: "`tools` は true または false である必要があります",
     bad_voice: "`voice` は true または false である必要があります",
     bad_screen: "`screen` は英数字、_、- からなる名前（最大 64 文字）である必要があります",
-    bad_summary: "`summary` は people、network、automations、upkeep、robots のいずれかである必要があります",
+    bad_summary:
+      "`summary` は people、network、automations、upkeep、robots のいずれかである必要があります",
   },
 };

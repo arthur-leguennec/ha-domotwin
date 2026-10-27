@@ -70,7 +70,7 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M42       | Finer locating: a spot in the room, storeys by the stairs  | ✅     |
 | M43       | mmWave sensors merged into one picture of the home         | ✅     |
 | M37       | A weekly home report                                       | ⏳     |
-| M21       | More languages, right to left too                          | ⏳     |
+| M21       | More languages, right to left too                          | ✅     |
 | 0.6.0     | Sixth release: all of the above                            | ⏳     |
 
 M5 to M11 were added after M3b (`DECISIONS.md`, D-022): what people expect of a 3D home dashboard,
@@ -118,7 +118,7 @@ objects (M17) was moved forward as well (D-074). An iPhone's key without a Mac (
 wall screen (M26, D-076) closed M24 to M26 and D-065's order. The maintainer then asked for the
 outdoors (M18, D-077) before the first launch in five minutes too, and split levels (M44, D-078)
 right after it, whose ground they share; then finer locating (M42, D-079) and the mmWave sensors
-merged (M43, D-080), before more languages (M21) and the first launch (M22).
+merged (M43, D-080), then more languages (M21, D-081), before the first launch (M22).
 
 ## M0, scaffold
 
@@ -1737,7 +1737,7 @@ maintainer (D-074).
   of it the second engine's shaders), then come back at once ([`PERFORMANCE.md`](PERFORMANCE.md),
   M17).
 - Left for later: pictures of one's own 3D models in *My models*; the outdoors' pieces, with
-  **M18**; the other words of the search in more languages, with **M21**.
+  **M18**; the other words of the search in more languages, with **M21** (done, D-081).
 
 ## M45, an iPhone's key without a Mac
 
@@ -1896,6 +1896,30 @@ Who is where: Bluetooth says who, mmWave says where, and fast (D-080,
 
 Measured at the end of M43: see [`PERFORMANCE.md`](PERFORMANCE.md).
 
+## M21, more languages
+
+DomoTwin in Home Assistant's language, ten more of them, each loaded only where it is spoken
+(D-081), last before the first launch so that the texts are translated once.
+
+- ✅ **Twelve languages**: English and French with the first picture; German, Spanish, Italian,
+  Dutch, Portuguese, Brazilian Portuguese, Arabic, Simplified Chinese, Japanese and Korean each its
+  own module, loaded when Home Assistant speaks it. `de-CH` is German, every Chinese the simplified
+  one, any other language English.
+- ✅ **Drawn in it**: the card, the panel, the summaries, their editors and the guests' page wait
+  for their language (a few milliseconds), then draw in it; one that cannot be loaded is English.
+- ✅ **Right to left**: Arabic sets `dir` and the layout follows, in logical properties: the tabs,
+  the toolbar, the tools and the sheets change sides.
+- ✅ **Everything said**: every message of the frontend and its chunks, the plural forms each
+  language counts with (Arabic's six), Home Assistant's translations of the integration, what it
+  says aloud (where someone is, an action planned) and the voice blueprints' sentences.
+- ✅ Tested: every key, placeholder and plural form of each language, and none left in English
+  (vitest); the language loaded on demand, drawn again in it, Arabic's `dir`, a language that
+  cannot be loaded (vitest); German loaded only when spoken, none for English, Arabic's layout
+  mirrored (e2e); the integration's sentences and translations in each (pytest).
+- Left for later: other languages; Piper's voice for the new ones in the local voice's set-up.
+
+Measured at the end of M21: see [`PERFORMANCE.md`](PERFORMANCE.md).
+
 ## Then, from 0.4.0 to 0.5.0
 
 Planned in D-056, with D-065's additions: the sandbox first, built during the two weeks of use since
@@ -1988,7 +2012,7 @@ before its milestone starts, which goes on with what needs no answer.
   before it, which rooms shed and what they draw during it, in 3D and on the Home tab, and
   tomorrow's announced peak played in the sandbox, from the entities of hydroqc or HydroPeak. Its
   part in the report comes with M37.
-- ⏳ **M21, more languages**: Italian, German, Spanish, Arabic (right to left), Chinese, Japanese,
-  Korean, Portuguese (Portugal and Brazil) and others; last, once the texts of the rest are
-  written, so that they are translated once.
+- ✅ **M21, more languages** (D-081, above): German, Spanish, Italian, Dutch, Portuguese (Portugal
+  and Brazil), Arabic (right to left), Chinese, Japanese and Korean, moved before the first launch
+  at the maintainer's request; others start from `scripts/new-language.mjs`.
 - ⏳ **Release 0.6.0**.

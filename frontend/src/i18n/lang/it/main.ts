@@ -144,7 +144,8 @@ export const main: Dictionary = {
     place: "Posiziona {name} nella casa",
     place_short: "Posiziona",
     place_hint: "Tocca l'oggetto, la porta o la finestra dove si trova {name}.",
-    place_taken: "Questo oggetto rappresenta già un altro dispositivo: toccane un altro per {name}.",
+    place_taken:
+      "Questo oggetto rappresenta già un altro dispositivo: toccane un altro per {name}.",
     place_full: {
       one: "Un oggetto collega al massimo 16 entità: {count} entità del dispositivo è stata tralasciata.",
       other:
@@ -604,7 +605,8 @@ export const main: Dictionary = {
     failed_language: "Queste app non parlano la lingua impostata in Home Assistant.",
     failed_ignored:
       "A Home Assistant è stato detto di ignorare una di queste app. In Impostazioni → Dispositivi e servizi, mostra le integrazioni ignorate, smetti di ignorare Wyoming, poi riprova.",
-    failed_unknown: "Non è stato possibile configurare la voce. Guarda i registri di Home Assistant.",
+    failed_unknown:
+      "Non è stato possibile configurare la voce. Guarda i registri di Home Assistant.",
     container:
       "Questo Home Assistant non ha app (Container o Core): avvia i servizi vocali accanto a esso, poi aggiungili.",
     container_whisper: "Riconoscimento vocale, Whisper:",
@@ -650,7 +652,8 @@ export const main: Dictionary = {
     suggestions: "Suggerimenti da {area}",
     suggestions_title: "Suggerimenti",
     suggestions_empty: "Nessun'altra entità di quest'area è adatta. Cerca qui sotto.",
-    suggestions_no_area: "Collega la stanza a un'area per avere suggerimenti, oppure cerca qui sotto.",
+    suggestions_no_area:
+      "Collega la stanza a un'area per avere suggerimenti, oppure cerca qui sotto.",
     search: "Cerca",
     search_hint: "Nome o ID entità",
     add: "Collega {name}",
@@ -754,7 +757,7 @@ export const main: Dictionary = {
     menu: "Permessi",
   },
   tabs: {
-    label: "Schede di DomoTwin",
+    label: "Sezioni di DomoTwin",
     home: "Casa",
     rooms: "Stanze",
     safety: "Sicurezza",
@@ -1290,8 +1293,7 @@ export const main: Dictionary = {
         "contiene punti senza facce (una nuvola di punti): esporta la scansione come mesh (OBJ, PLY o GLB).",
       mesh_gltf: "è un glTF con i dati in altri file: esporta la scansione come un unico file GLB.",
       mesh_fbx: "è un file FBX: esporta la scansione come OBJ, PLY o GLB.",
-      mesh_too_large:
-        "la scansione ha più di 5 milioni di triangoli: esportala con meno dettagli.",
+      mesh_too_large: "la scansione ha più di 5 milioni di triangoli: esportala con meno dettagli.",
       robot_map_missing:
         "Home Assistant non ha ancora una mappa di questo robot: verifica che Valetudo pubblichi la sua mappa tramite MQTT.",
       not_robot_map: "questa telecamera non contiene la mappa di un robot da Valetudo.",

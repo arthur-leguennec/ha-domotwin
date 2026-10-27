@@ -972,7 +972,7 @@ export const chunks: Chunks = {
           conversation: "Wenn jemand {sentences} sagt",
           mqtt: "Wenn eine Nachricht auf {topic} ankommt",
           webhook: "Wenn ein Webhook aufgerufen wird",
-          tag: "Wenn ein Tag gescannt wird",
+          tag: "Wenn ein NFC-Tag gescannt wird",
           other: "Wenn „{kind}“ auslöst ({settings})",
         },
         device: {

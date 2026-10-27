@@ -33,8 +33,7 @@ export const chunks: Chunks = {
       yaml_badge: "你的 YAML",
       yaml_note: "写在你自己的 YAML 文件中：在此显示，需通过编辑这些文件来恢复。",
       removed_note: "已不在 Home Assistant 中。",
-      dashboard_gone:
-        "此仪表盘已不存在：请先在 Home Assistant 中重新创建它，再恢复某个版本。",
+      dashboard_gone: "此仪表盘已不存在：请先在 Home Assistant 中重新创建它，再恢复某个版本。",
       size: "已用 {used}，共 {max}；最旧的版本最先删除。",
       back: "所有项目",
       close: "关闭",
@@ -170,8 +169,7 @@ export const chunks: Chunks = {
         rooms: "开放的房间",
         rooms_hint: "在平面图上开放；其他房间关闭、清空且不显示名称。",
         devices: "设备",
-        devices_hint:
-          "所选房间中的设备。除非勾选，否则不包括锁、车库门和大门。",
+        devices_hint: "所选房间中的设备。除非勾选，否则不包括锁、车库门和大门。",
         devices_none: "请选择房间：其设备会列在这里。",
         extra: "其他设备",
         extra_hint: "场景、脚本或其他房间的设备。",
@@ -210,10 +208,8 @@ export const chunks: Chunks = {
       loading: "正在打开通行证…",
       again: "重试",
       errors: {
-        unknown:
-          "此链接无法打开任何内容：它已被删除或替换。请向主人索取新链接。",
-        home_only:
-          "此通行证只能在家中的 Wi-Fi 上打开。请先连接该网络，然后重新打开链接。",
+        unknown: "此链接无法打开任何内容：它已被删除或替换。请向主人索取新链接。",
+        home_only: "此通行证只能在家中的 Wi-Fi 上打开。请先连接该网络，然后重新打开链接。",
         not_yet: "此通行证将于 {date} 开放。",
         ended: "此通行证已于 {date} 结束。",
         not_loaded: "家中系统尚未就绪。请稍后重试。",
@@ -307,15 +303,13 @@ export const chunks: Chunks = {
       mean_range: "{mean}（{min} 至 {max}）",
       held: "{state}，{time}",
       kept: "除非另行设置，Home Assistant 会将每次变化保留 10 天：更早的数据请按小时读取，它们来自永久保存的统计数据。",
-      too_long:
-        "每次变化和日志最多读取 31 天：请选择更短的时段，或按小时读取。",
+      too_long: "每次变化和日志最多读取 31 天：请选择更短的时段，或按小时读取。",
       no_statistics:
         "由于没有统计数据，{names} 的每小时数据根据 Home Assistant 保留的变化计算：除非另行设置，保留 10 天，最多读取 31 天。",
       no_period: "请选择早于结束时间、且不在未来的开始时间。",
       number_needed: "请提供用于比较的数字。",
       value_needed: "请提供用于比较的值。",
-      measurements_out:
-        "Home Assistant 的日志不包含测量值：{names}。请改为读取其变化。",
+      measurements_out: "Home Assistant 的日志不包含测量值：{names}。请改为读取其变化。",
       failed: "Home Assistant 未提供历史：{reason}",
       csv: "下载 CSV",
       copy: "复制",
@@ -686,8 +680,7 @@ export const chunks: Chunks = {
       bluetooth: "Bluetooth",
       zigbee: "Zigbee",
       wifi: "Wi-Fi",
-      model:
-        "这是根据平面图的墙、门和楼板推算的模型，并如实标明：实测数据优先。",
+      model: "这是根据平面图的墙、门和楼板推算的模型，并如实标明：实测数据优先。",
       good: "良好",
       fair: "一般",
       weak: "弱",
@@ -712,12 +705,10 @@ export const chunks: Chunks = {
       alone: "每个位置都只针对下一个设备单独计算，而不是要同时添加的三个。",
       covered: "每个房间的覆盖都很好：没有哪个位置能带来明显帮助。",
       reach_zigbee: "网状网络已能较好覆盖的位置：路由器可通过其邻居加入。",
-      reach_wifi:
-        "接入点已能较好覆盖的位置，针对无线连接的接入点：有线连接的接入点可以放得更远。",
+      reach_wifi: "接入点已能较好覆盖的位置，针对无线连接的接入点：有线连接的接入点可以放得更远。",
       check: {
         one: "已对照 {count} 次测量校验：偏移 {offset} dB，平均误差 {error} dB。",
-        other:
-          "已对照 {count} 次测量校验：偏移 {offset} dB，平均误差 {error} dB。",
+        other: "已对照 {count} 次测量校验：偏移 {offset} dB，平均误差 {error} dB。",
       },
       agreement: {
         one: "实测与预测在 {count} 个房间中的 {same} 个一致。",
@@ -732,8 +723,7 @@ export const chunks: Chunks = {
       no_receiver: "未放置任何接收器：请在 Bluetooth 设置中放置。",
       bluetooth_settings: "Bluetooth 设置",
       no_router: "未放置协调器或路由器：请在 Zigbee 网络地图中放置。",
-      no_access_point:
-        "未放置接入点：放置好每个接入点的位置后，房间就会着色。",
+      no_access_point: "未放置接入点：放置好每个接入点的位置后，房间就会着色。",
       readings: {
         one: "家中已放置的 {count} 个设备报告了其 Wi-Fi 信号。",
         other: "家中已放置的 {count} 个设备报告了其 Wi-Fi 信号。",
@@ -763,8 +753,7 @@ export const chunks: Chunks = {
         other:
           "你的请求和你的 {count} 个实体（其 ID、名称和区域，绝不包括其状态）会发送给 {task}。如果它是互联网上的服务，它们就会发送到那里。",
       },
-      sent_cut:
-        "在你的 {total} 个实体中，位于区域内的优先：其他实体请用其 ID 指明。",
+      sent_cut: "在你的 {total} 个实体中，位于区域内的优先：其他实体请用其 ID 指明。",
       write: "编写",
       reading: "先读取你的家：其房间，以及设为私密的房间。",
       written: "已编写：{name}。其作用见下方。",
@@ -1258,8 +1247,7 @@ export const chunks: Chunks = {
         "所有没有自己权限的人（包括共享屏幕的用户），以及某人员自己的权限中保持原样的部分。",
       person_hint: "此人员自己的权限；保持原样的部分采用所有人的权限。",
       admin: "管理员：无论此处如何设置，都能查看和使用所有内容。",
-      no_user:
-        "没有 Home Assistant 用户：没有人以此人员身份登录。一旦有了用户，其权限即生效。",
+      no_user: "没有 Home Assistant 用户：没有人以此人员身份登录。一旦有了用户，其权限即生效。",
       levels: {
         use: "可使用",
         see: "仅查看",
@@ -1305,8 +1293,7 @@ export const chunks: Chunks = {
       locks: "门锁",
       nothing: "Home Assistant 中还没有警报系统、摄像头或门铃。",
       security_page: "Home Assistant 的安全页面",
-      security_hint:
-        "门锁、门窗、传感器以及发生的事件，按 Home Assistant 的方式显示。",
+      security_hint: "门锁、门窗、传感器以及发生的事件，按 Home Assistant 的方式显示。",
     },
     doorbell: {
       title: "有人在门口",
@@ -1344,15 +1331,13 @@ export const chunks: Chunks = {
         leaves: "外出时间",
         back: "回来时间",
         by_hand: "手动操作",
-        by_hand_none:
-          "在沙盒中点击灯或按钮：该操作会在那一刻执行，这一天随之继续。",
+        by_hand_none: "在沙盒中点击灯或按钮：该操作会在那一刻执行，这一天随之继续。",
         forget: "忘记 {what}",
         apply: "模拟这一天",
         cancel: "取消",
         bad_date: "请将日期写成 YYYY-MM-DD。",
         peak: "Hydro-Québec 用电高峰",
-        peak_played:
-          "公告的用电高峰在这一天模拟：{start} 至 {end}，{preheat} 起预热。",
+        peak_played: "公告的用电高峰在这一天模拟：{start} 至 {end}，{preheat} 起预热。",
         peak_other: "{date} 有公告的用电高峰，{start} 至 {end}。",
         peak_play: "选择其日期",
         peak_another:
@@ -1433,8 +1418,7 @@ export const chunks: Chunks = {
         back: "返回草稿",
       },
       why: {
-        config:
-          "Home Assistant 未提供其配置（写在 YAML 文件中的配置可能不会提供）。",
+        config: "Home Assistant 未提供其配置（写在 YAML 文件中的配置可能不会提供）。",
         template: "沙盒无法读取的模板：{detail}",
         effect: "无法在此得知 {detail} 的作用。",
         trigger: "由这一天之外的因素触发：{detail}",
@@ -1566,10 +1550,8 @@ export const chunks: Chunks = {
         other: "{count} 分钟",
       },
       wake: "唤醒条件",
-      wake_hint:
-        "当其中任一项开启时，屏保不会出现；触摸屏幕也能唤醒。",
-      no_wake:
-        "Home Assistant 中没有移动、占用或存在传感器：触摸屏幕即可唤醒。",
+      wake_hint: "当其中任一项开启时，屏保不会出现；触摸屏幕也能唤醒。",
+      no_wake: "Home Assistant 中没有移动、占用或存在传感器：触摸屏幕即可唤醒。",
       weather: "天气",
       photos: "照片",
       photos_none: "无照片",
@@ -1637,8 +1619,7 @@ export const chunks: Chunks = {
       guest: "{name}，使用访客通行证",
       guest_detail: "通过 DomoTwin 的访客通行证",
       unattributed: "无人，据 Home Assistant 所知",
-      unattributed_detail:
-        "在设备本身上或由其集成更改：Home Assistant 没有记录是谁或什么做的。",
+      unattributed_detail: "在设备本身上或由其集成更改：Home Assistant 没有记录是谁或什么做的。",
       lost: "不在日志中",
       lost_detail: "Home Assistant 的日志没有说明是什么做的，或已不再保留。",
       hop: "{from} → {to}",
@@ -1688,8 +1669,7 @@ export const chunks: Chunks = {
       errors: {
         no_name: "请提供网络名称。",
         long_name: "网络名称最多 32 个字节（含中文或带重音的字母时，可用字数更少）。",
-        bad_wpa:
-          "WPA 密码为 8 至 63 个字符（字母、数字、符号），或 64 位十六进制数。",
+        bad_wpa: "WPA 密码为 8 至 63 个字符（字母、数字、符号），或 64 位十六进制数。",
         bad_wep: "WEP 密钥为 5 或 13 个字符，或 10 或 26 位十六进制数。",
         invalid: "无法保存：{reason}",
       },

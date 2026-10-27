@@ -95,7 +95,9 @@ new images before committing them.
   language starts with `node scripts/new-language.mjs <code>` in `frontend/`, its code as Home
   Assistant names it (`de`, `pt-BR`, `zh-Hans`), then goes into `LANGUAGES` in
   `frontend/src/i18n/index.ts` and `custom_components/domotwin/language.py`, with its
-  `translations/<code>.json` and its sentences in `services.py` and `schedules.py`. Lay out with
+  `translations/<code>.json` and its sentences in `services.py` and `schedules.py`. The ten
+  languages beyond English and French were translated by machine, following Home Assistant's own
+  words in each: corrections by those who speak them are welcome. Lay out with
   logical properties (`margin-inline-start`, `inset-inline-end`, `text-align: start`), never
   `left`/`right`, so that Arabic reads right to left; only what is pinned to a point of the 3D view
   stays physical.

@@ -41,7 +41,8 @@ export const main: Dictionary = {
     },
     models_over_budget: {
       one: "{count} objeto es una caja: los modelos 3D de este plano tienen demasiados triángulos.",
-      other: "{count} objetos son cajas: los modelos 3D de este plano tienen demasiados triángulos.",
+      other:
+        "{count} objetos son cajas: los modelos 3D de este plano tienen demasiados triángulos.",
     },
     layout_refused: {
       one: "{count} cambio no se pudo aplicar a este plano y se dejó fuera.",
@@ -56,7 +57,8 @@ export const main: Dictionary = {
     never: "nunca se ejecutó",
     edit: "Editar {name}",
     show_wires: "Mostrar los hilos",
-    admin_only: "Sus hilos necesitan un administrador: Home Assistant solo muestra las automatizaciones a los administradores.",
+    admin_only:
+      "Sus hilos necesitan un administrador: Home Assistant solo muestra las automatizaciones a los administradores.",
     unread: "No se pudo leer lo que hacen. Vuelve a intentarlo en un momento.",
     role: {
       trigger: "La desencadena",
@@ -121,7 +123,8 @@ export const main: Dictionary = {
     },
     weak_room: {
       one: "{room} solo llega a la malla a través de un enlace débil: aquí ayudaría un router.",
-      other: "{room} solo llega a la malla a través de {count} enlaces débiles: aquí ayudaría un router.",
+      other:
+        "{room} solo llega a la malla a través de {count} enlaces débiles: aquí ayudaría un router.",
     },
     link: "Enlace",
     reported: "LQI que indica cada extremo",
@@ -143,7 +146,8 @@ export const main: Dictionary = {
     place_taken: "Este objeto ya representa otro dispositivo: toca otro para {name}.",
     place_full: {
       one: "Un objeto vincula 16 entidades como máximo: {count} entidad del dispositivo se dejó fuera.",
-      other: "Un objeto vincula 16 entidades como máximo: {count} entidades del dispositivo se dejaron fuera.",
+      other:
+        "Un objeto vincula 16 entidades como máximo: {count} entidades del dispositivo se dejaron fuera.",
     },
   },
   upkeep: {
@@ -212,7 +216,8 @@ export const main: Dictionary = {
       warranty: "Garantía",
     },
     list_empty: "Todavía no hay fichas de mantenimiento.",
-    list_empty_admin: "Todavía no hay fichas de mantenimiento: mantén pulsado un objeto para escribir una.",
+    list_empty_admin:
+      "Todavía no hay fichas de mantenimiento: mantén pulsado un objeto para escribir una.",
     lead: "Pronto a partir de",
     lead_days: "días antes",
     room_panel: "Panel de {room}",
@@ -668,12 +673,14 @@ export const main: Dictionary = {
     action_none: "Nada",
     action_custom: "Como está escrito en el archivo de vínculos",
     advanced: "Modo avanzado",
-    advanced_hint: "Cualquier acción de Home Assistant con sus datos, una página, el alternar del dispositivo principal.",
+    advanced_hint:
+      "Cualquier acción de Home Assistant con sus datos, una página, el alternar del dispositivo principal.",
     advanced_needed: "Esta acción necesita el modo avanzado.",
     data: "Datos (JSON)",
     data_invalid: 'Escribe los datos como un objeto JSON, por ejemplo {"brightness_pct": 50}.',
     room_actions: "Acciones de la habitación",
-    room_actions_hint: "Botones que se muestran al tocar la habitación, además de sus luces y persianas.",
+    room_actions_hint:
+      "Botones que se muestran al tocar la habitación, además de sus luces y persianas.",
     room_action_name: "Nombre",
     room_action_what: "Qué hace",
     room_action_add: "Añadir una acción",
@@ -779,10 +786,12 @@ export const main: Dictionary = {
     opening: "Abriendo la casa de demostración…",
     turning:
       "{look}: la cámara gira alrededor de la casa ({step} de {steps}). No toques la pantalla.",
-    still: "{look}: una lámpara se atenúa, la cámara quieta ({step} de {steps}). No toques la pantalla.",
+    still:
+      "{look}: una lámpara se atenúa, la cámara quieta ({step} de {steps}). No toques la pantalla.",
     interrupted: "se salió del panel, o se perdió la vista 3D: vuelve a medir",
     hidden: "la pantalla se ocultó mientras tanto: vuelve a medir con la pantalla encendida",
-    motion: "Este dispositivo pide menos movimiento: la cámara girará igualmente durante 5 segundos.",
+    motion:
+      "Este dispositivo pide menos movimiento: la cámara girará igualmente durante 5 segundos.",
     busy: "hay otra cosa en marcha en la casa: vuelve a intentarlo cuando termine",
     no_view: "la vista 3D no se dibujó",
     no_demo: "no se pudo abrir la casa de demostración",
@@ -817,7 +826,8 @@ export const main: Dictionary = {
     row_hint: "Una fila por aspecto, para la tabla de dispositivos reales.",
     copy: "Copiar",
     copied: "Copiado.",
-    copy_manual: "Esta aplicación no deja copiar a DomoTwin: el texto está seleccionado, cópialo tú.",
+    copy_manual:
+      "Esta aplicación no deja copiar a DomoTwin: el texto está seleccionado, cópialo tú.",
     unknown: "no indicado",
   },
   panel: {
@@ -862,7 +872,8 @@ export const main: Dictionary = {
     },
     export_upkeep_offer: {
       one: "Plano exportado. {count} de sus objetos tiene una ficha de mantenimiento, guardada aparte del plano.",
-      other: "Plano exportado. {count} de sus objetos tienen una ficha de mantenimiento, guardada aparte del plano.",
+      other:
+        "Plano exportado. {count} de sus objetos tienen una ficha de mantenimiento, guardada aparte del plano.",
     },
     export_upkeep: "Exportar también las fichas de mantenimiento",
     import_cards_failed: {
@@ -889,7 +900,8 @@ export const main: Dictionary = {
     models_reading: "Leyendo los modelos 3D del plano…",
     models_not_embedded: {
       one: "{count} archivo 3D no se pudo añadir a la exportación: su modelo se dejó fuera.",
-      other: "{count} archivos 3D no se pudieron añadir a la exportación: sus modelos se dejaron fuera.",
+      other:
+        "{count} archivos 3D no se pudieron añadir a la exportación: sus modelos se dejaron fuera.",
     },
   },
   edit: {
@@ -918,7 +930,8 @@ export const main: Dictionary = {
     locked: "{name} está fijo en el plano.",
     conflict: "Se solapa con otro objeto o con un muro.",
     too_many: "Este plano ya tiene 500 elementos: quita algunos antes de añadir más.",
-    model_refused: "Este modelo no se puede añadir: un plano tiene como máximo 500 elementos y 50 modelos.",
+    model_refused:
+      "Este modelo no se puede añadir: un plano tiene como máximo 500 elementos y 50 modelos.",
     my_models: "Mis modelos",
     import_model: "Importar un modelo 3D…",
     import_model_hint: "glTF, GLB, OBJ, STL o 3MF, hasta 8 MB",
@@ -1249,7 +1262,8 @@ export const main: Dictionary = {
       invalid_element: "un elemento no es válido.",
       duplicate_id: "dos elementos tienen el mismo ID.",
       position_range: "un objeto no tiene posición, o está colocado a más de 500 m.",
-      invalid_outline: "el contorno de una habitación necesita de 3 a 64 esquinas, dentro de 100 m.",
+      invalid_outline:
+        "el contorno de una habitación necesita de 3 a 64 esquinas, dentro de 100 m.",
       self_intersection: "el contorno de una habitación se cruza consigo mismo.",
       min_area: "una habitación es demasiado pequeña.",
       item_size: "un objeto es demasiado pequeño o demasiado grande.",
@@ -1272,13 +1286,16 @@ export const main: Dictionary = {
         "es un plano de Floorplanner del formato antiguo (XML): vuelve a exportarlo desde Floorplanner como FML.",
       mesh_points:
         "contiene puntos sin caras (una nube de puntos): exporta el escaneo como malla (OBJ, PLY o GLB).",
-      mesh_gltf: "es un glTF con sus datos en otros archivos: exporta el escaneo como un único archivo GLB.",
+      mesh_gltf:
+        "es un glTF con sus datos en otros archivos: exporta el escaneo como un único archivo GLB.",
       mesh_fbx: "es un archivo FBX: exporta el escaneo como OBJ, PLY o GLB.",
-      mesh_too_large: "el escaneo tiene más de 5 millones de triángulos: expórtalo con menos detalle.",
+      mesh_too_large:
+        "el escaneo tiene más de 5 millones de triángulos: expórtalo con menos detalle.",
       robot_map_missing:
         "Home Assistant todavía no tiene ningún mapa de este robot: comprueba que Valetudo publica su mapa por MQTT.",
       not_robot_map: "esta cámara no contiene un mapa de robot de Valetudo.",
-      sh3d_old: "se guardó con un Sweet Home 3D anterior a la 5.3: ábrelo allí y vuelve a guardarlo.",
+      sh3d_old:
+        "se guardó con un Sweet Home 3D anterior a la 5.3: ábrelo allí y vuelve a guardarlo.",
       dxf_binary: "es un dibujo DXF binario: guárdalo como DXF ASCII.",
       scan_usdz:
         "es solo la capa principal de un escaneo: importa el archivo USDZ completo, o el JSON del escaneo.",
@@ -1287,8 +1304,10 @@ export const main: Dictionary = {
       not_model: "no es un archivo 3D que esta aplicación pueda leer, o está dañado.",
       too_many_triangles: "el modelo tiene más de 150 000 triángulos.",
       too_many_meshes: "el modelo tiene más de 5 000 partes una vez desplegado.",
-      external_reference: "el modelo necesita otros archivos: expórtalo como un único archivo (GLB).",
-      unsupported: "el modelo usa una función que esta aplicación no puede leer (mallas comprimidas…).",
+      external_reference:
+        "el modelo necesita otros archivos: expórtalo como un único archivo (GLB).",
+      unsupported:
+        "el modelo usa una función que esta aplicación no puede leer (mallas comprimidas…).",
       no_geometry: "el archivo no contiene ningún triángulo.",
       image_too_large: "una imagen del modelo supera los 4 096 × 4 096 píxeles.",
       model_missing: "falta su archivo 3D en Home Assistant.",
@@ -1303,7 +1322,8 @@ export const main: Dictionary = {
       too_many_screens: "ya hay 20 pantallas de pared: elimina una primero.",
       no_supervisor: "este Home Assistant no tiene aplicaciones.",
       busy: "la voz ya se está configurando.",
-      blueprints_not_written: "no se pudieron escribir los planos (blueprints) en la carpeta de Home Assistant.",
+      blueprints_not_written:
+        "no se pudieron escribir los planos (blueprints) en la carpeta de Home Assistant.",
       revision_conflict: "alguien guardó mientras tanto. Recarga y vuelve a intentarlo.",
       unauthorized: "solo los administradores pueden hacer esto.",
       not_loaded: "DomoTwin no está configurado.",
@@ -1317,13 +1337,15 @@ export const main: Dictionary = {
       unknown_storey: "esta planta ya no existe.",
       unknown_lawn: "los planos no tienen ese césped.",
       invalid_storey: "el nombre o la altura de la planta no es válido.",
-      invalid_people: "quién se ubica a partir de qué no es válido (10 entidades por persona como máximo).",
+      invalid_people:
+        "quién se ubica a partir de qué no es válido (10 entidades por persona como máximo).",
       unknown_person: "esta persona no se muestra en su habitación.",
       invalid_locating:
         "la configuración de Bluetooth no es válida (30 dispositivos como máximo, cada uno reconocido de una sola forma).",
       unknown_device: "este dispositivo no se sigue.",
       unknown_room: "los planos no tienen esa habitación.",
-      invalid_key: "esto no es una clave de identidad: 32 dígitos hexadecimales, irk:… o el base64 de un Mac.",
+      invalid_key:
+        "esto no es una clave de identidad: 32 dígitos hexadecimales, irk:… o el base64 de un Mac.",
       key_not_heard:
         "Home Assistant no oye ningún dispositivo con esta clave: desbloquea el teléfono, tenlo cerca de un receptor y vuelve a intentarlo.",
       key_refused: "Private BLE Device no aceptó la clave.",
@@ -1386,7 +1408,8 @@ export const main: Dictionary = {
     badges: "Insignias sobre los dispositivos (cerraduras, cámaras, baterías…)",
     cameras: "Lo que ven las cámaras",
     names: "Los nombres de las habitaciones",
-    small_rooms: "También los nombres de las habitaciones pequeñas (armarios, habitaciones de menos de 2,5 m²)",
+    small_rooms:
+      "También los nombres de las habitaciones pequeñas (armarios, habitaciones de menos de 2,5 m²)",
     storey_all: "Todas las plantas a la vez",
     spread: "Todas las plantas a la vez: separadas",
     roof: "Todas las plantas a la vez: el tejado",
