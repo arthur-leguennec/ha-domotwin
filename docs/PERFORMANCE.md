@@ -1076,3 +1076,37 @@ most 1 600 a side, larger cells for a larger storey), and the rooms and openings
 those. The plan found is the same however finely the house was scanned. Memory is the file, its
 copy in the module, its positions and its triangles: what a browser on a computer has; a scan of
 millions of triangles is best imported from one.
+
+### M40 (the weather around the home)
+
+Bundle: the first load is **534.9 kB gzipped** of 1 200 kB (+8.9 kB). The engine's wasm grows by
+7.2 kB (387.5 kB gzipped): the weather's shaders (3.1 kB of it, their comments kept as in every
+shader), what a condition means and the footprint, and the fog in the home's and the background's
+shaders. The page grows by 1.7 kB: reading the weather entity and its wind (a chunk of its own,
+0.7 kB gzipped, shared by the view and the Home tab), the view's and the settings' part, and the
+texts. The demo house's weather comes with the demo.
+
+What falls is drawn by the graphics card from its number alone: one instanced draw, six vertices
+a particle, no buffer and no work in the page or in the engine's frame but a dozen uniforms. Its
+counts by quality, rain when it pours: 1 200 (Eco), 3 000 (Balanced) and 6 000 (High); snow 900,
+2 200 and 4 000; hail 600, 1 500 and 3 000; fewer when less falls (two thirds for `rainy`). While something falls
+or a storm flashes, frames come at the layers' pace (24 a second), none while the page is hidden;
+clouds and fog are drawn once.
+
+Measured with the demo apartment at 1 000 × 700 on SwiftShader (software WebGL2, 60 frames each;
+CPU time of a frame, median and 95th percentile, and the interval between frames):
+
+| Quality | Weather | CPU median | CPU p95 | Interval median |
+| --- | --- | --- | --- | --- |
+| Eco | sunny | 0.4 ms | 1.4 ms | 16.7 ms |
+| Eco | pouring | 0.4 ms | 4.1 ms | 16.7 ms |
+| Eco | snowy | 0.3 ms | 1.4 ms | 16.7 ms |
+| Eco | fog | 0.3 ms | 0.8 ms | 16.7 ms |
+| Balanced | sunny | 0.3 ms | 1.4 ms | 16.7 ms |
+| Balanced | pouring | 0.4 ms | 2.8 ms | 16.7 ms |
+| Balanced | snowy | 0.4 ms | 2.5 ms | 16.7 ms |
+| Balanced | fog | 0.3 ms | 0.9 ms | 16.7 ms |
+
+The CPU's part of a frame does not change; the software GPU keeps up with every frame in every
+case. The 95th percentile of the CPU time moves by a few milliseconds from run to run on a shared
+core.

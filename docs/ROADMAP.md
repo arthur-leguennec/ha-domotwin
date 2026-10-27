@@ -52,7 +52,7 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M36       | Configuration history: differences, one item put back      | ✅     |
 | M39       | Hydro-Québec's peaks, from the integrations that read them | ✅     |
 | M20       | More imports: robot vacuum maps, Floorplanner, meshes      | ✅     |
-| M40       | The weather around the home, in 3D                         | ⏳     |
+| M40       | The weather around the home, in 3D                         | ✅     |
 | M41       | Locating measured, next to Bermuda's on the same days      | ⏳     |
 | M45       | An iPhone's key, without a Mac: the ways to get it         | ⏳     |
 | M24       | History and energy, with Home Assistant's own cards        | ⏳     |
@@ -1364,6 +1364,30 @@ rooms' names of a Roborock map (they are in Roborock's cloud); the maps of robot
 in their maker's cloud (pictures, with no rooms to read); kinds of Floorplanner's catalogue
 pieces; furniture and names in a mesh scan; DWG and USD's binary layers, as in M11.
 
+## M40, the weather around the home
+
+Asked for by the maintainer after 0.4.0: a beautiful animation of the weather around the house or
+the apartment, the rain outside an apartment, on the roof of a house (D-065, D-066).
+
+- ✅ **Read from Home Assistant**: the `weather` entity the Home tab shows (`weather.home` first),
+  or one chosen in the settings, or none; its condition, its wind (any of Home Assistant's units,
+  Beaufort too) and where it comes from (degrees or a point of the compass), turned with the
+  home's north. A card turns it off with `weather: false`.
+- ✅ **Drawn by the engine**: rain in streaks that splash, snow in soft flakes that sway, hail,
+  sleet; a greyer, dimmer light under clouds, the sun's shadow on the ground fading with it; fog
+  thickening around the home; a storm's flashes. Around an apartment and never in it, on the roof
+  of a house and off its eaves; seen from inside, through the windows. Nothing on the 2D plan nor
+  on a storey's picture.
+- ✅ **Light**: one instanced draw worked out by the graphics card, a few thousand particles at
+  most, fewer in Eco; frames at the layers' pace while something falls, none for clouds and fog;
+  still with reduced motion.
+- ✅ **The demo house** has its weather: a fine day, a shower and a storm around three.
+- ✅ Tests: conditions, wind and flashes (cargo); the footprint, the counts, the light under clouds
+  (cargo); rain, snow, storms and the plan in the engine (wasm); the wind's units and bearings, the
+  entity chosen or the usual one, the demo's day (vitest); the settings' `weather` validated
+  (pytest); rain, snow, hail and fog drawn and still, an entity that says nothing, the card's
+  option, the settings' choice shown as it is chosen and saved, in French (Playwright).
+
 ## Then, from 0.4.0 to 0.5.0
 
 Planned in D-056, with D-065's additions: the sandbox first, built during the two weeks of use since
@@ -1378,12 +1402,12 @@ before its milestone starts, which goes on with what needs no answer.
 - ✅ **M23b, into Home Assistant's Overview** (D-061, above). Still asked ❓: the 3D view at the
   top of the Overview or of an area's page, and an area's page opening DomoTwin, need Home
   Assistant; whether the Home and Rooms tabs stay where the Overview is.
-- ⏳ **M40, the weather around the home** (asked for by the maintainer): the weather of Home
-  Assistant's `weather` entity drawn around the home in 3D: rain or snow falling outside the walls
-  of an apartment and splashing on the ground around it, on the roof of a house and running off it;
-  a storm's flashes, fog, an overcast light, the wind slanting what falls. Drawn by the engine,
-  light on a phone, still with reduced motion and in Eco; a card's `weather` option, the entity
-  chosen in the settings.
+- ✅ **M40, the weather around the home** (asked for by the maintainer, D-066, above): the weather
+  of Home Assistant's `weather` entity drawn around the home in 3D: rain or snow falling outside the
+  walls of an apartment and splashing on the ground around it, on the roof of a house and running
+  off it; a storm's flashes, fog, an overcast light, the wind slanting what falls. Drawn by the
+  engine, light on a phone, still with reduced motion, fewer particles in Eco; a card's `weather`
+  option, the entity chosen in the settings.
 - ⏳ **M41, locating measured** (D-065), before any new locating feature: a diagnostic for
   administrators that records, for each device followed, its room changes per hour, its storey
   changes per hour and its time in "unknown", and, where Bermuda is installed, the same figures
