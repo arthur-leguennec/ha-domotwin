@@ -35,7 +35,7 @@ describe("the demo house's day (D-050)", () => {
     expect(solarAt(at(13, 0))).toBeLessThanOrEqual(5000);
   });
 
-  it("has a fine day with a storm at three, the panels darker under it (D-067)", () => {
+  it("has a fine day with a storm at three, the panels darker under it (D-068)", () => {
     expect(weatherAt(at(2, 0)).condition).toBe("clear-night");
     expect(weatherAt(at(9, 0)).condition).toBe("sunny");
     expect(weatherAt(at(15, 10)).condition).toBe("rainy");

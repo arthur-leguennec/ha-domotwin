@@ -673,6 +673,9 @@ export const fr: Dictionary = {
     menu: "Wi-Fi des invités",
     button: "Wi-Fi des invités : son code QR",
   },
+  guests: {
+    menu: "Accès invités",
+  },
   tabs: {
     label: "Onglets de DomoTwin",
     home: "Accueil",

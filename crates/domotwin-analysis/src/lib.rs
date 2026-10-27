@@ -1,10 +1,10 @@
 //! DomoTwin's analysis module (`DECISIONS.md`, D-043): reading what Home Assistant hands over
-//! about a radio mesh and about automations, and analysing it, for JavaScript; the home's Wi-Fi QR
-//! code (D-060); and where the next radio helps most (D-066). It is built as its own WebAssembly
-//! module, which the frontend loads only when the network map, the automations, the QR code or the
-//! radio coverage are shown; the engine is handed what it draws (`domotwin_core::network::Drawing`,
-//! the automations' placed ends, the rooms' coverage as a layer), so that none of this is in the
-//! first load.
+//! about a radio mesh and about automations, and analysing it, for JavaScript; the QR codes of the
+//! home's Wi-Fi (D-060) and of a guest's link (D-067); and where the next radio helps most (D-066).
+//! It is built as its own WebAssembly module, which the frontend loads only when the network map,
+//! the automations, a QR code or the radio coverage are shown; the engine is handed what it draws
+//! (`domotwin_core::network::Drawing`, the automations' placed ends, the rooms' coverage as a
+//! layer), so that none of this is in the first load.
 
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used, clippy::panic))]
 
@@ -79,11 +79,29 @@ pub fn wifi_payload(network: &str) -> String {
 #[wasm_bindgen(js_name = wifiQr)]
 pub fn wifi_qr(network: &str) -> String {
     console_error_panic_hook::set_once();
-    let payload = wifi_payload(network);
+    qr_modules(&wifi_payload(network))
+}
+
+/// The longest text `text_qr` encodes: a guest's link is far shorter (D-067).
+const MAX_QR_TEXT: usize = 1000;
+
+/// The QR code of a text, a guest's link (D-067): JSON as `wifi_qr`'s, `{"size": 0}` for an
+/// empty text or one longer than `MAX_QR_TEXT` bytes.
+#[wasm_bindgen(js_name = textQr)]
+pub fn text_qr(text: &str) -> String {
+    console_error_panic_hook::set_once();
+    if text.len() > MAX_QR_TEXT {
+        return json!({ "size": 0 }).to_string();
+    }
+    qr_modules(text)
+}
+
+/// A text's QR code as `wifi_qr` gives it, `{"size": 0}` when it is empty or does not fit.
+fn qr_modules(payload: &str) -> String {
     let code = if payload.is_empty() {
         None
     } else {
-        QrCode::encode_text(&payload, QrCodeEcc::Medium).ok()
+        QrCode::encode_text(payload, QrCodeEcc::Medium).ok()
     };
     let Some(code) = code else {
         return json!({ "size": 0 }).to_string();
@@ -277,6 +295,22 @@ mod tests {
             advise_placement("not json"),
             r#"{"rooms":[],"radios":[],"spots":[]}"#
         );
+    }
+
+    #[test]
+    fn a_guest_link_s_qr_code() {
+        let link = "http://localhost:8123/api/domotwin/guest/Zm9yIGEgZmljdGlvbmFsIGd1ZXN0";
+        let read: Value = serde_json::from_str(&text_qr(link)).unwrap();
+        let size = read["size"].as_i64().unwrap();
+        assert!(size >= 25 && (size - 17) % 4 == 0);
+        let modules = read["modules"].as_str().unwrap();
+        assert_eq!(modules.len() as i64, size * size);
+        assert_eq!(&modules[..7], "1111111");
+        // Nothing to encode, or more than a link: no code, said so.
+        for text in [String::new(), "x".repeat(MAX_QR_TEXT + 1)] {
+            let read: Value = serde_json::from_str(&text_qr(&text)).unwrap();
+            assert_eq!(read, json!({ "size": 0 }));
+        }
     }
 
     #[test]

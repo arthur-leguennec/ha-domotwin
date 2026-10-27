@@ -67,7 +67,7 @@ export interface HarnessOptions {
   accent?: string;
   /** The home's look (the stored settings). */
   homeTheme?: "auto" | "day" | "neon" | "blueprint" | "cartoon" | "clay";
-  /** A fictional `weather.home` in this condition, and a `weather.coast` pouring (D-067). */
+  /** A fictional `weather.home` in this condition, and a `weather.coast` pouring (D-068). */
   weather?: string;
   /** The stored settings' weather: an entity, or `none`. */
   homeWeather?: string;

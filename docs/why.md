@@ -15,6 +15,8 @@ started it down to the device, each step with when it happened:
   (`light.turn_on`).
 - **An action, with nobody signed in**: an action called by something that is no one's (a voice
   satellite, an integration).
+- **A guest pass**: the guests of a [guest pass](guests.md), named as the pass is ("Sam and Lee,
+  with a guest pass").
 - **A change of state**: a sensor that sensed, a helper, another device; followed back in turn
   when it was itself the doing of something else.
 - **An automation or a script that ran**, with, for an administrator, a link to its **trace** in

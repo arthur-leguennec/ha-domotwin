@@ -50,8 +50,9 @@ export async function runAction(
     }
     case "more-info":
       if (!entityId) return "none";
-      // The demo house's entities have no dialog in Home Assistant: DomoTwin's own controls.
-      if (hass.demo) return "controls";
+      // The demo house's entities have no dialog in Home Assistant, nor a guest's page (D-067):
+      // DomoTwin's own controls.
+      if (hass.demo || hass.guest) return "controls";
       fire(node, "hass-more-info", { entityId });
       return "done";
     case "perform-action":
@@ -63,7 +64,7 @@ export async function runAction(
       return "done";
     }
     case "navigate":
-      if (!action.navigation_path || hass.demo) return "none";
+      if (!action.navigation_path || hass.demo || hass.guest) return "none";
       navigate(action.navigation_path);
       return "done";
     case "controls":

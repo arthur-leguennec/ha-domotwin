@@ -54,7 +54,7 @@
 //   Home Assistant's history, statistics and logbook (D-058) answer a fictional day of the
 //   bedroom (`HISTORY` below); historyfail=1 makes the history refuse, nostats=1 leaves the
 //   statistics out; formatstate=1 gives `hass.formatEntityState` (states in words, "°C" after).
-//   weather=<condition> (D-067: a fictional `weather.home` in that condition, wind 18 km/h from
+//   weather=<condition> (D-068: a fictional `weather.home` in that condition, wind 18 km/h from
 //   the south-west, and a `weather.coast` pouring), homeweather=<entity|none> (the stored
 //   settings' choice), weatheroption=0 (the card's `weather: false`)
 //   why=1 (D-059: Home Assistant's logbook and traces of a fictional evening, with live=1: the
@@ -608,6 +608,22 @@ let wifi =
         }
       : undefined;
 window.__wifi = () => wifi;
+// Guest access (D-067): the passes kept, as the integration keeps them, and what was saved.
+let guestPasses = [];
+let guestTokens = 0;
+window.__guestsSaved = [];
+const guestView = (stored) => {
+  const view = { ...stored, path: `/api/domotwin/guest/${stored.token}`, url: null };
+  delete view.token;
+  const now = Date.now();
+  view.status =
+    now >= Date.parse(stored.ends)
+      ? "ended"
+      : now < Date.parse(stored.starts)
+        ? "upcoming"
+        : "open";
+  return view;
+};
 /** What `domotwin/wifi/get` answers, as the integration does: its password only when asked. */
 window.__wifiAsked = [];
 function wifiAnswer(admin, screen, password) {
@@ -1170,6 +1186,35 @@ const connection = {
         for (const listener of listeners) listener({ kind: "wifi", revision: wifiRevision });
         return wifiAnswer(true, "", true);
       }
+      case "domotwin/guests/get":
+        if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        return { passes: guestPasses.map(guestView) };
+      case "domotwin/guests/save": {
+        if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        const change = message.pass;
+        window.__guestsSaved.push(structuredClone(change));
+        if (!change.name) throw { code: "invalid", message: "name" };
+        if (Date.parse(change.ends) <= Date.parse(change.starts)) {
+          throw { code: "ends_before", message: "ends_before" };
+        }
+        if (change.rooms.length === 0 && change.entities.length === 0) {
+          throw { code: "nothing_open", message: "nothing_open" };
+        }
+        const kept = guestPasses.find((p) => p.id === change.id);
+        guestTokens += 1;
+        const token =
+          kept && !change.renew ? kept.token : `fictional${String(guestTokens).padStart(36, "0")}`;
+        const stored = { ...change, id: kept?.id ?? `pass-${guestTokens}`, token };
+        delete stored.renew;
+        guestPasses = kept
+          ? guestPasses.map((p) => (p === kept ? stored : p))
+          : [...guestPasses, stored];
+        return guestView(stored);
+      }
+      case "domotwin/guests/remove":
+        if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        guestPasses = guestPasses.filter((p) => p.id !== message.pass);
+        return { removed: true };
       case "domotwin/wifi/clear":
         if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
         wifi = undefined;

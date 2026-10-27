@@ -32,6 +32,8 @@ form opens straight away:
   `screen` is among the screens you gave (a tablet on the wall of the hall), even when whoever
   signed in there is not an administrator, and even when the card hides its tools (`tools: false`)
   or cannot draw the home in 3D. Only administrators can change it.
+- **A guest pass** that shows it ([guest access](guests.md)) gives it to its guests, on their
+  page.
 - Elsewhere, no button.
 
 The button opens the code, the network's name, and the password hidden behind **Show the

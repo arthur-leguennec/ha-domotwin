@@ -447,7 +447,7 @@ export class Engine {
      */
     setWalk(on: boolean, time_ms: number): boolean;
     /**
-     * Draws the weather around the home (D-067) for one of Home Assistant's conditions
+     * Draws the weather around the home (D-068) for one of Home Assistant's conditions
      * (`rainy`, `snowy`, `fog`…; any other is a clear sky), with its wind: `wind_speed` in m/s
      * and `wind_bearing` in degrees clockwise from north where it comes from (`NaN`: unknown), for
      * a plan whose north is `north` degrees clockwise from its top.
@@ -520,7 +520,7 @@ export class Engine {
      */
     readonly walking: boolean;
     /**
-     * What falls around the home now: `none`, `rain`, `snow`, `sleet` or `hail` (D-067).
+     * What falls around the home now: `none`, `rain`, `snow`, `sleet` or `hail` (D-068).
      */
     readonly weather: string;
 }

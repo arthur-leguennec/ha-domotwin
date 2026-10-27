@@ -562,7 +562,7 @@ void main() {
     plan = mix(plan, vec3(0.95, 0.12, 0.08), bad * 0.7);
     vec3 shaded = mix(aces(color * u_exposure), plan, u_flat);
     shaded = mix(shaded, alert_tone, alert);
-    // The weather's fog (D-067): a veil over the home, thicker around it, where it fades into the
+    // The weather's fog (D-068): a veil over the home, thicker around it, where it fades into the
     // sky's colour; not on the plan.
     float out_of_home = smoothstep(
         u_fog_area.z * 0.5, u_fog_area.z * 1.6, length(v_world.xz - u_fog_area.xy)
@@ -672,9 +672,9 @@ uniform float u_glow_alpha;
 uniform float u_shadows;
 uniform sampler2D u_shadow_map;
 uniform mat4 u_shadow_matrix;
-// The weather's fog (D-067): the ground fades into the sky closer to the home.
+// The weather's fog (D-068): the ground fades into the sky closer to the home.
 uniform float u_fog;
-// How much of the sun the clouds let through (D-067): the shadow on the ground fades with it.
+// How much of the sun the clouds let through (D-068): the shadow on the ground fades with it.
 uniform float u_sun_left;
 
 in vec2 v_uv;
@@ -1262,7 +1262,7 @@ void main() {
 }
 ";
 
-/// What falls around the home (D-067): one particle per instance, its place worked out from its
+/// What falls around the home (D-068): one particle per instance, its place worked out from its
 /// number and the time, so that nothing is stored. Rain falls in streaks and splashes where it
 /// lands, on the ground or on the roof, and runs off the eaves; snow drifts down in flakes; hail
 /// falls in small hard grains. Outside the walls of a home without its roof shown.

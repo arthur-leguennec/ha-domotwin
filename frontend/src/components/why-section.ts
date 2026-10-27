@@ -6,6 +6,7 @@
  */
 import {
   mdiAccount,
+  mdiAccountKeyOutline,
   mdiClockOutline,
   mdiCogOutline,
   mdiFormatListBulletedType,
@@ -63,6 +64,7 @@ const KIND_ICONS: Record<WhyKind, string> = {
   event: mdiLightningBolt,
   trigger: mdiLightningBolt,
   integration: mdiCogOutline,
+  guest: mdiAccountKeyOutline,
   unattributed: mdiPowerPlug,
   lost: mdiHelpRhombusOutline,
 };

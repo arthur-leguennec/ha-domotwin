@@ -236,7 +236,7 @@ export interface ViewOptions {
   people?: boolean;
   /** Where the sun lights from (`fixed` unless set). */
   sun?: SunMode;
-  /** The weather around the home (on unless `false`, D-067). */
+  /** The weather around the home (on unless `false`, D-068). */
   weather?: boolean;
   /** Badges over the devices (on unless `false`). */
   badges?: boolean;
@@ -541,7 +541,7 @@ export interface DebugState {
   look?: string;
   /** Where the sun lights from: `default`, or `<azimuth>:<elevation>:<north>` (the real sun). */
   sun?: string;
-  /** The weather drawn (D-067): `clear`, or `<entity> <condition> <wind m/s> <bearing>:<north>`. */
+  /** The weather drawn (D-068): `clear`, or `<entity> <condition> <wind m/s> <bearing>:<north>`. */
   weather?: string;
   /** What the engine draws falling: `none`, `rain`, `snow`, `sleet` or `hail`. */
   falling?: string;
@@ -710,7 +710,7 @@ export class DomoTwinView extends LitElement {
   planError?: string;
   /** Where north points on the plan, degrees clockwise from its top (the home's settings). */
   north = 0;
-  /** The weather entity drawn around the home, `none`, or nothing for the usual one (D-067). */
+  /** The weather entity drawn around the home, `none`, or nothing for the usual one (D-068). */
   weather?: WeatherChoice;
   /** The home's private rooms (its settings, D-039). */
   privateRooms?: Settings["rooms"];
@@ -3573,7 +3573,7 @@ export class DomoTwinView extends LitElement {
   }
 
   /**
-   * Draws the weather around the home (D-067): the chosen entity's, else the usual one; none when
+   * Draws the weather around the home (D-068): the chosen entity's, else the usual one; none when
    * the option is off or no entity says anything.
    */
   private applyWeather(): void {

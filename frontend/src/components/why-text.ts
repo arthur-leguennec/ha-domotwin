@@ -75,6 +75,8 @@ export function stepWords(
           ? t.t("why.integration_detail", { domain: step.service })
           : t.t("why.integration"),
       };
+    case "guest":
+      return { main: t.t("why.guest", { name: step.text ?? "" }), detail: t.t("why.guest_detail") };
     case "unattributed":
       return { main: t.t("why.unattributed"), detail: t.t("why.unattributed_detail") };
     case "lost":

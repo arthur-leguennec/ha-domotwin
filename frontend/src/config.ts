@@ -76,7 +76,7 @@ export interface CardConfig {
   /** The people in their rooms (D-034), as figures. */
   people: boolean;
   sun: SunMode;
-  /** The weather around the home (D-067): rain, snow, fog and storms, on unless turned off. */
+  /** The weather around the home (D-068): rain, snow, fog and storms, on unless turned off. */
   weather: boolean;
   /** Badges over the devices (locks, cameras, what plays, low batteries, appliances running). */
   badges: boolean;

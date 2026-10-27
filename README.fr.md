@@ -18,10 +18,10 @@ Local, rapide, Rust + WebAssembly.</p>
 > anglais), et tout ce que décrit *Fonctionnalités* marche déjà. Depuis la 0.4.0 sont arrivés le bac
 > à sable, l’historique en tableaux, « Pourquoi ? », le code QR du Wi-Fi pour les invités,
 > l’historique de la configuration, les pointes d’Hydro-Québec, d’autres imports (cartes de robots
-> aspirateurs, Floorplanner, scans en maillage), la couverture radio et la météo autour du logement,
-> et DomoTwin a rejoint la Vue d’ensemble de Home Assistant ; l’historique et l’énergie, la sécurité
-> et l’écran mural suivent, vers la 0.5.0. La proposition à la liste par défaut de HACS attend des
-> mesures sur de vrais appareils.
+> aspirateurs, Floorplanner, scans en maillage), la couverture radio, les pass d’invité et la météo
+> autour du logement, et DomoTwin a rejoint la Vue d’ensemble de Home Assistant ; l’historique et
+> l’énergie, la sécurité et l’écran mural suivent, vers la 0.5.0. La proposition à la liste par
+> défaut de HACS attend des mesures sur de vrais appareils.
 
 ## Ce qui le distingue
 
@@ -114,6 +114,11 @@ Local, rapide, Rust + WebAssembly.</p>
   administrateurs, et sur les écrans muraux que vous choisissez ; le mot de passe reste dans le
   stockage privé de DomoTwin. Voir [le Wi-Fi des
   invités](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/wifi.md) (en anglais).
+- **L’accès invités.** Un pass ouvre des pièces et des appareils choisis à vos invités pour
+  quelques jours : son lien ou son code QR les ouvre sur leur téléphone, en 3D, sans compte Home
+  Assistant, avec le Wi-Fi si vous voulez, et se termine tout seul. Par défaut il ne s’ouvre que sur
+  le réseau du logement ; DomoTwin vérifie chaque requête d’après le pass. Voir [l’accès
+  invités](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/guests.md) (en anglais).
 - **Dans la Vue d’ensemble de Home Assistant.** Une pièce touchée en 3D ouvre la page de sa zone
   dans la Vue d’ensemble (2026.2 et après). La page de chaque zone dit qui est dans la pièce et
   l’entretien à faire, et les cartes de résumé de DomoTwin (les personnes, le réseau, les
