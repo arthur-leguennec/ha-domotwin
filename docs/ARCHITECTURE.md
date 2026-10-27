@@ -103,6 +103,10 @@ every reader returns `Result` with a stable error code that the frontend transla
 - The weekly report (D-081): `components/report-dialog.ts` (its own chunk) shows what
   `domotwin/report/get` answers (`live/report.ts`), each storey's rooms drawn as SVG from their
   outlines; the integration writes the reports (`custom_components/domotwin/report*.py`).
+- The first launch (D-083): `components/first-launch-dialog.ts` (its own chunk) draws the home from
+  Home Assistant's floors and areas and stores it (`domotwin/storeys/replace`, then the links), and
+  lists the steps of getting started; `live/first-launch.ts` lays the rooms out, picks each
+  device's piece, and places pieces along the walls, clear of the doors and of each other.
 - `src/i18n/` holds the English and French dictionaries. Every visible string goes through `t()`.
   The other languages (D-082) are one module each, `src/i18n/lang/<code>.ts`, with every message
   (the main dictionary and the chunks'), loaded when Home Assistant speaks it: the elements Home

@@ -788,6 +788,10 @@ export const main: Dictionary = {
   weekly: {
     menu: "每周报告",
   },
+  first_launch: {
+    start: "根据 Home Assistant 的区域绘制",
+    menu: "快速入门",
+  },
   config_history: {
     menu: "配置历史",
   },

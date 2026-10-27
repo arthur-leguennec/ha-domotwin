@@ -4159,3 +4159,85 @@ English and French) to ten more languages.
     not escaped: a third smaller in Arabic, Chinese, Japanese and Korean.
   - Every new message is written in English and French and added in English to the ten others;
     the tests say what is left to translate.
+
+## D-083 · A first launch in five minutes: the home drawn from Home Assistant's areas (M22)
+
+Last milestone before 0.5.0 (D-056): from the install to one's own home live, in five minutes, with
+what DomoTwin has (M11's imports, M15's and M17's pieces, M20's robot maps and scans, the demo
+house).
+
+- **Context.** An empty home offered four ways in: import a plan, draw one, a robot vacuum's map, or
+  the demo house. Without a plan file, drawing every room by hand was the long way, and then each
+  room had to be linked to its area and each device placed and linked, one by one. Yet Home
+  Assistant already knows the home's floors (with their levels), its areas, and the devices in each:
+  the shape of the home, if not its plan.
+- **Decision.**
+  - **The home drawn from the areas.** On the empty plan, an administrator whose Home Assistant has
+    areas is offered *Draw it from Home Assistant's areas*: a dialog lists the floors, each with its
+    areas (all ticked, each with how many devices DomoTwin would place), and two choices, *Place
+    their devices* and *Furnish the rooms*. *Draw my home* makes a storey per floor, 280 cm a level
+    above the ground floor (level 0, else the lowest; a floor without a level above the others, two
+    at one level one above the other), the areas on no floor on the ground floor, and the home's
+    storeys are replaced in one save, refused if the home changed meanwhile (it had no plan: the
+    offer is only made then).
+  - **A room per area, at a usual size**: what a room is comes from its name (D-045's words: a
+    kitchen, a bedroom…), else its area's icon (`mdi:sofa` a living room, `mdi:bed` a bedroom), and
+    gives it a usual size (a kitchen 360 × 300 cm, a bedroom 360 × 340, a bathroom 260 × 220…). A
+    floor's rooms are laid out in rows, the deepest first, each row stretched to the floor's width,
+    so the storey is a rectangle but for its last row; an outdoor area is a place outside (D-077).
+    Each room is linked to its area.
+  - **Doors, windows, an entrance**: each room is reached from the one before it in its row, the
+    first of a row from the room above it that it shares most with (a door of 80 cm in the middle);
+    the ground floor has an entrance into its hall, else its living room, its dining room, its
+    kitchen… (a garage only when there is nothing else), on its longest outer wall, the street's
+    side rather than the garden's; each room but a hall, a closet or the stairs has a window on the
+    longest stretch of its walls no other room is behind, clear of the doors. A floor of more than
+    150 areas is drawn with its first 150. The engine checks every storey before it is saved
+    (`summarizePlan`).
+  - **The devices placed and linked**: each device of an area (an entity on its own when it has
+    none) is drawn as what its most telling entity says (a vacuum a robot's dock, a television a TV
+    on its stand, a speaker, a thermostat a radiator or a heat pump, a fan, a ceiling fan when it
+    has a light, a humidifier, a camera, a curtain before a window, a smoke or motion sensor, a
+    light a ceiling light, a temperature sensor), and linked to its entities that fit that kind (the
+    link editor's fit, D-017, the reverse way). What says nothing DomoTwin draws (a switch, a door's
+    contact, a button) is left for one to place; hidden and configuration entities too; groups of
+    lights too. A device is placed once, in one room (that of its most telling entity), and counts
+    as placed once one of its entities is linked (or a piece stands for it), as long as that piece
+    is in the home: a link left from an earlier plan places nothing. Outside (a garden, a terrace),
+    a light is a garden light on its post, and what would hang from a wall or a ceiling is left for
+    one to place.
+  - **Furnished**: a bed, a wardrobe and a nightstand in a bedroom, a sofa, a coffee table and an
+    armchair in a living room, a counter, a fridge and a stove in a kitchen, a bath (or a shower in
+    a small bathroom) with its basin and toilet… at the catalogue's sizes (a test reads
+    `catalogue.rs`).
+  - **Where a piece stands**: against a wall, its back to it and facing in, the walls longest first,
+    a large piece in the middle of one, a small one at its ends; or free (a table, a car), from the
+    middle of the room out; a ceiling light where the others are farthest. Never over another piece
+    of its layer (the floor, a wall above the furniture, the ceiling), never in a door's way (75 cm
+    in front of it), a tall piece not before a window; a device that finds no space is left out and
+    counted (*place it in Arrange*), a piece of furniture left out. A plan holds 500 elements: the
+    pieces stop before (480).
+  - **On a plan of one's own too**: *Getting started* places the devices of the areas the storey's
+    rooms are linked to (or named as, D-023), those not linked yet, the same way, around the pieces
+    as *Arrange* left them, its overlay kept; so an imported plan or a robot's map gets its devices
+    in one press. The new pieces take no id a link already has (one left from an earlier plan);
+    their links are added to the home's first (read again if another save came in between), then the
+    plan saved, so a plan refused leaves links to pieces that are not there, which place nothing.
+  - **Getting started**, after drawing and from the ⋮ menu (administrators): a plan; the rooms
+    shaped (the plan editor); each room linked to its area (link mode, how many are not); their
+    devices placed (how many are left, placed in one press); each piece where it stands (Arrange);
+    people in their rooms (the people settings: done once a source says where someone is); the
+    energy (the settings). Each step says whether it is done where that can be known, and opens
+    where it is done.
+  - **Loaded when opened**: the dialog, the steps, the drawing and their texts are one chunk.
+- **Not done.** The rooms' real sizes and shapes (Home Assistant does not know them: one shapes them
+  in the plan editor, or imports a plan); stairs between the storeys; a device whose entities say
+  nothing DomoTwin draws; appliances told by their names (a washing machine), which would need every
+  language's words.
+- **Consequences.**
+  - From the install: the panel, *Draw it from Home Assistant's areas*, *Draw my home*: a home of
+    rooms linked to their areas with their devices placed and linked, in a few presses; then the
+    steps, each a press away. Drawing a fictional home of 24 areas and 300 devices (1 200 entities)
+    takes about 0.3 s.
+  - The first load grows by 1.8 kB (the empty plan's button, the menu item, the panel's part); the
+    rest (13.0 kB gzipped) loads when it is opened.

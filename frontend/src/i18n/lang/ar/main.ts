@@ -876,6 +876,10 @@ export const main: Dictionary = {
   weekly: {
     menu: "التقرير الأسبوعي",
   },
+  first_launch: {
+    start: "رسم المخطط من مناطق Home Assistant",
+    menu: "الخطوات الأولى",
+  },
   config_history: {
     menu: "سجل الإعدادات",
   },

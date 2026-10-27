@@ -120,6 +120,73 @@ export const chunks: Chunks = {
       },
     },
   },
+  first: {
+    first: {
+      title: "Dein Zuhause aus Home Assistant",
+      intro:
+        "DomoTwin zeichnet einen ersten Grundriss aus deinen Etagen und Bereichen: einen Raum für jeden Bereich, nebeneinander, mit seinen Geräten darin, verknüpft. Danach formst du ihn: die echten Maße der Räume, die Türen, wo jedes Objekt steht.",
+      home: "Zuhause",
+      none: "Home Assistant hat noch keinen Bereich: füge deine Räume in seinen Einstellungen als Bereiche hinzu oder importiere einen Grundriss.",
+      floor_all: "{floor}: alle Bereiche",
+      devices_in: { one: "{count} Gerät", other: "{count} Geräte" },
+      devices: "Die Geräte der Bereiche platzieren",
+      devices_hint:
+        "Lichter, Fernseher, Lautsprecher, Thermostate, der Saugroboter, Sensoren…, jeweils in seinem Raum, verknüpft.",
+      furnish: "Die Räume möblieren",
+      furnish_hint:
+        "Ein Bett in jedem Schlafzimmer, ein Sofa im Wohnzimmer, ein Tisch im Esszimmer…",
+      pick: "Wähle mindestens einen Bereich.",
+      build: "Mein Zuhause zeichnen",
+      building: "Dein Zuhause wird gezeichnet…",
+      cancel: "Abbrechen",
+      built: "Dein Zuhause ist gezeichnet: {rooms}, {devices}.",
+      built_rooms: { one: "{count} Raum", other: "{count} Räume" },
+      built_devices: { one: "{count} Gerät platziert", other: "{count} Geräte platziert" },
+      built_left: {
+        one: "{count} Gerät hat keinen Platz gefunden: platziere es unter „Einrichten“.",
+        other: "{count} Geräte haben keinen Platz gefunden: platziere sie unter „Einrichten“.",
+      },
+      failed: "Dein Zuhause konnte nicht gezeichnet werden: {reason}",
+      steps: {
+        title: "Erste Schritte",
+        intro:
+          "Ein paar Schritte, damit DomoTwin zum Zwilling deines Zuhauses wird. Jeder führt dorthin, wo er erledigt wird.",
+        done: "Erledigt",
+        plan: "Ein Grundriss deines Zuhauses",
+        plan_hint: "Aus deinen Bereichen gezeichnet, importiert oder von Hand gezeichnet.",
+        shape: "Die Räume formen",
+        shape_hint: "Ziehe ihre Ecken auf ihre echte Größe; verschiebe die Türen und Fenster.",
+        shape_go: "Grundriss bearbeiten",
+        areas: "Jeder Raum mit seinem Bereich verknüpft",
+        areas_left: {
+          one: "{count} Raum hat noch keinen Bereich.",
+          other: "{count} Räume haben noch keinen Bereich.",
+        },
+        areas_done: "Jeder Raum hat seinen Bereich.",
+        areas_go: "Verknüpfen",
+        devices: "Die Geräte der Räume platziert",
+        devices_left: {
+          one: "{count} Gerät ihrer Bereiche ist noch nicht platziert.",
+          other: "{count} Geräte ihrer Bereiche sind noch nicht platziert.",
+        },
+        devices_done: "Jedes Gerät, das DomoTwin zeichnet, ist platziert.",
+        devices_go: "Platzieren",
+        arrange: "Jedes Objekt an seinem Platz",
+        arrange_hint: "Ziehe die Objekte unter „Einrichten“, drehe sie, füge eigene hinzu.",
+        arrange_go: "Einrichten",
+        people: "Personen in ihren Räumen",
+        people_hint: "Wähle, was sagt, wo jede Person ist: ein Raumsensor, Bluetooth, ein Radar.",
+        people_go: "Personen",
+        energy: "Die Energie",
+        energy_hint:
+          "Wähle die Sensoren für die Leistung des Zuhauses, seiner Solaranlage und seiner Batterie.",
+        energy_go: "Einstellungen",
+        placed: { one: "{count} Gerät platziert.", other: "{count} Geräte platziert." },
+        placed_none: "Kein Gerät mehr zu platzieren.",
+        close: "Schließen",
+      },
+    },
+  },
   guests: {
     guests: {
       title: "Gastzugang",

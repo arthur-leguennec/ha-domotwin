@@ -26,9 +26,10 @@ Local, rapide, Rust + WebAssembly.</p>
 > meubles et objets avec leurs images, un iPhone suivi sans Mac, l’écran mural (son économiseur
 > réveillé par qui arrive), un bilan de la semaine de ce qui est à surveiller, l’extérieur et la
 > pelouse qui pousse, les demi-niveaux, une place dans la pièce, les radars de présence fondus avec
-> le Bluetooth, dix langues de plus, et DomoTwin a rejoint la Vue d’ensemble de Home Assistant ; un
-> premier lancement en cinq minutes ferme le chemin vers la 0.5.0. La proposition à la liste par
-> défaut de HACS attend des mesures sur de vrais appareils.
+> le Bluetooth, dix langues de plus, DomoTwin a rejoint la Vue d’ensemble de Home Assistant, et un
+> premier lancement en cinq minutes, le logement dessiné depuis les zones de Home Assistant avec ses
+> appareils dedans, ferme le chemin vers la 0.5.0. La proposition à la liste par défaut de HACS
+> attend des mesures sur de vrais appareils.
 
 ## Ce qui le distingue
 
@@ -43,6 +44,13 @@ Local, rapide, Rust + WebAssembly.</p>
 
 ## Fonctionnalités
 
+- **Votre logement en cinq minutes.** Pas de plan sous la main ? **Le dessiner depuis les zones de
+  Home Assistant** : une pièce pour chaque zone de chaque étage, côte à côte, reliées par des portes,
+  ses appareils placés dedans et liés (lampes, télés, enceintes, thermostats, la base du robot,
+  capteurs), meublée si vous voulez ; puis *Premiers pas* liste ce qui reste (les vraies dimensions
+  des pièces, les personnes, l’énergie), chaque étape à un clic. Voir [le premier
+  lancement](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/first-launch.md) (en
+  anglais).
 - **Une maison de démo à essayer d’abord.** Avant de dessiner quoi que ce soit, ouvrez DomoTwin et
   choisissez **Essayer la maison de démo** : une maison familiale fictive sur deux niveaux, avec ses
   lampes, rideaux, télés, thermostats, capteurs, un aspirateur robot, des panneaux solaires et une
@@ -395,8 +403,10 @@ Local, rapide, Rust + WebAssembly.</p>
    en maillage (voir [les plans d’autres
    applications](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/imports.md), en
    anglais) ; un robot aspirateur sous Valetudo donne sa carte avec **Importer la carte d’un
-   robot**.
-   Pas encore de plan ? **Essayez la maison de démo** dans le panneau, ou importez l’appartement
+   robot**. Pas de fichier de plan ? **Le dessiner depuis les zones de Home Assistant** : une pièce
+   par zone, ses appareils placés et liés, en quelques clics ([le premier
+   lancement](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/first-launch.md), en
+   anglais). Juste pour voir ? **Essayez la maison de démo** dans le panneau, ou importez l’appartement
    fictif
    [`examples/demo-apartment.domotwin.json`](https://github.com/arthur-leguennec/ha-domotwin/blob/main/examples/demo-apartment.domotwin.json)
    ou

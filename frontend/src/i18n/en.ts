@@ -746,6 +746,10 @@ export const en = {
   weekly: {
     menu: "Weekly report",
   },
+  first_launch: {
+    start: "Draw it from Home Assistant's areas",
+    menu: "Getting started",
+  },
   config_history: {
     menu: "Configuration history",
   },

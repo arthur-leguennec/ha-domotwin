@@ -808,6 +808,10 @@ export const main: Dictionary = {
   weekly: {
     menu: "Weekverslag",
   },
+  first_launch: {
+    start: "Tekenen vanuit de ruimtes van Home Assistant",
+    menu: "Aan de slag",
+  },
   config_history: {
     menu: "Configuratiegeschiedenis",
   },
