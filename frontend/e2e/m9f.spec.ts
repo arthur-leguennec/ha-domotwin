@@ -72,6 +72,35 @@ test.describe("Bluetooth locating (D-035)", () => {
     });
   });
 
+  test("the presence radars are listed, one mirrored (D-080)", async ({ page }) => {
+    await openHarness(page, {
+      mode: "panel",
+      live: true,
+      people: true,
+      bluetooth: true,
+      radars: true,
+    });
+    await settle(page);
+    await fromMenu(page, "bluetooth-settings");
+    const dialog = page.getByTestId("bluetooth-settings-dialog");
+    const bookcase = dialog.locator('[data-radar="bookcase"]');
+    await expect(bookcase).toContainText("In Living room");
+    await expect(bookcase).toContainText("Where its targets are");
+    await expect(bookcase).toContainText("Sees 1 person now");
+    const hall = dialog.locator('[data-radar="shoe-cabinet"]');
+    await expect(hall).toContainText("Not working");
+    // How far only: nothing to mirror.
+    await expect(hall.getByTestId("radar-mirror")).toHaveCount(0);
+    await bookcase.getByTestId("radar-mirror").check();
+    await dialog.getByTestId("bluetooth-save").click();
+    await expect(dialog).toHaveCount(0);
+    const saves = await sent(page, "domotwin/locating/save");
+    expect(saves.at(-1)?.radars).toEqual({
+      bookcase: { mirror: true },
+      "shoe-cabinet": { mirror: false },
+    });
+  });
+
   test("a room is taught by holding a device in it", async ({ page }) => {
     await openHarness(page, { mode: "panel", live: true, people: true, bluetooth: true });
     await settle(page);

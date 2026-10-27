@@ -271,6 +271,14 @@
             "name": "Étage"
           }
         }
+      },
+      "people_seen": {
+        "name": "Personnes vues",
+        "state_attributes": {
+          "seen": {
+            "name": "Non identifiées"
+          }
+        }
       }
     },
     "binary_sensor": {

@@ -17,6 +17,7 @@ import type { summaryEn } from "./summary";
 import type { wallEn } from "./wall";
 import type { whyEn } from "./why";
 import type { wifiEn } from "./wifi";
+import type { radarsEn } from "./radars";
 
 /** A plural message: Intl.PluralRules picks the form. */
 export interface Plural {
@@ -63,6 +64,7 @@ type AllMessages = typeof en &
   typeof measuredEn &
   typeof libraryEn &
   typeof iphoneEn &
+  typeof radarsEn &
   typeof wallEn;
 /** Keys of plain messages, e.g. `view.loading`. */
 export type MessageKey = Leaves<AllMessages, string>;

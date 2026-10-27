@@ -15,28 +15,14 @@ from .people import Place
 
 
 def piece_rooms(storeys: Iterable[Mapping[str, Any]]) -> dict[str, str]:
-    """The room of every piece of the stored storeys (with their overlays), by piece id."""
-    storeys = list(storeys)
-    home = Home(storeys)
-    named: dict[str, str] = {}
-    for storey in storeys:
-        plan = storey.get("plan")
-        items = plan.get("items") if isinstance(plan, Mapping) else None
-        for item in items if isinstance(items, list) else []:
-            if isinstance(item, Mapping) and isinstance(item.get("id"), str):
-                room = item.get("room")
-                if isinstance(room, str) and room in home.rooms:
-                    named[item["id"]] = room
-        # A piece moved or added in edit mode follows the room its overlay names
-        # (`docs/edit-mode.md`), which comes before the plan's.
-        layout = storey.get("layout")
-        for piece, entry in (layout if isinstance(layout, Mapping) else {}).items():
-            room = entry.get("room") if isinstance(entry, Mapping) else None
-            if isinstance(room, str) and room in home.rooms:
-                named[piece] = room
+    """The room of every piece of the stored storeys (with their overlays), by piece id.
+
+    The room it says it is in (its overlay's first, `docs/edit-mode.md`), else the one under it.
+    """
+    home = Home(list(storeys))
     rooms: dict[str, str] = {}
     for piece, spot in home.pieces.items():
-        room = named.get(piece) or home.room_at(spot.storey, (spot.x, spot.y))
+        room = home.piece_rooms.get(piece) or home.room_at(spot.storey, (spot.x, spot.y))
         if room is not None:
             rooms[piece] = room
     return rooms

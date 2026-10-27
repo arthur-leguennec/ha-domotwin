@@ -90,6 +90,8 @@ LOCATING_STORAGE_KEY: Final = f"{DOMAIN}.locating"
 LOCATING_LEARNED_KEY: Final = f"{DOMAIN}.locating_learned"
 LOCATING_STORAGE_VERSION: Final = 1
 MAX_LOCATED: Final = 30
+# The presence radars given settings of their own (D-080), at most.
+MAX_RADARS: Final = 50
 MAX_RECEIVERS: Final = 64
 MAX_LOCATED_NAME: Final = 60
 # An identity key as the tools that read one write it (spaces, `irk:`), at most (D-075).
@@ -99,6 +101,8 @@ LOCATED_KINDS: Final = ("phone", "watch", "thing")
 TEACH_SECONDS: Final = (10, 120)
 # Dispatcher signal sent when a followed device moves, is lost or left behind: (device id,).
 SIGNAL_LOCATED: Final = f"{DOMAIN}_located"
+# Dispatcher signal sent when the people the presence radars see change (D-080).
+SIGNAL_SEEN: Final = f"{DOMAIN}_seen"
 # The placement advisor (docs/DECISIONS.md, D-066): the Wi-Fi access points placed on the plan, at
 # most this many, each named this long, at a point this far from the plan's origin at most (cm).
 MAX_ACCESS_POINTS: Final = 16

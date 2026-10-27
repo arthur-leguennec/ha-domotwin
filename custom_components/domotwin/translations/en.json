@@ -271,6 +271,14 @@
             "name": "Storey"
           }
         }
+      },
+      "people_seen": {
+        "name": "People seen",
+        "state_attributes": {
+          "seen": {
+            "name": "Not identified"
+          }
+        }
       }
     },
     "binary_sensor": {

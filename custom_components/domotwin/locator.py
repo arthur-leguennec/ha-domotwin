@@ -14,7 +14,7 @@ from collections import deque
 from collections.abc import Callable
 import contextlib
 import copy
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta
 import math
 import statistics
@@ -31,7 +31,11 @@ from homeassistant.helpers import (
     entity_registry as er,
 )
 from homeassistant.helpers.dispatcher import async_dispatcher_connect, async_dispatcher_send
-from homeassistant.helpers.event import async_call_later, async_track_time_interval
+from homeassistant.helpers.event import (
+    async_call_later,
+    async_track_state_change_event,
+    async_track_time_interval,
+)
 from homeassistant.helpers.json import json_bytes_sorted
 from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
@@ -43,18 +47,37 @@ from .const import (
     LOCATING_STORAGE_VERSION,
     MAX_KEY_TEXT,
     SIGNAL_LOCATED,
+    SIGNAL_SEEN,
     SIGNAL_UPDATED,
 )
 from .locating.cells import Cells
 from .locating.cloud import Cloud
 from .locating.filter import PRESENCE_ON, RoomFilter, presence_weight
-from .locating.geometry import HELD_AT, Home, Spot
+from .locating.geometry import HELD_AT, Home, Spot, number
 from .locating.identity import ADDRESS, Match, Matcher, beacon_of, parse_key, resolvable
 from .locating.measure import Measure
+from .locating.radar import (
+    FIELD,
+    REACH,
+    TARGET_SPREAD,
+    Radar,
+    Reading,
+    Sight,
+    Signals,
+    Target,
+    cell_weight,
+    follow,
+    length,
+    look,
+    match,
+    room_weights,
+    signals,
+)
 from .locating.radio import AT_1M, Key, Learned, Model, cell_prior, prior
 from .locating.radio_ha import Advert, Radio, ha_radio
 from .people import NOWHERE, Area, area_spellings, norm, rooms_of
 from .storage import DomoTwinData, RevisionConflictError
+from .upkeep import piece_names
 
 # How often the rooms are worked out, and how many seconds of packets are taken together.
 TICK: Final = timedelta(seconds=2)
@@ -90,18 +113,29 @@ MAX_CANDIDATES: Final = 30
 SPOT_MOVED: Final = 100.0
 SPREAD_CHANGED: Final = 0.25
 SPREAD_CHANGED_LEAST: Final = 30.0
+# The presence radars (D-080): what they see is read this long after it changes (a burst of
+# changes, one reading: once a second at most), and someone a radar sees is told again once they
+# moved this far (cm). A radar on a wall stands this far into its room at most.
+RADAR_DELAY: Final = 1.0
+SEEN_MOVED: Final = 50.0
+RADAR_NUDGE: Final = 40.0
 
 type Readings = dict[str, float]
 
 
 def empty_locating() -> dict[str, Any]:
     """Return the settings before any is set: nothing followed, learning from presence sensors."""
-    return {"version": 1, "learn": True, "receivers": {}, "devices": {}}
+    return {"version": 1, "learn": True, "receivers": {}, "devices": {}, "radars": {}}
 
 
 def located_unique_id(entry_id: str, device: str) -> str:
     """The unique id of a followed device's room sensor."""
     return f"{entry_id}_located_{device}"
+
+
+def seen_unique_id(entry_id: str) -> str:
+    """The unique id of the sensor of the people the presence radars see (D-080)."""
+    return f"{entry_id}_people_seen"
 
 
 @dataclass
@@ -114,8 +148,11 @@ class Located:
     receivers: int = 0
     last_seen: datetime | None = None
     left_behind: bool = False
-    # Where in its room (D-079): on its storey's plan (cm), how high, and how far around (cm).
+    # Where in its room (D-079): on its storey's plan (cm), how high, and how far around (cm); as
+    # told (a radar's target when one is its person's, D-080), and as its cloud finds it.
     spot: tuple[float, float, float, float] | None = None
+    estimate: tuple[float, float, float, float] | None = None
+    seen: bool = False
 
 
 @dataclass(frozen=True)
@@ -134,10 +171,35 @@ class _Weighed:
 
     readings: Readings
     listening: list[str]
-    # Seconds since it was last weighed; how loud the device is; the presence sensors' weights.
+    # Seconds since it was last weighed; how loud the device is; the presence sensors' weights,
+    # and whether what the radars see weighs too (a device people carry, D-080).
     elapsed: float
     offset: float
     weights: dict[str, float]
+    carried: bool = False
+
+
+@dataclass
+class _Radars:
+    """The presence radars on the plans (D-080), and what they see.
+
+    Each radar and the entities it reads; what they see now, and the people no device names,
+    numbered as they are followed; how to stop following them.
+    """
+
+    radars: list[Radar] = field(default_factory=list)
+    signals: dict[str, Signals] = field(default_factory=dict)
+    sight: Sight = field(default_factory=Sight)
+    # Each cell's weight from what they see now (worked out once for every device).
+    weights: dict[int, float] = field(default_factory=dict)
+    seen: dict[int, Target] = field(default_factory=dict)
+    count: int = 0
+    next: int = 0
+    # The rooms of the people seen (as told), and where each person matched was seen last.
+    rooms: tuple[str, ...] = ()
+    matched: dict[str, tuple[float, float]] = field(default_factory=dict)
+    stop: Callable[[], None] | None = None
+    later: Callable[[], None] | None = None
 
 
 @dataclass
@@ -210,6 +272,57 @@ def _work_out(
     """What each receiver should hear in each room, the plans in cells, and in each cell."""
     cells = Cells(home)
     return prior(home, places), cells, cell_prior(home, cells, places)
+
+
+def _told(
+    located: Located, spot: tuple[float, float, float, float] | None, seen: bool, force: bool
+) -> bool:
+    """Tell a device's spot when it moved enough (or `force`: its room changed); whether it moved.
+
+    Once it moved `SPOT_MOVED` (`SEEN_MOVED` where a radar sees it, `seen`: its place is surer),
+    or how far around it the device may be changed by `SPREAD_CHANGED` of it, or a radar sees it
+    or no longer does: not at each reading (D-079, D-080).
+    """
+    before = located.spot
+    moved = (
+        (spot is None) != (before is None)
+        or seen != located.seen
+        or (
+            spot is not None
+            and before is not None
+            and (
+                math.dist(spot[:2], before[:2]) >= (SEEN_MOVED if seen else SPOT_MOVED)
+                or abs(spot[3] - before[3]) >= max(SPREAD_CHANGED_LEAST, SPREAD_CHANGED * before[3])
+            )
+        )
+    )
+    if force or moved:
+        located.spot, located.seen = spot, seen
+    return moved
+
+
+def _seen_moved(before: dict[int, Target], now: dict[int, Target]) -> bool:
+    """Whether the people no device names changed: one came or went, or moved `SEEN_MOVED`."""
+    return before.keys() != now.keys() or any(
+        before[n].room != t.room or math.dist((before[n].x, before[n].y), (t.x, t.y)) >= SEEN_MOVED
+        for n, t in now.items()
+    )
+
+
+def _room_ahead(home: Home, radar: Radar) -> str | None:
+    """The room a radar looks into.
+
+    Its piece's own, else where it stands, else a little ahead of it (a radar on a wall).
+    """
+    own = home.piece_rooms.get(radar.id)
+    if own in home.rooms and home.rooms[own].storey == radar.storey:
+        return own
+    fx, fy = radar.front
+    for step in range(9):
+        ahead = RADAR_NUDGE * step / 8
+        if room := home.room_at(radar.storey, (radar.x + fx * ahead, radar.y + fy * ahead)):
+            return room
+    return None
 
 
 class Locator:
@@ -288,6 +401,8 @@ class Locator:
         # Each spelling of an area (its id, its name, its aliases) -> the area: Bermuda's sensor
         # may say only its area's name.
         self._area_names: dict[str, str] = {}
+        # The presence radars on the plans, what they see (D-080).
+        self.radar = _Radars()
 
     # Settings and what was learned.
 
@@ -296,7 +411,7 @@ class Locator:
         stored = await self._store.async_load()
         settings = empty_locating()
         if isinstance(stored, dict):
-            for key in ("learn", "receivers", "devices"):
+            for key in ("learn", "receivers", "devices", "radars"):
                 if key in stored:
                     settings[key] = stored[key]
             self.revision = int(stored.get("revision", 0))
@@ -316,7 +431,10 @@ class Locator:
 
     @property
     def settings(self) -> dict[str, Any]:
-        """The settings: `learn`, `receivers` (source -> place), `devices` (id -> device)."""
+        """The settings: `learn`, `receivers` (source -> place), `devices` (id -> device), `radars`.
+
+        `radars`: the presence radars' own settings, by piece (D-080): `mirror`.
+        """
         return self._settings
 
     def _learned_data(self) -> dict[str, Any]:
@@ -359,6 +477,7 @@ class Locator:
         devices: dict[str, Any],
         learn: bool | None = None,
         expected_revision: int | None = None,
+        radars: dict[str, Any] | None = None,
     ) -> int:
         """Store where the receivers are and which devices are followed (checked by validation).
 
@@ -371,6 +490,16 @@ class Locator:
         self._settings["devices"] = devices
         if learn is not None:
             self._settings["learn"] = learn
+        if radars is not None:
+            # Those not said of (not on the plans when the settings were read: their device away
+            # for a moment) keep theirs while their piece is there; not mirrored is as if unsaid.
+            kept = {
+                piece: own
+                for piece, own in self._settings.get("radars", {}).items()
+                if piece not in radars and (piece in self.home.pieces or not self.home.rooms)
+            }
+            merged = {**kept, **radars}
+            self._settings["radars"] = {p: own for p, own in merged.items() if own.get("mirror")}
         for device in [d for d in self._offsets if d not in devices]:
             del self._offsets[device]
         return await self._async_commit()
@@ -427,6 +556,7 @@ class Locator:
         for _, unfollow, _ in self._addresses.values():
             unfollow()
         self._addresses = {}
+        self._watch_radars([])
         if self._rebuild_later is not None:
             self._rebuild_later()
             self._rebuild_later = None
@@ -604,6 +734,214 @@ class Locator:
                 # Other cells: the cloud starts again, around the room told.
                 if not same or device not in self._clouds:
                     self._clouds[device] = Cloud(cells)
+            self._find_radars(home)
+
+    # The presence radars (D-080).
+
+    def _find_radars(self, home: Home) -> None:
+        """Find the radars on the plans, and follow what they read.
+
+        A radar is a piece linked to a device (or to entities) that say where or how far someone
+        is: where it stands, which way it looks, the entities it reads.
+        """
+        registry = er.async_get(self._hass)
+        own = self._settings.get("radars", {})
+        radars: list[Radar] = []
+        found: dict[str, Signals] = {}
+        for piece, binding in sorted(self._data.bindings.get("elements", {}).items()):
+            if not isinstance(binding, dict) or piece not in home.pieces:
+                continue
+            names: dict[str, str] = {}
+            if isinstance(device := binding.get("device"), str):
+                for entry in er.async_entries_for_device(registry, device):
+                    if not entry.disabled:
+                        names[entry.entity_id] = entry.name or entry.original_name or ""
+            for linked in binding.get("entities", []):
+                if isinstance(linked, dict) and isinstance(entity := linked.get("entity_id"), str):
+                    known = registry.async_get(entity)
+                    names.setdefault(
+                        entity, (known.name or known.original_name or "") if known else ""
+                    )
+            said = signals(names.items())
+            if said.kind is None:
+                continue
+            spot = home.pieces[piece]
+            turn = home.turns.get(piece, 0.0)
+            radar = Radar(
+                piece,
+                spot.storey,
+                spot.x,
+                spot.y,
+                turn,
+                None,
+                number(binding.get("fov")) or FIELD,
+                number(binding.get("range")) or REACH,
+                own.get(piece, {}).get("mirror") is True,
+            )
+            radars.append(replace(radar, room=_room_ahead(home, radar)))
+            found[piece] = said
+        before = [radar.id for radar in self.radar.radars]
+        self.radar.radars, self.radar.signals = radars, found
+        self._watch_radars([e for said in found.values() for e in said.entities])
+        self._radar_refresh()
+        # Radars added or gone: the sensor of the people they see follows.
+        if before != [radar.id for radar in radars]:
+            async_dispatcher_send(self._hass, SIGNAL_SEEN)
+
+    def radars_shown(self) -> list[dict[str, Any]]:
+        """The radars on the plans, for the settings: where each is, what it says, what it sees."""
+        sight = self.radar.sight
+        names = piece_names(self._data.storeys)
+        return [
+            {
+                "piece": radar.id,
+                "name": names.get(radar.id, radar.id),
+                "room": radar.room,
+                "kind": self.radar.signals[radar.id].kind,
+                "working": radar.id in sight.readings,
+                "seeing": sum(1 for target in sight.targets if radar.id in target.radars),
+                "mirror": radar.mirror,
+            }
+            for radar in self.radar.radars
+        ]
+
+    def _watch_radars(self, entities: list[str]) -> None:
+        """Read the radars again soon whenever one of their entities changes."""
+        if self.radar.stop is not None:
+            self.radar.stop()
+            self.radar.stop = None
+        if self.radar.later is not None:
+            self.radar.later()
+            self.radar.later = None
+        if entities and not self._stopped:
+            self.radar.stop = async_track_state_change_event(
+                self._hass, entities, self._radar_changed
+            )
+
+    @callback
+    def _radar_changed(self, event: Any) -> None:
+        if self.radar.later is None:
+            self.radar.later = async_call_later(self._hass, RADAR_DELAY, self._radar_refresh)
+
+    @callback
+    def _radar_refresh(self, now: Any = None) -> None:
+        """What the radars see now: the people they see, who each is, the others."""
+        self.radar.later = None
+        self._look()
+        self._tell({})
+
+    def _look(self) -> None:
+        """What the radars see now; the cells' weights from it are worked out again as needed."""
+        self.radar.sight = look(self.home, self.radar.radars, self._radar_readings())
+        self.radar.weights = {}
+
+    def _cell_weights(self, kept: list[int]) -> dict[int, float]:
+        """Each kept cell's weight from what the radars see, once for every device."""
+        weights = self.radar.weights
+        cells = self.cells.cells
+        for k in kept:
+            if k not in weights:
+                weights[k] = cell_weight(self.home, cells[k], self.radar.sight)
+        return {k: weights[k] for k in kept}
+
+    def _radar_readings(self) -> dict[str, Reading]:
+        """What each working radar says now (one whose entities are unavailable says nothing).
+
+        A target at 0, 0 or behind the radar is none. A distance counts while the radar's
+        presence is on; off, it says nobody is there; with its presence unknown, the radar says
+        nothing now.
+        """
+        readings: dict[str, Reading] = {}
+        for radar in self.radar.radars:
+            said = self.radar.signals[radar.id]
+            states = {e: self._hass.states.get(e) for e in said.entities}
+            if all(state is None or state.state == "unavailable" for state in states.values()):
+                continue
+            there = states[said.presence] if said.presence else None
+            present = {"on": True, "off": False}.get(there.state) if there is not None else None
+            if said.kind == "distance":
+                state = states[said.distance] if said.distance else None
+                distance = (
+                    length(state.state, state.attributes.get("unit_of_measurement"), "cm")
+                    if state is not None and present
+                    else None
+                )
+                if present is not None:
+                    # On with no distance (someone sitting still): there, not said where.
+                    far = distance if distance is not None and distance > 0 else None
+                    readings[radar.id] = Reading(distance=far, present=present)
+                continue
+            targets = []
+            for across, ahead in said.targets:
+                x, y = states[across], states[ahead]
+                if x is None or y is None:
+                    continue
+                cm = (
+                    length(x.state, x.attributes.get("unit_of_measurement"), "mm"),
+                    length(y.state, y.attributes.get("unit_of_measurement"), "mm"),
+                )
+                if cm[0] is not None and cm[1] is not None and cm[1] > 0:
+                    targets.append((cm[0], cm[1]))
+            readings[radar.id] = Reading(tuple(targets), present=present)
+        return readings
+
+    def _tell(self, changed: dict[str, bool]) -> None:
+        """Tell where each device is, and the people no device names (D-080).
+
+        A carried device told in a room whose person a radar sees there is where that target is;
+        the others are where their cloud says. A device's sensor is written when its room
+        changed (`changed`), or its spot moved.
+        """
+        devices = self._settings["devices"]
+        # Who each carried device is (its owner, else itself): a phone and a watch are one person,
+        # the surest of them saying where they are; one left behind is no one's now.
+        owners: dict[str, str] = {}
+        carried: dict[str, tuple[str, int, tuple[float, float]]] = {}
+        sureness: dict[str, float] = {}
+        for device, located in self.located.items():
+            settings = devices.get(device, {})
+            at = located.estimate
+            if (
+                settings.get("kind") == "thing"
+                or located.left_behind
+                or located.room not in self.home.rooms
+                or at is None
+            ):
+                continue
+            owner = settings.get("person") or f"device:{device}"
+            owners[device] = owner
+            if located.confidence > sureness.get(owner, -1.0):
+                sureness[owner] = located.confidence
+                carried[owner] = (located.room, self.home.rooms[located.room].storey, at[:2])
+        found = match(carried, list(self.radar.sight.targets), self.radar.matched)
+        self.radar.matched = {owner: (t.x, t.y) for owner, t in found.items()}
+        matched = {
+            device: target
+            for device, owner in owners.items()
+            if (target := found.get(owner)) is not None and target.room == self.located[device].room
+        }
+        for device, located in self.located.items():
+            spot = located.estimate
+            if (target := matched.get(device)) is not None:
+                floor = self.home.elevations[target.storey]
+                spot = (target.x, target.y, floor + HELD_AT, TARGET_SPREAD)
+            moved = _told(located, spot, target is not None, changed.get(device, False))
+            if changed.get(device, False) or moved:
+                async_dispatcher_send(self._hass, SIGNAL_LOCATED, device)
+        named = set(found.values())
+        others = follow(
+            self.radar.seen,
+            [t for t in self.radar.sight.targets if t not in named],
+            self.radar.next,
+        )
+        self.radar.next = max(self.radar.next, max(others, default=-1) + 1)
+        # Told again when someone no device names moved, or anyone seen changed rooms (the sensor
+        # counts only those of rooms open to everyone).
+        rooms = tuple(sorted(target.room for target in self.radar.sight.targets))
+        if _seen_moved(self.radar.seen, others) or rooms != self.radar.rooms:
+            self.radar.seen, self.radar.rooms = others, rooms
+            self.radar.count = len(rooms)
+            async_dispatcher_send(self._hass, SIGNAL_SEEN)
 
     def _build_model(self) -> None:
         self.model = Model(self._prior, self._learned)
@@ -764,18 +1102,23 @@ class Locator:
             # A receiver new to the locating (a proxy that connected late): placed and modelled.
             self._schedule_rebuild()
         listening = [source for source, _, idle in receivers if idle <= LISTENING]
-        moment = _Moment(now, seconds, listening, self._presence_weights())
+        # What the radars see weighs as presence sensors do (D-080): the stronger of the two.
+        self._look()
+        weights = self._presence_weights()
+        for room, weight in room_weights(self.radar.sight.targets).items():
+            weights[room] = max(weights.get(room, 1.0), weight)
+        moment = _Moment(now, seconds, listening, weights)
+        changed: dict[str, bool] = {}
         for device, settings in self._settings["devices"].items():
             located = self.located.setdefault(device, Located())
             readings = self._readings(device, now)
-            changed = self._step(device, located, readings, moment)
+            changed[device] = self._step(device, located, readings, moment)
             left = self._left_behind(settings, located)
             if left != located.left_behind:
                 located.left_behind = left
-                changed = True
-            # The sensors are written when the room changes, not at each reading (the history).
-            if changed:
-                async_dispatcher_send(self._hass, SIGNAL_LOCATED, device)
+                changed[device] = True
+        # The sensors are written when the room changes or the spot moves, not at each reading.
+        self._tell(changed)
         self._forget_old_addresses(now)
         self._measure(seconds, moment.weights)
         if self._learned_changed and now - self._model_built >= RELEARN:
@@ -869,7 +1212,7 @@ class Locator:
                 if (cloud := self._clouds.get(device)) is not None:
                     cloud.clear()
                 located.room, located.since, located.confidence = None, None, 0.0
-                located.receivers, located.spot = 0, None
+                located.receivers, located.estimate = 0, None
                 return True
             return False
         # The time since it was last weighed passes for the filter, unheard seconds too.
@@ -899,21 +1242,10 @@ class Locator:
         located.receivers = len(readings)
         located.last_seen = dt_util.utcnow()
         offset = fit.offset if fit is not None else offset
-        spot = self._spot(
-            device, room, _Weighed(readings, moment.listening, elapsed, offset, weights)
+        located.estimate = self._spot(
+            device, room, _Weighed(readings, moment.listening, elapsed, offset, weights, carried)
         )
-        moved = (spot is None) != (located.spot is None) or (
-            spot is not None
-            and located.spot is not None
-            and (
-                math.dist(spot[:2], located.spot[:2]) >= SPOT_MOVED
-                or abs(spot[3] - located.spot[3])
-                >= max(SPREAD_CHANGED_LEAST, SPREAD_CHANGED * located.spot[3])
-            )
-        )
-        if changed or moved:
-            located.spot = spot
-        return changed or moved
+        return changed
 
     def _spot(
         self, device: str, room: str | None, weighed: _Weighed
@@ -935,7 +1267,9 @@ class Locator:
             weighed.listening,
             weighed.offset,
         )
-        cloud.update(dict(zip(kept, scores, strict=True)), weighed.weights)
+        # Where the radars see someone, or nobody (D-080): for what people carry.
+        seen = self._cell_weights(kept) if weighed.carried and self.radar.sight.radars else {}
+        cloud.update(dict(zip(kept, scores, strict=True)), weighed.weights, seen)
         found = cloud.spot(room)
         if found is None:
             return None

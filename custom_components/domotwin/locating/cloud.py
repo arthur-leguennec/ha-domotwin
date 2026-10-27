@@ -92,16 +92,27 @@ class Cloud:
                     moved[other] = moved.get(other, 0.0) + share
             self.chances = moved
 
-    def update(self, scores: Mapping[int, float], weights: Mapping[str, float]) -> None:
-        """Weigh what was heard (a log score by cell) and the presence sensors (weights by room)."""
+    def update(
+        self,
+        scores: Mapping[int, float],
+        weights: Mapping[str, float],
+        seen: Mapping[int, float] | None = None,
+    ) -> None:
+        """Weigh what was heard, the presence sensors and what the radars see.
+
+        What was heard is a log score by cell, the presence sensors' a weight by room, and what
+        the radars see a weight by cell (D-080).
+        """
         if not scores:
             return
         best = max(scores.values())
         cells = self._cells.cells
+        seen = seen or {}
         self.chances = {
             k: p
             * math.exp(TEMPER * (scores.get(k, best - 50.0) - best))
             * weights.get(cells[k].room, 1.0)
+            * seen.get(k, 1.0)
             for k, p in self.chances.items()
         }
         self._normalise()
