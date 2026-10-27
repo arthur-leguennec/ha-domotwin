@@ -1336,6 +1336,7 @@ export const main: Dictionary = {
     ws: {
       not_in_sandbox: "나중에 할 동작은 샌드박스가 아니라 실제 집에 속합니다.",
       too_many_favourites: "즐겨찾기가 이미 100개입니다: 먼저 별표 하나를 빼세요.",
+      too_many_shortcuts: "바로가기가 이미 24개입니다: 먼저 하나를 삭제하세요.",
       invalid_screen: "이 화면의 레이아웃을 저장할 수 없습니다.",
       screen_exists: "같은 이름의 화면이 이미 있습니다.",
       too_many_screens: "벽걸이 화면이 이미 20개입니다: 먼저 하나를 삭제하세요.",

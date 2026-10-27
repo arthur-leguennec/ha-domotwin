@@ -1353,6 +1353,7 @@ export const main: Dictionary = {
       not_in_sandbox: "予約アクションは実際の家のためのもので、サンドボックスでは使えません。",
       too_many_favourites:
         "お気に入りがすでに 100 件あります：先にどれかのスターを外してください。",
+      too_many_shortcuts: "ショートカットがすでに 24 件あります：先にどれかを削除してください。",
       invalid_screen: "この画面のレイアウトは保存できません。",
       screen_exists: "この名前の画面がすでにあります。",
       too_many_screens: "壁掛け画面がすでに 20 台あります：先に 1 台削除してください。",

@@ -4241,3 +4241,79 @@ house).
     takes about 0.3 s.
   - The first load grows by 1.8 kB (the empty plan's button, the menu item, the panel's part); the
     rest (13.0 kB gzipped) loads when it is opened.
+
+## D-084 · Shortcuts on the Home tab: suggested from the home, more options a press away (M46)
+
+Asked by the maintainer after 0.5.0: a 3D plan is beautiful, and the right thing on a tablet on the
+wall, but not to switch every lamp off or to read a car's battery from a phone. The practical side
+comes first on a phone, without the map and without crowding the screen; creating a control should
+start from suggestions, with more settings for those who want them.
+
+- **Context.** The panel already opened on *Home* (D-055) and a device could open on its own tab;
+  *Home* showed the home at a glance, the favourite scenes and the favourites, and *all off* for the
+  lamps on. But a control of one's own (the lamps of a floor off, the shutters closed, a good night
+  of several steps, a value to read) needed a scene or a script written in Home Assistant first.
+- **Decision.**
+  - **Shortcuts, at the top of *Home*,** under the glance: big buttons, each the user's own, kept by
+    the integration with their choices (D-055, validated: at most 24, six steps each, 50 entities a
+    list, a name of 40 characters, the kinds, deeds and icons known, a brightness of 1 to 100 %, a
+    position of 0 to 100 %, a temperature of −50 to 150, the unit's). Each change is sent on its own
+    (`domotwin/choices/shortcut`: one added or changed, one deleted, one moved a place) and made to
+    the list the integration keeps then, never a whole list: a wall screen open for days does not
+    take away what a phone added meanwhile. Changes go one after the other; a refused one is said,
+    and the shortcuts are read again. None is shown, nor suggested, before the user's choices are
+    read: a press on a suggestion then would not start from theirs. A
+    press acts; a shortcut that asks first asks, in a bar under them; a shortcut that only shows a
+    value opens Home Assistant's details of its entity. Each shows its state: how many of what its
+    first step acts on are on, open, unlocked or playing (*3 on*, *All closed*), how warm it is
+    where its thermostats are, a robot's or the alarm's state, or the value it shows (*78 %*), as
+    Home Assistant words it; lit up while some are on. *Change the shortcuts* turns the presses
+    into changes; a long press (a right click) opens one too.
+  - **A shortcut is steps**, each *what* (the lights, the shutters and blinds, the locks, the
+    heating, the music and TV, the robot vacuums, the alarm, a scene or a script), *does* (off, on at
+    a brightness, on or off together; close, open, a position; lock, unlock; eco, a temperature,
+    heat, off; pause, off; start, back to its dock; arm away, at home, for the night; run) and
+    *where* (the home, a floor, a room — Home Assistant's floors and areas — or the devices chosen),
+    some left out. Where is read again at each press: a lamp added to the living room is switched
+    with it. Each step acts on what the viewer may use (D-071) and see (D-039), and only on what it
+    can do something to: what Home Assistant would refuse is not asked, as a call that names one
+    entity that cannot is refused whole (eco on a thermostat that has it, a temperature on one that
+    takes a single one, a position on a blind that takes one, never a garage door, a gate or a
+    window as a blind, pause on what can and plays, a robot started or docked if it can, an alarm
+    armed only in a way it can be; never a lock or an alarm that asks for a code: those are used
+    from their keypad, on *Safety*). The steps run one after the other; one refused does not stop
+    the others, and the button says it.
+  - **Suggested from the home**: *Add a shortcut* lists, by what they are about, what the home's
+    devices make possible, each with how many it acts on, to add as it is or to adjust first: every
+    lamp off, and each floor's; a good night (the lamps off, the shutters closed, the doors locked,
+    the alarm for the night) and leaving home (the lamps and the music off, the doors locked, the
+    alarm armed, the heating in eco, asked first), from what the home has of them; the shutters
+    closed and opened; everything locked; the alarm; the heating in eco where it can be, else at a
+    usual temperature (19 °C, 66 °F); a car's battery (a battery sensor of a car's integration, or
+    of a device whose name says it is a car, in the languages DomoTwin speaks, never a phone's);
+    the music paused;
+    the robots started; a few of the home's scenes and scripts. Those already added are not
+    suggested again. With none yet, the first three, of three kinds, show as dashed buttons on
+    *Home*, added in one press.
+  - **More options, a press away**: the dialog first shows the name, the icon, and each step's what,
+    does and where (and how many it acts on now); *More options* adds what is left out, more steps,
+    what the button shows (how many are on, a device's value, nothing), a question before it acts,
+    and its place among the others.
+  - **Loaded with *Home***: what shortcuts do comes with the Home tab's chunk, the dialog in its own;
+    the first load reads the choices only (their shortcuts read by the Home tab), and the icons not
+    already in it are written in the Home tab's chunk (as the screen saver's, D-076).
+  - **The demo house** has five: the lamps off, the curtains closed, a good night, the heating at
+    19 °C, the home battery.
+  - **The README** says it first: a phone with *Home* and its shortcuts beside a wall screen with
+    the 3D, then the features by theme.
+- **Not done.** Shortcuts shared by everyone (each person has their own, as their favourites);
+  shortcuts on Home Assistant's own dashboards or on a wall screen's layout; a shortcut done later
+  (D-041) or at a time (an automation does it); conditions (only after sunset).
+- **Consequences.**
+  - On a phone, DomoTwin opens on *Home* with the shortcuts under the glance; the 3D is a tab away.
+    A wall screen still opens on its own tab (D-076).
+  - The first load grows by 0.4 kB; the Home tab's chunk by 4.9 kB gzipped; the dialog is
+    5.8 kB gzipped, on demand. Working out the suggestions of a fictional home of 1 200 entities
+    takes about 3.6 ms, and they are worked out again only when the registries change; the states
+    of 10 shortcuts about 1.3 ms, each kind's devices worked out once for each of Home Assistant's
+    states.

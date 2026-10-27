@@ -215,4 +215,7 @@ export const demo: Readonly<Record<string, string>> = {
   Worktop: "조리대",
   "{names} will switch off at {time}.": "{names}: {time}에 꺼질 예정입니다.",
   "{names} will switch on at {time}.": "{names}: {time}에 켜질 예정입니다.",
+  "All the lights off": "모든 조명 끄기",
+  "Close the curtains": "커튼 닫기",
+  "Heating at 19 °C": "난방 19 °C",
 };

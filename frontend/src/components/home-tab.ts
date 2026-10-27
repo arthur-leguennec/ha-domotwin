@@ -1,13 +1,14 @@
 /**
  * `<domotwin-home>`, the Home tab (D-055): the home at a glance (who is in, the lamps on, the
- * doors and windows open, Hydro-Québec's next peak, D-063), the weather, the favourite scenes as
- * big buttons, the other favourites, and the cards the user chose. Every control is Home
- * Assistant's own card. The alerts are above every tab (D-068).
+ * doors and windows open, Hydro-Québec's next peak, D-063), the user's shortcuts (D-084), the
+ * weather, the favourite scenes as big buttons, the other favourites, and the cards the user
+ * chose. Every other control is Home Assistant's own card. The alerts are above every tab (D-068).
  */
 import {
   mdiAccountGroupOutline,
   mdiDoorOpen,
   mdiLightbulbGroupOutline,
+  mdiPlus,
   mdiStar,
   mdiTransmissionTower,
 } from "@mdi/js";
@@ -24,11 +25,26 @@ import { formatPower } from "../live/layers";
 import { peakWords } from "../live/peaks";
 import { timeStyle, whenText } from "../live/schedules";
 import { NOTHING_UNSEEN, seen, type Unseen } from "../live/privacy";
-import { define } from "./define";
+import {
+  MAX_SHORTCUTS,
+  changeShortcuts,
+  firstSuggestions,
+  newId,
+  readShortcuts,
+  runShortcut,
+  shownState,
+  suggestions,
+  type ShownState,
+  type Shortcut,
+  type ShortcutChange,
+  type Suggestion,
+} from "../live/shortcuts";
+import { define, fire } from "./define";
 import "./ha-card";
 import { icon } from "./icon";
 import { avatar, avatarStyles } from "./person-avatar";
 import { practicalStyles, starButton } from "./practical-styles";
+import { PENCIL, SHORTCUT_GLYPHS } from "./shortcut-icons";
 import { baseStyles } from "./styles";
 
 /** What a chip of the glance opens. */
@@ -47,6 +63,12 @@ function cardOf(home: HomeCard): CardConfig {
   }
 }
 
+/** What the shortcuts' dialog is open on: suggestions to add, or a shortcut to change. */
+type ShortcutDialog = { mode: "add" } | { mode: "edit"; shortcut: Shortcut };
+
+/** How long a shortcut shows it was pressed (ms). */
+const RAN_MS = 1200;
+
 /** The lights the viewer may switch (their rights, D-071). */
 function usableLights(hass: HomeAssistant | undefined, lights: string[]): string[] {
   const canAct = hass?.canAct;
@@ -59,10 +81,17 @@ export class DomoTwinHome extends LitElement {
     t: { attribute: false },
     choices: { attribute: false },
     can3d: { type: Boolean },
+    shortcutsReady: { type: Boolean },
     sources: { attribute: false },
     unseen: { attribute: false },
     open: { state: true },
     refused: { state: true },
+    editing: { state: true },
+    asking: { state: true },
+    dialog: { state: true },
+    dialogReady: { state: true },
+    said: { state: true },
+    ran: { state: true },
   };
 
   hass?: HomeAssistant;
@@ -74,11 +103,29 @@ export class DomoTwinHome extends LitElement {
   unseen: Unseen = NOTHING_UNSEEN;
   /** The 3D view can be shown: the peak's rooms can be seen there. */
   can3d = false;
+  /** The user's choices are read: their shortcuts are shown, and may be changed. */
+  shortcutsReady = false;
   /** The chip whose details are open. */
   protected open?: Detail;
   /** What Home Assistant refused last. */
   protected refused?: string;
+  /** The shortcuts are being changed: a press opens one rather than running it. */
+  protected editing = false;
+  /** The shortcut that asks before it acts, asking. */
+  protected asking?: string;
+  /** The shortcuts' dialog, and whether its module is here. */
+  protected dialog?: ShortcutDialog;
+  protected dialogReady = false;
+  /** What a shortcut pressed last said (nothing to act on, refused). */
+  protected said?: string;
+  /** The shortcut pressed last, shown pressed a moment. */
+  protected ran?: string;
   private glance?: Glance;
+  private ranTimer: ReturnType<typeof setTimeout> | undefined;
+  private rawShortcuts?: readonly unknown[];
+  private readShortcuts: Shortcut[] = [];
+  private suggestedMemo?: { key: unknown[]; value: Suggestion[] };
+  private dialogModule?: Promise<unknown>;
 
   static override styles = [
     baseStyles,
@@ -145,6 +192,151 @@ export class DomoTwinHome extends LitElement {
         gap: 8px;
         color: var(--secondary-text-color, #5f6368);
       }
+      .head {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-bottom: 8px;
+      }
+      .head h2 {
+        flex: 1;
+        margin: 0;
+      }
+      button.link {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        min-height: 36px;
+        padding: 0 10px;
+        border: none;
+        border-radius: 18px;
+        background: transparent;
+        color: var(--domotwin-accent, var(--primary-color, #03a9f4));
+        font: inherit;
+        font-size: 0.9rem;
+        cursor: pointer;
+      }
+      button.link[aria-pressed="true"] {
+        background: color-mix(in srgb, currentColor 14%, transparent);
+      }
+      button.link:disabled {
+        opacity: 0.5;
+        cursor: default;
+      }
+      button.link svg {
+        width: 18px;
+        height: 18px;
+        fill: currentColor;
+      }
+      .hint {
+        margin: 0 0 8px;
+      }
+      .shortcuts {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 8px;
+      }
+      button.shortcut {
+        position: relative;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-height: 64px;
+        padding: 10px 12px;
+        border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+        border-radius: 16px;
+        background: var(--card-background-color, #fff);
+        color: inherit;
+        font: inherit;
+        text-align: start;
+        cursor: pointer;
+        transition:
+          transform 0.15s ease,
+          border-color 0.15s ease;
+      }
+      button.shortcut:active {
+        transform: scale(0.97);
+      }
+      button.shortcut:focus-visible {
+        outline: 2px solid var(--domotwin-accent, var(--primary-color, #03a9f4));
+        outline-offset: 2px;
+      }
+      button.shortcut .glyph {
+        flex: none;
+        display: grid;
+        place-items: center;
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: color-mix(in srgb, var(--secondary-text-color, #5f6368) 14%, transparent);
+      }
+      button.shortcut .glyph svg {
+        width: 22px;
+        height: 22px;
+        fill: currentColor;
+      }
+      button.shortcut.on .glyph {
+        background: var(--domotwin-accent, var(--primary-color, #03a9f4));
+        color: #fff;
+      }
+      button.shortcut.ran {
+        border-color: var(--domotwin-accent, var(--primary-color, #03a9f4));
+      }
+      button.shortcut .words {
+        display: grid;
+        min-width: 0;
+      }
+      button.shortcut .name {
+        font-weight: 600;
+        overflow-wrap: anywhere;
+      }
+      button.shortcut .state {
+        color: var(--secondary-text-color, #5f6368);
+        font-size: 0.85rem;
+      }
+      button.shortcut .pen {
+        position: absolute;
+        inset-block-start: 6px;
+        inset-inline-end: 6px;
+        color: var(--secondary-text-color, #5f6368);
+      }
+      button.shortcut .pen svg {
+        width: 16px;
+        height: 16px;
+        fill: currentColor;
+      }
+      button.shortcut.suggested {
+        border-style: dashed;
+        background: transparent;
+      }
+      button.shortcut.add {
+        color: var(--domotwin-accent, var(--primary-color, #03a9f4));
+      }
+      button.shortcut.add .glyph {
+        background: transparent;
+      }
+      .asking {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-top: 8px;
+        padding: 8px 12px;
+        border-radius: 12px;
+        background: color-mix(in srgb, var(--warning-color, #ffa600) 18%, transparent);
+      }
+      .asking span {
+        flex: 1;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        button.shortcut {
+          transition: none;
+        }
+        button.shortcut:active {
+          transform: none;
+        }
+      }
     `,
   ];
 
@@ -154,6 +346,7 @@ export class DomoTwinHome extends LitElement {
   override disconnectedCallback(): void {
     super.disconnectedCallback();
     clearTimeout(this.peakTimer);
+    clearTimeout(this.ranTimer);
   }
 
   protected override willUpdate(changed: PropertyValues): void {
@@ -356,6 +549,290 @@ export class DomoTwinHome extends LitElement {
     );
   }
 
+  // The shortcuts (D-084).
+
+  /** The shortcuts the integration keeps for the user, in their order, read once for each list. */
+  private get shortcuts(): Shortcut[] {
+    const raw = this.choices?.shortcuts ?? [];
+    if (raw !== this.rawShortcuts) {
+      this.rawShortcuts = raw;
+      this.readShortcuts = readShortcuts(raw);
+    }
+    return this.readShortcuts;
+  }
+
+  /** Asks the panel to make a change to the shortcuts (it sends it, the list shown at once). */
+  private keep(change: ShortcutChange): void {
+    const shortcuts = changeShortcuts(this.shortcuts, change);
+    // None left to change: presses act again when the next is added.
+    if (shortcuts.length === 0) this.editing = false;
+    if (!shortcuts.some((s) => s.id === this.asking)) this.asking = undefined;
+    fire(this, "domotwin-shortcuts", { shortcuts, change });
+  }
+
+  /** A suggestion added as it is. */
+  private addSuggested(suggestion: Suggestion): void {
+    const list = this.shortcuts;
+    if (list.length >= MAX_SHORTCUTS) return;
+    const id = newId(list.map((s) => s.id));
+    this.keep({ set: { ...suggestion.shortcut, id } });
+  }
+
+  /** A shortcut pressed: asked first if it asks, opened while the shortcuts are changed. */
+  private press(shortcut: Shortcut): void {
+    if (this.editing) {
+      this.openShortcut(shortcut);
+      return;
+    }
+    if (shortcut.steps.length === 0) {
+      // One that shows a value: Home Assistant's own details of it.
+      if (shortcut.show) fire(this, "hass-more-info", { entityId: shortcut.show });
+      return;
+    }
+    // One that asks first runs only from its question's Yes: a second press does not answer it.
+    if (shortcut.confirm) {
+      this.asking = shortcut.id;
+      return;
+    }
+    void this.runIt(shortcut);
+  }
+
+  /** Yes to the question of a shortcut that asks first. */
+  private confirmed(shortcut: Shortcut): void {
+    this.asking = undefined;
+    void this.runIt(shortcut);
+  }
+
+  private async runIt(shortcut: Shortcut): Promise<void> {
+    const hass = this.hass;
+    const t = this.t;
+    if (!hass || !t) return;
+    this.said = undefined;
+    this.ran = shortcut.id;
+    clearTimeout(this.ranTimer);
+    this.ranTimer = setTimeout(() => {
+      this.ran = undefined;
+    }, RAN_MS);
+    const ran = await runShortcut(hass, shortcut, this.unseen);
+    const [failure] = ran.failures;
+    if (failure !== undefined) {
+      this.said = t.t("shortcuts.failed", { name: shortcut.name, reason: failureText(t, failure) });
+    } else if (ran.done === 0) {
+      this.said = t.t("shortcuts.nothing", { name: shortcut.name });
+    }
+  }
+
+  /** The shortcuts' dialog, its module the first time. */
+  private openDialog(dialog: ShortcutDialog): void {
+    this.dialog = dialog;
+    this.dialogModule ??= import("./shortcut-dialog").then(
+      () => {
+        this.dialogReady = true;
+      },
+      (error: unknown) => {
+        this.dialogModule = undefined;
+        this.dialog = undefined;
+        if (this.t) this.said = failureText(this.t, error);
+      },
+    );
+  }
+
+  private openShortcut(shortcut: Shortcut): void {
+    this.openDialog({ mode: "edit", shortcut });
+  }
+
+  private readonly onSave = (event: CustomEvent<{ shortcut: Shortcut }>): void => {
+    const { shortcut } = event.detail;
+    const list = this.shortcuts;
+    if (list.some((s) => s.id === shortcut.id) || list.length < MAX_SHORTCUTS) {
+      this.keep({ set: shortcut });
+    }
+    this.dialog = undefined;
+  };
+
+  private readonly onRemove = (event: CustomEvent<{ id: string }>): void => {
+    this.keep({ remove: event.detail.id });
+    this.dialog = undefined;
+  };
+
+  private readonly onMove = (event: CustomEvent<{ id: string; by: -1 | 1 }>): void => {
+    this.keep({ move: event.detail.id, by: event.detail.by });
+  };
+
+  /** What a shortcut's button says of its state. */
+  private stateWords(state: ShownState | undefined): string {
+    const t = this.t;
+    if (!t || !state) return "";
+    if ("count" in state) return t.tp(state.count, state.n);
+    if ("key" in state) return t.t(state.key);
+    return state.text;
+  }
+
+  private shortcutTile(hass: HomeAssistant, shortcut: Shortcut): TemplateResult {
+    const t = this.t;
+    const state = shownState(hass, shortcut, this.unseen);
+    const words = this.stateWords(state);
+    const label = this.editing
+      ? (t?.t("shortcuts.edit", { name: shortcut.name }) ?? shortcut.name)
+      : words
+        ? `${shortcut.name}, ${words}`
+        : shortcut.name;
+    return html`<button
+      class="shortcut ${state?.active ? "on" : ""} ${this.ran === shortcut.id ? "ran" : ""}"
+      data-shortcut=${shortcut.id}
+      aria-label=${label}
+      @click=${() => {
+        this.press(shortcut);
+      }}
+      @contextmenu=${(event: Event) => {
+        event.preventDefault();
+        this.openShortcut(shortcut);
+      }}
+    >
+      <span class="glyph">${icon(SHORTCUT_GLYPHS[shortcut.icon])}</span>
+      <span class="words">
+        <span class="name">${shortcut.name}</span>
+        ${words ? html`<span class="state" data-testid="shortcut-state">${words}</span>` : nothing}
+      </span>
+      ${this.editing ? html`<span class="pen">${icon(PENCIL)}</span>` : nothing}
+    </button>`;
+  }
+
+  private suggestedTile(suggestion: Suggestion): TemplateResult {
+    const t = this.t;
+    return html`<button
+      class="shortcut suggested"
+      data-suggestion=${suggestion.key}
+      @click=${() => {
+        this.addSuggested(suggestion);
+      }}
+    >
+      <span class="glyph">${icon(mdiPlus)}</span>
+      <span class="words">
+        <span class="name">${suggestion.shortcut.name}</span>
+        <span class="state">${t?.tp("shortcuts.dialog.acts_on", suggestion.count) ?? ""}</span>
+      </span>
+    </button>`;
+  }
+
+  /**
+   * The first suggestions, while there are no shortcuts: worked out again only when the registries,
+   * the entities, the language or what the viewer may see change, not at every state.
+   */
+  private firstSuggested(hass: HomeAssistant, t: Translator): Suggestion[] {
+    const key = [
+      hass.entities,
+      hass.areas,
+      hass.floors,
+      hass.devices,
+      hass.canAct,
+      this.unseen,
+      t.language,
+      Object.keys(hass.states).length,
+    ];
+    const memo = this.suggestedMemo;
+    if (memo && memo.key.length === key.length && memo.key.every((k, i) => k === key[i])) {
+      return memo.value;
+    }
+    const value = firstSuggestions(suggestions(hass, t, [], this.unseen));
+    this.suggestedMemo = { key, value };
+    return value;
+  }
+
+  private renderShortcuts(hass: HomeAssistant, t: Translator): TemplateResult {
+    const list = this.shortcuts;
+    const suggested = list.length === 0 ? this.firstSuggested(hass, t) : [];
+    const asking = list.find((s) => s.id === this.asking);
+    const full = list.length >= MAX_SHORTCUTS;
+    return html`<section data-testid="home-shortcuts" aria-labelledby="shortcuts-title">
+      <div class="head">
+        <h2 id="shortcuts-title">${t.t("shortcuts.title")}</h2>
+        ${
+          list.length > 0
+            ? html`<button
+                class="link"
+                data-testid="shortcuts-change"
+                aria-pressed=${this.editing ? "true" : "false"}
+                @click=${() => {
+                  this.editing = !this.editing;
+                  this.asking = undefined;
+                }}
+              >
+                ${this.editing ? t.t("shortcuts.finish") : t.t("shortcuts.change")}
+              </button>`
+            : nothing
+        }
+      </div>
+      ${suggested.length > 0 ? html`<p class="muted hint">${t.t("shortcuts.suggested")}</p>` : nothing}
+      <div class="shortcuts">
+        ${list.map((shortcut) => this.shortcutTile(hass, shortcut))}
+        ${suggested.map((suggestion) => this.suggestedTile(suggestion))}
+        ${
+          full
+            ? nothing
+            : html`<button
+                class="shortcut suggested add"
+                data-testid="shortcuts-add"
+                @click=${() => {
+                  this.openDialog({ mode: "add" });
+                }}
+              >
+                <span class="glyph">${icon(mdiPlus)}</span>
+                <span class="words">
+                  <span class="name">
+                    ${suggested.length > 0 ? t.t("shortcuts.more") : t.t("shortcuts.add")}
+                  </span>
+                </span>
+              </button>`
+        }
+      </div>
+      ${
+        asking
+          ? html`<div class="asking" role="alertdialog" aria-labelledby="asking-text">
+              <span id="asking-text">${t.t("shortcuts.confirm", { name: asking.name })}</span>
+              <button
+                class="action"
+                data-testid="shortcut-yes"
+                @click=${() => {
+                  this.confirmed(asking);
+                }}
+              >
+                ${t.t("shortcuts.yes")}
+              </button>
+              <button
+                class="link"
+                @click=${() => {
+                  this.asking = undefined;
+                }}
+              >
+                ${t.t("shortcuts.no")}
+              </button>
+            </div>`
+          : nothing
+      }
+      ${this.said ? html`<p class="error" role="alert" data-testid="shortcut-said">${this.said}</p>` : nothing}
+    </section>`;
+  }
+
+  private renderDialog(): TemplateResult | typeof nothing {
+    const dialog = this.dialog;
+    if (!dialog || !this.dialogReady) return nothing;
+    return html`<domotwin-shortcut-dialog
+      .hass=${this.hass}
+      .t=${this.t}
+      .unseen=${this.unseen}
+      .shortcuts=${this.shortcuts}
+      .mode=${dialog.mode}
+      .shortcut=${dialog.mode === "edit" ? dialog.shortcut : undefined}
+      @domotwin-shortcut-save=${this.onSave}
+      @domotwin-shortcut-remove=${this.onRemove}
+      @domotwin-shortcut-move=${this.onMove}
+      @domotwin-close=${() => {
+        this.dialog = undefined;
+      }}
+    ></domotwin-shortcut-dialog>`;
+  }
+
   protected override render(): TemplateResult | typeof nothing {
     const hass = this.hass;
     const t = this.t;
@@ -400,6 +877,7 @@ export class DomoTwinHome extends LitElement {
         ${this.renderDetail(glance)}
         ${this.refused ? html`<p class="error" role="alert">${this.refused}</p>` : nothing}
       </section>
+      ${this.shortcutsReady ? this.renderShortcuts(hass, t) : nothing}
       ${
         weather
           ? html`<section aria-label=${t.t("home.weather")}>
@@ -483,6 +961,7 @@ export class DomoTwinHome extends LitElement {
             </section>`
           : nothing
       }
+      ${this.renderDialog()}
     </div>`;
   }
 }

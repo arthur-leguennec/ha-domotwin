@@ -47,11 +47,11 @@ export interface RoomDevices {
 
 const NOT_ON = new Set(["off", "standby", "idle", "unavailable", "unknown"]);
 /** Covers that are not blinds: a garage door, a gate, a door, a damper. */
-const NOT_BLINDS = new Set(["garage", "gate", "door", "damper"]);
+export const NOT_BLINDS: ReadonlySet<string> = new Set(["garage", "gate", "door", "damper"]);
 /** A media player that can switch off (`MediaPlayerEntityFeature.TURN_OFF`). */
-const TURN_OFF = 256;
+export const TURN_OFF = 256;
 /** A cover that opens and closes (`CoverEntityFeature.OPEN | CLOSE`). */
-const OPEN_CLOSE = 3;
+export const OPEN_CLOSE = 3;
 
 /**
  * The devices of a room from the registries and the links: those of its area (when it has one)

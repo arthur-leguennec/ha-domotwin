@@ -145,6 +145,12 @@ CHOICES_STORAGE_VERSION: Final = 1
 START_TABS: Final = ("home", "rooms", "safety", "3d")
 MAX_FAVOURITES: Final = 100
 MAX_HOME_CARDS: Final = 6
+#: A user's shortcuts on the Home tab (D-084): how many, their steps, the entities a step lists,
+#: their name's length.
+MAX_SHORTCUTS: Final = 24
+MAX_STEPS: Final = 6
+MAX_LISTED: Final = 50
+MAX_SHORTCUT_NAME: Final = 40
 MAX_CALENDARS: Final = 10
 
 # The configuration history (docs/DECISIONS.md, D-062): each change of an automation, a script,

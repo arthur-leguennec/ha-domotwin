@@ -71,6 +71,7 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M37       | A weekly home report                                       | ✅     |
 | M21       | More languages, right to left too                          | ✅     |
 | 0.5.0     | Fifth release: all of the above                            | ✅     |
+| M46       | Shortcuts on the Home tab, suggested from the home         | ✅     |
 | 0.6.0     | Sixth release: what the use of 0.5.0 asks for              | ⏳     |
 
 M5 to M11 were added after M3b (`DECISIONS.md`, D-022): what people expect of a 3D home dashboard,
@@ -2115,4 +2116,10 @@ before its milestone starts, which goes on with what needs no answer.
   and Brazil), Arabic (right to left), Chinese, Japanese and Korean, moved before the first launch
   at the maintainer's request; others start from `scripts/new-language.mjs`.
 - The milestones above were all done before 0.5.0 was released, and are in it.
+- ✅ **M46, shortcuts on the Home tab** (D-084, above), asked for by the maintainer after 0.5.0:
+  the 3D for the wall, the practical side first on a phone. Big buttons under the glance, each the
+  user's own, acting on many devices in one press and showing their state (the lights of the home
+  or of a floor, the shutters, the locks, the alarm, the heating, a car's battery, several steps
+  for a good night), suggested from the home's devices and adjusted, more options a press away.
+  The README says it first: a phone and a wall screen side by side, the features by theme.
 - ⏳ **Release 0.6.0**: what the use of 0.5.0 asks for.

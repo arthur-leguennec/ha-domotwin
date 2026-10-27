@@ -19,6 +19,7 @@ import { reportEn } from "./report";
 import { rightsEn } from "./rights";
 import { safetyEn } from "./safety";
 import { sandboxEn } from "./sandbox";
+import { shortcutsEn } from "./shortcuts";
 import { summaryEn } from "./summary";
 import { wallEn } from "./wall";
 import { whyEn } from "./why";
@@ -41,6 +42,7 @@ export const englishChunks = {
   rights: rightsEn,
   safety: safetyEn,
   sandbox: sandboxEn,
+  shortcuts: shortcutsEn,
   summary: summaryEn,
   wall: wallEn,
   why: whyEn,

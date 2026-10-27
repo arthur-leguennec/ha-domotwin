@@ -8,6 +8,13 @@ import type { NewSchedule, PlanJson, SaveKind, StoredPlan, UpdateEvent } from ".
 import type { HassConnection, HassMessage, HomeAssistant } from "../ha/types";
 import type { PeopleSettings } from "../live/people";
 import { readChoices } from "../live/choices";
+import {
+  MAX_SHORTCUTS,
+  changeShortcuts,
+  readShortcut,
+  readShortcuts,
+  type ShortcutChange,
+} from "../live/shortcut-model";
 import { storeyIds } from "../live/storeys";
 import type { Schedule } from "../live/schedules";
 import type { Upkeep } from "../live/upkeep";
@@ -319,7 +326,31 @@ export function demoConnection(home: MemoryHome): HassConnection {
       }
       case "domotwin/choices/save": {
         // "" for the start: none chosen.
-        store.choices = readChoices({ ...store.choices, ...message });
+        store.choices = readChoices({
+          ...store.choices,
+          ...(message.start !== undefined ? { start: message.start } : {}),
+          ...(message.cards !== undefined ? { cards: message.cards } : {}),
+        });
+        return structuredClone(store.choices);
+      }
+      case "domotwin/choices/shortcut": {
+        // One change, made as the integration makes it.
+        const kept = readShortcuts(store.choices.shortcuts);
+        let change: ShortcutChange | undefined;
+        if (message.set !== undefined) {
+          const shortcut = readShortcut(message.set);
+          if (!shortcut) throw failure("invalid_format", "the shortcut is not understood");
+          if (!kept.some((s) => s.id === shortcut.id) && kept.length >= MAX_SHORTCUTS) {
+            throw failure("too_many_shortcuts");
+          }
+          change = { set: shortcut };
+        } else if (typeof message.remove === "string") {
+          change = { remove: message.remove };
+        } else if (typeof message.move === "string" && (message.by === 1 || message.by === -1)) {
+          change = { move: message.move, by: message.by };
+        }
+        if (!change) throw failure("invalid_format", "set, remove, or move by -1 or 1");
+        store.choices = { ...store.choices, shortcuts: changeShortcuts(kept, change) };
         return structuredClone(store.choices);
       }
       case "domotwin/wifi/get":

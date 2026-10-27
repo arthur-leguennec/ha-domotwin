@@ -215,4 +215,7 @@ export const demo: Readonly<Record<string, string>> = {
   Worktop: "台面",
   "{names} will switch off at {time}.": "{names} 将于 {time} 关闭。",
   "{names} will switch on at {time}.": "{names} 将于 {time} 开启。",
+  "All the lights off": "关闭所有灯",
+  "Close the curtains": "拉上窗帘",
+  "Heating at 19 °C": "暖气调到 19 °C",
 };

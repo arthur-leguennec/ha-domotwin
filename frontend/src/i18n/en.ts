@@ -1268,6 +1268,7 @@ export const en = {
     ws: {
       not_in_sandbox: "actions for later belong to your home, not to the sandbox.",
       too_many_favourites: "you have 100 favourites already: take a star away first.",
+      too_many_shortcuts: "you have 24 shortcuts already: delete one first.",
       invalid_screen: "this screen's layout cannot be kept.",
       screen_exists: "another screen has this name.",
       too_many_screens: "there are 20 wall screens already: remove one first.",

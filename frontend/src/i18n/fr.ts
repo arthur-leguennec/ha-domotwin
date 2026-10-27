@@ -1288,6 +1288,7 @@ export const fr: Dictionary = {
       not_in_sandbox:
         "les actions pour plus tard appartiennent à votre maison, pas au bac à sable.",
       too_many_favourites: "vous avez déjà 100 favoris : retirez d’abord une étoile.",
+      too_many_shortcuts: "vous avez déjà 24 commandes : supprimez-en d’abord une.",
       invalid_screen: "la mise en page de cet écran ne peut pas être gardée.",
       screen_exists: "un autre écran porte ce nom.",
       too_many_screens: "il y a déjà 20 écrans muraux : supprimez-en un d’abord.",

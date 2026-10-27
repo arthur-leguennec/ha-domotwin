@@ -9,6 +9,7 @@ import upperPlan from "../../../examples/demo-house-upper.domotwin.json";
 import type { Bindings, PlanJson, Settings, StoreyInfo } from "../ha/client";
 import { demoWord, pickLanguage } from "../i18n";
 import type { PeopleSettings } from "../live/people";
+import type { Shortcut } from "../live/shortcut-model";
 import type { Upkeep, UpkeepTask, UpkeepUnit } from "../live/upkeep";
 
 /**
@@ -886,6 +887,51 @@ export function demoSettings(): Settings {
       battery_level: "sensor.battery_level",
     },
   };
+}
+
+/**
+ * The visitor's shortcuts on the Home tab (D-084): the lamps off, the curtains closed, a good night,
+ * the heating, the home battery's charge.
+ */
+export function demoShortcuts(language: string): Shortcut[] {
+  return [
+    {
+      id: "lights",
+      name: say(["All the lights off", "Éteindre toutes les lumières"], language),
+      icon: "lights_off",
+      steps: [{ kind: "lights", do: "off" }],
+    },
+    {
+      id: "curtains",
+      name: say(["Close the curtains", "Fermer les rideaux"], language),
+      icon: "blinds_closed",
+      steps: [{ kind: "covers", do: "close" }],
+    },
+    {
+      id: "night",
+      name: say(["Good night", "Bonne nuit"], language),
+      icon: "moon",
+      steps: [
+        { kind: "lights", do: "off" },
+        { kind: "covers", do: "close" },
+        { kind: "locks", do: "lock" },
+      ],
+      quiet: true,
+    },
+    {
+      id: "heating",
+      name: say(["Heating at 19 °C", "Chauffage à 19 °C"], language),
+      icon: "thermostat",
+      steps: [{ kind: "climate", do: "temperature", value: 19 }],
+    },
+    {
+      id: "battery",
+      name: say(["Home battery", "Batterie de la maison"], language),
+      icon: "battery",
+      steps: [],
+      show: "sensor.battery_level",
+    },
+  ];
 }
 
 /** Who is placed in their rooms (D-034), and how. */

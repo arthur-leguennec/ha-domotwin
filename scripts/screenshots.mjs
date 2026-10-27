@@ -736,6 +736,109 @@ try {
   );
   console.log("docs/figures/screenshot-demo.png");
 
+  // The phone and the wall (D-084): the demo house's Home tab on a phone, its shortcuts first,
+  // and its 3D on a screen on the wall, in the evening.
+  const phone = await browser.newPage({
+    viewport: { width: 390, height: 844 },
+    deviceScaleFactor: 2,
+    isMobile: true,
+    hasTouch: true,
+  });
+  await phone.goto("http://127.0.0.1:4173/?mode=panel&plan=none");
+  await phone.locator("domotwin-panel").getByTestId("demo-try").click();
+  await phone.waitForFunction(() => window.__element?.demo !== undefined, null, { timeout: 60_000 });
+  await phone.evaluate(() => {
+    const demo = window.__element.demo;
+    demo.play(false);
+    demo.jump(19 * 60 + 30);
+  });
+  await phone.locator("domotwin-panel").getByTestId("tab-home").click();
+  await phone.locator("domotwin-panel").getByTestId("home-shortcuts").waitFor();
+  await phone.waitForTimeout(800);
+  const phoneShot = (await phone.screenshot()).toString("base64");
+  await phone.close();
+  const wall = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  await wall.goto("http://127.0.0.1:4173/?mode=panel&plan=none");
+  await wall.locator("domotwin-panel").getByTestId("demo-try").click();
+  await wall.waitForFunction(() => window.__view?.()?.debugState().summary?.name === "Demo house", null, {
+    timeout: 60_000,
+  });
+  await wall.evaluate(() => {
+    const demo = window.__element.demo;
+    demo.play(false);
+    demo.jump(21 * 60 + 15);
+  });
+  await wall.waitForTimeout(500);
+  await wall.evaluate(async () => {
+    const view = window.__view();
+    view.options = { ...view.options, quality: "high", view: "3d", cutaway: "auto", theme: "neon" };
+    await view.updateComplete;
+    view.engine.setMotion(false);
+    // Closer than the whole plot: the house fills the screen.
+    view.engine.zoom(0.62, 0.15, -0.1);
+    view.settle();
+    view.requestFrame();
+  });
+  await wall.waitForTimeout(1500);
+  const wallShot = (await wall.screenshot()).toString("base64");
+  await wall.close();
+  const pairPage = await browser.newPage();
+  const pairImage = await pairPage.evaluate(
+    async ([phoneBase64, wallBase64]) => {
+      const load = async (base64) => {
+        const image = new Image();
+        image.src = `data:image/png;base64,${base64}`;
+        await image.decode();
+        return image;
+      };
+      const [phoneImage, wallImage] = await Promise.all([load(phoneBase64), load(wallBase64)]);
+      // The phone at 780 × 1688, the wall screen scaled to the same height, each in its frame.
+      const ph = 1688;
+      const pw = (phoneImage.width / phoneImage.height) * ph;
+      const ww = (wallImage.width / wallImage.height) * ph * 0.62;
+      const wh = ph * 0.62;
+      const pad = 60;
+      const canvas = document.createElement("canvas");
+      canvas.width = pad * 3 + pw + 48 + ww + 64;
+      canvas.height = ph + 48 + pad * 2;
+      const g = canvas.getContext("2d");
+      const back = g.createLinearGradient(0, 0, canvas.width, canvas.height);
+      back.addColorStop(0, "#eef2ff");
+      back.addColorStop(1, "#e0f2fe");
+      g.fillStyle = back;
+      g.fillRect(0, 0, canvas.width, canvas.height);
+      const frame = (x, y, w, h, radius, image) => {
+        g.save();
+        g.shadowColor = "rgba(15, 23, 42, 0.25)";
+        g.shadowBlur = 40;
+        g.shadowOffsetY = 16;
+        g.fillStyle = "#0f172a";
+        g.beginPath();
+        g.roundRect(x, y, w, h, radius);
+        g.fill();
+        g.restore();
+        g.save();
+        g.beginPath();
+        g.roundRect(x + 24, y + 24, w - 48, h - 48, radius - 20);
+        g.clip();
+        g.drawImage(image, x + 24, y + 24, w - 48, h - 48);
+        g.restore();
+      };
+      frame(pad, pad, pw + 48, ph + 48, 90, phoneImage);
+      const wx = pad * 2 + pw + 48;
+      const wy = pad + (ph + 48 - (wh + 64)) / 2;
+      frame(wx, wy, ww + 64, wh + 64, 40, wallImage);
+      return canvas.toDataURL("image/png");
+    },
+    [phoneShot, wallShot],
+  );
+  await pairPage.close();
+  await fs.writeFile(
+    join(root, "docs", "figures", "screenshot-phone-wall.png"),
+    Buffer.from(pairImage.slice(pairImage.indexOf(",") + 1), "base64"),
+  );
+  console.log("docs/figures/screenshot-phone-wall.png");
+
   // Devices (M5): badges in 3D, and what the living room's camera sees on the 2D plan.
   const deviceShots = [];
   for (const [label, view, script, focus = ""] of [
@@ -1105,7 +1208,7 @@ try {
   console.log("docs/figures/screenshot-storeys.png");
 
   // The looks (D-027): the panel in the evening, its lamps on, in neon (also alone, the README's
-  // first picture), blueprint and day.
+  // old first picture), blueprint and day.
   const lookShots = [];
   for (const [look, label] of [
     ["neon", "Neon"],
