@@ -416,7 +416,7 @@ export class DomoTwinReport extends LitElement {
       this.error = undefined;
     } catch (error) {
       if (!this.isConnected) return;
-      this.error = this.t.t("report.read_failed", { reason: this.reason(error) });
+      this.error = this.t.t("weekly.read_failed", { reason: this.reason(error) });
     }
   }
 
@@ -426,18 +426,18 @@ export class DomoTwinReport extends LitElement {
     this.busy = true;
     this.error = undefined;
     this.status = this.answer?.settings.summary
-      ? this.t.t("report.writing_summary")
-      : this.t.t("report.writing");
+      ? this.t.t("weekly.writing_summary")
+      : this.t.t("weekly.writing");
     try {
       const answer = await writeReport(hass);
       if (!this.isConnected) return;
       this.answer = answer;
       this.room = undefined;
-      this.status = this.t.t("report.written");
+      this.status = this.t.t("weekly.written");
     } catch (error) {
       if (!this.isConnected) return;
       this.status = undefined;
-      this.error = this.t.t("report.write_failed", { reason: this.reason(error) });
+      this.error = this.t.t("weekly.write_failed", { reason: this.reason(error) });
     } finally {
       this.busy = false;
     }
@@ -455,10 +455,10 @@ export class DomoTwinReport extends LitElement {
       if (this.answer) this.answer = { ...this.answer, settings };
       this.settingsOpen = false;
       this.draft = undefined;
-      this.status = this.t.t("report.settings.saved");
+      this.status = this.t.t("weekly.settings.saved");
     } catch (error) {
       if (!this.isConnected) return;
-      this.error = this.t.t("report.save_failed", { reason: this.reason(error) });
+      this.error = this.t.t("weekly.save_failed", { reason: this.reason(error) });
     } finally {
       this.busy = false;
     }
@@ -519,7 +519,7 @@ export class DomoTwinReport extends LitElement {
   private weekText(span: { start: string; end: string }): string {
     const { first, last } = weekDays(span);
     const style = this.moments;
-    return this.t.t("report.week", { first: shortDay(first, style), last: shortDay(last, style) });
+    return this.t.t("weekly.week", { first: shortDay(first, style), last: shortDay(last, style) });
   }
 
   protected override render(): TemplateResult {
@@ -533,13 +533,13 @@ export class DomoTwinReport extends LitElement {
       data-testid="report-dialog"
     >
       <header>
-        <h2 id="report-title">${t.t("report.title")}</h2>
+        <h2 id="report-title">${t.t("weekly.title")}</h2>
         <button
           class="round"
           data-testid="report-settings"
           aria-pressed=${this.settingsOpen ? "true" : "false"}
-          aria-label=${t.t("report.settings_open")}
-          title=${t.t("report.settings_open")}
+          aria-label=${t.t("weekly.settings_open")}
+          title=${t.t("weekly.settings_open")}
           ?disabled=${!answer}
           @click=${() => {
             this.settingsOpen = !this.settingsOpen;
@@ -550,8 +550,8 @@ export class DomoTwinReport extends LitElement {
         </button>
         <button
           class="round"
-          aria-label=${t.t("report.close")}
-          title=${t.t("report.close")}
+          aria-label=${t.t("weekly.close")}
+          title=${t.t("weekly.close")}
           @click=${() => {
             this.close();
           }}
@@ -559,9 +559,9 @@ export class DomoTwinReport extends LitElement {
           ${icon(mdiClose)}
         </button>
       </header>
-      ${this.hass?.demo ? html`<p class="hint">${t.t("report.demo")}</p>` : nothing}
+      ${this.hass?.demo ? html`<p class="hint">${t.t("weekly.demo")}</p>` : nothing}
       ${this.settingsOpen && this.draft ? this.renderSettings(this.draft) : nothing}
-      ${answer ? this.renderAnswer(answer) : this.error ? nothing : html`<p class="hint">${t.t("report.reading")}</p>`}
+      ${answer ? this.renderAnswer(answer) : this.error ? nothing : html`<p class="hint">${t.t("weekly.reading")}</p>`}
       <div role="status">
         ${this.status ? html`<p data-testid="report-status">${this.status}</p>` : nothing}
       </div>
@@ -580,7 +580,7 @@ export class DomoTwinReport extends LitElement {
     const pick =
       answer.reports.length > 1 && report
         ? html`<label class="meta">
-            ${t.t("report.pick")}
+            ${t.t("weekly.pick")}
             <select
               data-testid="report-pick"
               .value=${String(report.id)}
@@ -594,7 +594,7 @@ export class DomoTwinReport extends LitElement {
               ${answer.reports.map((entry) => {
                 const week = this.weekText(entry.week);
                 return html`<option value=${String(entry.id)} ?selected=${entry.id === report.id}>
-                  ${entry.by === "hand" ? t.t("report.by_hand", { week }) : week}
+                  ${entry.by === "hand" ? t.t("weekly.by_hand", { week }) : week}
                 </option>`;
               })}
             </select>
@@ -610,7 +610,7 @@ export class DomoTwinReport extends LitElement {
             void this.write();
           }}
         >
-          ${t.t("report.write")}
+          ${t.t("weekly.write")}
         </button>
       </div>
       ${
@@ -619,11 +619,11 @@ export class DomoTwinReport extends LitElement {
           : html`<p data-testid="report-none">
               ${
                 settings.weekly
-                  ? t.t("report.none", {
+                  ? t.t("weekly.none", {
                       day: this.weekday(settings.weekday),
                       hour: this.hour(settings.hour),
                     })
-                  : t.t("report.none_off")
+                  : t.t("weekly.none_off")
               }
             </p>`
       }`;
@@ -636,7 +636,7 @@ export class DomoTwinReport extends LitElement {
     return html`<div>
         <p class="week" data-testid="report-week">${this.weekText(report.week)}</p>
         <p class="meta">
-          ${t.t("report.written_at", {
+          ${t.t("weekly.written_at", {
             when: `${dayText(report.at, style)} ${hourText(report.at, style)}`,
           })}
         </p>
@@ -644,7 +644,7 @@ export class DomoTwinReport extends LitElement {
       ${this.renderSummary(report)}
       ${
         total === 0
-          ? html`<p data-testid="report-nothing">${t.t("report.nothing")}</p>`
+          ? html`<p data-testid="report-nothing">${t.t("weekly.nothing")}</p>`
           : html`<ul class="counts" data-testid="report-counts">
               ${REPORT_SECTIONS.filter((section) => countOf(report, section) > 0).map(
                 (section) =>
@@ -661,7 +661,7 @@ export class DomoTwinReport extends LitElement {
                             ?.scrollIntoView({ block: "start", behavior: "smooth" }),
                         );
                       }}
-                      >${t.tp(`report.counts.${section}`, countOf(report, section))}</a
+                      >${t.tp(`weekly.counts.${section}`, countOf(report, section))}</a
                     >
                   </li>`,
               )}
@@ -680,16 +680,16 @@ export class DomoTwinReport extends LitElement {
     if (summary.text) {
       return html`<div class="summary" data-testid="report-summary">
         <p>${summary.text}</p>
-        <p class="meta">${t.t("report.summary_by", { name })}</p>
+        <p class="meta">${t.t("weekly.summary_by", { name })}</p>
       </div>`;
     }
     const known =
       summary.error === "no_ai_task" || summary.error === "timeout" || summary.error === "empty";
     const reason = known
-      ? t.t(`report.summary_reasons.${summary.error as "no_ai_task" | "timeout" | "empty"}`)
+      ? t.t(`weekly.summary_reasons.${summary.error as "no_ai_task" | "timeout" | "empty"}`)
       : (summary.error ?? "");
     return html`<p class="hint" data-testid="report-summary-failed">
-      ${t.t("report.summary_failed", { name, reason })}
+      ${t.t("weekly.summary_failed", { name, reason })}
     </p>`;
   }
 
@@ -713,8 +713,8 @@ export class DomoTwinReport extends LitElement {
     );
     const room = this.room;
     return html`<section data-testid="report-plans">
-      <h3>${t.t("report.plan.title")}</h3>
-      <p class="hint">${t.t("report.plan.hint")}</p>
+      <h3>${t.t("weekly.plan.title")}</h3>
+      <p class="hint">${t.t("weekly.plan.hint")}</p>
       <div class="plans">
         ${storeys.map((storey) => this.renderStorey(storey, rooms, energy, storeys.length > 1))}
       </div>
@@ -722,7 +722,7 @@ export class DomoTwinReport extends LitElement {
         room
           ? html`<div class="links">
               <span class="meta" data-testid="report-room">
-                ${t.t("report.plan.only", { room: names.get(room) ?? room })}
+                ${t.t("weekly.plan.only", { room: names.get(room) ?? room })}
               </span>
               <button
                 data-testid="report-all-rooms"
@@ -730,7 +730,7 @@ export class DomoTwinReport extends LitElement {
                   this.room = undefined;
                 }}
               >
-                ${t.t("report.plan.all")}
+                ${t.t("weekly.plan.all")}
               </button>
               <button
                 data-testid="report-show-room"
@@ -738,11 +738,11 @@ export class DomoTwinReport extends LitElement {
                   this.show(room);
                 }}
               >
-                ${icon(mdiCubeOutline)}${t.t("report.show")}
+                ${icon(mdiCubeOutline)}${t.t("weekly.show")}
               </button>
             </div>`
           : listed > placed
-            ? html`<p class="hint">${t.tp("report.plan.elsewhere", listed - placed)}</p>`
+            ? html`<p class="hint">${t.tp("weekly.plan.elsewhere", listed - placed)}</p>`
             : nothing
       }
     </section>`;
@@ -773,17 +773,17 @@ export class DomoTwinReport extends LitElement {
         ${storey.rooms.map((room) => {
           if (this.closed.has(room.id)) {
             const [cx, cy] = room.label;
-            return svg`<g class="room closed" data-room=${room.id} role="img" aria-label=${t.t("report.plan.private", { room: room.name })}>
+            return svg`<g class="room closed" data-room=${room.id} role="img" aria-label=${t.t("weekly.plan.private", { room: room.name })}>
               <polygon points=${room.points.map((p) => p.join(",")).join(" ")}></polygon>
-              <text x=${cx} y=${cy} font-size=${size}>${t.t("report.plan.private", { room: room.name })}</text>
+              <text x=${cx} y=${cy} font-size=${size}>${t.t("weekly.plan.private", { room: room.name })}</text>
             </g>`;
           }
           const count = rooms.get(room.id)?.length ?? 0;
           const kwh = energy[room.id]?.week;
           const label =
             count > 0
-              ? t.tp("report.plan.label", count, { room: room.name })
-              : t.t("report.plan.label_none", { room: room.name });
+              ? t.tp("weekly.plan.label", count, { room: room.name })
+              : t.t("weekly.plan.label_none", { room: room.name });
           const [lx, ly] = room.label;
           return svg`<g
             class="room tint-${tintOf(count)}"
@@ -830,18 +830,18 @@ export class DomoTwinReport extends LitElement {
     const outside = !hass || hass.demo === true || hass.sandbox === true;
     const extra =
       section === "batteries" && !outside && hasMaintenancePage(hass)
-        ? this.renderLink({ path: "/maintenance" }, t.t("report.maintenance"), "report-maintenance")
+        ? this.renderLink({ path: "/maintenance" }, t.t("weekly.maintenance"), "report-maintenance")
         : nothing;
     return html`<section data-section=${section} id=${`report-${section}`}>
       <h3>
-        ${t.t(`report.headings.${section}`)} (${room ? items.length : countOf(report, section)})
+        ${t.t(`weekly.headings.${section}`)} (${room ? items.length : countOf(report, section)})
       </h3>
       ${extra !== nothing ? html`<div class="links">${extra}</div>` : nothing}
       <ul class="items">
         ${items.map((item) => this.renderItem(section, item, outside, Date.parse(report.at)))}
       </ul>
-      ${more > 0 ? html`<p class="hint">${t.tp("report.more", more)}</p>` : nothing}
-      ${hidden > 0 ? html`<p class="hint" data-private>${t.tp("report.private_items", hidden)}</p>` : nothing}
+      ${more > 0 ? html`<p class="hint">${t.tp("weekly.more", more)}</p>` : nothing}
+      ${hidden > 0 ? html`<p class="hint" data-private>${t.tp("weekly.private_items", hidden)}</p>` : nothing}
     </section>`;
   }
 
@@ -863,7 +863,7 @@ export class DomoTwinReport extends LitElement {
       <div class="what">
         <span>
           ${item.name}
-          ${item.new ? html`<span class="badge" data-new>${t.t("report.new")}</span>` : nothing}
+          ${item.new ? html`<span class="badge" data-new>${t.t("weekly.new")}</span>` : nothing}
         </span>
         ${
           detail || where
@@ -872,7 +872,7 @@ export class DomoTwinReport extends LitElement {
         }
       </div>
       <div class="links">
-        ${link ? this.renderLink(link, t.t("report.open"), "report-open") : nothing}
+        ${link ? this.renderLink(link, t.t("weekly.open"), "report-open") : nothing}
         ${
           shown
             ? html`<button
@@ -881,7 +881,7 @@ export class DomoTwinReport extends LitElement {
                   this.show(shown);
                 }}
               >
-                ${icon(mdiCubeOutline)}${t.t("report.show")}
+                ${icon(mdiCubeOutline)}${t.t("weekly.show")}
               </button>`
             : nothing
         }
@@ -921,9 +921,9 @@ export class DomoTwinReport extends LitElement {
     const t = this.t;
     const names = this.roomNames();
     const rows: [string, EnergyPair, string?][] = [];
-    if (energy.home) rows.push([t.t("report.energy.home"), energy.home]);
-    if (energy.grid) rows.push([t.t("report.energy.grid"), energy.grid]);
-    if (energy.solar) rows.push([t.t("report.energy.solar"), energy.solar]);
+    if (energy.home) rows.push([t.t("weekly.energy.home"), energy.home]);
+    if (energy.grid) rows.push([t.t("weekly.energy.grid"), energy.grid]);
+    if (energy.solar) rows.push([t.t("weekly.energy.solar"), energy.solar]);
     const rooms = Object.entries(energy.rooms ?? {})
       .filter(([room]) => !this.closed.has(room) && (!this.room || room === this.room))
       .sort(([, a], [, b]) => (b.week ?? 0) - (a.week ?? 0));
@@ -931,16 +931,16 @@ export class DomoTwinReport extends LitElement {
     if (rows.length === 0) return nothing;
     const language = t.language;
     const kwh = (value: number | undefined): string =>
-      value === undefined ? t.t("report.energy.unknown") : formatKwh(value, language);
+      value === undefined ? t.t("weekly.energy.unknown") : formatKwh(value, language);
     return html`<section data-section="energy" data-testid="report-energy">
-      <h3>${t.t("report.energy.title")}</h3>
+      <h3>${t.t("weekly.energy.title")}</h3>
       <table>
         <thead>
           <tr>
-            <th scope="col">${t.t("report.energy.what")}</th>
-            <th scope="col">${t.t("report.energy.week")}</th>
-            <th scope="col">${t.t("report.energy.before")}</th>
-            <th scope="col">${t.t("report.energy.change")}</th>
+            <th scope="col">${t.t("weekly.energy.what")}</th>
+            <th scope="col">${t.t("weekly.energy.week")}</th>
+            <th scope="col">${t.t("weekly.energy.before")}</th>
+            <th scope="col">${t.t("weekly.energy.change")}</th>
           </tr>
         </thead>
         <tbody>
@@ -948,9 +948,9 @@ export class DomoTwinReport extends LitElement {
             const change = changeOf(pair);
             const said =
               change === undefined
-                ? t.t("report.energy.unknown")
+                ? t.t("weekly.energy.unknown")
                 : change === 0
-                  ? t.t("report.energy.same")
+                  ? t.t("weekly.energy.same")
                   : `${change > 0 ? "+" : "−"}${new Intl.NumberFormat(language).format(Math.abs(change))} %`;
             return html`<tr data-room=${room ?? nothing}>
               <th scope="row">${name}</th>
@@ -974,10 +974,10 @@ export class DomoTwinReport extends LitElement {
     const names = this.roomNames();
     const language = t.language;
     return html`<section data-section="peaks" data-testid="report-peaks">
-      <h3>${t.t("report.peaks.title")}</h3>
+      <h3>${t.t("weekly.peaks.title")}</h3>
       ${
         peaks.length === 0
-          ? html`<p class="hint">${t.t("report.peaks.none")}</p>`
+          ? html`<p class="hint">${t.t("weekly.peaks.none")}</p>`
           : html`<ul class="items">
               ${peaks.map((peak) => {
                 const rooms = Object.entries(peak.rooms ?? {})
@@ -987,13 +987,13 @@ export class DomoTwinReport extends LitElement {
                 const parts = [
                   peak.grid === undefined
                     ? undefined
-                    : t.t("report.peaks.drew", { kwh: formatKwh(peak.grid, language) }),
-                  rooms.length ? t.t("report.peaks.rooms", { rooms: rooms.join(", ") }) : undefined,
+                    : t.t("weekly.peaks.drew", { kwh: formatKwh(peak.grid, language) }),
+                  rooms.length ? t.t("weekly.peaks.rooms", { rooms: rooms.join(", ") }) : undefined,
                 ].filter(Boolean);
                 return html`<li data-peak=${peak.start}>
                   <div class="what">
                     <span>
-                      ${t.t("report.peaks.when", {
+                      ${t.t("weekly.peaks.when", {
                         day: dayText(peak.start, style),
                         start: hourText(peak.start, style),
                         end: hourText(peak.end, style),
@@ -1014,12 +1014,12 @@ export class DomoTwinReport extends LitElement {
     const t = this.t;
     const lines = REPORT_SECTIONS.flatMap((section) =>
       (gone[section] ?? []).map((item) =>
-        t.t("report.done.item", { name: item.name, what: t.t(`report.headings.${section}`) }),
+        t.t("weekly.done.item", { name: item.name, what: t.t(`weekly.headings.${section}`) }),
       ),
     );
     if (lines.length === 0) return nothing;
     return html`<section data-section="done" data-testid="report-done">
-      <h3>${t.t("report.done.title")}</h3>
+      <h3>${t.t("weekly.done.title")}</h3>
       <ul class="items">
         ${lines.map((line) => html`<li>${line}</li>`)}
       </ul>
@@ -1043,7 +1043,7 @@ export class DomoTwinReport extends LitElement {
         void this.saveSettings();
       }}
     >
-      <h3>${t.t("report.settings.title")}</h3>
+      <h3>${t.t("weekly.settings.title")}</h3>
       <label>
         <input
           type="checkbox"
@@ -1053,10 +1053,10 @@ export class DomoTwinReport extends LitElement {
             change({ weekly: (event.target as HTMLInputElement).checked });
           }}
         />
-        ${t.t("report.settings.weekly")}
+        ${t.t("weekly.settings.weekly")}
       </label>
       <label>
-        ${t.t("report.settings.day")}
+        ${t.t("weekly.settings.day")}
         <select
           data-testid="report-weekday"
           ?disabled=${!draft.weekly}
@@ -1071,7 +1071,7 @@ export class DomoTwinReport extends LitElement {
               </option>`,
           )}
         </select>
-        ${t.t("report.settings.hour")}
+        ${t.t("weekly.settings.hour")}
         <select
           data-testid="report-hour"
           ?disabled=${!draft.weekly}
@@ -1098,11 +1098,11 @@ export class DomoTwinReport extends LitElement {
             change({ notify: (event.target as HTMLInputElement).checked });
           }}
         />
-        ${t.t("report.settings.notify")}
+        ${t.t("weekly.settings.notify")}
       </label>
-      <p class="hint">${t.t("report.settings.notify_hint")}</p>
+      <p class="hint">${t.t("weekly.settings.notify_hint")}</p>
       <label>
-        ${t.t("report.settings.summary")}
+        ${t.t("weekly.settings.summary")}
         <select
           data-testid="report-summary-by"
           @change=${(event: Event) => {
@@ -1111,7 +1111,7 @@ export class DomoTwinReport extends LitElement {
           }}
         >
           <option value="" ?selected=${!draft.summary}>
-            ${t.t("report.settings.summary_none")}
+            ${t.t("weekly.settings.summary_none")}
           </option>
           ${tasks.map(
             (id) =>
@@ -1121,9 +1121,9 @@ export class DomoTwinReport extends LitElement {
           )}
         </select>
       </label>
-      ${draft.summary ? html`<p class="hint">${t.t("report.settings.summary_hint")}</p>` : nothing}
+      ${draft.summary ? html`<p class="hint">${t.t("weekly.settings.summary_hint")}</p>` : nothing}
       <label>
-        ${t.t("report.settings.battery")}
+        ${t.t("weekly.settings.battery")}
         <input
           type="number"
           min="1"
@@ -1146,10 +1146,10 @@ export class DomoTwinReport extends LitElement {
             this.draft = undefined;
           }}
         >
-          ${t.t("report.settings.cancel")}
+          ${t.t("weekly.settings.cancel")}
         </button>
         <button type="submit" class="action" data-testid="report-save" ?disabled=${this.busy}>
-          ${t.t("report.settings.save")}
+          ${t.t("weekly.settings.save")}
         </button>
       </div>
     </form>`;

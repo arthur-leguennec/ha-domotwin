@@ -5,7 +5,7 @@
 import type { Widen } from "./index";
 
 export const reportEn = {
-  report: {
+  weekly: {
     title: "Weekly report",
     reading: "Reading the reports…",
     none: "No report yet: the first one is written on {day} at {hour}.",
@@ -145,7 +145,7 @@ export const reportEn = {
 };
 
 export const reportFr: Widen<typeof reportEn> = {
-  report: {
+  weekly: {
     title: "Bilan de la semaine",
     reading: "Lecture des bilans…",
     none: "Aucun bilan pour l’instant : le premier est écrit le {day} à {hour}.",

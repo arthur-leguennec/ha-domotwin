@@ -4330,7 +4330,7 @@ export class DomoTwinPanel extends LitElement {
                     )
                   : nothing
               }
-              ${item("report-menu", mdiClipboardCheckOutline, t.t("report.menu"), this.busy || this.sandbox !== undefined, () => this.openReport())}
+              ${item("report-menu", mdiClipboardCheckOutline, t.t("weekly.menu"), this.busy || this.sandbox !== undefined, () => this.openReport())}
               ${item("measure", mdiSpeedometer, t.t("measure.menu"), this.busy || this.measureOpen || this.sandbox !== undefined, this.openMeasure)}
               <hr />
               ${

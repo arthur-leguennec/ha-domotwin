@@ -57,6 +57,22 @@ describe("the languages loaded on demand (D-082)", async () => {
   }
   const englishMessages = new Map(messages(english));
 
+  it("gives each message one place: no chunk says what the dictionary or another chunk says", () => {
+    // A message is looked for in the dictionary, then in each chunk: one given twice would be
+    // said by whichever was loaded first (the weekly report's title over a history report's).
+    const places = new Map<string, string>();
+    const twice: string[] = [];
+    const parts: [string, unknown][] = [["main", en], ...Object.entries(englishChunks)];
+    for (const [part, value] of parts) {
+      for (const [key] of messages(value)) {
+        const first = places.get(key);
+        if (first) twice.push(`${key}: ${first} and ${part}`);
+        else places.set(key, part);
+      }
+    }
+    expect(twice).toEqual([]);
+  });
+
   it.each(loaded)("%s has every English message, placeholders and plurals kept", (language) => {
     const pack = packs.get(language);
     if (!pack) throw new Error(language);

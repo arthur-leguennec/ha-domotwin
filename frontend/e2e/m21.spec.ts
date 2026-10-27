@@ -63,4 +63,17 @@ test.describe("more languages (M21, D-082)", () => {
     expect(tools && view).toBeTruthy();
     if (tools && view) expect(tools.x + tools.width / 2).toBeLessThan(view.x + view.width / 2);
   });
+
+  test("the weekly report speaks it too, right to left in Arabic", async ({ page }) => {
+    await openHarness(page, { mode: "panel", weekly: true, lang: "ar" });
+    await page.getByTestId("more").click();
+    await expect(page.getByTestId("report-menu")).toHaveText(arabic.main.weekly.menu);
+    await page.getByTestId("report-menu").click();
+    const dialog = page.getByTestId("report-dialog");
+    await expect(dialog.locator("h2").first()).toHaveText(arabic.chunks.report.weekly.title);
+    const counts = plural("ar", arabic.chunks.report.weekly.counts.batteries, 2);
+    await expect(page.getByTestId("report-counts").locator("a").first()).toHaveText(counts);
+    // Written right to left, as the panel it opens over.
+    await expect(dialog).toHaveCSS("direction", "rtl");
+  });
 });

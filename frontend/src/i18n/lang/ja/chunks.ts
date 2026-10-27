@@ -1256,7 +1256,7 @@ export const chunks: Chunks = {
     },
   },
   report: {
-    report: {
+    weekly: {
       title: "週間レポート",
       reading: "レポートを読み込み中…",
       none: "レポートはまだありません：最初のレポートは {day} の {hour} に作成されます。",

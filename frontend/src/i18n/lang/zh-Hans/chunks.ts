@@ -1237,7 +1237,7 @@ export const chunks: Chunks = {
     },
   },
   report: {
-    report: {
+    weekly: {
       title: "每周报告",
       reading: "正在读取报告…",
       none: "还没有报告：第一份将于 {day} {hour} 生成。",

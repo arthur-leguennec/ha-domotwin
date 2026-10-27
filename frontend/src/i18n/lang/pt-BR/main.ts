@@ -799,7 +799,7 @@ export const main: Dictionary = {
   plain: {
     menu: "Uma automação em palavras simples",
   },
-  report: {
+  weekly: {
     menu: "Relatório semanal",
   },
   config_history: {

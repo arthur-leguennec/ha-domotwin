@@ -1251,7 +1251,7 @@ export const chunks: Chunks = {
     },
   },
   report: {
-    report: {
+    weekly: {
       title: "주간 보고서",
       reading: "보고서 읽는 중…",
       none: "아직 보고서가 없습니다: 첫 보고서는 {day} {hour}에 작성됩니다.",

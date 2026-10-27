@@ -802,7 +802,7 @@ export const main: Dictionary = {
   plain: {
     menu: "普段の言葉でオートメーション",
   },
-  report: {
+  weekly: {
     menu: "週間レポート",
   },
   config_history: {

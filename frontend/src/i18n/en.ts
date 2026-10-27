@@ -743,7 +743,7 @@ export const en = {
   plain: {
     menu: "An automation in plain words",
   },
-  report: {
+  weekly: {
     menu: "Weekly report",
   },
   config_history: {

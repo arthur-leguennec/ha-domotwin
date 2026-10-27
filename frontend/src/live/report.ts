@@ -450,7 +450,7 @@ export function itemDetail(
   const parts: string[] = [];
   switch (section) {
     case "batteries":
-      if (item.level !== undefined) parts.push(t.t("report.detail.level", { level: item.level }));
+      if (item.level !== undefined) parts.push(t.t("weekly.detail.level", { level: item.level }));
       if (item.battery) parts.push(item.battery);
       break;
     case "unavailable":
@@ -458,8 +458,8 @@ export function itemDetail(
         const days = Math.floor((at - Date.parse(item.since)) / 86_400_000);
         parts.push(
           days >= 1
-            ? t.tp("report.detail.unavailable_days", days)
-            : t.t("report.detail.unavailable_since", { at: hourText(item.since, style) }),
+            ? t.tp("weekly.detail.unavailable_days", days)
+            : t.t("weekly.detail.unavailable_since", { at: hourText(item.since, style) }),
         );
       }
       break;
@@ -467,7 +467,7 @@ export function itemDetail(
       if (item.latest) {
         parts.push(
           item.installed
-            ? t.t("report.detail.version", { from: item.installed, to: item.latest })
+            ? t.t("weekly.detail.version", { from: item.installed, to: item.latest })
             : item.latest,
         );
       }
@@ -477,22 +477,22 @@ export function itemDetail(
         parts.push(
           t.t(
             item.missing === "entity"
-              ? "report.detail.missing_entity"
-              : "report.detail.missing_action",
+              ? "weekly.detail.missing_entity"
+              : "weekly.detail.missing_action",
           ),
         );
       } else if (item.severity === "critical" || item.severity === "error") {
-        parts.push(t.t(`report.severity.${item.severity}`));
+        parts.push(t.t(`weekly.severity.${item.severity}`));
       }
       break;
     case "upkeep":
       if (item.warranty_end) {
-        parts.push(t.t("report.detail.warranty", { day: shortDay(item.warranty_end, style) }));
+        parts.push(t.t("weekly.detail.warranty", { day: shortDay(item.warranty_end, style) }));
       } else if (item.task) {
         parts.push(item.task);
         if (item.due) {
           parts.push(
-            t.t(item.state === "overdue" ? "report.detail.overdue" : "report.detail.due", {
+            t.t(item.state === "overdue" ? "weekly.detail.overdue" : "weekly.detail.due", {
               day: shortDay(item.due, style),
             }),
           );
@@ -501,19 +501,19 @@ export function itemDetail(
       break;
     case "automations":
       if (item.problem === "failed") {
-        parts.push(t.tp("report.detail.failed", item.runs ?? 1));
+        parts.push(t.tp("weekly.detail.failed", item.runs ?? 1));
         if (item.error) parts.push(item.error);
       } else if (item.problem === "broken") {
-        parts.push(t.t("report.detail.broken"));
+        parts.push(t.t("weekly.detail.broken"));
       } else if (item.problem === "never") {
-        parts.push(t.t("report.detail.never"));
+        parts.push(t.t("weekly.detail.never"));
       }
       break;
     case "radios":
       parts.push(
         item.cut || item.lqi === undefined
-          ? t.t("report.detail.cut")
-          : t.tp("report.detail.weak", item.hops ?? 1, { lqi: item.lqi }),
+          ? t.t("weekly.detail.cut")
+          : t.tp("weekly.detail.weak", item.hops ?? 1, { lqi: item.lqi }),
       );
       break;
   }

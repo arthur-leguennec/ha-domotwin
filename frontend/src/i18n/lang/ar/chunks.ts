@@ -1397,7 +1397,7 @@ export const chunks: Chunks = {
     },
   },
   report: {
-    report: {
+    weekly: {
       title: "التقرير الأسبوعي",
       reading: "جارٍ قراءة التقارير…",
       none: "لا يوجد تقرير بعد: يُكتب أول تقرير يوم {day} الساعة {hour}.",

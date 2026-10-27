@@ -750,7 +750,7 @@ export const fr: Dictionary = {
   plain: {
     menu: "Une automatisation dite avec vos mots",
   },
-  report: {
+  weekly: {
     menu: "Bilan de la semaine",
   },
   config_history: {

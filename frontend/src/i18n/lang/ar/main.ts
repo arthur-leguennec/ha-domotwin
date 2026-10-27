@@ -873,7 +873,7 @@ export const main: Dictionary = {
   plain: {
     menu: "أتمتة بكلمات بسيطة",
   },
-  report: {
+  weekly: {
     menu: "التقرير الأسبوعي",
   },
   config_history: {
