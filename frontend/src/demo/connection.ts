@@ -21,6 +21,7 @@ import {
   wifiAnswer,
   type StoredWifi,
 } from "../live/wifi";
+import type { DemoConfigHistory } from "./config-history";
 import { DemoError, type DemoStore } from "./home";
 import type { DemoLogbook } from "./logbook";
 
@@ -49,6 +50,8 @@ export interface MemoryHome {
   /** What its Home Assistant recorded, by context, as its logbook answers (D-059); none:
    * nothing recorded. */
   readonly recorded?: DemoLogbook;
+  /** Its configuration history (D-062), where it keeps one (the demo house's). */
+  readonly configHistory?: DemoConfigHistory;
 }
 
 /** A websocket error, as Home Assistant gives one. */
@@ -139,6 +142,12 @@ export function demoConnection(home: MemoryHome): HassConnection {
   };
   const entityIds = (message: HassMessage): string[] =>
     Array.isArray(message.entity_ids) ? message.entity_ids.map(String) : [];
+
+  // The configuration history, where the home keeps one (not the sandbox's copy).
+  const configHistory = (): DemoConfigHistory => {
+    if (!home.configHistory) throw failure("unknown_command", "no configuration history here");
+    return home.configHistory;
+  };
 
   const answer = (message: HassMessage): unknown => {
     switch (message.type) {
@@ -302,6 +311,23 @@ export function demoConnection(home: MemoryHome): HassConnection {
         return home.addSchedule(message as unknown as NewSchedule & HassMessage);
       case "domotwin/schedules/cancel":
         return { cancelled: home.cancelSchedule(String(message.schedule_id)) };
+      case "domotwin/config_history/list":
+        return configHistory().list();
+      case "domotwin/config_history/item":
+        return configHistory().item(message.item);
+      case "domotwin/config_history/version":
+        return { config: configHistory().version(message.item, message.version) };
+      case "domotwin/config_history/refresh":
+        configHistory();
+        // Put back already, as Home Assistant's editors would have saved it.
+        return { changed: 0 };
+      case "lovelace/config/save":
+        configHistory().putBack(
+          "dashboard",
+          typeof message.url_path === "string" ? message.url_path : "",
+          message.config,
+        );
+        return null;
       case "automation/config": {
         const id = String(message.entity_id);
         const config = home.automationConfig(id);

@@ -673,6 +673,9 @@ export const en = {
     first_failed:
       "Your choices are saved, but Home Assistant did not keep the page it opens first: {reason}",
   },
+  config_history: {
+    menu: "Configuration history",
+  },
   measure: {
     menu: "Measure performance",
     title: "Measure performance",
@@ -1101,6 +1104,8 @@ export const en = {
       too_long: "an action leaves a device on 7 days at most.",
       too_many: "at most 100 actions wait at once.",
       not_allowed: "you may not control one of these devices.",
+      unknown_item: "this item is no longer in the history.",
+      unknown_version: "this version is no longer kept.",
     },
     unknown: "unexpected error ({code}).",
     at_element: "{reason} (element “{element}”)",

@@ -33,7 +33,7 @@ export interface SandboxVisitor {
   language: string;
   user?: HomeAssistant["user"];
   darkMode?: boolean;
-  /** Opens on the day of Hydro-Québec's announced peak, when there is one (D-062). */
+  /** Opens on the day of Hydro-Québec's announced peak, when there is one (D-063). */
   peakDay?: boolean;
 }
 
@@ -57,7 +57,7 @@ export class SandboxHome implements MemoryHome {
   private report?: DayReport;
   private peakRooms?: PeakRoomReport[];
   /**
-   * Hydro-Québec's peak announced when the home was copied (D-062), where an integration reads
+   * Hydro-Québec's peak announced when the home was copied (D-063), where an integration reads
    * it: its day plays it.
    */
   readonly announced?: Peak;
@@ -202,7 +202,7 @@ export class SandboxHome implements MemoryHome {
     return `${at.year}-${pad(at.month)}-${pad(at.day)}`;
   }
 
-  /** Plays the announced peak's day, shown from its pre-heating (D-062). */
+  /** Plays the announced peak's day, shown from its pre-heating (D-063). */
   playPeak(): void {
     const peak = this.announced;
     const date = this.peakDate();
@@ -221,7 +221,7 @@ export class SandboxHome implements MemoryHome {
     return date === this.peakDate() ? clock(peak.preheat) : `${date} ${clock(peak.preheat)}`;
   }
 
-  /** The announced peak, when the day played is its day (D-062). */
+  /** The announced peak, when the day played is its day (D-063). */
   peakToday(): Peak | undefined {
     const peak = this.announced;
     return peakOnDay(peak, this.day.start, this.day.end) ? peak : undefined;
@@ -268,7 +268,7 @@ export class SandboxHome implements MemoryHome {
       Object.entries(copy.store.people.people).map(([id, person]) => [id, person.sensor]),
     );
     const prepared = prepare(copy.states, this.scenario, copy.zone, sun, start, place, rooms);
-    // The announced peak's day (D-062): the integrations say it as it goes.
+    // The announced peak's day (D-063): the integrations say it as it goes.
     this.peakAnother = false;
     if (peakOnDay(this.announced, start, end)) {
       const peak = peakDay(prepared.states, copy.entities, this.announced, this.peakFrom, {

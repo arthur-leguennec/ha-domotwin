@@ -143,7 +143,7 @@ function schema(
       selector: {
         select: {
           mode: "dropdown",
-          // The network map (D-031) and the peaks (D-062) only where they can be shown, or kept
+          // The network map (D-031) and the peaks (D-063) only where they can be shown, or kept
           // where they are set.
           options: LAYER_NAMES.filter(
             (value) =>

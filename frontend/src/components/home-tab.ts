@@ -1,6 +1,6 @@
 /**
  * `<domotwin-home>`, the Home tab (D-055): the home at a glance (who is in, the lamps on, the
- * doors and windows open, the alerts, Hydro-Québec's next peak, D-062), the weather, the
+ * doors and windows open, the alerts, Hydro-Québec's next peak, D-063), the weather, the
  * favourite scenes as big buttons, the other favourites, and the cards the user chose. Every
  * control is Home Assistant's own card.
  */
@@ -157,7 +157,7 @@ export class DomoTwinHome extends LitElement {
     `,
   ];
 
-  /** When the peak's phase changes next (D-062): the glance is worked out again then. */
+  /** When the peak's phase changes next (D-063): the glance is worked out again then. */
   private peakTimer: ReturnType<typeof setTimeout> | undefined;
 
   override disconnectedCallback(): void {
@@ -285,7 +285,7 @@ export class DomoTwinHome extends LitElement {
     }
   }
 
-  /** Hydro-Québec's peak (D-062): when, the rooms that pre-heat, shed or still heat, the 3D. */
+  /** Hydro-Québec's peak (D-063): when, the rooms that pre-heat, shed or still heat, the 3D. */
   private renderPeak(glance: Glance): TemplateResult | typeof nothing {
     const hass = this.hass;
     const t = this.t;
@@ -318,7 +318,7 @@ export class DomoTwinHome extends LitElement {
           : nothing
       }
       ${
-        // An administrator plays the day of a peak to come in the sandbox (D-062).
+        // An administrator plays the day of a peak to come in the sandbox (D-063).
         hass.user?.is_admin === true && hass.demo !== true && peak.now.phase !== "peak"
           ? html`<button
               class="action"

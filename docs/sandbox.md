@@ -42,7 +42,7 @@ your home as it is: nothing done in the sandbox is kept, nothing was written.
 
 Where [hydroqc](https://github.com/hydroqc/hydroqc-ha) or
 [HydroPeak](https://github.com/Beat-YT/hydropeak-ha) reads Hydro-Québec's peaks, the peak announced
-when the sandbox opens can be played (D-062). **The day** says it, and **Choose its day** sets the
+when the sandbox opens can be played (D-063). **The day** says it, and **Choose its day** sets the
 date to it, shown from its pre-heating once played; from the Home tab, the peak's chip has **Play
 its day in the sandbox** for administrators.
 

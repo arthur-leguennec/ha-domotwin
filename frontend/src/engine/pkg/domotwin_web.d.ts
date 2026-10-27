@@ -162,7 +162,7 @@ export class Engine {
     /**
      * Where the values of the layers shown go on the picture, as JSON `[{"id", "kind": "heat"
      * | "draw" | "power", "value", "x", "y"}]` in device pixels from the top left: each room's
-     * heatmap value, or what it draws (W, D-062), at its centre, and each piece's power (W) when
+     * heatmap value, or what it draws (W, D-063), at its centre, and each piece's power (W) when
      * the power layer is shown.
      */
     layerLabels(): string;

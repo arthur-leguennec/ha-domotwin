@@ -1,5 +1,5 @@
 /**
- * What each room's heating does around a Hydro-Québec peak (D-062): pre-heating before it, shed
+ * What each room's heating does around a Hydro-Québec peak (D-063): pre-heating before it, shed
  * or still heating during it, and what the room draws. Read from the thermostats and the power
  * sensors of each room's area, as the layers read their sensors (D-023).
  */

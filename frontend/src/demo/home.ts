@@ -22,9 +22,11 @@ import type {
 } from "../ha/types";
 import type { PeopleSettings } from "../live/people";
 import type { Choices } from "../live/choices";
+import type { ConfigKind } from "../live/config-history";
 import { MAX_SCHEDULE_ENTITIES, schedulable, type Schedule } from "../live/schedules";
 import type { Upkeep } from "../live/upkeep";
 import type { StoredWifi } from "../live/wifi";
+import { DemoConfigHistory } from "./config-history";
 import { demoConnection, type MemoryHome } from "./connection";
 import { demoHistory, demoLogbook } from "./history";
 import { DemoLogbook, type Recorded } from "./logbook";
@@ -170,6 +172,8 @@ export class DemoHome implements MemoryHome {
   /** Held while its panel or card is away, as the visitor left it otherwise. */
   private held = false;
   readonly store: DemoStore;
+  /** Its configuration history (D-062), put back in the page. */
+  readonly configHistory: DemoConfigHistory;
   private readonly language: string;
   private readonly states: Record<string, HassEntity> = {};
   private readonly areaOf = new Map<string, string>();
@@ -294,6 +298,9 @@ export class DemoHome implements MemoryHome {
       const id = `${storey.info.id}_floor`;
       floors[id] = { floor_id: id, name: say(storey.names, language) };
     }
+    this.configHistory = new DemoConfigHistory(Date.parse(this.time()), language, () =>
+      Date.parse(this.time()),
+    );
     const connection = demoConnection(this);
     this.hass = {
       states: {},
@@ -317,6 +324,21 @@ export class DemoHome implements MemoryHome {
       callService: (domain, service, data, target) => {
         this.callService(domain, service, data ?? {}, target ?? {});
         return Promise.resolve();
+      },
+      // Home Assistant's configuration API, for what the configuration history puts back (D-062).
+      callApi: <T>(method: string, path: string, parameters?: Record<string, unknown>) => {
+        const found = /^config\/(automation|script|scene)\/config\/(.+)$/.exec(path);
+        if (method !== "POST" || !found) {
+          return Promise.reject(
+            new DemoError("not_found", `${method} /api/${path} is not in the demo house`),
+          );
+        }
+        this.configHistory.putBack(
+          found[1] as ConfigKind,
+          decodeURIComponent(found[2] ?? ""),
+          parameters,
+        );
+        return Promise.resolve({ result: "ok" } as T);
       },
     };
     this.jump(DEMO_START);

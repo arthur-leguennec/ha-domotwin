@@ -160,7 +160,7 @@ export interface PlanElement {
 
 /** A value of a layer and where it goes on the picture (device pixels from the top left). */
 export interface LayerLabel {
-  /** The room's id (`heat`, `draw`: what it draws during a peak, D-062) or the piece's (`power`). */
+  /** The room's id (`heat`, `draw`: what it draws during a peak, D-063) or the piece's (`power`). */
   id: string;
   kind: "heat" | "draw" | "power";
   /** In the heatmap's unit, or watts. */

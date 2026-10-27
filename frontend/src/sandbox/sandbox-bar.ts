@@ -179,7 +179,7 @@ export class DomoTwinSandboxBar extends LitElement {
         opacity: 0.75;
         pointer-events: none;
       }
-      /* Hydro-Québec's announced peak (D-062), as the peak's layer colours it. */
+      /* Hydro-Québec's announced peak (D-063), as the peak's layer colours it. */
       .band {
         position: absolute;
         top: 0;
@@ -352,7 +352,7 @@ export class DomoTwinSandboxBar extends LitElement {
     event.preventDefault();
   };
 
-  /** The announced peak's pre-heating and peak on the day's line, when it is its day (D-062). */
+  /** The announced peak's pre-heating and peak on the day's line, when it is its day (D-063). */
   private peakBands(home: SandboxHome): { kind: "preheat" | "peak"; from: number; to: number }[] {
     const peak = home.peakToday();
     if (!peak) return [];
@@ -676,7 +676,7 @@ export class DomoTwinSandboxBar extends LitElement {
               this.draftError = t.t("sandbox.scenario.bad_date");
               return;
             }
-            // Moved to the announced peak's day: shown from its pre-heating (D-062).
+            // Moved to the announced peak's day: shown from its pre-heating (D-063).
             const toPeak = draft.date === home.peakDate() && draft.date !== home.scenario.date;
             home.setScenario({ ...draft, calls });
             if (toPeak) home.playPeak();
@@ -690,7 +690,7 @@ export class DomoTwinSandboxBar extends LitElement {
   }
 
   /**
-   * Hydro-Québec's announced peak (D-062): played when the day is its day, else a way to it.
+   * Hydro-Québec's announced peak (D-063): played when the day is its day, else a way to it.
    */
   private renderPeak(
     home: SandboxHome,
@@ -834,7 +834,7 @@ export class DomoTwinSandboxBar extends LitElement {
     return t.t(`sandbox.why.${reason as "error"}`, { detail: note.detail });
   }
 
-  /** What each room did through the announced peak, when the day is its day (D-062). */
+  /** What each room did through the announced peak, when the day is its day (D-063). */
   private renderPeakReport(home: SandboxHome, t: Translator): TemplateResult | typeof nothing {
     const rooms = home.peakReport();
     if (!rooms) return nothing;

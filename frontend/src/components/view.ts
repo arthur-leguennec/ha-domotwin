@@ -923,7 +923,7 @@ export class DomoTwinView extends LitElement {
   /** The rooms of the plan shown, and whether a heatmap found values in them. */
   private rooms: PlanRoom[] = [];
   private heatValues = 0;
-  /** Hydro-Québec's peak and what the rooms do, while its layer is shown (D-062). */
+  /** Hydro-Québec's peak and what the rooms do, while its layer is shown (D-063). */
   private peakShown?: { now: PeakNow; rooms: PeakRooms; key: string };
   /** The peak's layer (its chunk), once loaded; loading, or failed to. */
   private peakLayer?: typeof import("./peak-layer");
@@ -1288,7 +1288,7 @@ export class DomoTwinView extends LitElement {
       .legend .name {
         font-weight: 600;
       }
-      /* Hydro-Québec's peak (D-062): when, the rooms by colour, what they draw. */
+      /* Hydro-Québec's peak (D-063): when, the rooms by colour, what they draw. */
       .legend.peak {
         width: 200px;
       }
@@ -2896,7 +2896,7 @@ export class DomoTwinView extends LitElement {
   /** The rooms' names are drawn: where no layer shows a value (the storeys' labels take their
    * place when every storey is shown). */
   private get namesShown(): boolean {
-    // The peak's layer writes on the rooms only while they draw (D-062).
+    // The peak's layer writes on the rooms only while they draw (D-063).
     const quiet =
       this.shownLayer === "peak" && Object.keys(this.peakShown?.rooms.draws ?? {}).length === 0;
     return this.options.names !== false && (!this.valueLayer || quiet) && !this.loadedHome;
@@ -3467,7 +3467,7 @@ export class DomoTwinView extends LitElement {
   }
 
   /**
-   * Hydro-Québec's peak now and what the rooms do (D-062), while its layer is shown; worked out
+   * Hydro-Québec's peak now and what the rooms do (D-063), while its layer is shown; worked out
    * again when its phase changes, as nothing in Home Assistant may change then.
    */
   private readPeak(hass: HomeAssistant | undefined): PeakRooms | undefined {

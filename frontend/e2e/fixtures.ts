@@ -99,7 +99,7 @@ export interface HarnessOptions {
   /** The card's `demo`: the demo house instead of this home (D-050). */
   demo?: boolean;
   /**
-   * Hydro-Québec's peaks (D-062): the integration that reads them (hydroqc's sensors, HydroPeak's,
+   * Hydro-Québec's peaks (D-063): the integration that reads them (hydroqc's sensors, HydroPeak's,
    * or hydroqc's calendar) and where its peak stands now (`peak` unless asked).
    */
   peak?: "hydroqc" | "hydropeak" | "calendar";
@@ -136,6 +136,8 @@ export interface HarnessOptions {
   historyFail?: boolean;
   noStats?: boolean;
   formatState?: boolean;
+  /** The configuration history (D-062): fictional items and their versions. */
+  configHistory?: boolean;
 }
 
 /** Opens the mocked Home Assistant with the built frontend. */
@@ -202,6 +204,7 @@ export async function openHarness(page: Page, options: HarnessOptions = {}): Pro
   if (options.historyFail) params.set("historyfail", "1");
   if (options.noStats) params.set("nostats", "1");
   if (options.formatState) params.set("formatstate", "1");
+  if (options.configHistory) params.set("confighistory", "1");
   if (options.voice) params.set("voice", options.voice === true ? "1" : options.voice);
   if (options.supervisor) params.set("supervisor", "1");
   if (options.blueprints) params.set("blueprints", options.blueprints);

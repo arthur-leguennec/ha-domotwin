@@ -11,7 +11,7 @@ import type { PeakRooms } from "./peak-rooms";
 export const HEAT_KINDS = ["temperature", "humidity", "co2", "pm25"] as const;
 export type HeatKind = (typeof HEAT_KINDS)[number];
 /**
- * What the layer menu shows: nothing, a heatmap, the power layer, Hydro-Québec's peaks (D-062,
+ * What the layer menu shows: nothing, a heatmap, the power layer, Hydro-Québec's peaks (D-063,
  * offered where an integration reads them), the network map (D-031, offered to administrators
  * with ZHA set up), every automation's wires (D-032, administrators) or upkeep (D-033: the pieces
  * tinted by their tasks, and the list of them).
@@ -114,7 +114,7 @@ export interface LayerChoice {
    * would tell someone is in (CO₂) or a window is open (rain); their dangers stay.
    */
   closed?: Set<string>;
-  /** What the rooms do around a peak (D-062), when its layer is shown. */
+  /** What the rooms do around a peak (D-063), when its layer is shown. */
   peak?: PeakRooms;
 }
 
