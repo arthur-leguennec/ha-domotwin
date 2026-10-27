@@ -21,7 +21,7 @@ use domotwin_core::lighting::Lighting;
 use domotwin_core::live::Look;
 use domotwin_core::scene::figures::{self, Shape};
 use domotwin_core::scene::lines::Line;
-use domotwin_core::scene::mesh::Mesh;
+use domotwin_core::scene::mesh::{Mesh, Surface};
 use domotwin_core::scene::wires::WireSegment;
 use domotwin_core::scene::{LightSpot, MAX_WINGS, MovingParts, RoofKind, Scene, StoreyPart};
 use domotwin_core::theme::Theme;
@@ -56,6 +56,15 @@ struct GpuMesh {
     extras: VertexBuffer<[u8; 4]>,
     uvs: VertexBuffer<[f32; 2]>,
     indices: ElementBuffer<u32>,
+    /// Whether it has grounds of the garden (D-077): drawn with the garden's program.
+    garden: bool,
+}
+
+/// Whether `mesh` has grounds of the garden (D-077): its surfaces come after all the others.
+fn has_garden(mesh: &Mesh) -> bool {
+    mesh.extras
+        .iter()
+        .any(|e| e[1] >> 2 >= Surface::Grass as u8)
 }
 
 impl std::fmt::Debug for GpuMesh {
@@ -78,6 +87,7 @@ impl GpuMesh {
             extras: VertexBuffer::new_with_data(context, &mesh.extras),
             uvs: VertexBuffer::new_with_data(context, &mesh.uvs),
             indices: ElementBuffer::new_with_data(context, &mesh.indices),
+            garden: has_garden(mesh),
         })
     }
 
@@ -91,6 +101,7 @@ impl GpuMesh {
                 gpu.extras.fill(&mesh.extras);
                 gpu.uvs.fill(&mesh.uvs);
                 gpu.indices.fill(&mesh.indices);
+                gpu.garden = has_garden(mesh);
             }
             _ => *slot = Self::new(context, mesh),
         }
@@ -709,6 +720,9 @@ pub struct Renderer {
     background: Rgb,
     quality: QualityPreset,
     main: Program,
+    /// The main program with the garden's grounds (D-077), compiled once a scene has them: the
+    /// others' fragments never pay for them.
+    garden: Option<Program>,
     depth: Program,
     pick: Program,
     halo: Program,
@@ -950,6 +964,7 @@ impl Renderer {
             },
             quality: QualityPreset::Balanced,
             main,
+            garden: None,
             depth,
             pick,
             halo,
@@ -1019,7 +1034,24 @@ impl Renderer {
         self.spots.clone_from(&scene.lights);
         self.footprint = weather::Footprint::of(scene);
         self.view.set_scene(scene, keep_camera);
+        self.ensure_garden();
         self.relight();
+    }
+
+    /// Compiles the garden's program (D-077) once a mesh needs it. Where it does not compile, the
+    /// garden's grounds are drawn in their plain colours.
+    fn ensure_garden(&mut self) {
+        if self.garden.is_some()
+            || !self
+                .parts
+                .iter()
+                .flat_map(|part| part.meshes.iter().flatten())
+                .any(|mesh| mesh.garden)
+        {
+            return;
+        }
+        let fragment = format!("{}{}", shaders::GARDEN, shaders::FRAGMENT);
+        self.garden = Program::from_source(&self.context, shaders::VERTEX, &fragment).ok();
     }
 
     /// Draws nothing but the background (no plan shown any more).
@@ -1040,6 +1072,7 @@ impl Renderer {
             GpuMesh::replace(&mut gpu.meshes[1], &self.context, opaque);
             GpuMesh::replace(&mut gpu.meshes[3], &self.context, transparent);
         }
+        self.ensure_garden();
         self.shadow_stale = true;
         self.view.dirty = true;
     }
@@ -1893,7 +1926,12 @@ impl Renderer {
         animating || self.layers_animating()
     }
 
-    /// Sets what the main program needs for a frame. Returns the lamps' gain.
+    /// The main program, and the garden's once compiled (D-077).
+    fn surface_programs(&self) -> impl Iterator<Item = &Program> {
+        std::iter::once(&self.main).chain(self.garden.as_ref())
+    }
+
+    /// Sets what the main program (and the garden's) needs for a frame. Returns the lamps' gain.
     fn set_main_uniforms(
         &self,
         projection: &domotwin_core::camera::Projection,
@@ -1901,7 +1939,22 @@ impl Renderer {
         flat: f32,
         post: bool,
     ) -> f32 {
-        let program = &self.main;
+        for program in self.surface_programs() {
+            self.set_surface_uniforms(program, projection, time_ms, flat, post);
+        }
+        // Lamps and halos count less in daylight: a lamp lit at noon barely shows indoors.
+        self.light().lamp_gain()
+    }
+
+    /// Sets what `program`, the main one or the garden's, needs for a frame.
+    fn set_surface_uniforms(
+        &self,
+        program: &Program,
+        projection: &domotwin_core::camera::Projection,
+        time_ms: f64,
+        flat: f32,
+        post: bool,
+    ) {
         self.use_common(program, &projection.view_proj, false);
         #[allow(clippy::cast_possible_truncation)]
         let v3 = |v: [f64; 3]| Vec3::new(v[0] as f32, v[1] as f32, v[2] as f32);
@@ -1957,8 +2010,6 @@ impl Renderer {
         program.use_uniform_if_required("u_rim_ink", shading.rim_ink);
         program.use_uniform_if_required("u_specular", shading.specular);
         program.use_uniform_if_required("u_glow_alpha", on(post));
-        // Lamps and halos count less in daylight: a lamp lit at noon barely shows indoors.
-        let gain = light.lamp_gain();
         let shadows = self.shadow.as_ref().filter(|_| flat < 0.5);
         program.use_uniform_if_required("u_shadows", on(shadows.is_some()));
         if let Some(shadow) = self.shadow.as_ref() {
@@ -1971,7 +2022,6 @@ impl Renderer {
             program.use_uniform_if_required("u_shadow_texel", 1.0_f32);
             program.use_uniform_if_required("u_shadow_matrix", mat4(&[0.0; 16]));
         }
-        gain
     }
 
     /// Binds the textures of `program`: a texture unit is shared by every program, so each binds
@@ -2250,10 +2300,8 @@ impl Renderer {
         let storeys = self.drawn(only);
         // What is opaque, storey by storey; glass walls only have their tops drawn with it.
         for (part, offset, lights) in storeys.iter().filter(|_| solid) {
-            self.use_storey(program, *offset, lights, gain);
-            for mesh in part.meshes[..2].iter().flatten() {
-                mesh.draw(program, opaque_states, viewport);
-            }
+            self.use_storey(*offset, lights, gain);
+            self.draw_meshes(part.meshes[..2].iter().flatten(), opaque_states, viewport);
             if let Some(walls) = part.walls.as_ref() {
                 let pass = if glass_walls { 1.0_f32 } else { 0.0 };
                 program.use_uniform_if_required("u_wall_pass", pass);
@@ -2266,7 +2314,7 @@ impl Renderer {
             }
         }
         for (mesh, offset, _) in roofs.iter().filter(|_| solid && !glass_walls) {
-            self.use_storey(program, *offset, &[], gain);
+            self.use_storey(*offset, &[], gain);
             mesh.draw(program, opaque_states, viewport);
         }
         // The people stand among the furniture; not in a storey's picture. Those fading in or out
@@ -2303,10 +2351,8 @@ impl Renderer {
             return;
         }
         for (part, offset, lights) in &storeys {
-            self.use_storey(program, *offset, lights, gain);
-            for mesh in part.meshes[2..].iter().flatten() {
-                mesh.draw(program, glass_states, viewport);
-            }
+            self.use_storey(*offset, lights, gain);
+            self.draw_meshes(part.meshes[2..].iter().flatten(), glass_states, viewport);
         }
         if glass_walls {
             // The faces of glass walls (and a glass roof), after everything else.
@@ -2317,17 +2363,19 @@ impl Renderer {
             };
             for (part, offset, lights) in &storeys {
                 if let Some(walls) = part.walls.as_ref() {
-                    self.use_storey(program, *offset, lights, gain);
+                    self.use_storey(*offset, lights, gain);
                     walls.draw(program, states, viewport);
                 }
             }
             for (mesh, offset, _) in &roofs {
-                self.use_storey(program, *offset, &[], gain);
+                self.use_storey(*offset, &[], gain);
                 mesh.draw(program, states, viewport);
             }
             program.use_uniform_if_required("u_wall_pass", 0.0_f32);
         }
-        set_offset(program, NO_OFFSET);
+        for program in self.surface_programs() {
+            set_offset(program, NO_OFFSET);
+        }
         if self.theme.line_strength > 0.0 {
             // Light lines keep the brightest of what is drawn where they cross (a partition's
             // line comes from both its rooms); dark lines the darkest. The glow keeps the most.
@@ -2566,9 +2614,9 @@ impl Renderer {
         pixels.into_iter().flatten().collect()
     }
 
-    /// Draws storey parts moved by `offset` (cm), lit by `lights` (their colours times `gain`).
-    fn use_storey(&self, program: &Program, offset: [f64; 3], lights: &[PointLight], gain: f32) {
-        set_offset(program, offset);
+    /// Draws storey parts moved by `offset` (cm), lit by `lights` (their colours times `gain`),
+    /// with the main program and the garden's.
+    fn use_storey(&self, offset: [f64; 3], lights: &[PointLight], gain: f32) {
         let mut positions = [Vec4::new(0.0, 0.0, 0.0, 1.0); lamps::MAX_LIGHTS];
         let mut colors = [Vec4::new(0.0, 0.0, 0.0, 0.0); lamps::MAX_LIGHTS];
         for (i, lamp) in lights.iter().enumerate().take(lamps::MAX_LIGHTS) {
@@ -2577,13 +2625,44 @@ impl Renderer {
             let [r, g, b] = lamp.color;
             colors[i] = Vec4::new(r * gain, g * gain, b * gain, f32::from(lamp.room));
         }
-        if program.requires_uniform("u_light_pos") {
-            program.use_uniform_array("u_light_pos", &positions);
-            program.use_uniform_array("u_light_color", &colors);
-        }
         #[allow(clippy::cast_precision_loss)]
-        program
-            .use_uniform_if_required("u_light_count", lights.len().min(lamps::MAX_LIGHTS) as f32);
+        let count = lights.len().min(lamps::MAX_LIGHTS) as f32;
+        for program in self.surface_programs() {
+            set_offset(program, offset);
+            if program.requires_uniform("u_light_pos") {
+                program.use_uniform_array("u_light_pos", &positions);
+                program.use_uniform_array("u_light_color", &colors);
+            }
+            program.use_uniform_if_required("u_light_count", count);
+        }
+    }
+
+    /// Draws `meshes` with the main program, those with grounds of the garden with the garden's
+    /// (D-077), its textures bound for them.
+    fn draw_meshes<'a>(
+        &self,
+        meshes: impl Iterator<Item = &'a GpuMesh> + Clone,
+        states: RenderStates,
+        viewport: Viewport,
+    ) {
+        let garden = self.garden.as_ref();
+        for mesh in meshes.clone().filter(|m| !m.garden || garden.is_none()) {
+            mesh.draw(&self.main, states, viewport);
+        }
+        let Some(garden) = garden else {
+            return;
+        };
+        let mut bound = false;
+        for mesh in meshes.filter(|m| m.garden) {
+            if !bound {
+                self.bind_textures(garden);
+                bound = true;
+            }
+            mesh.draw(garden, states, viewport);
+        }
+        if bound {
+            self.bind_textures(&self.main);
+        }
     }
 
     /// The look's ink (D-036) over what is opaque, read from its resolved `depth`.
@@ -2796,6 +2875,50 @@ mod tests {
     use super::*;
 
     #[test]
+    fn the_garden_s_grounds_have_their_own_program() {
+        let mesh = |surface: Surface| Mesh {
+            extras: vec![[0, 1, 0, 0], [0, 1 | ((surface as u8) << 2), 0, 0]],
+            ..Mesh::default()
+        };
+        for surface in [
+            Surface::Grass,
+            Surface::Gravel,
+            Surface::Water,
+            Surface::Soil,
+            Surface::Paving,
+        ] {
+            assert!(has_garden(&mesh(surface)), "{surface:?}");
+        }
+        for surface in [
+            Surface::Matte,
+            Surface::Planks,
+            Surface::Leaf,
+            Surface::Ceiling,
+        ] {
+            assert!(!has_garden(&mesh(surface)), "{surface:?}");
+        }
+        // The main program leaves out what only the garden needs: its blocks open and close.
+        let main = shaders::FRAGMENT;
+        assert_eq!(main.matches("#ifdef GARDEN").count(), 4);
+        assert_eq!(
+            main.matches("#ifdef GARDEN").count(),
+            main.matches("#endif").count()
+        );
+        let mut without = String::new();
+        let mut rest = main;
+        while let Some(at) = rest.find("#ifdef GARDEN") {
+            without.push_str(&rest[..at]);
+            let end = rest[at..].find("#endif").unwrap() + at;
+            rest = &rest[end..];
+        }
+        without.push_str(rest);
+        for garden_only in ["lawn(", "gravel(", "surface == WATER"] {
+            assert!(main.contains(garden_only), "{garden_only}");
+            assert!(!without.contains(garden_only), "{garden_only}");
+        }
+    }
+
+    #[test]
     fn the_shaders_know_the_surfaces() {
         use domotwin_core::scene::mesh::Surface;
         let value = |source: &str, name: &str| {
@@ -2821,6 +2944,11 @@ mod tests {
             ("WOOD", Surface::Wood),
             ("LEAF", Surface::Leaf),
             ("CEILING", Surface::Ceiling),
+            ("GRASS", Surface::Grass),
+            ("GRAVEL", Surface::Gravel),
+            ("WATER", Surface::Water),
+            ("SOIL", Surface::Soil),
+            ("PAVING", Surface::Paving),
         ];
         for (name, surface) in surfaces {
             assert_eq!(value(shaders::FRAGMENT, name), surface as u8, "{name}");

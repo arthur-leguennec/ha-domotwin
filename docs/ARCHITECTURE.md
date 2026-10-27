@@ -144,7 +144,9 @@ every reader returns `Result` with a stable error code that the frontend transla
   larger, in the scene's room lookup, the walk's `Floor`, the edit session, and the radios' model
   (core and integration). Their grounds carry a surface (grass, gravel, soil, paving, water) that
   the floor's shader draws (tufts, a mower's stripes from the rooms texture's grass length and
-  freshness, ripples), a lawn 4 cm under the floors. `scene::roof` splits each uncovered storey's
+  freshness, ripples), a lawn 4 cm under the floors: in a variant of the main program compiled
+  with `GARDEN` once a scene has them, for the meshes that have them only (a software GPU runs
+  every branch of a shader, taken or not). `scene::roof` splits each uncovered storey's
   outline into up to four rectangles (wings), each drawn in the shape chosen; the weather's shader
   takes each wing's ridge, half sizes and shape to land on it. A robot mower is a `robots::Robots`
   of its own body, on its storey's `Floor` with the home's rooms closed but its dock's

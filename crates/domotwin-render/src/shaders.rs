@@ -118,6 +118,9 @@ void main() {
 }
 ";
 
+/// What the variant of [`FRAGMENT`] drawing the garden's grounds (D-077) starts with.
+pub(crate) const GARDEN: &str = "#define GARDEN\n";
+
 /// Shading of the colour passes (opaque and transparent).
 pub(crate) const FRAGMENT: &str = concat!(
     r"
@@ -289,6 +292,9 @@ vec3 subway(vec3 base, vec2 uv) {
     return mix(c, base * 0.78, line);
 }
 
+// The garden's grounds (D-077) are in the variant of this program compiled with `GARDEN`, which
+// draws the meshes that have them: a software GPU runs every branch of a shader, taken or not.
+#ifdef GARDEN
 // A lawn (D-077): fine blades over clumps, its grass `grown` from just mown (0) to long (1):
 // even and light when short, darker and tufted as it grows, seed heads paler when long; striped
 // the width of a mower along its floor's direction just after a mowing (`fresh`).
@@ -316,6 +322,7 @@ vec3 gravel(vec3 base, vec2 uv) {
     float pick = hash(floor(uv * 0.9));
     return base * (0.72 + 0.4 * stones) * (0.92 + 0.16 * pick);
 }
+#endif
 
 float sun_shadow(vec3 n) {
     if (u_shadows < 0.5) {
@@ -381,6 +388,7 @@ void main() {
     if (!gl_FrontFacing) {
         n = -n;
     }
+#ifdef GARDEN
     if (surface == WATER) {
         // Ripples on the water, moving only with motion.
         float drift = u_motion > 0.5 ? u_time * 0.6 : 0.0;
@@ -390,6 +398,7 @@ void main() {
         float dz = noise(q + vec2(0.0, e)) - noise(q - vec2(0.0, e));
         n = normalize(n + vec3(dx, 0.0, dz) * 0.35);
     }
+#endif
     if (v_glass > 0.5) {
         // Tinted glass, brighter at grazing angles, catching the lamps of its room.
         vec3 view = normalize(u_eye - v_world);
@@ -422,6 +431,7 @@ void main() {
         albedo = base * (0.93 + 0.1 * noise(vec2(v_uv.x * 0.05, v_uv.y * 0.9)));
     } else if (surface == FABRIC) {
         albedo = base * (0.94 + 0.08 * noise(v_uv * 1.7));
+#ifdef GARDEN
     } else if (surface == GRASS) {
         // Without its room, a lawn whose mowing is not known (`layers::GRASS_UNKNOWN`'s share).
         vec4 lawn_of = v_room > 0.5
@@ -437,6 +447,7 @@ void main() {
     } else if (surface == WATER) {
         // The pool's tiles seen through the water.
         albedo = base * (1.0 - 0.12 * grout(v_uv, vec2(25.0), 0.4));
+#endif
     }
     // Patterns left out (the cartoon's flat colours, the clay's single matter).
     albedo = mix(albedo, base, u_flatten);
@@ -547,11 +558,13 @@ void main() {
     } else if (surface == GLASS) {
         color = albedo * hemi * 0.4 + env * (0.3 + 0.6 * fresnel);
         alpha = 0.22 + 0.5 * fresnel;
+#ifdef GARDEN
     } else if (surface == WATER) {
         // Its colour from below, the sky on it, brighter at a grazing angle, and the sun's glint.
         color = albedo * (hemi * 0.75 + u_sun_color * diffuse_sun * 0.45)
             + env * (0.08 + 0.55 * fresnel) * mix(1.0, 0.6, u_bands)
             + u_sun_color * spec * shadow * 0.8 * u_specular;
+#endif
     }
 
     // Lamps and screens that are on glow with their element's light.

@@ -1299,10 +1299,11 @@ not a wall screen only asks itself every 5 s whether it is one.
 
 ### M18 (the outdoors)
 
-Bundle: the first load is **648.5 kB gzipped** of 1 200 kB (+44.5 kB). The engine's wasm grows by
-41.6 kB (481.7 kB gzipped): the garden's 22 kinds and their styles (the most of it), the roofs in
-wings and their four shapes, the grounds' shaders (grass, gravel, paving, soil, water), the robot
-mower and the places outside's walls, labels and ways. The page grows by 2.9 kB: the lawns' growth,
+Bundle: the first load is **650.4 kB gzipped** of 1 200 kB (+46.4 kB). The engine's wasm grows by
+43.6 kB (483.7 kB gzipped): the garden's 22 kinds and their styles (the most of it), the roofs in
+wings and their four shapes, the grounds' shaders (grass, gravel, paving, soil, water, in a program
+of their own: below), the robot mower and the places outside's walls, labels and ways. The page
+grows by 2.8 kB: the lawns' growth,
 the garden's reading, the mowers' docks, the roof's settings and the texts. On demand, the demo
 house's garden comes with the demo (+1.8 kB), the catalogue's *Garden* group with edit mode
 (+0.8 kB), and the plan editor's wasm (100.9 kB, +1.8 kB) and the import's (287.5 kB, +1.6 kB)
@@ -1322,7 +1323,13 @@ frames):
 
 The CPU's part of a frame barely moves: the garden is built once, with the plan. The software GPU
 is the interval's bottleneck, with or without the garden. The grass, gravel and water are drawn by
-the floor's shader from the surface their vertices carry: no texture, no extra pass. A robot mower
+the floor's shader from the surface their vertices carry: no texture, no extra pass.
+
+A software GPU runs every branch of a shader, taken or not: with the garden's grounds in the main
+program, a home without a garden drew each frame 10 to 35 % slower on SwiftShader (the GPU's part
+of a frame, read back, the demo apartment at Eco: 260 to 364 ms from 224 to 302 ms). They are now
+in a variant of it, compiled once a scene has them and used for the meshes that have them only:
+224 to 279 ms (M26: 224 to 287 ms), and the demo house's garden is drawn as before (208 ms). A robot mower
 moves as a robot vacuum does (frames at the layers' pace while it moves, none on its dock); its way
 round the house is worked out once, when it leaves (the storey's floor with the home's rooms
 closed), as a vacuum's is (the places outside closed). The lawns' grass is worked out in the page every ten minutes and sent when it changed.
