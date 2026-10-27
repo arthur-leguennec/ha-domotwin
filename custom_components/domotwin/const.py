@@ -71,7 +71,7 @@ PEOPLE_STORAGE_VERSION: Final = 1
 MAX_PEOPLE: Final = 50
 # Private rooms (D-039): at most this many.
 MAX_PRIVATE_ROOMS: Final = 200
-# Per-person rights (D-070): the people given their own, and the rooms and devices one names.
+# Per-person rights (D-071): the people given their own, and the rooms and devices one names.
 MAX_RIGHTS_PEOPLE: Final = 50
 MAX_RIGHTS_ROOMS: Final = 200
 MAX_RIGHTS_ENTITIES: Final = 500

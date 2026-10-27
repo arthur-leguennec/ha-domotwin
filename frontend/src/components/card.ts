@@ -81,7 +81,7 @@ export class DomoTwinCard extends LitElement {
   private shows = 0;
   /** The rooms of the storeys not shown, for their alerts. */
   protected elsewhere: StoreyRooms[] = [];
-  /** The viewer's rights as last worked out (D-070). */
+  /** The viewer's rights as last worked out (D-071). */
   private readonly rightsCache = new RightsCache();
   private _hass?: HomeAssistant;
   private unsubscribe?: () => void;
@@ -466,7 +466,7 @@ export class DomoTwinCard extends LitElement {
   }
 
   /**
-   * The viewer's rights (D-070): their gate, and the bindings without the devices they may not
+   * The viewer's rights (D-071): their gate, and the bindings without the devices they may not
    * see; the same while nothing they read changes. None for an administrator.
    */
   private rightsOf(hass: HomeAssistant): { gate?: Gate; bindings: BindingsJson } {
@@ -495,7 +495,7 @@ export class DomoTwinCard extends LitElement {
 
   protected override render(): TemplateResult | typeof nothing {
     if (!this.config) return nothing;
-    // Under the viewer's rights (D-070): what they may do, the devices they may not see unlinked.
+    // Under the viewer's rights (D-071): what they may do, the devices they may not see unlinked.
     const rights = this._hass ? this.rightsOf(this._hass) : undefined;
     const style = [
       this.config.height ? `height:${this.config.height}` : "",

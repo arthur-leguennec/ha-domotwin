@@ -958,6 +958,42 @@ describe("the sandbox's clock on the day the clocks change", () => {
   // 25 October 2026 in Paris: two in the morning comes twice, the day has 25 hours.
   const day = moment(ZONE, 2026, 10, 25);
 
+  it("counts who is in the home zone as people go out and come back (D-070)", () => {
+    const copy: Record<string, HassEntity> = {
+      "person.alex": entity("person.alex", "home"),
+      "person.sam": entity("person.sam", "home"),
+      "person.kim": entity("person.kim", "not_home"),
+      "zone.home": entity("zone.home", "2", { friendly_name: "Home", persons: ["x"] }),
+    };
+    const scenario = {
+      date: "2026-10-25",
+      weather: "sunny" as const,
+      low: 5,
+      high: 15,
+      people: [
+        { id: "person.alex", home: true, leaves: 510, back: 1080 },
+        { id: "person.sam", home: true, leaves: 510 },
+        { id: "person.kim", home: false, back: 600 },
+      ],
+      calls: [],
+    };
+    const { states, happenings } = prepare(copy, scenario, ZONE, { upAtStart: false }, day);
+    expect(states["zone.home"]?.state).toBe("2");
+    expect(states["zone.home"]?.attributes.persons).toEqual(["person.alex", "person.sam"]);
+    const counts = happenings
+      .filter((h) => h.entity === "zone.home")
+      .map((h) => [clockOf(h.at, ZONE), h.state, h.attributes?.persons]);
+    // Both go out at half past eight at once: nobody is left, then Kim comes, then Alex.
+    expect(counts).toEqual([
+      ["08:30", "0", []],
+      ["10:00", "1", ["person.kim"]],
+      ["18:00", "2", ["person.alex", "person.kim"]],
+    ]);
+    // After the people's own changes of that minute.
+    const at830 = happenings.filter((h) => clockOf(h.at, ZONE) === "08:30").map((h) => h.entity);
+    expect(at830.indexOf("zone.home")).toBeGreaterThan(at830.indexOf("person.sam"));
+  });
+
   it("goes by the wall clock for people and by the hour gone for the weather", () => {
     expect(clockOf(clockOn(day, ZONE, 8 * 60 + 30), ZONE)).toBe("08:30");
     const copy: Record<string, HassEntity> = {

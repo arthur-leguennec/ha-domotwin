@@ -136,7 +136,7 @@ function stateText(t: Translator, entity: HassEntity): string {
 
 /**
  * A row for an entity; `full` adds sliders and colours (long-press controls). An entity the
- * viewer may only look at (their rights, D-070) has its controls shown, disabled.
+ * viewer may only look at (their rights, D-071) has its controls shown, disabled.
  */
 export function entityRow(
   hass: HomeAssistant,
@@ -502,7 +502,7 @@ export function quickControls(
 ): TemplateResult | typeof nothing {
   const entity = hass.states[entityId];
   if (!entity || entity.state === "unavailable" || entity.state === "unknown") return nothing;
-  // Only looked at (D-070): its row says so.
+  // Only looked at (D-071): its row says so.
   if (hass.canAct?.(entityId) === false) return nothing;
   const domain = entityId.split(".")[0];
   if (domain === "light" && entity.state === "on" && modes(entity).some((m) => m !== "onoff")) {

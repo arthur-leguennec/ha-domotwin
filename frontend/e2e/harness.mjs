@@ -32,7 +32,7 @@
 //   private=<room>,<room> (private rooms, D-039, kept for nobody), privatefor=<person> (kept for
 //   that person instead), privatewhile=<entity> (private only while it is on), settingsdown=1
 //   (the settings cannot be read until window.__settingsUp())
-//   rights=<JSON> (each person's rights, D-070, as the stored settings keep them)
+//   rights=<JSON> (each person's rights, D-071, as the stored settings keep them)
 //   voice=1 (Assist with a pipeline that hears), voice=deaf (Assist that cannot hear),
 //   robot=1 (a robot vacuum's dock in the hall, linked to vacuum.robbie, docked; D-049)
 //   valetudo=1 (a robot running Valetudo: its vacuum and its Map data camera over MQTT, whose
@@ -70,6 +70,12 @@
 //   Assistant's configuration API and `lovelace/config/save` put one back, read again on
 //   `domotwin/config_history/refresh`; window.__refuseConfig = "<message>" makes Home Assistant
 //   refuse)
+//   aitask=1 (D-070: Home Assistant's AI task, a fictional one that writes the automation asked
+//   for in plain words from the demo apartment's entities; Home Assistant's actions, its check
+//   `validate_config` and the home zone counting who is home; window.__aiAnswer = <data> answers
+//   that instead, window.__aiHold (a promise) holds the answer back, window.__aiFail = "<message>"
+//   makes it refuse, window.__invalidConfig = { part, error } makes Home Assistant's check refuse;
+//   window.__apiHold (a promise) holds Home Assistant's configuration API back)
 import { applyService, demoHome } from "./demo-home.mjs";
 
 const params = new URLSearchParams(location.search);
@@ -95,6 +101,9 @@ const zha = params.get("zha") === "1";
 // Fictional automations (D-032): `automations=1` three of them, `automations=50` as many made up.
 const automationCount = Number(params.get("automations") ?? 0);
 const sandbox = params.get("sandbox") === "1";
+// Home Assistant's AI task (D-070), a fictional one.
+const aiTask = params.get("aitask") === "1";
+const AI_TASK = "ai_task.fictional_assistant";
 // Home Assistant's logbook and traces of a fictional evening (D-059).
 const why = params.get("why") === "1";
 /** The logbook's rows, as `logbook/get_events` gives them, each with the context it is in. */
@@ -560,6 +569,8 @@ function configItem(id) {
 /** Home Assistant's configuration API (`hass.callApi`): its editors' save. */
 async function callApi(method, path, parameters) {
   calls.push({ type: "api", method, path, parameters });
+  // A test can hold the answer back (`window.__apiHold`, a promise).
+  await window.__apiHold;
   if (!hass.user.is_admin) throw { error: "Response error: 401", status_code: 401, body: {} };
   if (window.__refuseConfig) {
     const message = window.__refuseConfig;
@@ -958,6 +969,72 @@ function whyEvents(message) {
         : !message.entity_ids || message.entity_ids.includes(row.entry.entity_id),
     )
     .map((row) => row.entry);
+}
+
+/**
+ * What the fictional AI task writes (D-070): the automation of the roadmap's example from the
+ * demo apartment's entities, in the request's language, or that automation changed (five minutes
+ * before locking) when a change is asked.
+ */
+function fictionalAutomation(instructions) {
+  const french = /Quand|lumi[eè]re/i.test(instructions);
+  const changing = instructions.includes("The change they ask now");
+  const actions = [
+    {
+      action: "light.turn_off",
+      target: {
+        entity_id: [
+          "light.living_room_floor_lamp",
+          "light.sideboard_lamp",
+          "light.kitchen_ceiling",
+        ],
+      },
+    },
+    ...(changing ? [{ delay: { minutes: 5 } }] : []),
+    { action: "lock.lock", target: { entity_id: "lock.entrance_door" } },
+  ];
+  return {
+    name: french ? "Tout éteindre en partant" : "Lights off and door locked when everyone leaves",
+    automation: `\`\`\`json\n${JSON.stringify({
+      triggers: [{ trigger: "state", entity_id: "zone.home", to: "0" }],
+      conditions: [],
+      actions,
+      mode: "single",
+    })}\n\`\`\``,
+    notes: french
+      ? "Tout le monde est parti quand la zone Maison ne compte plus personne."
+      : "Everyone has left when the home zone counts nobody.",
+  };
+}
+
+/** Home Assistant's actions, by domain, for the domains the home has (D-070). */
+function servicesOf(states) {
+  const SERVICES = {
+    light: ["turn_on", "turn_off", "toggle"],
+    switch: ["turn_on", "turn_off", "toggle"],
+    lock: ["lock", "unlock", "open"],
+    cover: ["open_cover", "close_cover", "stop_cover", "set_cover_position"],
+    climate: ["set_temperature", "set_hvac_mode", "set_preset_mode"],
+    media_player: ["media_play", "media_pause", "media_stop", "volume_set", "turn_on", "turn_off"],
+    fan: ["turn_on", "turn_off", "set_percentage"],
+    vacuum: ["start", "stop", "return_to_base"],
+    scene: ["turn_on"],
+    automation: ["trigger", "turn_on", "turn_off", "toggle"],
+    homeassistant: ["turn_on", "turn_off", "toggle"],
+    notify: ["notify", "mobile_app_alex_phone"],
+    persistent_notification: ["create", "dismiss"],
+  };
+  const services = {};
+  const domains = new Set([...Object.keys(states).map((id) => id.split(".")[0]), "homeassistant"]);
+  for (const domain of [...domains, "notify", "persistent_notification"]) {
+    if (!SERVICES[domain]) continue;
+    services[domain] = Object.fromEntries(SERVICES[domain].map((name) => [name, {}]));
+  }
+  services.script = { turn_on: {}, turn_off: {}, reload: {} };
+  for (const id of Object.keys(states)) {
+    if (id.startsWith("script.")) services.script[id.slice(7)] = {};
+  }
+  return services;
 }
 
 // Home Assistant's Security page (D-068) and the alerts an administrator chose on it.
@@ -1452,6 +1529,40 @@ const connection = {
         if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
         configPending.set(`dashboard:${message.url_path ?? ""}`, structuredClone(message.config));
         return null;
+      case "ai_task/preferences/get":
+        if (!aiTask) throw { code: "unknown_command", message: message.type };
+        return { gen_data_entity_id: AI_TASK };
+      case "call_service": {
+        // Home Assistant's AI task (D-070): the only service DomoTwin asks for a response of.
+        if (!aiTask || message.domain !== "ai_task" || message.service !== "generate_data") {
+          throw { code: "unknown_command", message: message.type };
+        }
+        if (!message.return_response) {
+          throw { code: "service_validation_error", message: "Validation error: needs a response" };
+        }
+        if (message.service_data?.entity_id !== AI_TASK) {
+          throw { code: "home_assistant_error", message: "AI Task entity not found" };
+        }
+        await window.__aiHold;
+        if (window.__aiFail) throw { code: "home_assistant_error", message: window.__aiFail };
+        const data = window.__aiAnswer ?? fictionalAutomation(message.service_data.instructions);
+        return {
+          context: { id: "01K8C0D00R00000000000000A1" },
+          response: { conversation_id: "c", data },
+        };
+      }
+      case "validate_config": {
+        const invalid = window.__invalidConfig;
+        const answer = {};
+        for (const part of ["triggers", "conditions", "actions"]) {
+          if (!(part in message)) continue;
+          answer[part] =
+            invalid?.part === part
+              ? { valid: false, error: invalid.error }
+              : { valid: true, error: null };
+        }
+        return answer;
+      }
       default:
         throw { code: "unknown_command", message: message.type };
     }
@@ -1975,6 +2086,20 @@ if (sunParam) {
     attributes: { elevation: Number(elevation), rising: rising === "1" },
   };
 }
+if (aiTask) {
+  states[AI_TASK] = state(AI_TASK, "unknown", {
+    friendly_name: "Fictional assistant",
+    supported_features: 1,
+  });
+  // The home zone counts who is home, as Home Assistant's zones do.
+  const inside = Object.keys(states).filter(
+    (id) => id.startsWith("person.") && states[id].state === "home",
+  );
+  states["zone.home"] = state("zone.home", String(inside.length), {
+    friendly_name: "Home",
+    persons: inside,
+  });
+}
 if (sunPosition) {
   const [azimuth, elevation] = sunPosition.split(",").map(Number);
   states["sun.sun"] = {
@@ -2004,6 +2129,7 @@ let hass = {
       ...(bluetoothParam === "1" ? ["bluetooth"] : []),
       ...(voiceParam ? ["conversation", "assist_pipeline"] : []),
       ...(why ? ["logbook"] : []),
+      ...(aiTask ? ["ai_task"] : []),
     ],
     // A fictional place, rounded: the sandbox's sun.
     ...(sandbox ? { time_zone: "Europe/Paris", latitude: 46, longitude: 2 } : {}),
@@ -2024,6 +2150,7 @@ let hass = {
     : {}),
   connection,
   fetchWithAuth,
+  ...(aiTask ? { services: servicesOf(states) } : {}),
   // Home Assistant's own words for a state (D-058): `on` as "On", a number with its unit.
   ...(params.get("formatstate") === "1"
     ? {

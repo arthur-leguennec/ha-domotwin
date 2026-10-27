@@ -291,7 +291,7 @@ def validate_settings(settings: Any) -> dict[str, Any]:
     `north`, degrees clockwise from the top of the plan; the look shown by default (`theme`) and
     its accent colour (`accent`, `#rrggbb`); the private rooms (`rooms`, D-039); where the
     home's energy is read (`energy`, D-049); the Wi-Fi access points placed on the plan
-    (`access_points`, D-066); each person's rights (`rights`, D-070).
+    (`access_points`, D-066); each person's rights (`rights`, D-071).
     """
     if not isinstance(settings, dict) or set(settings) - {
         "north",
@@ -335,7 +335,7 @@ def validate_settings(settings: Any) -> dict[str, Any]:
 
 
 def _rights_set(levels: Any, what: str) -> dict[str, dict[str, str]]:
-    """One person's rights, or everyone's (D-070).
+    """One person's rights, or everyone's (D-071).
 
     `{"rooms"?: {room id: level}, "entities"?: {entity id: level}}`, each level `use`, `see` or
     `hidden`. Empty lists are left out.
@@ -364,7 +364,7 @@ def _rights_set(levels: Any, what: str) -> dict[str, dict[str, str]]:
 
 
 def _rights(rights: Any) -> dict[str, Any]:
-    """Each person's rights (D-070).
+    """Each person's rights (D-071).
 
     `{"everyone"?: rights, "people"?: {person entity id: rights}}`, each as `_rights_set` checks
     it.

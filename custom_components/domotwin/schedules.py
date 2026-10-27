@@ -54,7 +54,7 @@ from .rights import HIDDEN, levels_for
 
 _LOGGER = logging.getLogger(__name__)
 
-#: The saves that may change what a user sees of the actions waiting (their rights, D-070).
+#: The saves that may change what a user sees of the actions waiting (their rights, D-071).
 SEEN_FROM = frozenset({"settings", "plan", "bindings"})
 #: An action set a little in the past (the time it took to say it) is done at once.
 LATE_ALLOWED = timedelta(minutes=1)
@@ -290,7 +290,7 @@ class Scheduler:
     def listing(self, user: User | None = None) -> list[dict[str, Any]]:
         """The actions waiting, the soonest first, as the frontend gets them.
 
-        For a `user`: only those on entities they may read and see in DomoTwin (D-070), without
+        For a `user`: only those on entities they may read and see in DomoTwin (D-071), without
         who set them.
         """
         if user is None:
@@ -351,7 +351,7 @@ class Scheduler:
     async def async_check_user(self, user_id: str | None, entities: Iterable[str]) -> None:
         """Raises `ScheduleError("not_allowed")` unless the user may control these entities.
 
-        In Home Assistant, and in DomoTwin: their rights let them use each (D-070).
+        In Home Assistant, and in DomoTwin: their rights let them use each (D-071).
         """
         if user_id is None:
             return
@@ -590,7 +590,7 @@ def ws_schedules_subscribe(
     Followed even before DomoTwin is set up (a screen kept open while Home Assistant restarts):
     the list is empty until then, and sent again when it is set up or unloaded. Each user gets
     the actions on what they may see, sent again when what they see may change (the home's
-    settings, its plan or its links, D-070).
+    settings, its plan or its links, D-071).
     """
 
     @callback

@@ -707,9 +707,9 @@ export class DomoTwinView extends LitElement {
   north = 0;
   /** The home's private rooms (its settings, D-039). */
   privateRooms?: Settings["rooms"];
-  /** What each person uses, only sees or does not see (its settings, D-070). */
+  /** What each person uses, only sees or does not see (its settings, D-071). */
   rights?: Settings["rights"];
-  /** The rooms this viewer may not see now, private (D-039) or hidden by their rights (D-070),
+  /** The rooms this viewer may not see now, private (D-039) or hidden by their rights (D-071),
    * drawn closed (none while editing or linking: administrators change the home). */
   protected closed = new Set<string>();
   private closedKey = "";
@@ -2008,7 +2008,7 @@ export class DomoTwinView extends LitElement {
     }
     // Where the upkeep cards stand, before the sheets and the list show them.
     if (changed.has("upkeep") || changed.has("hass")) this.applyUpkeep();
-    // The rooms this viewer may not see (D-039, D-070), before what is in them is shown.
+    // The rooms this viewer may not see (D-039, D-071), before what is in them is shown.
     const closed =
       this.editingAny || this.linking
         ? new Set<string>()
@@ -2530,6 +2530,13 @@ export class DomoTwinView extends LitElement {
     this.layersOpen = false;
     this.layer = layer;
     this.redraw();
+  }
+
+  /** Shows the wires of these automations, as a panel's list asks for them (a draft, D-070). */
+  showWires(ids: string[]): void {
+    this.sheet = undefined;
+    this.whyAsked = undefined;
+    this.wiresAsked = { ids };
   }
 
   /** Lights the rooms from where the sun really is (through the windows), or not. */
@@ -5259,7 +5266,7 @@ export class DomoTwinView extends LitElement {
       : [{ plan: this.plan, layout: this.layout }, ...this.elsewhere];
     const rooms = [...this.rooms, ...this.elsewhere.flatMap((storey) => storey.rooms)];
     const unseen = unseenOf(hass, bindings, rooms, storeys, this.closed);
-    // And the devices their rights hide (D-070).
+    // And the devices their rights hide (D-071).
     const hidden = hiddenEntities(viewerOf(this.rights, hass));
     return hidden.size === 0
       ? unseen

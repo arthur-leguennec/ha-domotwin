@@ -122,7 +122,7 @@ function gateFor(hass: HomeAssistant, rights: Rights = RIGHTS, rooms = {}): Gate
   });
 }
 
-describe("whose rights apply (D-070)", () => {
+describe("whose rights apply (D-071)", () => {
   it("are a person's own and everyone's, never an administrator's or the demo's", () => {
     const { hass } = home();
     const kim = viewerOf(RIGHTS, hass);

@@ -47,7 +47,7 @@ function cardOf(home: HomeCard): CardConfig {
   }
 }
 
-/** The lights the viewer may switch (their rights, D-070). */
+/** The lights the viewer may switch (their rights, D-071). */
 function usableLights(hass: HomeAssistant | undefined, lights: string[]): string[] {
   const canAct = hass?.canAct;
   return canAct ? lights.filter(canAct) : lights;
@@ -185,7 +185,7 @@ export class DomoTwinHome extends LitElement {
 
   private readonly allOff = async (): Promise<void> => {
     const hass = this.hass;
-    // Those the viewer may use (their rights, D-070).
+    // Those the viewer may use (their rights, D-071).
     const lights = usableLights(hass, this.glance?.lights ?? []);
     if (!hass || !this.t || lights.length === 0) return;
     try {

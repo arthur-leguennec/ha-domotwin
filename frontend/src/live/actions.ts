@@ -41,7 +41,7 @@ export async function runAction(
   binding: ElementBinding,
 ): Promise<ActionResult> {
   const entityId = action.entity_id ?? primaryEntity(binding, hass);
-  // A device the viewer may only look at (their rights, D-070): its panel, its controls
+  // A device the viewer may only look at (their rights, D-071): its panel, its controls
   // disabled, rather than Home Assistant's dialog or an action refused.
   const looks = entityId !== undefined && hass.canAct?.(entityId) === false;
   switch (action.action) {
@@ -65,7 +65,7 @@ export async function runAction(
       const name = action.perform_action ?? action.service ?? "";
       const [domain, service] = name.split(".", 2);
       if (!domain || !service) return "none";
-      // On what the viewer may only look at (D-070): the piece's own panel, when it has one.
+      // On what the viewer may only look at (D-071): the piece's own panel, when it has one.
       if (binding.entities.length > 0 && hass.canCall?.(actionEntities(hass, action)) === false) {
         return "controls";
       }

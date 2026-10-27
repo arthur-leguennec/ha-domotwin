@@ -55,7 +55,7 @@ export class DomoTwinHaCard extends LitElement {
   /** The configuration the card was made for, and whether for the demo house. */
   private madeFor?: string;
   private demo?: boolean;
-  /** Whether the viewer may only look at its entity (their rights, D-070). */
+  /** Whether the viewer may only look at its entity (their rights, D-071). */
   private looks?: boolean;
 
   static override styles = [
@@ -118,7 +118,7 @@ export class DomoTwinHaCard extends LitElement {
     if (this.card && changed.has("hass")) this.card.hass = this.hass;
   }
 
-  /** Whether the viewer may only look at the card's entity (their rights, D-070). */
+  /** Whether the viewer may only look at the card's entity (their rights, D-071). */
   private looksOnly(): boolean {
     const entity = this.config?.entity;
     return typeof entity === "string" && this.hass?.canAct?.(entity) === false;
@@ -126,7 +126,7 @@ export class DomoTwinHaCard extends LitElement {
 
   /**
    * Makes Home Assistant's card, once for each configuration; one the viewer may only look at
-   * does nothing on a tap (D-070).
+   * does nothing on a tap (D-071).
    */
   private async make(): Promise<void> {
     const config = this.config && this.looksOnly() ? lookOnly(this.config) : this.config;

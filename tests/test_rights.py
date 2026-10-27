@@ -1,4 +1,4 @@
-"""Per-person rights (D-070): what DomoTwin shows each person and lets them do."""
+"""Per-person rights (D-071): what DomoTwin shows each person and lets them do."""
 
 from __future__ import annotations
 

@@ -173,7 +173,7 @@ export class DomoTwinSchedules extends LitElement {
     return [...new Set(all)].filter(schedulable);
   }
 
-  /** Whether the viewer may use an entity (their rights, D-070). */
+  /** Whether the viewer may use an entity (their rights, D-071). */
   private usable(entity: string): boolean {
     return this.hass?.canAct?.(entity) !== false;
   }
@@ -226,7 +226,7 @@ export class DomoTwinSchedules extends LitElement {
     const style = timeStyle(hass);
     const now = new Date(nowOf(hass));
     const mine = schedulesOf(this.items, entities);
-    // What the viewer may only look at (D-070): its actions listed, none set nor cancelled.
+    // What the viewer may only look at (D-071): its actions listed, none set nor cancelled.
     const form = this.formEntities;
     if (mine.length === 0 && form.length === 0) return nothing;
     return html`<h3>${t.t("schedules.title")}</h3>

@@ -1,5 +1,5 @@
 /**
- * `<domotwin-rights>`: what each person uses, only sees or does not see in DomoTwin (D-070), for
+ * `<domotwin-rights>`: what each person uses, only sees or does not see in DomoTwin (D-071), for
  * administrators, in one place: everyone's, then each person's own, room by room on every storey
  * and device by device. Loaded when first opened.
  */

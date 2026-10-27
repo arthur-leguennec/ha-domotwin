@@ -117,6 +117,8 @@ export interface HomeAssistant {
   };
   /** The panels Home Assistant has, by URL path: its Overview's is `home` (D-061). */
   panels?: Record<string, { url_path?: string } | undefined>;
+  /** The actions Home Assistant has, by domain and name (an automation's are checked, D-070). */
+  services?: Record<string, Record<string, unknown> | undefined>;
   connection: HassConnection;
   /**
    * The demo house's own (D-050): nothing hands over to Home Assistant's pages or dialogs, which
@@ -132,7 +134,7 @@ export interface HomeAssistant {
    */
   guest?: boolean;
   /**
-   * What the viewer's rights let them do in DomoTwin (D-070), on the `hass` DomoTwin gives its
+   * What the viewer's rights let them do in DomoTwin (D-071), on the `hass` DomoTwin gives its
    * views: whether they may act on an entity, and see it. Missing: everything. DomoTwin's own; Home
    * Assistant still lets every user act on every entity elsewhere.
    */

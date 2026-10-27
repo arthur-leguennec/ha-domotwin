@@ -132,7 +132,7 @@ function switching(entities: string[], on: boolean): [string, string, string[]][
 
 /**
  * What the room does together, in the order offered; media off only while one plays. On the
- * devices the viewer may use (their rights, D-070).
+ * devices the viewer may use (their rights, D-071).
  */
 export function roomCommands(hass: HomeAssistant, given: RoomDevices): RoomCommand[] {
   const commands: RoomCommand[] = [];
@@ -216,7 +216,7 @@ export function roomActions(bindings: BindingsJson, room: string): RoomAction[] 
 }
 
 /**
- * Whether the viewer may run an action on the devices it names (their rights, D-070): one on a
+ * Whether the viewer may run an action on the devices it names (their rights, D-071): one on a
  * device they may only look at, or on floors or labels, is not offered.
  */
 export function mayRun(hass: HomeAssistant, action: Action): boolean {
