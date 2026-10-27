@@ -2,7 +2,10 @@
 # The integration itself has no Python requirements.
 
 [tool.ruff]
-target-version = "py314"
+# The oldest Python of the oldest Home Assistant DomoTwin supports (2025.1, hacs.json), not the
+# Python the tests run on: a newer target lets the formatter write syntax that Python cannot parse
+# (`except A, B:` from 3.14). CI byte-compiles the integration with it (docs/DECISIONS.md, D-010).
+target-version = "py312"
 line-length = 100
 extend-exclude = ["frontend", "crates", "fuzz", "target"]
 
@@ -33,7 +36,8 @@ combine-as-imports = true
 convention = "google"
 
 [tool.mypy]
-python_version = "3.14"
+# As ruff: the integration's syntax and standard library are checked against Python 3.12 (D-010).
+python_version = "3.12"
 files = ["custom_components/domotwin", "tests"]
 strict = true
 warn_unreachable = true
