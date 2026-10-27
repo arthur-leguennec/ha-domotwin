@@ -143,6 +143,8 @@ pub struct Targets {
 
 /// The screen colour of a TV that plays.
 const SCREEN: Rgb8 = Rgb8::from_u32(0xa9c4ff);
+/// The colour of a fire that burns (D-074).
+pub const FIRE: Rgb8 = Rgb8::from_u32(0xff8a3d);
 
 /// What every element should look like, from the plan, the bindings and the entity states.
 pub fn targets(
@@ -242,6 +244,15 @@ pub fn targets(
                     } else {
                         0.0
                     };
+                } else if item.kind.burns() {
+                    // A fireplace burns while its switch is on, or its climate entity heats.
+                    let climates = on(Role::Climate);
+                    if !switches.is_empty() || !climates.is_empty() {
+                        let lit = switches.iter().any(|s| s.state == "on")
+                            || climates.iter().any(|s| s.state != "off");
+                        look.glow = FIRE.to_linear();
+                        look.strength = if lit { 1.0 } else { 0.0 };
+                    }
                 }
                 let watts: f64 = on(Role::Power).iter().filter_map(|s| s.watts()).sum();
                 #[allow(clippy::cast_possible_truncation)]
@@ -528,6 +539,49 @@ mod tests {
         // Each look moved with its element (by index it would have stayed with the neighbour).
         assert_eq!(live.looks[pendant - 1].strength, strength);
         assert_eq!(live.looks[pendant], next);
+    }
+
+    #[test]
+    fn a_fireplace_burns_while_its_switch_is_on_or_its_climate_heats() {
+        // D-074: three fireplaces, one on a switch, one on a climate entity, one linked to
+        // nothing.
+        let plan = read_plan(
+            serde_json::json!({
+                "format": "domotwin-plan", "version": 1, "items": [
+                    { "id": "fire", "kind": "fireplace", "at": [100, 100], "size": [150, 40, 115] },
+                    { "id": "stove", "kind": "fireplace", "style": "stove", "at": [300, 100], "size": [60, 50, 100] },
+                    { "id": "cold", "kind": "fireplace", "at": [500, 100], "size": [150, 40, 115] },
+                ]
+            })
+            .to_string()
+            .as_bytes(),
+        )
+        .unwrap();
+        let bindings = read_bindings(&serde_json::json!({
+            "version": 1,
+            "elements": {
+                "fire": { "entities": [{ "entity_id": "switch.fireplace" }] },
+                "stove": { "entities": [{ "entity_id": "climate.pellet_stove" }] },
+            }
+        }));
+        let looks = |fire: &str, stove: &str| {
+            let states = states(serde_json::json!({
+                "switch.fireplace": { "state": fire, "attributes": {} },
+                "climate.pellet_stove": { "state": stove, "attributes": {} },
+            }));
+            targets(&plan, &[], &bindings, &states).looks
+        };
+        let on = looks("on", "heat");
+        assert_eq!(
+            (on[0].strength, on[1].strength, on[2].strength),
+            (1.0, 1.0, 0.0)
+        );
+        assert_eq!(on[0].glow, FIRE.to_linear());
+        let off = looks("off", "off");
+        assert_eq!((off[0].strength, off[1].strength), (0.0, 0.0));
+        // Unavailable: as cold, and greyed out.
+        let lost = looks("unavailable", "unavailable");
+        assert_eq!((lost[0].strength, lost[1].strength), (0.0, 0.0));
     }
 
     #[test]

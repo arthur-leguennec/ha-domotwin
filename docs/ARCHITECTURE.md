@@ -142,8 +142,10 @@ every reader returns `Result` with a stable error code that the frontend transla
   `storeyLabels` and `storeyPicture`, for every storey at once), `setBindings`, `setStates`, `highlight`,
   `orbit`, `pan`, `zoom`, `setPlanView`, `overview`, `focusElement`, `views`, `showView`, `pick`,
   `screenPoint`, `stats`, `frame`, walking (`setWalk`, `setWalkVelocity`, `walkTo`) and the kiosk's
-  `setAutoOrbit`, for 3D files `modelFiles` (what to fetch) and `setModelMesh`, and `setWeather`
-  (a condition, the wind's speed and bearing, the home's north) with its `weather` getter.
+  `setAutoOrbit`, for 3D files `modelFiles` (what to fetch) and `setModelMesh`, `setWeather` (a
+  condition, the wind's speed and bearing, the home's north) with its `weather` getter, and for the
+  catalogue `editCatalogue` and `piecePicture`, a piece of the library drawn alone by an engine of
+  its own (D-074).
 - In the frontend, `src/gestures.ts` turns pointer events into drags, pans, pinches, taps and long
   presses, and `<domotwin-view>` applies them, runs the actions and draws the toolbar.
 

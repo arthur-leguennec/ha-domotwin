@@ -483,25 +483,29 @@ impl Session {
         self.record(layout)
     }
 
-    /// Adds a piece of `kind` named `name` centred on `at` (standing on what is there), and selects
-    /// it. Returns its id.
+    /// Adds a piece of `kind` in `style` (`None`: its own) named `name` centred on `at` (standing
+    /// on what is there), at the size and lift of its style, and selects it. Returns its id.
     pub fn add(
         &mut self,
         plan: &Plan,
         walls: &WallLayout,
         kind: Kind,
+        style: Option<&str>,
         name: &str,
         at: P2,
     ) -> Option<String> {
         if kind == Kind::Box {
             return None;
         }
-        let info = kind.info();
+        let style = style.filter(|s| kind.has_variant(s));
+        let info = kind.style_info(style);
         let piece = Added {
             kind,
+            style,
             name: name.to_owned(),
             color: info.color.to_hex(),
             size: info.size,
+            elevation: info.elevation,
             model: None,
         };
         self.add_piece(plan, walls, &piece, at, None)
@@ -543,9 +547,11 @@ impl Session {
             .to_owned();
         let piece = Added {
             kind: Kind::Box,
+            style: None,
             name,
             color,
             size: [w, d, h],
+            elevation: 0.0,
             model: Some(model),
         };
         let definition = define.map(|m| {
@@ -588,6 +594,7 @@ impl Session {
         self.drag = None;
         let info = piece.kind.info();
         let [w, d, h] = piece.size;
+        let lift = piece.elevation;
         let layout = self.layout().clone();
         // A piece of a user model is named after neither a kind nor the model's name.
         let stem = if piece.model.is_some() {
@@ -609,6 +616,9 @@ impl Session {
             element.insert("model".into(), Value::from(model));
         } else {
             element.insert("kind".into(), Value::from(info.name));
+            if let Some(style) = piece.style {
+                element.insert("style".into(), Value::from(style));
+            }
         }
         element.insert("color".into(), Value::from(piece.color.clone()));
         element.insert("size".into(), Value::from(vec![w, d, h]));
@@ -616,8 +626,8 @@ impl Session {
             centre: at,
             half: [w / 2.0, d / 2.0],
             angle: 0.0,
-            bottom: info.elevation,
-            top: info.elevation + h,
+            bottom: lift,
+            top: lift + h,
         };
         let others: Vec<(Footprint, Kind)> =
             pieces(plan).map(|f| (Footprint::of(f), f.kind)).collect();
@@ -627,7 +637,7 @@ impl Session {
             &others,
             &[],
         )
-        .map_or(info.elevation, |(_, top)| top);
+        .map_or(lift, |(_, top)| top);
         let entry = Entry {
             at: Some(at),
             lift: (elevation > 0.0).then_some(elevation),
@@ -655,10 +665,14 @@ const DEFAULT_MODEL_COLOR: &str = "#b8ad9a";
 #[derive(Debug)]
 struct Added<'a> {
     kind: Kind,
+    /// Its style (D-074).
+    style: Option<&'a str>,
     name: String,
     color: String,
     /// Width, depth, height (cm).
     size: [f64; 3],
+    /// The height of its underside (cm).
+    elevation: f64,
     model: Option<&'a str>,
 }
 
@@ -676,6 +690,7 @@ pub fn indices(plan: &Plan, ids: &[String]) -> BTreeSet<usize> {
 mod tests {
     use super::*;
     use crate::overlay::apply;
+    use crate::plan::Rgb8;
     use crate::plan::read_plan_value;
 
     const DEMO: &str = include_str!("../../../../examples/demo-apartment.domotwin.json");
@@ -761,7 +776,7 @@ mod tests {
 
         // A floor lamp in the bedroom.
         let id = session
-            .add(&plan, &walls, Kind::FloorLamp, "Lamp", [480.0, 700.0])
+            .add(&plan, &walls, Kind::FloorLamp, None, "Lamp", [480.0, 700.0])
             .unwrap();
         assert_eq!(id, "floor-lamp-added-1");
         // Another storey's ids are not taken.
@@ -773,6 +788,7 @@ mod tests {
                 &plan_before,
                 &walls_before,
                 Kind::FloorLamp,
+                None,
                 "Lamp",
                 [480.0, 700.0],
             )
@@ -791,6 +807,68 @@ mod tests {
         let (plan, _) = shown(session.layout());
         assert!(piece(&plan, &id).is_none());
         let _ = walls;
+    }
+
+    #[test]
+    fn a_piece_is_added_in_its_style_at_its_size_and_lift() {
+        // D-074: a soundbar is added at a soundbar's size, a dome camera on the ceiling, a style
+        // the kind does not have as the kind.
+        let mut session = Session::new(&Layout::new());
+        let (plan, walls) = shown(session.layout());
+        let bar = session
+            .add(
+                &plan,
+                &walls,
+                Kind::Speaker,
+                Some("soundbar"),
+                "Speaker",
+                [480.0, 700.0],
+            )
+            .unwrap();
+        let (plan, walls) = shown(session.layout());
+        let dome = session
+            .add(
+                &plan,
+                &walls,
+                Kind::Camera,
+                Some("dome"),
+                "Camera",
+                [480.0, 600.0],
+            )
+            .unwrap();
+        let (plan, walls) = shown(session.layout());
+        let odd = session
+            .add(
+                &plan,
+                &walls,
+                Kind::Sofa,
+                Some("dome"),
+                "Sofa",
+                [300.0, 600.0],
+            )
+            .unwrap();
+        let (plan, _) = shown(session.layout());
+        let bar = piece(&plan, &bar).unwrap();
+        assert_eq!(
+            (bar.variant.as_deref(), [bar.w, bar.h, bar.z], bar.color),
+            (
+                Some("soundbar"),
+                [90.0, 10.0, 7.0],
+                Rgb8::from_u32(0x2a2c2e)
+            )
+        );
+        let dome = piece(&plan, &dome).unwrap();
+        assert_eq!(
+            (dome.variant.as_deref(), dome.elevation),
+            (Some("dome"), 256.0)
+        );
+        let odd = piece(&plan, &odd).unwrap();
+        assert_eq!((odd.variant.as_deref(), odd.w), (None, 210.0));
+        let entry = session.layout().get("speaker-added-1").unwrap();
+        assert_eq!(
+            entry.add.as_ref().and_then(|a| a.get("style")),
+            Some(&Value::from("soundbar"))
+        );
     }
 
     #[test]
@@ -875,7 +953,7 @@ mod tests {
         let mut session = Session::new(&Layout::new());
         let (plan, walls) = shown(&Layout::new());
         let id = session
-            .add(&plan, &walls, Kind::Sofa, "Sofa", [300.0, 200.0])
+            .add(&plan, &walls, Kind::Sofa, None, "Sofa", [300.0, 200.0])
             .unwrap();
         let (plan, _) = shown(session.layout());
         assert_eq!(piece(&plan, &id).unwrap().color, Kind::Sofa.info().color);
@@ -886,7 +964,7 @@ mod tests {
         }
         assert!(
             session
-                .add(&full, &walls, Kind::Plant, "Plant", [100.0, 100.0])
+                .add(&full, &walls, Kind::Plant, None, "Plant", [100.0, 100.0])
                 .is_none()
         );
     }

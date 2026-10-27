@@ -60,13 +60,13 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M34       | Per-person rights: what DomoTwin shows each one            | ✅     |
 | M40       | The weather around the home, in 3D                         | ✅     |
 | M41       | Locating measured, next to Bermuda's on the same days      | ✅     |
+| M17       | A library of objects: many pieces, free and well made      | ✅     |
 | M45       | An iPhone's key, without a Mac: the ways to get it         | ⏳     |
 | M26       | The wall screen: a screen saver, a layout per device       | ⏳     |
 | M22       | A first launch in five minutes                             | ⏳     |
 | 0.5.0     | Fifth release: all of the above                            | ⏳     |
 | M42       | Finer locating: a spot in the room, storeys by the stairs  | ⏳     |
 | M43       | mmWave sensors merged into one picture of the home         | ⏳     |
-| M17       | A library of objects: many pieces, free and well made      | ⏳     |
 | M37       | A weekly home report                                       | ⏳     |
 | M18       | Outdoors: garden, terrace, lawn, pool, roofs               | ⏳     |
 | M44       | Split levels and walk-out basements                        | ⏳     |
@@ -113,6 +113,8 @@ Automations in plain words (M35) came next, at the maintainer's request (D-070),
 plays its drafts in.
 Per-person rights (M34, D-071) followed: what DomoTwin shows each person and lets them do, set in
 one place, and said not to be Home Assistant's enforcement.
+After the weather around the home (M40, D-072) and locating measured (M41, D-073), the library of
+objects (M17) was moved forward as well (D-074).
 
 ## M0, scaffold
 
@@ -1688,6 +1690,51 @@ beside (D-073, [`bluetooth.md`](bluetooth.md)).
 Measured at the end of M41: see [`PERFORMANCE.md`](PERFORMANCE.md). Left for the maintainer: the
 figures of a real home, with Bermuda's, published in [`bluetooth.md`](bluetooth.md).
 
+## M17, a library of objects
+
+Many more pieces, free and well made, drawn from real references, still fast; moved forward by the
+maintainer (D-074).
+
+- ✅ **The pieces**: 61 kinds more (117) and 54 styles more (78): 195 pieces, from a corner sofa, a
+  piano and a wood stove to a heat pump, a water heater, an electrical panel, an EV charger and a
+  car, the smart home's devices (speakers, a wall tablet, a thermostat, sensors, a smoke detector,
+  cameras, a router), new lights (a wall light, a light strip, a track light), fitness and pets.
+  Each is DomoTwin's own code, drawn from its size: nothing downloaded, nothing to license.
+- ✅ **From real references**: each kind and style at the usual size, lift and colour of the real
+  piece (a soundbar 90 × 10 × 7 cm, a thermostat at 1.45 m, a Chesterfield oxblood), its common
+  form rather than one maker's design. A style can have its own size, colour and lift, which the
+  catalogue adds a piece at.
+- ✅ **Well made**: turned, bent and extruded parts (`lathe`, `pipe`, `slab`); every piece in every
+  style closed, lit from the right side, at most 1 600 triangles and within 3 cm of its footprint.
+- ✅ **The catalogue as a library**: fourteen groups by room or use; each kind and style with its
+  picture, name and size; a search through names, styles and other words in English and French,
+  accents ignored. The pictures are drawn by the engine in the view's look and accent, a few each
+  frame, kept for the session; none without a second WebGL context.
+- ✅ **Live and edit mode**: the new lights are switched like the others, an aquarium lights cool, a
+  fireplace burns while what it is linked to is on or heats; linking suggests what each device is;
+  small appliances show their *running* badge with their icon; new pieces carry or stand on others.
+- ✅ **Imports**: the new kinds read from the names of Sweet Home 3D's, IFC's and DXF's pieces, and
+  RoomPlan's ovens and fireplaces.
+- ✅ **The demo house** has some of them: a rug, a TV stand, a speaker, a heat pump, a coffee
+  machine, a kettle, a monitor, a wall tablet, a thermostat, a coat rack, a water heater, a laundry
+  basket, two rugs and a towel radiator upstairs.
+- ✅ Fixed on the way: the pictures of the storeys were drawn upside down.
+- ✅ Tests: every piece in every style alone (closed, lit, triangles, footprint), the turned, bent
+  and extruded shapes, the styles' sizes, colours and lifts, a piece added in its style, the
+  aquarium's light, a fireplace burning, the kinds of the imports' names and RoomPlan's
+  categories, what stands on what, the demo house (Rust); the catalogue's styles, a styled piece
+  added, a picture of every piece in every style, its rows from the top (wasm); the groups, the
+  search, every style named in both languages, the devices' suggestions and badges (vitest); the
+  pictures, a Chesterfield added at its size and colour, the search in French and a soundbar
+  (Playwright).
+- Measured: the engine grows by 52.5 kB gzipped and the first load is 601.0 kB of 1 200; a new
+  piece is at most 1 202 triangles (the wine cooler), the demo house's ground floor 19 286
+  (+3 846); the catalogue's 195 pictures take 8.1 s in software WebGL (the first twelve 4.5 s, most
+  of it the second engine's shaders), then come back at once ([`PERFORMANCE.md`](PERFORMANCE.md),
+  M17).
+- Left for later: pictures of one's own 3D models in *My models*; the outdoors' pieces, with
+  **M18**; the other words of the search in more languages, with **M21**.
+
 ## Then, from 0.4.0 to 0.5.0
 
 Planned in D-056, with D-065's additions: the sandbox first, built during the two weeks of use since
@@ -1741,8 +1788,8 @@ before its milestone starts, which goes on with what needs no answer.
   administrators, since only they can read the radios.
 - ⏳ **M22, a first launch in five minutes**: from the install to one's own home live, in five
   minutes, with the imports and pieces DomoTwin has then (M11, M15, the demo house as a start,
-  and the robot vacuum maps, Floorplanner plans and mesh scans of M20); more pieces (M17) join it
-  when they come.
+  the robot vacuum maps, Floorplanner plans and mesh scans of M20, and the library of pieces of
+  M17).
 - ⏳ **Release 0.5.0**.
 - **Deferred** until someone asks: one's dashboards taken over, and pages arranged without YAML
   (the former M28). An agenda and lists are cards of the Home tab (M23), not a milestone of their
@@ -1777,8 +1824,8 @@ before its milestone starts, which goes on with what needs no answer.
 - ✅ **M35, automations in plain words, tested first** (D-070, above): moved forward by the
   maintainer once the sandbox was in.
 - ✅ **M20, more imports** (D-064, above): done before 0.5.0, at the maintainer's request.
-- ⏳ **M17, a library of objects**: many more pieces, free and well made, drawn from real
-  references, still fast.
+- ✅ **M17, a library of objects**, moved forward (D-074, above): 195 pieces in fourteen groups,
+  each with its picture drawn by the engine, free and well made, at the usual sizes of real ones.
 - ✅ **M36, configuration history** (D-062, above): done after Home Assistant's Overview, at
   the maintainer's request.
 - ⏳ **M37, a weekly home report**: once a week, what needs a look: batteries low, devices
