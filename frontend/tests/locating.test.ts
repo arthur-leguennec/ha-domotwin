@@ -110,6 +110,10 @@ describe("Bluetooth locating (D-035)", () => {
       match: { key: "entry" },
     });
     expect(settingsOf({ ...device, person: undefined })).not.toHaveProperty("person");
+    // Paired with Bermuda's sensor (M41): kept.
+    expect(settingsOf({ ...device, bermuda: "sensor.watch_area" }).bermuda).toBe(
+      "sensor.watch_area",
+    );
   });
 
   it("shows the devices followed, not those of people not told about", () => {

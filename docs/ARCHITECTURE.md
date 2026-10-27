@@ -188,7 +188,9 @@ every reader returns `Result` with a stable error code that the frontend transla
    the followed devices through Home Assistant's Bluetooth (`locating/radio_ha.py`) and, every two
    seconds, weighs what each receiver heard against what the plan says it should hear in each room
    and what was learned (`locating/geometry.py`, `radio.py`), along the doors
-   (`locating/filter.py`); each device's room is a sensor of its own, a source of its owner's.
+   (`locating/filter.py`); each device's room is a sensor of its own, a source of its owner's. On
+   the same tick, `locating/measure.py` counts how steady and how right each device's room is,
+   and Bermuda's area beside it where one is paired (D-073).
 6. **Show.** The `domotwin.show` action (`services.py`, D-029), run by a script, an automation or
    the voice blueprint (`blueprints/automation/domotwin/show_by_voice.yaml`), is sent as it was
    asked to every open view through `domotwin/subscribe` (`{kind: "show", show}`). Each card (the
@@ -311,7 +313,8 @@ and which devices are followed.
   "receivers": { "BB:00:00:00:00:01": { "room": "bedroom" } },
   "devices": {
     "alex_phone": { "name": "Alex's phone", "kind": "phone", "person": "person.alex",
-                    "match": { "key": "<Private BLE Device entry id>" } },
+                    "match": { "key": "<Private BLE Device entry id>" },
+                    "bermuda": "sensor.alex_phone_area" },
     "keys": { "name": "Keys", "kind": "thing", "match": { "address": "F1:00:00:00:00:01" } }
   }
 }
@@ -319,8 +322,13 @@ and which devices are followed.
 
 A receiver is placed by a `room` or a `piece` (else from its device); a device is known by its
 `address`, a `key` (a Private BLE Device entry: the key itself is never stored) or a `beacon`
-(`uuid`, `major`, `minor`); 30 devices at most. `.storage/domotwin.locating_learned` keeps what
-was learned: `rooms` (`{room: {receiver: [weight, mean, m2]}}`) and each device's `offsets` (dB).
+(`uuid`, `major`, `minor`); 30 devices at most; `bermuda`, Bermuda's area sensor of the same
+device, measured beside it (D-073). `.storage/domotwin.locating_learned` keeps what was learned:
+`rooms` (`{room: {receiver: [weight, mean, m2]}}`) and each device's `offsets` (dB); and the
+measurements, `measure` (`{started, devices: {id: {own, own_area, bermuda, both, same, sensor}}}`:
+DomoTwin's counters by room, by area and Bermuda's, each `seconds`, `unknown`, `changes`,
+`storey_changes`, `short`, `witnessed`, `right`; the seconds both said a place and the same one;
+Bermuda's sensor they are of).
 See [`bluetooth.md`](bluetooth.md).
 
 `.storage/domotwin.users` (D-055, its own store, version 1): each user's own choices, by user
@@ -372,11 +380,13 @@ when the integration is removed.
 | `domotwin/people/get`    | user   | `candidates?` (administrators: the entities that may say where someone is) | `revision`, `shown`, `look`, `hidden`, `people` (`{person: {sources, color, sensor, located}}`; none for others when shown to administrators only), `candidates?` |
 | `domotwin/people/save`   | admin  | `people`, `shown?`, `look?`, `expected_revision?` | `revision`                     |
 | `domotwin/people/hide`   | user   | `person` (oneself; administrators anyone), `hidden` | `revision`                   |
-| `domotwin/locating/get`  | admin  | –                                              | `revision`, `status`, `learn`, `receivers` (with their `place`, D-066), `devices` (with their `room`, `confidence`, `last_seen`, `left_behind`, `missing_key`), `learned`, `heard` (`{room: {source: {signal, readings}}}`, D-066), `rooms` |
+| `domotwin/locating/get`  | admin  | –                                              | `revision`, `status`, `learn`, `receivers` (with their `place`, D-066), `devices` (with their `room`, `confidence`, `last_seen`, `left_behind`, `missing_key`), `learned`, `heard` (`{room: {source: {signal, readings}}}`, D-066), `bermuda` (Bermuda's area sensors, D-073), `rooms` |
 | `domotwin/locating/save` | admin  | `receivers`, `devices`, `learn?`, `expected_revision?` | `revision`                 |
 | `domotwin/locating/candidates` | admin | –                                        | `candidates` (`[{match, name, rssi?}]`) |
 | `domotwin/locating/teach` | admin | `device`, `room`, `seconds?` (10–120, 30)     | `readings`, `receivers`          |
 | `domotwin/locating/forget` | admin | `room?` (every room without one)             | `forgotten`                      |
+| `domotwin/locating/measure` | admin | –                                           | `since`, `devices` (`{id: {domotwin, domotwin_areas?, bermuda?, agreement?}}`, D-073) |
+| `domotwin/locating/measure/reset` | admin | –                                     | `since`                          |
 | `domotwin/choices/get`   | user   | – (their own)                                  | `favourites`, `cards`, `start?`  |
 | `domotwin/choices/favourite` | user | `entity_id`, `favourite` (their own)        | `favourites`                     |
 | `domotwin/choices/save`  | user   | `start?` (`""`: none chosen), `cards?` (their own) | `favourites`, `cards`, `start?` |

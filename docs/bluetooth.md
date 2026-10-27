@@ -67,9 +67,43 @@ the room told changes less when someone stands still.
   light the room someone is in: Bluetooth says *who*, a presence sensor says *someone*, and says it
   faster. DomoTwin's presence layer shows them, and they weigh in when it locates a phone (below).
 
-DomoTwin does not yet publish measured figures of its own: the roadmap's *Locating measured*
-(M41) records them, with the same figures for Bermuda where it runs, so that they can be put
-here.
+DomoTwin does not yet publish measured figures of its own: it records them (below), with
+Bermuda's beside where it runs, and the maintainer's go here once measured.
+
+## How well the rooms are found
+
+**Bluetooth settings › How well the rooms are found** (administrators) shows, for each device
+followed, since the figures started:
+
+| Row | What it says |
+| --- | --- |
+| Hours measured | How long it was followed. |
+| Room changes / h | How often its room changed. Someone at a desk stays put: a high figure is a room that flaps. |
+| Storey changes / h | The same between storeys, where both rooms' storeys are known. |
+| Stays < 30 s | Rooms held less than half a minute before another: flickers. A moment in no room does not end a stay. |
+| Time in no room | The share of the time it was not heard, or not placed. |
+| Right when witnessed | While its owner is the one person at home and one room alone has its presence sensor on, the phone or watch is taken to be in that room: the share of that time the room found was that one, and how long that was. A phone left on a charger in another room counts against it, so read it as a floor. Never for a thing (a tag). DomoTwin weighs those same presence sensors for what people carry, so its share here is not independent of the witness; Bermuda's is. |
+| Same as Bermuda | The share of the time the two said the same area, when both said one. |
+
+**Beside Bermuda.** Where [Bermuda](https://github.com/agittins/bermuda) runs too, choose the
+same device's area sensor in its row (*Bermuda's sensor of this device*; one device's at most):
+Bermuda's figures sit beside DomoTwin's, counted the same way on the same ticks. Bermuda says an
+area, not a room, so a third column, **DomoTwin (areas)**, counts DomoTwin's rooms by their Home
+Assistant area as Bermuda's are: two rooms of one area (an open kitchen and living room) are one
+place there. Compare Bermuda with that column; DomoTwin's own stays by room. Bermuda's storey is
+the area's when all of the area's rooms are on one storey. Pairing another sensor, or none, starts
+Bermuda's figures again.
+
+The figures are counted every two seconds, with the locating; a pause of more than ten seconds
+(Home Assistant busy or restarting) is not counted. For a minute after a start, and after a device
+is first followed, the rooms settle: the time counts, not the changes. They are kept across
+restarts until **Start again** (asked twice); a device no longer followed, or known another way,
+starts again. **Copy as a table** copies them as a Markdown
+table, the devices numbered, without names: ready to publish. The diagnostics carry the same
+figures.
+
+To compare fairly: the same devices, the same receivers, the same days, and a note of how many
+receivers and rooms; a few days rather than a few hours, the home lived in as usual.
 
 ## An iPhone's identity key
 
@@ -177,9 +211,11 @@ and "où sont …" too.
 ## Where the settings are kept
 
 In two stores of their own: `.storage/domotwin.locating` (where the receivers are, the devices
-followed) and `.storage/domotwin.locating_learned` (what was learned, saved a minute after it
-changes, and when DomoTwin stops). No identity key is stored: a device known by one keeps its
-Private BLE Device entry's id. Diagnostics count receivers, devices by kind and rooms learned;
-never addresses, keys, names or rooms.
+followed, the Bermuda sensor paired with each) and `.storage/domotwin.locating_learned` (what was
+learned, saved a minute after it changes, and the measurements, saved ten minutes after they are
+taken at most; both written when Home Assistant stops). No identity key is stored: a device known
+by one keeps its Private BLE Device entry's id. Diagnostics count receivers, devices by kind and
+rooms learned, and give the measurements' figures without the devices' ids; never addresses, keys,
+names or rooms.
 
 See `DECISIONS.md`, D-035, for the reasons behind these choices.

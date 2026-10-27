@@ -21,9 +21,10 @@ Local, rapide, Rust + WebAssembly.</p>
 > aspirateurs, Floorplanner, scans en maillage), la couverture radio, les pass d’invité, les droits
 > de chacun, la sécurité (les caméras, la sonnette, l’alarme, les alertes sur chaque onglet), les
 > graphiques de chaque pièce avec la page Énergie de Home Assistant à un onglet, les automatisations
-> dites avec vos mots, jouées dans le bac à sable avant d’être enregistrées, et la météo autour du
-> logement, et DomoTwin a rejoint la Vue d’ensemble de Home Assistant ; l’écran mural suit, vers la
-> 0.5.0. La proposition à la liste par défaut de HACS attend des mesures sur de vrais appareils.
+> dites avec vos mots, jouées dans le bac à sable avant d’être enregistrées, la météo autour du
+> logement et la justesse des pièces trouvées, mesurée à côté de Bermuda, et DomoTwin a rejoint la
+> Vue d’ensemble de Home Assistant ; l’écran mural suit, vers la 0.5.0. La proposition à la liste
+> par défaut de HACS attend des mesures sur de vrais appareils.
 
 ## Ce qui le distingue
 
@@ -193,9 +194,10 @@ Local, rapide, Rust + WebAssembly.</p>
   Assistant (son adaptateur, les proxys ESPHome, les appareils Shelly). Il part du plan (distances,
   murs, portes, étages) et marche dès la première minute, puis apprend des pièces enseignées et des
   capteurs de présence. Les téléphones placent leur propriétaire ; les clés oubliées sont
-  signalées ; « où sont mes clés ? » à la voix. Voir [la localisation
-  Bluetooth](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/bluetooth.md) (en
-  anglais).
+  signalées ; « où sont mes clés ? » à la voix. La justesse des pièces trouvées est mesurée, les
+  chiffres de Bermuda à côté là où il tourne, et se copie en tableau à partager. Voir [la
+  localisation Bluetooth](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/bluetooth.md)
+  (en anglais).
 - **La couverture radio.** Où le prochain proxy Bluetooth, routeur Zigbee ou point d’accès Wi-Fi
   aide le plus : chaque pièce colorée selon ce que vos récepteurs, votre réseau ou vos points
   d’accès y portent, et les meilleurs emplacements numérotés sur le plan, chacun avec les pièces

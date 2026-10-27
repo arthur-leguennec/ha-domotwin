@@ -22,6 +22,8 @@ export interface LocatedSettings {
   kind: LocatedKind;
   person?: string;
   match: LocatedMatch;
+  /** Bermuda's area sensor of the same device, measured beside DomoTwin's room (M41). */
+  bermuda?: string;
 }
 
 /** A followed device as `locating/get` gives it: where it is now, too. */
@@ -65,6 +67,8 @@ export interface LocatingSettings {
    * has it, and of how many readings. */
   heard?: Record<string, Record<string, { signal: number; readings: number }>>;
   rooms: { id: string; name: string; storey: string }[];
+  /** Bermuda's area sensors, to measure beside DomoTwin's rooms (M41). */
+  bermuda?: string[];
 }
 
 /** A device that may be followed, heard now or known to Home Assistant. */
@@ -107,6 +111,7 @@ export function settingsOf(device: LocatedSettings): LocatedSettings {
   const match: LocatedMatch = "key" in device.match ? { key: device.match.key } : device.match;
   const saved: LocatedSettings = { name: device.name, kind: device.kind, match };
   if (device.person) saved.person = device.person;
+  if (device.bermuda) saved.bermuda = device.bermuda;
   return saved;
 }
 

@@ -110,6 +110,16 @@ def rooms_of(
     return rooms
 
 
+def area_spellings(areas: Iterable[Area]) -> dict[str, str]:
+    """Each spelling of an area (its id, name and aliases, as `norm` reads them) -> the area."""
+    spelled: dict[str, str] = {}
+    for area in areas:
+        for text in (area.id, area.name, *area.aliases):
+            if text:
+                spelled.setdefault(norm(text), area.id)
+    return spelled
+
+
 class RoomFinder:
     """Finds the room a source's state names."""
 
@@ -122,13 +132,7 @@ class RoomFinder:
                 by_area.setdefault(room.area, []).append(room)
         self._by_area = by_area
         self._by_id = {room.id: room for room in self.rooms}
-        # Each spelling of an area (its id, its name, its aliases) -> the area.
-        spelled: dict[str, str] = {}
-        for area in areas:
-            for text in (area.id, area.name, *area.aliases):
-                if text:
-                    spelled.setdefault(norm(text), area.id)
-        self._areas = spelled
+        self._areas = area_spellings(areas)
         names: dict[str, list[Room]] = {}
         for room in self.rooms:
             names.setdefault(norm(room.name), []).append(room)
