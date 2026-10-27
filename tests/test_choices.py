@@ -46,11 +46,13 @@ async def test_choices_are_each_users_own(
             "cards": [
                 {"type": "calendar", "entities": ["calendar.family"]},
                 {"type": "todo-list", "entity": "todo.shopping"},
+                # DomoTwin's own summary (D-061).
+                {"type": "summary", "summary": "people"},
             ],
         },
     )
     assert answer["result"]["start"] == "rooms"
-    assert len(answer["result"]["cards"]) == 2
+    assert len(answer["result"]["cards"]) == 3
     # Another user has their own, and changes only theirs.
     user = await hass_ws_client(hass, hass_read_only_access_token)
     assert (await _send(user, {"type": "domotwin/choices/get"}))["result"]["favourites"] == []
@@ -67,7 +69,7 @@ async def test_choices_are_each_users_own(
     assert answer["result"] == {"favourites": ["scene.evening"]}
     answer = await _send(admin, {"type": "domotwin/choices/save", "start": ""})
     assert "start" not in answer["result"]
-    assert len(answer["result"]["cards"]) == 2
+    assert len(answer["result"]["cards"]) == 3
     # Kept by user, in a store of their own.
     await hass.async_block_till_done()
     users = hass_storage[CHOICES_STORAGE_KEY]["data"]["users"]
@@ -81,6 +83,7 @@ async def test_choices_are_each_users_own(
         {"cards": [{"type": "entities", "entities": ["light.kitchen"]}]},
         {"cards": [{"type": "calendar", "entities": ["todo.shopping"]}]},
         {"cards": [{"type": "todo-list", "entity": "todo.a"}] * 7},
+        {"cards": [{"type": "summary", "summary": "weather"}]},
     ],
 )
 async def test_choices_refused(

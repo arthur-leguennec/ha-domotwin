@@ -2509,3 +2509,65 @@ M30, the first part of guest access (M33), planned after the sandbox (D-056).
   - A password Home Assistant's own debug logging writes (its connection's messages, when someone
     turns it on) is out of DomoTwin's hands: said in the guide.
   - Guest access (M33) builds on it: a guest's own screen, for a time, with this code.
+
+## D-061 · Into Home Assistant's Overview: area pages, room sensors, summaries (M23b)
+
+M23b, planned in D-056 after the sandbox (D-057) and the Wi-Fi QR code (D-060).
+
+- **Context.** Home Assistant opens on its own Overview since 2026.2 (D-056): a page for each area,
+  summaries in its manner, favourites an administrator chooses. Checked when built, in Home
+  Assistant's frontend at the versions its releases pin: its `home` panel came in 2025.12, hidden
+  (core's `async_register_built_in_panel(hass, "home", …, sidebar_default_visible=False)`), and
+  became the page Home Assistant opens on in 2026.2 (`DEFAULT_PANEL = "home"`, frontend
+  20260128.6). Every area has a page at `/home/areas-<area_id>` from 2025.12 to 2026.10
+  (`home-dashboard-strategy.ts`), and that page shows, beside its summaries, the other entities of
+  the area grouped by device, under the device's name, those with no entity category
+  (`home-area-view-strategy.ts`, 20260930.2).
+- **Decision.**
+  - **A room tapped in 3D opens its area's page.** In the panel, where Home Assistant is 2026.2 or
+    later and has its `home` panel, a room tapped whose area Home Assistant has opens
+    `/home/areas-<area>`; Home Assistant's back button leads back to the 3D view. Elsewhere, in
+    the demo house and in the sandbox (whose areas are not the home's), the room's page in
+    *Rooms*, as before (D-055). The room's own actions (D-047) stay in its 3D panel, opened by a
+    long press. Cards are unchanged: a tap frames the room there.
+  - **Each room a device, two sensors.** Each room of the plans has a service device of its own,
+    *DomoTwin · \<room\>*, made in the room's area (the one it reads, D-034), which Home Assistant
+    shows on that area's page: the people at home in the room (unknown while the room is private
+    for nobody, as D-039 locks it: an entity is everyone's; those who hid themselves, D-034, not
+    counted), and the upkeep due for the pieces in it (D-033), the soonest listed. A piece is in
+    the room it follows since edit mode moved it (D-019), else the room it names, else the room
+    its centre is in, as the engine finds it. The rooms are the people tracker's, which follows
+    the plans, the bindings and the areas first. When the room is linked to another area, its
+    device moves there as soon as that area exists, and a device in no area, or made now (Home
+    Assistant brings a deleted one back where it was), goes into its room's; one moved by hand
+    stays where it was put until the room's area changes, and an area renamed moves
+    nothing. A room removed takes its device and sensors with it. The device's identifiers are looked up with the config entry, as Home
+    Assistant 2026.x asks, and alone before (`compat.device_of`).
+  - **No sensor for the mesh or the robots.** The weak spots of the mesh are worked out in the
+    browser from ZHA's tables (D-031, D-043), which the integration does not read; the robots are
+    drawn moving by the engine (D-049), not reported by Home Assistant. Their summaries say what
+    DomoTwin knows of them instead.
+  - **Summaries, in the Overview's manner.** `custom:domotwin-summary-card`, with `summary` one
+    of `people`, `network`, `automations`, `upkeep`, `robots`: an icon, a title and a line, a tap
+    opening the 3D view (`/domotwin/3d`, with `?layer=` for the network, the automations and the
+    upkeep). The panel chooses a layer asked for in its address once the plan is drawn, then
+    takes it out of the address; the view shows it only if the user may see it (the network and
+    the automations are for administrators), as for a layer chosen in its menu. The people's
+    summary names the rooms of the people the viewer may see in DomoTwin only (D-034): none of
+    those hidden, none at all for someone who is not an administrator when only administrators
+    see them. The network's summary reads ZHA's devices and the analysis module's health every
+    ten minutes, for administrators only, and not sooner when the card is shown again. A
+    summary is drawn again only when what it says changes, and opens nothing for someone without
+    DomoTwin's panel (Home Assistant lists only the panels a user may open). The card is defined with the first picture and
+    loads what it shows with the first one on the page. The Home tab takes them as cards of its
+    own (`{"type": "summary", "summary": …}`, validated by the integration).
+  - **Shortcuts.** The guide shows how to put DomoTwin among the Overview's shortcuts (2026.5 and
+    later); DomoTwin does not write Home Assistant's system data (D-056).
+  - **Asked, not decided.** The 3D view at the top of the Overview or of an area's page, and an
+    area's page opening DomoTwin on its room, need Home Assistant itself; whether the Home and
+    Rooms tabs stay where the Overview is was asked: they stay until the answer.
+- **Consequences.**
+  - The first load grows by the summary card's shell, the area page's rule and a few texts; what
+    the summaries show is a chunk of its own, their editor another.
+  - Each room adds a device and two entities to Home Assistant; a plan of 40 rooms, 40 devices.
+  - M24 and M25 follow the same rule: Home Assistant's own pages opened where it has them.

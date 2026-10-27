@@ -978,3 +978,20 @@ changes; its password once each time the dialog opens.
 A long press acts on what was under the finger when it landed: the view picks it then (one pixel,
 drawn in the pick pass), and a tap uses that same pick, so a tap or a long press costs one pick as
 before and only the start of a drag one more.
+
+### M23b (into Home Assistant's Overview)
+
+Bundle: the first load is **521.3 kB gzipped** of 1 200 kB (+1.9 kB): the summary card's shell
+(its config, its sizes, its editor's link), the area page's rule and the layer asked for in the
+panel's address, their few texts. What a summary shows comes with the first one on the page
+(`chunks/summary-body-<hash>.js`: 8.2 kB raw, 3.3 kB gzipped), its editor when it is edited
+(0.7 kB gzipped). The network's summary loads the analysis module too, for administrators only,
+and reads the mesh every ten minutes, not sooner when the card is shown again. A summary works out
+its line at each new state of the home (a few passes over the states, as Home Assistant's own cards
+do) and is drawn again only when the line changes.
+
+The integration works out the room of every piece when a plan changes, not at each state: 0.3 ms
+for the demo house's 49 pieces (median of 200, Python 3.14 on a 2.1 GHz Xeon core), about 3 ms for
+a plan of 500. The tasks due are sorted into the rooms in one pass when the upkeep cards, the plans
+or the day change. Who is in each room is counted when a person moves, from the places the people
+tracker already keeps, and only the rooms whose count changed are written.

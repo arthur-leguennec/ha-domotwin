@@ -26,6 +26,9 @@ from .const import (
     START_TABS,
 )
 
+#: DomoTwin's summaries (D-061), which a Home tab may hold too.
+SUMMARIES = ("people", "network", "automations", "upkeep", "robots")
+
 #: The cards a Home tab may hold (D-055), as Home Assistant's own cards take them.
 CARD_SCHEMA = vol.Any(
     vol.Schema(
@@ -39,6 +42,7 @@ CARD_SCHEMA = vol.Any(
     vol.Schema(
         {vol.Required("type"): "todo-list", vol.Required("entity"): cv.entity_domain("todo")}
     ),
+    vol.Schema({vol.Required("type"): "summary", vol.Required("summary"): vol.In(SUMMARIES)}),
 )
 CARDS_SCHEMA = vol.All([CARD_SCHEMA], vol.Length(max=MAX_HOME_CARDS))
 

@@ -26,10 +26,10 @@ Local, rapide, Rust + WebAssembly.</p>
 > la maison, la maison de démo, la mesure de la vitesse d’un appareil et la maison pratique (les
 > onglets Accueil, Pièces et 3D) fonctionnent déjà, et forment la version 0.4.0. Depuis, le bac à
 > sable joue une journée des automatisations de la maison sur une copie de celle-ci,
-> « Pourquoi ? » dit qui ou quoi a changé un appareil, et le code QR du Wi-Fi accueille les
-> invités. La Vue d’ensemble de Home Assistant, rejointe plutôt que copiée, vient ensuite, vers la
-> version 0.5.0 ; la proposition à la liste par défaut de HACS attend des mesures sur de vrais
-> appareils.
+> « Pourquoi ? » dit qui ou quoi a changé un appareil, le code QR du Wi-Fi accueille les invités,
+> et DomoTwin rejoint la Vue d’ensemble de Home Assistant plutôt que de la copier. L’historique et
+> l’énergie, la sécurité et l’écran mural viennent ensuite, vers la version 0.5.0 ; la proposition
+> à la liste par défaut de HACS attend des mesures sur de vrais appareils.
 
 ## Fonctionnalités
 
@@ -100,6 +100,13 @@ Local, rapide, Rust + WebAssembly.</p>
   administrateurs, et sur les écrans muraux que vous choisissez ; le mot de passe reste dans le
   stockage privé de DomoTwin. Voir [le Wi-Fi des
   invités](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/wifi.md) (en anglais).
+- **Dans la Vue d’ensemble de Home Assistant.** Une pièce touchée en 3D ouvre la page de sa zone
+  dans la Vue d’ensemble (2026.2 et après). La page de chaque zone dit qui est dans la pièce et
+  l’entretien à faire, et les cartes de résumé de DomoTwin (les personnes, le réseau, les
+  automatisations, l’entretien, les robots) ouvrent la vue 3D sur ce qu’elles résument. Voir
+  [DomoTwin et la Vue
+  d’ensemble](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/overview.md) (en
+  anglais).
 - **Fils des automatisations.** Un appui long sur une lampe : son panneau liste les automatisations
   qui la concernent, avec leur interrupteur et leur dernier lancement. Montrez leurs fils, de ce
   qui les déclenche à ce qu’elles commandent, et voyez une impulsion les parcourir quand l’une se

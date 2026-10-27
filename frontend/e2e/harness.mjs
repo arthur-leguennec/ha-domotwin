@@ -14,6 +14,9 @@
 //   screen=<name>  idle=<seconds>  orbit=1  nightdim=1 (the kiosk's card options)
 //   wifi=typed|image (the home's Wi-Fi for guests, D-060: a fictional network, or a router's code)
 //   wifiscreens=<names> (the screens that show it, comma-separated)  tools=0 (the card's tools hidden)
+//   overview=1 (Home Assistant 2026.10, its Overview with an area page each; DomoTwin's room and
+//   upkeep sensors, who is home: D-061)  mode=summary&summary=<kind> (a summary card)
+//   nopanel=1 (no DomoTwin panel for this user: left out of the sidebar, or for administrators)
 //   upkeep=1 (the demo apartment's fictional upkeep cards, examples/demo-apartment.upkeep.json)
 //   upkeep=0 (an integration without upkeep cards)
 //   people=1 (fictional people: Alex, the user viewing, in the kitchen; Sam in the living room;
@@ -1418,6 +1421,37 @@ if (live && why) {
   ];
 }
 const states = home.states;
+// overview=1: what DomoTwin's sensors say of the rooms and the upkeep (D-061), and who is home.
+const overview = params.get("overview") === "1";
+const state = (entityId, value, attributes) => ({
+  entity_id: entityId,
+  state: value,
+  attributes,
+  last_changed: "2026-10-24T08:00:00+00:00",
+  last_updated: "2026-10-24T08:00:00+00:00",
+});
+if (overview) {
+  for (const [id, person] of Object.entries(PEOPLE)) {
+    states[id] = state(id, person.home ? "home" : "not_home", { friendly_name: person.name });
+  }
+  const own = (entityId, key) => {
+    home.entities[entityId] = { entity_id: entityId, platform: "domotwin", translation_key: key };
+  };
+  states["sensor.domotwin_kitchen_people"] = state("sensor.domotwin_kitchen_people", "1", {
+    room: "Kitchen",
+    people: ["person.alex"],
+  });
+  own("sensor.domotwin_kitchen_people", "room_people");
+  states["sensor.domotwin_living_people"] = state("sensor.domotwin_living_people", "0", {
+    room: "Living room",
+    people: [],
+  });
+  own("sensor.domotwin_living_people", "room_people");
+  states["sensor.domotwin_upkeep_due"] = state("sensor.domotwin_upkeep_due", "2", {
+    tasks: [{ piece: "washer", piece_name: "Washer", task: "Clean the filter", state: "overdue" }],
+  });
+  own("sensor.domotwin_upkeep_due", "upkeep_due");
+}
 /** A person's room sensor, as the integration writes it, in `room` (or away). */
 function roomSensor(id, room) {
   const person = PEOPLE[id];
@@ -1517,7 +1551,17 @@ let hass = {
     ],
     // A fictional place, rounded: the sandbox's sun.
     ...(sandbox ? { time_zone: "Europe/Paris", latitude: 46, longitude: 2 } : {}),
+    // overview=1: a Home Assistant that opens on its Overview, an area page each (D-061).
+    ...(overview ? { version: "2026.10.0" } : { version: "2026.1.0" }),
   },
+  ...(overview
+    ? {
+        panels: {
+          home: { url_path: "home" },
+          ...(params.get("nopanel") === "1" ? {} : { domotwin: { url_path: "domotwin" } }),
+        },
+      }
+    : {}),
   connection,
   fetchWithAuth,
   // Home Assistant's own words for a state (D-058): `on` as "On", a number with its unit.
@@ -1571,6 +1615,12 @@ if (params.get("cards") === "1") {
   // button card runs its scene.
   window.loadCardHelpers = async () => ({
     createCardElement(config) {
+      // A custom card is the element it names, as Home Assistant makes it (DomoTwin's summaries).
+      if (String(config.type).startsWith("custom:")) {
+        const custom = document.createElement(config.type.slice("custom:".length));
+        custom.setConfig(config);
+        return custom;
+      }
       const card = document.createElement("div");
       card.className = "ha-card";
       card.dataset.type = config.type;
@@ -1621,6 +1671,11 @@ let element;
 if (mode === "panel") {
   element = document.createElement("domotwin-panel");
   element.narrow = false;
+} else if (mode === "summary") {
+  // summary=<kind>: DomoTwin's summary card (D-061).
+  mount.classList.add("card");
+  element = document.createElement("domotwin-summary-card");
+  element.setConfig({ type: "custom:domotwin-summary-card", summary: params.get("summary") });
 } else {
   mount.classList.add("card");
   element = document.createElement("domotwin-card");
@@ -1655,6 +1710,8 @@ if (mode === "panel" && params.get("route") === "1") {
   // Home Assistant's address (D-055): the panel's path, and the page's after it.
   history.replaceState(null, "", `/domotwin${params.get("path") ?? ""}${location.search}`);
   const follow = () => {
+    // Another page of Home Assistant (an area's in its Overview, D-061): not the panel's.
+    if (!location.pathname.startsWith("/domotwin")) return;
     element.route = { prefix: "/domotwin", path: location.pathname.slice("/domotwin".length) };
   };
   follow();
