@@ -2820,7 +2820,73 @@ launch in five minutes (M22) has it.
     scanned closed is a wall, a room scanned without its ceiling stops at its furniture. The
     plan editor finishes the rest, as for every import.
 
-## D-065 · The placement advisor: where the next radio helps most (M31)
+## D-065 · What Home Assistant's users say of 3D twins: said plainly, measured first (amends D-056)
+
+Read by the maintainer on r/homeassistant in October 2026, and passed on in their own words.
+
+- **Context.**
+  - **AI-written code.** Threads about 3D plans for Home Assistant drew a strong reaction to code
+    written with AI. The most upvoted answer said AI is not the problem; *paying* for AI-written
+    extras in an open-source project is.
+  - **A toy.** The most upvoted comment of another thread: a 3D plan "looks cool, then you abandon
+    it in a week"; it fits no daily use. The one practical use named was seeing each device's
+    signal strength on the plan.
+  - **Split levels** were asked for three times.
+  - **Locating.** Room presence learned by walking around, with a tool that reads an iPhone's
+    identity key (IRK) with an ESP32 and no Mac, was shown elsewhere in the same days as DomoTwin's
+    Bluetooth locating (M9f, D-035).
+  - **Measured, not claimed.** A user's own twin (not released) does what M9f does (it predicts
+    what each receiver hears from the 3D model), on a grid of half-metre cells with a cloud of
+    likely spots that changes floor only through the stairs, with 21 receivers. Measured against
+    Bermuda on the same readings: room changes per hour from 38 to 7, floor jumps per hour from
+    15.5 to 1.9, about 1.5 m off (60 cm where trained). Their tip: ESPHome proxies listening all
+    the time, Shelly scanners in Auto.
+  - Also asked: several mmWave sensors merged into one map of the home, each knowing only its own
+    zone today. And a top comment: a presence sensor in each room often makes Bluetooth unneeded.
+  - Checked when written (2026-10-27): ESPHome 2026.10 warns that scan windows over 600 ms starve
+    the Wi-Fi on the same radio, so the older tip of a window as long as the interval, at 1 100 ms,
+    now harms Wi-Fi proxies; a 300 ms window every 320 ms, scanning actively, listens about 94 % of
+    the time without Wi-Fi drops (corrected by the maintainer); since Home Assistant 2026.6, Home Assistant chooses active or passive scanning (Auto) for
+    ESPHome proxies and its adapter, and offers the same Auto to Shelly devices, whose scanner is
+    off until it is turned on. Tools that read an iPhone's key without a Mac
+    exist and are kept up: irk-capture (an ESPHome package, MIT) and ESPresense's *Enroll* (AGPL).
+- **Decision.**
+  - **Say how DomoTwin is built.** The READMEs say it plainly: written with Claude Code; every
+    change of the code through a pull request, checked by its tests, two automated reviews, clippy,
+    CodeQL, `cargo deny`, gitleaks and a size budget, and fuzzing when a reader changes; no network
+    call outside Home Assistant; no shop, no licence key, no paid tier, ever. And, near the top,
+    what sets it apart: the IFC and Sweet Home 3D imports, everything free, the network map, the
+    sandbox (the placement advisor once it is there). The first screens of both READMEs are
+    shortened, their headings made plainer.
+  - **The Bluetooth guide** gives the receivers' settings as they are now (ESPHome, Shelly, Home
+    Assistant's scanning mode) and what they change, what to expect with one receiver or one per
+    room, that a presence sensor per room may be enough, and how to get an iPhone's key today.
+  - **Measure before adding** (M41): a diagnostic records DomoTwin's room changes, storey changes
+    and time unknown per hour, and Bermuda's for the same devices where it runs; the maintainer
+    runs it at home and the figures go in the guide, as they fall. It comes before any other
+    locating feature, and soon (right after the weather, asked for before it), because it is small
+    and because it is what makes M9f credible.
+  - **Finer locating** (M42), only if M41's figures justify it, and **mmWave sensors merged**
+    (M43): after the sandbox (done) and the placement advisor (M31), which they build on (the
+    radio model turned around, the radios placed on the plan). M42 reuses M9f's radio model, the
+    devices' learned loudness, the rooms taught, the presence sensors' weight and the sureness
+    rule, and the walk's stairs (D-029) for the storeys.
+  - **Split levels** (M44): storeys at any height already draw and join by stairs; the Bluetooth
+    model's floors, the half levels' names and a ground that steps are missing. Next to the
+    outdoors (M18), whose ground it needs, with a fictional example.
+  - **An iPhone's key** (M45): DomoTwin links to the tools that exist and takes the key in their
+    forms, rather than building a firmware of its own; small, next to M41.
+  - **The weather** (M40), asked for by the maintainer before these, is put on the roadmap here;
+    its decision comes with it.
+- **Consequences.**
+  - D-056's order goes on: M23b done, then M40, M41 and M45, then M24 to M26, M31 and M22 before
+    0.5.0; M42 and M43 open the way to 0.6.0, M44 sits by M18.
+  - The other 3D plan is not named in the repository, nor anyone from the threads; the user's
+    figures are quoted as a user's, not as DomoTwin's.
+  - The figures DomoTwin publishes are its own, measured in a real home, with the same figures
+    for Bermuda beside them.
+
+## D-066 · The placement advisor: where the next radio helps most (M31)
 
 Asked by the maintainer after the sandbox (D-057) and history as reports (D-058), as "Why?" was
 (D-059): M31 now, before M24 to M26, out of the order D-056 set, as M16d was brought forward

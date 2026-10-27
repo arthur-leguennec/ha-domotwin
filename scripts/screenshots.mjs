@@ -1352,7 +1352,7 @@ try {
   );
   console.log("docs/figures/screenshot-bluetooth.png");
 
-  // The radio coverage (D-065): the panel, the day look, Wi-Fi over the demo apartment from the
+  // The radio coverage (D-066): the panel, the day look, Wi-Fi over the demo apartment from the
   // harness's access point in the kitchen, its devices' signals, the spots for the next one.
   const coveragePage = await browser.newPage({
     viewport: { width: 1280, height: 800 },

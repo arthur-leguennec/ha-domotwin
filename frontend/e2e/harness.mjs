@@ -24,7 +24,7 @@
 //   window.__move(person, room) moves someone (their room sensor, as the integration writes it)
 //   bluetooth=1 (DomoTwin's own Bluetooth locating: three fictional receivers, Alex's phone and
 //   keys followed, both in the kitchen, the keys left behind), bluetooth=none (no Bluetooth)
-//   radios=1 (the radio coverage, D-065: two of the receivers placed, the hall taught, two Wi-Fi
+//   radios=1 (the radio coverage, D-066: two of the receivers placed, the hall taught, two Wi-Fi
 //   devices reporting their signal, an access point in the kitchen's far corner)
 //   window.__show(request) sends a `domotwin.show` request to every screen
 //   private=<room>,<room> (private rooms, D-039, kept for nobody), privatefor=<person> (kept for
@@ -1787,7 +1787,7 @@ if (bluetoothParam === "1") {
 }
 if (params.get("radios") === "1") {
   // Where the locating places two of the receivers, and the hall it learned from the living
-  // room's (D-065).
+  // room's (D-066).
   const places = {
     "AA:00:00:00:00:03": { storey: "storey-1", at: [260, 260], z: 120 },
     "BB:00:00:00:00:01": { storey: "storey-1", at: [630, 483.3], z: 120 },

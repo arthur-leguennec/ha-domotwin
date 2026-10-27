@@ -13,7 +13,7 @@ export type HeatKind = (typeof HEAT_KINDS)[number];
 /**
  * What the layer menu shows: nothing, a heatmap, the power layer, Hydro-Québec's peaks (D-063,
  * offered where an integration reads them), the network map (D-031, offered to administrators
- * with ZHA set up), the radio coverage (D-065, administrators), every automation's wires (D-032,
+ * with ZHA set up), the radio coverage (D-066, administrators), every automation's wires (D-032,
  * administrators) or upkeep (D-033: the pieces tinted by their tasks, and the list of them).
  */
 export type LayerName =
@@ -51,7 +51,7 @@ export function networkAvailable(hass: HomeAssistant | undefined): boolean {
 }
 
 /**
- * Whether the radio coverage can be offered (D-065): to administrators, who alone may read the
+ * Whether the radio coverage can be offered (D-066): to administrators, who alone may read the
  * receivers and the mesh.
  */
 export function coverageAvailable(hass: HomeAssistant | undefined): boolean {
@@ -124,7 +124,7 @@ export interface LayerChoice {
    * would tell someone is in (CO₂) or a window is open (rain); their dangers stay.
    */
   closed?: Set<string>;
-  /** The radio coverage's rooms (D-065), each its level's rank, drawn with its layer. */
+  /** The radio coverage's rooms (D-066), each its level's rank, drawn with its layer. */
   coverage?: Record<string, number>;
   /** What the rooms do around a peak (D-063), when its layer is shown. */
   peak?: PeakRooms;

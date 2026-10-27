@@ -2,9 +2,9 @@
 
 DomoTwin finds the room a phone, a watch or a tag is in from what Home Assistant's Bluetooth
 receivers hear of it: its own adapter, ESPHome Bluetooth proxies, Shelly devices. No Bermuda, no
-ESPresense, nothing to flash. It works from the first minute, from the plan, and gets surer as it
-learns. The phones and watches then place their owners ([people in their rooms](people.md)); a tag
-on the keys says where the keys are, and when they were left behind.
+ESPresense, nothing to flash on the receivers. It works from the first minute, from the plan, and
+gets surer as it learns. The phones and watches then place their owners ([people in their
+rooms](people.md)); a tag on the keys says where the keys are, and when they were left behind.
 
 ![The Bluetooth settings over the demo apartment: three receivers and how each is placed, Alex's phone and keys followed in the kitchen, a watch heard that may be followed](figures/screenshot-bluetooth.png)
 
@@ -20,6 +20,82 @@ on the keys says where the keys are, and when they were left behind.
   - **an Android phone** with the companion app's *Bluetooth transmitter* on: known by the iBeacon
     it sends, whatever address it sends from;
   - **a tag** (keys, a bag) with a fixed address.
+
+## Receivers that hear more
+
+The more often each receiver hears a device, the surer and the quicker the room. Two settings
+count most, both outside DomoTwin:
+
+- **ESPHome proxies listen most of the time.** A receiver hears a device only while it listens,
+  and an ESP32 shares its one radio with its Wi-Fi. Let it listen 300 ms of every 320 ms, about
+  94 % of the time, and leave the rest to the Wi-Fi, so that it does not drop:
+
+  ```yaml
+  esp32_ble_tracker:
+    scan_parameters:
+      interval: 320ms
+      window: 300ms
+      active: true
+  ```
+
+  Do not copy the older tip of a `window` as long as the `interval`, at 1 100 ms: ESPHome 2026.10
+  warns that scan windows over 600 ms starve the Wi-Fi on the same radio. Proxies wired with
+  Ethernet (the Olimex ESP32-PoE-ISO, for instance) have the radio to themselves and are the
+  steadiest receivers; the same settings suit them.
+- **Shelly devices in Auto.** In Home Assistant, **Settings › Devices & services › Shelly**, the
+  device's **Configure** › **Bluetooth scanner mode**: **Auto** (*Disabled* by default; Gen2 and
+  later, on mains, firmware 1.5.1 or later). The Shelly then listens passively and scans actively
+  for short moments when needed. A Shelly listens in short slices only, so it hears less often than
+  an ESP32: a good second receiver, not the only one in a room.
+- **Active or passive.** Since Home Assistant 2026.6, Home Assistant chooses how each ESPHome proxy
+  and its own adapter scan: **Auto** by default (in the ESPHome integration's **Configure**, and
+  under **Settings › Bluetooth** for the adapter). Leave it there.
+
+What it changes: a receiver that listens most of the time hears a phone several times a second
+rather than now and then, so DomoTwin weighs each device on many readings, not on one or two, and
+the room told changes less when someone stands still.
+
+## What to expect
+
+- **One receiver**: near it or far from it, not much more. Enough to say whether a phone is home,
+  or that the keys are by the door.
+- **One receiver in each main room**: the room, most of the time, after a few seconds. Two rooms
+  side by side are told apart best once each is taught. A receiver per storey helps the storey.
+- **In between** (two or three receivers for four rooms): the rooms near a receiver are surer than
+  the others.
+- **A presence sensor in each room** (mmWave, or a motion sensor that holds) may be all you need to
+  light the room someone is in: Bluetooth says *who*, a presence sensor says *someone*, and says it
+  faster. DomoTwin's presence layer shows them, and they weigh in when it locates a phone (below).
+
+DomoTwin does not yet publish measured figures of its own: the roadmap's *Locating measured*
+(M41) records them, with the same figures for Bermuda where it runs, so that they can be put
+here.
+
+## An iPhone's identity key
+
+An iPhone changes its Bluetooth address every few minutes; its identity key (IRK) finds it again.
+Home Assistant's [Private BLE Device](https://www.home-assistant.io/integrations/private_ble_device/)
+takes it, as 32 hexadecimal characters or as the base64 a Mac gives, with the phone on and heard
+when it is added. To get it:
+
+- **With a Mac** signed in to the same Apple account: **Keychain Access** (*Local Items* on macOS
+  26, *iCloud* before), search *Bluetooth*, open the item whose account reads `Public` followed by
+  the iPhone's Bluetooth address (**Settings › General › About**), show its password and copy the
+  **Remote IRK** value as it is.
+- **Without a Mac**, with an ESP32 for ten minutes:
+  - *irk-capture* (MIT), an ESPHome package, explained in Home Assistant's community guide
+    [Grabbing your Phone/Watch Bluetooth IRKs](https://community.home-assistant.io/t/guide-grabbing-your-phone-watch-bluetooth-irks-2026-edition/968791):
+    flash it with ESPHome, pair the iPhone with it from **Settings › Bluetooth**, and the key
+    appears on the ESPHome device's page, ready for Private BLE Device. The board cannot be a
+    proxy at the same time; flash it back afterwards.
+  - [ESPresense](https://espresense.com/beacons/apple) (AGPL-3.0), installed from its web page:
+    **Enroll** on the node, then pair the iPhone; it publishes the key, which Private BLE Device
+    takes as it is (with `irk:` before it, as ESPresense's page shows, or without).
+- Bermuda's wiki keeps a [longer list](https://github.com/agittins/bermuda/wiki/How-to-get-the-IRK-%28Identity-Resolving-Keys%29-for-iOS,-Android-etc),
+  Android included.
+
+A helper in DomoTwin's own Bluetooth dialog, which points to these and takes the key in any of
+these forms, is on the roadmap (M45).
 
 ## Setting it up
 

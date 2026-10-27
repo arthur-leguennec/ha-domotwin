@@ -166,7 +166,7 @@ describe("the Bluetooth receivers (D-035)", () => {
       ],
       unplaced: ["Hall proxy"],
     });
-    // An integration before D-065: nothing placed, nothing learned.
+    // An integration before D-066: nothing placed, nothing learned.
     const older: LocatingSettings = { ...locating, receivers: [] };
     delete older.heard;
     expect(bluetoothReadings(older)).toEqual({

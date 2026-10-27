@@ -661,7 +661,7 @@ def ws_locating_get(
     """Return the Bluetooth locating (D-035): the receivers, the devices followed and their rooms.
 
     Administrators only. An identity key never leaves the server: a device known by one is shown
-    by its Private BLE Device entry. For the placement advisor (D-065), each receiver's place and
+    by its Private BLE Device entry. For the placement advisor (D-066), each receiver's place and
     what each learned in each room (`heard`).
     """
     if (locator := _get_locator(hass, connection, msg)) is None:

@@ -70,7 +70,7 @@ def test_walls_doors_and_open_sides_between_rooms() -> None:
 
 
 def test_the_placement_advisor_counts_the_same_walls() -> None:
-    """The advisor (D-065) counts walls in the page as the locating does: both match a fixture.
+    """The advisor (D-066) counts walls in the page as the locating does: both match a fixture.
 
     `scripts/make-coverage-fixture.py` writes it from this geometry; the core's tests read it too.
     """

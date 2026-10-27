@@ -2,7 +2,7 @@
   <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-neon.png" alt="DomoTwin : un appartement fictif dans l’apparence néon, au crépuscule dans un violet profond, le haut de ses murs éclairé d’ambre, ses lampes allumées, le nom des pièces au sol" width="100%">
 </p>
 
-<p align="center"><b>Votre logement en jumeau 3D vivant dans Home Assistant.</b><br>
+<p align="center"><b>Votre logement en jumeau numérique 3D, en direct dans Home Assistant.</b><br>
 Touchez une lampe pour l’allumer, une pièce pour la piloter, et voyez vos capteurs s’animer sur le plan.<br>
 Local, rapide, Rust + WebAssembly.</p>
 
@@ -13,43 +13,41 @@ Local, rapide, Rust + WebAssembly.</p>
 <p align="center"><a href="https://github.com/arthur-leguennec/ha-domotwin/blob/main/README.md">Read in English</a></p>
 
 > [!NOTE]
-> **État : développement en cours.** DomoTwin se construit étape par étape ([feuille de
-> route](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/ROADMAP.md), en anglais).
-> L’intégration, le panneau, la carte, l’import du plan (IFC, Sweet Home 3D, DXF, scans de
-> pièces), les vues 3D et 2D, le pilotage en direct (états, toucher, appui long, panneau de pièce,
-> liaisons), le mode édition, vos propres modèles 3D, les calques, les appareils, l’éditeur de
-> plan, les étages, les apparences, tous les étages à la fois, la promenade, le kiosque, la carte
-> du réseau, les fils des automatisations, les fiches d’entretien, les personnes dans leurs
-> pièces, la localisation Bluetooth, la voix, la finition (police, clavier, lecteurs d’écran), une
-> passe sur la taille et la vitesse, les téléphones, les actions à faire plus tard, des touchers
-> qui disent ce qu’ils font, des meubles qui ont l’air faits, les aspirateurs robots, l’énergie de
-> la maison, la maison de démo, la mesure de la vitesse d’un appareil et la maison pratique (les
-> onglets Accueil, Pièces et 3D) fonctionnent déjà, et forment la version 0.4.0. Depuis, le bac à
-> sable joue une journée des automatisations de la maison sur une copie de celle-ci, l’historique de
-> Home Assistant se lit en rapports, « Pourquoi ? » dit qui ou quoi a changé un appareil, le code QR
-> du Wi-Fi accueille les invités, DomoTwin rejoint la Vue d’ensemble de Home Assistant plutôt que de
-> la copier, chaque changement de la configuration est gardé, les pointes d’Hydro-Québec se voient
-> sur le plan, dans l’onglet Accueil et dans le bac à sable, les cartes de robots aspirateurs, les
-> plans Floorplanner et les scans en maillage s’importent aussi, et la couverture radio dit où la
-> prochaine radio aide le plus. L’historique et l’énergie, la sécurité et l’écran mural viennent
-> ensuite, vers la version 0.5.0 ; la proposition à la liste par défaut de HACS attend des mesures
-> sur de vrais appareils.
+> **État : en développement, version 0.4.0.** DomoTwin se construit étape par étape
+> ([feuille de route](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/ROADMAP.md), en
+> anglais), et tout ce que décrit *Fonctionnalités* marche déjà. Depuis la 0.4.0 sont arrivés le bac
+> à sable, l’historique en tableaux, « Pourquoi ? », le code QR du Wi-Fi pour les invités,
+> l’historique de la configuration, les pointes d’Hydro-Québec, d’autres imports (cartes de robots
+> aspirateurs, Floorplanner, scans en maillage) et la couverture radio, et DomoTwin a rejoint la Vue
+> d’ensemble de Home Assistant ; la météo autour du logement, l’historique et l’énergie, la sécurité
+> et l’écran mural suivent, vers la 0.5.0. La proposition à la liste par défaut de HACS attend des
+> mesures sur de vrais appareils.
+
+## Ce qui le distingue
+
+- **Votre vrai plan.** Importez une maquette IFC (Revit, ArchiCAD, FreeCAD…) ou une maison Sweet
+  Home 3D, tous les étages d’un coup, au lieu de redessiner votre logement.
+- **Entièrement gratuit.** Tout est dans le code sous licence MIT : rien à acheter, aucun compte.
+- **La carte du réseau.** Votre maillage Zigbee dessiné sur le plan : qui passe par qui, les liens
+  faibles, et les pièces qui manquent d’un routeur.
+- **Le bac à sable.** Une journée de vos automatisations jouée sur une copie de la maison, pour voir
+  ce qu’elles font avant qu’elles le fassent.
 
 ## Fonctionnalités
 
 - **Une maison de démo à essayer d’abord.** Avant de dessiner quoi que ce soit, ouvrez DomoTwin et
-  **Essayer la maison de démo** : une maison familiale fictive sur deux niveaux, avec ses lampes,
-  rideaux, télés, thermostats, capteurs, un aspirateur robot, des panneaux solaires et une
+  choisissez **Essayer la maison de démo** : une maison familiale fictive sur deux niveaux, avec ses
+  lampes, rideaux, télés, thermostats, capteurs, un aspirateur robot, des panneaux solaires et une
   batterie, trois personnes et huit automatisations, qui vit une journée de printemps à une minute
   par seconde. Allez au matin, à midi, au soir ou à la nuit, touchez à tout, modifiez-la : rien ne
   touche votre maison. Une carte avec `demo: true` la montre sur un tableau de bord.
-- **Accueil, Pièces et 3D.** L’onglet *Accueil* du panneau montre la maison d’un coup d’œil (qui
-  est là, les lampes allumées, les portes et fenêtres ouvertes, les alertes, la météo), vos scènes
+- **Accueil, Pièces et 3D.** L’onglet *Accueil* du panneau montre la maison d’un coup d’œil (qui est
+  là, les lampes allumées, les portes et fenêtres ouvertes, les alertes, la météo), vos scènes
   favorites en grands boutons et vos favoris ; *Pièces* liste les étages et pièces de Home
-  Assistant, les appareils de chaque pièce en cartes tuiles de Home Assistant, avec une
-  recherche ; *3D* est la vue 3D, où une pièce touchée ouvre sa pièce. Mettez une étoile à ce qui
-  sert le plus ; choisissez l’onglet sur lequel DomoTwin s’ouvre, pour vous ou pour un écran, et
-  un agenda ou une liste pour votre onglet Accueil.
+  Assistant, les appareils de chaque pièce en cartes tuiles de Home Assistant, avec une recherche ;
+  *3D* est la vue en 3D, où toucher une pièce ouvre sa page. Mettez en favori ce qui vous sert le
+  plus ; choisissez l’onglet sur lequel DomoTwin s’ouvre, pour vous ou pour un écran, et un agenda
+  ou une liste pour votre onglet Accueil.
 - **Votre plan en 3D et en 2D.** Dessinez-le dans le panneau, ou importez-le : une maquette IFC
   (`*.ifc`, depuis Revit, ArchiCAD, Bonsai, FreeCAD…), une maison Sweet Home 3D (`*.sh3d`), un
   dessin DXF, une pièce scannée avec un iPhone ou un iPad à LiDAR (`*.usdz`, le JSON de RoomPlan),
@@ -67,13 +65,13 @@ Local, rapide, Rust + WebAssembly.</p>
   en argile mate, comme une maquette d’architecte. Automatique : néon en mode sombre. Voir [les
   apparences](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/looks.md) (en
   anglais).
-- **Toucher pour piloter.** Touchez une lampe pour l’allumer ou l’éteindre ; une bulle au-dessus
-  dit ce qui s’est passé, montre sa luminosité et mène au reste. Touchez la télé pour l’allumer et
+- **Toucher pour piloter.** Touchez une lampe pour l’allumer ou l’éteindre ; une bulle au-dessus dit
+  ce qui s’est passé, montre sa luminosité et mène au reste. Touchez la télé pour l’allumer et
   monter le son, l’aspirateur robot pour lancer le ménage. Touchez une pièce pour ses lumières, ses
   volets et ses propres boutons (une scène, un script) ; appuyez longuement pour retrouver ses
-  lumières, scènes, volets, chauffage et lecteurs, et programmer ses lumières. Lier un appareil
-  propose ce qu’il sait faire en mots (monter le son, ouvrir, baisser la lumière), avec un mode
-  avancé pour toute action.
+  lumières, scènes, volets, chauffage et lecteurs, et programmer ses lumières. Quand vous liez un
+  appareil, DomoTwin propose en toutes lettres ce qu’il sait faire (monter le son, ouvrir, baisser
+  la lumière), avec un mode avancé pour toute action.
 - **En direct.** Les lampes éclairent leur pièce dans leur vraie couleur et luminosité, la
   télévision s’illumine, volets et rideaux bougent, portes et fenêtres s’ouvrent avec leurs
   capteurs.
@@ -89,17 +87,17 @@ Local, rapide, Rust + WebAssembly.</p>
   préchauffage dans l’onglet Accueil, en 3D les pièces qui préchauffent, sont délestées ou
   chauffent encore pendant la pointe, avec ce qu’elles consomment, et la pointe annoncée pour
   demain jouée d’abord dans le bac à sable. Rien sans eux.
-- **Aspirateurs robots.** Son robot quitte sa base quand il nettoie, passe les pièces une à une et
+- **Aspirateurs robots.** Votre robot quitte sa base quand il nettoie, passe les pièces une à une et
   rentre, sur le plan.
 - **Appareils.** Des badges sur vos appareils (l’état d’une serrure, une caméra qui enregistre, ce
   qui est en lecture, une batterie faible, le lave-linge en marche), et ce que voit chaque caméra,
   dessiné au sol de sa pièce, derrière les meubles, discret tant que vous ne touchez pas la
   caméra ; touchez pour l’image en direct.
 - **Carte du réseau.** Votre maillage Zigbee dessiné sur le logement : chaque appareil sur son
-  meuble, chaque lien en arc coloré selon sa qualité, une lumière qui court vers le coordinateur,
-  et les pièces suspendues à un lien faible nommées, avec « un routeur ici aiderait ». Touchez un
-  appareil ou un lien pour le détail, relancez un scan, placez les appareils que la carte ne trouve
-  pas. Pour les administrateurs, avec ZHA. Voir [la carte du
+  meuble, chaque lien en arc coloré selon sa qualité, une lumière qui court vers le coordinateur, et
+  les pièces qui ne tiennent qu’à un lien faible sont nommées, avec « un routeur ici aiderait ».
+  Touchez un appareil ou un lien pour le détail, relancez un scan, placez les appareils que la carte
+  ne trouve pas. Pour les administrateurs, avec ZHA. Voir [la carte du
   réseau](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/network.md) (en anglais).
 - **Un bac à sable pour vos automatisations.** Choisissez une journée, sa météo, qui sort et qui
   rentre quand, et regardez vos automatisations, scripts et scènes la jouer sur une copie de votre
@@ -125,7 +123,7 @@ Local, rapide, Rust + WebAssembly.</p>
   lance. Ou toutes les automatisations du logement à la fois. Voir [les fils des
   automatisations](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/automations.md)
   (en anglais).
-- **Pourquoi ?** Un appui long sur une lampe, et demandez qui ou quoi l’a changée :
+- **Pourquoi ?** Appuyez longuement sur une lampe et demandez qui ou quoi l’a changée :
   l’automatisation qui l’a allumée, le mouvement qui a déclenché l’automatisation, la personne qui
   l’a fait dans l’application, ou personne (son propre interrupteur), comme Home Assistant l’a
   noté. Dessiné dans le logement comme un fil depuis là où tout a commencé, avec la trace du
@@ -371,10 +369,10 @@ présence de cette zone, et de son alarme. Le calque de consommation utilise les
 puissance liés à chaque meuble. La carte du réseau place chaque appareil Zigbee sur le meuble lié à
 son appareil ou à l’une de ses entités.
 
-## Fonctionnement
+## Comment ça marche
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/architecture.png" alt="Architecture de DomoTwin : l’intégration Home Assistant, l’interface et le moteur WebAssembly" width="100%">
+  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/architecture.png" alt="Comment marche DomoTwin : l’intégration Home Assistant, l’interface et le moteur WebAssembly" width="100%">
 </p>
 
 Une intégration Python légère enregistre votre plan, vos modifications et vos liaisons dans Home
@@ -382,6 +380,29 @@ Assistant et sert l’interface. L’interface (TypeScript) dialogue avec Home A
 (Rust compilé en WebAssembly) lit le plan, construit la géométrie et la dessine en WebGL2. Détails
 dans
 [`docs/ARCHITECTURE.md`](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/ARCHITECTURE.md)
+(en anglais).
+
+## Comment DomoTwin est fait
+
+DomoTwin est écrit avec [Claude Code](https://claude.com/claude-code), un assistant de
+programmation à base d’IA. Son mainteneur décide de ce qui se fait et dans quel ordre, et l’essaie
+à la maison. Chaque changement du code passe par une pull request, où il est vérifié par :
+
+- ses tests, lancés par l’intégration continue : environ 260 tests Python face à un vrai Home
+  Assistant, 340 tests unitaires de l’interface, 320 tests Rust et 210 tests de bout en bout dans un
+  navigateur ;
+- deux revues de code automatiques, chaque remarque corrigée ou justifiée dans la pull request ;
+- `clippy` avec chaque avertissement traité comme une erreur, et le fuzzing de chaque lecteur de
+  fichiers venus d’ailleurs (plans, IFC, plans des autres logiciels, modèles 3D, arrangements,
+  automatisations, fiches d’entretien) quand l’un d’eux change ;
+- CodeQL sur le code Python, TypeScript et Rust, `cargo deny` sur la licence et la provenance de
+  chaque dépendance, et gitleaks sur chaque commit ;
+- un budget de taille : la compilation échoue si ce qu’un navigateur charge d’abord dépasse 1,2 Mo.
+
+Certaines règles ne bougent pas : aucun appel réseau en dehors de votre Home Assistant, et pas de
+boutique, pas de clé de licence, pas de version payante, jamais. Les décisions et leurs raisons sont
+dans
+[`docs/DECISIONS.md`](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/DECISIONS.md)
 (en anglais).
 
 ## FAQ
@@ -419,7 +440,7 @@ s’empile et se lie comme n’importe quel meuble, est gardé par Home Assistan
 **Exporter le plan**.
 
 **Faut-il une connexion Internet ?** Non. Voir
-[Confidentialité](https://github.com/arthur-leguennec/ha-domotwin/blob/main/README.fr.md#confidentialité).
+[Vie privée](https://github.com/arthur-leguennec/ha-domotwin/blob/main/README.fr.md#vie-privée).
 
 **Est-ce que ça tourne sur ma tablette murale ?** Il faut WebGL2, présent dans les navigateurs
 actuels et dans les applications mobiles Home Assistant. Sur les appareils anciens, DomoTwin choisit
@@ -433,7 +454,7 @@ administrateurs peuvent importer un plan, le modifier et changer les liaisons.
 liaisons et les fichiers des modèles 3D enregistrés sont supprimés. Utilisez d’abord **Exporter le
 plan** pour en garder une copie (elle contient les fichiers 3D).
 
-## Confidentialité
+## Vie privée
 
 DomoTwin ne communique qu’avec votre propre Home Assistant. Aucun autre appel réseau : pas de CDN,
 pas de télémétrie, pas de statistiques, pas de polices web. Tous les fichiers utilisés (JavaScript,

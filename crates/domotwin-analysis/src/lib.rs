@@ -1,6 +1,6 @@
 //! DomoTwin's analysis module (`DECISIONS.md`, D-043): reading what Home Assistant hands over
 //! about a radio mesh and about automations, and analysing it, for JavaScript; the home's Wi-Fi QR
-//! code (D-060); and where the next radio helps most (D-065). It is built as its own WebAssembly
+//! code (D-060); and where the next radio helps most (D-066). It is built as its own WebAssembly
 //! module, which the frontend loads only when the network map, the automations, the QR code or the
 //! radio coverage are shown; the engine is handed what it draws (`domotwin_core::network::Drawing`,
 //! the automations' placed ends, the rooms' coverage as a layer), so that none of this is in the

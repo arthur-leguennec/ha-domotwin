@@ -1098,4 +1098,4 @@ for the demo apartment (5 rooms), **10 ms** for the demo house (13 rooms on two 
 looked at from four of its points, not twelve, and its spot is its middle alone: 30 to 40 rooms
 took about 190 ms before. The integration's Python counts walls between two places in about
 57 µs: the same advice there would take about 2.3 s for 30 rooms on this computer, more on a small
-host, which is why it runs in the page (D-065).
+host, which is why it runs in the page (D-066).

@@ -1,5 +1,5 @@
 //! The layers drawn over the home (`DECISIONS.md`, D-023): a **heatmap** of one quantity per room
-//! (temperature, humidity, CO₂ or fine particles, or how well a radio covers it, D-065) on a
+//! (temperature, humidity, CO₂ or fine particles, or how well a radio covers it, D-066) on a
 //! perceptual colour scale, **alerts** pulsing
 //! on the floor of their room (warnings amber, dangers red) and **presence** (a room someone is in
 //! glows softly). During a Hydro-Québec peak (D-063), the **peak** tints each room by what its
@@ -26,7 +26,7 @@ pub enum HeatKind {
     Co2,
     /// Fine particles PM2.5 (µg/m³).
     Pm25,
-    /// How well a radio covers the room (D-065): its level's rank, from 0 (out of reach) to 3
+    /// How well a radio covers the room (D-066): its level's rank, from 0 (out of reach) to 3
     /// (good).
     Coverage,
 }
