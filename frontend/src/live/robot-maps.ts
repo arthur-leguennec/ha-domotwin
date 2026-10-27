@@ -1,5 +1,5 @@
 /**
- * Robot vacuum maps in Home Assistant (D-062): the *Map data* camera Valetudo's MQTT discovery
+ * Robot vacuum maps in Home Assistant (D-063): the *Map data* camera Valetudo's MQTT discovery
  * makes for each robot, whose picture holds the robot's map (`map-data-hass`). The import reads
  * it through Home Assistant, with the user's session: nothing reaches the robot.
  */

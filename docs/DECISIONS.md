@@ -2572,7 +2572,7 @@ M23b, planned in D-056 after the sandbox (D-057) and the Wi-Fi QR code (D-060).
   - Each room adds a device and two entities to Home Assistant; a plan of 40 rooms, 40 devices.
   - M24 and M25 follow the same rule: Home Assistant's own pages opened where it has them.
 
-## D-062 · More imports: robot vacuum maps, Floorplanner, mesh scans (amends D-040)
+## D-063 · More imports: robot vacuum maps, Floorplanner, mesh scans (amends D-040)
 
 M20, moved forward by the maintainer from after 0.5.0 (D-056) to before it, so that the first
 launch in five minutes (M22) has it.

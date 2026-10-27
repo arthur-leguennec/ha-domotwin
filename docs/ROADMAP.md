@@ -93,7 +93,7 @@ QR code (M30) and a placement advisor for radios (M31) before a first launch in 
 report (M37), history as reports (M38) and Hydro-Québec's peaks (M39) follow, among a library of
 objects (M17), the outdoors (M18) and more languages (M21), before a sixth release, 0.6.0. After
 the sandbox, the maintainer asked for history as reports (M38, D-058) and "Why?" (M32, D-059)
-before the rest, which keeps its order; then for more imports (M20, D-062) before 0.5.0 too: robot
+before the rest, which keeps its order; then for more imports (M20, D-063) before 0.5.0 too: robot
 vacuum maps, Floorplanner plans and mesh scans, which the first launch in five minutes (M22) uses.
 
 ## M0, scaffold
@@ -1229,7 +1229,7 @@ DomoTwin joined to Home Assistant's own Overview rather than copying it (D-061).
 ## M20, more imports
 
 Homes already mapped by something else: the robot vacuum, Floorplanner, a phone or a camera that
-scans in 3D (`DECISIONS.md`, D-062; [`imports.md`](imports.md)). Moved forward by the maintainer,
+scans in 3D (`DECISIONS.md`, D-063; [`imports.md`](imports.md)). Moved forward by the maintainer,
 before 0.5.0, after the Overview (M23b).
 
 - ✅ **Robot vacuum maps**: Valetudo's, as its REST API gives it (JSON), as it publishes it over
@@ -1338,7 +1338,7 @@ milestone starts, which goes on with what needs no answer.
   Home Assistant, plays it in the sandbox (M29) on days one picks, and only then saves it, Home
   Assistant's automation editor a tap away. DomoTwin calls no model itself; without an AI task,
   nothing is offered. For administrators.
-- ✅ **M20, more imports** (D-062, above): done before 0.5.0, at the maintainer's request.
+- ✅ **M20, more imports** (D-063, above): done before 0.5.0, at the maintainer's request.
 - ⏳ **M17, a library of objects**: many more pieces, free and well made, drawn from real
   references, still fast.
 - ⏳ **M36, configuration history**: each change of an automation, script, scene or dashboard
