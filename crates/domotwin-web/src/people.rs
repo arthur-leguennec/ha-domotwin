@@ -163,8 +163,9 @@ impl Engine {
         self.people.people.moving()
     }
 
-    /// The people and the robot vacuums, as the renderer draws them.
+    /// The people and the robots, as the renderer draws them.
     pub(crate) fn show_figures(&mut self) {
+        let floors = self.floors.as_deref().unwrap_or_default();
         #[allow(clippy::cast_possible_truncation)]
         let people: Vec<Figure> = self
             .people
@@ -177,9 +178,15 @@ impl Engine {
                 } else {
                     0.0
                 };
+                // On the ground where they are: a lawn is a little under the floors (D-077).
+                let level = floors
+                    .get(w.storey)
+                    .and_then(Option::as_ref)
+                    .map_or(0.0, |f| f.level_at(w.at));
                 Figure {
                     storey: w.storey,
-                    at: [w.at[0] as f32, bob as f32, w.at[1] as f32],
+                    at: [w.at[0] as f32, (bob + level) as f32, w.at[1] as f32],
+                    ground: level as f32,
                     heading: w.heading as f32,
                     color: w.color,
                     opacity: w.opacity as f32,

@@ -473,8 +473,9 @@ impl Engine {
         };
         let ceiling = (h + cord + 30.0).clamp(PICTURE_CEILING, WALL_HEIGHT);
         // Fixed to the ceiling (a light, an access point, a dome camera): right under it, and seen
-        // from below, as one sees it.
-        let on_ceiling = cord == 0.0 && info.elevation + h >= NEAR_CEILING;
+        // from below, as one sees it. Not a tall piece of the garden (a pergola, a tree): no
+        // ceiling over it.
+        let on_ceiling = cord == 0.0 && !kind.outdoor() && info.elevation + h >= NEAR_CEILING;
         let lift = if kind.info().flags.hanging || on_ceiling {
             (ceiling - h - cord).max(0.0)
         } else {

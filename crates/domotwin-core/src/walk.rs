@@ -10,7 +10,7 @@ use std::collections::BTreeSet;
 
 use crate::edit::Footprint;
 use crate::geometry::polygon::{
-    P2, area, label_point, point_in_polygon, segment_distance, segments_meet,
+    P2, area, label_point_around, point_in_polygon, segment_distance, segments_meet,
 };
 use crate::geometry::walls::{
     WallLayout, free_wall_quad, opening_axes, openings_on_side, segment_quad, side_segments,
@@ -50,6 +50,14 @@ pub struct Floor {
     /// The rooms' outlines, and their ids.
     rooms: Vec<Vec<P2>>,
     room_ids: Vec<String>,
+    /// Which rooms are places outside (D-077): a garden drawn around the home is under its rooms.
+    outside: Vec<bool>,
+    /// The order the rooms are looked up in at a point (`geometry::walls::lookup_order`).
+    order: Vec<usize>,
+    /// A point well inside each room, out of the rooms found before it there.
+    spots: Vec<P2>,
+    /// The height of each room's floor above the storey's (cm): a garden's ground a little under.
+    levels: Vec<f64>,
     doors: Vec<Door>,
     /// The pieces standing on the floor: not in a walker's way (D-029), but where nobody is
     /// drawn standing (D-034).
@@ -110,6 +118,15 @@ impl Floor {
             }
         }
         let rooms: Vec<Vec<P2>> = layout.rooms.iter().map(|r| r.points.clone()).collect();
+        let outside: Vec<bool> = layout.rooms.iter().map(|r| r.outside).collect();
+        let levels = layout
+            .rooms
+            .iter()
+            .map(|r| match plan.elements.get(r.element) {
+                Some(Element::Room(room)) => room.level(),
+                _ => 0.0,
+            })
+            .collect();
         let room_ids = layout
             .rooms
             .iter()
@@ -120,7 +137,9 @@ impl Floor {
                     .to_owned()
             })
             .collect();
-        let room_at = |p: P2| rooms.iter().position(|r| point_in_polygon(p, r, false));
+        let order = layout.lookup_order().to_vec();
+        let room_at = |p: P2| first_room(&rooms, &order, p);
+        let spots = spots(&rooms, &outside, &order);
         let doors = openings
             .iter()
             .filter(|(_, door)| *door)
@@ -149,6 +168,10 @@ impl Floor {
             walls,
             rooms,
             room_ids,
+            outside,
+            order,
+            spots,
+            levels,
             doors,
             pieces,
             closed: BTreeSet::new(),
@@ -311,11 +334,55 @@ impl Floor {
         }
     }
 
-    /// The room `p` is in.
+    /// The room `p` is in: a room of the home before a place outside around it, a deck before the
+    /// garden around it.
     pub fn room_at(&self, p: P2) -> Option<usize> {
-        self.rooms
-            .iter()
-            .position(|r| point_in_polygon(p, r, false))
+        first_room(&self.rooms, &self.order, p)
+    }
+
+    /// The height of the floor at `p` above the storey's (cm): a garden's ground a little under
+    /// the floors (D-077).
+    pub fn level_at(&self, p: P2) -> f64 {
+        self.room_at(p)
+            .and_then(|k| self.levels.get(k).copied())
+            .unwrap_or(0.0)
+    }
+
+    /// Where a robot mower goes (D-077): the places outside, the home's rooms closed but those
+    /// with one of `docks` in them, out of which it goes through their doors.
+    #[must_use]
+    pub fn outdoors(&self, docks: &[P2]) -> Floor {
+        let indoors: BTreeSet<String> = (0..self.rooms.len())
+            .filter(|&k| {
+                !self.outside[k]
+                    && !docks
+                        .iter()
+                        .any(|p| point_in_polygon(*p, &self.rooms[k], false))
+            })
+            .map(|k| self.room_ids[k].clone())
+            .collect();
+        let mut floor = self.clone();
+        floor.close(&indoors);
+        floor
+    }
+
+    /// Where a robot vacuum goes (D-077): the home's rooms, the places outside closed but those
+    /// with one of `docks` in them (a garden door is no way out).
+    #[must_use]
+    pub fn indoors(&self, docks: &[P2]) -> Floor {
+        let outdoors: BTreeSet<String> = (0..self.rooms.len())
+            .filter(|&k| self.outside[k] && !docks.iter().any(|p| self.room_at(*p) == Some(k)))
+            .map(|k| self.room_ids[k].clone())
+            .collect();
+        let mut floor = self.clone();
+        floor.close(&outdoors);
+        floor
+    }
+
+    /// A point well inside room `k`, out of the rooms found before it there for a place outside
+    /// (the home's, a deck in the garden).
+    fn spot(&self, k: usize) -> P2 {
+        self.spots.get(k).copied().unwrap_or_default()
     }
 
     /// The way from `from` to `to`: through the doors between their rooms (the fewest), then
@@ -380,7 +447,7 @@ impl Floor {
     /// closed.
     pub fn room_spot(&self, id: &str) -> Option<P2> {
         let k = self.room_ids.iter().position(|r| r == id)?;
-        (!self.closed.contains(&k)).then(|| label_point(&self.rooms[k]))
+        (!self.closed.contains(&k)).then(|| self.spot(k))
     }
 
     /// Whether `p` is in the room `id`.
@@ -388,7 +455,7 @@ impl Floor {
         self.room_ids
             .iter()
             .position(|r| r == id)
-            .is_some_and(|k| point_in_polygon(p, &self.rooms[k], false))
+            .is_some_and(|k| self.room_at(p) == Some(k))
     }
 
     /// Whether someone can be drawn standing at `p` in the room `id`: in it, clear of its walls,
@@ -402,7 +469,7 @@ impl Floor {
             .contains(p)
         };
         self.room_ids.iter().position(|r| r == id).is_some_and(|k| {
-            point_in_polygon(p, &self.rooms[k], false)
+            self.room_at(p) == Some(k)
                 && self.clearance(p) >= RADIUS + margin / 2.0
                 && self.pieces.iter().all(clear)
         })
@@ -474,14 +541,7 @@ impl Floor {
     pub fn reachable(&self, from: P2) -> Vec<(String, P2, f64)> {
         self.reached(from)
             .into_iter()
-            .map(|k| {
-                let outline = &self.rooms[k];
-                (
-                    self.room_ids[k].clone(),
-                    label_point(outline),
-                    area(outline),
-                )
-            })
+            .map(|k| (self.room_ids[k].clone(), self.spot(k), area(&self.rooms[k])))
             .collect()
     }
 
@@ -521,6 +581,9 @@ impl Floor {
         // Walls farther than that are not looked at by `clearance`.
         let margin = margin.min(RADIUS * 2.0);
         let outline = &self.rooms[k];
+        // A place outside around the home is swept around its rooms, and around a deck in it
+        // (D-077).
+        let around = self.outside[k];
         let (mut lo, mut hi) = ([f64::INFINITY; 2], [f64::NEG_INFINITY; 2]);
         for p in outline {
             for a in 0..2 {
@@ -565,7 +628,8 @@ impl Floor {
                 let mut run: Option<[f64; 2]> = None;
                 let mut x = a;
                 loop {
-                    if self.clearance(point(x, c)) >= margin {
+                    let p = point(x, c);
+                    if self.clearance(p) >= margin && !(around && self.room_at(p) != Some(k)) {
                         run = Some(run.map_or([x, x], |[start, _]| [start, x]));
                     } else if let Some([start, end]) = run.take()
                         && end - start >= STEP
@@ -678,13 +742,37 @@ impl Floor {
             (0..self.rooms.len())
                 .filter(|r| !self.closed.contains(r))
                 .min_by(|a, b| {
-                    let da = distance(label_point(&self.rooms[*a]));
-                    let db = distance(label_point(&self.rooms[*b]));
+                    let da = distance(self.spot(*a));
+                    let db = distance(self.spot(*b));
                     da.total_cmp(&db)
                 })
         });
-        room.map_or(near, |r| label_point(&self.rooms[r]))
+        room.map_or(near, |r| self.spot(r))
     }
+}
+
+/// The first room `p` is in, in the order rooms are looked up (the home's before the places
+/// outside, the smallest of those first, D-077).
+fn first_room(rooms: &[Vec<P2>], order: &[usize], p: P2) -> Option<usize> {
+    order
+        .iter()
+        .copied()
+        .find(|k| point_in_polygon(p, &rooms[*k], false))
+}
+
+/// A point well inside each room; a place outside's out of the rooms looked up before it (a
+/// garden's out of the home's rooms and of a terrace in it).
+fn spots(rooms: &[Vec<P2>], outside: &[bool], order: &[usize]) -> Vec<P2> {
+    let mut spots = vec![[0.0; 2]; rooms.len()];
+    for (rank, &k) in order.iter().enumerate() {
+        let before: Vec<&[P2]> = if outside[k] {
+            order[..rank].iter().map(|j| rooms[*j].as_slice()).collect()
+        } else {
+            Vec::new()
+        };
+        spots[k] = label_point_around(&rooms[k], &before);
+    }
+    spots
 }
 
 /// Adds a piece of wall (a convex quadrilateral) with its bounds, when its corners are finite.

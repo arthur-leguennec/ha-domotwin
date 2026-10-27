@@ -438,6 +438,27 @@ async def test_settings_round_trip(
         assert (await client.receive_json())["result"]["settings"]["weather"] == weather
 
 
+async def test_roof_settings_round_trip(
+    hass: HomeAssistant, setup_integration: MockConfigEntry, hass_ws_client: WebSocketGenerator
+) -> None:
+    client = await hass_ws_client(hass)
+    # How the roofs are drawn (D-077): a colour in lower case; an empty roof is left out.
+    roof = {"shape": "hip", "pitch": 35, "color": "#8C4A3A"}
+    await client.send_json_auto_id(
+        {"type": "domotwin/settings/save", "settings": {"north": 0, "roof": roof}}
+    )
+    assert (await client.receive_json())["success"]
+    await client.send_json_auto_id({"type": "domotwin/settings/get"})
+    stored = (await client.receive_json())["result"]["settings"]
+    assert stored["roof"] == {"shape": "hip", "pitch": 35, "color": "#8c4a3a"}
+    await client.send_json_auto_id(
+        {"type": "domotwin/settings/save", "settings": {"north": 0, "roof": {}}}
+    )
+    assert (await client.receive_json())["success"]
+    await client.send_json_auto_id({"type": "domotwin/settings/get"})
+    assert "roof" not in (await client.receive_json())["result"]["settings"]
+
+
 @pytest.mark.parametrize(
     "settings",
     [
@@ -479,6 +500,13 @@ async def test_settings_round_trip(
         {"weather": "weather."},
         {"weather": 3},
         {"weather": None},
+        {"roof": []},
+        {"roof": {"shape": "dome"}},
+        {"roof": {"pitch": 4}},
+        {"roof": {"pitch": 61}},
+        {"roof": {"pitch": True}},
+        {"roof": {"color": "brown"}},
+        {"roof": {"height": 300}},
     ],
 )
 async def test_invalid_settings_are_refused(

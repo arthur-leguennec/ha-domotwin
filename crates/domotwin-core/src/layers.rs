@@ -297,6 +297,55 @@ pub fn read_room_layers(value: &Value) -> RoomLayers {
     layers
 }
 
+/// A lawn as it is drawn (D-077): how long its grass is (cm) and how fresh its mowing is, from 1
+/// (just mown, striped) to 0 (the stripes gone).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Lawn {
+    pub length: f64,
+    pub fresh: f64,
+}
+
+/// The lawns, by room id.
+pub type Lawns = BTreeMap<String, Lawn>;
+
+/// The shortest and longest grass drawn (cm): just mown (as the page's lawns are cut), and left a
+/// whole season.
+pub const GRASS_RANGE: (f64, f64) = (4.0, 20.0);
+/// The grass of a lawn whose last mowing is not known (cm).
+pub const GRASS_UNKNOWN: f64 = 7.0;
+
+/// Reads the lawns leniently: `{room id: {"length": cm, "fresh": 0–1}}`.
+pub fn read_lawns(value: &Value) -> Lawns {
+    let mut lawns = Lawns::new();
+    let Some(rooms) = value.as_object() else {
+        return lawns;
+    };
+    for (room, lawn) in rooms.iter().take(MAX_ROOMS) {
+        let number = |key: &str| {
+            lawn.get(key)
+                .and_then(Value::as_f64)
+                .filter(|v| v.is_finite())
+        };
+        if let Some(length) = number("length") {
+            lawns.insert(
+                room.clone(),
+                Lawn {
+                    length: length.clamp(GRASS_RANGE.0, GRASS_RANGE.1),
+                    fresh: number("fresh").unwrap_or(0.0).clamp(0.0, 1.0),
+                },
+            );
+        }
+    }
+    lawns
+}
+
+/// How long grass is drawn, from 0 (just mown) to 1 (the longest).
+fn grass(length: f64) -> f32 {
+    #[allow(clippy::cast_possible_truncation)]
+    let share = ((length - GRASS_RANGE.0) / (GRASS_RANGE.1 - GRASS_RANGE.0)).clamp(0.0, 1.0) as f32;
+    share
+}
+
 /// Texels per room slot in [`room_texels`].
 pub const ROOM_TEXELS: usize = 3;
 
@@ -355,12 +404,21 @@ pub fn room_shapes<'a>(plan: &'a Plan, scene: &Scene) -> Vec<RoomShape<'a>> {
 
 /// What the renderer reads for each room slot (slot 0, no room, first): the heatmap colour, or
 /// the peak's (linear), and strength; the centre and reach of the room (its halo) and its alert
-/// (0 none, 0.5 warning, 1 danger); presence, and whether the room is drawn closed (D-039).
+/// (0 none, 0.5 warning, 1 danger); presence, whether the room is drawn closed (D-039), and its
+/// lawn's grass and mowing (D-077, an unknown lawn's grass for every other room).
 #[allow(clippy::cast_possible_truncation)]
-pub fn room_texels(plan: &Plan, scene: &Scene, layers: &RoomLayers) -> Vec<[f32; 4]> {
+pub fn room_texels(
+    plan: &Plan,
+    scene: &Scene,
+    layers: &RoomLayers,
+    lawns: &Lawns,
+) -> Vec<[f32; 4]> {
     let mut texels = vec![[0.0; 4]; ROOM_TEXELS * (scene.rooms.len() + 1)];
     for room in room_shapes(plan, scene) {
         let at = ROOM_TEXELS * room.slot;
+        let lawn = lawns.get(room.id);
+        texels[at + 2][2] = grass(lawn.map_or(GRASS_UNKNOWN, |l| l.length));
+        texels[at + 2][3] = lawn.map_or(0.0, |l| l.fresh as f32);
         let heat = layers
             .heat
             .zip(layers.values.get(room.id))
@@ -555,7 +613,7 @@ mod tests {
             "alerts": { "living": "danger" },
             "presence": ["living"]
         }));
-        let texels = room_texels(&plan, &scene, &layers);
+        let texels = room_texels(&plan, &scene, &layers, &Lawns::new());
         assert_eq!(texels.len(), ROOM_TEXELS * (scene.rooms.len() + 1));
         let slot = scene.rooms.iter().position(|r| r == "living").unwrap() + 1;
         let at = ROOM_TEXELS * slot;
@@ -573,7 +631,7 @@ mod tests {
             closed_rooms: ["living".to_owned()].into(),
             ..SceneOptions::default()
         };
-        let closed = room_texels(&plan, &build_scene(&plan, &options), &layers);
+        let closed = room_texels(&plan, &build_scene(&plan, &options), &layers, &Lawns::new());
         assert_eq!(closed[at + 2][1], 1.0);
         let kitchen = scene.rooms.iter().position(|r| r == "kitchen").unwrap() + 1;
         assert_eq!(closed[ROOM_TEXELS * kitchen + 2][1], 0.0);
@@ -585,6 +643,33 @@ mod tests {
     }
 
     #[test]
+    fn a_lawn_is_as_long_as_it_grew_and_striped_once_mown() {
+        let plan = crate::read_plan(DEMO.as_bytes()).unwrap();
+        let scene = build_scene(&plan, &SceneOptions::default());
+        let slot = |id: &str| ROOM_TEXELS * (scene.rooms.iter().position(|r| r == id).unwrap() + 1);
+        let lawns = read_lawns(&serde_json::json!({
+            "living": { "length": 12.0, "fresh": 0.25 },
+            "kitchen": { "length": 80, "fresh": 3 },
+            "bathroom": { "fresh": 1 },
+            "hall": "long"
+        }));
+        assert_eq!(lawns.len(), 2);
+        let texels = room_texels(&plan, &scene, &RoomLayers::default(), &lawns);
+        assert!((texels[slot("living") + 2][2] - 0.5).abs() < 1e-6);
+        assert_eq!(texels[slot("living") + 2][3], 0.25);
+        // Kept within what is drawn.
+        assert_eq!(texels[slot("kitchen") + 2][2..], [1.0, 1.0]);
+        // Not known: about a week's grass, no stripes.
+        let unknown = grass(GRASS_UNKNOWN);
+        assert_eq!(texels[slot("bathroom") + 2][2..], [unknown, 0.0]);
+        // The renderer's own for a lawn without its room (its shaders' `lawn_of`).
+        assert!((unknown - 0.1875).abs() < 1e-6);
+        // Just mown: the shortest drawn.
+        assert_eq!(grass(4.0), 0.0);
+        assert!(read_lawns(&serde_json::json!([1, 2])).is_empty());
+    }
+
+    #[test]
     fn the_peak_tints_rooms_where_no_heatmap_does() {
         let plan = crate::read_plan(DEMO.as_bytes()).unwrap();
         let scene = build_scene(&plan, &SceneOptions::default());
@@ -592,7 +677,7 @@ mod tests {
         let layers = read_room_layers(&serde_json::json!({
             "peak": { "living": "shed", "kitchen": "heating" }
         }));
-        let texels = room_texels(&plan, &scene, &layers);
+        let texels = room_texels(&plan, &scene, &layers, &Lawns::new());
         let blue = Rgb8::from_u32(PeakRole::Shed.color()).to_linear();
         assert_eq!(texels[slot("living")], [blue[0], blue[1], blue[2], 1.0]);
         let red = Rgb8::from_u32(PeakRole::Heating.color()).to_linear();
@@ -606,7 +691,7 @@ mod tests {
         }));
         let cold = HeatKind::Temperature.color(14.0).to_linear();
         assert_eq!(
-            room_texels(&plan, &scene, &both)[slot("living")],
+            room_texels(&plan, &scene, &both, &Lawns::new())[slot("living")],
             [cold[0], cold[1], cold[2], 1.0]
         );
     }

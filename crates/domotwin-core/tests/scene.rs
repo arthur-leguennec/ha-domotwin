@@ -383,7 +383,8 @@ fn library() -> Vec<(String, usize, f64)> {
 fn every_piece_is_light_and_stays_on_its_footprint() {
     // A piece costs no more than the heaviest before the library (a chandelier, 1 528), and
     // reaches past its footprint by its handles at most, but a curtain's rod, a 3D printer's
-    // spool and a desk lamp's head, as before.
+    // spool and a desk lamp's head, as before, and a sliding gate's rail, which runs on beside
+    // its opening (D-077).
     const TRIANGLES: usize = 1_600;
     const HANDLES: f64 = 3.0;
     let past = [
@@ -392,9 +393,10 @@ fn every_piece_is_light_and_stays_on_its_footprint() {
         "3d-printer",
         "3d-printer (enclosed)",
         "desk-lamp",
+        "gate (sliding)",
     ];
     let pieces = library();
-    assert_eq!(pieces.len(), 195);
+    assert_eq!(pieces.len(), 236);
     for (name, triangles, reach) in &pieces {
         println!("{name}: {triangles} triangles, {reach:.1} cm past its footprint");
         assert!(*triangles <= TRIANGLES, "{name}: {triangles} triangles");

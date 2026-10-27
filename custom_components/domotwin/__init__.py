@@ -17,6 +17,7 @@ from .data import (
     CHOICES_KEY,
     CONFIG_HISTORY_KEY,
     DATA_KEY,
+    GARDEN_KEY,
     GUESTS_KEY,
     LOCATOR_KEY,
     PEOPLE_KEY,
@@ -30,6 +31,7 @@ from .frontend import (
     async_unregister_frontend,
     async_update_panel,
 )
+from .garden import Garden
 from .guests import Guests
 from .http import async_register_views
 from .locator import Locator
@@ -122,6 +124,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: DomoTwinConfigEntry) -> 
 
     entry.async_on_unload(drop_screens)
     hass.data[SCREENS_KEY] = screens
+    await _async_start_garden(hass, entry)
     await _async_start_guests(hass, entry)
     await _async_start_history(hass, entry)
     await async_register_frontend(hass)
@@ -129,6 +132,22 @@ async def async_setup_entry(hass: HomeAssistant, entry: DomoTwinConfigEntry) -> 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(_async_options_updated))
     return True
+
+
+async def _async_start_garden(hass: HomeAssistant, entry: DomoTwinConfigEntry) -> None:
+    """When each lawn was last mown, and each robot mower last mowed (D-077)."""
+    garden = Garden(hass)
+    await garden.async_load()
+    entry.async_on_unload(garden.async_start())
+    entry.async_on_unload(garden.async_flush)
+
+    @callback
+    def drop_garden() -> None:
+        if hass.data.get(GARDEN_KEY) is garden:
+            hass.data.pop(GARDEN_KEY)
+
+    entry.async_on_unload(drop_garden)
+    hass.data[GARDEN_KEY] = garden
 
 
 async def _async_start_guests(hass: HomeAssistant, entry: DomoTwinConfigEntry) -> None:
@@ -198,11 +217,12 @@ async def async_unload_entry(hass: HomeAssistant, entry: DomoTwinConfigEntry) ->
 
 
 async def async_remove_entry(hass: HomeAssistant, entry: DomoTwinConfigEntry) -> None:
-    """Delete all DomoTwin keeps: its data, choices, screens, Wi-Fi, passes and models."""
+    """Delete all DomoTwin keeps: its data, choices, screens, garden, Wi-Fi, passes and models."""
     await DomoTwinData(hass).async_remove()
     await Scheduler(hass).async_remove()
     await Choices(hass).async_remove()
     await Screens(hass).async_remove()
+    await Garden(hass).async_remove()
     await Wifi(hass).async_remove()
     await Guests(hass).async_remove()
     await ConfigHistory(hass).async_remove()

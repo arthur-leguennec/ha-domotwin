@@ -242,6 +242,28 @@ export function demoConnection(home: MemoryHome): HassConnection {
         task.last_done = home.today();
         return { revision: home.saved("upkeep"), last_done: task.last_done };
       }
+      // The garden (D-077): when each lawn was last mown, said by anyone.
+      case "domotwin/garden/get":
+        return structuredClone(store.garden ?? { lawns: {}, mowers: {} });
+      case "domotwin/garden/mowed": {
+        const room = message.room;
+        if (typeof room !== "string" || room.length === 0 || room.length > 100) {
+          throw failure("invalid_format", "room");
+        }
+        // A lawn of the plan (a place outside on a lawn), as the integration checks.
+        type Room = { id?: unknown; outside?: unknown; floor?: { material?: unknown } };
+        const lawn = store.storeys.some((s) =>
+          ((s.plan as { rooms?: Room[] }).rooms ?? []).some(
+            (r) => r.id === room && r.outside === true && (r.floor?.material ?? "lawn") === "lawn",
+          ),
+        );
+        if (!lawn) throw failure("unknown_lawn", "no lawn has this id");
+        const garden = (store.garden ??= { lawns: {}, mowers: {} });
+        const now = new Date(home.hass.now?.() ?? Date.now()).toISOString();
+        garden.lawns = { ...garden.lawns, [room]: now };
+        home.saved("garden");
+        return structuredClone(garden);
+      }
       case "domotwin/people/get":
         return structuredClone(store.people);
       case "domotwin/people/save": {

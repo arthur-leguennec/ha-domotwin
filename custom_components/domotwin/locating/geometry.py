@@ -45,11 +45,12 @@ class Spot:
 
 @dataclass(frozen=True)
 class Room:
-    """A room of a storey."""
+    """A room of a storey, or a place outside (D-077): no walls, under the rooms around it."""
 
     id: str
     storey: int
     outline: tuple[Point, ...]
+    outside: bool = False
 
 
 def _number(value: Any) -> float | None:
@@ -135,10 +136,15 @@ class Home:
                 outline = tuple(p for p in map(_point, room.get("outline") or []) if p is not None)
                 if not isinstance(room.get("id"), str) or len(outline) < 3 or _flat(outline):
                     continue
-                self.rooms[room["id"]] = Room(room["id"], index, outline)
+                outside = room.get("outside") is True
+                self.rooms[room["id"]] = Room(room["id"], index, outline, outside)
                 sides = room.get("sides")
-                for k, side in enumerate(sides if isinstance(sides, list) else []):
-                    if isinstance(side, Mapping) and side.get("open") is True and k < len(outline):
+                sides = sides if isinstance(sides, list) else []
+                # A place outside has no walls: every side of it is open (to another place
+                # outside: a room beside it has its façade).
+                for k in range(len(outline)):
+                    side = sides[k] if k < len(sides) else None
+                    if outside or (isinstance(side, Mapping) and side.get("open") is True):
                         open_sides.append(
                             (index, room["id"], outline[k], outline[(k + 1) % len(outline)])
                         )
@@ -148,11 +154,20 @@ class Home:
                     doors.append((ends[0], ends[1]))
             self._doors.append(doors)
             self._read_pieces(index, plan, layout)
-        self._room_list = list(self.rooms.values())
+        # The rooms before the places outside around them, the smallest of those first (a deck
+        # in the garden drawn round it).
+        self._room_list = sorted(
+            self.rooms.values(),
+            key=lambda room: (room.outside, _twice_area(room.outline) if room.outside else 0.0),
+        )
         for storey_index, room_id, a, b in open_sides:
             for p in _across(a, b):
                 other = self.room_at(storey_index, p)
-                if other is not None and other != room_id:
+                if (
+                    other is not None
+                    and other != room_id
+                    and (not self.rooms[room_id].outside or self.rooms[other].outside)
+                ):
                     self._open.add(frozenset((room_id, other)))
         self.neighbours = self._link()
 
@@ -210,6 +225,8 @@ class Home:
                     (x := min(xs) + step / 2 + i * step, y := min(ys) + step / 2 + j * step),
                 )
                 and _edge_distance(room.outline, (x, y)) >= POINT_MARGIN
+                # A place outside around the home: not in its rooms.
+                and not (room.outside and self.room_at(room.storey, (x, y)) != room.id)
             ]
             if len(found) >= MAX_POINTS // 2 or step < 2 * POINT_MARGIN:
                 break
@@ -234,7 +251,7 @@ class Home:
 
         Each change of room along the line is a wall; a side left open is none, a door in the way
         less than one. A line out of the home and back in crosses two façades; a gap between two
-        rooms no wider than a wall is the wall between them.
+        rooms no wider than a wall is the wall between them, in a garden drawn round them or not.
         """
         storey = a.storey
         length = math.hypot(b.x - a.x, b.y - a.y)
@@ -261,13 +278,24 @@ class Home:
                 runs[-1] = (room, runs[-1][1], t1)
             else:
                 runs.append((room, t0, t1))
+
+        def indoors(room: str | None) -> bool:
+            return room is not None and not self.rooms[room].outside
+
         total = 0.0
         i = 0
         while i < len(runs) - 1:
             here, _, end = runs[i]
             there, start, gap_end = runs[i + 1]
+            # A gap between rooms, out of the home or in the garden drawn round it.
+            gap = there is None or (
+                self.rooms[there].outside
+                and indoors(here)
+                and i + 2 < len(runs)
+                and indoors(runs[i + 2][0])
+            )
             if (
-                there is None
+                gap
                 and here is not None
                 and i + 2 < len(runs)
                 and (gap_end - start) * length <= WALL_GAP
@@ -341,13 +369,19 @@ class Home:
                     join(here, there)
 
 
+def _twice_area(outline: tuple[Point, ...]) -> float:
+    """Twice an outline's area (cm²)."""
+    return abs(
+        sum(
+            outline[k - 1][0] * outline[k][1] - outline[k][0] * outline[k - 1][1]
+            for k in range(len(outline))
+        )
+    )
+
+
 def _flat(outline: tuple[Point, ...]) -> bool:
     """Whether an outline has no room in it (its corners on one line or one point)."""
-    area = sum(
-        outline[k - 1][0] * outline[k][1] - outline[k][0] * outline[k - 1][1]
-        for k in range(len(outline))
-    )
-    return abs(area) < 2.0
+    return _twice_area(outline) < 2.0
 
 
 def _listed(plan: Mapping[str, Any], key: str) -> list[Mapping[str, Any]]:

@@ -173,6 +173,33 @@ export const GROUPS: [string, KindName[]][] = [
   ],
   ["fitness", ["treadmill", "exercise-bike"]],
   ["pets", ["pet-bed", "cat-tree", "litter-box", "pet-feeder"]],
+  [
+    "garden",
+    [
+      "tree",
+      "shrub",
+      "hedge",
+      "planter",
+      "garden-table",
+      "garden-chair",
+      "sun-lounger",
+      "parasol",
+      "barbecue",
+      "fire-pit",
+      "garden-light",
+      "pool",
+      "hot-tub",
+      "robot-mower",
+      "shed",
+      "pergola",
+      "greenhouse",
+      "trampoline",
+      "swing",
+      "fence",
+      "gate",
+      "mailbox",
+    ],
+  ],
 ];
 
 /** A piece of the catalogue: a kind in one of its styles (none: its own), its usual size (cm). */

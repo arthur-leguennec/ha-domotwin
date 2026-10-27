@@ -123,7 +123,8 @@ export class Engine {
     editUndo(): string;
     /**
      * The elements of the plan shown (the edit overlay applied), as JSON `[{"id", "type", "name",
-     * "kind"}]` (`kind` for furniture only).
+     * "kind", "room", "beside", "lawn"}]` (`kind` for furniture only; `lawn` for a lawn,
+     * D-077).
      */
     elementList(): string;
     /**
@@ -219,6 +220,11 @@ export class Engine {
      * layers' animation runs slower.
      */
     moving(): boolean;
+    /**
+     * The lawns each robot mower mows (D-077): JSON `{"<robot-mower piece>": ["<room>"]}`, the
+     * lawns of its storey it can get to from its dock, as its robot goes.
+     */
+    mowerLawns(): string;
     /**
      * Whether a frame is needed (something changed or an animation is running).
      */
@@ -340,6 +346,11 @@ export class Engine {
      */
     setCutaway(name: string): void;
     /**
+     * How long each lawn's grass is and how fresh its mowing (D-077): JSON `{room id: {"length":
+     * cm, "fresh": 0–1}}`; a lawn not named is drawn with about a week's grass.
+     */
+    setLawns(json: string): void;
+    /**
      * Shows the room layers: JSON `{"heat": "temperature", "values": {room id: value},
      * "peak": {room id: "preheat" | "shed" | "heating"}, "draws": {room id: watts},
      * "alerts": {room id: "warning" | "danger"}, "presence": [room id…]}`; `{}` shows none.
@@ -397,12 +408,20 @@ export class Engine {
      */
     setQuality(name: string): void;
     /**
-     * What the robot vacuums do: JSON `[{"id": "<robot-vacuum piece>", "state": "docked" |
-     * "cleaning" | "returning" | "paused" | "idle" | "error", "rooms": ["<room>"]}]`, `rooms`
-     * the rooms it cleans in that order (absent: every room its dock leads to). A robot-vacuum
-     * piece not named stays on its dock.
+     * What the robot vacuums and mowers do: JSON `[{"id": "<robot-vacuum or robot-mower
+     * piece>", "state": "docked" | "cleaning" | "mowing" | "returning" | "paused" | "idle" |
+     * "error", "rooms": ["<room>"]}]`, `rooms` the rooms a vacuum cleans in that order (absent:
+     * every room its dock leads to); a mower mows the lawns of its storey. A piece not named
+     * stays on its dock.
      */
     setRobots(json: string): void;
+    /**
+     * How the home's roofs are drawn (D-077): JSON `{"shape": "gable" | "hip" | "shed" | "flat",
+     * "pitch": degrees, "color": "#rrggbb"}`, what is not understood the default (a gable roof at
+     * 30°). `build`: the home shown is built again with it (not when it is about to be loaded).
+     * Returns whether the scene was built again: only for a home shown with its roofs.
+     */
+    setRoofStyle(json: string, build: boolean): boolean;
     /**
      * Shows or hides the roof over the top storey of the home shown whole.
      */
@@ -623,6 +642,7 @@ export interface InitOutput {
     readonly engine_modelFiles: (a: number, b: number) => void;
     readonly engine_modelsOverBudget: (a: number) => number;
     readonly engine_moving: (a: number) => number;
+    readonly engine_mowerLawns: (a: number, b: number) => void;
     readonly engine_needsFrame: (a: number) => number;
     readonly engine_networkAt: (a: number, b: number, c: number, d: number) => void;
     readonly engine_new: (a: number, b: number) => void;
@@ -648,6 +668,7 @@ export interface InitOutput {
     readonly engine_setBindings: (a: number, b: number, c: number) => void;
     readonly engine_setCameraViews: (a: number, b: number) => void;
     readonly engine_setCutaway: (a: number, b: number, c: number) => void;
+    readonly engine_setLawns: (a: number, b: number, c: number) => void;
     readonly engine_setLayers: (a: number, b: number, c: number) => void;
     readonly engine_setLightingMood: (a: number, b: number, c: number) => number;
     readonly engine_setLocalHour: (a: number, b: number) => void;
@@ -661,6 +682,7 @@ export interface InitOutput {
     readonly engine_setQuality: (a: number, b: number, c: number) => void;
     readonly engine_setRobots: (a: number, b: number, c: number) => void;
     readonly engine_setRoof: (a: number, b: number) => void;
+    readonly engine_setRoofStyle: (a: number, b: number, c: number, d: number) => number;
     readonly engine_setSpread: (a: number, b: number, c: number) => void;
     readonly engine_setStates: (a: number, b: number, c: number) => void;
     readonly engine_setSun: (a: number, b: number, c: number) => void;

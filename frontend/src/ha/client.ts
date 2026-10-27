@@ -5,6 +5,7 @@ import type { LocatingMeasure } from "../live/measured";
 import type { PeopleSettings, PersonSettings } from "../live/people";
 import { readSchedules, type Schedule } from "../live/schedules";
 import type { ShowRequest } from "../live/show";
+import type { Garden } from "../live/lawn";
 import type { Upkeep, UpkeepCard } from "../live/upkeep";
 import { readWifi, type Wifi, type WifiChange } from "../live/wifi";
 import { readScreens, type ScreenLayout, type Screens } from "../live/screens";
@@ -64,6 +65,13 @@ export interface PrivateRoom {
 }
 
 /** The home's settings, set by an administrator. */
+/** The roofs' shape, pitch (degrees, 5–60) and colour (`#rrggbb`), D-077. */
+export interface RoofSettings {
+  shape?: "gable" | "hip" | "shed" | "flat";
+  pitch?: number;
+  color?: string;
+}
+
 export interface Settings {
   /** Where north points on the plan, degrees clockwise from its top (0: up). */
   north?: number;
@@ -81,6 +89,8 @@ export interface Settings {
   /** The weather drawn around the home (D-072): a `weather` entity, or `none`; absent, the one
    * the Home tab shows. */
   weather?: string;
+  /** How the roofs are drawn (D-077); absent, a gable roof at 30° in the look's colour. */
+  roof?: RoofSettings;
 }
 
 export interface StoredSettings {
@@ -105,7 +115,8 @@ export type SaveKind =
   | "locating"
   | "wifi"
   | "guests"
-  | "screens";
+  | "screens"
+  | "garden";
 
 /** A save (its kind and revision), or a `domotwin.show` request (D-029). */
 export type UpdateEvent =
@@ -140,6 +151,7 @@ export class DomoTwinClient {
   private settings?: Promise<StoredSettings>;
   private upkeep?: Promise<StoredUpkeep>;
   private people?: Promise<PeopleSettings>;
+  private garden?: Promise<Garden>;
   private readonly listeners = new Set<Listener>();
   private unsubscribe?: Promise<() => Promise<void>>;
   /** The actions waiting (D-046), as last listed, and who follows them. */
@@ -253,6 +265,23 @@ export class DomoTwinClient {
     });
     this.people = undefined;
     return result.revision;
+  }
+
+  /** When each lawn was last mown and each robot mower last mowed (D-077). */
+  getGarden(): Promise<Garden> {
+    this.garden ??= this.connection.sendMessagePromise<Garden>({ type: "domotwin/garden/get" });
+    this.garden.catch(() => (this.garden = undefined));
+    return this.garden;
+  }
+
+  /** Says a lawn was just mown (every user). Returns the garden. */
+  async lawnMowed(room: string): Promise<Garden> {
+    const garden = await this.connection.sendMessagePromise<Garden>({
+      type: "domotwin/garden/mowed",
+      room,
+    });
+    this.garden = Promise.resolve(garden);
+    return garden;
   }
 
   /** Marks a task done today, where the home is (every user). Returns the date stored. */
@@ -583,6 +612,7 @@ export class DomoTwinClient {
         else if (event.kind === "settings") this.settings = undefined;
         else if (event.kind === "upkeep") this.upkeep = undefined;
         else if (event.kind === "people") this.people = undefined;
+        else if (event.kind === "garden") this.garden = undefined;
         else if (event.kind === "plan") this.plans.clear();
         for (const each of this.listeners) each(event);
       },
@@ -600,6 +630,7 @@ export class DomoTwinClient {
         this.settings = undefined;
         this.upkeep = undefined;
         this.people = undefined;
+        this.garden = undefined;
       }
     };
   }

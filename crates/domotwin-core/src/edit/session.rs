@@ -95,11 +95,13 @@ fn piece_mut<'a>(plan: &'a mut Plan, id: &str) -> Option<&'a mut Furniture> {
     })
 }
 
-/// The room a plan point is in (its id).
+/// The room a plan point is in (its id): a room before a place outside around it, a deck before
+/// the garden around it (D-077).
 fn room_at(plan: &Plan, walls: &WallLayout, p: P2) -> Option<String> {
     walls
-        .rooms
+        .lookup_order()
         .iter()
+        .map(|&k| &walls.rooms[k])
         .find(|room| point_in_polygon(p, &room.points, false))
         .and_then(|room| match plan.elements.get(room.element) {
             Some(Element::Room(r)) => Some(r.id.clone()),

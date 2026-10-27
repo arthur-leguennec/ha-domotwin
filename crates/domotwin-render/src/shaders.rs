@@ -217,6 +217,12 @@ const uint FLOOR = 12u;
 const uint WOOD = 13u;
 const uint LEAF = 14u;
 const uint CEILING = 15u;
+// The garden's (D-077).
+const uint GRASS = 16u;
+const uint GRAVEL = 17u;
+const uint WATER = 18u;
+const uint SOIL = 19u;
+const uint PAVING = 20u;
 
 // The light of the moment (`domotwin_core::lighting`): morning, day, evening or night.
 uniform vec3 u_sky;
@@ -283,6 +289,34 @@ vec3 subway(vec3 base, vec2 uv) {
     return mix(c, base * 0.78, line);
 }
 
+// A lawn (D-077): fine blades over clumps, its grass `grown` from just mown (0) to long (1):
+// even and light when short, darker and tufted as it grows, seed heads paler when long; striped
+// the width of a mower along its floor's direction just after a mowing (`fresh`).
+vec3 lawn(vec3 base, vec2 uv, float grown, float fresh) {
+    float fine = noise(uv * 0.9) * 0.6 + noise(uv * 3.1) * 0.4;
+    float clumps = noise(uv * 0.045) * 0.7 + noise(uv * 0.17) * 0.3;
+    // Patches a metre or two across, drier or lusher, as a lawn is.
+    float patches = noise(uv * 0.0045) * 0.65 + noise(uv * 0.013) * 0.35;
+    vec3 c = base * (0.86 + 0.26 * fine) * (0.86 + 0.28 * patches) * mix(1.08, 0.86, grown);
+    c = mix(c, c * vec3(1.18, 1.08, 0.78), smoothstep(0.62, 0.9, patches) * 0.35);
+    float tuft = smoothstep(0.4, 0.85, clumps) * grown;
+    c = mix(c, base * vec3(0.7, 0.86, 0.6), tuft * 0.75);
+    float seeds = smoothstep(0.72, 0.95, noise(uv * 0.55)) * smoothstep(0.55, 1.0, grown);
+    c = mix(c, base * vec3(1.3, 1.22, 0.86), seeds * 0.55);
+    float across = uv.y / 120.0;
+    float edge = max(fwidth(across), 1e-4) * 1.5;
+    float band = smoothstep(0.5 - edge, 0.5 + edge, fract(across))
+        - smoothstep(1.0 - edge, 1.0, fract(across));
+    return c * (1.0 + (band - 0.5) * 0.18 * fresh);
+}
+
+// Gravel: small stones, light and dark, a little shadow between them.
+vec3 gravel(vec3 base, vec2 uv) {
+    float stones = noise(uv * 0.7) * 0.5 + noise(uv * 1.9) * 0.5;
+    float pick = hash(floor(uv * 0.9));
+    return base * (0.72 + 0.4 * stones) * (0.92 + 0.16 * pick);
+}
+
 float sun_shadow(vec3 n) {
     if (u_shadows < 0.5) {
         return 1.0;
@@ -347,6 +381,15 @@ void main() {
     if (!gl_FrontFacing) {
         n = -n;
     }
+    if (surface == WATER) {
+        // Ripples on the water, moving only with motion.
+        float drift = u_motion > 0.5 ? u_time * 0.6 : 0.0;
+        vec2 q = v_uv * 0.035 + vec2(drift * 0.05, drift * 0.03);
+        float e = 0.5;
+        float dx = noise(q + vec2(e, 0.0)) - noise(q - vec2(e, 0.0));
+        float dz = noise(q + vec2(0.0, e)) - noise(q - vec2(0.0, e));
+        n = normalize(n + vec3(dx, 0.0, dz) * 0.35);
+    }
     if (v_glass > 0.5) {
         // Tinted glass, brighter at grazing angles, catching the lamps of its room.
         vec3 view = normalize(u_eye - v_world);
@@ -379,11 +422,27 @@ void main() {
         albedo = base * (0.93 + 0.1 * noise(vec2(v_uv.x * 0.05, v_uv.y * 0.9)));
     } else if (surface == FABRIC) {
         albedo = base * (0.94 + 0.08 * noise(v_uv * 1.7));
+    } else if (surface == GRASS) {
+        // Without its room, a lawn whose mowing is not known (`layers::GRASS_UNKNOWN`'s share).
+        vec4 lawn_of = v_room > 0.5
+            ? texelFetch(u_rooms, ivec2(int(v_room + 0.5) * 3 + 2, 0), 0)
+            : vec4(0.0, 0.0, 0.1875, 0.0);
+        albedo = lawn(base, v_uv, lawn_of.b, lawn_of.a);
+    } else if (surface == GRAVEL) {
+        albedo = gravel(base, v_uv);
+    } else if (surface == SOIL) {
+        albedo = base * (0.8 + 0.3 * noise(v_uv * 0.4) + 0.1 * noise(v_uv * 2.3));
+    } else if (surface == PAVING) {
+        albedo = tiles(base * (0.95 + 0.1 * noise(v_uv * 0.6)), v_uv, 60.0);
+    } else if (surface == WATER) {
+        // The pool's tiles seen through the water.
+        albedo = base * (1.0 - 0.12 * grout(v_uv, vec2(25.0), 0.4));
     }
     // Patterns left out (the cartoon's flat colours, the clay's single matter).
     albedo = mix(albedo, base, u_flatten);
     // The look's palette, keeping each surface's lightness (as much as the look says).
-    bool floor_surface = surface == PLANKS || surface == TILES || surface == FLOOR;
+    bool floor_surface = surface == PLANKS || surface == TILES || surface == FLOOR
+        || surface == GRASS || surface == GRAVEL || surface == SOIL || surface == PAVING;
     float lightness = dot(albedo, vec3(0.2126, 0.7152, 0.0722));
     if (surface == WALL_CAP && u_glass_walls > 0.5) {
         albedo = to_linear(u_wall_cap);
@@ -474,7 +533,7 @@ void main() {
     // where the surface curves: a flat face seen at a grazing angle keeps its colour.
     float curved = smoothstep(0.01, 0.06, length(fwidth(n)));
     bool inked = surface != GLOW && surface != SCREEN && surface != GLASS && surface != MIRROR
-        && surface != CEILING && surface != WALL_CAP && !floor_surface;
+        && surface != CEILING && surface != WALL_CAP && surface != WATER && !floor_surface;
     if (u_rim_ink > 0.0 && inked) {
         float side = abs(dot(n, v));
         color *= mix(1.0, smoothstep(0.06, 0.26, side), u_rim_ink * curved);
@@ -488,6 +547,11 @@ void main() {
     } else if (surface == GLASS) {
         color = albedo * hemi * 0.4 + env * (0.3 + 0.6 * fresnel);
         alpha = 0.22 + 0.5 * fresnel;
+    } else if (surface == WATER) {
+        // Its colour from below, the sky on it, brighter at a grazing angle, and the sun's glint.
+        color = albedo * (hemi * 0.75 + u_sun_color * diffuse_sun * 0.45)
+            + env * (0.08 + 0.55 * fresnel) * mix(1.0, 0.6, u_bands)
+            + u_sun_color * spec * shadow * 0.8 * u_specular;
     }
 
     // Lamps and screens that are on glow with their element's light.
@@ -1281,12 +1345,15 @@ uniform vec3 u_half;
 // Where falling starts and the ground; the home's lowest and highest heights.
 uniform vec2 u_heights;
 uniform vec2 u_home;
-// The roof shown (w = 1): where it is drawn (its storey's floor); its centre on the plan and the
-// unit direction of its ridge; half its length and width, and its eaves' height and its rise above
-// its storey's floor, as `RoofShape::height_at` reads them.
-uniform vec4 u_roof;
-uniform vec4 u_roof_area;
-uniform vec4 u_roof_shape;
+// The wings of the roofs shown (D-077), `u_wings` of them: where each is drawn (its storey's
+// offset) and its shape (0 gable, 1 hip, 2 shed, 3 flat); its centre on the plan and the unit
+// direction of its ridge; half its length and width, its eaves' height and its rise above its
+// storey's floor; a lean-to's high side; as `RoofShape::height_at` reads them.
+uniform float u_wings;
+uniform vec4 u_wing_at[4];
+uniform vec4 u_wing_area[4];
+uniform vec4 u_wing_shape[4];
+uniform float u_wing_high[4];
 uniform vec2 u_wind;
 // What falls (0 rain, 1 snow, 2 hail, 3 sleet), its speed (cm/s), the share running off the
 // eaves, whether it splashes.
@@ -1351,6 +1418,42 @@ bool over_home(vec3 p, vec2 u, vec2 v) {
     return leave >= max(enter, 0.0);
 }
 
+// The top of the roofs over a point of the plan (their highest wing there), and that wing; -1
+// where there is none.
+float roof_over(vec2 p, out int which) {
+    float best = -1.0;
+    which = -1;
+    for (int k = 0; k < 4; k++) {
+        if (float(k) >= u_wings) {
+            break;
+        }
+        vec4 at = u_wing_at[k];
+        vec4 shape = u_wing_shape[k];
+        vec2 ru = u_wing_area[k].zw;
+        vec2 r = p - u_wing_area[k].xy;
+        float along = dot(r, ru);
+        float across = dot(r, vec2(-ru.y, ru.x));
+        if (abs(along) > shape.x || abs(across) > shape.y) {
+            continue;
+        }
+        float kind = at.w;
+        float up = 1.0;
+        if (kind < 0.5) {
+            up = 1.0 - abs(across) / shape.y;
+        } else if (kind < 1.5) {
+            up = min(1.0 - abs(across) / shape.y, (shape.x - abs(along)) / shape.y);
+        } else if (kind < 2.5) {
+            up = (across * u_wing_high[k] + shape.y) / (2.0 * shape.y);
+        }
+        float h = at.y + shape.z + shape.w * clamp(up, 0.0, 1.0);
+        if (h > best) {
+            best = h;
+            which = k;
+        }
+    }
+    return best;
+}
+
 void main() {
     uint id = uint(gl_InstanceID);
     vec2 q = CORNERS[gl_VertexID % 6];
@@ -1363,8 +1466,11 @@ void main() {
     if (snow && u_fall.x > 2.5) {
         speed *= 0.12;
     }
-    bool roofed = u_roof.w > 0.5;
-    bool drip = roofed && kind < 0.5 && hash(id, 2u) < u_fall.z;
+    bool roofed = u_wings > 0.5;
+    // Off the eaves of a wing with slopes: one of them, picked as it falls.
+    int eaves = int(min(floor(hash(id, 9u) * u_wings), 3.0));
+    bool drip = roofed && kind < 0.5 && hash(id, 2u) < u_fall.z
+        && u_wing_at[eaves].w < 2.5;
     float top = u_heights.x;
     float ground = u_heights.y;
     float height = top - ground;
@@ -1382,23 +1488,28 @@ void main() {
     float s = (hash(id, cycle * 4u + 11u) * 2.0 - 1.0) * (u_half.x + margin);
     float t = (hash(id, cycle * 4u + 12u) * 2.0 - 1.0) * (u_half.y + margin);
     bool inside = abs(s) < u_half.x && abs(t) < u_half.y;
-    vec2 ru = u_roof_area.zw;
+    vec2 ru = u_wing_area[eaves].zw;
     vec2 rv = vec2(-ru.y, ru.x);
+    vec4 drip_at = u_wing_at[eaves];
     float from = top;
     float stop = ground;
     vec2 land;
     if (drip) {
-        // Off the eaves: along one of them, from their height.
-        float a = (hash(id, cycle * 4u + 13u) * 2.0 - 1.0) * u_roof_shape.x;
-        float b = (hash(id, cycle * 4u + 14u) < 0.5 ? -1.0 : 1.0) * (u_roof_shape.y + 3.0);
-        land = u_roof_area.xy + ru * a + rv * b + u_roof.xz;
-        from = u_roof.y + u_roof_shape.z;
+        // Off the eaves: along one of them, from their height (a lean-to's low one).
+        vec4 shape = u_wing_shape[eaves];
+        float a = (hash(id, cycle * 4u + 13u) * 2.0 - 1.0) * shape.x;
+        float b = (hash(id, cycle * 4u + 14u) < 0.5 ? -1.0 : 1.0) * (shape.y + 3.0);
+        if (drip_at.w > 1.5) {
+            b = -u_wing_high[eaves] * (shape.y + 3.0);
+        }
+        land = u_wing_area[eaves].xy + ru * a + rv * b + drip_at.xz;
+        from = drip_at.y + shape.z;
         inside = false;
     } else {
         land = u_area.xy + u * s + v * t;
-        vec2 r = land - u_roof_area.xy;
-        float across = dot(r, rv);
-        bool covered = roofed && abs(dot(r, ru)) <= u_roof_shape.x && abs(across) <= u_roof_shape.y;
+        int wing;
+        float over = roofed ? roof_over(land, wing) : -1.0;
+        bool covered = over > -0.5;
         if (inside && !covered) {
             // No roof over it: what would land in the home lands in the band around it instead.
             float ks = abs(s) / u_half.x;
@@ -1410,12 +1521,13 @@ void main() {
             }
             inside = false;
             land = u_area.xy + u * s + v * t;
-        } else if (inside) {
+        } else if (covered) {
             // On the roof's slope.
-            stop = u_roof.y + u_roof_shape.z + u_roof_shape.w * (1.0 - abs(across) / u_roof_shape.y);
+            stop = over;
             // From as high above the roof as the rest above the ground: as many seen falling on it.
             from = stop + height;
-            land += u_roof.xz;
+            land += u_wing_at[wing].xz;
+            inside = true;
         }
     }
     float landing = (from - stop) / speed;
@@ -1430,7 +1542,7 @@ void main() {
     if (drip) {
         // Its way starts at the eave and leads away from the walls (straight down the windward
         // side, where the wind blows it back against them): it lands downwind of the eave.
-        float side = dot(land - u_roof.xz - u_roof_area.xy, rv) < 0.0 ? -1.0 : 1.0;
+        float side = dot(land - drip_at.xz - u_wing_area[eaves].xy, rv) < 0.0 ? -1.0 : 1.0;
         float outward = dot(slope, rv) * side;
         if (outward < 0.0) {
             slope -= rv * side * outward;
