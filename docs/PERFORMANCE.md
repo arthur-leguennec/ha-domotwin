@@ -942,3 +942,25 @@ changes): read in about 35 ms, its rows in 50 ms, filtered by value and by how l
 168 hours worked out in 30 ms, and its CSV (5.3 MB) written in 170 ms. The demo house works out
 its day once, minute by minute, the first time its history is asked (about 70 ms), then answers
 ten days of three entities in a few milliseconds.
+
+### M31 (the placement advisor)
+
+Bundle: the first load is **518.2 kB gzipped** of 1 200 kB (+0.9 kB): the layer's name, who may
+see it, and the coverage's colour scale in the engine (380.6 kB gzipped, +0.1 kB). The rest comes
+on demand, when the layer is chosen: the sheet (`chunks/placement-panel-<hash>.js`: 30.2 kB raw,
+9.4 kB gzipped) with its texts in both languages, and the model in the analysis module
+(`domotwin_analysis_bg.wasm`: 215.0 kB raw, 97.8 kB gzipped, +72.0 kB and +32.6 kB), which the
+network map already loads. All that comes on demand is now 668.9 kB gzipped (+42.3 kB).
+
+Nothing of it runs until the layer is chosen. The radios are read once (the locating's answer, ZHA's
+devices and their links analysed, or the Wi-Fi signals in the states), again when the plan, the
+links or the access points change or another radio is chosen, never at a new state of the home;
+the Wi-Fi signals are looked at once every 30 seconds at most, in whole decibels, and the advice
+is worked out again only when one of them moved. Worked out in Node (the analysis module's release
+build without `wasm-opt`, a 2.1 GHz Xeon core of the CI's kind, median of fifteen): about **2 ms**
+for the demo apartment (5 rooms), **10 ms** for the demo house (13 rooms on two storeys), 20 to
+30 ms for 30 to 40 rooms and **50 ms** for 60 rooms on three storeys. Beyond 24 rooms, each room is
+looked at from four of its points, not twelve, and its spot is its middle alone: 30 to 40 rooms
+took about 190 ms before. The integration's Python counts walls between two places in about
+57 µs: the same advice there would take about 2.3 s for 30 rooms on this computer, more on a small
+host, which is why it runs in the page (D-059).

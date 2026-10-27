@@ -1187,6 +1187,8 @@ router or Wi-Fi access point helps most ([`placement.md`](placement.md)).
 
 ![Radio coverage over the demo apartment](figures/screenshot-placement.png)
 
+Measured at the end of M31: see [`PERFORMANCE.md`](PERFORMANCE.md).
+
 Left for later: Thread and Matter, Zigbee2MQTT and Z-Wave as sources; Wi-Fi at 5 and 6 GHz; a
 heat map inside a room; the weak spots in the weekly report (M37).
 
