@@ -108,6 +108,13 @@ export interface HarnessOptions {
   lists?: boolean;
   /** How Home Assistant keeps the page it opens first. */
   firstPage?: "device" | "user";
+  /**
+   * Home Assistant's history (D-058): refused (`historyFail`), without statistics (`noStats`);
+   * its own words for states (`formatState`, `hass.formatEntityState`).
+   */
+  historyFail?: boolean;
+  noStats?: boolean;
+  formatState?: boolean;
 }
 
 /** Opens the mocked Home Assistant with the built frontend. */
@@ -163,6 +170,9 @@ export async function openHarness(page: Page, options: HarnessOptions = {}): Pro
   if (options.cards) params.set("cards", "1");
   if (options.lists) params.set("lists", "1");
   if (options.firstPage) params.set("firstpage", options.firstPage);
+  if (options.historyFail) params.set("historyfail", "1");
+  if (options.noStats) params.set("nostats", "1");
+  if (options.formatState) params.set("formatstate", "1");
   if (options.voice) params.set("voice", options.voice === true ? "1" : options.voice);
   if (options.supervisor) params.set("supervisor", "1");
   if (options.blueprints) params.set("blueprints", options.blueprints);

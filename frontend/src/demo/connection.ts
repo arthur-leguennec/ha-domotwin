@@ -1,8 +1,8 @@
 /**
  * The websocket of a home kept in the page, the demo house's (D-050) or the sandbox's (D-057):
  * DomoTwin's commands answered from what it keeps, as the integration would; Home Assistant's
- * few others the frontend asks (automations, the energy settings, what an area relates to).
- * Nothing goes out of the page.
+ * few others the frontend asks (automations, the energy settings, what an area relates to, the
+ * history and the logbook where it keeps them, D-058). Nothing goes out of the page.
  */
 import type { NewSchedule, PlanJson, StoredPlan, UpdateEvent } from "../ha/client";
 import type { HassConnection, HassMessage, HomeAssistant } from "../ha/types";
@@ -29,6 +29,12 @@ export interface MemoryHome {
   automationConfig(id: string): Record<string, unknown> | undefined;
   /** Home Assistant's energy settings, as `energy/get_prefs` gives them, if it has some. */
   energyPrefs(): unknown;
+  /**
+   * Its history and its logbook (D-058), where it keeps them (the demo house's day), as
+   * `history/history_during_period` and `logbook/get_events` answer, for a period (ms).
+   */
+  history?(entities: readonly string[], start: number, end: number): unknown;
+  logbook?(entities: readonly string[], start: number, end: number): unknown;
 }
 
 /** A websocket error, as Home Assistant gives one. */
@@ -73,6 +79,18 @@ export function demoConnection(home: MemoryHome): HassConnection {
     store.storeys.push(kept);
     return kept;
   };
+
+  // A period asked of the history or the logbook (ms): its end now when not given.
+  const span = (message: HassMessage): { start: number; end: number } => {
+    const now = home.hass.now?.() ?? Date.now();
+    const start = Date.parse(String(message.start_time));
+    const end = typeof message.end_time === "string" ? Date.parse(message.end_time) : now;
+    if (Number.isNaN(start)) throw failure("invalid_start_time", "Invalid start_time");
+    if (Number.isNaN(end)) throw failure("invalid_end_time", "Invalid end_time");
+    return { start, end };
+  };
+  const entityIds = (message: HassMessage): string[] =>
+    Array.isArray(message.entity_ids) ? message.entity_ids.map(String) : [];
 
   const answer = (message: HassMessage): unknown => {
     switch (message.type) {
@@ -239,6 +257,20 @@ export function demoConnection(home: MemoryHome): HassConnection {
         const prefs = home.energyPrefs();
         if (prefs === undefined) throw failure("not_found", "No energy settings");
         return structuredClone(prefs);
+      }
+      case "history/history_during_period": {
+        if (!home.history) throw failure("unknown_command", message.type);
+        const { start, end } = span(message);
+        return home.history(entityIds(message), start, end);
+      }
+      case "recorder/statistics_during_period":
+        // No statistics: the report works its hours out from the history.
+        if (!home.history) throw failure("unknown_command", message.type);
+        return {};
+      case "logbook/get_events": {
+        if (!home.logbook) throw failure("unknown_command", message.type);
+        const { start, end } = span(message);
+        return home.logbook(entityIds(message), start, end);
       }
       default:
         // What the demo has not: ZHA, Assist, voice, Bluetooth learning…
