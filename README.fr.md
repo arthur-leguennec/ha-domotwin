@@ -15,22 +15,23 @@ Local, rapide, Rust + WebAssembly.</p>
 > [!NOTE]
 > **État : développement en cours.** DomoTwin se construit étape par étape ([feuille de
 > route](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/ROADMAP.md), en anglais).
-> L’intégration, le panneau, la carte, l’import du plan (IFC, Sweet Home 3D, DXF, scans de pièces),
-> les vues 3D et 2D, le pilotage en direct (états, toucher, appui long, panneau de pièce, liaisons),
-> le mode édition, vos propres modèles 3D, les calques, les appareils, l’éditeur de plan, les
-> étages, les apparences, tous les étages à la fois, la promenade, le kiosque, la carte du réseau,
-> les fils des automatisations, les fiches d’entretien, les personnes dans leurs pièces, la
-> localisation Bluetooth, la voix, la finition (police, clavier, lecteurs d’écran), une passe sur la
-> taille et la vitesse, les téléphones, les actions à faire plus tard, des touchers qui disent ce
-> qu’ils font, des meubles qui ont l’air faits, les aspirateurs robots, l’énergie de la maison, la
-> maison de démo, la mesure de la vitesse d’un appareil et la maison pratique (les onglets Accueil,
-> Pièces et 3D) fonctionnent déjà, et forment la version 0.4.0. Depuis, le bac à sable joue une
-> journée des automatisations de la maison sur une copie de celle-ci, « Pourquoi ? » dit qui ou quoi
-> a changé un appareil, le code QR du Wi-Fi accueille les invités, DomoTwin rejoint la Vue
-> d’ensemble de Home Assistant plutôt que de la copier, et les cartes de robots aspirateurs, les
-> plans Floorplanner et les scans en maillage s’importent aussi. L’historique et l’énergie, la
-> sécurité et l’écran mural viennent ensuite, vers la version 0.5.0 ; la proposition à la liste par
-> défaut de HACS attend des mesures sur de vrais appareils.
+> L’intégration, le panneau, la carte, l’import du plan (IFC, Sweet Home 3D, DXF, scans de
+> pièces), les vues 3D et 2D, le pilotage en direct (états, toucher, appui long, panneau de pièce,
+> liaisons), le mode édition, vos propres modèles 3D, les calques, les appareils, l’éditeur de
+> plan, les étages, les apparences, tous les étages à la fois, la promenade, le kiosque, la carte
+> du réseau, les fils des automatisations, les fiches d’entretien, les personnes dans leurs
+> pièces, la localisation Bluetooth, la voix, la finition (police, clavier, lecteurs d’écran), une
+> passe sur la taille et la vitesse, les téléphones, les actions à faire plus tard, des touchers
+> qui disent ce qu’ils font, des meubles qui ont l’air faits, les aspirateurs robots, l’énergie de
+> la maison, la maison de démo, la mesure de la vitesse d’un appareil et la maison pratique (les
+> onglets Accueil, Pièces et 3D) fonctionnent déjà, et forment la version 0.4.0. Depuis, le bac à
+> sable joue une journée des automatisations de la maison sur une copie de celle-ci, l’historique
+> de Home Assistant se lit en rapports, « Pourquoi ? » dit qui ou quoi a changé un appareil, le
+> code QR du Wi-Fi accueille les invités, DomoTwin rejoint la Vue d’ensemble de Home Assistant
+> plutôt que de la copier, chaque changement de la configuration est gardé, et les cartes de
+> robots aspirateurs, les plans Floorplanner et les scans en maillage s’importent aussi.
+> L’historique et l’énergie, la sécurité et l’écran mural viennent ensuite, vers la version 0.5.0 ;
+> la proposition à la liste par défaut de HACS attend des mesures sur de vrais appareils.
 
 ## Fonctionnalités
 
@@ -180,6 +181,13 @@ Local, rapide, Rust + WebAssembly.</p>
   cherché par valeur ; en CSV. En lecture seule, depuis l’historique, les statistiques et le
   journal de Home Assistant. Voir [l’historique en
   rapports](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/history.md) (en
+  anglais).
+- **Historique de la configuration.** Chaque changement d’une automatisation, d’un script, d’une
+  scène ou d’un tableau de bord est gardé, par élément et par date, dans Home Assistant : ce qui a
+  changé, en mots (« Déclencheur 1 › offset : -00:30:00 → -00:20:00 », « Ajout · Action 2 »), et un
+  élément remis comme il était, par les commandes qu’utilisent les éditeurs de Home Assistant.
+  Pour les administrateurs ; sans module complémentaire ni Git. Voir [l’historique de la
+  configuration](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/config-history.md) (en
   anglais).
 - **Votre voix.** Un bouton micro ouvre Assist de Home Assistant déjà à l’écoute, sur une
   tablette murale comme sur un téléphone. Quand Assist n’entend pas encore, DomoTwin installe la

@@ -52,6 +52,11 @@
 //   entrance door opened five minutes ago and set off "Hall light at the door", which lit the
 //   hall's spots; Sam switched the floor lamp on two minutes ago; the kitchen's ceiling light was
 //   switched off on its own switch)
+//   confighistory=1 (the configuration history, D-062: fictional automations, a script removed,
+//   one in YAML files of one's own and a dashboard, as the integration keeps them; Home
+//   Assistant's configuration API and `lovelace/config/save` put one back, read again on
+//   `domotwin/config_history/refresh`; window.__refuseConfig = "<message>" makes Home Assistant
+//   refuse)
 import { applyService, demoHome } from "./demo-home.mjs";
 
 const params = new URLSearchParams(location.search);
@@ -445,6 +450,113 @@ async function fetchWithAuth(path, init = {}) {
     return Response.json({ code: "not_found" }, { status: 404 });
   return new Response(bytes);
 }
+// The configuration history (D-062), as the integration keeps it: each item's versions, oldest
+// first, and what Home Assistant's editors saved since it last read them.
+const configItems = params.get("confighistory") === "1" ? fictionalConfigHistory() : [];
+const configPending = new Map();
+let configNext = 100;
+
+function fictionalConfigHistory() {
+  const day = 86_400_000;
+  const at = (days) => new Date(Date.parse("2026-10-26T18:00:00Z") - days * day).toISOString();
+  const evening = (offset, actions) => ({
+    id: "1700000000001",
+    alias: "Evening lights",
+    triggers: [{ trigger: "sun", event: "sunset", offset }],
+    actions,
+    mode: "single",
+  });
+  const lamp = { action: "light.turn_on", target: { entity_id: "light.living_lamp" } };
+  const curtains = { action: "cover.close_cover", target: { entity_id: "cover.living_curtains" } };
+  return [
+    {
+      kind: "automation",
+      key: "1700000000001",
+      name: "Evening lights",
+      source: "editor",
+      versions: [
+        { id: 1, at: at(9), config: evening("-00:30:00", [lamp]) },
+        { id: 2, at: at(3), config: evening("-00:30:00", [lamp, curtains]) },
+        { id: 3, at: at(1), config: evening("-00:20:00", [lamp, curtains]) },
+      ],
+    },
+    {
+      kind: "script",
+      key: "good_night",
+      name: "Good night",
+      source: "editor",
+      versions: [
+        {
+          id: 4,
+          at: at(5),
+          config: { alias: "Good night", sequence: [{ action: "light.turn_off" }] },
+        },
+        { id: 5, at: at(2), config: null },
+      ],
+    },
+    {
+      kind: "automation",
+      key: "hall_motion",
+      name: "Hall light on motion",
+      source: "yaml",
+      versions: [
+        {
+          id: 6,
+          at: at(7),
+          config: { alias: "Hall light on motion", triggers: [], actions: [lamp] },
+        },
+        {
+          id: 7,
+          at: at(4),
+          config: { alias: "Hall light on motion", triggers: [], actions: [lamp, curtains] },
+        },
+      ],
+    },
+    {
+      kind: "dashboard",
+      key: "",
+      name: null,
+      source: "editor",
+      versions: [{ id: 8, at: at(6), config: { title: "Home", views: [{ title: "Kitchen" }] } }],
+    },
+  ];
+}
+
+function configSummary(item) {
+  const newest = item.versions.at(-1);
+  return {
+    id: `${item.kind}:${item.key}`,
+    kind: item.kind,
+    key: item.key,
+    name: item.name,
+    source: item.source,
+    removed: newest.config === null,
+    versions: item.versions.length,
+    changed: newest.at,
+  };
+}
+
+function configItem(id) {
+  if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+  const item = configItems.find((each) => `${each.kind}:${each.key}` === id);
+  if (!item) throw { code: "unknown_item", message: "unknown_item" };
+  return item;
+}
+
+/** Home Assistant's configuration API (`hass.callApi`): its editors' save. */
+async function callApi(method, path, parameters) {
+  calls.push({ type: "api", method, path, parameters });
+  if (!hass.user.is_admin) throw { error: "Response error: 401", status_code: 401, body: {} };
+  if (window.__refuseConfig) {
+    const message = window.__refuseConfig;
+    throw { error: "Response error: 400", status_code: 400, body: { message } };
+  }
+  const found = /^config\/(automation|script|scene)\/config\/(.+)$/.exec(path);
+  if (method !== "POST" || !found) throw { error: "Response error: 404", status_code: 404 };
+  configPending.set(`${found[1]}:${decodeURIComponent(found[2])}`, structuredClone(parameters));
+  return { result: "ok" };
+}
+
 const listeners = new Set();
 // Actions done later (D-046), as the integration lists them to its subscribers.
 const schedules = [];
@@ -1203,6 +1315,55 @@ const connection = {
           { id: "e2e", name: "E2E" },
           { id: "user-sam", name: "Sam" },
         ];
+      case "domotwin/config_history/list":
+        if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        return {
+          items: configItems
+            .map(configSummary)
+            .sort((a, b) => Date.parse(b.changed) - Date.parse(a.changed)),
+          bytes: 12_400,
+          max_bytes: 4_000_000,
+        };
+      case "domotwin/config_history/item": {
+        const item = configItem(message.item);
+        const seen = new Map();
+        const versions = item.versions.map((kept) => {
+          const version = {
+            id: kept.id,
+            at: kept.at,
+            removed: kept.config === null,
+            kept: kept.config !== null,
+          };
+          if (kept.config) {
+            const text = JSON.stringify(kept.config);
+            if (seen.has(text)) version.same_as = seen.get(text);
+            seen.set(text, kept.id);
+          }
+          return version;
+        });
+        return { item: configSummary(item), versions: versions.reverse() };
+      }
+      case "domotwin/config_history/version": {
+        const kept = configItem(message.item).versions.find((each) => each.id === message.version);
+        if (!kept) throw { code: "unknown_version", message: "unknown_version" };
+        return { config: structuredClone(kept.config) };
+      }
+      case "domotwin/config_history/refresh": {
+        if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        let changed = 0;
+        for (const [id, config] of configPending) {
+          const item = configItems.find((each) => `${each.kind}:${each.key}` === id);
+          if (!item || (message.kind && item.kind !== message.kind)) continue;
+          item.versions.push({ id: configNext++, at: new Date().toISOString(), config });
+          configPending.delete(id);
+          changed += 1;
+        }
+        return { changed };
+      }
+      case "lovelace/config/save":
+        if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        configPending.set(`dashboard:${message.url_path ?? ""}`, structuredClone(message.config));
+        return null;
       default:
         throw { code: "unknown_command", message: message.type };
     }
@@ -1606,6 +1767,7 @@ let hass = {
         },
       }
     : {}),
+  callApi,
   async callService(domain, service, data, target) {
     calls.push({ type: "call_service", domain, service, data, target });
     if (window.__failServices)

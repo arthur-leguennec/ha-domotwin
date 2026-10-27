@@ -49,6 +49,7 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M32       | "Why?": who or what changed a device, drawn in 3D          | ✅     |
 | M30       | The Wi-Fi QR code, for guests                              | ✅     |
 | M23b      | Into Home Assistant's Overview, rather than a copy of it   | ✅     |
+| M36       | Configuration history: differences, one item put back      | ✅     |
 | M20       | More imports: robot vacuum maps, Floorplanner, meshes      | ✅     |
 | M24       | History and energy, with Home Assistant's own cards        | ⏳     |
 | M25       | Safety: cameras, the doorbell, the alarm, alerts           | ⏳     |
@@ -60,7 +61,6 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M34       | Per-person rights: what DomoTwin shows each one            | ⏳     |
 | M35       | Automations in plain words, played in the sandbox first    | ⏳     |
 | M17       | A library of objects: many pieces, free and well made      | ⏳     |
-| M36       | Configuration history: differences, one item put back      | ⏳     |
 | M37       | A weekly home report                                       | ⏳     |
 | M18       | Outdoors: garden, terrace, lawn, pool, roofs               | ⏳     |
 | M39       | Hydro-Québec's peaks, from the integrations that read them | ⏳     |
@@ -92,9 +92,10 @@ QR code (M30) and a placement advisor for radios (M31) before a first launch in 
 (M33), rights (M34), automations in plain words (M35), a configuration history (M36), a weekly
 report (M37), history as reports (M38) and Hydro-Québec's peaks (M39) follow, among a library of
 objects (M17), the outdoors (M18) and more languages (M21), before a sixth release, 0.6.0. After
-the sandbox, the maintainer asked for history as reports (M38, D-058) and "Why?" (M32, D-059)
-before the rest, which keeps its order; then for more imports (M20, D-063) before 0.5.0 too: robot
-vacuum maps, Floorplanner plans and mesh scans, which the first launch in five minutes (M22) uses.
+the sandbox, the maintainer asked for history as reports (M38, D-058), "Why?" (M32, D-059) and the
+configuration history (M36, D-062) before the rest, which keeps its order; then for more imports
+(M20, D-063) before 0.5.0 too: robot vacuum maps, Floorplanner plans and mesh scans, which the
+first launch in five minutes (M22) uses.
 
 ## M0, scaffold
 
@@ -1226,11 +1227,49 @@ DomoTwin joined to Home Assistant's own Overview rather than copying it (D-061).
   back, the Rooms tab before the Overview, a layer from the address, the summaries in English and
   French, the network's read, a summary on the Home tab (Playwright).
 
+## M36, configuration history
+
+Home Assistant keeps no history of its own configuration: its editors' undo lasts one session, a
+backup puts back a whole part, and what exists needs an add-on and Git (D-056). Asked for by the
+maintainer right after 0.4.0, done once the sandbox, history as reports, "Why?", the Wi-Fi for
+guests and Home Assistant's Overview were in (D-062).
+
+- ✅ **Each change kept**: the automations, scripts and scenes of Home Assistant's editors and of
+  one's own YAML files, and the dashboards; read once Home Assistant has started, after it
+  reloads them, when one is deleted in its editor, when a dashboard is saved or its configuration
+  deleted. Only real changes (the same keys in another order are the same); an item gone kept as
+  removed; a file Home Assistant cannot read left alone.
+- ✅ **In Home Assistant's storage**, a store of its own: 4 MB in all, 50 versions an item, 1 MB a
+  version, the oldest versions first to go; for administrators; never in the diagnostics; deleted
+  with the integration, written at once when it is unloaded.
+- ✅ **What changed, in words**, between a version and the one before it, or the current one:
+  the triggers, conditions, actions and steps numbered, a scene's entities by their names, a
+  dashboard's views by their titles and their cards; a list's items matched first, so that one
+  added reads as one added; the whole configuration of a version to read.
+- ✅ **One item put back** through Home Assistant's own configuration API, or
+  `lovelace/config/save` for a dashboard; a deleted automation, script or scene too; Home
+  Assistant's refusal shown as it gives it; what is in one's own YAML files shown, not put back.
+- ✅ **The dialog**: *Configuration history* in the panel's ⋮ menu, by kind and with a search, a
+  link to Home Assistant's editor; a chunk loaded when it opens. The demo house has a history of
+  its own, put back in the page.
+- ✅ Tests: kept on each change and not for the same configuration, removed and put back, a file
+  that cannot be read left alone, scripts read after their reload, one's own YAML shown,
+  dashboards, the limits, the store read leniently, administrators only, put back through Home
+  Assistant's own command, never in the diagnostics, deleted with the integration (pytest); the
+  changes and their words in both languages, lists matched, values in short, the filters, what can
+  be put back and the commands used, the demo house's history (vitest); the list, the words,
+  putting back, Home Assistant's refusal, what was removed and what is in one's own YAML, French,
+  the demo house (Playwright).
+- Measured: the first load grows by 0.5 kB; the dialog is 7.2 kB gzipped, on demand
+  ([`PERFORMANCE.md`](PERFORMANCE.md), M36).
+- Left for later: who made a change (Home Assistant's editors do not say it); helpers, blueprints
+  and Home Assistant's other settings; the changes of a dashboard shown on the dashboard itself.
+
 ## M20, more imports
 
 Homes already mapped by something else: the robot vacuum, Floorplanner, a phone or a camera that
 scans in 3D (`DECISIONS.md`, D-063; [`imports.md`](imports.md)). Moved forward by the maintainer,
-before 0.5.0, after the Overview (M23b).
+before 0.5.0, after the configuration history (M36).
 
 - ✅ **Robot vacuum maps**: Valetudo's, as its REST API gives it (JSON), as it publishes it over
   MQTT (deflated) or as Home Assistant's camera receives it (a PNG holding it), and Roborock's own
@@ -1341,11 +1380,8 @@ milestone starts, which goes on with what needs no answer.
 - ✅ **M20, more imports** (D-063, above): done before 0.5.0, at the maintainer's request.
 - ⏳ **M17, a library of objects**: many more pieces, free and well made, drawn from real
   references, still fast.
-- ⏳ **M36, configuration history**: each change of an automation, script, scene or dashboard
-  kept, by item and date; what changed between two versions, in words where it can; one item put
-  back as it was, through Home Assistant's own configuration commands. Kept by the integration in
-  Home Assistant's storage, limited in size (the oldest versions go first), for administrators,
-  never in the diagnostics. Items written in YAML files of one's own are shown, not put back.
+- ✅ **M36, configuration history** (D-062, above): done after Home Assistant's Overview, at
+  the maintainer's request.
 - ⏳ **M37, a weekly home report**: once a week, what needs a look: batteries low, devices
   unavailable, updates and repairs waiting, upkeep due (M9d), weak radio links (M9b, M31),
   automations that failed or never fired, the week's energy against the last, room by room on

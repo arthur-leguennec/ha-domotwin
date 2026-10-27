@@ -996,9 +996,25 @@ a plan of 500. The tasks due are sorted into the rooms in one pass when the upke
 or the day change. Who is in each room is counted when a person moves, from the places the people
 tracker already keeps, and only the rooms whose count changed are written.
 
+### M36 (the configuration history)
+
+Bundle: the first load is **521.8 kB gzipped** of 1 200 kB (+0.5 kB): the menu item and its text,
+and two error texts. The dialog, its texts in both languages and the comparison come on demand the
+first time it opens (`chunks/config-history-dialog-<hash>.js`: 24.9 kB raw, 7.2 kB gzipped).
+
+The integration reads a kind only after Home Assistant announces a change to it, a second later
+(five for the scripts, whose reload announces nothing), one reading at a time, and once when it
+starts; nothing runs in between. A version is kept as its JSON text, not as parsed objects, so
+that the 4 MB the history may take are 4 MB in memory, and the store is written ten seconds after
+a change, several changes at once. What changed is worked out in the page, only for the version
+shown: a dashboard of 490 kB (40 views, 4 800 cards) with a card added and a view renamed is
+compared in 47 ms (Node 22, the unit tests' happy-dom), the two changes found. Lists are matched by
+their longest common part up to 40 000 pairs of items, compared item by item beyond; at most 200
+changes are said.
+
 ### M20 (more imports)
 
-Bundle: the first load is **523.3 kB gzipped** of 1 200 kB (+2.0 kB): the robot's map in the menu
+Bundle: the first load is **523.8 kB gzipped** of 1 200 kB (+2.0 kB): the robot's map in the menu
 and beside *Import plan*, the robots' maps found in Home Assistant, which files go to the import,
 and the texts. The import module, fetched only when such a file is picked or a robot's map is
 imported, reads three more kinds of files:

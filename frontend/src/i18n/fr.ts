@@ -678,6 +678,9 @@ export const fr: Dictionary = {
     first_failed:
       "Vos choix sont enregistrés, mais Home Assistant n’a pas gardé la page qu’il ouvre en premier : {reason}",
   },
+  config_history: {
+    menu: "Historique de la configuration",
+  },
   measure: {
     menu: "Mesurer les performances",
     title: "Mesurer les performances",
@@ -1140,6 +1143,8 @@ export const fr: Dictionary = {
       too_long: "une action laisse un appareil allumé 7 jours au plus.",
       too_many: "100 actions au plus attendent à la fois.",
       not_allowed: "vous ne pouvez pas commander l’un de ces appareils.",
+      unknown_item: "cet élément n’est plus dans l’historique.",
+      unknown_version: "cette version n’est plus gardée.",
     },
     unknown: "erreur inattendue ({code}).",
     at_element: "{reason} (élément « {element} »)",
