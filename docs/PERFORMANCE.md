@@ -1100,9 +1100,33 @@ took about 190 ms before. The integration's Python counts walls between two plac
 57 µs: the same advice there would take about 2.3 s for 30 rooms on this computer, more on a small
 host, which is why it runs in the page (D-066).
 
+### M33 (guest access)
+
+Bundle: the first load is **527.9 kB gzipped** of 1 200 kB (+1.0 kB): the ⋮ menu's *Guest
+access*, the client's three commands and reading a pass (`live/guest-pass.ts`, kept apart so that
+nothing else comes with it), and a guest's few checks in the views. The administrator's dialog
+comes on demand the first time it opens (`chunks/guests-dialog-<hash>.js`: 28.5 kB raw, 8.8 kB
+gzipped), with its texts in both languages; the link's QR code is the analysis module's, already
+loaded on demand (`textQr`, which shares the Wi-Fi's encoder).
+
+The guests' page is built apart from the module Home Assistant's pages load (`guest.js`: 156.1 kB
+raw, 44.3 kB gzipped; its chunks in `chunks/guest/`, 575 kB raw in all), so that nothing of it
+changes how they load DomoTwin; its chunks repeat those of the panel it shares. A guest's phone
+loads **508.0 kB gzipped** to show the home in 3D: the page and the card (127.6 kB of JavaScript
+in 22 files) and the engine's wasm, from Home Assistant on the home's network; the dialogs come
+when opened.
+
+The integration works out what a pass shows of the home (the storeys, the rooms closed, the pieces
+kept) once for each revision of the home and each pass: 0.4 ms for the demo house, 38 ms for a plan
+of 500 elements (100 rooms, 400 pieces; median of 50, Python 3.14 on a 2.1 GHz Xeon core); the
+page's later reads and each 3D file it asks for reuse it. The states are read from Home Assistant's
+own, for the pass's devices only (100 at most). A page following its pass is one open request
+written to when one of its devices changes, a line every 25 seconds otherwise; at most 8 a pass,
+each waiting with at most 500 changes before it is closed and reads the home again.
+
 ### M25 (safety)
 
-Bundle: the first load is **529.9 kB gzipped** of 1 200 kB (+3.0 kB): the watch of the
+Bundle: the first load is **530.9 kB gzipped** of 1 200 kB (+3.0 kB): the watch of the
 doorbells, Home Assistant's alerts and the alerts' button the 3D view's banner shares with the
 other tabs, the Safety tab's name and route. The Safety tab and the alerts' bar come with the tabs'
 chunk (`chunks/practical-<hash>.js`: 11.9 kB gzipped, as before: Home Assistant's cards moved out

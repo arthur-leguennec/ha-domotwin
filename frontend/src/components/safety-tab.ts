@@ -1,5 +1,5 @@
 /**
- * `<domotwin-safety>`, the Safety tab (D-067): every alert, the alarm, the doorbells, the cameras
+ * `<domotwin-safety>`, the Safety tab (D-068): every alert, the alarm, the doorbells, the cameras
  * side by side (the doorbells' first) and, where Home Assistant has no Security page, the locks;
  * where it has one, a way to it for the rest. Every control is Home Assistant's own card.
  */
@@ -211,7 +211,7 @@ export class DomoTwinSafety extends LitElement {
           : nothing
       }
       ${
-        // Where Home Assistant has a Security page, the locks are there (D-067).
+        // Where Home Assistant has a Security page, the locks are there (D-068).
         !this.page && locks.length > 0
           ? html`<section data-testid="safety-locks">
               <h2>${t.t("safety.locks")}</h2>

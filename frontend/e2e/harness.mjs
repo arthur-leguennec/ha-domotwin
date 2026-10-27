@@ -58,7 +58,7 @@
 //   entrance door opened five minutes ago and set off "Hall light at the door", which lit the
 //   hall's spots; Sam switched the floor lamp on two minutes ago; the kitchen's ceiling light was
 //   switched off on its own switch)
-//   safety=1 (D-067, with live=1: a doorbell at the front door with its camera, beside the hall's
+//   safety=1 (D-068, with live=1: a doorbell at the front door with its camera, beside the hall's
 //   lock, and an alarm, quiet; window.__ring() rings it now), security=1 (Home Assistant 2026.10
 //   and its Security page), securityalerts=<entity>[:alert|warning],… (the alerts chosen on it;
 //   window.__securityAlerts(list) chooses others)
@@ -608,6 +608,22 @@ let wifi =
         }
       : undefined;
 window.__wifi = () => wifi;
+// Guest access (D-067): the passes kept, as the integration keeps them, and what was saved.
+let guestPasses = [];
+let guestTokens = 0;
+window.__guestsSaved = [];
+const guestView = (stored) => {
+  const view = { ...stored, path: `/api/domotwin/guest/${stored.token}`, url: null };
+  delete view.token;
+  const now = Date.now();
+  view.status =
+    now >= Date.parse(stored.ends)
+      ? "ended"
+      : now < Date.parse(stored.starts)
+        ? "upcoming"
+        : "open";
+  return view;
+};
 /** What `domotwin/wifi/get` answers, as the integration does: its password only when asked. */
 window.__wifiAsked = [];
 function wifiAnswer(admin, screen, password) {
@@ -940,7 +956,7 @@ function whyEvents(message) {
     .map((row) => row.entry);
 }
 
-// Home Assistant's Security page (D-067) and the alerts an administrator chose on it.
+// Home Assistant's Security page (D-068) and the alerts an administrator chose on it.
 const security = params.get("security") === "1";
 let securityChoices = (params.get("securityalerts") ?? "")
   .split(",")
@@ -1186,6 +1202,35 @@ const connection = {
         for (const listener of listeners) listener({ kind: "wifi", revision: wifiRevision });
         return wifiAnswer(true, "", true);
       }
+      case "domotwin/guests/get":
+        if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        return { passes: guestPasses.map(guestView) };
+      case "domotwin/guests/save": {
+        if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        const change = message.pass;
+        window.__guestsSaved.push(structuredClone(change));
+        if (!change.name) throw { code: "invalid", message: "name" };
+        if (Date.parse(change.ends) <= Date.parse(change.starts)) {
+          throw { code: "ends_before", message: "ends_before" };
+        }
+        if (change.rooms.length === 0 && change.entities.length === 0) {
+          throw { code: "nothing_open", message: "nothing_open" };
+        }
+        const kept = guestPasses.find((p) => p.id === change.id);
+        guestTokens += 1;
+        const token =
+          kept && !change.renew ? kept.token : `fictional${String(guestTokens).padStart(36, "0")}`;
+        const stored = { ...change, id: kept?.id ?? `pass-${guestTokens}`, token };
+        delete stored.renew;
+        guestPasses = kept
+          ? guestPasses.map((p) => (p === kept ? stored : p))
+          : [...guestPasses, stored];
+        return guestView(stored);
+      }
+      case "domotwin/guests/remove":
+        if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        guestPasses = guestPasses.filter((p) => p.id !== message.pass);
+        return { removed: true };
       case "domotwin/wifi/clear":
         if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
         wifi = undefined;
@@ -1397,7 +1442,7 @@ const connection = {
   async subscribeMessage(callback, message) {
     calls.push(message);
     if (message.type === "frontend/subscribe_system_data") {
-      // Home Assistant's own (D-067): what its Security page keeps, sent at once and on change.
+      // Home Assistant's own (D-068): what its Security page keeps, sent at once and on change.
       if (message.key !== "security" || !security) throw { code: "unknown_command" };
       securityListeners.add(callback);
       queueMicrotask(() =>
@@ -1754,7 +1799,7 @@ if (overview) {
   });
   own("sensor.domotwin_upkeep_due", "upkeep_due");
 }
-// safety=1 (D-067): a doorbell at the front door, its camera on the same device, in the hall
+// safety=1 (D-068): a doorbell at the front door, its camera on the same device, in the hall
 // beside its lock; an alarm, disarmed. The doorbell last rang long ago.
 if (params.get("safety") === "1") {
   home.devices.front_door_bell = { id: "front_door_bell", area_id: "hallway", name: "Front door" };
@@ -1944,7 +1989,7 @@ let hass = {
     // A fictional place, rounded: the sandbox's sun.
     ...(sandbox ? { time_zone: "Europe/Paris", latitude: 46, longitude: 2 } : {}),
     // overview=1: a Home Assistant that opens on its Overview, an area page each (D-061);
-    // security=1: with its Security page (D-067).
+    // security=1: with its Security page (D-068).
     ...(overview || security ? { version: "2026.10.0" } : { version: "2026.1.0" }),
   },
   ...(overview || security
@@ -2003,7 +2048,7 @@ window.__setState = (entityId, state, attributes = {}) => {
   };
   publish();
 };
-/** The front door's doorbell rings now (safety=1, D-067): its event entity says when. */
+/** The front door's doorbell rings now (safety=1, D-068): its event entity says when. */
 window.__ring = () => window.__setState("event.front_door_doorbell", new Date().toISOString());
 if (hass.themes.darkMode) document.body.classList.add("dark");
 

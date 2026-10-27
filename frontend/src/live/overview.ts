@@ -25,7 +25,7 @@ export function versionAtLeast(
  * demo house or the sandbox, whose areas are not the home's.
  */
 export function areaPage(hass: HomeAssistant | undefined, area: string): string | undefined {
-  if (!hass || hass.demo === true || hass.sandbox === true) return undefined;
+  if (!hass || hass.demo === true || hass.sandbox === true || hass.guest === true) return undefined;
   if (!hass.panels?.home || !versionAtLeast(hass.config?.version, OVERVIEW_SINCE)) return undefined;
   if (!hass.areas?.[area]) return undefined;
   return `/home/areas-${encodeURIComponent(area)}`;

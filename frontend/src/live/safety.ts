@@ -1,5 +1,5 @@
 /**
- * The Safety tab (`docs/DECISIONS.md`, D-067): the home's alarms, its cameras side by side (its
+ * The Safety tab (`docs/DECISIONS.md`, D-068): the home's alarms, its cameras side by side (its
  * doorbells' first), its doorbells and, where Home Assistant has no Security page, its locks; and
  * what a doorbell's full screen shows, its camera and its lock. Read from Home Assistant's states
  * and registries; what a private room the viewer may not see holds is left out (D-039).

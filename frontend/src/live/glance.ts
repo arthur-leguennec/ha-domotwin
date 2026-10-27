@@ -2,7 +2,7 @@
  * The home at a glance, on the Home tab (D-055): who is in, the weather, the lamps on, the doors
  * and windows open, Hydro-Québec's next peak (D-063), read from Home Assistant's states. What a
  * private room holds (D-039) is left out for a viewer who may not see it. The alerts are above
- * every tab since D-067.
+ * every tab since D-068.
  */
 import { domainOf, type HomeAssistant } from "../ha/types";
 import { NO_BINDINGS, areaOf, type BindingsJson } from "./bindings";

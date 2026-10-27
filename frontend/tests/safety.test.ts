@@ -71,7 +71,7 @@ function home(entities: Record<string, Entity>, extra: Partial<HomeAssistant> = 
 const NOTHING: Unseen = { areas: new Set(), entities: new Set() };
 const BEDROOM_CLOSED: Unseen = { areas: new Set(["bedroom"]), entities: new Set() };
 
-describe("Home Assistant's Security page (D-067)", () => {
+describe("Home Assistant's Security page (D-068)", () => {
   it("is opened where Home Assistant has it, from 2025.12, never for the demo house", () => {
     expect(securityPage(home({}))).toBe("/security?historyBack=1");
     expect(securityPage(home({}, { config: { version: "2025.12.0" } }))).toBe(
@@ -210,7 +210,7 @@ describe("Home Assistant's Security page (D-067)", () => {
   });
 });
 
-describe("the alerts of every storey (D-067)", () => {
+describe("the alerts of every storey (D-068)", () => {
   const BINDINGS: BindingsJson = {
     version: 1,
     rooms: { hall: { area: "hall" }, bedroom: { area: "bedroom" } },
@@ -265,7 +265,7 @@ describe("the alerts of every storey (D-067)", () => {
   });
 });
 
-describe("the doorbell (D-067)", () => {
+describe("the doorbell (D-068)", () => {
   const ago = (ms: number): string => new Date(Date.now() - ms).toISOString();
   const bell = (rang: string, extra: Partial<Entity> = {}): Entity => ({
     state: rang,
@@ -359,7 +359,7 @@ describe("the doorbell (D-067)", () => {
   });
 });
 
-describe("the Safety tab (D-067)", () => {
+describe("the Safety tab (D-068)", () => {
   const entities = (): Record<string, Entity> => ({
     "event.front_bell": {
       state: "2026-10-24T07:30:00.000+00:00",

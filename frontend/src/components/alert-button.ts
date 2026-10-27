@@ -1,5 +1,5 @@
 /**
- * An alert's button (D-067), in the 3D view's banner and above the other tabs alike: a room's
+ * An alert's button (D-068), in the 3D view's banner and above the other tabs alike: a room's
  * frames its room (`frame`), Home Assistant's opens its Security page (`page`).
  */
 import { mdiAlert, mdiAlertCircleOutline } from "@mdi/js";

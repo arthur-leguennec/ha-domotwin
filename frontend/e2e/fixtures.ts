@@ -144,7 +144,7 @@ export interface HarnessOptions {
   /** The configuration history (D-062): fictional items and their versions. */
   configHistory?: boolean;
   /**
-   * Safety (D-067), with `live`: a doorbell at the front door with its camera, and an alarm
+   * Safety (D-068), with `live`: a doorbell at the front door with its camera, and an alarm
    * (`window.__ring()` rings it); Home Assistant 2026.10 with its Security page (`security`), and
    * the alerts chosen on it (`securityAlerts`, `entity` or `entity:severity`).
    */

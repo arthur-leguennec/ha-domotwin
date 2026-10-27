@@ -69,12 +69,21 @@ every reader returns `Result` with a stable error code that the frontend transla
 - The Wi-Fi for guests (D-060): `components/wifi-dialog.ts` (its own chunk) draws the QR code the
   analysis module encodes (`wifiQr`), from what `domotwin/wifi/get` answers (`live/wifi.ts`); the
   integration keeps the network in a private store of its own (`custom_components/domotwin/wifi.py`).
+- Guest access (D-067): `components/guests-dialog.ts` (its own chunk) makes the passes over
+  `domotwin/guests/*` (`live/guests.ts`, `live/guest-pass.ts`) and draws a pass's link as a QR code
+  (`textQr`). The guests' page is a bundle of its own (`guest/entry.ts`, `guest.js`, with
+  `guest.html`): `guest/page.ts` reads the home through the pass, shows it on the card with a
+  `hass` of the guest's (`guest/home.ts`), whose connection answers DomoTwin's commands from what
+  the pass shows, whose actions go to the pass, and whose states follow it as server-sent events.
+  The integration keeps the passes (`custom_components/domotwin/guests.py`) and serves the page and
+  what it asks outside Home Assistant's sign-in (`http.py`), checking each request against the
+  pass; `logbook.py` says a guest's actions in Home Assistant's logbook.
 - Home Assistant's Overview (D-061): `live/overview.ts` says where an area's page is (the panel
   opens it for a room tapped in 3D); `components/summary-card.ts` is the summary card, whose body
   (`components/summary-body.ts`, `live/summaries.ts`) is a chunk of its own. The integration gives
   each room a device in its area with two sensors (`custom_components/domotwin/sensor.py`,
   `overview.py`: the people in it, the upkeep due for its pieces).
-- Safety (D-067): `live/doorbell.ts` watches the home's doorbells on every `hass`, and
+- Safety (D-068): `live/doorbell.ts` watches the home's doorbells on every `hass`, and
   `live/security.ts` reads the alerts chosen on Home Assistant's Security page (its system data,
   followed by the panel) and says those on now beside the rooms' (`live/storeys.ts`); both are in
   the first load. The Safety tab (`components/safety-tab.ts`, `live/safety.ts`) and the alerts'
@@ -293,6 +302,13 @@ and the fingerprint of its keys sorted (`null` when removed); `next`, the next v
 in all and 50 versions an item (the oldest versions go first), 1 MB a version; past 2 000 items,
 the removed ones are forgotten. See [`config-history.md`](config-history.md).
 
+`.storage/domotwin.guests` (D-067, its own store, version 1, private): the guest passes,
+`passes`: `{id, token, name, rooms, entities, starts, ends, act, wifi, anywhere}`, the `token` the
+link's secret (`secrets.token_urlsafe(32)`), `starts` and `ends` ISO 8601 in UTC, `act` whether the
+guests may use the devices, `wifi` whether the home's Wi-Fi is shown, `anywhere` whether it opens
+from outside the home's network. 20 passes at most; one ended 30 days ago is forgotten. See
+[`guests.md`](guests.md).
+
 The 3D files of user models are not in `.storage`: they are kept under their SHA-256 in
 `<config>/domotwin/models/<sha256>.<format>` (D-021), uploaded with `POST /api/domotwin/models?format=…`
 (administrators; answers `{hash, bytes, format}`) and read with
@@ -332,14 +348,35 @@ when the integration is removed.
 | `domotwin/config_history/item`  | admin  | `item`                                         | `item`, `versions` (`[{id, at, removed, kept, same_as?}]`, newest first) |
 | `domotwin/config_history/version` | admin | `item`, `version`                            | `config` (`null`: removed, or too large to keep) |
 | `domotwin/config_history/refresh` | admin | `kind?` (every kind without one)             | `changed` (the versions kept)    |
+| `domotwin/guests/get`    | admin  | –                                              | `passes` (`[{id, name, rooms, entities, starts, ends, act, wifi, anywhere, path, url, status}]`) |
+| `domotwin/guests/save`   | admin  | `pass` (`{id?, name, rooms, entities, starts, ends, act?, wifi?, anywhere?, renew?}`) | the pass, as `get` lists it |
+| `domotwin/guests/remove` | admin  | `pass` (its id)                                | `removed`                        |
 | `domotwin/subscribe`     | user   | –                                              | events `{kind, revision}`, and `{kind: "show", show}` for `domotwin.show` |
 
 Errors: `not_loaded`, `invalid_plan`, `invalid_layout`, `invalid_bindings`, `invalid_settings`,
 `invalid_upkeep`, `unknown_task`, `invalid_people`, `unknown_person`, `invalid_locating`,
 `unknown_device`, `unknown_room`, `no_bluetooth`, `too_large`, `too_many_favourites`,
 `too_many_models`, `revision_conflict`, `unknown_storey`, `invalid_storey`, `too_many_storeys`,
-`duplicate_id`, `unknown_item`, `unknown_version`, and Home Assistant's `unauthorized` for
-non-admin writes (and the history's reads).
+`duplicate_id`, `unknown_item`, `unknown_version`, a pass's (`ends_before`, `already_ended`,
+`too_long`, `too_far`, `unknown_room`, `not_for_guests`, `nothing_open`, `too_many`,
+`unknown_pass`), and Home Assistant's `unauthorized` for non-admin writes (and the history's and
+the passes' reads).
+
+## The guests' page
+
+Served by the integration outside Home Assistant's sign-in (D-067), each request checked against
+the pass whose secret is in its address (`<secret>`): known, open now, from the home's network
+unless the pass opens from anywhere. Refusals are `{code, starts?, ends?}`: `unknown` (404),
+`home_only`, `not_yet` (403), `ended` (410), `look_only`, `not_allowed` (403), `invalid`,
+`refused` (400, Home Assistant's own words in `message`), `too_many_calls`, `too_many_pages` (429).
+
+| Request | Answer |
+| --- | --- |
+| `GET /api/domotwin/guest/<secret>` | the page (`guest.html`), under its `Content-Security-Policy` |
+| `GET …/home` | `pass` (`{name, starts, ends, act, entities}`), `home`, `storeys` (`[{info, plan, layout}]`), `bindings`, `settings`, `states`, `entities`, `areas`, `wifi`, `config` (`time_zone`, `unit_system`) |
+| `GET …/events` | server-sent events: `state` (an entity's state), `home` (read it again), `end` |
+| `POST …/call` | `{domain, service, data?, target: {entity_id}}` → `{done: true}` |
+| `GET …/models/<sha256>.<format>` | a 3D file a piece it shows is drawn from |
 
 ## Entities
 

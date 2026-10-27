@@ -32,7 +32,7 @@ async function cardConfig(page: Page, scope: string, entity: string): Promise<un
   return JSON.parse(text ?? "null");
 }
 
-test.describe("safety (D-067)", () => {
+test.describe("safety (D-068)", () => {
   test("the Safety tab: the alarm, the doorbell, the cameras side by side, Home Assistant's page", async ({
     page,
   }) => {

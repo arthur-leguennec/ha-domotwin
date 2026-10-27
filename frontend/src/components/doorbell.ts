@@ -1,5 +1,5 @@
 /**
- * `<domotwin-doorbell>`: a doorbell rang (D-067), full screen over every tab of the panel: who
+ * `<domotwin-doorbell>`: a doorbell rang (D-068), full screen over every tab of the panel: who
  * rang and when, its camera live, the lock of its door with its buttons, and a way to close it.
  * Home Assistant's own cards; a chunk loaded the first time a doorbell rings.
  */

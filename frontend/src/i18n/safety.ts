@@ -1,5 +1,5 @@
 /**
- * The messages of the Safety tab and of a doorbell's full screen (D-067), in both languages:
+ * The messages of the Safety tab and of a doorbell's full screen (D-068), in both languages:
  * loaded with the tabs' chunk and with the doorbell's, not with the first picture.
  */
 import type { Widen } from "./index";
