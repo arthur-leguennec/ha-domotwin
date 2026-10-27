@@ -63,6 +63,11 @@ every reader returns `Result` with a stable error code that the frontend transla
 - The Wi-Fi for guests (D-060): `components/wifi-dialog.ts` (its own chunk) draws the QR code the
   analysis module encodes (`wifiQr`), from what `domotwin/wifi/get` answers (`live/wifi.ts`); the
   integration keeps the network in a private store of its own (`custom_components/domotwin/wifi.py`).
+- Home Assistant's Overview (D-061): `live/overview.ts` says where an area's page is (the panel
+  opens it for a room tapped in 3D); `components/summary-card.ts` is the summary card, whose body
+  (`components/summary-body.ts`, `live/summaries.ts`) is a chunk of its own. The integration gives
+  each room a device in its area with two sensors (`custom_components/domotwin/sensor.py`,
+  `overview.py`: the people in it, the upkeep due for its pieces).
 - `src/i18n/` holds the English and French dictionaries. Every visible string goes through `t()`.
 
 ![Render on demand: frames only when something changes, nothing while idle or off-screen](figures/render-on-demand.png)
