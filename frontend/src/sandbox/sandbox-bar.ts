@@ -210,7 +210,7 @@ export class DomoTwinSandboxBar extends LitElement {
         background: var(--primary-text-color, #1f2328);
         pointer-events: none;
       }
-      /* The automation written in plain words, played beside the home's (D-066). */
+      /* The automation written in plain words, played beside the home's (D-068). */
       .draft {
         display: flex;
         flex-wrap: wrap;
@@ -544,7 +544,7 @@ export class DomoTwinSandboxBar extends LitElement {
     return said.join(" ");
   }
 
-  /** The automation written in plain words, played beside the home's (D-066), and the way back. */
+  /** The automation written in plain words, played beside the home's (D-068), and the way back. */
   private renderDraft(home: SandboxHome, t: Translator): TemplateResult | typeof nothing {
     const draft = home.draft;
     if (!draft) return nothing;
@@ -932,7 +932,7 @@ export class DomoTwinSandboxBar extends LitElement {
       }`;
   }
 
-  /** The draft first (D-066): its runs, or why it never ran; what it worked against; what could
+  /** The draft first (D-068): its runs, or why it never ran; what it worked against; what could
    * not be played of it. */
   private renderDraftReport(
     home: SandboxHome,

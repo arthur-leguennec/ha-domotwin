@@ -222,7 +222,7 @@ export function prepare(
     }
   }
   // The home zone counts who is in it, as Home Assistant's zones do (`persons` too): its state
-  // follows the people (D-066: "when the last person leaves" is a zone back to 0).
+  // follows the people (D-068: "when the last person leaves" is a zone back to 0).
   const home = states["zone.home"];
   if (home && homeAt.length > 0) {
     const within = new Map<string, boolean>();

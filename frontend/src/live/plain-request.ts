@@ -1,5 +1,5 @@
 /**
- * An automation in plain words (D-066): what Home Assistant's AI task is given and asked, its
+ * An automation in plain words (D-068): what Home Assistant's AI task is given and asked, its
  * answer read, what Home Assistant's check leaves out (the names), Home Assistant's own check,
  * and the save through its configuration API, as its editor saves. DomoTwin calls no model
  * itself: the AI task the user set up in Home Assistant writes the automation.

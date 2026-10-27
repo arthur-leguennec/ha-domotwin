@@ -104,6 +104,7 @@ import type { GlanceSources } from "../live/glance";
 import { resolveShow, type ShowRequest } from "../live/show";
 import type { LocatingSettings } from "../live/locating";
 import type { PeopleSettings } from "../live/people";
+import type { AccessPoint } from "../live/placement";
 import type { Wifi } from "../live/wifi";
 import { mergeCards, renamedPieces, type Upkeep, type UpkeepCard } from "../live/upkeep";
 import {
@@ -169,6 +170,8 @@ const LAYER_WAIT_MS = 5 * 60_000;
 const LAYER_POLL_MS = 250;
 /** How long before settings that could not be read are asked for again (ms). */
 const SETTINGS_RETRY_MS = 10_000;
+/** No Wi-Fi access point placed (D-066): the same array every time. */
+const NO_ACCESS_POINTS: AccessPoint[] = [];
 /** Upkeep cards saved at once when a file fills them (the integration takes up to 2 000). */
 const CARDS_AT_ONCE = 400;
 /** The highest a storey's floor may be (cm), as the integration checks. */
@@ -446,7 +449,7 @@ export class DomoTwinPanel extends LitElement {
   protected voiceOpen = false;
   /** The configuration history (D-062) is open, its module loaded. */
   protected configHistoryOpen = false;
-  /** An automation in plain words (D-066) is being written, its module loaded. */
+  /** An automation in plain words (D-068) is being written, its module loaded. */
   protected plainOpen = false;
   /** The automation being written in plain words: it outlives its dialog and the sandbox. */
   private plainSession?: PlainSession;
@@ -1144,7 +1147,7 @@ export class DomoTwinPanel extends LitElement {
     if (!real || !this.switchable()) return;
     const t = this.t;
     this.show(t.t("sandbox.reading"));
-    // An automation written in plain words (D-066), as an entity of its own.
+    // An automation written in plain words (D-068), as an entity of its own.
     const session = draft ? this.plainSession : undefined;
     const revision = session?.revision;
     const played = draft
@@ -1191,7 +1194,7 @@ export class DomoTwinPanel extends LitElement {
   };
 
   /**
-   * Draws a draft's wires (D-066) once the sandbox's plan is drawn: a plan loaded after them
+   * Draws a draft's wires (D-068) once the sandbox's plan is drawn: a plan loaded after them
    * would forget them. Given up when the sandbox is left, or after a few minutes.
    */
   private async showDraftWires(entity: string): Promise<void> {
@@ -1211,7 +1214,7 @@ export class DomoTwinPanel extends LitElement {
     }
   }
 
-  /** Opens an automation in plain words (D-066): its module and texts, loaded the first time. */
+  /** Opens an automation in plain words (D-068): its module and texts, loaded the first time. */
   private readonly openPlain = async (): Promise<void> => {
     try {
       const { PlainSession } = await import("./plain-dialog");
@@ -1222,7 +1225,7 @@ export class DomoTwinPanel extends LitElement {
     }
   };
 
-  /** The draft played in the sandbox, beside the home's automations (D-066). */
+  /** The draft played in the sandbox, beside the home's automations (D-068). */
   private readonly playPlain = async (
     event: CustomEvent<{ entity: string; name: string; config: Config }>,
   ): Promise<void> => {
@@ -1232,7 +1235,7 @@ export class DomoTwinPanel extends LitElement {
     if (!this.sandbox) this.plainOpen = true;
   };
 
-  /** From the sandbox back to the draft it played (D-066). */
+  /** From the sandbox back to the draft it played (D-068). */
   private readonly backToPlain = (): void => {
     this.leaveDemo();
     if (!this.demoSwitch.home && this.plainSession) this.plainOpen = true;
@@ -3258,6 +3261,8 @@ export class DomoTwinPanel extends LitElement {
       .linkable=${admin}
       @domotwin-link-element=${this.onLinkElement}
       @domotwin-network-place=${this.onNetworkPlace}
+      .accessPoints=${this.settings?.access_points ?? NO_ACCESS_POINTS}
+      @domotwin-open-bluetooth=${this.openBluetooth}
       .roomTab=${true}
       @domotwin-room-open=${this.onRoomOpen}
     >
@@ -3574,7 +3579,7 @@ export class DomoTwinPanel extends LitElement {
               ${item("wifi-menu", mdiWifi, t.t("wifi.menu"), this.busy || this.wifi === undefined || this.sandbox !== undefined, this.openWifi)}
               ${item("config-history", mdiHistory, t.t("config_history.menu"), this.busy || this.sandbox !== undefined, this.openConfigHistory)}
               ${
-                // Where Home Assistant has an AI task, for administrators (D-066).
+                // Where Home Assistant has an AI task, for administrators (D-068).
                 plainWordsOffered(this._hass)
                   ? item(
                       "plain-words",
@@ -4021,7 +4026,7 @@ export class DomoTwinPanel extends LitElement {
   /**
    * Whether what the viewer may not see is known (D-039): the settings, the plan (or that there
    * is none), its links and the other storeys' rooms read. Until then nothing is named to an AI
-   * task (D-066).
+   * task (D-068).
    */
   private homeRead(): boolean {
     return (
@@ -4032,7 +4037,7 @@ export class DomoTwinPanel extends LitElement {
     );
   }
 
-  /** An automation in plain words (D-066), with what the viewer may not see left out of it. */
+  /** An automation in plain words (D-068), with what the viewer may not see left out of it. */
   private renderPlain(hass: HomeAssistant, session: PlainSession): TemplateResult {
     return html`<domotwin-plain
       .hass=${hass}

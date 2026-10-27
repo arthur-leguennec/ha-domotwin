@@ -24,6 +24,8 @@
 //   window.__move(person, room) moves someone (their room sensor, as the integration writes it)
 //   bluetooth=1 (DomoTwin's own Bluetooth locating: three fictional receivers, Alex's phone and
 //   keys followed, both in the kitchen, the keys left behind), bluetooth=none (no Bluetooth)
+//   radios=1 (the radio coverage, D-066: two of the receivers placed, the hall taught, two Wi-Fi
+//   devices reporting their signal, an access point in the kitchen's far corner)
 //   window.__show(request) sends a `domotwin.show` request to every screen
 //   private=<room>,<room> (private rooms, D-039, kept for nobody), privatefor=<person> (kept for
 //   that person instead), privatewhile=<entity> (private only while it is on), settingsdown=1
@@ -61,7 +63,7 @@
 //   Assistant's configuration API and `lovelace/config/save` put one back, read again on
 //   `domotwin/config_history/refresh`; window.__refuseConfig = "<message>" makes Home Assistant
 //   refuse)
-//   aitask=1 (D-066: Home Assistant's AI task, a fictional one that writes the automation asked
+//   aitask=1 (D-068: Home Assistant's AI task, a fictional one that writes the automation asked
 //   for in plain words from the demo apartment's entities; Home Assistant's actions, its check
 //   `validate_config` and the home zone counting who is home; window.__aiAnswer = <data> answers
 //   that instead, window.__aiHold (a promise) holds the answer back, window.__aiFail = "<message>"
@@ -92,7 +94,7 @@ const zha = params.get("zha") === "1";
 // Fictional automations (D-032): `automations=1` three of them, `automations=50` as many made up.
 const automationCount = Number(params.get("automations") ?? 0);
 const sandbox = params.get("sandbox") === "1";
-// Home Assistant's AI task (D-066), a fictional one.
+// Home Assistant's AI task (D-068), a fictional one.
 const aiTask = params.get("aitask") === "1";
 const AI_TASK = "ai_task.fictional_assistant";
 // Home Assistant's logbook and traces of a fictional evening (D-059).
@@ -946,7 +948,7 @@ function whyEvents(message) {
 }
 
 /**
- * What the fictional AI task writes (D-066): the automation of the roadmap's example from the
+ * What the fictional AI task writes (D-068): the automation of the roadmap's example from the
  * demo apartment's entities, in the request's language, or that automation changed (five minutes
  * before locking) when a change is asked.
  */
@@ -981,7 +983,7 @@ function fictionalAutomation(instructions) {
   };
 }
 
-/** Home Assistant's actions, by domain, for the domains the home has (D-066). */
+/** Home Assistant's actions, by domain, for the domains the home has (D-068). */
 function servicesOf(states) {
   const SERVICES = {
     light: ["turn_on", "turn_off", "toggle"],
@@ -1449,7 +1451,7 @@ const connection = {
         if (!aiTask) throw { code: "unknown_command", message: message.type };
         return { gen_data_entity_id: AI_TASK };
       case "call_service": {
-        // Home Assistant's AI task (D-066): the only service DomoTwin asks for a response of.
+        // Home Assistant's AI task (D-068): the only service DomoTwin asks for a response of.
         if (!aiTask || message.domain !== "ai_task" || message.service !== "generate_data") {
           throw { code: "unknown_command", message: message.type };
         }
@@ -1894,6 +1896,64 @@ if (bluetoothParam === "1") {
     home.entities[entity_id] = { entity_id, platform: "domotwin", translation_key: "located" };
   }
 }
+if (params.get("radios") === "1") {
+  // Where the locating places two of the receivers, and the hall it learned from the living
+  // room's (D-066).
+  const places = {
+    "AA:00:00:00:00:03": { storey: "storey-1", at: [260, 260], z: 120 },
+    "BB:00:00:00:00:01": { storey: "storey-1", at: [630, 483.3], z: 120 },
+  };
+  for (const receiver of store.locating.receivers) receiver.place = places[receiver.source] ?? null;
+  store.locating.heard = { hall: { "AA:00:00:00:00:03": { signal: -82, readings: 30 } } };
+  // The washing machine's plug reports its Wi-Fi signal (its device is placed at the washer by
+  // its power sensor), and so does a display in the kitchen's area.
+  const wifi = { device_class: "signal_strength", unit_of_measurement: "dBm" };
+  states["sensor.washer_plug_wifi_signal"] = {
+    entity_id: "sensor.washer_plug_wifi_signal",
+    state: "-77",
+    attributes: { ...wifi, friendly_name: "Washer plug WiFi signal" },
+  };
+  home.entities["sensor.washer_plug_wifi_signal"] = {
+    entity_id: "sensor.washer_plug_wifi_signal",
+    device_id: "dev-washer-plug",
+    platform: "esphome",
+    entity_category: "diagnostic",
+  };
+  home.entities["sensor.washing_machine_power"] = {
+    ...home.entities["sensor.washing_machine_power"],
+    device_id: "dev-washer-plug",
+  };
+  home.devices["dev-washer-plug"] = {
+    id: "dev-washer-plug",
+    area_id: "bathroom",
+    name: "Washer plug",
+  };
+  states["sensor.kitchen_display_rssi"] = {
+    entity_id: "sensor.kitchen_display_rssi",
+    state: "-49",
+    attributes: { ...wifi, friendly_name: "Kitchen display signal" },
+  };
+  home.entities["sensor.kitchen_display_rssi"] = {
+    entity_id: "sensor.kitchen_display_rssi",
+    area_id: "kitchen",
+    platform: "shelly",
+    entity_category: "diagnostic",
+  };
+  // A Zigbee device's signal: another radio's, never Wi-Fi.
+  states["sensor.garden_sensor_rssi"] = {
+    entity_id: "sensor.garden_sensor_rssi",
+    state: "-70",
+    attributes: { ...wifi, friendly_name: "Garden sensor WiFi signal" },
+  };
+  home.entities["sensor.garden_sensor_rssi"] = {
+    entity_id: "sensor.garden_sensor_rssi",
+    platform: "zha",
+    entity_category: "diagnostic",
+  };
+  store.settings.access_points = [
+    { storey: "storey-1", at: [800, 20], name: "Kitchen access point" },
+  ];
+}
 if (sunParam) {
   const [elevation, rising] = sunParam.split(",");
   states["sun.sun"] = {
@@ -1942,6 +2002,7 @@ let hass = {
     components: [
       "domotwin",
       ...(zha ? ["zha"] : []),
+      ...(bluetoothParam === "1" ? ["bluetooth"] : []),
       ...(voiceParam ? ["conversation", "assist_pipeline"] : []),
       ...(why ? ["logbook"] : []),
       ...(aiTask ? ["ai_task"] : []),
