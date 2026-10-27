@@ -126,12 +126,18 @@ function button(
   </button>`;
 }
 
-/** The state shown next to an entity's name. */
-function stateText(t: Translator, entity: HassEntity): string {
+/**
+ * The state shown next to an entity's name: as Home Assistant says it where it can, else in
+ * DomoTwin's words for the usual states (D-081), else as it is.
+ */
+function stateText(hass: HomeAssistant, t: Translator, entity: HassEntity): string {
   if (entity.state === "unavailable" || entity.state === "unknown")
     return t.t("controls.unavailable");
+  const said = hass.formatEntityState?.(entity);
+  if (said) return said;
   const unit = entity.attributes.unit_of_measurement;
-  return typeof unit === "string" ? `${entity.state} ${unit}` : entity.state;
+  if (typeof unit === "string") return `${entity.state} ${unit}`;
+  return t.state(entity.state) ?? entity.state;
 }
 
 /**
@@ -371,7 +377,7 @@ function controlRow(
       const locked = entity.state === "locked";
       return html`<div class="row" role="group" aria-label=${name}>
         ${head(
-          html`<span class="state">${stateText(t, entity)}</span> ${button(
+          html`<span class="state">${stateText(hass, t, entity)}</span> ${button(
               locked ? mdiLockOpenVariant : mdiLock,
               t.t(locked ? "controls.unlock" : "controls.lock"),
               () => {
@@ -392,7 +398,7 @@ function controlRow(
       return html`<div class="row" role="group" aria-label=${name}>
         ${head(
           html`<span class="state"
-              >${current !== undefined ? `${current}°` : stateText(t, entity)}</span
+              >${current !== undefined ? `${current}°` : stateText(hass, t, entity)}</span
             >
             ${
               target !== undefined
@@ -425,7 +431,7 @@ function controlRow(
       const vacuum = domain === "vacuum";
       return html`<div class="row" role="group" aria-label=${name}>
         ${head(
-          html`<span class="state">${stateText(t, entity)}</span>
+          html`<span class="state">${stateText(hass, t, entity)}</span>
             <span class="buttons">
               ${button(
                 mdiPlay,
@@ -486,7 +492,7 @@ function controlRow(
       </div>`;
     default:
       return html`<div class="row" role="group" aria-label=${name}>
-        ${head(html`<span class="state">${stateText(t, entity)}</span>`)}
+        ${head(html`<span class="state">${stateText(hass, t, entity)}</span>`)}
       </div>`;
   }
 }
@@ -586,12 +592,16 @@ export const rowStyles = css`
   }
   .head {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: 8px;
+    gap: 4px 8px;
     min-height: 40px;
+    /* A long name shortens, in any language, rather than push the row out of its card. */
+    min-width: 0;
   }
   .name {
-    flex: 1;
+    /* Its controls go under it rather than leave it a letter or two (D-081). */
+    flex: 1 1 7em;
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;

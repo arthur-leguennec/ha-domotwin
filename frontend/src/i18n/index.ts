@@ -254,6 +254,12 @@ export class Translator {
     return typeof text === "string" ? format(text, params) : key;
   }
 
+  /** A state's word (`locked`, `not_home`…) where DomoTwin has one, in the language or English. */
+  state(state: string): string | undefined {
+    const text = find(this.language, `states.${state}`) ?? find("en", `states.${state}`);
+    return typeof text === "string" ? text : undefined;
+  }
+
   /** Which way it is written: `rtl` for Arabic (unless it could not be loaded). */
   get dir(): "ltr" | "rtl" {
     return writtenAs(this.language);

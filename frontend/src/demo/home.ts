@@ -308,9 +308,10 @@ export class DemoHome implements MemoryHome {
       };
     }
     const floors: Record<string, HassFloorEntry> = {};
-    for (const storey of STOREYS) {
+    for (const [level, storey] of STOREYS.entries()) {
       const id = `${storey.info.id}_floor`;
-      floors[id] = { floor_id: id, name: say(storey.names, language) };
+      // Ordered by level, not by name: the upper floor is not first in Spanish (D-081).
+      floors[id] = { floor_id: id, name: say(storey.names, language), level };
     }
     this.configHistory = new DemoConfigHistory(Date.parse(this.time()), language, () =>
       Date.parse(this.time()),
