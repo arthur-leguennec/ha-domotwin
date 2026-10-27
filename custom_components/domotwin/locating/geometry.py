@@ -137,6 +137,11 @@ class Home:
         self._open: set[frozenset[str]] = set()
         self._stairs: list[tuple[int, Point, float]] = []
         self.pieces: dict[str, Spot] = {}
+        # Each piece's turn (degrees, the overlay's when it turned it) and the room it says it is
+        # in (the overlay's when it moved it there and that room is there, else the plan's), D-080.
+        self.turns: dict[str, float] = {}
+        self.piece_rooms: dict[str, str] = {}
+        said_rooms: dict[str, tuple[Any, Any]] = {}
         open_sides: list[tuple[int, str, Point, Point]] = []
         for index, storey in enumerate(storeys):
             self.storey_ids.append(str(storey.get("id", "")))
@@ -167,7 +172,7 @@ class Home:
                 if ends[0] is not None and ends[1] is not None and door.get("style") != "sealed":
                     doors.append((ends[0], ends[1]))
             self._doors.append(doors)
-            self._read_pieces(index, plan, layout)
+            said_rooms.update(self._read_pieces(index, plan, layout))
         # The rooms before the places outside around them, the smallest of those first (a deck
         # in the garden drawn round it).
         self._room_list = sorted(
@@ -198,12 +203,21 @@ class Home:
             [room for room in self._room_list if room.storey == k and not room.outside]
             for k in range(len(self.elevations))
         ]
+        for piece, said in said_rooms.items():
+            if named := next((r for r in said if isinstance(r, str) and r in self.rooms), None):
+                self.piece_rooms[piece] = named
         # The doors between two rooms (D-079: a step between them goes through one).
         self._door_pairs: dict[frozenset[str], list[tuple[Point, Point]]] = {}
         self.neighbours = self._link()
 
-    def _read_pieces(self, storey: int, plan: Mapping[str, Any], layout: Mapping[str, Any]) -> None:
-        """The pieces' centres, moved, lifted, removed or added by the overlay."""
+    def _read_pieces(
+        self, storey: int, plan: Mapping[str, Any], layout: Mapping[str, Any]
+    ) -> dict[str, tuple[Any, Any]]:
+        """The pieces' centres, moved, lifted, removed or added by the overlay.
+
+        Return the rooms each says it is in: the overlay's, the plan's.
+        """
+        said: dict[str, tuple[Any, Any]] = {}
         floor = self.elevations[storey]
         items: list[tuple[str, Mapping[str, Any]]] = [
             (item["id"], item) for item in _listed(plan, "items") if isinstance(item.get("id"), str)
@@ -229,10 +243,14 @@ class Home:
             lift = number(moved.get("lift"))
             lift = lift if lift is not None else number(item.get("lift")) or 0.0
             self.pieces[key] = Spot(storey, at[0], at[1], floor + lift + (height or 0.0) / 2)
+            turn = number(moved.get("rotation"))
+            self.turns[key] = turn if turn is not None else number(item.get("rotation")) or 0.0
+            said[key] = (moved.get("room"), item.get("room"))
             if item.get("kind") == STAIRS:
                 # How far from its middle it lands: half its length, the longer of its sides.
                 sides = [number(v) or 0.0 for v in size[:2]] if isinstance(size, list) else []
                 self._stairs.append((storey, at, max(sides, default=0.0) / 2))
+        return said
 
     def room_at(self, storey: int, p: Point) -> str | None:
         """The room a point of a storey is in."""
@@ -412,6 +430,10 @@ class Home:
     def doors_between(self, a: str, b: str) -> list[tuple[Point, Point]]:
         """The doors between two rooms (not the sealed ones), each from end to end."""
         return list(self._door_pairs.get(frozenset((a, b)), []))
+
+    def open_between(self, a: str, b: str) -> bool:
+        """Whether two rooms are joined by a side left open (or are two places outside)."""
+        return frozenset((a, b)) in self._open
 
     def open_sides(self, a: str, b: str) -> list[tuple[Point, Point]]:
         """The sides left open between two rooms (every side, between two places outside)."""

@@ -13,6 +13,7 @@ import { isHassError, type HomeAssistant } from "../ha/types";
 import { addMessages, translatorFor, type Translator } from "../i18n";
 import { iphoneEn, iphoneFr } from "../i18n/iphone";
 import { measuredEn, measuredFr } from "../i18n/measured";
+import { radarsEn, radarsFr } from "../i18n/radars";
 import {
   deviceId,
   kindOf,
@@ -41,6 +42,7 @@ import { baseStyles } from "./styles";
 
 addMessages({ en: measuredEn, fr: measuredFr });
 addMessages({ en: iphoneEn, fr: iphoneFr });
+addMessages({ en: radarsEn, fr: radarsFr });
 
 /** The guide's part on an iPhone's identity key (`docs/bluetooth.md`). */
 const KEY_GUIDE =
@@ -59,6 +61,8 @@ interface Draft {
   receivers: Record<string, { room?: string; piece?: string }>;
   devices: Record<string, LocatedSettings>;
   learn: boolean;
+  /** The presence radars mirrored (D-080), by piece. */
+  mirrored: Set<string>;
 }
 
 export class DomoTwinBluetoothSettings extends LitElement {
@@ -258,7 +262,8 @@ export class DomoTwinBluetoothSettings extends LitElement {
       const devices = Object.fromEntries(
         Object.entries(settings.devices).map(([id, device]) => [id, settingsOf(device)]),
       );
-      this.draft = { receivers, devices, learn: settings.learn };
+      const mirrored = new Set((settings.radars ?? []).filter((r) => r.mirror).map((r) => r.piece));
+      this.draft = { receivers, devices, learn: settings.learn, mirrored };
     }
   }
 
@@ -437,11 +442,19 @@ export class DomoTwinBluetoothSettings extends LitElement {
     this.busy = true;
     this.error = undefined;
     try {
+      // Each radar listed, mirrored or not; an integration before the radars (D-080) gives none
+      // and takes none.
+      const radars = this.settings?.radars
+        ? Object.fromEntries(
+            this.settings.radars.map((r) => [r.piece, { mirror: draft.mirrored.has(r.piece) }]),
+          )
+        : undefined;
       await DomoTwinClient.for(hass).saveLocating(
         draft.receivers,
         Object.fromEntries(Object.entries(draft.devices).map(([id, d]) => [id, settingsOf(d)])),
         draft.learn,
         this.settings?.revision,
+        radars,
       );
       fire(this, "domotwin-saved", undefined);
       this.close();
@@ -529,9 +542,10 @@ export class DomoTwinBluetoothSettings extends LitElement {
               ${t.t(`bluetooth.${settings.status}`)}
             </p>`
       }
-      ${this.renderReceivers(settings, draft)} ${this.renderDevices(hass, settings, draft)}
-      ${this.renderCandidates(settings, draft)} ${this.renderTeach(settings, draft)}
-      ${this.renderLearned(settings, draft)} ${this.renderMeasure(draft)}
+      ${this.renderReceivers(settings, draft)} ${this.renderRadars(settings, draft)}
+      ${this.renderDevices(hass, settings, draft)} ${this.renderCandidates(settings, draft)}
+      ${this.renderTeach(settings, draft)} ${this.renderLearned(settings, draft)}
+      ${this.renderMeasure(draft)}
       ${this.error ? html`<p class="error" role="alert">${this.error}</p>` : nothing}
       <div class="footer">
         <button
@@ -625,6 +639,51 @@ export class DomoTwinBluetoothSettings extends LitElement {
       });
     }
     return t.t("bluetooth.known_address", { address: match.address });
+  }
+
+  /** The presence radars on the plans (D-080): where, what each says and sees, mirrored or not. */
+  private renderRadars(settings: LocatingSettings, draft: Draft): TemplateResult | typeof nothing {
+    const radars = settings.radars;
+    if (!radars) return nothing;
+    const t = this.t;
+    const rooms = new Map(settings.rooms.map((room) => [room.id, room.name]));
+    return html`<h3>${t.t("radars.title")}</h3>
+      <p class="hint">${t.t("radars.hint")}</p>
+      ${radars.length === 0 ? html`<p class="hint">${t.t("radars.none")}</p>` : nothing}
+      ${radars.map((radar) => {
+        const room = radar.room ? (rooms.get(radar.room) ?? radar.room) : undefined;
+        // In no room, it reads nothing: that is said first.
+        let now = room ? t.t("radars.not_working") : "";
+        if (radar.working && room) {
+          now = radar.seeing ? t.tp("radars.seeing", radar.seeing) : t.t("radars.nobody");
+        }
+        return html`<div class="item" data-radar=${radar.piece}>
+          <strong>${radar.name}</strong>
+          <small>
+            ${room ? t.t("radars.in_room", { room }) : t.t("radars.no_room")} ·
+            ${t.t(radar.kind === "targets" ? "radars.targets" : "radars.distance")}
+            ${now ? html` · ${now}` : nothing}
+          </small>
+          ${
+            radar.kind === "targets"
+              ? html`<label class="row">
+                  <input
+                    type="checkbox"
+                    data-testid="radar-mirror"
+                    .checked=${draft.mirrored.has(radar.piece)}
+                    @change=${(event: Event) => {
+                      const mirrored = new Set(draft.mirrored);
+                      if ((event.target as HTMLInputElement).checked) mirrored.add(radar.piece);
+                      else mirrored.delete(radar.piece);
+                      this.draft = { ...draft, mirrored };
+                    }}
+                  />
+                  ${t.t("radars.mirror")}
+                </label>`
+              : nothing
+          }
+        </div>`;
+      })}`;
   }
 
   private renderDevices(

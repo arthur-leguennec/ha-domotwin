@@ -32,6 +32,7 @@ from .const import (
     MAX_PLAN_BYTES,
     MAX_PLAN_REACH,
     MAX_PRIVATE_ROOMS,
+    MAX_RADARS,
     MAX_RECEIVERS,
     MAX_RIGHTS_ENTITIES,
     MAX_RIGHTS_PEOPLE,
@@ -828,6 +829,24 @@ def _validate_receivers(receivers: Any) -> dict[str, Any]:
             _check_id(value, f"a receiver's {key}", "invalid_locating")
         placed[source.upper()] = dict(place)
     return placed
+
+
+def validate_radars(radars: Any) -> dict[str, Any]:
+    """Check the presence radars' own settings (D-080): `{piece: {"mirror"?: bool}}`.
+
+    Each radar said of is mirrored or not (not said: not).
+    """
+    if not isinstance(radars, dict) or len(radars) > MAX_RADARS:
+        raise _locating_error(f"at most {MAX_RADARS} radars")
+    found: dict[str, Any] = {}
+    for piece, settings in radars.items():
+        _check_id(piece, "a radar's piece", "invalid_locating")
+        if not isinstance(settings, dict) or set(settings) - {"mirror"}:
+            raise _locating_error("a radar is `mirror`ed or not")
+        if "mirror" in settings and not isinstance(settings["mirror"], bool):
+            raise _locating_error("`mirror` must be true or false")
+        found[piece] = {"mirror": settings.get("mirror") is True}
+    return found
 
 
 def _validate_located(device: Any, settings: Any) -> dict[str, Any]:

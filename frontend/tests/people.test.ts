@@ -10,6 +10,9 @@ import {
   peopleByStorey,
   peopleJson,
   peopleShown,
+  SEEN_COLOR,
+  SEEN_SENSOR,
+  seenShown,
   type PeopleSettings,
 } from "../src/live/people";
 
@@ -133,6 +136,50 @@ describe("people (D-034)", () => {
     expect(ownHidden(settings, hass())).toBeUndefined();
     expect(ownHidden({ ...settings, hidden: ["person.alex"] }, hass())).toBe("person.alex");
     expect(ownHidden({ ...settings, hidden: ["person.lou"] }, hass())).toBeUndefined();
+  });
+
+  it("shows the people the radars see whom no device names (D-080)", () => {
+    const seen = hass();
+    const sensor = {
+      entity_id: SEEN_SENSOR,
+      state: "3",
+      attributes: {
+        seen: [
+          { id: 4, room_id: "living", storey_id: "ground", x: 1.95, y: 2.03 },
+          { id: 7, room_id: "bedroom", storey_id: "ground", x: 6.1, y: 5.0 },
+          // Not what the sensor says: left out.
+          { id: "8", room_id: "living", x: 1, y: 1 },
+          { id: 9, room_id: "living", x: "1", y: 1 },
+          null,
+        ],
+      },
+      last_changed: "",
+      last_updated: "",
+    };
+    seen.states[SEEN_SENSOR] = sensor;
+    const shown = seenShown(settings, seen);
+    expect(shown).toEqual([
+      { id: "seen.4", room: "living", at: [195, 203] },
+      { id: "seen.7", room: "bedroom", at: [610, 500] },
+    ]);
+    // Not in a room the viewer may not see; to nobody but administrators when so shown.
+    expect(seenShown(settings, seen, new Set(["bedroom"])).map((s) => s.id)).toEqual(["seen.4"]);
+    const viewer: HomeAssistant = {
+      ...seen,
+      user: { id: "user-sam", name: "Sam", is_admin: false },
+    };
+    expect(seenShown({ ...settings, shown: "admins" }, viewer)).toEqual([]);
+    expect(seenShown(settings, viewer)).toHaveLength(2);
+    expect(seenShown(undefined, seen)).toEqual([]);
+    expect(seenShown(settings, hass())).toEqual([]);
+    // As the settings name its sensor (renamed); none when not shown to the viewer.
+    const renamed: HomeAssistant = { ...seen, states: { "sensor.radar_people": sensor } };
+    expect(seenShown({ ...settings, seen: "sensor.radar_people" }, renamed)).toHaveLength(2);
+    expect(seenShown({ ...settings, seen: null }, seen)).toEqual([]);
+    // Drawn as figures of no one's colour.
+    expect(JSON.parse(peopleJson([], "pin", shown.slice(0, 1)))).toEqual([
+      { id: "seen.4", room: "living", color: SEEN_COLOR, look: "pin", at: [195, 203] },
+    ]);
   });
 
   it("shows nobody to others when shown to administrators only", () => {

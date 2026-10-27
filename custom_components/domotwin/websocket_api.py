@@ -16,7 +16,7 @@ from . import choices, config_history, garden, guests, schedules, screens, voice
 from .compat import vol
 from .const import DOMAIN, SIGNAL_SHOW, SIGNAL_UPDATED, TEACH_SECONDS, VERSION
 from .data import DATA_KEY, LOCATOR_KEY, PEOPLE_KEY
-from .locator import PRIVATE_BLE, KeyNotTakenError, Locator
+from .locator import PRIVATE_BLE, KeyNotTakenError, Locator, seen_unique_id
 from .models import async_remove_unused
 from .people import color_of
 from .storage import (
@@ -37,6 +37,7 @@ from .validation import (
     validate_models,
     validate_people,
     validate_plan,
+    validate_radars,
     validate_settings,
     validate_storey_count,
     validate_storey_name,
@@ -537,6 +538,18 @@ def _sensor_of(hass: HomeAssistant, person: str) -> str:
     return f"sensor.{DOMAIN}_{person.split('.', 1)[1]}_room"
 
 
+def _seen_sensor(hass: HomeAssistant) -> str:
+    """The sensor of the people the presence radars see (D-080), as the user may have renamed it.
+
+    Its own id while no radar made it: it is made with it.
+    """
+    registry = er.async_get(hass)
+    for entry in hass.config_entries.async_entries(DOMAIN):
+        if found := registry.async_get_entity_id("sensor", DOMAIN, seen_unique_id(entry.entry_id)):
+            return found
+    return f"sensor.{DOMAIN}_people_seen"
+
+
 @websocket_api.websocket_command(
     {
         vol.Required("type"): "domotwin/people/get",
@@ -557,7 +570,8 @@ def ws_people_get(
         return
     config = people.config
     # Shown to administrators only: others learn nobody (not even who is placed).
-    shown_to = config["people"] if connection.user.is_admin or config["shown"] != "admins" else {}
+    shown = connection.user.is_admin or config["shown"] != "admins"
+    shown_to = config["people"] if shown else {}
     result: dict[str, Any] = {
         "revision": people.revision,
         "shown": config["shown"],
@@ -572,6 +586,8 @@ def ws_people_get(
             }
             for person, settings in shown_to.items()
         },
+        # Those the radars see whom no device names (D-080): where the people are shown only.
+        "seen": _seen_sensor(hass) if shown else None,
     }
     if msg["candidates"] and connection.user.is_admin:
         result["candidates"] = people.candidates()
@@ -710,6 +726,7 @@ def ws_locating_get(
             "devices": devices,
             "learned": locator.learned_rooms(),
             "heard": locator.heard(),
+            "radars": locator.radars_shown(),
             "bermuda": locator.bermuda_sensors(),
             "rooms": [
                 {"id": room.id, "name": room.name, "storey": room.storey_name}
@@ -728,6 +745,7 @@ def ws_locating_get(
         vol.Required("receivers"): dict,
         vol.Required("devices"): dict,
         vol.Optional("learn"): bool,
+        vol.Optional("radars"): dict,
         vol.Optional("expected_revision"): vol.All(int, vol.Range(min=0)),
     }
 )
@@ -745,6 +763,7 @@ async def ws_locating_save(
         return
     try:
         receivers, devices = validate_locating(msg["receivers"], msg["devices"], msg.get("learn"))
+        radars = validate_radars(msg["radars"]) if "radars" in msg else None
     except InvalidPayloadError as err:
         connection.send_error(msg["id"], err.code, str(err))
         return
@@ -759,7 +778,7 @@ async def ws_locating_save(
             return
     try:
         revision = await locator.async_save(
-            receivers, devices, msg.get("learn"), msg.get("expected_revision")
+            receivers, devices, msg.get("learn"), msg.get("expected_revision"), radars
         )
     except RevisionConflictError as err:
         connection.send_error(msg["id"], "revision_conflict", str(err))

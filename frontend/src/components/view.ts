@@ -149,7 +149,9 @@ import {
   ownHidden,
   peopleShown,
   type PeopleSettings,
+  seenShown,
   type PersonShown,
+  type SeenShown,
 } from "../live/people";
 import { robotDocks, robotsShown, type RobotDock } from "../live/robots";
 import { grassLength, lastMown, lawnsShown, type Garden } from "../live/lawn";
@@ -937,6 +939,8 @@ export class DomoTwinView extends LitElement {
   /** The people shown (D-034), and where their names go (device pixels). */
   protected shownPeople: PersonShown[] = [];
   private shownPeopleText = "[]";
+  /** The people the presence radars see whom no device names (D-080). */
+  private shownSeen: SeenShown[] = [];
   /** The devices followed by Bluetooth (D-035), for the room panels and the people's sheets. */
   protected located: LocatedShown[] = [];
   private locatedText = "[]";
@@ -3961,6 +3965,8 @@ export class DomoTwinView extends LitElement {
       this.shownPeopleText = text;
       this.shownPeople = people;
     }
+    this.shownSeen =
+      hass && this.options.people !== false ? seenShown(this.people, hass, this.closed) : [];
     // Someone's devices only where they could be shown: never without the people's settings (not
     // loaded, an older integration), or on a card without people.
     const settings = this.people;
@@ -4024,8 +4030,9 @@ export class DomoTwinView extends LitElement {
     const engine = this.engine;
     if (!engine) return;
     // Nobody stands in the way while the plan, its pieces or its links are edited.
-    const shown = this.editingAny || this.linking ? [] : this.shownPeople;
-    const json = peopleJson(shown, this.people?.look ?? "figure");
+    const editing = this.editingAny || this.linking;
+    const shown = editing ? [] : this.shownPeople;
+    const json = peopleJson(shown, this.people?.look ?? "figure", editing ? [] : this.shownSeen);
     if (this.peopleSent?.engine === engine && this.peopleSent.json === json) return;
     this.peopleSent = { engine, json };
     engine.setPeople(json);

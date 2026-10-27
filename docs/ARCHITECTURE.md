@@ -213,8 +213,11 @@ every reader returns `Result` with a stable error code that the frontend transla
    seconds, weighs what each receiver heard against what the plan says it should hear in each room
    and what was learned (`locating/geometry.py`, `radio.py`), along the doors and to another
    storey by its stairs only (`locating/filter.py`); around the room found, a cloud of half-metre
-   cells (`locating/cells.py`, `cloud.py`, D-079) says where in it. Each device's room and spot is
-   a sensor of its own, a source of its owner's, whose figure stands at the spot. On
+   cells (`locating/cells.py`, `cloud.py`, D-079) says where in it. The presence radars linked to
+   pieces of the plans (`locating/radar.py`, D-080), read a second after they change, turn their
+   targets into the plan's coordinates, weigh the rooms and the cells, and name the person each
+   is; the others are someone. Each device's room and spot is a sensor of its own, a source of its
+   owner's, whose figure stands at the spot. On
    the same tick, `locating/measure.py` counts how steady and how right each device's room is,
    and Bermuda's area beside it where one is paired (D-073).
 6. **Show.** The `domotwin.show` action (`services.py`, D-029), run by a script, an automation or
@@ -485,6 +488,9 @@ unless the pass opens from anywhere. Refusals are `{code, starts?, ends?}`: `unk
   not recorded) in attributes (`sensor.py`, `locator.py`).
 - `binary_sensor.domotwin_<device>_left_behind` (D-035), one per device with an owner: on while it
   is heard at home and its owner has been away two minutes (`binary_sensor.py`).
+- `sensor.domotwin_people_seen` (D-080), while a presence radar is on the plans: how many people
+  the radars see; in its `seen` attribute (not recorded) those no device names, their room and
+  place; nothing of a private room (`sensor.py`, `locator.py`).
 
 ## Actions
 

@@ -394,9 +394,12 @@ export class DomoTwinClient {
     devices: Record<string, LocatedSettings>,
     learn: boolean,
     expectedRevision?: number,
+    radars?: Record<string, { mirror: boolean }>,
   ): Promise<number> {
     const message: HassMessage = { type: "domotwin/locating/save", receivers, devices, learn };
     if (expectedRevision !== undefined) message.expected_revision = expectedRevision;
+    // The presence radars' own settings (D-080), only when there are some to say.
+    if (radars !== undefined) message.radars = radars;
     const result = await this.connection.sendMessagePromise<{ revision: number }>(message);
     this.people = undefined;
     return result.revision;

@@ -88,6 +88,7 @@ async def async_get_config_entry_diagnostics(
     # The Bluetooth locating counted (D-035): never addresses, keys, names or rooms.
     if (locator := hass.data.get(LOCATOR_KEY)) is not None:
         devices = locator.settings["devices"].values()
+        radars = locator.radars_shown()
         diagnostics["locating"] = {
             "status": locator.status(),
             "receivers": len(locator.receivers_now()),
@@ -104,6 +105,13 @@ async def async_get_config_entry_diagnostics(
             "located": sum(1 for found in locator.located.values() if found.room is not None),
             "rooms_learned": len(locator.learned_rooms()),
             "learn": locator.settings.get("learn", True),
+            # The presence radars (D-080): how many, of which kind, working; people seen now.
+            "radars": {
+                kind: sum(1 for r in radars if r["kind"] == kind)
+                for kind in ("targets", "distance")
+            },
+            "radars_working": len(locator.radar.sight.radars),
+            "people_seen": locator.radar.count,
             # How well the rooms are found (M41): figures only, the devices by number.
             "measured": {
                 "since": locator.measure.started.isoformat(),

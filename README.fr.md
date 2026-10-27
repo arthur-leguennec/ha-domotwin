@@ -219,7 +219,9 @@ Local, rapide, Rust + WebAssembly.</p>
   signalées ; « où sont mes clés ? » à la voix. La justesse des pièces trouvées est mesurée, les
   chiffres de Bermuda à côté là où il tourne, et se copie en tableau à partager. La clé d’identité
   d’un iPhone, lue sans Mac par un ESP32 en dix minutes, se colle dans DomoTwin telle que l’outil la
-  donne. Voir [la localisation
+  donne. Les radars de présence (un LD2450, un Everything Presence Lite, un LD2410) placés sur le
+  plan s’y ajoutent : le Bluetooth dit qui, le radar dit où, au demi-mètre et vite, et toute autre
+  personne est quelqu’un, une silhouette grise. Voir [la localisation
   Bluetooth](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/bluetooth.md) (en
   anglais).
 - **La couverture radio.** Où le prochain proxy Bluetooth, routeur Zigbee ou point d’accès Wi-Fi

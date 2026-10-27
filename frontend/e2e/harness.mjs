@@ -26,6 +26,8 @@
 //   window.__move(person, room) moves someone (their room sensor, as the integration writes it)
 //   bluetooth=1 (DomoTwin's own Bluetooth locating: three fictional receivers, Alex's phone and
 //   keys followed, both in the kitchen, the keys left behind), bluetooth=none (no Bluetooth)
+//   radars=1 (presence radars, D-080: the living room's bookcase seeing someone no device names,
+//   the hall's distance radar not working)
 //   radios=1 (the radio coverage, D-066: two of the receivers placed, the hall taught, two Wi-Fi
 //   devices reporting their signal, an access point in the kitchen's far corner)
 //   window.__show(request) sends a `domotwin.show` request to every screen
@@ -182,6 +184,7 @@ const PEOPLE = {
 // Bluetooth locating (D-035): fictional receivers and devices, their room sensors as the
 // integration writes them.
 const bluetoothParam = params.get("bluetooth");
+const radarsParam = params.get("radars") === "1";
 const LOCATED = {
   alex_phone: {
     name: "Alex's phone",
@@ -429,6 +432,31 @@ store.locating = {
   learned: {},
   // Bermuda's area sensors (M41): a fictional phone's.
   bermuda: bluetoothParam === "1" ? ["sensor.alex_iphone_area"] : [],
+  // The presence radars (D-080): an integration before them gives none.
+  ...(radarsParam
+    ? {
+        radars: [
+          {
+            piece: "bookcase",
+            name: "Bookcase",
+            room: "living",
+            kind: "targets",
+            working: true,
+            seeing: 1,
+            mirror: false,
+          },
+          {
+            piece: "shoe-cabinet",
+            name: "Shoe cabinet",
+            room: "hall",
+            kind: "distance",
+            working: false,
+            seeing: 0,
+            mirror: false,
+          },
+        ],
+      }
+    : {}),
   rooms: [
     { id: "living", name: "Living room", storey: "" },
     { id: "kitchen", name: "Kitchen", storey: "" },
@@ -2210,6 +2238,17 @@ if (peopleParam === "1") {
       attributes: { friendly_name: `${person.name.split(" ")[0]}'s phone area` },
     };
   }
+}
+if (radarsParam) {
+  // Someone the bookcase's radar sees in the living room, whom no device names (D-080).
+  states["sensor.domotwin_people_seen"] = {
+    entity_id: "sensor.domotwin_people_seen",
+    state: "1",
+    attributes: {
+      friendly_name: "DomoTwin People seen",
+      seen: [{ id: 0, room_id: "living", storey_id: "", x: 1.95, y: 2.03 }],
+    },
+  };
 }
 if (bluetoothParam === "1") {
   for (const [id, device] of Object.entries(LOCATED)) {

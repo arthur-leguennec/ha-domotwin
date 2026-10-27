@@ -121,6 +121,8 @@ export interface HarnessOptions {
   /** The radio coverage's fictional radios (D-066): receivers placed, Wi-Fi signals, an access
    * point. */
   radios?: boolean;
+  /** Presence radars (D-080): one seeing someone no device names, one not working. */
+  radars?: boolean;
   /** Private rooms (D-039): kept for nobody, or for `privateFor`, maybe only while an entity is
    * on. */
   private?: string[];
@@ -226,6 +228,7 @@ export async function openHarness(page: Page, options: HarnessOptions = {}): Pro
   if (options.peopleLook) params.set("peoplelook", options.peopleLook);
   if (options.bluetooth) params.set("bluetooth", options.bluetooth === true ? "1" : "none");
   if (options.radios) params.set("radios", "1");
+  if (options.radars) params.set("radars", "1");
   if (options.private) params.set("private", options.private.join(","));
   if (options.privateFor) params.set("privatefor", options.privateFor);
   if (options.privateWhile) params.set("privatewhile", options.privateWhile);

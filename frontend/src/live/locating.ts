@@ -69,6 +69,24 @@ export interface LocatingSettings {
   rooms: { id: string; name: string; storey: string }[];
   /** Bermuda's area sensors, to measure beside DomoTwin's rooms (M41). */
   bermuda?: string[];
+  /** The presence radars on the plans (D-080); not given by an integration before them. */
+  radars?: RadarInfo[];
+}
+
+/** A presence radar on the plans (D-080): the piece linked to it, what it says, what it sees. */
+export interface RadarInfo {
+  piece: string;
+  name: string;
+  /** The room it looks into; null when it stands in none. */
+  room: string | null;
+  /** Where its targets are, or how far its target is. */
+  kind: "targets" | "distance";
+  /** Some of its entities say something now. */
+  working: boolean;
+  /** How many people it sees now. */
+  seeing: number;
+  /** It counts its targets across the other way round. */
+  mirror: boolean;
 }
 
 /** A device that may be followed, heard now or known to Home Assistant. */
