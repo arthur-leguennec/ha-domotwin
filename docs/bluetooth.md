@@ -51,9 +51,9 @@ count most, both outside DomoTwin:
   and its own adapter scan: **Auto** by default (in the ESPHome integration's **Configure**, and
   under **Settings › Bluetooth** for the adapter). Leave it there.
 
-What it changes: a receiver that listens most of the time hears a phone several times a second rather
-than now and then, so DomoTwin weighs each device on many readings, not on one or two, and the
-room told changes less when someone stands still.
+What it changes: a receiver that listens most of the time hears a phone several times a second
+rather than now and then, so DomoTwin weighs each device on many readings, not on one or two, and
+the room told changes less when someone stands still.
 
 ## What to expect
 
