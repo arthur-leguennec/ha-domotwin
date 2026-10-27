@@ -59,7 +59,7 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M35       | Automations in plain words, played in the sandbox first    | ✅     |
 | M34       | Per-person rights: what DomoTwin shows each one            | ✅     |
 | M40       | The weather around the home, in 3D                         | ✅     |
-| M41       | Locating measured, next to Bermuda's on the same days      | ⏳     |
+| M41       | Locating measured, next to Bermuda's on the same days      | ✅     |
 | M45       | An iPhone's key, without a Mac: the ways to get it         | ⏳     |
 | M26       | The wall screen: a screen saver, a layout per device       | ⏳     |
 | M22       | A first launch in five minutes                             | ⏳     |
@@ -1662,6 +1662,32 @@ the apartment, the rain outside an apartment, on the roof of a house (D-065, D-0
   (pytest); rain, snow, hail and fog drawn and still, an entity that says nothing, the card's
   option, the settings' choice shown as it is chosen and saved, in French (Playwright).
 
+## M41, locating measured
+
+Before any new locating feature (D-065): how well DomoTwin finds rooms, in figures, with Bermuda's
+beside (D-073, [`bluetooth.md`](bluetooth.md)).
+
+- ✅ **Counted every two seconds** by the integration, for each device followed: hours followed,
+  room changes and storey changes per hour, stays shorter than 30 seconds, the share of the time
+  in no room. Counters only; kept with what is learned, across restarts, until started again.
+- ✅ **Bermuda beside**: each device paired by hand with Bermuda's area sensor of the same device,
+  counted the same way on the same ticks, DomoTwin's rooms counted by area beside it to compare
+  alike, and how often the two say the same area.
+- ✅ **A witness**: while one person alone is home and one room alone has its presence sensor on,
+  their phones and watches are taken to be there; the share of that time each way was right.
+- ✅ **Shown as figures only**: a small table per device in the Bluetooth settings, DomoTwin's and
+  Bermuda's columns; *Copy as a table* gives a Markdown table, the devices numbered, for the
+  guide; the diagnostics carry the same, without the devices' ids.
+- ✅ Tests: the tallies (changes between known rooms only, storeys, flickers, time in no room, the
+  rooms settling, by area, pauses, devices forgotten, kept and read back, what is wrong read as
+  nothing), the witness and Bermuda side by side, the pairing checked (Bermuda's, one device's),
+  saved within ten minutes, the diagnostics without names (pytest); the copied table, numbered and
+  sorted, the texts in both languages (vitest); the figures shown, copied, a device paired and
+  saved, started again once asked, in French (Playwright).
+
+Measured at the end of M41: see [`PERFORMANCE.md`](PERFORMANCE.md). Left for the maintainer: the
+figures of a real home, with Bermuda's, published in [`bluetooth.md`](bluetooth.md).
+
 ## Then, from 0.4.0 to 0.5.0
 
 Planned in D-056, with D-065's additions: the sandbox first, built during the two weeks of use since
@@ -1684,13 +1710,12 @@ before its milestone starts, which goes on with what needs no answer.
   off it; a storm's flashes, fog, an overcast light, the wind slanting what falls. Drawn by the
   engine, light on a phone, still with reduced motion, fewer particles in Eco; a card's `weather`
   option, the entity chosen in the settings.
-- ⏳ **M41, locating measured** (D-065), before any new locating feature: a diagnostic for
-  administrators that records, for each device followed, its room changes per hour, its storey
-  changes per hour and its time in "unknown", and, where Bermuda is installed, the same figures
-  from Bermuda's area sensors for the same devices over the same hours. Shown in the Bluetooth
-  settings and in the diagnostics, as figures only: no addresses, no names. The maintainer runs it
-  at home and the figures are published in `docs/bluetooth.md`, as they are, whichever way they
-  fall. Small, so it comes soon after 0.4.0.
+- ✅ **M41, locating measured** (D-065, D-073, above), before any new locating feature: for each
+  device followed, its room changes and storey changes per hour, its flickers and its time in no
+  room, and, while a presence sensor alone says where its owner is, how often its room is right;
+  Bermuda's figures beside, from the same device's area sensor over the same hours. Shown in the
+  Bluetooth settings and in the diagnostics, as figures only. The maintainer's figures go in
+  `docs/bluetooth.md` as they fall.
 - ⏳ **M45, an iPhone's key without a Mac** (D-065): in the Bluetooth settings, for an iPhone or an
   Apple Watch, the ways to get its identity key: the Mac's Keychain; an ESP32 flashed for ten
   minutes with an existing tool, irk-capture (an ESPHome package, MIT, explained in Home Assistant's

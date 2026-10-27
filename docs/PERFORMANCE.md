@@ -1234,3 +1234,17 @@ CPU time of a frame, median and 95th percentile, and the interval between frames
 The CPU's part of a frame does not change; the software GPU keeps up with every frame in every
 case. The 95th percentile of the CPU time moves by a few milliseconds from run to run on a shared
 core.
+
+### M41 (locating measured)
+
+Bundle: the first load is **545.2 kB gzipped** of 1 200 kB (+0.2 kB: the client's two commands
+and the pairing kept with a device). The measurements' texts and tables come with the Bluetooth
+settings, loaded when opened, which grow by 2.8 kB gzipped (7.1 kB): the figures' tables, their
+texts in both languages, the pairing with Bermuda and asking before starting again.
+
+The integration counts on the locating's tick, every two seconds: a tally per device and per way,
+no list of rooms or times. On a 2.1 GHz Xeon core of the CI's kind (the mean of 3 000 ticks), the
+measurements add about **0.12 ms** to a tick for 30 devices (the most followed) each paired with
+Bermuda, whether Bermuda's sensors give their area's id or its name (the areas' names are indexed
+when the plan or the areas change); the figures take about 0.15 ms when asked for. They add about
+470 bytes a device to `domotwin.locating_learned`, written ten minutes after they change at most.

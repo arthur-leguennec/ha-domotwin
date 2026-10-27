@@ -20,9 +20,9 @@ Local, fast, Rust + WebAssembly.</p>
 > vacuum maps, Floorplanner, mesh scans), the radio coverage, guest passes, each person's rights,
 > safety (the cameras, the doorbell, the alarm, the alerts on every tab), each room's graphs with
 > Home Assistant's Energy page a tab away, automations in plain words, played in the sandbox before
-> they are saved, and the weather around the home, and DomoTwin joined Home Assistant's own
-> Overview; the wall screen comes next, towards 0.5.0. The submission to HACS's default list waits
-> on measurements on real devices.
+> they are saved, the weather around the home and how well the rooms are found, measured beside
+> Bermuda, and DomoTwin joined Home Assistant's own Overview; the wall screen comes next, towards
+> 0.5.0. The submission to HACS's default list waits on measurements on real devices.
 
 ## What sets it apart
 
@@ -166,7 +166,8 @@ Local, fast, Rust + WebAssembly.</p>
   from what Home Assistant's Bluetooth receivers hear (its adapter, ESPHome proxies, Shelly
   devices). It starts from the plan (distances, walls, doors, floors), so it works from the first
   minute, and learns as rooms are taught and presence sensors agree. Phones place their owners;
-  keys left behind are told; "where are my keys?" by voice. See [Bluetooth
+  keys left behind are told; "where are my keys?" by voice. How well it finds rooms is measured,
+  Bermuda's figures beside where it runs, and copied as a table to share. See [Bluetooth
   locating](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/bluetooth.md).
 - **Radio coverage.** Where the next Bluetooth proxy, Zigbee router or Wi-Fi access point helps
   most: each room coloured by how well your receivers, your mesh or your access points reach it,
