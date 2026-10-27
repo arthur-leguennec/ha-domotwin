@@ -142,8 +142,10 @@ every reader returns `Result` with a stable error code that the frontend transla
   `storeyLabels` and `storeyPicture`, for every storey at once), `setBindings`, `setStates`, `highlight`,
   `orbit`, `pan`, `zoom`, `setPlanView`, `overview`, `focusElement`, `views`, `showView`, `pick`,
   `screenPoint`, `stats`, `frame`, walking (`setWalk`, `setWalkVelocity`, `walkTo`) and the kiosk's
-  `setAutoOrbit`, for 3D files `modelFiles` (what to fetch) and `setModelMesh`, and `setWeather`
-  (a condition, the wind's speed and bearing, the home's north) with its `weather` getter.
+  `setAutoOrbit`, for 3D files `modelFiles` (what to fetch) and `setModelMesh`, `setWeather` (a
+  condition, the wind's speed and bearing, the home's north) with its `weather` getter, and for the
+  catalogue `editCatalogue` and `piecePicture`, a piece of the library drawn alone by an engine of
+  its own (D-074).
 - In the frontend, `src/gestures.ts` turns pointer events into drags, pans, pinches, taps and long
   presses, and `<domotwin-view>` applies them, runs the actions and draws the toolbar.
 
@@ -385,7 +387,7 @@ when the integration is removed.
 | `domotwin/locating/candidates` | admin | –                                        | `candidates` (`[{match, name, rssi?}]`) |
 | `domotwin/locating/teach` | admin | `device`, `room`, `seconds?` (10–120, 30)     | `readings`, `receivers`          |
 | `domotwin/locating/forget` | admin | `room?` (every room without one)             | `forgotten`                      |
-| `domotwin/locating/add_key` | admin | `key` (80 characters at most: hex, `irk:` and hex, or a Mac's base64) | `entry`, `title`, `named` (the title names the device, not an address), `added` (D-074; the key is handed to Private BLE Device and never sent back) |
+| `domotwin/locating/add_key` | admin | `key` (80 characters at most: hex, `irk:` and hex, or a Mac's base64) | `entry`, `title`, `named` (the title names the device, not an address), `added` (D-075; the key is handed to Private BLE Device and never sent back) |
 | `domotwin/locating/measure` | admin | –                                           | `since`, `devices` (`{id: {domotwin, domotwin_areas?, bermuda?, agreement?}}`, D-073) |
 | `domotwin/locating/measure/reset` | admin | –                                     | `since`                          |
 | `domotwin/choices/get`   | user   | – (their own)                                  | `favourites`, `cards`, `start?`  |

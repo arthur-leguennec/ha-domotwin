@@ -1,5 +1,5 @@
 /**
- * The messages of an iPhone's or a watch's identity key (M45, D-074), in both languages: loaded
+ * The messages of an iPhone's or a watch's identity key (M45, D-075), in both languages: loaded
  * with the Bluetooth settings, not with the first picture.
  */
 import type { Widen } from "./index";

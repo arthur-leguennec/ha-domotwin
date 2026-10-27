@@ -386,7 +386,7 @@ export class DomoTwinClient {
     });
   }
 
-  /** Hands an identity key to Home Assistant's Private BLE Device (D-074): its entry, its title
+  /** Hands an identity key to Home Assistant's Private BLE Device (D-075): its entry, its title
    * and whether that title names the device (not an address or Private BLE Device's default). */
   addLocatingKey(
     key: string,

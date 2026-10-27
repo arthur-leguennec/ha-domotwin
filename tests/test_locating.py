@@ -163,7 +163,7 @@ def test_private_addresses_resolve_with_their_key() -> None:
 
 
 def test_identity_keys_are_read_as_the_tools_write_them() -> None:
-    """D-074: hex (irk-capture), `irk:` and hex (ESPresense), a Mac's base64 (reversed)."""
+    """D-075: hex (irk-capture), `irk:` and hex (ESPresense), a Mac's base64 (reversed)."""
     # Fictional keys.
     key = bytes.fromhex("11111111222222223333333344444444")
     assert parse_key("11111111222222223333333344444444") == key

@@ -178,13 +178,22 @@ export interface HeatLegend {
   gradient: string[];
 }
 
-/** A kind of the catalogue, with its default size (cm). */
+/** A style of a kind of the catalogue (D-074), with its usual size (cm). */
+export interface CatalogueStyle {
+  style: string;
+  w: number;
+  d: number;
+  h: number;
+}
+
+/** A kind of the catalogue, with its default size (cm) and its styles. */
 export interface CatalogueKind {
   kind: string;
   w: number;
   d: number;
   h: number;
   light: boolean;
+  styles: CatalogueStyle[];
 }
 
 const NOT_EDITING: EditState = {
@@ -739,9 +748,12 @@ export class DomoTwinEngine {
     return editState(this.live.editRemove());
   }
 
-  /** Adds a piece of the catalogue under the device pixel `x`, `y` (or mid-view) and selects it. */
-  editAdd(kind: string, name: string, x: number, y: number): EditState {
-    return editState(this.live.editAdd(kind, name, x, y));
+  /**
+   * Adds a piece of the catalogue in `style` (none: the kind's own) under the device pixel `x`,
+   * `y` (or mid-view) and selects it.
+   */
+  editAdd(kind: string, name: string, x: number, y: number, style?: string): EditState {
+    return editState(this.live.editAdd(kind, name, x, y, style ?? null));
   }
 
   /**
@@ -886,10 +898,65 @@ export async function summarizePlan(json: string): Promise<PlanSummary> {
   }
 }
 
-/** The kinds a piece can be added as, with their default sizes. */
+/** The kinds a piece can be added as, with their default sizes and their styles. */
 export async function catalogue(): Promise<CatalogueKind[]> {
   const wasm = await loadWasm();
   return JSON.parse(wasm.Engine.editCatalogue()) as CatalogueKind[];
+}
+
+/**
+ * Draws the catalogue's pictures of its pieces (D-074) with an engine of its own, on a canvas
+ * nobody sees, in the look of the view: made when the catalogue opens, freed when it closes.
+ */
+export class PieceArtist {
+  private constructor(
+    private engine: Wasm.Engine | undefined,
+    private readonly canvas: HTMLCanvasElement,
+  ) {}
+
+  /** An artist drawing in `look` with `accent` (`#rrggbb`), by daylight. */
+  static async create(look: string, accent: string): Promise<PieceArtist> {
+    const wasm = await loadWasm();
+    const canvas = document.createElement("canvas");
+    canvas.width = 1;
+    canvas.height = 1;
+    try {
+      const engine = new wasm.Engine(canvas);
+      engine.setTheme(look, accent);
+      engine.setLightingMood("day");
+      return new PieceArtist(engine, canvas);
+    } catch (error) {
+      releaseContext(canvas);
+      throw engineError(error);
+    }
+  }
+
+  /**
+   * A picture of `kind` in `style` (empty: its own) on `background` (`#rrggbb`), `width` ×
+   * `height` device pixels; none once freed, when the context is lost or for a kind the engine
+   * does not know.
+   */
+  draw(
+    kind: string,
+    style: string,
+    width: number,
+    height: number,
+    background: string,
+  ): ImageData | undefined {
+    const engine = this.engine;
+    if (!engine || this.canvas.getContext("webgl2")?.isContextLost()) return undefined;
+    const pixels = engine.piecePicture(kind, style, width, height, background);
+    if (pixels.length !== width * height * 4) return undefined;
+    return new ImageData(new Uint8ClampedArray(pixels), width, height);
+  }
+
+  /** Frees the engine and gives its canvas's context back. */
+  dispose(): void {
+    if (!this.engine) return;
+    this.engine.free();
+    this.engine = undefined;
+    releaseContext(this.canvas);
+  }
 }
 
 /** The plan with its edit overlay applied, as **Export plan** writes it. */

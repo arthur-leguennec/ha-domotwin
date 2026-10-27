@@ -31,7 +31,7 @@ HEX_KEY: Final = re.compile(r"[0-9a-fA-F]{32}")
 
 
 def parse_key(text: str) -> bytes | None:
-    """An identity key (IRK) as the tools that read one write it (D-074), or None.
+    """An identity key (IRK) as the tools that read one write it (D-075), or None.
 
     Hex (irk-capture, maybe split by spaces, colons or dashes), `irk:` and hex (ESPresense's
     Enroll), or a Mac's base64, whose bytes come the other way round (as Home Assistant's Private

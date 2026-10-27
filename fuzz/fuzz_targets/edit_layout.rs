@@ -38,7 +38,15 @@ fuzz_target!(|data: &[u8]| {
         }
     }
     session.rotate(&plan, &walls, (data.len() % 7) as i32 - 3);
-    let _ = session.add(&plan, &walls, Kind::TableLamp, "Lamp", [n, n]);
+    // A piece of the library in one of its styles, or in one it does not have (D-074).
+    let kind = Kind::ALL[data.len() % Kind::ALL.len()];
+    let style = kind
+        .info()
+        .variants
+        .get(data.len() / 7 % 4)
+        .copied()
+        .unwrap_or("unknown");
+    let _ = session.add(&plan, &walls, kind, Some(style), "Piece", [n, n]);
     session.remove(&plan);
     let _ = read_plan_value(&apply(&source, session.layout()));
 });

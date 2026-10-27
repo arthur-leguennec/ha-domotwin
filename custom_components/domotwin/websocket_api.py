@@ -842,7 +842,7 @@ async def ws_locating_forget(
 async def ws_locating_add_key(
     hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
 ) -> None:
-    """Hand an iPhone's or a watch's identity key to Private BLE Device (D-074). Admins only.
+    """Hand an iPhone's or a watch's identity key to Private BLE Device (D-075). Admins only.
 
     The key is never said back, nor in an error.
     """

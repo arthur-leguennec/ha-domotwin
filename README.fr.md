@@ -22,7 +22,8 @@ Local, rapide, Rust + WebAssembly.</p>
 > de chacun, la sécurité (les caméras, la sonnette, l’alarme, les alertes sur chaque onglet), les
 > graphiques de chaque pièce avec la page Énergie de Home Assistant à un onglet, les automatisations
 > dites avec vos mots, jouées dans le bac à sable avant d’être enregistrées, la météo autour du
-> logement et la justesse des pièces trouvées, mesurée à côté de Bermuda, et DomoTwin a rejoint la
+> logement, la justesse des pièces trouvées, mesurée à côté de Bermuda, et une bibliothèque de 195
+> meubles et objets avec leurs images, et DomoTwin a rejoint la
 > Vue d’ensemble de Home Assistant ; l’écran mural suit, vers la 0.5.0. La proposition à la liste
 > par défaut de HACS attend des mesures sur de vrais appareils.
 
@@ -77,8 +78,12 @@ Local, rapide, Rust + WebAssembly.</p>
   Assistant, sa base liée) ou un plan DomoTwin (`*.domotwin.json`), un étage ou tous, et voyez-le en
   maquette 3D. Les murs face à la caméra s’abaissent automatiquement, comme une maison de poupée
   ouverte. Passez à un plan 2D net avec une transition fluide.
-- **Des meubles qui ont l’air vrais.** Des plantes feuille à feuille, des canapés et des lits aux
-  bords arrondis, sans rien perdre en vitesse.
+- **Des meubles qui ont l’air vrais, toute une bibliothèque.** Des plantes feuille à feuille, des
+  canapés et des lits aux bords arrondis, sans rien perdre en vitesse ; 195 meubles et objets en
+  117 sortes et leurs styles, aux tailles habituelles des vrais : un Chesterfield, un piano, un
+  poêle à bois, une thermopompe, un chauffe-eau, une borne de recharge et une voiture, des
+  enceintes, un thermostat, un détecteur de fumée, des caméras, un routeur, des appliques et des
+  rubans LED, un tapis de course, un arbre à chat. Tous dessinés par DomoTwin, rien de téléchargé.
 - **Cinq apparences.** **Néon** : le logement au crépuscule dans un violet profond, le haut de ses
   murs éclairé d’ambre, des lampes et des écrans qui brillent ; **plan d’architecte** : des traits blancs
   sur fond bleu ; **jour** : le logement tel qu’il est, à la lumière de l’heure ; **dessin animé** :
@@ -223,9 +228,10 @@ Local, rapide, Rust + WebAssembly.</p>
   image, en direct à chaque niveau. Voir [les étages](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/storeys.md) (en
   anglais).
 - **Mode édition.** Déplacez, tournez et empilez les meubles avec aimantation, repères et
-  annulation, ajoutez des meubles depuis un catalogue, liez n’importe quel objet à des entités (avec
-  des suggestions tirées de vos pièces), et ajoutez votre propre meuble ou appareil avec son modèle
-  3D (glTF/GLB, OBJ, STL ou 3MF). Voir [le mode édition](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/edit-mode.md) (en anglais).
+  annulation, ajoutez des meubles depuis une bibliothèque avec une image de chacun, par pièce et
+  usage, cherchés dans votre langue, liez n’importe quel objet à des entités (avec des suggestions
+  tirées de vos pièces), et ajoutez votre propre meuble ou appareil avec son modèle 3D (glTF/GLB,
+  OBJ, STL ou 3MF). Voir [le mode édition](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/edit-mode.md) (en anglais).
 - **Promenez-vous, accrochez-le au mur, demandez-le.** Promenez-vous dans votre logement à
   hauteur des yeux, de pièce en pièce par les portes. Sur une tablette murale, une carte revient à
   sa vue quand on la laisse, tourne lentement et s’assombrit la nuit. Dites « montre la cuisine » à
@@ -285,7 +291,7 @@ Local, rapide, Rust + WebAssembly.</p>
 </p>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-edit.png" alt="Le mode édition : un meuble glissé sur le plan 2D s’aimante contre un mur, avec les distances aux autres murs ; le catalogue des meubles à ajouter" width="100%">
+  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-edit.png" alt="Le mode édition : un meuble glissé sur le plan 2D s’aimante contre un mur, avec les distances aux autres murs ; la bibliothèque des meubles à ajouter, chacun avec son image" width="100%">
 </p>
 
 <p align="center">

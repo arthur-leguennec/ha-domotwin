@@ -1249,9 +1249,39 @@ Bermuda, whether Bermuda's sensors give their area's id or its name (the areas' 
 when the plan or the areas change); the figures take about 0.15 ms when asked for. They add about
 470 bytes a device to `domotwin.locating_learned`, written ten minutes after they change at most.
 
+### M17 (a library of objects)
+
+Bundle: the first load is **601.0 kB gzipped** of 1 200 kB (+55.9 kB). The engine grew by 52.5 kB
+(`domotwin_web_bg.<hash>.wasm`: 1 062.4 kB raw, 440.1 kB gzipped, from 896.9 kB and 387.6 kB):
+the 61 new kinds and 54 new styles are code, and the code of the pieces went from 47.6 kB to
+190.3 kB before `wasm-opt`, most of it the floats of their parts (keeping the painter's helpers
+out of line changes nothing: they already are). The kinds' names in both languages, the devices'
+suggestions and the badges' icons add 3.4 kB to the first load. The catalogue's chunk grows to
+8.5 kB gzipped (+4.1 kB, on demand): the library's groups, styles and search words in both
+languages, and the drawing of its pictures. The plan editor's wasm (99.1 kB, +3.7 kB) and the
+import's (285.9 kB, +5.6 kB) read the new kinds.
+
+A piece is built once, when the plan is: nothing of the library runs at each frame. Every piece in
+every style is tested alone at its usual size (`cargo test -p domotwin-core --test scene`): at most
+1 600 triangles, the new ones at most 1 202 (the wine cooler, its bottles behind glass); the 195
+pieces are 71 884 triangles together, 369 each on average. The demo apartment is unchanged
+(12 551 triangles). The demo house, with fourteen pieces of the library more, is 19 286 triangles
+on its ground floor (from 15 440) and 15 510 upstairs (from 14 146).
+
+The catalogue's pictures are drawn when it opens, by a second engine on a hidden canvas
+(headless Chromium, SwiftShader, the panel at 1 000 × 700 on the demo apartment's plan in edit
+mode, measured from the tap on *Add*): the first twelve, the pieces shown first, come in 4.5 s,
+most of it the second engine compiling its shaders on the software GPU (a GPU compiles them in a
+fraction of that); then about 20 ms each, all 195 in 8.1 s. They are drawn a few each frame within
+10 ms, one a frame when one takes longer: the page's longest frame meanwhile is 333 ms, while a
+shader compiles, the others under 85 ms. A picture is a 272 × 204 PNG of 17 kB on average (3.4 MB
+for the 195), kept for the session: opened again, the catalogue shows them all in 0.2 s. Without a
+second WebGL context the pieces go without pictures; the engine and its context are given back
+when the catalogue closes.
+
 ### M45 (an iPhone's key without a Mac)
 
-Bundle: the first load is **545.4 kB gzipped** of 1 200 kB (+0.2 kB: the client's command and the
+Bundle: the first load is **601.2 kB gzipped** of 1 200 kB (+0.2 kB: the client's command and the
 three refusals' texts). The Bluetooth settings, loaded when opened, grow by 1.5 kB gzipped
 (8.6 kB): the key's field, its texts in both languages and the link to the guide. Nothing runs
 until a key is added: the integration reads it and runs Private BLE Device's setup once.

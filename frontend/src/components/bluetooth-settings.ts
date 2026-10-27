@@ -238,7 +238,7 @@ export class DomoTwinBluetoothSettings extends LitElement {
   protected measureResetAsk = false;
   /** The measurements asked last: an answer to an earlier question is old. */
   private measureAsked = 0;
-  /** An identity key being handed to Private BLE Device (D-074), and what came of it. */
+  /** An identity key being handed to Private BLE Device (D-075), and what came of it. */
   protected keyBusy = false;
   protected keyStatus?: string;
   protected keyError?: string;
@@ -378,7 +378,7 @@ export class DomoTwinBluetoothSettings extends LitElement {
   }
 
   /**
-   * Hands the identity key typed to Home Assistant's Private BLE Device (D-074), then follows the
+   * Hands the identity key typed to Home Assistant's Private BLE Device (D-075), then follows the
    * device it now knows. The key is cleared from the field and never shown again.
    */
   private async addKey(): Promise<void> {
@@ -808,7 +808,7 @@ export class DomoTwinBluetoothSettings extends LitElement {
       }`;
   }
 
-  /** An iPhone's or a watch's identity key, handed to Private BLE Device (M45, D-074). */
+  /** An iPhone's or a watch's identity key, handed to Private BLE Device (M45, D-075). */
   private renderKey(): TemplateResult {
     const t = this.t;
     return html`<h4>${t.t("iphone.title")}</h4>

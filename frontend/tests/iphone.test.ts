@@ -11,7 +11,7 @@ function keys(value: unknown, prefix = ""): string[] {
   );
 }
 
-describe("an iPhone's key (D-074)", () => {
+describe("an iPhone's key (D-075)", () => {
   it("has its messages in both languages, none of the dictionaries'", () => {
     expect(keys(iphoneFr).sort()).toEqual(keys(iphoneEn).sort());
     const main = new Set([...keys(en), ...keys(fr)]);

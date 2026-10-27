@@ -1953,9 +1953,11 @@ export class DomoTwinPanel extends LitElement {
   };
 
   private readonly onAdd = (event: Event): void => {
-    const { kind, name } = (event as CustomEvent<{ kind: string; name: string }>).detail;
+    const { kind, style, name } = (
+      event as CustomEvent<{ kind: string; style?: string; name: string }>
+    ).detail;
     this.catalogue = undefined;
-    this.view?.editAdd(kind, name);
+    this.view?.editAdd(kind, name, style);
   };
 
   private readonly onAddModel = (event: Event): void => {
@@ -4767,6 +4769,8 @@ export class DomoTwinPanel extends LitElement {
             .heading=${t.t("edit.add")}
             .kinds=${this.catalogue}
             .models=${this.models}
+            .look=${this.view?.look ?? "day"}
+            .accent=${this.view?.accentShown ?? ""}
             @domotwin-add=${this.onAdd}
             @domotwin-add-model=${this.onAddModel}
             @domotwin-forget-model=${this.onForgetModel}

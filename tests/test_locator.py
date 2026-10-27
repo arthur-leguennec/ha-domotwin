@@ -837,7 +837,7 @@ async def test_bermuda_unpaired_or_another_device_starts_its_figures_again(
 async def test_an_iphones_key_goes_to_private_ble_device(
     hass: HomeAssistant, home: Locator, hass_ws_client: WebSocketGenerator
 ) -> None:
-    """D-074: the key, however it is written, handed to Private BLE Device; never said back."""
+    """D-075: the key, however it is written, handed to Private BLE Device; never said back."""
     client = await hass_ws_client(hass)
     written = "irk:11111111 22222222 33333333 44444444"
     flows = hass.config_entries.flow
@@ -899,7 +899,7 @@ async def test_an_iphones_key_goes_to_private_ble_device(
 
 
 async def test_a_key_refused_leaves_no_flow_open(hass: HomeAssistant, home: Locator) -> None:
-    """D-074: what Private BLE Device answers, each said plainly; its setup never left open."""
+    """D-075: what Private BLE Device answers, each said plainly; its setup never left open."""
     written = "11111111222222223333333344444444"
     flows = hass.config_entries.flow
     opened = {"type": FlowResultType.FORM, "flow_id": "f1", "errors": {}}
@@ -950,7 +950,7 @@ async def test_a_key_refused_leaves_no_flow_open(hass: HomeAssistant, home: Loca
 async def test_one_key_added_twice_at_once_makes_one_entry(
     hass: HomeAssistant, home: Locator
 ) -> None:
-    """D-074: two clicks at once: one entry, the second given it back; known by its unique id."""
+    """D-075: two clicks at once: one entry, the second given it back; known by its unique id."""
     flows = hass.config_entries.flow
     opened = {"type": FlowResultType.FORM, "flow_id": "f1", "errors": {}}
     entry = MockConfigEntry(
@@ -987,7 +987,7 @@ async def test_one_key_added_twice_at_once_makes_one_entry(
 async def test_private_ble_devices_own_setup_takes_the_key(
     hass: HomeAssistant, home: Locator
 ) -> None:
-    """D-074: Private BLE Device's real setup, its field, errors and titles as DomoTwin reads them.
+    """D-075: Private BLE Device's real setup, its field, errors and titles as DomoTwin reads them.
 
     Only Bluetooth is played: a receiver, and the phone heard (or not), with or without a name.
     """

@@ -132,7 +132,7 @@ test.describe("Bluetooth locating (D-035)", () => {
       "Home Assistant has no Bluetooth",
     );
     await expect(dialog.getByTestId("teach-start")).toHaveCount(0);
-    // No identity key to hand either: Private BLE Device listens through that Bluetooth (D-074).
+    // No identity key to hand either: Private BLE Device listens through that Bluetooth (D-075).
     await expect(dialog.getByTestId("iphone-key")).toHaveCount(0);
   });
 });

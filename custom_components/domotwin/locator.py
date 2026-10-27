@@ -155,7 +155,7 @@ def _device_by_connection(
 
 
 class KeyNotTakenError(Exception):
-    """An identity key Home Assistant's Private BLE Device did not take (D-074), with why."""
+    """An identity key Home Assistant's Private BLE Device did not take (D-075), with why."""
 
     def __init__(self, code: str) -> None:
         """`code`: `invalid_key`, `key_not_heard`, `no_bluetooth` or `key_refused`."""
@@ -927,7 +927,7 @@ class Locator:
         return "ready" if self.receivers_now() else "no_receivers"
 
     async def async_add_key(self, text: str) -> dict[str, Any]:
-        """Hand an identity key to Home Assistant's Private BLE Device (D-074).
+        """Hand an identity key to Home Assistant's Private BLE Device (D-075).
 
         The key, as a tool that reads one writes it, goes to Private BLE Device's own setup, which
         keeps it; DomoTwin keeps nothing of it and never says it. Its entry is what follows the

@@ -274,6 +274,8 @@ const FULLY_SHOWN: f32 = 0.999;
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Phase {
     Whole,
+    /// Everything but the background: a piece on its own, on a plain colour (D-074).
+    Piece,
     /// The background, what is opaque, the people wholly shown.
     Solid,
     /// The people fading, glass, glass walls, the outlines, the halos, the wires.
@@ -595,6 +597,41 @@ const MSAA_SAMPLES: u32 = 4;
 const GROUND_Y: f64 = -6.0;
 /// How far the outlines are moved towards the camera, in device pixels where they are.
 const LINE_LIFT: f64 = 2.0;
+
+/// Where a piece's picture is taken from (D-074): in front of it, a little to its right, `pitch`
+/// above it (below it when negative), as a catalogue shows a piece, close enough for the piece to
+/// fill the picture: its box's corners within the field of view, with a margin.
+fn piece_camera(bounds: [[f64; 3]; 2], aspect: f64, pitch: f64) -> Camera {
+    const YAW: f64 = 0.55;
+    const MARGIN: f64 = 1.08;
+    let [min, max] = bounds;
+    let target = [0, 1, 2].map(|k| f64::midpoint(min[k], max[k]));
+    let (sy, cy) = YAW.sin_cos();
+    let (sp, cp) = pitch.sin_cos();
+    let back = [cp * sy, sp, cp * cy];
+    let right = [cy, 0.0, -sy];
+    let up = [-sp * sy, cp, -sp * cy];
+    let tan = (domotwin_core::camera::FOV / 2.0).tan();
+    let dot = |a: [f64; 3], b: [f64; 3]| a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+    // Each corner seen from the target: across, up, and towards the camera. The camera stands
+    // back until every corner is in the field of view.
+    let distance = (0..8)
+        .map(|k: usize| {
+            let corner = [0, 1, 2].map(|a| if k >> a & 1 == 0 { min[a] } else { max[a] });
+            let d = [0, 1, 2].map(|a| corner[a] - target[a]);
+            let (x, y, z) = (dot(d, right), dot(d, up), dot(d, back));
+            z + (x.abs() / (tan * aspect)).max(y.abs() / tan) * MARGIN
+        })
+        .fold(1.0, f64::max);
+    Camera {
+        target,
+        yaw: YAW,
+        pitch,
+        distance,
+        ortho: 0.0,
+        walk: 0.0,
+    }
+}
 
 /// The inverse of a column-major 4 × 4 matrix, computed in double precision (zero when it has
 /// none).
@@ -2143,7 +2180,7 @@ impl Renderer {
     /// the people, glass, glass walls, the outlines, the halos, the wires.
     fn draw_passes(&self, viewport: Viewport, only: Option<usize>, phase: Phase) {
         let solid = phase != Phase::SeeThrough;
-        if solid {
+        if solid && phase != Phase::Piece {
             let behind = RenderStates {
                 write_mask: WriteMask::COLOR,
                 depth_test: DepthTest::Always,
@@ -2203,6 +2240,7 @@ impl Renderer {
         // are dissolved pixel by pixel: with the ink, they come after it (their holes uninked).
         let people = match phase {
             Phase::Whole => Some(People::All),
+            Phase::Piece => None,
             Phase::Solid => Some(People::Solid),
             Phase::SeeThrough => self
                 .figures
@@ -2386,12 +2424,67 @@ impl Renderer {
             .hypot(max[1] - min[1])
             .hypot(max[2] - min[2])
             / 2.0;
-        let projection = camera.projection(aspect, radius.max(100.0));
+        let [r, g, b] = self.backdrop().1;
+        Some(self.offscreen(
+            storey,
+            &camera,
+            radius.max(100.0),
+            [width, height],
+            [r, g, b],
+            Phase::Whole,
+        ))
+    }
+
+    /// A picture of the first storey's pieces alone on `background` (sRGB 0–1), `width` ×
+    /// `height` device pixels, seen from in front of them, a little to their right and above
+    /// (`below`: under them, for what is fixed to a ceiling), and filling the picture: RGBA rows
+    /// from the top (the catalogue's pictures of a piece, D-074). `None` without a scene.
+    pub fn piece_picture(
+        &mut self,
+        width: u32,
+        height: u32,
+        background: [f32; 3],
+        below: bool,
+    ) -> Option<Vec<u8>> {
+        let bounds = self.view.storey_bounds(0)?;
+        let (width, height) = (width.clamp(16, 1024), height.clamp(16, 1024));
+        let aspect = f64::from(width) / f64::from(height);
+        let camera = piece_camera(bounds, aspect, if below { -0.5 } else { 0.42 });
+        let [min, max] = bounds;
+        let radius = (max[0] - min[0])
+            .hypot(max[1] - min[1])
+            .hypot(max[2] - min[2])
+            / 2.0;
+        // The picture is written in sRGB, as the shaders write it.
+        Some(self.offscreen(
+            0,
+            &camera,
+            radius,
+            [width, height],
+            background,
+            Phase::Piece,
+        ))
+    }
+
+    /// Draws storey `storey` alone, seen by `camera` (`reach`: how far it spreads around what
+    /// it looks at, cm), into a picture of `size` device pixels cleared to `clear` (sRGB): RGBA
+    /// rows from the top.
+    fn offscreen(
+        &mut self,
+        storey: usize,
+        camera: &Camera,
+        reach: f64,
+        [width, height]: [u32; 2],
+        clear: [f32; 3],
+        phase: Phase,
+    ) -> Vec<u8> {
+        let aspect = f64::from(width) / f64::from(height);
+        let projection = camera.projection(aspect, reach);
         // The view's frame state, as this picture needs it: its size, its cut-away, no sun
         // shadows (the shadow map has the storeys where the view shows them).
         let size = (self.width, self.height);
         (self.width, self.height) = (width, height);
-        let cuts = self.view.cuts_for(&camera);
+        let cuts = self.view.cuts_for(camera);
         let view_cuts = std::mem::replace(&mut self.view.cuts, cuts);
         let shadow = self.shadow.take();
         // No weather on a storey's picture (clouds, fog, a flash): the storey as it is, whatever
@@ -2419,14 +2512,15 @@ impl Renderer {
             Wrapping::ClampToEdge,
         );
         let target = RenderTarget::new(color.as_color_target(None), depth.as_depth_target());
-        let [r, g, b] = self.backdrop().1;
+        let [r, g, b] = clear;
         let viewport = Viewport::new_at_origo(width, height);
         let _ = target
             .clear(ClearState::color_and_depth(r, g, b, 1.0, 1.0))
             .write::<CoreError>(|| {
-                self.draw_passes(viewport, Some(storey), Phase::Whole);
+                self.draw_passes(viewport, Some(storey), phase);
                 Ok(())
             });
+        // three-d reads the rows from the top already (GL's go from the bottom).
         let pixels = target.read_color::<[u8; 4]>();
         (self.width, self.height) = size;
         self.view.cuts = view_cuts;
@@ -2434,16 +2528,7 @@ impl Renderer {
         self.flash = flash;
         self.weather = weather;
         self.view.dirty = true;
-        // GL rows go from the bottom.
-        let row = width as usize;
-        Some(
-            pixels
-                .chunks(row)
-                .rev()
-                .flatten()
-                .flat_map(|p| *p)
-                .collect(),
-        )
+        pixels.into_iter().flatten().collect()
     }
 
     /// Draws storey parts moved by `offset` (cm), lit by `lights` (their colours times `gain`).

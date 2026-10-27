@@ -1403,7 +1403,7 @@ const connection = {
         return structuredClone(store.locating);
       }
       case "domotwin/locating/add_key": {
-        // An identity key (D-074): the fictional `1111…4444` is heard as Sam's iPhone, whichever
+        // An identity key (D-075): the fictional `1111…4444` is heard as Sam's iPhone, whichever
         // way it is written (hex, irk:, a Mac's base64); `aaaa…dddd` as a phone sending no name
         // (Private BLE Device's default title); `2222…5555` is Sam's watch, already in Private BLE
         // Device; `5555…8888` is not heard.

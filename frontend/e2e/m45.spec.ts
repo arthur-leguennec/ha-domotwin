@@ -16,7 +16,7 @@ function sent(page: Page, type: string): Promise<Record<string, unknown>[]> {
 // A fictional identity key, as a Mac's Keychain writes it.
 const MAC_KEY = "RERERDMzMzMiIiIiEREREQ==";
 
-test.describe("an iPhone's key without a Mac (D-074)", () => {
+test.describe("an iPhone's key without a Mac (D-075)", () => {
   test("a key, however written, is handed to Private BLE Device and the iPhone followed", async ({
     page,
   }) => {
