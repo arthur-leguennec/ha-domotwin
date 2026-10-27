@@ -2996,6 +2996,95 @@ the rest stays.
   - Thread and Matter, Zigbee2MQTT, Z-Wave, Wi-Fi at 5 or 6 GHz and a heat map inside a room are
     left for later.
 
+## D-067 · Guest access: a pass, DomoTwin's own page, chosen rooms and devices for a while (M33)
+
+M33, moved forward by the maintainer from after 0.5.0 (D-056), after the placement advisor (M31, D-066);
+per-person rights (M34) next to it.
+
+- **Context.** A guest (a friend staying the weekend, a sitter, a holiday let's tenants) needs
+  the Wi-Fi, the lights and blinds of a room or two, maybe the front door, for a few days, and
+  nothing else. Home Assistant gives each of its users every entity (its permissions are by user,
+  not by entity); a user can be local only and read only, which it enforces. Guest Mode (HACS
+  default) makes temporary sign-in links to a Home Assistant user, who then sees the whole home.
+  D-056 asked (❓4): a page of DomoTwin's own outside Home Assistant's sign-in, enforced by
+  DomoTwin, or Home Assistant users only. The maintainer asked for M33 and M34 to be carried
+  through without waiting: the answer is the first, the only one that gives chosen rooms and
+  devices, with what it costs said plainly, after a security review. Home Assistant users for
+  guests stay possible, with Guest Mode; they are not DomoTwin's.
+- **Decision.**
+  - **A pass**, kept in a private store of its own (`.storage/domotwin.guests`): who it is for,
+    the rooms it opens, the devices it gives (at most 100, of the domains a guest may use or read:
+    lights, switches, covers, valves, fans, thermostats, water heaters, humidifiers, sirens, media
+    players, locks, vacuums, mowers, scenes, scripts, buttons, sensors, binary sensors, weather;
+    never a person, a tracker, a camera, an alarm panel or an automation), from and until when (at
+    most 31 days, starting within a year), whether the guests may use the devices or only look,
+    whether the home's Wi-Fi (D-060) is shown, and whether it opens only on the home's network
+    (the default) or from anywhere. At most 20 passes; one ended 30 days ago is forgotten.
+    Administrators make, change, renew and remove them (`domotwin/guests/*`); nobody else reads
+    them: a pass's link is its key.
+  - **Its link**: `/api/domotwin/guest/<secret>`, a secret of 32 random bytes
+    (`secrets.token_urlsafe`), and its QR code, drawn in the page by the analysis module
+    (`textQr`, D-043). Its address is Home Assistant's own on the home's network for a pass that
+    opens there (`get_url`, internal), its external one otherwise, the page's own when Home
+    Assistant knows neither. A new link replaces the old one, which then opens nothing; a pass
+    removed, the same.
+  - **DomoTwin's own page**, served by the integration outside Home Assistant's sign-in
+    (`requires_auth = False`), each request checked: the secret is a pass's; the pass opens now
+    (else when it opens, or when it ended); the request comes from the home's network (a local
+    address, not through Home Assistant Cloud, as Home Assistant checks its local-only users)
+    unless the pass opens from anywhere. The page (`guest.html`) loads DomoTwin's own module and
+    nothing else, under a policy that allows only its own files (`Content-Security-Policy`), in no
+    frame, never kept (`no-store`) or indexed, sending its address nowhere (Home Assistant's
+    `Referrer-Policy: no-referrer`).
+  - **What it reads** (`…/home`): the storeys with a room the pass opens; every room's outline,
+    partitions, doors and windows, so that the walls are as they are; the other rooms unnamed,
+    their pieces left out, closed as private rooms are (D-039), for nobody; the pieces of the rooms
+    it opens and their 3D files (`…/models/<file>`, those only); no viewpoint; the plans named
+    after the home. The links of its devices in the rooms it opens, DomoTwin's own taps only
+    (toggle, controls), no room's own action; the states of its devices only, without their
+    context, which names Home Assistant's users; their areas; the Wi-Fi, its password with it, when
+    the pass shows it. Home Assistant's time zone and unit of temperature; not its version, its
+    place or its users.
+  - **Followed** (`…/events`, server-sent events): its devices' states as they change; the page
+    reads the home again when the plan, the links, the settings, the Wi-Fi or the pass change,
+    and is told when the pass ends. At most 8 pages a pass.
+  - **What the guests do** (`POST …/call`): only on the pass's devices, only the services a guest
+    may call on each kind, with the data each takes and nothing else: on, off and toggle (DomoTwin's
+    switches); a light's brightness, colour and white; a fan's speed; a cover's position; a media
+    player's playback and volume; a thermostat's target; a lock locked and unlocked, never with a
+    code; a scene or a script run without variables; a button pressed; a vacuum's or a mower's
+    start, pause and dock. Refused for a pass to look at; at most 20 actions in 5 seconds a pass.
+    Each is fired as an event (`domotwin_guest_action`) in the context the action then runs in, so
+    that Home Assistant's logbook says the pass's name (`logbook.py`), and "Why?" (D-059) too.
+    Home Assistant's refusal is said as it gives it.
+  - **The page**: the home in 3D on DomoTwin's own card, on a `hass` of the guest's (nobody's
+    user, as a shared screen's, D-039) whose connection answers DomoTwin's commands from what the
+    pass shows and refuses everything else; nothing hands over to Home Assistant's pages, dialogs,
+    history, automations or schedules. Below it, the pass's devices room by room with DomoTwin's
+    own controls (those it gives outside the rooms it opens apart), disabled for a pass to look
+    at. The Wi-Fi from the card, or a button of its own when no room is open. In the guest's
+    language. Built apart (`guest.js`), so that nothing of it changes how Home Assistant's pages
+    load DomoTwin.
+  - **For administrators**: *Guest access* in the panel's ⋮ menu: the passes, each with when, how
+    much and how it opens; a pass's link and code, to copy or share; the form, where the rooms are
+    chosen and their devices listed and ticked (but locks, garage doors and gates), and a device of
+    another room added. A chunk loaded when it opens; not in the demo house or the sandbox.
+  - **Diagnostics** count the passes by state, and those from anywhere; never their names, links,
+    rooms or devices.
+- **Consequences.**
+  - **Enforced by DomoTwin, outside Home Assistant's sign-in**: whoever has a pass's link uses
+    what it gives until it ends, is renewed or is removed, as with Home Assistant's own webhooks;
+    a pass from anywhere is used from anywhere. The secret is as hard to guess as Home Assistant's
+    own tokens and is sent nowhere, but it is in the address: the guest's browser history keeps
+    it, and it opens nothing once the pass has ended. Said in the guide and in the form.
+  - A guest sees the rooms' outlines and how many there are; not the names of those the pass does
+    not open, what is in them or what they link.
+  - A guest has no Home Assistant user: Home Assistant's permissions do not apply to the pass,
+    DomoTwin's checks do; nothing else of Home Assistant is reachable through it.
+  - The first load grows by the menu item and the client's commands (+1.0 kB gzipped); the dialog
+    is a chunk of its own; the guests' page and its chunks are loaded by it alone.
+  - Per-person rights (M34) are for Home Assistant's users; a pass is for those without one.
+
 ## D-068 · Automations in plain words, played in the sandbox first (M35, amends D-057)
 
 M35, moved forward by the maintainer from the way to 0.6.0 (D-056), after the sandbox (M29,
@@ -3101,4 +3190,4 @@ D-057) it plays its drafts in; the rest of the order (D-056, D-065) keeps its pl
     automations.
   - The first load grows by the menu item, its text and whether there is an AI task; the dialog
     and its words come on demand, and the sandbox's chunk by the draft's part.
-  - The roadmap shows M35 done after M31; the rest of the order (D-056, D-065) stays.
+  - The roadmap shows M35 done after M33; the rest of the order (D-056, D-065, D-067) stays.

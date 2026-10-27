@@ -53,6 +53,7 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M39       | Hydro-Québec's peaks, from the integrations that read them | ✅     |
 | M20       | More imports: robot vacuum maps, Floorplanner, meshes      | ✅     |
 | M31       | Placement advisor: where the next radio helps most         | ✅     |
+| M33       | Guest access: chosen rooms, for a while                    | ✅     |
 | M35       | Automations in plain words, played in the sandbox first    | ✅     |
 | M40       | The weather around the home, in 3D                         | ⏳     |
 | M41       | Locating measured, next to Bermuda's on the same days      | ⏳     |
@@ -64,7 +65,6 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | 0.5.0     | Fifth release: all of the above                            | ⏳     |
 | M42       | Finer locating: a spot in the room, storeys by the stairs  | ⏳     |
 | M43       | mmWave sensors merged into one picture of the home         | ⏳     |
-| M33       | Guest access: chosen rooms, for a while                    | ⏳     |
 | M34       | Per-person rights: what DomoTwin shows each one            | ⏳     |
 | M17       | A library of objects: many pieces, free and well made      | ⏳     |
 | M37       | A weekly home report                                       | ⏳     |
@@ -105,6 +105,9 @@ vacuum maps, Floorplanner plans and mesh scans, which the first launch in five m
 The placement advisor (M31, D-066) was asked for in the same way. Then the weather around the home
 (M40), locating measured (M41) and an iPhone's key without a Mac (M45) were put before M24, and
 finer locating (M42), mmWave sensors merged (M43) and split levels (M44) after 0.5.0 (D-065).
+The maintainer then asked for guest access (M33, D-067) and per-person rights (M34) next, carried
+through without waiting on D-056's questions: a guest pass opens DomoTwin's own page outside Home
+Assistant's sign-in, which DomoTwin enforces.
 Automations in plain words (M35) came next, at the maintainer's request (D-068), on the sandbox it
 plays its drafts in.
 
@@ -1413,6 +1416,55 @@ Measured at the end of M31: see [`PERFORMANCE.md`](PERFORMANCE.md).
 Left for later: Thread and Matter, Zigbee2MQTT and Z-Wave as sources; Wi-Fi at 5 and 6 GHz; a
 heat map inside a room; the weak spots in the weekly report (M37).
 
+## M33, guest access
+
+A pass that opens chosen rooms and devices to guests for a while, through DomoTwin's own page
+outside Home Assistant's sign-in (`DECISIONS.md`, D-067; [`guests.md`](guests.md)). Moved forward by
+the maintainer, after the placement advisor (M31); D-056's question (❓4) answered so.
+
+- ✅ **A pass**: who it is for, the rooms it opens, the devices it gives (never a person, a tracker,
+  a camera, an alarm panel or an automation), from and until when (31 days at most), to use or only
+  to look, with the home's Wi-Fi (M30) or not, on the home's network only (the default) or from
+  anywhere. Kept in a private store of its own, never in the plan, the diagnostics or an export;
+  made, changed, renewed and removed by administrators.
+- ✅ **Its link and QR code**: a secret of 32 random bytes, Home Assistant's own address on the
+  home's network; the code drawn in the page by the analysis module. A new link stops the old one.
+- ✅ **DomoTwin's own page**, outside Home Assistant's sign-in, each request checked: the pass,
+  its time, where it comes from (a local address, not through Home Assistant Cloud, as Home
+  Assistant's local-only users), under a policy that loads nothing from elsewhere, never kept.
+- ✅ **What a guest sees**: the home in 3D, the rooms the pass opens and the others closed, emptied
+  and unnamed as private rooms are (M9g); their devices, room by room, with DomoTwin's own
+  controls; the Wi-Fi. Their states followed live (server-sent events), the home read again when
+  it or the pass changes, the end said. Nothing of Home Assistant's pages, history, automations or
+  schedules.
+- ✅ **What a guest does**: only on the pass's devices, only what a guest may do with each (a lock
+  locked and unlocked, never with a code; a script run without variables), 20 actions in 5
+  seconds at most; each said in Home Assistant's logbook under the pass's name, and by "Why?"
+  (M32).
+- ✅ **Enforced by DomoTwin, said plainly**: whoever has the link uses what it gives until it ends;
+  Home Assistant's permissions do not apply to a guest, who has no user.
+- ✅ Tests: passes made, changed, renewed and removed by administrators only, kept apart and never
+  in the diagnostics, what cannot be made, at most 20, the page and its policy, the home as a pass
+  shows it (the rooms closed and unnamed, the pieces and 3D files of those it opens, the links and
+  states of its devices only, no context, the Wi-Fi or not), the home's network only or anywhere,
+  Home Assistant Cloud, before its start and after its end, forgotten a month later, the actions
+  a guest may and may not do, data refused, a lock's code, the logbook's event in the action's
+  context, Home Assistant's refusal, too many actions, the page following its devices until the
+  home or the pass changes and told when it ends, removed with DomoTwin (pytest); the link's QR
+  code (Rust); the passes read, the devices of each room (a piece moved in edit mode, its area's,
+  never a camera), locks and garage doors left to a tick, a new pass's times, the page's home read
+  leniently, its connection answering DomoTwin's commands and refusing the rest, the card told
+  when the home is read again (vitest); an administrator's pass from the plan with its link and
+  code, changed to look only, renewed and removed; a guest's page with its rooms in 3D and its
+  devices, used through the pass and followed live, under its policy, nothing from elsewhere; a
+  pass to look only; not open from here, ended, removed; the Wi-Fi on a pass that opens no room;
+  French (Playwright).
+- Measured: the first load grows by 1.0 kB; the dialog is 8.8 kB gzipped, on demand; the guests'
+  page loads 508.0 kB gzipped with the engine ([`PERFORMANCE.md`](PERFORMANCE.md), M33).
+- Left for later: a pass for a Home Assistant user (Guest Mode's sign-in links), which would see
+  every device; a guest's page drawn as the rooms' list only on a slow phone; a pass's use over
+  its days (who did what is in Home Assistant's logbook).
+
 ## M35, automations in plain words
 
 One says what should happen; Home Assistant's own AI task, the one the user set up, writes the
@@ -1457,7 +1509,7 @@ sandbox was in. DomoTwin calls no model itself.
   configuration API, changed and played again, what Home Assistant lacks or refuses, an answer
   that is no automation, an AI task that refuses, an answer cancelled, the draft kept, French
   (Playwright).
-- Measured: the first load grows by 1.1 kB; the dialog is 21.2 kB gzipped, on demand
+- Measured: the first load grows by 1.2 kB; the dialog is 21.2 kB gzipped, on demand
   ([`PERFORMANCE.md`](PERFORMANCE.md), M35).
 - Left for later: a draft opened in Home Assistant's own editor before it is saved (its editor
   takes one only from inside its frontend); an automation of the home changed in plain words; the
@@ -1548,11 +1600,8 @@ before its milestone starts, which goes on with what needs no answer.
   occupancy; ESPHome's LD2450 gives three targets' X, Y and speed and three zones; an LD2410 or an
   Everything Presence One gives a distance or an occupancy only, so a zone or a room. Each is used
   for what it says, no more.
-- ⏳ **M33, guest access**: a guest gets a QR code or a link that opens chosen rooms and devices
-  for a set time and ends on its own, with the Wi-Fi QR code of M30. What can be enforced is said
-  plainly: a Home Assistant user for the guest, local only and possibly read only, is enforced by
-  Home Assistant, but sees every entity; a page of DomoTwin's own that shows and acts on the
-  chosen devices only would be enforced by DomoTwin, outside Home Assistant's sign-in ❓.
+- ✅ **M33, guest access** (D-067, above): moved forward by the maintainer; a page of DomoTwin's
+  own outside Home Assistant's sign-in, enforced by DomoTwin, which answers D-056's ❓4.
 - ⏳ **M34, per-person rights**: building on private rooms (M9g), the rooms and devices DomoTwin
   shows each person and lets them act on, its own services checked against them, all of it set
   on the plan in one place. DomoTwin can hide; Home Assistant decides what is enforced, and today

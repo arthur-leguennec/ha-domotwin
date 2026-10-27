@@ -659,6 +659,9 @@ export const en = {
     menu: "Wi-Fi for guests",
     button: "Wi-Fi for guests: its QR code",
   },
+  guests: {
+    menu: "Guest access",
+  },
   tabs: {
     label: "DomoTwin's tabs",
     home: "Home",

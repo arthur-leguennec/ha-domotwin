@@ -127,6 +127,12 @@ export interface HomeAssistant {
   demo?: boolean;
   /** The sandbox's copy of the home (D-057): a home kept in the page as the demo house is. */
   sandbox?: boolean;
+  /**
+   * A guest's, through a guest pass (D-067): DomoTwin's own page outside Home Assistant's sign-in,
+   * which reads and acts through the pass only; nothing hands over to Home Assistant's pages,
+   * dialogs or history.
+   */
+  guest?: boolean;
   /** The time it is for this Home Assistant (ms): the demo house's own clock (D-050). */
   now?(): number;
   /** The page Home Assistant opens first on this device (2025.1: its `hass-default-panel`). */

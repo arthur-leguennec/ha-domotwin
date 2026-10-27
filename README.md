@@ -17,10 +17,10 @@ Local, fast, Rust + WebAssembly.</p>
 > ([roadmap](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/ROADMAP.md)), and
 > everything under *Features* works today. Since 0.4.0 came the sandbox, history as reports, "Why?",
 > the Wi-Fi QR code for guests, the configuration history, Hydro-Québec's peaks, more imports (robot
-> vacuum maps, Floorplanner, mesh scans), the radio coverage and automations in plain words, played
-> in the sandbox before they are saved, and DomoTwin joined Home Assistant's own Overview; the
-> weather around the home, history and energy, safety and the wall screen come next, towards 0.5.0.
-> The submission to HACS's default list waits on measurements on real devices.
+> vacuum maps, Floorplanner, mesh scans), the radio coverage, guest passes and automations in plain
+> words, played in the sandbox before they are saved, and DomoTwin joined Home Assistant's own
+> Overview; the weather around the home, history and energy, safety and the wall screen come next,
+> towards 0.5.0. The submission to HACS's default list waits on measurements on real devices.
 
 ## What sets it apart
 
@@ -106,6 +106,11 @@ Local, fast, Rust + WebAssembly.</p>
   joins it with, in the page; or shows your router's own code. For administrators, and on the wall
   screens you choose; the password stays in DomoTwin's private storage. See [the Wi-Fi for
   guests](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/wifi.md).
+- **Guest access.** A pass opens chosen rooms and devices to your guests for a few days: its link
+  or QR code opens them on their phones, in 3D, without a Home Assistant account, with the Wi-Fi if
+  you like, and ends on its own. By default it opens only on the home's network; DomoTwin checks
+  every request against the pass. See [guest
+  access](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/guests.md).
 - **Into Home Assistant's Overview.** A room tapped in 3D opens its area's page of the Overview
   (2026.2 and later). Each room's area page shows who is in it and the upkeep due, and DomoTwin's
   summary cards (the people, the network, the automations, the upkeep, the robots) open the 3D view
