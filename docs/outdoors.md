@@ -88,6 +88,8 @@ leaves and comes back.
 
 ## Not done yet
 
-The ground is one level (a garden that slopes, a basement opening onto it, come with split levels,
-M44); the grass does not brown in a dry summer or grow faster after rain; a mower's real position
-is not read, nor the pattern a brand mows in.
+Each place outside is flat: a garden does not slope across (a basement that opens onto its
+garden on one side is drawn as a garden on its storey, with a retaining wall where it meets the
+higher ground: [`storeys.md`](storeys.md#split-levels-and-walk-out-basements)). The grass does not
+brown in a dry summer or grow faster after rain; a mower's real position is not read, nor the
+pattern a brand mows in.

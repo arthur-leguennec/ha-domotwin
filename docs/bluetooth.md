@@ -165,8 +165,9 @@ In the panel, the **Bluetooth** button (administrators):
 1. **What the plan says.** For each room and each receiver, DomoTwin works out what the receiver
    should hear of a phone held in that room, from the plan: the signal falls with the distance
    (2.2 times faster than in open air, as indoors), about 4 dB a wall, less for a door, nothing for
-   a side left open, 15 dB a floor. A receiver that does not hear a device says something too: the
-   device is far from it.
+   a side left open, 15 dB a floor (only where one storey lies over the other: a split level's half
+   level beside the entry level is a wall away, not a floor, D-078). A receiver that does not hear
+   a device says something too: the device is far from it.
 2. **What was learned** takes over room by room, receiver by receiver, as rooms are taught and
    presence sensors agree.
 3. **Devices differ.** A tag whispers, a phone shouts: each device's own loudness is learned, so a

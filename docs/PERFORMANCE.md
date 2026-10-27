@@ -1333,3 +1333,18 @@ in a variant of it, compiled once a scene has them and used for the meshes that 
 moves as a robot vacuum does (frames at the layers' pace while it moves, none on its dock); its way
 round the house is worked out once, when it leaves (the storey's floor with the home's rooms
 closed), as a vacuum's is (the places outside closed). The lawns' grass is worked out in the page every ten minutes and sent when it changed.
+
+### M44 (split levels and walk-out basements)
+
+Bundle: the first load is **651.6 kB gzipped** of 1 200 kB (+1.2 kB). The engine's wasm grows by
+0.8 kB (484.5 kB gzipped): the retaining walls and the floors counted where a storey lies over
+another, which the placement advisor's module counts too (108.2 kB, +0.8 kB). The page's half
+levels' names are a few lines.
+
+Counting a floor where it is crossed costs a look at each storey's rooms at a point per storey
+crossed (its rooms listed once, with the home), instead of a difference of ranks. The integration's
+model of what each receiver should hear in each room (the locating's prior, D-035), on the demo
+house (two storeys, 18 rooms, 4 receivers): **21.7 ms** (19.6 ms before); on the fictional
+split-level house (three levels, 17 rooms, 4 receivers): 20.0 ms. It is worked out when the plans
+or the receivers change, not on the locating's tick. The retaining walls are a few boxes, built once
+with the home's scene, each side's ground looked for among the gardens high enough over it only.
