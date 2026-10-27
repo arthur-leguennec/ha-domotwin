@@ -1145,12 +1145,29 @@ bar and the Safety tab, and the doorbell's camera and lock, stay the same object
 the same, so nothing is drawn again for nothing. A camera on the tab is a still Home Assistant
 refreshes every ten seconds; only the doorbell's full screen streams live.
 
+### M24 (history and energy)
+
+Bundle: the first load is **532.0 kB gzipped** of 1 200 kB (+1.1 kB): the Energy tab, its address
+and its word, whether Home Assistant's energy is set up, the graphs' address and the room panel's
+word. A room's graphs come with the Rooms tab's chunk (`chunks/practical-<hash>.js`: 51.6 kB raw,
+13.9 kB gzipped, +2.0 kB) and a chunk it shares with the room's panel in 3D (the kinds of measure
+and Home Assistant's card configurations, 1.6 kB gzipped); the room's panel grows by its button
+(11.4 kB gzipped, +0.1 kB), and the guests' page's by the check that hides it there (12.0 kB
+gzipped, +0.4 kB, on demand).
+
+The graphs are Home Assistant's own cards: each reads the recorder once when it shows, and is told
+of new states as Home Assistant's dashboards are, no more. DomoTwin finds a room's kinds of measure
+when its page opens, and again only when an entity comes or goes, not at each new state. The
+Energy tab is a link: Home Assistant's Energy page loads as it always does. Whether something is
+set up on it is asked once for each connection to Home Assistant (`energy/get_prefs`, a few hundred
+bytes), only where Home Assistant has the page.
+
 ### M40 (the weather around the home)
 
-Bundle: the first load is **539.6 kB gzipped** of 1 200 kB (+8.7 kB). The engine's wasm grows by
+Bundle: the first load is **540.7 kB gzipped** of 1 200 kB (+8.8 kB). The engine's wasm grows by
 7.2 kB (387.6 kB gzipped): the weather's shaders (3.1 kB of it, their comments kept as in every
 shader), what a condition means and the footprint, and the fog in the home's and the background's
-shaders. The page grows by 1.5 kB: reading the weather entity and its wind (a chunk of its own,
+shaders. The page grows by 1.6 kB: reading the weather entity and its wind (a chunk of its own,
 0.7 kB gzipped, shared by the view and the Home tab), the view's and the settings' part, and the
 texts. The demo house's weather comes with the demo.
 

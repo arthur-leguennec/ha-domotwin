@@ -89,6 +89,10 @@ every reader returns `Result` with a stable error code that the frontend transla
   the first load. The Safety tab (`components/safety-tab.ts`, `live/safety.ts`) and the alerts'
   bar above the other tabs (`components/alert-bar.ts`) are in the tabs' chunk; the doorbell's full
   screen (`components/doorbell.ts`) is a chunk loaded at the first ring.
+- History and energy (D-069): `live/graphs.ts` sorts a room's entities into Home Assistant's
+  history-graph and statistics-graph cards, which `components/room-graphs.ts` shows in the Rooms
+  tab's chunk; `live/overview.ts` gives the address of Home Assistant's Energy page, which the
+  panel's Energy tab opens.
 - `src/i18n/` holds the English and French dictionaries. Every visible string goes through `t()`.
 
 ![Render on demand: frames only when something changes, nothing while idle or off-screen](figures/render-on-demand.png)
@@ -118,7 +122,7 @@ every reader returns `Result` with a stable error code that the frontend transla
   and spread apart in 3D, side by side on the 2D plan, the roof above the top one; and the walk:
   a walker's steps on the floor, its way through the doors, the slow turn of a kiosk. Walking
   draws the walls whole and the rooms' ceilings (day look). See D-014, D-016, D-028 and D-029.
-- The weather (D-069): `domotwin-core::weather` turns Home Assistant's condition and wind into
+- The weather (D-070): `domotwin-core::weather` turns Home Assistant's condition and wind into
   what falls, how grey the sky is, the fog and the storm's flashes; `domotwin-render::weather`
   takes the home's footprint (every storey's bounds and the roof's eaves) and the roof's slope,
   how many particles the quality allows, their tint and the clouds' light. What falls is one
@@ -253,7 +257,7 @@ every reader returns `Result` with a stable error code that the frontend transla
   while that entity is on ([`privacy.md`](privacy.md)); where the home's energy is read
   (`energy`, D-049); the Wi-Fi access points placed on the plan (`access_points`, D-066),
   `[{"storey": id, "at": [x, y], "name"?}]`, 16 at most ([`placement.md`](placement.md)); the
-  weather drawn around the home (`weather`, D-069): a `weather` entity, or `none`; absent, the
+  weather drawn around the home (`weather`, D-070): a `weather` entity, or `none`; absent, the
   Home tab's.
 - `upkeep` (D-033, storage 4.1): the upkeep cards by piece id, and how many days before it a task
   is due soon; see [`upkeep.md`](upkeep.md). Kept apart from the plan, like the bindings.

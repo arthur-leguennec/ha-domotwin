@@ -237,7 +237,7 @@ export interface ViewOptions {
   people?: boolean;
   /** Where the sun lights from (`fixed` unless set). */
   sun?: SunMode;
-  /** The weather around the home (on unless `false`, D-069). */
+  /** The weather around the home (on unless `false`, D-070). */
   weather?: boolean;
   /** Badges over the devices (on unless `false`). */
   badges?: boolean;
@@ -542,7 +542,7 @@ export interface DebugState {
   look?: string;
   /** Where the sun lights from: `default`, or `<azimuth>:<elevation>:<north>` (the real sun). */
   sun?: string;
-  /** The weather drawn (D-069): `clear`, or `<entity> <condition> <wind m/s> <bearing>:<north>`. */
+  /** The weather drawn (D-070): `clear`, or `<entity> <condition> <wind m/s> <bearing>:<north>`. */
   weather?: string;
   /** What the engine draws falling: `none`, `rain`, `snow`, `sleet` or `hail`. */
   falling?: string;
@@ -717,7 +717,7 @@ export class DomoTwinView extends LitElement {
   planError?: string;
   /** Where north points on the plan, degrees clockwise from its top (the home's settings). */
   north = 0;
-  /** The weather entity drawn around the home, `none`, or nothing for the usual one (D-069). */
+  /** The weather entity drawn around the home, `none`, or nothing for the usual one (D-070). */
   weather?: WeatherChoice;
   /** The home's private rooms (its settings, D-039). */
   privateRooms?: Settings["rooms"];
@@ -3580,7 +3580,7 @@ export class DomoTwinView extends LitElement {
   }
 
   /**
-   * Draws the weather around the home (D-069): the chosen entity's, else the usual one; none when
+   * Draws the weather around the home (D-070): the chosen entity's, else the usual one; none when
    * the option is off or no entity says anything.
    */
   private applyWeather(): void {
@@ -5375,6 +5375,7 @@ export class DomoTwinView extends LitElement {
       .closed=${sheet.closed === true}
       .people=${here}
       .things=${sheet.room ? this.located.filter((d) => d.room === sheet.room) : []}
+      .graphs=${this.roomTab}
       @domotwin-close=${this.closeSheet}
       @domotwin-show-wires=${this.onShowWires}
       @domotwin-open-history=${this.onOpenHistory}

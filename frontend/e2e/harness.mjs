@@ -17,6 +17,8 @@
 //   overview=1 (Home Assistant 2026.10, its Overview with an area page each; DomoTwin's room and
 //   upkeep sensors, who is home: D-061)  mode=summary&summary=<kind> (a summary card)
 //   nopanel=1 (no DomoTwin panel for this user: left out of the sidebar, or for administrators)
+//   energypage=1 (Home Assistant's Energy page, its energy integration's, its grid set up: D-069),
+//   energypage=empty (the page, nothing set up)
 //   upkeep=1 (the demo apartment's fictional upkeep cards, examples/demo-apartment.upkeep.json)
 //   upkeep=0 (an integration without upkeep cards)
 //   people=1 (fictional people: Alex, the user viewing, in the kitchen; Sam in the living room;
@@ -54,7 +56,7 @@
 //   Home Assistant's history, statistics and logbook (D-058) answer a fictional day of the
 //   bedroom (`HISTORY` below); historyfail=1 makes the history refuse, nostats=1 leaves the
 //   statistics out; formatstate=1 gives `hass.formatEntityState` (states in words, "°C" after).
-//   weather=<condition> (D-069: a fictional `weather.home` in that condition, wind 18 km/h from
+//   weather=<condition> (D-070: a fictional `weather.home` in that condition, wind 18 km/h from
 //   the south-west, and a `weather.coast` pouring), homeweather=<entity|none> (the stored
 //   settings' choice), weatheroption=0 (the card's `weather: false`)
 //   why=1 (D-059: Home Assistant's logbook and traces of a fictional evening, with live=1: the
@@ -983,6 +985,19 @@ const connection = {
   async sendMessagePromise(message) {
     calls.push(message);
     switch (message.type) {
+      case "energy/get_prefs":
+        // Never saved: Home Assistant says so (D-069).
+        if (energyPage !== "1") throw { code: "not_found", message: "No prefs" };
+        return {
+          energy_sources: [
+            {
+              type: "grid",
+              flow_from: [{ stat_energy_from: "sensor.grid_energy_in" }],
+              flow_to: [],
+            },
+          ],
+          device_consumption: [],
+        };
       case "history/history_during_period":
         return historyDuring(message);
       case "recorder/statistics_during_period":
@@ -1774,6 +1789,8 @@ if (live && why) {
 const states = home.states;
 // overview=1: what DomoTwin's sensors say of the rooms and the upkeep (D-061), and who is home.
 const overview = params.get("overview") === "1";
+// energypage=1: Home Assistant's Energy page, its grid set up; energypage=empty: nothing set up.
+const energyPage = params.get("energypage") ?? "";
 const state = (entityId, value, attributes) => ({
   entity_id: entityId,
   state: value,
@@ -2015,12 +2032,14 @@ let hass = {
     // security=1: with its Security page (D-068).
     ...(overview || security ? { version: "2026.10.0" } : { version: "2026.1.0" }),
   },
-  ...(overview || security
+  ...(overview || security || energyPage
     ? {
         panels: {
           ...(overview ? { home: { url_path: "home" } } : {}),
           ...(security ? { security: { url_path: "security" } } : {}),
           ...(params.get("nopanel") === "1" ? {} : { domotwin: { url_path: "domotwin" } }),
+          // energypage=1: Home Assistant's Energy page (D-069).
+          ...(energyPage ? { energy: { url_path: "energy" } } : {}),
         },
       }
     : {}),

@@ -10,6 +10,7 @@ import {
   mdiCubeOutline,
   mdiDotsVertical,
   mdiHomeOutline,
+  mdiLightningBoltOutline,
   mdiLinkVariant,
   mdiLockOutline,
   mdiMicrophoneMessage,
@@ -164,7 +165,8 @@ import {
 import { watts } from "../live/devices";
 import { formatPower, layerAsked, numberOf, roomLayers, type LayerName } from "../live/layers";
 import { navigate } from "../live/actions";
-import { areaPage } from "../live/overview";
+import { areaPage, energyPage, energySetUp } from "../live/overview";
+import type { PeriodChoice } from "../live/history";
 
 /** The plan format allows files up to 32 MB. */
 const MAX_FILE_BYTES = 32_000_000;
@@ -295,6 +297,7 @@ const PANEL_DIALOGS = [
   "domotwin-model-import",
   "domotwin-measure",
   "domotwin-choices",
+  "domotwin-history",
 ]
   .map((dialog) => `.body > ${dialog}`)
   .join(", ");
@@ -367,7 +370,10 @@ export class DomoTwinPanel extends LitElement {
     route: { attribute: false },
     tab: { state: true },
     roomOpen: { state: true },
+    roomGraphs: { state: true },
     from3d: { state: true },
+    report: { state: true },
+    energyKnown: { state: true },
     choices: { state: true },
     choicesRead: { state: true },
     choicesOpen: { state: true },
@@ -383,9 +389,19 @@ export class DomoTwinPanel extends LitElement {
   route?: { prefix: string; path: string };
   /** The tab shown (D-055); unknown until the tab to open on is. */
   protected tab?: Tab;
-  /** The room open in the Rooms tab (an area), and whether it was opened from the 3D view. */
+  /**
+   * The room open in the Rooms tab (an area), whether its graphs are (D-069), and whether it was
+   * opened from the 3D view.
+   */
   protected roomOpen?: string;
+  protected roomGraphs = false;
   protected from3d = false;
+  /** A history report opened from a room's graphs (D-058, D-069), its module loaded. */
+  protected report?: { heading: string; entities: string[]; period?: PeriodChoice };
+  private reportModule?: Promise<unknown>;
+  /** Whether Home Assistant's energy has something set up (D-069), and on which connection. */
+  protected energyKnown?: { connection: unknown; setUp: boolean };
+  private energyAsked?: unknown;
   /** The user's own choices (D-055); undefined until read, or until reading them failed. */
   protected choices?: Choices;
   /** They were read: the dialog that changes them may open. */
@@ -520,7 +536,7 @@ export class DomoTwinPanel extends LitElement {
   protected lookDraft?: { theme: ThemeMode; accent?: string };
   /** Where the energy is read, being chosen in the settings (D-049). */
   protected energyDraft?: EnergySettings;
-  /** The weather drawn around the home, being chosen in the settings (D-069): an entity, `none`,
+  /** The weather drawn around the home, being chosen in the settings (D-070): an entity, `none`,
    * or `""` for the usual one. */
   protected weatherDraft?: string;
   /** The draft last shown, and its settings as read. */
@@ -2974,20 +2990,25 @@ export class DomoTwinPanel extends LitElement {
    * chosen, once the user's choices are known (this device's own at once), and says it.
    */
   private followRoute(): void {
-    const { tab, area } = routeOf(this.route?.path);
+    const { tab, area, graphs } = routeOf(this.route?.path);
     if (tab) {
       // Opened from the 3D view, the room's way back leads there, also come back to by back.
       const state: unknown = window.history.state;
       const from3d = (state as { domotwin?: unknown } | null)?.domotwin === "from3d";
       if (tab !== "rooms" || area !== this.roomOpen)
         this.from3d = tab === "rooms" && !!area && from3d;
+      // A report opened on another page stays there.
+      if (tab !== this.tab || area !== this.roomOpen || (graphs === true) !== this.roomGraphs)
+        this.report = undefined;
       this.tab = tab;
       this.roomOpen = tab === "rooms" ? area : undefined;
+      this.roomGraphs = tab === "rooms" && graphs === true;
       if (tab === "3d") void this.showLayerAsked();
     } else {
       if (this.deviceStart === undefined && this.choices === undefined) return;
       this.tab = startTab(this.choices ?? NO_CHOICES, this.deviceStart, canDraw3d());
       this.roomOpen = undefined;
+      this.roomGraphs = false;
       this.from3d = false;
       this.address(true);
     }
@@ -3000,7 +3021,7 @@ export class DomoTwinPanel extends LitElement {
     const route = this.route;
     const tab = this.tab;
     if (!route || !tab) return;
-    const path = `${route.prefix}${pathOf(tab, this.roomOpen)}`;
+    const path = `${route.prefix}${pathOf(tab, this.roomOpen, this.roomGraphs)}`;
     if (window.location.pathname === path) return;
     // What the address says beyond the page (a kiosk's choices) stays.
     const url = `${path}${window.location.search}${window.location.hash}`;
@@ -3011,24 +3032,50 @@ export class DomoTwinPanel extends LitElement {
     window.dispatchEvent(new CustomEvent("location-changed", { detail: { replace } }));
   }
 
-  /** Shows a tab, and a room in the Rooms tab: through Home Assistant's address, so that back
-   * works. */
-  private go(tab: Tab, area?: string, from3d = false, replace = false): void {
+  /** Shows a tab, a room in the Rooms tab and its graphs (D-069): through Home Assistant's
+   * address, so that back works. */
+  private go(tab: Tab, area?: string, from3d = false, replace = false, graphs = false): void {
     this.retryPractical();
     this.tab = tab;
     this.roomOpen = tab === "rooms" ? area : undefined;
+    this.roomGraphs = tab === "rooms" && area !== undefined && graphs;
     this.from3d = from3d;
     this.moreOpen = false;
+    this.report = undefined;
     this.address(replace);
   }
 
   private readonly onGo = (
-    event: CustomEvent<{ tab: Tab; area?: string; layer?: LayerName }>,
+    event: CustomEvent<{ tab: Tab; area?: string; graphs?: boolean; layer?: LayerName }>,
   ): void => {
+    const { tab, area, graphs, layer } = event.detail;
     // A layer asked for (the peak's, D-063): shown once the 3D view is there.
-    this.layerWanted = event.detail.tab === "3d" ? event.detail.layer : undefined;
-    // A room opened from one opened from the 3D view: back to the rooms, not to the 3D view.
-    this.go(event.detail.tab, event.detail.area);
+    this.layerWanted = tab === "3d" ? layer : undefined;
+    // A room opened from one opened from the 3D view: back to the rooms, not to the 3D view; its
+    // graphs and back keep the room's way back (D-069).
+    const same = tab === "rooms" && area !== undefined && area === this.roomOpen;
+    this.go(tab, area, same && this.from3d, false, graphs === true);
+  };
+
+  /** A room's graphs asked for a history report of their entities (D-058, D-069). */
+  private readonly onOpenHistory = (
+    event: CustomEvent<{ heading?: string; entities: string[]; period?: PeriodChoice }>,
+  ): void => {
+    const { heading, entities, period } = event.detail;
+    const report = { heading: heading ?? "", entities, ...(period ? { period } : {}) };
+    const from = `${this.tab ?? ""}:${this.roomOpen ?? ""}:${String(this.roomGraphs)}`;
+    this.reportModule ??= import("./history-report");
+    this.reportModule.then(
+      () => {
+        // Still on the page it was asked from, its module come since.
+        if (from === `${this.tab ?? ""}:${this.roomOpen ?? ""}:${String(this.roomGraphs)}`)
+          this.report = report;
+      },
+      (error: unknown) => {
+        this.reportModule = undefined;
+        this.show(this.describe(error), true);
+      },
+    );
   };
 
   /**
@@ -3085,12 +3132,35 @@ export class DomoTwinPanel extends LitElement {
     return this.practicalShown;
   }
 
-  /** A room tapped in the 3D view opens its room in the Rooms tab, and back (D-055). */
-  private readonly onRoomOpen = (event: CustomEvent<{ area: string }>): void => {
-    // Home Assistant's own page of the area where it has one (D-061), else DomoTwin's.
-    const page = areaPage(this._hass, event.detail.area);
+  /**
+   * Whether Home Assistant's energy has something set up (D-069), read once for each connection
+   * where it has its Energy page; never set up when it cannot be read (`not_found`: never saved).
+   */
+  private readEnergy(hass: HomeAssistant): void {
+    const connection = hass.connection;
+    if (!energyPage(hass) || this.energyAsked === connection) return;
+    this.energyAsked = connection;
+    connection.sendMessagePromise<unknown>({ type: "energy/get_prefs" }).then(
+      (prefs) => {
+        this.energyKnown = { connection, setUp: energySetUp(prefs) };
+      },
+      () => {
+        this.energyKnown = { connection, setUp: false };
+      },
+    );
+  }
+
+  /**
+   * A room tapped in the 3D view opens its room in the Rooms tab, and back (D-055); its graphs,
+   * asked for from its panel, open there too (D-069).
+   */
+  private readonly onRoomOpen = (event: CustomEvent<{ area: string; graphs?: boolean }>): void => {
+    const { area, graphs } = event.detail;
+    // Home Assistant's own page of the area where it has one (D-061), else DomoTwin's; Home
+    // Assistant's has no graphs.
+    const page = graphs ? undefined : areaPage(this._hass, area);
     if (page) navigate(page);
-    else this.go("rooms", event.detail.area, true);
+    else this.go("rooms", area, true, false, graphs === true);
   };
 
   /**
@@ -3137,6 +3207,7 @@ export class DomoTwinPanel extends LitElement {
 
   protected override willUpdate(changed: PropertyValues): void {
     if (changed.has("route") || this.tab === undefined) this.followRoute();
+    if (this._hass) this.readEnergy(this._hass);
     if (this.tab === "3d") this.shown3d = true;
     // The Home, Rooms and Safety tabs, and the choices: their module the first time one shows;
     // failed (offline, an update since), tried again when a tab is chosen, not on every update.
@@ -3211,7 +3282,7 @@ export class DomoTwinPanel extends LitElement {
         ${tabs && !this.tight ? this.renderTabs("side") : nothing}
         <div class="body">
           ${this.renderDoorbell()} ${this.shown3d || tool ? this.renderView(admin, on3d) : nothing}
-          ${on3d ? nothing : this.renderPractical()}
+          ${on3d ? nothing : this.renderPractical()} ${on3d ? nothing : this.renderReport()}
           ${
             this.editing
               ? this.renderEditTools()
@@ -3348,6 +3419,65 @@ export class DomoTwinPanel extends LitElement {
     </domotwin-view>`;
   }
 
+  /** A history report opened from a room's graphs (D-069), over the Rooms tab. */
+  private renderReport(): TemplateResult | typeof nothing {
+    const report = this.report;
+    const hass = this._hass;
+    if (!report || !hass || !this.practicalReady) return nothing;
+    return html`<domotwin-history
+      .hass=${hass}
+      .heading=${report.heading}
+      .entities=${report.entities}
+      .opensOn=${report.period}
+      .unseen=${this.practical(hass).unseen}
+      @domotwin-close=${() => {
+        this.report = undefined;
+      }}
+    ></domotwin-history>`;
+  }
+
+  /**
+   * The Energy tab (D-069): Home Assistant's own Energy page where it has one, which DomoTwin
+   * opens rather than copies, its back arrow leading back here; in the demo house, whose energy
+   * Home Assistant does not know, DomoTwin's own, the 3D view's power layer (D-049).
+   */
+  private renderEnergyTab(): TemplateResult | typeof nothing {
+    const hass = this._hass;
+    const route = this.route;
+    const t = this.t;
+    if (!hass || !this.tab) return nothing;
+    // Its page shows only its setup wizard until something is set up: no tab until then.
+    const known = this.energyKnown;
+    const page =
+      known?.connection === hass.connection && known.setUp
+        ? energyPage(
+            hass,
+            route && `${route.prefix}${pathOf(this.tab, this.roomOpen, this.roomGraphs)}`,
+          )
+        : undefined;
+    const demo = hass.demo === true && canDraw3d();
+    if (!page && !demo) return nothing;
+    const href = page ?? (route ? `${route.prefix}/3d?layer=power` : "#energy");
+    return html`<a
+      href=${href}
+      data-testid="tab-energy"
+      aria-current="false"
+      @click=${(event: MouseEvent) => {
+        if (event.ctrlKey || event.metaKey || event.shiftKey || event.button !== 0) return;
+        event.preventDefault();
+        if (page) {
+          navigate(page);
+        } else {
+          this.layerWanted = "power";
+          this.go("3d");
+          // Already on the 3D tab, nothing else changes: the layer is chosen all the same.
+          this.requestUpdate();
+        }
+      }}
+      >${icon(mdiLightningBoltOutline)}<span>${t.t("tabs.energy")}</span></a
+    >`;
+  }
+
   /** The tabs (D-055): on the side of a tablet or a computer, at the bottom of a phone. */
   private renderTabs(where: "side" | "bottom"): TemplateResult {
     const t = this.t;
@@ -3366,7 +3496,7 @@ export class DomoTwinPanel extends LitElement {
       >`;
     return html`<nav class="tabs ${where}" aria-label=${t.t("tabs.label")}>
       ${tab("home", mdiHomeOutline, t.t("tabs.home"))}
-      ${tab("rooms", mdiViewGridOutline, t.t("tabs.rooms"))}
+      ${tab("rooms", mdiViewGridOutline, t.t("tabs.rooms"))} ${this.renderEnergyTab()}
       ${tab("safety", mdiShieldHomeOutline, t.t("tabs.safety"))}
       ${tab("3d", mdiCubeOutline, t.t("tabs.three_d"))}
     </nav>`;
@@ -3411,9 +3541,11 @@ export class DomoTwinPanel extends LitElement {
               .unseen=${unseen}
               .actions=${actions}
               .area=${this.roomOpen}
+              ?graphs=${this.roomGraphs}
               ?from3d=${this.from3d}
               @domotwin-go=${this.onGo}
               @domotwin-favourite=${this.onFavourite}
+              @domotwin-open-history=${this.onOpenHistory}
             ></domotwin-rooms>`
           : html`<domotwin-home
               .hass=${hass}
@@ -3944,7 +4076,7 @@ export class DomoTwinPanel extends LitElement {
       ${sensor("battery_level")}`;
   }
 
-  /** The weather drawn around the home (D-069): the usual entity, one chosen, or none; shown as
+  /** The weather drawn around the home (D-070): the usual entity, one chosen, or none; shown as
    * it is chosen. */
   private renderWeatherSettings(): TemplateResult | typeof nothing {
     const t = this.t;

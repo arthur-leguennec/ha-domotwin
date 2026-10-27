@@ -727,7 +727,7 @@ pub struct Renderer {
     no_shadow: DepthTexture2D,
     pick_target: Option<PickTarget>,
     lighting: Lighting,
-    /// The weather around the home (D-069), the footprint things fall around, and how bright a
+    /// The weather around the home (D-070), the footprint things fall around, and how bright a
     /// storm's flash is this frame.
     weather: Weather,
     footprint: Option<weather::Footprint>,
@@ -1116,7 +1116,7 @@ impl Renderer {
                 || self.weather_moving())
     }
 
-    /// Sets the weather around the home (D-069).
+    /// Sets the weather around the home (D-070).
     pub fn set_weather(&mut self, weather: Weather) {
         if weather != self.weather {
             self.weather = weather;
@@ -1156,7 +1156,7 @@ impl Renderer {
         self.weather.animated() && (self.weather_drawn() || storm)
     }
 
-    /// Sets what the weather's program needs for a frame (D-069).
+    /// Sets what the weather's program needs for a frame (D-070).
     fn set_weather_uniforms(&self, projection: &domotwin_core::camera::Projection, time_ms: f64) {
         let Some(footprint) = self.footprint.filter(|_| self.weather_drawn()) else {
             return;
@@ -1242,7 +1242,7 @@ impl Renderer {
         program.use_uniform_if_required("u_flash", self.flash);
     }
 
-    /// Draws what falls around the home (D-069): over the home, hidden behind it, writing no
+    /// Draws what falls around the home (D-070): over the home, hidden behind it, writing no
     /// depth and leaving the glow below as it is.
     fn draw_weather(&self, viewport: Viewport) {
         if !self.weather_drawn() {
@@ -1653,7 +1653,7 @@ impl Renderer {
     }
 
     /// The light of the scene: the look's own, else the time of day's, greyed by the clouds
-    /// (D-069).
+    /// (D-070).
     fn light(&self) -> Lighting {
         match self.theme.lighting {
             Some(own) => own,
@@ -1661,7 +1661,7 @@ impl Renderer {
         }
     }
 
-    /// How cloudy the sky is drawn (D-069): not on the plan.
+    /// How cloudy the sky is drawn (D-070): not on the plan.
     fn clouds(&self) -> f64 {
         self.weather.overcast * f64::from(1.0 - self.flat)
     }
@@ -1856,7 +1856,7 @@ impl Renderer {
         program.use_uniform_if_required("u_sun_color", rgb(light.sun));
         program.use_uniform_if_required("u_exposure", self.exposure());
         program.use_uniform_if_required("u_ao", light.ao);
-        // The weather's fog fades into the horizon (D-069), around the home.
+        // The weather's fog fades into the horizon (D-070), around the home.
         program.use_uniform_if_required("u_fog", self.fog());
         let [cx, _, cz] = self.view.centre();
         #[allow(clippy::cast_possible_truncation)]

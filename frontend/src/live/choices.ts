@@ -72,13 +72,17 @@ export function canDraw3d(): boolean {
   return typeof WebGL2RenderingContext !== "undefined";
 }
 
-/** The tab a path of the panel shows (Home Assistant gives the path after its own), and a room. */
-export function routeOf(path: string | undefined): { tab?: Tab; area?: string } {
-  const [, first, second] = (path ?? "").split("/");
+/**
+ * The tab a path of the panel shows (Home Assistant gives the path after its own), a room, and
+ * whether its graphs (D-069).
+ */
+export function routeOf(path: string | undefined): { tab?: Tab; area?: string; graphs?: boolean } {
+  const [, first, second, third] = (path ?? "").split("/");
   if (!isTab(first)) return {};
   if (first === "rooms" && second) {
     try {
-      return { tab: first, area: decodeURIComponent(second) };
+      const area = decodeURIComponent(second);
+      return third === "graphs" ? { tab: first, area, graphs: true } : { tab: first, area };
     } catch {
       // A broken address: the rooms.
       return { tab: first };
@@ -87,9 +91,10 @@ export function routeOf(path: string | undefined): { tab?: Tab; area?: string } 
   return { tab: first };
 }
 
-/** The path of a tab, and of a room in the Rooms tab. */
-export function pathOf(tab: Tab, area?: string): string {
-  return tab === "rooms" && area ? `/rooms/${encodeURIComponent(area)}` : `/${tab}`;
+/** The path of a tab, of a room in the Rooms tab, and of its graphs (D-069). */
+export function pathOf(tab: Tab, area?: string, graphs = false): string {
+  if (tab !== "rooms" || !area) return `/${tab}`;
+  return `/rooms/${encodeURIComponent(area)}${graphs ? "/graphs" : ""}`;
 }
 
 /** Favourites shown as big buttons: scenes and scripts. */
