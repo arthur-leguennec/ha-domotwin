@@ -753,6 +753,10 @@ export const fr: Dictionary = {
   weekly: {
     menu: "Bilan de la semaine",
   },
+  first_launch: {
+    start: "Le dessiner depuis les pièces de Home Assistant",
+    menu: "Premiers pas",
+  },
   config_history: {
     menu: "Historique de la configuration",
   },

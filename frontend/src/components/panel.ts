@@ -9,6 +9,7 @@ import {
   mdiFlaskOutline,
   mdiCogOutline,
   mdiHistory,
+  mdiHomeAutomation,
   mdiCubeOutline,
   mdiDotsVertical,
   mdiHomeOutline,
@@ -18,6 +19,7 @@ import {
   mdiMicrophoneMessage,
   mdiPencilOutline,
   mdiRobotVacuum,
+  mdiRocketLaunchOutline,
   mdiShieldHomeOutline,
   mdiSpeedometer,
   mdiStarFourPointsOutline,
@@ -174,6 +176,8 @@ import type { PlaceRequest } from "./network-panel";
 import type { PlanEditState, PlanTool } from "./plan-editor";
 import type { RoomChoice } from "./private-rooms";
 import type { ReportPlan } from "./report-dialog";
+import type { FirstLaunchChoice } from "./first-launch-dialog";
+import type { StartStep } from "../live/first-launch";
 import {
   nextFrame,
   type DomoTwinView,
@@ -338,6 +342,8 @@ const PANEL_DIALOGS = [
   "domotwin-choices",
   "domotwin-screens",
   "domotwin-history",
+  "domotwin-first-launch",
+  "domotwin-getting-started",
 ]
   .map((dialog) => `.body > ${dialog}`)
   .join(", ");
@@ -388,6 +394,8 @@ export class DomoTwinPanel extends LitElement {
     configHistoryOpen: { state: true },
     plainOpen: { state: true },
     reportOpen: { state: true },
+    firstOpen: { state: true },
+    firstError: { state: true },
     moreOpen: { state: true },
     tight: { state: true },
     compact: { type: Boolean, reflect: true },
@@ -577,6 +585,14 @@ export class DomoTwinPanel extends LitElement {
   private plainSession?: PlainSession;
   /** The weekly report is open (D-081), on the report asked for (the notification's link). */
   protected reportOpen = false;
+  /** The first launch (D-083): the areas to draw the home from, or the steps of getting started. */
+  protected firstOpen?: "choose" | "steps";
+  /** Why the home could not be drawn from the areas. */
+  protected firstError?: string;
+  /** The first launch's module, once loaded. */
+  private firstModule?: typeof import("../live/first-launch");
+  /** The steps of getting started, worked out again only when what they read changes. */
+  private stepsMemo?: { key: unknown[]; steps: StartStep[] };
   private reportAsked?: number;
   /** The plans the report is drawn on, the same while they are. */
   private reportShown?: { from: unknown[]; plans: ReportPlan[] };
@@ -3789,6 +3805,18 @@ export class DomoTwinPanel extends LitElement {
             ? html`<button class="action" @click=${this.chooseFile}>
                   ${icon(mdiTrayArrowUp)}${t.t("panel.import")}
                 </button>
+                ${
+                  this.fromAreasOffered()
+                    ? html`<button
+                        class="action"
+                        data-testid="from-areas"
+                        ?disabled=${this.busy}
+                        @click=${this.openFirstLaunch}
+                      >
+                        ${icon(mdiHomeAutomation)}${t.t("first_launch.start")}
+                      </button>`
+                    : nothing
+                }
                 <button class="action" data-testid="plan-new" @click=${this.startPlan}>
                   ${icon(mdiVectorSquareEdit)}${t.t("plan.new")}
                 </button>
@@ -4332,6 +4360,7 @@ export class DomoTwinPanel extends LitElement {
               }
               ${item("report-menu", mdiClipboardCheckOutline, t.t("weekly.menu"), this.busy || this.sandbox !== undefined, () => this.openReport())}
               ${item("measure", mdiSpeedometer, t.t("measure.menu"), this.busy || this.measureOpen || this.sandbox !== undefined, this.openMeasure)}
+              ${item("getting-started-menu", mdiRocketLaunchOutline, t.t("first_launch.menu"), this.busy || this.demo !== undefined || this.sandbox !== undefined, this.openGettingStarted)}
               <hr />
               ${
                 this.demo
@@ -4385,6 +4414,222 @@ export class DomoTwinPanel extends LitElement {
     } catch (error) {
       this.show(this.describe(error), true);
     }
+  }
+
+  /**
+   * Whether the home may be drawn from Home Assistant's areas (D-083): for an administrator, with
+   * areas in Home Assistant, when the home has no plan yet (one empty storey at most).
+   */
+  private fromAreasOffered(): boolean {
+    const hass = this._hass;
+    return (
+      hass?.user?.is_admin === true &&
+      !this.plan &&
+      this.storeys.length <= 1 &&
+      this.demo === undefined &&
+      this.sandbox === undefined &&
+      Object.keys(hass.areas ?? {}).length > 0
+    );
+  }
+
+  /** The first launch's module and texts, loaded the first time. */
+  private async firstLaunch(): Promise<typeof import("../live/first-launch")> {
+    await import("./first-launch-dialog");
+    this.firstModule ??= await import("../live/first-launch");
+    return this.firstModule;
+  }
+
+  /** Opens the areas to draw the home from (D-083). */
+  private readonly openFirstLaunch = async (): Promise<void> => {
+    this.moreOpen = false;
+    try {
+      await this.firstLaunch();
+      this.firstError = undefined;
+      this.firstOpen = "choose";
+    } catch (error) {
+      this.show(this.describe(error), true);
+    }
+  };
+
+  /** Opens the steps of getting started (D-083). */
+  private readonly openGettingStarted = async (): Promise<void> => {
+    this.moreOpen = false;
+    try {
+      await this.firstLaunch();
+      this.firstOpen = "steps";
+    } catch (error) {
+      this.show(this.describe(error), true);
+    }
+  };
+
+  /**
+   * Draws the home from the areas chosen (D-083): its storeys, checked by the engine, replace the
+   * home's (it had none), and its links are added; then the steps of getting started.
+   */
+  private readonly onFirstBuild = async (event: Event): Promise<void> => {
+    const choice = (event as CustomEvent<FirstLaunchChoice>).detail;
+    const client = this.client;
+    const hass = this._hass;
+    if (!client || !hass || this.busy) return;
+    const t = this.t;
+    this.busy = true;
+    this.firstError = undefined;
+    try {
+      const first = await this.firstLaunch();
+      const devices = choice.devices
+        ? new Map(
+            choice.storeys
+              .flatMap((storey) => storey.areas)
+              .map((area) => [area.id, first.devicePieces(hass, area.id)]),
+          )
+        : undefined;
+      const built = first.buildHome({ storeys: choice.storeys, devices, furnish: choice.furnish });
+      for (const storey of built.storeys) await summarizePlan(JSON.stringify(storey.plan));
+      await client.replaceStoreys(
+        built.storeys.map((storey) => ({
+          plan: storey.plan,
+          name: storey.name.slice(0, 60),
+          elevation: storey.elevation,
+        })),
+      );
+      const stored = await client.getBindings();
+      const current = readBindings(stored.bindings);
+      await client.saveBindings(
+        {
+          ...current,
+          rooms: { ...current.rooms, ...built.bindings.rooms },
+          elements: { ...current.elements, ...built.bindings.elements },
+        },
+        stored.revision,
+      );
+      // The server's ground floor.
+      this.storey = undefined;
+      await this.loadPlan();
+      await this.loadBindings();
+      this.firstOpen = "steps";
+      const text = t.t("first.built", {
+        rooms: t.tp("first.built_rooms", built.rooms),
+        devices: t.tp("first.built_devices", built.devices),
+      });
+      this.show(built.left > 0 ? `${text} ${t.tp("first.built_left", built.left)}` : text);
+    } catch (error) {
+      this.firstError = t.t("first.failed", { reason: this.describe(error) });
+    } finally {
+      this.busy = false;
+    }
+  };
+
+  /** A step of getting started asked for: where it is done opens. */
+  private readonly onFirstStep = (event: Event): void => {
+    const step = (event as CustomEvent<StartStep["id"]>).detail;
+    if (step === "devices") {
+      void this.placeDevicesHere();
+      return;
+    }
+    this.firstOpen = undefined;
+    // The plan, the links and the pieces are the 3D view's.
+    if (["shape", "areas", "arrange"].includes(step) && this.tab !== "3d") this.go("3d");
+    switch (step) {
+      case "shape":
+        this.startPlan();
+        break;
+      case "areas":
+        if (!this.linking) this.toggleLinking();
+        break;
+      case "arrange":
+        void this.startEdit();
+        break;
+      case "people":
+        void this.openPeople();
+        break;
+      case "energy":
+        this.openSettings();
+        break;
+      default:
+        break;
+    }
+  };
+
+  /**
+   * Places the devices of the areas this storey's rooms are linked to (D-083), those not placed
+   * yet, each in its room where there is space; the plan saved, then their links.
+   */
+  private async placeDevicesHere(): Promise<void> {
+    const client = this.client;
+    const hass = this._hass;
+    const plan = this.plan;
+    if (!client || !hass || !plan || this.busy) return;
+    const t = this.t;
+    this.busy = true;
+    try {
+      const first = await this.firstLaunch();
+      const stored = await client.getBindings();
+      const bindings = readBindings(stored.bindings);
+      const placed = first.placeDevices(hass, plan, bindings, [
+        ...storeyIds(plan),
+        ...(await this.otherIds(this.storey)),
+      ]);
+      if (placed.devices === 0) {
+        this.show(t.t("first.steps.placed_none"));
+        return;
+      }
+      await summarizePlan(JSON.stringify(placed.plan));
+      await client.savePlan(placed.plan, this.revision, undefined, this.storey);
+      await client.saveBindings(
+        { ...bindings, elements: { ...bindings.elements, ...placed.elements } },
+        stored.revision,
+      );
+      await this.loadPlan();
+      await this.loadBindings();
+      const text = t.tp("first.steps.placed", placed.devices);
+      this.show(placed.left > 0 ? `${text} ${t.tp("first.built_left", placed.left)}` : text);
+    } catch (error) {
+      this.show(this.describe(error), true);
+    } finally {
+      this.busy = false;
+    }
+  }
+
+  /** The steps of getting started on the storey shown, again only when what they read changes. */
+  private firstSteps(): StartStep[] {
+    const first = this.firstModule;
+    const hass = this._hass;
+    if (!first || !hass) return [];
+    const bindings = this.bindings ?? NO_BINDINGS;
+    const key = [this.plan, bindings, hass.entities, hass.devices, this.people, this.settings];
+    const memo = this.stepsMemo;
+    if (memo?.key.every((part, i) => part === key[i])) return memo.steps;
+    const people = Object.values(this.people?.people ?? {}).some(
+      (person) => person.sensor !== "" || (person.located?.length ?? 0) > 0,
+    );
+    const energy = Object.values(this.settings?.energy ?? {}).some((value) =>
+      Array.isArray(value) ? value.length > 0 : Boolean(value),
+    );
+    const steps = first.startSteps(hass, this.plan, bindings, { people, energy });
+    this.stepsMemo = { key, steps };
+    return steps;
+  }
+
+  private renderFirstLaunch(): TemplateResult | typeof nothing {
+    if (this.firstOpen === "choose") {
+      return html`<domotwin-first-launch
+        .hass=${this._hass}
+        .busy=${this.busy}
+        .error=${this.firstError}
+        @domotwin-close=${() => (this.firstOpen = undefined)}
+        @domotwin-build=${this.onFirstBuild}
+      ></domotwin-first-launch>`;
+    }
+    if (this.firstOpen === "steps") {
+      return html`<domotwin-getting-started
+        .hass=${this._hass}
+        .steps=${this.firstSteps()}
+        .busy=${this.busy}
+        @domotwin-close=${() => (this.firstOpen = undefined)}
+        @domotwin-step=${this.onFirstStep}
+      ></domotwin-getting-started>`;
+    }
+    return nothing;
   }
 
   /**
@@ -5029,6 +5274,7 @@ export class DomoTwinPanel extends LitElement {
           ></domotwin-report>`
         : nothing
     }
+    ${this.renderFirstLaunch()}
     ${this.plainOpen && this.plainSession && this._hass ? this.renderPlain(this._hass, this.plainSession) : nothing}
     ${this.storeysOpen ? this.renderStoreysDialog() : nothing}`;
   }

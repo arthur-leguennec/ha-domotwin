@@ -535,6 +535,37 @@ function findSpot(room: Room, shape: Shape, layer: Layer): Spot | undefined {
   return undefined;
 }
 
+/**
+ * A curtain before a window of the room no curtain hangs at yet: as wide as the window and a
+ * little more, on its inner side, facing in. None when the room has no window free.
+ */
+function curtainSpot(room: Room, shape: Shape): [Spot, Shape] | undefined {
+  for (const gap of room.gaps) {
+    if (gap.door) continue;
+    const along: P = [gap.b[0] - gap.a[0], gap.b[1] - gap.a[1]];
+    const length = Math.hypot(along[0], along[1]);
+    if (length < 20) continue;
+    const t: P = [along[0] / length, along[1] / length];
+    const middle: P = [(gap.a[0] + gap.b[0]) / 2, (gap.a[1] + gap.b[1]) / 2];
+    let n: P = [-t[1], t[0]];
+    if (!inside(room.outline, [middle[0] + n[0] * (WALL + 1), middle[1] + n[1] * (WALL + 1)]))
+      n = [t[1], -t[0]];
+    const size: Shape["size"] = [cm(length + 40), shape.size[1], shape.size[2]];
+    const at: P = [
+      middle[0] + n[0] * (WALL + size[1] / 2),
+      middle[1] + n[1] * (WALL + size[1] / 2),
+    ];
+    const rotation = Math.round(((((Math.atan2(-n[0], n[1]) * 180) / Math.PI) % 360) + 360) % 360);
+    const box: Box = { c: at, hw: size[0] / 2, hd: size[1] / 2, angle: rotation };
+    if (room.taken.some((placed) => placed.layer === "wall" && overlap(placed.box, box))) continue;
+    return [
+      { at, rotation },
+      { ...shape, size },
+    ];
+  }
+  return undefined;
+}
+
 /** Rounds to the centimetre, as plans are written. */
 function cm(value: number): number {
   return Math.round(value);
@@ -653,10 +684,15 @@ function furnish(
       if (device) counts.left++;
       continue;
     }
-    // A television stands on its stand.
+    // A television stands on its stand; a curtain hangs before a window, as wide as it.
     const standing = piece.kind === "tv";
-    const shape = shapeOf(standing ? { kind: "tv-stand" } : piece);
-    const spot = findSpot(room, shape, shape.layer);
+    let shape = shapeOf(standing ? { kind: "tv-stand" } : piece);
+    let spot: Spot | undefined;
+    if (piece.kind === "curtain") {
+      const hung = curtainSpot(room, shape);
+      if (hung) [spot, shape] = hung;
+    }
+    spot ??= findSpot(room, shape, shape.layer);
     if (!spot) {
       if (device) counts.left++;
       continue;
@@ -669,7 +705,7 @@ function furnish(
     };
     room.taken.push({ box, layer: shape.layer });
     if (standing) items.push(item(ids.next("tv-stand"), roomId, "tv-stand", spot, shape));
-    const own = shapeOf(piece);
+    const own = standing ? shapeOf(piece) : shape;
     const id = ids.next(piece.kind);
     const extra: Record<string, unknown> = {};
     if (piece.style) extra.style = piece.style;
@@ -982,4 +1018,46 @@ export function placeDevices(
     left += counts.left;
   }
   return { plan: copy, elements, devices, left };
+}
+
+/** A step of getting started (D-083): whether it is done, and how much is left of it. */
+export interface StartStep {
+  id: "plan" | "shape" | "areas" | "devices" | "arrange" | "people" | "energy";
+  /** Done, not done, or a step one does without it being known (shaping, arranging). */
+  done?: boolean;
+  left?: number;
+}
+
+/**
+ * The steps of getting started on the plan shown: a plan, its rooms shaped, each linked to its
+ * area, their devices placed, the pieces arranged, people placed, the energy chosen.
+ */
+export function startSteps(
+  hass: HomeAssistant,
+  plan: unknown,
+  bindings: BindingsJson,
+  done: { people: boolean; energy: boolean },
+): StartStep[] {
+  const rooms = planElements(plan).filter((e) => e.type === "room");
+  const areas = new Set<string>();
+  let unlinked = 0;
+  for (const room of rooms) {
+    const name = typeof room.fields.name === "string" ? room.fields.name : "";
+    const area = roomArea(hass, bindings, room.id, name);
+    if (area) areas.add(area);
+    else unlinked++;
+  }
+  const linked = linkedEntities(bindings);
+  let devices = 0;
+  for (const area of areas) devices += devicePieces(hass, area, linked).length;
+  const any = rooms.length > 0;
+  return [
+    { id: "plan", done: any },
+    { id: "shape" },
+    { id: "areas", done: any && unlinked === 0, left: unlinked },
+    { id: "devices", done: any && devices === 0, left: devices },
+    { id: "arrange" },
+    { id: "people", done: done.people },
+    { id: "energy", done: done.energy },
+  ];
 }

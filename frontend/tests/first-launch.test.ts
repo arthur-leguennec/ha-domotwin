@@ -419,6 +419,55 @@ describe("a first launch in five minutes (D-083)", () => {
     expect(plan.items).toHaveLength(1);
   });
 
+  it("hangs a curtain before a window, as wide as it", () => {
+    const hass = {
+      states: {
+        "cover.curtain": {
+          entity_id: "cover.curtain",
+          state: "open",
+          attributes: { device_class: "curtain" },
+        },
+      },
+      entities: { "cover.curtain": { entity_id: "cover.curtain", area_id: "den" } },
+      areas: { den: { area_id: "den", name: "Den" } },
+    } as unknown as HomeAssistant;
+    const plan = {
+      format: "domotwin-plan",
+      version: 1,
+      rooms: [
+        {
+          id: "den",
+          name: "Den",
+          outline: [
+            [0, 0],
+            [400, 0],
+            [400, 300],
+            [0, 300],
+          ],
+        },
+      ],
+      windows: [{ id: "w", from: [400, 100], to: [400, 220] }],
+    };
+    const placed = placeDevices(
+      hass,
+      plan,
+      { ...NO_BINDINGS, rooms: { den: { area: "den" } } },
+      [],
+    );
+    const [curtain] = placed.plan.items as {
+      kind: string;
+      at: P;
+      size: number[];
+      rotation: number;
+    }[];
+    expect(curtain?.kind).toBe("curtain");
+    expect(curtain?.size[0]).toBe(160);
+    expect(curtain?.at[1]).toBe(160);
+    expect(curtain?.at[0]).toBeLessThan(400);
+    // Facing into the room, its back to the window's wall.
+    expect(curtain?.rotation).toBe(90);
+  });
+
   it("keeps a plan within its 500 elements, telling the devices left out", () => {
     const areas = Array.from({ length: 30 }, (_, i) => ({ id: `room${i}`, name: `Room ${i}` }));
     const many = Array.from({ length: 40 }, (_, i) => ({

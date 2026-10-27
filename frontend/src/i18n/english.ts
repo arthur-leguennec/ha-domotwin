@@ -4,6 +4,7 @@
  * imported by the app (each chunk adds its own when it loads), only its type.
  */
 import { configHistoryEn } from "./config-history";
+import { firstEn } from "./first";
 import { guestsEn } from "./guests";
 import { historyEn } from "./history";
 import { iphoneEn } from "./iphone";
@@ -25,6 +26,7 @@ import { wifiEn } from "./wifi";
 
 export const englishChunks = {
   configHistory: configHistoryEn,
+  first: firstEn,
   guests: guestsEn,
   history: historyEn,
   iphone: iphoneEn,
