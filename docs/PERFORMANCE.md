@@ -1375,3 +1375,23 @@ garden at once, about 30 ms every two seconds. Pure Python, no numeric library: 
 around the room told (its 400 likeliest cells) rather than over the whole home. The spot is
 written again only once it moved a metre (or its accuracy changed by a quarter), and not recorded
 in the history.
+
+### M43 (presence radars merged)
+
+Bundle: the first load is **653.3 kB gzipped** of 1 200 kB (+0.3 kB): the people the radars see,
+read from their sensor and handed to the engine as figures. The Bluetooth settings, loaded when
+opened, list the radars (9.6 kB gzipped for the whole dialog). The engine is unchanged.
+
+The work is the integration's (D-080), measured on the fictional demo house's living room with one
+radar seeing three people, in Python:
+
+| | |
+| --- | --- |
+| What the radars see (their targets on the plan, merged) | 0.02 ms |
+| The weights of a cloud's cells from it (304 cells) | 0.32 ms |
+
+The radars are read a second after one of their entities changes at most, and at the locating's
+two-second readings; the cells' weights are worked out once a reading for every device. A
+person's spot where a radar sees them is told again every half metre, and the people no device
+names likewise, not recorded in the history: about one write a second while someone walks, none
+while they stand.

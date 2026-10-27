@@ -186,7 +186,10 @@ Local, fast, Rust + WebAssembly.</p>
   grid of half-metre cells, and another storey only by its stairs. Phones place their owners;
   keys left behind are told; "where are my keys?" by voice. How well it finds rooms is measured,
   Bermuda's figures beside where it runs, and copied as a table to share. An iPhone's identity key,
-  read without a Mac by an ESP32 in ten minutes, is pasted in DomoTwin as the tool gave it. See
+  read without a Mac by an ESP32 in ten minutes, is pasted in DomoTwin as the tool gave it.
+  Presence radars (an LD2450, an Everything Presence Lite, an LD2410) placed on the plan merge in:
+  Bluetooth says who, the radar says where, to half a metre and fast, and anyone else is someone,
+  a grey figure. See
   [Bluetooth locating](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/bluetooth.md).
 - **Radio coverage.** Where the next Bluetooth proxy, Zigbee router or Wi-Fi access point helps
   most: each room coloured by how well your receivers, your mesh or your access points reach it,

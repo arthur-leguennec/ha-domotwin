@@ -3913,6 +3913,59 @@ then asked for it next, after split levels (M44, D-078). It amends D-035's room 
   - A phone stays on its storey until it is heard where the stairs lead; homes without stairs on
     their plan behave as before.
   - The rebuild (the plans as stored or the receivers changed; not a registry change alone) works
-    the cells out too: 0.25 s with four receivers on the demo house, in Home Assistant's executor. Each reading costs about a millisecond more per
-    device in a room, a few in a garden (PERFORMANCE.md).
+    the cells out too: 0.25 s with four receivers on the demo house, in Home Assistant's executor.
+    Each reading costs about a millisecond more per device in a room, a few in a garden
+    (PERFORMANCE.md).
   - Nothing new is stored: the cells come from the plans, the clouds start again after a restart.
+
+## D-080 · Presence radars merged: who is where, Bluetooth says who, mmWave says where (M43)
+
+D-065 put it after finer locating (M42, D-079), whose cells it weighs; the maintainer asked for it
+next. It adds to D-035's room filter and D-079's cloud, and to D-034's people in the views.
+
+- **Context.** An mmWave radar sees people, not who they are, and fast; Bluetooth says whose phone
+  it is, slowly and a metre or two off. Each radar knows only its own zone. What Home Assistant
+  gives differs by family: an Everything Presence Lite or ESPHome's LD2450 gives up to three
+  targets' X and Y (millimetres, across and ahead of the sensor) and zones; an LD2410 a detection
+  distance and a presence; an Aqara FP2 through HomeKit an occupancy per zone and nothing of where.
+- **Decision.**
+  - **A radar is a piece of the plans linked to it** (to its device, or to its entities): it stands
+    where the piece is, looks the way the piece's front faces (as a linked camera's view, D-024),
+    across the link's angle of view and reach (120° and 6 m unless the link says). Its room is the
+    piece's own, else the room under it or a little ahead (a radar on a wall). Nothing else to set
+    up but, for a radar that counts its targets across the other way, *mirrored* in the Bluetooth
+    settings. Its entities are read from their ids and names: `target N x`/`y` sensors give
+    targets, a detection, moving or still distance beside a presence gives a distance; a tank's
+    `distance`, a radar's settings (maximum, gate, threshold) and its zones are left out. Lengths
+    are read in their units (millimetres, metres, inches, feet as Home Assistant shows them).
+  - **Each says what it says, no more.** Targets are turned into the plan's coordinates; one
+    behind a wall (outside the rooms the radar sees into: its own and those a side left open joins)
+    or out of its field is left out; two of two radars as near as one person (60 cm) are that
+    person. A distance is a ring around the radar. A zone or an FP2's occupancy stays what it was: a
+    presence sensor of its room (D-035), in the room of the entity's own area.
+  - **Merged with Bluetooth.** Someone a radar sees in a room weighs it as a presence sensor on
+    does (the stronger of the two). In the cloud of a device people carry (D-079), a cell near a
+    target, or on a distance's ring, is three times as likely; in the field of a radar whose presence
+    is off, a third as likely; a radar that sees nobody near but whose presence is on (someone still
+    it lost) says nothing. Each person seen is matched to the nearest person told in that room
+    whose devices are carried and not left behind (2.5 m at most; a phone and a watch are one
+    person, the surest of them saying where), from where their Bluetooth says; the person a target
+    was stays it unless their phone is a metre nearer another, so that a figure does not jump
+    between two people. Their devices' spot is the target's, ±40 cm, told again once it moved 50 cm
+    (a radar's place is surer than the cloud's metre). The others are
+    *someone*: `sensor.domotwin_people_seen` counts everyone the radars see, and lists those no
+    device names (`seen`: their room and place, numbered as they walk), not recorded in the
+    history; nothing of a private room or one hidden from everyone (D-039, D-071). The views draw
+    them as grey figures where the people are shown, to whom they are, never in a room the viewer
+    may not see.
+  - **Fast.** The radars' entities are followed: what they see is read a second after a change at
+    most, between the locating's two-second readings.
+  - **Not done.** The radars' zones drawn on the plan (their coordinates are radar settings, not
+    the home's); a radar's field drawn as a camera's; an FP2's zones placed by where they are rather
+    than by area; the merged picture measured at home (M41's figures).
+- **Consequences.**
+  - A home with radars and phones sees who is where to half a metre, and anyone else as someone; a
+    home with radars only sees someone, and a home without them is as before.
+  - A radar costs a few hundredths of a millisecond a reading, and its cells' weights a third of a
+    millisecond a tick for all the devices together (PERFORMANCE.md).
+  - Nothing new is stored but a radar's *mirrored*; the people seen start again after a restart.

@@ -203,14 +203,51 @@ narrower than a cell tells no spot.
 - It is the plan's estimate, said to be one: a metre or two off is usual, more in a large open
   room or a garden.
 
+## Presence radars
+
+A presence radar (mmWave) sees people, not who they are, and fast; Bluetooth says whose phone it
+is. DomoTwin merges the two into one picture of who is where (D-080).
+
+- **Place it on the plan.** Put a piece where the radar is (a small sensor from the catalogue, or
+  the furniture it sits on), turn it so its front faces the way the radar looks, and link it to the
+  radar's device or to its entities (*Link entities*). The link's angle of view and reach are the
+  radar's field (120° and 6 m unless you set them). The Bluetooth settings then list it: its room,
+  what it says, how many people it sees now.
+- **What each radar gives.** An Everything Presence Lite or an LD2450 through ESPHome gives up to
+  three targets' places (its `Target 1 X` / `Target 1 Y` sensors and so on): DomoTwin turns them
+  into the plan's coordinates. An LD2410 gives how far its target is and whether someone is there:
+  a ring around it. An Aqara FP2 through HomeKit gives an occupancy for each zone and nothing of
+  where: each zone counts as a presence sensor of its room, so give each zone's entity the area of
+  its room in Home Assistant. A radar's zones (an EP Lite's, an LD2450's) are presence sensors
+  too.
+- **Mirrored.** Some radars count their targets across the other way (an EP Lite has a setting for
+  it): if the people it sees show on the wrong side of it, tick *Mirrored* in the Bluetooth
+  settings.
+- **Who each person is.** Someone a radar sees in a room is the person whose phone or watch is told
+  there, the nearest within 2.5 m (a phone and a watch are one person; a device left behind is no
+  one's): their spot is then the radar's, to about 40 cm, and moves with them every half metre.
+  The person a radar sees stays who they were unless their phone says, by a metre, that it is
+  someone else.
+  Anyone else is *someone*: drawn as a grey figure in the views (where people are shown, to whom
+  they are), and listed by `sensor.domotwin_people_seen`.
+- **Behind a wall.** A radar sees through thin walls; DomoTwin keeps only the people it sees in its
+  own room (and a room open on it), within its field.
+- **Nobody there.** In the field of a radar whose presence is off, a phone's spot moves away from
+  it; one whose presence is on but that sees nobody near (someone sitting still it lost) says
+  nothing.
+
+`sensor.domotwin_people_seen` (while a radar is on the plan) counts the people the radars see; its
+`seen` attribute lists those no device names (their room, where on the plan in metres, a number
+that follows them), not recorded in the history. Nothing of a private room is in it.
+
 ## Sensors
 
 Each device followed gets `sensor.domotwin_<device>_bluetooth` (`alex_phone` gives
 `sensor.domotwin_alex_phone_bluetooth`): the room's name, unknown when not heard. Attributes:
 `device_name`, `kind`, `person`, `left_behind`, `room_id`, `area_id`, `storey_id`, `storey`,
 `since`, and where in the room (`x`, `y`, `z`, `accuracy`, [above](#where-in-the-room)). It is
-written when the room changes, the spot moves a metre or its accuracy changes by a quarter, not
-at every reading: the history stays small.
+written when the room changes, the spot moves a metre (half a metre where a radar sees its owner)
+or its accuracy changes by a quarter, not at every reading: the history stays small.
 
 A device with an owner also gets `binary_sensor.domotwin_<device>_left_behind`: on while it is
 heard at home and its owner has been away for two minutes (going from one zone to another is still

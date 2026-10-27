@@ -68,7 +68,7 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M22       | A first launch in five minutes                             | ⏳     |
 | 0.5.0     | Fifth release: all of the above                            | ⏳     |
 | M42       | Finer locating: a spot in the room, storeys by the stairs  | ✅     |
-| M43       | mmWave sensors merged into one picture of the home         | ⏳     |
+| M43       | mmWave sensors merged into one picture of the home         | ✅     |
 | M37       | A weekly home report                                       | ⏳     |
 | M21       | More languages, right to left too                          | ⏳     |
 | 0.6.0     | Sixth release: all of the above                            | ⏳     |
@@ -118,7 +118,7 @@ objects (M17) was moved forward as well (D-074). An iPhone's key without a Mac (
 wall screen (M26, D-076) closed M24 to M26 and D-065's order. The maintainer then asked for the
 outdoors (M18, D-077) before the first launch in five minutes too, and split levels (M44, D-078)
 right after it, whose ground they share; then finer locating (M42, D-079) and the mmWave sensors
-merged (M43), before more languages (M21) and the first launch (M22).
+merged (M43, D-080), before more languages (M21) and the first launch (M22).
 
 ## M0, scaffold
 
@@ -1868,6 +1868,34 @@ Where in the room a device is, not only which room (D-079,
 
 Measured at the end of M42: see [`PERFORMANCE.md`](PERFORMANCE.md).
 
+## M43, presence radars merged
+
+Who is where: Bluetooth says who, mmWave says where, and fast (D-080,
+[`bluetooth.md`](bluetooth.md#presence-radars)), right after finer locating, whose cells it weighs.
+
+- ✅ **A radar placed by its piece**: linked to its device or entities, it stands where the piece
+  is and looks the way its front faces, across the link's angle of view and reach; its room is
+  the piece's own. *Mirrored* for one that counts across the other way.
+- ✅ **Each for what it says**: an LD2450's or an Everything Presence Lite's targets turned into
+  the plan's coordinates (none behind a wall or out of its field), an LD2410's distance as a ring,
+  zones and an FP2's occupancy as presence sensors of their rooms; lengths in their units.
+- ✅ **Merged**: two radars seeing one person make one; a room where someone is seen weighs as a
+  presence sensor on; the cells near them likelier in a carried device's cloud, those of a radar
+  saying nobody less likely.
+- ✅ **Who each is**: the nearest person told in the room (a phone and a watch are one), their
+  devices' spot then the radar's, told again every 50 cm; the others someone.
+- ✅ **One picture**: `sensor.domotwin_people_seen` (how many, and where those no device names
+  are, not recorded, nothing of a private room); grey figures in the views, where people are
+  shown; the radars in the Bluetooth settings, what each says and sees.
+- ✅ Tested: what a radar's entities say, its targets on the plan, the people they make, the
+  cells' weights, a phone's spot pulled to the person seen (pytest); a radar on the demo
+  apartment's bookcase seeing Alex and a guest, a phone and a watch one person, a private room,
+  mirrored, a distance radar (pytest); the figures and the settings (vitest, e2e).
+- Left for later: the radars' zones and fields drawn on the plan; the picture measured at home with
+  M41.
+
+Measured at the end of M43: see [`PERFORMANCE.md`](PERFORMANCE.md).
+
 ## Then, from 0.4.0 to 0.5.0
 
 Planned in D-056, with D-065's additions: the sandbox first, built during the two weeks of use since
@@ -1930,15 +1958,8 @@ before its milestone starts, which goes on with what needs no answer.
   did not happen is the sandbox's (M29).
 - ✅ **M42, finer locating** (D-079, above): moved forward at the maintainer's request, after
   split levels.
-- ⏳ **M43, mmWave sensors merged** (D-065), after M31: mmWave presence sensors placed on the plan
-  (where each stands and which way it faces), their zones and their targets turned into the home's
-  own coordinates, and merged with each other and with Bluetooth into one picture of who is where:
-  Bluetooth says who, mmWave says where, and says it fast. What Home Assistant gives is checked
-  first and differs by family: an Aqara FP2 (through HomeKit) gives one occupancy per zone and no
-  coordinates; an Everything Presence Lite gives its targets' X and Y in millimetres and its zones'
-  occupancy; ESPHome's LD2450 gives three targets' X, Y and speed and three zones; an LD2410 or an
-  Everything Presence One gives a distance or an occupancy only, so a zone or a room. Each is used
-  for what it says, no more.
+- ✅ **M43, mmWave sensors merged** (D-080, above): right after finer locating, at the
+  maintainer's request.
 - ✅ **M33, guest access** (D-067, above): moved forward by the maintainer; a page of DomoTwin's
   own outside Home Assistant's sign-in, enforced by DomoTwin, which answers D-056's ❓4.
 - ✅ **M34, per-person rights** (D-071, above): moved forward with guest access; what DomoTwin
