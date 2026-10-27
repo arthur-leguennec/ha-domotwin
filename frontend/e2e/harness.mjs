@@ -1402,6 +1402,30 @@ const connection = {
         if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
         return structuredClone(store.locating);
       }
+      case "domotwin/locating/add_key": {
+        // An identity key (D-074): the fictional `1111…4444` is heard as Sam's iPhone, whichever
+        // way it is written (hex, irk:, a Mac's base64); `aaaa…dddd` as a phone sending no name
+        // (Private BLE Device's default title); `2222…5555` is Sam's watch, already in Private BLE
+        // Device; `5555…8888` is not heard.
+        if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        const written = String(message.key).replace(/\s/g, "").replace(/^irk:/i, "");
+        const hex = /^[0-9a-f:-]+$/i.test(written)
+          ? written.replace(/[:-]/g, "").toLowerCase()
+          : written === "RERERDMzMzMiIiIiEREREQ=="
+            ? "11111111222222223333333344444444"
+            : "";
+        if (!/^[0-9a-f]{32}$/.test(hex)) throw { code: "invalid_key", message: "not taken" };
+        if (hex === "aaaaaaaabbbbbbbbccccccccdddddddd") {
+          return { entry: "entry-unnamed", title: "BLE Device Tracker", named: false, added: true };
+        }
+        if (hex === "22222222333333334444444455555555") {
+          return { entry: "entry-sam-watch", title: "Sam's watch", named: true, added: false };
+        }
+        if (hex !== "11111111222222223333333344444444") {
+          throw { code: "key_not_heard", message: "not taken" };
+        }
+        return { entry: "entry-sam-iphone", title: "Sam's iPhone", named: true, added: true };
+      }
       case "domotwin/locating/candidates": {
         if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
         return {

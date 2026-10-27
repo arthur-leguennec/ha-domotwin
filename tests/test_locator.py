@@ -6,11 +6,12 @@ things left behind, the commands and `where`.
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import AsyncGenerator, Callable
 from datetime import timedelta
 from types import SimpleNamespace
 from typing import Any, cast
-from unittest.mock import patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry, async_fire_time_changed
@@ -20,8 +21,14 @@ from custom_components.domotwin.const import LOCATING_LEARNED_KEY, LOCATING_STOR
 from custom_components.domotwin.data import DATA_KEY, LOCATOR_KEY, PEOPLE_KEY
 from custom_components.domotwin.locating.radio import expected_at
 from custom_components.domotwin.locating.radio_ha import Advert, HaRadio, Receiver, ha_radio
-from custom_components.domotwin.locator import Locator
+from custom_components.domotwin.locator import KeyNotTakenError, Locator
 from homeassistant.core import HomeAssistant, State
+from homeassistant.data_entry_flow import (
+    FlowResultType,
+    InvalidData,
+    UnknownFlow,
+    UnknownHandler,
+)
 from homeassistant.helpers import (
     area_registry as ar,
     device_registry as dr,
@@ -825,3 +832,204 @@ async def test_bermuda_unpaired_or_another_device_starts_its_figures_again(
     assert (await _follow(client, {"alex_phone": retagged}))["success"]
     await hass.async_block_till_done()
     assert "alex_phone" not in home.measure.devices
+
+
+async def test_an_iphones_key_goes_to_private_ble_device(
+    hass: HomeAssistant, home: Locator, hass_ws_client: WebSocketGenerator
+) -> None:
+    """D-074: the key, however it is written, handed to Private BLE Device; never said back."""
+    client = await hass_ws_client(hass)
+    written = "irk:11111111 22222222 33333333 44444444"
+    flows = hass.config_entries.flow
+
+    async def add(key: str) -> dict[str, Any]:
+        return await _call(client, "add_key", key=key)
+
+    assert (await add("not a key"))["error"]["code"] == "invalid_key"
+    # Too long: refused by the locator, not by the schema, whose error would say it back.
+    long = await add("1111" * 30)
+    assert long["error"]["code"] == "invalid_key"
+    assert "1111" not in long["error"]["message"]
+    # Home Assistant has no Bluetooth: Private BLE Device says so.
+    abort = {"type": FlowResultType.ABORT, "reason": "bluetooth_not_available"}
+    with patch.object(flows, "async_init", AsyncMock(return_value=abort)):
+        assert (await add(written))["error"]["code"] == "no_bluetooth"
+    # The phone not heard: the flow left is closed.
+    opened = {"type": FlowResultType.FORM, "flow_id": "f1", "errors": {}}
+    unheard = {"type": FlowResultType.FORM, "flow_id": "f1", "errors": {"irk": "irk_not_found"}}
+    closed = Mock()
+    with (
+        patch.object(flows, "async_init", AsyncMock(return_value=opened)),
+        patch.object(flows, "async_configure", AsyncMock(return_value=unheard)) as configure,
+        patch.object(flows, "async_abort", closed),
+    ):
+        answer = await add(written)
+    assert answer["error"]["code"] == "key_not_heard"
+    assert "1111" not in answer["error"]["message"]
+    closed.assert_called_once_with("f1")
+    # Sent as hex, whatever the tool wrote.
+    assert configure.call_args.args[1] == {"irk": "11111111222222223333333344444444"}
+    # Taken: its entry, by its title; the device can be followed by it.
+    entry = MockConfigEntry(
+        domain="private_ble_device",
+        title="Sam's iPhone",
+        data={"irk": "11111111222222223333333344444444"},
+    )
+    created = {"type": FlowResultType.CREATE_ENTRY, "flow_id": "f1", "result": entry}
+    with (
+        patch.object(flows, "async_init", AsyncMock(return_value=opened)),
+        patch.object(flows, "async_configure", AsyncMock(return_value=created)),
+    ):
+        answer = await add(written)
+    assert answer["result"] == {
+        "entry": entry.entry_id,
+        "title": "Sam's iPhone",
+        "named": True,
+        "added": True,
+    }
+    # Already there: its entry given back, Private BLE Device not asked again.
+    entry.add_to_hass(hass)
+    with patch.object(flows, "async_init", AsyncMock()) as asked:
+        answer = await add("RERERDMzMzMiIiIiEREREQ==")
+    assert answer["result"]["added"] is False
+    assert answer["result"]["entry"] == entry.entry_id
+    asked.assert_not_called()
+    candidates = (await _call(client, "candidates"))["result"]["candidates"]
+    assert {"match": {"key": entry.entry_id}, "name": "Sam's iPhone"} in candidates
+
+
+async def test_a_key_refused_leaves_no_flow_open(hass: HomeAssistant, home: Locator) -> None:
+    """D-074: what Private BLE Device answers, each said plainly; its setup never left open."""
+    written = "11111111222222223333333344444444"
+    flows = hass.config_entries.flow
+    opened = {"type": FlowResultType.FORM, "flow_id": "f1", "errors": {}}
+
+    async def code(configure: AsyncMock, init: AsyncMock | None = None) -> str:
+        closed = Mock()
+        with (
+            patch.object(flows, "async_init", init or AsyncMock(return_value=opened)),
+            patch.object(flows, "async_configure", configure),
+            patch.object(flows, "async_abort", closed),
+            pytest.raises(KeyNotTakenError) as refused,
+        ):
+            await home.async_add_key(written)
+        if configure.await_count:
+            closed.assert_called_once_with("f1")
+        return refused.value.code
+
+    def answers(**result: Any) -> AsyncMock:
+        return AsyncMock(return_value={"flow_id": "f1", **result})
+
+    form = FlowResultType.FORM
+    assert await code(answers(type=form, errors={"irk": "irk_not_valid"})) == "invalid_key"
+    assert await code(answers(type=form, errors={"irk": "something_new"})) == "key_refused"
+    # Bluetooth gone between the two steps.
+    gone = answers(type=FlowResultType.ABORT, reason="bluetooth_not_available")
+    assert await code(gone) == "no_bluetooth"
+    busy = answers(type=FlowResultType.ABORT, reason="already_in_progress")
+    assert await code(busy) == "key_refused"
+    # Private BLE Device cannot be set up, or its setup fails: refused, the flow closed.
+    missing = AsyncMock(side_effect=UnknownHandler)
+    assert await code(AsyncMock(), missing) == "key_refused"
+    assert await code(AsyncMock(side_effect=UnknownFlow)) == "key_refused"
+    # Its form asking for another field: refused, never said with the command (the key in it).
+    other = InvalidData("extra keys not allowed", ["irk"], None, {"irk": "extra"})
+    assert await code(AsyncMock(side_effect=other)) == "key_refused"
+    # Without Bluetooth, Private BLE Device is not asked: its first step would fail.
+    radio, home.radio = home.radio, None
+    with (
+        patch.object(flows, "async_init", AsyncMock()) as asked,
+        pytest.raises(KeyNotTakenError) as refusal,
+    ):
+        await home.async_add_key(written)
+    home.radio = radio
+    assert refusal.value.code == "no_bluetooth"
+    asked.assert_not_called()
+
+
+async def test_one_key_added_twice_at_once_makes_one_entry(
+    hass: HomeAssistant, home: Locator
+) -> None:
+    """D-074: two clicks at once: one entry, the second given it back; known by its unique id."""
+    flows = hass.config_entries.flow
+    opened = {"type": FlowResultType.FORM, "flow_id": "f1", "errors": {}}
+    entry = MockConfigEntry(
+        domain="private_ble_device",
+        title="AB:CD:EF:01:23:45",
+        unique_id="11111111222222223333333344444444",
+        data={"irk": "something else"},
+    )
+
+    async def create(flow: str, data: dict[str, Any]) -> dict[str, Any]:
+        await asyncio.sleep(0)
+        entry.add_to_hass(hass)
+        return {"type": FlowResultType.CREATE_ENTRY, "flow_id": flow, "result": entry}
+
+    with (
+        patch.object(flows, "async_init", AsyncMock(return_value=opened)) as init,
+        patch.object(flows, "async_configure", AsyncMock(side_effect=create)),
+    ):
+        first, second = await asyncio.gather(
+            home.async_add_key("11111111222222223333333344444444"),
+            home.async_add_key("irk:11111111222222223333333344444444"),
+        )
+    init.assert_awaited_once()
+    # Titled by an address: not a name (the frontend calls it an iPhone).
+    assert first == {
+        "entry": entry.entry_id,
+        "title": "AB:CD:EF:01:23:45",
+        "named": False,
+        "added": True,
+    }
+    assert second == {**first, "added": False}
+
+
+async def test_private_ble_devices_own_setup_takes_the_key(
+    hass: HomeAssistant, home: Locator
+) -> None:
+    """D-074: Private BLE Device's real setup, its field, errors and titles as DomoTwin reads them.
+
+    Only Bluetooth is played: a receiver, and the phone heard (or not), with or without a name.
+    """
+    flow = "homeassistant.components.private_ble_device.config_flow"
+    flows = hass.config_entries.flow
+    heard: SimpleNamespace | None = None
+    receivers = 1
+
+    async def add(key: str) -> dict[str, Any]:
+        with (
+            # Bluetooth itself is not set up here: only what Private BLE Device asks it.
+            patch("homeassistant.config_entries.async_process_deps_reqs", return_value=None),
+            patch(f"{flow}.bluetooth.async_scanner_count", side_effect=lambda *_, **__: receivers),
+            patch(f"{flow}.async_last_service_info", side_effect=lambda *_: heard),
+            patch.object(hass.config_entries, "async_setup", AsyncMock(return_value=True)),
+        ):
+            return await home.async_add_key(key)
+
+    async def refused(key: str) -> str:
+        with pytest.raises(KeyNotTakenError) as refusal:
+            await add(key)
+        # Its setup is never left open.
+        assert flows.async_progress_by_handler("private_ble_device") == []
+        return refusal.value.code
+
+    assert await refused("11111111222222223333333344444444") == "key_not_heard"
+    receivers = 0
+    assert await refused("11111111222222223333333344444444") == "no_bluetooth"
+    receivers = 1
+    # Heard, sending no name: Private BLE Device's default title, not a name.
+    heard = SimpleNamespace(name=None)
+    answer = await add("RERERDMzMzMiIiIiEREREQ==")
+    assert answer["named"] is False
+    assert answer["added"] is True
+    entry = hass.config_entries.async_get_entry(answer["entry"])
+    assert entry is not None
+    assert entry.data == {"irk": "11111111222222223333333344444444"}
+    assert entry.unique_id == "11111111222222223333333344444444"
+    # Heard by its name.
+    heard = SimpleNamespace(name="Sam's watch")
+    answer = await add("irk:55555555666666667777777788888888")
+    assert (answer["title"], answer["named"], answer["added"]) == ("Sam's watch", True, True)
+    # Given again: the entry already there.
+    again = await add("55555555 66666666 77777777 88888888")
+    assert again == {**answer, "added": False}

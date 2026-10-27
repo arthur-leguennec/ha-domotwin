@@ -16,7 +16,7 @@ from . import choices, config_history, guests, schedules, voice, wifi
 from .compat import vol
 from .const import DOMAIN, SIGNAL_SHOW, SIGNAL_UPDATED, TEACH_SECONDS, VERSION
 from .data import DATA_KEY, LOCATOR_KEY, PEOPLE_KEY
-from .locator import PRIVATE_BLE, Locator
+from .locator import PRIVATE_BLE, KeyNotTakenError, Locator
 from .models import async_remove_unused
 from .people import color_of
 from .storage import (
@@ -72,6 +72,7 @@ def async_register_commands(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_locating_candidates)
     websocket_api.async_register_command(hass, ws_locating_teach)
     websocket_api.async_register_command(hass, ws_locating_forget)
+    websocket_api.async_register_command(hass, ws_locating_add_key)
     websocket_api.async_register_command(hass, ws_locating_measure)
     websocket_api.async_register_command(hass, ws_locating_measure_reset)
     websocket_api.async_register_command(hass, ws_subscribe)
@@ -827,6 +828,32 @@ async def ws_locating_forget(
         return
     forgotten = await locator.async_forget(msg.get("room"))
     connection.send_result(msg["id"], {"forgotten": forgotten})
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "domotwin/locating/add_key",
+        # Its length is checked by the locator: an error made here would say the key back.
+        vol.Required("key"): str,
+    }
+)
+@websocket_api.async_response
+async def ws_locating_add_key(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Hand an iPhone's or a watch's identity key to Private BLE Device (D-074). Admins only.
+
+    The key is never said back, nor in an error.
+    """
+    if (locator := _get_locator(hass, connection, msg)) is None:
+        return
+    try:
+        added = await locator.async_add_key(msg["key"])
+    except KeyNotTakenError as err:
+        connection.send_error(msg["id"], err.code, "the identity key was not taken")
+        return
+    connection.send_result(msg["id"], added)
 
 
 @websocket_api.require_admin

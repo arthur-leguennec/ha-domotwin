@@ -386,6 +386,14 @@ export class DomoTwinClient {
     });
   }
 
+  /** Hands an identity key to Home Assistant's Private BLE Device (D-074): its entry, its title
+   * and whether that title names the device (not an address or Private BLE Device's default). */
+  addLocatingKey(
+    key: string,
+  ): Promise<{ entry: string; title: string; named: boolean; added: boolean }> {
+    return this.connection.sendMessagePromise({ type: "domotwin/locating/add_key", key });
+  }
+
   /** How well the rooms are found (M41): each device's figures, Bermuda's beside (admins). */
   getLocatingMeasure(): Promise<LocatingMeasure> {
     return this.connection.sendMessagePromise<LocatingMeasure>({

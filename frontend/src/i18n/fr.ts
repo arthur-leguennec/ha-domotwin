@@ -1154,6 +1154,11 @@ export const fr: Dictionary = {
         "les réglages Bluetooth ne sont pas valables (30 appareils au plus, chacun reconnu d’une seule façon).",
       unknown_device: "cet appareil n’est pas suivi.",
       unknown_room: "les plans n’ont pas cette pièce.",
+      invalid_key:
+        "ce n’est pas une clé d’identité : 32 chiffres hexadécimaux, irk:… ou le base64 d’un Mac.",
+      key_not_heard:
+        "Home Assistant n’entend aucun appareil avec cette clé : déverrouillez le téléphone, gardez-le près d’un récepteur et réessayez.",
+      key_refused: "Private BLE Device n’a pas pris la clé.",
       no_bluetooth: "Home Assistant n’a pas de Bluetooth.",
       too_many_storeys: "un logement a au plus 20 étages.",
       no_entities: "rien à allumer ni à éteindre n’a été donné.",
