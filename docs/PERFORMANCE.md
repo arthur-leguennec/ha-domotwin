@@ -1398,18 +1398,18 @@ while they stand.
 
 ### M21 (more languages)
 
-Bundle: the first load is **654.4 kB gzipped** of 1 200 kB (+1.1 kB): the languages' loader, the
+Bundle: the first load is **654.6 kB gzipped** of 1 200 kB (+1.3 kB): the languages' loader, the
 elements waiting for theirs, and the layout in logical properties. Each of the ten languages is its
 own module, loaded only where Home Assistant speaks it (D-081), with every message of the first
-picture and of every chunk:
+picture and of every chunk, and the demo house's names:
 
 | Language | Gzipped | Language | Gzipped |
 | --- | --- | --- | --- |
-| German | 35.9 kB | Brazilian Portuguese | 35.0 kB |
-| Spanish | 35.2 kB | Arabic | 40.8 kB |
-| Italian | 35.0 kB | Simplified Chinese | 35.1 kB |
-| Dutch | 34.7 kB | Japanese | 38.0 kB |
-| Portuguese | 35.2 kB | Korean | 36.2 kB |
+| German | 38.4 kB | Brazilian Portuguese | 37.4 kB |
+| Spanish | 37.7 kB | Arabic | 43.4 kB |
+| Italian | 37.5 kB | Simplified Chinese | 37.8 kB |
+| Dutch | 37.1 kB | Japanese | 40.9 kB |
+| Portuguese | 37.7 kB | Korean | 38.9 kB |
 
 The bundles now keep every language's letters as they are (UTF-8) rather than escaped: Arabic's
 module went from 47.9 to 40.8 kB gzipped, Japanese's from 42.2 to 38.0, and French in the first
