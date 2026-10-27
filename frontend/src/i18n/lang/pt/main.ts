@@ -800,6 +800,9 @@ export const main: Dictionary = {
   plain: {
     menu: "Uma automatização por palavras suas",
   },
+  report: {
+    menu: "Relatório semanal",
+  },
   config_history: {
     menu: "Histórico de configuração",
   },

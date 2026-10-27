@@ -799,6 +799,9 @@ export const main: Dictionary = {
   plain: {
     menu: "Uma automação em palavras simples",
   },
+  report: {
+    menu: "Relatório semanal",
+  },
   config_history: {
     menu: "Histórico da configuração",
   },
