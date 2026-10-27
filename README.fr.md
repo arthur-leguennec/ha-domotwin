@@ -106,6 +106,14 @@ Local, rapide, Rust + WebAssembly.</p>
   d’après votre entité météo, dessinés en 3D : autour d’un appartement et jamais dedans, sur le
   toit d’une maison, penchés par le vent. Voir [la
   météo](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/weather.md) (en anglais).
+- **Le jardin aussi.** Dessinez un jardin, une terrasse, un balcon et son garde-corps, une allée :
+  des lieux extérieurs, avec leur pelouse, leur terrasse en bois, leur dallage ou leur gravier, et
+  les objets du jardin (arbres, haies, piscine, abri, lampes de jardin, portail). La pelouse est
+  dessinée aussi haute qu’elle a poussé depuis la dernière tonte, selon la saison là où est le
+  logement ; votre tondeuse robot en fait le tour, jamais à travers la maison. Les toits suivent
+  la forme de la maison, avec la forme, la pente et la couleur que vous choisissez. Voir
+  [l’extérieur](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/outdoors.md) (en
+  anglais).
 - **Calques.** Une carte de chaleur animée (température, humidité, CO₂ ou particules fines) tirée
   des capteurs de la zone de chaque pièce, des alertes de sécurité qui pulsent dans leur pièce
   (fumée, gaz, fuite d’eau, alarme, fenêtre ouverte sous la pluie), les pièces occupées, le vrai

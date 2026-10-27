@@ -3734,3 +3734,74 @@ D-068 left for the wall screen, is left for later again (below).
     under a screen's name.
   - The diagnostics count the screens and those with photos, never their names, sensors or
     folders.
+
+## D-077 · The outdoors: places outside, the garden's pieces, roofs, and the lawn growing (M18)
+
+D-056 planned it among the milestones after 0.4.0; the maintainer then asked for it before the
+first launch in five minutes (M22). It amends D-028's roof and D-072's footprint.
+
+- **Context.** The plan format knew rooms only: a terrace or a garden drawn as a room got walls
+  and a ceiling, a balcony could not say it had a railing, and a tree had to fit under 3 m. The
+  roof was one gable over the smallest rectangle around the top storey (D-028), the same over an
+  L-shaped house as over a square one, over nothing where an upper storey is smaller. Home
+  Assistant knows robot mowers (`lawn_mower`: `mowing`, `docked`, `returning`, `paused`,
+  `error`), not where they are, and nobody's lawn has a sensor saying how long its grass is.
+- **Decision.**
+  - **Places outside** (`outside` on a room): no walls (the sides of the rooms beside them are
+    façades, as against nothing), no ceiling, under no roof. A garden may be drawn around the
+    house: where a room and a place outside overlap, the room wins, and between two places outside
+    the smaller (a terrace in the garden), for what stands there, a tap, a walker, a robot and the
+    radios' walls (the core and the integration's locating alike). Their grounds: a lawn (their
+    default), decking, paving, gravel or soil; a lawn, gravel and soil lie 4 cm under the floors,
+    and what stands on them stands on them; decking and paving 1.5 cm under them (not in their
+    plane where one is drawn round the house), with an edge; a smaller place outside is drawn a
+    little over the larger it lies in (a gravel path in the lawn). A lawn is drawn as grass, in
+    tufts and patches, with a mower's stripes; gravel, paving and soil as theirs; water (a
+    pool's) with ripples. A railing (`railing`) is glass between posts along the free sides of a
+    place outside: a balcony. The plan editor has *Outside*, its grounds and *Railing*; a place
+    outside's name sits out of the rooms it surrounds.
+  - **The garden's pieces**: 22 kinds in the catalogue's *Garden* group (trees, shrubs, a hedge,
+    planters, garden furniture, a parasol, a barbecue, a fire pit, garden lights, a pool, a hot
+    tub, a robot mower's dock, a shed, a pergola, a greenhouse, a trampoline, a swing, a fence, a
+    gate, a mailbox), styles among them, up to 10 m tall. They link as the others do (D-074): a
+    garden light lights and switches, a fire pit burns while what it is linked to is on, a gate
+    opens with its cover or its contact, a pool or a hot tub with its pump or its heater.
+  - **Roofs, storey by storey**: over each storey where no storey above covers it, made of the
+    rooms with their walls alone. Its outline is split into at most four rectangles (wings, at
+    least 1.5 m wide: an L, a T, a U), each with its roof, which meet as real ones do; an outline
+    no wings fit well enough (more than 12 % left over) gets one roof over its smallest
+    rectangle, as before. The home's settings choose their shape (*gable*, by default, *hip*,
+    *shed* or *flat*), their slope (5° to 60°, 30° by default) and colour (the look's by
+    default); the integration checks them (`roof` in the settings). The weather lands on each wing
+    (D-072); it falls around the home and its places outside.
+  - **The lawn grows**: as long as it grew since it was last mown, from the season where the home
+    is (Home Assistant's latitude: by month in the north, the other way round in the south, the
+    same all year in the tropics), 4 cm when mown, 20 cm at most; the stripes fade over four
+    days; a lawn never said mown is drawn with about a week's grass. Its last mowing comes from
+    two places, kept by the integration (`.storage/domotwin.garden`, 100 lawns and 20 mowers at
+    most): anyone says it was just mown (*Just mowed*, in its room's panel, which says how long
+    the grass is and since when), and each robot mower's mowing, noted as it stops (a state
+    leaving `mowing`), counts for the lawns it mows.
+  - **A robot mower** is a `robot-mower` piece linked to a `lawn_mower`: its dock. Mowing, it
+    leaves it and mows the lawns of its storey it can get to, lane by lane (wider and a little
+    faster than a vacuum), the nearest first; it keeps out of the house (the home's rooms are
+    walls to it, but the one its dock is in, out of which it goes through its doors); returning,
+    it goes home; paused or in error, it stays where it is; docked, on its dock. As for robot
+    vacuums (D-049), where it is is drawn from the plan, not known; under *reduce motion* it is
+    drawn at rest. A robot vacuum, the other way round, keeps in the house: the places outside
+    are walls to it (a garden door is no way out), but the one its dock is in.
+  - **The demo house** has its garden: a terrace, the back lawn with a pool, trees, a hedge and a
+    shed, the front lawn, a path and a driveway, its mower out late in the morning, the garden lit
+    at dusk, the gate opening as the car goes and comes back.
+  - **Not done**: the ground's height (one level, with M44); the grass browning in a dry summer
+    or growing faster after rain; a mower's real position (a few report it; most do not), and the
+    patterns a brand mows in; a fence drawn along a place outside's sides by itself.
+- **Consequences.**
+  - The first load grows by 43.1 kB gzipped (647.1 kB of 1 200), the engine's wasm by 40.3 kB of
+    it, most of it the garden's pieces; the demo house's ground floor is 36 284 triangles with its
+    garden (from 23 306), the CPU's part of a frame unchanged (0.6 ms, [`PERFORMANCE.md`](PERFORMANCE.md)).
+  - Nothing in the garden's store is private: room ids, entity ids and times. The diagnostics
+    count the lawns and the mowers; the store goes with the integration.
+  - An older DomoTwin reads places outside as rooms with walls (the fields it does not know are
+    left) and the garden's pieces as boxes, but refuses a plan with a piece taller than 3 m
+    (`item_height`).

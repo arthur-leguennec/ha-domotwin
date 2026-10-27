@@ -63,12 +63,12 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M17       | A library of objects: many pieces, free and well made      | ✅     |
 | M45       | An iPhone's key, without a Mac: the ways to get it         | ✅     |
 | M26       | The wall screen: a screen saver, a layout per device       | ✅     |
+| M18       | Outdoors: garden, terrace, lawn, pool, roofs               | ✅     |
 | M22       | A first launch in five minutes                             | ⏳     |
 | 0.5.0     | Fifth release: all of the above                            | ⏳     |
 | M42       | Finer locating: a spot in the room, storeys by the stairs  | ⏳     |
 | M43       | mmWave sensors merged into one picture of the home         | ⏳     |
 | M37       | A weekly home report                                       | ⏳     |
-| M18       | Outdoors: garden, terrace, lawn, pool, roofs               | ⏳     |
 | M44       | Split levels and walk-out basements                        | ⏳     |
 | M21       | More languages, right to left too                          | ⏳     |
 | 0.6.0     | Sixth release: all of the above                            | ⏳     |
@@ -115,7 +115,8 @@ Per-person rights (M34, D-071) followed: what DomoTwin shows each person and let
 one place, and said not to be Home Assistant's enforcement.
 After the weather around the home (M40, D-072) and locating measured (M41, D-073), the library of
 objects (M17) was moved forward as well (D-074). An iPhone's key without a Mac (M45, D-075) and the
-wall screen (M26, D-076) closed M24 to M26 and D-065's order.
+wall screen (M26, D-076) closed M24 to M26 and D-065's order. The maintainer then asked for the
+outdoors (M18, D-077) before the first launch in five minutes too.
 
 ## M0, scaffold
 
@@ -1787,6 +1788,38 @@ family's photos, gone as soon as someone is (D-076, [`wall-screen.md`](wall-scre
 
 Measured at the end of M26: see [`PERFORMANCE.md`](PERFORMANCE.md).
 
+## M18, the outdoors
+
+The garden, the terrace and the roofs: places outside, the garden's pieces, the lawn as long as it
+has grown and the robot mower going round, and roofs that follow the house (D-077,
+[`outdoors.md`](outdoors.md)).
+
+- ✅ **Places outside** (`outside` on a room): no walls, no ceiling, no roof; the rooms beside
+  them have façades; a garden may be drawn around the house (the room wins where they overlap, the
+  smaller place outside between two). Their grounds: a lawn, decking, paving, gravel, soil, a lawn
+  a little under the floors; a railing along a balcony's free sides. In the plan editor:
+  *Outside*, its ground, *Railing*.
+- ✅ **The garden's pieces**: 22 kinds in a *Garden* group of the catalogue, up to 10 m tall,
+  linked as the others are (a garden light, a fire pit, a gate that opens, a pool's pump).
+- ✅ **Roofs storey by storey**, over what no storey above covers, in wings that meet (an L, a T),
+  their shape (gable, hip, shed, flat), slope and colour chosen in the settings; the weather falls
+  on them.
+- ✅ **The lawn grows** with the season where the home is, from its last mowing: said by anyone
+  in its panel (*Just mowed*), or noted by the integration when its robot mower stops mowing.
+- ✅ **The robot mower**: a `robot-mower` dock linked to a `lawn_mower`, mowing the lawns its
+  robot can get to, keeping out of the house.
+- ✅ **The demo house's garden**: a terrace, two lawns, a pool, trees, a shed, its mower, the
+  garden lit at dusk, the gate.
+- ✅ Tests: places outside read, walled, drawn, walked, swept and counted by the radios, the
+  garden's pieces drawn in every style, the roofs in wings with the rain on them, the mower round the
+  house (cargo); the garden's store, its mowers noted, its commands checked (pytest); the grass's
+  growth by season and latitude, the mowers' docks, the garden's links (vitest); the demo's
+  mower, a lawn said mown, a place outside drawn, the roof chosen (Playwright).
+- Left for later: the ground's height (with M44); the grass browning or growing after rain; a
+  mower's real position.
+
+Measured at the end of M18: see [`PERFORMANCE.md`](PERFORMANCE.md).
+
 ## Then, from 0.4.0 to 0.5.0
 
 Planned in D-056, with D-065's additions: the sandbox first, built during the two weeks of use since
@@ -1885,8 +1918,7 @@ before its milestone starts, which goes on with what needs no answer.
   otherwise; a notification of Home Assistant's and a page in the panel.
 - ✅ **M38, history as reports** (D-058, above): done right after the sandbox, at the
   maintainer's request.
-- ⏳ **M18, outdoors**: the garden, the terrace, the lawn, a pool, the roofs; the lawn growing
-  between two mowings.
+- ✅ **M18, outdoors** (D-077, above): moved before the first launch, at the maintainer's request.
 - ⏳ **M44, split levels and walk-out basements** (D-065), next to the outdoors (M18), whose ground
   it needs. What works already: a storey can sit at any height (half a storey up), it is drawn
   there, and stairs join it to the next, for a tap and for the walk. What does not: the Bluetooth

@@ -1296,3 +1296,33 @@ screens' dialog another (4.4 kB), with Home Assistant's media read by a module b
 practical tabs' chunk shrank by 2.4 kB: their texts, which the saver shares for the weather's
 words, are a chunk of their own. While the saver shows, the 3D view is not drawn; a device that is
 not a wall screen only asks itself every 5 s whether it is one.
+
+### M18 (the outdoors)
+
+Bundle: the first load is **648.5 kB gzipped** of 1 200 kB (+44.5 kB). The engine's wasm grows by
+41.6 kB (481.7 kB gzipped): the garden's 22 kinds and their styles (the most of it), the roofs in
+wings and their four shapes, the grounds' shaders (grass, gravel, paving, soil, water), the robot
+mower and the places outside's walls, labels and ways. The page grows by 2.9 kB: the lawns' growth,
+the garden's reading, the mowers' docks, the roof's settings and the texts. On demand, the demo
+house's garden comes with the demo (+1.8 kB), the catalogue's *Garden* group with edit mode
+(+0.8 kB), and the plan editor's wasm (100.9 kB, +1.8 kB) and the import's (287.5 kB, +1.6 kB)
+read the new fields and kinds.
+
+The demo house's ground floor, with its garden (five places outside, 26 garden pieces), is 36 284
+triangles (from 23 306). Measured at 1 000 × 700 on SwiftShader (software WebGL2), the demo's
+morning, 60 frames each (CPU time of a frame, median and 95th percentile, and the interval between
+frames):
+
+| Quality | | Triangles | CPU median | CPU p95 | Interval median |
+| --- | --- | --- | --- | --- | --- |
+| Eco | before (M26) | 23 306 | 0.5 ms | 1.6 ms | 267 ms |
+| Eco | with the garden | 36 284 | 0.6 ms | 3.8 ms | 250 ms |
+| Balanced | before (M26) | 23 306 | 0.5 ms | 2.4 ms | 300 ms |
+| Balanced | with the garden | 36 284 | 0.6 ms | 1.6 ms | 300 ms |
+
+The CPU's part of a frame barely moves: the garden is built once, with the plan. The software GPU
+is the interval's bottleneck, with or without the garden. The grass, gravel and water are drawn by
+the floor's shader from the surface their vertices carry: no texture, no extra pass. A robot mower
+moves as a robot vacuum does (frames at the layers' pace while it moves, none on its dock); its way
+round the house is worked out once, when it leaves (the storey's floor with the home's rooms
+closed), as a vacuum's is (the places outside closed). The lawns' grass is worked out in the page every ten minutes and sent when it changed.
