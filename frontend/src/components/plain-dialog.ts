@@ -78,6 +78,10 @@ export class PlainSession {
   check?: DraftCheck;
   days: DraftDay[] = [];
   saved?: { id: string; name: string };
+  /** The save under way, kept here so that a dialog opened again does not save it twice. */
+  saving?: Promise<void>;
+  /** Why Home Assistant did not save it. */
+  saveError?: string;
 
   /** The description saved: the request, then each change asked, in the user's words. */
   get description(): string {
@@ -96,7 +100,8 @@ export class PlainSession {
     this.days = [];
   }
 
-  /** A day the draft `revision` was played: the same day played again replaces it. */
+  /** A day the draft `revision` was played: the same day played again (things done by hand in
+   * it, or none) replaces it. */
   addDay(day: DraftDay, revision: number): void {
     if (revision !== this.revision) return;
     this.days = [...this.days.filter((each) => each.key !== day.key), day].slice(-MAX_DAYS);
@@ -126,11 +131,12 @@ export class PlainSession {
     this.check = undefined;
     this.days = [];
     this.saved = undefined;
+    this.saveError = undefined;
   }
 }
 
-/** What is being done: written by the AI task, checked, saved. */
-type Busy = "writing" | "checking" | "saving";
+/** What is being done: written by the AI task, or checked (a save is the session's). */
+type Busy = "writing" | "checking";
 
 export class DomoTwinPlain extends LitElement {
   static override properties = {
@@ -143,6 +149,7 @@ export class DomoTwinPlain extends LitElement {
     change: { state: true },
     tasks: { state: true },
     showWhole: { state: true },
+    announced: { state: true },
   };
 
   static override styles = [
@@ -332,8 +339,11 @@ export class DomoTwinPlain extends LitElement {
   hass?: HomeAssistant;
   /** The draft, kept by the panel. */
   session = new PlainSession();
-  /** What the viewer may not see (D-039): never named to the AI task. */
-  unseen: Unseen = { areas: new Set(), entities: new Set() };
+  /**
+   * What the viewer may not see (D-039), never named to the AI task; none until the panel has
+   * read the home's settings, plans and links, and nothing is asked of the AI task meanwhile.
+   */
+  unseen?: Unseen;
   protected busy?: Busy;
   protected error?: string;
   protected status?: string;
@@ -342,7 +352,11 @@ export class DomoTwinPlain extends LitElement {
   /** The AI tasks there are, read when the dialog opens. */
   protected tasks: string[] = [];
   protected showWhole = false;
+  /** Said to screen readers when the dialog shows something new (a draft written). */
+  protected announced = "";
   private started = false;
+  /** Where the focus goes once drawn, when what had it is gone. */
+  private focusNext?: string;
   /** Counts the questions to the AI task: an answer to one cancelled is dropped. */
   private asked = 0;
   private home?: TaskHome;
@@ -358,7 +372,9 @@ export class DomoTwinPlain extends LitElement {
     return !(changed.size === 1 && changed.has("hass") && this.started);
   }
 
-  override willUpdate(): void {
+  override willUpdate(changed: PropertyValues<this>): void {
+    // What the viewer may not see changed (the home read): the home is told afresh.
+    if (changed.has("unseen")) this.home = undefined;
     const hass = this.hass;
     if (this.started || !hass) return;
     this.started = true;
@@ -374,15 +390,33 @@ export class DomoTwinPlain extends LitElement {
         }
       });
     }
-    // A draft whose check had not come back when the dialog was closed is checked again.
-    if (this.session.draft && !this.session.check) void this.check();
+    // A draft is checked again when the dialog opens again: a check that had not come back or
+    // failed, a name since added in Home Assistant.
+    if (this.session.draft && !this.session.saved) void this.check();
+    // A save still under way when the dialog was closed.
+    void this.session.saving?.then(() => {
+      const saved = this.session.saved;
+      if (saved && this.isConnected) {
+        this.announced = this.t.t("plain.saved", { name: saved.name });
+        this.focusNext = '[data-testid="plain-another"]';
+      }
+      this.requestUpdate();
+    });
+  }
+
+  override updated(): void {
+    if (!this.focusNext) return;
+    const target = this.renderRoot.querySelector<HTMLElement>(this.focusNext);
+    this.focusNext = undefined;
+    target?.focus();
   }
 
   /** The home as the AI task is told it, worked out when the dialog opens and before a question. */
   private taskHome(fresh = false): TaskHome | undefined {
     const hass = this.hass;
-    if (!hass) return undefined;
-    if (fresh || !this.home) this.home = taskHome(hass, this.unseen);
+    const unseen = this.unseen;
+    if (!hass || !unseen) return undefined;
+    if (fresh || !this.home) this.home = taskHome(hass, unseen);
     return this.home;
   }
 
@@ -406,13 +440,13 @@ export class DomoTwinPlain extends LitElement {
     const hass = this.hass;
     const session = this.session;
     const task = session.task;
-    const home = this.taskHome(true);
-    if (!hass || !task || !home || this.busy) return;
     const t = this.t;
-    if (!this.tasks.includes(task)) {
+    if (!task || !this.tasks.includes(task)) {
       this.error = t.t("plain.no_task");
       return;
     }
+    const home = this.taskHome(true);
+    if (!hass || !home || this.busy) return;
     const draft = session.draft;
     const instructions = instructionsFor(
       hass,
@@ -448,6 +482,9 @@ export class DomoTwinPlain extends LitElement {
     }
     session.setDraft({ ...read.draft, name: read.draft.name || t.t("plain.unnamed") });
     this.showWhole = false;
+    // What had the focus (Write it, Change it) may be gone: the new draft's name has it.
+    this.announced = t.t("plain.written", { name: session.draft?.name ?? "" });
+    this.focusNext = '[data-testid="plain-name"]';
     this.requestUpdate();
     await this.check();
   }
@@ -487,20 +524,45 @@ export class DomoTwinPlain extends LitElement {
     const hass = this.hass;
     const session = this.session;
     const draft = session.draft;
-    if (!hass || !draft || !session.checked || !session.played || this.busy) return;
+    if (!hass || !draft || !session.checked || !session.played || this.busy || session.saving) {
+      return;
+    }
     const t = this.t;
-    this.busy = "saving";
     this.error = undefined;
     this.status = undefined;
-    try {
-      const id = await saveAutomation(hass, savedConfig(draft, session.description));
-      session.saved = { id, name: draft.name };
-    } catch (error) {
-      if (!this.isConnected) return;
-      this.error = t.t("plain.save_failed", { reason: this.reason(error) });
-    } finally {
-      this.busy = undefined;
+    session.saveError = undefined;
+    const name = draft.name;
+    session.saving = saveAutomation(hass, savedConfig(draft, session.description))
+      .then(
+        (id) => {
+          session.saved = { id, name };
+        },
+        (error: unknown) => {
+          session.saveError = t.t("plain.save_failed", { reason: this.reason(error) });
+        },
+      )
+      .finally(() => {
+        session.saving = undefined;
+      });
+    this.requestUpdate();
+    await session.saving;
+    if (!this.isConnected) return;
+    if (session.saved) {
+      this.announced = t.t("plain.saved", { name });
+      this.focusNext = '[data-testid="plain-another"]';
     }
+    this.requestUpdate();
+  }
+
+  /** Back to an empty request, its field focused. */
+  private startOver(): void {
+    this.session.clear();
+    this.change = "";
+    this.status = undefined;
+    this.error = undefined;
+    this.announced = "";
+    this.focusNext = '[data-testid="plain-request"]';
+    this.requestUpdate();
   }
 
   private async copy(): Promise<void> {
@@ -553,8 +615,15 @@ export class DomoTwinPlain extends LitElement {
       <div role="status">
         ${this.busy === "writing" ? this.renderWriting() : nothing}
         ${this.status ? html`<p data-testid="plain-status">${this.status}</p>` : nothing}
+        <span class="hidden-text">${this.announced}</span>
       </div>
-      ${this.error ? html`<p class="error" role="alert" data-testid="plain-error">${this.error}</p>` : nothing}
+      ${
+        (this.error ?? session.saveError)
+          ? html`<p class="error" role="alert" data-testid="plain-error">
+              ${this.error ?? session.saveError}
+            </p>`
+          : nothing
+      }
     </div>`;
   }
 
@@ -582,6 +651,11 @@ export class DomoTwinPlain extends LitElement {
     const t = this.t;
     const session = this.session;
     const home = this.taskHome();
+    if (this.tasks.length === 0) {
+      return html`<p class="error" role="alert" data-testid="plain-no-task">
+        ${t.t("plain.no_task")}
+      </p>`;
+    }
     return html`${
       this.tasks.length > 1
         ? html`<label>
@@ -610,7 +684,7 @@ export class DomoTwinPlain extends LitElement {
             ${t.tp("plain.sent", home.entities, { task: this.taskName(session.task) })}
             ${home.entities < home.total ? t.t("plain.sent_cut", { total: home.total }) : nothing}
           </p>`
-        : nothing
+        : html`<p class="hint" data-testid="plain-reading">${t.t("plain.reading")}</p>`
     }`;
   }
 
@@ -620,7 +694,6 @@ export class DomoTwinPlain extends LitElement {
     const long = session.request.length > MAX_REQUEST;
     const unread = session.unread;
     return html`<p class="hint">${t.t("plain.intro")}</p>
-      ${this.tasks.length === 0 ? html`<p class="error" role="alert">${t.t("plain.no_task")}</p>` : nothing}
       <label>
         ${t.t("plain.request")}
         <textarea
@@ -657,7 +730,13 @@ export class DomoTwinPlain extends LitElement {
         <button
           class="action"
           data-testid="plain-write"
-          ?disabled=${this.busy !== undefined || !session.request.trim() || long || this.tasks.length === 0}
+          ?disabled=${
+            this.busy !== undefined ||
+            !session.request.trim() ||
+            long ||
+            this.tasks.length === 0 ||
+            !this.unseen
+          }
           @click=${() => {
             void this.write();
           }}
@@ -741,6 +820,7 @@ export class DomoTwinPlain extends LitElement {
         }
       }
     }
+    const dropped = this.session.draft?.dropped;
     return html`<section class="box" aria-labelledby="plain-check" data-testid="plain-check">
       <h3 id="plain-check">${t.t("plain.check")}</h3>
       ${
@@ -751,11 +831,30 @@ export class DomoTwinPlain extends LitElement {
                 ${icon(mdiCheckCircleOutline)}${t.t("plain.check_ok")}
               </p>`
             : html`<div class="line error">
-                ${icon(mdiAlertCircleOutline)}
-                <ul data-testid="plain-check-problems">
-                  ${lines}
-                </ul>
-              </div>`
+                  ${icon(mdiAlertCircleOutline)}
+                  <ul data-testid="plain-check-problems">
+                    ${lines}
+                  </ul>
+                </div>
+                <div class="footer">
+                  <button
+                    class="action quiet"
+                    data-testid="plain-check-again"
+                    ?disabled=${this.busy !== undefined}
+                    @click=${() => {
+                      void this.check();
+                    }}
+                  >
+                    ${t.t("plain.check_again")}
+                  </button>
+                </div>`
+      }
+      ${
+        dropped
+          ? html`<p class="hint" data-testid="plain-dropped">
+              ${t.t("plain.dropped", { keys: dropped.join(", ") })}
+            </p>`
+          : nothing
       }
     </section>`;
   }
@@ -852,7 +951,7 @@ export class DomoTwinPlain extends LitElement {
           data-testid="plain-name"
           maxlength="120"
           .value=${draft.name}
-          ?disabled=${this.busy !== undefined}
+          ?disabled=${this.busy === "writing"}
           @change=${(event: Event) => {
             const name = (event.target as HTMLInputElement).value.trim();
             draft.name = name || t.t("plain.unnamed");
@@ -904,7 +1003,13 @@ export class DomoTwinPlain extends LitElement {
         <button
           class="action quiet"
           data-testid="plain-change-button"
-          ?disabled=${this.busy !== undefined || !this.change.trim() || this.change.length > MAX_REQUEST}
+          ?disabled=${
+            this.busy !== undefined ||
+            !this.change.trim() ||
+            this.change.length > MAX_REQUEST ||
+            this.tasks.length === 0 ||
+            !this.unseen
+          }
           @click=${() => {
             void this.write(this.change);
           }}
@@ -934,11 +1039,7 @@ export class DomoTwinPlain extends LitElement {
           data-testid="plain-start-over"
           ?disabled=${this.busy !== undefined}
           @click=${() => {
-            session.clear();
-            this.change = "";
-            this.status = undefined;
-            this.error = undefined;
-            this.requestUpdate();
+            this.startOver();
           }}
         >
           ${t.t("plain.start_over")}
@@ -964,12 +1065,12 @@ export class DomoTwinPlain extends LitElement {
         <button
           class="action"
           data-testid="plain-save"
-          ?disabled=${!ready || this.busy !== undefined}
+          ?disabled=${!ready || this.busy !== undefined || session.saving !== undefined}
           @click=${() => {
             void this.save();
           }}
         >
-          ${this.busy === "saving" ? t.t("plain.saving") : t.t("plain.save")}
+          ${session.saving ? t.t("plain.saving") : t.t("plain.save")}
         </button>
       </div>`;
   }
@@ -995,10 +1096,7 @@ export class DomoTwinPlain extends LitElement {
           data-autofocus
           data-testid="plain-another"
           @click=${() => {
-            this.session.clear();
-            this.change = "";
-            this.status = undefined;
-            this.requestUpdate();
+            this.startOver();
           }}
         >
           ${t.t("plain.another")}

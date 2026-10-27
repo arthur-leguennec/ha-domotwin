@@ -117,7 +117,9 @@ describe("a draft played in the sandbox (D-066)", () => {
       service: "turn_off",
       target: { entity_id: "light.living" },
     });
+    // What is done by hand is that day's, played again: the same day for the dialog.
     expect(days[2]).toMatchObject({ date: "2026-10-31", byHand: 1 });
+    expect(days[2]?.key).toBe(days[1]?.key);
     sandbox.stop();
   });
 

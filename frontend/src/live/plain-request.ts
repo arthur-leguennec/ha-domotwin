@@ -66,11 +66,13 @@ export interface TaskHome {
 /** A draft of an automation, as the AI task wrote it and DomoTwin read it. */
 export interface PlainDraft {
   name: string;
-  /** `triggers`, `conditions`, `actions`, `mode`, and what else it holds; no id, alias or
-   * description (those are DomoTwin's to give). */
+  /** `triggers`, `conditions`, `actions`, `mode`, and the other keys Home Assistant takes; no
+   * id, alias or description (those are DomoTwin's to give). */
   config: Config;
   /** What the AI task said of it, in its own words. */
   notes?: string;
+  /** What it wrote that Home Assistant's automations do not take, left out (`initial_state`…). */
+  dropped?: string[];
 }
 
 /** Why an answer could not be read. */
@@ -289,6 +291,12 @@ const OWN_KEYS = [
   "sequence",
   "mode",
 ];
+/**
+ * The other keys Home Assistant's automations take (`automation/config.py`, the same from 2025.1
+ * to 2026.10), and nothing else: it refuses any other. Not `initial_state`, which could save it
+ * switched off, nor the deprecated `hide_entity`.
+ */
+const KEPT_KEYS = ["variables", "trigger_variables", "max", "max_exceeded", "trace"];
 
 /** What the AI task answered, read as a draft, or why it cannot be. */
 export function readAnswer(data: unknown): { draft: PlainDraft } | { problem: AnswerProblem } {
@@ -312,6 +320,9 @@ export function readAnswer(data: unknown): { draft: PlainDraft } | { problem: An
   if (!isRecord(automation)) return { problem: "not_automation" };
   const config = normalized(automation);
   if (!config) return { problem: "not_automation" };
+  const dropped = Object.keys(automation).filter(
+    (key) => !OWN_KEYS.includes(key) && !(key in config),
+  );
   const named = [fields.name, automation.alias].find(
     (value): value is string => typeof value === "string" && value.trim() !== "",
   );
@@ -321,20 +332,26 @@ export function readAnswer(data: unknown): { draft: PlainDraft } | { problem: An
       name: oneLine(named ?? "").slice(0, 120),
       config,
       ...(notes ? { notes } : {}),
+      ...(dropped.length > 0 ? { dropped } : {}),
     },
   };
 }
 
 /**
  * An automation as Home Assistant's editor saves it today: `triggers`, `conditions`, `actions`
- * and `mode`, with what else it holds; none without a trigger and an action.
+ * and `mode`, with the other keys Home Assistant takes; none without a trigger and an action.
  */
 export function normalized(automation: Config): Config | undefined {
   const triggers = triggersOf(automation);
   const actions = actionsOf(automation);
   if (triggers.length === 0 || actions.length === 0) return undefined;
   const rest = Object.fromEntries(
-    Object.entries(automation).filter(([key]) => !OWN_KEYS.includes(key)),
+    Object.entries(automation).filter(
+      // Home Assistant runs at most `max` at once from two up (`queued`, `parallel`).
+      ([key, value]) =>
+        KEPT_KEYS.includes(key) &&
+        (key !== "max" || (typeof value === "number" && Number.isInteger(value) && value >= 2)),
+    ),
   );
   const mode = automation.mode;
   return {

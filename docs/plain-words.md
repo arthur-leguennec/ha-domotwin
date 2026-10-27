@@ -33,9 +33,9 @@ Before it is sent, the dialog says what goes to the AI task:
   `persistent_notification`).
 
 **Never their states**: nothing says who is home or what is on. Hidden entities, configuration
-and diagnostic ones, and those of a [private room](privacy.md) you may not see are left out. At
-most 1 000 entities are named, those in an area first; name the others by their id if you need
-them.
+and diagnostic ones, and those of a [private room](privacy.md) you may not see are left out:
+until DomoTwin has read which rooms are private, the dialog waits and sends nothing. At most
+1 000 entities are named, those in an area first; name the others by their id if you need them.
 
 Where the AI task sends it then is the AI task's: one that runs on a service on the internet sends
 it there, one that runs at home (Ollama) keeps it there.
@@ -56,14 +56,18 @@ Entities, areas and devices are said by their names, states as Home Assistant sa
 and durations in words. What has no words of its own is said by its kind and its settings. What
 Home Assistant does not have is marked *not in Home Assistant*, and a step switched off in the
 editor *off*. What the AI task said of it (what it assumed, what it could not do) is shown apart,
-as its words. **Its whole configuration** shows the automation as it would be saved.
+as its words. What it wrote that Home Assistant's automations do not take (Home Assistant refuses
+it) is left out, and said; so is `initial_state`, so that it is saved switched on. **Its whole
+configuration** shows the automation as it would be saved.
 
 ## Checked with Home Assistant
 
 Home Assistant checks its triggers, conditions and actions (`validate_config`), as its own editor
 does; each refusal is shown where it is. Home Assistant's check does not look at names, so
 DomoTwin does: every entity, area, device and floor it names, and every action it calls, is looked
-up, and what Home Assistant does not have is listed.
+up, and what Home Assistant does not have is listed (labels are said by their id). It is checked
+again when the dialog opens again, so a helper you have just added counts, and on **Check
+again**.
 
 ## Changing it
 
@@ -85,8 +89,8 @@ the [automation wires](automations.md) are, and pulse when it runs.
 The sandbox's bar says it is a draft and what it did on the day played; its report puts it
 first: its runs and what each action changed, or why it never ran, and what it worked against.
 Pick other days in **The day** (a weekend, a rainy day, someone home all day): each day played is
-kept with what the draft did, the latest ten. **Back to the draft** goes back to the dialog, which
-lists them.
+kept with what the draft did, the latest ten; what you do by hand in the sandbox is that day's,
+played again. **Back to the draft** goes back to the dialog, which lists them.
 
 ## Saving it
 

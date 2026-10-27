@@ -52,7 +52,8 @@ export interface SandboxDraft {
 
 /** What a draft did on a day played (D-066). */
 export interface DraftDay {
-  /** The day played, told from another (its scenario, what was done by hand too). */
+  /** The day played, told from another by what *The day* picks (its date, weather and people):
+   * what is done by hand in it is that day's, played again. */
   key: string;
   date: string;
   weather: Weather;
@@ -283,7 +284,6 @@ export class SandboxHome implements MemoryHome {
         scenario.low,
         scenario.high,
         scenario.people,
-        scenario.calls,
       ]),
       date: scenario.date,
       weather: scenario.weather,

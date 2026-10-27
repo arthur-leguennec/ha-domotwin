@@ -1409,7 +1409,8 @@ sandbox was in. DomoTwin calls no model itself.
   configuration API, changed and played again, what Home Assistant lacks or refuses, an answer
   that is no automation, an AI task that refuses, an answer cancelled, the draft kept, French
   (Playwright).
-- Measured: see [`PERFORMANCE.md`](PERFORMANCE.md), M35.
+- Measured: the first load grows by 1.2 kB; the dialog is 21.2 kB gzipped, on demand
+  ([`PERFORMANCE.md`](PERFORMANCE.md), M35).
 - Left for later: a draft opened in Home Assistant's own editor before it is saved (its editor
   takes one only from inside its frontend); an automation of the home changed in plain words; the
   sandbox playing several days at once.

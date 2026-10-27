@@ -2930,15 +2930,19 @@ D-057) it plays its drafts in; the rest of the order (D-056, D-065) keeps its pl
     thermostat's modes), and the actions of their domains (with `notify` and
     `persistent_notification`). Not their states: nobody's whereabouts, nothing on or off. Left
     out: hidden entities, those of a category (configuration, diagnostics), and those of a private
-    room the viewer may not see (D-039, `unseenOf`, as the reports). At most 1 000 entities,
-    those in an area first. Where the AI task sends it then is the AI task's: a service on the
-    internet gets it, and the dialog says so.
+    room the viewer may not see (D-039, `unseenOf`, as the reports): nothing is asked of the AI
+    task before the panel has read the settings, the plan, its links and the other storeys' rooms
+    that say which those are. At most 1 000 entities, those in an area first. Where the AI task
+    sends it then is the AI task's: a service on the internet gets it, and the dialog says so.
   - **The answer asked**: three texts, `name` (in the request's language), `automation` (the
     automation as one JSON object: `triggers`, `conditions`, `actions`, `mode`) and `notes` (what
     it assumed or could not do). Read leniently (code fences and text around the object left
     out; an object given as such; an answer that is the automation alone), and refused when it
     is not one object with a trigger and an action. Its `id` and `description` are dropped: the
-    description saved is the request, in the user's words, with each change asked since.
+    description saved is the request, in the user's words, with each change asked since. Of its
+    other keys only those Home Assistant's automations take are kept (`variables`,
+    `trigger_variables`, `max` from two, `max_exceeded`, `trace`; it refuses any other), the rest
+    said to be left out; not `initial_state`, so that it is saved on.
   - **Said back in plain words**, by DomoTwin from the configuration, never from the model's own
     words: *When* each trigger, *Only if* each condition, *Then* each action, in order and nested
     (choose, if, repeat, parallel, waits), in the user's language; entities, areas and devices by
@@ -2947,9 +2951,11 @@ D-057) it plays its drafts in; the rest of the order (D-056, D-065) keeps its pl
     model's notes are shown apart, as its words.
   - **Checked with Home Assistant**: `validate_config` on its triggers, conditions and actions,
     each refusal shown where it is; and, since Home Assistant's check does not, every entity,
-    area, device, floor and label it names is looked up, and every action it calls among Home
+    area, device and floor it names is looked up, and every action it calls among Home
     Assistant's actions (`hass.services`): what Home Assistant does not have is marked in the
-    words and listed.
+    words and listed. Labels, whose registry the frontend does not have, are said by their id.
+    Checked again when the dialog opens again (a check that failed, a name added since), and on
+    *Check again*.
   - **Changed by asking**: *What to change* sends the request, the draft and the change to the AI
     task again, which answers the whole automation; the draft then starts over (checked again,
     played again). The name can be edited by hand. *Copy* gives its configuration, and Home
@@ -2959,8 +2965,9 @@ D-057) it plays its drafts in; the rest of the order (D-056, D-065) keeps its pl
     shown on the plan as the automation wires (D-032) and pulsing when it runs. The sandbox's bar
     says it is a draft and what it did on the day played; its report puts it first (its runs,
     why it never ran, what it worked against). Each day played (picked in *The day*: its date, its
-    weather, who goes out) is kept with what the draft did that day, the latest ten. *Back to the
-    draft* leaves the sandbox for the dialog, which lists them.
+    weather, who goes out; what is done by hand in it is that day's, played again) is kept with
+    what the draft did that day, the latest ten, once the sandbox is shown. *Back to the draft*
+    leaves the sandbox for the dialog, which lists them.
   - **The sandbox's home zone** (amends D-057): `zone.home` counts who is in it as the day's
     people go out and come back, its `persons` too, as Home Assistant's zones do, after the
     people's own changes of that minute. "When the last person leaves" is a zone back to `0`: the
@@ -2968,7 +2975,9 @@ D-057) it plays its drafts in; the rest of the order (D-056, D-065) keeps its pl
   - **Only then saved**: *Save* is offered once Home Assistant found nothing wrong, every name is
     one Home Assistant has, and the draft as it is now was played in the sandbox at least once.
     Saved as Home Assistant's editor saves (a new id, its time in milliseconds; the configuration
-    API), switched on; Home Assistant's refusal is shown as it gives it. Then *Open in Home
+    API), switched on, once: the save is the draft's, not the dialog's, so that a dialog closed
+    and opened again does not save it twice; Home Assistant's refusal is shown as it gives it.
+    Then *Open in Home
     Assistant's editor* (`/config/automation/edit/<id>`). The configuration history (M36) keeps
     it from then on.
   - **Kept in the page**: the draft lives while the panel is open, across the sandbox and back;

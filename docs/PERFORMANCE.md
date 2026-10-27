@@ -1079,11 +1079,12 @@ millions of triangles is best imported from one.
 
 ### M35 (automations in plain words)
 
-Bundle: the first load is **524.9 kB gzipped** of 1 200 kB (+0.9 kB): whether Home Assistant has an
-AI task (`ai-task.ts`), the menu item and its text, the view's way to draw a draft's wires, and
-the shared reading of Home Assistant's refusals. The dialog, the plain words and the reading of
-the AI task's answer come on demand, the first time the dialog opens
-(`chunks/plain-dialog-<hash>.js`: 71.1 kB raw, 20.5 kB gzipped, of which 21.7 kB raw are its texts
+Bundle: the first load is **527.2 kB gzipped** of 1 200 kB (+1.2 kB): whether Home Assistant has an
+AI task (`ai-task.ts`), the menu item and its text, the panel's way to the sandbox with a draft
+and to its wires once the plan is drawn, what it waits for before the dialog may name anything,
+and the shared reading of Home Assistant's refusals. The dialog, the plain words and the reading
+of the AI task's answer come on demand, the first time the dialog opens
+(`chunks/plain-dialog-<hash>.js`: 73.5 kB raw, 21.2 kB gzipped, of which 22.2 kB raw are its texts
 in both languages). The sandbox's chunk grows by the draft's part (110.3 kB raw, +1.3 kB; the
 same 34.3 kB gzipped, the configuration's reading and the time it shares with the dialog split out).
 

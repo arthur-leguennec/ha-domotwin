@@ -91,7 +91,8 @@ test.describe("an automation in plain words (D-066)", () => {
     expect(instructions).toMatch(
       /\nlight\.living_room_floor_lamp: Living room floor lamp \[living_room\]\n/,
     );
-    // Said back in plain words, from the configuration.
+    // Said back in plain words, from the configuration; the focus on its name.
+    await expect(page.getByTestId("plain-name")).toBeFocused();
     await expect(page.getByTestId("plain-name")).toHaveValue(
       "Lights off and door locked when everyone leaves",
     );
@@ -295,6 +296,91 @@ test.describe("an automation in plain words (D-066)", () => {
     await expect(page.getByTestId("plain-days").locator("li")).toHaveCount(1);
     await page.getByTestId("plain-start-over").click();
     await expect(page.getByTestId("plain-request")).toHaveValue("");
+  });
+
+  test("names nothing to the AI task before the private rooms are read, nor what they hold", async ({
+    page,
+  }) => {
+    await openHarness(page, { ...OPTIONS, private: ["living"], settingsDown: true });
+    await page.evaluate(() => {
+      (window as never as { __settingsUp: () => void }).__settingsUp();
+    });
+    await fromMenu(page, "plain-words");
+    await expect(page.getByTestId("plain-sent")).toBeVisible();
+    await page.getByTestId("plain-request").fill(REQUEST);
+    await page.getByTestId("plain-write").click();
+    await expect(page.getByTestId("plain-words")).toBeVisible();
+    const instructions = (await asked(page))[0]?.service_data?.instructions ?? "";
+    expect(instructions).toContain("light.kitchen_ceiling: ");
+    expect(instructions).not.toContain("light.living_room_floor_lamp");
+    expect(instructions).not.toContain("living_room: Living room");
+  });
+
+  test("waits for the home to be read before anything goes to the AI task", async ({ page }) => {
+    await openHarness(page, { ...OPTIONS, settingsDown: true });
+    // The menu waits for the settings too: opened from the panel's code.
+    await page.evaluate(async () => {
+      const panel = (window as never as { __element: { openPlain: () => Promise<void> } })
+        .__element;
+      await panel.openPlain();
+    });
+    await expect(page.getByTestId("plain-reading")).toBeVisible();
+    await page.getByTestId("plain-request").fill(REQUEST);
+    await expect(page.getByTestId("plain-write")).toBeDisabled();
+    await page.evaluate(() => {
+      (window as never as { __settingsUp: () => void }).__settingsUp();
+    });
+    await expect(page.getByTestId("plain-sent")).toBeVisible();
+    await expect(page.getByTestId("plain-write")).toBeEnabled();
+    expect(await asked(page)).toEqual([]);
+  });
+
+  test("checks again, says what it leaves out, and saves once though closed meanwhile", async ({
+    page,
+  }) => {
+    await openHarness(page, OPTIONS);
+    await page.evaluate(() => {
+      const w = window as never as { __aiAnswer: unknown; __invalidConfig: unknown };
+      w.__aiAnswer = {
+        name: "Leaving",
+        automation: JSON.stringify({
+          triggers: [{ trigger: "state", entity_id: "zone.home", to: "0" }],
+          actions: [{ action: "lock.lock", target: { entity_id: "lock.entrance_door" } }],
+          initial_state: false,
+        }),
+      };
+      w.__invalidConfig = { part: "actions", error: "Home Assistant is starting" };
+    });
+    await write(page);
+    await expect(page.getByTestId("plain-dropped")).toContainText("initial_state");
+    await expect(page.getByTestId("plain-check-problems")).toContainText("is starting");
+    await page.evaluate(() => {
+      (window as never as { __invalidConfig: unknown }).__invalidConfig = undefined;
+    });
+    await page.getByTestId("plain-check-again").click();
+    await expect(page.getByTestId("plain-check-ok")).toBeVisible();
+    await page.getByTestId("plain-play").click();
+    await page.getByTestId("sandbox-draft-back").click();
+    // Home Assistant slow to save: the dialog closed and opened again meanwhile.
+    await page.evaluate(() => {
+      const w = window as never as { __apiHold: Promise<void>; __apiRelease: () => void };
+      w.__apiHold = new Promise((resolve) => {
+        w.__apiRelease = resolve;
+      });
+    });
+    await page.getByTestId("plain-save").click();
+    await expect(page.getByTestId("plain-save")).toHaveText("Saving…");
+    await page.getByTestId("plain-dialog").getByRole("button", { name: "Close" }).click();
+    await fromMenu(page, "plain-words");
+    await expect(page.getByTestId("plain-save")).toBeDisabled();
+    await page.evaluate(() => {
+      (window as never as { __apiRelease: () => void }).__apiRelease();
+    });
+    await expect(page.getByTestId("plain-saved")).toContainText("Saved: Leaving.");
+    const saved = (await calls(page)).filter((c) => c.type === "api");
+    expect(saved).toHaveLength(1);
+    expect(saved[0]?.parameters).not.toHaveProperty("initial_state");
+    await expect(page.getByTestId("plain-another")).toBeFocused();
   });
 
   test("speaks French", async ({ page }) => {

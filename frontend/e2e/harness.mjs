@@ -65,7 +65,8 @@
 //   for in plain words from the demo apartment's entities; Home Assistant's actions, its check
 //   `validate_config` and the home zone counting who is home; window.__aiAnswer = <data> answers
 //   that instead, window.__aiHold (a promise) holds the answer back, window.__aiFail = "<message>"
-//   makes it refuse, window.__invalidConfig = { part, error } makes Home Assistant's check refuse)
+//   makes it refuse, window.__invalidConfig = { part, error } makes Home Assistant's check refuse;
+//   window.__apiHold (a promise) holds Home Assistant's configuration API back)
 import { applyService, demoHome } from "./demo-home.mjs";
 
 const params = new URLSearchParams(location.search);
@@ -558,6 +559,8 @@ function configItem(id) {
 /** Home Assistant's configuration API (`hass.callApi`): its editors' save. */
 async function callApi(method, path, parameters) {
   calls.push({ type: "api", method, path, parameters });
+  // A test can hold the answer back (`window.__apiHold`, a promise).
+  await window.__apiHold;
   if (!hass.user.is_admin) throw { error: "Response error: 401", status_code: 401, body: {} };
   if (window.__refuseConfig) {
     const message = window.__refuseConfig;

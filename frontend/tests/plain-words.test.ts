@@ -320,6 +320,33 @@ describe("the AI task's answer read (D-066)", () => {
     });
   });
 
+  it("keeps only the keys Home Assistant's automations take, and says the others", () => {
+    const read = readAnswer({
+      name: "N",
+      automation: {
+        ...LEAVING,
+        variables: { delay: 5 },
+        max: 1,
+        initial_state: false,
+        notes: "inside",
+        name: "again",
+      },
+    });
+    expect(read).toEqual({
+      draft: {
+        name: "N",
+        config: { ...LEAVING, variables: { delay: 5 } },
+        dropped: ["max", "initial_state", "notes", "name"],
+      },
+    });
+    expect(normalized({ ...LEAVING, mode: "queued", max: 4, max_exceeded: "silent" })).toEqual({
+      ...LEAVING,
+      mode: "queued",
+      max: 4,
+      max_exceeded: "silent",
+    });
+  });
+
   it("says why an answer is not an automation", () => {
     expect(readAnswer(undefined)).toEqual({ problem: "empty" });
     expect(readAnswer({ name: "N", automation: "" })).toEqual({ problem: "empty" });

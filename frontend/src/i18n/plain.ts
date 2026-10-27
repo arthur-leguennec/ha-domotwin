@@ -20,6 +20,8 @@ export const plainEn = {
     },
     sent_cut: "Of your {total} entities, those in an area come first: name the others by their id.",
     write: "Write it",
+    reading: "Reading your home first: its rooms, and those kept private.",
+    written: "Written: {name}. What it does is below.",
     writing: "{task} is writing it… An AI task can take a minute.",
     cancel: "Cancel",
     failed: "The AI task did not write it: {reason}",
@@ -44,6 +46,8 @@ export const plainEn = {
     checking: "Home Assistant is checking it…",
     check_ok: "Home Assistant finds nothing wrong, and has everything it names.",
     check_failed: "Home Assistant could not check it: {reason}",
+    check_again: "Check again",
+    dropped: "Left out, as Home Assistant's automations do not take them: {keys}.",
     part: {
       triggers: "Triggers: {error}",
       conditions: "Conditions: {error}",
@@ -310,6 +314,8 @@ export const plainFr: Widen<typeof plainEn> = {
     sent_cut:
       "Sur vos {total} entités, celles d’une pièce passent d’abord : nommez les autres par leur id.",
     write: "L’écrire",
+    reading: "Lecture de votre maison d’abord : ses pièces, et celles gardées privées.",
+    written: "Écrite : {name}. Ce qu’elle fait est ci-dessous.",
     writing: "{task} l’écrit… Une tâche IA peut prendre une minute.",
     cancel: "Annuler",
     failed: "La tâche IA ne l’a pas écrite : {reason}",
@@ -334,6 +340,8 @@ export const plainFr: Widen<typeof plainEn> = {
     checking: "Home Assistant la vérifie…",
     check_ok: "Home Assistant n’y trouve rien à redire, et a tout ce qu’elle nomme.",
     check_failed: "Home Assistant n’a pas pu la vérifier : {reason}",
+    check_again: "Vérifier de nouveau",
+    dropped: "Laissé de côté, les automatisations de Home Assistant ne le prenant pas : {keys}.",
     part: {
       triggers: "Déclencheurs : {error}",
       conditions: "Conditions : {error}",
