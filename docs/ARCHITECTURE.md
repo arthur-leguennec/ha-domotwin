@@ -107,6 +107,11 @@ every reader returns `Result` with a stable error code that the frontend transla
   Home Assistant's floors and areas and stores it (`domotwin/storeys/replace`, then the links), and
   lists the steps of getting started; `live/first-launch.ts` lays the rooms out, picks each
   device's piece, and places pieces along the walls, clear of the doors and of each other.
+- Shortcuts (D-084): `live/shortcut-model.ts` reads them with the user's choices (first load);
+  `live/shortcuts.ts` resolves each step's place to entities, makes its calls, says its state and
+  suggests shortcuts from the home's devices; the Home tab (`components/home-tab.ts`) shows them,
+  and `components/shortcut-dialog.ts` (its own chunk) suggests and changes them. The integration
+  validates and keeps them with each user's choices (`custom_components/domotwin/choices.py`).
 - `src/i18n/` holds the English and French dictionaries. Every visible string goes through `t()`.
   The other languages (D-082) are one module each, `src/i18n/lang/<code>.ts`, with every message
   (the main dictionary and the chunks'), loaded when Home Assistant speaks it: the elements Home

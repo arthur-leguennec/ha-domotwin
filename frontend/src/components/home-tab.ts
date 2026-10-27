@@ -119,6 +119,7 @@ export class DomoTwinHome extends LitElement {
   private ranTimer: ReturnType<typeof setTimeout> | undefined;
   private rawShortcuts?: readonly unknown[];
   private readShortcuts: Shortcut[] = [];
+  private suggestedMemo?: { key: unknown[]; value: Suggestion[] };
   private dialogModule?: Promise<unknown>;
 
   static override styles = [
@@ -705,10 +706,33 @@ export class DomoTwinHome extends LitElement {
     </button>`;
   }
 
+  /**
+   * The first suggestions, while there are no shortcuts: worked out again only when the registries,
+   * the entities, the language or what the viewer may see change, not at every state.
+   */
+  private firstSuggested(hass: HomeAssistant, t: Translator): Suggestion[] {
+    const key = [
+      hass.entities,
+      hass.areas,
+      hass.floors,
+      hass.devices,
+      hass.canAct,
+      this.unseen,
+      t.language,
+      Object.keys(hass.states).length,
+    ];
+    const memo = this.suggestedMemo;
+    if (memo && memo.key.length === key.length && memo.key.every((k, i) => k === key[i])) {
+      return memo.value;
+    }
+    const value = firstSuggestions(suggestions(hass, t, [], this.unseen));
+    this.suggestedMemo = { key, value };
+    return value;
+  }
+
   private renderShortcuts(hass: HomeAssistant, t: Translator): TemplateResult {
     const list = this.shortcuts;
-    const suggested =
-      list.length === 0 ? firstSuggestions(suggestions(hass, t, list, this.unseen)) : [];
+    const suggested = list.length === 0 ? this.firstSuggested(hass, t) : [];
     const asking = list.find((s) => s.id === this.asking);
     const full = list.length >= MAX_SHORTCUTS;
     return html`<section data-testid="home-shortcuts" aria-labelledby="shortcuts-title">

@@ -1,10 +1,12 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-neon.png" alt="DomoTwin : un appartement fictif dans l’apparence néon, au crépuscule dans un violet profond, le haut de ses murs éclairé d’ambre, ses lampes allumées, le nom des pièces au sol" width="100%">
+  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-phone-wall.png" alt="DomoTwin sur un téléphone et sur un écran mural : sur le téléphone, l’onglet Accueil de la maison de démo fictive, qui est là, ses commandes (éteindre toutes les lumières avec 6 allumées, fermer les rideaux, bonne nuit, le chauffage, la batterie de la maison) et ses favoris ; au mur, la même maison en 3D le soir, dans l’apparence néon, ses lampes allumées et ses habitants dans leurs pièces" width="100%">
 </p>
 
-<p align="center"><b>Votre logement en jumeau numérique 3D, en direct dans Home Assistant.</b><br>
-Touchez une lampe pour l’allumer, une pièce pour la piloter, et voyez vos capteurs s’animer sur le plan.<br>
-Local, rapide, Rust + WebAssembly.</p>
+<h1 align="center">DomoTwin</h1>
+
+<p align="center"><b>Votre logement dans Home Assistant : sous la main sur votre téléphone, vivant en 3D au mur.</b><br>
+Vos commandes et chaque pièce à portée de doigt, et un jumeau 3D de votre logement, en direct, à toucher, regarder et parcourir.<br>
+Local, gratuit, sans compte. Rust + WebAssembly.</p>
 
 <p align="center">
   <a href="https://my.home-assistant.io/redirect/hacs_repository/?owner=arthur-leguennec&repository=ha-domotwin&category=integration"><img src="https://my.home-assistant.io/badges/hacs_repository.svg" alt="Ouvrir votre Home Assistant et ajouter ce dépôt à HACS."></a>
@@ -14,22 +16,17 @@ Local, rapide, Rust + WebAssembly.</p>
 
 > [!NOTE]
 > **État : en développement, version 0.5.0.** DomoTwin se construit étape par étape
-> ([feuille de route](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/ROADMAP.md), en
-> anglais), et tout ce que décrit *Fonctionnalités* marche déjà. La version 0.5.0 apporte le bac à
-> sable, l’historique en tableaux, « Pourquoi ? », le code QR du Wi-Fi pour les invités,
-> l’historique de la configuration, les pointes d’Hydro-Québec, d’autres imports (cartes de robots
-> aspirateurs, Floorplanner, scans en maillage), la couverture radio, les pass d’invité, les droits
-> de chacun, la sécurité (les caméras, la sonnette, l’alarme, les alertes sur chaque onglet), les
-> graphiques de chaque pièce avec la page Énergie de Home Assistant à un onglet, les automatisations
-> dites avec vos mots, jouées dans le bac à sable avant d’être enregistrées, la météo autour du
-> logement, la justesse des pièces trouvées, mesurée à côté de Bermuda, une bibliothèque de 195
-> meubles et objets avec leurs images, un iPhone suivi sans Mac, l’écran mural (son économiseur
-> réveillé par qui arrive), un bilan de la semaine de ce qui est à surveiller, l’extérieur et la
-> pelouse qui pousse, les demi-niveaux, une place dans la pièce, les radars de présence fondus avec
-> le Bluetooth, dix langues de plus, DomoTwin intégré à la Vue d’ensemble de Home Assistant, et un
-> premier lancement en cinq minutes, le logement dessiné depuis les zones de Home Assistant avec ses
-> appareils dedans. La suite attend ce que son usage demandera. La proposition à la liste par défaut
-> de HACS attend des mesures sur de vrais appareils.
+> ([feuille de route](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/ROADMAP.md), en anglais), et
+> tout ce que décrit *Fonctionnalités* marche déjà. La proposition à la liste par défaut de HACS
+> attend des mesures sur de vrais appareils.
+
+## Sur votre téléphone, au mur
+
+| Sur votre téléphone, le côté pratique | Au mur, le jumeau 3D |
+| --- | --- |
+| DomoTwin s’ouvre sur **Accueil** : qui est là, les lampes allumées, ce qui est ouvert, la météo, et **vos commandes** : éteindre toutes les lumières, fermer les volets, bonne nuit, le chauffage, la batterie de la voiture. Elles sont suggérées d’après vos propres appareils et se règlent en quelques touches. **Pièces** donne les appareils de chaque pièce en cartes de Home Assistant, avec une recherche ; **Sécurité**, l’alarme, la sonnette et les caméras. La 3D est à un onglet, jamais dans le chemin. | Une tablette près de la porte s’ouvre sur **3D** : votre logement tel qu’il est, ses lampes allumées de leur couleur, chacun dans sa pièce, la pluie sur le toit. Touchez une lampe, une télé, une pièce. Quand personne n’est là, un économiseur de vos photos, réveillé par un mouvement ou la sonnette. Dessinez le plan depuis les zones de Home Assistant en cinq minutes, ou importez-le de Revit, ArchiCAD, Sweet Home 3D ou de la carte d’un robot. |
+
+Chaque appareil peut s’ouvrir sur son onglet : un téléphone sur *Accueil* (par défaut), un écran mural sur *3D*.
 
 ## Ce qui le distingue
 
@@ -44,19 +41,21 @@ Local, rapide, Rust + WebAssembly.</p>
 
 ## Fonctionnalités
 
-- **Votre logement en cinq minutes.** Pas de plan sous la main ? **Le dessiner depuis les zones de
-  Home Assistant** : une pièce pour chaque zone de chaque étage, côte à côte, reliées par des portes,
-  ses appareils placés dedans et liés (lampes, télés, enceintes, thermostats, la base du robot,
-  capteurs), meublée si vous voulez ; puis *Premiers pas* liste ce qui reste (les vraies dimensions
-  des pièces, les personnes, l’énergie), chaque étape à un clic. Voir [le premier
-  lancement](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/first-launch.md) (en
-  anglais).
-- **Une maison de démo à essayer d’abord.** Avant de dessiner quoi que ce soit, ouvrez DomoTwin et
-  choisissez **Essayer la maison de démo** : une maison familiale fictive sur deux niveaux, avec ses
-  lampes, rideaux, télés, thermostats, capteurs, un aspirateur robot, des panneaux solaires et une
-  batterie, trois personnes et huit automatisations, qui vit une journée de printemps à une minute
-  par seconde. Allez au matin, à midi, au soir ou à la nuit, touchez à tout, modifiez-la : rien ne
-  touche votre maison. Une carte avec `demo: true` la montre sur un tableau de bord.
+### Au quotidien
+
+Ce qu’on cherche du doigt : le côté pratique, sur un téléphone comme sur un ordinateur.
+
+- **Commandes.** De gros boutons en haut d’*Accueil*, à vous, qui agissent sur plusieurs appareils
+  d’un appui et affichent leur état : *Éteindre toutes les lumières · 3 allumées*, *Fermer les
+  volets · 2 ouverts*, *Bonne nuit*, *Chauffage à 19 °C · 20,5 °C*, *Voiture : batterie · 78 %*.
+  **Ajouter une commande** les suggère d’après vos appareils (les lampes du logement ou d’un étage,
+  les volets, les serrures, l’alarme, le chauffage, la batterie d’une voiture, la musique, les
+  robots, vos scènes) ; ajoutez-en une telle quelle, ou ajustez-la : où (le logement, un étage, une
+  pièce, les appareils que vous choisissez), ce qu’elle fait (éteindre, allumer à 30 %, ouvrir à
+  moitié, 19 °C), et avec *Plus d’options* ce qui est laissé de côté, plusieurs étapes à la suite,
+  ce que le bouton affiche, une question avant d’agir. Gardées pour vous, sur chaque appareil, et
+  n’agissant que sur ce que vos droits vous laissent utiliser. Voir
+  [les commandes](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/shortcuts.md) (en anglais).
 - **Accueil, Pièces, Sécurité et 3D.** L’onglet *Accueil* du panneau montre la maison d’un coup
   d’œil (qui est là, les lampes allumées, les portes et fenêtres ouvertes, la météo), vos scènes
   favorites en grands boutons et vos favoris ; *Pièces* liste les étages et pièces de Home
@@ -81,6 +80,41 @@ Local, rapide, Rust + WebAssembly.</p>
   Assistant, dont la flèche de retour ramène à DomoTwin. Voir
   [graphiques](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/graphs.md) (en
   anglais).
+- **Plus tard.** « Allume la lanterne demain à 6 h 30 jusqu’à 6 h 45 » : depuis la fiche d’une
+  lampe, une automatisation (`domotwin.schedule`) ou un assistant vocal, DomoTwin le fait à
+  l’heure, même après un redémarrage, et montre une horloge sur la lampe en attendant. Voir [les
+  actions faites plus tard](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/later.md)
+  (en anglais).
+- **Votre voix.** Un bouton micro ouvre Assist de Home Assistant déjà à l’écoute, sur une
+  tablette murale comme sur un téléphone. Quand Assist n’entend pas encore, DomoTwin installe la
+  voix en local avec votre accord : Whisper ou Speech-to-Phrase et Piper, installés par le
+  Supervisor, sans que rien ne quitte votre logement. Les blueprints vocaux s’ajoutent d’un geste.
+  Voir [votre voix](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/voice.md) (en
+  anglais).
+- **Les pointes d’Hydro-Québec.** Pour un logement au tarif Flex D ou au crédit hivernal, avec
+  [hydroqc](https://github.com/hydroqc/hydroqc-ha) ou
+  [HydroPeak](https://github.com/Beat-YT/hydropeak-ha) installé : la prochaine pointe et son
+  préchauffage dans l’onglet Accueil, en 3D les pièces qui préchauffent, sont délestées ou
+  chauffent encore pendant la pointe, avec ce qu’elles consomment, et la pointe annoncée pour
+  demain jouée d’abord dans le bac à sable. Rien sans eux.
+
+### Votre logement en 3D
+
+Le jumeau : votre plan, vos appareils, en direct, dans l’apparence que vous aimez.
+
+- **Votre logement en cinq minutes.** Pas de plan sous la main ? **Le dessiner depuis les zones de
+  Home Assistant** : une pièce pour chaque zone de chaque étage, côte à côte, reliées par des portes,
+  ses appareils placés dedans et liés (lampes, télés, enceintes, thermostats, la base du robot,
+  capteurs), meublée si vous voulez ; puis *Premiers pas* liste ce qui reste (les vraies dimensions
+  des pièces, les personnes, l’énergie), chaque étape à un clic. Voir [le premier
+  lancement](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/first-launch.md) (en
+  anglais).
+- **Une maison de démo à essayer d’abord.** Avant de dessiner quoi que ce soit, ouvrez DomoTwin et
+  choisissez **Essayer la maison de démo** : une maison familiale fictive sur deux niveaux, avec ses
+  lampes, rideaux, télés, thermostats, capteurs, un aspirateur robot, des panneaux solaires et une
+  batterie, trois personnes et huit automatisations, qui vit une journée de printemps à une minute
+  par seconde. Allez au matin, à midi, au soir ou à la nuit, touchez à tout, modifiez-la : rien ne
+  touche votre maison. Une carte avec `demo: true` la montre sur un tableau de bord.
 - **Votre plan en 3D et en 2D.** Dessinez-le dans le panneau, ou importez-le : une maquette IFC
   (`*.ifc`, depuis Revit, ArchiCAD, Bonsai, FreeCAD…), une maison Sweet Home 3D (`*.sh3d`), un
   dessin DXF, une pièce scannée avec un iPhone ou un iPad à LiDAR (`*.usdz`, le JSON de RoomPlan),
@@ -130,90 +164,38 @@ Local, rapide, Rust + WebAssembly.</p>
   soleil qui entre par vos fenêtres, et ce que consomme chaque appareil, avec l’énergie du
   logement : le soleil, le réseau et la batterie autour de la maison, l’électricité qui circule
   entre eux.
-- **Les pointes d’Hydro-Québec.** Pour un logement au tarif Flex D ou au crédit hivernal, avec
-  [hydroqc](https://github.com/hydroqc/hydroqc-ha) ou
-  [HydroPeak](https://github.com/Beat-YT/hydropeak-ha) installé : la prochaine pointe et son
-  préchauffage dans l’onglet Accueil, en 3D les pièces qui préchauffent, sont délestées ou
-  chauffent encore pendant la pointe, avec ce qu’elles consomment, et la pointe annoncée pour
-  demain jouée d’abord dans le bac à sable. Rien sans eux.
 - **Aspirateurs robots.** Votre robot quitte sa base quand il nettoie, passe les pièces une à une et
   rentre, sur le plan.
 - **Appareils.** Des badges sur vos appareils (l’état d’une serrure, une caméra qui enregistre, ce
   qui est en lecture, une batterie faible, le lave-linge en marche), et ce que voit chaque caméra,
   dessiné au sol de sa pièce, derrière les meubles, discret tant que vous ne touchez pas la
   caméra ; touchez pour l’image en direct.
-- **Carte du réseau.** Votre maillage Zigbee dessiné sur le logement : chaque appareil sur son
-  meuble, chaque lien en arc coloré selon sa qualité, une lumière qui court vers le coordinateur, et
-  les pièces qui ne tiennent qu’à un lien faible sont nommées, avec « un routeur ici aiderait ».
-  Touchez un appareil ou un lien pour le détail, relancez un scan, placez les appareils que la carte
-  ne trouve pas. Pour les administrateurs, avec ZHA. Voir [la carte du
-  réseau](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/network.md) (en anglais).
-- **Un bac à sable pour vos automatisations.** Choisissez une journée, sa météo, qui sort et qui
-  rentre quand, et regardez vos automatisations, scripts et scènes la jouer sur une copie de votre
-  maison, en 3D et sur une frise, une heure par seconde si vous voulez. Un rapport dit ce que
-  chacune a fait et quand, ce qui ne s’est jamais exécuté et pourquoi, lesquelles se contredisent,
-  et ce qui n’a pas pu être joué. Rien dans le bac à sable n’atteint un appareil. Voir [le bac à
-  sable](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/sandbox.md) (en anglais).
-- **Des automatisations dites avec vos mots.** Dites ce qui doit se passer (« quand la dernière
-  personne part, éteindre les lumières et verrouiller la porte ») : la tâche IA de Home Assistant,
-  celle que vous avez configurée, écrit l’automatisation ; DomoTwin vous la redit en mots simples,
-  la fait vérifier par Home Assistant, la joue dans le bac à sable les jours que vous choisissez,
-  et seulement ensuite l’enregistre, l’éditeur de Home Assistant à portée de main. Pour les
-  administrateurs, avec une tâche IA dans Home Assistant (2025.8 et après) : DomoTwin n’appelle
-  lui-même aucun modèle. Voir [les automatisations avec vos
-  mots](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/plain-words.md) (en
+- **Étages.** Une cave, des étages, des combles : un plan chacun, un sélecteur dans la vue, un
+  escalier qui vous fait monter d’une touche, et les alertes de chaque étage où que vous soyez. Ou
+  tout le logement d’un coup, ses étages écartés sous un toit, chacun avec son étiquette et son
+  image, en direct à chaque niveau. Les demi-niveaux et les sous-sols ouverts sur le jardin aussi :
+  des demi-niveaux nommés comme tels, un plancher compté par la localisation Bluetooth là seulement
+  où un niveau est au-dessus de l’autre, le jardin d’un sous-sol de son côté. Voir [les étages](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/storeys.md) (en
   anglais).
-- **Le Wi-Fi des invités.** Donnez votre Wi-Fi une fois, et DomoTwin dessine le code QR que
-  l’appareil photo d’un téléphone rejoint, dans la page ; ou montre le code de votre box. Pour les
-  administrateurs, et sur les écrans muraux que vous choisissez ; le mot de passe reste dans le
-  stockage privé de DomoTwin. Voir [le Wi-Fi des
-  invités](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/wifi.md) (en anglais).
-- **L’écran mural.** Une tablette près de la porte ou dans la cuisine s’ouvre sur son propre
-  onglet et, quand personne n’est là, montre l’heure, la météo et vos photos des médias de Home
-  Assistant, partis dès que quelqu’un la touche, qu’un capteur de mouvement le voit ou que la
-  sonnette retentit. La mise en page de chaque écran est réglée une fois par un administrateur et
-  suivie par l’appareil qui l’est, quel que soit le compte connecté. Voir [l’écran
-  mural](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/wall-screen.md) (en
-  anglais).
-- **L’accès invités.** Un pass ouvre des pièces et des appareils choisis à vos invités pour
-  quelques jours : son lien ou son code QR les ouvre sur leur téléphone, en 3D, sans compte Home
-  Assistant, avec le Wi-Fi si vous voulez, et se termine tout seul. Par défaut il ne s’ouvre que sur
-  le réseau du logement ; DomoTwin vérifie chaque requête d’après le pass. Voir [l’accès
-  invités](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/guests.md) (en anglais).
-- **Les droits.** Ce dont chaque personne se sert, ce qu’elle voit seulement ou ne voit pas dans
-  DomoTwin, pièce par pièce et appareil par appareil, réglé en un seul endroit : la tablette des
-  enfants allume leurs lampes et montre seulement celles du salon. Les vues, commandes et services
-  de DomoTwin les suivent ; Home Assistant laisse encore chaque utilisateur se servir de chaque
-  entité ailleurs, comme le dit la fenêtre. Voir [les
-  droits](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/rights.md) (en anglais).
-- **Dans la Vue d’ensemble de Home Assistant.** Une pièce touchée en 3D ouvre la page de sa zone
-  dans la Vue d’ensemble (2026.2 et après). La page de chaque zone dit qui est dans la pièce et
-  l’entretien à faire, et les cartes de résumé de DomoTwin (les personnes, le réseau, les
-  automatisations, l’entretien, les robots) ouvrent la vue 3D sur ce qu’elles résument. Voir
-  [DomoTwin et la Vue
-  d’ensemble](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/overview.md) (en
-  anglais).
-- **Fils des automatisations.** Un appui long sur une lampe : son panneau liste les automatisations
-  qui la concernent, avec leur interrupteur et leur dernier lancement. Montrez leurs fils, de ce
-  qui les déclenche à ce qu’elles commandent, et voyez une impulsion les parcourir quand l’une se
-  lance. Ou toutes les automatisations du logement à la fois. Voir [les fils des
-  automatisations](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/automations.md)
-  (en anglais).
-- **Pourquoi ?** Appuyez longuement sur une lampe et demandez qui ou quoi l’a changée :
-  l’automatisation qui l’a allumée, le mouvement qui a déclenché l’automatisation, la personne qui
-  l’a fait dans l’application, ou personne (son propre interrupteur), comme Home Assistant l’a
-  noté. Dessiné dans le logement comme un fil depuis là où tout a commencé, avec la trace du
-  lancement pour les administrateurs et l’Activité de Home Assistant à portée de doigt. Voir
-  [Pourquoi ?](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/why.md) (en
-  anglais).
-- **Fiches d’entretien.** Chaque appareil et chaque meuble peut porter sa marque, son modèle, son
-  numéro de série, sa garantie, sa notice et les tâches qui reviennent (changer le filtre tous les
-  3 mois). Un badge en forme de clé montre ce qui est à faire, le calque Entretien colore les
-  meubles en vert, orange ou rouge, et une liste par date a un bouton **Fait** pour tout le monde.
-  Un fichier IFC remplit les fiches ; un seul capteur, `sensor.domotwin_upkeep_due`, sert à vos
-  notifications. Voir [les fiches
-  d’entretien](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/upkeep.md) (en
-  anglais).
+- **Promenez-vous, accrochez-le au mur, demandez-le.** Promenez-vous dans votre logement à
+  hauteur des yeux, de pièce en pièce par les portes. Sur une tablette murale, une carte revient à
+  sa vue quand on la laisse, tourne lentement et s’assombrit la nuit. Dites « montre la cuisine » à
+  Assist et vos écrans la montrent. Voir [la promenade, les kiosques et la
+  voix](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/kiosk.md) (en anglais).
+- **Éditeur de plan.** Pas de plan à importer ? Dessinez-le dans le panneau : des pièces en
+  polygones avec leurs longueurs, des cloisons, des portes et des fenêtres posées sur les murs, avec
+  aimantation et annulation. Voir [l’éditeur de
+  plan](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/plan-editor.md) (en anglais).
+- **Mode édition.** Déplacez, tournez et empilez les meubles avec aimantation, repères et
+  annulation, ajoutez des meubles depuis une bibliothèque avec une image de chacun, par pièce et
+  usage, cherchés dans votre langue, liez n’importe quel objet à des entités (avec des suggestions
+  tirées de vos pièces), et ajoutez votre propre meuble ou appareil avec son modèle 3D (glTF/GLB,
+  OBJ, STL ou 3MF). Voir [le mode édition](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/edit-mode.md) (en anglais).
+
+### Qui est où
+
+Chacun dans sa pièce, trouvé avec ce que votre logement a déjà.
+
 - **Les personnes dans leurs pièces.** Chaque personne à la maison se tient dans sa pièce, une
   silhouette à sa couleur, son nom au-dessus, et passe par les portes quand elle change de pièce.
   DomoTwin la place d’après ce qui dit déjà où elle est (les capteurs de pièce de Bermuda ou
@@ -234,6 +216,23 @@ Local, rapide, Rust + WebAssembly.</p>
   personne est quelqu’un, une silhouette grise. Voir [la localisation
   Bluetooth](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/bluetooth.md) (en
   anglais).
+- **Pièces privées.** Réservez une chambre ou un bureau à certaines personnes, toujours ou tant
+  qu’un interrupteur « Invités » est allumé : les autres la voient fermée, son sol givré, rien ni
+  personne à l’intérieur, aucune commande, et les réponses vocales disent « dans une pièce
+  privée ». Voir [pièces
+  privées](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/privacy.md) (en
+  anglais).
+
+### Comprendre votre logement
+
+Ce qu’il fait, pourquoi, et ce qui demande un coup d’œil.
+
+- **Carte du réseau.** Votre maillage Zigbee dessiné sur le logement : chaque appareil sur son
+  meuble, chaque lien en arc coloré selon sa qualité, une lumière qui court vers le coordinateur, et
+  les pièces qui ne tiennent qu’à un lien faible sont nommées, avec « un routeur ici aiderait ».
+  Touchez un appareil ou un lien pour le détail, relancez un scan, placez les appareils que la carte
+  ne trouve pas. Pour les administrateurs, avec ZHA. Voir [la carte du
+  réseau](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/network.md) (en anglais).
 - **La couverture radio.** Où le prochain proxy Bluetooth, routeur Zigbee ou point d’accès Wi-Fi
   aide le plus : chaque pièce colorée selon ce que vos récepteurs, votre réseau ou vos points
   d’accès y portent, et les meilleurs emplacements numérotés sur le plan, chacun avec les pièces
@@ -241,38 +240,34 @@ Local, rapide, Rust + WebAssembly.</p>
   que vos radios ont mesuré, qui passe en premier. Pour les administrateurs. Voir [la couverture
   radio](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/placement.md) (en
   anglais).
-- **Pièces privées.** Réservez une chambre ou un bureau à certaines personnes, toujours ou tant
-  qu’un interrupteur « Invités » est allumé : les autres la voient fermée, son sol givré, rien ni
-  personne à l’intérieur, aucune commande, et les réponses vocales disent « dans une pièce
-  privée ». Voir [pièces
-  privées](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/privacy.md) (en
+- **Un bac à sable pour vos automatisations.** Choisissez une journée, sa météo, qui sort et qui
+  rentre quand, et regardez vos automatisations, scripts et scènes la jouer sur une copie de votre
+  maison, en 3D et sur une frise, une heure par seconde si vous voulez. Un rapport dit ce que
+  chacune a fait et quand, ce qui ne s’est jamais exécuté et pourquoi, lesquelles se contredisent,
+  et ce qui n’a pas pu être joué. Rien dans le bac à sable n’atteint un appareil. Voir [le bac à
+  sable](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/sandbox.md) (en anglais).
+- **Des automatisations dites avec vos mots.** Dites ce qui doit se passer (« quand la dernière
+  personne part, éteindre les lumières et verrouiller la porte ») : la tâche IA de Home Assistant,
+  celle que vous avez configurée, écrit l’automatisation ; DomoTwin vous la redit en mots simples,
+  la fait vérifier par Home Assistant, la joue dans le bac à sable les jours que vous choisissez,
+  et seulement ensuite l’enregistre, l’éditeur de Home Assistant à portée de main. Pour les
+  administrateurs, avec une tâche IA dans Home Assistant (2025.8 et après) : DomoTwin n’appelle
+  lui-même aucun modèle. Voir [les automatisations avec vos
+  mots](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/plain-words.md) (en
   anglais).
-- **Éditeur de plan.** Pas de plan à importer ? Dessinez-le dans le panneau : des pièces en
-  polygones avec leurs longueurs, des cloisons, des portes et des fenêtres posées sur les murs, avec
-  aimantation et annulation. Voir [l’éditeur de
-  plan](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/plan-editor.md) (en anglais).
-- **Étages.** Une cave, des étages, des combles : un plan chacun, un sélecteur dans la vue, un
-  escalier qui vous fait monter d’une touche, et les alertes de chaque étage où que vous soyez. Ou
-  tout le logement d’un coup, ses étages écartés sous un toit, chacun avec son étiquette et son
-  image, en direct à chaque niveau. Les demi-niveaux et les sous-sols ouverts sur le jardin aussi :
-  des demi-niveaux nommés comme tels, un plancher compté par la localisation Bluetooth là seulement
-  où un niveau est au-dessus de l’autre, le jardin d’un sous-sol de son côté. Voir [les étages](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/storeys.md) (en
-  anglais).
-- **Mode édition.** Déplacez, tournez et empilez les meubles avec aimantation, repères et
-  annulation, ajoutez des meubles depuis une bibliothèque avec une image de chacun, par pièce et
-  usage, cherchés dans votre langue, liez n’importe quel objet à des entités (avec des suggestions
-  tirées de vos pièces), et ajoutez votre propre meuble ou appareil avec son modèle 3D (glTF/GLB,
-  OBJ, STL ou 3MF). Voir [le mode édition](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/edit-mode.md) (en anglais).
-- **Promenez-vous, accrochez-le au mur, demandez-le.** Promenez-vous dans votre logement à
-  hauteur des yeux, de pièce en pièce par les portes. Sur une tablette murale, une carte revient à
-  sa vue quand on la laisse, tourne lentement et s’assombrit la nuit. Dites « montre la cuisine » à
-  Assist et vos écrans la montrent. Voir [la promenade, les kiosques et la
-  voix](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/kiosk.md) (en anglais).
-- **Plus tard.** « Allume la lanterne demain à 6 h 30 jusqu’à 6 h 45 » : depuis la fiche d’une
-  lampe, une automatisation (`domotwin.schedule`) ou un assistant vocal, DomoTwin le fait à
-  l’heure, même après un redémarrage, et montre une horloge sur la lampe en attendant. Voir [les
-  actions faites plus tard](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/later.md)
+- **Fils des automatisations.** Un appui long sur une lampe : son panneau liste les automatisations
+  qui la concernent, avec leur interrupteur et leur dernier lancement. Montrez leurs fils, de ce
+  qui les déclenche à ce qu’elles commandent, et voyez une impulsion les parcourir quand l’une se
+  lance. Ou toutes les automatisations du logement à la fois. Voir [les fils des
+  automatisations](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/automations.md)
   (en anglais).
+- **Pourquoi ?** Appuyez longuement sur une lampe et demandez qui ou quoi l’a changée :
+  l’automatisation qui l’a allumée, le mouvement qui a déclenché l’automatisation, la personne qui
+  l’a fait dans l’application, ou personne (son propre interrupteur), comme Home Assistant l’a
+  noté. Dessiné dans le logement comme un fil depuis là où tout a commencé, avec la trace du
+  lancement pour les administrateurs et l’Activité de Home Assistant à portée de doigt. Voir
+  [Pourquoi ?](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/why.md) (en
+  anglais).
 - **L’historique en rapports.** « Quand la chambre a-t-elle dépassé 24 °C plus d’une heure ? »
   Un appui long sur un appareil ou une pièce donne son **Historique** : celui de Home Assistant en
   tableau, une ligne par changement ou par heure, filtré par valeur et par durée, ou son journal
@@ -296,12 +291,52 @@ Local, rapide, Rust + WebAssembly.</p>
   le dit, résumé par votre tâche d’IA si vous en choisissez une ; le panneau le montre. Voir [le
   bilan de la semaine](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/report.md)
   (en anglais).
-- **Votre voix.** Un bouton micro ouvre Assist de Home Assistant déjà à l’écoute, sur une
-  tablette murale comme sur un téléphone. Quand Assist n’entend pas encore, DomoTwin installe la
-  voix en local avec votre accord : Whisper ou Speech-to-Phrase et Piper, installés par le
-  Supervisor, sans que rien ne quitte votre logement. Les blueprints vocaux s’ajoutent d’un geste.
-  Voir [votre voix](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/voice.md) (en
+- **Fiches d’entretien.** Chaque appareil et chaque meuble peut porter sa marque, son modèle, son
+  numéro de série, sa garantie, sa notice et les tâches qui reviennent (changer le filtre tous les
+  3 mois). Un badge en forme de clé montre ce qui est à faire, le calque Entretien colore les
+  meubles en vert, orange ou rouge, et une liste par date a un bouton **Fait** pour tout le monde.
+  Un fichier IFC remplit les fiches ; un seul capteur, `sensor.domotwin_upkeep_due`, sert à vos
+  notifications. Voir [les fiches
+  d’entretien](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/upkeep.md) (en
   anglais).
+
+### Le partager
+
+Avec les invités, les enfants, les écrans muraux et les pages de Home Assistant.
+
+- **L’écran mural.** Une tablette près de la porte ou dans la cuisine s’ouvre sur son propre
+  onglet et, quand personne n’est là, montre l’heure, la météo et vos photos des médias de Home
+  Assistant, partis dès que quelqu’un la touche, qu’un capteur de mouvement le voit ou que la
+  sonnette retentit. La mise en page de chaque écran est réglée une fois par un administrateur et
+  suivie par l’appareil qui l’est, quel que soit le compte connecté. Voir [l’écran
+  mural](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/wall-screen.md) (en
+  anglais).
+- **Le Wi-Fi des invités.** Donnez votre Wi-Fi une fois, et DomoTwin dessine le code QR que
+  l’appareil photo d’un téléphone rejoint, dans la page ; ou montre le code de votre box. Pour les
+  administrateurs, et sur les écrans muraux que vous choisissez ; le mot de passe reste dans le
+  stockage privé de DomoTwin. Voir [le Wi-Fi des
+  invités](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/wifi.md) (en anglais).
+- **L’accès invités.** Un pass ouvre des pièces et des appareils choisis à vos invités pour
+  quelques jours : son lien ou son code QR les ouvre sur leur téléphone, en 3D, sans compte Home
+  Assistant, avec le Wi-Fi si vous voulez, et se termine tout seul. Par défaut il ne s’ouvre que sur
+  le réseau du logement ; DomoTwin vérifie chaque requête d’après le pass. Voir [l’accès
+  invités](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/guests.md) (en anglais).
+- **Les droits.** Ce dont chaque personne se sert, ce qu’elle voit seulement ou ne voit pas dans
+  DomoTwin, pièce par pièce et appareil par appareil, réglé en un seul endroit : la tablette des
+  enfants allume leurs lampes et montre seulement celles du salon. Les vues, commandes et services
+  de DomoTwin les suivent ; Home Assistant laisse encore chaque utilisateur se servir de chaque
+  entité ailleurs, comme le dit la fenêtre. Voir [les
+  droits](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/rights.md) (en anglais).
+- **Dans la Vue d’ensemble de Home Assistant.** Une pièce touchée en 3D ouvre la page de sa zone
+  dans la Vue d’ensemble (2026.2 et après). La page de chaque zone dit qui est dans la pièce et
+  l’entretien à faire, et les cartes de résumé de DomoTwin (les personnes, le réseau, les
+  automatisations, l’entretien, les robots) ouvrent la vue 3D sur ce qu’elles résument. Voir
+  [DomoTwin et la Vue
+  d’ensemble](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/overview.md) (en
+  anglais).
+
+### Sous le capot
+
 - **Léger et fluide.** Rust compilé en WebAssembly, un rendu seulement quand quelque chose change,
   des préréglages de qualité pour les vieilles tablettes murales. Le premier chargement est limité à
   1,2 Mo, vérifié par l’intégration continue.
@@ -310,6 +345,9 @@ Local, rapide, Rust + WebAssembly.</p>
   japonais et coréen, chacune chargée seulement si c’est la vôtre. Suit le thème de Home Assistant,
   fonctionne dans les applications mobiles. Sa propre police (Inter, servie par votre Home Assistant), et tout à portée du clavier
   et des lecteurs d’écran : les pièces et leurs commandes, les menus, les dialogues.
+
+<details>
+<summary><b>Plus d’images</b></summary>
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/demo.gif" alt="L’appartement de démonstration : la vue tourne autour du logement, puis le montre en plan 2D et revient en 3D" width="480">
@@ -387,6 +425,8 @@ Local, rapide, Rust + WebAssembly.</p>
 <p align="center">
   <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-walk.png" alt="Promenade dans le séjour de l’appartement de démonstration à hauteur des yeux, le soir, ses lampes allumées, avec le pavé de marche dans le coin" width="100%">
 </p>
+
+</details>
 
 ## Démarrage rapide
 
