@@ -112,20 +112,7 @@ export async function refreshConfigHistory(hass: HomeAssistant, kind: ConfigKind
   return result.changed;
 }
 
-/**
- * What Home Assistant answered when it refused: its configuration API's message (`{ body }`), or
- * its websocket's (`{ code, message }`).
- */
-export function refusal(error: unknown): string | undefined {
-  if (typeof error !== "object" || error === null || error instanceof Error) return undefined;
-  const { body, message } = error as { body?: unknown; message?: unknown };
-  if (typeof body === "object" && body !== null) {
-    const said = (body as { message?: unknown }).message;
-    if (typeof said === "string" && said) return said;
-  }
-  if (typeof body === "string" && body.trim()) return body.trim();
-  return typeof message === "string" && message ? message : undefined;
-}
+export { refusal } from "./refusal";
 
 /** Whether a version can be put back: not the current one, nor what Home Assistant cannot take. */
 export function canPutBack(

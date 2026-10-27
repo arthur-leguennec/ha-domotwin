@@ -117,6 +117,8 @@ export interface HomeAssistant {
   };
   /** The panels Home Assistant has, by URL path: its Overview's is `home` (D-061). */
   panels?: Record<string, { url_path?: string } | undefined>;
+  /** The actions Home Assistant has, by domain and name (an automation's are checked, D-064). */
+  services?: Record<string, Record<string, unknown> | undefined>;
   connection: HassConnection;
   /**
    * The demo house's own (D-050): nothing hands over to Home Assistant's pages or dialogs, which

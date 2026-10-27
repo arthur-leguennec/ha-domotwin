@@ -138,6 +138,8 @@ export interface HarnessOptions {
   formatState?: boolean;
   /** The configuration history (D-062): fictional items and their versions. */
   configHistory?: boolean;
+  /** Home Assistant's AI task (D-064): a fictional one, its actions and its check. */
+  aiTask?: boolean;
 }
 
 /** Opens the mocked Home Assistant with the built frontend. */
@@ -205,6 +207,7 @@ export async function openHarness(page: Page, options: HarnessOptions = {}): Pro
   if (options.noStats) params.set("nostats", "1");
   if (options.formatState) params.set("formatstate", "1");
   if (options.configHistory) params.set("confighistory", "1");
+  if (options.aiTask) params.set("aitask", "1");
   if (options.voice) params.set("voice", options.voice === true ? "1" : options.voice);
   if (options.supervisor) params.set("supervisor", "1");
   if (options.blueprints) params.set("blueprints", options.blueprints);

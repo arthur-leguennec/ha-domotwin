@@ -18,10 +18,11 @@ import { playDay, type DayPlayed, type HandCall, type World } from "./engine";
 import type { HomeCopy } from "./copy";
 import { peakDay, peakOnDay } from "./peak-day";
 import { peakReport, type PeakRoomReport } from "./peak-report";
+import type { Config } from "./config";
 import { reportOf, type DayReport } from "./report";
-import { dayOf, firstScenario, prepare, type Scenario } from "./scenario";
+import { dayOf, firstScenario, prepare, type Scenario, type Weather } from "./scenario";
 import { sunDay } from "./sun";
-import { clockOn, isoIn, zoned } from "./time";
+import { clockOf, clockOn, isoIn, zoned } from "./time";
 
 /** How fast the day goes, in minutes of the day a second. */
 export const SPEEDS = [1, 10, 60] as const;
@@ -35,6 +36,65 @@ export interface SandboxVisitor {
   darkMode?: boolean;
   /** Opens on the day of Hydro-Québec's announced peak, when there is one (D-063). */
   peakDay?: boolean;
+  /** An automation written in plain words, played beside the home's before it is saved. */
+  draft?: SandboxDraft;
+}
+
+/** A draft of an automation, played in the sandbox beside the home's (D-064). */
+export interface SandboxDraft {
+  /** The entity id it has in the copy (none of the home's). */
+  entity: string;
+  name: string;
+  config: Config;
+  /** Told what it did each time a day is played. */
+  onDay?: (day: DraftDay) => void;
+}
+
+/** What a draft did on a day played (D-064). */
+export interface DraftDay {
+  /** The day played, told from another (its scenario, what was done by hand too). */
+  key: string;
+  date: string;
+  weather: Weather;
+  /** How many things were done by hand in it. */
+  byHand: number;
+  /** When it ran, by the day's clock ("08:30"). */
+  runs: string[];
+  /** Set off but stopped by its conditions, or while it ran already. */
+  stopped: number;
+  busy: number;
+  /** The automations and scripts it worked against. */
+  against: string[];
+  /** It set something back and forth. */
+  backAndForth: boolean;
+  /** What could not be played of it. */
+  notPlayed: number;
+  /** It set itself off over and over, and was stopped. */
+  looping: boolean;
+}
+
+/** The draft added to the copy: an automation of its own, on, that never ran. */
+function withDraft(copy: HomeCopy, draft: SandboxDraft): HomeCopy {
+  const iso = new Date(0).toISOString();
+  const mode = typeof draft.config.mode === "string" ? draft.config.mode : "single";
+  const state: HassEntity = {
+    entity_id: draft.entity,
+    state: "on",
+    attributes: {
+      friendly_name: draft.name,
+      id: "domotwin_draft",
+      mode,
+      current: 0,
+      last_triggered: null,
+    },
+    last_changed: iso,
+    last_updated: iso,
+  };
+  return {
+    ...copy,
+    states: { ...copy.states, [draft.entity]: state },
+    automations: [...copy.automations, { id: draft.entity, config: draft.config }],
+  };
 }
 
 export class SandboxHome implements MemoryHome {
@@ -70,12 +130,18 @@ export class SandboxHome implements MemoryHome {
   private readonly listeners = new Set<(hass: HomeAssistant) => void>();
   private readonly clockListeners = new Set<() => void>();
   private readonly areaOf: (id: string) => string | undefined;
+  private readonly copy: HomeCopy;
+  /** The automation written in plain words played beside the home's, if one is (D-064). */
+  readonly draft?: { entity: string; name: string };
+  private readonly onDraftDay?: (day: DraftDay) => void;
 
-  constructor(
-    private readonly copy: HomeCopy,
-    visitor: SandboxVisitor,
-    now = Date.now(),
-  ) {
+  constructor(home: HomeCopy, visitor: SandboxVisitor, now = Date.now()) {
+    const copy = visitor.draft ? withDraft(home, visitor.draft) : home;
+    this.copy = copy;
+    if (visitor.draft) {
+      this.draft = { entity: visitor.draft.entity, name: visitor.draft.name };
+      this.onDraftDay = visitor.draft.onDay;
+    }
     this.store = structuredClone(copy.store);
     const entities = copy.entities;
     const devices = copy.devices;
@@ -191,6 +257,45 @@ export class SandboxHome implements MemoryHome {
   dayReport(): DayReport {
     this.report ??= reportOf(this.day, this.automationIds(), this.scriptIds());
     return this.report;
+  }
+
+  /** What the draft did on the day played, when there is one (D-064). */
+  draftDay(): DraftDay | undefined {
+    const draft = this.draft;
+    if (!draft) return undefined;
+    const report = this.dayReport();
+    const owner = report.owners.find((each) => each.id === draft.entity);
+    const against = new Set<string>();
+    for (const conflict of report.conflicts) {
+      const { first, second } = conflict;
+      if (first.owner === draft.entity && second.owner !== draft.entity) against.add(second.owner);
+      if (second.owner === draft.entity && first.owner !== draft.entity) against.add(first.owner);
+    }
+    const flapping = report.flapping.filter((flap) => flap.owners.includes(draft.entity));
+    for (const flap of flapping) {
+      for (const other of flap.owners) if (other !== draft.entity) against.add(other);
+    }
+    const scenario = this.scenario;
+    return {
+      key: JSON.stringify([
+        scenario.date,
+        scenario.weather,
+        scenario.low,
+        scenario.high,
+        scenario.people,
+        scenario.calls,
+      ]),
+      date: scenario.date,
+      weather: scenario.weather,
+      byHand: scenario.calls.length,
+      runs: (owner?.runs ?? []).map((run) => clockOf(run.at, this.copy.zone)),
+      stopped: owner?.stoppedByConditions ?? 0,
+      busy: owner?.busy ?? 0,
+      against: [...against].sort(),
+      backAndForth: flapping.length > 0,
+      notPlayed: owner?.notPlayed.length ?? 0,
+      looping: owner?.looping ?? false,
+    };
   }
 
   /** The announced peak's date (`YYYY-MM-DD`, in Home Assistant's time zone). */
@@ -317,6 +422,8 @@ export class SandboxHome implements MemoryHome {
     this.day = playDay(world, start, end, happenings, this.scenario.calls);
     this.report = undefined;
     this.peakRooms = undefined;
+    const drafted = this.onDraftDay ? this.draftDay() : undefined;
+    if (drafted) this.onDraftDay?.(drafted);
     this.cursor = Math.min(Math.max(this.cursor, start), end);
     this.seek(this.cursor, true);
   }
