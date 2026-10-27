@@ -223,8 +223,24 @@ export function stage(page: Page): Locator {
   return page.locator("domotwin-view").locator(".stage");
 }
 
+/**
+ * Waits until the page has drawn twice: the view takes a new size of its stage (the panel's tabs go
+ * while a tool such as link mode is on, and come back) as the page draws, after the frames'
+ * callbacks. A point taken before is where the element was drawn, and a press there may land on
+ * something else.
+ */
+async function drawn(page: Page): Promise<void> {
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) => {
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+      }),
+  );
+}
+
 /** Where an element of the plan is drawn, in page coordinates. */
 export async function elementPoint(page: Page, id: string): Promise<{ x: number; y: number }> {
+  await drawn(page);
   const box = await stage(page).boundingBox();
   if (!box) throw new Error("no stage");
   const point = await page.evaluate(
@@ -281,6 +297,7 @@ export function entityState(page: Page, id: string): Promise<string | undefined>
 
 /** The colour drawn at the centre of an element, from a fresh frame. */
 export async function colorAt(page: Page, id: string): Promise<[number, number, number]> {
+  await drawn(page);
   return page.evaluate(async (element) => {
     const page = window as never as {
       __view: () => HTMLElement & {
