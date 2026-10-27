@@ -367,6 +367,75 @@ try {
   );
   console.log("docs/figures/screenshot-imports.png");
 
+  // More imports (M20): a robot vacuum's map, a Floorplanner plan and a mesh scan, imported.
+  const more = [];
+  for (const [file, label, rooms, picked] of [
+    ["robot.json", "A robot vacuum's map (Valetudo)", 4, false],
+    ["apartment.fml", "A Floorplanner plan", 4, true],
+    ["house.glb", "A mesh scan (its ground floor)", 3, true],
+  ]) {
+    await ifc.goto("http://127.0.0.1:4173/?mode=panel&plan=none");
+    await ifc.waitForFunction(() => window.__element !== undefined);
+    await pick(`crates/domotwin-import/tests/fixtures/${file}`);
+    if (picked) await ifc.getByTestId("import-storeys").locator("button.storey").first().click();
+    await ifc.waitForFunction(
+      (count) => window.__view?.()?.debugState().summary?.rooms === count,
+      rooms,
+      { timeout: 60_000 },
+    );
+    const frame = await ifc.evaluate(async () => {
+      const view = window.__view();
+      view.options = { quality: "high", view: "3d", cutaway: "auto", lighting: "day" };
+      await view.updateComplete;
+      view.overview();
+      return view.captureFrame();
+    });
+    more.push([label, frame]);
+  }
+  const moreImage = await ifc.evaluate(async (shots) => {
+    const images = await Promise.all(
+      shots.map(async ([, src]) => {
+        const image = new Image();
+        image.src = src;
+        await image.decode();
+        return image;
+      }),
+    );
+    const [w, h] = [620, 440];
+    const canvas = document.createElement("canvas");
+    canvas.width = shots.length * (w + 10) + 10;
+    canvas.height = h + 20;
+    const g = canvas.getContext("2d");
+    g.fillStyle = "#f1f5f9";
+    g.fillRect(0, 0, canvas.width, canvas.height);
+    images.forEach((image, i) => {
+      const x = 10 + i * (w + 10);
+      g.fillStyle = "#ffffff";
+      g.fillRect(x, 10, w, h);
+      const scale = Math.min(w / image.width, h / image.height);
+      g.drawImage(
+        image,
+        x + (w - image.width * scale) / 2,
+        10 + (h - image.height * scale) / 2,
+        image.width * scale,
+        image.height * scale,
+      );
+      g.fillStyle = "rgba(255,255,255,0.92)";
+      g.beginPath();
+      g.roundRect(x + 14, 24, 380, 40, 20);
+      g.fill();
+      g.fillStyle = "#0f172a";
+      g.font = "600 20px Inter, sans-serif";
+      g.fillText(shots[i][0], x + 32, 50);
+    });
+    return canvas.toDataURL("image/png");
+  }, more);
+  await fs.writeFile(
+    join(root, "docs", "figures", "screenshot-more-imports.png"),
+    Buffer.from(moreImage.slice(moreImage.indexOf(",") + 1), "base64"),
+  );
+  console.log("docs/figures/screenshot-more-imports.png");
+
   // Edit mode (M3): a piece dragged on the plan with its guides, and the catalogue.
   const edit = await browser.newPage({ viewport: { width: 1100, height: 760 } });
   await edit.goto("http://127.0.0.1:4173/?mode=panel");

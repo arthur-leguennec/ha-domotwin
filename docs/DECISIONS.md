@@ -2727,12 +2727,172 @@ sandbox (M29, D-057), whose day it plays; its part in the weekly report (M37) co
   - A peak announced after the sandbox opened is played once it is opened again.
   - The week's peaks in the weekly report come with M37.
 
-## D-064 · Safety: the alerts on every tab, a Safety tab, the doorbell full screen (M25)
+## D-064 · More imports: robot vacuum maps, Floorplanner, mesh scans (amends D-040)
+
+M20, moved forward by the maintainer from after 0.5.0 (D-056) to before it, so that the first
+launch in five minutes (M22) has it.
+
+- **Context.** Many homes already have a map, drawn by something other than a planning app: the
+  robot vacuum's, made while it cleans; a Floorplanner plan, and the plans other apps export to
+  it; a mesh scanned with a phone or a Matterport camera. D-040 read Sweet Home 3D homes, DXF
+  drawings and RoomPlan's own files, and refused meshes. Checked at their sources in October
+  2026: Valetudo's map classes and its MQTT map handle
+  ([`MapLayer.js`](https://github.com/Hypfer/Valetudo/blob/master/backend/lib/entities/map/MapLayer.js),
+  [`ValetudoMap.js`](https://github.com/Hypfer/Valetudo/blob/master/backend/lib/entities/map/ValetudoMap.js),
+  [`MapNodeMqttHandle.js`](https://github.com/Hypfer/Valetudo/blob/master/backend/lib/mqtt/handles/MapNodeMqttHandle.js)),
+  Valetudo RE's reader of Roborock's map
+  ([`RRMapParser.js`](https://github.com/rand256/valetudo/blob/master/lib/RRMapParser.js)) and the
+  Xiaomi Cloud Map Extractor's
+  ([`image_handler.py`](https://github.com/PiotrMachowski/Home-Assistant-custom-components-Xiaomi-Cloud-Map-Extractor/blob/master/custom_components/xiaomi_cloud_map_extractor/xiaomi/image_handler.py)), and
+  Floorplanner's FML 3.0 specification ([fml.floorplanner.dev](https://fml.floorplanner.dev/intro/)).
+- **Decision.**
+  - **Robot vacuum maps.**
+    - **Valetudo**, which runs on many robots (Roborock, Dreame, Xiaomi, Viomi…) without their
+      maker's cloud: its map as its REST API gives it (`/api/v2/robot/state/map`, JSON), as it
+      publishes it over MQTT (`map-data`, the JSON deflated), or as Home Assistant receives it
+      (`map-data-hass`: a PNG whose `zTXt` chunk `ValetudoMap` holds the deflated JSON, the
+      *Map data* camera of its MQTT discovery). Layers are pixels of `pixelSize` cm (1 to 100), as
+      run-length triples (`compressedPixels`) or, before Valetudo compressed them, as pairs;
+      entities are in cm; the origin is the top left, `y` down, as on a plan.
+    - **Roborock's own map** (`rr`), as Valetudo RE serves it (`/api/map/latest`, gzipped) and as
+      the Xiaomi Cloud Map Extractor stores it (`store_map_raw`): its image block, 5 cm a pixel,
+      `y` up (turned, not mirrored), each pixel a wall, a floor or a room (its id in the upper
+      five bits, on robots that have rooms; `0xFF` a floor in none); the dock's place in
+      millimetres.
+    - **What a map becomes.** Each segment is a room, kept by its id (`segment-16`), so that
+      importing the map again keeps the links; named by Valetudo's name for it. A map without
+      segments is one room, its largest floor. A room is its pixels closed over the furniture
+      the robot went round (holes and notches under 30 cm), its outline traced, simplified and
+      squared to the map's walls, the map turned so that they run along the axes. A door is
+      where two rooms touch without a wall between them, as wide as they touch; wider than
+      1.6 m, an opening; it opens into the room with fewer doors (a bedroom off the hall). The
+      floors Valetudo knows (tiles, wood and its direction) are the rooms' floors. The dock is a
+      robot vacuum's dock (`robot-vacuum`, D-049), its back to the nearest wall. A robot map has
+      no windows, no furniture, one storey.
+    - **From Home Assistant itself**: *Import a robot's map* lists the cameras of Valetudo's MQTT
+      discovery, reads the one picked through Home Assistant (`/api/camera_proxy`, the user's
+      session), and links the dock to the vacuum of the same device. Nothing reaches the robot.
+    - **Other robots** keep their map in their maker's app and cloud; their integrations show it
+      as a picture (Roborock's, the Xiaomi Cloud Map Extractor's camera), whose rooms are
+      colours and boxes, not outlines. A picture is refused with what to do instead.
+  - **Floorplanner** (`.fml`, FML 3.0, JSON, centimetres): each floor a storey (its name, its
+    level, its height), its first design read; its areas the rooms (inside their walls, as
+    D-040's drafts are), named by their name or a label inside them; its walls the wall
+    thicknesses, the rooms their faces enclose when the design has no areas; the walls' openings
+    doors and windows (centred at `t` along their wall, the hinge and swing from `mirrored`);
+    its items the furniture, a box of their size unless their name says a kind. Curved walls
+    are straight; surfaces (a terrace), lines, dimensions, cameras and the drawing are left out.
+    The older XML FML is refused with what to do instead.
+  - **Mesh scans** (OBJ, PLY, GLB, STL), amending D-040. Telling walls from furniture in a mesh
+    is still guesswork, so DomoTwin does not try: it reads the heights where furniture is not.
+    - **Up and unit.** The axis up is the format's (`y`, `z` for STL), unless another holds twice
+      the horizontal surface at one height (a floor: the walls of storeys over one another are in
+      one plane, their floors are not); the unit is the one whose storey height (floor to ceiling)
+      is a storey's, else the one whose size is a home's.
+    - **Storeys** are the floors: the heights holding the most surface facing up, more than
+      1.8 m apart; each storey's ceiling the most surface facing down above it.
+    - **Turned square** by the directions of the walls (the vertical surfaces), before anything
+      is drawn, so that the rooms come out square.
+    - **Rooms** are the spaces under the ceiling (or over the floor where the ceiling was not
+      scanned) that the walls enclose above the doors, between 2.1 m and the ceiling: there the
+      walls are whole, lintels included, and furniture does not reach. The walls are cut there
+      into lines, drawn 5 cm a cell; a space narrower than 60 cm is the inside of a wall or a
+      cupboard, not a room.
+    - **Doors** are where the wall between two rooms, or to the outside, is open at 0.4, 1.0 and
+      1.5 m; **windows** where a room's wall to the outside is open at 1.0 and 1.5 m over a sill at
+      0.4 m (glass the scan saw through). Wider than 1.6 m, a door is an opening.
+    - **No furniture**: a mesh does not say what a piece is. Its furniture can still come in as
+      one's own 3D models (D-021). Points without faces (a point cloud), FBX and glTF with its
+      buffers apart are refused with what to do instead.
+  - **One import, as before** (D-040): each reader gives the builder a draft; the format comes
+    from the content (the JSON's keys, the PNG's chunk, the `rr`, `ply`, `glTF` and STL headers,
+    OBJ's lines, a deflated or gzipped stream opened first); limits counted while reading
+    (4 million map pixels and cells, 16 million with the grids of its rooms, a million cells two
+    rooms share, 100 rooms; 5 million triangles and the cells they cover; 64 MB inflated) so that
+    a malicious file runs out of budget, not of memory or of time. Rooms traced from cells share
+    one module (`grid`).
+- **Consequences.**
+  - The import module grows, still fetched only to import a file; the first load grows by the
+    menu item and the formats' names (`PERFORMANCE.md`).
+  - Valetudo, FML and mesh files are numbered in their order, except a robot's segments; a
+    Floorplanner plan imported again keeps its links only if nothing was added before them.
+  - A mesh's rooms and doors are measured, not guessed, but only where the scan saw: a door
+    scanned closed is a wall, a room scanned without its ceiling stops at its furniture. The
+    plan editor finishes the rest, as for every import.
+
+## D-065 · What Home Assistant's users say of 3D twins: said plainly, measured first (amends D-056)
+
+Read by the maintainer on r/homeassistant in October 2026, and passed on in their own words.
+
+- **Context.**
+  - **AI-written code.** Threads about 3D plans for Home Assistant drew a strong reaction to code
+    written with AI. The most upvoted answer said AI is not the problem; *paying* for AI-written
+    extras in an open-source project is.
+  - **A toy.** The most upvoted comment of another thread: a 3D plan "looks cool, then you abandon
+    it in a week"; it fits no daily use. The one practical use named was seeing each device's
+    signal strength on the plan.
+  - **Split levels** were asked for three times.
+  - **Locating.** Room presence learned by walking around, with a tool that reads an iPhone's
+    identity key (IRK) with an ESP32 and no Mac, was shown elsewhere in the same days as DomoTwin's
+    Bluetooth locating (M9f, D-035).
+  - **Measured, not claimed.** A user's own twin (not released) does what M9f does (it predicts
+    what each receiver hears from the 3D model), on a grid of half-metre cells with a cloud of
+    likely spots that changes floor only through the stairs, with 21 receivers. Measured against
+    Bermuda on the same readings: room changes per hour from 38 to 7, floor jumps per hour from
+    15.5 to 1.9, about 1.5 m off (60 cm where trained). Their tip: ESPHome proxies listening all
+    the time, Shelly scanners in Auto.
+  - Also asked: several mmWave sensors merged into one map of the home, each knowing only its own
+    zone today. And a top comment: a presence sensor in each room often makes Bluetooth unneeded.
+  - Checked when written (2026-10-27): ESPHome 2026.10 warns that scan windows over 600 ms starve
+    the Wi-Fi on the same radio, so the older tip of a window as long as the interval, at 1 100 ms,
+    now harms Wi-Fi proxies; a 300 ms window every 320 ms, scanning actively, listens about 94 % of
+    the time without Wi-Fi drops (corrected by the maintainer); since Home Assistant 2026.6, Home Assistant chooses active or passive scanning (Auto) for
+    ESPHome proxies and its adapter, and offers the same Auto to Shelly devices, whose scanner is
+    off until it is turned on. Tools that read an iPhone's key without a Mac
+    exist and are kept up: irk-capture (an ESPHome package, MIT) and ESPresense's *Enroll* (AGPL).
+- **Decision.**
+  - **Say how DomoTwin is built.** The READMEs say it plainly: written with Claude Code; every
+    change of the code through a pull request, checked by its tests, two automated reviews, clippy,
+    CodeQL, `cargo deny`, gitleaks and a size budget, and fuzzing when a reader changes; no network
+    call outside Home Assistant; no shop, no licence key, no paid tier, ever. And, near the top,
+    what sets it apart: the IFC and Sweet Home 3D imports, everything free, the network map, the
+    sandbox (the placement advisor once it is there). The first screens of both READMEs are
+    shortened, their headings made plainer.
+  - **The Bluetooth guide** gives the receivers' settings as they are now (ESPHome, Shelly, Home
+    Assistant's scanning mode) and what they change, what to expect with one receiver or one per
+    room, that a presence sensor per room may be enough, and how to get an iPhone's key today.
+  - **Measure before adding** (M41): a diagnostic records DomoTwin's room changes, storey changes
+    and time unknown per hour, and Bermuda's for the same devices where it runs; the maintainer
+    runs it at home and the figures go in the guide, as they fall. It comes before any other
+    locating feature, and soon (right after the weather, asked for before it), because it is small
+    and because it is what makes M9f credible.
+  - **Finer locating** (M42), only if M41's figures justify it, and **mmWave sensors merged**
+    (M43): after the sandbox (done) and the placement advisor (M31), which they build on (the
+    radio model turned around, the radios placed on the plan). M42 reuses M9f's radio model, the
+    devices' learned loudness, the rooms taught, the presence sensors' weight and the sureness
+    rule, and the walk's stairs (D-029) for the storeys.
+  - **Split levels** (M44): storeys at any height already draw and join by stairs; the Bluetooth
+    model's floors, the half levels' names and a ground that steps are missing. Next to the
+    outdoors (M18), whose ground it needs, with a fictional example.
+  - **An iPhone's key** (M45): DomoTwin links to the tools that exist and takes the key in their
+    forms, rather than building a firmware of its own; small, next to M41.
+  - **The weather** (M40), asked for by the maintainer before these, is put on the roadmap here;
+    its decision comes with it.
+- **Consequences.**
+  - D-056's order goes on: M23b done, then M40, M41 and M45, then M24 to M26, M31 and M22 before
+    0.5.0; M42 and M43 open the way to 0.6.0, M44 sits by M18.
+  - The other 3D plan is not named in the repository, nor anyone from the threads; the user's
+    figures are quoted as a user's, not as DomoTwin's.
+  - The figures DomoTwin publishes are its own, measured in a real home, with the same figures
+    for Bermuda beside them.
+
+## D-066 · Safety: the alerts on every tab, a Safety tab, the doorbell full screen (M25)
 
 M25, planned in D-054 among M24 to M26, whose order the two weeks of use after 0.4.0 were to
-decide: the maintainer asked for safety first, after Hydro-Québec's peaks (D-063). It follows
-D-056's rule, as M23b did: Home Assistant's own Security page opened rather than copied where it
-has it.
+decide. After more imports (M20, D-064), the maintainer asked for safety next, ahead of the
+weather (M40), locating measured (M41) and an iPhone's key (M45) that D-065 put before M24 to
+M26, and of M24 and M26. It follows D-056's rule, as M23b did: Home Assistant's own Security page
+opened rather than copied where it has it.
 
 - **Context.** D-054 planned the cameras side by side, the doorbell full screen when it rings, the
   alarm, and the alerts the 3D view shows (D-023) on every tab. Since, Home Assistant has a
@@ -2823,4 +2983,5 @@ has it.
   - A home's alerts read the same everywhere in the panel: one list, worked out from the states,
     the rooms of every storey and the alerts Home Assistant keeps.
   - The demo house has no camera, doorbell or alarm: its Safety tab shows its alerts.
-  - The roadmap shows M25 done after M39; M24 and M26 follow, in the order the use decides.
+  - The roadmap shows M25 done after M20; D-065's order goes on for the rest: M40, M41 and M45,
+    then M24 and M26.

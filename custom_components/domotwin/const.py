@@ -121,7 +121,7 @@ SCHEDULABLE_DOMAINS: Final = (
 )
 
 # Each user's own choices (docs/DECISIONS.md, D-055): their favourites, the tab DomoTwin opens on
-# (the Safety tab since D-064) and their Home tab's cards, in a store of their own
+# (the Safety tab since D-066) and their Home tab's cards, in a store of their own
 # (.storage/domotwin.users).
 CHOICES_STORAGE_KEY: Final = f"{DOMAIN}.users"
 CHOICES_STORAGE_VERSION: Final = 1

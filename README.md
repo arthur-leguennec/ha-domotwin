@@ -13,23 +13,24 @@ Local, fast, Rust + WebAssembly.</p>
 <p align="center"><a href="https://github.com/arthur-leguennec/ha-domotwin/blob/main/README.fr.md">Lire en français</a></p>
 
 > [!NOTE]
-> **Status: early development.** DomoTwin is built milestone by milestone
-> ([roadmap](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/ROADMAP.md)). The
-> integration, the panel, the card, the plan import (IFC, Sweet Home 3D, DXF, room scans), the 3D
-> and 2D views, live control (states, tap, long press, room panel, linking), the edit mode, your
-> own 3D models, the layers, the devices, the plan editor, storeys, the looks, every storey at
-> once, walking, the kiosk, the network map, the automation wires, the upkeep cards, the people in
-> their rooms, Bluetooth locating, voice, the polish (font, keyboard, screen readers), a pass over
-> size and speed, phones, actions done later, taps that say what they do, pieces that look made,
-> robot vacuums, the home's energy, the demo house, measuring a device's speed and the practical
-> home (the Home, Rooms and 3D tabs) work today, and make up version 0.4.0. Since then, the
-> sandbox plays a day of the home's automations on a copy of it, Home Assistant's history reads
-> as reports, "Why?" says who or what changed a device, the Wi-Fi QR code welcomes guests,
-> DomoTwin joins Home Assistant's own Overview rather than copying it, each change of the
-> configuration is kept, Hydro-Québec's peaks show on the plan, the Home tab and in the
-> sandbox, and a Safety tab has the cameras, the doorbell and the alarm, with the alerts on every
-> tab. History and energy and the wall screen come next, towards version 0.5.0; the
+> **Status: early development, version 0.4.0.** DomoTwin is built milestone by milestone
+> ([roadmap](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/ROADMAP.md)), and
+> everything under *Features* works today. Since 0.4.0 came the sandbox, history as reports,
+> "Why?", the Wi-Fi QR code for guests, the configuration history, Hydro-Québec's peaks, more
+> imports (robot vacuum maps, Floorplanner, mesh scans) and safety (the cameras, the doorbell, the
+> alarm, the alerts on every tab), and DomoTwin joined Home Assistant's own Overview; the weather
+> around the home, history and energy and the wall screen come next, towards 0.5.0. The
 > submission to HACS's default list waits on measurements on real devices.
+
+## What sets it apart
+
+- **Your real plan.** Import an IFC model (Revit, ArchiCAD, FreeCAD…) or a Sweet Home 3D home,
+  every storey at once, rather than drawing your home again.
+- **Free, all of it.** Every feature is in the MIT-licensed code: nothing to buy, no account.
+- **The network map.** Your Zigbee mesh drawn on the plan: which device talks through which, the
+  weak links, and the rooms short of a router.
+- **The sandbox.** A day of your automations played on a copy of the home, to see what they do
+  before they do it.
 
 ## Features
 
@@ -53,7 +54,9 @@ Local, fast, Rust + WebAssembly.</p>
   [safety](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/safety.md).
 - **Your floor plan in 3D and 2D.** Draw it in the panel, or import it: an IFC model (`*.ifc`,
   from Revit, ArchiCAD, Bonsai, FreeCAD…), a Sweet Home 3D home (`*.sh3d`), a DXF drawing, a room
-  scanned with an iPhone or iPad with LiDAR (`*.usdz`, RoomPlan's JSON) or a DomoTwin plan
+  scanned with an iPhone or iPad with LiDAR (`*.usdz`, RoomPlan's JSON), a Floorplanner plan
+  (`*.fml`), a mesh scan (OBJ, PLY, GLB, STL from Polycam, Scaniverse, Matterport…), your robot
+  vacuum's map (Valetudo's, straight from Home Assistant, its dock linked) or a DomoTwin plan
   (`*.domotwin.json`), one storey or all of them, and see it as a clean 3D model. The
   walls facing the camera are lowered automatically, like an open dollhouse. Switch to a crisp 2D
   plan with a smooth animation.
@@ -263,8 +266,9 @@ Local, fast, Rust + WebAssembly.</p>
 3. **Draw or import your plan.** Open **DomoTwin** in the sidebar → **Draw a plan**, or
    **Import plan** and pick a DomoTwin plan (`*.domotwin.json`), an IFC file (`*.ifc`, see [IFC
    import](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/ifc-import.md)), a Sweet
-   Home 3D home, a DXF drawing or a room scan (see [plans from other
-   apps](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/imports.md)). No plan
+   Home 3D home, a DXF drawing, a room scan, a Floorplanner plan or a mesh scan (see [plans from
+   other apps](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/imports.md)); a
+   robot vacuum running Valetudo gives its map with **Import a robot's map**. No plan
    yet? **Try the demo house** in the panel, or import the fictional
    [`examples/demo-apartment.domotwin.json`](https://github.com/arthur-leguennec/ha-domotwin/blob/main/examples/demo-apartment.domotwin.json)
    or
@@ -325,13 +329,32 @@ to its device or to one of its entities.
 ## How it works
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/architecture.png" alt="How DomoTwin is built: the Home Assistant integration, the frontend and the WebAssembly engine" width="100%">
+  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/architecture.png" alt="How DomoTwin works: the Home Assistant integration, the frontend and the WebAssembly engine" width="100%">
 </p>
 
 A thin Python integration stores your plan, your edits and your bindings in Home Assistant and
 serves the frontend. The frontend (TypeScript) talks to Home Assistant; the engine (Rust compiled to
 WebAssembly) reads the plan, builds the geometry and draws it with WebGL2. More in
 [`docs/ARCHITECTURE.md`](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/ARCHITECTURE.md).
+
+## How DomoTwin is built
+
+DomoTwin is written with [Claude Code](https://claude.com/claude-code), an AI coding assistant.
+Its maintainer decides what is built and in which order, and tries it at home. Every change of the
+code goes through a pull request, where it is checked by:
+
+- its tests, run by the continuous integration: about 260 Python tests against a real Home
+  Assistant, 340 frontend unit tests, 320 Rust tests and 210 end-to-end tests in a browser;
+- two automated code reviews, each finding fixed or answered in the pull request;
+- `clippy` with every warning an error, and fuzzing of every reader of files from elsewhere (plans,
+  IFC, the other apps' plans, 3D models, layouts, automations, upkeep cards) when one changes;
+- CodeQL on the Python, TypeScript and Rust code, `cargo deny` on every dependency's licence and
+  source, and gitleaks on every commit;
+- a size budget: the build fails if what a browser loads first goes past 1.2 MB.
+
+Some rules never move: no network call outside your Home Assistant, and no shop, no licence key,
+no paid tier, ever. The decisions and their reasons are kept in
+[`docs/DECISIONS.md`](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/DECISIONS.md).
 
 ## FAQ
 
@@ -340,9 +363,11 @@ WebAssembly) reads the plan, builds the geometry and draws it with WebGL2. More 
 with its JSON Schema; IFC files (ISO 16739, exported by FreeCAD, Blender with Bonsai, ArchiCAD
 or Revit), one storey or every storey at once: see [IFC
 import](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/ifc-import.md); Sweet Home
-3D homes, DXF drawings and room scans made with Apple's RoomPlan (USDZ or JSON): see [plans from
-other apps](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/imports.md). DWG files,
-binary USD and mesh scans (OBJ) are not read.
+3D homes, DXF drawings, room scans made with Apple's RoomPlan (USDZ or JSON), robot vacuum maps
+(Valetudo's, from Home Assistant or a file; Roborock's own), Floorplanner plans (FML) and mesh
+scans (OBJ, PLY, GLB, STL): see [plans from other
+apps](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/imports.md). DWG files,
+binary USD, FBX and point clouds are not read.
 
 **Can I put it on a wall tablet, or ask for a room by voice?** Yes: the `idle`, `orbit`,
 `night_dim` and `tools` options make a card a kiosk, and the `domotwin.show` action (with a

@@ -661,7 +661,7 @@ export class DomoTwinView extends LitElement {
   /** The panel's Rooms tab (D-055): a room tapped opens its room there, by its area. */
   roomTab = false;
   /**
-   * Home Assistant's alerts on now (the panel's, D-064), said in the banner after the rooms' of
+   * Home Assistant's alerts on now (the panel's, D-066), said in the banner after the rooms' of
    * the same level; a tap opens its Security page.
    */
   securityAlerts: readonly SecurityAlert[] = [];
@@ -5842,7 +5842,7 @@ export class DomoTwinView extends LitElement {
   }
 
   /**
-   * The rooms with an alert, and Home Assistant's alerts (D-064): a tap frames the room (showing
+   * The rooms with an alert, and Home Assistant's alerts (D-066): a tap frames the room (showing
    * its storey first), or opens Home Assistant's Security page.
    */
   private renderAlerts(): TemplateResult | typeof nothing {

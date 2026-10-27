@@ -155,7 +155,7 @@ describe("glanceOf", () => {
     expect(glance.away).toBe(0);
   });
 
-  it("leaves out what a private room holds (its dangers are above every tab, D-064)", () => {
+  it("leaves out what a private room holds (its dangers are above every tab, D-066)", () => {
     const hass = home([
       ["light.desk", "study", "on", {}],
       ["binary_sensor.study_window", "study", "on", { device_class: "window" }],

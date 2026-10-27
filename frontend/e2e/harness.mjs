@@ -30,6 +30,9 @@
 //   (the settings cannot be read until window.__settingsUp())
 //   voice=1 (Assist with a pipeline that hears), voice=deaf (Assist that cannot hear),
 //   robot=1 (a robot vacuum's dock in the hall, linked to vacuum.robbie, docked; D-049)
+//   valetudo=1 (a robot running Valetudo: its vacuum and its Map data camera over MQTT, whose
+//   picture is the fictional map of crates/domotwin-import/tests/fixtures/robot.png; D-064),
+//   valetudo=2 (two of them)
 //   energy=1 (fictional solar panels, meter and battery, named in the stored settings; D-049)
 //   peak=hydroqc|hydropeak|calendar (Hydro-Québec's peaks, D-063: hydroqc's Flex D sensors,
 //   HydroPeak's, or the calendar hydroqc writes its peaks in), peakphase=upcoming|preheat|peak|none
@@ -53,7 +56,7 @@
 //   entrance door opened five minutes ago and set off "Hall light at the door", which lit the
 //   hall's spots; Sam switched the floor lamp on two minutes ago; the kitchen's ceiling light was
 //   switched off on its own switch)
-//   safety=1 (D-064, with live=1: a doorbell at the front door with its camera, beside the hall's
+//   safety=1 (D-066, with live=1: a doorbell at the front door with its camera, beside the hall's
 //   lock, and an alarm, quiet; window.__ring() rings it now), security=1 (Home Assistant 2026.10
 //   and its Security page), securityalerts=<entity>[:alert|warning],… (the alerts chosen on it;
 //   window.__securityAlerts(list) chooses others)
@@ -428,10 +431,19 @@ if (modelsParam && store.plan) {
   }
 }
 
-/** The integration's model file views (`/api/domotwin/models`), with the user's session. */
+/**
+ * The integration's model file views (`/api/domotwin/models`), and the cameras' pictures
+ * (`/api/camera_proxy`), with the user's session.
+ */
 async function fetchWithAuth(path, init = {}) {
   calls.push({ type: "fetch", method: init.method ?? "GET", path });
   const url = new URL(path, location.origin);
+  if (url.pathname.startsWith("/api/camera_proxy/")) {
+    const camera = decodeURIComponent(url.pathname.slice("/api/camera_proxy/".length));
+    if (!home.states[camera]) return new Response("", { status: 404 });
+    // Valetudo's map for Home Assistant: a picture holding the robot's map.
+    return fetch("/fixtures/robot.png");
+  }
   if (url.pathname === "/api/domotwin/models" && init.method === "POST") {
     if (!hass.user.is_admin) return Response.json({ code: "unauthorized" }, { status: 403 });
     const format = url.searchParams.get("format");
@@ -926,7 +938,7 @@ function whyEvents(message) {
     .map((row) => row.entry);
 }
 
-// Home Assistant's Security page (D-064) and the alerts an administrator chose on it.
+// Home Assistant's Security page (D-066) and the alerts an administrator chose on it.
 const security = params.get("security") === "1";
 let securityChoices = (params.get("securityalerts") ?? "")
   .split(",")
@@ -1279,6 +1291,8 @@ const connection = {
         return { ...voice.setup };
       case "domotwin/bindings/save": {
         if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        if (window.__failBindings)
+          throw { code: "revision_conflict", message: "revision_conflict" };
         store.bindings = message.bindings;
         store.revision += 1;
         for (const listener of listeners) listener({ kind: "bindings", revision: store.revision });
@@ -1381,7 +1395,7 @@ const connection = {
   async subscribeMessage(callback, message) {
     calls.push(message);
     if (message.type === "frontend/subscribe_system_data") {
-      // Home Assistant's own (D-064): what its Security page keeps, sent at once and on change.
+      // Home Assistant's own (D-066): what its Security page keeps, sent at once and on change.
       if (message.key !== "security" || !security) throw { code: "unknown_command" };
       securityListeners.add(callback);
       queueMicrotask(() =>
@@ -1417,6 +1431,24 @@ if (params.get("energy") === "1") {
   };
   for (const [id, [state, attributes]] of Object.entries(sensors)) {
     home.states[id] = { entity_id: id, state, attributes };
+  }
+}
+// Robots running Valetudo (D-064): a vacuum and its Map data camera, of MQTT, on one device.
+const valetudo = Number(params.get("valetudo") ?? 0);
+for (const [k, [id, name]] of [
+  ["rockrobo", "Rockrobo"],
+  ["dreamy", "Dreamy"],
+]
+  .slice(0, valetudo)
+  .entries()) {
+  const device = `dev-valetudo-${k}`;
+  home.devices[device] = { id: device, name };
+  for (const [entity_id, state, friendly_name] of [
+    [`vacuum.${id}`, "docked", name],
+    [`camera.${id}_map_data`, "idle", `${name} Map data`],
+  ]) {
+    home.entities[entity_id] = { entity_id, device_id: device, platform: "mqtt" };
+    home.states[entity_id] = { entity_id, state, attributes: { friendly_name } };
   }
 }
 if (robot) {
@@ -1720,7 +1752,7 @@ if (overview) {
   });
   own("sensor.domotwin_upkeep_due", "upkeep_due");
 }
-// safety=1 (D-064): a doorbell at the front door, its camera on the same device, in the hall
+// safety=1 (D-066): a doorbell at the front door, its camera on the same device, in the hall
 // beside its lock; an alarm, disarmed. The doorbell last rang long ago.
 if (params.get("safety") === "1") {
   home.devices.front_door_bell = { id: "front_door_bell", area_id: "hallway", name: "Front door" };
@@ -1851,7 +1883,7 @@ let hass = {
     // A fictional place, rounded: the sandbox's sun.
     ...(sandbox ? { time_zone: "Europe/Paris", latitude: 46, longitude: 2 } : {}),
     // overview=1: a Home Assistant that opens on its Overview, an area page each (D-061);
-    // security=1: with its Security page (D-064).
+    // security=1: with its Security page (D-066).
     ...(overview || security ? { version: "2026.10.0" } : { version: "2026.1.0" }),
   },
   ...(overview || security
@@ -1910,7 +1942,7 @@ window.__setState = (entityId, state, attributes = {}) => {
   };
   publish();
 };
-/** The front door's doorbell rings now (safety=1, D-064): its event entity says when. */
+/** The front door's doorbell rings now (safety=1, D-066): its event entity says when. */
 window.__ring = () => window.__setState("event.front_door_doorbell", new Date().toISOString());
 if (hass.themes.darkMode) document.body.classList.add("dark");
 

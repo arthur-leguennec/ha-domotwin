@@ -15,6 +15,7 @@ crate-type = ["cdylib", "rlib"]
 domotwin-core.workspace = true
 domotwin-models = { path = "../domotwin-models", default-features = false }
 serde_json.workspace = true
+miniz_oxide.workspace = true
 wasm-bindgen.workspace = true
 console_error_panic_hook.workspace = true
 

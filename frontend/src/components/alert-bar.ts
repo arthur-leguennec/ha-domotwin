@@ -1,5 +1,5 @@
 /**
- * `<domotwin-alert-bar>`: the alerts of the 3D view on the other tabs (D-064), the rooms' of every
+ * `<domotwin-alert-bar>`: the alerts of the 3D view on the other tabs (D-066), the rooms' of every
  * storey and Home Assistant's own, dangers first. A room's opens the 3D view on it, Home
  * Assistant's its Security page; past two, a button opens the Safety tab, which lists them all.
  */

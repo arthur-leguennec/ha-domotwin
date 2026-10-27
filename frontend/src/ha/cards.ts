@@ -1,6 +1,6 @@
 /**
  * Home Assistant's own cards (D-055): the tile card of an entity, the button card of a scene, the
- * weather, an agenda, a list, a camera, an alarm (D-064), made by Home Assistant's card helpers.
+ * weather, an agenda, a list, a camera, an alarm (D-066), made by Home Assistant's card helpers.
  * Those helpers are set by the dashboards' own module only (`window.loadCardHelpers`, in 2025.1
  * and since): DomoTwin opened before any dashboard loads that module first, the way Home
  * Assistant's panel resolver does, and shows its own plain rows when it cannot.
@@ -100,7 +100,7 @@ export function pressCard(entity: string): CardConfig {
 }
 
 /**
- * A camera's picture (D-064): a still Home Assistant refreshes, live in its dialog on a tap; live
+ * A camera's picture (D-066): a still Home Assistant refreshes, live in its dialog on a tap; live
  * itself on a doorbell's full screen, where a tap does nothing. `camera_view` is in 2025.1's
  * picture-entity card.
  */

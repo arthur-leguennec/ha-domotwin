@@ -140,6 +140,15 @@ impl ScanFile {
     /// `not_plan` for JSON that is not a scan, `too_large` past 5 000 elements.
     pub fn from_json(bytes: &[u8], title: &str) -> Result<Self, &'static str> {
         let root: Json = serde_json::from_slice(bytes).map_err(|_| "not_plan")?;
+        Self::from_value(&root, title)
+    }
+
+    /// Reads the JSON of a scan, parsed.
+    ///
+    /// # Errors
+    ///
+    /// `not_plan` for JSON that is not a scan, `too_large` past 5 000 elements.
+    pub fn from_value(root: &Json, title: &str) -> Result<Self, &'static str> {
         let object = root.as_object().ok_or("not_plan")?;
         if !object.contains_key("walls") && !object.contains_key("rooms") {
             return Err("not_plan");
@@ -456,6 +465,7 @@ impl ScanFile {
                 id: format!("room-{}", k + 1),
                 name: name.to_owned(),
                 points,
+                floor: None,
             });
         }
         // Doors, windows and openings.

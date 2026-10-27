@@ -114,6 +114,7 @@ dependencies = [
  "console_error_panic_hook",
  "domotwin-core",
  "domotwin-models",
+ "miniz_oxide",
  "serde_json",
  "wasm-bindgen",
 ]

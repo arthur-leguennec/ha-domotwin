@@ -152,7 +152,7 @@ export class DomoTwinHaCard extends LitElement {
     if (!hass || !config || !t) return nothing;
     const entity = typeof config.entity === "string" ? config.entity : undefined;
     switch (config.type) {
-      // A camera, an alarm (D-064): their name and state, as a tile's.
+      // A camera, an alarm (D-066): their name and state, as a tile's.
       case "tile":
       case "picture-entity":
       case "alarm-panel":

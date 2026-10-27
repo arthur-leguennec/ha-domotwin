@@ -756,7 +756,15 @@ export const en = {
       sh3d: "Sweet Home 3D",
       dxf: "a DXF drawing",
       scan: "a room scan",
+      robot: "a robot vacuum’s map",
+      fml: "Floorplanner",
+      mesh: "a mesh scan",
     },
+    import_robot: "Import a robot’s map",
+    import_robot_pick: "Which robot’s map?",
+    import_robot_reading: "Reading the map of {name}…",
+    import_robot_linked: "Its dock is linked to {name}.",
+    import_robot_link_failed: "Its dock could not be linked to {name}: {reason}",
     import_left_out: "Left out: {list}.",
     import_cards: {
       one: "The file filled {count} upkeep card.",
@@ -1051,7 +1059,19 @@ export const en = {
       no_spaces:
         "no room was found on this storey. Draw its rooms (spaces) in your app and export again.",
       not_plan:
-        "it is not a plan this app can read: a DomoTwin plan, an IFC file, a Sweet Home 3D home (.sh3d), a DXF drawing or a room scan.",
+        "it is not a plan this app can read: a DomoTwin plan, an IFC file, a Sweet Home 3D home (.sh3d), a DXF drawing, a room scan, a robot vacuum’s map, a Floorplanner plan (.fml) or a mesh scan (OBJ, PLY, GLB, STL).",
+      picture:
+        "it is a picture, with no rooms to read in it: draw the plan in the plan editor, or import the robot’s map from Valetudo.",
+      fml_xml:
+        "it is a Floorplanner plan of the older kind (XML): export it again from Floorplanner as FML.",
+      mesh_points:
+        "it holds points without faces (a point cloud): export the scan as a mesh (OBJ, PLY or GLB).",
+      mesh_gltf: "it is a glTF with its data in other files: export the scan as one GLB file.",
+      mesh_fbx: "it is an FBX file: export the scan as OBJ, PLY or GLB.",
+      mesh_too_large: "the scan has more than 5 million triangles: export it with less detail.",
+      robot_map_missing:
+        "Home Assistant has no map of this robot yet: check that Valetudo publishes its map over MQTT.",
+      not_robot_map: "this camera does not hold a robot’s map from Valetudo.",
       sh3d_old: "it was saved by a Sweet Home 3D older than 5.3: open it there and save it again.",
       dxf_binary: "it is a binary DXF drawing: save it as an ASCII DXF.",
       scan_usdz:

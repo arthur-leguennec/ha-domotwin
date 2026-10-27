@@ -2,7 +2,7 @@
  * `<domotwin-home>`, the Home tab (D-055): the home at a glance (who is in, the lamps on, the
  * doors and windows open, Hydro-Québec's next peak, D-063), the weather, the favourite scenes as
  * big buttons, the other favourites, and the cards the user chose. Every control is Home
- * Assistant's own card. The alerts are above every tab (D-064).
+ * Assistant's own card. The alerts are above every tab (D-066).
  */
 import {
   mdiAccountGroupOutline,

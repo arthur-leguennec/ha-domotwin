@@ -35,7 +35,7 @@ type Leaves<T, Leaf, Prefix extends string = ""> = {
 
 /**
  * Every message: the dictionaries', and those added by a chunk when it loads (D-055, D-058,
- * D-059, D-060, D-061, D-062, D-063, D-064; the sandbox's, D-057).
+ * D-059, D-060, D-061, D-062, D-063, D-066; the sandbox's, D-057).
  */
 type AllMessages = typeof en &
   typeof practicalEn &
