@@ -697,3 +697,131 @@ async def test_home_assistant_bluetooth_is_heard_both_ways(hass: HomeAssistant) 
     assert [p.rssi for p in polled] == [-70, -70]
     stop()
     assert radio._stop_polling is None
+
+
+async def test_the_rooms_found_are_measured_beside_bermuda(
+    hass: HomeAssistant,
+    home: Locator,
+    radio: FakeRadio,
+    hass_ws_client: WebSocketGenerator,
+    hass_storage: dict[str, Any],
+) -> None:
+    """M41: DomoTwin's rooms counted, Bermuda's area sensor of the same phone beside them."""
+    client = await hass_ws_client(hass)
+    bermuda = er.async_get(hass).async_get_or_create(
+        "sensor", "bermuda", "f1:22:33:44:55:66_area", suggested_object_id="alex_phone_area"
+    )
+    er.async_get(hass).async_get_or_create("sensor", "bermuda", "f1:22:33:44:55:66_distance")
+    sensor = er.async_get(hass).async_get_or_create(
+        "binary_sensor", "mmwave", "living-1", original_device_class="occupancy"
+    )
+    er.async_get(hass).async_update_entity(sensor.entity_id, area_id="living_room")
+    hass.states.async_set(sensor.entity_id, "on", {"device_class": "occupancy"})
+    answer = await _call(client, "get")
+    # Only Bermuda's area sensors are offered.
+    assert answer["result"]["bermuda"] == [bermuda.entity_id]
+    phone = {
+        "name": "Alex's phone",
+        "kind": "phone",
+        "person": "person.alex",
+        "match": {"address": TAG},
+        "bermuda": bermuda.entity_id,
+    }
+    assert (await _follow(client, {"alex_phone": phone}))["success"]
+    await hass.async_block_till_done()
+    assert (await _call(client, "get"))["result"]["devices"]["alex_phone"]["bermuda"] == (
+        bermuda.entity_id
+    )
+
+    # The rooms settle for a minute after a start: Bermuda agrees meanwhile.
+    hass.states.async_set(bermuda.entity_id, "living room")
+    _ticks(home, radio, TAG, "living", 31)
+    # Then Bermuda flickers between the living room and the bedroom, by name or by area id.
+    for k in range(12):
+        if k % 2:
+            hass.states.async_set(bermuda.entity_id, "Bedroom", {"area_id": "bedroom"})
+        else:
+            hass.states.async_set(bermuda.entity_id, "living room")
+        _ticks(home, radio, TAG, "living", 1)
+    measured = (await _call(client, "measure"))["result"]
+    shown = measured["devices"]["alex_phone"]
+    assert shown["domotwin"]["changes_per_hour"] == 0.0
+    assert shown["domotwin"]["short_stays"] == 0
+    assert shown["bermuda"]["changes_per_hour"] > 100
+    assert shown["bermuda"]["short_stays"] >= 9
+    assert 0.5 < shown["agreement"] < 0.95
+    # Alex alone at home, the living room's presence sensor alone on: DomoTwin right.
+    assert shown["domotwin"]["right_share"] == 1.0
+    assert shown["bermuda"]["right_share"] < 0.95
+    # Away from Bermuda's sensor: unknown for Bermuda.
+    hass.states.async_set(bermuda.entity_id, "unknown")
+    _ticks(home, radio, TAG, "living", 2)
+    shown = (await _call(client, "measure"))["result"]["devices"]["alex_phone"]
+    assert shown["bermuda"]["unknown_share"] > 0
+
+    # Kept with what is learned (a save always waiting while measuring, written within ten
+    # minutes, or when Home Assistant stops), figures only in the diagnostics.
+    assert home._save_due is not None
+    async_fire_time_changed(hass, dt_util.utcnow() + timedelta(minutes=11))
+    await hass.async_block_till_done()
+    kept = hass_storage[LOCATING_LEARNED_KEY]["data"]["measure"]
+    assert kept["devices"]["alex_phone"]["bermuda"]["changes"] >= 10
+    from custom_components.domotwin.diagnostics import (  # noqa: PLC0415
+        async_get_config_entry_diagnostics,
+    )
+
+    entry = hass.config_entries.async_entries("domotwin")[0]
+    found = await async_get_config_entry_diagnostics(hass, entry)
+    assert found["locating"]["measured"]["devices"][0]["bermuda"]["short_stays"] >= 9
+    assert "alex_phone" not in str(found["locating"])
+    assert "Alex" not in str(found["locating"])
+
+    # Started again.
+    again = await _call(client, "measure/reset")
+    assert again["success"]
+    assert (await _call(client, "measure"))["result"]["devices"] == {}
+
+
+async def test_bermuda_unpaired_or_another_device_starts_its_figures_again(
+    hass: HomeAssistant, home: Locator, radio: FakeRadio, hass_ws_client: WebSocketGenerator
+) -> None:
+    """M41: figures of a sensor no longer paired, or of a tag no longer followed, go."""
+    client = await hass_ws_client(hass)
+    phone = {
+        "name": "Alex's phone",
+        "kind": "phone",
+        "person": "person.alex",
+        "match": {"address": TAG},
+        "bermuda": "sensor.alex_phone_area",
+    }
+    bad = {**phone, "bermuda": "light.lamp"}
+    refused = await _follow(client, {"alex_phone": bad})
+    assert refused["error"]["code"] == "invalid_locating"
+    # A sensor Home Assistant knows as another integration's is not Bermuda's.
+    other = er.async_get(hass).async_get_or_create(
+        "sensor", "demo", "living-temperature", suggested_object_id="living_temperature"
+    )
+    refused = await _follow(client, {"alex_phone": {**phone, "bermuda": other.entity_id}})
+    assert refused["error"]["code"] == "invalid_locating"
+    # One Bermuda sensor, one device.
+    watch = {**phone, "name": "Watch", "kind": "watch", "match": {"address": "F1:22:33:44:55:77"}}
+    refused = await _follow(client, {"alex_phone": phone, "watch": watch})
+    assert refused["error"]["code"] == "invalid_locating"
+    assert (await _follow(client, {"alex_phone": phone}))["success"]
+    await hass.async_block_till_done()
+    hass.states.async_set("sensor.alex_phone_area", "Living room", {"area_id": "living_room"})
+    _ticks(home, radio, TAG, "living", 3)
+    shown = (await _call(client, "measure"))["result"]["devices"]["alex_phone"]
+    assert set(shown) == {"domotwin", "domotwin_areas", "bermuda", "agreement"}
+    # Paired no more: Bermuda's figures go with it.
+    assert (await _follow(client, {"alex_phone": {**phone, "bermuda": None}}))["success"]
+    await hass.async_block_till_done()
+    _ticks(home, radio, TAG, "living", 1)
+    shown = (await _call(client, "measure"))["result"]["devices"]["alex_phone"]
+    assert set(shown) == {"domotwin"}
+    # Known another way (another tag under its id): its figures start again.
+    other = {**phone, "match": {"address": "F1:22:33:44:55:88"}}
+    del other["bermuda"]
+    assert (await _follow(client, {"alex_phone": other}))["success"]
+    await hass.async_block_till_done()
+    assert "alex_phone" not in home.measure.devices

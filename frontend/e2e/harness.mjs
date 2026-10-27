@@ -328,6 +328,56 @@ const store = {
         : {},
   },
 };
+// How well the rooms are found (M41): a fictional afternoon, Bermuda's figures beside the phone's.
+let measured = {
+  since: "2026-03-02T13:00:00+00:00",
+  devices:
+    bluetoothParam === "1"
+      ? {
+          alex_phone: {
+            domotwin: {
+              hours: 5.5,
+              changes_per_hour: 6.8,
+              storey_changes_per_hour: 0,
+              short_stays: 2,
+              unknown_share: 0.03,
+              witnessed_hours: 2.4,
+              right_share: 0.97,
+            },
+            domotwin_areas: {
+              hours: 5.5,
+              changes_per_hour: 5.9,
+              storey_changes_per_hour: 0,
+              short_stays: 1,
+              unknown_share: 0.03,
+              witnessed_hours: 2.4,
+              right_share: 0.97,
+            },
+            bermuda: {
+              hours: 5.5,
+              changes_per_hour: 38.4,
+              storey_changes_per_hour: 0,
+              short_stays: 157,
+              unknown_share: 0.08,
+              witnessed_hours: 2.4,
+              right_share: 0.81,
+            },
+            agreement: 0.88,
+          },
+          keys: {
+            domotwin: {
+              hours: 5.5,
+              changes_per_hour: 0.4,
+              storey_changes_per_hour: 0,
+              short_stays: 0,
+              unknown_share: 0,
+              witnessed_hours: 0,
+              right_share: null,
+            },
+          },
+        }
+      : {},
+};
 store.locating = {
   revision: 1,
   status: bluetoothParam === "none" ? "no_bluetooth" : "ready",
@@ -369,6 +419,8 @@ store.locating = {
     ]),
   ),
   learned: {},
+  // Bermuda's area sensors (M41): a fictional phone's.
+  bermuda: bluetoothParam === "1" ? ["sensor.alex_iphone_area"] : [],
   rooms: [
     { id: "living", name: "Living room", storey: "" },
     { id: "kitchen", name: "Kitchen", storey: "" },
@@ -1388,6 +1440,15 @@ const connection = {
         store.locating.learned[message.room] = 42;
         return { readings: 14, receivers: 3 };
       }
+      case "domotwin/locating/measure": {
+        if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        return structuredClone(measured);
+      }
+      case "domotwin/locating/measure/reset": {
+        if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        measured = { since: new Date().toISOString(), devices: {} };
+        return { since: measured.since };
+      }
       case "domotwin/locating/forget": {
         const forgotten = Object.keys(store.locating.learned).length;
         store.locating.learned = {};
@@ -2023,6 +2084,12 @@ if (bluetoothParam === "1") {
     };
     home.entities[entity_id] = { entity_id, platform: "domotwin", translation_key: "located" };
   }
+  // Bermuda's area sensor of the same phone (M41).
+  states["sensor.alex_iphone_area"] = {
+    entity_id: "sensor.alex_iphone_area",
+    state: "Kitchen",
+    attributes: { friendly_name: "Alex iPhone Area", area_id: "kitchen" },
+  };
 }
 if (params.get("radios") === "1") {
   // Where the locating places two of the receivers, and the hall it learned from the living

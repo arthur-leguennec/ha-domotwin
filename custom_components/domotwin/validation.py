@@ -797,8 +797,16 @@ def _validate_receivers(receivers: Any) -> dict[str, Any]:
 def _validate_located(device: Any, settings: Any) -> dict[str, Any]:
     if not isinstance(device, str) or not LOCATED_ID.fullmatch(device):
         raise _locating_error("a device's id is 1 to 40 lowercase letters, digits or _")
-    if not isinstance(settings, dict) or set(settings) - {"name", "kind", "person", "match"}:
-        raise _locating_error("a device has a `name`, a `kind`, a `person` and a `match`")
+    if not isinstance(settings, dict) or set(settings) - {
+        "name",
+        "kind",
+        "person",
+        "match",
+        "bermuda",
+    }:
+        raise _locating_error(
+            "a device has a `name`, a `kind`, a `person`, a `match` and a `bermuda` sensor"
+        )
     name = settings.get("name")
     if not isinstance(name, str) or not 0 < len(name.strip()) <= MAX_LOCATED_NAME:
         raise _locating_error(f"a device's name is 1 to {MAX_LOCATED_NAME} characters")
@@ -818,6 +826,16 @@ def _validate_located(device: Any, settings: Any) -> dict[str, Any]:
     }
     if person is not None:
         entry["person"] = person
+    # Bermuda's area sensor of the same device, measured beside DomoTwin's room (M41).
+    bermuda = settings.get("bermuda")
+    if bermuda is not None:
+        if (
+            not isinstance(bermuda, str)
+            or not bermuda.startswith("sensor.")
+            or not (valid_entity_id(bermuda))
+        ):
+            raise _locating_error("`bermuda` must be a sensor")
+        entry["bermuda"] = bermuda
     return entry
 
 
@@ -827,7 +845,7 @@ def validate_locating(
     """Check where the receivers are and which devices are followed (D-035).
 
     `receivers`: `{address: {"room"?: id, "piece"?: id}}`; `devices`: `{id: {"name", "kind",
-    "person"?, "match"}}`, at most 30. Return both, cleaned.
+    "person"?, "match", "bermuda"?}}`, at most 30. Return both, cleaned.
     """
     placed = _validate_receivers(receivers)
     if not isinstance(devices, dict) or len(devices) > MAX_LOCATED:
@@ -836,6 +854,9 @@ def validate_locating(
     known = [json.dumps(e["match"], sort_keys=True) for e in followed.values()]
     if len(set(known)) != len(known):
         raise _locating_error("two devices are known the same way")
+    paired = [e["bermuda"] for e in followed.values() if "bermuda" in e]
+    if len(set(paired)) != len(paired):
+        raise _locating_error("a Bermuda sensor is paired with one device at most")
     if learn is not None and not isinstance(learn, bool):
         raise _locating_error("`learn` must be true or false")
     return placed, followed

@@ -72,6 +72,8 @@ def async_register_commands(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_locating_candidates)
     websocket_api.async_register_command(hass, ws_locating_teach)
     websocket_api.async_register_command(hass, ws_locating_forget)
+    websocket_api.async_register_command(hass, ws_locating_measure)
+    websocket_api.async_register_command(hass, ws_locating_measure_reset)
     websocket_api.async_register_command(hass, ws_subscribe)
     voice.async_register_commands(hass)
     schedules.async_register_commands(hass)
@@ -705,6 +707,7 @@ def ws_locating_get(
             "devices": devices,
             "learned": locator.learned_rooms(),
             "heard": locator.heard(),
+            "bermuda": locator.bermuda_sensors(),
             "rooms": [
                 {"id": room.id, "name": room.name, "storey": room.storey_name}
                 for room in people.finder.rooms
@@ -742,6 +745,15 @@ async def ws_locating_save(
     except InvalidPayloadError as err:
         connection.send_error(msg["id"], err.code, str(err))
         return
+    # A sensor paired as Bermuda's is one of Bermuda's, when Home Assistant knows it (D-073).
+    registry = er.async_get(hass)
+    for device in devices.values():
+        entry = registry.async_get(device["bermuda"]) if "bermuda" in device else None
+        if entry is not None and entry.platform != "bermuda":
+            connection.send_error(
+                msg["id"], "invalid_locating", "`bermuda` must be one of Bermuda's sensors"
+            )
+            return
     try:
         revision = await locator.async_save(
             receivers, devices, msg.get("learn"), msg.get("expected_revision")
@@ -815,6 +827,34 @@ async def ws_locating_forget(
         return
     forgotten = await locator.async_forget(msg.get("room"))
     connection.send_result(msg["id"], {"forgotten": forgotten})
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command({vol.Required("type"): "domotwin/locating/measure"})
+@callback
+def ws_locating_measure(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """How well the rooms are found (M41): each device's figures, Bermuda's beside. Admins only."""
+    if (locator := _get_locator(hass, connection, msg)) is None:
+        return
+    connection.send_result(
+        msg["id"],
+        {"since": locator.measure.started.isoformat(), "devices": locator.measure.figures()},
+    )
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command({vol.Required("type"): "domotwin/locating/measure/reset"})
+@websocket_api.async_response
+async def ws_locating_measure_reset(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Start the measurements again from nothing. Admins only."""
+    if (locator := _get_locator(hass, connection, msg)) is None:
+        return
+    await locator.async_measure_reset()
+    connection.send_result(msg["id"], {"since": locator.measure.started.isoformat()})
 
 
 @websocket_api.websocket_command({vol.Required("type"): "domotwin/subscribe"})
