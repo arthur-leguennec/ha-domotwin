@@ -350,8 +350,8 @@ fn spread<T: Clone>(items: &[T], k: usize) -> Vec<T> {
         .collect()
 }
 
-/// A place given by a piece, or by a storey and a point (and a height above the lowest floor;
-/// [`RADIO_AT`] above its own floor without).
+/// A place given by a piece, or by a storey and a point (and a height on the storeys'
+/// elevations, as [`Spot::z`]; [`RADIO_AT`] above its own floor without).
 fn place_of(home: &Home, value: &Value) -> Option<Spot> {
     if let (Some(storey), Some([x, y])) = (
         value

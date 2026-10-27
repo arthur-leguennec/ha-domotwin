@@ -23,6 +23,13 @@ MAX_POINTS: Final = 12
 POINT_MARGIN: Final = 25.0
 # A gap between two rooms narrower than this is the wall between them.
 WALL_GAP: Final = 60.0
+# A point this near two rooms is under the wall between them, on their floor (D-078).
+UNDER_WALLS: Final = WALL_GAP / 2
+#: A storey at least this much over the one under it is a full storey over it (cm, D-078); twice
+#: this, it is over another storey's.
+FULL_STOREY: Final = 200.0
+#: How far past their end stairs may land beside a storey's rooms (cm): a half flight (D-078).
+STAIRS_REACH: Final = 150.0
 # A door at the crossing: the wall is mostly not there.
 DOOR_NEAR: Final = 25.0
 DOOR_WALL: Final = 0.4
@@ -35,7 +42,11 @@ STAIRS: Final = "stairs"
 
 @dataclass(frozen=True)
 class Spot:
-    """A place in the home: a storey (lowest first), a point on its plan and a height."""
+    """A place in the home: a storey (lowest first), a point on its plan and a height.
+
+    The height (cm) is on the storeys' elevations: its storey's elevation and the height above
+    that floor.
+    """
 
     storey: int
     x: float
@@ -121,7 +132,7 @@ class Home:
         self.storey_ids: list[str] = []
         self._doors: list[list[tuple[Point, Point]]] = []
         self._open: set[frozenset[str]] = set()
-        self._stairs: list[tuple[int, Point]] = []
+        self._stairs: list[tuple[int, Point, float]] = []
         self.pieces: dict[str, Spot] = {}
         open_sides: list[tuple[int, str, Point, Point]] = []
         for index, storey in enumerate(storeys):
@@ -169,6 +180,13 @@ class Home:
                     and (not self.rooms[room_id].outside or self.rooms[other].outside)
                 ):
                     self._open.add(frozenset((room_id, other)))
+        self._has_rooms = [
+            any(room.storey == k for room in self._room_list) for k in range(len(self.elevations))
+        ]
+        self._indoor = [
+            [room for room in self._room_list if room.storey == k and not room.outside]
+            for k in range(len(self.elevations))
+        ]
         self.neighbours = self._link()
 
     def _read_pieces(self, storey: int, plan: Mapping[str, Any], layout: Mapping[str, Any]) -> None:
@@ -199,7 +217,9 @@ class Home:
             lift = lift if lift is not None else _number(item.get("lift")) or 0.0
             self.pieces[key] = Spot(storey, at[0], at[1], floor + lift + (height or 0.0) / 2)
             if item.get("kind") == STAIRS:
-                self._stairs.append((storey, at))
+                # How far from its middle it lands: half its length, the longer of its sides.
+                sides = [_number(v) or 0.0 for v in size[:2]] if isinstance(size, list) else []
+                self._stairs.append((storey, at, max(sides, default=0.0) / 2))
 
     def room_at(self, storey: int, p: Point) -> str | None:
         """The room a point of a storey is in."""
@@ -319,8 +339,52 @@ class Home:
         return 1.0
 
     def floors(self, a: Spot, b: Spot) -> int:
-        """The floors between two places' storeys."""
-        return abs(a.storey - b.storey)
+        """The floors between two places (D-078), as the core counts them.
+
+        The floors of the storeys over the lower place's storey, up to the higher place's, each
+        counted where the line between the two places goes through its height under one of that
+        storey's rooms (or a wall between two), or over a room of a full storey under it, whose
+        ceiling it is (a half level beside another is not over it, nor two storeys over a room); a
+        storey without rooms is a floor wherever it is crossed. Storeys at one height are one
+        floor.
+        """
+
+        def height(spot: Spot) -> float:
+            return self.elevations[spot.storey] if spot.storey < len(self.elevations) else 0.0
+
+        lo, hi = (a, b) if (height(a), a.z) <= (height(b), b.z) else (b, a)
+        bottom, top = height(lo), height(hi)
+        rise = hi.z - lo.z
+        count = 0
+        for level in sorted({e for e in self.elevations if bottom < e <= top}):
+            t = 0.5 if abs(rise) < 1e-9 else min(max((level - lo.z) / rise, 0.0), 1.0)
+            p = (lo.x + (hi.x - lo.x) * t, lo.y + (hi.y - lo.y) * t)
+            storeys = range(len(self.elevations))
+            # A storey at that height without rooms, or with one there.
+            here = any(
+                self.elevations[k] == level and (not self._has_rooms[k] or self._indoors(k, p))
+                for k in storeys
+            )
+            # The highest storey under it with a room there, a full storey lower (not two): its
+            # ceiling.
+            under = max(
+                (
+                    self.elevations[k]
+                    for k in storeys
+                    if self.elevations[k] < level and self._indoors(k, p)
+                ),
+                default=None,
+            )
+            if here or (under is not None and FULL_STOREY <= level - under < 2 * FULL_STOREY):
+                count += 1
+        return count
+
+    def _indoors(self, storey: int, p: Point) -> bool:
+        """Whether `p` is in a storey's room (not outside), or under a wall between two of them."""
+        rooms = self._indoor[storey]
+        if any(inside(room.outline, p) for room in rooms):
+            return True
+        return sum(1 for room in rooms if _edge_distance(room.outline, p) <= UNDER_WALLS) >= 2
 
     def _link(self) -> dict[str, frozenset[str]]:
         """Which rooms lead to which: through a door, a side left open or stairs.
@@ -354,19 +418,43 @@ class Home:
         return {room: frozenset(found) for room, found in links.items()}
 
     def _link_stairs(self, join: Callable[[str | None, str | None], None]) -> None:
-        """Stairs join their room to the room above or below them (else the stairs' rooms there)."""
+        """Stairs join their room to the room above or below them.
+
+        Else to the stairs' rooms there, else to the room of that storey they land beside (a split
+        level's half flight, D-078).
+        """
         stairs_rooms: dict[int, list[str]] = {}
-        for storey, at in self._stairs:
+        for storey, at, _ in self._stairs:
             if (room_id := self.room_at(storey, at)) is not None:
                 stairs_rooms.setdefault(storey, []).append(room_id)
-        for storey, at in self._stairs:
+        for storey, at, half in self._stairs:
             here = self.room_at(storey, at)
             for other in (storey - 1, storey + 1):
                 if not 0 <= other < len(self.elevations):
                     continue
+                # A room right over (or under) them; a garden there is not where they lead.
                 above = self.room_at(other, at)
-                for there in [above] if above is not None else stairs_rooms.get(other, []):
-                    join(here, there)
+                if above is not None and self.rooms[above].outside:
+                    above = None
+                there: list[str | None] = (
+                    [above] if above is not None else list(stairs_rooms.get(other, []))
+                )
+                # Beside them, half a storey up or down only: a full storey's rooms are over them.
+                rise = abs(self.elevations[other] - self.elevations[storey])
+                if not there and 0 < rise < FULL_STOREY:
+                    there = [self._beside(other, at, STAIRS_REACH + half)]
+                for room in there:
+                    join(here, room)
+
+    def _beside(self, storey: int, at: Point, reach: float) -> str | None:
+        """The room of a storey nearest `at` (not a place outside), within `reach`."""
+        near = [
+            (_edge_distance(room.outline, at), room.id)
+            for room in self._room_list
+            if room.storey == storey and not room.outside
+        ]
+        best = min(near, default=None)
+        return best[1] if best is not None and best[0] <= reach else None
 
 
 def _twice_area(outline: tuple[Point, ...]) -> float:

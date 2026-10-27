@@ -1,0 +1,53 @@
+{
+  "format": "domotwin-plan",
+  "version": 1,
+  "name": "Split-level house, entry level",
+  "wallThickness": {"interior": 10, "exterior": 20},
+  "rooms": [
+    {"id": "s-hall", "name": "Hall", "outline": [[0, 0], [300, 0], [300, 350], [0, 350]], "floor": {"material": "grey-wood"}},
+    {"id": "s-living", "name": "Living room", "outline": [[300, 0], [700, 0], [700, 500], [300, 500]], "floor": {"material": "oak"}},
+    {"id": "s-kitchen", "name": "Kitchen", "outline": [[0, 350], [300, 350], [300, 800], [0, 800]], "floor": {"material": "beige-tiles"}},
+    {"id": "s-dining", "name": "Dining room", "outline": [[300, 500], [700, 500], [700, 800], [300, 800]], "floor": {"material": "oak"}},
+    {"id": "s-front-garden", "name": "Front garden", "outline": [[-300, -400], [1600, -400], [1600, 0], [-300, 0]], "outside": true},
+    {"id": "s-path", "name": "Path", "outline": [[100, -400], [190, -400], [190, 0], [100, 0]], "outside": true, "floor": {"material": "paving"}},
+    {"id": "s-terrace", "name": "Terrace", "outline": [[300, 800], [700, 800], [700, 1000], [300, 1000]], "outside": true, "floor": {"material": "decking"}},
+    {"id": "s-upper-garden", "name": "Upper garden", "outline": [[-300, 800], [700, 800], [700, 1300], [-300, 1300]], "outside": true}
+  ],
+  "doors": [
+    {"id": "s-door-front", "name": "Front door", "from": [100, 0], "to": [190, 0], "room": "s-hall"},
+    {"id": "s-door-living", "name": "Living room door", "from": [300, 100], "to": [300, 190], "room": "s-hall", "style": "glazed"},
+    {"id": "s-door-kitchen", "name": "Kitchen door", "from": [100, 350], "to": [190, 350], "room": "s-hall"},
+    {"id": "s-door-dining", "name": "Dining room door", "from": [300, 600], "to": [300, 690], "room": "s-kitchen"},
+    {"id": "s-door-living-dining", "name": "Living to dining", "from": [450, 500], "to": [560, 500], "room": "s-living", "style": "glazed"},
+    {"id": "s-door-terrace", "name": "Terrace door", "from": [450, 800], "to": [560, 800], "room": "s-dining", "style": "glazed"}
+  ],
+  "windows": [
+    {"id": "s-win-living", "name": "Living room window", "from": [400, 0], "to": [620, 0], "room": "s-living"},
+    {"id": "s-win-kitchen", "name": "Kitchen window", "from": [0, 450], "to": [0, 650], "room": "s-kitchen"},
+    {"id": "s-win-hall", "name": "Hall window", "from": [0, 120], "to": [0, 220], "room": "s-hall"}
+  ],
+  "items": [
+    {"id": "s-stairs", "name": "Half flight up", "kind": "stairs", "at": [650, 260], "size": [90, 240, 140], "room": "s-living"},
+    {"id": "s-coat-rack", "name": "Coat rack", "kind": "coat-rack", "at": [250, 60], "size": [40, 40, 175], "room": "s-hall"},
+    {"id": "s-sofa", "name": "Sofa", "kind": "sofa", "at": [430, 330], "size": [210, 90, 80], "room": "s-living", "rotation": 180},
+    {"id": "s-coffee-table", "name": "Coffee table", "kind": "coffee-table", "at": [430, 200], "size": [110, 60, 40], "room": "s-living"},
+    {"id": "s-tv-stand", "name": "TV stand", "kind": "tv-stand", "at": [430, 40], "size": [160, 40, 50], "room": "s-living"},
+    {"id": "s-tv", "name": "TV", "kind": "tv", "at": [430, 30], "size": [130, 8, 75], "room": "s-living", "lift": 55},
+    {"id": "s-living-light", "name": "Living room light", "kind": "ceiling-light", "at": [470, 250], "size": [40, 40, 10], "room": "s-living", "lift": 240},
+    {"id": "s-counter", "name": "Counter", "kind": "counter", "at": [30, 575], "size": [60, 300, 90], "room": "s-kitchen"},
+    {"id": "s-sink", "name": "Sink", "kind": "sink", "at": [30, 520], "size": [55, 80, 92], "room": "s-kitchen"},
+    {"id": "s-stove", "name": "Stove", "kind": "stove", "at": [30, 650], "size": [60, 60, 92], "room": "s-kitchen"},
+    {"id": "s-fridge", "name": "Fridge", "kind": "fridge", "at": [255, 765], "size": [70, 65, 185], "room": "s-kitchen"},
+    {"id": "s-kitchen-light", "name": "Kitchen light", "kind": "ceiling-light", "at": [150, 575], "size": [40, 40, 10], "room": "s-kitchen", "lift": 240},
+    {"id": "s-dining-table", "name": "Dining table", "kind": "dining-table", "at": [500, 650], "size": [160, 90, 75], "room": "s-dining"},
+    {"id": "s-dining-chair-1", "name": "Dining chair", "kind": "chair", "at": [460, 590], "size": [45, 45, 90], "room": "s-dining"},
+    {"id": "s-dining-chair-2", "name": "Dining chair", "kind": "chair", "at": [540, 590], "size": [45, 45, 90], "room": "s-dining"},
+    {"id": "s-dining-chair-3", "name": "Dining chair", "kind": "chair", "at": [460, 710], "size": [45, 45, 90], "room": "s-dining", "rotation": 180},
+    {"id": "s-dining-chair-4", "name": "Dining chair", "kind": "chair", "at": [540, 710], "size": [45, 45, 90], "room": "s-dining", "rotation": 180},
+    {"id": "s-dining-light", "name": "Dining room light", "kind": "pendant", "at": [500, 650], "size": [50, 50, 30], "room": "s-dining", "lift": 180},
+    {"id": "s-garden-table", "name": "Garden table", "kind": "garden-table", "at": [500, 900], "size": [120, 80, 74], "room": "s-terrace"},
+    {"id": "s-oak", "name": "Oak", "kind": "tree", "at": [100, 1100], "size": [350, 350, 700], "room": "s-upper-garden"},
+    {"id": "s-hedge", "name": "Hedge", "kind": "hedge", "at": [-150, -330], "size": [250, 60, 120], "room": "s-front-garden"},
+    {"id": "s-mailbox", "name": "Mailbox", "kind": "mailbox", "at": [230, -370], "size": [40, 30, 120], "room": "s-front-garden"}
+  ]
+}

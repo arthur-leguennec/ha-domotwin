@@ -203,7 +203,9 @@ Local, fast, Rust + WebAssembly.</p>
 - **Storeys.** A cellar, floors above, an attic: one plan each, a switcher in the view, stairs that
   take you up a tap at a time, and the alerts of every storey wherever you are. Or the whole home
   at once, its storeys spread apart under a roof, each with its label and a picture, live on every
-  floor. See
+  floor. Split levels and walk-out basements too: half levels named as such, a floor counted by the
+  Bluetooth locating only where one level lies over the other, a basement's garden on its side.
+  See
   [storeys](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/storeys.md).
 - **Edit mode.** Move, rotate and stack furniture with snapping, guides and undo, add pieces from
   a library with a picture of each, by room and use, searched in your language, link any object

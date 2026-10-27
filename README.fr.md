@@ -241,7 +241,9 @@ Local, rapide, Rust + WebAssembly.</p>
 - **Étages.** Une cave, des étages, des combles : un plan chacun, un sélecteur dans la vue, un
   escalier qui vous fait monter d’une touche, et les alertes de chaque étage où que vous soyez. Ou
   tout le logement d’un coup, ses étages écartés sous un toit, chacun avec son étiquette et son
-  image, en direct à chaque niveau. Voir [les étages](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/storeys.md) (en
+  image, en direct à chaque niveau. Les demi-niveaux et les sous-sols ouverts sur le jardin aussi :
+  des demi-niveaux nommés comme tels, un plancher compté par la localisation Bluetooth là seulement
+  où un niveau est au-dessus de l’autre, le jardin d’un sous-sol de son côté. Voir [les étages](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/storeys.md) (en
   anglais).
 - **Mode édition.** Déplacez, tournez et empilez les meubles avec aimantation, repères et
   annulation, ajoutez des meubles depuis une bibliothèque avec une image de chacun, par pièce et

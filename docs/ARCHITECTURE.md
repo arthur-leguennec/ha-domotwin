@@ -35,8 +35,8 @@ it draws: the mesh's drawing (the devices' pieces and the links' qualities and p
 answers with the room of each device for the analysis's health, and the automations' placed ends.
 It also advises where the next radio helps most (`placement.md`, D-066), from the storeys' plans,
 the radios placed and what they measured, with the core's `coverage` module: the locating's model
-(D-035), its walls counted as the integration counts them; the engine draws the rooms' levels as a
-layer.
+(D-035), its walls and floors counted as the integration counts them; the engine draws the rooms'
+levels as a layer.
 
 `domotwin-core` is where the logic lives and where the tests concentrate. It never panics on input:
 every reader returns `Result` with a stable error code that the frontend translates.
@@ -151,6 +151,14 @@ every reader returns `Result` with a stable error code that the frontend transla
   takes each wing's ridge, half sizes and shape to land on it. A robot mower is a `robots::Robots`
   of its own body, on its storey's `Floor` with the home's rooms closed but its dock's
   (`Floor::outdoors`).
+- Split levels (D-078): the home's scene keeps every storey's gardens with their ground's height
+  (`Builder::gardens`); a place outside draws a retaining wall where a garden of another storey
+  beyond one of its sides is higher (with every storey built at once: a storey alone has none). The
+  radios' model counts a storey's floor where the line between two places crosses its height under
+  one of its rooms (or a wall between two), or over a room of the highest storey under it with one
+  there, a full storey lower and not two (core `coverage::home::Home::floors`, integration
+  `locating/geometry.py`, both checked against `tests/fixtures/coverage-walls.json`). The page
+  names half levels from the storeys' heights (`live/storeys.ts`).
 - `domotwin-web` exposes a small API: `loadPlan` (or `loadStoreys`, with `setSpread`, `setRoof`,
   `storeyLabels` and `storeyPicture`, for every storey at once), `setBindings`, `setStates`, `highlight`,
   `orbit`, `pan`, `zoom`, `setPlanView`, `overview`, `focusElement`, `views`, `showView`, `pick`,

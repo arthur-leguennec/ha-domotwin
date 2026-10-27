@@ -64,12 +64,12 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M45       | An iPhone's key, without a Mac: the ways to get it         | ✅     |
 | M26       | The wall screen: a screen saver, a layout per device       | ✅     |
 | M18       | Outdoors: garden, terrace, lawn, pool, roofs               | ✅     |
+| M44       | Split levels and walk-out basements                        | ✅     |
 | M22       | A first launch in five minutes                             | ⏳     |
 | 0.5.0     | Fifth release: all of the above                            | ⏳     |
 | M42       | Finer locating: a spot in the room, storeys by the stairs  | ⏳     |
 | M43       | mmWave sensors merged into one picture of the home         | ⏳     |
 | M37       | A weekly home report                                       | ⏳     |
-| M44       | Split levels and walk-out basements                        | ⏳     |
 | M21       | More languages, right to left too                          | ⏳     |
 | 0.6.0     | Sixth release: all of the above                            | ⏳     |
 
@@ -116,7 +116,8 @@ one place, and said not to be Home Assistant's enforcement.
 After the weather around the home (M40, D-072) and locating measured (M41, D-073), the library of
 objects (M17) was moved forward as well (D-074). An iPhone's key without a Mac (M45, D-075) and the
 wall screen (M26, D-076) closed M24 to M26 and D-065's order. The maintainer then asked for the
-outdoors (M18, D-077) before the first launch in five minutes too.
+outdoors (M18, D-077) before the first launch in five minutes too, and split levels (M44, D-078)
+right after it, whose ground they share.
 
 ## M0, scaffold
 
@@ -1815,10 +1816,35 @@ has grown and the robot mower going round, and roofs that follow the house (D-07
   house (cargo); the garden's store, its mowers noted, its commands checked (pytest); the grass's
   growth by season and latitude, the mowers' docks, the garden's links (vitest); the demo's
   mower, a lawn said mown, a place outside drawn, the roof chosen (Playwright).
-- Left for later: the ground's height (with M44); the grass browning or growing after rain; a
-  mower's real position.
+- Left for later: the grass browning or growing after rain; a mower's real position. (The ground's
+  height on each side of the home came with M44, below.)
 
 Measured at the end of M18: see [`PERFORMANCE.md`](PERFORMANCE.md).
+
+## M44, split levels and walk-out basements
+
+A home on more than one level that is not one storey over another: a split level, half a flight of
+stairs between its levels, and a basement opening onto its garden on one side (D-078,
+[`storeys.md`](storeys.md#split-levels-and-walk-out-basements)). Moved before the first launch, at
+the maintainer's request.
+
+- ✅ **A floor counted where one level lies over the other**: the Bluetooth locating and the
+  placement advisor count a storey's floor only where the line between two places goes through it
+  under one of that storey's rooms, at its height; a half level beside another is a wall away, not
+  a floor.
+- ✅ **Half levels named as such**: a storey less than 1.8 m over or under the last full one is
+  a half level (*Half level up*, *Half level down*, *Floor 1½*…), **½** on its button.
+- ✅ **The ground on each side**: a garden drawn on the lower level is the ground on that side; a
+  retaining wall of stone stands where it meets the higher ground of the storey above.
+- ✅ **Half flights**: stairs that land beside the other level, not over it, lead to its nearest
+  room (the locating's ways from room to room).
+- ✅ **A fictional split-level house** in `examples/` (`split-level-lower`, `-entry`, `-upper`), with
+  its tests: its floors and walls counted alike by the core and the integration, its retaining
+  wall, its roofs (cargo, pytest); its levels named (vitest).
+- Left for later: a garden that slopes (a ground with its own height across it); rain on a lower
+  garden falls to the upper ground's height; a storey shown alone draws no retaining wall.
+
+Measured at the end of M44: see [`PERFORMANCE.md`](PERFORMANCE.md).
 
 ## Then, from 0.4.0 to 0.5.0
 
@@ -1919,15 +1945,8 @@ before its milestone starts, which goes on with what needs no answer.
 - ✅ **M38, history as reports** (D-058, above): done right after the sandbox, at the
   maintainer's request.
 - ✅ **M18, outdoors** (D-077, above): moved before the first launch, at the maintainer's request.
-- ⏳ **M44, split levels and walk-out basements** (D-065), next to the outdoors (M18), whose ground
-  it needs. What works already: a storey can sit at any height (half a storey up), it is drawn
-  there, and stairs join it to the next, for a tap and for the walk. What does not: the Bluetooth
-  model counts a floor between any two storeys, even a half level beside the other rather than over
-  it; a storey given no name is called by its rank (Floor 1, Floor 2), not as a half level; and the
-  ground is one flat level, so a basement cannot open onto the garden on one side. The milestone: a
-  floor counted only where one storey's room lies over the other's, by the height between them; half
-  levels named as such; the ground's height on each side of the home; and a fictional split-level
-  house in `examples/`, with its tests.
+- ✅ **M44, split levels and walk-out basements** (D-078, above): moved before the first launch,
+  at the maintainer's request, next to the outdoors (M18), whose ground it needs.
 - ✅ **M39, Hydro-Québec's peaks**, moved forward (D-063, above): the next peak, the pre-heating
   before it, which rooms shed and what they draw during it, in 3D and on the Home tab, and
   tomorrow's announced peak played in the sandbox, from the entities of hydroqc or HydroPeak. Its

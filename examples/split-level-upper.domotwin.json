@@ -1,0 +1,32 @@
+{
+  "format": "domotwin-plan",
+  "version": 1,
+  "name": "Split-level house, upper level",
+  "wallThickness": {"interior": 10, "exterior": 20},
+  "rooms": [
+    {"id": "s-landing", "name": "Landing", "outline": [[700, 0], [850, 0], [850, 800], [700, 800]], "floor": {"material": "grey-wood"}},
+    {"id": "s-bathroom", "name": "Bathroom", "outline": [[850, 0], [1300, 0], [1300, 300], [850, 300]], "floor": {"material": "white-tiles"}},
+    {"id": "s-bedroom", "name": "Bedroom", "outline": [[850, 300], [1300, 300], [1300, 550], [850, 550]], "floor": {"material": "oak"}},
+    {"id": "s-kids", "name": "Children's room", "outline": [[850, 550], [1300, 550], [1300, 800], [850, 800]], "floor": {"material": "painted-wood"}}
+  ],
+  "doors": [
+    {"id": "s-door-bathroom", "name": "Bathroom door", "from": [850, 100], "to": [850, 180], "room": "s-landing"},
+    {"id": "s-door-bedroom", "name": "Bedroom door", "from": [850, 380], "to": [850, 460], "room": "s-landing"},
+    {"id": "s-door-kids", "name": "Children's room door", "from": [850, 630], "to": [850, 710], "room": "s-landing"}
+  ],
+  "windows": [
+    {"id": "s-win-bathroom", "name": "Bathroom window", "from": [1000, 0], "to": [1150, 0], "room": "s-bathroom"},
+    {"id": "s-win-bedroom", "name": "Bedroom window", "from": [1300, 350], "to": [1300, 500], "room": "s-bedroom"},
+    {"id": "s-win-kids", "name": "Children's room window", "from": [950, 800], "to": [1200, 800], "room": "s-kids"}
+  ],
+  "items": [
+    {"id": "s-bathtub", "name": "Bathtub", "kind": "bathtub", "at": [1200, 150], "size": [80, 170, 55], "room": "s-bathroom"},
+    {"id": "s-washbasin", "name": "Washbasin", "kind": "sink", "at": [950, 40], "size": [60, 45, 85], "room": "s-bathroom"},
+    {"id": "s-toilet", "name": "Toilet", "kind": "toilet", "at": [1060, 40], "size": [40, 60, 75], "room": "s-bathroom"},
+    {"id": "s-bed", "name": "Bed", "kind": "bed", "at": [1150, 425], "size": [160, 200, 55], "room": "s-bedroom", "rotation": 90},
+    {"id": "s-wardrobe", "name": "Wardrobe", "kind": "tall-cabinet", "at": [900, 425], "size": [60, 120, 210], "room": "s-bedroom", "rotation": 90},
+    {"id": "s-kids-bed", "name": "Bed", "kind": "bed", "at": [1200, 650], "size": [90, 190, 50], "room": "s-kids", "rotation": 90},
+    {"id": "s-kids-desk", "name": "Desk", "kind": "desk", "at": [950, 760], "size": [120, 60, 75], "room": "s-kids", "rotation": 180},
+    {"id": "s-landing-light", "name": "Landing light", "kind": "ceiling-light", "at": [775, 400], "size": [40, 40, 10], "room": "s-landing", "lift": 240}
+  ]
+}

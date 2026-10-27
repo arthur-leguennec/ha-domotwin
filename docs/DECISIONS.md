@@ -3805,3 +3805,64 @@ first launch in five minutes (M22). It amends D-028's roof and D-072's footprint
   - An older DomoTwin reads places outside as rooms with walls (the fields it does not know are
     left) and the garden's pieces as boxes, but refuses a plan with a piece taller than 3 m
     (`item_height`).
+
+## D-078 · Split levels and walk-out basements: floors where one level is over another (M44)
+
+D-065 put it after 0.5.0; the maintainer then asked for it right after the outdoors (M18, D-077),
+whose ground it needs. It amends D-035's floors, D-066's (which counts as D-035 does) and D-026's
+names of the storeys.
+
+- **Context.** A storey can sit at any height (D-026): a level half a storey up is drawn there, and
+  stairs join it to the next. But the Bluetooth locating (D-035) and the placement advisor (D-066)
+  counted a floor between any two storeys, by their ranks, even a half level beside the other
+  rather than over it; a storey without a name was called by its rank (*Floor 1*, *Floor 2*), not
+  as a half level; stairs joined their room only to the room right over them, which a half flight
+  landing beside has none of; and the ground was one level, so a basement could not open onto its
+  garden on one side.
+- **Decision.**
+  - **A floor is counted where it is crossed under a room.** Between two places, the floors of
+    the storeys over the lower place's storey, up to the higher place's, each count where the
+    line between the places goes through that height under one of the storey's rooms (not a
+    place outside) or under the wall between two of them (less than 30 cm from each), or over a
+    room of the highest storey under it that has one there, when that storey is a full storey
+    lower (2 m or more, less than 4 m: not two storeys under it, over a courtyard): its ceiling.
+    A storey without rooms counts
+    wherever the line goes through its height, as before; storeys at one height (two wings
+    stored apart) are one floor, or none between them. A half level beside the entry level is a
+    wall away from it, not a floor; the level over it is a floor away. The core
+    (`coverage::home::Home::floors`) and the integration (`locating/geometry.py`) count alike: the
+    shared fixture (`tests/fixtures/coverage-walls.json`) now holds the floors too.
+  - **Half levels are named.** Up from the ground floor and down from it, a storey less than
+    1.8 m from the last full storey is a half level, one at most between two full ones (its
+    wings at one height share it): *Half level up*, *Half level down*, *Floor 1½*, *Basement 1½*
+    (*Demi-niveau haut*, *Étage 1½*…), **½** on its button. A storey 1.8 m or more from the last
+    full one is the next full storey, as before (a low cellar too), and so is one less than
+    50 cm from it (storeys at one height); a home with no half level is named as it was. `domotwin.show` finds a half level by its place or as its button writes it
+    (`½`, `0.5`, `−½`).
+  - **The ground on each side.** A garden drawn on the lower level of a walk-out basement is the
+    ground on that side, at its level. Where a place outside meets a garden of another storey
+    (a lawn, gravel or soil, not a balcony) whose ground is at least 20 cm higher, a retaining wall
+    of stone (15 cm, a 3 cm coping) stands along that side, from its ground up to the other's;
+    never against the home, nor where its own storey has another place outside, nor along a
+    balcony (over the ground, not on it). A lawn without a railing is ground, even on an upper
+    storey: a hillside's upper garden.
+  - **Half flights.** Stairs that have no room right over (or under) them on the next storey (a
+    garden there is not one), and no stairs there to lead to, lead to the room of that storey
+    nearest them, within 1.5 m of their end, when it is half a storey up or down (not a full
+    storey, nor a wing at the same height), for the locating's ways from room to room.
+  - **A fictional split-level house** in `examples/`: an entry level (0), a half level down
+    (−1.40 m) that opens onto the back garden, a half level up (+1.40 m) over it; its plans pass
+    the schema and the integration's checks, its floors, walls, retaining wall and roofs are
+    tested in the core and the integration, its names in the page.
+  - **Not done.** A ground that slopes across a garden; rain over a lower garden falls to the
+    upper ground's height; with the storeys spread apart, a retaining wall stays with its lower
+    storey; a storey shown alone draws no retaining wall (the higher ground is another storey's,
+    drawn with every storey shown).
+- **Consequences.**
+  - Homes with storeys stacked one over another count the same floors as before between their
+    rooms: a full storey's floor is its lower neighbour's ceiling, counted over either's rooms.
+    From a place outside to an upper storey, the line rises outside the home and goes in through
+    a façade, not a floor: no floor is counted there now. Two storeys at the same height are no
+    longer a floor apart.
+  - Nothing new is stored: the names come from the storeys' heights, the retaining walls from the
+    plans.

@@ -1,9 +1,12 @@
 //! Floors and walls of the rooms, and free partitions. Walls are grouped by direction so that the
 //! renderer can cut away the ones between the camera and the rooms.
 
+use std::rc::Rc;
+
 use super::Builder;
 use super::lines::{LineKind, band_at, bend, offset_corner, top_offset};
 use super::mesh::{CutMode, Material, NO_GROUP, Painter, Surface, Tag, Xform};
+
 use crate::geometry::heights::{Covering, RAIL, covering_bands, wall_paint, wall_spans};
 use crate::geometry::polygon::{P2, point_in_polygon};
 use crate::geometry::walls::{
@@ -91,6 +94,10 @@ pub(crate) fn build(builder: &mut Builder, plan: &Plan, layout: &WallLayout) {
         if room.railing {
             railing(builder, layout, walls, element, room.level());
         }
+        // A balcony holds no ground back: it is over it.
+        if room.outside && !room.railing {
+            retaining_walls(builder, layout, walls, element, room.level());
+        }
     }
     for (index, element) in plan.elements.iter().enumerate() {
         if let Element::Wall(wall) = element {
@@ -134,6 +141,150 @@ fn floor(builder: &mut Builder, room: &Room, walls: &RoomWalls, element: u16, li
     }
 }
 
+/// A retaining wall is drawn where the ground beyond a place outside is at least this much higher
+/// (cm), so thick.
+const RETAINING_FROM: f64 = 20.0;
+const RETAINING: f64 = 15.0;
+/// How far its coping stands over the ground beyond (cm).
+const COPING: f64 = 3.0;
+/// How far out of a place outside the ground beyond it is looked for (cm).
+const BEYOND: f64 = 20.0;
+
+/// The rooms of the storey being built, as plan outlines.
+fn rooms_inside(layout: &WallLayout) -> Vec<&[P2]> {
+    layout
+        .rooms
+        .iter()
+        .filter(|r| !r.outside)
+        .map(|r| r.points.as_slice())
+        .collect()
+}
+
+/// A retaining wall of stone along the sides of a place outside where the ground beyond it is
+/// higher: a walk-out basement's garden against the garden of the storey above (D-078), from its
+/// ground (`level`) up to that one's; never against the home, nor where the storey has another
+/// place outside, nor under a balcony or a terrace (only a garden's ground is ground).
+fn retaining_walls(
+    builder: &mut Builder,
+    layout: &WallLayout,
+    walls: &RoomWalls,
+    element: u16,
+    level: f64,
+) {
+    let (storey, elevation) = (builder.storey, builder.elevation);
+    let gardens = Rc::clone(&builder.gardens);
+    // Other storeys' gardens high enough over this place, with the box around each, and how high.
+    let higher: Vec<(&[P2], [P2; 2], f64)> = gardens
+        .iter()
+        .filter(|(other, _, ground)| {
+            *other != storey && *ground - elevation >= level + RETAINING_FROM
+        })
+        .map(|(_, points, ground)| (points.as_slice(), bounds(points), *ground - elevation))
+        .collect();
+    if higher.is_empty() {
+        return;
+    }
+    let inside = rooms_inside(layout);
+    let outside: Vec<&[P2]> = layout
+        .rooms
+        .iter()
+        .filter(|r| r.outside && !std::ptr::eq(*r, walls))
+        .map(|r| r.points.as_slice())
+        .collect();
+    let tag = Tag {
+        element,
+        room: builder.room_slot(walls.element),
+        ..Tag::default()
+    };
+    let mut stone = Painter::new(&mut builder.opaque, STONE_EDGE, tag);
+    let n = walls.points.len();
+    for i in 0..n {
+        let (a, b) = walls.side(i);
+        let len = (b[0] - a[0]).hypot(b[1] - a[1]);
+        if len < 5.0 {
+            continue;
+        }
+        let u = [(b[0] - a[0]) / len, (b[1] - a[1]) / len];
+        let normal = walls.normal(i);
+        let at = |s: f64, out: f64| -> P2 {
+            [
+                a[0] + u[0] * s + normal[0] * out,
+                a[1] + u[1] * s + normal[1] * out,
+            ]
+        };
+        // The ground just out of the side, where it is higher and neither the home's nor this
+        // storey's.
+        let top = |s: f64| -> Option<f64> {
+            let p = at(s, BEYOND);
+            if inside
+                .iter()
+                .any(|room| point_in_polygon(at(s, AGAINST_HOME), room, false))
+                || outside
+                    .iter()
+                    .any(|place| point_in_polygon(p, place, false))
+            {
+                return None;
+            }
+            higher
+                .iter()
+                .filter(|(points, [low, high], _)| {
+                    (low[0]..=high[0]).contains(&p[0])
+                        && (low[1]..=high[1]).contains(&p[1])
+                        && point_in_polygon(p, points, false)
+                })
+                .map(|(.., top)| *top)
+                .reduce(f64::max)
+        };
+        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+        let steps = (len / RAILING_STEP).ceil().max(1.0) as usize;
+        let mut runs: Vec<(f64, f64, f64)> = Vec::new();
+        #[allow(clippy::cast_precision_loss)]
+        for k in 0..steps {
+            let (s0, s1) = (
+                len * k as f64 / steps as f64,
+                len * (k + 1) as f64 / steps as f64,
+            );
+            let Some(high) = top((s0 + s1) / 2.0) else {
+                continue;
+            };
+            match runs.last_mut() {
+                Some(run) if (run.1 - s0).abs() < 1e-6 && (run.2 - high).abs() < 1e-6 => {
+                    run.1 = s1;
+                }
+                _ => runs.push((s0, s1, high)),
+            }
+        }
+        for (s0, s1, high) in runs {
+            stone.prism(
+                [
+                    at(s0, 0.0),
+                    at(s1, 0.0),
+                    at(s1, RETAINING),
+                    at(s0, RETAINING),
+                ],
+                level,
+                high + COPING,
+                [Some(STONE_EDGE); 4],
+                Some(STONE_EDGE),
+                0.0,
+            );
+        }
+    }
+}
+
+/// The box around `points`: its lowest and highest corners.
+fn bounds(points: &[P2]) -> [P2; 2] {
+    points.iter().fold(
+        [[f64::INFINITY; 2], [f64::NEG_INFINITY; 2]],
+        |[low, high], p| {
+            [
+                [low[0].min(p[0]), low[1].min(p[1])],
+                [high[0].max(p[0]), high[1].max(p[1])],
+            ]
+        },
+    )
+}
+
 /// A railing along the sides of a place outside (a balcony, a roof terrace, D-077), but where
 /// the home's rooms of its storey are, touching it or across a façade from it: posts, a rail on
 /// top and glass between, on its ground (`level`).
@@ -144,12 +295,7 @@ fn railing(
     element: u16,
     level: f64,
 ) {
-    let inside: Vec<&[P2]> = layout
-        .rooms
-        .iter()
-        .filter(|r| !r.outside)
-        .map(|r| r.points.as_slice())
-        .collect();
+    let inside = rooms_inside(layout);
     let tag = Tag {
         element,
         room: builder.room_slot(walls.element),

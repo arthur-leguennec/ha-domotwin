@@ -5,6 +5,9 @@ use super::*;
 
 const DEMO: &str = include_str!("../../../../examples/demo-apartment.domotwin.json");
 const UPPER: &str = include_str!("../../../../examples/demo-upper-floor.domotwin.json");
+const LOWER: &str = include_str!("../../../../examples/split-level-lower.domotwin.json");
+const ENTRY: &str = include_str!("../../../../examples/split-level-entry.domotwin.json");
+const SPLIT_UPPER: &str = include_str!("../../../../examples/split-level-upper.domotwin.json");
 /// What the integration's geometry finds (`scripts/make-coverage-fixture.py`).
 const FIXTURE: &str = include_str!("../../../../tests/fixtures/coverage-walls.json");
 
@@ -28,6 +31,9 @@ fn fixture_storeys(fixture: &Value) -> Value {
                 storey["plan"] = match storey["plan"].as_str().unwrap() {
                     "examples/demo-apartment.domotwin.json" => plan(DEMO),
                     "examples/demo-upper-floor.domotwin.json" => plan(UPPER),
+                    "examples/split-level-lower.domotwin.json" => plan(LOWER),
+                    "examples/split-level-entry.domotwin.json" => plan(ENTRY),
+                    "examples/split-level-upper.domotwin.json" => plan(SPLIT_UPPER),
                     other => panic!("no plan {other}"),
                 };
                 storey
@@ -95,6 +101,7 @@ fn counts_the_walls_the_integration_counts() {
         .map(spot_of)
         .collect();
     let walls = fixture["walls"].as_array().unwrap();
+    let floors = fixture["floors"].as_array().unwrap();
     for (i, a) in spots.iter().enumerate() {
         for (j, b) in spots.iter().enumerate() {
             let wanted = walls[i][j].as_f64().unwrap();
@@ -103,6 +110,31 @@ fn counts_the_walls_the_integration_counts() {
                 (found - wanted).abs() < 1e-9,
                 "{a:?} → {b:?}: {found} ≠ {wanted}"
             );
+            // The floors between them too (D-078).
+            let wanted = floors[i][j].as_u64().unwrap();
+            assert_eq!(home.floors(a, b) as u64, wanted, "{a:?} → {b:?}");
+        }
+    }
+}
+
+#[test]
+fn counts_the_split_level_s_walls_and_floors_as_the_integration_does() {
+    let fixture = plan(FIXTURE);
+    let split = &fixture["split"];
+    let home = Home::read(&fixture_storeys(split));
+    let spots: Vec<Spot> = split["spots"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(spot_of)
+        .collect();
+    assert!(spots.len() > 20);
+    for (i, a) in spots.iter().enumerate() {
+        for (j, b) in spots.iter().enumerate() {
+            let wanted = split["walls"][i][j].as_f64().unwrap();
+            assert!((home.walls(a, b) - wanted).abs() < 1e-9, "{a:?} → {b:?}");
+            let wanted = split["floors"][i][j].as_u64().unwrap();
+            assert_eq!(home.floors(a, b) as u64, wanted, "{a:?} → {b:?}");
         }
     }
 }
