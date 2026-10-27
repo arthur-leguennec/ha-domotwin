@@ -291,6 +291,7 @@ export const en = {
     power: "Power",
     peak: "Hydro-Québec peaks",
     network: "Zigbee network",
+    coverage: "Radio coverage",
     automations: "Automations",
     upkeep: "Upkeep",
     sun: "Sunlight through the windows",

@@ -295,6 +295,7 @@ export const fr: Dictionary = {
     power: "Consommation",
     peak: "Pointes d’Hydro-Québec",
     network: "Réseau Zigbee",
+    coverage: "Couverture radio",
     automations: "Automatisations",
     upkeep: "Entretien",
     sun: "Soleil par les fenêtres",

@@ -24,6 +24,8 @@
 //   window.__move(person, room) moves someone (their room sensor, as the integration writes it)
 //   bluetooth=1 (DomoTwin's own Bluetooth locating: three fictional receivers, Alex's phone and
 //   keys followed, both in the kitchen, the keys left behind), bluetooth=none (no Bluetooth)
+//   radios=1 (the radio coverage, D-066: two of the receivers placed, the hall taught, two Wi-Fi
+//   devices reporting their signal, an access point in the kitchen's far corner)
 //   window.__show(request) sends a `domotwin.show` request to every screen
 //   private=<room>,<room> (private rooms, D-039, kept for nobody), privatefor=<person> (kept for
 //   that person instead), privatewhile=<entity> (private only while it is on), settingsdown=1
@@ -56,7 +58,7 @@
 //   entrance door opened five minutes ago and set off "Hall light at the door", which lit the
 //   hall's spots; Sam switched the floor lamp on two minutes ago; the kitchen's ceiling light was
 //   switched off on its own switch)
-//   safety=1 (D-066, with live=1: a doorbell at the front door with its camera, beside the hall's
+//   safety=1 (D-067, with live=1: a doorbell at the front door with its camera, beside the hall's
 //   lock, and an alarm, quiet; window.__ring() rings it now), security=1 (Home Assistant 2026.10
 //   and its Security page), securityalerts=<entity>[:alert|warning],… (the alerts chosen on it;
 //   window.__securityAlerts(list) chooses others)
@@ -938,7 +940,7 @@ function whyEvents(message) {
     .map((row) => row.entry);
 }
 
-// Home Assistant's Security page (D-066) and the alerts an administrator chose on it.
+// Home Assistant's Security page (D-067) and the alerts an administrator chose on it.
 const security = params.get("security") === "1";
 let securityChoices = (params.get("securityalerts") ?? "")
   .split(",")
@@ -1395,7 +1397,7 @@ const connection = {
   async subscribeMessage(callback, message) {
     calls.push(message);
     if (message.type === "frontend/subscribe_system_data") {
-      // Home Assistant's own (D-066): what its Security page keeps, sent at once and on change.
+      // Home Assistant's own (D-067): what its Security page keeps, sent at once and on change.
       if (message.key !== "security" || !security) throw { code: "unknown_command" };
       securityListeners.add(callback);
       queueMicrotask(() =>
@@ -1752,7 +1754,7 @@ if (overview) {
   });
   own("sensor.domotwin_upkeep_due", "upkeep_due");
 }
-// safety=1 (D-066): a doorbell at the front door, its camera on the same device, in the hall
+// safety=1 (D-067): a doorbell at the front door, its camera on the same device, in the hall
 // beside its lock; an alarm, disarmed. The doorbell last rang long ago.
 if (params.get("safety") === "1") {
   home.devices.front_door_bell = { id: "front_door_bell", area_id: "hallway", name: "Front door" };
@@ -1843,6 +1845,64 @@ if (bluetoothParam === "1") {
     home.entities[entity_id] = { entity_id, platform: "domotwin", translation_key: "located" };
   }
 }
+if (params.get("radios") === "1") {
+  // Where the locating places two of the receivers, and the hall it learned from the living
+  // room's (D-066).
+  const places = {
+    "AA:00:00:00:00:03": { storey: "storey-1", at: [260, 260], z: 120 },
+    "BB:00:00:00:00:01": { storey: "storey-1", at: [630, 483.3], z: 120 },
+  };
+  for (const receiver of store.locating.receivers) receiver.place = places[receiver.source] ?? null;
+  store.locating.heard = { hall: { "AA:00:00:00:00:03": { signal: -82, readings: 30 } } };
+  // The washing machine's plug reports its Wi-Fi signal (its device is placed at the washer by
+  // its power sensor), and so does a display in the kitchen's area.
+  const wifi = { device_class: "signal_strength", unit_of_measurement: "dBm" };
+  states["sensor.washer_plug_wifi_signal"] = {
+    entity_id: "sensor.washer_plug_wifi_signal",
+    state: "-77",
+    attributes: { ...wifi, friendly_name: "Washer plug WiFi signal" },
+  };
+  home.entities["sensor.washer_plug_wifi_signal"] = {
+    entity_id: "sensor.washer_plug_wifi_signal",
+    device_id: "dev-washer-plug",
+    platform: "esphome",
+    entity_category: "diagnostic",
+  };
+  home.entities["sensor.washing_machine_power"] = {
+    ...home.entities["sensor.washing_machine_power"],
+    device_id: "dev-washer-plug",
+  };
+  home.devices["dev-washer-plug"] = {
+    id: "dev-washer-plug",
+    area_id: "bathroom",
+    name: "Washer plug",
+  };
+  states["sensor.kitchen_display_rssi"] = {
+    entity_id: "sensor.kitchen_display_rssi",
+    state: "-49",
+    attributes: { ...wifi, friendly_name: "Kitchen display signal" },
+  };
+  home.entities["sensor.kitchen_display_rssi"] = {
+    entity_id: "sensor.kitchen_display_rssi",
+    area_id: "kitchen",
+    platform: "shelly",
+    entity_category: "diagnostic",
+  };
+  // A Zigbee device's signal: another radio's, never Wi-Fi.
+  states["sensor.garden_sensor_rssi"] = {
+    entity_id: "sensor.garden_sensor_rssi",
+    state: "-70",
+    attributes: { ...wifi, friendly_name: "Garden sensor WiFi signal" },
+  };
+  home.entities["sensor.garden_sensor_rssi"] = {
+    entity_id: "sensor.garden_sensor_rssi",
+    platform: "zha",
+    entity_category: "diagnostic",
+  };
+  store.settings.access_points = [
+    { storey: "storey-1", at: [800, 20], name: "Kitchen access point" },
+  ];
+}
 if (sunParam) {
   const [elevation, rising] = sunParam.split(",");
   states["sun.sun"] = {
@@ -1877,13 +1937,14 @@ let hass = {
     components: [
       "domotwin",
       ...(zha ? ["zha"] : []),
+      ...(bluetoothParam === "1" ? ["bluetooth"] : []),
       ...(voiceParam ? ["conversation", "assist_pipeline"] : []),
       ...(why ? ["logbook"] : []),
     ],
     // A fictional place, rounded: the sandbox's sun.
     ...(sandbox ? { time_zone: "Europe/Paris", latitude: 46, longitude: 2 } : {}),
     // overview=1: a Home Assistant that opens on its Overview, an area page each (D-061);
-    // security=1: with its Security page (D-066).
+    // security=1: with its Security page (D-067).
     ...(overview || security ? { version: "2026.10.0" } : { version: "2026.1.0" }),
   },
   ...(overview || security
@@ -1942,7 +2003,7 @@ window.__setState = (entityId, state, attributes = {}) => {
   };
   publish();
 };
-/** The front door's doorbell rings now (safety=1, D-066): its event entity says when. */
+/** The front door's doorbell rings now (safety=1, D-067): its event entity says when. */
 window.__ring = () => window.__setState("event.front_door_doorbell", new Date().toISOString());
 if (hass.themes.darkMode) document.body.classList.add("dark");
 

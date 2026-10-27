@@ -15,7 +15,7 @@ interface.
 | `domotwin-import` | core, models, `serde_json`, `miniz_oxide` | IFC, Sweet Home 3D, DXF, scans, robot maps, FML, meshes → plan JSON | GPU, browser, HA |
 | `domotwin-models` | `serde_json`, `miniz_oxide` | glTF, OBJ, STL, 3MF → meshes    | core, GPU, HA        |
 | `domotwin-planner` | core, `serde_json`     | the plan editor's draft (D-025)     | GPU, browser, HA     |
-| `domotwin-analysis` | core, `serde_json`, `qrcodegen` | radio meshes, automations' configurations (D-043), the Wi-Fi QR code (D-060) | GPU, browser, HA |
+| `domotwin-analysis` | core, `serde_json`, `qrcodegen` | radio meshes, automations' configurations (D-043), the Wi-Fi QR code (D-060), radio coverage (D-066) | GPU, browser, HA |
 
 `domotwin-import` imports the plans of other apps (`ifc-import.md`, `imports.md`, D-040, D-064):
 its own wasm module, loaded only when such a file is imported. Each reader gives one plan builder a
@@ -30,9 +30,13 @@ the core fits into the piece (`model_mesh`, `scene::imported`).
 loaded only when the plan editor opens; the engine shows each version of the draft.
 `domotwin-analysis` reads and analyses what Home Assistant says of a radio mesh and of the
 automations (`network.md`, `automations.md`, D-043): its own wasm module too, loaded the first time
-the network map or the automations are shown. The engine is handed only what it draws: the mesh's
-drawing (the devices' pieces and the links' qualities and pulses), which it answers with the room
-of each device for the analysis's health, and the automations' placed ends.
+the network map, the automations or the radio coverage are shown. The engine is handed only what
+it draws: the mesh's drawing (the devices' pieces and the links' qualities and pulses), which it
+answers with the room of each device for the analysis's health, and the automations' placed ends.
+It also advises where the next radio helps most (`placement.md`, D-066), from the storeys' plans,
+the radios placed and what they measured, with the core's `coverage` module: the locating's model
+(D-035), its walls counted as the integration counts them; the engine draws the rooms' levels as a
+layer.
 
 `domotwin-core` is where the logic lives and where the tests concentrate. It never panics on input:
 every reader returns `Result` with a stable error code that the frontend translates.
@@ -70,7 +74,7 @@ every reader returns `Result` with a stable error code that the frontend transla
   (`components/summary-body.ts`, `live/summaries.ts`) is a chunk of its own. The integration gives
   each room a device in its area with two sensors (`custom_components/domotwin/sensor.py`,
   `overview.py`: the people in it, the upkeep due for its pieces).
-- Safety (D-066): `live/doorbell.ts` watches the home's doorbells on every `hass`, and
+- Safety (D-067): `live/doorbell.ts` watches the home's doorbells on every `hass`, and
   `live/security.ts` reads the alerts chosen on Home Assistant's Security page (its system data,
   followed by the panel) and says those on now beside the rooms' (`live/storeys.ts`); both are in
   the first load. The Safety tab (`components/safety-tab.ts`, `live/safety.ts`) and the alerts'
@@ -227,7 +231,9 @@ every reader returns `Result` with a stable error code that the frontend transla
   clockwise from its top, for the real sun (D-023); the look shown by default and its accent
   (`theme`, `accent`, D-027); the private rooms (`rooms`, D-039), `{room id: {"people": [person
   entity ids], "while"?: entity id}}`: kept for those people (none: for nobody), always or only
-  while that entity is on ([`privacy.md`](privacy.md)).
+  while that entity is on ([`privacy.md`](privacy.md)); where the home's energy is read
+  (`energy`, D-049); the Wi-Fi access points placed on the plan (`access_points`, D-066),
+  `[{"storey": id, "at": [x, y], "name"?}]`, 16 at most ([`placement.md`](placement.md)).
 - `upkeep` (D-033, storage 4.1): the upkeep cards by piece id, and how many days before it a task
   is due soon; see [`upkeep.md`](upkeep.md). Kept apart from the plan, like the bindings.
 - `revision`: bumped on every write. `revisions` keeps the revision of the last write of each kind
@@ -307,14 +313,14 @@ when the integration is removed.
 | `domotwin/bindings/get`  | user   | –                                              | `bindings`, `revision`           |
 | `domotwin/bindings/save` | admin  | `bindings`, `expected_revision?`               | `revision`                       |
 | `domotwin/settings/get`  | user   | –                                              | `settings`, `revision`           |
-| `domotwin/settings/save` | admin  | `settings` (`north`, 0 ≤ n < 360; `theme`, `accent`; `rooms`, at most 200) | `revision` |
+| `domotwin/settings/save` | admin  | `settings` (`north`, 0 ≤ n < 360; `theme`, `accent`; `rooms`, at most 200; `energy`; `access_points`, at most 16) | `revision` |
 | `domotwin/upkeep/get`    | user   | –                                              | `upkeep`, `revision`, `today` (where the home is) |
 | `domotwin/upkeep/save`   | admin  | `pieces` (`{piece: card \| null}`, only those change), `lead_days?`, `expected_revision?` | `revision` |
 | `domotwin/upkeep/done`   | user   | `piece`, `task`                                | `revision`, `last_done`          |
 | `domotwin/people/get`    | user   | `candidates?` (administrators: the entities that may say where someone is) | `revision`, `shown`, `look`, `hidden`, `people` (`{person: {sources, color, sensor, located}}`; none for others when shown to administrators only), `candidates?` |
 | `domotwin/people/save`   | admin  | `people`, `shown?`, `look?`, `expected_revision?` | `revision`                     |
 | `domotwin/people/hide`   | user   | `person` (oneself; administrators anyone), `hidden` | `revision`                   |
-| `domotwin/locating/get`  | admin  | –                                              | `revision`, `status`, `learn`, `receivers`, `devices` (with their `room`, `confidence`, `last_seen`, `left_behind`, `missing_key`), `learned`, `rooms` |
+| `domotwin/locating/get`  | admin  | –                                              | `revision`, `status`, `learn`, `receivers` (with their `place`, D-066), `devices` (with their `room`, `confidence`, `last_seen`, `left_behind`, `missing_key`), `learned`, `heard` (`{room: {source: {signal, readings}}}`, D-066), `rooms` |
 | `domotwin/locating/save` | admin  | `receivers`, `devices`, `learn?`, `expected_revision?` | `revision`                 |
 | `domotwin/locating/candidates` | admin | –                                        | `candidates` (`[{match, name, rssi?}]`) |
 | `domotwin/locating/teach` | admin | `device`, `room`, `seconds?` (10–120, 30)     | `readings`, `receivers`          |

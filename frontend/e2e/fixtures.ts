@@ -110,6 +110,9 @@ export interface HarnessOptions {
   peopleLook?: "figure" | "pin";
   /** Bluetooth locating (D-035): fictional receivers and devices, or no Bluetooth at all. */
   bluetooth?: true | "none";
+  /** The radio coverage's fictional radios (D-066): receivers placed, Wi-Fi signals, an access
+   * point. */
+  radios?: boolean;
   /** Private rooms (D-039): kept for nobody, or for `privateFor`, maybe only while an entity is
    * on. */
   private?: string[];
@@ -141,7 +144,7 @@ export interface HarnessOptions {
   /** The configuration history (D-062): fictional items and their versions. */
   configHistory?: boolean;
   /**
-   * Safety (D-066), with `live`: a doorbell at the front door with its camera, and an alarm
+   * Safety (D-067), with `live`: a doorbell at the front door with its camera, and an alarm
    * (`window.__ring()` rings it); Home Assistant 2026.10 with its Security page (`security`), and
    * the alerts chosen on it (`securityAlerts`, `entity` or `entity:severity`).
    */
@@ -200,6 +203,7 @@ export async function openHarness(page: Page, options: HarnessOptions = {}): Pro
   if (options.peopleShown) params.set("peopleshown", options.peopleShown);
   if (options.peopleLook) params.set("peoplelook", options.peopleLook);
   if (options.bluetooth) params.set("bluetooth", options.bluetooth === true ? "1" : "none");
+  if (options.radios) params.set("radios", "1");
   if (options.private) params.set("private", options.private.join(","));
   if (options.privateFor) params.set("privatefor", options.privateFor);
   if (options.privateWhile) params.set("privatewhile", options.privateWhile);

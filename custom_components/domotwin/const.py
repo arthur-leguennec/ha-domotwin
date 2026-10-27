@@ -91,6 +91,11 @@ LOCATED_KINDS: Final = ("phone", "watch", "thing")
 TEACH_SECONDS: Final = (10, 120)
 # Dispatcher signal sent when a followed device moves, is lost or left behind: (device id,).
 SIGNAL_LOCATED: Final = f"{DOMAIN}_located"
+# The placement advisor (docs/DECISIONS.md, D-066): the Wi-Fi access points placed on the plan, at
+# most this many, each named this long, at a point this far from the plan's origin at most (cm).
+MAX_ACCESS_POINTS: Final = 16
+MAX_ACCESS_POINT_NAME: Final = 60
+MAX_PLAN_REACH: Final = 1_000_000
 
 # Actions done later (docs/DECISIONS.md, D-046), kept in their own store.
 SCHEDULES_STORAGE_KEY: Final = f"{DOMAIN}.schedules"
@@ -121,7 +126,7 @@ SCHEDULABLE_DOMAINS: Final = (
 )
 
 # Each user's own choices (docs/DECISIONS.md, D-055): their favourites, the tab DomoTwin opens on
-# (the Safety tab since D-066) and their Home tab's cards, in a store of their own
+# (the Safety tab since D-067) and their Home tab's cards, in a store of their own
 # (.storage/domotwin.users).
 CHOICES_STORAGE_KEY: Final = f"{DOMAIN}.users"
 CHOICES_STORAGE_VERSION: Final = 1

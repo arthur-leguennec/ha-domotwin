@@ -1077,9 +1077,32 @@ those. The plan found is the same however finely the house was scanned. Memory i
 copy in the module, its positions and its triangles: what a browser on a computer has; a scan of
 millions of triangles is best imported from one.
 
+### M31 (the placement advisor)
+
+Bundle: the first load is **524.8 kB gzipped** of 1 200 kB (+0.8 kB): the layer's name, who may
+see it, and the coverage's colour scale in the engine (380.4 kB gzipped, +0.1 kB). The rest comes
+on demand, when the layer is chosen: the sheet (`chunks/placement-panel-<hash>.js`: 30.3 kB raw,
+9.4 kB gzipped) with its texts in both languages, and the model in the analysis module
+(`domotwin_analysis_bg.wasm`: 228.7 kB raw, 104.1 kB gzipped, +71.9 kB and +32.1 kB), which the
+network map, the Wi-Fi QR code and the network's summary already load. All that comes on demand
+is now 715.5 kB gzipped (+41.7 kB).
+
+Nothing of it runs until the layer is chosen. The radios are read once (the locating's answer, ZHA's
+devices and their links analysed, or the Wi-Fi signals in the states), again when the plan, the
+links or the access points change or another radio is chosen, never at a new state of the home;
+the Wi-Fi signals are looked at once every 30 seconds at most, in whole decibels, and the advice
+is worked out again only when one of them moved. Worked out in Node (the analysis module's release
+build without `wasm-opt`, a 2.1 GHz Xeon core of the CI's kind, median of fifteen): about **2 ms**
+for the demo apartment (5 rooms), **10 ms** for the demo house (13 rooms on two storeys), 20 to
+30 ms for 30 to 40 rooms and **50 ms** for 60 rooms on three storeys. Beyond 24 rooms, each room is
+looked at from four of its points, not twelve, and its spot is its middle alone: 30 to 40 rooms
+took about 190 ms before. The integration's Python counts walls between two places in about
+57 µs: the same advice there would take about 2.3 s for 30 rooms on this computer, more on a small
+host, which is why it runs in the page (D-066).
+
 ### M25 (safety)
 
-Bundle: the first load is **529.0 kB gzipped** of 1 200 kB (+3.0 kB): the watch of the
+Bundle: the first load is **529.9 kB gzipped** of 1 200 kB (+3.0 kB): the watch of the
 doorbells, Home Assistant's alerts and the alerts' button the 3D view's banner shares with the
 other tabs, the Safety tab's name and route. The Safety tab and the alerts' bar come with the tabs'
 chunk (`chunks/practical-<hash>.js`: 11.9 kB gzipped, as before: Home Assistant's cards moved out

@@ -1,5 +1,5 @@
 /**
- * Home Assistant's own Security page (`docs/DECISIONS.md`, D-066), opened rather than copied
+ * Home Assistant's own Security page (`docs/DECISIONS.md`, D-067), opened rather than copied
  * where Home Assistant has it (its `security` panel, 2025.12 and later), and the alerts an
  * administrator chose on it (2026.9 and later), read as its frontend reads them
  * (`security-alerts.ts`, 20260930.2) and shown in DomoTwin's banner beside the rooms' alerts.

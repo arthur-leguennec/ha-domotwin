@@ -116,6 +116,7 @@ import type { GlanceSources } from "../live/glance";
 import { resolveShow, type ShowRequest } from "../live/show";
 import type { LocatingSettings } from "../live/locating";
 import type { PeopleSettings } from "../live/people";
+import type { AccessPoint } from "../live/placement";
 import type { Wifi } from "../live/wifi";
 import { mergeCards, renamedPieces, type Upkeep, type UpkeepCard } from "../live/upkeep";
 import {
@@ -180,6 +181,8 @@ const LAYER_WAIT_MS = 5 * 60_000;
 const LAYER_POLL_MS = 250;
 /** How long before settings that could not be read are asked for again (ms). */
 const SETTINGS_RETRY_MS = 10_000;
+/** No Wi-Fi access point placed (D-066): the same array every time. */
+const NO_ACCESS_POINTS: AccessPoint[] = [];
 /** Upkeep cards saved at once when a file fills them (the integration takes up to 2 000). */
 const CARDS_AT_ONCE = 400;
 /** The highest a storey's floor may be (cm), as the integration checks. */
@@ -275,7 +278,7 @@ function download(name: string, value: unknown): void {
 
 /** The panel's dialogs and sheets, which the focus goes into and comes back from (D-042). */
 const PANEL_DIALOGS = [
-  // A doorbell ringing (D-066), over everything else.
+  // A doorbell ringing (D-067), over everything else.
   "domotwin-doorbell",
   '[role="dialog"]',
   '[role="alertdialog"]',
@@ -394,14 +397,14 @@ export class DomoTwinPanel extends LitElement {
   private practicalFailed = false;
   /** The 3D view was shown once: it stays, hidden on the other tabs, its engine and camera. */
   private shown3d = false;
-  /** The alerts chosen on Home Assistant's Security page (D-066), followed while it shows. */
+  /** The alerts chosen on Home Assistant's Security page (D-067), followed while it shows. */
   protected securityChoices: SecurityAlertChoice[] = [];
   private securityFollowed?: Promise<(() => Promise<void>) | undefined>;
   /** Home Assistant's alerts last given to the 3D view: the same list while they are the same. */
   private securityShown: { key: string; alerts: SecurityAlert[] } = { key: "[]", alerts: [] };
   /** The alerts last given to the other tabs, the same way. */
   private homeAlertsShown: { key: string; alerts: ShownAlert[] } = { key: "[]", alerts: [] };
-  /** The home's doorbells, watched on every tab (D-066), and the ring shown full screen. */
+  /** The home's doorbells, watched on every tab (D-067), and the ring shown full screen. */
   private readonly doorbells = new DoorbellWatch();
   protected ring?: Ring;
   private ringTimer?: ReturnType<typeof setTimeout>;
@@ -744,7 +747,7 @@ export class DomoTwinPanel extends LitElement {
         min-width: 0;
         min-height: 0;
       }
-      /* The alerts above the Home and Rooms tabs (D-066). */
+      /* The alerts above the Home and Rooms tabs (D-067). */
       .practical {
         flex: 1;
         min-width: 0;
@@ -1074,7 +1077,7 @@ export class DomoTwinPanel extends LitElement {
   set hass(hass: HomeAssistant | undefined) {
     this.demoSwitch.realHass = hass;
     if (hass) {
-      // The home's doorbells and Home Assistant's alerts, whatever home is shown (D-066).
+      // The home's doorbells and Home Assistant's alerts, whatever home is shown (D-067).
       const ring = this.doorbells.check(hass);
       if (ring) this.showRing(hass, ring);
       if (this.isConnected) this.followSecurity();
@@ -1300,7 +1303,7 @@ export class DomoTwinPanel extends LitElement {
   }
 
   /**
-   * Follows the alerts an administrator chose on Home Assistant's Security page (D-066), where Home
+   * Follows the alerts an administrator chose on Home Assistant's Security page (D-067), where Home
    * Assistant keeps them (2026.9 and later): its system data, sent again whenever it changes.
    */
   private followSecurity(): void {
@@ -1325,7 +1328,7 @@ export class DomoTwinPanel extends LitElement {
   }
 
   /**
-   * A doorbell rang (D-066): shown full screen, its module loaded the first time, for two minutes
+   * A doorbell rang (D-067): shown full screen, its module loaded the first time, for two minutes
    * unless closed or rung again. Not one the viewer may not see (D-039), nor over the demo house or
    * the sandbox, which are homes of their own.
    */
@@ -3284,6 +3287,8 @@ export class DomoTwinPanel extends LitElement {
       .linkable=${admin}
       @domotwin-link-element=${this.onLinkElement}
       @domotwin-network-place=${this.onNetworkPlace}
+      .accessPoints=${this.settings?.access_points ?? NO_ACCESS_POINTS}
+      @domotwin-open-bluetooth=${this.openBluetooth}
       .roomTab=${true}
       .securityAlerts=${shown ? this.securityAlertsShown() : this.securityShown.alerts}
       @domotwin-room-open=${this.onRoomOpen}
@@ -3348,7 +3353,7 @@ export class DomoTwinPanel extends LitElement {
   }
 
   /**
-   * The Home, Rooms or Safety tab (D-055, D-066), once its module is loaded and the private rooms
+   * The Home, Rooms or Safety tab (D-055, D-067), once its module is loaded and the private rooms
    * known; above the Home and Rooms tabs, the alerts the 3D view shows (the Safety tab lists them).
    */
   private renderPractical(): TemplateResult | typeof nothing {
@@ -3406,7 +3411,7 @@ export class DomoTwinPanel extends LitElement {
   }
 
   /**
-   * The alerts the 3D view shows, for the other tabs (D-066): the rooms' of the storey shown, then
+   * The alerts the 3D view shows, for the other tabs (D-067): the rooms' of the storey shown, then
    * those of the other storeys, and Home Assistant's own, dangers first.
    */
   private homeAlerts(hass: HomeAssistant, closed: Set<string>, unseen: Unseen): ShownAlert[] {
@@ -3429,7 +3434,7 @@ export class DomoTwinPanel extends LitElement {
   }
 
   /**
-   * Home Assistant's alerts on now, for the home itself (not the demo house's, D-066); what the
+   * Home Assistant's alerts on now, for the home itself (not the demo house's, D-067); what the
    * viewer may not see is worked out only when some are chosen.
    */
   private securityAlertsOf(hass: HomeAssistant, unseen: () => Unseen): SecurityAlert[] {
@@ -3450,7 +3455,7 @@ export class DomoTwinPanel extends LitElement {
   }
 
   /**
-   * A room's alert tapped on another tab (D-066): the 3D view framing it, its storey shown first,
+   * A room's alert tapped on another tab (D-067): the 3D view framing it, its storey shown first,
    * as a tap on the 3D view's own banner does; where the 3D view cannot draw, its room's page.
    */
   private readonly onAlertRoom = async (
@@ -3475,7 +3480,7 @@ export class DomoTwinPanel extends LitElement {
     view?.frameAlert(this.wholeHome() ? { room: alert.room, name: alert.name } : alert);
   };
 
-  /** A doorbell ringing (D-066), full screen over every tab, once its module is loaded. */
+  /** A doorbell ringing (D-067), full screen over every tab, once its module is loaded. */
   private renderDoorbell(): TemplateResult | typeof nothing {
     const hass = this._hass;
     if (!this.ring || !this.doorbellReady || !hass || this.demoSwitch.home) return nothing;

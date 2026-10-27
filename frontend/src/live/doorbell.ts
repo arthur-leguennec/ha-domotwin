@@ -1,5 +1,5 @@
 /**
- * The doorbell (`docs/DECISIONS.md`, D-066). Home Assistant's doorbells are `event` entities of
+ * The doorbell (`docs/DECISIONS.md`, D-067). Home Assistant's doorbells are `event` entities of
  * the `doorbell` class (2023.8 and later), whose state is when they last rang. A ring is a newer
  * time, seen while DomoTwin shows, two minutes old at most by this device's clock (which Home
  * Assistant's own times take to be right): not the time Home Assistant gives back as it starts,

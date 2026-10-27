@@ -67,7 +67,7 @@ async def test_choices_are_each_users_own(
         {"type": "domotwin/choices/favourite", "entity_id": "light.kitchen", "favourite": False},
     )
     assert answer["result"] == {"favourites": ["scene.evening"]}
-    # The Safety tab (D-066), a wall screen by the door's.
+    # The Safety tab (D-067), a wall screen by the door's.
     answer = await _send(admin, {"type": "domotwin/choices/save", "start": "safety"})
     assert answer["result"]["start"] == "safety"
     answer = await _send(admin, {"type": "domotwin/choices/save", "start": ""})

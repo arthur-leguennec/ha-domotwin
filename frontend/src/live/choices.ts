@@ -6,7 +6,7 @@
 import { domainOf } from "../ha/types";
 import { isSummary, type SummaryKind } from "./overview";
 
-/** The panel's tabs: the Safety tab came with M25 (D-066). */
+/** The panel's tabs: the Safety tab came with M25 (D-067). */
 export type Tab = "home" | "rooms" | "safety" | "3d";
 export const TABS: readonly Tab[] = ["home", "rooms", "safety", "3d"];
 
