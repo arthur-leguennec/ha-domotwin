@@ -736,6 +736,12 @@ export const THINGS: readonly Thing[] = [
     state: "below_horizon",
     attributes: { elevation: -20, azimuth: 0, rising: true },
   },
+  {
+    id: "weather.home",
+    names: ["Forecast", "Prévisions"],
+    state: "clear-night",
+    attributes: { temperature: 9, temperature_unit: "°C" },
+  },
 ];
 
 /** The people of the house: fictional. */

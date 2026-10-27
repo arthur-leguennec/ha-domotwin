@@ -282,7 +282,8 @@ def validate_settings(settings: Any) -> dict[str, Any]:
 
     `north`, degrees clockwise from the top of the plan; the look shown by default (`theme`) and
     its accent colour (`accent`, `#rrggbb`); the private rooms (`rooms`, D-039); where the
-    home's energy is read (`energy`, D-049).
+    home's energy is read (`energy`, D-049); the weather drawn around it (`weather`, D-066: a
+    `weather` entity, or `none`).
     """
     if not isinstance(settings, dict) or set(settings) - {
         "north",
@@ -290,10 +291,11 @@ def validate_settings(settings: Any) -> dict[str, Any]:
         "accent",
         "rooms",
         "energy",
+        "weather",
     }:
         raise InvalidPayloadError(
             "invalid_settings",
-            "settings hold only `north`, `theme`, `accent`, `rooms` and `energy`",
+            "settings hold only `north`, `theme`, `accent`, `rooms`, `energy` and `weather`",
         )
     north = settings.get("north", 0)
     if not _is_number(north) or not 0 <= north < 360:
@@ -314,6 +316,17 @@ def validate_settings(settings: Any) -> dict[str, Any]:
         energy = _energy(settings["energy"])
         if energy:
             checked["energy"] = energy
+    if "weather" in settings:
+        weather = settings["weather"]
+        if weather != "none" and (
+            not isinstance(weather, str)
+            or not weather.startswith("weather.")
+            or not valid_entity_id(weather)
+        ):
+            raise InvalidPayloadError(
+                "invalid_settings", "`weather` must be a weather entity or `none`"
+            )
+        checked["weather"] = weather
     return checked
 
 

@@ -11,6 +11,7 @@ import { peakRooms, type PeakRooms } from "./peak-rooms";
 import { peakNow, type PeakNow } from "./peaks";
 import { colorOf, initials, peopleShown, type PeopleSettings } from "./people";
 import { closedAreas, outOfSight } from "./privacy";
+import { usualWeather } from "./weather";
 
 /** Someone at home, as the glance shows them. */
 export interface GlancePerson {
@@ -77,22 +78,17 @@ function groupsLights(hass: HomeAssistant, id: string): boolean {
 
 /** The weather entity to show: `weather.home` if there is one, else the first with a value. */
 export function weatherOf(hass: HomeAssistant): GlanceWeather | undefined {
-  const ids = Object.keys(hass.states)
-    .filter((id) => domainOf(id) === "weather")
-    .sort((a, b) => (a === "weather.home" ? -1 : b === "weather.home" ? 1 : a.localeCompare(b)));
-  for (const id of ids) {
-    const state = hass.states[id];
-    if (!state || state.state === "unavailable" || state.state === "unknown") continue;
-    const temperature = numberOf(state.attributes.temperature);
-    const unit = state.attributes.temperature_unit;
-    return {
-      entity: id,
-      condition: state.state,
-      ...(temperature !== undefined ? { temperature } : {}),
-      unit: typeof unit === "string" ? unit : (hass.config?.unit_system?.temperature ?? "°C"),
-    };
-  }
-  return undefined;
+  const id = usualWeather(hass);
+  const state = id ? hass.states[id] : undefined;
+  if (!id || !state) return undefined;
+  const temperature = numberOf(state.attributes.temperature);
+  const unit = state.attributes.temperature_unit;
+  return {
+    entity: id,
+    condition: state.state,
+    ...(temperature !== undefined ? { temperature } : {}),
+    unit: typeof unit === "string" ? unit : (hass.config?.unit_system?.temperature ?? "°C"),
+  };
 }
 
 /**

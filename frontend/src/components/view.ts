@@ -147,6 +147,7 @@ import {
   type EnergyNow,
   type EnergySettings,
 } from "../live/energy";
+import { weatherShown, type WeatherChoice } from "../live/weather";
 import { energyFlow, energyStyles } from "./energy-flow";
 import { peaksAvailable } from "../live/peak-sources";
 import type { PeakNow } from "../live/peaks";
@@ -232,6 +233,8 @@ export interface ViewOptions {
   people?: boolean;
   /** Where the sun lights from (`fixed` unless set). */
   sun?: SunMode;
+  /** The weather around the home (on unless `false`, D-066). */
+  weather?: boolean;
   /** Badges over the devices (on unless `false`). */
   badges?: boolean;
   /** What the cameras see, on the floor (on unless `false`). */
@@ -524,6 +527,10 @@ export interface DebugState {
   look?: string;
   /** Where the sun lights from: `default`, or `<azimuth>:<elevation>:<north>` (the real sun). */
   sun?: string;
+  /** The weather drawn (D-066): `clear`, or `<entity> <condition> <wind m/s> <bearing>:<north>`. */
+  weather?: string;
+  /** What the engine draws falling: `none`, `rain`, `snow`, `sleet` or `hail`. */
+  falling?: string;
   /** The layer shown and what the engine was given for the rooms (`setLayers`). */
   layer?: string;
   layers?: string;
@@ -600,6 +607,7 @@ export class DomoTwinView extends LitElement {
     edit: { state: true },
     planEditor: { state: true },
     north: { attribute: false },
+    weather: { attribute: false },
     privateRooms: { attribute: false },
     homeTheme: { attribute: false },
     homeAccent: { attribute: false },
@@ -686,6 +694,8 @@ export class DomoTwinView extends LitElement {
   planError?: string;
   /** Where north points on the plan, degrees clockwise from its top (the home's settings). */
   north = 0;
+  /** The weather entity drawn around the home, `none`, or nothing for the usual one (D-066). */
+  weather?: WeatherChoice;
   /** The home's private rooms (its settings, D-039). */
   privateRooms?: Settings["rooms"];
   /** The private rooms this viewer may not see now, drawn closed (none while editing or
@@ -919,6 +929,7 @@ export class DomoTwinView extends LitElement {
   private lightKey?: string;
   /** Where the sun was last set from, and the room layers last sent, to skip repeats. */
   private sunKey?: string;
+  private weatherKey?: string;
   private layersKey?: string;
   /** The rooms of the plan shown, and whether a heatmap found values in them. */
   private rooms: PlanRoom[] = [];
@@ -2057,6 +2068,14 @@ export class DomoTwinView extends LitElement {
       this.applyLayers();
     }
     if (changed.has("north") || own.has("realSun") || changed.has("hass")) this.applySun();
+    if (
+      changed.has("hass") ||
+      changed.has("weather") ||
+      changed.has("north") ||
+      changed.has("options")
+    ) {
+      this.applyWeather();
+    }
     this.applyPeople();
     this.applyRobots();
     if (
@@ -2111,6 +2130,7 @@ export class DomoTwinView extends LitElement {
     if (this.lightKey) state.light = this.lightKey;
     state.look = this.lookKey ?? this.look;
     if (this.sunKey) state.sun = this.sunKey;
+    if (this.weatherKey) state.weather = this.weatherKey;
     state.layer = this.layer;
     if (this.layersKey) state.layers = this.layersKey;
     if (this.robotsSent) state.robots = this.robotsSent.json;
@@ -2120,6 +2140,7 @@ export class DomoTwinView extends LitElement {
     if (this.engine) {
       state.quality = this.engine.quality;
       state.stats = this.engine.stats;
+      state.falling = this.engine.weather;
     }
     if (this.summary) state.summary = this.summary;
     if (this.modelsLoading.size > 0) {
@@ -3153,6 +3174,7 @@ export class DomoTwinView extends LitElement {
     engine.setMotion(!this.motionQuery?.matches);
     this.lightKey = undefined;
     this.sunKey = undefined;
+    this.weatherKey = undefined;
     this.layersKey = undefined;
     this.labelsText = "";
     this.camerasShown = undefined;
@@ -3193,6 +3215,7 @@ export class DomoTwinView extends LitElement {
     this.applyEditing();
     this.applyPlanEditing();
     this.applySun();
+    this.applyWeather();
     this.resize(stage);
     this.scheduler.request();
   }
@@ -3458,6 +3481,26 @@ export class DomoTwinView extends LitElement {
     this.sunKey = key;
     if (real) engine.setSunPosition(a, e, north);
     else engine.useDefaultSun();
+    this.redraw();
+  }
+
+  /**
+   * Draws the weather around the home (D-066): the chosen entity's, else the usual one; none when
+   * the option is off or no entity says anything.
+   */
+  private applyWeather(): void {
+    const engine = this.engine;
+    if (!engine) return;
+    const shown =
+      this.options.weather === false ? undefined : weatherShown(this.hass, this.weather);
+    const north = Number.isFinite(this.north) ? this.north : 0;
+    // A tenth of a metre per second and a degree: the wind is set again only when it moved.
+    const speed = shown ? Math.round(shown.windSpeed * 10) / 10 : NaN;
+    const bearing = shown ? Math.round(shown.windBearing) : NaN;
+    const key = shown ? `${shown.entity} ${shown.condition} ${speed} ${bearing}:${north}` : "clear";
+    if (key === this.weatherKey) return;
+    this.weatherKey = key;
+    engine.setWeather(shown?.condition ?? "clear", speed, bearing, north);
     this.redraw();
   }
 

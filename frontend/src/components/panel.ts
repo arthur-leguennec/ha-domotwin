@@ -98,6 +98,7 @@ import {
   type Tab,
 } from "../live/choices";
 import type { GlanceSources } from "../live/glance";
+import { usualWeather, weatherEntities } from "../live/weather";
 import { resolveShow, type ShowRequest } from "../live/show";
 import type { LocatingSettings } from "../live/locating";
 import type { PeopleSettings } from "../live/people";
@@ -322,6 +323,7 @@ export class DomoTwinPanel extends LitElement {
     lookDraft: { state: true },
     energyDraft: { state: true },
     energyPreferred: { state: true },
+    weatherDraft: { state: true },
     look: { reflect: true },
     planning: { state: true },
     planState: { state: true },
@@ -474,6 +476,9 @@ export class DomoTwinPanel extends LitElement {
   protected lookDraft?: { theme: ThemeMode; accent?: string };
   /** Where the energy is read, being chosen in the settings (D-049). */
   protected energyDraft?: EnergySettings;
+  /** The weather drawn around the home, being chosen in the settings (D-066): an entity, `none`,
+   * or `""` for the usual one. */
+  protected weatherDraft?: string;
   /** The draft last shown, and its settings as read. */
   private energyShown?: { draft: EnergySettings; energy: EnergySettings | undefined };
   /** The power sensors Home Assistant's own energy settings name, offered first. */
@@ -1187,6 +1192,7 @@ export class DomoTwinPanel extends LitElement {
     this.lookDraft = undefined;
     this.energyDraft = undefined;
     this.energyPreferred = undefined;
+    this.weatherDraft = undefined;
     this.peopleOpen = false;
     this.peopleSettings = undefined;
     this.bluetoothOpen = false;
@@ -1477,6 +1483,7 @@ export class DomoTwinPanel extends LitElement {
     this.lookDraft = { theme: this.settings?.theme ?? "auto" };
     if (this.settings?.accent) this.lookDraft.accent = this.settings.accent;
     this.energyDraft = { ...(this.settings?.energy ?? {}) };
+    this.weatherDraft = this.settings?.weather ?? "";
     void this.loadEnergyPreferred();
   };
 
@@ -1513,6 +1520,8 @@ export class DomoTwinPanel extends LitElement {
         if (energy) settings.energy = energy;
         else delete settings.energy;
       }
+      if (this.weatherDraft) settings.weather = this.weatherDraft;
+      else if (this.weatherDraft !== undefined) delete settings.weather;
       await client.saveSettings(settings);
       this.settings = settings;
       this.northDraft = undefined;
@@ -3144,6 +3153,11 @@ export class DomoTwinPanel extends LitElement {
       .homeTheme=${this.homeLook().theme}
       .homeAccent=${this.homeLook().accent}
       .energy=${this.northDraft !== undefined ? this.energyPreview() : this.settings?.energy}
+      .weather=${
+        this.northDraft !== undefined && this.weatherDraft !== undefined
+          ? this.weatherDraft || undefined
+          : this.settings?.weather
+      }
       .storeys=${this.storeys}
       .storey=${this.wholeHome() ? ALL_STOREYS : this.storey}
       .home=${this.wholeHome() && this.homeShown ? this.home : undefined}
@@ -3565,7 +3579,7 @@ export class DomoTwinPanel extends LitElement {
         />
       </label>
       <p class="hint">${t.t("settings.north_hint")}</p>
-      ${this.renderLookSettings()} ${this.renderEnergySettings()}
+      ${this.renderLookSettings()} ${this.renderWeatherSettings()} ${this.renderEnergySettings()}
       <div class="footer">
         <button class="action quiet" data-cancel @click=${() => (this.northDraft = undefined)}>
           ${t.t("panel.cancel")}
@@ -3656,6 +3670,47 @@ export class DomoTwinPanel extends LitElement {
       ${sensor("solar")} ${sensor("grid")} ${reversed("grid_reversed", Boolean(draft.grid))}
       ${sensor("battery")} ${reversed("battery_reversed", Boolean(draft.battery))}
       ${sensor("battery_level")}`;
+  }
+
+  /** The weather drawn around the home (D-066): the usual entity, one chosen, or none; shown as
+   * it is chosen. */
+  private renderWeatherSettings(): TemplateResult | typeof nothing {
+    const t = this.t;
+    const draft = this.weatherDraft;
+    const hass = this._hass;
+    if (draft === undefined || !hass) return nothing;
+    const name = (id: string): string => {
+      const friendly = hass.states[id]?.attributes.friendly_name;
+      return typeof friendly === "string" && friendly ? friendly : id;
+    };
+    const usual = usualWeather(hass);
+    const offered = weatherEntities(hass);
+    if (draft && draft !== "none" && !offered.includes(draft)) offered.unshift(draft);
+    return html`<h3>${t.t("settings.weather")}</h3>
+      <p class="hint">${t.t("settings.weather_hint")}</p>
+      <label class="look">
+        <span>${t.t("settings.weather_source")}</span>
+        <select
+          data-testid="settings-weather"
+          @change=${(event: Event) => {
+            this.weatherDraft = (event.target as HTMLSelectElement).value;
+          }}
+        >
+          <option value="" ?selected=${draft === ""}>
+            ${
+              usual
+                ? t.t("settings.weather_auto", { entity: name(usual) })
+                : t.t("settings.weather_auto_none")
+            }
+          </option>
+          ${offered.map(
+            (id) => html`<option value=${id} ?selected=${id === draft}>${name(id)}</option>`,
+          )}
+          <option value="none" ?selected=${draft === "none"}>
+            ${t.t("settings.weather_none")}
+          </option>
+        </select>
+      </label>`;
   }
 
   /** The look of the home in the settings: shown as it is chosen, kept on Save. */

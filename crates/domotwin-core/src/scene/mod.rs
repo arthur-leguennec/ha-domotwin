@@ -154,6 +154,41 @@ pub struct Roof {
     pub mesh: Mesh,
     /// Its eaves, ridge and gable edges.
     pub lines: Vec<lines::Line>,
+    /// Its shape, for what falls on it (D-066).
+    pub shape: RoofShape,
+}
+
+/// The shape of a gable roof on the plan, its eaves included: what falls on it stops on its slopes
+/// and runs off its eaves (D-066).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct RoofShape {
+    /// Its centre on the plan (cm).
+    pub centre: [f64; 2],
+    /// The unit direction of its ridge on the plan; its slopes fall at right angles to it.
+    pub ridge: [f64; 2],
+    /// Half its length along the ridge, and half its width across it (cm).
+    pub half_length: f64,
+    pub half_width: f64,
+    /// The height of its eaves above the floor of the storey it covers, and of its ridge above
+    /// its eaves (cm).
+    pub eaves: f64,
+    pub rise: f64,
+}
+
+impl RoofShape {
+    /// The height of the roof above the floor of the storey it covers at a point of the plan, or
+    /// `None` outside it: the formula the weather's shader lands rain on the roof with (D-066),
+    /// checked against the roof's mesh.
+    #[cfg(test)]
+    pub fn height_at(&self, point: [f64; 2]) -> Option<f64> {
+        let d = [point[0] - self.centre[0], point[1] - self.centre[1]];
+        let along = d[0] * self.ridge[0] + d[1] * self.ridge[1];
+        let across = -d[0] * self.ridge[1] + d[1] * self.ridge[0];
+        if along.abs() > self.half_length || across.abs() > self.half_width {
+            return None;
+        }
+        Some(self.eaves + self.rise * (1.0 - across.abs() / self.half_width))
+    }
 }
 
 /// The built scene.

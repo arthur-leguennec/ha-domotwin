@@ -162,6 +162,7 @@ function schema(
     { name: "presence", selector: { boolean: {} } },
     { name: "people", selector: { boolean: {} } },
     { name: "sun", selector: options(t, "editor.sun", ["fixed", "real"]) },
+    { name: "weather", selector: { boolean: {} } },
     { name: "badges", selector: { boolean: {} } },
     { name: "cameras", selector: { boolean: {} } },
     { name: "names", selector: { boolean: {} } },
@@ -188,6 +189,7 @@ const ON_BY_DEFAULT = {
   names: true,
   spread: true,
   roof: true,
+  weather: true,
   tools: true,
   voice: true,
 };

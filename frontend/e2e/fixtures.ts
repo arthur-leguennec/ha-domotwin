@@ -67,6 +67,12 @@ export interface HarnessOptions {
   accent?: string;
   /** The home's look (the stored settings). */
   homeTheme?: "auto" | "day" | "neon" | "blueprint" | "cartoon" | "clay";
+  /** A fictional `weather.home` in this condition, and a `weather.coast` pouring (D-066). */
+  weather?: string;
+  /** The stored settings' weather: an entity, or `none`. */
+  homeWeather?: string;
+  /** The card's `weather` option. */
+  weatherOption?: boolean;
   /** Card option: the rooms' names off. */
   names?: false;
   /** Kiosk options (D-029): the card's screen name, `idle` seconds, `orbit`, `night_dim`. */
@@ -169,6 +175,9 @@ export async function openHarness(page: Page, options: HarnessOptions = {}): Pro
   if (options.theme) params.set("theme", options.theme);
   if (options.accent) params.set("accent", options.accent);
   if (options.homeTheme) params.set("hometheme", options.homeTheme);
+  if (options.weather) params.set("weather", options.weather);
+  if (options.homeWeather) params.set("homeweather", options.homeWeather);
+  if (options.weatherOption === false) params.set("weatheroption", "0");
   if (options.names === false) params.set("names", "0");
   if (options.screen) params.set("screen", options.screen);
   if (options.wifi) params.set("wifi", options.wifi);

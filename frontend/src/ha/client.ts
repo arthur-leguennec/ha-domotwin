@@ -69,6 +69,9 @@ export interface Settings {
   rooms?: Record<string, PrivateRoom>;
   /** Where the home's energy is read (D-049). */
   energy?: EnergySettings;
+  /** The weather drawn around the home (D-066): a `weather` entity, or `none`; absent, the one
+   * the Home tab shows. */
+  weather?: string;
 }
 
 export interface StoredSettings {

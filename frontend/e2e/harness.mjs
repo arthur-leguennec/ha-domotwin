@@ -52,6 +52,9 @@
 //   Home Assistant's history, statistics and logbook (D-058) answer a fictional day of the
 //   bedroom (`HISTORY` below); historyfail=1 makes the history refuse, nostats=1 leaves the
 //   statistics out; formatstate=1 gives `hass.formatEntityState` (states in words, "°C" after).
+//   weather=<condition> (D-066: a fictional `weather.home` in that condition, wind 18 km/h from
+//   the south-west, and a `weather.coast` pouring), homeweather=<entity|none> (the stored
+//   settings' choice), weatheroption=0 (the card's `weather: false`)
 //   why=1 (D-059: Home Assistant's logbook and traces of a fictional evening, with live=1: the
 //   entrance door opened five minutes ago and set off "Hall light at the door", which lit the
 //   hall's spots; Sam switched the floor lamp on two minutes ago; the kitchen's ceiling light was
@@ -259,6 +262,7 @@ const store = {
   settings: {
     ...(params.get("north") ? { north: Number(params.get("north")) } : {}),
     ...(params.get("hometheme") ? { theme: params.get("hometheme") } : {}),
+    ...(params.get("homeweather") ? { weather: params.get("homeweather") } : {}),
     ...(params.get("energy") === "1"
       ? {
           energy: {
@@ -1791,6 +1795,25 @@ if (sunParam) {
     attributes: { elevation: Number(elevation), rising: rising === "1" },
   };
 }
+const weatherParam = params.get("weather");
+if (weatherParam) {
+  states["weather.home"] = {
+    entity_id: "weather.home",
+    state: weatherParam,
+    attributes: {
+      friendly_name: "Forecast Home",
+      temperature: 9,
+      wind_speed: 18,
+      wind_speed_unit: "km/h",
+      wind_bearing: "SW",
+    },
+  };
+  states["weather.coast"] = {
+    entity_id: "weather.coast",
+    state: "pouring",
+    attributes: { friendly_name: "Forecast Coast", wind_speed: 40, wind_bearing: 270 },
+  };
+}
 if (sunPosition) {
   const [azimuth, elevation] = sunPosition.split(",").map(Number);
   states["sun.sun"] = {
@@ -1975,6 +1998,7 @@ if (mode === "panel") {
     voice: params.get("mic") === "0" ? false : undefined,
     font_family: params.get("font") ?? undefined,
     demo: params.get("demo") === "1" ? true : undefined,
+    weather: params.get("weatheroption") === "0" ? false : undefined,
   });
 }
 element.hass = hass;

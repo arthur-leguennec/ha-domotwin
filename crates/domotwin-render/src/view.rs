@@ -339,6 +339,11 @@ impl ViewState {
         bounds.unwrap_or([[0.0; 3], [1000.0, 265.0, 1000.0]])
     }
 
+    /// The highest the home stands, its storeys spread apart or not (cm): steady while they move.
+    pub fn highest(&self) -> f64 {
+        self.shown_bounds(0.0, 0.0)[1][1].max(self.shown_bounds(1.0, 0.0)[1][1])
+    }
+
     /// The bounds of what will be shown once the storeys stand still.
     fn target_bounds(&self) -> Bounds {
         self.shown_bounds(self.spread_target, self.side_target)

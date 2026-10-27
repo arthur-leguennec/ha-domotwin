@@ -420,6 +420,7 @@ export class DomoTwinCard extends LitElement {
         presence: config.presence,
         people: config.people,
         sun: config.sun,
+        weather: config.weather,
         badges: config.badges,
         cameras: config.cameras,
         names: config.names,
@@ -490,6 +491,7 @@ export class DomoTwinCard extends LitElement {
         .homeTheme=${this.settings?.theme}
         .homeAccent=${this.settings?.accent}
         .energy=${this.settings?.energy}
+        .weather=${this.settings?.weather}
         .storeys=${this.storeys}
         .storey=${this.storey}
         .elsewhere=${this.elsewhere}

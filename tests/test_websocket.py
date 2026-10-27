@@ -405,6 +405,15 @@ async def test_settings_round_trip(
     await client.send_json_auto_id({"type": "domotwin/settings/get"})
     assert "energy" not in (await client.receive_json())["result"]["settings"]
 
+    # The weather drawn around the home (D-066): an entity, or none at all.
+    for weather in ("weather.coast", "none"):
+        await client.send_json_auto_id(
+            {"type": "domotwin/settings/save", "settings": {"north": 0, "weather": weather}}
+        )
+        assert (await client.receive_json())["success"]
+        await client.send_json_auto_id({"type": "domotwin/settings/get"})
+        assert (await client.receive_json())["result"]["settings"]["weather"] == weather
+
 
 @pytest.mark.parametrize(
     "settings",
@@ -431,6 +440,10 @@ async def test_settings_round_trip(
         {"energy": {"battery": 3}},
         {"energy": {"grid_reversed": "yes"}},
         {"energy": {"wind": "sensor.wind_power"}},
+        {"weather": "sensor.outside"},
+        {"weather": "weather."},
+        {"weather": 3},
+        {"weather": None},
     ],
 )
 async def test_invalid_settings_are_refused(

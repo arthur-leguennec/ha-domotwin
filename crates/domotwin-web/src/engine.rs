@@ -22,6 +22,7 @@ use domotwin_core::scene::{
 };
 use domotwin_core::theme::{Theme, ThemeName, parse_hex};
 use domotwin_core::walk::Floor;
+use domotwin_core::weather::{Fall, Weather};
 use domotwin_core::{ReadError, summarize_plan};
 use domotwin_render::lamps::power_level;
 use domotwin_render::{CameraFan, CameraTone, GpuHint, QualityPreset, Renderer, Rgb};
@@ -940,6 +941,34 @@ impl Engine {
     #[wasm_bindgen(js_name = useDefaultSun)]
     pub fn use_default_sun(&mut self) {
         self.renderer.set_sun(None);
+    }
+
+    /// Draws the weather around the home (D-066) for one of Home Assistant's conditions
+    /// (`rainy`, `snowy`, `fog`…; any other is a clear sky), with its wind: `wind_speed` in m/s
+    /// and `wind_bearing` in degrees clockwise from north where it comes from (`NaN`: unknown), for
+    /// a plan whose north is `north` degrees clockwise from its top.
+    #[wasm_bindgen(js_name = setWeather)]
+    pub fn set_weather(&mut self, condition: &str, wind_speed: f64, wind_bearing: f64, north: f64) {
+        let known = |v: f64| v.is_finite().then_some(v);
+        self.renderer.set_weather(Weather::from_condition(
+            condition,
+            known(wind_speed),
+            known(wind_bearing),
+            north,
+        ));
+    }
+
+    /// What falls around the home now: `none`, `rain`, `snow`, `sleet` or `hail` (D-066).
+    #[wasm_bindgen(getter)]
+    pub fn weather(&self) -> String {
+        match self.renderer.weather().fall {
+            Fall::None => "none",
+            Fall::Rain => "rain",
+            Fall::Snow => "snow",
+            Fall::Sleet => "sleet",
+            Fall::Hail => "hail",
+        }
+        .to_owned()
     }
 
     /// Shows the room layers: JSON `{"heat": "temperature", "values": {room id: value},
