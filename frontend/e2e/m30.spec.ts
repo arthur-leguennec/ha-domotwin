@@ -25,7 +25,7 @@ async function modules(page: Page): Promise<number> {
   return (path ?? "").split("M").length - 1;
 }
 
-test.describe("the Wi-Fi for guests (D-062)", () => {
+test.describe("the Wi-Fi for guests (D-060)", () => {
   test("an administrator gives it once, sees its code, changes it and forgets it", async ({
     page,
   }) => {

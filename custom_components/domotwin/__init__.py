@@ -98,7 +98,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: DomoTwinConfigEntry) -> 
 
     entry.async_on_unload(drop_choices)
     hass.data[CHOICES_KEY] = choices
-    # The home's Wi-Fi for guests (D-062).
+    # The home's Wi-Fi for guests (D-060).
     wifi = Wifi(hass)
     await wifi.async_load()
 

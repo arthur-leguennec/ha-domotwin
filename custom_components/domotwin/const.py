@@ -139,7 +139,7 @@ MAX_SCREEN_NAME: Final = 64
 #: A screen's name (a card's `screen`, D-029): letters, digits, `_` and `-`, in any case.
 SCREEN_NAME: Final = re.compile(rf"^[A-Za-z0-9_-]{{1,{MAX_SCREEN_NAME}}}$")
 
-# The home's Wi-Fi for guests (docs/DECISIONS.md, D-062), in a private store of its own
+# The home's Wi-Fi for guests (docs/DECISIONS.md, D-060), in a private store of its own
 # (.storage/domotwin.wifi): never in the plan, the logs, the diagnostics or an export.
 WIFI_STORAGE_KEY: Final = f"{DOMAIN}.wifi"
 WIFI_STORAGE_VERSION: Final = 1

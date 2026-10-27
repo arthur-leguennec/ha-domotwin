@@ -27,7 +27,7 @@ export interface QrCode {
 }
 
 /**
- * The QR code a phone's camera joins a Wi-Fi network with (D-062), drawn in the page; `undefined`
+ * The QR code a phone's camera joins a Wi-Fi network with (D-060), drawn in the page; `undefined`
  * when the network does not fit in one. Rejects when the module cannot be loaded.
  */
 export async function wifiQrCode(

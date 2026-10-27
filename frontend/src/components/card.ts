@@ -64,7 +64,7 @@ export class DomoTwinCard extends LitElement {
   protected upkeep?: Upkeep;
   /** The people placed in their rooms (D-034). */
   protected people?: PeopleSettings;
-  /** The home's Wi-Fi for guests (D-062), as this card's screen may show it. */
+  /** The home's Wi-Fi for guests (D-060), as this card's screen may show it. */
   protected wifi?: Wifi;
   /** The storeys, and the one shown (chosen in the view, else the card's `storey`). */
   protected storeys: StoreyInfo[] = [];
@@ -116,7 +116,7 @@ export class DomoTwinCard extends LitElement {
         this.chosen = undefined;
         if (this._hass && this.isConnected) void this.loadPlan(DomoTwinClient.for(this._hass));
       }
-      // Another screen: what it may show of the Wi-Fi (D-062).
+      // Another screen: what it may show of the Wi-Fi (D-060).
       if (this.config.screen !== screen && this._hass && this.unsubscribe) {
         void this.loadWifi(DomoTwinClient.for(this._hass));
       }
@@ -230,7 +230,7 @@ export class DomoTwinCard extends LitElement {
 
   /**
    * The Wi-Fi as this card's screen may show it. Not read (Home Assistant starting), it is asked for
-   * again in a while; an integration older than D-062 has none.
+   * again in a while; an integration older than D-060 has none.
    */
   private async loadWifi(client: DomoTwinClient): Promise<void> {
     clearTimeout(this.wifiTimer);

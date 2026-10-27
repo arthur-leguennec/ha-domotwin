@@ -152,6 +152,16 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # The integration must parse on the oldest Python of the oldest Home Assistant it supports
+      # (3.12, Home Assistant 2025.1), not only on the one the tests run on (D-010).
+      - id: oldest
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      - name: The integration compiles with Python 3.12
+        env:
+          PYTHON: ${{ steps.oldest.outputs.python-path }}
+        run: '"$PYTHON" -m compileall -q custom_components/domotwin'
       - id: python
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:

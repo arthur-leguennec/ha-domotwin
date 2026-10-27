@@ -86,5 +86,5 @@ and period, for its graphs.
 
 Every user: Home Assistant gives its history, statistics and logbook to anyone signed in. In the
 demo house, the history is its day, the same every day back ten days: what you change in it is
-not recorded. The sandbox has no **History**: its day has a report of its own
+not in its history, only in its logbook, since it opened ([why?](why.md)). The sandbox has no **History**: its day has a report of its own
 ([the sandbox](sandbox.md)).

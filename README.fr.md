@@ -25,10 +25,11 @@ Local, rapide, Rust + WebAssembly.</p>
 > qui disent ce qu’ils font, des meubles qui ont l’air faits, les aspirateurs robots, l’énergie de
 > la maison, la maison de démo, la mesure de la vitesse d’un appareil et la maison pratique (les
 > onglets Accueil, Pièces et 3D) fonctionnent déjà, et forment la version 0.4.0. Depuis, le bac à
-> sable joue une journée des automatisations de la maison sur une copie de celle-ci, et le code QR
-> du Wi-Fi accueille les invités. La Vue d’ensemble de Home Assistant, rejointe plutôt que copiée,
-> vient ensuite, vers la version 0.5.0 ; la proposition à la liste par défaut de HACS attend des
-> mesures sur de vrais appareils.
+> sable joue une journée des automatisations de la maison sur une copie de celle-ci,
+> « Pourquoi ? » dit qui ou quoi a changé un appareil, et le code QR du Wi-Fi accueille les
+> invités. La Vue d’ensemble de Home Assistant, rejointe plutôt que copiée, vient ensuite, vers la
+> version 0.5.0 ; la proposition à la liste par défaut de HACS attend des mesures sur de vrais
+> appareils.
 
 ## Fonctionnalités
 
@@ -105,6 +106,13 @@ Local, rapide, Rust + WebAssembly.</p>
   lance. Ou toutes les automatisations du logement à la fois. Voir [les fils des
   automatisations](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/automations.md)
   (en anglais).
+- **Pourquoi ?** Un appui long sur une lampe, et demandez qui ou quoi l’a changée :
+  l’automatisation qui l’a allumée, le mouvement qui a déclenché l’automatisation, la personne qui
+  l’a fait dans l’application, ou personne (son propre interrupteur), comme Home Assistant l’a
+  noté. Dessiné dans le logement comme un fil depuis là où tout a commencé, avec la trace du
+  lancement pour les administrateurs et l’Activité de Home Assistant à portée de doigt. Voir
+  [Pourquoi ?](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/why.md) (en
+  anglais).
 - **Fiches d’entretien.** Chaque appareil et chaque meuble peut porter sa marque, son modèle, son
   numéro de série, sa garantie, sa notice et les tâches qui reviennent (changer le filtre tous les
   3 mois). Un badge en forme de clé montre ce qui est à faire, le calque Entretien colore les

@@ -103,7 +103,7 @@ async def async_get_config_entry_diagnostics(
             "waiting": len(waiting),
             "started": sum(1 for item in waiting if item.started),
         }
-    # Whether the home's Wi-Fi is given (D-062): never its name, its password or its screens.
+    # Whether the home's Wi-Fi is given (D-060): never its name, its password or its screens.
     if (wifi := hass.data.get(WIFI_KEY)) is not None:
         diagnostics["wifi"] = {"set": wifi.is_set, "router_code": wifi.from_image}
     redacted: dict[str, Any] = async_redact_data(diagnostics, TO_REDACT)

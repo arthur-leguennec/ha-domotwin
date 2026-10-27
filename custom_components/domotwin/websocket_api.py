@@ -820,7 +820,7 @@ def ws_subscribe(
     """Send an event every time something stored changes: its kind and revision.
 
     The kinds: the plan (its overlay counts as the plan), the bindings, the settings, the upkeep,
-    the people's settings and the home's Wi-Fi (`wifi`: only that it changed, D-062).
+    the people's settings and the home's Wi-Fi (`wifi`: only that it changed, D-060).
 
     Every `domotwin.show` is sent too: kind `show`, the request in `show`.
     """

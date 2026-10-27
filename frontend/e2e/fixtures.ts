@@ -64,7 +64,7 @@ export interface HarnessOptions {
   names?: false;
   /** Kiosk options (D-029): the card's screen name, `idle` seconds, `orbit`, `night_dim`. */
   screen?: string;
-  /** The home's Wi-Fi for guests (D-062): a fictional network typed, or a router's code; the
+  /** The home's Wi-Fi for guests (D-060): a fictional network typed, or a router's code; the
    * screens that show it. */
   wifi?: "typed" | "image";
   wifiScreens?: readonly string[];
@@ -75,6 +75,8 @@ export interface HarnessOptions {
   nightDim?: boolean;
   /** A mocked ZHA with a fictional Zigbee mesh (the network map, D-031). */
   zha?: boolean;
+  /** Home Assistant's logbook and traces of a fictional evening (D-059), with `live`. */
+  why?: boolean;
   /** Fictional automations (D-032): `true` three of the demo apartment, a number made up ones. */
   automations?: true | number;
   /** The sandbox's time zone and place, and its automations and script (D-057). */
@@ -189,6 +191,7 @@ export async function openHarness(page: Page, options: HarnessOptions = {}): Pro
   if (options.mic === false) params.set("mic", "0");
   if (options.tip) params.set("tip", "1");
   if (options.sandbox) params.set("sandbox", "1");
+  if (options.why) params.set("why", "1");
   if (options.automations) {
     params.set("automations", options.automations === true ? "1" : String(options.automations));
   }
@@ -232,8 +235,24 @@ export function stage(page: Page): Locator {
   return page.locator("domotwin-view").locator(".stage");
 }
 
+/**
+ * Waits until the page has drawn twice: the view takes a new size of its stage (the panel's tabs go
+ * while a tool such as link mode is on, and come back) as the page draws, after the frames'
+ * callbacks. A point taken before is where the element was drawn, and a press there may land on
+ * something else.
+ */
+async function drawn(page: Page): Promise<void> {
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) => {
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+      }),
+  );
+}
+
 /** Where an element of the plan is drawn, in page coordinates. */
 export async function elementPoint(page: Page, id: string): Promise<{ x: number; y: number }> {
+  await drawn(page);
   const box = await stage(page).boundingBox();
   if (!box) throw new Error("no stage");
   const point = await page.evaluate(
@@ -290,6 +309,7 @@ export function entityState(page: Page, id: string): Promise<string | undefined>
 
 /** The colour drawn at the centre of an element, from a fresh frame. */
 export async function colorAt(page: Page, id: string): Promise<[number, number, number]> {
+  await drawn(page);
   return page.evaluate(async (element) => {
     const page = window as never as {
       __view: () => HTMLElement & {

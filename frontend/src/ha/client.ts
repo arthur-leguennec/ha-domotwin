@@ -460,7 +460,7 @@ export class DomoTwinClient {
   }
 
   /**
-   * The home's Wi-Fi for guests (D-062), as this user may see it on `screen` (a card's, else
+   * The home's Wi-Fi for guests (D-060), as this user may see it on `screen` (a card's, else
    * none): all of it for an administrator, what draws its code on a screen an administrator chose.
    * Its password only when asked for (`password`: the dialog open).
    */

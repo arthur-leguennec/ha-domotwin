@@ -1,5 +1,5 @@
 /**
- * The messages of the Wi-Fi for guests (D-062), in both languages: loaded with its chunk, not
+ * The messages of the Wi-Fi for guests (D-060), in both languages: loaded with its chunk, not
  * with the first picture.
  */
 import type { Widen } from "./index";

@@ -410,7 +410,7 @@ export class DomoTwinPanel extends LitElement {
   protected upkeep?: Upkeep;
   /** The people placed in their rooms (D-034). */
   protected people?: PeopleSettings;
-  /** The home's Wi-Fi for guests (D-062): all of it for an administrator. */
+  /** The home's Wi-Fi for guests (D-060): all of it for an administrator. */
   protected wifi?: Wifi;
   protected northDraft?: number;
   /** The people's settings are open (D-034), their module loaded, with the candidates. */
@@ -1220,7 +1220,7 @@ export class DomoTwinPanel extends LitElement {
 
   /**
    * The Wi-Fi as this user may see it in the panel. Not read (Home Assistant starting), it is asked
-   * for again in a while; an integration older than D-062 has none.
+   * for again in a while; an integration older than D-060 has none.
    */
   private async loadWifi(): Promise<void> {
     const client = this.client;
@@ -3279,7 +3279,7 @@ export class DomoTwinPanel extends LitElement {
     }
   };
 
-  /** Opens the Wi-Fi for guests (D-062), over the 3D view. */
+  /** Opens the Wi-Fi for guests (D-060), over the 3D view. */
   private readonly openWifi = async (): Promise<void> => {
     if (this.tab !== "3d") this.go("3d");
     await this.updateComplete;

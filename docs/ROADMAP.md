@@ -46,6 +46,7 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | 0.4.0     | Fourth release: the practical home, devices measured       | ✅     |
 | M29       | Sandbox: the home's automations played on a copy of it     | ✅     |
 | M38       | History as reports: tables, CSV, search by value           | ✅     |
+| M32       | "Why?": who or what changed a device, drawn in 3D          | ✅     |
 | M30       | The Wi-Fi QR code, for guests                              | ✅     |
 | M23b      | Into Home Assistant's Overview, rather than a copy of it   | ⏳     |
 | M24       | History and energy, with Home Assistant's own cards        | ⏳     |
@@ -54,7 +55,6 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M31       | Placement advisor: where the next radio helps most         | ⏳     |
 | M22       | A first launch in five minutes                             | ⏳     |
 | 0.5.0     | Fifth release: all of the above                            | ⏳     |
-| M32       | "Why?": who or what changed a device, drawn in 3D          | ⏳     |
 | M33       | Guest access: chosen rooms, for a while                    | ⏳     |
 | M34       | Per-person rights: what DomoTwin shows each one            | ⏳     |
 | M35       | Automations in plain words, played in the sandbox first    | ⏳     |
@@ -92,8 +92,8 @@ QR code (M30) and a placement advisor for radios (M31) before a first launch in 
 (M33), rights (M34), automations in plain words (M35), a configuration history (M36), a weekly
 report (M37), history as reports (M38) and Hydro-Québec's peaks (M39) follow, among a library of
 objects (M17), the outdoors (M18), more imports (M20) and more languages (M21), before a sixth
-release, 0.6.0. After the sandbox, the maintainer asked for history as reports (M38, D-058) before
-the rest, which keeps its order.
+release, 0.6.0. After the sandbox, the maintainer asked for history as reports (M38, D-058) and
+"Why?" (M32, D-059) before the rest, which keeps its order.
 
 ## M0, scaffold
 
@@ -1144,9 +1144,48 @@ logbook by value. Asked for by the maintainer right after the sandbox, ahead of 
 - Left for later: a report opened from the panel's menu or the Rooms tab, reports kept to open
   again, and rows for each day, week or month (Home Assistant's statistics have them).
 
+## M32, "Why?"
+
+Who or what last changed a device, as Home Assistant recorded it, followed back to what started
+it and drawn in the home (D-059, `docs/why.md`). Asked by the maintainer next to the sandbox
+(M29), right after 0.4.0.
+
+- ✅ **From the device's sheet**: **Why**, under the controls, and **Who or what changed it?**;
+  the chain from what started it to the device, each step with when it happened: someone signed
+  in and the action they asked for, an action with nobody signed in, a change of state, an
+  automation or a script that ran, what set it off (a time, the sun, a start, an event, a
+  trigger in Home Assistant's words), "nobody, as far as Home Assistant knows" (the device itself
+  or its integration), "not in the logbook". Asked again when the device changes while it shows;
+  not offered for a sensor that measures.
+- ✅ **Read as Home Assistant reads it**: the state's context, the logbook's rows of that context
+  (`logbook/get_events`, every user), the run found as Home Assistant 2026.9 finds it when the
+  state was written again since, and the trigger's change followed back the same way, up to six
+  changes; the same on 2025.1. Not offered without Home Assistant's logbook (nor in the sandbox);
+  when it cannot be read, what the state's context says.
+- ✅ **Drawn in 3D** with the wires of M9c: a wire from each step to the next, through the runs
+  between them, pulses one after the other from the start to the device; a tap names the runs.
+- ✅ **Home Assistant's pages**: the run's trace for administrators (`trace/contexts`), the
+  Activity on the chain's entities around it for everyone; not in the demo house.
+- ✅ **Names and private rooms**: users by their `person` (by Home Assistant's users for an
+  administrator); what a private room the viewer may not see holds (D-039) is "in a private
+  room", left out of the Activity's address and not drawn.
+- ✅ **The demo house** records as Home Assistant does: the visitor's actions, its automations'
+  runs and their triggers, the moment the visitor goes to; its logbook answers as Home
+  Assistant's.
+- ✅ Tests: Home Assistant's words for triggers in both versions, a lamp followed back through
+  its automation to the motion (by context, and by the automation's runs when written again
+  since), someone, an action with nobody, a script, the device itself, not in the logbook, two
+  automations back to a time, an automation another ran, a run by hand (2026), a thermostat's
+  heater, what ran after left out, six changes and no more, without the logbook, the traces for
+  administrators only, the Activity's address, the users' names, the wires and no end in a
+  private room, the words in both languages, the demo house's logbook as it opens (vitest); a
+  lamp lit by an automation the door set off with its trace, its Activity and its wire, someone
+  in the app and nobody's doing in French for a user, no Why for a sensor that measures, the demo
+  house's lamp as it opens and switched on by the visitor (Playwright).
+
 ## M30, the Wi-Fi QR code
 
-The QR code a phone's camera joins the home's Wi-Fi with, drawn in the page (D-062).
+The QR code a phone's camera joins the home's Wi-Fi with, drawn in the page (D-060).
 
 - ✅ **Given once**: by an administrator, from the ⋮ menu: the network's name, its password
   (checked against its kind, WPA, WEP or open), whether it is hidden; or the router's own code, an
@@ -1172,7 +1211,7 @@ tests and docs; every string through `t()` in English and French. A ❓ is asked
 milestone starts, which goes on with what needs no answer.
 
 - ✅ **M29, the sandbox** (D-057, above).
-- ✅ **M30, the Wi-Fi QR code** (D-062, above).
+- ✅ **M30, the Wi-Fi QR code** (D-060, above).
 - ⏳ **M23b, into Home Assistant's Overview**: since 2026.2, Home Assistant opens on its own
   Overview: summaries of the lights, the climate, security, media and energy, the weather,
   favourites, a page for each area, and since 2026.10 the active alerts (D-056). DomoTwin plugs
@@ -1216,13 +1255,8 @@ milestone starts, which goes on with what needs no answer.
 
 ## Then, to 0.6.0
 
-- ⏳ **M32, "Why?"**: who or what last changed a device, as a chain: the lamp switched on by an
-  automation, set off by the hall's motion sensor, itself set off by someone coming home; or by
-  a person in the app, by voice, by a script, on the device itself. Read from Home Assistant's
-  context ids, its logbook and its traces; drawn in 3D with the wires of M9c, from the device's
-  sheet, with a link to the trace (administrators) and to Home Assistant's Activity, which shows
-  the same chain as a list since 2026.9 (D-056). Only what Home Assistant recorded: a change it
-  did not attribute says so. Why something did not happen is the sandbox's (M29).
+- ✅ **M32, "Why?"**: done next to the sandbox, right after 0.4.0 (above, D-059). Why something
+  did not happen is the sandbox's (M29).
 - ⏳ **M33, guest access**: a guest gets a QR code or a link that opens chosen rooms and devices
   for a set time and ends on its own, with the Wi-Fi QR code of M30. What can be enforced is said
   plainly: a Home Assistant user for the guest, local only and possibly read only, is enforced by

@@ -22,6 +22,7 @@ import {
   type StoredWifi,
 } from "../live/wifi";
 import { DemoError, type DemoStore } from "./home";
+import type { DemoLogbook } from "./logbook";
 
 /** A home kept in the page: what its connection asks of it. */
 export interface MemoryHome {
@@ -45,6 +46,9 @@ export interface MemoryHome {
    */
   history?(entities: readonly string[], start: number, end: number): unknown;
   logbook?(entities: readonly string[], start: number, end: number): unknown;
+  /** What its Home Assistant recorded, by context, as its logbook answers (D-059); none:
+   * nothing recorded. */
+  readonly recorded?: DemoLogbook;
 }
 
 /** A websocket error, as Home Assistant gives one. */
@@ -331,8 +335,12 @@ export function demoConnection(home: MemoryHome): HassConnection {
         if (!home.history) throw failure("unknown_command", message.type);
         return {};
       case "logbook/get_events": {
-        if (!home.logbook) throw failure("unknown_command", message.type);
         const { start, end } = span(message);
+        // The rows of a context: what its Home Assistant recorded (D-059, "Why?").
+        if (typeof message.context_id === "string") {
+          return home.recorded?.events({ start, end, context: message.context_id }) ?? [];
+        }
+        if (!home.logbook) throw failure("unknown_command", message.type);
         return home.logbook(entityIds(message), start, end);
       }
       default:
