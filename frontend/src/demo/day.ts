@@ -60,7 +60,7 @@ export function solarAt(minute: number): number {
   return Math.round(5000 * 0.86 * Math.sin((elevation * Math.PI) / 180) * (1 - clouds) * shade);
 }
 
-/** The day's weather (D-070): fine, clouding over after lunch, a shower and a storm at three. */
+/** The day's weather (D-071): fine, clouding over after lunch, a shower and a storm at three. */
 const WEATHER: readonly (readonly [number, string])[] = [
   [at(11, 30), "partlycloudy"],
   [at(14, 30), "cloudy"],

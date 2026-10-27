@@ -237,7 +237,7 @@ export interface ViewOptions {
   people?: boolean;
   /** Where the sun lights from (`fixed` unless set). */
   sun?: SunMode;
-  /** The weather around the home (on unless `false`, D-070). */
+  /** The weather around the home (on unless `false`, D-071). */
   weather?: boolean;
   /** Badges over the devices (on unless `false`). */
   badges?: boolean;
@@ -542,7 +542,7 @@ export interface DebugState {
   look?: string;
   /** Where the sun lights from: `default`, or `<azimuth>:<elevation>:<north>` (the real sun). */
   sun?: string;
-  /** The weather drawn (D-070): `clear`, or `<entity> <condition> <wind m/s> <bearing>:<north>`. */
+  /** The weather drawn (D-071): `clear`, or `<entity> <condition> <wind m/s> <bearing>:<north>`. */
   weather?: string;
   /** What the engine draws falling: `none`, `rain`, `snow`, `sleet` or `hail`. */
   falling?: string;
@@ -717,7 +717,7 @@ export class DomoTwinView extends LitElement {
   planError?: string;
   /** Where north points on the plan, degrees clockwise from its top (the home's settings). */
   north = 0;
-  /** The weather entity drawn around the home, `none`, or nothing for the usual one (D-070). */
+  /** The weather entity drawn around the home, `none`, or nothing for the usual one (D-071). */
   weather?: WeatherChoice;
   /** The home's private rooms (its settings, D-039). */
   privateRooms?: Settings["rooms"];
@@ -2555,6 +2555,13 @@ export class DomoTwinView extends LitElement {
     this.redraw();
   }
 
+  /** Shows the wires of these automations, as a panel's list asks for them (a draft, D-070). */
+  showWires(ids: string[]): void {
+    this.sheet = undefined;
+    this.whyAsked = undefined;
+    this.wiresAsked = { ids };
+  }
+
   /** Lights the rooms from where the sun really is (through the windows), or not. */
   setRealSun(real: boolean): void {
     this.layersOpen = false;
@@ -3580,7 +3587,7 @@ export class DomoTwinView extends LitElement {
   }
 
   /**
-   * Draws the weather around the home (D-070): the chosen entity's, else the usual one; none when
+   * Draws the weather around the home (D-071): the chosen entity's, else the usual one; none when
    * the option is off or no entity says anything.
    */
   private applyWeather(): void {

@@ -73,7 +73,7 @@ export interface Settings {
   energy?: EnergySettings;
   /** The Wi-Fi access points placed on the plan (D-066). */
   access_points?: AccessPoint[];
-  /** The weather drawn around the home (D-070): a `weather` entity, or `none`; absent, the one
+  /** The weather drawn around the home (D-071): a `weather` entity, or `none`; absent, the one
    * the Home tab shows. */
   weather?: string;
 }

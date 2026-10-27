@@ -69,7 +69,7 @@ export interface HarnessOptions {
   accent?: string;
   /** The home's look (the stored settings). */
   homeTheme?: "auto" | "day" | "neon" | "blueprint" | "cartoon" | "clay";
-  /** A fictional `weather.home` in this condition, and a `weather.coast` pouring (D-070). */
+  /** A fictional `weather.home` in this condition, and a `weather.coast` pouring (D-071). */
   weather?: string;
   /** The stored settings' weather: an entity, or `none`. */
   homeWeather?: string;
@@ -159,6 +159,8 @@ export interface HarnessOptions {
   safety?: boolean;
   security?: boolean;
   securityAlerts?: string[];
+  /** Home Assistant's AI task (D-070): a fictional one, its actions and its check. */
+  aiTask?: boolean;
 }
 
 /** Opens the mocked Home Assistant with the built frontend. */
@@ -235,6 +237,7 @@ export async function openHarness(page: Page, options: HarnessOptions = {}): Pro
   if (options.safety) params.set("safety", "1");
   if (options.security) params.set("security", "1");
   if (options.securityAlerts) params.set("securityalerts", options.securityAlerts.join(","));
+  if (options.aiTask) params.set("aitask", "1");
   if (options.voice) params.set("voice", options.voice === true ? "1" : options.voice);
   if (options.supervisor) params.set("supervisor", "1");
   if (options.blueprints) params.set("blueprints", options.blueprints);

@@ -19,9 +19,9 @@ Local, fast, Rust + WebAssembly.</p>
 > the Wi-Fi QR code for guests, the configuration history, Hydro-Québec's peaks, more imports (robot
 > vacuum maps, Floorplanner, mesh scans), the radio coverage, guest passes, safety (the cameras, the
 > doorbell, the alarm, the alerts on every tab), each room's graphs with Home Assistant's Energy
-> page a tab away and the weather around the home, and DomoTwin joined Home Assistant's own
-> Overview; the wall screen comes next, towards 0.5.0. The submission to HACS's default list waits
-> on measurements on real devices.
+> page a tab away, automations in plain words, played in the sandbox before they are saved, and the
+> weather around the home, and DomoTwin joined Home Assistant's own Overview; the wall screen comes
+> next, towards 0.5.0. The submission to HACS's default list waits on measurements on real devices.
 
 ## What sets it apart
 
@@ -31,7 +31,7 @@ Local, fast, Rust + WebAssembly.</p>
 - **The network map.** Your Zigbee mesh drawn on the plan: which device talks through which, the
   weak links, and the rooms short of a router.
 - **The sandbox.** A day of your automations played on a copy of the home, to see what they do
-  before they do it.
+  before they do it, and an automation said in plain words played there before it is saved.
 
 ## Features
 
@@ -113,6 +113,13 @@ Local, fast, Rust + WebAssembly.</p>
   never ran and why, which ones work against each other, and what could not be played. Nothing
   in the sandbox reaches a device. See [the
   sandbox](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/sandbox.md).
+- **Automations in plain words.** Say what should happen ("when the last person leaves, switch
+  the lights off and lock the door"): Home Assistant's own AI task, the one you set up, writes the
+  automation; DomoTwin says it back in plain words, has Home Assistant check it, plays it in the
+  sandbox on the days you pick, and only then saves it, Home Assistant's editor a tap away. For
+  administrators, with an AI task in Home Assistant (2025.8 and later): DomoTwin calls no model
+  itself. See [automations in plain
+  words](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/plain-words.md).
 - **The Wi-Fi for guests.** Give your Wi-Fi once, and DomoTwin draws the QR code a phone's camera
   joins it with, in the page; or shows your router's own code. For administrators, and on the wall
   screens you choose; the password stays in DomoTwin's private storage. See [the Wi-Fi for
@@ -432,7 +439,9 @@ model files are deleted. Use **Export plan** first to keep a copy (it includes t
 DomoTwin talks only to your own Home Assistant. It makes no other network call: no CDN, no
 telemetry, no analytics, no web fonts. Every file it uses (JavaScript, WebAssembly, fonts,
 materials) is served by the integration. Diagnostics contain counts only, never names, entity ids,
-device ids, Zigbee addresses or geometry.
+device ids, Zigbee addresses or geometry. An automation asked for in plain words is written by
+Home Assistant's own AI task, the one you set up: DomoTwin hands it your request and the names of
+your areas and entities, never their states, and where it goes then is that AI task's.
 
 ## Contributing
 

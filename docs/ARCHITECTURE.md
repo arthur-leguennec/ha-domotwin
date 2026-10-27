@@ -122,7 +122,7 @@ every reader returns `Result` with a stable error code that the frontend transla
   and spread apart in 3D, side by side on the 2D plan, the roof above the top one; and the walk:
   a walker's steps on the floor, its way through the doors, the slow turn of a kiosk. Walking
   draws the walls whole and the rooms' ceilings (day look). See D-014, D-016, D-028 and D-029.
-- The weather (D-070): `domotwin-core::weather` turns Home Assistant's condition and wind into
+- The weather (D-071): `domotwin-core::weather` turns Home Assistant's condition and wind into
   what falls, how grey the sky is, the fog and the storm's flashes; `domotwin-render::weather`
   takes the home's footprint (every storey's bounds and the roof's eaves) and the roof's slope,
   how many particles the quality allows, their tint and the clouds' light. What falls is one
@@ -217,6 +217,16 @@ every reader returns `Result` with a stable error code that the frontend transla
    (`src/live/config-history.ts`), and puts a version back with Home Assistant's own commands:
    `POST /api/config/<kind>/config/<id>` (`hass.callApi`) or `lovelace/config/save`, then
    `domotwin/config_history/refresh`.
+11. **Automations in plain words.** The dialog (`src/components/plain-dialog.ts`, a chunk, D-070)
+   is offered where Home Assistant has an AI task (`src/live/ai-task.ts`). It asks Home
+   Assistant's own service `ai_task.generate_data` (`call_service` with `return_response`) with
+   the request, the rules of an automation and the home's names (`src/live/plain-request.ts`:
+   areas, entities, actions, never states), reads the answer, looks up the names it gives and has
+   Home Assistant check it (`validate_config`); `src/live/plain-words.ts` says it back in words.
+   *Play it in the sandbox* gives the draft to the sandbox's copy as an automation of its own
+   (`SandboxHome`'s `draft`), which tells the dialog what it did each day played; the view draws
+   its wires (`showWires`). Saved through `POST /api/config/automation/config/<id>`. Nothing of
+   it is in the integration, and DomoTwin calls no model itself.
 
 ## Storage
 
@@ -257,7 +267,7 @@ every reader returns `Result` with a stable error code that the frontend transla
   while that entity is on ([`privacy.md`](privacy.md)); where the home's energy is read
   (`energy`, D-049); the Wi-Fi access points placed on the plan (`access_points`, D-066),
   `[{"storey": id, "at": [x, y], "name"?}]`, 16 at most ([`placement.md`](placement.md)); the
-  weather drawn around the home (`weather`, D-070): a `weather` entity, or `none`; absent, the
+  weather drawn around the home (`weather`, D-071): a `weather` entity, or `none`; absent, the
   Home tab's.
 - `upkeep` (D-033, storage 4.1): the upkeep cards by piece id, and how many days before it a task
   is due soon; see [`upkeep.md`](upkeep.md). Kept apart from the plan, like the bindings.

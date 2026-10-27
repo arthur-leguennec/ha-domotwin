@@ -22,7 +22,7 @@ async function framesOver(page: Page, ms: number): Promise<number> {
   return (await viewState(page)).frames - before;
 }
 
-test.describe("the weather around the home (D-070)", () => {
+test.describe("the weather around the home (D-071)", () => {
   test("rain falls while it rains, then snow, and nothing on a fine day", async ({ page }) => {
     await openHarness(page, { weather: "sunny", north: 90 });
     await expect(page.getByTestId("summary")).toBeVisible();

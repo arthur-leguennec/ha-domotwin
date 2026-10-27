@@ -688,6 +688,9 @@ export const en = {
     first_failed:
       "Your choices are saved, but Home Assistant did not keep the page it opens first: {reason}",
   },
+  plain: {
+    menu: "An automation in plain words",
+  },
   config_history: {
     menu: "Configuration history",
   },
