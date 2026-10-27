@@ -1,7 +1,7 @@
 /**
  * The analysis module (`docs/DECISIONS.md`, D-043), loaded the first time the network map, the
  * automations or the radio coverage are shown: it reads a radio mesh's snapshot and automations'
- * configurations, and analyses them, and advises where the next radio helps most (D-059). The
+ * configurations, and analyses them, and advises where the next radio helps most (D-060). The
  * engine is handed what it draws, so none of this is in the first load.
  */
 import { wasmLoader } from "../assets";
@@ -42,7 +42,7 @@ export async function analyseNetwork(
 }
 
 /**
- * How well one radio covers the home and where the next one helps most (D-059), for `input`
+ * How well one radio covers the home and where the next one helps most (D-060), for `input`
  * (`placementInput`), unless it is no longer `wanted` once the module is loaded: the advice as
  * JSON text (nothing when not wanted). Rejects when the module cannot be loaded.
  */

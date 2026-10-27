@@ -1,5 +1,5 @@
 //! The layers drawn over the home (`DECISIONS.md`, D-023): a **heatmap** of one quantity per room
-//! (temperature, humidity, CO₂ or fine particles, or how well a radio covers it, D-059) on a
+//! (temperature, humidity, CO₂ or fine particles, or how well a radio covers it, D-060) on a
 //! perceptual colour scale, **alerts** pulsing
 //! on the floor of their room (warnings amber, dangers red) and **presence** (a room someone is in
 //! glows softly). The frontend gathers the values from Home Assistant (areas, device classes,
@@ -24,7 +24,7 @@ pub enum HeatKind {
     Co2,
     /// Fine particles PM2.5 (µg/m³).
     Pm25,
-    /// How well a radio covers the room (D-059): its level's rank, from 0 (out of reach) to 3
+    /// How well a radio covers the room (D-060): its level's rank, from 0 (out of reach) to 3
     /// (good).
     Coverage,
 }

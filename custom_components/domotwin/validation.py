@@ -286,7 +286,7 @@ def validate_settings(settings: Any) -> dict[str, Any]:
     `north`, degrees clockwise from the top of the plan; the look shown by default (`theme`) and
     its accent colour (`accent`, `#rrggbb`); the private rooms (`rooms`, D-039); where the
     home's energy is read (`energy`, D-049); the Wi-Fi access points placed on the plan
-    (`access_points`, D-059).
+    (`access_points`, D-060).
     """
     if not isinstance(settings, dict) or set(settings) - {
         "north",
@@ -327,7 +327,7 @@ def validate_settings(settings: Any) -> dict[str, Any]:
 
 
 def _access_points(points: Any) -> list[dict[str, Any]]:
-    """The Wi-Fi access points placed on the plan (D-059): `[{"storey", "at": [x, y], "name"}]`.
+    """The Wi-Fi access points placed on the plan (D-060): `[{"storey", "at": [x, y], "name"}]`.
 
     `storey` is a storey's id, `at` a point of its plan (cm), `name` text of at most 60
     characters (empty: none).

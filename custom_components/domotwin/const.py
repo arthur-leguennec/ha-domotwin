@@ -90,7 +90,7 @@ LOCATED_KINDS: Final = ("phone", "watch", "thing")
 TEACH_SECONDS: Final = (10, 120)
 # Dispatcher signal sent when a followed device moves, is lost or left behind: (device id,).
 SIGNAL_LOCATED: Final = f"{DOMAIN}_located"
-# The placement advisor (docs/DECISIONS.md, D-059): the Wi-Fi access points placed on the plan, at
+# The placement advisor (docs/DECISIONS.md, D-060): the Wi-Fi access points placed on the plan, at
 # most this many, each named this long, at a point this far from the plan's origin at most (cm).
 MAX_ACCESS_POINTS: Final = 16
 MAX_ACCESS_POINT_NAME: Final = 60

@@ -69,6 +69,8 @@ export interface HarnessOptions {
   nightDim?: boolean;
   /** A mocked ZHA with a fictional Zigbee mesh (the network map, D-031). */
   zha?: boolean;
+  /** Home Assistant's logbook and traces of a fictional evening (D-059), with `live`. */
+  why?: boolean;
   /** Fictional automations (D-032): `true` three of the demo apartment, a number made up ones. */
   automations?: true | number;
   /** The sandbox's time zone and place, and its automations and script (D-057). */
@@ -87,7 +89,7 @@ export interface HarnessOptions {
   peopleLook?: "figure" | "pin";
   /** Bluetooth locating (D-035): fictional receivers and devices, or no Bluetooth at all. */
   bluetooth?: true | "none";
-  /** The radio coverage's fictional radios (D-059): receivers placed, Wi-Fi signals, an access
+  /** The radio coverage's fictional radios (D-060): receivers placed, Wi-Fi signals, an access
    * point. */
   radios?: boolean;
   /** Private rooms (D-039): kept for nobody, or for `privateFor`, maybe only while an entity is
@@ -184,6 +186,7 @@ export async function openHarness(page: Page, options: HarnessOptions = {}): Pro
   if (options.mic === false) params.set("mic", "0");
   if (options.tip) params.set("tip", "1");
   if (options.sandbox) params.set("sandbox", "1");
+  if (options.why) params.set("why", "1");
   if (options.automations) {
     params.set("automations", options.automations === true ? "1" : String(options.automations));
   }

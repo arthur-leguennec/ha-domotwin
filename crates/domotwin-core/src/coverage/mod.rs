@@ -1,4 +1,4 @@
-//! The placement advisor (`DECISIONS.md`, D-059): how well each room is covered by the home's
+//! The placement advisor (`DECISIONS.md`, D-060): how well each room is covered by the home's
 //! Bluetooth receivers, Zigbee routers or Wi-Fi access points, and where the next one helps most.
 //!
 //! The model is the locating's (D-035), for each radio: the signal falls with the distance and

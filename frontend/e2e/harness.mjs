@@ -19,7 +19,7 @@
 //   window.__move(person, room) moves someone (their room sensor, as the integration writes it)
 //   bluetooth=1 (DomoTwin's own Bluetooth locating: three fictional receivers, Alex's phone and
 //   keys followed, both in the kitchen, the keys left behind), bluetooth=none (no Bluetooth)
-//   radios=1 (the radio coverage, D-059: two of the receivers placed, the hall taught, two Wi-Fi
+//   radios=1 (the radio coverage, D-060: two of the receivers placed, the hall taught, two Wi-Fi
 //   devices reporting their signal, an access point in the kitchen's far corner)
 //   window.__show(request) sends a `domotwin.show` request to every screen
 //   private=<room>,<room> (private rooms, D-039, kept for nobody), privatefor=<person> (kept for
@@ -42,6 +42,10 @@
 //   Home Assistant's history, statistics and logbook (D-058) answer a fictional day of the
 //   bedroom (`HISTORY` below); historyfail=1 makes the history refuse, nostats=1 leaves the
 //   statistics out; formatstate=1 gives `hass.formatEntityState` (states in words, "°C" after).
+//   why=1 (D-059: Home Assistant's logbook and traces of a fictional evening, with live=1: the
+//   entrance door opened five minutes ago and set off "Hall light at the door", which lit the
+//   hall's spots; Sam switched the floor lamp on two minutes ago; the kitchen's ceiling light was
+//   switched off on its own switch)
 import { applyService, demoHome } from "./demo-home.mjs";
 
 const params = new URLSearchParams(location.search);
@@ -67,6 +71,15 @@ const zha = params.get("zha") === "1";
 // Fictional automations (D-032): `automations=1` three of them, `automations=50` as many made up.
 const automationCount = Number(params.get("automations") ?? 0);
 const sandbox = params.get("sandbox") === "1";
+// Home Assistant's logbook and traces of a fictional evening (D-059).
+const why = params.get("why") === "1";
+/** The logbook's rows, as `logbook/get_events` gives them, each with the context it is in. */
+let whyRows = [];
+// Their contexts' ids, as Home Assistant writes them (ULIDs).
+const C_DOOR = "01K8C0D00R0000000000000001";
+const C_RUN = "01K8C0D00R0000000000000002";
+const C_SAM = "01K8C0D00R0000000000000003";
+const C_KITCHEN = "01K8C0D00R0000000000000004";
 // Voice (D-041): Assist and its pipelines, the voice blueprints, apps to install.
 const voiceParam = params.get("voice");
 if (params.get("insecure") === "1") {
@@ -739,6 +752,21 @@ function logbookEvents(message) {
   return entries.sort((a, b) => a.when - b.when);
 }
 
+/** The logbook of the fictional evening (D-059): the rows of a context, or of entities, in the
+ * time asked. */
+function whyEvents(message) {
+  const start = Date.parse(message.start_time) / 1000;
+  const end = message.end_time ? Date.parse(message.end_time) / 1000 : Infinity;
+  return whyRows
+    .filter((row) => row.when >= start && row.when <= end)
+    .filter((row) =>
+      message.context_id
+        ? row.context === message.context_id
+        : !message.entity_ids || message.entity_ids.includes(row.entry.entity_id),
+    )
+    .map((row) => row.entry);
+}
+
 const connection = {
   sendMessage(message) {
     calls.push(message);
@@ -751,7 +779,7 @@ const connection = {
       case "recorder/statistics_during_period":
         return statisticsDuring(message);
       case "logbook/get_events":
-        return logbookEvents(message);
+        return why ? whyEvents(message) : logbookEvents(message);
       case "zha/devices":
         if (!zha) throw { code: "unknown_command", message: message.type };
         if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
@@ -1080,6 +1108,15 @@ const connection = {
         publishSchedules();
         return { cancelled: at >= 0 ? 1 : 0 };
       }
+      case "trace/contexts":
+        if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        return why ? { [C_RUN]: { run_id: "run-1", domain: "automation", item_id: "1004" } } : {};
+      case "config/auth/list":
+        if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        return [
+          { id: "e2e", name: "E2E" },
+          { id: "user-sam", name: "Sam" },
+        ];
       default:
         throw { code: "unknown_command", message: message.type };
     }
@@ -1206,6 +1243,95 @@ if (params.get("lists") === "1") {
     attributes: { friendly_name: "Shopping" },
   };
 }
+if (live && why) {
+  // A fictional evening (D-059): the states as they are after it, and what the logbook keeps.
+  const now = Date.now() / 1000;
+  const iso = (seconds) => new Date(seconds * 1000).toISOString();
+  const door = now - 300;
+  const written = (id, state, when, context, attributes = {}) => {
+    const previous = home.states[id];
+    home.states[id] = {
+      entity_id: id,
+      state,
+      attributes: { ...(previous?.attributes ?? {}), ...attributes },
+      last_changed: iso(when),
+      last_updated: iso(when),
+      context: { parent_id: null, user_id: null, ...context },
+    };
+  };
+  written("binary_sensor.entrance_door_contact", "on", door, { id: C_DOOR });
+  written(
+    "automation.hall_light_at_the_door",
+    "on",
+    door + 0.01,
+    {
+      id: C_RUN,
+      parent_id: C_DOOR,
+    },
+    {
+      friendly_name: "Hall light at the door",
+      id: "1004",
+      last_triggered: iso(door + 0.01),
+    },
+  );
+  written("light.hall_spots", "on", door + 0.02, { id: C_RUN, parent_id: C_DOOR });
+  written("light.living_room_floor_lamp", "on", now - 120, { id: C_SAM, user_id: "user-sam" });
+  written("light.kitchen_ceiling", "off", now - 600, { id: C_KITCHEN });
+  const source = "state of binary_sensor.entrance_door_contact";
+  whyRows = [
+    {
+      context: C_DOOR,
+      when: door,
+      entry: { when: door, entity_id: "binary_sensor.entrance_door_contact", state: "on" },
+    },
+    {
+      context: C_RUN,
+      when: door + 0.01,
+      entry: {
+        when: door + 0.01,
+        name: "Hall light at the door",
+        message: `triggered by ${source}`,
+        source,
+        entity_id: "automation.hall_light_at_the_door",
+        context_id: C_RUN,
+        domain: "automation",
+      },
+    },
+    {
+      context: C_RUN,
+      when: door + 0.02,
+      entry: {
+        when: door + 0.02,
+        entity_id: "light.hall_spots",
+        state: "on",
+        context_event_type: "automation_triggered",
+        context_domain: "automation",
+        context_name: "Hall light at the door",
+        context_message: `triggered by ${source}`,
+        context_source: source,
+        context_entity_id: "automation.hall_light_at_the_door",
+      },
+    },
+    {
+      context: C_SAM,
+      when: now - 120,
+      entry: {
+        when: now - 120,
+        entity_id: "light.living_room_floor_lamp",
+        state: "on",
+        context_user_id: "user-sam",
+        context_event_type: "call_service",
+        context_domain: "light",
+        context_service: "turn_on",
+      },
+    },
+    {
+      context: C_KITCHEN,
+      when: now - 600,
+      entry: { when: now - 600, entity_id: "light.kitchen_ceiling", state: "off" },
+    },
+  ];
+}
 const states = home.states;
 /** A person's room sensor, as the integration writes it, in `room` (or away). */
 function roomSensor(id, room) {
@@ -1269,7 +1395,7 @@ if (bluetoothParam === "1") {
 }
 if (params.get("radios") === "1") {
   // Where the locating places two of the receivers, and the hall it learned from the living
-  // room's (D-059).
+  // room's (D-060).
   const places = {
     "AA:00:00:00:00:03": { storey: "storey-1", at: [260, 260], z: 120 },
     "BB:00:00:00:00:01": { storey: "storey-1", at: [630, 483.3], z: 120 },
@@ -1361,6 +1487,7 @@ let hass = {
       ...(zha ? ["zha"] : []),
       ...(bluetoothParam === "1" ? ["bluetooth"] : []),
       ...(voiceParam ? ["conversation", "assist_pipeline"] : []),
+      ...(why ? ["logbook"] : []),
     ],
     // A fictional place, rounded: the sandbox's sun.
     ...(sandbox ? { time_zone: "Europe/Paris", latitude: 46, longitude: 2 } : {}),

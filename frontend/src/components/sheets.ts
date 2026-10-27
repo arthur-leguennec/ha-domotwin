@@ -31,6 +31,7 @@ import {
 } from "../live/room-actions";
 import type { Translator } from "../i18n";
 import type { LocatedKind, LocatedShown } from "../live/locating";
+import { explainable } from "../live/why";
 import type { PersonShown } from "../live/people";
 import { define, fire } from "./define";
 import { entityRow, rowStyles } from "./entity-rows";
@@ -41,6 +42,7 @@ import "./automation-section";
 import "./schedule-section";
 import "./bubble";
 import "./upkeep-section";
+import "./why-section";
 import { avatar, avatarStyles } from "./person-avatar";
 import { Sheet, sheetStyles } from "./sheet";
 import { baseStyles } from "./styles";
@@ -85,11 +87,14 @@ function historyButton(
   </button>`;
 }
 
-/** `<domotwin-controls>`: the entities of one element, with their controls and automations. */
+/** `<domotwin-controls>`: the entities of one element, with their controls, why the element is
+ * as it is (D-059) and its automations. */
 export class DomoTwinControls extends Sheet {
   static override properties = {
     ...Sheet.properties,
     entities: { attribute: false },
+    primary: { attribute: false },
+    unseen: { attribute: false },
     device: { attribute: false },
     area: { attribute: false },
     piece: { attribute: false },
@@ -99,6 +104,10 @@ export class DomoTwinControls extends Sheet {
   static override styles = [baseStyles, rowStyles, sheetStyles];
 
   entities: string[] = [];
+  /** The entity shown in the scene, which "Why?" explains (else the first). */
+  primary?: string;
+  /** Whether the viewer may not see an entity (D-039): "Why?" does not name it. */
+  unseen?: (entity: string) => boolean;
   /** The Home Assistant device it stands for, and its room's area: their automations too. */
   device?: string;
   area?: string;
@@ -112,8 +121,18 @@ export class DomoTwinControls extends Sheet {
     if (!hass) return nothing;
     const t = this.t;
     const first = this.entities[0];
+    const why = this.primary ?? first;
     return this.frame(
       html`${this.entities.map((id) => entityRow(hass, t, id, true))}
+        ${
+          why && explainable(hass, why)
+            ? html`<domotwin-why-section
+                .hass=${hass}
+                .entity=${why}
+                .unseen=${this.unseen}
+              ></domotwin-why-section>`
+            : nothing
+        }
         <domotwin-schedules .hass=${hass} .entities=${this.entities}></domotwin-schedules>
         <domotwin-automations
           .hass=${hass}

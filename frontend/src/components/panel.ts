@@ -155,7 +155,7 @@ const PANEL_OPTIONS: ViewOptions = {
 const TOAST_MS = 6000;
 /** How long before settings that could not be read are asked for again (ms). */
 const SETTINGS_RETRY_MS = 10_000;
-/** No Wi-Fi access point placed (D-059): the same array every time. */
+/** No Wi-Fi access point placed (D-060): the same array every time. */
 const NO_ACCESS_POINTS: AccessPoint[] = [];
 /** Upkeep cards saved at once when a file fills them (the integration takes up to 2 000). */
 const CARDS_AT_ONCE = 400;

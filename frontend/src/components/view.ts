@@ -95,6 +95,7 @@ import { failureText, runAction } from "../live/actions";
 import type { ReadAutomation } from "../live/automations";
 import {
   NO_BINDINGS,
+  areaOf,
   boundEntityIds,
   entityName,
   holdAction,
@@ -143,7 +144,14 @@ import { energyFlows, energyNow, type EnergyNow, type EnergySettings } from "../
 import { energyFlow, energyStyles } from "./energy-flow";
 import { locatedSensors, locatedShown, type LocatedShown } from "../live/locating";
 import type { AccessPoint } from "../live/placement";
-import { NOTHING_UNSEEN, outOfSight, privateRooms, unseenOf, type Unseen } from "../live/privacy";
+import {
+  NOTHING_UNSEEN,
+  outOfSight,
+  privateRooms,
+  seen,
+  unseenOf,
+  type Unseen,
+} from "../live/privacy";
 import { avatar, avatarStyles } from "./person-avatar";
 import { spoken } from "../live/show";
 import { StateSync } from "../live/states";
@@ -187,6 +195,7 @@ import type { Planner } from "../planner/planner";
 import { documentFonts } from "../fonts";
 import type { PlanEditState, PlanEditor, PlanTool } from "./plan-editor";
 import type { VoiceDialogMode } from "./voice-dialog";
+import type { ShowWhy } from "./why-section";
 import { baseStyles, lookStyles } from "./styles";
 
 type EngineState = "idle" | "loading" | "ready" | "unsupported" | "failed";
@@ -322,7 +331,8 @@ type PlacementSheet = HTMLElement & {
 /** No access point placed. */
 const NO_ACCESS_POINTS: AccessPoint[] = [];
 
-/** What the view asks of the automation wires (`automation-wires.ts`, loaded on demand). */
+/** What the view asks of the automation wires (`automation-wires.ts`, loaded on demand), and of
+ * a chain drawn in the home (`why-wires.ts`, D-059). */
 type WiresView = HTMLElement & {
   reproject(scale: number): void;
   tap(x: number, y: number): boolean;
@@ -399,6 +409,8 @@ type Sheet =
       /** The element whose controls these are. */
       element: string;
       entities: string[];
+      /** The entity shown in the scene (D-059: "Why?" explains it). */
+      primary?: string;
       device?: string;
       area?: string;
       piece?: string;
@@ -570,6 +582,8 @@ export class DomoTwinView extends LitElement {
     accessPoints: { attribute: false },
     wiresAsked: { state: true },
     wiresLoaded: { state: true },
+    whyAsked: { state: true },
+    whyLoaded: { state: true },
     editing: { attribute: false },
     planEditing: { attribute: false },
     planTool: { attribute: false },
@@ -704,7 +718,7 @@ export class DomoTwinView extends LitElement {
   home?: HomeStorey[];
   /** The rooms of the other storeys: their alerts show too, and a tap on one goes there. */
   elsewhere: StoreyRooms[] = [];
-  /** The Wi-Fi access points placed on the plan (the home's settings, D-059). */
+  /** The Wi-Fi access points placed on the plan (the home's settings, D-060). */
   accessPoints: AccessPoint[] = NO_ACCESS_POINTS;
 
   protected engineState: EngineState = "idle";
@@ -767,7 +781,7 @@ export class DomoTwinView extends LitElement {
   /** The network map's module is loaded (D-031). */
   protected networkLoaded = false;
   private networkModule?: Promise<unknown>;
-  /** The radio coverage's module is loaded (D-059), and the rooms' levels it gave. */
+  /** The radio coverage's module is loaded (D-060), and the rooms' levels it gave. */
   protected placementLoaded = false;
   private placementModule?: Promise<unknown>;
   private coverage?: Record<string, number>;
@@ -777,6 +791,10 @@ export class DomoTwinView extends LitElement {
   protected wiresAsked?: { ids: string[]; reads?: WiresReads };
   protected wiresLoaded = false;
   private wiresModule?: Promise<unknown>;
+  /** The chain a device's sheet asked to draw (D-059), and its module loaded. */
+  protected whyAsked?: ShowWhy;
+  protected whyLoaded = false;
+  private whyModule?: Promise<unknown>;
   protected layersOpen = false;
   /** Why voice cannot listen, shown over the view (D-041). */
   protected voiceHelp?: VoiceDialogMode;
@@ -921,6 +939,8 @@ export class DomoTwinView extends LitElement {
   private names: ElementNames = {};
   /** `openNames`, and what it was worked out from. */
   private openNamesFrom?: { names: ElementNames; closed: Set<string>; open: ElementNames };
+  /** What the viewer may not see, as an entity's test, and what it was worked out from (D-039). */
+  private unseenFrom?: { keys: unknown[]; unseen: (entity: string) => boolean };
   /** The labels' JSON last read from the engine, and whether they must be read again. */
   private labelsText = "";
   private labelsDue = true;
@@ -1887,6 +1907,7 @@ export class DomoTwinView extends LitElement {
       this.sheet = undefined;
       this.focusedRoom = undefined;
       this.wiresAsked = undefined;
+      this.whyAsked = undefined;
     }
     if (changed.has("options")) {
       // The layer and the sun start as the options say; the layer menu changes them after.
@@ -2419,7 +2440,10 @@ export class DomoTwinView extends LitElement {
   /** Shows a layer (the layer menu). */
   setLayer(layer: LayerName): void {
     // Every automation of the home takes over from those of a panel.
-    if (layer === "automations") this.wiresAsked = undefined;
+    if (layer === "automations") {
+      this.wiresAsked = undefined;
+      this.whyAsked = undefined;
+    }
     this.layersOpen = false;
     this.layer = layer;
     this.redraw();
@@ -2473,6 +2497,34 @@ export class DomoTwinView extends LitElement {
     return this.closedRoomOf(id) !== undefined;
   }
 
+  /**
+   * Whether the viewer may not see an entity (D-039, as the reports' search, D-058): linked to what
+   * a private room they may not see holds on any storey known, or in its area. None while every
+   * room is open; worked out again only when the rooms, their links or the plans change.
+   */
+  private unseenEntity(): ((entity: string) => boolean) | undefined {
+    const hass = this.hass;
+    if (!hass || this.closed.size === 0) return undefined;
+    const keys = [
+      this.closed,
+      this.bindings,
+      this.rooms,
+      this.plan,
+      this.layout,
+      this.home,
+      this.elsewhere,
+      hass.areas,
+    ];
+    const from = this.unseenFrom;
+    if (from?.keys.every((key, i) => key === keys[i])) return from.unseen;
+    const unseen = this.unseen(hass);
+    // The entities' areas as Home Assistant has them when asked.
+    const test = (entity: string): boolean =>
+      !seen(unseen, entity, this.hass ? areaOf(this.hass, entity) : undefined);
+    this.unseenFrom = { keys, unseen: test };
+    return test;
+  }
+
   /** Frames an element of the plan; false when it has nothing to show. */
   showElement(id: string): boolean {
     const done = this.engine?.focusElement(id) ?? false;
@@ -2494,7 +2546,7 @@ export class DomoTwinView extends LitElement {
     }
     const placement = this.coverageShown ? this.placementElement() : null;
     if (placement?.placing) {
-      // The radio coverage asks where an access point stands (D-059): the floor tapped.
+      // The radio coverage asks where an access point stands (D-060): the floor tapped.
       const point = this.devicePoint(x, y);
       const at = engine.planPoint(point.x, point.y);
       this.gestures.forgetTap();
@@ -2519,8 +2571,8 @@ export class DomoTwinView extends LitElement {
     }
     // A linked piece acts on a tap even under a wire passing over it.
     const acts = !this.linking && picked !== undefined && this.actingBinding(picked.id);
-    if (this.wiresShown && !acts) {
-      // Automation wires: a tap on one picks its automation out.
+    if ((this.wiresShown || this.whyShown) && !acts) {
+      // Automation wires, or a chain: a tap on one picks its automation out.
       const point = this.devicePoint(x, y);
       if (this.wiresElement()?.tap(point.x, point.y)) {
         this.gestures.forgetTap();
@@ -2812,21 +2864,38 @@ export class DomoTwinView extends LitElement {
    * while walking (at eye level the wires would cross the view).
    */
   private get wiresShown(): { ids?: string[]; reads?: WiresReads } | undefined {
-    if (this.editingAny || this.linking || this.walking) return undefined;
+    if (this.editingAny || this.linking || this.walking || this.whyAsked) return undefined;
     if (this.wiresAsked) return this.wiresAsked;
     return this.shownLayer === "automations" ? {} : undefined;
   }
 
-  /** The automation wires over the view, while they are shown. */
+  /**
+   * The chain a device's sheet asked to draw (D-059), over any automation wires; none while a
+   * tool is at work over the view, nor while walking, as the wires.
+   */
+  private get whyShown(): ShowWhy | undefined {
+    if (this.editingAny || this.linking || this.walking) return undefined;
+    return this.whyAsked;
+  }
+
+  /** The automation wires or the chain over the view, while they are shown. */
   private wiresElement(): WiresView | null {
-    return this.renderRoot.querySelector<WiresView>("domotwin-wires");
+    return this.renderRoot.querySelector<WiresView>("domotwin-wires, domotwin-why");
   }
 
   /** A panel asked for the wires of its automations (and hands what it read of them). */
   private readonly onShowWires = (event: Event): void => {
     this.sheet = undefined;
     const { ids, reads } = (event as CustomEvent<{ ids: string[]; reads?: WiresReads }>).detail;
+    this.whyAsked = undefined;
     this.wiresAsked = { ids, reads };
+  };
+
+  /** A device's sheet asked for its chain drawn in the home (D-059). */
+  private readonly onShowWhy = (event: Event): void => {
+    this.sheet = undefined;
+    this.wiresAsked = undefined;
+    this.whyAsked = (event as CustomEvent<ShowWhy>).detail;
   };
 
   /** The wires' close button: those a panel asked for go, else their layer. */
@@ -2855,7 +2924,7 @@ export class DomoTwinView extends LitElement {
   }
 
   /**
-   * The radio coverage is shown (D-059): chosen, allowed, no tool at work over the view, and not
+   * The radio coverage is shown (D-060): chosen, allowed, no tool at work over the view, and not
    * walking.
    */
   private get coverageShown(): boolean {
@@ -2868,7 +2937,7 @@ export class DomoTwinView extends LitElement {
   }
 
   /**
-   * Every storey of the home, lowest first, as the radio coverage reads them (D-059): their plans
+   * Every storey of the home, lowest first, as the radio coverage reads them (D-060): their plans
    * and overlays from the home shown whole, else from the storey shown and the others'; one with
    * no plan still counts as a floor. The same array while they stay.
    */
@@ -3593,7 +3662,7 @@ export class DomoTwinView extends LitElement {
     if (canvas && this.networkShown) {
       this.networkElement()?.reproject(Math.max(1, canvas.clientWidth) / Math.max(1, canvas.width));
     }
-    if (canvas && this.wiresShown) {
+    if (canvas && (this.wiresShown || this.whyShown)) {
       this.wiresElement()?.reproject(Math.max(1, canvas.clientWidth) / Math.max(1, canvas.width));
     }
     if (canvas && this.coverageShown) {
@@ -3916,6 +3985,7 @@ export class DomoTwinView extends LitElement {
       this.sheet = undefined;
       this.focusedRoom = undefined;
       this.wiresAsked = undefined;
+      this.whyAsked = undefined;
     }
     this.summary = undefined;
     this.loadError = undefined;
@@ -4076,6 +4146,7 @@ export class DomoTwinView extends LitElement {
       element: picked.id,
       entities: binding.entities.map((entity) => entity.entity_id),
     };
+    if (primary) sheet.primary = primary;
     if (binding.device) sheet.device = binding.device;
     // A piece's upkeep card (D-033) shows with its controls.
     if (picked.type === "furniture") sheet.piece = picked.id;
@@ -4530,7 +4601,7 @@ export class DomoTwinView extends LitElement {
     ></domotwin-network>`;
   }
 
-  /** The radio coverage (D-059): its module is loaded the first time it is shown. */
+  /** The radio coverage (D-060): its module is loaded the first time it is shown. */
   private renderPlacement(): TemplateResult | typeof nothing {
     if (!this.coverageShown) return nothing;
     if (!this.placementLoaded) {
@@ -4557,8 +4628,11 @@ export class DomoTwinView extends LitElement {
     ></domotwin-placement>`;
   }
 
-  /** The automation wires (D-032): their module is loaded the first time they are shown. */
+  /** The automation wires (D-032), or a device's chain (D-059): their module is loaded the first
+   * time they are shown. */
   private renderWires(): TemplateResult | typeof nothing {
+    const why = this.whyShown;
+    if (why) return this.renderWhy(why);
     const shown = this.wiresShown;
     if (!shown) return nothing;
     if (!this.wiresLoaded) {
@@ -4581,6 +4655,31 @@ export class DomoTwinView extends LitElement {
       }}
       @domotwin-wires-close=${this.onWiresClose}
     ></domotwin-wires>`;
+  }
+
+  /** A device's chain drawn in the home (D-059). */
+  private renderWhy(why: ShowWhy): TemplateResult | typeof nothing {
+    if (!this.whyLoaded) {
+      this.whyModule ??= import("./why-wires").then(
+        () => (this.whyLoaded = true),
+        () => (this.whyModule = undefined),
+      );
+      return nothing;
+    }
+    return html`<domotwin-why
+      .hass=${this.hass}
+      .engine=${this.engine}
+      .bindings=${this.bindings}
+      .rooms=${this.rooms}
+      .names=${this.openNames()}
+      .ask=${why}
+      @domotwin-redraw=${() => {
+        this.redraw();
+      }}
+      @domotwin-why-close=${() => {
+        this.whyAsked = undefined;
+      }}
+    ></domotwin-why>`;
   }
 
   /** Walking: the pad that walks while held, and how to look around and go somewhere. */
@@ -4946,6 +5045,8 @@ export class DomoTwinView extends LitElement {
         .hass=${this.hass}
         .heading=${sheet.heading}
         .entities=${sheet.entities}
+        .primary=${sheet.primary}
+        .unseen=${this.unseenEntity()}
         .device=${sheet.device}
         .area=${sheet.area}
         .piece=${sheet.piece}
@@ -4954,6 +5055,7 @@ export class DomoTwinView extends LitElement {
         @domotwin-close=${this.closeSheet}
         @domotwin-show-wires=${this.onShowWires}
         @domotwin-open-history=${this.onOpenHistory}
+        @domotwin-show-why=${this.onShowWhy}
       ></domotwin-controls>`;
     }
     if (sheet.kind === "piece") {

@@ -943,6 +943,24 @@ changes): read in about 35 ms, its rows in 50 ms, filtered by value and by how l
 its day once, minute by minute, the first time its history is asked (about 70 ms), then answers
 ten days of three entities in a few milliseconds.
 
+### M32 ("Why?")
+
+Bundle: the first load is **518.2 kB gzipped** of 1 200 kB (+0.9 kB): the view's part (the chain
+asked for, shown and hidden, what a private room hides from it) and five icons. The section comes
+with the sheets (`chunks/sheets-<hash>.js`: 44.1 kB raw, 11.0 kB gzipped, +1.3 kB) with its texts
+in both languages, the chain drawn in the home on demand, the first time it is
+(`chunks/why-wires-<hash>.js`: 3.6 kB raw, 1.7 kB gzipped); the spots and chip it shares with the
+automation wires moved out of theirs (`chunks/automation-wires-<hash>.js`: 2.9 → 1.9 kB gzipped).
+The demo house's logbook adds 1.5 kB gzipped to the demo house's code.
+
+Nothing is asked of Home Assistant until **Who or what changed it?** is: a chain read by contexts
+is two or three logbook questions, one through an automation's runs a few more (its last three of
+the day before at most), the traces' contexts and the users once for an administrator. A device
+that changes while its chain is read is asked about again once, when the read is done. The engine
+draws the chain with the automations' wire set, as it does their wires (D-032): no new mesh, no
+frame while nothing pulses. The demo house keeps its last 6 000 rows (a few hours of its day),
+the measuring sensors left out as Home Assistant's logbook leaves them.
+
 ### M31 (the placement advisor)
 
 Bundle: the first load is **518.2 kB gzipped** of 1 200 kB (+0.9 kB): the layer's name, who may
@@ -963,4 +981,4 @@ for the demo apartment (5 rooms), **10 ms** for the demo house (13 rooms on two 
 looked at from four of its points, not twelve, and its spot is its middle alone: 30 to 40 rooms
 took about 190 ms before. The integration's Python counts walls between two places in about
 57 µs: the same advice there would take about 2.3 s for 30 rooms on this computer, more on a small
-host, which is why it runs in the page (D-059).
+host, which is why it runs in the page (D-060).
