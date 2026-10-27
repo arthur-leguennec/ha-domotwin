@@ -3624,3 +3624,51 @@ M35, M34, M40 and M41 were (D-063, D-064, D-066 to D-073); the rest keeps its or
   - While the catalogue is open, a second WebGL context is used (browsers allow about sixteen).
   - Fixed on the way: the pictures of the storeys (D-028) were drawn upside down; three-d already
     reads the rows from the top.
+
+## D-075 · An iPhone's key without a Mac: taken in DomoTwin, kept by Private BLE Device (M45)
+
+D-065 put it next to locating measured (M41): many who would follow an iPhone or an Apple Watch
+have no Mac to read its identity key from.
+
+- **Context.** An iPhone and an Apple Watch change their Bluetooth address every few minutes; only
+  their identity key (IRK) finds them again. Home Assistant's Private BLE Device takes the key (32
+  hexadecimal digits, `irk:` before them, or a Mac's base64, its bytes the other way round) and
+  keeps it in its own entry; DomoTwin follows a device by that entry (D-035). Getting the key needs
+  a Mac's Keychain, or an ESP32 for ten minutes with a tool that exists and is kept up: irk-capture
+  (an ESPHome package, MIT, explained in Home Assistant's community guide) or ESPresense's Enroll
+  (AGPL). Private BLE Device takes a key only while Home Assistant hears the device it belongs to.
+- **Decision.**
+  - **Point to the tools, build none.** The Bluetooth settings say the three ways in a line and
+    link to the guide (`docs/bluetooth.md`), which says each step; DomoTwin ships no firmware of
+    its own, unless these tools stop being kept.
+  - **Take the key as the tool wrote it.** One field (administrators): hex, maybe split by spaces,
+    colons or dashes, `irk:` and hex, or a Mac's base64, read into sixteen bytes
+    (`locating.identity.parse_key`, the base64's bytes reversed as Private BLE Device reads it); a
+    key of one byte repeated is refused as no key.
+  - **Handed to Private BLE Device, kept there only.** `domotwin/locating/add_key` runs Private
+    BLE Device's own setup with the key in hex; its entry is what follows the device. A key it
+    already has (by its entry's unique id, the key in hex) gives its entry back without a second
+    one; one key is handed at a time, so two clicks make one entry. Its refusals are said plainly:
+    not a key, not heard (the phone unlocked near a receiver, then again), no Bluetooth (asked
+    before Private BLE Device, whose first step fails without it); anything else is "not taken",
+    its form asking for other fields included. Its setup is never left open, whatever it answers
+    or fails with. A test runs Private BLE Device's own setup, only Bluetooth played, so its
+    field, its errors and its default title are pinned.
+  - **Never said back.** DomoTwin keeps nothing of the key, never sends it back, never says it in
+    an error (its length is checked by the locator, not by the command's schema, whose error would
+    quote it). The field hides it without being a password field (a password manager would offer
+    to keep it), cannot be changed while the key is being added and is emptied once it is taken;
+    it is not shown without Bluetooth, and with 30 devices followed already it asks for one to be
+    removed before the key is sent (even for a key already followed, which the browser cannot
+    know: nothing is sent for nothing).
+  - **Then followed.** The device Private BLE Device now knows is added to the devices followed,
+    as a phone, by its entry's title, or "iPhone" when the integration finds that title names
+    nothing (an address, or Private BLE Device's "BLE Device Tracker" for a phone that sends no
+    name); its kind and owner are chosen, then saved, as for any device. Save waits while a key is
+    being added, and no key is added while a save is on its way.
+- **Consequences.**
+  - An iPhone can be followed without a Mac, in a few minutes with an ESP32 and the guide.
+  - The texts come with the Bluetooth settings' chunk (+1.5 kB gzipped); the first load grows by
+    0.2 kB (the client's command and three refusals' texts).
+  - If Private BLE Device's setup changes its field or its errors, DomoTwin's command says "not
+    taken"; its test pins what it expects.

@@ -128,8 +128,19 @@ when it is added. To get it:
 - Bermuda's wiki keeps a [longer list](https://github.com/agittins/bermuda/wiki/How-to-get-the-IRK-%28Identity-Resolving-Keys%29-for-iOS,-Android-etc),
   Android included.
 
-A helper in DomoTwin's own Bluetooth dialog, which points to these and takes the key in any of
-these forms, is on the roadmap (M45).
+**Then, in DomoTwin**: **Bluetooth settings › Devices to follow › An iPhone or an Apple Watch**
+(administrators). Paste the key as the tool gave it: 32 hexadecimal digits (spaces, colons or
+dashes between them are fine), `irk:` and the digits, or the Mac's base64. DomoTwin hands it to
+Private BLE Device's own setup, which keeps it, and follows the device it now knows: choose its
+kind (phone or watch) and its owner, then save. It is named after Private BLE Device's entry, or
+"iPhone" when that entry is named only by an address; rename it there if you like. DomoTwin keeps
+nothing of the key and writes it nowhere; it never shows it again (the field hides it without
+being a password field a password manager would offer to keep, and is emptied once the key is
+taken) and never says it in an error. Keep the phone unlocked near a receiver while adding it:
+Private BLE Device takes a key only when Home Assistant hears the device it belongs to ("Home
+Assistant does not hear a device with this key"). A key Private BLE Device already has is
+followed as it is, without a second entry. Without Bluetooth in Home Assistant the field is not
+shown; with 30 devices followed already, one must be removed before the key is sent.
 
 ## Setting it up
 

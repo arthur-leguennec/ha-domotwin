@@ -11,6 +11,7 @@ import { LitElement, css, html, nothing, type TemplateResult } from "lit";
 import { DomoTwinClient } from "../ha/client";
 import { isHassError, type HomeAssistant } from "../ha/types";
 import { addMessages, translatorFor, type Translator } from "../i18n";
+import { iphoneEn, iphoneFr } from "../i18n/iphone";
 import { measuredEn, measuredFr } from "../i18n/measured";
 import {
   deviceId,
@@ -39,11 +40,19 @@ import { copyText } from "./save";
 import { baseStyles } from "./styles";
 
 addMessages({ en: measuredEn, fr: measuredFr });
+addMessages({ en: iphoneEn, fr: iphoneFr });
+
+/** The guide's part on an iPhone's identity key (`docs/bluetooth.md`). */
+const KEY_GUIDE =
+  "https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/bluetooth.md#an-iphones-identity-key";
 
 /** The choice of a receiver placed at a piece, in its room list. */
 const PIECE = "@piece";
 /** How long a room is taught (seconds). */
 const TEACH_SECONDS = 30;
+// As the integration has them: the devices followed, an identity key as written, at most.
+const MAX_DEVICES = 30;
+const MAX_KEY_TEXT = 80;
 const KINDS: readonly LocatedKind[] = ["phone", "watch", "thing"];
 
 interface Draft {
@@ -69,6 +78,9 @@ export class DomoTwinBluetoothSettings extends LitElement {
     measureCopied: { state: true },
     measureResetAsk: { state: true },
     measureText: { state: true },
+    keyBusy: { state: true },
+    keyStatus: { state: true },
+    keyError: { state: true },
   };
   static override styles = [
     baseStyles,
@@ -151,6 +163,13 @@ export class DomoTwinBluetoothSettings extends LitElement {
         justify-content: flex-end;
         gap: 8px;
       }
+      .hint a {
+        color: var(--primary-color, #03a9f4);
+      }
+      /* Hidden as a password is, without a password field password managers offer to keep. */
+      input.irk {
+        -webkit-text-security: disc;
+      }
       table.measured {
         width: 100%;
         table-layout: fixed;
@@ -219,6 +238,10 @@ export class DomoTwinBluetoothSettings extends LitElement {
   protected measureResetAsk = false;
   /** The measurements asked last: an answer to an earlier question is old. */
   private measureAsked = 0;
+  /** An identity key being handed to Private BLE Device (D-075), and what came of it. */
+  protected keyBusy = false;
+  protected keyStatus?: string;
+  protected keyError?: string;
 
   private get t(): Translator {
     return translatorFor(this.hass);
@@ -354,6 +377,46 @@ export class DomoTwinBluetoothSettings extends LitElement {
     this.changeDevice(id, { name: candidate.name.slice(0, 60), kind: kindOf(match), match });
   }
 
+  /**
+   * Hands the identity key typed to Home Assistant's Private BLE Device (D-075), then follows the
+   * device it now knows. The key is cleared from the field and never shown again.
+   */
+  private async addKey(): Promise<void> {
+    const hass = this.hass;
+    const field = this.renderRoot.querySelector<HTMLInputElement>("input.irk");
+    const key = field?.value.trim() ?? "";
+    // Not while a save is on its way: the device would join a draft already sent.
+    if (!hass || !field || !key || this.keyBusy || this.busy) return;
+    const t = this.t;
+    this.keyStatus = undefined;
+    this.keyError = undefined;
+    // Full: the key is not handed to Home Assistant for a device that could not be followed.
+    if (Object.keys(this.draft?.devices ?? {}).length >= MAX_DEVICES) {
+      this.keyError = t.t("iphone.full", { count: MAX_DEVICES });
+      return;
+    }
+    this.keyBusy = true;
+    try {
+      const { entry, title, named, added } = await DomoTwinClient.for(hass).addLocatingKey(key);
+      if (field.value.trim() === key) field.value = "";
+      const match: LocatedMatch = { key: entry, title };
+      const followed = Object.values(this.draft?.devices ?? {}).find((device) =>
+        sameMatch(device.match, match),
+      );
+      if (followed) this.keyStatus = t.t("iphone.followed", { name: followed.name });
+      else {
+        // An entry titled by an address alone (a phone that sends no name) is "iPhone".
+        const name = named ? title : t.t("iphone.unnamed");
+        this.follow({ match, name });
+        this.keyStatus = t.t(added ? "iphone.added" : "iphone.known", { name });
+      }
+    } catch (error) {
+      this.keyError = this.reason(error);
+    } finally {
+      this.keyBusy = false;
+    }
+  }
+
   private async look(): Promise<void> {
     const hass = this.hass;
     if (!hass) return;
@@ -467,7 +530,7 @@ export class DomoTwinBluetoothSettings extends LitElement {
             </p>`
       }
       ${this.renderReceivers(settings, draft)} ${this.renderDevices(hass, settings, draft)}
-      ${this.renderCandidates(draft)} ${this.renderTeach(settings, draft)}
+      ${this.renderCandidates(settings, draft)} ${this.renderTeach(settings, draft)}
       ${this.renderLearned(settings, draft)} ${this.renderMeasure(draft)}
       ${this.error ? html`<p class="error" role="alert">${this.error}</p>` : nothing}
       <div class="footer">
@@ -482,7 +545,7 @@ export class DomoTwinBluetoothSettings extends LitElement {
         <button
           class="action"
           data-testid="bluetooth-save"
-          ?disabled=${this.busy || this.teaching !== undefined}
+          ?disabled=${this.busy || this.keyBusy || this.teaching !== undefined}
           @click=${() => {
             void this.save();
           }}
@@ -689,7 +752,7 @@ export class DomoTwinBluetoothSettings extends LitElement {
       })}`;
   }
 
-  private renderCandidates(draft: Draft): TemplateResult {
+  private renderCandidates(settings: LocatingSettings, draft: Draft): TemplateResult {
     const t = this.t;
     const followed = Object.values(draft.devices);
     const offered = (this.candidates ?? []).filter(
@@ -738,6 +801,63 @@ export class DomoTwinBluetoothSettings extends LitElement {
                     </button>
                   </div>`,
               )
+      }
+      ${
+        // Private BLE Device listens through Home Assistant's Bluetooth: none, no key to give it.
+        settings.status === "no_bluetooth" ? nothing : this.renderKey()
+      }`;
+  }
+
+  /** An iPhone's or a watch's identity key, handed to Private BLE Device (M45, D-075). */
+  private renderKey(): TemplateResult {
+    const t = this.t;
+    return html`<h4>${t.t("iphone.title")}</h4>
+      <p class="hint">
+        ${t.t("iphone.hint")}
+        <a href=${KEY_GUIDE} target="_blank" rel="noreferrer" data-testid="iphone-guide"
+          >${t.t("iphone.guide")}</a
+        >
+      </p>
+      <div class="row">
+        <input
+          class="irk grow"
+          type="text"
+          autocomplete="off"
+          autocapitalize="off"
+          spellcheck="false"
+          data-1p-ignore
+          data-lpignore="true"
+          data-form-type="other"
+          maxlength=${MAX_KEY_TEXT}
+          ?readonly=${this.keyBusy}
+          data-testid="iphone-key"
+          aria-label=${t.t("iphone.field")}
+          placeholder=${t.t("iphone.placeholder")}
+          @keydown=${(event: KeyboardEvent) => {
+            if (event.key === "Enter") void this.addKey();
+          }}
+        />
+        <button
+          class="action"
+          data-testid="iphone-add"
+          ?disabled=${this.keyBusy || this.busy}
+          @click=${() => {
+            void this.addKey();
+          }}
+        >
+          ${this.keyBusy ? t.t("iphone.adding") : t.t("iphone.add")}
+        </button>
+      </div>
+      <p class="hint">${t.t("iphone.kept")}</p>
+      ${
+        this.keyStatus
+          ? html`<p role="status" data-testid="iphone-added">${this.keyStatus}</p>`
+          : nothing
+      }
+      ${
+        this.keyError
+          ? html`<p class="error" role="alert" data-testid="iphone-error">${this.keyError}</p>`
+          : nothing
       }`;
   }
 

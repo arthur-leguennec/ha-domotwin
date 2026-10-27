@@ -92,6 +92,8 @@ LOCATING_STORAGE_VERSION: Final = 1
 MAX_LOCATED: Final = 30
 MAX_RECEIVERS: Final = 64
 MAX_LOCATED_NAME: Final = 60
+# An identity key as the tools that read one write it (spaces, `irk:`), at most (D-075).
+MAX_KEY_TEXT: Final = 80
 LOCATED_KINDS: Final = ("phone", "watch", "thing")
 # A device taught in a room is listened to this long (seconds), at least and at most.
 TEACH_SECONDS: Final = (10, 120)

@@ -1200,6 +1200,10 @@ export const en = {
         "the Bluetooth settings are not valid (30 devices at most, each known one way).",
       unknown_device: "this device is not followed.",
       unknown_room: "the plans have no such room.",
+      invalid_key: "this is not an identity key: 32 hex digits, irk:… or a Mac's base64.",
+      key_not_heard:
+        "Home Assistant does not hear a device with this key: unlock the phone, keep it near a receiver and try again.",
+      key_refused: "Private BLE Device did not take the key.",
       no_bluetooth: "Home Assistant has no Bluetooth.",
       too_many_storeys: "a home has at most 20 storeys.",
       no_entities: "nothing to switch was given.",

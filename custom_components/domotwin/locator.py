@@ -12,6 +12,7 @@ from __future__ import annotations
 import asyncio
 from collections import deque
 from collections.abc import Callable
+import contextlib
 import copy
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -19,7 +20,10 @@ import statistics
 from time import monotonic
 from typing import Any, Final
 
+from homeassistant.config_entries import SOURCE_USER, ConfigFlowResult
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.data_entry_flow import FlowResultType, InvalidData, UnknownFlow
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import (
     area_registry as ar,
     device_registry as dr,
@@ -35,12 +39,13 @@ from .const import (
     LOCATING_LEARNED_KEY,
     LOCATING_STORAGE_KEY,
     LOCATING_STORAGE_VERSION,
+    MAX_KEY_TEXT,
     SIGNAL_LOCATED,
     SIGNAL_UPDATED,
 )
 from .locating.filter import PRESENCE_ON, RoomFilter, presence_weight
 from .locating.geometry import Home, Spot
-from .locating.identity import Match, Matcher, beacon_of, resolvable
+from .locating.identity import ADDRESS, Match, Matcher, beacon_of, parse_key, resolvable
 from .locating.measure import Measure
 from .locating.radio import AT_1M, Key, Learned, Model, prior
 from .locating.radio_ha import Advert, Radio, ha_radio
@@ -73,6 +78,8 @@ REBUILD_DELAY: Final = 2.0
 # Its owner away this long, a device still heard at home is left behind (seconds).
 LEFT_BEHIND_AFTER: Final = 120.0
 PRIVATE_BLE: Final = "private_ble_device"
+# How Private BLE Device titles the entry of a phone that sends no name: its address, or this.
+PRIVATE_BLE_UNNAMED: Final = "BLE Device Tracker"
 MAX_CANDIDATES: Final = 30
 
 type Readings = dict[str, float]
@@ -147,6 +154,22 @@ def _device_by_connection(
     return devices.async_get_device(connections={connection})
 
 
+class KeyNotTakenError(Exception):
+    """An identity key Home Assistant's Private BLE Device did not take (D-075), with why."""
+
+    def __init__(self, code: str) -> None:
+        """`code`: `invalid_key`, `key_not_heard`, `no_bluetooth` or `key_refused`."""
+        super().__init__(code)
+        self.code = code
+
+
+def _key_entry(entry: str, title: str, *, added: bool) -> dict[str, Any]:
+    """What `add_key` answers: the entry, its title, whether that title names the device."""
+    written = title.strip()
+    named = written not in ("", PRIVATE_BLE_UNNAMED) and not ADDRESS.fullmatch(written.upper())
+    return {"entry": entry, "title": title, "named": named, "added": added}
+
+
 class Locator:
     """The followed devices' rooms, the receivers' places, and what was learned."""
 
@@ -202,6 +225,8 @@ class Locator:
         self._rebuild_again = False
         self._rebuild_later: Callable[[], None] | None = None
         self._rebuild_lock = asyncio.Lock()
+        # One identity key handed at a time: two clicks never make two entries for one key.
+        self._key_lock = asyncio.Lock()
         # When the save waiting will be written (monotonic), None when none is waiting.
         self._save_due: float | None = None
         # When each owner left home (going from zone to zone is still away).
@@ -900,6 +925,61 @@ class Locator:
         if self.radio is None:
             return "no_bluetooth"
         return "ready" if self.receivers_now() else "no_receivers"
+
+    async def async_add_key(self, text: str) -> dict[str, Any]:
+        """Hand an identity key to Home Assistant's Private BLE Device (D-075).
+
+        The key, as a tool that reads one writes it, goes to Private BLE Device's own setup, which
+        keeps it; DomoTwin keeps nothing of it and never says it. Its entry is what follows the
+        device (`{"key": entry id}`). Return the entry, its title and whether it was added now (a
+        key already there gives its entry back).
+        """
+        key = parse_key(text) if len(text) <= MAX_KEY_TEXT else None
+        if key is None:
+            raise KeyNotTakenError("invalid_key")
+        if self.radio is None:
+            raise KeyNotTakenError("no_bluetooth")
+        written = key.hex()
+        async with self._key_lock:
+            entries = self._hass.config_entries
+            # Private BLE Device's entries are known by their key, in hex.
+            known = entries.async_entry_for_domain_unique_id(PRIVATE_BLE, written) or next(
+                (e for e in entries.async_entries(PRIVATE_BLE) if e.data.get("irk") == written),
+                None,
+            )
+            if known is not None:
+                return _key_entry(known.entry_id, known.title, added=False)
+            result = await self._key_flow(written)
+        if result["type"] is FlowResultType.CREATE_ENTRY:
+            entry = result["result"]
+            return _key_entry(entry.entry_id, entry.title, added=True)
+        if result["type"] is FlowResultType.ABORT:
+            no_bluetooth = result.get("reason") == "bluetooth_not_available"
+            raise KeyNotTakenError("no_bluetooth" if no_bluetooth else "key_refused")
+        errors = (result.get("errors") or {}).values()
+        if "irk_not_found" in errors:
+            raise KeyNotTakenError("key_not_heard")
+        raise KeyNotTakenError("invalid_key" if "irk_not_valid" in errors else "key_refused")
+
+    async def _key_flow(self, written: str) -> ConfigFlowResult:
+        """Private BLE Device's setup given a key in hex: its last step; never left open."""
+        flows = self._hass.config_entries.flow
+        flow: str | None = None
+        try:
+            result = await flows.async_init(PRIVATE_BLE, context={"source": SOURCE_USER})
+            if result["type"] is FlowResultType.FORM:
+                flow = result["flow_id"]
+                result = await flows.async_configure(flow, {"irk": written})
+        except (HomeAssistantError, InvalidData) as err:
+            # Private BLE Device missing, its setup gone or asking for other fields: not taken (an
+            # InvalidData let through would be said with the command, the key in it).
+            raise KeyNotTakenError("key_refused") from err
+        finally:
+            # A form asked again (or anything that failed) is closed; a flow ended is gone already.
+            if flow is not None:
+                with contextlib.suppress(UnknownFlow):
+                    flows.async_abort(flow)
+        return result
 
     def candidates(self) -> list[dict[str, Any]]:
         """Devices that may be followed: Private BLE Device keys, iBeacons and tags heard now.

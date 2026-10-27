@@ -24,6 +24,7 @@ from custom_components.domotwin.locating.identity import (
     Match,
     Matcher,
     beacon_of,
+    parse_key,
     resolvable,
     resolves,
 )
@@ -159,6 +160,19 @@ def test_private_addresses_resolve_with_their_key() -> None:
     assert not resolves(SPEC_KEY, "F0:81:94:0D:FB:AA")  # a static address
     assert not resolves(b"short", SPEC_ADDRESS)
     assert not resolvable("not an address")
+
+
+def test_identity_keys_are_read_as_the_tools_write_them() -> None:
+    """D-075: hex (irk-capture), `irk:` and hex (ESPresense), a Mac's base64 (reversed)."""
+    # Fictional keys.
+    key = bytes.fromhex("11111111222222223333333344444444")
+    assert parse_key("11111111222222223333333344444444") == key
+    assert parse_key("  11111111 22222222-33333333:44444444 \n") == key
+    assert parse_key("IRK:11111111222222223333333344444444") == key
+    # A Mac's Keychain gives the bytes the other way round, as Home Assistant reads them.
+    assert parse_key("RERERDMzMzMiIiIiEREREQ==") == key
+    for wrong in ("", "1111", "x" * 32, "11" * 17, "00" * 16, "EREREREREREREREREREREQ==", "a=="):
+        assert parse_key(wrong) is None, wrong
 
 
 def _beacon(major: int = 1, minor: int = 2, power: int = -62) -> dict[int, bytes]:

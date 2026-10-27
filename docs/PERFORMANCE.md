@@ -1278,3 +1278,10 @@ shader compiles, the others under 85 ms. A picture is a 272 × 204 PNG of 17 kB 
 for the 195), kept for the session: opened again, the catalogue shows them all in 0.2 s. Without a
 second WebGL context the pieces go without pictures; the engine and its context are given back
 when the catalogue closes.
+
+### M45 (an iPhone's key without a Mac)
+
+Bundle: the first load is **601.2 kB gzipped** of 1 200 kB (+0.2 kB: the client's command and the
+three refusals' texts). The Bluetooth settings, loaded when opened, grow by 1.5 kB gzipped
+(8.6 kB): the key's field, its texts in both languages and the link to the guide. Nothing runs
+until a key is added: the integration reads it and runs Private BLE Device's setup once.

@@ -387,6 +387,7 @@ when the integration is removed.
 | `domotwin/locating/candidates` | admin | –                                        | `candidates` (`[{match, name, rssi?}]`) |
 | `domotwin/locating/teach` | admin | `device`, `room`, `seconds?` (10–120, 30)     | `readings`, `receivers`          |
 | `domotwin/locating/forget` | admin | `room?` (every room without one)             | `forgotten`                      |
+| `domotwin/locating/add_key` | admin | `key` (80 characters at most: hex, `irk:` and hex, or a Mac's base64) | `entry`, `title`, `named` (the title names the device, not an address), `added` (D-075; the key is handed to Private BLE Device and never sent back) |
 | `domotwin/locating/measure` | admin | –                                           | `since`, `devices` (`{id: {domotwin, domotwin_areas?, bermuda?, agreement?}}`, D-073) |
 | `domotwin/locating/measure/reset` | admin | –                                     | `since`                          |
 | `domotwin/choices/get`   | user   | – (their own)                                  | `favourites`, `cards`, `start?`  |
@@ -403,8 +404,8 @@ when the integration is removed.
 
 Errors: `not_loaded`, `invalid_plan`, `invalid_layout`, `invalid_bindings`, `invalid_settings`,
 `invalid_upkeep`, `unknown_task`, `invalid_people`, `unknown_person`, `invalid_locating`,
-`unknown_device`, `unknown_room`, `no_bluetooth`, `too_large`, `too_many_favourites`,
-`too_many_models`, `revision_conflict`, `unknown_storey`, `invalid_storey`, `too_many_storeys`,
+`unknown_device`, `unknown_room`, `no_bluetooth`, `invalid_key`, `key_not_heard`, `key_refused`,
+`too_large`, `too_many_favourites`, `too_many_models`, `revision_conflict`, `unknown_storey`, `invalid_storey`, `too_many_storeys`,
 `duplicate_id`, `unknown_item`, `unknown_version`, a pass's (`ends_before`, `already_ended`,
 `too_long`, `too_far`, `unknown_room`, `not_for_guests`, `nothing_open`, `too_many`,
 `unknown_pass`), and Home Assistant's `unauthorized` for non-admin writes (and the history's and
