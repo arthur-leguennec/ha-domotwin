@@ -76,6 +76,8 @@ export interface CardConfig {
   /** The people in their rooms (D-034), as figures. */
   people: boolean;
   sun: SunMode;
+  /** The weather around the home (D-072): rain, snow, fog and storms, on unless turned off. */
+  weather: boolean;
   /** Badges over the devices (locks, cameras, what plays, low batteries, appliances running). */
   badges: boolean;
   /** What the cameras see, on the floor. */
@@ -179,6 +181,7 @@ export function normalizeConfig(raw: unknown): CardConfig {
     presence: flag(input.presence, true, "config.bad_presence"),
     people: flag(input.people, true, "config.bad_people"),
     sun: pick(input.sun, SUNS, "fixed", "config.bad_sun"),
+    weather: flag(input.weather, true, "config.bad_weather"),
     badges: flag(input.badges, true, "config.bad_badges"),
     cameras: flag(input.cameras, true, "config.bad_cameras"),
     names: flag(input.names, true, "config.bad_names"),

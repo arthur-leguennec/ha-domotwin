@@ -76,6 +76,9 @@ export interface Settings {
   access_points?: AccessPoint[];
   /** What each person uses, only sees or does not see in DomoTwin (D-071). */
   rights?: Rights;
+  /** The weather drawn around the home (D-072): a `weather` entity, or `none`; absent, the one
+   * the Home tab shows. */
+  weather?: string;
 }
 
 export interface StoredSettings {

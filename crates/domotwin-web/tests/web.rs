@@ -402,6 +402,54 @@ fn the_power_layer_tints_running_appliances() {
 }
 
 #[wasm_bindgen_test]
+fn the_weather_falls_around_the_home() {
+    let mut engine = Engine::new(canvas()).unwrap();
+    engine.load_plan(DEMO, None, None).unwrap();
+    engine.frame(0.0);
+    assert_eq!(engine.weather(), "none");
+    assert!(!engine.layers_animating());
+    // Rain from the west: it falls, and frames go on while it does (D-072).
+    engine.set_weather("rainy", 6.0, 270.0, 0.0);
+    assert_eq!(engine.weather(), "rain");
+    assert!(engine.needs_frame());
+    assert!(engine.frame(16.0), "the rain keeps drawing");
+    assert!(engine.layers_animating());
+    // Held still for reduced motion: a picture of the rain, drawn once.
+    engine.set_motion(false);
+    assert!(!engine.layers_animating());
+    assert!(!engine.frame(32.0));
+    engine.set_motion(true);
+    // On the plan, nothing falls.
+    engine.set_plan_view(true, 48.0);
+    for t in 1..40 {
+        engine.frame(48.0 + f64::from(t) * 50.0);
+    }
+    assert!(!engine.layers_animating());
+    engine.set_plan_view(false, 2_100.0);
+    for t in 1..40 {
+        engine.frame(2_100.0 + f64::from(t) * 50.0);
+    }
+    // Snow, fog and clouds; a storm flashes even without rain; an unknown sky is clear.
+    engine.set_weather("snowy", f64::NAN, f64::NAN, 0.0);
+    assert_eq!(engine.weather(), "snow");
+    engine.set_weather("fog", f64::NAN, f64::NAN, 0.0);
+    assert_eq!(engine.weather(), "none");
+    assert!(!engine.layers_animating(), "fog holds still");
+    engine.set_weather("lightning", 3.0, 90.0, 0.0);
+    assert!(engine.layers_animating(), "a storm flashes");
+    // Not on the plan, where it does not flash.
+    engine.set_plan_view(true, 4_200.0);
+    for t in 1..40 {
+        engine.frame(4_200.0 + f64::from(t) * 50.0);
+    }
+    assert!(!engine.layers_animating(), "no storm on the plan");
+    engine.set_plan_view(false, 6_200.0);
+    engine.set_weather("unavailable", f64::NAN, f64::NAN, 0.0);
+    assert_eq!(engine.weather(), "none");
+    assert!(!engine.layers_animating());
+}
+
+#[wasm_bindgen_test]
 fn the_real_sun_and_legends() {
     let mut engine = Engine::new(canvas()).unwrap();
     engine.load_plan(DEMO, None, None).unwrap();

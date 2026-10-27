@@ -19,10 +19,10 @@ Local, fast, Rust + WebAssembly.</p>
 > the Wi-Fi QR code for guests, the configuration history, Hydro-Québec's peaks, more imports (robot
 > vacuum maps, Floorplanner, mesh scans), the radio coverage, guest passes, each person's rights,
 > safety (the cameras, the doorbell, the alarm, the alerts on every tab), each room's graphs with
-> Home Assistant's Energy page a tab away and automations in plain words, played in the sandbox
-> before they are saved, and DomoTwin joined Home Assistant's own Overview; the weather around the
-> home and the wall screen come next, towards 0.5.0. The submission to HACS's default list waits on
-> measurements on real devices.
+> Home Assistant's Energy page a tab away, automations in plain words, played in the sandbox before
+> they are saved, and the weather around the home, and DomoTwin joined Home Assistant's own
+> Overview; the wall screen comes next, towards 0.5.0. The submission to HACS's default list waits
+> on measurements on real devices.
 
 ## What sets it apart
 
@@ -84,6 +84,10 @@ Local, fast, Rust + WebAssembly.</p>
   advanced mode for any action.
 - **Live.** Lamps light their room in their real colour and brightness, the TV glows, blinds and
   curtains move, doors and windows open with their contact sensors.
+- **The weather around the home.** Rain, snow, hail, fog, grey skies and a storm's flashes, from
+  your weather entity, drawn in 3D: around an apartment and never in it, on the roof of a house,
+  slanted by the wind. See [the
+  weather](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/weather.md).
 - **Layers.** An animated heatmap of temperature, humidity, CO₂ or fine particles read from the
   sensors of each room's area, safety alerts that pulse in their room (smoke, gas, water leak,
   alarm, a window open in the rain), the rooms someone is in, the real sun coming in through your
@@ -335,6 +339,7 @@ YAML is never required. For reference, the card options are:
 | `presence`    | `true`, `false`                     | `true`     | The rooms someone is in glow softly.      |
 | `people`      | `true`, `false`                     | `true`     | The people in their rooms, as figures.    |
 | `sun`         | `fixed`, `real`                     | `fixed`    | `real`: the sun lights from where it is (`sun.sun`), through the windows. |
+| `weather`     | `true`, `false`                     | `true`     | The weather around the home: rain, snow, fog and storms. |
 | `badges`      | `true`, `false`                     | `true`     | Badges over the devices: locks, cameras, what plays, low batteries, appliances running. |
 | `cameras`     | `true`, `false`                     | `true`     | What the linked cameras see, drawn on the floor. |
 | `theme`       | `auto`, `day`, `neon`, `blueprint`, `cartoon`, `clay` | the home's | The look; `auto` is neon in dark mode. |

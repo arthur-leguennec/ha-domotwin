@@ -129,11 +129,21 @@ every reader returns `Result` with a stable error code that the frontend transla
   and spread apart in 3D, side by side on the 2D plan, the roof above the top one; and the walk:
   a walker's steps on the floor, its way through the doors, the slow turn of a kiosk. Walking
   draws the walls whole and the rooms' ceilings (day look). See D-014, D-016, D-028 and D-029.
+- The weather (D-072): `domotwin-core::weather` turns Home Assistant's condition and wind into
+  what falls, how grey the sky is, the fog and the storm's flashes; `domotwin-render::weather`
+  takes the home's footprint (every storey's bounds and the roof's eaves) and the roof's slope,
+  how many particles the quality allows, their tint and the clouds' light. What falls is one
+  instanced draw after the halos, six vertices a particle and no buffer: the weather's vertex
+  shader works out each one's spot, speed and size from a hash of its number and its turn (turns
+  that fit a ten-minute loop), keeps it off the home as seen from the eye (a line against the
+  home's box; on the roof's slope when the roof is shown), and slants it with the wind. The fog is mixed in the home's fragment shader and the background's, by the distance from
+  the home; a flash brightens the exposure and the background.
 - `domotwin-web` exposes a small API: `loadPlan` (or `loadStoreys`, with `setSpread`, `setRoof`,
   `storeyLabels` and `storeyPicture`, for every storey at once), `setBindings`, `setStates`, `highlight`,
   `orbit`, `pan`, `zoom`, `setPlanView`, `overview`, `focusElement`, `views`, `showView`, `pick`,
   `screenPoint`, `stats`, `frame`, walking (`setWalk`, `setWalkVelocity`, `walkTo`) and the kiosk's
-  `setAutoOrbit`, and for 3D files `modelFiles` (what to fetch) and `setModelMesh`.
+  `setAutoOrbit`, for 3D files `modelFiles` (what to fetch) and `setModelMesh`, and `setWeather`
+  (a condition, the wind's speed and bearing, the home's north) with its `weather` getter.
 - In the frontend, `src/gestures.ts` turns pointer events into drags, pans, pinches, taps and long
   presses, and `<domotwin-view>` applies them, runs the actions and draws the toolbar.
 
@@ -267,7 +277,8 @@ every reader returns `Result` with a stable error code that the frontend transla
   person's rights (`rights`, D-071), `{"everyone"?: rights, "people"?: {person entity id:
   rights}}`, each `{"rooms"?: {room id: level}, "entities"?: {entity id: level}}`, a level `use`,
   `see` or `hidden`; at most 50 people, 200 rooms and 500 devices each
-  ([`rights.md`](rights.md)).
+  ([`rights.md`](rights.md)); the weather drawn around the home (`weather`, D-072): a `weather`
+  entity, or `none`; absent, the Home tab's.
 - `upkeep` (D-033, storage 4.1): the upkeep cards by piece id, and how many days before it a task
   is due soon; see [`upkeep.md`](upkeep.md). Kept apart from the plan, like the bindings.
 - `revision`: bumped on every write. `revisions` keeps the revision of the last write of each kind
@@ -354,7 +365,7 @@ when the integration is removed.
 | `domotwin/bindings/get`  | user   | –                                              | `bindings`, `revision`           |
 | `domotwin/bindings/save` | admin  | `bindings`, `expected_revision?`               | `revision`                       |
 | `domotwin/settings/get`  | user   | –                                              | `settings`, `revision`           |
-| `domotwin/settings/save` | admin  | `settings` (`north`, 0 ≤ n < 360; `theme`, `accent`; `rooms`, at most 200; `energy`; `access_points`, at most 16; `rights`) | `revision` |
+| `domotwin/settings/save` | admin  | `settings` (`north`, 0 ≤ n < 360; `theme`, `accent`; `rooms`, at most 200; `energy`; `access_points`, at most 16; `rights`; `weather`) | `revision` |
 | `domotwin/upkeep/get`    | user   | –                                              | `upkeep`, `revision`, `today` (where the home is) |
 | `domotwin/upkeep/save`   | admin  | `pieces` (`{piece: card \| null}`, only those change), `lead_days?`, `expected_revision?` | `revision` |
 | `domotwin/upkeep/done`   | user   | `piece`, `task`                                | `revision`, `last_done`          |

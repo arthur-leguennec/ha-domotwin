@@ -421,6 +421,20 @@ export class DomoTwinEngine {
     this.live.setSunPosition(azimuth, elevation, north);
   }
 
+  /**
+   * Draws the weather around the home (D-072) for one of Home Assistant's conditions, with its
+   * wind in m/s and where it comes from in degrees clockwise from north (`NaN`: unknown), for a
+   * plan whose north is `north` degrees clockwise from its top.
+   */
+  setWeather(condition: string, windSpeed: number, windBearing: number, north: number): void {
+    this.live.setWeather(condition, windSpeed, windBearing, north);
+  }
+
+  /** What falls around the home now: `none`, `rain`, `snow`, `sleet` or `hail`. */
+  get weather(): string {
+    return this.live.weather;
+  }
+
   /** Back to the default sun, high in the south-east of the plan. */
   useDefaultSun(): void {
     this.live.useDefaultSun();

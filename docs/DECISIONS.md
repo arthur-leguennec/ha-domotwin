@@ -3430,3 +3430,67 @@ M34, moved forward with guest access (M33, D-067) at the maintainer's request.
     an administrator is not set for later by them either.
   - Guest access (D-067) is for those without a Home Assistant user; rights for those with one.
   - The first load grows by the gate and the menu item; the dialog is a chunk of its own.
+
+## D-072 · The weather around the home: drawn from Home Assistant's weather entity (M40)
+
+Asked for by the maintainer after 0.4.0: "a beautiful animation of the weather over the house or
+the apartment, the rain outside for an apartment, unlike a house whose roof one sees". Placed
+before M24 (D-065).
+
+- **Context.** Home Assistant's `weather` entities say a condition among fifteen (`sunny`,
+  `rainy`, `pouring`, `snowy`, `snowy-rainy`, `hail`, `fog`, `lightning`, `lightning-rainy`,
+  `cloudy`, `partlycloudy`, `windy`, `windy-variant`, `exceptional`, `clear-night`), and most say
+  their wind: `wind_speed` in the unit of `wind_speed_unit` (km/h when none is said, Beaufort
+  among them) and
+  `wind_bearing`, where it comes from, in degrees or as a point of the compass. The Home tab
+  already shows one of them (`weather.home` first, D-055). The renderer draws on demand (D-014):
+  anything that moves keeps frames coming, at 24 a second (D-023).
+- **Decision.**
+  - **Read in the page, drawn by the engine.** The frontend reads the entity and hands the engine
+    its condition, its wind in m/s and its bearing, with the home's north; the engine
+    (`domotwin-core::weather`) turns the condition into what falls (rain, snow, sleet, hail), how
+    much, how grey the sky is, how thick the fog is and whether a storm flashes, and the wind
+    into a direction on the plan. An unknown condition draws nothing, as an entity that is
+    unavailable or unknown does. Nothing new is stored but the choice below; no call leaves Home
+    Assistant.
+  - **The entity**: the Home tab's (`weather.home` if it says something, else the first that
+    does), or one chosen in the home's settings (`weather`: an entity, or `none` for no weather
+    anywhere), validated by the integration. Each card turns it off with `weather: false`.
+  - **Around an apartment, on a house's roof.** What falls is drawn around the home's footprint,
+    every storey's bounds and the roof's eaves, out to 2.5 m around it (more for a large home: a
+    third of half its length). What would land in the footprint where no roof is shown over it
+    lands in the band around it instead, and nothing is drawn where the home is seen from the eye
+    (the line from the eye through a drop crossing the home's box, its walls and floors in front
+    or behind), so that it reads as falling outside; what lands under a roof shown falls on its
+    slope, and rain runs off the eaves, straight down on the windward side. Seen from inside
+    (walking), what falls outside shows through the windows. The footprint is a box: the inner
+    corner of an L-shaped home stays dry, until the outdoors (M18) gives the ground its outline.
+  - **Particles worked out by the graphics card.** One instanced draw, six vertices a particle
+    and no buffer: each particle's spot, speed and size come from a hash of its number and of
+    how many times it has fallen, so that it lands somewhere new each time; its turns fit a whole
+    number of times in a ten-minute loop, so that nothing jumps when the loop starts again. Rain
+    and hail are
+    streaks a couple of pixels wide, along their way, splashing where they land (not on Eco);
+    snow is soft flakes a few pixels wide, white edged in the tint, swaying as they fall. Their
+    tint is a slate blue over a light ground and a pale blue over a dark one, so that they show
+    on every look. The wind slants their way no more than 0.6 (rain) or 0.8 (snow) across for
+    each unit down, so that slow flakes do not blow out of sight. Counts by quality: rain 1 200,
+    3 000 and 6 000 at most, snow 900, 2 200 and 4 000, hail 600, 1 500 and 3 000, fewer when
+    less falls (two thirds of them for `rainy`).
+  - **Clouds, fog and storms in the light.** The looks that follow the time of day grey and dim
+    under clouds (their sun dimmer and its shadow on the ground fainter, their sky and ground
+    greyer, the background darker but for the day look's dashboard colours); the night looks keep
+    their own light. Fog is a veil over
+    the home that thickens around it, and the ground fades into the sky closer to the home; none
+    walking inside, none on a storey's picture. A storm flashes in two or three quick flickers in
+    most seven-second spells, lighting the scene and the background, in 3D only.
+  - **On demand still.** Frames come at the layers' pace (24 a second) while something falls or a
+    storm flashes, never while the page is hidden; clouds and fog draw once. Reduce motion holds
+    what falls still and stops the flashes. Nothing is drawn on the 2D plan nor on a storey's
+    picture: no clouds, fog or flash there.
+- **Consequences.**
+  - The first load grows by 8.7 kB gzipped: 7.2 kB of wasm (the weather's shaders and module),
+    1.5 kB of script; the CPU time of a frame does not change (`PERFORMANCE.md`, M40).
+  - The demo house has a `weather.home` of its own, a fictional day's (showers in the afternoon);
+    a home without any `weather` entity draws none.
+  - The same footprint and the same "seen over the home" rule can serve the outdoors (M18).

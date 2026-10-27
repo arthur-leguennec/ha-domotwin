@@ -20,11 +20,10 @@ Local, rapide, Rust + WebAssembly.</p>
 > l’historique de la configuration, les pointes d’Hydro-Québec, d’autres imports (cartes de robots
 > aspirateurs, Floorplanner, scans en maillage), la couverture radio, les pass d’invité, les droits
 > de chacun, la sécurité (les caméras, la sonnette, l’alarme, les alertes sur chaque onglet), les
-> graphiques de chaque pièce avec la page Énergie de Home Assistant à un onglet et les
-> automatisations dites avec vos mots, jouées dans le bac à sable avant d’être enregistrées, et
-> DomoTwin a rejoint la Vue d’ensemble de Home Assistant ; la météo autour du logement et l’écran
-> mural suivent, vers la 0.5.0. La proposition à la liste par défaut de HACS attend des mesures sur
-> de vrais appareils.
+> graphiques de chaque pièce avec la page Énergie de Home Assistant à un onglet, les automatisations
+> dites avec vos mots, jouées dans le bac à sable avant d’être enregistrées, et la météo autour du
+> logement, et DomoTwin a rejoint la Vue d’ensemble de Home Assistant ; l’écran mural suit, vers la
+> 0.5.0. La proposition à la liste par défaut de HACS attend des mesures sur de vrais appareils.
 
 ## Ce qui le distingue
 
@@ -96,6 +95,10 @@ Local, rapide, Rust + WebAssembly.</p>
 - **En direct.** Les lampes éclairent leur pièce dans leur vraie couleur et luminosité, la
   télévision s’illumine, volets et rideaux bougent, portes et fenêtres s’ouvrent avec leurs
   capteurs.
+- **La météo autour du logement.** Pluie, neige, grêle, brouillard, ciel gris et éclairs d’orage,
+  d’après votre entité météo, dessinés en 3D : autour d’un appartement et jamais dedans, sur le
+  toit d’une maison, penchés par le vent. Voir [la
+  météo](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/weather.md) (en anglais).
 - **Calques.** Une carte de chaleur animée (température, humidité, CO₂ ou particules fines) tirée
   des capteurs de la zone de chaque pièce, des alertes de sécurité qui pulsent dans leur pièce
   (fumée, gaz, fuite d’eau, alarme, fenêtre ouverte sous la pluie), les pièces occupées, le vrai
@@ -382,6 +385,7 @@ YAML n’est jamais nécessaire. Pour référence, les options de la carte :
 | `presence`    | `true`, `false`                     | `true`     | Les pièces occupées s’illuminent doucement.   |
 | `people`      | `true`, `false`                     | `true`     | Les personnes dans leurs pièces, en silhouettes. |
 | `sun`         | `fixed`, `real`                     | `fixed`    | `real` : le soleil éclaire depuis sa vraie position (`sun.sun`), par les fenêtres. |
+| `weather`     | `true`, `false`                     | `true`     | La météo autour du logement : pluie, neige, brouillard et orages. |
 | `badges`      | `true`, `false`                     | `true`     | Badges des appareils : serrures, caméras, lecture, batteries faibles, appareils en marche. |
 | `cameras`     | `true`, `false`                     | `true`     | Ce que voient les caméras liées, dessiné au sol. |
 | `theme`       | `auto`, `day`, `neon`, `blueprint`, `cartoon`, `clay` | celle du logement | L’apparence ; `auto` : néon en mode sombre. |

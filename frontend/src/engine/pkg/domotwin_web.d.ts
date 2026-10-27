@@ -447,6 +447,13 @@ export class Engine {
      */
     setWalk(on: boolean, time_ms: number): boolean;
     /**
+     * Draws the weather around the home (D-072) for one of Home Assistant's conditions
+     * (`rainy`, `snowy`, `fog`…; any other is a clear sky), with its wind: `wind_speed` in m/s
+     * and `wind_bearing` in degrees clockwise from north where it comes from (`NaN`: unknown), for
+     * a plan whose north is `north` degrees clockwise from its top.
+     */
+    setWeather(condition: string, wind_speed: number, wind_bearing: number, north: number): void;
+    /**
      * Shows a plan drawn in the plan editor (JSON text, no overlay), element `selected` marked.
      * The plan stored and its overlay stay as they are, to come back to (`loadPlan`); the camera
      * stays, unless nothing was shown.
@@ -512,6 +519,10 @@ export class Engine {
      * Whether walking through the storey shown.
      */
     readonly walking: boolean;
+    /**
+     * What falls around the home now: `none`, `rain`, `snow`, `sleet` or `hail` (D-072).
+     */
+    readonly weather: string;
 }
 
 /**
@@ -649,6 +660,7 @@ export interface InitOutput {
     readonly engine_setUpkeepLayer: (a: number, b: number) => void;
     readonly engine_setWalk: (a: number, b: number, c: number) => number;
     readonly engine_setWalkVelocity: (a: number, b: number, c: number) => void;
+    readonly engine_setWeather: (a: number, b: number, c: number, d: number, e: number, f: number) => void;
     readonly engine_showDraft: (a: number, b: number, c: number, d: number, e: number, f: number) => void;
     readonly engine_showModels: (a: number) => number;
     readonly engine_showView: (a: number, b: number, c: number, d: number) => number;
@@ -660,6 +672,7 @@ export interface InitOutput {
     readonly engine_views: (a: number, b: number) => void;
     readonly engine_walkTo: (a: number, b: number, c: number) => number;
     readonly engine_walking: (a: number) => number;
+    readonly engine_weather: (a: number, b: number) => void;
     readonly engine_zoom: (a: number, b: number, c: number, d: number) => void;
     readonly heatLegend: (a: number, b: number, c: number) => void;
     readonly start: () => void;
