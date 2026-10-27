@@ -25,9 +25,10 @@ Local, fast, Rust + WebAssembly.</p>
 > home (the Home, Rooms and 3D tabs) work today, and make up version 0.4.0. Since then, the
 > sandbox plays a day of the home's automations on a copy of it, Home Assistant's history reads
 > as reports, "Why?" says who or what changed a device, the Wi-Fi QR code welcomes guests,
-> DomoTwin joins Home Assistant's own Overview rather than copying it, and each change of the
-> configuration is kept. History and energy, safety and the wall screen come next, towards version
-> 0.5.0; the submission to HACS's default list waits on measurements on real devices.
+> DomoTwin joins Home Assistant's own Overview rather than copying it, each change of the
+> configuration is kept, and Hydro-Québec's peaks show on the plan, the Home tab and in the
+> sandbox. History and energy, safety and the wall screen come next, towards version 0.5.0; the
+> submission to HACS's default list waits on measurements on real devices.
 
 ## Features
 
@@ -69,6 +70,11 @@ Local, fast, Rust + WebAssembly.</p>
   alarm, a window open in the rain), the rooms someone is in, the real sun coming in through your
   windows, and what each appliance draws, with the home's energy: the sun, the grid and the
   battery around the home, the power flowing between them.
+- **Hydro-Québec's peaks.** For a home on Flex D or the winter credit, with
+  [hydroqc](https://github.com/hydroqc/hydroqc-ha) or
+  [HydroPeak](https://github.com/Beat-YT/hydropeak-ha) installed: the next peak and its pre-heating
+  on the Home tab, in 3D the rooms that pre-heat, shed or still heat during it, with what they
+  draw, and tomorrow's announced peak played in the sandbox first. Nothing shown without them.
 - **Robot vacuums.** Its robot leaves its dock when it cleans, sweeps the rooms one by one and goes
   home, on the plan.
 - **Devices.** Badges over your devices (a lock's state, a camera recording, what plays, a battery
@@ -277,7 +283,7 @@ YAML is never required. For reference, the card options are:
 | `spread`      | `true`, `false`                     | `true`     | Every storey at once: spread apart, or stacked. |
 | `roof`        | `true`, `false`                     | `true`     | Every storey at once: the roof over the top one. |
 | `room`        | a room id of the plan               | none       | Room to focus on when the card opens.     |
-| `layer`       | `off`, `temperature`, `humidity`, `co2`, `pm25`, `power`, `network`, `automations`, `upkeep` | `off` | Layer shown when the card opens; the layer menu changes it. `network` shows to administrators with ZHA only, `automations` to administrators. |
+| `layer`       | `off`, `temperature`, `humidity`, `co2`, `pm25`, `power`, `peak`, `network`, `automations`, `upkeep` | `off` | Layer shown when the card opens; the layer menu changes it. `peak` shows where hydroqc or HydroPeak reads Hydro-Québec's peaks, `network` to administrators with ZHA only, `automations` to administrators. |
 | `alerts`      | `true`, `false`                     | `true`     | Safety alerts of the rooms (smoke, gas, water, alarm, a window open in the rain). |
 | `presence`    | `true`, `false`                     | `true`     | The rooms someone is in glow softly.      |
 | `people`      | `true`, `false`                     | `true`     | The people in their rooms, as figures.    |

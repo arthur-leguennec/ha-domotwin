@@ -289,6 +289,7 @@ export const en = {
     co2: "CO₂",
     pm25: "Fine particles (PM2.5)",
     power: "Power",
+    peak: "Hydro-Québec peaks",
     network: "Zigbee network",
     automations: "Automations",
     upkeep: "Upkeep",
@@ -646,6 +647,7 @@ export const en = {
     failed: "The sandbox could not open: {reason}",
     leave: "Leave the sandbox",
     no_dialog: "Home Assistant's own dialogs do not open in the sandbox.",
+    no_peak: "No peak is announced any more: the sandbox plays today.",
   },
   summary: {
     name: "DomoTwin summary",
@@ -1166,7 +1168,8 @@ export const en = {
     bad_quality: "`quality` must be auto, eco, balanced or high",
     bad_cutaway: "`cutaway` must be auto, always or off",
     bad_lighting: "`lighting` must be auto, morning, day, evening or night",
-    bad_layer: "`layer` must be off, temperature, humidity, co2, pm25 or power",
+    bad_layer:
+      "`layer` must be off, temperature, humidity, co2, pm25, power, peak, network, automations or upkeep",
     bad_alerts: "`alerts` must be true or false",
     bad_presence: "`presence` must be true or false",
     bad_people: "`people` must be true or false",

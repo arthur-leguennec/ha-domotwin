@@ -140,8 +140,17 @@ import {
   type PersonShown,
 } from "../live/people";
 import { robotDocks, robotsShown, type RobotDock } from "../live/robots";
-import { energyFlows, energyNow, type EnergyNow, type EnergySettings } from "../live/energy";
+import {
+  ENERGY_SENSORS,
+  energyFlows,
+  energyNow,
+  type EnergyNow,
+  type EnergySettings,
+} from "../live/energy";
 import { energyFlow, energyStyles } from "./energy-flow";
+import { peaksAvailable } from "../live/peak-sources";
+import type { PeakNow } from "../live/peaks";
+import type { PeakRooms, PeakUnseen } from "../live/peak-rooms";
 import { locatedSensors, locatedShown, type LocatedShown } from "../live/locating";
 import {
   NOTHING_UNSEEN,
@@ -914,6 +923,17 @@ export class DomoTwinView extends LitElement {
   /** The rooms of the plan shown, and whether a heatmap found values in them. */
   private rooms: PlanRoom[] = [];
   private heatValues = 0;
+  /** Hydro-Québec's peak and what the rooms do, while its layer is shown (D-063). */
+  private peakShown?: { now: PeakNow; rooms: PeakRooms; key: string };
+  /** The peak's layer (its chunk), once loaded; loading, or failed to. */
+  private peakLayer?: typeof import("./peak-layer");
+  private peakLoading = false;
+  /** When the peak's chunk may be asked for again, after it failed. */
+  private peakRetry = 0;
+  /** What the viewer may not see of the peak's rooms (D-039), and what it was worked out from. */
+  private peakUnseen?: { from: unknown[]; unseen: PeakUnseen };
+  /** When the peak's phase changes next: the rooms are worked out again then. */
+  private peakTimer: ReturnType<typeof setTimeout> | undefined;
   /** The badges last worked out, and the badges' points last read from the engine. */
   private badgesKey = "";
   private pointsText = "{}";
@@ -1268,17 +1288,48 @@ export class DomoTwinView extends LitElement {
       .legend .name {
         font-weight: 600;
       }
+      /* Hydro-Québec's peak (D-063): when, the rooms by colour, what they draw. */
+      .legend.peak {
+        width: 200px;
+      }
+      .legend.peak .keys {
+        display: grid;
+        gap: 2px;
+        margin: 2px 0 0;
+        padding: 0;
+        list-style: none;
+      }
+      .legend.peak .keys li {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .legend.peak .keys i {
+        flex: none;
+        width: 10px;
+        height: 10px;
+        border-radius: 3px;
+      }
+      .legend.peak .drawn {
+        color: var(--secondary-text-color, #5f6368);
+      }
       :host([legend]) .chip {
         max-width: calc(100% - 216px);
       }
       :host([legend="energy"]) .chip {
         max-width: calc(100% - 268px);
       }
-      /* A narrow view: the energy legend above the chip, which keeps the whole width. */
-      :host([narrow][legend="energy"]) .chip {
+      :host([legend="peak"]) .chip {
+        max-width: calc(100% - 248px);
+      }
+      /* A narrow view: the energy's or the peak's legend above the chip, which keeps the whole
+         width. */
+      :host([narrow][legend="energy"]) .chip,
+      :host([narrow][legend="peak"]) .chip {
         max-width: calc(100% - 24px);
       }
-      :host([narrow]) .legend.with-energy {
+      :host([narrow]) .legend.with-energy,
+      :host([narrow]) .legend.peak {
         bottom: 76px;
       }
       .labels {
@@ -1846,6 +1897,7 @@ export class DomoTwinView extends LitElement {
     window.clearInterval(this.idleTimer);
     window.clearTimeout(this.walkHintTimer);
     clearTimeout(this.cameraFocusTimer);
+    clearTimeout(this.peakTimer);
     window.removeEventListener("keydown", this.onEditKey);
     window.removeEventListener("keydown", this.onPlanKey);
     window.clearTimeout(this.noticeTimer);
@@ -1945,10 +1997,10 @@ export class DomoTwinView extends LitElement {
     ) {
       this.readPeople();
     }
-    // The room chip leaves room for the legend (`renderLegend`), wider with the energy.
+    // The room chip leaves room for the legend (`renderLegend`), wider with the energy or a peak.
     if (this.valueLayer && !this.editingAny) {
       const energy = this.layer === "power" && this.energyShown() !== undefined;
-      this.setAttribute("legend", energy ? "energy" : "");
+      this.setAttribute("legend", energy ? "energy" : this.shownLayer === "peak" ? "peak" : "");
     } else {
       this.removeAttribute("legend");
     }
@@ -2837,13 +2889,17 @@ export class DomoTwinView extends LitElement {
     if (this.layer === "network" && !this.networkAllowed) return "off";
     if (this.layer === "automations" && !automationsAvailable(this.hass)) return "off";
     if (this.layer === "upkeep" && !this.upkeep) return "off";
+    if (this.layer === "peak" && !peaksAvailable(this.hass)) return "off";
     return this.layer;
   }
 
   /** The rooms' names are drawn: where no layer shows a value (the storeys' labels take their
    * place when every storey is shown). */
   private get namesShown(): boolean {
-    return this.options.names !== false && !this.valueLayer && !this.loadedHome;
+    // The peak's layer writes on the rooms only while they draw (D-063).
+    const quiet =
+      this.shownLayer === "peak" && Object.keys(this.peakShown?.rooms.draws ?? {}).length === 0;
+    return this.options.names !== false && (!this.valueLayer || quiet) && !this.loadedHome;
   }
 
   /** The layer shown puts values on the home (a heatmap, the power drawn) and has a legend. */
@@ -3410,17 +3466,103 @@ export class DomoTwinView extends LitElement {
     return this.hass?.config?.unit_system?.temperature === "°F";
   }
 
+  /**
+   * Hydro-Québec's peak now and what the rooms do (D-063), while its layer is shown; worked out
+   * again when its phase changes, as nothing in Home Assistant may change then.
+   */
+  private readPeak(hass: HomeAssistant | undefined): PeakRooms | undefined {
+    clearTimeout(this.peakTimer);
+    const shown = hass !== undefined && this.shownLayer === "peak";
+    if (shown && !this.peakLayer && !this.peakLoading && Date.now() >= this.peakRetry) {
+      // Its chunk the first time; until it is there, the layer shows nothing.
+      this.peakLoading = true;
+      void import("./peak-layer").then(
+        (layer) => {
+          this.peakLayer = layer;
+          this.applyLayers();
+        },
+        () => {
+          // Failed (offline, an update since): tried again a little later, as the layers are.
+          this.peakLoading = false;
+          this.peakRetry = Date.now() + 30_000;
+        },
+      );
+    }
+    const layer = this.peakLayer;
+    const now = hass && shown && layer ? layer.peakNow(hass) : undefined;
+    if (!hass || !layer || !now) {
+      if (this.peakShown) {
+        this.peakShown = undefined;
+        this.requestUpdate();
+      }
+      return undefined;
+    }
+    // The home's own meters are not a room's.
+    const meters = new Set(
+      ENERGY_SENSORS.flatMap((key) => this.energy?.[key] ?? []).filter(Boolean),
+    );
+    const bindings = this.bindings ?? NO_BINDINGS;
+    const unseen = this.unseenForPeak(hass, bindings);
+    const rooms = layer.peakRooms(
+      hass,
+      bindings,
+      this.rooms,
+      now.phase,
+      this.closed,
+      meters,
+      unseen,
+    );
+    const key = JSON.stringify([now, rooms]);
+    if (key !== this.peakShown?.key) {
+      this.peakShown = { now, rooms, key };
+      this.requestUpdate();
+    }
+    if (now.next !== undefined) {
+      // Looked at again in six hours at most, should the clock have been changed meanwhile.
+      const wait = Math.min(Math.max(now.next - nowOf(hass), 0) + 500, 6 * 3_600_000);
+      this.peakTimer = setTimeout(() => {
+        this.applyLayers();
+      }, wait);
+    }
+    return rooms;
+  }
+
+  /**
+   * What the viewer may not see of the peak's rooms (D-039): the private rooms' areas, and what
+   * their pieces link on every storey shown; the same while none of it changes.
+   */
+  private unseenForPeak(hass: HomeAssistant, bindings: BindingsJson): PeakUnseen {
+    if (this.closed.size === 0) return {};
+    const from = [
+      this.closedKey,
+      bindings,
+      hass.areas,
+      this.rooms,
+      this.plan,
+      this.layout,
+      this.home,
+      this.elsewhere,
+    ];
+    const known = this.peakUnseen;
+    if (known && from.every((value, k) => value === known.from[k])) return known.unseen;
+    const unseen = this.unseen(hass);
+    this.peakUnseen = { from, unseen };
+    return unseen;
+  }
+
   /** Sends the engine what the layers show now (only when it changed) and lists the alerts. */
   private applyLayers(): void {
     const engine = this.engine;
     if (!engine || !this.summary) return;
     const hass = this.hass;
+    const peak = this.readPeak(hass);
     const layers = hass
       ? roomLayers(hass, this.bindings ?? NO_BINDINGS, this.rooms, {
-          layer: this.layer,
+          layer: this.shownLayer,
           alerts: this.options.alerts !== false,
           presence: this.options.presence !== false,
           closed: this.closed,
+          ...(peak ? { peak } : {}),
         })
       : undefined;
     const json = layers?.json ?? "{}";
@@ -5291,7 +5433,8 @@ export class DomoTwinView extends LitElement {
           (layer) =>
             (layer !== "network" || this.networkAllowed) &&
             (layer !== "automations" || automationsAvailable(this.hass)) &&
-            (layer !== "upkeep" || this.upkeep !== undefined),
+            (layer !== "upkeep" || this.upkeep !== undefined) &&
+            (layer !== "peak" || peaksAvailable(this.hass)),
         ).map(
           (layer) =>
             html`<button
@@ -5588,6 +5731,13 @@ export class DomoTwinView extends LitElement {
     const layer = this.layer;
     if (!this.valueLayer || this.editingAny) return nothing;
     const name = t.t(`layers.${layer}`);
+    if (layer === "peak") {
+      const peak = this.peakShown;
+      const hass = this.hass;
+      return peak && hass && this.peakLayer
+        ? this.peakLayer.peakLegend(t, peak.now, peak.rooms, timeStyle(hass), new Date(nowOf(hass)))
+        : nothing;
+    }
     if (layer === "power") {
       const gradient = `linear-gradient(to right, ${POWER_GRADIENT.join(", ")})`;
       // The home's energy above the power of its pieces, when its sensors say something.
@@ -5652,7 +5802,7 @@ export class DomoTwinView extends LitElement {
             data-id=${label.id}
             style="left:${label.x * k}px;top:${label.y * k}px"
             >${
-              label.kind === "power"
+              label.kind === "power" || label.kind === "draw"
                 ? formatPower(label.value, language)
                 : formatHeat(label.value, unit, language, fahrenheit)
             }</span

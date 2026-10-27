@@ -161,8 +161,9 @@ export class Engine {
     invalidate(): void;
     /**
      * Where the values of the layers shown go on the picture, as JSON `[{"id", "kind": "heat"
-     * | "power", "value", "x", "y"}]` in device pixels from the top left: each room's heatmap
-     * value at its centre, and each piece's power (W) when the power layer is shown.
+     * | "draw" | "power", "value", "x", "y"}]` in device pixels from the top left: each room's
+     * heatmap value, or what it draws (W, D-063), at its centre, and each piece's power (W) when
+     * the power layer is shown.
      */
     layerLabels(): string;
     /**
@@ -331,6 +332,7 @@ export class Engine {
     setCutaway(name: string): void;
     /**
      * Shows the room layers: JSON `{"heat": "temperature", "values": {room id: value},
+     * "peak": {room id: "preheat" | "shed" | "heating"}, "draws": {room id: watts},
      * "alerts": {room id: "warning" | "danger"}, "presence": [room id…]}`; `{}` shows none.
      */
     setLayers(json: string): void;

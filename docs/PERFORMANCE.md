@@ -1011,3 +1011,23 @@ shown: a dashboard of 490 kB (40 views, 4 800 cards) with a card added and a vie
 compared in 47 ms (Node 22, the unit tests' happy-dom), the two changes found. Lists are matched by
 their longest common part up to 40 000 pairs of items, compared item by item beyond; at most 200
 changes are said.
+
+### M39 (Hydro-Québec's peaks)
+
+Bundle: the first load is **524.0 kB gzipped** of 1 200 kB (+2.3 kB): whether an integration reads
+the peaks (`peak-sources.ts`, 0.6 kB gzipped), the layer's place in the view, its styles and its
+name, and a few modules the sandbox now shares with the view, split into chunks of their own. The
+peak, the rooms and the legend come on demand: `chunks/peak-layer-<hash>.js` (0.7 kB gzipped) the
+first time the layer shows, and 2.4 kB shared with the Home tab's and the sandbox's chunks, with
+their texts in both languages. The Home tab's chunk grows by its chip (11.9 kB gzipped, +1.0 kB),
+the sandbox's by the peak's day and report (34.3 kB gzipped, +2.8 kB). The engine's wasm stays
+the same size with the peak's tints (380.3 kB gzipped).
+
+The integrations' entities are found once per entity registry, their peaks once per update of the
+states, only where the peak is asked for (its layer shown, the Home tab open). The rooms' roles and
+draws are worked out with the layers, only while the peak's layer is shown, and sent to the engine
+only when they change; a timer works them out again when the peak's phase changes. Tinted, the
+rooms are drawn like a heatmap: at the layers' pace (24 frames a second), still under *reduce
+motion*; what they draw alone is written, not drawn, and needs no frame. In the sandbox, the
+peak's day adds a few changes to the day played, and what each room did is read every five minutes
+from the pre-heating to the peak's end when the report opens, once for each day played.

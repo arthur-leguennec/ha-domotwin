@@ -293,6 +293,7 @@ export const fr: Dictionary = {
     co2: "CO₂",
     pm25: "Particules fines (PM2,5)",
     power: "Consommation",
+    peak: "Pointes d’Hydro-Québec",
     network: "Réseau Zigbee",
     automations: "Automatisations",
     upkeep: "Entretien",
@@ -653,6 +654,7 @@ export const fr: Dictionary = {
     failed: "Le bac à sable n’a pas pu s’ouvrir : {reason}",
     leave: "Quitter le bac à sable",
     no_dialog: "Les fenêtres de Home Assistant ne s’ouvrent pas dans le bac à sable.",
+    no_peak: "Aucune pointe n’est plus annoncée : le bac à sable joue aujourd’hui.",
   },
   summary: {
     name: "Résumé DomoTwin",
@@ -1186,7 +1188,8 @@ export const fr: Dictionary = {
     bad_quality: "`quality` doit valoir auto, eco, balanced ou high",
     bad_cutaway: "`cutaway` doit valoir auto, always ou off",
     bad_lighting: "`lighting` doit valoir auto, morning, day, evening ou night",
-    bad_layer: "`layer` doit valoir off, temperature, humidity, co2, pm25 ou power",
+    bad_layer:
+      "`layer` doit valoir off, temperature, humidity, co2, pm25, power, peak, network, automations ou upkeep",
     bad_alerts: "`alerts` doit valoir true ou false",
     bad_presence: "`presence` doit valoir true ou false",
     bad_people: "`people` doit valoir true ou false",
