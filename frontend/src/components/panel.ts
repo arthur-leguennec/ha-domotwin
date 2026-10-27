@@ -1,5 +1,6 @@
 import {
   mdiAccountMultipleOutline,
+  mdiAccountKeyOutline,
   mdiBluetooth,
   mdiCheck,
   mdiClose,
@@ -272,6 +273,7 @@ const PANEL_DIALOGS = [
   "domotwin-private-rooms",
   "domotwin-voice",
   "domotwin-config-history",
+  "domotwin-guests",
   "domotwin-link",
   "domotwin-catalogue",
   "domotwin-model-import",
@@ -320,6 +322,7 @@ export class DomoTwinPanel extends LitElement {
     peopleOpen: { state: true },
     bluetoothOpen: { state: true },
     privacyRooms: { state: true },
+    guestsStoreys: { state: true },
     voiceOpen: { state: true },
     configHistoryOpen: { state: true },
     moreOpen: { state: true },
@@ -365,16 +368,16 @@ export class DomoTwinPanel extends LitElement {
   /** The tab shown (D-055); unknown until the tab to open on is. */
   protected tab?: Tab;
   /**
-   * The room open in the Rooms tab (an area), whether its graphs are (D-067), and whether it was
+   * The room open in the Rooms tab (an area), whether its graphs are (D-068), and whether it was
    * opened from the 3D view.
    */
   protected roomOpen?: string;
   protected roomGraphs = false;
   protected from3d = false;
-  /** A history report opened from a room's graphs (D-058, D-067), its module loaded. */
+  /** A history report opened from a room's graphs (D-058, D-068), its module loaded. */
   protected report?: { heading: string; entities: string[]; period?: PeriodChoice };
   private reportModule?: Promise<unknown>;
-  /** Whether Home Assistant's energy has something set up (D-067), and on which connection. */
+  /** Whether Home Assistant's energy has something set up (D-068), and on which connection. */
   protected energyKnown?: { connection: unknown; setUp: boolean };
   private energyAsked?: unknown;
   /** The user's own choices (D-055); undefined until read, or until reading them failed. */
@@ -449,6 +452,8 @@ export class DomoTwinPanel extends LitElement {
   protected peopleOpen = false;
   /** The rooms of the home while the private rooms' settings are open (D-039). */
   protected privacyRooms?: RoomChoice[];
+  /** Guest access (D-067), open: every storey's plan, whose rooms and devices a pass opens. */
+  protected guestsStoreys?: HomeStorey[];
   /** The voice settings (D-041) are open. */
   protected voiceOpen = false;
   /** The configuration history (D-062) is open, its module loaded. */
@@ -1211,6 +1216,7 @@ export class DomoTwinPanel extends LitElement {
     this.bluetoothOpen = false;
     this.locating = undefined;
     this.privacyRooms = undefined;
+    this.guestsStoreys = undefined;
     this.voiceOpen = false;
     this.configHistoryOpen = false;
     this.storeysOpen = false;
@@ -2889,7 +2895,7 @@ export class DomoTwinPanel extends LitElement {
     window.dispatchEvent(new CustomEvent("location-changed", { detail: { replace } }));
   }
 
-  /** Shows a tab, a room in the Rooms tab and its graphs (D-067): through Home Assistant's
+  /** Shows a tab, a room in the Rooms tab and its graphs (D-068): through Home Assistant's
    * address, so that back works. */
   private go(tab: Tab, area?: string, from3d = false, replace = false, graphs = false): void {
     this.retryPractical();
@@ -2909,12 +2915,12 @@ export class DomoTwinPanel extends LitElement {
     // A layer asked for (the peak's, D-063): shown once the 3D view is there.
     this.layerWanted = tab === "3d" ? layer : undefined;
     // A room opened from one opened from the 3D view: back to the rooms, not to the 3D view; its
-    // graphs and back keep the room's way back (D-067).
+    // graphs and back keep the room's way back (D-068).
     const same = tab === "rooms" && area !== undefined && area === this.roomOpen;
     this.go(tab, area, same && this.from3d, false, graphs === true);
   };
 
-  /** A room's graphs asked for a history report of their entities (D-058, D-067). */
+  /** A room's graphs asked for a history report of their entities (D-058, D-068). */
   private readonly onOpenHistory = (
     event: CustomEvent<{ heading?: string; entities: string[]; period?: PeriodChoice }>,
   ): void => {
@@ -2990,7 +2996,7 @@ export class DomoTwinPanel extends LitElement {
   }
 
   /**
-   * Whether Home Assistant's energy has something set up (D-067), read once for each connection
+   * Whether Home Assistant's energy has something set up (D-068), read once for each connection
    * where it has its Energy page; never set up when it cannot be read (`not_found`: never saved).
    */
   private readEnergy(hass: HomeAssistant): void {
@@ -3009,7 +3015,7 @@ export class DomoTwinPanel extends LitElement {
 
   /**
    * A room tapped in the 3D view opens its room in the Rooms tab, and back (D-055); its graphs,
-   * asked for from its panel, open there too (D-067).
+   * asked for from its panel, open there too (D-068).
    */
   private readonly onRoomOpen = (event: CustomEvent<{ area: string; graphs?: boolean }>): void => {
     const { area, graphs } = event.detail;
@@ -3272,7 +3278,7 @@ export class DomoTwinPanel extends LitElement {
     </domotwin-view>`;
   }
 
-  /** A history report opened from a room's graphs (D-067), over the Rooms tab. */
+  /** A history report opened from a room's graphs (D-068), over the Rooms tab. */
   private renderReport(): TemplateResult | typeof nothing {
     const report = this.report;
     const hass = this._hass;
@@ -3290,7 +3296,7 @@ export class DomoTwinPanel extends LitElement {
   }
 
   /**
-   * The Energy tab (D-067): Home Assistant's own Energy page where it has one, which DomoTwin
+   * The Energy tab (D-068): Home Assistant's own Energy page where it has one, which DomoTwin
    * opens rather than copies, its back arrow leading back here; in the demo house, whose energy
    * Home Assistant does not know, DomoTwin's own, the 3D view's power layer (D-049).
    */
@@ -3609,6 +3615,7 @@ export class DomoTwinPanel extends LitElement {
               ${item("privacy-settings", mdiLockOutline, t.t("privacy.title"), this.busy, this.openPrivacy)}
               ${item("voice-settings", mdiMicrophoneMessage, t.t("voice.settings"), this.busy, this.openVoice)}
               ${item("wifi-menu", mdiWifi, t.t("wifi.menu"), this.busy || this.wifi === undefined || this.sandbox !== undefined, this.openWifi)}
+              ${item("guests-menu", mdiAccountKeyOutline, t.t("guests.menu"), this.busy || this.demo !== undefined || this.sandbox !== undefined, this.openGuests)}
               ${item("config-history", mdiHistory, t.t("config_history.menu"), this.busy || this.sandbox !== undefined, this.openConfigHistory)}
               ${item("measure", mdiSpeedometer, t.t("measure.menu"), this.busy || this.measureOpen || this.sandbox !== undefined, this.openMeasure)}
               <hr />
@@ -3651,6 +3658,27 @@ export class DomoTwinPanel extends LitElement {
       this.configHistoryOpen = true;
     } catch (error) {
       this.show(this.describe(error), true);
+    }
+  };
+
+  /** Opens guest access (D-067): its module (loaded the first time) and every storey's plan. */
+  private readonly openGuests = async (): Promise<void> => {
+    const client = this.client;
+    if (!client) return;
+    this.busy = true;
+    try {
+      const [, home] = await Promise.all([
+        import("./guests-dialog"),
+        this.storeys.length > 1 ? loadHome(client, this.storeys) : Promise.resolve([]),
+      ]);
+      const shown: HomeStorey[] = this.plan
+        ? [{ id: this.storey ?? "", name: "", elevation: 0, plan: this.plan, layout: this.layout }]
+        : [];
+      this.guestsStoreys = home.length > 0 ? home : shown;
+    } catch (error) {
+      this.show(this.describe(error), true);
+    } finally {
+      this.busy = false;
     }
   };
 
@@ -4029,6 +4057,17 @@ export class DomoTwinPanel extends LitElement {
             .mode=${"settings"}
             @domotwin-close=${() => (this.voiceOpen = false)}
           ></domotwin-voice>`
+        : nothing
+    }
+    ${
+      this.guestsStoreys
+        ? html`<domotwin-guests
+            .hass=${this._hass}
+            .storeys=${this.guestsStoreys}
+            .bindings=${this.bindings}
+            ?wifiSet=${this.wifi?.set === true}
+            @domotwin-close=${() => (this.guestsStoreys = undefined)}
+          ></domotwin-guests>`
         : nothing
     }
     ${

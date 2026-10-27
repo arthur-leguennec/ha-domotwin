@@ -146,7 +146,7 @@ function hass(extra: Partial<HomeAssistant> = {}): HomeAssistant {
   };
 }
 
-describe("a room's graphs (D-067)", () => {
+describe("a room's graphs (D-068)", () => {
   it("puts each kind of measure in a card of its own, in the order of what matters", () => {
     const graphs = roomGraphs(hass(), "living");
     expect(graphs.map((graph) => [graph.kind, graph.meter, graph.unit])).toEqual([
@@ -283,7 +283,7 @@ describe("a room's graphs (D-067)", () => {
   });
 });
 
-describe("Home Assistant's Energy page (D-067)", () => {
+describe("Home Assistant's Energy page (D-068)", () => {
   it("is opened where Home Assistant has it, its back arrow leading back to DomoTwin", () => {
     const page = energyPage(hass(), "/domotwin/rooms/living");
     expect(page).toBe("/energy?historyBack=1&backPath=%2Fdomotwin%2Frooms%2Fliving");

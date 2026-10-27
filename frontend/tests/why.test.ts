@@ -273,6 +273,31 @@ describe("why a device is as it is", () => {
     expect(movieChain.steps[1]).toMatchObject({ entity: "script.movie", context: u("s1") });
   });
 
+  it("names the guest pass whose guests switched a lamp on (D-067)", async () => {
+    const pass = ctx("g1");
+    // The logbook's rows of the lamp, the guest's action first in its context, as described by
+    // the integration's logbook platform.
+    const rows = [
+      {
+        when: T + 0.01,
+        entity_id: "light.hall",
+        state: "on",
+        context_event_type: "domotwin_guest_action",
+        context_domain: "domotwin",
+        context_name: "Sam and Lee",
+        context_message: "asked homeassistant.turn_on through a guest pass",
+        context_entity_id: "light.hall",
+      },
+    ];
+    const { hass } = home({ events: () => rows } as unknown as DemoLogbook, [
+      state("light.hall", "on", T + 0.01, pass),
+    ]);
+    expect((await explain(hass, "light.hall")).steps).toEqual([
+      { kind: "guest", text: "Sam and Lee" },
+      expect.objectContaining({ kind: "change", entity: "light.hall", state: "on" }),
+    ]);
+  });
+
   it("says a change nobody asked for began on the device, or is not in the logbook", async () => {
     const own = ctx("d1");
     const { hass } = home(book([{ when: T, context: own, entity: "light.hall", state: "on" }]), [
@@ -797,6 +822,11 @@ describe("the words of a chain", () => {
     expect(words(fr, { kind: "integration", text: "Day", service: "domotwin" }).detail).toBe(
       "Dit par l’intégration domotwin",
     );
+    expect(words(en, { kind: "guest", text: "Sam and Lee" })).toEqual({
+      main: "Sam and Lee, with a guest pass",
+      detail: "Through a guest pass of DomoTwin's",
+    });
+    expect(words(fr, { kind: "guest", text: "Sam" }).main).toBe("Sam, avec un pass d’invité");
     expect(words(en, { kind: "unattributed" }).main).toBe("Nobody, as far as Home Assistant knows");
     expect(words(fr, { kind: "lost" }).main).toBe("Absent du journal");
   });

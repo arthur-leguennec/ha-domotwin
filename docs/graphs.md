@@ -1,7 +1,7 @@
 # A room's graphs, and the home's energy
 
 What a room measured over the last day or week, drawn by Home Assistant's own graph cards, and the
-home's energy on Home Assistant's own Energy page (`DECISIONS.md`, D-067). DomoTwin draws no graph
+home's energy on Home Assistant's own Energy page (`DECISIONS.md`, D-068). DomoTwin draws no graph
 of its own and keeps nothing: Home Assistant's cards read its recorder for you, as its dashboards
 do.
 

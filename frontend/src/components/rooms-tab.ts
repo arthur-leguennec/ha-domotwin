@@ -1,6 +1,6 @@
 /**
  * `<domotwin-rooms>`, the Rooms tab (D-055): Home Assistant's floors and areas, a room opened
- * with its entities as Home Assistant's tile cards and its graphs (D-067), and a search through
+ * with its entities as Home Assistant's tile cards and its graphs (D-068), and a search through
  * the whole home. Each entity has a star that makes it a favourite of the Home tab.
  */
 import { mdiArrowLeft, mdiChartLine, mdiChevronRight, mdiLockOutline, mdiMagnify } from "@mdi/js";
@@ -48,7 +48,7 @@ export class DomoTwinRooms extends LitElement {
   protected refused?: string;
   /** The room open, an area of Home Assistant. */
   area?: string;
-  /** Its graphs are shown (D-067). */
+  /** Its graphs are shown (D-068). */
   graphs = false;
   /** The room was opened from the 3D view: its way back leads there. */
   from3d = false;
@@ -256,7 +256,7 @@ export class DomoTwinRooms extends LitElement {
     </div>`;
   }
 
-  /** The room's graphs (D-067), with the way back to its page. */
+  /** The room's graphs (D-068), with the way back to its page. */
   private renderGraphs(area: RoomsArea): TemplateResult {
     const t = this.t;
     if (!t) return html``;

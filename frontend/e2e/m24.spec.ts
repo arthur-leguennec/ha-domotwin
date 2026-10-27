@@ -14,7 +14,7 @@ async function configOf(card: Locator): Promise<Record<string, unknown>> {
   return JSON.parse((await card.getAttribute("data-config")) ?? "{}") as Record<string, unknown>;
 }
 
-test.describe("history and energy, with Home Assistant's own cards (D-067)", () => {
+test.describe("history and energy, with Home Assistant's own cards (D-068)", () => {
   test("a room's graphs: Home Assistant's cards over a day or a week, a table, its History", async ({
     page,
   }) => {

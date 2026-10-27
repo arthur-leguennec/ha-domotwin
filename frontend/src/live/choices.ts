@@ -74,7 +74,7 @@ export function canDraw3d(): boolean {
 
 /**
  * The tab a path of the panel shows (Home Assistant gives the path after its own), a room, and
- * whether its graphs (D-067).
+ * whether its graphs (D-068).
  */
 export function routeOf(path: string | undefined): { tab?: Tab; area?: string; graphs?: boolean } {
   const [, first, second, third] = (path ?? "").split("/");
@@ -91,7 +91,7 @@ export function routeOf(path: string | undefined): { tab?: Tab; area?: string; g
   return { tab: first };
 }
 
-/** The path of a tab, of a room in the Rooms tab, and of its graphs (D-067). */
+/** The path of a tab, of a room in the Rooms tab, and of its graphs (D-068). */
 export function pathOf(tab: Tab, area?: string, graphs = false): string {
   if (tab !== "rooms" || !area) return `/${tab}`;
   return `/rooms/${encodeURIComponent(area)}${graphs ? "/graphs" : ""}`;

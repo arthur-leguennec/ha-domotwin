@@ -3,7 +3,7 @@
  * own Overview (2026.2 and later, its `home` panel), each area has a page there, which a room tapped
  * in 3D opens. DomoTwin's summaries, in the Overview's manner, sum up what the 3D view shows: the
  * people at home, the radio mesh, the automations, the upkeep and the robots. Its Energy page is
- * opened rather than copied (D-067).
+ * opened rather than copied (D-068).
  */
 import type { HomeAssistant } from "../ha/types";
 
@@ -26,7 +26,7 @@ export function versionAtLeast(
  * demo house or the sandbox, whose areas are not the home's.
  */
 export function areaPage(hass: HomeAssistant | undefined, area: string): string | undefined {
-  if (!hass || hass.demo === true || hass.sandbox === true) return undefined;
+  if (!hass || hass.demo === true || hass.sandbox === true || hass.guest === true) return undefined;
   if (!hass.panels?.home || !versionAtLeast(hass.config?.version, OVERVIEW_SINCE)) return undefined;
   if (!hass.areas?.[area]) return undefined;
   return `/home/areas-${encodeURIComponent(area)}`;
@@ -34,7 +34,7 @@ export function areaPage(hass: HomeAssistant | undefined, area: string): string 
 
 /**
  * Whether Home Assistant's energy has something set up (`energy/get_prefs`' answer): a source, a
- * device, or water, as its Energy page asks before it shows more than its setup wizard (D-067).
+ * device, or water, as its Energy page asks before it shows more than its setup wizard (D-068).
  */
 export function energySetUp(prefs: unknown): boolean {
   if (typeof prefs !== "object" || prefs === null) return false;
@@ -45,14 +45,15 @@ export function energySetUp(prefs: unknown): boolean {
 }
 
 /**
- * The address of Home Assistant's Energy page (D-067), where it has one: its energy integration
- * makes it for every user (2025.1 and since); never for the demo house or the sandbox. Its back
+ * The address of Home Assistant's Energy page (D-068), where it has one: its energy integration
+ * makes it for every user (2025.1 and since); never for the demo house, the sandbox or a guest's
+ * page. Its back
  * arrow (2025.10 and later, `historyBack`) leads to `back` (2026.2 and later, `backPath`), else back
  * where it came from; before 2025.10, the browser's back does.
  */
 export function energyPage(hass: HomeAssistant | undefined, back?: string): string | undefined {
-  if (!hass || hass.demo === true || hass.sandbox === true || !hass.panels?.energy)
-    return undefined;
+  if (!hass || hass.demo === true || hass.sandbox === true || hass.guest === true) return undefined;
+  if (!hass.panels?.energy) return undefined;
   const params = new URLSearchParams({ historyBack: "1" });
   if (back) params.set("backPath", back);
   return `/energy?${params.toString()}`;

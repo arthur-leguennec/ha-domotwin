@@ -1,6 +1,6 @@
 [package]
 name = "domotwin-analysis"
-description = "DomoTwin analysis: reads a radio mesh's snapshot and an automation's configuration, and analyses them; draws the home's Wi-Fi QR code; advises where the next radio helps most. Its own wasm module, loaded only when the network map, the automations, the Wi-Fi QR code or the radio coverage are shown."
+description = "DomoTwin analysis: reads a radio mesh's snapshot and an automation's configuration, and analyses them; draws the QR codes of the home's Wi-Fi and of a guest's link; advises where the next radio helps most. Its own wasm module, loaded only when the network map, the automations, a QR code or the radio coverage are shown."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

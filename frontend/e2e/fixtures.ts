@@ -10,7 +10,7 @@ export interface HarnessOptions {
   overview?: boolean;
   /** With the Overview: no DomoTwin panel for this user (left out of the sidebar, or admins'). */
   noPanel?: boolean;
-  /** Home Assistant's Energy page, its energy integration's (D-067); `empty`: nothing set up. */
+  /** Home Assistant's Energy page, its energy integration's (D-068); `empty`: nothing set up. */
   energyPage?: boolean | "empty";
   /**
    * Voice (D-041): Assist with a pipeline that hears (`true`), or none that hears (`"deaf"`);

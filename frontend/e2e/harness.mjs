@@ -17,7 +17,7 @@
 //   overview=1 (Home Assistant 2026.10, its Overview with an area page each; DomoTwin's room and
 //   upkeep sensors, who is home: D-061)  mode=summary&summary=<kind> (a summary card)
 //   nopanel=1 (no DomoTwin panel for this user: left out of the sidebar, or for administrators)
-//   energypage=1 (Home Assistant's Energy page, its energy integration's, its grid set up: D-067),
+//   energypage=1 (Home Assistant's Energy page, its energy integration's, its grid set up: D-068),
 //   energypage=empty (the page, nothing set up)
 //   upkeep=1 (the demo apartment's fictional upkeep cards, examples/demo-apartment.upkeep.json)
 //   upkeep=0 (an integration without upkeep cards)
@@ -606,6 +606,22 @@ let wifi =
         }
       : undefined;
 window.__wifi = () => wifi;
+// Guest access (D-067): the passes kept, as the integration keeps them, and what was saved.
+let guestPasses = [];
+let guestTokens = 0;
+window.__guestsSaved = [];
+const guestView = (stored) => {
+  const view = { ...stored, path: `/api/domotwin/guest/${stored.token}`, url: null };
+  delete view.token;
+  const now = Date.now();
+  view.status =
+    now >= Date.parse(stored.ends)
+      ? "ended"
+      : now < Date.parse(stored.starts)
+        ? "upcoming"
+        : "open";
+  return view;
+};
 /** What `domotwin/wifi/get` answers, as the integration does: its password only when asked. */
 window.__wifiAsked = [];
 function wifiAnswer(admin, screen, password) {
@@ -946,7 +962,7 @@ const connection = {
     calls.push(message);
     switch (message.type) {
       case "energy/get_prefs":
-        // Never saved: Home Assistant says so (D-067).
+        // Never saved: Home Assistant says so (D-068).
         if (energyPage !== "1") throw { code: "not_found", message: "No prefs" };
         return {
           energy_sources: [
@@ -1181,6 +1197,35 @@ const connection = {
         for (const listener of listeners) listener({ kind: "wifi", revision: wifiRevision });
         return wifiAnswer(true, "", true);
       }
+      case "domotwin/guests/get":
+        if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        return { passes: guestPasses.map(guestView) };
+      case "domotwin/guests/save": {
+        if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        const change = message.pass;
+        window.__guestsSaved.push(structuredClone(change));
+        if (!change.name) throw { code: "invalid", message: "name" };
+        if (Date.parse(change.ends) <= Date.parse(change.starts)) {
+          throw { code: "ends_before", message: "ends_before" };
+        }
+        if (change.rooms.length === 0 && change.entities.length === 0) {
+          throw { code: "nothing_open", message: "nothing_open" };
+        }
+        const kept = guestPasses.find((p) => p.id === change.id);
+        guestTokens += 1;
+        const token =
+          kept && !change.renew ? kept.token : `fictional${String(guestTokens).padStart(36, "0")}`;
+        const stored = { ...change, id: kept?.id ?? `pass-${guestTokens}`, token };
+        delete stored.renew;
+        guestPasses = kept
+          ? guestPasses.map((p) => (p === kept ? stored : p))
+          : [...guestPasses, stored];
+        return guestView(stored);
+      }
+      case "domotwin/guests/remove":
+        if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        guestPasses = guestPasses.filter((p) => p.id !== message.pass);
+        return { removed: true };
       case "domotwin/wifi/clear":
         if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
         wifi = undefined;
@@ -1908,7 +1953,7 @@ let hass = {
         panels: {
           ...(overview ? { home: { url_path: "home" } } : {}),
           ...(params.get("nopanel") === "1" ? {} : { domotwin: { url_path: "domotwin" } }),
-          // energypage=1: Home Assistant's Energy page (D-067).
+          // energypage=1: Home Assistant's Energy page (D-068).
           ...(energyPage ? { energy: { url_path: "energy" } } : {}),
         },
       }

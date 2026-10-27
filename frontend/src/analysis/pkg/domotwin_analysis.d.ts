@@ -36,6 +36,12 @@ export function advisePlacement(input: string): string;
 export function readAutomation(config: string): string;
 
 /**
+ * The QR code of a text, a guest's link (D-067): JSON as `wifi_qr`'s, `{"size": 0}` for an
+ * empty text or one longer than `MAX_QR_TEXT` bytes.
+ */
+export function textQr(text: string): string;
+
+/**
  * The QR code joining a Wi-Fi network (`wifi_payload`): JSON `{"size": modules on a side,
  * "modules": "0110…" row by row, 1 dark}`, or `{"size": 0}` when it does not fit in one or the
  * network cannot be read.
@@ -52,6 +58,7 @@ export interface InitOutput {
     readonly networkanalysis_new: (a: number, b: number) => number;
     readonly networkanalysis_report: (a: number, b: number, c: number, d: number) => void;
     readonly readAutomation: (a: number, b: number, c: number) => void;
+    readonly textQr: (a: number, b: number, c: number) => void;
     readonly wifiQr: (a: number, b: number, c: number) => void;
     readonly __wbindgen_export: (a: number, b: number, c: number) => void;
     readonly __wbindgen_export2: (a: number, b: number) => number;

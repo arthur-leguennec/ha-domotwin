@@ -202,7 +202,7 @@ export class DomoTwinHistory extends LitElement {
   entities: string[] = [];
   /** What the viewer may not see (D-039): the search leaves it out. */
   unseen: Unseen = NOTHING_UNSEEN;
-  /** The period it opens on: a room's graphs' (D-067); the last day otherwise. */
+  /** The period it opens on: a room's graphs' (D-068); the last day otherwise. */
   opensOn?: PeriodChoice;
   protected chosen: string[] = [];
   protected mode: ReportMode = "changes";

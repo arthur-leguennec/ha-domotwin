@@ -126,26 +126,32 @@ export class DomoTwinControls extends Sheet {
     const why = this.primary ?? first;
     return this.frame(
       html`${this.entities.map((id) => entityRow(hass, t, id, true))}
-        ${
-          why && explainable(hass, why)
-            ? html`<domotwin-why-section
+      ${
+        why && explainable(hass, why)
+          ? html`<domotwin-why-section
+              .hass=${hass}
+              .entity=${why}
+              .unseen=${this.unseen}
+            ></domotwin-why-section>`
+          : nothing
+      }
+      ${
+        // A guest (D-067) has none of Home Assistant's automations, history or dialogs, and
+        // schedules nothing.
+        hass.guest
+          ? nothing
+          : html`<domotwin-schedules .hass=${hass} .entities=${this.entities}></domotwin-schedules>
+              <domotwin-automations
                 .hass=${hass}
-                .entity=${why}
-                .unseen=${this.unseen}
-              ></domotwin-why-section>`
-            : nothing
-        }
-        <domotwin-schedules .hass=${hass} .entities=${this.entities}></domotwin-schedules>
-        <domotwin-automations
-          .hass=${hass}
-          .entities=${this.entities}
-          .device=${this.device}
-          .area=${this.area}
-        ></domotwin-automations>
-        ${upkeepCard(this)}`,
+                .entities=${this.entities}
+                .device=${this.device}
+                .area=${this.area}
+              ></domotwin-automations>`
+      }
+      ${upkeepCard(this)}`,
       // The sandbox's day has a report of its own (D-057), and Home Assistant's dialogs do not
       // know its entities (D-050).
-      first && !hass.sandbox
+      first && !hass.sandbox && !hass.guest
         ? html`<div class="footer">
             ${historyButton(this, t, this.entities, "controls-history", t.t("controls.history"))}
             ${
@@ -362,7 +368,7 @@ export class DomoTwinRoom extends Sheet {
   people: PersonShown[] = [];
   /** The devices followed by Bluetooth heard in it (D-035). */
   things: LocatedShown[] = [];
-  /** Its graphs can open, in the panel's Rooms tab (D-067). */
+  /** Its graphs can open, in the panel's Rooms tab (D-068). */
   graphs = false;
 
   protected override render(): TemplateResult | typeof nothing {
@@ -386,9 +392,9 @@ export class DomoTwinRoom extends Sheet {
           ${this.admin ? html`<p class="empty">${t.t("room.no_area_admin")}</p>` : nothing} ${later}`,
       );
     }
-    // Its air sensors' history (D-058) and its graphs (D-067), when it has some.
-    const sensors = hass.sandbox ? [] : roomSensors(hass, area);
-    const graphs = this.graphs && !hass.sandbox && hasGraphs(hass, area);
+    // Its air sensors' history (D-058) and its graphs (D-068), when it has some.
+    const sensors = hass.sandbox || hass.guest ? [] : roomSensors(hass, area);
+    const graphs = this.graphs && !hass.sandbox && !hass.guest && hasGraphs(hass, area);
     const footer =
       sensors.length > 0 || graphs
         ? html`<div class="footer">
@@ -417,10 +423,9 @@ export class DomoTwinRoom extends Sheet {
       key: group.key,
       ids: ids.filter((id) => group.domains.includes(id.split(".")[0] ?? "")),
     })).filter((group) => group.ids.length > 0);
-    const automations = html`<domotwin-automations
-      .hass=${hass}
-      .area=${area}
-    ></domotwin-automations>`;
+    const automations = hass.guest
+      ? nothing
+      : html`<domotwin-automations .hass=${hass} .area=${area}></domotwin-automations>`;
     if (groups.length === 0) {
       return this.frame(
         html`${here}
@@ -455,7 +460,7 @@ export class DomoTwinRoom extends Sheet {
   /** What the room will do later (D-046): its lights or its blinds, at a time. */
   private renderLater(t: Translator): TemplateResult | typeof nothing {
     const hass = this.hass;
-    if (!hass || !this.devices) return nothing;
+    if (!hass || !this.devices || hass.guest) return nothing;
     const groups = schedulableGroups(this.devices).map((group) => ({
       ...group,
       label: t.t(group.key === "lights" ? "room.later_lights" : "room.later_covers"),
