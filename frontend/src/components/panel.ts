@@ -591,6 +591,10 @@ export class DomoTwinPanel extends LitElement {
   private firstModule?: typeof import("./first-launch-dialog");
   /** The steps of getting started, worked out again only when what they read changes. */
   private stepsMemo?: { key: unknown[]; steps: StartStep[] };
+  /** The revision of the home when the areas were offered: drawing is refused past it. */
+  private firstRevision?: number;
+  /** The other storeys' ids, read when the steps open: links to pieces there are placed. */
+  private firstOtherIds: string[] = [];
   private reportAsked?: number;
   /** The plans the report is drawn on, the same while they are. */
   private reportShown?: { from: unknown[]; plans: ReportPlan[] };
@@ -4442,6 +4446,7 @@ export class DomoTwinPanel extends LitElement {
     try {
       await this.firstLaunch();
       this.firstError = undefined;
+      this.firstRevision = this.revision;
       this.firstOpen = "choose";
     } catch (error) {
       this.show(this.describe(error), true);
@@ -4453,6 +4458,7 @@ export class DomoTwinPanel extends LitElement {
     this.moreOpen = false;
     try {
       await this.firstLaunch();
+      this.firstOtherIds = await this.otherIds(this.storey);
       this.firstOpen = "steps";
     } catch (error) {
       this.show(this.describe(error), true);
@@ -4472,11 +4478,15 @@ export class DomoTwinPanel extends LitElement {
     this.busy = true;
     this.firstError = undefined;
     try {
-      const text = await (await this.firstLaunch()).storeHome(hass, client, choice, this.revision);
+      // Refused if the home changed since the areas were offered (another device drew a plan).
+      const text = await (
+        await this.firstLaunch()
+      ).storeHome(hass, client, choice, this.firstRevision);
       // The server's ground floor.
       this.storey = undefined;
       await this.loadPlan();
       await this.loadBindings();
+      this.firstOtherIds = await this.otherIds(this.storey);
       this.firstOpen = "steps";
       this.show(text);
     } catch (error) {
@@ -4530,7 +4540,7 @@ export class DomoTwinPanel extends LitElement {
     if (!client || !hass || !plan || this.busy) return;
     this.busy = true;
     try {
-      const taken = [...storeyIds(plan), ...(await this.otherIds(this.storey))];
+      const taken = [...storeyIds(plan, this.layout), ...(await this.otherIds(this.storey))];
       const text = await (
         await this.firstLaunch()
       ).storeDevices(hass, client, {
@@ -4556,11 +4566,23 @@ export class DomoTwinPanel extends LitElement {
     const hass = this._hass;
     if (!first || !hass) return [];
     const bindings = this.bindings ?? NO_BINDINGS;
-    const key = [this.plan, bindings, hass.entities, hass.devices, this.people, this.settings];
+    const key = [
+      this.plan,
+      this.layout,
+      bindings,
+      hass.states,
+      hass.entities,
+      hass.devices,
+      hass.areas,
+      this.people,
+      this.settings,
+      this.firstOtherIds,
+    ];
     const memo = this.stepsMemo;
     if (memo?.key.every((part, i) => part === key[i])) return memo.steps;
     const energy = this.settings?.energy as Record<string, unknown> | undefined;
-    const steps = first.stepsOf(hass, this.plan, bindings, this.people, energy);
+    const present = new Set([...storeyIds(this.plan, this.layout), ...this.firstOtherIds]);
+    const steps = first.stepsOf(hass, this.plan, bindings, this.people, energy, present);
     this.stepsMemo = { key, steps };
     return steps;
   }

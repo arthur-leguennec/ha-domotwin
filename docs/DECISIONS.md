@@ -4175,10 +4175,11 @@ house).
   - **The home drawn from the areas.** On the empty plan, an administrator whose Home Assistant has
     areas is offered *Draw it from Home Assistant's areas*: a dialog lists the floors, each with its
     areas (all ticked, each with how many devices DomoTwin would place), and two choices, *Place
-    their devices* and *Furnish the rooms*. *Draw my home* makes a storey per floor (its elevation
-    280 cm a level; a floor without one above the others, two at one level one above the other), the
-    areas on no floor on the ground floor, and the home's storeys are replaced in one save, refused
-    if the home changed meanwhile (it had no plan: the offer is only made then).
+    their devices* and *Furnish the rooms*. *Draw my home* makes a storey per floor, 280 cm a level
+    above the ground floor (level 0, else the lowest; a floor without a level above the others, two
+    at one level one above the other), the areas on no floor on the ground floor, and the home's
+    storeys are replaced in one save, refused if the home changed meanwhile (it had no plan: the
+    offer is only made then).
   - **A room per area, at a usual size**: what a room is comes from its name (D-045's words: a
     kitchen, a bedroom…), else its area's icon (`mdi:sofa` a living room, `mdi:bed` a bedroom), and
     gives it a usual size (a kitchen 360 × 300 cm, a bedroom 360 × 340, a bathroom 260 × 220…). A
@@ -4188,10 +4189,11 @@ house).
   - **Doors, windows, an entrance**: each room is reached from the one before it in its row, the
     first of a row from the room above it that it shares most with (a door of 80 cm in the middle);
     the ground floor has an entrance into its hall, else its living room, its dining room, its
-    kitchen… (never a garage), on its longest outer wall, the street's side rather than the
-    garden's; each room but a hall, a closet or the stairs has a window on the longest stretch of
-    its walls no other room is behind, clear of the doors. A floor of more than 150 areas is drawn
-    with its first 150. The engine checks every storey before it is saved (`summarizePlan`).
+    kitchen… (a garage only when there is nothing else), on its longest outer wall, the street's
+    side rather than the garden's; each room but a hall, a closet or the stairs has a window on the
+    longest stretch of its walls no other room is behind, clear of the doors. A floor of more than
+    150 areas is drawn with its first 150. The engine checks every storey before it is saved
+    (`summarizePlan`).
   - **The devices placed and linked**: each device of an area (an entity on its own when it has
     none) is drawn as what its most telling entity says (a vacuum a robot's dock, a television a TV
     on its stand, a speaker, a thermostat a radiator or a heat pump, a fan, a ceiling fan when it
@@ -4199,8 +4201,11 @@ house).
     light a ceiling light, a temperature sensor), and linked to its entities that fit that kind (the
     link editor's fit, D-017, the reverse way). What says nothing DomoTwin draws (a switch, a door's
     contact, a button) is left for one to place; hidden and configuration entities too; groups of
-    lights too. A device is placed once one of its entities is linked (or a piece stands for it):
-    its others are not offered again.
+    lights too. A device is placed once, in one room (that of its most telling entity), and counts
+    as placed once one of its entities is linked (or a piece stands for it), as long as that piece
+    is in the home: a link left from an earlier plan places nothing. Outside (a garden, a terrace),
+    a light is a garden light on its post, and what would hang from a wall or a ceiling is left for
+    one to place.
   - **Furnished**: a bed, a wardrobe and a nightstand in a bedroom, a sofa, a coffee table and an
     armchair in a living room, a counter, a fridge and a stove in a kitchen, a bath (or a shower in
     a small bathroom) with its basin and toilet… at the catalogue's sizes (a test reads
@@ -4208,14 +4213,16 @@ house).
   - **Where a piece stands**: against a wall, its back to it and facing in, the walls longest first,
     a large piece in the middle of one, a small one at its ends; or free (a table, a car), from the
     middle of the room out; a ceiling light where the others are farthest. Never over another piece
-    of its layer (the floor, a wall above the furniture, the ceiling), never in a door's way (90 cm
-    in front of it), a tall piece not before a window; a piece that finds no space is left out and
-    counted (*place it in Arrange*). A plan holds 500 elements: the pieces stop before (480).
+    of its layer (the floor, a wall above the furniture, the ceiling), never in a door's way (75 cm
+    in front of it), a tall piece not before a window; a device that finds no space is left out and
+    counted (*place it in Arrange*), a piece of furniture left out. A plan holds 500 elements: the
+    pieces stop before (480).
   - **On a plan of one's own too**: *Getting started* places the devices of the areas the storey's
     rooms are linked to (or named as, D-023), those not linked yet, the same way, around the pieces
     as *Arrange* left them, its overlay kept; so an imported plan or a robot's map gets its devices
-    in one press. The new pieces take no id a link already has (one left from an earlier plan), and
-    the links are added to the home's, read again if another save came in between.
+    in one press. The new pieces take no id a link already has (one left from an earlier plan);
+    their links are added to the home's first (read again if another save came in between), then the
+    plan saved, so a plan refused leaves links to pieces that are not there, which place nothing.
   - **Getting started**, after drawing and from the ⋮ menu (administrators): a plan; the rooms
     shaped (the plan editor); each room linked to its area (link mode, how many are not); their
     devices placed (how many are left, placed in one press); each piece where it stands (Arrange);
@@ -4232,5 +4239,5 @@ house).
     rooms linked to their areas with their devices placed and linked, in a few presses; then the
     steps, each a press away. Drawing a fictional home of 24 areas and 300 devices (1 200 entities)
     takes about 0.3 s.
-  - The first load grows by 1.4 kB (the empty plan's button, the menu item, the panel's part); the
-    rest (12.9 kB gzipped) loads when it is opened.
+  - The first load grows by 1.8 kB (the empty plan's button, the menu item, the panel's part); the
+    rest (13.0 kB gzipped) loads when it is opened.

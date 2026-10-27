@@ -11,6 +11,7 @@ import {
   areaKind,
   buildHome,
   devicePieces,
+  devicesByArea,
   homeStoreys,
   linkedEntities,
   placeDevices,
@@ -641,6 +642,151 @@ describe("a first launch in five minutes (D-083)", () => {
     for (const [x, y] of corners(light?.at ?? [0, 0], light?.size ?? [], 0)) {
       expect(x <= 120 || y <= 120).toBe(true);
     }
+  });
+
+  it("lights a garden with garden lights; nothing hangs outside", () => {
+    const hass = home();
+    for (const [id, attributes] of [
+      ["light.garden", {}],
+      ["camera.garden", {}],
+      ["binary_sensor.garden_motion", { device_class: "motion" }],
+    ] as const) {
+      hass.states[id] = { entity_id: id, state: "on", attributes } as unknown as HassEntity;
+      (hass.entities ?? {})[id] = { entity_id: id, area_id: "garden" };
+    }
+    const built = buildHome({
+      storeys: [
+        {
+          name: "Home",
+          level: 0,
+          areas: [
+            { id: "garden", name: "Garden" },
+            { id: "hall", name: "Hall" },
+          ],
+        },
+      ],
+      devices: devicesByArea(hass, ["garden", "hall"], new Set()),
+      furnish: false,
+    });
+    const items = (built.storeys[0]?.plan.items ?? []) as {
+      kind: string;
+      room: string;
+      lift?: number;
+    }[];
+    const garden = items.filter((i) => i.room === "area-garden");
+    expect(garden.map((i) => i.kind)).toEqual(["garden-light"]);
+    expect(garden[0]?.lift).toBeUndefined();
+    // The camera and the motion sensor are left for one to place.
+    expect(built.left).toBe(2);
+  });
+
+  it("puts the lowest storey on the ground when Home Assistant's floors have no level", () => {
+    const hass = {
+      ...home(),
+      floors: {
+        a: { floor_id: "a", name: "Downstairs" },
+        b: { floor_id: "b", name: "Upstairs" },
+      },
+      areas: {
+        x: { area_id: "x", name: "Kitchen", floor_id: "a" },
+        y: { area_id: "y", name: "Bedroom", floor_id: "b" },
+      },
+    } as unknown as HomeAssistant;
+    const built = buildHome({ storeys: homeStoreys(hass, "Home"), furnish: false });
+    expect(built.storeys.map((s) => s.elevation)).toEqual([0, STOREY_HEIGHT]);
+    // Numbered from 1: the first on the ground all the same.
+    const one = buildHome({
+      storeys: [
+        { name: "First", level: 1, areas: [{ id: "x", name: "Kitchen" }] },
+        { name: "Second", level: 2, areas: [{ id: "y", name: "Bedroom" }] },
+      ],
+      furnish: false,
+    });
+    expect(one.storeys.map((s) => s.elevation)).toEqual([0, STOREY_HEIGHT]);
+  });
+
+  it("places a device once, in one room, whatever its entities' areas", () => {
+    const hass = home();
+    // The thermostat's temperature in the kitchen: still the bedroom's radiator.
+    hass.states["sensor.radiator_temperature"] = {
+      entity_id: "sensor.radiator_temperature",
+      state: "20",
+      attributes: { device_class: "temperature" },
+    } as unknown as HassEntity;
+    (hass.entities ?? {})["sensor.radiator_temperature"] = {
+      entity_id: "sensor.radiator_temperature",
+      device_id: "d-thermostat",
+      area_id: "kitchen",
+    };
+    const pieces = [...devicesByArea(hass, ["bedroom", "kitchen"], new Set()).values()].flat();
+    expect(pieces.filter((p) => p.kind === "radiator")).toHaveLength(1);
+    expect(pieces.filter((p) => p.kind === "sensor")).toHaveLength(0);
+    // Two rooms of one area: its devices in the first.
+    const plan = {
+      format: "domotwin-plan",
+      version: 1,
+      rooms: [
+        {
+          id: "b1",
+          name: "Bedroom",
+          outline: [
+            [0, 0],
+            [400, 0],
+            [400, 300],
+            [0, 300],
+          ],
+        },
+        {
+          id: "b2",
+          name: "Bedroom",
+          outline: [
+            [400, 0],
+            [800, 0],
+            [800, 300],
+            [400, 300],
+          ],
+        },
+      ],
+    };
+    const placed = placeDevices(hass, plan, NO_BINDINGS, ["b1", "b2"]);
+    const items = placed.plan.items as { kind: string; room: string }[];
+    expect(items.filter((i) => i.kind === "radiator")).toHaveLength(1);
+    expect(items.every((i) => i.room === "b1")).toBe(true);
+  });
+
+  it("counts a link as placing its device only while its piece is in the home", () => {
+    const hass = home();
+    const stale: BindingsJson = {
+      ...NO_BINDINGS,
+      elements: { "old-radiator": { entities: [{ entity_id: "climate.bedroom" }] } },
+    };
+    expect(linkedEntities(hass, stale).has("climate.bedroom")).toBe(true);
+    expect(linkedEntities(hass, stale, new Set(["k"])).has("climate.bedroom")).toBe(false);
+    expect(linkedEntities(hass, stale, new Set(["old-radiator"])).has("device:d-thermostat")).toBe(
+      true,
+    );
+  });
+
+  it("gives the entrance to a bedroom rather than the garage", () => {
+    const built = buildHome({
+      storeys: [
+        {
+          name: "Home",
+          level: 0,
+          areas: [
+            { id: "garage", name: "Garage" },
+            { id: "bed", name: "Bedroom" },
+          ],
+        },
+      ],
+      furnish: false,
+    });
+    const plan = built.storeys[0]?.plan ?? {};
+    const rects = rectsOf(built.storeys[0] as BuiltStorey);
+    const out = (plan.doors as { from: P; to: P; room: string }[]).filter(
+      (d) => roomsBy(rects, d.from, d.to).length === 1,
+    );
+    expect(out.map((d) => d.room)).toEqual(["area-bed"]);
   });
 
   it("keeps a plan within its 500 elements, telling the devices left out", () => {

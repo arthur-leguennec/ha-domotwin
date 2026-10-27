@@ -16,8 +16,8 @@ them, places your devices in it and links them, and then lists what is left to d
 
 What you get:
 
-- **A storey per floor**, 280 cm above the one below for each level (a floor without a level goes
-  above the others).
+- **A storey per floor**, 280 cm above the one below for each level, the lowest on the ground (a
+  floor without a level goes above the others).
 - **A room per area**, named and linked to it, at a usual size for what it is: a kitchen
   360 × 300 cm, a living room 520 × 420, a bedroom 360 × 340, a bathroom 260 × 220, a toilet
   160 × 130… What a room is comes from its name (*Kitchen*, *Chambre*…), else from its area's icon
@@ -25,7 +25,8 @@ What you get:
 - **Side by side**: a floor's rooms in rows, as wide as the floor, so it is a rectangle but for
   its last row.
 - **Doors** joining every room to the others, an **entrance** on the ground floor (into the hall,
-  else the living room…, never the garage, on the street's side rather than the garden's), and a
+  else the living room…, the garage only when there is nothing else, on the street's side rather
+  than the garden's), and a
   **window** on each room's longest outer wall, clear of the doors.
 - **The devices placed and linked**, each as what its entities say:
 
@@ -55,8 +56,10 @@ What you get:
   in an office…
 
 Each piece stands against a wall, its back to it, or free in the room, clear of the doors and of
-the other pieces. A piece that finds no space is left out, and the message says how many: place
-them in *Arrange*.
+the other pieces. A device that finds no space is left out, and the message says how many: place
+them in *Arrange*. In a garden or on a terrace, a light is a garden light on its post, and what
+would hang from a wall or a ceiling (a camera, a sensor) is left for you to place. A device is
+placed once, in the room of its most telling entity.
 
 ## Getting started
 

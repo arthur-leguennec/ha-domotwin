@@ -17,6 +17,7 @@ import {
   type ElementBinding,
 } from "./bindings";
 import { planElements } from "./plan";
+import { storeyIds } from "./storeys";
 import { roomKind, type RoomKind } from "./room-labels";
 import { fit } from "./suggest";
 
@@ -99,7 +100,7 @@ export const SHAPES: Readonly<Record<string, Shape>> = {
   tv: { size: [140, 35, 55], lift: 50, layer: "floor", against: true },
   "tv-stand": { size: [160, 40, 50], layer: "floor", against: true },
   speaker: { size: [12, 12, 17], layer: "floor", against: true },
-  radiator: { size: [120, 8, 18], layer: "wall", against: true },
+  radiator: { size: [120, 8, 18], layer: "floor", against: true },
   "heat-pump": { size: [90, 22, 30], lift: 210, layer: "wall", against: true },
   "water-heater": { size: [56, 56, 150], layer: "floor", against: true },
   fan: { size: [40, 40, 125], layer: "floor", against: true },
@@ -114,6 +115,7 @@ export const SHAPES: Readonly<Record<string, Shape>> = {
   "sensor:motion": { size: [8, 6, 8], lift: 210, layer: "wall", against: true },
   "ceiling-light": { size: [36, 36, 14], lift: 250, layer: "ceiling", against: false },
   "floor-lamp": { size: [35, 35, 160], layer: "floor", against: true },
+  "garden-light:post": { size: [25, 25, 200], layer: "floor", against: false },
   // Furniture.
   sofa: { size: [210, 90, 85], layer: "floor", against: true },
   armchair: { size: [80, 80, 85], layer: "floor", against: true },
@@ -289,28 +291,32 @@ function deviceName(hass: HomeAssistant, device: string | undefined, entityId: s
 }
 
 /**
- * The devices of an area to place, each once: an entity's device, or the entity when it has none;
- * drawn as the kind its most telling entity says (a vacuum, a television, a thermostat…), linked to
- * its entities that fit that kind. Those already linked (`linked`, from `linkedEntities`: an
- * entity, or a device by any of its entities) and hidden ones are left out; a device whose
- * entities say nothing DomoTwin draws (a switch, a door's contact) too.
+ * The devices of some areas to place, each once, by area: an entity's device, or the entity when it
+ * has none; drawn as the kind its most telling entity says (a vacuum, a television, a
+ * thermostat…), in that entity's area, and linked to its entities that fit that kind. What is in
+ * `linked` (from `linkedEntities`: an entity, or a device by any of its entities) and hidden
+ * entities are left out; a device whose entities say nothing DomoTwin draws (a switch, a door's
+ * contact) too. What is given is added to `linked`, so it is given once.
  */
-export function devicePieces(
+export function devicesByArea(
   hass: HomeAssistant,
-  area: string,
-  linked: ReadonlySet<string> = new Set(),
-): DevicePiece[] {
+  areas: Iterable<string>,
+  linked: Set<string>,
+): Map<string, DevicePiece[]> {
+  const wanted = new Set(areas);
+  // One pass over the registry: the entities of the areas wanted, by device.
   const groups = new Map<string, string[]>();
   for (const entry of Object.values(hass.entities ?? {})) {
     if (!entry || linked.has(entry.entity_id) || !shownEntity(hass, entry.entity_id)) continue;
-    if (areaOf(hass, entry.entity_id) !== area) continue;
+    const area = areaOf(hass, entry.entity_id);
+    if (!area || !wanted.has(area)) continue;
     const key = entry.device_id ? `device:${entry.device_id}` : `entity:${entry.entity_id}`;
     if (linked.has(key)) continue;
     const list = groups.get(key);
     if (list) list.push(entry.entity_id);
     else groups.set(key, [entry.entity_id]);
   }
-  const pieces: DevicePiece[] = [];
+  const byArea = new Map<string, DevicePiece[]>([...wanted].map((area) => [area, []]));
   for (const [key, entities] of groups) {
     entities.sort();
     let best: [string, number, string?] | undefined;
@@ -333,12 +339,24 @@ export function devicePieces(
       entities: [main, ...fitting].slice(0, MAX_ENTITIES),
     };
     if (best[2]) piece.style = best[2];
-    pieces.push(piece);
+    byArea.get(areaOf(hass, main) ?? "")?.push(piece);
+    linked.add(key);
+    for (const id of piece.entities) linked.add(id);
   }
   // The larger first, so they find their wall before the small ones.
-  return pieces.sort(
-    (a, b) => area2(shapeOf(b)) - area2(shapeOf(a)) || a.name.localeCompare(b.name),
-  );
+  for (const pieces of byArea.values()) {
+    pieces.sort((a, b) => area2(shapeOf(b)) - area2(shapeOf(a)) || a.name.localeCompare(b.name));
+  }
+  return byArea;
+}
+
+/** The devices of one area to place (`devicesByArea`), what is in `linked` left out. */
+export function devicePieces(
+  hass: HomeAssistant,
+  area: string,
+  linked: ReadonlySet<string> = new Set(),
+): DevicePiece[] {
+  return devicesByArea(hass, [area], new Set(linked)).get(area) ?? [];
 }
 
 function shapeOf(piece: { kind: string; style?: string }): Shape {
@@ -489,6 +507,8 @@ interface Gap {
 /** A room to furnish: its outline, its openings, and what already stands in it. */
 interface Room {
   outline: P[];
+  /** A place outside (D-077): no walls, no ceiling. */
+  outside: boolean;
   gaps: Gap[];
   taken: { box: Box; layer: Layer }[];
 }
@@ -517,11 +537,11 @@ function findSpot(room: Room, shape: Shape, layer: Layer): Spot | undefined {
     }
     if (layer === "ceiling") return true;
     for (const gap of room.gaps) {
-      // A door's leaf and passage, 90 cm into the room; under a window, 30 cm.
+      // A door's leaf and passage, 75 cm into the room; under a window, 30 cm.
       if (!gap.door && (layer === "wall" ? false : h < 100)) continue;
       const along: P = [gap.b[0] - gap.a[0], gap.b[1] - gap.a[1]];
       const length = Math.hypot(along[0], along[1]) || 1;
-      const reach = gap.door ? 90 : 30;
+      const reach = gap.door ? 75 : 30;
       const zone: Box = {
         c: [(gap.a[0] + gap.b[0]) / 2, (gap.a[1] + gap.b[1]) / 2],
         hw: length / 2 + (gap.door ? 10 : 0),
@@ -577,12 +597,19 @@ function findSpot(room: Room, shape: Shape, layer: Layer): Spot | undefined {
     layer === "ceiling" && others.length > 0
       ? -Math.min(...others.map((o) => Math.hypot(p[0] - o[0], p[1] - o[1])))
       : Math.hypot(p[0] - start[0], p[1] - start[1]);
+  // Every 10 cm, coarser in a large place (a garden): some 4 000 spots at most.
+  const step = Math.max(
+    10,
+    Math.ceil(
+      Math.sqrt(((Math.max(...xs) - Math.min(...xs)) * (Math.max(...ys) - Math.min(...ys))) / 4000),
+    ),
+  );
   // As it comes, else a quarter turned (a car along a garage's length).
   for (const angle of w === d ? [0] : [0, 90]) {
     const [across, along] = angle === 0 ? [w, d] : [d, w];
     const spots: { c: P; score: number }[] = [];
-    for (let x = Math.min(...xs) + across / 2; x <= Math.max(...xs) - across / 2; x += 10) {
-      for (let y = Math.min(...ys) + along / 2; y <= Math.max(...ys) - along / 2; y += 10) {
+    for (let x = Math.min(...xs) + across / 2; x <= Math.max(...xs) - across / 2; x += step) {
+      for (let y = Math.min(...ys) + along / 2; y <= Math.max(...ys) - along / 2; y += step) {
         spots.push({ c: [x, y], score: score([x, y]) });
       }
     }
@@ -728,13 +755,6 @@ function piecesStanding(plan: unknown, layout: Record<string, unknown> = {}): St
   return pieces;
 }
 
-/** How many pieces the overlay adds to a plan: they count towards its 500 elements. */
-function addedCount(layout: Record<string, unknown> = {}): number {
-  return Object.values(layout).filter(
-    (entry) => typeof entry === "object" && entry !== null && "add" in entry,
-  ).length;
-}
-
 /**
  * A room of a plan file: its outline, its openings on its sides, and the pieces standing in it
  * (said to be in it, or in no room with their centre inside it).
@@ -768,7 +788,7 @@ function roomOf(
   const taken = pieces
     .filter((piece) => (piece.room ? piece.room === id : inside(outline, piece.box.c)))
     .map(({ box, layer }) => ({ box, layer }));
-  return { outline, gaps, taken };
+  return { outline, outside: found?.fields.outside === true, gaps, taken };
 }
 
 /** How many more elements a plan may take (its 500, a few kept for the user's own). */
@@ -794,8 +814,18 @@ function furnish(
   if (!room) return counts;
   const items = (plan.items as Record<string, unknown>[] | undefined) ?? [];
   plan.items = items;
-  for (const piece of pieces) {
-    const device = "entities" in piece;
+  for (const given of pieces) {
+    const device = "entities" in given;
+    let piece = given;
+    // Outside, nothing hangs from a ceiling or a wall: a light is a garden light on its post, what
+    // hangs is left for one to place.
+    if (room.outside) {
+      if (piece.kind === "ceiling-light") piece = { ...piece, kind: "garden-light", style: "post" };
+      else if (shapeOf(piece).layer !== "floor") {
+        if (device) counts.left++;
+        continue;
+      }
+    }
     // A television stands on its stand; a curtain hangs before a window, as wide as it.
     const standing = piece.kind === "tv";
     if (budget.left < (standing ? 2 : 1)) {
@@ -828,10 +858,10 @@ function furnish(
     const id = ids.next(piece.kind);
     const extra: Record<string, unknown> = {};
     if (piece.style) extra.style = piece.style;
-    if (device) extra.name = piece.name;
+    if ("entities" in piece) extra.name = piece.name;
     items.push(item(id, roomId, piece.kind, spot, own, extra));
     budget.left--;
-    if (device) {
+    if ("entities" in piece) {
       elements[id] = { entities: piece.entities.map((entity_id) => ({ entity_id })) };
       counts.devices++;
     } else counts.furniture++;
@@ -1042,6 +1072,7 @@ export function buildHome(choice: HomeChoice): Built {
     const entrance =
       storey.level === ground
         ? (ENTRANCES.map((kind) => indoors.find((r) => r.kind === kind)).find(Boolean) ??
+          indoors.find((r) => r.kind !== "garage") ??
           indoors[0])
         : undefined;
     if (entrance) {
@@ -1129,7 +1160,12 @@ export function buildHome(choice: HomeChoice): Built {
       built.left += counts.left;
     }
     built.rooms += flat.length;
-    built.storeys.push({ name: storey.name, elevation: storey.level * STOREY_HEIGHT, plan });
+    // Above the ground floor (level 0, else the lowest).
+    built.storeys.push({
+      name: storey.name,
+      elevation: (storey.level - ground) * STOREY_HEIGHT,
+      plan,
+    });
   }
   return built;
 }
@@ -1150,7 +1186,7 @@ export function homeStoreys(hass: HomeAssistant, home: string): HomeStorey[] {
     );
   const used = new Set<number>();
   const floors = sorted.map((floor) => {
-    let level = floor.level ?? Math.max(0, ...used, -1) + 1;
+    let level = floor.level ?? (used.size > 0 ? Math.max(...used) + 1 : 0);
     while (used.has(level)) level++;
     used.add(level);
     return { floor, level };
@@ -1175,11 +1211,18 @@ export function homeStoreys(hass: HomeAssistant, home: string): HomeStorey[] {
 
 /**
  * What is linked to a piece already, home-wide: its entities, and their devices as
- * `device:<id>` (`devicePieces` leaves a device out once one of its entities is linked).
+ * `device:<id>` (`devicesByArea` leaves a device out once one of its entities is linked). With
+ * `present`, the home's ids, only the links of pieces still there count.
  */
-export function linkedEntities(hass: HomeAssistant, bindings: BindingsJson): Set<string> {
+export function linkedEntities(
+  hass: HomeAssistant,
+  bindings: BindingsJson,
+  present?: ReadonlySet<string>,
+): Set<string> {
   const linked = new Set<string>();
-  for (const binding of Object.values(bindings.elements)) {
+  for (const [element, binding] of Object.entries(bindings.elements)) {
+    // A link whose piece is gone (an earlier plan's) places nothing.
+    if (present && !present.has(element)) continue;
     // A piece standing for a device (the network map's, D-031) links all of it.
     if (binding.device) linked.add(`device:${binding.device}`);
     for (const { entity_id } of binding.entities) {
@@ -1203,6 +1246,7 @@ export function placeDevices(
   bindings: BindingsJson,
   taken: Iterable<string>,
   layout: Record<string, unknown> = {},
+  present?: ReadonlySet<string>,
 ): {
   plan: Record<string, unknown>;
   elements: Record<string, ElementBinding>;
@@ -1217,9 +1261,9 @@ export function placeDevices(
     ...Object.keys(bindings.elements),
     ...Object.keys(bindings.rooms),
   ]);
-  const linked = linkedEntities(hass, bindings);
+  const linked = linkedEntities(hass, bindings, present);
   const pieces = piecesStanding(copy, layout);
-  const budget: Budget = { left: MAX_ELEMENTS - planElements(copy).length - addedCount(layout) };
+  const budget: Budget = { left: MAX_ELEMENTS - storeyIds(copy, layout).length };
   const elements: Record<string, ElementBinding> = {};
   let placed = 0;
   let left = 0;
@@ -1227,9 +1271,9 @@ export function placeDevices(
     const name = typeof room.fields.name === "string" ? room.fields.name : "";
     const area = roomArea(hass, bindings, room.id, name);
     if (!area) continue;
-    const found = devicePieces(hass, area, linked);
+    // Given once, to the first room of its area (`linked` takes them).
+    const found = devicesByArea(hass, [area], linked).get(area) ?? [];
     if (found.length === 0) continue;
-    for (const piece of found) for (const id of piece.entities) linked.add(id);
     const counts = furnish(
       copy,
       room.id,
@@ -1262,6 +1306,7 @@ export function startSteps(
   plan: unknown,
   bindings: BindingsJson,
   done: { people: boolean; energy: boolean },
+  present?: ReadonlySet<string>,
 ): StartStep[] {
   const rooms = planElements(plan).filter((e) => e.type === "room");
   const areas = new Set<string>();
@@ -1272,9 +1317,9 @@ export function startSteps(
     if (area) areas.add(area);
     else unlinked++;
   }
-  const linked = linkedEntities(hass, bindings);
   let devices = 0;
-  for (const area of areas) devices += devicePieces(hass, area, linked).length;
+  for (const pieces of devicesByArea(hass, areas, linkedEntities(hass, bindings, present)).values())
+    devices += pieces.length;
   const any = rooms.length > 0;
   return [
     { id: "plan", done: any },

@@ -1435,9 +1435,9 @@ load from escapes to letters too. English and French homes load nothing more.
 
 ### M22 (a first launch in five minutes)
 
-Bundle: the first load is **657.1 kB gzipped** of 1 200 kB (+1.4 kB): the empty plan's button, the
+Bundle: the first load is **657.5 kB gzipped** of 1 200 kB (+1.8 kB): the empty plan's button, the
 menu item and the panel's part. The dialog, the steps, the drawing and their texts come on demand
-the first time one opens (`chunks/first-launch-dialog-<hash>.js`: 35.1 kB raw, 12.9 kB gzipped);
+the first time one opens (`chunks/first-launch-dialog-<hash>.js`: 35.7 kB raw, 13.0 kB gzipped);
 each language's module gains its texts (about 1 kB gzipped).
 
 Drawing a fictional home of 24 areas on two floors and 300 devices (1 200 entities) takes about

@@ -19,7 +19,7 @@ import { firstEn, firstFr } from "../i18n/first";
 import { readBindings, type BindingsJson } from "../live/bindings";
 import {
   buildHome,
-  devicePieces,
+  devicesByArea,
   homeStoreys,
   placeDevices,
   startSteps,
@@ -71,11 +71,12 @@ export async function storeHome(
   choice: FirstLaunchChoice,
   revision: number | undefined,
 ): Promise<string> {
+  // The home has no plan: every device is to place, each once.
   const devices = choice.devices
-    ? new Map(
-        choice.storeys
-          .flatMap((storey) => storey.areas)
-          .map((area) => [area.id, devicePieces(hass, area.id)]),
+    ? devicesByArea(
+        hass,
+        choice.storeys.flatMap((storey) => storey.areas.map((area) => area.id)),
+        new Set(),
       )
     : undefined;
   // A link left from an earlier plan keeps its id: the new pieces take others.
@@ -83,6 +84,13 @@ export async function storeHome(
   const taken = [...Object.keys(before.elements), ...Object.keys(before.rooms)];
   const built = buildHome({ storeys: choice.storeys, devices, furnish: choice.furnish, taken });
   for (const storey of built.storeys) await summarizePlan(JSON.stringify(storey.plan));
+  // The links first: should the storeys then be refused, links to pieces that are not there link
+  // nothing, and their ids are not taken again.
+  await addLinks(client, (current) => ({
+    ...current,
+    rooms: { ...current.rooms, ...built.bindings.rooms },
+    elements: { ...current.elements, ...built.bindings.elements },
+  }));
   await client.replaceStoreys(
     built.storeys.map((storey) => ({
       plan: storey.plan,
@@ -91,11 +99,6 @@ export async function storeHome(
     })),
     revision,
   );
-  await addLinks(client, (current) => ({
-    ...current,
-    rooms: { ...current.rooms, ...built.bindings.rooms },
-    elements: { ...current.elements, ...built.bindings.elements },
-  }));
   const t = translatorFor(hass);
   const text = t.t("first.built", {
     rooms: t.tp("first.built_rooms", built.rooms),
@@ -117,21 +120,31 @@ export async function storeDevices(
     layout: Record<string, unknown> | undefined;
     revision?: number;
     storey?: string;
+    /** The home's ids: the storey's (its overlay's too) and the other storeys'. */
     taken: string[];
   },
 ): Promise<string> {
   const t = translatorFor(hass);
   const bindings = readBindings((await client.getBindings()).bindings);
-  const placed = placeDevices(hass, where.plan, bindings, where.taken, where.layout);
+  const placed = placeDevices(
+    hass,
+    where.plan,
+    bindings,
+    where.taken,
+    where.layout,
+    new Set(where.taken),
+  );
   if (placed.devices === 0) {
     return placed.left > 0 ? t.tp("first.built_left", placed.left) : t.t("first.steps.placed_none");
   }
   await summarizePlan(JSON.stringify(placed.plan));
-  await client.savePlan(placed.plan, where.revision, undefined, where.storey);
+  // The links first: should the plan then be refused, they link pieces that are not there, which
+  // place nothing and are not counted as placed.
   await addLinks(client, (current) => ({
     ...current,
     elements: { ...current.elements, ...placed.elements },
   }));
+  await client.savePlan(placed.plan, where.revision, undefined, where.storey);
   const text = t.tp("first.steps.placed", placed.devices);
   return placed.left > 0 ? `${text} ${t.tp("first.built_left", placed.left)}` : text;
 }
@@ -143,6 +156,7 @@ export function stepsOf(
   bindings: BindingsJson,
   people: PeopleSettings | undefined,
   energy: Record<string, unknown> | undefined,
+  present: ReadonlySet<string>,
 ): StartStep[] {
   // Placed by something: a source chosen, or a device followed by Bluetooth.
   const placed = Object.values(people?.people ?? {}).some(
@@ -151,7 +165,7 @@ export function stepsOf(
   const chosen = Object.values(energy ?? {}).some((value) =>
     Array.isArray(value) ? value.length > 0 : Boolean(value),
   );
-  return startSteps(hass, plan, bindings, { people: placed, energy: chosen });
+  return startSteps(hass, plan, bindings, { people: placed, energy: chosen }, present);
 }
 
 const styles = css`
@@ -316,8 +330,9 @@ export class DomoTwinFirstLaunch extends LitElement {
     const hass = this.hass;
     if (this.storeys || !hass) return;
     this.storeys = homeStoreys(hass, this.t.t("first.home"));
-    for (const area of this.storeys.flatMap((storey) => storey.areas)) {
-      this.counts.set(area.id, devicePieces(hass, area.id).length);
+    const areas = this.storeys.flatMap((storey) => storey.areas.map((area) => area.id));
+    for (const [area, pieces] of devicesByArea(hass, areas, new Set())) {
+      this.counts.set(area, pieces.length);
     }
   }
 
@@ -379,6 +394,7 @@ export class DomoTwinFirstLaunch extends LitElement {
             <label class="choice">
               <input
                 type="checkbox"
+                ?disabled=${this.busy}
                 .checked=${all}
                 .indeterminate=${!all && ids.some((id) => !this.left.has(id))}
                 aria-label=${t.t("first.floor_all", { floor: storey.name })}
