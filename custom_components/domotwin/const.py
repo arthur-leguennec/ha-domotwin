@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Final
 
 DOMAIN: Final = "domotwin"
@@ -128,7 +129,7 @@ MAX_FAVOURITES: Final = 100
 MAX_HOME_CARDS: Final = 6
 MAX_CALENDARS: Final = 10
 
-# The configuration history (docs/DECISIONS.md, D-059): each change of an automation, a script,
+# The configuration history (docs/DECISIONS.md, D-061): each change of an automation, a script,
 # a scene or a dashboard, in a store of its own (.storage/domotwin.config_history). At most this
 # many bytes in all and versions an item (the oldest versions go first, an item's newest always
 # kept), bytes a version (a larger one keeps its date, not its content); past this many items,
@@ -148,6 +149,14 @@ SERVICE_SHOW: Final = "show"
 SIGNAL_SHOW: Final = f"{DOMAIN}_show"
 MAX_SHOW_TEXT: Final = 100
 MAX_SCREEN_NAME: Final = 64
+#: A screen's name (a card's `screen`, D-029): letters, digits, `_` and `-`, in any case.
+SCREEN_NAME: Final = re.compile(rf"^[A-Za-z0-9_-]{{1,{MAX_SCREEN_NAME}}}$")
+
+# The home's Wi-Fi for guests (docs/DECISIONS.md, D-060), in a private store of its own
+# (.storage/domotwin.wifi): never in the plan, the logs, the diagnostics or an export.
+WIFI_STORAGE_KEY: Final = f"{DOMAIN}.wifi"
+WIFI_STORAGE_VERSION: Final = 1
+MAX_WIFI_SCREENS: Final = 20
 
 # The 3D files of user models (docs/DECISIONS.md, D-013 and D-021): kept by their SHA-256 in
 # <config>/domotwin/models/, uploaded by administrators, served to signed-in users.

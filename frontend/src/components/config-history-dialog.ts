@@ -1,5 +1,5 @@
 /**
- * `<domotwin-config-history>`: the configuration history (D-059). The automations, scripts, scenes and
+ * `<domotwin-config-history>`: the configuration history (D-061). The automations, scripts, scenes and
  * dashboards the integration kept, by kind and with a search; an item's versions, newest first,
  * with what each changed in words; one version put back through Home Assistant's own commands.
  * For administrators. Loaded, with its texts, when first opened.

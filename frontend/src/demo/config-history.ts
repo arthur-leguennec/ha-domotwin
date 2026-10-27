@@ -1,5 +1,5 @@
 /**
- * The demo house's configuration history (D-059): a few changes of its automations, a script
+ * The demo house's configuration history (D-061): a few changes of its automations, a script
  * removed and its dashboard, answered as the integration would; a version put back in the page.
  */
 import type { ConfigDetail, ConfigKind, ConfigList, ConfigVersion } from "../live/config-history";

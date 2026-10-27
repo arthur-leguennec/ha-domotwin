@@ -12,6 +12,8 @@
 //   theme=auto|day|neon|blueprint|cartoon|clay  accent=<#rrggbb>  names=0 (card options)
 //   hometheme=<look> (the stored settings)
 //   screen=<name>  idle=<seconds>  orbit=1  nightdim=1 (the kiosk's card options)
+//   wifi=typed|image (the home's Wi-Fi for guests, D-060: a fictional network, or a router's code)
+//   wifiscreens=<names> (the screens that show it, comma-separated)  tools=0 (the card's tools hidden)
 //   upkeep=1 (the demo apartment's fictional upkeep cards, examples/demo-apartment.upkeep.json)
 //   upkeep=0 (an integration without upkeep cards)
 //   people=1 (fictional people: Alex, the user viewing, in the kitchen; Sam in the living room;
@@ -40,7 +42,11 @@
 //   Home Assistant's history, statistics and logbook (D-058) answer a fictional day of the
 //   bedroom (`HISTORY` below); historyfail=1 makes the history refuse, nostats=1 leaves the
 //   statistics out; formatstate=1 gives `hass.formatEntityState` (states in words, "°C" after).
-//   confighistory=1 (the configuration history, D-059: fictional automations, a script removed,
+//   why=1 (D-059: Home Assistant's logbook and traces of a fictional evening, with live=1: the
+//   entrance door opened five minutes ago and set off "Hall light at the door", which lit the
+//   hall's spots; Sam switched the floor lamp on two minutes ago; the kitchen's ceiling light was
+//   switched off on its own switch)
+//   confighistory=1 (the configuration history, D-061: fictional automations, a script removed,
 //   one in YAML files of one's own and a dashboard, as the integration keeps them; Home
 //   Assistant's configuration API and `lovelace/config/save` put one back, read again on
 //   `domotwin/config_history/refresh`; window.__refuseConfig = "<message>" makes Home Assistant
@@ -70,6 +76,15 @@ const zha = params.get("zha") === "1";
 // Fictional automations (D-032): `automations=1` three of them, `automations=50` as many made up.
 const automationCount = Number(params.get("automations") ?? 0);
 const sandbox = params.get("sandbox") === "1";
+// Home Assistant's logbook and traces of a fictional evening (D-059).
+const why = params.get("why") === "1";
+/** The logbook's rows, as `logbook/get_events` gives them, each with the context it is in. */
+let whyRows = [];
+// Their contexts' ids, as Home Assistant writes them (ULIDs).
+const C_DOOR = "01K8C0D00R0000000000000001";
+const C_RUN = "01K8C0D00R0000000000000002";
+const C_SAM = "01K8C0D00R0000000000000003";
+const C_KITCHEN = "01K8C0D00R0000000000000004";
 // Voice (D-041): Assist and its pipelines, the voice blueprints, apps to install.
 const voiceParam = params.get("voice");
 if (params.get("insecure") === "1") {
@@ -420,7 +435,7 @@ async function fetchWithAuth(path, init = {}) {
     return Response.json({ code: "not_found" }, { status: 404 });
   return new Response(bytes);
 }
-// The configuration history (D-059), as the integration keeps it: each item's versions, oldest
+// The configuration history (D-061), as the integration keeps it: each item's versions, oldest
 // first, and what Home Assistant's editors saved since it last read them.
 const configItems = params.get("confighistory") === "1" ? fictionalConfigHistory() : [];
 const configPending = new Map();
@@ -549,6 +564,42 @@ const calls = [];
 window.__calls = calls;
 // settingsdown=1: the settings cannot be read until `window.__settingsUp()` (D-039).
 let settingsDown = params.get("settingsdown") === "1";
+/** The home's Wi-Fi for guests (D-060), as the integration keeps it: fictional. */
+let wifi =
+  params.get("wifi") === "typed"
+    ? {
+        name: "Fictional Guests",
+        password: "tea-and-cake-42",
+        security: "WPA",
+        hidden: false,
+        screens: params.get("wifiscreens") ? params.get("wifiscreens").split(",") : [],
+      }
+    : params.get("wifi") === "image"
+      ? {
+          image: "image.router_guest_wifi",
+          security: "WPA",
+          hidden: false,
+          screens: params.get("wifiscreens") ? params.get("wifiscreens").split(",") : [],
+        }
+      : undefined;
+window.__wifi = () => wifi;
+/** What `domotwin/wifi/get` answers, as the integration does: its password only when asked. */
+window.__wifiAsked = [];
+function wifiAnswer(admin, screen, password) {
+  window.__wifiAsked.push({ screen, password });
+  if (!wifi) return { set: false, shown: false };
+  const chosen = wifi.screens.some((name) => name.toLowerCase() === screen.toLowerCase());
+  if (!admin && !(screen && chosen)) return { set: true, shown: false };
+  const { screens, password: secret, ...shown } = wifi;
+  return {
+    set: true,
+    shown: true,
+    ...shown,
+    ...(password && secret !== undefined ? { password: secret } : {}),
+    ...(admin ? { screens: [...screens] } : {}),
+  };
+}
+let wifiRevision = 0;
 /** The user's own choices (D-055). */
 const choices = {
   favourites: params.get("favourites") ? params.get("favourites").split(",") : [],
@@ -849,6 +900,21 @@ function logbookEvents(message) {
   return entries.sort((a, b) => a.when - b.when);
 }
 
+/** The logbook of the fictional evening (D-059): the rows of a context, or of entities, in the
+ * time asked. */
+function whyEvents(message) {
+  const start = Date.parse(message.start_time) / 1000;
+  const end = message.end_time ? Date.parse(message.end_time) / 1000 : Infinity;
+  return whyRows
+    .filter((row) => row.when >= start && row.when <= end)
+    .filter((row) =>
+      message.context_id
+        ? row.context === message.context_id
+        : !message.entity_ids || message.entity_ids.includes(row.entry.entity_id),
+    )
+    .map((row) => row.entry);
+}
+
 const connection = {
   sendMessage(message) {
     calls.push(message);
@@ -861,7 +927,7 @@ const connection = {
       case "recorder/statistics_during_period":
         return statisticsDuring(message);
       case "logbook/get_events":
-        return logbookEvents(message);
+        return why ? whyEvents(message) : logbookEvents(message);
       case "zha/devices":
         if (!zha) throw { code: "unknown_command", message: message.type };
         if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
@@ -1052,6 +1118,39 @@ const connection = {
         }
         return { revision: store.people.revision };
       }
+      case "domotwin/wifi/get":
+        return wifiAnswer(hass.user.is_admin, message.screen ?? "", message.password === true);
+      case "domotwin/wifi/save": {
+        if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        const change = message.wifi;
+        const next = {
+          security: change.security,
+          hidden: change.hidden === true,
+          screens: change.screens ?? [],
+        };
+        if (change.image) next.image = change.image;
+        else {
+          if (!change.name) throw { code: "no_name", message: "no_name" };
+          next.name = change.name;
+          if (change.security !== "nopass") {
+            const same = wifi?.name === change.name && wifi?.security === change.security;
+            next.password = change.password ?? (same ? wifi.password : "");
+            if (change.security === "WPA" && next.password.length < 8) {
+              throw { code: "bad_wpa", message: "bad_wpa" };
+            }
+          }
+        }
+        wifi = next;
+        wifiRevision += 1;
+        for (const listener of listeners) listener({ kind: "wifi", revision: wifiRevision });
+        return wifiAnswer(true, "", true);
+      }
+      case "domotwin/wifi/clear":
+        if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        wifi = undefined;
+        wifiRevision += 1;
+        for (const listener of listeners) listener({ kind: "wifi", revision: wifiRevision });
+        return { set: false, shown: false };
       case "domotwin/people/hide": {
         const own = home.states[message.person]?.attributes.user_id === hass.user.id;
         if (!own && !hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
@@ -1190,6 +1289,15 @@ const connection = {
         publishSchedules();
         return { cancelled: at >= 0 ? 1 : 0 };
       }
+      case "trace/contexts":
+        if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        return why ? { [C_RUN]: { run_id: "run-1", domain: "automation", item_id: "1004" } } : {};
+      case "config/auth/list":
+        if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        return [
+          { id: "e2e", name: "E2E" },
+          { id: "user-sam", name: "Sam" },
+        ];
       case "domotwin/config_history/list":
         if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
         return {
@@ -1353,6 +1461,22 @@ home.floors = {
 for (const area of Object.values(home.areas)) {
   area.floor_id = area.area_id === "office" ? "upper" : "ground";
 }
+if (params.get("wifi") === "image") {
+  // A router's own code, as an image entity (FRITZ!Box, UniFi): a picture made here, nothing
+  // fetched.
+  home.states["image.router_guest_wifi"] = {
+    entity_id: "image.router_guest_wifi",
+    state: "2026-06-15T08:00:00+00:00",
+    attributes: {
+      friendly_name: "Router guest Wi-Fi",
+      entity_picture:
+        "data:image/svg+xml," +
+        encodeURIComponent(
+          '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 4 4"><rect width="4" height="4" fill="#fff"/><rect width="2" height="2" fill="#000"/></svg>',
+        ),
+    },
+  };
+}
 if (params.get("lists") === "1") {
   home.states["calendar.family"] = {
     entity_id: "calendar.family",
@@ -1364,6 +1488,95 @@ if (params.get("lists") === "1") {
     state: "2",
     attributes: { friendly_name: "Shopping" },
   };
+}
+if (live && why) {
+  // A fictional evening (D-059): the states as they are after it, and what the logbook keeps.
+  const now = Date.now() / 1000;
+  const iso = (seconds) => new Date(seconds * 1000).toISOString();
+  const door = now - 300;
+  const written = (id, state, when, context, attributes = {}) => {
+    const previous = home.states[id];
+    home.states[id] = {
+      entity_id: id,
+      state,
+      attributes: { ...(previous?.attributes ?? {}), ...attributes },
+      last_changed: iso(when),
+      last_updated: iso(when),
+      context: { parent_id: null, user_id: null, ...context },
+    };
+  };
+  written("binary_sensor.entrance_door_contact", "on", door, { id: C_DOOR });
+  written(
+    "automation.hall_light_at_the_door",
+    "on",
+    door + 0.01,
+    {
+      id: C_RUN,
+      parent_id: C_DOOR,
+    },
+    {
+      friendly_name: "Hall light at the door",
+      id: "1004",
+      last_triggered: iso(door + 0.01),
+    },
+  );
+  written("light.hall_spots", "on", door + 0.02, { id: C_RUN, parent_id: C_DOOR });
+  written("light.living_room_floor_lamp", "on", now - 120, { id: C_SAM, user_id: "user-sam" });
+  written("light.kitchen_ceiling", "off", now - 600, { id: C_KITCHEN });
+  const source = "state of binary_sensor.entrance_door_contact";
+  whyRows = [
+    {
+      context: C_DOOR,
+      when: door,
+      entry: { when: door, entity_id: "binary_sensor.entrance_door_contact", state: "on" },
+    },
+    {
+      context: C_RUN,
+      when: door + 0.01,
+      entry: {
+        when: door + 0.01,
+        name: "Hall light at the door",
+        message: `triggered by ${source}`,
+        source,
+        entity_id: "automation.hall_light_at_the_door",
+        context_id: C_RUN,
+        domain: "automation",
+      },
+    },
+    {
+      context: C_RUN,
+      when: door + 0.02,
+      entry: {
+        when: door + 0.02,
+        entity_id: "light.hall_spots",
+        state: "on",
+        context_event_type: "automation_triggered",
+        context_domain: "automation",
+        context_name: "Hall light at the door",
+        context_message: `triggered by ${source}`,
+        context_source: source,
+        context_entity_id: "automation.hall_light_at_the_door",
+      },
+    },
+    {
+      context: C_SAM,
+      when: now - 120,
+      entry: {
+        when: now - 120,
+        entity_id: "light.living_room_floor_lamp",
+        state: "on",
+        context_user_id: "user-sam",
+        context_event_type: "call_service",
+        context_domain: "light",
+        context_service: "turn_on",
+      },
+    },
+    {
+      context: C_KITCHEN,
+      when: now - 600,
+      entry: { when: now - 600, entity_id: "light.kitchen_ceiling", state: "off" },
+    },
+  ];
 }
 const states = home.states;
 /** A person's room sensor, as the integration writes it, in `room` (or away). */
@@ -1461,6 +1674,7 @@ let hass = {
       "domotwin",
       ...(zha ? ["zha"] : []),
       ...(voiceParam ? ["conversation", "assist_pipeline"] : []),
+      ...(why ? ["logbook"] : []),
     ],
     // A fictional place, rounded: the sandbox's sun.
     ...(sandbox ? { time_zone: "Europe/Paris", latitude: 46, longitude: 2 } : {}),
@@ -1590,6 +1804,7 @@ if (mode === "panel") {
     accent: params.get("accent") ?? undefined,
     screen: params.get("screen") ?? undefined,
     idle: params.get("idle") ? Number(params.get("idle")) : undefined,
+    tools: params.get("tools") === "0" ? false : undefined,
     orbit: params.get("orbit") === "1" ? true : undefined,
     night_dim: params.get("nightdim") === "1" ? true : undefined,
     voice: params.get("mic") === "0" ? false : undefined,

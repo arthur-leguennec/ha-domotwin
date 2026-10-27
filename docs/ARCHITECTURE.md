@@ -15,7 +15,7 @@ interface.
 | `domotwin-import` | core, models, `serde_json` | IFC, Sweet Home 3D, DXF, scans → plan JSON | GPU, browser, HA |
 | `domotwin-models` | `serde_json`, `miniz_oxide` | glTF, OBJ, STL, 3MF → meshes    | core, GPU, HA        |
 | `domotwin-planner` | core, `serde_json`     | the plan editor's draft (D-025)     | GPU, browser, HA     |
-| `domotwin-analysis` | core, `serde_json`    | radio meshes, automations' configurations (D-043) | GPU, browser, HA |
+| `domotwin-analysis` | core, `serde_json`, `qrcodegen` | radio meshes, automations' configurations (D-043), the Wi-Fi QR code (D-060) | GPU, browser, HA |
 
 `domotwin-import` imports the plans of other apps (`ifc-import.md`, `imports.md`, D-040): its own
 wasm module, loaded only when such a file is imported. Each reader gives one plan builder a draft;
@@ -60,6 +60,9 @@ every reader returns `Result` with a stable error code that the frontend transla
   The sandbox reads the home once (`sandbox/copy.ts`), plays its day at once
   (`sandbox/engine.ts`, with `templates.ts`, `effects.ts`, `scenario.ts`, `sun.ts`) and says what
   it did (`sandbox/report.ts`); nothing it does is written to Home Assistant.
+- The Wi-Fi for guests (D-060): `components/wifi-dialog.ts` (its own chunk) draws the QR code the
+  analysis module encodes (`wifiQr`), from what `domotwin/wifi/get` answers (`live/wifi.ts`); the
+  integration keeps the network in a private store of its own (`custom_components/domotwin/wifi.py`).
 - `src/i18n/` holds the English and French dictionaries. Every visible string goes through `t()`.
 
 ![Render on demand: frames only when something changes, nothing while idle or off-screen](figures/render-on-demand.png)
@@ -153,7 +156,14 @@ every reader returns `Result` with a stable error code that the frontend transla
    entities, the period or the way to read them change. `src/live/history.ts` reads the answers
    into rows (a change, an hour, a period of rows that match a value), filters and searches them
    and writes the CSV, which the browser downloads; nothing is kept once the report closes.
-9. **Configuration history.** The integration's `config_history.py` (D-059) reads the
+9. **Why?** A device's sheet asks, when told to, why its entity is as it is (`why-section.ts`,
+   D-059): `src/live/why.ts` reads the state's context, the logbook's rows of that context and of
+   the entities around it (`logbook/get_events`) and, for administrators, the traces' contexts
+   (`trace/contexts`), and follows the change back to what started it. The chain is listed in the
+   sheet and drawn in the home (`why-wires.ts`) with the automations' wire set: the engine's
+   `setAutomations`, one wire per step, unchanged. Nothing of it is in the integration. The demo
+   house records its own (`src/demo/logbook.ts`) and answers the logbook as Home Assistant does.
+10. **Configuration history.** The integration's `config_history.py` (D-061) reads the
    automations, scripts and scenes from the files Home Assistant's editors write and from their
    entities, and the dashboards from Lovelace, once Home Assistant has started and after each
    change it announces (`automation_reloaded`, `scene_reloaded`, `script.reload` called, one of
@@ -251,7 +261,7 @@ id: `favourites` (entity ids, 100 at most), `start` (`home`, `rooms` or `3d`, wh
 `{type: "todo-list", entity}`). A user removed from Home Assistant is forgotten when DomoTwin
 starts.
 
-`.storage/domotwin.config_history` (D-059, its own store, version 1, private): the configuration
+`.storage/domotwin.config_history` (D-061, its own store, version 1, private): the configuration
 history, each item by `<kind>:<key>` (`automation`, `script` and `scene` by their id or key,
 `dashboard` by its URL path, empty for the default one) with its `name`, its `source` (`editor`:
 written by Home Assistant's editors; `yaml`: in one's own YAML files) and its `versions`, oldest

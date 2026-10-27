@@ -1,5 +1,5 @@
 /**
- * The configuration history (D-059): each change of an automation, a script, a scene or a
+ * The configuration history (D-061): each change of an automation, a script, a scene or a
  * dashboard, kept by the integration; what changed between two versions, in words where it can;
  * one item put back through Home Assistant's own configuration commands.
  */

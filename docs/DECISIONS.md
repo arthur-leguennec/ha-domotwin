@@ -2381,10 +2381,140 @@ it.
   - Nothing new in the integration; the demo house (a home kept in the page that keeps a history,
     `MemoryHome.history`) and the E2E harness answer the three commands.
 
-## D-059 · Configuration history: each change kept, one item put back (M36, amends D-056)
+## D-059 · "Why?": who or what changed a device, as Home Assistant recorded it (M32)
 
-After the sandbox (M29, D-057) and history as reports (M38, D-058): the maintainer asked for M36
-now, ahead of the order D-056 gave it. It waits on nothing the other milestones build.
+M32, moved forward by the maintainer: asked right after 0.4.0, next to the sandbox (M29), rather
+than after 0.5.0; the rest of D-056's order keeps its place.
+
+- **Context.** D-056 planned M32 as what Home Assistant's Activity shows since 2026.9, drawn in
+  the home, and the same on the versions before it. Checked in Home Assistant's core and frontend
+  at the versions DomoTwin supports and the latest (2025.1.0: frontend 20250103.0; 2026.10.0:
+  frontend 20260930.2), in October 2026:
+  - **A state's context** reaches every dashboard with the state (`context`: `id`, `parent_id`,
+    `user_id`). A service called by a signed-in user carries their user id; an automation runs
+    in a new context whose parent is its trigger's
+    ([`automation/__init__.py`](https://github.com/home-assistant/core/blob/2026.10.0/homeassistant/components/automation/__init__.py#L701-L702),
+    same in 2025.1); a script runs in the context of what started it
+    ([`script/__init__.py`](https://github.com/home-assistant/core/blob/2026.10.0/homeassistant/components/script/__init__.py#L242-L267)).
+  - **The logbook** (`logbook/get_events`, open to every user, `context_id` since before 2025.1)
+    gives each row where its context began: the action called (`context_domain`,
+    `context_service`), the state change (`context_entity_id`, `context_state`), the run
+    (`context_event_type`, `context_name`, `context_source`), and the user (`context_user_id`; in
+    2026.10, not 2025.1, rows asked by entity also carry the user of their context's parent)
+    ([`processor.py`](https://github.com/home-assistant/core/blob/2026.10.0/homeassistant/components/logbook/processor.py)).
+    Only the rows of runs carry their context id; a state's row does not
+    ([`automation/logbook.py`](https://github.com/home-assistant/core/blob/2026.10.0/homeassistant/components/automation/logbook.py)).
+    A trigger is said in English words (`state of binary_sensor.hall`, `numeric state of …`,
+    `time`, `time pattern`, `event '…'`, `Home Assistant starting`; the sun's `sunset with
+    offset` in 2025.1, `sun event sunset` in 2026). Sensors that measure are not in it.
+  - **The traces** of each context (`trace/contexts`, administrators only) give the page of each
+    run: `/config/<domain>/trace/<item>?run_id=<run>`, as Home Assistant's own Activity links it
+    in both versions.
+  - **The Activity** opens on entities and a time from its address (`/logbook?entity_id=…,…`
+    `&start_date=…&end_date=…`, in both). Since 2026.9 a row opens "what happened": its run,
+    found among the automation's last three runs of the day before, and the state change of the
+    trigger that set it off, one step
+    ([`logbook-chain-resolver.ts`](https://github.com/home-assistant/frontend/blob/20260930.2/src/panels/logbook/logbook-chain-resolver.ts)).
+  - **Voice** leaves no trace of its own: what Assist does is recorded as the actions it called,
+    by the user signed in where there is one; the conversation entity writes its state in a
+    context of its own, not linked to them.
+- **Decision.**
+  - **Asked from the device's sheet**: **Why** under the controls, with **Who or what changed
+    it?**; nothing is read before (the sheets open often). It explains the entity shown in the
+    scene (`primaryEntity`), not for a sensor that measures (with a unit, a state class or, as in
+    2026.10, a kind that is a number: the logbook never has it). Asked again when the device's
+    state changes while its chain shows, once the chain being read is read.
+  - **Read as Home Assistant reads it**, in the frontend (`src/live/why.ts`): the device's last
+    change of state, by the context it was written in when nothing was written since, else its row
+    of the logbook around `last_changed`; the rows of that context; the run in them, else found
+    as Home Assistant 2026.9 finds it (the automation's last three runs of the day before, the one
+    whose rows hold the change); what set the run off: the state change of a state trigger,
+    followed back the same way (by the trigger's live state when its context is the run's parent,
+    else its row before the run), someone, a time, the sun, a start, an event, or Home
+    Assistant's words; for a run another run started, or someone by hand, its parent context, and
+    its row asked by its automation (which carries the user since 2026.10). A change written in a
+    context of another's doing (a thermostat's heater) is followed to that parent too. The live
+    context is trusted only when the logbook holds the change in it; what ran after the change
+    in the same context is not among its causes; a context id that is not a ULID is not asked for
+    (Home Assistant would read it as none and answer every row). Followed up to six changes back.
+  - **Only what Home Assistant recorded.** A change whose context began with itself is "nobody, as
+    far as Home Assistant knows" (the device itself, or its integration); one whose parent the
+    logbook does not have, or that the logbook does not have at all, is "not in the logbook";
+    further back, a change that began with itself is where the chain starts. Without Home
+    Assistant's logbook (not loaded, or the sandbox's copy, D-057), no **Why**; when it cannot be
+    read, what the state's context says, and that it could not be read.
+  - **Drawn with the wires of M9c** (`setAutomations`, no change in the engine): a wire from each
+    step to the next that has a place, through the automations and scripts that ran between them,
+    in the first one's colour; a person, a time, an action float as labels; pulses one after the
+    other from the start to the device. A tap names the wire's runs. It takes the place of the
+    automations' wires while it shows.
+  - **Home Assistant's pages reused** (D-054): the Activity on the chain's entities around it, for
+    everyone; a run's trace for administrators. Neither in the demo house (they show the home).
+  - **Names**: a user is named by their `person`, or the user viewing; for an administrator, by
+    Home Assistant's users (`config/auth/list`, theirs only) when no person is theirs; "a user of
+    Home Assistant" otherwise.
+  - **Private rooms (D-039)**: a step of what a room the viewer may not see holds, by its pieces
+    or its area, is "in a private room", left out of the Activity's address and not drawn.
+  - **The demo house** records as Home Assistant does (`src/demo/logbook.ts`): the visitor's
+    actions as theirs, its automations' runs with their triggers, the house as it opens and the
+    moment the visitor goes to as the demo's day; its logbook answered as `logbook/get_events`
+    answers: a context's rows from what it recorded, an entity's from its day before it opened
+    (D-058) and from what it recorded since.
+- **Consequences.**
+  - The section and its texts come with the sheets, the drawing is a chunk of its own
+    (`chunks/why-wires-<hash>.js`); the first load grows by the view's part and five icons
+    (+0.9 kB gzipped). The automation wires and the chain share their spots and chip
+    (`wire-spots.ts`).
+  - On 2026.9 and later, Home Assistant's own Activity shows the same chain as a list: DomoTwin's
+    is the same read, drawn in the home, followed further back, and on 2025.1 too.
+  - Why something did not happen stays the sandbox's (M29).
+
+## D-060 · The Wi-Fi for guests: its QR code drawn in the page (M30)
+
+M30, the first part of guest access (M33), planned after the sandbox (D-056).
+
+- **Context.** Guests ask for the Wi-Fi; a QR code joins a phone to it at once. Home Assistant
+  has no place of its own for the home's Wi-Fi; some routers give their guest network's code as an
+  image entity (FRITZ!Box, UniFi). The password is a secret like no other DomoTwin keeps: it must
+  never be in the plan, the logs, the diagnostics, an export or the repository.
+- **Decision.**
+  - **Kept apart.** The network (its name, password, kind, whether it is hidden, or the router's
+    image entity, and the screens that show it) is kept in a private store of its own
+    (`.storage/domotwin.wifi`), read and changed by its own commands (`domotwin/wifi/get`,
+    `/save`, `/clear`). An administrator gives and changes it; the password is checked against
+    its kind (WPA, WEP, open) as phones take it. The same network saved without its password
+    keeps it. Diagnostics say only whether there is one. Removing DomoTwin deletes it.
+  - **Shown where chosen.** `domotwin/wifi/get` answers an administrator with all of it, and
+    anyone else only on a screen an administrator chose (a card's `screen`, D-029, its name
+    matched whatever the case as `domotwin.show` matches it), with what draws the code; elsewhere
+    only whether there is one. The password comes only when asked for (`password: true`), which
+    the dialog does when it opens: the panel and the cards keep the network without it. A
+    screen's name is no secret (it is in the dashboard's configuration): anyone signed in to Home
+    Assistant can ask as one of those screens would, as anyone before it can scan it. That suits a
+    network meant for guests, and the guide says so. A change is told to the screens
+    (`kind: wifi`), never what changed.
+  - **Drawn in the page.** The analysis module (D-043), loaded the first time the code is shown,
+    builds what a phone reads (`WIFI:T:WPA;S:<name>;P:<password>;;`, with `\`, `;`, `,`, `:` and
+    `"` escaped; `H:true` for a hidden network) and encodes it with `qrcodegen` (MIT, no
+    dependencies, checked by `cargo deny`); the page draws its modules as an SVG, dark on white
+    whatever the look. A router's code is its image entity's picture, from Home Assistant.
+  - **The way in.** A Wi-Fi button among the view's buttons when it may be shown here, in the panel
+    and in cards, and on its own when a card hides its tools or cannot draw in 3D (a wall screen
+    still gives the Wi-Fi); for administrators, an entry of the ⋮ menu, which opens the form when
+    nothing is given yet. A wall screen left alone closes the dialog as it goes back to its view.
+    The demo house has a fictional guest network; the sandbox has none.
+- **Consequences.**
+  - The first load grows by the button, the client's commands and their texts; the dialog is a
+    chunk of its own, the encoder a few kilobytes of the analysis module.
+  - A password Home Assistant's own debug logging writes (its connection's messages, when someone
+    turns it on) is out of DomoTwin's hands: said in the guide.
+  - Guest access (M33) builds on it: a guest's own screen, for a time, with this code.
+
+## D-061 · Configuration history: each change kept, one item put back (M36, amends D-056)
+
+After the sandbox (M29, D-057), history as reports (M38, D-058), "Why?" (M32, D-059) and the Wi-Fi
+for guests (M30, D-060): the maintainer asked for M36 ahead of the order D-056 gave it. It waits
+on nothing the other milestones build.
 
 - **Context.** Home Assistant keeps no history of its own configuration: its editors' undo lasts
   one session, and a backup puts back a whole part, not one automation. What exists does it with
@@ -2443,7 +2573,7 @@ now, ahead of the order D-056 gave it. It waits on nothing the other milestones 
   - The history begins when DomoTwin first sees the configuration: what changed before is not
     known, and the oldest version kept says so.
   - The first load grows by the menu item and its text; the rest comes when the dialog opens.
-  - The roadmap shows M36 done after M38; D-056's order goes on from M30.
+  - The roadmap shows M36 done after M30; the rest of D-056's order stays.
   - Its names say *configuration history* (`config_history.py`, `config-history.ts`,
     `domotwin/config_history/*`, `.storage/domotwin.config_history`), beside the history
     reports of M38, which read Home Assistant's history of states.

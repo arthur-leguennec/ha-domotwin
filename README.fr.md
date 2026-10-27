@@ -26,10 +26,10 @@ Local, rapide, Rust + WebAssembly.</p>
 > la maison, la maison de démo, la mesure de la vitesse d’un appareil et la maison pratique (les
 > onglets Accueil, Pièces et 3D) fonctionnent déjà, et forment la version 0.4.0. Depuis, le bac à
 > sable joue une journée des automatisations de la maison sur une copie de celle-ci, l’historique
-> de Home Assistant se lit en rapports, et chaque changement de la configuration est gardé. Le
-> code QR du Wi-Fi pour les invités vient ensuite, puis la Vue d’ensemble de Home Assistant
-> rejointe plutôt que copiée, vers la version 0.5.0 ; la proposition à la liste par défaut de HACS
-> attend des mesures sur de vrais appareils.
+> de Home Assistant se lit en rapports, « Pourquoi ? » dit qui ou quoi a changé un appareil, le
+> code QR du Wi-Fi accueille les invités, et chaque changement de la configuration est gardé. La
+> Vue d’ensemble de Home Assistant, rejointe plutôt que copiée, vient ensuite, vers la version
+> 0.5.0 ; la proposition à la liste par défaut de HACS attend des mesures sur de vrais appareils.
 
 ## Fonctionnalités
 
@@ -95,12 +95,24 @@ Local, rapide, Rust + WebAssembly.</p>
   chacune a fait et quand, ce qui ne s’est jamais exécuté et pourquoi, lesquelles se contredisent,
   et ce qui n’a pas pu être joué. Rien dans le bac à sable n’atteint un appareil. Voir [le bac à
   sable](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/sandbox.md) (en anglais).
+- **Le Wi-Fi des invités.** Donnez votre Wi-Fi une fois, et DomoTwin dessine le code QR que
+  l’appareil photo d’un téléphone rejoint, dans la page ; ou montre le code de votre box. Pour les
+  administrateurs, et sur les écrans muraux que vous choisissez ; le mot de passe reste dans le
+  stockage privé de DomoTwin. Voir [le Wi-Fi des
+  invités](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/wifi.md) (en anglais).
 - **Fils des automatisations.** Un appui long sur une lampe : son panneau liste les automatisations
   qui la concernent, avec leur interrupteur et leur dernier lancement. Montrez leurs fils, de ce
   qui les déclenche à ce qu’elles commandent, et voyez une impulsion les parcourir quand l’une se
   lance. Ou toutes les automatisations du logement à la fois. Voir [les fils des
   automatisations](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/automations.md)
   (en anglais).
+- **Pourquoi ?** Un appui long sur une lampe, et demandez qui ou quoi l’a changée :
+  l’automatisation qui l’a allumée, le mouvement qui a déclenché l’automatisation, la personne qui
+  l’a fait dans l’application, ou personne (son propre interrupteur), comme Home Assistant l’a
+  noté. Dessiné dans le logement comme un fil depuis là où tout a commencé, avec la trace du
+  lancement pour les administrateurs et l’Activité de Home Assistant à portée de doigt. Voir
+  [Pourquoi ?](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/why.md) (en
+  anglais).
 - **Fiches d’entretien.** Chaque appareil et chaque meuble peut porter sa marque, son modèle, son
   numéro de série, sa garantie, sa notice et les tâches qui reviennent (changer le filtre tous les
   3 mois). Un badge en forme de clé montre ce qui est à faire, le calque Entretien colore les

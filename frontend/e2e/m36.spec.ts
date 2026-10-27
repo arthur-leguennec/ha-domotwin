@@ -31,7 +31,7 @@ function version(page: Page, id: number): Locator {
   return page.locator(`[data-version="${id}"]`);
 }
 
-test.describe("the configuration history (D-059)", () => {
+test.describe("the configuration history (D-061)", () => {
   test("lists the items kept, by kind and with a search", async ({ page }) => {
     await openHarness(page, { mode: "panel", configHistory: true });
     await page.getByTestId("more").click();

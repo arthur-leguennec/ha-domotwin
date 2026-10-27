@@ -1,5 +1,5 @@
 /**
- * The messages of the configuration history (D-059), in both languages: loaded with its dialog,
+ * The messages of the configuration history (D-061), in both languages: loaded with its dialog,
  * not with the first picture. The menu item's own is in the dictionaries.
  */
 import type { Widen } from "./index";

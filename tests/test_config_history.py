@@ -1,4 +1,4 @@
-"""The configuration history (D-059): each change kept, by item and date; one item put back."""
+"""The configuration history (D-061): each change kept, by item and date; one item put back."""
 
 from __future__ import annotations
 
