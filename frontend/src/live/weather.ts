@@ -1,5 +1,5 @@
 /**
- * The weather drawn around the home (`docs/DECISIONS.md`, D-066): read from a `weather` entity of
+ * The weather drawn around the home (`docs/DECISIONS.md`, D-067): read from a `weather` entity of
  * Home Assistant, the one chosen in the settings, else the one the Home tab shows. What falls, the
  * clouds and the storm are the engine's to draw; this reads what it needs.
  */

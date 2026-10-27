@@ -1077,12 +1077,35 @@ those. The plan found is the same however finely the house was scanned. Memory i
 copy in the module, its positions and its triangles: what a browser on a computer has; a scan of
 millions of triangles is best imported from one.
 
+### M31 (the placement advisor)
+
+Bundle: the first load is **524.8 kB gzipped** of 1 200 kB (+0.8 kB): the layer's name, who may
+see it, and the coverage's colour scale in the engine (380.4 kB gzipped, +0.1 kB). The rest comes
+on demand, when the layer is chosen: the sheet (`chunks/placement-panel-<hash>.js`: 30.3 kB raw,
+9.4 kB gzipped) with its texts in both languages, and the model in the analysis module
+(`domotwin_analysis_bg.wasm`: 228.7 kB raw, 104.1 kB gzipped, +71.9 kB and +32.1 kB), which the
+network map, the Wi-Fi QR code and the network's summary already load. All that comes on demand
+is now 715.5 kB gzipped (+41.7 kB).
+
+Nothing of it runs until the layer is chosen. The radios are read once (the locating's answer, ZHA's
+devices and their links analysed, or the Wi-Fi signals in the states), again when the plan, the
+links or the access points change or another radio is chosen, never at a new state of the home;
+the Wi-Fi signals are looked at once every 30 seconds at most, in whole decibels, and the advice
+is worked out again only when one of them moved. Worked out in Node (the analysis module's release
+build without `wasm-opt`, a 2.1 GHz Xeon core of the CI's kind, median of fifteen): about **2 ms**
+for the demo apartment (5 rooms), **10 ms** for the demo house (13 rooms on two storeys), 20 to
+30 ms for 30 to 40 rooms and **50 ms** for 60 rooms on three storeys. Beyond 24 rooms, each room is
+looked at from four of its points, not twelve, and its spot is its middle alone: 30 to 40 rooms
+took about 190 ms before. The integration's Python counts walls between two places in about
+57 µs: the same advice there would take about 2.3 s for 30 rooms on this computer, more on a small
+host, which is why it runs in the page (D-066).
+
 ### M40 (the weather around the home)
 
-Bundle: the first load is **534.9 kB gzipped** of 1 200 kB (+8.9 kB). The engine's wasm grows by
-7.2 kB (387.5 kB gzipped): the weather's shaders (3.1 kB of it, their comments kept as in every
+Bundle: the first load is **535.7 kB gzipped** of 1 200 kB (+8.8 kB). The engine's wasm grows by
+7.2 kB (387.6 kB gzipped): the weather's shaders (3.1 kB of it, their comments kept as in every
 shader), what a condition means and the footprint, and the fog in the home's and the background's
-shaders. The page grows by 1.7 kB: reading the weather entity and its wind (a chunk of its own,
+shaders. The page grows by 1.6 kB: reading the weather entity and its wind (a chunk of its own,
 0.7 kB gzipped, shared by the view and the Home tab), the view's and the settings' part, and the
 texts. The demo house's weather comes with the demo.
 

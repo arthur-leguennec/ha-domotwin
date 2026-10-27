@@ -154,12 +154,12 @@ pub struct Roof {
     pub mesh: Mesh,
     /// Its eaves, ridge and gable edges.
     pub lines: Vec<lines::Line>,
-    /// Its shape, for what falls on it (D-066).
+    /// Its shape, for what falls on it (D-067).
     pub shape: RoofShape,
 }
 
 /// The shape of a gable roof on the plan, its eaves included: what falls on it stops on its slopes
-/// and runs off its eaves (D-066).
+/// and runs off its eaves (D-067).
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct RoofShape {
     /// Its centre on the plan (cm).
@@ -177,7 +177,7 @@ pub struct RoofShape {
 
 impl RoofShape {
     /// The height of the roof above the floor of the storey it covers at a point of the plan, or
-    /// `None` outside it: the formula the weather's shader lands rain on the roof with (D-066),
+    /// `None` outside it: the formula the weather's shader lands rain on the roof with (D-067),
     /// checked against the roof's mesh.
     #[cfg(test)]
     pub fn height_at(&self, point: [f64; 2]) -> Option<f64> {

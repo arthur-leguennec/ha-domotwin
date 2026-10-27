@@ -8,6 +8,7 @@ import type { Upkeep, UpkeepCard } from "../live/upkeep";
 import { readWifi, type Wifi, type WifiChange } from "../live/wifi";
 import type { HassConnection, HassMessage, HomeAssistant } from "./types";
 import type { EnergySettings } from "../live/energy";
+import type { AccessPoint } from "../live/placement";
 
 export type PlanJson = Record<string, unknown> & { name?: unknown; items?: unknown };
 
@@ -69,7 +70,9 @@ export interface Settings {
   rooms?: Record<string, PrivateRoom>;
   /** Where the home's energy is read (D-049). */
   energy?: EnergySettings;
-  /** The weather drawn around the home (D-066): a `weather` entity, or `none`; absent, the one
+  /** The Wi-Fi access points placed on the plan (D-066). */
+  access_points?: AccessPoint[];
+  /** The weather drawn around the home (D-067): a `weather` entity, or `none`; absent, the one
    * the Home tab shows. */
   weather?: string;
 }

@@ -298,7 +298,7 @@ mod tests {
         assert!((f64::from(lo[1]) - 250.0 + THICKNESS).abs() < 1e-3);
         // Two eaves, the ridge and four gable edges.
         assert_eq!(lines.list.len(), 7);
-        // What falls on it meets the ridge in the middle and the eaves at its edges (D-066).
+        // What falls on it meets the ridge in the middle and the eaves at its edges (D-067).
         let at = |p: [f64; 2]| shape.height_at(p).unwrap();
         assert!((at([500.0, 300.0]) - 250.0 - rise).abs() < 1e-9);
         assert!((at([0.0, 300.0 + 330.0]) - 250.0).abs() < 1e-9);

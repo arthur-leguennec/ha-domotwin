@@ -4,7 +4,12 @@ import { MAX_IDLE, THEME_MODES } from "../config";
 import { DomoTwinClient, type StoreyInfo } from "../ha/client";
 import type { HomeAssistant } from "../ha/types";
 import { translatorFor, type MessageKey, type Translator } from "../i18n";
-import { LAYER_NAMES, automationsAvailable, networkAvailable } from "../live/layers";
+import {
+  LAYER_NAMES,
+  automationsAvailable,
+  coverageAvailable,
+  networkAvailable,
+} from "../live/layers";
 import { peaksAvailable } from "../live/peak-sources";
 import { ALL_STOREYS, loadHome, storeyLevels, storeyName } from "../live/storeys";
 import { planRooms } from "../live/suggest";
@@ -94,6 +99,7 @@ function schema(
     rooms: RoomOption[];
     storeys: StoreyInfo[];
     network: boolean;
+    coverage: boolean;
     automations: boolean;
     peak: boolean;
   },
@@ -143,12 +149,13 @@ function schema(
       selector: {
         select: {
           mode: "dropdown",
-          // The network map (D-031) and the peaks (D-063) only where they can be shown, or kept
-          // where they are set.
+          // The network map (D-031), the radio coverage (D-066) and the peaks (D-063) only where
+          // they can be shown, or kept where they are set.
           options: LAYER_NAMES.filter(
             (value) =>
               config.layer === value ||
               ((value !== "network" || home.network) &&
+                (value !== "coverage" || home.coverage) &&
                 (value !== "automations" || home.automations) &&
                 (value !== "peak" || home.peak)),
           ).map((value) => ({
@@ -281,6 +288,7 @@ export class DomoTwinCardEditor extends LitElement {
           rooms: this.rooms,
           storeys: this.storeys,
           network: networkAvailable(this.hass),
+          coverage: coverageAvailable(this.hass),
           automations: automationsAvailable(this.hass),
           peak: peaksAvailable(this.hass),
         },

@@ -9,6 +9,7 @@
 pub mod automation;
 pub mod bindings;
 pub mod camera;
+pub mod coverage;
 pub mod devices;
 pub mod edit;
 pub mod error;

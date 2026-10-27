@@ -1,4 +1,4 @@
-//! The weather around the home (`DECISIONS.md`, D-066): what falls, how grey the sky is, the fog,
+//! The weather around the home (`DECISIONS.md`, D-067): what falls, how grey the sky is, the fog,
 //! the storm's flashes and the wind, from Home Assistant's `weather` entity. Pure: the renderer
 //! draws it, the frontend reads the entity.
 

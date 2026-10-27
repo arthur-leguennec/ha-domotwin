@@ -22,7 +22,7 @@ function hass(states: HassEntity[]): HomeAssistant {
   };
 }
 
-describe("the weather around the home (D-066)", () => {
+describe("the weather around the home (D-067)", () => {
   it("reads the wind as Home Assistant gives it", () => {
     expect(windSpeedOf(36, "km/h")).toBeCloseTo(10);
     expect(windSpeedOf("10", "m/s")).toBe(10);

@@ -17,6 +17,7 @@ import {
   type StoreyRooms,
 } from "../live/storeys";
 import type { PeopleSettings } from "../live/people";
+import type { AccessPoint } from "../live/placement";
 import type { Upkeep } from "../live/upkeep";
 import type { Wifi } from "../live/wifi";
 import { translatorFor } from "../i18n";
@@ -26,6 +27,8 @@ import type { DomoTwinView, ViewOptions } from "./view";
 
 /** How long before settings that could not be read are asked for again (ms). */
 const SETTINGS_RETRY_MS = 10_000;
+/** No Wi-Fi access point placed (D-066): the same array every time. */
+const NO_ACCESS_POINTS: AccessPoint[] = [];
 
 /** `custom:domotwin-card`: the twin on a dashboard. */
 export class DomoTwinCard extends LitElement {
@@ -488,6 +491,7 @@ export class DomoTwinCard extends LitElement {
         .options=${this.viewOptions()}
         .north=${this.settings?.north ?? 0}
         .privateRooms=${this.settings?.rooms}
+        .accessPoints=${this.settings?.access_points ?? NO_ACCESS_POINTS}
         .homeTheme=${this.settings?.theme}
         .homeAccent=${this.settings?.accent}
         .energy=${this.settings?.energy}
