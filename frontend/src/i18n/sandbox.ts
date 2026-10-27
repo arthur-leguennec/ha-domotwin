@@ -39,6 +39,13 @@ export const sandboxEn = {
       apply: "Play this day",
       cancel: "Cancel",
       bad_date: "Write the date as YYYY-MM-DD.",
+      peak: "Hydro-Québec's peak",
+      peak_played:
+        "The announced peak plays on this day: from {start} to {end}, pre-heating from {preheat}.",
+      peak_other: "A peak is announced on {date}, from {start} to {end}.",
+      peak_play: "Choose its day",
+      peak_another:
+        "Another peak is announced that day: the integrations say so, but only this one's times are known, and only it is played.",
     },
     report: {
       title: "What the day did",
@@ -52,6 +59,12 @@ export const sandboxEn = {
       flapping: "Back and forth",
       not_played: "Not played",
       none_not_played: "Everything could be played.",
+      peak: "Hydro-Québec's peak",
+      peak_none: "No room's heating pre-heated, was shed or heated during it.",
+      peak_room: "{room}: {spans}",
+      peak_preheat: "pre-heating {from}–{to}",
+      peak_shed: "shed {from}–{to}",
+      peak_heating: "still heating {from}–{to}",
       by: {
         state: "{entity} changed",
         numeric_state: "{entity} crossed its level",
@@ -147,6 +160,13 @@ export const sandboxFr: Widen<typeof sandboxEn> = {
       apply: "Jouer cette journée",
       cancel: "Annuler",
       bad_date: "Écrivez la date sous la forme AAAA-MM-JJ.",
+      peak: "Pointe d’Hydro-Québec",
+      peak_played:
+        "La pointe annoncée est jouée ce jour-là : de {start} à {end}, préchauffage dès {preheat}.",
+      peak_other: "Une pointe est annoncée le {date}, de {start} à {end}.",
+      peak_play: "Choisir sa journée",
+      peak_another:
+        "Une autre pointe est annoncée ce jour-là : les intégrations le disent, mais seules les heures de celle-ci sont connues, et elle seule est jouée.",
     },
     report: {
       title: "Ce qu’a fait la journée",
@@ -160,6 +180,13 @@ export const sandboxFr: Widen<typeof sandboxEn> = {
       flapping: "Va-et-vient",
       not_played: "Non jouées",
       none_not_played: "Tout a pu être joué.",
+      peak: "Pointe d’Hydro-Québec",
+      peak_none:
+        "Le chauffage d’aucune pièce n’a préchauffé, été délesté ou chauffé pendant la pointe.",
+      peak_room: "{room} : {spans}",
+      peak_preheat: "préchauffage {from}–{to}",
+      peak_shed: "délestée {from}–{to}",
+      peak_heating: "chauffe encore {from}–{to}",
       by: {
         state: "{entity} a changé",
         numeric_state: "{entity} a passé son seuil",

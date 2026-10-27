@@ -34,6 +34,10 @@
 //   picture is the fictional map of crates/domotwin-import/tests/fixtures/robot.png; D-064),
 //   valetudo=2 (two of them)
 //   energy=1 (fictional solar panels, meter and battery, named in the stored settings; D-049)
+//   peak=hydroqc|hydropeak|calendar (Hydro-Québec's peaks, D-063: hydroqc's Flex D sensors,
+//   HydroPeak's, or the calendar hydroqc writes its peaks in), peakphase=upcoming|preheat|peak|none
+//   (where the peak stands now; `peak` unless asked), with the bedroom heating and the living
+//   room's thermostat set back
 //   demo=1 (the card's `demo`: the demo house instead of this home, D-050)
 //   supervisor=1 (apps can be installed), blueprints=changed (one edited), insecure=1 (a page
 //   served over HTTP: no microphone), mic=0 (the card's microphone turned off)
@@ -1426,6 +1430,80 @@ if (robot) {
     // Starts, pauses, goes home, reports its state.
     attributes: { friendly_name: "Robbie", supported_features: 12_820 },
   };
+}
+// Hydro-Québec's peaks (D-063), named as a French home names them: they are found by their
+// integration and kind, not their id.
+const peakSource = params.get("peak");
+if (peakSource) {
+  const hour = 3_600_000;
+  const now = Date.now();
+  const phase = params.get("peakphase") ?? "peak";
+  // Five hours ahead (pre-heating in three), within the hour, an hour in, or none announced.
+  const start = { upcoming: now + 5 * hour, preheat: now + hour, peak: now - hour }[phase];
+  const end = start === undefined ? undefined : start + 4 * hour;
+  const iso = (time) => (time === undefined ? "unknown" : new Date(time).toISOString());
+  const add = (id, state, attributes, entry) => {
+    home.states[id] = { entity_id: id, state, attributes };
+    if (entry) home.entities[id] = { entity_id: id, ...entry };
+  };
+  const timestamp = { device_class: "timestamp" };
+  if (peakSource === "hydroqc") {
+    const entry = (key) => ({ platform: "hydroqc", translation_key: key, device_id: "hq" });
+    add(
+      "sensor.hydro_quebec_maison_debut_prochaine_pointe",
+      iso(start),
+      timestamp,
+      entry("dpc_next_peak_start"),
+    );
+    add(
+      "sensor.hydro_quebec_maison_fin_prochaine_pointe",
+      iso(end),
+      timestamp,
+      entry("dpc_next_peak_end"),
+    );
+  } else if (peakSource === "hydropeak") {
+    const entry = (key) => ({ platform: "hydropeak", translation_key: key, device_id: "offer" });
+    add("sensor.tpc_dpc_evenement_debut", iso(start), timestamp, entry("event_start"));
+    add("sensor.tpc_dpc_evenement_fin", iso(end), timestamp, entry("event_end"));
+    add(
+      "sensor.tpc_dpc_debut_du_prechauffage",
+      iso(start && start - 3 * hour),
+      timestamp,
+      entry("preheat_start"),
+    );
+  } else if (peakSource === "calendar") {
+    // hydroqc's button, which it makes for the peaks it writes in a calendar.
+    add("button.hydro_quebec_maison_refresh_peak_data", "unknown", {}, { platform: "hydroqc" });
+  }
+  if (peakSource === "calendar" && start !== undefined) {
+    // A calendar's event, as its attributes say it: a wall clock where Home Assistant is.
+    const wall = (time) => {
+      const d = new Date(time);
+      const pad = (n) => String(n).padStart(2, "0");
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:00`;
+    };
+    add("calendar.pointes_hydro", phase === "peak" ? "on" : "off", {
+      friendly_name: "Pointes Hydro",
+      message: "🔴 Pointe critique",
+      location: "Hydro-Québec DPC",
+      description: "Pointe critique\nTarif: DPC\nCritique: Oui\nID: hydroqc_opendata_maison_1",
+      start_time: wall(start),
+      end_time: wall(end),
+    });
+  }
+  // The living room's thermostat set back, the bedroom's baseboard drawing.
+  add(
+    "climate.living_room",
+    "heat",
+    { friendly_name: "Living room", hvac_action: "idle", temperature: 17, current_temperature: 20 },
+    { area_id: "living_room" },
+  );
+  add(
+    "sensor.bedroom_baseboard_power",
+    "1450",
+    { friendly_name: "Bedroom baseboard", device_class: "power", unit_of_measurement: "W" },
+    { area_id: "bedroom" },
+  );
 }
 if (sandbox) {
   for (const [id, config] of Object.entries(SANDBOX_SCRIPTS)) {
