@@ -1043,6 +1043,8 @@ export class DomoTwinPanel extends LitElement {
     this._hass = hass;
     this.requestUpdate("hass", old);
     if (first && this.isConnected) this.connectData();
+    // The weekly report asked for in the address (D-066), once the user is known.
+    if (hass?.user && !old?.user) this.openReportAsked();
   }
 
   /** The translator of the language shown, the same object while it is (the tabs keep theirs). */
@@ -3547,7 +3549,8 @@ export class DomoTwinPanel extends LitElement {
   private openReportAsked(): void {
     const hass = this._hass;
     const params = new URLSearchParams(window.location.search);
-    if (!hass || !params.has("report")) return;
+    // Left in the address until the user is known: whether they may see it is not known before.
+    if (!hass?.user || !params.has("report")) return;
     const asked = Number(params.get("report"));
     params.delete("report");
     const search = params.toString();
@@ -3556,7 +3559,7 @@ export class DomoTwinPanel extends LitElement {
       "",
       `${window.location.pathname}${search ? `?${search}` : ""}${window.location.hash}`,
     );
-    if (hass.user?.is_admin === true) {
+    if (hass.user.is_admin) {
       void this.openReport(Number.isInteger(asked) && asked > 0 ? asked : undefined);
     }
   }

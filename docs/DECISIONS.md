@@ -2851,7 +2851,8 @@ M37, moved forward by the maintainer from the way to 0.6.0 (D-056), after Hydro-
       Maintenance page counts them, a battery sensor at the level chosen (20 % by default) or
       below, unless its device is charging, or a battery binary sensor on; one a device;
     - *devices unavailable*: a device all of whose entities have been unavailable for an hour at
-      least, and since when;
+      least, and since when (the report before says it across a restart, which starts Home
+      Assistant's states again);
     - *updates waiting*: the update entities that are on (one skipped is off);
     - *repairs waiting*: what Settings → Repairs lists (active and not ignored), titled as it
       titles them, in the home's language, Spook's among them; and what Watchman finds missing,
@@ -2884,10 +2885,14 @@ M37, moved forward by the maintainer from the way to 0.6.0 (D-056), after Hydro-
     whose area is its entity's or its device's, as the layers read the rooms' areas (D-023). An
     item in no room is said in its section only.
   - **What changed since the last**: an item is new when the report before did not have it (its
-    key stays the same while it is the same thing to look at; an update's is its version); what
-    the report before had and this one has not is listed as done.
+    key stays the same while it is the same thing to look at: an update waiting, whichever version
+    it waits for); what the report before had and this one has not is listed as done. The week's
+    report is compared with last week's, one written by hand with the last.
   - **Kept** in a store of its own (`.storage/domotwin.reports`, private) with the settings: the
-    last eight reports, a hundred items a section (the others counted). Never in the diagnostics
+    last eight weeks' reports and the last two written by hand, so that writing by hand does not
+    push the weeks out; a hundred items a section (the others counted). One report is written at
+    a time: the hour and a week caught up coming together write it once, and DomoTwin unloaded
+    while writing keeps nothing. Never in the diagnostics
     but its settings and how many reports are kept; deleted with the integration.
   - **Told** by Home Assistant's notification, replaced by the next one, which an administrator
     can turn off: the week, the summary, a line for each section, a link to the report in the

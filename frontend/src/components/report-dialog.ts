@@ -369,9 +369,14 @@ export class DomoTwinReport extends LitElement {
     return !(changed.size === 1 && changed.has("hass") && this.started);
   }
 
-  override willUpdate(): void {
+  override willUpdate(changed: PropertyValues<this>): void {
     if (!this.started && this.hass) {
       this.started = true;
+      void this.read(this.asked);
+    } else if (this.started && changed.has("asked") && this.asked !== undefined) {
+      // Another report asked for while open (a newer notification's link).
+      this.room = undefined;
+      this.status = undefined;
       void this.read(this.asked);
     }
   }

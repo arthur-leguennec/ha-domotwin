@@ -11,22 +11,21 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from datetime import datetime, timedelta
+import re
 from typing import Any, Final
 
 from homeassistant.util import dt as dt_util
 
+from .const import REPORT_SECTIONS
+
+#: The characters Markdown formats or links with.
+MARKDOWN: Final = re.compile(r"[\\`*_{}\[\]()<>#+!|~&]")
+#: What makes a line a list's item in Markdown, at its start: a dash, or a number and its dot.
+BLOCK: Final = re.compile(r"^(\s*)(?:(-)|(\d+)([.)]))")
 #: Names listed at most in a line of the notification; the others counted.
 MAX_NAMED: Final = 5
-#: The order of the sections, in the notification and the summary.
-SECTIONS: Final = (
-    "batteries",
-    "unavailable",
-    "updates",
-    "repairs",
-    "upkeep",
-    "automations",
-    "radios",
-)
+#: The order of the sections, in the notification and the summary: the report's.
+SECTIONS: Final = REPORT_SECTIONS
 #: Sections the notification counts without naming what is in them: Home Assistant shows its
 #: notifications to every user, and only administrators may read the automations' traces and the
 #: radios.
@@ -200,6 +199,25 @@ def _number(value: float, language: str, decimals: int = 1) -> str:
     return text.replace(".", ",") if language == "fr" else text
 
 
+def markdown(text: str) -> str:
+    """A text as Markdown shows it as it is, on one line: what formats or links escaped."""
+    line = MARKDOWN.sub(r"\\\g<0>", " ".join(text.split()))
+    match = BLOCK.match(line)
+    if match is None:
+        return line
+    if match.group(2):
+        return f"{match.group(1)}\\-{line[match.end() :]}"
+    return f"{match.group(1)}{match.group(3)}\\{match.group(4)}{line[match.end() :]}"
+
+
+def _escaped(item: Mapping[str, Any]) -> dict[str, Any]:
+    """An item whose texts (its name, its task) Markdown shows as they are."""
+    return {
+        **item,
+        **{key: markdown(str(item[key])) for key in ("name", "task") if key in item},
+    }
+
+
 def _plural(forms: tuple[str, str], count: int, language: str) -> str:
     # French counts 0 and 1 as one; English only 1.
     one = count in (0, 1) if language == "fr" else count == 1
@@ -278,7 +296,7 @@ def notification(
     start, end = week_bounds(report, language)
     lines: list[str] = [str(words["week"]).format(start=start, end=end)]
     if summary:
-        lines += ["", summary]
+        lines += ["", markdown(summary)]
     listed: list[str] = []
     sections: Mapping[str, list[Mapping[str, Any]]] = report.get("sections", {})
     more: Mapping[str, int] = report.get("more", {})
@@ -291,7 +309,7 @@ def notification(
         if section in COUNTED_ONLY:
             listed.append(f"- **{head}** ({words['in_report']})")
             continue
-        named = [item_text(section, item, language) for item in items[:MAX_NAMED]]
+        named = [item_text(section, _escaped(item), language) for item in items[:MAX_NAMED]]
         if count > len(named):
             named.append(str(words["more"]).format(count=count - len(named)))
         listed.append(

@@ -298,7 +298,8 @@ the removed ones are forgotten. See [`config-history.md`](config-history.md).
 `.storage/domotwin.reports` (D-066, its own store, version 1, private): the weekly report's
 `settings` (`weekly`, `weekday` 0 to 6 from Monday, `hour`, `notify`, `summary`: an AI task or
 `null`, `battery`: the level a battery is low at), `since` (when reports started being kept),
-`next` (the next report's id) and the last eight `reports`, oldest first: `{id, at, by: "schedule"
+`next` (the next report's id), `last_scheduled` (when the last week's was written) and the
+`reports`, oldest first (the last eight weeks' and two written by hand): `{id, at, by: "schedule"
 | "hand", week: {start, end}, sections: {<section>: [item]}, more?, gone?, energy?, peaks?,
 summary?}`, a hundred items a section. See [`report.md`](report.md).
 

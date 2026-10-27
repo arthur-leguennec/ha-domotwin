@@ -29,7 +29,7 @@ As it stands when the report is written:
 | Section | What it reads |
 | ------- | ------------- |
 | **Batteries low** | Battery Notes' low-battery sensor where it watches a device: its own threshold, the battery to buy, its level. Otherwise, as Home Assistant's Maintenance page counts them, a battery sensor at the level chosen (20 % unless you change it) or below, unless its device is charging, or a battery binary sensor on. One a device. |
-| **Devices unavailable** | A device all of whose entities have been unavailable for an hour at least, and since when. |
+| **Devices unavailable** | A device all of whose entities have been unavailable for an hour at least, and since when (across a restart of Home Assistant too). |
 | **Updates waiting** | Home Assistant's update entities that are on (one you skipped is off). |
 | **Repairs waiting** | What Settings → Repairs lists, titled as it titles them (Spook's findings among them); what Watchman finds missing in your configuration. |
 | **Upkeep due** | The [upkeep](upkeep.md) tasks due soon or overdue, and warranties in their last 30 days. |
@@ -45,8 +45,9 @@ And for the week:
 - **Hydro-Québec's peaks**, where hydroqc or HydroPeak reads them ([D-063](DECISIONS.md)): each
   peak of the week, and what the home drew from the grid and each room during it.
 
-An item is **new** when the report before did not have it; what the report before had and this one
-has not is listed as **done since the last report**.
+An item is **new** when the report before did not have it (an update waiting stays the same item,
+whichever version it waits for); what the report before had and this one has not is listed as
+**done since the last report**. The week's report is compared with last week's.
 
 ### Room by room
 
@@ -104,8 +105,8 @@ instead of writing about it.
 
 ## Kept
 
-The last eight reports, in Home Assistant's storage (`.storage/domotwin.reports`), a hundred items
-a section at most (the others counted). They are not in DomoTwin's diagnostics, only the settings
+The last eight weeks' reports and the last two written by hand, in Home Assistant's storage
+(`.storage/domotwin.reports`), a hundred items a section at most (the others counted). They are not in DomoTwin's diagnostics, only the settings
 and how many reports are kept; they are deleted with the integration.
 
 ## The limits

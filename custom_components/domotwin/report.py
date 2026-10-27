@@ -89,6 +89,8 @@ SETTINGS_SCHEMA: Final = vol.Schema(
 CATCH_UP_DELAY: Final = 120
 #: The AI task is waited for this long at most (seconds).
 SUMMARY_TIMEOUT: Final = 120
+#: Reports written by hand kept at most, besides the weeks'.
+MAX_HAND_REPORTS: Final = 2
 #: What was done since the last report: at most this many items a section said.
 MAX_GONE: Final = 20
 #: How the AI task's task is named in its logs.
@@ -126,6 +128,17 @@ def last_slot(settings: Mapping[str, Any], now: datetime) -> datetime:
     if slot > local:
         slot = datetime.combine(day - timedelta(days=7), time(settings["hour"]), tzinfo=zone)
     return dt_util.as_utc(slot)
+
+
+def _pruned(reports: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The reports kept, oldest first.
+
+    The last eight written on their day, and the last two written by hand, so that writing by
+    hand does not push the weeks out.
+    """
+    scheduled = [report for report in reports if report.get("by") != "hand"][-MAX_REPORTS:]
+    by_hand = [report for report in reports if report.get("by") == "hand"][-MAX_HAND_REPORTS:]
+    return sorted([*scheduled, *by_hand], key=lambda report: report["id"])
 
 
 def _cap(items: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], int]:
@@ -190,8 +203,11 @@ class WeeklyReport:
         self._next = 1
         # When reports were first kept: a week before is not caught up (a new install).
         self._since: datetime = dt_util.utcnow()
+        # When the last report was written on its day (those written by hand do not count).
+        self._last_scheduled: datetime | None = None
         self._lock = asyncio.Lock()
         self._unsubscribe: list[CALLBACK_TYPE] = []
+        self._task: asyncio.Task[dict[str, Any] | None] | None = None
         self._revision = 0
         self._stopped = False
 
@@ -205,7 +221,7 @@ class WeeklyReport:
         reports = stored.get("reports")
         kept = [r for r in map(_read_report, reports if isinstance(reports, list) else []) if r]
         kept.sort(key=lambda report: report["id"])
-        self._reports = kept[-MAX_REPORTS:]
+        self._reports = _pruned(kept)
         listed_next = stored.get("next")
         self._next = max(
             listed_next if isinstance(listed_next, int) else 1,
@@ -214,14 +230,23 @@ class WeeklyReport:
         )
         since = dt_util.parse_datetime(str(stored.get("since", "")))
         self._since = dt_util.as_utc(since) if since else dt_util.utcnow()
+        scheduled = [
+            at
+            for raw in (stored.get("last_scheduled"), *(r["at"] for r in kept if r["by"] != "hand"))
+            if isinstance(raw, str) and (at := dt_util.parse_datetime(raw)) is not None
+        ]
+        self._last_scheduled = dt_util.as_utc(max(scheduled)) if scheduled else None
 
     def _saved(self) -> dict[str, Any]:
-        return {
+        saved: dict[str, Any] = {
             "settings": self.settings,
             "since": self._since.isoformat(),
             "next": self._next,
             "reports": self._reports,
         }
+        if self._last_scheduled is not None:
+            saved["last_scheduled"] = self._last_scheduled.isoformat()
+        return saved
 
     @callback
     def async_start(self) -> None:
@@ -237,17 +262,22 @@ class WeeklyReport:
 
     @callback
     def async_stop(self) -> None:
-        """Write no more reports."""
+        """Write no more reports; the one being written on its day is given up."""
         self._stopped = True
         for unsubscribe in self._unsubscribe:
             unsubscribe()
         self._unsubscribe.clear()
+        if self._task is not None and not self._task.done():
+            self._task.cancel()
+        self._task = None
 
     @callback
     def _hour(self, now: datetime) -> None:
-        if self.due(dt_util.utcnow()):
-            self._hass.async_create_background_task(
-                self.async_write(by="schedule"), "domotwin weekly report"
+        # One at a time: the hour and a week caught up may come together (and the task may have
+        # run to its end before it is even kept, started eagerly).
+        if (self._task is None or self._task.done()) and self.due(dt_util.utcnow()):
+            self._task = self._hass.async_create_background_task(
+                self._async_write("schedule"), "domotwin weekly report"
             )
 
     def due(self, now: datetime) -> bool:
@@ -256,18 +286,12 @@ class WeeklyReport:
         Its day and hour have come since the last one written on its day (a week missed too), and
         since reports are kept.
         """
-        if not self.settings["weekly"] or self._stopped or self._lock.locked():
+        if not self.settings["weekly"] or self._stopped:
             return False
         slot = last_slot(self.settings, now)
         if slot < self._since:
             return False
-        written = [
-            at
-            for report in self._reports
-            if report.get("by") == "schedule"
-            and (at := dt_util.parse_datetime(report["at"])) is not None
-        ]
-        return not written or max(written) < slot
+        return self._last_scheduled is None or self._last_scheduled < slot
 
     # The reports.
 
@@ -292,19 +316,38 @@ class WeeklyReport:
         self._changed()
         return settings
 
-    async def async_write(self, *, by: str = "hand") -> dict[str, Any]:
-        """Write a report now and keep it; the report written.
+    async def async_write(self) -> dict[str, Any]:
+        """Write a report now, by hand, and keep it; the report written.
 
-        On its day (`by="schedule"`), Home Assistant's notification and the event tell it.
+        Neither told nor counted as the week's. Raises `ReportError` once DomoTwin is unloaded.
+        """
+        report = await self._async_write("hand")
+        if report is None:
+            raise ReportError("not_loaded")
+        return report
+
+    async def _async_write(self, by: str) -> dict[str, Any] | None:
+        """Write a report and keep it; the report, or None when none was written.
+
+        On its day, Home Assistant's notification and the event tell it. None: DomoTwin unloaded,
+        or the week's report written already.
         """
         async with self._lock:
-            report = await self._work_out(by)
-            rooms = {room.id: room.name for room in self._places().rooms}
+            now = dt_util.utcnow()
+            if by == "schedule" and not self.due(now):
+                return None
+            report, places = await self._work_out(by, now)
+            rooms = {room.id: room.name for room in places.rooms}
             language = language_of(self._hass.config.language)
             if self.settings["summary"]:
                 report["summary"] = await self._summarise(report, language, rooms)
-            self._reports.append(report)
-            del self._reports[:-MAX_REPORTS]
+            # Unloaded meanwhile (the entry reloaded or removed): its store is no longer this one's.
+            if self._stopped:
+                return None
+            self._next = report["id"] + 1
+            self._reports = _pruned([*self._reports, report])
+            if by == "schedule":
+                self._last_scheduled = now
             await self._store.async_save(self._saved())
         self._changed()
         if by == "schedule":
@@ -320,16 +363,24 @@ class WeeklyReport:
             er.async_get(self._hass),
         )
 
-    async def _work_out(self, by: str) -> dict[str, Any]:
+    async def _work_out(self, by: str, now: datetime) -> tuple[dict[str, Any], Places]:
+        """The report, and the rooms it places its items in."""
         hass = self._hass
-        now = dt_util.utcnow()
         week, before = week_of(now)
         places = self._places()
+        # What the week's report is compared with: last week's; one written by hand, the last.
+        last = next(
+            (r for r in reversed(self._reports) if by == "hand" or r.get("by") != "hand"), None
+        )
+        was_unavailable = {
+            item["key"]: str(item.get("since", ""))
+            for item in (last or {}).get("sections", {}).get("unavailable", [])
+        }
         look = Look(hass, places, now)
         storeys = self._data.storeys
         found: dict[str, list[dict[str, Any]]] = {
             "batteries": look.batteries(self.settings["battery"]),
-            "unavailable": look.unavailable(),
+            "unavailable": look.unavailable(was_unavailable),
             "updates": look.updates(),
             "repairs": await look.repairs(hass.config.language),
             "upkeep": look.upkeep(
@@ -356,8 +407,7 @@ class WeeklyReport:
             "week": {"start": week[0].isoformat(), "end": week[1].isoformat()},
             "sections": {},
         }
-        self._next += 1
-        previous = _keys(self._reports[-1] if self._reports else None)
+        previous = _keys(last)
         more: dict[str, int] = {}
         gone: dict[str, list[dict[str, str]]] = {}
         for section in REPORT_SECTIONS:
@@ -385,7 +435,7 @@ class WeeklyReport:
         if gone:
             report["gone"] = gone
         await self._week(report, places, week, before)
-        return report
+        return report, places
 
     async def _week(
         self,
@@ -538,7 +588,11 @@ async def ws_report_write(
     """Writes a report now (no notification: the one asking sees it); answers it."""
     if (weekly := _report(hass, connection, msg)) is None:
         return
-    report = await weekly.async_write(by="hand")
+    try:
+        report = await weekly.async_write()
+    except ReportError as err:
+        connection.send_error(msg["id"], err.code, err.code)
+        return
     connection.send_result(msg["id"], _answer(weekly, report))
 
 

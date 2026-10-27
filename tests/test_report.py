@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime, timedelta
 from typing import Any
 from unittest.mock import patch
@@ -410,7 +411,7 @@ async def test_what_needs_a_look(
     assert sections["unavailable"][0]["room"] == "hall"
     assert sections["updates"] == [
         {
-            "key": "update:update.router:1.3",
+            "key": "update:update.router",
             "name": "Router firmware",
             "entity": "update.router",
             "installed": "1.2",
@@ -466,6 +467,67 @@ async def test_new_and_done_since_the_last_report(
     assert answer["result"]["reports"][0]["counts"]["batteries"] == 2
     unknown = await _send(client, {"type": "domotwin/report/get", "report": 999})
     assert unknown["error"]["code"] == "unknown_report"
+
+
+async def test_a_device_unavailable_stays_so_across_a_restart(
+    hass: HomeAssistant,
+    hass_ws_client: WebSocketGenerator,
+    config_entry: MockConfigEntry,
+    demo_plan: dict[str, Any],
+    demo_bindings: dict[str, Any],
+    freezer: FrozenDateTimeFactory,
+) -> None:
+    """A restart starts the states again: the report before says since when."""
+    client = await _home(
+        hass, config_entry, hass_ws_client, demo_plan, demo_bindings, freezer, MONDAY
+    )
+    other = MockConfigEntry(domain="test")
+    other.add_to_hass(hass)
+    plug = _device(hass, other, "Hall plug", "hallway")
+    _entity(hass, other, "switch.hall_plug", device=plug)
+    hass.states.async_set("switch.hall_plug", "unavailable")
+    freezer.move_to(MONDAY + timedelta(hours=2))
+    first = await _write(client)
+    assert [item["since"] for item in first["sections"]["unavailable"]] == [MONDAY.isoformat()]
+    # Home Assistant restarted: the plug's state is new, still unavailable.
+    freezer.move_to(MONDAY + timedelta(days=1))
+    hass.states.async_remove("switch.hall_plug")
+    hass.states.async_set("switch.hall_plug", "unavailable")
+    second = await _write(client)
+    assert [item["since"] for item in second["sections"]["unavailable"]] == [MONDAY.isoformat()]
+    assert "gone" not in second
+
+
+async def test_unloaded_while_writing(
+    hass: HomeAssistant,
+    hass_storage: dict[str, Any],
+    hass_ws_client: WebSocketGenerator,
+    config_entry: MockConfigEntry,
+    demo_plan: dict[str, Any],
+    demo_bindings: dict[str, Any],
+) -> None:
+    """DomoTwin unloaded while its AI task writes: nothing is kept, the one asking is told."""
+    client = await _home(hass, config_entry, hass_ws_client, demo_plan, demo_bindings)
+    release = asyncio.Event()
+
+    async def generate(call: ServiceCall) -> dict[str, Any]:
+        await release.wait()
+        return {"data": "Late."}
+
+    hass.services.async_register(
+        "ai_task", "generate_data", generate, supports_response=SupportsResponse.ONLY
+    )
+    saved = await _send(
+        client, {"type": "domotwin/report/settings", "settings": {"summary": "ai_task.helper"}}
+    )
+    assert saved["success"]
+    await client.send_json_auto_id({"type": "domotwin/report/write"})
+    await hass.async_block_till_done(wait_background_tasks=False)
+    assert await hass.config_entries.async_unload(config_entry.entry_id)
+    release.set()
+    answer = await client.receive_json()
+    assert answer["error"]["code"] == "not_loaded"
+    assert hass_storage[REPORT_STORAGE_KEY]["data"]["reports"] == []
 
 
 def test_rooms_from_links_and_areas(hass: HomeAssistant) -> None:
@@ -846,9 +908,21 @@ async def test_written_on_its_day_and_told(
     async_fire_time_changed(hass, MONDAY + timedelta(hours=1, minutes=30))
     await hass.async_block_till_done()
     assert len(weekly.list()) == 1
-    # One written by hand does not stand for the week's.
-    assert (await _send(client, {"type": "domotwin/report/write"}))["success"]
-    assert len(events) == 1
+    # Written by hand, three times: neither told nor the week's, and the week's is kept.
+    for _ in range(3):
+        assert (await _send(client, {"type": "domotwin/report/write"}))["success"]
+    assert [entry["by"] for entry in weekly.list()] == ["hand", "hand", "schedule"]
+    assert not weekly.due(dt_util.utcnow())
+    # The next Monday, two hours ring at once (the hour and a week caught up): written once.
+    next_monday = MONDAY + timedelta(days=7, hours=2)
+    freezer.move_to(next_monday)
+    weekly._hour(next_monday)
+    weekly._hour(next_monday)
+    await hass.async_block_till_done(wait_background_tasks=True)
+    assert [entry["by"] for entry in weekly.list()] == ["schedule", "hand", "hand", "schedule"]
+    # Told once a week, never for those written by hand; compared with last week's.
+    assert len(events) == 2
+    assert "gone" not in weekly.get()
 
 
 async def test_a_week_missed_is_caught_up(
@@ -1044,7 +1118,9 @@ async def test_kept_leniently_and_in_bounds(
     assert written["id"] == 12
     assert len(written["sections"]["batteries"]) == MAX_REPORT_ITEMS
     assert written["more"] == {"batteries": 5}
-    assert len(weekly.list()) == MAX_REPORTS
+    # Written by hand: kept besides the weeks', which stay.
+    assert [entry["by"] for entry in weekly.list()].count("schedule") == MAX_REPORTS
+    assert weekly.list()[0]["id"] == 12
 
 
 def test_the_notification_and_the_question_in_words() -> None:
@@ -1098,6 +1174,11 @@ def test_the_notification_and_the_question_in_words() -> None:
         assert "- **1 automation to look at** (in the report)" in lines
         assert "- **1 Zigbee device on a weak link** (in the report)" in lines
         assert "- **1 upkeep task due**: Washer: Clean the filter" in lines
+        # Names are shown as they are: what Markdown formats or links with is escaped.
+        tricky = {**report, "sections": {"updates": [{"key": "u", "name": "[Bad](x) *fw*"}]}}
+        assert "- **1 update waiting**: \\[Bad\\]\\(x\\) \\*fw\\*" in notification(
+            tricky, "en", None, None
+        )[1].split("\n")
         assert "- **Energy**: 90 kWh used, 10 % less than the week before" in lines
         assert "- **2 Hydro-Québec peaks**: 1.5 kWh drawn from the grid during them" in lines
         assert lines[-1] == "[Open the report](/domotwin?report=3)"

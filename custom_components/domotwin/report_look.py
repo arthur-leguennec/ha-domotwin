@@ -293,11 +293,14 @@ class Look:
 
     # The devices unavailable.
 
-    def unavailable(self) -> list[Item]:
+    def unavailable(self, before: Mapping[str, str] | None = None) -> list[Item]:
         """The devices whose entities have all been unavailable for an hour at least.
 
-        Their entities with a state: those disabled have none. Since when: the last of them to go.
+        Their entities with a state: those disabled have none. Since when: the last of them to go,
+        or when the report before (`before`: its items' keys and their `since`) said, since Home
+        Assistant's restarts start their states again.
         """
+        before = before or {}
         by_device: dict[str, list[State]] = {}
         for state in self._hass.states.async_all():
             entry = self._entities.async_get(state.entity_id)
@@ -311,11 +314,15 @@ class Look:
             device = self._devices.async_get(device_id)
             if device is None or device.disabled_by is not None:
                 continue
+            key = f"unavailable:{device_id}"
             since = max(state.last_changed for state in states)
-            if self._now - since < UNAVAILABLE_FOR:
+            said = dt_util.parse_datetime(before.get(key, ""))
+            if said is not None and dt_util.as_utc(said) < since:
+                since = dt_util.as_utc(said)
+            elif self._now - since < UNAVAILABLE_FOR:
                 continue
             item: Item = {
-                "key": f"unavailable:{device_id}",
+                "key": key,
                 "name": self.device_name(device_id) or self.entity_name(states[0]),
                 "device": device_id,
                 "since": since.isoformat(),
@@ -334,7 +341,8 @@ class Look:
                 continue
             latest = _text(state.attributes.get("latest_version"))
             item: Item = {
-                "key": f"update:{state.entity_id}:{latest or ''}",
+                # The same while it waits, whichever version it waits for.
+                "key": f"update:{state.entity_id}",
                 "name": _text(state.attributes.get("title")) or self.entity_name(state),
                 "entity": state.entity_id,
             }
