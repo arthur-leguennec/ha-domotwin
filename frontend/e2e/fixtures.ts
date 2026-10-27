@@ -64,7 +64,13 @@ export interface HarnessOptions {
   names?: false;
   /** Kiosk options (D-029): the card's screen name, `idle` seconds, `orbit`, `night_dim`. */
   screen?: string;
+  /** The home's Wi-Fi for guests (D-060): a fictional network typed, or a router's code; the
+   * screens that show it. */
+  wifi?: "typed" | "image";
+  wifiScreens?: readonly string[];
   idle?: number;
+  /** The card's tools hidden (`tools: false`), as on a wall screen. */
+  tools?: false;
   orbit?: boolean;
   nightDim?: boolean;
   /** A mocked ZHA with a fictional Zigbee mesh (the network map, D-031). */
@@ -148,7 +154,10 @@ export async function openHarness(page: Page, options: HarnessOptions = {}): Pro
   if (options.homeTheme) params.set("hometheme", options.homeTheme);
   if (options.names === false) params.set("names", "0");
   if (options.screen) params.set("screen", options.screen);
+  if (options.wifi) params.set("wifi", options.wifi);
+  if (options.wifiScreens) params.set("wifiscreens", options.wifiScreens.join(","));
   if (options.idle !== undefined) params.set("idle", String(options.idle));
+  if (options.tools === false) params.set("tools", "0");
   if (options.orbit) params.set("orbit", "1");
   if (options.nightDim) params.set("nightdim", "1");
   if (options.zha) params.set("zha", "1");

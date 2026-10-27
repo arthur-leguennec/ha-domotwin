@@ -6,7 +6,7 @@
  */
 import { demoConnection, type MemoryHome } from "../demo/connection";
 import { DemoError, type DemoStore } from "../demo/home";
-import type { NewSchedule, UpdateEvent } from "../ha/client";
+import type { NewSchedule, SaveKind, UpdateEvent } from "../ha/client";
 import type { HassEntity, HomeAssistant } from "../ha/types";
 import type { Schedule } from "../live/schedules";
 import { playDay, type DayPlayed, type HandCall, type World } from "./engine";
@@ -137,7 +137,7 @@ export class SandboxHome implements MemoryHome {
     return this.copy.zone;
   }
 
-  saved(kind: "plan" | "bindings" | "settings" | "upkeep" | "people" | "locating"): number {
+  saved(kind: SaveKind): number {
     this.store.revision += 1;
     for (const listener of this.updateListeners) listener({ kind, revision: this.store.revision });
     return this.store.revision;

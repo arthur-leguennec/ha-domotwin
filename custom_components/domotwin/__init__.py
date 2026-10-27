@@ -12,7 +12,7 @@ from homeassistant.helpers.typing import ConfigType
 
 from .choices import Choices
 from .const import DOMAIN, SIGNAL_SCHEDULES
-from .data import CHOICES_KEY, DATA_KEY, LOCATOR_KEY, PEOPLE_KEY, SCHEDULER_KEY
+from .data import CHOICES_KEY, DATA_KEY, LOCATOR_KEY, PEOPLE_KEY, SCHEDULER_KEY, WIFI_KEY
 from .frontend import (
     async_register_frontend,
     async_remove_panel,
@@ -27,6 +27,7 @@ from .services import async_register_services
 from .storage import DomoTwinData
 from .tracker import PeopleTracker
 from .websocket_api import async_register_commands
+from .wifi import Wifi
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 # The upkeep sensor (D-033), the people's rooms (D-034), the Bluetooth devices' rooms and the
@@ -97,6 +98,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: DomoTwinConfigEntry) -> 
 
     entry.async_on_unload(drop_choices)
     hass.data[CHOICES_KEY] = choices
+    # The home's Wi-Fi for guests (D-060).
+    wifi = Wifi(hass)
+    await wifi.async_load()
+
+    @callback
+    def drop_wifi() -> None:
+        if hass.data.get(WIFI_KEY) is wifi:
+            hass.data.pop(WIFI_KEY)
+
+    entry.async_on_unload(drop_wifi)
+    hass.data[WIFI_KEY] = wifi
     await async_register_frontend(hass)
     await async_update_panel(hass, entry)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
@@ -121,10 +133,11 @@ async def async_unload_entry(hass: HomeAssistant, entry: DomoTwinConfigEntry) ->
 
 
 async def async_remove_entry(hass: HomeAssistant, entry: DomoTwinConfigEntry) -> None:
-    """Delete everything DomoTwin keeps: data, settings, actions waiting, choices, model files."""
+    """Delete everything DomoTwin keeps: data, choices, the Wi-Fi, actions waiting, model files."""
     await DomoTwinData(hass).async_remove()
     await Scheduler(hass).async_remove()
     await Choices(hass).async_remove()
+    await Wifi(hass).async_remove()
     await PeopleTracker(hass, DomoTwinData(hass)).async_remove()
     await Locator(hass, DomoTwinData(hass), entry.entry_id).async_remove()
     await async_remove_all(hass)
