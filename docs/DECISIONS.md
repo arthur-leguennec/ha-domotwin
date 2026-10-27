@@ -3085,7 +3085,108 @@ per-person rights (M34) next to it.
     is a chunk of its own; the guests' page and its chunks are loaded by it alone.
   - Per-person rights (M34) are for Home Assistant's users; a pass is for those without one.
 
-## D-068 · The weather around the home: drawn from Home Assistant's weather entity (M40)
+## D-068 · Safety: the alerts on every tab, a Safety tab, the doorbell full screen (M25)
+
+M25, planned in D-054 among M24 to M26, whose order the two weeks of use after 0.4.0 were to
+decide. After more imports (M20, D-064), the placement advisor (M31, D-066) and guest access
+(M33, D-067), the maintainer asked for safety next, ahead of the weather (M40), locating measured
+(M41) and an iPhone's key (M45) that D-065 put before M24 to M26, and of M24 and M26. It follows
+D-056's rule, as M23b did: Home Assistant's own Security page opened rather than copied where it
+has it.
+
+- **Context.** D-054 planned the cameras side by side, the doorbell full screen when it rings, the
+  alarm, and the alerts the 3D view shows (D-023) on every tab. Since, Home Assistant has a
+  Security page of its own, and alerts chosen on it. Checked in Home Assistant's code at the
+  versions its releases pin:
+  - **The Security page**: a `security` panel, registered without a place in the sidebar since
+    2025.11 (an experiment then, `async_register_built_in_panel(hass, "security")`) and still in
+    2026.10 (`show_in_sidebar=False` since 2026.3). It shows the cameras (as picture cards, in
+    their area among the rest), the alarm panels, the locks, the doors, windows and garage doors,
+    the safety sensors (smoke, gas, carbon monoxide, moisture, glass break, safety, tamper) by
+    floor and area, and the activity of the last 24 hours (`security-view-strategy.ts`,
+    frontend 20260930.2); its back button comes with `?historyBack=1`, which its Overview opens
+    it with (`home-overview-view-strategy.ts`), since 20251203.0.
+  - **Its alerts** (frontend 20260826.4, Home Assistant 2026.9): an administrator chooses entities
+    on the page (*Edit security and safety page*, *Active alert entities*), each with a severity,
+    *Alert* or *Warning*, kept in Home Assistant's system data (`frontend/get_system_data` and
+    `frontend/subscribe_system_data`, key `security`: `alert_entities`, a list of
+    `{entity, severity?}`), which any signed-in user may read (2025.12 and later). An alert is
+    on when its entity is: an alarm panel `triggered`, a cover `open`, a lock `jammed`,
+    `unlocked` or `open`, anything else `on`. Without a severity, an alarm panel and the binary
+    sensors of the danger classes (carbon monoxide, gas, glass break since 2026.10, moisture,
+    safety, smoke) are *Alert*, the rest *Warning* (`security-alerts.ts`). Since 2026.10, the
+    Overview shows those of severity *Alert* that are on.
+  - **Doorbells**: an `event` entity of the `doorbell` class (2023.8 and later; its state is when
+    it last fired, `isoformat`), given by UniFi Protect, Ring, Nest, DoorBird, August, Yale,
+    Axis, SwitchBot, HomeKit devices, Hue, SimpliSafe, Homematic IP and UniFi Access in 2026.10
+    (their `event.py`), and by ESPHome devices that declare one. Home Assistant gives the last
+    time back when it starts (`RestoreEntity`).
+  - **Cards** (frontend 20250103.0, Home Assistant 2025.1): the picture-entity card takes
+    `camera_view` (`auto`: a still Home Assistant refreshes; `live`: the stream), the alarm-panel
+    card, and the tile card's `lock-commands` feature are there.
+- **Decision.**
+  - **The alerts on every tab.** Above the *Home* and *Rooms* tabs, a bar says the alerts the 3D
+    view's banner says: the rooms' (D-023) of the storey shown, then those of the other storeys
+    (D-026), dangers first, two at most, then *and N more*, which opens the *Safety* tab. A
+    room's opens the 3D view and frames its room, its storey shown first, as a tap in the 3D
+    view's banner does (`frameAlert`); where the 3D view cannot draw, its room's page (its
+    area's page of the Overview, D-061, else *Rooms*). The Home tab's alerts chip goes: the bar is
+    above it. Of a private room the viewer may not see (D-039), only the dangers, on another
+    storey too (the 3D view's banner told the warnings of other storeys' private rooms until now).
+  - **Home Assistant's alerts, read, not copied.** Where Home Assistant keeps them (2026.9 and
+    later, with its Security page), the panel follows the alerts chosen there
+    (`frontend/subscribe_system_data`) and says those on now in the same bar, in the 3D view's
+    banner and on the *Safety* tab: `{name}: {state}`, the state in Home Assistant's words
+    (`formatEntityState`), red for *Alert*, amber for *Warning*, Home Assistant's defaults without
+    a severity. A tap opens Home Assistant's Security page. An entity that raised a room's alert is
+    said once, as the room's, which says where. Of a private room the viewer may not see, only the
+    dangers. DomoTwin chooses nothing itself and writes nothing in Home Assistant's system data;
+    not in the demo house or the sandbox, whose devices are not the home's; not for a card.
+  - **A Safety tab**, `/domotwin/safety`, between *Rooms* and *3D*, always offered, a tab to open
+    on like the others (the integration's choices take `safety`). From the top: every alert (or
+    that all is calm); each alarm panel as Home Assistant's alarm-panel card; each doorbell and
+    when it last rang; every camera side by side, as Home Assistant's picture-entity card
+    (`camera_view: auto`, its name, no state), the doorbells' first (the one rung last first),
+    each labelled with its doorbell, then the others by name; where Home Assistant has no
+    Security page (before 2025.12), the locks as tiles with their buttons; where it has one, a way
+    to it for the locks, the doors and windows, the sensors and the activity, which it shows and
+    DomoTwin does not copy. Hidden entities and those of an entity category are left out, and
+    what a private room the viewer may not see holds. Live streams are kept for Home Assistant's
+    own dialog (a tap) and the doorbell's full screen: a phone's data and a small host's
+    processor are spared. It is part of the tabs' chunk (D-055), with its texts.
+  - **The doorbell, full screen.** The panel watches the home's doorbells (events of the
+    `doorbell` class, not hidden), whatever tab shows: a ring is a newer time than the doorbell
+    said when first seen, two minutes old at most by the device's clock (Home Assistant's own
+    relative times take it to be right; a device more than two minutes off misses the rings), so
+    that the time given back as Home Assistant starts, and a ring heard while the page was asleep,
+    do not ring. The doorbells are looked for among the events of the entity registry, read again
+    when it changes, and at each new set of states, as an event's state may come after its entry.
+    A ring heard before the settings are read (who may see what, D-039) waits for them. It shows full screen, over
+    every tab and tool (`position: fixed`, an `alertdialog` that takes the focus): *Someone is at
+    the door*, the doorbell and when; its camera live (`camera_view: live`, a tap doing nothing),
+    the camera of the doorbell's own device, else the only camera in its area; the lock of its
+    door as a tile with its buttons, the lock of the doorbell's device, else the only lock in its
+    area; *Close*. It goes after two minutes, when closed or on Escape; a new ring shows it again.
+    Its screen is a chunk loaded at the first ring; only the watch is in the first load. Not over
+    the demo house or the sandbox, homes of their own; not a doorbell, camera or lock in a private
+    room the viewer may not see. A binary sensor said to be a doorbell (Reolink's *visitor*) is
+    not watched.
+  - **What the card shows is unchanged**: the alerts' bar, the Safety tab and the doorbell are the
+    panel's. The doorbell on a dashboard's card, a wall screen's, comes with the wall screen
+    (M26).
+- **Consequences.**
+  - The tabs are four; on a phone, four at the bottom.
+  - The first load grows by the watch of the doorbells, Home Assistant's alerts, the alerts' button
+    the 3D view's banner shares with the other tabs, and the tab's name;
+    the Safety tab is in the tabs' chunk, a chunk shared with the doorbell's full screen carries
+    Home Assistant's cards and the safety texts.
+  - A home's alerts read the same everywhere in the panel: one list, worked out from the states,
+    the rooms of every storey and the alerts Home Assistant keeps.
+  - The demo house has no camera, doorbell or alarm: its Safety tab shows its alerts.
+  - The roadmap shows M25 done after M33; D-065's order goes on for the rest: M40, M41 and M45,
+    then M24 and M26.
+
+## D-069 · The weather around the home: drawn from Home Assistant's weather entity (M40)
 
 Asked for by the maintainer after 0.4.0: "a beautiful animation of the weather over the house or
 the apartment, the rain outside for an apartment, unlike a house whose roof one sees". Placed
@@ -3143,8 +3244,8 @@ before M24 (D-065).
     what falls still and stops the flashes. Nothing is drawn on the 2D plan nor on a storey's
     picture: no clouds, fog or flash there.
 - **Consequences.**
-  - The first load grows by 8.8 kB gzipped: 7.2 kB of wasm (the weather's shaders and module),
-    1.6 kB of script; the CPU time of a frame does not change (`PERFORMANCE.md`, M40).
+  - The first load grows by 8.7 kB gzipped: 7.2 kB of wasm (the weather's shaders and module),
+    1.5 kB of script; the CPU time of a frame does not change (`PERFORMANCE.md`, M40).
   - The demo house has a `weather.home` of its own, a fictional day's (showers in the afternoon);
     a home without any `weather` entity draws none.
   - The same footprint and the same "seen over the home" rule can serve the outdoors (M18).

@@ -286,7 +286,7 @@ def validate_settings(settings: Any) -> dict[str, Any]:
     `north`, degrees clockwise from the top of the plan; the look shown by default (`theme`) and
     its accent colour (`accent`, `#rrggbb`); the private rooms (`rooms`, D-039); where the
     home's energy is read (`energy`, D-049); the Wi-Fi access points placed on the plan
-    (`access_points`, D-066); the weather drawn around it (`weather`, D-068: a `weather` entity,
+    (`access_points`, D-066); the weather drawn around it (`weather`, D-069: a `weather` entity,
     or `none`).
     """
     if not isinstance(settings, dict) or set(settings) - {
@@ -332,7 +332,7 @@ def validate_settings(settings: Any) -> dict[str, Any]:
 
 
 def _weather(weather: Any) -> str:
-    """The weather drawn around the home (D-068): a `weather` entity, or `none`."""
+    """The weather drawn around the home (D-069): a `weather` entity, or `none`."""
     if weather == "none":
         return "none"
     if (

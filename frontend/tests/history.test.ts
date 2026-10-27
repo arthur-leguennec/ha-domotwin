@@ -524,7 +524,7 @@ describe("the demo house's history (D-058)", () => {
     expect(lamp[0]?.lu).toBe(midnight / 1000);
     expect(lamp[1]?.lu).toBe((midnight + at(19, 30) * MIN) / 1000);
     expect((answer["sensor.bathroom_humidity"] ?? []).length).toBeGreaterThan(10);
-    // What the day does not change keeps its state; the weather follows the day (D-068).
+    // What the day does not change keeps its state; the weather follows the day (D-069).
     expect(answer["input_boolean.guests"]).toEqual([{ s: "off", lu: midnight / 1000 }]);
     expect((answer["weather.home"] ?? []).map((state) => state.s)).toContain("lightning-rainy");
     // Asked from a month ago: ten days back at most, as Home Assistant keeps them.

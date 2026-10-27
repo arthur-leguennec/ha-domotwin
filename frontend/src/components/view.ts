@@ -9,7 +9,6 @@ import {
   mdiToilet,
   mdiTree,
   mdiWardrobeOutline,
-  mdiAlert,
   mdiAlertCircleOutline,
   mdiArrowCollapseVertical,
   mdiArrowExpandVertical,
@@ -197,6 +196,8 @@ import {
 } from "../live/room-labels";
 import { assistAvailable, canListen, listeningPipeline, openAssist } from "../live/voice";
 import { drawable, type Wifi } from "../live/wifi";
+import { securityPage, shownAlerts, type SecurityAlert } from "../live/security";
+import { alertButton, type AlertRoom } from "./alert-button";
 import { FrameScheduler } from "../scheduler";
 import { readTip, tipRead } from "../live/draft";
 import { fire } from "./define";
@@ -236,7 +237,7 @@ export interface ViewOptions {
   people?: boolean;
   /** Where the sun lights from (`fixed` unless set). */
   sun?: SunMode;
-  /** The weather around the home (on unless `false`, D-068). */
+  /** The weather around the home (on unless `false`, D-069). */
   weather?: boolean;
   /** Badges over the devices (on unless `false`). */
   badges?: boolean;
@@ -541,7 +542,7 @@ export interface DebugState {
   look?: string;
   /** Where the sun lights from: `default`, or `<azimuth>:<elevation>:<north>` (the real sun). */
   sun?: string;
-  /** The weather drawn (D-068): `clear`, or `<entity> <condition> <wind m/s> <bearing>:<north>`. */
+  /** The weather drawn (D-069): `clear`, or `<entity> <condition> <wind m/s> <bearing>:<north>`. */
   weather?: string;
   /** What the engine draws falling: `none`, `rain`, `snow`, `sleet` or `hail`. */
   falling?: string;
@@ -592,6 +593,7 @@ export class DomoTwinView extends LitElement {
     placeDevices: { attribute: false },
     linkable: { attribute: false },
     roomTab: { attribute: false },
+    securityAlerts: { attribute: false },
     bubble: { state: true },
     tip: { state: true },
     bubbleBusy: { state: true },
@@ -683,6 +685,11 @@ export class DomoTwinView extends LitElement {
   /** The panel's Rooms tab (D-055): a room tapped opens its room there, by its area. */
   roomTab = false;
   /**
+   * Home Assistant's alerts on now (the panel's, D-068), said in the banner after the rooms' of
+   * the same level; a tap opens its Security page.
+   */
+  securityAlerts: readonly SecurityAlert[] = [];
+  /**
    * Edit mode (the panel's): a tap selects a piece, dragging a selected piece moves it. Every
    * change fires `domotwin-edit` (detail: the `EditState`).
    */
@@ -710,7 +717,7 @@ export class DomoTwinView extends LitElement {
   planError?: string;
   /** Where north points on the plan, degrees clockwise from its top (the home's settings). */
   north = 0;
-  /** The weather entity drawn around the home, `none`, or nothing for the usual one (D-068). */
+  /** The weather entity drawn around the home, `none`, or nothing for the usual one (D-069). */
   weather?: WeatherChoice;
   /** The home's private rooms (its settings, D-039). */
   privateRooms?: Settings["rooms"];
@@ -3573,7 +3580,7 @@ export class DomoTwinView extends LitElement {
   }
 
   /**
-   * Draws the weather around the home (D-068): the chosen entity's, else the usual one; none when
+   * Draws the weather around the home (D-069): the chosen entity's, else the usual one; none when
    * the option is off or no entity says anything.
    */
   private applyWeather(): void {
@@ -3709,7 +3716,14 @@ export class DomoTwinView extends LitElement {
     const here = layers?.alerts ?? [];
     const alerts =
       hass && this.options.alerts !== false && this.elsewhere.length > 0
-        ? withAlertsElsewhere(hass, this.bindings ?? NO_BINDINGS, here, this.elsewhere, this.storey)
+        ? withAlertsElsewhere(
+            hass,
+            this.bindings ?? NO_BINDINGS,
+            here,
+            this.elsewhere,
+            this.storey,
+            this.closed,
+          )
         : here;
     if (values !== this.heatValues) {
       this.heatValues = values;
@@ -5976,48 +5990,36 @@ export class DomoTwinView extends LitElement {
     </div>`;
   }
 
-  /** What an alert says; on another storey, which one. */
-  private alertText(alert: StoreyAlert): string {
-    const t = this.translator;
-    const text = t.t(`layers.alert_${alert.reason}`, { room: alert.name });
-    if (!alert.storey) return text;
-    const level = storeyLevels(this.storeys).find(({ storey }) => storey.id === alert.storey);
-    if (!level) return text;
-    return t.t("storey.alert_on", {
-      alert: text,
-      storey: storeyName(t, level.storey, level.level),
-    });
+  /**
+   * Frames the room of an alert, showing its storey first: as a tap on it in the banner does, a
+   * private room's too, whose danger it tells (D-039).
+   */
+  frameAlert(alert: AlertRoom): void {
+    const room = { id: alert.room, name: alert.name };
+    if (alert.storey) {
+      // On another storey: shown first, then the room framed.
+      this.chooseStorey(alert.storey);
+      this.focusAfterLoad = room;
+      return;
+    }
+    if (this.engine?.focusElement(alert.room)) this.focusedRoom = room;
+    this.redraw();
   }
 
-  /** The rooms with an alert: a tap frames the room (showing its storey first). */
+  /**
+   * The rooms with an alert, and Home Assistant's alerts (D-068): a tap frames the room (showing
+   * its storey first), or opens Home Assistant's Security page.
+   */
   private renderAlerts(): TemplateResult | typeof nothing {
-    const alerts = this.alerts;
+    const alerts = shownAlerts(this.alerts, this.securityAlerts);
     if (alerts.length === 0 || this.planEditor) return nothing;
     const t = this.translator;
     const shown = alerts.slice(0, MAX_ALERTS_SHOWN);
     const more = alerts.length - shown.length;
+    const page = securityPage(this.hass);
     return html`<div class="alerts" role="alert" data-testid="alerts">
-      ${shown.map(
-        (alert) =>
-          html`<button
-            class="glass ${alert.level}"
-            data-room=${alert.room}
-            data-storey=${alert.storey ?? nothing}
-            @click=${() => {
-              const room = { id: alert.room, name: alert.name };
-              if (alert.storey) {
-                // On another storey: shown first, then the room framed.
-                this.chooseStorey(alert.storey);
-                this.focusAfterLoad = room;
-                return;
-              }
-              if (this.engine?.focusElement(alert.room)) this.focusedRoom = room;
-              this.redraw();
-            }}
-          >
-            ${icon(alert.level === "danger" ? mdiAlert : mdiAlertCircleOutline)}
-            <span>${this.alertText(alert)}</span>
-          </button>`,
+      ${shown.map((alert) =>
+        alertButton(t, alert, this.storeys, page, (room) => this.frameAlert(room), "glass"),
       )}
       ${more > 0 ? html`<span class="more">${t.tp("layers.more_alerts", more)}</span>` : nothing}
     </div>`;
