@@ -211,8 +211,10 @@ every reader returns `Result` with a stable error code that the frontend transla
    (`peoplePoints`). Where the rooms come from Bluetooth (D-035), the locator (`locator.py`) hears
    the followed devices through Home Assistant's Bluetooth (`locating/radio_ha.py`) and, every two
    seconds, weighs what each receiver heard against what the plan says it should hear in each room
-   and what was learned (`locating/geometry.py`, `radio.py`), along the doors
-   (`locating/filter.py`); each device's room is a sensor of its own, a source of its owner's. On
+   and what was learned (`locating/geometry.py`, `radio.py`), along the doors and to another
+   storey by its stairs only (`locating/filter.py`); around the room found, a cloud of half-metre
+   cells (`locating/cells.py`, `cloud.py`, D-079) says where in it. Each device's room and spot is
+   a sensor of its own, a source of its owner's, whose figure stands at the spot. On
    the same tick, `locating/measure.py` counts how steady and how right each device's room is,
    and Bermuda's area beside it where one is paired (D-073).
 6. **Show.** The `domotwin.show` action (`services.py`, D-029), run by a script, an automation or
@@ -474,11 +476,13 @@ unless the pass opens from anywhere. Refusals are `{code, starts?, ends?}`: `unk
   in its `tasks` attribute, worked out again when the cards or the plans change and every midnight
   where the home is (`sensor.py`, `upkeep.py`).
 - `sensor.domotwin_<person>_room` (D-034), one per person placed: their room's name, `not_home`,
-  or unknown; `room_id`, `area_id`, `storey_id`, `storey`, `since`, `source` in attributes
-  (`sensor.py`, `tracker.py`, `people.py`).
+  or unknown; `room_id`, `area_id`, `storey_id`, `storey`, `since`, `source`, and `x`, `y` where
+  their Bluetooth device says (D-079, not recorded) in attributes (`sensor.py`, `tracker.py`,
+  `people.py`).
 - `sensor.domotwin_<device>_bluetooth` (D-035), one per device followed by Bluetooth: its room's
   name, or unknown; `device_name`, `kind`, `person`, `left_behind`, `room_id`, `area_id`,
-  `storey_id`, `storey`, `since` in attributes (`sensor.py`, `locator.py`).
+  `storey_id`, `storey`, `since`, and where in the room `x`, `y`, `z`, `accuracy` (metres, D-079,
+  not recorded) in attributes (`sensor.py`, `locator.py`).
 - `binary_sensor.domotwin_<device>_left_behind` (D-035), one per device with an owner: on while it
   is heard at home and its owner has been away two minutes (`binary_sensor.py`).
 

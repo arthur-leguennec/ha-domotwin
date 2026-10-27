@@ -1348,3 +1348,30 @@ house (two storeys, 18 rooms, 4 receivers): **21.7 ms** (19.6 ms before); on the
 split-level house (three levels, 17 rooms, 4 receivers): 20.0 ms. It is worked out when the plans
 or the receivers change, not on the locating's tick. The retaining walls are a few boxes, built once
 with the home's scene, each side's ground looked for among the gardens high enough over it only.
+
+### M42 (finer locating)
+
+Bundle: the first load is **653.0 kB gzipped** of 1 200 kB (+1.4 kB). The engine's wasm grows by
+1.3 kB (485.8 kB gzipped): a figure stands at the spot its person's phone is at, the nearest place
+clear of the furniture and of the others in the room. The page's part is a few lines.
+
+The work is the integration's (D-079), measured on the fictional demo house (two storeys and a
+garden, 4 receivers) in Python:
+
+| | |
+| --- | --- |
+| The plans in cells (1 390 cells of 50 cm) | 64 ms |
+| What each receiver should hear in each cell | 178 ms |
+| A device's cloud at a reading, in the living room (84 cells kept) | 0.8 ms (1.8 ms at most) |
+| A device's cloud at a reading, in the back garden (325 cells kept) | 2.8 ms (4.5 ms at most) |
+
+The cells and what each receiver should hear in them are worked out with the rooms', in Home
+Assistant's executor, when the plans or the receivers change (not when a registry changes alone):
+about 60 ms a receiver on the demo house. A step from a cell to another room is checked for the
+walls on its way; the locating's walls now skip the rooms whose box the line misses, which makes
+the rooms' expectations faster too (14.1 ms on the demo house, 22.6 ms before). A reading costs a
+device a millisecond or a few more, every two seconds, in Home Assistant's loop: ten phones in the
+garden at once, about 30 ms every two seconds. Pure Python, no numeric library: the cloud lives
+around the room told (its 400 likeliest cells) rather than over the whole home. The spot is
+written again only once it moved a metre (or its accuracy changed by a quarter), and not recorded
+in the history.
