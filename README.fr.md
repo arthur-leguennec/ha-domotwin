@@ -195,9 +195,11 @@ Local, rapide, Rust + WebAssembly.</p>
   murs, portes, étages) et marche dès la première minute, puis apprend des pièces enseignées et des
   capteurs de présence. Les téléphones placent leur propriétaire ; les clés oubliées sont
   signalées ; « où sont mes clés ? » à la voix. La justesse des pièces trouvées est mesurée, les
-  chiffres de Bermuda à côté là où il tourne, et se copie en tableau à partager. Voir [la
-  localisation Bluetooth](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/bluetooth.md)
-  (en anglais).
+  chiffres de Bermuda à côté là où il tourne, et se copie en tableau à partager. La clé d’identité
+  d’un iPhone, lue sans Mac par un ESP32 en dix minutes, se colle dans DomoTwin telle que l’outil la
+  donne. Voir [la localisation
+  Bluetooth](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/bluetooth.md) (en
+  anglais).
 - **La couverture radio.** Où le prochain proxy Bluetooth, routeur Zigbee ou point d’accès Wi-Fi
   aide le plus : chaque pièce colorée selon ce que vos récepteurs, votre réseau ou vos points
   d’accès y portent, et les meilleurs emplacements numérotés sur le plan, chacun avec les pièces

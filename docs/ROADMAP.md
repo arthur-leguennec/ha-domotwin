@@ -60,7 +60,7 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M34       | Per-person rights: what DomoTwin shows each one            | ✅     |
 | M40       | The weather around the home, in 3D                         | ✅     |
 | M41       | Locating measured, next to Bermuda's on the same days      | ✅     |
-| M45       | An iPhone's key, without a Mac: the ways to get it         | ⏳     |
+| M45       | An iPhone's key, without a Mac: the ways to get it         | ✅     |
 | M26       | The wall screen: a screen saver, a layout per device       | ⏳     |
 | M22       | A first launch in five minutes                             | ⏳     |
 | 0.5.0     | Fifth release: all of the above                            | ⏳     |
@@ -1688,6 +1688,29 @@ beside (D-073, [`bluetooth.md`](bluetooth.md)).
 Measured at the end of M41: see [`PERFORMANCE.md`](PERFORMANCE.md). Left for the maintainer: the
 figures of a real home, with Bermuda's, published in [`bluetooth.md`](bluetooth.md).
 
+## M45, an iPhone's key without a Mac
+
+Next to locating measured (D-065): an iPhone or an Apple Watch followed without a Mac to read its
+identity key from (D-074, [`bluetooth.md`](bluetooth.md)).
+
+- ✅ **The ways to get it**: a Mac's Keychain, or an ESP32 for ten minutes with irk-capture (an
+  ESPHome package) or ESPresense's Enroll, said in a line in the Bluetooth settings and step by
+  step in the guide, linked from there. DomoTwin builds no firmware of its own.
+- ✅ **The key as the tool wrote it**: hex (spaces, colons or dashes between the digits are fine),
+  `irk:` and hex, or a Mac's base64; refused when it is none.
+- ✅ **Handed to Private BLE Device**, which keeps it: its own setup run with the key; a key it
+  already has gives its entry back; not heard, no Bluetooth or refused, said plainly. DomoTwin
+  keeps nothing of the key, never shows it again nor says it in an error.
+- ✅ **Then followed**: the device added to the devices followed, by its entry's title, its kind
+  and owner chosen before saving.
+- ✅ Tests: the key in each form and what is not one (pytest); Private BLE Device's setup run,
+  aborted without Bluetooth, the device not heard (its setup closed), the entry created, a key
+  already there, never said back (pytest); the texts in both languages (vitest); a key not one,
+  not heard, then a Mac's base64 added and followed, again already followed, saved without the
+  key, in French (Playwright).
+
+Measured at the end of M45: see [`PERFORMANCE.md`](PERFORMANCE.md).
+
 ## Then, from 0.4.0 to 0.5.0
 
 Planned in D-056, with D-065's additions: the sandbox first, built during the two weeks of use since
@@ -1716,16 +1739,11 @@ before its milestone starts, which goes on with what needs no answer.
   Bermuda's figures beside, from the same device's area sensor over the same hours. Shown in the
   Bluetooth settings and in the diagnostics, as figures only. The maintainer's figures go in
   `docs/bluetooth.md` as they fall.
-- ⏳ **M45, an iPhone's key without a Mac** (D-065): in the Bluetooth settings, for an iPhone or an
-  Apple Watch, the ways to get its identity key: the Mac's Keychain; an ESP32 flashed for ten
-  minutes with an existing tool, irk-capture (an ESPHome package, MIT, explained in Home Assistant's
-  [community
-  guide](https://community.home-assistant.io/t/guide-grabbing-your-phone-watch-bluetooth-irks-2026-edition/968791))
-  or [ESPresense](https://espresense.com/beacons/apple)'s *Enroll* (AGPL); and a field that takes
-  the key in any of their forms (hex, a Mac's base64, `irk:…`) and hands it to Home Assistant's
-  Private BLE Device. Checked first: those tools exist, work without a Mac and are kept up, so
-  DomoTwin links to them rather than building a firmware of its own; one of its own only if they
-  stop being kept.
+- ✅ **M45, an iPhone's key without a Mac** (D-065, D-074, above): in the Bluetooth settings, for
+  an iPhone or an Apple Watch, the ways to get its identity key (a Mac's Keychain; an ESP32 for ten
+  minutes with irk-capture or ESPresense's Enroll, in the guide), and a field that takes the key
+  as the tool wrote it and hands it to Home Assistant's Private BLE Device; the device then
+  followed. No firmware of DomoTwin's own.
 - ✅ **M25, safety** (D-068, above): done after M20, M31 and M33, at the maintainer's request.
 - ⏳ **M26, the wall screen**: a screen saver (the clock, the weather, the photos of Home
   Assistant's media) woken by motion; a layout for each device.

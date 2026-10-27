@@ -1248,3 +1248,10 @@ measurements add about **0.12 ms** to a tick for 30 devices (the most followed) 
 Bermuda, whether Bermuda's sensors give their area's id or its name (the areas' names are indexed
 when the plan or the areas change); the figures take about 0.15 ms when asked for. They add about
 470 bytes a device to `domotwin.locating_learned`, written ten minutes after they change at most.
+
+### M45 (an iPhone's key without a Mac)
+
+Bundle: the first load is **545.4 kB gzipped** of 1 200 kB (+0.2 kB: the client's command and the
+three refusals' texts). The Bluetooth settings, loaded when opened, grow by 1.5 kB gzipped
+(8.6 kB): the key's field, its texts in both languages and the link to the guide. Nothing runs
+until a key is added: the integration reads it and runs Private BLE Device's setup once.

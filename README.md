@@ -167,8 +167,9 @@ Local, fast, Rust + WebAssembly.</p>
   devices). It starts from the plan (distances, walls, doors, floors), so it works from the first
   minute, and learns as rooms are taught and presence sensors agree. Phones place their owners;
   keys left behind are told; "where are my keys?" by voice. How well it finds rooms is measured,
-  Bermuda's figures beside where it runs, and copied as a table to share. See [Bluetooth
-  locating](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/bluetooth.md).
+  Bermuda's figures beside where it runs, and copied as a table to share. An iPhone's identity key,
+  read without a Mac by an ESP32 in ten minutes, is pasted in DomoTwin as the tool gave it. See
+  [Bluetooth locating](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/bluetooth.md).
 - **Radio coverage.** Where the next Bluetooth proxy, Zigbee router or Wi-Fi access point helps
   most: each room coloured by how well your receivers, your mesh or your access points reach it,
   and the best spots numbered on the plan, each with the rooms it raises. Worked out from the
