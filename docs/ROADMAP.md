@@ -51,8 +51,8 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M23b      | Into Home Assistant's Overview, rather than a copy of it   | ✅     |
 | M36       | Configuration history: differences, one item put back      | ✅     |
 | M39       | Hydro-Québec's peaks, from the integrations that read them | ✅     |
+| M25       | Safety: cameras, the doorbell, the alarm, alerts           | ✅     |
 | M24       | History and energy, with Home Assistant's own cards        | ⏳     |
-| M25       | Safety: cameras, the doorbell, the alarm, alerts           | ⏳     |
 | M26       | The wall screen: a screen saver, a layout per device       | ⏳     |
 | M31       | Placement advisor: where the next radio helps most         | ⏳     |
 | M22       | A first launch in five minutes                             | ⏳     |
@@ -95,7 +95,8 @@ objects (M17), the outdoors (M18), more imports (M20) and more languages (M21), 
 release, 0.6.0. After the sandbox, the maintainer asked for history as reports (M38, D-058),
 "Why?" (M32, D-059) and the configuration history (M36, D-062) before the rest, which keeps its
 order. The maintainer then moved Hydro-Québec's peaks (M39) forward too (D-063): it plays
-its peak in the sandbox; its part in the weekly report (M37) comes with it.
+its peak in the sandbox; its part in the weekly report (M37) comes with it. Of M24 to M26, the
+maintainer asked for safety first (M25, D-064).
 
 ## M0, scaffold
 
@@ -1303,6 +1304,48 @@ stored; nothing shown without them.
   from *The day* and from the Home tab (Playwright).
 - ⏳ The week's peaks in the weekly report, with **M37**.
 
+## M25, safety
+
+The cameras side by side, the doorbell full screen when it rings, the alarm, and the alerts of the
+3D view on every tab (D-054), Home Assistant's own Security page opened rather than copied where
+it has one (D-056); asked for first of M24 to M26 by the maintainer (D-064, `docs/safety.md`).
+
+- ✅ **The alerts on every tab**: above *Home* and *Rooms*, the alerts the 3D view says, of every
+  storey, dangers first, two and then *and N more*; a room's opens the 3D view framing it (its
+  storey first), or its room's page where the 3D view cannot draw. The Home tab's alerts chip
+  gives way to them. A private room's warnings are no longer said from another storey either.
+- ✅ **Home Assistant's alerts**: those an administrator chose on its Security page (2026.9 and
+  later), followed as they change, said in the same bar, the 3D view's banner and the Safety tab
+  with Home Assistant's colours, opening its page; a sensor that raised a room's alert said once;
+  only the dangers of a private room.
+- ✅ **A Safety tab**: every alert; the alarm as Home Assistant's alarm-panel card; the doorbells
+  and when they rang; every camera side by side as Home Assistant's picture card, the doorbells'
+  first; the locks where Home Assistant has no Security page, else a way to it. Nothing hidden,
+  nothing of a private room the viewer may not see. A tab to open on, on a wall tablet by the
+  door.
+- ✅ **The doorbell full screen** when one rings (an `event` of the `doorbell` class), on every tab:
+  its camera live, its door's lock with its buttons, *Close*; for two minutes, closed by hand or
+  Escape; not for a ring Home Assistant gives back as it starts, nor one heard while the page
+  slept; not over the demo house or the sandbox. A chunk loaded at the first ring.
+- ✅ Tests: Home Assistant's Security page and its alerts by version, the alerts read and on as
+  Home Assistant says, their levels and words, a private room's, said once beside the rooms', the
+  warnings of a private room on another storey, the doorbells found, a ring and what does not
+  ring (as DomoTwin opens, given back as Home Assistant starts, old, two at once, a doorbell
+  added), the Safety tab's cameras, alarms and locks in order, a doorbell's camera and lock, the
+  tab in the address and the choices, the texts in both languages (vitest); the Safety tab
+  start tab (pytest); the Safety tab with Home Assistant's cards and its Security page, the locks
+  before it, plain rows, a home without any, the alerts on Home and Rooms and the way to 3D and
+  to Safety, Home Assistant's alerts in the bar and in 3D, followed as they change and opening its
+  page, a private room's, the doorbell over Home and 3D with its camera and lock, closed by
+  Escape and by hand, not over the demo house, gone after two minutes, a phone in French
+  (Playwright).
+- Measured: the first load grows by 3.0 kB; the Safety tab and a chunk it shares with the
+  doorbell's full screen come with the tabs, the full screen at the first ring
+  ([`PERFORMANCE.md`](PERFORMANCE.md), M25).
+- Left for later: the doorbell on a dashboard's card, a wall screen's (**M26**); a doorbell Home
+  Assistant gives only as a binary sensor; cameras and an alarm in the demo house; a sound when
+  the doorbell rings (a browser plays none unasked).
+
 ## Then, from 0.4.0 to 0.5.0
 
 Planned in D-056: the sandbox first, built during the two weeks of use since it does not wait on
@@ -1321,9 +1364,7 @@ milestone starts, which goes on with what needs no answer.
   Energy tab made of Home Assistant's energy cards, or Home Assistant's own Energy page opened
   where it has one, as M23b does (D-056). Replay, the home's past in 3D (M19), stays a 3D feature,
   later.
-- ⏳ **M25, safety**: the cameras side by side, the doorbell full screen when it rings, the alarm,
-  and the full-screen alerts of the 3D view shown on every tab; Home Assistant's own Security
-  page and its alerts (2026.9, 2026.10) opened rather than copied where it has them (D-056).
+- ✅ **M25, safety** (D-064, above): asked for first of M24 to M26.
 - ⏳ **M26, the wall screen**: a screen saver (the clock, the weather, the photos of Home
   Assistant's media) woken by motion; a layout for each device.
 - M24 to M26 come in the order the two weeks of use decide.

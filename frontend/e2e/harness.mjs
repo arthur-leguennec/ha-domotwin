@@ -53,6 +53,10 @@
 //   entrance door opened five minutes ago and set off "Hall light at the door", which lit the
 //   hall's spots; Sam switched the floor lamp on two minutes ago; the kitchen's ceiling light was
 //   switched off on its own switch)
+//   safety=1 (D-064, with live=1: a doorbell at the front door with its camera, beside the hall's
+//   lock, and an alarm, quiet; window.__ring() rings it now), security=1 (Home Assistant 2026.10
+//   and its Security page), securityalerts=<entity>[:alert|warning],… (the alerts chosen on it;
+//   window.__securityAlerts(list) chooses others)
 //   confighistory=1 (the configuration history, D-062: fictional automations, a script removed,
 //   one in YAML files of one's own and a dashboard, as the integration keeps them; Home
 //   Assistant's configuration API and `lovelace/config/save` put one back, read again on
@@ -922,6 +926,22 @@ function whyEvents(message) {
     .map((row) => row.entry);
 }
 
+// Home Assistant's Security page (D-064) and the alerts an administrator chose on it.
+const security = params.get("security") === "1";
+let securityChoices = (params.get("securityalerts") ?? "")
+  .split(",")
+  .filter(Boolean)
+  .map((item) => {
+    const [entity, severity] = item.split(":");
+    return severity ? { entity, severity } : { entity };
+  });
+const securityListeners = new Set();
+window.__securityAlerts = (choices) => {
+  securityChoices = choices;
+  for (const listener of securityListeners) {
+    listener({ value: { alert_entities: structuredClone(choices) } });
+  }
+};
 const connection = {
   sendMessage(message) {
     calls.push(message);
@@ -1360,6 +1380,15 @@ const connection = {
   },
   async subscribeMessage(callback, message) {
     calls.push(message);
+    if (message.type === "frontend/subscribe_system_data") {
+      // Home Assistant's own (D-064): what its Security page keeps, sent at once and on change.
+      if (message.key !== "security" || !security) throw { code: "unknown_command" };
+      securityListeners.add(callback);
+      queueMicrotask(() =>
+        callback({ value: { alert_entities: structuredClone(securityChoices) } }),
+      );
+      return async () => securityListeners.delete(callback);
+    }
     if (message.type === "domotwin/schedules/subscribe") {
       scheduleListeners.add(callback);
       queueMicrotask(() => callback({ schedules: structuredClone(schedules) }));
@@ -1691,6 +1720,37 @@ if (overview) {
   });
   own("sensor.domotwin_upkeep_due", "upkeep_due");
 }
+// safety=1 (D-064): a doorbell at the front door, its camera on the same device, in the hall
+// beside its lock; an alarm, disarmed. The doorbell last rang long ago.
+if (params.get("safety") === "1") {
+  home.devices.front_door_bell = { id: "front_door_bell", area_id: "hallway", name: "Front door" };
+  states["event.front_door_doorbell"] = state(
+    "event.front_door_doorbell",
+    "2026-10-24T07:30:00.000+00:00",
+    {
+      friendly_name: "Front door doorbell",
+      device_class: "doorbell",
+      event_type: "ring",
+      event_types: ["ring"],
+    },
+  );
+  home.entities["event.front_door_doorbell"] = {
+    entity_id: "event.front_door_doorbell",
+    device_id: "front_door_bell",
+  };
+  states["camera.front_door"] = state("camera.front_door", "idle", {
+    friendly_name: "Front door camera",
+  });
+  home.entities["camera.front_door"] = {
+    entity_id: "camera.front_door",
+    device_id: "front_door_bell",
+  };
+  states["alarm_control_panel.home"] = state("alarm_control_panel.home", "disarmed", {
+    friendly_name: "Home alarm",
+    code_arm_required: false,
+  });
+  home.entities["alarm_control_panel.home"] = { entity_id: "alarm_control_panel.home" };
+}
 /** A person's room sensor, as the integration writes it, in `room` (or away). */
 function roomSensor(id, room) {
   const person = PEOPLE[id];
@@ -1790,13 +1850,15 @@ let hass = {
     ],
     // A fictional place, rounded: the sandbox's sun.
     ...(sandbox ? { time_zone: "Europe/Paris", latitude: 46, longitude: 2 } : {}),
-    // overview=1: a Home Assistant that opens on its Overview, an area page each (D-061).
-    ...(overview ? { version: "2026.10.0" } : { version: "2026.1.0" }),
+    // overview=1: a Home Assistant that opens on its Overview, an area page each (D-061);
+    // security=1: with its Security page (D-064).
+    ...(overview || security ? { version: "2026.10.0" } : { version: "2026.1.0" }),
   },
-  ...(overview
+  ...(overview || security
     ? {
         panels: {
-          home: { url_path: "home" },
+          ...(overview ? { home: { url_path: "home" } } : {}),
+          ...(security ? { security: { url_path: "security" } } : {}),
           ...(params.get("nopanel") === "1" ? {} : { domotwin: { url_path: "domotwin" } }),
         },
       }
@@ -1848,6 +1910,8 @@ window.__setState = (entityId, state, attributes = {}) => {
   };
   publish();
 };
+/** The front door's doorbell rings now (safety=1, D-064): its event entity says when. */
+window.__ring = () => window.__setState("event.front_door_doorbell", new Date().toISOString());
 if (hass.themes.darkMode) document.body.classList.add("dark");
 
 if (params.get("cards") === "1") {

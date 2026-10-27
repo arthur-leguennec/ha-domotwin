@@ -155,7 +155,7 @@ describe("glanceOf", () => {
     expect(glance.away).toBe(0);
   });
 
-  it("leaves out what a private room holds, its dangers aside", () => {
+  it("leaves out what a private room holds (its dangers are above every tab, D-064)", () => {
     const hass = home([
       ["light.desk", "study", "on", {}],
       ["binary_sensor.study_window", "study", "on", { device_class: "window" }],
@@ -165,9 +165,6 @@ describe("glanceOf", () => {
     const glance = glanceOf(hass, sources({ closed: new Set(["study"]) }));
     expect(glance.lights).toEqual(["light.pendant"]);
     expect(glance.openings).toEqual([]);
-    expect(glance.alerts.map((a) => [a.room, a.reason, a.level])).toEqual([
-      ["study", "smoke", "danger"],
-    ]);
   });
 
   it("leaves out what is linked to a piece in a private room, whatever its area", () => {

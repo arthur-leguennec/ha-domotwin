@@ -1031,3 +1031,24 @@ rooms are drawn like a heatmap: at the layers' pace (24 frames a second), still 
 motion*; what they draw alone is written, not drawn, and needs no frame. In the sandbox, the
 peak's day adds a few changes to the day played, and what each room did is read every five minutes
 from the pre-heating to the peak's end when the report opens, once for each day played.
+
+### M25 (safety)
+
+Bundle: the first load is **527.0 kB gzipped** of 1 200 kB (+3.0 kB): the watch of the
+doorbells, Home Assistant's alerts and the alerts' button the 3D view's banner shares with the
+other tabs, the Safety tab's name and route. The Safety tab and the alerts' bar come with the tabs'
+chunk (`chunks/practical-<hash>.js`: 11.9 kB gzipped, as before: Home Assistant's cards moved out
+of it), with a chunk it shares with the doorbell's full screen (3.0 kB gzipped: Home Assistant's
+cards, what goes with a doorbell, the safety texts in both languages); the full screen itself is
+`chunks/doorbell-<hash>.js` (1.7 kB gzipped), loaded the first time a doorbell rings.
+
+The events that may be doorbells are found once per entity registry; each new set of states, the
+watch reads only theirs (2 µs a time for two doorbells among 3 000 entities, Node 22 on a 2.1 GHz
+Xeon core). While the Safety tab shows, its alarms, doorbells, cameras and locks are found in one pass
+over the states at each update (0.5 ms for 3 000 entities, 20 cameras); Home Assistant's own
+cards are made once each, then only given each new state, as on the other tabs. Home Assistant's
+alerts are sent by Home Assistant when an administrator changes them, not asked for; those on now
+are worked out at each update only where some are chosen (9 µs for 40). The alerts given to the
+bar and the Safety tab, and the doorbell's camera and lock, stay the same objects while they say
+the same, so nothing is drawn again for nothing. A camera on the tab is a still Home Assistant
+refreshes every ten seconds; only the doorbell's full screen streams live.

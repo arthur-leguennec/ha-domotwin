@@ -26,8 +26,9 @@ Local, fast, Rust + WebAssembly.</p>
 > sandbox plays a day of the home's automations on a copy of it, Home Assistant's history reads
 > as reports, "Why?" says who or what changed a device, the Wi-Fi QR code welcomes guests,
 > DomoTwin joins Home Assistant's own Overview rather than copying it, each change of the
-> configuration is kept, and Hydro-Québec's peaks show on the plan, the Home tab and in the
-> sandbox. History and energy, safety and the wall screen come next, towards version 0.5.0; the
+> configuration is kept, Hydro-Québec's peaks show on the plan, the Home tab and in the
+> sandbox, and a Safety tab has the cameras, the doorbell and the alarm, with the alerts on every
+> tab. History and energy and the wall screen come next, towards version 0.5.0; the
 > submission to HACS's default list waits on measurements on real devices.
 
 ## Features
@@ -37,12 +38,19 @@ Local, fast, Rust + WebAssembly.</p>
   sensors, a robot vacuum, solar panels and a battery, three people and eight automations, living
   a spring day a minute a second. Go to the morning, midday, evening or night, tap anything, edit
   it: nothing touches your home. A card with `demo: true` shows it on a dashboard.
-- **Home, Rooms and 3D.** The panel's *Home* tab shows the home at a glance (who is in, the
-  lamps on, the doors and windows open, the alerts, the weather), your favourite scenes as big
-  buttons and your favourites; *Rooms* lists Home Assistant's floors and areas, each room's
-  devices as Home Assistant's own tile cards, with a search; *3D* is the 3D view, where a room
-  tapped opens its room. Star what you use most; choose the tab DomoTwin opens on, for you or for
-  one screen, and an agenda or a list for your Home tab.
+- **Home, Rooms, Safety and 3D.** The panel's *Home* tab shows the home at a glance (who is in,
+  the lamps on, the doors and windows open, the weather), your favourite scenes as big buttons and
+  your favourites; *Rooms* lists Home Assistant's floors and areas, each room's devices as Home
+  Assistant's own tile cards, with a search; *Safety* has the alarm and the cameras side by side;
+  *3D* is the 3D view, where a room tapped opens its room. The alerts show above every tab. Star
+  what you use most; choose the tab DomoTwin opens on, for you or for one screen, and an agenda or
+  a list for your Home tab.
+- **Safety.** The alerts of every room (smoke, water, the alarm…) and those you chose on Home
+  Assistant's Security page, above every tab, a tap from the room in 3D. The *Safety* tab has the
+  alarm's keypad, the doorbells and every camera side by side, the doorbell's first, and Home
+  Assistant's Security page a tap away. When the doorbell rings, it shows full screen, whatever
+  the tab: its camera live and the door's lock. See
+  [safety](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/safety.md).
 - **Your floor plan in 3D and 2D.** Draw it in the panel, or import it: an IFC model (`*.ifc`,
   from Revit, ArchiCAD, Bonsai, FreeCAD…), a Sweet Home 3D home (`*.sh3d`), a DXF drawing, a room
   scanned with an iPhone or iPad with LiDAR (`*.usdz`, RoomPlan's JSON) or a DomoTwin plan

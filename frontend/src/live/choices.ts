@@ -6,9 +6,9 @@
 import { domainOf } from "../ha/types";
 import { isSummary, type SummaryKind } from "./overview";
 
-/** The panel's tabs. */
-export type Tab = "home" | "rooms" | "3d";
-export const TABS: readonly Tab[] = ["home", "rooms", "3d"];
+/** The panel's tabs: the Safety tab came with M25 (D-064). */
+export type Tab = "home" | "rooms" | "safety" | "3d";
+export const TABS: readonly Tab[] = ["home", "rooms", "safety", "3d"];
 
 /** A card of the Home tab: Home Assistant's own, as it takes them. */
 export type HomeCard =
