@@ -13,7 +13,7 @@ import { LitElement, css, html, nothing, type PropertyValues, type TemplateResul
 
 import { summarizePlan } from "../engine/engine";
 import type { DomoTwinClient, PlanJson } from "../ha/client";
-import type { HomeAssistant } from "../ha/types";
+import { isHassError, type HomeAssistant } from "../ha/types";
 import { addMessages, translatorFor, type Translator } from "../i18n";
 import { firstEn, firstFr } from "../i18n/first";
 import { readBindings, type BindingsJson } from "../live/bindings";
@@ -41,14 +41,35 @@ export interface FirstLaunchChoice {
 }
 
 /**
+ * Adds links to the home's: read, changed and saved; read again and saved once more when another
+ * save came in between (a revision conflict), so links are not lost to a link made meanwhile.
+ */
+async function addLinks(
+  client: DomoTwinClient,
+  change: (current: BindingsJson) => BindingsJson,
+): Promise<void> {
+  for (let attempt = 0; ; attempt++) {
+    const stored = await client.getBindings();
+    try {
+      await client.saveBindings(change(readBindings(stored.bindings)), stored.revision);
+      return;
+    } catch (error) {
+      if (attempt > 0 || !isHassError(error) || error.code !== "revision_conflict") throw error;
+    }
+  }
+}
+
+/**
  * Draws the home from the areas chosen and stores it (D-083): its storeys, checked by the engine
- * first, replace the home's (it had none), and its links are added to the home's. What is said
- * once it is done.
+ * first, replace the home's, refused if the home changed since `revision` (it had no plan); then
+ * its links are added to the home's, none of its ids one a link already has. What is said once it
+ * is done.
  */
 export async function storeHome(
   hass: HomeAssistant,
   client: DomoTwinClient,
   choice: FirstLaunchChoice,
+  revision: number | undefined,
 ): Promise<string> {
   const devices = choice.devices
     ? new Map(
@@ -57,7 +78,10 @@ export async function storeHome(
           .map((area) => [area.id, devicePieces(hass, area.id)]),
       )
     : undefined;
-  const built = buildHome({ storeys: choice.storeys, devices, furnish: choice.furnish });
+  // A link left from an earlier plan keeps its id: the new pieces take others.
+  const before = readBindings((await client.getBindings()).bindings);
+  const taken = [...Object.keys(before.elements), ...Object.keys(before.rooms)];
+  const built = buildHome({ storeys: choice.storeys, devices, furnish: choice.furnish, taken });
   for (const storey of built.storeys) await summarizePlan(JSON.stringify(storey.plan));
   await client.replaceStoreys(
     built.storeys.map((storey) => ({
@@ -65,17 +89,13 @@ export async function storeHome(
       name: storey.name.slice(0, 60),
       elevation: storey.elevation,
     })),
+    revision,
   );
-  const stored = await client.getBindings();
-  const current = readBindings(stored.bindings);
-  await client.saveBindings(
-    {
-      ...current,
-      rooms: { ...current.rooms, ...built.bindings.rooms },
-      elements: { ...current.elements, ...built.bindings.elements },
-    },
-    stored.revision,
-  );
+  await addLinks(client, (current) => ({
+    ...current,
+    rooms: { ...current.rooms, ...built.bindings.rooms },
+    elements: { ...current.elements, ...built.bindings.elements },
+  }));
   const t = translatorFor(hass);
   const text = t.t("first.built", {
     rooms: t.tp("first.built_rooms", built.rooms),
@@ -86,25 +106,32 @@ export async function storeHome(
 
 /**
  * Places the devices of the areas a storey's rooms are linked to (D-083), those not placed yet,
- * each in its room where there is space: the plan stored (its overlay kept), then their links.
- * What is said once it is done; `undefined` when nothing was left to place.
+ * each in its room where there is space, around the pieces as the overlay has them: the plan
+ * stored (its overlay kept), then their links. What is said once it is done.
  */
 export async function storeDevices(
   hass: HomeAssistant,
   client: DomoTwinClient,
-  where: { plan: PlanJson; revision?: number; storey?: string; taken: string[] },
+  where: {
+    plan: PlanJson;
+    layout: Record<string, unknown> | undefined;
+    revision?: number;
+    storey?: string;
+    taken: string[];
+  },
 ): Promise<string> {
   const t = translatorFor(hass);
-  const stored = await client.getBindings();
-  const bindings = readBindings(stored.bindings);
-  const placed = placeDevices(hass, where.plan, bindings, where.taken);
-  if (placed.devices === 0) return t.t("first.steps.placed_none");
+  const bindings = readBindings((await client.getBindings()).bindings);
+  const placed = placeDevices(hass, where.plan, bindings, where.taken, where.layout);
+  if (placed.devices === 0) {
+    return placed.left > 0 ? t.tp("first.built_left", placed.left) : t.t("first.steps.placed_none");
+  }
   await summarizePlan(JSON.stringify(placed.plan));
   await client.savePlan(placed.plan, where.revision, undefined, where.storey);
-  await client.saveBindings(
-    { ...bindings, elements: { ...bindings.elements, ...placed.elements } },
-    stored.revision,
-  );
+  await addLinks(client, (current) => ({
+    ...current,
+    elements: { ...current.elements, ...placed.elements },
+  }));
   const text = t.tp("first.steps.placed", placed.devices);
   return placed.left > 0 ? `${text} ${t.tp("first.built_left", placed.left)}` : text;
 }
@@ -117,8 +144,9 @@ export function stepsOf(
   people: PeopleSettings | undefined,
   energy: Record<string, unknown> | undefined,
 ): StartStep[] {
+  // Placed by something: a source chosen, or a device followed by Bluetooth.
   const placed = Object.values(people?.people ?? {}).some(
-    (person) => person.sensor !== "" || (person.located?.length ?? 0) > 0,
+    (person) => person.sources.length > 0 || (person.located?.length ?? 0) > 0,
   );
   const chosen = Object.values(energy ?? {}).some((value) =>
     Array.isArray(value) ? value.length > 0 : Boolean(value),

@@ -4472,7 +4472,7 @@ export class DomoTwinPanel extends LitElement {
     this.busy = true;
     this.firstError = undefined;
     try {
-      const text = await (await this.firstLaunch()).storeHome(hass, client, choice);
+      const text = await (await this.firstLaunch()).storeHome(hass, client, choice, this.revision);
       // The server's ground floor.
       this.storey = undefined;
       await this.loadPlan();
@@ -4481,6 +4481,8 @@ export class DomoTwinPanel extends LitElement {
       this.show(text);
     } catch (error) {
       this.firstError = t.t("first.failed", { reason: this.describe(error) });
+      // The storeys may be stored, their links not: shown as they are.
+      await this.loadPlan().catch(() => undefined);
     } finally {
       this.busy = false;
     }
@@ -4531,7 +4533,13 @@ export class DomoTwinPanel extends LitElement {
       const taken = [...storeyIds(plan), ...(await this.otherIds(this.storey))];
       const text = await (
         await this.firstLaunch()
-      ).storeDevices(hass, client, { plan, revision: this.revision, storey: this.storey, taken });
+      ).storeDevices(hass, client, {
+        plan,
+        layout: this.layout,
+        revision: this.revision,
+        storey: this.storey,
+        taken,
+      });
       await this.loadPlan();
       await this.loadBindings();
       this.show(text);

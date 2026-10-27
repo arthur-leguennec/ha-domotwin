@@ -16,15 +16,17 @@ them, places your devices in it and links them, and then lists what is left to d
 
 What you get:
 
-- **A storey per floor**, 280 cm above the one below for each level.
+- **A storey per floor**, 280 cm above the one below for each level (a floor without a level goes
+  above the others).
 - **A room per area**, named and linked to it, at a usual size for what it is: a kitchen
   360 × 300 cm, a living room 520 × 420, a bedroom 360 × 340, a bathroom 260 × 220, a toilet
   160 × 130… What a room is comes from its name (*Kitchen*, *Chambre*…), else from its area's icon
   (`mdi:sofa`, `mdi:bed`, `mdi:stove`…). A garden or a terrace is a place outside.
 - **Side by side**: a floor's rooms in rows, as wide as the floor, so it is a rectangle but for
   its last row.
-- **Doors** joining every room to the others, an **entrance** on the ground floor (in the hall when
-  there is one), and a **window** on each room's longest outer wall.
+- **Doors** joining every room to the others, an **entrance** on the ground floor (into the hall,
+  else the living room…, never the garage, on the street's side rather than the garden's), and a
+  **window** on each room's longest outer wall, clear of the doors.
 - **The devices placed and linked**, each as what its entities say:
 
   | Its entities | Drawn as |
@@ -72,8 +74,8 @@ your home's. Each opens where it is done, and says whether it is done where Domo
 | The energy | the settings |
 
 **Place them** works on any plan, imported or drawn: it places the devices of the areas the
-storey's rooms are linked to, or named as, that are not linked yet, the same way; your arranged
-pieces stay where they are.
+storey's rooms are linked to, or named as, that are not linked yet (a device counts as placed once
+one of its entities is linked), the same way, around your pieces as you arranged them.
 
 ## What it does not do
 

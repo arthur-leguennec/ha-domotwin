@@ -12,6 +12,7 @@ import {
   buildHome,
   devicePieces,
   homeStoreys,
+  linkedEntities,
   placeDevices,
   type BuiltStorey,
 } from "../src/live/first-launch";
@@ -468,6 +469,180 @@ describe("a first launch in five minutes (D-083)", () => {
     expect(curtain?.rotation).toBe(90);
   });
 
+  it("tells an area by its icon's whole words, a car not a cart", () => {
+    expect(areaKind({ id: "a", name: "Pantry", icon: "mdi:cart" })).toBe("room");
+    expect(areaKind({ id: "a", name: "Shed", icon: "mdi:car-side" })).toBe("garage");
+    expect(areaKind({ id: "a", name: "Entry", icon: "mdi:doorbell" })).toBe("room");
+  });
+
+  it("leaves a device out once one of its entities is linked", () => {
+    const hass = home();
+    // The radiator linked to its thermostat: its temperature is not a device of its own.
+    hass.states["sensor.bedroom_temperature"] = {
+      entity_id: "sensor.bedroom_temperature",
+      state: "20",
+      attributes: { device_class: "temperature" },
+    } as unknown as HassEntity;
+    (hass.entities ?? {})["sensor.bedroom_temperature"] = {
+      entity_id: "sensor.bedroom_temperature",
+      device_id: "d-thermostat",
+    };
+    const linked: BindingsJson = {
+      ...NO_BINDINGS,
+      elements: { radiator: { entities: [{ entity_id: "climate.bedroom" }] } },
+    };
+    const kinds = (bindings: BindingsJson): string[] =>
+      devicePieces(hass, "bedroom", linkedEntities(hass, bindings)).map((p) => p.kind);
+    expect(kinds(NO_BINDINGS).sort()).toEqual(["ceiling-fan", "radiator"]);
+    expect(kinds(linked)).toEqual(["ceiling-fan"]);
+    // A piece standing for a device (the network map's) links all of it.
+    expect(kinds({ ...NO_BINDINGS, elements: { fan: { entities: [], device: "d-fan" } } })).toEqual(
+      ["radiator"],
+    );
+  });
+
+  it("gives the floors a level each: those without one above, two at one level one above the other", () => {
+    const hass = {
+      ...home(),
+      floors: {
+        attic: { floor_id: "attic", name: "Attic" },
+        ground: { floor_id: "ground", name: "Ground floor", level: 0 },
+        twin: { floor_id: "twin", name: "Mezzanine", level: 0 },
+      },
+      areas: {
+        a: { area_id: "a", name: "A", floor_id: "attic" },
+        b: { area_id: "b", name: "B", floor_id: "ground" },
+        c: { area_id: "c", name: "C", floor_id: "twin" },
+        d: { area_id: "d", name: "D" },
+      },
+    } as unknown as HomeAssistant;
+    const storeys = homeStoreys(hass, "Home");
+    expect(storeys.map((s) => [s.name, s.level, s.areas.map((a) => a.id)])).toEqual([
+      ["Ground floor", 0, ["b", "d"]],
+      ["Mezzanine", 1, ["c"]],
+      ["Attic", 2, ["a"]],
+    ]);
+  });
+
+  it("parks a car along the garage, and gives the entrance to a room inside", () => {
+    const built = buildHome({
+      storeys: [
+        {
+          name: "Home",
+          level: 0,
+          areas: [
+            { id: "garden", name: "Garden" },
+            { id: "garage", name: "Garage" },
+            { id: "kitchen", name: "Kitchen" },
+          ],
+        },
+      ],
+      furnish: true,
+    });
+    const plan = built.storeys[0]?.plan ?? {};
+    const items = plan.items as { kind: string; rotation: number; room: string }[];
+    expect(items.find((i) => i.kind === "car")).toMatchObject({ room: "area-garage" });
+    const rects = rectsOf(built.storeys[0] as BuiltStorey);
+    const doors = plan.doors as { from: P; to: P; room: string }[];
+    const windows = plan.windows as { from: P; to: P }[];
+    // One door leads out, from a room inside.
+    const out = doors.filter(
+      (d) =>
+        roomsBy(
+          rects.filter((r) => !r.outside),
+          d.from,
+          d.to,
+        ).length === 1 && !rects.some((r) => r.outside && roomsBy([r], d.from, d.to).length === 1),
+    );
+    expect(out.length).toBeGreaterThanOrEqual(1);
+    expect(out.every((d) => d.room !== "area-garden")).toBe(true);
+    // No window over a door.
+    for (const w of windows) {
+      for (const d of doors) {
+        const sameLine =
+          (w.from[0] === w.to[0] && d.from[0] === d.to[0] && w.from[0] === d.from[0]) ||
+          (w.from[1] === w.to[1] && d.from[1] === d.to[1] && w.from[1] === d.from[1]);
+        if (!sameLine) continue;
+        const axis = w.from[0] === w.to[0] ? 1 : 0;
+        const [w0, w1] = [Math.min(w.from[axis], w.to[axis]), Math.max(w.from[axis], w.to[axis])];
+        const [d0, d1] = [Math.min(d.from[axis], d.to[axis]), Math.max(d.from[axis], d.to[axis])];
+        expect(w1 <= d0 || d1 <= w0).toBe(true);
+      }
+    }
+  });
+
+  it("keeps clear of the pieces as the overlay has them, and of every id taken", () => {
+    const hass = home();
+    const plan = {
+      format: "domotwin-plan",
+      version: 1,
+      rooms: [
+        {
+          id: "k",
+          name: "Kitchen",
+          outline: [
+            [0, 0],
+            [300, 0],
+            [300, 200],
+            [0, 200],
+          ],
+        },
+      ],
+      // A table in no room, in the middle; a sofa moved by the overlay.
+      items: [
+        { id: "table", kind: "dining-table", at: [150, 100], size: [140, 75, 75] },
+        { id: "sofa", kind: "sofa", at: [500, 500], size: [210, 90, 85], room: "k" },
+      ],
+    };
+    const layout = {
+      sofa: { at: [150, 45] },
+      "ceiling-light-1": {
+        add: { kind: "ceiling-light", size: [36, 36, 14] },
+        at: [150, 150],
+        room: "k",
+      },
+    };
+    const bindings: BindingsJson = {
+      ...NO_BINDINGS,
+      elements: { "ceiling-light-2": { entities: [{ entity_id: "light.gone" }] } },
+    };
+    const placed = placeDevices(hass, plan, bindings, ["k", "table", "sofa"], layout);
+    expect(placed.devices).toBe(1);
+    const [light] = (placed.plan.items as { id: string; at: P }[]).slice(2);
+    // Neither the overlay's id nor a link's.
+    expect(light?.id).toBe("ceiling-light-3");
+    // Not over the light the overlay added.
+    expect(Math.hypot((light?.at[0] ?? 0) - 150, (light?.at[1] ?? 0) - 150)).toBeGreaterThan(36);
+  });
+
+  it("stands a piece wholly inside an L-shaped room", () => {
+    const hass = home();
+    const plan = {
+      format: "domotwin-plan",
+      version: 1,
+      rooms: [
+        {
+          id: "k",
+          name: "Kitchen",
+          outline: [
+            [0, 0],
+            [400, 0],
+            [400, 120],
+            [120, 120],
+            [120, 400],
+            [0, 400],
+          ],
+        },
+      ],
+    };
+    const placed = placeDevices(hass, plan, NO_BINDINGS, ["k"]);
+    const [light] = placed.plan.items as { at: P; size: number[] }[];
+    // The light's corners are in one arm of the L, not across its inner corner.
+    for (const [x, y] of corners(light?.at ?? [0, 0], light?.size ?? [], 0)) {
+      expect(x <= 120 || y <= 120).toBe(true);
+    }
+  });
+
   it("keeps a plan within its 500 elements, telling the devices left out", () => {
     const areas = Array.from({ length: 30 }, (_, i) => ({ id: `room${i}`, name: `Room ${i}` }));
     const many = Array.from({ length: 40 }, (_, i) => ({
@@ -489,6 +664,24 @@ describe("a first launch in five minutes (D-083)", () => {
     );
     expect(count).toBeLessThanOrEqual(500);
     expect(built.left).toBeGreaterThan(0);
+    // A floor of 200 areas: its first 150, within the plan too.
+    const crowded =
+      buildHome({
+        storeys: [
+          {
+            name: "Home",
+            level: 0,
+            areas: Array.from({ length: 200 }, (_, i) => ({ id: `r${i}`, name: `Room ${i}` })),
+          },
+        ],
+        furnish: false,
+      }).storeys[0]?.plan ?? {};
+    const elements = ["rooms", "doors", "windows", "items"].reduce(
+      (sum, key) => sum + (crowded[key] as unknown[]).length,
+      0,
+    );
+    expect((crowded.rooms as unknown[]).length).toBe(150);
+    expect(elements).toBeLessThanOrEqual(500);
     expect(built.devices + built.left).toBe(30 * 40);
     expect(took).toBeLessThan(5000);
   });
