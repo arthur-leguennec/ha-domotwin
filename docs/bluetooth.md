@@ -26,28 +26,22 @@ rooms](people.md)); a tag on the keys says where the keys are, and when they wer
 The more often each receiver hears a device, the surer and the quicker the room. Two settings
 count most, both outside DomoTwin:
 
-- **ESPHome proxies listen all the time.** A receiver hears a device only while it listens, and an
-  ESP32 shares its one radio with its Wi-Fi. Since ESPHome 2026.8, a proxy on Wi-Fi built with the
-  ESP-IDF it recommends already listens whenever its Wi-Fi does not need the radio (its scan
-  `window` equals its `interval`, 320 ms): leave them as they are. A proxy wired with Ethernet
-  keeps a 30 ms window unless told otherwise; let it listen all the time:
+- **ESPHome proxies listen most of the time.** A receiver hears a device only while it listens,
+  and an ESP32 shares its one radio with its Wi-Fi. Let it listen 300 ms of every 320 ms, about
+  94 % of the time, and leave the rest to the Wi-Fi, so that it does not drop:
 
   ```yaml
   esp32_ble_tracker:
     scan_parameters:
       interval: 320ms
-      window: 320ms
-      connection_scan_window: 30ms   # keeps its connections to devices alive
-  bluetooth_proxy:
-    active: true
+      window: 300ms
+      active: true
   ```
 
-  On Wi-Fi with an ESPHome older than 2026.8, use `interval: 320ms` and `window: 300ms`, without
-  `connection_scan_window`, which it does not know.
-
-  Long windows (1 100 ms, often copied from older guides) are fine on Ethernet but starve the Wi-Fi
-  of an ESP32 on Wi-Fi: since 2026.9 ESPHome warns above 600 ms. Ethernet proxies (the Olimex
-  ESP32-PoE-ISO, for instance) are the steadiest receivers.
+  Do not copy the older tip of a `window` as long as the `interval`, at 1 100 ms: ESPHome 2026.10
+  warns that scan windows over 600 ms starve the Wi-Fi on the same radio. Proxies wired with
+  Ethernet (the Olimex ESP32-PoE-ISO, for instance) have the radio to themselves and are the
+  steadiest receivers; the same settings suit them.
 - **Shelly devices in Auto.** In Home Assistant, **Settings › Devices & services › Shelly**, the
   device's **Configure** › **Bluetooth scanner mode**: **Auto** (*Disabled* by default; Gen2 and
   later, on mains, firmware 1.5.1 or later). The Shelly then listens passively and scans actively
@@ -57,7 +51,7 @@ count most, both outside DomoTwin:
   and its own adapter scan: **Auto** by default (in the ESPHome integration's **Configure**, and
   under **Settings › Bluetooth** for the adapter). Leave it there.
 
-What it changes: a receiver that listens all the time hears a phone several times a second rather
+What it changes: a receiver that listens most of the time hears a phone several times a second rather
 than now and then, so DomoTwin weighs each device on many readings, not on one or two, and the
 room told changes less when someone stands still.
 

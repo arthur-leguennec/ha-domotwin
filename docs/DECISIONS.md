@@ -2843,10 +2843,10 @@ Read by the maintainer on r/homeassistant in October 2026, and passed on in thei
     the time, Shelly scanners in Auto.
   - Also asked: several mmWave sensors merged into one map of the home, each knowing only its own
     zone today. And a top comment: a presence sensor in each room often makes Bluetooth unneeded.
-  - Checked when written (2026-10-27): since ESPHome 2026.8, a proxy on Wi-Fi already listens
-    whenever its Wi-Fi lets it (its window equals its interval), and since 2026.9 a window above
-    600 ms on Wi-Fi is warned against, so the older "1 100 ms window" tip now harms Wi-Fi proxies;
-    since Home Assistant 2026.6, Home Assistant chooses active or passive scanning (Auto) for
+  - Checked when written (2026-10-27): ESPHome 2026.10 warns that scan windows over 600 ms starve
+    the Wi-Fi on the same radio, so the older tip of a window as long as the interval, at 1 100 ms,
+    now harms Wi-Fi proxies; a 300 ms window every 320 ms, scanning actively, listens about 94 % of
+    the time without Wi-Fi drops (corrected by the maintainer); since Home Assistant 2026.6, Home Assistant chooses active or passive scanning (Auto) for
     ESPHome proxies and its adapter, and offers the same Auto to Shelly devices, whose scanner is
     off until it is turned on. Tools that read an iPhone's key without a Mac
     exist and are kept up: irk-capture (an ESPHome package, MIT) and ESPresense's *Enroll* (AGPL).
