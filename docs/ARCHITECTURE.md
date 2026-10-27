@@ -12,15 +12,17 @@ interface.
 | `domotwin-core`   | `serde`, `serde_json`   | plans, geometry, bindings, states   | GPU, browser, HA API |
 | `domotwin-render` | core, `three-d`, `glow` | meshes, materials, cameras, passes  | browser, HA          |
 | `domotwin-web`    | core, render, `web-sys` | canvas, JS values, timing           | HA                   |
-| `domotwin-import` | core, models, `serde_json` | IFC, Sweet Home 3D, DXF, scans → plan JSON | GPU, browser, HA |
+| `domotwin-import` | core, models, `serde_json`, `miniz_oxide` | IFC, Sweet Home 3D, DXF, scans, robot maps, FML, meshes → plan JSON | GPU, browser, HA |
 | `domotwin-models` | `serde_json`, `miniz_oxide` | glTF, OBJ, STL, 3MF → meshes    | core, GPU, HA        |
 | `domotwin-planner` | core, `serde_json`     | the plan editor's draft (D-025)     | GPU, browser, HA     |
 | `domotwin-analysis` | core, `serde_json`, `qrcodegen` | radio meshes, automations' configurations (D-043), the Wi-Fi QR code (D-060) | GPU, browser, HA |
 
-`domotwin-import` imports the plans of other apps (`ifc-import.md`, `imports.md`, D-040): its own
-wasm module, loaded only when such a file is imported. Each reader gives one plan builder a draft;
-the builder writes an ordinary plan that the core then reads like any other. It reads ZIP archives
-and XML with `domotwin-models`' readers (without its wasm API).
+`domotwin-import` imports the plans of other apps (`ifc-import.md`, `imports.md`, D-040, D-064):
+its own wasm module, loaded only when such a file is imported. Each reader gives one plan builder a
+draft; the builder writes an ordinary plan that the core then reads like any other. It reads ZIP
+archives and XML with `domotwin-models`' readers (without its wasm API), and zlib and gzip with
+`miniz_oxide`. Robot vacuum maps and mesh scans are cells before they are rooms (`grid`): a robot's
+map is cells already, a mesh is cut into them at the heights where furniture is not.
 `domotwin-models` reads the 3D files of user models (D-021): its own wasm module too, loaded only
 when a plan shows a piece drawn from a 3D file or one is imported. It writes a compact mesh that
 the core fits into the piece (`model_mesh`, `scene::imported`).

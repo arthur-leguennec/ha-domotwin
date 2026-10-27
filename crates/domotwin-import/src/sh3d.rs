@@ -403,6 +403,7 @@ impl Sh3dFile {
                 id: own_id(&room.id, || format!("room-{}", k + 1)),
                 name: room.name.clone(),
                 points: room.points.clone(),
+                floor: None,
             });
         }
         if draft.rooms.is_empty() {
@@ -412,6 +413,7 @@ impl Sh3dFile {
                     id: format!("room-{}", k + 1),
                     name: String::new(),
                     points,
+                    floor: None,
                 });
             }
         }

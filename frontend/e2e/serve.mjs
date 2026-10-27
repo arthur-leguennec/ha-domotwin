@@ -1,5 +1,5 @@
 // Static server for the E2E tests: the built frontend under /domotwin_static/ (as the integration
-// serves it), the harness page, and the fictional examples.
+// serves it), the harness page, the fictional examples and the import's fictional test files.
 import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import { extname, join, resolve, sep } from "node:path";
@@ -11,6 +11,7 @@ const port = Number(process.env.PORT ?? 4173);
 const routes = [
   ["/domotwin_static/", join(root, "custom_components/domotwin/frontend")],
   ["/examples/", join(root, "examples")],
+  ["/fixtures/", join(root, "crates/domotwin-import/tests/fixtures")],
   ["/", here],
 ];
 const types = {
