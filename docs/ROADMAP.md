@@ -65,7 +65,7 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M26       | The wall screen: a screen saver, a layout per device       | ✅     |
 | M18       | Outdoors: garden, terrace, lawn, pool, roofs               | ✅     |
 | M44       | Split levels and walk-out basements                        | ✅     |
-| M22       | A first launch in five minutes                             | ⏳     |
+| M22       | A first launch in five minutes                             | ✅     |
 | 0.5.0     | Fifth release: all of the above                            | ⏳     |
 | M42       | Finer locating: a spot in the room, storeys by the stairs  | ✅     |
 | M43       | mmWave sensors merged into one picture of the home         | ✅     |
@@ -120,7 +120,7 @@ outdoors (M18, D-077) before the first launch in five minutes too, and split lev
 right after it, whose ground they share; then finer locating (M42, D-079) and the mmWave sensors
 merged (M43, D-080). The weekly report (M37, D-081), asked for by the maintainer, came after them:
 it reports Hydro-Québec's peaks of the week and each room's energy with the rest. Then more
-languages (M21, D-082), before the first launch (M22).
+languages (M21, D-082), and last the first launch in five minutes (M22, D-083).
 
 ## M0, scaffold
 
@@ -1988,6 +1988,33 @@ DomoTwin in Home Assistant's language, ten more of them, each loaded only where 
 
 Measured at the end of M21: see [`PERFORMANCE.md`](PERFORMANCE.md).
 
+## M22, a first launch in five minutes
+
+From the install to one's own home live in five minutes (D-083; [`first-launch.md`](first-launch.md)),
+last before 0.5.0, with what DomoTwin has.
+
+- ✅ **The home drawn from Home Assistant's areas**: on the empty plan, *Draw it from Home
+  Assistant's areas* lists the floors and their areas; a storey per floor, a room per area at a
+  usual size for what it is (its name, else its icon), laid out side by side, linked to its area;
+  doors joining every room, an entrance, a window on each room's outer wall; checked by the engine,
+  then saved in one go.
+- ✅ **Their devices placed and linked**: each device drawn as what its entities say (a TV on its
+  stand, a speaker, a radiator, the robot's dock, a ceiling light, a sensor…), against a wall or
+  free, clear of the doors and of the other pieces, linked to its entities; the rooms furnished if
+  asked (a bed, a sofa, a table, a bath…).
+- ✅ **Getting started**: after drawing and from the ⋮ menu, the steps that make DomoTwin one's
+  home's (the rooms shaped, linked to their areas, the devices placed, the pieces arranged, people
+  in their rooms, the energy), each saying whether it is done and opening where it is done; on an
+  imported plan too, its rooms' devices placed in one press.
+- ✅ Tested: the rooms of each floor apart, joined by doors, windows on outer walls, the pieces
+  inside their rooms and linked, a curtain before a window, a plan of one's own, 500 elements at
+  most, the pieces at the catalogue's sizes (vitest); drawing from the areas, the areas picked,
+  nothing picked, the steps, no areas, French (Playwright).
+- Left for later: the rooms' real sizes (Home Assistant does not know them); stairs between the
+  storeys; appliances told by their names.
+
+Measured at the end of M22: see [`PERFORMANCE.md`](PERFORMANCE.md).
+
 ## Then, from 0.4.0 to 0.5.0
 
 Planned in D-056, with D-065's additions: the sandbox first, built during the two weeks of use since
@@ -2035,10 +2062,9 @@ before its milestone starts, which goes on with what needs no answer.
   what it changes. Worked out from the plan's walls and floors and what the radios measured; nothing
   sent. A model, said to be one: what was measured comes before what is predicted. For
   administrators, since only they can read the radios.
-- ⏳ **M22, a first launch in five minutes**: from the install to one's own home live, in five
-  minutes, with the imports and pieces DomoTwin has then (M11, M15, the demo house as a start,
-  the robot vacuum maps, Floorplanner plans and mesh scans of M20, and the library of pieces of
-  M17).
+- ✅ **M22, a first launch in five minutes** (D-083, above): the home drawn from Home Assistant's
+  floors and areas, its devices placed and linked, then the steps of getting started; with the
+  imports and pieces DomoTwin has (M11, M15, M17, M20's robot maps and scans, the demo house).
 - ⏳ **Release 0.5.0**.
 - **Deferred** until someone asks: one's dashboards taken over, and pages arranged without YAML
   (the former M28). An agenda and lists are cards of the Home tab (M23), not a milestone of their

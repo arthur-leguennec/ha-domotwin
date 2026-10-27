@@ -84,7 +84,7 @@ export const firstFr: Widen<typeof firstEn> = {
     furnish: "Meubler les pièces",
     furnish_hint:
       "Un lit dans chaque chambre, un canapé dans le salon, une table dans la salle à manger…",
-    pick: "Choisissez au moins une pièce.",
+    pick: "Choisissez au moins une zone.",
     build: "Dessiner mon logement",
     building: "Dessin de votre logement…",
     cancel: "Annuler",

@@ -109,7 +109,7 @@ test.describe("a first launch in five minutes (D-083)", () => {
   test("speaks French", async ({ page }) => {
     await openHarness(page, { mode: "panel", plan: "none", live: true, lang: "fr" });
     await expect(page.getByTestId("from-areas")).toHaveText(
-      "Le dessiner depuis les pièces de Home Assistant",
+      "Le dessiner depuis les zones de Home Assistant",
     );
     await page.getByTestId("from-areas").click();
     await expect(page.getByTestId("first-build")).toHaveText("Dessiner mon logement");

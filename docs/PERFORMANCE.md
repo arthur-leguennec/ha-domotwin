@@ -1432,3 +1432,15 @@ demo house's names:
 The bundles now keep every language's letters as they are (UTF-8) rather than escaped: Arabic's
 module went from 47.9 to 40.8 kB gzipped, Japanese's from 42.2 to 38.0, and French in the first
 load from escapes to letters too. English and French homes load nothing more.
+
+### M22 (a first launch in five minutes)
+
+Bundle: the first load is **657.1 kB gzipped** of 1 200 kB (+1.4 kB): the empty plan's button, the
+menu item and the panel's part. The dialog, the steps, the drawing and their texts come on demand
+the first time one opens (`chunks/first-launch-dialog-<hash>.js`: 32.7 kB raw, 11.7 kB gzipped);
+each language's module gains its texts (about 1 kB gzipped).
+
+Drawing a fictional home of 24 areas on two floors and 300 devices (1 200 entities) takes about
+0.3 s in Node (the median of three): 30 ms to read each area's devices, the rest to lay out the
+rooms and place 282 devices and 63 pieces of furniture (18 found no space). It runs once, when
+*Draw my home* is pressed; the engine then checks each storey before it is saved.

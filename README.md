@@ -24,9 +24,9 @@ Local, fast, Rust + WebAssembly.</p>
 > Bermuda, a library of 195 pieces with their pictures, an iPhone followed without a Mac, the wall
 > screen (its screen saver woken by whoever comes), a weekly report of what needs a look, the
 > outdoors and the lawn growing, split levels, a spot in the room, presence radars merged with
-> Bluetooth, ten more languages, and DomoTwin joined Home Assistant's own Overview; a first launch
-> in five minutes closes the way to 0.5.0. The submission to HACS's default list waits on
-> measurements on real devices.
+> Bluetooth, ten more languages, DomoTwin joined Home Assistant's own Overview, and a first launch
+> in five minutes, the home drawn from Home Assistant's areas with its devices in it, closes the way
+> to 0.5.0. The submission to HACS's default list waits on measurements on real devices.
 
 ## What sets it apart
 
@@ -40,6 +40,11 @@ Local, fast, Rust + WebAssembly.</p>
 
 ## Features
 
+- **Your home in five minutes.** No plan at hand? **Draw it from Home Assistant's areas**: a room
+  for each area on each floor, side by side, joined by doors, its devices placed in it and linked
+  (lamps, TVs, speakers, thermostats, the robot's dock, sensors), furnished if you like; then
+  *Getting started* lists what is left (the rooms' real sizes, people, energy), each a press away.
+  See [the first launch](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/first-launch.md).
 - **A demo house to try first.** Before drawing anything, open DomoTwin and **Try the demo
   house**: a fictional family home of two storeys, with its lamps, curtains, TVs, thermostats,
   sensors, a robot vacuum, solar panels and a battery, three people and eight automations, living
@@ -344,8 +349,11 @@ Local, fast, Rust + WebAssembly.</p>
    import](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/ifc-import.md)), a Sweet
    Home 3D home, a DXF drawing, a room scan, a Floorplanner plan or a mesh scan (see [plans from
    other apps](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/imports.md)); a
-   robot vacuum running Valetudo gives its map with **Import a robot's map**. No plan
-   yet? **Try the demo house** in the panel, or import the fictional
+   robot vacuum running Valetudo gives its map with **Import a robot's map**. No plan file? **Draw
+   it from Home Assistant's areas**: a room per area, its devices placed and linked, in a few
+   presses ([the first
+   launch](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/first-launch.md)). Just
+   looking? **Try the demo house** in the panel, or import the fictional
    [`examples/demo-apartment.domotwin.json`](https://github.com/arthur-leguennec/ha-domotwin/blob/main/examples/demo-apartment.domotwin.json)
    or
    [`examples/demo-apartment.ifc`](https://github.com/arthur-leguennec/ha-domotwin/blob/main/examples/demo-apartment.ifc),
