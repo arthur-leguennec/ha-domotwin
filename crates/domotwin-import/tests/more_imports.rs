@@ -346,6 +346,11 @@ fn files_it_cannot_read_say_what_to_do() {
     ]
     .concat();
     assert_eq!(code(&gz), Some("not_plan"));
+    // Deflated, larger than an import unpacks.
+    let mut big = b"{".to_vec();
+    big.resize(65_000_000, b' ');
+    let deflated = miniz_oxide::deflate::compress_to_vec_zlib(&big, 1);
+    assert_eq!(code(&deflated), Some("too_large"));
 }
 
 #[test]

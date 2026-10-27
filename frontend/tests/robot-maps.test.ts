@@ -92,7 +92,17 @@ describe("the files the import reads (D-040, D-057)", () => {
       expect(IMPORTED_FILES.test(name), name).toBe(true);
     }
     expect(IMPORTED_FILES.test("plan.domotwin.json")).toBe(false);
-    for (const accepted of [".fml", ".obj", ".ply", ".glb", ".stl", ".gz", ".png"]) {
+    for (const accepted of [
+      ".fml",
+      ".obj",
+      ".ply",
+      ".glb",
+      ".gltf",
+      ".stl",
+      ".fbx",
+      ".gz",
+      ".png",
+    ]) {
       expect(PLAN_FILES.split(",")).toContain(accepted);
     }
   });

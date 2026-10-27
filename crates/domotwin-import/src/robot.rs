@@ -10,6 +10,7 @@
 //! the nearest wall. A map has one storey, no windows and no furniture.
 
 use std::borrow::Cow;
+use std::cell::OnceCell;
 use std::collections::{BTreeMap, HashSet};
 
 use serde_json::{Map, Value as Json};
@@ -66,7 +67,12 @@ pub struct RobotMap {
     walls: Vec<(i64, i64)>,
     /// Where the robot docks, on the plan (cm).
     dock: Option<P2>,
+    /// The grid the map is drawn on and the doors between its rooms, worked out once.
+    layout: OnceCell<Result<Layout, &'static str>>,
 }
+
+/// The grid a map is drawn on (its first cell and its size) and the doors found on it.
+type Layout = (((i64, i64), usize, usize), Vec<Doorway>);
 
 /// A door found between two rooms (indices of `segments`), in cm on the plan.
 #[derive(Debug, Clone, PartialEq)]
@@ -169,6 +175,7 @@ impl RobotMap {
             floor: Vec::new(),
             walls: Vec::new(),
             dock: None,
+            layout: OnceCell::new(),
         };
         let mut budget = MAX_PIXELS;
         for layer in root["layers"].as_array().into_iter().flatten() {
@@ -237,6 +244,7 @@ impl RobotMap {
             floor: Vec::new(),
             walls: Vec::new(),
             dock: None,
+            layout: OnceCell::new(),
         };
         let mut at = usize::from(u16_at(bytes, 2).ok_or("not_plan")?);
         let mut image = false;
@@ -289,12 +297,14 @@ impl RobotMap {
                         let (col, row) = ((i % w) as i64, (i / w) as i64);
                         // Rows go up the plan: mirrored back, not turned.
                         let at = (left + col, -(top + row) - 1);
-                        match b & 7 {
-                            0 => {}
-                            1 => map.walls.push(at),
-                            _ if with_rooms && b >> 3 != 0 => {
-                                rooms.entry(b >> 3).or_default().push(at);
-                            }
+                        // As the Xiaomi Cloud Map Extractor reads them: outside, a wall,
+                        // inside (in no room), what was scanned; then by the lower three bits,
+                        // walls (grey or not) and rooms (`7`, the id above), else floor.
+                        match (b, b & 7) {
+                            (0, _) => {}
+                            (0xFF | 0x07, _) => map.floor.push(at),
+                            (_, 0 | 1) => map.walls.push(at),
+                            (_, 7) if with_rooms => rooms.entry(b >> 3).or_default().push(at),
                             _ => map.floor.push(at),
                         }
                     }
@@ -383,10 +393,7 @@ impl RobotMap {
 
     /// The storey of the map.
     pub fn storeys(&self) -> Vec<Storey> {
-        let doors = self
-            .frame()
-            .and_then(|frame| self.doorways(&self.rooms(), frame))
-            .map_or(0, |found| found.len());
+        let doors = self.layout().map_or(0, |(_, found)| found.len());
         vec![Storey {
             id: 0,
             name: String::new(),
@@ -396,6 +403,17 @@ impl RobotMap {
             windows: 0,
             furniture: usize::from(self.dock.is_some()),
         }]
+    }
+
+    /// The grid and the doors, worked out the first time they are asked for.
+    fn layout(&self) -> Result<&Layout, &'static str> {
+        self.layout
+            .get_or_init(|| {
+                let frame = self.frame()?;
+                Ok((frame, self.doorways(&self.rooms(), frame)?))
+            })
+            .as_ref()
+            .map_err(|code| *code)
     }
 
     /// The doors between rooms: where they touch with no wall between them; `too_large` when
@@ -416,8 +434,9 @@ impl RobotMap {
         }
         let near_wall = walls.dilate(1.0);
         let reach = TOUCH / self.cell;
-        // The first room reaching each cell, and the cells two rooms reach.
-        let mut first = vec![0_u32; w * h];
+        // The first two rooms reaching each cell, and the cells two rooms reach (each pair of
+        // the three where three meet).
+        let mut reached = vec![[0_u32; 2]; w * h];
         let mut between: BTreeMap<(usize, usize), Vec<usize>> = BTreeMap::new();
         let mut owner = vec![0_u32; w * h];
         let mut shared = 0_usize;
@@ -432,16 +451,21 @@ impl RobotMap {
                 if near_wall.cells[i] {
                     continue;
                 }
-                match first[i] {
-                    0 => first[i] = label,
-                    other if other != label => {
-                        shared += 1;
-                        if shared > MAX_SHARED {
-                            return Err("too_large");
-                        }
-                        between.entry((other as usize - 1, k)).or_default().push(i);
+                let [one, two] = reached[i];
+                for other in [one, two] {
+                    if other == 0 || other == label {
+                        continue;
                     }
-                    _ => {}
+                    shared += 1;
+                    if shared > MAX_SHARED {
+                        return Err("too_large");
+                    }
+                    between.entry((other as usize - 1, k)).or_default().push(i);
+                }
+                if one == 0 {
+                    reached[i][0] = label;
+                } else if two == 0 {
+                    reached[i][1] = label;
                 }
             }
         }
@@ -466,7 +490,8 @@ impl RobotMap {
         if storey != 0 {
             return Err("no_storeys");
         }
-        let frame = self.frame()?;
+        let (frame, doorways) = self.layout()?;
+        let frame = *frame;
         let ((x0, y0), _, _) = frame;
         let rooms = self.rooms();
         let cm = |p: P2| [p[0] * self.cell, p[1] * self.cell];
@@ -490,7 +515,6 @@ impl RobotMap {
             ..Draft::default()
         };
         // The doors first: a room reaching into a doorway is squared to its wall beside it.
-        let doorways = self.doorways(&rooms, frame)?;
         let spans: Vec<(P2, P2)> = doorways
             .iter()
             .map(|d| {
@@ -523,7 +547,7 @@ impl RobotMap {
         // Doors: each opens into the room with fewer doors (a bedroom off the hall), else into
         // the smaller one.
         let mut doors_of = vec![0_usize; rooms.len()];
-        for d in &doorways {
+        for d in doorways {
             doors_of[d.rooms.0] += 1;
             doors_of[d.rooms.1] += 1;
         }
@@ -946,6 +970,36 @@ mod tests {
     }
 
     #[test]
+    fn three_rooms_meeting_each_have_their_doors() {
+        // A hall across the top, two rooms under it, open to each other and to the hall.
+        let rect = |x: std::ops::Range<i64>, y: std::ops::Range<i64>| -> Vec<i64> {
+            y.flat_map(|y| x.clone().flat_map(move |x| [x, y]))
+                .collect()
+        };
+        let segment = |id: &str, pixels: Vec<i64>| json!({ "type": "segment", "pixels": pixels, "metaData": { "segmentId": id } });
+        let map = json!({ "pixelSize": 5, "layers": [
+            segment("1", rect(0..40, 0..20)),
+            segment("2", rect(0..20, 20..40)),
+            segment("3", rect(20..40, 20..40)),
+        ] });
+        let map = RobotMap::from_valetudo(&map, "x").unwrap();
+        let frame = map.frame().unwrap();
+        let doors = map.doorways(&map.rooms(), frame).unwrap();
+        let widths: Vec<((usize, usize), f64)> = doors.iter().map(|d| (d.rooms, d.width)).collect();
+        // The two rooms' door runs their whole side, from the hall's.
+        let side = widths.iter().find(|(rooms, _)| *rooms == (1, 2)).unwrap().1;
+        assert!(side >= 100.0, "{widths:?}");
+        assert!(
+            widths.iter().any(|(rooms, _)| *rooms == (0, 1)),
+            "{widths:?}"
+        );
+        assert!(
+            widths.iter().any(|(rooms, _)| *rooms == (0, 2)),
+            "{widths:?}"
+        );
+    }
+
+    #[test]
     fn a_map_without_rooms_is_one() {
         let mut floor = Vec::new();
         for y in 0..40 {
@@ -978,32 +1032,46 @@ mod tests {
                 pixels[(row * w + col) as usize] = if edge { 1 } else { (16 << 3) | 7 };
             }
         }
-        let mut map = b"rr".to_vec();
-        map.extend_from_slice(&20_u16.to_le_bytes());
-        map.extend_from_slice(&[0; 16]);
-        // The dock.
-        map.extend_from_slice(&1_u16.to_le_bytes());
-        map.extend_from_slice(&8_u16.to_le_bytes());
-        map.extend_from_slice(&8_u32.to_le_bytes());
-        map.extend_from_slice(&(100 * 10 + 20 * 50_u32).to_le_bytes()[..2]);
-        map.extend_from_slice(&[0; 2]);
-        map.extend_from_slice(&(10 * 50 + 25 + 5 * 50_u32).to_le_bytes()[..2]);
-        map.extend_from_slice(&[0; 2]);
-        // The image, with its rooms' count.
-        map.extend_from_slice(&2_u16.to_le_bytes());
-        map.extend_from_slice(&28_u16.to_le_bytes());
-        map.extend_from_slice(&(w * h).to_le_bytes());
-        for v in [1_u32, 10, 20, h, w] {
-            map.extend_from_slice(&v.to_le_bytes());
-        }
-        map.extend_from_slice(&pixels);
-        let read = RobotMap::from_rrmap(&map, "Roborock").unwrap();
+        let rr = |pixels: &[u8]| {
+            let mut map = b"rr".to_vec();
+            map.extend_from_slice(&20_u16.to_le_bytes());
+            map.extend_from_slice(&[0; 16]);
+            // The dock.
+            map.extend_from_slice(&1_u16.to_le_bytes());
+            map.extend_from_slice(&8_u16.to_le_bytes());
+            map.extend_from_slice(&8_u32.to_le_bytes());
+            map.extend_from_slice(&(100 * 10 + 20 * 50_u32).to_le_bytes()[..2]);
+            map.extend_from_slice(&[0; 2]);
+            map.extend_from_slice(&(10 * 50 + 25 + 5 * 50_u32).to_le_bytes()[..2]);
+            map.extend_from_slice(&[0; 2]);
+            // The image, with its rooms' count.
+            map.extend_from_slice(&2_u16.to_le_bytes());
+            map.extend_from_slice(&28_u16.to_le_bytes());
+            map.extend_from_slice(&(w * h).to_le_bytes());
+            for v in [1_u32, 10, 20, h, w] {
+                map.extend_from_slice(&v.to_le_bytes());
+            }
+            map.extend_from_slice(pixels);
+            map
+        };
+        let read = RobotMap::from_rrmap(&rr(&pixels), "Roborock").unwrap();
         let (plan, report, _) = read.convert(0).unwrap();
         assert_eq!((report.rooms, report.furniture), (1, 1), "{plan:#}");
         assert_eq!(plan["rooms"][0]["id"], "segment-16");
         let outline: Vec<P2> = serde_json::from_value(plan["rooms"][0]["outline"].clone()).unwrap();
         let area = signed_area2(&outline).abs() / 2.0;
         assert!((area - 190.0 * 140.0).abs() < 1500.0, "{area} {outline:?}");
+        // Inside in no room, scanned, a grey wall, something else: no room but room 16.
+        for (k, b) in [0xFF_u8, 0x07, 0x08, 0x0A].into_iter().enumerate() {
+            pixels[w as usize + 1 + k] = b;
+        }
+        let read = RobotMap::from_rrmap(&rr(&pixels), "Roborock").unwrap();
+        let ids: Vec<&str> = read.segments.iter().map(|s| s.id.as_str()).collect();
+        assert_eq!(ids, ["16"]);
+        assert_eq!(
+            (read.floor.len(), read.walls.len()),
+            (3, 2 * (w + h) as usize - 4 + 1)
+        );
         assert_eq!(
             RobotMap::from_rrmap(b"rr\x14\x00", "x").err(),
             Some("not_plan")

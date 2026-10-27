@@ -647,25 +647,47 @@ fn cut(points: &[[f32; 3]], triangles: &[[u32; 3]], level: Level) -> Result<Draf
         }
     }
 
-    // Each room's outline, in cm.
+    // Each room's outline, in cm, drawn on a grid of its own around it (counted in the work).
+    let mut boxes = vec![(usize::MAX, usize::MAX, 0_usize, 0_usize); count as usize];
+    for (i, &l) in label.iter().enumerate() {
+        if let Some(b) = l.checked_sub(1).and_then(|k| boxes.get_mut(k as usize)) {
+            let (x, y) = (i % w, i / w);
+            *b = (b.0.min(x), b.1.min(y), b.2.max(x), b.3.max(y));
+        }
+    }
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    let margin = (0.10 / cell).ceil() as usize + 2;
     let mut rooms: Vec<(u32, Vec<P2>)> = Vec::new();
-    for room in 1..=count {
-        let mask = Mask {
-            w,
-            h,
-            cells: label.iter().map(|l| *l == room).collect(),
-        };
+    for (room, &(x0, y0, x1, y1)) in (1..=count).zip(&boxes) {
+        if x0 > x1 {
+            continue;
+        }
+        let (bw, bh) = (x1 - x0 + 1 + 2 * margin, y1 - y0 + 1 + 2 * margin);
+        work += bw * bh;
+        if work > MAX_WORK {
+            return Err("mesh_too_large");
+        }
+        let mut mask = Mask::new(bw, bh);
+        for y in y0..=y1 {
+            for x in x0..=x1 {
+                if label[y * w + x] == room {
+                    mask.cells[(y - y0 + margin) * bw + x - x0 + margin] = true;
+                }
+            }
+        }
         let shape = mask.close(0.10 / cell).fill_holes();
         let outline = grid::outline(&shape);
         if outline.len() < 4 {
             continue;
         }
+        #[allow(clippy::cast_precision_loss)]
+        let (ox, oy) = (x0 as f64 - margin as f64, y0 as f64 - margin as f64);
         let points: Vec<P2> = outline
             .iter()
             .map(|p| {
                 [
-                    (frame.x0 + p[0] * cell) * 100.0,
-                    (frame.y0 + p[1] * cell) * 100.0,
+                    (frame.x0 + (p[0] + ox) * cell) * 100.0,
+                    (frame.y0 + (p[1] + oy) * cell) * 100.0,
                 ]
             })
             .collect();

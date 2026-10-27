@@ -2233,7 +2233,9 @@ first launch in five minutes (M22) has it.
   [`ValetudoMap.js`](https://github.com/Hypfer/Valetudo/blob/master/backend/lib/entities/map/ValetudoMap.js),
   [`MapNodeMqttHandle.js`](https://github.com/Hypfer/Valetudo/blob/master/backend/lib/mqtt/handles/MapNodeMqttHandle.js)),
   Valetudo RE's reader of Roborock's map
-  ([`RRMapParser.js`](https://github.com/rand256/valetudo/blob/master/lib/RRMapParser.js)), and
+  ([`RRMapParser.js`](https://github.com/rand256/valetudo/blob/master/lib/RRMapParser.js)) and the
+  Xiaomi Cloud Map Extractor's
+  ([`image_handler.py`](https://github.com/PiotrMachowski/Home-Assistant-custom-components-Xiaomi-Cloud-Map-Extractor/blob/master/custom_components/xiaomi_cloud_map_extractor/xiaomi/image_handler.py)), and
   Floorplanner's FML 3.0 specification ([fml.floorplanner.dev](https://fml.floorplanner.dev/intro/)).
 - **Decision.**
   - **Robot vacuum maps.**
@@ -2247,7 +2249,8 @@ first launch in five minutes (M22) has it.
     - **Roborock's own map** (`rr`), as Valetudo RE serves it (`/api/map/latest`, gzipped) and as
       the Xiaomi Cloud Map Extractor stores it (`store_map_raw`): its image block, 5 cm a pixel,
       `y` up (turned, not mirrored), each pixel a wall, a floor or a room (its id in the upper
-      five bits, on robots that have rooms); the dock's place in millimetres.
+      five bits, on robots that have rooms; `0xFF` a floor in none); the dock's place in
+      millimetres.
     - **What a map becomes.** Each segment is a room, kept by its id (`segment-16`), so that
       importing the map again keeps the links; named by Valetudo's name for it. A map without
       segments is one room, its largest floor. A room is its pixels closed over the furniture

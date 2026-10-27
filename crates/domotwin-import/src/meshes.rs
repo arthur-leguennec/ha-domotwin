@@ -8,8 +8,8 @@ use crate::math::{Transform, V3};
 
 /// Most triangles read.
 pub(crate) const MAX_TRIANGLES: usize = 5_000_000;
-/// Most vertices read.
-const MAX_VERTICES: usize = 10_000_000;
+/// Most vertices read: three a triangle, as STL has them (sharing none).
+const MAX_VERTICES: usize = 3 * MAX_TRIANGLES;
 /// Most nodes of a glTF scene once expanded.
 const MAX_NODES: usize = 10_000;
 /// Farthest coordinate read.
@@ -92,13 +92,22 @@ pub(crate) fn sniff(bytes: &[u8]) -> Option<MeshFormat> {
     if start.starts_with("solid") && start.contains("facet") {
         return Some(MeshFormat::Stl);
     }
-    // OBJ: lines of vertices (`v`), faces (`f`), groups, materials and comments.
+    // OBJ: lines of vertices (`v`), faces (`f`), groups, materials, comments and OBJ's other
+    // statements; the last line left out when the start cuts it.
+    let mut lines: Vec<&str> = start.lines().collect();
+    if bytes.len() > 4096 {
+        lines.pop();
+    }
     let mut vertices = 0;
-    for line in start.lines().map(str::trim) {
+    for line in lines.into_iter().map(str::trim) {
         let word = line.split_whitespace().next().unwrap_or_default();
         match word {
             "v" => vertices += 1,
-            "" | "vn" | "vt" | "f" | "o" | "g" | "s" | "usemtl" | "mtllib" => {}
+            "" | "vn" | "vt" | "vp" | "f" | "l" | "p" | "o" | "g" | "s" | "mg" | "usemtl"
+            | "mtllib" | "usemap" | "maplib" | "lod" | "cstype" | "deg" | "bmat" | "step"
+            | "curv" | "curv2" | "surf" | "parm" | "trim" | "hole" | "scrv" | "sp" | "end"
+            | "con" | "bevel" | "c_interp" | "d_interp" | "shadow_obj" | "trace_obj" | "ctech"
+            | "stech" => {}
             _ if word.starts_with('#') => {}
             _ => return None,
         }
@@ -718,6 +727,12 @@ mod tests {
             read(b"v 0 0 0\nv 1 1 1\n", MeshFormat::Obj).err(),
             Some("mesh_points")
         );
+        // Lines of edges; a material's name cut where the start of the file ends.
+        assert_eq!(sniff(b"v 0 0 0\nv 1 0 0\nl 1 2\n"), Some(MeshFormat::Obj));
+        let mut long = b"v 0 0 0\n".repeat(511);
+        long.extend_from_slice(b"# ab\nusemtl wall\nf 1 2 3\n");
+        assert!(long.len() > 4096 && &long[4093..4096] == b"use");
+        assert_eq!(sniff(&long), Some(MeshFormat::Obj));
     }
 
     #[test]

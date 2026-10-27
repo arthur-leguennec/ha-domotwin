@@ -194,11 +194,13 @@ impl PlanFile {
         if fml::is_fml_xml(&head) {
             return Err("fml_xml");
         }
-        if inflate
-            && unpack::is_zlib(&bytes)
-            && let Ok(inner) = unpack::zlib(&bytes)
-        {
-            return Self::read_unpacked(inner, title, false);
+        // A broken stream is not one: what started like it was something else.
+        if inflate && unpack::is_zlib(&bytes) {
+            match unpack::zlib(&bytes) {
+                Ok(inner) => return Self::read_unpacked(inner, title, false),
+                Err("too_large") => return Err("too_large"),
+                Err(_) => {}
+            }
         }
         Err("not_plan")
     }

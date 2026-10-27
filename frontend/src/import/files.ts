@@ -10,7 +10,7 @@ export const IMPORTED_FILES =
 
 /** What the plan picker offers. */
 export const PLAN_FILES =
-  ".json,application/json,.ifc,.sh3d,.dxf,.usdz,.usda,.usdc,.fml,.obj,.ply,.glb,.gltf,.stl,.gz,.png";
+  ".json,application/json,.ifc,.sh3d,.dxf,.usdz,.usda,.usdc,.fml,.obj,.ply,.glb,.gltf,.stl,.fbx,.gz,.png";
 
 /**
  * Whether a JSON file's content is a plan of another app rather than a DomoTwin plan: a room
