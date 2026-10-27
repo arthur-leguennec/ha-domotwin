@@ -289,6 +289,11 @@ pub(crate) struct Builder {
     pub(crate) opening_groups: BTreeMap<String, u8>,
     pub(crate) lights: Vec<LightSpot>,
     pub(crate) wall_height: f64,
+    /// Every storey's gardens (places outside on a garden's ground, no balcony), with their storey
+    /// and their ground's height (cm): a walk-out basement's garden meets a higher one (D-078).
+    pub(crate) gardens: Rc<[(usize, Vec<P2>, f64)]>,
+    /// The height of the floor of the storey being built (cm).
+    pub(crate) elevation: f64,
     /// Room slot of each room element index.
     room_slots: BTreeMap<usize, u8>,
     /// Room polygons with their slot, to find the room of a point.
@@ -470,6 +475,24 @@ fn build(
     let mut parts = Vec::new();
     let mut lights = Vec::new();
     let (mut home_area, mut grounds) = (None, None);
+    // A storey's floor: at its height, or at 0 where that is not a number.
+    let floor_at = |elevation: f64| {
+        if elevation.is_finite() {
+            elevation
+        } else {
+            0.0
+        }
+    };
+    // Every storey's gardens, and the height of their ground (cm).
+    builder.gardens = storeys
+        .iter()
+        .enumerate()
+        .flat_map(|(storey, (plan, elevation))| {
+            plan.rooms()
+                .filter(|room| room.outside && room.floor.ground() && !room.railing)
+                .map(move |room| (storey, room.points(), floor_at(*elevation) + room.level()))
+        })
+        .collect();
     for (storey, (plan, elevation)) in storeys.iter().enumerate() {
         let layout = WallLayout::new(plan);
         for walls in &layout.rooms {
@@ -529,6 +552,7 @@ fn build(
             .room_shapes
             .sort_by_key(|(slot, _)| ranks.get(slot).copied().unwrap_or(usize::MAX));
         builder.dynamic = false;
+        builder.elevation = floor_at(*elevation);
         structure::build(&mut builder, plan, &layout);
         let outlines = std::mem::take(&mut builder.lines.list);
         furniture::build(&mut builder, plan, &layout);
@@ -584,11 +608,7 @@ fn build(
         }
         builder.dynamic = false;
         parts.push(StoreyPart {
-            elevation: if elevation.is_finite() {
-                *elevation
-            } else {
-                0.0
-            },
+            elevation: floor_at(*elevation),
             first: builder.base,
             count: plan.elements.len(),
             opaque,

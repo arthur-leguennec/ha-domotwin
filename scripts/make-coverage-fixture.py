@@ -8,7 +8,8 @@ integration's Bluetooth locating counts them (`custom_components/domotwin/locati
 D-035). This script reads the fictional demo apartment and its upper floor with the integration's
 own code and writes, to `tests/fixtures/coverage-walls.json`, what it finds: the points of each
 room, each room's middle, a few pieces (one moved and lifted, one removed, one added by the
-overlay), and the walls between every two of the places looked at. The Rust tests and the Python
+overlay), and the walls and floors (D-078) between every two of the places looked at; then
+the same of the fictional split-level house (`split`). The Rust tests and the Python
 tests both read it: when one side counts differently, its test fails. The output is
 deterministic, so the file only changes when the geometry does.
 """
@@ -46,6 +47,12 @@ STOREYS = [
     },
 ]
 PIECES = ["sofa", "tv", "washer", "floor-lamp", "reading-lamp"]
+# The fictional split-level house (D-078): a half level down beside the entry level, one up over it.
+SPLIT = [
+    {"id": "lower", "elevation": -140, "plan": "examples/split-level-lower.domotwin.json"},
+    {"id": "entry", "elevation": 0, "plan": "examples/split-level-entry.domotwin.json"},
+    {"id": "upper", "elevation": 140, "plan": "examples/split-level-upper.domotwin.json"},
+]
 # Of each room, its middle and these of its points are looked at.
 POINTS_LOOKED_AT = (0, 3)
 
@@ -77,6 +84,28 @@ def _written(value: object, indent: str = "") -> str:
     return json.dumps(value, ensure_ascii=False)
 
 
+def _read(storeys: list[dict]) -> list[dict]:  # type: ignore[type-arg]
+    return [
+        {**storey, "plan": json.loads((ROOT / storey["plan"]).read_text(encoding="utf-8"))}
+        for storey in storeys
+    ]
+
+
+def _split(geometry) -> dict:  # type: ignore[no-untyped-def, type-arg]
+    """The split-level house's places (each room's middle and first point), walls and floors."""
+    home = geometry.Home(_read(SPLIT))
+    spots = []
+    for room in home.rooms:
+        spots.append(home.middle(room))
+        spots += home.points(room)[:1]
+    return {
+        "storeys": SPLIT,
+        "spots": [_spot(spot) for spot in spots],
+        "walls": [[home.walls(a, b) for b in spots] for a in spots],
+        "floors": [[home.floors(a, b) for b in spots] for a in spots],
+    }
+
+
 def main() -> None:
     """Write the fixture."""
     geometry = _geometry()
@@ -92,6 +121,7 @@ def main() -> None:
         spots.append(middles[room])
         spots += [points[room][k] for k in POINTS_LOOKED_AT if k < len(points[room])]
     walls = [[home.walls(a, b) for b in spots] for a in spots]
+    floors = [[home.floors(a, b) for b in spots] for a in spots]
     fixture = {
         "about": "Written by scripts/make-coverage-fixture.py from the integration's geometry "
         "(D-035): the advisor's (D-066) must be the same.",
@@ -104,6 +134,8 @@ def main() -> None:
         },
         "spots": [_spot(spot) for spot in spots],
         "walls": walls,
+        "floors": floors,
+        "split": _split(geometry),
     }
     FIXTURE.write_text(_written(fixture) + "\n", encoding="utf-8")
     print(FIXTURE.relative_to(ROOT))  # noqa: T201

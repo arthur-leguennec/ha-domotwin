@@ -56,3 +56,20 @@ def test_demo_house_matches_the_schema_with_ids_of_its_own() -> None:
         assert list(validator.iter_errors(plan)) == []
         assert validate_plan(plan) is plan
     assert not element_ids(storeys[0]) & element_ids(storeys[1])
+
+
+def test_split_level_house_matches_the_schema_with_ids_of_its_own() -> None:
+    """The fictional split-level house (D-078): three storeys, no id twice."""
+    schema = json.loads((ROOT / "schema" / "plan.schema.json").read_text(encoding="utf-8"))
+    validator = jsonschema.Draft202012Validator(schema)
+    storeys = [
+        json.loads((ROOT / "examples" / f"split-level-{level}.domotwin.json").read_text("utf-8"))
+        for level in ("lower", "entry", "upper")
+    ]
+    seen: set[str] = set()
+    for plan in storeys:
+        assert list(validator.iter_errors(plan)) == []
+        assert validate_plan(plan) is plan
+        ids = element_ids(plan)
+        assert not seen & ids
+        seen |= ids

@@ -49,8 +49,8 @@ export interface ReceiverInfo {
   /** What placed it: by hand (`room`, `piece`), from its device (`device_area`, `device_piece`),
    * or nothing. */
   placed_by: "room" | "piece" | "device_area" | "device_piece" | null;
-  /** Where it stands (D-066): its storey, its point (cm) and its height (cm, from the lowest
-   * floor); none when nothing places it. */
+  /** Where it stands (D-066): its storey, its point (cm) and its height (cm, on the storeys'
+   * elevations: its storey's and the height above that floor); none when nothing places it. */
   place?: { storey: string; at: [number, number]; z: number } | null;
 }
 
