@@ -411,6 +411,7 @@ export const en = {
     activate: "Activate",
     unavailable: "Unavailable",
     more_info: "More info",
+    history: "History",
     start: "Start",
     home: "Back to its base",
     press: "Press",
@@ -474,6 +475,7 @@ export const en = {
     no_area: "This room is not linked to a Home Assistant area.",
     no_area_admin: "Link it in the DomoTwin panel, or give the area the room's name.",
     private: "This room is private.",
+    history: "History",
   },
   voice: {
     title: "Voice",

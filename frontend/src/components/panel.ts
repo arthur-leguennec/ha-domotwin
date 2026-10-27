@@ -84,7 +84,7 @@ import {
   storeyName,
   type StoreyRooms,
 } from "../live/storeys";
-import { closedAreas, closedEntities, privateRooms, type Unseen } from "../live/privacy";
+import { privateRooms, unseenOf, type Unseen } from "../live/privacy";
 import {
   NO_CHOICES,
   canDraw3d,
@@ -114,6 +114,7 @@ import type { ModelFormat, ModelInfo } from "../models/models";
 import { pickLanguage, translatorFor, type Translator } from "../i18n";
 import { documentFonts } from "../fonts";
 import { icon } from "./icon";
+import { saveText } from "./save";
 import { DemoSwitch } from "./demo-switch";
 import type { MeasureHost } from "./measure";
 import { DialogFocus } from "./dialog";
@@ -248,15 +249,7 @@ function fileName(title: string): string {
 
 /** Saves `value` as a JSON file named `name` (the browser's download). */
 function download(name: string, value: unknown): void {
-  const blob = new Blob([`${JSON.stringify(value, null, 2)}\n`], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = name;
-  link.click();
-  setTimeout(() => {
-    URL.revokeObjectURL(url);
-  }, 1000);
+  saveText(name, `${JSON.stringify(value, null, 2)}\n`, "application/json");
 }
 
 /** The panel's dialogs and sheets, which the focus goes into and comes back from (D-042). */
@@ -417,7 +410,7 @@ export class DomoTwinPanel extends LitElement {
   protected upkeep?: Upkeep;
   /** The people placed in their rooms (D-034). */
   protected people?: PeopleSettings;
-  /** The home's Wi-Fi for guests (D-058): all of it for an administrator. */
+  /** The home's Wi-Fi for guests (D-062): all of it for an administrator. */
   protected wifi?: Wifi;
   protected northDraft?: number;
   /** The people's settings are open (D-034), their module loaded, with the candidates. */
@@ -1227,7 +1220,7 @@ export class DomoTwinPanel extends LitElement {
 
   /**
    * The Wi-Fi as this user may see it in the panel. Not read (Home Assistant starting), it is asked
-   * for again in a while; an integration older than D-058 has none.
+   * for again in a while; an integration older than D-062 has none.
    */
   private async loadWifi(): Promise<void> {
     const client = this.client;
@@ -2752,14 +2745,13 @@ export class DomoTwinPanel extends LitElement {
     if (shown && from.every((value, i) => value === shown.from[i])) return shown;
     const rooms = [...planRooms(this.plan), ...this.elsewhere.flatMap((storey) => storey.rooms)];
     const bindings = this.bindings ?? NO_BINDINGS;
-    const unseen: Unseen = {
-      areas: closedAreas(hass, bindings, rooms, closed),
-      entities: closedEntities(
-        bindings,
-        [{ plan: this.plan, layout: this.layout }, ...this.elsewhere],
-        closed,
-      ),
-    };
+    const unseen = unseenOf(
+      hass,
+      bindings,
+      rooms,
+      [{ plan: this.plan, layout: this.layout }, ...this.elsewhere],
+      closed,
+    );
     const sources: GlanceSources = {
       rooms,
       bindings,
@@ -3287,7 +3279,7 @@ export class DomoTwinPanel extends LitElement {
     }
   };
 
-  /** Opens the Wi-Fi for guests (D-058), over the 3D view. */
+  /** Opens the Wi-Fi for guests (D-062), over the 3D view. */
   private readonly openWifi = async (): Promise<void> => {
     if (this.tab !== "3d") this.go("3d");
     await this.updateComplete;

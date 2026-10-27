@@ -22,7 +22,7 @@ const GUESTS: StoredWifi = {
   screens: ["hall"],
 };
 
-describe("the Wi-Fi for guests (D-058)", () => {
+describe("the Wi-Fi for guests (D-062)", () => {
   it("reads the integration's answer, what cannot be read being no network", () => {
     expect(readWifi(null)).toEqual(NO_WIFI);
     expect(

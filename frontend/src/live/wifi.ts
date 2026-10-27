@@ -1,5 +1,5 @@
 /**
- * The home's Wi-Fi for guests (`docs/DECISIONS.md`, D-058): what `domotwin/wifi/get` says of it,
+ * The home's Wi-Fi for guests (`docs/DECISIONS.md`, D-062): what `domotwin/wifi/get` says of it,
  * as the asker may see it. An administrator sees it all; a screen an administrator chose (a card's
  * `screen`, D-029) what draws the QR code; elsewhere only whether there is one.
  */

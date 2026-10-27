@@ -25,6 +25,7 @@ import { MAX_SCHEDULE_ENTITIES, schedulable, type Schedule } from "../live/sched
 import type { Upkeep } from "../live/upkeep";
 import type { StoredWifi } from "../live/wifi";
 import { demoConnection, type MemoryHome } from "./connection";
+import { demoHistory, demoLogbook } from "./history";
 import {
   DAY,
   at,
@@ -86,7 +87,7 @@ export interface DemoStore {
   schedules: Schedule[];
   /** The visitor's own choices (D-055), until they leave. */
   choices: Choices;
-  /** The home's Wi-Fi for guests (D-058): the demo house's is fictional. */
+  /** The home's Wi-Fi for guests (D-062): the demo house's is fictional. */
   wifi?: StoredWifi;
 }
 
@@ -334,6 +335,21 @@ export class DemoHome implements MemoryHome {
 
   energyPrefs(): unknown {
     return ENERGY_PREFS;
+  }
+
+  /** Its day as Home Assistant's history (D-058), up to the demo's clock. */
+  history(entities: readonly string[], start: number, end: number): unknown {
+    return demoHistory(entities, start, end, Date.parse(this.time()), (id) => {
+      return this.hass.states[id]?.state;
+    });
+  }
+
+  /** Its day's changes as Home Assistant's logbook, with the automations that made them. */
+  logbook(entities: readonly string[], start: number, end: number): unknown {
+    return demoLogbook(entities, start, end, Date.parse(this.time()), (id) => {
+      const name = this.hass.states[id]?.attributes.friendly_name;
+      return typeof name === "string" ? name : id;
+    });
   }
 
   /** Follows the `hass` objects to come. */

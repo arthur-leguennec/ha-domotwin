@@ -1,4 +1,4 @@
-"""The home's Wi-Fi for guests (D-058): kept private, shown to administrators and chosen screens."""
+"""The home's Wi-Fi for guests (D-062): kept private, shown to administrators and chosen screens."""
 
 from __future__ import annotations
 

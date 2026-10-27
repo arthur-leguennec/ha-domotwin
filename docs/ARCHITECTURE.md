@@ -15,7 +15,7 @@ interface.
 | `domotwin-import` | core, models, `serde_json` | IFC, Sweet Home 3D, DXF, scans → plan JSON | GPU, browser, HA |
 | `domotwin-models` | `serde_json`, `miniz_oxide` | glTF, OBJ, STL, 3MF → meshes    | core, GPU, HA        |
 | `domotwin-planner` | core, `serde_json`     | the plan editor's draft (D-025)     | GPU, browser, HA     |
-| `domotwin-analysis` | core, `serde_json`, `qrcodegen` | radio meshes, automations' configurations (D-043), the Wi-Fi QR code (D-058) | GPU, browser, HA |
+| `domotwin-analysis` | core, `serde_json`, `qrcodegen` | radio meshes, automations' configurations (D-043), the Wi-Fi QR code (D-062) | GPU, browser, HA |
 
 `domotwin-import` imports the plans of other apps (`ifc-import.md`, `imports.md`, D-040): its own
 wasm module, loaded only when such a file is imported. Each reader gives one plan builder a draft;
@@ -51,15 +51,16 @@ every reader returns `Result` with a stable error code that the frontend transla
   long-press actions and running them, the states sent to the engine (only bound entities that
   changed), and the suggestions of the link editor.
 - `src/components/` holds the card, the panel, `<domotwin-view>` (one canvas, one engine), the
-  panels over the scene (`sheets.ts`: an element's controls, a room's panel) and the link editor;
-  the last two are chunks loaded the first time they open.
+  panels over the scene (`sheets.ts`: an element's controls, a room's panel), the history report
+  (`history-report.ts`) and the link editor; the last three are chunks loaded the first time they
+  open.
 - `src/demo/` is the demo house (D-050) and `src/sandbox/` the sandbox (D-057): homes kept in the
   page, each with its own `hass` and a connection answering DomoTwin's commands from memory
   (`demo/connection.ts`), shown by the panel in place of the home (`components/demo-switch.ts`).
   The sandbox reads the home once (`sandbox/copy.ts`), plays its day at once
   (`sandbox/engine.ts`, with `templates.ts`, `effects.ts`, `scenario.ts`, `sun.ts`) and says what
   it did (`sandbox/report.ts`); nothing it does is written to Home Assistant.
-- The Wi-Fi for guests (D-058): `components/wifi-dialog.ts` (its own chunk) draws the QR code the
+- The Wi-Fi for guests (D-062): `components/wifi-dialog.ts` (its own chunk) draws the QR code the
   analysis module encodes (`wifiQr`), from what `domotwin/wifi/get` answers (`live/wifi.ts`); the
   integration keeps the network in a private store of its own (`custom_components/domotwin/wifi.py`).
 - `src/i18n/` holds the English and French dictionaries. Every visible string goes through `t()`.
@@ -148,6 +149,13 @@ every reader returns `Result` with a stable error code that the frontend transla
    folder (`domotwin/voice/blueprints`) and, on the Supervisor, sets up local voice in the
    background (`domotwin/voice/setup`: the apps through `AddonManager`, the Wyoming discovery,
    an Assist pipeline), its steps read with `domotwin/voice/get`.
+8. **History reports.** **History** in an element's controls or a room's panel opens
+   `<domotwin-history>` over the view (D-058). It asks Home Assistant's own commands, not the
+   integration: `history/history_during_period` (the states alone),
+   `recorder/statistics_during_period` (each hour) and `logbook/get_events`, again only when the
+   entities, the period or the way to read them change. `src/live/history.ts` reads the answers
+   into rows (a change, an hour, a period of rows that match a value), filters and searches them
+   and writes the CSV, which the browser downloads; nothing is kept once the report closes.
 
 ## Storage
 

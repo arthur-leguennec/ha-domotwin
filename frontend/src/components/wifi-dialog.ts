@@ -1,5 +1,5 @@
 /**
- * `<domotwin-wifi>`, the Wi-Fi for guests (D-058): the QR code a phone's camera joins the home's
+ * `<domotwin-wifi>`, the Wi-Fi for guests (D-062): the QR code a phone's camera joins the home's
  * network with, drawn in the page by the analysis module (or the router's own code, an image
  * entity, shown as it is), the network's name and, on demand, its password; and, for an
  * administrator, the form that gives it. Loaded the first time it opens.
@@ -259,7 +259,7 @@ export class DomoTwinWifi extends LitElement {
     fire(this, "domotwin-close", undefined);
   }
 
-  /** The network with its password, which only an open dialog asks for (D-058). */
+  /** The network with its password, which only an open dialog asks for (D-062). */
   private async askFull(): Promise<void> {
     const wifi = this.wifi;
     const hass = this.hass;

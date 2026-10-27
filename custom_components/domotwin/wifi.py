@@ -1,4 +1,4 @@
-"""The home's Wi-Fi for guests (`docs/DECISIONS.md`, D-058).
+"""The home's Wi-Fi for guests (`docs/DECISIONS.md`, D-062).
 
 An administrator gives the network once: its name, its password, its kind (WPA, WEP or open) and
 whether it is hidden; or the image entity in which a router gives its guest network's QR code

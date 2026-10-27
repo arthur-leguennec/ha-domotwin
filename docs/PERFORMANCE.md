@@ -923,17 +923,36 @@ is played again when it is changed or a tap is done in it. Showing a moment of i
 changes up to there (from midnight when going back); playing moves the moment on ten times a second
 and gives the panel one new `hass` each time, as Home Assistant would.
 
+### M38 (history as reports)
+
+Bundle: the first load is **517.3 kB gzipped** of 1 200 kB (+0.9 kB): the **History** buttons'
+labels, and the view's way to the report. The report comes on demand, the first time **History**
+is pressed (`chunks/history-report-<hash>.js`: 32.5 kB raw, 9.4 kB gzipped), with its texts in
+both languages; the reading of Home Assistant's answers (`src/live/history.ts`, 7.9 kB raw,
+3.4 kB gzipped) is a chunk shared with the sheets, which offer a room's report only when it has
+air sensors, and with the demo house.
+
+Nothing of it runs until a report opens. A report asks Home Assistant once for what is chosen
+(its history, or its statistics and then the history of the entities that have none, or its
+logbook), again only when the entities, the period or the way to read them change, never at a
+new state of the home, which does not draw it again either. The rows are filtered once for each
+answer and filter; the table draws 500 rows at most, and the CSV is written when it is asked for.
+Measured in Node on a computer, a week of a power sensor reporting every ten seconds (60 340
+changes): read in about 35 ms, its rows in 50 ms, filtered by value and by how long in 35 ms, its
+168 hours worked out in 30 ms, and its CSV (5.3 MB) written in 170 ms. The demo house works out
+its day once, minute by minute, the first time its history is asked (about 70 ms), then answers
+ten days of three entities in a few milliseconds.
 
 ### M30 (the Wi-Fi for guests)
 
-Bundle: the first load is **517.4 kB gzipped** of 1 200 kB (+1.0 kB): reading the network's answer,
+Bundle: the first load is **518.5 kB gzipped** of 1 200 kB (+1.2 kB): reading the network's answer,
 the Wi-Fi button over the view, the ⋮ menu entry, the integration's three commands and their few
 texts. The dialog comes on demand, the first time it opens (`chunks/wifi-dialog-<hash>.js`:
-18.4 kB raw, 5.7 kB gzipped): the code drawn, the form and their texts in both languages.
+18.5 kB raw, 5.7 kB gzipped): the code drawn, the form and their texts in both languages.
 
 The QR code is encoded by the analysis module, already loaded on demand for the network map and
-the automations (`qrcodegen`, MIT): it grew from 142.8 kB to 156.4 kB raw, by about 7 kB gzipped
-(71.8 kB). The code is encoded once each time the network changes and drawn as one SVG path (a few
+the automations (`qrcodegen`, MIT): it grew from 142.8 kB to 156.8 kB raw, by about 7 kB gzipped
+(72.1 kB). The code is encoded once each time the network changes and drawn as one SVG path (a few
 hundred modules), so showing it again costs nothing; nothing is fetched. The network (without its
 password) is asked of the integration when the panel or a card opens and again only when it
 changes; its password once each time the dialog opens.
