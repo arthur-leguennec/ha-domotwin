@@ -9,7 +9,6 @@ import {
   mdiFlaskOutline,
   mdiCogOutline,
   mdiHistory,
-  mdiHomeAutomation,
   mdiCubeOutline,
   mdiDotsVertical,
   mdiHomeOutline,
@@ -19,7 +18,6 @@ import {
   mdiMicrophoneMessage,
   mdiPencilOutline,
   mdiRobotVacuum,
-  mdiRocketLaunchOutline,
   mdiShieldHomeOutline,
   mdiSpeedometer,
   mdiStarFourPointsOutline,
@@ -590,7 +588,7 @@ export class DomoTwinPanel extends LitElement {
   /** Why the home could not be drawn from the areas. */
   protected firstError?: string;
   /** The first launch's module, once loaded. */
-  private firstModule?: typeof import("../live/first-launch");
+  private firstModule?: typeof import("./first-launch-dialog");
   /** The steps of getting started, worked out again only when what they read changes. */
   private stepsMemo?: { key: unknown[]; steps: StartStep[] };
   private reportAsked?: number;
@@ -3813,7 +3811,7 @@ export class DomoTwinPanel extends LitElement {
                         ?disabled=${this.busy}
                         @click=${this.openFirstLaunch}
                       >
-                        ${icon(mdiHomeAutomation)}${t.t("first_launch.start")}
+                        ${icon(mdiHomeOutline)}${t.t("first_launch.start")}
                       </button>`
                     : nothing
                 }
@@ -4360,7 +4358,7 @@ export class DomoTwinPanel extends LitElement {
               }
               ${item("report-menu", mdiClipboardCheckOutline, t.t("weekly.menu"), this.busy || this.sandbox !== undefined, () => this.openReport())}
               ${item("measure", mdiSpeedometer, t.t("measure.menu"), this.busy || this.measureOpen || this.sandbox !== undefined, this.openMeasure)}
-              ${item("getting-started-menu", mdiRocketLaunchOutline, t.t("first_launch.menu"), this.busy || this.demo !== undefined || this.sandbox !== undefined, this.openGettingStarted)}
+              ${item("getting-started-menu", mdiCheck, t.t("first_launch.menu"), this.busy || this.demo !== undefined || this.sandbox !== undefined, this.openGettingStarted)}
               <hr />
               ${
                 this.demo
@@ -4433,9 +4431,8 @@ export class DomoTwinPanel extends LitElement {
   }
 
   /** The first launch's module and texts, loaded the first time. */
-  private async firstLaunch(): Promise<typeof import("../live/first-launch")> {
-    await import("./first-launch-dialog");
-    this.firstModule ??= await import("../live/first-launch");
+  private async firstLaunch(): Promise<typeof import("./first-launch-dialog")> {
+    this.firstModule ??= await import("./first-launch-dialog");
     return this.firstModule;
   }
 
@@ -4475,43 +4472,13 @@ export class DomoTwinPanel extends LitElement {
     this.busy = true;
     this.firstError = undefined;
     try {
-      const first = await this.firstLaunch();
-      const devices = choice.devices
-        ? new Map(
-            choice.storeys
-              .flatMap((storey) => storey.areas)
-              .map((area) => [area.id, first.devicePieces(hass, area.id)]),
-          )
-        : undefined;
-      const built = first.buildHome({ storeys: choice.storeys, devices, furnish: choice.furnish });
-      for (const storey of built.storeys) await summarizePlan(JSON.stringify(storey.plan));
-      await client.replaceStoreys(
-        built.storeys.map((storey) => ({
-          plan: storey.plan,
-          name: storey.name.slice(0, 60),
-          elevation: storey.elevation,
-        })),
-      );
-      const stored = await client.getBindings();
-      const current = readBindings(stored.bindings);
-      await client.saveBindings(
-        {
-          ...current,
-          rooms: { ...current.rooms, ...built.bindings.rooms },
-          elements: { ...current.elements, ...built.bindings.elements },
-        },
-        stored.revision,
-      );
+      const text = await (await this.firstLaunch()).storeHome(hass, client, choice);
       // The server's ground floor.
       this.storey = undefined;
       await this.loadPlan();
       await this.loadBindings();
       this.firstOpen = "steps";
-      const text = t.t("first.built", {
-        rooms: t.tp("first.built_rooms", built.rooms),
-        devices: t.tp("first.built_devices", built.devices),
-      });
-      this.show(built.left > 0 ? `${text} ${t.tp("first.built_left", built.left)}` : text);
+      this.show(text);
     } catch (error) {
       this.firstError = t.t("first.failed", { reason: this.describe(error) });
     } finally {
@@ -4559,30 +4526,15 @@ export class DomoTwinPanel extends LitElement {
     const hass = this._hass;
     const plan = this.plan;
     if (!client || !hass || !plan || this.busy) return;
-    const t = this.t;
     this.busy = true;
     try {
-      const first = await this.firstLaunch();
-      const stored = await client.getBindings();
-      const bindings = readBindings(stored.bindings);
-      const placed = first.placeDevices(hass, plan, bindings, [
-        ...storeyIds(plan),
-        ...(await this.otherIds(this.storey)),
-      ]);
-      if (placed.devices === 0) {
-        this.show(t.t("first.steps.placed_none"));
-        return;
-      }
-      await summarizePlan(JSON.stringify(placed.plan));
-      await client.savePlan(placed.plan, this.revision, undefined, this.storey);
-      await client.saveBindings(
-        { ...bindings, elements: { ...bindings.elements, ...placed.elements } },
-        stored.revision,
-      );
+      const taken = [...storeyIds(plan), ...(await this.otherIds(this.storey))];
+      const text = await (
+        await this.firstLaunch()
+      ).storeDevices(hass, client, { plan, revision: this.revision, storey: this.storey, taken });
       await this.loadPlan();
       await this.loadBindings();
-      const text = t.tp("first.steps.placed", placed.devices);
-      this.show(placed.left > 0 ? `${text} ${t.tp("first.built_left", placed.left)}` : text);
+      this.show(text);
     } catch (error) {
       this.show(this.describe(error), true);
     } finally {
@@ -4599,13 +4551,8 @@ export class DomoTwinPanel extends LitElement {
     const key = [this.plan, bindings, hass.entities, hass.devices, this.people, this.settings];
     const memo = this.stepsMemo;
     if (memo?.key.every((part, i) => part === key[i])) return memo.steps;
-    const people = Object.values(this.people?.people ?? {}).some(
-      (person) => person.sensor !== "" || (person.located?.length ?? 0) > 0,
-    );
-    const energy = Object.values(this.settings?.energy ?? {}).some((value) =>
-      Array.isArray(value) ? value.length > 0 : Boolean(value),
-    );
-    const steps = first.startSteps(hass, this.plan, bindings, { people, energy });
+    const energy = this.settings?.energy as Record<string, unknown> | undefined;
+    const steps = first.stepsOf(hass, this.plan, bindings, this.people, energy);
     this.stepsMemo = { key, steps };
     return steps;
   }

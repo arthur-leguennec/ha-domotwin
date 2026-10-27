@@ -11,10 +11,22 @@ import {
 } from "@mdi/js";
 import { LitElement, css, html, nothing, type PropertyValues, type TemplateResult } from "lit";
 
+import { summarizePlan } from "../engine/engine";
+import type { DomoTwinClient, PlanJson } from "../ha/client";
 import type { HomeAssistant } from "../ha/types";
 import { addMessages, translatorFor, type Translator } from "../i18n";
 import { firstEn, firstFr } from "../i18n/first";
-import { devicePieces, homeStoreys, type HomeStorey, type StartStep } from "../live/first-launch";
+import { readBindings, type BindingsJson } from "../live/bindings";
+import {
+  buildHome,
+  devicePieces,
+  homeStoreys,
+  placeDevices,
+  startSteps,
+  type HomeStorey,
+  type StartStep,
+} from "../live/first-launch";
+import type { PeopleSettings } from "../live/people";
 import { define, fire } from "./define";
 import { icon } from "./icon";
 import { baseStyles } from "./styles";
@@ -26,6 +38,92 @@ export interface FirstLaunchChoice {
   storeys: HomeStorey[];
   devices: boolean;
   furnish: boolean;
+}
+
+/**
+ * Draws the home from the areas chosen and stores it (D-083): its storeys, checked by the engine
+ * first, replace the home's (it had none), and its links are added to the home's. What is said
+ * once it is done.
+ */
+export async function storeHome(
+  hass: HomeAssistant,
+  client: DomoTwinClient,
+  choice: FirstLaunchChoice,
+): Promise<string> {
+  const devices = choice.devices
+    ? new Map(
+        choice.storeys
+          .flatMap((storey) => storey.areas)
+          .map((area) => [area.id, devicePieces(hass, area.id)]),
+      )
+    : undefined;
+  const built = buildHome({ storeys: choice.storeys, devices, furnish: choice.furnish });
+  for (const storey of built.storeys) await summarizePlan(JSON.stringify(storey.plan));
+  await client.replaceStoreys(
+    built.storeys.map((storey) => ({
+      plan: storey.plan,
+      name: storey.name.slice(0, 60),
+      elevation: storey.elevation,
+    })),
+  );
+  const stored = await client.getBindings();
+  const current = readBindings(stored.bindings);
+  await client.saveBindings(
+    {
+      ...current,
+      rooms: { ...current.rooms, ...built.bindings.rooms },
+      elements: { ...current.elements, ...built.bindings.elements },
+    },
+    stored.revision,
+  );
+  const t = translatorFor(hass);
+  const text = t.t("first.built", {
+    rooms: t.tp("first.built_rooms", built.rooms),
+    devices: t.tp("first.built_devices", built.devices),
+  });
+  return built.left > 0 ? `${text} ${t.tp("first.built_left", built.left)}` : text;
+}
+
+/**
+ * Places the devices of the areas a storey's rooms are linked to (D-083), those not placed yet,
+ * each in its room where there is space: the plan stored (its overlay kept), then their links.
+ * What is said once it is done; `undefined` when nothing was left to place.
+ */
+export async function storeDevices(
+  hass: HomeAssistant,
+  client: DomoTwinClient,
+  where: { plan: PlanJson; revision?: number; storey?: string; taken: string[] },
+): Promise<string> {
+  const t = translatorFor(hass);
+  const stored = await client.getBindings();
+  const bindings = readBindings(stored.bindings);
+  const placed = placeDevices(hass, where.plan, bindings, where.taken);
+  if (placed.devices === 0) return t.t("first.steps.placed_none");
+  await summarizePlan(JSON.stringify(placed.plan));
+  await client.savePlan(placed.plan, where.revision, undefined, where.storey);
+  await client.saveBindings(
+    { ...bindings, elements: { ...bindings.elements, ...placed.elements } },
+    stored.revision,
+  );
+  const text = t.tp("first.steps.placed", placed.devices);
+  return placed.left > 0 ? `${text} ${t.tp("first.built_left", placed.left)}` : text;
+}
+
+/** The steps of getting started on a storey's plan, from what the panel knows of the home. */
+export function stepsOf(
+  hass: HomeAssistant,
+  plan: unknown,
+  bindings: BindingsJson,
+  people: PeopleSettings | undefined,
+  energy: Record<string, unknown> | undefined,
+): StartStep[] {
+  const placed = Object.values(people?.people ?? {}).some(
+    (person) => person.sensor !== "" || (person.located?.length ?? 0) > 0,
+  );
+  const chosen = Object.values(energy ?? {}).some((value) =>
+    Array.isArray(value) ? value.length > 0 : Boolean(value),
+  );
+  return startSteps(hass, plan, bindings, { people: placed, energy: chosen });
 }
 
 const styles = css`
