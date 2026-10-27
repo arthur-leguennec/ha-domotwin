@@ -17,6 +17,8 @@
 //   overview=1 (Home Assistant 2026.10, its Overview with an area page each; DomoTwin's room and
 //   upkeep sensors, who is home: D-061)  mode=summary&summary=<kind> (a summary card)
 //   nopanel=1 (no DomoTwin panel for this user: left out of the sidebar, or for administrators)
+//   energypage=1 (Home Assistant's Energy page, its energy integration's, its grid set up: D-069),
+//   energypage=empty (the page, nothing set up)
 //   upkeep=1 (the demo apartment's fictional upkeep cards, examples/demo-apartment.upkeep.json)
 //   upkeep=0 (an integration without upkeep cards)
 //   people=1 (fictional people: Alex, the user viewing, in the kitchen; Sam in the living room;
@@ -58,12 +60,16 @@
 //   entrance door opened five minutes ago and set off "Hall light at the door", which lit the
 //   hall's spots; Sam switched the floor lamp on two minutes ago; the kitchen's ceiling light was
 //   switched off on its own switch)
+//   safety=1 (D-068, with live=1: a doorbell at the front door with its camera, beside the hall's
+//   lock, and an alarm, quiet; window.__ring() rings it now), security=1 (Home Assistant 2026.10
+//   and its Security page), securityalerts=<entity>[:alert|warning],… (the alerts chosen on it;
+//   window.__securityAlerts(list) chooses others)
 //   confighistory=1 (the configuration history, D-062: fictional automations, a script removed,
 //   one in YAML files of one's own and a dashboard, as the integration keeps them; Home
 //   Assistant's configuration API and `lovelace/config/save` put one back, read again on
 //   `domotwin/config_history/refresh`; window.__refuseConfig = "<message>" makes Home Assistant
 //   refuse)
-//   weekly=1 (the weekly report, D-067: two fictional reports of the demo apartment, last week's
+//   weekly=1 (the weekly report, D-070: two fictional reports of the demo apartment, last week's
 //   and this week's, written on Monday mornings; Home Assistant 2026.10's Maintenance page),
 //   weekly=summary (this week's summed up by a fictional AI task, ai_task.helper), weekly=none
 //   (no report yet); report=<id> asks the panel for a report, as the notification's link does
@@ -461,7 +467,7 @@ async function fetchWithAuth(path, init = {}) {
     return Response.json({ code: "not_found" }, { status: 404 });
   return new Response(bytes);
 }
-// The weekly report (D-067), as the integration keeps it: the reports, oldest first, and its
+// The weekly report (D-070), as the integration keeps it: the reports, oldest first, and its
 // settings.
 const weekly = params.get("weekly");
 const reports = weekly && weekly !== "none" ? fictionalReports(weekly === "summary") : [];
@@ -774,6 +780,22 @@ let wifi =
         }
       : undefined;
 window.__wifi = () => wifi;
+// Guest access (D-067): the passes kept, as the integration keeps them, and what was saved.
+let guestPasses = [];
+let guestTokens = 0;
+window.__guestsSaved = [];
+const guestView = (stored) => {
+  const view = { ...stored, path: `/api/domotwin/guest/${stored.token}`, url: null };
+  delete view.token;
+  const now = Date.now();
+  view.status =
+    now >= Date.parse(stored.ends)
+      ? "ended"
+      : now < Date.parse(stored.starts)
+        ? "upcoming"
+        : "open";
+  return view;
+};
 /** What `domotwin/wifi/get` answers, as the integration does: its password only when asked. */
 window.__wifiAsked = [];
 function wifiAnswer(admin, screen, password) {
@@ -1106,6 +1128,22 @@ function whyEvents(message) {
     .map((row) => row.entry);
 }
 
+// Home Assistant's Security page (D-068) and the alerts an administrator chose on it.
+const security = params.get("security") === "1";
+let securityChoices = (params.get("securityalerts") ?? "")
+  .split(",")
+  .filter(Boolean)
+  .map((item) => {
+    const [entity, severity] = item.split(":");
+    return severity ? { entity, severity } : { entity };
+  });
+const securityListeners = new Set();
+window.__securityAlerts = (choices) => {
+  securityChoices = choices;
+  for (const listener of securityListeners) {
+    listener({ value: { alert_entities: structuredClone(choices) } });
+  }
+};
 const connection = {
   sendMessage(message) {
     calls.push(message);
@@ -1113,6 +1151,19 @@ const connection = {
   async sendMessagePromise(message) {
     calls.push(message);
     switch (message.type) {
+      case "energy/get_prefs":
+        // Never saved: Home Assistant says so (D-069).
+        if (energyPage !== "1") throw { code: "not_found", message: "No prefs" };
+        return {
+          energy_sources: [
+            {
+              type: "grid",
+              flow_from: [{ stat_energy_from: "sensor.grid_energy_in" }],
+              flow_to: [],
+            },
+          ],
+          device_consumption: [],
+        };
       case "history/history_during_period":
         return historyDuring(message);
       case "recorder/statistics_during_period":
@@ -1336,6 +1387,35 @@ const connection = {
         for (const listener of listeners) listener({ kind: "wifi", revision: wifiRevision });
         return wifiAnswer(true, "", true);
       }
+      case "domotwin/guests/get":
+        if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        return { passes: guestPasses.map(guestView) };
+      case "domotwin/guests/save": {
+        if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        const change = message.pass;
+        window.__guestsSaved.push(structuredClone(change));
+        if (!change.name) throw { code: "invalid", message: "name" };
+        if (Date.parse(change.ends) <= Date.parse(change.starts)) {
+          throw { code: "ends_before", message: "ends_before" };
+        }
+        if (change.rooms.length === 0 && change.entities.length === 0) {
+          throw { code: "nothing_open", message: "nothing_open" };
+        }
+        const kept = guestPasses.find((p) => p.id === change.id);
+        guestTokens += 1;
+        const token =
+          kept && !change.renew ? kept.token : `fictional${String(guestTokens).padStart(36, "0")}`;
+        const stored = { ...change, id: kept?.id ?? `pass-${guestTokens}`, token };
+        delete stored.renew;
+        guestPasses = kept
+          ? guestPasses.map((p) => (p === kept ? stored : p))
+          : [...guestPasses, stored];
+        return guestView(stored);
+      }
+      case "domotwin/guests/remove":
+        if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        guestPasses = guestPasses.filter((p) => p.id !== message.pass);
+        return { removed: true };
       case "domotwin/wifi/clear":
         if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
         wifi = undefined;
@@ -1589,6 +1669,15 @@ const connection = {
   },
   async subscribeMessage(callback, message) {
     calls.push(message);
+    if (message.type === "frontend/subscribe_system_data") {
+      // Home Assistant's own (D-068): what its Security page keeps, sent at once and on change.
+      if (message.key !== "security" || !security) throw { code: "unknown_command" };
+      securityListeners.add(callback);
+      queueMicrotask(() =>
+        callback({ value: { alert_entities: structuredClone(securityChoices) } }),
+      );
+      return async () => securityListeners.delete(callback);
+    }
     if (message.type === "domotwin/schedules/subscribe") {
       scheduleListeners.add(callback);
       queueMicrotask(() => callback({ schedules: structuredClone(schedules) }));
@@ -1909,6 +1998,8 @@ if (live && why) {
 const states = home.states;
 // overview=1: what DomoTwin's sensors say of the rooms and the upkeep (D-061), and who is home.
 const overview = params.get("overview") === "1";
+// energypage=1: Home Assistant's Energy page, its grid set up; energypage=empty: nothing set up.
+const energyPage = params.get("energypage") ?? "";
 const state = (entityId, value, attributes) => ({
   entity_id: entityId,
   state: value,
@@ -1937,6 +2028,37 @@ if (overview) {
     tasks: [{ piece: "washer", piece_name: "Washer", task: "Clean the filter", state: "overdue" }],
   });
   own("sensor.domotwin_upkeep_due", "upkeep_due");
+}
+// safety=1 (D-068): a doorbell at the front door, its camera on the same device, in the hall
+// beside its lock; an alarm, disarmed. The doorbell last rang long ago.
+if (params.get("safety") === "1") {
+  home.devices.front_door_bell = { id: "front_door_bell", area_id: "hallway", name: "Front door" };
+  states["event.front_door_doorbell"] = state(
+    "event.front_door_doorbell",
+    "2026-10-24T07:30:00.000+00:00",
+    {
+      friendly_name: "Front door doorbell",
+      device_class: "doorbell",
+      event_type: "ring",
+      event_types: ["ring"],
+    },
+  );
+  home.entities["event.front_door_doorbell"] = {
+    entity_id: "event.front_door_doorbell",
+    device_id: "front_door_bell",
+  };
+  states["camera.front_door"] = state("camera.front_door", "idle", {
+    friendly_name: "Front door camera",
+  });
+  home.entities["camera.front_door"] = {
+    entity_id: "camera.front_door",
+    device_id: "front_door_bell",
+  };
+  states["alarm_control_panel.home"] = state("alarm_control_panel.home", "disarmed", {
+    friendly_name: "Home alarm",
+    code_arm_required: false,
+  });
+  home.entities["alarm_control_panel.home"] = { entity_id: "alarm_control_panel.home" };
 }
 /** A person's room sensor, as the integration writes it, in `room` (or away). */
 function roomSensor(id, room) {
@@ -2072,7 +2194,7 @@ if (sunPosition) {
     attributes: { azimuth, elevation, rising: azimuth < 180 },
   };
 }
-// The AI task that sums the weekly report up (D-067).
+// The AI task that sums the weekly report up (D-070).
 if (weekly === "summary") {
   states["ai_task.helper"] = {
     entity_id: "ai_task.helper",
@@ -2104,15 +2226,19 @@ let hass = {
     ],
     // A fictional place, rounded: the sandbox's sun.
     ...(sandbox ? { time_zone: "Europe/Paris", latitude: 46, longitude: 2 } : {}),
-    // overview=1: a Home Assistant that opens on its Overview, an area page each (D-061).
-    ...(overview ? { version: "2026.10.0" } : { version: "2026.1.0" }),
+    // overview=1: a Home Assistant that opens on its Overview, an area page each (D-061);
+    // security=1: with its Security page (D-068).
+    ...(overview || security ? { version: "2026.10.0" } : { version: "2026.1.0" }),
   },
-  ...(overview || weekly
+  ...(overview || security || energyPage || weekly
     ? {
         panels: {
           ...(overview ? { home: { url_path: "home" } } : {}),
+          ...(security ? { security: { url_path: "security" } } : {}),
           ...(params.get("nopanel") === "1" ? {} : { domotwin: { url_path: "domotwin" } }),
-          // Home Assistant's Maintenance page (2026.5 and later), for the weekly report (D-067).
+          // energypage=1: Home Assistant's Energy page (D-069).
+          ...(energyPage ? { energy: { url_path: "energy" } } : {}),
+          // Home Assistant's Maintenance page (2026.5 and later), for the weekly report (D-070).
           ...(weekly ? { maintenance: { url_path: "maintenance" } } : {}),
         },
       }
@@ -2164,6 +2290,8 @@ window.__setState = (entityId, state, attributes = {}) => {
   };
   publish();
 };
+/** The front door's doorbell rings now (safety=1, D-068): its event entity says when. */
+window.__ring = () => window.__setState("event.front_door_doorbell", new Date().toISOString());
 if (hass.themes.darkMode) document.body.classList.add("dark");
 
 if (params.get("cards") === "1") {

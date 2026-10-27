@@ -1,12 +1,12 @@
 /**
- * The home at a glance, on the Home tab (D-055): who is in, the weather, the alerts, the lamps on,
- * the doors and windows open, Hydro-Québec's next peak (D-063), read from Home Assistant's states.
- * What a private room holds (D-039) is left out for a viewer who may not see it, its dangers
- * aside, as the layers do.
+ * The home at a glance, on the Home tab (D-055): who is in, the weather, the lamps on, the doors
+ * and windows open, Hydro-Québec's next peak (D-063), read from Home Assistant's states. What a
+ * private room holds (D-039) is left out for a viewer who may not see it. The alerts are above
+ * every tab since D-068.
  */
 import { domainOf, type HomeAssistant } from "../ha/types";
 import { NO_BINDINGS, areaOf, type BindingsJson } from "./bindings";
-import { roomLayers, numberOf, type PlanRoom, type RoomAlert } from "./layers";
+import { numberOf, type PlanRoom } from "./layers";
 import { peakRooms, type PeakRooms } from "./peak-rooms";
 import { peakNow, type PeakNow } from "./peaks";
 import { colorOf, initials, peopleShown, type PeopleSettings } from "./people";
@@ -38,8 +38,6 @@ export interface Glance {
   /** Away. */
   away: number;
   weather?: GlanceWeather;
-  /** Dangers first. */
-  alerts: RoomAlert[];
   /** Lamps on (light groups left out: their lamps are counted). */
   lights: string[];
   /** Doors, windows and gates open. */
@@ -175,12 +173,6 @@ export function glanceOf(hass: HomeAssistant, sources: GlanceSources): Glance {
   }
   const glance: Glance = {
     ...peopleOf(hass, sources.people, closed),
-    alerts: roomLayers(hass, bindings, sources.rooms, {
-      layer: "off",
-      alerts: true,
-      presence: false,
-      closed,
-    }).alerts,
     lights: lights.sort(),
     openings: openings.sort(),
   };

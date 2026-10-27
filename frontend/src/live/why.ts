@@ -55,6 +55,8 @@ export type WhyKind =
   | "trigger"
   /** An integration's event (`text`: its name, `service`: its domain). */
   | "integration"
+  /** A guest pass's guests (`text`: the pass's name, D-067). */
+  | "guest"
   /** The change began with itself: on the device itself, or by its integration. */
   | "unattributed"
   /** Something set it off that the logbook does not have (any more). */
@@ -320,6 +322,10 @@ class Walker {
       // Another entity's change in the same context set it off (a group, a template, a helper).
       return [...(await this.changeOf(by, change.when, own.context_state, depth)), step];
     }
+    // A guest, through a pass (D-067): its action's event, told to the logbook first.
+    if (own?.context_event_type === GUEST_ACTION) {
+      return [{ kind: "guest", text: own.context_name ?? "" }, step];
+    }
     if (own?.context_event_type) {
       const text = own.context_name ?? own.context_domain ?? own.context_event_type;
       return [
@@ -487,6 +493,9 @@ function stateOnly(change: Change): WhyStep[] {
   const user = change.context?.user_id;
   return user ? [{ kind: "person", user }, step] : [step];
 }
+
+/** The event a guest's action is told to the logbook as (the integration's `EVENT_GUEST_ACTION`). */
+const GUEST_ACTION = "domotwin_guest_action";
 
 /** Domains Home Assistant's logbook always leaves out: what they say changes all the time. */
 const CONTINUOUS = ["counter", "image", "proximity"];

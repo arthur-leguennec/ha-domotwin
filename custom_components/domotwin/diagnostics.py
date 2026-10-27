@@ -10,7 +10,8 @@ from homeassistant.util import dt as dt_util
 
 from . import DomoTwinConfigEntry
 from .const import MODEL_ENTRY_PREFIX, PLAN_LISTS, VERSION
-from .data import LOCATOR_KEY, PEOPLE_KEY, REPORT_KEY, SCHEDULER_KEY, WIFI_KEY
+from .data import GUESTS_KEY, LOCATOR_KEY, PEOPLE_KEY, REPORT_KEY, SCHEDULER_KEY, WIFI_KEY
+from .guests import status_of
 from .models import async_usage
 from .upkeep import due_tasks, piece_names
 
@@ -106,7 +107,15 @@ async def async_get_config_entry_diagnostics(
     # Whether the home's Wi-Fi is given (D-060): never its name, its password or its screens.
     if (wifi := hass.data.get(WIFI_KEY)) is not None:
         diagnostics["wifi"] = {"set": wifi.is_set, "router_code": wifi.from_image}
-    # The weekly report's settings (D-067), whether an AI task sums it up, and how many reports are
+    # The guest passes counted (D-067): never their names, links, rooms or devices.
+    if (guests := hass.data.get(GUESTS_KEY)) is not None:
+        now = dt_util.utcnow()
+        diagnostics["guests"] = {
+            status: sum(1 for p in guests.passes if status_of(p, now) == status)
+            for status in ("upcoming", "open", "ended")
+        }
+        diagnostics["guests"]["anywhere"] = sum(1 for p in guests.passes if p["anywhere"])
+    # The weekly report's settings (D-070), whether an AI task sums it up, and how many reports are
     # kept: never what they say.
     if (report := hass.data.get(REPORT_KEY)) is not None:
         settings = report.settings

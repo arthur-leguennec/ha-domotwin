@@ -40,10 +40,21 @@ export async function wifiQrCode(
 ): Promise<QrCode | undefined> {
   const wasm = await loadAnalysisWasm();
   // The network as one JSON object, as the module reads it.
-  const read = JSON.parse(wasm.wifiQr(JSON.stringify({ name, password, security, hidden }))) as {
-    size?: number;
-    modules?: string;
-  };
+  return qrOf(wasm.wifiQr(JSON.stringify({ name, password, security, hidden })));
+}
+
+/**
+ * The QR code of a guest's link (D-067), drawn in the page; `undefined` when it does not fit in
+ * one. Rejects when the module cannot be loaded.
+ */
+export async function textQrCode(text: string): Promise<QrCode | undefined> {
+  const wasm = await loadAnalysisWasm();
+  return qrOf(wasm.textQr(text));
+}
+
+/** A QR code as the module gives it (`{"size", "modules"}`), `undefined` when it gave none. */
+function qrOf(json: string): QrCode | undefined {
+  const read = JSON.parse(json) as { size?: number; modules?: string };
   const size = read.size ?? 0;
   const modules = read.modules ?? "";
   if (size <= 0 || modules.length !== size * size) return undefined;

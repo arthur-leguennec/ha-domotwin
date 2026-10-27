@@ -93,6 +93,13 @@ export class DomoTwinHaCard extends LitElement {
         color: var(--secondary-text-color, #5f6368);
         font-size: 0.875rem;
       }
+      .graph {
+        display: grid;
+        gap: 4px;
+      }
+      .graph .title {
+        font-weight: 600;
+      }
     `,
   ];
 
@@ -152,7 +159,10 @@ export class DomoTwinHaCard extends LitElement {
     if (!hass || !config || !t) return nothing;
     const entity = typeof config.entity === "string" ? config.entity : undefined;
     switch (config.type) {
+      // A camera, an alarm (D-068): their name and state, as a tile's.
       case "tile":
+      case "picture-entity":
+      case "alarm-panel":
         return entity
           ? html`<div class="plain" data-entity=${entity}>
               ${entityRow(hass, t, entity, false)}
@@ -189,6 +199,18 @@ export class DomoTwinHaCard extends LitElement {
               >
             </div>`
           : nothing;
+      }
+      case "history-graph":
+      case "statistics-graph": {
+        // A room's graphs (D-069): what each says now, no graph drawn by DomoTwin (D-054).
+        const entities = Array.isArray(config.entities)
+          ? config.entities.filter((id): id is string => typeof id === "string")
+          : [];
+        return html`<div class="plain graph" data-type=${config.type}>
+          ${typeof config.title === "string" ? html`<span class="title">${config.title}</span>` : nothing}
+          ${entities.map((id) => entityRow(hass, t, id, false))}
+          <span class="note">${t.t("graphs.plain")}</span>
+        </div>`;
       }
       default:
         // An agenda, a list: Home Assistant's own, not redrawn.

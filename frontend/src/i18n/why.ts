@@ -37,6 +37,8 @@ export const whyEn = {
     trigger_detail: "What set the automation off, in Home Assistant’s words",
     integration_detail: "Told by the integration {domain}",
     integration: "Told by an integration",
+    guest: "{name}, with a guest pass",
+    guest_detail: "Through a guest pass of DomoTwin's",
     unattributed: "Nobody, as far as Home Assistant knows",
     unattributed_detail:
       "Changed on the device itself, or by its integration: Home Assistant did not record who or what did it.",
@@ -80,6 +82,8 @@ export const whyFr: Widen<typeof whyEn> = {
     trigger_detail: "Ce qui a déclenché l’automatisation, dans les mots de Home Assistant",
     integration_detail: "Dit par l’intégration {domain}",
     integration: "Dit par une intégration",
+    guest: "{name}, avec un pass d’invité",
+    guest_detail: "Par un pass d’invité de DomoTwin",
     unattributed: "Personne, à la connaissance de Home Assistant",
     unattributed_detail:
       "Changé sur l’appareil lui-même, ou par son intégration : Home Assistant n’a pas noté qui ou quoi l’a fait.",

@@ -61,3 +61,7 @@ DomoTwin closes **its own** views, controls and answers. Home Assistant gives ev
 entity in its other dashboards and its API (its permissions are by user, not by entity), and
 DomoTwin's sensors of each person's room (`sensor.domotwin_<person>_room`) say the room. A private
 room is private on a shared screen, not behind a security barrier.
+
+A [guest pass](guests.md) is the other way round: its page is DomoTwin's own, and shows only the
+rooms and devices the pass gives, the other rooms closed as private rooms are; DomoTwin enforces
+it, since the guests have no Home Assistant user.

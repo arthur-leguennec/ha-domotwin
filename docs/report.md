@@ -2,7 +2,7 @@
 
 Once a week, DomoTwin writes what needs a look in the home: batteries low, devices unavailable,
 updates and repairs waiting, upkeep due, automations to look at, Zigbee devices on a weak link,
-and the week's energy against the week before, room by room on the plans (`DECISIONS.md`, D-067).
+and the week's energy against the week before, room by room on the plans (`DECISIONS.md`, D-070).
 Home Assistant's notification says it; the panel shows it.
 
 ![The weekly report of the fictional demo apartment and its upper floor: the week, a summary by a fictional AI task, what needs a look, room by room on the plans](figures/screenshot-report.png)
@@ -112,8 +112,9 @@ instead of writing about it.
 ## Kept
 
 The last eight weeks' reports and the last two written by hand, in Home Assistant's storage
-(`.storage/domotwin.reports`), a hundred items a section at most (the others counted). They are not in DomoTwin's diagnostics, only the settings
-and how many reports are kept; they are deleted with the integration.
+(`.storage/domotwin.reports`), a hundred items a section at most (the others counted). They are
+not in DomoTwin's diagnostics, only the settings and how many reports are kept; they are deleted
+with the integration.
 
 ## The limits
 

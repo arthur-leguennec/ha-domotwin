@@ -126,10 +126,11 @@ SCHEDULABLE_DOMAINS: Final = (
 )
 
 # Each user's own choices (docs/DECISIONS.md, D-055): their favourites, the tab DomoTwin opens on
-# and their Home tab's cards, in a store of their own (.storage/domotwin.users).
+# (the Safety tab since D-068) and their Home tab's cards, in a store of their own
+# (.storage/domotwin.users).
 CHOICES_STORAGE_KEY: Final = f"{DOMAIN}.users"
 CHOICES_STORAGE_VERSION: Final = 1
-START_TABS: Final = ("home", "rooms", "3d")
+START_TABS: Final = ("home", "rooms", "safety", "3d")
 MAX_FAVOURITES: Final = 100
 MAX_HOME_CARDS: Final = 6
 MAX_CALENDARS: Final = 10
@@ -163,6 +164,30 @@ WIFI_STORAGE_KEY: Final = f"{DOMAIN}.wifi"
 WIFI_STORAGE_VERSION: Final = 1
 MAX_WIFI_SCREENS: Final = 20
 
+# Guest access (docs/DECISIONS.md, D-067): passes that open chosen rooms and devices for a while,
+# in a private store of their own (.storage/domotwin.guests), read through DomoTwin's own page
+# outside Home Assistant's sign-in (GUEST_URL/<secret>).
+GUESTS_STORAGE_KEY: Final = f"{DOMAIN}.guests"
+GUESTS_STORAGE_VERSION: Final = 1
+GUEST_URL: Final = "/api/domotwin/guest"
+GUEST_PAGE: Final = "guest.html"
+MAX_GUEST_PASSES: Final = 20
+MAX_GUEST_NAME: Final = 60
+MAX_GUEST_ROOMS: Final = 200
+MAX_GUEST_ENTITIES: Final = 100
+# A pass lasts at most this long (days); it may start this far ahead.
+MAX_GUEST_DAYS: Final = 31
+MAX_GUEST_AHEAD_DAYS: Final = 366
+# A pass's guests act at most this many times in this many seconds, and follow the home from at
+# most this many pages at once.
+MAX_GUEST_CALLS: Final = 20
+GUEST_CALLS_SECONDS: Final = 5
+MAX_GUEST_STREAMS: Final = 8
+# The event fired with each action of a guest, which the logbook says (logbook.py).
+EVENT_GUEST_ACTION: Final = f"{DOMAIN}_guest_action"
+# Dispatcher signal sent when a pass is made, changed, renewed or removed: (pass id,).
+SIGNAL_GUESTS: Final = f"{DOMAIN}_guests"
+
 # The 3D files of user models (docs/DECISIONS.md, D-013 and D-021): kept by their SHA-256 in
 # <config>/domotwin/models/, uploaded by administrators, served to signed-in users.
 MODELS_URL: Final = "/api/domotwin/models"
@@ -182,7 +207,7 @@ MODEL_GRACE_SECONDS: Final = 86_400
 # Overlay entries of the models imported in edit mode: "@model:<model id>".
 MODEL_ENTRY_PREFIX: Final = "@model:"
 
-# The weekly report (docs/DECISIONS.md, D-067): its settings and the last reports, in a store of its
+# The weekly report (docs/DECISIONS.md, D-070): its settings and the last reports, in a store of its
 # own (.storage/domotwin.reports), private. At most this many reports kept (the oldest go first),
 # items a section of a report (the others counted), and a summary's characters.
 REPORT_STORAGE_KEY: Final = f"{DOMAIN}.reports"

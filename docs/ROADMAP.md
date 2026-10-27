@@ -53,18 +53,18 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M39       | Hydro-Québec's peaks, from the integrations that read them | ✅     |
 | M20       | More imports: robot vacuum maps, Floorplanner, meshes      | ✅     |
 | M31       | Placement advisor: where the next radio helps most         | ✅     |
+| M33       | Guest access: chosen rooms, for a while                    | ✅     |
+| M25       | Safety: cameras, the doorbell, the alarm, alerts           | ✅     |
+| M24       | History and energy, with Home Assistant's own cards        | ✅     |
 | M37       | A weekly home report                                       | ✅     |
 | M40       | The weather around the home, in 3D                         | ⏳     |
 | M41       | Locating measured, next to Bermuda's on the same days      | ⏳     |
 | M45       | An iPhone's key, without a Mac: the ways to get it         | ⏳     |
-| M24       | History and energy, with Home Assistant's own cards        | ⏳     |
-| M25       | Safety: cameras, the doorbell, the alarm, alerts           | ⏳     |
 | M26       | The wall screen: a screen saver, a layout per device       | ⏳     |
 | M22       | A first launch in five minutes                             | ⏳     |
 | 0.5.0     | Fifth release: all of the above                            | ⏳     |
 | M42       | Finer locating: a spot in the room, storeys by the stairs  | ⏳     |
 | M43       | mmWave sensors merged into one picture of the home         | ⏳     |
-| M33       | Guest access: chosen rooms, for a while                    | ⏳     |
 | M34       | Per-person rights: what DomoTwin shows each one            | ⏳     |
 | M35       | Automations in plain words, played in the sandbox first    | ⏳     |
 | M17       | A library of objects: many pieces, free and well made      | ⏳     |
@@ -104,9 +104,13 @@ weekly report (M37) comes with it. More imports (M20, D-064) were moved before 0
 vacuum maps, Floorplanner plans and mesh scans, which the first launch in five minutes (M22) uses.
 The placement advisor (M31, D-066) was asked for in the same way. Then the weather around the home
 (M40), locating measured (M41) and an iPhone's key without a Mac (M45) were put before M24, and
-finer locating (M42), mmWave sensors merged (M43) and split levels (M44) after 0.5.0 (D-065). The
-maintainer then asked for the weekly report (M37, D-067), which reports Hydro-Québec's peaks of the
-week with the rest.
+finer locating (M42), mmWave sensors merged (M43) and split levels (M44) after 0.5.0 (D-065).
+The maintainer then asked for guest access (M33, D-067) and per-person rights (M34) next, carried
+through without waiting on D-056's questions: a guest pass opens DomoTwin's own page outside Home
+Assistant's sign-in, which DomoTwin enforces. Of M24 to M26, the maintainer then asked for safety
+(M25, D-068) first, and history and energy (M24, D-069) next, both ahead of M40, M41 and M45.
+The maintainer then asked for the weekly report (M37, D-070), which reports Hydro-Québec's peaks
+of the week and each room's energy with the rest.
 
 ## M0, scaffold
 
@@ -1312,7 +1316,7 @@ stored; nothing shown without them.
   (Rust, wasm); nothing without an integration, a peak's rooms and legend, the pre-heating, the
   Home tab's chip and the way to 3D, hydroqc's calendar in French, the peak's day in the sandbox
   from *The day* and from the Home tab (Playwright).
-- ✅ The week's peaks in the weekly report, with **M37** (D-067, below): each peak, and what the
+- ✅ The week's peaks in the weekly report, with **M37** (D-070, below): each peak, and what the
   home drew from the grid and each room during it.
 
 ## M20, more imports
@@ -1414,10 +1418,138 @@ Measured at the end of M31: see [`PERFORMANCE.md`](PERFORMANCE.md).
 Left for later: Thread and Matter, Zigbee2MQTT and Z-Wave as sources; Wi-Fi at 5 and 6 GHz; a
 heat map inside a room; the weak spots in the weekly report (M37).
 
+## M33, guest access
+
+A pass that opens chosen rooms and devices to guests for a while, through DomoTwin's own page
+outside Home Assistant's sign-in (`DECISIONS.md`, D-067; [`guests.md`](guests.md)). Moved forward by
+the maintainer, after the placement advisor (M31); D-056's question (❓4) answered so.
+
+- ✅ **A pass**: who it is for, the rooms it opens, the devices it gives (never a person, a tracker,
+  a camera, an alarm panel or an automation), from and until when (31 days at most), to use or only
+  to look, with the home's Wi-Fi (M30) or not, on the home's network only (the default) or from
+  anywhere. Kept in a private store of its own, never in the plan, the diagnostics or an export;
+  made, changed, renewed and removed by administrators.
+- ✅ **Its link and QR code**: a secret of 32 random bytes, Home Assistant's own address on the
+  home's network; the code drawn in the page by the analysis module. A new link stops the old one.
+- ✅ **DomoTwin's own page**, outside Home Assistant's sign-in, each request checked: the pass,
+  its time, where it comes from (a local address, not through Home Assistant Cloud, as Home
+  Assistant's local-only users), under a policy that loads nothing from elsewhere, never kept.
+- ✅ **What a guest sees**: the home in 3D, the rooms the pass opens and the others closed, emptied
+  and unnamed as private rooms are (M9g); their devices, room by room, with DomoTwin's own
+  controls; the Wi-Fi. Their states followed live (server-sent events), the home read again when
+  it or the pass changes, the end said. Nothing of Home Assistant's pages, history, automations or
+  schedules.
+- ✅ **What a guest does**: only on the pass's devices, only what a guest may do with each (a lock
+  locked and unlocked, never with a code; a script run without variables), 20 actions in 5
+  seconds at most; each said in Home Assistant's logbook under the pass's name, and by "Why?"
+  (M32).
+- ✅ **Enforced by DomoTwin, said plainly**: whoever has the link uses what it gives until it ends;
+  Home Assistant's permissions do not apply to a guest, who has no user.
+- ✅ Tests: passes made, changed, renewed and removed by administrators only, kept apart and never
+  in the diagnostics, what cannot be made, at most 20, the page and its policy, the home as a pass
+  shows it (the rooms closed and unnamed, the pieces and 3D files of those it opens, the links and
+  states of its devices only, no context, the Wi-Fi or not), the home's network only or anywhere,
+  Home Assistant Cloud, before its start and after its end, forgotten a month later, the actions
+  a guest may and may not do, data refused, a lock's code, the logbook's event in the action's
+  context, Home Assistant's refusal, too many actions, the page following its devices until the
+  home or the pass changes and told when it ends, removed with DomoTwin (pytest); the link's QR
+  code (Rust); the passes read, the devices of each room (a piece moved in edit mode, its area's,
+  never a camera), locks and garage doors left to a tick, a new pass's times, the page's home read
+  leniently, its connection answering DomoTwin's commands and refusing the rest, the card told
+  when the home is read again (vitest); an administrator's pass from the plan with its link and
+  code, changed to look only, renewed and removed; a guest's page with its rooms in 3D and its
+  devices, used through the pass and followed live, under its policy, nothing from elsewhere; a
+  pass to look only; not open from here, ended, removed; the Wi-Fi on a pass that opens no room;
+  French (Playwright).
+- Measured: the first load grows by 1.0 kB; the dialog is 8.8 kB gzipped, on demand; the guests'
+  page loads 508.0 kB gzipped with the engine ([`PERFORMANCE.md`](PERFORMANCE.md), M33).
+- Left for later: a pass for a Home Assistant user (Guest Mode's sign-in links), which would see
+  every device; a guest's page drawn as the rooms' list only on a slow phone; a pass's use over
+  its days (who did what is in Home Assistant's logbook).
+
+## M25, safety
+
+The cameras side by side, the doorbell full screen when it rings, the alarm, and the alerts of the
+3D view on every tab (D-054), Home Assistant's own Security page opened rather than copied where
+it has one (D-056); asked for by the maintainer after more imports (M20), the placement advisor
+(M31) and guest access (M33), ahead of the weather (M40), locating measured (M41), an iPhone's key
+(M45) and the rest of M24 to M26 (D-068, `docs/safety.md`).
+
+- ✅ **The alerts on every tab**: above *Home* and *Rooms*, the alerts the 3D view says, of every
+  storey, dangers first, two and then *and N more*; a room's opens the 3D view framing it (its
+  storey first), or its room's page where the 3D view cannot draw. The Home tab's alerts chip
+  gives way to them. A private room's warnings are no longer said from another storey either.
+- ✅ **Home Assistant's alerts**: those an administrator chose on its Security page (2026.9 and
+  later), followed as they change, said in the same bar, the 3D view's banner and the Safety tab
+  with Home Assistant's colours, opening its page; a sensor that raised a room's alert said once;
+  only the dangers of a private room.
+- ✅ **A Safety tab**: every alert; the alarm as Home Assistant's alarm-panel card; the doorbells
+  and when they rang; every camera side by side as Home Assistant's picture card, the doorbells'
+  first; the locks where Home Assistant has no Security page, else a way to it. Nothing hidden,
+  nothing of a private room the viewer may not see. A tab to open on, on a wall tablet by the
+  door.
+- ✅ **The doorbell full screen** when one rings (an `event` of the `doorbell` class), on every tab:
+  its camera live, its door's lock with its buttons, *Close*; for two minutes, closed by hand or
+  Escape; not for a ring Home Assistant gives back as it starts, nor one heard while the page
+  slept; not over the demo house or the sandbox. A chunk loaded at the first ring.
+- ✅ Tests: Home Assistant's Security page and its alerts by version, the alerts read and on as
+  Home Assistant says, their levels and words, a private room's, said once beside the rooms', the
+  warnings of a private room on another storey, the doorbells found, a ring and what does not
+  ring (as DomoTwin opens, given back as Home Assistant starts, old, two at once, a doorbell
+  added), the Safety tab's cameras, alarms and locks in order, a doorbell's camera and lock, the
+  tab in the address and the choices, the texts in both languages (vitest); the Safety tab
+  start tab (pytest); the Safety tab with Home Assistant's cards and its Security page, the locks
+  before it, plain rows, a home without any, the alerts on Home and Rooms and the way to 3D and
+  to Safety, Home Assistant's alerts in the bar and in 3D, followed as they change and opening its
+  page, a private room's, the doorbell over Home and 3D with its camera and lock, closed by
+  Escape and by hand, not over the demo house, gone after two minutes, a phone in French
+  (Playwright).
+- Measured: the first load grows by 3.0 kB; the Safety tab and a chunk it shares with the
+  doorbell's full screen come with the tabs, the full screen at the first ring
+  ([`PERFORMANCE.md`](PERFORMANCE.md), M25).
+- Left for later: the doorbell on a dashboard's card, a wall screen's (**M26**); a doorbell Home
+  Assistant gives only as a binary sensor; cameras and an alarm in the demo house; a sound when
+  the doorbell rings (a browser plays none unasked).
+
+## M24, history and energy
+
+What a room measured, as Home Assistant's own graphs, and the home's energy as Home Assistant's
+own Energy page shows it: its cards and its pages reused, nothing drawn by DomoTwin (D-054,
+D-069). After safety (M25), ahead of M40, M41 and M45 (D-065's order), at the maintainer's request.
+
+- ✅ **A room's graphs**, a page of the Rooms tab (`/domotwin/rooms/<area>/graphs`): *Graphs* on
+  the room's page, and on its panel in 3D beside its history report; opened from 3D, the room's
+  way back still leads there. Home Assistant's history-graph card for each kind of measure of the
+  room's area (temperature, humidity, CO₂ and particles first, the thermostats with the
+  temperatures), its statistics-graph card for the meters (what each hour or day added), the
+  doors and windows and the presence as timelines; eight entities a card, ten cards a room.
+- ✅ **The last 24 hours or 7 days**, which Home Assistant keeps of each change by default (2025.1
+  draws them too); the same as a table (the history report of M38, over the Rooms tab) and in
+  Home Assistant's History, a tap away.
+- ✅ **The Energy tab**: Home Assistant's own Energy page, opened rather than copied (its energy
+  integration makes it for every user, 2025.1 and since; its cards read the same integration, so
+  no tab of them), once something is set up on it, its back arrow leading back to the page of
+  DomoTwin it was left from (2025.10 and later).
+- ✅ **Private rooms (D-039)**: no graphs for a private room the viewer may not see, nor for what
+  is linked to it.
+- ✅ **The demo house**: its graphs as DomoTwin's own rows (what each sensor says now), its table
+  from its own day, its Energy tab the 3D view on the power layer with the energy at a glance
+  (D-049). Nothing in the sandbox, whose day has its report.
+- ✅ Tests: the kinds of measure and their order, the thermostats with the temperatures, what is
+  left out (words, dates, diagnostics, other rooms, a private room's), the limits, Home
+  Assistant's cards over a day and a week, the titles in both languages, the period read by Home
+  Assistant's History, the graphs' address, the Energy page's address, what is set up and where
+  there is none (vitest); a room's graphs and their week, the table and Home Assistant's History,
+  back to the room, the graphs from a room's panel in 3D and back there, a private room, the
+  Energy tab and back, none without an Energy page or with nothing set up, the demo house's power
+  layer and plain rows, a phone in French (Playwright).
+- ✅ A room's energy over the week on the plan, with the weekly report (**M37**, D-070, below).
+- Left for later: graphs of a device from its controls in 3D (its history report is there, M38).
+
 ## M37, a weekly home report
 
-Once a week, what needs a look in the home, room by room on the plans (`DECISIONS.md`, D-067;
-[`report.md`](report.md)). Moved forward by the maintainer, after the placement advisor (M31).
+Once a week, what needs a look in the home, room by room on the plans (`DECISIONS.md`, D-070;
+[`report.md`](report.md)). Moved forward by the maintainer, after history and energy (M24).
 
 - ✅ **Written by the integration**, on the day and at the hour an administrator chose (Monday at
   8), where the home is: no screen open. Looked for every hour; a week missed written once Home
@@ -1490,6 +1622,8 @@ before its milestone starts, which goes on with what needs no answer.
 - ✅ **M23b, into Home Assistant's Overview** (D-061, above). Still asked ❓: the 3D view at the
   top of the Overview or of an area's page, and an area's page opening DomoTwin, need Home
   Assistant; whether the Home and Rooms tabs stay where the Overview is.
+- ✅ **M24, history and energy** (D-069, above). Replay, the home's past in 3D (M19), stays a 3D
+  feature, later.
 - ⏳ **M40, the weather around the home** (asked for by the maintainer): the weather of Home
   Assistant's `weather` entity drawn around the home in 3D: rain or snow falling outside the walls
   of an apartment and splashing on the ground around it, on the roof of a house and running off it;
@@ -1513,16 +1647,11 @@ before its milestone starts, which goes on with what needs no answer.
   Private BLE Device. Checked first: those tools exist, work without a Mac and are kept up, so
   DomoTwin links to them rather than building a firmware of its own; one of its own only if they
   stop being kept.
-- ⏳ **M24, history and energy**: a sheet for each room with its sensors' history-graph cards; an
-  Energy tab made of Home Assistant's energy cards, or Home Assistant's own Energy page opened
-  where it has one, as M23b does (D-056). Replay, the home's past in 3D (M19), stays a 3D feature,
-  later.
-- ⏳ **M25, safety**: the cameras side by side, the doorbell full screen when it rings, the alarm,
-  and the full-screen alerts of the 3D view shown on every tab; Home Assistant's own Security
-  page and its alerts (2026.9, 2026.10) opened rather than copied where it has them (D-056).
+- ✅ **M25, safety** (D-068, above): done after M20, M31 and M33, at the maintainer's request.
 - ⏳ **M26, the wall screen**: a screen saver (the clock, the weather, the photos of Home
   Assistant's media) woken by motion; a layout for each device.
-- M24 to M26 come in the order the two weeks of use decide.
+- M25 and M24 came ahead of M40, M41 and M45, at the maintainer's request (D-068, D-069); M26
+  comes in the order the two weeks of use decide.
 - ✅ **M31, the placement advisor** (D-066, above), built after M29, M38 and M32 at the maintainer's
   request: the Bluetooth model of M9f turned around, from where a device is to where a receiver
   would hear the most. The rooms badly covered coloured on the plan, for the Bluetooth receivers,
@@ -1561,11 +1690,8 @@ before its milestone starts, which goes on with what needs no answer.
   occupancy; ESPHome's LD2450 gives three targets' X, Y and speed and three zones; an LD2410 or an
   Everything Presence One gives a distance or an occupancy only, so a zone or a room. Each is used
   for what it says, no more.
-- ⏳ **M33, guest access**: a guest gets a QR code or a link that opens chosen rooms and devices
-  for a set time and ends on its own, with the Wi-Fi QR code of M30. What can be enforced is said
-  plainly: a Home Assistant user for the guest, local only and possibly read only, is enforced by
-  Home Assistant, but sees every entity; a page of DomoTwin's own that shows and acts on the
-  chosen devices only would be enforced by DomoTwin, outside Home Assistant's sign-in ❓.
+- ✅ **M33, guest access** (D-067, above): moved forward by the maintainer; a page of DomoTwin's
+  own outside Home Assistant's sign-in, enforced by DomoTwin, which answers D-056's ❓4.
 - ⏳ **M34, per-person rights**: building on private rooms (M9g), the rooms and devices DomoTwin
   shows each person and lets them act on, its own services checked against them, all of it set
   on the plan in one place. DomoTwin can hide; Home Assistant decides what is enforced, and today
@@ -1582,7 +1708,7 @@ before its milestone starts, which goes on with what needs no answer.
   references, still fast.
 - ✅ **M36, configuration history** (D-062, above): done after Home Assistant's Overview, at
   the maintainer's request.
-- ✅ **M37, a weekly home report** (D-067, above): done after the placement advisor (M31), at the
+- ✅ **M37, a weekly home report** (D-070, above): done after M31, M33, M25 and M24, at the
   maintainer's request; the weak spots M31 works out in the page are left for later.
 - ✅ **M38, history as reports** (D-058, above): done right after the sandbox, at the
   maintainer's request.

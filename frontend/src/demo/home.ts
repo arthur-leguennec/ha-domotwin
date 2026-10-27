@@ -175,7 +175,7 @@ export class DemoHome implements MemoryHome {
   readonly store: DemoStore;
   /** Its configuration history (D-062), put back in the page. */
   readonly configHistory: DemoConfigHistory;
-  /** Its weekly reports (D-067), made up for its rooms. */
+  /** Its weekly reports (D-070), made up for its rooms. */
   readonly weekly: DemoReport;
   private readonly language: string;
   private readonly states: Record<string, HassEntity> = {};

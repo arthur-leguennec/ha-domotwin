@@ -17,6 +17,7 @@ from .data import (
     CHOICES_KEY,
     CONFIG_HISTORY_KEY,
     DATA_KEY,
+    GUESTS_KEY,
     LOCATOR_KEY,
     PEOPLE_KEY,
     REPORT_KEY,
@@ -29,6 +30,7 @@ from .frontend import (
     async_unregister_frontend,
     async_update_panel,
 )
+from .guests import Guests
 from .http import async_register_views
 from .locator import Locator
 from .models import async_remove_all
@@ -109,7 +111,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: DomoTwinConfigEntry) -> 
 
     entry.async_on_unload(drop_choices)
     hass.data[CHOICES_KEY] = choices
-    # The home's Wi-Fi for guests (D-060).
+    await _async_start_guests(hass, entry)
+    await _async_start_history(hass, entry)
+    await _async_start_report(hass, entry)
+    await async_register_frontend(hass)
+    await async_update_panel(hass, entry)
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    entry.async_on_unload(entry.add_update_listener(_async_options_updated))
+    return True
+
+
+async def _async_start_guests(hass: HomeAssistant, entry: DomoTwinConfigEntry) -> None:
+    """The home's Wi-Fi for guests (D-060) and the guest passes (D-067)."""
     wifi = Wifi(hass)
     await wifi.async_load()
 
@@ -120,13 +133,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: DomoTwinConfigEntry) -> 
 
     entry.async_on_unload(drop_wifi)
     hass.data[WIFI_KEY] = wifi
-    await _async_start_history(hass, entry)
-    await _async_start_report(hass, entry)
-    await async_register_frontend(hass)
-    await async_update_panel(hass, entry)
-    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-    entry.async_on_unload(entry.add_update_listener(_async_options_updated))
-    return True
+    guests = Guests(hass)
+    await guests.async_load()
+
+    @callback
+    def drop_guests() -> None:
+        # Their pages closed: they read the home again, and find DomoTwin stopped.
+        guests.async_stop()
+        if hass.data.get(GUESTS_KEY) is guests:
+            hass.data.pop(GUESTS_KEY)
+
+    entry.async_on_unload(drop_guests)
+    hass.data[GUESTS_KEY] = guests
 
 
 async def _async_start_history(hass: HomeAssistant, entry: DomoTwinConfigEntry) -> None:
@@ -154,7 +172,7 @@ async def _async_start_history(hass: HomeAssistant, entry: DomoTwinConfigEntry) 
 
 
 async def _async_start_report(hass: HomeAssistant, entry: DomoTwinConfigEntry) -> None:
-    """The weekly report (D-067): looked for every hour; a week missed written once started."""
+    """The weekly report (D-070): looked for every hour; a week missed written once started."""
     report = WeeklyReport(hass, entry.runtime_data)
     await report.async_load()
     report.async_start()
@@ -192,11 +210,12 @@ async def async_unload_entry(hass: HomeAssistant, entry: DomoTwinConfigEntry) ->
 
 
 async def async_remove_entry(hass: HomeAssistant, entry: DomoTwinConfigEntry) -> None:
-    """Delete all DomoTwin keeps: data, choices, Wi-Fi, actions, config history, reports, models."""
+    """Delete DomoTwin's keeps: data, choices, Wi-Fi, passes, actions, history, reports, models."""
     await DomoTwinData(hass).async_remove()
     await Scheduler(hass).async_remove()
     await Choices(hass).async_remove()
     await Wifi(hass).async_remove()
+    await Guests(hass).async_remove()
     await ConfigHistory(hass).async_remove()
     await WeeklyReport(hass, DomoTwinData(hass)).async_remove()
     await PeopleTracker(hass, DomoTwinData(hass)).async_remove()
