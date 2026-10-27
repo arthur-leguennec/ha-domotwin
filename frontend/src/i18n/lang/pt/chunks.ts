@@ -119,6 +119,77 @@ export const chunks: Chunks = {
       },
     },
   },
+  first: {
+    first: {
+      title: "A sua casa a partir do Home Assistant",
+      intro:
+        "O DomoTwin desenha uma primeira planta a partir dos seus pisos e áreas: uma divisão por cada área, lado a lado, com os seus dispositivos lá dentro, associados. Depois, ajuste-a: o tamanho real das divisões, as portas, o lugar de cada objeto.",
+      home: "Casa",
+      none: "O Home Assistant ainda não tem nenhuma área: adicione as suas divisões como áreas nas definições do Home Assistant, ou importe uma planta.",
+      floor_all: "Todas as áreas do piso {floor}",
+      devices_in: { one: "{count} dispositivo", other: "{count} dispositivos" },
+      devices: "Colocar os seus dispositivos",
+      devices_hint:
+        "Luzes, televisores, colunas, termóstatos, o robô aspirador, sensores…, cada um na sua divisão, associado.",
+      furnish: "Mobilar as divisões",
+      furnish_hint:
+        "Uma cama em cada quarto, um sofá na sala de estar, uma mesa na sala de jantar…",
+      pick: "Escolha pelo menos uma área.",
+      build: "Desenhar a minha casa",
+      building: "A desenhar a sua casa…",
+      cancel: "Cancelar",
+      built: "A sua casa está desenhada: {rooms}, {devices}.",
+      built_rooms: { one: "{count} divisão", other: "{count} divisões" },
+      built_devices: {
+        one: "{count} dispositivo colocado",
+        other: "{count} dispositivos colocados",
+      },
+      built_left: {
+        one: "{count} dispositivo não encontrou espaço: coloque-o em Organizar.",
+        other: "{count} dispositivos não encontraram espaço: coloque-os em Organizar.",
+      },
+      failed: "Não foi possível desenhar a sua casa: {reason}",
+      steps: {
+        title: "Primeiros passos",
+        intro:
+          "Alguns passos para o DomoTwin ficar à medida da sua casa. Cada um abre onde se faz.",
+        done: "Feito",
+        plan: "Uma planta da sua casa",
+        plan_hint: "Desenhada a partir das suas áreas, importada, ou desenhada à mão.",
+        shape: "Dar forma às divisões",
+        shape_hint: "Arraste os cantos até ao tamanho real; mova as portas e as janelas.",
+        shape_go: "Editar planta",
+        areas: "Cada divisão associada à sua área",
+        areas_left: {
+          one: "{count} divisão ainda não tem área.",
+          other: "{count} divisões ainda não têm área.",
+        },
+        areas_done: "Todas as divisões têm a sua área.",
+        areas_go: "Associar",
+        devices: "Os seus dispositivos colocados",
+        devices_left: {
+          one: "{count} dispositivo das suas áreas ainda não está colocado.",
+          other: "{count} dispositivos das suas áreas ainda não estão colocados.",
+        },
+        devices_done: "Todos os dispositivos que o DomoTwin desenha estão colocados.",
+        devices_go: "Colocá-los",
+        arrange: "Cada objeto no seu lugar",
+        arrange_hint: "Arraste os objetos em Organizar, rode-os, adicione os seus.",
+        arrange_go: "Organizar",
+        people: "As pessoas nas suas divisões",
+        people_hint:
+          "Escolha o que diz onde está cada pessoa: um sensor de divisão, o Bluetooth, um radar.",
+        people_go: "Pessoas",
+        energy: "A energia",
+        energy_hint:
+          "Escolha os sensores da potência da casa, dos seus painéis solares e da sua bateria.",
+        energy_go: "Definições",
+        placed: { one: "{count} dispositivo colocado.", other: "{count} dispositivos colocados." },
+        placed_none: "Já não há nenhum dispositivo para colocar.",
+        close: "Fechar",
+      },
+    },
+  },
   guests: {
     guests: {
       title: "Acesso de convidados",

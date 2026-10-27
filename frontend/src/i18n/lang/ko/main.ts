@@ -797,6 +797,10 @@ export const main: Dictionary = {
   weekly: {
     menu: "주간 보고서",
   },
+  first_launch: {
+    start: "Home Assistant 영역으로 그리기",
+    menu: "시작하기",
+  },
   config_history: {
     menu: "구성 기록",
   },

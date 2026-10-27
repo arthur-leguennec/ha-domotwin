@@ -119,6 +119,73 @@ export const chunks: Chunks = {
       },
     },
   },
+  first: {
+    first: {
+      title: "Je huis vanuit Home Assistant",
+      intro:
+        "DomoTwin tekent een eerste plattegrond op basis van je verdiepingen en ruimtes: een kamer voor elke ruimte, naast elkaar, met de apparaten erin, gekoppeld. Daarna geef je hem vorm: de echte afmetingen van de kamers, de deuren, waar elk object staat.",
+      home: "Huis",
+      none: "Home Assistant heeft nog geen ruimte: voeg je kamers als ruimtes toe in de instellingen, of importeer een plattegrond.",
+      floor_all: "{floor}: alle ruimtes",
+      devices_in: { one: "{count} apparaat", other: "{count} apparaten" },
+      devices: "Hun apparaten plaatsen",
+      devices_hint:
+        "Lampen, tv's, speakers, thermostaten, de robotstofzuiger, sensoren…, elk in zijn kamer, gekoppeld.",
+      furnish: "De kamers meubileren",
+      furnish_hint:
+        "Een bed in elke slaapkamer, een bank in de woonkamer, een tafel in de eetkamer…",
+      pick: "Kies minstens één ruimte.",
+      build: "Mijn huis tekenen",
+      building: "Je huis wordt getekend…",
+      cancel: "Annuleren",
+      built: "Je huis is getekend: {rooms}, {devices}.",
+      built_rooms: { one: "{count} kamer", other: "{count} kamers" },
+      built_devices: { one: "{count} apparaat geplaatst", other: "{count} apparaten geplaatst" },
+      built_left: {
+        one: "{count} apparaat vond geen plek: plaats het in “Inrichten”.",
+        other: "{count} apparaten vonden geen plek: plaats ze in “Inrichten”.",
+      },
+      failed: "Je huis kon niet worden getekend: {reason}",
+      steps: {
+        title: "Aan de slag",
+        intro:
+          "Een paar stappen om van DomoTwin de tweeling van je huis te maken. Elke stap opent de plek waar je hem uitvoert.",
+        done: "Gedaan",
+        plan: "Een plattegrond van je huis",
+        plan_hint: "Getekend op basis van je ruimtes, geïmporteerd of met de hand getekend.",
+        shape: "De kamers vormgeven",
+        shape_hint: "Sleep hun hoeken naar hun echte grootte; verplaats de deuren en ramen.",
+        shape_go: "Plattegrond bewerken",
+        areas: "Elke kamer gekoppeld aan zijn ruimte",
+        areas_left: {
+          one: "{count} kamer heeft nog geen ruimte.",
+          other: "{count} kamers hebben nog geen ruimte.",
+        },
+        areas_done: "Elke kamer heeft zijn ruimte.",
+        areas_go: "Koppelen",
+        devices: "Hun apparaten geplaatst",
+        devices_left: {
+          one: "{count} apparaat uit hun ruimtes is nog niet geplaatst.",
+          other: "{count} apparaten uit hun ruimtes zijn nog niet geplaatst.",
+        },
+        devices_done: "Elk apparaat dat DomoTwin tekent, is geplaatst.",
+        devices_go: "Plaatsen",
+        arrange: "Elk object op zijn plek",
+        arrange_hint: "Sleep de objecten in “Inrichten”, draai ze, voeg je eigen toe.",
+        arrange_go: "Inrichten",
+        people: "Personen in hun kamers",
+        people_hint: "Kies wat zegt waar iedereen is: een kamersensor, Bluetooth, een radar.",
+        people_go: "Personen",
+        energy: "De energie",
+        energy_hint:
+          "Kies de sensoren van het vermogen van het huis, van de zonnepanelen en van de batterij.",
+        energy_go: "Instellingen",
+        placed: { one: "{count} apparaat geplaatst.", other: "{count} apparaten geplaatst." },
+        placed_none: "Geen apparaat meer te plaatsen.",
+        close: "Sluiten",
+      },
+    },
+  },
   guests: {
     guests: {
       title: "Gasttoegang",

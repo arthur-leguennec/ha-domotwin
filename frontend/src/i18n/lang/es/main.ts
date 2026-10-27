@@ -805,6 +805,10 @@ export const main: Dictionary = {
   weekly: {
     menu: "Informe semanal",
   },
+  first_launch: {
+    start: "Dibujarlo a partir de las áreas de Home Assistant",
+    menu: "Primeros pasos",
+  },
   config_history: {
     menu: "Historial de configuración",
   },
