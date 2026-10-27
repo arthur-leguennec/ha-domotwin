@@ -155,7 +155,9 @@ export class DomoTwinControls extends Sheet {
         ? html`<div class="footer">
             ${historyButton(this, t, this.entities, "controls-history", t.t("controls.history"))}
             ${
-              hass.demo
+              // Home Assistant's dialog has controls of its own: not for what the viewer only
+              // looks at (their rights, D-071).
+              hass.demo || hass.canAct?.(first) === false
                 ? nothing
                 : html`<button
                     class="action quiet"
@@ -392,8 +394,10 @@ export class DomoTwinRoom extends Sheet {
           ${this.admin ? html`<p class="empty">${t.t("room.no_area_admin")}</p>` : nothing} ${later}`,
       );
     }
+    // What the viewer's rights hide is not listed (D-071).
+    const seen = (id: string): boolean => hass.canSee?.(id) !== false;
     // Its air sensors' history (D-058) and its graphs (D-069), when it has some.
-    const sensors = hass.sandbox || hass.guest ? [] : roomSensors(hass, area);
+    const sensors = hass.sandbox || hass.guest ? [] : roomSensors(hass, area).filter(seen);
     const graphs = this.graphs && !hass.sandbox && !hass.guest && hasGraphs(hass, area);
     const footer =
       sensors.length > 0 || graphs
@@ -418,7 +422,7 @@ export class DomoTwinRoom extends Sheet {
             }
           </div>`
         : nothing;
-    const ids = areaEntities(hass, area);
+    const ids = areaEntities(hass, area).filter(seen);
     const groups = GROUPS.map((group) => ({
       key: group.key,
       ids: ids.filter((id) => group.domains.includes(id.split(".")[0] ?? "")),

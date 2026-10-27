@@ -579,7 +579,7 @@ mod tests {
             ),
             Some("fan")
         );
-        // The library's pieces by their names (D-071), the specific before the general.
+        // The library's pieces by their names (D-072), the specific before the general.
         for (name, expected) in [
             ("Tapis de course", "treadmill"),
             ("Tapis berbère", "rug"),

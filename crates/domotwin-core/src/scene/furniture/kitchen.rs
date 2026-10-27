@@ -1,4 +1,4 @@
-//! The kitchen's and the dining room's pieces of the library (D-071): an island, stools, a
+//! The kitchen's and the dining room's pieces of the library (D-072): an island, stools, a
 //! sideboard, ovens and small appliances, a wine cooler, freezers, and other styles of tables,
 //! chairs, fridges and cookers.
 

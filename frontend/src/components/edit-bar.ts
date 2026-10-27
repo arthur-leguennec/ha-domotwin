@@ -5,7 +5,7 @@
  *   several, add) and what is selected. It fires `domotwin-edit-command` (detail: the command),
  *   `domotwin-edit-multi` (detail: on or off) and `domotwin-edit-catalogue`;
  * - `<domotwin-catalogue>`: the pieces that can be added in each of their styles, by room, with a
- *   search and a picture of each drawn by an engine of its own (D-071), and the plan's own 3D
+ *   search and a picture of each drawn by an engine of its own (D-072), and the plan's own 3D
  *   models (« My models »). It fires `domotwin-add` (detail: `{ kind, style, name }`),
  *   `domotwin-add-model` and `domotwin-forget-model` (detail: `{ id }`) and
  *   `domotwin-import-model`;
@@ -189,7 +189,7 @@ export function pieceKey(piece: CataloguePiece): string {
   return piece.style ? `${piece.kind}.${piece.style}` : piece.kind;
 }
 
-/** The name of a kind's style (D-071), else the style. */
+/** The name of a kind's style (D-072), else the style. */
 export function styleName(t: Translator, kind: string, style: string): string {
   const key = `library.styles.${kind}.${style}` as MessageKey;
   const text = t.t(key);
@@ -225,7 +225,7 @@ export function matchingModels(models: UserModel[], t: Translator, query = ""): 
 /**
  * The catalogue's pieces in groups, translated and filtered by `query`: every word of it found in
  * the kind's name, its style's, the kind or the style themselves, or the other words the kind is
- * searched by (D-071).
+ * searched by (D-072).
  */
 export function catalogueGroups(
   kinds: CatalogueKind[],
@@ -566,7 +566,7 @@ export class DomoTwinCatalogue extends Sheet {
   look = "day";
   accent = "";
   protected query = "";
-  /** The pictures drawn so far, by piece (D-071). */
+  /** The pictures drawn so far, by piece (D-072). */
   protected pictures = new Map<string, string>();
   private artist?: PieceArtist;
   /** Waiting for its engine, or its engine refused (no picture then). */

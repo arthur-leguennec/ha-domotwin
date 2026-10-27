@@ -1,4 +1,4 @@
-//! The library's lights (D-071): wall lights, light strips and track lights, and other styles of
+//! The library's lights (D-072): wall lights, light strips and track lights, and other styles of
 //! pendants, floor lamps and ceiling lights.
 
 use std::f64::consts::{FRAC_PI_2, TAU};

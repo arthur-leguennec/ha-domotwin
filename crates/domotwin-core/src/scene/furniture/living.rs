@@ -1,4 +1,4 @@
-//! The living room's pieces of the library (D-071): a corner sofa, footstools, a TV stand, rugs,
+//! The living room's pieces of the library (D-072): a corner sofa, footstools, a TV stand, rugs,
 //! fireplaces, pianos, speakers, a rocking chair, benches, an aquarium and what stands on shelves.
 
 use std::f64::consts::{FRAC_PI_2, PI, TAU};

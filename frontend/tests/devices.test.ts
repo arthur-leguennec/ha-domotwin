@@ -114,7 +114,7 @@ describe("deviceBadges", () => {
     expect(badges.has("oven")).toBe(false);
   });
 
-  it("shows the library's appliances running (D-071)", () => {
+  it("shows the library's appliances running (D-072)", () => {
     const home = hass([
       ["sensor.kettle_power", "1800", POWER],
       ["sensor.charger_power", "7.2", { ...POWER, unit_of_measurement: "kW" }],

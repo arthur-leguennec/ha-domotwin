@@ -143,7 +143,7 @@ pub struct Targets {
 
 /// The screen colour of a TV that plays.
 const SCREEN: Rgb8 = Rgb8::from_u32(0xa9c4ff);
-/// The colour of a fire that burns (D-071).
+/// The colour of a fire that burns (D-072).
 pub const FIRE: Rgb8 = Rgb8::from_u32(0xff8a3d);
 
 /// What every element should look like, from the plan, the bindings and the entity states.
@@ -543,7 +543,7 @@ mod tests {
 
     #[test]
     fn a_fireplace_burns_while_its_switch_is_on_or_its_climate_heats() {
-        // D-071: three fireplaces, one on a switch, one on a climate entity, one linked to
+        // D-072: three fireplaces, one on a switch, one on a climate entity, one linked to
         // nothing.
         let plan = read_plan(
             serde_json::json!({

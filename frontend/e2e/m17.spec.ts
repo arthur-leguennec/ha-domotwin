@@ -27,7 +27,7 @@ function editLayout(page: Page): Promise<Record<string, { add?: Record<string, u
   );
 }
 
-test.describe("A library of objects (D-071)", () => {
+test.describe("A library of objects (D-072)", () => {
   test("pictures of the pieces, their styles, and a styled piece added", async ({ page }) => {
     const sheet = await catalogue(page);
     // The library's groups, each piece with a picture drawn by the engine.

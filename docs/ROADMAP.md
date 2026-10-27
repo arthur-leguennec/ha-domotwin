@@ -57,6 +57,7 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M25       | Safety: cameras, the doorbell, the alarm, alerts           | ✅     |
 | M24       | History and energy, with Home Assistant's own cards        | ✅     |
 | M35       | Automations in plain words, played in the sandbox first    | ✅     |
+| M34       | Per-person rights: what DomoTwin shows each one            | ✅     |
 | M17       | A library of objects: many pieces, free and well made      | ✅     |
 | M40       | The weather around the home, in 3D                         | ⏳     |
 | M41       | Locating measured, next to Bermuda's on the same days      | ⏳     |
@@ -66,7 +67,6 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | 0.5.0     | Fifth release: all of the above                            | ⏳     |
 | M42       | Finer locating: a spot in the room, storeys by the stairs  | ⏳     |
 | M43       | mmWave sensors merged into one picture of the home         | ⏳     |
-| M34       | Per-person rights: what DomoTwin shows each one            | ⏳     |
 | M37       | A weekly home report                                       | ⏳     |
 | M18       | Outdoors: garden, terrace, lawn, pool, roofs               | ⏳     |
 | M44       | Split levels and walk-out basements                        | ⏳     |
@@ -111,7 +111,9 @@ Assistant's sign-in, which DomoTwin enforces. Of M24 to M26, the maintainer then
 (M25, D-068) first, and history and energy (M24, D-069) next, both ahead of M40, M41 and M45.
 Automations in plain words (M35) came next, at the maintainer's request (D-070), on the sandbox it
 plays its drafts in.
-The library of objects (M17, D-071) was then moved forward as well.
+Per-person rights (M34, D-071) followed: what DomoTwin shows each person and lets them do, set in
+one place, and said not to be Home Assistant's enforcement.
+The library of objects (M17, D-072) was then moved forward as well.
 
 ## M0, scaffold
 
@@ -1596,10 +1598,51 @@ sandbox was in. DomoTwin calls no model itself.
   takes one only from inside its frontend); an automation of the home changed in plain words; the
   sandbox playing several days at once.
 
+## M34, per-person rights
+
+What DomoTwin shows each person and lets them do, room by room and device by device, set in one
+place (`DECISIONS.md`, D-071; [`rights.md`](rights.md)). Moved forward with guest access (M33);
+D-056's question (❓5) answered: DomoTwin's own, said plainly not to be enforcement.
+
+- ✅ **Levels**: a room or a device used (the default), only seen, or not seen; everyone's, and
+  each person's own through the Home Assistant user of their `person`; a device's own level, else
+  the strictest of its rooms'. Not for administrators. Kept with the home's settings, checked by
+  the integration.
+- ✅ **In one place**: *Rights* in the panel's ⋮ menu, for administrators: everyone's, then each
+  person's, every storey's rooms with their devices, and devices in no room; what the person uses,
+  only sees and does not see, in a sentence; an administrator, or a person without a user, said.
+- ✅ **What is not seen**: a room closed as a private one (M9g), everywhere private rooms are; a
+  device unlinked on the plan and left out of the tabs, the panels, "Why?" and the reports' search.
+- ✅ **What is only seen**: its state and values; a tap opens DomoTwin's own panel, its controls
+  disabled; Home Assistant's cards on the tabs do nothing on a tap; the room's commands and own
+  actions, and the Home tab's lights off, leave it out; nothing set or cancelled for later.
+- ✅ **DomoTwin's own services checked**: actions set or cancelled for later (the sheets,
+  `domotwin.schedule`, the voice assistants) refused on what someone may not use; the actions
+  waiting on what they do not see not listed; `domotwin.where` and `domotwin.show` as for a
+  private room; the rooms' people sensors silent on a room hidden from everyone.
+- ✅ **Said where they are set**: Home Assistant still lets every user use every entity elsewhere;
+  real enforcement needs Home Assistant ❓.
+- ✅ Tests: the levels (a person's own, everyone's, a device's own, a room's, its area's, a room
+  closed), the rights checked and kept without what is empty, what is refused and why, actions for
+  later set and refused, listed and cancelled, by the assistants too, a private room closed to a
+  user, administrators and Home Assistant itself left alone, a room hidden not told and its sensor
+  silent (pytest); whose rights apply, the rooms closed with the private ones, a device's level, a
+  call's entities (by area, by device, a script by its name, floors and labels refused), a call
+  refused before Home Assistant, the devices unlinked, the gate worked out once, Home Assistant's
+  cards to look at, the rows disabled, a tap opening DomoTwin's panel, a room's commands and
+  actions, every device of each room (vitest); someone who only looks, their controls disabled, a
+  device unlinked, a room closed, the Rooms tab's cards; an administrator setting them in one
+  place; French; a dashboard card (Playwright).
+- Measured: the first load grows by 3.1 kB, the gate and the controls' checks; the dialog is 6.3 kB
+  gzipped, on demand; the gate is worked out in 1.0 ms for 500 elements and 1 000 entities, and
+  once for the home as it is ([`PERFORMANCE.md`](PERFORMANCE.md), M34).
+- Left for later: a preview of the home as someone sees it; rights by time of day (a private room
+  while an entity is on already does it for a room); enforcement, which needs Home Assistant.
+
 ## M17, a library of objects
 
 Many more pieces, free and well made, drawn from real references, still fast; moved forward by the
-maintainer (D-071).
+maintainer (D-072).
 
 - ✅ **The pieces**: 61 kinds more (117) and 54 styles more (78): 195 pieces, from a corner sofa, a
   piano and a wood stove to a heat pump, a water heater, an electrical panel, an EV charger and a
@@ -1633,7 +1676,7 @@ maintainer (D-071).
   search, every style named in both languages, the devices' suggestions and badges (vitest); the
   pictures, a Chesterfield added at its size and colour, the search in French and a soundbar
   (Playwright).
-- Measured: the engine grows by 52.6 kB gzipped and the first load is 589.0 kB of 1 200; a new
+- Measured: the engine grows by 52.6 kB gzipped and the first load is 592.2 kB of 1 200; a new
   piece is at most 1 202 triangles (the wine cooler), the demo house's ground floor 19 286
   (+3 846); the catalogue's 195 pictures take 8.1 s in software WebGL (the first twelve 4.5 s, most
   of it the second engine's shaders), then come back at once ([`PERFORMANCE.md`](PERFORMANCE.md),
@@ -1725,15 +1768,13 @@ before its milestone starts, which goes on with what needs no answer.
   for what it says, no more.
 - ✅ **M33, guest access** (D-067, above): moved forward by the maintainer; a page of DomoTwin's
   own outside Home Assistant's sign-in, enforced by DomoTwin, which answers D-056's ❓4.
-- ⏳ **M34, per-person rights**: building on private rooms (M9g), the rooms and devices DomoTwin
-  shows each person and lets them act on, its own services checked against them, all of it set
-  on the plan in one place. DomoTwin can hide; Home Assistant decides what is enforced, and today
-  lets every user act on every entity: said where the rights are set. Real enforcement needs Home
-  Assistant ❓.
+- ✅ **M34, per-person rights** (D-071, above): moved forward with guest access; what DomoTwin
+  shows each person and lets them do, said not to be enforcement, which answers D-056's ❓5. Real
+  enforcement needs Home Assistant ❓.
 - ✅ **M35, automations in plain words, tested first** (D-070, above): moved forward by the
   maintainer once the sandbox was in.
 - ✅ **M20, more imports** (D-064, above): done before 0.5.0, at the maintainer's request.
-- ✅ **M17, a library of objects**, moved forward (D-071, above): 195 pieces in fourteen groups,
+- ✅ **M17, a library of objects**, moved forward (D-072, above): 195 pieces in fourteen groups,
   each with its picture drawn by the engine, free and well made, at the usual sizes of real ones.
 - ✅ **M36, configuration history** (D-062, above): done after Home Assistant's Overview, at
   the maintainer's request.
