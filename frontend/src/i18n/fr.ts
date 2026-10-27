@@ -720,6 +720,9 @@ export const fr: Dictionary = {
   plain: {
     menu: "Une automatisation dite avec vos mots",
   },
+  report: {
+    menu: "Bilan de la semaine",
+  },
   config_history: {
     menu: "Historique de la configuration",
   },

@@ -69,7 +69,7 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | 0.5.0     | Fifth release: all of the above                            | ⏳     |
 | M42       | Finer locating: a spot in the room, storeys by the stairs  | ✅     |
 | M43       | mmWave sensors merged into one picture of the home         | ✅     |
-| M37       | A weekly home report                                       | ⏳     |
+| M37       | A weekly home report                                       | ✅     |
 | M21       | More languages, right to left too                          | ⏳     |
 | 0.6.0     | Sixth release: all of the above                            | ⏳     |
 
@@ -119,6 +119,8 @@ wall screen (M26, D-076) closed M24 to M26 and D-065's order. The maintainer the
 outdoors (M18, D-077) before the first launch in five minutes too, and split levels (M44, D-078)
 right after it, whose ground they share; then finer locating (M42, D-079) and the mmWave sensors
 merged (M43, D-080), before more languages (M21) and the first launch (M22).
+The weekly report (M37, D-081), asked for by the maintainer, came after them: it reports
+Hydro-Québec's peaks of the week and each room's energy with the rest.
 
 ## M0, scaffold
 
@@ -1324,7 +1326,8 @@ stored; nothing shown without them.
   (Rust, wasm); nothing without an integration, a peak's rooms and legend, the pre-heating, the
   Home tab's chip and the way to 3D, hydroqc's calendar in French, the peak's day in the sandbox
   from *The day* and from the Home tab (Playwright).
-- ⏳ The week's peaks in the weekly report, with **M37**.
+- ✅ The week's peaks in the weekly report, with **M37** (D-081, below): each peak, and what the
+  home drew from the grid and each room during it.
 
 ## M20, more imports
 
@@ -1550,8 +1553,8 @@ D-069). After safety (M25), ahead of M40, M41 and M45 (D-065's order), at the ma
   back to the room, the graphs from a room's panel in 3D and back there, a private room, the
   Energy tab and back, none without an Energy page or with nothing set up, the demo house's power
   layer and plain rows, a phone in French (Playwright).
-- Left for later: a room's energy over the week on the plan, with the weekly report (**M37**);
-  graphs of a device from its controls in 3D (its history report is there, M38).
+- ✅ A room's energy over the week on the plan, with the weekly report (**M37**, D-081, below).
+- Left for later: graphs of a device from its controls in 3D (its history report is there, M38).
 
 ## M35, automations in plain words
 
@@ -1896,6 +1899,68 @@ Who is where: Bluetooth says who, mmWave says where, and fast (D-080,
 
 Measured at the end of M43: see [`PERFORMANCE.md`](PERFORMANCE.md).
 
+## M37, a weekly home report
+
+Once a week, what needs a look in the home, room by room on the plans (`DECISIONS.md`, D-081;
+[`report.md`](report.md)). Moved forward by the maintainer, after presence radars merged (M43).
+
+- ✅ **Written by the integration**, on the day and at the hour an administrator chose (Monday at
+  8), where the home is: no screen open. Looked for every hour; a week missed written once Home
+  Assistant has started again; a new home waits for its first day. One written by hand from the
+  page is kept, neither told nor counted as the week's.
+- ✅ **What needs a look**, read from what Home Assistant and the integrations installed say:
+  batteries low (Battery Notes' threshold, battery and level where it watches a device; else as
+  Home Assistant's Maintenance page counts them, at 20 % unless set, a device charging left out);
+  devices unavailable for an hour at least; updates waiting; repairs waiting, titled as Home
+  Assistant titles them (Spook's among them) and what Watchman finds missing; upkeep due and
+  warranties ending (D-033); automations that failed this week (their traces), cannot run or have
+  never run; Zigbee devices on a weak link, by the network map's rules (D-031), read from ZHA.
+- ✅ **The week's energy** against the week before, from Home Assistant's energy settings and
+  hourly statistics: what the home used, drew from the grid, got from the sun; each room's, from
+  the energy settings' individual devices in it, else its area's meters. **The week's
+  Hydro-Québec peaks** (M39): when the integrations' sensors said one was under way and those
+  hydroqc wrote in a calendar kept in Home Assistant, with what the home and each room drew.
+- ✅ **Room by room**: an item in the room of the piece, opening or room linked to it or to its
+  device, else of its area; what is new since the last report, and what was done. A private room
+  the viewer may not see is closed in the page (D-039).
+- ✅ **Told** by Home Assistant's notification (its link opens the report): names what every user
+  may see, counts the automations and the radios, which only administrators may read; an event,
+  `domotwin_weekly_report`, for one's own automations.
+- ✅ **A summary by the AI task an administrator chose** (Home Assistant 2025.8 and later), from
+  the report's facts, in the home's language; not a conversation agent, which might act on the
+  home; plain lists without one.
+- ✅ **The page in the panel**: *Weekly report* in the ⋮ menu, for administrators: the week and
+  those kept before, the summary, each storey's plan drawn in the page with its rooms tinted by
+  what needs a look and their energy (a room picked shows only its items), each item opening where
+  Home Assistant shows it or framed in 3D, the energy as a table, the peaks, what was done, the
+  settings. A chunk loaded when it opens. The demo house has reports of its own.
+- ✅ **Kept** in a private store of its own: the last eight reports; never in the diagnostics but
+  its settings; deleted with the integration.
+- ✅ Tests: batteries (Battery Notes', a device charging), devices unavailable and those only just
+  so, updates and one skipped, repairs and one ignored, Watchman's both sensors, upkeep, failed runs
+  in and out of the week, automations broken and never run, rooms from links, devices and areas,
+  weak radios by the network map's rules, the energy settings in both shapes, the week's energy and
+  peaks from the recorder's answers, new and done since the last, a device unavailable across a
+  restart, written on its day and told once (two hours at once, writing by hand), a week caught up,
+  a new home waiting, unloaded while writing, the AI task's summary, its refusal, a private room
+  and one hidden from everyone it is not told, the settings for administrators, kept leniently and
+  in bounds, the words in both languages, the day across a change of time, the diagnostics,
+  removed with the integration (pytest); the report read leniently, each item in words and where
+  it opens, the Maintenance page, the plans' rooms and labels, the demo house's reports, the
+  messages' placeholders (vitest); the sections and the rooms, a room picked, the energy and the
+  peaks, opening items and showing one in 3D, writing one, an earlier week, the settings, the
+  integration refusing, the notification's link and a user who is not an administrator, none yet,
+  a summary, a private room closed, French, the demo house (Playwright).
+
+![The weekly report of the fictional demo apartment: the week, a summary, what needs a look, room by room on the plans](figures/screenshot-report.png)
+
+Measured at the end of M37: see [`PERFORMANCE.md`](PERFORMANCE.md).
+
+Left for later: the placement advisor's weak spots (M31), worked out in the page (D-066); the
+radios of Zigbee2MQTT and Thread (the network map reads ZHA only, D-031); failed runs that have
+left the traces Home Assistant keeps; the report as a card of the Home tab or a dashboard; a report
+for one room on its area's page.
+
 ## Then, from 0.4.0 to 0.5.0
 
 Planned in D-056, with D-065's additions: the sandbox first, built during the two weeks of use since
@@ -1972,13 +2037,8 @@ before its milestone starts, which goes on with what needs no answer.
   each with its picture drawn by the engine, free and well made, at the usual sizes of real ones.
 - ✅ **M36, configuration history** (D-062, above): done after Home Assistant's Overview, at
   the maintainer's request.
-- ⏳ **M37, a weekly home report**: once a week, what needs a look: batteries low, devices
-  unavailable, updates and repairs waiting, upkeep due (M9d), weak radio links (M9b, M31),
-  automations that failed or never fired, the week's energy against the last, room by room on the
-  plan, and the week's Hydro-Québec peaks where M39 reads them. It reads what other integrations
-  already give where they are installed (Battery Notes, Watchman, Spook) rather than doing their
-  work again. A summary by the user's own conversation agent or AI task if there is one, plain lists
-  otherwise; a notification of Home Assistant's and a page in the panel.
+- ✅ **M37, a weekly home report** (D-081, above): done after presence radars merged (M43), at
+  the maintainer's request; the weak spots M31 works out in the page are left for later.
 - ✅ **M38, history as reports** (D-058, above): done right after the sandbox, at the
   maintainer's request.
 - ✅ **M18, outdoors** (D-077, above): moved before the first launch, at the maintainer's request.
@@ -1987,7 +2047,7 @@ before its milestone starts, which goes on with what needs no answer.
 - ✅ **M39, Hydro-Québec's peaks**, moved forward (D-063, above): the next peak, the pre-heating
   before it, which rooms shed and what they draw during it, in 3D and on the Home tab, and
   tomorrow's announced peak played in the sandbox, from the entities of hydroqc or HydroPeak. Its
-  part in the report comes with M37.
+  part in the report came with M37.
 - ⏳ **M21, more languages**: Italian, German, Spanish, Arabic (right to left), Chinese, Japanese,
   Korean, Portuguese (Portugal and Brazil) and others; last, once the texts of the rest are
   written, so that they are translated once.

@@ -4,10 +4,14 @@
   "after_dependencies": [
     "assist_pipeline",
     "bluetooth",
+    "energy",
     "hassio",
     "logbook",
     "lovelace",
-    "person"
+    "person",
+    "recorder",
+    "trace",
+    "zha"
   ],
   "codeowners": [
     "@arthur-leguennec"

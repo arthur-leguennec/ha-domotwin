@@ -21,10 +21,10 @@ Local, fast, Rust + WebAssembly.</p>
 > safety (the cameras, the doorbell, the alarm, the alerts on every tab), each room's graphs with
 > Home Assistant's Energy page a tab away, automations in plain words played in the sandbox before
 > they are saved, the weather around the home, how well the rooms are found, measured beside
-> Bermuda, a library of 195 pieces with their pictures, an iPhone followed without a Mac, and the
-> wall screen (its screen saver woken by whoever comes), and DomoTwin joined Home Assistant's own
-> Overview; a first launch in five minutes closes the way to 0.5.0. The submission to HACS's
-> default list waits on measurements on real devices.
+> Bermuda, a library of 195 pieces with their pictures, an iPhone followed without a Mac, the wall
+> screen (its screen saver woken by whoever comes) and a weekly report of what needs a look, and
+> DomoTwin joined Home Assistant's own Overview; a first launch in five minutes closes the way to
+> 0.5.0. The submission to HACS's default list waits on measurements on real devices.
 
 ## What sets it apart
 
@@ -234,6 +234,13 @@ Local, fast, Rust + WebAssembly.</p>
   -00:30:00 → -00:20:00", "Action 2 added"), and one item put back as it was, through the commands
   Home Assistant's own editors use. For administrators; no add-on, no Git. See [configuration
   history](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/config-history.md).
+- **A weekly report.** Once a week, what needs a look: batteries low (with the battery to buy,
+  from Battery Notes), devices unavailable, updates and repairs waiting (Spook's, and what
+  Watchman finds missing), upkeep due, automations that failed or never ran, Zigbee devices on a
+  weak link, the week's energy against the last and Hydro-Québec's peaks; room by room on the
+  plans, what is new and what was done. Home Assistant's notification says it, summed up by your
+  AI task if you choose one; the panel shows it. See [the weekly
+  report](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/report.md).
 - **Your voice.** A microphone button opens Home Assistant's Assist already listening, on a wall
   tablet as on a phone. When Assist cannot hear yet, DomoTwin sets up local voice with your
   consent: Whisper or Speech-to-Phrase and Piper, installed through the Supervisor, nothing

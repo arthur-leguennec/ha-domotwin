@@ -4,6 +4,7 @@ import {
   mdiAccountLockOutline,
   mdiBluetooth,
   mdiCheck,
+  mdiClipboardCheckOutline,
   mdiClose,
   mdiFlaskOutline,
   mdiCogOutline,
@@ -171,6 +172,7 @@ import type { ModelChoice } from "./edit-bar";
 import type { PlaceRequest } from "./network-panel";
 import type { PlanEditState, PlanTool } from "./plan-editor";
 import type { RoomChoice } from "./private-rooms";
+import type { ReportPlan } from "./report-dialog";
 import {
   nextFrame,
   type DomoTwinView,
@@ -384,6 +386,7 @@ export class DomoTwinPanel extends LitElement {
     voiceOpen: { state: true },
     configHistoryOpen: { state: true },
     plainOpen: { state: true },
+    reportOpen: { state: true },
     moreOpen: { state: true },
     tight: { state: true },
     compact: { type: Boolean, reflect: true },
@@ -571,6 +574,12 @@ export class DomoTwinPanel extends LitElement {
   protected plainOpen = false;
   /** The automation being written in plain words: it outlives its dialog and the sandbox. */
   private plainSession?: PlainSession;
+  /** The weekly report is open (D-081), on the report asked for (the notification's link). */
+  protected reportOpen = false;
+  private reportAsked?: number;
+  /** The plans the report is drawn on, the same while they are. */
+  private reportShown?: { from: unknown[]; plans: ReportPlan[] };
+  private reportClosedShown?: Set<string>;
   /** The menu of the export and the home's settings is open. */
   protected moreOpen = false;
   /** Too narrow for every button (a phone): the import and the storeys go in the More menu. */
@@ -1195,6 +1204,8 @@ export class DomoTwinPanel extends LitElement {
     this._hass = hass;
     this.requestUpdate("hass", old);
     if (first && this.isConnected) this.connectData();
+    // The weekly report asked for in the address (D-081), once the user is known.
+    if (hass?.user && !old?.user) this.openReportAsked();
   }
 
   /** The translator of the language shown, the same object while it is (the tabs keep theirs). */
@@ -1449,6 +1460,7 @@ export class DomoTwinPanel extends LitElement {
     this.voiceOpen = false;
     this.configHistoryOpen = false;
     this.plainOpen = false;
+    this.reportOpen = false;
     this.storeysOpen = false;
     this.storeyRemoveAsk = undefined;
     this.plan = undefined;
@@ -3330,6 +3342,7 @@ export class DomoTwinPanel extends LitElement {
     }
     // The first picture measured is of the 3D view shown as the panel opened (D-053).
     if (this.tab !== "3d" && !this.shown3d) this.firstPlan = false;
+    this.openReportAsked();
   }
 
   /** Home Assistant's address says the tab shown: replacing the one there, or after it. */
@@ -4304,6 +4317,7 @@ export class DomoTwinPanel extends LitElement {
                     )
                   : nothing
               }
+              ${item("report-menu", mdiClipboardCheckOutline, t.t("report.menu"), this.busy || this.sandbox !== undefined, () => this.openReport())}
               ${item("measure", mdiSpeedometer, t.t("measure.menu"), this.busy || this.measureOpen || this.sandbox !== undefined, this.openMeasure)}
               <hr />
               ${
@@ -4346,6 +4360,77 @@ export class DomoTwinPanel extends LitElement {
     } catch (error) {
       this.show(this.describe(error), true);
     }
+  };
+
+  /** Opens the weekly report (D-081), on a report or the newest: its module and texts, loaded
+   * the first time. */
+  private async openReport(asked?: number): Promise<void> {
+    try {
+      await import("./report-dialog");
+      this.reportAsked = asked;
+      this.reportOpen = true;
+    } catch (error) {
+      this.show(this.describe(error), true);
+    }
+  }
+
+  /**
+   * A report asked for in the address (`/domotwin?report=12`, the weekly notification's link,
+   * D-081): opened for an administrator, then left out of the address.
+   */
+  private openReportAsked(): void {
+    const hass = this._hass;
+    const params = new URLSearchParams(window.location.search);
+    // Left in the address until the user is known: whether they may see it is not known before.
+    if (!hass?.user || !params.has("report")) return;
+    const asked = Number(params.get("report"));
+    params.delete("report");
+    const search = params.toString();
+    window.history.replaceState(
+      window.history.state,
+      "",
+      `${window.location.pathname}${search ? `?${search}` : ""}${window.location.hash}`,
+    );
+    if (hass.user.is_admin) {
+      void this.openReport(Number.isInteger(asked) && asked > 0 ? asked : undefined);
+    }
+  }
+
+  /** Every storey's plan, lowest first, and its name: what the report is drawn on. */
+  private reportPlans(): ReportPlan[] {
+    const from = [this.plan, this.elsewhere, this.storeys, this.storey, this.t];
+    const shown = this.reportShown;
+    if (shown && from.every((value, i) => value === shown.from[i])) return shown.plans;
+    const elsewhere = new Map(this.elsewhere.map((other) => [other.storey, other.plan]));
+    const levels = storeyLevels(this.storeys);
+    // The storey shown is the one whose plan is not among the others'.
+    const here = this.storey ?? levels.find(({ storey }) => !elsewhere.has(storey.id))?.storey.id;
+    const plans = levels.flatMap(({ storey, level }): ReportPlan[] => {
+      const plan = storey.id === here ? this.plan : elsewhere.get(storey.id);
+      return plan ? [{ storey: storey.id, name: storeyName(this.t, storey, level), plan }] : [];
+    });
+    // A home of one storey not listed yet: its plan alone.
+    if (plans.length === 0 && this.plan)
+      plans.push({ storey: here ?? "", name: "", plan: this.plan });
+    this.reportShown = { from, plans };
+    return plans;
+  }
+
+  /** The rooms the viewer may not see now (D-039, D-071), the same set while they are the same. */
+  private reportClosed(): Set<string> {
+    const closed = closedRooms(this.settings?.rooms, this.settings?.rights, this._hass);
+    const kept = this.reportClosedShown;
+    if (kept && kept.size === closed.size && [...closed].every((room) => kept.has(room))) {
+      return kept;
+    }
+    this.reportClosedShown = closed;
+    return closed;
+  }
+
+  /** "Show in 3D" from the report: closed, the element framed in the 3D view. */
+  private readonly onReportShow = (event: CustomEvent<{ element: string }>): void => {
+    this.reportOpen = false;
+    void this.showRequest({ element: event.detail.element });
   };
 
   /** Opens guest access (D-067): its module (loaded the first time) and every storey's plan. */
@@ -4917,6 +5002,18 @@ export class DomoTwinPanel extends LitElement {
             .hass=${this._hass}
             @domotwin-close=${() => (this.configHistoryOpen = false)}
           ></domotwin-config-history>`
+        : nothing
+    }
+    ${
+      this.reportOpen
+        ? html`<domotwin-report
+            .hass=${this._hass}
+            .plans=${this.reportPlans()}
+            .closed=${this.reportClosed()}
+            .asked=${this.reportAsked}
+            @domotwin-close=${() => (this.reportOpen = false)}
+            @domotwin-show=${this.onReportShow}
+          ></domotwin-report>`
         : nothing
     }
     ${this.plainOpen && this.plainSession && this._hass ? this.renderPlain(this._hass, this.plainSession) : nothing}

@@ -10,6 +10,7 @@ from .const import DOMAIN
 from .garden import Garden
 from .guests import Guests
 from .locator import Locator
+from .report import WeeklyReport
 from .schedules import Scheduler
 from .screens import Screens
 from .storage import DomoTwinData
@@ -26,5 +27,6 @@ SCREENS_KEY: HassKey[Screens] = HassKey(f"{DOMAIN}_screens")
 GARDEN_KEY: HassKey[Garden] = HassKey(f"{DOMAIN}_garden")
 GUESTS_KEY: HassKey[Guests] = HassKey(f"{DOMAIN}_guests")
 CONFIG_HISTORY_KEY: HassKey[ConfigHistory] = HassKey(f"{DOMAIN}_config_history")
+REPORT_KEY: HassKey[WeeklyReport] = HassKey(f"{DOMAIN}_report")
 STATIC_REGISTERED_KEY: HassKey[bool] = HassKey(f"{DOMAIN}_static_registered")
 VIEWS_REGISTERED_KEY: HassKey[bool] = HassKey(f"{DOMAIN}_views_registered")

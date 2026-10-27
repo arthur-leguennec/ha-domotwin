@@ -81,6 +81,11 @@
 //   that instead, window.__aiHold (a promise) holds the answer back, window.__aiFail = "<message>"
 //   makes it refuse, window.__invalidConfig = { part, error } makes Home Assistant's check refuse;
 //   window.__apiHold (a promise) holds Home Assistant's configuration API back)
+//   weekly=1 (the weekly report, D-081: two fictional reports of the demo apartment, last week's
+//   and this week's, written on Monday mornings; Home Assistant 2026.10's Maintenance page),
+//   weekly=summary (this week's summed up by a fictional AI task, ai_task.helper), weekly=none
+//   (no report yet); report=<id> asks the panel for a report, as the notification's link does
+//   (window.__refuseReport = "<code>" makes the integration refuse to write one)
 import { applyService, demoHome } from "./demo-home.mjs";
 
 const params = new URLSearchParams(location.search);
@@ -565,6 +570,171 @@ async function fetchWithAuth(path, init = {}) {
     return Response.json({ code: "not_found" }, { status: 404 });
   return new Response(bytes);
 }
+// The weekly report (D-081), as the integration keeps it: the reports, oldest first, and its
+// settings.
+const weekly = params.get("weekly");
+const reports = weekly && weekly !== "none" ? fictionalReports(weekly === "summary") : [];
+let reportSettings = {
+  weekly: true,
+  weekday: 0,
+  hour: 8,
+  notify: true,
+  summary: weekly === "summary" ? "ai_task.helper" : null,
+  battery: 20,
+};
+
+function fictionalReports(summary) {
+  const week = (end) => ({
+    start: new Date(Date.parse(end) - 7 * 86_400_000).toISOString(),
+    end,
+  });
+  const motion = {
+    key: "battery:dev-hall-motion",
+    name: "Hall motion sensor",
+    device: "dev-hall-motion",
+    level: 8,
+    battery: "CR2032",
+    room: "hall",
+  };
+  const window_ = {
+    key: "battery:binary_sensor.bedroom_window_battery",
+    name: "Bedroom window",
+    entity: "binary_sensor.bedroom_window_battery",
+    level: 15,
+    room: "bedroom",
+  };
+  const plug = {
+    key: "unavailable:dev-kitchen-plug",
+    name: "Kitchen plug",
+    device: "dev-kitchen-plug",
+    since: "2026-10-23T09:00:00.000Z",
+    room: "kitchen",
+  };
+  const router = {
+    key: "update:update.router:1.3",
+    name: "Router firmware",
+    entity: "update.router",
+    installed: "1.2",
+    latest: "1.3",
+  };
+  const tv = { key: "update:update.tv:6", name: "TV firmware", entity: "update.tv" };
+  const spook = {
+    key: "repair:spook:unknown_entity",
+    name: "Unknown entity in an automation",
+    domain: "spook",
+    severity: "warning",
+  };
+  const watchman = {
+    key: "watchman:missing_entities:light.old_lamp",
+    name: "light.old_lamp",
+    domain: "watchman",
+    missing: "entity",
+  };
+  const filter = {
+    key: "upkeep:washer:Clean the filter:2026-10-20",
+    name: "Washer",
+    piece: "washer",
+    task: "Clean the filter",
+    due: "2026-10-20",
+    state: "overdue",
+    room: "bathroom",
+  };
+  const evening = {
+    key: "automation:automation.evening_lights:failed",
+    name: "Evening lights",
+    entity: "automation.evening_lights",
+    id: "1700000000001",
+    problem: "failed",
+    runs: 2,
+    last: "2026-10-24T22:00:00.000Z",
+    run_id: "r-1",
+    error: "Light not found",
+  };
+  const bedroomPlug = {
+    key: "radio:dev-bedroom-plug",
+    name: "Bedroom plug",
+    device: "dev-bedroom-plug",
+    lqi: 60,
+    hops: 2,
+    room: "bedroom",
+  };
+  return [
+    {
+      id: 1,
+      at: "2026-10-19T12:00:00.000Z",
+      by: "schedule",
+      week: week("2026-10-19T04:00:00.000Z"),
+      sections: {
+        batteries: [window_],
+        unavailable: [],
+        updates: [tv],
+        repairs: [],
+        upkeep: [],
+        automations: [],
+        radios: [],
+      },
+      energy: { home: { week: 100, before: 96 }, grid: { week: 100, before: 96 } },
+      peaks: [],
+    },
+    {
+      id: 2,
+      at: "2026-10-26T12:00:00.000Z",
+      by: "schedule",
+      week: week("2026-10-26T04:00:00.000Z"),
+      sections: {
+        batteries: [{ ...motion, new: true }, window_],
+        unavailable: [{ ...plug, new: true }],
+        updates: [{ ...router, new: true }],
+        repairs: [
+          { ...spook, new: true },
+          { ...watchman, new: true },
+        ],
+        upkeep: [{ ...filter, new: true }],
+        automations: [{ ...evening, new: true }],
+        radios: [{ ...bedroomPlug, new: true }],
+      },
+      gone: { updates: [{ key: tv.key, name: tv.name }] },
+      energy: {
+        home: { week: 84, before: 100 },
+        grid: { week: 84, before: 100 },
+        rooms: { kitchen: { week: 7, before: 5 }, living: { week: 12.5, before: 14 } },
+      },
+      peaks: [
+        {
+          start: "2026-10-20T10:00:00.000Z",
+          end: "2026-10-20T13:00:00.000Z",
+          grid: 1.5,
+          rooms: { kitchen: 0.4 },
+        },
+      ],
+      ...(summary
+        ? {
+            summary: {
+              by: "ai_task.helper",
+              text: "The hall motion sensor needs a CR2032, and the evening lights failed twice.",
+            },
+          }
+        : {}),
+    },
+  ];
+}
+
+function reportAnswer(report) {
+  return {
+    settings: structuredClone(reportSettings),
+    reports: [...reports].reverse().map((each) => ({
+      id: each.id,
+      at: each.at,
+      by: each.by,
+      week: each.week,
+      counts: Object.fromEntries(
+        Object.entries(each.sections).map(([section, items]) => [section, items.length]),
+      ),
+    })),
+    report: report ? structuredClone(report) : null,
+  };
+}
+
 // The configuration history (D-062), as the integration keeps it: each item's versions, oldest
 // first, and what Home Assistant's editors saved since it last read them.
 const configItems = params.get("confighistory") === "1" ? fictionalConfigHistory() : [];
@@ -1755,6 +1925,49 @@ const connection = {
         }
         return { changed };
       }
+      case "domotwin/report/get": {
+        if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        const report =
+          message.report === undefined
+            ? reports.at(-1)
+            : reports.find((each) => each.id === message.report);
+        if (!report && message.report !== undefined) {
+          throw { code: "unknown_report", message: "unknown_report" };
+        }
+        return reportAnswer(report);
+      }
+      case "domotwin/report/write": {
+        if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        if (window.__refuseReport) throw { code: window.__refuseReport, message: "refused" };
+        const newest = reports.at(-1);
+        const written = {
+          ...structuredClone(newest ?? { sections: {}, week: { start: "", end: "" } }),
+          id: (newest?.id ?? 0) + 1,
+          at: new Date().toISOString(),
+          by: "hand",
+        };
+        for (const items of Object.values(written.sections)) {
+          for (const item of items) delete item.new;
+        }
+        delete written.gone;
+        if (!newest) {
+          written.week = {
+            start: "2026-10-19T04:00:00.000Z",
+            end: "2026-10-26T04:00:00.000Z",
+          };
+        }
+        reports.push(written);
+        return reportAnswer(written);
+      }
+      case "domotwin/report/settings": {
+        if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        const next = { ...reportSettings, ...message.settings };
+        if (!Number.isInteger(next.hour) || next.hour < 0 || next.hour > 23) {
+          throw { code: "invalid", message: "hour" };
+        }
+        reportSettings = next;
+        return { settings: structuredClone(reportSettings) };
+      }
       case "lovelace/config/save":
         if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
         configPending.set(`dashboard:${message.url_path ?? ""}`, structuredClone(message.config));
@@ -2382,6 +2595,14 @@ if (sunPosition) {
     attributes: { azimuth, elevation, rising: azimuth < 180 },
   };
 }
+// The AI task that sums the weekly report up (D-081).
+if (weekly === "summary") {
+  states["ai_task.helper"] = {
+    entity_id: "ai_task.helper",
+    state: "unknown",
+    attributes: { friendly_name: "Helper", supported_features: 1 },
+  };
+}
 let hass = {
   states,
   entities: home.entities,
@@ -2403,7 +2624,7 @@ let hass = {
       ...(bluetoothParam === "1" ? ["bluetooth"] : []),
       ...(voiceParam ? ["conversation", "assist_pipeline"] : []),
       ...(why ? ["logbook"] : []),
-      ...(aiTask ? ["ai_task"] : []),
+      ...(aiTask || weekly === "summary" ? ["ai_task"] : []),
     ],
     // A fictional place, rounded: the sandbox's sun.
     ...(sandbox ? { time_zone: "Europe/Paris", latitude: 46, longitude: 2 } : {}),
@@ -2411,7 +2632,7 @@ let hass = {
     // security=1: with its Security page (D-068).
     ...(overview || security ? { version: "2026.10.0" } : { version: "2026.1.0" }),
   },
-  ...(overview || security || energyPage
+  ...(overview || security || energyPage || weekly
     ? {
         panels: {
           ...(overview ? { home: { url_path: "home" } } : {}),
@@ -2419,6 +2640,8 @@ let hass = {
           ...(params.get("nopanel") === "1" ? {} : { domotwin: { url_path: "domotwin" } }),
           // energypage=1: Home Assistant's Energy page (D-069).
           ...(energyPage ? { energy: { url_path: "energy" } } : {}),
+          // Home Assistant's Maintenance page (2026.5 and later), for the weekly report (D-081).
+          ...(weekly ? { maintenance: { url_path: "maintenance" } } : {}),
         },
       }
     : {}),

@@ -100,6 +100,9 @@ every reader returns `Result` with a stable error code that the frontend transla
   history-graph and statistics-graph cards, which `components/room-graphs.ts` shows in the Rooms
   tab's chunk; `live/overview.ts` gives the address of Home Assistant's Energy page, which the
   panel's Energy tab opens.
+- The weekly report (D-081): `components/report-dialog.ts` (its own chunk) shows what
+  `domotwin/report/get` answers (`live/report.ts`), each storey's rooms drawn as SVG from their
+  outlines; the integration writes the reports (`custom_components/domotwin/report*.py`).
 - `src/i18n/` holds the English and French dictionaries. Every visible string goes through `t()`.
 
 ![Render on demand: frames only when something changes, nothing while idle or off-screen](figures/render-on-demand.png)
@@ -265,6 +268,17 @@ every reader returns `Result` with a stable error code that the frontend transla
    (`SandboxHome`'s `draft`), which tells the dialog what it did each day played; the view draws
    its wires (`showWires`). Saved through `POST /api/config/automation/config/<id>`. Nothing of
    it is in the integration, and DomoTwin calls no model itself.
+12. **Weekly report.** The integration's `report.py` (D-081) looks every hour, on the hour,
+   whether the week's report is due (the day and hour chosen, a week missed caught up once Home
+   Assistant has started), and writes it: what needs a look from Home Assistant's states,
+   registries, repairs and traces and from the integrations installed (`report_look.py`, which
+   also places each item in a room of the plans), the Zigbee devices on a weak link from ZHA's
+   own helpers (`report_radios.py`), the week's energy and Hydro-Québec's peaks from the energy
+   settings, the recorder's statistics and history, and the calendars kept in Home Assistant
+   (`report_week.py`). An AI task an administrator chose sums it up (`ai_task.generate_data`);
+   Home Assistant's notification says it (`report_words.py`) and the event
+   `domotwin_weekly_report` lets automations send it on. The page reads it over
+   `domotwin/report/*`.
 
 ## Storage
 
@@ -396,6 +410,14 @@ guests may use the devices, `wifi` whether the home's Wi-Fi is shown, `anywhere`
 from outside the home's network. 20 passes at most; one ended 30 days ago is forgotten. See
 [`guests.md`](guests.md).
 
+`.storage/domotwin.reports` (D-081, its own store, version 1, private): the weekly report's
+`settings` (`weekly`, `weekday` 0 to 6 from Monday, `hour`, `notify`, `summary`: an AI task or
+`null`, `battery`: the level a battery is low at), `since` (when reports started being kept),
+`next` (the next report's id), `last_scheduled` (when the last week's was written) and the
+`reports`, oldest first (the last eight weeks' and two written by hand): `{id, at, by: "schedule"
+| "hand", week: {start, end}, sections: {<section>: [item]}, more?, gone?, energy?, peaks?,
+summary?}`, a hundred items a section. See [`report.md`](report.md).
+
 The 3D files of user models are not in `.storage`: they are kept under their SHA-256 in
 `<config>/domotwin/models/<sha256>.<format>` (D-021), uploaded with `POST /api/domotwin/models?format=…`
 (administrators; answers `{hash, bytes, format}`) and read with
@@ -444,9 +466,12 @@ when the integration is removed.
 | `domotwin/guests/get`    | admin  | –                                              | `passes` (`[{id, name, rooms, entities, starts, ends, act, wifi, anywhere, path, url, status}]`) |
 | `domotwin/guests/save`   | admin  | `pass` (`{id?, name, rooms, entities, starts, ends, act?, wifi?, anywhere?, renew?}`) | the pass, as `get` lists it |
 | `domotwin/guests/remove` | admin  | `pass` (its id)                                | `removed`                        |
+| `domotwin/report/get`    | admin  | `report?` (the newest without one)             | `settings`, `reports` (`[{id, at, by, week, counts}]`, newest first), `report` (`null`: none yet) |
+| `domotwin/report/write`  | admin  | –                                              | the same, `report` the one written now |
+| `domotwin/report/settings` | admin | `settings` (those given)                      | `settings`                       |
 | `domotwin/garden/get`    | user   | –                                              | `lawns`, `mowers` (ISO times, D-077) |
 | `domotwin/garden/mowed`  | user   | `room` (a lawn of the plans)                   | `lawns`, `mowers` (`unknown_lawn` otherwise) |
-| `domotwin/subscribe`     | user   | –                                              | events `{kind, revision}` (`screens` too, D-076; `garden`, D-077), and `{kind: "show", show}` for `domotwin.show` |
+| `domotwin/subscribe`     | user   | –                                              | events `{kind, revision}` (`screens` too, D-076; `garden`, D-077; `report`, D-081), and `{kind: "show", show}` for `domotwin.show` |
 
 Errors: `not_loaded`, `invalid_plan`, `invalid_layout`, `invalid_bindings`, `invalid_settings`,
 `invalid_upkeep`, `unknown_task`, `invalid_people`, `unknown_person`, `invalid_locating`,
