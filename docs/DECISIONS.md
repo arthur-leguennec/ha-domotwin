@@ -117,6 +117,13 @@ explains why. Each entry: context, decision, consequences.
   `async_register_static_paths` (2024.7), `single_config_entry` (2024.3) and options flows without a
   stored `config_entry` (2024.11). CI tests against the current release through
   `pytest-homeassistant-custom-component`.
+- **Python: 3.12.** Home Assistant 2025.1 runs on Python 3.12 and 3.13 (2025.2 dropped 3.12, 2026.3
+  is the first on 3.14), so the integration must parse and run on 3.12, whatever the tests run on
+  (D-011). Ruff targeted `py314` at first: its formatter wrote `except A, B:` (3.14 only) in
+  `schedules.py`, and in 0.3.0 and 0.4.0 the whole integration failed to load before Home
+  Assistant 2026.3. Ruff and mypy now target 3.12 (both reject newer syntax, mypy also the newer
+  standard library), and CI byte-compiles `custom_components/domotwin` with Python 3.12 before the
+  other checks. Raising the floor means raising `hacs.json`, these targets and that step together.
 
 ## D-011 · Versions
 
@@ -124,7 +131,7 @@ explains why. Each entry: context, decision, consequences.
   and `frontend/package.json`, all bumped by release-please. The Rust crates are internal
   (`publish = false`) and keep version `0.0.0`, so `Cargo.lock` never changes on a release.
 - **Toolchains.** Rust 1.97.0 (`rust-toolchain.toml`), Node 22 (`.nvmrc`), Python 3.14 (required by
-  the current Home Assistant). TypeScript stays on 6.0 because `typescript-eslint` does not support
+  the current Home Assistant) for the tests; the integration's code stays on 3.12 (D-010). TypeScript stays on 6.0 because `typescript-eslint` does not support
   TypeScript 7 yet.
 
 ## D-012 · Secret scanning without a third-party action

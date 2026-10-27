@@ -25,6 +25,7 @@ address or a real floor plan.
 | binaryen     | 133 or newer (`wasm-opt`)                 | release size                           |
 | Node.js      | 22 (`.nvmrc`)                             | frontend, E2E                          |
 | Python       | 3.14                                      | integration tests                      |
+| Python       | 3.12                                      | compile check of the integration       |
 | pre-commit   | any recent                                | local checks                           |
 
 ```sh
@@ -55,6 +56,7 @@ cd frontend && npm run lint && npm run format:check && npm run typecheck && npm 
 npx playwright test         # needs scripts/build.sh first; --project=perf: the measurements alone
 
 # Python
+python3.12 -m compileall -q custom_components/domotwin   # it must parse on the oldest Python
 ruff check custom_components tests && ruff format --check custom_components tests
 mypy && pytest
 
