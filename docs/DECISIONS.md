@@ -3104,7 +3104,9 @@ M37, moved forward by the maintainer from the way to 0.6.0 (D-056), after Hydro-
   - The integration reads Home Assistant's registries and states, its traces
     (`trace.util.async_list_traces`, 2024.11 and later), its issue registry, energy settings and
     recorder, and ZHA's own helpers, each guarded: what cannot be read is left out of the report,
-    the rest is written.
+    the rest is written. The manifest names `energy`, `recorder`, `trace` and `zha` among its
+    `after_dependencies`, as hassfest asks of what an integration imports: none is needed, and
+    one that is configured is set up before DomoTwin.
   - A run that failed and has left the five traces kept by the time the report is written is not
     counted; a crash loses the traces since the last start (Home Assistant saves them when it
     stops).
