@@ -922,7 +922,7 @@ async def test_written_on_its_day_and_told(
     assert [entry["by"] for entry in weekly.list()] == ["schedule", "hand", "hand", "schedule"]
     # Told once a week, never for those written by hand; compared with last week's.
     assert len(events) == 2
-    assert "gone" not in weekly.get()
+    assert "gone" not in (weekly.get() or {})
 
 
 async def test_a_week_missed_is_caught_up(
