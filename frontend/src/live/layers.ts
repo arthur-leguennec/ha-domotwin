@@ -11,7 +11,7 @@ export const HEAT_KINDS = ["temperature", "humidity", "co2", "pm25"] as const;
 export type HeatKind = (typeof HEAT_KINDS)[number];
 /**
  * What the layer menu shows: nothing, a heatmap, the power layer, the network map (D-031,
- * offered to administrators with ZHA set up), the radio coverage (D-061, administrators), every
+ * offered to administrators with ZHA set up), the radio coverage (D-062, administrators), every
  * automation's wires (D-032, administrators) or upkeep (D-033: the pieces tinted by their tasks,
  * and the list of them).
  */
@@ -35,13 +35,21 @@ export function automationsAvailable(hass: HomeAssistant | undefined): boolean {
   return hass?.user?.is_admin === true;
 }
 
+/**
+ * A layer asked for by its name (a summary card's address, D-061). Whether this user may see it is
+ * the view's to say, as for a layer chosen in its menu: it shows none it may not.
+ */
+export function layerAsked(name: string | null): LayerName | undefined {
+  return LAYER_NAMES.find((known) => known === name);
+}
+
 /** Whether the network map can be offered: to administrators, with ZHA set up (D-031). */
 export function networkAvailable(hass: HomeAssistant | undefined): boolean {
   return hass?.user?.is_admin === true && (hass.config?.components ?? []).includes("zha");
 }
 
 /**
- * Whether the radio coverage can be offered (D-061): to administrators, who alone may read the
+ * Whether the radio coverage can be offered (D-062): to administrators, who alone may read the
  * receivers and the mesh.
  */
 export function coverageAvailable(hass: HomeAssistant | undefined): boolean {
@@ -114,7 +122,7 @@ export interface LayerChoice {
    * would tell someone is in (CO₂) or a window is open (rain); their dangers stay.
    */
   closed?: Set<string>;
-  /** The radio coverage's rooms (D-061), each its level's rank, drawn with its layer. */
+  /** The radio coverage's rooms (D-062), each its level's rank, drawn with its layer. */
   coverage?: Record<string, number>;
 }
 

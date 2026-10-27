@@ -24,9 +24,10 @@ Local, fast, Rust + WebAssembly.</p>
 > robot vacuums, the home's energy, the demo house, measuring a device's speed and the practical
 > home (the Home, Rooms and 3D tabs) work today, and make up version 0.4.0. Since then, the
 > sandbox plays a day of the home's automations on a copy of it, "Why?" says who or what changed a
-> device, the Wi-Fi QR code welcomes guests, and the radio coverage says where the next radio helps
-> most. Home Assistant's own Overview, joined rather than copied, comes next, towards version 0.5.0;
-> the submission to HACS's default list waits on measurements on real devices.
+> device, the Wi-Fi QR code welcomes guests, DomoTwin joins Home Assistant's own Overview rather
+> than copying it, and the radio coverage says where the next radio helps most. History and energy,
+> safety and the wall screen come next, towards version 0.5.0; the submission to HACS's default list
+> waits on measurements on real devices.
 
 ## Features
 
@@ -88,6 +89,11 @@ Local, fast, Rust + WebAssembly.</p>
   joins it with, in the page; or shows your router's own code. For administrators, and on the wall
   screens you choose; the password stays in DomoTwin's private storage. See [the Wi-Fi for
   guests](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/wifi.md).
+- **Into Home Assistant's Overview.** A room tapped in 3D opens its area's page of the Overview
+  (2026.2 and later). Each room's area page shows who is in it and the upkeep due, and DomoTwin's
+  summary cards (the people, the network, the automations, the upkeep, the robots) open the 3D view
+  on what they sum up. See [DomoTwin and the
+  Overview](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/overview.md).
 - **Automation wires.** Long-press a lamp: its panel lists the automations that involve it, with
   their switch and when they last ran. Show their wires, from what sets them off to what they act
   on, and watch a pulse run along them when one runs. Or every automation of the home at once.

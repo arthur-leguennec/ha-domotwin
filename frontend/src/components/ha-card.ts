@@ -2,7 +2,7 @@
  * `<domotwin-ha-card>`: one of Home Assistant's own cards (D-055), made by its card helpers and
  * given each new `hass`. Where there are none (the demo house, whose entities Home Assistant's
  * dialogs do not know, D-050; a Home Assistant that loads its dashboards another way), DomoTwin's
- * own plain row stands in.
+ * own cards are made as they are, and DomoTwin's own plain row stands in for the others.
  */
 import { LitElement, css, html, nothing, type PropertyValues, type TemplateResult } from "lit";
 
@@ -20,6 +20,21 @@ export function condition(t: Translator, state: string): string {
   const key = `home.conditions.${state}`;
   const text = t.t(key as MessageKey);
   return text === key ? state : text;
+}
+
+/** A `custom:` card whose element is defined, made and given its configuration; else none. */
+function customCard(config: CardConfig): HassCard | undefined {
+  const type = typeof config.type === "string" ? config.type : "";
+  if (!type.startsWith("custom:")) return undefined;
+  const tag = type.slice("custom:".length);
+  if (!customElements.get(tag)) return undefined;
+  const card = document.createElement(tag) as HassCard & { setConfig?: (config: unknown) => void };
+  try {
+    card.setConfig?.(config);
+  } catch {
+    return undefined;
+  }
+  return card;
 }
 
 export class DomoTwinHaCard extends LitElement {
@@ -104,7 +119,14 @@ export class DomoTwinHaCard extends LitElement {
     const helpers = hass.demo ? undefined : await cardHelpers();
     if (key !== this.madeFor) return;
     if (!helpers) {
-      this.plain = true;
+      // DomoTwin's own cards (D-061), and any other defined here, need no helper to be made.
+      const card = customCard(config);
+      if (card) {
+        card.hass = this.hass;
+        this.card = card;
+      }
+      this.plain = !card;
+      this.requestUpdate();
       return;
     }
     try {

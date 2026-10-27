@@ -140,7 +140,9 @@ import {
   type EnergySettings,
 } from "../live/energy";
 import { watts } from "../live/devices";
-import { formatPower, numberOf } from "../live/layers";
+import { formatPower, layerAsked, numberOf } from "../live/layers";
+import { navigate } from "../live/actions";
+import { areaPage } from "../live/overview";
 
 /** The plan format allows files up to 32 MB. */
 const MAX_FILE_BYTES = 32_000_000;
@@ -155,9 +157,13 @@ const PANEL_OPTIONS: ViewOptions = {
   lighting: "auto",
 };
 const TOAST_MS = 6000;
+/** How long a layer asked for in the address waits for the plan to be drawn, and how often it
+ * looks (ms). */
+const LAYER_WAIT_MS = 5 * 60_000;
+const LAYER_POLL_MS = 250;
 /** How long before settings that could not be read are asked for again (ms). */
 const SETTINGS_RETRY_MS = 10_000;
-/** No Wi-Fi access point placed (D-061): the same array every time. */
+/** No Wi-Fi access point placed (D-062): the same array every time. */
 const NO_ACCESS_POINTS: AccessPoint[] = [];
 /** Upkeep cards saved at once when a file fills them (the integration takes up to 2 000). */
 const CARDS_AT_ONCE = 400;
@@ -2680,6 +2686,7 @@ export class DomoTwinPanel extends LitElement {
         this.from3d = tab === "rooms" && !!area && from3d;
       this.tab = tab;
       this.roomOpen = tab === "rooms" ? area : undefined;
+      if (tab === "3d") void this.showLayerAsked();
     } else {
       if (this.deviceStart === undefined && this.choices === undefined) return;
       this.tab = startTab(this.choices ?? NO_CHOICES, this.deviceStart, canDraw3d());
@@ -2776,8 +2783,47 @@ export class DomoTwinPanel extends LitElement {
 
   /** A room tapped in the 3D view opens its room in the Rooms tab, and back (D-055). */
   private readonly onRoomOpen = (event: CustomEvent<{ area: string }>): void => {
-    this.go("rooms", event.detail.area, true);
+    // Home Assistant's own page of the area where it has one (D-061), else DomoTwin's.
+    const page = areaPage(this._hass, event.detail.area);
+    if (page) navigate(page);
+    else this.go("rooms", event.detail.area, true);
   };
+
+  /**
+   * A layer asked for in the address (`/domotwin/3d?layer=upkeep`, a summary card's, D-061):
+   * chosen once the 3D view has drawn the plan (the view shows none this user may not see), then
+   * left out of the address so that the layer menu has the last word.
+   */
+  private async showLayerAsked(): Promise<void> {
+    const params = new URLSearchParams(window.location.search);
+    const layer = layerAsked(params.get("layer"));
+    if (!params.has("layer")) return;
+    params.delete("layer");
+    const search = params.toString();
+    window.history.replaceState(
+      window.history.state,
+      "",
+      `${window.location.pathname}${search ? `?${search}` : ""}${window.location.hash}`,
+    );
+    if (!layer) return;
+    await this.updateComplete;
+    const view = this.view;
+    await view?.updateComplete;
+    // The plan drawn first, however long a slow device takes, while the 3D view stays open;
+    // given up after a few minutes (no plan, or an engine that never came).
+    const until = performance.now() + LAYER_WAIT_MS;
+    while (
+      view?.planDrawn() === "waiting" &&
+      this.isConnected &&
+      this.tab === "3d" &&
+      performance.now() < until
+    ) {
+      await new Promise((resolve) => setTimeout(resolve, LAYER_POLL_MS));
+    }
+    if (this.isConnected && this.tab === "3d" && view?.planDrawn() === "ready") {
+      view.setLayer(layer);
+    }
+  }
 
   /** A press outside the open menu closes it. */
   private readonly closeMore = (event: PointerEvent): void => {

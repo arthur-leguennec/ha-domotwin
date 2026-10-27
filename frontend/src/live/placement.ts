@@ -1,5 +1,5 @@
 /**
- * The placement advisor's data (`docs/DECISIONS.md`, D-061): for one radio, the home's storeys,
+ * The placement advisor's data (`docs/DECISIONS.md`, D-062): for one radio, the home's storeys,
  * the radios placed on them and what was measured, handed to the analysis module, which answers
  * how well each room is covered and where the next radio helps most
  * (`domotwin_core::coverage`). Loaded with the radio coverage, not before.

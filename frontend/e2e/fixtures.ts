@@ -3,7 +3,13 @@ import { expect, type Locator, type Page } from "@playwright/test";
 import type { DebugState } from "../src/components/view";
 
 export interface HarnessOptions {
-  mode?: "card" | "panel";
+  mode?: "card" | "panel" | "summary";
+  /** mode summary: which of DomoTwin's summaries (D-061). */
+  summary?: string;
+  /** A Home Assistant that opens on its Overview, with DomoTwin's room sensors (D-061). */
+  overview?: boolean;
+  /** With the Overview: no DomoTwin panel for this user (left out of the sidebar, or admins'). */
+  noPanel?: boolean;
   /**
    * Voice (D-041): Assist with a pipeline that hears (`true`), or none that hears (`"deaf"`);
    * apps that can be installed; one blueprint edited; a page served over HTTP; the card's
@@ -95,7 +101,7 @@ export interface HarnessOptions {
   peopleLook?: "figure" | "pin";
   /** Bluetooth locating (D-035): fictional receivers and devices, or no Bluetooth at all. */
   bluetooth?: true | "none";
-  /** The radio coverage's fictional radios (D-061): receivers placed, Wi-Fi signals, an access
+  /** The radio coverage's fictional radios (D-062): receivers placed, Wi-Fi signals, an access
    * point. */
   radios?: boolean;
   /** Private rooms (D-039): kept for nobody, or for `privateFor`, maybe only while an entity is
@@ -161,6 +167,9 @@ export async function openHarness(page: Page, options: HarnessOptions = {}): Pro
   if (options.wifiScreens) params.set("wifiscreens", options.wifiScreens.join(","));
   if (options.idle !== undefined) params.set("idle", String(options.idle));
   if (options.tools === false) params.set("tools", "0");
+  if (options.summary) params.set("summary", options.summary);
+  if (options.overview) params.set("overview", "1");
+  if (options.noPanel) params.set("nopanel", "1");
   if (options.orbit) params.set("orbit", "1");
   if (options.nightDim) params.set("nightdim", "1");
   if (options.zha) params.set("zha", "1");

@@ -6,6 +6,7 @@ import { setAssetBase } from "./assets";
 import { DomoTwinCard } from "./components/card";
 import { define } from "./components/define";
 import { DomoTwinPanel } from "./components/panel";
+import { DomoTwinSummaryCard } from "./components/summary-card";
 import { DomoTwinView } from "./components/view";
 import { declareBundledFont } from "./fonts";
 import { Translator } from "./i18n";
@@ -16,16 +17,27 @@ declareBundledFont();
 define("domotwin-view", DomoTwinView);
 define("domotwin-card", DomoTwinCard);
 define("domotwin-panel", DomoTwinPanel);
+define("domotwin-summary-card", DomoTwinSummaryCard);
 
 const cards = (window.customCards ??= []);
+const t = new Translator(document.documentElement.lang || navigator.language);
 if (!cards.some((card) => card.type === "domotwin-card")) {
-  const t = new Translator(document.documentElement.lang || navigator.language);
   cards.push({
     type: "domotwin-card",
     name: t.t("card.name"),
     description: t.t("card.description"),
     preview: false,
     documentationURL: "https://github.com/arthur-leguennec/ha-domotwin",
+  });
+}
+// DomoTwin's summaries, in the manner of Home Assistant's Overview (D-061).
+if (!cards.some((card) => card.type === "domotwin-summary-card")) {
+  cards.push({
+    type: "domotwin-summary-card",
+    name: t.t("summary.name"),
+    description: t.t("summary.description"),
+    preview: true,
+    documentationURL: "https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/overview.md",
   });
 }
 

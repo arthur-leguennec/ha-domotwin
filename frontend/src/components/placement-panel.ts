@@ -1,5 +1,5 @@
 /**
- * `<domotwin-placement>`: the radio coverage over the view (`DECISIONS.md`, D-061). For the radio
+ * `<domotwin-placement>`: the radio coverage over the view (`DECISIONS.md`, D-062). For the radio
  * chosen, the rooms coloured by how well it covers them (the engine draws them, with its coverage
  * scale), the radios placed and the spots where the next one helps most as markers, and a sheet:
  * the spots and what each changes, the rooms worst covered first with what was measured or is
@@ -522,7 +522,7 @@ export class DomoTwinPlacement extends LitElement {
     return zigbeeReadings(devices, placed, analysis);
   }
 
-  /** Has the analysis module work the advice out (D-061), and the engine colour the rooms. */
+  /** Has the analysis module work the advice out (D-062), and the engine colour the rooms. */
   private async advise(readings: RadioReadings, run = (this.run += 1)): Promise<void> {
     const radio = this.radio;
     if (radio === "wifi") this.wifiKey = JSON.stringify(readings.measured);

@@ -19,7 +19,7 @@ base="${BASE:-}"
 head="${HEAD:-HEAD}"
 
 ci='^(\.github/workflows/ci\.yml|scripts/ci-changes\.sh)$|^\.github/actions/'
-# The core's tests read the walls the integration counts (tests/fixtures/coverage-walls.json, D-061).
+# The core's tests read the walls the integration counts (tests/fixtures/coverage-walls.json, D-062).
 rust='^(crates/|\.cargo/|examples/)|^(Cargo\.(toml|lock)|rust-toolchain\.toml|rustfmt\.toml|clippy\.toml|deny\.toml|tests/fixtures/coverage-walls\.json)$'
 frontend='^frontend/|^\.nvmrc$'
 # The Python tests also check the README's links (every file at the root and in docs/), load the

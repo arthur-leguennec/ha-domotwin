@@ -147,7 +147,7 @@ function schema(
       selector: {
         select: {
           mode: "dropdown",
-          // The network map and the radio coverage only where they can be shown (D-031, D-061),
+          // The network map and the radio coverage only where they can be shown (D-031, D-062),
           // or kept where they are set.
           options: LAYER_NAMES.filter(
             (value) =>
