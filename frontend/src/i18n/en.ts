@@ -311,6 +311,7 @@ export const en = {
     alert_window_rain: "A window is open in the rain in {room}",
     alert_co2: "CO₂ is high in {room}: open a window",
     more_alerts: { one: "and {count} more", other: "and {count} more" },
+    alert_entity: "{name}: {state}",
   },
   devices: {
     locked: "{name}: locked",
@@ -667,6 +668,7 @@ export const en = {
     label: "DomoTwin's tabs",
     home: "Home",
     rooms: "Rooms",
+    safety: "Safety",
     three_d: "3D",
     energy: "Energy",
   },

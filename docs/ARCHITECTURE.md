@@ -83,7 +83,13 @@ every reader returns `Result` with a stable error code that the frontend transla
   (`components/summary-body.ts`, `live/summaries.ts`) is a chunk of its own. The integration gives
   each room a device in its area with two sensors (`custom_components/domotwin/sensor.py`,
   `overview.py`: the people in it, the upkeep due for its pieces).
-- History and energy (D-068): `live/graphs.ts` sorts a room's entities into Home Assistant's
+- Safety (D-068): `live/doorbell.ts` watches the home's doorbells on every `hass`, and
+  `live/security.ts` reads the alerts chosen on Home Assistant's Security page (its system data,
+  followed by the panel) and says those on now beside the rooms' (`live/storeys.ts`); both are in
+  the first load. The Safety tab (`components/safety-tab.ts`, `live/safety.ts`) and the alerts'
+  bar above the other tabs (`components/alert-bar.ts`) are in the tabs' chunk; the doorbell's full
+  screen (`components/doorbell.ts`) is a chunk loaded at the first ring.
+- History and energy (D-069): `live/graphs.ts` sorts a room's entities into Home Assistant's
   history-graph and statistics-graph cards, which `components/room-graphs.ts` shows in the Rooms
   tab's chunk; `live/overview.ts` gives the address of Home Assistant's Energy page, which the
   panel's Energy tab opens.

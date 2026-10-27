@@ -1,5 +1,5 @@
 /**
- * A room's graphs (D-068): what its area's entities measured, drawn by Home Assistant's own
+ * A room's graphs (D-069): what its area's entities measured, drawn by Home Assistant's own
  * history-graph and statistics-graph cards, one card for each kind of measure. Nothing is drawn
  * by DomoTwin (D-054).
  */

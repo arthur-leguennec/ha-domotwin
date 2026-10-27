@@ -1,5 +1,5 @@
 /**
- * The messages of the Home and Rooms tabs, of a room's graphs (D-068) and of the user's choices
+ * The messages of the Home and Rooms tabs, of a room's graphs (D-069) and of the user's choices
  * (D-055), in both languages: loaded with their chunk, not with the first picture.
  */
 import type { Widen } from "./index";
@@ -18,8 +18,6 @@ export const practicalEn = {
       other: "{count} doors or windows open",
     },
     all_closed: "All closed",
-    alerts: { one: "{count} alert", other: "{count} alerts" },
-    no_alert: "No alert",
     peak_preheat: "Pre-heating, peak at {start}",
     peak_next: "Peak {start}",
     peak_role_preheat: "pre-heating",
@@ -157,8 +155,6 @@ export const practicalFr: PracticalDictionary = {
       other: "{count} portes ou fenêtres ouvertes",
     },
     all_closed: "Tout est fermé",
-    alerts: { one: "{count} alerte", other: "{count} alertes" },
-    no_alert: "Aucune alerte",
     peak_preheat: "Préchauffage, pointe à {start}",
     peak_next: "Pointe {start}",
     peak_role_preheat: "en préchauffage",

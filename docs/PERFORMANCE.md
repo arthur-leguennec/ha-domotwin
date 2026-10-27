@@ -1124,12 +1124,33 @@ own, for the pass's devices only (100 at most). A page following its pass is one
 written to when one of its devices changes, a line every 25 seconds otherwise; at most 8 a pass,
 each waiting with at most 500 changes before it is closed and reads the home again.
 
+### M25 (safety)
+
+Bundle: the first load is **530.9 kB gzipped** of 1 200 kB (+3.0 kB): the watch of the
+doorbells, Home Assistant's alerts and the alerts' button the 3D view's banner shares with the
+other tabs, the Safety tab's name and route. The Safety tab and the alerts' bar come with the tabs'
+chunk (`chunks/practical-<hash>.js`: 11.9 kB gzipped, as before: Home Assistant's cards moved out
+of it), with a chunk it shares with the doorbell's full screen (3.0 kB gzipped: Home Assistant's
+cards, what goes with a doorbell, the safety texts in both languages); the full screen itself is
+`chunks/doorbell-<hash>.js` (1.7 kB gzipped), loaded the first time a doorbell rings.
+
+The events that may be doorbells are found once per entity registry; each new set of states, the
+watch reads only theirs (2 µs a time for two doorbells among 3 000 entities, Node 22 on a 2.1 GHz
+Xeon core). While the Safety tab shows, its alarms, doorbells, cameras and locks are found in one pass
+over the states at each update (0.5 ms for 3 000 entities, 20 cameras); Home Assistant's own
+cards are made once each, then only given each new state, as on the other tabs. Home Assistant's
+alerts are sent by Home Assistant when an administrator changes them, not asked for; those on now
+are worked out at each update only where some are chosen (9 µs for 40). The alerts given to the
+bar and the Safety tab, and the doorbell's camera and lock, stay the same objects while they say
+the same, so nothing is drawn again for nothing. A camera on the tab is a still Home Assistant
+refreshes every ten seconds; only the doorbell's full screen streams live.
+
 ### M24 (history and energy)
 
-Bundle: the first load is **529.0 kB gzipped** of 1 200 kB (+1.1 kB): the Energy tab, its address
+Bundle: the first load is **532.0 kB gzipped** of 1 200 kB (+1.1 kB): the Energy tab, its address
 and its word, whether Home Assistant's energy is set up, the graphs' address and the room panel's
-word. A room's graphs come with the Rooms tab's chunk (`chunks/practical-<hash>.js`: 49.3 kB raw,
-13.6 kB gzipped, +1.7 kB) and a chunk it shares with the room's panel in 3D (the kinds of measure
+word. A room's graphs come with the Rooms tab's chunk (`chunks/practical-<hash>.js`: 51.6 kB raw,
+13.9 kB gzipped, +2.0 kB) and a chunk it shares with the room's panel in 3D (the kinds of measure
 and Home Assistant's card configurations, 1.6 kB gzipped); the room's panel grows by its button
 (11.4 kB gzipped, +0.1 kB), and the guests' page's by the check that hides it there (12.0 kB
 gzipped, +0.4 kB, on demand).

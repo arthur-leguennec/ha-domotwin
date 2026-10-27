@@ -1,5 +1,5 @@
 /**
- * `<domotwin-room-graphs>`, a room's graphs (D-068): what its area's entities measured over the
+ * `<domotwin-room-graphs>`, a room's graphs (D-069): what its area's entities measured over the
  * last day or week, as Home Assistant's own history-graph and statistics-graph cards, one for each
  * kind of measure; the same as a table (the history report, D-058) and in Home Assistant's
  * History, a tap away. Where Home Assistant's cards are not (the demo house, D-050), DomoTwin's

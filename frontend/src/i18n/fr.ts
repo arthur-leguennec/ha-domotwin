@@ -315,6 +315,7 @@ export const fr: Dictionary = {
     alert_window_rain: "Fenêtre ouverte sous la pluie : {room}",
     alert_co2: "CO₂ élevé : {room}, ouvrez une fenêtre",
     more_alerts: { one: "et {count} autre", other: "et {count} autres" },
+    alert_entity: "{name} : {state}",
   },
   devices: {
     locked: "{name} : verrouillé",
@@ -674,6 +675,7 @@ export const fr: Dictionary = {
     label: "Onglets de DomoTwin",
     home: "Accueil",
     rooms: "Pièces",
+    safety: "Sécurité",
     three_d: "3D",
     energy: "Énergie",
   },

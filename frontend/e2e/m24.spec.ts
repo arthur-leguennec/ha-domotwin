@@ -14,7 +14,7 @@ async function configOf(card: Locator): Promise<Record<string, unknown>> {
   return JSON.parse((await card.getAttribute("data-config")) ?? "{}") as Record<string, unknown>;
 }
 
-test.describe("history and energy, with Home Assistant's own cards (D-068)", () => {
+test.describe("history and energy, with Home Assistant's own cards (D-069)", () => {
   test("a room's graphs: Home Assistant's cards over a day or a week, a table, its History", async ({
     page,
   }) => {
@@ -203,7 +203,9 @@ test.describe("history and energy, with Home Assistant's own cards (D-068)", () 
     await expect(page.getByTestId("history")).toBeVisible();
   });
 
-  test("on a phone, in French: four tabs at the bottom, the graphs' words", async ({ page }) => {
+  test("on a phone, in French: the Energy tab among the others at the bottom, the graphs' words", async ({
+    page,
+  }) => {
     await page.setViewportSize({ width: 390, height: 780 });
     await openHarness(page, {
       mode: "panel",
@@ -213,7 +215,7 @@ test.describe("history and energy, with Home Assistant's own cards (D-068)", () 
       cards: true,
       energyPage: true,
     });
-    await expect(page.locator("nav.tabs.bottom a")).toHaveCount(4);
+    await expect(page.locator("nav.tabs.bottom a")).toHaveCount(5);
     await expect(page.getByTestId("tab-energy")).toHaveText("Énergie");
     await page.getByTestId("rooms-list").locator("button[data-area='kitchen']").click();
     await page.getByTestId("room-graphs").click();

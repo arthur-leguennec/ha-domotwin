@@ -6,9 +6,9 @@
 import { domainOf } from "../ha/types";
 import { isSummary, type SummaryKind } from "./overview";
 
-/** The panel's tabs. */
-export type Tab = "home" | "rooms" | "3d";
-export const TABS: readonly Tab[] = ["home", "rooms", "3d"];
+/** The panel's tabs: the Safety tab came with M25 (D-068). */
+export type Tab = "home" | "rooms" | "safety" | "3d";
+export const TABS: readonly Tab[] = ["home", "rooms", "safety", "3d"];
 
 /** A card of the Home tab: Home Assistant's own, as it takes them. */
 export type HomeCard =
@@ -74,7 +74,7 @@ export function canDraw3d(): boolean {
 
 /**
  * The tab a path of the panel shows (Home Assistant gives the path after its own), a room, and
- * whether its graphs (D-068).
+ * whether its graphs (D-069).
  */
 export function routeOf(path: string | undefined): { tab?: Tab; area?: string; graphs?: boolean } {
   const [, first, second, third] = (path ?? "").split("/");
@@ -91,7 +91,7 @@ export function routeOf(path: string | undefined): { tab?: Tab; area?: string; g
   return { tab: first };
 }
 
-/** The path of a tab, of a room in the Rooms tab, and of its graphs (D-068). */
+/** The path of a tab, of a room in the Rooms tab, and of its graphs (D-069). */
 export function pathOf(tab: Tab, area?: string, graphs = false): string {
   if (tab !== "rooms" || !area) return `/${tab}`;
   return `/rooms/${encodeURIComponent(area)}${graphs ? "/graphs" : ""}`;

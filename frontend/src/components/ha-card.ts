@@ -159,7 +159,10 @@ export class DomoTwinHaCard extends LitElement {
     if (!hass || !config || !t) return nothing;
     const entity = typeof config.entity === "string" ? config.entity : undefined;
     switch (config.type) {
+      // A camera, an alarm (D-068): their name and state, as a tile's.
       case "tile":
+      case "picture-entity":
+      case "alarm-panel":
         return entity
           ? html`<div class="plain" data-entity=${entity}>
               ${entityRow(hass, t, entity, false)}
@@ -199,7 +202,7 @@ export class DomoTwinHaCard extends LitElement {
       }
       case "history-graph":
       case "statistics-graph": {
-        // A room's graphs (D-068): what each says now, no graph drawn by DomoTwin (D-054).
+        // A room's graphs (D-069): what each says now, no graph drawn by DomoTwin (D-054).
         const entities = Array.isArray(config.entities)
           ? config.entities.filter((id): id is string => typeof id === "string")
           : [];
