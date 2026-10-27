@@ -9,7 +9,9 @@ from __future__ import annotations
 import asyncio
 from collections.abc import AsyncGenerator, Callable
 from datetime import timedelta
-from types import SimpleNamespace
+import importlib
+import sys
+from types import ModuleType, SimpleNamespace
 from typing import Any, cast
 from unittest.mock import AsyncMock, Mock, patch
 
@@ -991,28 +993,37 @@ async def test_private_ble_devices_own_setup_takes_the_key(
 
     Only Bluetooth is played: a receiver, and the phone heard (or not), with or without a name.
     """
-    # Imported here: it brings Home Assistant's Bluetooth, which the other tests do without.
-    from homeassistant.components.private_ble_device import (  # noqa: PLC0415
-        config_flow as private_ble,
-    )
-
     flows = hass.config_entries.flow
     heard: SimpleNamespace | None = None
     receivers = 1
+    # Bluetooth played by stand-ins of the two modules Private BLE Device's setup reads it from
+    # (Home Assistant's own needs libraries a home's adapters use, not installed here); the setup
+    # itself is Private BLE Device's own, imported afresh beside them and forgotten after.
+    bluetooth = ModuleType("homeassistant.components.bluetooth")
+    bluetooth.async_scanner_count = lambda *_, **__: receivers  # type: ignore[attr-defined]
+    coordinator = ModuleType("homeassistant.components.private_ble_device.coordinator")
+    coordinator.async_last_service_info = lambda *_: heard  # type: ignore[attr-defined]
+    stand_ins = {
+        "homeassistant.components.bluetooth": bluetooth,
+        "homeassistant.components.private_ble_device.coordinator": coordinator,
+    }
+    package = importlib.import_module("homeassistant.components.private_ble_device")
+    components = importlib.import_module("homeassistant.components")
 
     async def add(key: str) -> dict[str, Any]:
         with (
-            # Bluetooth itself is not set up here: only what Private BLE Device asks it.
+            patch.dict(sys.modules, stand_ins),
+            patch.object(components, "bluetooth", bluetooth, create=True),
+            # Bluetooth is not set up either: only what Private BLE Device asks of it.
             patch("homeassistant.config_entries.async_process_deps_reqs", return_value=None),
-            patch.object(
-                private_ble.bluetooth,
-                "async_scanner_count",
-                side_effect=lambda *_, **__: receivers,
-            ),
-            patch.object(private_ble, "async_last_service_info", side_effect=lambda *_: heard),
             patch.object(hass.config_entries, "async_setup", AsyncMock(return_value=True)),
         ):
-            return await home.async_add_key(key)
+            sys.modules.pop("homeassistant.components.private_ble_device.config_flow", None)
+            try:
+                return await home.async_add_key(key)
+            finally:
+                vars(package).pop("config_flow", None)
+                vars(package).pop("coordinator", None)
 
     async def refused(key: str) -> str:
         with pytest.raises(KeyNotTakenError) as refusal:
