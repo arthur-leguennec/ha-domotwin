@@ -17,6 +17,8 @@ pub(crate) struct PersonShown {
     room: String,
     color: String,
     pin: bool,
+    /// Where in the room, when the locating says (plan cm, D-079).
+    spot: Option<[f64; 2]>,
 }
 
 /// The people of `setPeople`'s JSON; those without an id or a room are left out.
@@ -34,6 +36,13 @@ fn read_people(json: &str) -> Vec<PersonShown> {
                         room: text(p, "room")?,
                         color: text(p, "color").unwrap_or_default(),
                         pin: text(p, "look").as_deref() == Some("pin"),
+                        spot: p.get("at").and_then(Value::as_array).and_then(|at| {
+                            match at.as_slice() {
+                                [x, y] => Some([x.as_f64()?, y.as_f64()?])
+                                    .filter(|p| p.iter().all(|v| v.is_finite())),
+                                _ => None,
+                            }
+                        }),
                     })
                 })
                 .collect()
@@ -123,6 +132,7 @@ impl Engine {
                     room: p.room.clone(),
                     color: linear(&p.color),
                     pin: p.pin,
+                    spot: p.spot,
                 })
             })
             .collect();

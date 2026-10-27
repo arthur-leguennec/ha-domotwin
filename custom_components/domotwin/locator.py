@@ -16,6 +16,7 @@ import contextlib
 import copy
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
+import math
 import statistics
 from time import monotonic
 from typing import Any, Final
@@ -31,6 +32,7 @@ from homeassistant.helpers import (
 )
 from homeassistant.helpers.dispatcher import async_dispatcher_connect, async_dispatcher_send
 from homeassistant.helpers.event import async_call_later, async_track_time_interval
+from homeassistant.helpers.json import json_bytes_sorted
 from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
@@ -43,11 +45,13 @@ from .const import (
     SIGNAL_LOCATED,
     SIGNAL_UPDATED,
 )
+from .locating.cells import Cells
+from .locating.cloud import Cloud
 from .locating.filter import PRESENCE_ON, RoomFilter, presence_weight
-from .locating.geometry import Home, Spot
+from .locating.geometry import HELD_AT, Home, Spot
 from .locating.identity import ADDRESS, Match, Matcher, beacon_of, parse_key, resolvable
 from .locating.measure import Measure
-from .locating.radio import AT_1M, Key, Learned, Model, prior
+from .locating.radio import AT_1M, Key, Learned, Model, cell_prior, prior
 from .locating.radio_ha import Advert, Radio, ha_radio
 from .people import NOWHERE, Area, area_spellings, norm, rooms_of
 from .storage import DomoTwinData, RevisionConflictError
@@ -81,6 +85,11 @@ PRIVATE_BLE: Final = "private_ble_device"
 # How Private BLE Device titles the entry of a phone that sends no name: its address, or this.
 PRIVATE_BLE_UNNAMED: Final = "BLE Device Tracker"
 MAX_CANDIDATES: Final = 30
+# The spot in the room (D-079) is told again once it moved this far (cm), or once how far around
+# it the device may be changed by this share of it (this much at least, cm): not at each reading.
+SPOT_MOVED: Final = 100.0
+SPREAD_CHANGED: Final = 0.25
+SPREAD_CHANGED_LEAST: Final = 30.0
 
 type Readings = dict[str, float]
 
@@ -105,6 +114,8 @@ class Located:
     receivers: int = 0
     last_seen: datetime | None = None
     left_behind: bool = False
+    # Where in its room (D-079): on its storey's plan (cm), how high, and how far around (cm).
+    spot: tuple[float, float, float, float] | None = None
 
 
 @dataclass(frozen=True)
@@ -114,6 +125,18 @@ class _Moment:
     now: float
     seconds: float
     listening: list[str]
+    weights: dict[str, float]
+
+
+@dataclass(frozen=True)
+class _Weighed:
+    """What a device's cloud is weighed with at a tick (D-079)."""
+
+    readings: Readings
+    listening: list[str]
+    # Seconds since it was last weighed; how loud the device is; the presence sensors' weights.
+    elapsed: float
+    offset: float
     weights: dict[str, float]
 
 
@@ -170,6 +193,25 @@ def _key_entry(entry: str, title: str, *, added: bool) -> dict[str, Any]:
     return {"entry": entry, "title": title, "named": named, "added": added}
 
 
+def _shape(storeys: list[dict[str, Any]], places: dict[str, Spot | None]) -> Any:
+    """What the expectations are worked out from: the storeys' plans and heights, the receivers.
+
+    The plans as stored (not a part of what is read from them, which a change could miss).
+    """
+    plans = [
+        {"id": s.get("id"), "elevation": s.get("elevation"), "plan": s.get("plan")} for s in storeys
+    ]
+    return json_bytes_sorted(plans), tuple(sorted(places.items()))
+
+
+def _work_out(
+    home: Home, places: dict[str, Spot | None]
+) -> tuple[dict[Key, tuple[float, float]], Cells, dict[str, list[float]]]:
+    """What each receiver should hear in each room, the plans in cells, and in each cell."""
+    cells = Cells(home)
+    return prior(home, places), cells, cell_prior(home, cells, places)
+
+
 class Locator:
     """The followed devices' rooms, the receivers' places, and what was learned."""
 
@@ -206,6 +248,13 @@ class Locator:
         self._learned_changed = False
         self._presence: dict[str, list[str]] = {}
         self._filters: dict[str, RoomFilter] = {}
+        # The plans in cells, what each receiver should hear in each, each device's cloud (D-079).
+        self.cells = Cells(self.home)
+        self._cell_prior: dict[str, list[float]] = {}
+        self._clouds: dict[str, Cloud] = {}
+        # What the expectations were worked out from (the plans' rooms, doors and stairs, and the
+        # receivers' places), so that they are not again for nothing.
+        self._shape: Any = None
         self._packets: dict[str, deque[tuple[float, str, float]]] = {}
         self._last_heard: dict[str, float] = {}
         self._beacon_power: dict[str, float] = {}
@@ -456,6 +505,7 @@ class Locator:
         for device in changed:
             self.measure.forget(device)
             self._filters.pop(device, None)
+            self._clouds.pop(device, None)
             self._packets.pop(device, None)
             self._last_heard.pop(device, None)
             self._stepped.pop(device, None)
@@ -517,13 +567,23 @@ class Locator:
         One at a time, each from what is stored when it starts: the last one asked for wins.
         """
         async with self._rebuild_lock:
-            home = Home(self._data.storeys)
+            storeys = self._data.storeys
+            home = Home(storeys)
             rooms_by_area, area_names = self._rooms_by_area(home)
             places, placed_by = self._place_receivers(home, rooms_by_area)
             presence = self._presence_sensors(rooms_by_area)
-            expected = await self._hass.async_add_executor_job(prior, home, dict(places))
+            shape = _shape(storeys, places)
+            same = shape == self._shape
+            if same:
+                # The same plans and receivers (a registry changed): what each should hear too.
+                expected, cells, plan = self._prior, self.cells, self._cell_prior
+            else:
+                expected, cells, plan = await self._hass.async_add_executor_job(
+                    _work_out, home, dict(places)
+                )
             self.home, self.places, self.placed_by = home, places, placed_by
-            self._presence, self._prior = presence, expected
+            self._presence, self._prior, self._shape = presence, expected, shape
+            self.cells, self._cell_prior = cells, plan
             self._room_area = {
                 room: area for area, rooms in rooms_by_area.items() for room in rooms
             }
@@ -534,11 +594,16 @@ class Locator:
             }
             self._area_names = area_names
             self._build_model()
+            room_storeys = {room_id: room.storey for room_id, room in home.rooms.items()}
+            outside = {room_id for room_id, room in home.rooms.items() if room.outside}
             for device in self._settings["devices"]:
-                fresh = RoomFilter(home.neighbours)
+                fresh = RoomFilter(home.neighbours, room_storeys, outside)
                 if (old := self._filters.get(device)) is not None:
                     fresh.carry(old)
                 self._filters[device] = fresh
+                # Other cells: the cloud starts again, around the room told.
+                if not same or device not in self._clouds:
+                    self._clouds[device] = Cloud(cells)
 
     def _build_model(self) -> None:
         self.model = Model(self._prior, self._learned)
@@ -801,12 +866,15 @@ class Locator:
             if (last is None or now - last > LOST) and (located.room or located.receivers):
                 if filt is not None:
                     filt.reset()
+                if (cloud := self._clouds.get(device)) is not None:
+                    cloud.clear()
                 located.room, located.since, located.confidence = None, None, 0.0
-                located.receivers = 0
+                located.receivers, located.spot = 0, None
                 return True
             return False
         # The time since it was last weighed passes for the filter, unheard seconds too.
-        filt.predict(now - self._stepped.get(device, now - moment.seconds))
+        elapsed = now - self._stepped.get(device, now - moment.seconds)
+        filt.predict(elapsed)
         self._stepped[device] = now
         offset = self._offsets.get(device, self._beacon_power.get(device, 0.0))
         heard = self.model.heard(readings, moment.listening, offset)
@@ -830,7 +898,50 @@ class Locator:
         located.confidence = filt.confidence
         located.receivers = len(readings)
         located.last_seen = dt_util.utcnow()
-        return changed
+        offset = fit.offset if fit is not None else offset
+        spot = self._spot(
+            device, room, _Weighed(readings, moment.listening, elapsed, offset, weights)
+        )
+        moved = (spot is None) != (located.spot is None) or (
+            spot is not None
+            and located.spot is not None
+            and (
+                math.dist(spot[:2], located.spot[:2]) >= SPOT_MOVED
+                or abs(spot[3] - located.spot[3])
+                >= max(SPREAD_CHANGED_LEAST, SPREAD_CHANGED * located.spot[3])
+            )
+        )
+        if changed or moved:
+            located.spot = spot
+        return changed or moved
+
+    def _spot(
+        self, device: str, room: str | None, weighed: _Weighed
+    ) -> tuple[float, float, float, float] | None:
+        """Where in the room told the device is (D-079): its cloud moved on and weighed."""
+        cloud = self._clouds.get(device)
+        if cloud is None or room is None:
+            if cloud is not None:
+                cloud.clear()
+            return None
+        cloud.around(room, {room, *self.home.neighbours.get(room, frozenset())})
+        cloud.predict(weighed.elapsed)
+        cells = self.cells.cells
+        kept = list(cloud.chances)
+        scores = self.model.cell_scores(
+            self._cell_prior,
+            ((k, cells[k].room) for k in kept),
+            weighed.readings,
+            weighed.listening,
+            weighed.offset,
+        )
+        cloud.update(dict(zip(kept, scores, strict=True)), weighed.weights)
+        found = cloud.spot(room)
+        if found is None:
+            return None
+        x, y, spread = found
+        floor = self.home.elevations[self.home.rooms[room].storey]
+        return (x, y, floor + HELD_AT, spread)
 
     def _learn(self, room: str, readings: Readings, offset: float, weight: float) -> None:
         for source, value in readings.items():

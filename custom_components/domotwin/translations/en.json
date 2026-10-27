@@ -162,6 +162,12 @@
           },
           "source": {
             "name": "Source"
+          },
+          "x": {
+            "name": "X on the plan"
+          },
+          "y": {
+            "name": "Y on the plan"
           }
         }
       },
@@ -199,6 +205,18 @@
           },
           "left_behind": {
             "name": "Left behind"
+          },
+          "x": {
+            "name": "X on the plan"
+          },
+          "y": {
+            "name": "Y on the plan"
+          },
+          "z": {
+            "name": "Height"
+          },
+          "accuracy": {
+            "name": "Accuracy"
           }
         }
       },

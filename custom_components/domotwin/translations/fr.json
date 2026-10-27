@@ -162,6 +162,12 @@
           },
           "source": {
             "name": "Source"
+          },
+          "x": {
+            "name": "X sur le plan"
+          },
+          "y": {
+            "name": "Y sur le plan"
           }
         }
       },
@@ -199,6 +205,18 @@
           },
           "left_behind": {
             "name": "Oublié"
+          },
+          "x": {
+            "name": "X sur le plan"
+          },
+          "y": {
+            "name": "Y sur le plan"
+          },
+          "z": {
+            "name": "Hauteur"
+          },
+          "accuracy": {
+            "name": "Précision"
           }
         }
       },

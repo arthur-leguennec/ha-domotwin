@@ -14,6 +14,8 @@ import math
 from typing import Any, Final
 
 type Point = tuple[float, float]
+# A box round a room: its least x and y, its greatest (cm).
+type Box = tuple[float, float, float, float]
 
 # Where a device is held, and a receiver stands when only its room is known (cm above the floor).
 HELD_AT: Final = 110.0
@@ -64,7 +66,8 @@ class Room:
     outside: bool = False
 
 
-def _number(value: Any) -> float | None:
+def number(value: Any) -> float | None:
+    """A finite number (not a bool) as a float, else None."""
     if isinstance(value, bool) or not isinstance(value, int | float) or not math.isfinite(value):
         return None
     return float(value)
@@ -73,7 +76,7 @@ def _number(value: Any) -> float | None:
 def _point(value: Any) -> Point | None:
     if not isinstance(value, list | tuple) or len(value) != 2:
         return None
-    x, y = _number(value[0]), _number(value[1])
+    x, y = number(value[0]), number(value[1])
     return None if x is None or y is None else (x, y)
 
 
@@ -137,7 +140,7 @@ class Home:
         open_sides: list[tuple[int, str, Point, Point]] = []
         for index, storey in enumerate(storeys):
             self.storey_ids.append(str(storey.get("id", "")))
-            self.elevations.append(_number(storey.get("elevation")) or 0.0)
+            self.elevations.append(number(storey.get("elevation")) or 0.0)
             plan = storey.get("plan")
             plan = plan if isinstance(plan, Mapping) else {}
             layout = storey.get("layout")
@@ -171,6 +174,14 @@ class Home:
             self.rooms.values(),
             key=lambda room: (room.outside, _twice_area(room.outline) if room.outside else 0.0),
         )
+        # Each storey's rooms in that order, with the box around each: a point or a line out of the
+        # box is out of the room, its sides not crossed.
+        self._storey_rooms: list[list[tuple[Box, Room]]] = [
+            [(_box(room.outline), room) for room in self._room_list if room.storey == k]
+            for k in range(len(self.elevations))
+        ]
+        # The sides left open between two rooms (D-079: a step between them goes across one).
+        self._open_sides: dict[frozenset[str], list[tuple[Point, Point]]] = {}
         for storey_index, room_id, a, b in open_sides:
             for p in _across(a, b):
                 other = self.room_at(storey_index, p)
@@ -179,14 +190,16 @@ class Home:
                     and other != room_id
                     and (not self.rooms[room_id].outside or self.rooms[other].outside)
                 ):
-                    self._open.add(frozenset((room_id, other)))
-        self._has_rooms = [
-            any(room.storey == k for room in self._room_list) for k in range(len(self.elevations))
-        ]
+                    pair = frozenset((room_id, other))
+                    self._open.add(pair)
+                    self._open_sides.setdefault(pair, []).append((a, b))
+        self._has_rooms = [bool(rooms) for rooms in self._storey_rooms]
         self._indoor = [
             [room for room in self._room_list if room.storey == k and not room.outside]
             for k in range(len(self.elevations))
         ]
+        # The doors between two rooms (D-079: a step between them goes through one).
+        self._door_pairs: dict[frozenset[str], list[tuple[Point, Point]]] = {}
         self.neighbours = self._link()
 
     def _read_pieces(self, storey: int, plan: Mapping[str, Any], layout: Mapping[str, Any]) -> None:
@@ -212,21 +225,25 @@ class Home:
             if at is None:
                 continue
             size = item.get("size")
-            height = _number(size[2]) if isinstance(size, list) and len(size) == 3 else None
-            lift = _number(moved.get("lift"))
-            lift = lift if lift is not None else _number(item.get("lift")) or 0.0
+            height = number(size[2]) if isinstance(size, list) and len(size) == 3 else None
+            lift = number(moved.get("lift"))
+            lift = lift if lift is not None else number(item.get("lift")) or 0.0
             self.pieces[key] = Spot(storey, at[0], at[1], floor + lift + (height or 0.0) / 2)
             if item.get("kind") == STAIRS:
                 # How far from its middle it lands: half its length, the longer of its sides.
-                sides = [_number(v) or 0.0 for v in size[:2]] if isinstance(size, list) else []
+                sides = [number(v) or 0.0 for v in size[:2]] if isinstance(size, list) else []
                 self._stairs.append((storey, at, max(sides, default=0.0) / 2))
 
     def room_at(self, storey: int, p: Point) -> str | None:
         """The room a point of a storey is in."""
-        for room in self._room_list:
-            if room.storey == storey and inside(room.outline, p):
+        x, y = p
+        for (x0, y0, x1, y1), room in self._rooms_of(storey):
+            if x0 <= x <= x1 and y0 <= y <= y1 and inside(room.outline, p):
                 return room.id
         return None
+
+    def _rooms_of(self, storey: int) -> list[tuple[Box, Room]]:
+        return self._storey_rooms[storey] if 0 <= storey < len(self._storey_rooms) else []
 
     def points(self, room_id: str) -> list[Spot]:
         """Places a device may be held in a room: a grid inside it, clear of its sides."""
@@ -279,13 +296,15 @@ class Home:
             return 0.0
         # Where the line crosses a side of a room: the room changes there, nowhere else.
         cuts = {0.0, 1.0}
-        for listed in self._room_list:
-            if listed.storey == storey:
-                outline = listed.outline
-                for k in range(len(outline)):
-                    t = _crossing((a.x, a.y), (b.x, b.y), outline[k - 1], outline[k])
-                    if t is not None:
-                        cuts.add(round(t, 9))
+        low_x, high_x, low_y, high_y = min(a.x, b.x), max(a.x, b.x), min(a.y, b.y), max(a.y, b.y)
+        for (x0, y0, x1, y1), listed in self._rooms_of(storey):
+            if x1 < low_x or x0 > high_x or y1 < low_y or y0 > high_y:
+                continue
+            outline = listed.outline
+            for k in range(len(outline)):
+                t = _crossing((a.x, a.y), (b.x, b.y), outline[k - 1], outline[k])
+                if t is not None:
+                    cuts.add(round(t, 9))
         ordered = sorted(cuts)
 
         def point(t: float) -> Point:
@@ -386,6 +405,23 @@ class Home:
             return True
         return sum(1 for room in rooms if _edge_distance(room.outline, p) <= UNDER_WALLS) >= 2
 
+    def indoors(self, storey: int, p: Point) -> bool:
+        """Whether `p` is in a storey's room (not outside), or under a wall between two of them."""
+        return 0 <= storey < len(self._indoor) and self._indoors(storey, p)
+
+    def doors_between(self, a: str, b: str) -> list[tuple[Point, Point]]:
+        """The doors between two rooms (not the sealed ones), each from end to end."""
+        return list(self._door_pairs.get(frozenset((a, b)), []))
+
+    def open_sides(self, a: str, b: str) -> list[tuple[Point, Point]]:
+        """The sides left open between two rooms (every side, between two places outside)."""
+        return list(self._open_sides.get(frozenset((a, b)), []))
+
+    @property
+    def stairs(self) -> list[tuple[int, Point, float]]:
+        """The stairs: their storey, their middle, and how far from it they land (cm)."""
+        return list(self._stairs)
+
     def _link(self) -> dict[str, frozenset[str]]:
         """Which rooms lead to which: through a door, a side left open or stairs.
 
@@ -404,7 +440,10 @@ class Home:
         for storey, doors in enumerate(self._doors):
             for d in doors:
                 p, q = _across(*d)
-                join(self.room_at(storey, p), self.room_at(storey, q))
+                one, other = self.room_at(storey, p), self.room_at(storey, q)
+                join(one, other)
+                if one is not None and other is not None and one != other:
+                    self._door_pairs.setdefault(frozenset((one, other)), []).append(d)
         for room in self._room_list:
             if links[room.id]:
                 continue
@@ -455,6 +494,11 @@ class Home:
         ]
         best = min(near, default=None)
         return best[1] if best is not None and best[0] <= reach else None
+
+
+def _box(outline: tuple[Point, ...]) -> Box:
+    xs, ys = [p[0] for p in outline], [p[1] for p in outline]
+    return min(xs), min(ys), max(xs), max(ys)
 
 
 def _twice_area(outline: tuple[Point, ...]) -> float:

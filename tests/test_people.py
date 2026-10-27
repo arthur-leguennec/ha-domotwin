@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+import math
 from pathlib import Path
 import shutil
 from typing import Any, cast
@@ -129,6 +130,23 @@ def test_a_person_is_placed_by_the_source_that_changed_last() -> None:
     assert place_of("Work", [watch], finder) == AWAY
     assert place_of("not_home", [watch], finder) == AWAY
     assert place_of(None, [watch], finder) == AWAY
+
+
+def test_where_in_the_room_is_from_a_source_that_says_in_that_room() -> None:
+    finder = RoomFinder([_room("living", "Living room"), _room("kitchen", "Kitchen")], AREAS)
+    phone = _reading("sensor.phone_room", "Kitchen", 5, room_id="kitchen", x=1.25, y=3.5)
+    # Another source in the kitchen, newer, says nothing of where in it: the phone's spot.
+    other = _reading("sensor.watch_area", "Kitchen", 1)
+    place = place_of("home", [phone, other], finder)
+    assert place.source == "sensor.watch_area"
+    assert place.at == (1.25, 3.5)
+    # Nothing but numbers, and only in the room found.
+    odd = _reading("sensor.phone_room", "Kitchen", 5, room_id="kitchen", x=math.nan, y=3.5)
+    assert place_of("home", [odd, other], finder).at is None
+    flag = _reading("sensor.phone_room", "Kitchen", 5, room_id="kitchen", x=True, y=3.5)
+    assert place_of("home", [flag], finder).at is None
+    elsewhere = _reading("sensor.tag_room", "Living room", 9, room_id="living", x=1.0, y=1.0)
+    assert place_of("home", [elsewhere, other], finder).at is None
 
 
 def test_names_said_are_forgiven() -> None:

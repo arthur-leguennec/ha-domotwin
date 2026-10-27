@@ -229,6 +229,8 @@ class PersonRoomSensor(SensorEntity):
     _attr_has_entity_name = True
     _attr_translation_key = "person_room"
     _attr_should_poll = False
+    # Where in the room (D-079): told as it moves, not kept in the history.
+    _unrecorded_attributes = frozenset({"x", "y"})
 
     def __init__(
         self, entry: DomoTwinConfigEntry, people: PeopleTracker, person: str, name: str
@@ -270,6 +272,8 @@ class PersonRoomSensor(SensorEntity):
                 since=place.since.isoformat() if place.since else None,
                 source=place.source,
             )
+            if place.at is not None:
+                attributes.update(x=place.at[0], y=place.at[1])
         self._attr_extra_state_attributes = attributes
 
 
@@ -279,6 +283,8 @@ class LocatedSensor(SensorEntity, LocatedEntity):
     _attr_has_entity_name = True
     _attr_translation_key = "located"
     _attr_should_poll = False
+    # Where in the room (D-079): told as it moves, not kept in the history.
+    _unrecorded_attributes = frozenset({"x", "y", "z", "accuracy"})
 
     def __init__(
         self,
@@ -330,6 +336,16 @@ class LocatedSensor(SensorEntity, LocatedEntity):
                 storey=room.storey_name,
                 since=located.since.isoformat() if located.since else None,
             )
+            if located.spot is not None:
+                # Where in the room (D-079): on its storey's plan and how high, in metres, and
+                # how far around it the device may be.
+                x, y, z, spread = located.spot
+                attributes.update(
+                    x=round(x / 100, 2),
+                    y=round(y / 100, 2),
+                    z=round(z / 100, 2),
+                    accuracy=round(spread / 100, 1),
+                )
         self._attr_extra_state_attributes = attributes
 
 

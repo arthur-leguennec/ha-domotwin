@@ -40,6 +40,8 @@ export interface PersonShown {
   /** When they came into it (ISO), and the entity that said so. */
   since?: string;
   source?: string;
+  /** Where in the room, when the locating says (plan cm, D-079). */
+  at?: [number, number];
   /** A picture of them on Home Assistant itself, else their initials. */
   picture?: string;
   initials: string;
@@ -155,6 +157,11 @@ export function peopleShown(
       if (since) entry.since = since;
       const source = text("source");
       if (source) entry.source = source;
+      // Where in the room (D-079): metres on the storey's plan, as the room sensor says.
+      const [x, y] = [attributes.x, attributes.y];
+      if (typeof x === "number" && typeof y === "number" && isFinite(x) && isFinite(y)) {
+        entry.at = [Math.round(x * 100), Math.round(y * 100)];
+      }
     }
     shown.push(entry);
   }
@@ -166,7 +173,13 @@ export function peopleJson(people: PersonShown[], look: PeopleSettings["look"]):
   return JSON.stringify(
     people
       .filter((p) => p.room !== undefined)
-      .map((p) => ({ id: p.id, room: p.room, color: p.color, look })),
+      .map((p) => ({
+        id: p.id,
+        room: p.room,
+        color: p.color,
+        look,
+        ...(p.at ? { at: p.at } : {}),
+      })),
   );
 }
 
