@@ -1235,4 +1235,42 @@ mod tests {
         view.orbit(50.0, 50.0);
         assert!((view.camera.yaw - 0.0).abs() < 1e-9 || (view.camera.yaw - yaw).abs() < 1e-9);
     }
+
+    #[test]
+    fn frames_back_in_time_move_nothing_back() {
+        // The frontend's `settle()` draws frames ahead of the page's clock (100 ms each, up to
+        // 30 s): the page's own frames then come earlier than the last one.
+        let ahead = |view: &mut ViewState| {
+            for k in 1..=10 {
+                view.update(f64::from(k) * 100.0);
+            }
+        };
+        let mut view = view();
+        view.set_auto_orbit(0.1);
+        ahead(&mut view);
+        let camera = view.camera;
+        // The kiosk's turn neither goes back nor jumps on, then goes on from the page's clock.
+        view.update(16.0);
+        assert!(view.camera == camera);
+        view.update(32.0);
+        let turned = (view.camera.yaw - camera.yaw).rem_euclid(TAU);
+        assert!((turned - 0.1 * 0.016).abs() < 1e-9, "{turned}");
+        // A move started on the page's clock right after: it runs on that clock, not held until
+        // the clock that ran ahead.
+        view.set_auto_orbit(0.0);
+        ahead(&mut view);
+        let from = view.camera;
+        let mut to = from;
+        to.yaw += 1.0;
+        view.go_to(to, 48.0);
+        view.update(48.0 + MOVE_MS / 2.0);
+        assert!(
+            view.camera.yaw > from.yaw && view.camera.yaw < from.yaw + 1.0,
+            "{}",
+            view.camera.yaw
+        );
+        view.update(48.0 + MOVE_MS);
+        assert!(view.transition.is_none());
+        assert!((view.camera.yaw - to.clamped().yaw).abs() < 1e-9);
+    }
 }
