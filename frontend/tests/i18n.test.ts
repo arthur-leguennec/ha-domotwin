@@ -43,6 +43,7 @@ describe("Translator", () => {
     expect(pickLanguage("pt")).toBe("pt");
     expect(pickLanguage("pt-BR")).toBe("pt-BR");
     expect(pickLanguage("pt_br")).toBe("pt-BR");
+    expect(pickLanguage("zh_Hant_TW")).toBe("zh-Hans");
     expect(pickLanguage("zh-Hant")).toBe("zh-Hans");
     expect(pickLanguage("sv")).toBe("en");
     expect(pickLanguage(undefined)).toBe("en");

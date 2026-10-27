@@ -34,23 +34,24 @@ describe("languages loaded on demand (D-081)", () => {
     const element = host();
     const hass = { language: "es" };
     expect(inLanguage(element, hass)).toBe(false);
-    expect(element.dir).toBe("ltr");
     // Meanwhile, what is asked for is said in English.
-    expect(new Translator("es").tp("view.rooms", 2)).toBe(
-      new Translator("en").tp("view.rooms", 2),
-    );
+    expect(new Translator("es").tp("view.rooms", 2)).toBe(new Translator("en").tp("view.rooms", 2));
     await loadLanguage("es");
     await Promise.resolve();
     expect(element.drawn).toBeGreaterThan(0);
     expect(inLanguage(element, hass)).toBe(true);
-    expect(new Translator("es").t("panel.cancel")).not.toBe("");
+    expect(element.dir).toBe("ltr");
+    expect(new Translator("es").t("panel.cancel")).not.toBe(en.panel.cancel);
   });
 
   it("writes Arabic right to left on the element", async () => {
     const element = host();
-    inLanguage(element, { locale: { language: "ar" } });
-    expect(element.dir).toBe("rtl");
+    expect(inLanguage(element, { locale: { language: "ar" } })).toBe(false);
+    // Not turned round before it is drawn in Arabic.
+    expect(element.dir).toBe("");
     await loadLanguage("ar");
+    expect(inLanguage(element, { locale: { language: "ar" } })).toBe(true);
+    expect(element.dir).toBe("rtl");
     expect(inLanguage(element, { language: "en" })).toBe(true);
     expect(element.dir).toBe("ltr");
   });

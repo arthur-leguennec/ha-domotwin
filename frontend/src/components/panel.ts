@@ -157,7 +157,7 @@ import type { ImportReport, ImportStorey, PlanFile, ScanRoom } from "../import/i
 import { IMPORTED_FILES, PLAN_FILES, isOtherAppJson } from "../import/files";
 import { mapPath, robotMaps, type RobotMapSource } from "../live/robot-maps";
 import type { ModelFormat, ModelInfo } from "../models/models";
-import { pickLanguage, translatorFor, type Translator } from "../i18n";
+import { languageOf, languageReady, pickLanguage, translatorFor, type Translator } from "../i18n";
 import { documentFonts } from "../fonts";
 import { icon } from "./icon";
 import { saveText } from "./save";
@@ -3255,6 +3255,8 @@ export class DomoTwinPanel extends LitElement {
     const hass = this._hass;
     const fitting = [
       hass?.locale?.language ?? hass?.language,
+      // Measured again once drawn in it (D-081).
+      languageReady(languageOf(hass)),
       hass?.user?.is_admin,
       hass?.dockedSidebar,
       this.editing,
@@ -3579,8 +3581,16 @@ export class DomoTwinPanel extends LitElement {
     this.style.setProperty("--domotwin-accent", accent ?? defaultAccent(this.look));
   }
 
+  /** What it last drew, kept while another language loads (D-081), its 3D view with it. */
+  private drawn?: TemplateResult;
+
   protected override render(): TemplateResult {
-    if (!inLanguage(this, this._hass)) return html``;
+    if (!inLanguage(this, this._hass)) return this.drawn ?? html``;
+    this.drawn = this.draw();
+    return this.drawn;
+  }
+
+  private draw(): TemplateResult {
     const t = this.t;
     const admin = this._hass?.user?.is_admin === true;
     const tool = this.editing || this.planning || this.linking;

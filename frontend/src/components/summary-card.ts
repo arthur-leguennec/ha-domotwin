@@ -80,14 +80,19 @@ export class DomoTwinSummaryCard extends LitElement {
     }
   }
 
+  /** What it last drew, kept while another language loads (D-081). */
+  private drawn?: TemplateResult;
+
   protected override render(): TemplateResult | typeof nothing {
-    if (!this.config || !inLanguage(this, this.hass)) return nothing;
-    return this.loaded
+    if (!this.config) return nothing;
+    if (!inLanguage(this, this.hass)) return this.drawn ?? html`<ha-card></ha-card>`;
+    this.drawn = this.loaded
       ? html`<domotwin-summary-body
           .hass=${this.hass}
           .kind=${this.config.summary}
         ></domotwin-summary-body>`
       : html`<ha-card></ha-card>`;
+    return this.drawn;
   }
 }
 

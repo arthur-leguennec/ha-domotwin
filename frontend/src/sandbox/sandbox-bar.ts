@@ -17,7 +17,7 @@ import {
 import { LitElement, css, html, nothing, type PropertyValues, type TemplateResult } from "lit";
 
 import { define, fire } from "../components/define";
-import { icon } from "../components/icon";
+import { icon, mirroredIcon } from "../components/icon";
 import { baseStyles } from "../components/styles";
 import { addMessages, translatorFor, type Translator } from "../i18n";
 import { sandboxEn, sandboxFr } from "../i18n/sandbox";
@@ -566,7 +566,7 @@ export class DomoTwinSandboxBar extends LitElement {
           fire(this, "domotwin-sandbox-draft", {});
         }}
       >
-        ${icon(mdiArrowLeft)}${t.t("sandbox.draft.back")}
+        ${mirroredIcon(mdiArrowLeft)}${t.t("sandbox.draft.back")}
       </button>
     </div>`;
   }

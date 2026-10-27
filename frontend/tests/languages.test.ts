@@ -9,50 +9,11 @@ import {
   loadLanguage,
   type Language,
 } from "../src/i18n";
-import { configHistoryEn } from "../src/i18n/config-history";
-import { guestsEn } from "../src/i18n/guests";
-import { historyEn } from "../src/i18n/history";
-import { iphoneEn } from "../src/i18n/iphone";
-import { libraryEn } from "../src/i18n/library";
-import { measuredEn } from "../src/i18n/measured";
+import { englishChunks } from "../src/i18n/english";
 import type { Pack } from "../src/i18n/pack";
-import { peakEn } from "../src/i18n/peak";
-import { placementEn } from "../src/i18n/placement";
-import { plainEn } from "../src/i18n/plain";
-import { practicalEn } from "../src/i18n/practical";
-import { radarsEn } from "../src/i18n/radars";
-import { rightsEn } from "../src/i18n/rights";
-import { safetyEn } from "../src/i18n/safety";
-import { sandboxEn } from "../src/i18n/sandbox";
-import { summaryEn } from "../src/i18n/summary";
-import { wallEn } from "../src/i18n/wall";
-import { whyEn } from "../src/i18n/why";
-import { wifiEn } from "../src/i18n/wifi";
 
 /** The English of every message, as a pack has it. */
-const english: Pack = {
-  main: en,
-  chunks: {
-    configHistory: configHistoryEn,
-    guests: guestsEn,
-    history: historyEn,
-    iphone: iphoneEn,
-    library: libraryEn,
-    measured: measuredEn,
-    peak: peakEn,
-    placement: placementEn,
-    plain: plainEn,
-    practical: practicalEn,
-    radars: radarsEn,
-    rights: rightsEn,
-    safety: safetyEn,
-    sandbox: sandboxEn,
-    summary: summaryEn,
-    wall: wallEn,
-    why: whyEn,
-    wifi: wifiEn,
-  },
-};
+const english: Pack = { main: en, chunks: englishChunks };
 
 const PLURAL_FORMS = new Set(["zero", "one", "two", "few", "many", "other"]);
 
@@ -84,10 +45,7 @@ describe("the languages loaded on demand (D-081)", async () => {
   const packs = new Map<Language, Pack>();
   for (const language of loaded) {
     const folder = language;
-    packs.set(
-      language,
-      ((await import(`../src/i18n/lang/${folder}.ts`)) as { pack: Pack }).pack,
-    );
+    packs.set(language, ((await import(`../src/i18n/lang/${folder}.ts`)) as { pack: Pack }).pack);
   }
   const englishMessages = new Map(messages(english));
 

@@ -3979,8 +3979,9 @@ English and French) to ten more languages.
 - **Context.** DomoTwin spoke English and French, both in the first picture's bundle. Home
   Assistant speaks some sixty languages; the most used after English are German, Spanish, French,
   Italian, Dutch, Portuguese (Portugal's and Brazil's), Chinese, Japanese, Korean and Arabic, the
-  last written right to left. A language is some 26 kB gzipped of messages (the main dictionary
-  and the chunks'): ten of them in the first load would cost a fifth of it for one of them used.
+  last written right to left. A language is some 35 kB gzipped of messages (the main dictionary
+  and the chunks'; 41 kB in Arabic): ten of them in the first load would add half of it again,
+  for one of them used.
 - **Decision.**
   - **Twelve languages**: English and French with the first picture, as before; German, Spanish,
     Italian, Dutch, Portuguese (`pt`), Brazilian Portuguese (`pt-BR`), Arabic (`ar`), Simplified
@@ -4016,7 +4017,9 @@ English and French) to ten more languages.
   local voice's set-up still sets Piper's voice in English or French only, the others keeping the
   app's own (a wrong voice name would stop the app).
 - **Consequences.**
-  - The first load is the same for everyone (+0.8 kB: the loader and the logical layout); a home in
-    another language loads its own once, kept by the browser like the rest.
+  - The first load is the same for everyone (+1.1 kB: the loader and the logical layout); a home in
+    another language loads its own once (35 to 41 kB gzipped), kept by the browser like the rest.
+    The bundles keep every language's letters as they are (UTF-8, as a module is always read),
+    not escaped: a third smaller in Arabic, Chinese, Japanese and Korean.
   - Every new message is written in English and French and added in English to the ten others;
     the tests say what is left to translate.

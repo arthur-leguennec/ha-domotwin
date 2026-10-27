@@ -1395,3 +1395,22 @@ two-second readings; the cells' weights are worked out once a reading for every 
 person's spot where a radar sees them is told again every half metre, and the people no device
 names likewise, not recorded in the history: about one write a second while someone walks, none
 while they stand.
+
+### M21 (more languages)
+
+Bundle: the first load is **654.4 kB gzipped** of 1 200 kB (+1.1 kB): the languages' loader, the
+elements waiting for theirs, and the layout in logical properties. Each of the ten languages is its
+own module, loaded only where Home Assistant speaks it (D-081), with every message of the first
+picture and of every chunk:
+
+| Language | Gzipped | Language | Gzipped |
+| --- | --- | --- | --- |
+| German | 35.9 kB | Brazilian Portuguese | 35.0 kB |
+| Spanish | 35.2 kB | Arabic | 40.8 kB |
+| Italian | 35.0 kB | Simplified Chinese | 35.1 kB |
+| Dutch | 34.7 kB | Japanese | 38.0 kB |
+| Portuguese | 35.2 kB | Korean | 36.2 kB |
+
+The bundles now keep every language's letters as they are (UTF-8) rather than escaped: Arabic's
+module went from 47.9 to 40.8 kB gzipped, Japanese's from 42.2 to 38.0, and French in the first
+load from escapes to letters too. English and French homes load nothing more.

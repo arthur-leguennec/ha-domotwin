@@ -126,6 +126,8 @@ export const energyStyles = css`
     width: 100%;
     height: auto;
     overflow: visible;
+    /* Its labels beside their discs, whichever way the language is written (D-081). */
+    direction: ltr;
   }
   .energy .disc {
     fill: var(--card-background-color, #fff);

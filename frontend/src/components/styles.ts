@@ -93,6 +93,10 @@ export const baseStyles = css`
     fill: currentColor;
     flex: none;
   }
+  /* Back and on, the way the language is read (D-081). */
+  svg.icon.mirrored:dir(rtl) {
+    transform: scaleX(-1);
+  }
 
   @media (prefers-reduced-motion: reduce) {
     *,

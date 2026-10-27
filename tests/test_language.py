@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import json
-import re
 from pathlib import Path
+import re
 from typing import Any
 
 import pytest
@@ -13,7 +13,8 @@ from custom_components.domotwin.language import LANGUAGES, spoken
 from custom_components.domotwin.schedules import _SAID
 from custom_components.domotwin.services import SENTENCES
 
-TRANSLATIONS = Path(__file__).parent.parent / "custom_components" / "domotwin" / "translations"
+ROOT = Path(__file__).parent.parent
+TRANSLATIONS = ROOT / "custom_components" / "domotwin" / "translations"
 
 
 def _placeholders(text: str) -> set[str]:
@@ -37,9 +38,18 @@ def test_home_assistant_languages_are_spoken_as_the_frontend_picks_them() -> Non
     assert spoken("pt") == "pt"
     assert spoken("pt-BR") == "pt-BR"
     assert spoken("pt_br") == "pt-BR"
+    assert spoken("zh_Hant_TW") == "zh-Hans"
     assert spoken("zh-Hant") == "zh-Hans"
     assert spoken("sv") == "en"
     assert spoken(None) == "en"
+
+
+def test_the_frontend_speaks_the_same_languages() -> None:
+    """`LANGUAGES` here and in `frontend/src/i18n/index.ts`, in the same order."""
+    text = (ROOT / "frontend" / "src" / "i18n" / "index.ts").read_text(encoding="utf-8")
+    found = re.search(r"export const LANGUAGES = \[(.*?)\] as const;", text, re.DOTALL)
+    assert found is not None
+    assert tuple(re.findall(r'"([A-Za-z-]+)"', found.group(1))) == LANGUAGES
 
 
 @pytest.mark.parametrize("said", [SENTENCES, _SAID], ids=["where", "schedules"])

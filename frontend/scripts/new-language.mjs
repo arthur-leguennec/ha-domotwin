@@ -21,34 +21,10 @@ if (existsSync(folder)) {
   process.exit(1);
 }
 
-// The chunks, as `pack.ts` names them, and the module and export of their English.
-const CHUNKS = {
-  configHistory: ["config-history", "configHistoryEn"],
-  guests: ["guests", "guestsEn"],
-  history: ["history", "historyEn"],
-  iphone: ["iphone", "iphoneEn"],
-  library: ["library", "libraryEn"],
-  measured: ["measured", "measuredEn"],
-  peak: ["peak", "peakEn"],
-  placement: ["placement", "placementEn"],
-  plain: ["plain", "plainEn"],
-  practical: ["practical", "practicalEn"],
-  radars: ["radars", "radarsEn"],
-  rights: ["rights", "rightsEn"],
-  safety: ["safety", "safetyEn"],
-  sandbox: ["sandbox", "sandboxEn"],
-  summary: ["summary", "summaryEn"],
-  wall: ["wall", "wallEn"],
-  why: ["why", "whyEn"],
-  wifi: ["wifi", "wifiEn"],
-};
-
 const entry = [
   `import { en } from "./src/i18n/en";`,
-  ...Object.values(CHUNKS).map(([file, name]) => `import { ${name} } from "./src/i18n/${file}";`),
-  `export const messages = { en, ${Object.values(CHUNKS)
-    .map(([, name]) => name)
-    .join(", ")} };`,
+  `import { englishChunks } from "./src/i18n/english";`,
+  `export const messages = { en, chunks: englishChunks };`,
 ].join("\n");
 const bundled = await build({
   stdin: { contents: entry, resolveDir: root, loader: "ts" },
@@ -68,12 +44,9 @@ writeFileSync(
   join(folder, "main.ts"),
   `import type { Dictionary } from "../../index";\n\n/** The main messages, in ${code}. */\nexport const main: Dictionary = ${json(messages.en)};\n`,
 );
-const chunks = Object.fromEntries(
-  Object.entries(CHUNKS).map(([key, [, name]]) => [key, messages[name]]),
-);
 writeFileSync(
   join(folder, "chunks.ts"),
-  `import type { Chunks } from "../../pack";\n\n/** The chunks' messages, in ${code}. */\nexport const chunks: Chunks = ${json(chunks)};\n`,
+  `import type { Chunks } from "../../pack";\n\n/** The chunks' messages, in ${code}. */\nexport const chunks: Chunks = ${json(messages.chunks)};\n`,
 );
 // Its own module, named after it (`<code>-<hash>.js` once built).
 writeFileSync(
@@ -81,5 +54,5 @@ writeFileSync(
   `/** DomoTwin in ${code} (D-081), loaded when Home Assistant speaks it. */\nimport type { Pack } from "../pack";\nimport { chunks } from "./${code}/chunks";\nimport { main } from "./${code}/main";\n\nexport const pack: Pack = { main, chunks };\n`,
 );
 console.log(
-  `Written ${folder}: translate main.ts and chunks.ts, then add "${code}" to LANGUAGES in src/i18n/index.ts.`,
+  `Written ${folder}: translate main.ts and chunks.ts, then add "${code}" to LANGUAGES in src/i18n/index.ts and custom_components/domotwin/language.py (CONTRIBUTING.md).`,
 );

@@ -193,7 +193,7 @@ function find(language: Language, key: string): unknown {
  * (Portuguese is Portugal's, Brazil's has its own; every Chinese is simplified), English otherwise.
  */
 export function pickLanguage(language: string | undefined): Language {
-  const code = (language ?? "en").toLowerCase().replace("_", "-");
+  const code = (language ?? "en").toLowerCase().replaceAll("_", "-");
   if (code === "pt-br") return "pt-BR";
   if (code.startsWith("zh")) return "zh-Hans";
   const base = code.split("-")[0] ?? "en";
@@ -204,6 +204,15 @@ export function pickLanguage(language: string | undefined): Language {
 export function directionOf(language: Language): "ltr" | "rtl" {
   return language === "ar" ? "rtl" : "ltr";
 }
+
+/** Which way DomoTwin writes in a language: as it is written, left to right once in English. */
+function writtenAs(language: Language): "ltr" | "rtl" {
+  return !bundled(language) && failed.has(language) ? "ltr" : directionOf(language);
+}
+
+/** How English counts, for a message not yet in its language. */
+const ENGLISH_PLURALS = new Intl.PluralRules("en");
+
 
 function lookup(dictionary: unknown, key: string): unknown {
   let node: unknown = dictionary;
@@ -227,7 +236,8 @@ export class Translator {
 
   constructor(language: string | undefined) {
     this.language = pickLanguage(language);
-    this.plurals = new Intl.PluralRules(this.language);
+    // Portugal counts zero as many, Brazil (Intl's `pt`) as one.
+    this.plurals = new Intl.PluralRules(this.language === "pt" ? "pt-PT" : this.language);
   }
 
   /** A plain message. */
@@ -236,9 +246,9 @@ export class Translator {
     return typeof text === "string" ? format(text, params) : key;
   }
 
-  /** Which way it is written: `rtl` for Arabic. */
+  /** Which way it is written: `rtl` for Arabic (unless it could not be loaded). */
   get dir(): "ltr" | "rtl" {
-    return directionOf(this.language);
+    return writtenAs(this.language);
   }
 
   /** A plural message; `{count}` is the number. */
@@ -248,7 +258,7 @@ export class Translator {
     const [forms, rules] = own
       ? [own, this.plurals]
       : [find("en", key) as Plural | undefined, null];
-    const category = (rules ?? new Intl.PluralRules("en")).select(count);
+    const category = (rules ?? ENGLISH_PLURALS).select(count);
     const form = forms?.[category] ?? forms?.other;
     return form ? format(form, { ...params, count }) : key;
   }
@@ -281,6 +291,11 @@ export interface Speaking {
   locale?: { language: string };
 }
 
+/** The language DomoTwin speaks for a `hass` object. */
+export function languageOf(hass: Speaking | undefined): Language {
+  return pickLanguage(hass?.locale?.language ?? hass?.language);
+}
+
 /** The translator matching a `hass` object. */
 export function translatorFor(hass: Speaking | undefined): Translator {
   return new Translator(hass?.locale?.language ?? hass?.language);
@@ -291,10 +306,15 @@ export function translatorFor(hass: Speaking | undefined): Translator {
  * is called once they are (for a view to draw itself again in them).
  */
 export function speak(hass: Speaking | undefined, ready: () => void): boolean {
-  const language = translatorFor(hass).language;
+  const language = languageOf(hass);
   if (languageReady(language)) return true;
   void loadLanguage(language).then(ready);
   return false;
+}
+
+/** Which way DomoTwin writes for a `hass` object: Arabic right to left once it is here. */
+export function directionFor(hass: Speaking | undefined): "ltr" | "rtl" {
+  return writtenAs(languageOf(hass));
 }
 
 export { en, fr };

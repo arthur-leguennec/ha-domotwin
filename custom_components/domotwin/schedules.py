@@ -494,6 +494,7 @@ _SAID = {
         "brightness": " at {brightness} %",
         "then": " and {verb} {when}",
         "then_same_day": " and {verb} at {time}",
+        "comma": ", ",
         "and": " and ",
     },
     "fr": {
@@ -511,6 +512,7 @@ _SAID = {
         "brightness": " à {brightness} %",
         "then": " et {verb} {when}",
         "then_same_day": " et {verb} à {time}",
+        "comma": ", ",
         "and": " et ",
     },
     "de": {
@@ -528,6 +530,7 @@ _SAID = {
         "brightness": " mit {brightness} % Helligkeit",
         "then": " und {when} {verb}",
         "then_same_day": " und um {time} Uhr {verb}",
+        "comma": ", ",
         "and": " und ",
     },
     "es": {
@@ -545,6 +548,7 @@ _SAID = {
         "brightness": " al {brightness} %",
         "then": " y {verb} {when}",
         "then_same_day": " y {verb} a las {time}",
+        "comma": ", ",
         "and": " y ",
     },
     "it": {
@@ -562,6 +566,7 @@ _SAID = {
         "brightness": " al {brightness}%",
         "then": " e {verb} {when}",
         "then_same_day": " e {verb} alle {time}",
+        "comma": ", ",
         "and": " e ",
     },
     "nl": {
@@ -579,6 +584,7 @@ _SAID = {
         "brightness": " op {brightness}% helderheid",
         "then": " en {when} {verb}",
         "then_same_day": " en om {time} {verb}",
+        "comma": ", ",
         "and": " en ",
     },
     "pt": {
@@ -596,6 +602,7 @@ _SAID = {
         "brightness": " com {brightness}% de brilho",
         "then": " e {verb} {when}",
         "then_same_day": " e {verb} às {time}",
+        "comma": ", ",
         "and": " e ",
     },
     "pt-BR": {
@@ -613,6 +620,7 @@ _SAID = {
         "brightness": " com {brightness}% de brilho",
         "then": " e {verb} {when}",
         "then_same_day": " e {verb} às {time}",
+        "comma": ", ",
         "and": " e ",
     },
     "ar": {
@@ -630,6 +638,7 @@ _SAID = {
         "brightness": " بسطوع {brightness}%",
         "then": " و{verb} {when}",
         "then_same_day": " و{verb} في الساعة {time}",
+        "comma": "، ",
         "and": " و",
     },
     "zh-Hans": {
@@ -647,6 +656,7 @@ _SAID = {
         "brightness": "以{brightness}%的亮度",
         "then": "\uff0c并在{when}{verb}",
         "then_same_day": "\uff0c并在{time}{verb}",
+        "comma": "、",
         "and": "和",
     },
     "ja": {
@@ -664,6 +674,7 @@ _SAID = {
         "brightness": "明るさ{brightness}%で",
         "then": "で、{when}に{verb}予定",
         "then_same_day": "で、{time}に{verb}予定",
+        "comma": "、",
         "and": "と",
     },
     "ko": {
@@ -681,6 +692,7 @@ _SAID = {
         "brightness": " 밝기 {brightness}%로",
         "then": "이고, {when}에 {verb} 예정",
         "then_same_day": "이고, {time}에 {verb} 예정",
+        "comma": ", ",
         "and": "하고 ",
     },
 }
@@ -704,7 +716,11 @@ def describe(hass: HomeAssistant, item: Scheduled) -> str:
         state.name if (state := hass.states.get(entity)) is not None else entity
         for entity in item.entities
     ]
-    who = names[0] if len(names) == 1 else ", ".join(names[:-1]) + str(said["and"]) + names[-1]
+    who = (
+        names[0]
+        if len(names) == 1
+        else str(said["comma"]).join(names[:-1]) + str(said["and"]) + names[-1]
+    )
     plural = 1 if len(names) > 1 else 0
     covers = all(entity.startswith("cover.") for entity in item.entities)
     on_verb = said["open" if covers else "on"][plural]

@@ -412,6 +412,8 @@ const PICTURES_MIN_WIDTH = 560;
 const NARROW_WIDTH = 480;
 /** Room kept on the right of a storey's label for itself and the toolbar (CSS pixels). */
 const STOREY_LABEL_ROOM = 250;
+/** The toolbar's column and its margin (CSS pixels), on the left when written right to left. */
+const TOOLS_ROOM = 68;
 /** About half the width and the height (with its gap) of a label over a storey (CSS pixels). */
 const STOREY_LABEL_HALF = 80;
 const STOREY_LABEL_HEIGHT = 56;
@@ -1140,6 +1142,8 @@ export class DomoTwinView extends LitElement {
         position: absolute;
         inset-inline-end: 12px;
         bottom: 12px;
+        /* Its arrows point where they move, whichever way the language is written (D-081). */
+        direction: ltr;
         display: grid;
         grid-template-columns: repeat(3, 44px);
         grid-template-rows: repeat(2, 44px);
@@ -5295,6 +5299,8 @@ export class DomoTwinView extends LitElement {
       return nothing;
     }
     const k = Math.max(1, canvas.clientWidth) / Math.max(1, canvas.width);
+    // The toolbar is on the left when the language is written right to left (D-081).
+    const rtl = this.translator.dir === "rtl";
     return html`<div class="storey-labels" data-testid="storey-labels">
       ${this.storeyLabels.map((label) => {
         const { name, counts } = this.storeyText(label.id);
@@ -5302,7 +5308,9 @@ export class DomoTwinView extends LitElement {
         const width = canvas.clientWidth;
         const left = label.top
           ? Math.max(STOREY_LABEL_HALF, Math.min(label.x * k, width - STOREY_LABEL_HALF))
-          : Math.max(0, Math.min(label.x * k, width - STOREY_LABEL_ROOM));
+          : rtl
+            ? Math.max(TOOLS_ROOM, Math.min(label.x * k, width - STOREY_LABEL_ROOM + TOOLS_ROOM))
+            : Math.max(0, Math.min(label.x * k, width - STOREY_LABEL_ROOM));
         const top = label.top ? Math.max(label.y * k, STOREY_LABEL_HEIGHT) : label.y * k;
         return html`<button
           class="storey-label glass ${label.top ? "top" : ""}"
@@ -5393,12 +5401,19 @@ export class DomoTwinView extends LitElement {
     const point = this.badgePoints[bubble.element];
     if (!point) return nothing;
     const k = Math.max(1, canvas.clientWidth) / Math.max(1, canvas.width);
-    // Within the view, and clear of the toolbar on its right when there is room beside it.
+    // Within the view, and clear of the toolbar when there is room beside it: on its right, or
+    // its left when the language is written right to left (D-081).
     const width = canvas.clientWidth;
-    const tools = this.renderRoot.querySelector<HTMLElement>(".tools")?.offsetLeft ?? width;
-    const right = tools - BUBBLE_WIDTH - 2 * EDGE >= 0 ? tools - EDGE : width - EDGE;
-    const half = Math.min(BUBBLE_WIDTH / 2, (right - EDGE) / 2);
-    const x = Math.min(Math.max(point[0] * k, EDGE + half), right - half);
+    const tools = this.renderRoot.querySelector<HTMLElement>(".tools");
+    let [left, right] = [EDGE, width - EDGE];
+    if (tools && this.translator.dir === "rtl") {
+      const after = tools.offsetLeft + tools.offsetWidth;
+      if (width - after - BUBBLE_WIDTH - 2 * EDGE >= 0) left = after + EDGE;
+    } else if (tools && tools.offsetLeft - BUBBLE_WIDTH - 2 * EDGE >= 0) {
+      right = tools.offsetLeft - EDGE;
+    }
+    const half = Math.min(BUBBLE_WIDTH / 2, (right - left) / 2);
+    const x = Math.min(Math.max(point[0] * k, left + half), right - half);
     const y = point[1] * k;
     const below = y < 200;
     return html`<div

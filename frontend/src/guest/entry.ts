@@ -8,15 +8,17 @@ import { DomoTwinCard } from "../components/card";
 import { define } from "../components/define";
 import { DomoTwinView } from "../components/view";
 import { declareBundledFont } from "../fonts";
-import { Translator } from "../i18n";
+import { Translator, loadLanguage } from "../i18n";
 import { DomoTwinGuest } from "./page";
 
 setAssetBase(new URL(".", import.meta.url));
 declareBundledFont();
-// The page in the guest's own language (D-081), Arabic right to left.
+// The page in the guest's own language (D-081), Arabic right to left once it is here.
 const guest = new Translator(navigator.language);
 document.documentElement.lang = guest.language;
-document.documentElement.dir = guest.dir;
+void loadLanguage(guest.language).then(() => {
+  document.documentElement.dir = guest.dir;
+});
 
 define("domotwin-view", DomoTwinView);
 define("domotwin-card", DomoTwinCard);

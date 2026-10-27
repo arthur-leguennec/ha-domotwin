@@ -496,22 +496,29 @@ export class DomoTwinCard extends LitElement {
     );
   }
 
+  /** What it last drew, kept while another language loads (D-081), its 3D view with it. */
+  private drawn?: TemplateResult;
+
   protected override render(): TemplateResult | typeof nothing {
-    if (!this.config || !inLanguage(this, this._hass)) return nothing;
+    if (!this.config) return nothing;
+    if (!inLanguage(this, this._hass)) return this.drawn ?? nothing;
+    this.drawn = this.draw(this.config);
+    return this.drawn;
+  }
+
+  private draw(config: CardConfig): TemplateResult {
     // Under the viewer's rights (D-071): what they may do, the devices they may not see unlinked.
     const rights = this._hass ? this.rightsOf(this._hass) : undefined;
     const style = [
-      this.config.height ? `height:${this.config.height}` : "",
-      this.config.font_family
-        ? `--domotwin-font-family:${fontFamily(this.config.font_family)}`
-        : "",
+      config.height ? `height:${config.height}` : "",
+      config.font_family ? `--domotwin-font-family:${fontFamily(config.font_family)}` : "",
     ]
       .filter(Boolean)
       .join(";");
-    return html`<ha-card .header=${this.config.title}>
+    return html`<ha-card .header=${config.title}>
       ${this.demo ? html`<domotwin-demo-bar .home=${this.demo}></domotwin-demo-bar>` : nothing}
       <domotwin-view
-        class=${this.config.height ? "fixed" : ""}
+        class=${config.height ? "fixed" : ""}
         style=${style}
         .hass=${this._hass && gatedHass(this._hass, rights?.gate)}
         .plan=${this.settingsRead ? this.plan : undefined}
@@ -521,7 +528,7 @@ export class DomoTwinCard extends LitElement {
         .upkeep=${this.upkeep}
         .people=${this.people}
         .wifi=${this.wifi}
-        .screen=${this.config.screen ?? ""}
+        .screen=${config.screen ?? ""}
         .planError=${this.planError}
         .options=${this.viewOptions()}
         .north=${this.settings?.north ?? 0}

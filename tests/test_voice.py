@@ -246,7 +246,19 @@ async def test_a_failed_set_up_says_why(
 
 def test_whisper_s_language_by_its_own_code() -> None:
     assert voice._options("core_whisper", {"language": "en"}, "nb") == {"language": "no"}
-    assert voice._options("core_piper", {"voice": "x"}, "de") == {"voice": "x"}
+    assert voice._options("core_whisper", {"language": "en"}, "pt-BR") == {"language": "pt"}
+
+
+def test_piper_s_voice_in_each_language_it_speaks() -> None:
+    """D-081: a voice in the language when Piper has one, the app's own when it has none."""
+    assert voice._options("core_piper", {"voice": "x"}, "de-CH") == {
+        "voice": "de_DE-thorsten-medium"
+    }
+    assert voice._options("core_piper", {"voice": "x"}, "pt-BR") == {"voice": "pt_BR-faber-medium"}
+    assert voice._options("core_piper", {"voice": "x"}, "pt") == {"voice": "pt_PT-tugão-medium"}
+    assert voice._options("core_piper", {"voice": "x"}, "ja") == {"voice": "x"}
+    assert voice._options("core_piper", {"voice": "x"}, "sv") == {"voice": "x"}
+    assert voice._options("core_piper", {"voice": "x"}, "en-GB") == {"voice": "en_US-lessac-medium"}
 
 
 async def test_an_ignored_discovery_is_said_at_once_and_refused_options_are_kept(

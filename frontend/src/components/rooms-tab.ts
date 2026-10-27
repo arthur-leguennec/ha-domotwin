@@ -17,7 +17,7 @@ import { runRoom, type RoomAction } from "../live/room-actions";
 import { homeFloors, searchEntities, type RoomsArea, type RoomsFloor } from "../live/rooms";
 import { define } from "./define";
 import "./ha-card";
-import { icon } from "./icon";
+import { icon, mirroredIcon } from "./icon";
 import "./room-graphs";
 import { practicalStyles, starButton } from "./practical-styles";
 import { roomBarStyles, roomButtons } from "./room-bar";
@@ -223,7 +223,7 @@ export class DomoTwinRooms extends LitElement {
     return html`<div class="page" data-testid="room-page" data-area=${id}>
       <div class="room-head">
         <button class="action" data-testid="room-back" @click=${this.back}>
-          ${icon(mdiArrowLeft)}${this.from3d ? t.t("rooms.back_3d") : t.t("rooms.back")}
+          ${mirroredIcon(mdiArrowLeft)}${this.from3d ? t.t("rooms.back_3d") : t.t("rooms.back")}
         </button>
         ${
           area?.entities.some((entity) => graphable(this.hass?.states[entity]))
@@ -270,7 +270,7 @@ export class DomoTwinRooms extends LitElement {
             this.go(area.id);
           }}
         >
-          ${icon(mdiArrowLeft)}${t.t("graphs.back", { room: area.name })}
+          ${mirroredIcon(mdiArrowLeft)}${t.t("graphs.back", { room: area.name })}
         </button>
       </div>
       <h2>${t.t("graphs.heading", { room: area.name })}</h2>
@@ -387,7 +387,7 @@ export class DomoTwinRooms extends LitElement {
                                 }
                               </span>
                             </span>
-                            ${icon(area.closed ? mdiLockOutline : mdiChevronRight)}
+                            ${area.closed ? icon(mdiLockOutline) : mirroredIcon(mdiChevronRight)}
                           </button>`,
                       )}
                     </div>
