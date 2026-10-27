@@ -998,12 +998,12 @@ tracker already keeps, and only the rooms whose count changed are written.
 
 ### M39 (Hydro-Québec's peaks)
 
-Bundle: the first load is **518.6 kB gzipped** of 1 200 kB (+2.2 kB): whether an integration reads
+Bundle: the first load is **523.8 kB gzipped** of 1 200 kB (+2.5 kB): whether an integration reads
 the peaks (`peak-sources.ts`, 0.6 kB gzipped), the layer's place in the view, its styles and its
 name, and a few modules the sandbox now shares with the view, split into chunks of their own. The
 peak, the rooms and the legend come on demand: `chunks/peak-layer-<hash>.js` (0.7 kB gzipped) the
 first time the layer shows, and 2.4 kB shared with the Home tab's and the sandbox's chunks, with
-their texts in both languages. The Home tab's chunk grows by its chip (12.4 kB gzipped, +1.1 kB),
+their texts in both languages. The Home tab's chunk grows by its chip (11.9 kB gzipped, +1.0 kB),
 the sandbox's by the peak's day and report (34.2 kB gzipped, +2.7 kB). The engine's wasm stays
 the same size with the peak's tints (380.3 kB gzipped).
 
