@@ -1,0 +1,336 @@
+{
+  "config": {
+    "abort": {
+      "single_instance_allowed": "DomoTwin はすでに設定されています。"
+    },
+    "step": {
+      "user": {
+        "title": "DomoTwin",
+        "description": "DomoTwin を追加して、あなたの家をリアルタイムに動く 3D ツインにします。間取り図は、サイドバーの DomoTwin パネルからインポートします。"
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "DomoTwin のオプション",
+        "data": {
+          "sidebar": "サイドバーに DomoTwin を表示",
+          "sidebar_admin_only": "管理者にのみ表示"
+        },
+        "data_description": {
+          "sidebar": "エディター付きの全画面表示です。ダッシュボードのカードはどちらの場合も使えます。",
+          "sidebar_admin_only": "他のユーザーも、ダッシュボード上の DomoTwin カードは引き続き使えます。"
+        }
+      }
+    }
+  },
+  "services": {
+    "show": {
+      "name": "表示",
+      "description": "DomoTwin の画面（カードとパネル）すべて、またはそのうちの 1 つに、部屋、要素、階、ビューを表示します。",
+      "fields": {
+        "room": {
+          "name": "部屋",
+          "description": "間取り図の部屋。名前または ID で指定します（どの階でも可）。"
+        },
+        "element": {
+          "name": "要素",
+          "description": "間取り図の任意の要素。名前または ID で指定します：その要素にズームします。"
+        },
+        "storey": {
+          "name": "階",
+          "description": "階。名前、ID、または番号で指定します（地上階は 0、その上は 1、その下は -1）。all ですべての階を同時に表示します。"
+        },
+        "view": {
+          "name": "ビュー",
+          "description": "overview、3d、2d、walk（目の高さで、指定した部屋まで）、または保存したビューの名前。"
+        },
+        "person": {
+          "name": "人",
+          "description": "DomoTwin が配置する人（person.…）：在宅中で部屋がわかっている場合に、その部屋を表示します。"
+        },
+        "screen": {
+          "name": "画面",
+          "description": "表示する画面：カードの screen オプション。空欄の場合はすべての画面。"
+        }
+      }
+    },
+    "where": {
+      "name": "居場所",
+      "description": "人、DomoTwin が Bluetooth で追跡しているデバイス、または在宅中の全員の居場所：その部屋と、応答用の文章（Home Assistant の言語）を返します。",
+      "fields": {
+        "name": {
+          "name": "名前",
+          "description": "人の名前、または追跡中のデバイスの名前（「鍵」など）を、話したとおりに指定します（名前の一部だけでもよく、1 文字の違いは許容されます）。空欄の場合は在宅中の全員。"
+        },
+        "show": {
+          "name": "表示",
+          "description": "DomoTwin の画面にもその部屋を表示します。"
+        },
+        "screen": {
+          "name": "画面",
+          "description": "表示する画面：カードの screen オプション。空欄の場合はすべての画面。"
+        }
+      }
+    },
+    "schedule": {
+      "name": "予約",
+      "description": "指定した時刻または一定時間後にデバイスをオンまたはオフにし、オンの場合は指定した時刻まで、または一定時間オンにしておきます：DomoTwin が保持するため、再起動後も有効です。予約した内容と、読み上げ用の文章を返します。",
+      "fields": {
+        "entity_id": {
+          "name": "エンティティ",
+          "description": "切り替える対象：照明、スイッチ、ファン、メディアプレーヤー、空調、カバー（開閉）…"
+        },
+        "action": {
+          "name": "アクション",
+          "description": "on でオン（カバーは開く）、off でオフ（カバーは閉じる）。"
+        },
+        "at": {
+          "name": "時刻",
+          "description": "実行するとき：日付と時刻（タイムゾーンの指定がなければ Home Assistant のタイムゾーン）、または次に来る時刻。代わりに遅延を指定することもできます。"
+        },
+        "delay": {
+          "name": "遅延",
+          "description": "今からの時間：at の代わりに指定します。"
+        },
+        "until": {
+          "name": "終了時刻",
+          "description": "on の場合：再びオフにするとき。日付と時刻、または時刻（開始後の次の時刻）。"
+        },
+        "duration": {
+          "name": "継続時間",
+          "description": "on の場合：オンにしておく時間。until の代わりに指定します。"
+        },
+        "brightness": {
+          "name": "明るさ",
+          "description": "on の場合：照明の明るさ（%）。"
+        }
+      }
+    },
+    "unschedule": {
+      "name": "予約の取り消し",
+      "description": "domotwin.schedule で予約したアクションを取り消します：ID で 1 件、または指定したエンティティのすべての予約。すでにオンになっているデバイスはオンのままです。",
+      "fields": {
+        "id": {
+          "name": "ID",
+          "description": "domotwin.schedule が返した ID。"
+        },
+        "entity_id": {
+          "name": "エンティティ",
+          "description": "これらのエンティティで待機中のすべてのアクション。"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "upkeep_due": {
+        "name": "期限のメンテナンス",
+        "state_attributes": {
+          "tasks": {
+            "name": "タスク"
+          },
+          "more": {
+            "name": "その他"
+          }
+        }
+      },
+      "person_room": {
+        "name": "{person} の部屋",
+        "state": {
+          "not_home": "外出中"
+        },
+        "state_attributes": {
+          "person": {
+            "name": "人"
+          },
+          "room_id": {
+            "name": "部屋 ID"
+          },
+          "area_id": {
+            "name": "エリア"
+          },
+          "storey_id": {
+            "name": "階 ID"
+          },
+          "storey": {
+            "name": "階"
+          },
+          "since": {
+            "name": "滞在開始"
+          },
+          "source": {
+            "name": "情報源"
+          },
+          "x": {
+            "name": "間取り図上の X"
+          },
+          "y": {
+            "name": "間取り図上の Y"
+          }
+        }
+      },
+      "located": {
+        "name": "{name}：部屋",
+        "state_attributes": {
+          "device_name": {
+            "name": "デバイス"
+          },
+          "kind": {
+            "name": "種類",
+            "state": {
+              "phone": "スマートフォン",
+              "watch": "腕時計",
+              "thing": "モノ"
+            }
+          },
+          "person": {
+            "name": "人"
+          },
+          "room_id": {
+            "name": "部屋 ID"
+          },
+          "area_id": {
+            "name": "エリア"
+          },
+          "storey_id": {
+            "name": "階 ID"
+          },
+          "storey": {
+            "name": "階"
+          },
+          "since": {
+            "name": "滞在開始"
+          },
+          "left_behind": {
+            "name": "置き忘れ"
+          },
+          "x": {
+            "name": "間取り図上の X"
+          },
+          "y": {
+            "name": "間取り図上の Y"
+          },
+          "z": {
+            "name": "高さ"
+          },
+          "accuracy": {
+            "name": "精度"
+          }
+        }
+      },
+      "room_people": {
+        "name": "ここにいる人",
+        "state_attributes": {
+          "room": {
+            "name": "部屋"
+          },
+          "people": {
+            "name": "人"
+          },
+          "private": {
+            "name": "プライベート"
+          },
+          "room_id": {
+            "name": "部屋 ID"
+          },
+          "area_id": {
+            "name": "エリア"
+          },
+          "storey_id": {
+            "name": "階 ID"
+          },
+          "storey": {
+            "name": "階"
+          }
+        }
+      },
+      "room_upkeep": {
+        "name": "この部屋の期限のメンテナンス",
+        "state_attributes": {
+          "room": {
+            "name": "部屋"
+          },
+          "tasks": {
+            "name": "タスク"
+          },
+          "more": {
+            "name": "その他"
+          },
+          "room_id": {
+            "name": "部屋 ID"
+          },
+          "area_id": {
+            "name": "エリア"
+          },
+          "storey_id": {
+            "name": "階 ID"
+          },
+          "storey": {
+            "name": "階"
+          }
+        }
+      },
+      "people_seen": {
+        "name": "検知された人",
+        "state_attributes": {
+          "seen": {
+            "name": "未識別"
+          }
+        }
+      }
+    },
+    "binary_sensor": {
+      "left_behind": {
+        "name": "置き忘れ：{name}",
+        "state_attributes": {
+          "person": {
+            "name": "人"
+          },
+          "room_id": {
+            "name": "部屋 ID"
+          },
+          "room": {
+            "name": "部屋"
+          }
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "schedule_no_entities": {
+      "message": "切り替えるエンティティを 1 つ以上指定してください。"
+    },
+    "schedule_too_many_entities": {
+      "message": "1 つのアクションで指定できるエンティティは最大 25 個です。"
+    },
+    "schedule_unknown_entity": {
+      "message": "存在しないエンティティがあります。"
+    },
+    "schedule_not_schedulable": {
+      "message": "予約できるのは、照明、スイッチ、ファン、入力ブール値、メディアプレーヤー、空調、加湿器、サイレン、カバーのみです。"
+    },
+    "schedule_in_the_past": {
+      "message": "その時刻は過ぎています。"
+    },
+    "schedule_too_far": {
+      "message": "アクションは最大 1 年先まで予約できます。"
+    },
+    "schedule_off_with_end": {
+      "message": "終了時刻や明るさは、オフではなくオンにする場合に指定します。"
+    },
+    "schedule_end_before_start": {
+      "message": "終了が開始より前になっています。"
+    },
+    "schedule_too_long": {
+      "message": "デバイスをオンにしておけるのは最大 1 週間です。"
+    },
+    "schedule_too_many": {
+      "message": "すでに 100 件のアクションが待機中です：先にいくつか取り消してください。"
+    },
+    "schedule_not_allowed": {
+      "message": "これらのデバイスの中に、操作が許可されていないものがあります。"
+    }
+  }
+}

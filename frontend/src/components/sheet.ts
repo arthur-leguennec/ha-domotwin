@@ -14,8 +14,8 @@ import { icon } from "./icon";
 export const sheetStyles = css`
   :host {
     position: absolute;
-    left: 12px;
-    right: 12px;
+    inset-inline-start: 12px;
+    inset-inline-end: 12px;
     bottom: 12px;
     max-height: calc(100% - 24px);
     display: block;
@@ -23,7 +23,7 @@ export const sheetStyles = css`
   }
   @media (min-width: 640px) {
     :host {
-      left: auto;
+      inset-inline-start: auto;
       width: 360px;
     }
   }

@@ -24,10 +24,11 @@ Local, rapide, Rust + WebAssembly.</p>
 > dites avec vos mots, jouées dans le bac à sable avant d’être enregistrées, la météo autour du
 > logement, la justesse des pièces trouvées, mesurée à côté de Bermuda, une bibliothèque de 195
 > meubles et objets avec leurs images, un iPhone suivi sans Mac, l’écran mural (son économiseur
-> réveillé par qui arrive) et un bilan de la semaine de ce qui est à surveiller, et DomoTwin a
-> rejoint la Vue d’ensemble de Home Assistant ; un premier lancement en cinq minutes ferme le chemin
-> vers la 0.5.0. La proposition à la liste par défaut de HACS attend des mesures sur de vrais
-> appareils.
+> réveillé par qui arrive), un bilan de la semaine de ce qui est à surveiller, l’extérieur et la
+> pelouse qui pousse, les demi-niveaux, une place dans la pièce, les radars de présence fondus avec
+> le Bluetooth, dix langues de plus, et DomoTwin a rejoint la Vue d’ensemble de Home Assistant ; un
+> premier lancement en cinq minutes ferme le chemin vers la 0.5.0. La proposition à la liste par
+> défaut de HACS attend des mesures sur de vrais appareils.
 
 ## Ce qui le distingue
 
@@ -296,8 +297,10 @@ Local, rapide, Rust + WebAssembly.</p>
 - **Léger et fluide.** Rust compilé en WebAssembly, un rendu seulement quand quelque chose change,
   des préréglages de qualité pour les vieilles tablettes murales. Le premier chargement est limité à
   1,2 Mo, vérifié par l’intégration continue.
-- **À vous.** Anglais et français, suit le thème de Home Assistant, fonctionne dans les applications
-  mobiles. Sa propre police (Inter, servie par votre Home Assistant), et tout à portée du clavier
+- **À vous.** Dans la langue de votre Home Assistant : anglais, français, allemand, espagnol,
+  italien, néerlandais, portugais (du Portugal et du Brésil), arabe (de droite à gauche), chinois,
+  japonais et coréen, chacune chargée seulement si c’est la vôtre. Suit le thème de Home Assistant,
+  fonctionne dans les applications mobiles. Sa propre police (Inter, servie par votre Home Assistant), et tout à portée du clavier
   et des lecteurs d’écran : les pièces et leurs commandes, les menus, les dialogues.
 
 <p align="center">

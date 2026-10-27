@@ -9,7 +9,7 @@ import { LitElement, css, html, nothing, type TemplateResult } from "lit";
 import type { HomeAssistant } from "../ha/types";
 import { translatorFor } from "../i18n";
 import { isSummary, type SummaryKind } from "../live/overview";
-import { define } from "./define";
+import { define, inLanguage } from "./define";
 
 export interface SummaryConfig {
   type: string;
@@ -31,6 +31,10 @@ export class DomoTwinSummaryCard extends LitElement {
   static override styles = css`
     :host {
       display: block;
+    }
+    /* Right to left (D-082): what points back or on turns round. */
+    :host([dir="rtl"]) {
+      --domotwin-mirror: -1;
     }
     ha-card {
       height: 100%;
@@ -78,6 +82,15 @@ export class DomoTwinSummaryCard extends LitElement {
       // Not fetched (the network went): asked for again when the card is shown next.
       DomoTwinSummaryCard.body = undefined;
     }
+  }
+
+  /** Drawn once Home Assistant's language is here (D-082). */
+  protected override scheduleUpdate(): Promise<unknown> | undefined {
+    return inLanguage(
+      this,
+      () => this.hass,
+      () => super.scheduleUpdate(),
+    );
   }
 
   protected override render(): TemplateResult | typeof nothing {

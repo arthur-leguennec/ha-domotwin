@@ -4091,3 +4091,71 @@ M37, moved forward by the maintainer from the way to 0.6.0 (D-056), after Hydro-
   - The first load grows by the menu item and its text; the page comes when opened
     (`PERFORMANCE.md`).
   - The roadmap shows M37 done after presence radars merged (M43); the rest of the order stays.
+
+## D-082 · More languages: loaded when Home Assistant speaks them, Arabic right to left (M21)
+
+Last of the milestones before the first launch (M22), once the texts of the rest were written, so
+that they are translated once (D-056). It extends D-001's rule (every visible string through `t()`,
+English and French) to ten more languages.
+
+- **Context.** DomoTwin spoke English and French, both in the first picture's bundle. Home
+  Assistant speaks some sixty languages; the most used after English are German, Spanish, French,
+  Italian, Dutch, Portuguese (Portugal's and Brazil's), Chinese, Japanese, Korean and Arabic, the
+  last written right to left. A language is some 40 kB gzipped of messages (the main dictionary
+  and the chunks'; 46 kB in Arabic): ten of them in the first load would add more than half of it
+  again, for one of them used.
+- **Decision.**
+  - **Twelve languages**: English and French with the first picture, as before; German, Spanish,
+    Italian, Dutch, Portuguese (`pt`), Brazilian Portuguese (`pt-BR`), Arabic (`ar`), Simplified
+    Chinese (`zh-Hans`), Japanese and Korean each one module (`src/i18n/lang/<code>.ts`) with every
+    message, the main dictionary's and every chunk's, **loaded when Home Assistant speaks it** and
+    only then. Home Assistant's language is matched as itself, else without its region (`de-CH` is
+    German); Portuguese of Brazil has its own, every Chinese is the simplified one, and any other
+    language is English.
+  - **Checked as English is.** TypeScript checks that a language gives every key; the tests that
+    each message keeps its `{placeholders}`, gives the plural forms the language counts with
+    (`Intl.PluralRules`: Arabic six, Japanese one), and is not left in English. A message added in
+    English and French is added to the others in English until translated, and the tests say which.
+  - **Drawn in it, not after.** The elements Home Assistant shows (the card, the panel, the
+    summaries, their editors, the guests' page) wait to draw until their language is here, a few
+    milliseconds from Home Assistant, then draw in it; what they hold does not need to know. They
+    wait before drawing, not by drawing nothing: what they showed stays while another language
+    loads (the 3D view with it), and what waits for them to be drawn (a layer asked for in the
+    address, `domotwin.show`) waits for that too. A language that cannot be loaded is spoken in
+    English, not asked for again. The card picker names DomoTwin's cards when it opens, in the
+    language once an element has loaded it (not loaded on every page for the picker alone).
+  - **The demo house speaks them too** (D-050): its rooms, storeys, devices, automations, upkeep
+    tasks and pieces, which each language's pack names by their English
+    (`scripts/demo-texts.mjs` lists them; the tests say which are left in English). A home's own
+    names are the home's, in whatever language they were typed.
+  - **Right to left.** Each element sets its `dir` from the language: Arabic is written right to
+    left, and so is the layout, written in logical properties (`inset-inline-end`,
+    `margin-inline-start`, `text-align: start`): the tabs, the toolbar, the tools and the sheets
+    change sides, as Home Assistant's own. What is pinned to a point of the 3D view (a storey's
+    label) keeps its side.
+  - **The integration says it too.** Its entities, settings and services in Home Assistant's
+    translations (`translations/<code>.json`), and what it says aloud (where someone is, an action
+    planned for later) in the same language as the frontend picks; the voice blueprints hear their
+    sentences in each.
+  - **The weekly report in it** (M37, D-081, merged just before): its page in each viewer's
+    language, and what the integration writes once for the home, the notification and the facts
+    the AI task sums up, in Home Assistant's: each language's dates, hours, decimal comma and
+    punctuation (`report_words.py`).
+  - **Translated by machine, written to be read.** The translations follow Home Assistant's own
+    words in each language (Bereich, Entität…) and DomoTwin's (a piece, a storey, a look); they are
+    marked as such for native speakers to correct (`CONTRIBUTING.md`).
+  - **The library searched in them**: each piece's name and the other words it is searched by
+    (M17) are part of each language.
+  - **The local voice in it**: its set-up gives Piper a voice in each language Piper has one in
+    (Thorsten in German, Davefx in Spanish, Paola in Italian…, names checked against Piper's own
+    list, since a wrong one would stop the app).
+- **Not done.** Other languages (one starts with `node scripts/new-language.mjs <code>`); Piper has
+  no voice in Japanese or Korean: their set-up keeps the app's own, and the steps for Container and
+  Core show English's.
+- **Consequences.**
+  - The first load is the same for everyone (+1.8 kB: the loader and the logical layout); a home in
+    another language loads its own once (39 to 46 kB gzipped), kept by the browser like the rest.
+    The bundles keep every language's letters as they are (UTF-8, as a module is always read),
+    not escaped: a third smaller in Arabic, Chinese, Japanese and Korean.
+  - Every new message is written in English and French and added in English to the ten others;
+    the tests say what is left to translate.

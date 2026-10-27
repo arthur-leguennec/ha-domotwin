@@ -14,7 +14,7 @@ import { LitElement, css, html, nothing, type PropertyValues, type TemplateResul
 
 import { DomoTwinClient } from "../ha/client";
 import { nowOf, type HomeAssistant } from "../ha/types";
-import { pickLanguage, Translator, type MessageKey } from "../i18n";
+import { languageOf, Translator, type MessageKey } from "../i18n";
 import "../i18n/summary";
 import { navigate } from "../live/actions";
 import { networkAvailable } from "../live/layers";
@@ -186,7 +186,7 @@ export class DomoTwinSummaryBody extends LitElement {
     const hass = this.hass;
     const kind = this.kind;
     if (!hass || !kind) return undefined;
-    const language = pickLanguage(hass.locale?.language ?? hass.language);
+    const language = languageOf(hass);
     if (this.translator?.language !== language) this.translator = new Translator(language);
     const t = this.translator;
     const title = t.t(`summary.titles.${kind}` as MessageKey);

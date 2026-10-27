@@ -63,6 +63,7 @@ import {
   localPlan,
   roomSensorOf,
   say,
+  SCHEDULED,
   type Words,
 } from "./house";
 import { callService } from "./services";
@@ -310,9 +311,10 @@ export class DemoHome implements MemoryHome {
       };
     }
     const floors: Record<string, HassFloorEntry> = {};
-    for (const storey of STOREYS) {
+    for (const [level, storey] of STOREYS.entries()) {
       const id = `${storey.info.id}_floor`;
-      floors[id] = { floor_id: id, name: say(storey.names, language) };
+      // Ordered by level, not by name: the upper floor is not first in Spanish (D-082).
+      floors[id] = { floor_id: id, name: say(storey.names, language), level };
     }
     this.weekly = new DemoReport(Date.parse(this.time()), language, () => Date.parse(this.time()));
     this.configHistory = new DemoConfigHistory(Date.parse(this.time()), language, () =>
@@ -908,9 +910,9 @@ export class DemoHome implements MemoryHome {
       .join(", ");
     // The demo's wall clock: this device's time.
     const time = `${pad(at.getHours())}:${pad(at.getMinutes())}`;
-    const text = this.language.toLowerCase().startsWith("fr")
-      ? `${names} : ${schedule.action === "on" ? "allumage" : "extinction"} prévu à ${time}.`
-      : `${names} will switch ${schedule.action} at ${time}.`;
+    const text = say(SCHEDULED[schedule.action === "on" ? "on" : "off"], this.language)
+      .replace("{names}", names)
+      .replace("{time}", time);
     return { schedule, text };
   }
 

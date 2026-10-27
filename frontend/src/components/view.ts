@@ -412,6 +412,8 @@ const PICTURES_MIN_WIDTH = 560;
 const NARROW_WIDTH = 480;
 /** Room kept on the right of a storey's label for itself and the toolbar (CSS pixels). */
 const STOREY_LABEL_ROOM = 250;
+/** The toolbar's column and its margin (CSS pixels), on the left when written right to left. */
+const TOOLS_ROOM = 68;
 /** About half the width and the height (with its gap) of a label over a storey (CSS pixels). */
 const STOREY_LABEL_HALF = 80;
 const STOREY_LABEL_HEIGHT = 56;
@@ -1118,7 +1120,7 @@ export class DomoTwinView extends LitElement {
       .tools {
         position: absolute;
         top: 12px;
-        right: 12px;
+        inset-inline-end: 12px;
         display: flex;
         flex-direction: column;
         gap: 4px;
@@ -1138,8 +1140,10 @@ export class DomoTwinView extends LitElement {
       }
       .walk-pad {
         position: absolute;
-        right: 12px;
+        inset-inline-end: 12px;
         bottom: 12px;
+        /* Its arrows point where they move, whichever way the language is written (D-082). */
+        direction: ltr;
         display: grid;
         grid-template-columns: repeat(3, 44px);
         grid-template-rows: repeat(2, 44px);
@@ -1219,7 +1223,7 @@ export class DomoTwinView extends LitElement {
         content: "";
         position: absolute;
         top: 5px;
-        right: 5px;
+        inset-inline-end: 5px;
         width: 8px;
         height: 8px;
         border-radius: 50%;
@@ -1235,7 +1239,7 @@ export class DomoTwinView extends LitElement {
       .tools .storey .people-count {
         position: absolute;
         bottom: 2px;
-        right: 2px;
+        inset-inline-end: 2px;
         min-width: 14px;
         height: 14px;
         padding: 0 3px;
@@ -1255,7 +1259,7 @@ export class DomoTwinView extends LitElement {
       .views {
         position: absolute;
         top: 12px;
-        right: 68px;
+        inset-inline-end: 68px;
         /* An open menu is over the sheets of the layers (the network map's, the coverage's). */
         z-index: 5;
         min-width: 160px;
@@ -1294,7 +1298,7 @@ export class DomoTwinView extends LitElement {
       .room-list {
         position: absolute;
         top: 12px;
-        left: 12px;
+        inset-inline-start: 12px;
         z-index: 4;
         max-height: calc(100% - 24px);
         overflow: auto;
@@ -1348,7 +1352,7 @@ export class DomoTwinView extends LitElement {
       }
       .legend {
         position: absolute;
-        right: 12px;
+        inset-inline-end: 12px;
         bottom: 12px;
         width: 168px;
         padding: 8px 12px;
@@ -1453,7 +1457,8 @@ export class DomoTwinView extends LitElement {
         align-items: center;
         gap: 5px;
         min-height: 28px;
-        padding: 2px 9px 2px 3px;
+        padding-block: 2px;
+        padding-inline: 3px 9px;
         border: 2px solid var(--person);
         border-radius: 16px;
         background: color-mix(in srgb, var(--card-background-color, #fff) 90%, transparent);
@@ -1515,7 +1520,7 @@ export class DomoTwinView extends LitElement {
       }
       .pictures {
         position: absolute;
-        left: 12px;
+        inset-inline-start: 12px;
         top: 12px;
         display: grid;
         gap: 8px;
@@ -1536,7 +1541,7 @@ export class DomoTwinView extends LitElement {
         font-size: 12px;
         font-weight: 600;
         color: inherit;
-        text-align: left;
+        text-align: start;
       }
       .picture img {
         width: 100%;
@@ -1567,7 +1572,7 @@ export class DomoTwinView extends LitElement {
       .room-name svg {
         width: 13px;
         height: 13px;
-        margin-right: 4px;
+        margin-inline-end: 4px;
         vertical-align: -2px;
         fill: currentColor;
       }
@@ -1599,7 +1604,8 @@ export class DomoTwinView extends LitElement {
         display: flex;
         align-items: center;
         gap: 8px;
-        padding: 6px 6px 6px 14px;
+        padding-block: 6px;
+        padding-inline: 14px 6px;
         border-radius: 22px;
       }
       /* A piece's bubble (D-047), above it, or below it near the top of the view. */
@@ -1674,7 +1680,7 @@ export class DomoTwinView extends LitElement {
       .alerts {
         position: absolute;
         top: 12px;
-        left: 12px;
+        inset-inline-start: 12px;
         max-width: calc(100% - 92px);
         display: grid;
         gap: 6px;
@@ -1685,7 +1691,8 @@ export class DomoTwinView extends LitElement {
         align-items: center;
         gap: 8px;
         max-width: 100%;
-        padding: 8px 14px 8px 10px;
+        padding-block: 8px;
+        padding-inline: 10px 14px;
         border: none;
         box-shadow:
           inset 0 0 0 2px var(--warning-color, #ffa600),
@@ -1753,7 +1760,7 @@ export class DomoTwinView extends LitElement {
       }
       .chip {
         position: absolute;
-        left: 12px;
+        inset-inline-start: 12px;
         bottom: 12px;
         max-width: calc(100% - 24px);
         padding: 8px 14px;
@@ -5292,6 +5299,8 @@ export class DomoTwinView extends LitElement {
       return nothing;
     }
     const k = Math.max(1, canvas.clientWidth) / Math.max(1, canvas.width);
+    // The toolbar is on the left when the language is written right to left (D-082).
+    const rtl = this.translator.dir === "rtl";
     return html`<div class="storey-labels" data-testid="storey-labels">
       ${this.storeyLabels.map((label) => {
         const { name, counts } = this.storeyText(label.id);
@@ -5299,7 +5308,9 @@ export class DomoTwinView extends LitElement {
         const width = canvas.clientWidth;
         const left = label.top
           ? Math.max(STOREY_LABEL_HALF, Math.min(label.x * k, width - STOREY_LABEL_HALF))
-          : Math.max(0, Math.min(label.x * k, width - STOREY_LABEL_ROOM));
+          : rtl
+            ? Math.max(TOOLS_ROOM, Math.min(label.x * k, width - STOREY_LABEL_ROOM + TOOLS_ROOM))
+            : Math.max(0, Math.min(label.x * k, width - STOREY_LABEL_ROOM));
         const top = label.top ? Math.max(label.y * k, STOREY_LABEL_HEIGHT) : label.y * k;
         return html`<button
           class="storey-label glass ${label.top ? "top" : ""}"
@@ -5390,12 +5401,19 @@ export class DomoTwinView extends LitElement {
     const point = this.badgePoints[bubble.element];
     if (!point) return nothing;
     const k = Math.max(1, canvas.clientWidth) / Math.max(1, canvas.width);
-    // Within the view, and clear of the toolbar on its right when there is room beside it.
+    // Within the view, and clear of the toolbar when there is room beside it: on its right, or
+    // its left when the language is written right to left (D-082).
     const width = canvas.clientWidth;
-    const tools = this.renderRoot.querySelector<HTMLElement>(".tools")?.offsetLeft ?? width;
-    const right = tools - BUBBLE_WIDTH - 2 * EDGE >= 0 ? tools - EDGE : width - EDGE;
-    const half = Math.min(BUBBLE_WIDTH / 2, (right - EDGE) / 2);
-    const x = Math.min(Math.max(point[0] * k, EDGE + half), right - half);
+    const tools = this.renderRoot.querySelector<HTMLElement>(".tools");
+    let [left, right] = [EDGE, width - EDGE];
+    if (tools && this.translator.dir === "rtl") {
+      const after = tools.offsetLeft + tools.offsetWidth;
+      if (width - after - BUBBLE_WIDTH - 2 * EDGE >= 0) left = after + EDGE;
+    } else if (tools && tools.offsetLeft - BUBBLE_WIDTH - 2 * EDGE >= 0) {
+      right = tools.offsetLeft - EDGE;
+    }
+    const half = Math.min(BUBBLE_WIDTH / 2, (right - left) / 2);
+    const x = Math.min(Math.max(point[0] * k, left + half), right - half);
     const y = point[1] * k;
     const below = y < 200;
     return html`<div

@@ -1,0 +1,336 @@
+{
+  "config": {
+    "abort": {
+      "single_instance_allowed": "DomoTwin ist bereits eingerichtet."
+    },
+    "step": {
+      "user": {
+        "title": "DomoTwin",
+        "description": "Füge DomoTwin hinzu, dein Zuhause als lebendiger 3D-Zwilling. Den Grundriss importierst du danach im DomoTwin-Panel in der Seitenleiste."
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "DomoTwin-Optionen",
+        "data": {
+          "sidebar": "DomoTwin in der Seitenleiste anzeigen",
+          "sidebar_admin_only": "Nur Administratoren anzeigen"
+        },
+        "data_description": {
+          "sidebar": "Die Vollbildansicht mit dem Editor. Dashboard-Karten funktionieren in beiden Fällen.",
+          "sidebar_admin_only": "Andere Benutzer können DomoTwin-Karten auf Dashboards weiterhin verwenden."
+        }
+      }
+    }
+  },
+  "services": {
+    "show": {
+      "name": "Zeigen",
+      "description": "Zeigt einen Raum, ein Element, eine Etage oder eine Ansicht auf den DomoTwin-Bildschirmen (Karten und Panel) oder auf einem davon.",
+      "fields": {
+        "room": {
+          "name": "Raum",
+          "description": "Ein Raum des Grundrisses, über seinen Namen oder seine ID (auf beliebiger Etage)."
+        },
+        "element": {
+          "name": "Element",
+          "description": "Ein beliebiges Element des Grundrisses, über seinen Namen oder seine ID: es wird ins Bild gerückt."
+        },
+        "storey": {
+          "name": "Etage",
+          "description": "Eine Etage, über ihren Namen, ihre ID oder ihre Nummer (0 für das Erdgeschoss, 1 darüber, -1 darunter); all für alle Etagen auf einmal."
+        },
+        "view": {
+          "name": "Ansicht",
+          "description": "overview, 3d, 2d, walk (auf Augenhöhe, zum angegebenen Raum) oder der Name einer gespeicherten Ansicht."
+        },
+        "person": {
+          "name": "Person",
+          "description": "Eine Person, die DomoTwin platziert (person.…): ihr Raum wird gezeigt, wenn sie zu Hause in einem bekannten Raum ist."
+        },
+        "screen": {
+          "name": "Bildschirm",
+          "description": "Der Bildschirm, auf dem es gezeigt wird: die Option screen einer Karte. Leer für alle Bildschirme."
+        }
+      }
+    },
+    "where": {
+      "name": "Wo",
+      "description": "Wo eine Person ist, ein Gerät, das DomoTwin per Bluetooth verfolgt, oder alle zu Hause: ihr Raum und ein Satz als Antwort (in der Sprache von Home Assistant).",
+      "fields": {
+        "name": {
+          "name": "Name",
+          "description": "Der Name einer Person oder eines verfolgten Geräts („meine Schlüssel“), so wie gesagt (ein Vorname genügt, ein falscher Buchstabe wird verziehen). Leer für alle zu Hause."
+        },
+        "show": {
+          "name": "Zeigen",
+          "description": "Ihren Raum auch auf den DomoTwin-Bildschirmen zeigen."
+        },
+        "screen": {
+          "name": "Bildschirm",
+          "description": "Der Bildschirm, auf dem es gezeigt wird: die Option screen einer Karte. Leer für alle Bildschirme."
+        }
+      }
+    },
+    "schedule": {
+      "name": "Planen",
+      "description": "Schaltet Geräte später ein oder aus, zu einer Uhrzeit oder nach einer Verzögerung, und lässt sie bis zu einer Uhrzeit oder für eine Weile an: von DomoTwin aufbewahrt, auch über Neustarts hinweg. Antwortet, was festgelegt wurde, mit einem Satz zum Aussprechen.",
+      "fields": {
+        "entity_id": {
+          "name": "Entitäten",
+          "description": "Was geschaltet wird: Lichter, Schalter, Ventilatoren, Mediaplayer, Klima, Rollläden (geöffnet und geschlossen)…"
+        },
+        "action": {
+          "name": "Aktion",
+          "description": "on zum Einschalten (einen Rollladen öffnen), off zum Ausschalten (ihn schließen)."
+        },
+        "at": {
+          "name": "Um",
+          "description": "Wann: ein Datum mit Uhrzeit (in der Zeitzone von Home Assistant, sofern keine angegeben ist) oder eine Uhrzeit, für die nächste. Oder gib eine Verzögerung an."
+        },
+        "delay": {
+          "name": "Verzögerung",
+          "description": "Wann, ab jetzt: statt Um."
+        },
+        "until": {
+          "name": "Bis",
+          "description": "Mit on: wann wieder ausgeschaltet wird, ein Datum mit Uhrzeit oder eine Uhrzeit (die nächste nach dem Start)."
+        },
+        "duration": {
+          "name": "Dauer",
+          "description": "Mit on: wie lange es an bleibt, statt Bis."
+        },
+        "brightness": {
+          "name": "Helligkeit",
+          "description": "Mit on: die Helligkeit der Lichter (%)."
+        }
+      }
+    },
+    "unschedule": {
+      "name": "Planung aufheben",
+      "description": "Bricht mit domotwin.schedule festgelegte Aktionen ab: eine über ihre ID oder alle von bestimmten Entitäten. Ein bereits eingeschaltetes Gerät bleibt an.",
+      "fields": {
+        "id": {
+          "name": "ID",
+          "description": "Die ID, die domotwin.schedule geantwortet hat."
+        },
+        "entity_id": {
+          "name": "Entitäten",
+          "description": "Alle Aktionen, die für diese Entitäten warten."
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "upkeep_due": {
+        "name": "Fällige Wartung",
+        "state_attributes": {
+          "tasks": {
+            "name": "Aufgaben"
+          },
+          "more": {
+            "name": "Weitere"
+          }
+        }
+      },
+      "person_room": {
+        "name": "Raum von {person}",
+        "state": {
+          "not_home": "Abwesend"
+        },
+        "state_attributes": {
+          "person": {
+            "name": "Person"
+          },
+          "room_id": {
+            "name": "Raum-ID"
+          },
+          "area_id": {
+            "name": "Bereich"
+          },
+          "storey_id": {
+            "name": "Etagen-ID"
+          },
+          "storey": {
+            "name": "Etage"
+          },
+          "since": {
+            "name": "Seit"
+          },
+          "source": {
+            "name": "Quelle"
+          },
+          "x": {
+            "name": "X im Grundriss"
+          },
+          "y": {
+            "name": "Y im Grundriss"
+          }
+        }
+      },
+      "located": {
+        "name": "{name}: Raum",
+        "state_attributes": {
+          "device_name": {
+            "name": "Gerät"
+          },
+          "kind": {
+            "name": "Art",
+            "state": {
+              "phone": "Handy",
+              "watch": "Uhr",
+              "thing": "Gegenstand"
+            }
+          },
+          "person": {
+            "name": "Person"
+          },
+          "room_id": {
+            "name": "Raum-ID"
+          },
+          "area_id": {
+            "name": "Bereich"
+          },
+          "storey_id": {
+            "name": "Etagen-ID"
+          },
+          "storey": {
+            "name": "Etage"
+          },
+          "since": {
+            "name": "Seit"
+          },
+          "left_behind": {
+            "name": "Liegen gelassen"
+          },
+          "x": {
+            "name": "X im Grundriss"
+          },
+          "y": {
+            "name": "Y im Grundriss"
+          },
+          "z": {
+            "name": "Höhe"
+          },
+          "accuracy": {
+            "name": "Genauigkeit"
+          }
+        }
+      },
+      "room_people": {
+        "name": "Personen hier",
+        "state_attributes": {
+          "room": {
+            "name": "Raum"
+          },
+          "people": {
+            "name": "Personen"
+          },
+          "private": {
+            "name": "Privat"
+          },
+          "room_id": {
+            "name": "Raum-ID"
+          },
+          "area_id": {
+            "name": "Bereich"
+          },
+          "storey_id": {
+            "name": "Etagen-ID"
+          },
+          "storey": {
+            "name": "Etage"
+          }
+        }
+      },
+      "room_upkeep": {
+        "name": "Fällige Wartung hier",
+        "state_attributes": {
+          "room": {
+            "name": "Raum"
+          },
+          "tasks": {
+            "name": "Aufgaben"
+          },
+          "more": {
+            "name": "Weitere"
+          },
+          "room_id": {
+            "name": "Raum-ID"
+          },
+          "area_id": {
+            "name": "Bereich"
+          },
+          "storey_id": {
+            "name": "Etagen-ID"
+          },
+          "storey": {
+            "name": "Etage"
+          }
+        }
+      },
+      "people_seen": {
+        "name": "Gesehene Personen",
+        "state_attributes": {
+          "seen": {
+            "name": "Nicht identifiziert"
+          }
+        }
+      }
+    },
+    "binary_sensor": {
+      "left_behind": {
+        "name": "Liegen gelassen: {name}",
+        "state_attributes": {
+          "person": {
+            "name": "Person"
+          },
+          "room_id": {
+            "name": "Raum-ID"
+          },
+          "room": {
+            "name": "Raum"
+          }
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "schedule_no_entities": {
+      "message": "Nenne mindestens eine Entität zum Schalten."
+    },
+    "schedule_too_many_entities": {
+      "message": "Höchstens 25 Entitäten in einer Aktion."
+    },
+    "schedule_unknown_entity": {
+      "message": "Eine der Entitäten existiert nicht."
+    },
+    "schedule_not_schedulable": {
+      "message": "Nur Lichter, Schalter, Ventilatoren, Umschalter-Helfer, Mediaplayer, Klimageräte, Luftbefeuchter, Sirenen und Rollläden können geplant werden."
+    },
+    "schedule_in_the_past": {
+      "message": "Dieser Zeitpunkt ist vorbei."
+    },
+    "schedule_too_far": {
+      "message": "Eine Aktion wird höchstens ein Jahr im Voraus festgelegt."
+    },
+    "schedule_off_with_end": {
+      "message": "Ein Ende oder eine Helligkeit gehört zum Einschalten, nicht zum Ausschalten."
+    },
+    "schedule_end_before_start": {
+      "message": "Das Ende liegt vor dem Start."
+    },
+    "schedule_too_long": {
+      "message": "Ein Gerät bleibt höchstens eine Woche an."
+    },
+    "schedule_too_many": {
+      "message": "Es warten schon 100 Aktionen: brich zuerst einige ab."
+    },
+    "schedule_not_allowed": {
+      "message": "Du darfst eines dieser Geräte nicht steuern."
+    }
+  }
+}

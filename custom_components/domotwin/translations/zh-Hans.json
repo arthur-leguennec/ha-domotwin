@@ -1,0 +1,336 @@
+{
+  "config": {
+    "abort": {
+      "single_instance_allowed": "DomoTwin 已经设置好了。"
+    },
+    "step": {
+      "user": {
+        "title": "DomoTwin",
+        "description": "添加 DomoTwin，你的家的实时 3D 数字孪生。之后你可以在侧边栏的 DomoTwin 面板中导入平面图。"
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "DomoTwin 选项",
+        "data": {
+          "sidebar": "在侧边栏中显示 DomoTwin",
+          "sidebar_admin_only": "仅向管理员显示"
+        },
+        "data_description": {
+          "sidebar": "带编辑器的全屏视图。无论是否显示，仪表盘卡片都能正常使用。",
+          "sidebar_admin_only": "其他用户仍可在仪表盘上使用 DomoTwin 卡片。"
+        }
+      }
+    }
+  },
+  "services": {
+    "show": {
+      "name": "显示",
+      "description": "在 DomoTwin 屏幕（卡片和面板）或其中一个屏幕上显示房间、元素、楼层或视图。",
+      "fields": {
+        "room": {
+          "name": "房间",
+          "description": "平面图中的房间，按其名称或 ID（在任意楼层上）。"
+        },
+        "element": {
+          "name": "元素",
+          "description": "平面图中的任意元素，按其名称或 ID：视图会聚焦到它。"
+        },
+        "storey": {
+          "name": "楼层",
+          "description": "楼层，按其名称、ID 或编号（0 为首层，1 为上一层，-1 为下一层）；all 表示同时显示所有楼层。"
+        },
+        "view": {
+          "name": "视图",
+          "description": "overview、3d、2d、walk（以视线高度漫游到指定房间），或已保存视角的名称。"
+        },
+        "person": {
+          "name": "人员",
+          "description": "DomoTwin 定位的人员（person.…）：如果其在家且所在房间已知，则显示该房间。"
+        },
+        "screen": {
+          "name": "屏幕",
+          "description": "要显示的屏幕：卡片的 screen 选项。留空则显示在所有屏幕上。"
+        }
+      }
+    },
+    "where": {
+      "name": "在哪里",
+      "description": "某个人员、DomoTwin 通过 Bluetooth 跟踪的某个设备，或所有在家的人在哪里：其所在房间，以及一句可用于回答的话（使用 Home Assistant 的语言）。",
+      "fields": {
+        "name": {
+          "name": "名称",
+          "description": "人员的名字，或跟踪设备的名称（“我的钥匙”），按所说的内容（名字即可，错一个字母也能识别）。留空则表示所有在家的人。"
+        },
+        "show": {
+          "name": "显示",
+          "description": "同时在 DomoTwin 屏幕上显示其所在房间。"
+        },
+        "screen": {
+          "name": "屏幕",
+          "description": "要显示的屏幕：卡片的 screen 选项。留空则显示在所有屏幕上。"
+        }
+      }
+    },
+    "schedule": {
+      "name": "定时",
+      "description": "稍后开启或关闭设备，可在某个时间或延迟之后执行，开启时可持续到某个时间或一段时长：由 DomoTwin 保存，重启后依然有效。回复所设定的内容，并附带一句可播报的话。",
+      "fields": {
+        "entity_id": {
+          "name": "实体",
+          "description": "要开关的对象：灯、开关、风扇、媒体播放器、温控、窗帘（打开和关闭）…"
+        },
+        "action": {
+          "name": "操作",
+          "description": "on 表示开启（打开窗帘），off 表示关闭（关上窗帘）。"
+        },
+        "at": {
+          "name": "时间",
+          "description": "何时：日期和时间（除非另行指定，否则使用 Home Assistant 的时区），或某个时刻（取下一次出现的时刻）。也可以改为提供延迟。"
+        },
+        "delay": {
+          "name": "延迟",
+          "description": "从现在起多久之后：代替“时间”。"
+        },
+        "until": {
+          "name": "直到",
+          "description": "配合 on 使用：何时再次关闭，可为日期和时间或某个时刻（取开始后的下一次）。"
+        },
+        "duration": {
+          "name": "时长",
+          "description": "配合 on 使用：保持开启多久，代替“直到”。"
+        },
+        "brightness": {
+          "name": "亮度",
+          "description": "配合 on 使用：灯的亮度（%）。"
+        }
+      }
+    },
+    "unschedule": {
+      "name": "取消定时",
+      "description": "取消用 domotwin.schedule 设定的操作：按 ID 取消一个，或取消某些实体的全部操作。已开启的设备保持开启。",
+      "fields": {
+        "id": {
+          "name": "ID",
+          "description": "domotwin.schedule 回复的 ID。"
+        },
+        "entity_id": {
+          "name": "实体",
+          "description": "这些实体上所有待执行的操作。"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "upkeep_due": {
+        "name": "到期保养",
+        "state_attributes": {
+          "tasks": {
+            "name": "任务"
+          },
+          "more": {
+            "name": "更多"
+          }
+        }
+      },
+      "person_room": {
+        "name": "{person} 所在房间",
+        "state": {
+          "not_home": "离家"
+        },
+        "state_attributes": {
+          "person": {
+            "name": "人员"
+          },
+          "room_id": {
+            "name": "房间 ID"
+          },
+          "area_id": {
+            "name": "区域"
+          },
+          "storey_id": {
+            "name": "楼层 ID"
+          },
+          "storey": {
+            "name": "楼层"
+          },
+          "since": {
+            "name": "起始时间"
+          },
+          "source": {
+            "name": "来源"
+          },
+          "x": {
+            "name": "平面图上的 X"
+          },
+          "y": {
+            "name": "平面图上的 Y"
+          }
+        }
+      },
+      "located": {
+        "name": "{name}：房间",
+        "state_attributes": {
+          "device_name": {
+            "name": "设备"
+          },
+          "kind": {
+            "name": "类型",
+            "state": {
+              "phone": "手机",
+              "watch": "手表",
+              "thing": "物品"
+            }
+          },
+          "person": {
+            "name": "人员"
+          },
+          "room_id": {
+            "name": "房间 ID"
+          },
+          "area_id": {
+            "name": "区域"
+          },
+          "storey_id": {
+            "name": "楼层 ID"
+          },
+          "storey": {
+            "name": "楼层"
+          },
+          "since": {
+            "name": "起始时间"
+          },
+          "left_behind": {
+            "name": "被落下"
+          },
+          "x": {
+            "name": "平面图上的 X"
+          },
+          "y": {
+            "name": "平面图上的 Y"
+          },
+          "z": {
+            "name": "高度"
+          },
+          "accuracy": {
+            "name": "精度"
+          }
+        }
+      },
+      "room_people": {
+        "name": "此处的人员",
+        "state_attributes": {
+          "room": {
+            "name": "房间"
+          },
+          "people": {
+            "name": "人员"
+          },
+          "private": {
+            "name": "私密"
+          },
+          "room_id": {
+            "name": "房间 ID"
+          },
+          "area_id": {
+            "name": "区域"
+          },
+          "storey_id": {
+            "name": "楼层 ID"
+          },
+          "storey": {
+            "name": "楼层"
+          }
+        }
+      },
+      "room_upkeep": {
+        "name": "此处到期的保养",
+        "state_attributes": {
+          "room": {
+            "name": "房间"
+          },
+          "tasks": {
+            "name": "任务"
+          },
+          "more": {
+            "name": "更多"
+          },
+          "room_id": {
+            "name": "房间 ID"
+          },
+          "area_id": {
+            "name": "区域"
+          },
+          "storey_id": {
+            "name": "楼层 ID"
+          },
+          "storey": {
+            "name": "楼层"
+          }
+        }
+      },
+      "people_seen": {
+        "name": "看到的人数",
+        "state_attributes": {
+          "seen": {
+            "name": "未识别"
+          }
+        }
+      }
+    },
+    "binary_sensor": {
+      "left_behind": {
+        "name": "被落下：{name}",
+        "state_attributes": {
+          "person": {
+            "name": "人员"
+          },
+          "room_id": {
+            "name": "房间 ID"
+          },
+          "room": {
+            "name": "房间"
+          }
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "schedule_no_entities": {
+      "message": "请至少指定一个要开关的实体。"
+    },
+    "schedule_too_many_entities": {
+      "message": "一个操作最多包含 25 个实体。"
+    },
+    "schedule_unknown_entity": {
+      "message": "其中一个实体不存在。"
+    },
+    "schedule_not_schedulable": {
+      "message": "只有灯、开关、风扇、输入布尔值、媒体播放器、温控、加湿器、警笛和窗帘可以定时。"
+    },
+    "schedule_in_the_past": {
+      "message": "该时间已过。"
+    },
+    "schedule_too_far": {
+      "message": "操作最多只能提前一年设定。"
+    },
+    "schedule_off_with_end": {
+      "message": "结束时间或亮度只能用于开启，不能用于关闭。"
+    },
+    "schedule_end_before_start": {
+      "message": "结束时间早于开始时间。"
+    },
+    "schedule_too_long": {
+      "message": "设备最多保持开启一周。"
+    },
+    "schedule_too_many": {
+      "message": "已有 100 个操作在等待执行：请先取消一些。"
+    },
+    "schedule_not_allowed": {
+      "message": "你无权控制其中一个设备。"
+    }
+  }
+}

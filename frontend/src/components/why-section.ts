@@ -108,7 +108,7 @@ export class DomoTwinWhySection extends LitElement {
       li:not(:last-child)::after {
         content: "";
         position: absolute;
-        left: 13px;
+        inset-inline-start: 13px;
         top: 34px;
         bottom: -6px;
         width: 2px;

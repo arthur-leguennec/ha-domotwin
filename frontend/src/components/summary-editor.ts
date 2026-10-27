@@ -8,7 +8,7 @@ import type { HomeAssistant } from "../ha/types";
 import { translatorFor, type MessageKey } from "../i18n";
 import "../i18n/summary";
 import { SUMMARIES } from "../live/overview";
-import { define, fire } from "./define";
+import { define, fire, inLanguage } from "./define";
 
 export class DomoTwinSummaryCardEditor extends LitElement {
   static override properties = {
@@ -44,6 +44,15 @@ export class DomoTwinSummaryCardEditor extends LitElement {
     this.config = { ...this.config, ...event.detail.value };
     fire(this, "config-changed", { config: this.config });
   };
+
+  /** Drawn once Home Assistant's language is here (D-082). */
+  protected override scheduleUpdate(): Promise<unknown> | undefined {
+    return inLanguage(
+      this,
+      () => this.hass,
+      () => super.scheduleUpdate(),
+    );
+  }
 
   protected override render(): TemplateResult | typeof nothing {
     if (!this.hass) return nothing;

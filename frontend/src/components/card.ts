@@ -22,6 +22,7 @@ import type { AccessPoint } from "../live/placement";
 import type { Upkeep } from "../live/upkeep";
 import type { Wifi } from "../live/wifi";
 import { translatorFor } from "../i18n";
+import { inLanguage } from "./define";
 import { DemoSwitch } from "./demo-switch";
 import { baseStyles } from "./styles";
 import type { DomoTwinView, ViewOptions } from "./view";
@@ -495,22 +496,32 @@ export class DomoTwinCard extends LitElement {
     );
   }
 
+  /** Drawn once Home Assistant's language is here (D-082). */
+  protected override scheduleUpdate(): Promise<unknown> | undefined {
+    return inLanguage(
+      this,
+      () => this._hass,
+      () => super.scheduleUpdate(),
+    );
+  }
+
   protected override render(): TemplateResult | typeof nothing {
-    if (!this.config) return nothing;
+    return this.config ? this.draw(this.config) : nothing;
+  }
+
+  private draw(config: CardConfig): TemplateResult {
     // Under the viewer's rights (D-071): what they may do, the devices they may not see unlinked.
     const rights = this._hass ? this.rightsOf(this._hass) : undefined;
     const style = [
-      this.config.height ? `height:${this.config.height}` : "",
-      this.config.font_family
-        ? `--domotwin-font-family:${fontFamily(this.config.font_family)}`
-        : "",
+      config.height ? `height:${config.height}` : "",
+      config.font_family ? `--domotwin-font-family:${fontFamily(config.font_family)}` : "",
     ]
       .filter(Boolean)
       .join(";");
-    return html`<ha-card .header=${this.config.title}>
+    return html`<ha-card .header=${config.title}>
       ${this.demo ? html`<domotwin-demo-bar .home=${this.demo}></domotwin-demo-bar>` : nothing}
       <domotwin-view
-        class=${this.config.height ? "fixed" : ""}
+        class=${config.height ? "fixed" : ""}
         style=${style}
         .hass=${this._hass && gatedHass(this._hass, rights?.gate)}
         .plan=${this.settingsRead ? this.plan : undefined}
@@ -520,7 +531,7 @@ export class DomoTwinCard extends LitElement {
         .upkeep=${this.upkeep}
         .people=${this.people}
         .wifi=${this.wifi}
-        .screen=${this.config.screen ?? ""}
+        .screen=${config.screen ?? ""}
         .planError=${this.planError}
         .options=${this.viewOptions()}
         .north=${this.settings?.north ?? 0}

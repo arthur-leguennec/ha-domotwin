@@ -13,7 +13,7 @@ import {
 import { peaksAvailable } from "../live/peak-sources";
 import { ALL_STOREYS, loadHome, storeyLevels, storeyName } from "../live/storeys";
 import { planRooms } from "../live/suggest";
-import { define, fire } from "./define";
+import { define, fire, inLanguage } from "./define";
 
 interface FormField {
   name: string;
@@ -272,6 +272,15 @@ export class DomoTwinCardEditor extends LitElement {
     } catch {
       // No plan or no access: only the current settings are offered.
     }
+  }
+
+  /** Drawn once Home Assistant's language is here (D-082). */
+  protected override scheduleUpdate(): Promise<unknown> | undefined {
+    return inLanguage(
+      this,
+      () => this.hass,
+      () => super.scheduleUpdate(),
+    );
   }
 
   protected override render(): TemplateResult | typeof nothing {

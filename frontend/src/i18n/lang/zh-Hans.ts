@@ -1,0 +1,7 @@
+/** DomoTwin in zh-Hans (D-082), loaded when Home Assistant speaks it. */
+import type { Pack } from "../pack";
+import { chunks } from "./zh-Hans/chunks";
+import { demo } from "./zh-Hans/demo";
+import { main } from "./zh-Hans/main";
+
+export const pack: Pack = { main, chunks, demo };

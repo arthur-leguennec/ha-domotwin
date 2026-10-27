@@ -34,7 +34,7 @@ import {
 } from "../live/config-history";
 import { timeStyle } from "../live/schedules";
 import { define, fire } from "./define";
-import { icon } from "./icon";
+import { icon, mirroredIcon } from "./icon";
 import { baseStyles } from "./styles";
 
 addMessages({ en: configHistoryEn, fr: configHistoryFr });
@@ -513,7 +513,7 @@ export class DomoTwinConfigHistory extends LitElement {
                   this.closeItem();
                 }}
               >
-                ${icon(mdiArrowLeft)}
+                ${mirroredIcon(mdiArrowLeft)}
               </button>`
             : nothing
         }

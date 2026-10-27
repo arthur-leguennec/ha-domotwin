@@ -162,7 +162,7 @@ export class DomoTwinPlacement extends LitElement {
       .sheet {
         /* Beside the view's tools (a column 48px wide at the top right), never over them. */
         position: absolute;
-        right: 68px;
+        inset-inline-end: 68px;
         bottom: 12px;
         width: min(360px, calc(100% - 80px));
         max-height: calc(100% - 24px);

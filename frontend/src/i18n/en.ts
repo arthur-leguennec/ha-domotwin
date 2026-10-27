@@ -404,6 +404,37 @@ export const en = {
     saved: "Settings saved.",
     save_failed: "The settings could not be saved: {reason}",
   },
+  /** A state shown as a word where Home Assistant does not say it (the demo house, a guest's page, D-082). */
+  states: {
+    on: "On",
+    off: "Off",
+    open: "Open",
+    closed: "Closed",
+    opening: "Opening",
+    closing: "Closing",
+    locked: "Locked",
+    unlocked: "Unlocked",
+    jammed: "Jammed",
+    home: "Home",
+    not_home: "Away",
+    playing: "Playing",
+    paused: "Paused",
+    idle: "Idle",
+    standby: "Standby",
+    cleaning: "Cleaning",
+    docked: "Docked",
+    returning: "Returning",
+    mowing: "Mowing",
+    heat: "Heat",
+    cool: "Cool",
+    heat_cool: "Heat/Cool",
+    auto: "Auto",
+    disarmed: "Disarmed",
+    armed_home: "Armed home",
+    armed_away: "Armed away",
+    armed_night: "Armed night",
+    triggered: "Triggered",
+  },
   controls: {
     turn_on: "Turn on",
     turn_off: "Turn off",
@@ -712,7 +743,7 @@ export const en = {
   plain: {
     menu: "An automation in plain words",
   },
-  report: {
+  weekly: {
     menu: "Weekly report",
   },
   config_history: {

@@ -99,7 +99,8 @@ export class DomoTwinPeopleSettings extends LitElement {
         display: inline-flex;
         align-items: center;
         gap: 2px;
-        padding: 2px 4px 2px 10px;
+        padding-block: 2px;
+        padding-inline: 10px 4px;
         border-radius: 14px;
         background: color-mix(in srgb, var(--primary-color, #03a9f4) 14%, transparent);
         font-size: 0.8rem;
@@ -107,7 +108,7 @@ export class DomoTwinPeopleSettings extends LitElement {
       .chip.suggested {
         background: transparent;
         border: 1px dashed var(--divider-color, rgba(0, 0, 0, 0.3));
-        padding-right: 10px;
+        padding-inline-end: 10px;
         cursor: pointer;
         color: inherit;
         font: inherit;

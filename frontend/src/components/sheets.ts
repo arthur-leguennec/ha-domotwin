@@ -241,7 +241,8 @@ const peopleStyles = css`
     align-items: center;
     gap: 6px;
     min-height: 36px;
-    padding: 2px 10px 2px 4px;
+    padding-block: 2px;
+    padding-inline: 4px 10px;
     border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.15));
     border-radius: 18px;
     background: transparent;
@@ -260,7 +261,8 @@ const peopleStyles = css`
     align-items: center;
     gap: 6px;
     min-height: 36px;
-    padding: 2px 12px 2px 8px;
+    padding-block: 2px;
+    padding-inline: 8px 12px;
     border-radius: 18px;
     background: color-mix(in srgb, var(--primary-color, #03a9f4) 10%, transparent);
   }

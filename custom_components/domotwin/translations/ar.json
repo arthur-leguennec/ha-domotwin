@@ -1,0 +1,336 @@
+{
+  "config": {
+    "abort": {
+      "single_instance_allowed": "DomoTwin مُعدّ بالفعل."
+    },
+    "step": {
+      "user": {
+        "title": "DomoTwin",
+        "description": "أضف DomoTwin، منزلك كتوأم حي ثلاثي الأبعاد. ستستورد مخططك من لوحة DomoTwin في الشريط الجانبي."
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "خيارات DomoTwin",
+        "data": {
+          "sidebar": "إظهار DomoTwin في الشريط الجانبي",
+          "sidebar_admin_only": "إظهاره للمسؤولين فقط"
+        },
+        "data_description": {
+          "sidebar": "العرض بملء الشاشة مع المحرر. بطاقات لوحات المعلومات تعمل في الحالتين.",
+          "sidebar_admin_only": "يظل بإمكان المستخدمين الآخرين استخدام بطاقات DomoTwin في لوحات المعلومات."
+        }
+      }
+    }
+  },
+  "services": {
+    "show": {
+      "name": "إظهار",
+      "description": "يُظهر غرفة أو عنصرًا أو طابقًا أو عرضًا على شاشات DomoTwin (البطاقات واللوحة)، أو على إحداها.",
+      "fields": {
+        "room": {
+          "name": "الغرفة",
+          "description": "غرفة من المخطط، باسمها أو بمعرّفها (في أي طابق)."
+        },
+        "element": {
+          "name": "العنصر",
+          "description": "أي عنصر من المخطط، باسمه أو بمعرّفه: يُؤطَّر في العرض."
+        },
+        "storey": {
+          "name": "الطابق",
+          "description": "طابق، باسمه أو بمعرّفه أو برقمه (0 للطابق الأرضي، و1 للطابق الأعلى، و-1 للطابق الأسفل)؛ وall لكل الطوابق معًا."
+        },
+        "view": {
+          "name": "العرض",
+          "description": "overview أو 3d أو 2d أو walk (بمستوى العين، إلى الغرفة المحددة)، أو اسم زاوية عرض محفوظة."
+        },
+        "person": {
+          "name": "الشخص",
+          "description": "شخص يحدد DomoTwin موضعه (person.…): تُعرض غرفته إذا كان في المنزل في غرفة معروفة."
+        },
+        "screen": {
+          "name": "الشاشة",
+          "description": "الشاشة التي يُعرض عليها: خيار screen في البطاقة. فارغ لكل الشاشات."
+        }
+      }
+    },
+    "where": {
+      "name": "أين",
+      "description": "أين يوجد شخص، أو جهاز يتتبّعه DomoTwin عبر Bluetooth، أو كل من في المنزل: غرفته، وجملة للإجابة بها (بلغة Home Assistant).",
+      "fields": {
+        "name": {
+          "name": "الاسم",
+          "description": "اسم شخص، أو اسم جهاز متتبَّع («مفاتيحي»)، كما يُنطق (يكفي الاسم الأول، ويُتسامح مع خطأ في حرف). فارغ لكل من في المنزل."
+        },
+        "show": {
+          "name": "إظهار",
+          "description": "إظهار غرفته أيضًا على شاشات DomoTwin."
+        },
+        "screen": {
+          "name": "الشاشة",
+          "description": "الشاشة التي يُعرض عليها: خيار screen في البطاقة. فارغ لكل الشاشات."
+        }
+      }
+    },
+    "schedule": {
+      "name": "جدولة",
+      "description": "يشغّل الأجهزة أو يوقفها لاحقًا، في وقت محدد أو بعد مهلة، ويشغّلها حتى وقت محدد أو لمدة: يحتفظ DomoTwin بذلك حتى بعد إعادة التشغيل. يجيب بما ضُبط، مع جملة لقولها.",
+      "fields": {
+        "entity_id": {
+          "name": "الكيانات",
+          "description": "ما يُشغَّل أو يُوقف: الأضواء، والمفاتيح، والمراوح، ومشغّلات الوسائط، والمناخ، والستائر (تُفتح وتُغلق)…"
+        },
+        "action": {
+          "name": "الإجراء",
+          "description": "on للتشغيل (فتح الستارة)، وoff للإيقاف (إغلاقها)."
+        },
+        "at": {
+          "name": "في",
+          "description": "متى: تاريخ ووقت (بالمنطقة الزمنية لـHome Assistant ما لم تُحدَّد منطقة)، أو وقت من اليوم لأقرب موعد قادم. أو حدّد مهلة."
+        },
+        "delay": {
+          "name": "المهلة",
+          "description": "متى، بدءًا من الآن: بدلًا من «في»."
+        },
+        "until": {
+          "name": "حتى",
+          "description": "مع on: متى يُوقف مجددًا، تاريخ ووقت أو وقت من اليوم (أول موعد بعد البدء)."
+        },
+        "duration": {
+          "name": "المدة",
+          "description": "مع on: كم يبقى مشغّلًا، بدلًا من «حتى»."
+        },
+        "brightness": {
+          "name": "السطوع",
+          "description": "مع on: سطوع الأضواء (%)."
+        }
+      }
+    },
+    "unschedule": {
+      "name": "إلغاء الجدولة",
+      "description": "يلغي الإجراءات المضبوطة عبر domotwin.schedule: إجراءً واحدًا بمعرّفه، أو كل إجراءات كيانات معينة. الجهاز المشغّل بالفعل يبقى مشغّلًا.",
+      "fields": {
+        "id": {
+          "name": "المعرّف",
+          "description": "المعرّف الذي أجاب به domotwin.schedule."
+        },
+        "entity_id": {
+          "name": "الكيانات",
+          "description": "كل إجراء ينتظر على هذه الكيانات."
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "upkeep_due": {
+        "name": "الصيانة المستحقة",
+        "state_attributes": {
+          "tasks": {
+            "name": "المهام"
+          },
+          "more": {
+            "name": "المزيد"
+          }
+        }
+      },
+      "person_room": {
+        "name": "غرفة {person}",
+        "state": {
+          "not_home": "خارج المنزل"
+        },
+        "state_attributes": {
+          "person": {
+            "name": "الشخص"
+          },
+          "room_id": {
+            "name": "معرّف الغرفة"
+          },
+          "area_id": {
+            "name": "المنطقة"
+          },
+          "storey_id": {
+            "name": "معرّف الطابق"
+          },
+          "storey": {
+            "name": "الطابق"
+          },
+          "since": {
+            "name": "منذ"
+          },
+          "source": {
+            "name": "المصدر"
+          },
+          "x": {
+            "name": "X على المخطط"
+          },
+          "y": {
+            "name": "Y على المخطط"
+          }
+        }
+      },
+      "located": {
+        "name": "{name}: الغرفة",
+        "state_attributes": {
+          "device_name": {
+            "name": "الجهاز"
+          },
+          "kind": {
+            "name": "النوع",
+            "state": {
+              "phone": "هاتف",
+              "watch": "ساعة",
+              "thing": "غرض"
+            }
+          },
+          "person": {
+            "name": "الشخص"
+          },
+          "room_id": {
+            "name": "معرّف الغرفة"
+          },
+          "area_id": {
+            "name": "المنطقة"
+          },
+          "storey_id": {
+            "name": "معرّف الطابق"
+          },
+          "storey": {
+            "name": "الطابق"
+          },
+          "since": {
+            "name": "منذ"
+          },
+          "left_behind": {
+            "name": "منسيّ"
+          },
+          "x": {
+            "name": "X على المخطط"
+          },
+          "y": {
+            "name": "Y على المخطط"
+          },
+          "z": {
+            "name": "الارتفاع"
+          },
+          "accuracy": {
+            "name": "الدقة"
+          }
+        }
+      },
+      "room_people": {
+        "name": "الأشخاص هنا",
+        "state_attributes": {
+          "room": {
+            "name": "الغرفة"
+          },
+          "people": {
+            "name": "الأشخاص"
+          },
+          "private": {
+            "name": "خاصة"
+          },
+          "room_id": {
+            "name": "معرّف الغرفة"
+          },
+          "area_id": {
+            "name": "المنطقة"
+          },
+          "storey_id": {
+            "name": "معرّف الطابق"
+          },
+          "storey": {
+            "name": "الطابق"
+          }
+        }
+      },
+      "room_upkeep": {
+        "name": "الصيانة المستحقة هنا",
+        "state_attributes": {
+          "room": {
+            "name": "الغرفة"
+          },
+          "tasks": {
+            "name": "المهام"
+          },
+          "more": {
+            "name": "المزيد"
+          },
+          "room_id": {
+            "name": "معرّف الغرفة"
+          },
+          "area_id": {
+            "name": "المنطقة"
+          },
+          "storey_id": {
+            "name": "معرّف الطابق"
+          },
+          "storey": {
+            "name": "الطابق"
+          }
+        }
+      },
+      "people_seen": {
+        "name": "الأشخاص المرئيون",
+        "state_attributes": {
+          "seen": {
+            "name": "غير معروفي الهوية"
+          }
+        }
+      }
+    },
+    "binary_sensor": {
+      "left_behind": {
+        "name": "منسيّ: {name}",
+        "state_attributes": {
+          "person": {
+            "name": "الشخص"
+          },
+          "room_id": {
+            "name": "معرّف الغرفة"
+          },
+          "room": {
+            "name": "الغرفة"
+          }
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "schedule_no_entities": {
+      "message": "حدّد كيانًا واحدًا على الأقل لتشغيله أو إيقافه."
+    },
+    "schedule_too_many_entities": {
+      "message": "25 كيانًا على الأكثر في الإجراء الواحد."
+    },
+    "schedule_unknown_entity": {
+      "message": "أحد الكيانات غير موجود."
+    },
+    "schedule_not_schedulable": {
+      "message": "لا يمكن جدولة إلا الأضواء والمفاتيح والمراوح والقيم المنطقية المدخلة (input boolean) ومشغّلات الوسائط والمناخ وأجهزة الترطيب وصفارات الإنذار والستائر."
+    },
+    "schedule_in_the_past": {
+      "message": "هذا الوقت قد مضى."
+    },
+    "schedule_too_far": {
+      "message": "يُضبط الإجراء قبل موعده بسنة على الأكثر."
+    },
+    "schedule_off_with_end": {
+      "message": "النهاية أو السطوع يرافقان التشغيل، لا الإيقاف."
+    },
+    "schedule_end_before_start": {
+      "message": "النهاية تأتي قبل البداية."
+    },
+    "schedule_too_long": {
+      "message": "يبقى الجهاز مشغّلًا أسبوعًا على الأكثر."
+    },
+    "schedule_too_many": {
+      "message": "هناك 100 إجراء في الانتظار بالفعل: ألغِ بعضها أولًا."
+    },
+    "schedule_not_allowed": {
+      "message": "لا يُسمح لك بالتحكم في أحد هذه الأجهزة."
+    }
+  }
+}

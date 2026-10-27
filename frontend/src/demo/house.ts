@@ -7,16 +7,28 @@ import groundPlan from "../../../examples/demo-house.domotwin.json";
 import upperPlan from "../../../examples/demo-house-upper.domotwin.json";
 
 import type { Bindings, PlanJson, Settings, StoreyInfo } from "../ha/client";
+import { demoWord, pickLanguage } from "../i18n";
 import type { PeopleSettings } from "../live/people";
 import type { Upkeep, UpkeepTask, UpkeepUnit } from "../live/upkeep";
 
-/** A text in English and in French. */
+/**
+ * A text in English and in French; the other languages have it in their pack, by its English
+ * (D-082).
+ */
 export type Words = readonly [en: string, fr: string];
 
-/** The words for the language (French for `fr…`, else English). */
+/** The words for the language: French, another loaded by its English, else English. */
 export function say(words: Words, language: string): string {
-  return language.toLowerCase().startsWith("fr") ? words[1] : words[0];
+  const spoken = pickLanguage(language);
+  if (spoken === "fr") return words[1];
+  return demoWord(spoken, words[0]) ?? words[0];
 }
+
+/** What is said of an action planned for later (`{names}`, `{time}`), switching on or off. */
+export const SCHEDULED: Readonly<Record<"on" | "off", Words>> = {
+  on: ["{names} will switch on at {time}.", "{names} : allumage prévu à {time}."],
+  off: ["{names} will switch off at {time}.", "{names} : extinction prévue à {time}."],
+};
 
 /** The storeys: their id, names and height, and their plan. */
 export const STOREYS: readonly { info: StoreyInfo; names: Words; plan: PlanJson }[] = [
@@ -61,7 +73,10 @@ export const AREAS: readonly { id: string; names: Words; room: string; storey: s
   { id: "garden", names: ["Garden", "Jardin"], room: "back-garden", storey: "ground" },
 ];
 
-/** The French names of the plans' pieces, doors and windows, by their English name. */
+/**
+ * The French names of the plans' pieces, doors and windows, by their English name (the other
+ * languages have them in their pack, D-082).
+ */
 const FRENCH: Readonly<Record<string, string>> = {
   "Demo house": "Maison de démo",
   "Demo house, upper floor": "Maison de démo, étage",
@@ -177,14 +192,17 @@ const FRENCH: Readonly<Record<string, string>> = {
 /** A storey's plan in the language: its rooms named as their areas, its pieces translated. */
 export function localPlan(plan: PlanJson, language: string): PlanJson {
   const copy = structuredClone<Record<string, unknown>>(plan);
-  if (!language.toLowerCase().startsWith("fr")) return copy;
+  const spoken = pickLanguage(language);
+  if (spoken === "en") return copy;
+  const word = (english: string): string | undefined =>
+    spoken === "fr" ? FRENCH[english] : demoWord(spoken, english);
   // A room is named as its area; anything else by its English name.
   const rename = (named: { name?: string; id?: string }, room: boolean): void => {
     const area = room ? AREAS.find((a) => a.room === named.id) : undefined;
-    if (area) named.name = area.names[1];
-    else if (named.name && FRENCH[named.name]) named.name = FRENCH[named.name];
+    if (area) named.name = say(area.names, language);
+    else if (named.name) named.name = word(named.name) ?? named.name;
   };
-  if (typeof copy.name === "string") copy.name = FRENCH[copy.name] ?? copy.name;
+  if (typeof copy.name === "string") copy.name = word(copy.name) ?? copy.name;
   for (const key of ["rooms", "doors", "windows", "items", "views"]) {
     const list = copy[key];
     if (Array.isArray(list))

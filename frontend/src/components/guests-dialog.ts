@@ -31,7 +31,7 @@ import {
 import { planRooms } from "../live/suggest";
 import { define, fire } from "./define";
 import { focusDialog } from "./dialog";
-import { icon } from "./icon";
+import { icon, mirroredIcon } from "./icon";
 import { qrSvg } from "./qr";
 import { baseStyles } from "./styles";
 
@@ -545,7 +545,7 @@ export class DomoTwinGuests extends LitElement {
                 data-testid="guests-back"
                 @click=${back}
               >
-                ${icon(mdiArrowLeft)}
+                ${mirroredIcon(mdiArrowLeft)}
               </button>`
             : nothing
         }

@@ -260,7 +260,8 @@ export class DomoTwinHistory extends LitElement {
         display: flex;
         align-items: center;
         gap: 8px;
-        padding: 8px 8px 0 20px;
+        padding-block: 8px 0;
+        padding-inline: 20px 8px;
       }
       h2 {
         flex: 1;
@@ -299,7 +300,8 @@ export class DomoTwinHistory extends LitElement {
         align-items: center;
         gap: 4px;
         min-height: 36px;
-        padding: 0 4px 0 12px;
+        padding-block: 0;
+        padding-inline: 12px 4px;
         border-radius: 18px;
         background: color-mix(in srgb, var(--primary-color, #03a9f4) 12%, transparent);
       }
@@ -323,7 +325,8 @@ export class DomoTwinHistory extends LitElement {
         align-items: center;
         gap: 4px;
         min-height: 36px;
-        padding: 0 12px 0 8px;
+        padding-block: 0;
+        padding-inline: 8px 12px;
         border: 1px dashed var(--divider-color, rgba(0, 0, 0, 0.25));
         border-radius: 18px;
         background: transparent;
