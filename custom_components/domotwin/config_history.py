@@ -64,11 +64,6 @@ SAVE_DELAY = 10
 RELOADED = {"automation_reloaded": "automation", "scene_reloaded": "scene"}
 #: An item's name, at most this long.
 MAX_NAME = 200
-#: What a dashboard that cannot be read raises, besides Home Assistant's own errors; and what a
-#: configuration that cannot be written as JSON does. (Kept as tuples: Python before 3.14 needs
-#: the parentheses the formatter would take away from an `except` clause.)
-DASHBOARD_ERRORS = (HomeAssistantError, AttributeError, TypeError)
-JSON_ERRORS = (TypeError, ValueError)
 
 
 class HistoryError(Exception):
@@ -281,7 +276,7 @@ async def _read_dashboards(hass: HomeAssistant) -> Reading:
         except ConfigNotFound:
             # Made by Home Assistant, not kept: nothing of one's own to keep.
             continue
-        except DASHBOARD_ERRORS:
+        except (HomeAssistantError, AttributeError, TypeError):
             reading.unread.add(key)
             continue
         if not isinstance(config, dict):
@@ -453,7 +448,7 @@ class ConfigHistory:
                     item.source = found.source
                     continue
                 text = json_bytes(found.config).decode("utf-8")
-            except JSON_ERRORS:
+            except (TypeError, ValueError):
                 _LOGGER.debug("The %s %s cannot be kept as JSON", kind, key)
                 reading.unread.add(key)
                 continue
