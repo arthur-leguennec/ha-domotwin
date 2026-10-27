@@ -8,7 +8,7 @@
 import { mdiClose, mdiCogOutline, mdiCubeOutline, mdiOpenInNew } from "@mdi/js";
 import { LitElement, css, html, nothing, svg, type PropertyValues, type TemplateResult } from "lit";
 
-import { isHassError, nowOf, type HomeAssistant } from "../ha/types";
+import { isHassError, type HomeAssistant } from "../ha/types";
 import { addMessages, translatorFor, type Translator } from "../i18n";
 import { reportEn, reportFr } from "../i18n/report";
 import { navigate } from "../live/actions";
@@ -838,17 +838,23 @@ export class DomoTwinReport extends LitElement {
       </h3>
       ${extra !== nothing ? html`<div class="links">${extra}</div>` : nothing}
       <ul class="items">
-        ${items.map((item) => this.renderItem(section, item, outside))}
+        ${items.map((item) => this.renderItem(section, item, outside, Date.parse(report.at)))}
       </ul>
       ${more > 0 ? html`<p class="hint">${t.tp("report.more", more)}</p>` : nothing}
       ${hidden > 0 ? html`<p class="hint" data-private>${t.tp("report.private_items", hidden)}</p>` : nothing}
     </section>`;
   }
 
-  private renderItem(section: ReportSection, item: ReportItem, outside: boolean): TemplateResult {
+  private renderItem(
+    section: ReportSection,
+    item: ReportItem,
+    outside: boolean,
+    at: number,
+  ): TemplateResult {
     const t = this.t;
     const names = this.roomNames();
-    const detail = itemDetail(t, section, item, this.moments, nowOf(this.hass));
+    // As the report says it, not as it is now: an older week's device may be back since.
+    const detail = itemDetail(t, section, item, this.moments, at);
     const where = item.room ? names.get(item.room) : undefined;
     const link = outside ? undefined : itemLink(section, item);
     // A piece's upkeep is framed in 3D on the piece itself; anything else, on its room.

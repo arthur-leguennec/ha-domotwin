@@ -439,13 +439,13 @@ export function weekDays(span: { start: string; end: string }): { first: string;
   };
 }
 
-/** What an item says beyond its name, in words. */
+/** What an item says beyond its name, in words, as it stood `at` (when the report was written). */
 export function itemDetail(
   t: Translator,
   section: ReportSection,
   item: ReportItem,
   style: Moments,
-  now: number,
+  at: number,
 ): string {
   const parts: string[] = [];
   switch (section) {
@@ -455,7 +455,7 @@ export function itemDetail(
       break;
     case "unavailable":
       if (item.since) {
-        const days = Math.floor((now - Date.parse(item.since)) / 86_400_000);
+        const days = Math.floor((at - Date.parse(item.since)) / 86_400_000);
         parts.push(
           days >= 1
             ? t.tp("report.detail.unavailable_days", days)

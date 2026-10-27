@@ -9,6 +9,7 @@ from unittest.mock import patch
 
 from freezegun.api import FrozenDateTimeFactory
 from pytest_homeassistant_custom_component.common import (
+    CLIENT_ID,
     MockConfigEntry,
     async_capture_events,
     async_fire_time_changed,
@@ -40,6 +41,7 @@ from custom_components.domotwin.report_week import (
     week_of,
 )
 from custom_components.domotwin.report_words import ask, notification
+from homeassistant.auth.const import GROUP_ID_ADMIN
 from homeassistant.components import persistent_notification
 from homeassistant.core import HomeAssistant, ServiceCall, State, SupportsResponse
 from homeassistant.exceptions import HomeAssistantError
@@ -65,6 +67,13 @@ async def _send(client: Any, message: dict[str, Any]) -> dict[str, Any]:
     return answer
 
 
+async def _admin(hass: HomeAssistant, hass_ws_client: WebSocketGenerator) -> Any:
+    """An administrator's connection, their token made now (the clock may have been moved)."""
+    admin = await hass.auth.async_create_user("Administrator", group_ids=[GROUP_ID_ADMIN])
+    refresh = await hass.auth.async_create_refresh_token(admin, CLIENT_ID)
+    return await hass_ws_client(hass, hass.auth.async_create_access_token(refresh))
+
+
 async def _home(
     hass: HomeAssistant,
     config_entry: MockConfigEntry,
@@ -76,10 +85,10 @@ async def _home(
 ) -> Any:
     """DomoTwin set up with the demo apartment and its links, at `when`.
 
-    An administrator's connection is made first, before the clock is moved: its token is checked
-    then.
+    Set up before an administrator connects: Home Assistant's views are registered while it sets
+    up, before its server starts. Their token is made then, at `when`, so the clock moved to
+    another week does not refuse it.
     """
-    client = await hass_ws_client(hass)
     if freezer is not None and when is not None:
         freezer.move_to(when)
     await hass.config.async_set_time_zone(ZONE)
@@ -90,6 +99,7 @@ async def _home(
     config_entry.add_to_hass(hass)
     assert await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
+    client = await _admin(hass, hass_ws_client)
     for message in (
         {"type": "domotwin/plan/save", "plan": demo_plan},
         {"type": "domotwin/bindings/save", "bindings": demo_bindings},
@@ -908,7 +918,9 @@ async def test_written_on_its_day_and_told(
     async_fire_time_changed(hass, MONDAY + timedelta(hours=1, minutes=30))
     await hass.async_block_till_done()
     assert len(weekly.list()) == 1
-    # Written by hand, three times: neither told nor the week's, and the week's is kept.
+    # Written by hand, three times: neither told nor the week's, and the week's is kept. A new
+    # connection: the clock moved a week, past the first one's heartbeat.
+    client = await _admin(hass, hass_ws_client)
     for _ in range(3):
         assert (await _send(client, {"type": "domotwin/report/write"}))["success"]
     assert [entry["by"] for entry in weekly.list()] == ["hand", "hand", "schedule"]
