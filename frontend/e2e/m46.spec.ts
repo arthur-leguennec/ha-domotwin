@@ -172,6 +172,93 @@ test.describe("shortcuts on the Home tab (D-084)", () => {
     await expect(page.getByTestId("shortcut-said")).toContainText("refused part of it");
   });
 
+  test("shows none before the user's own are read, then theirs", async ({ page }) => {
+    await openHarness(page, { mode: "panel", live: true, start: "home", holdChoices: true });
+    await expect(page.getByTestId("home-tab")).toBeVisible();
+    // Not read yet: no suggestion to press, that would take the user's own away.
+    await expect(page.getByTestId("home-shortcuts")).toHaveCount(0);
+    await page.evaluate(() => {
+      const choices = (window as never as { __choices: { shortcuts?: unknown[] } }).__choices;
+      choices.shortcuts = [
+        { id: "kept", name: "Lock up", icon: "lock", steps: [{ kind: "locks", do: "lock" }] },
+      ];
+      (window as never as { __releaseChoices: () => void }).__releaseChoices();
+    });
+    const tile = page.locator("button[data-shortcut]");
+    await expect(tile).toHaveCount(1);
+    await expect(tile).toContainText("Lock up");
+    await expect(page.locator("button[data-suggestion]")).toHaveCount(0);
+  });
+
+  test("keeps another device's shortcuts: one change at a time", async ({ page }) => {
+    await openHarness(page, { mode: "panel", live: true, start: "home" });
+    await page.locator("button[data-suggestion]").first().click();
+    await expect.poll(async () => (await kept(page)).length).toBe(1);
+    // Meanwhile, a phone adds one.
+    await page.evaluate(() => {
+      const choices = (window as never as { __choices: { shortcuts: unknown[] } }).__choices;
+      choices.shortcuts.push({
+        id: "phone",
+        name: "Lock up",
+        icon: "lock",
+        steps: [{ kind: "locks", do: "lock" }],
+      });
+    });
+    // This screen, not knowing it, deletes its own: the phone's stays.
+    await page.getByTestId("shortcuts-change").click();
+    await page.locator("button[data-shortcut]").first().click();
+    await page.getByTestId("shortcut-dialog").getByTestId("shortcut-remove").click();
+    await expect.poll(async () => (await kept(page)).map((s) => s.id)).toEqual(["phone"]);
+    await expect(page.locator("button[data-shortcut]")).toContainText("Lock up");
+  });
+
+  test("says a change was not kept, and shows what is", async ({ page }) => {
+    await openHarness(page, { mode: "panel", live: true, start: "home" });
+    await page.evaluate(() => {
+      (window as never as { __failShortcuts: boolean }).__failShortcuts = true;
+    });
+    await page.locator("button[data-suggestion]").first().click();
+    await expect(page.getByText("you have 24 shortcuts already")).toBeVisible();
+    // Read again: none was kept, the suggestions are back.
+    await expect(page.locator("button[data-shortcut]")).toHaveCount(0);
+    await expect(page.locator("button[data-suggestion]")).toHaveCount(3);
+  });
+
+  test("brings a number into its range", async ({ page }) => {
+    await openHarness(page, { mode: "panel", live: true, start: "home" });
+    await page.getByTestId("shortcuts-add").click();
+    const dialog = page.getByTestId("shortcut-dialog");
+    await dialog.getByTestId("shortcut-own").click();
+    await dialog.locator("input[data-field='name']").fill("Half open");
+    await dialog.locator("[data-step='0'] select[data-field='kind']").selectOption("covers");
+    await dialog.locator("[data-step='0'] select[data-field='do']").selectOption("position");
+    const value = dialog.locator("[data-step='0'] input[data-field='value']");
+    await expect(value).toHaveValue("50");
+    await value.fill("150");
+    await value.press("Tab");
+    await expect(value).toHaveValue("100");
+    // Cleared, a position keeps its number.
+    await value.fill("");
+    await value.press("Tab");
+    await expect(value).toHaveValue("100");
+    // A temperature typed key by key, its decimal point kept.
+    await dialog.getByTestId("shortcut-more-toggle").click();
+    await dialog.getByTestId("step-add").click();
+    await dialog.locator("[data-step='1'] select[data-field='kind']").selectOption("climate");
+    await dialog.locator("[data-step='1'] select[data-field='do']").selectOption("temperature");
+    const heat = dialog.locator("[data-step='1'] input[data-field='value']");
+    await heat.fill("");
+    await heat.pressSequentially("20.5");
+    await heat.press("Tab");
+    await expect(heat).toHaveValue("20.5");
+    await dialog.getByTestId("shortcut-save").click();
+    await expect(dialog).toBeHidden();
+    expect((await kept(page))[0]?.steps).toEqual([
+      { kind: "covers", do: "position", value: 100 },
+      { kind: "climate", do: "temperature", value: 20.5 },
+    ]);
+  });
+
   test("is the first thing on a phone, the 3D a tab away", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await openHarness(page, { mode: "panel", live: true, start: "none" });

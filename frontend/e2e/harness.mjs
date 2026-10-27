@@ -992,6 +992,15 @@ const choices = {
   ...(params.get("userstart") ? { start: params.get("userstart") } : {}),
 };
 window.__choices = choices;
+// Held until `__releaseChoices()` with `holdchoices=1`: the user's choices not read yet.
+let releaseChoices;
+const choicesHeld =
+  params.get("holdchoices") === "1"
+    ? new Promise((resolve) => {
+        releaseChoices = resolve;
+      })
+    : undefined;
+window.__releaseChoices = () => releaseChoices?.();
 window.__settingsUp = () => {
   settingsDown = false;
   for (const listener of listeners) listener({ kind: "settings", revision: store.revision });
@@ -1446,6 +1455,7 @@ const connection = {
         return { config: structuredClone(config) };
       }
       case "domotwin/choices/get":
+        await choicesHeld;
         return structuredClone(choices);
       case "domotwin/choices/favourite": {
         const others = choices.favourites.filter((id) => id !== message.entity_id);
@@ -1458,7 +1468,25 @@ const connection = {
           else delete choices.start;
         }
         if (message.cards !== undefined) choices.cards = message.cards;
-        if (message.shortcuts !== undefined) choices.shortcuts = message.shortcuts;
+        return structuredClone(choices);
+      }
+      case "domotwin/choices/shortcut": {
+        if (window.__failShortcuts) throw { code: "too_many_shortcuts", message: "too_many" };
+        // One change to the shortcuts, as the integration makes it.
+        const list = [...(choices.shortcuts ?? [])];
+        const at = (id) => list.findIndex((s) => s.id === id);
+        if (message.set) {
+          if (at(message.set.id) >= 0) list[at(message.set.id)] = message.set;
+          else list.push(message.set);
+        } else if (message.remove) {
+          list.splice(at(message.remove), at(message.remove) >= 0 ? 1 : 0);
+        } else if (message.move) {
+          const from = at(message.move);
+          const to = from + message.by;
+          if (from >= 0 && to >= 0 && to < list.length)
+            [list[from], list[to]] = [list[to], list[from]];
+        }
+        choices.shortcuts = list;
         return structuredClone(choices);
       }
       case "frontend/set_user_data": {

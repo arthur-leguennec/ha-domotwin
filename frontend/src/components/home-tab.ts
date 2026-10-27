@@ -27,6 +27,7 @@ import { timeStyle, whenText } from "../live/schedules";
 import { NOTHING_UNSEEN, seen, type Unseen } from "../live/privacy";
 import {
   MAX_SHORTCUTS,
+  changeShortcuts,
   firstSuggestions,
   newId,
   readShortcuts,
@@ -35,6 +36,7 @@ import {
   suggestions,
   type ShownState,
   type Shortcut,
+  type ShortcutChange,
   type Suggestion,
 } from "../live/shortcuts";
 import { define, fire } from "./define";
@@ -79,6 +81,7 @@ export class DomoTwinHome extends LitElement {
     t: { attribute: false },
     choices: { attribute: false },
     can3d: { type: Boolean },
+    shortcutsReady: { type: Boolean },
     sources: { attribute: false },
     unseen: { attribute: false },
     open: { state: true },
@@ -100,6 +103,8 @@ export class DomoTwinHome extends LitElement {
   unseen: Unseen = NOTHING_UNSEEN;
   /** The 3D view can be shown: the peak's rooms can be seen there. */
   can3d = false;
+  /** The user's choices are read: their shortcuts are shown, and may be changed. */
+  shortcutsReady = false;
   /** The chip whose details are open. */
   protected open?: Detail;
   /** What Home Assistant refused last. */
@@ -556,12 +561,13 @@ export class DomoTwinHome extends LitElement {
     return this.readShortcuts;
   }
 
-  /** Asks the panel to keep the shortcuts so (it saves them for the user). */
-  private keep(shortcuts: Shortcut[]): void {
+  /** Asks the panel to make a change to the shortcuts (it sends it, the list shown at once). */
+  private keep(change: ShortcutChange): void {
+    const shortcuts = changeShortcuts(this.shortcuts, change);
     // None left to change: presses act again when the next is added.
     if (shortcuts.length === 0) this.editing = false;
     if (!shortcuts.some((s) => s.id === this.asking)) this.asking = undefined;
-    fire(this, "domotwin-shortcuts", { shortcuts });
+    fire(this, "domotwin-shortcuts", { shortcuts, change });
   }
 
   /** A suggestion added as it is. */
@@ -569,7 +575,7 @@ export class DomoTwinHome extends LitElement {
     const list = this.shortcuts;
     if (list.length >= MAX_SHORTCUTS) return;
     const id = newId(list.map((s) => s.id));
-    this.keep([...list, { ...suggestion.shortcut, id }]);
+    this.keep({ set: { ...suggestion.shortcut, id } });
   }
 
   /** A shortcut pressed: asked first if it asks, opened while the shortcuts are changed. */
@@ -638,25 +644,19 @@ export class DomoTwinHome extends LitElement {
   private readonly onSave = (event: CustomEvent<{ shortcut: Shortcut }>): void => {
     const { shortcut } = event.detail;
     const list = this.shortcuts;
-    const at = list.findIndex((s) => s.id === shortcut.id);
-    if (at >= 0) this.keep(list.map((s) => (s.id === shortcut.id ? shortcut : s)));
-    else if (list.length < MAX_SHORTCUTS) this.keep([...list, shortcut]);
+    if (list.some((s) => s.id === shortcut.id) || list.length < MAX_SHORTCUTS) {
+      this.keep({ set: shortcut });
+    }
     this.dialog = undefined;
   };
 
   private readonly onRemove = (event: CustomEvent<{ id: string }>): void => {
-    this.keep(this.shortcuts.filter((s) => s.id !== event.detail.id));
+    this.keep({ remove: event.detail.id });
     this.dialog = undefined;
   };
 
-  private readonly onMove = (event: CustomEvent<{ id: string; by: number }>): void => {
-    const list = [...this.shortcuts];
-    const at = list.findIndex((s) => s.id === event.detail.id);
-    const to = at + event.detail.by;
-    if (at < 0 || to < 0 || to >= list.length) return;
-    const [moved] = list.splice(at, 1);
-    if (moved) list.splice(to, 0, moved);
-    this.keep(list);
+  private readonly onMove = (event: CustomEvent<{ id: string; by: -1 | 1 }>): void => {
+    this.keep({ move: event.detail.id, by: event.detail.by });
   };
 
   /** What a shortcut's button says of its state. */
@@ -877,7 +877,7 @@ export class DomoTwinHome extends LitElement {
         ${this.renderDetail(glance)}
         ${this.refused ? html`<p class="error" role="alert">${this.refused}</p>` : nothing}
       </section>
-      ${this.renderShortcuts(hass, t)}
+      ${this.shortcutsReady ? this.renderShortcuts(hass, t) : nothing}
       ${
         weather
           ? html`<section aria-label=${t.t("home.weather")}>

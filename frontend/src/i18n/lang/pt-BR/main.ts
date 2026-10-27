@@ -1347,6 +1347,7 @@ export const main: Dictionary = {
     ws: {
       not_in_sandbox: "as ações para mais tarde pertencem à sua casa, não ao sandbox.",
       too_many_favourites: "você já tem 100 favoritos: tire uma estrela primeiro.",
+      too_many_shortcuts: "você já tem 24 atalhos: apague um primeiro.",
       invalid_screen: "o layout desta tela não pode ser guardado.",
       screen_exists: "outra tela já tem este nome.",
       too_many_screens: "já existem 20 telas de parede: remova uma primeiro.",

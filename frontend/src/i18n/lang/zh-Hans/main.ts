@@ -1318,6 +1318,7 @@ export const main: Dictionary = {
     ws: {
       not_in_sandbox: "稍后执行的操作属于你的家，而不属于沙盒。",
       too_many_favourites: "你已有 100 个收藏：请先取消一个星标。",
+      too_many_shortcuts: "你已有 24 个快捷指令：请先删除一个。",
       invalid_screen: "无法保留此屏幕的布局。",
       screen_exists: "已有另一个屏幕使用此名称。",
       too_many_screens: "已有 20 个壁挂屏：请先移除一个。",

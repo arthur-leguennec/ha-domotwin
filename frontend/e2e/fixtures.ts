@@ -137,6 +137,8 @@ export interface HarnessOptions {
   start?: "home" | "rooms" | "safety" | "3d" | "none";
   /** The tab the user chose, and their favourites. */
   userStart?: "home" | "rooms" | "safety" | "3d";
+  /** The user's choices answered only at `window.__releaseChoices()` (D-084). */
+  holdChoices?: boolean;
   favourites?: string[];
   /** Home Assistant's address: the panel's path, and the path after it opened. */
   route?: boolean;
@@ -246,6 +248,7 @@ export async function openHarness(page: Page, options: HarnessOptions = {}): Pro
   if (options.wall) params.set("wall", "1");
   if (options.deviceScreen) params.set("devicescreen", options.deviceScreen);
   if (options.userStart) params.set("userstart", options.userStart);
+  if (options.holdChoices) params.set("holdchoices", "1");
   if (options.favourites) params.set("favourites", options.favourites.join(","));
   if (options.route) params.set("route", "1");
   if (options.path) params.set("path", options.path);

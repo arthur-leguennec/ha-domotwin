@@ -15,6 +15,7 @@ import { NOT_BLINDS, OPEN_CLOSE, TURN_OFF } from "./room-actions";
 import { clipName, type Shortcut, type Step, type StepKind } from "./shortcut-model";
 
 export {
+  changeShortcuts,
   clipName,
   MAX_LISTED,
   MAX_NAME,
@@ -23,10 +24,14 @@ export {
   SHORTCUT_ICONS,
   STEP_DOES,
   STEP_KINDS,
+  needsValue,
   readShortcut,
   readShortcuts,
+  STEP_VALUES,
   takesValue,
+  valueRange,
   type Shortcut,
+  type ShortcutChange,
   type ShortcutIcon,
   type Step,
   type StepKind,
@@ -71,6 +76,9 @@ const DOMAINS: Readonly<Record<StepKind, readonly string[]>> = {
   run: [...RUNNABLE],
 };
 
+/** Covers that are not shutters nor blinds: a garage door, a gate, a door, a window, a skylight. */
+const NOT_SHUTTERS: ReadonlySet<string> = new Set([...NOT_BLINDS, "window"]);
+
 /** A light that groups others (a light group, a Hue room): its lamps count, not it. */
 function groupsLights(hass: HomeAssistant, id: string): boolean {
   const members = hass.states[id]?.attributes.entity_id;
@@ -91,7 +99,7 @@ export function fits(hass: HomeAssistant, kind: StepKind, id: string): boolean {
     case "covers": {
       const deviceClass = state.attributes.device_class;
       return (
-        !(typeof deviceClass === "string" && NOT_BLINDS.has(deviceClass)) &&
+        !(typeof deviceClass === "string" && NOT_SHUTTERS.has(deviceClass)) &&
         (features(hass, id) & OPEN_CLOSE) === OPEN_CLOSE
       );
     }
@@ -106,14 +114,31 @@ function floorOf(hass: HomeAssistant, id: string): string | undefined {
   return area ? (hass.areas?.[area]?.floor_id ?? undefined) : undefined;
 }
 
+/** The candidates of each kind, worked out once for each of Home Assistant's states. */
+const CANDIDATES = new WeakMap<
+  object,
+  { entities: unknown; kinds: Map<StepKind, readonly string[]> }
+>();
+
 /**
  * Every entity of the home a step of this kind may act on, sorted: those Home Assistant has,
- * neither hidden nor a configuration or diagnostic one.
+ * neither hidden nor a configuration or diagnostic one. Worked out once for each of Home
+ * Assistant's states (each button of the Home tab asks at each of them).
  */
-export function candidates(hass: HomeAssistant, kind: StepKind): string[] {
-  return Object.keys(hass.states)
-    .filter((id) => shownEntity(hass, id) && fits(hass, kind, id))
-    .sort();
+export function candidates(hass: HomeAssistant, kind: StepKind): readonly string[] {
+  let known = CANDIDATES.get(hass.states);
+  if (known === undefined || known.entities !== hass.entities) {
+    known = { entities: hass.entities, kinds: new Map() };
+    CANDIDATES.set(hass.states, known);
+  }
+  let ids = known.kinds.get(kind);
+  if (!ids) {
+    ids = Object.keys(hass.states)
+      .filter((id) => shownEntity(hass, id) && fits(hass, kind, id))
+      .sort();
+    known.kinds.set(kind, ids);
+  }
+  return ids;
 }
 
 /** Whether the viewer may see an entity (D-039) and use it (D-071). */
@@ -162,6 +187,10 @@ function capable(hass: HomeAssistant, step: Step, id: string): boolean {
     case "alarm:arm_night":
       // One that wants a code is armed from its own keypad (the Safety tab).
       return has(ARM[step.do] ?? 0) && attributes.code_arm_required !== true;
+    case "locks:lock":
+    case "locks:unlock":
+      // Nor is a lock that asks for a code: a call without it is refused.
+      return typeof attributes.code_format !== "string" || attributes.code_format === "";
     case "climate:heat":
     case "climate:off": {
       const modes = attributes.hvac_modes;
@@ -451,9 +480,12 @@ const CAR_PLATFORMS = new Set([
   "volvooncall",
 ]);
 
-/** Words that say a device is a car, in the languages DomoTwin speaks. */
+/**
+ * Words that say a device is a car, in the languages DomoTwin speaks: never a model's name that is
+ * also a person's (Zoe), nor a character that is in a bicycle's or a garage's name too (車).
+ */
 const CAR_WORDS =
-  /\b(car|ev|vehicle|voiture|véhicule|auto|coche|carro|wagen|fahrzeug|tesla|zoe|leaf|model [3sxy])\b|自動車|汽车|車|자동차|سيارة/iu;
+  /\b(car|ev|vehicle|voiture|véhicule|auto|coche|carro|wagen|fahrzeug|tesla|model [3sxy])\b|自動車|汽车|汽車|자동차|سيارة/iu;
 
 function deviceName(hass: HomeAssistant, id: string): string | undefined {
   const device = hass.entities?.[id]?.device_id;
@@ -478,6 +510,8 @@ export function carBatteries(hass: HomeAssistant): { entity: string; name: strin
     }
     const device = deviceName(hass, id);
     const platform = entry?.platform;
+    // A phone's own battery, whatever the phone is called.
+    if (platform === "mobile_app") continue;
     const car =
       (platform !== undefined && CAR_PLATFORMS.has(platform)) ||
       CAR_WORDS.test(device ?? "") ||

@@ -130,7 +130,7 @@ import {
   type Choices,
   type Tab,
 } from "../live/choices";
-import type { Shortcut } from "../live/shortcut-model";
+import type { Shortcut, ShortcutChange } from "../live/shortcut-model";
 import {
   readDeviceScreen,
   saverDue,
@@ -468,11 +468,11 @@ export class DomoTwinPanel extends LitElement {
   private wifiTimer?: ReturnType<typeof setTimeout>;
   /** Counts the stars given or taken away: the answer to the last one sets the favourites. */
   private stars = 0;
-  /** The shortcuts' changes (D-084): the last one's answer sets them. */
-  private shortcutSaves = 0;
-  /** Changes on their way, and what the integration keeps meanwhile. */
-  private shortcutsSaving = 0;
-  private shortcutsKept: readonly unknown[] = [];
+  /** The shortcuts' changes (D-084), sent one after the other; how many are on their way. */
+  private shortcutChanges: Promise<void> = Promise.resolve();
+  private shortcutsPending = 0;
+  /** Why one of those on their way was refused. */
+  private shortcutRefused?: { error: unknown };
   protected choicesOpen = false;
   /** The Home and Rooms tabs' module is loaded. */
   protected practicalReady = false;
@@ -1510,6 +1510,9 @@ export class DomoTwinPanel extends LitElement {
     this.toast = undefined;
     this.choices = undefined;
     this.choicesRead = false;
+    this.shortcutChanges = Promise.resolve();
+    this.shortcutsPending = 0;
+    this.shortcutRefused = undefined;
     clearTimeout(this.choicesTimer);
     clearTimeout(this.wifiTimer);
     this.choicesOpen = false;
@@ -1806,35 +1809,47 @@ export class DomoTwinPanel extends LitElement {
   };
 
   /**
-   * The Home tab's shortcuts changed (D-084): shown at once, kept by the integration. Each change
-   * sends the whole list, in order: the answer to the last one sets them; if that one is refused,
-   * they go back to what the integration answered last (what it keeps), and it is said.
+   * A change to the Home tab's shortcuts (D-084): shown at once, sent to the integration, which
+   * makes it to those it keeps (another device's changes stay). Changes go one after the other;
+   * once the last is answered, its answer sets them, or, if one was refused, it is said and they
+   * are read again. None is sent before the user's choices are read: the shortcuts shown meanwhile
+   * are not theirs.
    */
-  private readonly onShortcuts = async (
-    event: CustomEvent<{ shortcuts: Shortcut[] }>,
-  ): Promise<void> => {
+  private readonly onShortcuts = (
+    event: CustomEvent<{ shortcuts: Shortcut[]; change: ShortcutChange }>,
+  ): void => {
     const client = this.client;
-    if (!client) return;
-    // What the integration keeps, while changes are on their way.
-    if (this.shortcutsSaving === 0) this.shortcutsKept = this.choices?.shortcuts ?? [];
-    this.shortcutsSaving += 1;
-    const { shortcuts } = event.detail;
+    if (!client || !this.choicesRead) return;
+    const { shortcuts, change } = event.detail;
     this.choices = { ...(this.choices ?? NO_CHOICES), shortcuts };
-    const ticket = ++this.shortcutSaves;
-    try {
-      const saved = await client.saveChoices({ shortcuts });
-      if (client !== this.client) return;
-      this.shortcutsKept = saved.shortcuts;
-      if (ticket === this.shortcutSaves) {
-        this.choices = { ...(this.choices ?? NO_CHOICES), shortcuts: saved.shortcuts };
+    this.shortcutsPending += 1;
+    this.shortcutChanges = this.shortcutChanges.then(async () => {
+      let answer: Choices | undefined;
+      try {
+        answer = await client.changeShortcut(change);
+      } catch (error) {
+        if (client === this.client) this.shortcutRefused ??= { error };
       }
-    } catch (error) {
-      if (client !== this.client || ticket !== this.shortcutSaves) return;
-      this.choices = { ...(this.choices ?? NO_CHOICES), shortcuts: this.shortcutsKept };
-      this.show(this.t.t("shortcuts.not_kept", { reason: this.describe(error) }), true);
-    } finally {
-      this.shortcutsSaving -= 1;
-    }
+      // Another connection: its choices are read anew.
+      if (client !== this.client) return;
+      this.shortcutsPending -= 1;
+      if (this.shortcutsPending > 0) return;
+      const refused = this.shortcutRefused;
+      this.shortcutRefused = undefined;
+      if (!refused) {
+        if (answer) this.choices = { ...(this.choices ?? NO_CHOICES), shortcuts: answer.shortcuts };
+        return;
+      }
+      this.show(this.t.t("shortcuts.not_kept", { reason: this.describe(refused.error) }), true);
+      try {
+        const kept = await client.getChoices();
+        if (client === this.client && this.shortcutsPending === 0) {
+          this.choices = { ...(this.choices ?? NO_CHOICES), shortcuts: kept.shortcuts };
+        }
+      } catch {
+        // Read again when Home Assistant is back (`loadChoices`).
+      }
+    });
   };
 
   /** Without people's settings (an integration older than D-034 too) nobody is drawn. */
@@ -4021,6 +4036,7 @@ export class DomoTwinPanel extends LitElement {
               .t=${this.t}
               ?can3d=${canDraw3d()}
               .choices=${this.choices ?? NO_CHOICES}
+              ?shortcutsReady=${this.choicesRead}
               .sources=${sources}
               .unseen=${unseen}
               @domotwin-go=${this.onGo}

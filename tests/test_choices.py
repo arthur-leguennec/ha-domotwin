@@ -10,7 +10,7 @@ import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 from pytest_homeassistant_custom_component.typing import WebSocketGenerator
 
-from custom_components.domotwin.choices import SHORTCUT_ICONS, STEP_DOES
+from custom_components.domotwin.choices import SHORTCUT_ICONS, STEP_DOES, STEP_VALUES
 from custom_components.domotwin.const import (
     CHOICES_STORAGE_KEY,
     MAX_FAVOURITES,
@@ -100,87 +100,6 @@ async def test_choices_are_each_users_own(
         {"cards": [{"type": "calendar", "entities": ["todo.shopping"]}]},
         {"cards": [{"type": "todo-list", "entity": "todo.a"}] * 7},
         {"cards": [{"type": "summary", "summary": "weather"}]},
-        # Shortcuts (D-084): a kind, a deed, an icon it may not have; nothing to do or show.
-        {
-            "shortcuts": [
-                {
-                    "id": "a",
-                    "name": "A",
-                    "icon": "lock",
-                    "steps": [{"kind": "doors", "do": "open"}],
-                }
-            ]
-        },
-        {
-            "shortcuts": [
-                {
-                    "id": "a",
-                    "name": "A",
-                    "icon": "lock",
-                    "steps": [{"kind": "locks", "do": "open"}],
-                }
-            ]
-        },
-        {
-            "shortcuts": [
-                {
-                    "id": "a",
-                    "name": "A",
-                    "icon": "rocket",
-                    "steps": [{"kind": "locks", "do": "lock"}],
-                }
-            ]
-        },
-        {"shortcuts": [{"id": "a", "name": "A", "icon": "lock", "steps": []}]},
-        {
-            "shortcuts": [
-                {"id": "a", "name": " ", "icon": "lock", "steps": [{"kind": "locks", "do": "lock"}]}
-            ]
-        },
-        {
-            "shortcuts": [
-                {
-                    "id": "A!",
-                    "name": "A",
-                    "icon": "lock",
-                    "steps": [{"kind": "locks", "do": "lock"}],
-                }
-            ]
-        },
-        # A run step lists what it runs; a value stays a value.
-        {
-            "shortcuts": [
-                {"id": "a", "name": "A", "icon": "play", "steps": [{"kind": "run", "do": "run"}]}
-            ]
-        },
-        {
-            "shortcuts": [
-                {
-                    "id": "a",
-                    "name": "A",
-                    "icon": "lock",
-                    "steps": [{"kind": "lights", "do": "on", "value": 500}],
-                }
-            ]
-        },
-        # Each id once, and no more than the limit.
-        {
-            "shortcuts": [
-                {"id": "a", "name": "A", "icon": "lock", "steps": [{"kind": "locks", "do": "lock"}]}
-            ]
-            * 2
-        },
-        {
-            "shortcuts": [
-                {
-                    "id": f"s{n}",
-                    "name": "A",
-                    "icon": "lock",
-                    "steps": [{"kind": "locks", "do": "lock"}],
-                }
-                for n in range(MAX_SHORTCUTS + 1)
-            ]
-        },
     ],
 )
 async def test_choices_refused(
@@ -191,6 +110,50 @@ async def test_choices_refused(
 ) -> None:
     client = await hass_ws_client(hass)
     answer = await _send(client, {"type": "domotwin/choices/save", **message})
+    assert answer["error"]["code"] == "invalid_format"
+
+
+def _shortcut(**change: Any) -> dict[str, Any]:
+    """A shortcut that locks the doors, changed."""
+    return {"id": "a", "name": "A", "icon": "lock", "steps": [{"kind": "locks", "do": "lock"}]} | (
+        change
+    )
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        # Shortcuts (D-084): a kind, a deed, an icon it may not have; nothing to do or show.
+        {"set": _shortcut(steps=[{"kind": "doors", "do": "open"}])},
+        {"set": _shortcut(steps=[{"kind": "locks", "do": "open"}])},
+        {"set": _shortcut(icon="rocket")},
+        {"set": _shortcut(steps=[])},
+        {"set": _shortcut(name=" ")},
+        # An id as the frontend makes them, without a line end after it.
+        {"set": _shortcut(id="A!")},
+        {"set": _shortcut(id="abc\n")},
+        # A run step lists what it runs.
+        {"set": _shortcut(steps=[{"kind": "run", "do": "run"}])},
+        # A number in its range; a position and a temperature need theirs.
+        {"set": _shortcut(steps=[{"kind": "lights", "do": "on", "value": 500}])},
+        {"set": _shortcut(steps=[{"kind": "lights", "do": "on", "value": 0}])},
+        {"set": _shortcut(steps=[{"kind": "covers", "do": "position"}])},
+        {"set": _shortcut(steps=[{"kind": "climate", "do": "temperature", "value": 200}])},
+        # One change, and a move says where.
+        {},
+        {"move": "a"},
+        {"move": "a", "by": 2},
+        {"set": _shortcut(), "remove": "a"},
+    ],
+)
+async def test_shortcut_changes_refused(
+    hass: HomeAssistant,
+    setup_integration: MockConfigEntry,
+    hass_ws_client: WebSocketGenerator,
+    message: dict[str, Any],
+) -> None:
+    client = await hass_ws_client(hass)
+    answer = await _send(client, {"type": "domotwin/choices/shortcut", **message})
     assert answer["error"]["code"] == "invalid_format"
 
 
@@ -304,8 +267,9 @@ async def test_shortcuts_are_kept(
             "show": "sensor.car_battery",
         },
     ]
-    answer = await _send(client, {"type": "domotwin/choices/save", "shortcuts": shortcuts})
-    assert answer["success"]
+    for shortcut in shortcuts:
+        answer = await _send(client, {"type": "domotwin/choices/shortcut", "set": shortcut})
+        assert answer["success"]
     kept = answer["result"]["shortcuts"]
     assert [s["id"] for s in kept] == ["lights", "night", "car"]
     assert kept[1]["steps"][0]["value"] == 20
@@ -318,11 +282,55 @@ async def test_shortcuts_are_kept(
         "night",
         "car",
     ]
-    # Saving the tab leaves them as they are; an empty list takes them all away.
+    # Saving the tab leaves them as they are.
     answer = await _send(client, {"type": "domotwin/choices/save", "start": "home"})
     assert len(answer["result"]["shortcuts"]) == 3
-    answer = await _send(client, {"type": "domotwin/choices/save", "shortcuts": []})
-    assert answer["result"]["shortcuts"] == []
+
+    async def change(**message: Any) -> list[str]:
+        answer = await _send(client, {"type": "domotwin/choices/shortcut", **message})
+        return [s["id"] for s in answer["result"]["shortcuts"]]
+
+    # Changed in its place; a number on a step that takes none is left out.
+    renamed = shortcuts[1] | {
+        "name": "Night",
+        "steps": [{"kind": "locks", "do": "lock", "value": 5}],
+    }
+    assert await change(set=renamed) == ["lights", "night", "car"]
+    night = (await _send(client, {"type": "domotwin/choices/get"}))["result"]["shortcuts"][1]
+    assert night["name"] == "Night"
+    assert night["steps"] == [{"kind": "locks", "do": "lock"}]
+    # Moved a place; not past the first; taken away; one unknown changes nothing.
+    assert await change(move="car", by=-1) == ["lights", "car", "night"]
+    assert await change(move="lights", by=-1) == ["lights", "car", "night"]
+    assert await change(remove="lights") == ["car", "night"]
+    assert await change(remove="gone", by=1) == ["car", "night"]
+    # Another device's change stays: each is made to what is kept now.
+    other = await hass_ws_client(hass)
+    answer = await _send(
+        other, {"type": "domotwin/choices/shortcut", "set": shortcuts[0] | {"id": "phone"}}
+    )
+    assert [s["id"] for s in answer["result"]["shortcuts"]] == ["car", "night", "phone"]
+    assert await change(remove="car") == ["night", "phone"]
+
+
+async def test_shortcuts_have_a_limit(
+    hass: HomeAssistant,
+    setup_integration: MockConfigEntry,
+    hass_ws_client: WebSocketGenerator,
+) -> None:
+    client = await hass_ws_client(hass)
+    for n in range(MAX_SHORTCUTS):
+        answer = await _send(
+            client, {"type": "domotwin/choices/shortcut", "set": _shortcut(id=f"s{n}")}
+        )
+        assert answer["success"]
+    answer = await _send(client, {"type": "domotwin/choices/shortcut", "set": _shortcut(id="more")})
+    assert answer["error"]["code"] == "too_many_shortcuts"
+    # One already kept may still be changed.
+    answer = await _send(
+        client, {"type": "domotwin/choices/shortcut", "set": _shortcut(id="s0", name="B")}
+    )
+    assert answer["result"]["shortcuts"][0]["name"] == "B"
 
 
 async def test_shortcuts_not_understood_are_left_out(
@@ -358,7 +366,7 @@ async def test_shortcuts_not_understood_are_left_out(
 
 
 def test_the_frontend_makes_the_same_shortcuts() -> None:
-    """What a step does, the icons and the limits, here and in `shortcut-model.ts`."""
+    """What a step does, its numbers, the icons and the limits, here and in `shortcut-model.ts`."""
     text = MODEL.read_text(encoding="utf-8")
     does = re.search(r"export const STEP_DOES[^=]*= \{(.*?)\n\};", text, re.DOTALL)
     assert does is not None
@@ -366,6 +374,12 @@ def test_the_frontend_makes_the_same_shortcuts() -> None:
         kind: tuple(re.findall(r'"(\w+)"', listed))
         for kind, listed in re.findall(r"(\w+): \[([^\]]*)\]", does.group(1))
     } == STEP_DOES
+    values = re.search(r"export const STEP_VALUES[^=]*= \{(.*?)\n\};", text, re.DOTALL)
+    assert values is not None
+    assert {
+        key: (float(low), float(high))
+        for key, low, high in re.findall(r'"(\w+:\w+)": \[(-?\d+), (-?\d+)\]', values.group(1))
+    } == STEP_VALUES
     icons = re.search(r"export const SHORTCUT_ICONS = \[(.*?)\] as const;", text, re.DOTALL)
     assert icons is not None
     assert tuple(re.findall(r'"(\w+)"', icons.group(1))) == SHORTCUT_ICONS

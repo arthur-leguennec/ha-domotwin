@@ -1357,6 +1357,7 @@ export const main: Dictionary = {
     ws: {
       not_in_sandbox: "acties voor later horen bij je huis, niet bij de sandbox.",
       too_many_favourites: "je hebt al 100 favorieten: haal eerst een ster weg.",
+      too_many_shortcuts: "je hebt al 24 snelkoppelingen: verwijder er eerst een.",
       invalid_screen: "de indeling van dit scherm kan niet worden bewaard.",
       screen_exists: "een ander scherm heeft deze naam.",
       too_many_screens: "er zijn al 20 wandschermen: verwijder er eerst een.",

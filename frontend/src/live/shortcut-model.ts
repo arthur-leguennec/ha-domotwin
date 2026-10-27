@@ -31,13 +31,29 @@ export const STEP_DOES: Readonly<Record<StepKind, readonly string[]>> = {
   run: ["run"],
 };
 
+/**
+ * What a step does that takes a number, and the numbers it takes (the integration's
+ * `STEP_VALUES`): a brightness, a position (%), a temperature (°C or °F, a spa's too).
+ */
+export const STEP_VALUES: Readonly<Record<string, readonly [number, number]>> = {
+  "lights:on": [1, 100],
+  "covers:position": [0, 100],
+  "climate:temperature": [-50, 150],
+};
+
+/** The numbers a step takes, if it takes one. */
+export function valueRange(step: Pick<Step, "kind" | "do">): readonly [number, number] | undefined {
+  return STEP_VALUES[`${step.kind}:${step.do}`];
+}
+
 /** What a step does that takes a number: a brightness or a position (%), a temperature. */
 export function takesValue(step: Pick<Step, "kind" | "do">): boolean {
-  return (
-    (step.kind === "lights" && step.do === "on") ||
-    (step.kind === "covers" && step.do === "position") ||
-    (step.kind === "climate" && step.do === "temperature")
-  );
+  return valueRange(step) !== undefined;
+}
+
+/** What a step does that needs its number: a position, a temperature (a lamp may keep its own). */
+export function needsValue(step: Pick<Step, "kind" | "do">): boolean {
+  return takesValue(step) && !(step.kind === "lights" && step.do === "on");
 }
 
 /** The icons a shortcut may have, by name (the component draws them). */
@@ -100,11 +116,26 @@ const ID = /^[a-z0-9]{1,12}$/;
 const ENTITY = /^[a-z0-9_]+\.[a-z0-9_]+$/;
 
 /**
- * A name cut to `MAX_NAME` characters, as the integration counts them (code points): an emoji is
- * never cut in two.
+ * A name cut to `MAX_NAME` characters as the integration counts them (code points), between two
+ * of the characters a reader sees: an emoji of several (a family, a flag) is never cut in two.
  */
 export function clipName(name: string): string {
-  return Array.from(name).slice(0, MAX_NAME).join("");
+  if (Array.from(name).length <= MAX_NAME) return name;
+  const parts =
+    typeof Intl.Segmenter === "function"
+      ? Array.from(
+          new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(name),
+          (part) => part.segment,
+        )
+      : Array.from(name);
+  let kept = "";
+  let length = 0;
+  for (const part of parts) {
+    length += Array.from(part).length;
+    if (length > MAX_NAME) break;
+    kept += part;
+  }
+  return kept;
 }
 
 function isIcon(value: unknown): value is ShortcutIcon {
@@ -135,7 +166,13 @@ function readStep(raw: unknown): Step | undefined {
   if (entities) step.entities = entities;
   const except = entityList(value.except);
   if (except) step.except = except;
-  if (typeof value.value === "number" && Number.isFinite(value.value)) step.value = value.value;
+  // A number where one is taken, in its range; needed for a position or a temperature.
+  const range = valueRange(step);
+  if (range && typeof value.value === "number" && Number.isFinite(value.value)) {
+    if (value.value < range[0] || value.value > range[1]) return undefined;
+    step.value = value.value;
+  }
+  if (needsValue(step) && step.value === undefined) return undefined;
   // A scene or a script to run is chosen; it is never every one of the home.
   if (step.kind === "run" && !step.entities) return undefined;
   return step;
@@ -178,4 +215,29 @@ export function readShortcuts(raw: unknown): Shortcut[] {
     shortcuts.push(shortcut);
   }
   return shortcuts.slice(0, MAX_SHORTCUTS);
+}
+
+/**
+ * One change to the shortcuts, as the integration takes it: one at a time, so that two devices do
+ * not undo each other's (the integration's `domotwin/choices/shortcut`). `set` replaces the
+ * shortcut of its id or adds it last; `move` takes one a place earlier (-1) or later (1).
+ */
+export type ShortcutChange = { set: Shortcut } | { remove: string } | { move: string; by: -1 | 1 };
+
+/** The shortcuts once a change is made, as the integration makes it. */
+export function changeShortcuts(list: readonly Shortcut[], change: ShortcutChange): Shortcut[] {
+  if ("set" in change) {
+    const at = list.findIndex((s) => s.id === change.set.id);
+    if (at >= 0) return list.map((s, i) => (i === at ? change.set : s));
+    return list.length < MAX_SHORTCUTS ? [...list, change.set] : [...list];
+  }
+  if ("remove" in change) return list.filter((s) => s.id !== change.remove);
+  const moved = [...list];
+  const at = moved.findIndex((s) => s.id === change.move);
+  const to = at + change.by;
+  const [one, other] = [moved[at], moved[to]];
+  if (at < 0 || !one || !other) return moved;
+  moved[at] = other;
+  moved[to] = one;
+  return moved;
 }

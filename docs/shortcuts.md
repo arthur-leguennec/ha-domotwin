@@ -18,7 +18,7 @@ makes possible, by what it is about, each with how many devices it acts on:
 | Shutters and blinds | Close the shutters; open the shutters |
 | Locks and alarm | Lock everything; arm the alarm; the alarm for the night |
 | Heating | Heating in eco (thermostats that have it); heating at 19 °C (66 °F) |
-| Car | A car's battery: a battery sensor of a car's integration (Tesla, Renault, BMW, Volvo, Kia, Škoda…), or of a device whose name says it is a car |
+| Car | A car's battery: a battery sensor of a car's integration (Tesla, Renault, BMW, Volvo, Kia, Škoda…), or of a device whose name says it is a car (never a phone's) |
 | Music and TV | Pause the music |
 | Robots | Start the robot vacuum, or the robots |
 | Scenes and scripts | A few of yours |
@@ -32,16 +32,18 @@ A shortcut is one step or more. Each step says:
 
 - **What**: the lights, the shutters and blinds, the locks, the heating, the music and TV, the robot
   vacuums, the alarm, or a scene or a script.
-- **Does**: switch off, switch on (at a brightness), switch on or off together; close, open, set to
-  a position; lock, unlock; eco, a temperature, heat, switch off; pause, switch off; start, send
-  back to its dock; arm away, at home or for the night; run.
+- **Does**: switch off, switch on (at a brightness of 1 to 100 %, or as it was), switch on or off
+  together; close, open, set to a position (0 to 100 %); lock, unlock; eco, a temperature (−50 to
+  150, in your unit), heat, switch off; pause, switch off; start, send back to its dock; arm away,
+  at home or for the night; run. A number typed beyond its range is brought into it.
 - **Where**: the whole home, a floor, a room (Home Assistant's floors and areas), or the devices you
   choose. It is read again at each press: a lamp you add to the living room is switched with it.
 
 It acts only on what it can do something to: eco on a thermostat that has it, a temperature on one
-that takes a single one, a position on a blind that takes one, never a garage door or a gate as a
-blind, pause on what plays and can pause, an alarm only in a way it can be armed, never one that asks
-for a code (that one is armed from its keypad, on *Safety*). And only on what your
+that takes a single one, a position on a blind that takes one, never a garage door, a gate or a
+window as a blind, pause on what plays and can pause, an alarm only in a way it can be armed. Never
+a lock or an alarm that asks for a code: those are used from their keypad, on *Safety*. And only on
+what your
 rights in DomoTwin let you use (`rights.md`), never in a private room you may not see
 (`privacy.md`). Its steps run one after the other; if Home Assistant refuses one, the others still
 run, and the button says so.
@@ -69,7 +71,9 @@ too.
 
 The integration keeps each person's shortcuts with their choices (`.storage/domotwin.users`, as their
 favourites and the tab DomoTwin opens on), so they follow you from your phone to your computer.
-Someone else has their own.
+Someone else has their own. Each change is kept on its own (one added, changed, deleted or moved):
+one made on your phone stays when a wall screen open since yesterday changes another. If Home
+Assistant refuses one, DomoTwin says so and shows what it keeps.
 
 ## Not done yet
 

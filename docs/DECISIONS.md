@@ -4255,8 +4255,14 @@ start from suggestions, with more settings for those who want them.
   of several steps, a value to read) needed a scene or a script written in Home Assistant first.
 - **Decision.**
   - **Shortcuts, at the top of *Home*,** under the glance: big buttons, each the user's own, kept by
-    the integration with their choices (D-055, `domotwin/choices/save`, validated: at most 24, six
-    steps each, 50 entities a list, a name of 40 characters, the kinds, deeds and icons known). A
+    the integration with their choices (D-055, validated: at most 24, six steps each, 50 entities a
+    list, a name of 40 characters, the kinds, deeds and icons known, a brightness of 1 to 100 %, a
+    position of 0 to 100 %, a temperature of −50 to 150, the unit's). Each change is sent on its own
+    (`domotwin/choices/shortcut`: one added or changed, one deleted, one moved a place) and made to
+    the list the integration keeps then, never a whole list: a wall screen open for days does not
+    take away what a phone added meanwhile. Changes go one after the other; a refused one is said,
+    and the shortcuts are read again. None is shown, nor suggested, before the user's choices are
+    read: a press on a suggestion then would not start from theirs. A
     press acts; a shortcut that asks first asks, in a bar under them; a shortcut that only shows a
     value opens Home Assistant's details of its entity. Each shows its state: how many of what its
     first step acts on are on, open, unlocked or playing (*3 on*, *All closed*), how warm it is
@@ -4270,9 +4276,13 @@ start from suggestions, with more settings for those who want them.
     *where* (the home, a floor, a room — Home Assistant's floors and areas — or the devices chosen),
     some left out. Where is read again at each press: a lamp added to the living room is switched
     with it. Each step acts on what the viewer may use (D-071) and see (D-039), and only on what it
-    can do something to (eco on a thermostat that has it, a position on a blind that takes one,
-    never a garage door or a gate as a blind, pause on what plays). The steps run one after the
-    other; one refused does not stop the others, and the button says it.
+    can do something to: what Home Assistant would refuse is not asked, as a call that names one
+    entity that cannot is refused whole (eco on a thermostat that has it, a temperature on one that
+    takes a single one, a position on a blind that takes one, never a garage door, a gate or a
+    window as a blind, pause on what can and plays, a robot started or docked if it can, an alarm
+    armed only in a way it can be; never a lock or an alarm that asks for a code: those are used
+    from their keypad, on *Safety*). The steps run one after the other; one refused does not stop
+    the others, and the button says it.
   - **Suggested from the home**: *Add a shortcut* lists, by what they are about, what the home's
     devices make possible, each with how many it acts on, to add as it is or to adjust first: every
     lamp off, and each floor's; a good night (the lamps off, the shutters closed, the doors locked,
@@ -4280,7 +4290,8 @@ start from suggestions, with more settings for those who want them.
     alarm armed, the heating in eco, asked first), from what the home has of them; the shutters
     closed and opened; everything locked; the alarm; the heating in eco where it can be, else at a
     usual temperature (19 °C, 66 °F); a car's battery (a battery sensor of a car's integration, or
-    of a device whose name says it is a car, in the languages DomoTwin speaks); the music paused;
+    of a device whose name says it is a car, in the languages DomoTwin speaks, never a phone's);
+    the music paused;
     the robots started; a few of the home's scenes and scripts. Those already added are not
     suggested again. With none yet, the first three, of three kinds, show as dashed buttons on
     *Home*, added in one press.
@@ -4301,7 +4312,8 @@ start from suggestions, with more settings for those who want them.
 - **Consequences.**
   - On a phone, DomoTwin opens on *Home* with the shortcuts under the glance; the 3D is a tab away.
     A wall screen still opens on its own tab (D-076).
-  - The first load grows by 0.2 kB; the Home tab's chunk by 4.9 kB gzipped; the dialog is
-    5.4 kB gzipped, on demand. Working out the suggestions of a fictional home of 1 200 entities
-    takes about 7 ms, and they are worked out again only when the registries change; the states
-    of 10 shortcuts about 2 ms.
+  - The first load grows by 0.4 kB; the Home tab's chunk by 4.9 kB gzipped; the dialog is
+    5.8 kB gzipped, on demand. Working out the suggestions of a fictional home of 1 200 entities
+    takes about 3.6 ms, and they are worked out again only when the registries change; the states
+    of 10 shortcuts about 1.3 ms, each kind's devices worked out once for each of Home Assistant's
+    states.

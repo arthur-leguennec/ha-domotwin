@@ -7,7 +7,9 @@ import { readChoices } from "../src/live/choices";
 import {
   MAX_NAME,
   MAX_SHORTCUTS,
+  candidates,
   carBatteries,
+  changeShortcuts,
   clipName,
   firstSuggestions,
   newId,
@@ -149,8 +151,24 @@ describe("shortcuts (D-084)", () => {
         confirm: true,
       },
       { id: "Bad id", name: "x", icon: "home", steps: [{ kind: "locks", do: "lock" }] },
+      // A number out of its range, a position without one: those steps are left out.
+      {
+        id: "e",
+        name: "Numbers",
+        icon: "home",
+        steps: [
+          { kind: "lights", do: "on", value: 500 },
+          { kind: "covers", do: "position" },
+          { kind: "lights", do: "on" },
+          { kind: "locks", do: "lock", value: 3 },
+        ],
+      },
     ]);
-    expect(read.map((s) => s.id)).toEqual(["a1", "d"]);
+    expect(read.map((s) => s.id)).toEqual(["a1", "d", "e"]);
+    expect(read[2]?.steps).toEqual([
+      { kind: "lights", do: "on" },
+      { kind: "locks", do: "lock" },
+    ]);
     expect(read[1]).toEqual({
       id: "d",
       name: "Car",
@@ -372,6 +390,18 @@ describe("shortcuts (D-084)", () => {
     expect(targets(other, { kind: "alarm", do: "arm_away" })).toEqual([]);
     expect(targets(other, { kind: "media", do: "pause" })).toEqual([]);
     expect(targets(other, { kind: "media", do: "off" })).toEqual(["media_player.tv"]);
+    // A window or a skylight is not a shutter; a lock that asks for a code is left alone.
+    const windows = home({
+      ...HOUSE,
+      "cover.skylight": {
+        state: "closed",
+        area: "bedroom",
+        attributes: { device_class: "window", supported_features: 15 },
+      },
+      "lock.back": { state: "unlocked", attributes: { code_format: "^\\d{4}$" } },
+    });
+    expect(targets(windows, { kind: "covers", do: "open" })).toEqual(["cover.living"]);
+    expect(targets(windows, { kind: "locks", do: "lock" })).toEqual(["lock.front"]);
     const keys = suggestions(other, en).map((s) => s.key);
     expect(keys).not.toContain("alarm_away");
     expect(keys).not.toContain("media_pause");
@@ -383,6 +413,11 @@ describe("shortcuts (D-084)", () => {
     expect(Array.from(clipName(long))).toHaveLength(MAX_NAME);
     expect(clipName(long).endsWith("a")).toBe(true);
     expect(clipName("Car")).toBe("Car");
+    // A family (five code points) or a flag (two) is kept whole, or left out whole.
+    const family = "👩‍👩‍👧";
+    expect(clipName(`${"a".repeat(MAX_NAME - 2)}${family}`)).toBe("a".repeat(MAX_NAME - 2));
+    expect(clipName(`${"a".repeat(MAX_NAME - 1)}🇫🇷`)).toBe("a".repeat(MAX_NAME - 1));
+    expect(clipName(`${"a".repeat(MAX_NAME - 2)}🇫🇷b`)).toBe(`${"a".repeat(MAX_NAME - 2)}🇫🇷`);
     const hass = home({
       ...HOUSE,
       "sensor.long_car_battery": {
@@ -416,6 +451,53 @@ describe("shortcuts (D-084)", () => {
       { entity: "sensor.car_battery", name: "Family car" },
       { entity: "sensor.voiture_batterie", name: "Voiture batterie" },
     ]);
+    // Never a phone, whatever it is called; never a bicycle nor a garage.
+    const battery = { device_class: "battery", unit_of_measurement: "%" };
+    const others = home({
+      "sensor.zoe_phone_battery": {
+        state: "40",
+        platform: "mobile_app",
+        attributes: { ...battery, friendly_name: "Zoe's car phone battery" },
+      },
+      "sensor.bike_battery": {
+        state: "70",
+        attributes: { ...battery, friendly_name: "自転車 バッテリー" },
+      },
+      "sensor.zoe_battery": { state: "70", attributes: { ...battery, friendly_name: "Zoe" } },
+    });
+    expect(carBatteries(others)).toEqual([]);
+  });
+
+  it("makes one change at a time, as the integration does", () => {
+    const a: Shortcut = {
+      id: "a",
+      name: "A",
+      icon: "lock",
+      steps: [{ kind: "locks", do: "lock" }],
+    };
+    const b: Shortcut = { ...a, id: "b", name: "B" };
+    const c: Shortcut = { ...a, id: "c", name: "C" };
+    expect(changeShortcuts([a, b], { set: c }).map((s) => s.id)).toEqual(["a", "b", "c"]);
+    expect(changeShortcuts([a, b], { set: { ...a, name: "Z" } })[0]?.name).toBe("Z");
+    expect(changeShortcuts([a, b, c], { remove: "b" }).map((s) => s.id)).toEqual(["a", "c"]);
+    expect(changeShortcuts([a, b, c], { move: "c", by: -1 }).map((s) => s.id)).toEqual([
+      "a",
+      "c",
+      "b",
+    ]);
+    expect(changeShortcuts([a, b], { move: "a", by: -1 }).map((s) => s.id)).toEqual(["a", "b"]);
+    expect(changeShortcuts([a, b], { move: "x", by: 1 }).map((s) => s.id)).toEqual(["a", "b"]);
+    const full = Array.from({ length: MAX_SHORTCUTS }, (_, n) => ({ ...a, id: `s${n}` }));
+    expect(changeShortcuts(full, { set: c })).toHaveLength(MAX_SHORTCUTS);
+  });
+
+  it("works out each kind's devices once for each of Home Assistant's states", () => {
+    const hass = home(HOUSE);
+    const first = candidates(hass, "lights");
+    expect(candidates(hass, "lights")).toBe(first);
+    const later = { ...hass, states: { ...hass.states } };
+    expect(candidates(later, "lights")).not.toBe(first);
+    expect(candidates(later, "lights")).toEqual(first);
   });
 
   it("makes ids none of the others has", () => {

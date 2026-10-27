@@ -63,6 +63,14 @@ STEP_DOES: dict[str, tuple[str, ...]] = {
     "run": ("run",),
 }
 
+#: What a step does that takes a number, and the numbers it takes (the frontend's `STEP_VALUES`):
+#: a brightness, a position (%), a temperature (°C or °F, a spa's too).
+STEP_VALUES: dict[str, tuple[float, float]] = {
+    "lights:on": (1, 100),
+    "covers:position": (0, 100),
+    "climate:temperature": (-50, 150),
+}
+
 #: The icons a shortcut may have (the frontend's `SHORTCUT_ICONS`).
 SHORTCUT_ICONS = (
     "lights_off",
@@ -84,14 +92,27 @@ SHORTCUT_ICONS = (
 )
 
 _ENTITIES = vol.All([cv.entity_id], vol.Length(max=MAX_LISTED))
+#: A shortcut's id, as the frontend makes it (`\Z`: no line end after it, as `$` would let by).
+_ID = vol.All(str, vol.Match(r"^[a-z0-9]{1,12}\Z"))
 #: An area or a floor id, as Home Assistant slugifies it from a name of any length.
 _PLACE = vol.All(str, vol.Length(min=1, max=255))
 
 
 def _step_does(step: dict[str, Any]) -> dict[str, Any]:
-    """A step does what its kind may; a scene or a script to run is chosen, never every one."""
+    """A step does what its kind may, with a number where it takes one.
+
+    A position and a temperature need theirs; a scene or a script to run is chosen, never every one.
+    """
     if step["do"] not in STEP_DOES[step["kind"]]:
         raise vol.Invalid(f"a {step['kind']} step cannot {step['do']}")
+    limits = STEP_VALUES.get(f"{step['kind']}:{step['do']}")
+    if limits is None:
+        step.pop("value", None)
+    elif "value" in step:
+        if not limits[0] <= step["value"] <= limits[1]:
+            raise vol.Invalid(f"a number from {limits[0]:g} to {limits[1]:g}")
+    elif step["kind"] != "lights":
+        raise vol.Invalid(f"a {step['kind']} step to {step['do']} has its number")
     if step["kind"] == "run" and not step.get("entities"):
         raise vol.Invalid("a run step lists what it runs")
     return step
@@ -106,7 +127,7 @@ STEP_SCHEMA = vol.All(
             vol.Optional("area"): _PLACE,
             vol.Optional("entities"): _ENTITIES,
             vol.Optional("except"): _ENTITIES,
-            vol.Optional("value"): vol.All(vol.Coerce(float), vol.Range(min=-50, max=100)),
+            vol.Optional("value"): vol.Coerce(float),
         }
     ),
     _step_does,
@@ -123,7 +144,7 @@ def _shortcut_does(shortcut: dict[str, Any]) -> dict[str, Any]:
 SHORTCUT_SCHEMA = vol.All(
     vol.Schema(
         {
-            vol.Required("id"): vol.All(str, vol.Match(r"^[a-z0-9]{1,12}$")),
+            vol.Required("id"): _ID,
             vol.Required("name"): vol.All(str, vol.Strip, vol.Length(min=1, max=MAX_SHORTCUT_NAME)),
             vol.Required("icon"): vol.In(SHORTCUT_ICONS),
             vol.Required("steps"): vol.All([STEP_SCHEMA], vol.Length(max=MAX_STEPS)),
@@ -134,16 +155,6 @@ SHORTCUT_SCHEMA = vol.All(
     ),
     _shortcut_does,
 )
-
-
-def _unique_ids(shortcuts: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    ids = [shortcut["id"] for shortcut in shortcuts]
-    if len(set(ids)) != len(ids):
-        raise vol.Invalid("each shortcut has an id of its own")
-    return shortcuts
-
-
-SHORTCUTS_SCHEMA = vol.All([SHORTCUT_SCHEMA], vol.Length(max=MAX_SHORTCUTS), _unique_ids)
 
 
 class ChoiceError(Exception):
@@ -247,9 +258,8 @@ class Choices:
         *,
         start: str | None = None,
         cards: list[dict[str, Any]] | None = None,
-        shortcuts: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
-        """Sets the tab DomoTwin opens on (`""`: none chosen), the Home tab's cards, shortcuts."""
+        """Sets the tab DomoTwin opens on (`""`: none chosen) and the Home tab's cards."""
         choices = self._users.setdefault(user_id, {})
         if start is not None:
             if start:
@@ -258,9 +268,35 @@ class Choices:
                 choices.pop("start", None)
         if cards is not None:
             choices["cards"] = cards
-        if shortcuts is not None:
-            choices["shortcuts"] = shortcuts
         await self._async_save()
+        return self.get(user_id)
+
+    async def async_shortcut(self, user_id: str, change: dict[str, Any]) -> dict[str, Any]:
+        """One change to the shortcuts, made to the list kept now; answers the choices.
+
+        `set` replaces the shortcut of its id or adds it last, `remove` takes one away, `move` takes
+        one a place earlier (`by` -1) or later (1): another device's changes stay.
+        """
+        choices = self._users.setdefault(user_id, {})
+        shortcuts: list[dict[str, Any]] = list(choices.get("shortcuts", []))
+        ids = [shortcut["id"] for shortcut in shortcuts]
+        if (shortcut := change.get("set")) is not None:
+            if shortcut["id"] in ids:
+                shortcuts[ids.index(shortcut["id"])] = shortcut
+            elif len(shortcuts) >= MAX_SHORTCUTS:
+                raise ChoiceError("too_many_shortcuts")
+            else:
+                shortcuts.append(shortcut)
+        elif (removed := change.get("remove")) is not None:
+            shortcuts = [kept for kept in shortcuts if kept["id"] != removed]
+        elif (moved := change.get("move")) in ids:
+            at = ids.index(moved)
+            to = at + change["by"]
+            if 0 <= to < len(shortcuts):
+                shortcuts[at], shortcuts[to] = shortcuts[to], shortcuts[at]
+        if shortcuts != choices.get("shortcuts", []):
+            choices["shortcuts"] = shortcuts
+            await self._async_save()
         return self.get(user_id)
 
     async def async_remove(self) -> None:
@@ -280,6 +316,7 @@ def async_register_commands(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_choices_get)
     websocket_api.async_register_command(hass, ws_choices_favourite)
     websocket_api.async_register_command(hass, ws_choices_save)
+    websocket_api.async_register_command(hass, ws_choices_shortcut)
 
 
 def _choices(
@@ -333,20 +370,43 @@ async def ws_choices_favourite(
         vol.Required("type"): "domotwin/choices/save",
         vol.Optional("start"): vol.In(("", *START_TABS)),
         vol.Optional("cards"): CARDS_SCHEMA,
-        vol.Optional("shortcuts"): SHORTCUTS_SCHEMA,
     }
 )
 @websocket_api.async_response
 async def ws_choices_save(
     hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
 ) -> None:
-    """Sets the tab DomoTwin opens on, the Home tab's cards and shortcuts; answers the choices."""
+    """Sets the tab DomoTwin opens on and the Home tab's cards; answers the choices."""
     if (choices := _choices(hass, connection, msg)) is None:
         return
     result = await choices.async_save(
-        connection.user.id,
-        start=msg.get("start"),
-        cards=msg.get("cards"),
-        shortcuts=msg.get("shortcuts"),
+        connection.user.id, start=msg.get("start"), cards=msg.get("cards")
     )
+    connection.send_result(msg["id"], result)
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "domotwin/choices/shortcut",
+        vol.Exclusive("set", "change"): SHORTCUT_SCHEMA,
+        vol.Exclusive("remove", "change"): _ID,
+        vol.Exclusive("move", "change"): _ID,
+        vol.Optional("by"): vol.In((-1, 1)),
+    }
+)
+@websocket_api.async_response
+async def ws_choices_shortcut(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """One change to the Home tab's shortcuts (D-084); answers the choices."""
+    if (choices := _choices(hass, connection, msg)) is None:
+        return
+    if not ("set" in msg or "remove" in msg or ("move" in msg and "by" in msg)):
+        connection.send_error(msg["id"], "invalid_format", "set, remove, or move by -1 or 1")
+        return
+    try:
+        result = await choices.async_shortcut(connection.user.id, msg)
+    except ChoiceError as err:
+        connection.send_error(msg["id"], err.code, err.code)
+        return
     connection.send_result(msg["id"], result)

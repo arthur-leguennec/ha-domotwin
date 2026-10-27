@@ -1447,14 +1447,14 @@ rooms and place 282 devices and 63 pieces of furniture (18 found no space). It r
 
 ### M46 (shortcuts on the Home tab)
 
-Bundle: the first load is **657.8 kB gzipped** of 1 200 kB (+0.3 kB): the first load reads the
+Bundle: the first load is **657.9 kB gzipped** of 1 200 kB (+0.4 kB): the first load reads the
 user's choices only; their shortcuts are read by the Home tab, whose chunk grows by 4.9 kB gzipped
 (16.3 kB) with what shortcuts do, their texts and the icons not already in the first load (written
 there, as the screen saver's). The dialog that suggests and changes them is its own chunk
-(`chunks/shortcut-dialog-<hash>.js`: 20.5 kB raw, 5.6 kB gzipped), loaded when first opened; each
+(`chunks/shortcut-dialog-<hash>.js`: 21.2 kB raw, 5.8 kB gzipped), loaded when first opened; each
 language's module gains its texts (about 1.3 kB gzipped).
 
 On a fictional home of 1 200 entities in 24 areas on two floors, working out every suggestion takes
-about 7 ms (the median of ten, in Node); the Home tab works them out again only when the registries
-change, not at each state. The states of 10 shortcuts take about 2 ms at each update of Home
-Assistant's states.
+about 3.6 ms (the median of ten, in Node); the Home tab works them out again only when the registries
+change, not at each state. The states of 10 shortcuts take about 1.3 ms at each update of Home
+Assistant's states: each kind's devices are worked out once for each of them, not once a button.
