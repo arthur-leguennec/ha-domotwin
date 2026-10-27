@@ -19,11 +19,11 @@ Local, rapide, Rust + WebAssembly.</p>
 > à sable, l’historique en tableaux, « Pourquoi ? », le code QR du Wi-Fi pour les invités,
 > l’historique de la configuration, les pointes d’Hydro-Québec, d’autres imports (cartes de robots
 > aspirateurs, Floorplanner, scans en maillage), la couverture radio, les pass d’invité, la
-> sécurité (les caméras, la sonnette, l’alarme, les alertes sur chaque onglet) et les
-> automatisations dites avec vos mots, jouées dans le bac à sable avant d’être enregistrées, et
-> DomoTwin a rejoint la Vue d’ensemble de Home Assistant ; la météo autour du logement,
-> l’historique et l’énergie et l’écran mural suivent, vers la 0.5.0. La proposition à la liste par
-> défaut de HACS attend des mesures sur de vrais appareils.
+> sécurité (les caméras, la sonnette, l’alarme, les alertes sur chaque onglet), les graphiques de
+> chaque pièce avec la page Énergie de Home Assistant à un onglet et les automatisations dites avec
+> vos mots, jouées dans le bac à sable avant d’être enregistrées, et DomoTwin a rejoint la Vue
+> d’ensemble de Home Assistant ; la météo autour du logement et l’écran mural suivent, vers la
+> 0.5.0. La proposition à la liste par défaut de HACS attend des mesures sur de vrais appareils.
 
 ## Ce qui le distingue
 
@@ -59,6 +59,14 @@ Local, rapide, Rust + WebAssembly.</p>
   on sonne, la sonnette s’affiche en plein écran, quel que soit l’onglet : sa caméra en direct et
   la serrure de la porte. Voir
   [la sécurité](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/safety.md) (en
+  anglais).
+- **Les graphiques de chaque pièce, l’énergie de la maison.** *Graphiques*, sur la page d’une
+  pièce ou son panneau en 3D : ce que ses capteurs ont mesuré sur le dernier jour ou la dernière
+  semaine (température, humidité, CO₂, puissance, les compteurs heure par heure, les portes et
+  fenêtres, la présence) en graphiques de Home Assistant, la même chose en tableau ou dans
+  l’historique de Home Assistant à portée de doigt. *Énergie* ouvre la page Énergie de Home
+  Assistant, dont la flèche de retour ramène à DomoTwin. Voir
+  [graphiques](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/graphs.md) (en
   anglais).
 - **Votre plan en 3D et en 2D.** Dessinez-le dans le panneau, ou importez-le : une maquette IFC
   (`*.ifc`, depuis Revit, ArchiCAD, Bonsai, FreeCAD…), une maison Sweet Home 3D (`*.sh3d`), un

@@ -1,5 +1,5 @@
 /**
- * The messages of an automation in plain words (D-069), in both languages: loaded with its
+ * The messages of an automation in plain words (D-070), in both languages: loaded with its
  * dialog, not with the first picture. The menu item's own is in the dictionaries.
  */
 import type { Widen } from "./index";

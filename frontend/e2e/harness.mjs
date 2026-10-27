@@ -17,6 +17,8 @@
 //   overview=1 (Home Assistant 2026.10, its Overview with an area page each; DomoTwin's room and
 //   upkeep sensors, who is home: D-061)  mode=summary&summary=<kind> (a summary card)
 //   nopanel=1 (no DomoTwin panel for this user: left out of the sidebar, or for administrators)
+//   energypage=1 (Home Assistant's Energy page, its energy integration's, its grid set up: D-069),
+//   energypage=empty (the page, nothing set up)
 //   upkeep=1 (the demo apartment's fictional upkeep cards, examples/demo-apartment.upkeep.json)
 //   upkeep=0 (an integration without upkeep cards)
 //   people=1 (fictional people: Alex, the user viewing, in the kitchen; Sam in the living room;
@@ -67,7 +69,7 @@
 //   Assistant's configuration API and `lovelace/config/save` put one back, read again on
 //   `domotwin/config_history/refresh`; window.__refuseConfig = "<message>" makes Home Assistant
 //   refuse)
-//   aitask=1 (D-069: Home Assistant's AI task, a fictional one that writes the automation asked
+//   aitask=1 (D-070: Home Assistant's AI task, a fictional one that writes the automation asked
 //   for in plain words from the demo apartment's entities; Home Assistant's actions, its check
 //   `validate_config` and the home zone counting who is home; window.__aiAnswer = <data> answers
 //   that instead, window.__aiHold (a promise) holds the answer back, window.__aiFail = "<message>"
@@ -98,7 +100,7 @@ const zha = params.get("zha") === "1";
 // Fictional automations (D-032): `automations=1` three of them, `automations=50` as many made up.
 const automationCount = Number(params.get("automations") ?? 0);
 const sandbox = params.get("sandbox") === "1";
-// Home Assistant's AI task (D-069), a fictional one.
+// Home Assistant's AI task (D-070), a fictional one.
 const aiTask = params.get("aitask") === "1";
 const AI_TASK = "ai_task.fictional_assistant";
 // Home Assistant's logbook and traces of a fictional evening (D-059).
@@ -968,7 +970,7 @@ function whyEvents(message) {
 }
 
 /**
- * What the fictional AI task writes (D-069): the automation of the roadmap's example from the
+ * What the fictional AI task writes (D-070): the automation of the roadmap's example from the
  * demo apartment's entities, in the request's language, or that automation changed (five minutes
  * before locking) when a change is asked.
  */
@@ -1003,7 +1005,7 @@ function fictionalAutomation(instructions) {
   };
 }
 
-/** Home Assistant's actions, by domain, for the domains the home has (D-069). */
+/** Home Assistant's actions, by domain, for the domains the home has (D-070). */
 function servicesOf(states) {
   const SERVICES = {
     light: ["turn_on", "turn_off", "toggle"],
@@ -1056,6 +1058,19 @@ const connection = {
   async sendMessagePromise(message) {
     calls.push(message);
     switch (message.type) {
+      case "energy/get_prefs":
+        // Never saved: Home Assistant says so (D-069).
+        if (energyPage !== "1") throw { code: "not_found", message: "No prefs" };
+        return {
+          energy_sources: [
+            {
+              type: "grid",
+              flow_from: [{ stat_energy_from: "sensor.grid_energy_in" }],
+              flow_to: [],
+            },
+          ],
+          device_consumption: [],
+        };
       case "history/history_during_period":
         return historyDuring(message);
       case "recorder/statistics_during_period":
@@ -1516,7 +1531,7 @@ const connection = {
         if (!aiTask) throw { code: "unknown_command", message: message.type };
         return { gen_data_entity_id: AI_TASK };
       case "call_service": {
-        // Home Assistant's AI task (D-069): the only service DomoTwin asks for a response of.
+        // Home Assistant's AI task (D-070): the only service DomoTwin asks for a response of.
         if (!aiTask || message.domain !== "ai_task" || message.service !== "generate_data") {
           throw { code: "unknown_command", message: message.type };
         }
@@ -1881,6 +1896,8 @@ if (live && why) {
 const states = home.states;
 // overview=1: what DomoTwin's sensors say of the rooms and the upkeep (D-061), and who is home.
 const overview = params.get("overview") === "1";
+// energypage=1: Home Assistant's Energy page, its grid set up; energypage=empty: nothing set up.
+const energyPage = params.get("energypage") ?? "";
 const state = (entityId, value, attributes) => ({
   entity_id: entityId,
   state: value,
@@ -2118,12 +2135,14 @@ let hass = {
     // security=1: with its Security page (D-068).
     ...(overview || security ? { version: "2026.10.0" } : { version: "2026.1.0" }),
   },
-  ...(overview || security
+  ...(overview || security || energyPage
     ? {
         panels: {
           ...(overview ? { home: { url_path: "home" } } : {}),
           ...(security ? { security: { url_path: "security" } } : {}),
           ...(params.get("nopanel") === "1" ? {} : { domotwin: { url_path: "domotwin" } }),
+          // energypage=1: Home Assistant's Energy page (D-069).
+          ...(energyPage ? { energy: { url_path: "energy" } } : {}),
         },
       }
     : {}),

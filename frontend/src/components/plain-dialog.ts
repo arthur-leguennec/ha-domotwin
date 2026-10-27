@@ -1,5 +1,5 @@
 /**
- * `<domotwin-plain>`: an automation in plain words (D-069). One says what should happen; Home
+ * `<domotwin-plain>`: an automation in plain words (D-070). One says what should happen; Home
  * Assistant's AI task writes the automation; DomoTwin says it back in plain words, has Home
  * Assistant check it, plays it in the sandbox on the days one picks, and only then saves it, Home
  * Assistant's editor a tap away. For administrators, where Home Assistant has an AI task. The

@@ -3186,7 +3186,75 @@ has it.
   - The roadmap shows M25 done after M33; D-065's order goes on for the rest: M40, M41 and M45,
     then M24 and M26.
 
-## D-069 · Automations in plain words, played in the sandbox first (M35, amends D-057)
+## D-069 · History and energy, with Home Assistant's own cards (M24)
+
+M24, planned in D-054 and held to D-061's rule (Home Assistant's own pages opened where it has
+them); the maintainer asked for it ahead of the order D-065 gives it (the weather, M40, locating
+measured, M41, and an iPhone's key, M45, first), which stays for the rest.
+
+- **Context.** The practical side (M23) shows each room's devices as Home Assistant's tile cards;
+  the history reports (M38) read Home Assistant's history as tables. What a room measured, as a
+  graph, and the home's energy over time were left to M24, to be made of Home Assistant's own
+  cards, or its pages opened, never drawn by DomoTwin (D-054). Checked when built, in Home
+  Assistant's frontend at 2025.1 (20250103.0), 2025.10 (20251001.0), 2026.2 (20260128.6) and
+  2026.10 (20260930.2), and its core at 2025.1.0 and 2026.10.0.
+- **Home Assistant, checked.**
+  - The **history-graph** card takes `entities`, `hours_to_show` and `title` in every one of
+    them; it draws a line for each unit and a timeline for the rest. In 2025.1 it reads the
+    history alone (10 days kept by default); 2026.10 fills older days from the statistics.
+  - The **statistics-graph** card takes `entities`, `days_to_show`, `period` (`hour`, `day`),
+    `stat_types` (`change`) and `chart_type` (`bar`) in every one of them: what a meter added
+    each hour or day.
+  - Its **History** page reads `entity_id`, `start_date` and `end_date` from its address (the
+    history reports open it so already, D-058).
+  - Its **Energy page** is the `energy` panel, which its energy integration (in `default_config`)
+    registers for every user, with no administrator needed, in 2025.1 and 2026.10. Its energy
+    cards read that integration's preferences (`energy/get_prefs`): wherever they would work,
+    the page is there. With `historyBack=1` in its address it shows a back arrow (2025.10 and
+    later), which leads to `backPath` (2026.2 and later), as the Overview opens it; before,
+    the browser's back. Until a source, a device or water is set up (`energy/get_prefs`, which
+    every user may read, answers `not_found` when nothing was ever saved), it shows its setup
+    wizard alone; the Overview shows its energy summary only once a grid is set up.
+  - The Overview's area pages (D-061) show no graph.
+- **Decision.**
+  - **A room's graphs**, a page of the Rooms tab (`/domotwin/rooms/<area>/graphs`): *Graphs* on
+    the room's page, and on its panel in 3D (a long press), beside its history report (D-058),
+    when its area has something to graph; opened from 3D, the room's way back still leads there. Home Assistant's own cards, one for
+    each kind of measure of the room's area (its device class, else its unit): the sensors with
+    a unit or kept as statistics, the thermostats with the temperatures (Home Assistant draws
+    their room and target temperatures and when they heat), the doors and windows, and the
+    presence. Temperature, humidity, CO₂ and particles first, then the others, power and energy
+    among them, then the meters (`total_increasing`, `total`: bars of what each hour or day
+    added, `statistics-graph`), then the doors and windows and the presence (timelines). Eight
+    entities a card at most, by name, ten cards a room. Hidden, configuration and diagnostic
+    entities left out, as in the Rooms tab; nothing of a private room the viewer may not see,
+    nor what is linked to it (D-039).
+  - **The last 24 hours or 7 days**: what Home Assistant keeps of each change by default, so
+    that 2025.1 draws them too. *As a table* opens the history report (D-058) of the same
+    sensors (eight at most) over the same period, over the Rooms tab; *In Home Assistant's
+    History* opens its page on the same entities and period.
+  - **The Energy tab**: Home Assistant's Energy page, opened rather than copied, where it has
+    one with something set up (read once a connection): a tab beside Rooms whose address is the
+    page's, `historyBack=1&backPath=` the page of DomoTwin it was left from. No tab of energy
+    cards: where they would work, the page is there. No tab while only the setup wizard would
+    show: setting the energy up is Home Assistant's, in its settings.
+  - **The demo house** (D-050): Home Assistant's cards and pages do not know its entities, so
+    its graphs are DomoTwin's own rows, what each sensor says now, its table answers from its
+    day, and its Energy tab is DomoTwin's own picture of its energy, the 3D view on the power
+    layer with the energy at a glance (D-049). Neither in the sandbox (D-057), whose day has its
+    report, nor where Home Assistant has no Energy page or nothing set up on it.
+- **Consequences.**
+  - Nothing new in the integration, nothing stored: the cards and the pages read Home
+    Assistant's recorder for the viewer, as its dashboards do. The panel asks for Home
+    Assistant's energy settings once a connection, to know whether to offer the tab.
+  - The first load grows by the Energy tab, its address and its word; the graphs come with the
+    Rooms tab's chunk.
+  - Replay, the home's past in 3D (M19), stays a 3D feature, later.
+  - The energy of each room over the week, on the plan, comes with the weekly report (M37).
+  - The roadmap shows M24 done after M20, M31, M33 and M25; M40, M41 and M45 come next, as D-065
+    orders them.
+
+## D-070 · Automations in plain words, played in the sandbox first (M35, amends D-057)
 
 M35, moved forward by the maintainer from the way to 0.6.0 (D-056), after the sandbox (M29,
 D-057) it plays its drafts in; the rest of the order (D-056, D-065) keeps its place.
@@ -3291,4 +3359,5 @@ D-057) it plays its drafts in; the rest of the order (D-056, D-065) keeps its pl
     automations.
   - The first load grows by the menu item, its text and whether there is an AI task; the dialog
     and its words come on demand, and the sandbox's chunk by the draft's part.
-  - The roadmap shows M35 done after M25; the rest of the order (D-056, D-065, D-067, D-068) stays.
+  - The roadmap shows M35 done after M24; the rest of the order (D-056, D-065, D-067, D-068,
+    D-069) stays.

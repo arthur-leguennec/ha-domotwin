@@ -11,6 +11,8 @@ same records as a table you can filter by value and by how long, search, and tak
   lamp and its power sensor, a door's contact, lock and battery).
 - **A room**: long-press its floor; when its area has air sensors (temperature, humidity, CO₂, fine
   particles), its panel has **History**, a report of them, temperature first.
+- **A room's graphs**: **As a table**, under them, a report of their sensors over the same period
+  ([a room's graphs](graphs.md)).
 
 In the report, **Add an entity** finds any other one (every word of its name, its id or its area's
 name, accents and case aside), and the cross of each takes it away: eight at most. What is in a

@@ -55,11 +55,11 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M31       | Placement advisor: where the next radio helps most         | ✅     |
 | M33       | Guest access: chosen rooms, for a while                    | ✅     |
 | M25       | Safety: cameras, the doorbell, the alarm, alerts           | ✅     |
+| M24       | History and energy, with Home Assistant's own cards        | ✅     |
 | M35       | Automations in plain words, played in the sandbox first    | ✅     |
 | M40       | The weather around the home, in 3D                         | ⏳     |
 | M41       | Locating measured, next to Bermuda's on the same days      | ⏳     |
 | M45       | An iPhone's key, without a Mac: the ways to get it         | ⏳     |
-| M24       | History and energy, with Home Assistant's own cards        | ⏳     |
 | M26       | The wall screen: a screen saver, a layout per device       | ⏳     |
 | M22       | A first launch in five minutes                             | ⏳     |
 | 0.5.0     | Fifth release: all of the above                            | ⏳     |
@@ -108,8 +108,9 @@ finer locating (M42), mmWave sensors merged (M43) and split levels (M44) after 0
 The maintainer then asked for guest access (M33, D-067) and per-person rights (M34) next, carried
 through without waiting on D-056's questions: a guest pass opens DomoTwin's own page outside Home
 Assistant's sign-in, which DomoTwin enforces. Of M24 to M26, the maintainer then asked for safety
-(M25, D-068) first. Automations in plain words (M35) came next, at the maintainer's request (D-069),
-on the sandbox it plays its drafts in.
+(M25, D-068) first, and history and energy (M24, D-069) next, both ahead of M40, M41 and M45.
+Automations in plain words (M35) came next, at the maintainer's request (D-070), on the sandbox it
+plays its drafts in.
 
 ## M0, scaffold
 
@@ -1509,11 +1510,46 @@ it has one (D-056); asked for by the maintainer after more imports (M20), the pl
   Assistant gives only as a binary sensor; cameras and an alarm in the demo house; a sound when
   the doorbell rings (a browser plays none unasked).
 
+## M24, history and energy
+
+What a room measured, as Home Assistant's own graphs, and the home's energy as Home Assistant's
+own Energy page shows it: its cards and its pages reused, nothing drawn by DomoTwin (D-054,
+D-069). After safety (M25), ahead of M40, M41 and M45 (D-065's order), at the maintainer's request.
+
+- ✅ **A room's graphs**, a page of the Rooms tab (`/domotwin/rooms/<area>/graphs`): *Graphs* on
+  the room's page, and on its panel in 3D beside its history report; opened from 3D, the room's
+  way back still leads there. Home Assistant's history-graph card for each kind of measure of the
+  room's area (temperature, humidity, CO₂ and particles first, the thermostats with the
+  temperatures), its statistics-graph card for the meters (what each hour or day added), the
+  doors and windows and the presence as timelines; eight entities a card, ten cards a room.
+- ✅ **The last 24 hours or 7 days**, which Home Assistant keeps of each change by default (2025.1
+  draws them too); the same as a table (the history report of M38, over the Rooms tab) and in
+  Home Assistant's History, a tap away.
+- ✅ **The Energy tab**: Home Assistant's own Energy page, opened rather than copied (its energy
+  integration makes it for every user, 2025.1 and since; its cards read the same integration, so
+  no tab of them), once something is set up on it, its back arrow leading back to the page of
+  DomoTwin it was left from (2025.10 and later).
+- ✅ **Private rooms (D-039)**: no graphs for a private room the viewer may not see, nor for what
+  is linked to it.
+- ✅ **The demo house**: its graphs as DomoTwin's own rows (what each sensor says now), its table
+  from its own day, its Energy tab the 3D view on the power layer with the energy at a glance
+  (D-049). Nothing in the sandbox, whose day has its report.
+- ✅ Tests: the kinds of measure and their order, the thermostats with the temperatures, what is
+  left out (words, dates, diagnostics, other rooms, a private room's), the limits, Home
+  Assistant's cards over a day and a week, the titles in both languages, the period read by Home
+  Assistant's History, the graphs' address, the Energy page's address, what is set up and where
+  there is none (vitest); a room's graphs and their week, the table and Home Assistant's History,
+  back to the room, the graphs from a room's panel in 3D and back there, a private room, the
+  Energy tab and back, none without an Energy page or with nothing set up, the demo house's power
+  layer and plain rows, a phone in French (Playwright).
+- Left for later: a room's energy over the week on the plan, with the weekly report (**M37**);
+  graphs of a device from its controls in 3D (its history report is there, M38).
+
 ## M35, automations in plain words
 
 One says what should happen; Home Assistant's own AI task, the one the user set up, writes the
 automation; DomoTwin says it back, has Home Assistant check it, plays it in the sandbox (M29) on
-the days one picks, and only then saves it (D-069). Moved forward by the maintainer, once the
+the days one picks, and only then saves it (D-070). Moved forward by the maintainer, once the
 sandbox was in. DomoTwin calls no model itself.
 
 - ✅ **The way in**: *An automation in plain words* in the panel's ⋮ menu, for administrators,
@@ -1553,7 +1589,7 @@ sandbox was in. DomoTwin calls no model itself.
   configuration API, changed and played again, what Home Assistant lacks or refuses, an answer
   that is no automation, an AI task that refuses, an answer cancelled, the draft kept, French
   (Playwright).
-- Measured: the first load grows by 1.1 kB; the dialog is 21.2 kB gzipped, on demand
+- Measured: the first load grows by 1.2 kB; the dialog is 21.2 kB gzipped, on demand
   ([`PERFORMANCE.md`](PERFORMANCE.md), M35).
 - Left for later: a draft opened in Home Assistant's own editor before it is saved (its editor
   takes one only from inside its frontend); an automation of the home changed in plain words; the
@@ -1573,6 +1609,8 @@ before its milestone starts, which goes on with what needs no answer.
 - ✅ **M23b, into Home Assistant's Overview** (D-061, above). Still asked ❓: the 3D view at the
   top of the Overview or of an area's page, and an area's page opening DomoTwin, need Home
   Assistant; whether the Home and Rooms tabs stay where the Overview is.
+- ✅ **M24, history and energy** (D-069, above). Replay, the home's past in 3D (M19), stays a 3D
+  feature, later.
 - ⏳ **M40, the weather around the home** (asked for by the maintainer): the weather of Home
   Assistant's `weather` entity drawn around the home in 3D: rain or snow falling outside the walls
   of an apartment and splashing on the ground around it, on the roof of a house and running off it;
@@ -1596,14 +1634,11 @@ before its milestone starts, which goes on with what needs no answer.
   Private BLE Device. Checked first: those tools exist, work without a Mac and are kept up, so
   DomoTwin links to them rather than building a firmware of its own; one of its own only if they
   stop being kept.
-- ⏳ **M24, history and energy**: a sheet for each room with its sensors' history-graph cards; an
-  Energy tab made of Home Assistant's energy cards, or Home Assistant's own Energy page opened
-  where it has one, as M23b does (D-056). Replay, the home's past in 3D (M19), stays a 3D feature,
-  later.
 - ✅ **M25, safety** (D-068, above): done after M20, M31 and M33, at the maintainer's request.
 - ⏳ **M26, the wall screen**: a screen saver (the clock, the weather, the photos of Home
   Assistant's media) woken by motion; a layout for each device.
-- M24 to M26 come in the order the two weeks of use decide.
+- M25 and M24 came ahead of M40, M41 and M45, at the maintainer's request (D-068, D-069); M26
+  comes in the order the two weeks of use decide.
 - ✅ **M31, the placement advisor** (D-066, above), built after M29, M38 and M32 at the maintainer's
   request: the Bluetooth model of M9f turned around, from where a device is to where a receiver
   would hear the most. The rooms badly covered coloured on the plan, for the Bluetooth receivers,
@@ -1649,7 +1684,7 @@ before its milestone starts, which goes on with what needs no answer.
   on the plan in one place. DomoTwin can hide; Home Assistant decides what is enforced, and today
   lets every user act on every entity: said where the rights are set. Real enforcement needs Home
   Assistant ❓.
-- ✅ **M35, automations in plain words, tested first** (D-069, above): moved forward by the
+- ✅ **M35, automations in plain words, tested first** (D-070, above): moved forward by the
   maintainer once the sandbox was in.
 - ✅ **M20, more imports** (D-064, above): done before 0.5.0, at the maintainer's request.
 - ⏳ **M17, a library of objects**: many more pieces, free and well made, drawn from real

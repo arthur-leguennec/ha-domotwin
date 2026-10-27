@@ -58,7 +58,7 @@ const DRAFT = {
   mode: "single",
 };
 
-describe("a draft played in the sandbox (D-069)", () => {
+describe("a draft played in the sandbox (D-070)", () => {
   it("plays beside the home's automations, on the copy alone, and says what it did", () => {
     const home = copy();
     const days: DraftDay[] = [];
@@ -146,7 +146,7 @@ const day = (key: string, runs: string[] = []): DraftDay => ({
   looping: false,
 });
 
-describe("the draft being written (D-069)", () => {
+describe("the draft being written (D-070)", () => {
   it("keeps the request and each change as its description", () => {
     const session = new PlainSession();
     session.request = " When the last person leaves, lock the door ";

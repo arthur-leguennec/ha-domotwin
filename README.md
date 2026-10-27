@@ -17,11 +17,12 @@ Local, fast, Rust + WebAssembly.</p>
 > ([roadmap](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/ROADMAP.md)), and
 > everything under *Features* works today. Since 0.4.0 came the sandbox, history as reports, "Why?",
 > the Wi-Fi QR code for guests, the configuration history, Hydro-Québec's peaks, more imports (robot
-> vacuum maps, Floorplanner, mesh scans), the radio coverage, guest passes, safety (the cameras,
-> the doorbell, the alarm, the alerts on every tab) and automations in plain words, played in the
-> sandbox before they are saved, and DomoTwin joined Home Assistant's own Overview; the weather
-> around the home, history and energy and the wall screen come next, towards 0.5.0. The submission
-> to HACS's default list waits on measurements on real devices.
+> vacuum maps, Floorplanner, mesh scans), the radio coverage, guest passes, safety (the cameras, the
+> doorbell, the alarm, the alerts on every tab), each room's graphs with Home Assistant's Energy
+> page a tab away and automations in plain words, played in the sandbox before they are saved, and
+> DomoTwin joined Home Assistant's own Overview; the weather around the home and the wall screen
+> come next, towards 0.5.0. The submission to HACS's default list waits on measurements on real
+> devices.
 
 ## What sets it apart
 
@@ -53,6 +54,12 @@ Local, fast, Rust + WebAssembly.</p>
   Assistant's Security page a tap away. When the doorbell rings, it shows full screen, whatever
   the tab: its camera live and the door's lock. See
   [safety](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/safety.md).
+- **Each room's graphs, the home's energy.** *Graphs*, on a room's page or its panel in 3D: what
+  its sensors measured over the last day or week (temperature, humidity, CO₂, power, the meters
+  hour by hour, the doors and windows, presence) as Home Assistant's own graphs, the same as a
+  table or in Home Assistant's History a tap away. *Energy* opens Home Assistant's own Energy
+  page, whose back arrow leads back to DomoTwin. See
+  [graphs](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/graphs.md).
 - **Your floor plan in 3D and 2D.** Draw it in the panel, or import it: an IFC model (`*.ifc`,
   from Revit, ArchiCAD, Bonsai, FreeCAD…), a Sweet Home 3D home (`*.sh3d`), a DXF drawing, a room
   scanned with an iPhone or iPad with LiDAR (`*.usdz`, RoomPlan's JSON), a Floorplanner plan

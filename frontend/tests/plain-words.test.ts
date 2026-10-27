@@ -136,7 +136,7 @@ const LEAVING = {
   mode: "single",
 };
 
-describe("Home Assistant's AI tasks (D-069)", () => {
+describe("Home Assistant's AI tasks (D-070)", () => {
   it("offers the entities that generate data, for administrators only", () => {
     const hass = home({
       states: {
@@ -208,7 +208,7 @@ describe("Home Assistant's AI tasks (D-069)", () => {
   });
 });
 
-describe("what the AI task is told of the home (D-069)", () => {
+describe("what the AI task is told of the home (D-070)", () => {
   it("names areas and entities, not their states, those in an area first", () => {
     const told = taskHome(home(), NONE);
     const lines = told.text.split("\n");
@@ -273,7 +273,7 @@ describe("what the AI task is told of the home (D-069)", () => {
   });
 });
 
-describe("the AI task's answer read (D-069)", () => {
+describe("the AI task's answer read (D-070)", () => {
   it("reads the three fields, the automation as JSON", () => {
     const read = readAnswer({
       name: "Leaving home",
@@ -360,7 +360,7 @@ describe("the AI task's answer read (D-069)", () => {
   });
 });
 
-describe("what Home Assistant's check leaves out: the names (D-069)", () => {
+describe("what Home Assistant's check leaves out: the names (D-070)", () => {
   it("finds entities, areas, devices and actions Home Assistant does not have", () => {
     const names = unknownNames(home(), {
       triggers: [
@@ -423,7 +423,7 @@ describe("what Home Assistant's check leaves out: the names (D-069)", () => {
   });
 });
 
-describe("the automation saved (D-069)", () => {
+describe("the automation saved (D-070)", () => {
   it("is saved as Home Assistant's editor saves: a new id from the time, its configuration API", async () => {
     const callApi = vi.fn(() => Promise.resolve({ result: "ok" }));
     const hass = home({ callApi: callApi as unknown as HomeAssistant["callApi"] });
@@ -446,7 +446,7 @@ describe("the automation saved (D-069)", () => {
   });
 });
 
-describe("an automation said back in plain words (D-069)", () => {
+describe("an automation said back in plain words (D-070)", () => {
   it("says the roadmap's example in English", () => {
     const hass = formatted(home(), {});
     const words = automationWords(new Translator("en"), hass, LEAVING);

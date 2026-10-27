@@ -2534,7 +2534,7 @@ export class DomoTwinView extends LitElement {
     this.redraw();
   }
 
-  /** Shows the wires of these automations, as a panel's list asks for them (a draft, D-069). */
+  /** Shows the wires of these automations, as a panel's list asks for them (a draft, D-070). */
   showWires(ids: string[]): void {
     this.sheet = undefined;
     this.whyAsked = undefined;
@@ -5339,6 +5339,7 @@ export class DomoTwinView extends LitElement {
       .closed=${sheet.closed === true}
       .people=${here}
       .things=${sheet.room ? this.located.filter((d) => d.room === sheet.room) : []}
+      .graphs=${this.roomTab}
       @domotwin-close=${this.closeSheet}
       @domotwin-show-wires=${this.onShowWires}
       @domotwin-open-history=${this.onOpenHistory}

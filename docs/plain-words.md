@@ -3,7 +3,7 @@
 Say what should happen ("when the last person leaves, switch the lights off and lock the door"):
 Home Assistant's AI task writes the automation, DomoTwin says it back in plain words, has Home
 Assistant check it and plays it in the [sandbox](sandbox.md) on the days you pick, and only then
-saves it (`DECISIONS.md`, D-069). DomoTwin calls no model itself: the AI task you set up in Home
+saves it (`DECISIONS.md`, D-070). DomoTwin calls no model itself: the AI task you set up in Home
 Assistant writes it.
 
 ## What it needs
