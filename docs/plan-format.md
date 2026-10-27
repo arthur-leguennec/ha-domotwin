@@ -166,7 +166,7 @@ does.
 | Pets | `pet-bed`, `cat-tree`, `litter-box` (`self-cleaning`), `pet-feeder` |
 | Structure | `stairs`, `box` |
 
-The groups are the catalogue's (D-070). The lights (the *Lights* row, `nightstand`, which has a
+The groups are the catalogue's (D-071). The lights (the *Lights* row, `nightstand`, which has a
 lamp, and `aquarium`, whose light is cool unless `light` says otherwise) light their room and can
 be switched; a `fireplace` burns while what it is linked to is on or heats. A kind's usual size,
 colour and lift, and a style's where it has its own (a `soundbar` is 90 × 10 × 7 cm, a

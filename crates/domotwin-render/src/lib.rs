@@ -272,7 +272,7 @@ const FULLY_SHOWN: f32 = 0.999;
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Phase {
     Whole,
-    /// Everything but the background: a piece on its own, on a plain colour (D-070).
+    /// Everything but the background: a piece on its own, on a plain colour (D-071).
     Piece,
     /// The background, what is opaque, the people wholly shown.
     Solid,
@@ -596,7 +596,7 @@ const GROUND_Y: f64 = -6.0;
 /// How far the outlines are moved towards the camera, in device pixels where they are.
 const LINE_LIFT: f64 = 2.0;
 
-/// Where a piece's picture is taken from (D-070): in front of it, a little to its right, `pitch`
+/// Where a piece's picture is taken from (D-071): in front of it, a little to its right, `pitch`
 /// above it (below it when negative), as a catalogue shows a piece, close enough for the piece to
 /// fill the picture: its box's corners within the field of view, with a margin.
 fn piece_camera(bounds: [[f64; 3]; 2], aspect: f64, pitch: f64) -> Camera {
@@ -2227,7 +2227,7 @@ impl Renderer {
     /// A picture of the first storey's pieces alone on `background` (sRGB 0–1), `width` ×
     /// `height` device pixels, seen from in front of them, a little to their right and above
     /// (`below`: under them, for what is fixed to a ceiling), and filling the picture: RGBA rows
-    /// from the top (the catalogue's pictures of a piece, D-070). `None` without a scene.
+    /// from the top (the catalogue's pictures of a piece, D-071). `None` without a scene.
     pub fn piece_picture(
         &mut self,
         width: u32,

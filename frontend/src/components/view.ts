@@ -2237,7 +2237,7 @@ export class DomoTwinView extends LitElement {
     }
   }
 
-  /** The accent the view draws in (the catalogue's pictures take it, with `look`, D-070). */
+  /** The accent the view draws in (the catalogue's pictures take it, with `look`, D-071). */
   get accentShown(): string {
     return this.accent;
   }
@@ -2553,6 +2553,13 @@ export class DomoTwinView extends LitElement {
     this.layersOpen = false;
     this.layer = layer;
     this.redraw();
+  }
+
+  /** Shows the wires of these automations, as a panel's list asks for them (a draft, D-070). */
+  showWires(ids: string[]): void {
+    this.sheet = undefined;
+    this.whyAsked = undefined;
+    this.wiresAsked = { ids };
   }
 
   /** Lights the rooms from where the sun really is (through the windows), or not. */

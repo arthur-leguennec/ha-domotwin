@@ -1161,15 +1161,34 @@ when its page opens, and again only when an entity comes or goes, not at each ne
 Energy tab is a link: Home Assistant's Energy page loads as it always does. Whether something is
 set up on it is asked once for each connection to Home Assistant (`energy/get_prefs`, a few hundred
 bytes), only where Home Assistant has the page.
+### M35 (automations in plain words)
+
+Bundle: the first load is **533.1 kB gzipped** of 1 200 kB (+1.2 kB): whether Home Assistant has an
+AI task (`ai-task.ts`), the menu item and its text, the panel's way to the sandbox with a draft
+and to its wires once the plan is drawn, what it waits for before the dialog may name anything,
+and the shared reading of Home Assistant's refusals. The dialog, the plain words and the reading
+of the AI task's answer come on demand, the first time the dialog opens
+(`chunks/plain-dialog-<hash>.js`: 73.5 kB raw, 21.2 kB gzipped, of which 22.2 kB raw are its texts
+in both languages). The sandbox's chunk grows by the draft's part (110.3 kB raw, +1.3 kB; the
+same 34.3 kB gzipped, the configuration's reading and the time it shares with the dialog split out).
+
+Nothing runs until the dialog opens, and nothing is asked of Home Assistant then but the AI task
+it prefers. The home is told once for each question: for 2 000 entities in 40 areas, the 1 000
+named (60 kB of text) are written in 8 ms (median of seven, Node 22 on a 2.1 GHz Xeon core); an
+automation of 270 triggers, conditions and actions is said in words in 8 ms and its names looked
+up in 3 ms, once for each draft, not at each state of the home, which does not draw the dialog
+again. The AI task is asked once for each draft and Home Assistant's check once after it. In the
+sandbox, the draft is one more automation of the day played; what it did is read from the day's
+report, once for each day played.
 
 ### M17 (a library of objects)
 
-Bundle: the first load is **587.9 kB gzipped** of 1 200 kB (+56.0 kB). The engine grew by 52.6 kB
+Bundle: the first load is **589.0 kB gzipped** of 1 200 kB (+55.9 kB). The engine grew by 52.6 kB
 (`domotwin_web_bg.<hash>.wasm`: 1 043.8 kB raw, 433.0 kB gzipped, from 878.3 kB and 380.4 kB):
 the 61 new kinds and 54 new styles are code, and the code of the pieces went from 47.6 kB to
 190.3 kB before `wasm-opt`, most of it the floats of their parts (keeping the painter's helpers
 out of line changes nothing: they already are). The kinds' names in both languages, the devices'
-suggestions and the badges' icons add 3.4 kB to the first load. The catalogue's chunk grows to
+suggestions and the badges' icons add 3.3 kB to the first load. The catalogue's chunk grows to
 8.5 kB gzipped (+4.1 kB, on demand): the library's groups, styles and search words in both
 languages, and the drawing of its pictures. The plan editor's wasm (99.1 kB, +3.7 kB) and the
 import's (285.9 kB, +5.6 kB) read the new kinds.

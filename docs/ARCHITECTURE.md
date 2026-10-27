@@ -128,7 +128,7 @@ every reader returns `Result` with a stable error code that the frontend transla
   `screenPoint`, `stats`, `frame`, walking (`setWalk`, `setWalkVelocity`, `walkTo`) and the kiosk's
   `setAutoOrbit`, for 3D files `modelFiles` (what to fetch) and `setModelMesh`, and for the
   catalogue `editCatalogue` and `piecePicture`, a piece of the library drawn alone by an engine of
-  its own (D-070).
+  its own (D-071).
 - In the frontend, `src/gestures.ts` turns pointer events into drags, pans, pinches, taps and long
   presses, and `<domotwin-view>` applies them, runs the actions and draws the toolbar.
 
@@ -209,6 +209,16 @@ every reader returns `Result` with a stable error code that the frontend transla
    (`src/live/config-history.ts`), and puts a version back with Home Assistant's own commands:
    `POST /api/config/<kind>/config/<id>` (`hass.callApi`) or `lovelace/config/save`, then
    `domotwin/config_history/refresh`.
+11. **Automations in plain words.** The dialog (`src/components/plain-dialog.ts`, a chunk, D-070)
+   is offered where Home Assistant has an AI task (`src/live/ai-task.ts`). It asks Home
+   Assistant's own service `ai_task.generate_data` (`call_service` with `return_response`) with
+   the request, the rules of an automation and the home's names (`src/live/plain-request.ts`:
+   areas, entities, actions, never states), reads the answer, looks up the names it gives and has
+   Home Assistant check it (`validate_config`); `src/live/plain-words.ts` says it back in words.
+   *Play it in the sandbox* gives the draft to the sandbox's copy as an automation of its own
+   (`SandboxHome`'s `draft`), which tells the dialog what it did each day played; the view draws
+   its wires (`showWires`). Saved through `POST /api/config/automation/config/<id>`. Nothing of
+   it is in the integration, and DomoTwin calls no model itself.
 
 ## Storage
 

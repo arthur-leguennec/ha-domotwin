@@ -3254,10 +3254,118 @@ measured, M41, and an iPhone's key, M45, first), which stays for the rest.
   - The roadmap shows M24 done after M20, M31, M33 and M25; M40, M41 and M45 come next, as D-065
     orders them.
 
-## D-070 · A library of objects: the pieces, their styles and their pictures (M17)
+## D-070 · Automations in plain words, played in the sandbox first (M35, amends D-057)
 
-M17, moved forward by the maintainer from the way to 0.6.0 (D-056), as M39, M20, M31, M33, M25 and
-M24 were (D-063, D-064, D-066 to D-069); the rest keeps its order.
+M35, moved forward by the maintainer from the way to 0.6.0 (D-056), after the sandbox (M29,
+D-057) it plays its drafts in; the rest of the order (D-056, D-065) keeps its place.
+
+- **Context.** Saying what one wants ("when the last person leaves, switch the lights off and lock
+  the door") is easier than writing an automation, and an automation written by a model has to be
+  read and tried before it runs at home. Home Assistant's AI task (2025.8) gives structured
+  answers from the agent the user chose; its "Suggest with AI" names an automation but does not
+  write one; the integrations that write automations call a provider of their own and try
+  nothing (D-056, item 7). Checked in Home Assistant's core at 2025.1.0, 2025.8.0 and 2026.10.0,
+  in October 2026:
+  - **`ai_task.generate_data`** (2025.8 and since): `task_name`, `instructions`, `entity_id` (else
+    the one `ai_task/preferences/get` names, `gen_data_entity_id`; refused when there is none),
+    `structure` (fields, each a selector, `required` or not), answered only with a response
+    (`return_response`): `{conversation_id, data}`, `data` the fields asked for. Every user may
+    call it; `ai_task/preferences/get` is open to every user. An entity that generates data has
+    the feature 1 (`GENERATE_DATA`).
+  - **`validate_config`** (websocket, every user, the same in 2025.1 and 2026.10): `triggers`,
+    `conditions`, `actions`, each answered `{valid, error}` by Home Assistant's own validators:
+    the form and the integrations' rules, not whether an entity exists.
+  - **The configuration API** (`POST /api/config/automation/config/<id>`, administrators): checks
+    the whole automation, writes `automations.yaml` and reloads it; a bad one is refused with
+    "Message malformed: …". Home Assistant's editor makes a new automation's id from the time
+    (milliseconds), and opens a draft of its own only from inside its frontend:
+    `/config/automation/edit/new` opens empty, its YAML mode takes a configuration pasted (JSON is
+    YAML).
+  - **What Assist may see** (`homeassistant/expose_entity/list`): people and locks are not
+    exposed by default, nor most sensors: an automation of the most common kind could not be
+    written from the exposed entities alone.
+- **Decision.**
+  - **The way in**: *An automation in plain words* in the panel's ⋮ menu, for administrators
+    (Home Assistant saves automations for them only), and only where Home Assistant has an AI
+    task that generates data. Without one, nothing is offered: DomoTwin calls no model itself.
+    Not in the demo house, which has none, nor in the sandbox, a copy of the home. The dialog is a
+    chunk loaded when it opens, with its texts in both languages.
+  - **What one says**, in any language, then **Write it**: the AI task the user prefers in Home
+    Assistant writes it (another can be chosen when there are several).
+  - **What the AI task is given**, said in the dialog before it is sent: the request; what
+    Home Assistant's automation editor saves, in short; the home's areas and entities, each its
+    id, name and area, with what helps write it (a sensor's kind and unit, a select's options, a
+    thermostat's modes), and the actions of their domains (with `notify` and
+    `persistent_notification`). Not their states: nobody's whereabouts, nothing on or off. Left
+    out: hidden entities, those of a category (configuration, diagnostics), and those of a private
+    room the viewer may not see (D-039, `unseenOf`, as the reports): nothing is asked of the AI
+    task before the panel has read the settings, the plan, its links and the other storeys' rooms
+    that say which those are. At most 1 000 entities, those in an area first. Where the AI task
+    sends it then is the AI task's: a service on the internet gets it, and the dialog says so.
+  - **The answer asked**: three texts, `name` (in the request's language), `automation` (the
+    automation as one JSON object: `triggers`, `conditions`, `actions`, `mode`) and `notes` (what
+    it assumed or could not do). Read leniently (code fences and text around the object left
+    out; an object given as such; an answer that is the automation alone), and refused when it
+    is not one object with a trigger and an action. Its `id` and `description` are dropped: the
+    description saved is the request, in the user's words, with each change asked since. Of its
+    other keys only those Home Assistant's automations take are kept (`variables`,
+    `trigger_variables`, `max` from two, `max_exceeded`, `trace`; it refuses any other), the rest
+    said to be left out; not `initial_state`, so that it is saved on.
+  - **Said back in plain words**, by DomoTwin from the configuration, never from the model's own
+    words: *When* each trigger, *Only if* each condition, *Then* each action, in order and nested
+    (choose, if, repeat, parallel, waits), in the user's language; entities, areas and devices by
+    their names, states as Home Assistant says them (`formatEntityState`), times and durations
+    in words. What has no words of its own is said by its kind and its settings in short. The
+    model's notes are shown apart, as its words.
+  - **Checked with Home Assistant**: `validate_config` on its triggers, conditions and actions,
+    each refusal shown where it is; and, since Home Assistant's check does not, every entity,
+    area, device and floor it names is looked up, and every action it calls among Home
+    Assistant's actions (`hass.services`): what Home Assistant does not have is marked in the
+    words and listed. Labels, whose registry the frontend does not have, are said by their id.
+    Checked again when the dialog opens again (a check that failed, a name added since), and on
+    *Check again*.
+  - **Changed by asking**: *What to change* sends the request, the draft and the change to the AI
+    task again, which answers the whole automation; the draft then starts over (checked again,
+    played again). The name can be edited by hand. *Copy* gives its configuration, and Home
+    Assistant's editor is a tap away to paste it in.
+  - **Played in the sandbox (M29)**: *Play it in the sandbox* opens the sandbox with the draft
+    added to the copy as an automation of its own, on, beside the home's automations, its wires
+    shown on the plan as the automation wires (D-032) and pulsing when it runs. The sandbox's bar
+    says it is a draft and what it did on the day played; its report puts it first (its runs,
+    why it never ran, what it worked against). Each day played (picked in *The day*: its date, its
+    weather, who goes out; what is done by hand in it is that day's, played again) is kept with
+    what the draft did that day, the latest ten, once the sandbox is shown. *Back to the draft*
+    leaves the sandbox for the dialog, which lists them.
+  - **The sandbox's home zone** (amends D-057): `zone.home` counts who is in it as the day's
+    people go out and come back, its `persons` too, as Home Assistant's zones do, after the
+    people's own changes of that minute. "When the last person leaves" is a zone back to `0`: the
+    copy did not move it before, and such an automation never ran there.
+  - **Only then saved**: *Save* is offered once Home Assistant found nothing wrong, every name is
+    one Home Assistant has, and the draft as it is now was played in the sandbox at least once.
+    Saved as Home Assistant's editor saves (a new id, its time in milliseconds; the configuration
+    API), switched on, once: the save is the draft's, not the dialog's, so that a dialog closed
+    and opened again does not save it twice; Home Assistant's refusal is shown as it gives it.
+    Then *Open in Home
+    Assistant's editor* (`/config/automation/edit/<id>`). The configuration history (M36) keeps
+    it from then on.
+  - **Kept in the page**: the draft lives while the panel is open, across the sandbox and back;
+    gone when the page is closed or the draft forgotten. Nothing stored by DomoTwin, nothing in
+    the integration or the diagnostics.
+- **Consequences.**
+  - Nothing new in the integration: the frontend calls Home Assistant's own service and commands.
+  - On Home Assistant before 2025.8, or without an AI task, the menu has no such item.
+  - A model can still write something odd; the words, the checks and the sandbox are there to
+    show it before it is saved, and what the sandbox cannot play is said, as for the home's own
+    automations.
+  - The first load grows by the menu item, its text and whether there is an AI task; the dialog
+    and its words come on demand, and the sandbox's chunk by the draft's part.
+  - The roadmap shows M35 done after M24; the rest of the order (D-056, D-065, D-067, D-068,
+    D-069) stays.
+
+## D-071 · A library of objects: the pieces, their styles and their pictures (M17)
+
+M17, moved forward by the maintainer from the way to 0.6.0 (D-056), as M39, M20, M31, M33, M25, M24
+and M35 were (D-063, D-064, D-066 to D-070); the rest keeps its order.
 
 - **Context.** The plan format had 56 kinds and 24 styles: enough for the rooms of the demo
   apartment, not for a real home's heat pump, router, smoke detector, car in the garage or cat
@@ -3321,7 +3429,7 @@ M24 were (D-063, D-064, D-066 to D-069); the rest keeps its order.
   - The plan format stays at version 1: new kinds and styles. An older DomoTwin draws a new kind
     as a box and a new style as its kind.
   - The engine's wasm grows by 52.6 kB gzipped (380.4 to 433.0 kB): the pieces are code, the floats
-    of their parts most of it. The first load is 587.9 kB gzipped of 1 200; the frames do not
+    of their parts most of it. The first load is 589.0 kB gzipped of 1 200; the frames do not
     change, a piece being built once when the plan is.
   - While the catalogue is open, a second WebGL context is used (browsers allow about sixteen).
   - Fixed on the way: the pictures of the storeys (D-028) were drawn upside down; three-d already

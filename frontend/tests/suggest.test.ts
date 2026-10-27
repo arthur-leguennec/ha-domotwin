@@ -73,7 +73,7 @@ describe("suggestions", () => {
     expect(fit(piece("3d-printer"), "sensor.printer_power", h)).toBe(2);
   });
 
-  it("fits the library's devices to what they are (D-070)", () => {
+  it("fits the library's devices to what they are (D-071)", () => {
     const h = hass();
     const piece = (kind: string): PlanElementInfo => ({
       id: kind,

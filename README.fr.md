@@ -20,10 +20,11 @@ Local, rapide, Rust + WebAssembly.</p>
 > l’historique de la configuration, les pointes d’Hydro-Québec, d’autres imports (cartes de robots
 > aspirateurs, Floorplanner, scans en maillage), la couverture radio, les pass d’invité, la
 > sécurité (les caméras, la sonnette, l’alarme, les alertes sur chaque onglet), les graphiques de
-> chaque pièce avec la page Énergie de Home Assistant à un onglet et une bibliothèque de 195
-> meubles et objets avec leurs images, et DomoTwin a rejoint la Vue d’ensemble de Home Assistant ;
-> la météo autour du logement et l’écran mural suivent, vers la 0.5.0. La proposition à la liste
-> par défaut de HACS attend des mesures sur de vrais appareils.
+> chaque pièce avec la page Énergie de Home Assistant à un onglet, les automatisations dites avec
+> vos mots, jouées dans le bac à sable avant d’être enregistrées, et une bibliothèque de 195 meubles
+> et objets avec leurs images, et DomoTwin a rejoint la Vue d’ensemble de Home Assistant ; la météo
+> autour du logement et l’écran mural suivent, vers la 0.5.0. La proposition à la liste par défaut
+> de HACS attend des mesures sur de vrais appareils.
 
 ## Ce qui le distingue
 
@@ -33,7 +34,8 @@ Local, rapide, Rust + WebAssembly.</p>
 - **La carte du réseau.** Votre maillage Zigbee dessiné sur le plan : qui passe par qui, les liens
   faibles, et les pièces qui manquent d’un routeur.
 - **Le bac à sable.** Une journée de vos automatisations jouée sur une copie de la maison, pour voir
-  ce qu’elles font avant qu’elles le fassent.
+  ce qu’elles font avant qu’elles le fassent, et une automatisation dite avec vos mots jouée là
+  avant d’être enregistrée.
 
 ## Fonctionnalités
 
@@ -128,6 +130,15 @@ Local, rapide, Rust + WebAssembly.</p>
   chacune a fait et quand, ce qui ne s’est jamais exécuté et pourquoi, lesquelles se contredisent,
   et ce qui n’a pas pu être joué. Rien dans le bac à sable n’atteint un appareil. Voir [le bac à
   sable](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/sandbox.md) (en anglais).
+- **Des automatisations dites avec vos mots.** Dites ce qui doit se passer (« quand la dernière
+  personne part, éteindre les lumières et verrouiller la porte ») : la tâche IA de Home Assistant,
+  celle que vous avez configurée, écrit l’automatisation ; DomoTwin vous la redit en mots simples,
+  la fait vérifier par Home Assistant, la joue dans le bac à sable les jours que vous choisissez,
+  et seulement ensuite l’enregistre, l’éditeur de Home Assistant à portée de main. Pour les
+  administrateurs, avec une tâche IA dans Home Assistant (2025.8 et après) : DomoTwin n’appelle
+  lui-même aucun modèle. Voir [les automatisations avec vos
+  mots](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/plain-words.md) (en
+  anglais).
 - **Le Wi-Fi des invités.** Donnez votre Wi-Fi une fois, et DomoTwin dessine le code QR que
   l’appareil photo d’un téléphone rejoint, dans la page ; ou montre le code de votre box. Pour les
   administrateurs, et sur les écrans muraux que vous choisissez ; le mot de passe reste dans le
@@ -489,7 +500,9 @@ DomoTwin ne communique qu’avec votre propre Home Assistant. Aucun autre appel 
 pas de télémétrie, pas de statistiques, pas de polices web. Tous les fichiers utilisés (JavaScript,
 WebAssembly, polices, matériaux) sont servis par l’intégration. Les diagnostics ne contiennent que
 des comptes, jamais de noms, d’identifiants d’entités ou d’appareils, d’adresses Zigbee ou de
-géométrie.
+géométrie. Une automatisation demandée avec vos mots est écrite par la tâche IA de Home Assistant,
+celle que vous avez configurée : DomoTwin lui confie votre demande et les noms de vos pièces et
+entités, jamais leurs états, et où elle les envoie ensuite relève de cette tâche IA.
 
 ## Contribuer
 

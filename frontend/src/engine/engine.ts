@@ -178,7 +178,7 @@ export interface HeatLegend {
   gradient: string[];
 }
 
-/** A style of a kind of the catalogue (D-070), with its usual size (cm). */
+/** A style of a kind of the catalogue (D-071), with its usual size (cm). */
 export interface CatalogueStyle {
   style: string;
   w: number;
@@ -891,7 +891,7 @@ export async function catalogue(): Promise<CatalogueKind[]> {
 }
 
 /**
- * Draws the catalogue's pictures of its pieces (D-070) with an engine of its own, on a canvas
+ * Draws the catalogue's pictures of its pieces (D-071) with an engine of its own, on a canvas
  * nobody sees, in the look of the view: made when the catalogue opens, freed when it closes.
  */
 export class PieceArtist {
