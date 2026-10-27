@@ -66,12 +66,12 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M18       | Outdoors: garden, terrace, lawn, pool, roofs               | ✅     |
 | M44       | Split levels and walk-out basements                        | ✅     |
 | M22       | A first launch in five minutes                             | ✅     |
-| 0.5.0     | Fifth release: all of the above                            | ⏳     |
 | M42       | Finer locating: a spot in the room, storeys by the stairs  | ✅     |
 | M43       | mmWave sensors merged into one picture of the home         | ✅     |
 | M37       | A weekly home report                                       | ✅     |
 | M21       | More languages, right to left too                          | ✅     |
-| 0.6.0     | Sixth release: all of the above                            | ⏳     |
+| 0.5.0     | Fifth release: all of the above                            | ✅     |
+| 0.6.0     | Sixth release: what the use of 0.5.0 asks for              | ⏳     |
 
 M5 to M11 were added after M3b (`DECISIONS.md`, D-022): what people expect of a 3D home dashboard,
 with no account and no network call outside Home Assistant. M8 became the looks alone, and the
@@ -2065,7 +2065,17 @@ before its milestone starts, which goes on with what needs no answer.
 - ✅ **M22, a first launch in five minutes** (D-083, above): the home drawn from Home Assistant's
   floors and areas, its devices placed and linked, then the steps of getting started; with the
   imports and pieces DomoTwin has (M11, M15, M17, M20's robot maps and scans, the demo house).
-- ⏳ **Release 0.5.0**.
+- ✅ Tried in a fresh Home Assistant (2026.10.2): the smoke test (`scripts/ha-smoke.mjs`), then
+  the panel in a browser, with Home Assistant's demo devices put in eight areas on two floors (three
+  areas of a fresh install and five added). With no plan, *Draw it from Home Assistant's areas* is
+  offered; the dialog lists both floors and their areas with their devices; *Draw my home* stores
+  two storeys, 280 cm apart, eight rooms each linked to its area, doors, windows and the furniture,
+  and fourteen devices placed and linked, in half a second; the two that found no space are counted
+  in the message and in *Getting started*, whose steps open where each is done. No error, no
+  request outside Home Assistant.
+- ✅ **Release 0.5.0**: release-please's pull request, merged once this is in `main`, tags `v0.5.0`
+  and attaches `domotwin.zip`, with everything above and the milestones done before it that were
+  planned for 0.6.0 (M42, M43, M37 and M21).
 - **Deferred** until someone asks: one's dashboards taken over, and pages arranged without YAML
   (the former M28). An agenda and lists are cards of the Home tab (M23), not a milestone of their
   own (the former M27).
@@ -2104,4 +2114,5 @@ before its milestone starts, which goes on with what needs no answer.
 - ✅ **M21, more languages** (D-082, above): German, Spanish, Italian, Dutch, Portuguese (Portugal
   and Brazil), Arabic (right to left), Chinese, Japanese and Korean, moved before the first launch
   at the maintainer's request; others start from `scripts/new-language.mjs`.
-- ⏳ **Release 0.6.0**.
+- The milestones above were all done before 0.5.0 was released, and are in it.
+- ⏳ **Release 0.6.0**: what the use of 0.5.0 asks for.
