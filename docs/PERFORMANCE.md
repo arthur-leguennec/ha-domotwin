@@ -1034,13 +1034,13 @@ from the pre-heating to the peak's end when the report opens, once for each day 
 
 ### M31 (the placement advisor)
 
-Bundle: the first load is **522.1 kB gzipped** of 1 200 kB (+0.8 kB): the layer's name, who may
-see it, and the coverage's colour scale in the engine (380.6 kB gzipped, +0.1 kB). The rest comes
-on demand, when the layer is chosen: the sheet (`chunks/placement-panel-<hash>.js`: 30.2 kB raw,
+Bundle: the first load is **524.8 kB gzipped** of 1 200 kB (+0.8 kB): the layer's name, who may
+see it, and the coverage's colour scale in the engine (380.4 kB gzipped, +0.1 kB). The rest comes
+on demand, when the layer is chosen: the sheet (`chunks/placement-panel-<hash>.js`: 30.3 kB raw,
 9.4 kB gzipped) with its texts in both languages, and the model in the analysis module
 (`domotwin_analysis_bg.wasm`: 228.7 kB raw, 104.1 kB gzipped, +71.9 kB and +32.1 kB), which the
 network map, the Wi-Fi QR code and the network's summary already load. All that comes on demand
-is now 696.8 kB gzipped (+41.6 kB).
+is now 715.5 kB gzipped (+41.7 kB).
 
 Nothing of it runs until the layer is chosen. The radios are read once (the locating's answer, ZHA's
 devices and their links analysed, or the Wi-Fi signals in the states), again when the plan, the
