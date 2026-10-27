@@ -991,7 +991,11 @@ async def test_private_ble_devices_own_setup_takes_the_key(
 
     Only Bluetooth is played: a receiver, and the phone heard (or not), with or without a name.
     """
-    flow = "homeassistant.components.private_ble_device.config_flow"
+    # Imported here: it brings Home Assistant's Bluetooth, which the other tests do without.
+    from homeassistant.components.private_ble_device import (  # noqa: PLC0415
+        config_flow as private_ble,
+    )
+
     flows = hass.config_entries.flow
     heard: SimpleNamespace | None = None
     receivers = 1
@@ -1000,8 +1004,12 @@ async def test_private_ble_devices_own_setup_takes_the_key(
         with (
             # Bluetooth itself is not set up here: only what Private BLE Device asks it.
             patch("homeassistant.config_entries.async_process_deps_reqs", return_value=None),
-            patch(f"{flow}.bluetooth.async_scanner_count", side_effect=lambda *_, **__: receivers),
-            patch(f"{flow}.async_last_service_info", side_effect=lambda *_: heard),
+            patch.object(
+                private_ble.bluetooth,
+                "async_scanner_count",
+                side_effect=lambda *_, **__: receivers,
+            ),
+            patch.object(private_ble, "async_last_service_info", side_effect=lambda *_: heard),
             patch.object(hass.config_entries, "async_setup", AsyncMock(return_value=True)),
         ):
             return await home.async_add_key(key)
