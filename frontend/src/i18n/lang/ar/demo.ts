@@ -215,4 +215,7 @@ export const demo: Readonly<Record<string, string>> = {
   Worktop: "سطح عمل",
   "{names} will switch off at {time}.": "{names}: الإيقاف مقرّر في {time}.",
   "{names} will switch on at {time}.": "{names}: التشغيل مقرّر في {time}.",
+  "All the lights off": "إطفاء كل الأضواء",
+  "Close the curtains": "إغلاق الستائر",
+  "Heating at 19 °C": "التدفئة على 19 °م",
 };

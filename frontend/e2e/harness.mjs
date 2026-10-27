@@ -1458,6 +1458,7 @@ const connection = {
           else delete choices.start;
         }
         if (message.cards !== undefined) choices.cards = message.cards;
+        if (message.shortcuts !== undefined) choices.shortcuts = message.shortcuts;
         return structuredClone(choices);
       }
       case "frontend/set_user_data": {

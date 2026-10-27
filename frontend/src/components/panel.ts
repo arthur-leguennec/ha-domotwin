@@ -130,6 +130,7 @@ import {
   type Choices,
   type Tab,
 } from "../live/choices";
+import type { Shortcut } from "../live/shortcut-model";
 import {
   readDeviceScreen,
   saverDue,
@@ -467,6 +468,8 @@ export class DomoTwinPanel extends LitElement {
   private wifiTimer?: ReturnType<typeof setTimeout>;
   /** Counts the stars given or taken away: the answer to the last one sets the favourites. */
   private stars = 0;
+  /** The shortcuts kept last (D-084): only the answer to the last change is taken. */
+  private shortcutSaves = 0;
   protected choicesOpen = false;
   /** The Home and Rooms tabs' module is loaded. */
   protected practicalReady = false;
@@ -1796,6 +1799,31 @@ export class DomoTwinPanel extends LitElement {
       // This star alone, put back.
       star(!favourite);
       this.show(this.t.t("rooms.star_failed", { reason: this.describe(error) }), true);
+    }
+  };
+
+  /**
+   * The Home tab's shortcuts changed (D-084): shown at once, kept by the integration; put back as
+   * they were if it refused, and the last change kept wins over an earlier one answered later.
+   */
+  private readonly onShortcuts = async (
+    event: CustomEvent<{ shortcuts: Shortcut[] }>,
+  ): Promise<void> => {
+    const client = this.client;
+    if (!client) return;
+    const before = this.choices?.shortcuts ?? [];
+    const { shortcuts } = event.detail;
+    this.choices = { ...(this.choices ?? NO_CHOICES), shortcuts };
+    const ticket = ++this.shortcutSaves;
+    try {
+      const saved = await client.saveChoices({ shortcuts });
+      if (client === this.client && ticket === this.shortcutSaves) {
+        this.choices = { ...(this.choices ?? NO_CHOICES), shortcuts: saved.shortcuts };
+      }
+    } catch (error) {
+      if (client !== this.client || ticket !== this.shortcutSaves) return;
+      this.choices = { ...(this.choices ?? NO_CHOICES), shortcuts: before };
+      this.show(this.t.t("shortcuts.not_kept", { reason: this.describe(error) }), true);
     }
   };
 
@@ -3987,6 +4015,7 @@ export class DomoTwinPanel extends LitElement {
               .unseen=${unseen}
               @domotwin-go=${this.onGo}
               @domotwin-favourite=${this.onFavourite}
+              @domotwin-shortcuts=${this.onShortcuts}
               @domotwin-sandbox-peak=${this.playPeak}
             ></domotwin-home>`
       }

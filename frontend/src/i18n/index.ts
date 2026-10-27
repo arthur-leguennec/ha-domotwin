@@ -20,6 +20,7 @@ import type { wallEn } from "./wall";
 import type { whyEn } from "./why";
 import type { wifiEn } from "./wifi";
 import type { radarsEn } from "./radars";
+import type { shortcutsEn } from "./shortcuts";
 import type { Pack } from "./pack";
 
 /**
@@ -77,6 +78,7 @@ type AllMessages = typeof en &
   typeof libraryEn &
   typeof iphoneEn &
   typeof radarsEn &
+  typeof shortcutsEn &
   typeof wallEn;
 /** Keys of plain messages, e.g. `view.loading`. */
 export type MessageKey = Leaves<AllMessages, string>;

@@ -59,6 +59,7 @@ import {
   demoBindings,
   demoPeople,
   demoSettings,
+  demoShortcuts,
   demoUpkeep,
   localPlan,
   roomSensorOf,
@@ -254,6 +255,7 @@ export class DemoHome implements MemoryHome {
           "lock.front_door",
         ],
         cards: [],
+        shortcuts: demoShortcuts(language),
       },
     };
     const entities: Record<string, HassEntityEntry> = {};

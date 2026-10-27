@@ -1,5 +1,6 @@
 import type { ThemeMode } from "../config";
 import { readChoices, type Choices, type HomeCard, type Tab } from "../live/choices";
+import type { Shortcut } from "../live/shortcut-model";
 import type { LocatedCandidate, LocatedSettings, LocatingSettings } from "../live/locating";
 import type { LocatingMeasure } from "../live/measured";
 import type { PeopleSettings, PersonSettings } from "../live/people";
@@ -528,8 +529,12 @@ export class DomoTwinClient {
     return readChoices(result).favourites;
   }
 
-  /** Sets the tab DomoTwin opens on (`""`: none chosen) and the Home tab's cards. */
-  async saveChoices(change: { start?: Tab | ""; cards?: HomeCard[] }): Promise<Choices> {
+  /** Sets the tab DomoTwin opens on (`""`: none chosen), the Home tab's cards and shortcuts. */
+  async saveChoices(change: {
+    start?: Tab | "";
+    cards?: HomeCard[];
+    shortcuts?: Shortcut[];
+  }): Promise<Choices> {
     return readChoices(
       await this.connection.sendMessagePromise({ type: "domotwin/choices/save", ...change }),
     );

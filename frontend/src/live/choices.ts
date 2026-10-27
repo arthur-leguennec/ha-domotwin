@@ -1,6 +1,7 @@
 /**
- * Each user's own choices (D-055): their favourites, the tab DomoTwin opens on and their Home
- * tab's cards, kept by the integration for each user; a device may open on a tab of its own.
+ * Each user's own choices (D-055): their favourites, the tab DomoTwin opens on, their Home tab's
+ * cards and shortcuts (D-084), kept by the integration for each user; a device may open on a tab
+ * of its own.
  */
 
 import { domainOf } from "../ha/types";
@@ -20,11 +21,16 @@ export type HomeCard =
 export interface Choices {
   favourites: string[];
   cards: HomeCard[];
+  /**
+   * The Home tab's shortcuts (D-084), in their order, as the integration keeps them: the Home tab
+   * reads them (`readShortcuts`), with its chunk rather than with the first load.
+   */
+  shortcuts: readonly unknown[];
   /** The tab DomoTwin opens on, when the user chose one. */
   start?: Tab;
 }
 
-export const NO_CHOICES: Choices = { favourites: [], cards: [] };
+export const NO_CHOICES: Choices = { favourites: [], cards: [], shortcuts: [] };
 
 /** As many cards as the integration keeps on a Home tab, and calendars in an agenda. */
 export const MAX_HOME_CARDS = 6;
@@ -123,7 +129,8 @@ export function readChoices(raw: unknown): Choices {
       cards.push({ type: "summary", summary: c.summary });
     }
   }
-  const choices: Choices = { favourites, cards };
+  const shortcuts = Array.isArray(value.shortcuts) ? (value.shortcuts as unknown[]) : [];
+  const choices: Choices = { favourites, cards, shortcuts };
   if (isTab(value.start)) choices.start = value.start;
   return choices;
 }
