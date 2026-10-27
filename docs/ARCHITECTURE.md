@@ -103,10 +103,11 @@ every reader returns `Result` with a stable error code that the frontend transla
 - `src/i18n/` holds the English and French dictionaries. Every visible string goes through `t()`.
   The other languages (D-081) are one module each, `src/i18n/lang/<code>.ts`, with every message
   (the main dictionary and the chunks'), loaded when Home Assistant speaks it: the elements Home
-  Assistant shows (the card, the panel, the summaries, their editors, the guests' page) draw
-  nothing until it is here (`inLanguage` in `components/define.ts`, a few milliseconds from Home
-  Assistant), then draw in it, and set their `dir` (Arabic right to left; the layout is in logical
-  properties). One that cannot be loaded is spoken in English. The integration's `language.py`
+  Assistant shows (the card, the panel, the summaries, their editors, the guests' page) wait to
+  draw until it is here (their `scheduleUpdate`, through `inLanguage` in `components/define.ts`, a
+  few milliseconds from Home Assistant), then draw in it, and set their `dir` (Arabic right to
+  left; the layout is in logical properties, arrows mirrored by `--domotwin-mirror`). The demo
+  house's names are in each pack too, by their English. One that cannot be loaded is spoken in English. The integration's `language.py`
   picks the same language for what it says.
 
 ![Render on demand: frames only when something changes, nothing while idle or off-screen](figures/render-on-demand.png)

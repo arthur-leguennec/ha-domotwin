@@ -126,6 +126,8 @@ const LOADERS: Record<Loaded, () => Promise<{ pack: Pack }>> = {
   ko: () => import("./lang/ko"),
 };
 const packs: Partial<Record<Loaded, Pack>> = {};
+/** Each loaded language's chunks' messages, looked in after its main ones. */
+const parts: Partial<Record<Loaded, unknown[]>> = {};
 const loading = new Map<Loaded, Promise<void>>();
 /** Languages whose module did not load: spoken in English until the page is loaded again. */
 const failed = new Set<Loaded>();
@@ -158,6 +160,7 @@ export function loadLanguage(language: Language): Promise<void> {
     pending = LOADERS[language]()
       .then((module) => {
         packs[language] = module.pack;
+        parts[language] = Object.values(module.pack.chunks);
       })
       .catch(() => {
         failed.add(language);
@@ -184,7 +187,7 @@ function find(language: Language, key: string): unknown {
   const pack = packs[language];
   if (!pack) return undefined;
   let found = lookup(pack.main, key);
-  for (const part of Object.values(pack.chunks)) found ??= lookup(part, key);
+  for (const part of parts[language] ?? []) found ??= lookup(part, key);
   return found;
 }
 
@@ -194,10 +197,16 @@ function find(language: Language, key: string): unknown {
  */
 export function pickLanguage(language: string | undefined): Language {
   const code = (language ?? "en").toLowerCase().replaceAll("_", "-");
-  if (code === "pt-br") return "pt-BR";
+  const same = LANGUAGES.find((known) => known.toLowerCase() === code);
+  if (same) return same;
   if (code.startsWith("zh")) return "zh-Hans";
   const base = code.split("-")[0] ?? "en";
-  return (LANGUAGES as readonly string[]).includes(base) ? (base as Language) : "en";
+  return LANGUAGES.find((known) => known === base) ?? "en";
+}
+
+/** A text of the demo house (D-050) by its English, in a language loaded on demand. */
+export function demoWord(language: Language, english: string): string | undefined {
+  return bundled(language) ? undefined : packs[language]?.demo[english];
 }
 
 /** Which way a language is written. */
@@ -235,7 +244,7 @@ export class Translator {
 
   constructor(language: string | undefined) {
     this.language = pickLanguage(language);
-    // Portugal counts zero as many, Brazil (Intl's `pt`) as one.
+    // Portugal counts zero with the plural (`other`), Brazil (Intl's `pt`) as one.
     this.plurals = new Intl.PluralRules(this.language === "pt" ? "pt-PT" : this.language);
   }
 
@@ -297,18 +306,7 @@ export function languageOf(hass: Speaking | undefined): Language {
 
 /** The translator matching a `hass` object. */
 export function translatorFor(hass: Speaking | undefined): Translator {
-  return new Translator(hass?.locale?.language ?? hass?.language);
-}
-
-/**
- * Whether the messages of Home Assistant's language are here; if not, they are loaded and `ready`
- * is called once they are (for a view to draw itself again in them).
- */
-export function speak(hass: Speaking | undefined, ready: () => void): boolean {
-  const language = languageOf(hass);
-  if (languageReady(language)) return true;
-  void loadLanguage(language).then(ready);
-  return false;
+  return new Translator(languageOf(hass));
 }
 
 /** Which way DomoTwin writes for a `hass` object: Arabic right to left once it is here. */

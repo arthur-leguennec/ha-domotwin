@@ -62,6 +62,7 @@ import {
   localPlan,
   roomSensorOf,
   say,
+  SCHEDULED,
   type Words,
 } from "./house";
 import { callService } from "./services";
@@ -904,9 +905,9 @@ export class DemoHome implements MemoryHome {
       .join(", ");
     // The demo's wall clock: this device's time.
     const time = `${pad(at.getHours())}:${pad(at.getMinutes())}`;
-    const text = this.language.toLowerCase().startsWith("fr")
-      ? `${names} : ${schedule.action === "on" ? "allumage" : "extinction"} prévu à ${time}.`
-      : `${names} will switch ${schedule.action} at ${time}.`;
+    const text = say(SCHEDULED[schedule.action === "on" ? "on" : "off"], this.language)
+      .replace("{names}", names)
+      .replace("{time}", time);
     return { schedule, text };
   }
 

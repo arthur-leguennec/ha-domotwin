@@ -3995,10 +3995,17 @@ English and French) to ten more languages.
     (`Intl.PluralRules`: Arabic six, Japanese one), and is not left in English. A message added in
     English and French is added to the others in English until translated, and the tests say which.
   - **Drawn in it, not after.** The elements Home Assistant shows (the card, the panel, the
-    summaries, their editors, the guests' page) draw nothing until their language is here, a few
-    milliseconds from Home Assistant, then draw in it; what they hold does not need to know. A
-    language that cannot be loaded is spoken in English, not asked for again. The card picker's
-    names follow once loaded.
+    summaries, their editors, the guests' page) wait to draw until their language is here, a few
+    milliseconds from Home Assistant, then draw in it; what they hold does not need to know. They
+    wait before drawing, not by drawing nothing: what they showed stays while another language
+    loads (the 3D view with it), and what waits for them to be drawn (a layer asked for in the
+    address, `domotwin.show`) waits for that too. A language that cannot be loaded is spoken in
+    English, not asked for again. The card picker names DomoTwin's cards when it opens, in the
+    language once an element has loaded it (not loaded on every page for the picker alone).
+  - **The demo house speaks them too** (D-050): its rooms, storeys, devices, automations, upkeep
+    tasks and pieces, which each language's pack names by their English
+    (`scripts/demo-texts.mjs` lists them; the tests say which are left in English). A home's own
+    names are the home's, in whatever language they were typed.
   - **Right to left.** Each element sets its `dir` from the language: Arabic is written right to
     left, and so is the layout, written in logical properties (`inset-inline-end`,
     `margin-inline-start`, `text-align: start`): the tabs, the toolbar, the tools and the sheets
@@ -4013,9 +4020,12 @@ English and French) to ten more languages.
     marked as such for native speakers to correct (`CONTRIBUTING.md`).
   - **The library searched in them**: each piece's name and the other words it is searched by
     (M17) are part of each language.
-- **Not done.** Other languages (one starts with `node scripts/new-language.mjs <code>`); the
-  local voice's set-up still sets Piper's voice in English or French only, the others keeping the
-  app's own (a wrong voice name would stop the app).
+  - **The local voice in it**: its set-up gives Piper a voice in each language Piper has one in
+    (Thorsten in German, Davefx in Spanish, Paola in Italian…, names checked against Piper's own
+    list, since a wrong one would stop the app).
+- **Not done.** Other languages (one starts with `node scripts/new-language.mjs <code>`); Piper has
+  no voice in Japanese or Korean: their set-up keeps the app's own, and the steps for Container and
+  Core show English's.
 - **Consequences.**
   - The first load is the same for everyone (+1.1 kB: the loader and the logical layout); a home in
     another language loads its own once (35 to 41 kB gzipped), kept by the browser like the rest.

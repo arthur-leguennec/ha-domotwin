@@ -32,6 +32,10 @@ export class DomoTwinSummaryCard extends LitElement {
     :host {
       display: block;
     }
+    /* Right to left (D-081): what points back or on turns round. */
+    :host([dir="rtl"]) {
+      --domotwin-mirror: -1;
+    }
     ha-card {
       height: 100%;
       min-height: 56px;
@@ -80,19 +84,23 @@ export class DomoTwinSummaryCard extends LitElement {
     }
   }
 
-  /** What it last drew, kept while another language loads (D-081). */
-  private drawn?: TemplateResult;
+  /** Drawn once Home Assistant's language is here (D-081). */
+  protected override scheduleUpdate(): Promise<unknown> | undefined {
+    return inLanguage(
+      this,
+      () => this.hass,
+      () => super.scheduleUpdate(),
+    );
+  }
 
   protected override render(): TemplateResult | typeof nothing {
     if (!this.config) return nothing;
-    if (!inLanguage(this, this.hass)) return this.drawn ?? html`<ha-card></ha-card>`;
-    this.drawn = this.loaded
+    return this.loaded
       ? html`<domotwin-summary-body
           .hass=${this.hass}
           .kind=${this.config.summary}
         ></domotwin-summary-body>`
       : html`<ha-card></ha-card>`;
-    return this.drawn;
   }
 }
 

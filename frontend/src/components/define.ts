@@ -1,6 +1,6 @@
 import type { ReactiveElement } from "lit";
 
-import { directionFor, speak, type Speaking } from "../i18n";
+import { directionFor, languageOf, languageReady, loadLanguage, type Speaking } from "../i18n";
 
 /** Defines a custom element once, even if the module is loaded twice under different URLs. */
 export function define(name: string, element: CustomElementConstructor): void {
@@ -13,13 +13,34 @@ export function fire(node: HTMLElement, type: string, detail: unknown): void {
 }
 
 /**
- * Whether an element Home Assistant shows can draw itself in Home Assistant's language now
- * (D-081): English and French always, another once its messages are loaded, the element drawn
- * again then. Its `dir` follows the language once it is drawn in it: Arabic right to left.
+ * An update of an element Home Assistant shows (its `scheduleUpdate`), once DomoTwin speaks Home
+ * Assistant's language (D-081): at once in English and French, once its messages are loaded in
+ * another. Meanwhile the element shows what it showed, and its `updateComplete` waits too. It
+ * turns the way the language is written: Arabic right to left.
  */
-export function inLanguage(host: ReactiveElement, hass: Speaking | undefined): boolean {
-  if (!speak(hass, () => host.requestUpdate())) return false;
-  const dir = directionFor(hass);
-  if (host.dir !== dir) host.dir = dir;
-  return true;
+export function inLanguage(
+  host: ReactiveElement,
+  hass: () => Speaking | undefined,
+  update: () => unknown,
+): Promise<unknown> | undefined {
+  const draw = (): unknown => {
+    const dir = directionFor(hass());
+    if (host.dir !== dir) host.dir = dir;
+    return update();
+  };
+  if (languageReady(languageOf(hass()))) {
+    const drawn = draw();
+    return drawn instanceof Promise ? drawn : undefined;
+  }
+  return (async () => {
+    // Its language may change again while one loads.
+    for (
+      let language = languageOf(hass());
+      !languageReady(language);
+      language = languageOf(hass())
+    ) {
+      await loadLanguage(language);
+    }
+    await draw();
+  })();
 }

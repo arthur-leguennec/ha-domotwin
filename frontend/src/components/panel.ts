@@ -157,7 +157,7 @@ import type { ImportReport, ImportStorey, PlanFile, ScanRoom } from "../import/i
 import { IMPORTED_FILES, PLAN_FILES, isOtherAppJson } from "../import/files";
 import { mapPath, robotMaps, type RobotMapSource } from "../live/robot-maps";
 import type { ModelFormat, ModelInfo } from "../models/models";
-import { languageOf, languageReady, pickLanguage, translatorFor, type Translator } from "../i18n";
+import { languageOf, translatorFor, type Translator } from "../i18n";
 import { documentFonts } from "../fonts";
 import { icon } from "./icon";
 import { saveText } from "./save";
@@ -1204,7 +1204,7 @@ export class DomoTwinPanel extends LitElement {
   /** The translator of the language shown, the same object while it is (the tabs keep theirs). */
   private get t(): Translator {
     const hass = this._hass;
-    const language = pickLanguage(hass?.locale?.language ?? hass?.language);
+    const language = languageOf(hass);
     if (this.translator?.language !== language) this.translator = translatorFor(hass);
     return this.translator;
   }
@@ -3255,8 +3255,6 @@ export class DomoTwinPanel extends LitElement {
     const hass = this._hass;
     const fitting = [
       hass?.locale?.language ?? hass?.language,
-      // Measured again once drawn in it (D-081).
-      languageReady(languageOf(hass)),
       hass?.user?.is_admin,
       hass?.dockedSidebar,
       this.editing,
@@ -3581,16 +3579,16 @@ export class DomoTwinPanel extends LitElement {
     this.style.setProperty("--domotwin-accent", accent ?? defaultAccent(this.look));
   }
 
-  /** What it last drew, kept while another language loads (D-081), its 3D view with it. */
-  private drawn?: TemplateResult;
-
-  protected override render(): TemplateResult {
-    if (!inLanguage(this, this._hass)) return this.drawn ?? html``;
-    this.drawn = this.draw();
-    return this.drawn;
+  /** Drawn once Home Assistant's language is here (D-081). */
+  protected override scheduleUpdate(): Promise<unknown> | undefined {
+    return inLanguage(
+      this,
+      () => this._hass,
+      () => super.scheduleUpdate(),
+    );
   }
 
-  private draw(): TemplateResult {
+  protected override render(): TemplateResult {
     const t = this.t;
     const admin = this._hass?.user?.is_admin === true;
     const tool = this.editing || this.planning || this.linking;

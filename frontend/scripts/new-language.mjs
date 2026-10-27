@@ -54,5 +54,5 @@ writeFileSync(
   `/** DomoTwin in ${code} (D-081), loaded when Home Assistant speaks it. */\nimport type { Pack } from "../pack";\nimport { chunks } from "./${code}/chunks";\nimport { main } from "./${code}/main";\n\nexport const pack: Pack = { main, chunks };\n`,
 );
 console.log(
-  `Written ${folder}: translate main.ts and chunks.ts, then add "${code}" to LANGUAGES in src/i18n/index.ts and custom_components/domotwin/language.py (CONTRIBUTING.md).`,
+  `Written ${folder}: translate main.ts and chunks.ts, then add "${code}" to LANGUAGES and LOADERS in src/i18n/index.ts and to LANGUAGES in custom_components/domotwin/language.py (CONTRIBUTING.md).`,
 );

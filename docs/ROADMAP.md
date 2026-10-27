@@ -1907,6 +1907,7 @@ DomoTwin in Home Assistant's language, ten more of them, each loaded only where 
   one, any other language English.
 - ✅ **Drawn in it**: the card, the panel, the summaries, their editors and the guests' page wait
   for their language (a few milliseconds), then draw in it; one that cannot be loaded is English.
+  The demo house too: its rooms, devices, automations and pieces in each language.
 - ✅ **Right to left**: Arabic sets `dir` and the layout follows, in logical properties: the tabs,
   the toolbar, the tools and the sheets change sides.
 - ✅ **Everything said**: every message of the frontend and its chunks, the plural forms each
@@ -1916,7 +1917,7 @@ DomoTwin in Home Assistant's language, ten more of them, each loaded only where 
   (vitest); the language loaded on demand, drawn again in it, Arabic's `dir`, a language that
   cannot be loaded (vitest); German loaded only when spoken, none for English, Arabic's layout
   mirrored (e2e); the integration's sentences and translations in each (pytest).
-- Left for later: other languages; Piper's voice for the new ones in the local voice's set-up.
+- Left for later: other languages; a Japanese and a Korean voice, which Piper does not have.
 
 Measured at the end of M21: see [`PERFORMANCE.md`](PERFORMANCE.md).
 

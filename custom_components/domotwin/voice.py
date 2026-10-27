@@ -23,7 +23,7 @@ from homeassistant.helpers.hassio import is_hassio
 from homeassistant.util.hass_dict import HassKey
 
 from .compat import vol
-from .language import spoken
+from .language import speaks
 
 if TYPE_CHECKING:
     from homeassistant.components.hassio import AddonManager
@@ -159,23 +159,20 @@ def _wyoming_engine(hass: HomeAssistant, host: str, domain: str) -> str | None:
     return None
 
 
-def _language(hass: HomeAssistant) -> str:
-    """Home Assistant's language, without its region (`fr` for `fr-CA`)."""
-    return hass.config.language.split("-")[0].lower()
+def _base(language: str) -> str:
+    """A language without its region (`fr` for `fr-CA`)."""
+    return language.split("-", 1)[0].lower()
 
 
 def _piper_voice(language: str) -> str | None:
     """Piper's voice for Home Assistant's language, when DomoTwin speaks it and Piper has one."""
-    code = spoken(language)
-    if code == "en" and not language.lower().startswith("en"):
-        # A language DomoTwin does not speak: not English for it.
-        return None
-    return PIPER_VOICES.get(code)
+    code = speaks(language)
+    return PIPER_VOICES.get(code) if code is not None else None
 
 
 def _options(slug: str, options: dict[str, Any], language: str) -> dict[str, Any]:
     """The app's options in the user's language (Home Assistant's), where it has one for it."""
-    base = language.split("-", 1)[0].lower()
+    base = _base(language)
     if slug == "core_whisper" and "language" in options:
         return {**options, "language": WHISPER_LANGUAGES.get(base, base)}
     voice = _piper_voice(language)
@@ -331,7 +328,7 @@ async def ws_voice_get(
 ) -> None:
     """Whether local voice can be set up here, the blueprints, where a set-up is."""
     folder = Path(hass.config.path(*TARGET))
-    language = _language(hass)
+    language = _base(hass.config.language)
     connection.send_result(
         msg["id"],
         {

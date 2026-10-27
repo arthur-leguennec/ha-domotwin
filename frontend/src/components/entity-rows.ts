@@ -643,11 +643,11 @@ export const rowStyles = css`
     height: 22px;
     border-radius: 50%;
     background: #fff;
-    transition: inset-inline-start 150ms ease;
+    transition: transform 150ms ease;
   }
-  /* At the end of the switch, whichever way the language is written. */
+  /* At the end of the switch, whichever way the language is written (D-081). */
   button.switch.on .knob {
-    inset-inline-start: 23px;
+    transform: translateX(calc(20px * var(--domotwin-mirror, 1)));
   }
   .slider {
     display: grid;

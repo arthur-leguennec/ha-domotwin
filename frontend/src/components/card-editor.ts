@@ -274,8 +274,17 @@ export class DomoTwinCardEditor extends LitElement {
     }
   }
 
+  /** Drawn once Home Assistant's language is here (D-081). */
+  protected override scheduleUpdate(): Promise<unknown> | undefined {
+    return inLanguage(
+      this,
+      () => this.hass,
+      () => super.scheduleUpdate(),
+    );
+  }
+
   protected override render(): TemplateResult | typeof nothing {
-    if (!this.hass || !inLanguage(this, this.hass)) return nothing;
+    if (!this.hass) return nothing;
     const storey = typeof this.config.storey === "string" ? this.config.storey : "";
     if (this.fetchedFor !== storey) void this.fetchHome(this.hass, storey);
     const t = translatorFor(this.hass);

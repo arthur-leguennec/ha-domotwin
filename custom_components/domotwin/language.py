@@ -8,16 +8,22 @@ from typing import Final
 LANGUAGES: Final = ("en", "fr", "de", "es", "it", "nl", "pt", "pt-BR", "ar", "zh-Hans", "ja", "ko")
 
 
-def spoken(language: str | None) -> str:
-    """Home Assistant's language as DomoTwin speaks it.
+def speaks(language: str | None) -> str | None:
+    """Home Assistant's language as DomoTwin speaks it, None when it does not.
 
     The same, else the same without its region (Portuguese is Portugal's, Brazil's has its own;
-    every Chinese is simplified), English otherwise.
+    every Chinese is simplified).
     """
     code = (language or "en").lower().replace("_", "-")
-    if code == "pt-br":
-        return "pt-BR"
+    for known in LANGUAGES:
+        if known.lower() == code:
+            return known
     if code.startswith("zh"):
         return "zh-Hans"
     base = code.split("-")[0]
-    return base if base in LANGUAGES else "en"
+    return base if base in LANGUAGES else None
+
+
+def spoken(language: str | None) -> str:
+    """Home Assistant's language as DomoTwin speaks it, English when it speaks another."""
+    return speaks(language) or "en"

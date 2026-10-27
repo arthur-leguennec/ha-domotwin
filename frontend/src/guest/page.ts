@@ -370,9 +370,16 @@ export class DomoTwinGuest extends LitElement {
     });
   }
 
+  /** Drawn once the guest's own language, as their browser says it, is here (D-081). */
+  protected override scheduleUpdate(): Promise<unknown> | undefined {
+    return inLanguage(
+      this,
+      () => ({ language: navigator.language }),
+      () => super.scheduleUpdate(),
+    );
+  }
+
   protected override render(): TemplateResult {
-    // The guest's own language, as their browser says it (D-081).
-    if (!inLanguage(this, { language: navigator.language })) return html``;
     const t = this.t;
     const refusal = this.refusal;
     if (refusal) {

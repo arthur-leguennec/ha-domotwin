@@ -496,14 +496,17 @@ export class DomoTwinCard extends LitElement {
     );
   }
 
-  /** What it last drew, kept while another language loads (D-081), its 3D view with it. */
-  private drawn?: TemplateResult;
+  /** Drawn once Home Assistant's language is here (D-081). */
+  protected override scheduleUpdate(): Promise<unknown> | undefined {
+    return inLanguage(
+      this,
+      () => this._hass,
+      () => super.scheduleUpdate(),
+    );
+  }
 
   protected override render(): TemplateResult | typeof nothing {
-    if (!this.config) return nothing;
-    if (!inLanguage(this, this._hass)) return this.drawn ?? nothing;
-    this.drawn = this.draw(this.config);
-    return this.drawn;
+    return this.config ? this.draw(this.config) : nothing;
   }
 
   private draw(config: CardConfig): TemplateResult {

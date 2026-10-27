@@ -4,7 +4,8 @@ import type { Plural } from "../src/i18n";
 
 import { pack as arabic } from "../src/i18n/lang/ar";
 import { pack as german } from "../src/i18n/lang/de";
-import { openHarness } from "./fixtures";
+import { pack as japanese } from "../src/i18n/lang/ja";
+import { fromMenu, openHarness, viewState } from "./fixtures";
 
 /** A plural message as the language counts `count`. */
 function plural(language: string, forms: Plural, count: number): string {
@@ -37,6 +38,17 @@ test.describe("more languages (M21, D-081)", () => {
         /\/chunks\/(de|es|it|nl|pt|pt-BR|ar|zh-Hans|ja|ko)-[A-Z0-9]+\.js/.test(url),
       ),
     ).toEqual([]);
+  });
+
+  test("the demo house speaks it too: its name, its storeys, its rooms", async ({ page }) => {
+    await openHarness(page, { mode: "panel", lang: "ja" });
+    await fromMenu(page, "demo-menu");
+    await expect
+      .poll(async () => (await viewState(page)).summary?.name)
+      .toBe(japanese.demo["Demo house"]);
+    const rooms = page.locator("domotwin-view .room-list");
+    await expect(rooms.getByRole("button", { name: japanese.demo.Kitchen })).toHaveCount(1);
+    await expect(rooms.getByRole("button", { name: "Kitchen", exact: true })).toHaveCount(0);
   });
 
   test("Arabic is written right to left: the tools on the left, the rooms on the right", async ({

@@ -273,7 +273,7 @@ SENTENCES = {
         "also": "{name}在{room}",
         "private_room": "{name}在一个私密房间里。",
         "also_private": "{name}在一个私密房间里",
-        "heard_private": "{name}的信号来自一个私密房间.",
+        "heard_private": "{name}的信号来自一个私密房间。",
     },
     "ja": {
         "room": "{name}は{room}にいます。",
@@ -289,7 +289,7 @@ SENTENCES = {
         "also": "{name}は{room}にいます",
         "private_room": "{name}はプライベートな部屋にいます。",
         "also_private": "{name}はプライベートな部屋にいます",
-        "heard_private": "{name}の信号はプライベートな部屋から届いています.",
+        "heard_private": "{name}の信号はプライベートな部屋から届いています。",
     },
     "ko": {
         "room": "{name} 지금 {room}에 있어요.",

@@ -8,8 +8,12 @@ import type { Dictionary, Widen } from "./index";
 /** Every chunk's messages, by chunk: what `addMessages` adds in English and French. */
 export type Chunks = { [K in keyof typeof englishChunks]: Widen<(typeof englishChunks)[K]> };
 
-/** A language's messages: the main dictionary and the chunks'. */
+/**
+ * A language's messages: the main dictionary, the chunks', and the demo house's names and words
+ * by their English (`scripts/demo-texts.mjs` lists them).
+ */
 export interface Pack {
   main: Dictionary;
   chunks: Chunks;
+  demo: Readonly<Record<string, string>>;
 }

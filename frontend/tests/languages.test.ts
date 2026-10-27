@@ -1,4 +1,8 @@
+import { resolve } from "node:path";
+
 import { describe, expect, it } from "vitest";
+
+import { demoTexts } from "../scripts/demo-texts.mjs";
 
 import {
   LANGUAGES,
@@ -12,8 +16,12 @@ import {
 import { englishChunks } from "../src/i18n/english";
 import type { Pack } from "../src/i18n/pack";
 
-/** The English of every message, as a pack has it. */
-const english: Pack = { main: en, chunks: englishChunks };
+/** The English of every message, as a pack has it: the demo house's by themselves. */
+const english: Pack = {
+  main: en,
+  chunks: englishChunks,
+  demo: Object.fromEntries(demoTexts(resolve(__dirname, "..")).map((text) => [text, text])),
+};
 
 const PLURAL_FORMS = new Set(["zero", "one", "two", "few", "many", "other"]);
 
@@ -93,6 +101,14 @@ describe("the languages loaded on demand (D-081)", async () => {
       if (own.get(key) === text) same += 1;
     }
     expect(same / long).toBeLessThan(0.05);
+  });
+
+  it.each(loaded)("%s names the demo house in its own words", (language) => {
+    const demo = packs.get(language)?.demo ?? {};
+    const texts = Object.keys(english.demo);
+    // A name may be the same (TV, WC), not most of them.
+    const same = texts.filter((text) => demo[text] === text).length;
+    expect(same / texts.length).toBeLessThan(0.15);
   });
 
   it("loads a language when Home Assistant speaks it, and speaks it then", async () => {

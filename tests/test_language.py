@@ -9,7 +9,7 @@ from typing import Any
 
 import pytest
 
-from custom_components.domotwin.language import LANGUAGES, spoken
+from custom_components.domotwin.language import LANGUAGES, speaks, spoken
 from custom_components.domotwin.schedules import _SAID
 from custom_components.domotwin.services import SENTENCES
 
@@ -41,6 +41,9 @@ def test_home_assistant_languages_are_spoken_as_the_frontend_picks_them() -> Non
     assert spoken("zh_Hant_TW") == "zh-Hans"
     assert spoken("zh-Hant") == "zh-Hans"
     assert spoken("sv") == "en"
+    assert speaks("sv") is None
+    assert speaks("zh-hans") == "zh-Hans"
+    assert speaks("en-GB") == "en"
     assert spoken(None) == "en"
 
 
