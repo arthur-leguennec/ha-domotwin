@@ -17,12 +17,12 @@ Local, fast, Rust + WebAssembly.</p>
 > ([roadmap](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/ROADMAP.md)), and
 > everything under *Features* works today. Since 0.4.0 came the sandbox, history as reports, "Why?",
 > the Wi-Fi QR code for guests, the configuration history, Hydro-Québec's peaks, more imports (robot
-> vacuum maps, Floorplanner, mesh scans), the radio coverage, guest passes, safety (the cameras, the
-> doorbell, the alarm, the alerts on every tab), each room's graphs with Home Assistant's Energy
-> page a tab away and automations in plain words, played in the sandbox before they are saved, and
-> DomoTwin joined Home Assistant's own Overview; the weather around the home and the wall screen
-> come next, towards 0.5.0. The submission to HACS's default list waits on measurements on real
-> devices.
+> vacuum maps, Floorplanner, mesh scans), the radio coverage, guest passes, each person's rights,
+> safety (the cameras, the doorbell, the alarm, the alerts on every tab), each room's graphs with
+> Home Assistant's Energy page a tab away and automations in plain words, played in the sandbox
+> before they are saved, and DomoTwin joined Home Assistant's own Overview; the weather around the
+> home and the wall screen come next, towards 0.5.0. The submission to HACS's default list waits on
+> measurements on real devices.
 
 ## What sets it apart
 
@@ -126,6 +126,11 @@ Local, fast, Rust + WebAssembly.</p>
   you like, and ends on its own. By default it opens only on the home's network; DomoTwin checks
   every request against the pass. See [guest
   access](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/guests.md).
+- **Rights.** What each person uses, only sees or does not see in DomoTwin, room by room and device
+  by device, set in one place: the children's tablet switches their own lights and only shows the
+  living room's. DomoTwin's own views, controls and services follow them; Home Assistant still lets
+  every user use every entity elsewhere, as the dialog says. See
+  [rights](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/rights.md).
 - **Into Home Assistant's Overview.** A room tapped in 3D opens its area's page of the Overview
   (2026.2 and later). Each room's area page shows who is in it and the upkeep due, and DomoTwin's
   summary cards (the people, the network, the automations, the upkeep, the robots) open the 3D view

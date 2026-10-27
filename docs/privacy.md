@@ -62,6 +62,9 @@ entity in its other dashboards and its API (its permissions are by user, not by 
 DomoTwin's sensors of each person's room (`sensor.domotwin_<person>_room`) say the room. A private
 room is private on a shared screen, not behind a security barrier.
 
+[Rights](rights.md) go further for those who are not administrators: a room or a device only
+seen or not seen, for each person or everyone; a room not seen is closed as a private one.
+
 A [guest pass](guests.md) is the other way round: its page is DomoTwin's own, and shows only the
 rooms and devices the pass gives, the other rooms closed as private rooms are; DomoTwin enforces
 it, since the guests have no Home Assistant user.

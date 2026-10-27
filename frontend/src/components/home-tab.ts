@@ -47,6 +47,12 @@ function cardOf(home: HomeCard): CardConfig {
   }
 }
 
+/** The lights the viewer may switch (their rights, D-071). */
+function usableLights(hass: HomeAssistant | undefined, lights: string[]): string[] {
+  const canAct = hass?.canAct;
+  return canAct ? lights.filter(canAct) : lights;
+}
+
 export class DomoTwinHome extends LitElement {
   static override properties = {
     hass: { attribute: false },
@@ -179,7 +185,8 @@ export class DomoTwinHome extends LitElement {
 
   private readonly allOff = async (): Promise<void> => {
     const hass = this.hass;
-    const lights = this.glance?.lights ?? [];
+    // Those the viewer may use (their rights, D-071).
+    const lights = usableLights(hass, this.glance?.lights ?? []);
     if (!hass || !this.t || lights.length === 0) return;
     try {
       await hass.callService("light", "turn_off", {}, { entity_id: lights });
@@ -239,7 +246,7 @@ export class DomoTwinHome extends LitElement {
       case "lights":
         return html`<div class="detail">
           ${
-            glance.lights.length > 0
+            usableLights(this.hass, glance.lights).length > 0
               ? html`<button class="action" data-testid="home-all-off" @click=${this.allOff}>
                   ${t.t("home.all_off")}
                 </button>`
