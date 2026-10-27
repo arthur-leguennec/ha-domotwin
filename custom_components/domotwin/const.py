@@ -71,6 +71,12 @@ PEOPLE_STORAGE_VERSION: Final = 1
 MAX_PEOPLE: Final = 50
 # Private rooms (D-039): at most this many.
 MAX_PRIVATE_ROOMS: Final = 200
+# Per-person rights (D-071): the people given their own, and the rooms and devices one names.
+MAX_RIGHTS_PEOPLE: Final = 50
+MAX_RIGHTS_ROOMS: Final = 200
+MAX_RIGHTS_ENTITIES: Final = 500
+# A room's or a device's level: used, only seen, or hidden.
+RIGHTS_LEVELS: Final = ("use", "see", "hidden")
 MAX_PERSON_SOURCES: Final = 10
 PEOPLE_SHOWN: Final = ("everyone", "admins")
 PEOPLE_LOOKS: Final = ("figure", "pin")
@@ -207,7 +213,7 @@ MODEL_GRACE_SECONDS: Final = 86_400
 # Overlay entries of the models imported in edit mode: "@model:<model id>".
 MODEL_ENTRY_PREFIX: Final = "@model:"
 
-# The weekly report (docs/DECISIONS.md, D-071): its settings and the last reports, in a store of its
+# The weekly report (docs/DECISIONS.md, D-072): its settings and the last reports, in a store of its
 # own (.storage/domotwin.reports), private. At most this many reports kept (the oldest go first),
 # items a section of a report (the others counted), and a summary's characters.
 REPORT_STORAGE_KEY: Final = f"{DOMAIN}.reports"

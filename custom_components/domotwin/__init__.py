@@ -172,7 +172,7 @@ async def _async_start_history(hass: HomeAssistant, entry: DomoTwinConfigEntry) 
 
 
 async def _async_start_report(hass: HomeAssistant, entry: DomoTwinConfigEntry) -> None:
-    """The weekly report (D-071): looked for every hour; a week missed written once started."""
+    """The weekly report (D-072): looked for every hour; a week missed written once started."""
     report = WeeklyReport(hass, entry.runtime_data)
     await report.async_load()
     report.async_start()

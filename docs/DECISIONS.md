@@ -3362,7 +3362,76 @@ D-057) it plays its drafts in; the rest of the order (D-056, D-065) keeps its pl
   - The roadmap shows M35 done after M24; the rest of the order (D-056, D-065, D-067, D-068,
     D-069) stays.
 
-## D-071 · A weekly home report: written by the integration on its day, read in the panel (M37)
+## D-071 · Per-person rights: what DomoTwin shows each person and lets them do (M34)
+
+M34, moved forward with guest access (M33, D-067) at the maintainer's request.
+
+- **Context.** In a family home one screen is everyone's and a tablet is a child's; a
+  housemate's room is theirs. Home Assistant gives each of its users every entity (its
+  permissions are by user, administrator or not, not by entity), and roles are its most asked-for
+  feature (D-056); what exists either hides dashboards (kiosk-mode, browser_mod), rewrites Home
+  Assistant's groups' policies (Access Control Manager), patches it (user-rbac) or stands in
+  front of it as a proxy (ha-rbac). Private rooms (D-039) already close rooms for some people in
+  DomoTwin. D-056 asked (❓5): what DomoTwin shows and does only, or a way to enforce rights that
+  touches Home Assistant. The maintainer asked for M34 to be carried through without waiting: the
+  answer is the first, said plainly where the rights are set. Patching Home Assistant, rewriting
+  its groups or proxying it is not proposed: it would break with its releases and is not
+  DomoTwin's to change.
+- **Decision.**
+  - **Levels**: a room or a device is used (`use`, the default), only seen (`see`) or not seen
+    (`hidden`). Kept in the home's settings (`settings.rights`): everyone's (`everyone`) and each
+    person's own (`people`, by `person` entity), each `{rooms: {room id: level}, entities: {entity
+    id: level}}`; at most 50 people, 200 rooms and 500 devices each, checked by the integration
+    (`validation._rights`). Set by administrators, as the other settings.
+  - **Whose**: a person's through the Home Assistant user of their `person`, as private rooms
+    find them (D-039); everyone's for a user who is nobody's (a shared screen's), and for what a
+    person's own leave unset. Not for administrators: they set the rights, and Home Assistant gives
+    them everything; nor for the demo house, the sandbox or a guest's page (D-067), whose `hass`
+    is DomoTwin's own.
+  - **A device's level**: its own when it has one (the person's, else everyone's), else the
+    strictest of the rooms it is in. It is in a room when it is linked to the room or to a piece,
+    door or window that names the room (its overlay's first), or when its area is the room's (the
+    room's link, else the area of its name). A room not seen, or private and closed to the viewer
+    (D-039), hides everything in it, whatever their own level. The same rule in the integration
+    (`rights.py`) and the page (`live/rights.ts`).
+  - **In the page**: the rooms not seen join the private ones closed to the viewer
+    (`closedRooms`), so that everything D-039 does for those (the engine's closed rooms, the
+    people out of sight, the Home and Rooms tabs' areas and entities, the Safety tab and the
+    alerts (D-068), a room's graphs (D-069), `domotwin.show`) holds for them; the devices not seen are unlinked from what the view shows outside those rooms
+    (`Gate.shown`; inside, the view closes them whole, their dangers still shown) and left out of
+    the tabs, the sheets, "Why?" and the reports' search. The panel and the card give
+    their views a `hass` of the viewer's (`gatedHass`): `canAct` and `canSee` say what they may
+    do and see, and a call on a device they may not use is refused before Home Assistant
+    (`not_allowed`). DomoTwin's controls read them: a row's controls disabled, a tap on a piece
+    opening DomoTwin's own panel rather than Home Assistant's dialog, Home Assistant's cards made
+    to do nothing on a tap (`lookOnly`, the doorbell's lock too), a room's commands and own
+    actions and the Home tab's lights off on what may be used only, no action set or cancelled for
+    later.
+  - **In the integration**: an action set or cancelled for later (`domotwin.schedule`, the
+    sheets, the voice assistants) by a user who may not use one of its devices is refused
+    (`not_allowed`); the actions waiting on what a user does not see are not listed to them, nor
+    said by the assistants; `domotwin.where` and `domotwin.show` treat a room hidden from the one
+    asking as a private room. A question by voice with no user (a satellite's) is nobody's, with
+    everyone's rights, for the assistants' tools as for `domotwin.where`; an action set by an
+    automation or a script (no user) is Home Assistant's own, held to no one's. The rooms' people
+    sensors, everyone's entities, say nothing of a room hidden from everyone.
+  - **For administrators**: *Rights* in the panel's ⋮ menu, in one place: everyone's, then each
+    person's own, room by room on every storey with each room's devices, and devices in no room;
+    a sentence of what the person uses, only sees and does not see; an administrator, or a person
+    with no user, said as such (`config/auth/list`). A chunk loaded when it opens.
+- **Consequences.**
+  - **DomoTwin's own, not enforcement**: Home Assistant still lets every user use every entity in
+    its other dashboards, its API and its voice assistants. Said in the dialog and the guide:
+    rights keep a shared screen or a child's tablet to what is theirs, not behind a security
+    barrier. Real enforcement needs Home Assistant.
+  - The rights are read by every user, as the home's other settings.
+  - Private rooms (D-039) stay as they are, for everyone, administrators too; rights add to them
+    for those who are not administrators. A device in a private room closed to a user who is not
+    an administrator is not set for later by them either.
+  - Guest access (D-067) is for those without a Home Assistant user; rights for those with one.
+  - The first load grows by the gate and the menu item; the dialog is a chunk of its own.
+
+## D-072 · A weekly home report: written by the integration on its day, read in the panel (M37)
 
 M37, moved forward by the maintainer from the way to 0.6.0 (D-056), after Hydro-Québec's peaks
 (M39, D-063), whose week it reports. It waits on nothing the milestones before it build.
@@ -3430,7 +3499,9 @@ M37, moved forward by the maintainer from the way to 0.6.0 (D-056), after Hydro-
   - **Private rooms** (D-039): the page closes a room its viewer may not see now, as DomoTwin's
     views do: drawn closed, nothing of what is in it shown (counted only), its energy and its
     part of the peaks left out. The report itself keeps every room: whether one is private
-    depends on who looks, and when. The AI task is not told a room private now for nobody; the
+    depends on who looks, and when. The page is for administrators, whom the rights (D-071) do not
+    hold. The AI task, whose summary goes to every user, is not told a room closed now for nobody:
+    private, or hidden from everyone by the rights, as the rooms' sensors (D-071); the
     notification names no room.
   - **What changed since the last**: an item is new when the report before did not have it (its
     key stays the same while it is the same thing to look at: an update waiting, whichever version
@@ -3480,4 +3551,4 @@ M37, moved forward by the maintainer from the way to 0.6.0 (D-056), after Hydro-
     stops).
   - The first load grows by the menu item and its text; the page comes when opened
     (`PERFORMANCE.md`).
-  - The roadmap shows M37 done after automations in plain words (M35); the rest of the order stays.
+  - The roadmap shows M37 done after per-person rights (M34); the rest of the order stays.

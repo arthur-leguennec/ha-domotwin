@@ -120,6 +120,8 @@ export interface HarnessOptions {
   private?: string[];
   privateFor?: string;
   privateWhile?: string;
+  /** Each person's rights (D-071), as the stored settings keep them. */
+  rights?: unknown;
   /** The settings cannot be read until `window.__settingsUp()`. */
   settingsDown?: boolean;
   /** The tab this device opens on (D-055): the 3D view unless asked; `none`: the user's. */
@@ -146,7 +148,7 @@ export interface HarnessOptions {
   /** The configuration history (D-062): fictional items and their versions. */
   configHistory?: boolean;
   /**
-   * The weekly report (D-071): last week's and this week's (`true`), this week's summed up by an
+   * The weekly report (D-072): last week's and this week's (`true`), this week's summed up by an
    * AI task (`summary`), or none yet (`none`); `report` asks the panel for one, as the weekly
    * notification's link does.
    */
@@ -219,6 +221,7 @@ export async function openHarness(page: Page, options: HarnessOptions = {}): Pro
   if (options.private) params.set("private", options.private.join(","));
   if (options.privateFor) params.set("privatefor", options.privateFor);
   if (options.privateWhile) params.set("privatewhile", options.privateWhile);
+  if (options.rights) params.set("rights", JSON.stringify(options.rights));
   if (options.settingsDown) params.set("settingsdown", "1");
   if (options.start) params.set("start", options.start);
   if (options.userStart) params.set("userstart", options.userStart);

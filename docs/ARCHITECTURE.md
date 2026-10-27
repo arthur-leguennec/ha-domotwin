@@ -78,6 +78,13 @@ every reader returns `Result` with a stable error code that the frontend transla
   The integration keeps the passes (`custom_components/domotwin/guests.py`) and serves the page and
   what it asks outside Home Assistant's sign-in (`http.py`), checking each request against the
   pass; `logbook.py` says a guest's actions in Home Assistant's logbook.
+- Per-person rights (D-071): `live/rights.ts` works out what the viewer uses, only sees or does not
+  see (the same rule as `custom_components/domotwin/rights.py`): the rooms not seen join the
+  private ones closed (`closedRooms`), the devices not seen are unlinked (`Gate.shown`), and the
+  panel and the card give their views a `hass` whose `canAct` and `canSee` DomoTwin's controls
+  read and whose calls on what may not be used are refused (`gatedHass`).
+  `components/rights-dialog.ts` (its own chunk) sets them. The integration checks its own
+  services against them (`schedules.py`, `services.py`, `llm.py`, `sensor.py`).
 - Home Assistant's Overview (D-061): `live/overview.ts` says where an area's page is (the panel
   opens it for a room tapped in 3D); `components/summary-card.ts` is the summary card, whose body
   (`components/summary-body.ts`, `live/summaries.ts`) is a chunk of its own. The integration gives
@@ -93,7 +100,7 @@ every reader returns `Result` with a stable error code that the frontend transla
   history-graph and statistics-graph cards, which `components/room-graphs.ts` shows in the Rooms
   tab's chunk; `live/overview.ts` gives the address of Home Assistant's Energy page, which the
   panel's Energy tab opens.
-- The weekly report (D-071): `components/report-dialog.ts` (its own chunk) shows what
+- The weekly report (D-072): `components/report-dialog.ts` (its own chunk) shows what
   `domotwin/report/get` answers (`live/report.ts`), each storey's rooms drawn as SVG from their
   outlines; the integration writes the reports (`custom_components/domotwin/report*.py`).
 - `src/i18n/` holds the English and French dictionaries. Every visible string goes through `t()`.
@@ -220,7 +227,7 @@ every reader returns `Result` with a stable error code that the frontend transla
    (`SandboxHome`'s `draft`), which tells the dialog what it did each day played; the view draws
    its wires (`showWires`). Saved through `POST /api/config/automation/config/<id>`. Nothing of
    it is in the integration, and DomoTwin calls no model itself.
-12. **Weekly report.** The integration's `report.py` (D-071) looks every hour, on the hour,
+12. **Weekly report.** The integration's `report.py` (D-072) looks every hour, on the hour,
    whether the week's report is due (the day and hour chosen, a week missed caught up once Home
    Assistant has started), and writes it: what needs a look from Home Assistant's states,
    registries, repairs and traces and from the integrations installed (`report_look.py`, which
@@ -270,7 +277,11 @@ every reader returns `Result` with a stable error code that the frontend transla
   entity ids], "while"?: entity id}}`: kept for those people (none: for nobody), always or only
   while that entity is on ([`privacy.md`](privacy.md)); where the home's energy is read
   (`energy`, D-049); the Wi-Fi access points placed on the plan (`access_points`, D-066),
-  `[{"storey": id, "at": [x, y], "name"?}]`, 16 at most ([`placement.md`](placement.md)).
+  `[{"storey": id, "at": [x, y], "name"?}]`, 16 at most ([`placement.md`](placement.md)); each
+  person's rights (`rights`, D-071), `{"everyone"?: rights, "people"?: {person entity id:
+  rights}}`, each `{"rooms"?: {room id: level}, "entities"?: {entity id: level}}`, a level `use`,
+  `see` or `hidden`; at most 50 people, 200 rooms and 500 devices each
+  ([`rights.md`](rights.md)).
 - `upkeep` (D-033, storage 4.1): the upkeep cards by piece id, and how many days before it a task
   is due soon; see [`upkeep.md`](upkeep.md). Kept apart from the plan, like the bindings.
 - `revision`: bumped on every write. `revisions` keeps the revision of the last write of each kind
@@ -337,7 +348,7 @@ guests may use the devices, `wifi` whether the home's Wi-Fi is shown, `anywhere`
 from outside the home's network. 20 passes at most; one ended 30 days ago is forgotten. See
 [`guests.md`](guests.md).
 
-`.storage/domotwin.reports` (D-071, its own store, version 1, private): the weekly report's
+`.storage/domotwin.reports` (D-072, its own store, version 1, private): the weekly report's
 `settings` (`weekly`, `weekday` 0 to 6 from Monday, `hour`, `notify`, `summary`: an AI task or
 `null`, `battery`: the level a battery is low at), `since` (when reports started being kept),
 `next` (the next report's id), `last_scheduled` (when the last week's was written) and the
@@ -365,7 +376,7 @@ when the integration is removed.
 | `domotwin/bindings/get`  | user   | –                                              | `bindings`, `revision`           |
 | `domotwin/bindings/save` | admin  | `bindings`, `expected_revision?`               | `revision`                       |
 | `domotwin/settings/get`  | user   | –                                              | `settings`, `revision`           |
-| `domotwin/settings/save` | admin  | `settings` (`north`, 0 ≤ n < 360; `theme`, `accent`; `rooms`, at most 200; `energy`; `access_points`, at most 16) | `revision` |
+| `domotwin/settings/save` | admin  | `settings` (`north`, 0 ≤ n < 360; `theme`, `accent`; `rooms`, at most 200; `energy`; `access_points`, at most 16; `rights`) | `revision` |
 | `domotwin/upkeep/get`    | user   | –                                              | `upkeep`, `revision`, `today` (where the home is) |
 | `domotwin/upkeep/save`   | admin  | `pieces` (`{piece: card \| null}`, only those change), `lead_days?`, `expected_revision?` | `revision` |
 | `domotwin/upkeep/done`   | user   | `piece`, `task`                                | `revision`, `last_done`          |

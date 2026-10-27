@@ -1,4 +1,4 @@
-"""The radios the weekly report names (`docs/DECISIONS.md`, D-071).
+"""The radios the weekly report names (`docs/DECISIONS.md`, D-072).
 
 The Zigbee devices of ZHA that reach the coordinator only through a weak link, or not at all, by the
 same rules as the network map's analysis (`domotwin_core::network`, D-031, D-043), read from what

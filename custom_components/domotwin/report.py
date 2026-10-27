@@ -1,4 +1,4 @@
-"""The weekly home report (`docs/DECISIONS.md`, D-071).
+"""The weekly home report (`docs/DECISIONS.md`, D-072).
 
 Once a week, on the day and at the hour an administrator chose (Monday at 8 by default), DomoTwin
 writes what needs a look in the home (`look.py`), the week's energy against the week before and
@@ -68,6 +68,7 @@ from .report_week import (
     week_of,
 )
 from .report_words import ask, language_of, notification
+from .rights import hidden_rooms
 from .storage import DomoTwinData
 
 _LOGGER = logging.getLogger(__name__)
@@ -338,10 +339,12 @@ class WeeklyReport:
             if by == "schedule" and not self.due(now):
                 return None
             report, places = await self._work_out(by, now)
-            # The rooms the AI task may name: not those private now for nobody (D-039).
+            # The rooms the AI task may name, in what every user is told: not those closed now for
+            # nobody, private (D-039) or hidden from everyone by the rights (D-071).
+            settings = self._data.settings
             closed = private_rooms(
-                self._data.settings.get("rooms", {}), self._hass.states.get, None
-            )
+                settings.get("rooms", {}), self._hass.states.get, None
+            ) | hidden_rooms(self._hass, settings, None)
             rooms = {room.id: room.name for room in places.rooms if room.id not in closed}
             language = language_of(self._hass.config.language)
             if self.settings["summary"]:

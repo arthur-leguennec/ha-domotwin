@@ -2,7 +2,7 @@
 
 Once a week, DomoTwin writes what needs a look in the home: batteries low, devices unavailable,
 updates and repairs waiting, upkeep due, automations to look at, Zigbee devices on a weak link,
-and the week's energy against the week before, room by room on the plans (`DECISIONS.md`, D-071).
+and the week's energy against the week before, room by room on the plans (`DECISIONS.md`, D-072).
 Home Assistant's notification says it; the panel shows it.
 
 ![The weekly report of the fictional demo apartment and its upper floor: the week, a summary by a fictional AI task, what needs a look, room by room on the plans](figures/screenshot-report.png)
@@ -61,7 +61,8 @@ it, and **Show in 3D** to go there.
 
 A [private room](privacy.md) you may not see is closed in the page as in the rest of DomoTwin:
 drawn closed, what is in it counted but not shown, its energy left out. The notification names no
-room, and the AI task is not told a room that is private for nobody.
+room, and the AI task is not told a room that is private for nobody or that the
+[rights](rights.md) hide from everyone.
 
 ## Where
 

@@ -57,6 +57,7 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M25       | Safety: cameras, the doorbell, the alarm, alerts           | ✅     |
 | M24       | History and energy, with Home Assistant's own cards        | ✅     |
 | M35       | Automations in plain words, played in the sandbox first    | ✅     |
+| M34       | Per-person rights: what DomoTwin shows each one            | ✅     |
 | M37       | A weekly home report                                       | ✅     |
 | M40       | The weather around the home, in 3D                         | ⏳     |
 | M41       | Locating measured, next to Bermuda's on the same days      | ⏳     |
@@ -66,7 +67,6 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | 0.5.0     | Fifth release: all of the above                            | ⏳     |
 | M42       | Finer locating: a spot in the room, storeys by the stairs  | ⏳     |
 | M43       | mmWave sensors merged into one picture of the home         | ⏳     |
-| M34       | Per-person rights: what DomoTwin shows each one            | ⏳     |
 | M17       | A library of objects: many pieces, free and well made      | ⏳     |
 | M18       | Outdoors: garden, terrace, lawn, pool, roofs               | ⏳     |
 | M44       | Split levels and walk-out basements                        | ⏳     |
@@ -111,7 +111,9 @@ Assistant's sign-in, which DomoTwin enforces. Of M24 to M26, the maintainer then
 (M25, D-068) first, and history and energy (M24, D-069) next, both ahead of M40, M41 and M45.
 Automations in plain words (M35) came next, at the maintainer's request (D-070), on the sandbox it
 plays its drafts in.
-The maintainer then asked for the weekly report (M37, D-071), which reports Hydro-Québec's peaks
+Per-person rights (M34, D-071) followed: what DomoTwin shows each person and lets them do, set in
+one place, and said not to be Home Assistant's enforcement.
+The maintainer then asked for the weekly report (M37, D-072), which reports Hydro-Québec's peaks
 of the week and each room's energy with the rest.
 
 ## M0, scaffold
@@ -1318,7 +1320,7 @@ stored; nothing shown without them.
   (Rust, wasm); nothing without an integration, a peak's rooms and legend, the pre-heating, the
   Home tab's chip and the way to 3D, hydroqc's calendar in French, the peak's day in the sandbox
   from *The day* and from the Home tab (Playwright).
-- ✅ The week's peaks in the weekly report, with **M37** (D-071, below): each peak, and what the
+- ✅ The week's peaks in the weekly report, with **M37** (D-072, below): each peak, and what the
   home drew from the grid and each room during it.
 
 ## M20, more imports
@@ -1545,7 +1547,7 @@ D-069). After safety (M25), ahead of M40, M41 and M45 (D-065's order), at the ma
   back to the room, the graphs from a room's panel in 3D and back there, a private room, the
   Energy tab and back, none without an Energy page or with nothing set up, the demo house's power
   layer and plain rows, a phone in French (Playwright).
-- ✅ A room's energy over the week on the plan, with the weekly report (**M37**, D-071, below).
+- ✅ A room's energy over the week on the plan, with the weekly report (**M37**, D-072, below).
 - Left for later: graphs of a device from its controls in 3D (its history report is there, M38).
 
 ## M35, automations in plain words
@@ -1598,10 +1600,51 @@ sandbox was in. DomoTwin calls no model itself.
   takes one only from inside its frontend); an automation of the home changed in plain words; the
   sandbox playing several days at once.
 
+## M34, per-person rights
+
+What DomoTwin shows each person and lets them do, room by room and device by device, set in one
+place (`DECISIONS.md`, D-071; [`rights.md`](rights.md)). Moved forward with guest access (M33);
+D-056's question (❓5) answered: DomoTwin's own, said plainly not to be enforcement.
+
+- ✅ **Levels**: a room or a device used (the default), only seen, or not seen; everyone's, and
+  each person's own through the Home Assistant user of their `person`; a device's own level, else
+  the strictest of its rooms'. Not for administrators. Kept with the home's settings, checked by
+  the integration.
+- ✅ **In one place**: *Rights* in the panel's ⋮ menu, for administrators: everyone's, then each
+  person's, every storey's rooms with their devices, and devices in no room; what the person uses,
+  only sees and does not see, in a sentence; an administrator, or a person without a user, said.
+- ✅ **What is not seen**: a room closed as a private one (M9g), everywhere private rooms are; a
+  device unlinked on the plan and left out of the tabs, the panels, "Why?" and the reports' search.
+- ✅ **What is only seen**: its state and values; a tap opens DomoTwin's own panel, its controls
+  disabled; Home Assistant's cards on the tabs do nothing on a tap; the room's commands and own
+  actions, and the Home tab's lights off, leave it out; nothing set or cancelled for later.
+- ✅ **DomoTwin's own services checked**: actions set or cancelled for later (the sheets,
+  `domotwin.schedule`, the voice assistants) refused on what someone may not use; the actions
+  waiting on what they do not see not listed; `domotwin.where` and `domotwin.show` as for a
+  private room; the rooms' people sensors silent on a room hidden from everyone.
+- ✅ **Said where they are set**: Home Assistant still lets every user use every entity elsewhere;
+  real enforcement needs Home Assistant ❓.
+- ✅ Tests: the levels (a person's own, everyone's, a device's own, a room's, its area's, a room
+  closed), the rights checked and kept without what is empty, what is refused and why, actions for
+  later set and refused, listed and cancelled, by the assistants too, a private room closed to a
+  user, administrators and Home Assistant itself left alone, a room hidden not told and its sensor
+  silent (pytest); whose rights apply, the rooms closed with the private ones, a device's level, a
+  call's entities (by area, by device, a script by its name, floors and labels refused), a call
+  refused before Home Assistant, the devices unlinked, the gate worked out once, Home Assistant's
+  cards to look at, the rows disabled, a tap opening DomoTwin's panel, a room's commands and
+  actions, every device of each room (vitest); someone who only looks, their controls disabled, a
+  device unlinked, a room closed, the Rooms tab's cards; an administrator setting them in one
+  place; French; a dashboard card (Playwright).
+- Measured: the first load grows by 3.1 kB, the gate and the controls' checks; the dialog is 6.3 kB
+  gzipped, on demand; the gate is worked out in 1.0 ms for 500 elements and 1 000 entities, and
+  once for the home as it is ([`PERFORMANCE.md`](PERFORMANCE.md), M34).
+- Left for later: a preview of the home as someone sees it; rights by time of day (a private room
+  while an entity is on already does it for a room); enforcement, which needs Home Assistant.
+
 ## M37, a weekly home report
 
-Once a week, what needs a look in the home, room by room on the plans (`DECISIONS.md`, D-071;
-[`report.md`](report.md)). Moved forward by the maintainer, after automations in plain words (M35).
+Once a week, what needs a look in the home, room by room on the plans (`DECISIONS.md`, D-072;
+[`report.md`](report.md)). Moved forward by the maintainer, after per-person rights (M34).
 
 - ✅ **Written by the integration**, on the day and at the hour an administrator chose (Monday at
   8), where the home is: no screen open. Looked for every hour; a week missed written once Home
@@ -1641,15 +1684,15 @@ Once a week, what needs a look in the home, room by room on the plans (`DECISION
   weak radios by the network map's rules, the energy settings in both shapes, the week's energy and
   peaks from the recorder's answers, new and done since the last, a device unavailable across a
   restart, written on its day and told once (two hours at once, writing by hand), a week caught up,
-  a new home waiting, unloaded while writing, the AI task's summary, its refusal and a private room
-  it is not told, the settings for administrators, kept leniently and in bounds, the words in both
-  languages, the day across a change of time, the diagnostics, removed with the integration
-  (pytest); the report read leniently, each item in words and where it opens, the Maintenance
-  page, the plans' rooms and labels, the demo house's reports, the messages' placeholders
-  (vitest); the sections and the rooms, a room picked, the energy and the peaks, opening items and
-  showing one in 3D, writing one, an earlier week, the settings, the integration refusing, the
-  notification's link and a user who is not an administrator, none yet, a summary, a private room
-  closed, French, the demo house (Playwright).
+  a new home waiting, unloaded while writing, the AI task's summary, its refusal, a private room
+  and one hidden from everyone it is not told, the settings for administrators, kept leniently and
+  in bounds, the words in both languages, the day across a change of time, the diagnostics,
+  removed with the integration (pytest); the report read leniently, each item in words and where
+  it opens, the Maintenance page, the plans' rooms and labels, the demo house's reports, the
+  messages' placeholders (vitest); the sections and the rooms, a room picked, the energy and the
+  peaks, opening items and showing one in 3D, writing one, an earlier week, the settings, the
+  integration refusing, the notification's link and a user who is not an administrator, none yet,
+  a summary, a private room closed, French, the demo house (Playwright).
 
 ![The weekly report of the fictional demo apartment: the week, a summary, what needs a look, room by room on the plans](figures/screenshot-report.png)
 
@@ -1744,11 +1787,9 @@ before its milestone starts, which goes on with what needs no answer.
   for what it says, no more.
 - ✅ **M33, guest access** (D-067, above): moved forward by the maintainer; a page of DomoTwin's
   own outside Home Assistant's sign-in, enforced by DomoTwin, which answers D-056's ❓4.
-- ⏳ **M34, per-person rights**: building on private rooms (M9g), the rooms and devices DomoTwin
-  shows each person and lets them act on, its own services checked against them, all of it set
-  on the plan in one place. DomoTwin can hide; Home Assistant decides what is enforced, and today
-  lets every user act on every entity: said where the rights are set. Real enforcement needs Home
-  Assistant ❓.
+- ✅ **M34, per-person rights** (D-071, above): moved forward with guest access; what DomoTwin
+  shows each person and lets them do, said not to be enforcement, which answers D-056's ❓5. Real
+  enforcement needs Home Assistant ❓.
 - ✅ **M35, automations in plain words, tested first** (D-070, above): moved forward by the
   maintainer once the sandbox was in.
 - ✅ **M20, more imports** (D-064, above): done before 0.5.0, at the maintainer's request.
@@ -1756,8 +1797,8 @@ before its milestone starts, which goes on with what needs no answer.
   references, still fast.
 - ✅ **M36, configuration history** (D-062, above): done after Home Assistant's Overview, at
   the maintainer's request.
-- ✅ **M37, a weekly home report** (D-071, above): done after M31, M33, M25, M24 and M35, at the
-  maintainer's request; the weak spots M31 works out in the page are left for later.
+- ✅ **M37, a weekly home report** (D-072, above): done after M31, M33, M25, M24, M35 and M34, at
+  the maintainer's request; the weak spots M31 works out in the page are left for later.
 - ✅ **M38, history as reports** (D-058, above): done right after the sandbox, at the
   maintainer's request.
 - ⏳ **M18, outdoors**: the garden, the terrace, the lawn, a pool, the roofs; the lawn growing

@@ -32,6 +32,7 @@
 //   private=<room>,<room> (private rooms, D-039, kept for nobody), privatefor=<person> (kept for
 //   that person instead), privatewhile=<entity> (private only while it is on), settingsdown=1
 //   (the settings cannot be read until window.__settingsUp())
+//   rights=<JSON> (each person's rights, D-071, as the stored settings keep them)
 //   voice=1 (Assist with a pipeline that hears), voice=deaf (Assist that cannot hear),
 //   robot=1 (a robot vacuum's dock in the hall, linked to vacuum.robbie, docked; D-049)
 //   valetudo=1 (a robot running Valetudo: its vacuum and its Map data camera over MQTT, whose
@@ -75,7 +76,7 @@
 //   that instead, window.__aiHold (a promise) holds the answer back, window.__aiFail = "<message>"
 //   makes it refuse, window.__invalidConfig = { part, error } makes Home Assistant's check refuse;
 //   window.__apiHold (a promise) holds Home Assistant's configuration API back)
-//   weekly=1 (the weekly report, D-071: two fictional reports of the demo apartment, last week's
+//   weekly=1 (the weekly report, D-072: two fictional reports of the demo apartment, last week's
 //   and this week's, written on Monday mornings; Home Assistant 2026.10's Maintenance page),
 //   weekly=summary (this week's summed up by a fictional AI task, ai_task.helper), weekly=none
 //   (no report yet); report=<id> asks the panel for a report, as the notification's link does
@@ -291,6 +292,7 @@ const store = {
           },
         }
       : {}),
+    ...(params.get("rights") ? { rights: JSON.parse(params.get("rights")) } : {}),
     ...(params.get("private")
       ? {
           rooms: Object.fromEntries(
@@ -476,7 +478,7 @@ async function fetchWithAuth(path, init = {}) {
     return Response.json({ code: "not_found" }, { status: 404 });
   return new Response(bytes);
 }
-// The weekly report (D-071), as the integration keeps it: the reports, oldest first, and its
+// The weekly report (D-072), as the integration keeps it: the reports, oldest first, and its
 // settings.
 const weekly = params.get("weekly");
 const reports = weekly && weekly !== "none" ? fictionalReports(weekly === "summary") : [];
@@ -1645,8 +1647,8 @@ const connection = {
       case "config/auth/list":
         if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
         return [
-          { id: "e2e", name: "E2E" },
-          { id: "user-sam", name: "Sam" },
+          { id: "e2e", name: "E2E", group_ids: ["system-admin"] },
+          { id: "user-sam", name: "Sam", group_ids: ["system-users"] },
         ];
       case "domotwin/config_history/list":
         if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
@@ -2319,7 +2321,7 @@ if (sunPosition) {
     attributes: { azimuth, elevation, rising: azimuth < 180 },
   };
 }
-// The AI task that sums the weekly report up (D-071).
+// The AI task that sums the weekly report up (D-072).
 if (weekly === "summary") {
   states["ai_task.helper"] = {
     entity_id: "ai_task.helper",
@@ -2364,7 +2366,7 @@ let hass = {
           ...(params.get("nopanel") === "1" ? {} : { domotwin: { url_path: "domotwin" } }),
           // energypage=1: Home Assistant's Energy page (D-069).
           ...(energyPage ? { energy: { url_path: "energy" } } : {}),
-          // Home Assistant's Maintenance page (2026.5 and later), for the weekly report (D-071).
+          // Home Assistant's Maintenance page (2026.5 and later), for the weekly report (D-072).
           ...(weekly ? { maintenance: { url_path: "maintenance" } } : {}),
         },
       }

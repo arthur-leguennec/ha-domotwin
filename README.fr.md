@@ -18,13 +18,13 @@ Local, rapide, Rust + WebAssembly.</p>
 > anglais), et tout ce que décrit *Fonctionnalités* marche déjà. Depuis la 0.4.0 sont arrivés le bac
 > à sable, l’historique en tableaux, « Pourquoi ? », le code QR du Wi-Fi pour les invités,
 > l’historique de la configuration, les pointes d’Hydro-Québec, d’autres imports (cartes de robots
-> aspirateurs, Floorplanner, scans en maillage), la couverture radio, les pass d’invité, la
-> sécurité (les caméras, la sonnette, l’alarme, les alertes sur chaque onglet), les graphiques de
-> chaque pièce avec la page Énergie de Home Assistant à un onglet, les automatisations dites avec
-> vos mots, jouées dans le bac à sable avant d’être enregistrées, et un bilan de la semaine de ce
-> qui est à surveiller, et DomoTwin a rejoint la Vue d’ensemble de Home Assistant ; la météo autour
-> du logement et l’écran mural suivent, vers la 0.5.0. La proposition à la liste par défaut de HACS
-> attend des mesures sur de vrais appareils.
+> aspirateurs, Floorplanner, scans en maillage), la couverture radio, les pass d’invité, les droits
+> de chacun, la sécurité (les caméras, la sonnette, l’alarme, les alertes sur chaque onglet), les
+> graphiques de chaque pièce avec la page Énergie de Home Assistant à un onglet, les
+> automatisations dites avec vos mots, jouées dans le bac à sable avant d’être enregistrées, et un
+> bilan de la semaine de ce qui est à surveiller, et DomoTwin a rejoint la Vue d’ensemble de Home
+> Assistant ; la météo autour du logement et l’écran mural suivent, vers la 0.5.0. La proposition à
+> la liste par défaut de HACS attend des mesures sur de vrais appareils.
 
 ## Ce qui le distingue
 
@@ -145,6 +145,12 @@ Local, rapide, Rust + WebAssembly.</p>
   Assistant, avec le Wi-Fi si vous voulez, et se termine tout seul. Par défaut il ne s’ouvre que sur
   le réseau du logement ; DomoTwin vérifie chaque requête d’après le pass. Voir [l’accès
   invités](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/guests.md) (en anglais).
+- **Les droits.** Ce dont chaque personne se sert, ce qu’elle voit seulement ou ne voit pas dans
+  DomoTwin, pièce par pièce et appareil par appareil, réglé en un seul endroit : la tablette des
+  enfants allume leurs lampes et montre seulement celles du salon. Les vues, commandes et services
+  de DomoTwin les suivent ; Home Assistant laisse encore chaque utilisateur se servir de chaque
+  entité ailleurs, comme le dit la fenêtre. Voir [les
+  droits](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/rights.md) (en anglais).
 - **Dans la Vue d’ensemble de Home Assistant.** Une pièce touchée en 3D ouvre la page de sa zone
   dans la Vue d’ensemble (2026.2 et après). La page de chaque zone dit qui est dans la pièce et
   l’entretien à faire, et les cartes de résumé de DomoTwin (les personnes, le réseau, les

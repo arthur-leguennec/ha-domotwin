@@ -1,4 +1,4 @@
-"""The weekly home report (D-071): what needs a look, the week's energy and peaks, on its day."""
+"""The weekly home report (D-072): what needs a look, the week's energy and peaks, on its day."""
 
 from __future__ import annotations
 
@@ -1043,6 +1043,12 @@ async def test_the_summary_by_the_ai_task(
     await _write(client)
     assert "(in the Kitchen)" not in asked[1].data["instructions"]
     assert "Kitchen smoke alarm (5 %)" in asked[1].data["instructions"]
+    # Nor when the rights hide it from everyone (D-071), as the rooms' sensors do.
+    hidden = {**settings, "rights": {"everyone": {"rooms": {"kitchen": "hidden"}}}}
+    assert (await _send(client, {"type": "domotwin/settings/save", "settings": hidden}))["success"]
+    await _write(client)
+    assert "(in the Kitchen)" not in asked[2].data["instructions"]
+    assert "Kitchen smoke alarm (5 %)" in asked[2].data["instructions"]
     answer["refuse"] = "The model is not available"
     report = await _write(client)
     assert report["summary"] == {"by": "ai_task.helper", "error": "The model is not available"}

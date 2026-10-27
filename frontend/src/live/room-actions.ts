@@ -10,11 +10,13 @@ import { runAction } from "./actions";
 import {
   areaEntities,
   roleOf,
+  type Action,
   type BindingsJson,
   type BoundEntity,
   type Role,
   type RoomAction,
 } from "./bindings";
+import { actionEntities } from "./rights";
 
 export type { RoomAction } from "./bindings";
 
@@ -128,9 +130,21 @@ function switching(entities: string[], on: boolean): [string, string, string[]][
   return calls;
 }
 
-/** What the room does together, in the order offered; media off only while one plays. */
-export function roomCommands(hass: HomeAssistant, devices: RoomDevices): RoomCommand[] {
+/**
+ * What the room does together, in the order offered; media off only while one plays. On the
+ * devices the viewer may use (their rights, D-071).
+ */
+export function roomCommands(hass: HomeAssistant, given: RoomDevices): RoomCommand[] {
   const commands: RoomCommand[] = [];
+  const canAct = hass.canAct;
+  const devices = canAct
+    ? {
+        lights: given.lights.filter(canAct),
+        covers: given.covers.filter(canAct),
+        media: given.media.filter(canAct),
+        all: given.all.filter(canAct),
+      }
+    : given;
   if (devices.lights.length > 0) {
     commands.push(
       { key: "lights_on", label: "room.lights_on", calls: switching(devices.lights, true) },
@@ -199,6 +213,30 @@ export async function runRoom(
 /** The actions an administrator gave a room (`readBindings` left out anything malformed). */
 export function roomActions(bindings: BindingsJson, room: string): RoomAction[] {
   return bindings.rooms[room]?.actions ?? [];
+}
+
+/**
+ * Whether the viewer may run an action on the devices it names (their rights, D-071): one on a
+ * device they may only look at, or on floors or labels, is not offered.
+ */
+export function mayRun(hass: HomeAssistant, action: Action): boolean {
+  const { canAct, canCall } = hass;
+  if (!canAct || !canCall) return true;
+  switch (action.action) {
+    case "toggle":
+    case "more-info":
+      return action.entity_id === undefined || canAct(action.entity_id);
+    case "perform-action":
+    case "call-service":
+      return canCall(actionEntities(hass, action));
+    default:
+      return true;
+  }
+}
+
+/** The room's own actions the viewer may run (`mayRun`). */
+export function usableActions(hass: HomeAssistant, actions: RoomAction[]): RoomAction[] {
+  return hass.canAct ? actions.filter((what) => mayRun(hass, what.action)) : actions;
 }
 
 /**

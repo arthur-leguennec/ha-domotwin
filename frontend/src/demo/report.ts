@@ -1,5 +1,5 @@
 /**
- * The demo house's weekly report (D-071): last week's and this week's, made up for its rooms and
+ * The demo house's weekly report (D-072): last week's and this week's, made up for its rooms and
  * devices, answered as the integration would; another one written in the page. No AI task, no
  * radios, no Hydro-Québec peaks: the demo house has none of them.
  */

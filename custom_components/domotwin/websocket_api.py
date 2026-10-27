@@ -828,7 +828,7 @@ def ws_subscribe(
     The kinds: the plan (its overlay counts as the plan), the bindings, the settings, the upkeep,
     the people's settings, the home's Wi-Fi (`wifi`: only that it changed, D-060), the guest
     passes (`guests`: only that they changed, D-067) and the weekly report (`report`: a report
-    written or its settings changed, D-071).
+    written or its settings changed, D-072).
 
     Every `domotwin.show` is sent too: kind `show`, the request in `show`.
     """
