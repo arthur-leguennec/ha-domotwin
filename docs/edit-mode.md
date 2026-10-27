@@ -19,7 +19,7 @@ In the panel, **Arrange** opens edit mode (administrators only). The header gets
 - **Turn**: the two arrows of the bar turn the selection by 15°. One piece turns on itself onto
   the next step; several turn together around their middle.
 - **Remove**: the bin of the bar.
-- **Add a piece**: the catalogue is a library of the plan format's pieces (D-064), by room or use
+- **Add a piece**: the catalogue is a library of the plan format's pieces (D-070), by room or use
   (living room, kitchen, bathroom, heating and air, smart home, pets…): each kind and each of its
   styles (a Chesterfield sofa, a soundbar, a wood stove…) with its own picture, drawn by DomoTwin in
   the look of the view, and its usual size. The search reads names, styles and other words in the
@@ -164,7 +164,7 @@ plan refuses are left out; the view says how many. At most 1 000 entries.
   two flags of the element texture, tinted by the shader.
 - Frontend: `<domotwin-view>` (`editing`, drags, keys, the SVG guides), `edit-bar.ts` (the bar and
   the catalogue, loaded when edit mode opens), the panel (save, cancel, draft in `live/draft.ts`).
-- The catalogue's pictures (D-064): `PieceArtist` (`engine/engine.ts`) is a second engine on a
+- The catalogue's pictures (D-070): `PieceArtist` (`engine/engine.ts`) is a second engine on a
   hidden canvas, made when the catalogue opens and released when it closes; `piecePicture` builds
   a plan of the piece alone and `Renderer::piece_picture` draws it offscreen, framed on its
   bounds. The pieces shown come first, a few each frame (10 ms), and the pictures are kept for the

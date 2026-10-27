@@ -12,15 +12,17 @@ interface.
 | `domotwin-core`   | `serde`, `serde_json`   | plans, geometry, bindings, states   | GPU, browser, HA API |
 | `domotwin-render` | core, `three-d`, `glow` | meshes, materials, cameras, passes  | browser, HA          |
 | `domotwin-web`    | core, render, `web-sys` | canvas, JS values, timing           | HA                   |
-| `domotwin-import` | core, models, `serde_json` | IFC, Sweet Home 3D, DXF, scans → plan JSON | GPU, browser, HA |
+| `domotwin-import` | core, models, `serde_json`, `miniz_oxide` | IFC, Sweet Home 3D, DXF, scans, robot maps, FML, meshes → plan JSON | GPU, browser, HA |
 | `domotwin-models` | `serde_json`, `miniz_oxide` | glTF, OBJ, STL, 3MF → meshes    | core, GPU, HA        |
 | `domotwin-planner` | core, `serde_json`     | the plan editor's draft (D-025)     | GPU, browser, HA     |
-| `domotwin-analysis` | core, `serde_json`, `qrcodegen` | radio meshes, automations' configurations (D-043), the Wi-Fi QR code (D-060) | GPU, browser, HA |
+| `domotwin-analysis` | core, `serde_json`, `qrcodegen` | radio meshes, automations' configurations (D-043), the Wi-Fi QR code (D-060), radio coverage (D-066) | GPU, browser, HA |
 
-`domotwin-import` imports the plans of other apps (`ifc-import.md`, `imports.md`, D-040): its own
-wasm module, loaded only when such a file is imported. Each reader gives one plan builder a draft;
-the builder writes an ordinary plan that the core then reads like any other. It reads ZIP archives
-and XML with `domotwin-models`' readers (without its wasm API).
+`domotwin-import` imports the plans of other apps (`ifc-import.md`, `imports.md`, D-040, D-064):
+its own wasm module, loaded only when such a file is imported. Each reader gives one plan builder a
+draft; the builder writes an ordinary plan that the core then reads like any other. It reads ZIP
+archives and XML with `domotwin-models`' readers (without its wasm API), and zlib and gzip with
+`miniz_oxide`. Robot vacuum maps and mesh scans are cells before they are rooms (`grid`): a robot's
+map is cells already, a mesh is cut into them at the heights where furniture is not.
 `domotwin-models` reads the 3D files of user models (D-021): its own wasm module too, loaded only
 when a plan shows a piece drawn from a 3D file or one is imported. It writes a compact mesh that
 the core fits into the piece (`model_mesh`, `scene::imported`).
@@ -28,9 +30,13 @@ the core fits into the piece (`model_mesh`, `scene::imported`).
 loaded only when the plan editor opens; the engine shows each version of the draft.
 `domotwin-analysis` reads and analyses what Home Assistant says of a radio mesh and of the
 automations (`network.md`, `automations.md`, D-043): its own wasm module too, loaded the first time
-the network map or the automations are shown. The engine is handed only what it draws: the mesh's
-drawing (the devices' pieces and the links' qualities and pulses), which it answers with the room
-of each device for the analysis's health, and the automations' placed ends.
+the network map, the automations or the radio coverage are shown. The engine is handed only what
+it draws: the mesh's drawing (the devices' pieces and the links' qualities and pulses), which it
+answers with the room of each device for the analysis's health, and the automations' placed ends.
+It also advises where the next radio helps most (`placement.md`, D-066), from the storeys' plans,
+the radios placed and what they measured, with the core's `coverage` module: the locating's model
+(D-035), its walls counted as the integration counts them; the engine draws the rooms' levels as a
+layer.
 
 `domotwin-core` is where the logic lives and where the tests concentrate. It never panics on input:
 every reader returns `Result` with a stable error code that the frontend translates.
@@ -63,11 +69,30 @@ every reader returns `Result` with a stable error code that the frontend transla
 - The Wi-Fi for guests (D-060): `components/wifi-dialog.ts` (its own chunk) draws the QR code the
   analysis module encodes (`wifiQr`), from what `domotwin/wifi/get` answers (`live/wifi.ts`); the
   integration keeps the network in a private store of its own (`custom_components/domotwin/wifi.py`).
+- Guest access (D-067): `components/guests-dialog.ts` (its own chunk) makes the passes over
+  `domotwin/guests/*` (`live/guests.ts`, `live/guest-pass.ts`) and draws a pass's link as a QR code
+  (`textQr`). The guests' page is a bundle of its own (`guest/entry.ts`, `guest.js`, with
+  `guest.html`): `guest/page.ts` reads the home through the pass, shows it on the card with a
+  `hass` of the guest's (`guest/home.ts`), whose connection answers DomoTwin's commands from what
+  the pass shows, whose actions go to the pass, and whose states follow it as server-sent events.
+  The integration keeps the passes (`custom_components/domotwin/guests.py`) and serves the page and
+  what it asks outside Home Assistant's sign-in (`http.py`), checking each request against the
+  pass; `logbook.py` says a guest's actions in Home Assistant's logbook.
 - Home Assistant's Overview (D-061): `live/overview.ts` says where an area's page is (the panel
   opens it for a room tapped in 3D); `components/summary-card.ts` is the summary card, whose body
   (`components/summary-body.ts`, `live/summaries.ts`) is a chunk of its own. The integration gives
   each room a device in its area with two sensors (`custom_components/domotwin/sensor.py`,
   `overview.py`: the people in it, the upkeep due for its pieces).
+- Safety (D-068): `live/doorbell.ts` watches the home's doorbells on every `hass`, and
+  `live/security.ts` reads the alerts chosen on Home Assistant's Security page (its system data,
+  followed by the panel) and says those on now beside the rooms' (`live/storeys.ts`); both are in
+  the first load. The Safety tab (`components/safety-tab.ts`, `live/safety.ts`) and the alerts'
+  bar above the other tabs (`components/alert-bar.ts`) are in the tabs' chunk; the doorbell's full
+  screen (`components/doorbell.ts`) is a chunk loaded at the first ring.
+- History and energy (D-069): `live/graphs.ts` sorts a room's entities into Home Assistant's
+  history-graph and statistics-graph cards, which `components/room-graphs.ts` shows in the Rooms
+  tab's chunk; `live/overview.ts` gives the address of Home Assistant's Energy page, which the
+  panel's Energy tab opens.
 - `src/i18n/` holds the English and French dictionaries. Every visible string goes through `t()`.
 
 ![Render on demand: frames only when something changes, nothing while idle or off-screen](figures/render-on-demand.png)
@@ -103,7 +128,7 @@ every reader returns `Result` with a stable error code that the frontend transla
   `screenPoint`, `stats`, `frame`, walking (`setWalk`, `setWalkVelocity`, `walkTo`) and the kiosk's
   `setAutoOrbit`, for 3D files `modelFiles` (what to fetch) and `setModelMesh`, and for the
   catalogue `editCatalogue` and `piecePicture`, a piece of the library drawn alone by an engine of
-  its own (D-064).
+  its own (D-070).
 - In the frontend, `src/gestures.ts` turns pointer events into drags, pans, pinches, taps and long
   presses, and `<domotwin-view>` applies them, runs the actions and draws the toolbar.
 
@@ -221,7 +246,9 @@ every reader returns `Result` with a stable error code that the frontend transla
   clockwise from its top, for the real sun (D-023); the look shown by default and its accent
   (`theme`, `accent`, D-027); the private rooms (`rooms`, D-039), `{room id: {"people": [person
   entity ids], "while"?: entity id}}`: kept for those people (none: for nobody), always or only
-  while that entity is on ([`privacy.md`](privacy.md)).
+  while that entity is on ([`privacy.md`](privacy.md)); where the home's energy is read
+  (`energy`, D-049); the Wi-Fi access points placed on the plan (`access_points`, D-066),
+  `[{"storey": id, "at": [x, y], "name"?}]`, 16 at most ([`placement.md`](placement.md)).
 - `upkeep` (D-033, storage 4.1): the upkeep cards by piece id, and how many days before it a task
   is due soon; see [`upkeep.md`](upkeep.md). Kept apart from the plan, like the bindings.
 - `revision`: bumped on every write. `revisions` keeps the revision of the last write of each kind
@@ -281,6 +308,13 @@ and the fingerprint of its keys sorted (`null` when removed); `next`, the next v
 in all and 50 versions an item (the oldest versions go first), 1 MB a version; past 2 000 items,
 the removed ones are forgotten. See [`config-history.md`](config-history.md).
 
+`.storage/domotwin.guests` (D-067, its own store, version 1, private): the guest passes,
+`passes`: `{id, token, name, rooms, entities, starts, ends, act, wifi, anywhere}`, the `token` the
+link's secret (`secrets.token_urlsafe(32)`), `starts` and `ends` ISO 8601 in UTC, `act` whether the
+guests may use the devices, `wifi` whether the home's Wi-Fi is shown, `anywhere` whether it opens
+from outside the home's network. 20 passes at most; one ended 30 days ago is forgotten. See
+[`guests.md`](guests.md).
+
 The 3D files of user models are not in `.storage`: they are kept under their SHA-256 in
 `<config>/domotwin/models/<sha256>.<format>` (D-021), uploaded with `POST /api/domotwin/models?format=…`
 (administrators; answers `{hash, bytes, format}`) and read with
@@ -301,14 +335,14 @@ when the integration is removed.
 | `domotwin/bindings/get`  | user   | –                                              | `bindings`, `revision`           |
 | `domotwin/bindings/save` | admin  | `bindings`, `expected_revision?`               | `revision`                       |
 | `domotwin/settings/get`  | user   | –                                              | `settings`, `revision`           |
-| `domotwin/settings/save` | admin  | `settings` (`north`, 0 ≤ n < 360; `theme`, `accent`; `rooms`, at most 200) | `revision` |
+| `domotwin/settings/save` | admin  | `settings` (`north`, 0 ≤ n < 360; `theme`, `accent`; `rooms`, at most 200; `energy`; `access_points`, at most 16) | `revision` |
 | `domotwin/upkeep/get`    | user   | –                                              | `upkeep`, `revision`, `today` (where the home is) |
 | `domotwin/upkeep/save`   | admin  | `pieces` (`{piece: card \| null}`, only those change), `lead_days?`, `expected_revision?` | `revision` |
 | `domotwin/upkeep/done`   | user   | `piece`, `task`                                | `revision`, `last_done`          |
 | `domotwin/people/get`    | user   | `candidates?` (administrators: the entities that may say where someone is) | `revision`, `shown`, `look`, `hidden`, `people` (`{person: {sources, color, sensor, located}}`; none for others when shown to administrators only), `candidates?` |
 | `domotwin/people/save`   | admin  | `people`, `shown?`, `look?`, `expected_revision?` | `revision`                     |
 | `domotwin/people/hide`   | user   | `person` (oneself; administrators anyone), `hidden` | `revision`                   |
-| `domotwin/locating/get`  | admin  | –                                              | `revision`, `status`, `learn`, `receivers`, `devices` (with their `room`, `confidence`, `last_seen`, `left_behind`, `missing_key`), `learned`, `rooms` |
+| `domotwin/locating/get`  | admin  | –                                              | `revision`, `status`, `learn`, `receivers` (with their `place`, D-066), `devices` (with their `room`, `confidence`, `last_seen`, `left_behind`, `missing_key`), `learned`, `heard` (`{room: {source: {signal, readings}}}`, D-066), `rooms` |
 | `domotwin/locating/save` | admin  | `receivers`, `devices`, `learn?`, `expected_revision?` | `revision`                 |
 | `domotwin/locating/candidates` | admin | –                                        | `candidates` (`[{match, name, rssi?}]`) |
 | `domotwin/locating/teach` | admin | `device`, `room`, `seconds?` (10–120, 30)     | `readings`, `receivers`          |
@@ -320,14 +354,35 @@ when the integration is removed.
 | `domotwin/config_history/item`  | admin  | `item`                                         | `item`, `versions` (`[{id, at, removed, kept, same_as?}]`, newest first) |
 | `domotwin/config_history/version` | admin | `item`, `version`                            | `config` (`null`: removed, or too large to keep) |
 | `domotwin/config_history/refresh` | admin | `kind?` (every kind without one)             | `changed` (the versions kept)    |
+| `domotwin/guests/get`    | admin  | –                                              | `passes` (`[{id, name, rooms, entities, starts, ends, act, wifi, anywhere, path, url, status}]`) |
+| `domotwin/guests/save`   | admin  | `pass` (`{id?, name, rooms, entities, starts, ends, act?, wifi?, anywhere?, renew?}`) | the pass, as `get` lists it |
+| `domotwin/guests/remove` | admin  | `pass` (its id)                                | `removed`                        |
 | `domotwin/subscribe`     | user   | –                                              | events `{kind, revision}`, and `{kind: "show", show}` for `domotwin.show` |
 
 Errors: `not_loaded`, `invalid_plan`, `invalid_layout`, `invalid_bindings`, `invalid_settings`,
 `invalid_upkeep`, `unknown_task`, `invalid_people`, `unknown_person`, `invalid_locating`,
 `unknown_device`, `unknown_room`, `no_bluetooth`, `too_large`, `too_many_favourites`,
 `too_many_models`, `revision_conflict`, `unknown_storey`, `invalid_storey`, `too_many_storeys`,
-`duplicate_id`, `unknown_item`, `unknown_version`, and Home Assistant's `unauthorized` for
-non-admin writes (and the history's reads).
+`duplicate_id`, `unknown_item`, `unknown_version`, a pass's (`ends_before`, `already_ended`,
+`too_long`, `too_far`, `unknown_room`, `not_for_guests`, `nothing_open`, `too_many`,
+`unknown_pass`), and Home Assistant's `unauthorized` for non-admin writes (and the history's and
+the passes' reads).
+
+## The guests' page
+
+Served by the integration outside Home Assistant's sign-in (D-067), each request checked against
+the pass whose secret is in its address (`<secret>`): known, open now, from the home's network
+unless the pass opens from anywhere. Refusals are `{code, starts?, ends?}`: `unknown` (404),
+`home_only`, `not_yet` (403), `ended` (410), `look_only`, `not_allowed` (403), `invalid`,
+`refused` (400, Home Assistant's own words in `message`), `too_many_calls`, `too_many_pages` (429).
+
+| Request | Answer |
+| --- | --- |
+| `GET /api/domotwin/guest/<secret>` | the page (`guest.html`), under its `Content-Security-Policy` |
+| `GET …/home` | `pass` (`{name, starts, ends, act, entities}`), `home`, `storeys` (`[{info, plan, layout}]`), `bindings`, `settings`, `states`, `entities`, `areas`, `wifi`, `config` (`time_zone`, `unit_system`) |
+| `GET …/events` | server-sent events: `state` (an entity's state), `home` (read it again), `end` |
+| `POST …/call` | `{domain, service, data?, target: {entity_id}}` → `{done: true}` |
+| `GET …/models/<sha256>.<format>` | a 3D file a piece it shows is drawn from |
 
 ## Entities
 

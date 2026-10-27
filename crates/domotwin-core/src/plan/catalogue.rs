@@ -201,7 +201,7 @@ kinds! {
     Printer = "printer", [42, 38, 25], 0xe8e8e6, 0, NONE, [];
     Printer3d = "3d-printer", [35, 36, 49], 0x1f2022, 0, NONE, ["enclosed"];
     RobotVacuum = "robot-vacuum", [40, 50, 12], 0x3d4147, 0, NONE, [];
-    // The library (M17, D-064): pieces drawn from the usual sizes of real ones.
+    // The library (M17, D-070): pieces drawn from the usual sizes of real ones.
     CornerSofa = "corner-sofa", [270, 170, 85], 0x6b6e5c, 0, NONE, ["left"];
     Ottoman = "ottoman", [60, 60, 42], 0x8a7a66, 0, NONE, ["round"];
     TvStand = "tv-stand", [160, 40, 50], 0x8a6a4a, 0, NONE, [];
@@ -284,7 +284,7 @@ impl Kind {
     }
 
     /// Whether the kind has a fire that burns while what it is linked to is on: a switch on, or a
-    /// climate entity not off (D-064).
+    /// climate entity not off (D-070).
     pub const fn burns(self) -> bool {
         matches!(self, Kind::Fireplace)
     }
@@ -485,7 +485,7 @@ mod tests {
 
     #[test]
     fn styles_have_their_own_sizes_colours_and_lifts() {
-        // D-064: a soundbar is not a smart speaker, a dome camera is on the ceiling.
+        // D-070: a soundbar is not a smart speaker, a dome camera is on the ceiling.
         let soundbar = Kind::Speaker.style_info(Some("soundbar"));
         assert_eq!(soundbar.size, [90.0, 10.0, 7.0]);
         assert_eq!(soundbar.color, Rgb8::from_u32(0x2a2c2e));

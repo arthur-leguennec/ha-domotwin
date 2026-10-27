@@ -67,7 +67,7 @@ const RADIATOR: KindName = "radiator";
 /** Furniture kinds with a plug: power sensors and switches fit them. */
 const APPLIANCE_KINDS = new Set([...APPLIANCES, "fridge", "freezer", "wine-cooler"]);
 /**
- * The library's devices (D-064): the domains, and device classes where they matter, of the
+ * The library's devices (D-070): the domains, and device classes where they matter, of the
  * entities that are them, the best first. A power sensor or a switch fits them too, less.
  */
 const DEVICE_FITS: Partial<Record<KindName, [string, string[]?][]>> = {

@@ -295,6 +295,7 @@ export const fr: Dictionary = {
     power: "Consommation",
     peak: "Pointes d’Hydro-Québec",
     network: "Réseau Zigbee",
+    coverage: "Couverture radio",
     automations: "Automatisations",
     upkeep: "Entretien",
     sun: "Soleil par les fenêtres",
@@ -314,6 +315,7 @@ export const fr: Dictionary = {
     alert_window_rain: "Fenêtre ouverte sous la pluie : {room}",
     alert_co2: "CO₂ élevé : {room}, ouvrez une fenêtre",
     more_alerts: { one: "et {count} autre", other: "et {count} autres" },
+    alert_entity: "{name} : {state}",
   },
   devices: {
     locked: "{name} : verrouillé",
@@ -481,6 +483,7 @@ export const fr: Dictionary = {
     no_area_admin: "Liez-la dans le panneau DomoTwin, ou donnez à la zone le nom de la pièce.",
     private: "Cette pièce est privée.",
     history: "Historique",
+    graphs: "Graphiques",
   },
   voice: {
     title: "Voix",
@@ -665,11 +668,16 @@ export const fr: Dictionary = {
     menu: "Wi-Fi des invités",
     button: "Wi-Fi des invités : son code QR",
   },
+  guests: {
+    menu: "Accès invités",
+  },
   tabs: {
     label: "Onglets de DomoTwin",
     home: "Accueil",
     rooms: "Pièces",
+    safety: "Sécurité",
     three_d: "3D",
+    energy: "Énergie",
   },
   rooms: {
     star_failed: "Vos favoris n’ont pas changé : {reason}",
@@ -763,7 +771,15 @@ export const fr: Dictionary = {
       sh3d: "Sweet Home 3D",
       dxf: "un dessin DXF",
       scan: "le scan d’une pièce",
+      robot: "la carte d’un robot aspirateur",
+      fml: "Floorplanner",
+      mesh: "le maillage d’un scan",
     },
+    import_robot: "Importer la carte d’un robot",
+    import_robot_pick: "La carte de quel robot ?",
+    import_robot_reading: "Lecture de la carte de {name}…",
+    import_robot_linked: "Sa base est liée à {name}.",
+    import_robot_link_failed: "Sa base n’a pas pu être liée à {name} : {reason}",
     import_left_out: "Laissés de côté : {list}.",
     import_cards: {
       one: "Le fichier a rempli {count} fiche d’entretien.",
@@ -1130,7 +1146,21 @@ export const fr: Dictionary = {
       no_spaces:
         "aucune pièce n’a été trouvée à cet étage. Dessinez ses pièces (espaces) dans votre logiciel et exportez à nouveau.",
       not_plan:
-        "ce n’est pas un plan lisible par l’application : un plan DomoTwin, un fichier IFC, une maison Sweet Home 3D (.sh3d), un dessin DXF ou le scan d’une pièce.",
+        "ce n’est pas un plan lisible par l’application : un plan DomoTwin, un fichier IFC, une maison Sweet Home 3D (.sh3d), un dessin DXF, le scan d’une pièce, la carte d’un robot aspirateur, un plan Floorplanner (.fml) ou le maillage d’un scan (OBJ, PLY, GLB, STL).",
+      picture:
+        "c’est une image, sans pièces à y lire : dessinez le plan dans l’éditeur de plan, ou importez la carte du robot depuis Valetudo.",
+      fml_xml:
+        "c’est un plan Floorplanner de l’ancien format (XML) : exportez-le à nouveau depuis Floorplanner en FML.",
+      mesh_points:
+        "il contient des points sans faces (un nuage de points) : exportez le scan en maillage (OBJ, PLY ou GLB).",
+      mesh_gltf:
+        "c’est un glTF dont les données sont dans d’autres fichiers : exportez le scan en un seul fichier GLB.",
+      mesh_fbx: "c’est un fichier FBX : exportez le scan en OBJ, PLY ou GLB.",
+      mesh_too_large:
+        "le scan a plus de 5 millions de triangles : exportez-le avec moins de détails.",
+      robot_map_missing:
+        "Home Assistant n’a pas encore la carte de ce robot : vérifiez que Valetudo publie sa carte par MQTT.",
+      not_robot_map: "cette caméra ne contient pas la carte d’un robot venant de Valetudo.",
       sh3d_old:
         "il a été enregistré par un Sweet Home 3D antérieur à 5.3 : ouvrez-le avec et enregistrez-le à nouveau.",
       dxf_binary: "c’est un dessin DXF binaire : enregistrez-le en DXF ASCII.",

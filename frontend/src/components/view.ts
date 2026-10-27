@@ -9,7 +9,6 @@ import {
   mdiToilet,
   mdiTree,
   mdiWardrobeOutline,
-  mdiAlert,
   mdiAlertCircleOutline,
   mdiArrowCollapseVertical,
   mdiArrowExpandVertical,
@@ -119,6 +118,7 @@ import {
   HEAT_KINDS,
   LAYER_NAMES,
   automationsAvailable,
+  coverageAvailable,
   networkAvailable,
   formatHeat,
   formatPower,
@@ -158,6 +158,7 @@ import { peaksAvailable } from "../live/peak-sources";
 import type { PeakNow } from "../live/peaks";
 import type { PeakRooms, PeakUnseen } from "../live/peak-rooms";
 import { locatedSensors, locatedShown, type LocatedShown } from "../live/locating";
+import type { AccessPoint } from "../live/placement";
 import {
   NOTHING_UNSEEN,
   outOfSight,
@@ -181,6 +182,7 @@ import {
 import { roomBarStyles, roomButtons } from "./room-bar";
 import {
   ALL_STOREYS,
+  homeStoreys,
   storeyCounts,
   storeyLevels,
   storeyName,
@@ -199,6 +201,8 @@ import {
 } from "../live/room-labels";
 import { assistAvailable, canListen, listeningPipeline, openAssist } from "../live/voice";
 import { drawable, type Wifi } from "../live/wifi";
+import { securityPage, shownAlerts, type SecurityAlert } from "../live/security";
+import { alertButton, type AlertRoom } from "./alert-button";
 import { FrameScheduler } from "../scheduler";
 import { readTip, tipRead } from "../live/draft";
 import { fire } from "./define";
@@ -340,6 +344,17 @@ type NetworkMap = HTMLElement & {
   reproject(scale: number): void;
   selectLink(a: string, b: string): void;
 };
+
+/** What the view asks of the radio coverage (`placement-panel.ts`, loaded on demand). */
+type PlacementSheet = HTMLElement & {
+  reproject(scale: number): void;
+  /** An access point is being placed: the next tap on the floor says where. */
+  readonly placing: boolean;
+  placeAt(at: [number, number]): void;
+};
+
+/** No access point placed. */
+const NO_ACCESS_POINTS: AccessPoint[] = [];
 
 /** What the view asks of the automation wires (`automation-wires.ts`, loaded on demand), and of
  * a chain drawn in the home (`why-wires.ts`, D-059). */
@@ -584,10 +599,13 @@ export class DomoTwinView extends LitElement {
     placeDevices: { attribute: false },
     linkable: { attribute: false },
     roomTab: { attribute: false },
+    securityAlerts: { attribute: false },
     bubble: { state: true },
     tip: { state: true },
     bubbleBusy: { state: true },
     networkLoaded: { state: true },
+    placementLoaded: { state: true },
+    accessPoints: { attribute: false },
     wiresAsked: { state: true },
     wiresLoaded: { state: true },
     whyAsked: { state: true },
@@ -672,6 +690,11 @@ export class DomoTwinView extends LitElement {
   /** The panel's Rooms tab (D-055): a room tapped opens its room there, by its area. */
   roomTab = false;
   /**
+   * Home Assistant's alerts on now (the panel's, D-068), said in the banner after the rooms' of
+   * the same level; a tap opens its Security page.
+   */
+  securityAlerts: readonly SecurityAlert[] = [];
+  /**
    * Edit mode (the panel's): a tap selects a piece, dragging a selected piece moves it. Every
    * change fires `domotwin-edit` (detail: the `EditState`).
    */
@@ -729,6 +752,8 @@ export class DomoTwinView extends LitElement {
   home?: HomeStorey[];
   /** The rooms of the other storeys: their alerts show too, and a tap on one goes there. */
   elsewhere: StoreyRooms[] = [];
+  /** The Wi-Fi access points placed on the plan (the home's settings, D-066). */
+  accessPoints: AccessPoint[] = NO_ACCESS_POINTS;
 
   protected engineState: EngineState = "idle";
   protected summary?: PlanSummary;
@@ -790,6 +815,12 @@ export class DomoTwinView extends LitElement {
   /** The network map's module is loaded (D-031). */
   protected networkLoaded = false;
   private networkModule?: Promise<unknown>;
+  /** The radio coverage's module is loaded (D-066), and the rooms' levels it gave. */
+  protected placementLoaded = false;
+  private placementModule?: Promise<unknown>;
+  private coverage?: Record<string, number>;
+  /** Every storey's plan, as the radio coverage reads them, and what they were made from. */
+  private placementHome?: { from: unknown[]; storeys: HomeStorey[] };
   /** The automations whose wires a panel asked for (D-032), and the wires' module loaded. */
   protected wiresAsked?: { ids: string[]; reads?: WiresReads };
   protected wiresLoaded = false;
@@ -1188,6 +1219,8 @@ export class DomoTwinView extends LitElement {
         position: absolute;
         top: 12px;
         right: 68px;
+        /* An open menu is over the sheets of the layers (the network map's, the coverage's). */
+        z-index: 5;
         min-width: 160px;
         max-height: calc(100% - 24px);
         overflow: auto;
@@ -2204,7 +2237,7 @@ export class DomoTwinView extends LitElement {
     }
   }
 
-  /** The accent the view draws in (the catalogue's pictures take it, with `look`, D-064). */
+  /** The accent the view draws in (the catalogue's pictures take it, with `look`, D-070). */
   get accentShown(): string {
     return this.accent;
   }
@@ -2617,6 +2650,15 @@ export class DomoTwinView extends LitElement {
       this.planEditor.tap(x, y);
       return;
     }
+    const placement = this.coverageShown ? this.placementElement() : null;
+    if (placement?.placing) {
+      // The radio coverage asks where an access point stands (D-066): the floor tapped.
+      const point = this.devicePoint(x, y);
+      const at = engine.planPoint(point.x, point.y);
+      this.gestures.forgetTap();
+      if (at) placement.placeAt(at);
+      return;
+    }
     if (this.edit) {
       // Edit mode: a tap selects a piece (anything else clears the selection).
       const picked = this.landedAt(x, y);
@@ -2908,6 +2950,7 @@ export class DomoTwinView extends LitElement {
    */
   private get shownLayer(): LayerName {
     if (this.layer === "network" && !this.networkAllowed) return "off";
+    if (this.layer === "coverage" && !coverageAvailable(this.hass)) return "off";
     if (this.layer === "automations" && !automationsAvailable(this.hass)) return "off";
     if (this.layer === "upkeep" && !this.upkeep) return "off";
     if (this.layer === "peak" && !peaksAvailable(this.hass)) return "off";
@@ -2926,7 +2969,13 @@ export class DomoTwinView extends LitElement {
   /** The layer shown puts values on the home (a heatmap, the power drawn) and has a legend. */
   private get valueLayer(): boolean {
     const layer = this.shownLayer;
-    return layer !== "off" && layer !== "network" && layer !== "automations" && layer !== "upkeep";
+    return (
+      layer !== "off" &&
+      layer !== "network" &&
+      layer !== "coverage" &&
+      layer !== "automations" &&
+      layer !== "upkeep"
+    );
   }
 
   /**
@@ -2992,6 +3041,52 @@ export class DomoTwinView extends LitElement {
   /** The network map over the view, while it is shown. */
   private networkElement(): NetworkMap | null {
     return this.renderRoot.querySelector<NetworkMap>("domotwin-network");
+  }
+
+  /**
+   * The radio coverage is shown (D-066): chosen, allowed, no tool at work over the view, and not
+   * walking.
+   */
+  private get coverageShown(): boolean {
+    return this.shownLayer === "coverage" && !this.editingAny && !this.linking && !this.walking;
+  }
+
+  /** The radio coverage over the view, while it is shown. */
+  private placementElement(): PlacementSheet | null {
+    return this.renderRoot.querySelector<PlacementSheet>("domotwin-placement");
+  }
+
+  /**
+   * Every storey of the home, lowest first, as the radio coverage reads them (D-066): their plans
+   * and overlays from the home shown whole, else from the storey shown and the others'; one with
+   * no plan still counts as a floor. The same array while they stay.
+   */
+  private placementStoreys(): HomeStorey[] {
+    const from: unknown[] = [
+      this.home,
+      this.plan,
+      this.layout,
+      this.storeys,
+      this.elsewhere,
+      this.storey,
+    ];
+    const kept = this.placementHome;
+    if (kept && kept.from.every((part, k) => part === from[k])) return kept.storeys;
+    const shown = this.shownStorey();
+    const known = this.storeys.length > 0 ? this.storeys : [{ id: shown, name: "", elevation: 0 }];
+    const storeys = homeStoreys(known, (id) => {
+      if (this.home) return this.home.find((storey) => storey.id === id);
+      if (id === shown) return { plan: this.plan, layout: this.layout };
+      return this.elsewhere.find((other) => other.storey === id);
+    });
+    this.placementHome = { from, storeys };
+    return storeys;
+  }
+
+  /** The storey shown alone: the one asked for, else the ground floor (D-026). */
+  private shownStorey(): string {
+    if (this.storey !== undefined && this.storey !== ALL_STOREYS) return this.storey;
+    return storeyLevels(this.storeys).find((s) => s.level === 0)?.storey.id ?? "";
   }
 
   /** Device pixels of the drawing buffer for a point of the view in CSS pixels. */
@@ -3583,6 +3678,7 @@ export class DomoTwinView extends LitElement {
           alerts: this.options.alerts !== false,
           presence: this.options.presence !== false,
           closed: this.closed,
+          coverage: this.coverageShown ? this.coverage : undefined,
           ...(peak ? { peak } : {}),
         })
       : undefined;
@@ -3598,7 +3694,14 @@ export class DomoTwinView extends LitElement {
     const here = layers?.alerts ?? [];
     const alerts =
       hass && this.options.alerts !== false && this.elsewhere.length > 0
-        ? withAlertsElsewhere(hass, this.bindings ?? NO_BINDINGS, here, this.elsewhere, this.storey)
+        ? withAlertsElsewhere(
+            hass,
+            this.bindings ?? NO_BINDINGS,
+            here,
+            this.elsewhere,
+            this.storey,
+            this.closed,
+          )
         : here;
     if (values !== this.heatValues) {
       this.heatValues = values;
@@ -3774,6 +3877,11 @@ export class DomoTwinView extends LitElement {
     }
     if (canvas && (this.wiresShown || this.whyShown)) {
       this.wiresElement()?.reproject(Math.max(1, canvas.clientWidth) / Math.max(1, canvas.width));
+    }
+    if (canvas && this.coverageShown) {
+      this.placementElement()?.reproject(
+        Math.max(1, canvas.clientWidth) / Math.max(1, canvas.width),
+      );
     }
     if (this.valueLayer) this.readLabels(engine);
     const shown = !this.editingAny && !this.linking;
@@ -4619,8 +4727,8 @@ export class DomoTwinView extends LitElement {
       ${ready ? this.renderPictures() : nothing} ${this.renderGuides()} ${this.renderPlanHandles()}
       ${this.renderOverlay()} ${ready ? this.renderLegend() : nothing}
       ${ready ? this.renderAlerts() : nothing} ${ready ? this.renderWalkPad() : nothing}
-      ${ready ? this.renderNetwork() : nothing} ${ready ? this.renderUpkeep() : nothing}
-      ${ready ? this.renderWires() : nothing}
+      ${ready ? this.renderNetwork() : nothing} ${ready ? this.renderPlacement() : nothing}
+      ${ready ? this.renderUpkeep() : nothing} ${ready ? this.renderWires() : nothing}
       ${
         ready && this.options.tools !== false
           ? this.renderTools()
@@ -4735,6 +4843,33 @@ export class DomoTwinView extends LitElement {
         this.redraw();
       }}
     ></domotwin-network>`;
+  }
+
+  /** The radio coverage (D-066): its module is loaded the first time it is shown. */
+  private renderPlacement(): TemplateResult | typeof nothing {
+    if (!this.coverageShown) return nothing;
+    if (!this.placementLoaded) {
+      this.placementModule ??= import("./placement-panel").then(
+        () => (this.placementLoaded = true),
+        () => (this.placementModule = undefined),
+      );
+      return nothing;
+    }
+    return html`<domotwin-placement
+      .hass=${this.hass}
+      .engine=${this.engine}
+      .bindings=${this.bindings}
+      .storeys=${this.placementStoreys()}
+      .storey=${this.loadedHome ? undefined : this.shownStorey()}
+      .placeable=${this.placeDevices}
+      .accessPoints=${this.accessPoints}
+      .closed=${this.closed}
+      @domotwin-coverage=${(event: CustomEvent<Record<string, number> | undefined>) => {
+        event.stopPropagation();
+        this.coverage = event.detail;
+        this.applyLayers();
+      }}
+    ></domotwin-placement>`;
   }
 
   /** The automation wires (D-032), or a device's chain (D-059): their module is loaded the first
@@ -5218,6 +5353,7 @@ export class DomoTwinView extends LitElement {
       .closed=${sheet.closed === true}
       .people=${here}
       .things=${sheet.room ? this.located.filter((d) => d.room === sheet.room) : []}
+      .graphs=${this.roomTab}
       @domotwin-close=${this.closeSheet}
       @domotwin-show-wires=${this.onShowWires}
       @domotwin-open-history=${this.onOpenHistory}
@@ -5453,6 +5589,7 @@ export class DomoTwinView extends LitElement {
         ${LAYER_NAMES.filter(
           (layer) =>
             (layer !== "network" || this.networkAllowed) &&
+            (layer !== "coverage" || coverageAvailable(this.hass)) &&
             (layer !== "automations" || automationsAvailable(this.hass)) &&
             (layer !== "upkeep" || this.upkeep !== undefined) &&
             (layer !== "peak" || peaksAvailable(this.hass)),
@@ -5832,48 +5969,36 @@ export class DomoTwinView extends LitElement {
     </div>`;
   }
 
-  /** What an alert says; on another storey, which one. */
-  private alertText(alert: StoreyAlert): string {
-    const t = this.translator;
-    const text = t.t(`layers.alert_${alert.reason}`, { room: alert.name });
-    if (!alert.storey) return text;
-    const level = storeyLevels(this.storeys).find(({ storey }) => storey.id === alert.storey);
-    if (!level) return text;
-    return t.t("storey.alert_on", {
-      alert: text,
-      storey: storeyName(t, level.storey, level.level),
-    });
+  /**
+   * Frames the room of an alert, showing its storey first: as a tap on it in the banner does, a
+   * private room's too, whose danger it tells (D-039).
+   */
+  frameAlert(alert: AlertRoom): void {
+    const room = { id: alert.room, name: alert.name };
+    if (alert.storey) {
+      // On another storey: shown first, then the room framed.
+      this.chooseStorey(alert.storey);
+      this.focusAfterLoad = room;
+      return;
+    }
+    if (this.engine?.focusElement(alert.room)) this.focusedRoom = room;
+    this.redraw();
   }
 
-  /** The rooms with an alert: a tap frames the room (showing its storey first). */
+  /**
+   * The rooms with an alert, and Home Assistant's alerts (D-068): a tap frames the room (showing
+   * its storey first), or opens Home Assistant's Security page.
+   */
   private renderAlerts(): TemplateResult | typeof nothing {
-    const alerts = this.alerts;
+    const alerts = shownAlerts(this.alerts, this.securityAlerts);
     if (alerts.length === 0 || this.planEditor) return nothing;
     const t = this.translator;
     const shown = alerts.slice(0, MAX_ALERTS_SHOWN);
     const more = alerts.length - shown.length;
+    const page = securityPage(this.hass);
     return html`<div class="alerts" role="alert" data-testid="alerts">
-      ${shown.map(
-        (alert) =>
-          html`<button
-            class="glass ${alert.level}"
-            data-room=${alert.room}
-            data-storey=${alert.storey ?? nothing}
-            @click=${() => {
-              const room = { id: alert.room, name: alert.name };
-              if (alert.storey) {
-                // On another storey: shown first, then the room framed.
-                this.chooseStorey(alert.storey);
-                this.focusAfterLoad = room;
-                return;
-              }
-              if (this.engine?.focusElement(alert.room)) this.focusedRoom = room;
-              this.redraw();
-            }}
-          >
-            ${icon(alert.level === "danger" ? mdiAlert : mdiAlertCircleOutline)}
-            <span>${this.alertText(alert)}</span>
-          </button>`,
+      ${shown.map((alert) =>
+        alertButton(t, alert, this.storeys, page, (room) => this.frameAlert(room), "glass"),
       )}
       ${more > 0 ? html`<span class="more">${t.tp("layers.more_alerts", more)}</span>` : nothing}
     </div>`;

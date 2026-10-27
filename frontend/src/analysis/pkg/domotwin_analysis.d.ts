@@ -23,11 +23,23 @@ export class NetworkAnalysis {
 }
 
 /**
+ * How well one radio covers the home, and where the next one helps most (JSON in and out, see
+ * `domotwin_core::coverage`): `{"rooms", "radios", "spots", "check", "agreement"}`.
+ */
+export function advisePlacement(input: string): string;
+
+/**
  * What an automation's configuration (JSON, `automation/config`'s `config`) involves: JSON
  * `{"ends": [{"role", "entity" | "device" | "area" | "floor" | "label" | "place" | "dynamic":
  * name}], "skipped"}`.
  */
 export function readAutomation(config: string): string;
+
+/**
+ * The QR code of a text, a guest's link (D-067): JSON as `wifi_qr`'s, `{"size": 0}` for an
+ * empty text or one longer than `MAX_QR_TEXT` bytes.
+ */
+export function textQr(text: string): string;
 
 /**
  * The QR code joining a Wi-Fi network (`wifi_payload`): JSON `{"size": modules on a side,
@@ -41,10 +53,12 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 export interface InitOutput {
     readonly memory: WebAssembly.Memory;
     readonly __wbg_networkanalysis_free: (a: number, b: number) => void;
+    readonly advisePlacement: (a: number, b: number, c: number) => void;
     readonly networkanalysis_drawing: (a: number, b: number) => void;
     readonly networkanalysis_new: (a: number, b: number) => number;
     readonly networkanalysis_report: (a: number, b: number, c: number, d: number) => void;
     readonly readAutomation: (a: number, b: number, c: number) => void;
+    readonly textQr: (a: number, b: number, c: number) => void;
     readonly wifiQr: (a: number, b: number, c: number) => void;
     readonly __wbindgen_export: (a: number, b: number, c: number) => void;
     readonly __wbindgen_export2: (a: number, b: number) => number;

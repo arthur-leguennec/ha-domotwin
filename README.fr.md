@@ -2,7 +2,7 @@
   <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-neon.png" alt="DomoTwin : un appartement fictif dans l’apparence néon, au crépuscule dans un violet profond, le haut de ses murs éclairé d’ambre, ses lampes allumées, le nom des pièces au sol" width="100%">
 </p>
 
-<p align="center"><b>Votre logement en jumeau 3D vivant dans Home Assistant.</b><br>
+<p align="center"><b>Votre logement en jumeau numérique 3D, en direct dans Home Assistant.</b><br>
 Touchez une lampe pour l’allumer, une pièce pour la piloter, et voyez vos capteurs s’animer sur le plan.<br>
 Local, rapide, Rust + WebAssembly.</p>
 
@@ -13,48 +13,68 @@ Local, rapide, Rust + WebAssembly.</p>
 <p align="center"><a href="https://github.com/arthur-leguennec/ha-domotwin/blob/main/README.md">Read in English</a></p>
 
 > [!NOTE]
-> **État : développement en cours.** DomoTwin se construit étape par étape ([feuille de
-> route](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/ROADMAP.md), en anglais).
-> L’intégration, le panneau, la carte, l’import du plan (IFC, Sweet Home 3D, DXF, scans de
-> pièces), les vues 3D et 2D, le pilotage en direct (états, toucher, appui long, panneau de pièce,
-> liaisons), le mode édition, vos propres modèles 3D, les calques, les appareils, l’éditeur de
-> plan, les étages, les apparences, tous les étages à la fois, la promenade, le kiosque, la carte
-> du réseau, les fils des automatisations, les fiches d’entretien, les personnes dans leurs
-> pièces, la localisation Bluetooth, la voix, la finition (police, clavier, lecteurs d’écran), une
-> passe sur la taille et la vitesse, les téléphones, les actions à faire plus tard, des touchers
-> qui disent ce qu’ils font, des meubles qui ont l’air faits, les aspirateurs robots, l’énergie de
-> la maison, la maison de démo, la mesure de la vitesse d’un appareil et la maison pratique (les
-> onglets Accueil, Pièces et 3D) fonctionnent déjà, et forment la version 0.4.0. Depuis, le bac à
-> sable joue une journée des automatisations de la maison sur une copie de celle-ci, l’historique
-> de Home Assistant se lit en rapports, « Pourquoi ? » dit qui ou quoi a changé un appareil, le
-> code QR du Wi-Fi accueille les invités, DomoTwin rejoint la Vue d’ensemble de Home Assistant
-> plutôt que de la copier, chaque changement de la configuration est gardé, les pointes
-> d’Hydro-Québec se voient sur le plan, dans l’onglet Accueil et dans le bac à sable, et une
-> bibliothèque de 195 meubles et objets remplit la maison. L’historique et l’énergie, la
-> sécurité et l’écran mural viennent ensuite, vers la version 0.5.0 ; la proposition à la liste
+> **État : en développement, version 0.4.0.** DomoTwin se construit étape par étape
+> ([feuille de route](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/ROADMAP.md), en
+> anglais), et tout ce que décrit *Fonctionnalités* marche déjà. Depuis la 0.4.0 sont arrivés le bac
+> à sable, l’historique en tableaux, « Pourquoi ? », le code QR du Wi-Fi pour les invités,
+> l’historique de la configuration, les pointes d’Hydro-Québec, d’autres imports (cartes de robots
+> aspirateurs, Floorplanner, scans en maillage), la couverture radio, les pass d’invité, la
+> sécurité (les caméras, la sonnette, l’alarme, les alertes sur chaque onglet), les graphiques de
+> chaque pièce avec la page Énergie de Home Assistant à un onglet et une bibliothèque de 195
+> meubles et objets avec leurs images, et DomoTwin a rejoint la Vue d’ensemble de Home Assistant ;
+> la météo autour du logement et l’écran mural suivent, vers la 0.5.0. La proposition à la liste
 > par défaut de HACS attend des mesures sur de vrais appareils.
+
+## Ce qui le distingue
+
+- **Votre vrai plan.** Importez une maquette IFC (Revit, ArchiCAD, FreeCAD…) ou une maison Sweet
+  Home 3D, tous les étages d’un coup, au lieu de redessiner votre logement.
+- **Entièrement gratuit.** Tout est dans le code sous licence MIT : rien à acheter, aucun compte.
+- **La carte du réseau.** Votre maillage Zigbee dessiné sur le plan : qui passe par qui, les liens
+  faibles, et les pièces qui manquent d’un routeur.
+- **Le bac à sable.** Une journée de vos automatisations jouée sur une copie de la maison, pour voir
+  ce qu’elles font avant qu’elles le fassent.
 
 ## Fonctionnalités
 
 - **Une maison de démo à essayer d’abord.** Avant de dessiner quoi que ce soit, ouvrez DomoTwin et
-  **Essayer la maison de démo** : une maison familiale fictive sur deux niveaux, avec ses lampes,
-  rideaux, télés, thermostats, capteurs, un aspirateur robot, des panneaux solaires et une
+  choisissez **Essayer la maison de démo** : une maison familiale fictive sur deux niveaux, avec ses
+  lampes, rideaux, télés, thermostats, capteurs, un aspirateur robot, des panneaux solaires et une
   batterie, trois personnes et huit automatisations, qui vit une journée de printemps à une minute
   par seconde. Allez au matin, à midi, au soir ou à la nuit, touchez à tout, modifiez-la : rien ne
   touche votre maison. Une carte avec `demo: true` la montre sur un tableau de bord.
-- **Accueil, Pièces et 3D.** L’onglet *Accueil* du panneau montre la maison d’un coup d’œil (qui
-  est là, les lampes allumées, les portes et fenêtres ouvertes, les alertes, la météo), vos scènes
+- **Accueil, Pièces, Sécurité et 3D.** L’onglet *Accueil* du panneau montre la maison d’un coup
+  d’œil (qui est là, les lampes allumées, les portes et fenêtres ouvertes, la météo), vos scènes
   favorites en grands boutons et vos favoris ; *Pièces* liste les étages et pièces de Home
   Assistant, les appareils de chaque pièce en cartes tuiles de Home Assistant, avec une
-  recherche ; *3D* est la vue 3D, où une pièce touchée ouvre sa pièce. Mettez une étoile à ce qui
-  sert le plus ; choisissez l’onglet sur lequel DomoTwin s’ouvre, pour vous ou pour un écran, et
-  un agenda ou une liste pour votre onglet Accueil.
+  recherche ; *Sécurité* réunit l’alarme et les caméras côte à côte ; *3D* est la vue en 3D, où
+  toucher une pièce ouvre sa page. Les alertes s’affichent au-dessus de chaque onglet. Mettez en
+  favori ce qui vous sert le plus ; choisissez l’onglet sur lequel DomoTwin s’ouvre, pour vous ou
+  pour un écran, et un agenda ou une liste pour votre onglet Accueil.
+- **Sécurité.** Les alertes de chaque pièce (fumée, eau, l’alarme…) et celles choisies dans la page
+  Sécurité de Home Assistant, au-dessus de chaque onglet, à un toucher de la pièce en 3D.
+  L’onglet *Sécurité* réunit le clavier de l’alarme, les sonnettes et toutes les caméras côte à
+  côte, celle de la sonnette d’abord, et la page Sécurité de Home Assistant à un toucher. Quand
+  on sonne, la sonnette s’affiche en plein écran, quel que soit l’onglet : sa caméra en direct et
+  la serrure de la porte. Voir
+  [la sécurité](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/safety.md) (en
+  anglais).
+- **Les graphiques de chaque pièce, l’énergie de la maison.** *Graphiques*, sur la page d’une
+  pièce ou son panneau en 3D : ce que ses capteurs ont mesuré sur le dernier jour ou la dernière
+  semaine (température, humidité, CO₂, puissance, les compteurs heure par heure, les portes et
+  fenêtres, la présence) en graphiques de Home Assistant, la même chose en tableau ou dans
+  l’historique de Home Assistant à portée de doigt. *Énergie* ouvre la page Énergie de Home
+  Assistant, dont la flèche de retour ramène à DomoTwin. Voir
+  [graphiques](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/graphs.md) (en
+  anglais).
 - **Votre plan en 3D et en 2D.** Dessinez-le dans le panneau, ou importez-le : une maquette IFC
   (`*.ifc`, depuis Revit, ArchiCAD, Bonsai, FreeCAD…), une maison Sweet Home 3D (`*.sh3d`), un
-  dessin DXF, une pièce scannée avec un iPhone ou un iPad à LiDAR (`*.usdz`, le JSON de RoomPlan)
-  ou un plan DomoTwin (`*.domotwin.json`), un étage ou tous, et voyez-le en maquette 3D. Les
-  murs face à la caméra s’abaissent automatiquement, comme une maison de poupée ouverte. Passez à un
-  plan 2D net avec une transition fluide.
+  dessin DXF, une pièce scannée avec un iPhone ou un iPad à LiDAR (`*.usdz`, le JSON de RoomPlan),
+  un plan Floorplanner (`*.fml`), un scan en maillage (OBJ, PLY, GLB, STL de Polycam, Scaniverse,
+  Matterport…), la carte de votre robot aspirateur (celle de Valetudo, directement depuis Home
+  Assistant, sa base liée) ou un plan DomoTwin (`*.domotwin.json`), un étage ou tous, et voyez-le en
+  maquette 3D. Les murs face à la caméra s’abaissent automatiquement, comme une maison de poupée
+  ouverte. Passez à un plan 2D net avec une transition fluide.
 - **Des meubles qui ont l’air vrais, toute une bibliothèque.** Des plantes feuille à feuille, des
   canapés et des lits aux bords arrondis, sans rien perdre en vitesse ; 195 meubles et objets en
   117 sortes et leurs styles, aux tailles habituelles des vrais : un Chesterfield, un piano, un
@@ -68,13 +88,13 @@ Local, rapide, Rust + WebAssembly.</p>
   en argile mate, comme une maquette d’architecte. Automatique : néon en mode sombre. Voir [les
   apparences](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/looks.md) (en
   anglais).
-- **Toucher pour piloter.** Touchez une lampe pour l’allumer ou l’éteindre ; une bulle au-dessus
-  dit ce qui s’est passé, montre sa luminosité et mène au reste. Touchez la télé pour l’allumer et
+- **Toucher pour piloter.** Touchez une lampe pour l’allumer ou l’éteindre ; une bulle au-dessus dit
+  ce qui s’est passé, montre sa luminosité et mène au reste. Touchez la télé pour l’allumer et
   monter le son, l’aspirateur robot pour lancer le ménage. Touchez une pièce pour ses lumières, ses
   volets et ses propres boutons (une scène, un script) ; appuyez longuement pour retrouver ses
-  lumières, scènes, volets, chauffage et lecteurs, et programmer ses lumières. Lier un appareil
-  propose ce qu’il sait faire en mots (monter le son, ouvrir, baisser la lumière), avec un mode
-  avancé pour toute action.
+  lumières, scènes, volets, chauffage et lecteurs, et programmer ses lumières. Quand vous liez un
+  appareil, DomoTwin propose en toutes lettres ce qu’il sait faire (monter le son, ouvrir, baisser
+  la lumière), avec un mode avancé pour toute action.
 - **En direct.** Les lampes éclairent leur pièce dans leur vraie couleur et luminosité, la
   télévision s’illumine, volets et rideaux bougent, portes et fenêtres s’ouvrent avec leurs
   capteurs.
@@ -90,17 +110,17 @@ Local, rapide, Rust + WebAssembly.</p>
   préchauffage dans l’onglet Accueil, en 3D les pièces qui préchauffent, sont délestées ou
   chauffent encore pendant la pointe, avec ce qu’elles consomment, et la pointe annoncée pour
   demain jouée d’abord dans le bac à sable. Rien sans eux.
-- **Aspirateurs robots.** Son robot quitte sa base quand il nettoie, passe les pièces une à une et
+- **Aspirateurs robots.** Votre robot quitte sa base quand il nettoie, passe les pièces une à une et
   rentre, sur le plan.
 - **Appareils.** Des badges sur vos appareils (l’état d’une serrure, une caméra qui enregistre, ce
   qui est en lecture, une batterie faible, le lave-linge en marche), et ce que voit chaque caméra,
   dessiné au sol de sa pièce, derrière les meubles, discret tant que vous ne touchez pas la
   caméra ; touchez pour l’image en direct.
 - **Carte du réseau.** Votre maillage Zigbee dessiné sur le logement : chaque appareil sur son
-  meuble, chaque lien en arc coloré selon sa qualité, une lumière qui court vers le coordinateur,
-  et les pièces suspendues à un lien faible nommées, avec « un routeur ici aiderait ». Touchez un
-  appareil ou un lien pour le détail, relancez un scan, placez les appareils que la carte ne trouve
-  pas. Pour les administrateurs, avec ZHA. Voir [la carte du
+  meuble, chaque lien en arc coloré selon sa qualité, une lumière qui court vers le coordinateur, et
+  les pièces qui ne tiennent qu’à un lien faible sont nommées, avec « un routeur ici aiderait ».
+  Touchez un appareil ou un lien pour le détail, relancez un scan, placez les appareils que la carte
+  ne trouve pas. Pour les administrateurs, avec ZHA. Voir [la carte du
   réseau](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/network.md) (en anglais).
 - **Un bac à sable pour vos automatisations.** Choisissez une journée, sa météo, qui sort et qui
   rentre quand, et regardez vos automatisations, scripts et scènes la jouer sur une copie de votre
@@ -113,6 +133,11 @@ Local, rapide, Rust + WebAssembly.</p>
   administrateurs, et sur les écrans muraux que vous choisissez ; le mot de passe reste dans le
   stockage privé de DomoTwin. Voir [le Wi-Fi des
   invités](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/wifi.md) (en anglais).
+- **L’accès invités.** Un pass ouvre des pièces et des appareils choisis à vos invités pour
+  quelques jours : son lien ou son code QR les ouvre sur leur téléphone, en 3D, sans compte Home
+  Assistant, avec le Wi-Fi si vous voulez, et se termine tout seul. Par défaut il ne s’ouvre que sur
+  le réseau du logement ; DomoTwin vérifie chaque requête d’après le pass. Voir [l’accès
+  invités](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/guests.md) (en anglais).
 - **Dans la Vue d’ensemble de Home Assistant.** Une pièce touchée en 3D ouvre la page de sa zone
   dans la Vue d’ensemble (2026.2 et après). La page de chaque zone dit qui est dans la pièce et
   l’entretien à faire, et les cartes de résumé de DomoTwin (les personnes, le réseau, les
@@ -126,7 +151,7 @@ Local, rapide, Rust + WebAssembly.</p>
   lance. Ou toutes les automatisations du logement à la fois. Voir [les fils des
   automatisations](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/automations.md)
   (en anglais).
-- **Pourquoi ?** Un appui long sur une lampe, et demandez qui ou quoi l’a changée :
+- **Pourquoi ?** Appuyez longuement sur une lampe et demandez qui ou quoi l’a changée :
   l’automatisation qui l’a allumée, le mouvement qui a déclenché l’automatisation, la personne qui
   l’a fait dans l’application, ou personne (son propre interrupteur), comme Home Assistant l’a
   noté. Dessiné dans le logement comme un fil depuis là où tout a commencé, avec la trace du
@@ -154,6 +179,13 @@ Local, rapide, Rust + WebAssembly.</p>
   capteurs de présence. Les téléphones placent leur propriétaire ; les clés oubliées sont
   signalées ; « où sont mes clés ? » à la voix. Voir [la localisation
   Bluetooth](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/bluetooth.md) (en
+  anglais).
+- **La couverture radio.** Où le prochain proxy Bluetooth, routeur Zigbee ou point d’accès Wi-Fi
+  aide le plus : chaque pièce colorée selon ce que vos récepteurs, votre réseau ou vos points
+  d’accès y portent, et les meilleurs emplacements numérotés sur le plan, chacun avec les pièces
+  qu’il améliore. Calculée d’après les murs, les portes et les étages du plan, et vérifiée par ce
+  que vos radios ont mesuré, qui passe en premier. Pour les administrateurs. Voir [la couverture
+  radio](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/placement.md) (en
   anglais).
 - **Pièces privées.** Réservez une chambre ou un bureau à certaines personnes, toujours ou tant
   qu’un interrupteur « Invités » est allumé : les autres la voient fermée, son sol givré, rien ni
@@ -266,6 +298,10 @@ Local, rapide, Rust + WebAssembly.</p>
 </p>
 
 <p align="center">
+  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-placement.png" alt="La couverture radio : le Wi-Fi par-dessus l’appartement de démonstration depuis le point d’accès de la cuisine, la salle de bains en orange, l’entrée en jaune, trois emplacements numérotés pour le prochain point d’accès, et la fiche avec ce que chacun change" width="100%">
+</p>
+
+<p align="center">
   <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/screenshot-upkeep.png" alt="Le calque Entretien : le lave-linge de l’appartement de démonstration en rouge car son filtre est en retard, le réfrigérateur en orange car ses grilles sont bientôt à nettoyer, le ventilateur et la plaque en vert, à côté de la liste des tâches par date avec leurs boutons Fait" width="100%">
 </p>
 
@@ -296,9 +332,11 @@ Local, rapide, Rust + WebAssembly.</p>
    plan**, ou **Importer un plan** et choisissez un plan DomoTwin (`*.domotwin.json`), un fichier
    IFC (`*.ifc`, voir [l’import
    IFC](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/ifc-import.md), en anglais),
-   une maison Sweet Home 3D, un dessin DXF ou le scan d’une pièce (voir [les plans d’autres
+   une maison Sweet Home 3D, un dessin DXF, le scan d’une pièce, un plan Floorplanner ou un scan
+   en maillage (voir [les plans d’autres
    applications](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/imports.md), en
-   anglais).
+   anglais) ; un robot aspirateur sous Valetudo donne sa carte avec **Importer la carte d’un
+   robot**.
    Pas encore de plan ? **Essayez la maison de démo** dans le panneau, ou importez l’appartement
    fictif
    [`examples/demo-apartment.domotwin.json`](https://github.com/arthur-leguennec/ha-domotwin/blob/main/examples/demo-apartment.domotwin.json)
@@ -327,7 +365,7 @@ YAML n’est jamais nécessaire. Pour référence, les options de la carte :
 | `spread`      | `true`, `false`                     | `true`     | Tous les étages à la fois : écartés, ou empilés. |
 | `roof`        | `true`, `false`                     | `true`     | Tous les étages à la fois : le toit sur le dernier. |
 | `room`        | un identifiant de pièce du plan     | aucun      | Pièce à cadrer à l’ouverture de la carte.     |
-| `layer`       | `off`, `temperature`, `humidity`, `co2`, `pm25`, `power`, `peak`, `network`, `automations`, `upkeep` | `off` | Calque affiché à l’ouverture ; le menu des calques le change. `peak` s’affiche là où hydroqc ou HydroPeak lit les pointes d’Hydro-Québec, `network` aux administrateurs avec ZHA seulement, `automations` aux administrateurs. |
+| `layer`       | `off`, `temperature`, `humidity`, `co2`, `pm25`, `power`, `peak`, `network`, `coverage`, `automations`, `upkeep` | `off` | Calque affiché à l’ouverture ; le menu des calques le change. `peak` s’affiche là où hydroqc ou HydroPeak lit les pointes d’Hydro-Québec, `network` aux administrateurs avec ZHA seulement, `coverage` et `automations` aux administrateurs. |
 | `alerts`      | `true`, `false`                     | `true`     | Alertes de sécurité des pièces (fumée, gaz, eau, alarme, fenêtre ouverte sous la pluie). |
 | `presence`    | `true`, `false`                     | `true`     | Les pièces occupées s’illuminent doucement.   |
 | `people`      | `true`, `false`                     | `true`     | Les personnes dans leurs pièces, en silhouettes. |
@@ -360,10 +398,10 @@ présence de cette zone, et de son alarme. Le calque de consommation utilise les
 puissance liés à chaque meuble. La carte du réseau place chaque appareil Zigbee sur le meuble lié à
 son appareil ou à l’une de ses entités.
 
-## Fonctionnement
+## Comment ça marche
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/architecture.png" alt="Architecture de DomoTwin : l’intégration Home Assistant, l’interface et le moteur WebAssembly" width="100%">
+  <img src="https://raw.githubusercontent.com/arthur-leguennec/ha-domotwin/main/docs/figures/architecture.png" alt="Comment marche DomoTwin : l’intégration Home Assistant, l’interface et le moteur WebAssembly" width="100%">
 </p>
 
 Une intégration Python légère enregistre votre plan, vos modifications et vos liaisons dans Home
@@ -373,6 +411,29 @@ dans
 [`docs/ARCHITECTURE.md`](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/ARCHITECTURE.md)
 (en anglais).
 
+## Comment DomoTwin est fait
+
+DomoTwin est écrit avec [Claude Code](https://claude.com/claude-code), un assistant de
+programmation à base d’IA. Son mainteneur décide de ce qui se fait et dans quel ordre, et l’essaie
+à la maison. Chaque changement du code passe par une pull request, où il est vérifié par :
+
+- ses tests, lancés par l’intégration continue : environ 260 tests Python face à un vrai Home
+  Assistant, 340 tests unitaires de l’interface, 320 tests Rust et 210 tests de bout en bout dans un
+  navigateur ;
+- deux revues de code automatiques, chaque remarque corrigée ou justifiée dans la pull request ;
+- `clippy` avec chaque avertissement traité comme une erreur, et le fuzzing de chaque lecteur de
+  fichiers venus d’ailleurs (plans, IFC, plans des autres logiciels, modèles 3D, arrangements,
+  automatisations, fiches d’entretien) quand l’un d’eux change ;
+- CodeQL sur le code Python, TypeScript et Rust, `cargo deny` sur la licence et la provenance de
+  chaque dépendance, et gitleaks sur chaque commit ;
+- un budget de taille : la compilation échoue si ce qu’un navigateur charge d’abord dépasse 1,2 Mo.
+
+Certaines règles ne bougent pas : aucun appel réseau en dehors de votre Home Assistant, et pas de
+boutique, pas de clé de licence, pas de version payante, jamais. Les décisions et leurs raisons sont
+dans
+[`docs/DECISIONS.md`](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/DECISIONS.md)
+(en anglais).
+
 ## FAQ
 
 **Quels formats de plan DomoTwin lit-il ?** Son propre format de plan, décrit dans
@@ -380,10 +441,12 @@ dans
 avec son schéma JSON ; les fichiers IFC (ISO 16739, exportés par FreeCAD, Blender avec Bonsai,
 ArchiCAD ou Revit), un étage ou tous à la fois : voir [l’import
 IFC](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/ifc-import.md) (en anglais) ;
-les maisons Sweet Home 3D, les dessins DXF et les scans de pièces faits avec RoomPlan d’Apple
-(USDZ ou JSON) : voir [les plans d’autres
+les maisons Sweet Home 3D, les dessins DXF, les scans de pièces faits avec RoomPlan d’Apple (USDZ
+ou JSON), les cartes de robots aspirateurs (celles de Valetudo, depuis Home Assistant ou un
+fichier ; celles de Roborock), les plans Floorplanner (FML) et les scans en maillage (OBJ, PLY,
+GLB, STL) : voir [les plans d’autres
 applications](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/imports.md) (en
-anglais). Les fichiers DWG, l’USD binaire et les scans en maillage (OBJ) ne sont pas lus.
+anglais). Les fichiers DWG, l’USD binaire, le FBX et les nuages de points ne sont pas lus.
 
 **Puis-je le mettre sur une tablette murale, ou demander une pièce à la voix ?** Oui : les options
 `idle`, `orbit`, `night_dim` et `tools` font d’une carte un kiosque, et l’action `domotwin.show`
@@ -406,7 +469,7 @@ s’empile et se lie comme n’importe quel meuble, est gardé par Home Assistan
 **Exporter le plan**.
 
 **Faut-il une connexion Internet ?** Non. Voir
-[Confidentialité](https://github.com/arthur-leguennec/ha-domotwin/blob/main/README.fr.md#confidentialité).
+[Vie privée](https://github.com/arthur-leguennec/ha-domotwin/blob/main/README.fr.md#vie-privée).
 
 **Est-ce que ça tourne sur ma tablette murale ?** Il faut WebGL2, présent dans les navigateurs
 actuels et dans les applications mobiles Home Assistant. Sur les appareils anciens, DomoTwin choisit
@@ -420,7 +483,7 @@ administrateurs peuvent importer un plan, le modifier et changer les liaisons.
 liaisons et les fichiers des modèles 3D enregistrés sont supprimés. Utilisez d’abord **Exporter le
 plan** pour en garder une copie (elle contient les fichiers 3D).
 
-## Confidentialité
+## Vie privée
 
 DomoTwin ne communique qu’avec votre propre Home Assistant. Aucun autre appel réseau : pas de CDN,
 pas de télémétrie, pas de statistiques, pas de polices web. Tous les fichiers utilisés (JavaScript,

@@ -1032,17 +1032,147 @@ motion*; what they draw alone is written, not drawn, and needs no frame. In the 
 peak's day adds a few changes to the day played, and what each room did is read every five minutes
 from the pre-heating to the peak's end when the report opens, once for each day played.
 
+### M20 (more imports)
+
+Bundle: the first load is **526.0 kB gzipped** of 1 200 kB (+2.0 kB): the robot's map in the menu
+and beside *Import plan*, the robots' maps found in Home Assistant, which files go to the import,
+and the texts. The import module, fetched only when such a file is picked or a robot's map is
+imported, reads three more kinds of files:
+
+| File | Raw | Gzipped |
+| --- | --- | --- |
+| `domotwin_import_bg.<hash>.wasm` (on demand) | 637.6 kB | 280.3 kB (217.8 kB before) |
+| `chunks/domotwin_import-<hash>.js` (glue, on demand) | 5.3 kB | 2.1 kB |
+| `chunks/import-<hash>.js` (wrapper, on demand) | 0.9 kB | 0.5 kB |
+
+The growth is the readers' own code, spread over them (`twiggy diff`): the mesh readers and the
+cutting of a mesh into rooms, doors and windows, the robot maps, Floorplanner, and the cells shared
+by maps and meshes (an exact distance transform, parts, outlines, simplifying and squaring). Their
+inflating is `miniz_oxide`'s, already in the module for ZIP archives.
+
+Import time (Node 22, the median of seven runs: read, list the storeys, convert one), on the
+fictional test files and on generated ones, with the WebAssembly memory after the last run:
+
+| File | Size | Time | Memory |
+| --- | --- | --- | --- |
+| `robot.json` (Valetudo, 4 rooms, 3 doors, the dock) | 8 kB | 11 ms | |
+| `robot.png` (the same, as Home Assistant's camera has it) | 2 kB | 11 ms | |
+| `roborock.gz` (the same as Roborock's map) | 0.5 kB | 11 ms | |
+| `apartment.fml` (Floorplanner, 2 floors, 4 rooms, 11 openings and pieces) | 12 kB | 0.7 ms | |
+| `house.obj` / `house.glb` (2 storeys, 4 000 triangles) | 133 kB / 84 kB | 42 ms / 34 ms | |
+| `house.ply` (its ground floor, `z` up, in centimetres) | 51 kB | 18 ms | |
+| Valetudo, 30 rooms and 49 doors (490 × 410 pixels) | 64 kB | 80 ms | 11 MB |
+| Floorplanner, 400 rooms (500 elements kept) | 132 kB | 84 ms | 3 MB |
+| The house scanned finely: 1.33 million triangles (GLB) | 23.6 MB | 1.54 s | 99 MB |
+| The house scanned more finely: 3.71 million triangles (GLB) | 65.5 MB | 4.21 s | 260 MB |
+| A map made to be slow, within budget: two rooms as large as its grid (2 000 × 2 000 pixels) | 0.1 kB | 1.72 s | 117 MB |
+| A map of rooms drawn over one another, past budget (refused) | 48 kB | 0.31 s | 153 MB |
+
+A robot's map costs its distances worked out a few times on its grid (a few hundred thousand
+cells) and on each room's own; the budget (16 million cells in all, a million two rooms share)
+keeps a file made to be slow to a few seconds, which the fuzzer found before it was set. A mesh is read once into positions and triangles, then gone over four times (the axis up,
+the floors, the walls' direction, each storey's cells); each storey is cut in cells of 5 cm (at
+most 1 600 a side, larger cells for a larger storey), and the rooms and openings are found on
+those. The plan found is the same however finely the house was scanned. Memory is the file, its
+copy in the module, its positions and its triangles: what a browser on a computer has; a scan of
+millions of triangles is best imported from one.
+
+### M31 (the placement advisor)
+
+Bundle: the first load is **524.8 kB gzipped** of 1 200 kB (+0.8 kB): the layer's name, who may
+see it, and the coverage's colour scale in the engine (380.4 kB gzipped, +0.1 kB). The rest comes
+on demand, when the layer is chosen: the sheet (`chunks/placement-panel-<hash>.js`: 30.3 kB raw,
+9.4 kB gzipped) with its texts in both languages, and the model in the analysis module
+(`domotwin_analysis_bg.wasm`: 228.7 kB raw, 104.1 kB gzipped, +71.9 kB and +32.1 kB), which the
+network map, the Wi-Fi QR code and the network's summary already load. All that comes on demand
+is now 715.5 kB gzipped (+41.7 kB).
+
+Nothing of it runs until the layer is chosen. The radios are read once (the locating's answer, ZHA's
+devices and their links analysed, or the Wi-Fi signals in the states), again when the plan, the
+links or the access points change or another radio is chosen, never at a new state of the home;
+the Wi-Fi signals are looked at once every 30 seconds at most, in whole decibels, and the advice
+is worked out again only when one of them moved. Worked out in Node (the analysis module's release
+build without `wasm-opt`, a 2.1 GHz Xeon core of the CI's kind, median of fifteen): about **2 ms**
+for the demo apartment (5 rooms), **10 ms** for the demo house (13 rooms on two storeys), 20 to
+30 ms for 30 to 40 rooms and **50 ms** for 60 rooms on three storeys. Beyond 24 rooms, each room is
+looked at from four of its points, not twelve, and its spot is its middle alone: 30 to 40 rooms
+took about 190 ms before. The integration's Python counts walls between two places in about
+57 µs: the same advice there would take about 2.3 s for 30 rooms on this computer, more on a small
+host, which is why it runs in the page (D-066).
+
+### M33 (guest access)
+
+Bundle: the first load is **527.9 kB gzipped** of 1 200 kB (+1.0 kB): the ⋮ menu's *Guest
+access*, the client's three commands and reading a pass (`live/guest-pass.ts`, kept apart so that
+nothing else comes with it), and a guest's few checks in the views. The administrator's dialog
+comes on demand the first time it opens (`chunks/guests-dialog-<hash>.js`: 28.5 kB raw, 8.8 kB
+gzipped), with its texts in both languages; the link's QR code is the analysis module's, already
+loaded on demand (`textQr`, which shares the Wi-Fi's encoder).
+
+The guests' page is built apart from the module Home Assistant's pages load (`guest.js`: 156.1 kB
+raw, 44.3 kB gzipped; its chunks in `chunks/guest/`, 575 kB raw in all), so that nothing of it
+changes how they load DomoTwin; its chunks repeat those of the panel it shares. A guest's phone
+loads **508.0 kB gzipped** to show the home in 3D: the page and the card (127.6 kB of JavaScript
+in 22 files) and the engine's wasm, from Home Assistant on the home's network; the dialogs come
+when opened.
+
+The integration works out what a pass shows of the home (the storeys, the rooms closed, the pieces
+kept) once for each revision of the home and each pass: 0.4 ms for the demo house, 38 ms for a plan
+of 500 elements (100 rooms, 400 pieces; median of 50, Python 3.14 on a 2.1 GHz Xeon core); the
+page's later reads and each 3D file it asks for reuse it. The states are read from Home Assistant's
+own, for the pass's devices only (100 at most). A page following its pass is one open request
+written to when one of its devices changes, a line every 25 seconds otherwise; at most 8 a pass,
+each waiting with at most 500 changes before it is closed and reads the home again.
+
+### M25 (safety)
+
+Bundle: the first load is **530.9 kB gzipped** of 1 200 kB (+3.0 kB): the watch of the
+doorbells, Home Assistant's alerts and the alerts' button the 3D view's banner shares with the
+other tabs, the Safety tab's name and route. The Safety tab and the alerts' bar come with the tabs'
+chunk (`chunks/practical-<hash>.js`: 11.9 kB gzipped, as before: Home Assistant's cards moved out
+of it), with a chunk it shares with the doorbell's full screen (3.0 kB gzipped: Home Assistant's
+cards, what goes with a doorbell, the safety texts in both languages); the full screen itself is
+`chunks/doorbell-<hash>.js` (1.7 kB gzipped), loaded the first time a doorbell rings.
+
+The events that may be doorbells are found once per entity registry; each new set of states, the
+watch reads only theirs (2 µs a time for two doorbells among 3 000 entities, Node 22 on a 2.1 GHz
+Xeon core). While the Safety tab shows, its alarms, doorbells, cameras and locks are found in one pass
+over the states at each update (0.5 ms for 3 000 entities, 20 cameras); Home Assistant's own
+cards are made once each, then only given each new state, as on the other tabs. Home Assistant's
+alerts are sent by Home Assistant when an administrator changes them, not asked for; those on now
+are worked out at each update only where some are chosen (9 µs for 40). The alerts given to the
+bar and the Safety tab, and the doorbell's camera and lock, stay the same objects while they say
+the same, so nothing is drawn again for nothing. A camera on the tab is a still Home Assistant
+refreshes every ten seconds; only the doorbell's full screen streams live.
+
+### M24 (history and energy)
+
+Bundle: the first load is **532.0 kB gzipped** of 1 200 kB (+1.1 kB): the Energy tab, its address
+and its word, whether Home Assistant's energy is set up, the graphs' address and the room panel's
+word. A room's graphs come with the Rooms tab's chunk (`chunks/practical-<hash>.js`: 51.6 kB raw,
+13.9 kB gzipped, +2.0 kB) and a chunk it shares with the room's panel in 3D (the kinds of measure
+and Home Assistant's card configurations, 1.6 kB gzipped); the room's panel grows by its button
+(11.4 kB gzipped, +0.1 kB), and the guests' page's by the check that hides it there (12.0 kB
+gzipped, +0.4 kB, on demand).
+
+The graphs are Home Assistant's own cards: each reads the recorder once when it shows, and is told
+of new states as Home Assistant's dashboards are, no more. DomoTwin finds a room's kinds of measure
+when its page opens, and again only when an entity comes or goes, not at each new state. The
+Energy tab is a link: Home Assistant's Energy page loads as it always does. Whether something is
+set up on it is asked once for each connection to Home Assistant (`energy/get_prefs`, a few hundred
+bytes), only where Home Assistant has the page.
+
 ### M17 (a library of objects)
 
-Bundle: the first load is **579.9 kB gzipped** of 1 200 kB (+55.9 kB). The engine grew by 52.5 kB
-(`domotwin_web_bg.<hash>.wasm`: 1 043.5 kB raw, 432.8 kB gzipped, from 878.1 kB and 380.3 kB):
+Bundle: the first load is **587.9 kB gzipped** of 1 200 kB (+56.0 kB). The engine grew by 52.6 kB
+(`domotwin_web_bg.<hash>.wasm`: 1 043.8 kB raw, 433.0 kB gzipped, from 878.3 kB and 380.4 kB):
 the 61 new kinds and 54 new styles are code, and the code of the pieces went from 47.6 kB to
 190.3 kB before `wasm-opt`, most of it the floats of their parts (keeping the painter's helpers
 out of line changes nothing: they already are). The kinds' names in both languages, the devices'
 suggestions and the badges' icons add 3.4 kB to the first load. The catalogue's chunk grows to
 8.5 kB gzipped (+4.1 kB, on demand): the library's groups, styles and search words in both
-languages, and the drawing of its pictures. The plan editor's wasm (99.1 kB, +3.8 kB) and the
-import's (223.1 kB, +5.3 kB) read the new kinds.
+languages, and the drawing of its pictures. The plan editor's wasm (99.1 kB, +3.7 kB) and the
+import's (285.9 kB, +5.6 kB) read the new kinds.
 
 A piece is built once, when the plan is: nothing of the library runs at each frame. Every piece in
 every style is tested alone at its usual size (`cargo test -p domotwin-core --test scene`): at most
