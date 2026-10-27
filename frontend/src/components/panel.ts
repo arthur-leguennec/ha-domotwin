@@ -14,6 +14,7 @@ import {
   mdiLockOutline,
   mdiMicrophoneMessage,
   mdiPencilOutline,
+  mdiRobotVacuum,
   mdiSpeedometer,
   mdiTestTube,
   mdiStairs,
@@ -112,6 +113,8 @@ import {
   type PlanElementInfo,
 } from "../live/suggest";
 import type { ImportReport, ImportStorey, PlanFile, ScanRoom } from "../import/import";
+import { IMPORTED_FILES, PLAN_FILES, isOtherAppJson } from "../import/files";
+import { mapPath, robotMaps, type RobotMapSource } from "../live/robot-maps";
 import type { ModelFormat, ModelInfo } from "../models/models";
 import { pickLanguage, translatorFor, type Translator } from "../i18n";
 import { documentFonts } from "../fonts";
@@ -151,8 +154,6 @@ import type { PeriodChoice } from "../live/history";
 const MAX_FILE_BYTES = 32_000_000;
 /** Plans of other apps are read in the browser's memory: larger ones are refused. */
 const MAX_IMPORT_BYTES = 200_000_000;
-/** The plans of other apps (D-040), by their files' names: read by the import module. */
-const IMPORTED_FILES = /\.(ifc|sh3d|dxf|usdz|usda|usdc)$/i;
 const PANEL_OPTIONS: ViewOptions = {
   quality: "auto",
   view: "3d",
@@ -181,20 +182,17 @@ interface Toast {
 }
 
 /**
- * Whether a JSON file is a room scan (RoomPlan's `CapturedRoom` or `CapturedStructure`, D-040)
- * rather than a DomoTwin plan: read by the import module.
+ * Whether a JSON file is a plan of another app (a room scan, a robot's map, a Floorplanner
+ * project, D-040, D-064) rather than a DomoTwin plan: read by the import module.
  */
-async function isScan(file: File): Promise<boolean> {
+async function isOtherApp(file: File): Promise<boolean> {
   // Larger than a plan may be: refused as one.
   if (file.size > MAX_FILE_BYTES) return false;
   try {
     const text = await file.text();
     // A DomoTwin plan says so: not parsed twice.
     if (text.includes('"domotwin-plan"')) return false;
-    const read = JSON.parse(text.replace(/^\uFEFF/, "")) as unknown;
-    if (typeof read !== "object" || read === null || Array.isArray(read)) return false;
-    const fields = read as Record<string, unknown>;
-    return fields.format !== "domotwin-plan" && ("walls" in fields || "rooms" in fields);
+    return isOtherAppJson(JSON.parse(text.replace(/^\uFEFF/, "")) as unknown);
   } catch {
     return false;
   }
@@ -301,6 +299,7 @@ export class DomoTwinPanel extends LitElement {
     linking: { state: true },
     linkTarget: { state: true },
     importChoice: { state: true },
+    robotChoice: { state: true },
     editing: { state: true },
     edit: { state: true },
     multi: { state: true },
@@ -363,16 +362,16 @@ export class DomoTwinPanel extends LitElement {
   /** The tab shown (D-055); unknown until the tab to open on is. */
   protected tab?: Tab;
   /**
-   * The room open in the Rooms tab (an area), whether its graphs are (D-064), and whether it was
+   * The room open in the Rooms tab (an area), whether its graphs are (D-067), and whether it was
    * opened from the 3D view.
    */
   protected roomOpen?: string;
   protected roomGraphs = false;
   protected from3d = false;
-  /** A history report opened from a room's graphs (D-058, D-064), its module loaded. */
+  /** A history report opened from a room's graphs (D-058, D-067), its module loaded. */
   protected report?: { heading: string; entities: string[]; period?: PeriodChoice };
   private reportModule?: Promise<unknown>;
-  /** Whether Home Assistant's energy has something set up (D-064), and on which connection. */
+  /** Whether Home Assistant's energy has something set up (D-067), and on which connection. */
   protected energyKnown?: { connection: unknown; setUp: boolean };
   private energyAsked?: unknown;
   /** The user's own choices (D-055); undefined until read, or until reading them failed. */
@@ -415,6 +414,8 @@ export class DomoTwinPanel extends LitElement {
   /** A device of the network map to place: the next piece picked stands for it (D-031). */
   private placing?: PlaceRequest;
   protected importChoice?: ImportChoice;
+  /** The robots whose map Home Assistant has, one to pick (D-064). */
+  protected robotChoice?: RobotMapSource[];
   /** Edit mode: on, its state, taps adding to the selection, the catalogue open. */
   protected editing = false;
   protected edit?: EditState;
@@ -2218,7 +2219,7 @@ export class DomoTwinPanel extends LitElement {
     const t = this.t;
     // Busy while the file is looked at: one import at a time.
     this.busy = true;
-    if (await isScan(file)) {
+    if (await isOtherApp(file)) {
       await this.readImport(file);
       return;
     }
@@ -2311,8 +2312,15 @@ export class DomoTwinPanel extends LitElement {
     }
   }
 
-  /** Converts a storey, has the engine check the plan, stores it and says what was left out. */
-  private async importStorey(file: PlanFile, storey: ImportStorey): Promise<void> {
+  /**
+   * Converts a storey, has the engine check the plan, stores it and says what was left out. A
+   * robot's map links its dock to `robot`'s vacuum (D-064).
+   */
+  private async importStorey(
+    file: PlanFile,
+    storey: ImportStorey,
+    robot?: RobotMapSource,
+  ): Promise<void> {
     const client = this.client;
     if (!client) return;
     const t = this.t;
@@ -2322,6 +2330,8 @@ export class DomoTwinPanel extends LitElement {
     const cards = stored
       ? await this.fillCards([{ found: upkeep, before: plan, after: stored }])
       : { filled: 0 };
+    const linked =
+      stored && robot?.vacuum ? await this.linkDock(plan, stored, robot) : { text: "" };
     const imported = t.t("panel.import_from", {
       source: t.t(`panel.import_sources.${file.format}`),
       title: summary.name || t.t("view.untitled"),
@@ -2329,9 +2339,94 @@ export class DomoTwinPanel extends LitElement {
     const left = this.leftOut(report);
     this.show(
       (left ? `${imported} ${t.t("panel.import_left_out", { list: left })}` : imported) +
-        this.cardsText(cards),
-      cards.failed !== undefined,
+        this.cardsText(cards) +
+        linked.text,
+      cards.failed !== undefined || linked.failed === true,
     );
+  }
+
+  /**
+   * Links the dock of a robot's map, under the id it got when stored, to the robot's vacuum
+   * (D-049, D-064). Returns what it did, for the import's message, and whether it failed.
+   */
+  private async linkDock(
+    before: PlanJson,
+    after: PlanJson,
+    robot: RobotMapSource,
+  ): Promise<{ text: string; failed?: boolean }> {
+    const client = this.client;
+    const vacuum = robot.vacuum;
+    if (!client || !vacuum) return { text: "" };
+    const t = this.t;
+    const items = Array.isArray(before.items)
+      ? (before.items as { id?: unknown; kind?: unknown }[])
+      : [];
+    const dock = items.find((item) => item.kind === "robot-vacuum")?.id;
+    if (typeof dock !== "string") return { text: "" };
+    const id = renamedPieces(before, after).get(dock) ?? dock;
+    try {
+      const stored = await client.getBindings();
+      const change: LinkChange = { element: id, binding: { entities: [{ entity_id: vacuum }] } };
+      await client.saveBindings(applyLink(readBindings(stored.bindings), change), stored.revision);
+      await this.loadBindings();
+      return { text: ` ${t.t("panel.import_robot_linked", { name: robot.name })}` };
+    } catch (error) {
+      const reason = this.describe(error);
+      return {
+        text: ` ${t.t("panel.import_robot_link_failed", { name: robot.name, reason })}`,
+        failed: true,
+      };
+    }
+  }
+
+  /** The robots whose map Home Assistant has: one imported, or one to pick (D-064). */
+  private readonly chooseRobotMap = (): void => {
+    if (this.busy || this.importChoice || this.robotChoice) return;
+    this.moreOpen = false;
+    const maps = robotMaps(this._hass);
+    const only = maps[0];
+    if (maps.length === 1 && only) {
+      void this.importRobotMap(only);
+    } else if (maps.length > 1) {
+      this.robotChoice = maps;
+    }
+  };
+
+  /** Reads a robot's map through Home Assistant (its camera's picture) and imports it. */
+  private async importRobotMap(robot: RobotMapSource): Promise<void> {
+    const hass = this._hass;
+    if (!hass) return;
+    const t = this.t;
+    this.robotChoice = undefined;
+    this.importTarget = "storey";
+    this.busy = true;
+    this.show(t.t("panel.import_robot_reading", { name: robot.name }));
+    let read: PlanFile | undefined;
+    try {
+      const fetchWithAuth = hass.fetchWithAuth?.bind(hass);
+      if (!fetchWithAuth) throw new EngineError("robot_map_missing");
+      const response = await fetchWithAuth(mapPath(robot));
+      if (!response.ok) throw new EngineError("robot_map_missing");
+      const bytes = new Uint8Array(await response.arrayBuffer());
+      const { PlanFile } = await import("../import/import");
+      try {
+        read = await PlanFile.read(bytes, robot.name);
+      } catch (error) {
+        // A picture without a map in it: not Valetudo's map data.
+        throw error instanceof EngineError && error.code === "picture"
+          ? new EngineError("not_robot_map")
+          : error;
+      }
+      const storey = read.storeys()[0];
+      if (read.format !== "robot") throw new EngineError("not_robot_map");
+      if (!storey || storey.spaces === 0) throw new EngineError("no_spaces");
+      await this.importStorey(read, storey, robot);
+    } catch (error) {
+      this.show(t.t("panel.import_failed", { reason: this.describe(error) }), true);
+    } finally {
+      read?.dispose();
+      this.busy = false;
+    }
   }
 
   /**
@@ -2590,6 +2685,42 @@ export class DomoTwinPanel extends LitElement {
     return left.length;
   }
 
+  /** The robots whose map Home Assistant has, to pick one (D-064). */
+  private renderRobotMaps(maps: RobotMapSource[]): TemplateResult {
+    const t = this.t;
+    return html`<div
+      class="storeys glass"
+      role="dialog"
+      aria-label=${t.t("panel.import_robot_pick")}
+      data-testid="import-robots"
+    >
+      <h2>${t.t("panel.import_robot_pick")}</h2>
+      ${maps.map(
+        (robot) =>
+          html`<button
+            class="storey"
+            @click=${() => {
+              void this.importRobotMap(robot);
+            }}
+          >
+            <span class="name">${robot.name}</span>
+            <span class="detail">${robot.camera}</span>
+          </button>`,
+      )}
+      <div class="footer">
+        <button
+          class="action quiet"
+          data-cancel
+          @click=${() => {
+            this.robotChoice = undefined;
+          }}
+        >
+          ${t.t("panel.cancel")}
+        </button>
+      </div>
+    </div>`;
+  }
+
   private renderStoreys(choice: ImportChoice): TemplateResult {
     const t = this.t;
     const metres = new Intl.NumberFormat(t.language, { maximumFractionDigits: 2 });
@@ -2755,7 +2886,7 @@ export class DomoTwinPanel extends LitElement {
     window.dispatchEvent(new CustomEvent("location-changed", { detail: { replace } }));
   }
 
-  /** Shows a tab, a room in the Rooms tab and its graphs (D-064): through Home Assistant's
+  /** Shows a tab, a room in the Rooms tab and its graphs (D-067): through Home Assistant's
    * address, so that back works. */
   private go(tab: Tab, area?: string, from3d = false, replace = false, graphs = false): void {
     this.retryPractical();
@@ -2775,12 +2906,12 @@ export class DomoTwinPanel extends LitElement {
     // A layer asked for (the peak's, D-063): shown once the 3D view is there.
     this.layerWanted = tab === "3d" ? layer : undefined;
     // A room opened from one opened from the 3D view: back to the rooms, not to the 3D view; its
-    // graphs and back keep the room's way back (D-064).
+    // graphs and back keep the room's way back (D-067).
     const same = tab === "rooms" && area !== undefined && area === this.roomOpen;
     this.go(tab, area, same && this.from3d, false, graphs === true);
   };
 
-  /** A room's graphs asked for a history report of their entities (D-058, D-064). */
+  /** A room's graphs asked for a history report of their entities (D-058, D-067). */
   private readonly onOpenHistory = (
     event: CustomEvent<{ heading?: string; entities: string[]; period?: PeriodChoice }>,
   ): void => {
@@ -2856,7 +2987,7 @@ export class DomoTwinPanel extends LitElement {
   }
 
   /**
-   * Whether Home Assistant's energy has something set up (D-064), read once for each connection
+   * Whether Home Assistant's energy has something set up (D-067), read once for each connection
    * where it has its Energy page; never set up when it cannot be read (`not_found`: never saved).
    */
   private readEnergy(hass: HomeAssistant): void {
@@ -2875,7 +3006,7 @@ export class DomoTwinPanel extends LitElement {
 
   /**
    * A room tapped in the 3D view opens its room in the Rooms tab, and back (D-055); its graphs,
-   * asked for from its panel, open there too (D-064).
+   * asked for from its panel, open there too (D-067).
    */
   private readonly onRoomOpen = (event: CustomEvent<{ area: string; graphs?: boolean }>): void => {
     const { area, graphs } = event.detail;
@@ -3046,12 +3177,7 @@ export class DomoTwinPanel extends LitElement {
         </div>
       </div>
       ${tabs && this.tight ? this.renderTabs("bottom") : nothing}
-      <input
-        class="plan-file"
-        type="file"
-        accept=".json,application/json,.ifc,.sh3d,.dxf,.usdz,.usda,.usdc"
-        @change=${this.importFile}
-      />
+      <input class="plan-file" type="file" accept=${PLAN_FILES} @change=${this.importFile} />
       <input
         class="model-file"
         type="file"
@@ -3114,7 +3240,19 @@ export class DomoTwinPanel extends LitElement {
                 </button>
                 <button class="action" data-testid="plan-new" @click=${this.startPlan}>
                   ${icon(mdiVectorSquareEdit)}${t.t("plan.new")}
-                </button>`
+                </button>
+                ${
+                  robotMaps(this._hass).length > 0
+                    ? html`<button
+                        class="action"
+                        data-testid="robot-map"
+                        ?disabled=${this.busy}
+                        @click=${this.chooseRobotMap}
+                      >
+                        ${icon(mdiRobotVacuum)}${t.t("panel.import_robot")}
+                      </button>`
+                    : nothing
+                }`
             : nothing
         }
         <button
@@ -3129,7 +3267,7 @@ export class DomoTwinPanel extends LitElement {
     </domotwin-view>`;
   }
 
-  /** A history report opened from a room's graphs (D-064), over the Rooms tab. */
+  /** A history report opened from a room's graphs (D-067), over the Rooms tab. */
   private renderReport(): TemplateResult | typeof nothing {
     const report = this.report;
     const hass = this._hass;
@@ -3147,7 +3285,7 @@ export class DomoTwinPanel extends LitElement {
   }
 
   /**
-   * The Energy tab (D-064): Home Assistant's own Energy page where it has one, which DomoTwin
+   * The Energy tab (D-067): Home Assistant's own Energy page where it has one, which DomoTwin
    * opens rather than copies, its back arrow leading back here; in the demo house, whose energy
    * Home Assistant does not know, DomoTwin's own, the 3D view's power layer (D-049).
    */
@@ -3436,6 +3574,17 @@ export class DomoTwinPanel extends LitElement {
                   : nothing
               }
               ${item("export", mdiTrayArrowDown, t.t("panel.export"), false, this.exportPlan)}
+              ${
+                this._hass?.user?.is_admin === true && robotMaps(this._hass).length > 0
+                  ? item(
+                      "more-robot-map",
+                      mdiRobotVacuum,
+                      t.t("panel.import_robot"),
+                      busy,
+                      this.chooseRobotMap,
+                    )
+                  : nothing
+              }
               <hr />
               ${item("settings", mdiCogOutline, t.t("settings.title"), this.busy, this.openSettings)}
               ${item(
@@ -3828,6 +3977,7 @@ export class DomoTwinPanel extends LitElement {
         : nothing
     }
     ${this.importChoice ? this.renderStoreys(this.importChoice) : nothing}
+    ${this.robotChoice ? this.renderRobotMaps(this.robotChoice) : nothing}
     ${this.northDraft !== undefined ? this.renderSettings(this.northDraft) : nothing}
     ${
       this.peopleOpen

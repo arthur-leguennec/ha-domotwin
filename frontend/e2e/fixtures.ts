@@ -10,7 +10,7 @@ export interface HarnessOptions {
   overview?: boolean;
   /** With the Overview: no DomoTwin panel for this user (left out of the sidebar, or admins'). */
   noPanel?: boolean;
-  /** Home Assistant's Energy page, its energy integration's (D-064); `empty`: nothing set up. */
+  /** Home Assistant's Energy page, its energy integration's (D-067); `empty`: nothing set up. */
   energyPage?: boolean | "empty";
   /**
    * Voice (D-041): Assist with a pipeline that hears (`true`), or none that hears (`"deaf"`);
@@ -96,6 +96,8 @@ export interface HarnessOptions {
   people?: boolean;
   /** A robot vacuum's dock in the hall, linked to `vacuum.robbie` (D-049). */
   robot?: boolean;
+  /** Robots running Valetudo, their map data cameras in Home Assistant (D-064). */
+  valetudo?: 1 | 2;
   /** Fictional solar panels, meter and battery, named in the stored settings (D-049). */
   energy?: boolean;
   /** The card's `demo`: the demo house instead of this home (D-050). */
@@ -185,6 +187,7 @@ export async function openHarness(page: Page, options: HarnessOptions = {}): Pro
   if (options.upkeep !== undefined) params.set("upkeep", options.upkeep ? "1" : "0");
   if (options.people !== undefined) params.set("people", options.people ? "1" : "0");
   if (options.robot) params.set("robot", "1");
+  if (options.valetudo) params.set("valetudo", String(options.valetudo));
   if (options.energy) params.set("energy", "1");
   if (options.demo) params.set("demo", "1");
   if (options.peak) params.set("peak", options.peak);

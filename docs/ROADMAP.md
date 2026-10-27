@@ -51,19 +51,25 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M23b      | Into Home Assistant's Overview, rather than a copy of it   | ✅     |
 | M36       | Configuration history: differences, one item put back      | ✅     |
 | M39       | Hydro-Québec's peaks, from the integrations that read them | ✅     |
+| M20       | More imports: robot vacuum maps, Floorplanner, meshes      | ✅     |
 | M24       | History and energy, with Home Assistant's own cards        | ✅     |
+| M40       | The weather around the home, in 3D                         | ⏳     |
+| M41       | Locating measured, next to Bermuda's on the same days      | ⏳     |
+| M45       | An iPhone's key, without a Mac: the ways to get it         | ⏳     |
 | M25       | Safety: cameras, the doorbell, the alarm, alerts           | ⏳     |
 | M26       | The wall screen: a screen saver, a layout per device       | ⏳     |
 | M31       | Placement advisor: where the next radio helps most         | ⏳     |
 | M22       | A first launch in five minutes                             | ⏳     |
 | 0.5.0     | Fifth release: all of the above                            | ⏳     |
+| M42       | Finer locating: a spot in the room, storeys by the stairs  | ⏳     |
+| M43       | mmWave sensors merged into one picture of the home         | ⏳     |
 | M33       | Guest access: chosen rooms, for a while                    | ⏳     |
 | M34       | Per-person rights: what DomoTwin shows each one            | ⏳     |
 | M35       | Automations in plain words, played in the sandbox first    | ⏳     |
-| M20       | More imports: robot vacuum maps, Floorplanner, meshes      | ⏳     |
 | M17       | A library of objects: many pieces, free and well made      | ⏳     |
 | M37       | A weekly home report                                       | ⏳     |
 | M18       | Outdoors: garden, terrace, lawn, pool, roofs               | ⏳     |
+| M44       | Split levels and walk-out basements                        | ⏳     |
 | M21       | More languages, right to left too                          | ⏳     |
 | 0.6.0     | Sixth release: all of the above                            | ⏳     |
 
@@ -91,12 +97,16 @@ QR code (M30) and a placement advisor for radios (M31) before a first launch in 
 (M22), kept where it was, and a fifth release, 0.5.0, right after it. "Why?" (M32), guest access
 (M33), rights (M34), automations in plain words (M35), a configuration history (M36), a weekly
 report (M37), history as reports (M38) and Hydro-Québec's peaks (M39) follow, among a library of
-objects (M17), the outdoors (M18), more imports (M20) and more languages (M21), before a sixth
-release, 0.6.0. After the sandbox, the maintainer asked for history as reports (M38, D-058),
-"Why?" (M32, D-059) and the configuration history (M36, D-062) before the rest, which keeps its
-order. The maintainer then moved Hydro-Québec's peaks (M39) forward too (D-063): it plays
-its peak in the sandbox; its part in the weekly report (M37) comes with it. History and energy
-(M24) came next, first of M24 to M26 at the maintainer's request (D-064).
+objects (M17), the outdoors (M18) and more languages (M21), before a sixth release, 0.6.0. After the
+sandbox, the maintainer asked for history as reports (M38, D-058), "Why?" (M32, D-059) and the
+configuration history (M36, D-062) before the rest, which keeps its order. The maintainer then moved
+Hydro-Québec's peaks (M39) forward too (D-063): it plays its peak in the sandbox; its part in the
+weekly report (M37) comes with it. More imports (M20, D-064) were moved before 0.5.0 too: robot
+vacuum maps, Floorplanner plans and mesh scans, which the first launch in five minutes (M22) uses.
+Then the weather around the home (M40), locating measured (M41) and an iPhone's key without a Mac
+(M45) were put before M24, and finer locating (M42), mmWave sensors merged (M43) and split levels
+(M44) after 0.5.0 (D-065). History and energy (M24) came next, ahead of M40, M41 and M45, at
+the maintainer's request (D-067).
 
 ## M0, scaffold
 
@@ -1304,11 +1314,62 @@ stored; nothing shown without them.
   from *The day* and from the Home tab (Playwright).
 - ⏳ The week's peaks in the weekly report, with **M37**.
 
+## M20, more imports
+
+Homes already mapped by something else: the robot vacuum, Floorplanner, a phone or a camera that
+scans in 3D (`DECISIONS.md`, D-064; [`imports.md`](imports.md)). Moved forward by the maintainer,
+before 0.5.0, after Hydro-Québec's peaks (M39).
+
+- ✅ **Robot vacuum maps**: Valetudo's, as its REST API gives it (JSON), as it publishes it over
+  MQTT (deflated) or as Home Assistant's camera receives it (a PNG holding it), and Roborock's own
+  (`rr`), gzipped as Valetudo RE serves it. Each segment a room, kept by its id and named as in
+  Valetudo; its pixels closed over what the robot went round, squared to the walls, the map turned
+  square; a door where two rooms touch with no wall between them (an opening past 1.6 m), opening
+  into the room with fewer doors; the floors the robot knows (tiles, wood and its direction); the
+  dock a robot vacuum's dock, its back to the nearest wall.
+- ✅ **Straight from Home Assistant**: *Import a robot's map*, for administrators, in the panel's
+  ⋮ menu and beside *Import plan* on a home without a plan, reads the *Map data* camera of
+  Valetudo's MQTT discovery through Home Assistant, asks which robot when there are several, and
+  links the dock to the robot's vacuum. Nothing reaches the robot.
+- ✅ **Floorplanner** (FML 3.0): its floors as storeys by level and height, the first design of
+  each; its areas the rooms, named by their name or a label inside them, else the rooms its walls
+  enclose; its walls' thicknesses and openings (centred at `t`, the hinge and swing from their
+  mirroring); its items the furniture, a box of their size unless their name says a kind. The
+  older XML FML is refused with what to do.
+- ✅ **Mesh scans** (OBJ, PLY, GLB, STL), amending D-040: the axis up and the unit found, the
+  storeys from the floors, the mesh turned square by its walls; the rooms the spaces the walls
+  enclose above the doors under the ceiling, where furniture does not reach (a wardrobe, wall
+  cabinets left in their room), 60 cm wide at least; the doors and windows from the gaps of cuts
+  at 0.4, 1.0 and 1.5 m. No furniture and no names: a mesh does not say them. Point clouds, FBX,
+  glTF in several files and compressed GLB are refused with what to do.
+- ✅ **Within budget**: 4 million pixels and cells for a map (16 million with its rooms' grids, a
+  million two rooms share) and 100 rooms, 5 million triangles and the cells they cover for a mesh,
+  64 MB unpacked: a few seconds at worst; the readers fuzzed with the others.
+- ✅ Tests: the cells (distances, closing, parts, outlines, simplifying, squaring, walls on shared
+  lines), each reader (Valetudo, Roborock, FML, OBJ, PLY, GLB, STL, a mesh cut into a plan:
+  turned, in centimetres with `z` up, two storeys), the fictional files of
+  `make-import-fixtures.py` end to end (a flat as Valetudo's map, its PNG, deflated, and as
+  Roborock's, not mirrored; an apartment of Floorplanner; a house scanned as OBJ, GLB and PLY),
+  refusals, files cut short anywhere, hostile maps and meshes (cargo); the robots' maps found in
+  Home Assistant, the files sent to the import (vitest); a Valetudo map imported, a robot's map
+  from Home Assistant with its dock linked (and the link failing, the plan kept), two robots in
+  French, none offered to those who cannot import, a Floorplanner floor, a mesh's every storey, a
+  point cloud refused (Playwright).
+
+![Three more fictional homes imported: a robot vacuum's map, a Floorplanner plan and a house scanned as a mesh](figures/screenshot-more-imports.png)
+
+Measured at the end of M20: see [`PERFORMANCE.md`](PERFORMANCE.md).
+
+Left for later: the robot drawn where Valetudo says it is, rather than along the plan (D-049);
+rooms' names of a Roborock map (they are in Roborock's cloud); the maps of robots that keep them
+in their maker's cloud (pictures, with no rooms to read); kinds of Floorplanner's catalogue
+pieces; furniture and names in a mesh scan; DWG and USD's binary layers, as in M11.
+
 ## M24, history and energy
 
 What a room measured, as Home Assistant's own graphs, and the home's energy as Home Assistant's
 own Energy page shows it: its cards and its pages reused, nothing drawn by DomoTwin (D-054,
-D-064). The first of M24 to M26, at the maintainer's request.
+D-067). Ahead of M40, M41 and M45 (D-065's order), at the maintainer's request.
 
 - ✅ **A room's graphs**, a page of the Rooms tab (`/domotwin/rooms/<area>/graphs`): *Graphs* on
   the room's page, and on its panel in 3D beside its history report; opened from 3D, the room's
@@ -1332,36 +1393,59 @@ D-064). The first of M24 to M26, at the maintainer's request.
   left out (words, dates, diagnostics, other rooms, a private room's), the limits, Home
   Assistant's cards over a day and a week, the titles in both languages, the period read by Home
   Assistant's History, the graphs' address, the Energy page's address, what is set up and where
-  there is none (vitest); a room's graphs and their week, the table and Home Assistant's History, back to the
-  room, the graphs from a room's panel in 3D and back there, a private room, the Energy tab and
-  back, none without an Energy page or with nothing set up, the demo house's power layer and plain rows, a phone in
-  French (Playwright).
+  there is none (vitest); a room's graphs and their week, the table and Home Assistant's History,
+  back to the room, the graphs from a room's panel in 3D and back there, a private room, the
+  Energy tab and back, none without an Energy page or with nothing set up, the demo house's power
+  layer and plain rows, a phone in French (Playwright).
 - Left for later: a room's energy over the week on the plan, with the weekly report (**M37**);
   graphs of a device from its controls in 3D (its history report is there, M38).
 
 ## Then, from 0.4.0 to 0.5.0
 
-Planned in D-056: the sandbox first, built during the two weeks of use since it does not wait on
-what they show; Home Assistant's Overview joined rather than copied before M24 and M25, which
-follow the same rule; the first launch in five minutes kept where it was, and 0.5.0 right after
-it. Each milestone its own pull request; no network call outside Home Assistant; fictional data in
-tests and docs; every string through `t()` in English and French. A ❓ is asked before its
-milestone starts, which goes on with what needs no answer.
+Planned in D-056, with D-065's additions: the sandbox first, built during the two weeks of use since
+it does not wait on what they show; Home Assistant's Overview joined rather than copied before M24
+and M25, which follow the same rule; the first launch in five minutes kept where it was, and 0.5.0
+right after it. Each milestone its own pull request; no network call outside Home Assistant;
+fictional data in tests and docs; every string through `t()` in English and French. A ❓ is asked
+before its milestone starts, which goes on with what needs no answer.
 
 - ✅ **M29, the sandbox** (D-057, above).
 - ✅ **M30, the Wi-Fi QR code** (D-060, above).
 - ✅ **M23b, into Home Assistant's Overview** (D-061, above). Still asked ❓: the 3D view at the
   top of the Overview or of an area's page, and an area's page opening DomoTwin, need Home
   Assistant; whether the Home and Rooms tabs stay where the Overview is.
-- ✅ **M24, history and energy** (D-064, above). Replay, the home's past in 3D (M19), stays a 3D
+- ✅ **M24, history and energy** (D-067, above). Replay, the home's past in 3D (M19), stays a 3D
   feature, later.
+- ⏳ **M40, the weather around the home** (asked for by the maintainer): the weather of Home
+  Assistant's `weather` entity drawn around the home in 3D: rain or snow falling outside the walls
+  of an apartment and splashing on the ground around it, on the roof of a house and running off it;
+  a storm's flashes, fog, an overcast light, the wind slanting what falls. Drawn by the engine,
+  light on a phone, still with reduced motion and in Eco; a card's `weather` option, the entity
+  chosen in the settings.
+- ⏳ **M41, locating measured** (D-065), before any new locating feature: a diagnostic for
+  administrators that records, for each device followed, its room changes per hour, its storey
+  changes per hour and its time in "unknown", and, where Bermuda is installed, the same figures
+  from Bermuda's area sensors for the same devices over the same hours. Shown in the Bluetooth
+  settings and in the diagnostics, as figures only: no addresses, no names. The maintainer runs it
+  at home and the figures are published in `docs/bluetooth.md`, as they are, whichever way they
+  fall. Small, so it comes soon after 0.4.0.
+- ⏳ **M45, an iPhone's key without a Mac** (D-065): in the Bluetooth settings, for an iPhone or an
+  Apple Watch, the ways to get its identity key: the Mac's Keychain; an ESP32 flashed for ten
+  minutes with an existing tool, irk-capture (an ESPHome package, MIT, explained in Home Assistant's
+  [community
+  guide](https://community.home-assistant.io/t/guide-grabbing-your-phone-watch-bluetooth-irks-2026-edition/968791))
+  or [ESPresense](https://espresense.com/beacons/apple)'s *Enroll* (AGPL); and a field that takes
+  the key in any of their forms (hex, a Mac's base64, `irk:…`) and hands it to Home Assistant's
+  Private BLE Device. Checked first: those tools exist, work without a Mac and are kept up, so
+  DomoTwin links to them rather than building a firmware of its own; one of its own only if they
+  stop being kept.
 - ⏳ **M25, safety**: the cameras side by side, the doorbell full screen when it rings, the alarm,
   and the full-screen alerts of the 3D view shown on every tab; Home Assistant's own Security
   page and its alerts (2026.9, 2026.10) opened rather than copied where it has them (D-056).
 - ⏳ **M26, the wall screen**: a screen saver (the clock, the weather, the photos of Home
   Assistant's media) woken by motion; a layout for each device.
-- M24 came first, at the maintainer's request (D-064); M25 and M26 come in the order the two
-  weeks of use decide.
+- M24 came ahead of M40, M41 and M45, at the maintainer's request (D-067); M25 and M26 come in
+  the order the two weeks of use decide.
 - ⏳ **M31, the placement advisor**: the Bluetooth model of M9f turned around, from where a
   device is to where a receiver would hear the most. The rooms badly covered coloured on the
   plan, for the Bluetooth receivers, the Zigbee mesh (its links and weak rooms, M9b) and the Wi-Fi
@@ -1371,8 +1455,9 @@ milestone starts, which goes on with what needs no answer.
   that report their Wi-Fi signal); nothing sent. A model, said to be one: what was measured comes
   before what is predicted. For administrators, since only they can read the radios.
 - ⏳ **M22, a first launch in five minutes**: from the install to one's own home live, in five
-  minutes, with the imports and pieces DomoTwin has then (M11, M15, the demo house as a start);
-  robot vacuum maps (M20) and more pieces (M17) join it when they come.
+  minutes, with the imports and pieces DomoTwin has then (M11, M15, the demo house as a start,
+  and the robot vacuum maps, Floorplanner plans and mesh scans of M20); more pieces (M17) join it
+  when they come.
 - ⏳ **Release 0.5.0**.
 - **Deferred** until someone asks: one's dashboards taken over, and pages arranged without YAML
   (the former M28). An agenda and lists are cards of the Home tab (M23), not a milestone of their
@@ -1382,6 +1467,23 @@ milestone starts, which goes on with what needs no answer.
 
 - ✅ **M32, "Why?"**: done next to the sandbox, right after 0.4.0 (above, D-059). Why something
   did not happen is the sandbox's (M29).
+- ⏳ **M42, finer locating** (D-065), after the placement advisor (M31), and only if the
+  figures of M41 say it is worth it: a spot inside the room rather than the room alone, worked out
+  on a grid of half-metre cells over the plan, as a cloud of likely spots that changes storey only
+  through the stairs (the ways of the walk, D-029, already know them); its X, Y and Z, and how sure
+  it is, as the room sensor's attributes. Reused from M9f (D-035): the radio model of the plan
+  (distance, walls, floors), each device's own loudness, the rooms taught (cells known for sure),
+  the presence sensors' weight and the rule that a room changes only when sure twice. Measured
+  again with M41 against what it replaces.
+- ⏳ **M43, mmWave sensors merged** (D-065), after M31: mmWave presence sensors placed on the plan
+  (where each stands and which way it faces), their zones and their targets turned into the home's
+  own coordinates, and merged with each other and with Bluetooth into one picture of who is where:
+  Bluetooth says who, mmWave says where, and says it fast. What Home Assistant gives is checked
+  first and differs by family: an Aqara FP2 (through HomeKit) gives one occupancy per zone and no
+  coordinates; an Everything Presence Lite gives its targets' X and Y in millimetres and its zones'
+  occupancy; ESPHome's LD2450 gives three targets' X, Y and speed and three zones; an LD2410 or an
+  Everything Presence One gives a distance or an occupancy only, so a zone or a room. Each is used
+  for what it says, no more.
 - ⏳ **M33, guest access**: a guest gets a QR code or a link that opens chosen rooms and devices
   for a set time and ends on its own, with the Wi-Fi QR code of M30. What can be enforced is said
   plainly: a Home Assistant user for the guest, local only and possibly read only, is enforced by
@@ -1398,7 +1500,7 @@ milestone starts, which goes on with what needs no answer.
   Home Assistant, plays it in the sandbox (M29) on days one picks, and only then saves it, Home
   Assistant's automation editor a tap away. DomoTwin calls no model itself; without an AI task,
   nothing is offered. For administrators.
-- ⏳ **M20, more imports**: robot vacuum maps (Valetudo and others), Floorplanner, meshes.
+- ✅ **M20, more imports** (D-064, above): done before 0.5.0, at the maintainer's request.
 - ⏳ **M17, a library of objects**: many more pieces, free and well made, drawn from real
   references, still fast.
 - ✅ **M36, configuration history** (D-062, above): done after Home Assistant's Overview, at
@@ -1414,6 +1516,15 @@ milestone starts, which goes on with what needs no answer.
   maintainer's request.
 - ⏳ **M18, outdoors**: the garden, the terrace, the lawn, a pool, the roofs; the lawn growing
   between two mowings.
+- ⏳ **M44, split levels and walk-out basements** (D-065), next to the outdoors (M18), whose ground
+  it needs. What works already: a storey can sit at any height (half a storey up), it is drawn
+  there, and stairs join it to the next, for a tap and for the walk. What does not: the Bluetooth
+  model counts a floor between any two storeys, even a half level beside the other rather than over
+  it; a storey given no name is called by its rank (Floor 1, Floor 2), not as a half level; and the
+  ground is one flat level, so a basement cannot open onto the garden on one side. The milestone: a
+  floor counted only where one storey's room lies over the other's, by the height between them; half
+  levels named as such; the ground's height on each side of the home; and a fictional split-level
+  house in `examples/`, with its tests.
 - ✅ **M39, Hydro-Québec's peaks**, moved forward (D-063, above): the next peak, the pre-heating
   before it, which rooms shed and what they draw during it, in 3D and on the Home tab, and
   tomorrow's announced peak played in the sandbox, from the entities of hydroqc or HydroPeak. Its

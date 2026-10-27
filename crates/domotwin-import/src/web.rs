@@ -19,7 +19,7 @@ pub struct PlanImport {
 #[wasm_bindgen]
 impl PlanImport {
     /// Reads the file's bytes; `title` names the plan when the file does not. Errors are JSON
-    /// `{"code"}`: `not_plan`, `not_ifc`, `too_large`, `no_storeys`, `sh3d_old`, `dxf_binary`.
+    /// `{"code"}`: those of `PlanFile::read`.
     #[wasm_bindgen(constructor)]
     pub fn new(bytes: Vec<u8>, title: &str) -> Result<PlanImport, JsError> {
         console_error_panic_hook::set_once();
@@ -28,7 +28,7 @@ impl PlanImport {
             .map_err(error)
     }
 
-    /// The format found: `ifc`, `sh3d` or `dxf`.
+    /// The format found: `ifc`, `sh3d`, `dxf`, `scan`, `robot`, `fml` or `mesh`.
     pub fn format(&self) -> String {
         self.file.format().to_owned()
     }

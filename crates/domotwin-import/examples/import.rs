@@ -1,5 +1,5 @@
-//! Converts one storey of a plan of another app (IFC, Sweet Home 3D, DXF, room scan) to a
-//! DomoTwin plan, for development:
+//! Converts one storey of a plan of another app (IFC, Sweet Home 3D, DXF, room scan, robot
+//! vacuum map, Floorplanner plan, mesh scan) to a DomoTwin plan, for development:
 //!   cargo run -p domotwin-import --example import -- <file> [storey index] > out.domotwin.json
 #![allow(clippy::print_stdout, clippy::print_stderr)]
 

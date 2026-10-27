@@ -1,5 +1,5 @@
 /**
- * The messages of the Home and Rooms tabs, of a room's graphs (D-064) and of the user's choices
+ * The messages of the Home and Rooms tabs, of a room's graphs (D-067) and of the user's choices
  * (D-055), in both languages: loaded with their chunk, not with the first picture.
  */
 import type { Widen } from "./index";

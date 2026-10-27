@@ -199,7 +199,7 @@ export class DomoTwinHaCard extends LitElement {
       }
       case "history-graph":
       case "statistics-graph": {
-        // A room's graphs (D-064): what each says now, no graph drawn by DomoTwin (D-054).
+        // A room's graphs (D-067): what each says now, no graph drawn by DomoTwin (D-054).
         const entities = Array.isArray(config.entities)
           ? config.entities.filter((id): id is string => typeof id === "string")
           : [];

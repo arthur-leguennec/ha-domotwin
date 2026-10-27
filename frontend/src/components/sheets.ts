@@ -362,7 +362,7 @@ export class DomoTwinRoom extends Sheet {
   people: PersonShown[] = [];
   /** The devices followed by Bluetooth heard in it (D-035). */
   things: LocatedShown[] = [];
-  /** Its graphs can open, in the panel's Rooms tab (D-064). */
+  /** Its graphs can open, in the panel's Rooms tab (D-067). */
   graphs = false;
 
   protected override render(): TemplateResult | typeof nothing {
@@ -386,7 +386,7 @@ export class DomoTwinRoom extends Sheet {
           ${this.admin ? html`<p class="empty">${t.t("room.no_area_admin")}</p>` : nothing} ${later}`,
       );
     }
-    // Its air sensors' history (D-058) and its graphs (D-064), when it has some.
+    // Its air sensors' history (D-058) and its graphs (D-067), when it has some.
     const sensors = hass.sandbox ? [] : roomSensors(hass, area);
     const graphs = this.graphs && !hass.sandbox && hasGraphs(hass, area);
     const footer =
