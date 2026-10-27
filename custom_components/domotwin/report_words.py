@@ -1,4 +1,4 @@
-"""The weekly report in words (`docs/DECISIONS.md`, D-066).
+"""The weekly report in words (`docs/DECISIONS.md`, D-067).
 
 In Home Assistant's language (English or French): Home Assistant's notification, and what the AI
 task is asked to sum up.

@@ -2820,7 +2820,183 @@ launch in five minutes (M22) has it.
     scanned closed is a wall, a room scanned without its ceiling stops at its furniture. The
     plan editor finishes the rest, as for every import.
 
-## D-066 · A weekly home report: written by the integration on its day, read in the panel (M37)
+## D-065 · What Home Assistant's users say of 3D twins: said plainly, measured first (amends D-056)
+
+Read by the maintainer on r/homeassistant in October 2026, and passed on in their own words.
+
+- **Context.**
+  - **AI-written code.** Threads about 3D plans for Home Assistant drew a strong reaction to code
+    written with AI. The most upvoted answer said AI is not the problem; *paying* for AI-written
+    extras in an open-source project is.
+  - **A toy.** The most upvoted comment of another thread: a 3D plan "looks cool, then you abandon
+    it in a week"; it fits no daily use. The one practical use named was seeing each device's
+    signal strength on the plan.
+  - **Split levels** were asked for three times.
+  - **Locating.** Room presence learned by walking around, with a tool that reads an iPhone's
+    identity key (IRK) with an ESP32 and no Mac, was shown elsewhere in the same days as DomoTwin's
+    Bluetooth locating (M9f, D-035).
+  - **Measured, not claimed.** A user's own twin (not released) does what M9f does (it predicts
+    what each receiver hears from the 3D model), on a grid of half-metre cells with a cloud of
+    likely spots that changes floor only through the stairs, with 21 receivers. Measured against
+    Bermuda on the same readings: room changes per hour from 38 to 7, floor jumps per hour from
+    15.5 to 1.9, about 1.5 m off (60 cm where trained). Their tip: ESPHome proxies listening all
+    the time, Shelly scanners in Auto.
+  - Also asked: several mmWave sensors merged into one map of the home, each knowing only its own
+    zone today. And a top comment: a presence sensor in each room often makes Bluetooth unneeded.
+  - Checked when written (2026-10-27): ESPHome 2026.10 warns that scan windows over 600 ms starve
+    the Wi-Fi on the same radio, so the older tip of a window as long as the interval, at 1 100 ms,
+    now harms Wi-Fi proxies; a 300 ms window every 320 ms, scanning actively, listens about 94 % of
+    the time without Wi-Fi drops (corrected by the maintainer); since Home Assistant 2026.6, Home Assistant chooses active or passive scanning (Auto) for
+    ESPHome proxies and its adapter, and offers the same Auto to Shelly devices, whose scanner is
+    off until it is turned on. Tools that read an iPhone's key without a Mac
+    exist and are kept up: irk-capture (an ESPHome package, MIT) and ESPresense's *Enroll* (AGPL).
+- **Decision.**
+  - **Say how DomoTwin is built.** The READMEs say it plainly: written with Claude Code; every
+    change of the code through a pull request, checked by its tests, two automated reviews, clippy,
+    CodeQL, `cargo deny`, gitleaks and a size budget, and fuzzing when a reader changes; no network
+    call outside Home Assistant; no shop, no licence key, no paid tier, ever. And, near the top,
+    what sets it apart: the IFC and Sweet Home 3D imports, everything free, the network map, the
+    sandbox (the placement advisor once it is there). The first screens of both READMEs are
+    shortened, their headings made plainer.
+  - **The Bluetooth guide** gives the receivers' settings as they are now (ESPHome, Shelly, Home
+    Assistant's scanning mode) and what they change, what to expect with one receiver or one per
+    room, that a presence sensor per room may be enough, and how to get an iPhone's key today.
+  - **Measure before adding** (M41): a diagnostic records DomoTwin's room changes, storey changes
+    and time unknown per hour, and Bermuda's for the same devices where it runs; the maintainer
+    runs it at home and the figures go in the guide, as they fall. It comes before any other
+    locating feature, and soon (right after the weather, asked for before it), because it is small
+    and because it is what makes M9f credible.
+  - **Finer locating** (M42), only if M41's figures justify it, and **mmWave sensors merged**
+    (M43): after the sandbox (done) and the placement advisor (M31), which they build on (the
+    radio model turned around, the radios placed on the plan). M42 reuses M9f's radio model, the
+    devices' learned loudness, the rooms taught, the presence sensors' weight and the sureness
+    rule, and the walk's stairs (D-029) for the storeys.
+  - **Split levels** (M44): storeys at any height already draw and join by stairs; the Bluetooth
+    model's floors, the half levels' names and a ground that steps are missing. Next to the
+    outdoors (M18), whose ground it needs, with a fictional example.
+  - **An iPhone's key** (M45): DomoTwin links to the tools that exist and takes the key in their
+    forms, rather than building a firmware of its own; small, next to M41.
+  - **The weather** (M40), asked for by the maintainer before these, is put on the roadmap here;
+    its decision comes with it.
+- **Consequences.**
+  - D-056's order goes on: M23b done, then M40, M41 and M45, then M24 to M26, M31 and M22 before
+    0.5.0; M42 and M43 open the way to 0.6.0, M44 sits by M18.
+  - The other 3D plan is not named in the repository, nor anyone from the threads; the user's
+    figures are quoted as a user's, not as DomoTwin's.
+  - The figures DomoTwin publishes are its own, measured in a real home, with the same figures
+    for Bermuda beside them.
+
+## D-066 · The placement advisor: where the next radio helps most (M31)
+
+Asked by the maintainer after the sandbox (D-057) and history as reports (D-058), as "Why?" was
+(D-059): M31 now, before M24 to M26, out of the order D-056 set, as M16d was brought forward
+(D-053); the Wi-Fi QR code (M30, D-060), Home Assistant's Overview joined (M23b, D-061), the
+configuration history (M36, D-062), Hydro-Québec's peaks (M39, D-063) and more imports (M20,
+D-064) were built meanwhile. It does not wait on what the two weeks of use show, and the order of
+the rest stays.
+
+- **Context.** The locating (D-035) works out from the plan what each Bluetooth receiver should
+  hear in each room, and learns what it really heard; the network map (D-031) reads the Zigbee
+  mesh's links and names the rooms reached only through weak ones. Neither says where the next
+  radio would help: a Bluetooth proxy, a Zigbee router or a Wi-Fi access point is placed by
+  guesswork, and moved until it works. Nothing found predicts coverage from a plan or says where
+  the next radio should go (D-056).
+- **Decision.**
+  - **A layer for administrators.** *Radio coverage* (`coverage`) joins the layers, offered to
+    administrators only: they alone may read the receivers and the mesh. Its sheet chooses the
+    radio: Bluetooth, Zigbee (with ZHA set up) or Wi-Fi. Each room of the plan is coloured for the
+    radio chosen, with the heatmap's halo (D-023) on a scale of its own: good (green), fair
+    (yellow), weak (orange), out of reach (red). The radios known are markers; the spots advised
+    are numbered markers. The sheet lists the rooms, the worst first, then the spots.
+  - **What was measured comes before what is predicted.** A room is measured when:
+    - Bluetooth: a receiver learned it (taught, or presence sensors agreeing, D-035) for at least
+      as many readings as the plan counts for (eight): the best receiver's mean, the device's own
+      loudness taken away (a phone as the model has it);
+    - Zigbee: an end device placed in it (D-031) has a link of known LQI to the coordinator or a
+      router heard from in the last day: the best one, read as the map reads it (good from 150,
+      fair from 80, weak below). A room with the coordinator or a router is covered by it: its
+      links to the others are the mesh's health, the network map's;
+    - Wi-Fi: a device placed in it reports its Wi-Fi signal: a sensor of the `signal_strength`
+      class in dBm of an ESPHome, Shelly, Tasmota, WLED or other Wi-Fi device, or named after
+      Wi-Fi; never one of ZHA's, Z-Wave's or Bluetooth's, nor a phone's, which moves. The best of
+      them.
+
+    A measured room shows what was measured, and by what; the others what the model predicts.
+    Its Wi-Fi signals are read again as they change, to a decibel, at most every 30 seconds.
+  - **The model is D-035's, for each radio.** The signal falls with the distance (exponent 2.2),
+    4 dB a wall, 0.4 of a wall for a door, none for a side left open, 15 dB a floor, worked out
+    over the same points of each room as the locating (up to twelve, clear of its sides) at
+    110 cm. A radio stands at its piece's centre, else at 120 cm where it was placed. What changes
+    is how loud it is at a metre, and the thresholds (dBm), guides rather than measures:
+
+    | Radio                               | At 1 m | Good  | Fair  | Weak   | Out of reach |
+    | ----------------------------------- | ------ | ----- | ----- | ------ | ------------ |
+    | Bluetooth: a phone, by a receiver   | −59    | ≥ −80 | ≥ −90 | ≥ −100 | below        |
+    | Zigbee: a device, by a router       | −45    | ≥ −75 | ≥ −85 | ≥ −95  | below        |
+    | Wi-Fi: an access point, by a device | −35    | ≥ −67 | ≥ −75 | ≥ −85  | below        |
+
+    A room's signal is the mean over its points of the best radio's.
+  - **Checked against what was measured.** Where a signal was measured (a Bluetooth room learned,
+    a Wi-Fi device), the model's error is what was measured less what it predicts there. From two
+    measurements, the predictions are moved by the errors' median (12 dB at most), and the sheet
+    says by how much and how far off the model still is on average. Zigbee measures its links in
+    LQI, not in dBm: the rooms both measured and predicted are compared by level, and the sheet
+    says in how many they agree.
+  - **The spots advised.** Each room offers its middle and up to four of its points as spots for
+    the next radio, at 120 cm. With a radio there, each room gets the better of what it has
+    (measured or predicted) and what the new radio alone gives it (with the model's correction).
+    A spot's worth is the levels it raises, a measured room's counting double (something there
+    uses the radio now), then the signal it adds where a room is not covered well yet (20 dB at
+    most a room), by the rooms' areas; a room measured by its level alone (Zigbee) has the least
+    signal of its level. A Zigbee router, and a
+    Wi-Fi access point, must be reached at least fairly where it stands by one of its kind that
+    is already there (when there is one): a router joins the mesh through its neighbours, and an
+    access point without a cable through the first one. The best spot of each room is kept, then
+    the three best, each with what it changes ("Bathroom: weak → good") and the piece of its room
+    it stands by (within 1.5 m; not a finish of the room nor what hangs from its ceiling or walls);
+    none when no spot raises a room's level ("every room is covered well"). Each spot is the next
+    radio alone, not one of three to add; a spot tapped shows the rooms as they would be with it.
+    Beyond 24 rooms, each room is weighed from four of its points and offers its middle alone:
+    the advice takes tens of milliseconds there, not hundreds.
+  - **Private rooms (D-039)** the viewer may not see show nothing of their coverage, as their
+    floors are not coloured: not in the sheet, no spot in them, nothing they would gain.
+  - **The radios.**
+    - The Bluetooth receivers, where the locating places them (D-035): `domotwin/locating/get`
+      gives each one's place (storey, point, height) and what each learned in each room (mean and
+      readings), to administrators only as before. A receiver placed nowhere is listed, with the
+      Bluetooth settings a tap away in the panel.
+    - The Zigbee coordinator and routers placed at their pieces (D-031), but not those not heard
+      from for a day: they relay for no one.
+    - The Wi-Fi access points an administrator placed: in the panel, *Place an access point*
+      asks for a tap on the floor of the storey shown where it stands, and keeps it in DomoTwin's
+      settings (`access_points`: its storey, its point, a name; 16 at most); the sheet removes
+      one. A router's integration does not say where its access points are in the home.
+  - **Where it runs: in the page.** The model is the analysis module's (D-043), loaded the first
+    time the layer is shown, from what the page already has: the storeys' plans and overlays (a
+    storey without a plan still a floor), the bindings, ZHA's mesh, the Wi-Fi sensors and the
+    locating's answer. It is written again in the
+    core (`domotwin_core::coverage`), reading the plans as the integration does (rooms, doors,
+    sides left open, pieces moved by the overlay), and tested against it: the walls between the
+    same places of the demo apartment are the integration's. Each spot is weighed against every
+    point of every room, the walls counted along each line: in the integration that would take
+    seconds for a home of thirty rooms on a small host (D-001 keeps the Python side free of
+    geometry; the locating needs its own), in the page milliseconds. Nothing is sent outside Home
+    Assistant (D-022); nothing is kept but the access points.
+  - **Said to be a model.** The sheet says so: from the plan's walls, doors and floors, what was
+    measured first. Furniture, what walls are made of and how thick, a fridge or a mirror, and
+    the outdoors are not in it.
+- **Consequences.**
+  - `domotwin/locating/get` gives each receiver's `place` and what was learned (`heard`), to
+    administrators only.
+  - DomoTwin's settings gain `access_points`, checked by the integration.
+  - The analysis module grows by the model; the first load by the layer's name and the coverage
+    scale. The sheet is a chunk of its own, with its texts in both languages.
+  - An open menu of the view stands over the layers' sheets: the coverage's sheet is tall enough
+    to cover the layer menu, the network map's could be.
+  - Thread and Matter, Zigbee2MQTT, Z-Wave, Wi-Fi at 5 or 6 GHz and a heat map inside a room are
+    left for later.
+
+## D-067 · A weekly home report: written by the integration on its day, read in the panel (M37)
 
 M37, moved forward by the maintainer from the way to 0.6.0 (D-056), after Hydro-Québec's peaks
 (M39, D-063), whose week it reports. It waits on nothing the milestones before it build.
@@ -2866,8 +3042,9 @@ M37, moved forward by the maintainer from the way to 0.6.0 (D-056), after Hydro-
     - *Zigbee devices on a weak link* (M9b): ZHA's devices as `zha/devices` answers them, by the
       network map's rules (D-031, D-043): each device's widest way to the coordinator, weak below
       an LQI of 80, or none at all. ZHA's insides may change: a ZHA that does not answer as it
-      did is left out, and the network map still reads it. What the placement advisor (M31)
-      predicts joins the report with it.
+      did is left out, and the network map still reads it. The placement advisor's weak spots
+      (M31) are worked out in the page from the plans' walls (D-066): the integration, which
+      writes the report, does not work them out again; the radio coverage shows them.
   - **The week's energy** against the week before: the seven days to the midnight before the
     report is written, and the seven before them, from the recorder's hourly statistics (their
     change, in kWh). The home's, from Home Assistant's energy settings (both shapes of their grid:
@@ -2933,4 +3110,4 @@ M37, moved forward by the maintainer from the way to 0.6.0 (D-056), after Hydro-
     stops).
   - The first load grows by the menu item and its text; the page comes when opened
     (`PERFORMANCE.md`).
-  - The roadmap shows M37 done after M20; the rest of D-056's order stays.
+  - The roadmap shows M37 done after the placement advisor (M31); the rest of the order stays.

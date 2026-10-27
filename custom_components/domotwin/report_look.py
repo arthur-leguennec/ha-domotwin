@@ -1,4 +1,4 @@
-"""What needs a look, for the weekly report (`docs/DECISIONS.md`, D-066).
+"""What needs a look, for the weekly report (`docs/DECISIONS.md`, D-067).
 
 Read from what Home Assistant and the integrations installed already say, rather than worked out
 again: the batteries low (Battery Notes' where it is installed), the devices unavailable, the

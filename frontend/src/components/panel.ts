@@ -102,6 +102,7 @@ import type { GlanceSources } from "../live/glance";
 import { resolveShow, type ShowRequest } from "../live/show";
 import type { LocatingSettings } from "../live/locating";
 import type { PeopleSettings } from "../live/people";
+import type { AccessPoint } from "../live/placement";
 import type { Wifi } from "../live/wifi";
 import { mergeCards, renamedPieces, type Upkeep, type UpkeepCard } from "../live/upkeep";
 import {
@@ -167,6 +168,8 @@ const LAYER_WAIT_MS = 5 * 60_000;
 const LAYER_POLL_MS = 250;
 /** How long before settings that could not be read are asked for again (ms). */
 const SETTINGS_RETRY_MS = 10_000;
+/** No Wi-Fi access point placed (D-066): the same array every time. */
+const NO_ACCESS_POINTS: AccessPoint[] = [];
 /** Upkeep cards saved at once when a file fills them (the integration takes up to 2 000). */
 const CARDS_AT_ONCE = 400;
 /** The highest a storey's floor may be (cm), as the integration checks. */
@@ -437,7 +440,7 @@ export class DomoTwinPanel extends LitElement {
   protected voiceOpen = false;
   /** The configuration history (D-062) is open, its module loaded. */
   protected configHistoryOpen = false;
-  /** The weekly report is open (D-066), on the report asked for (the notification's link). */
+  /** The weekly report is open (D-067), on the report asked for (the notification's link). */
   protected reportOpen = false;
   private reportAsked?: number;
   /** The plans the report is drawn on, the same while they are. */
@@ -1044,7 +1047,7 @@ export class DomoTwinPanel extends LitElement {
     this._hass = hass;
     this.requestUpdate("hass", old);
     if (first && this.isConnected) this.connectData();
-    // The weekly report asked for in the address (D-066), once the user is known.
+    // The weekly report asked for in the address (D-067), once the user is known.
     if (hass?.user && !old?.user) this.openReportAsked();
   }
 
@@ -3171,6 +3174,8 @@ export class DomoTwinPanel extends LitElement {
       .linkable=${admin}
       @domotwin-link-element=${this.onLinkElement}
       @domotwin-network-place=${this.onNetworkPlace}
+      .accessPoints=${this.settings?.access_points ?? NO_ACCESS_POINTS}
+      @domotwin-open-bluetooth=${this.openBluetooth}
       .roomTab=${true}
       @domotwin-room-open=${this.onRoomOpen}
     >
@@ -3531,7 +3536,7 @@ export class DomoTwinPanel extends LitElement {
     }
   };
 
-  /** Opens the weekly report (D-066), on a report or the newest: its module and texts, loaded
+  /** Opens the weekly report (D-067), on a report or the newest: its module and texts, loaded
    * the first time. */
   private async openReport(asked?: number): Promise<void> {
     try {
@@ -3545,7 +3550,7 @@ export class DomoTwinPanel extends LitElement {
 
   /**
    * A report asked for in the address (`/domotwin?report=12`, the weekly notification's link,
-   * D-066): opened for an administrator, then left out of the address.
+   * D-067): opened for an administrator, then left out of the address.
    */
   private openReportAsked(): void {
     const hass = this._hass;

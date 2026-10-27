@@ -1301,7 +1301,7 @@ try {
     await upkeepPage.screenshot(),
   );
   console.log("docs/figures/screenshot-upkeep.png");
-  // The weekly report (D-066): the panel, the day look, the harness's fictional report of the
+  // The weekly report (D-067): the panel, the day look, the harness's fictional report of the
   // demo apartment and its upper floor, summed up by a fictional AI task, read in Montréal.
   const reportPage = await browser.newPage({
     viewport: { width: 1280, height: 900 },
@@ -1374,6 +1374,38 @@ try {
     await bluetoothPage.screenshot(),
   );
   console.log("docs/figures/screenshot-bluetooth.png");
+
+  // The radio coverage (D-066): the panel, the day look, Wi-Fi over the demo apartment from the
+  // harness's access point in the kitchen, its devices' signals, the spots for the next one.
+  const coveragePage = await browser.newPage({
+    viewport: { width: 1280, height: 800 },
+    // Under the repository's 800 kB a picture (`.pre-commit-config.yaml`).
+    deviceScaleFactor: 1.25,
+  });
+  await coveragePage.emulateMedia({ reducedMotion: "reduce" });
+  await coveragePage.addInitScript(() => {
+    localStorage.setItem("domotwin-coverage-radio", "wifi");
+  });
+  await coveragePage.goto(
+    "http://127.0.0.1:4173/?mode=panel&live=1&bluetooth=1&radios=1&hometheme=day",
+  );
+  await coveragePage.waitForFunction(() => window.__view?.()?.debugState().summary, null, {
+    timeout: 60_000,
+  });
+  await coveragePage.evaluate(() => {
+    const view = window.__view();
+    view.options = { ...view.options, quality: "high" };
+  });
+  await coveragePage.locator("domotwin-view").getByTestId("layers").click();
+  await coveragePage.locator('domotwin-view [data-layer="coverage"]').click();
+  await coveragePage.locator("domotwin-placement .marker.spot").first().waitFor();
+  await coveragePage.evaluate(() => window.__view().settle());
+  await coveragePage.waitForTimeout(800);
+  await fs.writeFile(
+    join(root, "docs", "figures", "screenshot-placement.png"),
+    await coveragePage.screenshot(),
+  );
+  console.log("docs/figures/screenshot-placement.png");
 
   // The looks of D-036: the cartoon and the clay in the panel, in the light of the day.
   const toonShots = [];

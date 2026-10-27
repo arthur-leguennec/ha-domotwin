@@ -1,5 +1,5 @@
 /**
- * `<domotwin-report>`: the weekly report (D-066), in the panel. The week shown and those kept
+ * `<domotwin-report>`: the weekly report (D-067), in the panel. The week shown and those kept
  * before; the summary, when an AI task wrote one; what needs a look, room by room on the plans
  * and section by section, each item opening where Home Assistant shows it; the week's energy
  * against the week before; the week's Hydro-Québec peaks; what was done since the last report;

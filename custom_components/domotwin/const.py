@@ -91,6 +91,11 @@ LOCATED_KINDS: Final = ("phone", "watch", "thing")
 TEACH_SECONDS: Final = (10, 120)
 # Dispatcher signal sent when a followed device moves, is lost or left behind: (device id,).
 SIGNAL_LOCATED: Final = f"{DOMAIN}_located"
+# The placement advisor (docs/DECISIONS.md, D-066): the Wi-Fi access points placed on the plan, at
+# most this many, each named this long, at a point this far from the plan's origin at most (cm).
+MAX_ACCESS_POINTS: Final = 16
+MAX_ACCESS_POINT_NAME: Final = 60
+MAX_PLAN_REACH: Final = 1_000_000
 
 # Actions done later (docs/DECISIONS.md, D-046), kept in their own store.
 SCHEDULES_STORAGE_KEY: Final = f"{DOMAIN}.schedules"
@@ -177,7 +182,7 @@ MODEL_GRACE_SECONDS: Final = 86_400
 # Overlay entries of the models imported in edit mode: "@model:<model id>".
 MODEL_ENTRY_PREFIX: Final = "@model:"
 
-# The weekly report (docs/DECISIONS.md, D-066): its settings and the last reports, in a store of its
+# The weekly report (docs/DECISIONS.md, D-067): its settings and the last reports, in a store of its
 # own (.storage/domotwin.reports), private. At most this many reports kept (the oldest go first),
 # items a section of a report (the others counted), and a summary's characters.
 REPORT_STORAGE_KEY: Final = f"{DOMAIN}.reports"

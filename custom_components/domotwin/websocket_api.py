@@ -662,7 +662,8 @@ def ws_locating_get(
     """Return the Bluetooth locating (D-035): the receivers, the devices followed and their rooms.
 
     Administrators only. An identity key never leaves the server: a device known by one is shown
-    by its Private BLE Device entry.
+    by its Private BLE Device entry. For the placement advisor (D-066), each receiver's place and
+    what each learned in each room (`heard`).
     """
     if (locator := _get_locator(hass, connection, msg)) is None:
         return
@@ -678,6 +679,7 @@ def ws_locating_get(
                 "idle": round(idle) if idle is not None else None,
                 **settings["receivers"].get(source, {}),
                 "placed_by": locator.placed_by.get(source),
+                "place": locator.place_of(source),
             }
         )
     devices: dict[str, Any] = {}
@@ -702,6 +704,7 @@ def ws_locating_get(
             "receivers": receivers,
             "devices": devices,
             "learned": locator.learned_rooms(),
+            "heard": locator.heard(),
             "rooms": [
                 {"id": room.id, "name": room.name, "storey": room.storey_name}
                 for room in people.finder.rooms
@@ -823,7 +826,7 @@ def ws_subscribe(
 
     The kinds: the plan (its overlay counts as the plan), the bindings, the settings, the upkeep,
     the people's settings, the home's Wi-Fi (`wifi`: only that it changed, D-060) and the weekly
-    report (`report`: a report written or its settings changed, D-066).
+    report (`report`: a report written or its settings changed, D-067).
 
     Every `domotwin.show` is sent too: kind `show`, the request in `show`.
     """

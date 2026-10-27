@@ -106,7 +106,7 @@ async def async_get_config_entry_diagnostics(
     # Whether the home's Wi-Fi is given (D-060): never its name, its password or its screens.
     if (wifi := hass.data.get(WIFI_KEY)) is not None:
         diagnostics["wifi"] = {"set": wifi.is_set, "router_code": wifi.from_image}
-    # The weekly report's settings (D-066), whether an AI task sums it up, and how many reports are
+    # The weekly report's settings (D-067), whether an AI task sums it up, and how many reports are
     # kept: never what they say.
     if (report := hass.data.get(REPORT_KEY)) is not None:
         settings = report.settings

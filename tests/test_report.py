@@ -1,4 +1,4 @@
-"""The weekly home report (D-066): what needs a look, the week's energy and peaks, on its day."""
+"""The weekly home report (D-067): what needs a look, the week's energy and peaks, on its day."""
 
 from __future__ import annotations
 

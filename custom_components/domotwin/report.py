@@ -1,4 +1,4 @@
-"""The weekly home report (`docs/DECISIONS.md`, D-066).
+"""The weekly home report (`docs/DECISIONS.md`, D-067).
 
 Once a week, on the day and at the hour an administrator chose (Monday at 8 by default), DomoTwin
 writes what needs a look in the home (`look.py`), the week's energy against the week before and

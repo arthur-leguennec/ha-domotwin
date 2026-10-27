@@ -23,6 +23,12 @@ export class NetworkAnalysis {
 }
 
 /**
+ * How well one radio covers the home, and where the next one helps most (JSON in and out, see
+ * `domotwin_core::coverage`): `{"rooms", "radios", "spots", "check", "agreement"}`.
+ */
+export function advisePlacement(input: string): string;
+
+/**
  * What an automation's configuration (JSON, `automation/config`'s `config`) involves: JSON
  * `{"ends": [{"role", "entity" | "device" | "area" | "floor" | "label" | "place" | "dynamic":
  * name}], "skipped"}`.
@@ -41,6 +47,7 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 export interface InitOutput {
     readonly memory: WebAssembly.Memory;
     readonly __wbg_networkanalysis_free: (a: number, b: number) => void;
+    readonly advisePlacement: (a: number, b: number, c: number) => void;
     readonly networkanalysis_drawing: (a: number, b: number) => void;
     readonly networkanalysis_new: (a: number, b: number) => number;
     readonly networkanalysis_report: (a: number, b: number, c: number, d: number) => void;
