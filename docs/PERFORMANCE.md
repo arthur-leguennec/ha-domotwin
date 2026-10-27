@@ -1235,14 +1235,28 @@ The CPU's part of a frame does not change; the software GPU keeps up with every 
 case. The 95th percentile of the CPU time moves by a few milliseconds from run to run on a shared
 core.
 
+### M41 (locating measured)
+
+Bundle: the first load is **545.2 kB gzipped** of 1 200 kB (+0.2 kB: the client's two commands
+and the pairing kept with a device). The measurements' texts and tables come with the Bluetooth
+settings, loaded when opened, which grow by 2.8 kB gzipped (7.1 kB): the figures' tables, their
+texts in both languages, the pairing with Bermuda and asking before starting again.
+
+The integration counts on the locating's tick, every two seconds: a tally per device and per way,
+no list of rooms or times. On a 2.1 GHz Xeon core of the CI's kind (the mean of 3 000 ticks), the
+measurements add about **0.12 ms** to a tick for 30 devices (the most followed) each paired with
+Bermuda, whether Bermuda's sensors give their area's id or its name (the areas' names are indexed
+when the plan or the areas change); the figures take about 0.15 ms when asked for. They add about
+470 bytes a device to `domotwin.locating_learned`, written ten minutes after they change at most.
+
 ### M17 (a library of objects)
 
-Bundle: the first load is **600.8 kB gzipped** of 1 200 kB (+55.8 kB). The engine grew by 52.5 kB
+Bundle: the first load is **601.0 kB gzipped** of 1 200 kB (+55.9 kB). The engine grew by 52.5 kB
 (`domotwin_web_bg.<hash>.wasm`: 1 062.4 kB raw, 440.1 kB gzipped, from 896.9 kB and 387.6 kB):
 the 61 new kinds and 54 new styles are code, and the code of the pieces went from 47.6 kB to
 190.3 kB before `wasm-opt`, most of it the floats of their parts (keeping the painter's helpers
 out of line changes nothing: they already are). The kinds' names in both languages, the devices'
-suggestions and the badges' icons add 3.3 kB to the first load. The catalogue's chunk grows to
+suggestions and the badges' icons add 3.4 kB to the first load. The catalogue's chunk grows to
 8.5 kB gzipped (+4.1 kB, on demand): the library's groups, styles and search words in both
 languages, and the drawing of its pictures. The plan editor's wasm (99.1 kB, +3.7 kB) and the
 import's (285.9 kB, +5.6 kB) read the new kinds.

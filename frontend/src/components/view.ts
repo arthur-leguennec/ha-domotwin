@@ -2256,7 +2256,7 @@ export class DomoTwinView extends LitElement {
     }
   }
 
-  /** The accent the view draws in (the catalogue's pictures take it, with `look`, D-073). */
+  /** The accent the view draws in (the catalogue's pictures take it, with `look`, D-074). */
   get accentShown(): string {
     return this.accent;
   }

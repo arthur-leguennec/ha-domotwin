@@ -665,7 +665,7 @@ const DEFAULT_MODEL_COLOR: &str = "#b8ad9a";
 #[derive(Debug)]
 struct Added<'a> {
     kind: Kind,
-    /// Its style (D-073).
+    /// Its style (D-074).
     style: Option<&'a str>,
     name: String,
     color: String,
@@ -811,7 +811,7 @@ mod tests {
 
     #[test]
     fn a_piece_is_added_in_its_style_at_its_size_and_lift() {
-        // D-073: a soundbar is added at a soundbar's size, a dome camera on the ceiling, a style
+        // D-074: a soundbar is added at a soundbar's size, a dome camera on the ceiling, a style
         // the kind does not have as the kind.
         let mut session = Session::new(&Layout::new());
         let (plan, walls) = shown(session.layout());

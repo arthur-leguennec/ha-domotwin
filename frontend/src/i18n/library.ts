@@ -1,5 +1,5 @@
 /**
- * The messages of the library of pieces (D-073), in both languages: the names of the styles and
+ * The messages of the library of pieces (D-074), in both languages: the names of the styles and
  * the other words a piece is searched by. Loaded with the catalogue, not with the first picture.
  */
 import type { Widen } from "./index";

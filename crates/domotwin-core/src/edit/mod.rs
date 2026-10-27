@@ -565,7 +565,7 @@ mod tests {
         let footprints: Vec<Footprint> = pieces.iter().map(|p| p.0).collect();
         assert_eq!(carried(0, &footprints), [1]);
         assert!(carried(2, &footprints).is_empty());
-        // The library's (D-073): a vase on a mantel, a kettle on an island, a speaker on a TV
+        // The library's (D-074): a vase on a mantel, a kettle on an island, a speaker on a TV
         // stand; a car is no support and does not stack.
         let mantel = (fp(200.0, 150.0, 150.0, 40.0, 0.0, 115.0), Kind::Fireplace);
         let vase = fp(200.0, 150.0, 16.0, 16.0, 0.0, 30.0);

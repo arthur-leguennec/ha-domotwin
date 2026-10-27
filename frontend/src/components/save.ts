@@ -21,3 +21,24 @@ export async function toClipboard(text: string): Promise<boolean> {
     return false;
   }
 }
+
+/**
+ * Puts `text` on the clipboard; where it is refused, `shown("manual")` has `host` show it in a
+ * `textarea` (the first matching `selector`), which is then selected to copy by hand.
+ */
+export async function copyText(
+  text: string,
+  host: { renderRoot: ParentNode; updateComplete: Promise<unknown> },
+  shown: (copied: "done" | "manual") => void,
+  selector = "textarea",
+): Promise<void> {
+  if (await toClipboard(text)) {
+    shown("done");
+    return;
+  }
+  shown("manual");
+  await host.updateComplete;
+  const area = host.renderRoot.querySelector<HTMLTextAreaElement>(selector);
+  area?.focus();
+  area?.select();
+}

@@ -38,7 +38,7 @@ fuzz_target!(|data: &[u8]| {
         }
     }
     session.rotate(&plan, &walls, (data.len() % 7) as i32 - 3);
-    // A piece of the library in one of its styles, or in one it does not have (D-073).
+    // A piece of the library in one of its styles, or in one it does not have (D-074).
     let kind = Kind::ALL[data.len() % Kind::ALL.len()];
     let style = kind
         .info()

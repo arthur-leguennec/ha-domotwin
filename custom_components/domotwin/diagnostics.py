@@ -96,6 +96,11 @@ async def async_get_config_entry_diagnostics(
             "located": sum(1 for found in locator.located.values() if found.room is not None),
             "rooms_learned": len(locator.learned_rooms()),
             "learn": locator.settings.get("learn", True),
+            # How well the rooms are found (M41): figures only, the devices by number.
+            "measured": {
+                "since": locator.measure.started.isoformat(),
+                "devices": [shown for _, shown in sorted(locator.measure.figures().items())],
+            },
         }
     # The actions done later counted (D-046): never which devices or when.
     if (scheduler := hass.data.get(SCHEDULER_KEY)) is not None:

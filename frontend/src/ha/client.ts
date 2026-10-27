@@ -1,6 +1,7 @@
 import type { ThemeMode } from "../config";
 import { readChoices, type Choices, type HomeCard, type Tab } from "../live/choices";
 import type { LocatedCandidate, LocatedSettings, LocatingSettings } from "../live/locating";
+import type { LocatingMeasure } from "../live/measured";
 import type { PeopleSettings, PersonSettings } from "../live/people";
 import { readSchedules, type Schedule } from "../live/schedules";
 import type { ShowRequest } from "../live/show";
@@ -383,6 +384,21 @@ export class DomoTwinClient {
       room,
       seconds,
     });
+  }
+
+  /** How well the rooms are found (M41): each device's figures, Bermuda's beside (admins). */
+  getLocatingMeasure(): Promise<LocatingMeasure> {
+    return this.connection.sendMessagePromise<LocatingMeasure>({
+      type: "domotwin/locating/measure",
+    });
+  }
+
+  /** Starts the measurements again from nothing (admins). */
+  async resetLocatingMeasure(): Promise<string> {
+    const result = await this.connection.sendMessagePromise<{ since: string }>({
+      type: "domotwin/locating/measure/reset",
+    });
+    return result.since;
   }
 
   /** Forgets what was learned in a room (every room without one). Returns how many were. */

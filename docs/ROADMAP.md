@@ -59,8 +59,8 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M35       | Automations in plain words, played in the sandbox first    | ✅     |
 | M34       | Per-person rights: what DomoTwin shows each one            | ✅     |
 | M40       | The weather around the home, in 3D                         | ✅     |
+| M41       | Locating measured, next to Bermuda's on the same days      | ✅     |
 | M17       | A library of objects: many pieces, free and well made      | ✅     |
-| M41       | Locating measured, next to Bermuda's on the same days      | ⏳     |
 | M45       | An iPhone's key, without a Mac: the ways to get it         | ⏳     |
 | M26       | The wall screen: a screen saver, a layout per device       | ⏳     |
 | M22       | A first launch in five minutes                             | ⏳     |
@@ -113,8 +113,8 @@ Automations in plain words (M35) came next, at the maintainer's request (D-070),
 plays its drafts in.
 Per-person rights (M34, D-071) followed: what DomoTwin shows each person and lets them do, set in
 one place, and said not to be Home Assistant's enforcement.
-After the weather around the home (M40, D-072), the library of objects (M17) was moved forward as
-well (D-073).
+After the weather around the home (M40, D-072) and locating measured (M41, D-073), the library of
+objects (M17) was moved forward as well (D-074).
 
 ## M0, scaffold
 
@@ -1664,10 +1664,36 @@ the apartment, the rain outside an apartment, on the roof of a house (D-065, D-0
   (pytest); rain, snow, hail and fog drawn and still, an entity that says nothing, the card's
   option, the settings' choice shown as it is chosen and saved, in French (Playwright).
 
+## M41, locating measured
+
+Before any new locating feature (D-065): how well DomoTwin finds rooms, in figures, with Bermuda's
+beside (D-073, [`bluetooth.md`](bluetooth.md)).
+
+- ✅ **Counted every two seconds** by the integration, for each device followed: hours followed,
+  room changes and storey changes per hour, stays shorter than 30 seconds, the share of the time
+  in no room. Counters only; kept with what is learned, across restarts, until started again.
+- ✅ **Bermuda beside**: each device paired by hand with Bermuda's area sensor of the same device,
+  counted the same way on the same ticks, DomoTwin's rooms counted by area beside it to compare
+  alike, and how often the two say the same area.
+- ✅ **A witness**: while one person alone is home and one room alone has its presence sensor on,
+  their phones and watches are taken to be there; the share of that time each way was right.
+- ✅ **Shown as figures only**: a small table per device in the Bluetooth settings, DomoTwin's and
+  Bermuda's columns; *Copy as a table* gives a Markdown table, the devices numbered, for the
+  guide; the diagnostics carry the same, without the devices' ids.
+- ✅ Tests: the tallies (changes between known rooms only, storeys, flickers, time in no room, the
+  rooms settling, by area, pauses, devices forgotten, kept and read back, what is wrong read as
+  nothing), the witness and Bermuda side by side, the pairing checked (Bermuda's, one device's),
+  saved within ten minutes, the diagnostics without names (pytest); the copied table, numbered and
+  sorted, the texts in both languages (vitest); the figures shown, copied, a device paired and
+  saved, started again once asked, in French (Playwright).
+
+Measured at the end of M41: see [`PERFORMANCE.md`](PERFORMANCE.md). Left for the maintainer: the
+figures of a real home, with Bermuda's, published in [`bluetooth.md`](bluetooth.md).
+
 ## M17, a library of objects
 
 Many more pieces, free and well made, drawn from real references, still fast; moved forward by the
-maintainer (D-073).
+maintainer (D-074).
 
 - ✅ **The pieces**: 61 kinds more (117) and 54 styles more (78): 195 pieces, from a corner sofa, a
   piano and a wood stove to a heat pump, a water heater, an electrical panel, an EV charger and a
@@ -1701,7 +1727,7 @@ maintainer (D-073).
   search, every style named in both languages, the devices' suggestions and badges (vitest); the
   pictures, a Chesterfield added at its size and colour, the search in French and a soundbar
   (Playwright).
-- Measured: the engine grows by 52.5 kB gzipped and the first load is 600.8 kB of 1 200; a new
+- Measured: the engine grows by 52.5 kB gzipped and the first load is 601.0 kB of 1 200; a new
   piece is at most 1 202 triangles (the wine cooler), the demo house's ground floor 19 286
   (+3 846); the catalogue's 195 pictures take 8.1 s in software WebGL (the first twelve 4.5 s, most
   of it the second engine's shaders), then come back at once ([`PERFORMANCE.md`](PERFORMANCE.md),
@@ -1731,13 +1757,12 @@ before its milestone starts, which goes on with what needs no answer.
   off it; a storm's flashes, fog, an overcast light, the wind slanting what falls. Drawn by the
   engine, light on a phone, still with reduced motion, fewer particles in Eco; a card's `weather`
   option, the entity chosen in the settings.
-- ⏳ **M41, locating measured** (D-065), before any new locating feature: a diagnostic for
-  administrators that records, for each device followed, its room changes per hour, its storey
-  changes per hour and its time in "unknown", and, where Bermuda is installed, the same figures
-  from Bermuda's area sensors for the same devices over the same hours. Shown in the Bluetooth
-  settings and in the diagnostics, as figures only: no addresses, no names. The maintainer runs it
-  at home and the figures are published in `docs/bluetooth.md`, as they are, whichever way they
-  fall. Small, so it comes soon after 0.4.0.
+- ✅ **M41, locating measured** (D-065, D-073, above), before any new locating feature: for each
+  device followed, its room changes and storey changes per hour, its flickers and its time in no
+  room, and, while a presence sensor alone says where its owner is, how often its room is right;
+  Bermuda's figures beside, from the same device's area sensor over the same hours. Shown in the
+  Bluetooth settings and in the diagnostics, as figures only. The maintainer's figures go in
+  `docs/bluetooth.md` as they fall.
 - ⏳ **M45, an iPhone's key without a Mac** (D-065): in the Bluetooth settings, for an iPhone or an
   Apple Watch, the ways to get its identity key: the Mac's Keychain; an ESP32 flashed for ten
   minutes with an existing tool, irk-capture (an ESPHome package, MIT, explained in Home Assistant's
@@ -1799,7 +1824,7 @@ before its milestone starts, which goes on with what needs no answer.
 - ✅ **M35, automations in plain words, tested first** (D-070, above): moved forward by the
   maintainer once the sandbox was in.
 - ✅ **M20, more imports** (D-064, above): done before 0.5.0, at the maintainer's request.
-- ✅ **M17, a library of objects**, moved forward (D-073, above): 195 pieces in fourteen groups,
+- ✅ **M17, a library of objects**, moved forward (D-074, above): 195 pieces in fourteen groups,
   each with its picture drawn by the engine, free and well made, at the usual sizes of real ones.
 - ✅ **M36, configuration history** (D-062, above): done after Home Assistant's Overview, at
   the maintainer's request.

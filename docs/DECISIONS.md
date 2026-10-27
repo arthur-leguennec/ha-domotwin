@@ -3495,10 +3495,67 @@ before M24 (D-065).
     a home without any `weather` entity draws none.
   - The same footprint and the same "seen over the home" rule can serve the outdoors (M18).
 
-## D-073 · A library of objects: the pieces, their styles and their pictures (M17)
+## D-073 · Locating measured: DomoTwin's rooms counted beside Bermuda's (M41)
+
+D-065 put it before any new locating feature: say how well M9f finds rooms (D-035) with figures,
+the same figures for Bermuda where it runs, before building more.
+
+- **Context.** What tells a locating apart in daily use is how often the room it says changes
+  while someone stays put, how often it is a room for a few seconds only, how long it says
+  nothing, and whether the room it says is the right one. Bermuda, the other way Home Assistant
+  locates a phone, gives each device an *area* sensor (its unit is Home Assistant's area, not a
+  plan's room). The truth is rarely known; a presence sensor alone in its room, with one person at
+  home, is the nearest thing to it a home has. DomoTwin already works out each device's room every
+  two seconds (D-035), and keeps what it learns in a store of its own.
+- **Decision.**
+  - **Counted by the integration, on the locating's tick**, for each device followed: the hours
+    followed, the room changes and storey changes, the stays shorter than 30 seconds ended by
+    another room, the time in no room. A change is counted only between two rooms: a moment in no
+    room does not end a stay. A tick longer than ten seconds (Home Assistant busy or restarting)
+    is not counted, and a stay it cuts through is not short. For a minute after a start, and after
+    a device is first followed (or known another way), the rooms settle: the time counts, not the
+    changes, so that a restart does not read as a room that flaps. Counters only, about 470 bytes
+    a device, never a room or a time of day: no history of where anyone was is kept.
+  - **Bermuda beside, paired by hand.** In the Bluetooth settings, each device may be paired with
+    Bermuda's area sensor of the same device (`bermuda`: a `sensor`, one device's at most, and
+    Bermuda's when Home Assistant's registry knows it; offered from Bermuda's area sensors without a
+    unit). Its area (`area_id`, else the area whose id, name or alias it says) is counted the same
+    way on the same ticks; its storey is the area's when all its rooms are on one storey. Bermuda's
+    unit is the area: beside it, DomoTwin's rooms are counted by area too (two rooms of one area
+    are one place there), so that the two columns compare alike; DomoTwin's own column stays by
+    room. The two agree when Bermuda's area is the area of DomoTwin's room; the share is of the
+    time both said a place. Another sensor paired, or none, starts Bermuda's figures again.
+  - **A witness, when there is one.** While exactly one `person` is home and exactly one room's
+    presence sensors say someone is there (D-035's weight at or above "on"), that person's phones
+    and watches (never a thing) are taken to be in that room: the share of that time each way
+    said that room (Bermuda: its area) is "right when witnessed". A phone left on a charger
+    elsewhere counts against it: a floor, said so in the guide. DomoTwin weighs the same presence
+    sensors for what people carry (D-035), so its share is not independent of the witness while
+    Bermuda's is: the guide says so, and the steadiness figures are what compare the two fairly.
+  - **Shown and published as figures only.** The Bluetooth settings show each device's figures as
+    a small table, DomoTwin's column, by area and Bermuda's beside when paired; *Copy as a table*
+    gives a Markdown table, the devices numbered and without names, for `docs/bluetooth.md`;
+    *Start again*, asked twice, clears them (administrators only, `domotwin/locating/measure` and
+    `.../reset`). The diagnostics carry the same figures, without the devices' ids. Their texts
+    come with the settings' chunk, not with the first load.
+  - **Kept with what is learned** (`.storage/domotwin.locating_learned`, `measure`): written at
+    most ten minutes after they are taken, a save always waiting while measuring so that Home
+    Assistant writes it when it stops; a device no longer followed is forgotten.
+  - **No entity.** The figures are not sensors: a sensor every two seconds would fill the
+    recorder for what is read now and then.
+- **Consequences.**
+  - The maintainer's figures, and anyone's, can be published as they fall; none are made up
+    meanwhile. M42 (finer locating) and M43 (mmWave merged) are measured against them.
+  - The first load grows by 0.2 kB gzipped (the client's two commands, the pairing kept with a
+    device); the Bluetooth settings' chunk by 2.8 kB. The integration's tick grows by about 0.12 ms for 30 devices with Bermuda
+    paired (`PERFORMANCE.md`, M41).
+  - The witness says nothing in a home where two people are in, or without presence sensors: the
+    other figures still say how steady each way is.
+
+## D-074 · A library of objects: the pieces, their styles and their pictures (M17)
 
 M17, moved forward by the maintainer from the way to 0.6.0 (D-056), as M39, M20, M31, M33, M25, M24,
-M35, M34 and M40 were (D-063, D-064, D-066 to D-072); the rest keeps its order.
+M35, M34, M40 and M41 were (D-063, D-064, D-066 to D-073); the rest keeps its order.
 
 - **Context.** The plan format had 56 kinds and 24 styles: enough for the rooms of the demo
   apartment, not for a real home's heat pump, router, smoke detector, car in the garage or cat
@@ -3562,7 +3619,7 @@ M35, M34 and M40 were (D-063, D-064, D-066 to D-072); the rest keeps its order.
   - The plan format stays at version 1: new kinds and styles. An older DomoTwin draws a new kind
     as a box and a new style as its kind.
   - The engine's wasm grows by 52.5 kB gzipped (387.6 to 440.1 kB): the pieces are code, the floats
-    of their parts most of it. The first load is 600.8 kB gzipped of 1 200; the frames do not
+    of their parts most of it. The first load is 601.0 kB gzipped of 1 200; the frames do not
     change, a piece being built once when the plan is.
   - While the catalogue is open, a second WebGL context is used (browsers allow about sixteen).
   - Fixed on the way: the pictures of the storeys (D-028) were drawn upside down; three-d already

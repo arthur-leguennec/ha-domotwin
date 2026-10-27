@@ -41,9 +41,10 @@ from .const import (
 from .locating.filter import PRESENCE_ON, RoomFilter, presence_weight
 from .locating.geometry import Home, Spot
 from .locating.identity import Match, Matcher, beacon_of, resolvable
+from .locating.measure import Measure
 from .locating.radio import AT_1M, Key, Learned, Model, prior
 from .locating.radio_ha import Advert, Radio, ha_radio
-from .people import Area, rooms_of
+from .people import NOWHERE, Area, area_spellings, norm, rooms_of
 from .storage import DomoTwinData, RevisionConflictError
 
 # How often the rooms are worked out, and how many seconds of packets are taken together.
@@ -64,6 +65,9 @@ PRESENCE_LEARN: Final = 0.25
 # The model takes in what was learned at most this often (seconds), the store saves it after this.
 RELEARN: Final = 60.0
 SAVE_DELAY: Final = 60.0
+# The measurements are written at most this long (s) after they are taken, not at every tick, for
+# the disk's sake; and when Home Assistant stops, as a save is then always waiting.
+MEASURE_SAVE: Final = 600.0
 # A burst of registry changes (a start, a proxy reconnecting) makes one rebuild, this long after.
 REBUILD_DELAY: Final = 2.0
 # Its owner away this long, a device still heard at home is left behind (seconds).
@@ -198,10 +202,18 @@ class Locator:
         self._rebuild_again = False
         self._rebuild_later: Callable[[], None] | None = None
         self._rebuild_lock = asyncio.Lock()
-        self._save_pending = False
+        # When the save waiting will be written (monotonic), None when none is waiting.
+        self._save_due: float | None = None
         # When each owner left home (going from zone to zone is still away).
         self._away_since: dict[str, datetime] = {}
         self._stopped = False
+        # How well the rooms are found (M41), and the rooms' areas and the areas' storeys it reads.
+        self.measure = Measure(dt_util.utcnow())
+        self._room_area: dict[str, str] = {}
+        self._area_storey: dict[str, int] = {}
+        # Each spelling of an area (its id, its name, its aliases) -> the area: Bermuda's sensor
+        # may say only its area's name.
+        self._area_names: dict[str, str] = {}
 
     # Settings and what was learned.
 
@@ -226,6 +238,7 @@ class Locator:
             for device, value in (offsets if isinstance(offsets, dict) else {}).items():
                 if isinstance(value, int | float) and abs(value) <= 40:
                     self._offsets[device] = float(value)
+            self.measure = Measure.read(learned.get("measure"), dt_util.utcnow())
 
     @property
     def settings(self) -> dict[str, Any]:
@@ -240,17 +253,22 @@ class Locator:
         return {
             "rooms": rooms,
             "offsets": {d: round(v, 2) for d, v in self._offsets.items() if d in devices},
+            "measure": self.measure.stored(),
         }
 
     def _saved_data(self) -> dict[str, Any]:
-        self._save_pending = False
+        self._save_due = None
         return self._learned_data()
 
-    def _schedule_save(self) -> None:
-        """Save what was learned a minute from now (once: more learned meanwhile is in it)."""
-        if not self._save_pending:
-            self._save_pending = True
-            self._learned_store.async_delay_save(self._saved_data, SAVE_DELAY)
+    def _schedule_save(self, delay: float = SAVE_DELAY) -> None:
+        """Save what was learned and measured `delay` seconds from now, unless a save comes sooner.
+
+        Once: what changes meanwhile is in it.
+        """
+        due = monotonic() + delay
+        if self._save_due is None or due < self._save_due:
+            self._save_due = due
+            self._learned_store.async_delay_save(self._saved_data, delay)
 
     def _save_learned(self) -> None:
         self._learned_changed = True
@@ -258,7 +276,7 @@ class Locator:
 
     async def async_flush(self) -> None:
         """Save what was learned now, if a save is due (the integration is unloaded)."""
-        if self._save_pending:
+        if self._save_due is not None:
             await self._learned_store.async_save(self._saved_data())
 
     async def async_save(
@@ -411,6 +429,7 @@ class Locator:
                 unfollow()
                 del self._addresses[address]
         for device in changed:
+            self.measure.forget(device)
             self._filters.pop(device, None)
             self._packets.pop(device, None)
             self._last_heard.pop(device, None)
@@ -474,12 +493,21 @@ class Locator:
         """
         async with self._rebuild_lock:
             home = Home(self._data.storeys)
-            rooms_by_area = self._rooms_by_area(home)
+            rooms_by_area, area_names = self._rooms_by_area(home)
             places, placed_by = self._place_receivers(home, rooms_by_area)
             presence = self._presence_sensors(rooms_by_area)
             expected = await self._hass.async_add_executor_job(prior, home, dict(places))
             self.home, self.places, self.placed_by = home, places, placed_by
             self._presence, self._prior = presence, expected
+            self._room_area = {
+                room: area for area, rooms in rooms_by_area.items() for room in rooms
+            }
+            self._area_storey = {
+                area: home.rooms[rooms[0]].storey
+                for area, rooms in rooms_by_area.items()
+                if len({home.rooms[room].storey for room in rooms}) == 1
+            }
+            self._area_names = area_names
             self._build_model()
             for device in self._settings["devices"]:
                 fresh = RoomFilter(home.neighbours)
@@ -498,8 +526,11 @@ class Locator:
             return []
         return [(r.source, r.name, r.idle) for r in self.radio.receivers()]
 
-    def _rooms_by_area(self, home: Home) -> dict[str, list[str]]:
-        """The rooms each area is read by, as the people's rooms are (`people.rooms_of`)."""
+    def _rooms_by_area(self, home: Home) -> tuple[dict[str, list[str]], dict[str, str]]:
+        """The rooms each area is read by, as the people's rooms are (`people.rooms_of`).
+
+        And each spelling of an area, to the area: Bermuda's sensor may say only its name.
+        """
         areas = [
             Area(area.id, area.name, tuple(sorted(area.aliases)))
             for area in ar.async_get(self._hass).async_list_areas()
@@ -508,7 +539,7 @@ class Locator:
         for room in rooms_of(self._data.storeys, self._data.bindings.get("rooms", {}), areas):
             if room.area and room.id in home.rooms:
                 found.setdefault(room.area, []).append(room.id)
-        return found
+        return found, area_spellings(areas)
 
     def _place_receivers(
         self, home: Home, rooms_by_area: dict[str, list[str]]
@@ -656,8 +687,81 @@ class Locator:
             if changed:
                 async_dispatcher_send(self._hass, SIGNAL_LOCATED, device)
         self._forget_old_addresses(now)
+        self._measure(seconds, moment.weights)
         if self._learned_changed and now - self._model_built >= RELEARN:
             self._build_model()
+
+    def _measure(self, seconds: float, weights: dict[str, float]) -> None:
+        """Count a tick for the measurements (M41): DomoTwin's rooms, Bermuda's, the witnesses."""
+        devices = self._settings["devices"]
+        places: dict[str, tuple[str | None, int | None, str | None]] = {}
+        bermuda: dict[str, tuple[str, str | None, int | None]] = {}
+        for device, settings in devices.items():
+            located = self.located.get(device)
+            room = located.room if located is not None else None
+            found = self.home.rooms.get(room) if room is not None else None
+            places[device] = (
+                room if found is not None else None,
+                found.storey if found is not None else None,
+                self._room_area.get(room) if room is not None else None,
+            )
+            if isinstance(entity := settings.get("bermuda"), str):
+                area = self._bermuda_area(entity)
+                bermuda[device] = (entity, area, self._area_storey.get(area) if area else None)
+        if self.measure.tick(seconds, places, bermuda, self._witnessed(weights)):
+            self._schedule_save(MEASURE_SAVE)
+
+    def _bermuda_area(self, entity: str) -> str | None:
+        """The area Bermuda's sensor says (its `area_id`, else an area's id, name or alias)."""
+        state = self._hass.states.get(entity)
+        if state is None or (said := norm(state.state)) in NOWHERE:
+            return None
+        area = state.attributes.get("area_id")
+        if isinstance(area, str) and area:
+            return area
+        return self._area_names.get(said)
+
+    def _witnessed(self, weights: dict[str, float]) -> dict[str, tuple[str, str | None]]:
+        """Where a presence sensor alone says each carried device's owner is.
+
+        Only while that owner is the one person at home and one room alone says someone is in it:
+        then the device is there, whatever any locating says.
+        """
+        on = [room for room, weight in weights.items() if weight >= PRESENCE_ON]
+        if len(on) != 1:
+            return {}
+        home = [s.entity_id for s in self._hass.states.async_all("person") if s.state == "home"]
+        if len(home) != 1:
+            return {}
+        truth = (on[0], self._room_area.get(on[0]))
+        return {
+            device: truth
+            for device, settings in self._settings["devices"].items()
+            if settings.get("kind") != "thing" and settings.get("person") == home[0]
+        }
+
+    def bermuda_sensors(self) -> list[str]:
+        """Bermuda's area sensors, to pair with the devices followed (M41)."""
+        found = [
+            entry.entity_id
+            for entry in er.async_get(self._hass).entities.values()
+            if entry.platform == "bermuda"
+            and entry.domain == "sensor"
+            and not entry.disabled
+            # An area is a word, not a measure (Bermuda's distances have a unit).
+            and entry.unit_of_measurement is None
+            and (
+                entry.translation_key == "area"
+                or entry.original_name == "Area"
+                or entry.entity_id.endswith("_area")
+            )
+        ]
+        return sorted(found)
+
+    async def async_measure_reset(self) -> None:
+        """Start the measurements again from nothing."""
+        self.measure.reset(dt_util.utcnow())
+        self._schedule_save()
 
     def _step(self, device: str, located: Located, readings: Readings, moment: _Moment) -> bool:
         """Weigh what was heard of a device lately; return whether its room changed.

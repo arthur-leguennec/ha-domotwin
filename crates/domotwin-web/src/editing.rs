@@ -227,7 +227,7 @@ impl Engine {
         self.edit_state()
     }
 
-    /// Adds a piece of the catalogue `kind` in `style` (none or empty: its own, D-073) named
+    /// Adds a piece of the catalogue `kind` in `style` (none or empty: its own, D-074) named
     /// `name` under the device pixel `x`, `y` (or in the middle of the view when the floor is not
     /// there), and selects it. The state has `refused: true` when it could not be added (the plan
     /// holds 500 elements).
@@ -416,7 +416,7 @@ impl Engine {
     }
 
     /// The catalogue of kinds a piece can be added as, as JSON `[{"kind", "w", "d", "h",
-    /// "light", "styles": [{"style", "w", "d", "h"}]}]` (usual sizes in cm, D-073).
+    /// "light", "styles": [{"style", "w", "d", "h"}]}]` (usual sizes in cm, D-074).
     #[wasm_bindgen(js_name = editCatalogue)]
     pub fn edit_catalogue() -> String {
         let kinds: Vec<Value> = Kind::ALL
@@ -444,7 +444,7 @@ impl Engine {
         Value::Array(kinds).to_string()
     }
 
-    /// A picture of a piece of the catalogue alone (D-073): `kind` in `style` (empty: its own),
+    /// A picture of a piece of the catalogue alone (D-074): `kind` in `style` (empty: its own),
     /// at its usual size and in its colour, on `background` (`#rrggbb`), `width` × `height`
     /// device pixels: RGBA rows from the top, empty for a kind this version does not know. The
     /// piece takes the place of the plan shown: the catalogue draws its pictures with an engine
