@@ -91,7 +91,7 @@ LOCATED_KINDS: Final = ("phone", "watch", "thing")
 TEACH_SECONDS: Final = (10, 120)
 # Dispatcher signal sent when a followed device moves, is lost or left behind: (device id,).
 SIGNAL_LOCATED: Final = f"{DOMAIN}_located"
-# The placement advisor (docs/DECISIONS.md, D-062): the Wi-Fi access points placed on the plan, at
+# The placement advisor (docs/DECISIONS.md, D-064): the Wi-Fi access points placed on the plan, at
 # most this many, each named this long, at a point this far from the plan's origin at most (cm).
 MAX_ACCESS_POINTS: Final = 16
 MAX_ACCESS_POINT_NAME: Final = 60
@@ -133,6 +133,19 @@ START_TABS: Final = ("home", "rooms", "3d")
 MAX_FAVOURITES: Final = 100
 MAX_HOME_CARDS: Final = 6
 MAX_CALENDARS: Final = 10
+
+# The configuration history (docs/DECISIONS.md, D-062): each change of an automation, a script,
+# a scene or a dashboard, in a store of its own (.storage/domotwin.config_history). At most this
+# many bytes in all and versions an item (the oldest versions go first, an item's newest always
+# kept), bytes a version (a larger one keeps its date, not its content); past this many items,
+# those removed are forgotten, the longest removed first.
+CONFIG_HISTORY_STORAGE_KEY: Final = f"{DOMAIN}.config_history"
+CONFIG_HISTORY_STORAGE_VERSION: Final = 1
+CONFIG_HISTORY_KINDS: Final = ("automation", "script", "scene", "dashboard")
+MAX_CONFIG_HISTORY_BYTES: Final = 4_000_000
+MAX_CONFIG_HISTORY_VERSIONS: Final = 50
+MAX_CONFIG_HISTORY_VERSION_BYTES: Final = 1_000_000
+MAX_CONFIG_HISTORY_ITEMS: Final = 2_000
 
 # Dispatcher signal sent after every write: (kind, revision).
 SIGNAL_UPDATED: Final = f"{DOMAIN}_updated"

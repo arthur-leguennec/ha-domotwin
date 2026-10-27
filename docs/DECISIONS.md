@@ -2572,13 +2572,168 @@ M23b, planned in D-056 after the sandbox (D-057) and the Wi-Fi QR code (D-060).
   - Each room adds a device and two entities to Home Assistant; a plan of 40 rooms, 40 devices.
   - M24 and M25 follow the same rule: Home Assistant's own pages opened where it has them.
 
-## D-062 · The placement advisor: where the next radio helps most (M31)
+## D-062 · Configuration history: each change kept, one item put back (M36, amends D-056)
+
+After the sandbox (M29, D-057), history as reports (M38, D-058), "Why?" (M32, D-059), the Wi-Fi for
+guests (M30, D-060) and Home Assistant's Overview (M23b, D-061): the maintainer asked for M36
+ahead of the order D-056 gave it. It waits on nothing the other milestones build.
+
+- **Context.** Home Assistant keeps no history of its own configuration: its editors' undo lasts
+  one session, and a backup puts back a whole part, not one automation. What exists does it with
+  an add-on and Git, or from backups (D-056, item 8). M36 keeps each change of an automation, a
+  script, a scene and a dashboard inside Home Assistant, says what changed in words, and puts one
+  item back, with Home Assistant's own configuration commands.
+- **Decision.**
+  - **What is kept**: the automations, scripts and scenes Home Assistant's editors write
+    (`automations.yaml`, `scripts.yaml`, `scenes.yaml`, read as its editors read them), those
+    written in YAML files of one's own (configuration.yaml, packages), read from their entities as
+    Home Assistant loaded them, and the dashboards that have a configuration (storage or YAML).
+    Scenes made by `scene.create` are not configuration and are left out.
+  - **When**: once Home Assistant has started (what changed while it was stopped, or by hand),
+    after Home Assistant reloads automations or scenes (its `automation_reloaded` and
+    `scene_reloaded`), five seconds after `script.reload` is called and again thirty seconds
+    after (Home Assistant fires no event of its own after it), when one of them is removed from
+    the entity registry (its editors
+    delete that way, without a reload), when a dashboard is saved or removed (`lovelace_updated`),
+    and when DomoTwin has put an item back. A version is kept when the item's configuration, its
+    keys in any order, is not the one kept last; an item no longer there is kept as removed. A
+    file Home Assistant cannot read is left alone: nothing in it is taken for removed.
+  - **Where**: in a store of its own (`.storage/domotwin.config_history`, private), each version as
+    the JSON of its configuration with its date. **Limited in size**: 4 MB in all and 50
+    versions an item, past which the oldest versions go first, an item's newest always kept; 1 MB
+    a version (a larger one keeps its date, not its content); a removed item with nothing else
+    kept is forgotten, and past 2 000 items the removed ones are, the longest removed first.
+    Removed with the integration; written at once and kept when it is only unloaded.
+  - **What changed, in words**: worked out in the page between any two versions: what was
+    added, removed or changed, and where, in words for the parts known (the name, description and
+    mode; the triggers, conditions and actions of an automation; the steps and fields of a
+    script; a scene's entities and their states; a dashboard's title, views, sections and cards),
+    by the place in the configuration otherwise, each value said in short. A list's items are
+    matched before they are compared, so that an action added does not read as every action after
+    it changed. A version is compared with the one before it, or with the current one: what
+    putting it back would change. Its whole content can be read.
+  - **Put back** through the commands Home Assistant's editors use: the configuration API
+    (`POST /api/config/<automation|script|scene>/config/<id>`), which checks the configuration,
+    writes the file and reloads, and `lovelace/config/save` for a dashboard. A removed
+    automation, script or scene can be put back; a removed dashboard only once it exists again.
+    Home Assistant's refusal (an entity or an integration gone) is shown as it gives it. Shown,
+    not put back: what is written in one's own YAML files, a version too large to keep, a removed
+    one. After putting back, DomoTwin reads the item again: the item put back is its newest
+    version, said to be the same as the one it came from.
+  - **Where it is**: *Configuration history* in the panel's ⋮ menu, for administrators, who
+    alone may read and change Home Assistant's configuration; its commands refuse anyone else.
+    The items by kind, with a search, the most recently changed first; an item's versions, newest
+    first, with what each changed; a link to Home Assistant's editor of the item. The dialog is a
+    chunk loaded when it opens. The demo house shows a history of its own automations, put back
+    in the page; the sandbox (D-057), a copy of the home, has none until it is left.
+  - **Never in the diagnostics**, not even counted; nothing sent anywhere.
+- **Consequences.**
+  - The integration reads Home Assistant's automations, scripts, scenes and dashboards as they
+    are loaded (their entities' configuration, the dashboards Lovelace keeps), in the forms Home
+    Assistant has had since 2025.1; a form it does not know is left out rather than misread.
+  - Who made a change is not known: Home Assistant's editors do not say it.
+  - The history begins when DomoTwin first sees the configuration: what changed before is not
+    known, and the oldest version kept says so.
+  - The first load grows by the menu item and its text; the rest comes when the dialog opens.
+  - The roadmap shows M36 done after M23b; the rest of D-056's order stays.
+  - Its names say *configuration history* (`config_history.py`, `config-history.ts`,
+    `domotwin/config_history/*`, `.storage/domotwin.config_history`), beside the history
+    reports of M38, which read Home Assistant's history of states.
+
+## D-063 · Hydro-Québec's peaks, on the plan, the Home tab and in the sandbox (M39)
+
+M39, moved forward by the maintainer from the end of the way to 0.6.0 (D-056), after the
+sandbox (M29, D-057), whose day it plays; its part in the weekly report (M37) comes with it.
+
+- **Context.** For a home on one of Hydro-Québec's offers with peak events (Flex D; the winter
+  credit, kept by those who had it), each announced peak costs or earns: the home pre-heats before
+  it and sheds rooms during it. Two integrations of HACS's default lists read the peaks; DomoTwin
+  reads their entities only (D-056). What they give was checked in their code, in October 2026:
+  [hydroqc-ha](https://github.com/hydroqc/hydroqc-ha) 0.7.0 (`main` at `164e031`, AGPL-3.0: read,
+  nothing copied) and [HydroPeak](https://github.com/Beat-YT/hydropeak-ha) 1.6.5 (MIT).
+- **The integrations, checked.**
+  - **hydroqc** (`hydroqc`), for Flex D and the winter credit: the next peak's start and end as
+    timestamp sensors (`dpc_next_peak_start`, `dpc_next_peak_end`; for the winter credit, its
+    announced peaks, `wc_next_critical_peak_start` and `_end`, its daily windows being
+    `wc_next_peak_*`), in UTC, `unknown` without a peak and, for the winter credit, off season;
+    the pre-heating's start (`dpc_next_pre_heat_start`, off by default; `wc_next_pre_heat_start`,
+    its next window's), 120 minutes before the peak unless set; on/off sensors of the pre-heating
+    and the peak, the contract's state (`critical_peak` during one). Since 0.7.0 they come from a
+    calendar the user picks, where hydroqc writes each announced peak (`🔴 Pointe critique`; its
+    description says `Tarif:`, `Critique: Oui` and `ID: hydroqc_…`); without an account (its open
+    data mode) the calendar is all there is, with a *Refresh peak data* button hydroqc makes only
+    for Flex D or the winter credit with such a calendar.
+  - **HydroPeak** (`hydropeak`), Hydro-Québec's open data, one device per offer: `event_start`,
+    `event_end` and `preheat_start` (180 minutes before, by default), with Hydro-Québec's offset,
+    and on/off sensors of the pre-heating and the peak; every event is an announced peak.
+  - Both name their entities from their translations: the ids are in the home's language, and
+    may be renamed. Their kind is in Home Assistant's entity registry as the frontend has it
+    (`platform`, `translation_key`).
+- **Decision.**
+  - **Where the peak is read**: hydroqc's sensors, HydroPeak's, and a calendar whose current or
+    next event bears hydroqc's mark (its attributes say when, as a wall clock in Home Assistant's
+    time zone). Entities are found by their integration and kind, never by their id; hydroqc's
+    button says it reads the peaks while its calendar shows none. With several (two contracts,
+    both integrations), the peak under way, else the soonest. Only announced peaks: the winter
+    credit's daily windows are not shown. The pre-heating where the integration says it (the
+    winter credit's when it is its announced peak's; within twelve hours of the peak), else the
+    integration's own default (hydroqc's two hours, HydroPeak's three), nothing else guessed.
+  - **Where it stands**: to come, pre-heating, under way, or none announced; worked out again
+    when that changes, by a timer, since nothing in Home Assistant may change then.
+  - **What the rooms do**, read from the thermostats of each room's area as the layers read
+    their sensors (D-023): a thermostat heats when it says so (`hvac_action`), else when its
+    target is 0.3 °C above the room; it is set back when it is off or its target is 0.3 °C below
+    the room; otherwise it holds the room. While pre-heating, a room that heats pre-heats; during
+    the peak, a room set back is shed, one that heats still heats, one that holds the room is
+    neither; before and after, nothing. What a room draws is what its area's power sensors read,
+    the home's own meters (the energy settings, D-049) left out, from 5 W. An area shared by
+    several rooms counts once, for the first. Seen, not set: whatever sheds the rooms (hydroqc's
+    blueprints, one's own automations), the plan shows what it did. Nothing of a private room the
+    viewer may not see (D-039), nor of its area, nor of what its pieces link.
+  - **In 3D, a layer**: *Hydro-Québec peaks*, offered in the menu and the card's options only
+    where an integration reads them. The rooms tinted as a heatmap is (the engine's `peak`:
+    pre-heating amber, shed blue, still heating red, the ends of the temperature scale), what each
+    draws written at its centre (`draws`, labels of kind `draw`), the rooms' names while nothing
+    is. Its legend says when (the peak under way and until when; the pre-heating and the peak's
+    hours; the next peak and its pre-heating; or none announced), how many rooms do what, and what
+    they draw.
+  - **On the Home tab, a chip** while a peak is announced: the next one, the pre-heating, or the
+    peak under way (amber then). It opens when, each room with what it does and draws, *See it in
+    3D*, which opens the 3D tab on the layer, and, for an administrator before the peak, *Play its
+    day in the sandbox*.
+  - **In the sandbox (M29)**: the peak announced when the home is copied is played on its day.
+    Through it, the integrations' on/off sensors of the pre-heating and the peak go on and off,
+    hydroqc's contract says a critical peak, today's peaks are said from midnight and hydroqc's
+    calendar is on; their timestamps keep the copy's. So the home's automations set off by them
+    run on the copy, and the peak's layer shows what the rooms then do, at the sandbox's time.
+    *The day* says the announced peak and leads to its day, shown from its pre-heating; the day's
+    line shows the pre-heating and the peak; the report says what each room did, from the
+    pre-heating to the peak's end, read every five minutes and at each change of phase, nothing of
+    a private room the visitor may not see. Only the devices and calendars that say this peak are
+    moved. Another peak announced that day (the copy's sensors of the day after say so) is said by
+    the integrations from midnight but not played, its times unknown, and *The day* says it. In
+    the copy, whose rooms' temperatures and thermostats' `hvac_action` do not move, a thermostat's
+    target alone says what it does; an air conditioner off says nothing of the heat, live or in
+    the sandbox.
+  - **Its cost**: only whether an integration is there is in the first load; the peak, the rooms
+    and the legend come in a chunk the first time the layer shows, shared with the Home tab's
+    and the sandbox's, with their texts in both languages.
+- **Consequences.**
+  - Nothing is stored and nothing is asked of Hydro-Québec: no setting, nothing in the
+    integration; the peak comes from the states Home Assistant already sends.
+  - The engine's layers read `peak` and `draws` (`setLayers`).
+  - A home with neither integration sees nothing of it. A calendar that holds other events shows
+    the peak only while it is its current or next one.
+  - A peak announced after the sandbox opened is played once it is opened again.
+  - The week's peaks in the weekly report come with M37.
+
+## D-064 · The placement advisor: where the next radio helps most (M31)
 
 Asked by the maintainer after the sandbox (D-057) and history as reports (D-058), as "Why?" was
 (D-059): M31 now, before M24 to M26, out of the order D-056 set, as M16d was brought forward
-(D-053); the Wi-Fi QR code (M30, D-060) and Home Assistant's Overview joined (M23b, D-061) were
-built meanwhile. It does not wait on what the two weeks of use show, and the order of the rest
-stays.
+(D-053); the Wi-Fi QR code (M30, D-060), Home Assistant's Overview joined (M23b, D-061), the
+configuration history (M36, D-062) and Hydro-Québec's peaks (M39, D-063) were built meanwhile. It
+does not wait on what the two weeks of use show, and the order of the rest stays.
 
 - **Context.** The locating (D-035) works out from the plan what each Bluetooth receiver should
   hear in each room, and learns what it really heard; the network map (D-031) reads the Zigbee

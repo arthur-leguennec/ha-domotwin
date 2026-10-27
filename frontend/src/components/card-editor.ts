@@ -10,6 +10,7 @@ import {
   coverageAvailable,
   networkAvailable,
 } from "../live/layers";
+import { peaksAvailable } from "../live/peak-sources";
 import { ALL_STOREYS, loadHome, storeyLevels, storeyName } from "../live/storeys";
 import { planRooms } from "../live/suggest";
 import { define, fire } from "./define";
@@ -100,6 +101,7 @@ function schema(
     network: boolean;
     coverage: boolean;
     automations: boolean;
+    peak: boolean;
   },
   config: Record<string, unknown>,
 ): FormField[] {
@@ -147,14 +149,15 @@ function schema(
       selector: {
         select: {
           mode: "dropdown",
-          // The network map and the radio coverage only where they can be shown (D-031, D-062),
-          // or kept where they are set.
+          // The network map (D-031), the radio coverage (D-064) and the peaks (D-063) only where
+          // they can be shown, or kept where they are set.
           options: LAYER_NAMES.filter(
             (value) =>
               config.layer === value ||
               ((value !== "network" || home.network) &&
                 (value !== "coverage" || home.coverage) &&
-                (value !== "automations" || home.automations)),
+                (value !== "automations" || home.automations) &&
+                (value !== "peak" || home.peak)),
           ).map((value) => ({
             value,
             label: t.t(`layers.${value}` as MessageKey),
@@ -285,6 +288,7 @@ export class DomoTwinCardEditor extends LitElement {
           network: networkAvailable(this.hass),
           coverage: coverageAvailable(this.hass),
           automations: automationsAvailable(this.hass),
+          peak: peaksAvailable(this.hass),
         },
         this.config,
       )}

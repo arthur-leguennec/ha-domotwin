@@ -49,6 +49,8 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M32       | "Why?": who or what changed a device, drawn in 3D          | ✅     |
 | M30       | The Wi-Fi QR code, for guests                              | ✅     |
 | M23b      | Into Home Assistant's Overview, rather than a copy of it   | ✅     |
+| M36       | Configuration history: differences, one item put back      | ✅     |
+| M39       | Hydro-Québec's peaks, from the integrations that read them | ✅     |
 | M31       | Placement advisor: where the next radio helps most         | ✅     |
 | M24       | History and energy, with Home Assistant's own cards        | ⏳     |
 | M25       | Safety: cameras, the doorbell, the alarm, alerts           | ⏳     |
@@ -60,10 +62,8 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M35       | Automations in plain words, played in the sandbox first    | ⏳     |
 | M20       | More imports: robot vacuum maps, Floorplanner, meshes      | ⏳     |
 | M17       | A library of objects: many pieces, free and well made      | ⏳     |
-| M36       | Configuration history: differences, one item put back      | ⏳     |
 | M37       | A weekly home report                                       | ⏳     |
 | M18       | Outdoors: garden, terrace, lawn, pool, roofs               | ⏳     |
-| M39       | Hydro-Québec's peaks, from the integrations that read them | ⏳     |
 | M21       | More languages, right to left too                          | ⏳     |
 | 0.6.0     | Sixth release: all of the above                            | ⏳     |
 
@@ -92,9 +92,11 @@ QR code (M30) and a placement advisor for radios (M31) before a first launch in 
 (M33), rights (M34), automations in plain words (M35), a configuration history (M36), a weekly
 report (M37), history as reports (M38) and Hydro-Québec's peaks (M39) follow, among a library of
 objects (M17), the outdoors (M18), more imports (M20) and more languages (M21), before a sixth
-release, 0.6.0. After the sandbox, the maintainer asked for history as reports (M38, D-058) and
-"Why?" (M32, D-059) before the rest, which keeps its order, then for the placement advisor (M31,
-D-062).
+release, 0.6.0. After the sandbox, the maintainer asked for history as reports (M38, D-058), "Why?"
+(M32, D-059) and the configuration history (M36, D-062) before the rest, which keeps its order. The
+maintainer then moved Hydro-Québec's peaks (M39) forward too (D-063): it plays its peak in the
+sandbox; its part in the weekly report (M37) comes with it. The placement advisor (M31, D-064) was
+asked for in the same way.
 
 ## M0, scaffold
 
@@ -1226,9 +1228,85 @@ DomoTwin joined to Home Assistant's own Overview rather than copying it (D-061).
   back, the Rooms tab before the Overview, a layer from the address, the summaries in English and
   French, the network's read, a summary on the Home tab (Playwright).
 
+## M36, configuration history
+
+Home Assistant keeps no history of its own configuration: its editors' undo lasts one session, a
+backup puts back a whole part, and what exists needs an add-on and Git (D-056). Asked for by the
+maintainer right after 0.4.0, done once the sandbox, history as reports, "Why?", the Wi-Fi for
+guests and Home Assistant's Overview were in (D-062).
+
+- ✅ **Each change kept**: the automations, scripts and scenes of Home Assistant's editors and of
+  one's own YAML files, and the dashboards; read once Home Assistant has started, after it
+  reloads them, when one is deleted in its editor, when a dashboard is saved or its configuration
+  deleted. Only real changes (the same keys in another order are the same); an item gone kept as
+  removed; a file Home Assistant cannot read left alone.
+- ✅ **In Home Assistant's storage**, a store of its own: 4 MB in all, 50 versions an item, 1 MB a
+  version, the oldest versions first to go; for administrators; never in the diagnostics; deleted
+  with the integration, written at once when it is unloaded.
+- ✅ **What changed, in words**, between a version and the one before it, or the current one:
+  the triggers, conditions, actions and steps numbered, a scene's entities by their names, a
+  dashboard's views by their titles and their cards; a list's items matched first, so that one
+  added reads as one added; the whole configuration of a version to read.
+- ✅ **One item put back** through Home Assistant's own configuration API, or
+  `lovelace/config/save` for a dashboard; a deleted automation, script or scene too; Home
+  Assistant's refusal shown as it gives it; what is in one's own YAML files shown, not put back.
+- ✅ **The dialog**: *Configuration history* in the panel's ⋮ menu, by kind and with a search, a
+  link to Home Assistant's editor; a chunk loaded when it opens. The demo house has a history of
+  its own, put back in the page.
+- ✅ Tests: kept on each change and not for the same configuration, removed and put back, a file
+  that cannot be read left alone, scripts read after their reload, one's own YAML shown,
+  dashboards, the limits, the store read leniently, administrators only, put back through Home
+  Assistant's own command, never in the diagnostics, deleted with the integration (pytest); the
+  changes and their words in both languages, lists matched, values in short, the filters, what can
+  be put back and the commands used, the demo house's history (vitest); the list, the words,
+  putting back, Home Assistant's refusal, what was removed and what is in one's own YAML, French,
+  the demo house (Playwright).
+- Measured: the first load grows by 0.5 kB; the dialog is 7.2 kB gzipped, on demand
+  ([`PERFORMANCE.md`](PERFORMANCE.md), M36).
+- Left for later: who made a change (Home Assistant's editors do not say it); helpers, blueprints
+  and Home Assistant's other settings; the changes of a dashboard shown on the dashboard itself.
+
+## M39, Hydro-Québec's peaks
+
+For a home on one of Hydro-Québec's offers with peak events (Flex D, the winter credit kept by
+those who had it), moved forward by the maintainer (D-063). Read from the integrations that read
+the peaks, by their kind, never their entities' ids; nothing scraped, no account asked, nothing
+stored; nothing shown without them.
+
+- ✅ **Where the peak is read**: hydroqc's sensors (Flex D, the winter credit's announced peaks),
+  HydroPeak's, or the calendar hydroqc writes its peaks in, as a wall clock in Home Assistant's
+  time zone (hydroqc's button saying it reads them while none is announced). The peak under way,
+  else the soonest; its pre-heating where the integration says it, else the integration's own.
+- ✅ **What the rooms do**, from the thermostats of each room's area: pre-heating before the peak;
+  shed (set back) or still heating during it, neither while a thermostat holds its room; what
+  each room draws, the home's own meters left out; nothing of a private room the viewer may not
+  see, of its area or of what its pieces link.
+- ✅ **In 3D**: a layer, *Hydro-Québec peaks*, offered only where an integration reads them: the
+  rooms tinted (pre-heating amber, shed blue, still heating red), what each draws at its centre,
+  a legend with when, how many rooms do what and what they draw; worked out again when the peak
+  starts or ends. A card can be set to it.
+- ✅ **On the Home tab**: a chip while a peak is announced (the next one, the pre-heating, the peak
+  under way), opening when, the rooms and what they draw, the layer in 3D and, for an
+  administrator, the peak's day in the sandbox.
+- ✅ **Tomorrow's announced peak played in the sandbox**: on its day the integrations' sensors go
+  through the pre-heating and the peak, the automations they set off run on the copy, the peak's
+  layer shows the rooms at the sandbox's time; *The day* leads to it, the day's line shows it, the
+  report says what each room did.
+- ✅ Only whether an integration is there is in the first load; the rest is a chunk shared by the
+  layer, the Home tab and the sandbox.
+- ✅ Tests: the integrations' entities found by their kind, hydroqc's button, the pre-heating said
+  or the integration's own, the winter credit's, several contracts, hydroqc's calendar and its
+  time zone across a change of time, the phases and their words in both languages, what a
+  thermostat does (in the sandbox too), the rooms' roles and draws, an area shared, a private
+  room, the peak's day in the sandbox and what each room did (vitest); the peak's tints and labels
+  (Rust, wasm); nothing without an integration, a peak's rooms and legend, the pre-heating, the
+  Home tab's chip and the way to 3D, hydroqc's calendar in French, the peak's day in the sandbox
+  from *The day* and from the Home tab (Playwright).
+- ⏳ The week's peaks in the weekly report, with **M37**.
+
 ## M31, the placement advisor
 
-Asked for after the sandbox, history as reports and "Why?", before the rest (D-062): where the next
+Asked for after the sandbox, history as reports and "Why?", before the rest (D-064): where the next
 Bluetooth proxy, Zigbee router or Wi-Fi access point helps most ([`placement.md`](placement.md)).
 
 - ✅ **Radio coverage**, a layer for administrators: each room coloured for the radio chosen
@@ -1298,7 +1376,7 @@ milestone starts, which goes on with what needs no answer.
 - ⏳ **M26, the wall screen**: a screen saver (the clock, the weather, the photos of Home
   Assistant's media) woken by motion; a layout for each device.
 - M24 to M26 come in the order the two weeks of use decide.
-- ✅ **M31, the placement advisor** (D-062, above), built after M29, M38 and M32 at the maintainer's
+- ✅ **M31, the placement advisor** (D-064, above), built after M29, M38 and M32 at the maintainer's
   request: the Bluetooth model of M9f turned around, from where a device is to where a receiver
   would hear the most. The rooms badly covered coloured on the plan, for the Bluetooth receivers,
   the Zigbee mesh (its links, M9b) and the Wi-Fi access points placed on the plan; and the spots
@@ -1337,28 +1415,23 @@ milestone starts, which goes on with what needs no answer.
 - ⏳ **M20, more imports**: robot vacuum maps (Valetudo and others), Floorplanner, meshes.
 - ⏳ **M17, a library of objects**: many more pieces, free and well made, drawn from real
   references, still fast.
-- ⏳ **M36, configuration history**: each change of an automation, script, scene or dashboard
-  kept, by item and date; what changed between two versions, in words where it can; one item put
-  back as it was, through Home Assistant's own configuration commands. Kept by the integration in
-  Home Assistant's storage, limited in size (the oldest versions go first), for administrators,
-  never in the diagnostics. Items written in YAML files of one's own are shown, not put back.
+- ✅ **M36, configuration history** (D-062, above): done after Home Assistant's Overview, at
+  the maintainer's request.
 - ⏳ **M37, a weekly home report**: once a week, what needs a look: batteries low, devices
   unavailable, updates and repairs waiting, upkeep due (M9d), weak radio links (M9b, M31),
-  automations that failed or never fired, the week's energy against the last, room by room on
-  the plan. It reads what other integrations already give where they are installed (Battery
-  Notes, Watchman, Spook) rather than doing their work again. A summary by the user's own
-  conversation agent or AI task if there is one, plain lists otherwise; a notification of Home
-  Assistant's and a page in the panel.
+  automations that failed or never fired, the week's energy against the last, room by room on the
+  plan, and the week's Hydro-Québec peaks where M39 reads them. It reads what other integrations
+  already give where they are installed (Battery Notes, Watchman, Spook) rather than doing their
+  work again. A summary by the user's own conversation agent or AI task if there is one, plain lists
+  otherwise; a notification of Home Assistant's and a page in the panel.
 - ✅ **M38, history as reports** (D-058, above): done right after the sandbox, at the
   maintainer's request.
 - ⏳ **M18, outdoors**: the garden, the terrace, the lawn, a pool, the roofs; the lawn growing
   between two mowings.
-- ⏳ **M39, Hydro-Québec's peaks** (optional): for a home on one of Hydro-Québec's offers with
-  peak events (Flex D, the winter credit kept by those who had it): the next peak, the
-  pre-heating before it, which rooms shed and what they draw during it, in 3D and on the Home tab,
-  and tomorrow's announced peak played in the sandbox. Read from the entities of the hydroqc or
-  HydroPeak integrations when one is installed; nothing scraped, no account asked; nothing shown
-  without them.
+- ✅ **M39, Hydro-Québec's peaks**, moved forward (D-063, above): the next peak, the pre-heating
+  before it, which rooms shed and what they draw during it, in 3D and on the Home tab, and
+  tomorrow's announced peak played in the sandbox, from the entities of hydroqc or HydroPeak. Its
+  part in the report comes with M37.
 - ⏳ **M21, more languages**: Italian, German, Spanish, Arabic (right to left), Chinese, Japanese,
   Korean, Portuguese (Portugal and Brazil) and others; last, once the texts of the rest are
   written, so that they are translated once.

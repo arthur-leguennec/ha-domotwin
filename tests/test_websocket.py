@@ -397,7 +397,7 @@ async def test_settings_round_trip(
         "battery_level": "sensor.battery_level",
         "grid_reversed": True,
     }
-    # The Wi-Fi access points placed on the plan (D-062): names trimmed, none kept empty.
+    # The Wi-Fi access points placed on the plan (D-064): names trimmed, none kept empty.
     access_points = [
         {"storey": "storey-1", "at": [250, 120.5], "name": "  Hall access point "},
         {"storey": "storey-1", "at": [700, 600], "name": ""},

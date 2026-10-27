@@ -15,7 +15,7 @@ interface.
 | `domotwin-import` | core, models, `serde_json` | IFC, Sweet Home 3D, DXF, scans → plan JSON | GPU, browser, HA |
 | `domotwin-models` | `serde_json`, `miniz_oxide` | glTF, OBJ, STL, 3MF → meshes    | core, GPU, HA        |
 | `domotwin-planner` | core, `serde_json`     | the plan editor's draft (D-025)     | GPU, browser, HA     |
-| `domotwin-analysis` | core, `serde_json`, `qrcodegen` | radio meshes, automations' configurations (D-043), the Wi-Fi QR code (D-060), radio coverage (D-062) | GPU, browser, HA |
+| `domotwin-analysis` | core, `serde_json`, `qrcodegen` | radio meshes, automations' configurations (D-043), the Wi-Fi QR code (D-060), radio coverage (D-064) | GPU, browser, HA |
 
 `domotwin-import` imports the plans of other apps (`ifc-import.md`, `imports.md`, D-040): its own
 wasm module, loaded only when such a file is imported. Each reader gives one plan builder a draft;
@@ -31,7 +31,7 @@ automations (`network.md`, `automations.md`, D-043): its own wasm module too, lo
 the network map, the automations or the radio coverage are shown. The engine is handed only what
 it draws: the mesh's drawing (the devices' pieces and the links' qualities and pulses), which it
 answers with the room of each device for the analysis's health, and the automations' placed ends.
-It also advises where the next radio helps most (`placement.md`, D-062), from the storeys' plans,
+It also advises where the next radio helps most (`placement.md`, D-064), from the storeys' plans,
 the radios placed and what they measured, with the core's `coverage` module: the locating's model
 (D-035), its walls counted as the integration counts them; the engine draws the rooms' levels as a
 layer.
@@ -128,7 +128,11 @@ every reader returns `Result` with a stable error code that the frontend transla
    (light colour and intensity, cover position, glow, power…). The renderer animates towards the
    targets and asks for frames until they are reached. The layers (D-023) are worked out in the
    frontend from the sensors of each room's area and sent as one small JSON (`set_layers`) when a
-   value changes; the floors' shader draws them from a texture of rooms.
+   value changes; the floors' shader draws them from a texture of rooms. Hydro-Québec's peak
+   (D-063) is read from the entities of the integrations that read it, found by their kind
+   (`src/live/peak-sources.ts`, `peaks.ts`); what each room's heating does then, and what the room
+   draws, go with the layers (`peak`, `draws`). The sandbox plays the announced peak's day on its
+   copy (`src/sandbox/peak-day.ts`) and reports what each room did (`peak-report.ts`).
 3. **Interaction.** Pointer events go to the engine (`pick`) which returns the element under the
    pointer. The frontend runs the binding's action: toggle through `callService`, more-info through
    the `hass-more-info` event, navigation, or the long-press popover.
@@ -172,6 +176,16 @@ every reader returns `Result` with a stable error code that the frontend transla
    sheet and drawn in the home (`why-wires.ts`) with the automations' wire set: the engine's
    `setAutomations`, one wire per step, unchanged. Nothing of it is in the integration. The demo
    house records its own (`src/demo/logbook.ts`) and answers the logbook as Home Assistant does.
+10. **Configuration history.** The integration's `config_history.py` (D-062) reads the
+   automations, scripts and scenes from the files Home Assistant's editors write and from their
+   entities, and the dashboards from Lovelace, once Home Assistant has started and after each
+   change it announces (`automation_reloaded`, `scene_reloaded`, `script.reload` called, one of
+   them removed from the entity registry, `lovelace_updated`), and keeps a version of what
+   changed. The dialog (`src/components/config-history-dialog.ts`, a chunk) reads them over
+   `domotwin/config_history/*`, works out what changed in words in the page
+   (`src/live/config-history.ts`), and puts a version back with Home Assistant's own commands:
+   `POST /api/config/<kind>/config/<id>` (`hass.callApi`) or `lovelace/config/save`, then
+   `domotwin/config_history/refresh`.
 
 ## Storage
 
@@ -210,7 +224,7 @@ every reader returns `Result` with a stable error code that the frontend transla
   (`theme`, `accent`, D-027); the private rooms (`rooms`, D-039), `{room id: {"people": [person
   entity ids], "while"?: entity id}}`: kept for those people (none: for nobody), always or only
   while that entity is on ([`privacy.md`](privacy.md)); where the home's energy is read
-  (`energy`, D-049); the Wi-Fi access points placed on the plan (`access_points`, D-062),
+  (`energy`, D-049); the Wi-Fi access points placed on the plan (`access_points`, D-064),
   `[{"storey": id, "at": [x, y], "name"?}]`, 16 at most ([`placement.md`](placement.md)).
 - `upkeep` (D-033, storage 4.1): the upkeep cards by piece id, and how many days before it a task
   is due soon; see [`upkeep.md`](upkeep.md). Kept apart from the plan, like the bindings.
@@ -262,6 +276,15 @@ id: `favourites` (entity ids, 100 at most), `start` (`home`, `rooms` or `3d`, wh
 `{type: "todo-list", entity}`). A user removed from Home Assistant is forgotten when DomoTwin
 starts.
 
+`.storage/domotwin.config_history` (D-062, its own store, version 1, private): the configuration
+history, each item by `<kind>:<key>` (`automation`, `script` and `scene` by their id or key,
+`dashboard` by its URL path, empty for the default one) with its `name`, its `source` (`editor`:
+written by Home Assistant's editors; `yaml`: in one's own YAML files) and its `versions`, oldest
+first: `{id, at, hash, json}`, the configuration as JSON (`null` when removed or too large to keep)
+and the fingerprint of its keys sorted (`null` when removed); `next`, the next version's id. 4 MB
+in all and 50 versions an item (the oldest versions go first), 1 MB a version; past 2 000 items,
+the removed ones are forgotten. See [`config-history.md`](config-history.md).
+
 The 3D files of user models are not in `.storage`: they are kept under their SHA-256 in
 `<config>/domotwin/models/<sha256>.<format>` (D-021), uploaded with `POST /api/domotwin/models?format=…`
 (administrators; answers `{hash, bytes, format}`) and read with
@@ -289,7 +312,7 @@ when the integration is removed.
 | `domotwin/people/get`    | user   | `candidates?` (administrators: the entities that may say where someone is) | `revision`, `shown`, `look`, `hidden`, `people` (`{person: {sources, color, sensor, located}}`; none for others when shown to administrators only), `candidates?` |
 | `domotwin/people/save`   | admin  | `people`, `shown?`, `look?`, `expected_revision?` | `revision`                     |
 | `domotwin/people/hide`   | user   | `person` (oneself; administrators anyone), `hidden` | `revision`                   |
-| `domotwin/locating/get`  | admin  | –                                              | `revision`, `status`, `learn`, `receivers` (with their `place`, D-062), `devices` (with their `room`, `confidence`, `last_seen`, `left_behind`, `missing_key`), `learned`, `heard` (`{room: {source: {signal, readings}}}`, D-062), `rooms` |
+| `domotwin/locating/get`  | admin  | –                                              | `revision`, `status`, `learn`, `receivers` (with their `place`, D-064), `devices` (with their `room`, `confidence`, `last_seen`, `left_behind`, `missing_key`), `learned`, `heard` (`{room: {source: {signal, readings}}}`, D-064), `rooms` |
 | `domotwin/locating/save` | admin  | `receivers`, `devices`, `learn?`, `expected_revision?` | `revision`                 |
 | `domotwin/locating/candidates` | admin | –                                        | `candidates` (`[{match, name, rssi?}]`) |
 | `domotwin/locating/teach` | admin | `device`, `room`, `seconds?` (10–120, 30)     | `readings`, `receivers`          |
@@ -297,13 +320,18 @@ when the integration is removed.
 | `domotwin/choices/get`   | user   | – (their own)                                  | `favourites`, `cards`, `start?`  |
 | `domotwin/choices/favourite` | user | `entity_id`, `favourite` (their own)        | `favourites`                     |
 | `domotwin/choices/save`  | user   | `start?` (`""`: none chosen), `cards?` (their own) | `favourites`, `cards`, `start?` |
+| `domotwin/config_history/list`  | admin  | –                                              | `items` (`[{id, kind, key, name, source, removed, versions, changed}]`, the most recently changed first), `bytes`, `max_bytes` |
+| `domotwin/config_history/item`  | admin  | `item`                                         | `item`, `versions` (`[{id, at, removed, kept, same_as?}]`, newest first) |
+| `domotwin/config_history/version` | admin | `item`, `version`                            | `config` (`null`: removed, or too large to keep) |
+| `domotwin/config_history/refresh` | admin | `kind?` (every kind without one)             | `changed` (the versions kept)    |
 | `domotwin/subscribe`     | user   | –                                              | events `{kind, revision}`, and `{kind: "show", show}` for `domotwin.show` |
 
 Errors: `not_loaded`, `invalid_plan`, `invalid_layout`, `invalid_bindings`, `invalid_settings`,
 `invalid_upkeep`, `unknown_task`, `invalid_people`, `unknown_person`, `invalid_locating`,
 `unknown_device`, `unknown_room`, `no_bluetooth`, `too_large`, `too_many_favourites`,
 `too_many_models`, `revision_conflict`, `unknown_storey`, `invalid_storey`, `too_many_storeys`,
-`duplicate_id`, and Home Assistant's `unauthorized` for non-admin writes.
+`duplicate_id`, `unknown_item`, `unknown_version`, and Home Assistant's `unauthorized` for
+non-admin writes (and the history's reads).
 
 ## Entities
 

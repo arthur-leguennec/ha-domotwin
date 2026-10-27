@@ -1,7 +1,8 @@
 /**
  * `<domotwin-home>`, the Home tab (D-055): the home at a glance (who is in, the lamps on, the
- * doors and windows open, the alerts), the weather, the favourite scenes as big buttons, the
- * other favourites, and the cards the user chose. Every control is Home Assistant's own card.
+ * doors and windows open, the alerts, Hydro-Québec's next peak, D-063), the weather, the
+ * favourite scenes as big buttons, the other favourites, and the cards the user chose. Every
+ * control is Home Assistant's own card.
  */
 import {
   mdiAccountGroupOutline,
@@ -9,16 +10,20 @@ import {
   mdiDoorOpen,
   mdiLightbulbGroupOutline,
   mdiStar,
+  mdiTransmissionTower,
 } from "@mdi/js";
 import { LitElement, css, html, nothing, type PropertyValues, type TemplateResult } from "lit";
 
 import { card, pressCard, tileCard, type CardConfig } from "../ha/cards";
-import type { HomeAssistant } from "../ha/types";
+import { nowOf, type HomeAssistant } from "../ha/types";
 import type { Translator } from "../i18n";
 import { failureText } from "../live/actions";
 import { areaOf, entityName } from "../live/bindings";
 import { isPressed, type Choices, type HomeCard } from "../live/choices";
 import { glanceOf, type Glance, type GlanceSources } from "../live/glance";
+import { formatPower } from "../live/layers";
+import { peakWords } from "../live/peaks";
+import { timeStyle, whenText } from "../live/schedules";
 import { NOTHING_UNSEEN, seen, type Unseen } from "../live/privacy";
 import { define } from "./define";
 import "./ha-card";
@@ -28,7 +33,7 @@ import { practicalStyles, starButton } from "./practical-styles";
 import { baseStyles } from "./styles";
 
 /** What a chip of the glance opens. */
-type Detail = "people" | "lights" | "openings" | "alerts";
+type Detail = "people" | "lights" | "openings" | "alerts" | "peak";
 
 /** Home Assistant's card for a card of the Home tab. */
 function cardOf(home: HomeCard): CardConfig {
@@ -48,6 +53,7 @@ export class DomoTwinHome extends LitElement {
     hass: { attribute: false },
     t: { attribute: false },
     choices: { attribute: false },
+    can3d: { type: Boolean },
     sources: { attribute: false },
     unseen: { attribute: false },
     open: { state: true },
@@ -61,6 +67,8 @@ export class DomoTwinHome extends LitElement {
   sources?: GlanceSources;
   /** What the viewer may not see (D-039): their favourites there are not shown either. */
   unseen: Unseen = NOTHING_UNSEEN;
+  /** The 3D view can be shown: the peak's rooms can be seen there. */
+  can3d = false;
   /** The chip whose details are open. */
   protected open?: Detail;
   /** What Home Assistant refused last. */
@@ -129,6 +137,12 @@ export class DomoTwinHome extends LitElement {
       .alert.danger {
         border-left-color: var(--error-color, #db4437);
       }
+      .peak-rooms {
+        display: grid;
+        gap: 4px;
+        margin: 0;
+        padding-inline-start: 20px;
+      }
       .presses {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
@@ -143,10 +157,35 @@ export class DomoTwinHome extends LitElement {
     `,
   ];
 
+  /** When the peak's phase changes next (D-063): the glance is worked out again then. */
+  private peakTimer: ReturnType<typeof setTimeout> | undefined;
+
+  override disconnectedCallback(): void {
+    super.disconnectedCallback();
+    clearTimeout(this.peakTimer);
+  }
+
   protected override willUpdate(changed: PropertyValues): void {
     if ((changed.has("hass") || changed.has("sources")) && this.hass && this.sources) {
-      this.glance = glanceOf(this.hass, this.sources);
+      this.readGlance(this.hass, this.sources);
     }
+  }
+
+  /** The glance now, and again when the peak starts or ends, as nothing else may change then. */
+  private readGlance(hass: HomeAssistant, sources: GlanceSources): void {
+    clearTimeout(this.peakTimer);
+    this.glance = glanceOf(hass, sources);
+    // Its chip gone with the peak, its details go too.
+    const now = this.glance.peak?.now;
+    if (this.open === "peak" && (!now?.peak || now.phase === "none")) this.open = undefined;
+    const next = now?.next;
+    if (next === undefined) return;
+    // Looked at again in six hours at most, should the clock have been changed meanwhile.
+    const wait = Math.min(Math.max(next - nowOf(hass), 0) + 500, 6 * 3_600_000);
+    this.peakTimer = setTimeout(() => {
+      if (this.hass && this.sources) this.readGlance(this.hass, this.sources);
+      this.requestUpdate();
+    }, wait);
   }
 
   private toggleDetail(detail: Detail): void {
@@ -230,6 +269,8 @@ export class DomoTwinHome extends LitElement {
         </div>`;
       case "openings":
         return html`<div class="detail">${this.tiles(glance.openings, false)}</div>`;
+      case "peak":
+        return this.renderPeak(glance);
       case "alerts":
         return html`<div class="detail" role="list">
           ${glance.alerts.map(
@@ -242,6 +283,99 @@ export class DomoTwinHome extends LitElement {
       default:
         return nothing;
     }
+  }
+
+  /** Hydro-Québec's peak (D-063): when, the rooms that pre-heat, shed or still heat, the 3D. */
+  private renderPeak(glance: Glance): TemplateResult | typeof nothing {
+    const hass = this.hass;
+    const t = this.t;
+    const peak = glance.peak;
+    if (!hass || !t || !peak) return nothing;
+    const names = new Map((this.sources?.rooms ?? []).map((room) => [room.id, room.name]));
+    const rooms = [...new Set([...Object.keys(peak.rooms.roles), ...Object.keys(peak.rooms.draws)])]
+      .filter((id) => names.has(id))
+      .sort((a, b) => (names.get(a) ?? a).localeCompare(names.get(b) ?? b));
+    const words = peakWords(t, peak.now, timeStyle(hass), new Date(nowOf(hass)));
+    return html`<div class="detail" data-testid="home-peak-detail">
+      ${words.map((word) => html`<span>${word}</span>`)}
+      ${
+        rooms.length > 0
+          ? html`<ul class="peak-rooms">
+              ${rooms.map((id) => {
+                const role = peak.rooms.roles[id];
+                const draw = peak.rooms.draws[id];
+                const what = [
+                  role ? t.t(`home.peak_role_${role}`) : "",
+                  draw !== undefined ? formatPower(draw, t.language) : "",
+                ]
+                  .filter(Boolean)
+                  .join(", ");
+                return html`<li data-room=${id} data-role=${role ?? nothing}>
+                  ${t.t("home.peak_room", { room: names.get(id) ?? id, what })}
+                </li>`;
+              })}
+            </ul>`
+          : nothing
+      }
+      ${
+        // An administrator plays the day of a peak to come in the sandbox (D-063).
+        hass.user?.is_admin === true && hass.demo !== true && peak.now.phase !== "peak"
+          ? html`<button
+              class="action"
+              data-testid="home-peak-sandbox"
+              @click=${() => {
+                this.dispatchEvent(
+                  new CustomEvent("domotwin-sandbox-peak", { bubbles: true, composed: true }),
+                );
+              }}
+            >
+              ${t.t("home.peak_sandbox")}
+            </button>`
+          : nothing
+      }
+      ${
+        this.can3d
+          ? html`<button
+              class="action"
+              data-testid="home-peak-3d"
+              @click=${() => {
+                this.dispatchEvent(
+                  new CustomEvent("domotwin-go", {
+                    detail: { tab: "3d", layer: "peak" },
+                    bubbles: true,
+                    composed: true,
+                  }),
+                );
+              }}
+            >
+              ${t.t("home.peak_see")}
+            </button>`
+          : nothing
+      }
+    </div>`;
+  }
+
+  /** The peak's chip: under way, pre-heating, or the next one; none while none is announced. */
+  private peakChip(glance: Glance): TemplateResult | typeof nothing {
+    const hass = this.hass;
+    const t = this.t;
+    const now = glance.peak?.now;
+    const peak = now?.peak;
+    if (!hass || !t || !now || !peak || now.phase === "none") return nothing;
+    const style = timeStyle(hass);
+    const at = new Date(nowOf(hass));
+    const label =
+      now.phase === "peak"
+        ? t.t("peak.now", { end: whenText(new Date(peak.end), at, style) })
+        : now.phase === "preheat"
+          ? t.t("home.peak_preheat", { start: whenText(new Date(peak.start), at, style) })
+          : t.t("home.peak_next", { start: whenText(new Date(peak.start), at, style) });
+    return this.chip(
+      "peak",
+      mdiTransmissionTower,
+      label,
+      now.phase === "peak" ? "warning" : undefined,
+    );
   }
 
   protected override render(): TemplateResult | typeof nothing {
@@ -294,6 +428,7 @@ export class DomoTwinHome extends LitElement {
                 )
               : nothing
           }
+          ${this.peakChip(glance)}
         </div>
         ${this.renderDetail(glance)}
         ${this.refused ? html`<p class="error" role="alert">${this.refused}</p>` : nothing}

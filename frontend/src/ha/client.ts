@@ -70,7 +70,7 @@ export interface Settings {
   rooms?: Record<string, PrivateRoom>;
   /** Where the home's energy is read (D-049). */
   energy?: EnergySettings;
-  /** The Wi-Fi access points placed on the plan (D-062). */
+  /** The Wi-Fi access points placed on the plan (D-064). */
   access_points?: AccessPoint[];
 }
 

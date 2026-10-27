@@ -5,6 +5,7 @@ import {
   mdiClose,
   mdiFlaskOutline,
   mdiCogOutline,
+  mdiHistory,
   mdiCubeOutline,
   mdiDotsVertical,
   mdiHomeOutline,
@@ -133,6 +134,7 @@ import {
   type ViewOptions,
 } from "./view";
 import {
+  ENERGY_SENSORS,
   energyCandidates,
   preferredFromHome,
   readEnergy,
@@ -140,7 +142,7 @@ import {
   type EnergySettings,
 } from "../live/energy";
 import { watts } from "../live/devices";
-import { formatPower, layerAsked, numberOf } from "../live/layers";
+import { formatPower, layerAsked, numberOf, type LayerName } from "../live/layers";
 import { navigate } from "../live/actions";
 import { areaPage } from "../live/overview";
 
@@ -163,7 +165,7 @@ const LAYER_WAIT_MS = 5 * 60_000;
 const LAYER_POLL_MS = 250;
 /** How long before settings that could not be read are asked for again (ms). */
 const SETTINGS_RETRY_MS = 10_000;
-/** No Wi-Fi access point placed (D-062): the same array every time. */
+/** No Wi-Fi access point placed (D-064): the same array every time. */
 const NO_ACCESS_POINTS: AccessPoint[] = [];
 /** Upkeep cards saved at once when a file fills them (the integration takes up to 2 000). */
 const CARDS_AT_ONCE = 400;
@@ -269,6 +271,7 @@ const PANEL_DIALOGS = [
   "domotwin-bluetooth-settings",
   "domotwin-private-rooms",
   "domotwin-voice",
+  "domotwin-config-history",
   "domotwin-link",
   "domotwin-catalogue",
   "domotwin-model-import",
@@ -316,6 +319,7 @@ export class DomoTwinPanel extends LitElement {
     bluetoothOpen: { state: true },
     privacyRooms: { state: true },
     voiceOpen: { state: true },
+    configHistoryOpen: { state: true },
     moreOpen: { state: true },
     tight: { state: true },
     compact: { type: Boolean, reflect: true },
@@ -374,6 +378,8 @@ export class DomoTwinPanel extends LitElement {
   private practicalFailed = false;
   /** The 3D view was shown once: it stays, hidden on the other tabs, its engine and camera. */
   private shown3d = false;
+  /** A layer the Home tab asked the 3D view to show (D-063), until it is shown. */
+  private layerWanted?: LayerName;
   /** What the 3D view was last given of Home Assistant. */
   private viewHass?: HomeAssistant;
   /** The tab this device opens on, when it has one of its own. */
@@ -428,6 +434,8 @@ export class DomoTwinPanel extends LitElement {
   protected privacyRooms?: RoomChoice[];
   /** The voice settings (D-041) are open. */
   protected voiceOpen = false;
+  /** The configuration history (D-062) is open, its module loaded. */
+  protected configHistoryOpen = false;
   /** The menu of the export and the home's settings is open. */
   protected moreOpen = false;
   /** Too narrow for every button (a phone): the import and the storeys go in the More menu. */
@@ -1113,7 +1121,7 @@ export class DomoTwinPanel extends LitElement {
    * Shows the sandbox (D-057): the home copied, its automations, scripts and scenes read (Home
    * Assistant gives them to administrators), its day played on the copy.
    */
-  private readonly enterSandbox = async (): Promise<void> => {
+  private readonly enterSandbox = async (peakDay = false): Promise<void> => {
     this.moreOpen = false;
     const real = this.demoSwitch.realHass ?? this._hass;
     if (!real || !this.switchable()) return;
@@ -1128,6 +1136,7 @@ export class DomoTwinPanel extends LitElement {
             language: real.locale?.language ?? real.language,
             ...(real.user ? { user: real.user } : {}),
             darkMode: real.themes?.darkMode === true,
+            peakDay,
           });
         },
       );
@@ -1136,6 +1145,14 @@ export class DomoTwinPanel extends LitElement {
     } catch (error) {
       this.show(t.t("sandbox.failed", { reason: this.describe(error) }), true);
     }
+  };
+
+  /** The day of Hydro-Québec's announced peak, played in the sandbox (D-063). */
+  private readonly playPeak = async (): Promise<void> => {
+    await this.enterSandbox(true);
+    // The copy said no peak after all (it ended meanwhile): its own day, and why.
+    const sandbox = this.sandbox;
+    if (sandbox && !sandbox.peakToday()) this.show(this.t.t("sandbox.no_peak"), true);
   };
 
   /** Back to the home from the demo house or the sandbox: what runs on it ends, nothing saved. */
@@ -1178,6 +1195,7 @@ export class DomoTwinPanel extends LitElement {
     this.locating = undefined;
     this.privacyRooms = undefined;
     this.voiceOpen = false;
+    this.configHistoryOpen = false;
     this.storeysOpen = false;
     this.storeyRemoveAsk = undefined;
     this.plan = undefined;
@@ -2622,6 +2640,11 @@ export class DomoTwinPanel extends LitElement {
     }
     // After the menu: a dialog opened from it gives the focus back to its button.
     this.dialogs.update(this.renderRoot.querySelector(PANEL_DIALOGS) ?? undefined);
+    const view = this.layerWanted && this.tab === "3d" ? this.view : null;
+    if (view && this.layerWanted) {
+      view.setLayer(this.layerWanted);
+      this.layerWanted = undefined;
+    }
     const hass = this._hass;
     const fitting = [
       hass?.locale?.language ?? hass?.language,
@@ -2725,7 +2748,11 @@ export class DomoTwinPanel extends LitElement {
     this.address(replace);
   }
 
-  private readonly onGo = (event: CustomEvent<{ tab: Tab; area?: string }>): void => {
+  private readonly onGo = (
+    event: CustomEvent<{ tab: Tab; area?: string; layer?: LayerName }>,
+  ): void => {
+    // A layer asked for (the peak's, D-063): shown once the 3D view is there.
+    this.layerWanted = event.detail.tab === "3d" ? event.detail.layer : undefined;
     // A room opened from one opened from the 3D view: back to the rooms, not to the 3D view.
     this.go(event.detail.tab, event.detail.area);
   };
@@ -2768,6 +2795,9 @@ export class DomoTwinPanel extends LitElement {
       closed,
       closedAreas: unseen.areas,
       closedEntities: unseen.entities,
+      meters: new Set(
+        ENERGY_SENSORS.flatMap((key) => this.settings?.energy?.[key] ?? []).filter(Boolean),
+      ),
     };
     if (this.people) sources.people = this.people;
     // The rooms' own actions (D-047), on their area's page.
@@ -3076,11 +3106,13 @@ export class DomoTwinPanel extends LitElement {
       : html`<domotwin-home
           .hass=${hass}
           .t=${this.t}
+          ?can3d=${canDraw3d()}
           .choices=${this.choices ?? NO_CHOICES}
           .sources=${sources}
           .unseen=${unseen}
           @domotwin-go=${this.onGo}
           @domotwin-favourite=${this.onFavourite}
+          @domotwin-sandbox-peak=${this.playPeak}
         ></domotwin-home>`;
   }
 
@@ -3296,6 +3328,7 @@ export class DomoTwinPanel extends LitElement {
               ${item("privacy-settings", mdiLockOutline, t.t("privacy.title"), this.busy, this.openPrivacy)}
               ${item("voice-settings", mdiMicrophoneMessage, t.t("voice.settings"), this.busy, this.openVoice)}
               ${item("wifi-menu", mdiWifi, t.t("wifi.menu"), this.busy || this.wifi === undefined || this.sandbox !== undefined, this.openWifi)}
+              ${item("config-history", mdiHistory, t.t("config_history.menu"), this.busy || this.sandbox !== undefined, this.openConfigHistory)}
               ${item("measure", mdiSpeedometer, t.t("measure.menu"), this.busy || this.measureOpen || this.sandbox !== undefined, this.openMeasure)}
               <hr />
               ${
@@ -3325,6 +3358,16 @@ export class DomoTwinPanel extends LitElement {
       if (this.tab !== "3d") this.go("3d");
       await import("./measure");
       this.measureOpen = true;
+    } catch (error) {
+      this.show(this.describe(error), true);
+    }
+  };
+
+  /** Opens the configuration history (D-062): its module and texts, loaded the first time. */
+  private readonly openConfigHistory = async (): Promise<void> => {
+    try {
+      await import("./config-history-dialog");
+      this.configHistoryOpen = true;
     } catch (error) {
       this.show(this.describe(error), true);
     }
@@ -3704,6 +3747,14 @@ export class DomoTwinPanel extends LitElement {
             .mode=${"settings"}
             @domotwin-close=${() => (this.voiceOpen = false)}
           ></domotwin-voice>`
+        : nothing
+    }
+    ${
+      this.configHistoryOpen
+        ? html`<domotwin-config-history
+            .hass=${this._hass}
+            @domotwin-close=${() => (this.configHistoryOpen = false)}
+          ></domotwin-config-history>`
         : nothing
     }
     ${this.storeysOpen ? this.renderStoreysDialog() : nothing}`;

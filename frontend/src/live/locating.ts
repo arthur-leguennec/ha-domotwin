@@ -47,7 +47,7 @@ export interface ReceiverInfo {
   /** What placed it: by hand (`room`, `piece`), from its device (`device_area`, `device_piece`),
    * or nothing. */
   placed_by: "room" | "piece" | "device_area" | "device_piece" | null;
-  /** Where it stands (D-062): its storey, its point (cm) and its height (cm, from the lowest
+  /** Where it stands (D-064): its storey, its point (cm) and its height (cm, from the lowest
    * floor); none when nothing places it. */
   place?: { storey: string; at: [number, number]; z: number } | null;
 }
@@ -61,7 +61,7 @@ export interface LocatingSettings {
   devices: Record<string, LocatedDevice>;
   /** How much was learned in each room (readings). */
   learned: Record<string, number>;
-  /** What each receiver learned in each room (D-062): the mean signal, a phone's as the model
+  /** What each receiver learned in each room (D-064): the mean signal, a phone's as the model
    * has it, and of how many readings. */
   heard?: Record<string, Record<string, { signal: number; readings: number }>>;
   rooms: { id: string; name: string; storey: string }[];

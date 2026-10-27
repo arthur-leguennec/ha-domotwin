@@ -25,9 +25,11 @@ Local, rapide, Rust + WebAssembly.</p>
 > qui disent ce qu’ils font, des meubles qui ont l’air faits, les aspirateurs robots, l’énergie de
 > la maison, la maison de démo, la mesure de la vitesse d’un appareil et la maison pratique (les
 > onglets Accueil, Pièces et 3D) fonctionnent déjà, et forment la version 0.4.0. Depuis, le bac à
-> sable joue une journée des automatisations de la maison sur une copie de celle-ci, « Pourquoi ? »
-> dit qui ou quoi a changé un appareil, le code QR du Wi-Fi accueille les invités, DomoTwin rejoint
-> la Vue d’ensemble de Home Assistant plutôt que de la copier, et la couverture radio dit où la
+> sable joue une journée des automatisations de la maison sur une copie de celle-ci, l’historique de
+> Home Assistant se lit en rapports, « Pourquoi ? » dit qui ou quoi a changé un appareil, le code QR
+> du Wi-Fi accueille les invités, DomoTwin rejoint la Vue d’ensemble de Home Assistant plutôt que de
+> la copier, chaque changement de la configuration est gardé, les pointes d’Hydro-Québec se voient
+> sur le plan, dans l’onglet Accueil et dans le bac à sable, et la couverture radio dit où la
 > prochaine radio aide le plus. L’historique et l’énergie, la sécurité et l’écran mural viennent
 > ensuite, vers la version 0.5.0 ; la proposition à la liste par défaut de HACS attend des mesures
 > sur de vrais appareils.
@@ -78,6 +80,12 @@ Local, rapide, Rust + WebAssembly.</p>
   soleil qui entre par vos fenêtres, et ce que consomme chaque appareil, avec l’énergie du
   logement : le soleil, le réseau et la batterie autour de la maison, l’électricité qui circule
   entre eux.
+- **Les pointes d’Hydro-Québec.** Pour un logement au tarif Flex D ou au crédit hivernal, avec
+  [hydroqc](https://github.com/hydroqc/hydroqc-ha) ou
+  [HydroPeak](https://github.com/Beat-YT/hydropeak-ha) installé : la prochaine pointe et son
+  préchauffage dans l’onglet Accueil, en 3D les pièces qui préchauffent, sont délestées ou
+  chauffent encore pendant la pointe, avec ce qu’elles consomment, et la pointe annoncée pour
+  demain jouée d’abord dans le bac à sable. Rien sans eux.
 - **Aspirateurs robots.** Son robot quitte sa base quand il nettoie, passe les pièces une à une et
   rentre, sur le plan.
 - **Appareils.** Des badges sur vos appareils (l’état d’une serrure, une caméra qui enregistre, ce
@@ -185,6 +193,13 @@ Local, rapide, Rust + WebAssembly.</p>
   cherché par valeur ; en CSV. En lecture seule, depuis l’historique, les statistiques et le
   journal de Home Assistant. Voir [l’historique en
   rapports](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/history.md) (en
+  anglais).
+- **Historique de la configuration.** Chaque changement d’une automatisation, d’un script, d’une
+  scène ou d’un tableau de bord est gardé, par élément et par date, dans Home Assistant : ce qui a
+  changé, en mots (« Déclencheur 1 › offset : -00:30:00 → -00:20:00 », « Ajout · Action 2 »), et un
+  élément remis comme il était, par les commandes qu’utilisent les éditeurs de Home Assistant.
+  Pour les administrateurs ; sans module complémentaire ni Git. Voir [l’historique de la
+  configuration](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/config-history.md) (en
   anglais).
 - **Votre voix.** Un bouton micro ouvre Assist de Home Assistant déjà à l’écoute, sur une
   tablette murale comme sur un téléphone. Quand Assist n’entend pas encore, DomoTwin installe la
@@ -318,7 +333,7 @@ YAML n’est jamais nécessaire. Pour référence, les options de la carte :
 | `spread`      | `true`, `false`                     | `true`     | Tous les étages à la fois : écartés, ou empilés. |
 | `roof`        | `true`, `false`                     | `true`     | Tous les étages à la fois : le toit sur le dernier. |
 | `room`        | un identifiant de pièce du plan     | aucun      | Pièce à cadrer à l’ouverture de la carte.     |
-| `layer`       | `off`, `temperature`, `humidity`, `co2`, `pm25`, `power`, `network`, `coverage`, `automations`, `upkeep` | `off` | Calque affiché à l’ouverture ; le menu des calques le change. `network` ne s’affiche qu’aux administrateurs, avec ZHA ; `coverage` et `automations` aux administrateurs. |
+| `layer`       | `off`, `temperature`, `humidity`, `co2`, `pm25`, `power`, `peak`, `network`, `coverage`, `automations`, `upkeep` | `off` | Calque affiché à l’ouverture ; le menu des calques le change. `peak` s’affiche là où hydroqc ou HydroPeak lit les pointes d’Hydro-Québec, `network` aux administrateurs avec ZHA seulement, `coverage` et `automations` aux administrateurs. |
 | `alerts`      | `true`, `false`                     | `true`     | Alertes de sécurité des pièces (fumée, gaz, eau, alarme, fenêtre ouverte sous la pluie). |
 | `presence`    | `true`, `false`                     | `true`     | Les pièces occupées s’illuminent doucement.   |
 | `people`      | `true`, `false`                     | `true`     | Les personnes dans leurs pièces, en silhouettes. |

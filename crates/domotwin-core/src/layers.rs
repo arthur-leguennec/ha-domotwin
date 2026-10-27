@@ -1,9 +1,11 @@
 //! The layers drawn over the home (`DECISIONS.md`, D-023): a **heatmap** of one quantity per room
-//! (temperature, humidity, CO₂ or fine particles, or how well a radio covers it, D-062) on a
+//! (temperature, humidity, CO₂ or fine particles, or how well a radio covers it, D-064) on a
 //! perceptual colour scale, **alerts** pulsing
 //! on the floor of their room (warnings amber, dangers red) and **presence** (a room someone is in
-//! glows softly). The frontend gathers the values from Home Assistant (areas, device classes,
-//! units); the core turns them into colours and into the per-room data the renderer reads.
+//! glows softly). During a Hydro-Québec peak (D-063), the **peak** tints each room by what its
+//! heating does: pre-heating before the peak, shed or still heating during it. The frontend
+//! gathers the values from Home Assistant (areas, device classes, units); the core turns them into
+//! colours and into the per-room data the renderer reads.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -24,7 +26,7 @@ pub enum HeatKind {
     Co2,
     /// Fine particles PM2.5 (µg/m³).
     Pm25,
-    /// How well a radio covers the room (D-062): its level's rank, from 0 (out of reach) to 3
+    /// How well a radio covers the room (D-064): its level's rank, from 0 (out of reach) to 3
     /// (good).
     Coverage,
 }
@@ -154,6 +156,46 @@ impl Alert {
     }
 }
 
+/// What a room's heating does around a Hydro-Québec peak (D-063).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PeakRole {
+    /// It heats before the peak, to store warmth.
+    Preheat,
+    /// It is set back or off during the peak.
+    Shed,
+    /// It still heats during the peak.
+    Heating,
+}
+
+impl PeakRole {
+    /// Every role, in the legend's order.
+    pub const ALL: [PeakRole; 3] = [PeakRole::Preheat, PeakRole::Shed, PeakRole::Heating];
+
+    /// The name in the API.
+    pub const fn name(self) -> &'static str {
+        match self {
+            PeakRole::Preheat => "preheat",
+            PeakRole::Shed => "shed",
+            PeakRole::Heating => "heating",
+        }
+    }
+
+    /// Reads a name.
+    pub fn from_name(name: &str) -> Option<PeakRole> {
+        PeakRole::ALL.into_iter().find(|role| role.name() == name)
+    }
+
+    /// Its sRGB colour on the floor, the ends of the temperature scale's: warm while it stores
+    /// warmth, cool once shed, red while it still heats during the peak.
+    pub const fn color(self) -> u32 {
+        match self {
+            PeakRole::Preheat => 0xf2_9e_2e,
+            PeakRole::Shed => 0x2c_7b_b6,
+            PeakRole::Heating => 0xd7_19_1c,
+        }
+    }
+}
+
 /// What the layers show, by room id.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct RoomLayers {
@@ -161,6 +203,10 @@ pub struct RoomLayers {
     pub heat: Option<HeatKind>,
     /// Its value in each room that has one.
     pub values: BTreeMap<String, f64>,
+    /// What each room's heating does around a peak (D-063), when the peak is shown.
+    pub peak: BTreeMap<String, PeakRole>,
+    /// What each room draws (W), written at its centre.
+    pub draws: BTreeMap<String, f64>,
     /// Rooms with an alert.
     pub alerts: BTreeMap<String, Alert>,
     /// Rooms someone is in.
@@ -168,9 +214,11 @@ pub struct RoomLayers {
 }
 
 impl RoomLayers {
-    /// Whether something is drawn that moves (the heatmap's halo, a pulsing alert).
+    /// Whether something is drawn that moves (the heatmap's or the peak's halo, a pulsing alert).
     pub fn animated(&self) -> bool {
-        (self.heat.is_some() && !self.values.is_empty()) || !self.alerts.is_empty()
+        (self.heat.is_some() && !self.values.is_empty())
+            || !self.peak.is_empty()
+            || !self.alerts.is_empty()
     }
 
     /// Whether anything is drawn.
@@ -200,7 +248,8 @@ pub fn legend(kind: HeatKind, steps: usize) -> Vec<(f64, String)> {
 const MAX_ROOMS: usize = 1000;
 
 /// Reads the layers from JSON leniently: `{"heat": "temperature", "values": {"living": 21.5},
-/// "alerts": {"kitchen": "danger"}, "presence": ["living"]}`.
+/// "peak": {"office": "shed"}, "draws": {"office": 40}, "alerts": {"kitchen": "danger"},
+/// "presence": ["living"]}`.
 pub fn read_room_layers(value: &Value) -> RoomLayers {
     let mut layers = RoomLayers {
         heat: value
@@ -213,6 +262,20 @@ pub fn read_room_layers(value: &Value) -> RoomLayers {
         for (room, v) in values.iter().take(MAX_ROOMS) {
             if let Some(v) = v.as_f64().filter(|v| v.is_finite()) {
                 layers.values.insert(room.clone(), v);
+            }
+        }
+    }
+    if let Some(peak) = value.get("peak").and_then(Value::as_object) {
+        for (room, role) in peak.iter().take(MAX_ROOMS) {
+            if let Some(role) = role.as_str().and_then(PeakRole::from_name) {
+                layers.peak.insert(room.clone(), role);
+            }
+        }
+    }
+    if let Some(draws) = value.get("draws").and_then(Value::as_object) {
+        for (room, watts) in draws.iter().take(MAX_ROOMS) {
+            if let Some(watts) = watts.as_f64().filter(|w| w.is_finite() && *w >= 0.0) {
+                layers.draws.insert(room.clone(), watts);
             }
         }
     }
@@ -290,16 +353,26 @@ pub fn room_shapes<'a>(plan: &'a Plan, scene: &Scene) -> Vec<RoomShape<'a>> {
         .collect()
 }
 
-/// What the renderer reads for each room slot (slot 0, no room, first): the heatmap colour
-/// (linear) and strength; the centre and reach of the room (its halo) and its alert (0 none, 0.5
-/// warning, 1 danger); presence, and whether the room is drawn closed (D-039).
+/// What the renderer reads for each room slot (slot 0, no room, first): the heatmap colour, or
+/// the peak's (linear), and strength; the centre and reach of the room (its halo) and its alert
+/// (0 none, 0.5 warning, 1 danger); presence, and whether the room is drawn closed (D-039).
 #[allow(clippy::cast_possible_truncation)]
 pub fn room_texels(plan: &Plan, scene: &Scene, layers: &RoomLayers) -> Vec<[f32; 4]> {
     let mut texels = vec![[0.0; 4]; ROOM_TEXELS * (scene.rooms.len() + 1)];
     for room in room_shapes(plan, scene) {
         let at = ROOM_TEXELS * room.slot;
-        if let (Some(kind), Some(value)) = (layers.heat, layers.values.get(room.id)) {
-            let [r, g, b] = kind.color(*value).to_linear();
+        let heat = layers
+            .heat
+            .zip(layers.values.get(room.id))
+            .map(|(kind, value)| kind.color(*value));
+        let tint = heat.or_else(|| {
+            layers
+                .peak
+                .get(room.id)
+                .map(|role| Rgb8::from_u32(role.color()))
+        });
+        if let Some(tint) = tint {
+            let [r, g, b] = tint.to_linear();
             texels[at] = [r, g, b, 1.0];
         }
         let alert = match layers.alerts.get(room.id) {
@@ -429,6 +502,28 @@ mod tests {
     }
 
     #[test]
+    fn reads_the_peak_leniently() {
+        let layers = read_room_layers(&serde_json::json!({
+            "peak": { "living": "shed", "office": "preheat", "bath": "heating", "hall": "off", "x": 1 },
+            "draws": { "living": 40, "bath": 1500.5, "hall": -3, "bad": "x", "nan": null }
+        }));
+        assert_eq!(layers.peak.len(), 3);
+        assert_eq!(layers.peak.get("living"), Some(&PeakRole::Shed));
+        assert_eq!(layers.peak.get("office"), Some(&PeakRole::Preheat));
+        assert_eq!(layers.peak.get("bath"), Some(&PeakRole::Heating));
+        // A negative draw means nothing.
+        assert_eq!(layers.draws.len(), 2);
+        assert_eq!(layers.draws.get("bath"), Some(&1500.5));
+        // The peak's halo moves like a heatmap's; draws alone are words, not drawn on the floor.
+        assert!(layers.animated());
+        let words = read_room_layers(&serde_json::json!({ "draws": { "living": 40 } }));
+        assert!(!words.shown());
+        for role in PeakRole::ALL {
+            assert_eq!(PeakRole::from_name(role.name()), Some(role));
+        }
+    }
+
+    #[test]
     fn legends_run_from_the_first_stop_to_the_last() {
         let colors = legend(HeatKind::Temperature, 5);
         assert_eq!(colors.len(), 5);
@@ -487,5 +582,32 @@ mod tests {
         assert_eq!(texels[other][3], 0.0);
         assert_eq!(texels[other + 1][3], 0.0);
         assert_eq!(texels[0], [0.0; 4]);
+    }
+
+    #[test]
+    fn the_peak_tints_rooms_where_no_heatmap_does() {
+        let plan = crate::read_plan(DEMO.as_bytes()).unwrap();
+        let scene = build_scene(&plan, &SceneOptions::default());
+        let slot = |id: &str| ROOM_TEXELS * (scene.rooms.iter().position(|r| r == id).unwrap() + 1);
+        let layers = read_room_layers(&serde_json::json!({
+            "peak": { "living": "shed", "kitchen": "heating" }
+        }));
+        let texels = room_texels(&plan, &scene, &layers);
+        let blue = Rgb8::from_u32(PeakRole::Shed.color()).to_linear();
+        assert_eq!(texels[slot("living")], [blue[0], blue[1], blue[2], 1.0]);
+        let red = Rgb8::from_u32(PeakRole::Heating.color()).to_linear();
+        assert_eq!(texels[slot("kitchen")], [red[0], red[1], red[2], 1.0]);
+        assert_eq!(texels[slot("bathroom")][3], 0.0);
+        // A heatmap's value comes first.
+        let both = read_room_layers(&serde_json::json!({
+            "heat": "temperature",
+            "values": { "living": 14 },
+            "peak": { "living": "heating" }
+        }));
+        let cold = HeatKind::Temperature.color(14.0).to_linear();
+        assert_eq!(
+            room_texels(&plan, &scene, &both)[slot("living")],
+            [cold[0], cold[1], cold[2], 1.0]
+        );
     }
 }

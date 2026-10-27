@@ -24,7 +24,7 @@
 //   window.__move(person, room) moves someone (their room sensor, as the integration writes it)
 //   bluetooth=1 (DomoTwin's own Bluetooth locating: three fictional receivers, Alex's phone and
 //   keys followed, both in the kitchen, the keys left behind), bluetooth=none (no Bluetooth)
-//   radios=1 (the radio coverage, D-062: two of the receivers placed, the hall taught, two Wi-Fi
+//   radios=1 (the radio coverage, D-064: two of the receivers placed, the hall taught, two Wi-Fi
 //   devices reporting their signal, an access point in the kitchen's far corner)
 //   window.__show(request) sends a `domotwin.show` request to every screen
 //   private=<room>,<room> (private rooms, D-039, kept for nobody), privatefor=<person> (kept for
@@ -33,6 +33,10 @@
 //   voice=1 (Assist with a pipeline that hears), voice=deaf (Assist that cannot hear),
 //   robot=1 (a robot vacuum's dock in the hall, linked to vacuum.robbie, docked; D-049)
 //   energy=1 (fictional solar panels, meter and battery, named in the stored settings; D-049)
+//   peak=hydroqc|hydropeak|calendar (Hydro-Québec's peaks, D-063: hydroqc's Flex D sensors,
+//   HydroPeak's, or the calendar hydroqc writes its peaks in), peakphase=upcoming|preheat|peak|none
+//   (where the peak stands now; `peak` unless asked), with the bedroom heating and the living
+//   room's thermostat set back
 //   demo=1 (the card's `demo`: the demo house instead of this home, D-050)
 //   supervisor=1 (apps can be installed), blueprints=changed (one edited), insecure=1 (a page
 //   served over HTTP: no microphone), mic=0 (the card's microphone turned off)
@@ -51,6 +55,11 @@
 //   entrance door opened five minutes ago and set off "Hall light at the door", which lit the
 //   hall's spots; Sam switched the floor lamp on two minutes ago; the kitchen's ceiling light was
 //   switched off on its own switch)
+//   confighistory=1 (the configuration history, D-062: fictional automations, a script removed,
+//   one in YAML files of one's own and a dashboard, as the integration keeps them; Home
+//   Assistant's configuration API and `lovelace/config/save` put one back, read again on
+//   `domotwin/config_history/refresh`; window.__refuseConfig = "<message>" makes Home Assistant
+//   refuse)
 import { applyService, demoHome } from "./demo-home.mjs";
 
 const params = new URLSearchParams(location.search);
@@ -435,6 +444,113 @@ async function fetchWithAuth(path, init = {}) {
     return Response.json({ code: "not_found" }, { status: 404 });
   return new Response(bytes);
 }
+// The configuration history (D-062), as the integration keeps it: each item's versions, oldest
+// first, and what Home Assistant's editors saved since it last read them.
+const configItems = params.get("confighistory") === "1" ? fictionalConfigHistory() : [];
+const configPending = new Map();
+let configNext = 100;
+
+function fictionalConfigHistory() {
+  const day = 86_400_000;
+  const at = (days) => new Date(Date.parse("2026-10-26T18:00:00Z") - days * day).toISOString();
+  const evening = (offset, actions) => ({
+    id: "1700000000001",
+    alias: "Evening lights",
+    triggers: [{ trigger: "sun", event: "sunset", offset }],
+    actions,
+    mode: "single",
+  });
+  const lamp = { action: "light.turn_on", target: { entity_id: "light.living_lamp" } };
+  const curtains = { action: "cover.close_cover", target: { entity_id: "cover.living_curtains" } };
+  return [
+    {
+      kind: "automation",
+      key: "1700000000001",
+      name: "Evening lights",
+      source: "editor",
+      versions: [
+        { id: 1, at: at(9), config: evening("-00:30:00", [lamp]) },
+        { id: 2, at: at(3), config: evening("-00:30:00", [lamp, curtains]) },
+        { id: 3, at: at(1), config: evening("-00:20:00", [lamp, curtains]) },
+      ],
+    },
+    {
+      kind: "script",
+      key: "good_night",
+      name: "Good night",
+      source: "editor",
+      versions: [
+        {
+          id: 4,
+          at: at(5),
+          config: { alias: "Good night", sequence: [{ action: "light.turn_off" }] },
+        },
+        { id: 5, at: at(2), config: null },
+      ],
+    },
+    {
+      kind: "automation",
+      key: "hall_motion",
+      name: "Hall light on motion",
+      source: "yaml",
+      versions: [
+        {
+          id: 6,
+          at: at(7),
+          config: { alias: "Hall light on motion", triggers: [], actions: [lamp] },
+        },
+        {
+          id: 7,
+          at: at(4),
+          config: { alias: "Hall light on motion", triggers: [], actions: [lamp, curtains] },
+        },
+      ],
+    },
+    {
+      kind: "dashboard",
+      key: "",
+      name: null,
+      source: "editor",
+      versions: [{ id: 8, at: at(6), config: { title: "Home", views: [{ title: "Kitchen" }] } }],
+    },
+  ];
+}
+
+function configSummary(item) {
+  const newest = item.versions.at(-1);
+  return {
+    id: `${item.kind}:${item.key}`,
+    kind: item.kind,
+    key: item.key,
+    name: item.name,
+    source: item.source,
+    removed: newest.config === null,
+    versions: item.versions.length,
+    changed: newest.at,
+  };
+}
+
+function configItem(id) {
+  if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+  const item = configItems.find((each) => `${each.kind}:${each.key}` === id);
+  if (!item) throw { code: "unknown_item", message: "unknown_item" };
+  return item;
+}
+
+/** Home Assistant's configuration API (`hass.callApi`): its editors' save. */
+async function callApi(method, path, parameters) {
+  calls.push({ type: "api", method, path, parameters });
+  if (!hass.user.is_admin) throw { error: "Response error: 401", status_code: 401, body: {} };
+  if (window.__refuseConfig) {
+    const message = window.__refuseConfig;
+    throw { error: "Response error: 400", status_code: 400, body: { message } };
+  }
+  const found = /^config\/(automation|script|scene)\/config\/(.+)$/.exec(path);
+  if (method !== "POST" || !found) throw { error: "Response error: 404", status_code: 404 };
+  configPending.set(`${found[1]}:${decodeURIComponent(found[2])}`, structuredClone(parameters));
+  return { result: "ok" };
+}
+
 const listeners = new Set();
 // Actions done later (D-046), as the integration lists them to its subscribers.
 const schedules = [];
@@ -1191,6 +1307,55 @@ const connection = {
           { id: "e2e", name: "E2E" },
           { id: "user-sam", name: "Sam" },
         ];
+      case "domotwin/config_history/list":
+        if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        return {
+          items: configItems
+            .map(configSummary)
+            .sort((a, b) => Date.parse(b.changed) - Date.parse(a.changed)),
+          bytes: 12_400,
+          max_bytes: 4_000_000,
+        };
+      case "domotwin/config_history/item": {
+        const item = configItem(message.item);
+        const seen = new Map();
+        const versions = item.versions.map((kept) => {
+          const version = {
+            id: kept.id,
+            at: kept.at,
+            removed: kept.config === null,
+            kept: kept.config !== null,
+          };
+          if (kept.config) {
+            const text = JSON.stringify(kept.config);
+            if (seen.has(text)) version.same_as = seen.get(text);
+            seen.set(text, kept.id);
+          }
+          return version;
+        });
+        return { item: configSummary(item), versions: versions.reverse() };
+      }
+      case "domotwin/config_history/version": {
+        const kept = configItem(message.item).versions.find((each) => each.id === message.version);
+        if (!kept) throw { code: "unknown_version", message: "unknown_version" };
+        return { config: structuredClone(kept.config) };
+      }
+      case "domotwin/config_history/refresh": {
+        if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        let changed = 0;
+        for (const [id, config] of configPending) {
+          const item = configItems.find((each) => `${each.kind}:${each.key}` === id);
+          if (!item || (message.kind && item.kind !== message.kind)) continue;
+          item.versions.push({ id: configNext++, at: new Date().toISOString(), config });
+          configPending.delete(id);
+          changed += 1;
+        }
+        return { changed };
+      }
+      case "lovelace/config/save":
+        if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        configPending.set(`dashboard:${message.url_path ?? ""}`, structuredClone(message.config));
+        return null;
       default:
         throw { code: "unknown_command", message: message.type };
     }
@@ -1235,6 +1400,80 @@ if (robot) {
     // Starts, pauses, goes home, reports its state.
     attributes: { friendly_name: "Robbie", supported_features: 12_820 },
   };
+}
+// Hydro-Québec's peaks (D-063), named as a French home names them: they are found by their
+// integration and kind, not their id.
+const peakSource = params.get("peak");
+if (peakSource) {
+  const hour = 3_600_000;
+  const now = Date.now();
+  const phase = params.get("peakphase") ?? "peak";
+  // Five hours ahead (pre-heating in three), within the hour, an hour in, or none announced.
+  const start = { upcoming: now + 5 * hour, preheat: now + hour, peak: now - hour }[phase];
+  const end = start === undefined ? undefined : start + 4 * hour;
+  const iso = (time) => (time === undefined ? "unknown" : new Date(time).toISOString());
+  const add = (id, state, attributes, entry) => {
+    home.states[id] = { entity_id: id, state, attributes };
+    if (entry) home.entities[id] = { entity_id: id, ...entry };
+  };
+  const timestamp = { device_class: "timestamp" };
+  if (peakSource === "hydroqc") {
+    const entry = (key) => ({ platform: "hydroqc", translation_key: key, device_id: "hq" });
+    add(
+      "sensor.hydro_quebec_maison_debut_prochaine_pointe",
+      iso(start),
+      timestamp,
+      entry("dpc_next_peak_start"),
+    );
+    add(
+      "sensor.hydro_quebec_maison_fin_prochaine_pointe",
+      iso(end),
+      timestamp,
+      entry("dpc_next_peak_end"),
+    );
+  } else if (peakSource === "hydropeak") {
+    const entry = (key) => ({ platform: "hydropeak", translation_key: key, device_id: "offer" });
+    add("sensor.tpc_dpc_evenement_debut", iso(start), timestamp, entry("event_start"));
+    add("sensor.tpc_dpc_evenement_fin", iso(end), timestamp, entry("event_end"));
+    add(
+      "sensor.tpc_dpc_debut_du_prechauffage",
+      iso(start && start - 3 * hour),
+      timestamp,
+      entry("preheat_start"),
+    );
+  } else if (peakSource === "calendar") {
+    // hydroqc's button, which it makes for the peaks it writes in a calendar.
+    add("button.hydro_quebec_maison_refresh_peak_data", "unknown", {}, { platform: "hydroqc" });
+  }
+  if (peakSource === "calendar" && start !== undefined) {
+    // A calendar's event, as its attributes say it: a wall clock where Home Assistant is.
+    const wall = (time) => {
+      const d = new Date(time);
+      const pad = (n) => String(n).padStart(2, "0");
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:00`;
+    };
+    add("calendar.pointes_hydro", phase === "peak" ? "on" : "off", {
+      friendly_name: "Pointes Hydro",
+      message: "🔴 Pointe critique",
+      location: "Hydro-Québec DPC",
+      description: "Pointe critique\nTarif: DPC\nCritique: Oui\nID: hydroqc_opendata_maison_1",
+      start_time: wall(start),
+      end_time: wall(end),
+    });
+  }
+  // The living room's thermostat set back, the bedroom's baseboard drawing.
+  add(
+    "climate.living_room",
+    "heat",
+    { friendly_name: "Living room", hvac_action: "idle", temperature: 17, current_temperature: 20 },
+    { area_id: "living_room" },
+  );
+  add(
+    "sensor.bedroom_baseboard_power",
+    "1450",
+    { friendly_name: "Bedroom baseboard", device_class: "power", unit_of_measurement: "W" },
+    { area_id: "bedroom" },
+  );
 }
 if (sandbox) {
   for (const [id, config] of Object.entries(SANDBOX_SCRIPTS)) {
@@ -1516,7 +1755,7 @@ if (bluetoothParam === "1") {
 }
 if (params.get("radios") === "1") {
   // Where the locating places two of the receivers, and the hall it learned from the living
-  // room's (D-062).
+  // room's (D-064).
   const places = {
     "AA:00:00:00:00:03": { storey: "storey-1", at: [260, 260], z: 120 },
     "BB:00:00:00:00:01": { storey: "storey-1", at: [630, 483.3], z: 120 },
@@ -1635,6 +1874,7 @@ let hass = {
         },
       }
     : {}),
+  callApi,
   async callService(domain, service, data, target) {
     calls.push({ type: "call_service", domain, service, data, target });
     if (window.__failServices)

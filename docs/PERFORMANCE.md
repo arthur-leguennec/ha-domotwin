@@ -996,6 +996,42 @@ a plan of 500. The tasks due are sorted into the rooms in one pass when the upke
 or the day change. Who is in each room is counted when a person moves, from the places the people
 tracker already keeps, and only the rooms whose count changed are written.
 
+### M36 (the configuration history)
+
+Bundle: the first load is **521.8 kB gzipped** of 1 200 kB (+0.5 kB): the menu item and its text,
+and two error texts. The dialog, its texts in both languages and the comparison come on demand the
+first time it opens (`chunks/config-history-dialog-<hash>.js`: 24.9 kB raw, 7.2 kB gzipped).
+
+The integration reads a kind only after Home Assistant announces a change to it, a second later
+(five for the scripts, whose reload announces nothing), one reading at a time, and once when it
+starts; nothing runs in between. A version is kept as its JSON text, not as parsed objects, so
+that the 4 MB the history may take are 4 MB in memory, and the store is written ten seconds after
+a change, several changes at once. What changed is worked out in the page, only for the version
+shown: a dashboard of 490 kB (40 views, 4 800 cards) with a card added and a view renamed is
+compared in 47 ms (Node 22, the unit tests' happy-dom), the two changes found. Lists are matched by
+their longest common part up to 40 000 pairs of items, compared item by item beyond; at most 200
+changes are said.
+
+### M39 (Hydro-Québec's peaks)
+
+Bundle: the first load is **524.0 kB gzipped** of 1 200 kB (+2.3 kB): whether an integration reads
+the peaks (`peak-sources.ts`, 0.6 kB gzipped), the layer's place in the view, its styles and its
+name, and a few modules the sandbox now shares with the view, split into chunks of their own. The
+peak, the rooms and the legend come on demand: `chunks/peak-layer-<hash>.js` (0.7 kB gzipped) the
+first time the layer shows, and 2.4 kB shared with the Home tab's and the sandbox's chunks, with
+their texts in both languages. The Home tab's chunk grows by its chip (11.9 kB gzipped, +1.0 kB),
+the sandbox's by the peak's day and report (34.3 kB gzipped, +2.8 kB). The engine's wasm stays
+the same size with the peak's tints (380.3 kB gzipped).
+
+The integrations' entities are found once per entity registry, their peaks once per update of the
+states, only where the peak is asked for (its layer shown, the Home tab open). The rooms' roles and
+draws are worked out with the layers, only while the peak's layer is shown, and sent to the engine
+only when they change; a timer works them out again when the peak's phase changes. Tinted, the
+rooms are drawn like a heatmap: at the layers' pace (24 frames a second), still under *reduce
+motion*; what they draw alone is written, not drawn, and needs no frame. In the sandbox, the
+peak's day adds a few changes to the day played, and what each room did is read every five minutes
+from the pre-heating to the peak's end when the report opens, once for each day played.
+
 ### M31 (the placement advisor)
 
 Bundle: the first load is **522.1 kB gzipped** of 1 200 kB (+0.8 kB): the layer's name, who may
@@ -1017,4 +1053,4 @@ for the demo apartment (5 rooms), **10 ms** for the demo house (13 rooms on two 
 looked at from four of its points, not twelve, and its spot is its middle alone: 30 to 40 rooms
 took about 190 ms before. The integration's Python counts walls between two places in about
 57 µs: the same advice there would take about 2.3 s for 30 rooms on this computer, more on a small
-host, which is why it runs in the page (D-062).
+host, which is why it runs in the page (D-064).

@@ -49,6 +49,7 @@ export interface HarnessOptions {
     | "co2"
     | "pm25"
     | "power"
+    | "peak"
     | "network"
     | "automations"
     | "upkeep";
@@ -97,11 +98,17 @@ export interface HarnessOptions {
   energy?: boolean;
   /** The card's `demo`: the demo house instead of this home (D-050). */
   demo?: boolean;
+  /**
+   * Hydro-Québec's peaks (D-063): the integration that reads them (hydroqc's sensors, HydroPeak's,
+   * or hydroqc's calendar) and where its peak stands now (`peak` unless asked).
+   */
+  peak?: "hydroqc" | "hydropeak" | "calendar";
+  peakPhase?: "upcoming" | "preheat" | "peak" | "none";
   peopleShown?: "everyone" | "admins";
   peopleLook?: "figure" | "pin";
   /** Bluetooth locating (D-035): fictional receivers and devices, or no Bluetooth at all. */
   bluetooth?: true | "none";
-  /** The radio coverage's fictional radios (D-062): receivers placed, Wi-Fi signals, an access
+  /** The radio coverage's fictional radios (D-064): receivers placed, Wi-Fi signals, an access
    * point. */
   radios?: boolean;
   /** Private rooms (D-039): kept for nobody, or for `privateFor`, maybe only while an entity is
@@ -132,6 +139,8 @@ export interface HarnessOptions {
   historyFail?: boolean;
   noStats?: boolean;
   formatState?: boolean;
+  /** The configuration history (D-062): fictional items and their versions. */
+  configHistory?: boolean;
 }
 
 /** Opens the mocked Home Assistant with the built frontend. */
@@ -178,6 +187,8 @@ export async function openHarness(page: Page, options: HarnessOptions = {}): Pro
   if (options.robot) params.set("robot", "1");
   if (options.energy) params.set("energy", "1");
   if (options.demo) params.set("demo", "1");
+  if (options.peak) params.set("peak", options.peak);
+  if (options.peakPhase) params.set("peakphase", options.peakPhase);
   if (options.peopleShown) params.set("peopleshown", options.peopleShown);
   if (options.peopleLook) params.set("peoplelook", options.peopleLook);
   if (options.bluetooth) params.set("bluetooth", options.bluetooth === true ? "1" : "none");
@@ -197,6 +208,7 @@ export async function openHarness(page: Page, options: HarnessOptions = {}): Pro
   if (options.historyFail) params.set("historyfail", "1");
   if (options.noStats) params.set("nostats", "1");
   if (options.formatState) params.set("formatstate", "1");
+  if (options.configHistory) params.set("confighistory", "1");
   if (options.voice) params.set("voice", options.voice === true ? "1" : options.voice);
   if (options.supervisor) params.set("supervisor", "1");
   if (options.blueprints) params.set("blueprints", options.blueprints);

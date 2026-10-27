@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Writes the places and walls the placement advisor is checked against (D-062).
+"""Writes the places and walls the placement advisor is checked against (D-064).
 
     python3 scripts/make-coverage-fixture.py
 
@@ -94,7 +94,7 @@ def main() -> None:
     walls = [[home.walls(a, b) for b in spots] for a in spots]
     fixture = {
         "about": "Written by scripts/make-coverage-fixture.py from the integration's geometry "
-        "(D-035): the advisor's (D-062) must be the same.",
+        "(D-035): the advisor's (D-064) must be the same.",
         "storeys": STOREYS,
         "rooms": list(home.rooms),
         "points": {room: [_spot(p) for p in found] for room, found in points.items()},

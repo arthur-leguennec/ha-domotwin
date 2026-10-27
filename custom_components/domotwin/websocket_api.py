@@ -12,7 +12,7 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.util import dt as dt_util
 
-from . import choices, schedules, voice, wifi
+from . import choices, config_history, schedules, voice, wifi
 from .compat import vol
 from .const import DOMAIN, SIGNAL_SHOW, SIGNAL_UPDATED, TEACH_SECONDS, VERSION
 from .data import DATA_KEY, LOCATOR_KEY, PEOPLE_KEY
@@ -77,6 +77,7 @@ def async_register_commands(hass: HomeAssistant) -> None:
     schedules.async_register_commands(hass)
     choices.async_register_commands(hass)
     wifi.async_register_commands(hass)
+    config_history.async_register_commands(hass)
 
 
 def _get_data(
@@ -660,7 +661,7 @@ def ws_locating_get(
     """Return the Bluetooth locating (D-035): the receivers, the devices followed and their rooms.
 
     Administrators only. An identity key never leaves the server: a device known by one is shown
-    by its Private BLE Device entry. For the placement advisor (D-062), each receiver's place and
+    by its Private BLE Device entry. For the placement advisor (D-064), each receiver's place and
     what each learned in each room (`heard`).
     """
     if (locator := _get_locator(hass, connection, msg)) is None:

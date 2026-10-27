@@ -23,11 +23,13 @@ Local, fast, Rust + WebAssembly.</p>
 > size and speed, phones, actions done later, taps that say what they do, pieces that look made,
 > robot vacuums, the home's energy, the demo house, measuring a device's speed and the practical
 > home (the Home, Rooms and 3D tabs) work today, and make up version 0.4.0. Since then, the
-> sandbox plays a day of the home's automations on a copy of it, "Why?" says who or what changed a
-> device, the Wi-Fi QR code welcomes guests, DomoTwin joins Home Assistant's own Overview rather
-> than copying it, and the radio coverage says where the next radio helps most. History and energy,
-> safety and the wall screen come next, towards version 0.5.0; the submission to HACS's default list
-> waits on measurements on real devices.
+> sandbox plays a day of the home's automations on a copy of it, Home Assistant's history reads as
+> reports, "Why?" says who or what changed a device, the Wi-Fi QR code welcomes guests, DomoTwin
+> joins Home Assistant's own Overview rather than copying it, each change of the configuration is
+> kept, Hydro-Québec's peaks show on the plan, the Home tab and in the sandbox, and the radio
+> coverage says where the next radio helps most. History and energy, safety and the wall screen come
+> next, towards version 0.5.0; the submission to HACS's default list waits on measurements on real
+> devices.
 
 ## Features
 
@@ -69,6 +71,11 @@ Local, fast, Rust + WebAssembly.</p>
   alarm, a window open in the rain), the rooms someone is in, the real sun coming in through your
   windows, and what each appliance draws, with the home's energy: the sun, the grid and the
   battery around the home, the power flowing between them.
+- **Hydro-Québec's peaks.** For a home on Flex D or the winter credit, with
+  [hydroqc](https://github.com/hydroqc/hydroqc-ha) or
+  [HydroPeak](https://github.com/Beat-YT/hydropeak-ha) installed: the next peak and its pre-heating
+  on the Home tab, in 3D the rooms that pre-heat, shed or still heat during it, with what they
+  draw, and tomorrow's announced peak played in the sandbox first. Nothing shown without them.
 - **Robot vacuums.** Its robot leaves its dock when it cleans, sweeps the rooms one by one and goes
   home, on the plan.
 - **Devices.** Badges over your devices (a lock's state, a camera recording, what plays, a battery
@@ -157,6 +164,11 @@ Local, fast, Rust + WebAssembly.</p>
   or each hour, filtered by value and by how long, or its logbook searched by value; as CSV. Read
   only, from Home Assistant's own history, statistics and logbook. See [history as
   reports](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/history.md).
+- **Configuration history.** Each change of an automation, a script, a scene or a dashboard is
+  kept, by item and date, inside Home Assistant: what changed, in words ("Trigger 1 › offset:
+  -00:30:00 → -00:20:00", "Action 2 added"), and one item put back as it was, through the commands
+  Home Assistant's own editors use. For administrators; no add-on, no Git. See [configuration
+  history](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/config-history.md).
 - **Your voice.** A microphone button opens Home Assistant's Assist already listening, on a wall
   tablet as on a phone. When Assist cannot hear yet, DomoTwin sets up local voice with your
   consent: Whisper or Speech-to-Phrase and Piper, installed through the Supervisor, nothing
@@ -282,7 +294,7 @@ YAML is never required. For reference, the card options are:
 | `spread`      | `true`, `false`                     | `true`     | Every storey at once: spread apart, or stacked. |
 | `roof`        | `true`, `false`                     | `true`     | Every storey at once: the roof over the top one. |
 | `room`        | a room id of the plan               | none       | Room to focus on when the card opens.     |
-| `layer`       | `off`, `temperature`, `humidity`, `co2`, `pm25`, `power`, `network`, `coverage`, `automations`, `upkeep` | `off` | Layer shown when the card opens; the layer menu changes it. `network` shows to administrators with ZHA only, `coverage` and `automations` to administrators. |
+| `layer`       | `off`, `temperature`, `humidity`, `co2`, `pm25`, `power`, `peak`, `network`, `coverage`, `automations`, `upkeep` | `off` | Layer shown when the card opens; the layer menu changes it. `peak` shows where hydroqc or HydroPeak reads Hydro-Québec's peaks, `network` to administrators with ZHA only, `coverage` and `automations` to administrators. |
 | `alerts`      | `true`, `false`                     | `true`     | Safety alerts of the rooms (smoke, gas, water, alarm, a window open in the rain). |
 | `presence`    | `true`, `false`                     | `true`     | The rooms someone is in glow softly.      |
 | `people`      | `true`, `false`                     | `true`     | The people in their rooms, as figures.    |

@@ -943,6 +943,7 @@ impl Engine {
     }
 
     /// Shows the room layers: JSON `{"heat": "temperature", "values": {room id: value},
+    /// "peak": {room id: "preheat" | "shed" | "heating"}, "draws": {room id: watts},
     /// "alerts": {room id: "warning" | "danger"}, "presence": [room id…]}`; `{}` shows none.
     #[wasm_bindgen(js_name = setLayers)]
     pub fn set_layers(&mut self, json: &str) {
@@ -1092,8 +1093,9 @@ impl Engine {
     }
 
     /// Where the values of the layers shown go on the picture, as JSON `[{"id", "kind": "heat"
-    /// | "power", "value", "x", "y"}]` in device pixels from the top left: each room's heatmap
-    /// value at its centre, and each piece's power (W) when the power layer is shown.
+    /// | "draw" | "power", "value", "x", "y"}]` in device pixels from the top left: each room's
+    /// heatmap value, or what it draws (W, D-063), at its centre, and each piece's power (W) when
+    /// the power layer is shown.
     #[wasm_bindgen(js_name = layerLabels)]
     pub fn layer_labels(&self) -> String {
         let mut labels = Vec::new();
@@ -1104,14 +1106,19 @@ impl Engine {
                 }));
             }
         };
+        let heat = self.layers.heat.is_some();
         if let (Some(plan), Some(scene)) = (&self.plan, &self.scene)
-            && self.layers.heat.is_some()
+            && (heat || !self.layers.draws.is_empty())
         {
             for room in room_shapes(plan, scene) {
-                if let Some(value) = self.layers.values.get(room.id) {
+                let value = heat
+                    .then(|| self.layers.values.get(room.id).map(|v| ("heat", *v)))
+                    .flatten()
+                    .or_else(|| self.layers.draws.get(room.id).map(|w| ("draw", *w)));
+                if let Some((kind, value)) = value {
                     let [x, z] = room.label;
                     let at = self.renderer.view.place(room.storey, [x, 1.0, z]);
-                    push(room.id, "heat", *value, at);
+                    push(room.id, kind, value, at);
                 }
             }
         }

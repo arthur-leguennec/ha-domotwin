@@ -293,6 +293,7 @@ export const fr: Dictionary = {
     co2: "CO₂",
     pm25: "Particules fines (PM2,5)",
     power: "Consommation",
+    peak: "Pointes d’Hydro-Québec",
     network: "Réseau Zigbee",
     coverage: "Couverture radio",
     automations: "Automatisations",
@@ -654,6 +655,7 @@ export const fr: Dictionary = {
     failed: "Le bac à sable n’a pas pu s’ouvrir : {reason}",
     leave: "Quitter le bac à sable",
     no_dialog: "Les fenêtres de Home Assistant ne s’ouvrent pas dans le bac à sable.",
+    no_peak: "Aucune pointe n’est plus annoncée : le bac à sable joue aujourd’hui.",
   },
   summary: {
     name: "Résumé DomoTwin",
@@ -678,6 +680,9 @@ export const fr: Dictionary = {
     saved: "Vos choix sont enregistrés.",
     first_failed:
       "Vos choix sont enregistrés, mais Home Assistant n’a pas gardé la page qu’il ouvre en premier : {reason}",
+  },
+  config_history: {
+    menu: "Historique de la configuration",
   },
   measure: {
     menu: "Mesurer les performances",
@@ -1119,6 +1124,8 @@ export const fr: Dictionary = {
       too_long: "une action laisse un appareil allumé 7 jours au plus.",
       too_many: "100 actions au plus attendent à la fois.",
       not_allowed: "vous ne pouvez pas commander l’un de ces appareils.",
+      unknown_item: "cet élément n’est plus dans l’historique.",
+      unknown_version: "cette version n’est plus gardée.",
     },
     unknown: "erreur inattendue ({code}).",
     at_element: "{reason} (élément « {element} »)",
@@ -1182,7 +1189,8 @@ export const fr: Dictionary = {
     bad_quality: "`quality` doit valoir auto, eco, balanced ou high",
     bad_cutaway: "`cutaway` doit valoir auto, always ou off",
     bad_lighting: "`lighting` doit valoir auto, morning, day, evening ou night",
-    bad_layer: "`layer` doit valoir off, temperature, humidity, co2, pm25 ou power",
+    bad_layer:
+      "`layer` doit valoir off, temperature, humidity, co2, pm25, power, peak, network, automations ou upkeep",
     bad_alerts: "`alerts` doit valoir true ou false",
     bad_presence: "`presence` doit valoir true ou false",
     bad_people: "`people` doit valoir true ou false",
