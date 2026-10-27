@@ -70,6 +70,9 @@ every reader returns `Result` with a stable error code that the frontend transla
   (`components/summary-body.ts`, `live/summaries.ts`) is a chunk of its own. The integration gives
   each room a device in its area with two sensors (`custom_components/domotwin/sensor.py`,
   `overview.py`: the people in it, the upkeep due for its pieces).
+- The weekly report (D-066): `components/report-dialog.ts` (its own chunk) shows what
+  `domotwin/report/get` answers (`live/report.ts`), each storey's rooms drawn as SVG from their
+  outlines; the integration writes the reports (`custom_components/domotwin/report*.py`).
 - `src/i18n/` holds the English and French dictionaries. Every visible string goes through `t()`.
 
 ![Render on demand: frames only when something changes, nothing while idle or off-screen](figures/render-on-demand.png)
@@ -184,6 +187,17 @@ every reader returns `Result` with a stable error code that the frontend transla
    (`src/live/config-history.ts`), and puts a version back with Home Assistant's own commands:
    `POST /api/config/<kind>/config/<id>` (`hass.callApi`) or `lovelace/config/save`, then
    `domotwin/config_history/refresh`.
+11. **Weekly report.** The integration's `report.py` (D-066) looks every hour, on the hour,
+   whether the week's report is due (the day and hour chosen, a week missed caught up once Home
+   Assistant has started), and writes it: what needs a look from Home Assistant's states,
+   registries, repairs and traces and from the integrations installed (`report_look.py`, which
+   also places each item in a room of the plans), the Zigbee devices on a weak link from ZHA's
+   own helpers (`report_radios.py`), the week's energy and Hydro-Québec's peaks from the energy
+   settings, the recorder's statistics and history, and the calendars kept in Home Assistant
+   (`report_week.py`). An AI task an administrator chose sums it up (`ai_task.generate_data`);
+   Home Assistant's notification says it (`report_words.py`) and the event
+   `domotwin_weekly_report` lets automations send it on. The page reads it over
+   `domotwin/report/*`.
 
 ## Storage
 
@@ -281,6 +295,13 @@ and the fingerprint of its keys sorted (`null` when removed); `next`, the next v
 in all and 50 versions an item (the oldest versions go first), 1 MB a version; past 2 000 items,
 the removed ones are forgotten. See [`config-history.md`](config-history.md).
 
+`.storage/domotwin.reports` (D-066, its own store, version 1, private): the weekly report's
+`settings` (`weekly`, `weekday` 0 to 6 from Monday, `hour`, `notify`, `summary`: an AI task or
+`null`, `battery`: the level a battery is low at), `since` (when reports started being kept),
+`next` (the next report's id) and the last eight `reports`, oldest first: `{id, at, by: "schedule"
+| "hand", week: {start, end}, sections: {<section>: [item]}, more?, gone?, energy?, peaks?,
+summary?}`, a hundred items a section. See [`report.md`](report.md).
+
 The 3D files of user models are not in `.storage`: they are kept under their SHA-256 in
 `<config>/domotwin/models/<sha256>.<format>` (D-021), uploaded with `POST /api/domotwin/models?format=…`
 (administrators; answers `{hash, bytes, format}`) and read with
@@ -320,6 +341,9 @@ when the integration is removed.
 | `domotwin/config_history/item`  | admin  | `item`                                         | `item`, `versions` (`[{id, at, removed, kept, same_as?}]`, newest first) |
 | `domotwin/config_history/version` | admin | `item`, `version`                            | `config` (`null`: removed, or too large to keep) |
 | `domotwin/config_history/refresh` | admin | `kind?` (every kind without one)             | `changed` (the versions kept)    |
+| `domotwin/report/get`    | admin  | `report?` (the newest without one)             | `settings`, `reports` (`[{id, at, by, week, counts}]`, newest first), `report` (`null`: none yet) |
+| `domotwin/report/write`  | admin  | –                                              | the same, `report` the one written now |
+| `domotwin/report/settings` | admin | `settings` (those given)                      | `settings`                       |
 | `domotwin/subscribe`     | user   | –                                              | events `{kind, revision}`, and `{kind: "show", show}` for `domotwin.show` |
 
 Errors: `not_loaded`, `invalid_plan`, `invalid_layout`, `invalid_bindings`, `invalid_settings`,

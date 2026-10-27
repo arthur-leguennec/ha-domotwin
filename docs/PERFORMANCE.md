@@ -1076,3 +1076,20 @@ most 1 600 a side, larger cells for a larger storey), and the rooms and openings
 those. The plan found is the same however finely the house was scanned. Memory is the file, its
 copy in the module, its positions and its triangles: what a browser on a computer has; a scan of
 millions of triangles is best imported from one.
+
+### M37 (the weekly report)
+
+Bundle: the first load is **526.5 kB gzipped** of 1 200 kB (+0.5 kB): the menu item, its text and
+the address the notification's link opens. The page, its texts in both languages and the plans
+drawn as SVG come on demand the first time it opens (`chunks/report-dialog-<hash>.js`: 33.2 kB
+raw, 9.6 kB gzipped).
+
+The integration looks once an hour whether the report is due, a comparison of two dates; it
+writes it once a week. Writing it on a fictional home of 2 141 entities on 400 devices, 100
+automations and 30 updates takes 5 ms (the median of seven, Python 3.14, the tests' Home
+Assistant, without the recorder); the energy adds one query of the recorder's hourly statistics
+for the meters it reads, over two weeks, and the peaks one of their sensors' history. Finding the
+Zigbee devices on a weak link in a mesh of 300 routers, each hearing ten others, takes 4 ms. An AI
+task, when one is chosen, is waited for two minutes at most. The page works out nothing but the
+plans' outlines once, and the rooms' counts when a report is shown.
+

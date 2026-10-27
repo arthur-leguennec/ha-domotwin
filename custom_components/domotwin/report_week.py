@@ -188,9 +188,7 @@ async def async_hourly(
     )
 
     try:
-        rows: Mapping[str, list[Any]] = await get_instance(
-            hass
-        ).async_add_executor_job(
+        rows: Mapping[str, list[Any]] = await get_instance(hass).async_add_executor_job(
             statistics_during_period,
             hass,
             start,

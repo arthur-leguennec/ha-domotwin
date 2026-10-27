@@ -27,7 +27,8 @@ Local, fast, Rust + WebAssembly.</p>
 > as reports, "Why?" says who or what changed a device, the Wi-Fi QR code welcomes guests,
 > DomoTwin joins Home Assistant's own Overview rather than copying it, each change of the
 > configuration is kept, Hydro-Québec's peaks show on the plan, the Home tab and in the sandbox,
-> and robot vacuum maps, Floorplanner plans and mesh scans are imported too. History and energy,
+> robot vacuum maps, Floorplanner plans and mesh scans are imported too, and a weekly report says
+> what needs a look, room by room. History and energy,
 > safety and the wall screen come next, towards version 0.5.0; the submission to HACS's default list
 > waits on measurements on real devices.
 
@@ -165,6 +166,13 @@ Local, fast, Rust + WebAssembly.</p>
   -00:30:00 → -00:20:00", "Action 2 added"), and one item put back as it was, through the commands
   Home Assistant's own editors use. For administrators; no add-on, no Git. See [configuration
   history](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/config-history.md).
+- **A weekly report.** Once a week, what needs a look: batteries low (with the battery to buy,
+  from Battery Notes), devices unavailable, updates and repairs waiting (Spook's, and what
+  Watchman finds missing), upkeep due, automations that failed or never ran, Zigbee devices on a
+  weak link, the week's energy against the last and Hydro-Québec's peaks; room by room on the
+  plans, what is new and what was done. Home Assistant's notification says it, summed up by your
+  AI task if you choose one; the panel shows it. See [the weekly
+  report](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/report.md).
 - **Your voice.** A microphone button opens Home Assistant's Assist already listening, on a wall
   tablet as on a phone. When Assist cannot hear yet, DomoTwin sets up local voice with your
   consent: Whisper or Speech-to-Phrase and Piper, installed through the Supervisor, nothing

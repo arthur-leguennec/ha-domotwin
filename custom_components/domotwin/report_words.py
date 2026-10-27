@@ -99,10 +99,6 @@ WORDS: Final[dict[str, dict[str, Any]]] = {
             "updates": "Update waiting: {text}",
             "repairs": "Repair waiting: {text}",
             "upkeep": "Upkeep: {text}",
-            "radios": "Zigbee device reaching the coordinator through a weak link: {text}",
-            "failed": "Automation that failed {runs} time(s) this week: {text}",
-            "broken": "Automation that cannot run (its configuration is invalid): {text}",
-            "never": "Automation that has never run: {text}",
             "energy": "Energy used by the home: {week} kWh this week, {before} kWh the week before",
             "grid": (
                 "Energy drawn from the grid: {week} kWh this week, {before} kWh the week before"
@@ -172,10 +168,6 @@ WORDS: Final[dict[str, dict[str, Any]]] = {
             "updates": "Mise à jour en attente : {text}",
             "repairs": "Réparation en attente : {text}",
             "upkeep": "Entretien : {text}",
-            "radios": "Appareil Zigbee qui joint le coordinateur par un lien faible : {text}",
-            "failed": "Automatisation en échec {runs} fois cette semaine : {text}",
-            "broken": "Automatisation qui ne peut pas tourner (configuration invalide) : {text}",
-            "never": "Automatisation qui n'a jamais tourné : {text}",
             "energy": (
                 "Énergie consommée : {week} kWh cette semaine, {before} kWh la semaine d'avant"
             ),
@@ -334,7 +326,11 @@ def notification(
 
 
 def ask(report: Mapping[str, Any], language: str, rooms: Mapping[str, str]) -> str:
-    """What the AI task is asked: the report's facts, and how to sum them up."""
+    """What the AI task is asked: the report's facts, and how to sum them up.
+
+    The automations and the radios counted, not named: the summary is written into Home
+    Assistant's notification, which every user sees.
+    """
     words = WORDS[language]
     said = words["facts"]
     facts: list[str] = []
@@ -348,16 +344,17 @@ def ask(report: Mapping[str, Any], language: str, rooms: Mapping[str, str]) -> s
         return f"- {text}"
 
     sections: Mapping[str, list[Mapping[str, Any]]] = report.get("sections", {})
+    more: Mapping[str, int] = report.get("more", {})
     for section in SECTIONS:
-        for item in sections.get(section) or []:
-            if section == "automations":
-                problem = str(item.get("problem"))
-                text = str(said[problem]).format(
-                    text=item.get("name", ""), runs=item.get("runs", 1)
-                )
-                if item.get("error"):
-                    text += f" ({item['error']})"
-            elif section == "unavailable":
+        items = sections.get(section) or []
+        if section in COUNTED_ONLY:
+            # Counted, as in the notification the summary is written into.
+            count = len(items) + int(more.get(section, 0))
+            if count:
+                facts.append(f"- {_plural(words['sections'][section], count, language)}")
+            continue
+        for item in items:
+            if section == "unavailable":
                 text = str(said[section]).format(
                     text=item.get("name", ""), since=day_text(str(item.get("since", "")), language)
                 )

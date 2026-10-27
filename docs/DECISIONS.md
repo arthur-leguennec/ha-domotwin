@@ -2819,3 +2819,108 @@ launch in five minutes (M22) has it.
   - A mesh's rooms and doors are measured, not guessed, but only where the scan saw: a door
     scanned closed is a wall, a room scanned without its ceiling stops at its furniture. The
     plan editor finishes the rest, as for every import.
+
+## D-066 · A weekly home report: written by the integration on its day, read in the panel (M37)
+
+M37, moved forward by the maintainer from the way to 0.6.0 (D-056), after Hydro-Québec's peaks
+(M39, D-063), whose week it reports. It waits on nothing the milestones before it build.
+
+- **Context.** What needs a look in a home is spread over Home Assistant: its repairs and
+  updates, the batteries of its Maintenance page (2026.5 and later, batteries only), the devices
+  unavailable on their own pages, the automations that failed in their traces; and over
+  integrations of HACS's default lists: Battery Notes (the batteries and what they take),
+  Watchman (the entities and actions the configuration names that do not exist), Spook (its
+  findings, as repairs). Nothing found says it once a week, with what changed since, room by room
+  (D-056, item 9). What they give was checked in their code in October 2026: Home Assistant
+  2026.10.2 (its traces, repairs, AI task, update entities, energy settings, statistics and
+  notifications, and the Maintenance page of its frontend 20260930.4),
+  [Battery Notes](https://github.com/andrew-codechimp/HA-Battery-Notes) 3.7.2,
+  [Watchman](https://github.com/dummylabs/thewatchman) 0.8.6 and
+  [Spook](https://github.com/frenck/spook) 5.11.1.
+- **Decision.**
+  - **Written by the integration**, once a week, on the day and at the hour an administrator
+    chose (Monday at 8 by default) where the home is: no screen needs to be open. It is looked
+    for every hour, on the hour: a week missed (Home Assistant stopped at the hour) is written
+    once Home Assistant has started again, within the week; a home that has just installed
+    DomoTwin waits for its first day. One can be written by hand from the page: it is kept, but
+    neither told nor counted as the week's.
+  - **What needs a look**, as it stands when written, read from what Home Assistant and the
+    integrations installed say, rather than worked out again:
+    - *batteries low*: Battery Notes' low-battery sensor where it watches a device (its own
+      threshold, the battery to buy, the level its sensor says); else, as Home Assistant's
+      Maintenance page counts them, a battery sensor at the level chosen (20 % by default) or
+      below, unless its device is charging, or a battery binary sensor on; one a device;
+    - *devices unavailable*: a device all of whose entities have been unavailable for an hour at
+      least, and since when;
+    - *updates waiting*: the update entities that are on (one skipped is off);
+    - *repairs waiting*: what Settings → Repairs lists (active and not ignored), titled as it
+      titles them, in the home's language, Spook's among them; and what Watchman finds missing,
+      from its sensors' lists (read live: Home Assistant does not record them);
+    - *upkeep due* (D-033): tasks due soon or overdue, warranties in their last 30 days;
+    - *automations*: those whose runs failed this week, from Home Assistant's traces (an error,
+      not a condition that was false; the last five runs of each automation unless set
+      otherwise, kept across a restart); those that cannot run (unavailable: their
+      configuration is invalid); those turned on that have never run, made a week ago at least
+      (the entity registry says when);
+    - *Zigbee devices on a weak link* (M9b): ZHA's devices as `zha/devices` answers them, by the
+      network map's rules (D-031, D-043): each device's widest way to the coordinator, weak below
+      an LQI of 80, or none at all. ZHA's insides may change: a ZHA that does not answer as it
+      did is left out, and the network map still reads it. What the placement advisor (M31)
+      predicts joins the report with it.
+  - **The week's energy** against the week before: the seven days to the midnight before the
+    report is written, and the seven before them, from the recorder's hourly statistics (their
+    change, in kWh). The home's, from Home Assistant's energy settings (both shapes of their grid:
+    one connection since 2026.3, lists before): what it used (from the grid, the sun and the
+    battery, less what went back), what it drew from the grid, what the sun gave. Each room's,
+    from the individual devices of the energy settings in it (one counted in another's left out),
+    or, where the settings name none, from the energy meters of its area (the home's own and
+    Utility Meter's copies of another left out).
+  - **The week's Hydro-Québec peaks**, where an integration reads them (D-063): when its on/off
+    sensors said a peak was under way (their history), and the peaks hydroqc wrote in a calendar
+    (Home Assistant's own Local Calendar, or one whose event bears its mark now: no calendar of an
+    online service is asked); for each, what the home drew from the grid and each room drew.
+  - **Room by room**: an item is in the room of the element linked to it or to its device (a
+    piece, a door, a window or a partition that names its room, a room), else in the first room
+    whose area is its entity's or its device's, as the layers read the rooms' areas (D-023). An
+    item in no room is said in its section only.
+  - **What changed since the last**: an item is new when the report before did not have it (its
+    key stays the same while it is the same thing to look at; an update's is its version); what
+    the report before had and this one has not is listed as done.
+  - **Kept** in a store of its own (`.storage/domotwin.reports`, private) with the settings: the
+    last eight reports, a hundred items a section (the others counted). Never in the diagnostics
+    but its settings and how many reports are kept; deleted with the integration.
+  - **Told** by Home Assistant's notification, replaced by the next one, which an administrator
+    can turn off: the week, the summary, a line for each section, a link to the report in the
+    panel. Home Assistant shows its notifications to every user and cannot keep them to
+    administrators: a line names what every user may see in Home Assistant (batteries, devices,
+    updates, repairs, upkeep) and counts the automations and the radios, which only
+    administrators may read. An event, `domotwin_weekly_report` (the report's id, its week, the
+    counts, the summary, the link), lets one's own automations send it on, to a phone.
+  - **Summed up by an AI task**, only when an administrator chose one (Home Assistant 2025.8 and
+    later): `ai_task.generate_data`, asked for three to five sentences in the home's language from
+    the report's facts in plain lines, the automations and the radios counted as the notification
+    it goes into counts them; waited for two minutes at most, its refusal kept as it gives it. Not a conversation agent, which might act on the home instead of writing (as D-056 chose
+    for M35); not by default, since the facts go to the agent the administrator set up, which may
+    be an online service, as the settings say. Without one, the lists are the report.
+  - **The page in the panel**: *Weekly report* in the ⋮ menu, for administrators, since the report
+    holds what only they may read (its commands refuse anyone else); a chunk loaded when it opens.
+    The week shown and those kept; the summary; what needs a look, by section and room by room on
+    a drawing of each storey's plan, made in the page from the rooms' outlines (each room tinted
+    by how many things need a look in it, its week's energy written; a room picked shows only
+    what is in it), so that it reads as a page, on a phone and without WebGL too; each item
+    opening where Home Assistant shows it (a device's page, an entity's dialog, the repairs, an
+    automation's trace or editor; the Maintenance page for the batteries) or framed in 3D; the
+    energy as a table; the peaks; what was done; the settings. The notification's link opens the
+    report it names. The demo house has reports of its own, made up for its rooms, another one
+    written in the page; the sandbox has none.
+- **Consequences.**
+  - The integration reads Home Assistant's registries and states, its traces
+    (`trace.util.async_list_traces`, 2024.11 and later), its issue registry, energy settings and
+    recorder, and ZHA's own helpers, each guarded: what cannot be read is left out of the report,
+    the rest is written.
+  - A run that failed and has left the five traces kept by the time the report is written is not
+    counted; a crash loses the traces since the last start (Home Assistant saves them when it
+    stops).
+  - The first load grows by the menu item and its text; the page comes when opened
+    (`PERFORMANCE.md`).
+  - The roadmap shows M37 done after M20; the rest of D-056's order stays.

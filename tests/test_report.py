@@ -1055,7 +1055,14 @@ def test_the_notification_and_the_question_in_words() -> None:
         "sections": {
             "batteries": [{"key": "a", "name": f"Sensor {n}", "level": n} for n in range(7)],
             "updates": [
-                {"key": "u", "name": "Router", "installed": "1", "latest": "2", "room": "hall"}
+                {
+                    "key": "u",
+                    "name": "Router",
+                    "installed": "1",
+                    "latest": "2",
+                    "room": "hall",
+                    "new": True,
+                }
             ],
             "automations": [
                 {"key": "x", "name": "Evening", "problem": "failed", "runs": 2, "error": "Boom"}
@@ -1103,12 +1110,14 @@ def test_the_notification_and_the_question_in_words() -> None:
         assert "Nothing needs a look this week." in notification(empty, "en", None, None)[1]
         question = ask(report, "fr", {"hall": "Entrée"})
         assert "In French" in question
-        assert "- Mise à jour en attente : Router (1 → 2) (pièce : Entrée)" in question
-        assert "- Automatisation en échec 2 fois cette semaine : Evening (Boom)" in question
         assert (
-            "- Appareil Zigbee qui joint le coordinateur par un lien faible : "
-            "Plug (pièce : Entrée), nouveau cette semaine"
+            "- Mise à jour en attente : Router (1 → 2) (pièce : Entrée), nouveau cette semaine"
         ) in question
+        # Counted, not named: the summary goes into a notification every user sees.
+        assert "- 1 automatisation à revoir" in question
+        assert "- 1 appareil Zigbee sur un lien faible" in question
+        assert "Evening" not in question
+        assert "Plug" not in question
         assert "- Entretien : Washer: Clean the filter, en retard depuis le 2026-10-20" in question
         assert (
             "Énergie consommée (pièce : Entrée) : 4,5 kWh cette semaine, inconnue kWh" in question

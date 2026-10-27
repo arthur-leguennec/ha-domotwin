@@ -29,8 +29,9 @@ Local, rapide, Rust + WebAssembly.</p>
 > de Home Assistant se lit en rapports, « Pourquoi ? » dit qui ou quoi a changé un appareil, le
 > code QR du Wi-Fi accueille les invités, DomoTwin rejoint la Vue d’ensemble de Home Assistant
 > plutôt que de la copier, chaque changement de la configuration est gardé, les pointes
-> d’Hydro-Québec se voient sur le plan, dans l’onglet Accueil et dans le bac à sable, et les cartes
-> de robots aspirateurs, les plans Floorplanner et les scans en maillage s’importent aussi.
+> d’Hydro-Québec se voient sur le plan, dans l’onglet Accueil et dans le bac à sable, les cartes
+> de robots aspirateurs, les plans Floorplanner et les scans en maillage s’importent aussi, et un
+> bilan de la semaine dit ce qui est à surveiller, pièce par pièce.
 > L’historique et l’énergie, la sécurité et l’écran mural viennent ensuite, vers la version 0.5.0 ;
 > la proposition à la liste par défaut de HACS attend des mesures sur de vrais appareils.
 
@@ -196,6 +197,15 @@ Local, rapide, Rust + WebAssembly.</p>
   Pour les administrateurs ; sans module complémentaire ni Git. Voir [l’historique de la
   configuration](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/config-history.md) (en
   anglais).
+- **Le bilan de la semaine.** Une fois par semaine, ce qui est à surveiller : les piles faibles
+  (avec la pile à acheter, d’après Battery Notes), les appareils indisponibles, les mises à jour et
+  les réparations en attente (celles de Spook, et ce que Watchman trouve manquant), l’entretien à
+  faire, les automatisations en échec ou qui n’ont jamais tourné, les appareils Zigbee sur un lien
+  faible, l’énergie de la semaine face à la précédente et les pointes d’Hydro-Québec ; pièce par
+  pièce sur les plans, ce qui est nouveau et ce qui a été fait. La notification de Home Assistant
+  le dit, résumé par votre tâche d’IA si vous en choisissez une ; le panneau le montre. Voir [le
+  bilan de la semaine](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/report.md)
+  (en anglais).
 - **Votre voix.** Un bouton micro ouvre Assist de Home Assistant déjà à l’écoute, sur une
   tablette murale comme sur un téléphone. Quand Assist n’entend pas encore, DomoTwin installe la
   voix en local avec votre accord : Whisper ou Speech-to-Phrase et Piper, installés par le
