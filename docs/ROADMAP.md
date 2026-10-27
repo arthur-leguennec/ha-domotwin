@@ -44,8 +44,9 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M16d      | Measured on real devices: a button in the panel            | ✅     |
 | M23       | The practical home: Home, Rooms and 3D, favourites         | ✅     |
 | 0.4.0     | Fourth release: the practical home, devices measured       | ✅     |
+| M29       | Sandbox: the home's automations played on a copy of it     | ✅     |
+| M38       | History as reports: tables, CSV, search by value           | ✅     |
 | M36       | Configuration history: differences, one item put back      | ✅     |
-| M29       | Sandbox: the home's automations played on a copy of it     | ⏳     |
 | M30       | The Wi-Fi QR code, for guests                              | ⏳     |
 | M23b      | Into Home Assistant's Overview, rather than a copy of it   | ⏳     |
 | M24       | History and energy, with Home Assistant's own cards        | ⏳     |
@@ -61,7 +62,6 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M20       | More imports: robot vacuum maps, Floorplanner, meshes      | ⏳     |
 | M17       | A library of objects: many pieces, free and well made      | ⏳     |
 | M37       | A weekly home report                                       | ⏳     |
-| M38       | History as reports: tables, CSV, search by value           | ⏳     |
 | M18       | Outdoors: garden, terrace, lawn, pool, roofs               | ⏳     |
 | M39       | Hydro-Québec's peaks, from the integrations that read them | ⏳     |
 | M21       | More languages, right to left too                          | ⏳     |
@@ -92,8 +92,9 @@ QR code (M30) and a placement advisor for radios (M31) before a first launch in 
 (M33), rights (M34), automations in plain words (M35), a configuration history (M36), a weekly
 report (M37), history as reports (M38) and Hydro-Québec's peaks (M39) follow, among a library of
 objects (M17), the outdoors (M18), more imports (M20) and more languages (M21), before a sixth
-release, 0.6.0. The maintainer then asked for the configuration history (M36) right after 0.4.0,
-ahead of that order, since it waits on nothing the others build (D-059).
+release, 0.6.0. After the sandbox, the maintainer asked for history as reports (M38, D-058) before
+the rest, which keeps its order, then for the configuration history (M36, D-059), before the rest
+too.
 
 ## M0, scaffold
 
@@ -1077,11 +1078,78 @@ Home Assistant's.
 - ⏳ **Two weeks of use** at home before the rest: what is missed then decides the order of M24 to
   M26.
 
+## M29, the sandbox
+
+The home's own automations, scripts and scenes played over a whole day on a copy of the home, in
+the page: nothing reaches a device (D-057).
+
+- ✅ **The copy**: the home's states and registries, DomoTwin's plan, links and settings, and the
+  configurations of the automations, scripts and scenes, read once when an administrator opens
+  the sandbox from the ⋮ menu; nothing written, no service called.
+- ✅ **The day picked**: its date (the sun as it rises and sets there), its weather and outdoor
+  temperatures, who is home at midnight and when each goes out and comes back.
+- ✅ **Played as Home Assistant plays them**: the usual triggers, conditions, actions and modes,
+  `for`, delays and waits, what one automation changes setting off another, and what the usual
+  services do; Home Assistant's templates read for the usual. A day of a hundred automations in a
+  fifth of a second.
+- ✅ **Watched**: the 3D view at a moment of the day, played a minute, ten minutes or an hour a
+  second, or gone through on the day's line, its runs and conflicts marked; a tap in the sandbox
+  done at that moment, the day going on with it.
+- ✅ **The report**: what each automation did and when, what never ran and why, the automations
+  working against each other, what goes back and forth, what sets itself off over and over, and
+  what could not be played, named, never guessed.
+- ✅ Tests: the time zone, durations and the sun; templates; triggers, `for`, times, sunset,
+  patterns, levels crossed, chains, modes, choices, repeats and waits, scripts, scenes, conflicts,
+  loops, what cannot be played (vitest); opened from the menu, the day picked, played, gone
+  through by keyboard, a tap kept and forgotten, the report, back to the home with nothing
+  written, for administrators only, in French (Playwright).
+
+## M38, history as reports
+
+Home Assistant records what every device did; its History draws graphs and its Logbook lists the
+changes, but neither says when the bedroom was above 24 °C for more than an hour, nor searches the
+logbook by value. Asked for by the maintainer right after the sandbox, ahead of the rest
+(D-058).
+
+- ✅ **History**, in a device's controls (a long press: its entities) and in a room's panel (its
+  air sensors, temperature first); entities added by a search (eight at most, nothing of a
+  private room the viewer may not see) and taken away.
+- ✅ **The period**: the last 24 hours, 7 days, 30 days or year, or two dates and times where the
+  home is; changes and the logbook read 31 days at most, and a note when the period goes further
+  back than the 10 days Home Assistant keeps each change by default.
+- ✅ **Each change** (Home Assistant's history, the states alone, with how long each lasted),
+  **each hour** (its statistics: mean, lowest, highest, a meter's change; worked out from 31 days
+  of history at most for an entity without them: a mean weighted by time, or the state held
+  longest), and **the logbook** with what caused each change (an automation, a person, an
+  action), searched by every word, accents and case aside.
+- ✅ **Filters**: above, below, equal to or not equal to a value, of one entity or all of them, for
+  at least some minutes or hours. Rows in a row that match make one period, with its lowest and
+  highest: "the bedroom above 24 °C for more than an hour" is one setting.
+- ✅ **CSV**: every row kept, oldest first, columns that stay the same in every language, times in
+  UTC, formulas kept from running; downloaded as Home Assistant's History does, or copied (by hand
+  where the clipboard is refused). Home Assistant's own History or Logbook on the same entities
+  and period, a tap away.
+- ✅ Read only, for every user, from Home Assistant's own commands (checked in 2025.1); nothing in
+  the integration, nothing kept. States as Home Assistant shows them (`formatEntityState`).
+- ✅ **The demo house** answers from its day: its history ten days back, its logbook with the
+  automations that made each change, no statistics. Not in the sandbox, whose day has its own
+  report (D-057).
+- ✅ Tests: periods and dates where the home is across a change of time, the answers read (the
+  history's compressed states, the statistics, the logbook and its causes), rows for each change
+  and each hour, filters by value and by how long and the periods they make, the search, the CSV
+  and its formulas, a room's sensors, the demo's history and logbook, the texts in both languages
+  (vitest); a device's changes, a filter, its hours and its logbook, the bedroom above 24 °C for
+  more than an hour as CSV and copied by hand, entities added and taken away with a private room
+  left out and one that turns private while open, the period's limits and a refusal in French,
+  the notes on what is kept, the demo house (Playwright).
+- Left for later: a report opened from the panel's menu or the Rooms tab, reports kept to open
+  again, and rows for each day, week or month (Home Assistant's statistics have them).
+
 ## M36, configuration history
 
 Home Assistant keeps no history of its own configuration: its editors' undo lasts one session, a
 backup puts back a whole part, and what exists needs an add-on and Git (D-056). Asked for by the
-maintainer right after 0.4.0, ahead of the order of D-056 (D-059).
+maintainer after history as reports, ahead of the rest (D-059).
 
 - ✅ **Each change kept**: the automations, scripts and scenes of Home Assistant's editors and of
   one's own YAML files, and the dashboards; read once Home Assistant has started, after it
@@ -1109,7 +1177,7 @@ maintainer right after 0.4.0, ahead of the order of D-056 (D-059).
   be put back and the commands used, the demo house's history (vitest); the list, the words,
   putting back, Home Assistant's refusal, what was removed and what is in one's own YAML, French,
   the demo house (Playwright).
-- Measured: the first load grows by 0.5 kB; the dialog is 7.1 kB gzipped, on demand
+- Measured: the first load grows by 0.4 kB; the dialog is 7.2 kB gzipped, on demand
   ([`PERFORMANCE.md`](PERFORMANCE.md), M36).
 - Left for later: who made a change (Home Assistant's editors do not say it); helpers, blueprints
   and Home Assistant's other settings; the changes of a dashboard shown on the dashboard itself.
@@ -1123,17 +1191,7 @@ it. Each milestone its own pull request; no network call outside Home Assistant;
 tests and docs; every string through `t()` in English and French. A ❓ is asked before its
 milestone starts, which goes on with what needs no answer.
 
-- ⏳ **M29, the sandbox**: the home's own automations, scripts and scenes played against a copy
-  of the home in the page, built on the demo house's Home Assistant in memory (M16c), which holds
-  the home's entities as they are, its plan and its links. One picks a day, the weather and who
-  leaves and comes back when, then watches the 3D view and a timeline as the day plays, faster
-  than real time. Nothing reaches a device: no action leaves the page. At the end, a report: what
-  each automation did and when, what never fired, and the conflicts (two automations setting the
-  same device against each other, one undoing what another just did). The common triggers,
-  conditions and actions are played as Home Assistant plays them, with the effect of the common
-  actions on their devices; what the sandbox cannot play (a template beyond what it reads, an
-  action whose effect it cannot know) is named in the report, not guessed. For administrators,
-  since only they can read automations.
+- ✅ **M29, the sandbox** (D-057, above).
 - ⏳ **M30, the Wi-Fi QR code**: an administrator gives the home's Wi-Fi name and password once,
   and DomoTwin draws the QR code a phone's camera joins with (`WIFI:T:WPA;S:<name>;P:<password>;;`,
   with `\`, `;`, `,`, `:` and `"` escaped), in the page, by a small encoder whose licence
@@ -1211,8 +1269,8 @@ milestone starts, which goes on with what needs no answer.
 - ⏳ **M20, more imports**: robot vacuum maps (Valetudo and others), Floorplanner, meshes.
 - ⏳ **M17, a library of objects**: many more pieces, free and well made, drawn from real
   references, still fast.
-- ✅ **M36, configuration history** (D-059, above): done right after 0.4.0, at the maintainer's
-  request.
+- ✅ **M36, configuration history** (D-059, above): done after history as reports, at the
+  maintainer's request.
 - ⏳ **M37, a weekly home report**: once a week, what needs a look: batteries low, devices
   unavailable, updates and repairs waiting, upkeep due (M9d), weak radio links (M9b, M31),
   automations that failed or never fired, the week's energy against the last, room by room on
@@ -1220,11 +1278,8 @@ milestone starts, which goes on with what needs no answer.
   Notes, Watchman, Spook) rather than doing their work again. A summary by the user's own
   conversation agent or AI task if there is one, plain lists otherwise; a notification of Home
   Assistant's and a page in the panel.
-- ⏳ **M38, history as reports**: Home Assistant's history as tables: chosen entities over a
-  period, a row per change or per hour, filtered by value or by how long ("the bedroom above
-  24 °C for more than an hour"), exported as CSV; the logbook searched by value. Read only, from
-  the recorder through Home Assistant's own history, statistics and logbook commands; opened from
-  a device on the plan.
+- ✅ **M38, history as reports** (D-058, above): done right after the sandbox, at the
+  maintainer's request.
 - ⏳ **M18, outdoors**: the garden, the terrace, the lawn, a pool, the roofs; the lawn growing
   between two mowings.
 - ⏳ **M39, Hydro-Québec's peaks** (optional): for a home on one of Hydro-Québec's offers with

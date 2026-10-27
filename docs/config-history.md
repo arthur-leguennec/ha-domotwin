@@ -96,4 +96,5 @@ the removed ones are, the longest removed first. The dialog says how much is use
 ## In the demo house
 
 The demo house has a history of its own: a few changes of its automations, a script deleted and
-its dashboard. Putting a version back changes only the demo.
+its dashboard. Putting a version back changes only the demo. The sandbox, a copy of the home, has
+none: **Configuration history** waits until it is left.

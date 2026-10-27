@@ -1,17 +1,44 @@
 /**
- * The demo house's websocket (D-050): DomoTwin's commands answered from what the demo keeps, as
- * the integration would; Home Assistant's few others the frontend asks (automations, the energy
- * settings, what an area relates to). Nothing goes out of the page.
+ * The websocket of a home kept in the page, the demo house's (D-050) or the sandbox's (D-057):
+ * DomoTwin's commands answered from what it keeps, as the integration would; Home Assistant's
+ * few others the frontend asks (automations, the energy settings, what an area relates to, the
+ * history and the logbook where it keeps them, D-058). Nothing goes out of the page.
  */
 import type { NewSchedule, PlanJson, StoredPlan, UpdateEvent } from "../ha/client";
-import type { HassConnection, HassMessage } from "../ha/types";
+import type { HassConnection, HassMessage, HomeAssistant } from "../ha/types";
 import type { PeopleSettings } from "../live/people";
 import { readChoices } from "../live/choices";
 import { storeyIds } from "../live/storeys";
 import type { Schedule } from "../live/schedules";
 import type { Upkeep } from "../live/upkeep";
-import { DemoError, type DemoHome, type DemoStore } from "./home";
-import { AUTOMATIONS } from "./house";
+import type { DemoConfigHistory } from "./config-history";
+import { DemoError, type DemoStore } from "./home";
+
+/** A home kept in the page: what its connection asks of it. */
+export interface MemoryHome {
+  readonly store: DemoStore;
+  readonly hass: HomeAssistant;
+  readonly updateListeners: Set<(event: UpdateEvent) => void>;
+  readonly scheduleListeners: Set<(schedules: Schedule[]) => void>;
+  today(): string;
+  area(id: string): string | undefined;
+  saved(kind: "plan" | "bindings" | "settings" | "upkeep" | "people" | "locating"): number;
+  addSchedule(request: NewSchedule): { schedule: Schedule; text: string };
+  cancelSchedule(id: string): number;
+  /** Its automations (their entity ids), and the configuration of each. */
+  automationIds(): string[];
+  automationConfig(id: string): Record<string, unknown> | undefined;
+  /** Home Assistant's energy settings, as `energy/get_prefs` gives them, if it has some. */
+  energyPrefs(): unknown;
+  /**
+   * Its history and its logbook (D-058), where it keeps them (the demo house's day), as
+   * `history/history_during_period` and `logbook/get_events` answer, for a period (ms).
+   */
+  history?(entities: readonly string[], start: number, end: number): unknown;
+  logbook?(entities: readonly string[], start: number, end: number): unknown;
+  /** Its configuration history (D-059), where it keeps one (the demo house's). */
+  readonly configHistory?: DemoConfigHistory;
+}
 
 /** A websocket error, as Home Assistant gives one. */
 function failure(code: string, message = code): DemoError {
@@ -19,7 +46,7 @@ function failure(code: string, message = code): DemoError {
 }
 
 /** The demo's answers to the frontend's commands. */
-export function demoConnection(home: DemoHome): HassConnection {
+export function demoConnection(home: MemoryHome): HassConnection {
   const store = home.store;
   // Storey `id` (`unknown_storey` when no storey has it), else the ground floor: the one nearest
   // elevation 0, as the integration's.
@@ -54,6 +81,24 @@ export function demoConnection(home: DemoHome): HassConnection {
     const kept = { info: { id: `storey-${storeyCount}`, name, elevation }, plan, layout: {} };
     store.storeys.push(kept);
     return kept;
+  };
+
+  // A period asked of the history or the logbook (ms): its end now when not given.
+  const span = (message: HassMessage): { start: number; end: number } => {
+    const now = home.hass.now?.() ?? Date.now();
+    const start = Date.parse(String(message.start_time));
+    const end = typeof message.end_time === "string" ? Date.parse(message.end_time) : now;
+    if (Number.isNaN(start)) throw failure("invalid_start_time", "Invalid start_time");
+    if (Number.isNaN(end)) throw failure("invalid_end_time", "Invalid end_time");
+    return { start, end };
+  };
+  const entityIds = (message: HassMessage): string[] =>
+    Array.isArray(message.entity_ids) ? message.entity_ids.map(String) : [];
+
+  // The configuration history, where the home keeps one (not the sandbox's copy).
+  const configHistory = (): DemoConfigHistory => {
+    if (!home.configHistory) throw failure("unknown_command", "no configuration history here");
+    return home.configHistory;
   };
 
   const answer = (message: HassMessage): unknown => {
@@ -200,64 +245,59 @@ export function demoConnection(home: DemoHome): HassConnection {
       case "domotwin/schedules/cancel":
         return { cancelled: home.cancelSchedule(String(message.schedule_id)) };
       case "domotwin/config_history/list":
-        return home.configHistory.list();
+        return configHistory().list();
       case "domotwin/config_history/item":
-        return home.configHistory.item(message.item);
+        return configHistory().item(message.item);
       case "domotwin/config_history/version":
-        return { config: home.configHistory.version(message.item, message.version) };
+        return { config: configHistory().version(message.item, message.version) };
       case "domotwin/config_history/refresh":
+        configHistory();
         // Put back already, as Home Assistant's editors would have saved it.
         return { changed: 0 };
       case "lovelace/config/save":
-        home.configHistory.putBack(
+        configHistory().putBack(
           "dashboard",
           typeof message.url_path === "string" ? message.url_path : "",
           message.config,
         );
         return null;
       case "automation/config": {
-        const automation = AUTOMATIONS.find((a) => a.id === message.entity_id);
-        if (!automation) throw failure("not_found", "Entity not found");
-        const alias = home.hass.states[automation.id]?.attributes.friendly_name;
-        return {
-          config: { id: automation.id.slice(11), alias, ...structuredClone(automation.config) },
-        };
+        const id = String(message.entity_id);
+        const config = home.automationConfig(id);
+        if (!config) throw failure("not_found", "Entity not found");
+        const alias = home.hass.states[id]?.attributes.friendly_name;
+        return { config: { id: id.slice(11), alias, ...structuredClone(config) } };
       }
       case "search/related": {
         // The automations that name the entity, or an entity of the area.
         const inArea = (id: string): boolean =>
           message.item_type === "area" && home.area(id) === message.item_id;
-        const automation = AUTOMATIONS.filter((a) => {
-          const text = JSON.stringify(a.config);
+        const automation = home.automationIds().filter((id) => {
+          const text = JSON.stringify(home.automationConfig(id) ?? {});
           if (text.includes(`"${String(message.item_id)}"`)) return true;
-          return Object.keys(home.hass.states).some((id) => inArea(id) && text.includes(`"${id}"`));
-        }).map((a) => a.id);
+          return Object.keys(home.hass.states).some((e) => inArea(e) && text.includes(`"${e}"`));
+        });
         return automation.length > 0 ? { automation } : {};
       }
-      case "energy/get_prefs":
-        // Home Assistant's energy settings, naming the demo's power sensors.
-        return {
-          energy_sources: [
-            {
-              type: "solar",
-              stat_energy_from: "sensor.solar_energy",
-              stat_rate: "sensor.solar_power",
-            },
-            {
-              type: "grid",
-              flow_from: [],
-              flow_to: [],
-              power: [{ stat_rate: "sensor.grid_power" }],
-            },
-            {
-              type: "battery",
-              stat_energy_from: "sensor.battery_out",
-              stat_energy_to: "sensor.battery_in",
-              stat_rate: "sensor.battery_power",
-            },
-          ],
-          device_consumption: [],
-        };
+      case "energy/get_prefs": {
+        const prefs = home.energyPrefs();
+        if (prefs === undefined) throw failure("not_found", "No energy settings");
+        return structuredClone(prefs);
+      }
+      case "history/history_during_period": {
+        if (!home.history) throw failure("unknown_command", message.type);
+        const { start, end } = span(message);
+        return home.history(entityIds(message), start, end);
+      }
+      case "recorder/statistics_during_period":
+        // No statistics: the report works its hours out from the history.
+        if (!home.history) throw failure("unknown_command", message.type);
+        return {};
+      case "logbook/get_events": {
+        if (!home.logbook) throw failure("unknown_command", message.type);
+        const { start, end } = span(message);
+        return home.logbook(entityIds(message), start, end);
+      }
       default:
         // What the demo has not: ZHA, Assist, voice, Bluetooth learning…
         throw failure("unknown_command", message.type);

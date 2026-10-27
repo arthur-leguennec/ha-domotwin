@@ -415,6 +415,7 @@ export const fr: Dictionary = {
     activate: "Activer",
     unavailable: "Indisponible",
     more_info: "Plus d’infos",
+    history: "Historique",
     start: "Démarrer",
     home: "Retour à la base",
     press: "Appuyer",
@@ -478,6 +479,7 @@ export const fr: Dictionary = {
     no_area: "Cette pièce n’est liée à aucune zone de Home Assistant.",
     no_area_admin: "Liez-la dans le panneau DomoTwin, ou donnez à la zone le nom de la pièce.",
     private: "Cette pièce est privée.",
+    history: "Historique",
   },
   voice: {
     title: "Voix",
@@ -643,6 +645,14 @@ export const fr: Dictionary = {
     night: "Nuit",
     leave: "Quitter la démo",
     no_dialog: "Les fenêtres de Home Assistant ne s’ouvrent pas dans la démo.",
+  },
+  sandbox: {
+    menu: "Bac à sable : jouer une journée de vos automatisations",
+    title: "Bac à sable",
+    reading: "Lecture de vos automatisations, scripts et scènes…",
+    failed: "Le bac à sable n’a pas pu s’ouvrir : {reason}",
+    leave: "Quitter le bac à sable",
+    no_dialog: "Les fenêtres de Home Assistant ne s’ouvrent pas dans le bac à sable.",
   },
   tabs: {
     label: "Onglets de DomoTwin",
@@ -1064,6 +1074,8 @@ export const fr: Dictionary = {
       models_too_large: "les fichiers 3D d’un plan font au plus 20 Mo en tout.",
     },
     ws: {
+      not_in_sandbox:
+        "les actions pour plus tard appartiennent à votre maison, pas au bac à sable.",
       too_many_favourites: "vous avez déjà 100 favoris : retirez d’abord une étoile.",
       no_supervisor: "ce Home Assistant n’a pas d’applications.",
       busy: "la voix est déjà en cours de configuration.",

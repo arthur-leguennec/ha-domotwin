@@ -904,11 +904,50 @@ Assistant's changes do not update it until it shows again. Home Assistant's card
 for each configuration and given each new `hass`; the rooms are sorted again when an entity comes,
 goes or moves, not on every state; a search runs again when it or the home changes.
 
+### M29 (the sandbox)
+
+Bundle: the first load is **516.4 kB gzipped** of 1 200 kB (+0.9 kB): the menu entry, the switch
+showing either home kept in the page, and the entry's few texts. The sandbox comes on demand, the
+first time it opens (`chunks/sandbox-bar-<hash>.js`: 100.1 kB raw, 31.5 kB gzipped): the copy, the
+engine, the templates' reader, the day's scenario, the report, the bar and their texts in both
+languages.
+
+Opening it reads the home once: its plan, links and settings, and one answer for each automation,
+script and scene (eight of each kind asked at a time, the kinds side by side). The day is then
+played at once and kept: a busy day, a hundred automations of every kind (times, states, templates
+read each minute, a pattern every ten minutes, two lamps toggled a minute apart in each) set off
+3 023 times and changing the home 12 698 times (each run's count of runs, the sun's next times), is
+played in **171 ms** (median of seven, Node 22 on a 2.1 GHz Xeon core of the CI's kind), 663 ms
+before the zone's offset was kept by quarter-hour rather than asked of `Intl` at each change. A day
+is played again when it is changed or a tap is done in it. Showing a moment of it applies the day's
+changes up to there (from midnight when going back); playing moves the moment on ten times a second
+and gives the panel one new `hass` each time, as Home Assistant would.
+
+### M38 (history as reports)
+
+Bundle: the first load is **517.3 kB gzipped** of 1 200 kB (+0.9 kB): the **History** buttons'
+labels, and the view's way to the report. The report comes on demand, the first time **History**
+is pressed (`chunks/history-report-<hash>.js`: 32.5 kB raw, 9.4 kB gzipped), with its texts in
+both languages; the reading of Home Assistant's answers (`src/live/history.ts`, 7.9 kB raw,
+3.4 kB gzipped) is a chunk shared with the sheets, which offer a room's report only when it has
+air sensors, and with the demo house.
+
+Nothing of it runs until a report opens. A report asks Home Assistant once for what is chosen
+(its history, or its statistics and then the history of the entities that have none, or its
+logbook), again only when the entities, the period or the way to read them change, never at a
+new state of the home, which does not draw it again either. The rows are filtered once for each
+answer and filter; the table draws 500 rows at most, and the CSV is written when it is asked for.
+Measured in Node on a computer, a week of a power sensor reporting every ten seconds (60 340
+changes): read in about 35 ms, its rows in 50 ms, filtered by value and by how long in 35 ms, its
+168 hours worked out in 30 ms, and its CSV (5.3 MB) written in 170 ms. The demo house works out
+its day once, minute by minute, the first time its history is asked (about 70 ms), then answers
+ten days of three entities in a few milliseconds.
+
 ### M36 (the configuration history)
 
-Bundle: the first load is **516.0 kB gzipped** of 1 200 kB (+0.5 kB): the menu item and its text,
+Bundle: the first load is **517.7 kB gzipped** of 1 200 kB (+0.4 kB): the menu item and its text,
 and two error texts. The dialog, its texts in both languages and the comparison come on demand the
-first time it opens (`chunks/config-history-dialog-<hash>.js`: 24.3 kB raw, 7.1 kB gzipped).
+first time it opens (`chunks/config-history-dialog-<hash>.js`: 24.9 kB raw, 7.2 kB gzipped).
 
 The integration reads a kind only after Home Assistant announces a change to it, a second later
 (five for the scripts, whose reload announces nothing), one reading at a time, and once when it

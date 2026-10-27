@@ -35,6 +35,11 @@
 //   path=<path after /domotwin> (the address opened, with route=1), cards=1 (Home Assistant's
 //   card helpers, made up: a card says its type and entity), lists=1 (a calendar and a to-do
 //   list), firstpage=device|user (how Home Assistant keeps the page it opens first)
+//   sandbox=1 (D-057: Home Assistant's time zone and a fictional place; with automations=1, two
+//   automations working against each other, one set off from outside, and a script)
+//   Home Assistant's history, statistics and logbook (D-058) answer a fictional day of the
+//   bedroom (`HISTORY` below); historyfail=1 makes the history refuse, nostats=1 leaves the
+//   statistics out; formatstate=1 gives `hass.formatEntityState` (states in words, "°C" after).
 //   confighistory=1 (the configuration history, D-059: fictional automations, a script removed,
 //   one in YAML files of one's own and a dashboard, as the integration keeps them; Home
 //   Assistant's configuration API and `lovelace/config/save` put one back, read again on
@@ -64,6 +69,7 @@ const live = params.get("live") === "1";
 const zha = params.get("zha") === "1";
 // Fictional automations (D-032): `automations=1` three of them, `automations=50` as many made up.
 const automationCount = Number(params.get("automations") ?? 0);
+const sandbox = params.get("sandbox") === "1";
 // Voice (D-041): Assist and its pipelines, the voice blueprints, apps to install.
 const voiceParam = params.get("voice");
 if (params.get("insecure") === "1") {
@@ -559,11 +565,45 @@ window.__show = (request) => {
   for (const listener of listeners) listener({ kind: "show", show: request });
 };
 
+/** For the sandbox (D-057): automations working against each other, and one set off by MQTT. */
+const SANDBOX_AUTOMATIONS = {
+  "automation.away_lamp_off": {
+    id: "1101",
+    alias: "Lamp off when Alex goes out",
+    triggers: [{ trigger: "state", entity_id: "person.alex", to: "not_home" }],
+    actions: [{ action: "light.turn_off", target: { entity_id: "light.living_room_floor_lamp" } }],
+  },
+  "automation.lamp_back_on": {
+    id: "1102",
+    alias: "Lamp back on",
+    triggers: [{ trigger: "state", entity_id: "light.living_room_floor_lamp", to: "off" }],
+    actions: [{ action: "light.turn_on", target: { entity_id: "light.living_room_floor_lamp" } }],
+  },
+  "automation.doorbell_from_outside": {
+    id: "1103",
+    alias: "Doorbell",
+    triggers: [{ trigger: "mqtt", topic: "home/doorbell" }],
+    actions: [{ action: "script.movie_night" }],
+  },
+};
+
+/** For the sandbox: a script, as Home Assistant's script editor keeps it. */
+const SANDBOX_SCRIPTS = {
+  "script.movie_night": {
+    alias: "Movie night",
+    sequence: [
+      { action: "light.turn_off", target: { area_id: "living_room" } },
+      { action: "cover.close_cover", target: { entity_id: "cover.living_room_curtains" } },
+    ],
+  },
+};
+
 /** Fictional automations of the demo apartment, by entity id, with their configurations. */
 function automationConfigs() {
   if (automationCount <= 0) return {};
   if (automationCount === 1) {
     return {
+      ...(sandbox ? SANDBOX_AUTOMATIONS : {}),
       "automation.evening_lights": {
         id: "1001",
         alias: "Evening lights",
@@ -712,6 +752,103 @@ function zhaDevices() {
   ];
 }
 
+// What Home Assistant's recorder has (D-058), for a fictional day before now (each entity's state
+// 25 hours ago first, before the last 24 hours begin): the bedroom above
+// 24 °C for an hour and a half (5 hours ago), then again for 40 minutes (now); its bedside lamp
+// switched on and off; the front door locked by an automation. [minutes before now, state, cause]
+const HISTORY = {
+  "sensor.bedroom_temperature": [
+    [25 * 60, "22.8"],
+    [5 * 60, "24.5"],
+    [4 * 60, "25.1"],
+    [3 * 60 + 30, "23.6"],
+    [40, "24.3"],
+  ],
+  "light.bedside_left": [
+    [25 * 60, "off"],
+    [3 * 60, "on", { context_user_id: "e2e" }],
+    [2 * 60 + 50, "off", { context_name: "Goodnight", context_entity_id: "automation.goodnight" }],
+    [30, "on", { context_domain: "light", context_service: "turn_on" }],
+  ],
+  "lock.entrance_door": [
+    [25 * 60, "unlocked"],
+    [6 * 60, "locked", { context_name: "Lock at night", context_entity_id: "automation.lock" }],
+    [60, "unlocked", { context_user_id: "e2e" }],
+  ],
+};
+const HOUR_MS = 3_600_000;
+/** The minutes before now of `HISTORY` as times (ms), from a fixed `now`. */
+function historyOf(id, now) {
+  return (HISTORY[id] ?? []).map(([before, state, cause]) => ({
+    at: now - before * 60_000,
+    state,
+    cause,
+  }));
+}
+/** `history/history_during_period`: the state at the start, then each change, compressed. */
+function historyDuring(message) {
+  if (params.get("historyfail") === "1") {
+    throw { code: "unknown_error", message: "The recorder is busy" };
+  }
+  const now = Date.now();
+  const start = Date.parse(message.start_time);
+  const end = message.end_time ? Date.parse(message.end_time) : now;
+  const answer = {};
+  for (const id of message.entity_ids) {
+    const changes = historyOf(id, now);
+    if (changes.length === 0) {
+      const state = home.states[id]?.state;
+      if (state !== undefined) answer[id] = [{ s: state, lu: start / 1000 }];
+      continue;
+    }
+    const before = changes.filter((c) => c.at <= start).at(-1);
+    const list = before ? [{ s: before.state, lu: start / 1000 }] : [];
+    for (const change of changes) {
+      if (change.at > start && change.at < end)
+        list.push({ s: change.state, lu: change.at / 1000 });
+    }
+    answer[id] = list;
+  }
+  return answer;
+}
+/** `recorder/statistics_during_period`: the bedroom's temperature has hourly statistics. */
+function statisticsDuring(message) {
+  if (params.get("nostats") === "1") return {};
+  const start = Math.ceil(Date.parse(message.start_time) / HOUR_MS) * HOUR_MS;
+  const last = Math.min(Date.parse(message.end_time ?? new Date().toISOString()), Date.now());
+  const answer = {};
+  if (message.statistic_ids.includes("sensor.bedroom_temperature")) {
+    const hours = [];
+    for (let hour = start; hour + HOUR_MS <= last; hour += HOUR_MS) {
+      const k = Math.round(hour / HOUR_MS) % 6;
+      hours.push({
+        start: hour,
+        end: hour + HOUR_MS,
+        mean: 21 + k * 0.8,
+        min: 20.5 + k * 0.8,
+        max: 21.6 + k * 0.8,
+      });
+    }
+    answer["sensor.bedroom_temperature"] = hours;
+  }
+  return answer;
+}
+/** `logbook/get_events`: the changes in the period, measurements (a unit) left out. */
+function logbookEvents(message) {
+  const now = Date.now();
+  const start = Date.parse(message.start_time);
+  const end = message.end_time ? Date.parse(message.end_time) : now;
+  const entries = [];
+  for (const id of message.entity_ids ?? []) {
+    if (id.startsWith("sensor.") && home.states[id]?.attributes.unit_of_measurement) continue;
+    for (const change of historyOf(id, now)) {
+      if (change.at <= start || change.at >= end) continue;
+      entries.push({ when: change.at / 1000, entity_id: id, state: change.state, ...change.cause });
+    }
+  }
+  return entries.sort((a, b) => a.when - b.when);
+}
+
 const connection = {
   sendMessage(message) {
     calls.push(message);
@@ -719,6 +856,12 @@ const connection = {
   async sendMessagePromise(message) {
     calls.push(message);
     switch (message.type) {
+      case "history/history_during_period":
+        return historyDuring(message);
+      case "recorder/statistics_during_period":
+        return statisticsDuring(message);
+      case "logbook/get_events":
+        return logbookEvents(message);
       case "zha/devices":
         if (!zha) throw { code: "unknown_command", message: message.type };
         if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
@@ -740,6 +883,15 @@ const connection = {
           .map(([id]) => id);
         return automation.length > 0 ? { automation } : {};
       }
+      case "script/config": {
+        if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        const config = (sandbox ? SANDBOX_SCRIPTS : {})[message.entity_id];
+        if (!config) throw { code: "not_found", message: "Entity not found" };
+        return { config: structuredClone(config) };
+      }
+      case "config/entity_registry/list":
+        if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        return Object.keys(home.states).map((id, k) => ({ id: `e2e${k}`, entity_id: id }));
       case "automation/config": {
         // Kept for administrators, as recent Home Assistant versions do.
         if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
@@ -1132,6 +1284,11 @@ if (robot) {
     attributes: { friendly_name: "Robbie", supported_features: 12_820 },
   };
 }
+if (sandbox) {
+  for (const [id, config] of Object.entries(SANDBOX_SCRIPTS)) {
+    home.states[id] = { entity_id: id, state: "off", attributes: { friendly_name: config.alias } };
+  }
+}
 for (const [id, config] of Object.entries(automationConfigs())) {
   home.states[id] = {
     entity_id: id,
@@ -1305,9 +1462,21 @@ let hass = {
       ...(zha ? ["zha"] : []),
       ...(voiceParam ? ["conversation", "assist_pipeline"] : []),
     ],
+    // A fictional place, rounded: the sandbox's sun.
+    ...(sandbox ? { time_zone: "Europe/Paris", latitude: 46, longitude: 2 } : {}),
   },
   connection,
   fetchWithAuth,
+  // Home Assistant's own words for a state (D-058): `on` as "On", a number with its unit.
+  ...(params.get("formatstate") === "1"
+    ? {
+        formatEntityState(entity, state = entity.state) {
+          const unit = entity.attributes.unit_of_measurement;
+          if (unit && !Number.isNaN(Number(state))) return `${state} ${unit}`;
+          return state.charAt(0).toUpperCase() + state.slice(1);
+        },
+      }
+    : {}),
   callApi,
   async callService(domain, service, data, target) {
     calls.push({ type: "call_service", domain, service, data, target });

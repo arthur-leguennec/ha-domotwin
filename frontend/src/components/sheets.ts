@@ -9,6 +9,7 @@ import {
   mdiCellphone,
   mdiDoorOpen,
   mdiEyeOffOutline,
+  mdiHistory,
   mdiInformationOutline,
   mdiLock,
   mdiTagOutline,
@@ -20,6 +21,7 @@ import { DomoTwinClient } from "../ha/client";
 import { isHassError, nowOf } from "../ha/types";
 import { failureText } from "../live/actions";
 import { areaEntities, entityName, type RoomAction } from "../live/bindings";
+import { roomSensors } from "../live/history";
 import {
   roomCommands,
   runRoom,
@@ -64,6 +66,25 @@ function upkeepCard(sheet: {
   ></domotwin-upkeep-card>`;
 }
 
+/** **History**: a report of these entities' history (D-058), which the view opens. */
+function historyButton(
+  sheet: HTMLElement,
+  t: Translator,
+  entities: string[],
+  testId: string,
+  label: string,
+): TemplateResult {
+  return html`<button
+    class="action quiet"
+    data-testid=${testId}
+    @click=${() => {
+      fire(sheet, "domotwin-open-history", { entities });
+    }}
+  >
+    ${icon(mdiHistory)}${label}
+  </button>`;
+}
+
 /** `<domotwin-controls>`: the entities of one element, with their controls and automations. */
 export class DomoTwinControls extends Sheet {
   static override properties = {
@@ -101,16 +122,23 @@ export class DomoTwinControls extends Sheet {
           .area=${this.area}
         ></domotwin-automations>
         ${upkeepCard(this)}`,
-      first && !hass.demo
+      // The sandbox's day has a report of its own (D-057), and Home Assistant's dialogs do not
+      // know its entities (D-050).
+      first && !hass.sandbox
         ? html`<div class="footer">
-            <button
-              class="action quiet"
-              @click=${() => {
-                fire(this, "hass-more-info", { entityId: first });
-              }}
-            >
-              ${icon(mdiInformationOutline)}${t.t("controls.more_info")}
-            </button>
+            ${historyButton(this, t, this.entities, "controls-history", t.t("controls.history"))}
+            ${
+              hass.demo
+                ? nothing
+                : html`<button
+                    class="action quiet"
+                    @click=${() => {
+                      fire(this, "hass-more-info", { entityId: first });
+                    }}
+                  >
+                    ${icon(mdiInformationOutline)}${t.t("controls.more_info")}
+                  </button>`
+            }
           </div>`
         : nothing,
     );
@@ -334,6 +362,14 @@ export class DomoTwinRoom extends Sheet {
           ${this.admin ? html`<p class="empty">${t.t("room.no_area_admin")}</p>` : nothing} ${later}`,
       );
     }
+    // Its air sensors' history (D-058), when it has some.
+    const sensors = hass.sandbox ? [] : roomSensors(hass, area);
+    const footer =
+      sensors.length > 0
+        ? html`<div class="footer">
+            ${historyButton(this, t, sensors, "room-history", t.t("room.history"))}
+          </div>`
+        : nothing;
     const ids = areaEntities(hass, area);
     const groups = GROUPS.map((group) => ({
       key: group.key,
@@ -348,6 +384,7 @@ export class DomoTwinRoom extends Sheet {
         html`${here}
           <p class="empty">${t.t("room.empty")}</p>
           ${later}${automations}`,
+        footer,
       );
     }
     return this.frame(
@@ -356,6 +393,7 @@ export class DomoTwinRoom extends Sheet {
           html`<h3>${t.t(`room.${group.key}`)}</h3>
             ${group.ids.map((id) => entityRow(hass, t, id, false))}`,
       )}${later}${automations}`,
+      footer,
     );
   }
 
@@ -389,7 +427,9 @@ export class DomoTwinRoom extends Sheet {
     if (!hass) return;
     this.refused = undefined;
     try {
-      if (!(await runRoom(this, hass, what))) this.refused = this.t.t("demo.no_dialog");
+      if (!(await runRoom(this, hass, what))) {
+        this.refused = this.t.t(hass.sandbox ? "sandbox.no_dialog" : "demo.no_dialog");
+      }
     } catch (error) {
       this.refused = failureText(this.t, error);
     }

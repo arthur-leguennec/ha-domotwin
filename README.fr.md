@@ -24,11 +24,12 @@ Local, rapide, Rust + WebAssembly.</p>
 > passe sur la taille et la vitesse, les téléphones, les actions à faire plus tard, des touchers
 > qui disent ce qu’ils font, des meubles qui ont l’air faits, les aspirateurs robots, l’énergie de
 > la maison, la maison de démo, la mesure de la vitesse d’un appareil et la maison pratique (les
-> onglets Accueil, Pièces et 3D) fonctionnent déjà, et forment la version 0.4.0 ; un historique
-> de la configuration est venu juste après. Un bac à sable pour les automatisations de la maison
-> vient ensuite, puis la Vue d’ensemble de Home Assistant rejointe plutôt que copiée, vers la
-> version 0.5.0 ; la proposition à la liste par défaut de HACS attend des mesures sur de vrais
-> appareils.
+> onglets Accueil, Pièces et 3D) fonctionnent déjà, et forment la version 0.4.0. Depuis, le bac à
+> sable joue une journée des automatisations de la maison sur une copie de celle-ci, l’historique
+> de Home Assistant se lit en rapports, et chaque changement de la configuration est gardé. Le
+> code QR du Wi-Fi pour les invités vient ensuite, puis la Vue d’ensemble de Home Assistant
+> rejointe plutôt que copiée, vers la version 0.5.0 ; la proposition à la liste par défaut de HACS
+> attend des mesures sur de vrais appareils.
 
 ## Fonctionnalités
 
@@ -88,6 +89,12 @@ Local, rapide, Rust + WebAssembly.</p>
   appareil ou un lien pour le détail, relancez un scan, placez les appareils que la carte ne trouve
   pas. Pour les administrateurs, avec ZHA. Voir [la carte du
   réseau](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/network.md) (en anglais).
+- **Un bac à sable pour vos automatisations.** Choisissez une journée, sa météo, qui sort et qui
+  rentre quand, et regardez vos automatisations, scripts et scènes la jouer sur une copie de votre
+  maison, en 3D et sur une frise, une heure par seconde si vous voulez. Un rapport dit ce que
+  chacune a fait et quand, ce qui ne s’est jamais exécuté et pourquoi, lesquelles se contredisent,
+  et ce qui n’a pas pu être joué. Rien dans le bac à sable n’atteint un appareil. Voir [le bac à
+  sable](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/sandbox.md) (en anglais).
 - **Fils des automatisations.** Un appui long sur une lampe : son panneau liste les automatisations
   qui la concernent, avec leur interrupteur et leur dernier lancement. Montrez leurs fils, de ce
   qui les déclenche à ce qu’elles commandent, et voyez une impulsion les parcourir quand l’une se
@@ -145,6 +152,13 @@ Local, rapide, Rust + WebAssembly.</p>
   l’heure, même après un redémarrage, et montre une horloge sur la lampe en attendant. Voir [les
   actions faites plus tard](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/later.md)
   (en anglais).
+- **L’historique en rapports.** « Quand la chambre a-t-elle dépassé 24 °C plus d’une heure ? »
+  Un appui long sur un appareil ou une pièce donne son **Historique** : celui de Home Assistant en
+  tableau, une ligne par changement ou par heure, filtré par valeur et par durée, ou son journal
+  cherché par valeur ; en CSV. En lecture seule, depuis l’historique, les statistiques et le
+  journal de Home Assistant. Voir [l’historique en
+  rapports](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/history.md) (en
+  anglais).
 - **Historique de la configuration.** Chaque changement d’une automatisation, d’un script, d’une
   scène ou d’un tableau de bord est gardé, par élément et par date, dans Home Assistant : ce qui a
   changé, en mots (« Déclencheur 1 › offset : -00:30:00 → -00:20:00 », « Ajout · Action 2 »), et un
