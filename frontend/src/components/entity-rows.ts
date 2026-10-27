@@ -134,8 +134,23 @@ function stateText(t: Translator, entity: HassEntity): string {
   return typeof unit === "string" ? `${entity.state} ${unit}` : entity.state;
 }
 
-/** A row for an entity; `full` adds sliders and colours (long-press controls). */
+/**
+ * A row for an entity; `full` adds sliders and colours (long-press controls). An entity the
+ * viewer may only look at (their rights, D-068) has its controls shown, disabled.
+ */
 export function entityRow(
+  hass: HomeAssistant,
+  t: Translator,
+  entityId: string,
+  full: boolean,
+): TemplateResult {
+  const row = controlRow(hass, t, entityId, full);
+  return hass.canAct?.(entityId) === false
+    ? html`<fieldset class="look" disabled title=${t.t("controls.look_only")}>${row}</fieldset>`
+    : row;
+}
+
+function controlRow(
   hass: HomeAssistant,
   t: Translator,
   entityId: string,
@@ -487,6 +502,8 @@ export function quickControls(
 ): TemplateResult | typeof nothing {
   const entity = hass.states[entityId];
   if (!entity || entity.state === "unavailable" || entity.state === "unknown") return nothing;
+  // Only looked at (D-068): its row says so.
+  if (hass.canAct?.(entityId) === false) return nothing;
   const domain = entityId.split(".")[0];
   if (domain === "light" && entity.state === "on" && modes(entity).some((m) => m !== "onoff")) {
     return slider(
@@ -549,6 +566,15 @@ export function quickControls(
 
 /** Styles of the rows. */
 export const rowStyles = css`
+  fieldset.look {
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: none;
+  }
+  fieldset.look:not(:last-child) .row {
+    border-bottom: 1px solid var(--divider-color, rgba(0, 0, 0, 0.08));
+  }
   .row {
     display: grid;
     gap: 6px;

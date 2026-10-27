@@ -1123,3 +1123,22 @@ page's later reads and each 3D file it asks for reuse it. The states are read fr
 own, for the pass's devices only (100 at most). A page following its pass is one open request
 written to when one of its devices changes, a line every 25 seconds otherwise; at most 8 a pass,
 each waiting with at most 500 changes before it is closed and reads the home again.
+
+### M34 (per-person rights)
+
+Bundle: the first load is **531.1 kB gzipped** of 1 200 kB (+3.2 kB): the viewer's gate
+(`live/rights.ts`: whose rights apply, a device's level, a call's entities, the views' `hass`),
+the checks in DomoTwin's controls (the rows, a tap, a room's commands and own actions, the
+schedules, Home Assistant's cards), the panel's and the card's wiring and the ⋮ menu's *Rights*.
+The administrators' dialog comes on demand the first time it opens
+(`chunks/rights-dialog-<hash>.js`: 17.6 kB raw, 6.3 kB gzipped), with its texts in both languages;
+the listing of each room's devices it shares with guest access's dialog. A guest's page grows by
+the checks it shares (`guest.js`: 44.7 kB gzipped, +0.4 kB).
+
+The page works the gate out once for the home as it is (the rights, the links, the plans, the
+registries and the rooms closed), not on each change of a state: **1.0 ms** for a plan of 500
+elements (100 rooms, 400 pieces) and 1 000 entities, 30 rooms set; then a device's level is a few
+set lookups (0.9 µs; median of 31, Node 22 on a 2.1 GHz Xeon core, a phone some five times
+slower). An administrator, the demo house and the sandbox have no gate. The integration works out
+where each device is once a request it checks (an action set or cancelled for later, the list of
+those waiting): 0.8 ms for the same plan (Python 3.14).

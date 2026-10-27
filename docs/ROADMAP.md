@@ -54,6 +54,7 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M20       | More imports: robot vacuum maps, Floorplanner, meshes      | ✅     |
 | M31       | Placement advisor: where the next radio helps most         | ✅     |
 | M33       | Guest access: chosen rooms, for a while                    | ✅     |
+| M34       | Per-person rights: what DomoTwin shows each one            | ✅     |
 | M40       | The weather around the home, in 3D                         | ⏳     |
 | M41       | Locating measured, next to Bermuda's on the same days      | ⏳     |
 | M45       | An iPhone's key, without a Mac: the ways to get it         | ⏳     |
@@ -64,7 +65,6 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | 0.5.0     | Fifth release: all of the above                            | ⏳     |
 | M42       | Finer locating: a spot in the room, storeys by the stairs  | ⏳     |
 | M43       | mmWave sensors merged into one picture of the home         | ⏳     |
-| M34       | Per-person rights: what DomoTwin shows each one            | ⏳     |
 | M35       | Automations in plain words, played in the sandbox first    | ⏳     |
 | M17       | A library of objects: many pieces, free and well made      | ⏳     |
 | M37       | A weekly home report                                       | ⏳     |
@@ -105,9 +105,10 @@ vacuum maps, Floorplanner plans and mesh scans, which the first launch in five m
 The placement advisor (M31, D-066) was asked for in the same way. Then the weather around the home
 (M40), locating measured (M41) and an iPhone's key without a Mac (M45) were put before M24, and
 finer locating (M42), mmWave sensors merged (M43) and split levels (M44) after 0.5.0 (D-065).
-The maintainer then asked for guest access (M33, D-067) and per-person rights (M34) next, carried
-through without waiting on D-056's questions: a guest pass opens DomoTwin's own page outside Home
-Assistant's sign-in, which DomoTwin enforces.
+The maintainer then asked for guest access (M33, D-067) and per-person rights (M34, D-068) next,
+carried through without waiting on D-056's questions: a guest pass opens DomoTwin's own page
+outside Home Assistant's sign-in, which DomoTwin enforces; rights are what DomoTwin shows each
+person and lets them do, set in one place, and said not to be Home Assistant's enforcement.
 
 ## M0, scaffold
 
@@ -1463,6 +1464,47 @@ the maintainer, after the placement advisor (M31); D-056's question (❓4) answe
   every device; a guest's page drawn as the rooms' list only on a slow phone; a pass's use over
   its days (who did what is in Home Assistant's logbook).
 
+## M34, per-person rights
+
+What DomoTwin shows each person and lets them do, room by room and device by device, set in one
+place (`DECISIONS.md`, D-068; [`rights.md`](rights.md)). Moved forward with guest access (M33);
+D-056's question (❓5) answered: DomoTwin's own, said plainly not to be enforcement.
+
+- ✅ **Levels**: a room or a device used (the default), only seen, or not seen; everyone's, and
+  each person's own through the Home Assistant user of their `person`; a device's own level, else
+  the strictest of its rooms'. Not for administrators. Kept with the home's settings, checked by
+  the integration.
+- ✅ **In one place**: *Rights* in the panel's ⋮ menu, for administrators: everyone's, then each
+  person's, every storey's rooms with their devices, and devices in no room; what the person uses,
+  only sees and does not see, in a sentence; an administrator, or a person without a user, said.
+- ✅ **What is not seen**: a room closed as a private one (M9g), everywhere private rooms are; a
+  device unlinked on the plan and left out of the tabs, the panels, "Why?" and the reports' search.
+- ✅ **What is only seen**: its state and values; a tap opens DomoTwin's own panel, its controls
+  disabled; Home Assistant's cards on the tabs do nothing on a tap; the room's commands and own
+  actions, and the Home tab's lights off, leave it out; nothing set or cancelled for later.
+- ✅ **DomoTwin's own services checked**: actions set or cancelled for later (the sheets,
+  `domotwin.schedule`, the voice assistants) refused on what someone may not use; the actions
+  waiting on what they do not see not listed; `domotwin.where` and `domotwin.show` as for a
+  private room; the rooms' people sensors silent on a room hidden from everyone.
+- ✅ **Said where they are set**: Home Assistant still lets every user use every entity elsewhere;
+  real enforcement needs Home Assistant ❓.
+- ✅ Tests: the levels (a person's own, everyone's, a device's own, a room's, its area's, a room
+  closed), the rights checked and kept without what is empty, what is refused and why, actions for
+  later set and refused, listed and cancelled, by the assistants too, a private room closed to a
+  user, administrators and Home Assistant itself left alone, a room hidden not told and its sensor
+  silent (pytest); whose rights apply, the rooms closed with the private ones, a device's level, a
+  call's entities (by area, by device, a script by its name, floors and labels refused), a call
+  refused before Home Assistant, the devices unlinked, the gate worked out once, Home Assistant's
+  cards to look at, the rows disabled, a tap opening DomoTwin's panel, a room's commands and
+  actions, every device of each room (vitest); someone who only looks, their controls disabled, a
+  device unlinked, a room closed, the Rooms tab's cards; an administrator setting them in one
+  place; French; a dashboard card (Playwright).
+- Measured: the first load grows by 3.2 kB, the gate and the controls' checks; the dialog is 6.3 kB
+  gzipped, on demand; the gate is worked out in 1.0 ms for 500 elements and 1 000 entities, and
+  once for the home as it is ([`PERFORMANCE.md`](PERFORMANCE.md), M34).
+- Left for later: a preview of the home as someone sees it; rights by time of day (a private room
+  while an entity is on already does it for a room); enforcement, which needs Home Assistant.
+
 ## Then, from 0.4.0 to 0.5.0
 
 Planned in D-056, with D-065's additions: the sandbox first, built during the two weeks of use since
@@ -1550,11 +1592,9 @@ before its milestone starts, which goes on with what needs no answer.
   for what it says, no more.
 - ✅ **M33, guest access** (D-067, above): moved forward by the maintainer; a page of DomoTwin's
   own outside Home Assistant's sign-in, enforced by DomoTwin, which answers D-056's ❓4.
-- ⏳ **M34, per-person rights**: building on private rooms (M9g), the rooms and devices DomoTwin
-  shows each person and lets them act on, its own services checked against them, all of it set
-  on the plan in one place. DomoTwin can hide; Home Assistant decides what is enforced, and today
-  lets every user act on every entity: said where the rights are set. Real enforcement needs Home
-  Assistant ❓.
+- ✅ **M34, per-person rights** (D-068, above): moved forward with guest access; what DomoTwin
+  shows each person and lets them do, said not to be enforcement, which answers D-056's ❓5. Real
+  enforcement needs Home Assistant ❓.
 - ⏳ **M35, automations in plain words, tested first**: one says what one wants ("when the last
   person leaves, switch the lights off and lock the door"); Home Assistant's own AI task, the one
   the user set up, writes the automation; DomoTwin says it back in plain words, checks it with

@@ -1,6 +1,7 @@
 import {
   mdiAccountMultipleOutline,
   mdiAccountKeyOutline,
+  mdiAccountLockOutline,
   mdiBluetooth,
   mdiCheck,
   mdiClose,
@@ -87,7 +88,16 @@ import {
   storeyName,
   type StoreyRooms,
 } from "../live/storeys";
-import { privateRooms, unseenOf, type Unseen } from "../live/privacy";
+import { unseenOf, type Unseen } from "../live/privacy";
+import {
+  closedRooms,
+  gatedHass,
+  hiddenEntities,
+  RightsCache,
+  viewerOf,
+  type Gate,
+} from "../live/rights";
+import { usableActions } from "../live/room-actions";
 import {
   NO_CHOICES,
   canDraw3d,
@@ -272,6 +282,7 @@ const PANEL_DIALOGS = [
   "domotwin-voice",
   "domotwin-config-history",
   "domotwin-guests",
+  "domotwin-rights",
   "domotwin-link",
   "domotwin-catalogue",
   "domotwin-model-import",
@@ -320,6 +331,7 @@ export class DomoTwinPanel extends LitElement {
     bluetoothOpen: { state: true },
     privacyRooms: { state: true },
     guestsStoreys: { state: true },
+    rightsStoreys: { state: true },
     voiceOpen: { state: true },
     configHistoryOpen: { state: true },
     moreOpen: { state: true },
@@ -384,6 +396,8 @@ export class DomoTwinPanel extends LitElement {
   private layerWanted?: LayerName;
   /** What the 3D view was last given of Home Assistant. */
   private viewHass?: HomeAssistant;
+  /** The viewer's rights as last worked out (D-068). */
+  private readonly rightsCache = new RightsCache();
   /** The tab this device opens on, when it has one of its own. */
   private deviceStart = readDeviceStart();
   /** What the Home and Rooms tabs were given last, and what it was read from. */
@@ -438,6 +452,8 @@ export class DomoTwinPanel extends LitElement {
   protected privacyRooms?: RoomChoice[];
   /** Guest access (D-067), open: every storey's plan, whose rooms and devices a pass opens. */
   protected guestsStoreys?: HomeStorey[];
+  /** The rights' dialog (D-068), open with every storey's plan. */
+  protected rightsStoreys?: HomeStorey[];
   /** The voice settings (D-041) are open. */
   protected voiceOpen = false;
   /** The configuration history (D-062) is open, its module loaded. */
@@ -1201,6 +1217,7 @@ export class DomoTwinPanel extends LitElement {
     this.locating = undefined;
     this.privacyRooms = undefined;
     this.guestsStoreys = undefined;
+    this.rightsStoreys = undefined;
     this.voiceOpen = false;
     this.configHistoryOpen = false;
     this.storeysOpen = false;
@@ -1366,7 +1383,7 @@ export class DomoTwinPanel extends LitElement {
       this.storeys,
       { plan: this.plan, storey: shown },
       request,
-      privateRooms(this.settings?.rooms, this.hass),
+      closedRooms(this.settings?.rooms, this.settings?.rights, this.hass),
     );
     if (!target || ticket !== this.shows) return;
     // Shown in 3D, from the other tabs too (not one more step back for each request).
@@ -2895,6 +2912,27 @@ export class DomoTwinPanel extends LitElement {
   };
 
   /**
+   * The viewer's rights (D-068): their gate, and the bindings without the devices they may not
+   * see; the same while nothing they read changes. None for an administrator.
+   */
+  private rightsOf(hass: HomeAssistant): { gate?: Gate; bindings: BindingsJson } {
+    const settings = this.settings;
+    return this.rightsCache.read(
+      hass,
+      settings?.rights,
+      {
+        bindings: this.bindings ?? NO_BINDINGS,
+        closed: closedRooms(settings?.rooms, settings?.rights, hass),
+      },
+      () => ({
+        rooms: [...planRooms(this.plan), ...this.elsewhere.flatMap((storey) => storey.rooms)],
+        storeys: [{ plan: this.plan, layout: this.layout }, ...this.elsewhere],
+      }),
+      [this.plan, this.layout, this.elsewhere],
+    );
+  }
+
+  /**
    * What the Home and Rooms tabs read beyond Home Assistant's states (D-055): the rooms of every
    * storey, the private rooms the viewer may not see and their areas; the same while nothing
    * they come from changes.
@@ -2904,7 +2942,7 @@ export class DomoTwinPanel extends LitElement {
     unseen: Unseen;
     actions: Map<string, RoomAction[]>;
   } {
-    const closed = privateRooms(this.settings?.rooms, hass);
+    const closed = closedRooms(this.settings?.rooms, this.settings?.rights, hass);
     const from = [
       this.plan,
       this.layout,
@@ -2914,18 +2952,25 @@ export class DomoTwinPanel extends LitElement {
       this.settings,
       hass.areas,
       [...closed].sort().join("\n"),
+      hass.canAct,
     ];
     const shown = this.practicalShown;
     if (shown && from.every((value, i) => value === shown.from[i])) return shown;
     const rooms = [...planRooms(this.plan), ...this.elsewhere.flatMap((storey) => storey.rooms)];
     const bindings = this.bindings ?? NO_BINDINGS;
-    const unseen = unseenOf(
+    const closedUnseen = unseenOf(
       hass,
       bindings,
       rooms,
       [{ plan: this.plan, layout: this.layout }, ...this.elsewhere],
       closed,
     );
+    // And the devices the viewer's rights hide (D-068).
+    const hidden = hiddenEntities(viewerOf(this.settings?.rights, hass));
+    const unseen =
+      hidden.size === 0
+        ? closedUnseen
+        : { ...closedUnseen, entities: new Set([...closedUnseen.entities, ...hidden]) };
     const sources: GlanceSources = {
       rooms,
       bindings,
@@ -2940,9 +2985,9 @@ export class DomoTwinPanel extends LitElement {
     // The rooms' own actions (D-047), on their area's page.
     const actions = new Map<string, RoomAction[]>();
     for (const room of rooms) {
-      const own = bindings.rooms[room.id]?.actions;
-      const area = own?.length ? roomArea(hass, bindings, room.id, room.name) : undefined;
-      if (own && area) actions.set(area, [...(actions.get(area) ?? []), ...own]);
+      const own = usableActions(hass, bindings.rooms[room.id]?.actions ?? []);
+      const area = own.length ? roomArea(hass, bindings, room.id, room.name) : undefined;
+      if (area) actions.set(area, [...(actions.get(area) ?? []), ...own]);
     }
     this.practicalShown = { from, sources, unseen, actions };
     return this.practicalShown;
@@ -3130,13 +3175,17 @@ export class DomoTwinPanel extends LitElement {
    */
   private renderView(admin: boolean, shown: boolean): TemplateResult {
     const t = this.t;
-    if (shown || !this.viewHass) this.viewHass = this._hass;
+    // Under the viewer's rights (D-068): what they may do, the devices they may not see unlinked.
+    const rights = this._hass ? this.rightsOf(this._hass) : undefined;
+    if (shown || !this.viewHass) {
+      this.viewHass = this._hass && gatedHass(this._hass, rights?.gate);
+    }
     return html`<domotwin-view
       ?hidden=${!shown}
       .hass=${this.viewHass}
       .plan=${this.homeShown ? this.plan : undefined}
       .layout=${this.layout}
-      .bindings=${this.bindings}
+      .bindings=${rights && this.bindings ? rights.bindings : this.bindings}
       .upkeep=${this.upkeep}
       .people=${this.people}
       .wifi=${this.wifi}
@@ -3144,6 +3193,7 @@ export class DomoTwinPanel extends LitElement {
       .options=${PANEL_OPTIONS}
       .north=${this.northDraft ?? this.settings?.north ?? 0}
       .privateRooms=${this.settings?.rooms}
+      .rights=${this.settings?.rights}
       .linking=${this.linking}
       .editing=${this.editing}
       .planEditing=${this.planning}
@@ -3232,8 +3282,10 @@ export class DomoTwinPanel extends LitElement {
 
   /** The Home or Rooms tab (D-055), once its module is loaded and the private rooms known. */
   private renderPractical(): TemplateResult | typeof nothing {
-    const hass = this._hass;
-    if (!hass || !this.practicalReady || !this.settingsRead) return nothing;
+    const real = this._hass;
+    if (!real || !this.practicalReady || !this.settingsRead) return nothing;
+    // Under the viewer's rights (D-068): only looked at, a card does nothing on a tap.
+    const hass = gatedHass(real, this.rightsOf(real).gate);
     const { sources, unseen, actions } = this.practical(hass);
     return this.tab === "rooms"
       ? html`<domotwin-rooms
@@ -3481,6 +3533,7 @@ export class DomoTwinPanel extends LitElement {
                 this.openBluetooth,
               )}
               ${item("privacy-settings", mdiLockOutline, t.t("privacy.title"), this.busy, this.openPrivacy)}
+              ${item("rights-menu", mdiAccountLockOutline, t.t("rights.menu"), this.busy || this.demo !== undefined || this.sandbox !== undefined, this.openRights)}
               ${item("voice-settings", mdiMicrophoneMessage, t.t("voice.settings"), this.busy, this.openVoice)}
               ${item("wifi-menu", mdiWifi, t.t("wifi.menu"), this.busy || this.wifi === undefined || this.sandbox !== undefined, this.openWifi)}
               ${item("guests-menu", mdiAccountKeyOutline, t.t("guests.menu"), this.busy || this.demo !== undefined || this.sandbox !== undefined, this.openGuests)}
@@ -3543,6 +3596,28 @@ export class DomoTwinPanel extends LitElement {
         ? [{ id: this.storey ?? "", name: "", elevation: 0, plan: this.plan, layout: this.layout }]
         : [];
       this.guestsStoreys = home.length > 0 ? home : shown;
+    } catch (error) {
+      this.show(this.describe(error), true);
+    } finally {
+      this.busy = false;
+    }
+  };
+
+  /** Opens the rights (D-068): their module (loaded the first time) and every storey's plan. */
+  private readonly openRights = async (): Promise<void> => {
+    const client = this.client;
+    // Saved over the settings read: none read, nothing to save over.
+    if (!client || !this.settingsRead) return;
+    this.busy = true;
+    try {
+      const [, home] = await Promise.all([
+        import("./rights-dialog"),
+        this.storeys.length > 1 ? loadHome(client, this.storeys) : Promise.resolve([]),
+      ]);
+      const shown: HomeStorey[] = this.plan
+        ? [{ id: this.storey ?? "", name: "", elevation: 0, plan: this.plan, layout: this.layout }]
+        : [];
+      this.rightsStoreys = home.length > 0 ? home : shown;
     } catch (error) {
       this.show(this.describe(error), true);
     } finally {
@@ -3936,6 +4011,21 @@ export class DomoTwinPanel extends LitElement {
             ?wifiSet=${this.wifi?.set === true}
             @domotwin-close=${() => (this.guestsStoreys = undefined)}
           ></domotwin-guests>`
+        : nothing
+    }
+    ${
+      this.rightsStoreys
+        ? html`<domotwin-rights
+            .hass=${this._hass}
+            .settings=${this.settings ?? {}}
+            .storeys=${this.rightsStoreys}
+            .bindings=${this.bindings}
+            @domotwin-close=${() => (this.rightsStoreys = undefined)}
+            @domotwin-saved=${(event: CustomEvent<Settings>) => {
+              this.settings = event.detail;
+              this.show(this.t.t("settings.saved"));
+            }}
+          ></domotwin-rights>`
         : nothing
     }
     ${

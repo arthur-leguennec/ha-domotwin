@@ -48,10 +48,14 @@ from .const import (
     SCHEDULES_STORAGE_KEY,
     SCHEDULES_STORAGE_VERSION,
     SIGNAL_SCHEDULES,
+    SIGNAL_UPDATED,
 )
+from .rights import HIDDEN, levels_for
 
 _LOGGER = logging.getLogger(__name__)
 
+#: The saves that may change what a user sees of the actions waiting (their rights, D-068).
+SEEN_FROM = frozenset({"settings", "plan", "bindings"})
 #: An action set a little in the past (the time it took to say it) is done at once.
 LATE_ALLOWED = timedelta(minutes=1)
 #: A device that could not be switched off (unavailable, failing) is tried again this often…
@@ -286,14 +290,17 @@ class Scheduler:
     def listing(self, user: User | None = None) -> list[dict[str, Any]]:
         """The actions waiting, the soonest first, as the frontend gets them.
 
-        For a `user`: only those on entities they may read, without who set them.
+        For a `user`: only those on entities they may read and see in DomoTwin (D-068), without
+        who set them.
         """
         if user is None:
             return [item.as_dict() for item in self.items()]
+        levels = levels_for(self._hass, user)
         return [
             {key: value for key, value in item.as_dict().items() if key != "user_id"}
             for item in self.items()
             if all(user.permissions.check_entity(e, POLICY_READ) for e in item.entities)
+            and (levels is None or not any(levels.level(e) == HIDDEN for e in item.entities))
         ]
 
     def get(self, scheduled_id: str) -> Scheduled | None:
@@ -342,13 +349,20 @@ class Scheduler:
         return item
 
     async def async_check_user(self, user_id: str | None, entities: Iterable[str]) -> None:
-        """Raises `ScheduleError("not_allowed")` unless the user may control these entities."""
+        """Raises `ScheduleError("not_allowed")` unless the user may control these entities.
+
+        In Home Assistant, and in DomoTwin: their rights let them use each (D-068).
+        """
         if user_id is None:
             return
+        entities = list(entities)
         user = await self._hass.auth.async_get_user(user_id)
         if user is None or not all(
             user.permissions.check_entity(entity, POLICY_CONTROL) for entity in entities
         ):
+            raise ScheduleError("not_allowed")
+        levels = levels_for(self._hass, user)
+        if levels is not None and not levels.uses(entities):
             raise ScheduleError("not_allowed")
 
     async def async_cancel(self, ids: Iterable[str], user_id: str | None = None) -> int:
@@ -575,7 +589,8 @@ def ws_schedules_subscribe(
 
     Followed even before DomoTwin is set up (a screen kept open while Home Assistant restarts):
     the list is empty until then, and sent again when it is set up or unloaded. Each user gets
-    the actions on what they may see.
+    the actions on what they may see, sent again when what they see may change (the home's
+    settings, its plan or its links, D-068).
     """
 
     @callback
@@ -584,7 +599,22 @@ def ws_schedules_subscribe(
         listing = scheduler.listing(connection.user) if scheduler is not None else []
         connection.send_message(websocket_api.event_message(msg["id"], {"schedules": listing}))
 
-    connection.subscriptions[msg["id"]] = async_dispatcher_connect(hass, SIGNAL_SCHEDULES, send)
+    @callback
+    def saved(kind: str, _revision: int) -> None:
+        if kind in SEEN_FROM and not connection.user.is_admin:
+            send()
+
+    stops = [
+        async_dispatcher_connect(hass, SIGNAL_SCHEDULES, send),
+        async_dispatcher_connect(hass, SIGNAL_UPDATED, saved),
+    ]
+
+    @callback
+    def stop() -> None:
+        for each in stops:
+            each()
+
+    connection.subscriptions[msg["id"]] = stop
     connection.send_result(msg["id"])
     send()
 

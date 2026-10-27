@@ -37,6 +37,7 @@ from .locator import Locator, located_unique_id
 from .overview import people_in, piece_rooms, tasks_by_room
 from .people import Room
 from .privacy import private_rooms
+from .rights import hidden_rooms
 from .storage import DomoTwinData
 from .tracker import PeopleTracker, name_of
 from .upkeep import due_tasks, piece_names
@@ -437,9 +438,15 @@ class RoomSensors:
         self.tasks = tasks_by_room(tasks, self._pieces)
 
     def _work_out_private(self) -> None:
-        """The rooms private now for nobody (an entity is everyone's), as D-039 locks them."""
-        rules: dict[str, Any] = self._data.settings.get("rooms", {})
-        self.private = private_rooms(rules, self._hass.states.get, None)
+        """The rooms closed now for nobody (an entity is everyone's).
+
+        Private, as D-039 locks them, or hidden from everyone by the rights (D-068).
+        """
+        settings = self._data.settings
+        rules: dict[str, Any] = settings.get("rooms", {})
+        self.private = private_rooms(rules, self._hass.states.get, None) | hidden_rooms(
+            self._hass, settings, None
+        )
 
     def _watch_private(self) -> None:
         """Work the private rooms out, and follow the entities that open or close them."""

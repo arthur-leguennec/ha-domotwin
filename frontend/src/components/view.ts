@@ -154,19 +154,14 @@ import type { PeakNow } from "../live/peaks";
 import type { PeakRooms, PeakUnseen } from "../live/peak-rooms";
 import { locatedSensors, locatedShown, type LocatedShown } from "../live/locating";
 import type { AccessPoint } from "../live/placement";
-import {
-  NOTHING_UNSEEN,
-  outOfSight,
-  privateRooms,
-  seen,
-  unseenOf,
-  type Unseen,
-} from "../live/privacy";
+import { NOTHING_UNSEEN, outOfSight, seen, unseenOf, type Unseen } from "../live/privacy";
+import { closedRooms, hiddenEntities, viewerOf } from "../live/rights";
 import { avatar, avatarStyles } from "./person-avatar";
 import { spoken } from "../live/show";
 import { StateSync } from "../live/states";
 import {
   presentDevices,
+  usableActions,
   roomActions,
   roomCommands,
   roomDevices,
@@ -617,6 +612,7 @@ export class DomoTwinView extends LitElement {
     planEditor: { state: true },
     north: { attribute: false },
     privateRooms: { attribute: false },
+    rights: { attribute: false },
     homeTheme: { attribute: false },
     homeAccent: { attribute: false },
     energy: { attribute: false },
@@ -704,8 +700,10 @@ export class DomoTwinView extends LitElement {
   north = 0;
   /** The home's private rooms (its settings, D-039). */
   privateRooms?: Settings["rooms"];
-  /** The private rooms this viewer may not see now, drawn closed (none while editing or
-   * linking: administrators change the home). */
+  /** What each person uses, only sees or does not see (its settings, D-068). */
+  rights?: Settings["rights"];
+  /** The rooms this viewer may not see now, private (D-039) or hidden by their rights (D-068),
+   * drawn closed (none while editing or linking: administrators change the home). */
   protected closed = new Set<string>();
   private closedKey = "";
   /** The closed rooms the engine was told, and whether the overlays still have to follow. */
@@ -2003,11 +2001,11 @@ export class DomoTwinView extends LitElement {
     }
     // Where the upkeep cards stand, before the sheets and the list show them.
     if (changed.has("upkeep") || changed.has("hass")) this.applyUpkeep();
-    // The private rooms this viewer may not see (D-039), before what is in them is shown.
+    // The rooms this viewer may not see (D-039, D-068), before what is in them is shown.
     const closed =
       this.editingAny || this.linking
         ? new Set<string>()
-        : privateRooms(this.privateRooms, this.hass);
+        : closedRooms(this.privateRooms, this.rights, this.hass);
     const closedKey = [...closed].sort().join("\n");
     if (closedKey !== this.closedKey) {
       this.closedKey = closedKey;
@@ -2582,9 +2580,11 @@ export class DomoTwinView extends LitElement {
    */
   private unseenEntity(): ((entity: string) => boolean) | undefined {
     const hass = this.hass;
-    if (!hass || this.closed.size === 0) return undefined;
+    if (!hass || (this.closed.size === 0 && !hass.canSee)) return undefined;
     const keys = [
       this.closed,
+      this.rights,
+      hass.canSee,
       this.bindings,
       this.rooms,
       this.plan,
@@ -2597,7 +2597,9 @@ export class DomoTwinView extends LitElement {
     if (from?.keys.every((key, i) => key === keys[i])) return from.unseen;
     const unseen = this.unseen(hass);
     // The entities' areas as Home Assistant has them when asked.
+    const canSee = hass.canSee;
     const test = (entity: string): boolean =>
+      canSee?.(entity) === false ||
       !seen(unseen, entity, this.hass ? areaOf(this.hass, entity) : undefined);
     this.unseenFrom = { keys, unseen: test };
     return test;
@@ -5242,7 +5244,12 @@ export class DomoTwinView extends LitElement {
       ? this.home.map((storey) => ({ plan: storey.plan, layout: storey.layout }))
       : [{ plan: this.plan, layout: this.layout }, ...this.elsewhere];
     const rooms = [...this.rooms, ...this.elsewhere.flatMap((storey) => storey.rooms)];
-    return unseenOf(hass, bindings, rooms, storeys, this.closed);
+    const unseen = unseenOf(hass, bindings, rooms, storeys, this.closed);
+    // And the devices their rights hide (D-068).
+    const hidden = hiddenEntities(viewerOf(this.rights, hass));
+    return hidden.size === 0
+      ? unseen
+      : { ...unseen, entities: new Set([...unseen.entities, ...hidden]) };
   }
 
   private renderSheet(): TemplateResult | typeof nothing {
@@ -5313,7 +5320,11 @@ export class DomoTwinView extends LitElement {
       .heading=${sheet.heading}
       .area=${sheet.area}
       .devices=${sheet.room ? this.roomDevicesOf(sheet.room, sheet.heading) : undefined}
-      .actions=${sheet.room ? roomActions(this.bindings ?? NO_BINDINGS, sheet.room) : NO_ACTIONS}
+      .actions=${
+        sheet.room && this.hass
+          ? usableActions(this.hass, roomActions(this.bindings ?? NO_BINDINGS, sheet.room))
+          : NO_ACTIONS
+      }
       .admin=${this.hass?.user?.is_admin === true}
       .closed=${sheet.closed === true}
       .people=${here}
@@ -6051,7 +6062,9 @@ export class DomoTwinView extends LitElement {
     if (!hass) return name;
     const devices = this.roomDevicesOf(room.id, room.name);
     const commands = devices ? roomCommands(hass, devices) : [];
-    const actions = devices ? roomActions(this.bindings ?? NO_BINDINGS, room.id) : [];
+    const actions = devices
+      ? usableActions(hass, roomActions(this.bindings ?? NO_BINDINGS, room.id))
+      : [];
     return html`<div
       class="chip glass room-bar"
       role="group"
