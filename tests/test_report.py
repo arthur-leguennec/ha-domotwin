@@ -1237,7 +1237,7 @@ def test_the_notification_and_the_question_in_words() -> None:
         assert "- 1 appareil Zigbee sur un lien faible" in question
         assert "Evening" not in question
         assert "Plug" not in question
-        assert "- Entretien : Washer: Clean the filter, en retard depuis le 2026-10-20" in question
+        assert "- Entretien : Washer : Clean the filter, en retard depuis le 2026-10-20" in question
         assert (
             "Énergie consommée (pièce : Entrée) : 4,5 kWh cette semaine, inconnue kWh" in question
         )

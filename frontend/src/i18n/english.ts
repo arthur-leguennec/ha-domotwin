@@ -14,6 +14,7 @@ import { placementEn } from "./placement";
 import { plainEn } from "./plain";
 import { practicalEn } from "./practical";
 import { radarsEn } from "./radars";
+import { reportEn } from "./report";
 import { rightsEn } from "./rights";
 import { safetyEn } from "./safety";
 import { sandboxEn } from "./sandbox";
@@ -34,6 +35,7 @@ export const englishChunks = {
   plain: plainEn,
   practical: practicalEn,
   radars: radarsEn,
+  report: reportEn,
   rights: rightsEn,
   safety: safetyEn,
   sandbox: sandboxEn,

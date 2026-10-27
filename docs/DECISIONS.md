@@ -4137,6 +4137,10 @@ English and French) to ten more languages.
     translations (`translations/<code>.json`), and what it says aloud (where someone is, an action
     planned for later) in the same language as the frontend picks; the voice blueprints hear their
     sentences in each.
+  - **The weekly report in it** (M37, D-081, merged just before): its page in each viewer's
+    language, and what the integration writes once for the home, the notification and the facts
+    the AI task sums up, in Home Assistant's: each language's dates, hours, decimal comma and
+    punctuation (`report_words.py`).
   - **Translated by machine, written to be read.** The translations follow Home Assistant's own
     words in each language (Bereich, Entität…) and DomoTwin's (a piece, a storey, a look); they are
     marked as such for native speakers to correct (`CONTRIBUTING.md`).

@@ -1977,11 +1977,13 @@ DomoTwin in Home Assistant's language, ten more of them, each loaded only where 
   the toolbar, the tools and the sheets change sides.
 - ✅ **Everything said**: every message of the frontend and its chunks, the plural forms each
   language counts with (Arabic's six), Home Assistant's translations of the integration, what it
-  says aloud (where someone is, an action planned) and the voice blueprints' sentences.
+  says aloud (where someone is, an action planned) and the voice blueprints' sentences; the weekly
+  report (M37) too, its page and its notification.
 - ✅ Tested: every key, placeholder and plural form of each language, and none left in English
   (vitest); the language loaded on demand, drawn again in it, Arabic's `dir`, a language that
   cannot be loaded (vitest); German loaded only when spoken, none for English, Arabic's layout
-  mirrored (e2e); the integration's sentences and translations in each (pytest).
+  mirrored (e2e); the integration's sentences, the weekly report's words and translations in each
+  (pytest).
 - Left for later: other languages; a Japanese and a Korean voice, which Piper does not have.
 
 Measured at the end of M21: see [`PERFORMANCE.md`](PERFORMANCE.md).

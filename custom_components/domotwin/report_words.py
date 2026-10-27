@@ -1,7 +1,7 @@
 """The weekly report in words (`docs/DECISIONS.md`, D-081).
 
-In Home Assistant's language (English or French): Home Assistant's notification, and what the AI
-task is asked to sum up.
+In Home Assistant's language, as DomoTwin speaks it (D-082): Home Assistant's notification, and
+what the AI task is asked to sum up.
 
 The page in the panel writes the report in each viewer's own language from what is kept; only the
 notification and the summary are written once, for the home.
@@ -17,6 +17,7 @@ from typing import Any, Final
 from homeassistant.util import dt as dt_util
 
 from .const import REPORT_SECTIONS
+from .language import spoken
 
 #: The characters Markdown formats or links with.
 MARKDOWN: Final = re.compile(r"[\\`*_{}\[\]()<>#+!|~&]")
@@ -89,6 +90,11 @@ WORDS: Final[dict[str, dict[str, Any]]] = {
             "December",
         ),
         "day": "{day} {month}",
+        "clock": "{hour:02d}:{minute:02d}",
+        "decimal": ".",
+        "zero_is_one": False,
+        "colon": ": ",
+        "comma": ", ",
         "language": "English",
         "fact_room": "{text} (in the {room})",
         "fact_new": "{text}, new this week",
@@ -158,6 +164,11 @@ WORDS: Final[dict[str, dict[str, Any]]] = {
             "décembre",
         ),
         "day": "{day} {month}",
+        "clock": "{hour} h {minute:02d}",
+        "decimal": ",",
+        "zero_is_one": True,
+        "colon": " : ",
+        "comma": ", ",
         "language": "French",
         "fact_room": "{text} (pièce : {room})",
         "fact_new": "{text}, nouveau cette semaine",
@@ -188,15 +199,15 @@ WORDS: Final[dict[str, dict[str, Any]]] = {
 
 
 def language_of(language: str) -> str:
-    """The report's language: French for Home Assistant in French, English otherwise."""
-    return "fr" if language.lower().startswith("fr") else "en"
+    """The report's language: Home Assistant's as DomoTwin speaks it, else English."""
+    return spoken(language)
 
 
 def _number(value: float, language: str, decimals: int = 1) -> str:
     text = f"{value:.{decimals}f}"
     if "." in text:
         text = text.rstrip("0").rstrip(".")
-    return text.replace(".", ",") if language == "fr" else text
+    return text.replace(".", str(WORDS[language]["decimal"]))
 
 
 def markdown(text: str) -> str:
@@ -219,8 +230,9 @@ def _escaped(item: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def _plural(forms: tuple[str, str], count: int, language: str) -> str:
-    # French counts 0 and 1 as one; English only 1.
-    one = count in (0, 1) if language == "fr" else count == 1
+    # French and Brazilian Portuguese count 0 and 1 as one; the others only 1. A language without
+    # plurals, or whose forms are more than two (Arabic), says both alike.
+    one = count == 1 or (count == 0 and bool(WORDS[language]["zero_is_one"]))
     return (forms[0] if one else forms[1]).format(count=count)
 
 
@@ -242,12 +254,8 @@ def time_text(moment: str, language: str) -> str:
     if parsed is None:
         return moment
     local = dt_util.as_local(parsed)
-    hour = (
-        f"{local.hour:02d}:{local.minute:02d}"
-        if language == "en"
-        else f"{local.hour} h {local.minute:02d}"
-    )
-    return f"{day_text(local, language)}, {hour}"
+    hour = str(WORDS[language]["clock"]).format(hour=local.hour, minute=local.minute)
+    return f"{day_text(local, language)}{WORDS[language]['comma']}{hour}"
 
 
 def week_bounds(report: Mapping[str, Any], language: str) -> tuple[str, str]:
@@ -312,11 +320,7 @@ def notification(
         named = [item_text(section, _escaped(item), language) for item in items[:MAX_NAMED]]
         if count > len(named):
             named.append(str(words["more"]).format(count=count - len(named)))
-        listed.append(
-            f"- **{head}**: {', '.join(named)}"
-            if language == "en"
-            else f"- **{head}** : {', '.join(named)}"
-        )
+        listed.append(f"- **{head}**{words['colon']}{str(words['comma']).join(named)}")
     energy = report.get("energy") or {}
     used = energy.get("home") or {}
     grid = energy.get("grid") or {}
@@ -380,7 +384,9 @@ def ask(report: Mapping[str, Any], language: str, rooms: Mapping[str, str]) -> s
             elif section == "upkeep" and "task" in item:
                 state = "overdue" if item.get("state") == "overdue" else "due"
                 task = str(said[state]).format(task=item["task"], due=item.get("due", ""))
-                text = str(said[section]).format(text=f"{item.get('name', '')}: {task}")
+                text = str(said[section]).format(
+                    text=f"{item.get('name', '')}{words['colon']}{task}"
+                )
             elif section == "updates" and item.get("latest"):
                 version = f"{item.get('installed', '?')} → {item['latest']}"
                 text = str(said[section]).format(text=f"{item.get('name', '')} ({version})")
