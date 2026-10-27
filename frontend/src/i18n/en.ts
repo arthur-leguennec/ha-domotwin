@@ -645,6 +645,7 @@ export const en = {
     failed: "The sandbox could not open: {reason}",
     leave: "Leave the sandbox",
     no_dialog: "Home Assistant's own dialogs do not open in the sandbox.",
+    no_peak: "No peak is announced any more: the sandbox plays today.",
   },
   tabs: {
     label: "DomoTwin's tabs",

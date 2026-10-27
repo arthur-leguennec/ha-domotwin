@@ -42,9 +42,9 @@ your home as it is: nothing done in the sandbox is kept, nothing was written.
 
 Where [hydroqc](https://github.com/hydroqc/hydroqc-ha) or
 [HydroPeak](https://github.com/Beat-YT/hydropeak-ha) reads Hydro-Québec's peaks, the peak announced
-when the sandbox opens can be played (D-058). **The day** says it, and **Play its day** sets the
-date to it; from the Home tab, the peak's chip has **Play its day in the sandbox** for
-administrators.
+when the sandbox opens can be played (D-058). **The day** says it, and **Choose its day** sets the
+date to it, shown from its pre-heating once played; from the Home tab, the peak's chip has **Play
+its day in the sandbox** for administrators.
 
 On that day, the integrations' sensors go through it as they would: their pre-heating and peak
 sensors on and off at their times, hydroqc's contract in a critical peak, today's peaks said from
@@ -53,9 +53,16 @@ automations they set off run, the day's line shows the pre-heating and the peak,
 shows the rooms at the moment shown, and the report says what each room's heating did, from the
 pre-heating to the end of the peak: pre-heating, shed, still heating, read every five minutes. In
 the copy, the rooms' temperatures do not move: a thermostat heats when its target is above the
-room, and is set back when it is below. An automation set off by a calendar's own trigger (an
-event starting) is not played, as with any calendar; one set off by the calendar's state or by
-the integrations' sensors is.
+room, and is set back when it is below; a thermostat shed by a preset (eco, away) alone, its
+target unchanged, is not seen as shed. An automation set off by a calendar's own trigger (an event
+starting) is not played, as with any calendar; one set off by the calendar's state or by the
+integrations' sensors is.
+
+Only the announced peak's times are known: when another peak is announced the same day (the
+morning's and the evening's), the integrations say so from midnight, but only the first is played,
+and **The day** says it. Only the devices and calendars that say this peak are moved (another
+contract with another peak stays without one), and a pre-heating that starts the day before is
+already on at midnight.
 
 ## Watching it
 

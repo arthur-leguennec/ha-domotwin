@@ -111,15 +111,17 @@ describe("Hydro-Québec's announced peak in the sandbox (D-058)", () => {
     const end = moment(ZONE, 2026, 1, 23);
     expect(peakOnDay(PEAK, PEAK_DAY, end)).toBe(true);
     expect(peakOnDay(PEAK, end, moment(ZONE, 2026, 1, 24))).toBe(false);
-    const day = peakDay(home.states, home.entities, PEAK, PEAK_DAY, end, ZONE);
+    const on = { start: PEAK_DAY, end, zone: ZONE, copied: COPIED };
+    const day = peakDay(home.states, home.entities, PEAK, new Set(["hq"]), on);
     expect(Object.fromEntries(day.initial)).toEqual({
       "binary_sensor.hq_pointe": "off",
       "binary_sensor.hq_prechauffage": "off",
       "sensor.hq_etat": "normal",
-      // The evening's peak today, not the morning's.
+      // The evening's peak today; the morning's as the copy said it the day before: none.
       "binary_sensor.hq_soir": "on",
       "binary_sensor.hq_matin": "off",
     });
+    expect(day.another).toBe(false);
     expect(day.happenings.map((h) => [clockOf(h.at, ZONE), h.entity, h.state])).toEqual([
       ["14:00", "binary_sensor.hq_prechauffage", "on"],
       ["16:00", "binary_sensor.hq_prechauffage", "off"],
@@ -128,6 +130,55 @@ describe("Hydro-Québec's announced peak in the sandbox (D-058)", () => {
       ["20:00", "binary_sensor.hq_pointe", "off"],
       ["20:00", "sensor.hq_etat", "normal"],
     ]);
+  });
+
+  it("plays no pre-heating of no minutes, and nothing for another contract", () => {
+    const home = copy();
+    const end = moment(ZONE, 2026, 1, 23);
+    const on = { start: PEAK_DAY, end, zone: ZONE, copied: COPIED };
+    const none = peakDay(
+      home.states,
+      home.entities,
+      { ...PEAK, preheat: PEAK.start },
+      new Set(["hq"]),
+      on,
+    );
+    expect(none.happenings.filter((h) => h.entity === "binary_sensor.hq_prechauffage")).toEqual([]);
+    expect(Object.fromEntries(none.initial)["binary_sensor.hq_prechauffage"]).toBe("off");
+    // Another contract's peak: nothing of this one is played on its sensors.
+    const other = peakDay(home.states, home.entities, PEAK, new Set(["another"]), on);
+    expect(other.happenings).toEqual([]);
+    expect(Object.fromEntries(other.initial)).toMatchObject({
+      "binary_sensor.hq_pointe": "off",
+      "sensor.hq_etat": "normal",
+      "binary_sensor.hq_soir": "off",
+    });
+  });
+
+  it("says another peak announced that day, from the copy's sensors of the day after", () => {
+    const home = copy();
+    const tomorrow = (id: string, key: string): void => {
+      home.states[id] = entity(id, "on");
+      home.entities[id] = {
+        entity_id: id,
+        platform: "hydroqc",
+        translation_key: key,
+        device_id: "hq",
+      };
+    };
+    tomorrow("binary_sensor.hq_matin_demain", "dpc_critical_morning_peak_tomorrow");
+    const end = moment(ZONE, 2026, 1, 23);
+    const day = peakDay(home.states, home.entities, PEAK, new Set(["hq"]), {
+      start: PEAK_DAY,
+      end,
+      zone: ZONE,
+      copied: COPIED,
+    });
+    expect(Object.fromEntries(day.initial)["binary_sensor.hq_matin"]).toBe("on");
+    expect(day.another).toBe(true);
+    const sandbox = new SandboxHome(home, { language: "en", peakDay: true }, COPIED);
+    expect(sandbox.peakAnother).toBe(true);
+    sandbox.stop();
   });
 
   it("plays the announced peak on its day: what it sets off, and what the rooms did", () => {
@@ -161,6 +212,47 @@ describe("Hydro-Québec's announced peak in the sandbox (D-058)", () => {
     // Another day: no peak played.
     home.setScenario({ ...home.scenario, date: "2026-01-23" });
     expect(home.peakToday()).toBeUndefined();
+    home.stop();
+  });
+
+  it("opens on the peak's day at its pre-heating, when asked", () => {
+    const home = new SandboxHome(copy(), { language: "en", peakDay: true }, COPIED);
+    expect(home.scenario.date).toBe("2026-01-22");
+    expect(clockOf(home.cursor, ZONE)).toBe("14:00");
+    home.stop();
+  });
+
+  it("reports nothing of a private room, of its area, nor of a pre-heating off the hour", () => {
+    const base = copy();
+    // The bedroom is private, kept for nobody; the walk-in shares its area.
+    const store = base.store as unknown as {
+      storeys: { plan: { rooms: { id: string; name: string }[] } }[];
+      bindings: { rooms: Record<string, { area: string }> };
+      settings: Record<string, unknown>;
+    };
+    store.storeys[0]?.plan.rooms.push({ id: "walk-in", name: "Walk-in" });
+    store.bindings.rooms["walk-in"] = { area: "bedroom" };
+    store.settings.rooms = { bedroom: { people: [] } };
+    // The pre-heating at 14:07.
+    base.states["sensor.hq_prechauffage_debut"] = entity(
+      "sensor.hq_prechauffage_debut",
+      isoIn(moment(ZONE, 2026, 1, 22, 14, 7), "UTC"),
+    );
+    base.entities["sensor.hq_prechauffage_debut"] = {
+      entity_id: "sensor.hq_prechauffage_debut",
+      platform: "hydroqc",
+      translation_key: "dpc_next_pre_heat_start",
+      device_id: "hq",
+    };
+    const home = new SandboxHome(base, { language: "en", peakDay: true }, COPIED);
+    const rooms = home.peakReport() ?? [];
+    expect(rooms.map((r) => r.room)).toEqual(["living"]);
+    expect(
+      rooms[0]?.spans.map((s) => [s.role, clockOf(s.from, ZONE), clockOf(s.to, ZONE)]),
+    ).toEqual([
+      ["preheat", "14:07", "16:00"],
+      ["shed", "16:00", "20:00"],
+    ]);
     home.stop();
   });
 

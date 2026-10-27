@@ -85,12 +85,17 @@ export function zonedTime(text: unknown, timeZone: string | undefined): number |
       ) - at
     );
   };
-  // The offset of the day before, then the one found there: the wall clock if it is one of the
-  // zone's; one the clocks skip is read with the offset before the change (02:30 is 03:30).
-  const guess = wall - offset(wall);
-  const found = wall - offset(guess);
-  return found + offset(found) === wall ? found : guess;
+  // Read with the offset of half a day before, and of half a day after: the one the zone shows
+  // as this wall clock (the first, when it shows it twice); one the clocks skip is read with the
+  // offset before the change (02:30 is then 03:30).
+  const before = wall - offset(wall - HALF_DAY);
+  const after = wall - offset(wall + HALF_DAY);
+  const shows = (at: number): boolean => at + offset(at) === wall;
+  if (shows(before)) return before;
+  return shows(after) ? after : before;
 }
+
+const HALF_DAY = 12 * 3_600_000;
 
 /** A formatter of each time zone's wall clock, made once; none for a zone this browser lacks. */
 const formats = new Map<string, Intl.DateTimeFormat | null>();
@@ -119,12 +124,18 @@ function zoneFormat(timeZone: string | undefined): Intl.DateTimeFormat | undefin
   return formats.get(key) ?? undefined;
 }
 
+/** A peak, and where it is said: its device (a contract, an offer) or its calendar. */
+interface Said {
+  peak: Peak;
+  source: string;
+}
+
 /** The peaks the sensors of a source say, one for each device (a contract, an offer). */
-function sensorPeaks(hass: HomeAssistant, kinds: Kinds): Peak[] {
+function sensorPeaks(hass: HomeAssistant, kinds: Kinds): Said[] {
   const byKind = entitiesOf(hass);
   const ids = (kind: string): string[] => byKind.get(`${kinds.platform}.${kind}`) ?? [];
   const deviceOf = (id: string): string => hass.entities?.[id]?.device_id ?? "";
-  const peaks: Peak[] = [];
+  const peaks: Said[] = [];
   for (const startId of ids(kinds.start)) {
     const device = deviceOf(startId);
     const sibling = (kind: string | undefined): HassEntity | undefined => {
@@ -138,7 +149,10 @@ function sensorPeaks(hass: HomeAssistant, kinds: Kinds): Peak[] {
     const own = kinds.preheatFor === undefined || timeOf(sibling(kinds.preheatFor)) === start;
     const preheat = own ? timeOf(sibling(kinds.preheat)) : undefined;
     const sound = preheat !== undefined && preheat <= start && start - preheat <= LONGEST_PREHEAT;
-    peaks.push({ start, end, preheat: sound ? preheat : start - kinds.lead * 60_000 });
+    peaks.push({
+      peak: { start, end, preheat: sound ? preheat : start - kinds.lead * 60_000 },
+      source: device,
+    });
   }
   return peaks;
 }
@@ -153,22 +167,34 @@ function calendarPeak(hass: HomeAssistant, entity: HassEntity): Peak | undefined
 }
 
 /** The peaks the integrations say, worked out once per update (and registry, and time zone). */
-const said = new WeakMap<object, { registry: unknown; zone?: string; peaks: Peak[] }>();
+const known = new WeakMap<object, { registry: unknown; zone?: string; peaks: Said[] }>();
 
 /** Every peak the integrations say, from their sensors and hydroqc's calendars. */
-function peaksOf(hass: HomeAssistant): Peak[] {
+function peaksOf(hass: HomeAssistant): Said[] {
   const registry = hass.entities;
   const zone = hass.config?.time_zone;
-  const known = said.get(hass.states);
-  if (known && known.registry === registry && known.zone === zone) return known.peaks;
+  const found = known.get(hass.states);
+  if (found && found.registry === registry && found.zone === zone) return found.peaks;
   const peaks = SOURCES.flatMap((kinds) => sensorPeaks(hass, kinds));
   for (const id of peakCalendars(hass)) {
     const entity = hass.states[id];
     const peak = entity ? calendarPeak(hass, entity) : undefined;
-    if (peak) peaks.push(peak);
+    if (peak) peaks.push({ peak, source: id });
   }
-  said.set(hass.states, { registry, zone, peaks });
+  known.set(hass.states, { registry, zone, peaks });
   return peaks;
+}
+
+/**
+ * Where `peak` is said: the devices (contracts, offers) whose sensors say it and the calendars
+ * that hold it, at the same times; what plays it (the sandbox, D-058) moves those alone.
+ */
+export function peakSources(hass: HomeAssistant, peak: Peak): Set<string> {
+  return new Set(
+    peaksOf(hass)
+      .filter((each) => each.peak.start === peak.start && each.peak.end === peak.end)
+      .map((each) => each.source),
+  );
 }
 
 /** Where a peak stands at `now`, and when that changes. */
@@ -186,6 +212,7 @@ export function phaseOf(peak: Peak | undefined, now: number): Omit<PeakNow, "pea
 export function peakNow(hass: HomeAssistant, now = nowOf(hass)): PeakNow | undefined {
   if (!peaksAvailable(hass)) return undefined;
   const peak = peaksOf(hass)
+    .map((each) => each.peak)
     .filter((each) => each.end > now)
     .sort((a, b) => a.start - b.start || a.end - b.end)[0];
   return peak ? { ...phaseOf(peak, now), peak } : { phase: "none" };

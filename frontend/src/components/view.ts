@@ -148,7 +148,7 @@ import {
 import { energyFlow, energyStyles } from "./energy-flow";
 import { peaksAvailable } from "../live/peak-sources";
 import type { PeakNow } from "../live/peaks";
-import type { PeakRooms } from "../live/peak-rooms";
+import type { PeakRooms, PeakUnseen } from "../live/peak-rooms";
 import { locatedSensors, locatedShown, type LocatedShown } from "../live/locating";
 import { closedAreas, closedEntities, outOfSight, privateRooms } from "../live/privacy";
 import { avatar, avatarStyles } from "./person-avatar";
@@ -886,6 +886,10 @@ export class DomoTwinView extends LitElement {
   /** The peak's layer (its chunk), once loaded; loading, or failed to. */
   private peakLayer?: typeof import("./peak-layer");
   private peakLoading = false;
+  /** When the peak's chunk may be asked for again, after it failed. */
+  private peakRetry = 0;
+  /** What the viewer may not see of the peak's rooms (D-039), and what it was worked out from. */
+  private peakUnseen?: { from: unknown[]; unseen: PeakUnseen };
   /** When the peak's phase changes next: the rooms are worked out again then. */
   private peakTimer: ReturnType<typeof setTimeout> | undefined;
   /** The badges last worked out, and the badges' points last read from the engine. */
@@ -3337,7 +3341,7 @@ export class DomoTwinView extends LitElement {
   private readPeak(hass: HomeAssistant | undefined): PeakRooms | undefined {
     clearTimeout(this.peakTimer);
     const shown = hass !== undefined && this.shownLayer === "peak";
-    if (shown && !this.peakLayer && !this.peakLoading) {
+    if (shown && !this.peakLayer && !this.peakLoading && Date.now() >= this.peakRetry) {
       // Its chunk the first time; until it is there, the layer shows nothing.
       this.peakLoading = true;
       void import("./peak-layer").then(
@@ -3346,8 +3350,9 @@ export class DomoTwinView extends LitElement {
           this.applyLayers();
         },
         () => {
-          // Failed (offline, an update since): tried again when the layers are next worked out.
+          // Failed (offline, an update since): tried again a little later, as the layers are.
           this.peakLoading = false;
+          this.peakRetry = Date.now() + 30_000;
         },
       );
     }
@@ -3365,17 +3370,7 @@ export class DomoTwinView extends LitElement {
       ENERGY_SENSORS.flatMap((key) => this.energy?.[key] ?? []).filter(Boolean),
     );
     const bindings = this.bindings ?? NO_BINDINGS;
-    const unseen =
-      this.closed.size > 0
-        ? {
-            areas: closedAreas(hass, bindings, this.rooms, this.closed),
-            entities: closedEntities(
-              bindings,
-              [{ plan: this.plan, layout: this.layout }],
-              this.closed,
-            ),
-          }
-        : {};
+    const unseen = this.unseenForPeak(hass, bindings);
     const rooms = layer.peakRooms(
       hass,
       bindings,
@@ -3398,6 +3393,32 @@ export class DomoTwinView extends LitElement {
       }, wait);
     }
     return rooms;
+  }
+
+  /**
+   * What the viewer may not see of the peak's rooms (D-039): the private rooms' areas, and what
+   * their pieces link on every storey shown; the same while none of it changes.
+   */
+  private unseenForPeak(hass: HomeAssistant, bindings: BindingsJson): PeakUnseen {
+    if (this.closed.size === 0) return {};
+    const storeys = this.loadedHome ?? [{ plan: this.plan, layout: this.layout }];
+    const from = [
+      this.closedKey,
+      bindings,
+      hass.areas,
+      this.rooms,
+      this.plan,
+      this.layout,
+      this.loadedHome,
+    ];
+    const known = this.peakUnseen;
+    if (known && from.every((value, k) => value === known.from[k])) return known.unseen;
+    const unseen = {
+      areas: closedAreas(hass, bindings, this.rooms, this.closed),
+      entities: closedEntities(bindings, storeys, this.closed),
+    };
+    this.peakUnseen = { from, unseen };
+    return unseen;
   }
 
   /** Sends the engine what the layers show now (only when it changed) and lists the alerts. */

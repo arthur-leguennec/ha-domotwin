@@ -2346,10 +2346,15 @@ sandbox (M29, D-057), whose day it plays; its part in the weekly report (M37) co
     hydroqc's contract says a critical peak, today's peaks are said from midnight and hydroqc's
     calendar is on; their timestamps keep the copy's. So the home's automations set off by them
     run on the copy, and the peak's layer shows what the rooms then do, at the sandbox's time.
-    *The day* says the announced peak and leads to its day; the day's line shows the pre-heating
-    and the peak; the report says what each room did, from the pre-heating to the peak's end, read
-    every five minutes. In the copy, whose rooms' temperatures and thermostats' `hvac_action` do
-    not move, a thermostat's target alone says what it does.
+    *The day* says the announced peak and leads to its day, shown from its pre-heating; the day's
+    line shows the pre-heating and the peak; the report says what each room did, from the
+    pre-heating to the peak's end, read every five minutes and at each change of phase, nothing of
+    a private room the visitor may not see. Only the devices and calendars that say this peak are
+    moved. Another peak announced that day (the copy's sensors of the day after say so) is said by
+    the integrations from midnight but not played, its times unknown, and *The day* says it. In
+    the copy, whose rooms' temperatures and thermostats' `hvac_action` do not move, a thermostat's
+    target alone says what it does; an air conditioner off says nothing of the heat, live or in
+    the sandbox.
   - **Its cost**: only whether an integration is there is in the first load; the peak, the rooms
     and the legend come in a chunk the first time the layer shows, shared with the Home tab's
     and the sandbox's, with their texts in both languages.

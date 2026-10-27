@@ -1107,7 +1107,7 @@ export class DomoTwinPanel extends LitElement {
    * Shows the sandbox (D-057): the home copied, its automations, scripts and scenes read (Home
    * Assistant gives them to administrators), its day played on the copy.
    */
-  private readonly enterSandbox = async (): Promise<void> => {
+  private readonly enterSandbox = async (peakDay = false): Promise<void> => {
     this.moreOpen = false;
     const real = this.demoSwitch.realHass ?? this._hass;
     if (!real || !this.switchable()) return;
@@ -1122,6 +1122,7 @@ export class DomoTwinPanel extends LitElement {
             language: real.locale?.language ?? real.language,
             ...(real.user ? { user: real.user } : {}),
             darkMode: real.themes?.darkMode === true,
+            peakDay,
           });
         },
       );
@@ -1134,8 +1135,10 @@ export class DomoTwinPanel extends LitElement {
 
   /** The day of Hydro-Québec's announced peak, played in the sandbox (D-058). */
   private readonly playPeak = async (): Promise<void> => {
-    await this.enterSandbox();
-    this.sandbox?.playPeak();
+    await this.enterSandbox(true);
+    // The copy said no peak after all (it ended meanwhile): its own day, and why.
+    const sandbox = this.sandbox;
+    if (sandbox && !sandbox.peakToday()) this.show(this.t.t("sandbox.no_peak"), true);
   };
 
   /** Back to the home from the demo house or the sandbox: what runs on it ends, nothing saved. */

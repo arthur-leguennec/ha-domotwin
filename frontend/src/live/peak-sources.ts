@@ -73,12 +73,13 @@ export function entitiesOf(hass: HomeAssistant): Map<string, string[]> {
   byKind = new Map();
   for (const entry of Object.values(registry)) {
     if (entry?.platform !== "hydroqc" && entry?.platform !== "hydropeak") continue;
-    const kind = entry.translation_key
-      ? `${entry.platform}.${entry.translation_key}`
-      : entry.platform === "hydroqc" && entry.entity_id.startsWith("button.")
-        ? HYDROQC_BUTTON
-        : undefined;
-    if (kind) byKind.set(kind, [...(byKind.get(kind) ?? []), entry.entity_id]);
+    const kinds = [
+      ...(entry.translation_key ? [`${entry.platform}.${entry.translation_key}`] : []),
+      ...(entry.platform === "hydroqc" && entry.entity_id.startsWith("button.")
+        ? [HYDROQC_BUTTON]
+        : []),
+    ];
+    for (const kind of kinds) byKind.set(kind, [...(byKind.get(kind) ?? []), entry.entity_id]);
   }
   found.set(registry, byKind);
   return byKind;

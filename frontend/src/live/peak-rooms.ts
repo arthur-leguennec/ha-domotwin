@@ -51,7 +51,8 @@ const ACTIONS: Record<string, Heating | "idle"> = {
  */
 export function heatingOf(hass: HomeAssistant, entity: HassEntity): Heating | undefined {
   const state = entity.state;
-  if (state === "off") return "setback";
+  // Off, a thermostat that heats is set back; an air conditioner off says nothing of the heat.
+  if (state === "off") return heatsAtAll(entity) ? "setback" : undefined;
   if (state !== "heat" && state !== "heat_cool" && state !== "auto") return undefined;
   const unit = hass.config?.unit_system?.temperature;
   const read = (value: unknown): number | undefined => {
@@ -71,6 +72,15 @@ export function heatingOf(hass: HomeAssistant, entity: HassEntity): Heating | un
   if (target <= current - DEMAND) return "setback";
   // An idle thermostat is not heating, whatever its target.
   return action === undefined && target >= current + DEMAND ? "heating" : "holding";
+}
+
+/** Whether a thermostat can heat: its modes say so, or say nothing. */
+function heatsAtAll(entity: HassEntity): boolean {
+  const modes = entity.attributes.hvac_modes;
+  return (
+    !Array.isArray(modes) ||
+    modes.some((mode) => mode === "heat" || mode === "heat_cool" || mode === "auto")
+  );
 }
 
 /** What the viewer may not see (D-039): the areas of private rooms, what their pieces link. */

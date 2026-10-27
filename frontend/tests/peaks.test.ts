@@ -63,6 +63,16 @@ describe("Hydro-Québec's peaks (D-058)", () => {
     ]);
     expect(peaksAvailable(calendar)).toBe(true);
     expect(peakNow(calendar)).toEqual({ phase: "none" });
+    // With a translation of its own too.
+    const named = home([
+      [
+        "button.hydro_quebec_maison_refresh_peak_data",
+        "unknown",
+        {},
+        { platform: "hydroqc", translation_key: "refresh_peak_data" },
+      ],
+    ]);
+    expect(peaksAvailable(named)).toBe(true);
     // Another integration's button is not.
     const other = home([["button.restart", "unknown", {}, { platform: "hassio" }]]);
     expect(peaksAvailable(other)).toBe(false);
@@ -230,6 +240,9 @@ describe("Hydro-Québec's peaks (D-058)", () => {
     expect(zonedTime("2026-03-08 02:30:00", "America/Toronto")).toBe(at("2026-03-08T07:30:00Z"));
     expect(zonedTime("2026-11-01 01:30:00", "America/Toronto")).toBe(at("2026-11-01T05:30:00Z"));
     expect(zonedTime("2026-11-01 06:00:00", "America/Toronto")).toBe(at("2026-11-01T11:00:00Z"));
+    // East of UTC too: 02:30 skipped in Paris is 03:30.
+    expect(zonedTime("2026-03-29 02:30:00", "Europe/Paris")).toBe(at("2026-03-29T01:30:00Z"));
+    expect(zonedTime("2026-10-25 02:30:00", "Europe/Paris")).toBe(at("2026-10-25T00:30:00Z"));
     expect(zonedTime("tomorrow", "America/Toronto")).toBeUndefined();
     expect(zonedTime(undefined, "America/Toronto")).toBeUndefined();
     // A zone this browser does not know: its own.
@@ -317,6 +330,9 @@ describe("the rooms around a peak (D-058)", () => {
     expect(of("off", {})).toBe("setback");
     expect(of("heat", { hvac_action: "off" })).toBe("setback");
     expect(of("unavailable", {})).toBeUndefined();
+    // An air conditioner off says nothing of the heat.
+    expect(of("off", { hvac_modes: ["off", "cool"] })).toBeUndefined();
+    expect(of("off", { hvac_modes: ["off", "heat"] })).toBe("setback");
     expect(of("cool", { temperature: 25, current_temperature: 20 })).toBeUndefined();
     // Idle near its target, it holds the room: neither shed nor heating.
     expect(of("heat", { hvac_action: "idle", temperature: 21, current_temperature: 21.2 })).toBe(

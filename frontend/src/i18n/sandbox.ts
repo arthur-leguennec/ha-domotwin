@@ -43,7 +43,9 @@ export const sandboxEn = {
       peak_played:
         "The announced peak plays on this day: from {start} to {end}, pre-heating from {preheat}.",
       peak_other: "A peak is announced on {date}, from {start} to {end}.",
-      peak_play: "Play its day",
+      peak_play: "Choose its day",
+      peak_another:
+        "Another peak is announced that day: the integrations say so, but only this one's times are known, and only it is played.",
     },
     report: {
       title: "What the day did",
@@ -162,7 +164,9 @@ export const sandboxFr: Widen<typeof sandboxEn> = {
       peak_played:
         "La pointe annoncée est jouée ce jour-là : de {start} à {end}, préchauffage dès {preheat}.",
       peak_other: "Une pointe est annoncée le {date}, de {start} à {end}.",
-      peak_play: "Jouer sa journée",
+      peak_play: "Choisir sa journée",
+      peak_another:
+        "Une autre pointe est annoncée ce jour-là : les intégrations le disent, mais seules les heures de celle-ci sont connues, et elle seule est jouée.",
     },
     report: {
       title: "Ce qu’a fait la journée",

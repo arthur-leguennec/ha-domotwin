@@ -676,7 +676,10 @@ export class DomoTwinSandboxBar extends LitElement {
               this.draftError = t.t("sandbox.scenario.bad_date");
               return;
             }
+            // Moved to the announced peak's day: shown from its pre-heating (D-058).
+            const toPeak = draft.date === home.peakDate() && draft.date !== home.scenario.date;
             home.setScenario({ ...draft, calls });
+            if (toPeak) home.playPeak();
             this.open = undefined;
           }}
         >
@@ -703,12 +706,20 @@ export class DomoTwinSandboxBar extends LitElement {
       ${
         draft.date === date
           ? html`<p data-testid="sandbox-peak">
-              ${t.t("sandbox.scenario.peak_played", {
-                start,
-                end,
-                preheat: clockOf(peak.preheat, home.zone),
-              })}
-            </p>`
+                ${t.t("sandbox.scenario.peak_played", {
+                  start,
+                  end,
+                  preheat: home.peakPreheatText((at) => clockOf(at, home.zone)),
+                })}
+              </p>
+              ${
+                // Another peak announced that day: said by the integrations, its times unknown.
+                home.peakAnother && home.scenario.date === date
+                  ? html`<p class="muted" data-testid="sandbox-peak-another">
+                      ${t.t("sandbox.scenario.peak_another")}
+                    </p>`
+                  : nothing
+              }`
           : html`<p class="muted" data-testid="sandbox-peak">
                 ${t.t("sandbox.scenario.peak_other", { date, start, end })}
               </p>

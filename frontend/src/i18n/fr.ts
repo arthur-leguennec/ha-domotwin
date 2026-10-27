@@ -652,6 +652,7 @@ export const fr: Dictionary = {
     failed: "Le bac à sable n’a pas pu s’ouvrir : {reason}",
     leave: "Quitter le bac à sable",
     no_dialog: "Les fenêtres de Home Assistant ne s’ouvrent pas dans le bac à sable.",
+    no_peak: "Aucune pointe n’est plus annoncée : le bac à sable joue aujourd’hui.",
   },
   tabs: {
     label: "Onglets de DomoTwin",
