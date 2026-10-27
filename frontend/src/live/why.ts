@@ -1,5 +1,5 @@
 /**
- * Why a device is as it is (`DECISIONS.md`, D-058): who or what last changed its state, as a
+ * Why a device is as it is (`DECISIONS.md`, D-059): who or what last changed its state, as a
  * chain from what started it to the change. Read as Home Assistant's own Activity reads it: the
  * state's context, the logbook's rows of that context (`logbook/get_events`), the automation or
  * script that ran in it and what set that off, followed back through the state changes that set
@@ -142,7 +142,7 @@ const ULID = /^[0-9A-HJKMNP-TV-Z]{26}$/i;
 /** The logbook of `hass`, through Home Assistant's `logbook/get_events` (open to every user). */
 export function logbookReader(hass: HomeAssistant): LogbookReader {
   return async (query) => {
-    // The demo house's ids are its own (D-058); its logbook knows them.
+    // The demo house's ids are its own (D-059); its logbook knows them.
     if (query.context !== undefined && !hass.demo && !ULID.test(query.context)) return [];
     const message: HassMessage = {
       type: "logbook/get_events",

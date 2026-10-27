@@ -1,5 +1,5 @@
 /**
- * The demo house's logbook (D-058): what its Home Assistant recorded, answered as Home
+ * The demo house's logbook (D-059): what its Home Assistant recorded, answered as Home
  * Assistant's `logbook/get_events` answers (`homeassistant/components/logbook`): a row per state
  * change and per run, each with where its context began (its first row, or its parent's when it
  * is that first row), the user of its context, and a run's context id. Kept in memory, the oldest

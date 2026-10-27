@@ -24,6 +24,7 @@ import type { Choices } from "../live/choices";
 import { MAX_SCHEDULE_ENTITIES, schedulable, type Schedule } from "../live/schedules";
 import type { Upkeep } from "../live/upkeep";
 import { demoConnection, type MemoryHome } from "./connection";
+import { demoHistory, demoLogbook } from "./history";
 import { DemoLogbook, type Recorded } from "./logbook";
 import {
   DAY,
@@ -68,7 +69,7 @@ const MINUTES_A_SECOND = 1;
 const DAY_MS = 86_400_000;
 const MAX_SCHEDULE_DAYS = 366;
 const MAX_SCHEDULE_SPAN_DAYS = 7;
-/** What set the house as it is when the demo goes to another moment (D-058). */
+/** What set the house as it is when the demo goes to another moment (D-059). */
 const THE_DAY: Words = ["The demo house’s day", "La journée de la maison de démo"];
 
 /** A storey of the demo house, as kept. */
@@ -109,7 +110,7 @@ export interface DemoSnapshot {
   states: Record<string, HassEntity>;
   said: [string, string][];
   since: [string, number][];
-  logbook: Recorded[];
+  recorded: Recorded[];
 }
 
 export class DemoError extends Error {
@@ -181,12 +182,14 @@ export class DemoHome implements MemoryHome {
   readonly scheduleListeners = new Set<(schedules: Schedule[]) => void>();
   private timer?: ReturnType<typeof setInterval>;
   private scheduleCount = 0;
-  /** What its Home Assistant recorded (D-058), and the contexts it wrote states in. */
-  readonly logbook = new DemoLogbook();
+  /** What its Home Assistant recorded (D-059), and the contexts it wrote states in. */
+  readonly recorded = new DemoLogbook();
   private contexts = 0;
   /** The context the states are written in now (the demo going to another moment), else each
    * write its own: a device's. */
   private writing?: HassContext;
+  /** When it opened (ms): what its logbook recorded starts then. */
+  private readonly opened: number;
   /** The automations that ran this minute, and the context of each run. */
   private readonly runs = new Map<string, HassContext>();
   /** The first day, in this device's time zone (the demo's clock is a wall clock there). */
@@ -222,7 +225,8 @@ export class DemoHome implements MemoryHome {
     };
     const entities: Record<string, HassEntityEntry> = {};
     const now = this.time();
-    // The house as it starts: set by the demo's day, which its logbook says (D-058).
+    this.opened = Date.parse(now);
+    // The house as it starts: set by the demo's day, which its logbook says (D-059).
     const start = this.dayContext(now);
     for (const thing of THINGS) {
       this.states[thing.id] = {
@@ -346,6 +350,33 @@ export class DemoHome implements MemoryHome {
     return ENERGY_PREFS;
   }
 
+  /** Its day as Home Assistant's history (D-058), up to the demo's clock. */
+  history(entities: readonly string[], start: number, end: number): unknown {
+    return demoHistory(entities, start, end, Date.parse(this.time()), (id) => {
+      return this.hass.states[id]?.state;
+    });
+  }
+
+  /**
+   * Its day's changes as Home Assistant's logbook, with the automations that made them: the same
+   * day every day back before it opened (D-058), what it recorded since, with whoever made them
+   * (D-059).
+   */
+  logbook(entities: readonly string[], start: number, end: number): unknown {
+    const before = demoLogbook(
+      entities,
+      start,
+      Math.min(end, this.opened),
+      Date.parse(this.time()),
+      (id) => {
+        const name = this.hass.states[id]?.attributes.friendly_name;
+        return typeof name === "string" ? name : id;
+      },
+    );
+    const since = this.recorded.events({ start: Math.max(start, this.opened), end, entities });
+    return [...before, ...since];
+  }
+
   /** Follows the `hass` objects to come. */
   subscribe(listener: (hass: HomeAssistant) => void): () => void {
     this.listeners.add(listener);
@@ -401,7 +432,7 @@ export class DemoHome implements MemoryHome {
       states: structuredClone(this.states),
       said: [...this.said],
       since: [...this.since],
-      logbook: this.logbook.kept(),
+      recorded: this.recorded.kept(),
     };
   }
 
@@ -417,7 +448,7 @@ export class DemoHome implements MemoryHome {
     for (const [id, said] of snapshot.said) this.said.set(id, said);
     this.since.clear();
     for (const [id, since] of snapshot.since) this.since.set(id, since);
-    this.logbook.restore(snapshot.logbook);
+    this.recorded.restore(snapshot.recorded);
     this.publish();
     this.play(snapshot.playing);
   }
@@ -430,7 +461,7 @@ export class DemoHome implements MemoryHome {
     this.battery = batteryAt(target);
     this.robotBattery = robotBatteryAt(target);
     this.said.clear();
-    // The house as it is then: set by the demo's day, which its logbook says (D-058).
+    // The house as it is then: set by the demo's day, which its logbook says (D-059).
     this.writing = this.dayContext(this.time());
     this.applyDay(true);
     this.writing = undefined;
@@ -463,7 +494,7 @@ export class DemoHome implements MemoryHome {
       const before = this.states[id]?.state;
       // Sent home by hand and docked already: not on its way home again.
       if (change.state === "returning" && before === "docked") continue;
-      // A change an automation makes is written in its run (D-058).
+      // A change an automation makes is written in its run (D-059).
       const run =
         !all && change.automation && before !== change.state
           ? this.run(change.automation, now)
@@ -556,10 +587,10 @@ export class DemoHome implements MemoryHome {
     }
   }
 
-  /** A context of the demo's day (D-058): the house set as it is at a moment, so recorded. */
+  /** A context of the demo's day (D-059): the house set as it is at a moment, so recorded. */
   private dayContext(now: string): HassContext {
     const context = this.context();
-    this.logbook.record({
+    this.recorded.record({
       when: Date.parse(now) / 1000,
       context,
       event: "demo_day",
@@ -568,7 +599,7 @@ export class DemoHome implements MemoryHome {
     return context;
   }
 
-  /** A new context (D-058): of `parent`'s doing, or of a user's. */
+  /** A new context (D-059): of `parent`'s doing, or of a user's. */
   private context(parent?: string, user?: string): HassContext {
     this.contexts += 1;
     return { id: `demo-${this.contexts}`, parent_id: parent ?? null, user_id: user ?? null };
@@ -578,7 +609,7 @@ export class DemoHome implements MemoryHome {
    * that measure (a number) are left out, as its logbook leaves them. */
   private recordChange(id: string, state: string, context: HassContext, now: string): void {
     if (id.startsWith("sensor.") && state.trim() !== "" && Number.isFinite(Number(state))) return;
-    this.logbook.record({ when: Date.parse(now) / 1000, context, entity: id, state });
+    this.recorded.record({ when: Date.parse(now) / 1000, context, entity: id, state });
   }
 
   /**
@@ -634,7 +665,7 @@ export class DemoHome implements MemoryHome {
     this.runs.set(id, context);
     const automation = this.states[id];
     const name = automation?.attributes.friendly_name;
-    this.logbook.record({
+    this.recorded.record({
       when: Date.parse(now) / 1000,
       context,
       event: "automation_triggered",
@@ -690,7 +721,7 @@ export class DemoHome implements MemoryHome {
     data: Record<string, unknown>,
     target: Record<string, unknown>,
   ): void {
-    // The visitor's own (D-058): as Home Assistant writes what a user asks.
+    // The visitor's own (D-059): as Home Assistant writes what a user asks.
     const context = this.context(undefined, this.hass.user?.id);
     const changed = this.callWith(context, domain, service, data, target);
     if (changed.length > 0) this.publish();
@@ -706,7 +737,7 @@ export class DemoHome implements MemoryHome {
     target: Record<string, unknown>,
   ): string[] {
     const now = this.time();
-    this.logbook.record({
+    this.recorded.record({
       when: Date.parse(now) / 1000,
       context,
       event: "call_service",

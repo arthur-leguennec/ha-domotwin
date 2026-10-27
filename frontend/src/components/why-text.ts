@@ -1,5 +1,5 @@
 /**
- * The words of a "Why?" chain (D-058): each step as the device's sheet lists it and as the chain
+ * The words of a "Why?" chain (D-059): each step as the device's sheet lists it and as the chain
  * drawn in 3D labels it. Adds the messages of "Why?" the first time one of its chunks loads.
  */
 import type { HomeAssistant } from "../ha/types";

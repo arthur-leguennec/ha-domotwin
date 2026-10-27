@@ -142,7 +142,14 @@ import { robotDocks, robotsShown, type RobotDock } from "../live/robots";
 import { energyFlows, energyNow, type EnergyNow, type EnergySettings } from "../live/energy";
 import { energyFlow, energyStyles } from "./energy-flow";
 import { locatedSensors, locatedShown, type LocatedShown } from "../live/locating";
-import { closedAreas, outOfSight, privateRooms } from "../live/privacy";
+import {
+  NOTHING_UNSEEN,
+  outOfSight,
+  privateRooms,
+  seen,
+  unseenOf,
+  type Unseen,
+} from "../live/privacy";
 import { avatar, avatarStyles } from "./person-avatar";
 import { spoken } from "../live/show";
 import { StateSync } from "../live/states";
@@ -311,7 +318,7 @@ type NetworkMap = HTMLElement & {
 };
 
 /** What the view asks of the automation wires (`automation-wires.ts`, loaded on demand), and of
- * a chain drawn in the home (`why-wires.ts`, D-058). */
+ * a chain drawn in the home (`why-wires.ts`, D-059). */
 type WiresView = HTMLElement & {
   reproject(scale: number): void;
   tap(x: number, y: number): boolean;
@@ -341,7 +348,8 @@ const WALK_KEYS: Record<string, [number, number]> = {
   KeyD: [0, 1],
 };
 /** The view's sheets: the focus goes into them and comes back (D-042). */
-const VIEW_SHEETS = "domotwin-controls, domotwin-piece, domotwin-room, domotwin-person";
+const VIEW_SHEETS =
+  "domotwin-controls, domotwin-piece, domotwin-room, domotwin-person, domotwin-history";
 /** Alerts listed in the banner; the others are counted. */
 const MAX_ALERTS_SHOWN = 2;
 /** The power layer's colours, from a few watts to 3 kW (`shaders.rs`). */
@@ -387,7 +395,7 @@ type Sheet =
       /** The element whose controls these are. */
       element: string;
       entities: string[];
-      /** The entity shown in the scene (D-058: "Why?" explains it). */
+      /** The entity shown in the scene (D-059: "Why?" explains it). */
       primary?: string;
       device?: string;
       area?: string;
@@ -395,7 +403,19 @@ type Sheet =
     }
   | { kind: "piece"; heading: string; piece: string; room?: FocusedRoom }
   | { kind: "room"; heading: string; area?: string; room?: string; closed?: boolean }
-  | { kind: "person"; heading: string; person: string };
+  | { kind: "person"; heading: string; person: string }
+  | {
+      /**
+       * A history report (D-058): its entities, the element or room it was opened from (closed
+       * with them when they turn private, D-039), and what its search leaves out.
+       */
+      kind: "history";
+      heading: string;
+      entities: string[];
+      element?: string;
+      room?: string;
+      unseen: Unseen;
+    };
 
 /**
  * The name and type of each element of the plan shown, the room of its pieces, doors and windows,
@@ -747,7 +767,7 @@ export class DomoTwinView extends LitElement {
   protected wiresAsked?: { ids: string[]; reads?: WiresReads };
   protected wiresLoaded = false;
   private wiresModule?: Promise<unknown>;
-  /** The chain a device's sheet asked to draw (D-058), and its module loaded. */
+  /** The chain a device's sheet asked to draw (D-059), and its module loaded. */
   protected whyAsked?: ShowWhy;
   protected whyLoaded = false;
   private whyModule?: Promise<unknown>;
@@ -896,14 +916,7 @@ export class DomoTwinView extends LitElement {
   /** `openNames`, and what it was worked out from. */
   private openNamesFrom?: { names: ElementNames; closed: Set<string>; open: ElementNames };
   /** What the viewer may not see, as an entity's test, and what it was worked out from (D-039). */
-  private unseenFrom?: {
-    closed: Set<string>;
-    bindings: BindingsJson;
-    names: ElementNames;
-    rooms: PlanRoom[];
-    areas: HomeAssistant["areas"];
-    unseen: (entity: string) => boolean;
-  };
+  private unseenFrom?: { keys: unknown[]; unseen: (entity: string) => boolean };
   /** The labels' JSON last read from the engine, and whether they must be read again. */
   private labelsText = "";
   private labelsDue = true;
@@ -941,6 +954,8 @@ export class DomoTwinView extends LitElement {
   private addModifier = false;
   /** The panels' module, loaded the first time one opens. */
   private sheets?: Promise<unknown>;
+  /** The history report's module (D-058), loaded the first time one opens. */
+  private reportModule?: Promise<unknown>;
   private readonly onVisibility = (): void => {
     this.scheduler?.setPageVisible(document.visibilityState === "visible");
     this.startAgain();
@@ -2052,7 +2067,9 @@ export class DomoTwinView extends LitElement {
             ? `piece:${sheet.piece}`
             : sheet.kind === "person"
               ? `person:${sheet.person}`
-              : `room:${sheet.area ?? ""}`;
+              : sheet.kind === "history"
+                ? `history:${sheet.entities.join(",")}`
+                : `room:${sheet.area ?? ""}`;
     }
     const edit = this.edit;
     if (edit) {
@@ -2426,6 +2443,16 @@ export class DomoTwinView extends LitElement {
         this.sheet = undefined;
       }
     }
+    if (sheet?.kind === "history") {
+      if (
+        (sheet.element !== undefined && this.inClosedRoom(sheet.element)) ||
+        (sheet.room !== undefined && this.closed.has(sheet.room))
+      ) {
+        this.sheet = undefined;
+      } else if (this.hass) {
+        this.sheet = { ...sheet, unseen: this.unseen(this.hass) };
+      }
+    }
   }
 
   /**
@@ -2445,42 +2472,31 @@ export class DomoTwinView extends LitElement {
   }
 
   /**
-   * Whether the viewer may not see an entity (D-039): linked to what a private room they may not
-   * see holds, or in its area. None while every room is open; the same while the rooms, their
-   * links and the plan shown stay the same.
+   * Whether the viewer may not see an entity (D-039, as the reports' search, D-058): linked to what
+   * a private room they may not see holds on any storey known, or in its area. None while every
+   * room is open; worked out again only when the rooms, their links or the plans change.
    */
   private unseenEntity(): ((entity: string) => boolean) | undefined {
     const hass = this.hass;
     if (!hass || this.closed.size === 0) return undefined;
-    const bindings = this.bindings ?? NO_BINDINGS;
+    const keys = [
+      this.closed,
+      this.bindings,
+      this.rooms,
+      this.plan,
+      this.layout,
+      this.home,
+      this.elsewhere,
+      hass.areas,
+    ];
     const from = this.unseenFrom;
-    if (
-      from?.closed === this.closed &&
-      from.bindings === bindings &&
-      from.names === this.names &&
-      from.rooms === this.rooms &&
-      from.areas === hass.areas
-    ) {
-      return from.unseen;
-    }
-    const linked = new Set<string>();
-    for (const [id, binding] of Object.entries(bindings.elements)) {
-      if (!this.inClosedRoom(id)) continue;
-      for (const entity of binding.entities) linked.add(entity.entity_id);
-    }
-    const areas = closedAreas(hass, bindings, this.rooms, this.closed);
+    if (from?.keys.every((key, i) => key === keys[i])) return from.unseen;
+    const unseen = this.unseen(hass);
     // The entities' areas as Home Assistant has them when asked.
-    const unseen = (entity: string): boolean =>
-      linked.has(entity) || (this.hass !== undefined && areas.has(areaOf(this.hass, entity) ?? ""));
-    this.unseenFrom = {
-      closed: this.closed,
-      bindings,
-      names: this.names,
-      rooms: this.rooms,
-      areas: hass.areas,
-      unseen,
-    };
-    return unseen;
+    const test = (entity: string): boolean =>
+      !seen(unseen, entity, this.hass ? areaOf(this.hass, entity) : undefined);
+    this.unseenFrom = { keys, unseen: test };
+    return test;
   }
 
   /** Frames an element of the plan; false when it has nothing to show. */
@@ -2812,7 +2828,7 @@ export class DomoTwinView extends LitElement {
   }
 
   /**
-   * The chain a device's sheet asked to draw (D-058), over any automation wires; none while a
+   * The chain a device's sheet asked to draw (D-059), over any automation wires; none while a
    * tool is at work over the view, nor while walking, as the wires.
    */
   private get whyShown(): ShowWhy | undefined {
@@ -2833,7 +2849,7 @@ export class DomoTwinView extends LitElement {
     this.wiresAsked = { ids, reads };
   };
 
-  /** A device's sheet asked for its chain drawn in the home (D-058). */
+  /** A device's sheet asked for its chain drawn in the home (D-059). */
   private readonly onShowWhy = (event: Event): void => {
     this.sheet = undefined;
     this.wiresAsked = undefined;
@@ -4491,7 +4507,7 @@ export class DomoTwinView extends LitElement {
     ></domotwin-network>`;
   }
 
-  /** The automation wires (D-032), or a device's chain (D-058): their module is loaded the first
+  /** The automation wires (D-032), or a device's chain (D-059): their module is loaded the first
    * time they are shown. */
   private renderWires(): TemplateResult | typeof nothing {
     const why = this.whyShown;
@@ -4520,7 +4536,7 @@ export class DomoTwinView extends LitElement {
     ></domotwin-wires>`;
   }
 
-  /** A device's chain drawn in the home (D-058). */
+  /** A device's chain drawn in the home (D-059). */
   private renderWhy(why: ShowWhy): TemplateResult | typeof nothing {
     if (!this.whyLoaded) {
       this.whyModule ??= import("./why-wires").then(
@@ -4861,6 +4877,44 @@ export class DomoTwinView extends LitElement {
     </div>`;
   }
 
+  /** A sheet asked for the history of its entities (D-058): the report, over the view. */
+  private readonly onOpenHistory = (event: CustomEvent<{ entities: string[] }>): void => {
+    const sheet = this.sheet;
+    if (!sheet) return;
+    const report: Sheet = {
+      kind: "history",
+      heading: sheet.heading,
+      entities: event.detail.entities,
+      unseen: this.hass ? this.unseen(this.hass) : NOTHING_UNSEEN,
+    };
+    if (sheet.kind === "controls") report.element = sheet.element;
+    if (sheet.kind === "room" && sheet.room !== undefined) report.room = sheet.room;
+    this.reportModule ??= import("./history-report");
+    this.reportModule.then(
+      () => {
+        // Still asked for: no other sheet nor home since.
+        if (this.sheet === sheet) this.sheet = report;
+      },
+      (error: unknown) => {
+        this.reportModule = undefined;
+        this.notify(failureText(this.translator, error));
+      },
+    );
+  };
+
+  /**
+   * What the viewer may not see (D-039), for the report's search: the private rooms' areas and
+   * what is linked to them and to what they hold, on every storey known.
+   */
+  private unseen(hass: HomeAssistant): Unseen {
+    const bindings = this.bindings ?? NO_BINDINGS;
+    const storeys = this.home
+      ? this.home.map((storey) => ({ plan: storey.plan, layout: storey.layout }))
+      : [{ plan: this.plan, layout: this.layout }, ...this.elsewhere];
+    const rooms = [...this.rooms, ...this.elsewhere.flatMap((storey) => storey.rooms)];
+    return unseenOf(hass, bindings, rooms, storeys, this.closed);
+  }
+
   private renderSheet(): TemplateResult | typeof nothing {
     const sheet = this.sheet;
     if (!sheet) return nothing;
@@ -4879,6 +4933,7 @@ export class DomoTwinView extends LitElement {
         .standing=${sheet.piece ? this.standings[sheet.piece] : undefined}
         @domotwin-close=${this.closeSheet}
         @domotwin-show-wires=${this.onShowWires}
+        @domotwin-open-history=${this.onOpenHistory}
         @domotwin-show-why=${this.onShowWhy}
       ></domotwin-controls>`;
     }
@@ -4897,6 +4952,15 @@ export class DomoTwinView extends LitElement {
           if (room) void this.openRoom(room.id, room.name);
         }}
       ></domotwin-piece>`;
+    }
+    if (sheet.kind === "history") {
+      return html`<domotwin-history
+        .hass=${this.hass}
+        .heading=${sheet.heading}
+        .entities=${sheet.entities}
+        .unseen=${sheet.unseen}
+        @domotwin-close=${this.closeSheet}
+      ></domotwin-history>`;
     }
     if (sheet.kind === "person") {
       const person = this.shownPeople.find((p) => p.id === sheet.person);
@@ -4926,6 +4990,7 @@ export class DomoTwinView extends LitElement {
       .things=${sheet.room ? this.located.filter((d) => d.room === sheet.room) : []}
       @domotwin-close=${this.closeSheet}
       @domotwin-show-wires=${this.onShowWires}
+      @domotwin-open-history=${this.onOpenHistory}
       @domotwin-open-person=${(event: CustomEvent<string>) => {
         void this.openPerson(event.detail);
       }}

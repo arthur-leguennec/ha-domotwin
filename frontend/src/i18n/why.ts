@@ -1,5 +1,5 @@
 /**
- * The messages of "Why?" (D-058), in both languages: loaded with the device's sheet section and
+ * The messages of "Why?" (D-059), in both languages: loaded with the device's sheet section and
  * the chain drawn in 3D, not with the first picture.
  */
 import type { Widen } from "./index";

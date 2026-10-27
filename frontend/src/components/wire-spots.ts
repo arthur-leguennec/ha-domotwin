@@ -1,5 +1,5 @@
 /**
- * What the wires drawn with the automations' wire set show over the view (D-032, D-058): the
+ * What the wires drawn with the automations' wire set show over the view (D-032, D-059): the
  * spots their ends are at, marked by role, or labelled where nothing stands there, lifted apart
  * where they would cover one another; and the chip at the top that names them.
  */

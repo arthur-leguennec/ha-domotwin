@@ -82,4 +82,4 @@ Home Assistant's users who are not a `person`, are for administrators. What a pr
   there.
 - Why something did **not** happen is not in a logbook: it is the sandbox's, later (M29).
 
-See `DECISIONS.md`, D-058, for the reasons behind these choices.
+See `DECISIONS.md`, D-059, for the reasons behind these choices.

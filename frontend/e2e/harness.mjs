@@ -37,7 +37,10 @@
 //   list), firstpage=device|user (how Home Assistant keeps the page it opens first)
 //   sandbox=1 (D-057: Home Assistant's time zone and a fictional place; with automations=1, two
 //   automations working against each other, one set off from outside, and a script)
-//   why=1 (D-058: Home Assistant's logbook and traces of a fictional evening, with live=1: the
+//   Home Assistant's history, statistics and logbook (D-058) answer a fictional day of the
+//   bedroom (`HISTORY` below); historyfail=1 makes the history refuse, nostats=1 leaves the
+//   statistics out; formatstate=1 gives `hass.formatEntityState` (states in words, "°C" after).
+//   why=1 (D-059: Home Assistant's logbook and traces of a fictional evening, with live=1: the
 //   entrance door opened five minutes ago and set off "Hall light at the door", which lit the
 //   hall's spots; Sam switched the floor lamp on two minutes ago; the kitchen's ceiling light was
 //   switched off on its own switch)
@@ -66,7 +69,7 @@ const zha = params.get("zha") === "1";
 // Fictional automations (D-032): `automations=1` three of them, `automations=50` as many made up.
 const automationCount = Number(params.get("automations") ?? 0);
 const sandbox = params.get("sandbox") === "1";
-// Home Assistant's logbook and traces of a fictional evening (D-058).
+// Home Assistant's logbook and traces of a fictional evening (D-059).
 const why = params.get("why") === "1";
 /** The logbook's rows, as `logbook/get_events` gives them, each with the context it is in. */
 let whyRows = [];
@@ -650,6 +653,118 @@ function zhaDevices() {
   ];
 }
 
+// What Home Assistant's recorder has (D-058), for a fictional day before now (each entity's state
+// 25 hours ago first, before the last 24 hours begin): the bedroom above
+// 24 °C for an hour and a half (5 hours ago), then again for 40 minutes (now); its bedside lamp
+// switched on and off; the front door locked by an automation. [minutes before now, state, cause]
+const HISTORY = {
+  "sensor.bedroom_temperature": [
+    [25 * 60, "22.8"],
+    [5 * 60, "24.5"],
+    [4 * 60, "25.1"],
+    [3 * 60 + 30, "23.6"],
+    [40, "24.3"],
+  ],
+  "light.bedside_left": [
+    [25 * 60, "off"],
+    [3 * 60, "on", { context_user_id: "e2e" }],
+    [2 * 60 + 50, "off", { context_name: "Goodnight", context_entity_id: "automation.goodnight" }],
+    [30, "on", { context_domain: "light", context_service: "turn_on" }],
+  ],
+  "lock.entrance_door": [
+    [25 * 60, "unlocked"],
+    [6 * 60, "locked", { context_name: "Lock at night", context_entity_id: "automation.lock" }],
+    [60, "unlocked", { context_user_id: "e2e" }],
+  ],
+};
+const HOUR_MS = 3_600_000;
+/** The minutes before now of `HISTORY` as times (ms), from a fixed `now`. */
+function historyOf(id, now) {
+  return (HISTORY[id] ?? []).map(([before, state, cause]) => ({
+    at: now - before * 60_000,
+    state,
+    cause,
+  }));
+}
+/** `history/history_during_period`: the state at the start, then each change, compressed. */
+function historyDuring(message) {
+  if (params.get("historyfail") === "1") {
+    throw { code: "unknown_error", message: "The recorder is busy" };
+  }
+  const now = Date.now();
+  const start = Date.parse(message.start_time);
+  const end = message.end_time ? Date.parse(message.end_time) : now;
+  const answer = {};
+  for (const id of message.entity_ids) {
+    const changes = historyOf(id, now);
+    if (changes.length === 0) {
+      const state = home.states[id]?.state;
+      if (state !== undefined) answer[id] = [{ s: state, lu: start / 1000 }];
+      continue;
+    }
+    const before = changes.filter((c) => c.at <= start).at(-1);
+    const list = before ? [{ s: before.state, lu: start / 1000 }] : [];
+    for (const change of changes) {
+      if (change.at > start && change.at < end)
+        list.push({ s: change.state, lu: change.at / 1000 });
+    }
+    answer[id] = list;
+  }
+  return answer;
+}
+/** `recorder/statistics_during_period`: the bedroom's temperature has hourly statistics. */
+function statisticsDuring(message) {
+  if (params.get("nostats") === "1") return {};
+  const start = Math.ceil(Date.parse(message.start_time) / HOUR_MS) * HOUR_MS;
+  const last = Math.min(Date.parse(message.end_time ?? new Date().toISOString()), Date.now());
+  const answer = {};
+  if (message.statistic_ids.includes("sensor.bedroom_temperature")) {
+    const hours = [];
+    for (let hour = start; hour + HOUR_MS <= last; hour += HOUR_MS) {
+      const k = Math.round(hour / HOUR_MS) % 6;
+      hours.push({
+        start: hour,
+        end: hour + HOUR_MS,
+        mean: 21 + k * 0.8,
+        min: 20.5 + k * 0.8,
+        max: 21.6 + k * 0.8,
+      });
+    }
+    answer["sensor.bedroom_temperature"] = hours;
+  }
+  return answer;
+}
+/** `logbook/get_events`: the changes in the period, measurements (a unit) left out. */
+function logbookEvents(message) {
+  const now = Date.now();
+  const start = Date.parse(message.start_time);
+  const end = message.end_time ? Date.parse(message.end_time) : now;
+  const entries = [];
+  for (const id of message.entity_ids ?? []) {
+    if (id.startsWith("sensor.") && home.states[id]?.attributes.unit_of_measurement) continue;
+    for (const change of historyOf(id, now)) {
+      if (change.at <= start || change.at >= end) continue;
+      entries.push({ when: change.at / 1000, entity_id: id, state: change.state, ...change.cause });
+    }
+  }
+  return entries.sort((a, b) => a.when - b.when);
+}
+
+/** The logbook of the fictional evening (D-059): the rows of a context, or of entities, in the
+ * time asked. */
+function whyEvents(message) {
+  const start = Date.parse(message.start_time) / 1000;
+  const end = message.end_time ? Date.parse(message.end_time) / 1000 : Infinity;
+  return whyRows
+    .filter((row) => row.when >= start && row.when <= end)
+    .filter((row) =>
+      message.context_id
+        ? row.context === message.context_id
+        : !message.entity_ids || message.entity_ids.includes(row.entry.entity_id),
+    )
+    .map((row) => row.entry);
+}
+
 const connection = {
   sendMessage(message) {
     calls.push(message);
@@ -657,6 +772,12 @@ const connection = {
   async sendMessagePromise(message) {
     calls.push(message);
     switch (message.type) {
+      case "history/history_during_period":
+        return historyDuring(message);
+      case "recorder/statistics_during_period":
+        return statisticsDuring(message);
+      case "logbook/get_events":
+        return why ? whyEvents(message) : logbookEvents(message);
       case "zha/devices":
         if (!zha) throw { code: "unknown_command", message: message.type };
         if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
@@ -985,19 +1106,6 @@ const connection = {
         publishSchedules();
         return { cancelled: at >= 0 ? 1 : 0 };
       }
-      case "logbook/get_events": {
-        // The rows of a context, or of entities, in the time asked (D-058).
-        const start = Date.parse(message.start_time) / 1000;
-        const end = message.end_time ? Date.parse(message.end_time) / 1000 : Infinity;
-        return whyRows
-          .filter((row) => row.when >= start && row.when <= end)
-          .filter((row) =>
-            message.context_id
-              ? row.context === message.context_id
-              : !message.entity_ids || message.entity_ids.includes(row.entry.entity_id),
-          )
-          .map((row) => row.entry);
-      }
       case "trace/contexts":
         if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
         return why ? { [C_RUN]: { run_id: "run-1", domain: "automation", item_id: "1004" } } : {};
@@ -1134,7 +1242,7 @@ if (params.get("lists") === "1") {
   };
 }
 if (live && why) {
-  // A fictional evening (D-058): the states as they are after it, and what the logbook keeps.
+  // A fictional evening (D-059): the states as they are after it, and what the logbook keeps.
   const now = Date.now() / 1000;
   const iso = (seconds) => new Date(seconds * 1000).toISOString();
   const door = now - 300;
@@ -1325,6 +1433,16 @@ let hass = {
   },
   connection,
   fetchWithAuth,
+  // Home Assistant's own words for a state (D-058): `on` as "On", a number with its unit.
+  ...(params.get("formatstate") === "1"
+    ? {
+        formatEntityState(entity, state = entity.state) {
+          const unit = entity.attributes.unit_of_measurement;
+          if (unit && !Number.isNaN(Number(state))) return `${state} ${unit}`;
+          return state.charAt(0).toUpperCase() + state.slice(1);
+        },
+      }
+    : {}),
   async callService(domain, service, data, target) {
     calls.push({ type: "call_service", domain, service, data, target });
     if (window.__failServices)

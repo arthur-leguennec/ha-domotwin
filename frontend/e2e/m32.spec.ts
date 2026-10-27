@@ -57,7 +57,7 @@ async function pointOnWire(page: Page): Promise<{ x: number; y: number }> {
   return found;
 }
 
-test.describe('"Why?" (D-058)', () => {
+test.describe('"Why?" (D-059)', () => {
   test("a lamp lit by an automation the door set off, its trace, its Activity, in 3D", async ({
     page,
   }) => {

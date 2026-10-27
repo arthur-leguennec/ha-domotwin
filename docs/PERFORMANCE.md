@@ -923,9 +923,29 @@ is played again when it is changed or a tap is done in it. Showing a moment of i
 changes up to there (from midnight when going back); playing moves the moment on ten times a second
 and gives the panel one new `hass` each time, as Home Assistant would.
 
+### M38 (history as reports)
+
+Bundle: the first load is **517.3 kB gzipped** of 1 200 kB (+0.9 kB): the **History** buttons'
+labels, and the view's way to the report. The report comes on demand, the first time **History**
+is pressed (`chunks/history-report-<hash>.js`: 32.5 kB raw, 9.4 kB gzipped), with its texts in
+both languages; the reading of Home Assistant's answers (`src/live/history.ts`, 7.9 kB raw,
+3.4 kB gzipped) is a chunk shared with the sheets, which offer a room's report only when it has
+air sensors, and with the demo house.
+
+Nothing of it runs until a report opens. A report asks Home Assistant once for what is chosen
+(its history, or its statistics and then the history of the entities that have none, or its
+logbook), again only when the entities, the period or the way to read them change, never at a
+new state of the home, which does not draw it again either. The rows are filtered once for each
+answer and filter; the table draws 500 rows at most, and the CSV is written when it is asked for.
+Measured in Node on a computer, a week of a power sensor reporting every ten seconds (60 340
+changes): read in about 35 ms, its rows in 50 ms, filtered by value and by how long in 35 ms, its
+168 hours worked out in 30 ms, and its CSV (5.3 MB) written in 170 ms. The demo house works out
+its day once, minute by minute, the first time its history is asked (about 70 ms), then answers
+ten days of three entities in a few milliseconds.
+
 ### M32 ("Why?")
 
-Bundle: the first load is **517.4 kB gzipped** of 1 200 kB (+1.0 kB): the view's part (the chain
+Bundle: the first load is **518.2 kB gzipped** of 1 200 kB (+0.9 kB): the view's part (the chain
 asked for, shown and hidden, what a private room hides from it) and five icons. The section comes
 with the sheets (`chunks/sheets-<hash>.js`: 44.1 kB raw, 11.0 kB gzipped, +1.3 kB) with its texts
 in both languages, the chain drawn in the home on demand, the first time it is

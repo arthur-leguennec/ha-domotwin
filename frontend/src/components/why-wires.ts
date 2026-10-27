@@ -1,5 +1,5 @@
 /**
- * "Why?" drawn in the home (`DECISIONS.md`, D-058): the chain of a device's last change as wires
+ * "Why?" drawn in the home (`DECISIONS.md`, D-059): the chain of a device's last change as wires
  * of the automations' wire set (D-032), from what started it to the device, each wire going
  * through the automations and scripts that ran between its two ends, in the first one's colour;
  * a pulse runs along them one after the other, from the start to the device. What has no piece

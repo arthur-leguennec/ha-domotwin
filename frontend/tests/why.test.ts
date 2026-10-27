@@ -743,16 +743,16 @@ describe("the demo house's logbook", () => {
     const demo = new DemoHome({ language: "fr" });
     const kept = demo.snapshot();
     demo.advance(5);
-    const rows = demo.logbook.events({ start: 0 });
+    const rows = demo.recorded.events({ start: 0 });
     expect(rows.some((r) => r.entity_id === "sensor.solar_power")).toBe(false);
-    const before = demo.logbook.events({ start: 0, entities: ["light.wc"] });
+    const before = demo.recorded.events({ start: 0, entities: ["light.wc"] });
     // As it starts, set by the demo's day.
     expect(before).toHaveLength(1);
     expect(before[0]).toMatchObject({ state: "off", context_event_type: "demo_day" });
     void demo.hass.callService("light", "turn_on", {}, { entity_id: "light.wc" });
-    expect(demo.logbook.events({ start: 0, entities: ["light.wc"] })).toHaveLength(2);
+    expect(demo.recorded.events({ start: 0, entities: ["light.wc"] })).toHaveLength(2);
     demo.restore(kept);
-    expect(demo.logbook.events({ start: 0, entities: ["light.wc"] })).toEqual(before);
+    expect(demo.recorded.events({ start: 0, entities: ["light.wc"] })).toEqual(before);
     demo.stop();
   });
 });
