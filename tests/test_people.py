@@ -380,19 +380,26 @@ async def test_where_answers_and_shows(
     await hass.services.async_call("domotwin", "show", {"person": "person.sam"}, blocking=True)
 
 
-async def test_the_voice_blueprint_says_where_someone_is(
-    hass: HomeAssistant,
-    home: MockConfigEntry,
-    hass_ws_client: WebSocketGenerator,
-    config_dir: Path,
-) -> None:
-    """Imported as is, "where is Alex" answers with Alex's room and shows it."""
+@pytest.fixture
+async def assist(hass: HomeAssistant, config_dir: Path) -> None:
+    """Assist and the voice blueprint, set up before a client starts the web server.
+
+    Assist's intents add their views to it, which a started server no longer takes.
+    """
     target = config_dir / "blueprints" / "automation" / "domotwin"
     target.mkdir(parents=True)
     shutil.copy(BLUEPRINT, target / BLUEPRINT.name)
-    # Set up before a client starts the web server: Assist's intents add their views to it.
     assert await async_setup_component(hass, "homeassistant", {})
     assert await async_setup_component(hass, "conversation", {})
+
+
+async def test_the_voice_blueprint_says_where_someone_is(
+    hass: HomeAssistant,
+    assist: None,
+    home: MockConfigEntry,
+    hass_ws_client: WebSocketGenerator,
+) -> None:
+    """Imported as is, "where is Alex" answers with Alex's room and shows it."""
     assert await async_setup_component(
         hass,
         "automation",
