@@ -74,8 +74,11 @@ export const practicalEn = {
     no_cards: "No card yet.",
     add_calendar: "Add an agenda",
     add_list: "Add a list",
+    add_summary: "Add a summary",
     agenda: "Agenda: {names}",
     list: "List: {name}",
+    summary: "Summary: {name}",
+    pick_summary: "The summary",
     remove: "Remove {name}",
     pick_calendars: "The calendars it shows",
     pick_list: "The list",
@@ -86,6 +89,7 @@ export const practicalEn = {
     cancel: "Cancel",
     failed: "Your choices were not saved: {reason}",
     demo: "In the demo house, your choices last until you leave it.",
+    sandbox: "In the sandbox, your choices last until you leave it.",
   },
 };
 
@@ -163,8 +167,11 @@ export const practicalFr: PracticalDictionary = {
     no_cards: "Pas encore de carte.",
     add_calendar: "Ajouter un agenda",
     add_list: "Ajouter une liste",
+    add_summary: "Ajouter un résumé",
     agenda: "Agenda : {names}",
     list: "Liste : {name}",
+    summary: "Résumé : {name}",
+    pick_summary: "Le résumé",
     remove: "Retirer {name}",
     pick_calendars: "Les calendriers qu’il montre",
     pick_list: "La liste",
@@ -175,5 +182,6 @@ export const practicalFr: PracticalDictionary = {
     cancel: "Annuler",
     failed: "Vos choix n’ont pas été enregistrés : {reason}",
     demo: "Dans la maison de démo, vos choix durent jusqu’à ce que vous la quittiez.",
+    sandbox: "Dans le bac à sable, vos choix durent jusqu’à ce que vous le quittiez.",
   },
 };

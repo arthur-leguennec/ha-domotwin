@@ -3,7 +3,7 @@
  * scheduled action asks of a lamp, a curtain, a TV, a thermostat, a lock or the robot vacuum
  * changes its simulated state, and nothing else.
  */
-import type { HassEntity } from "../ha/types";
+import type { HassContext, HassEntity } from "../ha/types";
 
 type States = Record<string, HassEntity | undefined>;
 
@@ -40,7 +40,7 @@ const clamp = (value: number, low: number, high: number): number =>
   Math.min(high, Math.max(low, value));
 
 /** What `service` does to one entity of `domain`: its new state and attributes, or nothing. */
-function apply(
+export function serviceEffect(
   entity: HassEntity,
   domain: string,
   service: string,
@@ -185,8 +185,9 @@ function apply(
 }
 
 /**
- * Applies `domain.service` to the demo's `states` (a new state object for each entity changed);
- * `homeassistant.*` acts on any domain. Returns the entities changed.
+ * Applies `domain.service` to the demo's `states` (a new state object for each entity changed,
+ * written in `context` when given); `homeassistant.*` acts on any domain. Returns the entities
+ * changed.
  */
 export function callService(
   states: States,
@@ -196,13 +197,14 @@ export function callService(
   target: Record<string, unknown> = {},
   areaOf: (id: string) => string | undefined = () => undefined,
   now = new Date().toISOString(),
+  context?: HassContext,
 ): string[] {
   const changed: string[] = [];
   for (const id of targets(domain, data, target, areaOf, states)) {
     const entity = states[id];
     if (!entity || entity.state === "unavailable") continue;
     const own = id.slice(0, id.indexOf("."));
-    const result = apply(entity, domain === "homeassistant" ? own : domain, service, data);
+    const result = serviceEffect(entity, domain === "homeassistant" ? own : domain, service, data);
     if (!result) continue;
     const moved = result.state !== entity.state;
     states[id] = {
@@ -211,6 +213,7 @@ export function callService(
       attributes: result.attributes,
       last_changed: moved ? now : entity.last_changed,
       last_updated: now,
+      ...(context ? { context } : {}),
     };
     changed.push(id);
   }

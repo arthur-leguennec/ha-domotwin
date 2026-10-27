@@ -1,11 +1,20 @@
 /** The small part of Home Assistant's frontend API that DomoTwin uses. */
 
+/** What a state was written in (`homeassistant.core.Context`): who asked for it, and what set it
+ * off (the context of an automation's trigger, for an automation's run). */
+export interface HassContext {
+  id: string;
+  parent_id?: string | null;
+  user_id?: string | null;
+}
+
 export interface HassEntity {
   entity_id: string;
   state: string;
   attributes: Record<string, unknown>;
   last_changed: string;
   last_updated: string;
+  context?: HassContext;
 }
 
 export interface HassUser {
@@ -44,6 +53,8 @@ export interface HassEntityEntry {
   /** The integration it comes from, and what kind of its entities it is. */
   platform?: string;
   translation_key?: string | null;
+  /** The decimals its numbers are shown with, when set in Home Assistant. */
+  display_precision?: number;
 }
 
 /** An entry of the device registry. */
@@ -98,13 +109,22 @@ export interface HomeAssistant {
     components?: string[];
     /** Home Assistant's time zone (an IANA name). */
     time_zone?: string;
+    /** Where the home is: for the sun of the sandbox's day (D-057). */
+    latitude?: number;
+    longitude?: number;
+    /** Home Assistant's version (`2026.2.0`): what its frontend has (D-061). */
+    version?: string;
   };
+  /** The panels Home Assistant has, by URL path: its Overview's is `home` (D-061). */
+  panels?: Record<string, { url_path?: string } | undefined>;
   connection: HassConnection;
   /**
    * The demo house's own (D-050): nothing hands over to Home Assistant's pages or dialogs, which
    * would show the home's entities, not the demo's.
    */
   demo?: boolean;
+  /** The sandbox's copy of the home (D-057): a home kept in the page as the demo house is. */
+  sandbox?: boolean;
   /** The time it is for this Home Assistant (ms): the demo house's own clock (D-050). */
   now?(): number;
   /** The page Home Assistant opens first on this device (2025.1: its `hass-default-panel`). */
@@ -114,6 +134,8 @@ export interface HomeAssistant {
   systemData?: FrontendCoreData | null;
   /** A request to Home Assistant with the user's session (the frontend's `fetchWithAuth`). */
   fetchWithAuth?(path: string, init?: RequestInit): Promise<Response>;
+  /** A state as Home Assistant shows it, in the user's language with its unit (2025.1 and since). */
+  formatEntityState?(entity: HassEntity, state?: string): string;
   callService(
     domain: string,
     service: string,

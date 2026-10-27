@@ -14,12 +14,14 @@ import {
   mdiPencilOutline,
   mdiRobotVacuum,
   mdiSpeedometer,
+  mdiTestTube,
   mdiStairs,
   mdiTrayArrowDown,
   mdiTrayArrowUp,
   mdiTuneVariant,
   mdiVectorSquareEdit,
   mdiViewGridOutline,
+  mdiWifi,
 } from "@mdi/js";
 import { LitElement, css, html, nothing, type PropertyValues, type TemplateResult } from "lit";
 
@@ -51,6 +53,7 @@ import {
 } from "../ha/client";
 import { isHassError, type HomeAssistant } from "../ha/types";
 import type { DemoHome } from "../demo/home";
+import type { SandboxHome } from "../sandbox/home";
 import {
   MAX_ENTITIES,
   NO_BINDINGS,
@@ -82,7 +85,7 @@ import {
   storeyName,
   type StoreyRooms,
 } from "../live/storeys";
-import { closedAreas, closedEntities, privateRooms, type Unseen } from "../live/privacy";
+import { privateRooms, unseenOf, type Unseen } from "../live/privacy";
 import {
   NO_CHOICES,
   canDraw3d,
@@ -97,6 +100,7 @@ import type { GlanceSources } from "../live/glance";
 import { resolveShow, type ShowRequest } from "../live/show";
 import type { LocatingSettings } from "../live/locating";
 import type { PeopleSettings } from "../live/people";
+import type { Wifi } from "../live/wifi";
 import { mergeCards, renamedPieces, type Upkeep, type UpkeepCard } from "../live/upkeep";
 import {
   applyLink,
@@ -113,6 +117,7 @@ import type { ModelFormat, ModelInfo } from "../models/models";
 import { pickLanguage, translatorFor, type Translator } from "../i18n";
 import { documentFonts } from "../fonts";
 import { icon } from "./icon";
+import { saveText } from "./save";
 import { DemoSwitch } from "./demo-switch";
 import type { MeasureHost } from "./measure";
 import { DialogFocus } from "./dialog";
@@ -137,7 +142,9 @@ import {
   type EnergySettings,
 } from "../live/energy";
 import { watts } from "../live/devices";
-import { formatPower, numberOf } from "../live/layers";
+import { formatPower, layerAsked, numberOf } from "../live/layers";
+import { navigate } from "../live/actions";
+import { areaPage } from "../live/overview";
 
 /** The plan format allows files up to 32 MB. */
 const MAX_FILE_BYTES = 32_000_000;
@@ -150,6 +157,10 @@ const PANEL_OPTIONS: ViewOptions = {
   lighting: "auto",
 };
 const TOAST_MS = 6000;
+/** How long a layer asked for in the address waits for the plan to be drawn, and how often it
+ * looks (ms). */
+const LAYER_WAIT_MS = 5 * 60_000;
+const LAYER_POLL_MS = 250;
 /** How long before settings that could not be read are asked for again (ms). */
 const SETTINGS_RETRY_MS = 10_000;
 /** Upkeep cards saved at once when a file fills them (the integration takes up to 2 000). */
@@ -242,15 +253,7 @@ function fileName(title: string): string {
 
 /** Saves `value` as a JSON file named `name` (the browser's download). */
 function download(name: string, value: unknown): void {
-  const blob = new Blob([`${JSON.stringify(value, null, 2)}\n`], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = name;
-  link.click();
-  setTimeout(() => {
-    URL.revokeObjectURL(url);
-  }, 1000);
+  saveText(name, `${JSON.stringify(value, null, 2)}\n`, "application/json");
 }
 
 /** The panel's dialogs and sheets, which the focus goes into and comes back from (D-042). */
@@ -303,6 +306,7 @@ export class DomoTwinPanel extends LitElement {
     settingsRead: { state: true },
     upkeep: { state: true },
     people: { state: true },
+    wifi: { state: true },
     northDraft: { state: true },
     peopleOpen: { state: true },
     bluetoothOpen: { state: true },
@@ -355,6 +359,7 @@ export class DomoTwinPanel extends LitElement {
   /** They were read: the dialog that changes them may open. */
   protected choicesRead = false;
   private choicesTimer?: ReturnType<typeof setTimeout>;
+  private wifiTimer?: ReturnType<typeof setTimeout>;
   /** Counts the stars given or taken away: the answer to the last one sets the favourites. */
   private stars = 0;
   protected choicesOpen = false;
@@ -412,6 +417,8 @@ export class DomoTwinPanel extends LitElement {
   protected upkeep?: Upkeep;
   /** The people placed in their rooms (D-034). */
   protected people?: PeopleSettings;
+  /** The home's Wi-Fi for guests (D-060): all of it for an administrator. */
+  protected wifi?: Wifi;
   protected northDraft?: number;
   /** The people's settings are open (D-034), their module loaded, with the candidates. */
   protected peopleOpen = false;
@@ -1013,8 +1020,8 @@ export class DomoTwinPanel extends LitElement {
 
   set hass(hass: HomeAssistant | undefined) {
     this.demoSwitch.realHass = hass;
-    // The demo house keeps its own Home Assistant.
-    if (this.demo) return;
+    // A home kept in the page (the demo house, the sandbox) has its own Home Assistant.
+    if (this.demoSwitch.home) return;
     const first = !this._hass && hass;
     const old = this._hass;
     this._hass = hass;
@@ -1066,6 +1073,7 @@ export class DomoTwinPanel extends LitElement {
     documentFonts()?.removeEventListener("loadingdone", this.onFonts);
     clearTimeout(this.settingsTimer);
     clearTimeout(this.choicesTimer);
+    clearTimeout(this.wifiTimer);
     this.unsubscribe?.();
     this.unsubscribe = undefined;
     window.clearTimeout(this.toastTimer);
@@ -1075,7 +1083,14 @@ export class DomoTwinPanel extends LitElement {
 
   /** The demo house shown, if one is (D-050). */
   private get demo(): DemoHome | undefined {
-    return this.demoSwitch.home;
+    const home = this.demoSwitch.home;
+    return home?.kind === "demo" ? home : undefined;
+  }
+
+  /** The sandbox shown, if one is (D-057). */
+  private get sandbox(): SandboxHome | undefined {
+    const home = this.demoSwitch.home;
+    return home?.kind === "sandbox" ? home : undefined;
   }
 
   /**
@@ -1092,11 +1107,40 @@ export class DomoTwinPanel extends LitElement {
     await this.demoSwitch.start(() => this.switchable());
   };
 
-  /** Back to the home from the demo house: what runs on it ends, nothing of it saved there. */
+  /**
+   * Shows the sandbox (D-057): the home copied, its automations, scripts and scenes read (Home
+   * Assistant gives them to administrators), its day played on the copy.
+   */
+  private readonly enterSandbox = async (): Promise<void> => {
+    this.moreOpen = false;
+    const real = this.demoSwitch.realHass ?? this._hass;
+    if (!real || !this.switchable()) return;
+    const t = this.t;
+    this.show(t.t("sandbox.reading"));
+    try {
+      await this.demoSwitch.show(
+        () => this.switchable(),
+        async () => {
+          const { SandboxHome, copyHome } = await import("../sandbox/sandbox-bar");
+          return new SandboxHome(await copyHome(real), {
+            language: real.locale?.language ?? real.language,
+            ...(real.user ? { user: real.user } : {}),
+            darkMode: real.themes?.darkMode === true,
+          });
+        },
+      );
+      // The sandbox's day is watched on the 3D view.
+      if (this.sandbox && this.tab !== "3d") this.go("3d");
+    } catch (error) {
+      this.show(t.t("sandbox.failed", { reason: this.describe(error) }), true);
+    }
+  };
+
+  /** Back to the home from the demo house or the sandbox: what runs on it ends, nothing saved. */
   private readonly leaveDemo = (): void => {
     this.moreOpen = false;
     // An import running on the demo house finishes there first.
-    if (!this.demo || this.busy) return;
+    if (!this.demoSwitch.home || this.busy) return;
     if (this.editing) this.discardEdit();
     if (this.planning) this.discardPlan();
     this.cancelIfc();
@@ -1141,6 +1185,7 @@ export class DomoTwinPanel extends LitElement {
     this.settings = undefined;
     this.settingsRead = false;
     this.upkeep = undefined;
+    this.wifi = undefined;
     this.people = undefined;
     this.storeys = [];
     this.storey = undefined;
@@ -1151,6 +1196,7 @@ export class DomoTwinPanel extends LitElement {
     this.choices = undefined;
     this.choicesRead = false;
     clearTimeout(this.choicesTimer);
+    clearTimeout(this.wifiTimer);
     this.choicesOpen = false;
     const old = this._hass;
     this._hass = hass;
@@ -1167,6 +1213,7 @@ export class DomoTwinPanel extends LitElement {
       else if (event.kind === "bindings") void this.loadBindings();
       else if (event.kind === "upkeep") void this.loadUpkeep();
       else if (event.kind === "people") void this.loadPeople();
+      else if (event.kind === "wifi") void this.loadWifi();
       else void this.loadSettings();
     });
     void this.loadPlan();
@@ -1175,6 +1222,28 @@ export class DomoTwinPanel extends LitElement {
     void this.loadUpkeep();
     void this.loadPeople();
     void this.loadChoices();
+    void this.loadWifi();
+  }
+
+  /**
+   * The Wi-Fi as this user may see it in the panel. Not read (Home Assistant starting), it is asked
+   * for again in a while; an integration older than D-060 has none.
+   */
+  private async loadWifi(): Promise<void> {
+    const client = this.client;
+    if (!client) return;
+    clearTimeout(this.wifiTimer);
+    try {
+      const wifi = await client.getWifi();
+      if (client === this.client) this.wifi = wifi;
+    } catch (error) {
+      if (client !== this.client) return;
+      this.wifi = undefined;
+      if (isHassError(error) && error.code === "unknown_command") return;
+      if (this.unsubscribe) {
+        this.wifiTimer = setTimeout(() => void this.loadWifi(), SETTINGS_RETRY_MS);
+      }
+    }
   }
 
   /**
@@ -1471,7 +1540,7 @@ export class DomoTwinPanel extends LitElement {
       }
       this.plan = stored.plan;
       // The first picture measured is of a plan there as the panel opened (D-053).
-      if (!this.demo) this.firstPlan ??= stored.plan !== null;
+      if (!this.demoSwitch.home) this.firstPlan ??= stored.plan !== null;
       this.layout = stored.layout;
       this.storeys = stored.storeys;
       this.storey = stored.storey ?? undefined;
@@ -1778,9 +1847,9 @@ export class DomoTwinPanel extends LitElement {
     return this.draftKey(this.storey ?? "");
   }
 
-  /** The drafts of the demo house (D-050) are its own, never the home's. */
+  /** The drafts of a home kept in the page (D-050, D-057) are its own, never the home's. */
   private draftKey(storey: string): string {
-    return this.demo ? `demo/${storey}` : storey;
+    return this.demoSwitch.home ? `demo/${storey}` : storey;
   }
 
   /** The ids every storey but `except` uses. */
@@ -2745,6 +2814,7 @@ export class DomoTwinPanel extends LitElement {
         this.from3d = tab === "rooms" && !!area && from3d;
       this.tab = tab;
       this.roomOpen = tab === "rooms" ? area : undefined;
+      if (tab === "3d") void this.showLayerAsked();
     } else {
       if (this.deviceStart === undefined && this.choices === undefined) return;
       this.tab = startTab(this.choices ?? NO_CHOICES, this.deviceStart, canDraw3d());
@@ -2813,14 +2883,13 @@ export class DomoTwinPanel extends LitElement {
     if (shown && from.every((value, i) => value === shown.from[i])) return shown;
     const rooms = [...planRooms(this.plan), ...this.elsewhere.flatMap((storey) => storey.rooms)];
     const bindings = this.bindings ?? NO_BINDINGS;
-    const unseen: Unseen = {
-      areas: closedAreas(hass, bindings, rooms, closed),
-      entities: closedEntities(
-        bindings,
-        [{ plan: this.plan, layout: this.layout }, ...this.elsewhere],
-        closed,
-      ),
-    };
+    const unseen = unseenOf(
+      hass,
+      bindings,
+      rooms,
+      [{ plan: this.plan, layout: this.layout }, ...this.elsewhere],
+      closed,
+    );
     const sources: GlanceSources = {
       rooms,
       bindings,
@@ -2842,8 +2911,47 @@ export class DomoTwinPanel extends LitElement {
 
   /** A room tapped in the 3D view opens its room in the Rooms tab, and back (D-055). */
   private readonly onRoomOpen = (event: CustomEvent<{ area: string }>): void => {
-    this.go("rooms", event.detail.area, true);
+    // Home Assistant's own page of the area where it has one (D-061), else DomoTwin's.
+    const page = areaPage(this._hass, event.detail.area);
+    if (page) navigate(page);
+    else this.go("rooms", event.detail.area, true);
   };
+
+  /**
+   * A layer asked for in the address (`/domotwin/3d?layer=upkeep`, a summary card's, D-061):
+   * chosen once the 3D view has drawn the plan (the view shows none this user may not see), then
+   * left out of the address so that the layer menu has the last word.
+   */
+  private async showLayerAsked(): Promise<void> {
+    const params = new URLSearchParams(window.location.search);
+    const layer = layerAsked(params.get("layer"));
+    if (!params.has("layer")) return;
+    params.delete("layer");
+    const search = params.toString();
+    window.history.replaceState(
+      window.history.state,
+      "",
+      `${window.location.pathname}${search ? `?${search}` : ""}${window.location.hash}`,
+    );
+    if (!layer) return;
+    await this.updateComplete;
+    const view = this.view;
+    await view?.updateComplete;
+    // The plan drawn first, however long a slow device takes, while the 3D view stays open;
+    // given up after a few minutes (no plan, or an engine that never came).
+    const until = performance.now() + LAYER_WAIT_MS;
+    while (
+      view?.planDrawn() === "waiting" &&
+      this.isConnected &&
+      this.tab === "3d" &&
+      performance.now() < until
+    ) {
+      await new Promise((resolve) => setTimeout(resolve, LAYER_POLL_MS));
+    }
+    if (this.isConnected && this.tab === "3d" && view?.planDrawn() === "ready") {
+      view.setLayer(layer);
+    }
+  }
 
   /** A press outside the open menu closes it. */
   private readonly closeMore = (event: PointerEvent): void => {
@@ -2917,7 +3025,13 @@ export class DomoTwinPanel extends LitElement {
               ?held=${this.busy}
               @domotwin-demo-leave=${this.leaveDemo}
             ></domotwin-demo-bar>`
-          : nothing
+          : this.sandbox
+            ? html`<domotwin-sandbox-bar
+                .home=${this.sandbox}
+                ?held=${this.busy}
+                @domotwin-sandbox-leave=${this.leaveDemo}
+              ></domotwin-sandbox-bar>`
+            : nothing
       }
       <div class="main">
         ${tabs && !this.tight ? this.renderTabs("side") : nothing}
@@ -2986,6 +3100,7 @@ export class DomoTwinPanel extends LitElement {
       .bindings=${this.bindings}
       .upkeep=${this.upkeep}
       .people=${this.people}
+      .wifi=${this.wifi}
       .planError=${this.planError}
       .options=${PANEL_OPTIONS}
       .north=${this.northDraft ?? this.settings?.north ?? 0}
@@ -3324,12 +3439,22 @@ export class DomoTwinPanel extends LitElement {
               )}
               ${item("privacy-settings", mdiLockOutline, t.t("privacy.title"), this.busy, this.openPrivacy)}
               ${item("voice-settings", mdiMicrophoneMessage, t.t("voice.settings"), this.busy, this.openVoice)}
-              ${item("measure", mdiSpeedometer, t.t("measure.menu"), this.busy || this.measureOpen, this.openMeasure)}
+              ${item("wifi-menu", mdiWifi, t.t("wifi.menu"), this.busy || this.wifi === undefined || this.sandbox !== undefined, this.openWifi)}
+              ${item("measure", mdiSpeedometer, t.t("measure.menu"), this.busy || this.measureOpen || this.sandbox !== undefined, this.openMeasure)}
               <hr />
               ${
                 this.demo
                   ? item("demo-leave-menu", mdiClose, t.t("demo.leave"), this.busy, this.leaveDemo)
-                  : item("demo-menu", mdiFlaskOutline, t.t("demo.menu"), this.busy, this.enterDemo)
+                  : this.sandbox
+                    ? item(
+                        "sandbox-leave-menu",
+                        mdiClose,
+                        t.t("sandbox.leave"),
+                        this.busy,
+                        this.leaveDemo,
+                      )
+                    : html`${item("demo-menu", mdiFlaskOutline, t.t("demo.menu"), this.busy, this.enterDemo)}
+                      ${item("sandbox-menu", mdiTestTube, t.t("sandbox.menu"), this.busy, this.enterSandbox)}`
               }
             </div>`
           : nothing
@@ -3347,6 +3472,13 @@ export class DomoTwinPanel extends LitElement {
     } catch (error) {
       this.show(this.describe(error), true);
     }
+  };
+
+  /** Opens the Wi-Fi for guests (D-060), over the 3D view. */
+  private readonly openWifi = async (): Promise<void> => {
+    if (this.tab !== "3d") this.go("3d");
+    await this.updateComplete;
+    await this.view?.openWifi();
   };
 
   /** Opens the voice settings (D-041): their module, loaded the first time. */

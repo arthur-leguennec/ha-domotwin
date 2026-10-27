@@ -15,18 +15,19 @@ Local, fast, Rust + WebAssembly.</p>
 > [!NOTE]
 > **Status: early development.** DomoTwin is built milestone by milestone
 > ([roadmap](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/ROADMAP.md)). The
-> integration, the panel, the card, the plan import (IFC, Sweet Home 3D, DXF, room scans, robot
-> vacuum maps, Floorplanner, mesh scans), the 3D
-> and 2D views, live control (states, tap, long press, room panel, linking), the edit mode, your
-> own 3D models, the layers, the devices, the plan editor, storeys, the looks, every storey at
-> once, walking, the kiosk, the network map, the automation wires, the upkeep cards, the people in
-> their rooms, Bluetooth locating, voice, the polish (font, keyboard, screen readers), a pass over
-> size and speed, phones, actions done later, taps that say what they do, pieces that look made,
-> robot vacuums, the home's energy, the demo house, measuring a device's speed and the practical
-> home (the Home, Rooms and 3D tabs) work today, and make up version 0.4.0. A sandbox for the
-> home's automations comes next, then Home Assistant's own Overview joined rather than copied,
-> towards version 0.5.0; the submission to HACS's default list waits on measurements on real
-> devices.
+> integration, the panel, the card, the plan import (IFC, Sweet Home 3D, DXF, room scans), the 3D
+> and 2D views, live control (states, tap, long press, room panel, linking), the edit mode, your own
+> 3D models, the layers, the devices, the plan editor, storeys, the looks, every storey at once,
+> walking, the kiosk, the network map, the automation wires, the upkeep cards, the people in their
+> rooms, Bluetooth locating, voice, the polish (font, keyboard, screen readers), a pass over size
+> and speed, phones, actions done later, taps that say what they do, pieces that look made, robot
+> vacuums, the home's energy, the demo house, measuring a device's speed and the practical home (the
+> Home, Rooms and 3D tabs) work today, and make up version 0.4.0. Since then, the sandbox plays a
+> day of the home's automations on a copy of it, "Why?" says who or what changed a device, the Wi-Fi
+> QR code welcomes guests, DomoTwin joins Home Assistant's own Overview rather than copying it, and
+> robot vacuum maps, Floorplanner plans and mesh scans are imported too. History and energy, safety
+> and the wall screen come next, towards version 0.5.0; the submission to HACS's default list waits
+> on measurements on real devices.
 
 ## Features
 
@@ -80,11 +81,31 @@ Local, fast, Rust + WebAssembly.</p>
   link named, with *a router here would help*. Tap a device or a link for the details, rescan,
   and place the devices the map cannot find. For administrators, with ZHA. See [the network
   map](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/network.md).
+- **A sandbox for your automations.** Pick a day, its weather and who goes out and comes back
+  when, and watch your own automations, scripts and scenes play it on a copy of your home, in 3D
+  and on a timeline, an hour a second if you like. A report says what each one did and when, what
+  never ran and why, which ones work against each other, and what could not be played. Nothing
+  in the sandbox reaches a device. See [the
+  sandbox](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/sandbox.md).
+- **The Wi-Fi for guests.** Give your Wi-Fi once, and DomoTwin draws the QR code a phone's camera
+  joins it with, in the page; or shows your router's own code. For administrators, and on the wall
+  screens you choose; the password stays in DomoTwin's private storage. See [the Wi-Fi for
+  guests](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/wifi.md).
+- **Into Home Assistant's Overview.** A room tapped in 3D opens its area's page of the Overview
+  (2026.2 and later). Each room's area page shows who is in it and the upkeep due, and DomoTwin's
+  summary cards (the people, the network, the automations, the upkeep, the robots) open the 3D view
+  on what they sum up. See [DomoTwin and the
+  Overview](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/overview.md).
 - **Automation wires.** Long-press a lamp: its panel lists the automations that involve it, with
   their switch and when they last ran. Show their wires, from what sets them off to what they act
   on, and watch a pulse run along them when one runs. Or every automation of the home at once.
   See [automation
   wires](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/automations.md).
+- **Why?** Long-press a lamp and ask who or what changed it: the automation that switched it on,
+  the motion that set the automation off, or the person who did it in the app, or nobody (its
+  own switch), as Home Assistant recorded it. Drawn in the home as a wire from where it started,
+  with the run's trace for administrators and Home Assistant's Activity a tap away. See
+  [Why?](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/why.md).
 - **Upkeep cards.** Every appliance and piece of furniture can carry its make, model, serial
   number, warranty, manual and the tasks that come back (change the filter every 3 months). A
   wrench badge shows what is due, the upkeep layer tints the pieces green, amber or red, and a
@@ -127,6 +148,11 @@ Local, fast, Rust + WebAssembly.</p>
   automation (`domotwin.schedule`) or a voice assistant, DomoTwin does it on time, even across a
   restart, and shows a clock over the lamp meanwhile. See [actions done
   later](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/later.md).
+- **History as reports.** "When was the bedroom above 24 °C for more than an hour?" Long-press a
+  device or a room for its **History**: Home Assistant's history as a table, a row for each change
+  or each hour, filtered by value and by how long, or its logbook searched by value; as CSV. Read
+  only, from Home Assistant's own history, statistics and logbook. See [history as
+  reports](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/history.md).
 - **Your voice.** A microphone button opens Home Assistant's Assist already listening, on a wall
   tablet as on a phone. When Assist cannot hear yet, DomoTwin sets up local voice with your
   consent: Whisper or Speech-to-Phrase and Piper, installed through the Supervisor, nothing

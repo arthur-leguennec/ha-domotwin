@@ -3,7 +3,13 @@ import { expect, type Locator, type Page } from "@playwright/test";
 import type { DebugState } from "../src/components/view";
 
 export interface HarnessOptions {
-  mode?: "card" | "panel";
+  mode?: "card" | "panel" | "summary";
+  /** mode summary: which of DomoTwin's summaries (D-061). */
+  summary?: string;
+  /** A Home Assistant that opens on its Overview, with DomoTwin's room sensors (D-061). */
+  overview?: boolean;
+  /** With the Overview: no DomoTwin panel for this user (left out of the sidebar, or admins'). */
+  noPanel?: boolean;
   /**
    * Voice (D-041): Assist with a pipeline that hears (`true`), or none that hears (`"deaf"`);
    * apps that can be installed; one blueprint edited; a page served over HTTP; the card's
@@ -64,13 +70,23 @@ export interface HarnessOptions {
   names?: false;
   /** Kiosk options (D-029): the card's screen name, `idle` seconds, `orbit`, `night_dim`. */
   screen?: string;
+  /** The home's Wi-Fi for guests (D-060): a fictional network typed, or a router's code; the
+   * screens that show it. */
+  wifi?: "typed" | "image";
+  wifiScreens?: readonly string[];
   idle?: number;
+  /** The card's tools hidden (`tools: false`), as on a wall screen. */
+  tools?: false;
   orbit?: boolean;
   nightDim?: boolean;
   /** A mocked ZHA with a fictional Zigbee mesh (the network map, D-031). */
   zha?: boolean;
+  /** Home Assistant's logbook and traces of a fictional evening (D-059), with `live`. */
+  why?: boolean;
   /** Fictional automations (D-032): `true` three of the demo apartment, a number made up ones. */
   automations?: true | number;
+  /** The sandbox's time zone and place, and its automations and script (D-057). */
+  sandbox?: boolean;
   /** Upkeep cards (D-033): the demo's (`true`), or an integration without them (`false`). */
   upkeep?: boolean;
   /** People in their rooms (D-034): fictional ones (`true`), or an integration without them. */
@@ -108,6 +124,13 @@ export interface HarnessOptions {
   lists?: boolean;
   /** How Home Assistant keeps the page it opens first. */
   firstPage?: "device" | "user";
+  /**
+   * Home Assistant's history (D-058): refused (`historyFail`), without statistics (`noStats`);
+   * its own words for states (`formatState`, `hass.formatEntityState`).
+   */
+  historyFail?: boolean;
+  noStats?: boolean;
+  formatState?: boolean;
 }
 
 /** Opens the mocked Home Assistant with the built frontend. */
@@ -139,7 +162,13 @@ export async function openHarness(page: Page, options: HarnessOptions = {}): Pro
   if (options.homeTheme) params.set("hometheme", options.homeTheme);
   if (options.names === false) params.set("names", "0");
   if (options.screen) params.set("screen", options.screen);
+  if (options.wifi) params.set("wifi", options.wifi);
+  if (options.wifiScreens) params.set("wifiscreens", options.wifiScreens.join(","));
   if (options.idle !== undefined) params.set("idle", String(options.idle));
+  if (options.tools === false) params.set("tools", "0");
+  if (options.summary) params.set("summary", options.summary);
+  if (options.overview) params.set("overview", "1");
+  if (options.noPanel) params.set("nopanel", "1");
   if (options.orbit) params.set("orbit", "1");
   if (options.nightDim) params.set("nightdim", "1");
   if (options.zha) params.set("zha", "1");
@@ -164,12 +193,17 @@ export async function openHarness(page: Page, options: HarnessOptions = {}): Pro
   if (options.cards) params.set("cards", "1");
   if (options.lists) params.set("lists", "1");
   if (options.firstPage) params.set("firstpage", options.firstPage);
+  if (options.historyFail) params.set("historyfail", "1");
+  if (options.noStats) params.set("nostats", "1");
+  if (options.formatState) params.set("formatstate", "1");
   if (options.voice) params.set("voice", options.voice === true ? "1" : options.voice);
   if (options.supervisor) params.set("supervisor", "1");
   if (options.blueprints) params.set("blueprints", options.blueprints);
   if (options.insecure) params.set("insecure", "1");
   if (options.mic === false) params.set("mic", "0");
   if (options.tip) params.set("tip", "1");
+  if (options.sandbox) params.set("sandbox", "1");
+  if (options.why) params.set("why", "1");
   if (options.automations) {
     params.set("automations", options.automations === true ? "1" : String(options.automations));
   }
@@ -213,8 +247,24 @@ export function stage(page: Page): Locator {
   return page.locator("domotwin-view").locator(".stage");
 }
 
+/**
+ * Waits until the page has drawn twice: the view takes a new size of its stage (the panel's tabs go
+ * while a tool such as link mode is on, and come back) as the page draws, after the frames'
+ * callbacks. A point taken before is where the element was drawn, and a press there may land on
+ * something else.
+ */
+async function drawn(page: Page): Promise<void> {
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) => {
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+      }),
+  );
+}
+
 /** Where an element of the plan is drawn, in page coordinates. */
 export async function elementPoint(page: Page, id: string): Promise<{ x: number; y: number }> {
+  await drawn(page);
   const box = await stage(page).boundingBox();
   if (!box) throw new Error("no stage");
   const point = await page.evaluate(
@@ -271,6 +321,7 @@ export function entityState(page: Page, id: string): Promise<string | undefined>
 
 /** The colour drawn at the centre of an element, from a fresh frame. */
 export async function colorAt(page: Page, id: string): Promise<[number, number, number]> {
+  await drawn(page);
   return page.evaluate(async (element) => {
     const page = window as never as {
       __view: () => HTMLElement & {

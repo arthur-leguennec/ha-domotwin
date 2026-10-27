@@ -4,6 +4,7 @@
  */
 
 import { domainOf } from "../ha/types";
+import { isSummary, type SummaryKind } from "./overview";
 
 /** The panel's tabs. */
 export type Tab = "home" | "rooms" | "3d";
@@ -11,7 +12,9 @@ export const TABS: readonly Tab[] = ["home", "rooms", "3d"];
 
 /** A card of the Home tab: Home Assistant's own, as it takes them. */
 export type HomeCard =
-  { type: "calendar"; entities: string[] } | { type: "todo-list"; entity: string };
+  | { type: "calendar"; entities: string[] }
+  | { type: "todo-list"; entity: string }
+  | { type: "summary"; summary: SummaryKind };
 
 /** What the integration keeps for the user. */
 export interface Choices {
@@ -111,6 +114,8 @@ export function readChoices(raw: unknown): Choices {
       if (entities.length > 0) cards.push({ type: "calendar", entities });
     } else if (c.type === "todo-list" && typeof c.entity === "string") {
       cards.push({ type: "todo-list", entity: c.entity });
+    } else if (c.type === "summary" && isSummary(c.summary)) {
+      cards.push({ type: "summary", summary: c.summary });
     }
   }
   const choices: Choices = { favourites, cards };

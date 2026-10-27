@@ -904,10 +904,101 @@ Assistant's changes do not update it until it shows again. Home Assistant's card
 for each configuration and given each new `hass`; the rooms are sorted again when an entity comes,
 goes or moves, not on every state; a search runs again when it or the home changes.
 
+### M29 (the sandbox)
+
+Bundle: the first load is **516.4 kB gzipped** of 1 200 kB (+0.9 kB): the menu entry, the switch
+showing either home kept in the page, and the entry's few texts. The sandbox comes on demand, the
+first time it opens (`chunks/sandbox-bar-<hash>.js`: 100.1 kB raw, 31.5 kB gzipped): the copy, the
+engine, the templates' reader, the day's scenario, the report, the bar and their texts in both
+languages.
+
+Opening it reads the home once: its plan, links and settings, and one answer for each automation,
+script and scene (eight of each kind asked at a time, the kinds side by side). The day is then
+played at once and kept: a busy day, a hundred automations of every kind (times, states, templates
+read each minute, a pattern every ten minutes, two lamps toggled a minute apart in each) set off
+3 023 times and changing the home 12 698 times (each run's count of runs, the sun's next times), is
+played in **171 ms** (median of seven, Node 22 on a 2.1 GHz Xeon core of the CI's kind), 663 ms
+before the zone's offset was kept by quarter-hour rather than asked of `Intl` at each change. A day
+is played again when it is changed or a tap is done in it. Showing a moment of it applies the day's
+changes up to there (from midnight when going back); playing moves the moment on ten times a second
+and gives the panel one new `hass` each time, as Home Assistant would.
+
+### M38 (history as reports)
+
+Bundle: the first load is **517.3 kB gzipped** of 1 200 kB (+0.9 kB): the **History** buttons'
+labels, and the view's way to the report. The report comes on demand, the first time **History**
+is pressed (`chunks/history-report-<hash>.js`: 32.5 kB raw, 9.4 kB gzipped), with its texts in
+both languages; the reading of Home Assistant's answers (`src/live/history.ts`, 7.9 kB raw,
+3.4 kB gzipped) is a chunk shared with the sheets, which offer a room's report only when it has
+air sensors, and with the demo house.
+
+Nothing of it runs until a report opens. A report asks Home Assistant once for what is chosen
+(its history, or its statistics and then the history of the entities that have none, or its
+logbook), again only when the entities, the period or the way to read them change, never at a
+new state of the home, which does not draw it again either. The rows are filtered once for each
+answer and filter; the table draws 500 rows at most, and the CSV is written when it is asked for.
+Measured in Node on a computer, a week of a power sensor reporting every ten seconds (60 340
+changes): read in about 35 ms, its rows in 50 ms, filtered by value and by how long in 35 ms, its
+168 hours worked out in 30 ms, and its CSV (5.3 MB) written in 170 ms. The demo house works out
+its day once, minute by minute, the first time its history is asked (about 70 ms), then answers
+ten days of three entities in a few milliseconds.
+
+### M32 ("Why?")
+
+Bundle: the first load is **518.2 kB gzipped** of 1 200 kB (+0.9 kB): the view's part (the chain
+asked for, shown and hidden, what a private room hides from it) and five icons. The section comes
+with the sheets (`chunks/sheets-<hash>.js`: 44.1 kB raw, 11.0 kB gzipped, +1.3 kB) with its texts
+in both languages, the chain drawn in the home on demand, the first time it is
+(`chunks/why-wires-<hash>.js`: 3.6 kB raw, 1.7 kB gzipped); the spots and chip it shares with the
+automation wires moved out of theirs (`chunks/automation-wires-<hash>.js`: 2.9 → 1.9 kB gzipped).
+The demo house's logbook adds 1.5 kB gzipped to the demo house's code.
+
+Nothing is asked of Home Assistant until **Who or what changed it?** is: a chain read by contexts
+is two or three logbook questions, one through an automation's runs a few more (its last three of
+the day before at most), the traces' contexts and the users once for an administrator. A device
+that changes while its chain is read is asked about again once, when the read is done. The engine
+draws the chain with the automations' wire set, as it does their wires (D-032): no new mesh, no
+frame while nothing pulses. The demo house keeps its last 6 000 rows (a few hours of its day),
+the measuring sensors left out as Home Assistant's logbook leaves them.
+
+### M30 (the Wi-Fi for guests)
+
+Bundle: the first load is **519.4 kB gzipped** of 1 200 kB (+1.2 kB): reading the network's answer,
+the Wi-Fi button over the view, the ⋮ menu entry, the integration's three commands and their few
+texts. The dialog comes on demand, the first time it opens (`chunks/wifi-dialog-<hash>.js`:
+18.5 kB raw, 5.7 kB gzipped): the code drawn, the form and their texts in both languages.
+
+The QR code is encoded by the analysis module, already loaded on demand for the network map and
+the automations (`qrcodegen`, MIT): it grew from 142.8 kB to 156.7 kB raw, by about 7 kB gzipped
+(72.0 kB). The code is encoded once each time the network changes and drawn as one SVG path (a few
+hundred modules), so showing it again costs nothing; nothing is fetched. The network (without its
+password) is asked of the integration when the panel or a card opens and again only when it
+changes; its password once each time the dialog opens.
+
+A long press acts on what was under the finger when it landed: the view picks it then (one pixel,
+drawn in the pick pass), and a tap uses that same pick, so a tap or a long press costs one pick as
+before and only the start of a drag one more.
+
+### M23b (into Home Assistant's Overview)
+
+Bundle: the first load is **521.3 kB gzipped** of 1 200 kB (+1.9 kB): the summary card's shell
+(its config, its sizes, its editor's link), the area page's rule and the layer asked for in the
+panel's address, their few texts. What a summary shows comes with the first one on the page
+(`chunks/summary-body-<hash>.js`: 8.2 kB raw, 3.3 kB gzipped), its editor when it is edited
+(0.7 kB gzipped). The network's summary loads the analysis module too, for administrators only,
+and reads the mesh every ten minutes, not sooner when the card is shown again. A summary works out
+its line at each new state of the home (a few passes over the states, as Home Assistant's own cards
+do) and is drawn again only when the line changes.
+
+The integration works out the room of every piece when a plan changes, not at each state: 0.3 ms
+for the demo house's 49 pieces (median of 200, Python 3.14 on a 2.1 GHz Xeon core), about 3 ms for
+a plan of 500. The tasks due are sorted into the rooms in one pass when the upkeep cards, the plans
+or the day change. Who is in each room is counted when a person moves, from the places the people
+tracker already keeps, and only the rooms whose count changed are written.
 
 ### M20 (more imports)
 
-Bundle: the first load is **517.7 kB gzipped** of 1 200 kB (+2.2 kB): the robot's map in the menu
+Bundle: the first load is **523.3 kB gzipped** of 1 200 kB (+2.0 kB): the robot's map in the menu
 and beside *Import plan*, the robots' maps found in Home Assistant, which files go to the import,
 and the texts. The import module, fetched only when such a file is picked or a robot's map is
 imported, reads three more kinds of files:

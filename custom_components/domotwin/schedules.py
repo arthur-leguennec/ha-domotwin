@@ -434,7 +434,7 @@ class Scheduler:
                     await self._hass.services.async_call(
                         domain, service, data, blocking=True, context=Context(user_id=item.user_id)
                     )
-                except Unauthorized, UnknownUser:
+                except (Unauthorized, UnknownUser):
                     if on:
                         raise
                     await self._hass.services.async_call(

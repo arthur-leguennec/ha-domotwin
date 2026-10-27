@@ -5,6 +5,7 @@ import type { PeopleSettings, PersonSettings } from "../live/people";
 import { readSchedules, type Schedule } from "../live/schedules";
 import type { ShowRequest } from "../live/show";
 import type { Upkeep, UpkeepCard } from "../live/upkeep";
+import { readWifi, type Wifi, type WifiChange } from "../live/wifi";
 import type { HassConnection, HassMessage, HomeAssistant } from "./types";
 import type { EnergySettings } from "../live/energy";
 
@@ -82,13 +83,12 @@ export interface StoredUpkeep {
   today: string;
 }
 
+/** What a save changed: told to every screen listening, with its revision. */
+export type SaveKind = "plan" | "bindings" | "settings" | "upkeep" | "people" | "locating" | "wifi";
+
 /** A save (its kind and revision), or a `domotwin.show` request (D-029). */
 export type UpdateEvent =
-  | {
-      kind: "plan" | "bindings" | "settings" | "upkeep" | "people" | "locating";
-      revision: number;
-    }
-  | { kind: "show"; show: ShowRequest };
+  { kind: SaveKind; revision: number } | { kind: "show"; show: ShowRequest };
 
 type Listener = (event: UpdateEvent) => void;
 
@@ -457,6 +457,27 @@ export class DomoTwinClient {
     return readChoices(
       await this.connection.sendMessagePromise({ type: "domotwin/choices/save", ...change }),
     );
+  }
+
+  /**
+   * The home's Wi-Fi for guests (D-060), as this user may see it on `screen` (a card's, else
+   * none): all of it for an administrator, what draws its code on a screen an administrator chose.
+   * Its password only when asked for (`password`: the dialog open).
+   */
+  async getWifi(screen = "", password = false): Promise<Wifi> {
+    return readWifi(
+      await this.connection.sendMessagePromise({ type: "domotwin/wifi/get", screen, password }),
+    );
+  }
+
+  /** Sets the home's Wi-Fi (administrators); answers it. */
+  async saveWifi(wifi: WifiChange): Promise<Wifi> {
+    return readWifi(await this.connection.sendMessagePromise({ type: "domotwin/wifi/save", wifi }));
+  }
+
+  /** Forgets the home's Wi-Fi (administrators). */
+  async clearWifi(): Promise<Wifi> {
+    return readWifi(await this.connection.sendMessagePromise({ type: "domotwin/wifi/clear" }));
   }
 
   /** Calls `listener` after every save, from any device. Returns a function that stops it. */

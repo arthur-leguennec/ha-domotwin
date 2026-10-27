@@ -117,6 +117,13 @@ explains why. Each entry: context, decision, consequences.
   `async_register_static_paths` (2024.7), `single_config_entry` (2024.3) and options flows without a
   stored `config_entry` (2024.11). CI tests against the current release through
   `pytest-homeassistant-custom-component`.
+- **Python: 3.12.** Home Assistant 2025.1 runs on Python 3.12 and 3.13 (2025.2 dropped 3.12, 2026.3
+  is the first on 3.14), so the integration must parse and run on 3.12, whatever the tests run on
+  (D-011). Ruff targeted `py314` at first: its formatter wrote `except A, B:` (3.14 only) in
+  `schedules.py`, and in 0.3.0 and 0.4.0 the whole integration failed to load before Home
+  Assistant 2026.3. Ruff and mypy now target 3.12 (both reject newer syntax, mypy also the newer
+  standard library), and CI byte-compiles `custom_components/domotwin` with Python 3.12 before the
+  other checks. Raising the floor means raising `hacs.json`, these targets and that step together.
 
 ## D-011 · Versions
 
@@ -124,7 +131,7 @@ explains why. Each entry: context, decision, consequences.
   and `frontend/package.json`, all bumped by release-please. The Rust crates are internal
   (`publish = false`) and keep version `0.0.0`, so `Cargo.lock` never changes on a release.
 - **Toolchains.** Rust 1.97.0 (`rust-toolchain.toml`), Node 22 (`.nvmrc`), Python 3.14 (required by
-  the current Home Assistant). TypeScript stays on 6.0 because `typescript-eslint` does not support
+  the current Home Assistant) for the tests; the integration's code stays on 3.12 (D-010). TypeScript stays on 6.0 because `typescript-eslint` does not support
   TypeScript 7 yet.
 
 ## D-012 · Secret scanning without a third-party action
@@ -2219,10 +2226,356 @@ D-054 planned them.
   - Many of them read what only administrators may (automations, traces, the radios): each says
     what other users see.
 
+## D-057 · The sandbox: the home's day played on a copy of it (M29)
+
+M29, the first milestone after 0.4.0 (D-056).
+
+- **Context.** The maintainer wanted to see what the home's automations do over a whole day before
+  living it: a day picked, its weather, who goes out and comes back when; the 3D view and a
+  timeline as it plays; a report of what ran, what never did, what worked against what. Nothing
+  may reach a device. Home Assistant has no dry run ("the actions of the automation run for
+  real"); Event Simulator (HACS) replays recorded history against one automation at a time in a
+  separate process, its actions changing nothing (D-056).
+- **Decision.**
+  - **In the page, on a copy.** As D-056 planned, on the demo house's way of keeping a home in
+    the page (D-050): the home's states, registries, DomoTwin's plan, links and settings are read
+    once, with the configurations of the automations, scripts and scenes and the entity registry
+    (for administrators: Home Assistant gives them to them only). The copy has its own `hass` and
+    its own connection, which answers DomoTwin's commands from memory; the panel runs on it
+    unchanged. Nothing is written to Home Assistant, no service is called: the tests check it.
+  - **The day is played at once.** An engine of its own (`src/sandbox/engine.ts`) plays the day
+    from midnight to midnight as a queue of moments, in Home Assistant's time zone: a trigger sets
+    its automation off after the change that fired it, its conditions first, then its mode
+    (single, restart, queued, parallel); `for`, delays and waits take their time; what an action
+    changes can set off another. Runs are generators the engine steps through, so a day of a
+    hundred automations is played in a fifth of a second here and gives the same day each time.
+    The 3D view then shows the copy at a moment of it: playing moves that moment on.
+  - **Played as Home Assistant plays them**: the usual triggers, conditions and actions
+    (`docs/sandbox.md`), both spellings of each (`trigger`/`platform`, `action`/`service`), and
+    what the usual services do to the states, from the demo house's effects (D-050) and more.
+    Templates are read by a small reader of Home Assistant's Jinja for the usual (states, the
+    time, what set it off, numbers, texts, areas). **What cannot be played is said, never
+    guessed**: a template beyond it, an integration's own service, a scene written in YAML, what
+    comes from outside the home's day (MQTT, webhooks, Home Assistant starting…), each named
+    with its automation in the report. The page is enough for most homes; a player on the server
+    running Home Assistant's own code stays a question (D-056 ❓3).
+  - **The day picked**: a date (the sun rises and sets as it does there, from Home Assistant's
+    latitude and longitude), a weather (the weather entities' state by day and by night, their
+    temperature each hour between a lowest and a highest), who is home at midnight and when each
+    goes out and comes back (their trackers with them). A tap in the sandbox is done at the moment
+    shown and kept with the day, which is played again with it.
+  - **The report**: what each automation did and when (what set it off, what each action changed
+    or said, how it ended), what never ran and why (stopped by its conditions, running already,
+    never set off), two automations working against each other (an entity one set and another set
+    otherwise within two minutes), an entity going back and forth (six changes within ten
+    minutes), an automation setting itself off over and over (more than sixty times a minute:
+    stopped for the rest of the day), what could not be played.
+  - **The way in**: an entry of the panel's ⋮ menu, for administrators; the bar of the sandbox
+    under the toolbar (the time, play, speed, the day's line with its runs and conflicts, the day,
+    the report, the way out). The demo house and the measure wait until it is left. The sandbox is
+    a chunk loaded the first time it opens, with its texts in both languages.
+- **Consequences.**
+  - The demo house's connection serves any home kept in the page (`MemoryHome`): the demo
+    house's automations and energy settings are its own, the sandbox's are the copy's. The switch
+    between the home and a home kept in the page (`DemoSwitch`) shows either.
+  - The first load grows by the menu entry and its texts (+0.9 kB gzipped); the sandbox is
+    31.5 kB gzipped when opened.
+  - The copy is a model: sensors change only as the day makes them and as automations and taps set
+    them. Said in the guide and in the bar.
+  - At the played day's midnight no automation or script runs, and what the home ran later than
+    that has not run yet; the people's room sensors (D-034) follow them out and back. The
+    automation wires (D-032) take a run's time going back as well as on, so they pulse again when
+    the day is played over.
+
+## D-058 · History as reports: Home Assistant's history as tables (M38; amends D-056)
+
+After the sandbox (M29, D-057): the maintainer asked for M38 now, ahead of the order D-056 gave
+it.
+
+- **Context.** Home Assistant's History draws graphs and timelines and downloads what it shows as
+  CSV; its Logbook lists the changes, newest first. Neither answers "when was the bedroom above
+  24 °C for more than an hour?", nor searches the logbook by value (D-056). D-056 found it
+  feasible in the frontend, read only, from the recorder's own commands. It needs nothing of the
+  milestones before it in D-056's order, and nothing of the integration.
+- **Decision.**
+  - **The order.** M38 comes right after the sandbox (M29), before the Wi-Fi QR code (M30): the
+    maintainer's call. The rest of D-056's order stays.
+  - **Opened from the plan.** A long press on a device (its controls) has **History**: a report
+    of its entities. A room's panel has it too when its area has air sensors (temperature,
+    humidity, CO₂, fine particles): a report of those. In the report, entities are added by a
+    search (every word in a name, an id or an area's name, accents and case aside, as the Rooms
+    tab's) and taken away; eight at most. The search leaves out what the viewer may not see
+    (D-039), as the Rooms tab does (one rule for both, `unseenOf`), and a room that turns private
+    takes its entities out of an open report.
+  - **A sheet of the view**, as an element's controls or a room's panel: one at a time, closed
+    where they close (a tap, a storey chosen, walking, editing), with the focus going into it and
+    Escape closing it.
+  - **The period.** The last 24 hours (first), 7 days, 30 days or a year, or two dates and times,
+    where the home is (Home Assistant's time zone, as the person sheet's times). Changes and the
+    logbook are read 31 days at most: Home Assistant keeps each change 10 days unless set
+    otherwise, its statistics for good, and the report says so when the period goes further back.
+  - **Three ways to read it.**
+    - *Each change*: Home Assistant's history (`history/history_during_period`, the state alone:
+      `minimal_response`, `no_attributes`, with the state at the start), a row for each change
+      with how long it lasted, until the next or now. The same state twice in a row (a climate
+      entity whose attributes changed) is one row.
+    - *Each hour*: its statistics (`recorder/statistics_during_period`, `hour`): the mean, the
+      lowest and the highest of a measurement, the hour's change for a meter. An entity without
+      statistics is worked out in the page from its history, for the same hours: the mean
+      weighted by time, the lowest and the highest of a number; for anything else, the state held
+      longest in the hour and for how long. Its history is read 31 days at most, as for the
+      changes, and the report says so when the period goes further back. Only the hours that
+      ended, aligned as Home Assistant's statistics are.
+    - *Logbook*: `logbook/get_events` for the entities and the period, searched: every word of the
+      search in the state (as stored and as shown), the message, the name, or what caused it (an
+      automation or a script by name, an entity, a person, an action). Home Assistant leaves
+      measurements (sensors with a unit) out of its logbook: the report says so for them.
+  - **Filtered by value and by how long.** Above, below, equal to or not equal to a value, and
+    for at least a time. With a value, the rows in a row that match make one period (from, to,
+    how long, the lowest and the highest); the time then keeps the periods that long. Without
+    one, it keeps the rows that lasted that long. "The bedroom above 24 °C for more than an hour"
+    is the bedroom's temperature, above 24, for at least an hour. Equal to compares numbers as
+    numbers, other states as stored or as shown, accents and case aside. Of several entities, a
+    value filters one (the first unless another is chosen: a room's temperature, a lamp before
+    its power) or all of them.
+  - **The table** shows the newest first, 500 rows at most, with a line saying how many there are
+    and, filtered, how long they last in all. States are shown as Home Assistant shows them
+    (`formatEntityState`, in 2025.1 and since), with their unit; as stored where it is missing (the
+    demo house).
+  - **CSV**: every row (not only the 500 shown), oldest first as Home Assistant's own export,
+    with column names that stay the same in every language, times in ISO 8601 (UTC), states as
+    the recorder gives them, numbers with a point and four decimals at most. A cell a
+    spreadsheet would read as a formula (`=`, `+`, `-`, `@` before text) starts with `'`.
+    Downloaded by the browser as Home Assistant's History does, and **Copy** for the companion
+    apps that do not download (the text then selected to copy by hand where the clipboard is
+    refused).
+  - **Read only, for every user.** Home Assistant answers the three commands for any signed-in
+    user; DomoTwin asks nothing more of it, keeps nothing (the report is gone once closed) and
+    sends nothing elsewhere. Home Assistant's History and Logbook pages are a tap away with the
+    same entities and period (`/history` and `/logbook`, `entity_id`, `start_date`, `end_date`);
+    not in the demo house, whose entities they do not know (D-050). Not in the sandbox (D-057)
+    either, whose day has a report of its own: there, **History** is not offered.
+  - **The demo house** answers the three commands from its day (D-050): its sensors and devices
+    minute by minute, the same day every day, ten days back as Home Assistant keeps each change
+    by default; no statistics, so its hours are worked out in the page; its logbook from the
+    day's changes, with the automations that made them. What the visitor changed is not in its
+    history.
+  - **A chunk of its own**, loaded the first time **History** is pressed, with its texts in both
+    languages added to the translator as it loads (as D-055's tabs). The button and its label are
+    in the first load.
+  - **Checked, not remembered** (D-054), in Home Assistant 2025.1 (core 2025.1.0, frontend
+    20250103.0): `history/history_during_period` (`start_time`, `end_time`, `entity_ids`,
+    `include_start_time_state`, `significant_changes_only`, `minimal_response`, `no_attributes`;
+    the answer by entity, `s` the state, `lu` and `lc` seconds);
+    `recorder/statistics_during_period` (`period`, `types` among `mean`, `min`, `max`, `change`,
+    `state`, `sum`; `start` and `end` in milliseconds); `logbook/get_events` (`start_time`,
+    `end_time`, `entity_ids`; `when` in seconds, `state`, `message`, `name`, `context_*`;
+    continuous sensors left out); none needs an administrator. The History and Logbook pages
+    read `entity_id`, `start_date` and `end_date`; `hass.formatEntityState` is there; the
+    History page downloads its CSV through a link.
+- **Consequences.**
+  - The roadmap shows M38 done after M29; D-056's order goes on from M30.
+  - A long press on a device, and a room's panel, gain a button; the report is the first table
+    of DomoTwin's own, where D-054 kept graphs Home Assistant's: a table of what Home Assistant
+    recorded is not a chart redrawn.
+  - Nothing new in the integration; the demo house (a home kept in the page that keeps a history,
+    `MemoryHome.history`) and the E2E harness answer the three commands.
+
+## D-059 · "Why?": who or what changed a device, as Home Assistant recorded it (M32)
+
+M32, moved forward by the maintainer: asked right after 0.4.0, next to the sandbox (M29), rather
+than after 0.5.0; the rest of D-056's order keeps its place.
+
+- **Context.** D-056 planned M32 as what Home Assistant's Activity shows since 2026.9, drawn in
+  the home, and the same on the versions before it. Checked in Home Assistant's core and frontend
+  at the versions DomoTwin supports and the latest (2025.1.0: frontend 20250103.0; 2026.10.0:
+  frontend 20260930.2), in October 2026:
+  - **A state's context** reaches every dashboard with the state (`context`: `id`, `parent_id`,
+    `user_id`). A service called by a signed-in user carries their user id; an automation runs
+    in a new context whose parent is its trigger's
+    ([`automation/__init__.py`](https://github.com/home-assistant/core/blob/2026.10.0/homeassistant/components/automation/__init__.py#L701-L702),
+    same in 2025.1); a script runs in the context of what started it
+    ([`script/__init__.py`](https://github.com/home-assistant/core/blob/2026.10.0/homeassistant/components/script/__init__.py#L242-L267)).
+  - **The logbook** (`logbook/get_events`, open to every user, `context_id` since before 2025.1)
+    gives each row where its context began: the action called (`context_domain`,
+    `context_service`), the state change (`context_entity_id`, `context_state`), the run
+    (`context_event_type`, `context_name`, `context_source`), and the user (`context_user_id`; in
+    2026.10, not 2025.1, rows asked by entity also carry the user of their context's parent)
+    ([`processor.py`](https://github.com/home-assistant/core/blob/2026.10.0/homeassistant/components/logbook/processor.py)).
+    Only the rows of runs carry their context id; a state's row does not
+    ([`automation/logbook.py`](https://github.com/home-assistant/core/blob/2026.10.0/homeassistant/components/automation/logbook.py)).
+    A trigger is said in English words (`state of binary_sensor.hall`, `numeric state of …`,
+    `time`, `time pattern`, `event '…'`, `Home Assistant starting`; the sun's `sunset with
+    offset` in 2025.1, `sun event sunset` in 2026). Sensors that measure are not in it.
+  - **The traces** of each context (`trace/contexts`, administrators only) give the page of each
+    run: `/config/<domain>/trace/<item>?run_id=<run>`, as Home Assistant's own Activity links it
+    in both versions.
+  - **The Activity** opens on entities and a time from its address (`/logbook?entity_id=…,…`
+    `&start_date=…&end_date=…`, in both). Since 2026.9 a row opens "what happened": its run,
+    found among the automation's last three runs of the day before, and the state change of the
+    trigger that set it off, one step
+    ([`logbook-chain-resolver.ts`](https://github.com/home-assistant/frontend/blob/20260930.2/src/panels/logbook/logbook-chain-resolver.ts)).
+  - **Voice** leaves no trace of its own: what Assist does is recorded as the actions it called,
+    by the user signed in where there is one; the conversation entity writes its state in a
+    context of its own, not linked to them.
+- **Decision.**
+  - **Asked from the device's sheet**: **Why** under the controls, with **Who or what changed
+    it?**; nothing is read before (the sheets open often). It explains the entity shown in the
+    scene (`primaryEntity`), not for a sensor that measures (with a unit, a state class or, as in
+    2026.10, a kind that is a number: the logbook never has it). Asked again when the device's
+    state changes while its chain shows, once the chain being read is read.
+  - **Read as Home Assistant reads it**, in the frontend (`src/live/why.ts`): the device's last
+    change of state, by the context it was written in when nothing was written since, else its row
+    of the logbook around `last_changed`; the rows of that context; the run in them, else found
+    as Home Assistant 2026.9 finds it (the automation's last three runs of the day before, the one
+    whose rows hold the change); what set the run off: the state change of a state trigger,
+    followed back the same way (by the trigger's live state when its context is the run's parent,
+    else its row before the run), someone, a time, the sun, a start, an event, or Home
+    Assistant's words; for a run another run started, or someone by hand, its parent context, and
+    its row asked by its automation (which carries the user since 2026.10). A change written in a
+    context of another's doing (a thermostat's heater) is followed to that parent too. The live
+    context is trusted only when the logbook holds the change in it; what ran after the change
+    in the same context is not among its causes; a context id that is not a ULID is not asked for
+    (Home Assistant would read it as none and answer every row). Followed up to six changes back.
+  - **Only what Home Assistant recorded.** A change whose context began with itself is "nobody, as
+    far as Home Assistant knows" (the device itself, or its integration); one whose parent the
+    logbook does not have, or that the logbook does not have at all, is "not in the logbook";
+    further back, a change that began with itself is where the chain starts. Without Home
+    Assistant's logbook (not loaded, or the sandbox's copy, D-057), no **Why**; when it cannot be
+    read, what the state's context says, and that it could not be read.
+  - **Drawn with the wires of M9c** (`setAutomations`, no change in the engine): a wire from each
+    step to the next that has a place, through the automations and scripts that ran between them,
+    in the first one's colour; a person, a time, an action float as labels; pulses one after the
+    other from the start to the device. A tap names the wire's runs. It takes the place of the
+    automations' wires while it shows.
+  - **Home Assistant's pages reused** (D-054): the Activity on the chain's entities around it, for
+    everyone; a run's trace for administrators. Neither in the demo house (they show the home).
+  - **Names**: a user is named by their `person`, or the user viewing; for an administrator, by
+    Home Assistant's users (`config/auth/list`, theirs only) when no person is theirs; "a user of
+    Home Assistant" otherwise.
+  - **Private rooms (D-039)**: a step of what a room the viewer may not see holds, by its pieces
+    or its area, is "in a private room", left out of the Activity's address and not drawn.
+  - **The demo house** records as Home Assistant does (`src/demo/logbook.ts`): the visitor's
+    actions as theirs, its automations' runs with their triggers, the house as it opens and the
+    moment the visitor goes to as the demo's day; its logbook answered as `logbook/get_events`
+    answers: a context's rows from what it recorded, an entity's from its day before it opened
+    (D-058) and from what it recorded since.
+- **Consequences.**
+  - The section and its texts come with the sheets, the drawing is a chunk of its own
+    (`chunks/why-wires-<hash>.js`); the first load grows by the view's part and five icons
+    (+0.9 kB gzipped). The automation wires and the chain share their spots and chip
+    (`wire-spots.ts`).
+  - On 2026.9 and later, Home Assistant's own Activity shows the same chain as a list: DomoTwin's
+    is the same read, drawn in the home, followed further back, and on 2025.1 too.
+  - Why something did not happen stays the sandbox's (M29).
+
+## D-060 · The Wi-Fi for guests: its QR code drawn in the page (M30)
+
+M30, the first part of guest access (M33), planned after the sandbox (D-056).
+
+- **Context.** Guests ask for the Wi-Fi; a QR code joins a phone to it at once. Home Assistant
+  has no place of its own for the home's Wi-Fi; some routers give their guest network's code as an
+  image entity (FRITZ!Box, UniFi). The password is a secret like no other DomoTwin keeps: it must
+  never be in the plan, the logs, the diagnostics, an export or the repository.
+- **Decision.**
+  - **Kept apart.** The network (its name, password, kind, whether it is hidden, or the router's
+    image entity, and the screens that show it) is kept in a private store of its own
+    (`.storage/domotwin.wifi`), read and changed by its own commands (`domotwin/wifi/get`,
+    `/save`, `/clear`). An administrator gives and changes it; the password is checked against
+    its kind (WPA, WEP, open) as phones take it. The same network saved without its password
+    keeps it. Diagnostics say only whether there is one. Removing DomoTwin deletes it.
+  - **Shown where chosen.** `domotwin/wifi/get` answers an administrator with all of it, and
+    anyone else only on a screen an administrator chose (a card's `screen`, D-029, its name
+    matched whatever the case as `domotwin.show` matches it), with what draws the code; elsewhere
+    only whether there is one. The password comes only when asked for (`password: true`), which
+    the dialog does when it opens: the panel and the cards keep the network without it. A
+    screen's name is no secret (it is in the dashboard's configuration): anyone signed in to Home
+    Assistant can ask as one of those screens would, as anyone before it can scan it. That suits a
+    network meant for guests, and the guide says so. A change is told to the screens
+    (`kind: wifi`), never what changed.
+  - **Drawn in the page.** The analysis module (D-043), loaded the first time the code is shown,
+    builds what a phone reads (`WIFI:T:WPA;S:<name>;P:<password>;;`, with `\`, `;`, `,`, `:` and
+    `"` escaped; `H:true` for a hidden network) and encodes it with `qrcodegen` (MIT, no
+    dependencies, checked by `cargo deny`); the page draws its modules as an SVG, dark on white
+    whatever the look. A router's code is its image entity's picture, from Home Assistant.
+  - **The way in.** A Wi-Fi button among the view's buttons when it may be shown here, in the panel
+    and in cards, and on its own when a card hides its tools or cannot draw in 3D (a wall screen
+    still gives the Wi-Fi); for administrators, an entry of the ⋮ menu, which opens the form when
+    nothing is given yet. A wall screen left alone closes the dialog as it goes back to its view.
+    The demo house has a fictional guest network; the sandbox has none.
+- **Consequences.**
+  - The first load grows by the button, the client's commands and their texts; the dialog is a
+    chunk of its own, the encoder a few kilobytes of the analysis module.
+  - A password Home Assistant's own debug logging writes (its connection's messages, when someone
+    turns it on) is out of DomoTwin's hands: said in the guide.
+  - Guest access (M33) builds on it: a guest's own screen, for a time, with this code.
+
+## D-061 · Into Home Assistant's Overview: area pages, room sensors, summaries (M23b)
+
+M23b, planned in D-056 after the sandbox (D-057) and the Wi-Fi QR code (D-060).
+
+- **Context.** Home Assistant opens on its own Overview since 2026.2 (D-056): a page for each area,
+  summaries in its manner, favourites an administrator chooses. Checked when built, in Home
+  Assistant's frontend at the versions its releases pin: its `home` panel came in 2025.12, hidden
+  (core's `async_register_built_in_panel(hass, "home", …, sidebar_default_visible=False)`), and
+  became the page Home Assistant opens on in 2026.2 (`DEFAULT_PANEL = "home"`, frontend
+  20260128.6). Every area has a page at `/home/areas-<area_id>` from 2025.12 to 2026.10
+  (`home-dashboard-strategy.ts`), and that page shows, beside its summaries, the other entities of
+  the area grouped by device, under the device's name, those with no entity category
+  (`home-area-view-strategy.ts`, 20260930.2).
+- **Decision.**
+  - **A room tapped in 3D opens its area's page.** In the panel, where Home Assistant is 2026.2 or
+    later and has its `home` panel, a room tapped whose area Home Assistant has opens
+    `/home/areas-<area>`; Home Assistant's back button leads back to the 3D view. Elsewhere, in
+    the demo house and in the sandbox (whose areas are not the home's), the room's page in
+    *Rooms*, as before (D-055). The room's own actions (D-047) stay in its 3D panel, opened by a
+    long press. Cards are unchanged: a tap frames the room there.
+  - **Each room a device, two sensors.** Each room of the plans has a service device of its own,
+    *DomoTwin · \<room\>*, made in the room's area (the one it reads, D-034), which Home Assistant
+    shows on that area's page: the people at home in the room (unknown while the room is private
+    for nobody, as D-039 locks it: an entity is everyone's; those who hid themselves, D-034, not
+    counted), and the upkeep due for the pieces in it (D-033), the soonest listed. A piece is in
+    the room it follows since edit mode moved it (D-019), else the room it names, else the room
+    its centre is in, as the engine finds it. The rooms are the people tracker's, which follows
+    the plans, the bindings and the areas first. When the room is linked to another area, its
+    device moves there as soon as that area exists, and a device in no area, or made now (Home
+    Assistant brings a deleted one back where it was), goes into its room's; one moved by hand
+    stays where it was put until the room's area changes, and an area renamed moves
+    nothing. A room removed takes its device and sensors with it. The device's identifiers are looked up with the config entry, as Home
+    Assistant 2026.x asks, and alone before (`compat.device_of`).
+  - **No sensor for the mesh or the robots.** The weak spots of the mesh are worked out in the
+    browser from ZHA's tables (D-031, D-043), which the integration does not read; the robots are
+    drawn moving by the engine (D-049), not reported by Home Assistant. Their summaries say what
+    DomoTwin knows of them instead.
+  - **Summaries, in the Overview's manner.** `custom:domotwin-summary-card`, with `summary` one
+    of `people`, `network`, `automations`, `upkeep`, `robots`: an icon, a title and a line, a tap
+    opening the 3D view (`/domotwin/3d`, with `?layer=` for the network, the automations and the
+    upkeep). The panel chooses a layer asked for in its address once the plan is drawn, then
+    takes it out of the address; the view shows it only if the user may see it (the network and
+    the automations are for administrators), as for a layer chosen in its menu. The people's
+    summary names the rooms of the people the viewer may see in DomoTwin only (D-034): none of
+    those hidden, none at all for someone who is not an administrator when only administrators
+    see them. The network's summary reads ZHA's devices and the analysis module's health every
+    ten minutes, for administrators only, and not sooner when the card is shown again. A
+    summary is drawn again only when what it says changes, and opens nothing for someone without
+    DomoTwin's panel (Home Assistant lists only the panels a user may open). The card is defined with the first picture and
+    loads what it shows with the first one on the page. The Home tab takes them as cards of its
+    own (`{"type": "summary", "summary": …}`, validated by the integration).
+  - **Shortcuts.** The guide shows how to put DomoTwin among the Overview's shortcuts (2026.5 and
+    later); DomoTwin does not write Home Assistant's system data (D-056).
+  - **Asked, not decided.** The 3D view at the top of the Overview or of an area's page, and an
+    area's page opening DomoTwin on its room, need Home Assistant itself; whether the Home and
+    Rooms tabs stay where the Overview is was asked: they stay until the answer.
+- **Consequences.**
+  - The first load grows by the summary card's shell, the area page's rule and a few texts; what
+    the summaries show is a chunk of its own, their editor another.
+  - Each room adds a device and two entities to Home Assistant; a plan of 40 rooms, 40 devices.
+  - M24 and M25 follow the same rule: Home Assistant's own pages opened where it has them.
+
 ## D-062 · More imports: robot vacuum maps, Floorplanner, mesh scans (amends D-040)
 
-M20, moved forward by the maintainer: built after 0.4.0, before the sandbox (M29), so that the
-first launch in five minutes (M22) has it.
+M20, moved forward by the maintainer from after 0.5.0 (D-056) to before it, so that the first
+launch in five minutes (M22) has it.
 
 - **Context.** Many homes already have a map, drawn by something other than a planning app: the
   robot vacuum's, made while it cleans; a Floorplanner plan, and the plans other apps export to

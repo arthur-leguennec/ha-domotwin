@@ -12,7 +12,6 @@
 from __future__ import annotations
 
 from datetime import timedelta
-import re
 from typing import Any
 
 from homeassistant.core import (
@@ -32,8 +31,8 @@ from .const import (
     DOMAIN,
     MAX_SCHEDULE_DAYS,
     MAX_SCHEDULE_ENTITIES,
-    MAX_SCREEN_NAME,
     MAX_SHOW_TEXT,
+    SCREEN_NAME,
     SERVICE_SCHEDULE,
     SERVICE_SHOW,
     SERVICE_UNSCHEDULE,
@@ -46,8 +45,6 @@ from .privacy import private_rooms
 from .schedules import ScheduleError, describe, moment, times
 from .tracker import name_of
 
-SCREEN = re.compile(rf"^[A-Za-z0-9_-]{{1,{MAX_SCREEN_NAME}}}$")
-
 
 def _text(value: Any) -> str:
     text = cv.string(value).strip()
@@ -59,7 +56,7 @@ def _text(value: Any) -> str:
 def _screen(value: Any) -> str:
     """A screen's name, or the empty string for every screen."""
     text = cv.string(value).strip()
-    if text and not SCREEN.match(text):
+    if text and not SCREEN_NAME.fullmatch(text):
         raise vol.Invalid("a screen's name is made of letters, digits, _ and -")
     return text
 

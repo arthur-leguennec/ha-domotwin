@@ -286,9 +286,23 @@ test.describe("linking", () => {
         target: { entity_id: "light.sideboard_lamp" },
       },
     });
-    // Out of link mode, a long press runs the action.
+    // Out of link mode, a long press runs the action: given where the lamp is drawn once the view
+    // has settled, it acts on what was under it when it landed.
     await page.getByTestId("link-mode").click();
-    await longPress(page, await pointOn(page, "table-lamp"));
+    let point: { x: number; y: number } | undefined;
+    await expect
+      .poll(async () => {
+        const next = await pointOn(page, "table-lamp").catch(() => undefined);
+        const still =
+          next !== undefined &&
+          point !== undefined &&
+          Math.hypot(next.x - point.x, next.y - point.y) < 1;
+        point = next;
+        return still;
+      })
+      .toBe(true);
+    if (!point) throw new Error("the lamp cannot be pressed");
+    await longPress(page, point);
     await expect.poll(() => entityState(page, "light.sideboard_lamp")).toBe("on");
   });
 

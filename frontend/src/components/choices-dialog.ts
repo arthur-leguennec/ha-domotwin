@@ -10,6 +10,7 @@ import { LitElement, css, html, nothing, type PropertyValues, type TemplateResul
 import { DomoTwinClient } from "../ha/client";
 import { isHassError, type FrontendCoreData, type HomeAssistant } from "../ha/types";
 import type { Translator } from "../i18n";
+import "../i18n/summary";
 import { entityName } from "../live/bindings";
 import {
   MAX_CALENDARS,
@@ -21,10 +22,12 @@ import {
   type HomeCard,
   type Tab,
 } from "../live/choices";
+import { SUMMARIES, isSummary } from "../live/overview";
 import { define, fire } from "./define";
 import { icon } from "./icon";
 import { baseStyles } from "./styles";
 
+// The summaries' names (D-061), for the Home tab's summary cards.
 /** How Home Assistant keeps the page it opens first: for the user, or on this device. */
 export type FirstPage = "user" | "device";
 
@@ -78,7 +81,7 @@ export class DomoTwinChoices extends LitElement {
   protected cards: HomeCard[] = [];
   protected first = false;
   /** A card being added, and the entities picked for it. */
-  protected adding?: "calendar" | "todo-list";
+  protected adding?: "calendar" | "todo-list" | "summary";
   protected picked: string[] = [];
   protected busy = false;
   protected error?: string;
@@ -220,9 +223,16 @@ export class DomoTwinChoices extends LitElement {
     const hass = this.hass;
     const t = this.t;
     if (!hass || !t) return "";
-    return card.type === "calendar"
-      ? t.t("choices.agenda", { names: card.entities.map((id) => entityName(hass, id)).join(", ") })
-      : t.t("choices.list", { name: entityName(hass, card.entity) });
+    switch (card.type) {
+      case "calendar":
+        return t.t("choices.agenda", {
+          names: card.entities.map((id) => entityName(hass, id)).join(", "),
+        });
+      case "todo-list":
+        return t.t("choices.list", { name: entityName(hass, card.entity) });
+      case "summary":
+        return t.t("choices.summary", { name: t.t(`summary.titles.${card.summary}`) });
+    }
   }
 
   private addPicked(): void {
@@ -230,6 +240,8 @@ export class DomoTwinChoices extends LitElement {
       this.cards = [...this.cards, { type: "calendar", entities: this.picked }];
     } else if (this.adding === "todo-list" && this.picked[0]) {
       this.cards = [...this.cards, { type: "todo-list", entity: this.picked[0] }];
+    } else if (this.adding === "summary" && isSummary(this.picked[0])) {
+      this.cards = [...this.cards, { type: "summary", summary: this.picked[0] }];
     }
     this.adding = undefined;
     this.picked = [];
@@ -300,7 +312,8 @@ export class DomoTwinChoices extends LitElement {
     const t = this.t;
     if (!hass || !t || !this.adding) return nothing;
     const calendar = this.adding === "calendar";
-    const ids = calendar ? this.calendars : this.lists;
+    const summary = this.adding === "summary";
+    const ids = summary ? [...SUMMARIES] : calendar ? this.calendars : this.lists;
     // Back to the choice of a card, the rest of the dialog as it is.
     const back = html`<button
       class="action quiet"
@@ -319,7 +332,15 @@ export class DomoTwinChoices extends LitElement {
       </div>`;
     }
     return html`<div class="pick" data-testid="choices-pick">
-      <h3>${t.t(calendar ? "choices.pick_calendars" : "choices.pick_list")}</h3>
+      <h3>
+        ${t.t(
+          summary
+            ? "choices.pick_summary"
+            : calendar
+              ? "choices.pick_calendars"
+              : "choices.pick_list",
+        )}
+      </h3>
       ${ids.map(
         (id) =>
           html`<label class="row">
@@ -340,7 +361,9 @@ export class DomoTwinChoices extends LitElement {
                   : [id];
               }}
             />
-            <span>${entityName(hass, id)}</span>
+            <span>
+              ${summary && isSummary(id) ? t.t(`summary.titles.${id}`) : entityName(hass, id)}
+            </span>
           </label>`,
       )}
       <div class="adds">
@@ -383,7 +406,11 @@ export class DomoTwinChoices extends LitElement {
           ${icon(mdiClose)}
         </button>
       </header>
-      ${hass.demo ? html`<p class="hint">${t.t("choices.demo")}</p>` : nothing}
+      ${
+        hass.demo
+          ? html`<p class="hint">${t.t(hass.sandbox ? "choices.sandbox" : "choices.demo")}</p>`
+          : nothing
+      }
       <label class="row">
         <span>${t.t("choices.start")}<br /><small>${t.t("choices.start_hint")}</small></span>
         <select
@@ -476,6 +503,17 @@ export class DomoTwinChoices extends LitElement {
                 }}
               >
                 ${t.t("choices.add_list")}
+              </button>
+              <button
+                class="action quiet"
+                data-testid="choices-add-summary"
+                ?disabled=${this.cards.length >= MAX_HOME_CARDS}
+                @click=${() => {
+                  this.adding = "summary";
+                  this.picked = [];
+                }}
+              >
+                ${t.t("choices.add_summary")}
               </button>
             </div>`
       }
