@@ -1454,19 +1454,18 @@ Once a week, what needs a look in the home, room by room on the plans (`DECISION
 - ✅ Tests: batteries (Battery Notes', a device charging), devices unavailable and those only just
   so, updates and one skipped, repairs and one ignored, Watchman's both sensors, upkeep, failed runs
   in and out of the week, automations broken and never run, rooms from links, devices and areas,
-  weak radios by the network map's rules, the energy settings in both shapes, the week's energy
-  and peaks through the recorder, new and done since the last, a device unavailable across a
-  restart, written on its day and told once (two hours at once, writing by hand), a week caught
-  up, a new home waiting, unloaded while writing, the AI task's summary, its refusal and a private
-  room it is not told, the settings for
-  administrators, kept leniently and in bounds, the words in both languages, the day across a
-  change of time, the diagnostics, removed with the integration (pytest); the report read
-  leniently, each item in words and where it opens, the AI tasks offered, the plans' rooms and
-  labels, the demo house's reports, the messages' placeholders (vitest); the sections and the
-  rooms, a room picked, the energy and the peaks, opening items and showing one in 3D, writing
-  one, an earlier week, the settings, the integration refusing, the notification's link and a
-  user who is not an administrator, none yet, a summary, a private room closed, French, the demo
-  house (Playwright).
+  weak radios by the network map's rules, the energy settings in both shapes, the week's energy and
+  peaks from the recorder's answers, new and done since the last, a device unavailable across a
+  restart, written on its day and told once (two hours at once, writing by hand), a week caught up,
+  a new home waiting, unloaded while writing, the AI task's summary, its refusal and a private room
+  it is not told, the settings for administrators, kept leniently and in bounds, the words in both
+  languages, the day across a change of time, the diagnostics, removed with the integration
+  (pytest); the report read leniently, each item in words and where it opens, the AI tasks offered,
+  the plans' rooms and labels, the demo house's reports, the messages' placeholders (vitest); the
+  sections and the rooms, a room picked, the energy and the peaks, opening items and showing one in
+  3D, writing one, an earlier week, the settings, the integration refusing, the notification's link
+  and a user who is not an administrator, none yet, a summary, a private room closed, French, the
+  demo house (Playwright).
 
 ![The weekly report of the fictional demo apartment: the week, a summary, what needs a look, room by room on the plans](figures/screenshot-report.png)
 
