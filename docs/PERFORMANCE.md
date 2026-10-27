@@ -998,13 +998,13 @@ tracker already keeps, and only the rooms whose count changed are written.
 
 ### M31 (the placement advisor)
 
-Bundle: the first load is **520.2 kB gzipped** of 1 200 kB (+0.8 kB): the layer's name, who may
+Bundle: the first load is **522.1 kB gzipped** of 1 200 kB (+0.8 kB): the layer's name, who may
 see it, and the coverage's colour scale in the engine (380.6 kB gzipped, +0.1 kB). The rest comes
 on demand, when the layer is chosen: the sheet (`chunks/placement-panel-<hash>.js`: 30.2 kB raw,
 9.4 kB gzipped) with its texts in both languages, and the model in the analysis module
 (`domotwin_analysis_bg.wasm`: 228.7 kB raw, 104.1 kB gzipped, +71.9 kB and +32.1 kB), which the
-network map and the Wi-Fi QR code already load. All that comes on demand is now 690.9 kB gzipped
-(+41.7 kB).
+network map, the Wi-Fi QR code and the network's summary already load. All that comes on demand
+is now 696.8 kB gzipped (+41.6 kB).
 
 Nothing of it runs until the layer is chosen. The radios are read once (the locating's answer, ZHA's
 devices and their links analysed, or the Wi-Fi signals in the states), again when the plan, the
