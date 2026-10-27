@@ -22,10 +22,11 @@ Local, rapide, Rust + WebAssembly.</p>
 > de chacun, la sécurité (les caméras, la sonnette, l’alarme, les alertes sur chaque onglet), les
 > graphiques de chaque pièce avec la page Énergie de Home Assistant à un onglet, les automatisations
 > dites avec vos mots, jouées dans le bac à sable avant d’être enregistrées, la météo autour du
-> logement, la justesse des pièces trouvées, mesurée à côté de Bermuda, et une bibliothèque de 195
-> meubles et objets avec leurs images, et DomoTwin a rejoint la
-> Vue d’ensemble de Home Assistant ; l’écran mural suit, vers la 0.5.0. La proposition à la liste
-> par défaut de HACS attend des mesures sur de vrais appareils.
+> logement, la justesse des pièces trouvées, mesurée à côté de Bermuda, une bibliothèque de 195
+> meubles et objets avec leurs images, un iPhone suivi sans Mac et l’écran mural (son économiseur
+> réveillé par qui arrive), et DomoTwin a rejoint la Vue d’ensemble de Home Assistant ; un premier
+> lancement en cinq minutes ferme le chemin vers la 0.5.0. La proposition à la liste par défaut de
+> HACS attend des mesures sur de vrais appareils.
 
 ## Ce qui le distingue
 
@@ -149,6 +150,13 @@ Local, rapide, Rust + WebAssembly.</p>
   administrateurs, et sur les écrans muraux que vous choisissez ; le mot de passe reste dans le
   stockage privé de DomoTwin. Voir [le Wi-Fi des
   invités](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/wifi.md) (en anglais).
+- **L’écran mural.** Une tablette près de la porte ou dans la cuisine s’ouvre sur son propre
+  onglet et, quand personne n’est là, montre l’heure, la météo et vos photos des médias de Home
+  Assistant, partis dès que quelqu’un la touche, qu’un capteur de mouvement le voit ou que la
+  sonnette retentit. La mise en page de chaque écran est réglée une fois par un administrateur et
+  suivie par l’appareil qui l’est, quel que soit le compte connecté. Voir [l’écran
+  mural](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/wall-screen.md) (en
+  anglais).
 - **L’accès invités.** Un pass ouvre des pièces et des appareils choisis à vos invités pour
   quelques jours : son lien ou son code QR les ouvre sur leur téléphone, en 3D, sans compte Home
   Assistant, avec le Wi-Fi si vous voulez, et se termine tout seul. Par défaut il ne s’ouvre que sur

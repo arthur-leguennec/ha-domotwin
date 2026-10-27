@@ -2,7 +2,7 @@
  * `<domotwin-choices>`, the user's own choices (D-055): the tab DomoTwin opens on (for the user,
  * and this device's own), the cards of their Home tab (an agenda, a list), and whether Home
  * Assistant opens DomoTwin first, through Home Assistant's own setting: this device's in 2025.1,
- * the user's in the versions that keep it for them.
+ * the user's in the versions that keep it for them. And the wall screen this device is (D-076).
  */
 import { mdiClose, mdiDeleteOutline } from "@mdi/js";
 import { LitElement, css, html, nothing, type PropertyValues, type TemplateResult } from "lit";
@@ -23,6 +23,8 @@ import {
   type Tab,
 } from "../live/choices";
 import { SUMMARIES, isSummary } from "../live/overview";
+import { screenNamed, writeDeviceScreen, type Screens } from "../live/screens";
+import { sameScreen } from "../live/show";
 import { define, fire } from "./define";
 import { icon } from "./icon";
 import { baseStyles } from "./styles";
@@ -63,9 +65,12 @@ export class DomoTwinChoices extends LitElement {
     t: { attribute: false },
     choices: { attribute: false },
     deviceStart: { attribute: false },
+    screens: { attribute: false },
+    deviceScreen: { attribute: false },
     panelPath: { attribute: false },
     start: { state: true },
     device: { state: true },
+    screen: { state: true },
     cards: { state: true },
     first: { state: true },
     adding: { state: true },
@@ -79,10 +84,14 @@ export class DomoTwinChoices extends LitElement {
   choices?: Choices;
   /** This device's own tab, when it has one. */
   deviceStart?: Tab;
+  /** The wall screens (D-076), when read, and the one this device is. */
+  screens?: Screens;
+  deviceScreen?: string;
   /** The panel's path in Home Assistant (`domotwin`). */
   panelPath = "domotwin";
   protected start: Tab | "" = "";
   protected device: Tab | "" = "";
+  protected screen = "";
   protected cards: HomeCard[] = [];
   protected first = false;
   /** A card being added, and the entities picked for it. */
@@ -213,6 +222,7 @@ export class DomoTwinChoices extends LitElement {
     this.drafted = true;
     this.start = this.choices.start ?? "";
     this.device = this.deviceStart ?? "";
+    this.screen = this.deviceScreen ?? "";
     this.cards = [...this.choices.cards];
     this.first = opensFirst(hass, this.panelPath);
     const ids = Object.keys(hass.states).sort();
@@ -285,7 +295,12 @@ export class DomoTwinChoices extends LitElement {
         cards: this.cards,
       });
       writeDeviceStart(this.device || undefined);
-      fire(this, "domotwin-saved", { choices: saved, device: this.device || undefined });
+      if (!hass.demo && !hass.sandbox) writeDeviceScreen(this.screen || undefined);
+      fire(this, "domotwin-saved", {
+        choices: saved,
+        device: this.device || undefined,
+        screen: this.screen || undefined,
+      });
     } catch (error) {
       this.error = t.t("choices.failed", { reason: reason(error) });
       this.busy = false;
@@ -300,6 +315,38 @@ export class DomoTwinChoices extends LitElement {
     } finally {
       this.busy = false;
     }
+  }
+
+  /**
+   * The wall screen this device is (D-076): one of those administrators set (from the menu),
+   * whose layout it then follows.
+   */
+  private renderScreen(): TemplateResult | typeof nothing {
+    const t = this.t;
+    const screens = this.screens;
+    // The demo house and the sandbox are homes of their own: the device is not theirs to name.
+    if (!t || !screens || this.hass?.demo || this.hass?.sandbox) return nothing;
+    const names = Object.keys(screens);
+    // A screen no longer there is still said, until another is chosen.
+    const kept = this.screen && !screenNamed(screens, this.screen) ? [this.screen] : [];
+    if (names.length === 0 && kept.length === 0) return nothing;
+    return html`<label class="row">
+      <span>${t.t("choices.screen")}<br /><small>${t.t("choices.screen_hint")}</small></span>
+      <select
+        data-testid="choices-screen"
+        @change=${(event: Event) => {
+          this.screen = (event.target as HTMLSelectElement).value;
+        }}
+      >
+        <option value="" ?selected=${this.screen === ""}>${t.t("choices.screen_none")}</option>
+        ${[...names, ...kept].map(
+          (name) =>
+            html`<option value=${name} ?selected=${sameScreen(name, this.screen)}>
+              ${kept.includes(name) ? t.t("choices.screen_gone", { name }) : name}
+            </option>`,
+        )}
+      </select>
+    </label>`;
   }
 
   private tabOptions(selected: Tab | "", none?: string): TemplateResult {
@@ -441,6 +488,7 @@ export class DomoTwinChoices extends LitElement {
           ${this.tabOptions(this.device, t.t("choices.device_same"))}
         </select>
       </label>
+      ${this.renderScreen()}
       ${
         how
           ? html`<label class="row">

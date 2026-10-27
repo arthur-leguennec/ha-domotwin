@@ -672,6 +672,9 @@ export const fr: Dictionary = {
     description:
       "Un des résumés de DomoTwin, à la manière de l’Aperçu : les personnes à la maison, le réseau radio, les automatisations, l’entretien ou les robots.",
   },
+  screens: {
+    menu: "Écrans muraux",
+  },
   wifi: {
     menu: "Wi-Fi des invités",
     button: "Wi-Fi des invités : son code QR",
@@ -1199,6 +1202,9 @@ export const fr: Dictionary = {
       not_in_sandbox:
         "les actions pour plus tard appartiennent à votre maison, pas au bac à sable.",
       too_many_favourites: "vous avez déjà 100 favoris : retirez d’abord une étoile.",
+      invalid_screen: "la mise en page de cet écran ne peut pas être gardée.",
+      screen_exists: "un autre écran porte ce nom.",
+      too_many_screens: "il y a déjà 20 écrans muraux : supprimez-en un d’abord.",
       no_supervisor: "ce Home Assistant n’a pas d’applications.",
       busy: "la voix est déjà en cours de configuration.",
       blueprints_not_written:

@@ -277,6 +277,9 @@ export function demoConnection(home: MemoryHome): HassConnection {
         return { candidates: [] };
       case "domotwin/locating/add_key":
         throw failure("no_bluetooth", "the identity key was not taken");
+      case "domotwin/screens/get":
+        // The demo house is shown on a device that may be a wall screen: it has none of its own.
+        return { screens: {} };
       case "domotwin/choices/get":
         return structuredClone(store.choices);
       case "domotwin/choices/favourite": {

@@ -665,6 +665,9 @@ export const en = {
     description:
       "One of DomoTwin's summaries, in the manner of the Overview: the people at home, the radio mesh, the automations, the upkeep or the robots.",
   },
+  screens: {
+    menu: "Wall screens",
+  },
   wifi: {
     menu: "Wi-Fi for guests",
     button: "Wi-Fi for guests: its QR code",
@@ -1179,6 +1182,9 @@ export const en = {
     ws: {
       not_in_sandbox: "actions for later belong to your home, not to the sandbox.",
       too_many_favourites: "you have 100 favourites already: take a star away first.",
+      invalid_screen: "this screen's layout cannot be kept.",
+      screen_exists: "another screen has this name.",
+      too_many_screens: "there are 20 wall screens already: remove one first.",
       no_supervisor: "this Home Assistant has no apps.",
       busy: "voice is already being set up.",
       blueprints_not_written: "the blueprints could not be written to Home Assistant’s folder.",

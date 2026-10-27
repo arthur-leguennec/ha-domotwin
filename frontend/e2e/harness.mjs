@@ -90,6 +90,14 @@ try {
   // No storage: the tip shows.
 }
 const mode = params.get("mode") ?? "card";
+// The wall screen this device is (D-076), when a test says.
+try {
+  const deviceScreen = params.get("devicescreen");
+  if (deviceScreen) localStorage.setItem("domotwin-screen", deviceScreen);
+  else localStorage.removeItem("domotwin-screen");
+} catch {
+  // Storage disabled.
+}
 // The tab this device opens on (D-055): the 3D view, as before the tabs, unless a test asks.
 try {
   const start = params.get("start") ?? "3d";
@@ -679,6 +687,73 @@ let wifi =
         }
       : undefined;
 window.__wifi = () => wifi;
+/**
+ * The wall screens (wall=1, D-076), as the integration keeps them: the hall's, whose saver comes
+ * after a minute, woken by the hall's motion sensor, with the weather and the fictional holidays'
+ * photos; and what `media_source` gives of Home Assistant's media, fictional pictures drawn here.
+ */
+let screens =
+  params.get("wall") === "1"
+    ? {
+        hall: {
+          start: "home",
+          saver: {
+            after: 1,
+            wake: ["binary_sensor.hall_motion"],
+            weather: true,
+            photos: "media-source://media_source/local/holidays",
+            every: 10,
+            dim: true,
+          },
+        },
+      }
+    : {};
+let screensRevision = 0;
+window.__screens = () => screens;
+const PHOTO_COLOURS = { beach: "#e0b060", hills: "#5a9a60", lake: "#4a7ab0" };
+function mediaFolder(id) {
+  const folder = (title, id) => ({
+    title,
+    media_class: "directory",
+    media_content_id: id,
+    can_expand: true,
+  });
+  if (!id) return { title: "Media", children: [folder("My media", "media-source://media_source")] };
+  if (id === "media-source://media_source") {
+    return {
+      title: "My media",
+      children: [
+        folder("holidays", "media-source://media_source/local/holidays"),
+        folder("recipes", "media-source://media_source/local/recipes"),
+      ],
+    };
+  }
+  if (id === "media-source://media_source/local/holidays") {
+    return {
+      title: "holidays",
+      children: Object.keys(PHOTO_COLOURS).map((name) => ({
+        title: `${name}.jpg`,
+        media_class: "image",
+        media_content_type: "image/jpeg",
+        media_content_id: `${id}/${name}.jpg`,
+        can_expand: false,
+      })),
+    };
+  }
+  if (id === "media-source://media_source/local/recipes") return { title: "recipes", children: [] };
+  throw { code: "browse_media_failed", message: "Unknown source" };
+}
+function mediaPhoto(id) {
+  const name = id.split("/").pop().replace(".jpg", "");
+  const colour = PHOTO_COLOURS[name];
+  if (!colour) throw { code: "resolve_media_failed", message: "Unknown media" };
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="320" height="200"><rect width="320" height="200" fill="${colour}"/><text x="20" y="40" font-size="24" fill="#fff">${name}</text></svg>`;
+  return { url: `data:image/svg+xml,${encodeURIComponent(svg)}`, mime_type: "image/svg+xml" };
+}
+function tellScreens() {
+  screensRevision += 1;
+  for (const listener of listeners) listener({ kind: "screens", revision: screensRevision });
+}
 // Guest access (D-067): the passes kept, as the integration keeps them, and what was saved.
 let guestPasses = [];
 let guestTokens = 0;
@@ -1352,6 +1427,44 @@ const connection = {
         for (const listener of listeners) listener({ kind: "wifi", revision: wifiRevision });
         return wifiAnswer(true, "", true);
       }
+      case "domotwin/screens/get":
+        return structuredClone({ screens });
+      case "domotwin/screens/save": {
+        // As the integration keeps them (D-076): a name matched whatever its case and kept as
+        // first spelled; a new screen under a name taken refused.
+        if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        const name = String(message.name).trim();
+        if (!/^[A-Za-z0-9_-]{1,64}$/.test(name)) {
+          throw { code: "invalid_screen", message: "invalid_screen" };
+        }
+        const same = Object.keys(screens).find((k) => k.toLowerCase() === name.toLowerCase());
+        if (message.new === true && same) {
+          throw { code: "screen_exists", message: "screen_exists" };
+        }
+        const layout = structuredClone(message.layout);
+        layout.saver = { after: 0, wake: [], weather: true, every: 30, dim: true, ...layout.saver };
+        const next = { ...screens, [same ?? name]: layout };
+        screens = Object.fromEntries(
+          Object.keys(next)
+            .sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()))
+            .map((k) => [k, next[k]]),
+        );
+        tellScreens();
+        return structuredClone({ screens });
+      }
+      case "domotwin/screens/remove": {
+        if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        const name = String(message.name).toLowerCase();
+        screens = Object.fromEntries(
+          Object.entries(screens).filter(([k]) => k.toLowerCase() !== name),
+        );
+        tellScreens();
+        return structuredClone({ screens });
+      }
+      case "media_source/browse_media":
+        return mediaFolder(message.media_content_id);
+      case "media_source/resolve_media":
+        return mediaPhoto(String(message.media_content_id));
       case "domotwin/guests/get":
         if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
         return { passes: guestPasses.map(guestView) };
@@ -1985,6 +2098,14 @@ if (live && why) {
   ];
 }
 const states = home.states;
+if (params.get("wall") === "1") {
+  // The hall's motion sensor, which wakes its wall screen (D-076).
+  states["binary_sensor.hall_motion"] = {
+    entity_id: "binary_sensor.hall_motion",
+    state: "off",
+    attributes: { friendly_name: "Hall motion", device_class: "motion" },
+  };
+}
 // overview=1: what DomoTwin's sensors say of the rooms and the upkeep (D-061), and who is home.
 const overview = params.get("overview") === "1";
 // energypage=1: Home Assistant's Energy page, its grid set up; energypage=empty: nothing set up.

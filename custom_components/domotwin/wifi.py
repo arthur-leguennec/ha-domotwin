@@ -21,25 +21,17 @@ from homeassistant.helpers.storage import Store
 from .compat import vol
 from .const import (
     MAX_WIFI_SCREENS,
-    SCREEN_NAME,
     SIGNAL_UPDATED,
     WIFI_STORAGE_KEY,
     WIFI_STORAGE_VERSION,
 )
+from .screens import screen_name
 
 #: The kinds of network a phone joins from a QR code.
 SECURITIES = ("WPA", "WEP", "nopass")
 #: The longest network name Wi-Fi allows, in bytes.
 MAX_NAME_BYTES = 32
 HEX = set(string.hexdigits)
-
-
-def _screen(value: Any) -> str:
-    """A screen's name, as a card's `screen` takes it (`domotwin.show` reads it the same way)."""
-    text = cv.string(value).strip()
-    if not SCREEN_NAME.fullmatch(text):
-        raise vol.Invalid("a screen's name is made of letters, digits, _ and -")
-    return text
 
 
 WIFI_SCHEMA = vol.Schema(
@@ -49,7 +41,9 @@ WIFI_SCHEMA = vol.Schema(
         vol.Required("security"): vol.In(SECURITIES),
         vol.Optional("hidden", default=False): bool,
         vol.Optional("image"): cv.entity_domain("image"),
-        vol.Optional("screens", default=list): vol.All([_screen], vol.Length(max=MAX_WIFI_SCREENS)),
+        vol.Optional("screens", default=list): vol.All(
+            [screen_name], vol.Length(max=MAX_WIFI_SCREENS)
+        ),
     }
 )
 

@@ -120,6 +120,8 @@ export interface HomeAssistant {
   /** The actions Home Assistant has, by domain and name (an automation's are checked, D-070). */
   services?: Record<string, Record<string, unknown> | undefined>;
   connection: HassConnection;
+  /** An address of Home Assistant's own, from a path (a photo of its media, D-076). */
+  hassUrl?: (path?: string) => string;
   /**
    * The demo house's own (D-050): nothing hands over to Home Assistant's pages or dialogs, which
    * would show the home's entities, not the demo's.

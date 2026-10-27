@@ -7,6 +7,7 @@ import { readSchedules, type Schedule } from "../live/schedules";
 import type { ShowRequest } from "../live/show";
 import type { Upkeep, UpkeepCard } from "../live/upkeep";
 import { readWifi, type Wifi, type WifiChange } from "../live/wifi";
+import { readScreens, type ScreenLayout, type Screens } from "../live/screens";
 import { readPass, readPasses, type GuestPass, type GuestPassChange } from "../live/guest-pass";
 import type { HassConnection, HassMessage, HomeAssistant } from "./types";
 import type { EnergySettings } from "../live/energy";
@@ -96,7 +97,15 @@ export interface StoredUpkeep {
 
 /** What a save changed: told to every screen listening, with its revision. */
 export type SaveKind =
-  "plan" | "bindings" | "settings" | "upkeep" | "people" | "locating" | "wifi" | "guests";
+  | "plan"
+  | "bindings"
+  | "settings"
+  | "upkeep"
+  | "people"
+  | "locating"
+  | "wifi"
+  | "guests"
+  | "screens";
 
 /** A save (its kind and revision), or a `domotwin.show` request (D-029). */
 export type UpdateEvent =
@@ -491,6 +500,31 @@ export class DomoTwinClient {
   async saveChoices(change: { start?: Tab | ""; cards?: HomeCard[] }): Promise<Choices> {
     return readChoices(
       await this.connection.sendMessagePromise({ type: "domotwin/choices/save", ...change }),
+    );
+  }
+
+  /** The wall screens' layouts (D-076), by name; everyone reads them. */
+  async getScreens(): Promise<Screens> {
+    return readScreens(await this.connection.sendMessagePromise({ type: "domotwin/screens/get" }));
+  }
+
+  /** Sets a screen's layout, or adds a screen (`fresh`: refused if the name is taken); for
+   * administrators. Answers every screen. */
+  async saveScreen(name: string, layout: ScreenLayout, fresh = false): Promise<Screens> {
+    return readScreens(
+      await this.connection.sendMessagePromise({
+        type: "domotwin/screens/save",
+        name,
+        layout,
+        new: fresh,
+      }),
+    );
+  }
+
+  /** Removes a screen (administrators); answers every screen. */
+  async removeScreen(name: string): Promise<Screens> {
+    return readScreens(
+      await this.connection.sendMessagePromise({ type: "domotwin/screens/remove", name }),
     );
   }
 
