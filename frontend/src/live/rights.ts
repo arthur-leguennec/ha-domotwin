@@ -1,5 +1,5 @@
 /**
- * Per-person rights (D-068): what DomoTwin shows each person and lets them do. The same rule as
+ * Per-person rights (D-070): what DomoTwin shows each person and lets them do. The same rule as
  * the integration's (`rights.py`): an administrator sets, room by room and device by device, what
  * each person uses (`use`, the default), only sees (`see`) or does not see (`hidden`), and the
  * same for everyone else. A person is one through the Home Assistant user of their `person`; a
@@ -116,7 +116,7 @@ export function restricted(viewer: Viewer | undefined): boolean {
 
 /**
  * The rooms the viewer may not see now (room ids): private ones (D-039), and those their rights
- * hide (D-068).
+ * hide (D-070).
  */
 export function closedRooms(
   rooms: Record<string, PrivateRoom> | undefined,

@@ -74,7 +74,7 @@ export interface PassStorey {
 /**
  * The devices in each room: what is linked to the room and to the pieces, doors and windows in it
  * (in the room it names, or that its overlay moved it to), and the entities of its area, those
- * kept (by default, those a pass may give), each once, by name. The rights (D-068) list them all.
+ * kept (by default, those a pass may give), each once, by name. The rights (D-070) list them all.
  */
 export function roomDevices(
   hass: HomeAssistant,

@@ -7,6 +7,7 @@
  */
 import {
   mdiCellphone,
+  mdiChartLine,
   mdiDoorOpen,
   mdiEyeOffOutline,
   mdiHistory,
@@ -21,6 +22,7 @@ import { DomoTwinClient } from "../ha/client";
 import { isHassError, nowOf } from "../ha/types";
 import { failureText } from "../live/actions";
 import { areaEntities, entityName, type RoomAction } from "../live/bindings";
+import { hasGraphs } from "../live/graphs";
 import { roomSensors } from "../live/history";
 import {
   roomCommands,
@@ -154,7 +156,7 @@ export class DomoTwinControls extends Sheet {
             ${historyButton(this, t, this.entities, "controls-history", t.t("controls.history"))}
             ${
               // Home Assistant's dialog has controls of its own: not for what the viewer only
-              // looks at (their rights, D-068).
+              // looks at (their rights, D-070).
               hass.demo || hass.canAct?.(first) === false
                 ? nothing
                 : html`<button
@@ -344,6 +346,7 @@ export class DomoTwinRoom extends Sheet {
     people: { attribute: false },
     things: { attribute: false },
     closed: { attribute: false },
+    graphs: { attribute: false },
   };
   static override styles = [
     baseStyles,
@@ -367,6 +370,8 @@ export class DomoTwinRoom extends Sheet {
   people: PersonShown[] = [];
   /** The devices followed by Bluetooth heard in it (D-035). */
   things: LocatedShown[] = [];
+  /** Its graphs can open, in the panel's Rooms tab (D-069). */
+  graphs = false;
 
   protected override render(): TemplateResult | typeof nothing {
     const hass = this.hass;
@@ -389,14 +394,32 @@ export class DomoTwinRoom extends Sheet {
           ${this.admin ? html`<p class="empty">${t.t("room.no_area_admin")}</p>` : nothing} ${later}`,
       );
     }
-    // What the viewer's rights hide is not listed (D-068).
+    // What the viewer's rights hide is not listed (D-070).
     const seen = (id: string): boolean => hass.canSee?.(id) !== false;
-    // Its air sensors' history (D-058), when it has some.
+    // Its air sensors' history (D-058) and its graphs (D-069), when it has some.
     const sensors = hass.sandbox || hass.guest ? [] : roomSensors(hass, area).filter(seen);
+    const graphs = this.graphs && !hass.sandbox && !hass.guest && hasGraphs(hass, area);
     const footer =
-      sensors.length > 0
+      sensors.length > 0 || graphs
         ? html`<div class="footer">
-            ${historyButton(this, t, sensors, "room-history", t.t("room.history"))}
+            ${
+              sensors.length > 0
+                ? historyButton(this, t, sensors, "room-history", t.t("room.history"))
+                : nothing
+            }
+            ${
+              graphs
+                ? html`<button
+                    class="action quiet"
+                    data-testid="room-graphs"
+                    @click=${() => {
+                      fire(this, "domotwin-room-open", { area, graphs: true });
+                    }}
+                  >
+                    ${icon(mdiChartLine)}${t.t("room.graphs")}
+                  </button>`
+                : nothing
+            }
           </div>`
         : nothing;
     const ids = areaEntities(hass, area).filter(seen);

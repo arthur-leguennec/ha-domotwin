@@ -315,6 +315,7 @@ export const fr: Dictionary = {
     alert_window_rain: "Fenêtre ouverte sous la pluie : {room}",
     alert_co2: "CO₂ élevé : {room}, ouvrez une fenêtre",
     more_alerts: { one: "et {count} autre", other: "et {count} autres" },
+    alert_entity: "{name} : {state}",
   },
   devices: {
     locked: "{name} : verrouillé",
@@ -483,6 +484,7 @@ export const fr: Dictionary = {
     no_area_admin: "Liez-la dans le panneau DomoTwin, ou donnez à la zone le nom de la pièce.",
     private: "Cette pièce est privée.",
     history: "Historique",
+    graphs: "Graphiques",
   },
   voice: {
     title: "Voix",
@@ -677,7 +679,9 @@ export const fr: Dictionary = {
     label: "Onglets de DomoTwin",
     home: "Accueil",
     rooms: "Pièces",
+    safety: "Sécurité",
     three_d: "3D",
+    energy: "Énergie",
   },
   rooms: {
     star_failed: "Vos favoris n’ont pas changé : {reason}",

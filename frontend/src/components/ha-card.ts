@@ -55,7 +55,7 @@ export class DomoTwinHaCard extends LitElement {
   /** The configuration the card was made for, and whether for the demo house. */
   private madeFor?: string;
   private demo?: boolean;
-  /** Whether the viewer may only look at its entity (their rights, D-068). */
+  /** Whether the viewer may only look at its entity (their rights, D-070). */
   private looks?: boolean;
 
   static override styles = [
@@ -96,6 +96,13 @@ export class DomoTwinHaCard extends LitElement {
         color: var(--secondary-text-color, #5f6368);
         font-size: 0.875rem;
       }
+      .graph {
+        display: grid;
+        gap: 4px;
+      }
+      .graph .title {
+        font-weight: 600;
+      }
     `,
   ];
 
@@ -111,7 +118,7 @@ export class DomoTwinHaCard extends LitElement {
     if (this.card && changed.has("hass")) this.card.hass = this.hass;
   }
 
-  /** Whether the viewer may only look at the card's entity (their rights, D-068). */
+  /** Whether the viewer may only look at the card's entity (their rights, D-070). */
   private looksOnly(): boolean {
     const entity = this.config?.entity;
     return typeof entity === "string" && this.hass?.canAct?.(entity) === false;
@@ -119,7 +126,7 @@ export class DomoTwinHaCard extends LitElement {
 
   /**
    * Makes Home Assistant's card, once for each configuration; one the viewer may only look at
-   * does nothing on a tap (D-068).
+   * does nothing on a tap (D-070).
    */
   private async make(): Promise<void> {
     const config = this.config && this.looksOnly() ? lookOnly(this.config) : this.config;
@@ -166,7 +173,10 @@ export class DomoTwinHaCard extends LitElement {
     if (!hass || !config || !t) return nothing;
     const entity = typeof config.entity === "string" ? config.entity : undefined;
     switch (config.type) {
+      // A camera, an alarm (D-068): their name and state, as a tile's.
       case "tile":
+      case "picture-entity":
+      case "alarm-panel":
         return entity
           ? html`<div class="plain" data-entity=${entity}>
               ${entityRow(hass, t, entity, false)}
@@ -204,6 +214,18 @@ export class DomoTwinHaCard extends LitElement {
               >
             </div>`
           : nothing;
+      }
+      case "history-graph":
+      case "statistics-graph": {
+        // A room's graphs (D-069): what each says now, no graph drawn by DomoTwin (D-054).
+        const entities = Array.isArray(config.entities)
+          ? config.entities.filter((id): id is string => typeof id === "string")
+          : [];
+        return html`<div class="plain graph" data-type=${config.type}>
+          ${typeof config.title === "string" ? html`<span class="title">${config.title}</span>` : nothing}
+          ${entities.map((id) => entityRow(hass, t, id, false))}
+          <span class="note">${t.t("graphs.plain")}</span>
+        </div>`;
       }
       default:
         // An agenda, a list: Home Assistant's own, not redrawn.

@@ -10,6 +10,8 @@ export interface HarnessOptions {
   overview?: boolean;
   /** With the Overview: no DomoTwin panel for this user (left out of the sidebar, or admins'). */
   noPanel?: boolean;
+  /** Home Assistant's Energy page, its energy integration's (D-069); `empty`: nothing set up. */
+  energyPage?: boolean | "empty";
   /**
    * Voice (D-041): Assist with a pipeline that hears (`true`), or none that hears (`"deaf"`);
    * apps that can be installed; one blueprint edited; a page served over HTTP; the card's
@@ -118,14 +120,14 @@ export interface HarnessOptions {
   private?: string[];
   privateFor?: string;
   privateWhile?: string;
-  /** Each person's rights (D-068), as the stored settings keep them. */
+  /** Each person's rights (D-070), as the stored settings keep them. */
   rights?: unknown;
   /** The settings cannot be read until `window.__settingsUp()`. */
   settingsDown?: boolean;
   /** The tab this device opens on (D-055): the 3D view unless asked; `none`: the user's. */
-  start?: "home" | "rooms" | "3d" | "none";
+  start?: "home" | "rooms" | "safety" | "3d" | "none";
   /** The tab the user chose, and their favourites. */
-  userStart?: "home" | "rooms" | "3d";
+  userStart?: "home" | "rooms" | "safety" | "3d";
   favourites?: string[];
   /** Home Assistant's address: the panel's path, and the path after it opened. */
   route?: boolean;
@@ -145,6 +147,14 @@ export interface HarnessOptions {
   formatState?: boolean;
   /** The configuration history (D-062): fictional items and their versions. */
   configHistory?: boolean;
+  /**
+   * Safety (D-068), with `live`: a doorbell at the front door with its camera, and an alarm
+   * (`window.__ring()` rings it); Home Assistant 2026.10 with its Security page (`security`), and
+   * the alerts chosen on it (`securityAlerts`, `entity` or `entity:severity`).
+   */
+  safety?: boolean;
+  security?: boolean;
+  securityAlerts?: string[];
 }
 
 /** Opens the mocked Home Assistant with the built frontend. */
@@ -182,6 +192,7 @@ export async function openHarness(page: Page, options: HarnessOptions = {}): Pro
   if (options.tools === false) params.set("tools", "0");
   if (options.summary) params.set("summary", options.summary);
   if (options.overview) params.set("overview", "1");
+  if (options.energyPage) params.set("energypage", options.energyPage === true ? "1" : "empty");
   if (options.noPanel) params.set("nopanel", "1");
   if (options.orbit) params.set("orbit", "1");
   if (options.nightDim) params.set("nightdim", "1");
@@ -215,6 +226,9 @@ export async function openHarness(page: Page, options: HarnessOptions = {}): Pro
   if (options.noStats) params.set("nostats", "1");
   if (options.formatState) params.set("formatstate", "1");
   if (options.configHistory) params.set("confighistory", "1");
+  if (options.safety) params.set("safety", "1");
+  if (options.security) params.set("security", "1");
+  if (options.securityAlerts) params.set("securityalerts", options.securityAlerts.join(","));
   if (options.voice) params.set("voice", options.voice === true ? "1" : options.voice);
   if (options.supervisor) params.set("supervisor", "1");
   if (options.blueprints) params.set("blueprints", options.blueprints);

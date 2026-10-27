@@ -1,5 +1,5 @@
 /**
- * The messages of per-person rights (D-068), in both languages: the administrators' dialog,
+ * The messages of per-person rights (D-070), in both languages: the administrators' dialog,
  * loaded with it, not with the first picture.
  */
 import type { Widen } from "./index";

@@ -1124,16 +1124,54 @@ own, for the pass's devices only (100 at most). A page following its pass is one
 written to when one of its devices changes, a line every 25 seconds otherwise; at most 8 a pass,
 each waiting with at most 500 changes before it is closed and reads the home again.
 
+### M25 (safety)
+
+Bundle: the first load is **530.9 kB gzipped** of 1 200 kB (+3.0 kB): the watch of the
+doorbells, Home Assistant's alerts and the alerts' button the 3D view's banner shares with the
+other tabs, the Safety tab's name and route. The Safety tab and the alerts' bar come with the tabs'
+chunk (`chunks/practical-<hash>.js`: 11.9 kB gzipped, as before: Home Assistant's cards moved out
+of it), with a chunk it shares with the doorbell's full screen (3.0 kB gzipped: Home Assistant's
+cards, what goes with a doorbell, the safety texts in both languages); the full screen itself is
+`chunks/doorbell-<hash>.js` (1.7 kB gzipped), loaded the first time a doorbell rings.
+
+The events that may be doorbells are found once per entity registry; each new set of states, the
+watch reads only theirs (2 µs a time for two doorbells among 3 000 entities, Node 22 on a 2.1 GHz
+Xeon core). While the Safety tab shows, its alarms, doorbells, cameras and locks are found in one pass
+over the states at each update (0.5 ms for 3 000 entities, 20 cameras); Home Assistant's own
+cards are made once each, then only given each new state, as on the other tabs. Home Assistant's
+alerts are sent by Home Assistant when an administrator changes them, not asked for; those on now
+are worked out at each update only where some are chosen (9 µs for 40). The alerts given to the
+bar and the Safety tab, and the doorbell's camera and lock, stay the same objects while they say
+the same, so nothing is drawn again for nothing. A camera on the tab is a still Home Assistant
+refreshes every ten seconds; only the doorbell's full screen streams live.
+
+### M24 (history and energy)
+
+Bundle: the first load is **532.0 kB gzipped** of 1 200 kB (+1.1 kB): the Energy tab, its address
+and its word, whether Home Assistant's energy is set up, the graphs' address and the room panel's
+word. A room's graphs come with the Rooms tab's chunk (`chunks/practical-<hash>.js`: 51.6 kB raw,
+13.9 kB gzipped, +2.0 kB) and a chunk it shares with the room's panel in 3D (the kinds of measure
+and Home Assistant's card configurations, 1.6 kB gzipped); the room's panel grows by its button
+(11.4 kB gzipped, +0.1 kB), and the guests' page's by the check that hides it there (12.0 kB
+gzipped, +0.4 kB, on demand).
+
+The graphs are Home Assistant's own cards: each reads the recorder once when it shows, and is told
+of new states as Home Assistant's dashboards are, no more. DomoTwin finds a room's kinds of measure
+when its page opens, and again only when an entity comes or goes, not at each new state. The
+Energy tab is a link: Home Assistant's Energy page loads as it always does. Whether something is
+set up on it is asked once for each connection to Home Assistant (`energy/get_prefs`, a few hundred
+bytes), only where Home Assistant has the page.
+
 ### M34 (per-person rights)
 
-Bundle: the first load is **531.1 kB gzipped** of 1 200 kB (+3.2 kB): the viewer's gate
+Bundle: the first load is **535.1 kB gzipped** of 1 200 kB (+3.1 kB): the viewer's gate
 (`live/rights.ts`: whose rights apply, a device's level, a call's entities, the views' `hass`),
 the checks in DomoTwin's controls (the rows, a tap, a room's commands and own actions, the
 schedules, Home Assistant's cards), the panel's and the card's wiring and the ⋮ menu's *Rights*.
 The administrators' dialog comes on demand the first time it opens
 (`chunks/rights-dialog-<hash>.js`: 17.6 kB raw, 6.3 kB gzipped), with its texts in both languages;
 the listing of each room's devices it shares with guest access's dialog. A guest's page grows by
-the checks it shares (`guest.js`: 44.7 kB gzipped, +0.4 kB).
+the checks it shares (`guest.js`: 45.0 kB gzipped).
 
 The page works the gate out once for the home as it is (the rights, the links, the plans, the
 registries and the rooms closed), not on each change of a state: **1.0 ms** for a plan of 500

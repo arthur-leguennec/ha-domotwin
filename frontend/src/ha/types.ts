@@ -132,7 +132,7 @@ export interface HomeAssistant {
    */
   guest?: boolean;
   /**
-   * What the viewer's rights let them do in DomoTwin (D-068), on the `hass` DomoTwin gives its
+   * What the viewer's rights let them do in DomoTwin (D-070), on the `hass` DomoTwin gives its
    * views: whether they may act on an entity, and see it. Missing: everything. DomoTwin's own; Home
    * Assistant still lets every user act on every entity elsewhere.
    */

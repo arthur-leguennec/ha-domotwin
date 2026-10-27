@@ -311,6 +311,7 @@ export const en = {
     alert_window_rain: "A window is open in the rain in {room}",
     alert_co2: "CO₂ is high in {room}: open a window",
     more_alerts: { one: "and {count} more", other: "and {count} more" },
+    alert_entity: "{name}: {state}",
   },
   devices: {
     locked: "{name}: locked",
@@ -479,6 +480,7 @@ export const en = {
     no_area_admin: "Link it in the DomoTwin panel, or give the area the room's name.",
     private: "This room is private.",
     history: "History",
+    graphs: "Graphs",
   },
   voice: {
     title: "Voice",
@@ -670,7 +672,9 @@ export const en = {
     label: "DomoTwin's tabs",
     home: "Home",
     rooms: "Rooms",
+    safety: "Safety",
     three_d: "3D",
+    energy: "Energy",
   },
   rooms: {
     star_failed: "Your favourites did not change: {reason}",

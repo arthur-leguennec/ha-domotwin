@@ -1,4 +1,4 @@
-"""Per-person rights (`DECISIONS.md`, D-068): what DomoTwin shows each person and lets them do.
+"""Per-person rights (`DECISIONS.md`, D-070): what DomoTwin shows each person and lets them do.
 
 An administrator sets, room by room and device by device, what each person uses (`use`, the
 default), only sees (`see`) or does not see (`hidden`), and the same for everyone else. A person is

@@ -177,7 +177,7 @@ async def _limits(hass: HomeAssistant, call: ServiceCall) -> tuple[set[str], set
     """What the one calling may not be told: people, and rooms.
 
     The people not to show or tell about (`PeopleTracker.untold`), and the rooms they may not see:
-    private (D-039), or hidden by their rights (D-068).
+    private (D-039), or hidden by their rights (D-070).
     """
     user_id = call.context.user_id
     user = await hass.auth.async_get_user(user_id) if user_id else None

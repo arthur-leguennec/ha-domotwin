@@ -50,7 +50,7 @@ function savedSettings(page: Page): Promise<unknown> {
   });
 }
 
-test.describe("per-person rights (D-068)", () => {
+test.describe("per-person rights (D-070)", () => {
   test("someone who only looks: their room's controls disabled, a device unlinked, a room closed", async ({
     page,
   }) => {

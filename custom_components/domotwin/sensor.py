@@ -440,7 +440,7 @@ class RoomSensors:
     def _work_out_private(self) -> None:
         """The rooms closed now for nobody (an entity is everyone's).
 
-        Private, as D-039 locks them, or hidden from everyone by the rights (D-068).
+        Private, as D-039 locks them, or hidden from everyone by the rights (D-070).
         """
         settings = self._data.settings
         rules: dict[str, Any] = settings.get("rooms", {})

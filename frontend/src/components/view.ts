@@ -9,7 +9,6 @@ import {
   mdiToilet,
   mdiTree,
   mdiWardrobeOutline,
-  mdiAlert,
   mdiAlertCircleOutline,
   mdiArrowCollapseVertical,
   mdiArrowExpandVertical,
@@ -191,6 +190,8 @@ import {
 } from "../live/room-labels";
 import { assistAvailable, canListen, listeningPipeline, openAssist } from "../live/voice";
 import { drawable, type Wifi } from "../live/wifi";
+import { securityPage, shownAlerts, type SecurityAlert } from "../live/security";
+import { alertButton, type AlertRoom } from "./alert-button";
 import { FrameScheduler } from "../scheduler";
 import { readTip, tipRead } from "../live/draft";
 import { fire } from "./define";
@@ -580,6 +581,7 @@ export class DomoTwinView extends LitElement {
     placeDevices: { attribute: false },
     linkable: { attribute: false },
     roomTab: { attribute: false },
+    securityAlerts: { attribute: false },
     bubble: { state: true },
     tip: { state: true },
     bubbleBusy: { state: true },
@@ -671,6 +673,11 @@ export class DomoTwinView extends LitElement {
   /** The panel's Rooms tab (D-055): a room tapped opens its room there, by its area. */
   roomTab = false;
   /**
+   * Home Assistant's alerts on now (the panel's, D-068), said in the banner after the rooms' of
+   * the same level; a tap opens its Security page.
+   */
+  securityAlerts: readonly SecurityAlert[] = [];
+  /**
    * Edit mode (the panel's): a tap selects a piece, dragging a selected piece moves it. Every
    * change fires `domotwin-edit` (detail: the `EditState`).
    */
@@ -700,9 +707,9 @@ export class DomoTwinView extends LitElement {
   north = 0;
   /** The home's private rooms (its settings, D-039). */
   privateRooms?: Settings["rooms"];
-  /** What each person uses, only sees or does not see (its settings, D-068). */
+  /** What each person uses, only sees or does not see (its settings, D-070). */
   rights?: Settings["rights"];
-  /** The rooms this viewer may not see now, private (D-039) or hidden by their rights (D-068),
+  /** The rooms this viewer may not see now, private (D-039) or hidden by their rights (D-070),
    * drawn closed (none while editing or linking: administrators change the home). */
   protected closed = new Set<string>();
   private closedKey = "";
@@ -2001,7 +2008,7 @@ export class DomoTwinView extends LitElement {
     }
     // Where the upkeep cards stand, before the sheets and the list show them.
     if (changed.has("upkeep") || changed.has("hass")) this.applyUpkeep();
-    // The rooms this viewer may not see (D-039, D-068), before what is in them is shown.
+    // The rooms this viewer may not see (D-039, D-070), before what is in them is shown.
     const closed =
       this.editingAny || this.linking
         ? new Set<string>()
@@ -3668,7 +3675,14 @@ export class DomoTwinView extends LitElement {
     const here = layers?.alerts ?? [];
     const alerts =
       hass && this.options.alerts !== false && this.elsewhere.length > 0
-        ? withAlertsElsewhere(hass, this.bindings ?? NO_BINDINGS, here, this.elsewhere, this.storey)
+        ? withAlertsElsewhere(
+            hass,
+            this.bindings ?? NO_BINDINGS,
+            here,
+            this.elsewhere,
+            this.storey,
+            this.closed,
+          )
         : here;
     if (values !== this.heatValues) {
       this.heatValues = values;
@@ -5245,7 +5259,7 @@ export class DomoTwinView extends LitElement {
       : [{ plan: this.plan, layout: this.layout }, ...this.elsewhere];
     const rooms = [...this.rooms, ...this.elsewhere.flatMap((storey) => storey.rooms)];
     const unseen = unseenOf(hass, bindings, rooms, storeys, this.closed);
-    // And the devices their rights hide (D-068).
+    // And the devices their rights hide (D-070).
     const hidden = hiddenEntities(viewerOf(this.rights, hass));
     return hidden.size === 0
       ? unseen
@@ -5329,6 +5343,7 @@ export class DomoTwinView extends LitElement {
       .closed=${sheet.closed === true}
       .people=${here}
       .things=${sheet.room ? this.located.filter((d) => d.room === sheet.room) : []}
+      .graphs=${this.roomTab}
       @domotwin-close=${this.closeSheet}
       @domotwin-show-wires=${this.onShowWires}
       @domotwin-open-history=${this.onOpenHistory}
@@ -5944,48 +5959,36 @@ export class DomoTwinView extends LitElement {
     </div>`;
   }
 
-  /** What an alert says; on another storey, which one. */
-  private alertText(alert: StoreyAlert): string {
-    const t = this.translator;
-    const text = t.t(`layers.alert_${alert.reason}`, { room: alert.name });
-    if (!alert.storey) return text;
-    const level = storeyLevels(this.storeys).find(({ storey }) => storey.id === alert.storey);
-    if (!level) return text;
-    return t.t("storey.alert_on", {
-      alert: text,
-      storey: storeyName(t, level.storey, level.level),
-    });
+  /**
+   * Frames the room of an alert, showing its storey first: as a tap on it in the banner does, a
+   * private room's too, whose danger it tells (D-039).
+   */
+  frameAlert(alert: AlertRoom): void {
+    const room = { id: alert.room, name: alert.name };
+    if (alert.storey) {
+      // On another storey: shown first, then the room framed.
+      this.chooseStorey(alert.storey);
+      this.focusAfterLoad = room;
+      return;
+    }
+    if (this.engine?.focusElement(alert.room)) this.focusedRoom = room;
+    this.redraw();
   }
 
-  /** The rooms with an alert: a tap frames the room (showing its storey first). */
+  /**
+   * The rooms with an alert, and Home Assistant's alerts (D-068): a tap frames the room (showing
+   * its storey first), or opens Home Assistant's Security page.
+   */
   private renderAlerts(): TemplateResult | typeof nothing {
-    const alerts = this.alerts;
+    const alerts = shownAlerts(this.alerts, this.securityAlerts);
     if (alerts.length === 0 || this.planEditor) return nothing;
     const t = this.translator;
     const shown = alerts.slice(0, MAX_ALERTS_SHOWN);
     const more = alerts.length - shown.length;
+    const page = securityPage(this.hass);
     return html`<div class="alerts" role="alert" data-testid="alerts">
-      ${shown.map(
-        (alert) =>
-          html`<button
-            class="glass ${alert.level}"
-            data-room=${alert.room}
-            data-storey=${alert.storey ?? nothing}
-            @click=${() => {
-              const room = { id: alert.room, name: alert.name };
-              if (alert.storey) {
-                // On another storey: shown first, then the room framed.
-                this.chooseStorey(alert.storey);
-                this.focusAfterLoad = room;
-                return;
-              }
-              if (this.engine?.focusElement(alert.room)) this.focusedRoom = room;
-              this.redraw();
-            }}
-          >
-            ${icon(alert.level === "danger" ? mdiAlert : mdiAlertCircleOutline)}
-            <span>${this.alertText(alert)}</span>
-          </button>`,
+      ${shown.map((alert) =>
+        alertButton(t, alert, this.storeys, page, (room) => this.frameAlert(room), "glass"),
       )}
       ${more > 0 ? html`<span class="more">${t.tp("layers.more_alerts", more)}</span>` : nothing}
     </div>`;

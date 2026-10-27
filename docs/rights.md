@@ -54,7 +54,8 @@ at once.
   later.
 - **What is only seen** shows its state, its badges, its values. A tap on its piece opens
   DomoTwin's own panel with its controls shown disabled ("You may look at this device, not use
-  it."), not Home Assistant's dialog; its card on the Home and Rooms tabs does nothing on a tap;
+  it."), not Home Assistant's dialog; its card on the Home, Rooms and Safety tabs, and a door's
+  lock on the doorbell's full screen, do nothing on a tap;
   the room's commands (lights on, blinds closed) and its own actions leave it out, and so does
   "Lights off" on the Home tab. Nothing is set for later on it, nor cancelled. A room's own
   action that names labels or `all`, which DomoTwin cannot tell device by device, is not offered

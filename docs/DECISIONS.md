@@ -3085,7 +3085,176 @@ per-person rights (M34) next to it.
     is a chunk of its own; the guests' page and its chunks are loaded by it alone.
   - Per-person rights (M34) are for Home Assistant's users; a pass is for those without one.
 
-## D-068 · Per-person rights: what DomoTwin shows each person and lets them do (M34)
+## D-068 · Safety: the alerts on every tab, a Safety tab, the doorbell full screen (M25)
+
+M25, planned in D-054 among M24 to M26, whose order the two weeks of use after 0.4.0 were to
+decide. After more imports (M20, D-064), the placement advisor (M31, D-066) and guest access
+(M33, D-067), the maintainer asked for safety next, ahead of the weather (M40), locating measured
+(M41) and an iPhone's key (M45) that D-065 put before M24 to M26, and of M24 and M26. It follows
+D-056's rule, as M23b did: Home Assistant's own Security page opened rather than copied where it
+has it.
+
+- **Context.** D-054 planned the cameras side by side, the doorbell full screen when it rings, the
+  alarm, and the alerts the 3D view shows (D-023) on every tab. Since, Home Assistant has a
+  Security page of its own, and alerts chosen on it. Checked in Home Assistant's code at the
+  versions its releases pin:
+  - **The Security page**: a `security` panel, registered without a place in the sidebar since
+    2025.11 (an experiment then, `async_register_built_in_panel(hass, "security")`) and still in
+    2026.10 (`show_in_sidebar=False` since 2026.3). It shows the cameras (as picture cards, in
+    their area among the rest), the alarm panels, the locks, the doors, windows and garage doors,
+    the safety sensors (smoke, gas, carbon monoxide, moisture, glass break, safety, tamper) by
+    floor and area, and the activity of the last 24 hours (`security-view-strategy.ts`,
+    frontend 20260930.2); its back button comes with `?historyBack=1`, which its Overview opens
+    it with (`home-overview-view-strategy.ts`), since 20251203.0.
+  - **Its alerts** (frontend 20260826.4, Home Assistant 2026.9): an administrator chooses entities
+    on the page (*Edit security and safety page*, *Active alert entities*), each with a severity,
+    *Alert* or *Warning*, kept in Home Assistant's system data (`frontend/get_system_data` and
+    `frontend/subscribe_system_data`, key `security`: `alert_entities`, a list of
+    `{entity, severity?}`), which any signed-in user may read (2025.12 and later). An alert is
+    on when its entity is: an alarm panel `triggered`, a cover `open`, a lock `jammed`,
+    `unlocked` or `open`, anything else `on`. Without a severity, an alarm panel and the binary
+    sensors of the danger classes (carbon monoxide, gas, glass break since 2026.10, moisture,
+    safety, smoke) are *Alert*, the rest *Warning* (`security-alerts.ts`). Since 2026.10, the
+    Overview shows those of severity *Alert* that are on.
+  - **Doorbells**: an `event` entity of the `doorbell` class (2023.8 and later; its state is when
+    it last fired, `isoformat`), given by UniFi Protect, Ring, Nest, DoorBird, August, Yale,
+    Axis, SwitchBot, HomeKit devices, Hue, SimpliSafe, Homematic IP and UniFi Access in 2026.10
+    (their `event.py`), and by ESPHome devices that declare one. Home Assistant gives the last
+    time back when it starts (`RestoreEntity`).
+  - **Cards** (frontend 20250103.0, Home Assistant 2025.1): the picture-entity card takes
+    `camera_view` (`auto`: a still Home Assistant refreshes; `live`: the stream), the alarm-panel
+    card, and the tile card's `lock-commands` feature are there.
+- **Decision.**
+  - **The alerts on every tab.** Above the *Home* and *Rooms* tabs, a bar says the alerts the 3D
+    view's banner says: the rooms' (D-023) of the storey shown, then those of the other storeys
+    (D-026), dangers first, two at most, then *and N more*, which opens the *Safety* tab. A
+    room's opens the 3D view and frames its room, its storey shown first, as a tap in the 3D
+    view's banner does (`frameAlert`); where the 3D view cannot draw, its room's page (its
+    area's page of the Overview, D-061, else *Rooms*). The Home tab's alerts chip goes: the bar is
+    above it. Of a private room the viewer may not see (D-039), only the dangers, on another
+    storey too (the 3D view's banner told the warnings of other storeys' private rooms until now).
+  - **Home Assistant's alerts, read, not copied.** Where Home Assistant keeps them (2026.9 and
+    later, with its Security page), the panel follows the alerts chosen there
+    (`frontend/subscribe_system_data`) and says those on now in the same bar, in the 3D view's
+    banner and on the *Safety* tab: `{name}: {state}`, the state in Home Assistant's words
+    (`formatEntityState`), red for *Alert*, amber for *Warning*, Home Assistant's defaults without
+    a severity. A tap opens Home Assistant's Security page. An entity that raised a room's alert is
+    said once, as the room's, which says where. Of a private room the viewer may not see, only the
+    dangers. DomoTwin chooses nothing itself and writes nothing in Home Assistant's system data;
+    not in the demo house or the sandbox, whose devices are not the home's; not for a card.
+  - **A Safety tab**, `/domotwin/safety`, between *Rooms* and *3D*, always offered, a tab to open
+    on like the others (the integration's choices take `safety`). From the top: every alert (or
+    that all is calm); each alarm panel as Home Assistant's alarm-panel card; each doorbell and
+    when it last rang; every camera side by side, as Home Assistant's picture-entity card
+    (`camera_view: auto`, its name, no state), the doorbells' first (the one rung last first),
+    each labelled with its doorbell, then the others by name; where Home Assistant has no
+    Security page (before 2025.12), the locks as tiles with their buttons; where it has one, a way
+    to it for the locks, the doors and windows, the sensors and the activity, which it shows and
+    DomoTwin does not copy. Hidden entities and those of an entity category are left out, and
+    what a private room the viewer may not see holds. Live streams are kept for Home Assistant's
+    own dialog (a tap) and the doorbell's full screen: a phone's data and a small host's
+    processor are spared. It is part of the tabs' chunk (D-055), with its texts.
+  - **The doorbell, full screen.** The panel watches the home's doorbells (events of the
+    `doorbell` class, not hidden), whatever tab shows: a ring is a newer time than the doorbell
+    said when first seen, two minutes old at most by the device's clock (Home Assistant's own
+    relative times take it to be right; a device more than two minutes off misses the rings), so
+    that the time given back as Home Assistant starts, and a ring heard while the page was asleep,
+    do not ring. The doorbells are looked for among the events of the entity registry, read again
+    when it changes, and at each new set of states, as an event's state may come after its entry.
+    A ring heard before the settings are read (who may see what, D-039) waits for them. It shows full screen, over
+    every tab and tool (`position: fixed`, an `alertdialog` that takes the focus): *Someone is at
+    the door*, the doorbell and when; its camera live (`camera_view: live`, a tap doing nothing),
+    the camera of the doorbell's own device, else the only camera in its area; the lock of its
+    door as a tile with its buttons, the lock of the doorbell's device, else the only lock in its
+    area; *Close*. It goes after two minutes, when closed or on Escape; a new ring shows it again.
+    Its screen is a chunk loaded at the first ring; only the watch is in the first load. Not over
+    the demo house or the sandbox, homes of their own; not a doorbell, camera or lock in a private
+    room the viewer may not see. A binary sensor said to be a doorbell (Reolink's *visitor*) is
+    not watched.
+  - **What the card shows is unchanged**: the alerts' bar, the Safety tab and the doorbell are the
+    panel's. The doorbell on a dashboard's card, a wall screen's, comes with the wall screen
+    (M26).
+- **Consequences.**
+  - The tabs are four; on a phone, four at the bottom.
+  - The first load grows by the watch of the doorbells, Home Assistant's alerts, the alerts' button
+    the 3D view's banner shares with the other tabs, and the tab's name;
+    the Safety tab is in the tabs' chunk, a chunk shared with the doorbell's full screen carries
+    Home Assistant's cards and the safety texts.
+  - A home's alerts read the same everywhere in the panel: one list, worked out from the states,
+    the rooms of every storey and the alerts Home Assistant keeps.
+  - The demo house has no camera, doorbell or alarm: its Safety tab shows its alerts.
+  - The roadmap shows M25 done after M33; D-065's order goes on for the rest: M40, M41 and M45,
+    then M24 and M26.
+
+## D-069 · History and energy, with Home Assistant's own cards (M24)
+
+M24, planned in D-054 and held to D-061's rule (Home Assistant's own pages opened where it has
+them); the maintainer asked for it ahead of the order D-065 gives it (the weather, M40, locating
+measured, M41, and an iPhone's key, M45, first), which stays for the rest.
+
+- **Context.** The practical side (M23) shows each room's devices as Home Assistant's tile cards;
+  the history reports (M38) read Home Assistant's history as tables. What a room measured, as a
+  graph, and the home's energy over time were left to M24, to be made of Home Assistant's own
+  cards, or its pages opened, never drawn by DomoTwin (D-054). Checked when built, in Home
+  Assistant's frontend at 2025.1 (20250103.0), 2025.10 (20251001.0), 2026.2 (20260128.6) and
+  2026.10 (20260930.2), and its core at 2025.1.0 and 2026.10.0.
+- **Home Assistant, checked.**
+  - The **history-graph** card takes `entities`, `hours_to_show` and `title` in every one of
+    them; it draws a line for each unit and a timeline for the rest. In 2025.1 it reads the
+    history alone (10 days kept by default); 2026.10 fills older days from the statistics.
+  - The **statistics-graph** card takes `entities`, `days_to_show`, `period` (`hour`, `day`),
+    `stat_types` (`change`) and `chart_type` (`bar`) in every one of them: what a meter added
+    each hour or day.
+  - Its **History** page reads `entity_id`, `start_date` and `end_date` from its address (the
+    history reports open it so already, D-058).
+  - Its **Energy page** is the `energy` panel, which its energy integration (in `default_config`)
+    registers for every user, with no administrator needed, in 2025.1 and 2026.10. Its energy
+    cards read that integration's preferences (`energy/get_prefs`): wherever they would work,
+    the page is there. With `historyBack=1` in its address it shows a back arrow (2025.10 and
+    later), which leads to `backPath` (2026.2 and later), as the Overview opens it; before,
+    the browser's back. Until a source, a device or water is set up (`energy/get_prefs`, which
+    every user may read, answers `not_found` when nothing was ever saved), it shows its setup
+    wizard alone; the Overview shows its energy summary only once a grid is set up.
+  - The Overview's area pages (D-061) show no graph.
+- **Decision.**
+  - **A room's graphs**, a page of the Rooms tab (`/domotwin/rooms/<area>/graphs`): *Graphs* on
+    the room's page, and on its panel in 3D (a long press), beside its history report (D-058),
+    when its area has something to graph; opened from 3D, the room's way back still leads there. Home Assistant's own cards, one for
+    each kind of measure of the room's area (its device class, else its unit): the sensors with
+    a unit or kept as statistics, the thermostats with the temperatures (Home Assistant draws
+    their room and target temperatures and when they heat), the doors and windows, and the
+    presence. Temperature, humidity, CO₂ and particles first, then the others, power and energy
+    among them, then the meters (`total_increasing`, `total`: bars of what each hour or day
+    added, `statistics-graph`), then the doors and windows and the presence (timelines). Eight
+    entities a card at most, by name, ten cards a room. Hidden, configuration and diagnostic
+    entities left out, as in the Rooms tab; nothing of a private room the viewer may not see,
+    nor what is linked to it (D-039).
+  - **The last 24 hours or 7 days**: what Home Assistant keeps of each change by default, so
+    that 2025.1 draws them too. *As a table* opens the history report (D-058) of the same
+    sensors (eight at most) over the same period, over the Rooms tab; *In Home Assistant's
+    History* opens its page on the same entities and period.
+  - **The Energy tab**: Home Assistant's Energy page, opened rather than copied, where it has
+    one with something set up (read once a connection): a tab beside Rooms whose address is the
+    page's, `historyBack=1&backPath=` the page of DomoTwin it was left from. No tab of energy
+    cards: where they would work, the page is there. No tab while only the setup wizard would
+    show: setting the energy up is Home Assistant's, in its settings.
+  - **The demo house** (D-050): Home Assistant's cards and pages do not know its entities, so
+    its graphs are DomoTwin's own rows, what each sensor says now, its table answers from its
+    day, and its Energy tab is DomoTwin's own picture of its energy, the 3D view on the power
+    layer with the energy at a glance (D-049). Neither in the sandbox (D-057), whose day has its
+    report, nor where Home Assistant has no Energy page or nothing set up on it.
+- **Consequences.**
+  - Nothing new in the integration, nothing stored: the cards and the pages read Home
+    Assistant's recorder for the viewer, as its dashboards do. The panel asks for Home
+    Assistant's energy settings once a connection, to know whether to offer the tab.
+  - The first load grows by the Energy tab, its address and its word; the graphs come with the
+    Rooms tab's chunk.
+  - Replay, the home's past in 3D (M19), stays a 3D feature, later.
+  - The energy of each room over the week, on the plan, comes with the weekly report (M37).
+  - The roadmap shows M24 done after M20, M31, M33 and M25; M40, M41 and M45 come next, as D-065
+    orders them.
+
+## D-070 · Per-person rights: what DomoTwin shows each person and lets them do (M34)
 
 M34, moved forward with guest access (M33, D-067) at the maintainer's request.
 
@@ -3119,16 +3288,17 @@ M34, moved forward with guest access (M33, D-067) at the maintainer's request.
     (`rights.py`) and the page (`live/rights.ts`).
   - **In the page**: the rooms not seen join the private ones closed to the viewer
     (`closedRooms`), so that everything D-039 does for those (the engine's closed rooms, the
-    people out of sight, the Home and Rooms tabs' areas and entities, `domotwin.show`) holds for
-    them; the devices not seen are unlinked from what the view shows outside those rooms
+    people out of sight, the Home and Rooms tabs' areas and entities, the Safety tab and the
+    alerts (D-068), a room's graphs (D-069), `domotwin.show`) holds for them; the devices not seen are unlinked from what the view shows outside those rooms
     (`Gate.shown`; inside, the view closes them whole, their dangers still shown) and left out of
     the tabs, the sheets, "Why?" and the reports' search. The panel and the card give
     their views a `hass` of the viewer's (`gatedHass`): `canAct` and `canSee` say what they may
     do and see, and a call on a device they may not use is refused before Home Assistant
     (`not_allowed`). DomoTwin's controls read them: a row's controls disabled, a tap on a piece
     opening DomoTwin's own panel rather than Home Assistant's dialog, Home Assistant's cards made
-    to do nothing on a tap (`lookOnly`), a room's commands and own actions and the Home tab's
-    lights off on what may be used only, no action set or cancelled for later.
+    to do nothing on a tap (`lookOnly`, the doorbell's lock too), a room's commands and own
+    actions and the Home tab's lights off on what may be used only, no action set or cancelled for
+    later.
   - **In the integration**: an action set or cancelled for later (`domotwin.schedule`, the
     sheets, the voice assistants) by a user who may not use one of its devices is refused
     (`not_allowed`); the actions waiting on what a user does not see are not listed to them, nor

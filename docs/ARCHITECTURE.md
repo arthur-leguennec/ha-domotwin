@@ -78,7 +78,7 @@ every reader returns `Result` with a stable error code that the frontend transla
   The integration keeps the passes (`custom_components/domotwin/guests.py`) and serves the page and
   what it asks outside Home Assistant's sign-in (`http.py`), checking each request against the
   pass; `logbook.py` says a guest's actions in Home Assistant's logbook.
-- Per-person rights (D-068): `live/rights.ts` works out what the viewer uses, only sees or does not
+- Per-person rights (D-070): `live/rights.ts` works out what the viewer uses, only sees or does not
   see (the same rule as `custom_components/domotwin/rights.py`): the rooms not seen join the
   private ones closed (`closedRooms`), the devices not seen are unlinked (`Gate.shown`), and the
   panel and the card give their views a `hass` whose `canAct` and `canSee` DomoTwin's controls
@@ -90,6 +90,16 @@ every reader returns `Result` with a stable error code that the frontend transla
   (`components/summary-body.ts`, `live/summaries.ts`) is a chunk of its own. The integration gives
   each room a device in its area with two sensors (`custom_components/domotwin/sensor.py`,
   `overview.py`: the people in it, the upkeep due for its pieces).
+- Safety (D-068): `live/doorbell.ts` watches the home's doorbells on every `hass`, and
+  `live/security.ts` reads the alerts chosen on Home Assistant's Security page (its system data,
+  followed by the panel) and says those on now beside the rooms' (`live/storeys.ts`); both are in
+  the first load. The Safety tab (`components/safety-tab.ts`, `live/safety.ts`) and the alerts'
+  bar above the other tabs (`components/alert-bar.ts`) are in the tabs' chunk; the doorbell's full
+  screen (`components/doorbell.ts`) is a chunk loaded at the first ring.
+- History and energy (D-069): `live/graphs.ts` sorts a room's entities into Home Assistant's
+  history-graph and statistics-graph cards, which `components/room-graphs.ts` shows in the Rooms
+  tab's chunk; `live/overview.ts` gives the address of Home Assistant's Energy page, which the
+  panel's Energy tab opens.
 - `src/i18n/` holds the English and French dictionaries. Every visible string goes through `t()`.
 
 ![Render on demand: frames only when something changes, nothing while idle or off-screen](figures/render-on-demand.png)
@@ -244,7 +254,7 @@ every reader returns `Result` with a stable error code that the frontend transla
   while that entity is on ([`privacy.md`](privacy.md)); where the home's energy is read
   (`energy`, D-049); the Wi-Fi access points placed on the plan (`access_points`, D-066),
   `[{"storey": id, "at": [x, y], "name"?}]`, 16 at most ([`placement.md`](placement.md)); each
-  person's rights (`rights`, D-068), `{"everyone"?: rights, "people"?: {person entity id:
+  person's rights (`rights`, D-070), `{"everyone"?: rights, "people"?: {person entity id:
   rights}}`, each `{"rooms"?: {room id: level}, "entities"?: {entity id: level}}`, a level `use`,
   `see` or `hidden`; at most 50 people, 200 rooms and 500 devices each
   ([`rights.md`](rights.md)).

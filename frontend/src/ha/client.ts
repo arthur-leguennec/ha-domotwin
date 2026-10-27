@@ -74,7 +74,7 @@ export interface Settings {
   energy?: EnergySettings;
   /** The Wi-Fi access points placed on the plan (D-066). */
   access_points?: AccessPoint[];
-  /** What each person uses, only sees or does not see in DomoTwin (D-068). */
+  /** What each person uses, only sees or does not see in DomoTwin (D-070). */
   rights?: Rights;
 }
 

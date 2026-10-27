@@ -67,7 +67,7 @@ TARGET = {
 
 
 async def _levels(hass: HomeAssistant, llm_context: LLMContext) -> Levels | None:
-    """The levels of entities for who speaks: their rights, everyone's for nobody's (D-068)."""
+    """The levels of entities for who speaks: their rights, everyone's for nobody's (D-070)."""
     user_id = _user(llm_context)
     user = await hass.auth.async_get_user(user_id) if user_id else None
     return levels_for(hass, user, voice=True)
@@ -180,7 +180,7 @@ class ScheduleTool(Tool):
             return _refused(window)
         start, end = window
         action = "off" if args.get("action") == "turn_off" else "on"
-        # Only on what who speaks may use in DomoTwin (D-068); a satellite's voice is nobody's.
+        # Only on what who speaks may use in DomoTwin (D-070); a satellite's voice is nobody's.
         levels = await _levels(hass, llm_context)
         if levels is not None and not levels.uses(targets):
             return _refused("not_allowed")
@@ -212,7 +212,7 @@ class ListSchedulesTool(Tool):
         scheduler: Scheduler | None = hass.data.get(SCHEDULER_KEY)
         if scheduler is None:
             return _refused("not_loaded")
-        # What who speaks may not see in DomoTwin is not said either (D-068).
+        # What who speaks may not see in DomoTwin is not said either (D-070).
         levels = await _levels(hass, llm_context)
         exposed = [
             item

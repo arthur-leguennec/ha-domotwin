@@ -71,7 +71,7 @@ PEOPLE_STORAGE_VERSION: Final = 1
 MAX_PEOPLE: Final = 50
 # Private rooms (D-039): at most this many.
 MAX_PRIVATE_ROOMS: Final = 200
-# Per-person rights (D-068): the people given their own, and the rooms and devices one names.
+# Per-person rights (D-070): the people given their own, and the rooms and devices one names.
 MAX_RIGHTS_PEOPLE: Final = 50
 MAX_RIGHTS_ROOMS: Final = 200
 MAX_RIGHTS_ENTITIES: Final = 500
@@ -132,10 +132,11 @@ SCHEDULABLE_DOMAINS: Final = (
 )
 
 # Each user's own choices (docs/DECISIONS.md, D-055): their favourites, the tab DomoTwin opens on
-# and their Home tab's cards, in a store of their own (.storage/domotwin.users).
+# (the Safety tab since D-068) and their Home tab's cards, in a store of their own
+# (.storage/domotwin.users).
 CHOICES_STORAGE_KEY: Final = f"{DOMAIN}.users"
 CHOICES_STORAGE_VERSION: Final = 1
-START_TABS: Final = ("home", "rooms", "3d")
+START_TABS: Final = ("home", "rooms", "safety", "3d")
 MAX_FAVOURITES: Final = 100
 MAX_HOME_CARDS: Final = 6
 MAX_CALENDARS: Final = 10
