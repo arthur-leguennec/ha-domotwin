@@ -2727,7 +2727,7 @@ sandbox (M29, D-057), whose day it plays; its part in the weekly report (M37) co
   - A peak announced after the sandbox opened is played once it is opened again.
   - The week's peaks in the weekly report come with M37.
 
-## D-064 · What Home Assistant's users say of 3D twins: said plainly, measured first (amends D-056)
+## D-065 · What Home Assistant's users say of 3D twins: said plainly, measured first (amends D-056)
 
 Read by the maintainer on r/homeassistant in October 2026, and passed on in their own words.
 
