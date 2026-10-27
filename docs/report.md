@@ -5,6 +5,8 @@ updates and repairs waiting, upkeep due, automations to look at, Zigbee devices 
 and the week's energy against the week before, room by room on the plans (`DECISIONS.md`, D-066).
 Home Assistant's notification says it; the panel shows it.
 
+![The weekly report of the fictional demo apartment and its upper floor: the week, a summary by a fictional AI task, what needs a look, room by room on the plans](figures/screenshot-report.png)
+
 It reads what Home Assistant and the integrations you have installed already say, rather than
 working it out again: [Battery Notes](https://github.com/andrew-codechimp/HA-Battery-Notes) for the
 batteries, [Watchman](https://github.com/dummylabs/thewatchman) for what your configuration names

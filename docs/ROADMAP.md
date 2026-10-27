@@ -1412,6 +1412,8 @@ Once a week, what needs a look in the home, room by room on the plans (`DECISION
   user who is not an administrator, none yet, a summary, a private room closed, French, the demo
   house (Playwright).
 
+![The weekly report of the fictional demo apartment: the week, a summary, what needs a look, room by room on the plans](figures/screenshot-report.png)
+
 Measured at the end of M37: see [`PERFORMANCE.md`](PERFORMANCE.md).
 
 Left for later: what the placement advisor (M31) predicts, with it; the radios of Zigbee2MQTT and
