@@ -1,4 +1,4 @@
-"""The week's energy and Hydro-Québec's peaks, for the weekly report (`docs/DECISIONS.md`, D-070).
+"""The week's energy and Hydro-Québec's peaks, for the weekly report (`docs/DECISIONS.md`, D-071).
 
 - **Energy**: what Home Assistant's energy settings count, read from the recorder's hourly
   statistics (their change, in kWh), for the week and the week before: what the home used (from

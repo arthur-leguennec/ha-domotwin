@@ -53,7 +53,7 @@ export interface MemoryHome {
   readonly recorded?: DemoLogbook;
   /** Its configuration history (D-062), where it keeps one (the demo house's). */
   readonly configHistory?: DemoConfigHistory;
-  /** Its weekly reports (D-070), where it keeps some (the demo house's). */
+  /** Its weekly reports (D-071), where it keeps some (the demo house's). */
   readonly weekly?: DemoReport;
 }
 

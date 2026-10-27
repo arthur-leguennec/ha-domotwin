@@ -1162,9 +1162,29 @@ Energy tab is a link: Home Assistant's Energy page loads as it always does. Whet
 set up on it is asked once for each connection to Home Assistant (`energy/get_prefs`, a few hundred
 bytes), only where Home Assistant has the page.
 
+### M35 (automations in plain words)
+
+Bundle: the first load is **533.1 kB gzipped** of 1 200 kB (+1.2 kB): whether Home Assistant has an
+AI task (`ai-task.ts`), the menu item and its text, the panel's way to the sandbox with a draft
+and to its wires once the plan is drawn, what it waits for before the dialog may name anything,
+and the shared reading of Home Assistant's refusals. The dialog, the plain words and the reading
+of the AI task's answer come on demand, the first time the dialog opens
+(`chunks/plain-dialog-<hash>.js`: 73.5 kB raw, 21.2 kB gzipped, of which 22.2 kB raw are its texts
+in both languages). The sandbox's chunk grows by the draft's part (110.3 kB raw, +1.3 kB; the
+same 34.3 kB gzipped, the configuration's reading and the time it shares with the dialog split out).
+
+Nothing runs until the dialog opens, and nothing is asked of Home Assistant then but the AI task
+it prefers. The home is told once for each question: for 2 000 entities in 40 areas, the 1 000
+named (60 kB of text) are written in 8 ms (median of seven, Node 22 on a 2.1 GHz Xeon core); an
+automation of 270 triggers, conditions and actions is said in words in 8 ms and its names looked
+up in 3 ms, once for each draft, not at each state of the home, which does not draw the dialog
+again. The AI task is asked once for each draft and Home Assistant's check once after it. In the
+sandbox, the draft is one more automation of the day played; what it did is read from the day's
+report, once for each day played.
+
 ### M37 (the weekly report)
 
-Bundle: the first load is **532.6 kB gzipped** of 1 200 kB (+0.6 kB): the menu item, its text and
+Bundle: the first load is **533.7 kB gzipped** of 1 200 kB (+0.6 kB): the menu item, its text and
 the address the notification's link opens. The page, its texts in both languages and the plans
 drawn as SVG come on demand the first time it opens (`chunks/report-dialog-<hash>.js`: 34.5 kB
 raw, 9.9 kB gzipped).

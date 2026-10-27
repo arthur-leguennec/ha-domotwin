@@ -19,6 +19,7 @@ import {
   mdiRobotVacuum,
   mdiShieldHomeOutline,
   mdiSpeedometer,
+  mdiStarFourPointsOutline,
   mdiTestTube,
   mdiStairs,
   mdiTrayArrowDown,
@@ -58,7 +59,8 @@ import {
 } from "../ha/client";
 import { isHassError, nowOf, type HomeAssistant } from "../ha/types";
 import type { DemoHome } from "../demo/home";
-import type { SandboxHome } from "../sandbox/home";
+import type { DraftDay, SandboxHome } from "../sandbox/home";
+import type { Config } from "../sandbox/config";
 import {
   MAX_ENTITIES,
   NO_BINDINGS,
@@ -105,6 +107,7 @@ import {
   type SecurityAlertChoice,
   type ShownAlert,
 } from "../live/security";
+import { plainWordsOffered } from "../live/ai-task";
 import {
   NO_CHOICES,
   canDraw3d,
@@ -140,6 +143,7 @@ import { icon } from "./icon";
 import { saveText } from "./save";
 import { DemoSwitch } from "./demo-switch";
 import type { MeasureHost } from "./measure";
+import type { PlainSession } from "./plain-dialog";
 import { DialogFocus } from "./dialog";
 import { focusBack, focusMenu, menuKeydown } from "./menu";
 import { baseStyles, lookStyles } from "./styles";
@@ -292,6 +296,7 @@ const PANEL_DIALOGS = [
   "domotwin-private-rooms",
   "domotwin-voice",
   "domotwin-config-history",
+  "domotwin-plain",
   "domotwin-guests",
   "domotwin-link",
   "domotwin-catalogue",
@@ -334,6 +339,8 @@ export class DomoTwinPanel extends LitElement {
     draft: { state: true },
     settings: { state: true },
     settingsRead: { state: true },
+    bindingsRead: { state: true },
+    elsewhereRead: { state: true },
     upkeep: { state: true },
     people: { state: true },
     wifi: { state: true },
@@ -344,6 +351,7 @@ export class DomoTwinPanel extends LitElement {
     guestsStoreys: { state: true },
     voiceOpen: { state: true },
     configHistoryOpen: { state: true },
+    plainOpen: { state: true },
     reportOpen: { state: true },
     moreOpen: { state: true },
     tight: { state: true },
@@ -452,6 +460,10 @@ export class DomoTwinPanel extends LitElement {
   protected layout?: StoredPlan["layout"];
   protected planError?: string;
   protected bindings?: BindingsJson;
+  /** The links were asked for once (read, or not readable): what a private room links is known. */
+  protected bindingsRead = false;
+  /** The rooms of the other storeys are those of the storey shown (D-039: what they keep private). */
+  protected elsewhereRead = false;
   protected toast?: Toast;
   protected busy = false;
   protected linking = false;
@@ -497,7 +509,11 @@ export class DomoTwinPanel extends LitElement {
   protected voiceOpen = false;
   /** The configuration history (D-062) is open, its module loaded. */
   protected configHistoryOpen = false;
-  /** The weekly report is open (D-070), on the report asked for (the notification's link). */
+  /** An automation in plain words (D-070) is being written, its module loaded. */
+  protected plainOpen = false;
+  /** The automation being written in plain words: it outlives its dialog and the sandbox. */
+  private plainSession?: PlainSession;
+  /** The weekly report is open (D-071), on the report asked for (the notification's link). */
   protected reportOpen = false;
   private reportAsked?: number;
   /** The plans the report is drawn on, the same while they are. */
@@ -1119,7 +1135,7 @@ export class DomoTwinPanel extends LitElement {
     this._hass = hass;
     this.requestUpdate("hass", old);
     if (first && this.isConnected) this.connectData();
-    // The weekly report asked for in the address (D-070), once the user is known.
+    // The weekly report asked for in the address (D-071), once the user is known.
     if (hass?.user && !old?.user) this.openReportAsked();
   }
 
@@ -1209,12 +1225,32 @@ export class DomoTwinPanel extends LitElement {
    * Shows the sandbox (D-057): the home copied, its automations, scripts and scenes read (Home
    * Assistant gives them to administrators), its day played on the copy.
    */
-  private readonly enterSandbox = async (peakDay = false): Promise<void> => {
+  private readonly enterSandbox = async (
+    peakDay = false,
+    draft?: { entity: string; name: string; config: Config },
+  ): Promise<void> => {
     this.moreOpen = false;
     const real = this.demoSwitch.realHass ?? this._hass;
     if (!real || !this.switchable()) return;
     const t = this.t;
     this.show(t.t("sandbox.reading"));
+    // An automation written in plain words (D-070), as an entity of its own.
+    const session = draft ? this.plainSession : undefined;
+    const revision = session?.revision;
+    const played = draft
+      ? {
+          entity: draft.entity,
+          name: draft.name,
+          config: structuredClone(draft.config),
+          // Only once it is shown: a sandbox read but not shown (a tool started meanwhile)
+          // played no day.
+          onDay: (day: DraftDay) => {
+            if (revision !== undefined && this.sandbox?.draft?.entity === draft.entity) {
+              session?.addDay(day, revision);
+            }
+          },
+        }
+      : undefined;
     try {
       await this.demoSwitch.show(
         () => this.switchable(),
@@ -1225,14 +1261,71 @@ export class DomoTwinPanel extends LitElement {
             ...(real.user ? { user: real.user } : {}),
             darkMode: real.themes?.darkMode === true,
             peakDay,
+            ...(played ? { draft: played } : {}),
           });
         },
       );
       // The sandbox's day is watched on the 3D view.
       if (this.sandbox && this.tab !== "3d") this.go("3d");
+      const shown = this.sandbox;
+      if (played && shown?.draft) {
+        // The day it opened on, played before it was shown.
+        const day = shown.draftDay();
+        if (day && revision !== undefined) session?.addDay(day, revision);
+        // The draft on the plan, as the automation wires draw an automation (D-032).
+        void this.showDraftWires(played.entity);
+      }
     } catch (error) {
       this.show(t.t("sandbox.failed", { reason: this.describe(error) }), true);
     }
+  };
+
+  /**
+   * Draws a draft's wires (D-070) once the sandbox's plan is drawn: a plan loaded after them
+   * would forget them. Given up when the sandbox is left, or after a few minutes.
+   */
+  private async showDraftWires(entity: string): Promise<void> {
+    const until = performance.now() + LAYER_WAIT_MS;
+    for (;;) {
+      await this.updateComplete;
+      const view = this.view;
+      await view?.updateComplete;
+      if (!this.isConnected || this.tab !== "3d" || this.sandbox?.draft?.entity !== entity) return;
+      const drawn = view?.planDrawn();
+      if (view && this.plan && drawn === "ready") {
+        view.showWires([entity]);
+        return;
+      }
+      if (drawn === "failed" || performance.now() > until) return;
+      await new Promise((resolve) => setTimeout(resolve, LAYER_POLL_MS));
+    }
+  }
+
+  /** Opens an automation in plain words (D-070): its module and texts, loaded the first time. */
+  private readonly openPlain = async (): Promise<void> => {
+    try {
+      const { PlainSession } = await import("./plain-dialog");
+      this.plainSession ??= new PlainSession();
+      this.plainOpen = true;
+    } catch (error) {
+      this.show(this.describe(error), true);
+    }
+  };
+
+  /** The draft played in the sandbox, beside the home's automations (D-070). */
+  private readonly playPlain = async (
+    event: CustomEvent<{ entity: string; name: string; config: Config }>,
+  ): Promise<void> => {
+    this.plainOpen = false;
+    await this.enterSandbox(false, event.detail);
+    // The sandbox did not open: back to the draft.
+    if (!this.sandbox) this.plainOpen = true;
+  };
+
+  /** From the sandbox back to the draft it played (D-070). */
+  private readonly backToPlain = (): void => {
+    this.leaveDemo();
+    if (!this.demoSwitch.home && this.plainSession) this.plainOpen = true;
   };
 
   /** The day of Hydro-Québec's announced peak, played in the sandbox (D-063). */
@@ -1286,6 +1379,7 @@ export class DomoTwinPanel extends LitElement {
     this.guestsStoreys = undefined;
     this.voiceOpen = false;
     this.configHistoryOpen = false;
+    this.plainOpen = false;
     this.reportOpen = false;
     this.storeysOpen = false;
     this.storeyRemoveAsk = undefined;
@@ -1293,6 +1387,8 @@ export class DomoTwinPanel extends LitElement {
     this.layout = undefined;
     this.planError = undefined;
     this.bindings = undefined;
+    this.bindingsRead = false;
+    this.elsewhereRead = false;
     this.settings = undefined;
     this.settingsRead = false;
     this.upkeep = undefined;
@@ -1701,6 +1797,7 @@ export class DomoTwinPanel extends LitElement {
     } catch {
       if (client === this.client) this.bindings = undefined;
     }
+    if (client === this.client) this.bindingsRead = true;
   }
 
   private async loadPlan(): Promise<void> {
@@ -1742,11 +1839,13 @@ export class DomoTwinPanel extends LitElement {
 
   /** The rooms of the other storeys (plans the client has are not fetched again). */
   private async loadElsewhere(client: DomoTwinClient, stored: StoredPlan): Promise<void> {
+    this.elsewhereRead = false;
     const elsewhere =
       stored.storeys.length > 1 ? await roomsElsewhere(client, stored.storeys, stored.storey) : [];
     // Another storey shown meanwhile, or another home: its own load sets them.
     if (client === this.client && (stored.storey ?? undefined) === this.storey) {
       this.elsewhere = elsewhere;
+      this.elsewhereRead = true;
     }
   }
 
@@ -3279,6 +3378,7 @@ export class DomoTwinPanel extends LitElement {
                 .home=${this.sandbox}
                 ?held=${this.busy}
                 @domotwin-sandbox-leave=${this.leaveDemo}
+                @domotwin-sandbox-draft=${this.backToPlain}
               ></domotwin-sandbox-bar>`
             : nothing
       }
@@ -3869,6 +3969,18 @@ export class DomoTwinPanel extends LitElement {
               ${item("wifi-menu", mdiWifi, t.t("wifi.menu"), this.busy || this.wifi === undefined || this.sandbox !== undefined, this.openWifi)}
               ${item("guests-menu", mdiAccountKeyOutline, t.t("guests.menu"), this.busy || this.demo !== undefined || this.sandbox !== undefined, this.openGuests)}
               ${item("config-history", mdiHistory, t.t("config_history.menu"), this.busy || this.sandbox !== undefined, this.openConfigHistory)}
+              ${
+                // Where Home Assistant has an AI task, for administrators (D-070).
+                plainWordsOffered(this._hass)
+                  ? item(
+                      "plain-words",
+                      mdiStarFourPointsOutline,
+                      t.t("plain.menu"),
+                      this.busy,
+                      this.openPlain,
+                    )
+                  : nothing
+              }
               ${item("report-menu", mdiClipboardCheckOutline, t.t("report.menu"), this.busy || this.sandbox !== undefined, () => this.openReport())}
               ${item("measure", mdiSpeedometer, t.t("measure.menu"), this.busy || this.measureOpen || this.sandbox !== undefined, this.openMeasure)}
               <hr />
@@ -3914,7 +4026,7 @@ export class DomoTwinPanel extends LitElement {
     }
   };
 
-  /** Opens the weekly report (D-070), on a report or the newest: its module and texts, loaded
+  /** Opens the weekly report (D-071), on a report or the newest: its module and texts, loaded
    * the first time. */
   private async openReport(asked?: number): Promise<void> {
     try {
@@ -3928,7 +4040,7 @@ export class DomoTwinPanel extends LitElement {
 
   /**
    * A report asked for in the address (`/domotwin?report=12`, the weekly notification's link,
-   * D-070): opened for an administrator, then left out of the address.
+   * D-071): opened for an administrator, then left out of the address.
    */
   private openReportAsked(): void {
     const hass = this._hass;
@@ -4414,7 +4526,33 @@ export class DomoTwinPanel extends LitElement {
           ></domotwin-report>`
         : nothing
     }
+    ${this.plainOpen && this.plainSession && this._hass ? this.renderPlain(this._hass, this.plainSession) : nothing}
     ${this.storeysOpen ? this.renderStoreysDialog() : nothing}`;
+  }
+
+  /**
+   * Whether what the viewer may not see is known (D-039): the settings, the plan (or that there
+   * is none), its links and the other storeys' rooms read. Until then nothing is named to an AI
+   * task (D-070).
+   */
+  private homeRead(): boolean {
+    return (
+      this.settingsRead &&
+      this.bindingsRead &&
+      this.plan !== undefined &&
+      (this.storeys.length <= 1 || this.elsewhereRead)
+    );
+  }
+
+  /** An automation in plain words (D-070), with what the viewer may not see left out of it. */
+  private renderPlain(hass: HomeAssistant, session: PlainSession): TemplateResult {
+    return html`<domotwin-plain
+      .hass=${hass}
+      .session=${session}
+      .unseen=${this.homeRead() ? this.practical(hass).unseen : undefined}
+      @domotwin-close=${() => (this.plainOpen = false)}
+      @domotwin-plain-play=${this.playPlain}
+    ></domotwin-plain>`;
   }
 
   /** The storeys of the home: name, height, removal; a new storey drawn or imported. */

@@ -1,5 +1,5 @@
 /**
- * `<domotwin-report>`: the weekly report (D-070), in the panel. The week shown and those kept
+ * `<domotwin-report>`: the weekly report (D-071), in the panel. The week shown and those kept
  * before; the summary, when an AI task wrote one; what needs a look, room by room on the plans
  * and section by section, each item opening where Home Assistant shows it; the week's energy
  * against the week before; the week's Hydro-Québec peaks; what was done since the last report;
@@ -12,9 +12,9 @@ import { isHassError, nowOf, type HomeAssistant } from "../ha/types";
 import { addMessages, translatorFor, type Translator } from "../i18n";
 import { reportEn, reportFr } from "../i18n/report";
 import { navigate } from "../live/actions";
+import { aiTasks } from "../live/ai-task";
 import {
   REPORT_SECTIONS,
-  aiTasks,
   changeOf,
   countOf,
   dayText,
@@ -1023,7 +1023,7 @@ export class DomoTwinReport extends LitElement {
   private renderSettings(draft: ReportSettings): TemplateResult {
     const t = this.t;
     const hass = this.hass;
-    const tasks = hass ? aiTasks(hass) : [];
+    const tasks = aiTasks(hass);
     // One chosen before and gone since stays listed, so that it is not changed unseen.
     if (draft.summary && !tasks.includes(draft.summary)) tasks.push(draft.summary);
     const change = (patch: Partial<ReportSettings>): void => {

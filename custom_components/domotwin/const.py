@@ -207,7 +207,7 @@ MODEL_GRACE_SECONDS: Final = 86_400
 # Overlay entries of the models imported in edit mode: "@model:<model id>".
 MODEL_ENTRY_PREFIX: Final = "@model:"
 
-# The weekly report (docs/DECISIONS.md, D-070): its settings and the last reports, in a store of its
+# The weekly report (docs/DECISIONS.md, D-071): its settings and the last reports, in a store of its
 # own (.storage/domotwin.reports), private. At most this many reports kept (the oldest go first),
 # items a section of a report (the others counted), and a summary's characters.
 REPORT_STORAGE_KEY: Final = f"{DOMAIN}.reports"

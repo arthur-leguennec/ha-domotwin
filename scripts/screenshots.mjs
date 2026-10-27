@@ -1301,7 +1301,7 @@ try {
     await upkeepPage.screenshot(),
   );
   console.log("docs/figures/screenshot-upkeep.png");
-  // The weekly report (D-070): the panel, the day look, the harness's fictional report of the
+  // The weekly report (D-071): the panel, the day look, the harness's fictional report of the
   // demo apartment and its upper floor, summed up by a fictional AI task, read in Montréal.
   const reportPage = await browser.newPage({
     viewport: { width: 1280, height: 900 },

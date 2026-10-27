@@ -93,7 +93,7 @@ every reader returns `Result` with a stable error code that the frontend transla
   history-graph and statistics-graph cards, which `components/room-graphs.ts` shows in the Rooms
   tab's chunk; `live/overview.ts` gives the address of Home Assistant's Energy page, which the
   panel's Energy tab opens.
-- The weekly report (D-070): `components/report-dialog.ts` (its own chunk) shows what
+- The weekly report (D-071): `components/report-dialog.ts` (its own chunk) shows what
   `domotwin/report/get` answers (`live/report.ts`), each storey's rooms drawn as SVG from their
   outlines; the integration writes the reports (`custom_components/domotwin/report*.py`).
 - `src/i18n/` holds the English and French dictionaries. Every visible string goes through `t()`.
@@ -210,7 +210,17 @@ every reader returns `Result` with a stable error code that the frontend transla
    (`src/live/config-history.ts`), and puts a version back with Home Assistant's own commands:
    `POST /api/config/<kind>/config/<id>` (`hass.callApi`) or `lovelace/config/save`, then
    `domotwin/config_history/refresh`.
-11. **Weekly report.** The integration's `report.py` (D-070) looks every hour, on the hour,
+11. **Automations in plain words.** The dialog (`src/components/plain-dialog.ts`, a chunk, D-070)
+   is offered where Home Assistant has an AI task (`src/live/ai-task.ts`). It asks Home
+   Assistant's own service `ai_task.generate_data` (`call_service` with `return_response`) with
+   the request, the rules of an automation and the home's names (`src/live/plain-request.ts`:
+   areas, entities, actions, never states), reads the answer, looks up the names it gives and has
+   Home Assistant check it (`validate_config`); `src/live/plain-words.ts` says it back in words.
+   *Play it in the sandbox* gives the draft to the sandbox's copy as an automation of its own
+   (`SandboxHome`'s `draft`), which tells the dialog what it did each day played; the view draws
+   its wires (`showWires`). Saved through `POST /api/config/automation/config/<id>`. Nothing of
+   it is in the integration, and DomoTwin calls no model itself.
+12. **Weekly report.** The integration's `report.py` (D-071) looks every hour, on the hour,
    whether the week's report is due (the day and hour chosen, a week missed caught up once Home
    Assistant has started), and writes it: what needs a look from Home Assistant's states,
    registries, repairs and traces and from the integrations installed (`report_look.py`, which
@@ -327,7 +337,7 @@ guests may use the devices, `wifi` whether the home's Wi-Fi is shown, `anywhere`
 from outside the home's network. 20 passes at most; one ended 30 days ago is forgotten. See
 [`guests.md`](guests.md).
 
-`.storage/domotwin.reports` (D-070, its own store, version 1, private): the weekly report's
+`.storage/domotwin.reports` (D-071, its own store, version 1, private): the weekly report's
 `settings` (`weekly`, `weekday` 0 to 6 from Monday, `hour`, `notify`, `summary`: an AI task or
 `null`, `battery`: the level a battery is low at), `since` (when reports started being kept),
 `next` (the next report's id), `last_scheduled` (when the last week's was written) and the

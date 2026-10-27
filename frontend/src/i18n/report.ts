@@ -1,5 +1,5 @@
 /**
- * The messages of the weekly report (D-070), in both languages: loaded with its page, not with the
+ * The messages of the weekly report (D-071), in both languages: loaded with its page, not with the
  * first picture. The menu item's own is in the dictionaries.
  */
 import type { Widen } from "./index";

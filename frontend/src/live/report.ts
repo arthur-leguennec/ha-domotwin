@@ -1,10 +1,10 @@
 /**
- * The weekly report (D-070): what the integration wrote on its day, read leniently; what each
+ * The weekly report (D-071): what the integration wrote on its day, read leniently; what each
  * item says in words; where it opens in Home Assistant; the rooms of the plans it is drawn on.
  * Loaded with the report's page, not with the first picture.
  */
 import type { HomeAssistant } from "../ha/types";
-import { domainOf, isEntityId } from "../ha/types";
+import { isEntityId } from "../ha/types";
 import type { Translator } from "../i18n";
 
 /** What needs a look, in the order the report says it. */
@@ -550,18 +550,6 @@ export function itemLink(section: ReportSection, item: ReportItem): ItemLink | u
     case "upkeep":
       return undefined;
   }
-}
-
-/** The AI tasks that can write a summary (Home Assistant 2025.8 and later). */
-export function aiTasks(hass: HomeAssistant): string[] {
-  return Object.keys(hass.states)
-    .filter((id) => domainOf(id) === "ai_task")
-    .filter((id) => {
-      const features = hass.states[id]?.attributes.supported_features;
-      // Without its features said (an older version), offered all the same.
-      return typeof features !== "number" || (features & 1) === 1;
-    })
-    .sort();
 }
 
 /** Whether Home Assistant has its Maintenance page (2026.5 and later): the batteries, by area. */

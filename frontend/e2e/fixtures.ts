@@ -146,7 +146,7 @@ export interface HarnessOptions {
   /** The configuration history (D-062): fictional items and their versions. */
   configHistory?: boolean;
   /**
-   * The weekly report (D-070): last week's and this week's (`true`), this week's summed up by an
+   * The weekly report (D-071): last week's and this week's (`true`), this week's summed up by an
    * AI task (`summary`), or none yet (`none`); `report` asks the panel for one, as the weekly
    * notification's link does.
    */
@@ -160,6 +160,8 @@ export interface HarnessOptions {
   safety?: boolean;
   security?: boolean;
   securityAlerts?: string[];
+  /** Home Assistant's AI task (D-070): a fictional one, its actions and its check. */
+  aiTask?: boolean;
 }
 
 /** Opens the mocked Home Assistant with the built frontend. */
@@ -235,6 +237,7 @@ export async function openHarness(page: Page, options: HarnessOptions = {}): Pro
   if (options.safety) params.set("safety", "1");
   if (options.security) params.set("security", "1");
   if (options.securityAlerts) params.set("securityalerts", options.securityAlerts.join(","));
+  if (options.aiTask) params.set("aitask", "1");
   if (options.voice) params.set("voice", options.voice === true ? "1" : options.voice);
   if (options.supervisor) params.set("supervisor", "1");
   if (options.blueprints) params.set("blueprints", options.blueprints);

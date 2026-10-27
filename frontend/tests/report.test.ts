@@ -1,13 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import { DemoHome } from "../src/demo/home";
-import type { HassEntity, HomeAssistant } from "../src/ha/types";
+import type { HomeAssistant } from "../src/ha/types";
 import { Translator, addMessages } from "../src/i18n";
 import { reportEn, reportFr } from "../src/i18n/report";
 import {
   DEFAULT_SETTINGS,
   REPORT_SECTIONS,
-  aiTasks,
   changeOf,
   countOf,
   formatKwh,
@@ -100,10 +99,6 @@ function written(): Record<string, unknown> {
     ],
     summary: { by: "ai_task.helper", text: "All is well." },
   };
-}
-
-function entity(id: string, attributes: Record<string, unknown> = {}): HassEntity {
-  return { entity_id: id, state: "unknown", attributes, last_changed: "", last_updated: "" };
 }
 
 describe("reading the report", () => {
@@ -331,17 +326,8 @@ describe("what each item says", () => {
 });
 
 describe("Home Assistant around the report", () => {
-  it("offers the AI tasks that write, and says where its Maintenance page is", () => {
-    const hass = {
-      states: {
-        "ai_task.writer": entity("ai_task.writer", { supported_features: 1 }),
-        "ai_task.images": entity("ai_task.images", { supported_features: 4 }),
-        "ai_task.older": entity("ai_task.older"),
-        "conversation.agent": entity("conversation.agent"),
-      },
-      panels: {},
-    } as unknown as HomeAssistant;
-    expect(aiTasks(hass)).toEqual(["ai_task.older", "ai_task.writer"]);
+  it("says where its Maintenance page is", () => {
+    const hass = { states: {}, panels: {} } as unknown as HomeAssistant;
     expect(hasMaintenancePage(hass)).toBe(false);
     expect(
       hasMaintenancePage({ ...hass, panels: { maintenance: { url_path: "maintenance" } } }),

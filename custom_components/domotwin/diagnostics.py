@@ -115,7 +115,7 @@ async def async_get_config_entry_diagnostics(
             for status in ("upcoming", "open", "ended")
         }
         diagnostics["guests"]["anywhere"] = sum(1 for p in guests.passes if p["anywhere"])
-    # The weekly report's settings (D-070), whether an AI task sums it up, and how many reports are
+    # The weekly report's settings (D-071), whether an AI task sums it up, and how many reports are
     # kept: never what they say.
     if (report := hass.data.get(REPORT_KEY)) is not None:
         settings = report.settings
