@@ -32,7 +32,11 @@ test.describe("more languages (M21, D-081)", () => {
     page.on("request", (request) => loaded.push(request.url()));
     await openHarness(page);
     await expect(page.getByTestId("summary")).toBeVisible();
-    expect(loaded.filter((url) => /\/chunks\/(de|es|it|nl|pt|pt-BR|ar|zh-Hans|ja|ko)-[A-Z0-9]+\.js/.test(url))).toEqual([]);
+    expect(
+      loaded.filter((url) =>
+        /\/chunks\/(de|es|it|nl|pt|pt-BR|ar|zh-Hans|ja|ko)-[A-Z0-9]+\.js/.test(url),
+      ),
+    ).toEqual([]);
   });
 
   test("Arabic is written right to left: the tools on the left, the rooms on the right", async ({

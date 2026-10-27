@@ -213,7 +213,6 @@ function writtenAs(language: Language): "ltr" | "rtl" {
 /** How English counts, for a message not yet in its language. */
 const ENGLISH_PLURALS = new Intl.PluralRules("en");
 
-
 function lookup(dictionary: unknown, key: string): unknown {
   let node: unknown = dictionary;
   for (const part of key.split(".")) {
