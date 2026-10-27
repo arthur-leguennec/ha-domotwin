@@ -25,9 +25,10 @@ Local, rapide, Rust + WebAssembly.</p>
 > qui disent ce qu’ils font, des meubles qui ont l’air faits, les aspirateurs robots, l’énergie de
 > la maison, la maison de démo, la mesure de la vitesse d’un appareil et la maison pratique (les
 > onglets Accueil, Pièces et 3D) fonctionnent déjà, et forment la version 0.4.0. Depuis, le bac à
-> sable joue une journée des automatisations de la maison sur une copie de celle-ci,
-> « Pourquoi ? » dit qui ou quoi a changé un appareil, le code QR du Wi-Fi accueille les invités,
-> et DomoTwin rejoint la Vue d’ensemble de Home Assistant plutôt que de la copier. L’historique et
+> sable joue une journée des automatisations de la maison sur une copie de celle-ci, l’historique
+> de Home Assistant se lit en rapports, « Pourquoi ? » dit qui ou quoi a changé un appareil, le
+> code QR du Wi-Fi accueille les invités, DomoTwin rejoint la Vue d’ensemble de Home Assistant
+> plutôt que de la copier, et chaque changement de la configuration est gardé. L’historique et
 > l’énergie, la sécurité et l’écran mural viennent ensuite, vers la version 0.5.0 ; la proposition
 > à la liste par défaut de HACS attend des mesures sur de vrais appareils.
 
@@ -177,6 +178,13 @@ Local, rapide, Rust + WebAssembly.</p>
   cherché par valeur ; en CSV. En lecture seule, depuis l’historique, les statistiques et le
   journal de Home Assistant. Voir [l’historique en
   rapports](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/history.md) (en
+  anglais).
+- **Historique de la configuration.** Chaque changement d’une automatisation, d’un script, d’une
+  scène ou d’un tableau de bord est gardé, par élément et par date, dans Home Assistant : ce qui a
+  changé, en mots (« Déclencheur 1 › offset : -00:30:00 → -00:20:00 », « Ajout · Action 2 »), et un
+  élément remis comme il était, par les commandes qu’utilisent les éditeurs de Home Assistant.
+  Pour les administrateurs ; sans module complémentaire ni Git. Voir [l’historique de la
+  configuration](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/config-history.md) (en
   anglais).
 - **Votre voix.** Un bouton micro ouvre Assist de Home Assistant déjà à l’écoute, sur une
   tablette murale comme sur un téléphone. Quand Assist n’entend pas encore, DomoTwin installe la
