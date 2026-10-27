@@ -8,7 +8,7 @@ import type { HomeAssistant } from "../ha/types";
 import { translatorFor, type MessageKey } from "../i18n";
 import "../i18n/summary";
 import { SUMMARIES } from "../live/overview";
-import { define, fire } from "./define";
+import { define, fire, inLanguage } from "./define";
 
 export class DomoTwinSummaryCardEditor extends LitElement {
   static override properties = {
@@ -46,7 +46,7 @@ export class DomoTwinSummaryCardEditor extends LitElement {
   };
 
   protected override render(): TemplateResult | typeof nothing {
-    if (!this.hass) return nothing;
+    if (!this.hass || !inLanguage(this, this.hass)) return nothing;
     const t = translatorFor(this.hass);
     const schema = [
       {

@@ -159,13 +159,14 @@ export const spotStyles = css`
   }
   .chip {
     position: absolute;
-    left: 12px;
+    inset-inline-start: 12px;
     top: 12px;
     display: flex;
     align-items: center;
     gap: 6px;
     max-width: calc(100% - 92px);
-    padding: 4px 4px 4px 12px;
+    padding-block: 4px;
+    padding-inline: 12px 4px;
     border-radius: 18px;
     pointer-events: auto;
     font-size: 0.85rem;

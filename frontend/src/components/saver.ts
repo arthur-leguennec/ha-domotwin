@@ -179,7 +179,7 @@ export class DomoTwinSaver extends LitElement {
     }
     .corner {
       position: absolute;
-      left: max(4vmin, 24px);
+      inset-inline-start: max(4vmin, 24px);
       bottom: max(4vmin, 24px);
       display: grid;
       gap: 4px;

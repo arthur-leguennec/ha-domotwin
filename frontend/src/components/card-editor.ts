@@ -13,7 +13,7 @@ import {
 import { peaksAvailable } from "../live/peak-sources";
 import { ALL_STOREYS, loadHome, storeyLevels, storeyName } from "../live/storeys";
 import { planRooms } from "../live/suggest";
-import { define, fire } from "./define";
+import { define, fire, inLanguage } from "./define";
 
 interface FormField {
   name: string;
@@ -275,7 +275,7 @@ export class DomoTwinCardEditor extends LitElement {
   }
 
   protected override render(): TemplateResult | typeof nothing {
-    if (!this.hass) return nothing;
+    if (!this.hass || !inLanguage(this, this.hass)) return nothing;
     const storey = typeof this.config.storey === "string" ? this.config.storey : "";
     if (this.fetchedFor !== storey) void this.fetchHome(this.hass, storey);
     const t = translatorFor(this.hass);

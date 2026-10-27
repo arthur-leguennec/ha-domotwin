@@ -638,15 +638,16 @@ export const rowStyles = css`
   button.switch .knob {
     position: absolute;
     top: 3px;
-    left: 3px;
+    inset-inline-start: 3px;
     width: 22px;
     height: 22px;
     border-radius: 50%;
     background: #fff;
-    transition: transform 150ms ease;
+    transition: inset-inline-start 150ms ease;
   }
+  /* At the end of the switch, whichever way the language is written. */
   button.switch.on .knob {
-    transform: translateX(20px);
+    inset-inline-start: 23px;
   }
   .slider {
     display: grid;

@@ -50,6 +50,7 @@ from .const import (
     SIGNAL_SCHEDULES,
     SIGNAL_UPDATED,
 )
+from .language import spoken
 from .rights import HIDDEN, levels_for
 
 _LOGGER = logging.getLogger(__name__)
@@ -474,9 +475,11 @@ class Scheduler:
         async_dispatcher_send(self._hass, SIGNAL_SCHEDULES)
 
 
-# What is said of an action, in English and in French (Home Assistant's language).
+# What is said of an action, in each language DomoTwin speaks (Home Assistant's, D-081): the
+# sentence, with who, the verb (one thing, several), the brightness, when, and the end after it.
 _SAID = {
     "en": {
+        "sentence": "{who} {verb}{level} {when}{then}.",
         "on": ("will switch on", "will switch on"),
         "off": ("will switch off", "will switch off"),
         "open": ("will open", "will open"),
@@ -494,6 +497,7 @@ _SAID = {
         "and": " and ",
     },
     "fr": {
+        "sentence": "{who} {verb}{level} {when}{then}.",
         "on": ("s'allumera", "s'allumeront"),
         "off": ("s'éteindra", "s'éteindront"),
         "open": ("s'ouvrira", "s'ouvriront"),
@@ -525,7 +529,7 @@ def _when(said: dict[str, Any], moment: datetime) -> str:
 
 def describe(hass: HomeAssistant, item: Scheduled) -> str:
     """A sentence saying what will happen, in Home Assistant's language."""
-    said = _SAID["fr" if hass.config.language.startswith("fr") else "en"]
+    said = _SAID[spoken(hass.config.language)]
     names = [
         state.name if (state := hass.states.get(entity)) is not None else entity
         for entity in item.entities
@@ -535,22 +539,24 @@ def describe(hass: HomeAssistant, item: Scheduled) -> str:
     covers = all(entity.startswith("cover.") for entity in item.entities)
     on_verb = said["open" if covers else "on"][plural]
     off_verb = said["close" if covers else "off"][plural]
+    sentence = str(said["sentence"])
     if item.started and item.until is not None:
         # On already: only its end is to come.
-        return f"{who} {off_verb} {_when(said, item.until)}."
+        when = _when(said, item.until)
+        return sentence.format(who=who, verb=off_verb, level="", when=when, then="")
     verb = on_verb if item.action == "on" else off_verb
     level = ""
     if item.brightness is not None and not covers:
         level = str(said["brightness"]).format(brightness=item.brightness)
-    text = f"{who} {verb}{level} {_when(said, item.at)}"
+    then = ""
     if item.until is not None:
         start, end = dt_util.as_local(item.at), dt_util.as_local(item.until)
         end_verb = said["end_cover" if covers else "end"][plural]
         if start.date() == end.date():
-            text += str(said["then_same_day"]).format(verb=end_verb, time=end.strftime("%H:%M"))
+            then = str(said["then_same_day"]).format(verb=end_verb, time=end.strftime("%H:%M"))
         else:
-            text += str(said["then"]).format(verb=end_verb, when=_when(said, item.until))
-    return text + "."
+            then = str(said["then"]).format(verb=end_verb, when=_when(said, item.until))
+    return sentence.format(who=who, verb=verb, level=level, when=_when(said, item.at), then=then)
 
 
 # The websocket commands of the sheets (any signed-in user: they control the devices anyway).

@@ -79,7 +79,7 @@ export class DomoTwinRooms extends LitElement {
       }
       .search svg {
         position: absolute;
-        left: 12px;
+        inset-inline-start: 12px;
         width: 20px;
         height: 20px;
         fill: var(--secondary-text-color, #5f6368);
@@ -89,7 +89,8 @@ export class DomoTwinRooms extends LitElement {
         box-sizing: border-box;
         width: 100%;
         min-height: 44px;
-        padding: 0 12px 0 40px;
+        padding-block: 0;
+        padding-inline: 40px 12px;
         border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
         border-radius: 22px;
         background: var(--card-background-color, #fff);

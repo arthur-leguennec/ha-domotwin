@@ -18,10 +18,18 @@ import type { wallEn } from "./wall";
 import type { whyEn } from "./why";
 import type { wifiEn } from "./wifi";
 import type { radarsEn } from "./radars";
+import type { Pack } from "./pack";
 
-/** A plural message: Intl.PluralRules picks the form. */
+/**
+ * A plural message: Intl.PluralRules picks the form, `other` when the language has no such form
+ * (Arabic has six, Japanese one).
+ */
 export interface Plural {
+  zero?: string;
   one: string;
+  two?: string;
+  few?: string;
+  many?: string;
   other: string;
 }
 
@@ -74,31 +82,127 @@ export type PluralKey = Leaves<AllMessages, Plural>;
 /** A kind of item of the plan format (`docs/plan-format.md`), as the catalogue names it. */
 export type KindName = keyof (typeof en)["kinds"];
 
-export type Language = "en" | "fr";
+/**
+ * The languages DomoTwin speaks (D-081), as Home Assistant names them: English and French with
+ * the first picture, the others loaded when Home Assistant speaks them.
+ */
+export const LANGUAGES = [
+  "en",
+  "fr",
+  "de",
+  "es",
+  "it",
+  "nl",
+  "pt",
+  "pt-BR",
+  "ar",
+  "zh-Hans",
+  "ja",
+  "ko",
+] as const;
+export type Language = (typeof LANGUAGES)[number];
+/** The languages loaded on demand. */
+type Loaded = Exclude<Language, "en" | "fr">;
 
-const dictionaries: Record<Language, Dictionary> = { en, fr };
+const dictionaries: Record<"en" | "fr", Dictionary> = { en, fr };
 /**
  * The messages of chunks loaded since (the Home and Rooms tabs', D-055; the reports', D-058; the
- * Wi-Fi's, D-060; the summaries', D-061), by language.
+ * Wi-Fi's, D-060; the summaries', D-061), in English and French; the other languages have theirs
+ * in their pack.
  */
-const added: Record<Language, unknown[]> = { en: [], fr: [] };
+const added: Record<"en" | "fr", unknown[]> = { en: [], fr: [] };
 
-/** Adds a chunk's messages, in every language. */
-export function addMessages(messages: Record<Language, unknown>): void {
+/** Each language loaded on demand: its own module, and its messages once loaded. */
+const LOADERS: Record<Loaded, () => Promise<{ pack: Pack }>> = {
+  de: () => import("./lang/de"),
+  es: () => import("./lang/es"),
+  it: () => import("./lang/it"),
+  nl: () => import("./lang/nl"),
+  pt: () => import("./lang/pt"),
+  "pt-BR": () => import("./lang/pt-BR"),
+  ar: () => import("./lang/ar"),
+  "zh-Hans": () => import("./lang/zh-Hans"),
+  ja: () => import("./lang/ja"),
+  ko: () => import("./lang/ko"),
+};
+const packs: Partial<Record<Loaded, Pack>> = {};
+const loading = new Map<Loaded, Promise<void>>();
+/** Languages whose module did not load: spoken in English until the page is loaded again. */
+const failed = new Set<Loaded>();
+
+/** Adds a chunk's messages, in English and French. */
+export function addMessages(messages: Record<"en" | "fr", unknown>): void {
   for (const language of ["en", "fr"] as const) added[language].push(messages[language]);
+}
+
+function bundled(language: Language): language is "en" | "fr" {
+  return language === "en" || language === "fr";
+}
+
+/**
+ * Whether a language can be spoken now: English and French always, the others once loaded (or in
+ * English once they could not be).
+ */
+export function languageReady(language: Language): boolean {
+  return bundled(language) || packs[language] !== undefined || failed.has(language);
+}
+
+/**
+ * Loads a language's messages; resolves once they are here (at once for English and French). One
+ * that fails to load is spoken in English, not asked for again and again.
+ */
+export function loadLanguage(language: Language): Promise<void> {
+  if (bundled(language) || packs[language] || failed.has(language)) return Promise.resolve();
+  let pending = loading.get(language);
+  if (!pending) {
+    pending = LOADERS[language]()
+      .then((module) => {
+        packs[language] = module.pack;
+      })
+      .catch(() => {
+        failed.add(language);
+      })
+      .finally(() => loading.delete(language));
+    loading.set(language, pending);
+  }
+  return pending;
+}
+
+/** The main messages of a language, English while they are not here. */
+function mainOf(language: Language): Dictionary {
+  if (bundled(language)) return dictionaries[language];
+  return packs[language]?.main ?? en;
 }
 
 /** A message of the language: its dictionary's, else a chunk's. */
 function find(language: Language, key: string): unknown {
-  let found = lookup(dictionaries[language], key);
-  for (const part of added[language]) found ??= lookup(part, key);
+  if (bundled(language)) {
+    let found = lookup(dictionaries[language], key);
+    for (const part of added[language]) found ??= lookup(part, key);
+    return found;
+  }
+  const pack = packs[language];
+  if (!pack) return undefined;
+  let found = lookup(pack.main, key);
+  for (const part of Object.values(pack.chunks)) found ??= lookup(part, key);
   return found;
 }
 
-/** The supported language closest to Home Assistant's, English otherwise. */
+/**
+ * The language DomoTwin speaks for Home Assistant's: the same, else the same without its region
+ * (Portuguese is Portugal's, Brazil's has its own; every Chinese is simplified), English otherwise.
+ */
 export function pickLanguage(language: string | undefined): Language {
-  const base = (language ?? "en").toLowerCase().split(/[-_]/)[0];
-  return base === "fr" ? "fr" : "en";
+  const code = (language ?? "en").toLowerCase().replace("_", "-");
+  if (code === "pt-br") return "pt-BR";
+  if (code.startsWith("zh")) return "zh-Hans";
+  const base = code.split("-")[0] ?? "en";
+  return (LANGUAGES as readonly string[]).includes(base) ? (base as Language) : "en";
+}
+
+/** Which way a language is written. */
+export function directionOf(language: Language): "ltr" | "rtl" {
+  return language === "ar" ? "rtl" : "ltr";
 }
 
 function lookup(dictionary: unknown, key: string): unknown {
@@ -132,23 +236,33 @@ export class Translator {
     return typeof text === "string" ? format(text, params) : key;
   }
 
+  /** Which way it is written: `rtl` for Arabic. */
+  get dir(): "ltr" | "rtl" {
+    return directionOf(this.language);
+  }
+
   /** A plural message; `{count}` is the number. */
   tp(key: PluralKey, count: number, params: Record<string, string | number> = {}): string {
-    const forms = find(this.language, key) as Plural | undefined;
-    const form = forms?.[this.plurals.select(count) === "one" ? "one" : "other"];
+    const own = find(this.language, key) as Plural | undefined;
+    // In English while the language is not here, as English counts.
+    const [forms, rules] = own
+      ? [own, this.plurals]
+      : [find("en", key) as Plural | undefined, null];
+    const category = (rules ?? new Intl.PluralRules("en")).select(count);
+    const form = forms?.[category] ?? forms?.other;
     return form ? format(form, { ...params, count }) : key;
   }
 
   /** The name of a kind of item of the catalogue (`sofa`, `table-lamp`…), else the kind. */
   kind(kind: string): string {
-    const text = lookup(dictionaries[this.language], `kinds.${kind}`);
+    const text = lookup(mainOf(this.language), `kinds.${kind}`);
     return typeof text === "string" ? text : kind;
   }
 
   /** An error code from the engine (`errors.plan.*`) or the websocket API (`errors.ws.*`). */
   error(code: string): string {
     for (const group of ["plan", "ws"]) {
-      const text = lookup(dictionaries[this.language], `errors.${group}.${code}`);
+      const text = lookup(mainOf(this.language), `errors.${group}.${code}`);
       if (typeof text === "string") return text;
     }
     return this.t("errors.unknown", { code });
@@ -161,11 +275,26 @@ export class Translator {
   }
 }
 
+/** What of a `hass` object says its language. */
+export interface Speaking {
+  language?: string;
+  locale?: { language: string };
+}
+
 /** The translator matching a `hass` object. */
-export function translatorFor(
-  hass: { language?: string; locale?: { language: string } } | undefined,
-): Translator {
+export function translatorFor(hass: Speaking | undefined): Translator {
   return new Translator(hass?.locale?.language ?? hass?.language);
+}
+
+/**
+ * Whether the messages of Home Assistant's language are here; if not, they are loaded and `ready`
+ * is called once they are (for a view to draw itself again in them).
+ */
+export function speak(hass: Speaking | undefined, ready: () => void): boolean {
+  const language = translatorFor(hass).language;
+  if (languageReady(language)) return true;
+  void loadLanguage(language).then(ready);
+  return false;
 }
 
 export { en, fr };

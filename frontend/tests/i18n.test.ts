@@ -34,11 +34,17 @@ describe("dictionaries", () => {
 });
 
 describe("Translator", () => {
-  it("picks French for French locales and English otherwise", () => {
+  it("picks the language Home Assistant speaks, English otherwise (D-081)", () => {
     expect(pickLanguage("fr")).toBe("fr");
     expect(pickLanguage("fr-CA")).toBe("fr");
     expect(pickLanguage("FR_be")).toBe("fr");
-    expect(pickLanguage("de")).toBe("en");
+    expect(pickLanguage("de")).toBe("de");
+    expect(pickLanguage("de-CH")).toBe("de");
+    expect(pickLanguage("pt")).toBe("pt");
+    expect(pickLanguage("pt-BR")).toBe("pt-BR");
+    expect(pickLanguage("pt_br")).toBe("pt-BR");
+    expect(pickLanguage("zh-Hant")).toBe("zh-Hans");
+    expect(pickLanguage("sv")).toBe("en");
     expect(pickLanguage(undefined)).toBe("en");
   });
 

@@ -22,6 +22,7 @@ import type { AccessPoint } from "../live/placement";
 import type { Upkeep } from "../live/upkeep";
 import type { Wifi } from "../live/wifi";
 import { translatorFor } from "../i18n";
+import { inLanguage } from "./define";
 import { DemoSwitch } from "./demo-switch";
 import { baseStyles } from "./styles";
 import type { DomoTwinView, ViewOptions } from "./view";
@@ -496,7 +497,7 @@ export class DomoTwinCard extends LitElement {
   }
 
   protected override render(): TemplateResult | typeof nothing {
-    if (!this.config) return nothing;
+    if (!this.config || !inLanguage(this, this._hass)) return nothing;
     // Under the viewer's rights (D-071): what they may do, the devices they may not see unlinked.
     const rights = this._hass ? this.rightsOf(this._hass) : undefined;
     const style = [

@@ -22,8 +22,10 @@ Local, fast, Rust + WebAssembly.</p>
 > Home Assistant's Energy page a tab away, automations in plain words played in the sandbox before
 > they are saved, the weather around the home, how well the rooms are found, measured beside
 > Bermuda, a library of 195 pieces with their pictures, an iPhone followed without a Mac, and the
-> wall screen (its screen saver woken by whoever comes), and DomoTwin joined Home Assistant's own
-> Overview; a first launch in five minutes closes the way to 0.5.0. The submission to HACS's
+> wall screen (its screen saver woken by whoever comes), the outdoors and the lawn growing, split
+> levels, a spot in the room, presence radars merged with Bluetooth, ten more languages, and
+> DomoTwin joined Home Assistant's own Overview; a first launch in five minutes closes the way to
+> 0.5.0. The submission to HACS's
 > default list waits on measurements on real devices.
 
 ## What sets it apart
@@ -241,7 +243,9 @@ Local, fast, Rust + WebAssembly.</p>
   voice](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/voice.md).
 - **Light and smooth.** Rust compiled to WebAssembly, rendering only when something changes, quality
   presets for old wall tablets. The first load is budgeted at 1.2 MB, checked by CI.
-- **Yours.** English and French, follows your Home Assistant theme, works in the companion apps.
+- **Yours.** In your Home Assistant's language: English, French, German, Spanish, Italian, Dutch,
+  Portuguese (Portugal's and Brazil's), Arabic (right to left), Chinese, Japanese and Korean, each
+  loaded only when it is yours. Follows your Home Assistant theme, works in the companion apps.
   Its own font (Inter, served by your Home Assistant), and everything in reach of the keyboard and
   screen readers: the rooms and their controls, the menus, the dialogs.
 

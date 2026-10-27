@@ -26,7 +26,8 @@ export interface HarnessOptions {
   tip?: boolean;
   /** The card's `font_family`. */
   font?: string;
-  lang?: "en" | "fr";
+  /** Home Assistant's language: English and French with the first picture, the others loaded. */
+  lang?: "en" | "fr" | "de" | "ar" | "ja";
   plan?: "demo" | "none";
   admin?: boolean;
   dark?: boolean;

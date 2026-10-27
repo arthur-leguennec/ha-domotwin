@@ -182,10 +182,11 @@ export class DomoTwinRights extends LitElement {
         text-overflow: ellipsis;
       }
       .device {
-        padding: 2px 0 2px 12px;
+        padding-block: 2px;
+        padding-inline: 12px 0;
       }
       .badge {
-        margin-left: 6px;
+        margin-inline-start: 6px;
         padding: 1px 6px;
         border-radius: 8px;
         background: var(--secondary-background-color, rgba(0, 0, 0, 0.06));

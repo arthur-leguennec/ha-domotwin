@@ -188,7 +188,8 @@ export class DomoTwinBluetoothSettings extends LitElement {
       }
       table.measured th,
       table.measured td {
-        padding: 3px 8px 3px 0;
+        padding-block: 3px;
+        padding-inline: 0 8px;
         text-align: start;
         font-size: 0.875rem;
       }

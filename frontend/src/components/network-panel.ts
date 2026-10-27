@@ -128,7 +128,7 @@ export class DomoTwinNetwork extends LitElement {
         /* Beside the view's tools (a column 48px wide at the top right), never over them: the
            layer button that closes the map stays in reach. */
         position: absolute;
-        right: 68px;
+        inset-inline-end: 68px;
         bottom: 12px;
         width: min(340px, calc(100% - 80px));
         max-height: calc(100% - 24px);

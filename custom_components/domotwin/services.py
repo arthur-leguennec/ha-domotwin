@@ -40,6 +40,7 @@ from .const import (
     SIGNAL_SHOW,
 )
 from .data import DATA_KEY, LOCATOR_KEY, PEOPLE_KEY, SCHEDULER_KEY
+from .language import spoken
 from .people import Place, likeness, thing_likeness
 from .privacy import private_rooms
 from .rights import hidden_rooms
@@ -112,7 +113,7 @@ UNSCHEDULE_SCHEMA = vol.All(
 )
 
 
-# What `domotwin.where` says, in English and in French (Home Assistant's language).
+# What `domotwin.where` says, in each language DomoTwin speaks (Home Assistant's, D-081).
 SENTENCES = {
     "en": {
         "room": "{name} is in the {room}.",
@@ -191,7 +192,7 @@ async def _limits(hass: HomeAssistant, call: ServiceCall) -> tuple[set[str], set
 
 async def _async_where(hass: HomeAssistant, call: ServiceCall) -> ServiceResponse:
     """Where a person is (`name`), or everyone at home, with a sentence to say."""
-    said = SENTENCES["fr" if hass.config.language.startswith("fr") else "en"]
+    said = SENTENCES[spoken(hass.config.language)]
     people = hass.data.get(PEOPLE_KEY)
     placed = list(people.config["people"]) if people is not None else []
     places = people.places if people is not None else {}

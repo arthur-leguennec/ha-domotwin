@@ -31,7 +31,8 @@ export const alertStyles = css`
     gap: 8px;
     min-height: 40px;
     max-width: 100%;
-    padding: 6px 14px 6px 10px;
+    padding-block: 6px;
+    padding-inline: 10px 14px;
     border: none;
     border-radius: 20px;
     background: var(--warning-color, #ffa600);

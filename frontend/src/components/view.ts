@@ -1118,7 +1118,7 @@ export class DomoTwinView extends LitElement {
       .tools {
         position: absolute;
         top: 12px;
-        right: 12px;
+        inset-inline-end: 12px;
         display: flex;
         flex-direction: column;
         gap: 4px;
@@ -1138,7 +1138,7 @@ export class DomoTwinView extends LitElement {
       }
       .walk-pad {
         position: absolute;
-        right: 12px;
+        inset-inline-end: 12px;
         bottom: 12px;
         display: grid;
         grid-template-columns: repeat(3, 44px);
@@ -1219,7 +1219,7 @@ export class DomoTwinView extends LitElement {
         content: "";
         position: absolute;
         top: 5px;
-        right: 5px;
+        inset-inline-end: 5px;
         width: 8px;
         height: 8px;
         border-radius: 50%;
@@ -1235,7 +1235,7 @@ export class DomoTwinView extends LitElement {
       .tools .storey .people-count {
         position: absolute;
         bottom: 2px;
-        right: 2px;
+        inset-inline-end: 2px;
         min-width: 14px;
         height: 14px;
         padding: 0 3px;
@@ -1255,7 +1255,7 @@ export class DomoTwinView extends LitElement {
       .views {
         position: absolute;
         top: 12px;
-        right: 68px;
+        inset-inline-end: 68px;
         /* An open menu is over the sheets of the layers (the network map's, the coverage's). */
         z-index: 5;
         min-width: 160px;
@@ -1294,7 +1294,7 @@ export class DomoTwinView extends LitElement {
       .room-list {
         position: absolute;
         top: 12px;
-        left: 12px;
+        inset-inline-start: 12px;
         z-index: 4;
         max-height: calc(100% - 24px);
         overflow: auto;
@@ -1348,7 +1348,7 @@ export class DomoTwinView extends LitElement {
       }
       .legend {
         position: absolute;
-        right: 12px;
+        inset-inline-end: 12px;
         bottom: 12px;
         width: 168px;
         padding: 8px 12px;
@@ -1453,7 +1453,8 @@ export class DomoTwinView extends LitElement {
         align-items: center;
         gap: 5px;
         min-height: 28px;
-        padding: 2px 9px 2px 3px;
+        padding-block: 2px;
+        padding-inline: 3px 9px;
         border: 2px solid var(--person);
         border-radius: 16px;
         background: color-mix(in srgb, var(--card-background-color, #fff) 90%, transparent);
@@ -1515,7 +1516,7 @@ export class DomoTwinView extends LitElement {
       }
       .pictures {
         position: absolute;
-        left: 12px;
+        inset-inline-start: 12px;
         top: 12px;
         display: grid;
         gap: 8px;
@@ -1536,7 +1537,7 @@ export class DomoTwinView extends LitElement {
         font-size: 12px;
         font-weight: 600;
         color: inherit;
-        text-align: left;
+        text-align: start;
       }
       .picture img {
         width: 100%;
@@ -1567,7 +1568,7 @@ export class DomoTwinView extends LitElement {
       .room-name svg {
         width: 13px;
         height: 13px;
-        margin-right: 4px;
+        margin-inline-end: 4px;
         vertical-align: -2px;
         fill: currentColor;
       }
@@ -1599,7 +1600,8 @@ export class DomoTwinView extends LitElement {
         display: flex;
         align-items: center;
         gap: 8px;
-        padding: 6px 6px 6px 14px;
+        padding-block: 6px;
+        padding-inline: 14px 6px;
         border-radius: 22px;
       }
       /* A piece's bubble (D-047), above it, or below it near the top of the view. */
@@ -1674,7 +1676,7 @@ export class DomoTwinView extends LitElement {
       .alerts {
         position: absolute;
         top: 12px;
-        left: 12px;
+        inset-inline-start: 12px;
         max-width: calc(100% - 92px);
         display: grid;
         gap: 6px;
@@ -1685,7 +1687,8 @@ export class DomoTwinView extends LitElement {
         align-items: center;
         gap: 8px;
         max-width: 100%;
-        padding: 8px 14px 8px 10px;
+        padding-block: 8px;
+        padding-inline: 10px 14px;
         border: none;
         box-shadow:
           inset 0 0 0 2px var(--warning-color, #ffa600),
@@ -1753,7 +1756,7 @@ export class DomoTwinView extends LitElement {
       }
       .chip {
         position: absolute;
-        left: 12px;
+        inset-inline-start: 12px;
         bottom: 12px;
         max-width: calc(100% - 24px);
         padding: 8px 14px;

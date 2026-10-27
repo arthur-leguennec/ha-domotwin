@@ -9,6 +9,7 @@ import { mdiWifi } from "@mdi/js";
 import { LitElement, css, html, nothing, type TemplateResult } from "lit";
 
 import type { DomoTwinCard } from "../components/card";
+import { inLanguage } from "../components/define";
 import { entityRow, rowStyles } from "../components/entity-rows";
 import { icon } from "../components/icon";
 import { baseStyles } from "../components/styles";
@@ -370,6 +371,8 @@ export class DomoTwinGuest extends LitElement {
   }
 
   protected override render(): TemplateResult {
+    // The guest's own language, as their browser says it (D-081).
+    if (!inLanguage(this, { language: navigator.language })) return html``;
     const t = this.t;
     const refusal = this.refusal;
     if (refusal) {

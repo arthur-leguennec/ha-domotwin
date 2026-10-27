@@ -161,6 +161,7 @@ import { pickLanguage, translatorFor, type Translator } from "../i18n";
 import { documentFonts } from "../fonts";
 import { icon } from "./icon";
 import { saveText } from "./save";
+import { inLanguage } from "./define";
 import { DemoSwitch } from "./demo-switch";
 import type { MeasureHost } from "./measure";
 import type { PlainSession } from "./plain-dialog";
@@ -763,7 +764,8 @@ export class DomoTwinPanel extends LitElement {
         border-bottom: var(--app-header-border-bottom, none);
       }
       .toolbar h1 {
-        margin: 0 0 0 4px;
+        margin-block: 0;
+        margin-inline: 4px 0;
         font-size: 1.25rem;
         font-weight: 400;
         flex: 1;
@@ -799,7 +801,7 @@ export class DomoTwinPanel extends LitElement {
       .more .menu {
         position: absolute;
         top: calc(100% + 8px);
-        right: 0;
+        inset-inline-end: 0;
         z-index: 5;
         min-width: 220px;
         max-height: calc(100vh - 80px);
@@ -871,7 +873,7 @@ export class DomoTwinPanel extends LitElement {
         gap: 4px;
         padding: 8px 4px;
         background: var(--card-background-color, #fff);
-        border-right: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+        border-inline-end: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
       }
       .tabs a {
         display: flex;
@@ -909,7 +911,7 @@ export class DomoTwinPanel extends LitElement {
         flex-direction: row;
         gap: 0;
         padding: 0;
-        border-right: none;
+        border-inline-end: none;
         border-top: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
       }
       .tabs.bottom a {
@@ -925,7 +927,8 @@ export class DomoTwinPanel extends LitElement {
         align-items: center;
         gap: 12px;
         max-width: min(560px, calc(100% - 32px));
-        padding: 10px 10px 10px 16px;
+        padding-block: 10px;
+        padding-inline: 16px 10px;
       }
       .toast.error {
         border-color: var(--error-color, #db4437);
@@ -1017,13 +1020,14 @@ export class DomoTwinPanel extends LitElement {
       .draft {
         position: absolute;
         top: 12px;
-        left: 12px;
-        right: 68px;
+        inset-inline-start: 12px;
+        inset-inline-end: 68px;
         display: flex;
         flex-wrap: wrap;
         align-items: center;
         gap: 8px;
-        padding: 8px 8px 8px 14px;
+        padding-block: 8px;
+        padding-inline: 14px 8px;
         z-index: 2;
       }
       .draft span {
@@ -3576,6 +3580,7 @@ export class DomoTwinPanel extends LitElement {
   }
 
   protected override render(): TemplateResult {
+    if (!inLanguage(this, this._hass)) return html``;
     const t = this.t;
     const admin = this._hass?.user?.is_admin === true;
     const tool = this.editing || this.planning || this.linking;

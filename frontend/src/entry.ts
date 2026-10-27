@@ -9,7 +9,7 @@ import { DomoTwinPanel } from "./components/panel";
 import { DomoTwinSummaryCard } from "./components/summary-card";
 import { DomoTwinView } from "./components/view";
 import { declareBundledFont } from "./fonts";
-import { Translator } from "./i18n";
+import { Translator, loadLanguage } from "./i18n";
 
 setAssetBase(new URL(".", import.meta.url));
 declareBundledFont();
@@ -21,24 +21,29 @@ define("domotwin-summary-card", DomoTwinSummaryCard);
 
 const cards = (window.customCards ??= []);
 const t = new Translator(document.documentElement.lang || navigator.language);
-if (!cards.some((card) => card.type === "domotwin-card")) {
-  cards.push({
-    type: "domotwin-card",
-    name: t.t("card.name"),
-    description: t.t("card.description"),
-    preview: false,
-    documentationURL: "https://github.com/arthur-leguennec/ha-domotwin",
-  });
-}
+const card = {
+  type: "domotwin-card",
+  name: t.t("card.name"),
+  description: t.t("card.description"),
+  preview: false,
+  documentationURL: "https://github.com/arthur-leguennec/ha-domotwin",
+};
 // DomoTwin's summaries, in the manner of Home Assistant's Overview (D-061).
-if (!cards.some((card) => card.type === "domotwin-summary-card")) {
-  cards.push({
-    type: "domotwin-summary-card",
-    name: t.t("summary.name"),
-    description: t.t("summary.description"),
-    preview: true,
-    documentationURL: "https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/overview.md",
-  });
-}
+const summary = {
+  type: "domotwin-summary-card",
+  name: t.t("summary.name"),
+  description: t.t("summary.description"),
+  preview: true,
+  documentationURL: "https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/overview.md",
+};
+if (!cards.some((known) => known.type === card.type)) cards.push(card);
+if (!cards.some((known) => known.type === summary.type)) cards.push(summary);
+// In English until the language's messages are here (D-081), then in it.
+void loadLanguage(t.language).then(() => {
+  card.name = t.t("card.name");
+  card.description = t.t("card.description");
+  summary.name = t.t("summary.name");
+  summary.description = t.t("summary.description");
+});
 
 console.info(`DomoTwin ${__DOMOTWIN_VERSION__}`);

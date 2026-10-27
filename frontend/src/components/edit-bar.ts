@@ -358,7 +358,8 @@ export class DomoTwinEditBar extends LitElement {
       }
       .bar .add {
         width: auto;
-        padding: 0 14px 0 10px;
+        padding-block: 0;
+        padding-inline: 10px 14px;
         display: flex;
         gap: 6px;
         background: var(--primary-color, #03a9f4);
@@ -565,7 +566,7 @@ export class DomoTwinCatalogue extends Sheet {
       .kinds .model .forget {
         position: absolute;
         top: 4px;
-        right: 4px;
+        inset-inline-end: 4px;
         min-height: 0;
         width: 32px;
         height: 32px;
@@ -575,7 +576,7 @@ export class DomoTwinCatalogue extends Sheet {
         border-radius: 50%;
       }
       .kinds .model .add-model {
-        padding-right: 36px;
+        padding-inline-end: 36px;
       }
       .kinds .import {
         display: flex;

@@ -9,7 +9,7 @@ import { LitElement, css, html, nothing, type TemplateResult } from "lit";
 import type { HomeAssistant } from "../ha/types";
 import { translatorFor } from "../i18n";
 import { isSummary, type SummaryKind } from "../live/overview";
-import { define } from "./define";
+import { define, inLanguage } from "./define";
 
 export interface SummaryConfig {
   type: string;
@@ -81,7 +81,7 @@ export class DomoTwinSummaryCard extends LitElement {
   }
 
   protected override render(): TemplateResult | typeof nothing {
-    if (!this.config) return nothing;
+    if (!this.config || !inLanguage(this, this.hass)) return nothing;
     return this.loaded
       ? html`<domotwin-summary-body
           .hass=${this.hass}
