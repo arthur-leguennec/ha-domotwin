@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Final
 
 DOMAIN: Final = "domotwin"
@@ -90,7 +91,7 @@ LOCATED_KINDS: Final = ("phone", "watch", "thing")
 TEACH_SECONDS: Final = (10, 120)
 # Dispatcher signal sent when a followed device moves, is lost or left behind: (device id,).
 SIGNAL_LOCATED: Final = f"{DOMAIN}_located"
-# The placement advisor (docs/DECISIONS.md, D-060): the Wi-Fi access points placed on the plan, at
+# The placement advisor (docs/DECISIONS.md, D-061): the Wi-Fi access points placed on the plan, at
 # most this many, each named this long, at a point this far from the plan's origin at most (cm).
 MAX_ACCESS_POINTS: Final = 16
 MAX_ACCESS_POINT_NAME: Final = 60
@@ -140,6 +141,14 @@ SERVICE_SHOW: Final = "show"
 SIGNAL_SHOW: Final = f"{DOMAIN}_show"
 MAX_SHOW_TEXT: Final = 100
 MAX_SCREEN_NAME: Final = 64
+#: A screen's name (a card's `screen`, D-029): letters, digits, `_` and `-`, in any case.
+SCREEN_NAME: Final = re.compile(rf"^[A-Za-z0-9_-]{{1,{MAX_SCREEN_NAME}}}$")
+
+# The home's Wi-Fi for guests (docs/DECISIONS.md, D-060), in a private store of its own
+# (.storage/domotwin.wifi): never in the plan, the logs, the diagnostics or an export.
+WIFI_STORAGE_KEY: Final = f"{DOMAIN}.wifi"
+WIFI_STORAGE_VERSION: Final = 1
+MAX_WIFI_SCREENS: Final = 20
 
 # The 3D files of user models (docs/DECISIONS.md, D-013 and D-021): kept by their SHA-256 in
 # <config>/domotwin/models/, uploaded by administrators, served to signed-in users.

@@ -231,7 +231,7 @@ async def test_receivers_are_placed_from_their_devices_or_by_hand(
     assert home.home.room_at(0, (hall.x, hall.y)) == "hall"
     receiver = next(r for r in got["receivers"] if r["source"] == BEDROOM_PROXY)
     assert (receiver["name"], receiver["room"]) == ("bedroom-proxy", "bedroom")
-    # Where each stands, for the placement advisor (D-060): a receiver placed by its room in the
+    # Where each stands, for the placement advisor (D-061): a receiver placed by its room in the
     # room's middle, one placed nowhere nowhere.
     middle = home.home.middle("bedroom")
     ground = hass.data[DATA_KEY].storeys[0]["id"]
@@ -476,7 +476,7 @@ async def test_a_room_is_taught_and_forgotten(
     assert expected[0] > home._prior["kitchen", LIVING_PROXY][0] + 5
     got = (await _call(client, "get"))["result"]
     assert got["learned"]["kitchen"] == pytest.approx(15)
-    # What each receiver learned there, for the placement advisor (D-060): what was heard, the
+    # What each receiver learned there, for the placement advisor (D-061): what was heard, the
     # little learned of the keys' own loudness meanwhile taken away.
     heard = got["heard"]["kitchen"]
     assert heard[LIVING_PROXY] == {"signal": pytest.approx(-45, abs=1), "readings": 5.0}

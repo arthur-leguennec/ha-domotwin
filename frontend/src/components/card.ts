@@ -19,6 +19,7 @@ import {
 import type { PeopleSettings } from "../live/people";
 import type { AccessPoint } from "../live/placement";
 import type { Upkeep } from "../live/upkeep";
+import type { Wifi } from "../live/wifi";
 import { translatorFor } from "../i18n";
 import { DemoSwitch } from "./demo-switch";
 import { baseStyles } from "./styles";
@@ -26,7 +27,7 @@ import type { DomoTwinView, ViewOptions } from "./view";
 
 /** How long before settings that could not be read are asked for again (ms). */
 const SETTINGS_RETRY_MS = 10_000;
-/** No Wi-Fi access point placed (D-060): the same array every time. */
+/** No Wi-Fi access point placed (D-061): the same array every time. */
 const NO_ACCESS_POINTS: AccessPoint[] = [];
 
 /** `custom:domotwin-card`: the twin on a dashboard. */
@@ -43,6 +44,7 @@ export class DomoTwinCard extends LitElement {
     settingsRead: { state: true },
     upkeep: { state: true },
     people: { state: true },
+    wifi: { state: true },
     storeys: { state: true },
     storey: { state: true },
     elsewhere: { state: true },
@@ -60,10 +62,13 @@ export class DomoTwinCard extends LitElement {
    * (D-039). */
   protected settingsRead = false;
   private settingsTimer?: ReturnType<typeof setTimeout>;
+  private wifiTimer?: ReturnType<typeof setTimeout>;
   /** The upkeep cards (D-033). */
   protected upkeep?: Upkeep;
   /** The people placed in their rooms (D-034). */
   protected people?: PeopleSettings;
+  /** The home's Wi-Fi for guests (D-060), as this card's screen may show it. */
+  protected wifi?: Wifi;
   /** The storeys, and the one shown (chosen in the view, else the card's `storey`). */
   protected storeys: StoreyInfo[] = [];
   protected storey?: string;
@@ -104,6 +109,7 @@ export class DomoTwinCard extends LitElement {
   setConfig(config: unknown): void {
     try {
       const before = this.config?.storey;
+      const screen = this.config?.screen;
       this.config = normalizeConfig(config);
       // The demo house asked for, or no longer.
       if (this.config.demo && this.demoSwitch.realHass) void this.startDemo();
@@ -112,6 +118,10 @@ export class DomoTwinCard extends LitElement {
         // Another storey asked for (the visual editor): it wins over the switcher's choice.
         this.chosen = undefined;
         if (this._hass && this.isConnected) void this.loadPlan(DomoTwinClient.for(this._hass));
+      }
+      // Another screen: what it may show of the Wi-Fi (D-060).
+      if (this.config.screen !== screen && this._hass && this.unsubscribe) {
+        void this.loadWifi(DomoTwinClient.for(this._hass));
       }
     } catch (error) {
       if (error instanceof ConfigError) {
@@ -148,6 +158,7 @@ export class DomoTwinCard extends LitElement {
   override disconnectedCallback(): void {
     super.disconnectedCallback();
     clearTimeout(this.settingsTimer);
+    clearTimeout(this.wifiTimer);
     this.unsubscribe?.();
     this.unsubscribe = undefined;
   }
@@ -178,6 +189,7 @@ export class DomoTwinCard extends LitElement {
     this.unsubscribe?.();
     this.unsubscribe = undefined;
     clearTimeout(this.settingsTimer);
+    clearTimeout(this.wifiTimer);
     this.loads += 1;
     this.chosen = undefined;
     this.plan = undefined;
@@ -189,6 +201,7 @@ export class DomoTwinCard extends LitElement {
     this.settingsRead = false;
     this.upkeep = undefined;
     this.people = undefined;
+    this.wifi = undefined;
     this.storeys = [];
     this.storey = undefined;
     this.elsewhere = [];
@@ -207,6 +220,7 @@ export class DomoTwinCard extends LitElement {
       else if (event.kind === "bindings") void this.loadBindings(client);
       else if (event.kind === "upkeep") void this.loadUpkeep(client);
       else if (event.kind === "people") void this.loadPeople(client);
+      else if (event.kind === "wifi") void this.loadWifi(client);
       else void this.loadSettings(client);
     });
     void this.loadPlan(client);
@@ -214,6 +228,26 @@ export class DomoTwinCard extends LitElement {
     void this.loadSettings(client);
     void this.loadUpkeep(client);
     void this.loadPeople(client);
+    void this.loadWifi(client);
+  }
+
+  /**
+   * The Wi-Fi as this card's screen may show it. Not read (Home Assistant starting), it is asked for
+   * again in a while; an integration older than D-060 has none.
+   */
+  private async loadWifi(client: DomoTwinClient): Promise<void> {
+    clearTimeout(this.wifiTimer);
+    try {
+      const wifi = await client.getWifi(this.config?.screen ?? "");
+      if (this.current(client)) this.wifi = wifi;
+    } catch (error) {
+      if (!this.current(client)) return;
+      this.wifi = undefined;
+      if (isHassError(error) && error.code === "unknown_command") return;
+      if (this.unsubscribe) {
+        this.wifiTimer = setTimeout(() => void this.loadWifi(client), SETTINGS_RETRY_MS);
+      }
+    }
   }
 
   /** Whether `client` is the home's shown (not the one before the demo house, or after it). */
@@ -450,6 +484,8 @@ export class DomoTwinCard extends LitElement {
         .bindings=${this.bindings}
         .upkeep=${this.upkeep}
         .people=${this.people}
+        .wifi=${this.wifi}
+        .screen=${this.config.screen ?? ""}
         .planError=${this.planError}
         .options=${this.viewOptions()}
         .north=${this.settings?.north ?? 0}

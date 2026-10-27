@@ -20,6 +20,7 @@ import {
   mdiTuneVariant,
   mdiVectorSquareEdit,
   mdiViewGridOutline,
+  mdiWifi,
 } from "@mdi/js";
 import { LitElement, css, html, nothing, type PropertyValues, type TemplateResult } from "lit";
 
@@ -99,6 +100,7 @@ import { resolveShow, type ShowRequest } from "../live/show";
 import type { LocatingSettings } from "../live/locating";
 import type { PeopleSettings } from "../live/people";
 import type { AccessPoint } from "../live/placement";
+import type { Wifi } from "../live/wifi";
 import { mergeCards, renamedPieces, type Upkeep, type UpkeepCard } from "../live/upkeep";
 import {
   applyLink,
@@ -155,7 +157,7 @@ const PANEL_OPTIONS: ViewOptions = {
 const TOAST_MS = 6000;
 /** How long before settings that could not be read are asked for again (ms). */
 const SETTINGS_RETRY_MS = 10_000;
-/** No Wi-Fi access point placed (D-060): the same array every time. */
+/** No Wi-Fi access point placed (D-061): the same array every time. */
 const NO_ACCESS_POINTS: AccessPoint[] = [];
 /** Upkeep cards saved at once when a file fills them (the integration takes up to 2 000). */
 const CARDS_AT_ONCE = 400;
@@ -302,6 +304,7 @@ export class DomoTwinPanel extends LitElement {
     settingsRead: { state: true },
     upkeep: { state: true },
     people: { state: true },
+    wifi: { state: true },
     northDraft: { state: true },
     peopleOpen: { state: true },
     bluetoothOpen: { state: true },
@@ -354,6 +357,7 @@ export class DomoTwinPanel extends LitElement {
   /** They were read: the dialog that changes them may open. */
   protected choicesRead = false;
   private choicesTimer?: ReturnType<typeof setTimeout>;
+  private wifiTimer?: ReturnType<typeof setTimeout>;
   /** Counts the stars given or taken away: the answer to the last one sets the favourites. */
   private stars = 0;
   protected choicesOpen = false;
@@ -409,6 +413,8 @@ export class DomoTwinPanel extends LitElement {
   protected upkeep?: Upkeep;
   /** The people placed in their rooms (D-034). */
   protected people?: PeopleSettings;
+  /** The home's Wi-Fi for guests (D-060): all of it for an administrator. */
+  protected wifi?: Wifi;
   protected northDraft?: number;
   /** The people's settings are open (D-034), their module loaded, with the candidates. */
   protected peopleOpen = false;
@@ -1063,6 +1069,7 @@ export class DomoTwinPanel extends LitElement {
     documentFonts()?.removeEventListener("loadingdone", this.onFonts);
     clearTimeout(this.settingsTimer);
     clearTimeout(this.choicesTimer);
+    clearTimeout(this.wifiTimer);
     this.unsubscribe?.();
     this.unsubscribe = undefined;
     window.clearTimeout(this.toastTimer);
@@ -1174,6 +1181,7 @@ export class DomoTwinPanel extends LitElement {
     this.settings = undefined;
     this.settingsRead = false;
     this.upkeep = undefined;
+    this.wifi = undefined;
     this.people = undefined;
     this.storeys = [];
     this.storey = undefined;
@@ -1184,6 +1192,7 @@ export class DomoTwinPanel extends LitElement {
     this.choices = undefined;
     this.choicesRead = false;
     clearTimeout(this.choicesTimer);
+    clearTimeout(this.wifiTimer);
     this.choicesOpen = false;
     const old = this._hass;
     this._hass = hass;
@@ -1200,6 +1209,7 @@ export class DomoTwinPanel extends LitElement {
       else if (event.kind === "bindings") void this.loadBindings();
       else if (event.kind === "upkeep") void this.loadUpkeep();
       else if (event.kind === "people") void this.loadPeople();
+      else if (event.kind === "wifi") void this.loadWifi();
       else void this.loadSettings();
     });
     void this.loadPlan();
@@ -1208,6 +1218,28 @@ export class DomoTwinPanel extends LitElement {
     void this.loadUpkeep();
     void this.loadPeople();
     void this.loadChoices();
+    void this.loadWifi();
+  }
+
+  /**
+   * The Wi-Fi as this user may see it in the panel. Not read (Home Assistant starting), it is asked
+   * for again in a while; an integration older than D-060 has none.
+   */
+  private async loadWifi(): Promise<void> {
+    const client = this.client;
+    if (!client) return;
+    clearTimeout(this.wifiTimer);
+    try {
+      const wifi = await client.getWifi();
+      if (client === this.client) this.wifi = wifi;
+    } catch (error) {
+      if (client !== this.client) return;
+      this.wifi = undefined;
+      if (isHassError(error) && error.code === "unknown_command") return;
+      if (this.unsubscribe) {
+        this.wifiTimer = setTimeout(() => void this.loadWifi(), SETTINGS_RETRY_MS);
+      }
+    }
   }
 
   /**
@@ -2899,6 +2931,7 @@ export class DomoTwinPanel extends LitElement {
       .bindings=${this.bindings}
       .upkeep=${this.upkeep}
       .people=${this.people}
+      .wifi=${this.wifi}
       .planError=${this.planError}
       .options=${PANEL_OPTIONS}
       .north=${this.northDraft ?? this.settings?.north ?? 0}
@@ -3216,6 +3249,7 @@ export class DomoTwinPanel extends LitElement {
               )}
               ${item("privacy-settings", mdiLockOutline, t.t("privacy.title"), this.busy, this.openPrivacy)}
               ${item("voice-settings", mdiMicrophoneMessage, t.t("voice.settings"), this.busy, this.openVoice)}
+              ${item("wifi-menu", mdiWifi, t.t("wifi.menu"), this.busy || this.wifi === undefined || this.sandbox !== undefined, this.openWifi)}
               ${item("measure", mdiSpeedometer, t.t("measure.menu"), this.busy || this.measureOpen || this.sandbox !== undefined, this.openMeasure)}
               <hr />
               ${
@@ -3248,6 +3282,13 @@ export class DomoTwinPanel extends LitElement {
     } catch (error) {
       this.show(this.describe(error), true);
     }
+  };
+
+  /** Opens the Wi-Fi for guests (D-060), over the 3D view. */
+  private readonly openWifi = async (): Promise<void> => {
+    if (this.tab !== "3d") this.go("3d");
+    await this.updateComplete;
+    await this.view?.openWifi();
   };
 
   /** Opens the voice settings (D-041): their module, loaded the first time. */

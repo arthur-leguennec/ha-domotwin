@@ -961,6 +961,24 @@ draws the chain with the automations' wire set, as it does their wires (D-032): 
 frame while nothing pulses. The demo house keeps its last 6 000 rows (a few hours of its day),
 the measuring sensors left out as Home Assistant's logbook leaves them.
 
+### M30 (the Wi-Fi for guests)
+
+Bundle: the first load is **519.4 kB gzipped** of 1 200 kB (+1.2 kB): reading the network's answer,
+the Wi-Fi button over the view, the ⋮ menu entry, the integration's three commands and their few
+texts. The dialog comes on demand, the first time it opens (`chunks/wifi-dialog-<hash>.js`:
+18.5 kB raw, 5.7 kB gzipped): the code drawn, the form and their texts in both languages.
+
+The QR code is encoded by the analysis module, already loaded on demand for the network map and
+the automations (`qrcodegen`, MIT): it grew from 142.8 kB to 156.7 kB raw, by about 7 kB gzipped
+(72.0 kB). The code is encoded once each time the network changes and drawn as one SVG path (a few
+hundred modules), so showing it again costs nothing; nothing is fetched. The network (without its
+password) is asked of the integration when the panel or a card opens and again only when it
+changes; its password once each time the dialog opens.
+
+A long press acts on what was under the finger when it landed: the view picks it then (one pixel,
+drawn in the pick pass), and a tap uses that same pick, so a tap or a long press costs one pick as
+before and only the start of a drag one more.
+
 ### M31 (the placement advisor)
 
 Bundle: the first load is **518.2 kB gzipped** of 1 200 kB (+0.9 kB): the layer's name, who may
@@ -981,4 +999,4 @@ for the demo apartment (5 rooms), **10 ms** for the demo house (13 rooms on two 
 looked at from four of its points, not twelve, and its spot is its middle alone: 30 to 40 rooms
 took about 190 ms before. The integration's Python counts walls between two places in about
 57 µs: the same advice there would take about 2.3 s for 30 rooms on this computer, more on a small
-host, which is why it runs in the page (D-060).
+host, which is why it runs in the page (D-061).

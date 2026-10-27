@@ -12,7 +12,7 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.util import dt as dt_util
 
-from . import choices, schedules, voice
+from . import choices, schedules, voice, wifi
 from .compat import vol
 from .const import DOMAIN, SIGNAL_SHOW, SIGNAL_UPDATED, TEACH_SECONDS, VERSION
 from .data import DATA_KEY, LOCATOR_KEY, PEOPLE_KEY
@@ -76,6 +76,7 @@ def async_register_commands(hass: HomeAssistant) -> None:
     voice.async_register_commands(hass)
     schedules.async_register_commands(hass)
     choices.async_register_commands(hass)
+    wifi.async_register_commands(hass)
 
 
 def _get_data(
@@ -659,7 +660,7 @@ def ws_locating_get(
     """Return the Bluetooth locating (D-035): the receivers, the devices followed and their rooms.
 
     Administrators only. An identity key never leaves the server: a device known by one is shown
-    by its Private BLE Device entry. For the placement advisor (D-060), each receiver's place and
+    by its Private BLE Device entry. For the placement advisor (D-061), each receiver's place and
     what each learned in each room (`heard`).
     """
     if (locator := _get_locator(hass, connection, msg)) is None:
@@ -821,8 +822,8 @@ def ws_subscribe(
 ) -> None:
     """Send an event every time something stored changes: its kind and revision.
 
-    The kinds: the plan (its overlay counts as the plan), the bindings, the settings, the upkeep
-    and the people's settings.
+    The kinds: the plan (its overlay counts as the plan), the bindings, the settings, the upkeep,
+    the people's settings and the home's Wi-Fi (`wifi`: only that it changed, D-060).
 
     Every `domotwin.show` is sent too: kind `show`, the request in `show`.
     """

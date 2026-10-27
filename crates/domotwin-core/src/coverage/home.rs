@@ -1,4 +1,4 @@
-//! The home as the radios see it (`DECISIONS.md`, D-060): where the rooms are, how many walls stand
+//! The home as the radios see it (`DECISIONS.md`, D-061): where the rooms are, how many walls stand
 //! between two places, where each piece stands. The plans are read as the integration's locating
 //! reads them (`custom_components/domotwin/locating/geometry.py`, D-035), from the storeys as
 //! stored, so that the two count the same walls between the same places. Lengths are in cm, points

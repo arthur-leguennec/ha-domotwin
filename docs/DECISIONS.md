@@ -2469,12 +2469,53 @@ than after 0.5.0; the rest of D-056's order keeps its place.
     is the same read, drawn in the home, followed further back, and on 2025.1 too.
   - Why something did not happen stays the sandbox's (M29).
 
-## D-060 · The placement advisor: where the next radio helps most (M31)
+## D-060 · The Wi-Fi for guests: its QR code drawn in the page (M30)
+
+M30, the first part of guest access (M33), planned after the sandbox (D-056).
+
+- **Context.** Guests ask for the Wi-Fi; a QR code joins a phone to it at once. Home Assistant
+  has no place of its own for the home's Wi-Fi; some routers give their guest network's code as an
+  image entity (FRITZ!Box, UniFi). The password is a secret like no other DomoTwin keeps: it must
+  never be in the plan, the logs, the diagnostics, an export or the repository.
+- **Decision.**
+  - **Kept apart.** The network (its name, password, kind, whether it is hidden, or the router's
+    image entity, and the screens that show it) is kept in a private store of its own
+    (`.storage/domotwin.wifi`), read and changed by its own commands (`domotwin/wifi/get`,
+    `/save`, `/clear`). An administrator gives and changes it; the password is checked against
+    its kind (WPA, WEP, open) as phones take it. The same network saved without its password
+    keeps it. Diagnostics say only whether there is one. Removing DomoTwin deletes it.
+  - **Shown where chosen.** `domotwin/wifi/get` answers an administrator with all of it, and
+    anyone else only on a screen an administrator chose (a card's `screen`, D-029, its name
+    matched whatever the case as `domotwin.show` matches it), with what draws the code; elsewhere
+    only whether there is one. The password comes only when asked for (`password: true`), which
+    the dialog does when it opens: the panel and the cards keep the network without it. A
+    screen's name is no secret (it is in the dashboard's configuration): anyone signed in to Home
+    Assistant can ask as one of those screens would, as anyone before it can scan it. That suits a
+    network meant for guests, and the guide says so. A change is told to the screens
+    (`kind: wifi`), never what changed.
+  - **Drawn in the page.** The analysis module (D-043), loaded the first time the code is shown,
+    builds what a phone reads (`WIFI:T:WPA;S:<name>;P:<password>;;`, with `\`, `;`, `,`, `:` and
+    `"` escaped; `H:true` for a hidden network) and encodes it with `qrcodegen` (MIT, no
+    dependencies, checked by `cargo deny`); the page draws its modules as an SVG, dark on white
+    whatever the look. A router's code is its image entity's picture, from Home Assistant.
+  - **The way in.** A Wi-Fi button among the view's buttons when it may be shown here, in the panel
+    and in cards, and on its own when a card hides its tools or cannot draw in 3D (a wall screen
+    still gives the Wi-Fi); for administrators, an entry of the ⋮ menu, which opens the form when
+    nothing is given yet. A wall screen left alone closes the dialog as it goes back to its view.
+    The demo house has a fictional guest network; the sandbox has none.
+- **Consequences.**
+  - The first load grows by the button, the client's commands and their texts; the dialog is a
+    chunk of its own, the encoder a few kilobytes of the analysis module.
+  - A password Home Assistant's own debug logging writes (its connection's messages, when someone
+    turns it on) is out of DomoTwin's hands: said in the guide.
+  - Guest access (M33) builds on it: a guest's own screen, for a time, with this code.
+
+## D-061 · The placement advisor: where the next radio helps most (M31)
 
 Asked by the maintainer after the sandbox (D-057) and history as reports (D-058), as "Why?" was
-(D-059): M31 now, before M30, M23b and M24 to M26, out of the order D-056 set, as M16d was brought
-forward (D-053). It does not wait on what the two weeks of use show, and the order of the rest
-stays.
+(D-059): M31 now, before M23b and M24 to M26, out of the order D-056 set, as M16d was brought
+forward (D-053); the Wi-Fi QR code (M30, D-060) was built meanwhile. It does not wait on what the
+two weeks of use show, and the order of the rest stays.
 
 - **Context.** The locating (D-035) works out from the plan what each Bluetooth receiver should
   hear in each room, and learns what it really heard; the network map (D-031) reads the Zigbee

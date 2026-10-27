@@ -124,8 +124,8 @@ const SUNS: readonly SunMode[] = ["fixed", "real"];
 const CSS_LENGTH = /^\d+(\.\d+)?(px|vh|svh|dvh|em|rem)$/;
 /** The longest wait before the kiosk goes back (seconds: a day). */
 export const MAX_IDLE = 86_400;
-/** A screen's name: letters, digits, `_` and `-`. */
-const SCREEN = /^[a-z0-9_-]{1,64}$/i;
+/** A screen's name: letters, digits, `_` and `-`, whatever their case. */
+export const SCREEN_NAME = /^[a-z0-9_-]{1,64}$/i;
 
 function pick<T extends string>(
   value: unknown,
@@ -206,7 +206,7 @@ export function normalizeConfig(raw: unknown): CardConfig {
   }
   if (input.screen !== undefined && input.screen !== null && input.screen !== "") {
     const screen = typeof input.screen === "string" ? input.screen.trim() : "";
-    if (!SCREEN.test(screen)) throw new ConfigError("config.bad_screen");
+    if (!SCREEN_NAME.test(screen)) throw new ConfigError("config.bad_screen");
     config.screen = screen;
   }
   if (input.accent !== undefined && input.accent !== null && input.accent !== "") {

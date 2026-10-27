@@ -648,6 +648,10 @@ export const en = {
     leave: "Leave the sandbox",
     no_dialog: "Home Assistant's own dialogs do not open in the sandbox.",
   },
+  wifi: {
+    menu: "Wi-Fi for guests",
+    button: "Wi-Fi for guests: its QR code",
+  },
   tabs: {
     label: "DomoTwin's tabs",
     home: "Home",

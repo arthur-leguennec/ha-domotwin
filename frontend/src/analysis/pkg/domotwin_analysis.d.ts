@@ -35,6 +35,13 @@ export function advisePlacement(input: string): string;
  */
 export function readAutomation(config: string): string;
 
+/**
+ * The QR code joining a Wi-Fi network (`wifi_payload`): JSON `{"size": modules on a side,
+ * "modules": "0110…" row by row, 1 dark}`, or `{"size": 0}` when it does not fit in one or the
+ * network cannot be read.
+ */
+export function wifiQr(network: string): string;
+
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
 
 export interface InitOutput {
@@ -45,6 +52,7 @@ export interface InitOutput {
     readonly networkanalysis_new: (a: number, b: number) => number;
     readonly networkanalysis_report: (a: number, b: number, c: number, d: number) => void;
     readonly readAutomation: (a: number, b: number, c: number) => void;
+    readonly wifiQr: (a: number, b: number, c: number) => void;
     readonly __wbindgen_export: (a: number, b: number, c: number) => void;
     readonly __wbindgen_export2: (a: number, b: number) => number;
     readonly __wbindgen_export3: (a: number, b: number, c: number, d: number) => number;

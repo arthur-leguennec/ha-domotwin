@@ -47,8 +47,8 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M29       | Sandbox: the home's automations played on a copy of it     | ✅     |
 | M38       | History as reports: tables, CSV, search by value           | ✅     |
 | M32       | "Why?": who or what changed a device, drawn in 3D          | ✅     |
+| M30       | The Wi-Fi QR code, for guests                              | ✅     |
 | M31       | Placement advisor: where the next radio helps most         | ✅     |
-| M30       | The Wi-Fi QR code, for guests                              | ⏳     |
 | M23b      | Into Home Assistant's Overview, rather than a copy of it   | ⏳     |
 | M24       | History and energy, with Home Assistant's own cards        | ⏳     |
 | M25       | Safety: cameras, the doorbell, the alarm, alerts           | ⏳     |
@@ -94,7 +94,7 @@ report (M37), history as reports (M38) and Hydro-Québec's peaks (M39) follow, a
 objects (M17), the outdoors (M18), more imports (M20) and more languages (M21), before a sixth
 release, 0.6.0. After the sandbox, the maintainer asked for history as reports (M38, D-058) and
 "Why?" (M32, D-059) before the rest, which keeps its order, then for the placement advisor (M31,
-D-060).
+D-061).
 
 ## M0, scaffold
 
@@ -1184,9 +1184,27 @@ it and drawn in the home (D-059, `docs/why.md`). Asked by the maintainer next to
   in the app and nobody's doing in French for a user, no Why for a sensor that measures, the demo
   house's lamp as it opens and switched on by the visitor (Playwright).
 
+## M30, the Wi-Fi QR code
+
+The QR code a phone's camera joins the home's Wi-Fi with, drawn in the page (D-060).
+
+- ✅ **Given once**: by an administrator, from the ⋮ menu: the network's name, its password
+  (checked against its kind, WPA, WEP or open), whether it is hidden; or the router's own code, an
+  image entity (FRITZ!Box, UniFi), shown as it is. Kept in a private store of its own: never in
+  the plan, the logs, the diagnostics or an export.
+- ✅ **Drawn in the page**: the code a phone reads (`WIFI:T:WPA;S:<name>;P:<password>;;`, its
+  characters escaped), encoded by `qrcodegen` (MIT, checked by `cargo deny`) in the analysis
+  module, loaded the first time; no network.
+- ✅ **Shown where chosen**: to administrators, and on the screens an administrator chose (a
+  card's `screen`), a Wi-Fi button among the view's; the password hidden until asked for.
+- ✅ Tests: the payload and its escapes, the code's modules (Rust); kept apart, shown where
+  chosen, refused when it cannot be joined, read again after a restart, deleted with DomoTwin,
+  never in the diagnostics (pytest); given, drawn, changed, forgotten, a chosen screen and
+  others, a router's code, in French (Playwright).
+
 ## M31, the placement advisor
 
-Asked for after the sandbox, history as reports and "Why?", before the rest (D-060): where the next
+Asked for after the sandbox, history as reports and "Why?", before the rest (D-061): where the next
 Bluetooth proxy, Zigbee router or Wi-Fi access point helps most ([`placement.md`](placement.md)).
 
 - ✅ **Radio coverage**, a layer for administrators: each room coloured for the radio chosen
@@ -1242,14 +1260,7 @@ tests and docs; every string through `t()` in English and French. A ❓ is asked
 milestone starts, which goes on with what needs no answer.
 
 - ✅ **M29, the sandbox** (D-057, above).
-- ⏳ **M30, the Wi-Fi QR code**: an administrator gives the home's Wi-Fi name and password once,
-  and DomoTwin draws the QR code a phone's camera joins with (`WIFI:T:WPA;S:<name>;P:<password>;;`,
-  with `\`, `;`, `,`, `:` and `"` escaped), in the page, by a small encoder whose licence
-  `cargo deny` checks; no network. The password is kept in the integration's private storage
-  only: never in the plan, the logs, the diagnostics, an export or the repository. Shown to
-  administrators, or on a screen an administrator chose (a wall screen in the hall); a router
-  that already gives its guest network's QR code as an entity (FRITZ!Box, UniFi) is shown as it
-  is. The first part of guest access (M33), small enough to come early.
+- ✅ **M30, the Wi-Fi QR code** (D-060, above).
 - ⏳ **M23b, into Home Assistant's Overview**: since 2026.2, Home Assistant opens on its own
   Overview: summaries of the lights, the climate, security, media and energy, the weather,
   favourites, a page for each area, and since 2026.10 the active alerts (D-056). DomoTwin plugs
@@ -1275,7 +1286,7 @@ milestone starts, which goes on with what needs no answer.
 - ⏳ **M26, the wall screen**: a screen saver (the clock, the weather, the photos of Home
   Assistant's media) woken by motion; a layout for each device.
 - M24 to M26 come in the order the two weeks of use decide.
-- ✅ **M31, the placement advisor** (D-060, above), built after M29, M38 and M32 at the maintainer's
+- ✅ **M31, the placement advisor** (D-061, above), built after M29, M38 and M32 at the maintainer's
   request: the Bluetooth model of M9f turned around, from where a device is to where a receiver
   would hear the most. The rooms badly covered coloured on the plan, for the Bluetooth receivers,
   the Zigbee mesh (its links, M9b) and the Wi-Fi access points placed on the plan; and the spots

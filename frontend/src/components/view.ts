@@ -44,6 +44,7 @@ import {
   mdiStove,
   mdiTumbleDryer,
   mdiWalk,
+  mdiWifi,
   mdiWashingMachine,
   mdiWrenchClock,
   mdiClockOutline,
@@ -185,6 +186,7 @@ import {
   type RoomLabel,
 } from "../live/room-labels";
 import { assistAvailable, canListen, listeningPipeline, openAssist } from "../live/voice";
+import { drawable, type Wifi } from "../live/wifi";
 import { FrameScheduler } from "../scheduler";
 import { readTip, tipRead } from "../live/draft";
 import { fire } from "./define";
@@ -624,6 +626,9 @@ export class DomoTwinView extends LitElement {
     layer: { state: true },
     layersOpen: { state: true },
     voiceHelp: { state: true },
+    wifi: { attribute: false },
+    screen: { attribute: false },
+    wifiOpen: { state: true },
     realSun: { state: true },
     alerts: { state: true },
     labels: { state: true },
@@ -718,7 +723,7 @@ export class DomoTwinView extends LitElement {
   home?: HomeStorey[];
   /** The rooms of the other storeys: their alerts show too, and a tap on one goes there. */
   elsewhere: StoreyRooms[] = [];
-  /** The Wi-Fi access points placed on the plan (the home's settings, D-060). */
+  /** The Wi-Fi access points placed on the plan (the home's settings, D-061). */
   accessPoints: AccessPoint[] = NO_ACCESS_POINTS;
 
   protected engineState: EngineState = "idle";
@@ -781,7 +786,7 @@ export class DomoTwinView extends LitElement {
   /** The network map's module is loaded (D-031). */
   protected networkLoaded = false;
   private networkModule?: Promise<unknown>;
-  /** The radio coverage's module is loaded (D-060), and the rooms' levels it gave. */
+  /** The radio coverage's module is loaded (D-061), and the rooms' levels it gave. */
   protected placementLoaded = false;
   private placementModule?: Promise<unknown>;
   private coverage?: Record<string, number>;
@@ -798,6 +803,12 @@ export class DomoTwinView extends LitElement {
   protected layersOpen = false;
   /** Why voice cannot listen, shown over the view (D-041). */
   protected voiceHelp?: VoiceDialogMode;
+  /** The home's Wi-Fi for guests (D-060), as this viewer may see it here. */
+  wifi?: Wifi;
+  /** The card's screen (`screen`, D-029): what it may show of the Wi-Fi is asked for it. */
+  screen = "";
+  protected wifiOpen = false;
+  private wifiModule?: Promise<unknown>;
   /** Sunlight through the windows: the sun where it really is. */
   protected realSun = false;
   /** Rooms with an alert, dangers first (the other storeys' with their storey). */
@@ -963,6 +974,8 @@ export class DomoTwinView extends LitElement {
   private modelsCame = false;
   private bound = new Set<string>();
   private holdTimer?: number;
+  /** What was under a press when it landed: a long press acts on it, whatever moved since. */
+  private pressed?: { x: number; y: number; picked: PickedElement | undefined };
   private noticeTimer?: number;
   /**
    * The pointer that grabbed pieces in edit mode, where it was pressed, whether it has moved past
@@ -1908,6 +1921,12 @@ export class DomoTwinView extends LitElement {
       this.focusedRoom = undefined;
       this.wiresAsked = undefined;
       this.whyAsked = undefined;
+      this.wifiOpen = false;
+    }
+    // The Wi-Fi forgotten, or no longer shown here: its dialog closes (an administrator's stays,
+    // to give it again).
+    if (changed.has("wifi") && this.wifiOpen) {
+      if (!this.wifi || (!this.wifiEditable() && !drawable(this.wifi))) this.wifiOpen = false;
     }
     if (changed.has("options")) {
       // The layer and the sun start as the options say; the layer menu changes them after.
@@ -2388,8 +2407,13 @@ export class DomoTwinView extends LitElement {
     const idle = this.options.idle ?? 0;
     const dim = this.options.nightDim === true;
     const orbit = this.options.orbit === true && !this.motionQuery?.matches;
-    if ((idle <= 0 && !dim && !orbit) || !this.engine) return;
+    if (idle <= 0 && !dim && !orbit) return;
     if (performance.now() - this.lastTouch < (idle > 0 ? idle : IDLE_AFTER) * 1000) return;
+    if (!this.engine) {
+      // Without 3D, the Wi-Fi's button still shows (D-060): its dialog goes, its password with it.
+      if (idle > 0) this.wifiOpen = false;
+      return;
+    }
     if (!this.idleNow) {
       this.idleNow = true;
       if (idle > 0) this.goBack();
@@ -2416,6 +2440,8 @@ export class DomoTwinView extends LitElement {
     this.layersOpen = false;
     this.viewsOpen = false;
     this.focusedRoom = undefined;
+    // Nor the Wi-Fi's password left on a wall screen.
+    this.wifiOpen = false;
     if (this.walking) this.setWalk(false);
     this.frameHome();
     fire(this, "domotwin-idle", undefined);
@@ -2546,7 +2572,7 @@ export class DomoTwinView extends LitElement {
     }
     const placement = this.coverageShown ? this.placementElement() : null;
     if (placement?.placing) {
-      // The radio coverage asks where an access point stands (D-060): the floor tapped.
+      // The radio coverage asks where an access point stands (D-061): the floor tapped.
       const point = this.devicePoint(x, y);
       const at = engine.planPoint(point.x, point.y);
       this.gestures.forgetTap();
@@ -2555,13 +2581,13 @@ export class DomoTwinView extends LitElement {
     }
     if (this.edit) {
       // Edit mode: a tap selects a piece (anything else clears the selection).
-      const picked = this.elementAt(x, y);
+      const picked = this.landedAt(x, y);
       const id = picked?.type === "furniture" ? picked.id : "";
       this.gestures.forgetTap();
       this.setEdit(engine.editSelect(id, this.multiSelect || this.addModifier));
       return;
     }
-    const picked = this.elementAt(x, y);
+    const picked = this.landedAt(x, y);
     // A camera's piece tapped: its view whole for a while; anything else: all faint (D-038).
     if (!this.linking) this.focusCamera(picked?.id ?? "");
     // A private room this viewer may not see, or a door of one: a tap does nothing (D-039).
@@ -2749,12 +2775,22 @@ export class DomoTwinView extends LitElement {
     return (levels[i + 1] ?? levels[i - 1])?.storey.id;
   }
 
+  /**
+   * What is at a point of the view: what was there when the press there landed (a long press acts
+   * on it, whatever moved since; a tap does not pick it twice), else what is there now.
+   */
+  private landedAt(x: number, y: number): PickedElement | undefined {
+    const pressed = this.pressed;
+    this.pressed = undefined;
+    return pressed?.x === x && pressed.y === y ? pressed.picked : this.elementAt(x, y);
+  }
+
   /** What a long press at a point of the view does (CSS pixels from its top left). */
   hold(x: number, y: number): void {
     if (this.planEditor) return;
     this.bubble = undefined;
     this.gestureCount += 1;
-    const picked = this.elementAt(x, y);
+    const picked = this.landedAt(x, y);
     if (this.edit) {
       // Edit mode: a long press adds a piece to the selection (or takes it out).
       if (picked?.type === "furniture" && this.engine) {
@@ -2924,7 +2960,7 @@ export class DomoTwinView extends LitElement {
   }
 
   /**
-   * The radio coverage is shown (D-060): chosen, allowed, no tool at work over the view, and not
+   * The radio coverage is shown (D-061): chosen, allowed, no tool at work over the view, and not
    * walking.
    */
   private get coverageShown(): boolean {
@@ -2937,7 +2973,7 @@ export class DomoTwinView extends LitElement {
   }
 
   /**
-   * Every storey of the home, lowest first, as the radio coverage reads them (D-060): their plans
+   * Every storey of the home, lowest first, as the radio coverage reads them (D-061): their plans
    * and overlays from the home shown whole, else from the storey shown and the others'; one with
    * no plan still counts as a floor. The same array while they stay.
    */
@@ -4194,6 +4230,7 @@ export class DomoTwinView extends LitElement {
 
   private readonly onPointerDown = (event: PointerEvent): void => {
     if (!this.engine) return;
+    this.pressed = undefined;
     this.viewsOpen = false;
     this.layersOpen = false;
     (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
@@ -4228,6 +4265,8 @@ export class DomoTwinView extends LitElement {
     this.apply(this.gestures.down(this.sample(event)));
     window.clearTimeout(this.holdTimer);
     if (this.gestures.active === 1) {
+      const [x, y] = [event.offsetX, event.offsetY];
+      this.pressed = { x, y, picked: this.elementAt(x, y) };
       this.holdTimer = window.setTimeout(() => {
         this.apply(this.gestures.hold(performance.now()));
       }, HOLD_TIME + 20);
@@ -4433,13 +4472,16 @@ export class DomoTwinView extends LitElement {
     this.redraw();
   }
 
-  /** A sheet or the voice dialog shown takes the focus, and gives it back when it goes. */
+  /** A sheet, the voice or Wi-Fi dialog shown takes the focus, and gives it back when it goes. */
   private followDialogs(changed: Map<PropertyKey, unknown>): void {
-    if (!changed.has("sheet") && !changed.has("voiceHelp")) return;
-    // The voice dialog stands over a sheet: it has the focus first.
+    if (!changed.has("sheet") && !changed.has("voiceHelp") && !changed.has("wifiOpen")) return;
+    // The voice and Wi-Fi dialogs stand over a sheet: they have the focus first.
     const root = this.renderRoot;
     this.dialogs.update(
-      root.querySelector("domotwin-voice") ?? root.querySelector(VIEW_SHEETS) ?? undefined,
+      root.querySelector("domotwin-voice") ??
+        root.querySelector("domotwin-wifi") ??
+        root.querySelector(VIEW_SHEETS) ??
+        undefined,
     );
   }
 
@@ -4510,7 +4552,16 @@ export class DomoTwinView extends LitElement {
       ${ready ? this.renderAlerts() : nothing} ${ready ? this.renderWalkPad() : nothing}
       ${ready ? this.renderNetwork() : nothing} ${ready ? this.renderPlacement() : nothing}
       ${ready ? this.renderUpkeep() : nothing} ${ready ? this.renderWires() : nothing}
-      ${ready && this.options.tools !== false ? this.renderTools() : nothing}
+      ${
+        ready && this.options.tools !== false
+          ? this.renderTools()
+          : // A wall screen without tools, or without 3D, still gives the Wi-Fi to guests.
+            drawable(this.wifi)
+            ? html`<div class="tools glass" role="toolbar" aria-label=${t.t("view.toolbar")}>
+                ${this.renderWifiButton()}
+              </div>`
+            : nothing
+      }
       ${ready ? this.renderBubble() : nothing} ${ready ? this.renderSheet() : nothing}
       ${
         // Not over a framed room's buttons, nor under a notice.
@@ -4525,6 +4576,22 @@ export class DomoTwinView extends LitElement {
               .mode=${this.voiceHelp}
               @domotwin-close=${() => (this.voiceHelp = undefined)}
             ></domotwin-voice>`
+          : nothing
+      }
+      ${
+        this.wifiOpen && this.wifi
+          ? html`<domotwin-wifi
+              .hass=${this.hass}
+              .t=${this.translator}
+              .wifi=${this.wifi}
+              .screen=${this.screen}
+              ?editable=${this.wifiEditable()}
+              @domotwin-close=${() => (this.wifiOpen = false)}
+              @domotwin-wifi-changed=${(event: CustomEvent<Wifi>) => {
+                // Told without its password, which only the open dialog keeps.
+                this.wifi = event.detail;
+              }}
+            ></domotwin-wifi>`
           : nothing
       }
       ${this.dimmed ? html`<div class="dim" data-testid="dim" aria-hidden="true"></div>` : nothing}
@@ -4601,7 +4668,7 @@ export class DomoTwinView extends LitElement {
     ></domotwin-network>`;
   }
 
-  /** The radio coverage (D-060): its module is loaded the first time it is shown. */
+  /** The radio coverage (D-061): its module is loaded the first time it is shown. */
   private renderPlacement(): TemplateResult | typeof nothing {
     if (!this.coverageShown) return nothing;
     if (!this.placementLoaded) {
@@ -5147,6 +5214,45 @@ export class DomoTwinView extends LitElement {
     }
   };
 
+  /** Whether the Wi-Fi can be given and changed here: an administrator's, not in the sandbox. */
+  private wifiEditable(): boolean {
+    return this.hass?.user?.is_admin === true && this.hass.sandbox !== true;
+  }
+
+  private renderWifiButton(): TemplateResult | typeof nothing {
+    if (!drawable(this.wifi)) return nothing;
+    const t = this.translator;
+    return html`<button
+      data-testid="wifi"
+      title=${t.t("wifi.button")}
+      aria-label=${t.t("wifi.button")}
+      @click=${() => {
+        void this.openWifi();
+      }}
+    >
+      ${icon(mdiWifi)}
+    </button>`;
+  }
+
+  /**
+   * The Wi-Fi for guests (D-060): its dialog, loaded the first time; an administrator gives the
+   * network there when there is none yet.
+   */
+  async openWifi(): Promise<void> {
+    if (!this.wifi) return;
+    this.layersOpen = false;
+    this.wifiModule ??= import("./wifi-dialog");
+    try {
+      await this.wifiModule;
+      this.wifiOpen = true;
+    } catch {
+      this.wifiModule = undefined;
+      this.notify(
+        this.translator.t("view.action_failed", { reason: this.translator.error("unknown") }),
+      );
+    }
+  }
+
   private renderTools(): TemplateResult {
     const t = this.translator;
     const plan = this.planView;
@@ -5225,6 +5331,7 @@ export class DomoTwinView extends LitElement {
               </button>`
             : nothing
         }
+        ${this.renderWifiButton()}
         ${this.loadedHome && !this.planView ? this.renderHomeTools() : nothing}
         ${
           this.savedViews.length > 0
