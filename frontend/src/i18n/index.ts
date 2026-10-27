@@ -4,6 +4,7 @@ import type { configHistoryEn } from "./config-history";
 import type { historyEn } from "./history";
 import type { peakEn } from "./peak";
 import type { practicalEn } from "./practical";
+import type { reportEn } from "./report";
 import type { sandboxEn } from "./sandbox";
 import type { summaryEn } from "./summary";
 import type { whyEn } from "./why";
@@ -34,7 +35,7 @@ type Leaves<T, Leaf, Prefix extends string = ""> = {
 
 /**
  * Every message: the dictionaries', and those added by a chunk when it loads (D-055, D-058,
- * D-059, D-060, D-061, D-062, D-063; the sandbox's, D-057).
+ * D-059, D-060, D-061, D-062, D-063, D-066; the sandbox's, D-057).
  */
 type AllMessages = typeof en &
   typeof practicalEn &
@@ -44,7 +45,8 @@ type AllMessages = typeof en &
   typeof wifiEn &
   typeof summaryEn &
   typeof configHistoryEn &
-  typeof peakEn;
+  typeof peakEn &
+  typeof reportEn;
 /** Keys of plain messages, e.g. `view.loading`. */
 export type MessageKey = Leaves<AllMessages, string>;
 /** Keys of plural messages, e.g. `view.rooms`. */

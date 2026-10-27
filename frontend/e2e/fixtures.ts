@@ -140,6 +140,13 @@ export interface HarnessOptions {
   formatState?: boolean;
   /** The configuration history (D-062): fictional items and their versions. */
   configHistory?: boolean;
+  /**
+   * The weekly report (D-066): last week's and this week's (`true`), this week's summed up by an
+   * AI task (`summary`), or none yet (`none`); `report` asks the panel for one, as the weekly
+   * notification's link does.
+   */
+  weekly?: true | "summary" | "none";
+  report?: number;
 }
 
 /** Opens the mocked Home Assistant with the built frontend. */
@@ -208,6 +215,8 @@ export async function openHarness(page: Page, options: HarnessOptions = {}): Pro
   if (options.noStats) params.set("nostats", "1");
   if (options.formatState) params.set("formatstate", "1");
   if (options.configHistory) params.set("confighistory", "1");
+  if (options.weekly) params.set("weekly", options.weekly === true ? "1" : options.weekly);
+  if (options.report !== undefined) params.set("report", String(options.report));
   if (options.voice) params.set("voice", options.voice === true ? "1" : options.voice);
   if (options.supervisor) params.set("supervisor", "1");
   if (options.blueprints) params.set("blueprints", options.blueprints);

@@ -27,6 +27,7 @@ import { MAX_SCHEDULE_ENTITIES, schedulable, type Schedule } from "../live/sched
 import type { Upkeep } from "../live/upkeep";
 import type { StoredWifi } from "../live/wifi";
 import { DemoConfigHistory } from "./config-history";
+import { DemoReport } from "./report";
 import { demoConnection, type MemoryHome } from "./connection";
 import { demoHistory, demoLogbook } from "./history";
 import { DemoLogbook, type Recorded } from "./logbook";
@@ -174,6 +175,8 @@ export class DemoHome implements MemoryHome {
   readonly store: DemoStore;
   /** Its configuration history (D-062), put back in the page. */
   readonly configHistory: DemoConfigHistory;
+  /** Its weekly reports (D-066), made up for its rooms. */
+  readonly weekly: DemoReport;
   private readonly language: string;
   private readonly states: Record<string, HassEntity> = {};
   private readonly areaOf = new Map<string, string>();
@@ -298,6 +301,7 @@ export class DemoHome implements MemoryHome {
       const id = `${storey.info.id}_floor`;
       floors[id] = { floor_id: id, name: say(storey.names, language) };
     }
+    this.weekly = new DemoReport(Date.parse(this.time()), language, () => Date.parse(this.time()));
     this.configHistory = new DemoConfigHistory(Date.parse(this.time()), language, () =>
       Date.parse(this.time()),
     );

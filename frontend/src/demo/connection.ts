@@ -22,6 +22,7 @@ import {
   type StoredWifi,
 } from "../live/wifi";
 import type { DemoConfigHistory } from "./config-history";
+import type { DemoReport } from "./report";
 import { DemoError, type DemoStore } from "./home";
 import type { DemoLogbook } from "./logbook";
 
@@ -52,6 +53,8 @@ export interface MemoryHome {
   readonly recorded?: DemoLogbook;
   /** Its configuration history (D-062), where it keeps one (the demo house's). */
   readonly configHistory?: DemoConfigHistory;
+  /** Its weekly reports (D-066), where it keeps some (the demo house's). */
+  readonly weekly?: DemoReport;
 }
 
 /** A websocket error, as Home Assistant gives one. */
@@ -144,6 +147,10 @@ export function demoConnection(home: MemoryHome): HassConnection {
     Array.isArray(message.entity_ids) ? message.entity_ids.map(String) : [];
 
   // The configuration history, where the home keeps one (not the sandbox's copy).
+  const report = (): DemoReport => {
+    if (!home.weekly) throw failure("unknown_command", "no weekly report here");
+    return home.weekly;
+  };
   const configHistory = (): DemoConfigHistory => {
     if (!home.configHistory) throw failure("unknown_command", "no configuration history here");
     return home.configHistory;
@@ -321,6 +328,12 @@ export function demoConnection(home: MemoryHome): HassConnection {
         configHistory();
         // Put back already, as Home Assistant's editors would have saved it.
         return { changed: 0 };
+      case "domotwin/report/get":
+        return report().get(typeof message.report === "number" ? message.report : undefined);
+      case "domotwin/report/write":
+        return report().write();
+      case "domotwin/report/settings":
+        return report().save(message.settings);
       case "lovelace/config/save":
         configHistory().putBack(
           "dashboard",
