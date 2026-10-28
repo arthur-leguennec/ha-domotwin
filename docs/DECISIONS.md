@@ -4479,7 +4479,7 @@ energy while the place was closed, each week or month".
     Energy page is. The answer is kept ten minutes for each Home Assistant and opening hours (the
     tab built again, another card asking, keep it); one that failed is not kept, and what was
     said stays.
-- **Consequences.** Nothing is kept: it is worked out from the recorder when asked. Nothing is
-  sent anywhere. The first load grows by 0.4 kB gzipped (the call and its reading); the Home tab
-  and the report carry the rest. New texts in the 12 languages. A home, a workplace without
-  opening hours, or without energy settings, says nothing of it.
+- **Consequences.** Nothing is stored: it is worked out from the recorder when asked. Nothing is
+  sent anywhere. The first load grows by 0.7 kB gzipped (the call, the answer kept and its
+  reading); the Home tab and the report carry the rest. New texts in the 12 languages. A home, a
+  workplace without opening hours, or without energy settings, says nothing of it.

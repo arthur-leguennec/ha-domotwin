@@ -1486,7 +1486,7 @@ links, the settings or the private rooms change.
 
 ### M50 (a workplace's energy while closed)
 
-Bundle: the first load is **661.0 kB gzipped** of 1 200 kB (+0.4 kB): asking the integration for
+Bundle: the first load is **661.3 kB gzipped** of 1 200 kB (+0.7 kB): asking the integration for
 what a workplace used while closed, and reading its answer; the Home tab and the weekly report
 carry the rest in their own chunks. The integration works it out when asked, at most every ten
 minutes for each Home Assistant and opening hours (the answer is kept by the page's client), from
