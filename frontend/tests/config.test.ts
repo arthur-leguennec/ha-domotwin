@@ -33,6 +33,7 @@ describe("normalizeConfig", () => {
       night_dim: false,
       tools: true,
       voice: true,
+      doorbell: true,
       demo: false,
     });
   });
@@ -96,6 +97,7 @@ describe("normalizeConfig", () => {
       night_dim: true,
       tools: false,
       voice: true,
+      doorbell: true,
       screen: "hallway",
       demo: false,
     });
@@ -128,6 +130,7 @@ describe("normalizeConfig", () => {
     [{ alerts: "yes" }, "config.bad_alerts"],
     [{ presence: 1 }, "config.bad_presence"],
     [{ people: "yes" }, "config.bad_people"],
+    [{ doorbell: "no" }, "config.bad_doorbell"],
     [{ sun: "moon" }, "config.bad_sun"],
     [{ weather: "rain" }, "config.bad_weather"],
     [{ badges: "on" }, "config.bad_badges"],

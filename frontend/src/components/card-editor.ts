@@ -180,6 +180,7 @@ function schema(
     { name: "night_dim", selector: { boolean: {} } },
     { name: "tools", selector: { boolean: {} } },
     { name: "voice", selector: { boolean: {} } },
+    { name: "doorbell", selector: { boolean: {} } },
     { name: "screen", selector: { text: {} } },
     { name: "font_family", selector: { text: {} } },
     { name: "demo", selector: { boolean: {} } },
@@ -199,6 +200,7 @@ const ON_BY_DEFAULT = {
   weather: true,
   tools: true,
   voice: true,
+  doorbell: true,
 };
 
 /** Visual editor of `custom:domotwin-card` (YAML is never needed). */

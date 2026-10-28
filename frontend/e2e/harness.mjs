@@ -47,7 +47,8 @@
 //   room's thermostat set back
 //   demo=1 (the card's `demo`: the demo house instead of this home, D-050)
 //   supervisor=1 (apps can be installed), blueprints=changed (one edited), insecure=1 (a page
-//   served over HTTP: no microphone), mic=0 (the card's microphone turned off)
+//   served over HTTP: no microphone), mic=0 (the card's microphone turned off), doorbell=0 (the
+//   card's doorbell turned off, D-087), room=<id> (a room asked for in the panel's address)
 //   start=home|rooms|3d|none (the tab this device opens on, D-055: 3d unless asked; none: the
 //   user's), userstart=<tab> (the user's), favourites=<id>,<id> (the user's), route=1 (Home
 //   Assistant's address: /domotwin and the path after it, navigation and back as it does them)
@@ -2844,6 +2845,7 @@ if (mode === "panel") {
     orbit: params.get("orbit") === "1" ? true : undefined,
     night_dim: params.get("nightdim") === "1" ? true : undefined,
     voice: params.get("mic") === "0" ? false : undefined,
+    doorbell: params.get("doorbell") === "0" ? false : undefined,
     font_family: params.get("font") ?? undefined,
     demo: params.get("demo") === "1" ? true : undefined,
     weather: params.get("weatheroption") === "0" ? false : undefined,

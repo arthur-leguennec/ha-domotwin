@@ -1465,6 +1465,7 @@ export const main: Dictionary = {
     night_dim: "その間、夜は暗くする",
     tools: "ビューのボタン",
     voice: "マイク（Assist）",
+    doorbell: "ドアベルが鳴ったら全画面で表示",
     demo: "この家の代わりにデモハウスを表示",
     screen: "画面名（domotwin.show 用）",
   },
@@ -1497,6 +1498,7 @@ export const main: Dictionary = {
     bad_demo: "`demo` は true または false である必要があります",
     bad_tools: "`tools` は true または false である必要があります",
     bad_voice: "`voice` は true または false である必要があります",
+    bad_doorbell: "`doorbell` は true または false である必要があります",
     bad_screen: "`screen` は英数字、_、- からなる名前（最大 64 文字）である必要があります",
     bad_summary:
       "`summary` は people、network、automations、upkeep、robots のいずれかである必要があります",

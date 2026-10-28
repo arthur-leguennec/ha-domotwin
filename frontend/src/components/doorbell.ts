@@ -1,7 +1,8 @@
 /**
- * `<domotwin-doorbell>`: a doorbell rang (D-068), full screen over every tab of the panel: who
- * rang and when, its camera live, the lock of its door with its buttons, and a way to close it.
- * Home Assistant's own cards; a chunk loaded the first time a doorbell rings.
+ * `<domotwin-doorbell>`: a doorbell rang (D-068), full screen over every tab of the panel, or over
+ * a dashboard's page from a card (D-087): who rang and when, its camera live, the lock of its door
+ * with its buttons, and a way to close it. Home Assistant's own cards; a chunk loaded the first
+ * time a doorbell rings.
  */
 import { mdiBellRing, mdiClose } from "@mdi/js";
 import { LitElement, css, html, nothing, type PropertyValues, type TemplateResult } from "lit";
@@ -11,11 +12,12 @@ import { nowOf, type HomeAssistant } from "../ha/types";
 import { addMessages, type Translator } from "../i18n";
 import { safetyEn, safetyFr } from "../i18n/safety";
 import { entityName } from "../live/bindings";
-import type { Ring } from "../live/doorbell";
+import { RING_SHOWN_MS, type Ring } from "../live/doorbell";
 import { NOTHING_UNSEEN, type Unseen } from "../live/privacy";
 import { doorbellOf, type Doorbell } from "../live/safety";
 import { timeStyle, whenText } from "../live/schedules";
 import { define } from "./define";
+import { cancelDialog, deepActive, focusDialog, fromField } from "./dialog";
 import "./ha-card";
 import { icon } from "./icon";
 import { baseStyles } from "./styles";
@@ -210,3 +212,76 @@ export class DomoTwinDoorbell extends LitElement {
 }
 
 define("domotwin-doorbell", DomoTwinDoorbell);
+
+/** A ring shown over a dashboard's page by one of its cards (D-087). */
+interface OnPage {
+  owner: object;
+  element: DomoTwinDoorbell;
+  timer: ReturnType<typeof setTimeout>;
+  /** What had the focus before: it gets it back. */
+  opener: HTMLElement | null;
+}
+
+let onPage: OnPage | undefined;
+/** The ring shown over the page last: another card that heard it too does not show it again. */
+let shownLast: string | undefined;
+
+/**
+ * Shows a ring over the page from a dashboard's card (D-087), on the page's body so that no card's
+ * box holds it: one at a time, whichever card heard it first, for two minutes unless closed. The
+ * card (`owner`) has checked that its viewer may see that doorbell.
+ */
+export function ringOnPage(
+  owner: object,
+  hass: HomeAssistant,
+  t: Translator,
+  ring: Ring,
+  unseen: Unseen,
+): void {
+  const key = `${ring.entity} ${ring.at}`;
+  if (key === shownLast) return;
+  shownLast = key;
+  closeOnPage();
+  const element = document.createElement("domotwin-doorbell") as DomoTwinDoorbell;
+  element.hass = hass;
+  element.t = t;
+  element.ring = ring;
+  element.unseen = unseen;
+  element.addEventListener("domotwin-close", () => {
+    closeOnPage();
+  });
+  element.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape" || fromField(event)) return;
+    if (cancelDialog(element)) event.preventDefault();
+  });
+  const opener = deepActive();
+  document.body.append(element);
+  void focusDialog(element);
+  onPage = { owner, element, opener, timer: setTimeout(closeOnPage, RING_SHOWN_MS) };
+}
+
+/** Whether the ring over the page is the one `owner` showed. */
+export function shownBy(owner: object): boolean {
+  return onPage?.owner === owner;
+}
+
+/** Home Assistant's new states for the ring over the page (its camera, its lock). */
+export function updateOnPage(owner: object, hass: HomeAssistant, unseen: Unseen): void {
+  if (onPage?.owner !== owner) return;
+  onPage.element.hass = hass;
+  onPage.element.unseen = unseen;
+}
+
+/** Closes the ring over the page: whichever shows, or only `owner`'s (a card gone). */
+export function closeOnPage(owner?: object): void {
+  const shown = onPage;
+  if (!shown || (owner !== undefined && shown.owner !== owner)) return;
+  onPage = undefined;
+  clearTimeout(shown.timer);
+  shown.element.remove();
+  // The focus back to what had it, unless the user moved it elsewhere.
+  const active = deepActive();
+  if ((active === null || active === document.body) && shown.opener?.isConnected) {
+    shown.opener.focus({ preventScroll: true });
+  }
+}

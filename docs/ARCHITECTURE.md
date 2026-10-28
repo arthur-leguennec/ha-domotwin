@@ -95,7 +95,10 @@ every reader returns `Result` with a stable error code that the frontend transla
   followed by the panel) and says those on now beside the rooms' (`live/storeys.ts`); both are in
   the first load. The Safety tab (`components/safety-tab.ts`, `live/safety.ts`) and the alerts'
   bar above the other tabs (`components/alert-bar.ts`) are in the tabs' chunk; the doorbell's full
-  screen (`components/doorbell.ts`) is a chunk loaded at the first ring.
+  screen (`components/doorbell.ts`) is a chunk loaded at the first ring. A dashboard's card
+  watches the doorbells too (D-087) and puts the full screen on the page's body, once for the page
+  (`ringOnPage`); what its viewer may not see is the panel's rule (`viewerUnseen`,
+  `live/rights.ts`).
 - History and energy (D-069): `live/graphs.ts` sorts a room's entities into Home Assistant's
   history-graph and statistics-graph cards, which `components/room-graphs.ts` shows in the Rooms
   tab's chunk; `live/overview.ts` gives the address of Home Assistant's Energy page, which the

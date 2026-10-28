@@ -22,6 +22,8 @@ export interface HarnessOptions {
   blueprints?: "changed";
   insecure?: boolean;
   mic?: false;
+  /** Card option `doorbell: false` (D-087): no doorbell over the page. */
+  doorbell?: false;
   /** The tip on what a tap does, not read yet (D-047). */
   tip?: boolean;
   /** The card's `font_family`. */
@@ -146,6 +148,8 @@ export interface HarnessOptions {
   /** Home Assistant's address: the panel's path, and the path after it opened. */
   route?: boolean;
   path?: string;
+  /** A room asked for in the panel's address (`?room=`, its device's link, D-087). */
+  room?: string;
   /** Home Assistant's card helpers, made up (a card says its type and entity). */
   cards?: boolean;
   /** A calendar and a to-do list. */
@@ -275,6 +279,8 @@ export async function openHarness(page: Page, options: HarnessOptions = {}): Pro
   if (options.blueprints) params.set("blueprints", options.blueprints);
   if (options.insecure) params.set("insecure", "1");
   if (options.mic === false) params.set("mic", "0");
+  if (options.doorbell === false) params.set("doorbell", "0");
+  if (options.room) params.set("room", options.room);
   if (options.tip) params.set("tip", "1");
   if (options.sandbox) params.set("sandbox", "1");
   if (options.why) params.set("why", "1");
