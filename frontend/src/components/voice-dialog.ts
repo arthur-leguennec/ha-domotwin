@@ -9,6 +9,7 @@ import { LitElement, css, html, nothing, type PropertyValues, type TemplateResul
 import { isHassError, type HomeAssistant } from "../ha/types";
 import { translatorFor, type Translator } from "../i18n";
 import {
+  assistAvailable,
   canListen,
   installBlueprints,
   listeningPipeline,
@@ -327,8 +328,11 @@ export class DomoTwinVoice extends LitElement {
   }
 
   /** Voice on this device (D-085): off, no microphone button on it; Assist stays for the others. */
-  private renderDevice(): TemplateResult {
+  /** Voice on this device (D-085), where Assist runs; not the demo house's or the sandbox's. */
+  private renderDevice(): TemplateResult | typeof nothing {
     const t = this.t;
+    const hass = this.hass;
+    if (!hass || !assistAvailable(hass) || hass.demo || hass.sandbox) return nothing;
     return html`<label class="choice">
       <input
         type="checkbox"

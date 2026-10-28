@@ -16,8 +16,8 @@ In the panel's **⋮** menu, **Wall screens** (administrators; on a home without
   screen and remove the old one.
 - **Opens on**: the tab it opens on and goes back to (Home, Rooms, Safety or 3D), or the device's
   own tab, else the user's.
-- **Voice on this screen**: off, the screen has no microphone button, whatever its device says
-  (see [your voice](voice.md#off-on-a-device)).
+- **Voice on this screen**: off, the panel on the screen has no microphone button, whatever its
+  device says (see [your voice](voice.md#off-on-a-device)).
 - **Screen saver**:
   - **Comes after**: how long with nothing touched and nobody moving (1 minute to 2 hours), or
     never.

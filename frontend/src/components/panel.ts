@@ -215,8 +215,6 @@ const PANEL_OPTIONS: ViewOptions = {
   cutaway: "auto",
   lighting: "auto",
 };
-/** The same, on a device or a wall screen without voice (D-085). */
-const SILENT_OPTIONS: ViewOptions = { ...PANEL_OPTIONS, voice: false };
 const TOAST_MS = 6000;
 /** How long a layer asked for in the address waits for the plan to be drawn, and how often it
  * looks (ms). */
@@ -1682,8 +1680,9 @@ export class DomoTwinPanel extends LitElement {
     } catch (error) {
       if (client !== this.client) return;
       // Not known is not none: the screens stay unknown (a device's own not said removed), and
-      // the device opens on what it would without.
+      // the device opens on what it would without (its voice too, D-085).
       this.screensRead = true;
+      this.requestUpdate();
       if (isHassError(error) && error.code === "unknown_command") return;
       if (this.unsubscribe) {
         this.screensTimer = setTimeout(() => void this.loadScreens(), SETTINGS_RETRY_MS);
@@ -1691,8 +1690,12 @@ export class DomoTwinPanel extends LitElement {
     }
   }
 
-  /** Voice here: on this device and on the wall screen it is, if it is one (D-085). */
+  /**
+   * Voice here: on this device and on the wall screen it is, if it is one (D-085). A wall screen
+   * has none until its layout is read, as it opens on its own tab then.
+   */
   private get voiceHere(): boolean {
+    if (this.deviceScreen && !this.screensRead) return false;
     return this.deviceVoice && this.screenLayout?.voice !== false;
   }
 
@@ -3825,7 +3828,8 @@ export class DomoTwinPanel extends LitElement {
       .people=${this.people}
       .wifi=${this.wifi}
       .planError=${this.planError}
-      .options=${this.voiceHere ? PANEL_OPTIONS : SILENT_OPTIONS}
+      .options=${PANEL_OPTIONS}
+      .voiceHere=${this.voiceHere}
       .north=${this.northDraft ?? this.settings?.north ?? 0}
       .privateRooms=${this.settings?.rooms}
       .rights=${this.settings?.rights}

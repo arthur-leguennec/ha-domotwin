@@ -1461,8 +1461,7 @@ Assistant's states: each kind's devices are worked out once for each of them, no
 
 ### M47 (voice off on a device)
 
-Bundle: the first load is **658.2 kB gzipped** of 1 200 kB (+0.3 kB): the 3D view reads the
-device's choice (a read of `localStorage` each time its tools are drawn); the switches are in the
-voice settings', the choices' and the wall screens' chunks, each a few lines. Nothing more is done
-at each update of Home Assistant's states.
-
+Bundle: the first load is **658.2 kB gzipped** of 1 200 kB (+0.3 kB): the panel and the card read
+the device's choice in `localStorage` once, as they are shown, and give it to the 3D view; the
+switches are in the voice settings', the choices' and the wall screens' chunks, each a few lines.
+Nothing more is done at each update of Home Assistant's states.

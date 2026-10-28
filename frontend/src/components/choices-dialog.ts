@@ -302,7 +302,8 @@ export class DomoTwinChoices extends LitElement {
         cards: this.cards,
       });
       writeDeviceStart(this.device || undefined);
-      writeDeviceVoice(this.voice);
+      // Written when changed here only, lest it undo what another tab of the device set.
+      if (this.voice !== this.deviceVoice) writeDeviceVoice(this.voice);
       if (!hass.demo && !hass.sandbox) writeDeviceScreen(this.screen || undefined);
       fire(this, "domotwin-saved", {
         choices: saved,
@@ -498,8 +499,8 @@ export class DomoTwinChoices extends LitElement {
         </select>
       </label>
       ${
-        // Voice on this device (D-085), where Assist runs.
-        assistAvailable(hass)
+        // Voice on this device (D-085), where Assist runs; not the demo house's or the sandbox's.
+        assistAvailable(hass) && !hass.demo && !hass.sandbox
           ? html`<label class="row">
               <input
                 type="checkbox"

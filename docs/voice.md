@@ -27,14 +27,15 @@ dialog offers to type to Assist.
 ## Off on a device
 
 A phone in a pocket, a screen in a child's or a shared room: voice can be turned off on one
-device. **Voice on this device**, in the panel's voice settings (**⋮** → **Voice**) or in **Your
-choices** (the button on the Home and Rooms tabs), off: no microphone button on that device, in
-the panel and in its cards. It is kept on the device only, whoever signs in there; your other
-devices keep theirs, and Assist stays set up for them.
+device. **Voice on this device**, in **Your choices** (the button on the Home and Rooms tabs, for
+everyone) or in the panel's voice settings (**More** → **Voice**, administrators), off: no
+microphone button on that device, in the panel and in its cards. It is kept on the device only,
+whoever signs in there; your other devices keep theirs, and Assist stays set up for them.
 
 A wall screen's layout has **Voice on this screen** too (administrators, see [the wall
-screen](wall-screen.md)): off, the device that is that screen has no microphone button, whatever
-its own choice.
+screen](wall-screen.md)): off, the panel on the device that is that screen has no microphone
+button, whatever the device's own choice. A card follows the device's choice and its own `voice`
+option.
 
 ## When Assist cannot hear yet
 

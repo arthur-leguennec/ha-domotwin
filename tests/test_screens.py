@@ -175,6 +175,7 @@ async def test_what_cannot_be_read_is_left_out(
                 "the hall": {},
                 "attic": {"saver": {"after": "soon"}},
                 "porch": "not a layout",
+                "hall": {"voice": False},
             }
         },
     }
@@ -183,8 +184,10 @@ async def test_what_cannot_be_read_is_left_out(
     await hass.async_block_till_done()
     client = await hass_ws_client(hass)
     screens = (await _send(client, {"type": "domotwin/screens/get"}))["result"]["screens"]
-    assert list(screens) == ["kitchen"]
+    assert list(screens) == ["hall", "kitchen"]
     assert screens["kitchen"]["saver"]["wake"] == ["binary_sensor.kitchen_motion"]
+    # A screen without voice (D-085) stays so after a restart.
+    assert screens["hall"]["voice"] is False
 
 
 async def test_screens_need_domotwin_set_up(

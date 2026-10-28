@@ -204,13 +204,7 @@ import {
   type RoomKind,
   type RoomLabel,
 } from "../live/room-labels";
-import {
-  assistAvailable,
-  canListen,
-  listeningPipeline,
-  openAssist,
-  readDeviceVoice,
-} from "../live/voice";
+import { assistAvailable, canListen, listeningPipeline, openAssist } from "../live/voice";
 import { drawable, type Wifi } from "../live/wifi";
 import { securityPage, shownAlerts, type SecurityAlert } from "../live/security";
 import { alertButton, type AlertRoom } from "./alert-button";
@@ -676,6 +670,7 @@ export class DomoTwinView extends LitElement {
     voiceHelp: { state: true },
     wifi: { attribute: false },
     screen: { attribute: false },
+    voiceHere: { attribute: false },
     wifiOpen: { state: true },
     realSun: { state: true },
     alerts: { state: true },
@@ -868,6 +863,8 @@ export class DomoTwinView extends LitElement {
   wifi?: Wifi;
   /** The card's screen (`screen`, D-029): what it may show of the Wi-Fi is asked for it. */
   screen = "";
+  /** Voice on here: on this device and the wall screen it is (D-085), as the panel or card says. */
+  voiceHere = true;
   protected wifiOpen = false;
   private wifiModule?: Promise<unknown>;
   /** Sunlight through the windows: the sun where it really is. */
@@ -5742,8 +5739,8 @@ export class DomoTwinView extends LitElement {
           ${icon(mdiLayersOutline)}
         </button>
         ${
-          // Voice may be off for the card (`voice: false`), the screen (D-076) or the device (D-085).
-          this.options.voice !== false && readDeviceVoice() && assistAvailable(this.hass)
+          // Voice may be off for the card (`voice: false`), or here (D-085).
+          this.options.voice !== false && this.voiceHere && assistAvailable(this.hass)
             ? html`<button
                 data-testid="voice"
                 title=${t.t("voice.listen")}

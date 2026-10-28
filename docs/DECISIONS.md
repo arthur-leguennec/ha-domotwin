@@ -4329,19 +4329,23 @@ Asked by the maintainer after 0.6.0: voice can be turned off on one device.
 - **Decision.**
   - **Kept on the device, not for the user.** `localStorage` keeps `domotwin-voice: off` on the
     device (as its own start tab, D-055, and the wall screen it is, D-076): whoever signs in
-    there, nothing about the user changes on their other devices. The card and the panel read it
-    (`live/voice.ts`); storage the browser refuses leaves voice on.
-  - **Two places to turn it off, both for anyone.** *Voice on this device* in the panel's voice
-    settings (**⋮** → **Voice**, where one looks for it), and in *Your choices*, next to the tab
-    this device opens on. The voice settings change it at once; the choices with their **Save**.
-    Shown where Assist runs.
+    there, nothing about the user changes on their other devices. The panel and the card read it
+    as they are shown (`live/voice.ts`) and tell the 3D view (`voiceHere`), which reads nothing
+    itself; storage the browser refuses leaves voice on.
+  - **Two places to turn it off.** *Voice on this device* in *Your choices*, next to the tab this
+    device opens on, for everyone; and in the panel's voice settings (**⋮** → **Voice**, where an
+    administrator looks for it). The voice settings change it at once; the choices with their
+    **Save**, writing it only when changed there, lest they undo another tab's. Shown where
+    Assist runs; not in the demo house or the sandbox, homes of their own (as the wall screen a
+    device is).
   - **A wall screen without voice.** An administrator's layout of a screen (D-076) has *Voice on
-    this screen*: off, the device that is that screen has no microphone button, whatever its own
-    choice. Kept by the integration with the layout (`voice: false`).
+    this screen*: off, the panel on the device that is that screen has no microphone button,
+    whatever the device's own choice; none either until the layouts are read, as the screen opens
+    on its own tab then. Kept by the integration with the layout (`voice: false`). The layouts
+    are the panel's (D-076): a card follows the device's choice and its own `voice`.
   - **What off means.** No microphone button on that device, in the panel and in the cards. Assist
     stays set up; the other devices keep theirs; the blueprints and `domotwin.show` by voice from a
     satellite go on, being Home Assistant's, not the device's. The card's `voice: false` is as
     before.
-- **Consequences.** The first load grows by 0.3 kB (reading the device's choice in the 3D view);
-  the switches are in the dialogs' chunks. Nothing is sent anywhere.
-
+- **Consequences.** The first load grows by 0.3 kB (reading the device's choice in the panel and
+  the card); the switches are in the dialogs' chunks. Nothing is sent anywhere.

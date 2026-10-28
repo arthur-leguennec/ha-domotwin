@@ -40,6 +40,19 @@ test.describe("voice off on a device (D-085)", () => {
     expect(await kept(page)).toBeNull();
   });
 
+  test("choices saved for something else leave what another tab set", async ({ page }) => {
+    await openHarness(page, { mode: "panel", voice: true });
+    await expect(page.getByTestId("overview")).toBeVisible();
+    // Another tab of the device turns voice off meanwhile.
+    await page.evaluate(() => window.localStorage.setItem("domotwin-voice", "off"));
+    await page.getByTestId("tab-home").click();
+    await page.getByTestId("choices-open").click();
+    const choices = page.locator("domotwin-choices");
+    await choices.getByTestId("choices-save").click();
+    await expect(choices).toHaveCount(0);
+    expect(await kept(page)).toBe("off");
+  });
+
   test("the card on the same device follows it", async ({ page }) => {
     await openHarness(page, { voice: true });
     await expect(page.getByTestId("voice")).toBeVisible();
