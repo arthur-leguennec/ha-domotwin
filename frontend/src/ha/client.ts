@@ -6,6 +6,7 @@ import type { LocatingMeasure } from "../live/measured";
 import type { PeopleSettings, PersonSettings } from "../live/people";
 import { readSchedules, type Schedule } from "../live/schedules";
 import type { ShowRequest } from "../live/show";
+import { readClosed, type ClosedEnergy } from "../live/closed-energy";
 import type { Garden } from "../live/lawn";
 import type { Upkeep, UpkeepCard } from "../live/upkeep";
 import { readWifi, type Wifi, type WifiChange } from "../live/wifi";
@@ -148,6 +149,15 @@ export interface NewSchedule {
 
 const clients = new WeakMap<HassConnection, DomoTwinClient>();
 
+/** How long what a workplace used while closed is kept before it is asked for again (ms). */
+const CLOSED_ENERGY_MS = 10 * 60_000;
+
+/** What a workplace used while closed, the last seven days and this month (D-088). */
+export interface ClosedEnergyNow {
+  week?: ClosedEnergy;
+  month?: ClosedEnergy;
+}
+
 /**
  * The DomoTwin websocket API of one Home Assistant connection. Cards and the panel share one
  * client, one cached plan and one subscription.
@@ -166,6 +176,8 @@ export class DomoTwinClient {
   private schedules?: Schedule[];
   private readonly scheduleListeners = new Set<(items: Schedule[]) => void>();
   private unsubscribeSchedules?: Promise<() => Promise<void>>;
+  /** What a workplace used while closed, as last asked (D-088): when, for which opening hours. */
+  private closedEnergy?: { at: number; hours: string; answer: Promise<ClosedEnergyNow> };
 
   private constructor(private readonly connection: HassConnection) {}
 
@@ -573,6 +585,36 @@ export class DomoTwinClient {
     return readScreens(
       await this.connection.sendMessagePromise({ type: "domotwin/screens/remove", name }),
     );
+  }
+
+  /**
+   * What a workplace used while closed (D-088): the last seven days (`week`) and this month
+   * (`month`); nothing for a home, or without opening hours or Home Assistant's energy settings.
+   * Worked out from the recorder's history and statistics: the answer is kept for ten minutes
+   * (`now`, ms) for these opening hours, whoever asks; one that failed is not kept.
+   */
+  getClosedEnergy(hours: string, now: number): Promise<ClosedEnergyNow> {
+    const kept = this.closedEnergy;
+    if (kept && kept.hours === hours && now >= kept.at && now - kept.at < CLOSED_ENERGY_MS) {
+      return kept.answer;
+    }
+    const answer = this.connection
+      .sendMessagePromise({ type: "domotwin/workplace/energy" })
+      .then((raw: unknown) => {
+        const value =
+          typeof raw === "object" && raw !== null ? (raw as Record<string, unknown>) : {};
+        const found: ClosedEnergyNow = {};
+        for (const key of ["week", "month"] as const) {
+          const read = readClosed(value[key]);
+          if (read) found[key] = read;
+        }
+        return found;
+      });
+    this.closedEnergy = { at: now, hours, answer };
+    answer.catch(() => {
+      if (this.closedEnergy?.answer === answer) this.closedEnergy = undefined;
+    });
+    return answer;
   }
 
   /**

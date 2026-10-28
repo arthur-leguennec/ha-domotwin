@@ -1166,6 +1166,10 @@ export const chunks: Chunks = {
         other: "Gesloten: {count} staan nog aan",
       },
       hours_from: "Openingstijden uit {name}.",
+      closed_week: "Buiten openingstijden, afgelopen 7 dagen: {kwh}",
+      closed_month: "Buiten openingstijden, deze maand: {kwh}",
+      closed_since: "Buiten openingstijden, sinds {date}: {kwh}",
+      closed_share: "{kwh} ({share} van het totaal)",
       glance: "Het huis in één oogopslag",
       people: {
         one: "{count} thuis",
@@ -1468,6 +1472,13 @@ export const chunks: Chunks = {
         solar: "Van de zon",
         unknown: "—",
         same: "gelijk",
+      },
+      closed: {
+        title: "Buiten openingstijden",
+        place: "De zaak",
+        share:
+          "{share} van wat de zaak deze week verbruikte, werd buiten openingstijden verbruikt.",
+        since: "Geteld sinds {date}: de geschiedenis van Home Assistant gaat niet verder terug.",
       },
       peaks: {
         title: "Pieken van Hydro-Québec",

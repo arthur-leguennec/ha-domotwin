@@ -257,6 +257,13 @@ class DomoTwinData:
         return "workplace" in self._data["settings"]
 
     @property
+    def workplace_hours(self) -> str | None:
+        """A workplace's opening hours, a `schedule` entity on while it is open (D-086)."""
+        workplace = self._data["settings"].get("workplace")
+        hours = workplace.get("hours") if isinstance(workplace, dict) else None
+        return hours if isinstance(hours, str) and hours else None
+
+    @property
     def upkeep(self) -> dict[str, Any]:
         """The upkeep cards (D-033): `lead_days`, `pieces` (a card by piece id)."""
         upkeep: dict[str, Any] = self._data["upkeep"]

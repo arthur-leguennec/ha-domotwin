@@ -96,13 +96,13 @@ test.describe("the weekly report (D-081)", () => {
       "The home",
       "84 kWh",
       "100 kWh",
-      "−16 %",
+      "−16%",
     ]);
     await expect(energy.locator('tr[data-room="kitchen"]').locator("th, td")).toHaveText([
       "Kitchen",
       "7 kWh",
       "5 kWh",
-      "+40 %",
+      "+40%",
     ]);
     // The week's Hydro-Québec peaks; what was done since the last report.
     await expect(page.getByTestId("report-peaks").locator("li")).toContainText(

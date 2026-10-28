@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { DemoHome } from "../src/demo/home";
+import { formatPercent, readClosed } from "../src/live/closed-energy";
 import type { HomeAssistant } from "../src/ha/types";
 import { Translator, addMessages } from "../src/i18n";
 import { reportEn, reportFr } from "../src/i18n/report";
@@ -97,6 +98,10 @@ function written(): Record<string, unknown> {
       },
       { start: 3 },
     ],
+    closed: {
+      week: { kwh: 31.5, share: 38, rooms: { kitchen: 4.2, hall: "much" } },
+      before: { kwh: 12, since: "2026-10-16T13:00:00+00:00" },
+    },
     summary: { by: "ai_task.helper", text: "All is well." },
   };
 }
@@ -124,6 +129,21 @@ describe("reading the report", () => {
         rooms: { kitchen: 0.4 },
       },
     ]);
+    // A workplace's energy while closed (D-088), counted since a moment where the history starts
+    // later.
+    expect(read.closed).toEqual({
+      week: { kwh: 31.5, share: 38, rooms: { kitchen: 4.2 } },
+      before: { kwh: 12, since: "2026-10-16T13:00:00+00:00" },
+    });
+    expect(readClosed({ kwh: 1, since: "soon" })).toEqual({ kwh: 1 });
+    expect(readClosed({ share: 35 })).toBeUndefined();
+    // Percentages as each language writes them, with a true minus.
+    expect(formatPercent(38, "en")).toBe("38%");
+    // A space that does not break, as this ICU writes it.
+    expect(formatPercent(38, "fr")).toMatch(/^38[\u00a0\u202f]%$/);
+    expect(formatPercent(-16, "en", true)).toBe("\u221216%");
+    expect(formatPercent(40, "de", true)).toMatch(/^\+40[\u00a0\u202f]%$/);
+    expect(formatPercent(0, "en", true)).toBe("0%");
     expect(read.summary).toEqual({ by: "ai_task.helper", text: "All is well." });
     expect(countOf(read, "batteries")).toBe(5);
     expect(totalOf(read)).toBe(5 + 1 + 0 + 2);

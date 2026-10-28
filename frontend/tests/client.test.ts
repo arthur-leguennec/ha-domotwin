@@ -35,6 +35,38 @@ function fakeHass(): {
 }
 
 describe("DomoTwinClient", () => {
+  it("keeps what a workplace used while closed ten minutes, for its hours, and not a failure", async () => {
+    let fail = false;
+    const asked: HassMessage[] = [];
+    const connection = {
+      sendMessagePromise: (message: HassMessage) => {
+        asked.push(message);
+        return fail
+          ? Promise.reject(Object.assign(new Error("busy"), { code: "home_assistant_error" }))
+          : Promise.resolve({ week: { kwh: 31.5, share: 38 }, month: { since: "x" } });
+      },
+    } as unknown as HassConnection;
+    const client = DomoTwinClient.for({ connection } as HomeAssistant);
+    const now = Date.parse("2026-10-28T14:00:00Z");
+    const found = await client.getClosedEnergy("schedule.opening", now);
+    // A month without its kWh is left out.
+    expect(found).toEqual({ week: { kwh: 31.5, share: 38 } });
+    expect(await client.getClosedEnergy("schedule.opening", now + 9 * 60_000)).toBe(found);
+    expect(asked).toHaveLength(1);
+    // Other opening hours, or ten minutes on: asked again.
+    await client.getClosedEnergy("schedule.shop", now + 9 * 60_000);
+    await client.getClosedEnergy("schedule.shop", now + 20 * 60_000);
+    expect(asked).toHaveLength(3);
+    // A failure is not kept: asked again at once.
+    fail = true;
+    await expect(client.getClosedEnergy("schedule.opening", now + 21 * 60_000)).rejects.toEqual(
+      expect.objectContaining({ code: "home_assistant_error" }),
+    );
+    fail = false;
+    await client.getClosedEnergy("schedule.opening", now + 21 * 60_000);
+    expect(asked).toHaveLength(5);
+  });
+
   it("is shared per connection and caches the plan until it changes", async () => {
     const { hass, sent, emit } = fakeHass();
     const client = DomoTwinClient.for(hass);

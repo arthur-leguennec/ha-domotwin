@@ -16,9 +16,11 @@ import {
 import { LitElement, css, html, nothing, type PropertyValues, type TemplateResult } from "lit";
 
 import { card, pressCard, tileCard, type CardConfig } from "../ha/cards";
-import { nowOf, type HomeAssistant } from "../ha/types";
+import { DomoTwinClient, type ClosedEnergyNow } from "../ha/client";
+import { isHassError, nowOf, type HomeAssistant } from "../ha/types";
 import type { Translator } from "../i18n";
 import { failureText } from "../live/actions";
+import { formatKwh, formatPercent, sinceDay, type ClosedEnergy } from "../live/closed-energy";
 import { areaOf, entityName } from "../live/bindings";
 import { isPressed, type Choices, type HomeCard } from "../live/choices";
 import { glanceOf, type Glance, type GlanceSources } from "../live/glance";
@@ -93,6 +95,7 @@ export class DomoTwinHome extends LitElement {
     dialogReady: { state: true },
     said: { state: true },
     ran: { state: true },
+    closedEnergy: { state: true },
   };
 
   hass?: HomeAssistant;
@@ -343,6 +346,8 @@ export class DomoTwinHome extends LitElement {
 
   /** When the peak's phase changes next (D-063): the glance is worked out again then. */
   private peakTimer: ReturnType<typeof setTimeout> | undefined;
+  /** What a workplace used while closed (D-088), read while its hours' details are open. */
+  protected closedEnergy?: { hours: string; found: ClosedEnergyNow };
 
   override disconnectedCallback(): void {
     super.disconnectedCallback();
@@ -353,6 +358,8 @@ export class DomoTwinHome extends LitElement {
   protected override willUpdate(changed: PropertyValues): void {
     if ((changed.has("hass") || changed.has("sources")) && this.hass && this.sources) {
       this.readGlance(this.hass, this.sources);
+      // Asked again as the details stay open (a wall screen's): the client keeps it a while.
+      if (this.open === "hours") this.readClosedEnergy();
     }
   }
 
@@ -377,6 +384,34 @@ export class DomoTwinHome extends LitElement {
 
   private toggleDetail(detail: Detail): void {
     this.open = this.open === detail ? undefined : detail;
+    if (this.open === "hours") this.readClosedEnergy();
+  }
+
+  /**
+   * What the place used while closed (D-088), asked of the integration while the hours' details
+   * are open; the client keeps the answer ten minutes, as it is worked out from the recorder.
+   * Nothing is said when it cannot be (an integration older than it); what was said stays when
+   * Home Assistant could not answer for a while.
+   */
+  private readClosedEnergy(): void {
+    const hass = this.hass;
+    const hours = this.sources?.workplace?.hours;
+    if (!hass || !hours) return;
+    const from = hass.connection;
+    const still = (): boolean =>
+      this.hass?.connection === from && this.sources?.workplace?.hours === hours;
+    DomoTwinClient.for(hass)
+      .getClosedEnergy(hours, nowOf(hass))
+      .then(
+        (found) => {
+          if (still() && this.closedEnergy?.found !== found) this.closedEnergy = { hours, found };
+        },
+        (error: unknown) => {
+          if (still() && isHassError(error) && error.code === "unknown_command") {
+            this.closedEnergy = undefined;
+          }
+        },
+      );
   }
 
   private readonly allOff = async (): Promise<void> => {
@@ -566,6 +601,31 @@ export class DomoTwinHome extends LitElement {
     const schedule = this.sources?.workplace?.hours;
     if (!hass || !t || !glance.hours) return nothing;
     const left = glance.leftOn ?? [];
+    const language = t.language;
+    const said = this.closedEnergy?.hours === schedule ? this.closedEnergy?.found : undefined;
+    const used = (
+      key: "closed_week" | "closed_month",
+      value?: ClosedEnergy,
+    ): string | undefined => {
+      if (!value) return undefined;
+      const kwh = formatKwh(value.kwh, language);
+      const words = {
+        kwh:
+          value.share === undefined
+            ? kwh
+            : t.t("home.closed_share", { kwh, share: formatPercent(value.share, language) }),
+      };
+      // Counted from later than asked: as far back as Home Assistant's history goes.
+      return value.since === undefined
+        ? t.t(`home.${key}`, words)
+        : t.t("home.closed_since", {
+            ...words,
+            date: sinceDay(value.since, language, timeStyle(hass).timeZone),
+          });
+    };
+    const energy = [used("closed_week", said?.week), used("closed_month", said?.month)].filter(
+      (line): line is string => line !== undefined,
+    );
     return html`<div class="detail" data-testid="home-hours-detail">
       ${
         left.length > 0
@@ -573,6 +633,11 @@ export class DomoTwinHome extends LitElement {
           : html`<span class="muted"
               >${t.t("home.hours_from", { name: schedule ? entityName(hass, schedule) : "" })}</span
             >`
+      }
+      ${
+        energy.length > 0
+          ? html`<span class="muted" data-testid="home-hours-energy">${energy.join(" · ")}</span>`
+          : nothing
       }
     </div>`;
   }

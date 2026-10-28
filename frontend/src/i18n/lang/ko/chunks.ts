@@ -1161,6 +1161,10 @@ export const chunks: Chunks = {
         other: "영업 종료: {count}개 켜져 있음",
       },
       hours_from: "영업시간: {name}",
+      closed_week: "영업시간 외, 최근 7일: {kwh}",
+      closed_month: "영업시간 외, 이번 달: {kwh}",
+      closed_since: "영업시간 외, {date}부터: {kwh}",
+      closed_share: "{kwh} (전체의 {share})",
       glance: "한눈에 보는 집",
       people: {
         one: "집에 {count}명",
@@ -1434,6 +1438,12 @@ export const chunks: Chunks = {
         solar: "태양광에서",
         unknown: "—",
         same: "변화 없음",
+      },
+      closed: {
+        title: "영업시간 외",
+        place: "이 장소",
+        share: "이번 주 사용량 중 {share}가 영업시간 외에 사용되었습니다.",
+        since: "{date}부터 집계했습니다. Home Assistant 기록은 그 이전을 보관하지 않습니다.",
       },
       peaks: {
         title: "Hydro-Québec 피크",

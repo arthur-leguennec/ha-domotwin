@@ -3,6 +3,7 @@
  * item says in words; where it opens in Home Assistant; the rooms of the plans it is drawn on.
  * Loaded with the report's page, not with the first picture.
  */
+import { readClosed, type ClosedEnergy } from "./closed-energy";
 import type { HomeAssistant } from "../ha/types";
 import { isEntityId } from "../ha/types";
 import type { Translator } from "../i18n";
@@ -104,6 +105,8 @@ export interface Report {
   energy?: ReportEnergy;
   /** Where an integration reads Hydro-Québec's peaks (D-063); none otherwise. */
   peaks?: ReportPeak[];
+  /** A workplace with opening hours: what it used while closed (D-088). */
+  closed?: { week?: ClosedEnergy; before?: ClosedEnergy };
   summary?: ReportSummary;
 }
 
@@ -264,6 +267,14 @@ export function readReport(raw: unknown): Report | undefined {
       return [found];
     });
   }
+  if (isObject(raw.closed)) {
+    const closed: NonNullable<Report["closed"]> = {};
+    for (const key of ["week", "before"] as const) {
+      const found = readClosed(raw.closed[key]);
+      if (found) closed[key] = found;
+    }
+    report.closed = closed;
+  }
   if (isObject(raw.summary)) {
     const summary: ReportSummary = {};
     for (const key of ["by", "text", "error"] as const) {
@@ -376,11 +387,7 @@ export function changeOf(energy: EnergyPair | undefined): number | undefined {
   return Math.round(((energy.week - energy.before) / energy.before) * 100);
 }
 
-/** A quantity of energy, as the language writes it: "12.4 kWh". */
-export function formatKwh(kwh: number, language: string): string {
-  const digits = Math.abs(kwh) < 10 ? 1 : 0;
-  return `${new Intl.NumberFormat(language, { maximumFractionDigits: digits }).format(kwh)} kWh`;
-}
+export { formatKwh, formatPercent } from "./closed-energy";
 
 /** How a moment is written: its language, time zone and clock. */
 export interface Moments {

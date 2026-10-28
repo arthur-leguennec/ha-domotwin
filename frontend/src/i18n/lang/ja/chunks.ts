@@ -1170,6 +1170,10 @@ export const chunks: Chunks = {
         other: "閉店：{count} 件が点いたまま",
       },
       hours_from: "営業時間：{name}",
+      closed_week: "営業時間外（過去7日間）：{kwh}",
+      closed_month: "営業時間外（今月）：{kwh}",
+      closed_since: "営業時間外（{date}以降）：{kwh}",
+      closed_share: "{kwh}（全体の {share}）",
       glance: "家の様子をひと目で",
       people: {
         one: "{count} 人が在宅",
@@ -1458,6 +1462,12 @@ export const chunks: Chunks = {
         solar: "太陽光から",
         unknown: "—",
         same: "変化なし",
+      },
+      closed: {
+        title: "営業時間外",
+        place: "この場所",
+        share: "今週の使用量のうち {share} は営業時間外でした。",
+        since: "{date}以降の集計です。Home Assistant の履歴はそれ以前を保持していません。",
       },
       peaks: {
         title: "Hydro-Québec のピーク",

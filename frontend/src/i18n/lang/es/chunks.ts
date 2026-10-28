@@ -1168,6 +1168,10 @@ export const chunks: Chunks = {
       closed_until: "Cerrado hasta {time}",
       closed_left_on: { one: "Cerrado: {count} encendido", other: "Cerrado: {count} encendidos" },
       hours_from: "Horario de {name}.",
+      closed_week: "Fuera del horario, últimos 7 días: {kwh}",
+      closed_month: "Fuera del horario, este mes: {kwh}",
+      closed_since: "Fuera del horario, desde el {date}: {kwh}",
+      closed_share: "{kwh} ({share} del total)",
       glance: "La casa de un vistazo",
       people: {
         one: "{count} en casa",
@@ -1471,6 +1475,12 @@ export const chunks: Chunks = {
         solar: "Del sol",
         unknown: "—",
         same: "igual",
+      },
+      closed: {
+        title: "Fuera del horario",
+        place: "El local",
+        share: "El {share} de lo que el local consumió esta semana fue fuera del horario.",
+        since: "Contado desde el {date}: el historial de Home Assistant no llega más atrás.",
       },
       peaks: {
         title: "Picos de Hydro-Québec",
