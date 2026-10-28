@@ -1,6 +1,6 @@
 # Python tooling and tests for custom_components/domotwin (Python 3.14).
 pytest-homeassistant-custom-component==0.13.373
-home-assistant-frontend==20260930.4
+home-assistant-frontend==20260930.5
 jsonschema==4.26.0
 types-jsonschema==4.26.0.20261006
 ruff==0.17.2
