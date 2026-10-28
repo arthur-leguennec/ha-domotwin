@@ -673,6 +673,8 @@ export class DomoTwinPanel extends LitElement {
   protected roofDraft?: RoofSettings;
   /** A workplace, being chosen in the settings (D-086); `null`: a home. */
   protected workplaceDraft?: Workplace | null;
+  /** The workplace as it was before it was unticked, while the settings are open. */
+  private workplaceWas?: Workplace;
   /** The draft last shown, and its settings as read. */
   private energyShown?: { draft: EnergySettings; energy: EnergySettings | undefined };
   /** The power sensors Home Assistant's own energy settings name, offered first. */
@@ -1232,6 +1234,32 @@ export class DomoTwinPanel extends LitElement {
         gap: 8px;
         font-size: 0.85rem;
       }
+      .ask h4 {
+        margin: 12px 0 0;
+        font-size: 0.9rem;
+        font-weight: 600;
+      }
+      .ask .meeting-rooms {
+        display: grid;
+        gap: 8px;
+        margin-top: 6px;
+      }
+      .ask .meeting-room {
+        display: grid;
+        gap: 4px;
+        min-width: 0;
+      }
+      .ask .meeting-room select {
+        min-height: 36px;
+        max-width: calc(100% - 24px);
+        margin-inline-start: 24px;
+        padding: 0 8px;
+        border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+        border-radius: 8px;
+        background: var(--card-background-color, #fff);
+        color: inherit;
+        font: inherit;
+      }
     `,
   ];
 
@@ -1506,6 +1534,7 @@ export class DomoTwinPanel extends LitElement {
     this.weatherDraft = undefined;
     this.roofDraft = undefined;
     this.workplaceDraft = undefined;
+    this.workplaceWas = undefined;
     this.peopleOpen = false;
     this.peopleSettings = undefined;
     this.bluetoothOpen = false;
@@ -2063,6 +2092,7 @@ export class DomoTwinPanel extends LitElement {
     this.weatherDraft = this.settings?.weather ?? "";
     this.roofDraft = { ...this.settings?.roof };
     this.workplaceDraft = this.settings?.workplace ? { ...this.settings.workplace } : null;
+    this.workplaceWas = undefined;
     void this.loadEnergyPreferred();
   };
 
@@ -2078,6 +2108,24 @@ export class DomoTwinPanel extends LitElement {
       // None read: none preferred.
     }
     if (hass.connection === this._hass?.connection) this.energyPreferred = preferredFromHome(prefs);
+  }
+
+  /**
+   * A workplace without the meeting rooms of rooms no longer in the plans (D-089), once every
+   * storey's rooms are read: kept until then, as they may be on a storey not read yet.
+   */
+  private keptMeetingRooms(workplace: Workplace): Workplace {
+    const marked = workplace.meeting_rooms;
+    if (!marked || !(this.storeys.length <= 1 || this.elsewhereRead)) return workplace;
+    const rooms = new Set(
+      [...planRooms(this.plan), ...this.elsewhere.flatMap((storey) => storey.rooms)].map(
+        (room) => room.id,
+      ),
+    );
+    const kept = Object.fromEntries(Object.entries(marked).filter(([id]) => rooms.has(id)));
+    const rest: Workplace = { ...workplace };
+    delete rest.meeting_rooms;
+    return Object.keys(kept).length > 0 ? { ...rest, meeting_rooms: kept } : rest;
   }
 
   private readonly saveSettings = async (): Promise<void> => {
@@ -2105,7 +2153,7 @@ export class DomoTwinPanel extends LitElement {
       const roof = this.roofDraft;
       if (roof && Object.keys(roof).length > 0) settings.roof = roof;
       else if (roof) delete settings.roof;
-      if (this.workplaceDraft) settings.workplace = this.workplaceDraft;
+      if (this.workplaceDraft) settings.workplace = this.keptMeetingRooms(this.workplaceDraft);
       else if (this.workplaceDraft === null) delete settings.workplace;
       await client.saveSettings(settings);
       this.settings = settings;
@@ -5092,7 +5140,11 @@ export class DomoTwinPanel extends LitElement {
           data-testid="settings-workplace"
           .checked=${draft !== null}
           @change=${(event: Event) => {
-            this.workplaceDraft = (event.target as HTMLInputElement).checked ? {} : null;
+            // Ticked again before saving: as it was (its hours, its meeting rooms).
+            if (this.workplaceDraft) this.workplaceWas = this.workplaceDraft;
+            this.workplaceDraft = (event.target as HTMLInputElement).checked
+              ? (this.workplaceWas ?? {})
+              : null;
           }}
         />
         <span>${t.t("settings.workplace_on")}</span>

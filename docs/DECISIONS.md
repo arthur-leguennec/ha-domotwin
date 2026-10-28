@@ -4499,18 +4499,24 @@ rooms".
     plans, any storey, and the calendar it is booked in, if any; at most 200 rooms, as private
     rooms (D-039). A home has none.
   - **Booked, taken or free**, worked out in the page from Home Assistant's states, nothing asked
-    of the integration: booked while its calendar's event is under way (the calendar `on`, its end
-    to come), until its end; else taken while a presence sensor of the room's area (`motion`,
-    `occupancy`, `presence`) is on; else free. Its next booking is the calendar's next event, when
-    it starts later today. The calendar's times are the wall clock where Home Assistant is.
+    of the integration: booked while its calendar's event is under way (the calendar `on`, or its
+    times around now a moment before it says so; its end to come), until its end, or all day;
+    else taken while a presence sensor of the room's area (`motion`, `occupancy`, `presence`) is
+    on; else free. Its next booking is the calendar's next event, whatever its day, as the
+    calendar's times are the wall clock where Home Assistant is, whatever the screen's own. A
+    calendar neither `on` nor `off` (its server down) says nothing.
   - **On the Home tab**: a chip counts the free ones (*2 of 3 meeting rooms free*), a tap lists
     each, as the other chips do (D-051).
   - **Booked from DomoTwin**, a calendar that takes new events (`CREATE_EVENT`): now, from the
-    minute under way, for 30 minutes or an hour, never over its next booking; named *Booked from
-    DomoTwin* in the viewer's language, with nobody's name in it (D-086). One at a time, the
-    buttons waiting for Home Assistant's answer.
-  - **Rights**: a private room the viewer may not see is left out (D-039), a calendar they may not
-    see is not read nor booked (D-071).
+    minute under way, for 30 minutes or an hour, never over its next booking (one button, *Book
+    until 10:20*, when the next comes sooner); named *Booked from DomoTwin* in the viewer's
+    language, with nobody's name in it (D-086). One at a time, the buttons waiting for Home
+    Assistant's answer; the room is then said booked on that screen until its calendar says it or
+    the booking ends, as a calendar that reads its server now and then (CalDAV, every 15 minutes)
+    says it later.
+  - **Rights**: a private room the viewer may not see is left out (D-039); a calendar or a
+    presence sensor they may not see is not read, and a calendar they may not use is not booked
+    (D-071).
 - **Consequences.** No new command: the settings carry the rooms, Home Assistant the rest. The
   first load grows by 0.8 kB gzipped (the settings' section); the Home tab carries the rest. New
   texts in the 12 languages. A calendar of an online service is read as Home Assistant keeps it,

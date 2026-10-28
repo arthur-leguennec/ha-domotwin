@@ -106,17 +106,23 @@ the calendars your bookings already go to (D-089).
 
 The Home tab then counts them, *2 of 3 meeting rooms free*, and a tap lists each:
 
-- **Booked until 10:45**: an event of its calendar is under way;
-- **Someone is in**: nothing booked, but its presence sensors (motion, occupancy, presence, in the
+- **Booked until 10:45** (or *Booked all day*): an event of its calendar is under way;
+- **Occupied**: nothing booked, but its presence sensors (motion, occupancy, presence, in the
   room's area) see someone;
-- **Free**, else; with **Next booking at 12:00** when its calendar has one later today.
+- **Free**, else;
+
+with **Next booking: 12:00** (or *tomorrow 09:00*) when its calendar has one to come.
 
 A room whose calendar takes new events (a Local Calendar does) is booked from there, now, for
-30 minutes or an hour: never over its next booking. The event is named *Booked from DomoTwin*,
-with nobody's name in it, as people are named nowhere in a workplace.
+30 minutes or an hour: never over its next booking (the button then says *Book until 10:20*).
+The event is named *Booked from DomoTwin*, with nobody's name in it, as people are named nowhere
+in a workplace. A calendar that reads its server now and then (CalDAV) says the booking a while
+later: the screen it was made on says the room booked meanwhile.
 
-A private room the viewer may not see is left out, and a calendar they may not see is not read
-(their [rights](rights.md)): its room is then said free or taken from its sensors alone.
+A private room the viewer may not see is left out; a calendar or a sensor they may not see is not
+read, and a calendar they may not use is not booked from there (their [rights](rights.md)). A
+calendar that cannot be read (its server down) says nothing: the room is said free or occupied
+from its sensors alone.
 
 ## Closing up
 

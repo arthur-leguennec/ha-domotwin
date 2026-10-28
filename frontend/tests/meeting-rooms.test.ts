@@ -86,6 +86,96 @@ describe("a workplace's meeting rooms (D-089)", () => {
     ]);
   });
 
+  it("says booked what its calendar's times say, what was booked from here, a whole day", () => {
+    const hass = home({
+      // Under way since 9:55 by its times, its state not yet on.
+      "calendar.board": {
+        state: "off",
+        attributes: {
+          supported_features: 1,
+          start_time: "2026-10-28 09:55:00",
+          end_time: "2026-10-28 10:30:00",
+        },
+      },
+      // Its server cannot be read: nothing said, not booked from here.
+      "calendar.huddle": {
+        state: "unavailable",
+        attributes: { supported_features: 1, start_time: "2026-10-28 08:00:00" },
+      },
+      // A whole day, and the next booking tomorrow.
+      "calendar.kitchen": {
+        state: "on",
+        attributes: {
+          supported_features: 1,
+          all_day: true,
+          start_time: "2026-10-28 00:00:00",
+          end_time: "2026-10-29 00:00:00",
+        },
+      },
+    });
+    const marked = {
+      board: { calendar: "calendar.board" },
+      huddle: { calendar: "calendar.huddle" },
+      kitchen: { calendar: "calendar.kitchen" },
+    };
+    const [board, huddle, kitchen] = meetingRoomsOf(
+      hass,
+      rooms,
+      NO_BINDINGS,
+      marked,
+      NOTHING_UNSEEN,
+      new Set(),
+    );
+    expect(board).toMatchObject({ state: "booked", until: Date.parse("2026-10-28T14:30:00Z") });
+    expect(huddle).toMatchObject({ state: "free", bookable: false });
+    expect(huddle?.next).toBeUndefined();
+    expect(kitchen).toMatchObject({ state: "booked", allDay: true });
+    // Booked from here, its calendar not saying it yet (one that reads its server now and then).
+    const off = home({
+      "calendar.huddle": {
+        state: "off",
+        attributes: {
+          supported_features: 1,
+          start_time: "2026-10-29 09:00:00",
+          end_time: "2026-10-29 10:00:00",
+        },
+      },
+    });
+    const held = { huddle: { start: NOW, end: NOW + 1_800_000 } };
+    const found = meetingRoomsOf(off, rooms, NO_BINDINGS, marked, NOTHING_UNSEEN, new Set(), held);
+    expect(found[1]).toMatchObject({ state: "booked", until: NOW + 1_800_000 });
+    // Once it ends, free again, with the next booking tomorrow.
+    off.now = () => NOW + 1_800_000;
+    const after = meetingRoomsOf(off, rooms, NO_BINDINGS, marked, NOTHING_UNSEEN, new Set(), held);
+    expect(after[1]).toMatchObject({
+      state: "free",
+      next: Date.parse("2026-10-29T13:00:00Z"),
+      bookable: true,
+    });
+  });
+
+  it("is booked only by who may use its calendar, taken only by sensors they may see", () => {
+    const hass = home({
+      "calendar.huddle": { state: "off", attributes: { supported_features: 1 } },
+      "binary_sensor.huddle_motion": { state: "on", attributes: { device_class: "motion" } },
+    });
+    hass.canAct = (entity) => entity !== "calendar.huddle";
+    const marked = { huddle: { calendar: "calendar.huddle" } };
+    expect(meetingRoomsOf(hass, rooms, NO_BINDINGS, marked, NOTHING_UNSEEN, new Set())).toEqual([
+      {
+        room: "huddle",
+        name: "Huddle",
+        calendar: "calendar.huddle",
+        state: "taken",
+        bookable: false,
+      },
+    ]);
+    const unseen = { areas: new Set<string>(), entities: new Set(["binary_sensor.huddle_motion"]) };
+    expect(meetingRoomsOf(hass, rooms, NO_BINDINGS, marked, unseen, new Set())[0]?.state).toBe(
+      "free",
+    );
+  });
+
   it("leaves out a private room the viewer may not see, and a calendar they may not", () => {
     const hass = home({
       "calendar.board": { state: "off", attributes: { supported_features: 1 } },

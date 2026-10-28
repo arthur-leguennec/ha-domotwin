@@ -26,6 +26,7 @@ import {
   bookingOf,
   meetingRoomsOf,
   serviceTime,
+  type Held,
   type MeetingRoom,
 } from "../live/meeting-rooms";
 import { formatKwh, formatPercent, sinceDay, type ClosedEnergy } from "../live/closed-energy";
@@ -375,6 +376,8 @@ export class DomoTwinHome extends LitElement {
   private meetings: MeetingRoom[] = [];
   /** The meeting room being booked, while Home Assistant has not answered. */
   protected booking?: string;
+  /** The bookings made from here, by room, until their calendars say them (D-089). */
+  private held: Record<string, Held> = {};
 
   /** When the peak's phase changes next (D-063): the glance is worked out again then. */
   private peakTimer: ReturnType<typeof setTimeout> | undefined;
@@ -393,20 +396,28 @@ export class DomoTwinHome extends LitElement {
       // Asked again as the details stay open (a wall screen's): the client keeps it a while.
       if (this.open === "hours") this.readClosedEnergy();
     }
+    if (["hass", "sources", "unseen"].some((key) => changed.has(key))) this.readMeetings();
+  }
+
+  /** A workplace's meeting rooms (D-089), as the viewer may see them. */
+  private readMeetings(): void {
     const hass = this.hass;
     const sources = this.sources;
-    if (["hass", "sources", "unseen"].some((key) => changed.has(key)) && hass && sources) {
-      // A workplace's meeting rooms (D-089), as the viewer may see them.
-      this.meetings = meetingRoomsOf(
-        hass,
-        sources.rooms,
-        sources.bindings ?? NO_BINDINGS,
-        sources.workplace?.meeting_rooms,
-        this.unseen,
-        sources.closed,
-      );
-      if (this.open === "meetings" && this.meetings.length === 0) this.open = undefined;
-    }
+    if (!hass || !sources) return;
+    // A booking made from here is said until it ends, or its calendar says it.
+    const now = nowOf(hass);
+    const held = Object.entries(this.held).filter(([, slot]) => slot.end > now);
+    if (held.length !== Object.keys(this.held).length) this.held = Object.fromEntries(held);
+    this.meetings = meetingRoomsOf(
+      hass,
+      sources.rooms,
+      sources.bindings ?? NO_BINDINGS,
+      sources.workplace?.meeting_rooms,
+      this.unseen,
+      sources.closed,
+      this.held,
+    );
+    if (this.open === "meetings" && this.meetings.length === 0) this.open = undefined;
   }
 
   /** The glance now, and again when the peak starts or ends, as nothing else may change then. */
@@ -667,37 +678,49 @@ export class DomoTwinHome extends LitElement {
       <ul class="meetings">
         ${this.meetings.map((meeting) => {
           const said = [
-            meeting.state === "booked" && meeting.until !== undefined
-              ? t.t("home.meeting_booked", { time: at(meeting.until) })
-              : meeting.state === "taken"
-                ? t.t("home.meeting_taken")
-                : t.t("home.meeting_free"),
+            meeting.state === "booked" && meeting.allDay
+              ? t.t("home.meeting_booked_all_day")
+              : meeting.state === "booked" && meeting.until !== undefined
+                ? t.t("home.meeting_booked", { time: at(meeting.until) })
+                : meeting.state === "taken"
+                  ? t.t("home.meeting_taken")
+                  : t.t("home.meeting_free"),
             meeting.next === undefined
               ? undefined
               : t.t("home.meeting_next", { time: at(meeting.next) }),
           ].filter((part): part is string => part !== undefined);
-          const bookable = meeting.bookable && meeting.state !== "booked";
+          // A booking for each length, the same one once: never over the next booking.
+          const slots: { minutes: number; end: number }[] = [];
+          for (const minutes of BOOKINGS) {
+            const slot = bookingOf(meeting, minutes, nowOf(hass));
+            if (slot && !slots.some((each) => each.end === slot.end)) {
+              slots.push({ minutes, end: slot.end });
+            }
+          }
+          const whole = (minutes: number, end: number): boolean =>
+            end - Math.floor(nowOf(hass) / 60_000) * 60_000 === minutes * 60_000;
           return html`<li data-room=${meeting.room} data-state=${meeting.state}>
             <span class="what">
-              <strong>${meeting.name}</strong>
+              <strong id="meeting-${meeting.room}">${meeting.name}</strong>
               <span class="muted">${said.join(" · ")}</span>
             </span>
-            ${
-              bookable
-                ? BOOKINGS.map(
-                    (minutes) =>
-                      html`<button
-                        class="action"
-                        data-testid="home-meeting-book"
-                        data-minutes=${minutes}
-                        ?disabled=${this.booking !== undefined}
-                        @click=${() => void this.book(meeting, minutes)}
-                      >
-                        ${t.t("home.meeting_book", { minutes })}
-                      </button>`,
-                  )
-                : nothing
-            }
+            ${slots.map(
+              ({ minutes, end }) =>
+                html`<button
+                  class="action"
+                  data-testid="home-meeting-book"
+                  data-minutes=${minutes}
+                  aria-describedby="meeting-${meeting.room}"
+                  ?disabled=${this.booking !== undefined}
+                  @click=${() => void this.book(meeting, minutes)}
+                >
+                  ${
+                    whole(minutes, end)
+                      ? t.t("home.meeting_book", { minutes })
+                      : t.t("home.meeting_book_until", { time: at(end) })
+                  }
+                </button>`,
+            )}
           </li>`;
         })}
       </ul>
@@ -727,6 +750,9 @@ export class DomoTwinHome extends LitElement {
         },
         { entity_id: meeting.calendar },
       );
+      // Said booked until its calendar says it: one that reads its server now and then.
+      this.held = { ...this.held, [meeting.room]: slot };
+      this.readMeetings();
       this.refused = undefined;
     } catch (error) {
       this.refused = failureText(t, error);

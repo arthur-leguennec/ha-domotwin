@@ -30,7 +30,13 @@ test.describe("a workplace's meeting rooms (D-089)", () => {
   });
 
   test("an administrator marks the meeting rooms and their calendars", async ({ page }) => {
-    await openHarness(page, { mode: "panel", live: true, workplace: true, start: "3d" });
+    await openHarness(page, {
+      mode: "panel",
+      live: true,
+      workplace: true,
+      hours: "off",
+      start: "3d",
+    });
     await page.evaluate(() => {
       (
         window as never as { __setState: (id: string, state: string, attributes: object) => void }
@@ -43,6 +49,13 @@ test.describe("a workplace's meeting rooms (D-089)", () => {
     await living.getByTestId("settings-meeting").check();
     await living.getByTestId("settings-meeting-calendar").selectOption("calendar.office_bookings");
     await rooms.locator('[data-room="kitchen"]').getByTestId("settings-meeting").check();
+    await rooms.locator('[data-room="bedroom"]').getByTestId("settings-meeting").check();
+    await rooms.locator('[data-room="bedroom"]').getByTestId("settings-meeting").uncheck();
+    // Its hours chosen afterwards keep them; unticked and ticked again, as they were.
+    await page.getByTestId("settings-hours").selectOption("");
+    await page.getByTestId("settings-workplace").uncheck();
+    await page.getByTestId("settings-workplace").check();
+    await expect(living.getByTestId("settings-meeting")).toBeChecked();
     await page.getByTestId("settings-save").click();
     await expect
       .poll(async () => ((await savedSettings(page)) as { workplace?: unknown }).workplace)
@@ -80,7 +93,7 @@ test.describe("a workplace's meeting rooms (D-089)", () => {
     await expect(living).toContainText("Booked until 10:45");
     await expect(living.getByTestId("home-meeting-book")).toHaveCount(0);
     await expect(bedroom).toHaveAttribute("data-state", "taken");
-    await expect(bedroom).toContainText("Someone is in · Next booking at 12:00");
+    await expect(bedroom).toContainText("Occupied · Next booking: 12:00");
     // The kitchen has no calendar: free, not booked from here.
     await expect(kitchen).toContainText("Free");
     await expect(kitchen.getByTestId("home-meeting-book")).toHaveCount(0);
@@ -115,8 +128,53 @@ test.describe("a workplace's meeting rooms (D-089)", () => {
     ).toHaveCount(0);
   });
 
+  test("a booking is cut short by the next one, and one refused is said", async ({ page }) => {
+    await openHarness(page, {
+      mode: "panel",
+      live: true,
+      workplace: true,
+      meetings: true,
+      start: "home",
+    });
+    // The bedroom's next booking at 10:20: one button, until then.
+    await page.evaluate(() => {
+      (
+        window as never as { __setState: (id: string, state: string, attributes: object) => void }
+      ).__setState("calendar.bedroom_bookings", "off", {
+        supported_features: 7,
+        start_time: "2026-10-28 10:20:00",
+        end_time: "2026-10-28 11:00:00",
+      });
+    });
+    await page.getByTestId("home-meetings").click();
+    const bedroom = page.getByTestId("home-meetings-detail").locator('li[data-room="bedroom"]');
+    const book = bedroom.getByTestId("home-meeting-book");
+    await expect(book).toContainText("Book until 10:20");
+    await expect(book).toHaveAttribute("aria-describedby", "meeting-bedroom");
+    // Home Assistant refuses: said, the room still free.
+    await page.evaluate(() => {
+      (window as never as { __failServices: boolean }).__failServices = true;
+    });
+    await book.click();
+    await expect(page.getByRole("alert")).toContainText("The device did not answer");
+    await expect(bedroom).toHaveAttribute("data-state", "free");
+    await expect(book).toBeEnabled();
+  });
+
   test("a home has none", async ({ page }) => {
-    await openHarness(page, { mode: "panel", live: true, meetings: true, start: "home" });
+    await openHarness(page, {
+      mode: "panel",
+      live: true,
+      workplace: true,
+      meetings: true,
+      start: "home",
+    });
+    await expect(page.getByTestId("home-meetings")).toBeVisible();
+    // Made a home again: no meeting rooms.
+    await fromMenu(page, "settings");
+    await page.getByTestId("settings-workplace").uncheck();
+    await page.getByTestId("settings-save").click();
+    await page.getByTestId("tab-home").click();
     await expect(page.getByTestId("home-tab")).toBeVisible();
     await expect(page.getByTestId("home-lights")).toBeVisible();
     await expect(page.getByTestId("home-meetings")).toHaveCount(0);
