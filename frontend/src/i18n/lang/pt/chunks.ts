@@ -1277,6 +1277,9 @@ export const chunks: Chunks = {
       start_hint: "Para si, em todos os dispositivos.",
       device_start: "Neste dispositivo",
       device_same: "Como em todos os dispositivos",
+      voice: "A voz neste dispositivo",
+      voice_hint:
+        "Desativada: sem botão de microfone aqui, para um telemóvel no bolso ou um ecrã numa sala comum.",
       screen: "Este dispositivo é o ecrã de parede",
       screen_hint: "Abre no separador desse ecrã e mostra a sua proteção de ecrã.",
       screen_none: "Nenhum",
@@ -1985,6 +1988,9 @@ export const chunks: Chunks = {
       taken: "Outro ecrã tem este nome.",
       start: "Abre em",
       start_same: "O separador do próprio dispositivo, senão o do utilizador",
+      voice: "A voz neste ecrã",
+      voice_hint:
+        "Desativada: sem botão de microfone no ecrã, diga o que disser o seu dispositivo.",
       saver_title: "Proteção de ecrã",
       after: "Aparece após",
       never: "Nunca",

@@ -670,6 +670,7 @@ export class DomoTwinView extends LitElement {
     voiceHelp: { state: true },
     wifi: { attribute: false },
     screen: { attribute: false },
+    voiceHere: { attribute: false },
     wifiOpen: { state: true },
     realSun: { state: true },
     alerts: { state: true },
@@ -862,6 +863,8 @@ export class DomoTwinView extends LitElement {
   wifi?: Wifi;
   /** The card's screen (`screen`, D-029): what it may show of the Wi-Fi is asked for it. */
   screen = "";
+  /** Voice on here: on this device and the wall screen it is (D-085), as the panel or card says. */
+  voiceHere = true;
   protected wifiOpen = false;
   private wifiModule?: Promise<unknown>;
   /** Sunlight through the windows: the sun where it really is. */
@@ -2150,6 +2153,8 @@ export class DomoTwinView extends LitElement {
     if (changed.has("wifi") && this.wifiOpen) {
       if (!this.wifi || (!this.wifiEditable() && !drawable(this.wifi))) this.wifiOpen = false;
     }
+    // Voice turned off here (D-085): what it offered goes.
+    if (changed.has("voiceHere") && !this.voiceHere) this.voiceHelp = undefined;
     if (changed.has("options")) {
       // The layer and the sun start as the options say; the layer menu changes them after.
       const previous = changed.get("options");
@@ -5736,7 +5741,8 @@ export class DomoTwinView extends LitElement {
           ${icon(mdiLayersOutline)}
         </button>
         ${
-          this.options.voice !== false && assistAvailable(this.hass)
+          // Voice may be off for the card (`voice: false`), or here (D-085).
+          this.options.voice !== false && this.voiceHere && assistAvailable(this.hass)
             ? html`<button
                 data-testid="voice"
                 title=${t.t("voice.listen")}

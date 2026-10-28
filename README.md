@@ -79,7 +79,8 @@ What you reach for: the practical side, on a phone as on a computer.
 - **Your voice.** A microphone button opens Home Assistant's Assist already listening, on a wall
   tablet as on a phone. When Assist cannot hear yet, DomoTwin sets up local voice with your
   consent: Whisper or Speech-to-Phrase and Piper, installed through the Supervisor, nothing
-  leaving your home. The voice blueprints are added in one tap. See [your
+  leaving your home. The voice blueprints are added in one tap. Voice turns off in one tap on a
+  device: a phone, a screen in a shared room. See [your
   voice](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/voice.md).
 - **Hydro-Québec's peaks.** For a home on Flex D or the winter credit, with
   [hydroqc](https://github.com/hydroqc/hydroqc-ha) or
@@ -436,7 +437,7 @@ YAML is never required. For reference, the card options are:
 | `orbit`       | `true`, `false`                     | `false`    | Kiosk: a slow turn around the home meanwhile. |
 | `night_dim`   | `true`, `false`                     | `false`    | Kiosk: dimmed at night meanwhile (unless an alert shows). |
 | `tools`       | `true`, `false`                     | `true`     | The view's buttons.                       |
-| `voice`       | `true`, `false`                     | `true`     | The microphone button, when Assist is there. |
+| `voice`       | `true`, `false`                     | `true`     | The microphone button, when Assist is there and voice is on on the device. |
 | `screen`      | a name (`hallway`…)                 | none       | This screen's name, for `domotwin.show`.  |
 | `font_family` | a font family, `theme`              | bundled    | Font of the card's texts; `theme`: your theme's. |
 | `demo`        | `true`, `false`                     | `false`    | The demo house and its day instead of your home; nothing of your home is touched. |

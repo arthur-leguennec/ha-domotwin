@@ -4317,3 +4317,41 @@ start from suggestions, with more settings for those who want them.
     takes about 3.6 ms, and they are worked out again only when the registries change; the states
     of 10 shortcuts about 1.3 ms, each kind's devices worked out once for each of Home Assistant's
     states.
+
+## D-085 · Voice off on a device: a phone, a screen in a shared room (M47)
+
+Asked by the maintainer after 0.6.0: voice can be turned off on one device.
+
+- **Context.** The 3D view's microphone button (D-041) shows wherever Assist runs: on every phone,
+  computer and wall screen of the home. Some do not want it: a phone in a pocket, a screen in a
+  child's room or in a shared room. Only the card had a switch, `voice: false`, kept in a
+  dashboard's YAML, so the panel and a device's own preference had none.
+- **Decision.**
+  - **Kept on the device, not for the user.** `localStorage` keeps `domotwin-voice: off` on the
+    device (as its own start tab, D-055, and the wall screen it is, D-076): whoever signs in
+    there, nothing about the user changes on their other devices. The panel and the card read it
+    as they are shown (`live/voice.ts`), follow another tab's change (the `storage` event) and
+    tell the 3D view (`voiceHere`), which reads nothing itself; storage the browser refuses leaves
+    voice on.
+  - **Two places to turn it off.** *Voice on this device* in *Your choices*, next to the tab this
+    device opens on, for everyone; and in the panel's voice settings (**⋮** → **Voice**, where an
+    administrator looks for it). The voice settings change it at once; the choices with their
+    **Save**, writing it only when changed there, lest they undo what was set meanwhile. Shown
+    where Assist runs; not in the demo house or the sandbox, homes of their own (as the wall
+    screen a device is). On a wall screen set without voice, both say that its layout comes
+    first.
+  - **A wall screen without voice.** An administrator's layout of a screen (D-076) has *Voice on
+    this screen*: off, the panel on the device that is that screen has no microphone button,
+    whatever the device's own choice; none either while the layouts are not read (asked for again
+    meanwhile), lest one set without voice get it back for a while. Kept by the integration with
+    the layout (`voice: false`); the switch shows where Assist runs. The layouts are the panel's
+    (D-076): a card follows the device's choice and its own `voice`. Turned off, what the
+    microphone had opened (the help to set voice up) closes.
+  - **What off means.** No microphone button on that device, in the panel and in the cards. Assist
+    stays set up; the other devices keep theirs; the blueprints and `domotwin.show` by voice from a
+    satellite go on, being Home Assistant's, not the device's. The card's `voice: false` is as
+    before.
+- **Consequences.** The first load grows by 0.5 kB (reading and following the device's choice in
+  the panel and the card); the switches are in the dialogs' chunks. Nothing is sent anywhere. A
+  layout saved without voice is not read by an older DomoTwin (its stricter schema leaves the
+  screen out): going back a version is not supported, as for every key added to a store.

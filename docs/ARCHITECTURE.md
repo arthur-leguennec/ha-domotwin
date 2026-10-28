@@ -252,7 +252,8 @@ every reader returns `Result` with a stable error code that the frontend transla
    integration's `voice.py` installs the shipped blueprints into Home Assistant's blueprint
    folder (`domotwin/voice/blueprints`) and, on the Supervisor, sets up local voice in the
    background (`domotwin/voice/setup`: the apps through `AddonManager`, the Wyoming discovery,
-   an Assist pipeline), its steps read with `domotwin/voice/get`.
+   an Assist pipeline), its steps read with `domotwin/voice/get`. A device keeps its voice off in
+   `localStorage` (`readDeviceVoice`, D-085), and a wall screen's layout may too (`voice: false`).
 8. **History reports.** **History** in an element's controls or a room's panel opens
    `<domotwin-history>` over the view (D-058). It asks Home Assistant's own commands, not the
    integration: `history/history_during_period` (the states alone),

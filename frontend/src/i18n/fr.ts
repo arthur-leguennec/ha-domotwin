@@ -543,6 +543,10 @@ export const fr: Dictionary = {
     listen: "Parler à Assist",
     settings: "Voix",
     https_title: "Le micro a besoin de HTTPS",
+    device: "La voix sur cet appareil",
+    device_hint:
+      "Désactivée : pas de bouton micro ici. Assist reste tel quel sur les autres appareils.",
+    screen_off: "Cet appareil est un écran mural réglé sans voix : son réglage l’emporte.",
     https:
       "Les navigateurs ne prêtent le micro qu’aux pages servies en HTTPS, ou ouvertes sur l’ordinateur où tourne Home Assistant. Cette page est servie en HTTP.",
     https_how:

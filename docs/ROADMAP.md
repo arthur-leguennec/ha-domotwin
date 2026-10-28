@@ -73,6 +73,7 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | 0.5.0     | Fifth release: all of the above                            | ✅     |
 | M46       | Shortcuts on the Home tab, suggested from the home         | ✅     |
 | 0.6.0     | Sixth release: the shortcuts                               | ✅     |
+| M47       | Voice off on a device, or on a wall screen                 | ✅     |
 | 0.7.0     | Seventh release: what the use of 0.6.0 asks for            | ⏳     |
 
 M5 to M11 were added after M3b (`DECISIONS.md`, D-022): what people expect of a 3D home dashboard,
@@ -2135,4 +2136,8 @@ before its milestone starts, which goes on with what needs no answer.
 
 ## Then, to 0.7.0
 
+- ✅ **M47, voice off on a device** (D-085, above), asked for by the maintainer after 0.6.0: on a
+  phone, a computer or a screen in a shared room, *Voice on this device* (in the voice settings,
+  or in *Your choices*) takes its microphone button away, kept on that device only; an
+  administrator does the same for a wall screen in its layout.
 - ⏳ **Release 0.7.0**: what the use of 0.6.0 asks for.

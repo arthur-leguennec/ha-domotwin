@@ -598,6 +598,9 @@ export const main: Dictionary = {
     listen: "Spreek tegen Assist",
     settings: "Spraak",
     https_title: "De microfoon heeft HTTPS nodig",
+    device: "Spraak op dit apparaat",
+    device_hint: "Uit: hier geen microfoonknop. Assist blijft zoals het is op de andere apparaten.",
+    screen_off: "Dit apparaat is een wandscherm zonder spraak: die instelling gaat voor.",
     https:
       "Browsers geven de microfoon alleen aan pagina's die via HTTPS worden geserveerd, of die geopend zijn op de computer waarop Home Assistant draait. Deze pagina wordt via HTTP geserveerd.",
     https_how:

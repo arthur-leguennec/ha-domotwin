@@ -31,6 +31,8 @@ export interface SaverLayout {
 export interface ScreenLayout {
   /** The tab it opens on and goes back to (else the device's own, else the user's). */
   start?: Tab;
+  /** `false`: no voice on it (D-085), the microphone button gone. */
+  voice?: boolean;
   saver: SaverLayout;
 }
 
@@ -93,6 +95,7 @@ export function readScreens(raw: unknown): Screens {
     const value = layout as Record<string, unknown>;
     const read: ScreenLayout = { saver: readSaver(value.saver) };
     if (isTab(value.start)) read.start = value.start;
+    if (value.voice === false) read.voice = false;
     screens[name] = read;
   }
   return screens;

@@ -1270,6 +1270,9 @@ export const chunks: Chunks = {
       start_hint: "모든 기기에서 나에게 적용됩니다.",
       device_start: "이 기기에서",
       device_same: "모든 기기와 동일",
+      voice: "이 기기에서 음성 사용",
+      voice_hint:
+        "끄면: 여기에 마이크 버튼이 없습니다. 주머니 속 휴대폰이나 공용 공간의 화면에 알맞습니다.",
       screen: "이 기기를 벽걸이 화면으로 사용",
       screen_hint: "해당 화면의 탭으로 열리고 화면 보호기를 표시합니다.",
       screen_none: "없음",
@@ -1952,6 +1955,8 @@ export const chunks: Chunks = {
       taken: "같은 이름의 화면이 이미 있습니다.",
       start: "시작 화면",
       start_same: "기기 자체의 탭, 없으면 사용자의 탭",
+      voice: "이 화면에서 음성 사용",
+      voice_hint: "끄면: 기기 설정과 관계없이 이 화면에 마이크 버튼이 없습니다.",
       saver_title: "화면 보호기",
       after: "표시까지 대기 시간",
       never: "안 함",

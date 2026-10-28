@@ -1274,6 +1274,9 @@ export const chunks: Chunks = {
       start_hint: "Voor jou, op elk apparaat.",
       device_start: "Op dit apparaat",
       device_same: "Zoals op elk apparaat",
+      voice: "Spraak op dit apparaat",
+      voice_hint:
+        "Uit: hier geen microfoonknop, voor een telefoon in je zak of een scherm in een gedeelde ruimte.",
       screen: "Dit apparaat is het wandscherm",
       screen_hint: "Het opent op het tabblad van dat scherm en toont de schermbeveiliging ervan.",
       screen_none: "Geen",
@@ -1991,6 +1994,8 @@ export const chunks: Chunks = {
       taken: "Een ander scherm heeft deze naam.",
       start: "Opent op",
       start_same: "Het eigen tabblad van het apparaat, anders dat van de gebruiker",
+      voice: "Spraak op dit scherm",
+      voice_hint: "Uit: geen microfoonknop op het scherm, wat het apparaat ook zegt.",
       saver_title: "Schermbeveiliging",
       after: "Komt na",
       never: "Nooit",

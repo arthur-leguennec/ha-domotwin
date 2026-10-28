@@ -139,6 +139,7 @@ import {
   type ScreenLayout,
   type Screens,
 } from "../live/screens";
+import { deviceVoiceEvent, readDeviceVoice } from "../live/voice";
 import type { GlanceSources } from "../live/glance";
 import { usualWeather, weatherEntities } from "../live/weather";
 import { forScreen, resolveShow, type ShowRequest } from "../live/show";
@@ -390,6 +391,7 @@ export class DomoTwinPanel extends LitElement {
     guestsStoreys: { state: true },
     rightsStoreys: { state: true },
     voiceOpen: { state: true },
+    deviceVoice: { state: true },
     configHistoryOpen: { state: true },
     plainOpen: { state: true },
     reportOpen: { state: true },
@@ -581,6 +583,8 @@ export class DomoTwinPanel extends LitElement {
   protected rightsStoreys?: HomeStorey[];
   /** The voice settings (D-041) are open. */
   protected voiceOpen = false;
+  /** Voice on this device (D-085): off, the 3D view has no microphone button. */
+  protected deviceVoice = readDeviceVoice();
   /** The configuration history (D-062) is open, its module loaded. */
   protected configHistoryOpen = false;
   /** An automation in plain words (D-070) is being written, its module loaded. */
@@ -1259,6 +1263,7 @@ export class DomoTwinPanel extends LitElement {
     if (this._hass) this.connectData();
     this.followSecurity();
     window.addEventListener("pointerdown", this.closeMore, true);
+    window.addEventListener("storage", this.onStorage);
     this.addEventListener("keydown", this.onEscape);
     for (const type of ACTIVITY) window.addEventListener(type, this.onActivity, true);
     // Shown again (the screen woken, the panel opened): someone is there.
@@ -1278,6 +1283,7 @@ export class DomoTwinPanel extends LitElement {
   override disconnectedCallback(): void {
     super.disconnectedCallback();
     window.removeEventListener("pointerdown", this.closeMore, true);
+    window.removeEventListener("storage", this.onStorage);
     this.removeEventListener("keydown", this.onEscape);
     for (const type of ACTIVITY) window.removeEventListener(type, this.onActivity, true);
     clearInterval(this.saverTimer);
@@ -1683,6 +1689,16 @@ export class DomoTwinPanel extends LitElement {
         this.screensTimer = setTimeout(() => void this.loadScreens(), SETTINGS_RETRY_MS);
       }
     }
+  }
+
+  /**
+   * Voice here: on this device and on the wall screen it is, if it is one (D-085). A wall screen
+   * has none while the layouts are not read (asked for again meanwhile): one set without voice
+   * does not get it back for a while.
+   */
+  private get voiceHere(): boolean {
+    if (this.deviceScreen && this.screens === undefined) return false;
+    return this.deviceVoice && this.screenLayout?.voice !== false;
   }
 
   /** The layout of the wall screen this device is, when it is one and the screen is still there. */
@@ -3634,6 +3650,11 @@ export class DomoTwinPanel extends LitElement {
   }
 
   /** A press outside the open menu closes it. */
+  /** Another tab of this device turned its voice on or off (D-085). */
+  private readonly onStorage = (event: StorageEvent): void => {
+    if (deviceVoiceEvent(event)) this.deviceVoice = readDeviceVoice();
+  };
+
   private readonly closeMore = (event: PointerEvent): void => {
     const more = this.renderRoot.querySelector(".more");
     if (this.moreOpen && more && !event.composedPath().includes(more)) this.moreOpen = false;
@@ -3745,6 +3766,7 @@ export class DomoTwinPanel extends LitElement {
                   .t=${t}
                   .choices=${this.choices ?? NO_CHOICES}
                   .deviceStart=${this.deviceStart}
+                  .deviceVoice=${this.deviceVoice}
                   .screens=${this.screens}
                   .deviceScreen=${this.deviceScreen}
                   .panelPath=${this.panelPath()}
@@ -3814,6 +3836,7 @@ export class DomoTwinPanel extends LitElement {
       .wifi=${this.wifi}
       .planError=${this.planError}
       .options=${PANEL_OPTIONS}
+      .voiceHere=${this.voiceHere}
       .north=${this.northDraft ?? this.settings?.north ?? 0}
       .privateRooms=${this.settings?.rooms}
       .rights=${this.settings?.rights}
@@ -4177,10 +4200,12 @@ export class DomoTwinPanel extends LitElement {
   }
 
   private readonly onChoicesSaved = (
-    event: CustomEvent<{ choices: Choices; device?: Tab; screen?: string }>,
+    event: CustomEvent<{ choices: Choices; device?: Tab; screen?: string; voice?: boolean }>,
   ): void => {
     this.choices = event.detail.choices;
     this.deviceStart = event.detail.device;
+    // Changed there: what the device now keeps.
+    if (event.detail.voice !== undefined) this.deviceVoice = event.detail.voice;
     if (event.detail.screen !== this.deviceScreen) {
       this.deviceScreen = event.detail.screen;
       this.quietSince = Date.now();
@@ -5256,6 +5281,11 @@ export class DomoTwinPanel extends LitElement {
         ? html`<domotwin-voice
             .hass=${this._hass}
             .mode=${"settings"}
+            .deviceVoice=${this.deviceVoice}
+            .screenSilent=${this.screenLayout?.voice === false}
+            @domotwin-device-voice=${(event: CustomEvent<{ on: boolean }>) => {
+              this.deviceVoice = event.detail.on;
+            }}
             @domotwin-close=${() => (this.voiceOpen = false)}
           ></domotwin-voice>`
         : nothing

@@ -1279,6 +1279,9 @@ export const chunks: Chunks = {
       start_hint: "自分用、すべてのデバイスで共通。",
       device_start: "このデバイスでは",
       device_same: "すべてのデバイスと同じ",
+      voice: "このデバイスで音声を使う",
+      voice_hint:
+        "オフ：ここにマイクボタンを表示しません。ポケットの中のスマートフォンや共有スペースの画面に。",
       screen: "このデバイスを壁掛け画面にする",
       screen_hint: "その画面のタブで開き、スクリーンセーバーを表示します。",
       screen_none: "なし",
@@ -1978,6 +1981,8 @@ export const chunks: Chunks = {
       taken: "この名前の画面がすでにあります。",
       start: "最初の画面",
       start_same: "デバイス自体のタブ、なければユーザーのタブ",
+      voice: "この画面で音声を使う",
+      voice_hint: "オフ：デバイスの設定にかかわらず、この画面にマイクボタンを表示しません。",
       saver_title: "スクリーンセーバー",
       after: "開始までの時間",
       never: "なし",

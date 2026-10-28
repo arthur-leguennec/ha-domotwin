@@ -1282,6 +1282,9 @@ export const chunks: Chunks = {
       start_hint: "Per te, su ogni dispositivo.",
       device_start: "Su questo dispositivo",
       device_same: "Come su ogni dispositivo",
+      voice: "La voce su questo dispositivo",
+      voice_hint:
+        "Disattivata: nessun pulsante del microfono qui, per un telefono in tasca o uno schermo in una stanza comune.",
       screen: "Questo dispositivo è lo schermo a parete",
       screen_hint: "Si apre sulla sezione di quello schermo e mostra il suo salvaschermo.",
       screen_none: "Nessuno",
@@ -1998,6 +2001,9 @@ export const chunks: Chunks = {
       taken: "Un altro schermo ha questo nome.",
       start: "Si apre su",
       start_same: "La sezione propria del dispositivo, altrimenti quella dell'utente",
+      voice: "La voce su questo schermo",
+      voice_hint:
+        "Disattivata: nessun pulsante del microfono sullo schermo, qualunque cosa dica il suo dispositivo.",
       saver_title: "Salvaschermo",
       after: "Arriva dopo",
       never: "Mai",

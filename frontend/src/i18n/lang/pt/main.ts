@@ -595,6 +595,11 @@ export const main: Dictionary = {
     listen: "Falar com o Assist",
     settings: "Voz",
     https_title: "O microfone precisa de HTTPS",
+    device: "A voz neste dispositivo",
+    device_hint:
+      "Desativada: sem botão de microfone aqui. O Assist fica como está nos outros dispositivos.",
+    screen_off:
+      "Este dispositivo é um ecrã de parede definido sem voz: a definição dele prevalece.",
     https:
       "Os navegadores só dão acesso ao microfone a páginas servidas por HTTPS, ou abertas no computador onde corre o Home Assistant. Esta página é servida por HTTP.",
     https_how:

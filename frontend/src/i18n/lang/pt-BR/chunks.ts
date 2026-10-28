@@ -1279,6 +1279,9 @@ export const chunks: Chunks = {
       start_hint: "Para você, em todos os dispositivos.",
       device_start: "Neste dispositivo",
       device_same: "Como em todos os dispositivos",
+      voice: "A voz neste dispositivo",
+      voice_hint:
+        "Desativada: sem botão de microfone aqui, para um celular no bolso ou uma tela em um cômodo compartilhado.",
       screen: "Este dispositivo é a tela de parede",
       screen_hint: "Ele abre na aba dessa tela e mostra o protetor de tela dela.",
       screen_none: "Nenhuma",
@@ -1983,6 +1986,9 @@ export const chunks: Chunks = {
       taken: "Outra tela já tem este nome.",
       start: "Abre em",
       start_same: "A aba do próprio dispositivo, senão a do usuário",
+      voice: "A voz nesta tela",
+      voice_hint:
+        "Desativada: sem botão de microfone na tela, independentemente do que o dispositivo diz.",
       saver_title: "Protetor de tela",
       after: "Aparece após",
       never: "Nunca",

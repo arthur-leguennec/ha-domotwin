@@ -3,8 +3,9 @@
 A screen is a device left on a wall, known by a name (a card's `screen`, D-029): the device names
 itself one in DomoTwin's choices. Each screen's layout is kept here, in a store of its own
 (.storage/domotwin.screens), so that an administrator sets it from any device and the screen
-follows: the tab it opens on and its screen saver (after how long, the sensors that wake it, the
-weather, a folder of photos from Home Assistant's media, at night dimmed). Every signed-in user
+follows: the tab it opens on, whether it has voice (D-085), and its screen saver (after how long,
+the sensors that wake it, the weather, a folder of photos from Home Assistant's media, at night
+dimmed). Every signed-in user
 reads the layouts (a wall screen is often a shared account's); administrators change them.
 Nothing in them is private: names, entity ids and a media folder's id.
 """
@@ -76,6 +77,8 @@ SAVER_SCHEMA = vol.Schema(
 LAYOUT_SCHEMA = vol.Schema(
     {
         vol.Optional("start"): vol.In(START_TABS),
+        # `False`: no voice on the screen, its microphone button gone (D-085).
+        vol.Optional("voice"): bool,
         vol.Optional("saver", default=dict): SAVER_SCHEMA,
     }
 )
