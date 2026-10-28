@@ -34,8 +34,8 @@ whoever signs in there; your other devices keep theirs, and Assist stays set up 
 
 A wall screen's layout has **Voice on this screen** too (administrators, see [the wall
 screen](wall-screen.md)): off, the panel on the device that is that screen has no microphone
-button, whatever the device's own choice. A card follows the device's choice and its own `voice`
-option.
+button, whatever the device's own choice (its own switch then says so). A card follows the
+device's choice and its own `voice` option.
 
 ## When Assist cannot hear yet
 

@@ -9,7 +9,7 @@ import { NO_BINDINGS, readBindings, type BindingsJson } from "../live/bindings";
 import { closedRooms, gatedHass, RightsCache, type Gate } from "../live/rights";
 import { planRooms } from "../live/suggest";
 import { forScreen, resolveShow, type ShowRequest } from "../live/show";
-import { readDeviceVoice } from "../live/voice";
+import { deviceVoiceEvent, readDeviceVoice } from "../live/voice";
 import type { HomeStorey } from "../engine/engine";
 import {
   ALL_STOREYS,
@@ -75,6 +75,10 @@ export class DomoTwinCard extends LitElement {
   protected wifi?: Wifi;
   /** Voice on this device (D-085), read as the card is shown. */
   protected deviceVoice = true;
+
+  private readonly onStorage = (event: StorageEvent): void => {
+    if (deviceVoiceEvent(event)) this.deviceVoice = readDeviceVoice();
+  };
   /** The storeys, and the one shown (chosen in the view, else the card's `storey`). */
   protected storeys: StoreyInfo[] = [];
   protected storey?: string;
@@ -160,13 +164,15 @@ export class DomoTwinCard extends LitElement {
 
   override connectedCallback(): void {
     super.connectedCallback();
-    // Voice on this device (D-085), as the panel may have left it.
+    // Voice on this device (D-085), as the panel may have left it, and as another tab turns it.
     this.deviceVoice = readDeviceVoice();
+    window.addEventListener("storage", this.onStorage);
     if (this._hass) this.connectData();
   }
 
   override disconnectedCallback(): void {
     super.disconnectedCallback();
+    window.removeEventListener("storage", this.onStorage);
     clearTimeout(this.settingsTimer);
     clearTimeout(this.wifiTimer);
     this.unsubscribe?.();

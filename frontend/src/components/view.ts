@@ -2153,6 +2153,8 @@ export class DomoTwinView extends LitElement {
     if (changed.has("wifi") && this.wifiOpen) {
       if (!this.wifi || (!this.wifiEditable() && !drawable(this.wifi))) this.wifiOpen = false;
     }
+    // Voice turned off here (D-085): what it offered goes.
+    if (changed.has("voiceHere") && !this.voiceHere) this.voiceHelp = undefined;
     if (changed.has("options")) {
       // The layer and the sun start as the options say; the layer menu changes them after.
       const previous = changed.get("options");

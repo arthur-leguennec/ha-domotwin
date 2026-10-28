@@ -25,7 +25,7 @@ import {
 import { SUMMARIES, isSummary } from "../live/overview";
 import { screenNamed, writeDeviceScreen, type Screens } from "../live/screens";
 import { sameScreen } from "../live/show";
-import { assistAvailable, writeDeviceVoice } from "../live/voice";
+import { deviceVoiceOffered, writeDeviceVoice } from "../live/voice";
 import { define, fire } from "./define";
 import { icon } from "./icon";
 import { baseStyles } from "./styles";
@@ -97,6 +97,8 @@ export class DomoTwinChoices extends LitElement {
   protected start: Tab | "" = "";
   protected device: Tab | "" = "";
   protected voice = true;
+  /** Voice on this device as the dialog opened: written only when changed from it. */
+  private openedVoice = true;
   protected screen = "";
   protected cards: HomeCard[] = [];
   protected first = false;
@@ -228,7 +230,7 @@ export class DomoTwinChoices extends LitElement {
     this.drafted = true;
     this.start = this.choices.start ?? "";
     this.device = this.deviceStart ?? "";
-    this.voice = this.deviceVoice;
+    this.voice = this.openedVoice = this.deviceVoice;
     this.screen = this.deviceScreen ?? "";
     this.cards = [...this.choices.cards];
     this.first = opensFirst(hass, this.panelPath);
@@ -302,14 +304,16 @@ export class DomoTwinChoices extends LitElement {
         cards: this.cards,
       });
       writeDeviceStart(this.device || undefined);
-      // Written when changed here only, lest it undo what another tab of the device set.
-      if (this.voice !== this.deviceVoice) writeDeviceVoice(this.voice);
+      // Written when changed here only, lest it undo what was set meanwhile (another tab, the
+      // voice settings).
+      const voice = this.voice !== this.openedVoice ? this.voice : undefined;
+      if (voice !== undefined) writeDeviceVoice(voice);
       if (!hass.demo && !hass.sandbox) writeDeviceScreen(this.screen || undefined);
       fire(this, "domotwin-saved", {
         choices: saved,
         device: this.device || undefined,
         screen: this.screen || undefined,
-        voice: this.voice,
+        voice,
       });
     } catch (error) {
       this.error = t.t("choices.failed", { reason: reason(error) });
@@ -325,6 +329,13 @@ export class DomoTwinChoices extends LitElement {
     } finally {
       this.busy = false;
     }
+  }
+
+  /** Whether the wall screen chosen for this device is set without voice (D-085). */
+  private screenSilent(): boolean {
+    const screens = this.screens;
+    const name = screens ? screenNamed(screens, this.screen) : undefined;
+    return name !== undefined && screens?.[name]?.voice === false;
   }
 
   /**
@@ -499,8 +510,8 @@ export class DomoTwinChoices extends LitElement {
         </select>
       </label>
       ${
-        // Voice on this device (D-085), where Assist runs; not the demo house's or the sandbox's.
-        assistAvailable(hass) && !hass.demo && !hass.sandbox
+        // Voice on this device (D-085).
+        deviceVoiceOffered(hass)
           ? html`<label class="row">
               <input
                 type="checkbox"
@@ -510,7 +521,11 @@ export class DomoTwinChoices extends LitElement {
                   this.voice = (event.target as HTMLInputElement).checked;
                 }}
               />
-              <span>${t.t("choices.voice")}<br /><small>${t.t("choices.voice_hint")}</small></span>
+              <span
+                >${t.t("choices.voice")}<br /><small
+                  >${t.t(this.screenSilent() ? "voice.screen_off" : "choices.voice_hint")}</small
+                ></span
+              >
             </label>`
           : nothing
       }

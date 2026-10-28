@@ -53,6 +53,19 @@ test.describe("voice off on a device (D-085)", () => {
     expect(await kept(page)).toBe("off");
   });
 
+  test("another tab turning it off is followed at once", async ({ page }) => {
+    await openHarness(page, { mode: "panel", voice: true, start: "3d" });
+    await expect(page.getByTestId("voice")).toBeVisible();
+    // What the browser tells this tab when another one changes the device's storage.
+    await page.evaluate(() => {
+      window.localStorage.setItem("domotwin-voice", "off");
+      window.dispatchEvent(new StorageEvent("storage", { key: "domotwin-voice" }));
+    });
+    await expect(page.getByTestId("voice")).toHaveCount(0);
+    await fromMenu(page, "voice-settings");
+    await expect(page.getByTestId("voice-dialog").getByTestId("voice-device")).not.toBeChecked();
+  });
+
   test("the card on the same device follows it", async ({ page }) => {
     await openHarness(page, { voice: true });
     await expect(page.getByTestId("voice")).toBeVisible();
@@ -89,6 +102,11 @@ test.describe("voice off on a device (D-085)", () => {
     // This device is the hall's screen: no microphone, though its own voice is on.
     await expect(page.getByTestId("voice")).toHaveCount(0);
     expect(await kept(page)).toBeNull();
+    // Its own switch says the screen's layout comes first.
+    await fromMenu(page, "voice-settings");
+    await expect(page.getByTestId("voice-dialog")).toContainText(
+      "This device is a wall screen set without voice",
+    );
   });
 
   test("speaks French", async ({ page }) => {

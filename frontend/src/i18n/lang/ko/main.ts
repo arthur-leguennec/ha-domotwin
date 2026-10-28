@@ -594,6 +594,7 @@ export const main: Dictionary = {
     https_title: "마이크에는 HTTPS가 필요합니다",
     device: "이 기기에서 음성 사용",
     device_hint: "끄면: 여기에 마이크 버튼이 없습니다. 다른 기기의 Assist는 그대로입니다.",
+    screen_off: "이 기기는 음성이 꺼진 벽걸이 화면입니다. 화면 설정이 우선합니다.",
     https:
       "브라우저는 HTTPS로 제공되는 페이지나 Home Assistant가 실행 중인 컴퓨터에서 연 페이지에만 마이크를 허용합니다. 이 페이지는 HTTP로 제공되고 있습니다.",
     https_how:

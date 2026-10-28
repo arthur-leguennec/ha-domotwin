@@ -9,8 +9,8 @@ import { LitElement, css, html, nothing, type PropertyValues, type TemplateResul
 import { isHassError, type HomeAssistant } from "../ha/types";
 import { translatorFor, type Translator } from "../i18n";
 import {
-  assistAvailable,
   canListen,
+  deviceVoiceOffered,
   installBlueprints,
   listeningPipeline,
   openAssist,
@@ -49,6 +49,7 @@ export class DomoTwinVoice extends LitElement {
     hass: { attribute: false },
     mode: {},
     deviceVoice: { attribute: false },
+    screenSilent: { attribute: false },
     state: { state: true },
     pipeline: { state: true },
     app: { state: true },
@@ -163,6 +164,8 @@ export class DomoTwinVoice extends LitElement {
   mode: VoiceDialogMode = "settings";
   /** Voice on this device (D-085), turned off or on in the settings. */
   deviceVoice = true;
+  /** The wall screen this device is is set without voice (D-085): its layout comes first. */
+  screenSilent = false;
   /** DomoTwin's side: the blueprints, the Supervisor, a set-up in progress. */
   protected state?: VoiceState;
   /** The pipeline Assist listens with; `null` when none hears. */
@@ -328,11 +331,9 @@ export class DomoTwinVoice extends LitElement {
   }
 
   /** Voice on this device (D-085): off, no microphone button on it; Assist stays for the others. */
-  /** Voice on this device (D-085), where Assist runs; not the demo house's or the sandbox's. */
   private renderDevice(): TemplateResult | typeof nothing {
     const t = this.t;
-    const hass = this.hass;
-    if (!hass || !assistAvailable(hass) || hass.demo || hass.sandbox) return nothing;
+    if (!this.hass || !deviceVoiceOffered(this.hass)) return nothing;
     return html`<label class="choice">
       <input
         type="checkbox"
@@ -345,7 +346,7 @@ export class DomoTwinVoice extends LitElement {
         }}
       />
       <span>${t.t("voice.device")}</span>
-      <small>${t.t("voice.device_hint")}</small>
+      <small>${t.t(this.screenSilent ? "voice.screen_off" : "voice.device_hint")}</small>
     </label>`;
   }
 

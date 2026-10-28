@@ -598,6 +598,8 @@ export const main: Dictionary = {
     device: "A voz neste dispositivo",
     device_hint:
       "Desativada: sem botão de microfone aqui. O Assist fica como está nos outros dispositivos.",
+    screen_off:
+      "Este dispositivo é um ecrã de parede definido sem voz: a definição dele prevalece.",
     https:
       "Os navegadores só dão acesso ao microfone a páginas servidas por HTTPS, ou abertas no computador onde corre o Home Assistant. Esta página é servida por HTTP.",
     https_how:

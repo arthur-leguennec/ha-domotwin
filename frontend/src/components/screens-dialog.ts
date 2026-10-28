@@ -24,6 +24,7 @@ import {
   type ScreenLayout,
   type Screens,
 } from "../live/screens";
+import { assistAvailable } from "../live/voice";
 import { define, fire } from "./define";
 import { icon } from "./icon";
 import { baseStyles } from "./styles";
@@ -607,17 +608,22 @@ export class DomoTwinScreens extends LitElement {
           )}
         </select>
       </label>
-      <label class="row">
-        <input
-          type="checkbox"
-          data-testid="screens-voice"
-          .checked=${draft.voice}
-          @change=${(event: Event) => {
-            this.change({ voice: (event.target as HTMLInputElement).checked });
-          }}
-        />
-        <span>${t.t("wall.voice")}<br /><small>${t.t("wall.voice_hint")}</small></span>
-      </label>
+      ${
+        // Voice on this screen (D-085), where Assist runs.
+        assistAvailable(this.hass)
+          ? html`<label class="row">
+              <input
+                type="checkbox"
+                data-testid="screens-voice"
+                .checked=${draft.voice}
+                @change=${(event: Event) => {
+                  this.change({ voice: (event.target as HTMLInputElement).checked });
+                }}
+              />
+              <span>${t.t("wall.voice")}<br /><small>${t.t("wall.voice_hint")}</small></span>
+            </label>`
+          : nothing
+      }
       <h3>${t.t("wall.saver_title")}</h3>
       <label class="row">
         <span>${t.t("wall.after")}</span>
