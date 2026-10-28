@@ -225,6 +225,7 @@ export const main: Dictionary = {
     invalid_link: "El manual es una ruta que empieza por / o una dirección web (http, https).",
   },
   people: {
+    counted: { one: "{count} persona", other: "{count} personas" },
     here: "Aquí ahora",
     in_room: "En {room}",
     in_private_room: "En una habitación privada",
@@ -415,6 +416,14 @@ export const main: Dictionary = {
     refused: "No se programó esta acción: {reason}",
   },
   settings: {
+    workplace: "Un lugar de trabajo",
+    workplace_hint:
+      "Una oficina o una tienda: las personas se cuentan, nunca se nombran, en las vistas de DomoTwin y en lo que dice. La pestaña Inicio dice si está abierto y, una vez cerrado, qué se quedó encendido.",
+    workplace_on: "Es un lugar de trabajo, una oficina o una tienda",
+    workplace_hours: "Horario de apertura",
+    workplace_no_hours: "Ninguno",
+    workplace_hours_hint:
+      "Una programación de Home Assistant, creada en Ajustes → Dispositivos y servicios → Ayudantes: activa mientras está abierto.",
     title: "Configuración",
     north: "El norte en el plano",
     north_hint:

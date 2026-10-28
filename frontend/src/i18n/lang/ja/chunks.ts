@@ -1158,6 +1158,18 @@ export const chunks: Chunks = {
   },
   practical: {
     home: {
+      here: { one: "{count} 人がいます", other: "{count} 人がいます" },
+      nobody_here: "誰もいません",
+      counted: "職場：ここでは人数だけを数え、名前は出しません。",
+      open: "営業中",
+      open_until: "{time} まで営業",
+      closed: "閉店",
+      closed_until: "{time} まで閉店",
+      closed_left_on: {
+        one: "閉店：{count} 件が点いたまま",
+        other: "閉店：{count} 件が点いたまま",
+      },
+      hours_from: "営業時間：{name}",
       glance: "家の様子をひと目で",
       people: {
         one: "{count} 人が在宅",
@@ -1727,6 +1739,7 @@ export const chunks: Chunks = {
         media_none: "静か",
       },
       suggest: {
+        close_up: "閉店する",
         lights_off: "すべての照明を消す",
         lights_off_floor: "消灯：{floor}",
         good_night: "おやすみ",

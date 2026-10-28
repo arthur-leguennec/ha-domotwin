@@ -174,6 +174,7 @@ export const fr: Dictionary = {
     invalid_link: "La notice est un chemin qui commence par / ou une adresse web (http, https).",
   },
   people: {
+    counted: { one: "{count} personne", other: "{count} personnes" },
     here: "Ici maintenant",
     in_room: "Dans la pièce {room}",
     in_private_room: "Dans une pièce privée",
@@ -361,6 +362,14 @@ export const fr: Dictionary = {
     refused: "Action non programmée : {reason}",
   },
   settings: {
+    workplace: "Un lieu de travail",
+    workplace_hint:
+      "Un bureau ou un commerce : les personnes y sont comptées, jamais nommées, dans les vues de DomoTwin et dans ce qu’il dit. L’onglet Accueil dit s’il est ouvert et, une fois fermé, ce qui est resté allumé.",
+    workplace_on: "C’est un lieu de travail, un bureau ou un commerce",
+    workplace_hours: "Heures d’ouverture",
+    workplace_no_hours: "Aucune",
+    workplace_hours_hint:
+      "Un planning de Home Assistant, créé dans Paramètres → Appareils et services → Entrées : actif pendant l’ouverture.",
     title: "Réglages",
     north: "Nord sur le plan",
     north_hint:

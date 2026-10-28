@@ -9,7 +9,7 @@ from typing import Any
 from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import entity_registry as er
-from homeassistant.helpers.dispatcher import async_dispatcher_connect
+from homeassistant.helpers.dispatcher import async_dispatcher_connect, async_dispatcher_send
 from homeassistant.util import dt as dt_util
 
 from . import choices, config_history, garden, guests, report, schedules, screens, voice, wifi
@@ -437,11 +437,15 @@ async def ws_settings_save(
     """Store the home's settings. Admins only."""
     if (data := _get_data(hass, connection, msg)) is None:
         return
+    workplace = data.workplace
     try:
         revision = await data.async_save_settings(validate_settings(msg["settings"]))
     except InvalidPayloadError as err:
         connection.send_error(msg["id"], err.code, str(err))
         return
+    # A workplace counts its people without naming them (D-086): the views read them again.
+    if data.workplace != workplace and (people := hass.data.get(PEOPLE_KEY)) is not None:
+        async_dispatcher_send(hass, SIGNAL_UPDATED, "people", people.revision)
     connection.send_result(msg["id"], {"revision": revision})
 
 
@@ -590,6 +594,9 @@ def ws_people_get(
         # Those the radars see whom no device names (D-080): where the people are shown only.
         "seen": _seen_sensor(hass) if shown else None,
     }
+    # A workplace (D-086): its people counted where they are, named nowhere.
+    if (data := hass.data.get(DATA_KEY)) is not None and data.workplace:
+        result["counted"] = True
     if msg["candidates"] and connection.user.is_admin:
         result["candidates"] = people.candidates()
     connection.send_result(msg["id"], result)

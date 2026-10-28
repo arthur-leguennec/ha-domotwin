@@ -296,7 +296,8 @@ def validate_settings(settings: Any) -> dict[str, Any]:
     its accent colour (`accent`, `#rrggbb`); the private rooms (`rooms`, D-039); where the
     home's energy is read (`energy`, D-049); the Wi-Fi access points placed on the plan
     (`access_points`, D-066); each person's rights (`rights`, D-071); the weather drawn around it
-    (`weather`, D-072: a `weather` entity, or `none`); how its roofs are drawn (`roof`, D-077).
+    (`weather`, D-072: a `weather` entity, or `none`); how its roofs are drawn (`roof`, D-077);
+    whether it is a workplace, and its opening hours (`workplace`, D-086).
     """
     if not isinstance(settings, dict) or set(settings) - {
         "north",
@@ -308,11 +309,12 @@ def validate_settings(settings: Any) -> dict[str, Any]:
         "rights",
         "weather",
         "roof",
+        "workplace",
     }:
         raise InvalidPayloadError(
             "invalid_settings",
             "settings hold only `north`, `theme`, `accent`, `rooms`, `energy`, `access_points`, "
-            "`rights`, `weather` and `roof`",
+            "`rights`, `weather`, `roof` and `workplace`",
         )
     north = settings.get("north", 0)
     if not _is_number(north) or not 0 <= north < 360:
@@ -331,6 +333,9 @@ def validate_settings(settings: Any) -> dict[str, Any]:
         checked["rooms"] = _private_rooms(settings["rooms"])
     if "weather" in settings:
         checked["weather"] = _weather(settings["weather"])
+    # Kept even when empty: a workplace without hours is one still.
+    if "workplace" in settings:
+        checked["workplace"] = _workplace(settings["workplace"])
     # Left out when empty.
     optional: tuple[tuple[str, Callable[[Any], Any]], ...] = (
         ("energy", _energy),
@@ -421,6 +426,25 @@ def _weather(weather: Any) -> str:
             "invalid_settings", "`weather` must be a weather entity or `none`"
         )
     return weather
+
+
+def _workplace(workplace: Any) -> dict[str, str]:
+    """A workplace, an office or a shop (D-086): `{"hours"?: a `schedule` entity}`.
+
+    Its opening hours are those of a schedule of Home Assistant's: on while it is open.
+    """
+    if not isinstance(workplace, dict) or set(workplace) - {"hours"}:
+        raise InvalidPayloadError("invalid_settings", "`workplace` has only `hours`")
+    if "hours" not in workplace:
+        return {}
+    hours = workplace["hours"]
+    if (
+        not isinstance(hours, str)
+        or not hours.startswith("schedule.")
+        or not valid_entity_id(hours)
+    ):
+        raise InvalidPayloadError("invalid_settings", "`workplace.hours` must be a schedule entity")
+    return {"hours": hours}
 
 
 def _roof(roof: Any) -> dict[str, Any]:

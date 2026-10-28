@@ -59,6 +59,7 @@ import {
   type Settings,
   type StoreyInfo,
   type StoredPlan,
+  type Workplace,
 } from "../ha/client";
 import { isHassError, nowOf, type HomeAssistant } from "../ha/types";
 import type { DemoHome } from "../demo/home";
@@ -68,6 +69,7 @@ import {
   MAX_ENTITIES,
   NO_BINDINGS,
   areaOf,
+  entityName,
   readBindings,
   roomArea,
   shownEntity,
@@ -404,6 +406,7 @@ export class DomoTwinPanel extends LitElement {
     energyDraft: { state: true },
     energyPreferred: { state: true },
     weatherDraft: { state: true },
+    workplaceDraft: { state: true },
     roofDraft: { state: true },
     look: { reflect: true },
     planning: { state: true },
@@ -654,6 +657,8 @@ export class DomoTwinPanel extends LitElement {
   protected weatherDraft?: string;
   /** How the roofs are drawn, being chosen in the settings (D-077). */
   protected roofDraft?: RoofSettings;
+  /** A workplace, being chosen in the settings (D-086); `null`: a home. */
+  protected workplaceDraft?: Workplace | null;
   /** The draft last shown, and its settings as read. */
   private energyShown?: { draft: EnergySettings; energy: EnergySettings | undefined };
   /** The power sensors Home Assistant's own energy settings name, offered first. */
@@ -1484,6 +1489,7 @@ export class DomoTwinPanel extends LitElement {
     this.energyPreferred = undefined;
     this.weatherDraft = undefined;
     this.roofDraft = undefined;
+    this.workplaceDraft = undefined;
     this.peopleOpen = false;
     this.peopleSettings = undefined;
     this.bluetoothOpen = false;
@@ -2044,6 +2050,7 @@ export class DomoTwinPanel extends LitElement {
     this.energyDraft = { ...(this.settings?.energy ?? {}) };
     this.weatherDraft = this.settings?.weather ?? "";
     this.roofDraft = { ...this.settings?.roof };
+    this.workplaceDraft = this.settings?.workplace ? { ...this.settings.workplace } : null;
     void this.loadEnergyPreferred();
   };
 
@@ -2086,6 +2093,8 @@ export class DomoTwinPanel extends LitElement {
       const roof = this.roofDraft;
       if (roof && Object.keys(roof).length > 0) settings.roof = roof;
       else if (roof) delete settings.roof;
+      if (this.workplaceDraft) settings.workplace = this.workplaceDraft;
+      else if (this.workplaceDraft === null) delete settings.workplace;
       await client.saveSettings(settings);
       this.settings = settings;
       this.northDraft = undefined;
@@ -3571,6 +3580,8 @@ export class DomoTwinPanel extends LitElement {
       ),
     };
     if (this.people) sources.people = this.people;
+    // A workplace (D-086): its people counted, its hours.
+    if (this.settings?.workplace) sources.workplace = this.settings.workplace;
     // The rooms' own actions (D-047), on their area's page.
     const actions = new Map<string, RoomAction[]>();
     for (const room of rooms) {
@@ -4840,7 +4851,7 @@ export class DomoTwinPanel extends LitElement {
       </label>
       <p class="hint">${t.t("settings.north_hint")}</p>
       ${this.renderLookSettings()} ${this.renderRoofSettings()} ${this.renderWeatherSettings()}
-      ${this.renderEnergySettings()}
+      ${this.renderEnergySettings()} ${this.renderWorkplaceSettings()}
       <div class="footer">
         <button class="action quiet" data-cancel @click=${() => (this.northDraft = undefined)}>
           ${t.t("panel.cancel")}
@@ -5010,6 +5021,60 @@ export class DomoTwinPanel extends LitElement {
 
   /** The weather drawn around the home (D-072): the usual entity, one chosen, or none; shown as
    * it is chosen. */
+  /**
+   * A workplace (D-086): an office or a shop, its people counted and named nowhere; its opening
+   * hours a schedule of Home Assistant's.
+   */
+  private renderWorkplaceSettings(): TemplateResult | typeof nothing {
+    const t = this.t;
+    const draft = this.workplaceDraft;
+    const hass = this._hass;
+    if (draft === undefined || !hass) return nothing;
+    const schedules = Object.keys(hass.states)
+      .filter((id) => id.startsWith("schedule."))
+      .sort();
+    const hours = draft?.hours;
+    if (hours && !schedules.includes(hours)) schedules.unshift(hours);
+    return html`<h3>${t.t("settings.workplace")}</h3>
+      <p class="hint">${t.t("settings.workplace_hint")}</p>
+      <label class="reversed">
+        <input
+          type="checkbox"
+          data-testid="settings-workplace"
+          .checked=${draft !== null}
+          @change=${(event: Event) => {
+            this.workplaceDraft = (event.target as HTMLInputElement).checked ? {} : null;
+          }}
+        />
+        <span>${t.t("settings.workplace_on")}</span>
+      </label>
+      ${
+        draft
+          ? html`<label class="look">
+                <span>${t.t("settings.workplace_hours")}</span>
+                <select
+                  data-testid="settings-hours"
+                  @change=${(event: Event) => {
+                    const value = (event.target as HTMLSelectElement).value;
+                    this.workplaceDraft = value ? { hours: value } : {};
+                  }}
+                >
+                  <option value="" ?selected=${!hours}>
+                    ${t.t("settings.workplace_no_hours")}
+                  </option>
+                  ${schedules.map(
+                    (id) =>
+                      html`<option value=${id} ?selected=${id === hours}>
+                        ${entityName(hass, id)}
+                      </option>`,
+                  )}
+                </select>
+              </label>
+              <p class="hint">${t.t("settings.workplace_hours_hint")}</p>`
+          : nothing
+      }`;
+  }
+
   private renderWeatherSettings(): TemplateResult | typeof nothing {
     const t = this.t;
     const draft = this.weatherDraft;

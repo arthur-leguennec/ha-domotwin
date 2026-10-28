@@ -1305,6 +1305,29 @@ export const chunks: Chunks = {
   },
   practical: {
     home: {
+      here: {
+        zero: "لا أحد هنا",
+        one: "شخص واحد هنا",
+        two: "شخصان هنا",
+        few: "{count} أشخاص هنا",
+        many: "{count} شخصًا هنا",
+        other: "{count} شخص هنا",
+      },
+      nobody_here: "لا أحد هنا",
+      counted: "مكان عمل: يُعدّ الأشخاص هنا ولا يُسمَّون أبدًا.",
+      open: "مفتوح",
+      open_until: "مفتوح حتى {time}",
+      closed: "مغلق",
+      closed_until: "مغلق حتى {time}",
+      closed_left_on: {
+        zero: "مغلق: لا شيء يعمل",
+        one: "مغلق: شيء واحد ما زال يعمل",
+        two: "مغلق: شيئان ما زالا يعملان",
+        few: "مغلق: {count} أشياء ما زالت تعمل",
+        many: "مغلق: {count} شيئًا ما زال يعمل",
+        other: "مغلق: {count} شيء ما زال يعمل",
+      },
+      hours_from: "ساعات العمل من {name}.",
       glance: "المنزل في لمحة",
       people: {
         zero: "لا أحد في المنزل",
@@ -2010,6 +2033,7 @@ export const chunks: Chunks = {
         media_none: "هدوء",
       },
       suggest: {
+        close_up: "إغلاق المكان",
         lights_off: "إطفاء كل الأضواء",
         lights_off_floor: "إطفاء: {floor}",
         good_night: "تصبح على خير",

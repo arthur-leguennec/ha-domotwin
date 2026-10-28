@@ -105,6 +105,13 @@ The blueprint [`where_by_voice.yaml`](../blueprints/automation/domotwin/where_by
 by voice: "where is Alex?", "who is home?" (and in French "où est Alex ?", "qui est à la maison ?").
 Import it from Home Assistant's blueprints, as the one that shows a room.
 
+## In a workplace
+
+An office or a shop made a workplace in the settings counts its people and names none, for
+everyone: figures without names in the 3D view, how many in a room's panel and on the Home tab,
+and `domotwin.where` says how many are here, never where anyone is. See [a
+workplace](workplace.md).
+
 ## Where the settings are kept
 
 In a store of their own, `.storage/domotwin.people` (who is placed from what, their colours, who

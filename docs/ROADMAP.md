@@ -74,6 +74,7 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M46       | Shortcuts on the Home tab, suggested from the home         | ✅     |
 | 0.6.0     | Sixth release: the shortcuts                               | ✅     |
 | M47       | Voice off on a device, or on a wall screen                 | ✅     |
+| M48       | A workplace: people counted, opening hours, closing up     | ✅     |
 | 0.7.0     | Seventh release: what the use of 0.6.0 asks for            | ⏳     |
 
 M5 to M11 were added after M3b (`DECISIONS.md`, D-022): what people expect of a 3D home dashboard,
@@ -2140,4 +2141,9 @@ before its milestone starts, which goes on with what needs no answer.
   phone, a computer or a screen in a shared room, *Voice on this device* (in the voice settings,
   or in *Your choices*) takes its microphone button away, kept on that device only; an
   administrator does the same for a wall screen in its layout.
+- ✅ **M48, a workplace** (D-086, above), asked for by the maintainer after 0.6.0 as "an option
+  for businesses", read as a small office or a shop on Home Assistant: its people counted, never
+  named, in DomoTwin's views and by voice; its opening hours a schedule of Home Assistant's, the
+  Home tab saying whether it is open and, closed, what was left on; *Close up* suggested as a
+  shortcut. See [a workplace](workplace.md).
 - ⏳ **Release 0.7.0**: what the use of 0.6.0 asks for.

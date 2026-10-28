@@ -269,6 +269,7 @@ export class DomoTwinShortcutDialog extends LitElement {
     hass: { attribute: false },
     t: { attribute: false },
     unseen: { attribute: false },
+    workplace: { attribute: false },
     shortcuts: { attribute: false },
     mode: {},
     shortcut: { attribute: false },
@@ -283,6 +284,8 @@ export class DomoTwinShortcutDialog extends LitElement {
   hass?: HomeAssistant;
   t?: Translator;
   unseen: Unseen = NOTHING_UNSEEN;
+  /** A workplace (D-086): closing up is suggested rather than leaving home. */
+  workplace = false;
   /** The user's shortcuts as they are. */
   shortcuts: Shortcut[] = [];
   /** Opened to add one, or to change `shortcut`. */
@@ -330,7 +333,7 @@ export class DomoTwinShortcutDialog extends LitElement {
       else this.draft = undefined;
     }
     if (!this.draft && !this.suggested && this.hass && this.t) {
-      this.suggested = suggestions(this.hass, this.t, this.shortcuts, this.unseen);
+      this.suggested = suggestions(this.hass, this.t, this.shortcuts, this.unseen, this.workplace);
     }
   }
 

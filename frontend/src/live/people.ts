@@ -29,6 +29,8 @@ export interface PeopleSettings {
   /** The sensor of the people the presence radars see (D-080); null when they are not shown to
    * the user viewing, undefined from an integration before them. */
   seen?: string | null;
+  /** A workplace (D-086): its people are counted where they are, named nowhere. */
+  counted?: boolean;
 }
 
 /** A person as the view shows them. */
@@ -116,13 +118,18 @@ export function homePicture(url: unknown): string | undefined {
 
 /**
  * The people the view shows: those placed and not hidden, at home; nobody for a user who is not an
- * administrator when they are shown to administrators only.
+ * administrator when they are shown to administrators only, nor by name in a workplace (D-086).
  */
 export function peopleShown(
   settings: PeopleSettings | undefined,
   hass: HomeAssistant,
 ): PersonShown[] {
-  if (!settings) return [];
+  if (!settings || settings.counted === true) return [];
+  return placedPeople(settings, hass);
+}
+
+/** The people placed and not hidden, named, to whom they are shown. */
+function placedPeople(settings: PeopleSettings, hass: HomeAssistant): PersonShown[] {
   const admin = hass.user?.is_admin === true;
   if (settings.shown === "admins" && !admin) return [];
   const shown: PersonShown[] = [];
@@ -171,12 +178,13 @@ export function peopleShown(
   return shown.sort((a, b) => a.name.localeCompare(b.name));
 }
 
-/** Someone the presence radars see whom no device names (D-080): where, in which room. */
+/** Someone the presence radars see whom no device names (D-080), or someone counted in a workplace
+ * (D-086): where, in which room. */
 export interface SeenShown {
   id: string;
   room: string;
-  /** Where in the room (plan cm). */
-  at: [number, number];
+  /** Where in the room (plan cm), when told. */
+  at?: [number, number];
 }
 
 /** The sensor of the people the presence radars see (D-080), unless the settings name another. */
@@ -187,6 +195,7 @@ export const SEEN_COLOR = "#9aa3ad";
 /**
  * The people the presence radars see whom no device names (D-080), as the sensor says: shown
  * where the people are shown, to whom they are; none in a room the viewer may not see (`closed`).
+ * In a workplace (D-086), the people placed are among them, numbered rather than named.
  */
 export function seenShown(
   settings: PeopleSettings | undefined,
@@ -195,10 +204,32 @@ export function seenShown(
 ): SeenShown[] {
   if (!settings) return [];
   if (settings.shown === "admins" && hass.user?.is_admin !== true) return [];
-  if (settings.seen === null) return [];
-  const seen = hass.states[settings.seen ?? SEEN_SENSOR]?.attributes.seen;
-  if (!Array.isArray(seen)) return [];
   const shown: SeenShown[] = [];
+  if (settings.counted === true) {
+    // Numbered in a fixed order, unnamed: the same figure while they move.
+    placedPeople(settings, hass).forEach((person, n) => {
+      if (!person.room || closed.has(person.room)) return;
+      shown.push({
+        id: `counted.${String(n)}`,
+        room: person.room,
+        ...(person.at ? { at: person.at } : {}),
+      });
+    });
+  }
+  return [...shown, ...radarSeen(settings, hass, closed)];
+}
+
+/** Those the presence radars see whom no device names (D-080), as `seenShown` (no check of who
+ * may see them). */
+export function radarSeen(
+  settings: PeopleSettings,
+  hass: HomeAssistant,
+  closed: ReadonlySet<string> = new Set(),
+): SeenShown[] {
+  const shown: SeenShown[] = [];
+  if (settings.seen === null) return shown;
+  const seen = hass.states[settings.seen ?? SEEN_SENSOR]?.attributes.seen;
+  if (!Array.isArray(seen)) return shown;
   for (const entry of seen as unknown[]) {
     if (typeof entry !== "object" || entry === null) continue;
     const { id, room_id: room, x, y } = entry as Record<string, unknown>;
@@ -239,7 +270,13 @@ export function peopleJson(
         look,
         ...(p.at ? { at: p.at } : {}),
       })),
-    ...seen.map((s) => ({ id: s.id, room: s.room, color: SEEN_COLOR, look, at: s.at })),
+    ...seen.map((s) => ({
+      id: s.id,
+      room: s.room,
+      color: SEEN_COLOR,
+      look,
+      ...(s.at ? { at: s.at } : {}),
+    })),
   ]);
 }
 

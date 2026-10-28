@@ -226,6 +226,7 @@ export const main: Dictionary = {
       "取扱説明書には / で始まるパス、または Web アドレス（http、https）を指定してください。",
   },
   people: {
+    counted: { one: "{count} 人", other: "{count} 人" },
     here: "現在ここにいる人",
     in_room: "{room} にいます",
     in_private_room: "プライベートな部屋にいます",
@@ -416,6 +417,14 @@ export const main: Dictionary = {
     refused: "このアクションは予約されませんでした：{reason}",
   },
   settings: {
+    workplace: "職場",
+    workplace_hint:
+      "オフィスや店舗：DomoTwin の表示や発話では、人は数えるだけで名前は出しません。ホーム タブで営業中かどうか、閉店後は何が点いたままかがわかります。",
+    workplace_on: "ここは職場（オフィスや店舗）です",
+    workplace_hours: "営業時間",
+    workplace_no_hours: "なし",
+    workplace_hours_hint:
+      "Home Assistant のスケジュール（設定 → デバイスとサービス → ヘルパーで作成）：営業中はオン。",
     title: "設定",
     north: "間取り図上の北",
     north_hint:

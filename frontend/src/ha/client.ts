@@ -73,6 +73,11 @@ export interface RoofSettings {
   color?: string;
 }
 
+/** A workplace, an office or a shop (D-086): its opening hours, a schedule of Home Assistant's. */
+export interface Workplace {
+  hours?: string;
+}
+
 export interface Settings {
   /** Where north points on the plan, degrees clockwise from its top (0: up). */
   north?: number;
@@ -92,6 +97,8 @@ export interface Settings {
   weather?: string;
   /** How the roofs are drawn (D-077); absent, a gable roof at 30° in the look's colour. */
   roof?: RoofSettings;
+  /** A workplace (D-086): people counted, not named; open at its hours. */
+  workplace?: Workplace;
 }
 
 export interface StoredSettings {

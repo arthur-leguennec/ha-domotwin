@@ -317,8 +317,15 @@ function thingsHere(sheet: DomoTwinRoom, t: Translator): TemplateResult | typeof
     </div>`;
 }
 
-/** Who is in a room (D-034): a chip each, a tap opens their sheet. */
+/** Who is in a room (D-034): a chip each, a tap opens their sheet; how many in a workplace. */
 function peopleHere(sheet: DomoTwinRoom, t: Translator): TemplateResult | typeof nothing {
+  const counted = sheet.counted;
+  if (counted !== undefined) {
+    return counted > 0
+      ? html`<h3>${t.t("people.here")}</h3>
+          <p data-testid="room-counted">${t.tp("people.counted", counted)}</p>`
+      : nothing;
+  }
   if (sheet.people.length === 0) return nothing;
   return html`<h3>${t.t("people.here")}</h3>
     <div class="people" data-testid="room-people">
@@ -349,6 +356,7 @@ export class DomoTwinRoom extends Sheet {
     area: { attribute: false },
     admin: { attribute: false },
     people: { attribute: false },
+    counted: { attribute: false },
     things: { attribute: false },
     closed: { attribute: false },
     graphs: { attribute: false },
@@ -376,6 +384,8 @@ export class DomoTwinRoom extends Sheet {
   closed = false;
   /** Who is in the room now (D-034). */
   people: PersonShown[] = [];
+  /** How many, in a workplace (D-086), where nobody is named. */
+  counted?: number;
   /** The devices followed by Bluetooth heard in it (D-035). */
   things: LocatedShown[] = [];
   /** Its graphs can open, in the panel's Rooms tab (D-069). */

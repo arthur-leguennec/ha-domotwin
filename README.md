@@ -195,6 +195,11 @@ People in their rooms, found by what your home already has.
   switch is on: anyone else sees it closed, its floor frosted, nothing and nobody inside, no
   controls, and the voice answers say "in a private room". See [private
   rooms](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/privacy.md).
+- **An office or a shop.** Make it a workplace in the settings: its people are counted, never
+  named, in the 3D view, the rooms' panels, the Home tab and by voice; its opening hours come from
+  a Home Assistant schedule, and once closed the Home tab says what was left on (lamps, doors,
+  locks, music), with *Close up* suggested as a shortcut. See [a
+  workplace](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/workplace.md).
 
 ### Understand your home
 

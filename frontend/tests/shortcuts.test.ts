@@ -362,6 +362,29 @@ describe("shortcuts (D-084)", () => {
     ]);
   });
 
+  it("suggests closing up a workplace rather than a night or leaving home (D-086)", () => {
+    const hass = home(HOUSE);
+    const all = suggestions(hass, en, [], undefined, true);
+    const keys = all.map((s) => s.key);
+    expect(keys).not.toContain("good_night");
+    expect(keys).not.toContain("leaving");
+    const close = all.find((s) => s.key === "close_up");
+    expect(close?.shortcut).toMatchObject({ name: "Close up", icon: "lock", confirm: true });
+    expect(close?.shortcut.steps.map((s) => `${s.kind}:${s.do}`)).toEqual([
+      "lights:off",
+      "media:off",
+      "covers:close",
+      "locks:lock",
+      "alarm:arm_away",
+      "climate:eco",
+    ]);
+    expect(firstSuggestions(all).map((s) => s.key)).toContain("close_up");
+    expect(
+      suggestions(hass, new Translator("fr"), [], undefined, true).find((s) => s.key === "close_up")
+        ?.shortcut.name,
+    ).toBe("Fermer les lieux");
+  });
+
   it("acts only on what can do it", () => {
     const hass = home(HOUSE);
     // The heat pump keeps a range: no single temperature for it.

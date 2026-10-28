@@ -1156,6 +1156,18 @@ export const chunks: Chunks = {
   },
   practical: {
     home: {
+      here: { one: "{count} presente", other: "{count} presentes" },
+      nobody_here: "Ninguém presente",
+      counted: "Um local de trabalho: aqui as pessoas são contadas, nunca nomeadas.",
+      open: "Aberto",
+      open_until: "Aberto até {time}",
+      closed: "Fechado",
+      closed_until: "Fechado até {time}",
+      closed_left_on: {
+        one: "Fechado: {count} ficou ligado",
+        other: "Fechado: {count} ficaram ligados",
+      },
+      hours_from: "Horário de {name}.",
       glance: "A casa num relance",
       people: {
         one: "{count} em casa",
@@ -1733,6 +1745,7 @@ export const chunks: Chunks = {
         media_none: "Silêncio",
       },
       suggest: {
+        close_up: "Fechar o espaço",
         lights_off: "Apagar todas as luzes",
         lights_off_floor: "Apagar: {floor}",
         good_night: "Boa noite",

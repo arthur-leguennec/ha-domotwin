@@ -10,6 +10,7 @@ import {
   mdiLightbulbGroupOutline,
   mdiPlus,
   mdiStar,
+  mdiStoreClockOutline,
   mdiTransmissionTower,
 } from "@mdi/js";
 import { LitElement, css, html, nothing, type PropertyValues, type TemplateResult } from "lit";
@@ -48,7 +49,7 @@ import { PENCIL, SHORTCUT_GLYPHS } from "./shortcut-icons";
 import { baseStyles } from "./styles";
 
 /** What a chip of the glance opens. */
-type Detail = "people" | "lights" | "openings" | "peak";
+type Detail = "people" | "lights" | "openings" | "hours" | "peak";
 
 /** Home Assistant's card for a card of the Home tab. */
 function cardOf(home: HomeCard): CardConfig {
@@ -423,6 +424,12 @@ export class DomoTwinHome extends LitElement {
     if (!t) return nothing;
     switch (this.open) {
       case "people":
+        // A workplace (D-086): counted, named nowhere.
+        if (glance.here !== undefined) {
+          return html`<div class="detail" data-testid="home-people-detail">
+            <span class="muted">${t.t("home.counted")}</span>
+          </div>`;
+        }
         return html`<div class="detail people" data-testid="home-people-detail">
           ${(glance.people ?? []).map(
             (person) =>
@@ -449,6 +456,8 @@ export class DomoTwinHome extends LitElement {
         </div>`;
       case "openings":
         return html`<div class="detail">${this.tiles(glance.openings, false)}</div>`;
+      case "hours":
+        return this.renderHours(glance);
       case "peak":
         return this.renderPeak(glance);
       default:
@@ -527,6 +536,46 @@ export class DomoTwinHome extends LitElement {
   }
 
   /** The peak's chip: under way, pre-heating, or the next one; none while none is announced. */
+  /** A workplace's hours (D-086): open until when, or closed and what is left on. */
+  private hoursChip(glance: Glance): TemplateResult | typeof nothing {
+    const hass = this.hass;
+    const t = this.t;
+    const hours = glance.hours;
+    if (!hass || !t || !hours) return nothing;
+    const until = hours.until
+      ? whenText(new Date(hours.until), new Date(nowOf(hass)), timeStyle(hass))
+      : undefined;
+    const left = glance.leftOn?.length ?? 0;
+    const label = hours.open
+      ? until
+        ? t.t("home.open_until", { time: until })
+        : t.t("home.open")
+      : left > 0
+        ? t.tp("home.closed_left_on", left)
+        : until
+          ? t.t("home.closed_until", { time: until })
+          : t.t("home.closed");
+    return this.chip("hours", mdiStoreClockOutline, label, left > 0 ? "warning" : undefined);
+  }
+
+  /** What a closed workplace has left on (D-086), each to turn off; else where its hours are. */
+  private renderHours(glance: Glance): TemplateResult | typeof nothing {
+    const hass = this.hass;
+    const t = this.t;
+    const schedule = this.sources?.workplace?.hours;
+    if (!hass || !t || !glance.hours) return nothing;
+    const left = glance.leftOn ?? [];
+    return html`<div class="detail" data-testid="home-hours-detail">
+      ${
+        left.length > 0
+          ? this.tiles(left, false)
+          : html`<span class="muted"
+              >${t.t("home.hours_from", { name: schedule ? entityName(hass, schedule) : "" })}</span
+            >`
+      }
+    </div>`;
+  }
+
   private peakChip(glance: Glance): TemplateResult | typeof nothing {
     const hass = this.hass;
     const t = this.t;
@@ -729,12 +778,15 @@ export class DomoTwinHome extends LitElement {
       this.unseen,
       t.language,
       Object.keys(hass.states).length,
+      this.sources?.workplace,
     ];
     const memo = this.suggestedMemo;
     if (memo && memo.key.length === key.length && memo.key.every((k, i) => k === key[i])) {
       return memo.value;
     }
-    const value = firstSuggestions(suggestions(hass, t, [], this.unseen));
+    const value = firstSuggestions(
+      suggestions(hass, t, [], this.unseen, this.sources?.workplace !== undefined),
+    );
     this.suggestedMemo = { key, value };
     return value;
   }
@@ -821,6 +873,7 @@ export class DomoTwinHome extends LitElement {
       .hass=${this.hass}
       .t=${this.t}
       .unseen=${this.unseen}
+      .workplace=${this.sources?.workplace !== undefined}
       .shortcuts=${this.shortcuts}
       .mode=${dialog.mode}
       .shortcut=${dialog.mode === "edit" ? dialog.shortcut : undefined}
@@ -850,14 +903,21 @@ export class DomoTwinHome extends LitElement {
       <section aria-label=${t.t("home.glance")}>
         <div class="chips">
           ${
-            people
+            glance.here !== undefined
               ? this.chip(
                   "people",
                   mdiAccountGroupOutline,
-                  people.length > 0 ? t.tp("home.people", people.length) : t.t("home.nobody"),
+                  glance.here > 0 ? t.tp("home.here", glance.here) : t.t("home.nobody_here"),
                 )
-              : nothing
+              : people
+                ? this.chip(
+                    "people",
+                    mdiAccountGroupOutline,
+                    people.length > 0 ? t.tp("home.people", people.length) : t.t("home.nobody"),
+                  )
+                : nothing
           }
+          ${this.hoursChip(glance)}
           ${this.chip(
             "lights",
             mdiLightbulbGroupOutline,

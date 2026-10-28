@@ -6,6 +6,15 @@ import type { Widen } from "./index";
 
 export const practicalEn = {
   home: {
+    here: { one: "{count} here", other: "{count} here" },
+    nobody_here: "Nobody here",
+    counted: "A workplace: people are counted here, never named.",
+    open: "Open",
+    open_until: "Open until {time}",
+    closed: "Closed",
+    closed_until: "Closed until {time}",
+    closed_left_on: { one: "Closed: {count} left on", other: "Closed: {count} left on" },
+    hours_from: "Opening hours from {name}.",
     glance: "The home at a glance",
     people: { one: "{count} at home", other: "{count} at home" },
     nobody: "Nobody at home",
@@ -150,6 +159,18 @@ export type PracticalDictionary = Widen<typeof practicalEn>;
 /** The same, in French: every key of the English, as the main dictionaries. */
 export const practicalFr: PracticalDictionary = {
   home: {
+    here: { one: "{count} présent", other: "{count} présents" },
+    nobody_here: "Personne ici",
+    counted: "Un lieu de travail : les personnes y sont comptées, jamais nommées.",
+    open: "Ouvert",
+    open_until: "Ouvert jusqu’à {time}",
+    closed: "Fermé",
+    closed_until: "Fermé jusqu’à {time}",
+    closed_left_on: {
+      one: "Fermé : {count} resté allumé",
+      other: "Fermé : {count} restés allumés",
+    },
+    hours_from: "Heures d’ouverture : {name}.",
     glance: "La maison d’un coup d’œil",
     people: { one: "{count} à la maison", other: "{count} à la maison" },
     nobody: "Personne à la maison",

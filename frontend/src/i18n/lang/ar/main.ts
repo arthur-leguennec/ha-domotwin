@@ -292,6 +292,14 @@ export const main: Dictionary = {
     invalid_link: "دليل الاستخدام مسار يبدأ بـ / أو عنوان ويب (http أو https).",
   },
   people: {
+    counted: {
+      zero: "لا أحد",
+      one: "شخص واحد",
+      two: "شخصان",
+      few: "{count} أشخاص",
+      many: "{count} شخصًا",
+      other: "{count} شخص",
+    },
     here: "هنا الآن",
     in_room: "في {room}",
     in_private_room: "في غرفة خاصة",
@@ -490,6 +498,14 @@ export const main: Dictionary = {
     refused: "لم يُضبط هذا الإجراء: {reason}",
   },
   settings: {
+    workplace: "مكان عمل",
+    workplace_hint:
+      "مكتب أو متجر: يُعدّ الأشخاص ولا يُسمَّون أبدًا، في عروض DomoTwin وفيما يقوله. يوضّح تبويب الرئيسية ما إذا كان مفتوحًا، وبعد الإغلاق ما الذي بقي يعمل.",
+    workplace_on: "هذا مكان عمل، مكتب أو متجر",
+    workplace_hours: "ساعات العمل",
+    workplace_no_hours: "لا شيء",
+    workplace_hours_hint:
+      "جدول زمني من Home Assistant، يُنشأ في الإعدادات ← الأجهزة والخدمات ← المساعدات: يعمل طوال فترة الفتح.",
     title: "الإعدادات",
     north: "الشمال على المخطط",
     north_hint:

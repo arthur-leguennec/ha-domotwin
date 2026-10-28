@@ -173,6 +173,7 @@ export const en = {
     invalid_link: "The manual is a path starting with / or a web address (http, https).",
   },
   people: {
+    counted: { one: "{count} person", other: "{count} people" },
     here: "Here now",
     in_room: "In the {room}",
     in_private_room: "In a private room",
@@ -357,6 +358,14 @@ export const en = {
     refused: "This action was not set: {reason}",
   },
   settings: {
+    workplace: "A workplace",
+    workplace_hint:
+      "An office or a shop: people are counted, never named, in DomoTwin's views and in what it says. The Home tab tells whether it is open and, once closed, what was left on.",
+    workplace_on: "This is a workplace, an office or a shop",
+    workplace_hours: "Opening hours",
+    workplace_no_hours: "None",
+    workplace_hours_hint:
+      "A schedule of Home Assistant's, made in Settings → Devices & services → Helpers: on while it is open.",
     title: "Settings",
     north: "North on the plan",
     north_hint:

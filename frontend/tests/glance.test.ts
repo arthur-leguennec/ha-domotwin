@@ -155,6 +155,68 @@ describe("glanceOf", () => {
     expect(glance.away).toBe(0);
   });
 
+  it("counts a workplace's people, naming none (D-086)", () => {
+    const hass = home([
+      ["person.sam", null, "home", { friendly_name: "Sam" }],
+      ["person.alex", null, "home", { friendly_name: "Alex" }],
+      ["person.kim", null, "not_home", { friendly_name: "Kim" }],
+      [
+        "sensor.domotwin_people_seen",
+        null,
+        "2",
+        { seen: [{ id: 1, room_id: "living", x: 1, y: 1 }] },
+      ],
+    ]);
+    const settings = {
+      revision: 1,
+      shown: "everyone",
+      look: "figure",
+      hidden: ["person.alex"],
+      people: {},
+      counted: true,
+    } satisfies PeopleSettings;
+    const glance = glanceOf(hass, sources({ people: settings, workplace: {} }));
+    // Sam at work, and someone the radars see whom no device names; Alex hid.
+    expect(glance.people).toBeUndefined();
+    expect(glance.here).toBe(2);
+    // The people's settings not read yet: counted still, from Home Assistant's people.
+    expect(glanceOf(hass, sources({ workplace: {} })).here).toBe(2);
+    // A home: named.
+    expect(glanceOf(hass, sources()).here).toBeUndefined();
+  });
+
+  it("says whether a workplace is open and, closed, what is left on (D-086)", () => {
+    const entities: [string, string | null, string, Record<string, unknown>][] = [
+      ["schedule.opening", null, "on", { next_event: "2026-03-02T18:00:00+00:00" }],
+      ["light.pendant", "lounge", "on", {}],
+      ["binary_sensor.front_door", "lounge", "on", { device_class: "door" }],
+      ["lock.back_door", "study", "unlocked", {}],
+      ["media_player.radio", "lounge", "playing", {}],
+      ["media_player.tv", "lounge", "off", {}],
+      ["lock.front", "lounge", "locked", {}],
+    ];
+    const workplace = { workplace: { hours: "schedule.opening" } };
+    const open = glanceOf(home(entities), sources(workplace));
+    expect(open.hours).toEqual({ open: true, until: "2026-03-02T18:00:00+00:00" });
+    expect(open.leftOn).toBeUndefined();
+    entities[0] = ["schedule.opening", null, "off", {}];
+    const closed = glanceOf(home(entities), sources(workplace));
+    expect(closed.hours).toEqual({ open: false });
+    expect(closed.leftOn).toEqual([
+      "light.pendant",
+      "binary_sensor.front_door",
+      "lock.back_door",
+      "media_player.radio",
+    ]);
+    // In a private room, not said.
+    const hidden = glanceOf(home(entities), sources({ ...workplace, closed: new Set(["study"]) }));
+    expect(hidden.leftOn).not.toContain("lock.back_door");
+    // No schedule, or one not known: no hours.
+    expect(glanceOf(home(entities), sources({ workplace: {} })).hours).toBeUndefined();
+    entities[0] = ["schedule.opening", null, "unavailable", {}];
+    expect(glanceOf(home(entities), sources(workplace)).hours).toBeUndefined();
+  });
+
   it("leaves out what a private room holds (its dangers are above every tab, D-068)", () => {
     const hass = home([
       ["light.desk", "study", "on", {}],

@@ -14,7 +14,7 @@ makes possible, by what it is about, each with how many devices it acts on:
 | About | Suggested |
 | --- | --- |
 | Lights | All the lights off; the lights off on each floor |
-| Several at once | Good night (the lights off, the shutters closed, the doors locked, the alarm for the night); Leaving home (the lights and the music off, the doors locked, the alarm armed, the heating in eco, asked first), from what your home has of them |
+| Several at once | Good night (the lights off, the shutters closed, the doors locked, the alarm for the night); Leaving home (the lights and the music off, the doors locked, the alarm armed, the heating in eco, asked first), from what your home has of them; in a workplace, Close up instead (the same with the shutters down, asked first, see [a workplace](workplace.md)) |
 | Shutters and blinds | Close the shutters; open the shutters |
 | Locks and alarm | Lock everything; arm the alarm; the alarm for the night |
 | Heating | Heating in eco (thermostats that have it); heating at 19 °C (66 °F) |

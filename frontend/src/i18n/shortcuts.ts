@@ -32,6 +32,7 @@ export const shortcutsEn = {
       media_none: "Quiet",
     },
     suggest: {
+      close_up: "Close up",
       lights_off: "All the lights off",
       lights_off_floor: "Lights off: {floor}",
       good_night: "Good night",
@@ -178,6 +179,7 @@ export const shortcutsFr: Widen<typeof shortcutsEn> = {
       media_none: "Silence",
     },
     suggest: {
+      close_up: "Fermer les lieux",
       lights_off: "Éteindre toutes les lumières",
       lights_off_floor: "Éteindre : {floor}",
       good_night: "Bonne nuit",

@@ -4355,3 +4355,43 @@ Asked by the maintainer after 0.6.0: voice can be turned off on one device.
   the panel and the card); the switches are in the dialogs' chunks. Nothing is sent anywhere. A
   layout saved without voice is not read by an older DomoTwin (its stricter schema leaves the
   screen out): going back a version is not supported, as for every key added to a store.
+
+## D-086 · A workplace: an office or a shop, its people counted, open at its hours (M48)
+
+Asked by the maintainer after 0.6.0: "an option for businesses". Read here as a home that is a
+workplace, a small office or a shop on Home Assistant; another reading (several sites, a licence,
+roles) would be another decision.
+
+- **Context.** DomoTwin is made for a home: it names who is in each room (D-034), says it by voice
+  (`domotwin.where`) and in its rooms' sensors (D-061), and suggests a good night and leaving
+  home (D-084). Where people work, where each one is during the day is theirs, and many places
+  have rules for it; a shop also opens and closes, and what is left on at closing is what one
+  wants to know.
+- **Decision.**
+  - **One setting, the home's.** `settings.workplace`, an administrator's, in the panel's
+    settings: present, the home is a workplace; `hours`, a `schedule` entity of Home Assistant's,
+    on while it is open. The schedule is Home Assistant's own helper (spans for each day, lunch
+    breaks, holidays by hand), not hours of DomoTwin's: automations use the same one, and nothing
+    is kept twice.
+  - **People counted, never named, for everyone.** The integration says it (`counted` in
+    `domotwin/people/get`, and the people read again when the setting changes). The 3D view draws
+    the people placed as figures of no one's colour, numbered, without a name or a sheet; a room's
+    panel says how many; the Home tab says how many are here (those placed, else Home Assistant's
+    people at home, and those the radars see without a name, D-080). Phones and watches followed
+    by Bluetooth are not shown, things are. `domotwin.where` answers how many are here, in each
+    language, whoever asks, a name or none; a room's people sensor keeps its count without the
+    list. Administrators too: the one who runs a place is the one it matters most for.
+  - **What Home Assistant keeps stays.** Its `person` entities, and each person's room sensor of
+    DomoTwin's, are still there for whoever administers Home Assistant: hiding them would take
+    their automations away. The guide says so, and that placing nobody, with presence radars,
+    counts people without knowing who they are.
+  - **Open, closed, left on.** With hours, a chip on the Home tab: *Open until …*, *Closed until
+    …*; closed, *Closed: N left on*, as a warning, a tap listing the lamps on, the doors and
+    windows open, the locks open and the media playing, each to turn off. What a private room
+    holds is left out for whoever may not see it (D-039).
+  - **Closing up.** Among the shortcuts suggested (D-084), *Close up* takes the place of *Good
+    night* and *Leaving*: lamps off, media off, shutters down, locked, alarm away, heating on eco,
+    from what the place has; it asks first.
+- **Consequences.** Nothing new is sent anywhere, and no new entity: the counts and hours come
+  from what Home Assistant has. The words are in the 12 languages. A home stays as it was: without
+  the setting nothing changes.

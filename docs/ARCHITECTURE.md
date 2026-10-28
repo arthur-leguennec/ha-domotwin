@@ -230,7 +230,8 @@ every reader returns `Result` with a stable error code that the frontend transla
    (`tracker.py`, D-034) and writes each one's room in their sensor. The view reads those sensors
    from `hass`, sends who is in which room to the engine (`setPeople`), which places the figures,
    walks them through the doors and draws them; their names go over the picture
-   (`peoplePoints`). Where the rooms come from Bluetooth (D-035), the locator (`locator.py`) hears
+   (`peoplePoints`). In a workplace (D-086), `domotwin/people/get` says `counted`: the view draws
+   them as figures numbered, never named (`seenShown`), and the Home tab counts them. Where the rooms come from Bluetooth (D-035), the locator (`locator.py`) hears
    the followed devices through Home Assistant's Bluetooth (`locating/radio_ha.py`) and, every two
    seconds, weighs what each receiver heard against what the plan says it should hear in each room
    and what was learned (`locating/geometry.py`, `radio.py`), along the doors and to another
@@ -344,7 +345,9 @@ every reader returns `Result` with a stable error code that the frontend transla
   `see` or `hidden`; at most 50 people, 200 rooms and 500 devices each
   ([`rights.md`](rights.md)); the weather drawn around the home (`weather`, D-072): a `weather`
   entity, or `none`; absent, the Home tab's; the roofs (`roof`, D-077): `{"shape"?: "gable" |
-  "hip" | "shed" | "flat", "pitch"?: 5–60, "color"?: "#rrggbb"}`.
+  "hip" | "shed" | "flat", "pitch"?: 5–60, "color"?: "#rrggbb"}`; a workplace (`workplace`,
+  D-086): `{"hours"?: schedule entity}`, its people counted, never named
+  ([`workplace.md`](workplace.md)).
 - `upkeep` (D-033, storage 4.1): the upkeep cards by piece id, and how many days before it a task
   is due soon; see [`upkeep.md`](upkeep.md). Kept apart from the plan, like the bindings.
 - `revision`: bumped on every write. `revisions` keeps the revision of the last write of each kind
@@ -458,7 +461,7 @@ when the integration is removed.
 | `domotwin/bindings/get`  | user   | –                                              | `bindings`, `revision`           |
 | `domotwin/bindings/save` | admin  | `bindings`, `expected_revision?`               | `revision`                       |
 | `domotwin/settings/get`  | user   | –                                              | `settings`, `revision`           |
-| `domotwin/settings/save` | admin  | `settings` (`north`, 0 ≤ n < 360; `theme`, `accent`; `rooms`, at most 200; `energy`; `access_points`, at most 16; `rights`; `weather`; `roof`) | `revision` |
+| `domotwin/settings/save` | admin  | `settings` (`north`, 0 ≤ n < 360; `theme`, `accent`; `rooms`, at most 200; `energy`; `access_points`, at most 16; `rights`; `weather`; `roof`; `workplace`) | `revision` |
 | `domotwin/upkeep/get`    | user   | –                                              | `upkeep`, `revision`, `today` (where the home is) |
 | `domotwin/upkeep/save`   | admin  | `pieces` (`{piece: card \| null}`, only those change), `lead_days?`, `expected_revision?` | `revision` |
 | `domotwin/upkeep/done`   | user   | `piece`, `task`                                | `revision`, `last_done`          |
@@ -541,7 +544,8 @@ unless the pass opens from anywhere. Refusals are `{code, starts?, ends?}`: `unk
 
 - `domotwin.show` (D-029): a room, an element, a storey, a view or a person's room, on the screens.
 - `domotwin.where` (D-034, with a response): where a person is, a device followed by Bluetooth
-  (D-035), or everyone at home, and a sentence to say in Home Assistant's language.
+  (D-035), or everyone at home, and a sentence to say in Home Assistant's language; in a workplace
+  (D-086), how many are here, never where anyone is.
 
 ## Privacy
 

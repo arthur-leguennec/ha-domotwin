@@ -174,6 +174,51 @@ async def test_each_room_has_a_device_in_its_area_with_who_is_there(
     assert _state(hass, "sensor.domotwin_hall_people").state == "0"
 
 
+async def test_a_workplace_counts_its_people_and_names_none(
+    hass: HomeAssistant, home: MockConfigEntry, hass_ws_client: WebSocketGenerator
+) -> None:
+    """D-086: the rooms say how many, `domotwin.where` how many, nobody where."""
+    client = await hass_ws_client(hass)
+    watcher = await hass_ws_client(hass)
+    await watcher.send_json_auto_id({"type": "domotwin/subscribe"})
+    assert (await watcher.receive_json())["success"]
+    await client.send_json_auto_id({"type": "domotwin/settings/get"})
+    settings = (await client.receive_json())["result"]["settings"]
+    workplace = {**settings, "workplace": {"hours": "schedule.opening_hours"}}
+    await client.send_json_auto_id({"type": "domotwin/settings/save", "settings": workplace})
+    assert (await client.receive_json())["success"]
+    await hass.async_block_till_done()
+    # The views read the people again: counted now.
+    kinds = {(await watcher.receive_json())["event"]["kind"] for _ in range(2)}
+    assert kinds == {"settings", "people"}
+    await client.send_json_auto_id({"type": "domotwin/people/get"})
+    assert (await client.receive_json())["result"]["counted"] is True
+    kitchen = _state(hass, KITCHEN_PEOPLE)
+    assert kitchen.state == "1"
+    assert "people" not in kitchen.attributes
+    answer = await hass.services.async_call(
+        DOMAIN, "where", {"name": "alex"}, blocking=True, return_response=True
+    )
+    assert answer == {
+        "people": [],
+        "text": "This is a workplace: I count people, I do not say where anyone is. "
+        "People here: 1.",
+    }
+    # Its hours changed: still a workplace, the people not read again.
+    await client.send_json_auto_id(
+        {"type": "domotwin/settings/save", "settings": {**settings, "workplace": {}}}
+    )
+    assert (await client.receive_json())["success"]
+    assert (await watcher.receive_json())["event"]["kind"] == "settings"
+    # A home again: named.
+    await client.send_json_auto_id({"type": "domotwin/settings/save", "settings": settings})
+    assert (await client.receive_json())["success"]
+    await hass.async_block_till_done()
+    assert _state(hass, KITCHEN_PEOPLE).attributes["people"] == ["person.alex"]
+    await client.send_json_auto_id({"type": "domotwin/people/get"})
+    assert "counted" not in (await client.receive_json())["result"]
+
+
 async def test_the_upkeep_due_is_told_in_its_room(
     hass: HomeAssistant, home: MockConfigEntry, hass_ws_client: WebSocketGenerator
 ) -> None:

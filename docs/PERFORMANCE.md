@@ -1466,3 +1466,11 @@ the device's choice in `localStorage` once, as they are shown (and again when an
 it), and give it to the 3D view; the switches are in the voice settings', the choices' and the
 wall screens' chunks, each a few lines. Nothing more is done at each update of Home Assistant's
 states.
+
+### M48 (a workplace)
+
+Bundle: the first load is **659.4 kB gzipped** of 1 200 kB (+1.0 kB): the workplace's section of
+the settings, its people counted in the 3D view and the rooms' panels, and the words of the 12
+languages' main dictionaries; the Home tab's hours and count are in its chunk. The Home tab works
+out what is left on only while a workplace is closed, in the same pass over the states as the lamps
+and the doors; nothing more is done at each update of Home Assistant's states otherwise.

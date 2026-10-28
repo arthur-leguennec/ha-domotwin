@@ -182,6 +182,19 @@ describe("people (D-034)", () => {
     ]);
   });
 
+  it("counts a workplace's people, naming none (D-086)", () => {
+    const counted: PeopleSettings = { ...settings, counted: true };
+    expect(peopleShown(counted, hass())).toEqual([]);
+    // Those in a room drawn as figures of no one's colour, numbered, never named.
+    const shown = seenShown(counted, hass());
+    expect(shown).toEqual([{ id: "counted.0", room: "kitchen" }]);
+    expect(JSON.stringify(shown)).not.toContain("alex");
+    expect(seenShown(counted, hass(), new Set(["kitchen"]))).toEqual([]);
+    expect(JSON.parse(peopleJson([], "figure", shown))).toEqual([
+      { id: "counted.0", room: "kitchen", color: SEEN_COLOR, look: "figure" },
+    ]);
+  });
+
   it("shows nobody to others when shown to administrators only", () => {
     const admins: PeopleSettings = { ...settings, shown: "admins" };
     expect(peopleShown(admins, hass(false))).toEqual([]);

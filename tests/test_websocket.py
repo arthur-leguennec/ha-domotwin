@@ -459,6 +459,20 @@ async def test_roof_settings_round_trip(
     assert "roof" not in (await client.receive_json())["result"]["settings"]
 
 
+async def test_workplace_settings_round_trip(
+    hass: HomeAssistant, setup_integration: MockConfigEntry, hass_ws_client: WebSocketGenerator
+) -> None:
+    client = await hass_ws_client(hass)
+    # A workplace (D-086), with its opening hours or without: kept either way.
+    for workplace in ({"hours": "schedule.opening_hours"}, {}):
+        await client.send_json_auto_id(
+            {"type": "domotwin/settings/save", "settings": {"north": 0, "workplace": workplace}}
+        )
+        assert (await client.receive_json())["success"]
+        await client.send_json_auto_id({"type": "domotwin/settings/get"})
+        assert (await client.receive_json())["result"]["settings"]["workplace"] == workplace
+
+
 @pytest.mark.parametrize(
     "settings",
     [
@@ -507,6 +521,11 @@ async def test_roof_settings_round_trip(
         {"roof": {"pitch": True}},
         {"roof": {"color": "brown"}},
         {"roof": {"height": 300}},
+        {"workplace": True},
+        {"workplace": {"hours": "sensor.opening_hours"}},
+        {"workplace": {"hours": "schedule."}},
+        {"workplace": {"hours": 9}},
+        {"workplace": {"open": "08:00"}},
     ],
 )
 async def test_invalid_settings_are_refused(

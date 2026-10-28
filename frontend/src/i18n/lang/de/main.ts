@@ -228,6 +228,7 @@ export const main: Dictionary = {
       "Die Anleitung ist ein Pfad, der mit / beginnt, oder eine Webadresse (http, https).",
   },
   people: {
+    counted: { one: "{count} Person", other: "{count} Personen" },
     here: "Jetzt hier",
     in_room: "Im Raum {room}",
     in_private_room: "In einem privaten Raum",
@@ -418,6 +419,14 @@ export const main: Dictionary = {
     refused: "Diese Aktion wurde nicht festgelegt: {reason}",
   },
   settings: {
+    workplace: "Ein Arbeitsplatz",
+    workplace_hint:
+      "Ein Büro oder ein Geschäft: Personen werden gezählt, nie mit Namen genannt, in den Ansichten von DomoTwin und in dem, was es sagt. Der Tab Start zeigt, ob geöffnet ist und, nach Feierabend, was noch an ist.",
+    workplace_on: "Dies ist ein Arbeitsplatz, ein Büro oder ein Geschäft",
+    workplace_hours: "Öffnungszeiten",
+    workplace_no_hours: "Keine",
+    workplace_hours_hint:
+      "Ein Zeitplan von Home Assistant, angelegt unter Einstellungen → Geräte & Dienste → Helfer: an, solange geöffnet ist.",
     title: "Einstellungen",
     north: "Norden im Grundriss",
     north_hint:

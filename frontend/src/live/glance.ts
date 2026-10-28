@@ -2,14 +2,16 @@
  * The home at a glance, on the Home tab (D-055): who is in, the weather, the lamps on, the doors
  * and windows open, Hydro-Québec's next peak (D-063), read from Home Assistant's states. What a
  * private room holds (D-039) is left out for a viewer who may not see it. The alerts are above
- * every tab since D-068.
+ * every tab since D-068. A workplace (D-086) counts its people, and says whether it is open and,
+ * closed, what is left on.
  */
+import type { Workplace } from "../ha/client";
 import { domainOf, type HomeAssistant } from "../ha/types";
 import { NO_BINDINGS, areaOf, type BindingsJson } from "./bindings";
 import { numberOf, type PlanRoom } from "./layers";
 import { peakRooms, type PeakRooms } from "./peak-rooms";
 import { peakNow, type PeakNow } from "./peaks";
-import { colorOf, initials, peopleShown, type PeopleSettings } from "./people";
+import { colorOf, initials, peopleShown, radarSeen, type PeopleSettings } from "./people";
 import { closedAreas, outOfSight } from "./privacy";
 import { usualWeather } from "./weather";
 
@@ -32,12 +34,25 @@ export interface GlanceWeather {
   unit: string;
 }
 
+/** A workplace's hours now (D-086), as its schedule says. */
+export interface GlanceHours {
+  open: boolean;
+  /** When that changes (ISO), when the schedule says. */
+  until?: string;
+}
+
 /** The home now. */
 export interface Glance {
-  /** At home, by name; none when the viewer may not see the people (D-034). */
+  /** At home, by name; none when the viewer may not see the people (D-034), nor in a workplace. */
   people?: GlancePerson[];
   /** Away. */
   away: number;
+  /** In a workplace (D-086): how many are here, named nowhere. */
+  here?: number;
+  /** A workplace's hours (D-086), when it has a schedule. */
+  hours?: GlanceHours;
+  /** A workplace closed: what is left on (lamps, doors and windows, locks, media playing). */
+  leftOn?: string[];
   weather?: GlanceWeather;
   /** Lamps on (light groups left out: their lamps are counted). */
   lights: string[];
@@ -61,12 +76,27 @@ export interface GlanceSources {
   closedAreas?: ReadonlySet<string>;
   /** The home's own meters (its energy settings, D-049): not a room's draw. */
   meters?: ReadonlySet<string>;
+  /** A workplace (D-086). */
+  workplace?: Workplace;
 }
 
 /** Contact sensors that say a door or a window is open. */
 const OPENING_CLASSES = new Set(["door", "window", "garage_door", "opening"]);
 /** Covers that are ways in, not blinds. */
 const DOOR_COVERS = new Set(["door", "garage", "gate"]);
+
+/** A lock left open, and media left on, when a workplace closes (D-086). */
+const LOCK_OPEN = new Set(["unlocked", "open", "opening", "unlocking"]);
+const MEDIA_ON = new Set(["on", "playing"]);
+
+/** A workplace's hours now (D-086): its schedule on while open; nothing while it is not known. */
+function hoursOf(hass: HomeAssistant, workplace: Workplace | undefined): GlanceHours | undefined {
+  const id = workplace?.hours;
+  const state = id ? hass.states[id] : undefined;
+  if (state?.state !== "on" && state?.state !== "off") return undefined;
+  const next = state.attributes.next_event;
+  return { open: state.state === "on", ...(typeof next === "string" ? { until: next } : {}) };
+}
 
 /** A light that groups others (a light group, a Hue room): its lamps count, not it. */
 function groupsLights(hass: HomeAssistant, id: string): boolean {
@@ -98,8 +128,19 @@ function peopleOf(
   hass: HomeAssistant,
   settings: PeopleSettings | undefined,
   closed: Set<string>,
-): { people?: GlancePerson[]; away: number } {
+  workplace: boolean,
+): { people?: GlancePerson[]; away: number; here?: number } {
   if (settings?.shown === "admins" && hass.user?.is_admin !== true) return { away: 0 };
+  // A workplace (D-086): how many, named nowhere; those the radars see without a name too.
+  if (workplace || settings?.counted === true) {
+    const placed = settings && Object.keys(settings.people).length > 0;
+    const hidden = new Set(settings?.hidden ?? []);
+    const ids = placed
+      ? Object.keys(settings.people)
+      : Object.keys(hass.states).filter((id) => domainOf(id) === "person");
+    const here = ids.filter((id) => !hidden.has(id) && hass.states[id]?.state === "home").length;
+    return { away: 0, here: here + (settings ? radarSeen(settings, hass, closed).length : 0) };
+  }
   if (settings && Object.keys(settings.people).length > 0) {
     const shown = outOfSight(peopleShown(settings, hass), closed);
     return {
@@ -150,10 +191,17 @@ export function glanceOf(hass: HomeAssistant, sources: GlanceSources): Glance {
   };
   const lights: string[] = [];
   const openings: string[] = [];
+  // A workplace closed (D-086): the locks open and the media playing are left on too.
+  const hours = hoursOf(hass, sources.workplace);
+  const closedNow = hours?.open === false;
+  const others: string[] = [];
   for (const [id, state] of Object.entries(hass.states)) {
     if (!state) continue;
     const domain = domainOf(id);
-    if (domain === "light") {
+    if (closedNow && (domain === "lock" || domain === "media_player")) {
+      const on = domain === "lock" ? LOCK_OPEN : MEDIA_ON;
+      if (on.has(state.state) && seen(id)) others.push(id);
+    } else if (domain === "light") {
       if (state.state === "on" && !groupsLights(hass, id) && seen(id)) lights.push(id);
     } else if (domain === "binary_sensor") {
       const deviceClass = state.attributes.device_class;
@@ -168,10 +216,14 @@ export function glanceOf(hass: HomeAssistant, sources: GlanceSources): Glance {
     }
   }
   const glance: Glance = {
-    ...peopleOf(hass, sources.people, closed),
+    ...peopleOf(hass, sources.people, closed, sources.workplace !== undefined),
     lights: lights.sort(),
     openings: openings.sort(),
   };
+  if (hours) {
+    glance.hours = hours;
+    if (closedNow) glance.leftOn = [...glance.lights, ...glance.openings, ...others.sort()];
+  }
   const weather = weatherOf(hass);
   if (weather) glance.weather = weather;
   const now = peakNow(hass);
