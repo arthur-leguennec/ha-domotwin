@@ -57,6 +57,7 @@ import {
   type PlanJson,
   type RoofSettings,
   type Settings,
+  type Site,
   type StoreyInfo,
   type StoredPlan,
   type Workplace,
@@ -100,6 +101,16 @@ import {
   type StoreyAlert,
   type StoreyRooms,
 } from "../live/storeys";
+import {
+  MAX_SITES,
+  homeSites,
+  readDeviceSite,
+  siteGround,
+  siteOf,
+  siteScope,
+  siteStoreys,
+  writeDeviceSite,
+} from "../live/sites";
 import { NOTHING_UNSEEN, seen, type Unseen } from "../live/privacy";
 import { DoorbellWatch, RING_FRESH_MS, RING_SHOWN_MS, type Ring } from "../live/doorbell";
 import {
@@ -419,6 +430,7 @@ export class DomoTwinPanel extends LitElement {
     energyPreferred: { state: true },
     weatherDraft: { state: true },
     workplaceDraft: { state: true },
+    sitesDraft: { state: true },
     roofDraft: { state: true },
     look: { reflect: true },
     planning: { state: true },
@@ -543,6 +555,8 @@ export class DomoTwinPanel extends LitElement {
     from: unknown[];
     sources: GlanceSources;
     unseen: Unseen;
+    shown: Unseen;
+    others: ReadonlySet<string>;
     actions: Map<string, RoomAction[]>;
   };
   protected plan?: StoredPlan["plan"];
@@ -675,6 +689,8 @@ export class DomoTwinPanel extends LitElement {
   protected workplaceDraft?: Workplace | null;
   /** The workplace as it was before it was unticked, while the settings are open. */
   private workplaceWas?: Workplace;
+  /** The sites (D-090), being chosen in the settings. */
+  protected sitesDraft?: Site[];
   /** The draft last shown, and its settings as read. */
   private energyShown?: { draft: EnergySettings; energy: EnergySettings | undefined };
   /** The power sensors Home Assistant's own energy settings name, offered first. */
@@ -820,6 +836,19 @@ export class DomoTwinPanel extends LitElement {
         background: var(--app-header-background-color, var(--primary-color, #03a9f4));
         color: var(--app-header-text-color, var(--text-primary-color, #fff));
         border-bottom: var(--app-header-border-bottom, none);
+      }
+      .toolbar select.site {
+        flex: 0 1 auto;
+        min-width: 0;
+        max-width: 40%;
+        min-height: 36px;
+        padding: 0 8px;
+        border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+        border-radius: 8px;
+        background: var(--card-background-color, #fff);
+        color: inherit;
+        font: inherit;
+        text-overflow: ellipsis;
       }
       .toolbar h1 {
         margin-block: 0;
@@ -1239,6 +1268,36 @@ export class DomoTwinPanel extends LitElement {
         font-size: 0.9rem;
         font-weight: 600;
       }
+      .ask .sites {
+        display: grid;
+        gap: 12px;
+        margin-top: 6px;
+      }
+      .ask .site {
+        display: grid;
+        gap: 6px;
+        padding: 8px 0;
+        border-top: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+      }
+      .ask .site input[type="text"] {
+        min-height: 36px;
+        min-width: 0;
+        max-width: 60%;
+        padding: 0 8px;
+        border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+        border-radius: 8px;
+        background: var(--card-background-color, #fff);
+        color: inherit;
+        font: inherit;
+      }
+      .ask .site select {
+        max-width: 60%;
+      }
+      .ask .site-storeys {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 16px;
+      }
       .ask .meeting-rooms {
         display: grid;
         gap: 8px;
@@ -1535,6 +1594,7 @@ export class DomoTwinPanel extends LitElement {
     this.roofDraft = undefined;
     this.workplaceDraft = undefined;
     this.workplaceWas = undefined;
+    this.sitesDraft = undefined;
     this.peopleOpen = false;
     this.peopleSettings = undefined;
     this.bluetoothOpen = false;
@@ -2093,6 +2153,10 @@ export class DomoTwinPanel extends LitElement {
     this.roofDraft = { ...this.settings?.roof };
     this.workplaceDraft = this.settings?.workplace ? { ...this.settings.workplace } : null;
     this.workplaceWas = undefined;
+    this.sitesDraft = (this.settings?.sites ?? []).map((site) => ({
+      ...site,
+      storeys: [...site.storeys],
+    }));
     void this.loadEnergyPreferred();
   };
 
@@ -2155,9 +2219,21 @@ export class DomoTwinPanel extends LitElement {
       else if (roof) delete settings.roof;
       if (this.workplaceDraft) settings.workplace = this.keptMeetingRooms(this.workplaceDraft);
       else if (this.workplaceDraft === null) delete settings.workplace;
+      // The sites (D-090), each named: one left unnamed is "Site 2".
+      const sitesBefore = JSON.stringify(this.settings?.sites ?? []);
+      if (this.sitesDraft) {
+        const sites = this.sitesDraft.map((site, i) => ({
+          ...site,
+          name: site.name.trim() || this.t.t("settings.site_default", { n: i + 1 }),
+        }));
+        if (sites.length > 0) settings.sites = sites;
+        else delete settings.sites;
+      }
       await client.saveSettings(settings);
       this.settings = settings;
       this.northDraft = undefined;
+      // Other sites: the storeys shown together are the site's (D-090).
+      if (JSON.stringify(settings.sites ?? []) !== sitesBefore) void this.loadPlan();
       this.show(this.t.t("settings.saved"));
     } catch (error) {
       const t = this.t;
@@ -2206,9 +2282,18 @@ export class DomoTwinPanel extends LitElement {
     try {
       // The storey shown, or the ground floor when it was removed (here or elsewhere); every
       // storey's too to show them all, before anything changes (D-028: two with a plan at least).
-      const stored = await loadStorey(client, this.storey);
-      const storeys =
-        this.showAll && stored.storeys.length > 1 ? await loadHome(client, stored.storeys) : [];
+      let stored = await loadStorey(client, this.storey);
+      // Opened on no storey: this device's site's ground floor, of several sites (D-090).
+      if (this.storey === undefined) {
+        const ground = await this.deviceGround(client, stored.storeys);
+        if (ground !== undefined && ground !== stored.storey) {
+          stored = await loadStorey(client, ground);
+        }
+      }
+      // All the storeys of the site shown (D-090): of the home, without sites.
+      const site = siteOf(homeSites(this.settings, stored.storeys), stored.storey ?? undefined);
+      const shown = siteStoreys(stored.storeys, site);
+      const storeys = this.showAll && shown.length > 1 ? await loadHome(client, shown) : [];
       const home = storeys.length > 1 ? storeys : undefined;
       // A later load (another storey asked for) wins.
       if (ticket !== this.loads) return;
@@ -2237,6 +2322,70 @@ export class DomoTwinPanel extends LitElement {
       if (this.plan === undefined) this.readAgain(client, "plan");
     }
   }
+
+  /** The ground floor of the site this device was last on (D-090), when it remembers one. */
+  private async deviceGround(
+    client: DomoTwinClient,
+    storeys: StoreyInfo[],
+  ): Promise<string | undefined> {
+    const remembered = readDeviceSite();
+    if (!remembered) return undefined;
+    let settings = this.settings;
+    if (!settings) {
+      try {
+        settings = (await client.getSettings()).settings;
+      } catch {
+        return undefined;
+      }
+    }
+    const site = homeSites(settings, storeys).find((each) => each.id === remembered);
+    return site ? siteGround(storeys, site)?.id : undefined;
+  }
+
+  /**
+   * A storey added while a site other than the first was shown (D-090): that site's, in the
+   * settings. One in none would be the first's, and the view would go there.
+   */
+  private async keepInSite(storey: string, site: Site | undefined): Promise<void> {
+    const client = this.client;
+    const settings = this.settings;
+    const sites = settings?.sites;
+    if (!client || !settings || !sites || !site || sites[0]?.id === site.id) return;
+    const next: Settings = {
+      ...settings,
+      sites: sites.map((each) =>
+        each.id === site.id ? { ...each, storeys: [...each.storeys, storey] } : each,
+      ),
+    };
+    try {
+      await client.saveSettings(next);
+      this.settings = next;
+    } catch {
+      // Left to the first site: the settings say where it goes.
+    }
+  }
+
+  /** The home's sites (D-090); none with fewer than two. */
+  private homeSites(): Site[] {
+    return homeSites(this.settings, this.storeys);
+  }
+
+  /** The site shown (D-090): the shown storey's. */
+  private shownSite(): Site | undefined {
+    return siteOf(this.homeSites(), this.storey);
+  }
+
+  /** Another site, from the toolbar's list: its ground floor shown, and remembered here. */
+  private readonly onSite = (event: Event): void => {
+    const id = (event.target as HTMLSelectElement).value;
+    const site = this.homeSites().find((each) => each.id === id);
+    const ground = site ? siteGround(this.storeys, site) : undefined;
+    if (!site || !ground || this.editing || this.planning) return;
+    writeDeviceSite(site.id);
+    this.storey = ground.id;
+    this.linkTarget = undefined;
+    void this.loadPlan();
+  };
 
   /**
    * The rooms of the other storeys (plans the client has are not fetched again). Until every one
@@ -2561,8 +2710,10 @@ export class DomoTwinPanel extends LitElement {
    * 1 m of it (a home with only a cellar), within the 1 000 m a height may be.
    */
   private nextElevation(): number {
-    if (this.storeys.length === 0) return 0;
-    const next = Math.max(...this.storeys.map((storey) => storey.elevation)) + 280;
+    // Over the site shown's (D-090): another site's storeys may stand as high.
+    const storeys = siteStoreys(this.storeys, this.shownSite());
+    if (storeys.length === 0) return 0;
+    const next = Math.max(...storeys.map((storey) => storey.elevation)) + 280;
     return Math.abs(next) < 100 ? 0 : Math.min(next, MAX_ELEVATION);
   }
 
@@ -2636,11 +2787,13 @@ export class DomoTwinPanel extends LitElement {
     this.saving = true;
     try {
       if (this.planNew) {
+        const site = this.shownSite();
         const added = await client.saveStorey(
           { plan, layout: {}, elevation: this.nextElevation() },
           this.planRevision,
         );
         this.storey = added.storey;
+        await this.keepInSite(added.storey, site);
       } else {
         await client.savePlan(plan, this.planRevision, {}, this.storey);
       }
@@ -3148,8 +3301,10 @@ export class DomoTwinPanel extends LitElement {
     let plan: PlanJson;
     if (target === "new") {
       plan = await this.ownIds(read);
+      const site = this.shownSite();
       const added = await client.saveStorey({ plan, elevation: this.nextElevation() });
       this.storey = added.storey;
+      await this.keepInSite(added.storey, site);
     } else {
       plan = await this.ownIds(read, this.storey);
       await client.savePlan(plan, undefined, undefined, this.storey);
@@ -3464,11 +3619,32 @@ export class DomoTwinPanel extends LitElement {
       this.narrow,
       this.compact,
       this.tab,
+      this.homeSites()
+        .map((site) => site.name)
+        .join(","),
     ].join("|");
     if (fitting !== this.fitted) {
       this.fitted = fitting;
       this.fitToolbar();
     }
+  }
+
+  /** The sites (D-090), one shown at a time: a list to go to another, not while a tool works. */
+  private renderSites(): TemplateResult | typeof nothing {
+    const sites = this.homeSites();
+    if (sites.length < 2 || this.editing || this.planning || this.linking) return nothing;
+    const shown = this.shownSite();
+    return html`<select
+      class="site"
+      data-testid="site-switcher"
+      aria-label=${this.t.t("panel.site")}
+      @change=${this.onSite}
+    >
+      ${sites.map(
+        (site) =>
+          html`<option value=${site.id} ?selected=${site.id === shown?.id}>${site.name}</option>`,
+      )}
+    </select>`;
   }
 
   /**
@@ -3630,12 +3806,20 @@ export class DomoTwinPanel extends LitElement {
   private practical(hass: HomeAssistant): {
     sources: GlanceSources;
     unseen: Unseen;
+    /** What the Home and Rooms tabs leave out: also the other sites' (D-090). */
+    shown: Unseen;
+    /** The other sites' areas (D-090). */
+    others: ReadonlySet<string>;
     actions: Map<string, RoomAction[]>;
   } {
     // `hass` is Home Assistant's own; the viewer's rights are worked out here (D-071).
     const gate = this.rightsOf(hass).gate;
     const closed = closedRooms(this.settings?.rooms, this.settings?.rights, hass);
+    const sites = this.homeSites();
+    const site = siteOf(sites, this.storey);
     const from = [
+      site,
+      this.storeys,
       this.plan,
       this.layout,
       this.elsewhere,
@@ -3669,8 +3853,37 @@ export class DomoTwinPanel extends LitElement {
       ),
     };
     if (this.people) sources.people = this.people;
-    // A workplace (D-086): its people counted, its hours.
-    if (this.settings?.workplace) sources.workplace = this.settings.workplace;
+    // A workplace (D-086): its people counted, its hours; a site's own, of several (D-090).
+    const workplace = this.settings?.workplace;
+    if (workplace) {
+      sources.workplace = site?.hours ? { ...workplace, hours: site.hours } : workplace;
+    }
+    let shownUnseen = unseen;
+    let others: ReadonlySet<string> = new Set();
+    if (site) {
+      // One site of several (D-090): its rooms, the other sites' left out of the tabs.
+      const scope = siteScope(hass, bindings, sites, site, [
+        {
+          storey: this.storey ?? "",
+          rooms: planRooms(this.plan),
+          plan: this.plan,
+          layout: this.layout,
+        },
+        ...this.elsewhere,
+      ]);
+      shownUnseen = {
+        areas: new Set([...unseen.areas, ...scope.areas]),
+        entities: new Set([...unseen.entities, ...scope.entities]),
+      };
+      others = scope.areas;
+      sources.rooms = scope.rooms;
+      sources.closedAreas = shownUnseen.areas;
+      sources.closedEntities = shownUnseen.entities;
+      sources.site = {
+        onSite: scope.onSite,
+        ownHours: site.hours !== undefined && site.hours !== workplace?.hours,
+      };
+    }
     // The rooms' own actions (D-047), on their area's page.
     const actions = new Map<string, RoomAction[]>();
     for (const room of rooms) {
@@ -3678,7 +3891,7 @@ export class DomoTwinPanel extends LitElement {
       const area = own.length ? roomArea(hass, bindings, room.id, room.name) : undefined;
       if (area) actions.set(area, [...(actions.get(area) ?? []), ...own]);
     }
-    this.practicalShown = { from, sources, unseen, actions };
+    this.practicalShown = { from, sources, unseen, shown: shownUnseen, others, actions };
     return this.practicalShown;
   }
 
@@ -3809,6 +4022,7 @@ export class DomoTwinPanel extends LitElement {
                 : t.t("panel.title")
           }
         </h1>
+        ${this.renderSites()}
         ${
           this.editing
             ? this.renderEditActions()
@@ -3950,7 +4164,7 @@ export class DomoTwinPanel extends LitElement {
       .roofStyle=${
         this.northDraft !== undefined && this.roofDraft ? this.roofDraft : this.settings?.roof
       }
-      .storeys=${this.storeys}
+      .storeys=${siteStoreys(this.storeys, this.shownSite())}
       .storey=${this.wholeHome() ? ALL_STOREYS : this.storey}
       .home=${this.wholeHome() && this.homeShown ? this.home : undefined}
       .elsewhere=${this.wholeHome() ? [] : this.elsewhere}
@@ -4109,7 +4323,7 @@ export class DomoTwinPanel extends LitElement {
     if (!real || !this.practicalReady || !this.settingsRead) return nothing;
     // Under the viewer's rights (D-071): only looked at, a card does nothing on a tap.
     const hass = gatedHass(real, this.rightsOf(real).gate);
-    const { sources, unseen, actions } = this.practical(real);
+    const { sources, unseen, shown, others, actions } = this.practical(real);
     const alerts = this.homeAlerts(hass, sources.closed, unseen);
     const page = securityPage(hass);
     if (this.tab === "safety") {
@@ -4138,7 +4352,8 @@ export class DomoTwinPanel extends LitElement {
               .hass=${hass}
               .t=${this.t}
               .favourites=${this.choices?.favourites ?? []}
-              .unseen=${unseen}
+              .unseen=${shown}
+              .others=${others}
               .actions=${actions}
               .area=${this.roomOpen}
               ?graphs=${this.roomGraphs}
@@ -4154,7 +4369,7 @@ export class DomoTwinPanel extends LitElement {
               .choices=${this.choices ?? NO_CHOICES}
               ?shortcutsReady=${this.choicesRead}
               .sources=${sources}
-              .unseen=${unseen}
+              .unseen=${shown}
               @domotwin-go=${this.onGo}
               @domotwin-favourite=${this.onFavourite}
               @domotwin-shortcuts=${this.onShortcuts}
@@ -4950,7 +5165,7 @@ export class DomoTwinPanel extends LitElement {
       </label>
       <p class="hint">${t.t("settings.north_hint")}</p>
       ${this.renderLookSettings()} ${this.renderRoofSettings()} ${this.renderWeatherSettings()}
-      ${this.renderEnergySettings()} ${this.renderWorkplaceSettings()}
+      ${this.renderEnergySettings()} ${this.renderWorkplaceSettings()} ${this.renderSitesSettings()}
       <div class="footer">
         <button class="action quiet" data-cancel @click=${() => (this.northDraft = undefined)}>
           ${t.t("panel.cancel")}
@@ -5122,6 +5337,127 @@ export class DomoTwinPanel extends LitElement {
    * A workplace (D-086): an office or a shop, its people counted and named nowhere; its opening
    * hours a schedule of Home Assistant's.
    */
+  /**
+   * The sites one Home Assistant runs (D-090): each a name, its storeys (each in one site), and
+   * its own opening hours for a workplace. With two or more, the panel shows one at a time.
+   */
+  private renderSitesSettings(): TemplateResult | typeof nothing {
+    const t = this.t;
+    const draft = this.sitesDraft;
+    const hass = this._hass;
+    if (!draft || !hass) return nothing;
+    const levels = storeyLevels(this.storeys);
+    const schedules = Object.keys(hass.states)
+      .filter((id) => id.startsWith("schedule."))
+      .sort();
+    const change = (index: number, site: Site | undefined): void => {
+      const sites = [...(this.sitesDraft ?? [])];
+      if (site) sites[index] = site;
+      else sites.splice(index, 1);
+      this.sitesDraft = sites;
+    };
+    const add = (): void => {
+      const sites = this.sitesDraft ?? [];
+      const ids = new Set(sites.map((site) => site.id));
+      let n = 1;
+      while (ids.has(`site-${n}`)) n += 1;
+      // The first site has every storey, until some are given to another.
+      const storeys = sites.length === 0 ? this.storeys.map((storey) => storey.id) : [];
+      this.sitesDraft = [...sites, { id: `site-${n}`, name: "", storeys }];
+    };
+    return html`<h3>${t.t("settings.sites")}</h3>
+      <p class="hint">${t.t("settings.sites_hint")}</p>
+      <div class="sites" data-testid="settings-sites">
+        ${draft.map((site, index) => {
+          const hours = site.hours;
+          const offered = hours && !schedules.includes(hours) ? [hours, ...schedules] : schedules;
+          return html`<div class="site" data-site=${site.id}>
+            <label class="look">
+              <span>${t.t("settings.site_name")}</span>
+              <input
+                type="text"
+                data-testid="settings-site-name"
+                maxlength="60"
+                .value=${site.name}
+                placeholder=${t.t("settings.site_default", { n: index + 1 })}
+                @input=${(event: Event) => {
+                  change(index, { ...site, name: (event.target as HTMLInputElement).value });
+                }}
+              />
+            </label>
+            <div class="site-storeys">
+              ${levels.map(
+                ({ storey, level }) =>
+                  html`<label class="reversed">
+                    <input
+                      type="checkbox"
+                      data-testid="settings-site-storey"
+                      data-storey=${storey.id}
+                      .checked=${site.storeys.includes(storey.id)}
+                      @change=${(event: Event) => {
+                        const on = (event.target as HTMLInputElement).checked;
+                        // A storey is in one site: given to this one, taken from the others.
+                        this.sitesDraft = (this.sitesDraft ?? []).map((each, i) => {
+                          const others = each.storeys.filter((id) => id !== storey.id);
+                          return {
+                            ...each,
+                            storeys: i === index && on ? [...others, storey.id] : others,
+                          };
+                        });
+                      }}
+                    />
+                    <span>${storeyName(t, storey, level)}</span>
+                  </label>`,
+              )}
+            </div>
+            ${
+              this.workplaceDraft
+                ? html`<label class="look">
+                    <span>${t.t("settings.site_hours")}</span>
+                    <select
+                      data-testid="settings-site-hours"
+                      @change=${(event: Event) => {
+                        const value = (event.target as HTMLSelectElement).value;
+                        const rest: Site = { ...site };
+                        delete rest.hours;
+                        change(index, value ? { ...rest, hours: value } : rest);
+                      }}
+                    >
+                      <option value="" ?selected=${!hours}>
+                        ${t.t("settings.site_hours_workplace")}
+                      </option>
+                      ${offered.map(
+                        (id) =>
+                          html`<option value=${id} ?selected=${id === hours}>
+                            ${entityName(hass, id)}
+                          </option>`,
+                      )}
+                    </select>
+                  </label>`
+                : nothing
+            }
+            <button
+              class="action quiet"
+              data-testid="settings-site-remove"
+              @click=${() => {
+                change(index, undefined);
+              }}
+            >
+              ${t.t("settings.site_remove", { name: site.name || t.t("settings.site_default", { n: index + 1 }) })}
+            </button>
+          </div>`;
+        })}
+      </div>
+      <button
+        class="action quiet"
+        data-testid="settings-site-add"
+        ?disabled=${draft.length >= MAX_SITES}
+        @click=${add}
+      >
+        ${t.t("settings.site_add")}
+      </button>`;
+  }
+
   private renderWorkplaceSettings(): TemplateResult | typeof nothing {
     const t = this.t;
     const draft = this.workplaceDraft;

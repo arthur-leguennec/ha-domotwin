@@ -51,6 +51,8 @@ MAX_ROOM_ACTION_NAME: Final = 40
 # Storeys of a home, the length of their names and their elevation (cm, from the ground).
 MAX_STOREYS: Final = 20
 MAX_STOREY_NAME: Final = 60
+# Sites one Home Assistant runs, each a group of its storeys (D-090).
+MAX_SITES: Final = 16
 MIN_ELEVATION: Final = -10_000
 MAX_ELEVATION: Final = 100_000
 

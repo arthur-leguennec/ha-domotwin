@@ -1500,3 +1500,10 @@ marks the meeting rooms and their calendars, and its styles; the Home tab's chip
 with it, on demand.
 Each meeting room is worked out from the states Home Assistant already sent, at each new set of
 states: its calendar's attributes and the presence sensors of its area, a few entities for each.
+
+### M52 (several sites in one Home Assistant)
+
+Bundle: the first load is **664.5 kB gzipped** of 1 200 kB (+2.2 kB): the list of sites in the
+toolbar, the settings' section, and what a site shows of the home. That is worked out with the
+rest of the Home and Rooms tabs' sources, once per change of the plans, links, settings or storey
+shown: the other sites' rooms' areas and the entities linked to them.

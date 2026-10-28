@@ -200,7 +200,8 @@ People in their rooms, found by what your home already has.
   a Home Assistant schedule, and once closed the Home tab says what was left on (lamps, doors,
   locks, music), with *Close up* suggested as a shortcut; a tap on its hours says what the place
   used while closed. Its meeting rooms say whether they are free, taken or booked, and book in
-  their Home Assistant calendar.
+  their Home Assistant calendar. Several shops or buildings in one Home Assistant are sites of
+  their own, each shown on its own with its hours.
   See [a workplace](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/workplace.md).
 
 ### Understand your home

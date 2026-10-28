@@ -371,6 +371,15 @@ export const en = {
       "Rooms kept for meetings: the Home tab says which are free, taken or booked, and books one in its calendar of Home Assistant's.",
     meeting_no_calendar: "No calendar",
     meeting_calendar: "The calendar {room} is booked in",
+    sites: "Sites",
+    sites_hint:
+      "Several buildings or shops run by this Home Assistant: give each its storeys. With two or more, DomoTwin shows one at a time, chosen at the top; the Home and Rooms tabs follow it.",
+    site_name: "Name",
+    site_default: "Site {n}",
+    site_hours: "Opening hours",
+    site_hours_workplace: "The workplace's",
+    site_add: "Add a site",
+    site_remove: "Remove {name}",
     title: "Settings",
     north: "North on the plan",
     north_hint:
@@ -824,6 +833,7 @@ export const en = {
   },
   panel: {
     title: "DomoTwin",
+    site: "Site",
     import: "Import plan",
     export: "Export plan",
     more: "More",

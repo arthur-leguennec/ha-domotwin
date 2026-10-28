@@ -4521,3 +4521,41 @@ rooms".
   first load grows by 1.0 kB gzipped (the settings' section); the Home tab carries the rest. New
   texts in the 12 languages. A calendar of an online service is read as Home Assistant keeps it,
   nothing fetched by DomoTwin.
+
+## D-090 · Several sites in one Home Assistant (M52)
+
+Asked by the maintainer after 0.7.0, among what the workplace (D-086) should do more: "several
+sites". Designed here before it was built, as the roadmap asked.
+
+- **Context.** A business may run two shops, or a shop and its stockroom, with one Home
+  Assistant; so may a home with a cottage. DomoTwin knew one home: its storeys (D-026) stacked as
+  one building, its Home and Rooms tabs over all of Home Assistant. Making each site a home of its
+  own (its plans, links, settings, people) would split every store, command and view; the storeys
+  already hold each building's plans.
+- **Decision.**
+  - **A site is a group of storeys**, in the settings (`settings.sites`: `{id, name, storeys,
+    hours?}`, at most 16, administrators): a storey in one site; one in none is the first site's.
+    With fewer than two sites, nothing changes.
+  - **The site shown is the shown storey's.** A list at the top of the panel goes to another
+    site's ground floor (its storey nearest the ground); each screen remembers the last one in its
+    browser, and opens on it. Whatever shows a storey (an alert's tap, `domotwin.show`, a room's
+    link, M49) shows its site with it.
+  - **What follows the site**: the 3D view's storeys (the switcher, *All storeys*, the names
+    counted from the site's own ground floor), and the Home and Rooms tabs: the site's rooms
+    (meeting rooms, D-089, and peaks' rooms among them), the people counted or placed on its
+    storeys, the lamps and openings and areas but those of the other sites' rooms (their areas,
+    and what is linked to their rooms and pieces). An area no room has, and what is in no area,
+    show on every site: nothing says which they are.
+  - **Opening hours**: a site's own schedule, else the workplace's. What a workplace used while
+    closed (D-088) is the whole place's at the workplace's hours: not shown on a site with hours of
+    its own.
+  - **What stays the whole home's**: the alerts (a fire at the other site matters here), the
+    weekly report, the energy, the voice and `domotwin.where`, private rooms and rights, a card
+    (it shows the storey it is set to). People in no room of the plans count on the first site,
+    where Home Assistant's home zone is.
+  - **A storey added** (drawn, imported) while a site other than the first is shown is that
+    site's: the settings are saved with it.
+- **Consequences.** No new command; the integration validates `sites` with the settings. The
+  first load grows by 2.2 kB gzipped (the list, the settings' section, the site's filter). New
+  texts in the 12 languages. Replacing every storey from an IFC file numbers them afresh: their
+  sites are given again in the settings; ids no longer the home's are left out when read.

@@ -432,6 +432,15 @@ export const main: Dictionary = {
       "Räume für Besprechungen: Der Tab Start zeigt, welche frei, belegt oder gebucht sind, und bucht einen in seinem Kalender von Home Assistant.",
     meeting_no_calendar: "Kein Kalender",
     meeting_calendar: "Der Kalender, in dem {room} gebucht wird",
+    sites: "Standorte",
+    sites_hint:
+      "Mehrere Gebäude oder Geschäfte, die dieses Home Assistant betreibt: Ordnen Sie jedem seine Etagen zu. Ab zwei zeigt DomoTwin jeweils einen, oben ausgewählt; die Tabs Start und Räume folgen ihm.",
+    site_name: "Name",
+    site_default: "Standort {n}",
+    site_hours: "Öffnungszeiten",
+    site_hours_workplace: "Die des Betriebs",
+    site_add: "Standort hinzufügen",
+    site_remove: "{name} entfernen",
     title: "Einstellungen",
     north: "Norden im Grundriss",
     north_hint:
@@ -894,6 +903,7 @@ export const main: Dictionary = {
   },
   panel: {
     title: "DomoTwin",
+    site: "Standort",
     import: "Grundriss importieren",
     export: "Grundriss exportieren",
     more: "Mehr",

@@ -124,6 +124,33 @@ read, and a calendar they may not use is not booked from there (their [rights](r
 calendar that cannot be read (its server down) says nothing: the room is said free or occupied
 from its sensors alone.
 
+## Several sites
+
+One Home Assistant may run several buildings or shops: a shop in the town and its stockroom by
+the harbour, two offices. In the settings, under **Sites**, add one for each and tick its storeys
+(D-090): the first site has every storey until some are given to another, and a storey is in one
+site alone. A site of a workplace may have its own opening hours, a schedule of its own; else the
+workplace's.
+
+With two sites or more, a list at the top of DomoTwin chooses the one shown, and this screen
+remembers it. Everything then follows it:
+
+- **the 3D view**: its storeys alone, numbered from its own ground floor; *All storeys* stacks
+  them, not the other site's;
+- **the Home tab**: the people counted on its storeys, its lamps on and what is open, its opening
+  hours, its meeting rooms;
+- **the Rooms tab**: the areas of its rooms. An area no room of the plans has, and what is in no
+  area, show on every site.
+
+The alerts stay the whole home's (smoke at the other site matters here too), and so do the
+weekly report, the energy and the voice. People without a room of the plans (no placement, no
+radar) count on the first site, where Home Assistant's home zone is. What the place used while
+closed (above) is worked out with the workplace's hours: a site with hours of its own does not
+show it.
+
+A storey drawn or imported while a site is shown is that site's. Replacing every storey from an
+IFC file numbers them afresh: give them to their sites again.
+
 ## Closing up
 
 Among the shortcuts suggested on the Home tab ([shortcuts](shortcuts.md)), **Close up** takes the
@@ -133,5 +160,5 @@ Add it once, and it is a tap at closing time.
 
 ## Where the setting is kept
 
-In the home's settings (`settings.workplace`, D-086), with the integration's storage: nothing is
-sent anywhere.
+In the home's settings (`settings.workplace`, D-086; `settings.sites`, D-090), with the
+integration's storage: nothing is sent anywhere. The site a screen shows is kept by its browser.

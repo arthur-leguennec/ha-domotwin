@@ -239,18 +239,37 @@ export function countedHere(
   settings: PeopleSettings | undefined,
   hass: HomeAssistant,
   closed: ReadonlySet<string> = new Set(),
+  onSite?: OnSite,
 ): number {
   const atHome = (ids: string[]): number =>
     ids.filter((id) => hass.states[id]?.state === "home").length;
-  const seen = settings ? radarSeen(settings, hass, closed).length : 0;
+  const seen = settings
+    ? radarSeen(settings, hass, closed).filter((entry) => !onSite || onSite(entry.storey)).length
+    : 0;
   if (settings && Object.keys(settings.people).length > 0) {
+    // On one site (D-090): those on its storeys; one at home in no room, on the first.
+    if (onSite) {
+      return (
+        placedPeople({ ...settings, shown: "everyone" }, hass).filter(
+          (person) => person.home && onSite(person.storey),
+        ).length + seen
+      );
+    }
     return (
       atHome(Object.keys(settings.people).filter((id) => !settings.hidden.includes(id))) + seen
     );
   }
   if (settings && radarsCount(settings, hass)) return seen;
+  // Home Assistant's home zone is one place: the first site's.
+  if (onSite && !onSite(undefined)) return 0;
   return atHome(Object.keys(hass.states).filter((id) => id.startsWith("person.")));
 }
+
+/**
+ * Whether someone on `storey` is on the site shown (D-090); someone on none (at home, in no room
+ * of the plans) is on the first.
+ */
+export type OnSite = (storey: string | undefined) => boolean;
 
 /** Whether presence radars count people here (D-080): their sensor there, and shown. */
 export function radarsCount(settings: PeopleSettings, hass: HomeAssistant): boolean {

@@ -479,6 +479,39 @@ async def test_workplace_settings_round_trip(
         assert (await client.receive_json())["result"]["settings"]["workplace"] == workplace
 
 
+async def test_sites_round_trip(
+    hass: HomeAssistant, setup_integration: MockConfigEntry, hass_ws_client: WebSocketGenerator
+) -> None:
+    client = await hass_ws_client(hass)
+    # Two shops of one Home Assistant (D-090), the second with its own hours; none: left out.
+    sites = [
+        {"id": "site-1", "name": "Main street", "storeys": ["storey-1"]},
+        {
+            "id": "site-2",
+            "name": "Harbour",
+            "storeys": ["storey-2", "storey-3"],
+            "hours": "schedule.harbour_hours",
+        },
+    ]
+    for given, kept in (
+        (sites, sites),
+        ([{**sites[0], "name": "  Main street "}, {**sites[1], "hours": None}], None),
+        ([], []),
+    ):
+        await client.send_json_auto_id(
+            {"type": "domotwin/settings/save", "settings": {"north": 0, "sites": given}}
+        )
+        assert (await client.receive_json())["success"]
+        await client.send_json_auto_id({"type": "domotwin/settings/get"})
+        found = (await client.receive_json())["result"]["settings"]
+        if kept is None:
+            assert found["sites"] == [sites[0], {k: v for k, v in sites[1].items() if k != "hours"}]
+        elif kept:
+            assert found["sites"] == kept
+        else:
+            assert "sites" not in found
+
+
 @pytest.mark.parametrize(
     "settings",
     [
@@ -538,6 +571,28 @@ async def test_workplace_settings_round_trip(
         {"workplace": {"meeting_rooms": {"meeting": {"calendar": "todo.list"}}}},
         {"workplace": {"meeting_rooms": {"meeting": {"seats": 8}}}},
         {"workplace": {"meeting_rooms": {f"room{k}": {} for k in range(201)}}},
+        {"sites": {}},
+        {"sites": ["site-1"]},
+        {"sites": [{"id": "", "name": "Shop", "storeys": []}]},
+        {"sites": [{"id": "a", "name": "", "storeys": []}]},
+        {"sites": [{"id": "a", "name": "x" * 61, "storeys": []}]},
+        {"sites": [{"id": "a", "name": "Shop", "storeys": "storey-1"}]},
+        {"sites": [{"id": "a", "name": "Shop", "storeys": [3]}]},
+        {"sites": [{"id": "a", "name": "Shop", "storeys": [], "hours": "sensor.hours"}]},
+        {"sites": [{"id": "a", "name": "Shop", "storeys": [], "surface": 120}]},
+        {
+            "sites": [
+                {"id": "a", "name": "A", "storeys": []},
+                {"id": "a", "name": "B", "storeys": []},
+            ]
+        },
+        {
+            "sites": [
+                {"id": "a", "name": "A", "storeys": ["storey-1"]},
+                {"id": "b", "name": "B", "storeys": ["storey-1"]},
+            ]
+        },
+        {"sites": [{"id": f"s{k}", "name": "Shop", "storeys": []} for k in range(17)]},
     ],
 )
 async def test_invalid_settings_are_refused(
