@@ -72,7 +72,8 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M21       | More languages, right to left too                          | ✅     |
 | 0.5.0     | Fifth release: all of the above                            | ✅     |
 | M46       | Shortcuts on the Home tab, suggested from the home         | ✅     |
-| 0.6.0     | Sixth release: what the use of 0.5.0 asks for              | ⏳     |
+| 0.6.0     | Sixth release: the shortcuts                               | ✅     |
+| 0.7.0     | Seventh release: what the use of 0.6.0 asks for            | ⏳     |
 
 M5 to M11 were added after M3b (`DECISIONS.md`, D-022): what people expect of a 3D home dashboard,
 with no account and no network call outside Home Assistant. M8 became the looks alone, and the
@@ -2122,4 +2123,16 @@ before its milestone starts, which goes on with what needs no answer.
   or of a floor, the shutters, the locks, the alarm, the heating, a car's battery, several steps
   for a good night), suggested from the home's devices and adjusted, more options a press away.
   The README says it first: a phone and a wall screen side by side, the features by theme.
-- ⏳ **Release 0.6.0**: what the use of 0.5.0 asks for.
+- ✅ Tried in a fresh Home Assistant (2026.10.2): the smoke test (`scripts/ha-smoke.mjs`), then
+  the panel on a phone-sized screen, with Home Assistant's demo devices put in its areas. DomoTwin
+  opens on *Home*; three shortcuts are suggested from the home (all the lights off, good night,
+  the shutters closed); one press adds one, kept by the integration, and the next switches every
+  lamp off (five on, none after). *Add a shortcut* lists seven groups; a shortcut of one's own
+  setting the shutters to a position typed as 150 keeps 100; both are there after a reload. No
+  error, no request outside Home Assistant.
+- ✅ **Release 0.6.0**: release-please's pull request, merged once this is in `main`, tags `v0.6.0`
+  and attaches `domotwin.zip`, with the shortcuts (M46).
+
+## Then, to 0.7.0
+
+- ⏳ **Release 0.7.0**: what the use of 0.6.0 asks for.
