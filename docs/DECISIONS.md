@@ -4518,6 +4518,6 @@ rooms".
     presence sensor they may not see is not read, and a calendar they may not use is not booked
     (D-071).
 - **Consequences.** No new command: the settings carry the rooms, Home Assistant the rest. The
-  first load grows by 0.8 kB gzipped (the settings' section); the Home tab carries the rest. New
+  first load grows by 1.0 kB gzipped (the settings' section); the Home tab carries the rest. New
   texts in the 12 languages. A calendar of an online service is read as Home Assistant keeps it,
   nothing fetched by DomoTwin.
