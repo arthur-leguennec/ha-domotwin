@@ -427,6 +427,11 @@ export const main: Dictionary = {
     workplace_no_hours: "Keine",
     workplace_hours_hint:
       "Ein Zeitplan von Home Assistant, angelegt unter Einstellungen → Geräte & Dienste → Helfer: an, solange geöffnet ist.",
+    meeting_rooms: "Besprechungsräume",
+    meeting_rooms_hint:
+      "Räume für Besprechungen: Der Tab Start zeigt, welche frei, belegt oder gebucht sind, und bucht einen in seinem Kalender von Home Assistant.",
+    meeting_no_calendar: "Kein Kalender",
+    meeting_calendar: "Der Kalender, in dem {room} gebucht wird",
     title: "Einstellungen",
     north: "Norden im Grundriss",
     north_hint:

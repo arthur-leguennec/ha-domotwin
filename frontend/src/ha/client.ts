@@ -77,6 +77,8 @@ export interface RoofSettings {
 /** A workplace, an office or a shop (D-086): its opening hours, a schedule of Home Assistant's. */
 export interface Workplace {
   hours?: string;
+  /** Its meeting rooms (D-089), each booked in a calendar of Home Assistant's, if any. */
+  meeting_rooms?: Record<string, { calendar?: string }>;
 }
 
 export interface Settings {

@@ -6,6 +6,7 @@
  */
 import {
   mdiAccountGroupOutline,
+  mdiCalendarAccountOutline,
   mdiDoorOpen,
   mdiLightbulbGroupOutline,
   mdiPlus,
@@ -20,8 +21,15 @@ import { DomoTwinClient, type ClosedEnergyNow } from "../ha/client";
 import { isHassError, nowOf, type HomeAssistant } from "../ha/types";
 import type { Translator } from "../i18n";
 import { failureText } from "../live/actions";
+import {
+  BOOKINGS,
+  bookingOf,
+  meetingRoomsOf,
+  serviceTime,
+  type MeetingRoom,
+} from "../live/meeting-rooms";
 import { formatKwh, formatPercent, sinceDay, type ClosedEnergy } from "../live/closed-energy";
-import { areaOf, entityName } from "../live/bindings";
+import { NO_BINDINGS, areaOf, entityName } from "../live/bindings";
 import { isPressed, type Choices, type HomeCard } from "../live/choices";
 import { glanceOf, type Glance, type GlanceSources } from "../live/glance";
 import { formatPower } from "../live/layers";
@@ -51,7 +59,7 @@ import { PENCIL, SHORTCUT_GLYPHS } from "./shortcut-icons";
 import { baseStyles } from "./styles";
 
 /** What a chip of the glance opens. */
-type Detail = "people" | "lights" | "openings" | "hours" | "peak";
+type Detail = "people" | "lights" | "openings" | "hours" | "meetings" | "peak";
 
 /** Home Assistant's card for a card of the Home tab. */
 function cardOf(home: HomeCard): CardConfig {
@@ -96,6 +104,7 @@ export class DomoTwinHome extends LitElement {
     said: { state: true },
     ran: { state: true },
     closedEnergy: { state: true },
+    booking: { state: true },
   };
 
   hass?: HomeAssistant;
@@ -167,6 +176,24 @@ export class DomoTwinHome extends LitElement {
         display: grid;
         gap: 8px;
         margin-top: 8px;
+      }
+      ul.meetings {
+        display: grid;
+        gap: 8px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+      ul.meetings li {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+      }
+      ul.meetings .what {
+        display: grid;
+        flex: 1 1 12em;
+        min-width: 0;
       }
       .people {
         display: flex;
@@ -344,6 +371,11 @@ export class DomoTwinHome extends LitElement {
     `,
   ];
 
+  /** A workplace's meeting rooms now (D-089). */
+  private meetings: MeetingRoom[] = [];
+  /** The meeting room being booked, while Home Assistant has not answered. */
+  protected booking?: string;
+
   /** When the peak's phase changes next (D-063): the glance is worked out again then. */
   private peakTimer: ReturnType<typeof setTimeout> | undefined;
   /** What a workplace used while closed (D-088), read while its hours' details are open. */
@@ -360,6 +392,20 @@ export class DomoTwinHome extends LitElement {
       this.readGlance(this.hass, this.sources);
       // Asked again as the details stay open (a wall screen's): the client keeps it a while.
       if (this.open === "hours") this.readClosedEnergy();
+    }
+    const hass = this.hass;
+    const sources = this.sources;
+    if (["hass", "sources", "unseen"].some((key) => changed.has(key)) && hass && sources) {
+      // A workplace's meeting rooms (D-089), as the viewer may see them.
+      this.meetings = meetingRoomsOf(
+        hass,
+        sources.rooms,
+        sources.bindings ?? NO_BINDINGS,
+        sources.workplace?.meeting_rooms,
+        this.unseen,
+        sources.closed,
+      );
+      if (this.open === "meetings" && this.meetings.length === 0) this.open = undefined;
     }
   }
 
@@ -495,6 +541,8 @@ export class DomoTwinHome extends LitElement {
         return html`<div class="detail">${this.tiles(glance.openings, false)}</div>`;
       case "hours":
         return this.renderHours(glance);
+      case "meetings":
+        return this.renderMeetings();
       case "peak":
         return this.renderPeak(glance);
       default:
@@ -592,6 +640,99 @@ export class DomoTwinHome extends LitElement {
           ? t.t("home.closed_until", { time: until })
           : t.t("home.closed");
     return this.chip("hours", mdiStoreClockOutline, label, left > 0 ? "warning" : undefined);
+  }
+
+  /** A workplace's meeting rooms (D-089): how many are free. */
+  private meetingsChip(): TemplateResult | typeof nothing {
+    const t = this.t;
+    const meetings = this.meetings;
+    if (!t || meetings.length === 0) return nothing;
+    const free = meetings.filter((meeting) => meeting.state === "free").length;
+    return this.chip(
+      "meetings",
+      mdiCalendarAccountOutline,
+      t.tp("home.meeting_rooms", meetings.length, { free }),
+    );
+  }
+
+  /** Each meeting room: free, taken or booked, its next booking, and booked from here. */
+  private renderMeetings(): TemplateResult | typeof nothing {
+    const hass = this.hass;
+    const t = this.t;
+    if (!hass || !t) return nothing;
+    const style = timeStyle(hass);
+    const now = new Date(nowOf(hass));
+    const at = (time: number): string => whenText(new Date(time), now, style);
+    return html`<div class="detail" data-testid="home-meetings-detail">
+      <ul class="meetings">
+        ${this.meetings.map((meeting) => {
+          const said = [
+            meeting.state === "booked" && meeting.until !== undefined
+              ? t.t("home.meeting_booked", { time: at(meeting.until) })
+              : meeting.state === "taken"
+                ? t.t("home.meeting_taken")
+                : t.t("home.meeting_free"),
+            meeting.next === undefined
+              ? undefined
+              : t.t("home.meeting_next", { time: at(meeting.next) }),
+          ].filter((part): part is string => part !== undefined);
+          const bookable = meeting.bookable && meeting.state !== "booked";
+          return html`<li data-room=${meeting.room} data-state=${meeting.state}>
+            <span class="what">
+              <strong>${meeting.name}</strong>
+              <span class="muted">${said.join(" · ")}</span>
+            </span>
+            ${
+              bookable
+                ? BOOKINGS.map(
+                    (minutes) =>
+                      html`<button
+                        class="action"
+                        data-testid="home-meeting-book"
+                        data-minutes=${minutes}
+                        ?disabled=${this.booking !== undefined}
+                        @click=${() => void this.book(meeting, minutes)}
+                      >
+                        ${t.t("home.meeting_book", { minutes })}
+                      </button>`,
+                  )
+                : nothing
+            }
+          </li>`;
+        })}
+      </ul>
+    </div>`;
+  }
+
+  /**
+   * Books a meeting room now, for `minutes` (never over its next booking), in its calendar of Home
+   * Assistant's, named so that it says nobody's name (D-086).
+   */
+  private async book(meeting: MeetingRoom, minutes: number): Promise<void> {
+    const hass = this.hass;
+    const t = this.t;
+    if (!hass || !t || !meeting.calendar || this.booking) return;
+    const slot = bookingOf(meeting, minutes, nowOf(hass));
+    if (!slot) return;
+    // One booking at a time: the calendar says it a moment later.
+    this.booking = meeting.room;
+    try {
+      await hass.callService(
+        "calendar",
+        "create_event",
+        {
+          summary: t.t("home.meeting_summary"),
+          start_date_time: serviceTime(slot.start),
+          end_date_time: serviceTime(slot.end),
+        },
+        { entity_id: meeting.calendar },
+      );
+      this.refused = undefined;
+    } catch (error) {
+      this.refused = failureText(t, error);
+    } finally {
+      this.booking = undefined;
+    }
   }
 
   /** What a closed workplace has left on (D-086), each to turn off; else where its hours are. */
@@ -984,7 +1125,7 @@ export class DomoTwinHome extends LitElement {
                   )
                 : nothing
           }
-          ${this.hoursChip(glance)}
+          ${this.hoursChip(glance)} ${this.meetingsChip()}
           ${this.chip(
             "lights",
             mdiLightbulbGroupOutline,

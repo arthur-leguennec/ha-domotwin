@@ -424,6 +424,11 @@ export const main: Dictionary = {
     workplace_no_hours: "Ninguno",
     workplace_hours_hint:
       "Una programación de Home Assistant, creada en Ajustes → Dispositivos y servicios → Ayudantes: activa mientras está abierto.",
+    meeting_rooms: "Salas de reuniones",
+    meeting_rooms_hint:
+      "Salas para reuniones: la pestaña Inicio dice cuáles están libres, ocupadas o reservadas, y reserva una en su calendario de Home Assistant.",
+    meeting_no_calendar: "Sin calendario",
+    meeting_calendar: "El calendario donde se reserva {room}",
     title: "Configuración",
     north: "El norte en el plano",
     north_hint:

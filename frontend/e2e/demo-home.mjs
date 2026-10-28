@@ -207,6 +207,21 @@ export function applyService(home, domain, service, data = {}, target = {}) {
       case "unlock":
         state = "unlocked";
         break;
+      case "create_event": {
+        // A calendar's event made now (D-089): under way, as its attributes say, in this
+        // browser's wall clock.
+        const wall = (iso) => {
+          const at = new Date(iso);
+          const two = (n) => String(n).padStart(2, "0");
+          return `${at.getFullYear()}-${two(at.getMonth() + 1)}-${two(at.getDate())} ${two(at.getHours())}:${two(at.getMinutes())}:${two(at.getSeconds())}`;
+        };
+        if (Date.parse(data.start_date_time) > Date.now()) continue;
+        state = "on";
+        attributes.message = data.summary;
+        attributes.start_time = wall(data.start_date_time);
+        attributes.end_time = wall(data.end_date_time);
+        break;
+      }
       default:
         continue;
     }

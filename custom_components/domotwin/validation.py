@@ -428,23 +428,62 @@ def _weather(weather: Any) -> str:
     return weather
 
 
-def _workplace(workplace: Any) -> dict[str, str]:
-    """A workplace, an office or a shop (D-086): `{"hours"?: a `schedule` entity}`.
+def _workplace(workplace: Any) -> dict[str, Any]:
+    """A workplace, an office or a shop (D-086).
 
-    Its opening hours are those of a schedule of Home Assistant's: on while it is open.
+    `{"hours"?: a `schedule` entity, "meeting_rooms"?: {room id: {"calendar"?: a `calendar`
+    entity}}}`. Its opening hours are those of a schedule of Home Assistant's: on while it is
+    open. Its meeting rooms (D-089) are rooms of the plans, each booked in a calendar of Home
+    Assistant's, if it has one.
     """
-    if not isinstance(workplace, dict) or set(workplace) - {"hours"}:
-        raise InvalidPayloadError("invalid_settings", "`workplace` has only `hours`")
-    if "hours" not in workplace:
-        return {}
-    hours = workplace["hours"]
-    if (
-        not isinstance(hours, str)
-        or not hours.startswith("schedule.")
-        or not valid_entity_id(hours)
-    ):
-        raise InvalidPayloadError("invalid_settings", "`workplace.hours` must be a schedule entity")
-    return {"hours": hours}
+    if not isinstance(workplace, dict) or set(workplace) - {"hours", "meeting_rooms"}:
+        raise InvalidPayloadError(
+            "invalid_settings", "`workplace` has only `hours` and `meeting_rooms`"
+        )
+    checked: dict[str, Any] = {}
+    if "hours" in workplace:
+        hours = workplace["hours"]
+        if (
+            not isinstance(hours, str)
+            or not hours.startswith("schedule.")
+            or not valid_entity_id(hours)
+        ):
+            raise InvalidPayloadError(
+                "invalid_settings", "`workplace.hours` must be a schedule entity"
+            )
+        checked["hours"] = hours
+    if "meeting_rooms" in workplace:
+        checked["meeting_rooms"] = _meeting_rooms(workplace["meeting_rooms"])
+    return checked
+
+
+def _meeting_rooms(rooms: Any) -> dict[str, dict[str, str]]:
+    """A workplace's meeting rooms (D-089): `{room id: {"calendar"?: a `calendar` entity}}`."""
+    if not isinstance(rooms, dict):
+        raise InvalidPayloadError(
+            "invalid_settings", "`meeting_rooms` must be an object of room ids"
+        )
+    if len(rooms) > MAX_PRIVATE_ROOMS:
+        raise InvalidPayloadError("invalid_settings", f"at most {MAX_PRIVATE_ROOMS} meeting rooms")
+    checked: dict[str, dict[str, str]] = {}
+    for room, rule in rooms.items():
+        _check_id(room, "a room id", "invalid_settings")
+        if not isinstance(rule, dict) or set(rule) - {"calendar"}:
+            raise InvalidPayloadError("invalid_settings", "a meeting room has, maybe, a `calendar`")
+        entry: dict[str, str] = {}
+        if rule.get("calendar") is not None:
+            calendar = rule["calendar"]
+            if (
+                not isinstance(calendar, str)
+                or not calendar.startswith("calendar.")
+                or not valid_entity_id(calendar)
+            ):
+                raise InvalidPayloadError(
+                    "invalid_settings", "a meeting room's `calendar` must be a calendar entity"
+                )
+            entry["calendar"] = calendar
+        checked[room] = entry
+    return checked
 
 
 def _roof(roof: Any) -> dict[str, Any]:

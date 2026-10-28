@@ -426,6 +426,11 @@ export const main: Dictionary = {
     workplace_no_hours: "Nessuno",
     workplace_hours_hint:
       "Una pianificazione di Home Assistant, creata in Impostazioni → Dispositivi e servizi → Aiutanti: attiva durante l’apertura.",
+    meeting_rooms: "Sale riunioni",
+    meeting_rooms_hint:
+      "Stanze per le riunioni: la scheda Casa dice quali sono libere, occupate o prenotate, e ne prenota una nel suo calendario di Home Assistant.",
+    meeting_no_calendar: "Nessun calendario",
+    meeting_calendar: "Il calendario in cui si prenota {room}",
     title: "Impostazioni",
     north: "Nord sulla planimetria",
     north_hint:

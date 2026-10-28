@@ -113,6 +113,7 @@ import {
   type ShownAlert,
 } from "../live/security";
 import { plainWordsOffered } from "../live/ai-task";
+import type { MeetingRoomSetting } from "../live/meeting-rooms";
 import { closedRooms, gatedHass, RightsCache, viewerUnseen, type Gate } from "../live/rights";
 import { usableActions } from "../live/room-actions";
 import {
@@ -5104,7 +5105,9 @@ export class DomoTwinPanel extends LitElement {
                   data-testid="settings-hours"
                   @change=${(event: Event) => {
                     const value = (event.target as HTMLSelectElement).value;
-                    this.workplaceDraft = value ? { hours: value } : {};
+                    const rest: Workplace = { ...(this.workplaceDraft ?? {}) };
+                    delete rest.hours;
+                    this.workplaceDraft = value ? { ...rest, hours: value } : rest;
                   }}
                 >
                   <option value="" ?selected=${!hours}>
@@ -5118,9 +5121,80 @@ export class DomoTwinPanel extends LitElement {
                   )}
                 </select>
               </label>
-              <p class="hint">${t.t("settings.workplace_hours_hint")}</p>`
+              <p class="hint">${t.t("settings.workplace_hours_hint")}</p>
+              ${this.renderMeetingRoomsSettings(draft)}`
           : nothing
       }`;
+  }
+
+  /**
+   * A workplace's meeting rooms (D-089): which rooms of the plans are, and the calendar of Home
+   * Assistant's each is booked in, if any.
+   */
+  private renderMeetingRoomsSettings(draft: Workplace): TemplateResult {
+    const t = this.t;
+    const hass = this._hass;
+    const marked = draft.meeting_rooms ?? {};
+    const rooms = [...planRooms(this.plan), ...this.elsewhere.flatMap((storey) => storey.rooms)];
+    const calendars = Object.keys(hass?.states ?? {})
+      .filter((id) => id.startsWith("calendar."))
+      .sort();
+    const change = (room: string, setting: MeetingRoomSetting | undefined): void => {
+      const meeting = Object.fromEntries(
+        Object.entries(this.workplaceDraft?.meeting_rooms ?? {}).filter(([id]) => id !== room),
+      );
+      if (setting) meeting[room] = setting;
+      const rest: Workplace = { ...(this.workplaceDraft ?? {}) };
+      delete rest.meeting_rooms;
+      this.workplaceDraft = Object.keys(meeting).length
+        ? { ...rest, meeting_rooms: meeting }
+        : rest;
+    };
+    return html`<h4>${t.t("settings.meeting_rooms")}</h4>
+      <p class="hint">${t.t("settings.meeting_rooms_hint")}</p>
+      <div class="meeting-rooms" data-testid="settings-meeting-rooms">
+        ${rooms.map((room) => {
+          const setting = marked[room.id];
+          const calendar = setting?.calendar;
+          const offered =
+            calendar && !calendars.includes(calendar) ? [calendar, ...calendars] : calendars;
+          return html`<div class="meeting-room" data-room=${room.id}>
+            <label class="reversed">
+              <input
+                type="checkbox"
+                data-testid="settings-meeting"
+                .checked=${setting !== undefined}
+                @change=${(event: Event) => {
+                  change(room.id, (event.target as HTMLInputElement).checked ? {} : undefined);
+                }}
+              />
+              <span>${room.name}</span>
+            </label>
+            ${
+              setting
+                ? html`<select
+                    data-testid="settings-meeting-calendar"
+                    aria-label=${t.t("settings.meeting_calendar", { room: room.name })}
+                    @change=${(event: Event) => {
+                      const value = (event.target as HTMLSelectElement).value;
+                      change(room.id, value ? { calendar: value } : {});
+                    }}
+                  >
+                    <option value="" ?selected=${!calendar}>
+                      ${t.t("settings.meeting_no_calendar")}
+                    </option>
+                    ${offered.map(
+                      (id) =>
+                        html`<option value=${id} ?selected=${id === calendar}>
+                          ${hass ? entityName(hass, id) : id}
+                        </option>`,
+                    )}
+                  </select>`
+                : nothing
+            }
+          </div>`;
+        })}
+      </div>`;
   }
 
   /** The weather drawn around the home (D-072): the usual entity, one chosen, or none; shown as

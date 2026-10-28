@@ -506,6 +506,11 @@ export const main: Dictionary = {
     workplace_no_hours: "لا شيء",
     workplace_hours_hint:
       "جدول زمني من Home Assistant، يُنشأ في الإعدادات ← الأجهزة والخدمات ← المساعدات: يعمل طوال فترة الفتح.",
+    meeting_rooms: "غرف الاجتماعات",
+    meeting_rooms_hint:
+      "غرف مخصّصة للاجتماعات: يعرض تبويب الرئيسية أيّها متاح أو مشغول أو محجوز، ويحجز إحداها في تقويمها في Home Assistant.",
+    meeting_no_calendar: "بلا تقويم",
+    meeting_calendar: "التقويم الذي تُحجز فيه {room}",
     title: "الإعدادات",
     north: "الشمال على المخطط",
     north_hint:

@@ -366,6 +366,11 @@ export const en = {
     workplace_no_hours: "None",
     workplace_hours_hint:
       "A schedule of Home Assistant's, made in Settings → Devices & services → Helpers: on while it is open.",
+    meeting_rooms: "Meeting rooms",
+    meeting_rooms_hint:
+      "Rooms kept for meetings: the Home tab says which are free, taken or booked, and books one in its calendar of Home Assistant's.",
+    meeting_no_calendar: "No calendar",
+    meeting_calendar: "The calendar {room} is booked in",
     title: "Settings",
     north: "North on the plan",
     north_hint:

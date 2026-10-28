@@ -4483,3 +4483,35 @@ energy while the place was closed, each week or month".
   sent anywhere. The first load grows by 0.7 kB gzipped (the call, the answer kept and its
   reading); the Home tab and the report carry the rest. New texts in the 12 languages. A home, a
   workplace without opening hours, or without energy settings, says nothing of it.
+
+## D-089 · A workplace's meeting rooms (M51)
+
+Asked by the maintainer after 0.7.0, among what the workplace (D-086) should do more: "meeting
+rooms".
+
+- **Context.** In an office, the question asked most at the door of a meeting room is whether it
+  is free. Home Assistant already knows the two halves of the answer: presence sensors in the
+  room's area (the presence layer reads them, D-023), and calendars, a Local Calendar of its own or
+  one an integration keeps; its `calendar.create_event` action books, for the calendars that take
+  new events. Nothing needs to be kept by DomoTwin but which rooms are meeting rooms.
+- **Decision.**
+  - **Marked in the settings** (`settings.workplace.meeting_rooms`, administrators): a room of the
+    plans, any storey, and the calendar it is booked in, if any; at most 200 rooms, as private
+    rooms (D-039). A home has none.
+  - **Booked, taken or free**, worked out in the page from Home Assistant's states, nothing asked
+    of the integration: booked while its calendar's event is under way (the calendar `on`, its end
+    to come), until its end; else taken while a presence sensor of the room's area (`motion`,
+    `occupancy`, `presence`) is on; else free. Its next booking is the calendar's next event, when
+    it starts later today. The calendar's times are the wall clock where Home Assistant is.
+  - **On the Home tab**: a chip counts the free ones (*2 of 3 meeting rooms free*), a tap lists
+    each, as the other chips do (D-051).
+  - **Booked from DomoTwin**, a calendar that takes new events (`CREATE_EVENT`): now, from the
+    minute under way, for 30 minutes or an hour, never over its next booking; named *Booked from
+    DomoTwin* in the viewer's language, with nobody's name in it (D-086). One at a time, the
+    buttons waiting for Home Assistant's answer.
+  - **Rights**: a private room the viewer may not see is left out (D-039), a calendar they may not
+    see is not read nor booked (D-071).
+- **Consequences.** No new command: the settings carry the rooms, Home Assistant the rest. The
+  first load grows by 0.8 kB gzipped (the settings' section); the Home tab carries the rest. New
+  texts in the 12 languages. A calendar of an online service is read as Home Assistant keeps it,
+  nothing fetched by DomoTwin.

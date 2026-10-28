@@ -370,6 +370,11 @@ export const fr: Dictionary = {
     workplace_no_hours: "Aucune",
     workplace_hours_hint:
       "Un planning de Home Assistant, créé dans Paramètres → Appareils et services → Entrées : actif pendant l’ouverture.",
+    meeting_rooms: "Salles de réunion",
+    meeting_rooms_hint:
+      "Les pièces réservées aux réunions : l’onglet Accueil dit lesquelles sont libres, occupées ou réservées, et en réserve une dans son calendrier de Home Assistant.",
+    meeting_no_calendar: "Aucun calendrier",
+    meeting_calendar: "Le calendrier où réserver {room}",
     title: "Réglages",
     north: "Nord sur le plan",
     north_hint:
