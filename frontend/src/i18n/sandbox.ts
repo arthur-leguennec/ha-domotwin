@@ -39,6 +39,13 @@ export const sandboxEn = {
       apply: "Play this day",
       cancel: "Cancel",
       bad_date: "Write the date as YYYY-MM-DD.",
+      peak: "Hydro-Québec's peak",
+      peak_played:
+        "The announced peak plays on this day: from {start} to {end}, pre-heating from {preheat}.",
+      peak_other: "A peak is announced on {date}, from {start} to {end}.",
+      peak_play: "Choose its day",
+      peak_another:
+        "Another peak is announced that day: the integrations say so, but only this one's times are known, and only it is played.",
     },
     report: {
       title: "What the day did",
@@ -52,6 +59,12 @@ export const sandboxEn = {
       flapping: "Back and forth",
       not_played: "Not played",
       none_not_played: "Everything could be played.",
+      peak: "Hydro-Québec's peak",
+      peak_none: "No room's heating pre-heated, was shed or heated during it.",
+      peak_room: "{room}: {spans}",
+      peak_preheat: "pre-heating {from}–{to}",
+      peak_shed: "shed {from}–{to}",
+      peak_heating: "still heating {from}–{to}",
       by: {
         state: "{entity} changed",
         numeric_state: "{entity} crossed its level",
@@ -92,6 +105,15 @@ export const sandboxEn = {
       looping: "It set itself off again and again: stopped for the rest of the day.",
       cut: "The day stopped at {time}: too much happened in it.",
       go: "Go to {time}",
+      draft: "The draft",
+      draft_against: "Works against {names} this day.",
+      draft_flap: "Sets something back and forth this day.",
+    },
+    draft: {
+      title: "Draft: {name}",
+      note: "Not saved: it plays on the copy, beside your automations.",
+      ran: { one: "Ran once this day.", other: "Ran {count} times this day." },
+      back: "Back to the draft",
     },
     why: {
       config:
@@ -147,6 +169,13 @@ export const sandboxFr: Widen<typeof sandboxEn> = {
       apply: "Jouer cette journée",
       cancel: "Annuler",
       bad_date: "Écrivez la date sous la forme AAAA-MM-JJ.",
+      peak: "Pointe d’Hydro-Québec",
+      peak_played:
+        "La pointe annoncée est jouée ce jour-là : de {start} à {end}, préchauffage dès {preheat}.",
+      peak_other: "Une pointe est annoncée le {date}, de {start} à {end}.",
+      peak_play: "Choisir sa journée",
+      peak_another:
+        "Une autre pointe est annoncée ce jour-là : les intégrations le disent, mais seules les heures de celle-ci sont connues, et elle seule est jouée.",
     },
     report: {
       title: "Ce qu’a fait la journée",
@@ -160,6 +189,13 @@ export const sandboxFr: Widen<typeof sandboxEn> = {
       flapping: "Va-et-vient",
       not_played: "Non jouées",
       none_not_played: "Tout a pu être joué.",
+      peak: "Pointe d’Hydro-Québec",
+      peak_none:
+        "Le chauffage d’aucune pièce n’a préchauffé, été délesté ou chauffé pendant la pointe.",
+      peak_room: "{room} : {spans}",
+      peak_preheat: "préchauffage {from}–{to}",
+      peak_shed: "délestée {from}–{to}",
+      peak_heating: "chauffe encore {from}–{to}",
       by: {
         state: "{entity} a changé",
         numeric_state: "{entity} a passé son seuil",
@@ -200,6 +236,15 @@ export const sandboxFr: Widen<typeof sandboxEn> = {
       looping: "Elle s’est déclenchée encore et encore : arrêtée pour le reste de la journée.",
       cut: "La journée s’est arrêtée à {time} : il s’y passait trop de choses.",
       go: "Aller à {time}",
+      draft: "Le brouillon",
+      draft_against: "Contrarie {names} ce jour-là.",
+      draft_flap: "Fait changer quelque chose sans cesse ce jour-là.",
+    },
+    draft: {
+      title: "Brouillon : {name}",
+      note: "Pas encore enregistrée : elle joue sur la copie, à côté de vos automatisations.",
+      ran: { one: "Lancée une fois ce jour-là.", other: "Lancée {count} fois ce jour-là." },
+      back: "Revenir au brouillon",
     },
     why: {
       config:

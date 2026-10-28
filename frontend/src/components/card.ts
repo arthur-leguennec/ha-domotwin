@@ -5,8 +5,9 @@ import { fontFamily } from "../fonts";
 import { DomoTwinClient, type Settings, type StoreyInfo, type StoredPlan } from "../ha/client";
 import { isHassError, type HomeAssistant } from "../ha/types";
 import type { DemoHome } from "../demo/home";
-import { readBindings, type BindingsJson } from "../live/bindings";
-import { privateRooms } from "../live/privacy";
+import { NO_BINDINGS, readBindings, type BindingsJson } from "../live/bindings";
+import { closedRooms, gatedHass, RightsCache, type Gate } from "../live/rights";
+import { planRooms } from "../live/suggest";
 import { forScreen, resolveShow, type ShowRequest } from "../live/show";
 import type { HomeStorey } from "../engine/engine";
 import {
@@ -17,14 +18,19 @@ import {
   type StoreyRooms,
 } from "../live/storeys";
 import type { PeopleSettings } from "../live/people";
+import type { AccessPoint } from "../live/placement";
 import type { Upkeep } from "../live/upkeep";
+import type { Wifi } from "../live/wifi";
 import { translatorFor } from "../i18n";
+import { inLanguage } from "./define";
 import { DemoSwitch } from "./demo-switch";
 import { baseStyles } from "./styles";
 import type { DomoTwinView, ViewOptions } from "./view";
 
 /** How long before settings that could not be read are asked for again (ms). */
 const SETTINGS_RETRY_MS = 10_000;
+/** No Wi-Fi access point placed (D-066): the same array every time. */
+const NO_ACCESS_POINTS: AccessPoint[] = [];
 
 /** `custom:domotwin-card`: the twin on a dashboard. */
 export class DomoTwinCard extends LitElement {
@@ -40,6 +46,7 @@ export class DomoTwinCard extends LitElement {
     settingsRead: { state: true },
     upkeep: { state: true },
     people: { state: true },
+    wifi: { state: true },
     storeys: { state: true },
     storey: { state: true },
     elsewhere: { state: true },
@@ -57,10 +64,13 @@ export class DomoTwinCard extends LitElement {
    * (D-039). */
   protected settingsRead = false;
   private settingsTimer?: ReturnType<typeof setTimeout>;
+  private wifiTimer?: ReturnType<typeof setTimeout>;
   /** The upkeep cards (D-033). */
   protected upkeep?: Upkeep;
   /** The people placed in their rooms (D-034). */
   protected people?: PeopleSettings;
+  /** The home's Wi-Fi for guests (D-060), as this card's screen may show it. */
+  protected wifi?: Wifi;
   /** The storeys, and the one shown (chosen in the view, else the card's `storey`). */
   protected storeys: StoreyInfo[] = [];
   protected storey?: string;
@@ -72,6 +82,8 @@ export class DomoTwinCard extends LitElement {
   private shows = 0;
   /** The rooms of the storeys not shown, for their alerts. */
   protected elsewhere: StoreyRooms[] = [];
+  /** The viewer's rights as last worked out (D-071). */
+  private readonly rightsCache = new RightsCache();
   private _hass?: HomeAssistant;
   private unsubscribe?: () => void;
   /** The demo house shown instead of the home (`demo: true`, D-050). */
@@ -101,6 +113,7 @@ export class DomoTwinCard extends LitElement {
   setConfig(config: unknown): void {
     try {
       const before = this.config?.storey;
+      const screen = this.config?.screen;
       this.config = normalizeConfig(config);
       // The demo house asked for, or no longer.
       if (this.config.demo && this.demoSwitch.realHass) void this.startDemo();
@@ -109,6 +122,10 @@ export class DomoTwinCard extends LitElement {
         // Another storey asked for (the visual editor): it wins over the switcher's choice.
         this.chosen = undefined;
         if (this._hass && this.isConnected) void this.loadPlan(DomoTwinClient.for(this._hass));
+      }
+      // Another screen: what it may show of the Wi-Fi (D-060).
+      if (this.config.screen !== screen && this._hass && this.unsubscribe) {
+        void this.loadWifi(DomoTwinClient.for(this._hass));
       }
     } catch (error) {
       if (error instanceof ConfigError) {
@@ -145,6 +162,7 @@ export class DomoTwinCard extends LitElement {
   override disconnectedCallback(): void {
     super.disconnectedCallback();
     clearTimeout(this.settingsTimer);
+    clearTimeout(this.wifiTimer);
     this.unsubscribe?.();
     this.unsubscribe = undefined;
   }
@@ -175,6 +193,7 @@ export class DomoTwinCard extends LitElement {
     this.unsubscribe?.();
     this.unsubscribe = undefined;
     clearTimeout(this.settingsTimer);
+    clearTimeout(this.wifiTimer);
     this.loads += 1;
     this.chosen = undefined;
     this.plan = undefined;
@@ -186,6 +205,7 @@ export class DomoTwinCard extends LitElement {
     this.settingsRead = false;
     this.upkeep = undefined;
     this.people = undefined;
+    this.wifi = undefined;
     this.storeys = [];
     this.storey = undefined;
     this.elsewhere = [];
@@ -204,13 +224,35 @@ export class DomoTwinCard extends LitElement {
       else if (event.kind === "bindings") void this.loadBindings(client);
       else if (event.kind === "upkeep") void this.loadUpkeep(client);
       else if (event.kind === "people") void this.loadPeople(client);
-      else void this.loadSettings(client);
+      else if (event.kind === "wifi") void this.loadWifi(client);
+      // The wall screens (D-076) are the panel's, the lawns (D-077) the view's.
+      else if (event.kind !== "screens" && event.kind !== "garden") void this.loadSettings(client);
     });
     void this.loadPlan(client);
     void this.loadBindings(client);
     void this.loadSettings(client);
     void this.loadUpkeep(client);
     void this.loadPeople(client);
+    void this.loadWifi(client);
+  }
+
+  /**
+   * The Wi-Fi as this card's screen may show it. Not read (Home Assistant starting), it is asked for
+   * again in a while; an integration older than D-060 has none.
+   */
+  private async loadWifi(client: DomoTwinClient): Promise<void> {
+    clearTimeout(this.wifiTimer);
+    try {
+      const wifi = await client.getWifi(this.config?.screen ?? "");
+      if (this.current(client)) this.wifi = wifi;
+    } catch (error) {
+      if (!this.current(client)) return;
+      this.wifi = undefined;
+      if (isHassError(error) && error.code === "unknown_command") return;
+      if (this.unsubscribe) {
+        this.wifiTimer = setTimeout(() => void this.loadWifi(client), SETTINGS_RETRY_MS);
+      }
+    }
   }
 
   /** Whether `client` is the home's shown (not the one before the demo house, or after it). */
@@ -327,7 +369,7 @@ export class DomoTwinCard extends LitElement {
       this.storeys,
       { plan: this.plan, storey: this.storey },
       request,
-      privateRooms(this.settings?.rooms, hass),
+      closedRooms(this.settings?.rooms, this.settings?.rights, hass),
     );
     if (!target || ticket !== this.shows) return;
     if (target.storey !== undefined && target.storey !== this.storey) {
@@ -386,6 +428,7 @@ export class DomoTwinCard extends LitElement {
         presence: config.presence,
         people: config.people,
         sun: config.sun,
+        weather: config.weather,
         badges: config.badges,
         cameras: config.cameras,
         names: config.names,
@@ -425,35 +468,81 @@ export class DomoTwinCard extends LitElement {
     return { view: "3d" };
   }
 
+  /**
+   * The viewer's rights (D-071): their gate, and the bindings without the devices they may not
+   * see; the same while nothing they read changes. None for an administrator.
+   */
+  private rightsOf(hass: HomeAssistant): { gate?: Gate; bindings: BindingsJson } {
+    const settings = this.settings;
+    const home = this.home;
+    return this.rightsCache.read(
+      hass,
+      settings?.rights,
+      {
+        bindings: this.bindings ?? NO_BINDINGS,
+        closed: closedRooms(settings?.rooms, settings?.rights, hass),
+      },
+      () =>
+        home
+          ? {
+              rooms: home.flatMap((storey) => planRooms(storey.plan)),
+              storeys: home.map(({ plan, layout }) => ({ plan, layout })),
+            }
+          : {
+              rooms: [...planRooms(this.plan), ...this.elsewhere.flatMap((s) => s.rooms)],
+              storeys: [{ plan: this.plan, layout: this.layout }, ...this.elsewhere],
+            },
+      [home, this.plan, this.layout, this.elsewhere],
+    );
+  }
+
+  /** Drawn once Home Assistant's language is here (D-082). */
+  protected override scheduleUpdate(): Promise<unknown> | undefined {
+    return inLanguage(
+      this,
+      () => this._hass,
+      () => super.scheduleUpdate(),
+    );
+  }
+
   protected override render(): TemplateResult | typeof nothing {
-    if (!this.config) return nothing;
+    return this.config ? this.draw(this.config) : nothing;
+  }
+
+  private draw(config: CardConfig): TemplateResult {
+    // Under the viewer's rights (D-071): what they may do, the devices they may not see unlinked.
+    const rights = this._hass ? this.rightsOf(this._hass) : undefined;
     const style = [
-      this.config.height ? `height:${this.config.height}` : "",
-      this.config.font_family
-        ? `--domotwin-font-family:${fontFamily(this.config.font_family)}`
-        : "",
+      config.height ? `height:${config.height}` : "",
+      config.font_family ? `--domotwin-font-family:${fontFamily(config.font_family)}` : "",
     ]
       .filter(Boolean)
       .join(";");
-    return html`<ha-card .header=${this.config.title}>
+    return html`<ha-card .header=${config.title}>
       ${this.demo ? html`<domotwin-demo-bar .home=${this.demo}></domotwin-demo-bar>` : nothing}
       <domotwin-view
-        class=${this.config.height ? "fixed" : ""}
+        class=${config.height ? "fixed" : ""}
         style=${style}
-        .hass=${this._hass}
+        .hass=${this._hass && gatedHass(this._hass, rights?.gate)}
         .plan=${this.settingsRead ? this.plan : undefined}
         .layout=${this.layout}
         .home=${this.settingsRead ? this.home : undefined}
-        .bindings=${this.bindings}
+        .bindings=${rights && this.bindings ? rights.bindings : this.bindings}
         .upkeep=${this.upkeep}
         .people=${this.people}
+        .wifi=${this.wifi}
+        .screen=${config.screen ?? ""}
         .planError=${this.planError}
         .options=${this.viewOptions()}
         .north=${this.settings?.north ?? 0}
         .privateRooms=${this.settings?.rooms}
+        .rights=${this.settings?.rights}
+        .accessPoints=${this.settings?.access_points ?? NO_ACCESS_POINTS}
         .homeTheme=${this.settings?.theme}
         .homeAccent=${this.settings?.accent}
         .energy=${this.settings?.energy}
+        .weather=${this.settings?.weather}
+        .roofStyle=${this.settings?.roof}
         .storeys=${this.storeys}
         .storey=${this.storey}
         .elsewhere=${this.elsewhere}

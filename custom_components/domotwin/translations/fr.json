@@ -162,6 +162,12 @@
           },
           "source": {
             "name": "Source"
+          },
+          "x": {
+            "name": "X sur le plan"
+          },
+          "y": {
+            "name": "Y sur le plan"
           }
         }
       },
@@ -199,6 +205,78 @@
           },
           "left_behind": {
             "name": "Oublié"
+          },
+          "x": {
+            "name": "X sur le plan"
+          },
+          "y": {
+            "name": "Y sur le plan"
+          },
+          "z": {
+            "name": "Hauteur"
+          },
+          "accuracy": {
+            "name": "Précision"
+          }
+        }
+      },
+      "room_people": {
+        "name": "Personnes présentes",
+        "state_attributes": {
+          "room": {
+            "name": "Pièce"
+          },
+          "people": {
+            "name": "Personnes"
+          },
+          "private": {
+            "name": "Privée"
+          },
+          "room_id": {
+            "name": "Identifiant de la pièce"
+          },
+          "area_id": {
+            "name": "Zone"
+          },
+          "storey_id": {
+            "name": "Identifiant de l’étage"
+          },
+          "storey": {
+            "name": "Étage"
+          }
+        }
+      },
+      "room_upkeep": {
+        "name": "Entretien à faire ici",
+        "state_attributes": {
+          "room": {
+            "name": "Pièce"
+          },
+          "tasks": {
+            "name": "Tâches"
+          },
+          "more": {
+            "name": "Autres"
+          },
+          "room_id": {
+            "name": "Identifiant de la pièce"
+          },
+          "area_id": {
+            "name": "Zone"
+          },
+          "storey_id": {
+            "name": "Identifiant de l’étage"
+          },
+          "storey": {
+            "name": "Étage"
+          }
+        }
+      },
+      "people_seen": {
+        "name": "Personnes vues",
+        "state_attributes": {
+          "seen": {
+            "name": "Non identifiées"
           }
         }
       }

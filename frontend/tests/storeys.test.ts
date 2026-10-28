@@ -35,6 +35,37 @@ describe("storeys", () => {
     expect(storeyLevels([storey("b", 300), storey("a", 100)]).map((l) => l.level)).toEqual([0, 1]);
   });
 
+  it("number a split level's half levels between the full storeys (D-078)", () => {
+    const levels = (elevations: number[]): number[] =>
+      storeyLevels(elevations.map((e, i) => storey(`s${i}`, e))).map((l) => l.level);
+    // The fictional split-level house of `examples/`: half a storey down and half a storey up.
+    expect(levels([-140, 0, 140])).toEqual([-0.5, 0, 0.5]);
+    // A half level, then the next full storey; one more half level over it.
+    expect(levels([0, 140, 280, 420])).toEqual([0, 0.5, 1, 1.5]);
+    expect(levels([-420, -280, -140, 0])).toEqual([-1.5, -1, -0.5, 0]);
+    // Two storeys close over the ground floor: a half level, then a full one.
+    expect(levels([0, 100, 160])).toEqual([0, 0.5, 1]);
+    // Two storeys at one height (wings stored apart) are numbered as before; a half level's wings
+    // share it.
+    expect(levels([0, 0])).toEqual([0, 1]);
+    expect(levels([0, 30, 280])).toEqual([0, 1, 2]);
+    expect(levels([0, 140, 140, 280])).toEqual([0, 0.5, 0.5, 1]);
+    // A low cellar is a storey down, not half of one.
+    expect(levels([-190, 0])).toEqual([-1, 0]);
+    expect(levels([0, 185])).toEqual([0, 1]);
+    const en = new Translator("en");
+    const fr = new Translator("fr");
+    expect(storeyName(en, storey("a", 140), 0.5)).toBe("Half level up");
+    expect(storeyName(en, storey("a", -140), -0.5)).toBe("Half level down");
+    expect(storeyName(en, storey("a", 420), 1.5)).toBe("Floor 1½");
+    expect(storeyName(fr, storey("a", -420), -1.5)).toBe("Sous-sol 1½");
+    expect(storeyName(fr, storey("a", 140), 0.5)).toBe("Demi-niveau haut");
+    expect(storeyShort(0.5)).toBe("½");
+    expect(storeyShort(-0.5)).toBe("−½");
+    expect(storeyShort(1.5)).toBe("1½");
+    expect(storeyShort(-2)).toBe("−2");
+  });
+
   it("call a storey by its name, else by its place", () => {
     const en = new Translator("en");
     const fr = new Translator("fr");

@@ -372,6 +372,7 @@ pub fn convert(
             id: global_id(model, *space),
             name: element_name(model, *space),
             points: world.iter().map(|&p| frame.point(p)).collect(),
+            floor: None,
         })
         .collect();
     draft.walls = walls(model, &elements);

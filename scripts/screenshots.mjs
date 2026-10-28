@@ -367,7 +367,76 @@ try {
   );
   console.log("docs/figures/screenshot-imports.png");
 
-  // Edit mode (M3): a piece dragged on the plan with its guides, and the catalogue.
+  // More imports (M20): a robot vacuum's map, a Floorplanner plan and a mesh scan, imported.
+  const more = [];
+  for (const [file, label, rooms, picked] of [
+    ["robot.json", "A robot vacuum's map (Valetudo)", 4, false],
+    ["apartment.fml", "A Floorplanner plan", 4, true],
+    ["house.glb", "A mesh scan (its ground floor)", 3, true],
+  ]) {
+    await ifc.goto("http://127.0.0.1:4173/?mode=panel&plan=none");
+    await ifc.waitForFunction(() => window.__element !== undefined);
+    await pick(`crates/domotwin-import/tests/fixtures/${file}`);
+    if (picked) await ifc.getByTestId("import-storeys").locator("button.storey").first().click();
+    await ifc.waitForFunction(
+      (count) => window.__view?.()?.debugState().summary?.rooms === count,
+      rooms,
+      { timeout: 60_000 },
+    );
+    const frame = await ifc.evaluate(async () => {
+      const view = window.__view();
+      view.options = { quality: "high", view: "3d", cutaway: "auto", lighting: "day" };
+      await view.updateComplete;
+      view.overview();
+      return view.captureFrame();
+    });
+    more.push([label, frame]);
+  }
+  const moreImage = await ifc.evaluate(async (shots) => {
+    const images = await Promise.all(
+      shots.map(async ([, src]) => {
+        const image = new Image();
+        image.src = src;
+        await image.decode();
+        return image;
+      }),
+    );
+    const [w, h] = [620, 440];
+    const canvas = document.createElement("canvas");
+    canvas.width = shots.length * (w + 10) + 10;
+    canvas.height = h + 20;
+    const g = canvas.getContext("2d");
+    g.fillStyle = "#f1f5f9";
+    g.fillRect(0, 0, canvas.width, canvas.height);
+    images.forEach((image, i) => {
+      const x = 10 + i * (w + 10);
+      g.fillStyle = "#ffffff";
+      g.fillRect(x, 10, w, h);
+      const scale = Math.min(w / image.width, h / image.height);
+      g.drawImage(
+        image,
+        x + (w - image.width * scale) / 2,
+        10 + (h - image.height * scale) / 2,
+        image.width * scale,
+        image.height * scale,
+      );
+      g.fillStyle = "rgba(255,255,255,0.92)";
+      g.beginPath();
+      g.roundRect(x + 14, 24, 380, 40, 20);
+      g.fill();
+      g.fillStyle = "#0f172a";
+      g.font = "600 20px Inter, sans-serif";
+      g.fillText(shots[i][0], x + 32, 50);
+    });
+    return canvas.toDataURL("image/png");
+  }, more);
+  await fs.writeFile(
+    join(root, "docs", "figures", "screenshot-more-imports.png"),
+    Buffer.from(moreImage.slice(moreImage.indexOf(",") + 1), "base64"),
+  );
+  console.log("docs/figures/screenshot-more-imports.png");
+
+  // Edit mode (M3): a piece dragged on the plan with its guides, and the library (M17).
   const edit = await browser.newPage({ viewport: { width: 1100, height: 760 } });
   await edit.goto("http://127.0.0.1:4173/?mode=panel");
   await edit.waitForFunction(() => window.__view?.()?.debugState().summary, null, {
@@ -406,6 +475,8 @@ try {
   await edit.evaluate(() => window.__view().settle());
   await edit.getByTestId("edit-add").click();
   await edit.getByTestId("catalogue").waitFor();
+  // The library's pictures (M17), drawn a few each frame, the pieces shown first.
+  await edit.getByTestId("catalogue").locator("img.picture").nth(29).waitFor();
   await edit.waitForTimeout(200);
   const adding = await edit.screenshot();
   const editPair = await edit.evaluate(
@@ -418,7 +489,7 @@ try {
           return image;
         }),
       );
-      const labels = ["Drag: snapping and distances to the walls", "Add a piece from the catalogue"];
+      const labels = ["Drag: snapping and distances to the walls", "Add a piece from the library"];
       const [w, h] = [decoded[0].width, decoded[0].height];
       const canvas = document.createElement("canvas");
       canvas.width = w * 2 + 30;
@@ -664,6 +735,109 @@ try {
     Buffer.from(demoImage.slice(demoImage.indexOf(",") + 1), "base64"),
   );
   console.log("docs/figures/screenshot-demo.png");
+
+  // The phone and the wall (D-084): the demo house's Home tab on a phone, its shortcuts first,
+  // and its 3D on a screen on the wall, in the evening.
+  const phone = await browser.newPage({
+    viewport: { width: 390, height: 844 },
+    deviceScaleFactor: 2,
+    isMobile: true,
+    hasTouch: true,
+  });
+  await phone.goto("http://127.0.0.1:4173/?mode=panel&plan=none");
+  await phone.locator("domotwin-panel").getByTestId("demo-try").click();
+  await phone.waitForFunction(() => window.__element?.demo !== undefined, null, { timeout: 60_000 });
+  await phone.evaluate(() => {
+    const demo = window.__element.demo;
+    demo.play(false);
+    demo.jump(19 * 60 + 30);
+  });
+  await phone.locator("domotwin-panel").getByTestId("tab-home").click();
+  await phone.locator("domotwin-panel").getByTestId("home-shortcuts").waitFor();
+  await phone.waitForTimeout(800);
+  const phoneShot = (await phone.screenshot()).toString("base64");
+  await phone.close();
+  const wall = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  await wall.goto("http://127.0.0.1:4173/?mode=panel&plan=none");
+  await wall.locator("domotwin-panel").getByTestId("demo-try").click();
+  await wall.waitForFunction(() => window.__view?.()?.debugState().summary?.name === "Demo house", null, {
+    timeout: 60_000,
+  });
+  await wall.evaluate(() => {
+    const demo = window.__element.demo;
+    demo.play(false);
+    demo.jump(21 * 60 + 15);
+  });
+  await wall.waitForTimeout(500);
+  await wall.evaluate(async () => {
+    const view = window.__view();
+    view.options = { ...view.options, quality: "high", view: "3d", cutaway: "auto", theme: "neon" };
+    await view.updateComplete;
+    view.engine.setMotion(false);
+    // Closer than the whole plot: the house fills the screen.
+    view.engine.zoom(0.62, 0.15, -0.1);
+    view.settle();
+    view.requestFrame();
+  });
+  await wall.waitForTimeout(1500);
+  const wallShot = (await wall.screenshot()).toString("base64");
+  await wall.close();
+  const pairPage = await browser.newPage();
+  const pairImage = await pairPage.evaluate(
+    async ([phoneBase64, wallBase64]) => {
+      const load = async (base64) => {
+        const image = new Image();
+        image.src = `data:image/png;base64,${base64}`;
+        await image.decode();
+        return image;
+      };
+      const [phoneImage, wallImage] = await Promise.all([load(phoneBase64), load(wallBase64)]);
+      // The phone at 780 × 1688, the wall screen scaled to the same height, each in its frame.
+      const ph = 1688;
+      const pw = (phoneImage.width / phoneImage.height) * ph;
+      const ww = (wallImage.width / wallImage.height) * ph * 0.62;
+      const wh = ph * 0.62;
+      const pad = 60;
+      const canvas = document.createElement("canvas");
+      canvas.width = pad * 3 + pw + 48 + ww + 64;
+      canvas.height = ph + 48 + pad * 2;
+      const g = canvas.getContext("2d");
+      const back = g.createLinearGradient(0, 0, canvas.width, canvas.height);
+      back.addColorStop(0, "#eef2ff");
+      back.addColorStop(1, "#e0f2fe");
+      g.fillStyle = back;
+      g.fillRect(0, 0, canvas.width, canvas.height);
+      const frame = (x, y, w, h, radius, image) => {
+        g.save();
+        g.shadowColor = "rgba(15, 23, 42, 0.25)";
+        g.shadowBlur = 40;
+        g.shadowOffsetY = 16;
+        g.fillStyle = "#0f172a";
+        g.beginPath();
+        g.roundRect(x, y, w, h, radius);
+        g.fill();
+        g.restore();
+        g.save();
+        g.beginPath();
+        g.roundRect(x + 24, y + 24, w - 48, h - 48, radius - 20);
+        g.clip();
+        g.drawImage(image, x + 24, y + 24, w - 48, h - 48);
+        g.restore();
+      };
+      frame(pad, pad, pw + 48, ph + 48, 90, phoneImage);
+      const wx = pad * 2 + pw + 48;
+      const wy = pad + (ph + 48 - (wh + 64)) / 2;
+      frame(wx, wy, ww + 64, wh + 64, 40, wallImage);
+      return canvas.toDataURL("image/png");
+    },
+    [phoneShot, wallShot],
+  );
+  await pairPage.close();
+  await fs.writeFile(
+    join(root, "docs", "figures", "screenshot-phone-wall.png"),
+    Buffer.from(pairImage.slice(pairImage.indexOf(",") + 1), "base64"),
+  );
+  console.log("docs/figures/screenshot-phone-wall.png");
 
   // Devices (M5): badges in 3D, and what the living room's camera sees on the 2D plan.
   const deviceShots = [];
@@ -1034,7 +1208,7 @@ try {
   console.log("docs/figures/screenshot-storeys.png");
 
   // The looks (D-027): the panel in the evening, its lamps on, in neon (also alone, the README's
-  // first picture), blueprint and day.
+  // old first picture), blueprint and day.
   const lookShots = [];
   for (const [look, label] of [
     ["neon", "Neon"],
@@ -1232,6 +1406,29 @@ try {
     await upkeepPage.screenshot(),
   );
   console.log("docs/figures/screenshot-upkeep.png");
+  // The weekly report (D-081): the panel, the day look, the harness's fictional report of the
+  // demo apartment and its upper floor, summed up by a fictional AI task, read in Montréal.
+  const reportPage = await browser.newPage({
+    viewport: { width: 1280, height: 900 },
+    deviceScaleFactor: 1.5,
+    timezoneId: "America/Toronto",
+  });
+  await reportPage.emulateMedia({ reducedMotion: "reduce" });
+  await reportPage.goto(
+    "http://127.0.0.1:4173/?mode=panel&weekly=summary&storeys=2&hometheme=day",
+  );
+  await reportPage.waitForFunction(() => window.__view?.()?.debugState().summary, null, {
+    timeout: 60_000,
+  });
+  await reportPage.getByTestId("more").click();
+  await reportPage.getByTestId("report-menu").click();
+  await reportPage.locator('[data-testid="report-dialog"] g.room').first().waitFor();
+  await reportPage.waitForTimeout(500);
+  await fs.writeFile(
+    join(root, "docs", "figures", "screenshot-report.png"),
+    await reportPage.screenshot(),
+  );
+  console.log("docs/figures/screenshot-report.png");
   // People in their rooms (D-034): the panel, the neon look, the fictional people of the harness
   // in the demo apartment, their names over them.
   const peoplePage = await browser.newPage({
@@ -1282,6 +1479,38 @@ try {
     await bluetoothPage.screenshot(),
   );
   console.log("docs/figures/screenshot-bluetooth.png");
+
+  // The radio coverage (D-066): the panel, the day look, Wi-Fi over the demo apartment from the
+  // harness's access point in the kitchen, its devices' signals, the spots for the next one.
+  const coveragePage = await browser.newPage({
+    viewport: { width: 1280, height: 800 },
+    // Under the repository's 800 kB a picture (`.pre-commit-config.yaml`).
+    deviceScaleFactor: 1.25,
+  });
+  await coveragePage.emulateMedia({ reducedMotion: "reduce" });
+  await coveragePage.addInitScript(() => {
+    localStorage.setItem("domotwin-coverage-radio", "wifi");
+  });
+  await coveragePage.goto(
+    "http://127.0.0.1:4173/?mode=panel&live=1&bluetooth=1&radios=1&hometheme=day",
+  );
+  await coveragePage.waitForFunction(() => window.__view?.()?.debugState().summary, null, {
+    timeout: 60_000,
+  });
+  await coveragePage.evaluate(() => {
+    const view = window.__view();
+    view.options = { ...view.options, quality: "high" };
+  });
+  await coveragePage.locator("domotwin-view").getByTestId("layers").click();
+  await coveragePage.locator('domotwin-view [data-layer="coverage"]').click();
+  await coveragePage.locator("domotwin-placement .marker.spot").first().waitFor();
+  await coveragePage.evaluate(() => window.__view().settle());
+  await coveragePage.waitForTimeout(800);
+  await fs.writeFile(
+    join(root, "docs", "figures", "screenshot-placement.png"),
+    await coveragePage.screenshot(),
+  );
+  console.log("docs/figures/screenshot-placement.png");
 
   // The looks of D-036: the cartoon and the clay in the panel, in the light of the day.
   const toonShots = [];

@@ -10,7 +10,17 @@ from homeassistant.util import dt as dt_util
 
 from . import DomoTwinConfigEntry
 from .const import MODEL_ENTRY_PREFIX, PLAN_LISTS, VERSION
-from .data import LOCATOR_KEY, PEOPLE_KEY, SCHEDULER_KEY
+from .data import (
+    GARDEN_KEY,
+    GUESTS_KEY,
+    LOCATOR_KEY,
+    PEOPLE_KEY,
+    REPORT_KEY,
+    SCHEDULER_KEY,
+    SCREENS_KEY,
+    WIFI_KEY,
+)
+from .guests import status_of
 from .models import async_usage
 from .upkeep import due_tasks, piece_names
 
@@ -79,6 +89,7 @@ async def async_get_config_entry_diagnostics(
     # The Bluetooth locating counted (D-035): never addresses, keys, names or rooms.
     if (locator := hass.data.get(LOCATOR_KEY)) is not None:
         devices = locator.settings["devices"].values()
+        radars = locator.radars_shown()
         diagnostics["locating"] = {
             "status": locator.status(),
             "receivers": len(locator.receivers_now()),
@@ -95,6 +106,18 @@ async def async_get_config_entry_diagnostics(
             "located": sum(1 for found in locator.located.values() if found.room is not None),
             "rooms_learned": len(locator.learned_rooms()),
             "learn": locator.settings.get("learn", True),
+            # The presence radars (D-080): how many, of which kind, working; people seen now.
+            "radars": {
+                kind: sum(1 for r in radars if r["kind"] == kind)
+                for kind in ("targets", "distance")
+            },
+            "radars_working": len(locator.radar.sight.radars),
+            "people_seen": locator.radar.count,
+            # How well the rooms are found (M41): figures only, the devices by number.
+            "measured": {
+                "since": locator.measure.started.isoformat(),
+                "devices": [shown for _, shown in sorted(locator.measure.figures().items())],
+            },
         }
     # The actions done later counted (D-046): never which devices or when.
     if (scheduler := hass.data.get(SCHEDULER_KEY)) is not None:
@@ -102,6 +125,36 @@ async def async_get_config_entry_diagnostics(
         diagnostics["schedules"] = {
             "waiting": len(waiting),
             "started": sum(1 for item in waiting if item.started),
+        }
+    # Whether the home's Wi-Fi is given (D-060): never its name, its password or its screens.
+    if (wifi := hass.data.get(WIFI_KEY)) is not None:
+        diagnostics["wifi"] = {"set": wifi.is_set, "router_code": wifi.from_image}
+    # The wall screens counted (D-076): never their names, sensors or folders.
+    if (screens := hass.data.get(SCREENS_KEY)) is not None:
+        diagnostics["screens"] = {"screens": screens.count, "photos": screens.with_photos()}
+    # The lawns and robot mowers whose mowing is known (D-077): never which or when.
+    if (garden := hass.data.get(GARDEN_KEY)) is not None:
+        diagnostics["garden"] = garden.counts
+    # The guest passes counted (D-067): never their names, links, rooms or devices.
+    if (guests := hass.data.get(GUESTS_KEY)) is not None:
+        now = dt_util.utcnow()
+        diagnostics["guests"] = {
+            status: sum(1 for p in guests.passes if status_of(p, now) == status)
+            for status in ("upcoming", "open", "ended")
+        }
+        diagnostics["guests"]["anywhere"] = sum(1 for p in guests.passes if p["anywhere"])
+    # The weekly report's settings (D-081), whether an AI task sums it up, and how many reports are
+    # kept: never what they say.
+    if (report := hass.data.get(REPORT_KEY)) is not None:
+        settings = report.settings
+        diagnostics["report"] = {
+            "weekly": settings["weekly"],
+            "weekday": settings["weekday"],
+            "hour": settings["hour"],
+            "notify": settings["notify"],
+            "summary": settings["summary"] is not None,
+            "battery": settings["battery"],
+            "kept": len(report.list()),
         }
     redacted: dict[str, Any] = async_redact_data(diagnostics, TO_REDACT)
     return redacted

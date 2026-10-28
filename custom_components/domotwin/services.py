@@ -12,7 +12,6 @@
 from __future__ import annotations
 
 from datetime import timedelta
-import re
 from typing import Any
 
 from homeassistant.core import (
@@ -32,8 +31,8 @@ from .const import (
     DOMAIN,
     MAX_SCHEDULE_DAYS,
     MAX_SCHEDULE_ENTITIES,
-    MAX_SCREEN_NAME,
     MAX_SHOW_TEXT,
+    SCREEN_NAME,
     SERVICE_SCHEDULE,
     SERVICE_SHOW,
     SERVICE_UNSCHEDULE,
@@ -41,12 +40,12 @@ from .const import (
     SIGNAL_SHOW,
 )
 from .data import DATA_KEY, LOCATOR_KEY, PEOPLE_KEY, SCHEDULER_KEY
+from .language import spoken
 from .people import Place, likeness, thing_likeness
 from .privacy import private_rooms
+from .rights import hidden_rooms
 from .schedules import ScheduleError, describe, moment, times
 from .tracker import name_of
-
-SCREEN = re.compile(rf"^[A-Za-z0-9_-]{{1,{MAX_SCREEN_NAME}}}$")
 
 
 def _text(value: Any) -> str:
@@ -59,7 +58,7 @@ def _text(value: Any) -> str:
 def _screen(value: Any) -> str:
     """A screen's name, or the empty string for every screen."""
     text = cv.string(value).strip()
-    if text and not SCREEN.match(text):
+    if text and not SCREEN_NAME.fullmatch(text):
         raise vol.Invalid("a screen's name is made of letters, digits, _ and -")
     return text
 
@@ -114,7 +113,7 @@ UNSCHEDULE_SCHEMA = vol.All(
 )
 
 
-# What `domotwin.where` says, in English and in French (Home Assistant's language).
+# What `domotwin.where` says, in each language DomoTwin speaks (Home Assistant's, D-082).
 SENTENCES = {
     "en": {
         "room": "{name} is in the {room}.",
@@ -126,6 +125,7 @@ SENTENCES = {
         "heard": "I hear {name} in the {room}.",
         "nobody": "Nobody is home.",
         "and": ", ",
+        "stop": ".",
         "also": "{name} in the {room}",
         "private_room": "{name} is in a private room.",
         "also_private": "{name} in a private room",
@@ -141,10 +141,171 @@ SENTENCES = {
         "heard": "J'entends {name} dans la pièce {room}.",
         "nobody": "Personne n'est à la maison.",
         "and": ", ",
+        "stop": ".",
         "also": "{name} dans la pièce {room}",
         "private_room": "{name} est dans une pièce privée.",
         "also_private": "{name} dans une pièce privée",
         "heard_private": "J'entends {name} dans une pièce privée.",
+    },
+    "de": {
+        "room": "{name} ist im Raum {room}.",
+        "somewhere": "{name} ist zu Hause, aber ich weiß nicht, in welchem Raum.",
+        "away": "{name} ist nicht zu Hause.",
+        "unknown": "Ich weiß nicht, wer {name} ist.",
+        "private": "Ich kann nicht sagen, wo {name} ist.",
+        "unheard": "Ich empfange gerade kein Signal von {name}.",
+        "heard": "Das Signal von {name} kommt aus dem Raum {room}.",
+        "nobody": "Niemand ist zu Hause.",
+        "and": ", ",
+        "stop": ".",
+        "also": "{name} im Raum {room}",
+        "private_room": "{name} ist in einem privaten Raum.",
+        "also_private": "{name} in einem privaten Raum",
+        "heard_private": "Das Signal von {name} kommt aus einem privaten Raum.",
+    },
+    "es": {
+        "room": "{name} está en la habitación {room}.",
+        "somewhere": "{name} está en casa, pero no sé en qué habitación.",
+        "away": "{name} no está en casa.",
+        "unknown": "No sé quién es {name}.",
+        "private": "No puedo decir dónde está {name}.",
+        "unheard": "Ahora mismo no recibo la señal de {name}.",
+        "heard": "La señal de {name} viene de la habitación {room}.",
+        "nobody": "No hay nadie en casa.",
+        "and": ", ",
+        "stop": ".",
+        "also": "{name} en la habitación {room}",
+        "private_room": "{name} está en una habitación privada.",
+        "also_private": "{name} en una habitación privada",
+        "heard_private": "La señal de {name} viene de una habitación privada.",
+    },
+    "it": {
+        "room": "{name} è nella stanza {room}.",
+        "somewhere": "{name} è a casa, ma non so in quale stanza.",
+        "away": "{name} non è a casa.",
+        "unknown": "Non so chi sia {name}.",
+        "private": "Non posso dire dove si trovi {name}.",
+        "unheard": "Al momento non ricevo il segnale di {name}.",
+        "heard": "Il segnale di {name} arriva dalla stanza {room}.",
+        "nobody": "Non c'è nessuno in casa.",
+        "and": ", ",
+        "stop": ".",
+        "also": "{name} nella stanza {room}",
+        "private_room": "{name} è in una stanza privata.",
+        "also_private": "{name} in una stanza privata",
+        "heard_private": "Il segnale di {name} arriva da una stanza privata.",
+    },
+    "nl": {
+        "room": "{name} is in de ruimte {room}.",
+        "somewhere": "{name} is thuis, maar ik weet niet in welke ruimte.",
+        "away": "{name} is niet thuis.",
+        "unknown": "Ik weet niet wie {name} is.",
+        "private": "Ik kan niet zeggen waar {name} is.",
+        "unheard": "Ik ontvang nu geen signaal van {name}.",
+        "heard": "Het signaal van {name} komt uit de ruimte {room}.",
+        "nobody": "Er is niemand thuis.",
+        "and": ", ",
+        "stop": ".",
+        "also": "{name} in de ruimte {room}",
+        "private_room": "{name} is in een privéruimte.",
+        "also_private": "{name} in een privéruimte",
+        "heard_private": "Het signaal van {name} komt uit een privéruimte.",
+    },
+    "pt": {
+        "room": "{name} está na divisão {room}.",
+        "somewhere": "{name} está em casa, mas não sei em que divisão.",
+        "away": "{name} não está em casa.",
+        "unknown": "Não sei quem é {name}.",
+        "private": "Não posso dizer onde está {name}.",
+        "unheard": "Neste momento não recebo o sinal de {name}.",
+        "heard": "O sinal de {name} vem da divisão {room}.",
+        "nobody": "Não está ninguém em casa.",
+        "and": ", ",
+        "stop": ".",
+        "also": "{name} na divisão {room}",
+        "private_room": "{name} está numa divisão privada.",
+        "also_private": "{name} numa divisão privada",
+        "heard_private": "O sinal de {name} vem de uma divisão privada.",
+    },
+    "pt-BR": {
+        "room": "{name} está no cômodo {room}.",
+        "somewhere": "{name} está em casa, mas não sei em qual cômodo.",
+        "away": "{name} não está em casa.",
+        "unknown": "Não sei quem é {name}.",
+        "private": "Não posso dizer onde {name} está.",
+        "unheard": "No momento, não estou recebendo o sinal de {name}.",
+        "heard": "O sinal de {name} vem do cômodo {room}.",
+        "nobody": "Não há ninguém em casa.",
+        "and": ", ",
+        "stop": ".",
+        "also": "{name} no cômodo {room}",
+        "private_room": "{name} está em um cômodo privado.",
+        "also_private": "{name} em um cômodo privado",
+        "heard_private": "O sinal de {name} vem de um cômodo privado.",
+    },
+    "ar": {
+        "room": "{name} في غرفة {room}.",
+        "somewhere": "{name} في المنزل، لكنني لا أعرف في أي غرفة.",
+        "away": "{name} خارج المنزل.",
+        "unknown": "لا أعرف أحدًا باسم {name}.",
+        "private": "لا يمكنني الإفصاح عن مكان {name}.",
+        "unheard": "لا أستقبل إشارة {name} الآن.",
+        "heard": "تصلني إشارة {name} من غرفة {room}.",
+        "nobody": "لا أحد في المنزل.",
+        "and": "، و",
+        "stop": ".",
+        "also": "{name} في غرفة {room}",
+        "private_room": "{name} في غرفة خاصة.",
+        "also_private": "{name} في غرفة خاصة",
+        "heard_private": "تصلني إشارة {name} من غرفة خاصة.",
+    },
+    "zh-Hans": {
+        "room": "{name}在{room}。",
+        "somewhere": "{name}在家\uff0c但我不知道在哪个房间。",
+        "away": "{name}不在家。",
+        "unknown": "我不知道{name}是谁。",
+        "private": "我不能透露{name}在哪里。",
+        "unheard": "现在接收不到{name}的信号。",
+        "heard": "{name}的信号来自{room}。",
+        "nobody": "家里没有人。",
+        "and": "\uff0c",
+        "stop": "。",
+        "also": "{name}在{room}",
+        "private_room": "{name}在一个私密房间里。",
+        "also_private": "{name}在一个私密房间里",
+        "heard_private": "{name}的信号来自一个私密房间。",
+    },
+    "ja": {
+        "room": "{name}は{room}にいます。",
+        "somewhere": "{name}は家にいますが、どの部屋かはわかりません。",
+        "away": "{name}は家にいません。",
+        "unknown": "{name}が誰なのかわかりません。",
+        "private": "{name}の居場所はお伝えできません。",
+        "unheard": "今は{name}の信号を受信できません。",
+        "heard": "{name}の信号は{room}から届いています。",
+        "nobody": "家には誰もいません。",
+        "and": "、",
+        "stop": "。",
+        "also": "{name}は{room}にいます",
+        "private_room": "{name}はプライベートな部屋にいます。",
+        "also_private": "{name}はプライベートな部屋にいます",
+        "heard_private": "{name}の信号はプライベートな部屋から届いています。",
+    },
+    "ko": {
+        "room": "{name} 지금 {room}에 있어요.",
+        "somewhere": "{name} 지금 집에 있는데, 어느 방인지는 모르겠어요.",
+        "away": "{name} 지금 집에 없어요.",
+        "unknown": "누가 {name}인지 모르겠어요.",
+        "private": "{name}의 위치는 알려 드릴 수 없어요.",
+        "unheard": "지금은 {name}의 신호가 잡히지 않아요.",
+        "heard": "{name}의 신호가 {room}에서 잡혀요.",
+        "nobody": "지금 집에 아무도 없어요.",
+        "and": ". ",
+        "stop": ".",
+        "also": "{name} {room}에 있어요",
+        "private_room": "{name} 지금 비공개 공간에 있어요.",
+        "also_private": "{name} 비공개 공간에 있어요",
+        "heard_private": "{name}의 신호가 비공개 공간에서 잡혀요.",
     },
 }
 
@@ -178,21 +339,22 @@ def _entry(name: str, person: str, place: Place | None, closed: set[str]) -> dic
 async def _limits(hass: HomeAssistant, call: ServiceCall) -> tuple[set[str], set[str]]:
     """What the one calling may not be told: people, and rooms.
 
-    The people not to show or tell about (`PeopleTracker.untold`), and the private rooms they may
-    not see (D-039).
+    The people not to show or tell about (`PeopleTracker.untold`), and the rooms they may not see:
+    private (D-039), or hidden by their rights (D-071).
     """
     user_id = call.context.user_id
     user = await hass.auth.async_get_user(user_id) if user_id else None
     people = hass.data.get(PEOPLE_KEY)
     untold = people.untold(user) if people is not None else set()
     data = hass.data.get(DATA_KEY)
-    rooms = data.settings.get("rooms", {}) if data is not None else {}
-    return untold, private_rooms(rooms, hass.states.get, user.id if user else None)
+    settings = data.settings if data is not None else {}
+    closed = private_rooms(settings.get("rooms", {}), hass.states.get, user.id if user else None)
+    return untold, closed | hidden_rooms(hass, settings, user)
 
 
 async def _async_where(hass: HomeAssistant, call: ServiceCall) -> ServiceResponse:
     """Where a person is (`name`), or everyone at home, with a sentence to say."""
-    said = SENTENCES["fr" if hass.config.language.startswith("fr") else "en"]
+    said = SENTENCES[spoken(hass.config.language)]
     people = hass.data.get(PEOPLE_KEY)
     placed = list(people.config["people"]) if people is not None else []
     places = people.places if people is not None else {}
@@ -216,8 +378,8 @@ async def _async_where(hass: HomeAssistant, call: ServiceCall) -> ServiceRespons
                 also = said["also_private"] if place.room.id in closed else said["also"]
                 clauses.append(also.format(name=name, room=place.room.name))
             else:
-                clauses.append(_place_text(said, name, place, closed).rstrip("."))
-        return {"people": entries, "text": said["and"].join(clauses) + "."}
+                clauses.append(_place_text(said, name, place, closed).removesuffix(said["stop"]))
+        return {"people": entries, "text": said["and"].join(clauses) + said["stop"]}
     scored = [
         (score, person)
         for person in placed

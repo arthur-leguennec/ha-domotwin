@@ -41,7 +41,7 @@ export class DomoTwinUpkeepList extends LitElement {
       .sheet {
         /* Beside the view's tools, as the network map's: the layer button stays in reach. */
         position: absolute;
-        right: 68px;
+        inset-inline-end: 68px;
         bottom: 12px;
         width: min(360px, calc(100% - 80px));
         max-height: calc(100% - 24px);
@@ -70,7 +70,7 @@ export class DomoTwinUpkeepList extends LitElement {
         display: inline-block;
         width: 10px;
         height: 10px;
-        margin-right: 4px;
+        margin-inline-end: 4px;
         border-radius: 3px;
         background: var(--q);
       }
@@ -94,8 +94,8 @@ export class DomoTwinUpkeepList extends LitElement {
         align-items: center;
         gap: 8px;
         min-height: 48px;
-        border-left: 4px solid var(--q);
-        padding-left: 8px;
+        border-inline-start: 4px solid var(--q);
+        padding-inline-start: 8px;
         margin: 4px 0;
       }
       li button.line {
@@ -108,7 +108,7 @@ export class DomoTwinUpkeepList extends LitElement {
         background: transparent;
         color: inherit;
         font: inherit;
-        text-align: left;
+        text-align: start;
         padding: 4px 0;
         cursor: pointer;
       }

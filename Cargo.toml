@@ -34,6 +34,7 @@ web-sys = "=0.3.106"
 console_error_panic_hook = "=0.1.7"
 miniz_oxide = { version = "=0.9.1", default-features = false, features = ["with-alloc"] }
 wasm-bindgen-test = "=0.3.79"
+qrcodegen = "=1.8.0"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

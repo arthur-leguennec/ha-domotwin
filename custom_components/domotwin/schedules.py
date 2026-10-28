@@ -48,10 +48,15 @@ from .const import (
     SCHEDULES_STORAGE_KEY,
     SCHEDULES_STORAGE_VERSION,
     SIGNAL_SCHEDULES,
+    SIGNAL_UPDATED,
 )
+from .language import spoken
+from .rights import HIDDEN, levels_for
 
 _LOGGER = logging.getLogger(__name__)
 
+#: The saves that may change what a user sees of the actions waiting (their rights, D-071).
+SEEN_FROM = frozenset({"settings", "plan", "bindings"})
 #: An action set a little in the past (the time it took to say it) is done at once.
 LATE_ALLOWED = timedelta(minutes=1)
 #: A device that could not be switched off (unavailable, failing) is tried again this often…
@@ -286,14 +291,17 @@ class Scheduler:
     def listing(self, user: User | None = None) -> list[dict[str, Any]]:
         """The actions waiting, the soonest first, as the frontend gets them.
 
-        For a `user`: only those on entities they may read, without who set them.
+        For a `user`: only those on entities they may read and see in DomoTwin (D-071), without
+        who set them.
         """
         if user is None:
             return [item.as_dict() for item in self.items()]
+        levels = levels_for(self._hass, user)
         return [
             {key: value for key, value in item.as_dict().items() if key != "user_id"}
             for item in self.items()
             if all(user.permissions.check_entity(e, POLICY_READ) for e in item.entities)
+            and (levels is None or not any(levels.level(e) == HIDDEN for e in item.entities))
         ]
 
     def get(self, scheduled_id: str) -> Scheduled | None:
@@ -342,13 +350,20 @@ class Scheduler:
         return item
 
     async def async_check_user(self, user_id: str | None, entities: Iterable[str]) -> None:
-        """Raises `ScheduleError("not_allowed")` unless the user may control these entities."""
+        """Raises `ScheduleError("not_allowed")` unless the user may control these entities.
+
+        In Home Assistant, and in DomoTwin: their rights let them use each (D-071).
+        """
         if user_id is None:
             return
+        entities = list(entities)
         user = await self._hass.auth.async_get_user(user_id)
         if user is None or not all(
             user.permissions.check_entity(entity, POLICY_CONTROL) for entity in entities
         ):
+            raise ScheduleError("not_allowed")
+        levels = levels_for(self._hass, user)
+        if levels is not None and not levels.uses(entities):
             raise ScheduleError("not_allowed")
 
     async def async_cancel(self, ids: Iterable[str], user_id: str | None = None) -> int:
@@ -460,9 +475,11 @@ class Scheduler:
         async_dispatcher_send(self._hass, SIGNAL_SCHEDULES)
 
 
-# What is said of an action, in English and in French (Home Assistant's language).
+# What is said of an action, in each language DomoTwin speaks (Home Assistant's, D-082): the
+# sentence, with who, the verb (one thing, several), the brightness, when, and the end after it.
 _SAID = {
     "en": {
+        "sentence": "{who} {verb}{level} {when}{then}.",
         "on": ("will switch on", "will switch on"),
         "off": ("will switch off", "will switch off"),
         "open": ("will open", "will open"),
@@ -477,9 +494,11 @@ _SAID = {
         "brightness": " at {brightness} %",
         "then": " and {verb} {when}",
         "then_same_day": " and {verb} at {time}",
+        "comma": ", ",
         "and": " and ",
     },
     "fr": {
+        "sentence": "{who} {verb}{level} {when}{then}.",
         "on": ("s'allumera", "s'allumeront"),
         "off": ("s'éteindra", "s'éteindront"),
         "open": ("s'ouvrira", "s'ouvriront"),
@@ -493,7 +512,188 @@ _SAID = {
         "brightness": " à {brightness} %",
         "then": " et {verb} {when}",
         "then_same_day": " et {verb} à {time}",
+        "comma": ", ",
         "and": " et ",
+    },
+    "de": {
+        "sentence": "Ich werde {who} {when}{level} {verb}{then}.",
+        "on": ("einschalten", "einschalten"),
+        "off": ("ausschalten", "ausschalten"),
+        "open": ("öffnen", "öffnen"),
+        "close": ("schließen", "schließen"),
+        "end": ("ausschalten", "ausschalten"),
+        "end_cover": ("schließen", "schließen"),
+        "today": "heute um {time} Uhr",
+        "tomorrow": "morgen um {time} Uhr",
+        "day": "am {date} um {time} Uhr",
+        "date": "%d.%m.%Y",
+        "brightness": " mit {brightness} % Helligkeit",
+        "then": " und {when} {verb}",
+        "then_same_day": " und um {time} Uhr {verb}",
+        "comma": ", ",
+        "and": " und ",
+    },
+    "es": {
+        "sentence": "{who} {verb}{level} {when}{then}.",
+        "on": ("se encenderá", "se encenderán"),
+        "off": ("se apagará", "se apagarán"),
+        "open": ("se abrirá", "se abrirán"),
+        "close": ("se cerrará", "se cerrarán"),
+        "end": ("se apagará", "se apagarán"),
+        "end_cover": ("se cerrará", "se cerrarán"),
+        "today": "hoy a las {time}",
+        "tomorrow": "mañana a las {time}",
+        "day": "el {date} a las {time}",
+        "date": "%d/%m/%Y",
+        "brightness": " al {brightness} %",
+        "then": " y {verb} {when}",
+        "then_same_day": " y {verb} a las {time}",
+        "comma": ", ",
+        "and": " y ",
+    },
+    "it": {
+        "sentence": "{who} {verb}{level} {when}{then}.",
+        "on": ("si accenderà", "si accenderanno"),
+        "off": ("si spegnerà", "si spegneranno"),
+        "open": ("si aprirà", "si apriranno"),
+        "close": ("si chiuderà", "si chiuderanno"),
+        "end": ("si spegnerà", "si spegneranno"),
+        "end_cover": ("si chiuderà", "si chiuderanno"),
+        "today": "oggi alle {time}",
+        "tomorrow": "domani alle {time}",
+        "day": "il {date} alle {time}",
+        "date": "%d/%m/%Y",
+        "brightness": " al {brightness}%",
+        "then": " e {verb} {when}",
+        "then_same_day": " e {verb} alle {time}",
+        "comma": ", ",
+        "and": " e ",
+    },
+    "nl": {
+        "sentence": "Ik zal {who} {when}{level} {verb}{then}.",
+        "on": ("inschakelen", "inschakelen"),
+        "off": ("uitschakelen", "uitschakelen"),
+        "open": ("openen", "openen"),
+        "close": ("sluiten", "sluiten"),
+        "end": ("uitschakelen", "uitschakelen"),
+        "end_cover": ("sluiten", "sluiten"),
+        "today": "vandaag om {time}",
+        "tomorrow": "morgen om {time}",
+        "day": "op {date} om {time}",
+        "date": "%d-%m-%Y",
+        "brightness": " op {brightness}% helderheid",
+        "then": " en {when} {verb}",
+        "then_same_day": " en om {time} {verb}",
+        "comma": ", ",
+        "and": " en ",
+    },
+    "pt": {
+        "sentence": "{who} {verb}{level} {when}{then}.",
+        "on": ("vai ligar-se", "vão ligar-se"),
+        "off": ("vai desligar-se", "vão desligar-se"),
+        "open": ("vai abrir", "vão abrir"),
+        "close": ("vai fechar", "vão fechar"),
+        "end": ("desligar-se", "desligar-se"),
+        "end_cover": ("fechar", "fechar"),
+        "today": "hoje às {time}",
+        "tomorrow": "amanhã às {time}",
+        "day": "no dia {date} às {time}",
+        "date": "%d/%m/%Y",
+        "brightness": " com {brightness}% de brilho",
+        "then": " e {verb} {when}",
+        "then_same_day": " e {verb} às {time}",
+        "comma": ", ",
+        "and": " e ",
+    },
+    "pt-BR": {
+        "sentence": "{who} {verb}{level} {when}{then}.",
+        "on": ("vai ligar", "vão ligar"),
+        "off": ("vai desligar", "vão desligar"),
+        "open": ("vai abrir", "vão abrir"),
+        "close": ("vai fechar", "vão fechar"),
+        "end": ("desligar", "desligar"),
+        "end_cover": ("fechar", "fechar"),
+        "today": "hoje às {time}",
+        "tomorrow": "amanhã às {time}",
+        "day": "em {date} às {time}",
+        "date": "%d/%m/%Y",
+        "brightness": " com {brightness}% de brilho",
+        "then": " e {verb} {when}",
+        "then_same_day": " e {verb} às {time}",
+        "comma": ", ",
+        "and": " e ",
+    },
+    "ar": {
+        "sentence": "سيتم {verb} {who}{level} {when}{then}.",
+        "on": ("تشغيل", "تشغيل"),
+        "off": ("إيقاف تشغيل", "إيقاف تشغيل"),
+        "open": ("فتح", "فتح"),
+        "close": ("إغلاق", "إغلاق"),
+        "end": ("إيقاف التشغيل", "إيقاف التشغيل"),
+        "end_cover": ("الإغلاق", "الإغلاق"),
+        "today": "اليوم في الساعة {time}",
+        "tomorrow": "غدًا في الساعة {time}",
+        "day": "يوم {date} في الساعة {time}",
+        "date": "%d/%m/%Y",
+        "brightness": " بسطوع {brightness}%",
+        "then": " و{verb} {when}",
+        "then_same_day": " و{verb} في الساعة {time}",
+        "comma": "، ",
+        "and": " و",
+    },
+    "zh-Hans": {
+        "sentence": "{who}将在{when}{level}{verb}{then}。",
+        "on": ("打开", "打开"),
+        "off": ("关闭", "关闭"),
+        "open": ("打开", "打开"),
+        "close": ("关闭", "关闭"),
+        "end": ("关闭", "关闭"),
+        "end_cover": ("关闭", "关闭"),
+        "today": "今天{time}",
+        "tomorrow": "明天{time}",
+        "day": "{date} {time}",
+        "date": "%Y年%m月%d日",
+        "brightness": "以{brightness}%的亮度",
+        "then": "\uff0c并在{when}{verb}",
+        "then_same_day": "\uff0c并在{time}{verb}",
+        "comma": "、",
+        "and": "和",
+    },
+    "ja": {
+        "sentence": "{who}を{when}に{level}{verb}予定{then}です。",
+        "on": ("オンにする", "オンにする"),
+        "off": ("オフにする", "オフにする"),
+        "open": ("開ける", "開ける"),
+        "close": ("閉める", "閉める"),
+        "end": ("オフにする", "オフにする"),
+        "end_cover": ("閉める", "閉める"),
+        "today": "今日の{time}",
+        "tomorrow": "明日の{time}",
+        "day": "{date}の{time}",
+        "date": "%Y/%m/%d",
+        "brightness": "明るさ{brightness}%で",
+        "then": "で、{when}に{verb}予定",
+        "then_same_day": "で、{time}に{verb}予定",
+        "comma": "、",
+        "and": "と",
+    },
+    "ko": {
+        "sentence": "{who} {when}에{level} {verb} 예정{then}이에요.",
+        "on": ("켜질", "켜질"),
+        "off": ("꺼질", "꺼질"),
+        "open": ("열릴", "열릴"),
+        "close": ("닫힐", "닫힐"),
+        "end": ("꺼질", "꺼질"),
+        "end_cover": ("닫힐", "닫힐"),
+        "today": "오늘 {time}",
+        "tomorrow": "내일 {time}",
+        "day": "{date} {time}",
+        "date": "%Y년 %m월 %d일",
+        "brightness": " 밝기 {brightness}%로",
+        "then": "이고, {when}에 {verb} 예정",
+        "then_same_day": "이고, {time}에 {verb} 예정",
+        "comma": ", ",
+        "and": "하고 ",
     },
 }
 
@@ -511,32 +711,38 @@ def _when(said: dict[str, Any], moment: datetime) -> str:
 
 def describe(hass: HomeAssistant, item: Scheduled) -> str:
     """A sentence saying what will happen, in Home Assistant's language."""
-    said = _SAID["fr" if hass.config.language.startswith("fr") else "en"]
+    said = _SAID[spoken(hass.config.language)]
     names = [
         state.name if (state := hass.states.get(entity)) is not None else entity
         for entity in item.entities
     ]
-    who = names[0] if len(names) == 1 else ", ".join(names[:-1]) + str(said["and"]) + names[-1]
+    who = (
+        names[0]
+        if len(names) == 1
+        else str(said["comma"]).join(names[:-1]) + str(said["and"]) + names[-1]
+    )
     plural = 1 if len(names) > 1 else 0
     covers = all(entity.startswith("cover.") for entity in item.entities)
     on_verb = said["open" if covers else "on"][plural]
     off_verb = said["close" if covers else "off"][plural]
+    sentence = str(said["sentence"])
     if item.started and item.until is not None:
         # On already: only its end is to come.
-        return f"{who} {off_verb} {_when(said, item.until)}."
+        when = _when(said, item.until)
+        return sentence.format(who=who, verb=off_verb, level="", when=when, then="")
     verb = on_verb if item.action == "on" else off_verb
     level = ""
     if item.brightness is not None and not covers:
         level = str(said["brightness"]).format(brightness=item.brightness)
-    text = f"{who} {verb}{level} {_when(said, item.at)}"
+    then = ""
     if item.until is not None:
         start, end = dt_util.as_local(item.at), dt_util.as_local(item.until)
         end_verb = said["end_cover" if covers else "end"][plural]
         if start.date() == end.date():
-            text += str(said["then_same_day"]).format(verb=end_verb, time=end.strftime("%H:%M"))
+            then = str(said["then_same_day"]).format(verb=end_verb, time=end.strftime("%H:%M"))
         else:
-            text += str(said["then"]).format(verb=end_verb, when=_when(said, item.until))
-    return text + "."
+            then = str(said["then"]).format(verb=end_verb, when=_when(said, item.until))
+    return sentence.format(who=who, verb=verb, level=level, when=_when(said, item.at), then=then)
 
 
 # The websocket commands of the sheets (any signed-in user: they control the devices anyway).
@@ -575,7 +781,8 @@ def ws_schedules_subscribe(
 
     Followed even before DomoTwin is set up (a screen kept open while Home Assistant restarts):
     the list is empty until then, and sent again when it is set up or unloaded. Each user gets
-    the actions on what they may see.
+    the actions on what they may see, sent again when what they see may change (the home's
+    settings, its plan or its links, D-071).
     """
 
     @callback
@@ -584,7 +791,22 @@ def ws_schedules_subscribe(
         listing = scheduler.listing(connection.user) if scheduler is not None else []
         connection.send_message(websocket_api.event_message(msg["id"], {"schedules": listing}))
 
-    connection.subscriptions[msg["id"]] = async_dispatcher_connect(hass, SIGNAL_SCHEDULES, send)
+    @callback
+    def saved(kind: str, _revision: int) -> None:
+        if kind in SEEN_FROM and not connection.user.is_admin:
+            send()
+
+    stops = [
+        async_dispatcher_connect(hass, SIGNAL_SCHEDULES, send),
+        async_dispatcher_connect(hass, SIGNAL_UPDATED, saved),
+    ]
+
+    @callback
+    def stop() -> None:
+        for each in stops:
+            each()
+
+    connection.subscriptions[msg["id"]] = stop
     connection.send_result(msg["id"])
     send()
 

@@ -5,8 +5,8 @@
  * automation's wires when it runs, the pieces it acted on flashing. Loaded the first time wires
  * are shown.
  */
-import { mdiClose, mdiHelpRhombusOutline, mdiLightningBolt, mdiTarget } from "@mdi/js";
-import { LitElement, css, html, nothing, type PropertyValues, type TemplateResult } from "lit";
+import { mdiClose } from "@mdi/js";
+import { LitElement, html, nothing, type PropertyValues, type TemplateResult } from "lit";
 
 import type { DomoTwinEngine } from "../engine/engine";
 import type { HomeAssistant } from "../ha/types";
@@ -27,77 +27,14 @@ import type { PlanRoom } from "../live/layers";
 import { define, fire } from "./define";
 import { icon } from "./icon";
 import { baseStyles } from "./styles";
+import { renderSpots, spotPoints, spotStyles, swatchColor, type Spot } from "./wire-spots";
+
+export { lift } from "./wire-spots";
 
 /** Above this many automations, the wires of every automation are bundled by room. */
 export const BUNDLE_ABOVE = 30;
 /** How long after a run the pieces it acted on may change and flash (ms). */
 const ACTED_WITHIN_MS = 3_000;
-
-/** A spot the engine draws an end at (`setAutomations`). */
-interface Spot {
-  piece?: string;
-  room?: string | null;
-  above?: string;
-  roles: ("trigger" | "condition" | "action")[];
-  automations: number[];
-  dynamic: boolean;
-}
-
-const ROLE_ICONS = {
-  trigger: mdiLightningBolt,
-  condition: mdiHelpRhombusOutline,
-  action: mdiTarget,
-};
-
-/** About how wide a label is drawn (CSS pixels), and how tall; half an end marker's size. */
-const labelWidth = (text: string): number => text.length * 7 + 18;
-const LABEL_HEIGHT = 22;
-const MARKER_HALF = 12;
-
-/**
- * The labels' places, each lifted above what it would cover (labels side by side in the home can
- * line up on screen, or fall on an end's marker): markers (`texts` undefined) stay where they
- * are; from the lowest on screen up, a label overlapping a marker or a label already placed goes
- * just above it.
- */
-export function lift(
-  points: ([number, number] | null)[],
-  texts: readonly (string | undefined)[],
-): ([number, number] | null)[] {
-  const out = points.map((p) => (p ? ([p[0], p[1]] as [number, number]) : null));
-  const placed: { left: number; right: number; top: number; bottom: number }[] = [];
-  out.forEach((p, i) => {
-    if (p && texts[i] === undefined) {
-      const [x, y] = p;
-      const h = MARKER_HALF;
-      placed.push({ left: x - h, right: x + h, top: y - h, bottom: y + h });
-    }
-  });
-  const order = out
-    .map((p, i) => ({ p, i, text: texts[i] }))
-    .filter((e): e is { p: [number, number]; i: number; text: string } => !!e.p && !!e.text)
-    .sort((a, b) => b.p[1] - a.p[1]);
-  for (const { p, text } of order) {
-    const half = labelWidth(text) / 2;
-    let moved = true;
-    while (moved) {
-      moved = false;
-      for (const box of placed) {
-        const overlaps =
-          p[0] - half < box.right &&
-          p[0] + half > box.left &&
-          p[1] - LABEL_HEIGHT < box.bottom &&
-          p[1] > box.top;
-        if (overlaps) {
-          p[1] = box.top - 2;
-          moved = true;
-        }
-      }
-    }
-    placed.push({ left: p[0] - half, right: p[0] + half, top: p[1] - LABEL_HEIGHT, bottom: p[1] });
-  }
-  return out;
-}
 
 /** `<domotwin-wires>`: the wires of automations over the view (the view feeds it taps). */
 export class DomoTwinWires extends LitElement {
@@ -115,84 +52,7 @@ export class DomoTwinWires extends LitElement {
     loading: { state: true },
     unread: { state: true },
   };
-  static override styles = [
-    baseStyles,
-    css`
-      :host {
-        position: absolute;
-        inset: 0;
-        pointer-events: none;
-        z-index: 1;
-      }
-      .end {
-        position: absolute;
-        transform: translate(-50%, -50%);
-        display: flex;
-        gap: 2px;
-        padding: 3px;
-        border-radius: 12px;
-        background: color-mix(in srgb, var(--card-background-color, #fff) 88%, transparent);
-        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
-        color: var(--primary-text-color, #1f2328);
-      }
-      .end svg {
-        width: 14px;
-        height: 14px;
-      }
-      .end.dynamic,
-      .label.dynamic {
-        outline: 2px dashed var(--secondary-text-color, #5f6368);
-        outline-offset: 1px;
-      }
-      .label {
-        position: absolute;
-        transform: translate(-50%, -100%);
-        padding: 2px 8px;
-        border-radius: 10px;
-        font-size: 0.75rem;
-        white-space: nowrap;
-        background: color-mix(in srgb, var(--card-background-color, #fff) 90%, transparent);
-        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
-        color: var(--primary-text-color, #1f2328);
-      }
-      .chip {
-        position: absolute;
-        left: 12px;
-        top: 12px;
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        max-width: calc(100% - 92px);
-        padding: 4px 4px 4px 12px;
-        border-radius: 18px;
-        pointer-events: auto;
-        font-size: 0.85rem;
-      }
-      .chip span {
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-      .chip .swatch {
-        flex: none;
-        width: 10px;
-        height: 10px;
-        border-radius: 50%;
-      }
-      .chip button {
-        flex: none;
-        width: 32px;
-        height: 32px;
-        display: grid;
-        place-items: center;
-        border: none;
-        border-radius: 50%;
-        background: transparent;
-        color: inherit;
-        cursor: pointer;
-      }
-    `,
-  ];
+  static override styles = [baseStyles, spotStyles];
 
   hass?: HomeAssistant;
   engine?: DomoTwinEngine;
@@ -318,9 +178,9 @@ export class DomoTwinWires extends LitElement {
     if (text === this.pointsText && scale === this.pointsScale) return;
     this.pointsText = text;
     this.pointsScale = scale;
-    const points = JSON.parse(text) as ([number, number] | null)[];
-    this.points = lift(
-      points.map((p) => (p ? [p[0] * scale, p[1] * scale] : null)),
+    this.points = spotPoints(
+      text,
+      scale,
       this.spots.map((spot) => this.labelText(spot)),
     );
   }
@@ -395,14 +255,11 @@ export class DomoTwinWires extends LitElement {
       : every && this.shown.length > BUNDLE_ABOVE
         ? t.t("automations.bundled", { count: this.shown.length })
         : t.tp("automations.wires", this.shown.length);
-    return html`${this.renderEnds()}
+    return html`${renderSpots(t, this.spots, this.points, (spot) => this.labelText(spot))}
       <div class="chip glass" data-testid="wires" role="status">
         ${
           color
-            ? html`<span
-                class="swatch"
-                style="background: rgb(${color.map((c) => Math.round(c * 255)).join(",")})"
-              ></span>`
+            ? html`<span class="swatch" style="background: ${swatchColor(color)}"></span>`
             : nothing
         }
         <span
@@ -431,26 +288,6 @@ export class DomoTwinWires extends LitElement {
     if (spot.above === undefined) return undefined;
     // A bundle's end above the home has no label of its own.
     return spot.above === "" ? this.t.t("automations.home") : spot.above;
-  }
-
-  private renderEnds(): TemplateResult {
-    const t = this.t;
-    return html`${this.spots.map((spot, i) => {
-      const p = this.points[i];
-      if (!p) return nothing;
-      const style = `left:${p[0]}px;top:${p[1]}px`;
-      const dynamic = spot.dynamic ? "dynamic" : "";
-      const text = this.labelText(spot);
-      if (text !== undefined) {
-        return html`<span class="label ${dynamic}" style=${style}>${text}</span>`;
-      }
-      return html`<span
-        class="end ${dynamic}"
-        style=${style}
-        title=${spot.roles.map((r) => t.t(`automations.role.${r}`)).join(" · ")}
-        >${spot.roles.map((r) => icon(ROLE_ICONS[r]))}</span
-      >`;
-    })}`;
   }
 }
 

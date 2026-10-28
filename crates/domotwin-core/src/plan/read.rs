@@ -228,6 +228,7 @@ fn read_room(e: &Object, id: String, name: String) -> Result<Room, ReadError> {
     }
     let floor = e.get("floor").and_then(Value::as_object);
     let walls = e.get("walls").and_then(Value::as_object);
+    let outside = e.get("outside") == Some(&Value::Bool(true));
     Ok(Room {
         id,
         name,
@@ -236,10 +237,14 @@ fn read_room(e: &Object, id: String, name: String) -> Result<Room, ReadError> {
         w,
         h,
         color: color(e.get("color")).unwrap_or(super::DEFAULT_COLOR),
+        // A place outside is a lawn unless it says otherwise.
         floor: floor
             .and_then(|f| f.get("material"))
             .and_then(Value::as_str)
-            .map_or(Floor::Plain, Floor::from_name),
+            .map_or(
+                if outside { Floor::Lawn } else { Floor::Plain },
+                Floor::from_name,
+            ),
         floor_angle: floor
             .and_then(|f| f.get("angle"))
             .and_then(Value::as_f64)
@@ -257,6 +262,8 @@ fn read_room(e: &Object, id: String, name: String) -> Result<Room, ReadError> {
             .iter()
             .any(Option::is_some)
             .then_some(edge_finish),
+        outside,
+        railing: outside && e.get("railing") == Some(&Value::Bool(true)),
     })
 }
 
@@ -365,13 +372,6 @@ fn read_item(
     ) else {
         return Err(at(ErrorCode::ItemSize));
     };
-    let z = length(2)
-        .filter(|v| (1.0..=300.0).contains(v))
-        .ok_or_else(|| at(ErrorCode::ItemHeight))?;
-    let elevation = e
-        .get("lift")
-        .and_then(Value::as_f64)
-        .map_or(0.0, |lift| lift.clamp(0.0, 300.0));
     let model = match e.get("model") {
         None | Some(Value::Null) => None,
         Some(Value::String(model)) if plan.models.contains_key(model) => Some(model.clone()),
@@ -385,6 +385,15 @@ fn read_item(
             .and_then(Kind::from_name)
             .unwrap_or(Kind::Box)
     };
+    // Under a ceiling, or as tall as a tree for a piece of the garden (D-077).
+    let tallest = kind.max_height();
+    let z = length(2)
+        .filter(|v| (1.0..=tallest).contains(v))
+        .ok_or_else(|| at(ErrorCode::ItemHeight))?;
+    let elevation = e
+        .get("lift")
+        .and_then(Value::as_f64)
+        .map_or(0.0, |lift| lift.clamp(0.0, 300.0));
     let light = kind
         .is_light()
         .then(|| e.get("light").and_then(Value::as_object))
@@ -406,7 +415,7 @@ fn read_item(
         .and_then(Value::as_str)
         .filter(|v| kind.has_variant(v))
         .map(str::to_owned);
-    let open = if kind == Kind::Curtain {
+    let open = if kind.moves() {
         fraction(e.get("open")).map(|f| (f * 100.0).round() as u8)
     } else {
         None
@@ -423,7 +432,7 @@ fn read_item(
             .get("rotation")
             .and_then(Value::as_f64)
             .map_or(0.0, normal_angle),
-        color: color(e.get("color")).unwrap_or(kind.info().color),
+        color: color(e.get("color")).unwrap_or(kind.style_info(variant.as_deref()).color),
         kind,
         model,
         variant,

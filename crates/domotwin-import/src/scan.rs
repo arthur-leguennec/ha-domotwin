@@ -140,6 +140,15 @@ impl ScanFile {
     /// `not_plan` for JSON that is not a scan, `too_large` past 5 000 elements.
     pub fn from_json(bytes: &[u8], title: &str) -> Result<Self, &'static str> {
         let root: Json = serde_json::from_slice(bytes).map_err(|_| "not_plan")?;
+        Self::from_value(&root, title)
+    }
+
+    /// Reads the JSON of a scan, parsed.
+    ///
+    /// # Errors
+    ///
+    /// `not_plan` for JSON that is not a scan, `too_large` past 5 000 elements.
+    pub fn from_value(root: &Json, title: &str) -> Result<Self, &'static str> {
         let object = root.as_object().ok_or("not_plan")?;
         if !object.contains_key("walls") && !object.contains_key("rooms") {
             return Err("not_plan");
@@ -456,6 +465,7 @@ impl ScanFile {
                 id: format!("room-{}", k + 1),
                 name: name.to_owned(),
                 points,
+                floor: None,
             });
         }
         // Doors, windows and openings.
@@ -812,7 +822,11 @@ fn piece_kind(
     let attr = |k: &str| attributes.get(k).map(String::as_str);
     match category {
         "refrigerator" => "fridge",
-        "stove" | "oven" => "stove",
+        "stove" => "stove",
+        // An oven in a tall housing, else in a counter under its hob.
+        "oven" if h >= 150.0 => "oven",
+        "oven" => "stove",
+        "fireplace" => "fireplace",
         "bed" => "bed",
         "sink" => "sink",
         "washerdryer" => "washer",
@@ -978,6 +992,18 @@ mod tests {
         );
         assert_eq!(
             piece_kind("fireplace", &none, [100.0, 60.0, 100.0], 0.0, false),
+            "fireplace"
+        );
+        assert_eq!(
+            piece_kind("oven", &none, [60.0, 60.0, 210.0], 0.0, false),
+            "oven"
+        );
+        assert_eq!(
+            piece_kind("oven", &none, [60.0, 60.0, 60.0], 30.0, true),
+            "stove"
+        );
+        assert_eq!(
+            piece_kind("plant", &none, [40.0, 40.0, 100.0], 0.0, false),
             "box"
         );
         assert_eq!(ScanFile::from_json(b"{}", "x").err(), Some("not_plan"));

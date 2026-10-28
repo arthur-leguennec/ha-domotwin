@@ -12,6 +12,13 @@
 //   theme=auto|day|neon|blueprint|cartoon|clay  accent=<#rrggbb>  names=0 (card options)
 //   hometheme=<look> (the stored settings)
 //   screen=<name>  idle=<seconds>  orbit=1  nightdim=1 (the kiosk's card options)
+//   wifi=typed|image (the home's Wi-Fi for guests, D-060: a fictional network, or a router's code)
+//   wifiscreens=<names> (the screens that show it, comma-separated)  tools=0 (the card's tools hidden)
+//   overview=1 (Home Assistant 2026.10, its Overview with an area page each; DomoTwin's room and
+//   upkeep sensors, who is home: D-061)  mode=summary&summary=<kind> (a summary card)
+//   nopanel=1 (no DomoTwin panel for this user: left out of the sidebar, or for administrators)
+//   energypage=1 (Home Assistant's Energy page, its energy integration's, its grid set up: D-069),
+//   energypage=empty (the page, nothing set up)
 //   upkeep=1 (the demo apartment's fictional upkeep cards, examples/demo-apartment.upkeep.json)
 //   upkeep=0 (an integration without upkeep cards)
 //   people=1 (fictional people: Alex, the user viewing, in the kitchen; Sam in the living room;
@@ -19,13 +26,25 @@
 //   window.__move(person, room) moves someone (their room sensor, as the integration writes it)
 //   bluetooth=1 (DomoTwin's own Bluetooth locating: three fictional receivers, Alex's phone and
 //   keys followed, both in the kitchen, the keys left behind), bluetooth=none (no Bluetooth)
+//   radars=1 (presence radars, D-080: the living room's bookcase seeing someone no device names,
+//   the hall's distance radar not working)
+//   radios=1 (the radio coverage, D-066: two of the receivers placed, the hall taught, two Wi-Fi
+//   devices reporting their signal, an access point in the kitchen's far corner)
 //   window.__show(request) sends a `domotwin.show` request to every screen
 //   private=<room>,<room> (private rooms, D-039, kept for nobody), privatefor=<person> (kept for
 //   that person instead), privatewhile=<entity> (private only while it is on), settingsdown=1
 //   (the settings cannot be read until window.__settingsUp())
+//   rights=<JSON> (each person's rights, D-071, as the stored settings keep them)
 //   voice=1 (Assist with a pipeline that hears), voice=deaf (Assist that cannot hear),
 //   robot=1 (a robot vacuum's dock in the hall, linked to vacuum.robbie, docked; D-049)
+//   valetudo=1 (a robot running Valetudo: its vacuum and its Map data camera over MQTT, whose
+//   picture is the fictional map of crates/domotwin-import/tests/fixtures/robot.png; D-064),
+//   valetudo=2 (two of them)
 //   energy=1 (fictional solar panels, meter and battery, named in the stored settings; D-049)
+//   peak=hydroqc|hydropeak|calendar (Hydro-Québec's peaks, D-063: hydroqc's Flex D sensors,
+//   HydroPeak's, or the calendar hydroqc writes its peaks in), peakphase=upcoming|preheat|peak|none
+//   (where the peak stands now; `peak` unless asked), with the bedroom heating and the living
+//   room's thermostat set back
 //   demo=1 (the card's `demo`: the demo house instead of this home, D-050)
 //   supervisor=1 (apps can be installed), blueprints=changed (one edited), insecure=1 (a page
 //   served over HTTP: no microphone), mic=0 (the card's microphone turned off)
@@ -40,6 +59,33 @@
 //   Home Assistant's history, statistics and logbook (D-058) answer a fictional day of the
 //   bedroom (`HISTORY` below); historyfail=1 makes the history refuse, nostats=1 leaves the
 //   statistics out; formatstate=1 gives `hass.formatEntityState` (states in words, "°C" after).
+//   weather=<condition> (D-072: a fictional `weather.home` in that condition, wind 18 km/h from
+//   the south-west, and a `weather.coast` pouring), homeweather=<entity|none> (the stored
+//   settings' choice), weatheroption=0 (the card's `weather: false`)
+//   why=1 (D-059: Home Assistant's logbook and traces of a fictional evening, with live=1: the
+//   entrance door opened five minutes ago and set off "Hall light at the door", which lit the
+//   hall's spots; Sam switched the floor lamp on two minutes ago; the kitchen's ceiling light was
+//   switched off on its own switch)
+//   safety=1 (D-068, with live=1: a doorbell at the front door with its camera, beside the hall's
+//   lock, and an alarm, quiet; window.__ring() rings it now), security=1 (Home Assistant 2026.10
+//   and its Security page), securityalerts=<entity>[:alert|warning],… (the alerts chosen on it;
+//   window.__securityAlerts(list) chooses others)
+//   confighistory=1 (the configuration history, D-062: fictional automations, a script removed,
+//   one in YAML files of one's own and a dashboard, as the integration keeps them; Home
+//   Assistant's configuration API and `lovelace/config/save` put one back, read again on
+//   `domotwin/config_history/refresh`; window.__refuseConfig = "<message>" makes Home Assistant
+//   refuse)
+//   aitask=1 (D-070: Home Assistant's AI task, a fictional one that writes the automation asked
+//   for in plain words from the demo apartment's entities; Home Assistant's actions, its check
+//   `validate_config` and the home zone counting who is home; window.__aiAnswer = <data> answers
+//   that instead, window.__aiHold (a promise) holds the answer back, window.__aiFail = "<message>"
+//   makes it refuse, window.__invalidConfig = { part, error } makes Home Assistant's check refuse;
+//   window.__apiHold (a promise) holds Home Assistant's configuration API back)
+//   weekly=1 (the weekly report, D-081: two fictional reports of the demo apartment, last week's
+//   and this week's, written on Monday mornings; Home Assistant 2026.10's Maintenance page),
+//   weekly=summary (this week's summed up by a fictional AI task, ai_task.helper), weekly=none
+//   (no report yet); report=<id> asks the panel for a report, as the notification's link does
+//   (window.__refuseReport = "<code>" makes the integration refuse to write one)
 import { applyService, demoHome } from "./demo-home.mjs";
 
 const params = new URLSearchParams(location.search);
@@ -51,6 +97,14 @@ try {
   // No storage: the tip shows.
 }
 const mode = params.get("mode") ?? "card";
+// The wall screen this device is (D-076), when a test says.
+try {
+  const deviceScreen = params.get("devicescreen");
+  if (deviceScreen) localStorage.setItem("domotwin-screen", deviceScreen);
+  else localStorage.removeItem("domotwin-screen");
+} catch {
+  // Storage disabled.
+}
 // The tab this device opens on (D-055): the 3D view, as before the tabs, unless a test asks.
 try {
   const start = params.get("start") ?? "3d";
@@ -65,6 +119,18 @@ const zha = params.get("zha") === "1";
 // Fictional automations (D-032): `automations=1` three of them, `automations=50` as many made up.
 const automationCount = Number(params.get("automations") ?? 0);
 const sandbox = params.get("sandbox") === "1";
+// Home Assistant's AI task (D-070), a fictional one.
+const aiTask = params.get("aitask") === "1";
+const AI_TASK = "ai_task.fictional_assistant";
+// Home Assistant's logbook and traces of a fictional evening (D-059).
+const why = params.get("why") === "1";
+/** The logbook's rows, as `logbook/get_events` gives them, each with the context it is in. */
+let whyRows = [];
+// Their contexts' ids, as Home Assistant writes them (ULIDs).
+const C_DOOR = "01K8C0D00R0000000000000001";
+const C_RUN = "01K8C0D00R0000000000000002";
+const C_SAM = "01K8C0D00R0000000000000003";
+const C_KITCHEN = "01K8C0D00R0000000000000004";
 // Voice (D-041): Assist and its pipelines, the voice blueprints, apps to install.
 const voiceParam = params.get("voice");
 if (params.get("insecure") === "1") {
@@ -123,6 +189,7 @@ const PEOPLE = {
 // Bluetooth locating (D-035): fictional receivers and devices, their room sensors as the
 // integration writes them.
 const bluetoothParam = params.get("bluetooth");
+const radarsParam = params.get("radars") === "1";
 const LOCATED = {
   alex_phone: {
     name: "Alex's phone",
@@ -229,6 +296,7 @@ const store = {
   settings: {
     ...(params.get("north") ? { north: Number(params.get("north")) } : {}),
     ...(params.get("hometheme") ? { theme: params.get("hometheme") } : {}),
+    ...(params.get("homeweather") ? { weather: params.get("homeweather") } : {}),
     ...(params.get("energy") === "1"
       ? {
           energy: {
@@ -239,6 +307,7 @@ const store = {
           },
         }
       : {}),
+    ...(params.get("rights") ? { rights: JSON.parse(params.get("rights")) } : {}),
     ...(params.get("private")
       ? {
           rooms: Object.fromEntries(
@@ -274,6 +343,56 @@ const store = {
           )
         : {},
   },
+};
+// How well the rooms are found (M41): a fictional afternoon, Bermuda's figures beside the phone's.
+let measured = {
+  since: "2026-03-02T13:00:00+00:00",
+  devices:
+    bluetoothParam === "1"
+      ? {
+          alex_phone: {
+            domotwin: {
+              hours: 5.5,
+              changes_per_hour: 6.8,
+              storey_changes_per_hour: 0,
+              short_stays: 2,
+              unknown_share: 0.03,
+              witnessed_hours: 2.4,
+              right_share: 0.97,
+            },
+            domotwin_areas: {
+              hours: 5.5,
+              changes_per_hour: 5.9,
+              storey_changes_per_hour: 0,
+              short_stays: 1,
+              unknown_share: 0.03,
+              witnessed_hours: 2.4,
+              right_share: 0.97,
+            },
+            bermuda: {
+              hours: 5.5,
+              changes_per_hour: 38.4,
+              storey_changes_per_hour: 0,
+              short_stays: 157,
+              unknown_share: 0.08,
+              witnessed_hours: 2.4,
+              right_share: 0.81,
+            },
+            agreement: 0.88,
+          },
+          keys: {
+            domotwin: {
+              hours: 5.5,
+              changes_per_hour: 0.4,
+              storey_changes_per_hour: 0,
+              short_stays: 0,
+              unknown_share: 0,
+              witnessed_hours: 0,
+              right_share: null,
+            },
+          },
+        }
+      : {},
 };
 store.locating = {
   revision: 1,
@@ -316,6 +435,33 @@ store.locating = {
     ]),
   ),
   learned: {},
+  // Bermuda's area sensors (M41): a fictional phone's.
+  bermuda: bluetoothParam === "1" ? ["sensor.alex_iphone_area"] : [],
+  // The presence radars (D-080): an integration before them gives none.
+  ...(radarsParam
+    ? {
+        radars: [
+          {
+            piece: "bookcase",
+            name: "Bookcase",
+            room: "living",
+            kind: "targets",
+            working: true,
+            seeing: 1,
+            mirror: false,
+          },
+          {
+            piece: "shoe-cabinet",
+            name: "Shoe cabinet",
+            room: "hall",
+            kind: "distance",
+            working: false,
+            seeing: 0,
+            mirror: false,
+          },
+        ],
+      }
+    : {}),
   rooms: [
     { id: "living", name: "Living room", storey: "" },
     { id: "kitchen", name: "Kitchen", storey: "" },
@@ -397,10 +543,19 @@ if (modelsParam && store.plan) {
   }
 }
 
-/** The integration's model file views (`/api/domotwin/models`), with the user's session. */
+/**
+ * The integration's model file views (`/api/domotwin/models`), and the cameras' pictures
+ * (`/api/camera_proxy`), with the user's session.
+ */
 async function fetchWithAuth(path, init = {}) {
   calls.push({ type: "fetch", method: init.method ?? "GET", path });
   const url = new URL(path, location.origin);
+  if (url.pathname.startsWith("/api/camera_proxy/")) {
+    const camera = decodeURIComponent(url.pathname.slice("/api/camera_proxy/".length));
+    if (!home.states[camera]) return new Response("", { status: 404 });
+    // Valetudo's map for Home Assistant: a picture holding the robot's map.
+    return fetch("/fixtures/robot.png");
+  }
   if (url.pathname === "/api/domotwin/models" && init.method === "POST") {
     if (!hass.user.is_admin) return Response.json({ code: "unauthorized" }, { status: 403 });
     const format = url.searchParams.get("format");
@@ -415,6 +570,280 @@ async function fetchWithAuth(path, init = {}) {
     return Response.json({ code: "not_found" }, { status: 404 });
   return new Response(bytes);
 }
+// The weekly report (D-081), as the integration keeps it: the reports, oldest first, and its
+// settings.
+const weekly = params.get("weekly");
+const reports = weekly && weekly !== "none" ? fictionalReports(weekly === "summary") : [];
+let reportSettings = {
+  weekly: true,
+  weekday: 0,
+  hour: 8,
+  notify: true,
+  summary: weekly === "summary" ? "ai_task.helper" : null,
+  battery: 20,
+};
+
+function fictionalReports(summary) {
+  const week = (end) => ({
+    start: new Date(Date.parse(end) - 7 * 86_400_000).toISOString(),
+    end,
+  });
+  const motion = {
+    key: "battery:dev-hall-motion",
+    name: "Hall motion sensor",
+    device: "dev-hall-motion",
+    level: 8,
+    battery: "CR2032",
+    room: "hall",
+  };
+  const window_ = {
+    key: "battery:binary_sensor.bedroom_window_battery",
+    name: "Bedroom window",
+    entity: "binary_sensor.bedroom_window_battery",
+    level: 15,
+    room: "bedroom",
+  };
+  const plug = {
+    key: "unavailable:dev-kitchen-plug",
+    name: "Kitchen plug",
+    device: "dev-kitchen-plug",
+    since: "2026-10-23T09:00:00.000Z",
+    room: "kitchen",
+  };
+  const router = {
+    key: "update:update.router:1.3",
+    name: "Router firmware",
+    entity: "update.router",
+    installed: "1.2",
+    latest: "1.3",
+  };
+  const tv = { key: "update:update.tv:6", name: "TV firmware", entity: "update.tv" };
+  const spook = {
+    key: "repair:spook:unknown_entity",
+    name: "Unknown entity in an automation",
+    domain: "spook",
+    severity: "warning",
+  };
+  const watchman = {
+    key: "watchman:missing_entities:light.old_lamp",
+    name: "light.old_lamp",
+    domain: "watchman",
+    missing: "entity",
+  };
+  const filter = {
+    key: "upkeep:washer:Clean the filter:2026-10-20",
+    name: "Washer",
+    piece: "washer",
+    task: "Clean the filter",
+    due: "2026-10-20",
+    state: "overdue",
+    room: "bathroom",
+  };
+  const evening = {
+    key: "automation:automation.evening_lights:failed",
+    name: "Evening lights",
+    entity: "automation.evening_lights",
+    id: "1700000000001",
+    problem: "failed",
+    runs: 2,
+    last: "2026-10-24T22:00:00.000Z",
+    run_id: "r-1",
+    error: "Light not found",
+  };
+  const bedroomPlug = {
+    key: "radio:dev-bedroom-plug",
+    name: "Bedroom plug",
+    device: "dev-bedroom-plug",
+    lqi: 60,
+    hops: 2,
+    room: "bedroom",
+  };
+  return [
+    {
+      id: 1,
+      at: "2026-10-19T12:00:00.000Z",
+      by: "schedule",
+      week: week("2026-10-19T04:00:00.000Z"),
+      sections: {
+        batteries: [window_],
+        unavailable: [],
+        updates: [tv],
+        repairs: [],
+        upkeep: [],
+        automations: [],
+        radios: [],
+      },
+      energy: { home: { week: 100, before: 96 }, grid: { week: 100, before: 96 } },
+      peaks: [],
+    },
+    {
+      id: 2,
+      at: "2026-10-26T12:00:00.000Z",
+      by: "schedule",
+      week: week("2026-10-26T04:00:00.000Z"),
+      sections: {
+        batteries: [{ ...motion, new: true }, window_],
+        unavailable: [{ ...plug, new: true }],
+        updates: [{ ...router, new: true }],
+        repairs: [
+          { ...spook, new: true },
+          { ...watchman, new: true },
+        ],
+        upkeep: [{ ...filter, new: true }],
+        automations: [{ ...evening, new: true }],
+        radios: [{ ...bedroomPlug, new: true }],
+      },
+      gone: { updates: [{ key: tv.key, name: tv.name }] },
+      energy: {
+        home: { week: 84, before: 100 },
+        grid: { week: 84, before: 100 },
+        rooms: { kitchen: { week: 7, before: 5 }, living: { week: 12.5, before: 14 } },
+      },
+      peaks: [
+        {
+          start: "2026-10-20T10:00:00.000Z",
+          end: "2026-10-20T13:00:00.000Z",
+          grid: 1.5,
+          rooms: { kitchen: 0.4 },
+        },
+      ],
+      ...(summary
+        ? {
+            summary: {
+              by: "ai_task.helper",
+              text: "The hall motion sensor needs a CR2032, and the evening lights failed twice.",
+            },
+          }
+        : {}),
+    },
+  ];
+}
+
+function reportAnswer(report) {
+  return {
+    settings: structuredClone(reportSettings),
+    reports: [...reports].reverse().map((each) => ({
+      id: each.id,
+      at: each.at,
+      by: each.by,
+      week: each.week,
+      counts: Object.fromEntries(
+        Object.entries(each.sections).map(([section, items]) => [section, items.length]),
+      ),
+    })),
+    report: report ? structuredClone(report) : null,
+  };
+}
+
+// The configuration history (D-062), as the integration keeps it: each item's versions, oldest
+// first, and what Home Assistant's editors saved since it last read them.
+const configItems = params.get("confighistory") === "1" ? fictionalConfigHistory() : [];
+const configPending = new Map();
+let configNext = 100;
+
+function fictionalConfigHistory() {
+  const day = 86_400_000;
+  const at = (days) => new Date(Date.parse("2026-10-26T18:00:00Z") - days * day).toISOString();
+  const evening = (offset, actions) => ({
+    id: "1700000000001",
+    alias: "Evening lights",
+    triggers: [{ trigger: "sun", event: "sunset", offset }],
+    actions,
+    mode: "single",
+  });
+  const lamp = { action: "light.turn_on", target: { entity_id: "light.living_lamp" } };
+  const curtains = { action: "cover.close_cover", target: { entity_id: "cover.living_curtains" } };
+  return [
+    {
+      kind: "automation",
+      key: "1700000000001",
+      name: "Evening lights",
+      source: "editor",
+      versions: [
+        { id: 1, at: at(9), config: evening("-00:30:00", [lamp]) },
+        { id: 2, at: at(3), config: evening("-00:30:00", [lamp, curtains]) },
+        { id: 3, at: at(1), config: evening("-00:20:00", [lamp, curtains]) },
+      ],
+    },
+    {
+      kind: "script",
+      key: "good_night",
+      name: "Good night",
+      source: "editor",
+      versions: [
+        {
+          id: 4,
+          at: at(5),
+          config: { alias: "Good night", sequence: [{ action: "light.turn_off" }] },
+        },
+        { id: 5, at: at(2), config: null },
+      ],
+    },
+    {
+      kind: "automation",
+      key: "hall_motion",
+      name: "Hall light on motion",
+      source: "yaml",
+      versions: [
+        {
+          id: 6,
+          at: at(7),
+          config: { alias: "Hall light on motion", triggers: [], actions: [lamp] },
+        },
+        {
+          id: 7,
+          at: at(4),
+          config: { alias: "Hall light on motion", triggers: [], actions: [lamp, curtains] },
+        },
+      ],
+    },
+    {
+      kind: "dashboard",
+      key: "",
+      name: null,
+      source: "editor",
+      versions: [{ id: 8, at: at(6), config: { title: "Home", views: [{ title: "Kitchen" }] } }],
+    },
+  ];
+}
+
+function configSummary(item) {
+  const newest = item.versions.at(-1);
+  return {
+    id: `${item.kind}:${item.key}`,
+    kind: item.kind,
+    key: item.key,
+    name: item.name,
+    source: item.source,
+    removed: newest.config === null,
+    versions: item.versions.length,
+    changed: newest.at,
+  };
+}
+
+function configItem(id) {
+  if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+  const item = configItems.find((each) => `${each.kind}:${each.key}` === id);
+  if (!item) throw { code: "unknown_item", message: "unknown_item" };
+  return item;
+}
+
+/** Home Assistant's configuration API (`hass.callApi`): its editors' save. */
+async function callApi(method, path, parameters) {
+  calls.push({ type: "api", method, path, parameters });
+  // A test can hold the answer back (`window.__apiHold`, a promise).
+  await window.__apiHold;
+  if (!hass.user.is_admin) throw { error: "Response error: 401", status_code: 401, body: {} };
+  if (window.__refuseConfig) {
+    const message = window.__refuseConfig;
+    throw { error: "Response error: 400", status_code: 400, body: { message } };
+  }
+  const found = /^config\/(automation|script|scene)\/config\/(.+)$/.exec(path);
+  if (method !== "POST" || !found) throw { error: "Response error: 404", status_code: 404 };
+  configPending.set(`${found[1]}:${decodeURIComponent(found[2])}`, structuredClone(parameters));
+  return { result: "ok" };
+}
+
 const listeners = new Set();
 // Actions done later (D-046), as the integration lists them to its subscribers.
 const schedules = [];
@@ -437,6 +866,125 @@ const calls = [];
 window.__calls = calls;
 // settingsdown=1: the settings cannot be read until `window.__settingsUp()` (D-039).
 let settingsDown = params.get("settingsdown") === "1";
+/** The home's Wi-Fi for guests (D-060), as the integration keeps it: fictional. */
+let wifi =
+  params.get("wifi") === "typed"
+    ? {
+        name: "Fictional Guests",
+        password: "tea-and-cake-42",
+        security: "WPA",
+        hidden: false,
+        screens: params.get("wifiscreens") ? params.get("wifiscreens").split(",") : [],
+      }
+    : params.get("wifi") === "image"
+      ? {
+          image: "image.router_guest_wifi",
+          security: "WPA",
+          hidden: false,
+          screens: params.get("wifiscreens") ? params.get("wifiscreens").split(",") : [],
+        }
+      : undefined;
+window.__wifi = () => wifi;
+/**
+ * The wall screens (wall=1, D-076), as the integration keeps them: the hall's, whose saver comes
+ * after a minute, woken by the hall's motion sensor, with the weather and the fictional holidays'
+ * photos; and what `media_source` gives of Home Assistant's media, fictional pictures drawn here.
+ */
+let screens =
+  params.get("wall") === "1"
+    ? {
+        hall: {
+          start: "home",
+          saver: {
+            after: 1,
+            wake: ["binary_sensor.hall_motion"],
+            weather: true,
+            photos: "media-source://media_source/local/holidays",
+            every: 10,
+            dim: true,
+          },
+        },
+      }
+    : {};
+let screensRevision = 0;
+window.__screens = () => screens;
+const PHOTO_COLOURS = { beach: "#e0b060", hills: "#5a9a60", lake: "#4a7ab0" };
+function mediaFolder(id) {
+  const folder = (title, id) => ({
+    title,
+    media_class: "directory",
+    media_content_id: id,
+    can_expand: true,
+  });
+  if (!id) return { title: "Media", children: [folder("My media", "media-source://media_source")] };
+  if (id === "media-source://media_source") {
+    return {
+      title: "My media",
+      children: [
+        folder("holidays", "media-source://media_source/local/holidays"),
+        folder("recipes", "media-source://media_source/local/recipes"),
+      ],
+    };
+  }
+  if (id === "media-source://media_source/local/holidays") {
+    return {
+      title: "holidays",
+      children: Object.keys(PHOTO_COLOURS).map((name) => ({
+        title: `${name}.jpg`,
+        media_class: "image",
+        media_content_type: "image/jpeg",
+        media_content_id: `${id}/${name}.jpg`,
+        can_expand: false,
+      })),
+    };
+  }
+  if (id === "media-source://media_source/local/recipes") return { title: "recipes", children: [] };
+  throw { code: "browse_media_failed", message: "Unknown source" };
+}
+function mediaPhoto(id) {
+  const name = id.split("/").pop().replace(".jpg", "");
+  const colour = PHOTO_COLOURS[name];
+  if (!colour) throw { code: "resolve_media_failed", message: "Unknown media" };
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="320" height="200"><rect width="320" height="200" fill="${colour}"/><text x="20" y="40" font-size="24" fill="#fff">${name}</text></svg>`;
+  return { url: `data:image/svg+xml,${encodeURIComponent(svg)}`, mime_type: "image/svg+xml" };
+}
+function tellScreens() {
+  screensRevision += 1;
+  for (const listener of listeners) listener({ kind: "screens", revision: screensRevision });
+}
+// Guest access (D-067): the passes kept, as the integration keeps them, and what was saved.
+let guestPasses = [];
+let guestTokens = 0;
+window.__guestsSaved = [];
+const guestView = (stored) => {
+  const view = { ...stored, path: `/api/domotwin/guest/${stored.token}`, url: null };
+  delete view.token;
+  const now = Date.now();
+  view.status =
+    now >= Date.parse(stored.ends)
+      ? "ended"
+      : now < Date.parse(stored.starts)
+        ? "upcoming"
+        : "open";
+  return view;
+};
+/** What `domotwin/wifi/get` answers, as the integration does: its password only when asked. */
+window.__wifiAsked = [];
+function wifiAnswer(admin, screen, password) {
+  window.__wifiAsked.push({ screen, password });
+  if (!wifi) return { set: false, shown: false };
+  const chosen = wifi.screens.some((name) => name.toLowerCase() === screen.toLowerCase());
+  if (!admin && !(screen && chosen)) return { set: true, shown: false };
+  const { screens, password: secret, ...shown } = wifi;
+  return {
+    set: true,
+    shown: true,
+    ...shown,
+    ...(password && secret !== undefined ? { password: secret } : {}),
+    ...(admin ? { screens: [...screens] } : {}),
+  };
+}
+let wifiRevision = 0;
 /** The user's own choices (D-055). */
 const choices = {
   favourites: params.get("favourites") ? params.get("favourites").split(",") : [],
@@ -444,6 +992,15 @@ const choices = {
   ...(params.get("userstart") ? { start: params.get("userstart") } : {}),
 };
 window.__choices = choices;
+// Held until `__releaseChoices()` with `holdchoices=1`: the user's choices not read yet.
+let releaseChoices;
+const choicesHeld =
+  params.get("holdchoices") === "1"
+    ? new Promise((resolve) => {
+        releaseChoices = resolve;
+      })
+    : undefined;
+window.__releaseChoices = () => releaseChoices?.();
 window.__settingsUp = () => {
   settingsDown = false;
   for (const listener of listeners) listener({ kind: "settings", revision: store.revision });
@@ -737,6 +1294,103 @@ function logbookEvents(message) {
   return entries.sort((a, b) => a.when - b.when);
 }
 
+/** The logbook of the fictional evening (D-059): the rows of a context, or of entities, in the
+ * time asked. */
+function whyEvents(message) {
+  const start = Date.parse(message.start_time) / 1000;
+  const end = message.end_time ? Date.parse(message.end_time) / 1000 : Infinity;
+  return whyRows
+    .filter((row) => row.when >= start && row.when <= end)
+    .filter((row) =>
+      message.context_id
+        ? row.context === message.context_id
+        : !message.entity_ids || message.entity_ids.includes(row.entry.entity_id),
+    )
+    .map((row) => row.entry);
+}
+
+/**
+ * What the fictional AI task writes (D-070): the automation of the roadmap's example from the
+ * demo apartment's entities, in the request's language, or that automation changed (five minutes
+ * before locking) when a change is asked.
+ */
+function fictionalAutomation(instructions) {
+  const french = /Quand|lumi[eè]re/i.test(instructions);
+  const changing = instructions.includes("The change they ask now");
+  const actions = [
+    {
+      action: "light.turn_off",
+      target: {
+        entity_id: [
+          "light.living_room_floor_lamp",
+          "light.sideboard_lamp",
+          "light.kitchen_ceiling",
+        ],
+      },
+    },
+    ...(changing ? [{ delay: { minutes: 5 } }] : []),
+    { action: "lock.lock", target: { entity_id: "lock.entrance_door" } },
+  ];
+  return {
+    name: french ? "Tout éteindre en partant" : "Lights off and door locked when everyone leaves",
+    automation: `\`\`\`json\n${JSON.stringify({
+      triggers: [{ trigger: "state", entity_id: "zone.home", to: "0" }],
+      conditions: [],
+      actions,
+      mode: "single",
+    })}\n\`\`\``,
+    notes: french
+      ? "Tout le monde est parti quand la zone Maison ne compte plus personne."
+      : "Everyone has left when the home zone counts nobody.",
+  };
+}
+
+/** Home Assistant's actions, by domain, for the domains the home has (D-070). */
+function servicesOf(states) {
+  const SERVICES = {
+    light: ["turn_on", "turn_off", "toggle"],
+    switch: ["turn_on", "turn_off", "toggle"],
+    lock: ["lock", "unlock", "open"],
+    cover: ["open_cover", "close_cover", "stop_cover", "set_cover_position"],
+    climate: ["set_temperature", "set_hvac_mode", "set_preset_mode"],
+    media_player: ["media_play", "media_pause", "media_stop", "volume_set", "turn_on", "turn_off"],
+    fan: ["turn_on", "turn_off", "set_percentage"],
+    vacuum: ["start", "stop", "return_to_base"],
+    scene: ["turn_on"],
+    automation: ["trigger", "turn_on", "turn_off", "toggle"],
+    homeassistant: ["turn_on", "turn_off", "toggle"],
+    notify: ["notify", "mobile_app_alex_phone"],
+    persistent_notification: ["create", "dismiss"],
+  };
+  const services = {};
+  const domains = new Set([...Object.keys(states).map((id) => id.split(".")[0]), "homeassistant"]);
+  for (const domain of [...domains, "notify", "persistent_notification"]) {
+    if (!SERVICES[domain]) continue;
+    services[domain] = Object.fromEntries(SERVICES[domain].map((name) => [name, {}]));
+  }
+  services.script = { turn_on: {}, turn_off: {}, reload: {} };
+  for (const id of Object.keys(states)) {
+    if (id.startsWith("script.")) services.script[id.slice(7)] = {};
+  }
+  return services;
+}
+
+// Home Assistant's Security page (D-068) and the alerts an administrator chose on it.
+const security = params.get("security") === "1";
+let securityChoices = (params.get("securityalerts") ?? "")
+  .split(",")
+  .filter(Boolean)
+  .map((item) => {
+    const [entity, severity] = item.split(":");
+    return severity ? { entity, severity } : { entity };
+  });
+const securityListeners = new Set();
+window.__securityAlerts = (choices) => {
+  securityChoices = choices;
+  for (const listener of securityListeners) {
+    listener({ value: { alert_entities: structuredClone(choices) } });
+  }
+};
 const connection = {
   sendMessage(message) {
     calls.push(message);
@@ -744,12 +1398,25 @@ const connection = {
   async sendMessagePromise(message) {
     calls.push(message);
     switch (message.type) {
+      case "energy/get_prefs":
+        // Never saved: Home Assistant says so (D-069).
+        if (energyPage !== "1") throw { code: "not_found", message: "No prefs" };
+        return {
+          energy_sources: [
+            {
+              type: "grid",
+              flow_from: [{ stat_energy_from: "sensor.grid_energy_in" }],
+              flow_to: [],
+            },
+          ],
+          device_consumption: [],
+        };
       case "history/history_during_period":
         return historyDuring(message);
       case "recorder/statistics_during_period":
         return statisticsDuring(message);
       case "logbook/get_events":
-        return logbookEvents(message);
+        return why ? whyEvents(message) : logbookEvents(message);
       case "zha/devices":
         if (!zha) throw { code: "unknown_command", message: message.type };
         if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
@@ -788,6 +1455,7 @@ const connection = {
         return { config: structuredClone(config) };
       }
       case "domotwin/choices/get":
+        await choicesHeld;
         return structuredClone(choices);
       case "domotwin/choices/favourite": {
         const others = choices.favourites.filter((id) => id !== message.entity_id);
@@ -800,6 +1468,25 @@ const connection = {
           else delete choices.start;
         }
         if (message.cards !== undefined) choices.cards = message.cards;
+        return structuredClone(choices);
+      }
+      case "domotwin/choices/shortcut": {
+        if (window.__failShortcuts) throw { code: "too_many_shortcuts", message: "too_many" };
+        // One change to the shortcuts, as the integration makes it.
+        const list = [...(choices.shortcuts ?? [])];
+        const at = (id) => list.findIndex((s) => s.id === id);
+        if (message.set) {
+          if (at(message.set.id) >= 0) list[at(message.set.id)] = message.set;
+          else list.push(message.set);
+        } else if (message.remove) {
+          list.splice(at(message.remove), at(message.remove) >= 0 ? 1 : 0);
+        } else if (message.move) {
+          const from = at(message.move);
+          const to = from + message.by;
+          if (from >= 0 && to >= 0 && to < list.length)
+            [list[from], list[to]] = [list[to], list[from]];
+        }
+        choices.shortcuts = list;
         return structuredClone(choices);
       }
       case "frontend/set_user_data": {
@@ -940,6 +1627,106 @@ const connection = {
         }
         return { revision: store.people.revision };
       }
+      case "domotwin/wifi/get":
+        return wifiAnswer(hass.user.is_admin, message.screen ?? "", message.password === true);
+      case "domotwin/wifi/save": {
+        if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        const change = message.wifi;
+        const next = {
+          security: change.security,
+          hidden: change.hidden === true,
+          screens: change.screens ?? [],
+        };
+        if (change.image) next.image = change.image;
+        else {
+          if (!change.name) throw { code: "no_name", message: "no_name" };
+          next.name = change.name;
+          if (change.security !== "nopass") {
+            const same = wifi?.name === change.name && wifi?.security === change.security;
+            next.password = change.password ?? (same ? wifi.password : "");
+            if (change.security === "WPA" && next.password.length < 8) {
+              throw { code: "bad_wpa", message: "bad_wpa" };
+            }
+          }
+        }
+        wifi = next;
+        wifiRevision += 1;
+        for (const listener of listeners) listener({ kind: "wifi", revision: wifiRevision });
+        return wifiAnswer(true, "", true);
+      }
+      case "domotwin/screens/get":
+        return structuredClone({ screens });
+      case "domotwin/screens/save": {
+        // As the integration keeps them (D-076): a name matched whatever its case and kept as
+        // first spelled; a new screen under a name taken refused.
+        if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        const name = String(message.name).trim();
+        if (!/^[A-Za-z0-9_-]{1,64}$/.test(name)) {
+          throw { code: "invalid_screen", message: "invalid_screen" };
+        }
+        const same = Object.keys(screens).find((k) => k.toLowerCase() === name.toLowerCase());
+        if (message.new === true && same) {
+          throw { code: "screen_exists", message: "screen_exists" };
+        }
+        const layout = structuredClone(message.layout);
+        layout.saver = { after: 0, wake: [], weather: true, every: 30, dim: true, ...layout.saver };
+        const next = { ...screens, [same ?? name]: layout };
+        screens = Object.fromEntries(
+          Object.keys(next)
+            .sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()))
+            .map((k) => [k, next[k]]),
+        );
+        tellScreens();
+        return structuredClone({ screens });
+      }
+      case "domotwin/screens/remove": {
+        if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        const name = String(message.name).toLowerCase();
+        screens = Object.fromEntries(
+          Object.entries(screens).filter(([k]) => k.toLowerCase() !== name),
+        );
+        tellScreens();
+        return structuredClone({ screens });
+      }
+      case "media_source/browse_media":
+        return mediaFolder(message.media_content_id);
+      case "media_source/resolve_media":
+        return mediaPhoto(String(message.media_content_id));
+      case "domotwin/guests/get":
+        if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        return { passes: guestPasses.map(guestView) };
+      case "domotwin/guests/save": {
+        if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        const change = message.pass;
+        window.__guestsSaved.push(structuredClone(change));
+        if (!change.name) throw { code: "invalid", message: "name" };
+        if (Date.parse(change.ends) <= Date.parse(change.starts)) {
+          throw { code: "ends_before", message: "ends_before" };
+        }
+        if (change.rooms.length === 0 && change.entities.length === 0) {
+          throw { code: "nothing_open", message: "nothing_open" };
+        }
+        const kept = guestPasses.find((p) => p.id === change.id);
+        guestTokens += 1;
+        const token =
+          kept && !change.renew ? kept.token : `fictional${String(guestTokens).padStart(36, "0")}`;
+        const stored = { ...change, id: kept?.id ?? `pass-${guestTokens}`, token };
+        delete stored.renew;
+        guestPasses = kept
+          ? guestPasses.map((p) => (p === kept ? stored : p))
+          : [...guestPasses, stored];
+        return guestView(stored);
+      }
+      case "domotwin/guests/remove":
+        if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        guestPasses = guestPasses.filter((p) => p.id !== message.pass);
+        return { removed: true };
+      case "domotwin/wifi/clear":
+        if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        wifi = undefined;
+        wifiRevision += 1;
+        for (const listener of listeners) listener({ kind: "wifi", revision: wifiRevision });
+        return { set: false, shown: false };
       case "domotwin/people/hide": {
         const own = home.states[message.person]?.attributes.user_id === hass.user.id;
         if (!own && !hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
@@ -954,6 +1741,30 @@ const connection = {
       case "domotwin/locating/get": {
         if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
         return structuredClone(store.locating);
+      }
+      case "domotwin/locating/add_key": {
+        // An identity key (D-075): the fictional `1111…4444` is heard as Sam's iPhone, whichever
+        // way it is written (hex, irk:, a Mac's base64); `aaaa…dddd` as a phone sending no name
+        // (Private BLE Device's default title); `2222…5555` is Sam's watch, already in Private BLE
+        // Device; `5555…8888` is not heard.
+        if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        const written = String(message.key).replace(/\s/g, "").replace(/^irk:/i, "");
+        const hex = /^[0-9a-f:-]+$/i.test(written)
+          ? written.replace(/[:-]/g, "").toLowerCase()
+          : written === "RERERDMzMzMiIiIiEREREQ=="
+            ? "11111111222222223333333344444444"
+            : "";
+        if (!/^[0-9a-f]{32}$/.test(hex)) throw { code: "invalid_key", message: "not taken" };
+        if (hex === "aaaaaaaabbbbbbbbccccccccdddddddd") {
+          return { entry: "entry-unnamed", title: "BLE Device Tracker", named: false, added: true };
+        }
+        if (hex === "22222222333333334444444455555555") {
+          return { entry: "entry-sam-watch", title: "Sam's watch", named: true, added: false };
+        }
+        if (hex !== "11111111222222223333333344444444") {
+          throw { code: "key_not_heard", message: "not taken" };
+        }
+        return { entry: "entry-sam-iphone", title: "Sam's iPhone", named: true, added: true };
       }
       case "domotwin/locating/candidates": {
         if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
@@ -992,6 +1803,15 @@ const connection = {
         await new Promise((resolve) => setTimeout(resolve, 300));
         store.locating.learned[message.room] = 42;
         return { readings: 14, receivers: 3 };
+      }
+      case "domotwin/locating/measure": {
+        if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        return structuredClone(measured);
+      }
+      case "domotwin/locating/measure/reset": {
+        if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        measured = { since: new Date().toISOString(), devices: {} };
+        return { since: measured.since };
       }
       case "domotwin/locating/forget": {
         const forgotten = Object.keys(store.locating.learned).length;
@@ -1041,6 +1861,8 @@ const connection = {
         return { ...voice.setup };
       case "domotwin/bindings/save": {
         if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        if (window.__failBindings)
+          throw { code: "revision_conflict", message: "revision_conflict" };
         store.bindings = message.bindings;
         store.revision += 1;
         for (const listener of listeners) listener({ kind: "bindings", revision: store.revision });
@@ -1078,12 +1900,156 @@ const connection = {
         publishSchedules();
         return { cancelled: at >= 0 ? 1 : 0 };
       }
+      case "trace/contexts":
+        if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        return why ? { [C_RUN]: { run_id: "run-1", domain: "automation", item_id: "1004" } } : {};
+      case "config/auth/list":
+        if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        return [
+          { id: "e2e", name: "E2E", group_ids: ["system-admin"] },
+          { id: "user-sam", name: "Sam", group_ids: ["system-users"] },
+        ];
+      case "domotwin/config_history/list":
+        if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        return {
+          items: configItems
+            .map(configSummary)
+            .sort((a, b) => Date.parse(b.changed) - Date.parse(a.changed)),
+          bytes: 12_400,
+          max_bytes: 4_000_000,
+        };
+      case "domotwin/config_history/item": {
+        const item = configItem(message.item);
+        const seen = new Map();
+        const versions = item.versions.map((kept) => {
+          const version = {
+            id: kept.id,
+            at: kept.at,
+            removed: kept.config === null,
+            kept: kept.config !== null,
+          };
+          if (kept.config) {
+            const text = JSON.stringify(kept.config);
+            if (seen.has(text)) version.same_as = seen.get(text);
+            seen.set(text, kept.id);
+          }
+          return version;
+        });
+        return { item: configSummary(item), versions: versions.reverse() };
+      }
+      case "domotwin/config_history/version": {
+        const kept = configItem(message.item).versions.find((each) => each.id === message.version);
+        if (!kept) throw { code: "unknown_version", message: "unknown_version" };
+        return { config: structuredClone(kept.config) };
+      }
+      case "domotwin/config_history/refresh": {
+        if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        let changed = 0;
+        for (const [id, config] of configPending) {
+          const item = configItems.find((each) => `${each.kind}:${each.key}` === id);
+          if (!item || (message.kind && item.kind !== message.kind)) continue;
+          item.versions.push({ id: configNext++, at: new Date().toISOString(), config });
+          configPending.delete(id);
+          changed += 1;
+        }
+        return { changed };
+      }
+      case "domotwin/report/get": {
+        if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        const report =
+          message.report === undefined
+            ? reports.at(-1)
+            : reports.find((each) => each.id === message.report);
+        if (!report && message.report !== undefined) {
+          throw { code: "unknown_report", message: "unknown_report" };
+        }
+        return reportAnswer(report);
+      }
+      case "domotwin/report/write": {
+        if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        if (window.__refuseReport) throw { code: window.__refuseReport, message: "refused" };
+        const newest = reports.at(-1);
+        const written = {
+          ...structuredClone(newest ?? { sections: {}, week: { start: "", end: "" } }),
+          id: (newest?.id ?? 0) + 1,
+          at: new Date().toISOString(),
+          by: "hand",
+        };
+        for (const items of Object.values(written.sections)) {
+          for (const item of items) delete item.new;
+        }
+        delete written.gone;
+        if (!newest) {
+          written.week = {
+            start: "2026-10-19T04:00:00.000Z",
+            end: "2026-10-26T04:00:00.000Z",
+          };
+        }
+        reports.push(written);
+        return reportAnswer(written);
+      }
+      case "domotwin/report/settings": {
+        if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        const next = { ...reportSettings, ...message.settings };
+        if (!Number.isInteger(next.hour) || next.hour < 0 || next.hour > 23) {
+          throw { code: "invalid", message: "hour" };
+        }
+        reportSettings = next;
+        return { settings: structuredClone(reportSettings) };
+      }
+      case "lovelace/config/save":
+        if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        configPending.set(`dashboard:${message.url_path ?? ""}`, structuredClone(message.config));
+        return null;
+      case "ai_task/preferences/get":
+        if (!aiTask) throw { code: "unknown_command", message: message.type };
+        return { gen_data_entity_id: AI_TASK };
+      case "call_service": {
+        // Home Assistant's AI task (D-070): the only service DomoTwin asks for a response of.
+        if (!aiTask || message.domain !== "ai_task" || message.service !== "generate_data") {
+          throw { code: "unknown_command", message: message.type };
+        }
+        if (!message.return_response) {
+          throw { code: "service_validation_error", message: "Validation error: needs a response" };
+        }
+        if (message.service_data?.entity_id !== AI_TASK) {
+          throw { code: "home_assistant_error", message: "AI Task entity not found" };
+        }
+        await window.__aiHold;
+        if (window.__aiFail) throw { code: "home_assistant_error", message: window.__aiFail };
+        const data = window.__aiAnswer ?? fictionalAutomation(message.service_data.instructions);
+        return {
+          context: { id: "01K8C0D00R00000000000000A1" },
+          response: { conversation_id: "c", data },
+        };
+      }
+      case "validate_config": {
+        const invalid = window.__invalidConfig;
+        const answer = {};
+        for (const part of ["triggers", "conditions", "actions"]) {
+          if (!(part in message)) continue;
+          answer[part] =
+            invalid?.part === part
+              ? { valid: false, error: invalid.error }
+              : { valid: true, error: null };
+        }
+        return answer;
+      }
       default:
         throw { code: "unknown_command", message: message.type };
     }
   },
   async subscribeMessage(callback, message) {
     calls.push(message);
+    if (message.type === "frontend/subscribe_system_data") {
+      // Home Assistant's own (D-068): what its Security page keeps, sent at once and on change.
+      if (message.key !== "security" || !security) throw { code: "unknown_command" };
+      securityListeners.add(callback);
+      queueMicrotask(() =>
+        callback({ value: { alert_entities: structuredClone(securityChoices) } }),
+      );
+      return async () => securityListeners.delete(callback);
+    }
     if (message.type === "domotwin/schedules/subscribe") {
       scheduleListeners.add(callback);
       queueMicrotask(() => callback({ schedules: structuredClone(schedules) }));
@@ -1114,6 +2080,24 @@ if (params.get("energy") === "1") {
     home.states[id] = { entity_id: id, state, attributes };
   }
 }
+// Robots running Valetudo (D-064): a vacuum and its Map data camera, of MQTT, on one device.
+const valetudo = Number(params.get("valetudo") ?? 0);
+for (const [k, [id, name]] of [
+  ["rockrobo", "Rockrobo"],
+  ["dreamy", "Dreamy"],
+]
+  .slice(0, valetudo)
+  .entries()) {
+  const device = `dev-valetudo-${k}`;
+  home.devices[device] = { id: device, name };
+  for (const [entity_id, state, friendly_name] of [
+    [`vacuum.${id}`, "docked", name],
+    [`camera.${id}_map_data`, "idle", `${name} Map data`],
+  ]) {
+    home.entities[entity_id] = { entity_id, device_id: device, platform: "mqtt" };
+    home.states[entity_id] = { entity_id, state, attributes: { friendly_name } };
+  }
+}
 if (robot) {
   home.entities["vacuum.robbie"] = { entity_id: "vacuum.robbie", area_id: "hallway" };
   home.states["vacuum.robbie"] = {
@@ -1122,6 +2106,80 @@ if (robot) {
     // Starts, pauses, goes home, reports its state.
     attributes: { friendly_name: "Robbie", supported_features: 12_820 },
   };
+}
+// Hydro-Québec's peaks (D-063), named as a French home names them: they are found by their
+// integration and kind, not their id.
+const peakSource = params.get("peak");
+if (peakSource) {
+  const hour = 3_600_000;
+  const now = Date.now();
+  const phase = params.get("peakphase") ?? "peak";
+  // Five hours ahead (pre-heating in three), within the hour, an hour in, or none announced.
+  const start = { upcoming: now + 5 * hour, preheat: now + hour, peak: now - hour }[phase];
+  const end = start === undefined ? undefined : start + 4 * hour;
+  const iso = (time) => (time === undefined ? "unknown" : new Date(time).toISOString());
+  const add = (id, state, attributes, entry) => {
+    home.states[id] = { entity_id: id, state, attributes };
+    if (entry) home.entities[id] = { entity_id: id, ...entry };
+  };
+  const timestamp = { device_class: "timestamp" };
+  if (peakSource === "hydroqc") {
+    const entry = (key) => ({ platform: "hydroqc", translation_key: key, device_id: "hq" });
+    add(
+      "sensor.hydro_quebec_maison_debut_prochaine_pointe",
+      iso(start),
+      timestamp,
+      entry("dpc_next_peak_start"),
+    );
+    add(
+      "sensor.hydro_quebec_maison_fin_prochaine_pointe",
+      iso(end),
+      timestamp,
+      entry("dpc_next_peak_end"),
+    );
+  } else if (peakSource === "hydropeak") {
+    const entry = (key) => ({ platform: "hydropeak", translation_key: key, device_id: "offer" });
+    add("sensor.tpc_dpc_evenement_debut", iso(start), timestamp, entry("event_start"));
+    add("sensor.tpc_dpc_evenement_fin", iso(end), timestamp, entry("event_end"));
+    add(
+      "sensor.tpc_dpc_debut_du_prechauffage",
+      iso(start && start - 3 * hour),
+      timestamp,
+      entry("preheat_start"),
+    );
+  } else if (peakSource === "calendar") {
+    // hydroqc's button, which it makes for the peaks it writes in a calendar.
+    add("button.hydro_quebec_maison_refresh_peak_data", "unknown", {}, { platform: "hydroqc" });
+  }
+  if (peakSource === "calendar" && start !== undefined) {
+    // A calendar's event, as its attributes say it: a wall clock where Home Assistant is.
+    const wall = (time) => {
+      const d = new Date(time);
+      const pad = (n) => String(n).padStart(2, "0");
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:00`;
+    };
+    add("calendar.pointes_hydro", phase === "peak" ? "on" : "off", {
+      friendly_name: "Pointes Hydro",
+      message: "🔴 Pointe critique",
+      location: "Hydro-Québec DPC",
+      description: "Pointe critique\nTarif: DPC\nCritique: Oui\nID: hydroqc_opendata_maison_1",
+      start_time: wall(start),
+      end_time: wall(end),
+    });
+  }
+  // The living room's thermostat set back, the bedroom's baseboard drawing.
+  add(
+    "climate.living_room",
+    "heat",
+    { friendly_name: "Living room", hvac_action: "idle", temperature: 17, current_temperature: 20 },
+    { area_id: "living_room" },
+  );
+  add(
+    "sensor.bedroom_baseboard_power",
+    "1450",
+    { friendly_name: "Bedroom baseboard", device_class: "power", unit_of_measurement: "W" },
+    { area_id: "bedroom" },
+  );
 }
 if (sandbox) {
   for (const [id, config] of Object.entries(SANDBOX_SCRIPTS)) {
@@ -1192,6 +2250,22 @@ home.floors = {
 for (const area of Object.values(home.areas)) {
   area.floor_id = area.area_id === "office" ? "upper" : "ground";
 }
+if (params.get("wifi") === "image") {
+  // A router's own code, as an image entity (FRITZ!Box, UniFi): a picture made here, nothing
+  // fetched.
+  home.states["image.router_guest_wifi"] = {
+    entity_id: "image.router_guest_wifi",
+    state: "2026-06-15T08:00:00+00:00",
+    attributes: {
+      friendly_name: "Router guest Wi-Fi",
+      entity_picture:
+        "data:image/svg+xml," +
+        encodeURIComponent(
+          '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 4 4"><rect width="4" height="4" fill="#fff"/><rect width="2" height="2" fill="#000"/></svg>',
+        ),
+    },
+  };
+}
 if (params.get("lists") === "1") {
   home.states["calendar.family"] = {
     entity_id: "calendar.family",
@@ -1204,7 +2278,168 @@ if (params.get("lists") === "1") {
     attributes: { friendly_name: "Shopping" },
   };
 }
+if (live && why) {
+  // A fictional evening (D-059): the states as they are after it, and what the logbook keeps.
+  const now = Date.now() / 1000;
+  const iso = (seconds) => new Date(seconds * 1000).toISOString();
+  const door = now - 300;
+  const written = (id, state, when, context, attributes = {}) => {
+    const previous = home.states[id];
+    home.states[id] = {
+      entity_id: id,
+      state,
+      attributes: { ...(previous?.attributes ?? {}), ...attributes },
+      last_changed: iso(when),
+      last_updated: iso(when),
+      context: { parent_id: null, user_id: null, ...context },
+    };
+  };
+  written("binary_sensor.entrance_door_contact", "on", door, { id: C_DOOR });
+  written(
+    "automation.hall_light_at_the_door",
+    "on",
+    door + 0.01,
+    {
+      id: C_RUN,
+      parent_id: C_DOOR,
+    },
+    {
+      friendly_name: "Hall light at the door",
+      id: "1004",
+      last_triggered: iso(door + 0.01),
+    },
+  );
+  written("light.hall_spots", "on", door + 0.02, { id: C_RUN, parent_id: C_DOOR });
+  written("light.living_room_floor_lamp", "on", now - 120, { id: C_SAM, user_id: "user-sam" });
+  written("light.kitchen_ceiling", "off", now - 600, { id: C_KITCHEN });
+  const source = "state of binary_sensor.entrance_door_contact";
+  whyRows = [
+    {
+      context: C_DOOR,
+      when: door,
+      entry: { when: door, entity_id: "binary_sensor.entrance_door_contact", state: "on" },
+    },
+    {
+      context: C_RUN,
+      when: door + 0.01,
+      entry: {
+        when: door + 0.01,
+        name: "Hall light at the door",
+        message: `triggered by ${source}`,
+        source,
+        entity_id: "automation.hall_light_at_the_door",
+        context_id: C_RUN,
+        domain: "automation",
+      },
+    },
+    {
+      context: C_RUN,
+      when: door + 0.02,
+      entry: {
+        when: door + 0.02,
+        entity_id: "light.hall_spots",
+        state: "on",
+        context_event_type: "automation_triggered",
+        context_domain: "automation",
+        context_name: "Hall light at the door",
+        context_message: `triggered by ${source}`,
+        context_source: source,
+        context_entity_id: "automation.hall_light_at_the_door",
+      },
+    },
+    {
+      context: C_SAM,
+      when: now - 120,
+      entry: {
+        when: now - 120,
+        entity_id: "light.living_room_floor_lamp",
+        state: "on",
+        context_user_id: "user-sam",
+        context_event_type: "call_service",
+        context_domain: "light",
+        context_service: "turn_on",
+      },
+    },
+    {
+      context: C_KITCHEN,
+      when: now - 600,
+      entry: { when: now - 600, entity_id: "light.kitchen_ceiling", state: "off" },
+    },
+  ];
+}
 const states = home.states;
+if (params.get("wall") === "1") {
+  // The hall's motion sensor, which wakes its wall screen (D-076).
+  states["binary_sensor.hall_motion"] = {
+    entity_id: "binary_sensor.hall_motion",
+    state: "off",
+    attributes: { friendly_name: "Hall motion", device_class: "motion" },
+  };
+}
+// overview=1: what DomoTwin's sensors say of the rooms and the upkeep (D-061), and who is home.
+const overview = params.get("overview") === "1";
+// energypage=1: Home Assistant's Energy page, its grid set up; energypage=empty: nothing set up.
+const energyPage = params.get("energypage") ?? "";
+const state = (entityId, value, attributes) => ({
+  entity_id: entityId,
+  state: value,
+  attributes,
+  last_changed: "2026-10-24T08:00:00+00:00",
+  last_updated: "2026-10-24T08:00:00+00:00",
+});
+if (overview) {
+  for (const [id, person] of Object.entries(PEOPLE)) {
+    states[id] = state(id, person.home ? "home" : "not_home", { friendly_name: person.name });
+  }
+  const own = (entityId, key) => {
+    home.entities[entityId] = { entity_id: entityId, platform: "domotwin", translation_key: key };
+  };
+  states["sensor.domotwin_kitchen_people"] = state("sensor.domotwin_kitchen_people", "1", {
+    room: "Kitchen",
+    people: ["person.alex"],
+  });
+  own("sensor.domotwin_kitchen_people", "room_people");
+  states["sensor.domotwin_living_people"] = state("sensor.domotwin_living_people", "0", {
+    room: "Living room",
+    people: [],
+  });
+  own("sensor.domotwin_living_people", "room_people");
+  states["sensor.domotwin_upkeep_due"] = state("sensor.domotwin_upkeep_due", "2", {
+    tasks: [{ piece: "washer", piece_name: "Washer", task: "Clean the filter", state: "overdue" }],
+  });
+  own("sensor.domotwin_upkeep_due", "upkeep_due");
+}
+// safety=1 (D-068): a doorbell at the front door, its camera on the same device, in the hall
+// beside its lock; an alarm, disarmed. The doorbell last rang long ago.
+if (params.get("safety") === "1") {
+  home.devices.front_door_bell = { id: "front_door_bell", area_id: "hallway", name: "Front door" };
+  states["event.front_door_doorbell"] = state(
+    "event.front_door_doorbell",
+    "2026-10-24T07:30:00.000+00:00",
+    {
+      friendly_name: "Front door doorbell",
+      device_class: "doorbell",
+      event_type: "ring",
+      event_types: ["ring"],
+    },
+  );
+  home.entities["event.front_door_doorbell"] = {
+    entity_id: "event.front_door_doorbell",
+    device_id: "front_door_bell",
+  };
+  states["camera.front_door"] = state("camera.front_door", "idle", {
+    friendly_name: "Front door camera",
+  });
+  home.entities["camera.front_door"] = {
+    entity_id: "camera.front_door",
+    device_id: "front_door_bell",
+  };
+  states["alarm_control_panel.home"] = state("alarm_control_panel.home", "disarmed", {
+    friendly_name: "Home alarm",
+    code_arm_required: false,
+  });
+  home.entities["alarm_control_panel.home"] = { entity_id: "alarm_control_panel.home" };
+}
 /** A person's room sensor, as the integration writes it, in `room` (or away). */
 function roomSensor(id, room) {
   const person = PEOPLE[id];
@@ -1246,6 +2481,17 @@ if (peopleParam === "1") {
     };
   }
 }
+if (radarsParam) {
+  // Someone the bookcase's radar sees in the living room, whom no device names (D-080).
+  states["sensor.domotwin_people_seen"] = {
+    entity_id: "sensor.domotwin_people_seen",
+    state: "1",
+    attributes: {
+      friendly_name: "DomoTwin People seen",
+      seen: [{ id: 0, room_id: "living", storey_id: "", x: 1.95, y: 2.03 }],
+    },
+  };
+}
 if (bluetoothParam === "1") {
   for (const [id, device] of Object.entries(LOCATED)) {
     const entity_id = `sensor.domotwin_${id}_bluetooth`;
@@ -1264,6 +2510,70 @@ if (bluetoothParam === "1") {
     };
     home.entities[entity_id] = { entity_id, platform: "domotwin", translation_key: "located" };
   }
+  // Bermuda's area sensor of the same phone (M41).
+  states["sensor.alex_iphone_area"] = {
+    entity_id: "sensor.alex_iphone_area",
+    state: "Kitchen",
+    attributes: { friendly_name: "Alex iPhone Area", area_id: "kitchen" },
+  };
+}
+if (params.get("radios") === "1") {
+  // Where the locating places two of the receivers, and the hall it learned from the living
+  // room's (D-066).
+  const places = {
+    "AA:00:00:00:00:03": { storey: "storey-1", at: [260, 260], z: 120 },
+    "BB:00:00:00:00:01": { storey: "storey-1", at: [630, 483.3], z: 120 },
+  };
+  for (const receiver of store.locating.receivers) receiver.place = places[receiver.source] ?? null;
+  store.locating.heard = { hall: { "AA:00:00:00:00:03": { signal: -82, readings: 30 } } };
+  // The washing machine's plug reports its Wi-Fi signal (its device is placed at the washer by
+  // its power sensor), and so does a display in the kitchen's area.
+  const wifi = { device_class: "signal_strength", unit_of_measurement: "dBm" };
+  states["sensor.washer_plug_wifi_signal"] = {
+    entity_id: "sensor.washer_plug_wifi_signal",
+    state: "-77",
+    attributes: { ...wifi, friendly_name: "Washer plug WiFi signal" },
+  };
+  home.entities["sensor.washer_plug_wifi_signal"] = {
+    entity_id: "sensor.washer_plug_wifi_signal",
+    device_id: "dev-washer-plug",
+    platform: "esphome",
+    entity_category: "diagnostic",
+  };
+  home.entities["sensor.washing_machine_power"] = {
+    ...home.entities["sensor.washing_machine_power"],
+    device_id: "dev-washer-plug",
+  };
+  home.devices["dev-washer-plug"] = {
+    id: "dev-washer-plug",
+    area_id: "bathroom",
+    name: "Washer plug",
+  };
+  states["sensor.kitchen_display_rssi"] = {
+    entity_id: "sensor.kitchen_display_rssi",
+    state: "-49",
+    attributes: { ...wifi, friendly_name: "Kitchen display signal" },
+  };
+  home.entities["sensor.kitchen_display_rssi"] = {
+    entity_id: "sensor.kitchen_display_rssi",
+    area_id: "kitchen",
+    platform: "shelly",
+    entity_category: "diagnostic",
+  };
+  // A Zigbee device's signal: another radio's, never Wi-Fi.
+  states["sensor.garden_sensor_rssi"] = {
+    entity_id: "sensor.garden_sensor_rssi",
+    state: "-70",
+    attributes: { ...wifi, friendly_name: "Garden sensor WiFi signal" },
+  };
+  home.entities["sensor.garden_sensor_rssi"] = {
+    entity_id: "sensor.garden_sensor_rssi",
+    platform: "zha",
+    entity_category: "diagnostic",
+  };
+  store.settings.access_points = [
+    { storey: "storey-1", at: [800, 20], name: "Kitchen access point" },
+  ];
 }
 if (sunParam) {
   const [elevation, rising] = sunParam.split(",");
@@ -1273,12 +2583,53 @@ if (sunParam) {
     attributes: { elevation: Number(elevation), rising: rising === "1" },
   };
 }
+const weatherParam = params.get("weather");
+if (weatherParam) {
+  states["weather.home"] = {
+    entity_id: "weather.home",
+    state: weatherParam,
+    attributes: {
+      friendly_name: "Forecast Home",
+      temperature: 9,
+      wind_speed: 18,
+      wind_speed_unit: "km/h",
+      wind_bearing: "SW",
+    },
+  };
+  states["weather.coast"] = {
+    entity_id: "weather.coast",
+    state: "pouring",
+    attributes: { friendly_name: "Forecast Coast", wind_speed: 40, wind_bearing: 270 },
+  };
+}
+if (aiTask) {
+  states[AI_TASK] = state(AI_TASK, "unknown", {
+    friendly_name: "Fictional assistant",
+    supported_features: 1,
+  });
+  // The home zone counts who is home, as Home Assistant's zones do.
+  const inside = Object.keys(states).filter(
+    (id) => id.startsWith("person.") && states[id].state === "home",
+  );
+  states["zone.home"] = state("zone.home", String(inside.length), {
+    friendly_name: "Home",
+    persons: inside,
+  });
+}
 if (sunPosition) {
   const [azimuth, elevation] = sunPosition.split(",").map(Number);
   states["sun.sun"] = {
     entity_id: "sun.sun",
     state: elevation > 0 ? "above_horizon" : "below_horizon",
     attributes: { azimuth, elevation, rising: azimuth < 180 },
+  };
+}
+// The AI task that sums the weekly report up (D-081).
+if (weekly === "summary") {
+  states["ai_task.helper"] = {
+    entity_id: "ai_task.helper",
+    state: "unknown",
+    attributes: { friendly_name: "Helper", supported_features: 1 },
   };
 }
 let hass = {
@@ -1299,13 +2650,33 @@ let hass = {
     components: [
       "domotwin",
       ...(zha ? ["zha"] : []),
+      ...(bluetoothParam === "1" ? ["bluetooth"] : []),
       ...(voiceParam ? ["conversation", "assist_pipeline"] : []),
+      ...(why ? ["logbook"] : []),
+      ...(aiTask || weekly === "summary" ? ["ai_task"] : []),
     ],
     // A fictional place, rounded: the sandbox's sun.
     ...(sandbox ? { time_zone: "Europe/Paris", latitude: 46, longitude: 2 } : {}),
+    // overview=1: a Home Assistant that opens on its Overview, an area page each (D-061);
+    // security=1: with its Security page (D-068).
+    ...(overview || security ? { version: "2026.10.0" } : { version: "2026.1.0" }),
   },
+  ...(overview || security || energyPage || weekly
+    ? {
+        panels: {
+          ...(overview ? { home: { url_path: "home" } } : {}),
+          ...(security ? { security: { url_path: "security" } } : {}),
+          ...(params.get("nopanel") === "1" ? {} : { domotwin: { url_path: "domotwin" } }),
+          // energypage=1: Home Assistant's Energy page (D-069).
+          ...(energyPage ? { energy: { url_path: "energy" } } : {}),
+          // Home Assistant's Maintenance page (2026.5 and later), for the weekly report (D-081).
+          ...(weekly ? { maintenance: { url_path: "maintenance" } } : {}),
+        },
+      }
+    : {}),
   connection,
   fetchWithAuth,
+  ...(aiTask ? { services: servicesOf(states) } : {}),
   // Home Assistant's own words for a state (D-058): `on` as "On", a number with its unit.
   ...(params.get("formatstate") === "1"
     ? {
@@ -1316,6 +2687,7 @@ let hass = {
         },
       }
     : {}),
+  callApi,
   async callService(domain, service, data, target) {
     calls.push({ type: "call_service", domain, service, data, target });
     if (window.__failServices)
@@ -1350,6 +2722,8 @@ window.__setState = (entityId, state, attributes = {}) => {
   };
   publish();
 };
+/** The front door's doorbell rings now (safety=1, D-068): its event entity says when. */
+window.__ring = () => window.__setState("event.front_door_doorbell", new Date().toISOString());
 if (hass.themes.darkMode) document.body.classList.add("dark");
 
 if (params.get("cards") === "1") {
@@ -1357,6 +2731,12 @@ if (params.get("cards") === "1") {
   // button card runs its scene.
   window.loadCardHelpers = async () => ({
     createCardElement(config) {
+      // A custom card is the element it names, as Home Assistant makes it (DomoTwin's summaries).
+      if (String(config.type).startsWith("custom:")) {
+        const custom = document.createElement(config.type.slice("custom:".length));
+        custom.setConfig(config);
+        return custom;
+      }
       const card = document.createElement("div");
       card.className = "ha-card";
       card.dataset.type = config.type;
@@ -1407,6 +2787,11 @@ let element;
 if (mode === "panel") {
   element = document.createElement("domotwin-panel");
   element.narrow = false;
+} else if (mode === "summary") {
+  // summary=<kind>: DomoTwin's summary card (D-061).
+  mount.classList.add("card");
+  element = document.createElement("domotwin-summary-card");
+  element.setConfig({ type: "custom:domotwin-summary-card", summary: params.get("summary") });
 } else {
   mount.classList.add("card");
   element = document.createElement("domotwin-card");
@@ -1428,11 +2813,13 @@ if (mode === "panel") {
     accent: params.get("accent") ?? undefined,
     screen: params.get("screen") ?? undefined,
     idle: params.get("idle") ? Number(params.get("idle")) : undefined,
+    tools: params.get("tools") === "0" ? false : undefined,
     orbit: params.get("orbit") === "1" ? true : undefined,
     night_dim: params.get("nightdim") === "1" ? true : undefined,
     voice: params.get("mic") === "0" ? false : undefined,
     font_family: params.get("font") ?? undefined,
     demo: params.get("demo") === "1" ? true : undefined,
+    weather: params.get("weatheroption") === "0" ? false : undefined,
   });
 }
 element.hass = hass;
@@ -1440,6 +2827,8 @@ if (mode === "panel" && params.get("route") === "1") {
   // Home Assistant's address (D-055): the panel's path, and the page's after it.
   history.replaceState(null, "", `/domotwin${params.get("path") ?? ""}${location.search}`);
   const follow = () => {
+    // Another page of Home Assistant (an area's in its Overview, D-061): not the panel's.
+    if (!location.pathname.startsWith("/domotwin")) return;
     element.route = { prefix: "/domotwin", path: location.pathname.slice("/domotwin".length) };
   };
   follow();

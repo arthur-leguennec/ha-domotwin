@@ -162,6 +162,12 @@
           },
           "source": {
             "name": "Source"
+          },
+          "x": {
+            "name": "X on the plan"
+          },
+          "y": {
+            "name": "Y on the plan"
           }
         }
       },
@@ -199,6 +205,78 @@
           },
           "left_behind": {
             "name": "Left behind"
+          },
+          "x": {
+            "name": "X on the plan"
+          },
+          "y": {
+            "name": "Y on the plan"
+          },
+          "z": {
+            "name": "Height"
+          },
+          "accuracy": {
+            "name": "Accuracy"
+          }
+        }
+      },
+      "room_people": {
+        "name": "People here",
+        "state_attributes": {
+          "room": {
+            "name": "Room"
+          },
+          "people": {
+            "name": "People"
+          },
+          "private": {
+            "name": "Private"
+          },
+          "room_id": {
+            "name": "Room id"
+          },
+          "area_id": {
+            "name": "Area"
+          },
+          "storey_id": {
+            "name": "Storey id"
+          },
+          "storey": {
+            "name": "Storey"
+          }
+        }
+      },
+      "room_upkeep": {
+        "name": "Upkeep due here",
+        "state_attributes": {
+          "room": {
+            "name": "Room"
+          },
+          "tasks": {
+            "name": "Tasks"
+          },
+          "more": {
+            "name": "More"
+          },
+          "room_id": {
+            "name": "Room id"
+          },
+          "area_id": {
+            "name": "Area"
+          },
+          "storey_id": {
+            "name": "Storey id"
+          },
+          "storey": {
+            "name": "Storey"
+          }
+        }
+      },
+      "people_seen": {
+        "name": "People seen",
+        "state_attributes": {
+          "seen": {
+            "name": "Not identified"
           }
         }
       }

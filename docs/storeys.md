@@ -10,10 +10,10 @@ one storey to the next.
 ## Seeing them
 
 With two storeys or more, the view's tools get one button per storey, the highest on top: **0**
-for the ground floor, **1**, **2**… above it, **−1** below it. A tap on a button shows that storey.
-A tap on **stairs** (the `stairs` kind of furniture, with nothing linked to it) goes to the storey
-above, or from the top storey to the one below. The button above the storeys shows them all at
-once (see below).
+for the ground floor, **1**, **2**… above it, **−1** below it, **½** for a half level (below). A
+tap on a button shows that storey. A tap on **stairs** (the `stairs` kind of furniture, with
+nothing linked to it) goes to the storey above, or from the top storey to the one below. The
+button above the storeys shows them all at once (see below).
 
 **Alerts follow you.** The alerts of every storey's rooms (smoke, gas, water, alarm, a window open
 in the rain) show in the banner whichever storey is shown, with the storey they are on: "Smoke in
@@ -53,11 +53,44 @@ A card shows every storey with **`storey: all`**, the storeys spread apart and t
 more). In the panel, **Arrange**, linking and **Edit plan** work on one storey: the one last shown
 alone is shown alone while they run, and the whole home comes back when they end.
 
+## Split levels and walk-out basements
+
+A split-level home has levels half a flight of stairs apart, beside each other rather than one over
+the other; a walk-out basement opens onto its garden on one side, the ground higher on the other.
+DomoTwin draws them as storeys at their own heights (D-078):
+
+- **Half levels are named as such.** A storey less than 1.8 m over (or under) the last full
+  storey is a half level: *Half level up*, *Half level down*, *Floor 1½*, *Basement 1½*, and **½**
+  on its button (**−½**, **1½**…); `domotwin.show` finds it by that place or that number. A
+  storey 1.8 m or more away is the next full storey, as before (a low cellar too), and so is one
+  at the same height (two wings); two wings of a half level share it. A storey's own name wins,
+  as always.
+- **The Bluetooth locating counts a floor only where one level lies over the other**: from the
+  entry level to the half level beside it, a wall; from the half level down to the one up over
+  it, a floor. The [placement advisor](placement.md) counts the same.
+- **Stairs**: a half flight that lands beside the next level leads to its nearest room, for the
+  locating's ways from room to room; a tap on the stairs shows the next level up, as before.
+- **The garden of a walk-out basement** is a place outside drawn on the lower storey: its ground is
+  at that storey's level. Where it meets a garden of a higher storey (a lawn, gravel or soil, not a
+  balcony or a deck), a retaining wall of stone stands along it, up to the higher ground, with
+  every storey shown (**All storeys**): a storey shown alone has no higher ground beside it. A
+  balcony has none: it is over the ground.
+
+`examples/` has a fictional split-level house to try: `split-level-entry.domotwin.json` (the
+entry level, at 0 m), `split-level-lower.domotwin.json` (half a storey down, −1.40 m, opening onto
+the back garden) and `split-level-upper.domotwin.json` (half a storey up, +1.40 m, over the lower
+one). Import each as a storey (**Storeys**, **Import a plan as a new storey**) and give it its
+height.
+
+A garden that slopes across, from one level to the other, is not drawn yet: each place outside is
+flat.
+
 ## Managing them
 
 In the panel, **Storeys** (administrators only) lists the storeys, highest first:
 
-- **Name**: empty, a storey is called by its place (Ground floor, Floor 1, Basement 1…).
+- **Name**: empty, a storey is called by its place (Ground floor, Floor 1, Basement 1, Half level
+  up…).
 - **Floor height**, in metres above the ground floor's, from −100 to 1 000 m. It orders the storeys;
   a value not understood is marked and not kept.
 - **Remove** (the cross) asks first, then removes the storey with its plan and overlay. The last

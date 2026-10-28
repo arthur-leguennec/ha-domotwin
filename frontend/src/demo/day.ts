@@ -56,7 +56,39 @@ export function solarAt(minute: number): number {
   if (elevation <= 0) return 0;
   const m = ofDay(minute);
   const clouds = 0.3 * Math.max(0, Math.sin(m / 23) * Math.sin(m / 61));
-  return Math.round(5000 * 0.86 * Math.sin((elevation * Math.PI) / 180) * (1 - clouds));
+  const shade = SHADE[weatherAt(m).condition] ?? 1;
+  return Math.round(5000 * 0.86 * Math.sin((elevation * Math.PI) / 180) * (1 - clouds) * shade);
+}
+
+/** The day's weather (D-072): fine, clouding over after lunch, a shower and a storm at three. */
+const WEATHER: readonly (readonly [number, string])[] = [
+  [at(11, 30), "partlycloudy"],
+  [at(14, 30), "cloudy"],
+  [at(15, 0), "rainy"],
+  [at(15, 30), "lightning-rainy"],
+  [at(15, 50), "pouring"],
+  [at(16, 10), "rainy"],
+  [at(16, 30), "cloudy"],
+  [at(17, 0), "partlycloudy"],
+  [at(18, 0), "sunny"],
+];
+
+/** How much of the sun the clouds let through, by condition. */
+const SHADE: Readonly<Record<string, number>> = {
+  cloudy: 0.5,
+  rainy: 0.25,
+  pouring: 0.15,
+  "lightning-rainy": 0.15,
+};
+
+/** The weather at `minute`: its condition, and the wind (km/h, from degrees clockwise from north). */
+export function weatherAt(minute: number): { condition: string; wind: number; bearing: number } {
+  const m = ofDay(minute);
+  let condition = "sunny";
+  for (const [from, then] of WEATHER) if (m >= from) condition = then;
+  if (condition === "sunny" && sunAt(m).elevation <= 0) condition = "clear-night";
+  const stormy = m >= at(15, 0) && m < at(16, 30);
+  return { condition, wind: stormy ? 32 : 11, bearing: stormy ? 225 : 270 };
 }
 
 /** Where each person is, from when: a room of the plans, or away (`null`). */
@@ -171,6 +203,13 @@ export function appliancesAt(minute: number): {
 export function vacuumAt(minute: number): "docked" | "cleaning" | "returning" {
   if (within(minute, at(9, 0), at(10, 20))) return "cleaning";
   if (within(minute, at(10, 20), at(10, 26))) return "returning";
+  return "docked";
+}
+
+/** What the robot mower does at `minute` (D-077): out on the back lawn late in the morning. */
+export function mowerAt(minute: number): "docked" | "mowing" | "returning" {
+  if (within(minute, at(10, 30), at(12, 0))) return "mowing";
+  if (within(minute, at(12, 0), at(12, 6))) return "returning";
   return "docked";
 }
 
@@ -303,6 +342,22 @@ export function wantedAt(minute: number): Map<string, Change> {
     state: towels ? "on" : "off",
     ...(towels ? { automation: "automation.bathroom_humidity" } : {}),
   });
+  // The garden (D-077): the mower on the back lawn, the pool's pump in the sun, the lights from
+  // dusk to bedtime, the gate as the car goes and comes back.
+  const mower = mowerAt(m);
+  wanted.set("lawn_mower.mowy", {
+    state: mower,
+    ...(mower === "mowing" ? { automation: "automation.mow_the_lawn" } : {}),
+  });
+  wanted.set("switch.pool_pump", { state: within(m, at(10, 0), at(16, 0)) ? "on" : "off" });
+  for (const id of ["light.terrace", "light.garden_path"]) {
+    light(id, within(m, at(19, 30), at(23, 0)), "automation.garden_lights");
+  }
+  const gateOpen = [at(7, 54), at(18, 2)].some((t) => within(m, t, t + 3));
+  wanted.set("cover.gate", {
+    state: gateOpen ? "open" : "closed",
+    attributes: { current_position: gateOpen ? 100 : 0 },
+  });
   // The heating, lower at night: the good night's in the living room and the bedroom.
   for (const id of ["climate.living_room", "climate.bedroom", "climate.office"]) {
     wanted.set(id, {
@@ -339,8 +394,8 @@ function occupancy(room: string, minute: number): number {
 }
 
 /**
- * The sensors at `minute` (which the day always sets): the sun, temperatures, humidity, CO₂,
- * motion, the appliances' power, the robot's battery.
+ * The sensors at `minute` (which the day always sets): the sun, the weather, temperatures,
+ * humidity, CO₂, motion, the appliances' power, the robot's battery.
  */
 export function sensorsAt(minute: number): Map<string, Change> {
   const m = ofDay(minute);
@@ -387,6 +442,17 @@ export function sensorsAt(minute: number): Map<string, Change> {
   motion("binary_sensor.landing_motion", "u-landing");
   sensors.set("binary_sensor.living_motion", {
     state: peopleIn("living", m).length > 0 ? "on" : "off",
+  });
+  const weather = weatherAt(m);
+  sensors.set("weather.home", {
+    state: weather.condition,
+    attributes: {
+      temperature: Math.round(outside(m) * 10) / 10,
+      temperature_unit: "°C",
+      wind_speed: weather.wind,
+      wind_speed_unit: "km/h",
+      wind_bearing: weather.bearing,
+    },
   });
   const power = appliancesAt(m);
   value("sensor.washer_power", power.washer);

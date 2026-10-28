@@ -1,0 +1,336 @@
+{
+  "config": {
+    "abort": {
+      "single_instance_allowed": "DomoTwin is al ingesteld."
+    },
+    "step": {
+      "user": {
+        "title": "DomoTwin",
+        "description": "Voeg DomoTwin toe, je huis als levende 3D-tweeling. Je importeert je plattegrond vanuit het DomoTwin-paneel in de zijbalk."
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "DomoTwin-opties",
+        "data": {
+          "sidebar": "DomoTwin in de zijbalk tonen",
+          "sidebar_admin_only": "Alleen aan beheerders tonen"
+        },
+        "data_description": {
+          "sidebar": "De schermvullende weergave met de editor. Dashboardkaarten werken hoe dan ook.",
+          "sidebar_admin_only": "Andere gebruikers kunnen DomoTwin-kaarten op dashboards nog steeds gebruiken."
+        }
+      }
+    }
+  },
+  "services": {
+    "show": {
+      "name": "Tonen",
+      "description": "Toont een kamer, een element, een verdieping of een weergave op de DomoTwin-schermen (kaarten en paneel), of op een ervan.",
+      "fields": {
+        "room": {
+          "name": "Kamer",
+          "description": "Een kamer van de plattegrond, op naam of ID (op elke verdieping)."
+        },
+        "element": {
+          "name": "Element",
+          "description": "Elk element van de plattegrond, op naam of ID: het wordt in beeld gebracht."
+        },
+        "storey": {
+          "name": "Verdieping",
+          "description": "Een verdieping, op naam, ID of nummer (0 voor de begane grond, 1 erboven, -1 eronder); all voor alle verdiepingen tegelijk."
+        },
+        "view": {
+          "name": "Weergave",
+          "description": "overview, 3d, 2d, walk (op ooghoogte, naar de opgegeven kamer), of de naam van een opgeslagen standpunt."
+        },
+        "person": {
+          "name": "Persoon",
+          "description": "Een persoon die DomoTwin plaatst (person.…): de kamer van die persoon wordt getoond, als die thuis is in een bekende kamer."
+        },
+        "screen": {
+          "name": "Scherm",
+          "description": "Het scherm om het op te tonen: de screen-optie van een kaart. Leeg voor alle schermen."
+        }
+      }
+    },
+    "where": {
+      "name": "Waar",
+      "description": "Waar een persoon is, of een apparaat dat DomoTwin via Bluetooth volgt, of iedereen thuis: de kamer, en een zin om mee te antwoorden (in de taal van Home Assistant).",
+      "fields": {
+        "name": {
+          "name": "Naam",
+          "description": "De naam van een persoon, of van een gevolgd apparaat (\"mijn sleutels\"), zoals uitgesproken (een voornaam is genoeg, een letter fout wordt vergeven). Leeg voor iedereen thuis."
+        },
+        "show": {
+          "name": "Tonen",
+          "description": "De kamer ook tonen op de DomoTwin-schermen."
+        },
+        "screen": {
+          "name": "Scherm",
+          "description": "Het scherm om het op te tonen: de screen-optie van een kaart. Leeg voor alle schermen."
+        }
+      }
+    },
+    "schedule": {
+      "name": "Plannen",
+      "description": "Zet apparaten later aan of uit, op een tijdstip of na een vertraging, en aan tot een tijdstip of voor een tijdje: bewaard door DomoTwin, ook na een herstart. Antwoordt wat er is ingesteld, met een zin om uit te spreken.",
+      "fields": {
+        "entity_id": {
+          "name": "Entiteiten",
+          "description": "Wat te schakelen: lampen, schakelaars, ventilatoren, mediaspelers, klimaat, rolluiken (geopend en gesloten)…"
+        },
+        "action": {
+          "name": "Actie",
+          "description": "on om aan te zetten (een rolluik te openen), off om uit te zetten (het te sluiten)."
+        },
+        "at": {
+          "name": "Om",
+          "description": "Wanneer: een datum en tijd (in de tijdzone van Home Assistant, tenzij er een is opgegeven), of een tijdstip van de dag voor het eerstvolgende. Of geef een vertraging op."
+        },
+        "delay": {
+          "name": "Vertraging",
+          "description": "Wanneer, vanaf nu: in plaats van “Om”."
+        },
+        "until": {
+          "name": "Tot",
+          "description": "Met on: wanneer weer uit te zetten, een datum en tijd of een tijdstip van de dag (het eerstvolgende na de start)."
+        },
+        "duration": {
+          "name": "Duur",
+          "description": "Met on: hoe lang het aan te laten, in plaats van “Tot”."
+        },
+        "brightness": {
+          "name": "Helderheid",
+          "description": "Met on: de helderheid van de lampen (%)."
+        }
+      }
+    },
+    "unschedule": {
+      "name": "Planning annuleren",
+      "description": "Annuleert acties die zijn ingesteld met domotwin.schedule: één op ID, of alle van bepaalde entiteiten. Een apparaat dat al aan is, blijft aan.",
+      "fields": {
+        "id": {
+          "name": "ID",
+          "description": "De ID die domotwin.schedule teruggaf."
+        },
+        "entity_id": {
+          "name": "Entiteiten",
+          "description": "Elke actie die op deze entiteiten wacht."
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "upkeep_due": {
+        "name": "Onderhoud te doen",
+        "state_attributes": {
+          "tasks": {
+            "name": "Taken"
+          },
+          "more": {
+            "name": "Meer"
+          }
+        }
+      },
+      "person_room": {
+        "name": "Kamer van {person}",
+        "state": {
+          "not_home": "Afwezig"
+        },
+        "state_attributes": {
+          "person": {
+            "name": "Persoon"
+          },
+          "room_id": {
+            "name": "Kamer-ID"
+          },
+          "area_id": {
+            "name": "Ruimte"
+          },
+          "storey_id": {
+            "name": "Verdieping-ID"
+          },
+          "storey": {
+            "name": "Verdieping"
+          },
+          "since": {
+            "name": "Sinds"
+          },
+          "source": {
+            "name": "Bron"
+          },
+          "x": {
+            "name": "X op de plattegrond"
+          },
+          "y": {
+            "name": "Y op de plattegrond"
+          }
+        }
+      },
+      "located": {
+        "name": "{name}: kamer",
+        "state_attributes": {
+          "device_name": {
+            "name": "Apparaat"
+          },
+          "kind": {
+            "name": "Soort",
+            "state": {
+              "phone": "Telefoon",
+              "watch": "Horloge",
+              "thing": "Voorwerp"
+            }
+          },
+          "person": {
+            "name": "Persoon"
+          },
+          "room_id": {
+            "name": "Kamer-ID"
+          },
+          "area_id": {
+            "name": "Ruimte"
+          },
+          "storey_id": {
+            "name": "Verdieping-ID"
+          },
+          "storey": {
+            "name": "Verdieping"
+          },
+          "since": {
+            "name": "Sinds"
+          },
+          "left_behind": {
+            "name": "Achtergelaten"
+          },
+          "x": {
+            "name": "X op de plattegrond"
+          },
+          "y": {
+            "name": "Y op de plattegrond"
+          },
+          "z": {
+            "name": "Hoogte"
+          },
+          "accuracy": {
+            "name": "Nauwkeurigheid"
+          }
+        }
+      },
+      "room_people": {
+        "name": "Mensen hier",
+        "state_attributes": {
+          "room": {
+            "name": "Kamer"
+          },
+          "people": {
+            "name": "Personen"
+          },
+          "private": {
+            "name": "Privé"
+          },
+          "room_id": {
+            "name": "Kamer-ID"
+          },
+          "area_id": {
+            "name": "Ruimte"
+          },
+          "storey_id": {
+            "name": "Verdieping-ID"
+          },
+          "storey": {
+            "name": "Verdieping"
+          }
+        }
+      },
+      "room_upkeep": {
+        "name": "Onderhoud te doen hier",
+        "state_attributes": {
+          "room": {
+            "name": "Kamer"
+          },
+          "tasks": {
+            "name": "Taken"
+          },
+          "more": {
+            "name": "Meer"
+          },
+          "room_id": {
+            "name": "Kamer-ID"
+          },
+          "area_id": {
+            "name": "Ruimte"
+          },
+          "storey_id": {
+            "name": "Verdieping-ID"
+          },
+          "storey": {
+            "name": "Verdieping"
+          }
+        }
+      },
+      "people_seen": {
+        "name": "Geziene personen",
+        "state_attributes": {
+          "seen": {
+            "name": "Niet geïdentificeerd"
+          }
+        }
+      }
+    },
+    "binary_sensor": {
+      "left_behind": {
+        "name": "Achtergelaten: {name}",
+        "state_attributes": {
+          "person": {
+            "name": "Persoon"
+          },
+          "room_id": {
+            "name": "Kamer-ID"
+          },
+          "room": {
+            "name": "Kamer"
+          }
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "schedule_no_entities": {
+      "message": "Noem minstens één entiteit om te schakelen."
+    },
+    "schedule_too_many_entities": {
+      "message": "Maximaal 25 entiteiten in één actie."
+    },
+    "schedule_unknown_entity": {
+      "message": "Een van de entiteiten bestaat niet."
+    },
+    "schedule_not_schedulable": {
+      "message": "Alleen lampen, schakelaars, ventilatoren, schakelaar-helpers, mediaspelers, klimaat, luchtbevochtigers, sirenes en rolluiken kunnen worden gepland."
+    },
+    "schedule_in_the_past": {
+      "message": "Dat tijdstip is voorbij."
+    },
+    "schedule_too_far": {
+      "message": "Een actie wordt maximaal een jaar vooruit ingesteld."
+    },
+    "schedule_off_with_end": {
+      "message": "Een einde of een helderheid hoort bij aanzetten, niet bij uitzetten."
+    },
+    "schedule_end_before_start": {
+      "message": "Het einde komt vóór het begin."
+    },
+    "schedule_too_long": {
+      "message": "Een apparaat blijft maximaal een week aan."
+    },
+    "schedule_too_many": {
+      "message": "Er wachten al 100 acties: annuleer er eerst een paar."
+    },
+    "schedule_not_allowed": {
+      "message": "Je mag een van deze apparaten niet bedienen."
+    }
+  }
+}

@@ -1,27 +1,36 @@
 /**
- * Each user's own choices (D-055): their favourites, the tab DomoTwin opens on and their Home
- * tab's cards, kept by the integration for each user; a device may open on a tab of its own.
+ * Each user's own choices (D-055): their favourites, the tab DomoTwin opens on, their Home tab's
+ * cards and shortcuts (D-084), kept by the integration for each user; a device may open on a tab
+ * of its own.
  */
 
 import { domainOf } from "../ha/types";
+import { isSummary, type SummaryKind } from "./overview";
 
-/** The panel's tabs. */
-export type Tab = "home" | "rooms" | "3d";
-export const TABS: readonly Tab[] = ["home", "rooms", "3d"];
+/** The panel's tabs: the Safety tab came with M25 (D-068). */
+export type Tab = "home" | "rooms" | "safety" | "3d";
+export const TABS: readonly Tab[] = ["home", "rooms", "safety", "3d"];
 
 /** A card of the Home tab: Home Assistant's own, as it takes them. */
 export type HomeCard =
-  { type: "calendar"; entities: string[] } | { type: "todo-list"; entity: string };
+  | { type: "calendar"; entities: string[] }
+  | { type: "todo-list"; entity: string }
+  | { type: "summary"; summary: SummaryKind };
 
 /** What the integration keeps for the user. */
 export interface Choices {
   favourites: string[];
   cards: HomeCard[];
+  /**
+   * The Home tab's shortcuts (D-084), in their order, as the integration keeps them: the Home tab
+   * reads them (`readShortcuts`), with its chunk rather than with the first load.
+   */
+  shortcuts: readonly unknown[];
   /** The tab DomoTwin opens on, when the user chose one. */
   start?: Tab;
 }
 
-export const NO_CHOICES: Choices = { favourites: [], cards: [] };
+export const NO_CHOICES: Choices = { favourites: [], cards: [], shortcuts: [] };
 
 /** As many cards as the integration keeps on a Home tab, and calendars in an agenda. */
 export const MAX_HOME_CARDS = 6;
@@ -69,13 +78,17 @@ export function canDraw3d(): boolean {
   return typeof WebGL2RenderingContext !== "undefined";
 }
 
-/** The tab a path of the panel shows (Home Assistant gives the path after its own), and a room. */
-export function routeOf(path: string | undefined): { tab?: Tab; area?: string } {
-  const [, first, second] = (path ?? "").split("/");
+/**
+ * The tab a path of the panel shows (Home Assistant gives the path after its own), a room, and
+ * whether its graphs (D-069).
+ */
+export function routeOf(path: string | undefined): { tab?: Tab; area?: string; graphs?: boolean } {
+  const [, first, second, third] = (path ?? "").split("/");
   if (!isTab(first)) return {};
   if (first === "rooms" && second) {
     try {
-      return { tab: first, area: decodeURIComponent(second) };
+      const area = decodeURIComponent(second);
+      return third === "graphs" ? { tab: first, area, graphs: true } : { tab: first, area };
     } catch {
       // A broken address: the rooms.
       return { tab: first };
@@ -84,9 +97,10 @@ export function routeOf(path: string | undefined): { tab?: Tab; area?: string } 
   return { tab: first };
 }
 
-/** The path of a tab, and of a room in the Rooms tab. */
-export function pathOf(tab: Tab, area?: string): string {
-  return tab === "rooms" && area ? `/rooms/${encodeURIComponent(area)}` : `/${tab}`;
+/** The path of a tab, of a room in the Rooms tab, and of its graphs (D-069). */
+export function pathOf(tab: Tab, area?: string, graphs = false): string {
+  if (tab !== "rooms" || !area) return `/${tab}`;
+  return `/rooms/${encodeURIComponent(area)}${graphs ? "/graphs" : ""}`;
 }
 
 /** Favourites shown as big buttons: scenes and scripts. */
@@ -111,9 +125,12 @@ export function readChoices(raw: unknown): Choices {
       if (entities.length > 0) cards.push({ type: "calendar", entities });
     } else if (c.type === "todo-list" && typeof c.entity === "string") {
       cards.push({ type: "todo-list", entity: c.entity });
+    } else if (c.type === "summary" && isSummary(c.summary)) {
+      cards.push({ type: "summary", summary: c.summary });
     }
   }
-  const choices: Choices = { favourites, cards };
+  const shortcuts = Array.isArray(value.shortcuts) ? (value.shortcuts as unknown[]) : [];
+  const choices: Choices = { favourites, cards, shortcuts };
   if (isTab(value.start)) choices.start = value.start;
   return choices;
 }

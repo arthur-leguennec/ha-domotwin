@@ -1,7 +1,8 @@
 /**
- * The plan import (D-009, D-040): its own WebAssembly module, fetched only when a plan of another
- * app is imported: an IFC file, a Sweet Home 3D home, a DXF drawing or a room scan. It finds the
- * format from the file's content, lists its storeys and converts one into a plan.
+ * The plan import (D-009, D-040, D-064): its own WebAssembly module, fetched only when a plan of
+ * another app is imported: an IFC file, a Sweet Home 3D home, a DXF drawing, a room scan, a robot
+ * vacuum's map, a Floorplanner plan or a mesh scan. It finds the format from the file's content,
+ * lists its storeys and converts one into a plan.
  */
 import { wasmLoader } from "../assets";
 import { engineError } from "../engine/engine";
@@ -10,7 +11,7 @@ import type { UpkeepCard } from "../live/upkeep";
 import type * as Wasm from "./pkg/domotwin_import.js";
 
 /** The formats the import reads. */
-export type ImportFormat = "ifc" | "sh3d" | "dxf" | "scan";
+export type ImportFormat = "ifc" | "sh3d" | "dxf" | "scan" | "robot" | "fml" | "mesh";
 
 /** A storey of the file. */
 export interface ImportStorey {

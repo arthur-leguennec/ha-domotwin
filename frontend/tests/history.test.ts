@@ -507,11 +507,16 @@ describe("the demo house's history (D-058)", () => {
 
   it("is its day, minute by minute, kept ten days", () => {
     const answer = demoHistory(
-      ["light.living_floor_lamp", "sensor.bathroom_humidity", "weather.home"],
+      [
+        "light.living_floor_lamp",
+        "sensor.bathroom_humidity",
+        "input_boolean.guests",
+        "weather.home",
+      ],
       midnight,
       now,
       now,
-      (id) => (id === "weather.home" ? "sunny" : undefined),
+      (id) => (id === "input_boolean.guests" ? "off" : undefined),
     );
     const lamp = answer["light.living_floor_lamp"] ?? [];
     // Off at midnight, on with the evening's scene (19:30), off with the good night (22:45).
@@ -519,7 +524,9 @@ describe("the demo house's history (D-058)", () => {
     expect(lamp[0]?.lu).toBe(midnight / 1000);
     expect(lamp[1]?.lu).toBe((midnight + at(19, 30) * MIN) / 1000);
     expect((answer["sensor.bathroom_humidity"] ?? []).length).toBeGreaterThan(10);
-    expect(answer["weather.home"]).toEqual([{ s: "sunny", lu: midnight / 1000 }]);
+    // What the day does not change keeps its state; the weather follows the day (D-072).
+    expect(answer["input_boolean.guests"]).toEqual([{ s: "off", lu: midnight / 1000 }]);
+    expect((answer["weather.home"] ?? []).map((state) => state.s)).toContain("lightning-rainy");
     // Asked from a month ago: ten days back at most, as Home Assistant keeps them.
     const month = demoHistory(
       ["light.living_floor_lamp"],

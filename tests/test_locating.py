@@ -24,6 +24,7 @@ from custom_components.domotwin.locating.identity import (
     Match,
     Matcher,
     beacon_of,
+    parse_key,
     resolvable,
     resolves,
 )
@@ -67,6 +68,238 @@ def test_walls_doors_and_open_sides_between_rooms() -> None:
     outside = Spot(0, -500, 200, 120)
     assert home.walls(outside, living) == 1
     assert home.floors(living, home.middle("up-office")) == 1
+
+
+def test_places_outside_have_no_walls_and_lie_under_the_rooms() -> None:
+    """A garden drawn round a fictional house, a deck beside it (D-077), as the core counts them."""
+
+    def square(x0: int, y0: int, x1: int, y1: int) -> list[list[int]]:
+        return [[x0, y0], [x1, y0], [x1, y1], [x0, y1]]
+
+    plan = {
+        "format": "domotwin-plan",
+        "version": 1,
+        "rooms": [
+            {"id": "living", "outline": square(0, 0, 500, 400)},
+            {"id": "kitchen", "outline": square(500, 0, 900, 400)},
+            {"id": "garden", "outside": True, "outline": square(-400, -300, 1300, 1200)},
+            {"id": "deck", "outside": True, "outline": square(0, 400, 500, 700)},
+        ],
+    }
+    home = Home([{"id": "ground", "elevation": 0, "plan": plan}])
+    assert home.room_at(0, (250, 200)) == "living"
+    assert home.room_at(0, (-200, 600)) == "garden"
+    # The deck in the garden drawn round it: the deck's.
+    assert home.room_at(0, (250, 600)) == "deck"
+    # The deck and the garden: open; the garden and the living room: one façade.
+    assert home.walls(Spot(0, 250, 600, 100), Spot(0, 250, 900, 100)) == 0
+    assert home.walls(Spot(0, 400, 600, 100), Spot(0, 400, 200, 100)) == 1
+    assert home.walls(Spot(0, 250, -200, 100), Spot(0, 250, 200, 100)) == 1
+    # Where a receiver may be held in the garden: round the house.
+    assert all(not (0 <= p.x <= 900 and 0 <= p.y <= 400) for p in home.points("garden"))
+    # Two rooms drawn 20 cm apart (the wall between them) in the garden: one wall, not two.
+    plan["rooms"] = [
+        {"id": "a", "outline": square(0, 0, 400, 400)},
+        {"id": "b", "outline": square(420, 0, 800, 400)},
+        {"id": "garden", "outside": True, "outline": square(-300, -300, 1100, 700)},
+    ]
+    home = Home([{"id": "ground", "elevation": 0, "plan": plan}])
+    assert home.room_at(0, (410, 200)) == "garden"
+    assert home.walls(Spot(0, 200, 200, 100), Spot(0, 600, 200, 100)) == 1
+
+
+def test_a_floor_is_counted_only_where_one_level_lies_over_the_other() -> None:
+    """The fictional split-level house of `examples/` (D-078), as the core counts it."""
+
+    def plan(name: str) -> dict[str, Any]:
+        data: dict[str, Any] = json.loads((ROOT / "examples" / name).read_text())
+        return data
+
+    home = Home(
+        [
+            {"id": "lower", "elevation": -140, "plan": plan("split-level-lower.domotwin.json")},
+            {"id": "entry", "elevation": 0, "plan": plan("split-level-entry.domotwin.json")},
+            {"id": "upper", "elevation": 140, "plan": plan("split-level-upper.domotwin.json")},
+        ]
+    )
+    living, family, bedroom = (home.middle(r) for r in ("s-living", "s-family", "s-bedroom"))
+    # The entry level and the half levels lie beside each other: no floor, a wall.
+    assert home.floors(living, bedroom) == 0
+    assert home.floors(living, family) == 0
+    assert home.walls(living, family) >= 1
+    # The upper level lies over the lower one: its floor.
+    assert home.floors(family, bedroom) == 1
+    assert home.floors(bedroom, family) == 1
+    assert home.floors(Spot(1, 650, 400, 130), bedroom) == 0
+    # Its half flights lead from the living room up to the landing beside it, and down to the
+    # family room.
+    assert {"s-landing", "s-family"} <= home.neighbours["s-living"]
+    assert "s-living" in home.neighbours["s-landing"]
+
+
+def test_a_full_storey_over_a_larger_one_is_a_floor_over_all_of_it() -> None:
+    """The ground floor's ceiling, where the floor over it has no room, is a floor (D-078)."""
+
+    def square(x1: int) -> list[list[int]]:
+        return [[0, 0], [x1, 0], [x1, 800], [0, 800]]
+
+    home = Home(
+        [
+            {
+                "id": "ground",
+                "elevation": 0,
+                "plan": {"rooms": [{"id": "hall", "outline": square(1000)}]},
+            },
+            {
+                "id": "first",
+                "elevation": 280,
+                "plan": {"rooms": [{"id": "study", "outline": square(500)}]},
+            },
+        ]
+    )
+    assert home.floors(Spot(0, 900, 400, 110), Spot(1, 450, 400, 390)) == 1
+    assert home.floors(Spot(0, 200, 400, 110), Spot(1, 250, 400, 390)) == 1
+
+
+def test_a_half_level_between_hides_no_ceiling_and_wings_at_one_height_are_one_level() -> None:
+    """As the core counts them (D-078)."""
+
+    def storey(sid: str, elevation: float, x0: int, x1: int) -> dict[str, Any]:
+        outline = [[x0, 0], [x1, 0], [x1, 800], [x0, 800]]
+        return {
+            "id": sid,
+            "elevation": elevation,
+            "plan": {"rooms": [{"id": f"{sid}-room", "outline": outline}]},
+        }
+
+    home = Home(
+        [
+            storey("ground", 0, 0, 1000),
+            storey("half", 140, 1000, 1400),
+            storey("first", 280, 0, 500),
+        ]
+    )
+    assert home.floors(Spot(0, 900, 400, 110), Spot(2, 450, 400, 390)) == 1
+    home = Home([storey("a", 0, 0, 1000), storey("b", 0, 2000, 3000), storey("f", 280, 0, 500)])
+    assert home.floors(Spot(0, 900, 400, 110), Spot(2, 450, 400, 390)) == 1
+    assert home.floors(Spot(2, 450, 400, 390), Spot(0, 900, 400, 110)) == 1
+    assert home.floors(Spot(0, 500, 400, 110), Spot(1, 2500, 400, 110)) == 0
+    assert home.floors(Spot(2, 250, 400, 280), Spot(0, 250, 400, 110)) == 1
+
+
+def test_no_floor_two_storeys_over_a_room_and_one_under_a_wall_between_two() -> None:
+    """As the core counts them (D-078)."""
+
+    def rect(x0: int, x1: int) -> list[list[int]]:
+        return [[x0, 0], [x1, 0], [x1, 400], [x0, 400]]
+
+    # A basement under the whole home, two wings round a courtyard, a floor over the right wing.
+    home = Home(
+        [
+            {
+                "id": "basement",
+                "elevation": -280,
+                "plan": {"rooms": [{"id": "cellar", "outline": rect(0, 1200)}]},
+            },
+            {
+                "id": "ground",
+                "elevation": 0,
+                "plan": {
+                    "rooms": [
+                        {"id": "left", "outline": rect(0, 400)},
+                        {"id": "yard", "outline": rect(400, 800), "outside": True},
+                        {"id": "right", "outline": rect(800, 1200)},
+                    ]
+                },
+            },
+            {
+                "id": "first",
+                "elevation": 280,
+                "plan": {"rooms": [{"id": "up", "outline": rect(800, 1200)}]},
+            },
+        ]
+    )
+    assert home.floors(Spot(1, 200, 200, 110), Spot(2, 1000, 200, 390)) == 0
+    assert home.floors(Spot(0, 600, 200, -170), Spot(2, 1000, 200, 390)) == 2
+
+    def two(sid: str, elevation: int) -> dict[str, Any]:
+        rooms = [{"id": f"{sid}-a", "outline": rect(0, 400)}]
+        rooms.append({"id": f"{sid}-b", "outline": rect(420, 800)})
+        return {"id": sid, "elevation": elevation, "plan": {"rooms": rooms}}
+
+    # Through the wall between two rooms, the floor all the same; past the home's side, none.
+    home = Home([two("ground", 0), two("first", 280)])
+    assert home.floors(Spot(0, 200, 200, 110), Spot(1, 545.9, 200, 390)) == 1
+    assert home.floors(Spot(0, 780, 200, 110), Spot(1, 1000, 200, 390)) == 0
+
+
+def test_stairs_lead_beside_them_half_a_storey_up_or_down_only() -> None:
+    """A full storey's room beside stairs is not where they lead (D-078)."""
+
+    def storey(sid: str, elevation: int, x0: int, stairs: bool = False) -> dict[str, Any]:
+        items = [
+            {"id": f"{sid}-stairs", "kind": "stairs", "at": [100, 200], "size": [80, 240, 280]}
+        ]
+        outline = [[x0, 0], [x0 + 400, 0], [x0 + 400, 400], [x0, 400]]
+        return {
+            "id": sid,
+            "elevation": elevation,
+            "plan": {"rooms": [{"id": f"{sid}-room", "outline": outline}]}
+            | ({"items": items} if stairs else {}),
+        }
+
+    # Stairs on the ground floor, the basement's room beside them a full storey down.
+    home = Home([storey("basement", -280, 300), storey("ground", 0, 0, stairs=True)])
+    assert home.neighbours["ground-room"] == set()
+    # Half a storey down, it is where they lead.
+    home = Home([storey("lower", -140, 300), storey("ground", 0, 0, stairs=True)])
+    assert home.neighbours["ground-room"] == {"lower-room"}
+    # At the same height, a wing: no stairs lead there.
+    home = Home([storey("wing", 0, 300), storey("ground", 0, 0, stairs=True)])
+    assert home.neighbours["ground-room"] == set()
+
+
+def test_the_placement_advisor_counts_the_same_walls() -> None:
+    """The advisor (D-066) counts walls in the page as the locating does: both match a fixture.
+
+    `scripts/make-coverage-fixture.py` writes it from this geometry; the core's tests read it too.
+    """
+    fixture = json.loads((ROOT / "tests" / "fixtures" / "coverage-walls.json").read_text())
+    home = Home(
+        [
+            {**storey, "plan": json.loads((ROOT / storey["plan"]).read_text())}
+            for storey in fixture["storeys"]
+        ]
+    )
+
+    def spot(found: Spot | None) -> list[float] | None:
+        # As the fixture writes places: to a millionth of a centimetre.
+        if found is None:
+            return None
+        return [found.storey, round(found.x, 6), round(found.y, 6), round(found.z, 6)]
+
+    assert list(home.rooms) == fixture["rooms"]
+    for room, points in fixture["points"].items():
+        assert [spot(p) for p in home.points(room)] == points
+        assert spot(home.middle(room)) == fixture["middles"][room]
+    for piece, wanted in fixture["pieces"].items():
+        assert spot(home.pieces.get(piece)) == wanted
+    spots = [Spot(int(p[0]), p[1], p[2], p[3]) for p in fixture["spots"]]
+    walls = [[home.walls(a, b) for b in spots] for a in spots]
+    assert walls == [pytest.approx(row) for row in fixture["walls"]]
+    assert [[home.floors(a, b) for b in spots] for a in spots] == fixture["floors"]
+    # The split-level house (D-078): its half levels beside the entry level, one over the other.
+    split = fixture["split"]
+    home = Home(
+        [
+            {**storey, "plan": json.loads((ROOT / storey["plan"]).read_text())}
+            for storey in split["storeys"]
+        ]
+    )
+    spots = [Spot(int(p[0]), p[1], p[2], p[3]) for p in split["spots"]]
+    walls = [[home.walls(a, b) for b in spots] for a in spots]
+    assert walls == [pytest.approx(row) for row in split["walls"]]
+    assert [[home.floors(a, b) for b in spots] for a in spots] == split["floors"]
 
 
 def test_rooms_lead_to_rooms_through_doors_open_sides_and_stairs() -> None:
@@ -129,6 +362,19 @@ def test_private_addresses_resolve_with_their_key() -> None:
     assert not resolves(SPEC_KEY, "F0:81:94:0D:FB:AA")  # a static address
     assert not resolves(b"short", SPEC_ADDRESS)
     assert not resolvable("not an address")
+
+
+def test_identity_keys_are_read_as_the_tools_write_them() -> None:
+    """D-075: hex (irk-capture), `irk:` and hex (ESPresense), a Mac's base64 (reversed)."""
+    # Fictional keys.
+    key = bytes.fromhex("11111111222222223333333344444444")
+    assert parse_key("11111111222222223333333344444444") == key
+    assert parse_key("  11111111 22222222-33333333:44444444 \n") == key
+    assert parse_key("IRK:11111111222222223333333344444444") == key
+    # A Mac's Keychain gives the bytes the other way round, as Home Assistant reads them.
+    assert parse_key("RERERDMzMzMiIiIiEREREQ==") == key
+    for wrong in ("", "1111", "x" * 32, "11" * 17, "00" * 16, "EREREREREREREREREREREQ==", "a=="):
+        assert parse_key(wrong) is None, wrong
 
 
 def _beacon(major: int = 1, minor: int = 2, power: int = -62) -> dict[int, bytes]:

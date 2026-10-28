@@ -1,0 +1,12 @@
+{
+  "entity": {
+    "sensor": {
+      "room_people": {
+        "default": "mdi:account-group"
+      },
+      "room_upkeep": {
+        "default": "mdi:wrench-clock"
+      }
+    }
+  }
+}

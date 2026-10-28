@@ -1,0 +1,336 @@
+{
+  "config": {
+    "abort": {
+      "single_instance_allowed": "O DomoTwin já está configurado."
+    },
+    "step": {
+      "user": {
+        "title": "DomoTwin",
+        "description": "Adicione o DomoTwin, a sua casa num gémeo 3D em tempo real. Vai importar a sua planta a partir do painel do DomoTwin na barra lateral."
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Opções do DomoTwin",
+        "data": {
+          "sidebar": "Mostrar o DomoTwin na barra lateral",
+          "sidebar_admin_only": "Mostrá-lo só aos administradores"
+        },
+        "data_description": {
+          "sidebar": "A vista em ecrã inteiro com o editor. Os cartões dos painéis funcionam de qualquer forma.",
+          "sidebar_admin_only": "Os outros utilizadores podem continuar a usar os cartões do DomoTwin nos painéis."
+        }
+      }
+    }
+  },
+  "services": {
+    "show": {
+      "name": "Mostrar",
+      "description": "Mostra uma divisão, um elemento, um piso ou uma vista nos ecrãs do DomoTwin (cartões e painel), ou num deles.",
+      "fields": {
+        "room": {
+          "name": "Divisão",
+          "description": "Uma divisão da planta, pelo nome ou pelo ID (em qualquer piso)."
+        },
+        "element": {
+          "name": "Elemento",
+          "description": "Qualquer elemento da planta, pelo nome ou pelo ID: fica enquadrado."
+        },
+        "storey": {
+          "name": "Piso",
+          "description": "Um piso, pelo nome, pelo ID ou pelo número (0 para o rés-do-chão, 1 acima, -1 abaixo); all para todos os pisos ao mesmo tempo."
+        },
+        "view": {
+          "name": "Vista",
+          "description": "overview, 3d, 2d, walk (à altura dos olhos, até à divisão indicada), ou o nome de um ponto de vista guardado."
+        },
+        "person": {
+          "name": "Pessoa",
+          "description": "Uma pessoa que o DomoTwin localiza (person.…): é mostrada a sua divisão, se estiver em casa numa divisão conhecida."
+        },
+        "screen": {
+          "name": "Ecrã",
+          "description": "O ecrã onde o mostrar: a opção screen de um cartão. Vazio para todos os ecrãs."
+        }
+      }
+    },
+    "where": {
+      "name": "Onde",
+      "description": "Onde está uma pessoa, ou um dispositivo que o DomoTwin segue por Bluetooth, ou todos os que estão em casa: a sua divisão, e uma frase para responder (no idioma do Home Assistant).",
+      "fields": {
+        "name": {
+          "name": "Nome",
+          "description": "O nome de uma pessoa, ou de um dispositivo seguido («as minhas chaves»), tal como é dito (basta o primeiro nome, uma letra errada é perdoada). Vazio para todos os que estão em casa."
+        },
+        "show": {
+          "name": "Mostrar",
+          "description": "Mostrar também a sua divisão nos ecrãs do DomoTwin."
+        },
+        "screen": {
+          "name": "Ecrã",
+          "description": "O ecrã onde a mostrar: a opção screen de um cartão. Vazio para todos os ecrãs."
+        }
+      }
+    },
+    "schedule": {
+      "name": "Agendar",
+      "description": "Liga ou desliga dispositivos mais tarde, a uma hora ou após um atraso, e liga-os até uma hora ou durante algum tempo: guardado pelo DomoTwin, mesmo após reinícios. Responde com o que foi agendado, com uma frase para dizer.",
+      "fields": {
+        "entity_id": {
+          "name": "Entidades",
+          "description": "O que ligar ou desligar: luzes, interruptores, ventoinhas, leitores multimédia, climatização, estores (abertos e fechados)…"
+        },
+        "action": {
+          "name": "Ação",
+          "description": "on para ligar (abrir um estore), off para desligar (fechá-lo)."
+        },
+        "at": {
+          "name": "Às",
+          "description": "Quando: uma data e hora (no fuso horário do Home Assistant, salvo se for indicado outro), ou uma hora do dia, para a próxima. Ou indique um atraso."
+        },
+        "delay": {
+          "name": "Atraso",
+          "description": "Quando, a partir de agora: em vez de «Às»."
+        },
+        "until": {
+          "name": "Até",
+          "description": "Com on: quando desligar de novo, uma data e hora ou uma hora do dia (a próxima após o início)."
+        },
+        "duration": {
+          "name": "Duração",
+          "description": "Com on: durante quanto tempo o deixar ligado, em vez de «Até»."
+        },
+        "brightness": {
+          "name": "Brilho",
+          "description": "Com on: o brilho das luzes (%)."
+        }
+      }
+    },
+    "unschedule": {
+      "name": "Cancelar agendamento",
+      "description": "Cancela ações definidas com domotwin.schedule: uma pelo seu ID, ou todas as de algumas entidades. Um dispositivo já ligado fica ligado.",
+      "fields": {
+        "id": {
+          "name": "ID",
+          "description": "O ID que o domotwin.schedule respondeu."
+        },
+        "entity_id": {
+          "name": "Entidades",
+          "description": "Todas as ações em espera nestas entidades."
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "upkeep_due": {
+        "name": "Manutenção pendente",
+        "state_attributes": {
+          "tasks": {
+            "name": "Tarefas"
+          },
+          "more": {
+            "name": "Mais"
+          }
+        }
+      },
+      "person_room": {
+        "name": "Divisão de {person}",
+        "state": {
+          "not_home": "Ausente"
+        },
+        "state_attributes": {
+          "person": {
+            "name": "Pessoa"
+          },
+          "room_id": {
+            "name": "ID da divisão"
+          },
+          "area_id": {
+            "name": "Área"
+          },
+          "storey_id": {
+            "name": "ID do piso"
+          },
+          "storey": {
+            "name": "Piso"
+          },
+          "since": {
+            "name": "Desde"
+          },
+          "source": {
+            "name": "Origem"
+          },
+          "x": {
+            "name": "X na planta"
+          },
+          "y": {
+            "name": "Y na planta"
+          }
+        }
+      },
+      "located": {
+        "name": "{name}: divisão",
+        "state_attributes": {
+          "device_name": {
+            "name": "Dispositivo"
+          },
+          "kind": {
+            "name": "Tipo",
+            "state": {
+              "phone": "Telemóvel",
+              "watch": "Relógio",
+              "thing": "Objeto"
+            }
+          },
+          "person": {
+            "name": "Pessoa"
+          },
+          "room_id": {
+            "name": "ID da divisão"
+          },
+          "area_id": {
+            "name": "Área"
+          },
+          "storey_id": {
+            "name": "ID do piso"
+          },
+          "storey": {
+            "name": "Piso"
+          },
+          "since": {
+            "name": "Desde"
+          },
+          "left_behind": {
+            "name": "Esquecido"
+          },
+          "x": {
+            "name": "X na planta"
+          },
+          "y": {
+            "name": "Y na planta"
+          },
+          "z": {
+            "name": "Altura"
+          },
+          "accuracy": {
+            "name": "Precisão"
+          }
+        }
+      },
+      "room_people": {
+        "name": "Pessoas aqui",
+        "state_attributes": {
+          "room": {
+            "name": "Divisão"
+          },
+          "people": {
+            "name": "Pessoas"
+          },
+          "private": {
+            "name": "Privada"
+          },
+          "room_id": {
+            "name": "ID da divisão"
+          },
+          "area_id": {
+            "name": "Área"
+          },
+          "storey_id": {
+            "name": "ID do piso"
+          },
+          "storey": {
+            "name": "Piso"
+          }
+        }
+      },
+      "room_upkeep": {
+        "name": "Manutenção pendente aqui",
+        "state_attributes": {
+          "room": {
+            "name": "Divisão"
+          },
+          "tasks": {
+            "name": "Tarefas"
+          },
+          "more": {
+            "name": "Mais"
+          },
+          "room_id": {
+            "name": "ID da divisão"
+          },
+          "area_id": {
+            "name": "Área"
+          },
+          "storey_id": {
+            "name": "ID do piso"
+          },
+          "storey": {
+            "name": "Piso"
+          }
+        }
+      },
+      "people_seen": {
+        "name": "Pessoas vistas",
+        "state_attributes": {
+          "seen": {
+            "name": "Não identificadas"
+          }
+        }
+      }
+    },
+    "binary_sensor": {
+      "left_behind": {
+        "name": "Esquecido: {name}",
+        "state_attributes": {
+          "person": {
+            "name": "Pessoa"
+          },
+          "room_id": {
+            "name": "ID da divisão"
+          },
+          "room": {
+            "name": "Divisão"
+          }
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "schedule_no_entities": {
+      "message": "Indique pelo menos uma entidade para ligar ou desligar."
+    },
+    "schedule_too_many_entities": {
+      "message": "No máximo 25 entidades numa ação."
+    },
+    "schedule_unknown_entity": {
+      "message": "Uma das entidades não existe."
+    },
+    "schedule_not_schedulable": {
+      "message": "Só luzes, interruptores, ventoinhas, booleanos de entrada, leitores multimédia, climatização, humidificadores, sirenes e estores podem ser agendados."
+    },
+    "schedule_in_the_past": {
+      "message": "Essa hora já passou."
+    },
+    "schedule_too_far": {
+      "message": "Uma ação é agendada no máximo com um ano de antecedência."
+    },
+    "schedule_off_with_end": {
+      "message": "Um fim ou um brilho acompanham o ligar, não o desligar."
+    },
+    "schedule_end_before_start": {
+      "message": "O fim vem antes do início."
+    },
+    "schedule_too_long": {
+      "message": "Um dispositivo fica ligado no máximo uma semana."
+    },
+    "schedule_too_many": {
+      "message": "Já há 100 ações em espera: cancele algumas primeiro."
+    },
+    "schedule_not_allowed": {
+      "message": "Não pode controlar um destes dispositivos."
+    }
+  }
+}

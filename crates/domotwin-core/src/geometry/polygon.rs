@@ -111,6 +111,12 @@ pub(crate) fn segment_distance(p: P2, a: P2, b: P2) -> f64 {
 /// A point well inside a polygon, where its label goes: the centre of its area when that lies
 /// well inside, else about the point farthest from its sides (an L-shaped room's wider arm).
 pub fn label_point(points: &[P2]) -> P2 {
+    label_point_around(points, &[])
+}
+
+/// A point well inside a polygon and out of `holes` (a garden around the home, D-077), where its
+/// label goes: as [`label_point`], the holes' sides counted as the polygon's.
+pub fn label_point_around(points: &[P2], holes: &[&[P2]]) -> P2 {
     let n = points.len();
     #[allow(clippy::cast_precision_loss)]
     let count = n.max(1) as f64;
@@ -121,14 +127,23 @@ pub fn label_point(points: &[P2]) -> P2 {
     if n < 3 || points.iter().flatten().any(|v| !v.is_finite()) {
         return mean;
     }
-    // How deep a point is inside (negative outside).
+    // How deep a point is inside (negative outside, or in a hole).
     let depth = |p: P2| {
-        if !point_in_polygon(p, points, true) {
+        if !point_in_polygon(p, points, true)
+            || holes.iter().any(|hole| point_in_polygon(p, hole, false))
+        {
             return -1.0;
         }
-        (0..n)
-            .map(|i| segment_distance(p, points[i], points[(i + 1) % n]))
-            .fold(f64::INFINITY, f64::min)
+        let sides = |poly: &[P2]| {
+            let m = poly.len();
+            (0..m)
+                .map(|i| segment_distance(p, poly[i], poly[(i + 1) % m]))
+                .fold(f64::INFINITY, f64::min)
+        };
+        holes
+            .iter()
+            .map(|hole| sides(hole))
+            .fold(sides(points), f64::min)
     };
     let a2 = signed_area2(points);
     let centre = if a2.abs() > 1e-9 {
