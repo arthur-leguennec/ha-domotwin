@@ -58,6 +58,8 @@ from .report_week import (
     async_energy_prefs,
     async_hourly,
     async_peak_windows,
+    async_state_windows,
+    closed_energy,
     energy,
     merge,
     peak_sensors,
@@ -452,7 +454,7 @@ class WeeklyReport:
         week: tuple[datetime, datetime],
         before: tuple[datetime, datetime],
     ) -> None:
-        """The week's energy, and its peaks where an integration reads them."""
+        """The week's energy, its peaks where an integration reads them, a workplace's closed."""
         hass = self._hass
         prefs = await async_energy_prefs(hass)
         meters: Meters = sources_of(prefs)
@@ -471,6 +473,16 @@ class WeeklyReport:
             report["energy"] = counted
         if read_peaks:
             report["peaks"] = peaks(windows, meters, hourly)
+        # A workplace: what it used while closed, this week and the week before (D-088).
+        if hours := self._data.workplace_hours:
+            closed = await async_state_windows(hass, [hours], before[0], week[1], "off")
+            found = {
+                key: kwh
+                for key, span in (("week", week), ("before", before))
+                if (kwh := closed_energy(meters, hourly, closed, span)) is not None
+            }
+            if found:
+                report["closed"] = found
 
     async def _summarise(
         self, report: dict[str, Any], language: str, rooms: Mapping[str, str]
@@ -551,6 +563,7 @@ def async_register_commands(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_report_get)
     websocket_api.async_register_command(hass, ws_report_write)
     websocket_api.async_register_command(hass, ws_report_settings)
+    websocket_api.async_register_command(hass, ws_workplace_energy)
 
 
 def _report(
@@ -621,3 +634,48 @@ async def ws_report_settings(
         connection.send_error(msg["id"], "invalid", str(err))
         return
     connection.send_result(msg["id"], {"settings": settings})
+
+
+@websocket_api.websocket_command({vol.Required("type"): "domotwin/workplace/energy"})
+@websocket_api.async_response
+async def ws_workplace_energy(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """What a workplace used while closed (D-088): the last seven days, and this month.
+
+    Each as `kwh` and its `share` of all the place used then; nothing for a home, a workplace
+    without opening hours, or without Home Assistant's energy settings. For every user, as Home
+    Assistant's Energy page is.
+    """
+    from .data import DATA_KEY  # noqa: PLC0415 (data imports this module)
+
+    data: DomoTwinData | None = hass.data.get(DATA_KEY)
+    if data is None:
+        connection.send_error(msg["id"], "not_loaded", "DomoTwin is not set up")
+        return
+    connection.send_result(msg["id"], await async_closed_energy(hass, data, dt_util.utcnow()))
+
+
+async def async_closed_energy(
+    hass: HomeAssistant, data: DomoTwinData, now: datetime
+) -> dict[str, Any]:
+    """What a workplace used while closed, the last seven days (`week`) and this month (`month`)."""
+    if (hours := data.workplace_hours) is None:
+        return {}
+    meters = sources_of(await async_energy_prefs(hass))
+    if not meters.home:
+        return {}
+    week = (now - timedelta(days=7), now)
+    first = dt_util.as_local(now).date().replace(day=1)
+    month = (dt_util.as_utc(dt_util.start_of_local_day(first)), now)
+    start = min(week[0], month[0])
+    closed = await async_state_windows(hass, [hours], start, now, "off")
+    if not closed:
+        return {}
+    hourly = await async_hourly(hass, set(meters.home), start, now)
+    found: dict[str, Any] = {}
+    for key, span in (("week", week), ("month", month)):
+        if (kwh := closed_energy(meters, hourly, closed, span)) is not None:
+            kwh.pop("rooms", None)
+            found[key] = kwh
+    return found

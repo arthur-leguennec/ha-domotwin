@@ -226,8 +226,8 @@ Chacun dans sa pièce, trouvé avec ce que votre logement a déjà.
 - **Un bureau ou un commerce.** Faites-en un lieu de travail dans les paramètres : les personnes y
   sont comptées, jamais nommées, dans la vue 3D, les panneaux des pièces, l’onglet Accueil et à la
   voix ; les heures d’ouverture viennent d’un planning de Home Assistant, et une fois fermé
-  l’onglet Accueil dit ce qui est resté allumé (lampes, portes, serrures, musique), avec *Fermer les
-  lieux* suggéré en commande. Voir [un lieu de
+  l’onglet Accueil dit ce qui est resté allumé (lampes, portes, serrures, musique) et ce que le lieu
+  a consommé pendant la fermeture, avec *Fermer les lieux* suggéré en commande. Voir [un lieu de
   travail](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/workplace.md) (en
   anglais).
 

@@ -10,13 +10,15 @@
   on/off sensors' history), and those hydroqc wrote in a calendar (Home Assistant's own Local
   Calendar, or one whose event it bears now); what the home drew from the grid during each, and
   each room.
+- **While closed** (D-088): a workplace's opening hours are a schedule of Home Assistant's; what
+  the place used while it was off (its history), each hour counted for the part of it closed.
 
 Nothing is fetched from anywhere: the recorder, the calendars kept in Home Assistant.
 """
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 import logging
@@ -55,6 +57,8 @@ CRITICAL_NO: Final = re.compile(r"Critique:\s*Non", re.IGNORECASE)
 MAX_PEAKS: Final = 14
 #: A room's energy, or the home's, written with this many decimals (kWh).
 DECIMALS: Final = 2
+#: The recorder's statistics are kept by the hour (s).
+HOUR: Final = 3600.0
 
 
 @dataclass
@@ -236,6 +240,85 @@ def _kwh(value: float | None) -> float | None:
     return None if value is None else round(value, DECIMALS)
 
 
+def within(
+    hourly: Mapping[str, list[tuple[float, float]]],
+    stats: Iterable[str],
+    windows: list[tuple[datetime, datetime]],
+) -> float | None:
+    """What the statistics counted during `windows` (kWh).
+
+    Each hour's change counted for the part of the hour the windows cover, as if used evenly over
+    it; None when no hour of theirs falls in the windows.
+    """
+    spans = [(begin.timestamp(), finish.timestamp()) for begin, finish in windows]
+    found = False
+    counted = 0.0
+    for stat in stats:
+        for at, change in hourly.get(stat, []):
+            covered = sum(
+                max(0.0, min(finish, at + HOUR) - max(begin, at)) for begin, finish in spans
+            )
+            if covered > 0:
+                counted += change * covered / HOUR
+                found = True
+    return counted if found else None
+
+
+def used(meters: Meters, counted: Callable[[list[str]], float | None]) -> float | None:
+    """What the home used: from the grid, the sun and the battery, less what went back to them."""
+    parts = {
+        1: [*meters.grid_in, *meters.solar, *meters.battery_out],
+        -1: [*meters.grid_out, *meters.battery_in],
+    }
+    found = [(sign, counted(stats)) for sign, stats in parts.items()]
+    if all(value is None for _, value in found):
+        return None
+    return max(sum(sign * (value or 0.0) for sign, value in found), 0.0)
+
+
+def clip(
+    windows: Iterable[tuple[datetime, datetime]], span: tuple[datetime, datetime]
+) -> list[tuple[datetime, datetime]]:
+    """The windows' parts within `span`."""
+    begin, finish = span
+    return [
+        (max(start, begin), min(end, finish))
+        for start, end in windows
+        if start < finish and end > begin
+    ]
+
+
+def closed_energy(
+    meters: Meters,
+    hourly: Mapping[str, list[tuple[float, float]]],
+    closed: Iterable[tuple[datetime, datetime]],
+    span: tuple[datetime, datetime],
+) -> dict[str, Any] | None:
+    """What a workplace used while closed within `span` (D-088), in kWh.
+
+    `kwh`, its `share` of all the place used in the span (percent), and each room's; None when it
+    was never closed then, or nothing says what it used.
+    """
+    inside = merge(clip(closed, span))
+    if not inside:
+        return None
+    kwh = _kwh(used(meters, lambda stats: within(hourly, stats, inside)))
+    if kwh is None:
+        return None
+    found: dict[str, Any] = {"kwh": kwh}
+    if whole := used(meters, lambda stats: total(hourly, stats, *span)):
+        # Rounded half up, as said: 62.5 % is 63 %.
+        found["share"] = min(int(100 * kwh / whole + 0.5), 100)
+    rooms = {
+        room: counted
+        for room, stats in meters.rooms.items()
+        if (counted := _kwh(within(hourly, stats, inside))) is not None
+    }
+    if rooms:
+        found["rooms"] = rooms
+    return found
+
+
 def energy(
     meters: Meters,
     hourly: Mapping[str, list[tuple[float, float]]],
@@ -256,18 +339,11 @@ def energy(
             result["before"] = kept
         return result
 
-    def used(span: tuple[datetime, datetime]) -> float | None:
-        parts = {
-            1: [*meters.grid_in, *meters.solar, *meters.battery_out],
-            -1: [*meters.grid_out, *meters.battery_in],
-        }
-        counted = [(sign, total(hourly, stats, *span)) for sign, stats in parts.items()]
-        if all(value is None for _, value in counted):
-            return None
-        return max(sum(sign * (value or 0.0) for sign, value in counted), 0.0)
+    def home(span: tuple[datetime, datetime]) -> float | None:
+        return used(meters, lambda stats: total(hourly, stats, *span))
 
     found: dict[str, Any] = {}
-    home_now, home_then = used(week), used(before)
+    home_now, home_then = home(week), home(before)
     if home_now is not None or home_then is not None:
         found["home"] = {
             key: kept
@@ -310,7 +386,14 @@ async def async_peak_windows(
     hass: HomeAssistant, sensors: list[str], start: datetime, end: datetime
 ) -> list[tuple[datetime, datetime]]:
     """When the sensors said a peak was under way between `start` and `end` (their history)."""
-    if not sensors or "recorder" not in hass.config.components:
+    return await async_state_windows(hass, sensors, start, end, "on")
+
+
+async def async_state_windows(
+    hass: HomeAssistant, entities: list[str], start: datetime, end: datetime, wanted: str
+) -> list[tuple[datetime, datetime]]:
+    """When the entities were `wanted` between `start` and `end` (their history)."""
+    if not entities or "recorder" not in hass.config.components:
         return []
     from homeassistant.components.recorder import get_instance  # noqa: PLC0415
     from homeassistant.components.recorder.history import (  # noqa: PLC0415
@@ -323,7 +406,7 @@ async def async_peak_windows(
                 hass,
                 start,
                 end,
-                sensors,
+                entities,
                 None,
                 include_start_time_state=True,
                 significant_changes_only=False,
@@ -331,7 +414,7 @@ async def async_peak_windows(
             )
         )
     except Exception:
-        _LOGGER.debug("The peaks' history cannot be read", exc_info=True)
+        _LOGGER.debug("The history of %s cannot be read", entities, exc_info=True)
         return []
     windows: list[tuple[datetime, datetime]] = []
     for states in history.values():
@@ -340,9 +423,9 @@ async def async_peak_windows(
             if not isinstance(state, State):
                 continue
             at = max(state.last_changed, start)
-            if state.state == "on" and on is None:
+            if state.state == wanted and on is None:
                 on = at
-            elif state.state != "on" and on is not None:
+            elif state.state != wanted and on is not None:
                 if at > on:
                     windows.append((on, at))
                 on = None

@@ -4449,3 +4449,30 @@ After 0.7.0 the maintainer answered the questions D-056, D-061, D-068 and D-076 
 - **Consequences.** The first load grows by 1.0 kB gzipped (the card's watch); the doorbell's
   chunk by 0.8 kB (its place on the page). Nothing is sent anywhere. Two new texts, in the 12
   languages.
+
+## D-088 · A workplace's energy while closed (M50)
+
+Asked by the maintainer after 0.7.0, among what the workplace (D-086) should do more: "what used
+energy while the place was closed, each week or month".
+
+- **Context.** A workplace's opening hours are a `schedule` of Home Assistant's (D-086), whose
+  history the recorder keeps; Home Assistant's energy settings and its hourly statistics say what
+  the place used (the weekly report reads them already, D-081). What is used while nobody is there
+  is what an office or a shop most often pays for by mistake: a heater, a screen, a light left on.
+- **Decision.**
+  - **Closed is the schedule off**, in its history (`off` as Home Assistant says it; unavailable
+    is neither open nor closed). The windows are merged, clipped to the span asked.
+  - **What it used** is what the home used in the weekly report: from the grid, the sun and the
+    battery, less what went back to the grid and the battery. Each hour of the statistics counts
+    for the part of it the place was closed, as if used evenly over the hour (a closing at 18:30
+    counts half of 18:00 to 19:00); a room's the same, from its meters. Its share of all the
+    place used in the span is said, rounded half up.
+  - **Where it is said.** In the weekly report (`closed`: this week, the week before, each room's;
+    private rooms left out as in its energy, D-039), and on the Home tab's hours (a tap: the last
+    seven days and this month since its first day where the place is), asked of the integration
+    (`domotwin/workplace/energy`) as the details open, at most every ten minutes, for every user
+    as Home Assistant's Energy page is.
+- **Consequences.** Nothing is kept: it is worked out from the recorder when asked. Nothing is
+  sent anywhere. The first load grows by 0.4 kB gzipped (the call and its reading); the Home tab
+  and the report carry the rest. New texts in the 12 languages. A home, a workplace without
+  opening hours, or without energy settings, says nothing of it.

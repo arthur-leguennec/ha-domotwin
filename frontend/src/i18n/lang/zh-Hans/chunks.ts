@@ -1141,6 +1141,9 @@ export const chunks: Chunks = {
       closed_until: "打烊至 {time}",
       closed_left_on: { one: "已打烊：{count} 项仍开着", other: "已打烊：{count} 项仍开着" },
       hours_from: "营业时间来自 {name}。",
+      closed_week: "非营业时间，过去 7 天：{kwh}",
+      closed_month: "非营业时间，本月：{kwh}",
+      closed_share: "{kwh}（占总量 {share}%）",
       glance: "家中概况",
       people: {
         one: "{count} 人在家",
@@ -1415,6 +1418,11 @@ export const chunks: Chunks = {
         solar: "来自太阳能",
         unknown: "—",
         same: "持平",
+      },
+      closed: {
+        title: "非营业时间",
+        place: "本场所",
+        share: "本周用电中有 {share}% 发生在非营业时间。",
       },
       peaks: {
         title: "Hydro-Québec 用电高峰",

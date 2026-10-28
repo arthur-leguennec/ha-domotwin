@@ -714,6 +714,15 @@ function fictionalReports(summary) {
           rooms: { kitchen: 0.4 },
         },
       ],
+      // A workplace with opening hours (D-088): what it used while closed.
+      ...(params.get("workplace") === "1" && params.get("hours")
+        ? {
+            closed: {
+              week: { kwh: 31.5, share: 38, rooms: { kitchen: 4.2, living: 2 } },
+              before: { kwh: 35, share: 35, rooms: { kitchen: 3 } },
+            },
+          }
+        : {}),
       ...(summary
         ? {
             summary: {
@@ -1969,6 +1978,11 @@ const connection = {
           changed += 1;
         }
         return { changed };
+      }
+      case "domotwin/workplace/energy": {
+        // What a workplace used while closed (D-088): made up, as the integration says it.
+        const hours = store.settings.workplace?.hours;
+        return hours ? { week: { kwh: 31.5, share: 38 }, month: { kwh: 126.4, share: 36 } } : {};
       }
       case "domotwin/report/get": {
         if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };

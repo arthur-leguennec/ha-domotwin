@@ -110,6 +110,11 @@ export const reportEn = {
       unknown: "—",
       same: "the same",
     },
+    closed: {
+      title: "While closed",
+      place: "The place",
+      share: "{share}% of what the place used this week was used while it was closed.",
+    },
     peaks: {
       title: "Hydro-Québec peaks",
       none: "No peak this week.",
@@ -261,6 +266,11 @@ export const reportFr: Widen<typeof reportEn> = {
       solar: "Du soleil",
       unknown: "—",
       same: "pareil",
+    },
+    closed: {
+      title: "Pendant la fermeture",
+      place: "Le lieu",
+      share: "{share} % de ce que le lieu a consommé cette semaine l’a été pendant la fermeture.",
     },
     peaks: {
       title: "Pointes d’Hydro-Québec",

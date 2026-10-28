@@ -34,11 +34,13 @@ from custom_components.domotwin.report_look import Places
 from custom_components.domotwin.report_radios import read_radio, weak_radios
 from custom_components.domotwin.report_week import (
     Meters,
+    closed_energy,
     energy,
     merge,
     peaks,
     sources_of,
     week_of,
+    within,
 )
 from custom_components.domotwin.report_words import ask, notification
 from homeassistant.auth.const import GROUP_ID_ADMIN
@@ -721,6 +723,37 @@ def test_energy_from_the_settings_and_the_rooms() -> None:
     assert said[1]["grid"] == round(4 * hour, 2)
 
 
+def test_what_a_workplace_used_while_closed() -> None:
+    """Each hour counted for the part of it closed; its share of the week's (D-088)."""
+    week = (datetime(2026, 10, 19, 4, tzinfo=UTC), datetime(2026, 10, 26, 4, tzinfo=UTC))
+    start = week[0].timestamp()
+    # 1 kWh from the grid each hour, 0.5 of it in the kitchen; 0.25 back to the grid each hour.
+    hourly = {
+        "sensor.grid_in": [(start + h * 3600, 1.0) for h in range(7 * 24)],
+        "sensor.grid_out": [(start + h * 3600, 0.25) for h in range(7 * 24)],
+        "sensor.oven": [(start + h * 3600, 0.5) for h in range(7 * 24)],
+    }
+    meters = Meters(
+        grid_in=["sensor.grid_in"], grid_out=["sensor.grid_out"], rooms={"kitchen": ["sensor.oven"]}
+    )
+    # Closed from 18:30 to 8:00 the next morning: 13.5 hours, the half hour counted as half.
+    evening = datetime(2026, 10, 20, 22, 30, tzinfo=UTC)
+    night = [(evening, evening + timedelta(hours=13, minutes=30))]
+    assert within(hourly, ["sensor.grid_in"], night) == 13.5
+    found = closed_energy(meters, hourly, night, week)
+    assert found == {"kwh": round(13.5 * 0.75, 2), "share": 8, "rooms": {"kitchen": 6.75}}
+    # Closed before and after the week as well: only its part within the week is counted.
+    around = [(week[0] - timedelta(hours=5), week[0] + timedelta(hours=2))]
+    assert closed_energy(meters, hourly, around, week) == {
+        "kwh": 1.5,
+        "share": 1,
+        "rooms": {"kitchen": 1.0},
+    }
+    # Never closed in the week, or no meter: nothing to say.
+    assert closed_energy(meters, hourly, [], week) is None
+    assert closed_energy(Meters(), hourly, night, week) is None
+
+
 class FakeRecorder:
     """The recorder's executor, answering the hourly statistics asked from rows made up."""
 
@@ -1315,3 +1348,88 @@ async def test_removed_with_the_integration(
     await hass.config_entries.async_remove(config_entry.entry_id)
     await hass.async_block_till_done()
     assert REPORT_STORAGE_KEY not in hass_storage
+
+
+async def test_a_workplace_s_energy_while_closed(
+    hass: HomeAssistant,
+    hass_ws_client: WebSocketGenerator,
+    config_entry: MockConfigEntry,
+    demo_plan: dict[str, Any],
+    demo_bindings: dict[str, Any],
+    freezer: FrozenDateTimeFactory,
+) -> None:
+    """In the weekly report, and for the Home tab: the last seven days and this month (D-088)."""
+    client = await _home(
+        hass, config_entry, hass_ws_client, demo_plan, demo_bindings, freezer, MONDAY
+    )
+    meter = {
+        "device_class": "energy",
+        "state_class": "total_increasing",
+        "unit_of_measurement": "kWh",
+    }
+    hass.states.async_set("sensor.grid_in", "100", meter)
+    prefs = {
+        "energy_sources": [
+            {"type": "grid", "flow_from": [{"stat_energy_from": "sensor.grid_in"}], "flow_to": []}
+        ],
+        "device_consumption": [],
+    }
+
+    async def manager(_hass: HomeAssistant) -> Any:
+        return type("Manager", (), {"data": prefs})()
+
+    _week, before = week_of(dt_util.utcnow())
+    month_start = before[0] - timedelta(days=14)
+    recorder = FakeRecorder({"sensor.grid_in": _hourly(month_start, MONDAY, 1.0)})
+    hass.config.components.add("recorder")
+    hass.config.components.add("energy")
+    # Open from 9 to 18 where the shop is (13:00 to 22:00 UTC), every day; closed otherwise.
+    history: list[State] = [
+        State("schedule.opening", "off", last_changed=month_start - timedelta(days=1))
+    ]
+    day = datetime(2026, 9, 25, 13, tzinfo=UTC)
+    while day < MONDAY:
+        history.append(State("schedule.opening", "on", last_changed=day))
+        history.append(State("schedule.opening", "off", last_changed=day + timedelta(hours=9)))
+        day += timedelta(days=1)
+    history = [state for state in history if state.last_changed < MONDAY]
+
+    async def energy_now() -> dict[str, Any]:
+        answer = await _send(client, {"type": "domotwin/workplace/energy"})
+        assert answer["success"], answer
+        result: dict[str, Any] = answer["result"]
+        return result
+
+    with (
+        patch("homeassistant.components.recorder.get_instance", return_value=recorder),
+        patch("homeassistant.components.energy.data.async_get_manager", manager),
+        patch(
+            "homeassistant.components.recorder.history.get_significant_states",
+            return_value={"schedule.opening": history},
+        ),
+    ):
+        # A home: nothing.
+        assert await energy_now() == {}
+        assert "closed" not in await _write(client)
+        answer = await _send(client, {"type": "domotwin/settings/get"})
+        settings = answer["result"]["settings"]
+        answer = await _send(
+            client,
+            {
+                "type": "domotwin/settings/save",
+                "settings": {**settings, "workplace": {"hours": "schedule.opening"}},
+            },
+        )
+        assert answer["success"], answer
+        report = await _write(client)
+        found = await energy_now()
+    # Closed 15 hours a day of 24: 105 kWh of the week's 168, every week.
+    assert report["closed"] == {
+        "week": {"kwh": 105.0, "share": 63},
+        "before": {"kwh": 105.0, "share": 63},
+    }
+    # The last seven days to now, and this month since its first day where the shop is.
+    assert found["week"]["share"] == 63
+    assert 100 <= found["week"]["kwh"] <= 110
+    assert found["month"]["share"] == 63
+    assert "rooms" not in found["week"]

@@ -669,7 +669,8 @@ export class DomoTwinReport extends LitElement {
       }
       ${this.renderPlans(report)}
       ${REPORT_SECTIONS.map((section) => this.renderSection(report, section))}
-      ${this.renderEnergy(report)} ${this.renderPeaks(report)} ${this.renderDone(report)}`;
+      ${this.renderEnergy(report)} ${this.renderClosed(report)} ${this.renderPeaks(report)}
+      ${this.renderDone(report)}`;
   }
 
   private renderSummary(report: Report): TemplateResult | typeof nothing {
@@ -929,41 +930,83 @@ export class DomoTwinReport extends LitElement {
       .sort(([, a], [, b]) => (b.week ?? 0) - (a.week ?? 0));
     for (const [room, pair] of rooms) rows.push([names.get(room) ?? room, pair, room]);
     if (rows.length === 0) return nothing;
+    return html`<section data-section="energy" data-testid="report-energy">
+      <h3>${t.t("weekly.energy.title")}</h3>
+      ${this.energyTable(rows)}
+    </section>`;
+  }
+
+  /**
+   * A workplace's energy while closed (D-088): the place's and its rooms', this week and the week
+   * before, and the share of the week's.
+   */
+  private renderClosed(report: Report): TemplateResult | typeof nothing {
+    const used = report.closed;
+    if (!used?.week && !used?.before) return nothing;
+    const t = this.t;
+    const names = this.roomNames();
+    const rows: [string, EnergyPair, string?][] = [
+      [t.t("weekly.closed.place"), { week: used.week?.kwh, before: used.before?.kwh }],
+    ];
+    const week = used.week?.rooms ?? {};
+    const before = used.before?.rooms ?? {};
+    const rooms = [...new Set([...Object.keys(week), ...Object.keys(before)])]
+      .filter((room) => !this.closed.has(room) && (!this.room || room === this.room))
+      .sort((a, b) => (week[b] ?? 0) - (week[a] ?? 0));
+    for (const room of rooms) {
+      rows.push([names.get(room) ?? room, { week: week[room], before: before[room] }, room]);
+    }
+    const share = used.week?.share;
+    return html`<section data-section="closed" data-testid="report-closed">
+      <h3>${t.t("weekly.closed.title")}</h3>
+      ${
+        share === undefined
+          ? nothing
+          : html`<p class="hint">
+              ${t.t("weekly.closed.share", {
+                share: new Intl.NumberFormat(t.language).format(share),
+              })}
+            </p>`
+      }
+      ${this.energyTable(rows)}
+    </section>`;
+  }
+
+  /** Energy this week and the week before, and how it changed: a row for each `[name, pair]`. */
+  private energyTable(rows: [string, EnergyPair, string?][]): TemplateResult {
+    const t = this.t;
     const language = t.language;
     const kwh = (value: number | undefined): string =>
       value === undefined ? t.t("weekly.energy.unknown") : formatKwh(value, language);
-    return html`<section data-section="energy" data-testid="report-energy">
-      <h3>${t.t("weekly.energy.title")}</h3>
-      <table>
-        <thead>
-          <tr>
-            <th scope="col">${t.t("weekly.energy.what")}</th>
-            <th scope="col">${t.t("weekly.energy.week")}</th>
-            <th scope="col">${t.t("weekly.energy.before")}</th>
-            <th scope="col">${t.t("weekly.energy.change")}</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${rows.map(([name, pair, room]) => {
-            const change = changeOf(pair);
-            const said =
-              change === undefined
-                ? t.t("weekly.energy.unknown")
-                : change === 0
-                  ? t.t("weekly.energy.same")
-                  : `${change > 0 ? "+" : "−"}${new Intl.NumberFormat(language).format(Math.abs(change))} %`;
-            return html`<tr data-room=${room ?? nothing}>
-              <th scope="row">${name}</th>
-              <td>${kwh(pair.week)}</td>
-              <td>${kwh(pair.before)}</td>
-              <td class=${change === undefined || change === 0 ? "" : change > 0 ? "up" : "down"}>
-                ${said}
-              </td>
-            </tr>`;
-          })}
-        </tbody>
-      </table>
-    </section>`;
+    return html`<table>
+      <thead>
+        <tr>
+          <th scope="col">${t.t("weekly.energy.what")}</th>
+          <th scope="col">${t.t("weekly.energy.week")}</th>
+          <th scope="col">${t.t("weekly.energy.before")}</th>
+          <th scope="col">${t.t("weekly.energy.change")}</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows.map(([name, pair, room]) => {
+          const change = changeOf(pair);
+          const said =
+            change === undefined
+              ? t.t("weekly.energy.unknown")
+              : change === 0
+                ? t.t("weekly.energy.same")
+                : `${change > 0 ? "+" : "−"}${new Intl.NumberFormat(language).format(Math.abs(change))} %`;
+          return html`<tr data-room=${room ?? nothing}>
+            <th scope="row">${name}</th>
+            <td>${kwh(pair.week)}</td>
+            <td>${kwh(pair.before)}</td>
+            <td class=${change === undefined || change === 0 ? "" : change > 0 ? "up" : "down"}>
+              ${said}
+            </td>
+          </tr>`;
+        })}
+      </tbody>
+    </table>`;
   }
 
   private renderPeaks(report: Report): TemplateResult | typeof nothing {

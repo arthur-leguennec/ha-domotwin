@@ -6,6 +6,7 @@ import type { LocatingMeasure } from "../live/measured";
 import type { PeopleSettings, PersonSettings } from "../live/people";
 import { readSchedules, type Schedule } from "../live/schedules";
 import type { ShowRequest } from "../live/show";
+import { readClosed, type ClosedEnergy } from "../live/closed-energy";
 import type { Garden } from "../live/lawn";
 import type { Upkeep, UpkeepCard } from "../live/upkeep";
 import { readWifi, type Wifi, type WifiChange } from "../live/wifi";
@@ -580,6 +581,23 @@ export class DomoTwinClient {
    * none): all of it for an administrator, what draws its code on a screen an administrator chose.
    * Its password only when asked for (`password`: the dialog open).
    */
+  /**
+   * What a workplace used while closed (D-088): the last seven days (`week`) and this month
+   * (`month`); nothing for a home, or without opening hours or Home Assistant's energy settings.
+   */
+  async getClosedEnergy(): Promise<{ week?: ClosedEnergy; month?: ClosedEnergy }> {
+    const raw: unknown = await this.connection.sendMessagePromise({
+      type: "domotwin/workplace/energy",
+    });
+    const value = typeof raw === "object" && raw !== null ? (raw as Record<string, unknown>) : {};
+    const found: { week?: ClosedEnergy; month?: ClosedEnergy } = {};
+    for (const key of ["week", "month"] as const) {
+      const read = readClosed(value[key]);
+      if (read) found[key] = read;
+    }
+    return found;
+  }
+
   async getWifi(screen = "", password = false): Promise<Wifi> {
     return readWifi(
       await this.connection.sendMessagePromise({ type: "domotwin/wifi/get", screen, password }),

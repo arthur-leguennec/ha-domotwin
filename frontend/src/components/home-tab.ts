@@ -16,9 +16,11 @@ import {
 import { LitElement, css, html, nothing, type PropertyValues, type TemplateResult } from "lit";
 
 import { card, pressCard, tileCard, type CardConfig } from "../ha/cards";
+import { DomoTwinClient } from "../ha/client";
 import { nowOf, type HomeAssistant } from "../ha/types";
 import type { Translator } from "../i18n";
 import { failureText } from "../live/actions";
+import { formatKwh, type ClosedEnergy } from "../live/closed-energy";
 import { areaOf, entityName } from "../live/bindings";
 import { isPressed, type Choices, type HomeCard } from "../live/choices";
 import { glanceOf, type Glance, type GlanceSources } from "../live/glance";
@@ -69,6 +71,8 @@ type ShortcutDialog = { mode: "add" } | { mode: "edit"; shortcut: Shortcut };
 
 /** How long a shortcut shows it was pressed (ms). */
 const RAN_MS = 1200;
+/** How long what a workplace used while closed is shown before it is asked for again (ms). */
+const CLOSED_ENERGY_MS = 10 * 60_000;
 
 /** The lights the viewer may switch (their rights, D-071). */
 function usableLights(hass: HomeAssistant | undefined, lights: string[]): string[] {
@@ -93,6 +97,7 @@ export class DomoTwinHome extends LitElement {
     dialogReady: { state: true },
     said: { state: true },
     ran: { state: true },
+    closedEnergy: { state: true },
   };
 
   hass?: HomeAssistant;
@@ -343,6 +348,10 @@ export class DomoTwinHome extends LitElement {
 
   /** When the peak's phase changes next (D-063): the glance is worked out again then. */
   private peakTimer: ReturnType<typeof setTimeout> | undefined;
+  /** What a workplace used while closed (D-088), read when its hours' details open. */
+  protected closedEnergy?: { week?: ClosedEnergy; month?: ClosedEnergy };
+  /** When it was read last (ms), and from which Home Assistant: read again after a while. */
+  private closedRead?: { at: number; from: unknown };
 
   override disconnectedCallback(): void {
     super.disconnectedCallback();
@@ -377,6 +386,27 @@ export class DomoTwinHome extends LitElement {
 
   private toggleDetail(detail: Detail): void {
     this.open = this.open === detail ? undefined : detail;
+    if (this.open === "hours") void this.readClosedEnergy();
+  }
+
+  /**
+   * What the place used while closed (D-088), asked of the integration as the hours' details open,
+   * at most every ten minutes: it is worked out from the recorder's hourly statistics. Nothing is
+   * said when it cannot be (no energy settings, an integration older than it).
+   */
+  private async readClosedEnergy(): Promise<void> {
+    const hass = this.hass;
+    if (!hass) return;
+    const read = this.closedRead;
+    const from = hass.connection;
+    if (read && read.from === from && nowOf(hass) - read.at < CLOSED_ENERGY_MS) return;
+    this.closedRead = { at: nowOf(hass), from };
+    try {
+      const found = await DomoTwinClient.for(hass).getClosedEnergy();
+      if (this.hass?.connection === from) this.closedEnergy = found;
+    } catch {
+      if (this.hass?.connection === from) this.closedEnergy = undefined;
+    }
   }
 
   private readonly allOff = async (): Promise<void> => {
@@ -566,6 +596,27 @@ export class DomoTwinHome extends LitElement {
     const schedule = this.sources?.workplace?.hours;
     if (!hass || !t || !glance.hours) return nothing;
     const left = glance.leftOn ?? [];
+    const language = t.language;
+    const used = (
+      key: "closed_week" | "closed_month",
+      value?: ClosedEnergy,
+    ): string | undefined => {
+      if (!value) return undefined;
+      const kwh = formatKwh(value.kwh, language);
+      return t.t(`home.${key}`, {
+        kwh:
+          value.share === undefined
+            ? kwh
+            : t.t("home.closed_share", {
+                kwh,
+                share: new Intl.NumberFormat(language).format(value.share),
+              }),
+      });
+    };
+    const energy = [
+      used("closed_week", this.closedEnergy?.week),
+      used("closed_month", this.closedEnergy?.month),
+    ].filter((line): line is string => line !== undefined);
     return html`<div class="detail" data-testid="home-hours-detail">
       ${
         left.length > 0
@@ -573,6 +624,11 @@ export class DomoTwinHome extends LitElement {
           : html`<span class="muted"
               >${t.t("home.hours_from", { name: schedule ? entityName(hass, schedule) : "" })}</span
             >`
+      }
+      ${
+        energy.length > 0
+          ? html`<span class="muted" data-testid="home-hours-energy">${energy.join(" · ")}</span>`
+          : nothing
       }
     </div>`;
   }

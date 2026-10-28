@@ -1174,6 +1174,9 @@ export const chunks: Chunks = {
         other: "Chiuso: {count} rimasti accesi",
       },
       hours_from: "Orario da {name}.",
+      closed_week: "Fuori orario, ultimi 7 giorni: {kwh}",
+      closed_month: "Fuori orario, questo mese: {kwh}",
+      closed_share: "{kwh} ({share} % del totale)",
       glance: "La casa a colpo d'occhio",
       people: {
         one: "{count} in casa",
@@ -1476,6 +1479,12 @@ export const chunks: Chunks = {
         solar: "Dal sole",
         unknown: "—",
         same: "uguale",
+      },
+      closed: {
+        title: "Fuori orario",
+        place: "Il locale",
+        share:
+          "Il {share} % di ciò che il locale ha consumato questa settimana è stato consumato fuori orario.",
       },
       peaks: {
         title: "Picchi di Hydro-Québec",

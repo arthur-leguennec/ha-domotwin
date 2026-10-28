@@ -97,6 +97,10 @@ function written(): Record<string, unknown> {
       },
       { start: 3 },
     ],
+    closed: {
+      week: { kwh: 31.5, share: 38, rooms: { kitchen: 4.2, hall: "much" } },
+      before: { share: 35 },
+    },
     summary: { by: "ai_task.helper", text: "All is well." },
   };
 }
@@ -124,6 +128,8 @@ describe("reading the report", () => {
         rooms: { kitchen: 0.4 },
       },
     ]);
+    // A workplace's energy while closed (D-088): a week without its kWh is left out.
+    expect(read.closed).toEqual({ week: { kwh: 31.5, share: 38, rooms: { kitchen: 4.2 } } });
     expect(read.summary).toEqual({ by: "ai_task.helper", text: "All is well." });
     expect(countOf(read, "batteries")).toBe(5);
     expect(totalOf(read)).toBe(5 + 1 + 0 + 2);

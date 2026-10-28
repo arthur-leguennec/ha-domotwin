@@ -46,6 +46,9 @@ And for the week:
   where the settings name none, from the energy meters of the room's area.
 - **Hydro-Québec's peaks**, where hydroqc or HydroPeak reads them ([D-063](DECISIONS.md)): each
   peak of the week, and what the home drew from the grid and each room during it.
+- **While closed**, for a [workplace](workplace.md) with opening hours ([D-088](DECISIONS.md)):
+  what the place used while it was closed, this week and the week before, the share of the
+  week's it was, and each room's.
 
 An item is **new** when the report before did not have it (an update waiting stays the same item,
 whichever version it waits for); what the report before had and this one has not is listed as
