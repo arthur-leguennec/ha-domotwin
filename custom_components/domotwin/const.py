@@ -6,7 +6,7 @@ import re
 from typing import Final
 
 DOMAIN: Final = "domotwin"
-VERSION: Final = "0.6.0"  # x-release-please-version
+VERSION: Final = "0.7.0"  # x-release-please-version
 
 # Storage (.storage/domotwin.data), see docs/ARCHITECTURE.md.
 STORAGE_KEY: Final = f"{DOMAIN}.data"
