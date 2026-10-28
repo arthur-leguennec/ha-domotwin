@@ -531,15 +531,16 @@ export function sameShortcut(a: Omit<Shortcut, "id">, b: Omit<Shortcut, "id">): 
 
 /**
  * The shortcuts DomoTwin suggests for the home, those already added left out: the lamps off in
- * the whole home and on each floor, a good night and a leaving home, the shutters, the locks, the
- * alarm, the heating, a car's battery, the music, the robots, the scenes and scripts. Each on what
- * the viewer may use and see; named in the viewer's language.
+ * the whole home and on each floor, a good night and a leaving home (in a workplace, closing up,
+ * D-086), the shutters, the locks, the alarm, the heating, a car's battery, the music, the robots,
+ * the scenes and scripts. Each on what the viewer may use and see; named in the viewer's language.
  */
 export function suggestions(
   hass: HomeAssistant,
   t: Translator,
   existing: readonly Shortcut[] = [],
   unseen: Unseen = NOTHING_UNSEEN,
+  workplace = false,
 ): Suggestion[] {
   const found: Suggestion[] = [];
   const count = (step: Step): number => targets(hass, step, unseen).length;
@@ -596,7 +597,26 @@ export function suggestions(
   const away = has("alarm", "arm_away");
   const eco = has("climate", "eco");
   const mediaOff = has("media", "off");
-  if (lamps > 0) {
+  if (lamps > 0 && workplace) {
+    // A workplace closes (D-086): everything off, the shutters down, locked, the alarm on.
+    const closeSteps = [lightsOff, mediaOff, close, lock, away, eco].filter(
+      (s): s is Step => s !== undefined,
+    );
+    if (closeSteps.length > 1) {
+      add(
+        "close_up",
+        "routines",
+        {
+          name: t.t("shortcuts.suggest.close_up"),
+          icon: "lock",
+          steps: closeSteps,
+          quiet: true,
+          confirm: true,
+        },
+        closeSteps.reduce((sum, step) => sum + count(step), 0),
+      );
+    }
+  } else if (lamps > 0) {
     const nightSteps = [lightsOff, close, lock, night].filter((s): s is Step => s !== undefined);
     if (nightSteps.length > 1) {
       add(

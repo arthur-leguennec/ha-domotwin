@@ -1154,6 +1154,18 @@ export const chunks: Chunks = {
   },
   practical: {
     home: {
+      here: { one: "{count} aanwezig", other: "{count} aanwezig" },
+      nobody_here: "Niemand aanwezig",
+      counted: "Een werkplek: mensen worden hier geteld, nooit bij naam genoemd.",
+      open: "Open",
+      open_until: "Open tot {time}",
+      closed: "Gesloten",
+      closed_until: "Gesloten tot {time}",
+      closed_left_on: {
+        one: "Gesloten: {count} staat nog aan",
+        other: "Gesloten: {count} staan nog aan",
+      },
+      hours_from: "Openingstijden uit {name}.",
       glance: "Het huis in één oogopslag",
       people: {
         one: "{count} thuis",
@@ -1739,6 +1751,7 @@ export const chunks: Chunks = {
         media_none: "Stil",
       },
       suggest: {
+        close_up: "Afsluiten",
         lights_off: "Alle lampen uit",
         lights_off_floor: "Lampen uit: {floor}",
         good_night: "Welterusten",
@@ -1898,6 +1911,8 @@ export const chunks: Chunks = {
         robots: "Robots",
       },
       people: {
+        here: { one: "{count} aanwezig", other: "{count} aanwezig" },
+        nobody_here: "Niemand aanwezig",
         home: {
           one: "{count} thuis",
           other: "{count} thuis",

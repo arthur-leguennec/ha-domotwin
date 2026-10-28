@@ -117,6 +117,9 @@ export interface HarnessOptions {
   peakPhase?: "upcoming" | "preheat" | "peak" | "none";
   peopleShown?: "everyone" | "admins";
   peopleLook?: "figure" | "pin";
+  /** A workplace (D-086); its opening hours from a schedule, open or closed now. */
+  workplace?: boolean;
+  hours?: "on" | "off";
   /** Bluetooth locating (D-035): fictional receivers and devices, or no Bluetooth at all. */
   bluetooth?: true | "none";
   /** The radio coverage's fictional radios (D-066): receivers placed, Wi-Fi signals, an access
@@ -236,6 +239,8 @@ export async function openHarness(page: Page, options: HarnessOptions = {}): Pro
   if (options.peakPhase) params.set("peakphase", options.peakPhase);
   if (options.peopleShown) params.set("peopleshown", options.peopleShown);
   if (options.peopleLook) params.set("peoplelook", options.peopleLook);
+  if (options.workplace) params.set("workplace", "1");
+  if (options.hours) params.set("hours", options.hours);
   if (options.bluetooth) params.set("bluetooth", options.bluetooth === true ? "1" : "none");
   if (options.radios) params.set("radios", "1");
   if (options.radars) params.set("radars", "1");

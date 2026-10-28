@@ -912,6 +912,46 @@ async def test_a_thing_left_behind_is_told_and_found_by_voice(
         ),
     )
     assert answer["text"] == "J'entends Keys dans la pièce Hall."
+    # In a workplace (D-086), a thing is still found; nobody's room is told.
+    hass.config.language = "en"
+    await client.send_json_auto_id(
+        {"type": "domotwin/settings/save", "settings": {"north": 0, "workplace": {}}}
+    )
+    assert (await client.receive_json())["success"]
+    answer = cast(
+        "dict[str, Any]",
+        await hass.services.async_call(
+            "domotwin", "where", {"name": "my keys"}, blocking=True, return_response=True
+        ),
+    )
+    assert answer["text"] == "I hear Keys in the Hall."
+    answer = cast(
+        "dict[str, Any]",
+        await hass.services.async_call(
+            "domotwin", "where", {"name": "Alex"}, blocking=True, return_response=True
+        ),
+    )
+    assert answer["people"] == []
+    assert answer["text"].startswith("This is a workplace")
+    # What it does not know, it says so.
+    answer = cast(
+        "dict[str, Any]",
+        await hass.services.async_call(
+            "domotwin", "where", {"name": "the projector"}, blocking=True, return_response=True
+        ),
+    )
+    assert answer["text"] == "I do not know who the projector is."
+    # A thing named after someone is not found either: it would tell where they likely are.
+    badge = {"name": "Alex badge", "kind": "thing", "match": {"address": TAG}}
+    assert (await _follow(client, {"badge": badge}))["success"]
+    await hass.async_block_till_done()
+    answer = cast(
+        "dict[str, Any]",
+        await hass.services.async_call(
+            "domotwin", "where", {"name": "the badge"}, blocking=True, return_response=True
+        ),
+    )
+    assert answer["text"].startswith("This is a workplace")
 
 
 async def test_a_person_is_meant_before_their_phone(
@@ -940,6 +980,18 @@ async def test_a_person_is_meant_before_their_phone(
         ),
     )
     assert answer["text"] == "I cannot hear Alex's phone now."
+    # In a workplace (D-086), a phone is someone's: not found, counted.
+    await client.send_json_auto_id(
+        {"type": "domotwin/settings/save", "settings": {"north": 0, "workplace": {}}}
+    )
+    assert (await client.receive_json())["success"]
+    answer = cast(
+        "dict[str, Any]",
+        await hass.services.async_call(
+            "domotwin", "where", {"name": "Alex's phone"}, blocking=True, return_response=True
+        ),
+    )
+    assert answer["text"].startswith("This is a workplace")
 
 
 async def test_diagnostics_count_the_locating_only(

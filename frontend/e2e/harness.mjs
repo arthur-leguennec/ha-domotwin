@@ -86,6 +86,8 @@
 //   weekly=summary (this week's summed up by a fictional AI task, ai_task.helper), weekly=none
 //   (no report yet); report=<id> asks the panel for a report, as the notification's link does
 //   (window.__refuseReport = "<code>" makes the integration refuse to write one)
+//   workplace=1 (D-086: the home a workplace, its people counted; with hours=on|off, opening hours
+//   from a fictional `schedule.opening_hours`, open until 18:00 or closed until 08:30)
 import { applyService, demoHome } from "./demo-home.mjs";
 
 const params = new URLSearchParams(location.search);
@@ -297,6 +299,10 @@ const store = {
     ...(params.get("north") ? { north: Number(params.get("north")) } : {}),
     ...(params.get("hometheme") ? { theme: params.get("hometheme") } : {}),
     ...(params.get("homeweather") ? { weather: params.get("homeweather") } : {}),
+    // A workplace (D-086), its hours a schedule's when a test says.
+    ...(params.get("workplace") === "1"
+      ? { workplace: params.get("hours") ? { hours: "schedule.opening_hours" } : {} }
+      : {}),
     ...(params.get("energy") === "1"
       ? {
           energy: {
@@ -1511,9 +1517,16 @@ const connection = {
         return structuredClone({ settings: store.settings, revision: store.revision });
       case "domotwin/settings/save": {
         if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };
+        const workplace = Boolean(store.settings.workplace);
         store.settings = message.settings;
         store.revision += 1;
         for (const listener of listeners) listener({ kind: "settings", revision: store.revision });
+        // A workplace now, or no longer (D-086): the people are read again.
+        if (Boolean(store.settings.workplace) !== workplace) {
+          for (const listener of listeners) {
+            listener({ kind: "people", revision: store.people.revision });
+          }
+        }
         return { revision: store.revision };
       }
       case "domotwin/plan/save": {
@@ -1602,6 +1615,8 @@ const connection = {
         if (bluetoothParam === "1") {
           people.people["person.alex"].located = ["sensor.domotwin_alex_phone_bluetooth"];
         }
+        // A workplace (D-086): its people counted, named nowhere.
+        if (store.settings.workplace) people.counted = true;
         if (hass.user.is_admin && message.candidates) {
           people.candidates = Object.keys(PEOPLE).map((id) => ({
             entity: `sensor.${id.slice(7)}_watch_area`,
@@ -2480,6 +2495,18 @@ if (peopleParam === "1") {
       attributes: { friendly_name: `${person.name.split(" ")[0]}'s phone area` },
     };
   }
+}
+if (params.get("hours")) {
+  // A workplace's opening hours (D-086): open for three hours more, or closed for ten.
+  const open = params.get("hours") === "on";
+  states["schedule.opening_hours"] = {
+    entity_id: "schedule.opening_hours",
+    state: open ? "on" : "off",
+    attributes: {
+      friendly_name: "Opening hours",
+      next_event: new Date(Date.now() + (open ? 3 : 10) * 3_600_000).toISOString(),
+    },
+  };
 }
 if (radarsParam) {
   // Someone the bookcase's radar sees in the living room, whom no device names (D-080).

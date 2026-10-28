@@ -41,7 +41,7 @@ from .const import (
 )
 from .data import DATA_KEY, LOCATOR_KEY, PEOPLE_KEY, SCHEDULER_KEY
 from .language import spoken
-from .people import Place, likeness, thing_likeness
+from .people import Place, likeness, norm, thing_likeness
 from .privacy import private_rooms
 from .rights import hidden_rooms
 from .schedules import ScheduleError, describe, moment, times
@@ -130,6 +130,10 @@ SENTENCES = {
         "private_room": "{name} is in a private room.",
         "also_private": "{name} in a private room",
         "heard_private": "I hear {name} in a private room.",
+        "counted": (
+            "This is a workplace: I count people, I do not say where anyone is. "
+            "People here: {count}."
+        ),
     },
     "fr": {
         "room": "{name} est dans la pièce {room}.",
@@ -146,6 +150,10 @@ SENTENCES = {
         "private_room": "{name} est dans une pièce privée.",
         "also_private": "{name} dans une pièce privée",
         "heard_private": "J'entends {name} dans une pièce privée.",
+        "counted": (
+            "C'est un lieu de travail : je compte les personnes, je ne dis pas où est chacun. "
+            "Présents : {count}."
+        ),
     },
     "de": {
         "room": "{name} ist im Raum {room}.",
@@ -162,6 +170,10 @@ SENTENCES = {
         "private_room": "{name} ist in einem privaten Raum.",
         "also_private": "{name} in einem privaten Raum",
         "heard_private": "Das Signal von {name} kommt aus einem privaten Raum.",
+        "counted": (
+            "Dies ist ein Arbeitsplatz: Ich zähle Personen, sage aber nicht, wo jemand ist. "
+            "Anwesend: {count}."
+        ),
     },
     "es": {
         "room": "{name} está en la habitación {room}.",
@@ -178,6 +190,10 @@ SENTENCES = {
         "private_room": "{name} está en una habitación privada.",
         "also_private": "{name} en una habitación privada",
         "heard_private": "La señal de {name} viene de una habitación privada.",
+        "counted": (
+            "Esto es un lugar de trabajo: cuento a las personas, no digo dónde está nadie. "
+            "Presentes: {count}."
+        ),
     },
     "it": {
         "room": "{name} è nella stanza {room}.",
@@ -194,6 +210,10 @@ SENTENCES = {
         "private_room": "{name} è in una stanza privata.",
         "also_private": "{name} in una stanza privata",
         "heard_private": "Il segnale di {name} arriva da una stanza privata.",
+        "counted": (
+            "Questo è un luogo di lavoro: conto le persone, non dico dove si trova nessuno. "
+            "Presenti: {count}."
+        ),
     },
     "nl": {
         "room": "{name} is in de ruimte {room}.",
@@ -210,6 +230,9 @@ SENTENCES = {
         "private_room": "{name} is in een privéruimte.",
         "also_private": "{name} in een privéruimte",
         "heard_private": "Het signaal van {name} komt uit een privéruimte.",
+        "counted": (
+            "Dit is een werkplek: ik tel mensen, ik zeg niet waar iemand is. Aanwezig: {count}."
+        ),
     },
     "pt": {
         "room": "{name} está na divisão {room}.",
@@ -226,6 +249,10 @@ SENTENCES = {
         "private_room": "{name} está numa divisão privada.",
         "also_private": "{name} numa divisão privada",
         "heard_private": "O sinal de {name} vem de uma divisão privada.",
+        "counted": (
+            "Isto é um local de trabalho: conto as pessoas, não digo onde está ninguém. "
+            "Presentes: {count}."
+        ),
     },
     "pt-BR": {
         "room": "{name} está no cômodo {room}.",
@@ -242,6 +269,10 @@ SENTENCES = {
         "private_room": "{name} está em um cômodo privado.",
         "also_private": "{name} em um cômodo privado",
         "heard_private": "O sinal de {name} vem de um cômodo privado.",
+        "counted": (
+            "Este é um local de trabalho: eu conto as pessoas, não digo onde ninguém está. "
+            "Presentes: {count}."
+        ),
     },
     "ar": {
         "room": "{name} في غرفة {room}.",
@@ -258,6 +289,7 @@ SENTENCES = {
         "private_room": "{name} في غرفة خاصة.",
         "also_private": "{name} في غرفة خاصة",
         "heard_private": "تصلني إشارة {name} من غرفة خاصة.",
+        "counted": "هذا مكان عمل: أعدّ الأشخاص ولا أقول أين يوجد أحد. الحاضرون: {count}.",
     },
     "zh-Hans": {
         "room": "{name}在{room}。",
@@ -274,6 +306,7 @@ SENTENCES = {
         "private_room": "{name}在一个私密房间里。",
         "also_private": "{name}在一个私密房间里",
         "heard_private": "{name}的信号来自一个私密房间。",
+        "counted": "这里是工作场所\uff0c我只统计人数\uff0c不说任何人在哪里。现在有{count}人在场。",
     },
     "ja": {
         "room": "{name}は{room}にいます。",
@@ -290,6 +323,10 @@ SENTENCES = {
         "private_room": "{name}はプライベートな部屋にいます。",
         "also_private": "{name}はプライベートな部屋にいます",
         "heard_private": "{name}の信号はプライベートな部屋から届いています。",
+        "counted": (
+            "ここは職場です。人数は数えますが、誰がどこにいるかは言いません。"
+            "今いるのは{count}人です。"
+        ),
     },
     "ko": {
         "room": "{name} 지금 {room}에 있어요.",
@@ -306,6 +343,10 @@ SENTENCES = {
         "private_room": "{name} 지금 비공개 공간에 있어요.",
         "also_private": "{name} 비공개 공간에 있어요",
         "heard_private": "{name}의 신호가 비공개 공간에서 잡혀요.",
+        "counted": (
+            "여기는 직장이에요. 인원은 세지만 누가 어디 있는지는 말하지 않아요. "
+            "지금 {count}명 있어요."
+        ),
     },
 }
 
@@ -353,12 +394,136 @@ async def _limits(hass: HomeAssistant, call: ServiceCall) -> tuple[set[str], set
 
 
 async def _async_where(hass: HomeAssistant, call: ServiceCall) -> ServiceResponse:
-    """Where a person is (`name`), or everyone at home, with a sentence to say."""
+    """Where a person is (`name`), or everyone at home, with a sentence to say.
+
+    In a workplace (D-086), how many are here: where anyone is, it tells no one; a thing followed
+    by Bluetooth (keys, a bag; not a phone nor a watch) is still found.
+    """
     said = SENTENCES[spoken(hass.config.language)]
+    limits = await _limits(hass, call)
+    if _workplace(hass):
+        return _where_at_work(hass, call, said, limits)
+    return _where_named(hass, call, said, limits)
+
+
+def _workplace(hass: HomeAssistant) -> bool:
+    """Whether the home is a workplace (D-086): its people counted, never named."""
+    data = hass.data.get(DATA_KEY)
+    return data is not None and data.workplace
+
+
+def _scored_people(hass: HomeAssistant, asked: str, people: list[str]) -> list[tuple[int, str]]:
+    """How alike a name is to each person's (their name in Home Assistant, or their entity's)."""
+    return [
+        (score, person)
+        for person in people
+        if (score := likeness(asked, [name_of(hass, person), person.split(".", 1)[1]])) is not None
+    ]
+
+
+def _scored_things(
+    hass: HomeAssistant, asked: str, kinds: tuple[str, ...] | None = None
+) -> list[tuple[int, str]]:
+    """How alike a name is to each device followed by Bluetooth (of these kinds), as `@device`."""
+    locator = hass.data.get(LOCATOR_KEY)
+    devices = locator.settings["devices"] if locator is not None else {}
+    return [
+        (score, f"@{device}")
+        for device, settings in devices.items()
+        if (kinds is None or settings["kind"] in kinds)
+        and (score := thing_likeness(asked, settings["name"])) is not None
+    ]
+
+
+def _best(scored: list[tuple[int, str]]) -> list[str]:
+    """Those the likeliest, a name alike to them all."""
+    best = min((score for score, _ in scored), default=None)
+    return [found for score, found in scored if score == best]
+
+
+def _where_at_work(
+    hass: HomeAssistant,
+    call: ServiceCall,
+    said: dict[str, str],
+    limits: tuple[set[str], set[str]],
+) -> ServiceResponse:
+    """In a workplace (D-086): how many are here; a thing by its name; where a person is, never.
+
+    A name like anyone's, placed or not, or like their phone's or watch's, is answered with how many
+    are here: a thing named after them ("Alex's keys") would tell where they likely are.
+    """
+    asked = call.data.get("name", "").strip()
+    persons = [state.entity_id for state in hass.states.async_all("person")]
+    if (
+        not asked
+        or _scored_people(hass, asked, persons)
+        or _scored_things(hass, asked, ("phone", "watch"))
+    ):
+        return _where_counted(hass, said, limits)
+    found = _best(_scored_things(hass, asked, ("thing",)))
+    if len(found) != 1:
+        return {"people": [], "text": said["unknown"].format(name=asked)}
+    device = found[0][1:]
+    # Named after someone ("Alex's keys"): where it is would tell where they likely are.
+    if _named_after(hass, hass.data[LOCATOR_KEY].settings["devices"][device]["name"], persons):
+        return _where_counted(hass, said, limits)
+    return _where_thing(hass, call, said, limits, device)
+
+
+def _named_after(hass: HomeAssistant, name: str, people: list[str]) -> bool:
+    """Whether a thing's name holds a person's first name ("Alex's keys", "badge Alex")."""
+    words = set(norm(name).split(" "))
+    for person in people:
+        for full in (name_of(hass, person), person.split(".", 1)[1]):
+            first = norm(full).split(" ")[0]
+            if first and first in words:
+                return True
+    return False
+
+
+def _where_counted(
+    hass: HomeAssistant, said: dict[str, str], limits: tuple[set[str], set[str]]
+) -> ServiceResponse:
+    """How many are here, as the Home tab counts them (`glance.ts`).
+
+    The people placed at home and those the radars see without a name; with nobody placed, those
+    the radars see, or without radars Home Assistant's people at home. Those not to be told about
+    are not counted.
+    """
+    untold, closed = limits
+    people = hass.data.get(PEOPLE_KEY)
+    locator = hass.data.get(LOCATOR_KEY)
+    seen = (
+        sum(1 for t in locator.radar.seen.values() if t.room not in closed)
+        if locator is not None
+        else 0
+    )
+    placed = list(people.config["people"]) if people is not None else []
+    if people is not None and placed:
+        places = people.places
+        here = seen + sum(
+            1
+            for p in placed
+            if p not in untold and (place := places.get(p)) is not None and place.home
+        )
+    elif locator is not None and locator.radar.radars:
+        here = seen
+    else:
+        here = sum(1 for state in hass.states.async_all("person") if state.state == "home")
+    return {"people": [], "text": said["counted"].format(count=here)}
+
+
+def _where_named(
+    hass: HomeAssistant,
+    call: ServiceCall,
+    said: dict[str, str],
+    limits: tuple[set[str], set[str]],
+) -> ServiceResponse:
+    """Where a person is (`name`), or everyone at home, by name."""
+    untold, closed = limits
     people = hass.data.get(PEOPLE_KEY)
     placed = list(people.config["people"]) if people is not None else []
     places = people.places if people is not None else {}
-    untold, closed = await _limits(hass, call)
     asked = call.data.get("name", "").strip()
     if not asked:
         # Everyone at home, and where (those not told about left out).
@@ -380,20 +545,8 @@ async def _async_where(hass: HomeAssistant, call: ServiceCall) -> ServiceRespons
             else:
                 clauses.append(_place_text(said, name, place, closed).removesuffix(said["stop"]))
         return {"people": entries, "text": said["and"].join(clauses) + said["stop"]}
-    scored = [
-        (score, person)
-        for person in placed
-        if (score := likeness(asked, [name_of(hass, person), person.split(".", 1)[1]])) is not None
-    ]
     locator = hass.data.get(LOCATOR_KEY)
-    devices = locator.settings["devices"] if locator is not None else {}
-    scored += [
-        (score, f"@{device}")
-        for device, settings in devices.items()
-        if (score := thing_likeness(asked, settings["name"])) is not None
-    ]
-    best = min((score for score, _ in scored), default=None)
-    found = [person for score, person in scored if score == best]
+    found = _best(_scored_people(hass, asked, placed) + _scored_things(hass, asked))
     # A person and a thing as alike ("Alex" and "Alex's phone"): the person is meant.
     people_found = [person for person in found if not person.startswith("@")]
     if people_found:
@@ -479,7 +632,8 @@ def async_register_services(hass: HomeAssistant) -> None:
             # A person is shown in their room; nowhere when not placed, or not to be shown.
             people = hass.data.get(PEOPLE_KEY)
             untold, closed = await _limits(hass, call)
-            if people is None or person in untold:
+            # A workplace (D-086) shows nobody's room.
+            if people is None or person in untold or _workplace(hass):
                 return
             place = people.places.get(person)
             # Not in a private room either: showing it would tell where they are (D-039).

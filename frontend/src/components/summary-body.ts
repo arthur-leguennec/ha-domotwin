@@ -19,7 +19,7 @@ import "../i18n/summary";
 import { navigate } from "../live/actions";
 import { networkAvailable } from "../live/layers";
 import { summaryPath, type SummaryKind } from "../live/overview";
-import { peopleShown, type PeopleSettings } from "../live/people";
+import { countedHere, peopleShown, type PeopleSettings } from "../live/people";
 import { automationsSummary, peopleSummary, robotsSummary, upkeepSummary } from "../live/summaries";
 import { define } from "./define";
 import { icon } from "./icon";
@@ -281,6 +281,11 @@ export class DomoTwinSummaryBody extends LitElement {
   private said(kind: SummaryKind, hass: HomeAssistant, t: Translator): string {
     switch (kind) {
       case "people": {
+        // A workplace (D-086): how many are here, as the Home tab and the voice count them.
+        if (this.people?.counted === true) {
+          const here = countedHere(this.people, hass);
+          return here > 0 ? t.tp("summary.people.here", here) : t.t("summary.people.nobody_here");
+        }
         const shown = this.people
           ? new Set(peopleShown(this.people, hass).map((person) => person.id))
           : undefined;

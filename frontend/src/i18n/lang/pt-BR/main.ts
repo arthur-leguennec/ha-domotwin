@@ -223,6 +223,7 @@ export const main: Dictionary = {
     invalid_link: "O manual é um caminho que começa com / ou um endereço web (http, https).",
   },
   people: {
+    counted: { one: "{count} pessoa", other: "{count} pessoas" },
     here: "Aqui agora",
     in_room: "Em {room}",
     in_private_room: "Em um cômodo privado",
@@ -413,6 +414,14 @@ export const main: Dictionary = {
     refused: "Esta ação não foi definida: {reason}",
   },
   settings: {
+    workplace: "Um local de trabalho",
+    workplace_hint:
+      "Um escritório ou uma loja: as pessoas são contadas, nunca nomeadas, nas telas do DomoTwin e no que ele diz. A aba Início diz se está aberto e, depois de fechar, o que ficou ligado.",
+    workplace_on: "É um local de trabalho, um escritório ou uma loja",
+    workplace_hours: "Horário de funcionamento",
+    workplace_no_hours: "Nenhum",
+    workplace_hours_hint:
+      "Um agendamento do Home Assistant, criado em Configurações → Dispositivos e serviços → Ajudantes: ligado enquanto está aberto.",
     title: "Configurações",
     north: "Norte na planta",
     north_hint:

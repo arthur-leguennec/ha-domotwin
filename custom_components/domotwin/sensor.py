@@ -531,6 +531,11 @@ class RoomSensors:
         """The rooms closed now to everyone."""
         return self._closed.rooms
 
+    @property
+    def workplace(self) -> bool:
+        """A workplace (D-086): its rooms count their people, naming none."""
+        return self._data.workplace
+
     def start(self) -> None:
         """Add the rooms' sensors; follow the rooms, areas, people, cards and days."""
         entry = self._entry
@@ -739,7 +744,10 @@ class RoomSensor(SensorEntity):
 
 
 class RoomPeopleSensor(RoomSensor):
-    """How many people are at home in a room, and who; unknown while the room is private."""
+    """How many people are in a room, and who (not in a workplace, D-086).
+
+    Unknown while the room is private.
+    """
 
     _attr_translation_key = "room_people"
     _what = "people"
@@ -759,7 +767,9 @@ class RoomPeopleSensor(RoomSensor):
                 if person not in hidden
             ]
             self._attr_native_value = len(people)
-            attributes["people"] = people
+            # A workplace counts its people, naming none (D-086).
+            if not self._rooms.workplace:
+                attributes["people"] = people
         self._attr_extra_state_attributes = attributes
 
 

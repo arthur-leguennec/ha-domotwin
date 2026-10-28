@@ -1149,6 +1149,18 @@ export const chunks: Chunks = {
   },
   practical: {
     home: {
+      here: { one: "{count}명 있음", other: "{count}명 있음" },
+      nobody_here: "아무도 없음",
+      counted: "직장: 여기서는 인원만 세고 이름은 밝히지 않아요.",
+      open: "영업 중",
+      open_until: "{time}까지 영업",
+      closed: "영업 종료",
+      closed_until: "{time}까지 휴무",
+      closed_left_on: {
+        one: "영업 종료: {count}개 켜져 있음",
+        other: "영업 종료: {count}개 켜져 있음",
+      },
+      hours_from: "영업시간: {name}",
       glance: "한눈에 보는 집",
       people: {
         one: "집에 {count}명",
@@ -1701,6 +1713,7 @@ export const chunks: Chunks = {
         media_none: "조용함",
       },
       suggest: {
+        close_up: "마감하기",
         lights_off: "모든 조명 끄기",
         lights_off_floor: "조명 끄기: {floor}",
         good_night: "잘 자요",
@@ -1859,6 +1872,8 @@ export const chunks: Chunks = {
         robots: "로봇",
       },
       people: {
+        here: { one: "{count}명 있음", other: "{count}명 있음" },
+        nobody_here: "아무도 없음",
         home: {
           one: "집에 {count}명",
           other: "집에 {count}명",

@@ -252,6 +252,11 @@ class DomoTwinData:
         return settings
 
     @property
+    def workplace(self) -> bool:
+        """Whether the home is a workplace, an office or a shop (D-086)."""
+        return "workplace" in self._data["settings"]
+
+    @property
     def upkeep(self) -> dict[str, Any]:
         """The upkeep cards (D-033): `lead_days`, `pieces` (a card by piece id)."""
         upkeep: dict[str, Any] = self._data["upkeep"]

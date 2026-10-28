@@ -29,6 +29,8 @@ export interface PeopleSettings {
   /** The sensor of the people the presence radars see (D-080); null when they are not shown to
    * the user viewing, undefined from an integration before them. */
   seen?: string | null;
+  /** A workplace (D-086): its people are counted where they are, named nowhere. */
+  counted?: boolean;
 }
 
 /** A person as the view shows them. */
@@ -116,13 +118,18 @@ export function homePicture(url: unknown): string | undefined {
 
 /**
  * The people the view shows: those placed and not hidden, at home; nobody for a user who is not an
- * administrator when they are shown to administrators only.
+ * administrator when they are shown to administrators only, nor by name in a workplace (D-086).
  */
 export function peopleShown(
   settings: PeopleSettings | undefined,
   hass: HomeAssistant,
 ): PersonShown[] {
-  if (!settings) return [];
+  if (!settings || settings.counted === true) return [];
+  return placedPeople(settings, hass);
+}
+
+/** The people placed and not hidden, named, to whom they are shown. */
+function placedPeople(settings: PeopleSettings, hass: HomeAssistant): PersonShown[] {
   const admin = hass.user?.is_admin === true;
   if (settings.shown === "admins" && !admin) return [];
   const shown: PersonShown[] = [];
@@ -171,12 +178,15 @@ export function peopleShown(
   return shown.sort((a, b) => a.name.localeCompare(b.name));
 }
 
-/** Someone the presence radars see whom no device names (D-080): where, in which room. */
+/** Someone the presence radars see whom no device names (D-080), or someone counted in a workplace
+ * (D-086): where, in which room. */
 export interface SeenShown {
   id: string;
   room: string;
-  /** Where in the room (plan cm). */
-  at: [number, number];
+  /** Its storey, when told. */
+  storey?: string;
+  /** Where in the room (plan cm), when told. */
+  at?: [number, number];
 }
 
 /** The sensor of the people the presence radars see (D-080), unless the settings name another. */
@@ -187,6 +197,7 @@ export const SEEN_COLOR = "#9aa3ad";
 /**
  * The people the presence radars see whom no device names (D-080), as the sensor says: shown
  * where the people are shown, to whom they are; none in a room the viewer may not see (`closed`).
+ * In a workplace (D-086), the people placed are among them, numbered rather than named.
  */
 export function seenShown(
   settings: PeopleSettings | undefined,
@@ -195,13 +206,71 @@ export function seenShown(
 ): SeenShown[] {
   if (!settings) return [];
   if (settings.shown === "admins" && hass.user?.is_admin !== true) return [];
-  if (settings.seen === null) return [];
-  const seen = hass.states[settings.seen ?? SEEN_SENSOR]?.attributes.seen;
-  if (!Array.isArray(seen)) return [];
   const shown: SeenShown[] = [];
+  if (settings.counted === true) {
+    // Numbered in each room, unnamed: a figure is not one person walking from room to room, so
+    // nobody's way through the place can be followed.
+    const order = Object.keys(settings.people);
+    const placed = placedPeople(settings, hass).sort(
+      (a, b) => order.indexOf(a.id) - order.indexOf(b.id),
+    );
+    const inRoom = new Map<string, number>();
+    for (const person of placed) {
+      if (!person.room || closed.has(person.room)) continue;
+      const n = inRoom.get(person.room) ?? 0;
+      inRoom.set(person.room, n + 1);
+      shown.push({
+        id: `counted.${person.room}.${String(n)}`,
+        room: person.room,
+        ...(person.storey ? { storey: person.storey } : {}),
+        ...(person.at ? { at: person.at } : {}),
+      });
+    }
+  }
+  return [...shown, ...radarSeen(settings, hass, closed)];
+}
+
+/**
+ * How many are here in a workplace (D-086), as `domotwin.where` counts them: those placed at home
+ * and those the radars see without a name; with nobody placed, those the radars see, or without
+ * radars Home Assistant's people at home. Hidden people are not counted.
+ */
+export function countedHere(
+  settings: PeopleSettings | undefined,
+  hass: HomeAssistant,
+  closed: ReadonlySet<string> = new Set(),
+): number {
+  const atHome = (ids: string[]): number =>
+    ids.filter((id) => hass.states[id]?.state === "home").length;
+  const seen = settings ? radarSeen(settings, hass, closed).length : 0;
+  if (settings && Object.keys(settings.people).length > 0) {
+    return (
+      atHome(Object.keys(settings.people).filter((id) => !settings.hidden.includes(id))) + seen
+    );
+  }
+  if (settings && radarsCount(settings, hass)) return seen;
+  return atHome(Object.keys(hass.states).filter((id) => id.startsWith("person.")));
+}
+
+/** Whether presence radars count people here (D-080): their sensor there, and shown. */
+export function radarsCount(settings: PeopleSettings, hass: HomeAssistant): boolean {
+  return settings.seen !== null && hass.states[settings.seen ?? SEEN_SENSOR] !== undefined;
+}
+
+/** Those the presence radars see whom no device names (D-080), as `seenShown` (no check of who
+ * may see them). */
+export function radarSeen(
+  settings: PeopleSettings,
+  hass: HomeAssistant,
+  closed: ReadonlySet<string> = new Set(),
+): SeenShown[] {
+  const shown: SeenShown[] = [];
+  if (settings.seen === null) return shown;
+  const seen = hass.states[settings.seen ?? SEEN_SENSOR]?.attributes.seen;
+  if (!Array.isArray(seen)) return shown;
   for (const entry of seen as unknown[]) {
     if (typeof entry !== "object" || entry === null) continue;
-    const { id, room_id: room, x, y } = entry as Record<string, unknown>;
+    const { id, room_id: room, storey_id: storey, x, y } = entry as Record<string, unknown>;
     if (
       typeof id !== "number" ||
       typeof room !== "string" ||
@@ -216,6 +285,7 @@ export function seenShown(
     shown.push({
       id: `seen.${String(id)}`,
       room,
+      ...(typeof storey === "string" && storey ? { storey } : {}),
       at: [Math.round(x * 100), Math.round(y * 100)],
     });
   }
@@ -239,7 +309,13 @@ export function peopleJson(
         look,
         ...(p.at ? { at: p.at } : {}),
       })),
-    ...seen.map((s) => ({ id: s.id, room: s.room, color: SEEN_COLOR, look, at: s.at })),
+    ...seen.map((s) => ({
+      id: s.id,
+      room: s.room,
+      color: SEEN_COLOR,
+      look,
+      ...(s.at ? { at: s.at } : {}),
+    })),
   ]);
 }
 
@@ -256,7 +332,7 @@ export function peopleByRoom(people: PersonShown[]): Map<string, PersonShown[]> 
 }
 
 /** How many people are on each storey. */
-export function peopleByStorey(people: PersonShown[]): Map<string, number> {
+export function peopleByStorey(people: readonly { storey?: string }[]): Map<string, number> {
   const storeys = new Map<string, number>();
   for (const person of people) {
     if (person.storey) storeys.set(person.storey, (storeys.get(person.storey) ?? 0) + 1);

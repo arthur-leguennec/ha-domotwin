@@ -17,6 +17,8 @@ export const summaryEn = {
       robots: "Robots",
     },
     people: {
+      here: { one: "{count} here", other: "{count} here" },
+      nobody_here: "Nobody here",
       home: { one: "{count} at home", other: "{count} at home" },
       nobody: "Nobody at home",
       in: "In {rooms}",
@@ -70,6 +72,8 @@ export const summaryFr: Widen<typeof summaryEn> = {
       robots: "Robots",
     },
     people: {
+      here: { one: "{count} présent", other: "{count} présents" },
+      nobody_here: "Personne ici",
       home: { one: "{count} à la maison", other: "{count} à la maison" },
       nobody: "Personne à la maison",
       in: "Dans : {rooms}",

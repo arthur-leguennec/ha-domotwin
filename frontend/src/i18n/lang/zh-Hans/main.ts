@@ -219,6 +219,7 @@ export const main: Dictionary = {
     invalid_link: "说明书须为以 / 开头的路径或网址（http、https）。",
   },
   people: {
+    counted: { one: "{count} 人", other: "{count} 人" },
     here: "现在在这里",
     in_room: "在 {room}",
     in_private_room: "在私密房间",
@@ -409,6 +410,14 @@ export const main: Dictionary = {
     refused: "未设定此操作：{reason}",
   },
   settings: {
+    workplace: "工作场所",
+    workplace_hint:
+      "办公室或商店：在 DomoTwin 的视图和语音中，人员只计数，从不显示姓名。首页标签会显示是否营业，打烊后还有什么开着。",
+    workplace_on: "这是工作场所（办公室或商店）",
+    workplace_hours: "营业时间",
+    workplace_no_hours: "无",
+    workplace_hours_hint:
+      "Home Assistant 的日程（在 设置 → 设备与服务 → 辅助元素 中创建）：营业期间为开启。",
     title: "设置",
     north: "平面图上的北方",
     north_hint: "北方所指的方向，从平面图顶部顺时针计算。太阳会从其真实位置照亮房间。",

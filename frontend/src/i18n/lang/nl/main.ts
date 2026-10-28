@@ -226,6 +226,7 @@ export const main: Dictionary = {
     invalid_link: "De handleiding is een pad dat met / begint, of een webadres (http, https).",
   },
   people: {
+    counted: { one: "{count} persoon", other: "{count} personen" },
     here: "Nu hier",
     in_room: "In {room}",
     in_private_room: "In een privékamer",
@@ -417,6 +418,14 @@ export const main: Dictionary = {
     refused: "Deze actie is niet ingesteld: {reason}",
   },
   settings: {
+    workplace: "Een werkplek",
+    workplace_hint:
+      "Een kantoor of een winkel: mensen worden geteld, nooit bij naam genoemd, in de weergaven van DomoTwin en in wat het zegt. Het tabblad Thuis laat zien of het open is en, na sluiting, wat er nog aan staat.",
+    workplace_on: "Dit is een werkplek, een kantoor of een winkel",
+    workplace_hours: "Openingstijden",
+    workplace_no_hours: "Geen",
+    workplace_hours_hint:
+      "Een schema van Home Assistant, gemaakt via Instellingen → Apparaten & diensten → Helpers: aan zolang het open is.",
     title: "Instellingen",
     north: "Noorden op de plattegrond",
     north_hint:

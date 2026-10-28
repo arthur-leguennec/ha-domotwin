@@ -222,6 +222,7 @@ export const main: Dictionary = {
     invalid_link: "설명서는 /로 시작하는 경로 또는 웹 주소(http, https)여야 합니다.",
   },
   people: {
+    counted: { one: "{count}명", other: "{count}명" },
     here: "지금 여기",
     in_room: "{room}에 있음",
     in_private_room: "비공개 방에 있음",
@@ -412,6 +413,14 @@ export const main: Dictionary = {
     refused: "이 동작을 설정하지 못했습니다: {reason}",
   },
   settings: {
+    workplace: "직장",
+    workplace_hint:
+      "사무실이나 매장: DomoTwin의 화면과 음성에서 사람은 세기만 하고 이름은 밝히지 않아요. 홈 탭에서 영업 중인지, 문을 닫은 뒤에는 무엇이 켜져 있는지 알려 줘요.",
+    workplace_on: "여기는 직장(사무실이나 매장)이에요",
+    workplace_hours: "영업시간",
+    workplace_no_hours: "없음",
+    workplace_hours_hint:
+      "Home Assistant의 일정(설정 → 기기 및 서비스 → 도우미에서 만들기): 영업 중에는 켜짐.",
     title: "설정",
     north: "평면도의 북쪽",
     north_hint: "평면도 위쪽에서 시계 방향으로 잰 북쪽의 방향. 태양이 실제 위치에서 방을 비춥니다.",

@@ -1132,6 +1132,15 @@ export const chunks: Chunks = {
   },
   practical: {
     home: {
+      here: { one: "{count} 人在场", other: "{count} 人在场" },
+      nobody_here: "无人在场",
+      counted: "工作场所：这里只统计人数，从不显示姓名。",
+      open: "营业中",
+      open_until: "营业至 {time}",
+      closed: "已打烊",
+      closed_until: "打烊至 {time}",
+      closed_left_on: { one: "已打烊：{count} 项仍开着", other: "已打烊：{count} 项仍开着" },
+      hours_from: "营业时间来自 {name}。",
       glance: "家中概况",
       people: {
         one: "{count} 人在家",
@@ -1681,6 +1690,7 @@ export const chunks: Chunks = {
         media_none: "安静",
       },
       suggest: {
+        close_up: "打烊",
         lights_off: "关闭所有灯",
         lights_off_floor: "关灯：{floor}",
         good_night: "晚安",
@@ -1839,6 +1849,8 @@ export const chunks: Chunks = {
         robots: "机器人",
       },
       people: {
+        here: { one: "{count} 人在场", other: "{count} 人在场" },
+        nobody_here: "无人在场",
         home: {
           one: "{count} 人在家",
           other: "{count} 人在家",

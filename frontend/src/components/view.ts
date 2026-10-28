@@ -3980,11 +3980,15 @@ export class DomoTwinView extends LitElement {
     this.shownSeen =
       hass && this.options.people !== false ? seenShown(this.people, hass, this.closed) : [];
     // Someone's devices only where they could be shown: never without the people's settings (not
-    // loaded, an older integration), or on a card without people.
+    // loaded, an older integration), or on a card without people; in a workplace (D-086), no
+    // phone nor watch, only things, whoever's they are.
     const settings = this.people;
     const hidden = new Set(settings?.hidden ?? []);
+    const counted = settings?.counted === true;
     const toldAny =
       settings !== undefined && (settings.shown !== "admins" || hass?.user?.is_admin === true);
+    // A workplace: no one's sheet stays open.
+    if (counted && this.sheet?.kind === "person") this.sheet = undefined;
     if (hass && this.locatedFrom?.entities !== hass.entities) {
       this.locatedFrom = { entities: hass.entities, sensors: locatedSensors(hass) };
     }
@@ -3995,7 +3999,7 @@ export class DomoTwinView extends LitElement {
               hass,
               (person) => toldAny && !hidden.has(person),
               this.locatedFrom?.sensors ?? [],
-            ),
+            ).filter((thing) => !counted || thing.kind === "thing"),
             this.closed,
           )
         : [];
@@ -5195,7 +5199,10 @@ export class DomoTwinView extends LitElement {
     const t = this.translator;
     const levels = storeyLevels(this.storeys).reverse();
     const all = this.storey === ALL_STOREYS;
-    const people = peopleByStorey(this.shownPeople);
+    // A workplace (D-086): those counted, as the people are elsewhere.
+    const people = peopleByStorey(
+      this.people?.counted === true ? this.shownSeen : this.shownPeople,
+    );
     return html`<span class="rule" aria-hidden="true"></span>
       <div role="group" aria-label=${t.t("storey.menu")} data-testid="storeys">
         <button
@@ -5579,6 +5586,11 @@ export class DomoTwinView extends LitElement {
       ></domotwin-person>`;
     }
     const here = sheet.room ? (peopleByRoom(this.shownPeople).get(sheet.room) ?? []) : [];
+    // A workplace (D-086): how many are in the room, named nowhere.
+    const counted =
+      this.people?.counted === true && sheet.room
+        ? this.shownSeen.filter((seen) => seen.room === sheet.room).length
+        : undefined;
     return html`<domotwin-room
       data-testid="room"
       .hass=${this.hass}
@@ -5593,6 +5605,7 @@ export class DomoTwinView extends LitElement {
       .admin=${this.hass?.user?.is_admin === true}
       .closed=${sheet.closed === true}
       .people=${here}
+      .counted=${counted}
       .things=${sheet.room ? this.located.filter((d) => d.room === sheet.room) : []}
       .graphs=${this.roomTab}
       .lawn=${this.lawnOf(sheet.room)}
