@@ -17,6 +17,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from datetime import date, datetime
 from typing import Any, Final
+from urllib.parse import quote
 
 from homeassistant.components.sensor import SensorEntity, SensorStateClass
 from homeassistant.core import Event, EventStateChangedData, HomeAssistant, callback
@@ -31,7 +32,16 @@ from homeassistant.util import dt as dt_util, slugify
 
 from . import DomoTwinConfigEntry
 from .compat import device_of
-from .const import DOMAIN, SIGNAL_LOCATED, SIGNAL_PEOPLE, SIGNAL_SEEN, SIGNAL_UPDATED
+from .const import (
+    CONF_SIDEBAR,
+    DEFAULT_OPTIONS,
+    DOMAIN,
+    PANEL_URL_PATH,
+    SIGNAL_LOCATED,
+    SIGNAL_PEOPLE,
+    SIGNAL_SEEN,
+    SIGNAL_UPDATED,
+)
 from .data import LOCATOR_KEY, PEOPLE_KEY
 from .locator import Locator, located_unique_id, seen_unique_id
 from .overview import people_in, piece_rooms, tasks_by_room
@@ -552,6 +562,11 @@ class RoomSensors:
             async_track_time_change(self._hass, self._new_day, minute=0, second=2)
         )
         entry.async_on_unload(self._closed.stop)
+        # The panel shown in the sidebar or no longer: the rooms' devices link to it, or not.
+        entry.async_on_unload(entry.add_update_listener(self._options_updated))
+
+    async def _options_updated(self, hass: HomeAssistant, entry: DomoTwinConfigEntry) -> None:
+        self._sync()
 
     @callback
     def _saved(self, kind: str, revision: int) -> None:
@@ -645,6 +660,8 @@ class RoomSensors:
     def _follow_device(self, room: Room, area: ar.AreaEntry | None) -> None:
         """A room renamed renames its device; given another area, its device moves there.
 
+        Its link opens DomoTwin's panel on the room while the panel is in the sidebar (D-087).
+
         A device made now, or in no area, goes to its room's. One found in place (after a restart)
         is left where it is, as it may have been moved by hand. An area that does not exist (yet,
         or any more) moves nothing: the device goes to it once it is made.
@@ -657,6 +674,9 @@ class RoomSensors:
         changes: dict[str, Any] = {}
         if device.name != room_device_name(room):
             changes["name"] = room_device_name(room)
+        url = room_url(self._entry, room.id)
+        if device.configuration_url != url:
+            changes["configuration_url"] = url
         if area is not None:
             given_another = room.id in self._placed and self._placed[room.id] != area.id
             if device.area_id != area.id and (fresh or device.area_id is None or given_another):
@@ -693,6 +713,16 @@ def room_device_name(room: Room) -> str:
     return f"DomoTwin · {room.name}"
 
 
+def room_url(entry: DomoTwinConfigEntry, room: str) -> str | None:
+    """The link on a room's device: DomoTwin's panel, the room framed in 3D (D-087).
+
+    None while the panel is not in the sidebar: there is no page to open then.
+    """
+    if not {**DEFAULT_OPTIONS, **entry.options}[CONF_SIDEBAR]:
+        return None
+    return f"homeassistant://{PANEL_URL_PATH}/3d?room={quote(room, safe='')}"
+
+
 class RoomSensor(SensorEntity):
     """A sensor of a room, on the room's own device."""
 
@@ -713,6 +743,7 @@ class RoomSensor(SensorEntity):
             name=room_device_name(room),
             entry_type=DeviceEntryType.SERVICE,
             suggested_area=area,
+            configuration_url=room_url(entry, room.id),
         )
         self._work_out()
 

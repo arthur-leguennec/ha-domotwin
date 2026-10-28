@@ -1581,6 +1581,7 @@ export const main: Dictionary = {
     night_dim: "خفض الإضاءة ليلًا في أثناء ذلك",
     tools: "أزرار العرض",
     voice: "الميكروفون (Assist)",
+    doorbell: "جرس الباب بملء الشاشة عندما يرنّ",
     demo: "إظهار المنزل التوضيحي بدلًا من هذا المنزل",
     screen: "اسم الشاشة (لـ domotwin.show)",
   },
@@ -1614,6 +1615,7 @@ export const main: Dictionary = {
     bad_demo: "يجب أن تكون قيمة `demo` إما true أو false",
     bad_tools: "يجب أن تكون قيمة `tools` إما true أو false",
     bad_voice: "يجب أن تكون قيمة `voice` إما true أو false",
+    bad_doorbell: "يجب أن تكون قيمة `doorbell` إما true أو false",
     bad_screen: "يجب أن تكون قيمة `screen` اسمًا من أحرف لاتينية وأرقام و_ و- (64 على الأكثر)",
     bad_summary:
       "يجب أن تكون قيمة `summary` إحدى القيم people أو network أو automations أو upkeep أو robots",

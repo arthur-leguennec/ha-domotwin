@@ -183,6 +183,12 @@ In the panel, the **Bluetooth** button (administrators):
 A device is weighed every two seconds, from what it sent in the last six. Not heard for two
 minutes, it is no longer located.
 
+To read further on the way a phone is followed from what receivers hear, room by room and spot by
+spot, the article [Bluetooth trilateration](https://jumacabo.com/blog/bluetooth-trilateration/)
+walks through a setup of the kind and what it measured; several of DomoTwin's choices (a grid of
+spots, rooms that lead to rooms, a storey changed by its stairs, measuring short stays) are close
+to it.
+
 ## Where in the room
 
 Within the room told, DomoTwin also works out where the device is (D-079). The plans are cut into

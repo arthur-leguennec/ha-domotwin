@@ -76,7 +76,11 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M47       | Voice off on a device, or on a wall screen                 | ✅     |
 | M48       | A workplace: people counted, opening hours, closing up     | ✅     |
 | 0.7.0     | Seventh release: voice off on a device, a workplace        | ✅     |
-| 0.8.0     | Eighth release: what the use of 0.7.0 asks for             | ⏳     |
+| M49       | The maintainer's answers: a room's link, the card's doorbell | ✅     |
+| M50       | A workplace's energy outside its opening hours             | ⏳     |
+| M51       | Meeting rooms: free or taken, booked                       | ⏳     |
+| M52       | Several sites in one Home Assistant                        | ⏳     |
+| 0.8.0     | Eighth release: the answers, then the workplace's three    | ⏳     |
 
 M5 to M11 were added after M3b (`DECISIONS.md`, D-022): what people expect of a 3D home dashboard,
 with no account and no network call outside Home Assistant. M8 became the looks alone, and the
@@ -1248,9 +1252,9 @@ DomoTwin joined to Home Assistant's own Overview rather than copying it (D-061).
   the upkeep and the robots, each opening the 3D view on what it sums up (`?layer=`); in one's
   dashboards and the Home tab. Loaded on demand.
 - ✅ **Shortcuts**: the guide shows how to put DomoTwin among the Overview's (2026.5 and later).
-- ❓ **Asked**: the 3D view at the top of the Overview or of an area's page, and an area's page
-  opening DomoTwin, need Home Assistant; the Home and Rooms tabs stay until it is said whether
-  they should where the Overview is.
+- ✅ **Answered** (D-087): the 3D view at the top of the Overview or of an area's page needs Home
+  Assistant and stays out; a room's device opens DomoTwin on the room instead (M49); the Home and
+  Rooms tabs stay (M46).
 - ✅ Tests: pieces in their rooms, each room's device in its area, who is there, a private room,
   the upkeep due in it, a room renamed, given another area, removed (pytest); versions, area
   pages, summaries, the layers a user may see (Vitest); a room tapped opening its area's page and
@@ -2031,9 +2035,9 @@ before its milestone starts, which goes on with what needs no answer.
 
 - ✅ **M29, the sandbox** (D-057, above).
 - ✅ **M30, the Wi-Fi QR code** (D-060, above).
-- ✅ **M23b, into Home Assistant's Overview** (D-061, above). Still asked ❓: the 3D view at the
-  top of the Overview or of an area's page, and an area's page opening DomoTwin, need Home
-  Assistant; whether the Home and Rooms tabs stay where the Overview is.
+- ✅ **M23b, into Home Assistant's Overview** (D-061, above). Its questions answered (D-087): the
+  3D view stays out of the Overview, a room's device opens DomoTwin on the room, the Home and Rooms
+  tabs stay.
 - ✅ **M24, history and energy** (D-069, above). Replay, the home's past in 3D (M19), stays a 3D
   feature, later.
 - ✅ **M40, the weather around the home** (asked for by the maintainer, D-072, above): the weather
@@ -2160,4 +2164,23 @@ before its milestone starts, which goes on with what needs no answer.
 
 ## Then, to 0.8.0
 
-- ⏳ **Release 0.8.0**: what the use of 0.7.0 asks for.
+The maintainer answered the questions left open, and asked for more of the workplace (M48):
+its energy, its meeting rooms, several sites.
+
+- ✅ **M49, the maintainer's answers** (D-087):
+  - each room's device in Home Assistant links to DomoTwin, the room framed in 3D
+    (`/domotwin/3d?room=<id>`), while the panel is in the sidebar; a private room is not framed;
+  - a doorbell rings full screen over a dashboard's page from DomoTwin's card too, once for the
+    page, never one in a private room the viewer may not see; `doorbell: false` turns it off on a
+    card; the panel waits, as the card does, for the private rooms of every storey to be known;
+  - the Bluetooth guide links the trilateration article the maintainer shared, without naming its
+    author (D-065);
+  - the 3D view at the top of the Overview stays out (it needs Home Assistant); the translations
+    of the ten other languages stay as they are, corrected as users say.
+- ⏳ **M50, a workplace's energy outside its opening hours**: what the place used while closed,
+  each week and month, from Home Assistant's energy statistics and the hours' schedule.
+- ⏳ **M51, meeting rooms**: in a workplace, rooms marked as meeting rooms, free or taken from
+  their presence sensors and a calendar of Home Assistant's, booked from DomoTwin.
+- ⏳ **M52, several sites in one Home Assistant**: several buildings or shops, each its plans,
+  its hours and its people counted; designed first, in a decision of its own, then built.
+- ⏳ **Release 0.8.0**: once they are in, tried in a fresh Home Assistant.

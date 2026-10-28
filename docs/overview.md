@@ -87,8 +87,17 @@ Since 2026.5, the Overview has shortcuts. To put DomoTwin there:
 DomoTwin does not write the Overview's settings itself: they are Home Assistant's own, shared by
 every user.
 
+## A room's device opens DomoTwin on the room
+
+Each room's device links to DomoTwin (D-087): on its page (**Settings** → **Devices & services** →
+**Devices**, or from the area's settings), Home Assistant's link opens DomoTwin's panel with the
+room framed in 3D, on its storey. A private room you may not see is not framed. The link is there
+while the panel is in the sidebar (the integration's options): without the panel there is no page
+to open.
+
 ## What the Overview cannot take
 
 The Overview has no place for a card that is not its own, on its home page or on its area pages.
 DomoTwin's 3D view cannot sit at their top, and an area's page cannot open DomoTwin on its room:
-both need Home Assistant itself.
+both need Home Assistant itself. The room's device has the link instead (above), and the 3D view
+stays in DomoTwin's panel and its cards (D-087).

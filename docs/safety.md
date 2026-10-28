@@ -81,7 +81,16 @@ screen is loaded the first time a doorbell rings.
 It does not show over the demo house or the sandbox, which are homes of their own; leave them to
 answer the door. A doorbell in a private room you may not see does not ring here.
 
-A dashboard card does not show it yet: the wall screen (M26) will.
+### On a dashboard
+
+DomoTwin's card shows it too, over the dashboard's page rather than in the card's box (D-087): a
+wall tablet that shows a dashboard rather than the panel answers the door the same way. With
+several DomoTwin cards on a page, it shows once. A card shows a ring once it knows which rooms are
+private on every storey, and a doorbell in a private room you may not see does not ring there
+either; while a storey's plan cannot be read, none rings (the panel waits the same way). Its lock
+works as in the panel, its code asked by Home Assistant. It goes when you leave the dashboard's
+view. Turn it off on a card with `doorbell: false` (*The doorbell full screen when it rings* in
+the card's editor).
 
 ## In the demo house
 

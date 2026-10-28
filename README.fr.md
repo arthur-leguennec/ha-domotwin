@@ -68,8 +68,8 @@ Ce qu’on cherche du doigt : le côté pratique, sur un téléphone comme sur u
   Sécurité de Home Assistant, au-dessus de chaque onglet, à un toucher de la pièce en 3D.
   L’onglet *Sécurité* réunit le clavier de l’alarme, les sonnettes et toutes les caméras côte à
   côte, celle de la sonnette d’abord, et la page Sécurité de Home Assistant à un toucher. Quand
-  on sonne, la sonnette s’affiche en plein écran, quel que soit l’onglet : sa caméra en direct et
-  la serrure de la porte. Voir
+  on sonne, la sonnette s’affiche en plein écran, quel que soit l’onglet, et sur un tableau de bord
+  qui a la carte DomoTwin : sa caméra en direct et la serrure de la porte. Voir
   [la sécurité](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/safety.md) (en
   anglais).
 - **Les graphiques de chaque pièce, l’énergie de la maison.** *Graphiques*, sur la page d’une
@@ -499,6 +499,7 @@ YAML n’est jamais nécessaire. Pour référence, les options de la carte :
 | `night_dim`   | `true`, `false`                     | `false`    | Kiosque : assombri la nuit entre-temps (sauf alerte). |
 | `tools`       | `true`, `false`                     | `true`     | Les boutons de la vue.                        |
 | `voice`       | `true`, `false`                     | `true`     | Le bouton micro, quand Assist est là et que la voix est active sur l’appareil. |
+| `doorbell`    | `true`, `false`                     | `true`     | Une sonnette qui sonne, en plein écran sur la page du tableau de bord. |
 | `screen`      | un nom (`hallway`…)                 | aucun      | Le nom de cet écran, pour `domotwin.show`.    |
 | `font_family` | une famille de police, `theme`      | incluse    | Police des textes de la carte ; `theme` : celle de votre thème. |
 | `demo`        | `true`, `false`                     | `false`    | La maison de démo et sa journée au lieu de votre maison ; rien de votre maison n’est touché. |

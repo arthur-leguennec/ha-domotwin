@@ -21,7 +21,7 @@ import type { HassError, HomeAssistant } from "../ha/types";
 import { areaEntities, areaOf, type BindingsJson } from "./bindings";
 import type { PlanRoom } from "./layers";
 import { planElements } from "./plan";
-import { closedAreas, closedEntities, privateRooms } from "./privacy";
+import { closedAreas, closedEntities, privateRooms, unseenOf, type Unseen } from "./privacy";
 
 export type Level = "use" | "see" | "hidden";
 
@@ -126,6 +126,26 @@ export function closedRooms(
   const closed = privateRooms(rooms, hass);
   for (const room of roomsAt(viewerOf(rights, hass), "hidden")) closed.add(room);
   return closed;
+}
+
+/**
+ * What the viewer may not see of the home: the areas of the rooms closed to them (`closed`) among
+ * `rooms`, what is linked to those rooms and to what they hold on any of `storeys` (D-039), and
+ * the devices their rights hide (D-071).
+ */
+export function viewerUnseen(
+  hass: HomeAssistant,
+  bindings: BindingsJson,
+  rooms: readonly PlanRoom[],
+  storeys: readonly { plan?: unknown; layout?: Record<string, unknown> }[],
+  closed: ReadonlySet<string>,
+  rights: Rights | undefined,
+): Unseen {
+  const unseen = unseenOf(hass, bindings, rooms, storeys, closed);
+  const hidden = hiddenEntities(viewerOf(rights, hass));
+  return hidden.size === 0
+    ? unseen
+    : { ...unseen, entities: new Set([...unseen.entities, ...hidden]) };
 }
 
 /** What the gate reads of the home: its rooms, and its storeys' plans and overlays. */

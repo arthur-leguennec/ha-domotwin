@@ -4404,3 +4404,48 @@ roles) would be another decision.
 - **Consequences.** Nothing new is sent anywhere, and no new entity: the counts and hours come
   from what Home Assistant has. The words are in the 12 languages. A home stays as it was: without
   the setting nothing changes.
+
+## D-087 · The maintainer's answers: a room's link, the doorbell on a card (M49, amends D-068, D-076)
+
+After 0.7.0 the maintainer answered the questions D-056, D-061, D-068 and D-076 had left open.
+
+- **Context.** Home Assistant's Overview takes no card of another's, on its home page or its area
+  pages (D-061): DomoTwin's 3D view cannot sit at their top, nor can an area's page open DomoTwin
+  on its room, without Home Assistant itself. The doorbell rang full screen in the panel only
+  (D-068): a card showed one storey, and was thought not to know the private rooms of the others
+  (D-076). The Bluetooth locating owes ideas to an article the maintainer shared, not linked
+  because nobody from the threads is named (D-065). The ten languages beyond English and French
+  are DomoTwin's own translations (D-082).
+- **Decision.**
+  - **The Overview is left as it is.** No 3D view at its top: it needs Home Assistant. Its
+    shortcut to DomoTwin, the summaries in one's dashboards, a room tapped in 3D opening its area's
+    page (D-061) stay the way between the two.
+  - **A room's device opens DomoTwin on the room.** Each room's device (D-061) has Home Assistant's
+    link, `homeassistant://domotwin/3d?room=<id>`, which Home Assistant opens in its own page: the
+    panel, the room framed in 3D on its storey, as `domotwin.show` frames it, once the settings say
+    which rooms the viewer may not see (a private one is not framed), then the room left out of
+    the address; left for the Home tab meanwhile, the room is not taken back to. No link while
+    the panel is not in the sidebar, as there is no page to open; it follows the integration's
+    options. A device's page is an administrator's in Home Assistant.
+  - **The doorbell on a card.** A card reads every storey's plan already, for the alerts of the
+    others; it works out what its viewer may not see as the panel does (one function,
+    `viewerUnseen`), and shows a ring full screen over the page, put on the page's body so that no
+    card's box holds it: once for the page whichever card heard it first, until two minutes after
+    it rang, closed when the card leaves the page for more than two seconds (a dashboard laying
+    its columns out again takes its cards away for an instant). What Home Assistant's cards in it
+    ask of Home Assistant's page (a lock's code, its more-info) goes through the card, the page's
+    body being outside of Home Assistant's own element; Escape on the page closes it.
+  - **Who may see what, known before a ring.** A ring waits for the settings, the links, every
+    storey's rooms and the viewer; the panel now waits for all of them too, where it waited for
+    the settings alone. A plan, a storey or the links that could not be read are asked for again
+    every ten seconds, and no ring shows meanwhile: who may see it is not known. A closed room's
+    linked area is closed even when its plan is not read. `doorbell: false` turns it off on a
+    card.
+  - **The article linked, its author not named.** The Bluetooth guide links it, saying what of it
+    DomoTwin's choices are close to.
+  - **The Home and Rooms tabs stay** where the Overview is (D-061 kept them until the answer):
+    the shortcuts made the Home tab DomoTwin's own (D-084).
+  - **The translations stay**, corrected as their users say.
+- **Consequences.** The first load grows by 1.0 kB gzipped (the card's watch); the doorbell's
+  chunk by 0.8 kB (its place on the page). Nothing is sent anywhere. Two new texts, in the 12
+  languages.

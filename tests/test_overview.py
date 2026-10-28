@@ -175,6 +175,27 @@ async def test_each_room_has_a_device_in_its_area_with_who_is_there(
     assert _state(hass, "sensor.domotwin_hall_people").state == "0"
 
 
+async def test_a_room_s_device_opens_domotwin_on_the_room(
+    hass: HomeAssistant, home: MockConfigEntry
+) -> None:
+    devices = dr.async_get(hass)
+
+    def link() -> str | None:
+        kitchen = device_of(devices, (DOMAIN, f"{home.entry_id}_room_kitchen"), home.entry_id)
+        assert kitchen is not None
+        return kitchen.configuration_url
+
+    # Home Assistant opens it in its own page: the panel, the kitchen framed in 3D (D-087).
+    assert link() == "homeassistant://domotwin/3d?room=kitchen"
+    # The panel no longer in the sidebar: no page to open; back, the link is back.
+    hass.config_entries.async_update_entry(home, options={"sidebar": False})
+    await hass.async_block_till_done()
+    assert link() is None
+    hass.config_entries.async_update_entry(home, options={"sidebar": True})
+    await hass.async_block_till_done()
+    assert link() == "homeassistant://domotwin/3d?room=kitchen"
+
+
 async def test_a_workplace_counts_its_people_and_names_none(
     hass: HomeAssistant, home: MockConfigEntry, hass_ws_client: WebSocketGenerator
 ) -> None:

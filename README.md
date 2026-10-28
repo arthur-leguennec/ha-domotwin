@@ -64,7 +64,7 @@ What you reach for: the practical side, on a phone as on a computer.
   Assistant's Security page, above every tab, a tap from the room in 3D. The *Safety* tab has the
   alarm's keypad, the doorbells and every camera side by side, the doorbell's first, and Home
   Assistant's Security page a tap away. When the doorbell rings, it shows full screen, whatever
-  the tab: its camera live and the door's lock. See
+  the tab, and over a dashboard with DomoTwin's card: its camera live and the door's lock. See
   [safety](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/safety.md).
 - **Each room's graphs, the home's energy.** *Graphs*, on a room's page or its panel in 3D: what
   its sensors measured over the last day or week (temperature, humidity, CO₂, power, the meters
@@ -443,6 +443,7 @@ YAML is never required. For reference, the card options are:
 | `night_dim`   | `true`, `false`                     | `false`    | Kiosk: dimmed at night meanwhile (unless an alert shows). |
 | `tools`       | `true`, `false`                     | `true`     | The view's buttons.                       |
 | `voice`       | `true`, `false`                     | `true`     | The microphone button, when Assist is there and voice is on on the device. |
+| `doorbell`    | `true`, `false`                     | `true`     | A doorbell ringing shown full screen over the dashboard's page. |
 | `screen`      | a name (`hallway`…)                 | none       | This screen's name, for `domotwin.show`.  |
 | `font_family` | a font family, `theme`              | bundled    | Font of the card's texts; `theme`: your theme's. |
 | `demo`        | `true`, `false`                     | `false`    | The demo house and its day instead of your home; nothing of your home is touched. |
