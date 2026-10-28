@@ -74,6 +74,7 @@ It goes when:
   *Screensaver* and motion detection settings, for instance), alongside DomoTwin's saver.
 - The photos never leave Home Assistant: DomoTwin asks Home Assistant for each photo's address,
   signed for an hour, and the tablet fetches it from Home Assistant.
-- The saver and the doorbell's full screen are the panel's: a DomoTwin card on a dashboard keeps
-  its own kiosk options (see [the kiosk](kiosk.md)).
+- The saver is the panel's: a DomoTwin card on a dashboard keeps its own kiosk options (see
+  [the kiosk](kiosk.md)). The doorbell's full screen shows over a dashboard with DomoTwin's card
+  too, unless the card says `doorbell: false` (see [safety](safety.md)).
 - The diagnostics count the screens and those with photos, never their names, sensors or folders.

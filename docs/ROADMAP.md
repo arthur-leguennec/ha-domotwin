@@ -2167,7 +2167,7 @@ before its milestone starts, which goes on with what needs no answer.
 The maintainer answered the questions left open, and asked for more of the workplace (M48):
 its energy, its meeting rooms, several sites.
 
-- ✅ **M49, the maintainer's answers** (D-087, below):
+- ✅ **M49, the maintainer's answers** (D-087):
   - each room's device in Home Assistant links to DomoTwin, the room framed in 3D
     (`/domotwin/3d?room=<id>`), while the panel is in the sidebar; a private room is not framed;
   - a doorbell rings full screen over a dashboard's page from DomoTwin's card too, once for the

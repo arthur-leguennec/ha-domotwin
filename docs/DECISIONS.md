@@ -4405,7 +4405,7 @@ roles) would be another decision.
   from what Home Assistant has. The words are in the 12 languages. A home stays as it was: without
   the setting nothing changes.
 
-## D-087 · The maintainer's answers: a room's link, the doorbell on a card, the Overview left as is (M49)
+## D-087 · The maintainer's answers: a room's link, the doorbell on a card (M49, amends D-068, D-076)
 
 After 0.7.0 the maintainer answered the questions D-056, D-061, D-068 and D-076 had left open.
 
@@ -4435,6 +4435,8 @@ After 0.7.0 the maintainer answered the questions D-056, D-061, D-068 and D-076 
     turns it off on a card.
   - **The article linked, its author not named.** The Bluetooth guide links it, saying what of it
     DomoTwin's choices are close to.
+  - **The Home and Rooms tabs stay** where the Overview is (D-061 kept them until the answer):
+    the shortcuts made the Home tab DomoTwin's own (D-084).
   - **The translations stay**, corrected as their users say.
 - **Consequences.** The first load grows by 0.7 kB gzipped (the card's watch); the doorbell's
   chunk by 0.5 kB (its place on the page). Nothing is sent anywhere. Two new texts, in the 12
