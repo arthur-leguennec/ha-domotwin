@@ -10,7 +10,7 @@ maintainer.
 - [x] `hacs.json` declares `name`, `render_readme`, `homeassistant`, `zip_release` and `filename`.
 - [x] A full GitHub release exists (not only a tag) with `domotwin.zip` attached, and the zip
       contains the files of `custom_components/domotwin/` at its root: 0.1.0's, made by
-      `release-please.yml`, which makes 0.2.0's to 0.6.0's the same way.
+      `release-please.yml`, which makes 0.2.0's to 0.7.0's the same way.
 - [x] The HACS action passes **without** `ignore:` entries (brands included).
 - [x] `hassfest` passes.
 - [x] Brand images: the integration ships its own in `custom_components/domotwin/brand/`
