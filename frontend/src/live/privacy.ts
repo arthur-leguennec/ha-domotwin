@@ -19,6 +19,7 @@ export function outOfSight<
     storey?: string;
     since?: string;
     source?: string;
+    at?: [number, number];
     private?: true;
   },
 >(items: T[], closed: Set<string>): T[] {
@@ -30,8 +31,10 @@ export function outOfSight<
     delete hidden.roomName;
     delete hidden.storey;
     delete hidden.since;
-    // The sensor that said so tells the room too (a motion sensor of the bedroom).
+    // The sensor that said so tells the room too (a motion sensor of the bedroom), and the spot
+    // in it where (D-079).
     delete hidden.source;
+    delete hidden.at;
     return hidden;
   });
 }

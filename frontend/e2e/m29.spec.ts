@@ -228,10 +228,12 @@ test.describe("the sandbox (D-057)", () => {
     await expect(page.getByTestId("sandbox-bar")).toContainText("Rien ici n’atteint un appareil.");
     await page.getByTestId("sandbox-report").click();
     await expect(page.getByTestId("sandbox-report-sheet")).toContainText("Qui se contredisent");
-    // The demo house and the measure wait until the sandbox is left.
+    // The demo house, the measure and the configuration history (D-062, the home's own) wait
+    // until the sandbox is left.
     await page.getByTestId("more").click();
     await expect(page.getByTestId("demo-menu")).toHaveCount(0);
     await expect(page.getByTestId("measure")).toBeDisabled();
+    await expect(page.getByTestId("config-history")).toBeDisabled();
     await page.getByTestId("sandbox-leave-menu").click();
     await expect(page.getByTestId("sandbox-bar")).toHaveCount(0);
   });

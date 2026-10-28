@@ -133,7 +133,7 @@ export class DomoTwinUpkeepCard extends LitElement {
       }
       .chip {
         display: inline-block;
-        margin-right: 4px;
+        margin-inline-end: 4px;
         padding: 0 6px;
         border-radius: 8px;
         font-size: 0.72rem;

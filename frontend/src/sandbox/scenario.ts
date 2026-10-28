@@ -201,12 +201,15 @@ export function prepare(
     const read = zoned(ms, zone);
     return read.hour * 60 + read.minute;
   };
+  /** Who is home, by person, as the day goes: at midnight, then at each move. */
+  const homeAt: { minute: number; person: string; home: boolean }[] = [];
   for (const person of scenario.people) {
     if (!states[person.id]) continue;
     const room = rooms[person.id];
     for (const [id, state] of personStates(states, copy, person.id, person.home, room)) {
       set(id, state);
     }
+    homeAt.push({ minute: -1, person: person.id, home: person.home });
     const moves = [
       ...(person.leaves !== undefined ? [{ minute: person.leaves, home: false }] : []),
       ...(person.back !== undefined ? [{ minute: person.back, home: true }] : []),
@@ -215,6 +218,32 @@ export function prepare(
       for (const [id, state] of personStates(states, copy, person.id, move.home, room)) {
         happenings.push({ at: minuteAt(move.minute), entity: id, state });
       }
+      homeAt.push({ minute: move.minute, person: person.id, home: move.home });
+    }
+  }
+  // The home zone counts who is in it, as Home Assistant's zones do (`persons` too): its state
+  // follows the people (D-070: "when the last person leaves" is a zone back to 0).
+  const home = states["zone.home"];
+  if (home && homeAt.length > 0) {
+    const within = new Map<string, boolean>();
+    const say = (): { state: string; attributes: Record<string, unknown> } => {
+      const persons = [...within].filter(([, inside]) => inside).map(([person]) => person);
+      return {
+        state: String(persons.length),
+        attributes: { ...home.attributes, persons: persons.sort() },
+      };
+    };
+    homeAt.sort((a, b) => a.minute - b.minute);
+    let k = 0;
+    while (k < homeAt.length) {
+      const minute = homeAt[k]?.minute ?? 0;
+      for (; k < homeAt.length && homeAt[k]?.minute === minute; k += 1) {
+        const move = homeAt[k];
+        if (move) within.set(move.person, move.home);
+      }
+      const said = say();
+      if (minute < 0) set("zone.home", said.state, said.attributes);
+      else happenings.push({ at: minuteAt(minute), entity: "zone.home", ...said });
     }
   }
   // The weather's entities: its state by day and night, its temperature each hour.

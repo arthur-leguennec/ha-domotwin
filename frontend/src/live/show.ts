@@ -23,7 +23,12 @@ export interface ShowTarget {
 
 /** Whether a request is for this screen: for every screen, or for the one named so. */
 export function forScreen(request: ShowRequest, screen: string | undefined): boolean {
-  return !request.screen || request.screen.toLowerCase() === (screen ?? "").toLowerCase();
+  return !request.screen || sameScreen(request.screen, screen ?? "");
+}
+
+/** Whether two names are of the same screen: whatever their case. */
+export function sameScreen(a: string, b: string): boolean {
+  return a.toLowerCase() === b.toLowerCase();
 }
 
 /** Words that mean the whole home, as said in English or French. */
@@ -61,7 +66,13 @@ export function findStorey(
   if (WHOLE_HOME.has(said) || wanted === ALL_STOREYS)
     return storeys.length > 1 ? ALL_STOREYS : undefined;
   const levels = storeyLevels(storeys);
-  const number = /^-?\d+$/.test(wanted.trim()) ? Number(wanted.trim()) : undefined;
+  // A level as its button writes it too: −1, ½, 1½ (a half level, D-078).
+  const written = wanted
+    .trim()
+    .replace("\u2212", "-")
+    .replace(/^(-?)½$/, (_, sign: string) => `${sign}0.5`)
+    .replace("½", ".5");
+  const number = /^-?\d+(\.5)?$/.test(written) ? Number(written) : undefined;
   const found = levels.find(
     ({ storey, level }) =>
       storey.id === wanted.trim() ||

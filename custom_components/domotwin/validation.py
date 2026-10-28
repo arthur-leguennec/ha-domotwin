@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 import json
 import re
 from typing import Any, Final
@@ -11,6 +12,8 @@ from homeassistant.helpers.json import json_bytes
 
 from .const import (
     LOCATED_KINDS,
+    MAX_ACCESS_POINT_NAME,
+    MAX_ACCESS_POINTS,
     MAX_BINDINGS_BYTES,
     MAX_BOUND_ELEMENTS,
     MAX_ELEMENTS,
@@ -27,8 +30,13 @@ from .const import (
     MAX_PEOPLE,
     MAX_PERSON_SOURCES,
     MAX_PLAN_BYTES,
+    MAX_PLAN_REACH,
     MAX_PRIVATE_ROOMS,
+    MAX_RADARS,
     MAX_RECEIVERS,
+    MAX_RIGHTS_ENTITIES,
+    MAX_RIGHTS_PEOPLE,
+    MAX_RIGHTS_ROOMS,
     MAX_ROOM_ACTION_NAME,
     MAX_ROOM_ACTIONS,
     MAX_STOREY_NAME,
@@ -47,6 +55,7 @@ from .const import (
     PEOPLE_SHOWN,
     PLAN_FORMAT,
     PLAN_LISTS,
+    RIGHTS_LEVELS,
 )
 from .people import valid_color
 from .upkeep import parse_date
@@ -275,6 +284,9 @@ def validate_bindings(bindings: Any) -> dict[str, Any]:
 
 THEMES: Final = ("auto", "day", "neon", "blueprint", "cartoon", "clay")
 ACCENT: Final = re.compile(r"#[0-9a-fA-F]{6}")
+#: The roofs' shapes and slopes (degrees), as the engine draws them (D-077).
+ROOF_SHAPES: Final = ("gable", "hip", "shed", "flat")
+ROOF_PITCH: Final = (5, 60)
 
 
 def validate_settings(settings: Any) -> dict[str, Any]:
@@ -282,7 +294,9 @@ def validate_settings(settings: Any) -> dict[str, Any]:
 
     `north`, degrees clockwise from the top of the plan; the look shown by default (`theme`) and
     its accent colour (`accent`, `#rrggbb`); the private rooms (`rooms`, D-039); where the
-    home's energy is read (`energy`, D-049).
+    home's energy is read (`energy`, D-049); the Wi-Fi access points placed on the plan
+    (`access_points`, D-066); each person's rights (`rights`, D-071); the weather drawn around it
+    (`weather`, D-072: a `weather` entity, or `none`); how its roofs are drawn (`roof`, D-077).
     """
     if not isinstance(settings, dict) or set(settings) - {
         "north",
@@ -290,10 +304,15 @@ def validate_settings(settings: Any) -> dict[str, Any]:
         "accent",
         "rooms",
         "energy",
+        "access_points",
+        "rights",
+        "weather",
+        "roof",
     }:
         raise InvalidPayloadError(
             "invalid_settings",
-            "settings hold only `north`, `theme`, `accent`, `rooms` and `energy`",
+            "settings hold only `north`, `theme`, `accent`, `rooms`, `energy`, `access_points`, "
+            "`rights`, `weather` and `roof`",
         )
     north = settings.get("north", 0)
     if not _is_number(north) or not 0 <= north < 360:
@@ -310,10 +329,167 @@ def validate_settings(settings: Any) -> dict[str, Any]:
         checked["accent"] = accent.lower()
     if "rooms" in settings:
         checked["rooms"] = _private_rooms(settings["rooms"])
-    if "energy" in settings:
-        energy = _energy(settings["energy"])
-        if energy:
-            checked["energy"] = energy
+    if "weather" in settings:
+        checked["weather"] = _weather(settings["weather"])
+    # Left out when empty.
+    optional: tuple[tuple[str, Callable[[Any], Any]], ...] = (
+        ("energy", _energy),
+        ("access_points", _access_points),
+        ("rights", _rights),
+        ("roof", _roof),
+    )
+    for key, check in optional:
+        if key in settings and (found := check(settings[key])):
+            checked[key] = found
+    return checked
+
+
+def _rights_set(levels: Any, what: str) -> dict[str, dict[str, str]]:
+    """One person's rights, or everyone's (D-071).
+
+    `{"rooms"?: {room id: level}, "entities"?: {entity id: level}}`, each level `use`, `see` or
+    `hidden`. Empty lists are left out.
+    """
+    if not isinstance(levels, dict) or set(levels) - {"rooms", "entities"}:
+        raise InvalidPayloadError("invalid_settings", f"{what} has `rooms` and `entities`")
+    checked: dict[str, dict[str, str]] = {}
+    for kind, limit in (("rooms", MAX_RIGHTS_ROOMS), ("entities", MAX_RIGHTS_ENTITIES)):
+        given = levels.get(kind, {})
+        if not isinstance(given, dict):
+            raise InvalidPayloadError("invalid_settings", f"{what}'s `{kind}` must be an object")
+        if len(given) > limit:
+            raise InvalidPayloadError("invalid_settings", f"{what} names at most {limit} {kind}")
+        for key, level in given.items():
+            if kind == "rooms":
+                _check_id(key, "a room id", "invalid_settings")
+            elif not isinstance(key, str) or not valid_entity_id(key):
+                raise InvalidPayloadError("invalid_settings", f"`{key}` is not an entity id")
+            if level not in RIGHTS_LEVELS:
+                raise InvalidPayloadError(
+                    "invalid_settings", f"a level is one of {', '.join(RIGHTS_LEVELS)}"
+                )
+        if given:
+            checked[kind] = dict(given)
+    return checked
+
+
+def _rights(rights: Any) -> dict[str, Any]:
+    """Each person's rights (D-071).
+
+    `{"everyone"?: rights, "people"?: {person entity id: rights}}`, each as `_rights_set` checks
+    it.
+    """
+    if not isinstance(rights, dict) or set(rights) - {"everyone", "people"}:
+        raise InvalidPayloadError("invalid_settings", "`rights` has `everyone` and `people`")
+    checked: dict[str, Any] = {}
+    everyone = _rights_set(rights.get("everyone", {}), "everyone's rights")
+    if everyone:
+        checked["everyone"] = everyone
+    people = rights.get("people", {})
+    if not isinstance(people, dict):
+        raise InvalidPayloadError("invalid_settings", "`rights.people` must be an object")
+    if len(people) > MAX_RIGHTS_PEOPLE:
+        raise InvalidPayloadError(
+            "invalid_settings", f"rights are set for at most {MAX_RIGHTS_PEOPLE} people"
+        )
+    own: dict[str, Any] = {}
+    for person, levels in people.items():
+        if (
+            not isinstance(person, str)
+            or not person.startswith("person.")
+            or not valid_entity_id(person)
+        ):
+            raise InvalidPayloadError("invalid_settings", "rights are set for `person` entities")
+        found = _rights_set(levels, "a person's rights")
+        if found:
+            own[person] = found
+    if own:
+        checked["people"] = own
+    return checked
+
+
+def _weather(weather: Any) -> str:
+    """The weather drawn around the home (D-072): a `weather` entity, or `none`."""
+    if weather == "none":
+        return "none"
+    if (
+        not isinstance(weather, str)
+        or not weather.startswith("weather.")
+        or not valid_entity_id(weather)
+    ):
+        raise InvalidPayloadError(
+            "invalid_settings", "`weather` must be a weather entity or `none`"
+        )
+    return weather
+
+
+def _roof(roof: Any) -> dict[str, Any]:
+    """How the roofs are drawn (D-077).
+
+    `{"shape"?: "gable" | "hip" | "shed" | "flat", "pitch"?: degrees from 5 to 60, "color"?:
+    "#rrggbb"}`; what is left out is drawn as by default.
+    """
+    if not isinstance(roof, dict) or set(roof) - {"shape", "pitch", "color"}:
+        raise InvalidPayloadError("invalid_settings", "`roof` has `shape`, `pitch` and `color`")
+    checked: dict[str, Any] = {}
+    if "shape" in roof:
+        if roof["shape"] not in ROOF_SHAPES:
+            raise InvalidPayloadError(
+                "invalid_settings", f"`roof.shape` is one of {', '.join(ROOF_SHAPES)}"
+            )
+        checked["shape"] = roof["shape"]
+    if "pitch" in roof:
+        pitch = roof["pitch"]
+        if not _is_number(pitch) or not ROOF_PITCH[0] <= pitch <= ROOF_PITCH[1]:
+            raise InvalidPayloadError(
+                "invalid_settings",
+                f"`roof.pitch` is a number of degrees from {ROOF_PITCH[0]} to {ROOF_PITCH[1]}",
+            )
+        checked["pitch"] = pitch
+    if "color" in roof:
+        color = roof["color"]
+        if not isinstance(color, str) or not ACCENT.fullmatch(color):
+            raise InvalidPayloadError("invalid_settings", "`roof.color` must be a colour #rrggbb")
+        checked["color"] = color.lower()
+    return checked
+
+
+def _access_points(points: Any) -> list[dict[str, Any]]:
+    """The Wi-Fi access points placed on the plan (D-066): `[{"storey", "at": [x, y], "name"}]`.
+
+    `storey` is a storey's id, `at` a point of its plan (cm), `name` text of at most 60
+    characters (empty: none).
+    """
+    if not isinstance(points, list):
+        raise InvalidPayloadError("invalid_settings", "`access_points` must be a list")
+    if len(points) > MAX_ACCESS_POINTS:
+        raise InvalidPayloadError("invalid_settings", f"at most {MAX_ACCESS_POINTS} access points")
+    checked: list[dict[str, Any]] = []
+    for point in points:
+        if not isinstance(point, dict) or set(point) - {"storey", "at", "name"}:
+            raise InvalidPayloadError(
+                "invalid_settings", "an access point has `storey`, `at` and, maybe, `name`"
+            )
+        _check_id(point.get("storey"), "an access point's storey", "invalid_settings")
+        at = point.get("at")
+        if (
+            not isinstance(at, list)
+            or len(at) != 2
+            or not all(_is_number(v) and abs(v) <= MAX_PLAN_REACH for v in at)
+        ):
+            raise InvalidPayloadError(
+                "invalid_settings", "an access point's `at` must be a point [x, y] of the plan"
+            )
+        name = point.get("name", "")
+        if not isinstance(name, str) or len(name) > MAX_ACCESS_POINT_NAME:
+            raise InvalidPayloadError(
+                "invalid_settings",
+                f"an access point's name is text of at most {MAX_ACCESS_POINT_NAME} characters",
+            )
+        entry: dict[str, Any] = {"storey": point["storey"], "at": [float(v) for v in at]}
+        if name.strip():
+            entry["name"] = name.strip()
+        checked.append(entry)
     return checked
 
 
@@ -655,11 +831,37 @@ def _validate_receivers(receivers: Any) -> dict[str, Any]:
     return placed
 
 
+def validate_radars(radars: Any) -> dict[str, Any]:
+    """Check the presence radars' own settings (D-080): `{piece: {"mirror"?: bool}}`.
+
+    Each radar said of is mirrored or not (not said: not).
+    """
+    if not isinstance(radars, dict) or len(radars) > MAX_RADARS:
+        raise _locating_error(f"at most {MAX_RADARS} radars")
+    found: dict[str, Any] = {}
+    for piece, settings in radars.items():
+        _check_id(piece, "a radar's piece", "invalid_locating")
+        if not isinstance(settings, dict) or set(settings) - {"mirror"}:
+            raise _locating_error("a radar is `mirror`ed or not")
+        if "mirror" in settings and not isinstance(settings["mirror"], bool):
+            raise _locating_error("`mirror` must be true or false")
+        found[piece] = {"mirror": settings.get("mirror") is True}
+    return found
+
+
 def _validate_located(device: Any, settings: Any) -> dict[str, Any]:
     if not isinstance(device, str) or not LOCATED_ID.fullmatch(device):
         raise _locating_error("a device's id is 1 to 40 lowercase letters, digits or _")
-    if not isinstance(settings, dict) or set(settings) - {"name", "kind", "person", "match"}:
-        raise _locating_error("a device has a `name`, a `kind`, a `person` and a `match`")
+    if not isinstance(settings, dict) or set(settings) - {
+        "name",
+        "kind",
+        "person",
+        "match",
+        "bermuda",
+    }:
+        raise _locating_error(
+            "a device has a `name`, a `kind`, a `person`, a `match` and a `bermuda` sensor"
+        )
     name = settings.get("name")
     if not isinstance(name, str) or not 0 < len(name.strip()) <= MAX_LOCATED_NAME:
         raise _locating_error(f"a device's name is 1 to {MAX_LOCATED_NAME} characters")
@@ -679,6 +881,16 @@ def _validate_located(device: Any, settings: Any) -> dict[str, Any]:
     }
     if person is not None:
         entry["person"] = person
+    # Bermuda's area sensor of the same device, measured beside DomoTwin's room (M41).
+    bermuda = settings.get("bermuda")
+    if bermuda is not None:
+        if (
+            not isinstance(bermuda, str)
+            or not bermuda.startswith("sensor.")
+            or not (valid_entity_id(bermuda))
+        ):
+            raise _locating_error("`bermuda` must be a sensor")
+        entry["bermuda"] = bermuda
     return entry
 
 
@@ -688,7 +900,7 @@ def validate_locating(
     """Check where the receivers are and which devices are followed (D-035).
 
     `receivers`: `{address: {"room"?: id, "piece"?: id}}`; `devices`: `{id: {"name", "kind",
-    "person"?, "match"}}`, at most 30. Return both, cleaned.
+    "person"?, "match", "bermuda"?}}`, at most 30. Return both, cleaned.
     """
     placed = _validate_receivers(receivers)
     if not isinstance(devices, dict) or len(devices) > MAX_LOCATED:
@@ -697,6 +909,9 @@ def validate_locating(
     known = [json.dumps(e["match"], sort_keys=True) for e in followed.values()]
     if len(set(known)) != len(known):
         raise _locating_error("two devices are known the same way")
+    paired = [e["bermuda"] for e in followed.values() if "bermuda" in e]
+    if len(set(paired)) != len(paired):
+        raise _locating_error("a Bermuda sensor is paired with one device at most")
     if learn is not None and not isinstance(learn, bool):
         raise _locating_error("`learn` must be true or false")
     return placed, followed

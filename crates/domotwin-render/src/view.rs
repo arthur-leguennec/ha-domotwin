@@ -83,9 +83,10 @@ pub struct ViewState {
     pub wall_height: f64,
     /// World bounds of the scene, as shown (the storeys spread apart or not, the roof or not).
     pub bounds: [[f64; 3]; 2],
-    /// The storeys of the scene, and its roof (its storey, its storey's floor height, its bounds).
+    /// The storeys of the scene, and its roofs (each its storey, its storey's floor height, its
+    /// bounds).
     storeys: Vec<Storey>,
-    roof: Option<(usize, f64, Bounds)>,
+    roofs: Vec<(usize, f64, Bounds)>,
     /// The roof is shown.
     pub roof_shown: bool,
     /// How far apart the storeys are (0: stacked, 1: spread), and where it is going.
@@ -125,7 +126,7 @@ impl Default for ViewState {
             wall_height: 265.0,
             bounds: [[0.0; 3], [1000.0, 265.0, 1000.0]],
             storeys: Vec::new(),
-            roof: None,
+            roofs: Vec::new(),
             roof_shown: true,
             spread: 1.0,
             spread_target: 1.0,
@@ -172,10 +173,11 @@ impl ViewState {
                 shift: [0.0; 2],
             })
             .collect();
-        self.roof = scene
-            .roof
-            .as_ref()
-            .map(|roof| (roof.storey, roof.elevation, wide(roof.mesh.bounds())));
+        self.roofs = scene
+            .roofs
+            .iter()
+            .map(|roof| (roof.storey, roof.elevation, wide(roof.mesh.bounds())))
+            .collect();
         self.side_target = if self.plan_view && self.storeys.len() > 1 {
             1.0
         } else {
@@ -286,14 +288,18 @@ impl ViewState {
         self.shadows_dirty = true;
     }
 
-    /// Where the roof is drawn: as its storey is, one more gap up when spread. On the way to the
+    /// Where roof `k` is drawn: as its storey is, one more gap up when spread. On the way to the
     /// plan it goes down with its storey and is gone halfway; not on the plan.
-    pub fn roof_offset(&self) -> Option<[f64; 3]> {
-        self.roof_offset_at(self.spread, self.side)
+    pub fn roof_offset(&self, k: usize) -> Option<[f64; 3]> {
+        self.roof_offset_at(k, self.spread, self.side)
     }
 
-    fn roof_offset_at(&self, spread: f64, side: f64) -> Option<[f64; 3]> {
-        let (storey, elevation, _) = self.roof.filter(|_| self.roof_shown && side < 0.5)?;
+    fn roof_offset_at(&self, k: usize, spread: f64, side: f64) -> Option<[f64; 3]> {
+        let (storey, elevation, _) = self
+            .roofs
+            .get(k)
+            .copied()
+            .filter(|_| self.roof_shown && side < 0.5)?;
         let (rank, shift) = self
             .storeys
             .get(storey)
@@ -333,10 +339,17 @@ impl ViewState {
         for (k, storey) in self.storeys.iter().enumerate() {
             add(storey.bounds, self.offset_at(k, spread, side));
         }
-        if let (Some((_, _, roof)), Some(o)) = (self.roof, self.roof_offset_at(spread, side)) {
-            add(roof, o);
+        for (k, (_, _, roof)) in self.roofs.iter().enumerate() {
+            if let Some(o) = self.roof_offset_at(k, spread, side) {
+                add(*roof, o);
+            }
         }
         bounds.unwrap_or([[0.0; 3], [1000.0, 265.0, 1000.0]])
+    }
+
+    /// The highest the home stands, its storeys spread apart or not (cm): steady while they move.
+    pub fn highest(&self) -> f64 {
+        self.shown_bounds(0.0, 0.0)[1][1].max(self.shown_bounds(1.0, 0.0)[1][1])
     }
 
     /// The bounds of what will be shown once the storeys stand still.
@@ -1036,7 +1049,7 @@ mod tests {
         assert!(view.spread());
         assert_eq!(view.offset(0), [0.0; 3]);
         assert!((view.offset(1)[1] - 280.0 - gap).abs() < 1e-6);
-        let roof = view.roof_offset().unwrap();
+        let roof = view.roof_offset(view.roofs.len() - 1).unwrap();
         assert!((roof[1] - (280.0 + 2.0 * gap)).abs() < 1e-6);
         let spread_top = view.bounds[1][1];
         // Stacked: the storeys go down to their heights, the camera frames the home again.
@@ -1052,7 +1065,7 @@ mod tests {
         assert!(view.bounds[1][1] < spread_top - gap);
         // Without its roof.
         view.set_roof(false);
-        assert!(view.roof_offset().is_none());
+        assert!(view.roof_offset(view.roofs.len() - 1).is_none());
         assert!(view.storey_bounds(1).is_some() && view.storey_bounds(2).is_none());
         // A storey alone stands at its height.
         let alone = build_home(&[(&upper, 280.0)], &SceneOptions::default());
@@ -1093,14 +1106,14 @@ mod tests {
         );
         let gap = u0[0] + upper_at[0] - g1[0];
         assert!(gap >= SIDE_GAP - 1e-6, "{gap}");
-        assert!(view.roof_offset().is_none());
+        assert!(view.roof_offset(view.roofs.len() - 1).is_none());
         // The camera frames both.
         assert!(view.bounds[0][0] <= g0[0] && view.bounds[1][0] >= g1[0] + gap);
         // Back to 3D: they stand up again, spread apart under the roof.
         view.set_plan_view(false, t);
         finish(&mut view, t);
         assert_eq!(view.offset(1)[0], 0.0);
-        assert!(view.offset(1)[1] > 280.0 && view.roof_offset().is_some());
+        assert!(view.offset(1)[1] > 280.0 && view.roof_offset(view.roofs.len() - 1).is_some());
         // A view taller than wide lays them down the view, the highest on top.
         view.set_aspect(0.6);
         view.set_plan_view(true, 0.0);
@@ -1234,5 +1247,43 @@ mod tests {
         view.update(10_000.0);
         view.orbit(50.0, 50.0);
         assert!((view.camera.yaw - 0.0).abs() < 1e-9 || (view.camera.yaw - yaw).abs() < 1e-9);
+    }
+
+    #[test]
+    fn frames_back_in_time_move_nothing_back() {
+        // The frontend's `settle()` draws frames ahead of the page's clock (100 ms each, up to
+        // 30 s): the page's own frames then come earlier than the last one.
+        let ahead = |view: &mut ViewState| {
+            for k in 1..=10 {
+                view.update(f64::from(k) * 100.0);
+            }
+        };
+        let mut view = view();
+        view.set_auto_orbit(0.1);
+        ahead(&mut view);
+        let camera = view.camera;
+        // The kiosk's turn neither goes back nor jumps on, then goes on from the page's clock.
+        view.update(16.0);
+        assert!(view.camera == camera);
+        view.update(32.0);
+        let turned = (view.camera.yaw - camera.yaw).rem_euclid(TAU);
+        assert!((turned - 0.1 * 0.016).abs() < 1e-9, "{turned}");
+        // A move started on the page's clock right after: it runs on that clock, not held until
+        // the clock that ran ahead.
+        view.set_auto_orbit(0.0);
+        ahead(&mut view);
+        let from = view.camera;
+        let mut to = from;
+        to.yaw += 1.0;
+        view.go_to(to, 48.0);
+        view.update(48.0 + MOVE_MS / 2.0);
+        assert!(
+            view.camera.yaw > from.yaw && view.camera.yaw < from.yaw + 1.0,
+            "{}",
+            view.camera.yaw
+        );
+        view.update(48.0 + MOVE_MS);
+        assert!(view.transition.is_none());
+        assert!((view.camera.yaw - to.clamped().yaw).abs() < 1e-9);
     }
 }

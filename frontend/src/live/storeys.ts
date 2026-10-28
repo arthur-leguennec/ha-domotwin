@@ -1,21 +1,34 @@
 /**
  * The storeys of the home as people call them (`docs/DECISIONS.md`, D-026): the ground floor is
  * the storey whose floor is nearest the ground (elevation 0), the others are numbered up and down
- * from it. A storey's own name wins.
+ * from it, a half level between two (a split level, D-078). A storey's own name wins.
  */
 import type { HomeStorey } from "../engine/engine";
 import type { DomoTwinClient, StoredPlan, StoreyInfo } from "../ha/client";
 import { isHassError, type HomeAssistant } from "../ha/types";
 import type { Translator } from "../i18n";
 import type { BindingsJson } from "./bindings";
-import { roomLayers, type PlanRoom, type RoomAlert } from "./layers";
+import { roomLayers, type LayerChoice, type PlanRoom, type RoomAlert } from "./layers";
 import { planRooms } from "./suggest";
 import { planElements } from "./plan";
 
 /** What a storey switcher or a card's `storey` says to show every storey at once (D-028). */
 export const ALL_STOREYS = "all";
 
-/** The storeys lowest first, each with its level (0: the ground floor, 1 above it, −1 below). */
+/**
+ * A storey less than this (cm) over or under the last full storey is a half level (D-078): a
+ * split level's, half a flight of stairs away (a low cellar is not one)… The names only: the
+ * locating counts floors with the core's own measure.
+ */
+export const HALF_LEVEL_UNDER = 180;
+/** …but not one less than this away: two storeys at one height (wings) are numbered as before. */
+export const HALF_LEVEL_FROM = 50;
+
+/**
+ * The storeys lowest first, each with its level: 0 the ground floor, 1 above it, −1 below, and a
+ * half level between two full ones (0.5, −0.5, 1.5…), one at most between them (its wings at one
+ * height share it).
+ */
 export function storeyLevels<T extends Pick<StoreyInfo, "elevation">>(
   storeys: readonly T[],
 ): { storey: T; level: number }[] {
@@ -25,19 +38,53 @@ export function storeyLevels<T extends Pick<StoreyInfo, "elevation">>(
     const best = sorted[ground];
     if (best && Math.abs(storey.elevation) < Math.abs(best.elevation)) ground = i;
   });
-  return sorted.map((storey, i) => ({ storey, level: i - ground }));
+  const levels = sorted.map(() => 0);
+  // Up from the ground floor, then down from it.
+  for (const step of [1, -1]) {
+    let level = 0;
+    let full = sorted[ground]?.elevation ?? 0;
+    let previous = full;
+    let half = false;
+    for (let i = ground + step; i >= 0 && i < sorted.length; i += step) {
+      const elevation = sorted[i]?.elevation ?? full;
+      const whole = Math.trunc(level);
+      const rise = Math.abs(elevation - full);
+      if (half && Math.abs(elevation - previous) < HALF_LEVEL_FROM) {
+        // Another wing of the half level: at its level.
+      } else if (half || rise >= HALF_LEVEL_UNDER || rise < HALF_LEVEL_FROM) {
+        level = whole + step;
+        full = elevation;
+        half = false;
+      } else {
+        level = whole + step / 2;
+        half = true;
+      }
+      previous = elevation;
+      levels[i] = level;
+    }
+  }
+  return sorted.map((storey, i) => ({ storey, level: levels[i] ?? 0 }));
 }
 
 /** What a storey is called: its name, else its place. */
 export function storeyName(t: Translator, storey: Pick<StoreyInfo, "name">, level: number): string {
   if (storey.name) return storey.name;
   if (level === 0) return t.t("storey.ground");
-  return level > 0 ? t.t("storey.above", { n: level }) : t.t("storey.below", { n: -level });
+  if (Number.isInteger(level)) {
+    return level > 0 ? t.t("storey.above", { n: level }) : t.t("storey.below", { n: -level });
+  }
+  // A half level (D-078), over or under the full storey it follows.
+  const whole = Math.trunc(Math.abs(level));
+  if (whole === 0) return t.t(level > 0 ? "storey.half_up" : "storey.half_down");
+  return t.t(level > 0 ? "storey.above_half" : "storey.below_half", { n: whole });
 }
 
-/** A storey's level as written on its button (a minus sign below the ground floor). */
+/** A storey's level as written on its button (a minus sign below the ground floor, ½ a half). */
 export function storeyShort(level: number): string {
-  return level < 0 ? `−${-level}` : String(level);
+  const size = Math.abs(level);
+  const whole = Math.trunc(size);
+  const text = Number.isInteger(size) ? String(size) : whole === 0 ? "½" : `${whole}½`;
+  return level < 0 ? `−${text}` : text;
 }
 
 /** Storey `wanted`'s plan (the ground floor's without), or the ground floor's when it is gone. */
@@ -111,7 +158,8 @@ export async function roomsElsewhere(
 
 /**
  * The alerts of the rooms of the storey shown, then those of the other storeys (`elsewhere`),
- * dangers first: a smoke alarm upstairs shows on the ground floor too.
+ * dangers first: a smoke alarm upstairs shows on the ground floor too. Of a private room the
+ * viewer may not see (`closed`, D-039), only the dangers, as on the storey shown.
  */
 export function withAlertsElsewhere(
   hass: HomeAssistant,
@@ -119,13 +167,15 @@ export function withAlertsElsewhere(
   here: readonly RoomAlert[],
   elsewhere: readonly StoreyRooms[],
   shown: string | undefined,
+  closed?: Set<string>,
 ): StoreyAlert[] {
   const alerts: StoreyAlert[] = [...here];
   // One alert per sensor: rooms of the same name on two storeys find the same area.
   const raised = new Set(here.map((alert) => alert.entity));
   for (const { storey, rooms } of elsewhere) {
     if (storey === shown) continue;
-    const choice = { layer: "off", alerts: true, presence: false } as const;
+    const choice: LayerChoice = { layer: "off", alerts: true, presence: false };
+    if (closed) choice.closed = closed;
     for (const alert of roomLayers(hass, bindings, rooms, choice).alerts) {
       if (raised.has(alert.entity)) continue;
       raised.add(alert.entity);
@@ -134,6 +184,22 @@ export function withAlertsElsewhere(
   }
   // A stable sort: the storey shown first within each level.
   return alerts.sort((a, b) => (a.level === b.level ? 0 : a.level === "danger" ? -1 : 1));
+}
+
+/** What a room's alert says; on another storey, which one. */
+export function alertText(
+  t: Translator,
+  alert: StoreyAlert,
+  storeys: readonly Pick<StoreyInfo, "id" | "name" | "elevation">[],
+): string {
+  const text = t.t(`layers.alert_${alert.reason}`, { room: alert.name });
+  if (!alert.storey) return text;
+  const level = storeyLevels(storeys).find(({ storey }) => storey.id === alert.storey);
+  if (!level) return text;
+  return t.t("storey.alert_on", {
+    alert: text,
+    storey: storeyName(t, level.storey, level.level),
+  });
 }
 
 /**
@@ -183,4 +249,28 @@ export function storeyCounts(
     }
   }
   return { rooms: planRooms(plan).length, lights: on.size };
+}
+
+/**
+ * Every storey of the home, lowest first, as the radio coverage reads them (D-066): a storey with
+ * no plan (none drawn yet, or not fetched) is still there, so that the floors between the others
+ * are counted as the integration counts them. `plans` gives each storey's plan and overlay.
+ */
+export function homeStoreys(
+  storeys: readonly StoreyInfo[],
+  plans: (id: string) => { plan?: unknown; layout?: Record<string, unknown> } | undefined,
+): HomeStorey[] {
+  return [...storeys]
+    .sort((a, b) => a.elevation - b.elevation)
+    .map((info) => {
+      const found = plans(info.id);
+      const storey: HomeStorey = {
+        id: info.id,
+        name: info.name,
+        elevation: info.elevation,
+        plan: found?.plan ?? null,
+      };
+      if (found?.layout) storey.layout = found.layout;
+      return storey;
+    });
 }

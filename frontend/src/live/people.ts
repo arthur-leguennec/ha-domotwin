@@ -26,6 +26,9 @@ export interface PeopleSettings {
   people: Record<string, PersonSettings & { color: string; sensor: string; located?: string[] }>;
   /** Entities that may say where someone is (administrators only). */
   candidates?: { entity: string; person?: string }[];
+  /** The sensor of the people the presence radars see (D-080); null when they are not shown to
+   * the user viewing, undefined from an integration before them. */
+  seen?: string | null;
 }
 
 /** A person as the view shows them. */
@@ -40,6 +43,8 @@ export interface PersonShown {
   /** When they came into it (ISO), and the entity that said so. */
   since?: string;
   source?: string;
+  /** Where in the room, when the locating says (plan cm, D-079). */
+  at?: [number, number];
   /** A picture of them on Home Assistant itself, else their initials. */
   picture?: string;
   initials: string;
@@ -155,19 +160,87 @@ export function peopleShown(
       if (since) entry.since = since;
       const source = text("source");
       if (source) entry.source = source;
+      // Where in the room (D-079): metres on the storey's plan, as the room sensor says.
+      const [x, y] = [attributes.x, attributes.y];
+      if (typeof x === "number" && typeof y === "number" && isFinite(x) && isFinite(y)) {
+        entry.at = [Math.round(x * 100), Math.round(y * 100)];
+      }
     }
     shown.push(entry);
   }
   return shown.sort((a, b) => a.name.localeCompare(b.name));
 }
 
-/** What the engine draws: those in a room, as `setPeople` takes them. */
-export function peopleJson(people: PersonShown[], look: PeopleSettings["look"]): string {
-  return JSON.stringify(
-    people
+/** Someone the presence radars see whom no device names (D-080): where, in which room. */
+export interface SeenShown {
+  id: string;
+  room: string;
+  /** Where in the room (plan cm). */
+  at: [number, number];
+}
+
+/** The sensor of the people the presence radars see (D-080), unless the settings name another. */
+export const SEEN_SENSOR = "sensor.domotwin_people_seen";
+/** Their colour: no one's own. */
+export const SEEN_COLOR = "#9aa3ad";
+
+/**
+ * The people the presence radars see whom no device names (D-080), as the sensor says: shown
+ * where the people are shown, to whom they are; none in a room the viewer may not see (`closed`).
+ */
+export function seenShown(
+  settings: PeopleSettings | undefined,
+  hass: HomeAssistant,
+  closed: ReadonlySet<string> = new Set(),
+): SeenShown[] {
+  if (!settings) return [];
+  if (settings.shown === "admins" && hass.user?.is_admin !== true) return [];
+  if (settings.seen === null) return [];
+  const seen = hass.states[settings.seen ?? SEEN_SENSOR]?.attributes.seen;
+  if (!Array.isArray(seen)) return [];
+  const shown: SeenShown[] = [];
+  for (const entry of seen as unknown[]) {
+    if (typeof entry !== "object" || entry === null) continue;
+    const { id, room_id: room, x, y } = entry as Record<string, unknown>;
+    if (
+      typeof id !== "number" ||
+      typeof room !== "string" ||
+      closed.has(room) ||
+      typeof x !== "number" ||
+      typeof y !== "number" ||
+      !isFinite(x) ||
+      !isFinite(y)
+    ) {
+      continue;
+    }
+    shown.push({
+      id: `seen.${String(id)}`,
+      room,
+      at: [Math.round(x * 100), Math.round(y * 100)],
+    });
+  }
+  return shown;
+}
+
+/** What the engine draws: those in a room, and those the radars see (D-080), as `setPeople`
+ * takes them. */
+export function peopleJson(
+  people: PersonShown[],
+  look: PeopleSettings["look"],
+  seen: readonly SeenShown[] = [],
+): string {
+  return JSON.stringify([
+    ...people
       .filter((p) => p.room !== undefined)
-      .map((p) => ({ id: p.id, room: p.room, color: p.color, look })),
-  );
+      .map((p) => ({
+        id: p.id,
+        room: p.room,
+        color: p.color,
+        look,
+        ...(p.at ? { at: p.at } : {}),
+      })),
+    ...seen.map((s) => ({ id: s.id, room: s.room, color: SEEN_COLOR, look, at: s.at })),
+  ]);
 }
 
 /** The people in each room. */

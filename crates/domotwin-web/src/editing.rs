@@ -7,10 +7,13 @@
 use std::collections::BTreeSet;
 
 use domotwin_core::edit::{Guide, Session, indices};
+use domotwin_core::geometry::heights::WALL_HEIGHT;
 use domotwin_core::geometry::polygon::P2;
+use domotwin_core::live::FIRE;
 use domotwin_core::overlay::{Layout, MODEL_PREFIX, apply, layout_value, parse_layout};
 use domotwin_core::plan::{Element, Kind, read_plan_value};
 use domotwin_core::scene::build_dynamic_lit;
+use domotwin_core::theme::parse_hex;
 use domotwin_render::lamps::Mark;
 use serde_json::{Value, json};
 use wasm_bindgen::prelude::*;
@@ -19,6 +22,11 @@ use crate::engine::Engine;
 
 /// Snapping reach, as a share of the drawing buffer's smaller side.
 const REACH: f64 = 0.015;
+
+/// The lowest ceiling over a piece in its picture (the scene's own lowest, cm).
+const PICTURE_CEILING: f64 = 150.0;
+/// A piece whose top is this high (cm) is fixed to the ceiling.
+const NEAR_CEILING: f64 = 240.0;
 
 #[wasm_bindgen]
 impl Engine {
@@ -219,11 +227,19 @@ impl Engine {
         self.edit_state()
     }
 
-    /// Adds a piece of the catalogue `kind` named `name` under the device pixel `x`, `y` (or in
-    /// the middle of the view when the floor is not there), and selects it. The state has
-    /// `refused: true` when it could not be added (the plan holds 500 elements).
+    /// Adds a piece of the catalogue `kind` in `style` (none or empty: its own, D-074) named
+    /// `name` under the device pixel `x`, `y` (or in the middle of the view when the floor is not
+    /// there), and selects it. The state has `refused: true` when it could not be added (the plan
+    /// holds 500 elements).
     #[wasm_bindgen(js_name = editAdd)]
-    pub fn edit_add(&mut self, kind: &str, name: &str, x: f64, y: f64) -> String {
+    pub fn edit_add(
+        &mut self,
+        kind: &str,
+        name: &str,
+        x: f64,
+        y: f64,
+        style: Option<String>,
+    ) -> String {
         let Some(kind) = Kind::from_name(kind) else {
             return self.edit_state();
         };
@@ -234,7 +250,10 @@ impl Engine {
             .map_or([target[0], target[2]], |p| [p[0], p[2]]);
         let added = match (&mut self.edit, &self.plan, &self.scene) {
             (Some(session), Some(plan), Some(scene)) => {
-                session.add(plan, scene.walls(), kind, name, at).is_some()
+                let style = style.as_deref().filter(|s| !s.is_empty());
+                session
+                    .add(plan, scene.walls(), kind, style, name, at)
+                    .is_some()
             }
             _ => false,
         };
@@ -397,23 +416,95 @@ impl Engine {
     }
 
     /// The catalogue of kinds a piece can be added as, as JSON `[{"kind", "w", "d", "h",
-    /// "light"}]` (default sizes in cm).
+    /// "light", "styles": [{"style", "w", "d", "h"}]}]` (usual sizes in cm, D-074).
     #[wasm_bindgen(js_name = editCatalogue)]
     pub fn edit_catalogue() -> String {
         let kinds: Vec<Value> = Kind::ALL
             .iter()
             .map(|kind| {
                 let info = kind.info();
+                let styles: Vec<Value> = info
+                    .variants
+                    .iter()
+                    .map(|style| {
+                        let [w, d, h] = kind.style_info(Some(style)).size;
+                        json!({ "style": style, "w": w, "d": d, "h": h })
+                    })
+                    .collect();
                 json!({
                     "kind": info.name,
                     "w": info.size[0],
                     "d": info.size[1],
                     "h": info.size[2],
                     "light": info.flags.light,
+                    "styles": styles,
                 })
             })
             .collect();
         Value::Array(kinds).to_string()
+    }
+
+    /// A picture of a piece of the catalogue alone (D-074): `kind` in `style` (empty: its own),
+    /// at its usual size and in its colour, on `background` (`#rrggbb`), `width` × `height`
+    /// device pixels: RGBA rows from the top, empty for a kind this version does not know. The
+    /// piece takes the place of the plan shown: the catalogue draws its pictures with an engine
+    /// of its own.
+    #[wasm_bindgen(js_name = piecePicture)]
+    pub fn piece_picture(
+        &mut self,
+        kind: &str,
+        style: &str,
+        width: u32,
+        height: u32,
+        background: &str,
+    ) -> Vec<u8> {
+        let Some(kind) = Kind::from_name(kind).filter(|k| *k != Kind::Box) else {
+            return Vec::new();
+        };
+        let style = Some(style).filter(|s| kind.has_variant(s));
+        let info = kind.style_info(style);
+        let [w, d, h] = info.size;
+        // A ceiling close over it: what hangs from it hangs on a short cord where it has one, a
+        // flue or a chimney rises a little.
+        let cord = if matches!(kind, Kind::Pendant | Kind::Chandelier | Kind::CeilingFan) {
+            18.0
+        } else {
+            0.0
+        };
+        let ceiling = (h + cord + 30.0).clamp(PICTURE_CEILING, WALL_HEIGHT);
+        // Fixed to the ceiling (a light, an access point, a dome camera): right under it, and seen
+        // from below, as one sees it. Not a tall piece of the garden (a pergola, a tree): no
+        // ceiling over it.
+        let on_ceiling = cord == 0.0 && !kind.outdoor() && info.elevation + h >= NEAR_CEILING;
+        let lift = if kind.info().flags.hanging || on_ceiling {
+            (ceiling - h - cord).max(0.0)
+        } else {
+            0.0
+        };
+        let mut item = json!({
+            "id": "piece", "kind": kind.name(), "at": [0, 0], "size": [w, d, h],
+            "color": info.color.to_hex(), "lift": lift,
+        });
+        if let Some(style) = style {
+            item["style"] = Value::from(style);
+        }
+        let plan = json!({ "format": "domotwin-plan", "version": 1, "items": [item] });
+        let Ok(plan) = read_plan_value(&plan) else {
+            return Vec::new();
+        };
+        self.show_piece(plan, ceiling);
+        // A fire shown burning, as a lamp is shown lit.
+        if kind.burns()
+            && let Some(look) = self.live.looks.first_mut()
+        {
+            look.glow = FIRE.to_linear();
+            look.strength = 1.0;
+            self.renderer.set_looks(&self.live.looks);
+        }
+        let background = parse_hex(background).unwrap_or([1.0, 1.0, 1.0]);
+        self.renderer
+            .piece_picture(width, height, background, on_ceiling)
+            .unwrap_or_default()
     }
 }
 

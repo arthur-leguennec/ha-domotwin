@@ -22,7 +22,7 @@ export default tseslint.config(
     languageOptions: {
       globals: { ...globals.browser },
       parserOptions: {
-        projectService: { allowDefaultProject: ["*.js", "*.mjs", "e2e/*.mjs"] },
+        projectService: { allowDefaultProject: ["*.js", "*.mjs", "e2e/*.mjs", "scripts/*.mjs"] },
         tsconfigRootDir: import.meta.dirname,
       },
     },
@@ -47,7 +47,7 @@ export default tseslint.config(
     rules: { "no-restricted-globals": "off" },
   },
   {
-    files: ["*.js", "*.mjs", "e2e/**/*.mjs"],
+    files: ["*.js", "*.mjs", "e2e/**/*.mjs", "scripts/*.mjs"],
     ...tseslint.configs.disableTypeChecked,
     languageOptions: { globals: { ...globals.node } },
   },

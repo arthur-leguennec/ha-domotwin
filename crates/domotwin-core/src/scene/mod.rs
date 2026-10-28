@@ -22,11 +22,13 @@ mod openings;
 mod roof;
 mod structure;
 
+pub use roof::{MAX_WINGS, PITCH, PITCH_RANGE, RoofKind, RoofStyle};
+
 use std::collections::{BTreeMap, BTreeSet};
 use std::rc::Rc;
 
 use crate::geometry::heights::WALL_HEIGHT;
-use crate::geometry::polygon::{P2, label_point, point_in_polygon};
+use crate::geometry::polygon::{P2, label_point_around, point_in_polygon};
 use crate::geometry::walls::WallLayout;
 use crate::model_mesh::ModelMesh;
 use crate::plan::{Element, Plan};
@@ -142,7 +144,8 @@ pub struct StoreyPart {
     context: Builder,
 }
 
-/// The roof over the top storey (D-028), at the height of its walls' tops.
+/// The roof of a storey where no storey above covers it (D-028, D-077), at the height of its
+/// walls' tops.
 #[derive(Debug, Clone)]
 pub struct Roof {
     /// Height of the floor of the storey it covers (cm): its mesh and lines stand on that floor
@@ -152,8 +155,53 @@ pub struct Roof {
     pub storey: usize,
     /// Its slopes and gables.
     pub mesh: Mesh,
-    /// Its eaves, ridge and gable edges.
+    /// Its eaves, ridges, hips and gable edges.
     pub lines: Vec<lines::Line>,
+    /// The shapes of its wings, for what falls on them (D-072), the largest first.
+    pub wings: Vec<RoofShape>,
+}
+
+/// The shape of a wing of a roof on the plan, its eaves included: what falls on it stops on its
+/// slopes and runs off its eaves (D-072, D-077).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct RoofShape {
+    /// Gable, hip, shed or flat.
+    pub kind: RoofKind,
+    /// Its centre on the plan (cm).
+    pub centre: [f64; 2],
+    /// The unit direction of its ridge on the plan; its slopes fall at right angles to it.
+    pub ridge: [f64; 2],
+    /// Half its length along the ridge, and half its width across it (cm).
+    pub half_length: f64,
+    pub half_width: f64,
+    /// The height of its eaves above the floor of the storey it covers, and of its ridge (a lean-
+    /// to's high side, a flat roof's top) above its eaves (cm).
+    pub eaves: f64,
+    pub rise: f64,
+    /// A lean-to's high side: ±1 across its ridge.
+    pub high: f64,
+}
+
+impl RoofShape {
+    /// The height of the roof above the floor of the storey it covers at a point of the plan, or
+    /// `None` outside it: the formula the weather's shader lands rain on the roof with (D-072),
+    /// checked against the roof's mesh.
+    pub fn height_at(&self, point: [f64; 2]) -> Option<f64> {
+        let d = [point[0] - self.centre[0], point[1] - self.centre[1]];
+        let along = d[0] * self.ridge[0] + d[1] * self.ridge[1];
+        let across = -d[0] * self.ridge[1] + d[1] * self.ridge[0];
+        let (hl, hw) = (self.half_length, self.half_width);
+        if along.abs() > hl || across.abs() > hw {
+            return None;
+        }
+        let up = match self.kind {
+            RoofKind::Gable => 1.0 - across.abs() / hw,
+            RoofKind::Hip => (1.0 - across.abs() / hw).min((hl - along.abs()) / hw),
+            RoofKind::Shed => (across * self.high + hw) / (2.0 * hw),
+            RoofKind::Flat => 1.0,
+        };
+        Some(self.eaves + self.rise * up.clamp(0.0, 1.0))
+    }
 }
 
 /// The built scene.
@@ -161,8 +209,9 @@ pub struct Roof {
 pub struct Scene {
     /// Its storeys, lowest first (one for a plan alone).
     pub parts: Vec<StoreyPart>,
-    /// The roof over the top storey, for the home seen whole (several storeys).
-    pub roof: Option<Roof>,
+    /// The roofs of the storeys where no storey above covers them, for the home seen whole
+    /// (several storeys).
+    pub roofs: Vec<Roof>,
     /// Element id of each room slot (slot `k` is `rooms[k - 1]`).
     pub rooms: Vec<String>,
     /// Where each room's label goes, well inside it (plan x, y), by room slot like `rooms`.
@@ -181,6 +230,26 @@ pub struct Scene {
     pub models_over_budget: usize,
     /// The rooms drawn closed (D-039), by element id: nothing in them, no way in.
     pub closed: BTreeSet<String>,
+    /// The box on the plan `[min, max]` of the home's rooms and their walls, every storey's
+    /// (none without rooms); and of the places outside (D-077), where the weather falls too.
+    pub home_area: Option<[P2; 2]>,
+    pub grounds: Option<[P2; 2]>,
+}
+
+/// The box around `points`, grown to take in `other`.
+fn take_in(other: Option<[P2; 2]>, points: impl IntoIterator<Item = P2>) -> Option<[P2; 2]> {
+    let mut area = other;
+    for p in points {
+        if !(p[0].is_finite() && p[1].is_finite()) {
+            continue;
+        }
+        let [lo, hi] = area.get_or_insert([p, p]);
+        for k in 0..2 {
+            lo[k] = lo[k].min(p[k]);
+            hi[k] = hi[k].max(p[k]);
+        }
+    }
+    area
 }
 
 /// Scene options.
@@ -193,6 +262,8 @@ pub struct SceneOptions {
     /// Rooms to draw closed (private rooms the viewer may not see, D-039), by element id: their
     /// pieces are left out, and nobody walks in.
     pub closed_rooms: BTreeSet<String>,
+    /// How the roofs are drawn (D-077).
+    pub roof: RoofStyle,
 }
 
 impl Default for SceneOptions {
@@ -201,6 +272,7 @@ impl Default for SceneOptions {
             wall_height: WALL_HEIGHT,
             models: Rc::default(),
             closed_rooms: BTreeSet::new(),
+            roof: RoofStyle::default(),
         }
     }
 }
@@ -217,6 +289,11 @@ pub(crate) struct Builder {
     pub(crate) opening_groups: BTreeMap<String, u8>,
     pub(crate) lights: Vec<LightSpot>,
     pub(crate) wall_height: f64,
+    /// Every storey's gardens (places outside on a garden's ground, no balcony), with their storey
+    /// and their ground's height (cm): a walk-out basement's garden meets a higher one (D-078).
+    pub(crate) gardens: Rc<[(usize, Vec<P2>, f64)]>,
+    /// The height of the floor of the storey being built (cm).
+    pub(crate) elevation: f64,
     /// Room slot of each room element index.
     room_slots: BTreeMap<usize, u8>,
     /// Room polygons with their slot, to find the room of a point.
@@ -254,6 +331,19 @@ impl Builder {
             .iter()
             .find(|(_, points)| point_in_polygon(p, points, false))
             .map_or(0, |(slot, _)| *slot)
+    }
+
+    /// The height of the floor of the room in slot `slot` above its storey's (cm): a garden's
+    /// ground a little under the floors (D-077), 0 for every other room.
+    pub(crate) fn floor_level(&self, plan: &Plan, slot: u8) -> f64 {
+        self.room_slots
+            .iter()
+            .find(|(_, s)| **s == slot)
+            .and_then(|(index, _)| match plan.elements.get(*index) {
+                Some(Element::Room(room)) => Some(room.level()),
+                _ => None,
+            })
+            .unwrap_or(0.0)
     }
 
     /// The slot of the room an element follows (`parent`), else of the room containing `p`.
@@ -339,7 +429,7 @@ pub fn build_scene_moving(plan: &Plan, options: &SceneOptions, moving: &BTreeSet
 }
 
 /// Builds the scene of every storey of a home (D-028): each storey's plan (its overlay applied)
-/// with the height of its floor (cm), lowest first; the roof over the top one.
+/// with the height of its floor (cm), lowest first; the roofs over them.
 pub fn build_home(storeys: &[(&Plan, f64)], options: &SceneOptions) -> Scene {
     build(storeys, options, &BTreeSet::new(), true)
 }
@@ -384,14 +474,49 @@ fn build(
     let mut infos = Vec::new();
     let mut parts = Vec::new();
     let mut lights = Vec::new();
+    let (mut home_area, mut grounds) = (None, None);
+    // A storey's floor: at its height, or at 0 where that is not a number.
+    let floor_at = |elevation: f64| {
+        if elevation.is_finite() {
+            elevation
+        } else {
+            0.0
+        }
+    };
+    // Every storey's gardens, and the height of their ground (cm).
+    builder.gardens = storeys
+        .iter()
+        .enumerate()
+        .flat_map(|(storey, (plan, elevation))| {
+            plan.rooms()
+                .filter(|room| room.outside && room.floor.ground() && !room.railing)
+                .map(move |room| (storey, room.points(), floor_at(*elevation) + room.level()))
+        })
+        .collect();
     for (storey, (plan, elevation)) in storeys.iter().enumerate() {
         let layout = WallLayout::new(plan);
+        for walls in &layout.rooms {
+            let points = walls.points.iter().copied();
+            if walls.outside {
+                grounds = take_in(grounds, points);
+            } else {
+                let bands = walls.sides.iter().flatten().flatten().flat_map(|b| b.quad);
+                home_area = take_in(home_area, points.chain(bands));
+            }
+        }
         builder.storey = storey;
         builder.base = infos.len();
         builder.boxed = over_budget(plan, &options.models, &mut drawn);
         builder.room_slots.clear();
         builder.room_shapes.clear();
-        for walls in &layout.rooms {
+        // A place outside drawn around the home (a garden, D-077) has its label out of the rooms
+        // looked up before it there (the home's, a deck in it); what is in them comes before it.
+        let order = layout.lookup_order();
+        let mut rank = vec![0; order.len()];
+        for (r, &k) in order.iter().enumerate() {
+            rank[k] = r;
+        }
+        for (k, walls) in layout.rooms.iter().enumerate() {
             let Some(Element::Room(room)) = plan.elements.get(walls.element) else {
                 continue;
             };
@@ -402,14 +527,32 @@ fn build(
                 break;
             }
             rooms.push(room.id.clone());
-            labels.push(label_point(&walls.points));
+            let before: Vec<&[P2]> = if walls.outside {
+                order[..rank[k]]
+                    .iter()
+                    .map(|j| layout.rooms[*j].points.as_slice())
+                    .collect()
+            } else {
+                Vec::new()
+            };
+            labels.push(label_point_around(&walls.points, &before));
             if options.closed_rooms.contains(&room.id) {
                 builder.closed.insert(slot);
             }
             builder.room_slots.insert(walls.element, slot);
             builder.room_shapes.push((slot, walls.points.clone()));
         }
+        let ranks: BTreeMap<u8, usize> = layout
+            .rooms
+            .iter()
+            .enumerate()
+            .filter_map(|(k, walls)| Some((*builder.room_slots.get(&walls.element)?, rank[k])))
+            .collect();
+        builder
+            .room_shapes
+            .sort_by_key(|(slot, _)| ranks.get(slot).copied().unwrap_or(usize::MAX));
         builder.dynamic = false;
+        builder.elevation = floor_at(*elevation);
         structure::build(&mut builder, plan, &layout);
         let outlines = std::mem::take(&mut builder.lines.list);
         furniture::build(&mut builder, plan, &layout);
@@ -454,7 +597,7 @@ fn build(
                 ),
                 mesh::Tag::default(),
             );
-            for walls in &layout.rooms {
+            for walls in layout.rooms.iter().filter(|walls| !walls.outside) {
                 // Lit by its room's lamps.
                 painter.tag = mesh::Tag {
                     room: builder.room_slot(walls.element),
@@ -465,11 +608,7 @@ fn build(
         }
         builder.dynamic = false;
         parts.push(StoreyPart {
-            elevation: if elevation.is_finite() {
-                *elevation
-            } else {
-                0.0
-            },
+            elevation: floor_at(*elevation),
             first: builder.base,
             count: plan.elements.len(),
             opaque,
@@ -486,10 +625,10 @@ fn build(
         });
     }
     let models_over_budget = parts.iter().map(|p| p.context.boxed.len()).sum();
-    let roof = if home {
-        roof::build(&parts, wall_height)
+    let roofs = if home {
+        roof::build(&parts, wall_height, &options.roof)
     } else {
-        None
+        Vec::new()
     };
     let mut bounds = [[0.0; 3]; 2];
     for part in &parts {
@@ -511,7 +650,7 @@ fn build(
         .collect();
     Scene {
         parts,
-        roof,
+        roofs,
         rooms,
         labels,
         groups: builder.groups.clone(),
@@ -521,6 +660,8 @@ fn build(
         bounds,
         models_over_budget,
         closed,
+        home_area,
+        grounds,
     }
 }
 
@@ -624,7 +765,7 @@ impl Scene {
                     &p.dynamic_transparent,
                 ]
             })
-            .chain(self.roof.as_ref().map(|r| &r.mesh))
+            .chain(self.roofs.iter().map(|r| &r.mesh))
             .map(Mesh::triangle_count)
             .sum()
     }
@@ -679,7 +820,7 @@ impl Scene {
                 *mesh = Mesh::default();
             }
         }
-        if let Some(roof) = self.roof.as_mut() {
+        for roof in &mut self.roofs {
             roof.mesh = Mesh::default();
         }
     }

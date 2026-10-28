@@ -12,7 +12,7 @@ import { translatorFor, type Translator } from "../i18n";
 import { entityName } from "../live/bindings";
 import { define, fire } from "./define";
 import { entityRow, quickControls, rowStyles } from "./entity-rows";
-import { icon } from "./icon";
+import { icon, mirroredIcon } from "./icon";
 import { baseStyles } from "./styles";
 
 /** `<domotwin-bubble>`: a piece's quick controls, over it. */
@@ -141,7 +141,7 @@ export class DomoTwinBubble extends LitElement {
                   fire(this, "domotwin-bubble-more", undefined);
                 }}
               >
-                ${icon(mdiChevronRight)}
+                ${mirroredIcon(mdiChevronRight)}
               </button>`
             : nothing
         }

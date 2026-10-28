@@ -1,5 +1,5 @@
 //! The shapes people are drawn with (`DECISIONS.md`, D-034): a figure, a pin, and the soft
-//! shadow under them.
+//! shadow under them; and the robots (a vacuum, D-049; a mower, D-077).
 //!
 //! Each is built once, around its own origin: on the floor, under its middle, facing +x, in cm.
 //! The renderer moves, turns and colours it for each person.
@@ -21,6 +21,8 @@ pub const FIGURE_HEIGHT: f32 = 158.0;
 pub const PIN_HEIGHT: f32 = 170.0;
 /// Height of a robot vacuum's top, its turret's (cm).
 pub const ROBOT_HEIGHT: f32 = 11.5;
+/// Height of a robot mower's top, its stop button's (cm).
+pub const MOWER_HEIGHT: f32 = 27.0;
 
 /// Sides around a turned shape.
 const AROUND: usize = 20;
@@ -76,7 +78,6 @@ impl Shape {
 
     /// A rod with rounded ends from `a` to `b` (in a vertical plane), of radius `r`.
     fn limb(&mut self, a: [f32; 3], b: [f32; 3], r: f32) {
-        let start = self.base();
         // Built upright, then leaned from `a` towards `b`.
         let length = (b[1] - a[1]).hypot(b[2] - a[2]).hypot(b[0] - a[0]);
         let mut upright = Self::default();
@@ -93,10 +94,33 @@ impl Shape {
         }
         upright.lathe(&profile, 1.0, [0.0, 0.0]);
         let axis = normalised([b[0] - a[0], b[1] - a[1], b[2] - a[2]]);
+        self.add_turned(&upright, a, axis);
+    }
+
+    /// A wheel of radius `r`, `width` wide, its middle at `center` and its axle across (along z).
+    fn wheel(&mut self, center: [f32; 3], r: f32, width: f32) {
+        let h = width / 2.0;
+        let mut upright = Self::default();
+        let tyre = [
+            [0.0, -h],
+            [r - 1.0, -h],
+            [r, 1.0 - h],
+            [r, h - 1.0],
+            [r - 1.0, h],
+            [0.0, h],
+        ];
+        upright.lathe(&tyre, 1.0, [0.0, 0.0]);
+        self.add_turned(&upright, center, [0.0, 0.0, 1.0]);
+    }
+
+    /// `upright` turned so that its +y points along the unit vector `axis`, its origin at `at`.
+    fn add_turned(&mut self, upright: &Self, at: [f32; 3], axis: [f32; 3]) {
+        let start = self.base();
         let turn = |p: [f32; 3]| rotate_up_to(p, axis);
         for (p, n) in upright.positions.iter().zip(&upright.normals) {
             let q = turn(*p);
-            self.positions.push([a[0] + q[0], a[1] + q[1], a[2] + q[2]]);
+            self.positions
+                .push([at[0] + q[0], at[1] + q[1], at[2] + q[2]]);
             self.normals.push(turn(*n));
         }
         self.indices
@@ -197,6 +221,38 @@ pub fn robot() -> Shape {
     shape
 }
 
+/// A robot mower (D-077): a low rounded shell, longer than wide, its big wheels at the back, a
+/// stop button on top. Facing +x.
+pub fn mower() -> Shape {
+    #[allow(clippy::cast_possible_truncation)]
+    let r = crate::robots::MOWER.radius as f32 * 0.78;
+    let mut shape = Shape::default();
+    let shell = [
+        [0.0, 4.0],
+        [r - 2.0, 4.0],
+        [r, 7.0],
+        [r, 13.0],
+        [r - 3.5, 19.5],
+        [r - 9.0, 23.0],
+        [0.0, 24.0],
+    ];
+    // Longer than wide: its radius front to back the robot's.
+    shape.lathe(&shell, 1.0 / 0.78, [0.0, 0.0]);
+    let button = [
+        [0.0, 23.0],
+        [4.0, 23.0],
+        [4.0, 26.2],
+        [3.2, 27.0],
+        [0.0, MOWER_HEIGHT],
+    ];
+    shape.lathe(&button, 1.0, [-4.0, 0.0]);
+    for side in [-1.0, 1.0] {
+        // The drive wheels, at the back, standing on the ground.
+        shape.wheel([-11.0, 9.0, side * (r - 1.0)], 9.0, 5.0);
+    }
+    shape
+}
+
 /// The shadow on the floor: a disc of radius 1, its rim in the normals' y (0 at the middle, 1
 /// at the rim) for the shader to soften.
 pub fn shadow() -> Shape {
@@ -241,6 +297,7 @@ mod tests {
             (figure(), FIGURE_HEIGHT),
             (pin(), PIN_HEIGHT),
             (robot(), ROBOT_HEIGHT),
+            (mower(), MOWER_HEIGHT),
         ] {
             let (lo, hi) = bounds(&shape);
             assert!(lo[1] >= -0.01, "{lo:?}");
@@ -264,6 +321,11 @@ mod tests {
         // A robot is as wide as it says, its turret at its back.
         let (lo, hi) = bounds(&robot());
         assert!((hi[0] - 17.5).abs() < 0.1 && (lo[2] + 17.5).abs() < 0.1);
+        // A mower is longer than wide, as long as it says, its wheels on the ground.
+        let (lo, hi) = bounds(&mower());
+        assert!((hi[0] - 30.0).abs() < 0.1, "{hi:?}");
+        assert!(hi[2] - lo[2] < (hi[0] - lo[0]) * 0.95, "{lo:?} {hi:?}");
+        assert!(lo[1].abs() < 0.6, "{lo:?}");
         let disc = shadow();
         assert_eq!(disc.indices.len(), AROUND * 3);
     }

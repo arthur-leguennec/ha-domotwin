@@ -42,6 +42,16 @@ pub enum Surface {
     Leaf = 14,
     /// A room's ceiling, seen from below when walking (D-029): lit like the room, not by the sun.
     Ceiling = 15,
+    /// A lawn (D-077): its grass as long as it has grown since it was mown, striped just after.
+    Grass = 16,
+    /// Gravel.
+    Gravel = 17,
+    /// Water (a pool, a hot tub).
+    Water = 18,
+    /// Bare soil (a bed, a vegetable patch).
+    Soil = 19,
+    /// Paving slabs, 60 cm.
+    Paving = 20,
 }
 
 /// How a vertex reacts to the cut-away of its wall group. Stored in the vertex (2 bits).
@@ -331,6 +341,26 @@ impl Xform {
 fn sub(a: V3, b: V3) -> V3 {
     [a[0] - b[0], a[1] - b[1], a[2] - b[2]]
 }
+
+fn add(a: V3, b: V3) -> V3 {
+    [a[0] + b[0], a[1] + b[1], a[2] + b[2]]
+}
+
+fn scale(a: V3, k: f64) -> V3 {
+    [a[0] * k, a[1] * k, a[2] * k]
+}
+
+fn dot(a: V3, b: V3) -> f64 {
+    a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
+}
+
+fn length(a: V3) -> f64 {
+    dot(a, a).sqrt()
+}
+
+/// Two faces of an outline whose normals are closer than this (the cosine of about 45°) share
+/// their normal where they meet: the light rolls over the bend instead of breaking.
+const SMOOTH: f64 = 0.7;
 
 fn cross3(a: V3, b: V3) -> V3 {
     [
@@ -969,6 +999,359 @@ impl<'a> Painter<'a> {
         }
     }
 
+    /// A solid turned about the local y axis through `at` (frame `x`): `profile` is its outline
+    /// from one end to the other as `[radius, height]` points (heights from `at`), stretched by
+    /// `scale` along local x and z (an oval). The light rolls round where the outline bends gently
+    /// and breaks where it turns sharply (a rim, a foot); an outline that comes back inside (a
+    /// vase's mouth, a tub's inner side) is lit from within. An end off the axis is closed by a
+    /// flat cap facing away from the outline.
+    #[allow(clippy::cast_precision_loss)]
+    pub fn lathe(
+        &mut self,
+        x: &Xform,
+        at: V3,
+        profile: &[[f64; 2]],
+        scale: [f64; 2],
+        segments: usize,
+    ) {
+        if profile.len() < 2 || scale.iter().any(|s| s.is_nan() || *s <= 1e-6) {
+            return;
+        }
+        let segments = segments.max(3);
+        let reach = profile.iter().map(|p| p[0].abs()).fold(0.0, f64::max) * scale[0].max(scale[1]);
+        let base = self.base.unwrap_or_else(|| {
+            profile
+                .iter()
+                .map(|p| x.point([at[0], at[1] + p[1], at[2]])[1])
+                .fold(f64::INFINITY, f64::min)
+                - reach * (1.0 - x.axes[1][1].abs())
+        });
+        let material = self.material;
+        // Each length of the outline: its direction in the (radius, height) plane, and its normal
+        // (outwards when the outline goes up the outside).
+        let lengths: Vec<Option<[f64; 2]>> = profile
+            .windows(2)
+            .map(|w| {
+                let d = [w[1][0] - w[0][0], w[1][1] - w[0][1]];
+                let len = d[0].hypot(d[1]);
+                (len > 1e-6).then(|| [d[1] / len, -d[0] / len])
+            })
+            .collect();
+        let shared = |n: [f64; 2], other: Option<[f64; 2]>| match other {
+            Some(m) if n[0] * m[0] + n[1] * m[1] > SMOOTH => {
+                let s = [n[0] + m[0], n[1] + m[1]];
+                let len = s[0].hypot(s[1]);
+                [s[0] / len, s[1] / len]
+            }
+            _ => n,
+        };
+        let ring = |painter: &mut Self, [r, y]: [f64; 2], n: [f64; 2]| -> Vec<u32> {
+            (0..=segments)
+                .map(|k| {
+                    let a = k as f64 / segments as f64 * std::f64::consts::TAU;
+                    let (s, c) = a.sin_cos();
+                    let p = x.point([
+                        at[0] + c * r * scale[0],
+                        at[1] + y,
+                        at[2] + s * r * scale[1],
+                    ]);
+                    let normal = x.dir(normalize([c * n[0] / scale[0], n[1], s * n[0] / scale[1]]));
+                    painter.mesh.vertex(
+                        p,
+                        base,
+                        normal,
+                        [k as f64 / segments as f64, y],
+                        &material,
+                        painter.tag,
+                    )
+                })
+                .collect()
+        };
+        for (i, w) in profile.windows(2).enumerate() {
+            let Some(n) = lengths[i] else { continue };
+            let before = lengths[..i].iter().rev().find_map(|l| *l);
+            let after = lengths[i + 1..].iter().find_map(|l| *l);
+            let low = ring(self, w[0], shared(n, before));
+            let high = ring(self, w[1], shared(n, after));
+            for k in 0..segments {
+                if w[0][0].abs() > 1e-6 {
+                    self.outward(low[k], low[k + 1], high[k + 1]);
+                }
+                if w[1][0].abs() > 1e-6 {
+                    self.outward(low[k], high[k + 1], high[k]);
+                }
+            }
+        }
+        // The ends off the axis: flat, facing away from the outline (back along its first length,
+        // on along its last).
+        let first = lengths.iter().find_map(|l| *l);
+        let last = lengths.iter().rev().find_map(|l| *l);
+        let ends = [
+            (profile[0], first.map(|n| [n[1], -n[0]])),
+            (profile[profile.len() - 1], last.map(|n| [-n[1], n[0]])),
+        ];
+        for ([r, y], along) in ends {
+            let Some(along) = along.filter(|_| r.abs() > 0.01) else {
+                continue;
+            };
+            let up = if along[1] > 1e-9 { 1.0 } else { -1.0 };
+            let normal = x.dir([0.0, up, 0.0]);
+            let centre = self.mesh.vertex(
+                x.point([at[0], at[1] + y, at[2]]),
+                base,
+                normal,
+                [0.0, 0.0],
+                &material,
+                self.tag,
+            );
+            let rim: Vec<u32> = (0..=segments)
+                .map(|k| {
+                    let a = k as f64 / segments as f64 * std::f64::consts::TAU;
+                    let (s, c) = a.sin_cos();
+                    let (px, pz) = (c * r * scale[0], s * r * scale[1]);
+                    self.mesh.vertex(
+                        x.point([at[0] + px, at[1] + y, at[2] + pz]),
+                        base,
+                        normal,
+                        [px, pz],
+                        &material,
+                        self.tag,
+                    )
+                })
+                .collect();
+            for k in 0..segments {
+                self.outward(centre, rim[k], rim[k + 1]);
+            }
+        }
+    }
+
+    /// A tube of radius `r` along `points` (frame `x`): each ring is turned halfway into the next
+    /// length and widened across the bend, so that the tube keeps its girth round a corner (a
+    /// rail, a lamp's arc, a frame). Its ends are closed by `caps` or left open (in a joint).
+    #[allow(clippy::cast_precision_loss)]
+    pub fn pipe(&mut self, x: &Xform, points: &[V3], r: f64, segments: usize, caps: bool) {
+        let mut path: Vec<V3> = Vec::with_capacity(points.len());
+        for p in points {
+            if path.last().is_none_or(|q: &V3| length(sub(*p, *q)) > 0.01) {
+                path.push(*p);
+            }
+        }
+        if path.len() < 2 || r.is_nan() || r <= 0.01 {
+            return;
+        }
+        let segments = segments.max(3);
+        let n = path.len();
+        let dirs: Vec<V3> = path
+            .windows(2)
+            .map(|w| normalize(sub(w[1], w[0])))
+            .collect();
+        let tangent = |i: usize| {
+            if i == 0 {
+                dirs[0]
+            } else if i == n - 1 {
+                dirs[n - 2]
+            } else {
+                let s = add(dirs[i - 1], dirs[i]);
+                if length(s) < 1e-6 {
+                    dirs[i]
+                } else {
+                    normalize(s)
+                }
+            }
+        };
+        let base = self.base.unwrap_or_else(|| {
+            path.iter()
+                .map(|p| x.point(*p)[1])
+                .fold(f64::INFINITY, f64::min)
+                - r
+        });
+        let material = self.material;
+        // A first normal square to the start, carried along without twisting.
+        let t0 = tangent(0);
+        let helper = if t0[1].abs() < 0.9 {
+            [0.0, 1.0, 0.0]
+        } else {
+            [1.0, 0.0, 0.0]
+        };
+        let mut normal = normalize(cross3(helper, t0));
+        let mut rings: Vec<Vec<u32>> = Vec::with_capacity(n);
+        let mut along = 0.0;
+        for i in 0..n {
+            let t = tangent(i);
+            normal = normalize(sub(normal, scale(t, dot(normal, t))));
+            let side = cross3(t, normal);
+            // Across a bend, the ring reaches further by the bend's half angle.
+            let bend = (i > 0 && i < n - 1).then(|| {
+                let b = sub(dirs[i], dirs[i - 1]);
+                let widen = 1.0 / dot(dirs[i], t).clamp(0.35, 1.0);
+                (normalize(b), widen)
+            });
+            if i > 0 {
+                along += length(sub(path[i], path[i - 1]));
+            }
+            let ring: Vec<u32> = (0..=segments)
+                .map(|k| {
+                    let a = k as f64 / segments as f64 * std::f64::consts::TAU;
+                    let (s, c) = a.sin_cos();
+                    let v = add(scale(normal, c), scale(side, s));
+                    let reach = match bend {
+                        Some((b, widen)) if length(b) > 1e-9 => {
+                            add(v, scale(b, dot(v, b) * (widen - 1.0)))
+                        }
+                        _ => v,
+                    };
+                    self.mesh.vertex(
+                        x.point(add(path[i], scale(reach, r))),
+                        base,
+                        x.dir(v),
+                        [k as f64 / segments as f64, along],
+                        &material,
+                        self.tag,
+                    )
+                })
+                .collect();
+            if let Some(previous) = rings.last() {
+                for k in 0..segments {
+                    let (a, b, c, d) = (previous[k], previous[k + 1], ring[k + 1], ring[k]);
+                    self.outward(a, b, c);
+                    self.outward(a, c, d);
+                }
+            }
+            rings.push(ring);
+        }
+        if !caps {
+            return;
+        }
+        for (i, facing) in [(0, scale(tangent(0), -1.0)), (n - 1, tangent(n - 1))] {
+            let normal = x.dir(facing);
+            let centre = self.mesh.vertex(
+                x.point(path[i]),
+                base,
+                normal,
+                [0.0, 0.0],
+                &material,
+                self.tag,
+            );
+            let rim: Vec<u32> = rings[i]
+                .iter()
+                .map(|&v| {
+                    let p = self.mesh.positions[v as usize];
+                    let p = [f64::from(p[0]), f64::from(p[1]), f64::from(p[2])];
+                    self.mesh
+                        .vertex(p, base, normal, [0.0, 0.0], &material, self.tag)
+                })
+                .collect();
+            for k in 0..segments {
+                self.outward(centre, rim[k], rim[k + 1]);
+            }
+        }
+    }
+
+    /// A solid whose outline is `outline` (local x, y: a simple polygon, either way round), from
+    /// `z0` to `z1` along local z (frame `x`): two flat faces and a side square to them, sharp
+    /// where the outline turns by more than about 45°, rounded by its normals elsewhere (a rocker,
+    /// the side of a wing chair, a car's flank).
+    pub fn slab(&mut self, x: &Xform, outline: &[[f64; 2]], z0: f64, z1: f64) {
+        let mut points: Vec<[f64; 2]> = Vec::with_capacity(outline.len());
+        for p in outline {
+            if points
+                .last()
+                .is_none_or(|q: &[f64; 2]| (p[0] - q[0]).hypot(p[1] - q[1]) > 0.01)
+            {
+                points.push(*p);
+            }
+        }
+        while points.len() > 3
+            && (points[0][0] - points[points.len() - 1][0])
+                .hypot(points[0][1] - points[points.len() - 1][1])
+                <= 0.01
+        {
+            points.pop();
+        }
+        let triangles = crate::geometry::polygon::triangulate(&points);
+        if triangles.is_empty() || z1 - z0 < 0.02 {
+            return;
+        }
+        let base = self.base.unwrap_or_else(|| {
+            points
+                .iter()
+                .flat_map(|p| [z0, z1].map(|z| x.point([p[0], p[1], z])[1]))
+                .fold(f64::INFINITY, f64::min)
+        });
+        let material = self.material;
+        // Positive: anticlockwise with y up.
+        let turn = if crate::geometry::polygon::signed_area2(&points) >= 0.0 {
+            1.0
+        } else {
+            -1.0
+        };
+        for (z, facing) in [(z0, -1.0), (z1, 1.0)] {
+            let normal = x.dir([0.0, 0.0, facing]);
+            let ids: Vec<u32> = points
+                .iter()
+                .map(|p| {
+                    self.mesh.vertex(
+                        x.point([p[0], p[1], z]),
+                        base,
+                        normal,
+                        *p,
+                        &material,
+                        self.tag,
+                    )
+                })
+                .collect();
+            for [a, b, c] in &triangles {
+                self.outward(ids[*a], ids[*b], ids[*c]);
+            }
+        }
+        let n = points.len();
+        let normals: Vec<[f64; 2]> = (0..n)
+            .map(|i| {
+                let (a, b) = (points[i], points[(i + 1) % n]);
+                let (dx, dy) = (b[0] - a[0], b[1] - a[1]);
+                let len = dx.hypot(dy).max(1e-9);
+                [turn * dy / len, -turn * dx / len]
+            })
+            .collect();
+        let corner = |own: [f64; 2], other: [f64; 2]| {
+            if own[0] * other[0] + own[1] * other[1] > SMOOTH {
+                let s = [own[0] + other[0], own[1] + other[1]];
+                let len = s[0].hypot(s[1]);
+                [s[0] / len, s[1] / len]
+            } else {
+                own
+            }
+        };
+        let mut along = 0.0;
+        for i in 0..n {
+            let (a, b) = (points[i], points[(i + 1) % n]);
+            let own = normals[i];
+            let ends = [
+                (a, corner(own, normals[(i + n - 1) % n])),
+                (b, corner(own, normals[(i + 1) % n])),
+            ];
+            let span = (b[0] - a[0]).hypot(b[1] - a[1]);
+            let mut ids = [[0_u32; 2]; 2];
+            for (e, (p, nn)) in ends.iter().enumerate() {
+                let normal = x.dir([nn[0], nn[1], 0.0]);
+                let u = along + span * f64::from(u8::try_from(e).unwrap_or(0));
+                for (k, z) in [z0, z1].into_iter().enumerate() {
+                    ids[e][k] = self.mesh.vertex(
+                        x.point([p[0], p[1], z]),
+                        base,
+                        normal,
+                        [u, z - z0],
+                        &material,
+                        self.tag,
+                    );
+                }
+            }
+            self.outward(ids[0][0], ids[1][0], ids[1][1]);
+            self.outward(ids[0][0], ids[1][1], ids[0][1]);
+            along += span;
+        }
+    }
+
     /// A horizontal polygon (plan points) at height `y`, facing up or down, with `uv` = plan
     /// coordinates turned by `uv_angle` degrees.
     pub fn polygon(&mut self, points: &[[f64; 2]], y: f64, up: bool, uv_angle: f64) {
@@ -1158,6 +1541,157 @@ mod tests {
         };
         painter(&mut mesh).blade(&Xform::IDENTITY, [0.0; 3], [1.0, 0.0, 0.0], &tiny);
         assert_eq!(mesh.triangle_count(), 0);
+    }
+
+    /// Every edge is shared by exactly two triangles (by position): no gap the light leaks
+    /// through.
+    fn closed(mesh: &Mesh) -> bool {
+        #[allow(clippy::cast_possible_truncation)]
+        let key = |i: u32| mesh.positions[i as usize].map(|c| (c * 100.0).round() as i64);
+        let mut edges = std::collections::HashMap::new();
+        for t in mesh.indices.chunks_exact(3) {
+            for (a, b) in [(t[0], t[1]), (t[1], t[2]), (t[2], t[0])] {
+                let (a, b) = (key(a), key(b));
+                if a != b {
+                    *edges.entry((a.min(b), a.max(b))).or_insert(0) += 1;
+                }
+            }
+        }
+        edges.values().all(|&n| n == 2)
+    }
+
+    /// Every triangle is wound the way its vertices' normals point.
+    fn wound(mesh: &Mesh) -> bool {
+        mesh.indices.chunks_exact(3).all(|t| {
+            let p = |i: u32| {
+                let v = mesh.positions[i as usize];
+                [f64::from(v[0]), f64::from(v[1]), f64::from(v[2])]
+            };
+            let n = cross3(sub(p(t[1]), p(t[0])), sub(p(t[2]), p(t[0])));
+            let want = t.iter().fold([0.0; 3], |s, &i| {
+                add(
+                    s,
+                    mesh.normals[i as usize].map(f64::from)[..3]
+                        .try_into()
+                        .unwrap(),
+                )
+            });
+            length(n) < 1e-6 || dot(n, want) > 0.0
+        })
+    }
+
+    #[test]
+    fn turned_shapes_are_closed_and_lit_from_the_right_side() {
+        // A drum with both ends closed.
+        let mut mesh = Mesh::default();
+        let frame = Xform::plan([20.0, 0.0, 10.0], [0.6, 0.8]);
+        painter(&mut mesh).lathe(&frame, [0.0; 3], &[[4.0, 0.0], [4.0, 10.0]], [1.0, 1.0], 12);
+        assert!(closed(&mesh) && wound(&mesh));
+        assert!(faces_out(&mesh, frame.point([0.0, 5.0, 0.0])));
+        // A vase: up the outside, over its lip and down the inside to its floor, an oval.
+        let vase = [
+            [0.0, 0.0],
+            [4.0, 0.0],
+            [6.0, 8.0],
+            [4.0, 18.0],
+            [4.5, 20.0],
+            [4.0, 20.0],
+            [3.5, 18.0],
+            [5.0, 8.0],
+            [3.0, 1.0],
+            [0.0, 1.0],
+        ];
+        let mut mesh = Mesh::default();
+        painter(&mut mesh).lathe(&Xform::IDENTITY, [0.0; 3], &vase, [1.0, 0.7], 16);
+        assert!(closed(&mesh) && wound(&mesh));
+        // Its inner wall faces the axis.
+        let inner = mesh
+            .positions
+            .iter()
+            .zip(&mesh.normals)
+            .find(|(p, _)| {
+                (p[1] - 18.0).abs() < 0.1 && (p[0] - 3.5).abs() < 0.1 && p[2].abs() < 0.1
+            })
+            .map(|(_, n)| n[0]);
+        assert!(inner.is_some_and(|nx| nx < 0));
+        // Nothing for an outline of one point, or no width.
+        let mut mesh = Mesh::default();
+        painter(&mut mesh).lathe(&Xform::IDENTITY, [0.0; 3], &[[4.0, 0.0]], [1.0, 1.0], 12);
+        painter(&mut mesh).lathe(&Xform::IDENTITY, [0.0; 3], &vase, [0.0, 1.0], 12);
+        assert_eq!(mesh.triangle_count(), 0);
+    }
+
+    #[test]
+    fn pipes_bend_without_gaps() {
+        let mut mesh = Mesh::default();
+        painter(&mut mesh).pipe(
+            &Xform::IDENTITY,
+            &[[0.0; 3], [0.0, 10.0, 0.0]],
+            1.0,
+            8,
+            true,
+        );
+        assert!(closed(&mesh) && wound(&mesh));
+        assert!(faces_out(&mesh, [0.0, 5.0, 0.0]));
+        // An arc, and a right angle: closed, and as thick across the corner as along it.
+        let arc: Vec<V3> = (0..=8)
+            .map(|k| {
+                let a = f64::from(k) / 8.0 * std::f64::consts::FRAC_PI_2;
+                [50.0 * a.cos(), 50.0 * a.sin(), 0.0]
+            })
+            .collect();
+        let mut mesh = Mesh::default();
+        painter(&mut mesh).pipe(&Xform::IDENTITY, &arc, 1.5, 8, true);
+        assert!(closed(&mesh) && wound(&mesh));
+        let mut mesh = Mesh::default();
+        let corner = [[0.0; 3], [20.0, 0.0, 0.0], [20.0, 20.0, 0.0]];
+        painter(&mut mesh).pipe(&Xform::IDENTITY, &corner, 1.0, 8, false);
+        assert!(wound(&mesh));
+        let reach = mesh
+            .positions
+            .iter()
+            .map(|p| p[0])
+            .fold(f32::NEG_INFINITY, f32::max);
+        assert!((reach - 21.0).abs() < 0.05, "{reach}");
+        // Points repeated or a single point: no tube of nothing.
+        let mut mesh = Mesh::default();
+        painter(&mut mesh).pipe(&Xform::IDENTITY, &[[1.0; 3], [1.0; 3]], 1.0, 8, true);
+        assert_eq!(mesh.triangle_count(), 0);
+    }
+
+    #[test]
+    fn slabs_follow_their_outline_either_way_round() {
+        // An L, concave, both ways round.
+        let l = [
+            [0.0, 0.0],
+            [30.0, 0.0],
+            [30.0, 10.0],
+            [10.0, 10.0],
+            [10.0, 40.0],
+            [0.0, 40.0],
+        ];
+        for outline in [l.to_vec(), l.iter().rev().copied().collect()] {
+            let mut mesh = Mesh::default();
+            let frame = Xform::plan([5.0, 2.0, 5.0], [0.0, 1.0]);
+            painter(&mut mesh).slab(&frame, &outline, -3.0, 3.0);
+            assert!(closed(&mesh) && wound(&mesh));
+            // 4 triangles a face, two a side.
+            assert_eq!(mesh.triangle_count(), 2 * 4 + 2 * 6);
+        }
+        // A rocker's curve: its long side round, its ends sharp.
+        let rocker: Vec<[f64; 2]> = (0..=10)
+            .map(|k| {
+                let a = -0.5 + f64::from(k) / 10.0;
+                [100.0 * a.sin(), 100.0 - 100.0 * a.cos()]
+            })
+            .chain((0..=10).rev().map(|k| {
+                let a = -0.5 + f64::from(k) / 10.0;
+                [96.0 * a.sin(), 104.0 - 96.0 * a.cos()]
+            }))
+            .collect();
+        let mut mesh = Mesh::default();
+        painter(&mut mesh).slab(&Xform::IDENTITY, &rocker, 0.0, 2.0);
+        assert!(closed(&mesh) && wound(&mesh));
     }
 
     #[test]

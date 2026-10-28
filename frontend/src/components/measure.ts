@@ -19,7 +19,7 @@ import {
   type MeasureReport,
 } from "../measure/report";
 import { define, fire } from "./define";
-import { toClipboard } from "./save";
+import { copyText } from "./save";
 import { baseStyles } from "./styles";
 import { nextFrame, type DomoTwinView, type FrameStats } from "./view";
 
@@ -376,15 +376,7 @@ export class DomoTwinMeasure extends LitElement {
 
   private async copy(): Promise<void> {
     // Some companion apps refuse the clipboard: the text is then selected to copy by hand.
-    if (await toClipboard(this.rows)) {
-      this.copied = "done";
-      return;
-    }
-    this.copied = "manual";
-    await this.updateComplete;
-    const area = this.renderRoot.querySelector("textarea");
-    area?.focus();
-    area?.select();
+    await copyText(this.rows, this, (copied) => (this.copied = copied));
   }
 
   protected override render(): TemplateResult {

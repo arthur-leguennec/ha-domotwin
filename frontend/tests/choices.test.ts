@@ -74,8 +74,9 @@ describe("readChoices", () => {
         { type: "calendar", entities: ["calendar.family"] },
         { type: "todo-list", entity: "todo.shopping" },
       ],
+      shortcuts: [],
     });
-    expect(readChoices({ start: "garden" })).toEqual({ favourites: [], cards: [] });
+    expect(readChoices({ start: "garden" })).toEqual({ favourites: [], cards: [], shortcuts: [] });
     expect(readChoices(null)).toEqual(NO_CHOICES);
   });
 

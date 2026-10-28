@@ -16,6 +16,8 @@ import re
 from typing import Any, Final
 import unicodedata
 
+from .locating.geometry import number
+
 # States that say where nobody is: a source that has lost its device, a person away.
 NOWHERE: Final = frozenset(
     {"", "unknown", "unavailable", "none", "not home", "not_home", "away", "home", "off"}
@@ -110,6 +112,16 @@ def rooms_of(
     return rooms
 
 
+def area_spellings(areas: Iterable[Area]) -> dict[str, str]:
+    """Each spelling of an area (its id, name and aliases, as `norm` reads them) -> the area."""
+    spelled: dict[str, str] = {}
+    for area in areas:
+        for text in (area.id, area.name, *area.aliases):
+            if text:
+                spelled.setdefault(norm(text), area.id)
+    return spelled
+
+
 class RoomFinder:
     """Finds the room a source's state names."""
 
@@ -122,13 +134,7 @@ class RoomFinder:
                 by_area.setdefault(room.area, []).append(room)
         self._by_area = by_area
         self._by_id = {room.id: room for room in self.rooms}
-        # Each spelling of an area (its id, its name, its aliases) -> the area.
-        spelled: dict[str, str] = {}
-        for area in areas:
-            for text in (area.id, area.name, *area.aliases):
-                if text:
-                    spelled.setdefault(norm(text), area.id)
-        self._areas = spelled
+        self._areas = area_spellings(areas)
         names: dict[str, list[Room]] = {}
         for room in self.rooms:
             names.setdefault(norm(room.name), []).append(room)
@@ -185,6 +191,9 @@ class Place:
     room: Room | None = None
     source: str | None = None
     since: datetime | None = None
+    # Where in the room, when the source says (DomoTwin's Bluetooth locating, D-079): on its
+    # storey's plan, in metres.
+    at: tuple[float, float] | None = None
 
 
 AWAY: Final = Place(home=False)
@@ -198,6 +207,7 @@ def place_of(person_state: str | None, readings: Iterable[Reading], finder: Room
     """
     if person_state != "home":
         return AWAY
+    readings = list(readings)
     best: tuple[datetime, Reading, Room] | None = None
     for reading in readings:
         room = finder.find(reading.state, reading.attributes)
@@ -208,7 +218,19 @@ def place_of(person_state: str | None, readings: Iterable[Reading], finder: Room
     if best is None:
         return Place(home=True)
     changed, reading, room = best
-    return Place(home=True, room=room, source=reading.entity, since=changed)
+    # Where in that room: the newest of the sources that say (DomoTwin's, in that room).
+    spots = [
+        (r.changed, spot)
+        for r in readings
+        if r.attributes.get("room_id") == room.id and (spot := _spot(r.attributes)) is not None
+    ]
+    at = max(spots, key=lambda found: found[0])[1] if spots else None
+    return Place(home=True, room=room, source=reading.entity, since=changed, at=at)
+
+
+def _spot(attributes: Mapping[str, Any]) -> tuple[float, float] | None:
+    x, y = number(attributes.get("x")), number(attributes.get("y"))
+    return None if x is None or y is None else (x, y)
 
 
 def likeness(said: str, names: Iterable[str]) -> int | None:

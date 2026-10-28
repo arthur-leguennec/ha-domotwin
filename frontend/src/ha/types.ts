@@ -1,11 +1,20 @@
 /** The small part of Home Assistant's frontend API that DomoTwin uses. */
 
+/** What a state was written in (`homeassistant.core.Context`): who asked for it, and what set it
+ * off (the context of an automation's trigger, for an automation's run). */
+export interface HassContext {
+  id: string;
+  parent_id?: string | null;
+  user_id?: string | null;
+}
+
 export interface HassEntity {
   entity_id: string;
   state: string;
   attributes: Record<string, unknown>;
   last_changed: string;
   last_updated: string;
+  context?: HassContext;
 }
 
 export interface HassUser {
@@ -103,8 +112,16 @@ export interface HomeAssistant {
     /** Where the home is: for the sun of the sandbox's day (D-057). */
     latitude?: number;
     longitude?: number;
+    /** Home Assistant's version (`2026.2.0`): what its frontend has (D-061). */
+    version?: string;
   };
+  /** The panels Home Assistant has, by URL path: its Overview's is `home` (D-061). */
+  panels?: Record<string, { url_path?: string } | undefined>;
+  /** The actions Home Assistant has, by domain and name (an automation's are checked, D-070). */
+  services?: Record<string, Record<string, unknown> | undefined>;
   connection: HassConnection;
+  /** An address of Home Assistant's own, from a path (a photo of its media, D-076). */
+  hassUrl?: (path?: string) => string;
   /**
    * The demo house's own (D-050): nothing hands over to Home Assistant's pages or dialogs, which
    * would show the home's entities, not the demo's.
@@ -112,6 +129,21 @@ export interface HomeAssistant {
   demo?: boolean;
   /** The sandbox's copy of the home (D-057): a home kept in the page as the demo house is. */
   sandbox?: boolean;
+  /**
+   * A guest's, through a guest pass (D-067): DomoTwin's own page outside Home Assistant's sign-in,
+   * which reads and acts through the pass only; nothing hands over to Home Assistant's pages,
+   * dialogs or history.
+   */
+  guest?: boolean;
+  /**
+   * What the viewer's rights let them do in DomoTwin (D-071), on the `hass` DomoTwin gives its
+   * views: whether they may act on an entity, and see it. Missing: everything. DomoTwin's own; Home
+   * Assistant still lets every user act on every entity elsewhere.
+   */
+  canAct?: (entity: string) => boolean;
+  canSee?: (entity: string) => boolean;
+  /** Whether a call on these entities may be made (`undefined`: they cannot be told). */
+  canCall?: (entities: string[] | undefined) => boolean;
   /** The time it is for this Home Assistant (ms): the demo house's own clock (D-050). */
   now?(): number;
   /** The page Home Assistant opens first on this device (2025.1: its `hass-default-panel`). */
@@ -121,6 +153,15 @@ export interface HomeAssistant {
   systemData?: FrontendCoreData | null;
   /** A request to Home Assistant with the user's session (the frontend's `fetchWithAuth`). */
   fetchWithAuth?(path: string, init?: RequestInit): Promise<Response>;
+  /**
+   * A request to Home Assistant's REST API with the user's session (`/api/<path>`): what its
+   * configuration editors use. Its refusal is `{ error, status_code, body }`.
+   */
+  callApi?<T = unknown>(
+    method: "GET" | "POST" | "PUT" | "DELETE",
+    path: string,
+    parameters?: Record<string, unknown>,
+  ): Promise<T>;
   /** A state as Home Assistant shows it, in the user's language with its unit (2025.1 and since). */
   formatEntityState?(entity: HassEntity, state?: string): string;
   callService(

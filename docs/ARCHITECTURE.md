@@ -12,15 +12,17 @@ interface.
 | `domotwin-core`   | `serde`, `serde_json`   | plans, geometry, bindings, states   | GPU, browser, HA API |
 | `domotwin-render` | core, `three-d`, `glow` | meshes, materials, cameras, passes  | browser, HA          |
 | `domotwin-web`    | core, render, `web-sys` | canvas, JS values, timing           | HA                   |
-| `domotwin-import` | core, models, `serde_json` | IFC, Sweet Home 3D, DXF, scans → plan JSON | GPU, browser, HA |
+| `domotwin-import` | core, models, `serde_json`, `miniz_oxide` | IFC, Sweet Home 3D, DXF, scans, robot maps, FML, meshes → plan JSON | GPU, browser, HA |
 | `domotwin-models` | `serde_json`, `miniz_oxide` | glTF, OBJ, STL, 3MF → meshes    | core, GPU, HA        |
 | `domotwin-planner` | core, `serde_json`     | the plan editor's draft (D-025)     | GPU, browser, HA     |
-| `domotwin-analysis` | core, `serde_json`    | radio meshes, automations' configurations (D-043) | GPU, browser, HA |
+| `domotwin-analysis` | core, `serde_json`, `qrcodegen` | radio meshes, automations' configurations (D-043), the Wi-Fi QR code (D-060), radio coverage (D-066) | GPU, browser, HA |
 
-`domotwin-import` imports the plans of other apps (`ifc-import.md`, `imports.md`, D-040): its own
-wasm module, loaded only when such a file is imported. Each reader gives one plan builder a draft;
-the builder writes an ordinary plan that the core then reads like any other. It reads ZIP archives
-and XML with `domotwin-models`' readers (without its wasm API).
+`domotwin-import` imports the plans of other apps (`ifc-import.md`, `imports.md`, D-040, D-064):
+its own wasm module, loaded only when such a file is imported. Each reader gives one plan builder a
+draft; the builder writes an ordinary plan that the core then reads like any other. It reads ZIP
+archives and XML with `domotwin-models`' readers (without its wasm API), and zlib and gzip with
+`miniz_oxide`. Robot vacuum maps and mesh scans are cells before they are rooms (`grid`): a robot's
+map is cells already, a mesh is cut into them at the heights where furniture is not.
 `domotwin-models` reads the 3D files of user models (D-021): its own wasm module too, loaded only
 when a plan shows a piece drawn from a 3D file or one is imported. It writes a compact mesh that
 the core fits into the piece (`model_mesh`, `scene::imported`).
@@ -28,9 +30,13 @@ the core fits into the piece (`model_mesh`, `scene::imported`).
 loaded only when the plan editor opens; the engine shows each version of the draft.
 `domotwin-analysis` reads and analyses what Home Assistant says of a radio mesh and of the
 automations (`network.md`, `automations.md`, D-043): its own wasm module too, loaded the first time
-the network map or the automations are shown. The engine is handed only what it draws: the mesh's
-drawing (the devices' pieces and the links' qualities and pulses), which it answers with the room
-of each device for the analysis's health, and the automations' placed ends.
+the network map, the automations or the radio coverage are shown. The engine is handed only what
+it draws: the mesh's drawing (the devices' pieces and the links' qualities and pulses), which it
+answers with the room of each device for the analysis's health, and the automations' placed ends.
+It also advises where the next radio helps most (`placement.md`, D-066), from the storeys' plans,
+the radios placed and what they measured, with the core's `coverage` module: the locating's model
+(D-035), its walls and floors counted as the integration counts them; the engine draws the rooms'
+levels as a layer.
 
 `domotwin-core` is where the logic lives and where the tests concentrate. It never panics on input:
 every reader returns `Result` with a stable error code that the frontend translates.
@@ -60,7 +66,63 @@ every reader returns `Result` with a stable error code that the frontend transla
   The sandbox reads the home once (`sandbox/copy.ts`), plays its day at once
   (`sandbox/engine.ts`, with `templates.ts`, `effects.ts`, `scenario.ts`, `sun.ts`) and says what
   it did (`sandbox/report.ts`); nothing it does is written to Home Assistant.
+- The Wi-Fi for guests (D-060): `components/wifi-dialog.ts` (its own chunk) draws the QR code the
+  analysis module encodes (`wifiQr`), from what `domotwin/wifi/get` answers (`live/wifi.ts`); the
+  integration keeps the network in a private store of its own (`custom_components/domotwin/wifi.py`).
+- Guest access (D-067): `components/guests-dialog.ts` (its own chunk) makes the passes over
+  `domotwin/guests/*` (`live/guests.ts`, `live/guest-pass.ts`) and draws a pass's link as a QR code
+  (`textQr`). The guests' page is a bundle of its own (`guest/entry.ts`, `guest.js`, with
+  `guest.html`): `guest/page.ts` reads the home through the pass, shows it on the card with a
+  `hass` of the guest's (`guest/home.ts`), whose connection answers DomoTwin's commands from what
+  the pass shows, whose actions go to the pass, and whose states follow it as server-sent events.
+  The integration keeps the passes (`custom_components/domotwin/guests.py`) and serves the page and
+  what it asks outside Home Assistant's sign-in (`http.py`), checking each request against the
+  pass; `logbook.py` says a guest's actions in Home Assistant's logbook.
+- Per-person rights (D-071): `live/rights.ts` works out what the viewer uses, only sees or does not
+  see (the same rule as `custom_components/domotwin/rights.py`): the rooms not seen join the
+  private ones closed (`closedRooms`), the devices not seen are unlinked (`Gate.shown`), and the
+  panel and the card give their views a `hass` whose `canAct` and `canSee` DomoTwin's controls
+  read and whose calls on what may not be used are refused (`gatedHass`).
+  `components/rights-dialog.ts` (its own chunk) sets them. The integration checks its own
+  services against them (`schedules.py`, `services.py`, `llm.py`, `sensor.py`).
+- Home Assistant's Overview (D-061): `live/overview.ts` says where an area's page is (the panel
+  opens it for a room tapped in 3D); `components/summary-card.ts` is the summary card, whose body
+  (`components/summary-body.ts`, `live/summaries.ts`) is a chunk of its own. The integration gives
+  each room a device in its area with two sensors (`custom_components/domotwin/sensor.py`,
+  `overview.py`: the people in it, the upkeep due for its pieces).
+- Safety (D-068): `live/doorbell.ts` watches the home's doorbells on every `hass`, and
+  `live/security.ts` reads the alerts chosen on Home Assistant's Security page (its system data,
+  followed by the panel) and says those on now beside the rooms' (`live/storeys.ts`); both are in
+  the first load. The Safety tab (`components/safety-tab.ts`, `live/safety.ts`) and the alerts'
+  bar above the other tabs (`components/alert-bar.ts`) are in the tabs' chunk; the doorbell's full
+  screen (`components/doorbell.ts`) is a chunk loaded at the first ring.
+- History and energy (D-069): `live/graphs.ts` sorts a room's entities into Home Assistant's
+  history-graph and statistics-graph cards, which `components/room-graphs.ts` shows in the Rooms
+  tab's chunk; `live/overview.ts` gives the address of Home Assistant's Energy page, which the
+  panel's Energy tab opens.
+- The weekly report (D-081): `components/report-dialog.ts` (its own chunk) shows what
+  `domotwin/report/get` answers (`live/report.ts`), each storey's rooms drawn as SVG from their
+  outlines; the integration writes the reports (`custom_components/domotwin/report*.py`).
+- The first launch (D-083): `components/first-launch-dialog.ts` (its own chunk) draws the home from
+  Home Assistant's floors and areas and stores it (`domotwin/storeys/replace`, then the links), and
+  lists the steps of getting started; `live/first-launch.ts` lays the rooms out, picks each
+  device's piece, and places pieces along the walls, clear of the doors and of each other.
+- Shortcuts (D-084): `live/shortcut-model.ts` reads them from the user's choices and makes a change
+  to them as the integration does; `live/shortcuts.ts` resolves each step's place to entities,
+  makes its calls, says its state and suggests shortcuts from the home's devices; the Home tab
+  (`components/home-tab.ts`) shows them, and `components/shortcut-dialog.ts` (its own chunk)
+  suggests and changes them. The panel sends each change on its own, one after the other; the
+  integration validates it and makes it to the list it keeps with the user's choices
+  (`domotwin/choices/shortcut`, `custom_components/domotwin/choices.py`).
 - `src/i18n/` holds the English and French dictionaries. Every visible string goes through `t()`.
+  The other languages (D-082) are one module each, `src/i18n/lang/<code>.ts`, with every message
+  (the main dictionary and the chunks'), loaded when Home Assistant speaks it: the elements Home
+  Assistant shows (the card, the panel, the summaries, their editors, the guests' page) wait to
+  draw until it is here (their `scheduleUpdate`, through `inLanguage` in `components/define.ts`, a
+  few milliseconds from Home Assistant), then draw in it, and set their `dir` (Arabic right to
+  left; the layout is in logical properties, arrows mirrored by `--domotwin-mirror`). The demo
+  house's names are in each pack too, by their English. One that cannot be loaded is spoken in English. The integration's `language.py`
+  picks the same language for what it says.
 
 ![Render on demand: frames only when something changes, nothing while idle or off-screen](figures/render-on-demand.png)
 
@@ -89,11 +151,45 @@ every reader returns `Result` with a stable error code that the frontend transla
   and spread apart in 3D, side by side on the 2D plan, the roof above the top one; and the walk:
   a walker's steps on the floor, its way through the doors, the slow turn of a kiosk. Walking
   draws the walls whole and the rooms' ceilings (day look). See D-014, D-016, D-028 and D-029.
+- The weather (D-072): `domotwin-core::weather` turns Home Assistant's condition and wind into
+  what falls, how grey the sky is, the fog and the storm's flashes; `domotwin-render::weather`
+  takes the home's footprint (every storey's bounds and the roof's eaves) and the roof's slope,
+  how many particles the quality allows, their tint and the clouds' light. What falls is one
+  instanced draw after the halos, six vertices a particle and no buffer: the weather's vertex
+  shader works out each one's spot, speed and size from a hash of its number and its turn (turns
+  that fit a ten-minute loop), keeps it off the home as seen from the eye (a line against the
+  home's box; on the roof's slope when the roof is shown), and slants it with the wind. The fog is mixed in the home's fragment shader and the background's, by the distance from
+  the home; a flash brightens the exposure and the background.
+- The outdoors (D-077): places outside are rooms marked `outside`, without walls (the wall layout
+  leaves them out of every room's neighbours, so the rooms beside them get façades) or ceiling;
+  wherever they overlap a room, the room comes first, and the smaller place outside before the
+  larger, in the scene's room lookup, the walk's `Floor`, the edit session, and the radios' model
+  (core and integration). Their grounds carry a surface (grass, gravel, soil, paving, water) that
+  the floor's shader draws (tufts, a mower's stripes from the rooms texture's grass length and
+  freshness, ripples), a lawn 4 cm under the floors: in a variant of the main program compiled
+  with `GARDEN` once a scene has them, for the meshes that have them only (a software GPU runs
+  every branch of a shader, taken or not). `scene::roof` splits each uncovered storey's
+  outline into up to four rectangles (wings), each drawn in the shape chosen; the weather's shader
+  takes each wing's ridge, half sizes and shape to land on it. A robot mower is a `robots::Robots`
+  of its own body, on its storey's `Floor` with the home's rooms closed but its dock's
+  (`Floor::outdoors`).
+- Split levels (D-078): the home's scene keeps every storey's gardens with their ground's height
+  (`Builder::gardens`); a place outside draws a retaining wall where a garden of another storey
+  beyond one of its sides is higher (with every storey built at once: a storey alone has none). The
+  radios' model counts a storey's floor where the line between two places crosses its height under
+  one of its rooms (or a wall between two), or over a room of the highest storey under it with one
+  there, a full storey lower and not two (core `coverage::home::Home::floors`, integration
+  `locating/geometry.py`, both checked against `tests/fixtures/coverage-walls.json`). The page
+  names half levels from the storeys' heights (`live/storeys.ts`).
 - `domotwin-web` exposes a small API: `loadPlan` (or `loadStoreys`, with `setSpread`, `setRoof`,
   `storeyLabels` and `storeyPicture`, for every storey at once), `setBindings`, `setStates`, `highlight`,
   `orbit`, `pan`, `zoom`, `setPlanView`, `overview`, `focusElement`, `views`, `showView`, `pick`,
   `screenPoint`, `stats`, `frame`, walking (`setWalk`, `setWalkVelocity`, `walkTo`) and the kiosk's
-  `setAutoOrbit`, and for 3D files `modelFiles` (what to fetch) and `setModelMesh`.
+  `setAutoOrbit`, for 3D files `modelFiles` (what to fetch) and `setModelMesh`, `setWeather` (a
+  condition, the wind's speed and bearing, the home's north) with its `weather` getter, for the
+  catalogue `editCatalogue` and `piecePicture`, a piece of the library drawn alone by an engine of
+  its own (D-074), and for the outdoors `setRoofStyle`, `setLawns` (each lawn's grass and
+  freshness) and `mowerLawns` (the lawns each robot mower can get to, D-077).
 - In the frontend, `src/gestures.ts` turns pointer events into drags, pans, pinches, taps and long
   presses, and `<domotwin-view>` applies them, runs the actions and draws the toolbar.
 
@@ -116,7 +212,11 @@ every reader returns `Result` with a stable error code that the frontend transla
    (light colour and intensity, cover position, glow, power…). The renderer animates towards the
    targets and asks for frames until they are reached. The layers (D-023) are worked out in the
    frontend from the sensors of each room's area and sent as one small JSON (`set_layers`) when a
-   value changes; the floors' shader draws them from a texture of rooms.
+   value changes; the floors' shader draws them from a texture of rooms. Hydro-Québec's peak
+   (D-063) is read from the entities of the integrations that read it, found by their kind
+   (`src/live/peak-sources.ts`, `peaks.ts`); what each room's heating does then, and what the room
+   draws, go with the layers (`peak`, `draws`). The sandbox plays the announced peak's day on its
+   copy (`src/sandbox/peak-day.ts`) and reports what each room did (`peak-report.ts`).
 3. **Interaction.** Pointer events go to the engine (`pick`) which returns the element under the
    pointer. The frontend runs the binding's action: toggle through `callService`, more-info through
    the `hass-more-info` event, navigation, or the long-press popover.
@@ -133,8 +233,15 @@ every reader returns `Result` with a stable error code that the frontend transla
    (`peoplePoints`). Where the rooms come from Bluetooth (D-035), the locator (`locator.py`) hears
    the followed devices through Home Assistant's Bluetooth (`locating/radio_ha.py`) and, every two
    seconds, weighs what each receiver heard against what the plan says it should hear in each room
-   and what was learned (`locating/geometry.py`, `radio.py`), along the doors
-   (`locating/filter.py`); each device's room is a sensor of its own, a source of its owner's.
+   and what was learned (`locating/geometry.py`, `radio.py`), along the doors and to another
+   storey by its stairs only (`locating/filter.py`); around the room found, a cloud of half-metre
+   cells (`locating/cells.py`, `cloud.py`, D-079) says where in it. The presence radars linked to
+   pieces of the plans (`locating/radar.py`, D-080), read a second after they change, turn their
+   targets into the plan's coordinates, weigh the rooms and the cells, and name the person each
+   is; the others are someone. Each device's room and spot is a sensor of its own, a source of its
+   owner's, whose figure stands at the spot. On
+   the same tick, `locating/measure.py` counts how steady and how right each device's room is,
+   and Bermuda's area beside it where one is paired (D-073).
 6. **Show.** The `domotwin.show` action (`services.py`, D-029), run by a script, an automation or
    the voice blueprint (`blueprints/automation/domotwin/show_by_voice.yaml`), is sent as it was
    asked to every open view through `domotwin/subscribe` (`{kind: "show", show}`). Each card (the
@@ -153,6 +260,44 @@ every reader returns `Result` with a stable error code that the frontend transla
    entities, the period or the way to read them change. `src/live/history.ts` reads the answers
    into rows (a change, an hour, a period of rows that match a value), filters and searches them
    and writes the CSV, which the browser downloads; nothing is kept once the report closes.
+9. **Why?** A device's sheet asks, when told to, why its entity is as it is (`why-section.ts`,
+   D-059): `src/live/why.ts` reads the state's context, the logbook's rows of that context and of
+   the entities around it (`logbook/get_events`) and, for administrators, the traces' contexts
+   (`trace/contexts`), and follows the change back to what started it. The chain is listed in the
+   sheet and drawn in the home (`why-wires.ts`) with the automations' wire set: the engine's
+   `setAutomations`, one wire per step, unchanged. Nothing of it is in the integration. The demo
+   house records its own (`src/demo/logbook.ts`) and answers the logbook as Home Assistant does.
+10. **Configuration history.** The integration's `config_history.py` (D-062) reads the
+   automations, scripts and scenes from the files Home Assistant's editors write and from their
+   entities, and the dashboards from Lovelace, once Home Assistant has started and after each
+   change it announces (`automation_reloaded`, `scene_reloaded`, `script.reload` called, one of
+   them removed from the entity registry, `lovelace_updated`), and keeps a version of what
+   changed. The dialog (`src/components/config-history-dialog.ts`, a chunk) reads them over
+   `domotwin/config_history/*`, works out what changed in words in the page
+   (`src/live/config-history.ts`), and puts a version back with Home Assistant's own commands:
+   `POST /api/config/<kind>/config/<id>` (`hass.callApi`) or `lovelace/config/save`, then
+   `domotwin/config_history/refresh`.
+11. **Automations in plain words.** The dialog (`src/components/plain-dialog.ts`, a chunk, D-070)
+   is offered where Home Assistant has an AI task (`src/live/ai-task.ts`). It asks Home
+   Assistant's own service `ai_task.generate_data` (`call_service` with `return_response`) with
+   the request, the rules of an automation and the home's names (`src/live/plain-request.ts`:
+   areas, entities, actions, never states), reads the answer, looks up the names it gives and has
+   Home Assistant check it (`validate_config`); `src/live/plain-words.ts` says it back in words.
+   *Play it in the sandbox* gives the draft to the sandbox's copy as an automation of its own
+   (`SandboxHome`'s `draft`), which tells the dialog what it did each day played; the view draws
+   its wires (`showWires`). Saved through `POST /api/config/automation/config/<id>`. Nothing of
+   it is in the integration, and DomoTwin calls no model itself.
+12. **Weekly report.** The integration's `report.py` (D-081) looks every hour, on the hour,
+   whether the week's report is due (the day and hour chosen, a week missed caught up once Home
+   Assistant has started), and writes it: what needs a look from Home Assistant's states,
+   registries, repairs and traces and from the integrations installed (`report_look.py`, which
+   also places each item in a room of the plans), the Zigbee devices on a weak link from ZHA's
+   own helpers (`report_radios.py`), the week's energy and Hydro-Québec's peaks from the energy
+   settings, the recorder's statistics and history, and the calendars kept in Home Assistant
+   (`report_week.py`). An AI task an administrator chose sums it up (`ai_task.generate_data`);
+   Home Assistant's notification says it (`report_words.py`) and the event
+   `domotwin_weekly_report` lets automations send it on. The page reads it over
+   `domotwin/report/*`.
 
 ## Storage
 
@@ -190,7 +335,15 @@ every reader returns `Result` with a stable error code that the frontend transla
   clockwise from its top, for the real sun (D-023); the look shown by default and its accent
   (`theme`, `accent`, D-027); the private rooms (`rooms`, D-039), `{room id: {"people": [person
   entity ids], "while"?: entity id}}`: kept for those people (none: for nobody), always or only
-  while that entity is on ([`privacy.md`](privacy.md)).
+  while that entity is on ([`privacy.md`](privacy.md)); where the home's energy is read
+  (`energy`, D-049); the Wi-Fi access points placed on the plan (`access_points`, D-066),
+  `[{"storey": id, "at": [x, y], "name"?}]`, 16 at most ([`placement.md`](placement.md)); each
+  person's rights (`rights`, D-071), `{"everyone"?: rights, "people"?: {person entity id:
+  rights}}`, each `{"rooms"?: {room id: level}, "entities"?: {entity id: level}}`, a level `use`,
+  `see` or `hidden`; at most 50 people, 200 rooms and 500 devices each
+  ([`rights.md`](rights.md)); the weather drawn around the home (`weather`, D-072): a `weather`
+  entity, or `none`; absent, the Home tab's; the roofs (`roof`, D-077): `{"shape"?: "gable" |
+  "hip" | "shed" | "flat", "pitch"?: 5–60, "color"?: "#rrggbb"}`.
 - `upkeep` (D-033, storage 4.1): the upkeep cards by piece id, and how many days before it a task
   is due soon; see [`upkeep.md`](upkeep.md). Kept apart from the plan, like the bindings.
 - `revision`: bumped on every write. `revisions` keeps the revision of the last write of each kind
@@ -223,7 +376,8 @@ and which devices are followed.
   "receivers": { "BB:00:00:00:00:01": { "room": "bedroom" } },
   "devices": {
     "alex_phone": { "name": "Alex's phone", "kind": "phone", "person": "person.alex",
-                    "match": { "key": "<Private BLE Device entry id>" } },
+                    "match": { "key": "<Private BLE Device entry id>" },
+                    "bermuda": "sensor.alex_phone_area" },
     "keys": { "name": "Keys", "kind": "thing", "match": { "address": "F1:00:00:00:00:01" } }
   }
 }
@@ -231,8 +385,13 @@ and which devices are followed.
 
 A receiver is placed by a `room` or a `piece` (else from its device); a device is known by its
 `address`, a `key` (a Private BLE Device entry: the key itself is never stored) or a `beacon`
-(`uuid`, `major`, `minor`); 30 devices at most. `.storage/domotwin.locating_learned` keeps what
-was learned: `rooms` (`{room: {receiver: [weight, mean, m2]}}`) and each device's `offsets` (dB).
+(`uuid`, `major`, `minor`); 30 devices at most; `bermuda`, Bermuda's area sensor of the same
+device, measured beside it (D-073). `.storage/domotwin.locating_learned` keeps what was learned:
+`rooms` (`{room: {receiver: [weight, mean, m2]}}`) and each device's `offsets` (dB); and the
+measurements, `measure` (`{started, devices: {id: {own, own_area, bermuda, both, same, sensor}}}`:
+DomoTwin's counters by room, by area and Bermuda's, each `seconds`, `unknown`, `changes`,
+`storey_changes`, `short`, `witnessed`, `right`; the seconds both said a place and the same one;
+Bermuda's sensor they are of).
 See [`bluetooth.md`](bluetooth.md).
 
 `.storage/domotwin.users` (D-055, its own store, version 1): each user's own choices, by user
@@ -240,6 +399,43 @@ id: `favourites` (entity ids, 100 at most), `start` (`home`, `rooms` or `3d`, wh
 `cards` (the Home tab's, 6 at most: `{type: "calendar", entities}` with 10 calendars at most, or
 `{type: "todo-list", entity}`). A user removed from Home Assistant is forgotten when DomoTwin
 starts.
+
+`.storage/domotwin.screens` (D-076, its own store, version 1): each wall screen's layout, by its
+name (a card's `screen`, matched whatever the case, 20 at most): `start` (a tab, when chosen) and
+`saver` (`after` minutes, 0 to 240, 0 for never; `wake`, 10 binary sensors at most; `weather`;
+`photos`, a folder of Home Assistant's media, `media-source://…`; `every` photo's seconds, 5 to
+3 600; `dim` at night). Which screen a device is stays on the device (`domotwin-screen` in its
+local storage); every signed-in user reads the layouts, administrators change them.
+
+`.storage/domotwin.garden` (D-077, its own store, version 1): when each lawn was last said mown,
+`lawns` (`{room id: ISO time}`, 100 at most), and each robot mower last stopped mowing, `mowers`
+(`{lawn_mower entity id: ISO time}`, 20 at most); the latest kept past the limits. Noted from Home
+Assistant's state changes (a `lawn_mower` leaving `mowing`), written 10 s later; nothing in it is
+private. See [`outdoors.md`](outdoors.md).
+
+`.storage/domotwin.config_history` (D-062, its own store, version 1, private): the configuration
+history, each item by `<kind>:<key>` (`automation`, `script` and `scene` by their id or key,
+`dashboard` by its URL path, empty for the default one) with its `name`, its `source` (`editor`:
+written by Home Assistant's editors; `yaml`: in one's own YAML files) and its `versions`, oldest
+first: `{id, at, hash, json}`, the configuration as JSON (`null` when removed or too large to keep)
+and the fingerprint of its keys sorted (`null` when removed); `next`, the next version's id. 4 MB
+in all and 50 versions an item (the oldest versions go first), 1 MB a version; past 2 000 items,
+the removed ones are forgotten. See [`config-history.md`](config-history.md).
+
+`.storage/domotwin.guests` (D-067, its own store, version 1, private): the guest passes,
+`passes`: `{id, token, name, rooms, entities, starts, ends, act, wifi, anywhere}`, the `token` the
+link's secret (`secrets.token_urlsafe(32)`), `starts` and `ends` ISO 8601 in UTC, `act` whether the
+guests may use the devices, `wifi` whether the home's Wi-Fi is shown, `anywhere` whether it opens
+from outside the home's network. 20 passes at most; one ended 30 days ago is forgotten. See
+[`guests.md`](guests.md).
+
+`.storage/domotwin.reports` (D-081, its own store, version 1, private): the weekly report's
+`settings` (`weekly`, `weekday` 0 to 6 from Monday, `hour`, `notify`, `summary`: an AI task or
+`null`, `battery`: the level a battery is low at), `since` (when reports started being kept),
+`next` (the next report's id), `last_scheduled` (when the last week's was written) and the
+`reports`, oldest first (the last eight weeks' and two written by hand): `{id, at, by: "schedule"
+| "hand", week: {start, end}, sections: {<section>: [item]}, more?, gone?, energy?, peaks?,
+summary?}`, a hundred items a section. See [`report.md`](report.md).
 
 The 3D files of user models are not in `.storage`: they are kept under their SHA-256 in
 `<config>/domotwin/models/<sha256>.<format>` (D-021), uploaded with `POST /api/domotwin/models?format=…`
@@ -261,28 +457,65 @@ when the integration is removed.
 | `domotwin/bindings/get`  | user   | –                                              | `bindings`, `revision`           |
 | `domotwin/bindings/save` | admin  | `bindings`, `expected_revision?`               | `revision`                       |
 | `domotwin/settings/get`  | user   | –                                              | `settings`, `revision`           |
-| `domotwin/settings/save` | admin  | `settings` (`north`, 0 ≤ n < 360; `theme`, `accent`; `rooms`, at most 200) | `revision` |
+| `domotwin/settings/save` | admin  | `settings` (`north`, 0 ≤ n < 360; `theme`, `accent`; `rooms`, at most 200; `energy`; `access_points`, at most 16; `rights`; `weather`; `roof`) | `revision` |
 | `domotwin/upkeep/get`    | user   | –                                              | `upkeep`, `revision`, `today` (where the home is) |
 | `domotwin/upkeep/save`   | admin  | `pieces` (`{piece: card \| null}`, only those change), `lead_days?`, `expected_revision?` | `revision` |
 | `domotwin/upkeep/done`   | user   | `piece`, `task`                                | `revision`, `last_done`          |
 | `domotwin/people/get`    | user   | `candidates?` (administrators: the entities that may say where someone is) | `revision`, `shown`, `look`, `hidden`, `people` (`{person: {sources, color, sensor, located}}`; none for others when shown to administrators only), `candidates?` |
 | `domotwin/people/save`   | admin  | `people`, `shown?`, `look?`, `expected_revision?` | `revision`                     |
 | `domotwin/people/hide`   | user   | `person` (oneself; administrators anyone), `hidden` | `revision`                   |
-| `domotwin/locating/get`  | admin  | –                                              | `revision`, `status`, `learn`, `receivers`, `devices` (with their `room`, `confidence`, `last_seen`, `left_behind`, `missing_key`), `learned`, `rooms` |
+| `domotwin/locating/get`  | admin  | –                                              | `revision`, `status`, `learn`, `receivers` (with their `place`, D-066), `devices` (with their `room`, `confidence`, `last_seen`, `left_behind`, `missing_key`), `learned`, `heard` (`{room: {source: {signal, readings}}}`, D-066), `bermuda` (Bermuda's area sensors, D-073), `rooms` |
 | `domotwin/locating/save` | admin  | `receivers`, `devices`, `learn?`, `expected_revision?` | `revision`                 |
 | `domotwin/locating/candidates` | admin | –                                        | `candidates` (`[{match, name, rssi?}]`) |
 | `domotwin/locating/teach` | admin | `device`, `room`, `seconds?` (10–120, 30)     | `readings`, `receivers`          |
 | `domotwin/locating/forget` | admin | `room?` (every room without one)             | `forgotten`                      |
+| `domotwin/locating/add_key` | admin | `key` (80 characters at most: hex, `irk:` and hex, or a Mac's base64) | `entry`, `title`, `named` (the title names the device, not an address), `added` (D-075; the key is handed to Private BLE Device and never sent back) |
+| `domotwin/locating/measure` | admin | –                                           | `since`, `devices` (`{id: {domotwin, domotwin_areas?, bermuda?, agreement?}}`, D-073) |
+| `domotwin/locating/measure/reset` | admin | –                                     | `since`                          |
 | `domotwin/choices/get`   | user   | – (their own)                                  | `favourites`, `cards`, `start?`  |
 | `domotwin/choices/favourite` | user | `entity_id`, `favourite` (their own)        | `favourites`                     |
 | `domotwin/choices/save`  | user   | `start?` (`""`: none chosen), `cards?` (their own) | `favourites`, `cards`, `start?` |
-| `domotwin/subscribe`     | user   | –                                              | events `{kind, revision}`, and `{kind: "show", show}` for `domotwin.show` |
+| `domotwin/screens/get`   | user   | –                                              | `screens` (each wall screen's layout by name, D-076: `start?`, `saver` `{after, wake, weather, photos?, every, dim}`) |
+| `domotwin/screens/save`  | admin  | `name`, `layout`, `new?` (a new screen: refused, `screen_exists`, when the name is taken) | `screens` (`invalid_screen`, `too_many_screens` past 20) |
+| `domotwin/screens/remove` | admin | `name`                                         | `screens`                        |
+| `domotwin/config_history/list`  | admin  | –                                              | `items` (`[{id, kind, key, name, source, removed, versions, changed}]`, the most recently changed first), `bytes`, `max_bytes` |
+| `domotwin/config_history/item`  | admin  | `item`                                         | `item`, `versions` (`[{id, at, removed, kept, same_as?}]`, newest first) |
+| `domotwin/config_history/version` | admin | `item`, `version`                            | `config` (`null`: removed, or too large to keep) |
+| `domotwin/config_history/refresh` | admin | `kind?` (every kind without one)             | `changed` (the versions kept)    |
+| `domotwin/guests/get`    | admin  | –                                              | `passes` (`[{id, name, rooms, entities, starts, ends, act, wifi, anywhere, path, url, status}]`) |
+| `domotwin/guests/save`   | admin  | `pass` (`{id?, name, rooms, entities, starts, ends, act?, wifi?, anywhere?, renew?}`) | the pass, as `get` lists it |
+| `domotwin/guests/remove` | admin  | `pass` (its id)                                | `removed`                        |
+| `domotwin/report/get`    | admin  | `report?` (the newest without one)             | `settings`, `reports` (`[{id, at, by, week, counts}]`, newest first), `report` (`null`: none yet) |
+| `domotwin/report/write`  | admin  | –                                              | the same, `report` the one written now |
+| `domotwin/report/settings` | admin | `settings` (those given)                      | `settings`                       |
+| `domotwin/garden/get`    | user   | –                                              | `lawns`, `mowers` (ISO times, D-077) |
+| `domotwin/garden/mowed`  | user   | `room` (a lawn of the plans)                   | `lawns`, `mowers` (`unknown_lawn` otherwise) |
+| `domotwin/subscribe`     | user   | –                                              | events `{kind, revision}` (`screens` too, D-076; `garden`, D-077; `report`, D-081), and `{kind: "show", show}` for `domotwin.show` |
 
 Errors: `not_loaded`, `invalid_plan`, `invalid_layout`, `invalid_bindings`, `invalid_settings`,
 `invalid_upkeep`, `unknown_task`, `invalid_people`, `unknown_person`, `invalid_locating`,
-`unknown_device`, `unknown_room`, `no_bluetooth`, `too_large`, `too_many_favourites`,
-`too_many_models`, `revision_conflict`, `unknown_storey`, `invalid_storey`, `too_many_storeys`,
-`duplicate_id`, and Home Assistant's `unauthorized` for non-admin writes.
+`unknown_device`, `unknown_room`, `no_bluetooth`, `invalid_key`, `key_not_heard`, `key_refused`,
+`too_large`, `too_many_favourites`, `too_many_models`, `revision_conflict`, `unknown_storey`, `invalid_storey`, `too_many_storeys`,
+`duplicate_id`, `unknown_item`, `unknown_version`, `unknown_lawn` (D-077), a pass's (`ends_before`, `already_ended`,
+`too_long`, `too_far`, `unknown_room`, `not_for_guests`, `nothing_open`, `too_many`,
+`unknown_pass`), and Home Assistant's `unauthorized` for non-admin writes (and the history's and
+the passes' reads).
+
+## The guests' page
+
+Served by the integration outside Home Assistant's sign-in (D-067), each request checked against
+the pass whose secret is in its address (`<secret>`): known, open now, from the home's network
+unless the pass opens from anywhere. Refusals are `{code, starts?, ends?}`: `unknown` (404),
+`home_only`, `not_yet` (403), `ended` (410), `look_only`, `not_allowed` (403), `invalid`,
+`refused` (400, Home Assistant's own words in `message`), `too_many_calls`, `too_many_pages` (429).
+
+| Request | Answer |
+| --- | --- |
+| `GET /api/domotwin/guest/<secret>` | the page (`guest.html`), under its `Content-Security-Policy` |
+| `GET …/home` | `pass` (`{name, starts, ends, act, entities}`), `home`, `storeys` (`[{info, plan, layout}]`), `bindings`, `settings`, `states`, `entities`, `areas`, `wifi`, `config` (`time_zone`, `unit_system`) |
+| `GET …/events` | server-sent events: `state` (an entity's state), `home` (read it again), `end` |
+| `POST …/call` | `{domain, service, data?, target: {entity_id}}` → `{done: true}` |
+| `GET …/models/<sha256>.<format>` | a 3D file a piece it shows is drawn from |
 
 ## Entities
 
@@ -290,13 +523,18 @@ Errors: `not_loaded`, `invalid_plan`, `invalid_layout`, `invalid_bindings`, `inv
   in its `tasks` attribute, worked out again when the cards or the plans change and every midnight
   where the home is (`sensor.py`, `upkeep.py`).
 - `sensor.domotwin_<person>_room` (D-034), one per person placed: their room's name, `not_home`,
-  or unknown; `room_id`, `area_id`, `storey_id`, `storey`, `since`, `source` in attributes
-  (`sensor.py`, `tracker.py`, `people.py`).
+  or unknown; `room_id`, `area_id`, `storey_id`, `storey`, `since`, `source`, and `x`, `y` where
+  their Bluetooth device says (D-079, not recorded) in attributes (`sensor.py`, `tracker.py`,
+  `people.py`).
 - `sensor.domotwin_<device>_bluetooth` (D-035), one per device followed by Bluetooth: its room's
   name, or unknown; `device_name`, `kind`, `person`, `left_behind`, `room_id`, `area_id`,
-  `storey_id`, `storey`, `since` in attributes (`sensor.py`, `locator.py`).
+  `storey_id`, `storey`, `since`, and where in the room `x`, `y`, `z`, `accuracy` (metres, D-079,
+  not recorded) in attributes (`sensor.py`, `locator.py`).
 - `binary_sensor.domotwin_<device>_left_behind` (D-035), one per device with an owner: on while it
   is heard at home and its owner has been away two minutes (`binary_sensor.py`).
+- `sensor.domotwin_people_seen` (D-080), while a presence radar is on the plans: how many people
+  the radars see; in its `seen` attribute (not recorded) those no device names, their room and
+  place; nothing of a private room (`sensor.py`, `locator.py`).
 
 ## Actions
 

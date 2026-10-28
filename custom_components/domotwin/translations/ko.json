@@ -1,0 +1,336 @@
+{
+  "config": {
+    "abort": {
+      "single_instance_allowed": "DomoTwin이 이미 설정되어 있습니다."
+    },
+    "step": {
+      "user": {
+        "title": "DomoTwin",
+        "description": "실시간 3D 트윈으로 보는 우리 집, DomoTwin을 추가합니다. 평면도는 사이드바의 DomoTwin 패널에서 가져오게 됩니다."
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "DomoTwin 옵션",
+        "data": {
+          "sidebar": "사이드바에 DomoTwin 표시",
+          "sidebar_admin_only": "관리자에게만 표시"
+        },
+        "data_description": {
+          "sidebar": "편집기가 있는 전체 화면 보기입니다. 대시보드 카드는 어느 쪽이든 작동합니다.",
+          "sidebar_admin_only": "다른 사용자도 대시보드에서 DomoTwin 카드는 계속 사용할 수 있습니다."
+        }
+      }
+    }
+  },
+  "services": {
+    "show": {
+      "name": "표시",
+      "description": "DomoTwin 화면(카드와 패널) 전체 또는 그중 하나에 방, 요소, 층 또는 보기를 표시합니다.",
+      "fields": {
+        "room": {
+          "name": "방",
+          "description": "평면도의 방, 이름 또는 ID로 지정 (어느 층이든 가능)."
+        },
+        "element": {
+          "name": "요소",
+          "description": "평면도의 모든 요소, 이름 또는 ID로 지정: 화면에 맞춰 보여 줍니다."
+        },
+        "storey": {
+          "name": "층",
+          "description": "층, 이름, ID 또는 번호로 지정 (1층은 0, 그 위층은 1, 아래층은 -1). all이면 모든 층을 한 번에 표시합니다."
+        },
+        "view": {
+          "name": "보기",
+          "description": "overview, 3d, 2d, walk(눈높이에서 지정한 방까지) 또는 저장된 시점의 이름."
+        },
+        "person": {
+          "name": "구성원",
+          "description": "DomoTwin이 위치를 표시하는 구성원 (person.…): 집 안의 알려진 방에 있으면 그 방을 보여 줍니다."
+        },
+        "screen": {
+          "name": "화면",
+          "description": "표시할 화면: 카드의 screen 옵션. 비워 두면 모든 화면에 표시합니다."
+        }
+      }
+    },
+    "where": {
+      "name": "위치 찾기",
+      "description": "구성원, DomoTwin이 Bluetooth로 추적하는 기기, 또는 집에 있는 모든 사람이 어디 있는지 알려 줍니다: 방, 그리고 답할 문장 (Home Assistant의 언어로).",
+      "fields": {
+        "name": {
+          "name": "이름",
+          "description": "말한 그대로의 구성원 이름 또는 추적 중인 기기의 이름 (\"내 열쇠\"). 이름만 말해도 되고, 한 글자 틀려도 괜찮습니다. 비워 두면 집에 있는 모든 사람."
+        },
+        "show": {
+          "name": "표시",
+          "description": "DomoTwin 화면에 그 방도 표시합니다."
+        },
+        "screen": {
+          "name": "화면",
+          "description": "표시할 화면: 카드의 screen 옵션. 비워 두면 모든 화면에 표시합니다."
+        }
+      }
+    },
+    "schedule": {
+      "name": "예약",
+      "description": "기기를 나중에, 정한 시각이나 일정 시간 후에 켜거나 끄고, 켤 때는 정한 시각까지 또는 일정 시간 동안 켜 둡니다: DomoTwin이 보관하며 다시 시작해도 유지됩니다. 설정된 내용과 말할 문장을 응답합니다.",
+      "fields": {
+        "entity_id": {
+          "name": "구성요소",
+          "description": "켜고 끌 대상: 조명, 스위치, 선풍기, 미디어 플레이어, 냉난방기, 커버(열기와 닫기)…"
+        },
+        "action": {
+          "name": "동작",
+          "description": "on은 켜기(커버는 열기), off는 끄기(커버는 닫기)."
+        },
+        "at": {
+          "name": "시각",
+          "description": "언제: 날짜와 시각 (따로 지정하지 않으면 Home Assistant의 시간대), 또는 다음에 오는 하루 중 시각. 아니면 지연 시간을 지정하세요."
+        },
+        "delay": {
+          "name": "지연 시간",
+          "description": "지금부터 언제: 시각 대신 사용합니다."
+        },
+        "until": {
+          "name": "종료 시각",
+          "description": "on과 함께: 다시 끌 시각, 날짜와 시각 또는 하루 중 시각 (시작 후 처음 오는 시각)."
+        },
+        "duration": {
+          "name": "지속 시간",
+          "description": "on과 함께: 켜 둘 시간, 종료 시각 대신 사용합니다."
+        },
+        "brightness": {
+          "name": "밝기",
+          "description": "on과 함께: 조명의 밝기 (%)."
+        }
+      }
+    },
+    "unschedule": {
+      "name": "예약 취소",
+      "description": "domotwin.schedule로 설정한 동작을 취소합니다: ID로 하나, 또는 특정 구성요소의 동작 전체. 이미 켜진 기기는 켜진 채로 유지됩니다.",
+      "fields": {
+        "id": {
+          "name": "ID",
+          "description": "domotwin.schedule이 응답한 ID."
+        },
+        "entity_id": {
+          "name": "구성요소",
+          "description": "이 구성요소에 대기 중인 모든 동작."
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "upkeep_due": {
+        "name": "예정된 유지 관리",
+        "state_attributes": {
+          "tasks": {
+            "name": "작업"
+          },
+          "more": {
+            "name": "기타"
+          }
+        }
+      },
+      "person_room": {
+        "name": "{person} 방",
+        "state": {
+          "not_home": "외출"
+        },
+        "state_attributes": {
+          "person": {
+            "name": "구성원"
+          },
+          "room_id": {
+            "name": "방 ID"
+          },
+          "area_id": {
+            "name": "영역"
+          },
+          "storey_id": {
+            "name": "층 ID"
+          },
+          "storey": {
+            "name": "층"
+          },
+          "since": {
+            "name": "시작 시각"
+          },
+          "source": {
+            "name": "출처"
+          },
+          "x": {
+            "name": "평면도의 X"
+          },
+          "y": {
+            "name": "평면도의 Y"
+          }
+        }
+      },
+      "located": {
+        "name": "{name}: 방",
+        "state_attributes": {
+          "device_name": {
+            "name": "기기"
+          },
+          "kind": {
+            "name": "종류",
+            "state": {
+              "phone": "휴대폰",
+              "watch": "시계",
+              "thing": "소지품"
+            }
+          },
+          "person": {
+            "name": "구성원"
+          },
+          "room_id": {
+            "name": "방 ID"
+          },
+          "area_id": {
+            "name": "영역"
+          },
+          "storey_id": {
+            "name": "층 ID"
+          },
+          "storey": {
+            "name": "층"
+          },
+          "since": {
+            "name": "시작 시각"
+          },
+          "left_behind": {
+            "name": "두고 감"
+          },
+          "x": {
+            "name": "평면도의 X"
+          },
+          "y": {
+            "name": "평면도의 Y"
+          },
+          "z": {
+            "name": "높이"
+          },
+          "accuracy": {
+            "name": "정확도"
+          }
+        }
+      },
+      "room_people": {
+        "name": "여기 있는 사람",
+        "state_attributes": {
+          "room": {
+            "name": "방"
+          },
+          "people": {
+            "name": "사람"
+          },
+          "private": {
+            "name": "비공개"
+          },
+          "room_id": {
+            "name": "방 ID"
+          },
+          "area_id": {
+            "name": "영역"
+          },
+          "storey_id": {
+            "name": "층 ID"
+          },
+          "storey": {
+            "name": "층"
+          }
+        }
+      },
+      "room_upkeep": {
+        "name": "여기서 예정된 유지 관리",
+        "state_attributes": {
+          "room": {
+            "name": "방"
+          },
+          "tasks": {
+            "name": "작업"
+          },
+          "more": {
+            "name": "기타"
+          },
+          "room_id": {
+            "name": "방 ID"
+          },
+          "area_id": {
+            "name": "영역"
+          },
+          "storey_id": {
+            "name": "층 ID"
+          },
+          "storey": {
+            "name": "층"
+          }
+        }
+      },
+      "people_seen": {
+        "name": "감지된 사람",
+        "state_attributes": {
+          "seen": {
+            "name": "식별되지 않음"
+          }
+        }
+      }
+    },
+    "binary_sensor": {
+      "left_behind": {
+        "name": "두고 감: {name}",
+        "state_attributes": {
+          "person": {
+            "name": "구성원"
+          },
+          "room_id": {
+            "name": "방 ID"
+          },
+          "room": {
+            "name": "방"
+          }
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "schedule_no_entities": {
+      "message": "켜고 끌 구성요소를 하나 이상 지정하세요."
+    },
+    "schedule_too_many_entities": {
+      "message": "동작 하나에 구성요소는 최대 25개입니다."
+    },
+    "schedule_unknown_entity": {
+      "message": "존재하지 않는 구성요소가 있습니다."
+    },
+    "schedule_not_schedulable": {
+      "message": "조명, 스위치, 선풍기, 입력 불리언, 미디어 플레이어, 냉난방기, 가습기, 사이렌, 커버만 예약할 수 있습니다."
+    },
+    "schedule_in_the_past": {
+      "message": "이미 지난 시각입니다."
+    },
+    "schedule_too_far": {
+      "message": "동작은 최대 1년 후까지 설정할 수 있습니다."
+    },
+    "schedule_off_with_end": {
+      "message": "종료 시각이나 밝기는 끄기가 아니라 켜기와 함께 지정합니다."
+    },
+    "schedule_end_before_start": {
+      "message": "종료가 시작보다 앞섭니다."
+    },
+    "schedule_too_long": {
+      "message": "기기는 최대 1주일까지 켜 둘 수 있습니다."
+    },
+    "schedule_too_many": {
+      "message": "이미 100개의 동작이 대기 중입니다: 먼저 일부를 취소하세요."
+    },
+    "schedule_not_allowed": {
+      "message": "이 기기 중 일부를 제어할 권한이 없습니다."
+    }
+  }
+}

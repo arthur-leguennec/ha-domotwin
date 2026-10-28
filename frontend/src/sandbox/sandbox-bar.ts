@@ -5,17 +5,19 @@
  */
 import {
   mdiAlertOutline,
+  mdiArrowLeft,
   mdiCalendarEdit,
   mdiClose,
   mdiPause,
   mdiPlay,
+  mdiStarFourPointsOutline,
   mdiTestTube,
   mdiTextBoxSearchOutline,
 } from "@mdi/js";
 import { LitElement, css, html, nothing, type PropertyValues, type TemplateResult } from "lit";
 
 import { define, fire } from "../components/define";
-import { icon } from "../components/icon";
+import { icon, mirroredIcon } from "../components/icon";
 import { baseStyles } from "../components/styles";
 import { addMessages, translatorFor, type Translator } from "../i18n";
 import { sandboxEn, sandboxFr } from "../i18n/sandbox";
@@ -179,6 +181,20 @@ export class DomoTwinSandboxBar extends LitElement {
         opacity: 0.75;
         pointer-events: none;
       }
+      /* Hydro-Québec's announced peak (D-063), as the peak's layer colours it. */
+      .band {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        opacity: 0.22;
+        pointer-events: none;
+      }
+      .band.preheat {
+        background: #f29e2e;
+      }
+      .band.peak {
+        background: #d7191c;
+      }
       .mark.conflict {
         width: 4px;
         height: 18px;
@@ -193,6 +209,19 @@ export class DomoTwinSandboxBar extends LitElement {
         width: 2px;
         background: var(--primary-text-color, #1f2328);
         pointer-events: none;
+      }
+      /* The automation written in plain words, played beside the home's (D-070). */
+      .draft {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 4px 10px;
+        padding: 4px 12px;
+        border-bottom: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+        background: var(--card-background-color, #fff);
+      }
+      .draft .what {
+        overflow-wrap: anywhere;
       }
       .sheet {
         max-height: min(55vh, 520px);
@@ -338,6 +367,17 @@ export class DomoTwinSandboxBar extends LitElement {
     event.preventDefault();
   };
 
+  /** The announced peak's pre-heating and peak on the day's line, when it is its day (D-063). */
+  private peakBands(home: SandboxHome): { kind: "preheat" | "peak"; from: number; to: number }[] {
+    const peak = home.peakToday();
+    if (!peak) return [];
+    const within = (at: number) => Math.min(Math.max(at, home.day.start), home.day.end);
+    return [
+      { kind: "preheat" as const, from: within(peak.preheat), to: within(peak.start) },
+      { kind: "peak" as const, from: within(peak.start), to: within(peak.end) },
+    ].filter((band) => band.to > band.from);
+  }
+
   private renderLine(home: SandboxHome, t: Translator): TemplateResult {
     const span = Math.max(1, home.day.end - home.day.start);
     const place = (at: number) => `${(((at - home.day.start) / span) * 100).toFixed(3)}%`;
@@ -377,6 +417,14 @@ export class DomoTwinSandboxBar extends LitElement {
             style=${`left:${place(clockOn(home.day.start, home.zone, hour * 60))}`}
             >${hour}h</span
           >`,
+      )}
+      ${this.peakBands(home).map(
+        (band) =>
+          html`<span
+            class="band ${band.kind}"
+            data-testid="sandbox-peak-band"
+            style=${`left:${place(band.from)};width:${(((band.to - band.from) / span) * 100).toFixed(3)}%`}
+          ></span>`,
       )}
       ${this.marks(home).map(
         (mark) => html`<span class="mark ${mark.kind}" style=${`left:${place(mark.at)}`}></span>`,
@@ -467,8 +515,60 @@ export class DomoTwinSandboxBar extends LitElement {
           ${icon(mdiClose)}${t.t("sandbox.leave")}
         </button>
       </div>
-      ${this.renderLine(home, t)} ${this.open === "day" ? this.renderDay(home, t) : nothing}
+      ${this.renderDraft(home, t)} ${this.renderLine(home, t)}
+      ${this.open === "day" ? this.renderDay(home, t) : nothing}
       ${this.open === "report" ? this.renderReport(home, report, t) : nothing}`;
+  }
+
+  /** What the draft did on the day shown, in a sentence or two. */
+  private draftSummary(home: SandboxHome, t: Translator): string {
+    const day = home.draftDay();
+    if (!day) return "";
+    const said = [
+      day.runs.length > 0
+        ? t.tp("sandbox.draft.ran", day.runs.length)
+        : day.stopped > 0
+          ? t.tp("sandbox.report.stopped_by_conditions", day.stopped)
+          : day.busy > 0
+            ? t.tp("sandbox.report.busy", day.busy)
+            : t.t("sandbox.report.never_set_off"),
+    ];
+    if (day.against.length > 0) {
+      said.push(
+        t.t("sandbox.report.draft_against", {
+          names: day.against.map((id) => home.name(id)).join(", "),
+        }),
+      );
+    } else if (day.backAndForth) said.push(t.t("sandbox.report.draft_flap"));
+    if (day.looping) said.push(t.t("sandbox.report.looping"));
+    return said.join(" ");
+  }
+
+  /** The automation written in plain words, played beside the home's (D-070), and the way back. */
+  private renderDraft(home: SandboxHome, t: Translator): TemplateResult | typeof nothing {
+    const draft = home.draft;
+    if (!draft) return nothing;
+    return html`<div
+      class="draft"
+      role="group"
+      aria-label=${t.t("sandbox.draft.title", { name: draft.name })}
+      data-testid="sandbox-draft"
+    >
+      <span class="what"
+        >${icon(mdiStarFourPointsOutline)}${t.t("sandbox.draft.title", { name: draft.name })}</span
+      >
+      <span class="note">${t.t("sandbox.draft.note")}</span>
+      <span role="status" data-testid="sandbox-draft-day">${this.draftSummary(home, t)}</span>
+      <button
+        data-testid="sandbox-draft-back"
+        ?disabled=${this.held}
+        @click=${() => {
+          fire(this, "domotwin-sandbox-draft", {});
+        }}
+      >
+        ${mirroredIcon(mdiArrowLeft)}${t.t("sandbox.draft.back")}
+      </button>
+    </div>`;
   }
 
   private toggle(what: "day" | "report"): void {
@@ -555,6 +655,7 @@ export class DomoTwinSandboxBar extends LitElement {
             </label>`,
         )}
       </div>
+      ${this.renderPeak(home, draft, t)}
       <h3>${t.t("sandbox.scenario.people")}</h3>
       ${
         draft.people.length === 0
@@ -642,7 +743,10 @@ export class DomoTwinSandboxBar extends LitElement {
               this.draftError = t.t("sandbox.scenario.bad_date");
               return;
             }
+            // Moved to the announced peak's day: shown from its pre-heating (D-063).
+            const toPeak = draft.date === home.peakDate() && draft.date !== home.scenario.date;
             home.setScenario({ ...draft, calls });
+            if (toPeak) home.playPeak();
             this.open = undefined;
           }}
         >
@@ -650,6 +754,51 @@ export class DomoTwinSandboxBar extends LitElement {
         </button>
       </div>
     </section>`;
+  }
+
+  /**
+   * Hydro-Québec's announced peak (D-063): played when the day is its day, else a way to it.
+   */
+  private renderPeak(
+    home: SandboxHome,
+    draft: Scenario,
+    t: Translator,
+  ): TemplateResult | typeof nothing {
+    const peak = home.announced;
+    const date = home.peakDate();
+    if (!peak || !date) return nothing;
+    const start = clockOf(peak.start, home.zone);
+    const end = clockOf(peak.end, home.zone);
+    return html`<h3>${t.t("sandbox.scenario.peak")}</h3>
+      ${
+        draft.date === date
+          ? html`<p data-testid="sandbox-peak">
+                ${t.t("sandbox.scenario.peak_played", {
+                  start,
+                  end,
+                  preheat: home.peakPreheatText((at) => clockOf(at, home.zone)),
+                })}
+              </p>
+              ${
+                // Another peak announced that day: said by the integrations, its times unknown.
+                home.peakAnother && home.scenario.date === date
+                  ? html`<p class="muted" data-testid="sandbox-peak-another">
+                      ${t.t("sandbox.scenario.peak_another")}
+                    </p>`
+                  : nothing
+              }`
+          : html`<p class="muted" data-testid="sandbox-peak">
+                ${t.t("sandbox.scenario.peak_other", { date, start, end })}
+              </p>
+              <button
+                data-testid="sandbox-peak-day"
+                @click=${() => {
+                  this.draft = { ...draft, date };
+                }}
+              >
+                ${t.t("sandbox.scenario.peak_play")}
+              </button>`
+      }`;
   }
 
   // ---------------------------------------------------------------------------- the report
@@ -752,6 +901,91 @@ export class DomoTwinSandboxBar extends LitElement {
     return t.t(`sandbox.why.${reason as "error"}`, { detail: note.detail });
   }
 
+  /** What each room did through the announced peak, when the day is its day (D-063). */
+  private renderPeakReport(home: SandboxHome, t: Translator): TemplateResult | typeof nothing {
+    const rooms = home.peakReport();
+    if (!rooms) return nothing;
+    return html`<h3>${t.t("sandbox.report.peak")}</h3>
+      ${
+        rooms.length === 0
+          ? html`<p class="muted" data-testid="sandbox-peak-rooms">
+              ${t.t("sandbox.report.peak_none")}
+            </p>`
+          : html`<ul data-testid="sandbox-peak-rooms">
+              ${rooms.map(
+                (room) =>
+                  html`<li data-room=${room.room}>
+                    ${t.t("sandbox.report.peak_room", {
+                      room: room.name,
+                      spans: room.spans
+                        .map((span) =>
+                          t.t(`sandbox.report.peak_${span.role}`, {
+                            from: clockOf(span.from, home.zone),
+                            to: clockOf(span.to, home.zone),
+                          }),
+                        )
+                        .join(", "),
+                    })}
+                  </li>`,
+              )}
+            </ul>`
+      }`;
+  }
+
+  /** The draft first (D-070): its runs, or why it never ran; what it worked against; what could
+   * not be played of it. */
+  private renderDraftReport(
+    home: SandboxHome,
+    report: DayReport,
+    t: Translator,
+  ): TemplateResult | typeof nothing {
+    const draft = home.draft;
+    const owner = draft ? report.owners.find((each) => each.id === draft.entity) : undefined;
+    if (!draft || !owner) return nothing;
+    const conflicts = report.conflicts.filter(
+      (conflict) => conflict.first.owner === draft.entity || conflict.second.owner === draft.entity,
+    );
+    return html`<h3>${t.t("sandbox.report.draft")} · ${draft.name}</h3>
+      <ul data-testid="sandbox-draft-report">
+        ${
+          owner.runs.length > 0
+            ? html`<li>
+                ${t.tp("sandbox.report.runs", owner.runs.length)}
+                <ul>
+                  ${owner.runs.slice(0, RUNS_LISTED).map((run) => this.renderRun(home, run, t))}
+                  ${owner.runs.length > RUNS_LISTED ? html`<li class="muted">…</li>` : nothing}
+                </ul>
+              </li>`
+            : html`<li>
+                ${
+                  owner.stoppedByConditions > 0
+                    ? t.tp("sandbox.report.stopped_by_conditions", owner.stoppedByConditions)
+                    : owner.busy > 0
+                      ? t.tp("sandbox.report.busy", owner.busy)
+                      : t.t("sandbox.report.never_set_off")
+                }
+              </li>`
+        }
+        ${owner.looping ? html`<li class="error">${t.t("sandbox.report.looping")}</li>` : nothing}
+        ${conflicts.map(
+          (conflict) =>
+            html`<li class="error">
+              ${this.goTo(home, conflict.at, t)}
+              ${t.t("sandbox.report.conflict", {
+                entity: home.name(conflict.entity),
+                first: home.name(conflict.first.owner),
+                first_state: conflict.first.state,
+                first_time: clockOf(conflict.first.at, home.zone),
+                second: home.name(conflict.second.owner),
+                second_state: conflict.second.state,
+                second_time: clockOf(conflict.second.at, home.zone),
+              })}
+            </li>`,
+        )}
+        ${owner.notPlayed.map((note) => html`<li class="muted">${this.why(note, t)}</li>`)}
+      </ul>`;
+  }
+
   private renderReport(home: SandboxHome, report: DayReport, t: Translator): TemplateResult {
     const byName = (a: OwnerReport, b: OwnerReport) =>
       home.name(a.id).localeCompare(home.name(b.id));
@@ -772,6 +1006,7 @@ export class DomoTwinSandboxBar extends LitElement {
             </p>`
           : nothing
       }
+      ${this.renderDraftReport(home, report, t)}
       <h3>${t.t("sandbox.report.against")}</h3>
       ${
         report.conflicts.length === 0
@@ -812,6 +1047,7 @@ export class DomoTwinSandboxBar extends LitElement {
               </ul>`
           : nothing
       }
+      ${this.renderPeakReport(home, t)}
       <h3>${t.t("sandbox.report.ran")}</h3>
       ${
         ran.length === 0
@@ -902,5 +1138,5 @@ declare global {
   }
 }
 
-export { SandboxHome } from "./home";
+export { SandboxHome, type DraftDay, type SandboxDraft } from "./home";
 export { copyHome } from "./copy";

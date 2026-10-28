@@ -2,7 +2,7 @@
  * `<domotwin-choices>`, the user's own choices (D-055): the tab DomoTwin opens on (for the user,
  * and this device's own), the cards of their Home tab (an agenda, a list), and whether Home
  * Assistant opens DomoTwin first, through Home Assistant's own setting: this device's in 2025.1,
- * the user's in the versions that keep it for them.
+ * the user's in the versions that keep it for them. And the wall screen this device is (D-076).
  */
 import { mdiClose, mdiDeleteOutline } from "@mdi/js";
 import { LitElement, css, html, nothing, type PropertyValues, type TemplateResult } from "lit";
@@ -10,6 +10,7 @@ import { LitElement, css, html, nothing, type PropertyValues, type TemplateResul
 import { DomoTwinClient } from "../ha/client";
 import { isHassError, type FrontendCoreData, type HomeAssistant } from "../ha/types";
 import type { Translator } from "../i18n";
+import "../i18n/summary";
 import { entityName } from "../live/bindings";
 import {
   MAX_CALENDARS,
@@ -21,10 +22,14 @@ import {
   type HomeCard,
   type Tab,
 } from "../live/choices";
+import { SUMMARIES, isSummary } from "../live/overview";
+import { screenNamed, writeDeviceScreen, type Screens } from "../live/screens";
+import { sameScreen } from "../live/show";
 import { define, fire } from "./define";
 import { icon } from "./icon";
 import { baseStyles } from "./styles";
 
+// The summaries' names (D-061), for the Home tab's summary cards.
 /** How Home Assistant keeps the page it opens first: for the user, or on this device. */
 export type FirstPage = "user" | "device";
 
@@ -47,7 +52,12 @@ export function opensFirst(hass: HomeAssistant, path: string): boolean {
 }
 
 /** The names of a tab's words. */
-const TAB_KEYS = { home: "tabs.home", rooms: "tabs.rooms", "3d": "tabs.three_d" } as const;
+const TAB_KEYS = {
+  home: "tabs.home",
+  rooms: "tabs.rooms",
+  safety: "tabs.safety",
+  "3d": "tabs.three_d",
+} as const;
 
 export class DomoTwinChoices extends LitElement {
   static override properties = {
@@ -55,9 +65,12 @@ export class DomoTwinChoices extends LitElement {
     t: { attribute: false },
     choices: { attribute: false },
     deviceStart: { attribute: false },
+    screens: { attribute: false },
+    deviceScreen: { attribute: false },
     panelPath: { attribute: false },
     start: { state: true },
     device: { state: true },
+    screen: { state: true },
     cards: { state: true },
     first: { state: true },
     adding: { state: true },
@@ -71,14 +84,18 @@ export class DomoTwinChoices extends LitElement {
   choices?: Choices;
   /** This device's own tab, when it has one. */
   deviceStart?: Tab;
+  /** The wall screens (D-076), when read, and the one this device is. */
+  screens?: Screens;
+  deviceScreen?: string;
   /** The panel's path in Home Assistant (`domotwin`). */
   panelPath = "domotwin";
   protected start: Tab | "" = "";
   protected device: Tab | "" = "";
+  protected screen = "";
   protected cards: HomeCard[] = [];
   protected first = false;
   /** A card being added, and the entities picked for it. */
-  protected adding?: "calendar" | "todo-list";
+  protected adding?: "calendar" | "todo-list" | "summary";
   protected picked: string[] = [];
   protected busy = false;
   protected error?: string;
@@ -205,6 +222,7 @@ export class DomoTwinChoices extends LitElement {
     this.drafted = true;
     this.start = this.choices.start ?? "";
     this.device = this.deviceStart ?? "";
+    this.screen = this.deviceScreen ?? "";
     this.cards = [...this.choices.cards];
     this.first = opensFirst(hass, this.panelPath);
     const ids = Object.keys(hass.states).sort();
@@ -220,9 +238,16 @@ export class DomoTwinChoices extends LitElement {
     const hass = this.hass;
     const t = this.t;
     if (!hass || !t) return "";
-    return card.type === "calendar"
-      ? t.t("choices.agenda", { names: card.entities.map((id) => entityName(hass, id)).join(", ") })
-      : t.t("choices.list", { name: entityName(hass, card.entity) });
+    switch (card.type) {
+      case "calendar":
+        return t.t("choices.agenda", {
+          names: card.entities.map((id) => entityName(hass, id)).join(", "),
+        });
+      case "todo-list":
+        return t.t("choices.list", { name: entityName(hass, card.entity) });
+      case "summary":
+        return t.t("choices.summary", { name: t.t(`summary.titles.${card.summary}`) });
+    }
   }
 
   private addPicked(): void {
@@ -230,6 +255,8 @@ export class DomoTwinChoices extends LitElement {
       this.cards = [...this.cards, { type: "calendar", entities: this.picked }];
     } else if (this.adding === "todo-list" && this.picked[0]) {
       this.cards = [...this.cards, { type: "todo-list", entity: this.picked[0] }];
+    } else if (this.adding === "summary" && isSummary(this.picked[0])) {
+      this.cards = [...this.cards, { type: "summary", summary: this.picked[0] }];
     }
     this.adding = undefined;
     this.picked = [];
@@ -268,7 +295,12 @@ export class DomoTwinChoices extends LitElement {
         cards: this.cards,
       });
       writeDeviceStart(this.device || undefined);
-      fire(this, "domotwin-saved", { choices: saved, device: this.device || undefined });
+      if (!hass.demo && !hass.sandbox) writeDeviceScreen(this.screen || undefined);
+      fire(this, "domotwin-saved", {
+        choices: saved,
+        device: this.device || undefined,
+        screen: this.screen || undefined,
+      });
     } catch (error) {
       this.error = t.t("choices.failed", { reason: reason(error) });
       this.busy = false;
@@ -283,6 +315,38 @@ export class DomoTwinChoices extends LitElement {
     } finally {
       this.busy = false;
     }
+  }
+
+  /**
+   * The wall screen this device is (D-076): one of those administrators set (from the menu),
+   * whose layout it then follows.
+   */
+  private renderScreen(): TemplateResult | typeof nothing {
+    const t = this.t;
+    const screens = this.screens;
+    // The demo house and the sandbox are homes of their own: the device is not theirs to name.
+    if (!t || !screens || this.hass?.demo || this.hass?.sandbox) return nothing;
+    const names = Object.keys(screens);
+    // A screen no longer there is still said, until another is chosen.
+    const kept = this.screen && !screenNamed(screens, this.screen) ? [this.screen] : [];
+    if (names.length === 0 && kept.length === 0) return nothing;
+    return html`<label class="row">
+      <span>${t.t("choices.screen")}<br /><small>${t.t("choices.screen_hint")}</small></span>
+      <select
+        data-testid="choices-screen"
+        @change=${(event: Event) => {
+          this.screen = (event.target as HTMLSelectElement).value;
+        }}
+      >
+        <option value="" ?selected=${this.screen === ""}>${t.t("choices.screen_none")}</option>
+        ${[...names, ...kept].map(
+          (name) =>
+            html`<option value=${name} ?selected=${sameScreen(name, this.screen)}>
+              ${kept.includes(name) ? t.t("choices.screen_gone", { name }) : name}
+            </option>`,
+        )}
+      </select>
+    </label>`;
   }
 
   private tabOptions(selected: Tab | "", none?: string): TemplateResult {
@@ -300,7 +364,8 @@ export class DomoTwinChoices extends LitElement {
     const t = this.t;
     if (!hass || !t || !this.adding) return nothing;
     const calendar = this.adding === "calendar";
-    const ids = calendar ? this.calendars : this.lists;
+    const summary = this.adding === "summary";
+    const ids = summary ? [...SUMMARIES] : calendar ? this.calendars : this.lists;
     // Back to the choice of a card, the rest of the dialog as it is.
     const back = html`<button
       class="action quiet"
@@ -319,7 +384,15 @@ export class DomoTwinChoices extends LitElement {
       </div>`;
     }
     return html`<div class="pick" data-testid="choices-pick">
-      <h3>${t.t(calendar ? "choices.pick_calendars" : "choices.pick_list")}</h3>
+      <h3>
+        ${t.t(
+          summary
+            ? "choices.pick_summary"
+            : calendar
+              ? "choices.pick_calendars"
+              : "choices.pick_list",
+        )}
+      </h3>
       ${ids.map(
         (id) =>
           html`<label class="row">
@@ -340,7 +413,9 @@ export class DomoTwinChoices extends LitElement {
                   : [id];
               }}
             />
-            <span>${entityName(hass, id)}</span>
+            <span>
+              ${summary && isSummary(id) ? t.t(`summary.titles.${id}`) : entityName(hass, id)}
+            </span>
           </label>`,
       )}
       <div class="adds">
@@ -413,6 +488,7 @@ export class DomoTwinChoices extends LitElement {
           ${this.tabOptions(this.device, t.t("choices.device_same"))}
         </select>
       </label>
+      ${this.renderScreen()}
       ${
         how
           ? html`<label class="row">
@@ -480,6 +556,17 @@ export class DomoTwinChoices extends LitElement {
                 }}
               >
                 ${t.t("choices.add_list")}
+              </button>
+              <button
+                class="action quiet"
+                data-testid="choices-add-summary"
+                ?disabled=${this.cards.length >= MAX_HOME_CARDS}
+                @click=${() => {
+                  this.adding = "summary";
+                  this.picked = [];
+                }}
+              >
+                ${t.t("choices.add_summary")}
               </button>
             </div>`
       }

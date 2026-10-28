@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+import math
 from pathlib import Path
 import shutil
 from typing import Any, cast
@@ -129,6 +130,23 @@ def test_a_person_is_placed_by_the_source_that_changed_last() -> None:
     assert place_of("Work", [watch], finder) == AWAY
     assert place_of("not_home", [watch], finder) == AWAY
     assert place_of(None, [watch], finder) == AWAY
+
+
+def test_where_in_the_room_is_from_a_source_that_says_in_that_room() -> None:
+    finder = RoomFinder([_room("living", "Living room"), _room("kitchen", "Kitchen")], AREAS)
+    phone = _reading("sensor.phone_room", "Kitchen", 5, room_id="kitchen", x=1.25, y=3.5)
+    # Another source in the kitchen, newer, says nothing of where in it: the phone's spot.
+    other = _reading("sensor.watch_area", "Kitchen", 1)
+    place = place_of("home", [phone, other], finder)
+    assert place.source == "sensor.watch_area"
+    assert place.at == (1.25, 3.5)
+    # Nothing but numbers, and only in the room found.
+    odd = _reading("sensor.phone_room", "Kitchen", 5, room_id="kitchen", x=math.nan, y=3.5)
+    assert place_of("home", [odd, other], finder).at is None
+    flag = _reading("sensor.phone_room", "Kitchen", 5, room_id="kitchen", x=True, y=3.5)
+    assert place_of("home", [flag], finder).at is None
+    elsewhere = _reading("sensor.tag_room", "Living room", 9, room_id="living", x=1.0, y=1.0)
+    assert place_of("home", [elsewhere, other], finder).at is None
 
 
 def test_names_said_are_forgiven() -> None:
@@ -380,28 +398,36 @@ async def test_where_answers_and_shows(
     await hass.services.async_call("domotwin", "show", {"person": "person.sam"}, blocking=True)
 
 
-async def test_the_voice_blueprint_says_where_someone_is(
-    hass: HomeAssistant,
-    home: MockConfigEntry,
-    hass_ws_client: WebSocketGenerator,
-    config_dir: Path,
-) -> None:
-    """Imported as is, "where is Alex" answers with Alex's room and shows it."""
-    admin = await hass_ws_client(hass)
-    assert (await _save_people(admin, {"person.alex": {"sources": ["sensor.alex_phone_area"]}}))[
-        "success"
-    ]
+@pytest.fixture
+async def assist(hass: HomeAssistant, config_dir: Path) -> None:
+    """Assist and the voice blueprint, set up before a client starts the web server.
+
+    Assist's intents add their views to it, which a started server no longer takes.
+    """
     target = config_dir / "blueprints" / "automation" / "domotwin"
     target.mkdir(parents=True)
     shutil.copy(BLUEPRINT, target / BLUEPRINT.name)
     assert await async_setup_component(hass, "homeassistant", {})
     assert await async_setup_component(hass, "conversation", {})
+
+
+async def test_the_voice_blueprint_says_where_someone_is(
+    hass: HomeAssistant,
+    assist: None,
+    home: MockConfigEntry,
+    hass_ws_client: WebSocketGenerator,
+) -> None:
+    """Imported as is, "where is Alex" answers with Alex's room and shows it."""
     assert await async_setup_component(
         hass,
         "automation",
         {"automation": {"use_blueprint": {"path": "domotwin/where_by_voice.yaml", "input": {}}}},
     )
     await hass.async_block_till_done()
+    admin = await hass_ws_client(hass)
+    assert (await _save_people(admin, {"person.alex": {"sources": ["sensor.alex_phone_area"]}}))[
+        "success"
+    ]
     screen = await hass_ws_client(hass)
     await screen.send_json_auto_id({"type": "domotwin/subscribe"})
     assert (await screen.receive_json())["success"]

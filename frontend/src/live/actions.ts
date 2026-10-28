@@ -8,6 +8,7 @@ import { isHassError, type HomeAssistant } from "../ha/types";
 import type { Translator } from "../i18n";
 import type { Action, ElementBinding } from "./bindings";
 import { primaryEntity } from "./bindings";
+import { actionEntities } from "./rights";
 
 /** What the view must do after an action. */
 export type ActionResult = "done" | "controls" | "none";
@@ -40,9 +41,13 @@ export async function runAction(
   binding: ElementBinding,
 ): Promise<ActionResult> {
   const entityId = action.entity_id ?? primaryEntity(binding, hass);
+  // A device the viewer may only look at (their rights, D-071): its panel, its controls
+  // disabled, rather than Home Assistant's dialog or an action refused.
+  const looks = entityId !== undefined && hass.canAct?.(entityId) === false;
   switch (action.action) {
     case "toggle": {
       if (!entityId) return "none";
+      if (looks) return "controls";
       const on = hass.states[entityId]?.state === "locked";
       const [domain, service] = toggleService(entityId, on);
       await hass.callService(domain, service, {}, { entity_id: entityId });
@@ -50,8 +55,9 @@ export async function runAction(
     }
     case "more-info":
       if (!entityId) return "none";
-      // The demo house's entities have no dialog in Home Assistant: DomoTwin's own controls.
-      if (hass.demo) return "controls";
+      // The demo house's entities have no dialog in Home Assistant, nor a guest's page (D-067):
+      // DomoTwin's own controls.
+      if (hass.demo || hass.guest || looks) return "controls";
       fire(node, "hass-more-info", { entityId });
       return "done";
     case "perform-action":
@@ -59,11 +65,15 @@ export async function runAction(
       const name = action.perform_action ?? action.service ?? "";
       const [domain, service] = name.split(".", 2);
       if (!domain || !service) return "none";
+      // On what the viewer may only look at (D-071): the piece's own panel, when it has one.
+      if (binding.entities.length > 0 && hass.canCall?.(actionEntities(hass, action)) === false) {
+        return "controls";
+      }
       await hass.callService(domain, service, action.data ?? {}, action.target);
       return "done";
     }
     case "navigate":
-      if (!action.navigation_path || hass.demo) return "none";
+      if (!action.navigation_path || hass.demo || hass.guest) return "none";
       navigate(action.navigation_path);
       return "done";
     case "controls":

@@ -4,10 +4,16 @@ import { MAX_IDLE, THEME_MODES } from "../config";
 import { DomoTwinClient, type StoreyInfo } from "../ha/client";
 import type { HomeAssistant } from "../ha/types";
 import { translatorFor, type MessageKey, type Translator } from "../i18n";
-import { LAYER_NAMES, automationsAvailable, networkAvailable } from "../live/layers";
+import {
+  LAYER_NAMES,
+  automationsAvailable,
+  coverageAvailable,
+  networkAvailable,
+} from "../live/layers";
+import { peaksAvailable } from "../live/peak-sources";
 import { ALL_STOREYS, loadHome, storeyLevels, storeyName } from "../live/storeys";
 import { planRooms } from "../live/suggest";
-import { define, fire } from "./define";
+import { define, fire, inLanguage } from "./define";
 
 interface FormField {
   name: string;
@@ -89,7 +95,14 @@ export function storeyField(
 
 function schema(
   t: Translator,
-  home: { rooms: RoomOption[]; storeys: StoreyInfo[]; network: boolean; automations: boolean },
+  home: {
+    rooms: RoomOption[];
+    storeys: StoreyInfo[];
+    network: boolean;
+    coverage: boolean;
+    automations: boolean;
+    peak: boolean;
+  },
   config: Record<string, unknown>,
 ): FormField[] {
   const storey = storeyField(t, home.storeys, config.storey);
@@ -136,12 +149,15 @@ function schema(
       selector: {
         select: {
           mode: "dropdown",
-          // The network map only where it can be shown (D-031), or kept where it is set.
+          // The network map (D-031), the radio coverage (D-066) and the peaks (D-063) only where
+          // they can be shown, or kept where they are set.
           options: LAYER_NAMES.filter(
             (value) =>
               config.layer === value ||
               ((value !== "network" || home.network) &&
-                (value !== "automations" || home.automations)),
+                (value !== "coverage" || home.coverage) &&
+                (value !== "automations" || home.automations) &&
+                (value !== "peak" || home.peak)),
           ).map((value) => ({
             value,
             label: t.t(`layers.${value}` as MessageKey),
@@ -153,6 +169,7 @@ function schema(
     { name: "presence", selector: { boolean: {} } },
     { name: "people", selector: { boolean: {} } },
     { name: "sun", selector: options(t, "editor.sun", ["fixed", "real"]) },
+    { name: "weather", selector: { boolean: {} } },
     { name: "badges", selector: { boolean: {} } },
     { name: "cameras", selector: { boolean: {} } },
     { name: "names", selector: { boolean: {} } },
@@ -179,6 +196,7 @@ const ON_BY_DEFAULT = {
   names: true,
   spread: true,
   roof: true,
+  weather: true,
   tools: true,
   voice: true,
 };
@@ -256,6 +274,15 @@ export class DomoTwinCardEditor extends LitElement {
     }
   }
 
+  /** Drawn once Home Assistant's language is here (D-082). */
+  protected override scheduleUpdate(): Promise<unknown> | undefined {
+    return inLanguage(
+      this,
+      () => this.hass,
+      () => super.scheduleUpdate(),
+    );
+  }
+
   protected override render(): TemplateResult | typeof nothing {
     if (!this.hass) return nothing;
     const storey = typeof this.config.storey === "string" ? this.config.storey : "";
@@ -270,7 +297,9 @@ export class DomoTwinCardEditor extends LitElement {
           rooms: this.rooms,
           storeys: this.storeys,
           network: networkAvailable(this.hass),
+          coverage: coverageAvailable(this.hass),
           automations: automationsAvailable(this.hass),
+          peak: peaksAvailable(this.hass),
         },
         this.config,
       )}

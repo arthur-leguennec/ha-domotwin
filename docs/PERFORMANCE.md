@@ -942,3 +942,519 @@ changes): read in about 35 ms, its rows in 50 ms, filtered by value and by how l
 168 hours worked out in 30 ms, and its CSV (5.3 MB) written in 170 ms. The demo house works out
 its day once, minute by minute, the first time its history is asked (about 70 ms), then answers
 ten days of three entities in a few milliseconds.
+
+### M32 ("Why?")
+
+Bundle: the first load is **518.2 kB gzipped** of 1 200 kB (+0.9 kB): the view's part (the chain
+asked for, shown and hidden, what a private room hides from it) and five icons. The section comes
+with the sheets (`chunks/sheets-<hash>.js`: 44.1 kB raw, 11.0 kB gzipped, +1.3 kB) with its texts
+in both languages, the chain drawn in the home on demand, the first time it is
+(`chunks/why-wires-<hash>.js`: 3.6 kB raw, 1.7 kB gzipped); the spots and chip it shares with the
+automation wires moved out of theirs (`chunks/automation-wires-<hash>.js`: 2.9 → 1.9 kB gzipped).
+The demo house's logbook adds 1.5 kB gzipped to the demo house's code.
+
+Nothing is asked of Home Assistant until **Who or what changed it?** is: a chain read by contexts
+is two or three logbook questions, one through an automation's runs a few more (its last three of
+the day before at most), the traces' contexts and the users once for an administrator. A device
+that changes while its chain is read is asked about again once, when the read is done. The engine
+draws the chain with the automations' wire set, as it does their wires (D-032): no new mesh, no
+frame while nothing pulses. The demo house keeps its last 6 000 rows (a few hours of its day),
+the measuring sensors left out as Home Assistant's logbook leaves them.
+
+### M30 (the Wi-Fi for guests)
+
+Bundle: the first load is **519.4 kB gzipped** of 1 200 kB (+1.2 kB): reading the network's answer,
+the Wi-Fi button over the view, the ⋮ menu entry, the integration's three commands and their few
+texts. The dialog comes on demand, the first time it opens (`chunks/wifi-dialog-<hash>.js`:
+18.5 kB raw, 5.7 kB gzipped): the code drawn, the form and their texts in both languages.
+
+The QR code is encoded by the analysis module, already loaded on demand for the network map and
+the automations (`qrcodegen`, MIT): it grew from 142.8 kB to 156.7 kB raw, by about 7 kB gzipped
+(72.0 kB). The code is encoded once each time the network changes and drawn as one SVG path (a few
+hundred modules), so showing it again costs nothing; nothing is fetched. The network (without its
+password) is asked of the integration when the panel or a card opens and again only when it
+changes; its password once each time the dialog opens.
+
+A long press acts on what was under the finger when it landed: the view picks it then (one pixel,
+drawn in the pick pass), and a tap uses that same pick, so a tap or a long press costs one pick as
+before and only the start of a drag one more.
+
+### M23b (into Home Assistant's Overview)
+
+Bundle: the first load is **521.3 kB gzipped** of 1 200 kB (+1.9 kB): the summary card's shell
+(its config, its sizes, its editor's link), the area page's rule and the layer asked for in the
+panel's address, their few texts. What a summary shows comes with the first one on the page
+(`chunks/summary-body-<hash>.js`: 8.2 kB raw, 3.3 kB gzipped), its editor when it is edited
+(0.7 kB gzipped). The network's summary loads the analysis module too, for administrators only,
+and reads the mesh every ten minutes, not sooner when the card is shown again. A summary works out
+its line at each new state of the home (a few passes over the states, as Home Assistant's own cards
+do) and is drawn again only when the line changes.
+
+The integration works out the room of every piece when a plan changes, not at each state: 0.3 ms
+for the demo house's 49 pieces (median of 200, Python 3.14 on a 2.1 GHz Xeon core), about 3 ms for
+a plan of 500. The tasks due are sorted into the rooms in one pass when the upkeep cards, the plans
+or the day change. Who is in each room is counted when a person moves, from the places the people
+tracker already keeps, and only the rooms whose count changed are written.
+
+### M36 (the configuration history)
+
+Bundle: the first load is **521.8 kB gzipped** of 1 200 kB (+0.5 kB): the menu item and its text,
+and two error texts. The dialog, its texts in both languages and the comparison come on demand the
+first time it opens (`chunks/config-history-dialog-<hash>.js`: 24.9 kB raw, 7.2 kB gzipped).
+
+The integration reads a kind only after Home Assistant announces a change to it, a second later
+(five for the scripts, whose reload announces nothing), one reading at a time, and once when it
+starts; nothing runs in between. A version is kept as its JSON text, not as parsed objects, so
+that the 4 MB the history may take are 4 MB in memory, and the store is written ten seconds after
+a change, several changes at once. What changed is worked out in the page, only for the version
+shown: a dashboard of 490 kB (40 views, 4 800 cards) with a card added and a view renamed is
+compared in 47 ms (Node 22, the unit tests' happy-dom), the two changes found. Lists are matched by
+their longest common part up to 40 000 pairs of items, compared item by item beyond; at most 200
+changes are said.
+
+### M39 (Hydro-Québec's peaks)
+
+Bundle: the first load is **524.0 kB gzipped** of 1 200 kB (+2.3 kB): whether an integration reads
+the peaks (`peak-sources.ts`, 0.6 kB gzipped), the layer's place in the view, its styles and its
+name, and a few modules the sandbox now shares with the view, split into chunks of their own. The
+peak, the rooms and the legend come on demand: `chunks/peak-layer-<hash>.js` (0.7 kB gzipped) the
+first time the layer shows, and 2.4 kB shared with the Home tab's and the sandbox's chunks, with
+their texts in both languages. The Home tab's chunk grows by its chip (11.9 kB gzipped, +1.0 kB),
+the sandbox's by the peak's day and report (34.3 kB gzipped, +2.8 kB). The engine's wasm stays
+the same size with the peak's tints (380.3 kB gzipped).
+
+The integrations' entities are found once per entity registry, their peaks once per update of the
+states, only where the peak is asked for (its layer shown, the Home tab open). The rooms' roles and
+draws are worked out with the layers, only while the peak's layer is shown, and sent to the engine
+only when they change; a timer works them out again when the peak's phase changes. Tinted, the
+rooms are drawn like a heatmap: at the layers' pace (24 frames a second), still under *reduce
+motion*; what they draw alone is written, not drawn, and needs no frame. In the sandbox, the
+peak's day adds a few changes to the day played, and what each room did is read every five minutes
+from the pre-heating to the peak's end when the report opens, once for each day played.
+
+### M20 (more imports)
+
+Bundle: the first load is **526.0 kB gzipped** of 1 200 kB (+2.0 kB): the robot's map in the menu
+and beside *Import plan*, the robots' maps found in Home Assistant, which files go to the import,
+and the texts. The import module, fetched only when such a file is picked or a robot's map is
+imported, reads three more kinds of files:
+
+| File | Raw | Gzipped |
+| --- | --- | --- |
+| `domotwin_import_bg.<hash>.wasm` (on demand) | 637.6 kB | 280.3 kB (217.8 kB before) |
+| `chunks/domotwin_import-<hash>.js` (glue, on demand) | 5.3 kB | 2.1 kB |
+| `chunks/import-<hash>.js` (wrapper, on demand) | 0.9 kB | 0.5 kB |
+
+The growth is the readers' own code, spread over them (`twiggy diff`): the mesh readers and the
+cutting of a mesh into rooms, doors and windows, the robot maps, Floorplanner, and the cells shared
+by maps and meshes (an exact distance transform, parts, outlines, simplifying and squaring). Their
+inflating is `miniz_oxide`'s, already in the module for ZIP archives.
+
+Import time (Node 22, the median of seven runs: read, list the storeys, convert one), on the
+fictional test files and on generated ones, with the WebAssembly memory after the last run:
+
+| File | Size | Time | Memory |
+| --- | --- | --- | --- |
+| `robot.json` (Valetudo, 4 rooms, 3 doors, the dock) | 8 kB | 11 ms | |
+| `robot.png` (the same, as Home Assistant's camera has it) | 2 kB | 11 ms | |
+| `roborock.gz` (the same as Roborock's map) | 0.5 kB | 11 ms | |
+| `apartment.fml` (Floorplanner, 2 floors, 4 rooms, 11 openings and pieces) | 12 kB | 0.7 ms | |
+| `house.obj` / `house.glb` (2 storeys, 4 000 triangles) | 133 kB / 84 kB | 42 ms / 34 ms | |
+| `house.ply` (its ground floor, `z` up, in centimetres) | 51 kB | 18 ms | |
+| Valetudo, 30 rooms and 49 doors (490 × 410 pixels) | 64 kB | 80 ms | 11 MB |
+| Floorplanner, 400 rooms (500 elements kept) | 132 kB | 84 ms | 3 MB |
+| The house scanned finely: 1.33 million triangles (GLB) | 23.6 MB | 1.54 s | 99 MB |
+| The house scanned more finely: 3.71 million triangles (GLB) | 65.5 MB | 4.21 s | 260 MB |
+| A map made to be slow, within budget: two rooms as large as its grid (2 000 × 2 000 pixels) | 0.1 kB | 1.72 s | 117 MB |
+| A map of rooms drawn over one another, past budget (refused) | 48 kB | 0.31 s | 153 MB |
+
+A robot's map costs its distances worked out a few times on its grid (a few hundred thousand
+cells) and on each room's own; the budget (16 million cells in all, a million two rooms share)
+keeps a file made to be slow to a few seconds, which the fuzzer found before it was set. A mesh is read once into positions and triangles, then gone over four times (the axis up,
+the floors, the walls' direction, each storey's cells); each storey is cut in cells of 5 cm (at
+most 1 600 a side, larger cells for a larger storey), and the rooms and openings are found on
+those. The plan found is the same however finely the house was scanned. Memory is the file, its
+copy in the module, its positions and its triangles: what a browser on a computer has; a scan of
+millions of triangles is best imported from one.
+
+### M31 (the placement advisor)
+
+Bundle: the first load is **524.8 kB gzipped** of 1 200 kB (+0.8 kB): the layer's name, who may
+see it, and the coverage's colour scale in the engine (380.4 kB gzipped, +0.1 kB). The rest comes
+on demand, when the layer is chosen: the sheet (`chunks/placement-panel-<hash>.js`: 30.3 kB raw,
+9.4 kB gzipped) with its texts in both languages, and the model in the analysis module
+(`domotwin_analysis_bg.wasm`: 228.7 kB raw, 104.1 kB gzipped, +71.9 kB and +32.1 kB), which the
+network map, the Wi-Fi QR code and the network's summary already load. All that comes on demand
+is now 715.5 kB gzipped (+41.7 kB).
+
+Nothing of it runs until the layer is chosen. The radios are read once (the locating's answer, ZHA's
+devices and their links analysed, or the Wi-Fi signals in the states), again when the plan, the
+links or the access points change or another radio is chosen, never at a new state of the home;
+the Wi-Fi signals are looked at once every 30 seconds at most, in whole decibels, and the advice
+is worked out again only when one of them moved. Worked out in Node (the analysis module's release
+build without `wasm-opt`, a 2.1 GHz Xeon core of the CI's kind, median of fifteen): about **2 ms**
+for the demo apartment (5 rooms), **10 ms** for the demo house (13 rooms on two storeys), 20 to
+30 ms for 30 to 40 rooms and **50 ms** for 60 rooms on three storeys. Beyond 24 rooms, each room is
+looked at from four of its points, not twelve, and its spot is its middle alone: 30 to 40 rooms
+took about 190 ms before. The integration's Python counts walls between two places in about
+57 µs: the same advice there would take about 2.3 s for 30 rooms on this computer, more on a small
+host, which is why it runs in the page (D-066).
+
+### M33 (guest access)
+
+Bundle: the first load is **527.9 kB gzipped** of 1 200 kB (+1.0 kB): the ⋮ menu's *Guest
+access*, the client's three commands and reading a pass (`live/guest-pass.ts`, kept apart so that
+nothing else comes with it), and a guest's few checks in the views. The administrator's dialog
+comes on demand the first time it opens (`chunks/guests-dialog-<hash>.js`: 28.5 kB raw, 8.8 kB
+gzipped), with its texts in both languages; the link's QR code is the analysis module's, already
+loaded on demand (`textQr`, which shares the Wi-Fi's encoder).
+
+The guests' page is built apart from the module Home Assistant's pages load (`guest.js`: 156.1 kB
+raw, 44.3 kB gzipped; its chunks in `chunks/guest/`, 575 kB raw in all), so that nothing of it
+changes how they load DomoTwin; its chunks repeat those of the panel it shares. A guest's phone
+loads **508.0 kB gzipped** to show the home in 3D: the page and the card (127.6 kB of JavaScript
+in 22 files) and the engine's wasm, from Home Assistant on the home's network; the dialogs come
+when opened.
+
+The integration works out what a pass shows of the home (the storeys, the rooms closed, the pieces
+kept) once for each revision of the home and each pass: 0.4 ms for the demo house, 38 ms for a plan
+of 500 elements (100 rooms, 400 pieces; median of 50, Python 3.14 on a 2.1 GHz Xeon core); the
+page's later reads and each 3D file it asks for reuse it. The states are read from Home Assistant's
+own, for the pass's devices only (100 at most). A page following its pass is one open request
+written to when one of its devices changes, a line every 25 seconds otherwise; at most 8 a pass,
+each waiting with at most 500 changes before it is closed and reads the home again.
+
+### M25 (safety)
+
+Bundle: the first load is **530.9 kB gzipped** of 1 200 kB (+3.0 kB): the watch of the
+doorbells, Home Assistant's alerts and the alerts' button the 3D view's banner shares with the
+other tabs, the Safety tab's name and route. The Safety tab and the alerts' bar come with the tabs'
+chunk (`chunks/practical-<hash>.js`: 11.9 kB gzipped, as before: Home Assistant's cards moved out
+of it), with a chunk it shares with the doorbell's full screen (3.0 kB gzipped: Home Assistant's
+cards, what goes with a doorbell, the safety texts in both languages); the full screen itself is
+`chunks/doorbell-<hash>.js` (1.7 kB gzipped), loaded the first time a doorbell rings.
+
+The events that may be doorbells are found once per entity registry; each new set of states, the
+watch reads only theirs (2 µs a time for two doorbells among 3 000 entities, Node 22 on a 2.1 GHz
+Xeon core). While the Safety tab shows, its alarms, doorbells, cameras and locks are found in one pass
+over the states at each update (0.5 ms for 3 000 entities, 20 cameras); Home Assistant's own
+cards are made once each, then only given each new state, as on the other tabs. Home Assistant's
+alerts are sent by Home Assistant when an administrator changes them, not asked for; those on now
+are worked out at each update only where some are chosen (9 µs for 40). The alerts given to the
+bar and the Safety tab, and the doorbell's camera and lock, stay the same objects while they say
+the same, so nothing is drawn again for nothing. A camera on the tab is a still Home Assistant
+refreshes every ten seconds; only the doorbell's full screen streams live.
+
+### M24 (history and energy)
+
+Bundle: the first load is **532.0 kB gzipped** of 1 200 kB (+1.1 kB): the Energy tab, its address
+and its word, whether Home Assistant's energy is set up, the graphs' address and the room panel's
+word. A room's graphs come with the Rooms tab's chunk (`chunks/practical-<hash>.js`: 51.6 kB raw,
+13.9 kB gzipped, +2.0 kB) and a chunk it shares with the room's panel in 3D (the kinds of measure
+and Home Assistant's card configurations, 1.6 kB gzipped); the room's panel grows by its button
+(11.4 kB gzipped, +0.1 kB), and the guests' page's by the check that hides it there (12.0 kB
+gzipped, +0.4 kB, on demand).
+
+The graphs are Home Assistant's own cards: each reads the recorder once when it shows, and is told
+of new states as Home Assistant's dashboards are, no more. DomoTwin finds a room's kinds of measure
+when its page opens, and again only when an entity comes or goes, not at each new state. The
+Energy tab is a link: Home Assistant's Energy page loads as it always does. Whether something is
+set up on it is asked once for each connection to Home Assistant (`energy/get_prefs`, a few hundred
+bytes), only where Home Assistant has the page.
+
+### M35 (automations in plain words)
+
+Bundle: the first load is **533.1 kB gzipped** of 1 200 kB (+1.2 kB): whether Home Assistant has an
+AI task (`ai-task.ts`), the menu item and its text, the panel's way to the sandbox with a draft
+and to its wires once the plan is drawn, what it waits for before the dialog may name anything,
+and the shared reading of Home Assistant's refusals. The dialog, the plain words and the reading
+of the AI task's answer come on demand, the first time the dialog opens
+(`chunks/plain-dialog-<hash>.js`: 73.5 kB raw, 21.2 kB gzipped, of which 22.2 kB raw are its texts
+in both languages). The sandbox's chunk grows by the draft's part (110.3 kB raw, +1.3 kB; the
+same 34.3 kB gzipped, the configuration's reading and the time it shares with the dialog split out).
+
+Nothing runs until the dialog opens, and nothing is asked of Home Assistant then but the AI task
+it prefers. The home is told once for each question: for 2 000 entities in 40 areas, the 1 000
+named (60 kB of text) are written in 8 ms (median of seven, Node 22 on a 2.1 GHz Xeon core); an
+automation of 270 triggers, conditions and actions is said in words in 8 ms and its names looked
+up in 3 ms, once for each draft, not at each state of the home, which does not draw the dialog
+again. The AI task is asked once for each draft and Home Assistant's check once after it. In the
+sandbox, the draft is one more automation of the day played; what it did is read from the day's
+report, once for each day played.
+
+
+### M34 (per-person rights)
+
+Bundle: the first load is **536.3 kB gzipped** of 1 200 kB (+3.1 kB): the viewer's gate
+(`live/rights.ts`: whose rights apply, a device's level, a call's entities, the views' `hass`),
+the checks in DomoTwin's controls (the rows, a tap, a room's commands and own actions, the
+schedules, Home Assistant's cards), the panel's and the card's wiring and the ⋮ menu's *Rights*.
+The administrators' dialog comes on demand the first time it opens
+(`chunks/rights-dialog-<hash>.js`: 17.6 kB raw, 6.3 kB gzipped), with its texts in both languages;
+the listing of each room's devices it shares with guest access's dialog. A guest's page grows by
+the checks it shares (`guest.js`: 45.0 kB gzipped).
+
+The page works the gate out once for the home as it is (the rights, the links, the plans, the
+registries and the rooms closed), not on each change of a state: **1.0 ms** for a plan of 500
+elements (100 rooms, 400 pieces) and 1 000 entities, 30 rooms set; then a device's level is a few
+set lookups (0.9 µs; median of 31, Node 22 on a 2.1 GHz Xeon core, a phone some five times
+slower). An administrator, the demo house and the sandbox have no gate. The integration works out
+where each device is once a request it checks (an action set or cancelled for later, the list of
+those waiting): 0.8 ms for the same plan (Python 3.14).
+
+### M40 (the weather around the home)
+
+Bundle: the first load is **545.0 kB gzipped** of 1 200 kB (+8.7 kB). The engine's wasm grows by
+7.2 kB (387.6 kB gzipped): the weather's shaders (3.1 kB of it, their comments kept as in every
+shader), what a condition means and the footprint, and the fog in the home's and the background's
+shaders. The page grows by 1.5 kB: reading the weather entity and its wind (a chunk of its own,
+0.7 kB gzipped, shared by the view and the Home tab), the view's and the settings' part, and the
+texts. The demo house's weather comes with the demo.
+
+What falls is drawn by the graphics card from its number alone: one instanced draw, six vertices
+a particle, no buffer and no work in the page or in the engine's frame but a dozen uniforms. Its
+counts by quality, rain when it pours: 1 200 (Eco), 3 000 (Balanced) and 6 000 (High); snow 900,
+2 200 and 4 000; hail 600, 1 500 and 3 000; fewer when less falls (two thirds for `rainy`). While something falls
+or a storm flashes, frames come at the layers' pace (24 a second), none while the page is hidden;
+clouds and fog are drawn once.
+
+Measured with the demo apartment at 1 000 × 700 on SwiftShader (software WebGL2, 60 frames each;
+CPU time of a frame, median and 95th percentile, and the interval between frames):
+
+| Quality | Weather | CPU median | CPU p95 | Interval median |
+| --- | --- | --- | --- | --- |
+| Eco | sunny | 0.4 ms | 1.4 ms | 16.7 ms |
+| Eco | pouring | 0.4 ms | 4.1 ms | 16.7 ms |
+| Eco | snowy | 0.3 ms | 1.4 ms | 16.7 ms |
+| Eco | fog | 0.3 ms | 0.8 ms | 16.7 ms |
+| Balanced | sunny | 0.3 ms | 1.4 ms | 16.7 ms |
+| Balanced | pouring | 0.4 ms | 2.8 ms | 16.7 ms |
+| Balanced | snowy | 0.4 ms | 2.5 ms | 16.7 ms |
+| Balanced | fog | 0.3 ms | 0.9 ms | 16.7 ms |
+
+The CPU's part of a frame does not change; the software GPU keeps up with every frame in every
+case. The 95th percentile of the CPU time moves by a few milliseconds from run to run on a shared
+core.
+
+### M41 (locating measured)
+
+Bundle: the first load is **545.2 kB gzipped** of 1 200 kB (+0.2 kB: the client's two commands
+and the pairing kept with a device). The measurements' texts and tables come with the Bluetooth
+settings, loaded when opened, which grow by 2.8 kB gzipped (7.1 kB): the figures' tables, their
+texts in both languages, the pairing with Bermuda and asking before starting again.
+
+The integration counts on the locating's tick, every two seconds: a tally per device and per way,
+no list of rooms or times. On a 2.1 GHz Xeon core of the CI's kind (the mean of 3 000 ticks), the
+measurements add about **0.12 ms** to a tick for 30 devices (the most followed) each paired with
+Bermuda, whether Bermuda's sensors give their area's id or its name (the areas' names are indexed
+when the plan or the areas change); the figures take about 0.15 ms when asked for. They add about
+470 bytes a device to `domotwin.locating_learned`, written ten minutes after they change at most.
+
+### M17 (a library of objects)
+
+Bundle: the first load is **601.0 kB gzipped** of 1 200 kB (+55.9 kB). The engine grew by 52.5 kB
+(`domotwin_web_bg.<hash>.wasm`: 1 062.4 kB raw, 440.1 kB gzipped, from 896.9 kB and 387.6 kB):
+the 61 new kinds and 54 new styles are code, and the code of the pieces went from 47.6 kB to
+190.3 kB before `wasm-opt`, most of it the floats of their parts (keeping the painter's helpers
+out of line changes nothing: they already are). The kinds' names in both languages, the devices'
+suggestions and the badges' icons add 3.4 kB to the first load. The catalogue's chunk grows to
+8.5 kB gzipped (+4.1 kB, on demand): the library's groups, styles and search words in both
+languages, and the drawing of its pictures. The plan editor's wasm (99.1 kB, +3.7 kB) and the
+import's (285.9 kB, +5.6 kB) read the new kinds.
+
+A piece is built once, when the plan is: nothing of the library runs at each frame. Every piece in
+every style is tested alone at its usual size (`cargo test -p domotwin-core --test scene`): at most
+1 600 triangles, the new ones at most 1 202 (the wine cooler, its bottles behind glass); the 195
+pieces are 71 884 triangles together, 369 each on average. The demo apartment is unchanged
+(12 551 triangles). The demo house, with fourteen pieces of the library more, is 19 286 triangles
+on its ground floor (from 15 440) and 15 510 upstairs (from 14 146).
+
+The catalogue's pictures are drawn when it opens, by a second engine on a hidden canvas
+(headless Chromium, SwiftShader, the panel at 1 000 × 700 on the demo apartment's plan in edit
+mode, measured from the tap on *Add*): the first twelve, the pieces shown first, come in 4.5 s,
+most of it the second engine compiling its shaders on the software GPU (a GPU compiles them in a
+fraction of that); then about 20 ms each, all 195 in 8.1 s. They are drawn a few each frame within
+10 ms, one a frame when one takes longer: the page's longest frame meanwhile is 333 ms, while a
+shader compiles, the others under 85 ms. A picture is a 272 × 204 PNG of 17 kB on average (3.4 MB
+for the 195), kept for the session: opened again, the catalogue shows them all in 0.2 s. Without a
+second WebGL context the pieces go without pictures; the engine and its context are given back
+when the catalogue closes.
+
+### M45 (an iPhone's key without a Mac)
+
+Bundle: the first load is **601.2 kB gzipped** of 1 200 kB (+0.2 kB: the client's command and the
+three refusals' texts). The Bluetooth settings, loaded when opened, grow by 1.5 kB gzipped
+(8.6 kB): the key's field, its texts in both languages and the link to the guide. Nothing runs
+until a key is added: the integration reads it and runs Private BLE Device's setup once.
+
+### M26 (the wall screen)
+
+Bundle: the first load is **604.0 kB gzipped** of 1 200 kB (+2.8 kB: the screens' reading and
+choosing, the wait and the wake, the menu's entry and their texts). The screen saver is a chunk
+of its own, loaded the first time it comes (6.0 kB gzipped, its fifteen weather pictures written
+into it: taken from `@mdi/js`, they would have joined the first load's icons, +2.8 kB); the wall
+screens' dialog another (4.4 kB), with Home Assistant's media read by a module both share. The
+practical tabs' chunk shrank by 2.4 kB: their texts, which the saver shares for the weather's
+words, are a chunk of their own. While the saver shows, the 3D view is not drawn; a device that is
+not a wall screen only asks itself every 5 s whether it is one.
+
+### M18 (the outdoors)
+
+Bundle: the first load is **650.4 kB gzipped** of 1 200 kB (+46.4 kB). The engine's wasm grows by
+43.6 kB (483.7 kB gzipped): the garden's 22 kinds and their styles (the most of it), the roofs in
+wings and their four shapes, the grounds' shaders (grass, gravel, paving, soil, water, in a program
+of their own: below), the robot mower and the places outside's walls, labels and ways. The page
+grows by 2.8 kB: the lawns' growth,
+the garden's reading, the mowers' docks, the roof's settings and the texts. On demand, the demo
+house's garden comes with the demo (+1.8 kB), the catalogue's *Garden* group with edit mode
+(+0.8 kB), and the plan editor's wasm (100.9 kB, +1.8 kB) and the import's (287.5 kB, +1.6 kB)
+read the new fields and kinds.
+
+The demo house's ground floor, with its garden (five places outside, 26 garden pieces), is 36 284
+triangles (from 23 306). Measured at 1 000 × 700 on SwiftShader (software WebGL2), the demo's
+morning, 60 frames each (CPU time of a frame, median and 95th percentile, and the interval between
+frames):
+
+| Quality | | Triangles | CPU median | CPU p95 | Interval median |
+| --- | --- | --- | --- | --- | --- |
+| Eco | before (M26) | 23 306 | 0.5 ms | 1.6 ms | 267 ms |
+| Eco | with the garden | 36 284 | 0.6 ms | 3.8 ms | 250 ms |
+| Balanced | before (M26) | 23 306 | 0.5 ms | 2.4 ms | 300 ms |
+| Balanced | with the garden | 36 284 | 0.6 ms | 1.6 ms | 300 ms |
+
+The CPU's part of a frame barely moves: the garden is built once, with the plan. The software GPU
+is the interval's bottleneck, with or without the garden. The grass, gravel and water are drawn by
+the floor's shader from the surface their vertices carry: no texture, no extra pass.
+
+A software GPU runs every branch of a shader, taken or not: with the garden's grounds in the main
+program, a home without a garden drew each frame 10 to 35 % slower on SwiftShader (the GPU's part
+of a frame, read back, the demo apartment at Eco: 260 to 364 ms from 224 to 302 ms). They are now
+in a variant of it, compiled once a scene has them and used for the meshes that have them only:
+224 to 279 ms (M26: 224 to 287 ms), and the demo house's garden is drawn as before (208 ms). A robot mower
+moves as a robot vacuum does (frames at the layers' pace while it moves, none on its dock); its way
+round the house is worked out once, when it leaves (the storey's floor with the home's rooms
+closed), as a vacuum's is (the places outside closed). The lawns' grass is worked out in the page every ten minutes and sent when it changed.
+
+### M44 (split levels and walk-out basements)
+
+Bundle: the first load is **651.6 kB gzipped** of 1 200 kB (+1.2 kB). The engine's wasm grows by
+0.8 kB (484.5 kB gzipped): the retaining walls and the floors counted where a storey lies over
+another, which the placement advisor's module counts too (108.2 kB, +0.8 kB). The page's half
+levels' names are a few lines.
+
+Counting a floor where it is crossed costs a look at each storey's rooms at a point per storey
+crossed (its rooms listed once, with the home), instead of a difference of ranks. The integration's
+model of what each receiver should hear in each room (the locating's prior, D-035), on the demo
+house (two storeys, 18 rooms, 4 receivers): **21.7 ms** (19.6 ms before); on the fictional
+split-level house (three levels, 17 rooms, 4 receivers): 20.0 ms. It is worked out when the plans
+or the receivers change, not on the locating's tick. The retaining walls are a few boxes, built once
+with the home's scene, each side's ground looked for among the gardens high enough over it only.
+
+### M42 (finer locating)
+
+Bundle: the first load is **653.0 kB gzipped** of 1 200 kB (+1.4 kB). The engine's wasm grows by
+1.3 kB (485.8 kB gzipped): a figure stands at the spot its person's phone is at, the nearest place
+clear of the furniture and of the others in the room. The page's part is a few lines.
+
+The work is the integration's (D-079), measured on the fictional demo house (two storeys and a
+garden, 4 receivers) in Python:
+
+| | |
+| --- | --- |
+| The plans in cells (1 390 cells of 50 cm) | 64 ms |
+| What each receiver should hear in each cell | 178 ms |
+| A device's cloud at a reading, in the living room (84 cells kept) | 0.8 ms (1.8 ms at most) |
+| A device's cloud at a reading, in the back garden (325 cells kept) | 2.8 ms (4.5 ms at most) |
+
+The cells and what each receiver should hear in them are worked out with the rooms', in Home
+Assistant's executor, when the plans or the receivers change (not when a registry changes alone):
+about 60 ms a receiver on the demo house. A step from a cell to another room is checked for the
+walls on its way; the locating's walls now skip the rooms whose box the line misses, which makes
+the rooms' expectations faster too (14.1 ms on the demo house, 22.6 ms before). A reading costs a
+device a millisecond or a few more, every two seconds, in Home Assistant's loop: ten phones in the
+garden at once, about 30 ms every two seconds. Pure Python, no numeric library: the cloud lives
+around the room told (its 400 likeliest cells) rather than over the whole home. The spot is
+written again only once it moved a metre (or its accuracy changed by a quarter), and not recorded
+in the history.
+
+### M43 (presence radars merged)
+
+Bundle: the first load is **653.3 kB gzipped** of 1 200 kB (+0.3 kB): the people the radars see,
+read from their sensor and handed to the engine as figures. The Bluetooth settings, loaded when
+opened, list the radars (9.6 kB gzipped for the whole dialog). The engine is unchanged.
+
+The work is the integration's (D-080), measured on the fictional demo house's living room with one
+radar seeing three people, in Python:
+
+| | |
+| --- | --- |
+| What the radars see (their targets on the plan, merged) | 0.02 ms |
+| The weights of a cloud's cells from it (304 cells) | 0.32 ms |
+
+The radars are read a second after one of their entities changes at most, and at the locating's
+two-second readings; the cells' weights are worked out once a reading for every device. A
+person's spot where a radar sees them is told again every half metre, and the people no device
+names likewise, not recorded in the history: about one write a second while someone walks, none
+while they stand.
+
+### M37 (the weekly report)
+
+Bundle: the first load is **653.9 kB gzipped** of 1 200 kB (+0.6 kB): the menu item, its text and
+the address the notification's link opens. The page, its texts in both languages and the plans
+drawn as SVG come on demand the first time it opens (`chunks/report-dialog-<hash>.js`: 34.6 kB
+raw, 9.9 kB gzipped).
+
+The integration looks once an hour whether the report is due, a comparison of two dates; it
+writes it once a week. Writing it on a fictional home of 2 141 entities on 400 devices, 100
+automations and 30 updates takes 5 ms (the median of seven, Python 3.14, the tests' Home
+Assistant, without the recorder); the energy adds one query of the recorder's hourly statistics
+for the meters it reads, over two weeks, and the peaks one of their sensors' history. Finding the
+Zigbee devices on a weak link in a mesh of 300 routers, each hearing ten others, takes 4 ms. An AI
+task, when one is chosen, is waited for two minutes at most. The page works out nothing but the
+plans' outlines once, and the rooms' counts when a report is shown.
+
+### M21 (more languages)
+
+Bundle: the first load is **655.7 kB gzipped** of 1 200 kB (+1.8 kB after the weekly report's):
+the languages' loader, the elements waiting for theirs, and the layout in logical properties. Each
+of the ten languages is its own module, loaded only where Home Assistant speaks it (D-082), with
+every message of the first picture and of every chunk (the weekly report's among them), and the
+demo house's names:
+
+| Language | Gzipped | Language | Gzipped |
+| --- | --- | --- | --- |
+| German | 40.1 kB | Brazilian Portuguese | 39.1 kB |
+| Spanish | 39.3 kB | Arabic | 46.0 kB |
+| Italian | 39.1 kB | Simplified Chinese | 40.2 kB |
+| Dutch | 38.8 kB | Japanese | 43.1 kB |
+| Portuguese | 39.3 kB | Korean | 41.0 kB |
+
+The bundles now keep every language's letters as they are (UTF-8) rather than escaped: Arabic's
+module went from 47.9 to 40.8 kB gzipped, Japanese's from 42.2 to 38.0, and French in the first
+load from escapes to letters too. English and French homes load nothing more.
+
+### M22 (a first launch in five minutes)
+
+Bundle: the first load is **657.5 kB gzipped** of 1 200 kB (+1.8 kB): the empty plan's button, the
+menu item and the panel's part. The dialog, the steps, the drawing and their texts come on demand
+the first time one opens (`chunks/first-launch-dialog-<hash>.js`: 35.7 kB raw, 13.0 kB gzipped);
+each language's module gains its texts (about 1 kB gzipped).
+
+Drawing a fictional home of 24 areas on two floors and 300 devices (1 200 entities) takes about
+0.3 s in Node (the median of three): 30 ms to read each area's devices, the rest to lay out the
+rooms and place 282 devices and 63 pieces of furniture (18 found no space). It runs once, when
+*Draw my home* is pressed; the engine then checks each storey before it is saved.
+
+### M46 (shortcuts on the Home tab)
+
+Bundle: the first load is **657.9 kB gzipped** of 1 200 kB (+0.4 kB): the first load reads the
+user's choices only; their shortcuts are read by the Home tab, whose chunk grows by 4.9 kB gzipped
+(16.3 kB) with what shortcuts do, their texts and the icons not already in the first load (written
+there, as the screen saver's). The dialog that suggests and changes them is its own chunk
+(`chunks/shortcut-dialog-<hash>.js`: 21.2 kB raw, 5.8 kB gzipped), loaded when first opened; each
+language's module gains its texts (about 1.3 kB gzipped).
+
+On a fictional home of 1 200 entities in 24 areas on two floors, working out every suggestion takes
+about 3.6 ms (the median of ten, in Node); the Home tab works them out again only when the registries
+change, not at each state. The states of 10 shortcuts take about 1.3 ms at each update of Home
+Assistant's states: each kind's devices are worked out once for each of them, not once a button.

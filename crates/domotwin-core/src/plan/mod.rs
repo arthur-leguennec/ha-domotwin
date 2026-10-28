@@ -151,6 +151,10 @@ pub struct Room {
     pub edge_thickness: Vec<Option<f64>>,
     /// Finish per side, when one side has a finish.
     pub edge_finish: Option<Vec<Option<EdgeFinish>>>,
+    /// A place outside (D-077): a garden, a terrace, a balcony; no walls, no ceiling, no roof.
+    pub outside: bool,
+    /// Outside: a railing along its sides, but those against the home (a balcony).
+    pub railing: bool,
 }
 
 impl Room {
@@ -162,11 +166,27 @@ impl Room {
             .collect()
     }
 
-    /// Whether side `i` has no wall.
+    /// Whether side `i` has no wall (a place outside has none).
     pub fn is_open(&self, side: usize) -> bool {
-        self.open_edges.contains(&side)
+        self.outside || self.open_edges.contains(&side)
+    }
+
+    /// The height of its floor above its storey's (cm): a garden's ground (a lawn, gravel, soil)
+    /// a little under the floors, decking or paving outside just under them (D-077).
+    pub fn level(&self) -> f64 {
+        match (self.outside, self.floor.ground()) {
+            (false, _) => 0.0,
+            (true, true) => GROUND_LEVEL,
+            (true, false) => PAVED_LEVEL,
+        }
     }
 }
+
+/// The ground of a garden, under the floors (cm), over the background's (D-077).
+pub const GROUND_LEVEL: f64 = -4.0;
+/// Decking or paving outside, just under the floors (cm): not in their plane where one is drawn
+/// round the home.
+pub const PAVED_LEVEL: f64 = -1.5;
 
 /// A free partition from `(x, y)` to `(x2, y2)`.
 #[derive(Debug, Clone, PartialEq)]
@@ -255,7 +275,7 @@ pub struct Furniture {
     pub elevation: f64,
     /// Built in: edit mode does not move it.
     pub locked: bool,
-    /// Curtains: 0 (closed) to 100 (open).
+    /// Curtains and gates: 0 (closed) to 100 (open); none, a curtain open, a gate shut.
     pub open: Option<u8>,
     /// Light kinds: switched off.
     pub light_off: bool,
