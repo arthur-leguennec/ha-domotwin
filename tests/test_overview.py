@@ -9,7 +9,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from pytest_homeassistant_custom_component.typing import WebSocketGenerator
 
 from custom_components.domotwin.compat import device_of
-from custom_components.domotwin.const import DOMAIN
+from custom_components.domotwin.const import DOMAIN, SIGNAL_SHOW
 from custom_components.domotwin.overview import piece_rooms
 from homeassistant.core import HomeAssistant, State
 from homeassistant.helpers import (
@@ -17,6 +17,7 @@ from homeassistant.helpers import (
     device_registry as dr,
     entity_registry as er,
 )
+from homeassistant.helpers.dispatcher import async_dispatcher_connect
 
 KITCHEN_PEOPLE = "sensor.domotwin_kitchen_people"
 BATHROOM_UPKEEP = "sensor.domotwin_bathroom_upkeep_due"
@@ -204,6 +205,13 @@ async def test_a_workplace_counts_its_people_and_names_none(
         "text": "This is a workplace: I count people, I do not say where anyone is. "
         "People here: 1.",
     }
+    # Nobody's room is shown either.
+    shown: list[dict[str, Any]] = []
+    stop = async_dispatcher_connect(hass, SIGNAL_SHOW, shown.append)
+    await hass.services.async_call(DOMAIN, "show", {"person": "person.alex"}, blocking=True)
+    await hass.async_block_till_done()
+    stop()
+    assert shown == []
     # Its hours changed: still a workplace, the people not read again.
     await client.send_json_auto_id(
         {"type": "domotwin/settings/save", "settings": {**settings, "workplace": {}}}
@@ -217,6 +225,18 @@ async def test_a_workplace_counts_its_people_and_names_none(
     assert _state(hass, KITCHEN_PEOPLE).attributes["people"] == ["person.alex"]
     await client.send_json_auto_id({"type": "domotwin/people/get"})
     assert "counted" not in (await client.receive_json())["result"]
+    # A workplace with nobody placed and no radar: Home Assistant's people at home are counted.
+    await client.send_json_auto_id({"type": "domotwin/settings/save", "settings": workplace})
+    assert (await client.receive_json())["success"]
+    await client.send_json_auto_id({"type": "domotwin/people/save", "people": {}})
+    assert (await client.receive_json())["success"]
+    home_now = sum(1 for state in hass.states.async_all("person") if state.state == "home")
+    assert home_now > 0
+    answer = await hass.services.async_call(
+        DOMAIN, "where", {}, blocking=True, return_response=True
+    )
+    assert answer is not None
+    assert str(answer["text"]).endswith(f"People here: {home_now}.")
 
 
 async def test_the_upkeep_due_is_told_in_its_room(

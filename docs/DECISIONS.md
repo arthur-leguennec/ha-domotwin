@@ -4376,11 +4376,15 @@ roles) would be another decision.
   - **People counted, never named, for everyone.** The integration says it (`counted` in
     `domotwin/people/get`, and the people read again when the setting changes). The 3D view draws
     the people placed as figures of no one's colour, numbered, without a name or a sheet; a room's
-    panel says how many; the Home tab says how many are here (those placed, else Home Assistant's
-    people at home, and those the radars see without a name, D-080). Phones and watches followed
-    by Bluetooth are not shown, things are. `domotwin.where` answers how many are here, in each
-    language, whoever asks, a name or none; a room's people sensor keeps its count without the
-    list. Administrators too: the one who runs a place is the one it matters most for.
+    panel says how many, and a storey's button; the Home tab says how many are here (those placed
+    and those the radars see without a name, D-080; with nobody placed, those the radars see, or
+    without radars Home Assistant's people at home). Phones and watches followed by Bluetooth are
+    not shown, things are, whoever's they are. `domotwin.where` answers how many are here, counted
+    the same way, in each language, whoever asks, a name or none, a thing (not a phone nor a
+    watch) still found; `domotwin.show` with a person shows nothing; a room's people sensor keeps
+    its count without the list. Administrators too: the one who runs a place is the one it
+    matters most for. The figures are numbered in the order the people were placed, so a figure
+    stays the same while others hide or are renamed.
   - **What Home Assistant keeps stays.** Its `person` entities, and each person's room sensor of
     DomoTwin's, are still there for whoever administers Home Assistant: hiding them would take
     their automations away. The guide says so, and that placing nobody, with presence radars,

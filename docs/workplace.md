@@ -23,15 +23,20 @@ the alarm when it turns off, for instance).
 Where people work, where each one is during the day is theirs. In a workplace:
 
 - **The 3D view** draws each person DomoTwin places as a figure of no one's colour, without a name
-  over it, and without a sheet that says who it is. The phones and watches followed by Bluetooth
-  are not shown; things (keys, a bag) still are.
+  over it, and without a sheet that says who it is; the storeys' buttons say how many are on each.
+  The phones and watches followed by Bluetooth are not shown; things (keys, a bag) still are.
 - **A room's panel** says how many people are in it ("2 people"), not who.
-- **The Home tab** says how many are here ("3 here"), not who; those the presence radars see
-  without a name ([people](people.md), D-080) count too.
-- **`domotwin.where`** and the voice blueprint that uses it say how many are here, never where
-  anyone is, whoever asks.
+- **The Home tab** says how many are here ("3 here"), not who: the people placed and those the
+  presence radars see without a name ([people](people.md), D-080); with nobody placed, those the
+  radars see, or without radars Home Assistant's people at home.
+- **`domotwin.where`** and the voice blueprint that uses it say how many are here, counted the
+  same way, never where anyone is, whoever asks; a thing (keys, a bag) is still found.
+  **`domotwin.show`** with a person shows nothing.
 - **The rooms' sensors** (`sensor.domotwin_<room>_people`) keep their count, without the list of
   who is in the room.
+
+When the people are shown to administrators only, the others (and the voice, which runs as an
+automation) count only those the radars see, as in a home they learn nobody.
 
 This holds for everyone, administrators too. What Home Assistant itself keeps is still there for
 whoever administers it: its `person` entities, and DomoTwin's room sensor of each person placed

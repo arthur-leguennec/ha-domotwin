@@ -3981,14 +3981,14 @@ export class DomoTwinView extends LitElement {
       hass && this.options.people !== false ? seenShown(this.people, hass, this.closed) : [];
     // Someone's devices only where they could be shown: never without the people's settings (not
     // loaded, an older integration), or on a card without people; in a workplace (D-086), no
-    // phone nor watch, only things.
+    // phone nor watch, only things, whoever's they are.
     const settings = this.people;
     const hidden = new Set(settings?.hidden ?? []);
     const counted = settings?.counted === true;
     const toldAny =
-      settings !== undefined &&
-      !counted &&
-      (settings.shown !== "admins" || hass?.user?.is_admin === true);
+      settings !== undefined && (settings.shown !== "admins" || hass?.user?.is_admin === true);
+    // A workplace: no one's sheet stays open.
+    if (counted && this.sheet?.kind === "person") this.sheet = undefined;
     if (hass && this.locatedFrom?.entities !== hass.entities) {
       this.locatedFrom = { entities: hass.entities, sensors: locatedSensors(hass) };
     }
@@ -5199,7 +5199,10 @@ export class DomoTwinView extends LitElement {
     const t = this.translator;
     const levels = storeyLevels(this.storeys).reverse();
     const all = this.storey === ALL_STOREYS;
-    const people = peopleByStorey(this.shownPeople);
+    // A workplace (D-086): those counted, as the people are elsewhere.
+    const people = peopleByStorey(
+      this.people?.counted === true ? this.shownSeen : this.shownPeople,
+    );
     return html`<span class="rule" aria-hidden="true"></span>
       <div role="group" aria-label=${t.t("storey.menu")} data-testid="storeys">
         <button

@@ -183,6 +183,8 @@ function placedPeople(settings: PeopleSettings, hass: HomeAssistant): PersonShow
 export interface SeenShown {
   id: string;
   room: string;
+  /** Its storey, when told. */
+  storey?: string;
   /** Where in the room (plan cm), when told. */
   at?: [number, number];
 }
@@ -206,17 +208,25 @@ export function seenShown(
   if (settings.shown === "admins" && hass.user?.is_admin !== true) return [];
   const shown: SeenShown[] = [];
   if (settings.counted === true) {
-    // Numbered in a fixed order, unnamed: the same figure while they move.
-    placedPeople(settings, hass).forEach((person, n) => {
-      if (!person.room || closed.has(person.room)) return;
+    // Numbered in the order they were placed, unnamed: the same figure while they move, whoever
+    // else hides or is renamed.
+    const order = Object.keys(settings.people);
+    for (const person of placedPeople(settings, hass)) {
+      if (!person.room || closed.has(person.room)) continue;
       shown.push({
-        id: `counted.${String(n)}`,
+        id: `counted.${String(order.indexOf(person.id))}`,
         room: person.room,
+        ...(person.storey ? { storey: person.storey } : {}),
         ...(person.at ? { at: person.at } : {}),
       });
-    });
+    }
   }
   return [...shown, ...radarSeen(settings, hass, closed)];
+}
+
+/** Whether presence radars count people here (D-080): their sensor there, and shown. */
+export function radarsCount(settings: PeopleSettings, hass: HomeAssistant): boolean {
+  return settings.seen !== null && hass.states[settings.seen ?? SEEN_SENSOR] !== undefined;
 }
 
 /** Those the presence radars see whom no device names (D-080), as `seenShown` (no check of who
@@ -232,7 +242,7 @@ export function radarSeen(
   if (!Array.isArray(seen)) return shown;
   for (const entry of seen as unknown[]) {
     if (typeof entry !== "object" || entry === null) continue;
-    const { id, room_id: room, x, y } = entry as Record<string, unknown>;
+    const { id, room_id: room, storey_id: storey, x, y } = entry as Record<string, unknown>;
     if (
       typeof id !== "number" ||
       typeof room !== "string" ||
@@ -247,6 +257,7 @@ export function radarSeen(
     shown.push({
       id: `seen.${String(id)}`,
       room,
+      ...(typeof storey === "string" && storey ? { storey } : {}),
       at: [Math.round(x * 100), Math.round(y * 100)],
     });
   }
@@ -293,7 +304,7 @@ export function peopleByRoom(people: PersonShown[]): Map<string, PersonShown[]> 
 }
 
 /** How many people are on each storey. */
-export function peopleByStorey(people: PersonShown[]): Map<string, number> {
+export function peopleByStorey(people: readonly { storey?: string }[]): Map<string, number> {
   const storeys = new Map<string, number>();
   for (const person of people) {
     if (person.storey) storeys.set(person.storey, (storeys.get(person.storey) ?? 0) + 1);

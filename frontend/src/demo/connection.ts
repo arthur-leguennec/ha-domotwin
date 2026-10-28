@@ -231,9 +231,14 @@ export function demoConnection(home: MemoryHome): HassConnection {
         return { revision: home.saved("bindings") };
       case "domotwin/settings/get":
         return structuredClone({ settings: store.settings, revision: store.revision });
-      case "domotwin/settings/save":
+      case "domotwin/settings/save": {
+        const workplace = store.settings.workplace !== undefined;
         store.settings = structuredClone(message.settings) as typeof store.settings;
-        return { revision: home.saved("settings") };
+        const revision = home.saved("settings");
+        // A workplace now, or no longer (D-086): the people are read again, as the integration says.
+        if ((store.settings.workplace !== undefined) !== workplace) home.saved("people");
+        return { revision };
+      }
       case "domotwin/upkeep/get":
         return structuredClone({
           upkeep: store.upkeep,
@@ -279,7 +284,10 @@ export function demoConnection(home: MemoryHome): HassConnection {
         return structuredClone(garden);
       }
       case "domotwin/people/get":
-        return structuredClone(store.people);
+        // A workplace (D-086): its people counted, named nowhere.
+        return structuredClone(
+          store.settings.workplace ? { ...store.people, counted: true } : store.people,
+        );
       case "domotwin/people/save": {
         store.people.people = structuredClone(message.people) as PeopleSettings["people"];
         if (message.shown === "everyone" || message.shown === "admins") {

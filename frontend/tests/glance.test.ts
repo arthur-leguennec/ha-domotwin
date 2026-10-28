@@ -176,11 +176,26 @@ describe("glanceOf", () => {
       counted: true,
     } satisfies PeopleSettings;
     const glance = glanceOf(hass, sources({ people: settings, workplace: {} }));
-    // Sam at work, and someone the radars see whom no device names; Alex hid.
+    // Nobody placed: the one the radars see; no names.
     expect(glance.people).toBeUndefined();
-    expect(glance.here).toBe(2);
+    expect(glance.here).toBe(1);
     // The people's settings not read yet: counted still, from Home Assistant's people.
     expect(glanceOf(hass, sources({ workplace: {} })).here).toBe(2);
+    // Nobody placed but radars: those they see, not Home Assistant's people as well.
+    expect(glanceOf(hass, sources({ people: settings, workplace: {} })).here).toBe(1);
+    // Someone placed: those placed, and those the radars see without a name.
+    const placed = {
+      ...settings,
+      people: { "person.kim": { sources: [], color: "#2f9fd8", sensor: "sensor.kim_room" } },
+    };
+    hass.states["person.kim"] = {
+      entity_id: "person.kim",
+      state: "home",
+      attributes: { friendly_name: "Kim" },
+      last_changed: "",
+      last_updated: "",
+    };
+    expect(glanceOf(hass, sources({ people: placed, workplace: {} })).here).toBe(2);
     // A home: named.
     expect(glanceOf(hass, sources()).here).toBeUndefined();
   });
@@ -192,6 +207,7 @@ describe("glanceOf", () => {
       ["binary_sensor.front_door", "lounge", "on", { device_class: "door" }],
       ["lock.back_door", "study", "unlocked", {}],
       ["media_player.radio", "lounge", "playing", {}],
+      ["media_player.speaker", "lounge", "paused", {}],
       ["media_player.tv", "lounge", "off", {}],
       ["lock.front", "lounge", "locked", {}],
     ];
@@ -207,10 +223,14 @@ describe("glanceOf", () => {
       "binary_sensor.front_door",
       "lock.back_door",
       "media_player.radio",
+      "media_player.speaker",
     ]);
     // In a private room, not said.
     const hidden = glanceOf(home(entities), sources({ ...workplace, closed: new Set(["study"]) }));
     expect(hidden.leftOn).not.toContain("lock.back_door");
+    // A time that cannot be read is not said.
+    entities[0] = ["schedule.opening", null, "on", { next_event: "soon" }];
+    expect(glanceOf(home(entities), sources(workplace)).hours).toEqual({ open: true });
     // No schedule, or one not known: no hours.
     expect(glanceOf(home(entities), sources({ workplace: {} })).hours).toBeUndefined();
     entities[0] = ["schedule.opening", null, "unavailable", {}];

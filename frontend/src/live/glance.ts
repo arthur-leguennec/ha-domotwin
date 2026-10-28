@@ -11,7 +11,14 @@ import { NO_BINDINGS, areaOf, type BindingsJson } from "./bindings";
 import { numberOf, type PlanRoom } from "./layers";
 import { peakRooms, type PeakRooms } from "./peak-rooms";
 import { peakNow, type PeakNow } from "./peaks";
-import { colorOf, initials, peopleShown, radarSeen, type PeopleSettings } from "./people";
+import {
+  colorOf,
+  initials,
+  peopleShown,
+  radarSeen,
+  radarsCount,
+  type PeopleSettings,
+} from "./people";
 import { closedAreas, outOfSight } from "./privacy";
 import { usualWeather } from "./weather";
 
@@ -87,7 +94,7 @@ const DOOR_COVERS = new Set(["door", "garage", "gate"]);
 
 /** A lock left open, and media left on, when a workplace closes (D-086). */
 const LOCK_OPEN = new Set(["unlocked", "open", "opening", "unlocking"]);
-const MEDIA_ON = new Set(["on", "playing"]);
+const MEDIA_ON = new Set(["on", "playing", "paused", "buffering"]);
 
 /** A workplace's hours now (D-086): its schedule on while open; nothing while it is not known. */
 function hoursOf(hass: HomeAssistant, workplace: Workplace | undefined): GlanceHours | undefined {
@@ -95,7 +102,9 @@ function hoursOf(hass: HomeAssistant, workplace: Workplace | undefined): GlanceH
   const state = id ? hass.states[id] : undefined;
   if (state?.state !== "on" && state?.state !== "off") return undefined;
   const next = state.attributes.next_event;
-  return { open: state.state === "on", ...(typeof next === "string" ? { until: next } : {}) };
+  // When it changes, only as a time that can be read.
+  const until = typeof next === "string" && Number.isFinite(Date.parse(next)) ? next : undefined;
+  return { open: state.state === "on", ...(until ? { until } : {}) };
 }
 
 /** A light that groups others (a light group, a Hue room): its lamps count, not it. */
@@ -131,15 +140,22 @@ function peopleOf(
   workplace: boolean,
 ): { people?: GlancePerson[]; away: number; here?: number } {
   if (settings?.shown === "admins" && hass.user?.is_admin !== true) return { away: 0 };
-  // A workplace (D-086): how many, named nowhere; those the radars see without a name too.
+  // A workplace (D-086): how many, named nowhere, as `domotwin.where` counts them: those placed
+  // and those the radars see without a name; with nobody placed, those the radars see, or without
+  // radars Home Assistant's people at home.
   if (workplace || settings?.counted === true) {
-    const placed = settings && Object.keys(settings.people).length > 0;
     const hidden = new Set(settings?.hidden ?? []);
-    const ids = placed
-      ? Object.keys(settings.people)
-      : Object.keys(hass.states).filter((id) => domainOf(id) === "person");
-    const here = ids.filter((id) => !hidden.has(id) && hass.states[id]?.state === "home").length;
-    return { away: 0, here: here + (settings ? radarSeen(settings, hass, closed).length : 0) };
+    const home = (ids: string[]): number =>
+      ids.filter((id) => !hidden.has(id) && hass.states[id]?.state === "home").length;
+    const seen = settings ? radarSeen(settings, hass, closed).length : 0;
+    if (settings && Object.keys(settings.people).length > 0) {
+      return { away: 0, here: home(Object.keys(settings.people)) + seen };
+    }
+    if (settings && radarsCount(settings, hass)) return { away: 0, here: seen };
+    return {
+      away: 0,
+      here: home(Object.keys(hass.states).filter((id) => domainOf(id) === "person")),
+    };
   }
   if (settings && Object.keys(settings.people).length > 0) {
     const shown = outOfSight(peopleShown(settings, hass), closed);

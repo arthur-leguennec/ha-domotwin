@@ -659,6 +659,8 @@ export class DomoTwinPanel extends LitElement {
   protected roofDraft?: RoofSettings;
   /** A workplace, being chosen in the settings (D-086); `null`: a home. */
   protected workplaceDraft?: Workplace | null;
+  /** Home Assistant's schedules, for the workplace's hours, and the states they were read from. */
+  private schedulesFrom?: { states: HomeAssistant["states"]; ids: string[] };
   /** The draft last shown, and its settings as read. */
   private energyShown?: { draft: EnergySettings; energy: EnergySettings | undefined };
   /** The power sensors Home Assistant's own energy settings name, offered first. */
@@ -5019,8 +5021,6 @@ export class DomoTwinPanel extends LitElement {
       }`;
   }
 
-  /** The weather drawn around the home (D-072): the usual entity, one chosen, or none; shown as
-   * it is chosen. */
   /**
    * A workplace (D-086): an office or a shop, its people counted and named nowhere; its opening
    * hours a schedule of Home Assistant's.
@@ -5030,9 +5030,12 @@ export class DomoTwinPanel extends LitElement {
     const draft = this.workplaceDraft;
     const hass = this._hass;
     if (draft === undefined || !hass) return nothing;
-    const schedules = Object.keys(hass.states)
-      .filter((id) => id.startsWith("schedule."))
-      .sort();
+    // Home Assistant's schedules, looked for again only when its states change.
+    if (this.schedulesFrom?.states !== hass.states) {
+      const ids = Object.keys(hass.states).filter((id) => id.startsWith("schedule."));
+      this.schedulesFrom = { states: hass.states, ids: ids.sort() };
+    }
+    const schedules = [...this.schedulesFrom.ids];
     const hours = draft?.hours;
     if (hours && !schedules.includes(hours)) schedules.unshift(hours);
     return html`<h3>${t.t("settings.workplace")}</h3>
@@ -5075,6 +5078,8 @@ export class DomoTwinPanel extends LitElement {
       }`;
   }
 
+  /** The weather drawn around the home (D-072): the usual entity, one chosen, or none; shown as
+   * it is chosen. */
   private renderWeatherSettings(): TemplateResult | typeof nothing {
     const t = this.t;
     const draft = this.weatherDraft;

@@ -396,31 +396,75 @@ async def _limits(hass: HomeAssistant, call: ServiceCall) -> tuple[set[str], set
 async def _async_where(hass: HomeAssistant, call: ServiceCall) -> ServiceResponse:
     """Where a person is (`name`), or everyone at home, with a sentence to say.
 
-    In a workplace (D-086), how many are here: where anyone is, it tells no one.
+    In a workplace (D-086), how many are here: where anyone is, it tells no one; a thing followed
+    by Bluetooth (keys, a bag; not a phone nor a watch) is still found.
     """
     said = SENTENCES[spoken(hass.config.language)]
     limits = await _limits(hass, call)
-    data = hass.data.get(DATA_KEY)
-    if data is not None and data.workplace:
+    if _workplace(hass):
+        thing = _thing_named(hass, call.data.get("name", "").strip())
+        if thing is not None:
+            return _where_thing(hass, call, said, limits, thing)
         return _where_counted(hass, said, limits)
     return _where_named(hass, call, said, limits)
+
+
+def _workplace(hass: HomeAssistant) -> bool:
+    """Whether the home is a workplace (D-086): its people counted, never named."""
+    data = hass.data.get(DATA_KEY)
+    return data is not None and data.workplace
+
+
+def _thing_named(hass: HomeAssistant, asked: str) -> str | None:
+    """The one thing followed by Bluetooth (not a phone nor a watch) a name means, if any."""
+    locator = hass.data.get(LOCATOR_KEY)
+    if not asked or locator is None:
+        return None
+    scored = [
+        (score, device)
+        for device, settings in locator.settings["devices"].items()
+        if settings["kind"] == "thing"
+        and (score := thing_likeness(asked, settings["name"])) is not None
+    ]
+    best = min((score for score, _ in scored), default=None)
+    found = [device for score, device in scored if score == best]
+    return found[0] if len(found) == 1 else None
 
 
 def _where_counted(
     hass: HomeAssistant, said: dict[str, str], limits: tuple[set[str], set[str]]
 ) -> ServiceResponse:
-    """How many are here: the people placed at home, and those the radars see without a name."""
+    """How many are here, as the Home tab counts them (`glance.ts`).
+
+    The people placed at home and those the radars see without a name; with nobody placed, those
+    the radars see, or without radars Home Assistant's people at home. Those not to be told about
+    are not counted.
+    """
     untold, closed = limits
     people = hass.data.get(PEOPLE_KEY)
-    places = people.places if people is not None else {}
-    here = sum(
-        1
-        for p in (people.config["people"] if people is not None else [])
-        if p not in untold and (place := places.get(p)) is not None and place.home
-    )
     locator = hass.data.get(LOCATOR_KEY)
-    if locator is not None:
-        here += sum(1 for t in locator.radar.seen.values() if t.room not in closed)
+    seen = (
+        sum(1 for t in locator.radar.seen.values() if t.room not in closed)
+        if locator is not None
+        else 0
+    )
+    placed = list(people.config["people"]) if people is not None else []
+    if people is not None and placed:
+        places = people.places
+        here = seen + sum(
+            1
+            for p in placed
+            if p not in untold and (place := places.get(p)) is not None and place.home
+        )
+    elif locator is not None and locator.radar.radars:
+        here = seen
+    else:
+        hidden = set(people.config["hidden"]) if people is not None else set()
+        here = sum(
+            1
+            for state in hass.states.async_all("person")
+            if state.state == "home" and state.entity_id not in hidden
+        )
     return {"people": [], "text": said["counted"].format(count=here)}
 
 
@@ -555,7 +599,8 @@ def async_register_services(hass: HomeAssistant) -> None:
             # A person is shown in their room; nowhere when not placed, or not to be shown.
             people = hass.data.get(PEOPLE_KEY)
             untold, closed = await _limits(hass, call)
-            if people is None or person in untold:
+            # A workplace (D-086) shows nobody's room.
+            if people is None or person in untold or _workplace(hass):
                 return
             place = people.places.get(person)
             # Not in a private room either: showing it would tell where they are (D-039).

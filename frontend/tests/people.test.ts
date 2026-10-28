@@ -159,8 +159,8 @@ describe("people (D-034)", () => {
     seen.states[SEEN_SENSOR] = sensor;
     const shown = seenShown(settings, seen);
     expect(shown).toEqual([
-      { id: "seen.4", room: "living", at: [195, 203] },
-      { id: "seen.7", room: "bedroom", at: [610, 500] },
+      { id: "seen.4", room: "living", storey: "ground", at: [195, 203] },
+      { id: "seen.7", room: "bedroom", storey: "ground", at: [610, 500] },
     ]);
     // Not in a room the viewer may not see; to nobody but administrators when so shown.
     expect(seenShown(settings, seen, new Set(["bedroom"])).map((s) => s.id)).toEqual(["seen.4"]);
@@ -187,7 +187,9 @@ describe("people (D-034)", () => {
     expect(peopleShown(counted, hass())).toEqual([]);
     // Those in a room drawn as figures of no one's colour, numbered, never named.
     const shown = seenShown(counted, hass());
-    expect(shown).toEqual([{ id: "counted.0", room: "kitchen" }]);
+    expect(shown).toEqual([{ id: "counted.0", room: "kitchen", storey: "ground" }]);
+    // Numbered in the order placed: the same while others hide.
+    expect(seenShown({ ...counted, hidden: ["person.sam", "person.lou"] }, hass())).toEqual(shown);
     expect(JSON.stringify(shown)).not.toContain("alex");
     expect(seenShown(counted, hass(), new Set(["kitchen"]))).toEqual([]);
     expect(JSON.parse(peopleJson([], "figure", shown))).toEqual([

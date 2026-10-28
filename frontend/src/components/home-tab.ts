@@ -363,6 +363,8 @@ export class DomoTwinHome extends LitElement {
     // Its chip gone with the peak, its details go too.
     const now = this.glance.peak?.now;
     if (this.open === "peak" && (!now?.peak || now.phase === "none")) this.open = undefined;
+    // So with a workplace's hours (D-086), no longer known.
+    if (this.open === "hours" && !this.glance.hours) this.open = undefined;
     const next = now?.next;
     if (next === undefined) return;
     // Looked at again in six hours at most, should the clock have been changed meanwhile.
@@ -535,7 +537,6 @@ export class DomoTwinHome extends LitElement {
     </div>`;
   }
 
-  /** The peak's chip: under way, pre-heating, or the next one; none while none is announced. */
   /** A workplace's hours (D-086): open until when, or closed and what is left on. */
   private hoursChip(glance: Glance): TemplateResult | typeof nothing {
     const hass = this.hass;
@@ -576,6 +577,7 @@ export class DomoTwinHome extends LitElement {
     </div>`;
   }
 
+  /** The peak's chip: under way, pre-heating, or the next one; none while none is announced. */
   private peakChip(glance: Glance): TemplateResult | typeof nothing {
     const hass = this.hass;
     const t = this.t;
