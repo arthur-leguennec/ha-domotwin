@@ -1330,7 +1330,8 @@ export const chunks: Chunks = {
       hours_from: "ساعات العمل من {name}.",
       closed_week: "خارج ساعات العمل، آخر 7 أيام: {kwh}",
       closed_month: "خارج ساعات العمل، هذا الشهر: {kwh}",
-      closed_share: "{kwh} ({share}% من الإجمالي)",
+      closed_since: "خارج ساعات العمل، منذ {date}: {kwh}",
+      closed_share: "{kwh} ({share} من الإجمالي)",
       glance: "المنزل في لمحة",
       people: {
         zero: "لا أحد في المنزل",
@@ -1717,7 +1718,8 @@ export const chunks: Chunks = {
       closed: {
         title: "خارج ساعات العمل",
         place: "المكان",
-        share: "{share}% مما استهلكه المكان هذا الأسبوع كان خارج ساعات العمل.",
+        share: "{share} مما استهلكه المكان هذا الأسبوع كان خارج ساعات العمل.",
+        since: "محسوب منذ {date}: لا يعود سجل Home Assistant إلى أبعد من ذلك.",
       },
       peaks: {
         title: "فترات ذروة Hydro-Québec",

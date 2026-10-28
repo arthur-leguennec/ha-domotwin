@@ -747,8 +747,14 @@ function reportAnswer(report) {
         Object.entries(each.sections).map(([section, items]) => [section, items.length]),
       ),
     })),
-    report: report ? structuredClone(report) : null,
+    report: report ? withSince(structuredClone(report)) : null,
   };
+}
+
+/** A report whose week's energy while closed is counted since window.__closedSince (D-088). */
+function withSince(report) {
+  if (window.__closedSince && report.closed?.week) report.closed.week.since = window.__closedSince;
+  return report;
 }
 
 // The configuration history (D-062), as the integration keeps it: each item's versions, oldest
@@ -1980,9 +1986,18 @@ const connection = {
         return { changed };
       }
       case "domotwin/workplace/energy": {
-        // What a workplace used while closed (D-088): made up, as the integration says it.
+        // What a workplace used while closed (D-088): made up, as the integration says it. Counted
+        // (window.__closedEnergyAsked); refused with window.__refuseClosedEnergy = "<code>"; this
+        // month only since window.__closedSince (an ISO date), as a recorder keeping less says it.
+        window.__closedEnergyAsked = (window.__closedEnergyAsked ?? 0) + 1;
+        if (window.__refuseClosedEnergy) {
+          throw { code: window.__refuseClosedEnergy, message: "refused" };
+        }
         const hours = store.settings.workplace?.hours;
-        return hours ? { week: { kwh: 31.5, share: 38 }, month: { kwh: 126.4, share: 36 } } : {};
+        const since = window.__closedSince ? { since: window.__closedSince } : {};
+        return hours
+          ? { week: { kwh: 31.5, share: 38 }, month: { kwh: 126.4, share: 36, ...since } }
+          : {};
       }
       case "domotwin/report/get": {
         if (!hass.user.is_admin) throw { code: "unauthorized", message: "Unauthorized" };

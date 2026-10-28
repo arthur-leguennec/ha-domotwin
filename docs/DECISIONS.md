@@ -4466,12 +4466,19 @@ energy while the place was closed, each week or month".
     battery, less what went back to the grid and the battery. Each hour of the statistics counts
     for the part of it the place was closed, as if used evenly over the hour (a closing at 18:30
     counts half of 18:00 to 19:00); a room's the same, from its meters. Its share of all the
-    place used in the span is said, rounded half up.
+    place used in the span is said, rounded half up, as each language writes a percentage.
+  - **As far back as the history goes.** The recorder keeps the schedule's history ten days by
+    default (`purge_keep_days`), its hourly statistics for good: a span the history no longer
+    covers is counted from its first state kept, both what was used while closed and all that
+    was used, and said so (*since October 16*). The week before in the weekly report is the one
+    last week's report said; never a part of a week, which would not compare.
   - **Where it is said.** In the weekly report (`closed`: this week, the week before, each room's;
     private rooms left out as in its energy, D-039), and on the Home tab's hours (a tap: the last
     seven days and this month since its first day where the place is), asked of the integration
-    (`domotwin/workplace/energy`) as the details open, at most every ten minutes, for every user
-    as Home Assistant's Energy page is.
+    (`domotwin/workplace/energy`) while the details are open, for every user as Home Assistant's
+    Energy page is. The answer is kept ten minutes for each Home Assistant and opening hours (the
+    tab built again, another card asking, keep it); one that failed is not kept, and what was
+    said stays.
 - **Consequences.** Nothing is kept: it is worked out from the recorder when asked. Nothing is
   sent anywhere. The first load grows by 0.4 kB gzipped (the call and its reading); the Home tab
   and the report carry the rest. New texts in the 12 languages. A home, a workplace without

@@ -75,15 +75,27 @@ while it was closed (D-088): what it took from the grid, the sun and its battery
 back, as Home Assistant's Energy page counts it.
 
 - **On the Home tab**, a tap on the hours: *While closed, the last 7 days: 32 kWh (38% of all) ·
-  While closed, this month: 126 kWh (36% of all)*. Read when you open it, again after ten minutes.
+  While closed, this month: 126 kWh (36% of all)*. Read as you open it, and again every ten
+  minutes while it stays open (a wall screen's).
 - **In the [weekly report](report.md)** (administrators): this week against the week before, and
-  each room's, the rooms leading the most first. A fridge and a server are expected; a heater or
+  each room's, the rooms using the most first. A fridge and a server are expected; a heater or
   a screen left on all night is what to look for.
 
 The closed hours are read from the schedule's history, kept by Home Assistant's recorder; each
 hour of the recorder's statistics counts for the part of it the place was closed (half of 18:00
 to 19:00 for a closing at 18:30), as if what it used was used evenly over the hour. A schedule
 left out of the recorder says nothing, nor a place without energy settings.
+
+The recorder keeps that history ten days by default: *this month* is then counted from the first
+day it still has, and said so (*While closed, since October 16: …*). To have the whole month, keep
+it at least 31 days in Home Assistant's `configuration.yaml`:
+
+```yaml
+recorder:
+  purge_keep_days: 31
+```
+
+The weekly report's week before is the one last week's report said, so it needs nothing more.
 
 ## Closing up
 

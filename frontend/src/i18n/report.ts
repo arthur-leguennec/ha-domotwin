@@ -113,7 +113,8 @@ export const reportEn = {
     closed: {
       title: "While closed",
       place: "The place",
-      share: "{share}% of what the place used this week was used while it was closed.",
+      share: "{share} of what the place used this week was used while it was closed.",
+      since: "Counted from {date}: Home Assistant's history goes no further back.",
     },
     peaks: {
       title: "Hydro-Québec peaks",
@@ -270,7 +271,8 @@ export const reportFr: Widen<typeof reportEn> = {
     closed: {
       title: "Pendant la fermeture",
       place: "Le lieu",
-      share: "{share} % de ce que le lieu a consommé cette semaine l’a été pendant la fermeture.",
+      share: "{share} de ce que le lieu a consommé cette semaine l’a été pendant la fermeture.",
+      since: "Compté depuis le {date} : l’historique de Home Assistant ne remonte pas plus loin.",
     },
     peaks: {
       title: "Pointes d’Hydro-Québec",

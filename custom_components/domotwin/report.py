@@ -475,14 +475,32 @@ class WeeklyReport:
             report["peaks"] = peaks(windows, meters, hourly)
         # A workplace: what it used while closed, this week and the week before (D-088).
         if hours := self._data.workplace_hours:
-            closed = await async_state_windows(hass, [hours], before[0], week[1], "off")
-            found = {
-                key: kwh
-                for key, span in (("week", week), ("before", before))
-                if (kwh := closed_energy(meters, hourly, closed, span)) is not None
-            }
+            closed, since = await async_state_windows(hass, [hours], before[0], week[1], "off")
+            found: dict[str, Any] = {}
+            if (kwh := closed_energy(meters, hourly, closed, week, since)) is not None:
+                found["week"] = kwh
+            # The week before as last week's report said it, when the recorder no longer keeps
+            # all of its hours' history; never a part of it, which would not compare.
+            kept = closed_energy(meters, hourly, closed, before, since)
+            if kept is None or "since" in kept:
+                kept = self._closed_said(before)
+            if kept is not None:
+                found["before"] = kept
             if found:
                 report["closed"] = found
+
+    def _closed_said(self, span: tuple[datetime, datetime]) -> dict[str, Any] | None:
+        """What a workplace used while closed in `span`, as the report of that week said it."""
+        for said in reversed(self._reports):
+            week = said.get("week") or {}
+            if (
+                dt_util.parse_datetime(str(week.get("start", ""))) == span[0]
+                and dt_util.parse_datetime(str(week.get("end", ""))) == span[1]
+                and isinstance(kept := (said.get("closed") or {}).get("week"), dict)
+                and "since" not in kept
+            ):
+                return dict(kept)
+        return None
 
     async def _summarise(
         self, report: dict[str, Any], language: str, rooms: Mapping[str, str]
@@ -553,8 +571,9 @@ class WeeklyReport:
         await self._store.async_remove()
 
 
-# The websocket commands: administrators only. The report holds what only they may read (the
-# automations' traces, the radios), and its settings are the home's.
+# The websocket commands: the report's, administrators only. The report holds what only they may
+# read (the automations' traces, the radios), and its settings are the home's. What a workplace
+# used while closed is for everyone, as Home Assistant's Energy page is.
 
 
 @callback
@@ -669,13 +688,14 @@ async def async_closed_energy(
     first = dt_util.as_local(now).date().replace(day=1)
     month = (dt_util.as_utc(dt_util.start_of_local_day(first)), now)
     start = min(week[0], month[0])
-    closed = await async_state_windows(hass, [hours], start, now, "off")
+    closed, since = await async_state_windows(hass, [hours], start, now, "off")
     if not closed:
         return {}
-    hourly = await async_hourly(hass, set(meters.home), start, now)
+    # From when the hours' history says: the recorder keeps ten days of it by default.
+    hourly = await async_hourly(hass, set(meters.home), max(start, since), now)
     found: dict[str, Any] = {}
     for key, span in (("week", week), ("month", month)):
-        if (kwh := closed_energy(meters, hourly, closed, span)) is not None:
+        if (kwh := closed_energy(meters, hourly, closed, span, since)) is not None:
             kwh.pop("rooms", None)
             found[key] = kwh
     return found

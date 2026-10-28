@@ -1176,7 +1176,8 @@ export const chunks: Chunks = {
       hours_from: "Orario da {name}.",
       closed_week: "Fuori orario, ultimi 7 giorni: {kwh}",
       closed_month: "Fuori orario, questo mese: {kwh}",
-      closed_share: "{kwh} ({share} % del totale)",
+      closed_since: "Fuori orario, dal giorno {date}: {kwh}",
+      closed_share: "{kwh} ({share} del totale)",
       glance: "La casa a colpo d'occhio",
       people: {
         one: "{count} in casa",
@@ -1483,8 +1484,9 @@ export const chunks: Chunks = {
       closed: {
         title: "Fuori orario",
         place: "Il locale",
-        share:
-          "Il {share} % di ciò che il locale ha consumato questa settimana è stato consumato fuori orario.",
+        share: "Quota fuori orario: {share} di ciò che il locale ha consumato questa settimana.",
+        since:
+          "Conteggiato dal giorno {date}: la cronologia di Home Assistant non va più indietro.",
       },
       peaks: {
         title: "Picchi di Hydro-Québec",

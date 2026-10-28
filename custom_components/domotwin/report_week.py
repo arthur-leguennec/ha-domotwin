@@ -191,11 +191,13 @@ async def async_hourly(
         statistics_during_period,
     )
 
+    # From the hour `start` is in: a part of it may be counted (`within`).
+    first = dt_util.as_utc(start).replace(minute=0, second=0, microsecond=0)
     try:
         rows: Mapping[str, list[Any]] = await get_instance(hass).async_add_executor_job(
             statistics_during_period,
             hass,
-            start,
+            first,
             end,
             statistics,
             "hour",
@@ -243,14 +245,14 @@ def _kwh(value: float | None) -> float | None:
 def within(
     hourly: Mapping[str, list[tuple[float, float]]],
     stats: Iterable[str],
-    windows: list[tuple[datetime, datetime]],
+    windows: Iterable[tuple[datetime, datetime]],
 ) -> float | None:
     """What the statistics counted during `windows` (kWh).
 
     Each hour's change counted for the part of the hour the windows cover, as if used evenly over
-    it; None when no hour of theirs falls in the windows.
+    it, once where windows overlap; None when no hour of theirs falls in the windows.
     """
-    spans = [(begin.timestamp(), finish.timestamp()) for begin, finish in windows]
+    spans = [(begin.timestamp(), finish.timestamp()) for begin, finish in merge(windows)]
     found = False
     counted = 0.0
     for stat in stats:
@@ -293,22 +295,30 @@ def closed_energy(
     hourly: Mapping[str, list[tuple[float, float]]],
     closed: Iterable[tuple[datetime, datetime]],
     span: tuple[datetime, datetime],
+    since: datetime | None = None,
 ) -> dict[str, Any] | None:
     """What a workplace used while closed within `span` (D-088), in kWh.
 
     `kwh`, its `share` of all the place used in the span (percent), and each room's; None when it
-    was never closed then, or nothing says what it used.
+    was never closed then, or nothing says what it used. Only from `since`, where the hours'
+    history starts later than the span (the recorder keeps ten days of it by default): both
+    counted from then, said as `since`.
     """
-    inside = merge(clip(closed, span))
+    known = (span[0] if since is None else max(span[0], since), span[1])
+    if known[0] >= known[1]:
+        return None
+    inside = merge(clip(closed, known))
     if not inside:
         return None
     kwh = _kwh(used(meters, lambda stats: within(hourly, stats, inside)))
     if kwh is None:
         return None
     found: dict[str, Any] = {"kwh": kwh}
-    if whole := used(meters, lambda stats: total(hourly, stats, *span)):
+    if whole := used(meters, lambda stats: within(hourly, stats, [known])):
         # Rounded half up, as said: 62.5 % is 63 %.
         found["share"] = min(int(100 * kwh / whole + 0.5), 100)
+    if known[0] > span[0]:
+        found["since"] = known[0].isoformat()
     rooms = {
         room: counted
         for room, stats in meters.rooms.items()
@@ -386,15 +396,21 @@ async def async_peak_windows(
     hass: HomeAssistant, sensors: list[str], start: datetime, end: datetime
 ) -> list[tuple[datetime, datetime]]:
     """When the sensors said a peak was under way between `start` and `end` (their history)."""
-    return await async_state_windows(hass, sensors, start, end, "on")
+    windows, _since = await async_state_windows(hass, sensors, start, end, "on")
+    return windows
 
 
 async def async_state_windows(
     hass: HomeAssistant, entities: list[str], start: datetime, end: datetime, wanted: str
-) -> list[tuple[datetime, datetime]]:
-    """When the entities were `wanted` between `start` and `end` (their history)."""
+) -> tuple[list[tuple[datetime, datetime]], datetime]:
+    """When the entities were `wanted` between `start` and `end` (their history).
+
+    And from when their history says: `start`, or later where the recorder no longer keeps it
+    (ten days by default, `purge_keep_days`) or an entity was made since; `end` where it says
+    nothing.
+    """
     if not entities or "recorder" not in hass.config.components:
-        return []
+        return [], end
     from homeassistant.components.recorder import get_instance  # noqa: PLC0415
     from homeassistant.components.recorder.history import (  # noqa: PLC0415
         get_significant_states,
@@ -415,13 +431,15 @@ async def async_state_windows(
         )
     except Exception:
         _LOGGER.debug("The history of %s cannot be read", entities, exc_info=True)
-        return []
+        return [], end
     windows: list[tuple[datetime, datetime]] = []
-    for states in history.values():
+    since = start
+    for entity in entities:
+        states = [state for state in history.get(entity, []) if isinstance(state, State)]
+        # Its state at `start` comes first, when the recorder still keeps it.
+        since = max(since, max(states[0].last_changed, start) if states else end)
         on: datetime | None = None
         for state in states:
-            if not isinstance(state, State):
-                continue
             at = max(state.last_changed, start)
             if state.state == wanted and on is None:
                 on = at
@@ -431,7 +449,7 @@ async def async_state_windows(
                 on = None
         if on is not None and end > on:
             windows.append((on, end))
-    return windows
+    return windows, since
 
 
 async def async_calendar_peaks(

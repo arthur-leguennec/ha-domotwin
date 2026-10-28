@@ -1489,5 +1489,6 @@ links, the settings or the private rooms change.
 Bundle: the first load is **661.0 kB gzipped** of 1 200 kB (+0.4 kB): asking the integration for
 what a workplace used while closed, and reading its answer; the Home tab and the weekly report
 carry the rest in their own chunks. The integration works it out when asked, at most every ten
-minutes for each Home tab, from the schedule's history and the recorder's hourly statistics of the
-energy settings' meters since the first of the month (about 750 hours for each meter).
+minutes for each Home Assistant and opening hours (the answer is kept by the page's client), from
+the schedule's history and the recorder's hourly statistics of the energy settings' meters since
+the first of the month (about 750 hours for each meter).

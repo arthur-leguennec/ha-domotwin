@@ -387,7 +387,7 @@ export function changeOf(energy: EnergyPair | undefined): number | undefined {
   return Math.round(((energy.week - energy.before) / energy.before) * 100);
 }
 
-export { formatKwh } from "./closed-energy";
+export { formatKwh, formatPercent } from "./closed-energy";
 
 /** How a moment is written: its language, time zone and clock. */
 export interface Moments {

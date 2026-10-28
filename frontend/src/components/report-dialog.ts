@@ -19,6 +19,7 @@ import {
   countOf,
   dayText,
   formatKwh,
+  formatPercent,
   getReport,
   hasMaintenancePage,
   hourText,
@@ -957,15 +958,22 @@ export class DomoTwinReport extends LitElement {
       rows.push([names.get(room) ?? room, { week: week[room], before: before[room] }, room]);
     }
     const share = used.week?.share;
+    const since = used.week?.since;
     return html`<section data-section="closed" data-testid="report-closed">
       <h3>${t.t("weekly.closed.title")}</h3>
       ${
         share === undefined
           ? nothing
           : html`<p class="hint">
-              ${t.t("weekly.closed.share", {
-                share: new Intl.NumberFormat(t.language).format(share),
-              })}
+              ${t.t("weekly.closed.share", { share: formatPercent(share, t.language) })}
+            </p>`
+      }
+      ${
+        // Counted from later than the week's start: as far back as Home Assistant's history goes.
+        since === undefined
+          ? nothing
+          : html`<p class="hint" data-testid="report-closed-since">
+              ${t.t("weekly.closed.since", { date: shortDay(since, this.moments) })}
             </p>`
       }
       ${this.energyTable(rows)}
@@ -995,7 +1003,7 @@ export class DomoTwinReport extends LitElement {
               ? t.t("weekly.energy.unknown")
               : change === 0
                 ? t.t("weekly.energy.same")
-                : `${change > 0 ? "+" : "−"}${new Intl.NumberFormat(language).format(Math.abs(change))} %`;
+                : formatPercent(change, language, true);
           return html`<tr data-room=${room ?? nothing}>
             <th scope="row">${name}</th>
             <td>${kwh(pair.week)}</td>

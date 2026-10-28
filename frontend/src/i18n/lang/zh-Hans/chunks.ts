@@ -1143,7 +1143,8 @@ export const chunks: Chunks = {
       hours_from: "营业时间来自 {name}。",
       closed_week: "非营业时间，过去 7 天：{kwh}",
       closed_month: "非营业时间，本月：{kwh}",
-      closed_share: "{kwh}（占总量 {share}%）",
+      closed_since: "非营业时间，自 {date} 起：{kwh}",
+      closed_share: "{kwh}（占总量的 {share}）",
       glance: "家中概况",
       people: {
         one: "{count} 人在家",
@@ -1422,7 +1423,8 @@ export const chunks: Chunks = {
       closed: {
         title: "非营业时间",
         place: "本场所",
-        share: "本周用电中有 {share}% 发生在非营业时间。",
+        share: "本周用电中有 {share} 发生在非营业时间。",
+        since: "自 {date} 起统计：Home Assistant 的历史记录没有更早的数据。",
       },
       peaks: {
         title: "Hydro-Québec 用电高峰",
