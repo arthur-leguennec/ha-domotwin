@@ -44,8 +44,7 @@ const fontFile = `fonts/inter-variable.${createHash("sha256")
 await rm(out, { recursive: true, force: true });
 await mkdir(out, { recursive: true });
 
-const result = await build({
-  entryPoints: { domotwin: join(here, "src/entry.ts") },
+const options = {
   outdir: out,
   bundle: true,
   format: "esm",
@@ -56,6 +55,9 @@ const result = await build({
   entryNames: "[name]",
   chunkNames: "chunks/[name]-[hash]",
   legalComments: "eof",
+  // Every language's letters as they are, not escaped: a module is always read as UTF-8, and
+  // Arabic, Chinese, Japanese and Korean are a third smaller so (D-082).
+  charset: "utf8",
   metafile: true,
   logLevel: "warning",
   define: {
@@ -67,6 +69,14 @@ const result = await build({
     __DOMOTWIN_ANALYSIS_WASM__: JSON.stringify(analysis.file),
     __DOMOTWIN_FONT__: JSON.stringify(fontFile),
   },
+};
+const result = await build({ ...options, entryPoints: { domotwin: join(here, "src/entry.ts") } });
+// The guests' page (D-064) is built apart, so that nothing of it changes how Home Assistant's
+// pages load DomoTwin; the chunks both load on demand are the same files.
+const guest = await build({
+  ...options,
+  entryPoints: { guest: join(here, "src/guest/entry.ts") },
+  chunkNames: "chunks/guest/[name]-[hash]",
 });
 
 await copyFile(engine.path, join(out, engine.file));
@@ -77,6 +87,32 @@ await copyFile(analysis.path, join(out, analysis.file));
 await mkdir(join(out, "fonts"));
 await copyFile(fontPath, join(out, fontFile));
 await copyFile(resolve(here, "fonts/OFL.txt"), join(out, "fonts/OFL.txt"));
+// The guests' page (D-064), served by the integration for every pass's link, outside Home
+// Assistant's sign-in: it loads its module and nothing else (its policy is the integration's).
+await writeFile(
+  join(out, "guest.html"),
+  `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="referrer" content="no-referrer" />
+    <meta name="color-scheme" content="light dark" />
+    <title>DomoTwin</title>
+    <style>
+      html, body { margin: 0; min-height: 100%; }
+      body { background: #f4f5f7; }
+      @media (prefers-color-scheme: dark) { body { background: #111; } }
+    </style>
+  </head>
+  <body>
+    <domotwin-guest></domotwin-guest>
+    <script type="module" src="/domotwin_static/guest.js?v=${version}"></script>
+  </body>
+</html>
+`,
+);
 await writeFile(
   join(out, "build.json"),
   JSON.stringify(
@@ -89,6 +125,7 @@ await writeFile(
       analysis: analysis.file,
       font: fontFile,
       outputs: Object.keys(result.metafile.outputs),
+      guest: Object.keys(guest.metafile.outputs),
     },
     null,
     2,

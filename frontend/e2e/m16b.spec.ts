@@ -31,8 +31,9 @@ test.describe("robot vacuums (D-049)", () => {
     await expect.poll(() => framesOver(page, 400)).toBe(0);
     await vacuum(page, "cleaning");
     await expect.poll(async () => (await viewState(page)).robots).toContain("cleaning");
-    // It moves, drawn at the layers' slower pace rather than the display's.
-    expect(await framesOver(page, 1500)).toBeGreaterThan(1);
+    // It moves, drawn at the layers' slower pace rather than the display's (asked again while a
+    // busy machine draws a window's frames late).
+    await expect.poll(() => framesOver(page, 1500), { timeout: 15_000 }).toBeGreaterThan(1);
     expect((await viewState(page)).frameInterval).toBeGreaterThan(30);
     // Home again: it stops there.
     await vacuum(page, "returning");

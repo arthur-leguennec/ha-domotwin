@@ -11,6 +11,7 @@ import {
   sunAt,
   vacuumAt,
   wantedAt,
+  weatherAt,
   whereAt,
 } from "../src/demo/day";
 import { DemoHome } from "../src/demo/home";
@@ -32,6 +33,15 @@ describe("the demo house's day (D-050)", () => {
     expect(solarAt(at(2, 0))).toBe(0);
     expect(solarAt(at(13, 0))).toBeGreaterThan(2500);
     expect(solarAt(at(13, 0))).toBeLessThanOrEqual(5000);
+  });
+
+  it("has a fine day with a storm at three, the panels darker under it (D-072)", () => {
+    expect(weatherAt(at(2, 0)).condition).toBe("clear-night");
+    expect(weatherAt(at(9, 0)).condition).toBe("sunny");
+    expect(weatherAt(at(15, 10)).condition).toBe("rainy");
+    expect(weatherAt(at(15, 40))).toEqual({ condition: "lightning-rainy", wind: 32, bearing: 225 });
+    expect(weatherAt(at(21, 0)).condition).toBe("clear-night");
+    expect(solarAt(at(15, 40))).toBeLessThan(solarAt(at(14, 0)) / 3);
   });
 
   it("has a family that leaves and comes back, a robot that cleans while they are out", () => {

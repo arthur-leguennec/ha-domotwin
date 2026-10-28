@@ -126,16 +126,37 @@ function button(
   </button>`;
 }
 
-/** The state shown next to an entity's name. */
-function stateText(t: Translator, entity: HassEntity): string {
+/**
+ * The state shown next to an entity's name: as Home Assistant says it where it can, else in
+ * DomoTwin's words for the usual states (D-082), else as it is.
+ */
+function stateText(hass: HomeAssistant, t: Translator, entity: HassEntity): string {
   if (entity.state === "unavailable" || entity.state === "unknown")
     return t.t("controls.unavailable");
+  const said = hass.formatEntityState?.(entity);
+  if (said) return said;
   const unit = entity.attributes.unit_of_measurement;
-  return typeof unit === "string" ? `${entity.state} ${unit}` : entity.state;
+  if (typeof unit === "string") return `${entity.state} ${unit}`;
+  return t.state(entity.state) ?? entity.state;
 }
 
-/** A row for an entity; `full` adds sliders and colours (long-press controls). */
+/**
+ * A row for an entity; `full` adds sliders and colours (long-press controls). An entity the
+ * viewer may only look at (their rights, D-071) has its controls shown, disabled.
+ */
 export function entityRow(
+  hass: HomeAssistant,
+  t: Translator,
+  entityId: string,
+  full: boolean,
+): TemplateResult {
+  const row = controlRow(hass, t, entityId, full);
+  return hass.canAct?.(entityId) === false
+    ? html`<fieldset class="look" disabled title=${t.t("controls.look_only")}>${row}</fieldset>`
+    : row;
+}
+
+function controlRow(
   hass: HomeAssistant,
   t: Translator,
   entityId: string,
@@ -356,7 +377,7 @@ export function entityRow(
       const locked = entity.state === "locked";
       return html`<div class="row" role="group" aria-label=${name}>
         ${head(
-          html`<span class="state">${stateText(t, entity)}</span> ${button(
+          html`<span class="state">${stateText(hass, t, entity)}</span> ${button(
               locked ? mdiLockOpenVariant : mdiLock,
               t.t(locked ? "controls.unlock" : "controls.lock"),
               () => {
@@ -377,7 +398,7 @@ export function entityRow(
       return html`<div class="row" role="group" aria-label=${name}>
         ${head(
           html`<span class="state"
-              >${current !== undefined ? `${current}°` : stateText(t, entity)}</span
+              >${current !== undefined ? `${current}°` : stateText(hass, t, entity)}</span
             >
             ${
               target !== undefined
@@ -410,7 +431,7 @@ export function entityRow(
       const vacuum = domain === "vacuum";
       return html`<div class="row" role="group" aria-label=${name}>
         ${head(
-          html`<span class="state">${stateText(t, entity)}</span>
+          html`<span class="state">${stateText(hass, t, entity)}</span>
             <span class="buttons">
               ${button(
                 mdiPlay,
@@ -471,7 +492,7 @@ export function entityRow(
       </div>`;
     default:
       return html`<div class="row" role="group" aria-label=${name}>
-        ${head(html`<span class="state">${stateText(t, entity)}</span>`)}
+        ${head(html`<span class="state">${stateText(hass, t, entity)}</span>`)}
       </div>`;
   }
 }
@@ -487,6 +508,8 @@ export function quickControls(
 ): TemplateResult | typeof nothing {
   const entity = hass.states[entityId];
   if (!entity || entity.state === "unavailable" || entity.state === "unknown") return nothing;
+  // Only looked at (D-071): its row says so.
+  if (hass.canAct?.(entityId) === false) return nothing;
   const domain = entityId.split(".")[0];
   if (domain === "light" && entity.state === "on" && modes(entity).some((m) => m !== "onoff")) {
     return slider(
@@ -549,6 +572,15 @@ export function quickControls(
 
 /** Styles of the rows. */
 export const rowStyles = css`
+  fieldset.look {
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: none;
+  }
+  fieldset.look:not(:last-child) .row {
+    border-bottom: 1px solid var(--divider-color, rgba(0, 0, 0, 0.08));
+  }
   .row {
     display: grid;
     gap: 6px;
@@ -560,12 +592,16 @@ export const rowStyles = css`
   }
   .head {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: 8px;
+    gap: 4px 8px;
     min-height: 40px;
+    /* A long name shortens, in any language, rather than push the row out of its card. */
+    min-width: 0;
   }
   .name {
-    flex: 1;
+    /* Its controls go under it rather than leave it a letter or two (D-082). */
+    flex: 1 1 7em;
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -612,15 +648,16 @@ export const rowStyles = css`
   button.switch .knob {
     position: absolute;
     top: 3px;
-    left: 3px;
+    inset-inline-start: 3px;
     width: 22px;
     height: 22px;
     border-radius: 50%;
     background: #fff;
     transition: transform 150ms ease;
   }
+  /* At the end of the switch, whichever way the language is written (D-082). */
   button.switch.on .knob {
-    transform: translateX(20px);
+    transform: translateX(calc(20px * var(--domotwin-mirror, 1)));
   }
   .slider {
     display: grid;

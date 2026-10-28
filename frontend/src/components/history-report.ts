@@ -53,7 +53,7 @@ import { searchEntities } from "../live/rooms";
 import { define, fire } from "./define";
 import { fromField } from "./dialog";
 import { icon } from "./icon";
-import { saveText, toClipboard } from "./save";
+import { copyText, saveText } from "./save";
 import { baseStyles } from "./styles";
 
 addMessages({ en: historyEn, fr: historyFr });
@@ -175,6 +175,7 @@ export class DomoTwinHistory extends LitElement {
     heading: { attribute: false },
     entities: { attribute: false },
     unseen: { attribute: false },
+    opensOn: { attribute: false },
     chosen: { state: true },
     mode: { state: true },
     choice: { state: true },
@@ -201,6 +202,8 @@ export class DomoTwinHistory extends LitElement {
   entities: string[] = [];
   /** What the viewer may not see (D-039): the search leaves it out. */
   unseen: Unseen = NOTHING_UNSEEN;
+  /** The period it opens on: a room's graphs' (D-069); the last day otherwise. */
+  opensOn?: PeriodChoice;
   protected chosen: string[] = [];
   protected mode: ReportMode = "changes";
   protected choice: PeriodChoice = "day";
@@ -257,7 +260,8 @@ export class DomoTwinHistory extends LitElement {
         display: flex;
         align-items: center;
         gap: 8px;
-        padding: 8px 8px 0 20px;
+        padding-block: 8px 0;
+        padding-inline: 20px 8px;
       }
       h2 {
         flex: 1;
@@ -296,7 +300,8 @@ export class DomoTwinHistory extends LitElement {
         align-items: center;
         gap: 4px;
         min-height: 36px;
-        padding: 0 4px 0 12px;
+        padding-block: 0;
+        padding-inline: 12px 4px;
         border-radius: 18px;
         background: color-mix(in srgb, var(--primary-color, #03a9f4) 12%, transparent);
       }
@@ -320,7 +325,8 @@ export class DomoTwinHistory extends LitElement {
         align-items: center;
         gap: 4px;
         min-height: 36px;
-        padding: 0 12px 0 8px;
+        padding-block: 0;
+        padding-inline: 8px 12px;
         border: 1px dashed var(--divider-color, rgba(0, 0, 0, 0.25));
         border-radius: 18px;
         background: transparent;
@@ -498,6 +504,7 @@ export class DomoTwinHistory extends LitElement {
 
   protected override willUpdate(changed: PropertyValues): void {
     if (changed.has("entities")) this.chosen = this.entities.slice(0, MAX_REPORT_ENTITIES);
+    if (changed.has("opensOn") && this.opensOn) this.choice = this.opensOn;
     // A room that turned private takes its entities away (D-039).
     const viewer = this.hass;
     if (viewer && (changed.has("unseen") || changed.has("entities"))) {
@@ -757,15 +764,7 @@ export class DomoTwinHistory extends LitElement {
   private async copy(): Promise<void> {
     this.copiedText = this.csv();
     // Some companion apps refuse the clipboard: the text is then selected to copy by hand.
-    if (await toClipboard(this.copiedText)) {
-      this.copied = "done";
-      return;
-    }
-    this.copied = "manual";
-    await this.updateComplete;
-    const area = this.renderRoot.querySelector("textarea");
-    area?.focus();
-    area?.select();
+    await copyText(this.copiedText, this, (copied) => (this.copied = copied));
   }
 
   private add(entity: string): void {

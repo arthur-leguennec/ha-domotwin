@@ -6,20 +6,25 @@
  */
 import type { HassEntity, HomeAssistant } from "../ha/types";
 import { areaOf, roomArea, type BindingsJson } from "./bindings";
+import type { PeakRooms } from "./peak-rooms";
 
 export const HEAT_KINDS = ["temperature", "humidity", "co2", "pm25"] as const;
 export type HeatKind = (typeof HEAT_KINDS)[number];
 /**
- * What the layer menu shows: nothing, a heatmap, the power layer, the network map (D-031,
- * offered to administrators with ZHA set up), every automation's wires (D-032, administrators)
- * or upkeep (D-033: the pieces tinted by their tasks, and the list of them).
+ * What the layer menu shows: nothing, a heatmap, the power layer, Hydro-Québec's peaks (D-063,
+ * offered where an integration reads them), the network map (D-031, offered to administrators
+ * with ZHA set up), the radio coverage (D-066, administrators), every automation's wires (D-032,
+ * administrators) or upkeep (D-033: the pieces tinted by their tasks, and the list of them).
  */
-export type LayerName = "off" | HeatKind | "power" | "network" | "automations" | "upkeep";
+export type LayerName =
+  "off" | HeatKind | "power" | "peak" | "network" | "coverage" | "automations" | "upkeep";
 export const LAYER_NAMES: readonly LayerName[] = [
   "off",
   ...HEAT_KINDS,
   "power",
+  "peak",
   "network",
+  "coverage",
   "automations",
   "upkeep",
 ];
@@ -32,9 +37,25 @@ export function automationsAvailable(hass: HomeAssistant | undefined): boolean {
   return hass?.user?.is_admin === true;
 }
 
+/**
+ * A layer asked for by its name (a summary card's address, D-061). Whether this user may see it is
+ * the view's to say, as for a layer chosen in its menu: it shows none it may not.
+ */
+export function layerAsked(name: string | null): LayerName | undefined {
+  return LAYER_NAMES.find((known) => known === name);
+}
+
 /** Whether the network map can be offered: to administrators, with ZHA set up (D-031). */
 export function networkAvailable(hass: HomeAssistant | undefined): boolean {
   return hass?.user?.is_admin === true && (hass.config?.components ?? []).includes("zha");
+}
+
+/**
+ * Whether the radio coverage can be offered (D-066): to administrators, who alone may read the
+ * receivers and the mesh.
+ */
+export function coverageAvailable(hass: HomeAssistant | undefined): boolean {
+  return hass?.user?.is_admin === true;
 }
 
 /** The sensors' device class of each quantity. */
@@ -103,6 +124,10 @@ export interface LayerChoice {
    * would tell someone is in (CO₂) or a window is open (rain); their dangers stay.
    */
   closed?: Set<string>;
+  /** The radio coverage's rooms (D-066), each its level's rank, drawn with its layer. */
+  coverage?: Record<string, number>;
+  /** What the rooms do around a peak (D-063), when its layer is shown. */
+  peak?: PeakRooms;
 }
 
 /** What the layers show now. */
@@ -118,7 +143,7 @@ export interface RoomLayers {
 }
 
 /** An entity of an area: hidden ones raise alerts but give no value and no presence. */
-interface AreaEntity {
+export interface AreaEntity {
   id: string;
   hidden: boolean;
 }
@@ -165,6 +190,28 @@ function areaOfRoom(
   const key = `${room.id}\n${room.name}`;
   if (!found.has(key)) found.set(key, roomArea(hass, bindings, room.id, room.name));
   return found.get(key);
+}
+
+/**
+ * The entities of a room's area, configuration and diagnostic ones left out; a hidden one says
+ * so (it raises alerts but gives no value).
+ */
+export function roomEntities(
+  hass: HomeAssistant,
+  bindings: BindingsJson,
+  room: PlanRoom,
+): readonly AreaEntity[] {
+  const area = areaOfRoom(hass, bindings, room);
+  return (area ? areaIndex(hass).get(area) : undefined) ?? [];
+}
+
+/** The area of a room of the plan: its link's, else the area of its name (found once). */
+export function roomAreaOf(
+  hass: HomeAssistant,
+  bindings: BindingsJson,
+  room: PlanRoom,
+): string | undefined {
+  return areaOfRoom(hass, bindings, room);
 }
 
 /** A number from a state or an attribute (`"21.5"`, `21.5`); undefined otherwise. */
@@ -322,7 +369,15 @@ export function roomLayers(
   if (heat) {
     json.heat = heat;
     json.values = values;
+  } else if (choice.layer === "coverage" && choice.coverage) {
+    json.heat = "coverage";
+    json.values = Object.fromEntries(
+      Object.entries(choice.coverage).filter(([room]) => choice.closed?.has(room) !== true),
+    );
   }
+  const peak = choice.peak;
+  if (peak && Object.keys(peak.roles).length > 0) json.peak = peak.roles;
+  if (peak && Object.keys(peak.draws).length > 0) json.draws = peak.draws;
   if (alerts.length > 0) json.alerts = Object.fromEntries(alerts.map((a) => [a.room, a.level]));
   if (presence.length > 0) json.presence = presence;
   return { json: JSON.stringify(json), values, alerts, presence };

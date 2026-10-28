@@ -7,6 +7,8 @@ the iBeacon it sends (the companion app's transmitter, whatever address it sends
 
 from __future__ import annotations
 
+import base64
+import binascii
 from collections import OrderedDict
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
@@ -22,6 +24,35 @@ ADDRESS: Final = re.compile(r"^[0-9A-F]{2}(:[0-9A-F]{2}){5}$")
 UUID: Final = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
 # Addresses already looked at, at most.
 REMEMBERED: Final = 4096
+
+
+# An identity key's 32 hex digits, once the spaces, colons or dashes between them are taken out.
+HEX_KEY: Final = re.compile(r"[0-9a-fA-F]{32}")
+
+
+def parse_key(text: str) -> bytes | None:
+    """An identity key (IRK) as the tools that read one write it (D-075), or None.
+
+    Hex (irk-capture, maybe split by spaces, colons or dashes), `irk:` and hex (ESPresense's
+    Enroll), or a Mac's base64, whose bytes come the other way round (as Home Assistant's Private
+    BLE Device reads it). Sixteen bytes, never all the same.
+    """
+    written = re.sub(r"\s", "", text)
+    if written[:4].lower() == "irk:":
+        written = written[4:]
+    digits = re.sub(r"[:\-]", "", written)
+    key: bytes | None = None
+    if HEX_KEY.fullmatch(digits):
+        key = bytes.fromhex(digits)
+    elif written.endswith("="):
+        try:
+            decoded = base64.b64decode(written, validate=True)
+        except (binascii.Error, ValueError):
+            return None
+        key = bytes(reversed(decoded)) if len(decoded) == 16 else None
+    if key is None or len(set(key)) == 1:
+        return None
+    return key
 
 
 def resolvable(address: str) -> bool:

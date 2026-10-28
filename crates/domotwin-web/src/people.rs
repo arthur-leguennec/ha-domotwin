@@ -17,6 +17,8 @@ pub(crate) struct PersonShown {
     room: String,
     color: String,
     pin: bool,
+    /// Where in the room, when the locating says (plan cm, D-079).
+    spot: Option<[f64; 2]>,
 }
 
 /// The people of `setPeople`'s JSON; those without an id or a room are left out.
@@ -34,6 +36,13 @@ fn read_people(json: &str) -> Vec<PersonShown> {
                         room: text(p, "room")?,
                         color: text(p, "color").unwrap_or_default(),
                         pin: text(p, "look").as_deref() == Some("pin"),
+                        spot: p.get("at").and_then(Value::as_array).and_then(|at| {
+                            match at.as_slice() {
+                                [x, y] => Some([x.as_f64()?, y.as_f64()?])
+                                    .filter(|p| p.iter().all(|v| v.is_finite())),
+                                _ => None,
+                            }
+                        }),
                     })
                 })
                 .collect()
@@ -123,6 +132,7 @@ impl Engine {
                     room: p.room.clone(),
                     color: linear(&p.color),
                     pin: p.pin,
+                    spot: p.spot,
                 })
             })
             .collect();
@@ -163,8 +173,9 @@ impl Engine {
         self.people.people.moving()
     }
 
-    /// The people and the robot vacuums, as the renderer draws them.
+    /// The people and the robots, as the renderer draws them.
     pub(crate) fn show_figures(&mut self) {
+        let floors = self.floors.as_deref().unwrap_or_default();
         #[allow(clippy::cast_possible_truncation)]
         let people: Vec<Figure> = self
             .people
@@ -177,9 +188,15 @@ impl Engine {
                 } else {
                     0.0
                 };
+                // On the ground where they are: a lawn is a little under the floors (D-077).
+                let level = floors
+                    .get(w.storey)
+                    .and_then(Option::as_ref)
+                    .map_or(0.0, |f| f.level_at(w.at));
                 Figure {
                     storey: w.storey,
-                    at: [w.at[0] as f32, bob as f32, w.at[1] as f32],
+                    at: [w.at[0] as f32, (bob + level) as f32, w.at[1] as f32],
+                    ground: level as f32,
                     heading: w.heading as f32,
                     color: w.color,
                     opacity: w.opacity as f32,

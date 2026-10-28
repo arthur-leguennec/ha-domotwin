@@ -7,16 +7,29 @@ import groundPlan from "../../../examples/demo-house.domotwin.json";
 import upperPlan from "../../../examples/demo-house-upper.domotwin.json";
 
 import type { Bindings, PlanJson, Settings, StoreyInfo } from "../ha/client";
+import { demoWord, pickLanguage } from "../i18n";
 import type { PeopleSettings } from "../live/people";
+import type { Shortcut } from "../live/shortcut-model";
 import type { Upkeep, UpkeepTask, UpkeepUnit } from "../live/upkeep";
 
-/** A text in English and in French. */
+/**
+ * A text in English and in French; the other languages have it in their pack, by its English
+ * (D-082).
+ */
 export type Words = readonly [en: string, fr: string];
 
-/** The words for the language (French for `fr…`, else English). */
+/** The words for the language: French, another loaded by its English, else English. */
 export function say(words: Words, language: string): string {
-  return language.toLowerCase().startsWith("fr") ? words[1] : words[0];
+  const spoken = pickLanguage(language);
+  if (spoken === "fr") return words[1];
+  return demoWord(spoken, words[0]) ?? words[0];
 }
+
+/** What is said of an action planned for later (`{names}`, `{time}`), switching on or off. */
+export const SCHEDULED: Readonly<Record<"on" | "off", Words>> = {
+  on: ["{names} will switch on at {time}.", "{names} : allumage prévu à {time}."],
+  off: ["{names} will switch off at {time}.", "{names} : extinction prévue à {time}."],
+};
 
 /** The storeys: their id, names and height, and their plan. */
 export const STOREYS: readonly { info: StoreyInfo; names: Words; plan: PlanJson }[] = [
@@ -57,9 +70,14 @@ export const AREAS: readonly { id: string; names: Words; room: string; storey: s
   { id: "landing", names: ["Landing", "Palier"], room: "u-landing", storey: "upper" },
   { id: "playroom", names: ["Playroom", "Salle de jeux"], room: "u-playroom", storey: "upper" },
   { id: "guest_room", names: ["Guest room", "Chambre d’amis"], room: "u-guest", storey: "upper" },
+  { id: "terrace", names: ["Terrace", "Terrasse"], room: "terrace", storey: "ground" },
+  { id: "garden", names: ["Garden", "Jardin"], room: "back-garden", storey: "ground" },
 ];
 
-/** The French names of the plans' pieces, doors and windows, by their English name. */
+/**
+ * The French names of the plans' pieces, doors and windows, by their English name (the other
+ * languages have them in their pack, D-082).
+ */
 const FRENCH: Readonly<Record<string, string>> = {
   "Demo house": "Maison de démo",
   "Demo house, upper floor": "Maison de démo, étage",
@@ -108,6 +126,18 @@ const FRENCH: Readonly<Record<string, string>> = {
   Vanity: "Meuble vasque",
   Mirror: "Miroir",
   "Towel rail": "Sèche-serviettes",
+  Rug: "Tapis",
+  "TV stand": "Meuble TV",
+  "Smart speaker": "Enceinte connectée",
+  "Heat pump": "Thermopompe",
+  "Coffee machine": "Machine à café",
+  Kettle: "Bouilloire",
+  Monitor: "Écran",
+  "Wall tablet": "Tablette murale",
+  Thermostat: "Thermostat",
+  "Coat stand": "Portemanteau",
+  "Water heater": "Chauffe-eau",
+  "Laundry basket": "Panier à linge",
   Shelves: "Étagères",
   "Toy chest": "Coffre à jouets",
   "Play table": "Table de jeux",
@@ -134,19 +164,46 @@ const FRENCH: Readonly<Record<string, string>> = {
   "Landing window": "Fenêtre du palier",
   "Playroom window": "Fenêtre de la salle de jeux",
   "Guest room window": "Fenêtre de la chambre d’amis",
+  // The garden (D-077).
+  "Front garden": "Jardin de devant",
+  Path: "Allée",
+  Driveway: "Allée du garage",
+  "Garden table": "Table de jardin",
+  "Garden chair": "Chaise de jardin",
+  Parasol: "Parasol",
+  Barbecue: "Barbecue",
+  "Terrace lights": "Guirlande de la terrasse",
+  Pool: "Piscine",
+  "Sun lounger": "Transat",
+  Oak: "Chêne",
+  "Apple tree": "Pommier",
+  Hedge: "Haie",
+  Shed: "Abri de jardin",
+  "Robot mower": "Tondeuse robot",
+  Boxwood: "Buis",
+  "Rose bush": "Rosier",
+  "Path light": "Balise",
+  Gate: "Portail",
+  Fence: "Clôture",
+  "Letter box": "Boîte aux lettres",
+  "Lamp post": "Lampadaire",
+  Car: "Voiture",
 };
 
 /** A storey's plan in the language: its rooms named as their areas, its pieces translated. */
 export function localPlan(plan: PlanJson, language: string): PlanJson {
   const copy = structuredClone<Record<string, unknown>>(plan);
-  if (!language.toLowerCase().startsWith("fr")) return copy;
+  const spoken = pickLanguage(language);
+  if (spoken === "en") return copy;
+  const word = (english: string): string | undefined =>
+    spoken === "fr" ? FRENCH[english] : demoWord(spoken, english);
   // A room is named as its area; anything else by its English name.
   const rename = (named: { name?: string; id?: string }, room: boolean): void => {
     const area = room ? AREAS.find((a) => a.room === named.id) : undefined;
-    if (area) named.name = area.names[1];
-    else if (named.name && FRENCH[named.name]) named.name = FRENCH[named.name];
+    if (area) named.name = say(area.names, language);
+    else if (named.name) named.name = word(named.name) ?? named.name;
   };
-  if (typeof copy.name === "string") copy.name = FRENCH[copy.name] ?? copy.name;
+  if (typeof copy.name === "string") copy.name = word(copy.name) ?? copy.name;
   for (const key of ["rooms", "doors", "windows", "items", "views"]) {
     const list = copy[key];
     if (Array.isArray(list))
@@ -258,7 +315,7 @@ export const THINGS: readonly Thing[] = [
     id: "climate.living_room",
     area: "living_room",
     names: ["Living room heating", "Chauffage du salon"],
-    pieces: ["radiator-living"],
+    pieces: ["radiator-living", "heat-pump-living"],
     state: "heat",
     attributes: { ...thermostat, temperature: 20.5, current_temperature: 20.1 },
   },
@@ -510,6 +567,53 @@ export const THINGS: readonly Thing[] = [
     state: "100",
     attributes: { device_class: "battery", unit_of_measurement: "%" },
   },
+  // The garden (D-077): the robot mower on the back lawn, the lights, the pool's pump, the gate.
+  {
+    id: "lawn_mower.mowy",
+    area: "garden",
+    names: ["Robot mower", "Tondeuse robot"],
+    pieces: ["mower-dock"],
+    state: "docked",
+    // Starts, pauses, goes home.
+    attributes: { supported_features: 7 },
+  },
+  {
+    id: "light.terrace",
+    area: "terrace",
+    names: ["Terrace lights", "Guirlande de la terrasse"],
+    pieces: ["terrace-lights"],
+    state: "off",
+    attributes: { ...warm, color_temp_kelvin: 2400, brightness: 150 },
+  },
+  {
+    id: "light.garden_path",
+    names: ["Path lights", "Balises de l’allée"],
+    pieces: ["path-light-1", "path-light-2", "lamp-post"],
+    state: "off",
+    attributes: { ...warm, color_temp_kelvin: 3000 },
+  },
+  {
+    id: "switch.pool_pump",
+    area: "garden",
+    names: ["Pool pump", "Pompe de la piscine"],
+    pieces: ["pool"],
+    state: "off",
+  },
+  {
+    id: "sensor.pool_temperature",
+    area: "garden",
+    names: ["Pool temperature", "Température de la piscine"],
+    pieces: ["pool"],
+    state: "24.5",
+    attributes: celsius,
+  },
+  {
+    id: "cover.gate",
+    names: ["Gate", "Portail"],
+    pieces: ["gate"],
+    state: "closed",
+    attributes: { device_class: "gate", supported_features: 3, current_position: 0 },
+  },
   // Upper floor: the main bedroom.
   {
     id: "light.bedside_left",
@@ -736,6 +840,12 @@ export const THINGS: readonly Thing[] = [
     state: "below_horizon",
     attributes: { elevation: -20, azimuth: 0, rising: true },
   },
+  {
+    id: "weather.home",
+    names: ["Forecast", "Prévisions"],
+    state: "clear-night",
+    attributes: { temperature: 9, temperature_unit: "°C" },
+  },
 ];
 
 /** The people of the house: fictional. */
@@ -777,6 +887,51 @@ export function demoSettings(): Settings {
       battery_level: "sensor.battery_level",
     },
   };
+}
+
+/**
+ * The visitor's shortcuts on the Home tab (D-084): the lamps off, the curtains closed, a good night,
+ * the heating, the home battery's charge.
+ */
+export function demoShortcuts(language: string): Shortcut[] {
+  return [
+    {
+      id: "lights",
+      name: say(["All the lights off", "Éteindre toutes les lumières"], language),
+      icon: "lights_off",
+      steps: [{ kind: "lights", do: "off" }],
+    },
+    {
+      id: "curtains",
+      name: say(["Close the curtains", "Fermer les rideaux"], language),
+      icon: "blinds_closed",
+      steps: [{ kind: "covers", do: "close" }],
+    },
+    {
+      id: "night",
+      name: say(["Good night", "Bonne nuit"], language),
+      icon: "moon",
+      steps: [
+        { kind: "lights", do: "off" },
+        { kind: "covers", do: "close" },
+        { kind: "locks", do: "lock" },
+      ],
+      quiet: true,
+    },
+    {
+      id: "heating",
+      name: say(["Heating at 19 °C", "Chauffage à 19 °C"], language),
+      icon: "thermostat",
+      steps: [{ kind: "climate", do: "temperature", value: 19 }],
+    },
+    {
+      id: "battery",
+      name: say(["Home battery", "Batterie de la maison"], language),
+      icon: "battery",
+      steps: [],
+      show: "sensor.battery_level",
+    },
+  ];
 }
 
 /** Who is placed in their rooms (D-034), and how. */
@@ -919,6 +1074,27 @@ export const AUTOMATIONS: readonly { id: string; names: Words; config: Record<st
           { condition: "state", entity_id: "person.robin", state: "not_home" },
         ],
         actions: [{ action: "vacuum.start", target: { entity_id: "vacuum.robot" } }],
+      },
+    },
+    {
+      id: "automation.mow_the_lawn",
+      names: ["Mow the lawn", "Tondre la pelouse"],
+      config: {
+        triggers: [{ trigger: "time", at: "10:30:00" }],
+        actions: [{ action: "lawn_mower.start_mowing", target: { entity_id: "lawn_mower.mowy" } }],
+      },
+    },
+    {
+      id: "automation.garden_lights",
+      names: ["Garden lights at dusk", "Jardin éclairé à la tombée du jour"],
+      config: {
+        triggers: [{ trigger: "sun", event: "sunset", offset: "-00:20:00" }],
+        actions: [
+          {
+            action: "light.turn_on",
+            target: { entity_id: ["light.terrace", "light.garden_path"] },
+          },
+        ],
       },
     },
     {

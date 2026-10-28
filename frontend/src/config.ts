@@ -76,6 +76,8 @@ export interface CardConfig {
   /** The people in their rooms (D-034), as figures. */
   people: boolean;
   sun: SunMode;
+  /** The weather around the home (D-072): rain, snow, fog and storms, on unless turned off. */
+  weather: boolean;
   /** Badges over the devices (locks, cameras, what plays, low batteries, appliances running). */
   badges: boolean;
   /** What the cameras see, on the floor. */
@@ -124,8 +126,8 @@ const SUNS: readonly SunMode[] = ["fixed", "real"];
 const CSS_LENGTH = /^\d+(\.\d+)?(px|vh|svh|dvh|em|rem)$/;
 /** The longest wait before the kiosk goes back (seconds: a day). */
 export const MAX_IDLE = 86_400;
-/** A screen's name: letters, digits, `_` and `-`. */
-const SCREEN = /^[a-z0-9_-]{1,64}$/i;
+/** A screen's name: letters, digits, `_` and `-`, whatever their case. */
+export const SCREEN_NAME = /^[a-z0-9_-]{1,64}$/i;
 
 function pick<T extends string>(
   value: unknown,
@@ -179,6 +181,7 @@ export function normalizeConfig(raw: unknown): CardConfig {
     presence: flag(input.presence, true, "config.bad_presence"),
     people: flag(input.people, true, "config.bad_people"),
     sun: pick(input.sun, SUNS, "fixed", "config.bad_sun"),
+    weather: flag(input.weather, true, "config.bad_weather"),
     badges: flag(input.badges, true, "config.bad_badges"),
     cameras: flag(input.cameras, true, "config.bad_cameras"),
     names: flag(input.names, true, "config.bad_names"),
@@ -206,7 +209,7 @@ export function normalizeConfig(raw: unknown): CardConfig {
   }
   if (input.screen !== undefined && input.screen !== null && input.screen !== "") {
     const screen = typeof input.screen === "string" ? input.screen.trim() : "";
-    if (!SCREEN.test(screen)) throw new ConfigError("config.bad_screen");
+    if (!SCREEN_NAME.test(screen)) throw new ConfigError("config.bad_screen");
     config.screen = screen;
   }
   if (input.accent !== undefined && input.accent !== null && input.accent !== "") {

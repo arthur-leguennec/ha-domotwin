@@ -44,6 +44,8 @@ A viewer is one of the people chosen through the Home Assistant **user** of thei
 - **No way in**: walking at eye level does not go through its doors, and people's figures go
   round it when another way exists.
 - **People and things** in it are at home, "in a private room", in their sheets.
+- **"Why?"** (`why.md`) says "in a private room" for a step of what it holds, leaves it out of
+  the link to Home Assistant's Activity and does not draw it.
 
 ## Voice
 
@@ -59,3 +61,10 @@ DomoTwin closes **its own** views, controls and answers. Home Assistant gives ev
 entity in its other dashboards and its API (its permissions are by user, not by entity), and
 DomoTwin's sensors of each person's room (`sensor.domotwin_<person>_room`) say the room. A private
 room is private on a shared screen, not behind a security barrier.
+
+[Rights](rights.md) go further for those who are not administrators: a room or a device only
+seen or not seen, for each person or everyone; a room not seen is closed as a private one.
+
+A [guest pass](guests.md) is the other way round: its page is DomoTwin's own, and shows only the
+rooms and devices the pass gives, the other rooms closed as private rooms are; DomoTwin enforces
+it, since the guests have no Home Assistant user.

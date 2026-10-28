@@ -397,6 +397,29 @@ async def test_settings_round_trip(
         "battery_level": "sensor.battery_level",
         "grid_reversed": True,
     }
+    # The Wi-Fi access points placed on the plan (D-066): names trimmed, none kept empty.
+    access_points = [
+        {"storey": "storey-1", "at": [250, 120.5], "name": "  Hall access point "},
+        {"storey": "storey-1", "at": [700, 600], "name": ""},
+    ]
+    await client.send_json_auto_id(
+        {
+            "type": "domotwin/settings/save",
+            "settings": {"north": 0, "access_points": access_points},
+        }
+    )
+    assert (await client.receive_json())["success"]
+    await client.send_json_auto_id({"type": "domotwin/settings/get"})
+    assert (await client.receive_json())["result"]["settings"]["access_points"] == [
+        {"storey": "storey-1", "at": [250.0, 120.5], "name": "Hall access point"},
+        {"storey": "storey-1", "at": [700.0, 600.0]},
+    ]
+    await client.send_json_auto_id(
+        {"type": "domotwin/settings/save", "settings": {"north": 0, "access_points": []}}
+    )
+    assert (await client.receive_json())["success"]
+    await client.send_json_auto_id({"type": "domotwin/settings/get"})
+    assert "access_points" not in (await client.receive_json())["result"]["settings"]
     # Nothing left: no `energy` at all.
     await client.send_json_auto_id(
         {"type": "domotwin/settings/save", "settings": {"north": 0, "energy": {"solar": None}}}
@@ -404,6 +427,36 @@ async def test_settings_round_trip(
     assert (await client.receive_json())["success"]
     await client.send_json_auto_id({"type": "domotwin/settings/get"})
     assert "energy" not in (await client.receive_json())["result"]["settings"]
+
+    # The weather drawn around the home (D-072): an entity, or none at all.
+    for weather in ("weather.coast", "none"):
+        await client.send_json_auto_id(
+            {"type": "domotwin/settings/save", "settings": {"north": 0, "weather": weather}}
+        )
+        assert (await client.receive_json())["success"]
+        await client.send_json_auto_id({"type": "domotwin/settings/get"})
+        assert (await client.receive_json())["result"]["settings"]["weather"] == weather
+
+
+async def test_roof_settings_round_trip(
+    hass: HomeAssistant, setup_integration: MockConfigEntry, hass_ws_client: WebSocketGenerator
+) -> None:
+    client = await hass_ws_client(hass)
+    # How the roofs are drawn (D-077): a colour in lower case; an empty roof is left out.
+    roof = {"shape": "hip", "pitch": 35, "color": "#8C4A3A"}
+    await client.send_json_auto_id(
+        {"type": "domotwin/settings/save", "settings": {"north": 0, "roof": roof}}
+    )
+    assert (await client.receive_json())["success"]
+    await client.send_json_auto_id({"type": "domotwin/settings/get"})
+    stored = (await client.receive_json())["result"]["settings"]
+    assert stored["roof"] == {"shape": "hip", "pitch": 35, "color": "#8c4a3a"}
+    await client.send_json_auto_id(
+        {"type": "domotwin/settings/save", "settings": {"north": 0, "roof": {}}}
+    )
+    assert (await client.receive_json())["success"]
+    await client.send_json_auto_id({"type": "domotwin/settings/get"})
+    assert "roof" not in (await client.receive_json())["result"]["settings"]
 
 
 @pytest.mark.parametrize(
@@ -431,6 +484,29 @@ async def test_settings_round_trip(
         {"energy": {"battery": 3}},
         {"energy": {"grid_reversed": "yes"}},
         {"energy": {"wind": "sensor.wind_power"}},
+        {"access_points": {}},
+        {"access_points": [{"storey": "s", "at": [0, 0]}] * 17},
+        {"access_points": [{"at": [0, 0]}]},
+        {"access_points": [{"storey": "", "at": [0, 0]}]},
+        {"access_points": [{"storey": "s", "at": [0]}]},
+        {"access_points": [{"storey": "s", "at": [0, "1"]}]},
+        {"access_points": [{"storey": "s", "at": [0, True]}]},
+        {"access_points": [{"storey": "s", "at": [0, 1e9]}]},
+        {"access_points": [{"storey": "s", "at": [0, 0], "name": 3}]},
+        {"access_points": [{"storey": "s", "at": [0, 0], "name": "x" * 61}]},
+        {"access_points": [{"storey": "s", "at": [0, 0], "power": 20}]},
+        {"access_points": ["s"]},
+        {"weather": "sensor.outside"},
+        {"weather": "weather."},
+        {"weather": 3},
+        {"weather": None},
+        {"roof": []},
+        {"roof": {"shape": "dome"}},
+        {"roof": {"pitch": 4}},
+        {"roof": {"pitch": 61}},
+        {"roof": {"pitch": True}},
+        {"roof": {"color": "brown"}},
+        {"roof": {"height": 300}},
     ],
 )
 async def test_invalid_settings_are_refused(

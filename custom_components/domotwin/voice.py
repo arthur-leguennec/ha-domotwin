@@ -23,6 +23,7 @@ from homeassistant.helpers.hassio import is_hassio
 from homeassistant.util.hass_dict import HassKey
 
 from .compat import vol
+from .language import speaks
 
 if TYPE_CHECKING:
     from homeassistant.components.hassio import AddonManager
@@ -43,8 +44,20 @@ STT_APPS = {
     "speech-to-phrase": ("Speech-to-Phrase", "core_speech-to-phrase"),
 }
 TTS_APP = ("Piper", "core_piper")
-#: Piper's voice for the languages DomoTwin speaks; others keep the app's own.
-PIPER_VOICES = {"en": "en_US-lessac-medium", "fr": "fr_FR-siwis-medium"}
+#: Piper's voice for the languages DomoTwin speaks (D-082); Piper has none in Japanese or
+#: Korean, which keep the app's own.
+PIPER_VOICES = {
+    "en": "en_US-lessac-medium",
+    "fr": "fr_FR-siwis-medium",
+    "de": "de_DE-thorsten-medium",
+    "es": "es_ES-davefx-medium",
+    "it": "it_IT-paola-medium",
+    "nl": "nl_NL-mls-medium",
+    "pt": "pt_PT-tugão-medium",
+    "pt-BR": "pt_BR-faber-medium",
+    "ar": "ar_JO-kareem-medium",
+    "zh-Hans": "zh_CN-huayan-medium",
+}
 #: Home Assistant's languages Whisper knows by another code.
 WHISPER_LANGUAGES = {"nb": "no"}
 #: How long the apps may take to answer once started: their first start downloads their model
@@ -146,17 +159,25 @@ def _wyoming_engine(hass: HomeAssistant, host: str, domain: str) -> str | None:
     return None
 
 
-def _language(hass: HomeAssistant) -> str:
-    """Home Assistant's language, without its region (`fr` for `fr-CA`)."""
-    return hass.config.language.split("-")[0].lower()
+def _base(language: str) -> str:
+    """A language without its region (`fr` for `fr-CA`)."""
+    return language.split("-", 1)[0].lower()
+
+
+def _piper_voice(language: str) -> str | None:
+    """Piper's voice for Home Assistant's language, when DomoTwin speaks it and Piper has one."""
+    code = speaks(language)
+    return PIPER_VOICES.get(code) if code is not None else None
 
 
 def _options(slug: str, options: dict[str, Any], language: str) -> dict[str, Any]:
-    """The app's options in the user's language, where it has an option for it."""
+    """The app's options in the user's language (Home Assistant's), where it has one for it."""
+    base = _base(language)
     if slug == "core_whisper" and "language" in options:
-        return {**options, "language": WHISPER_LANGUAGES.get(language, language)}
-    if slug == TTS_APP[1] and "voice" in options and language in PIPER_VOICES:
-        return {**options, "voice": PIPER_VOICES[language]}
+        return {**options, "language": WHISPER_LANGUAGES.get(base, base)}
+    voice = _piper_voice(language)
+    if slug == TTS_APP[1] and "voice" in options and voice is not None:
+        return {**options, "voice": voice}
     return options
 
 
@@ -173,7 +194,7 @@ async def _async_app(hass: HomeAssistant, setup: VoiceSetup, name: str, slug: st
         await manager.async_install_addon()
         info = await manager.async_get_addon_info()
         # Only an app installed here is set: one installed before keeps its user's settings.
-        wanted = _options(slug, info.options, _language(hass))
+        wanted = _options(slug, info.options, hass.config.language)
         if wanted != info.options:
             try:
                 await manager.async_set_addon_options(wanted)
@@ -307,7 +328,7 @@ async def ws_voice_get(
 ) -> None:
     """Whether local voice can be set up here, the blueprints, where a set-up is."""
     folder = Path(hass.config.path(*TARGET))
-    language = _language(hass)
+    language = _base(hass.config.language)
     connection.send_result(
         msg["id"],
         {
@@ -316,7 +337,7 @@ async def ws_voice_get(
             "setup": _setup_of(hass).as_dict(),
             # For the steps on Container and Core: what the apps are set to here.
             "language": WHISPER_LANGUAGES.get(language, language),
-            "piper_voice": PIPER_VOICES.get(language, PIPER_VOICES["en"]),
+            "piper_voice": _piper_voice(hass.config.language) or PIPER_VOICES["en"],
         },
     )
 

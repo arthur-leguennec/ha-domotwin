@@ -155,7 +155,7 @@ describe("glanceOf", () => {
     expect(glance.away).toBe(0);
   });
 
-  it("leaves out what a private room holds, its dangers aside", () => {
+  it("leaves out what a private room holds (its dangers are above every tab, D-068)", () => {
     const hass = home([
       ["light.desk", "study", "on", {}],
       ["binary_sensor.study_window", "study", "on", { device_class: "window" }],
@@ -165,9 +165,6 @@ describe("glanceOf", () => {
     const glance = glanceOf(hass, sources({ closed: new Set(["study"]) }));
     expect(glance.lights).toEqual(["light.pendant"]);
     expect(glance.openings).toEqual([]);
-    expect(glance.alerts.map((a) => [a.room, a.reason, a.level])).toEqual([
-      ["study", "smoke", "danger"],
-    ]);
   });
 
   it("leaves out what is linked to a piece in a private room, whatever its area", () => {
@@ -180,6 +177,35 @@ describe("glanceOf", () => {
       sources({ closed: new Set(["study"]), closedEntities: new Set(["light.bedside"]) }),
     );
     expect(glance.lights).toEqual(["light.pendant"]);
+  });
+
+  it("has Hydro-Québec's peak where an integration reads it, and what the rooms do (D-063)", () => {
+    const hass = home([
+      ["climate.study", "study", "heat", { temperature: 16, current_temperature: 20 }],
+      ["sensor.meter_power", "lounge", "5000", { device_class: "power", unit_of_measurement: "W" }],
+    ]);
+    expect(glanceOf(hass, sources()).peak).toBeUndefined();
+    // Home Assistant gives new states and a new registry when they change.
+    hass.states = { ...hass.states };
+    hass.entities = { ...hass.entities };
+    for (const [key, state] of [
+      ["event_start", "2026-01-21T16:00:00-05:00"],
+      ["event_end", "2026-01-21T20:00:00-05:00"],
+    ] as const) {
+      const id = `sensor.peak_${key}`;
+      hass.states[id] = {
+        entity_id: id,
+        state,
+        attributes: {},
+        last_changed: "",
+        last_updated: "",
+      };
+      hass.entities[id] = { entity_id: id, platform: "hydropeak", translation_key: key };
+    }
+    hass.now = () => Date.parse("2026-01-21T22:00:00Z");
+    const glance = glanceOf(hass, sources({ meters: new Set(["sensor.meter_power"]) }));
+    expect(glance.peak?.now.phase).toBe("peak");
+    expect(glance.peak?.rooms).toEqual({ roles: { study: "shed" }, draws: {} });
   });
 
   it("works without bindings", () => {

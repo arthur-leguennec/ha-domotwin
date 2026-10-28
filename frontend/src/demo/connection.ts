@@ -4,14 +4,34 @@
  * few others the frontend asks (automations, the energy settings, what an area relates to, the
  * history and the logbook where it keeps them, D-058). Nothing goes out of the page.
  */
-import type { NewSchedule, PlanJson, StoredPlan, UpdateEvent } from "../ha/client";
+import type { NewSchedule, PlanJson, SaveKind, StoredPlan, UpdateEvent } from "../ha/client";
 import type { HassConnection, HassMessage, HomeAssistant } from "../ha/types";
 import type { PeopleSettings } from "../live/people";
 import { readChoices } from "../live/choices";
+import {
+  MAX_SHORTCUTS,
+  changeShortcuts,
+  readShortcut,
+  readShortcuts,
+  type ShortcutChange,
+} from "../live/shortcut-model";
 import { storeyIds } from "../live/storeys";
 import type { Schedule } from "../live/schedules";
 import type { Upkeep } from "../live/upkeep";
+import {
+  MAX_WIFI_SCREENS,
+  SCREEN_NAME,
+  WIFI_SECURITIES,
+  nameProblem,
+  passwordProblem,
+  screensOf,
+  wifiAnswer,
+  type StoredWifi,
+} from "../live/wifi";
+import type { DemoConfigHistory } from "./config-history";
+import type { DemoReport } from "./report";
 import { DemoError, type DemoStore } from "./home";
+import type { DemoLogbook } from "./logbook";
 
 /** A home kept in the page: what its connection asks of it. */
 export interface MemoryHome {
@@ -21,7 +41,7 @@ export interface MemoryHome {
   readonly scheduleListeners: Set<(schedules: Schedule[]) => void>;
   today(): string;
   area(id: string): string | undefined;
-  saved(kind: "plan" | "bindings" | "settings" | "upkeep" | "people" | "locating"): number;
+  saved(kind: SaveKind): number;
   addSchedule(request: NewSchedule): { schedule: Schedule; text: string };
   cancelSchedule(id: string): number;
   /** Its automations (their entity ids), and the configuration of each. */
@@ -35,11 +55,52 @@ export interface MemoryHome {
    */
   history?(entities: readonly string[], start: number, end: number): unknown;
   logbook?(entities: readonly string[], start: number, end: number): unknown;
+  /** What its Home Assistant recorded, by context, as its logbook answers (D-059); none:
+   * nothing recorded. */
+  readonly recorded?: DemoLogbook;
+  /** Its configuration history (D-062), where it keeps one (the demo house's). */
+  readonly configHistory?: DemoConfigHistory;
+  /** Its weekly reports (D-081), where it keeps some (the demo house's). */
+  readonly weekly?: DemoReport;
 }
 
 /** A websocket error, as Home Assistant gives one. */
 function failure(code: string, message = code): DemoError {
   return new DemoError(code, message);
+}
+
+/** A Wi-Fi to keep, read as the integration reads it (`Wifi.async_save`); refused as it is. */
+function storedWifi(raw: unknown, kept: StoredWifi | undefined): StoredWifi {
+  const value = typeof raw === "object" && raw !== null ? (raw as Record<string, unknown>) : {};
+  const security = WIFI_SECURITIES.find((s) => s === value.security);
+  if (!security) throw failure("invalid", "security");
+  const screens = Array.isArray(value.screens)
+    ? screensOf(value.screens.filter((s) => typeof s === "string").join(" "))
+    : [];
+  if (screens.length > MAX_WIFI_SCREENS || screens.some((screen) => !SCREEN_NAME.test(screen))) {
+    throw failure("invalid", "screens");
+  }
+  const wifi: StoredWifi = { security, hidden: value.hidden === true, screens };
+  if (value.image !== undefined) {
+    if (typeof value.image !== "string" || !value.image.startsWith("image.")) {
+      throw failure("invalid", "image");
+    }
+    wifi.image = value.image;
+    return wifi;
+  }
+  const name = typeof value.name === "string" ? value.name : "";
+  const wrong = nameProblem(name);
+  if (wrong) throw failure(wrong);
+  wifi.name = name;
+  if (security === "nopass") return wifi;
+  // Left out, the same network's password is kept.
+  const same = kept?.name === wifi.name && kept.security === security;
+  const password =
+    typeof value.password === "string" ? value.password : same ? (kept.password ?? "") : "";
+  const problem = passwordProblem(security, password);
+  if (problem) throw failure(problem);
+  wifi.password = password;
+  return wifi;
 }
 
 /** The demo's answers to the frontend's commands. */
@@ -91,6 +152,16 @@ export function demoConnection(home: MemoryHome): HassConnection {
   };
   const entityIds = (message: HassMessage): string[] =>
     Array.isArray(message.entity_ids) ? message.entity_ids.map(String) : [];
+
+  // The configuration history, where the home keeps one (not the sandbox's copy).
+  const report = (): DemoReport => {
+    if (!home.weekly) throw failure("unknown_command", "no weekly report here");
+    return home.weekly;
+  };
+  const configHistory = (): DemoConfigHistory => {
+    if (!home.configHistory) throw failure("unknown_command", "no configuration history here");
+    return home.configHistory;
+  };
 
   const answer = (message: HassMessage): unknown => {
     switch (message.type) {
@@ -185,6 +256,28 @@ export function demoConnection(home: MemoryHome): HassConnection {
         task.last_done = home.today();
         return { revision: home.saved("upkeep"), last_done: task.last_done };
       }
+      // The garden (D-077): when each lawn was last mown, said by anyone.
+      case "domotwin/garden/get":
+        return structuredClone(store.garden ?? { lawns: {}, mowers: {} });
+      case "domotwin/garden/mowed": {
+        const room = message.room;
+        if (typeof room !== "string" || room.length === 0 || room.length > 100) {
+          throw failure("invalid_format", "room");
+        }
+        // A lawn of the plan (a place outside on a lawn), as the integration checks.
+        type Room = { id?: unknown; outside?: unknown; floor?: { material?: unknown } };
+        const lawn = store.storeys.some((s) =>
+          ((s.plan as { rooms?: Room[] }).rooms ?? []).some(
+            (r) => r.id === room && r.outside === true && (r.floor?.material ?? "lawn") === "lawn",
+          ),
+        );
+        if (!lawn) throw failure("unknown_lawn", "no lawn has this id");
+        const garden = (store.garden ??= { lawns: {}, mowers: {} });
+        const now = new Date(home.hass.now?.() ?? Date.now()).toISOString();
+        garden.lawns = { ...garden.lawns, [room]: now };
+        home.saved("garden");
+        return structuredClone(garden);
+      }
       case "domotwin/people/get":
         return structuredClone(store.people);
       case "domotwin/people/save": {
@@ -218,6 +311,11 @@ export function demoConnection(home: MemoryHome): HassConnection {
         };
       case "domotwin/locating/candidates":
         return { candidates: [] };
+      case "domotwin/locating/add_key":
+        throw failure("no_bluetooth", "the identity key was not taken");
+      case "domotwin/screens/get":
+        // The demo house is shown on a device that may be a wall screen: it has none of its own.
+        return { screens: {} };
       case "domotwin/choices/get":
         return structuredClone(store.choices);
       case "domotwin/choices/favourite": {
@@ -228,13 +326,79 @@ export function demoConnection(home: MemoryHome): HassConnection {
       }
       case "domotwin/choices/save": {
         // "" for the start: none chosen.
-        store.choices = readChoices({ ...store.choices, ...message });
+        store.choices = readChoices({
+          ...store.choices,
+          ...(message.start !== undefined ? { start: message.start } : {}),
+          ...(message.cards !== undefined ? { cards: message.cards } : {}),
+        });
         return structuredClone(store.choices);
       }
+      case "domotwin/choices/shortcut": {
+        // One change, made as the integration makes it.
+        const kept = readShortcuts(store.choices.shortcuts);
+        let change: ShortcutChange | undefined;
+        if (message.set !== undefined) {
+          const shortcut = readShortcut(message.set);
+          if (!shortcut) throw failure("invalid_format", "the shortcut is not understood");
+          if (!kept.some((s) => s.id === shortcut.id) && kept.length >= MAX_SHORTCUTS) {
+            throw failure("too_many_shortcuts");
+          }
+          change = { set: shortcut };
+        } else if (typeof message.remove === "string") {
+          change = { remove: message.remove };
+        } else if (typeof message.move === "string" && (message.by === 1 || message.by === -1)) {
+          change = { move: message.move, by: message.by };
+        }
+        if (!change) throw failure("invalid_format", "set, remove, or move by -1 or 1");
+        store.choices = { ...store.choices, shortcuts: changeShortcuts(kept, change) };
+        return structuredClone(store.choices);
+      }
+      case "domotwin/wifi/get":
+        return wifiAnswer(
+          store.wifi,
+          home.hass.user?.is_admin === true,
+          typeof message.screen === "string" ? message.screen : "",
+          message.password === true,
+        );
+      case "domotwin/wifi/save": {
+        if (home.hass.user?.is_admin !== true) throw failure("unauthorized");
+        const wifi = storedWifi(message.wifi, store.wifi);
+        store.wifi = wifi;
+        home.saved("wifi");
+        return wifiAnswer(wifi, true, "", true);
+      }
+      case "domotwin/wifi/clear":
+        if (home.hass.user?.is_admin !== true) throw failure("unauthorized");
+        delete store.wifi;
+        home.saved("wifi");
+        return wifiAnswer(undefined, true);
       case "domotwin/schedules/add":
         return home.addSchedule(message as unknown as NewSchedule & HassMessage);
       case "domotwin/schedules/cancel":
         return { cancelled: home.cancelSchedule(String(message.schedule_id)) };
+      case "domotwin/config_history/list":
+        return configHistory().list();
+      case "domotwin/config_history/item":
+        return configHistory().item(message.item);
+      case "domotwin/config_history/version":
+        return { config: configHistory().version(message.item, message.version) };
+      case "domotwin/config_history/refresh":
+        configHistory();
+        // Put back already, as Home Assistant's editors would have saved it.
+        return { changed: 0 };
+      case "domotwin/report/get":
+        return report().get(typeof message.report === "number" ? message.report : undefined);
+      case "domotwin/report/write":
+        return report().write();
+      case "domotwin/report/settings":
+        return report().save(message.settings);
+      case "lovelace/config/save":
+        configHistory().putBack(
+          "dashboard",
+          typeof message.url_path === "string" ? message.url_path : "",
+          message.config,
+        );
+        return null;
       case "automation/config": {
         const id = String(message.entity_id);
         const config = home.automationConfig(id);
@@ -268,8 +432,12 @@ export function demoConnection(home: MemoryHome): HassConnection {
         if (!home.history) throw failure("unknown_command", message.type);
         return {};
       case "logbook/get_events": {
-        if (!home.logbook) throw failure("unknown_command", message.type);
         const { start, end } = span(message);
+        // The rows of a context: what its Home Assistant recorded (D-059, "Why?").
+        if (typeof message.context_id === "string") {
+          return home.recorded?.events({ start, end, context: message.context_id }) ?? [];
+        }
+        if (!home.logbook) throw failure("unknown_command", message.type);
         return home.logbook(entityIds(message), start, end);
       }
       default:

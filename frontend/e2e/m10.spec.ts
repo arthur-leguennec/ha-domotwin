@@ -102,8 +102,12 @@ test.describe("walking and the kiosk", () => {
     await page.mouse.down();
     await page.mouse.move(area.x + 400, area.y + 240, { steps: 6 });
     await page.mouse.up();
+    // Turned, as soon as it is drawn: polled rather than read once settled, which a slow runner
+    // may draw out past the kiosk's 2 s of idleness, when it goes back to its view.
+    await expect
+      .poll(async () => Math.abs((await figures(page)).camera.yaw - opened.camera.yaw))
+      .toBeGreaterThan(0.3);
     await settle(page);
-    expect(Math.abs((await figures(page)).camera.yaw - opened.camera.yaw)).toBeGreaterThan(0.3);
     // Back to the overview, dimmed (night): the dark stops the turn.
     const view = page.locator("domotwin-view");
     await expect(view.getByTestId("dim")).toBeVisible({ timeout: 8000 });

@@ -1,11 +1,14 @@
 //! Floors and walls of the rooms, and free partitions. Walls are grouped by direction so that the
 //! renderer can cut away the ones between the camera and the rooms.
 
+use std::rc::Rc;
+
 use super::Builder;
 use super::lines::{LineKind, band_at, bend, offset_corner, top_offset};
-use super::mesh::{CutMode, Material, NO_GROUP, Painter, Surface, Tag};
+use super::mesh::{CutMode, Material, NO_GROUP, Painter, Surface, Tag, Xform};
+
 use crate::geometry::heights::{Covering, RAIL, covering_bands, wall_paint, wall_spans};
-use crate::geometry::polygon::P2;
+use crate::geometry::polygon::{P2, point_in_polygon};
 use crate::geometry::walls::{
     EdgeBand, RoomWalls, WallLayout, openings_on_side, side_segments, wall_openings,
 };
@@ -23,6 +26,18 @@ const SLAB: Material = Material::new(Rgb8::from_u32(0xb9b5a8), 1.0, Surface::Mat
 const TILES: Material = Material::new(Rgb8::from_u32(0xf3f2ee), 0.2, Surface::Subway);
 /// Slab thickness (cm).
 const SLAB_DEPTH: f64 = 6.0;
+/// A railing along a place outside (a balcony): its height and how far apart its posts are (cm).
+const RAILING: f64 = 100.0;
+const RAILING_POSTS: f64 = 150.0;
+/// How far out of a side a room of the home makes it against the home (cm): past a façade.
+const AGAINST_HOME: f64 = 40.0;
+/// How finely a side is looked along for the home (cm).
+const RAILING_STEP: f64 = 5.0;
+/// The edge of a deck, of paving.
+const DECK_EDGE: Material = Material::new(Rgb8::from_u32(0x7d5c42), 0.75, Surface::Wood);
+const STONE_EDGE: Material = Material::new(Rgb8::from_u32(0xa9a294), 0.9, Surface::Matte);
+/// A railing's posts and rail, and its glass.
+const RAILING_METAL: Material = Material::new(Rgb8::from_u32(0x3d4147), 0.4, Surface::Metal);
 
 /// The floor material of a room.
 pub(crate) fn floor_material(room: &Room) -> Material {
@@ -33,6 +48,11 @@ pub(crate) fn floor_material(room: &Room) -> Material {
         Floor::TilesBeige => Material::new(Rgb8::from_u32(0xd7cdb8), 0.35, Surface::Tiles),
         Floor::TilesWhite => Material::new(Rgb8::from_u32(0xe8e8e1), 0.3, Surface::Tiles),
         Floor::Plain => Material::new(Rgb8::from_u32(0xd9d3c6), 0.85, Surface::Floor),
+        Floor::Lawn => Material::new(Rgb8::from_u32(0x638f42), 0.9, Surface::Grass),
+        Floor::Decking => Material::new(Rgb8::from_u32(0x9a7454), 0.7, Surface::Planks),
+        Floor::Paving => Material::new(Rgb8::from_u32(0xc4bcae), 0.8, Surface::Paving),
+        Floor::Gravel => Material::new(Rgb8::from_u32(0xb7ad9c), 1.0, Surface::Gravel),
+        Floor::Soil => Material::new(Rgb8::from_u32(0x5d4a38), 1.0, Surface::Soil),
     }
 }
 
@@ -43,17 +63,41 @@ fn covering_material(covering: Covering) -> Material {
     }
 }
 
+/// How much higher a place outside's ground is drawn than that of the larger one it may lie in
+/// (cm), for so many of them at most: a gravel path in the lawn is not in its plane.
+const OUTSIDE_LIFT: f64 = 0.3;
+const OUTSIDE_LIFTS: usize = 4;
+
 /// Builds the floors and walls of every room, then the free partitions.
 pub(crate) fn build(builder: &mut Builder, plan: &Plan, layout: &WallLayout) {
     let openings = wall_openings(plan);
-    for walls in &layout.rooms {
+    // The places outside, the largest first (the lookup order's last).
+    let mut lifts = vec![0.0; layout.rooms.len()];
+    let outside = layout
+        .lookup_order()
+        .iter()
+        .rev()
+        .filter(|&&k| layout.rooms[k].outside);
+    for (rank, &k) in outside.enumerate() {
+        #[allow(clippy::cast_precision_loss)]
+        let steps = rank.min(OUTSIDE_LIFTS) as f64;
+        lifts[k] = OUTSIDE_LIFT * steps;
+    }
+    for (k, walls) in layout.rooms.iter().enumerate() {
         let Some(Element::Room(room)) = plan.elements.get(walls.element) else {
             continue;
         };
         let element = builder.element_tag(walls.element);
-        floor(builder, room, walls, element);
+        floor(builder, room, walls, element, lifts[k]);
         room_walls(builder, room, walls, &openings, element);
         room_lines(builder, walls, &openings);
+        if room.railing {
+            railing(builder, layout, walls, element, room.level());
+        }
+        // A balcony holds no ground back: it is over it.
+        if room.outside && !room.railing {
+            retaining_walls(builder, layout, walls, element, room.level());
+        }
     }
     for (index, element) in plan.elements.iter().enumerate() {
         if let Element::Wall(wall) = element {
@@ -62,15 +106,22 @@ pub(crate) fn build(builder: &mut Builder, plan: &Plan, layout: &WallLayout) {
     }
 }
 
-fn floor(builder: &mut Builder, room: &Room, walls: &RoomWalls, element: u16) {
+/// The floor of a room, on its level (`lift` higher).
+fn floor(builder: &mut Builder, room: &Room, walls: &RoomWalls, element: u16, lift: f64) {
     let tag = Tag {
         element,
         room: builder.room_slot(walls.element),
         ..Tag::default()
     };
+    let level = room.level() + lift;
     let mut p = Painter::new(&mut builder.opaque, floor_material(room), tag);
-    p.polygon(&walls.points, 0.0, true, room.floor_angle);
-    p.material = SLAB;
+    p.polygon(&walls.points, level, true, room.floor_angle);
+    // Its edge: a slab's, a deck's boards, paving's stone.
+    p.material = match room.floor {
+        _ if !room.outside => SLAB,
+        Floor::Decking | Floor::WoodGrey | Floor::WoodOak | Floor::WoodPainted => DECK_EDGE,
+        _ => STONE_EDGE,
+    };
     let n = walls.points.len();
     for i in 0..n {
         let (a, b) = (walls.points[i], walls.points[(i + 1) % n]);
@@ -78,8 +129,8 @@ fn floor(builder: &mut Builder, room: &Room, walls: &RoomWalls, element: u16) {
         let out = [
             [a[0], -SLAB_DEPTH, a[1]],
             [b[0], -SLAB_DEPTH, b[1]],
-            [b[0], 0.0, b[1]],
-            [a[0], 0.0, a[1]],
+            [b[0], level, b[1]],
+            [a[0], level, a[1]],
         ];
         p.quad(
             out,
@@ -87,6 +138,257 @@ fn floor(builder: &mut Builder, room: &Room, walls: &RoomWalls, element: u16) {
             Some([normal[0], 0.0, normal[1]]),
             -SLAB_DEPTH,
         );
+    }
+}
+
+/// A retaining wall is drawn where the ground beyond a place outside is at least this much higher
+/// (cm), so thick.
+const RETAINING_FROM: f64 = 20.0;
+const RETAINING: f64 = 15.0;
+/// How far its coping stands over the ground beyond (cm).
+const COPING: f64 = 3.0;
+/// How far out of a place outside the ground beyond it is looked for (cm).
+const BEYOND: f64 = 20.0;
+
+/// The rooms of the storey being built, as plan outlines.
+fn rooms_inside(layout: &WallLayout) -> Vec<&[P2]> {
+    layout
+        .rooms
+        .iter()
+        .filter(|r| !r.outside)
+        .map(|r| r.points.as_slice())
+        .collect()
+}
+
+/// A retaining wall of stone along the sides of a place outside where the ground beyond it is
+/// higher: a walk-out basement's garden against the garden of the storey above (D-078), from its
+/// ground (`level`) up to that one's; never against the home, nor where the storey has another
+/// place outside, nor under a balcony or a terrace (only a garden's ground is ground).
+fn retaining_walls(
+    builder: &mut Builder,
+    layout: &WallLayout,
+    walls: &RoomWalls,
+    element: u16,
+    level: f64,
+) {
+    let (storey, elevation) = (builder.storey, builder.elevation);
+    let gardens = Rc::clone(&builder.gardens);
+    // Other storeys' gardens high enough over this place, with the box around each, and how high.
+    let higher: Vec<(&[P2], [P2; 2], f64)> = gardens
+        .iter()
+        .filter(|(other, _, ground)| {
+            *other != storey && *ground - elevation >= level + RETAINING_FROM
+        })
+        .map(|(_, points, ground)| (points.as_slice(), bounds(points), *ground - elevation))
+        .collect();
+    if higher.is_empty() {
+        return;
+    }
+    let inside = rooms_inside(layout);
+    let outside: Vec<&[P2]> = layout
+        .rooms
+        .iter()
+        .filter(|r| r.outside && !std::ptr::eq(*r, walls))
+        .map(|r| r.points.as_slice())
+        .collect();
+    let tag = Tag {
+        element,
+        room: builder.room_slot(walls.element),
+        ..Tag::default()
+    };
+    let mut stone = Painter::new(&mut builder.opaque, STONE_EDGE, tag);
+    let n = walls.points.len();
+    for i in 0..n {
+        let (a, b) = walls.side(i);
+        let len = (b[0] - a[0]).hypot(b[1] - a[1]);
+        if len < 5.0 {
+            continue;
+        }
+        let u = [(b[0] - a[0]) / len, (b[1] - a[1]) / len];
+        let normal = walls.normal(i);
+        let at = |s: f64, out: f64| -> P2 {
+            [
+                a[0] + u[0] * s + normal[0] * out,
+                a[1] + u[1] * s + normal[1] * out,
+            ]
+        };
+        // The ground just out of the side, where it is higher and neither the home's nor this
+        // storey's.
+        let top = |s: f64| -> Option<f64> {
+            let p = at(s, BEYOND);
+            if inside
+                .iter()
+                .any(|room| point_in_polygon(at(s, AGAINST_HOME), room, false))
+                || outside
+                    .iter()
+                    .any(|place| point_in_polygon(p, place, false))
+            {
+                return None;
+            }
+            higher
+                .iter()
+                .filter(|(points, [low, high], _)| {
+                    (low[0]..=high[0]).contains(&p[0])
+                        && (low[1]..=high[1]).contains(&p[1])
+                        && point_in_polygon(p, points, false)
+                })
+                .map(|(.., top)| *top)
+                .reduce(f64::max)
+        };
+        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+        let steps = (len / RAILING_STEP).ceil().max(1.0) as usize;
+        let mut runs: Vec<(f64, f64, f64)> = Vec::new();
+        #[allow(clippy::cast_precision_loss)]
+        for k in 0..steps {
+            let (s0, s1) = (
+                len * k as f64 / steps as f64,
+                len * (k + 1) as f64 / steps as f64,
+            );
+            let Some(high) = top((s0 + s1) / 2.0) else {
+                continue;
+            };
+            match runs.last_mut() {
+                Some(run) if (run.1 - s0).abs() < 1e-6 && (run.2 - high).abs() < 1e-6 => {
+                    run.1 = s1;
+                }
+                _ => runs.push((s0, s1, high)),
+            }
+        }
+        for (s0, s1, high) in runs {
+            stone.prism(
+                [
+                    at(s0, 0.0),
+                    at(s1, 0.0),
+                    at(s1, RETAINING),
+                    at(s0, RETAINING),
+                ],
+                level,
+                high + COPING,
+                [Some(STONE_EDGE); 4],
+                Some(STONE_EDGE),
+                0.0,
+            );
+        }
+    }
+}
+
+/// The box around `points`: its lowest and highest corners.
+fn bounds(points: &[P2]) -> [P2; 2] {
+    points.iter().fold(
+        [[f64::INFINITY; 2], [f64::NEG_INFINITY; 2]],
+        |[low, high], p| {
+            [
+                [low[0].min(p[0]), low[1].min(p[1])],
+                [high[0].max(p[0]), high[1].max(p[1])],
+            ]
+        },
+    )
+}
+
+/// A railing along the sides of a place outside (a balcony, a roof terrace, D-077), but where
+/// the home's rooms of its storey are, touching it or across a façade from it: posts, a rail on
+/// top and glass between, on its ground (`level`).
+fn railing(
+    builder: &mut Builder,
+    layout: &WallLayout,
+    walls: &RoomWalls,
+    element: u16,
+    level: f64,
+) {
+    let inside = rooms_inside(layout);
+    let tag = Tag {
+        element,
+        room: builder.room_slot(walls.element),
+        ..Tag::default()
+    };
+    let mut metal = Painter::new(&mut builder.opaque, RAILING_METAL, tag);
+    let mut glass = Painter::new(&mut builder.transparent, Material::glass(), tag);
+    let (low, top) = (level, level + RAILING);
+    let n = walls.points.len();
+    for i in 0..n {
+        let (a, b) = walls.side(i);
+        let len = (b[0] - a[0]).hypot(b[1] - a[1]);
+        if len < 5.0 {
+            continue;
+        }
+        let u = [(b[0] - a[0]) / len, (b[1] - a[1]) / len];
+        let normal = walls.normal(i);
+        // A couple of centimetres in, along the side.
+        let at = |s: f64, k: f64| -> P2 {
+            [
+                a[0] + u[0] * s - normal[0] * k,
+                a[1] + u[1] * s - normal[1] * k,
+            ]
+        };
+        // Against the home where a room lies just out of the side: across its façade or touching.
+        let against = |s: f64| {
+            let p = at(s, -AGAINST_HOME);
+            inside.iter().any(|room| point_in_polygon(p, room, false))
+        };
+        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+        let steps = (len / RAILING_STEP).ceil().max(1.0) as usize;
+        let mut runs: Vec<(f64, f64)> = Vec::new();
+        let mut start: Option<f64> = None;
+        #[allow(clippy::cast_precision_loss)]
+        for k in 0..=steps {
+            let s = len * k as f64 / steps as f64;
+            match (against(s), start) {
+                (false, None) => start = Some(s),
+                (true, Some(s0)) => {
+                    runs.push((s0, (s - RAILING_STEP).max(s0)));
+                    start = None;
+                }
+                _ => {}
+            }
+        }
+        if let Some(s0) = start {
+            runs.push((s0, len));
+        }
+        for (s0, s1) in runs {
+            if s1 - s0 < 5.0 {
+                continue;
+            }
+            let x = Xform::IDENTITY;
+            // Posts at both ends and every 1.5 m between.
+            #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+            let spans = ((s1 - s0) / RAILING_POSTS).ceil().max(1.0) as usize;
+            #[allow(clippy::cast_precision_loss)]
+            for k in 0..=spans {
+                let s = s0 + (s1 - s0) * k as f64 / spans as f64;
+                let p = at(s, 3.0);
+                metal.cuboid(
+                    &x,
+                    [p[0] - 2.0, low, p[1] - 2.0],
+                    [p[0] + 2.0, top, p[1] + 2.0],
+                );
+            }
+            let (p0, p1) = (at(s0, 3.0), at(s1, 3.0));
+            metal.rod(&x, [p0[0], top, p0[1]], [p1[0], top, p1[1]], 2.5, 8);
+            let (q0, q1) = (at(s0, 2.5), at(s1, 2.5));
+            let (r0, r1) = (at(s0, 3.5), at(s1, 3.5));
+            glass.quad(
+                [
+                    [q0[0], low + 8.0, q0[1]],
+                    [q1[0], low + 8.0, q1[1]],
+                    [q1[0], top - 4.0, q1[1]],
+                    [q0[0], top - 4.0, q0[1]],
+                ],
+                [[0.0; 2]; 4],
+                Some([normal[0], 0.0, normal[1]]),
+                0.0,
+            );
+            glass.quad(
+                [
+                    [r1[0], low + 8.0, r1[1]],
+                    [r0[0], low + 8.0, r0[1]],
+                    [r0[0], top - 4.0, r0[1]],
+                    [r1[0], top - 4.0, r1[1]],
+                ],
+                [[0.0; 2]; 4],
+                Some([-normal[0], 0.0, -normal[1]]),
+                0.0,
+            );
+        }
     }
 }
 

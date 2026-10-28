@@ -6,7 +6,7 @@ stack, remove and add pieces, with undo. The plan as imported is never changed: 
 pieces that still exist. Rooms, partitions, doors and windows are changed in the
 [plan editor](plan-editor.md), or in your modelling software and imported again.
 
-![Edit mode: a piece dragged on the 2D plan with its guides, and the catalogue](figures/screenshot-edit.png)
+![Edit mode: a piece dragged on the 2D plan with its guides, and the library of pieces with their pictures](figures/screenshot-edit.png)
 
 ## Using it
 
@@ -19,8 +19,13 @@ In the panel, **Arrange** opens edit mode (administrators only). The header gets
 - **Turn**: the two arrows of the bar turn the selection by 15°. One piece turns on itself onto
   the next step; several turn together around their middle.
 - **Remove**: the bin of the bar.
-- **Add a piece**: the catalogue lists every kind of the plan format by room, with its default size,
-  and a search. The new piece appears in the middle of the view, selected, ready to be dragged.
+- **Add a piece**: the catalogue is a library of the plan format's pieces (D-074), by room or use
+  (living room, kitchen, bathroom, heating and air, smart home, pets…): each kind and each of its
+  styles (a Chesterfield sofa, a soundbar, a wood stove…) with its own picture, drawn by DomoTwin in
+  the look of the view, and its usual size. The search reads names, styles and other words in the
+  language of the panel ("couch", "mini-split", « pompe à chaleur »), accents ignored. The new piece
+  appears in the middle of the view, selected, ready to be dragged, at its style's size and in its
+  colour.
 - **Your own furniture or appliance**: see [Your own 3D models](#your-own-3d-models) below.
 - **Undo** and **Redo**: the bar, or Ctrl+Z and Ctrl+Shift+Z (Ctrl+Y). 100 steps are kept.
 - **Save** stores the overlay; **Cancel** asks before discarding changes.
@@ -41,8 +46,9 @@ plan snaps onto a **5 cm grid**. The faces it snapped onto are drawn as dashed l
 
 ### Stacking
 
-Small objects stand on the piece they are dropped over: lamps, plants, screens and printers on
-tables, desks, chests, shelves, sideboards, counters…, a dryer on a washer. Moving a piece moves what
+Small objects stand on the piece they are dropped over: lamps, plants, screens, speakers, vases,
+books, a kettle or a coffee machine, printers on tables, desks, chests, shelves, sideboards,
+counters, a kitchen island, a TV stand…, a dryer on a washer. Moving a piece moves what
 stands on it; turning it turns them too. Removing it puts them down on the floor. A piece fixed
 higher than what is under it (a TV on a wall, a plant on a shelf the plan does not have) keeps its
 height when it moves.
@@ -132,7 +138,7 @@ Stored by the integration in `layout`, keyed by element id (`domotwin-core::over
 | `lift` | Height of the underside (cm, 0–300). |
 | `room` | The room the piece now follows (set when a piece moves into another room). |
 | `removed` | Taken out of the home. |
-| `add` | A piece added in edit mode: its item, without `id` and its place (`name`, `kind` or `model`, `color`, `size`). |
+| `add` | A piece added in edit mode: its item, without `id` and its place (`name`, `kind` or `model`, `style` where it has one, `color`, `size`). |
 | `model` | Keys `@model:<id>` only: a user model imported in edit mode, added to the plan's `models`. |
 
 The overlay is applied to the plan's JSON before it is read, so the result is checked like any
@@ -158,3 +164,9 @@ plan refuses are left out; the view says how many. At most 1 000 entries.
   two flags of the element texture, tinted by the shader.
 - Frontend: `<domotwin-view>` (`editing`, drags, keys, the SVG guides), `edit-bar.ts` (the bar and
   the catalogue, loaded when edit mode opens), the panel (save, cancel, draft in `live/draft.ts`).
+- The catalogue's pictures (D-074): `PieceArtist` (`engine/engine.ts`) is a second engine on a
+  hidden canvas, made when the catalogue opens and released when it closes; `piecePicture` builds
+  a plan of the piece alone and `Renderer::piece_picture` draws it offscreen, framed on its
+  bounds. The pieces shown come first, a few each frame (10 ms), and the pictures are kept for the
+  session by look, accent and background. Without a second WebGL context, the pieces go without
+  pictures.

@@ -1,8 +1,8 @@
-//! Robot vacuums on the floor (`DECISIONS.md`, D-049): a robot leaves its dock to clean, room
-//! by room, back and forth along lanes; goes back to its dock; and waits where it stopped when
-//! paused or stuck.
+//! Robot vacuums on the floor (`DECISIONS.md`, D-049), and robot mowers on the lawns (D-077): a
+//! robot leaves its dock to clean (or mow), room by room, back and forth along lanes; goes back
+//! to its dock; and waits where it stopped when paused or stuck.
 //!
-//! What a robot does comes from its vacuum's state. Where it is, Home Assistant does not say
+//! What a robot does comes from its vacuum's (or lawn mower's) state. Where it is, Home Assistant does not say
 //! (most robots keep their map to themselves), so its way is drawn from the plan: the rooms of
 //! its storey that its dock's room leads to, the nearest next, each swept in lanes, and the doors
 //! between them. Docked, it is on its dock. Under *reduce motion* it is drawn at rest: on its
@@ -22,10 +22,36 @@ pub const TURN: f64 = 3.0;
 pub const LANE: f64 = 30.0;
 /// Its radius (cm).
 pub const RADIUS: f64 = 17.5;
-/// How far from the walls its lanes end (cm).
-const MARGIN: f64 = RADIUS + 2.0;
+/// How far from the walls its lanes end, past its radius (cm).
+const MARGIN: f64 = 2.0;
 /// Rooms smaller than this are not cleaned (cm²): a closet, a duct.
 const SMALLEST: f64 = 15_000.0;
+
+/// What a robot is: how fast it goes, how far apart its lanes are, how wide it is.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Body {
+    /// Its pace (cm/s).
+    pub speed: f64,
+    /// Its lanes apart (cm).
+    pub lane: f64,
+    /// Its radius (cm).
+    pub radius: f64,
+}
+
+/// A robot vacuum.
+pub const VACUUM: Body = Body {
+    speed: SPEED,
+    lane: LANE,
+    radius: RADIUS,
+};
+
+/// A robot mower (D-077): wider, a little faster, its lanes a little wider apart than its blade
+/// (most go about at random; lanes read better).
+pub const MOWER: Body = Body {
+    speed: 35.0,
+    lane: 40.0,
+    radius: 30.0,
+};
 
 /// What a robot is asked to do.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -42,11 +68,11 @@ pub enum Task {
 }
 
 impl Task {
-    /// What a robot does in its vacuum's state (Home Assistant's `vacuum` states), `rooms` the
-    /// rooms it was sent to clean (none: every room).
-    pub fn of_vacuum(state: &str, rooms: Vec<String>) -> Task {
+    /// What a robot does in its vacuum's state (Home Assistant's `vacuum` states) or its lawn
+    /// mower's (`lawn_mower`), `rooms` the rooms it was sent to clean (none: every room).
+    pub fn of_state(state: &str, rooms: Vec<String>) -> Task {
         match state {
-            "cleaning" => Task::Clean(rooms),
+            "cleaning" | "mowing" => Task::Clean(rooms),
             "returning" => Task::Return,
             "paused" | "idle" | "error" => Task::Stay,
             // Docked, and what is unknown or unavailable: on its dock.
@@ -115,10 +141,18 @@ impl Robot {
     }
 }
 
-/// Every robot.
-#[derive(Debug, Clone, Default, PartialEq)]
+/// Every robot of one body.
+#[derive(Debug, Clone, PartialEq)]
 pub struct Robots {
+    body: Body,
     robots: Vec<Robot>,
+}
+
+impl Default for Robots {
+    /// Robot vacuums.
+    fn default() -> Self {
+        Self::new(VACUUM)
+    }
 }
 
 /// The rooms a robot on `floor` cleans from `from`, in order: those asked for (the ones it can get
@@ -169,12 +203,12 @@ fn way(floor: &Floor, from: P2, to: P2) -> Option<VecDeque<P2>> {
     (path.len() > 1 || room.is_some() && room == floor.room_at(to)).then(|| path.into())
 }
 
-/// The way a robot that came to `from` takes through a room's `lanes`: straight from one point to
-/// the next where its body clears the walls; else back along the points it went through, cutting
+/// The way a robot of `radius` that came to `from` takes through a room's `lanes`: straight from
+/// one point to the next where its body clears the walls; else back along the points it went through, cutting
 /// corners where it clears them, until the next is clear ahead (from one arm of a room shaped
 /// like a U to the other). A point it cannot get to that way is left out.
-fn through_lanes(floor: &Floor, from: P2, lanes: &[P2]) -> Vec<P2> {
-    let clear = |a: P2, b: P2| floor.clear(a, b, RADIUS);
+fn through_lanes(floor: &Floor, from: P2, lanes: &[P2], radius: f64) -> Vec<P2> {
+    let clear = |a: P2, b: P2| floor.clear(a, b, radius);
     let mut gone = vec![from];
     for &p in lanes {
         let here = gone.len() - 1;
@@ -206,6 +240,14 @@ fn turn_between(a: f64, b: f64) -> f64 {
 }
 
 impl Robots {
+    /// No robot yet, of `body`.
+    pub fn new(body: Body) -> Self {
+        Self {
+            body,
+            robots: Vec::new(),
+        }
+    }
+
     /// The robots.
     pub fn robots(&self) -> &[Robot] {
         &self.robots
@@ -327,6 +369,7 @@ impl Robots {
 
     /// Moves the robots on by `dt` seconds. Returns whether one still moves.
     pub fn step(&mut self, dt: f64, floors: &[Option<Floor>], motion: bool) -> bool {
+        let body = self.body;
         for r in &mut self.robots {
             let Some(floor) = floors.get(r.storey).and_then(Option::as_ref) else {
                 continue;
@@ -373,14 +416,14 @@ impl Robots {
                             r.room = None;
                             break;
                         };
-                        let lanes = floor.sweep(&room, r.at, LANE, MARGIN);
+                        let lanes = floor.sweep(&room, r.at, body.lane, body.radius + MARGIN);
                         let Some(&first) = lanes.first() else {
                             continue;
                         };
                         let Some(mut route) = way(floor, r.at, first) else {
                             continue;
                         };
-                        route.extend(through_lanes(floor, first, &lanes[1..]));
+                        route.extend(through_lanes(floor, first, &lanes[1..], body.radius));
                         r.route = route;
                         r.room = Some(room);
                     } else {
@@ -412,9 +455,9 @@ impl Robots {
                     r.heading += turn;
                     budget -= needed;
                 }
-                let reach = SPEED * budget;
+                let reach = body.speed * budget;
                 if left <= reach {
-                    budget -= left / SPEED;
+                    budget -= left / body.speed;
                     r.at = next;
                     r.route.pop_front();
                 } else {
@@ -632,7 +675,7 @@ mod tests {
         )
         .unwrap();
         let floor = Floor::new(&plan, &WallLayout::new(&plan));
-        let lanes = floor.sweep("u", [60.0, 60.0], LANE, MARGIN);
+        let lanes = floor.sweep("u", [60.0, 60.0], LANE, RADIUS + MARGIN);
         // Every lane of both arms is there.
         for x in [100.0, 600.0] {
             let arm = lanes
@@ -641,7 +684,7 @@ mod tests {
                 .count();
             assert!(arm >= 16, "{x}: {arm}");
         }
-        let route = through_lanes(&floor, lanes[0], &lanes[1..]);
+        let route = through_lanes(&floor, lanes[0], &lanes[1..], RADIUS);
         // All of them, in order, each in sight of the one before: never across the notch.
         let mut next = lanes[1..].iter().peekable();
         let mut last = lanes[0];
@@ -676,8 +719,8 @@ mod tests {
         )
         .unwrap();
         let floor = Floor::new(&plan, &WallLayout::new(&plan));
-        let lanes = floor.sweep("r", [10.0, 10.0], LANE, MARGIN);
-        let route = through_lanes(&floor, lanes[0], &lanes[1..]);
+        let lanes = floor.sweep("r", [10.0, 10.0], LANE, RADIUS + MARGIN);
+        let route = through_lanes(&floor, lanes[0], &lanes[1..], RADIUS);
         assert!(route.len() >= lanes.len() - 1);
         let mut last = lanes[0];
         for p in &route {
@@ -730,15 +773,15 @@ mod tests {
     fn a_vacuum_state_says_what_its_robot_does() {
         let rooms = vec!["kitchen".to_owned()];
         assert_eq!(
-            Task::of_vacuum("cleaning", rooms.clone()),
+            Task::of_state("cleaning", rooms.clone()),
             Task::Clean(rooms)
         );
-        assert_eq!(Task::of_vacuum("returning", Vec::new()), Task::Return);
+        assert_eq!(Task::of_state("returning", Vec::new()), Task::Return);
         for state in ["paused", "idle", "error"] {
-            assert_eq!(Task::of_vacuum(state, Vec::new()), Task::Stay);
+            assert_eq!(Task::of_state(state, Vec::new()), Task::Stay);
         }
         for state in ["docked", "unavailable", "unknown", ""] {
-            assert_eq!(Task::of_vacuum(state, Vec::new()), Task::Dock);
+            assert_eq!(Task::of_state(state, Vec::new()), Task::Dock);
         }
     }
 

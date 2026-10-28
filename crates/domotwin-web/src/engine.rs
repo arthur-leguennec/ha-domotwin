@@ -9,7 +9,7 @@ use domotwin_core::camera::{Camera, CutawayMode};
 use domotwin_core::devices::camera_cone;
 use domotwin_core::edit::Session;
 use domotwin_core::layers::{
-    HeatKind, RoomLayers, legend, read_room_layers, room_shapes, room_texels,
+    HeatKind, Lawns, RoomLayers, legend, read_lawns, read_room_layers, room_shapes, room_texels,
 };
 use domotwin_core::lighting::{Mood, lighting_for_hour, lighting_for_sun, sun_direction};
 use domotwin_core::live::{EntityState, LiveState, Look, Targets, read_states, targets};
@@ -17,11 +17,12 @@ use domotwin_core::model_mesh::ModelMesh;
 use domotwin_core::overlay::{Layout, apply, fit, parse_layout};
 use domotwin_core::plan::{Element, Furniture, Plan, View, parse_plan_json, read_plan_value};
 use domotwin_core::scene::{
-    ElementInfo, ModelMeshes, Scene, SceneOptions, build_dynamic, build_home, build_scene_moving,
-    stack_plans,
+    ElementInfo, ModelMeshes, RoofStyle, Scene, SceneOptions, build_dynamic, build_home,
+    build_scene_moving, stack_plans,
 };
 use domotwin_core::theme::{Theme, ThemeName, parse_hex};
 use domotwin_core::walk::Floor;
+use domotwin_core::weather::{Fall, Weather};
 use domotwin_core::{ReadError, summarize_plan};
 use domotwin_render::lamps::power_level;
 use domotwin_render::{CameraFan, CameraTone, GpuHint, QualityPreset, Renderer, Rgb};
@@ -130,6 +131,8 @@ pub struct Engine {
     models_dirty: bool,
     /// The room layers shown (heatmap, alerts, presence).
     layers: RoomLayers,
+    /// The lawns' grass and mowing (D-077), by room id.
+    lawns: Lawns,
     /// What each linked camera sees on the floor (element id, camera entity, its storey, plan
     /// points), worked out when the plan shown or the bindings change.
     cones: Vec<(String, String, usize, Vec<[f64; 2]>)>,
@@ -142,6 +145,8 @@ pub struct Engine {
     camera_views_sent: Option<Vec<(CameraTone, bool)>>,
     /// The private rooms the viewer may not see (D-039), drawn closed.
     pub(crate) closed_rooms: BTreeSet<String>,
+    /// How the home's roofs are drawn (D-077).
+    roof_style: RoofStyle,
     /// The storeys of the home shown whole (D-028), lowest first; empty for a plan alone.
     pub(crate) home: Vec<HomeStorey>,
     /// The network map, while it is shown (D-031).
@@ -223,11 +228,13 @@ impl Engine {
             models: Rc::default(),
             models_dirty: false,
             layers: RoomLayers::default(),
+            lawns: Lawns::new(),
             cones: Vec::new(),
             camera_views_shown: true,
             camera_focus: None,
             camera_views_sent: None,
             closed_rooms: BTreeSet::new(),
+            roof_style: RoofStyle::default(),
             home: Vec::new(),
             network: None,
             automations: None,
@@ -466,11 +473,23 @@ impl Engine {
         self.put(plan, scene, keep_camera, &old, fresh);
     }
 
+    /// Shows a plan of a piece alone (the catalogue's pictures, D-074) under a ceiling at
+    /// `wall_height`: a hood's chimney or a stove's flue reaches up to it, not to a room's.
+    pub(crate) fn show_piece(&mut self, plan: Plan, wall_height: f64) {
+        let options = SceneOptions {
+            wall_height,
+            ..self.scene_options()
+        };
+        let scene = build_scene_moving(&plan, &options, &BTreeSet::new());
+        self.put(plan, scene, false, &[], true);
+    }
+
     fn scene_options(&mut self) -> SceneOptions {
         self.models_dirty = false;
         SceneOptions {
             models: Rc::clone(&self.models),
             closed_rooms: self.closed_rooms.clone(),
+            roof: self.roof_style,
             ..SceneOptions::default()
         }
     }
@@ -671,7 +690,7 @@ impl Engine {
     /// Gives the renderer the room layers of the scene shown.
     fn upload_rooms(&mut self) {
         if let (Some(plan), Some(scene)) = (&self.plan, &self.scene) {
-            let texels = room_texels(plan, scene, &self.layers);
+            let texels = room_texels(plan, scene, &self.layers, &self.lawns);
             self.renderer
                 .set_rooms(&texels, self.layers.shown(), self.layers.animated());
         }
@@ -778,6 +797,21 @@ impl Engine {
         });
         self.closed_rooms = closed;
         shown && self.build_again()
+    }
+
+    /// How the home's roofs are drawn (D-077): JSON `{"shape": "gable" | "hip" | "shed" | "flat",
+    /// "pitch": degrees, "color": "#rrggbb"}`, what is not understood the default (a gable roof at
+    /// 30°). `build`: the home shown is built again with it (not when it is about to be loaded).
+    /// Returns whether the scene was built again: only for a home shown with its roofs.
+    #[wasm_bindgen(js_name = setRoofStyle)]
+    pub fn set_roof_style(&mut self, json: &str, build: bool) -> bool {
+        let value = serde_json::from_str(json).unwrap_or(serde_json::Value::Null);
+        let style = RoofStyle::read(&value);
+        if style == self.roof_style {
+            return false;
+        }
+        self.roof_style = style;
+        build && !self.home.is_empty() && self.build_again()
     }
 
     /// How many pieces are drawn as boxes because the 3D files of the plan pass the scene's
@@ -942,13 +976,54 @@ impl Engine {
         self.renderer.set_sun(None);
     }
 
+    /// Draws the weather around the home (D-072) for one of Home Assistant's conditions
+    /// (`rainy`, `snowy`, `fog`…; any other is a clear sky), with its wind: `wind_speed` in m/s
+    /// and `wind_bearing` in degrees clockwise from north where it comes from (`NaN`: unknown), for
+    /// a plan whose north is `north` degrees clockwise from its top.
+    #[wasm_bindgen(js_name = setWeather)]
+    pub fn set_weather(&mut self, condition: &str, wind_speed: f64, wind_bearing: f64, north: f64) {
+        let known = |v: f64| v.is_finite().then_some(v);
+        self.renderer.set_weather(Weather::from_condition(
+            condition,
+            known(wind_speed),
+            known(wind_bearing),
+            north,
+        ));
+    }
+
+    /// What falls around the home now: `none`, `rain`, `snow`, `sleet` or `hail` (D-072).
+    #[wasm_bindgen(getter)]
+    pub fn weather(&self) -> String {
+        match self.renderer.weather().fall {
+            Fall::None => "none",
+            Fall::Rain => "rain",
+            Fall::Snow => "snow",
+            Fall::Sleet => "sleet",
+            Fall::Hail => "hail",
+        }
+        .to_owned()
+    }
+
     /// Shows the room layers: JSON `{"heat": "temperature", "values": {room id: value},
+    /// "peak": {room id: "preheat" | "shed" | "heating"}, "draws": {room id: watts},
     /// "alerts": {room id: "warning" | "danger"}, "presence": [room id…]}`; `{}` shows none.
     #[wasm_bindgen(js_name = setLayers)]
     pub fn set_layers(&mut self, json: &str) {
         let value = serde_json::from_str(json).unwrap_or(serde_json::Value::Null);
         self.layers = read_room_layers(&value);
         self.upload_rooms();
+    }
+
+    /// How long each lawn's grass is and how fresh its mowing (D-077): JSON `{room id: {"length":
+    /// cm, "fresh": 0–1}}`; a lawn not named is drawn with about a week's grass.
+    #[wasm_bindgen(js_name = setLawns)]
+    pub fn set_lawns(&mut self, json: &str) {
+        let value = serde_json::from_str(json).unwrap_or(serde_json::Value::Null);
+        let lawns = read_lawns(&value);
+        if lawns != self.lawns {
+            self.lawns = lawns;
+            self.upload_rooms();
+        }
     }
 
     /// Shows or hides the power layer: the pieces whose power sensors read more than standby are
@@ -1024,7 +1099,8 @@ impl Engine {
     }
 
     /// The elements of the plan shown (the edit overlay applied), as JSON `[{"id", "type", "name",
-    /// "kind"}]` (`kind` for furniture only).
+    /// "kind", "room", "beside", "lawn"}]` (`kind` for furniture only; `lawn` for a lawn,
+    /// D-077).
     #[wasm_bindgen(js_name = elementList)]
     pub fn element_list(&self) -> String {
         let infos = self.elements_by_id();
@@ -1045,6 +1121,13 @@ impl Engine {
                     if let Some(room) = self.room_in_slot(info.beside) {
                         entry["beside"] = room.as_str().into();
                     }
+                }
+                // A place outside whose ground is a lawn (D-077).
+                if let Element::Room(room) = element
+                    && room.outside
+                    && room.floor == domotwin_core::plan::Floor::Lawn
+                {
+                    entry["lawn"] = true.into();
                 }
                 let (kind, piece) = match element {
                     Element::Room(_) => ("room", None),
@@ -1092,8 +1175,9 @@ impl Engine {
     }
 
     /// Where the values of the layers shown go on the picture, as JSON `[{"id", "kind": "heat"
-    /// | "power", "value", "x", "y"}]` in device pixels from the top left: each room's heatmap
-    /// value at its centre, and each piece's power (W) when the power layer is shown.
+    /// | "draw" | "power", "value", "x", "y"}]` in device pixels from the top left: each room's
+    /// heatmap value, or what it draws (W, D-063), at its centre, and each piece's power (W) when
+    /// the power layer is shown.
     #[wasm_bindgen(js_name = layerLabels)]
     pub fn layer_labels(&self) -> String {
         let mut labels = Vec::new();
@@ -1104,14 +1188,19 @@ impl Engine {
                 }));
             }
         };
+        let heat = self.layers.heat.is_some();
         if let (Some(plan), Some(scene)) = (&self.plan, &self.scene)
-            && self.layers.heat.is_some()
+            && (heat || !self.layers.draws.is_empty())
         {
             for room in room_shapes(plan, scene) {
-                if let Some(value) = self.layers.values.get(room.id) {
+                let value = heat
+                    .then(|| self.layers.values.get(room.id).map(|v| ("heat", *v)))
+                    .flatten()
+                    .or_else(|| self.layers.draws.get(room.id).map(|w| ("draw", *w)));
+                if let Some((kind, value)) = value {
                     let [x, z] = room.label;
                     let at = self.renderer.view.place(room.storey, [x, 1.0, z]);
-                    push(room.id, "heat", *value, at);
+                    push(room.id, kind, value, at);
                 }
             }
         }
@@ -1386,7 +1475,11 @@ impl Engine {
                 .map_or(0, |scene| scene.parts.iter().map(|p| p.lines.len()).sum::<usize>()),
             "storeys": view.storey_count(),
             "spread": view.spread(),
-            "roof": view.roof_offset().is_some(),
+            "roof": view.roof_offset(0).is_some(),
+            "roofs": self.scene.as_ref().map_or(0, |scene| scene.roofs.len()),
+            "roofShape": self.roof_style.kind.name(),
+            // Where the robots are, and the room each cleans or mows (D-049, D-077).
+            "robots": self.robots_shown(),
             "camera": {
                 "target": camera.target.map(round),
                 "distance": round(camera.distance),

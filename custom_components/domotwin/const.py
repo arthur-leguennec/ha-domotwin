@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+import re
 from typing import Final
 
 DOMAIN: Final = "domotwin"
-VERSION: Final = "0.4.0"  # x-release-please-version
+VERSION: Final = "0.5.0"  # x-release-please-version
 
 # Storage (.storage/domotwin.data), see docs/ARCHITECTURE.md.
 STORAGE_KEY: Final = f"{DOMAIN}.data"
@@ -70,6 +71,12 @@ PEOPLE_STORAGE_VERSION: Final = 1
 MAX_PEOPLE: Final = 50
 # Private rooms (D-039): at most this many.
 MAX_PRIVATE_ROOMS: Final = 200
+# Per-person rights (D-071): the people given their own, and the rooms and devices one names.
+MAX_RIGHTS_PEOPLE: Final = 50
+MAX_RIGHTS_ROOMS: Final = 200
+MAX_RIGHTS_ENTITIES: Final = 500
+# A room's or a device's level: used, only seen, or hidden.
+RIGHTS_LEVELS: Final = ("use", "see", "hidden")
 MAX_PERSON_SOURCES: Final = 10
 PEOPLE_SHOWN: Final = ("everyone", "admins")
 PEOPLE_LOOKS: Final = ("figure", "pin")
@@ -83,13 +90,24 @@ LOCATING_STORAGE_KEY: Final = f"{DOMAIN}.locating"
 LOCATING_LEARNED_KEY: Final = f"{DOMAIN}.locating_learned"
 LOCATING_STORAGE_VERSION: Final = 1
 MAX_LOCATED: Final = 30
+# The presence radars given settings of their own (D-080), at most.
+MAX_RADARS: Final = 50
 MAX_RECEIVERS: Final = 64
 MAX_LOCATED_NAME: Final = 60
+# An identity key as the tools that read one write it (spaces, `irk:`), at most (D-075).
+MAX_KEY_TEXT: Final = 80
 LOCATED_KINDS: Final = ("phone", "watch", "thing")
 # A device taught in a room is listened to this long (seconds), at least and at most.
 TEACH_SECONDS: Final = (10, 120)
 # Dispatcher signal sent when a followed device moves, is lost or left behind: (device id,).
 SIGNAL_LOCATED: Final = f"{DOMAIN}_located"
+# Dispatcher signal sent when the people the presence radars see change (D-080).
+SIGNAL_SEEN: Final = f"{DOMAIN}_seen"
+# The placement advisor (docs/DECISIONS.md, D-066): the Wi-Fi access points placed on the plan, at
+# most this many, each named this long, at a point this far from the plan's origin at most (cm).
+MAX_ACCESS_POINTS: Final = 16
+MAX_ACCESS_POINT_NAME: Final = 60
+MAX_PLAN_REACH: Final = 1_000_000
 
 # Actions done later (docs/DECISIONS.md, D-046), kept in their own store.
 SCHEDULES_STORAGE_KEY: Final = f"{DOMAIN}.schedules"
@@ -120,13 +138,33 @@ SCHEDULABLE_DOMAINS: Final = (
 )
 
 # Each user's own choices (docs/DECISIONS.md, D-055): their favourites, the tab DomoTwin opens on
-# and their Home tab's cards, in a store of their own (.storage/domotwin.users).
+# (the Safety tab since D-068) and their Home tab's cards, in a store of their own
+# (.storage/domotwin.users).
 CHOICES_STORAGE_KEY: Final = f"{DOMAIN}.users"
 CHOICES_STORAGE_VERSION: Final = 1
-START_TABS: Final = ("home", "rooms", "3d")
+START_TABS: Final = ("home", "rooms", "safety", "3d")
 MAX_FAVOURITES: Final = 100
 MAX_HOME_CARDS: Final = 6
+#: A user's shortcuts on the Home tab (D-084): how many, their steps, the entities a step lists,
+#: their name's length.
+MAX_SHORTCUTS: Final = 24
+MAX_STEPS: Final = 6
+MAX_LISTED: Final = 50
+MAX_SHORTCUT_NAME: Final = 40
 MAX_CALENDARS: Final = 10
+
+# The configuration history (docs/DECISIONS.md, D-062): each change of an automation, a script,
+# a scene or a dashboard, in a store of its own (.storage/domotwin.config_history). At most this
+# many bytes in all and versions an item (the oldest versions go first, an item's newest always
+# kept), bytes a version (a larger one keeps its date, not its content); past this many items,
+# those removed are forgotten, the longest removed first.
+CONFIG_HISTORY_STORAGE_KEY: Final = f"{DOMAIN}.config_history"
+CONFIG_HISTORY_STORAGE_VERSION: Final = 1
+CONFIG_HISTORY_KINDS: Final = ("automation", "script", "scene", "dashboard")
+MAX_CONFIG_HISTORY_BYTES: Final = 4_000_000
+MAX_CONFIG_HISTORY_VERSIONS: Final = 50
+MAX_CONFIG_HISTORY_VERSION_BYTES: Final = 1_000_000
+MAX_CONFIG_HISTORY_ITEMS: Final = 2_000
 
 # Dispatcher signal sent after every write: (kind, revision).
 SIGNAL_UPDATED: Final = f"{DOMAIN}_updated"
@@ -135,6 +173,59 @@ SERVICE_SHOW: Final = "show"
 SIGNAL_SHOW: Final = f"{DOMAIN}_show"
 MAX_SHOW_TEXT: Final = 100
 MAX_SCREEN_NAME: Final = 64
+#: A screen's name (a card's `screen`, D-029): letters, digits, `_` and `-`, in any case.
+SCREEN_NAME: Final = re.compile(rf"^[A-Za-z0-9_-]{{1,{MAX_SCREEN_NAME}}}$")
+
+# The wall screens (docs/DECISIONS.md, D-076): each one's layout (the tab it opens on, its screen
+# saver), by its name, in a store of their own (.storage/domotwin.screens). At most this many
+# screens, sensors waking one, minutes before its saver comes, and characters of a media folder's
+# id; a photo shown this many seconds at least and at most.
+SCREENS_STORAGE_KEY: Final = f"{DOMAIN}.screens"
+SCREENS_STORAGE_VERSION: Final = 1
+MAX_SCREENS: Final = 20
+MAX_WAKE_SENSORS: Final = 10
+MAX_SAVER_MINUTES: Final = 240
+MAX_MEDIA_ID: Final = 512
+PHOTO_SECONDS: Final = (5, 3600)
+
+# The garden (docs/DECISIONS.md, D-077): when each lawn was last mown, said by someone or by its
+# robot mower, in a store of its own (.storage/domotwin.garden). At most this many lawns and mowers.
+GARDEN_STORAGE_KEY: Final = f"{DOMAIN}.garden"
+GARDEN_STORAGE_VERSION: Final = 1
+MAX_LAWNS: Final = 100
+MAX_MOWERS: Final = 20
+#: A robot mower at work (Home Assistant's `lawn_mower` entities).
+MOWING: Final = "mowing"
+
+# The home's Wi-Fi for guests (docs/DECISIONS.md, D-060), in a private store of its own
+# (.storage/domotwin.wifi): never in the plan, the logs, the diagnostics or an export.
+WIFI_STORAGE_KEY: Final = f"{DOMAIN}.wifi"
+WIFI_STORAGE_VERSION: Final = 1
+MAX_WIFI_SCREENS: Final = 20
+
+# Guest access (docs/DECISIONS.md, D-067): passes that open chosen rooms and devices for a while,
+# in a private store of their own (.storage/domotwin.guests), read through DomoTwin's own page
+# outside Home Assistant's sign-in (GUEST_URL/<secret>).
+GUESTS_STORAGE_KEY: Final = f"{DOMAIN}.guests"
+GUESTS_STORAGE_VERSION: Final = 1
+GUEST_URL: Final = "/api/domotwin/guest"
+GUEST_PAGE: Final = "guest.html"
+MAX_GUEST_PASSES: Final = 20
+MAX_GUEST_NAME: Final = 60
+MAX_GUEST_ROOMS: Final = 200
+MAX_GUEST_ENTITIES: Final = 100
+# A pass lasts at most this long (days); it may start this far ahead.
+MAX_GUEST_DAYS: Final = 31
+MAX_GUEST_AHEAD_DAYS: Final = 366
+# A pass's guests act at most this many times in this many seconds, and follow the home from at
+# most this many pages at once.
+MAX_GUEST_CALLS: Final = 20
+GUEST_CALLS_SECONDS: Final = 5
+MAX_GUEST_STREAMS: Final = 8
+# The event fired with each action of a guest, which the logbook says (logbook.py).
+EVENT_GUEST_ACTION: Final = f"{DOMAIN}_guest_action"
+# Dispatcher signal sent when a pass is made, changed, renewed or removed: (pass id,).
+SIGNAL_GUESTS: Final = f"{DOMAIN}_guests"
 
 # The 3D files of user models (docs/DECISIONS.md, D-013 and D-021): kept by their SHA-256 in
 # <config>/domotwin/models/, uploaded by administrators, served to signed-in users.
@@ -154,3 +245,26 @@ MAX_MODELS: Final = 50
 MODEL_GRACE_SECONDS: Final = 86_400
 # Overlay entries of the models imported in edit mode: "@model:<model id>".
 MODEL_ENTRY_PREFIX: Final = "@model:"
+
+# The weekly report (docs/DECISIONS.md, D-081): its settings and the last reports, in a store of its
+# own (.storage/domotwin.reports), private. At most this many reports kept (the oldest go first),
+# items a section of a report (the others counted), and a summary's characters.
+REPORT_STORAGE_KEY: Final = f"{DOMAIN}.reports"
+REPORT_STORAGE_VERSION: Final = 1
+MAX_REPORTS: Final = 8
+MAX_REPORT_ITEMS: Final = 100
+MAX_SUMMARY: Final = 2_000
+# What needs a look, in the order a report says it.
+REPORT_SECTIONS: Final = (
+    "batteries",
+    "unavailable",
+    "updates",
+    "repairs",
+    "upkeep",
+    "automations",
+    "radios",
+)
+# The event fired after each report written on its day, for automations of one's own; and Home
+# Assistant's notification of it, replaced by the next one.
+REPORT_EVENT: Final = f"{DOMAIN}_weekly_report"
+REPORT_NOTIFICATION: Final = f"{DOMAIN}_weekly_report"

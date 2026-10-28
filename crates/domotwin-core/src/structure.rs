@@ -772,7 +772,8 @@ impl Draft {
         Ok(Some(id))
     }
 
-    /// Changes fields of element `id`: `name` for all; `floor`, `color` for rooms; `width`,
+    /// Changes fields of element `id`: `name` for all; `floor`, `color`, `outside`, `railing` for
+    /// rooms (a place outside, D-077); `width`,
     /// `opensTo`, `style` for doors, `width` for windows (a new width keeps the opening's middle on
     /// its side, within it); `thickness` for partitions. Others are left alone.
     ///
@@ -788,7 +789,7 @@ impl Draft {
         let element = &mut list_mut(&mut next, key)[index];
         let kind = kind_of(key);
         let allowed: &[&str] = match kind {
-            "room" => &["name", "floor", "color"],
+            "room" => &["name", "floor", "color", "outside", "railing"],
             "door" => &["name", "opensTo", "style"],
             "wall" => &["name", "thickness"],
             _ => &["name"],
@@ -1319,6 +1320,15 @@ mod tests {
             d.element("a").unwrap()["floor"],
             json!({ "material": "grey-wood", "angle": 90 })
         );
+        // A place outside (D-077), with its railing and its lawn.
+        let mut outside = Map::new();
+        outside.insert("outside".into(), json!(true));
+        outside.insert("railing".into(), json!(true));
+        outside.insert("floor".into(), json!({ "material": "lawn" }));
+        d.update("a", &outside).unwrap();
+        let a = d.element("a").unwrap();
+        assert_eq!((&a["outside"], &a["railing"]), (&json!(true), &json!(true)));
+        assert_eq!(a["floor"]["material"], "lawn");
     }
 
     #[test]

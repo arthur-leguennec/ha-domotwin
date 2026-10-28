@@ -93,6 +93,16 @@ export const baseStyles = css`
     fill: currentColor;
     flex: none;
   }
+  /*
+   * Right to left (D-082): the element Home Assistant shows turns round (its \`dir\`), and with
+   * it what points back or on, every browser alike.
+   */
+  :host([dir="rtl"]) {
+    --domotwin-mirror: -1;
+  }
+  svg.icon.mirrored {
+    transform: scaleX(var(--domotwin-mirror, 1));
+  }
 
   @media (prefers-reduced-motion: reduce) {
     *,

@@ -15,6 +15,20 @@ blueprint:
       default:
         - "show [me] [the] {room} [on the screen]"
         - "montre [moi] [le|la|les|l'] {room}"
+        - "(zeig|zeige) [mir] [den|die|das] {room} [auf dem Bildschirm]"
+        - "(muestra|muéstrame|enséñame) [el|la|los|las] {room} [en la pantalla]"
+        - "(mostrami|fammi vedere) [il|lo|la|i|gli|le|l'] {room} [sullo schermo]"
+        - "toon [me|mij] [de|het] {room} [op het scherm]"
+        - "laat [me|mij] [de|het] {room} zien"
+        - "(mostra-me|mostrar) [o|a|os|as] {room} [no ecrã]"
+        - "(mostre|me mostra|me mostre) [o|a|os|as] {room} [na tela]"
+        - "mostra [il|lo|la|i|gli|le|l'|o|a|os|as] {room} [sullo schermo|no ecrã|na tela]"
+        - "(اعرض|أظهر|اظهر) [لي] {room} [على الشاشة]"
+        - "(أرني|ارني) {room} [على الشاشة]"
+        - "[在屏幕上]显示[一下]{room}"
+        - "(给我看|让我看)[看|一下]{room}"
+        - "[画面に]{room}を(見せて|表示して)[ください]"
+        - "[화면에] {room}[을|를] [좀] (보여 줘|보여줘|보여 주세요|보여주세요)"
       selector:
         text:
           multiple: true

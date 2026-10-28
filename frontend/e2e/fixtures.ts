@@ -3,7 +3,15 @@ import { expect, type Locator, type Page } from "@playwright/test";
 import type { DebugState } from "../src/components/view";
 
 export interface HarnessOptions {
-  mode?: "card" | "panel";
+  mode?: "card" | "panel" | "summary";
+  /** mode summary: which of DomoTwin's summaries (D-061). */
+  summary?: string;
+  /** A Home Assistant that opens on its Overview, with DomoTwin's room sensors (D-061). */
+  overview?: boolean;
+  /** With the Overview: no DomoTwin panel for this user (left out of the sidebar, or admins'). */
+  noPanel?: boolean;
+  /** Home Assistant's Energy page, its energy integration's (D-069); `empty`: nothing set up. */
+  energyPage?: boolean | "empty";
   /**
    * Voice (D-041): Assist with a pipeline that hears (`true`), or none that hears (`"deaf"`);
    * apps that can be installed; one blueprint edited; a page served over HTTP; the card's
@@ -18,7 +26,8 @@ export interface HarnessOptions {
   tip?: boolean;
   /** The card's `font_family`. */
   font?: string;
-  lang?: "en" | "fr";
+  /** Home Assistant's language: English and French with the first picture, the others loaded. */
+  lang?: "en" | "fr" | "de" | "ar" | "ja";
   plan?: "demo" | "none";
   admin?: boolean;
   dark?: boolean;
@@ -43,6 +52,7 @@ export interface HarnessOptions {
     | "co2"
     | "pm25"
     | "power"
+    | "peak"
     | "network"
     | "automations"
     | "upkeep";
@@ -60,15 +70,29 @@ export interface HarnessOptions {
   accent?: string;
   /** The home's look (the stored settings). */
   homeTheme?: "auto" | "day" | "neon" | "blueprint" | "cartoon" | "clay";
+  /** A fictional `weather.home` in this condition, and a `weather.coast` pouring (D-072). */
+  weather?: string;
+  /** The stored settings' weather: an entity, or `none`. */
+  homeWeather?: string;
+  /** The card's `weather` option. */
+  weatherOption?: boolean;
   /** Card option: the rooms' names off. */
   names?: false;
   /** Kiosk options (D-029): the card's screen name, `idle` seconds, `orbit`, `night_dim`. */
   screen?: string;
+  /** The home's Wi-Fi for guests (D-060): a fictional network typed, or a router's code; the
+   * screens that show it. */
+  wifi?: "typed" | "image";
+  wifiScreens?: readonly string[];
   idle?: number;
+  /** The card's tools hidden (`tools: false`), as on a wall screen. */
+  tools?: false;
   orbit?: boolean;
   nightDim?: boolean;
   /** A mocked ZHA with a fictional Zigbee mesh (the network map, D-031). */
   zha?: boolean;
+  /** Home Assistant's logbook and traces of a fictional evening (D-059), with `live`. */
+  why?: boolean;
   /** Fictional automations (D-032): `true` three of the demo apartment, a number made up ones. */
   automations?: true | number;
   /** The sandbox's time zone and place, and its automations and script (D-057). */
@@ -79,25 +103,42 @@ export interface HarnessOptions {
   people?: boolean;
   /** A robot vacuum's dock in the hall, linked to `vacuum.robbie` (D-049). */
   robot?: boolean;
+  /** Robots running Valetudo, their map data cameras in Home Assistant (D-064). */
+  valetudo?: 1 | 2;
   /** Fictional solar panels, meter and battery, named in the stored settings (D-049). */
   energy?: boolean;
   /** The card's `demo`: the demo house instead of this home (D-050). */
   demo?: boolean;
+  /**
+   * Hydro-Québec's peaks (D-063): the integration that reads them (hydroqc's sensors, HydroPeak's,
+   * or hydroqc's calendar) and where its peak stands now (`peak` unless asked).
+   */
+  peak?: "hydroqc" | "hydropeak" | "calendar";
+  peakPhase?: "upcoming" | "preheat" | "peak" | "none";
   peopleShown?: "everyone" | "admins";
   peopleLook?: "figure" | "pin";
   /** Bluetooth locating (D-035): fictional receivers and devices, or no Bluetooth at all. */
   bluetooth?: true | "none";
+  /** The radio coverage's fictional radios (D-066): receivers placed, Wi-Fi signals, an access
+   * point. */
+  radios?: boolean;
+  /** Presence radars (D-080): one seeing someone no device names, one not working. */
+  radars?: boolean;
   /** Private rooms (D-039): kept for nobody, or for `privateFor`, maybe only while an entity is
    * on. */
   private?: string[];
   privateFor?: string;
   privateWhile?: string;
+  /** Each person's rights (D-071), as the stored settings keep them. */
+  rights?: unknown;
   /** The settings cannot be read until `window.__settingsUp()`. */
   settingsDown?: boolean;
   /** The tab this device opens on (D-055): the 3D view unless asked; `none`: the user's. */
-  start?: "home" | "rooms" | "3d" | "none";
+  start?: "home" | "rooms" | "safety" | "3d" | "none";
   /** The tab the user chose, and their favourites. */
-  userStart?: "home" | "rooms" | "3d";
+  userStart?: "home" | "rooms" | "safety" | "3d";
+  /** The user's choices answered only at `window.__releaseChoices()` (D-084). */
+  holdChoices?: boolean;
   favourites?: string[];
   /** Home Assistant's address: the panel's path, and the path after it opened. */
   route?: boolean;
@@ -115,6 +156,31 @@ export interface HarnessOptions {
   historyFail?: boolean;
   noStats?: boolean;
   formatState?: boolean;
+  /** The configuration history (D-062): fictional items and their versions. */
+  configHistory?: boolean;
+  /**
+   * The weekly report (D-081): last week's and this week's (`true`), this week's summed up by an
+   * AI task (`summary`), or none yet (`none`); `report` asks the panel for one, as the weekly
+   * notification's link does.
+   */
+  weekly?: true | "summary" | "none";
+  report?: number;
+  /**
+   * Safety (D-068), with `live`: a doorbell at the front door with its camera, and an alarm
+   * (`window.__ring()` rings it); Home Assistant 2026.10 with its Security page (`security`), and
+   * the alerts chosen on it (`securityAlerts`, `entity` or `entity:severity`).
+   */
+  safety?: boolean;
+  security?: boolean;
+  securityAlerts?: string[];
+  /** Home Assistant's AI task (D-070): a fictional one, its actions and its check. */
+  aiTask?: boolean;
+  /**
+   * The wall screens (D-076): the hall's (`wall`), its saver after a minute woken by
+   * `binary_sensor.hall_motion`, with fictional photos; and the screen this device is.
+   */
+  wall?: boolean;
+  deviceScreen?: string;
 }
 
 /** Opens the mocked Home Assistant with the built frontend. */
@@ -144,26 +210,45 @@ export async function openHarness(page: Page, options: HarnessOptions = {}): Pro
   if (options.theme) params.set("theme", options.theme);
   if (options.accent) params.set("accent", options.accent);
   if (options.homeTheme) params.set("hometheme", options.homeTheme);
+  if (options.weather) params.set("weather", options.weather);
+  if (options.homeWeather) params.set("homeweather", options.homeWeather);
+  if (options.weatherOption === false) params.set("weatheroption", "0");
   if (options.names === false) params.set("names", "0");
   if (options.screen) params.set("screen", options.screen);
+  if (options.wifi) params.set("wifi", options.wifi);
+  if (options.wifiScreens) params.set("wifiscreens", options.wifiScreens.join(","));
   if (options.idle !== undefined) params.set("idle", String(options.idle));
+  if (options.tools === false) params.set("tools", "0");
+  if (options.summary) params.set("summary", options.summary);
+  if (options.overview) params.set("overview", "1");
+  if (options.energyPage) params.set("energypage", options.energyPage === true ? "1" : "empty");
+  if (options.noPanel) params.set("nopanel", "1");
   if (options.orbit) params.set("orbit", "1");
   if (options.nightDim) params.set("nightdim", "1");
   if (options.zha) params.set("zha", "1");
   if (options.upkeep !== undefined) params.set("upkeep", options.upkeep ? "1" : "0");
   if (options.people !== undefined) params.set("people", options.people ? "1" : "0");
   if (options.robot) params.set("robot", "1");
+  if (options.valetudo) params.set("valetudo", String(options.valetudo));
   if (options.energy) params.set("energy", "1");
   if (options.demo) params.set("demo", "1");
+  if (options.peak) params.set("peak", options.peak);
+  if (options.peakPhase) params.set("peakphase", options.peakPhase);
   if (options.peopleShown) params.set("peopleshown", options.peopleShown);
   if (options.peopleLook) params.set("peoplelook", options.peopleLook);
   if (options.bluetooth) params.set("bluetooth", options.bluetooth === true ? "1" : "none");
+  if (options.radios) params.set("radios", "1");
+  if (options.radars) params.set("radars", "1");
   if (options.private) params.set("private", options.private.join(","));
   if (options.privateFor) params.set("privatefor", options.privateFor);
   if (options.privateWhile) params.set("privatewhile", options.privateWhile);
+  if (options.rights) params.set("rights", JSON.stringify(options.rights));
   if (options.settingsDown) params.set("settingsdown", "1");
   if (options.start) params.set("start", options.start);
+  if (options.wall) params.set("wall", "1");
+  if (options.deviceScreen) params.set("devicescreen", options.deviceScreen);
   if (options.userStart) params.set("userstart", options.userStart);
+  if (options.holdChoices) params.set("holdchoices", "1");
   if (options.favourites) params.set("favourites", options.favourites.join(","));
   if (options.route) params.set("route", "1");
   if (options.path) params.set("path", options.path);
@@ -173,6 +258,13 @@ export async function openHarness(page: Page, options: HarnessOptions = {}): Pro
   if (options.historyFail) params.set("historyfail", "1");
   if (options.noStats) params.set("nostats", "1");
   if (options.formatState) params.set("formatstate", "1");
+  if (options.configHistory) params.set("confighistory", "1");
+  if (options.weekly) params.set("weekly", options.weekly === true ? "1" : options.weekly);
+  if (options.report !== undefined) params.set("report", String(options.report));
+  if (options.safety) params.set("safety", "1");
+  if (options.security) params.set("security", "1");
+  if (options.securityAlerts) params.set("securityalerts", options.securityAlerts.join(","));
+  if (options.aiTask) params.set("aitask", "1");
   if (options.voice) params.set("voice", options.voice === true ? "1" : options.voice);
   if (options.supervisor) params.set("supervisor", "1");
   if (options.blueprints) params.set("blueprints", options.blueprints);
@@ -180,6 +272,7 @@ export async function openHarness(page: Page, options: HarnessOptions = {}): Pro
   if (options.mic === false) params.set("mic", "0");
   if (options.tip) params.set("tip", "1");
   if (options.sandbox) params.set("sandbox", "1");
+  if (options.why) params.set("why", "1");
   if (options.automations) {
     params.set("automations", options.automations === true ? "1" : String(options.automations));
   }
@@ -223,8 +316,24 @@ export function stage(page: Page): Locator {
   return page.locator("domotwin-view").locator(".stage");
 }
 
+/**
+ * Waits until the page has drawn twice: the view takes a new size of its stage (the panel's tabs go
+ * while a tool such as link mode is on, and come back) as the page draws, after the frames'
+ * callbacks. A point taken before is where the element was drawn, and a press there may land on
+ * something else.
+ */
+async function drawn(page: Page): Promise<void> {
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) => {
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+      }),
+  );
+}
+
 /** Where an element of the plan is drawn, in page coordinates. */
 export async function elementPoint(page: Page, id: string): Promise<{ x: number; y: number }> {
+  await drawn(page);
   const box = await stage(page).boundingBox();
   if (!box) throw new Error("no stage");
   const point = await page.evaluate(
@@ -281,6 +390,7 @@ export function entityState(page: Page, id: string): Promise<string | undefined>
 
 /** The colour drawn at the centre of an element, from a fresh frame. */
 export async function colorAt(page: Page, id: string): Promise<[number, number, number]> {
+  await drawn(page);
   return page.evaluate(async (element) => {
     const page = window as never as {
       __view: () => HTMLElement & {

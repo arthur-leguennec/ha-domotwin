@@ -22,6 +22,8 @@ export interface LocatedSettings {
   kind: LocatedKind;
   person?: string;
   match: LocatedMatch;
+  /** Bermuda's area sensor of the same device, measured beside DomoTwin's room (M41). */
+  bermuda?: string;
 }
 
 /** A followed device as `locating/get` gives it: where it is now, too. */
@@ -47,6 +49,9 @@ export interface ReceiverInfo {
   /** What placed it: by hand (`room`, `piece`), from its device (`device_area`, `device_piece`),
    * or nothing. */
   placed_by: "room" | "piece" | "device_area" | "device_piece" | null;
+  /** Where it stands (D-066): its storey, its point (cm) and its height (cm, on the storeys'
+   * elevations: its storey's and the height above that floor); none when nothing places it. */
+  place?: { storey: string; at: [number, number]; z: number } | null;
 }
 
 /** The locating's settings and state, as `domotwin/locating/get` gives them. */
@@ -58,7 +63,30 @@ export interface LocatingSettings {
   devices: Record<string, LocatedDevice>;
   /** How much was learned in each room (readings). */
   learned: Record<string, number>;
+  /** What each receiver learned in each room (D-066): the mean signal, a phone's as the model
+   * has it, and of how many readings. */
+  heard?: Record<string, Record<string, { signal: number; readings: number }>>;
   rooms: { id: string; name: string; storey: string }[];
+  /** Bermuda's area sensors, to measure beside DomoTwin's rooms (M41). */
+  bermuda?: string[];
+  /** The presence radars on the plans (D-080); not given by an integration before them. */
+  radars?: RadarInfo[];
+}
+
+/** A presence radar on the plans (D-080): the piece linked to it, what it says, what it sees. */
+export interface RadarInfo {
+  piece: string;
+  name: string;
+  /** The room it looks into; null when it stands in none. */
+  room: string | null;
+  /** Where its targets are, or how far its target is. */
+  kind: "targets" | "distance";
+  /** Some of its entities say something now. */
+  working: boolean;
+  /** How many people it sees now. */
+  seeing: number;
+  /** It counts its targets across the other way round. */
+  mirror: boolean;
 }
 
 /** A device that may be followed, heard now or known to Home Assistant. */
@@ -101,6 +129,7 @@ export function settingsOf(device: LocatedSettings): LocatedSettings {
   const match: LocatedMatch = "key" in device.match ? { key: device.match.key } : device.match;
   const saved: LocatedSettings = { name: device.name, kind: device.kind, match };
   if (device.person) saved.person = device.person;
+  if (device.bermuda) saved.bermuda = device.bermuda;
   return saved;
 }
 

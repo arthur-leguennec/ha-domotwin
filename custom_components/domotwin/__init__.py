@@ -11,22 +11,40 @@ from homeassistant.helpers.start import async_at_started
 from homeassistant.helpers.typing import ConfigType
 
 from .choices import Choices
+from .config_history import ConfigHistory
 from .const import DOMAIN, SIGNAL_SCHEDULES
-from .data import CHOICES_KEY, DATA_KEY, LOCATOR_KEY, PEOPLE_KEY, SCHEDULER_KEY
+from .data import (
+    CHOICES_KEY,
+    CONFIG_HISTORY_KEY,
+    DATA_KEY,
+    GARDEN_KEY,
+    GUESTS_KEY,
+    LOCATOR_KEY,
+    PEOPLE_KEY,
+    REPORT_KEY,
+    SCHEDULER_KEY,
+    SCREENS_KEY,
+    WIFI_KEY,
+)
 from .frontend import (
     async_register_frontend,
     async_remove_panel,
     async_unregister_frontend,
     async_update_panel,
 )
+from .garden import Garden
+from .guests import Guests
 from .http import async_register_views
 from .locator import Locator
 from .models import async_remove_all
+from .report import WeeklyReport
 from .schedules import Scheduler
+from .screens import Screens
 from .services import async_register_services
 from .storage import DomoTwinData
 from .tracker import PeopleTracker
 from .websocket_api import async_register_commands
+from .wifi import Wifi
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 # The upkeep sensor (D-033), the people's rooms (D-034), the Bluetooth devices' rooms and the
@@ -97,11 +115,113 @@ async def async_setup_entry(hass: HomeAssistant, entry: DomoTwinConfigEntry) -> 
 
     entry.async_on_unload(drop_choices)
     hass.data[CHOICES_KEY] = choices
+    # The wall screens' layouts (D-076).
+    screens = Screens(hass)
+    await screens.async_load()
+
+    @callback
+    def drop_screens() -> None:
+        if hass.data.get(SCREENS_KEY) is screens:
+            hass.data.pop(SCREENS_KEY)
+
+    entry.async_on_unload(drop_screens)
+    hass.data[SCREENS_KEY] = screens
+    starts = (_async_start_garden, _async_start_guests, _async_start_history, _async_start_report)
+    for start in starts:
+        await start(hass, entry)
     await async_register_frontend(hass)
     await async_update_panel(hass, entry)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(_async_options_updated))
     return True
+
+
+async def _async_start_garden(hass: HomeAssistant, entry: DomoTwinConfigEntry) -> None:
+    """When each lawn was last mown, and each robot mower last mowed (D-077)."""
+    garden = Garden(hass)
+    await garden.async_load()
+    entry.async_on_unload(garden.async_start())
+    entry.async_on_unload(garden.async_flush)
+
+    @callback
+    def drop_garden() -> None:
+        if hass.data.get(GARDEN_KEY) is garden:
+            hass.data.pop(GARDEN_KEY)
+
+    entry.async_on_unload(drop_garden)
+    hass.data[GARDEN_KEY] = garden
+
+
+async def _async_start_guests(hass: HomeAssistant, entry: DomoTwinConfigEntry) -> None:
+    """The home's Wi-Fi for guests (D-060) and the guest passes (D-067)."""
+    wifi = Wifi(hass)
+    await wifi.async_load()
+
+    @callback
+    def drop_wifi() -> None:
+        if hass.data.get(WIFI_KEY) is wifi:
+            hass.data.pop(WIFI_KEY)
+
+    entry.async_on_unload(drop_wifi)
+    hass.data[WIFI_KEY] = wifi
+    guests = Guests(hass)
+    await guests.async_load()
+
+    @callback
+    def drop_guests() -> None:
+        # Their pages closed: they read the home again, and find DomoTwin stopped.
+        guests.async_stop()
+        if hass.data.get(GUESTS_KEY) is guests:
+            hass.data.pop(GUESTS_KEY)
+
+    entry.async_on_unload(drop_guests)
+    hass.data[GUESTS_KEY] = guests
+
+
+async def _async_start_history(hass: HomeAssistant, entry: DomoTwinConfigEntry) -> None:
+    """The configuration history (D-062): read once Home Assistant has started, then on changes."""
+    history = ConfigHistory(hass)
+    await history.async_load()
+    # Written at once on unload, once stopped (the callbacks run last added first).
+    entry.async_on_unload(history.async_flush)
+    history.async_start()
+
+    @callback
+    def read_history(_hass: HomeAssistant) -> None:
+        hass.async_create_task(history.async_snapshot(), eager_start=True)
+
+    entry.async_on_unload(async_at_started(hass, read_history))
+
+    @callback
+    def drop_history() -> None:
+        history.async_stop()
+        if hass.data.get(CONFIG_HISTORY_KEY) is history:
+            hass.data.pop(CONFIG_HISTORY_KEY)
+
+    entry.async_on_unload(drop_history)
+    hass.data[CONFIG_HISTORY_KEY] = history
+
+
+async def _async_start_report(hass: HomeAssistant, entry: DomoTwinConfigEntry) -> None:
+    """The weekly report (D-081): looked for every hour; a week missed written once started."""
+    report = WeeklyReport(hass, entry.runtime_data)
+    await report.async_load()
+    report.async_start()
+
+    @callback
+    def catch_up(_hass: HomeAssistant) -> None:
+        report.async_catch_up()
+
+    entry.async_on_unload(async_at_started(hass, catch_up))
+
+    @callback
+    def drop_report() -> None:
+        report.async_stop()
+        if hass.data.get(REPORT_KEY) is report:
+            hass.data.pop(REPORT_KEY)
+
+    entry.async_on_unload(drop_report)
+    hass.data[REPORT_KEY] = report
 
 
 async def _async_options_updated(hass: HomeAssistant, entry: DomoTwinConfigEntry) -> None:
@@ -121,10 +241,16 @@ async def async_unload_entry(hass: HomeAssistant, entry: DomoTwinConfigEntry) ->
 
 
 async def async_remove_entry(hass: HomeAssistant, entry: DomoTwinConfigEntry) -> None:
-    """Delete everything DomoTwin keeps: data, settings, actions waiting, choices, model files."""
+    """Delete DomoTwin's keeps: data, choices, screens, garden, Wi-Fi, passes, reports, models."""
     await DomoTwinData(hass).async_remove()
     await Scheduler(hass).async_remove()
     await Choices(hass).async_remove()
+    await Screens(hass).async_remove()
+    await Garden(hass).async_remove()
+    await Wifi(hass).async_remove()
+    await Guests(hass).async_remove()
+    await ConfigHistory(hass).async_remove()
+    await WeeklyReport(hass, DomoTwinData(hass)).async_remove()
     await PeopleTracker(hass, DomoTwinData(hass)).async_remove()
     await Locator(hass, DomoTwinData(hass), entry.entry_id).async_remove()
     await async_remove_all(hass)

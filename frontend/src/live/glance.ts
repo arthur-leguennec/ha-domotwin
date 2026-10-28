@@ -1,13 +1,17 @@
 /**
- * The home at a glance, on the Home tab (D-055): who is in, the weather, the alerts, the lamps on,
- * the doors and windows open, read from Home Assistant's states. What a private room holds (D-039)
- * is left out for a viewer who may not see it, its dangers aside, as the layers do.
+ * The home at a glance, on the Home tab (D-055): who is in, the weather, the lamps on, the doors
+ * and windows open, Hydro-Québec's next peak (D-063), read from Home Assistant's states. What a
+ * private room holds (D-039) is left out for a viewer who may not see it. The alerts are above
+ * every tab since D-068.
  */
 import { domainOf, type HomeAssistant } from "../ha/types";
 import { NO_BINDINGS, areaOf, type BindingsJson } from "./bindings";
-import { roomLayers, numberOf, type PlanRoom, type RoomAlert } from "./layers";
+import { numberOf, type PlanRoom } from "./layers";
+import { peakRooms, type PeakRooms } from "./peak-rooms";
+import { peakNow, type PeakNow } from "./peaks";
 import { colorOf, initials, peopleShown, type PeopleSettings } from "./people";
 import { closedAreas, outOfSight } from "./privacy";
+import { usualWeather } from "./weather";
 
 /** Someone at home, as the glance shows them. */
 export interface GlancePerson {
@@ -35,12 +39,12 @@ export interface Glance {
   /** Away. */
   away: number;
   weather?: GlanceWeather;
-  /** Dangers first. */
-  alerts: RoomAlert[];
   /** Lamps on (light groups left out: their lamps are counted). */
   lights: string[];
   /** Doors, windows and gates open. */
   openings: string[];
+  /** Hydro-Québec's peak (D-063), where an integration reads it, and what the rooms do. */
+  peak?: { now: PeakNow; rooms: PeakRooms };
 }
 
 /** What the glance reads beyond the states. */
@@ -55,6 +59,8 @@ export interface GlanceSources {
   closedEntities?: ReadonlySet<string>;
   /** Their areas, when they were found already. */
   closedAreas?: ReadonlySet<string>;
+  /** The home's own meters (its energy settings, D-049): not a room's draw. */
+  meters?: ReadonlySet<string>;
 }
 
 /** Contact sensors that say a door or a window is open. */
@@ -70,22 +76,17 @@ function groupsLights(hass: HomeAssistant, id: string): boolean {
 
 /** The weather entity to show: `weather.home` if there is one, else the first with a value. */
 export function weatherOf(hass: HomeAssistant): GlanceWeather | undefined {
-  const ids = Object.keys(hass.states)
-    .filter((id) => domainOf(id) === "weather")
-    .sort((a, b) => (a === "weather.home" ? -1 : b === "weather.home" ? 1 : a.localeCompare(b)));
-  for (const id of ids) {
-    const state = hass.states[id];
-    if (!state || state.state === "unavailable" || state.state === "unknown") continue;
-    const temperature = numberOf(state.attributes.temperature);
-    const unit = state.attributes.temperature_unit;
-    return {
-      entity: id,
-      condition: state.state,
-      ...(temperature !== undefined ? { temperature } : {}),
-      unit: typeof unit === "string" ? unit : (hass.config?.unit_system?.temperature ?? "°C"),
-    };
-  }
-  return undefined;
+  const id = usualWeather(hass);
+  const state = id ? hass.states[id] : undefined;
+  if (!id || !state) return undefined;
+  const temperature = numberOf(state.attributes.temperature);
+  const unit = state.attributes.temperature_unit;
+  return {
+    entity: id,
+    condition: state.state,
+    ...(temperature !== undefined ? { temperature } : {}),
+    unit: typeof unit === "string" ? unit : (hass.config?.unit_system?.temperature ?? "°C"),
+  };
 }
 
 /**
@@ -168,16 +169,18 @@ export function glanceOf(hass: HomeAssistant, sources: GlanceSources): Glance {
   }
   const glance: Glance = {
     ...peopleOf(hass, sources.people, closed),
-    alerts: roomLayers(hass, bindings, sources.rooms, {
-      layer: "off",
-      alerts: true,
-      presence: false,
-      closed,
-    }).alerts,
     lights: lights.sort(),
     openings: openings.sort(),
   };
   const weather = weatherOf(hass);
   if (weather) glance.weather = weather;
+  const now = peakNow(hass);
+  if (now) {
+    const rooms = peakRooms(hass, bindings, sources.rooms, now.phase, closed, sources.meters, {
+      areas,
+      ...(closedEntities ? { entities: closedEntities } : {}),
+    });
+    glance.peak = { now, rooms };
+  }
   return glance;
 }

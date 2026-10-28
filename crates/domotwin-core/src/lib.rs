@@ -9,6 +9,7 @@
 pub mod automation;
 pub mod bindings;
 pub mod camera;
+pub mod coverage;
 pub mod devices;
 pub mod edit;
 pub mod error;
@@ -27,6 +28,7 @@ pub mod structure;
 pub mod theme;
 pub mod upkeep;
 pub mod walk;
+pub mod weather;
 
 pub use error::{ErrorCode, ReadError};
 pub use plan::{Plan, PlanSummary, read_plan, summarize_plan};

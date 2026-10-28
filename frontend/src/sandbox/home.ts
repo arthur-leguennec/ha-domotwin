@@ -6,15 +6,23 @@
  */
 import { demoConnection, type MemoryHome } from "../demo/connection";
 import { DemoError, type DemoStore } from "../demo/home";
-import type { NewSchedule, UpdateEvent } from "../ha/client";
+import type { NewSchedule, SaveKind, UpdateEvent } from "../ha/client";
 import type { HassEntity, HomeAssistant } from "../ha/types";
+import { readBindings } from "../live/bindings";
+import { ENERGY_SENSORS } from "../live/energy";
+import { peakNow, peakSources, type Peak } from "../live/peaks";
+import { closedAreas, closedEntities, privateRooms } from "../live/privacy";
 import type { Schedule } from "../live/schedules";
+import { planRooms } from "../live/suggest";
 import { playDay, type DayPlayed, type HandCall, type World } from "./engine";
 import type { HomeCopy } from "./copy";
+import { peakDay, peakOnDay } from "./peak-day";
+import { peakReport, type PeakRoomReport } from "./peak-report";
+import type { Config } from "./config";
 import { reportOf, type DayReport } from "./report";
-import { dayOf, firstScenario, prepare, type Scenario } from "./scenario";
+import { dayOf, firstScenario, prepare, type Scenario, type Weather } from "./scenario";
 import { sunDay } from "./sun";
-import { clockOn, isoIn, zoned } from "./time";
+import { clockOf, clockOn, isoIn, zoned } from "./time";
 
 /** How fast the day goes, in minutes of the day a second. */
 export const SPEEDS = [1, 10, 60] as const;
@@ -26,6 +34,68 @@ export interface SandboxVisitor {
   language: string;
   user?: HomeAssistant["user"];
   darkMode?: boolean;
+  /** Opens on the day of Hydro-Québec's announced peak, when there is one (D-063). */
+  peakDay?: boolean;
+  /** An automation written in plain words, played beside the home's before it is saved. */
+  draft?: SandboxDraft;
+}
+
+/** A draft of an automation, played in the sandbox beside the home's (D-070). */
+export interface SandboxDraft {
+  /** The entity id it has in the copy (none of the home's). */
+  entity: string;
+  name: string;
+  config: Config;
+  /** Told what it did each time a day is played. */
+  onDay?: (day: DraftDay) => void;
+}
+
+/** What a draft did on a day played (D-070). */
+export interface DraftDay {
+  /** The day played, told from another by what *The day* picks (its date, weather and people):
+   * what is done by hand in it is that day's, played again. */
+  key: string;
+  date: string;
+  weather: Weather;
+  /** How many things were done by hand in it. */
+  byHand: number;
+  /** When it ran, by the day's clock ("08:30"). */
+  runs: string[];
+  /** Set off but stopped by its conditions, or while it ran already. */
+  stopped: number;
+  busy: number;
+  /** The automations and scripts it worked against. */
+  against: string[];
+  /** It set something back and forth. */
+  backAndForth: boolean;
+  /** What could not be played of it. */
+  notPlayed: number;
+  /** It set itself off over and over, and was stopped. */
+  looping: boolean;
+}
+
+/** The draft added to the copy: an automation of its own, on, that never ran. */
+function withDraft(copy: HomeCopy, draft: SandboxDraft): HomeCopy {
+  const iso = new Date(0).toISOString();
+  const mode = typeof draft.config.mode === "string" ? draft.config.mode : "single";
+  const state: HassEntity = {
+    entity_id: draft.entity,
+    state: "on",
+    attributes: {
+      friendly_name: draft.name,
+      id: "domotwin_draft",
+      mode,
+      current: 0,
+      last_triggered: null,
+    },
+    last_changed: iso,
+    last_updated: iso,
+  };
+  return {
+    ...copy,
+    states: { ...copy.states, [draft.entity]: state },
+    automations: [...copy.automations, { id: draft.entity, config: draft.config }],
+  };
 }
 
 export class SandboxHome implements MemoryHome {
@@ -46,15 +116,33 @@ export class SandboxHome implements MemoryHome {
   /** How many of the day's changes `states` has. */
   private applied = 0;
   private report?: DayReport;
+  private peakRooms?: PeakRoomReport[];
+  /**
+   * Hydro-Québec's peak announced when the home was copied (D-063), where an integration reads
+   * it: its day plays it.
+   */
+  readonly announced?: Peak;
+  /** Where the announced peak is said: its devices and its calendars. */
+  private readonly peakFrom: ReadonlySet<string> = new Set<string>();
+  /** When the home was copied. */
+  private readonly copied: number;
+  /** Another peak is announced on the day played, not played (its times unknown). */
+  peakAnother = false;
   private readonly listeners = new Set<(hass: HomeAssistant) => void>();
   private readonly clockListeners = new Set<() => void>();
   private readonly areaOf: (id: string) => string | undefined;
+  private readonly copy: HomeCopy;
+  /** The automation written in plain words played beside the home's, if one is (D-070). */
+  readonly draft?: { entity: string; name: string };
+  private readonly onDraftDay?: (day: DraftDay) => void;
 
-  constructor(
-    private readonly copy: HomeCopy,
-    visitor: SandboxVisitor,
-    now = Date.now(),
-  ) {
+  constructor(home: HomeCopy, visitor: SandboxVisitor, now = Date.now()) {
+    const copy = visitor.draft ? withDraft(home, visitor.draft) : home;
+    this.copy = copy;
+    if (visitor.draft) {
+      this.draft = { entity: visitor.draft.entity, name: visitor.draft.name };
+      this.onDraftDay = visitor.draft.onDay;
+    }
     this.store = structuredClone(copy.store);
     const entities = copy.entities;
     const devices = copy.devices;
@@ -96,9 +184,20 @@ export class SandboxHome implements MemoryHome {
         return Promise.resolve();
       },
     };
+    // The peak to come, or under way, as the integrations said it when the home was copied.
+    this.copied = now;
+    const copied = { ...this.hass, states: copy.states };
+    const announced = peakNow(copied, now)?.peak;
+    if (announced) {
+      this.announced = announced;
+      this.peakFrom = peakSources(copied, announced);
+      const date = visitor.peakDay === true ? this.peakDate() : undefined;
+      if (date) this.scenario = { ...this.scenario, date };
+    }
     this.replay();
-    // A morning, where most days start doing things.
-    this.seek(clockOn(this.day.start, copy.zone, 7 * 60));
+    // A morning, where most days start doing things; on the peak's day, its pre-heating.
+    const peak = visitor.peakDay === true ? this.peakToday() : undefined;
+    this.seek(peak ? peak.preheat : clockOn(this.day.start, copy.zone, 7 * 60));
   }
 
   /** The home's automations and scripts (their entity ids). */
@@ -137,8 +236,10 @@ export class SandboxHome implements MemoryHome {
     return this.copy.zone;
   }
 
-  saved(kind: "plan" | "bindings" | "settings" | "upkeep" | "people" | "locating"): number {
+  saved(kind: SaveKind): number {
     this.store.revision += 1;
+    // The rooms, their links and privacy as the sandbox's plan says them now.
+    this.peakRooms = undefined;
     for (const listener of this.updateListeners) listener({ kind, revision: this.store.revision });
     return this.store.revision;
   }
@@ -159,6 +260,106 @@ export class SandboxHome implements MemoryHome {
     return this.report;
   }
 
+  /** What the draft did on the day played, when there is one (D-070). */
+  draftDay(): DraftDay | undefined {
+    const draft = this.draft;
+    if (!draft) return undefined;
+    const report = this.dayReport();
+    const owner = report.owners.find((each) => each.id === draft.entity);
+    const against = new Set<string>();
+    for (const conflict of report.conflicts) {
+      const { first, second } = conflict;
+      if (first.owner === draft.entity && second.owner !== draft.entity) against.add(second.owner);
+      if (second.owner === draft.entity && first.owner !== draft.entity) against.add(first.owner);
+    }
+    const flapping = report.flapping.filter((flap) => flap.owners.includes(draft.entity));
+    for (const flap of flapping) {
+      for (const other of flap.owners) if (other !== draft.entity) against.add(other);
+    }
+    const scenario = this.scenario;
+    return {
+      key: JSON.stringify([
+        scenario.date,
+        scenario.weather,
+        scenario.low,
+        scenario.high,
+        scenario.people,
+      ]),
+      date: scenario.date,
+      weather: scenario.weather,
+      byHand: scenario.calls.length,
+      runs: (owner?.runs ?? []).map((run) => clockOf(run.at, this.copy.zone)),
+      stopped: owner?.stoppedByConditions ?? 0,
+      busy: owner?.busy ?? 0,
+      against: [...against].sort(),
+      backAndForth: flapping.length > 0,
+      notPlayed: owner?.notPlayed.length ?? 0,
+      looping: owner?.looping ?? false,
+    };
+  }
+
+  /** The announced peak's date (`YYYY-MM-DD`, in Home Assistant's time zone). */
+  peakDate(): string | undefined {
+    const peak = this.announced;
+    if (!peak) return undefined;
+    const at = zoned(peak.start, this.copy.zone);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${at.year}-${pad(at.month)}-${pad(at.day)}`;
+  }
+
+  /** Plays the announced peak's day, shown from its pre-heating (D-063). */
+  playPeak(): void {
+    const peak = this.announced;
+    const date = this.peakDate();
+    if (!peak || !date) return;
+    if (date !== this.scenario.date) this.setScenario({ ...this.scenario, date });
+    this.seek(peak.preheat);
+  }
+
+  /** The announced peak's pre-heating said with its day when it starts on the day before. */
+  peakPreheatText(clock: (at: number) => string): string {
+    const peak = this.announced;
+    if (!peak) return "";
+    const at = zoned(peak.preheat, this.copy.zone);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const date = `${at.year}-${pad(at.month)}-${pad(at.day)}`;
+    return date === this.peakDate() ? clock(peak.preheat) : `${date} ${clock(peak.preheat)}`;
+  }
+
+  /** The announced peak, when the day played is its day (D-063). */
+  peakToday(): Peak | undefined {
+    const peak = this.announced;
+    return peakOnDay(peak, this.day.start, this.day.end) ? peak : undefined;
+  }
+
+  /**
+   * What each room did through the announced peak, when the day played is its day: of the
+   * sandbox's plan and links, nothing of a private room the visitor may not see (D-039), of its
+   * area or of what its pieces link.
+   */
+  peakReport(): PeakRoomReport[] | undefined {
+    const peak = this.peakToday();
+    if (!peak) return undefined;
+    if (!this.peakRooms) {
+      const store = this.store;
+      const rooms = store.storeys.flatMap((storey) => planRooms(storey.plan));
+      const energy = store.settings.energy;
+      const meters = new Set(ENERGY_SENSORS.flatMap((key) => energy?.[key] ?? []));
+      const bindings = readBindings(store.bindings);
+      const closed = privateRooms(store.settings.rooms, this.hass);
+      const unseen = {
+        areas: closedAreas(this.hass, bindings, rooms, closed),
+        entities: closedEntities(bindings, store.storeys, closed),
+      };
+      this.peakRooms = peakReport(this.day, this.hass, bindings, rooms, peak, {
+        exclude: meters,
+        closed,
+        unseen,
+      });
+    }
+    return this.peakRooms;
+  }
+
   /** The world the day is played on: the copy as the scenario starts it. */
   private world(): { world: World; happenings: ReturnType<typeof prepare>["happenings"] } {
     const copy = this.copy;
@@ -172,6 +373,24 @@ export class SandboxHome implements MemoryHome {
       Object.entries(copy.store.people.people).map(([id, person]) => [id, person.sensor]),
     );
     const prepared = prepare(copy.states, this.scenario, copy.zone, sun, start, place, rooms);
+    // The announced peak's day (D-063): the integrations say it as it goes.
+    this.peakAnother = false;
+    if (peakOnDay(this.announced, start, end)) {
+      const peak = peakDay(prepared.states, copy.entities, this.announced, this.peakFrom, {
+        start,
+        end,
+        zone: copy.zone,
+        copied: this.copied,
+      });
+      this.peakAnother = peak.another;
+      for (const [id, state] of peak.initial) {
+        const entity = prepared.states[id];
+        if (entity) prepared.states[id] = { ...entity, state };
+      }
+      prepared.happenings = [...prepared.happenings, ...peak.happenings].sort(
+        (a, b) => a.at - b.at,
+      );
+    }
     const entities = copy.entities;
     const ids = Object.keys(prepared.states);
     const world: World = {
@@ -202,6 +421,9 @@ export class SandboxHome implements MemoryHome {
     const { start, end } = dayOf(this.scenario, this.copy.zone);
     this.day = playDay(world, start, end, happenings, this.scenario.calls);
     this.report = undefined;
+    this.peakRooms = undefined;
+    const drafted = this.onDraftDay ? this.draftDay() : undefined;
+    if (drafted) this.onDraftDay?.(drafted);
     this.cursor = Math.min(Math.max(this.cursor, start), end);
     this.seek(this.cursor, true);
   }

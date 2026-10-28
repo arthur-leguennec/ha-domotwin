@@ -7,6 +7,9 @@
 //! - the rest of the side is **façade**, `wallSettings.exterior` thick, entirely outside the room;
 //! - `edgeThickness[i]` overrides both for side `i`; sides listed in `openEdges` have no wall.
 //!
+//! A place outside (a garden, a terrace, D-077) has no walls, and is no neighbour: the sides of
+//! the rooms facing it are façades.
+//!
 //! A wall band is a quadrilateral along a side, between the offsets `o0` and `o1` measured along
 //! the side's outward normal (`o0 < 0` reaches into the room). The 2D plan and the 3D scene draw
 //! the same bands.
@@ -87,6 +90,8 @@ pub struct RoomWalls {
     pub sides: Vec<Option<Vec<EdgeBand>>>,
     /// Filled outer corners.
     pub corners: Vec<Corner>,
+    /// A place outside (D-077): no walls, no ceiling, under no roof.
+    pub outside: bool,
 }
 
 impl RoomWalls {
@@ -109,9 +114,43 @@ pub struct WallLayout {
     pub rooms: Vec<RoomWalls>,
     /// Default thicknesses.
     pub settings: WallSettings,
+    /// The order the rooms are looked up in at a point (`lookup_order`).
+    order: Vec<usize>,
+}
+
+/// The order rooms are looked up in at a point (D-077): the home's rooms first, in plan order,
+/// then the places outside, the smallest first (a terrace drawn in the garden around the house).
+/// `rooms` gives each room's outline and whether it is outside.
+pub fn lookup_order<'a>(rooms: impl IntoIterator<Item = (&'a [P2], bool)>) -> Vec<usize> {
+    let keys: Vec<(bool, f64)> = rooms
+        .into_iter()
+        .map(|(points, outside)| {
+            (
+                outside,
+                if outside {
+                    signed_area2(points).abs()
+                } else {
+                    0.0
+                },
+            )
+        })
+        .collect();
+    let mut order: Vec<usize> = (0..keys.len()).collect();
+    order.sort_by(|a, b| {
+        keys[*a]
+            .0
+            .cmp(&keys[*b].0)
+            .then(keys[*a].1.total_cmp(&keys[*b].1))
+    });
+    order
 }
 
 impl WallLayout {
+    /// The order its rooms are looked up in at a point (`lookup_order`).
+    pub fn lookup_order(&self) -> &[usize] {
+        &self.order
+    }
+
     /// Computes the walls of every room.
     pub fn new(plan: &Plan) -> Self {
         let shapes: Vec<(usize, &Room, Vec<P2>)> = plan
@@ -128,10 +167,11 @@ impl WallLayout {
             .iter()
             .enumerate()
             .map(|(k, (element, room, points))| {
+                // The rooms beside it; a place outside is none (its side is a façade).
                 let others: Vec<&[P2]> = shapes
                     .iter()
                     .enumerate()
-                    .filter(|(j, _)| *j != k)
+                    .filter(|(j, (_, other, _))| *j != k && !other.outside)
                     .map(|(_, (_, _, p))| p.as_slice())
                     .collect();
                 let sides = (0..points.len())
@@ -145,10 +185,16 @@ impl WallLayout {
                     points: points.clone(),
                     sides,
                     corners,
+                    outside: room.outside,
                 }
             })
-            .collect();
-        Self { rooms, settings }
+            .collect::<Vec<RoomWalls>>();
+        let order = lookup_order(rooms.iter().map(|r| (r.points.as_slice(), r.outside)));
+        Self {
+            rooms,
+            settings,
+            order,
+        }
     }
 
     /// Extent of the walls an opening sits in, as offsets `[lo, hi]` along the opening normal

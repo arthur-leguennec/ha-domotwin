@@ -69,6 +69,16 @@ describe("domotwin.show", () => {
     expect(findStorey(t, storeys, "garage")).toBeUndefined();
     // One storey: no whole home to show.
     expect(findStorey(t, storeys.slice(0, 1), "all")).toBeUndefined();
+    // A split level's half levels (D-078), by number as their buttons write them, or by place.
+    const split = [
+      { id: "lower", name: "", elevation: -140 },
+      { id: "entry", name: "", elevation: 0 },
+      { id: "upper", name: "", elevation: 140 },
+    ];
+    expect(findStorey(t, split, "½")).toBe("upper");
+    expect(findStorey(t, split, "0.5")).toBe("upper");
+    expect(findStorey(t, split, "−½")).toBe("lower");
+    expect(findStorey(t, split, "half level down")).toBe("lower");
   });
 
   it("finds an element by id, by name, then by the words of its name; rooms first", () => {

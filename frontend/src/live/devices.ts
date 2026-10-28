@@ -52,6 +52,13 @@ export const APPLIANCES = new Set<string>([
   "hood",
   "printer",
   "3d-printer",
+  "microwave",
+  "oven",
+  "coffee-machine",
+  "kettle",
+  "toaster",
+  "computer",
+  "ev-charger",
 ] satisfies KindName[]);
 /** Above this (W) an appliance is running, not on standby. */
 const RUNNING_WATTS = 10;

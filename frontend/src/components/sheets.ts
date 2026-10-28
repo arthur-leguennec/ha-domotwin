@@ -7,11 +7,13 @@
  */
 import {
   mdiCellphone,
+  mdiChartLine,
   mdiDoorOpen,
   mdiEyeOffOutline,
   mdiHistory,
   mdiInformationOutline,
   mdiLock,
+  mdiMower,
   mdiTagOutline,
   mdiWatch,
 } from "@mdi/js";
@@ -21,6 +23,7 @@ import { DomoTwinClient } from "../ha/client";
 import { isHassError, nowOf } from "../ha/types";
 import { failureText } from "../live/actions";
 import { areaEntities, entityName, type RoomAction } from "../live/bindings";
+import { hasGraphs } from "../live/graphs";
 import { roomSensors } from "../live/history";
 import {
   roomCommands,
@@ -31,16 +34,20 @@ import {
 } from "../live/room-actions";
 import type { Translator } from "../i18n";
 import type { LocatedKind, LocatedShown } from "../live/locating";
+import { explainable } from "../live/why";
 import type { PersonShown } from "../live/people";
 import { define, fire } from "./define";
 import { entityRow, rowStyles } from "./entity-rows";
 import { roomBarStyles, roomButtons } from "./room-bar";
 import { icon } from "./icon";
 import type { CardStanding, Upkeep } from "../live/upkeep";
+import type { Garden } from "../live/lawn";
+import { timeAgo } from "../live/text";
 import "./automation-section";
 import "./schedule-section";
 import "./bubble";
 import "./upkeep-section";
+import "./why-section";
 import { avatar, avatarStyles } from "./person-avatar";
 import { Sheet, sheetStyles } from "./sheet";
 import { baseStyles } from "./styles";
@@ -85,11 +92,14 @@ function historyButton(
   </button>`;
 }
 
-/** `<domotwin-controls>`: the entities of one element, with their controls and automations. */
+/** `<domotwin-controls>`: the entities of one element, with their controls, why the element is
+ * as it is (D-059) and its automations. */
 export class DomoTwinControls extends Sheet {
   static override properties = {
     ...Sheet.properties,
     entities: { attribute: false },
+    primary: { attribute: false },
+    unseen: { attribute: false },
     device: { attribute: false },
     area: { attribute: false },
     piece: { attribute: false },
@@ -99,6 +109,10 @@ export class DomoTwinControls extends Sheet {
   static override styles = [baseStyles, rowStyles, sheetStyles];
 
   entities: string[] = [];
+  /** The entity shown in the scene, which "Why?" explains (else the first). */
+  primary?: string;
+  /** Whether the viewer may not see an entity (D-039): "Why?" does not name it. */
+  unseen?: (entity: string) => boolean;
   /** The Home Assistant device it stands for, and its room's area: their automations too. */
   device?: string;
   area?: string;
@@ -112,23 +126,41 @@ export class DomoTwinControls extends Sheet {
     if (!hass) return nothing;
     const t = this.t;
     const first = this.entities[0];
+    const why = this.primary ?? first;
     return this.frame(
       html`${this.entities.map((id) => entityRow(hass, t, id, true))}
-        <domotwin-schedules .hass=${hass} .entities=${this.entities}></domotwin-schedules>
-        <domotwin-automations
-          .hass=${hass}
-          .entities=${this.entities}
-          .device=${this.device}
-          .area=${this.area}
-        ></domotwin-automations>
-        ${upkeepCard(this)}`,
+      ${
+        why && explainable(hass, why)
+          ? html`<domotwin-why-section
+              .hass=${hass}
+              .entity=${why}
+              .unseen=${this.unseen}
+            ></domotwin-why-section>`
+          : nothing
+      }
+      ${
+        // A guest (D-067) has none of Home Assistant's automations, history or dialogs, and
+        // schedules nothing.
+        hass.guest
+          ? nothing
+          : html`<domotwin-schedules .hass=${hass} .entities=${this.entities}></domotwin-schedules>
+              <domotwin-automations
+                .hass=${hass}
+                .entities=${this.entities}
+                .device=${this.device}
+                .area=${this.area}
+              ></domotwin-automations>`
+      }
+      ${upkeepCard(this)}`,
       // The sandbox's day has a report of its own (D-057), and Home Assistant's dialogs do not
       // know its entities (D-050).
-      first && !hass.sandbox
+      first && !hass.sandbox && !hass.guest
         ? html`<div class="footer">
             ${historyButton(this, t, this.entities, "controls-history", t.t("controls.history"))}
             ${
-              hass.demo
+              // Home Assistant's dialog has controls of its own: not for what the viewer only
+              // looks at (their rights, D-071).
+              hass.demo || hass.canAct?.(first) === false
                 ? nothing
                 : html`<button
                     class="action quiet"
@@ -209,7 +241,8 @@ const peopleStyles = css`
     align-items: center;
     gap: 6px;
     min-height: 36px;
-    padding: 2px 10px 2px 4px;
+    padding-block: 2px;
+    padding-inline: 4px 10px;
     border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.15));
     border-radius: 18px;
     background: transparent;
@@ -228,7 +261,8 @@ const peopleStyles = css`
     align-items: center;
     gap: 6px;
     min-height: 36px;
-    padding: 2px 12px 2px 8px;
+    padding-block: 2px;
+    padding-inline: 8px 12px;
     border-radius: 18px;
     background: color-mix(in srgb, var(--primary-color, #03a9f4) 10%, transparent);
   }
@@ -317,6 +351,10 @@ export class DomoTwinRoom extends Sheet {
     people: { attribute: false },
     things: { attribute: false },
     closed: { attribute: false },
+    graphs: { attribute: false },
+    lawn: { attribute: false },
+    mowing: { state: true },
+    lawnRefused: { state: true },
   };
   static override styles = [
     baseStyles,
@@ -340,6 +378,16 @@ export class DomoTwinRoom extends Sheet {
   people: PersonShown[] = [];
   /** The devices followed by Bluetooth heard in it (D-035). */
   things: LocatedShown[] = [];
+  /** Its graphs can open, in the panel's Rooms tab (D-069). */
+  graphs = false;
+  /**
+   * A lawn (D-077): the room's id, how long its grass is (cm) and when it was last mown (ms), when
+   * known.
+   */
+  lawn?: { room: string; length?: number; mown?: number };
+  /** Saying it was just mown, and why that failed. */
+  protected mowing = false;
+  protected lawnRefused?: string;
 
   protected override render(): TemplateResult | typeof nothing {
     const hass = this.hass;
@@ -353,7 +401,7 @@ export class DomoTwinRoom extends Sheet {
       );
     }
     const area = this.area;
-    const here = html`${peopleHere(this, t)}${thingsHere(this, t)}${this.renderActions(t)}`;
+    const here = html`${peopleHere(this, t)}${thingsHere(this, t)}${this.renderActions(t)}${this.renderLawn(t)}`;
     const later = this.renderLater(t);
     if (!area) {
       return this.frame(
@@ -362,23 +410,42 @@ export class DomoTwinRoom extends Sheet {
           ${this.admin ? html`<p class="empty">${t.t("room.no_area_admin")}</p>` : nothing} ${later}`,
       );
     }
-    // Its air sensors' history (D-058), when it has some.
-    const sensors = hass.sandbox ? [] : roomSensors(hass, area);
+    // What the viewer's rights hide is not listed (D-071).
+    const seen = (id: string): boolean => hass.canSee?.(id) !== false;
+    // Its air sensors' history (D-058) and its graphs (D-069), when it has some.
+    const sensors = hass.sandbox || hass.guest ? [] : roomSensors(hass, area).filter(seen);
+    const graphs = this.graphs && !hass.sandbox && !hass.guest && hasGraphs(hass, area);
     const footer =
-      sensors.length > 0
+      sensors.length > 0 || graphs
         ? html`<div class="footer">
-            ${historyButton(this, t, sensors, "room-history", t.t("room.history"))}
+            ${
+              sensors.length > 0
+                ? historyButton(this, t, sensors, "room-history", t.t("room.history"))
+                : nothing
+            }
+            ${
+              graphs
+                ? html`<button
+                    class="action quiet"
+                    data-testid="room-graphs"
+                    @click=${() => {
+                      fire(this, "domotwin-room-open", { area, graphs: true });
+                    }}
+                  >
+                    ${icon(mdiChartLine)}${t.t("room.graphs")}
+                  </button>`
+                : nothing
+            }
           </div>`
         : nothing;
-    const ids = areaEntities(hass, area);
+    const ids = areaEntities(hass, area).filter(seen);
     const groups = GROUPS.map((group) => ({
       key: group.key,
       ids: ids.filter((id) => group.domains.includes(id.split(".")[0] ?? "")),
     })).filter((group) => group.ids.length > 0);
-    const automations = html`<domotwin-automations
-      .hass=${hass}
-      .area=${area}
-    ></domotwin-automations>`;
+    const automations = hass.guest
+      ? nothing
+      : html`<domotwin-automations .hass=${hass} .area=${area}></domotwin-automations>`;
     if (groups.length === 0) {
       return this.frame(
         html`${here}
@@ -410,10 +477,59 @@ export class DomoTwinRoom extends Sheet {
       ${this.refused ? html`<p class="empty" role="alert">${this.refused}</p>` : nothing}`;
   }
 
+  /** A lawn's grass and its last mowing (D-077), and who mowed it says so. */
+  private renderLawn(t: Translator): TemplateResult | typeof nothing {
+    const hass = this.hass;
+    const lawn = this.lawn;
+    if (!hass || !lawn) return nothing;
+    const said =
+      lawn.mown !== undefined && lawn.length !== undefined
+        ? t.t("room.lawn_grass", {
+            cm: Math.round(lawn.length),
+            when: timeAgo(t.language, Math.max(0, (nowOf(hass) - lawn.mown) / 1000)),
+          })
+        : t.t("room.lawn_unknown");
+    return html`<h3>${t.t("room.lawn")}</h3>
+      <p class="empty" data-testid="room-lawn">${said}</p>
+      ${
+        hass.guest || hass.sandbox
+          ? nothing
+          : html`<div class="room-commands">
+              <button
+                class="action"
+                data-testid="lawn-mowed"
+                ?disabled=${this.mowing}
+                @click=${() => void this.mowed(lawn.room)}
+              >
+                ${icon(mdiMower)}${t.t("room.lawn_mowed")}
+              </button>
+            </div>`
+      }
+      ${this.lawnRefused ? html`<p class="empty" role="alert">${this.lawnRefused}</p>` : nothing}`;
+  }
+
+  /** Says the lawn was just mown; the view draws it short again. */
+  private async mowed(room: string): Promise<void> {
+    const hass = this.hass;
+    if (!hass || this.mowing) return;
+    this.mowing = true;
+    this.lawnRefused = undefined;
+    try {
+      const garden: Garden = await DomoTwinClient.for(hass).lawnMowed(room);
+      fire(this, "domotwin-lawn-mowed", garden);
+    } catch (error) {
+      const t = this.t;
+      const reason = isHassError(error) ? t.error(error.code) : t.error("unknown");
+      this.lawnRefused = t.t("view.action_failed", { reason });
+    } finally {
+      this.mowing = false;
+    }
+  }
+
   /** What the room will do later (D-046): its lights or its blinds, at a time. */
   private renderLater(t: Translator): TemplateResult | typeof nothing {
     const hass = this.hass;
-    if (!hass || !this.devices) return nothing;
+    if (!hass || !this.devices || hass.guest) return nothing;
     const groups = schedulableGroups(this.devices).map((group) => ({
       ...group,
       label: t.t(group.key === "lights" ? "room.later_lights" : "room.later_covers"),

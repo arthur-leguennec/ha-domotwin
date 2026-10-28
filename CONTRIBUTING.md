@@ -70,7 +70,8 @@ node scripts/check-bundle-size.mjs
 CI runs the targets a pull request concerns for a minute each, and all of them weekly.
 
 The fictional test files are written by scripts: `python3 scripts/make-ifc-fixtures.py` (IFC),
-`python3 scripts/make-import-fixtures.py` (Sweet Home 3D, DXF, room scans) and
+`python3 scripts/make-import-fixtures.py` (Sweet Home 3D, DXF, room scans, robot vacuum maps,
+Floorplanner, mesh scans) and
 `python3 scripts/make-model-fixtures.py` (the 3D models of `examples/models/`).
 
 Visual-regression snapshots compare only the canvas pixels rendered by software WebGL2. After an
@@ -85,7 +86,21 @@ new images before committing them.
   [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 - **Strings.** Every visible string goes through `t()` with keys in `frontend/src/i18n/en.ts` and
   `fr.ts` (the compiler and the tests check that both have the same keys). Integration strings live
-  in `custom_components/domotwin/translations/`.
+  in `custom_components/domotwin/translations/`, and what the integration says aloud in
+  `services.py` and `schedules.py`, in every language.
+- **Languages.** English and French come with the first picture; the others are loaded when Home
+  Assistant speaks them (D-082): `frontend/src/i18n/lang/<code>.ts` and its folder hold every
+  message, the main dictionary's and the chunks'. A new message in English and French is added to
+  them too (in English until translated: `tests/languages.test.ts` says which are left). A new
+  language starts with `node scripts/new-language.mjs <code>` in `frontend/`, its code as Home
+  Assistant names it (`de`, `pt-BR`, `zh-Hans`), then goes into `LANGUAGES` in
+  `frontend/src/i18n/index.ts` and `custom_components/domotwin/language.py`, with its
+  `translations/<code>.json` and its sentences in `services.py` and `schedules.py`. The ten
+  languages beyond English and French were translated by machine, following Home Assistant's own
+  words in each: corrections by those who speak them are welcome. Lay out with
+  logical properties (`margin-inline-start`, `inset-inline-end`, `text-align: start`), never
+  `left`/`right`, so that Arabic reads right to left; only what is pinned to a point of the 3D view
+  stays physical.
 - **No network.** Nothing may be fetched from the internet: no CDN, no web fonts, no telemetry.
 - **Dependencies.** Exact versions only. New Rust crates must pass `cargo deny`. Keep an eye on the
   bundle budget (`docs/PERFORMANCE.md`).

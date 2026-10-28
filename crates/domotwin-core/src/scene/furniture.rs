@@ -7,6 +7,15 @@ use std::rc::Rc;
 use super::Builder;
 use super::imported;
 use super::mesh::{Blade, CutMode, Material, NO_GROUP, Painter, ROUND, Surface, Tag, V3, Xform};
+
+// The library's pieces (M17, D-074), by where they are found.
+mod devices;
+mod garden;
+mod kitchen;
+mod leisure;
+mod lights;
+mod living;
+mod rooms;
 use crate::geometry::polygon::P2;
 use crate::geometry::walls::WallLayout;
 use crate::model_mesh::ModelMesh;
@@ -95,7 +104,7 @@ impl std::fmt::Debug for Model<'_> {
     }
 }
 
-impl Model<'_> {
+impl<'a> Model<'a> {
     pub(crate) fn bx(&mut self, m: Material, min: V3, max: V3) {
         if m.surface == Surface::Glass {
             self.g.material = m;
@@ -165,6 +174,64 @@ impl Model<'_> {
     pub(crate) fn leaf(&mut self, m: Material, stem: V3, along: V3, form: &Blade) {
         self.p.material = m;
         self.p.blade(&self.x, stem, along, form);
+    }
+
+    /// The painter of a material: glass goes to the transparent mesh.
+    fn painter(&mut self, m: Material) -> &mut Painter<'a> {
+        let painter = if m.surface == Surface::Glass {
+            &mut self.g
+        } else {
+            &mut self.p
+        };
+        painter.material = m;
+        painter
+    }
+
+    /// A solid turned about the vertical through `at` (`Painter::lathe`), its outline
+    /// `[radius, height]` stretched by `scale` along x and z; as many sides as its size shows.
+    pub(crate) fn lathe(&mut self, m: Material, at: V3, profile: &[[f64; 2]], scale: [f64; 2]) {
+        let reach = profile.iter().map(|p| p[0].abs()).fold(0.0, f64::max) * scale[0].max(scale[1]);
+        let segments = if reach < 3.0 {
+            8
+        } else if reach < 10.0 {
+            12
+        } else {
+            ROUND
+        };
+        let x = self.x;
+        self.painter(m).lathe(&x, at, profile, scale, segments);
+    }
+
+    /// A tube through `points` (`Painter::pipe`), its ends closed.
+    pub(crate) fn pipe(&mut self, m: Material, points: &[V3], r: f64) {
+        let x = self.x;
+        let segments = if r < 1.2 { 6 } else { 8 };
+        self.painter(m).pipe(&x, points, r, segments, true);
+    }
+
+    /// A solid of outline `outline` seen from the side (z, y), from `x0` to `x1`.
+    pub(crate) fn side_slab(&mut self, m: Material, outline: &[[f64; 2]], x0: f64, x1: f64) {
+        let side = self.x.then(&Xform {
+            axes: [[0.0, 0.0, 1.0], [0.0, 1.0, 0.0], [-1.0, 0.0, 0.0]],
+            origin: [0.0; 3],
+        });
+        self.painter(m)
+            .slab(&side, outline, -x0.max(x1), -x0.min(x1));
+    }
+
+    /// A solid of outline `outline` seen from above (x, z), from `y0` to `y1`.
+    pub(crate) fn plate(&mut self, m: Material, outline: &[[f64; 2]], y0: f64, y1: f64) {
+        let top = self.x.then(&Xform {
+            axes: [[1.0, 0.0, 0.0], [0.0, 0.0, 1.0], [0.0, -1.0, 0.0]],
+            origin: [0.0; 3],
+        });
+        self.painter(m)
+            .slab(&top, outline, -y0.max(y1), -y0.min(y1));
+    }
+
+    /// A box in the frame `frame` (a part turned or tilted).
+    pub(crate) fn bx_in(&mut self, m: Material, frame: &Xform, min: V3, max: V3) {
+        self.painter(m).cuboid(frame, min, max);
     }
 
     /// The glowing part of a lamp: `off` is its look when the lamp is off; the light itself
@@ -247,9 +314,9 @@ pub(crate) fn build(builder: &mut Builder, plan: &Plan, layout: &WallLayout) {
         let Element::Furniture(item) = element else {
             continue;
         };
-        // Curtains move (live control), and pieces being moved in edit mode: they are built
-        // with the moving parts.
-        let moving = item.kind == Kind::Curtain || builder.moving.contains(&builder.global(index));
+        // Curtains and gates move (live control), and pieces being moved in edit mode: they are
+        // built with the moving parts.
+        let moving = item.kind.moves() || builder.moving.contains(&builder.global(index));
         if moving != builder.dynamic {
             continue;
         }
@@ -343,7 +410,14 @@ fn piece(
     };
     // Width along the item's x, depth along its y, its front towards +y.
     let (u, w, d) = (rotate([1.0, 0.0]), f.w, f.h);
-    let x = Xform::plan([centre[0], f.elevation, centre[1]], u);
+    // On the ground in a garden, a little under the floors (D-077).
+    let standing = f.elevation < 2.0 && !flags.wall_decor && !flags.hanging;
+    let ground = if standing {
+        builder.floor_level(plan, room)
+    } else {
+        0.0
+    };
+    let x = Xform::plan([centre[0], f.elevation + ground, centre[1]], u);
     let open = builder.overrides.open.get(&builder.global(index)).copied();
     let ceiling = (builder.wall_height - f.elevation - f.z).max(0.0);
     let base = Material::paint(f.color);
@@ -422,7 +496,7 @@ fn piece(
         });
     }
     // A soft contact shadow under pieces standing on the floor.
-    if f.elevation < 2.0 && !flags.wall_decor && !flags.hanging && f.z > 8.0 {
+    if standing && f.z > 8.0 && !garden::no_contact_shadow(f.kind, f.variant.as_deref()) {
         contact_shadow(builder, &x, w, d);
     }
 }
@@ -466,8 +540,15 @@ fn draw(m: &mut Model<'_>, f: &Furniture) {
     let (w, d, h, c) = (m.w, m.d, m.h, m.c);
     let variant = f.variant.as_deref();
     match f.kind {
+        Kind::Sofa if variant == Some("chesterfield") => living::chesterfield(m),
+        Kind::Armchair if variant == Some("wingback") => living::wingback(m),
         Kind::Sofa => sofa(m, variant == Some("leather"), None),
         Kind::Armchair => sofa(m, variant == Some("leather"), Some(1)),
+        Kind::CoffeeTable if matches!(variant, Some("round" | "glass")) => {
+            living::coffee_table(m, variant == Some("glass"));
+        }
+        Kind::DiningTable if variant == Some("pedestal") => kitchen::pedestal_table(m),
+        Kind::Desk if variant == Some("standing") => leisure::standing_desk(m),
         Kind::CoffeeTable | Kind::DiningTable | Kind::Desk | Kind::Console => {
             let top = if f.kind == Kind::CoffeeTable {
                 4.0
@@ -534,6 +615,8 @@ fn draw(m: &mut Model<'_>, f: &Furniture) {
             }
         }
         Kind::Plant => plant(m, variant),
+        Kind::Bed if variant == Some("upholstered") => rooms::upholstered_bed(m),
+        Kind::Bed if variant == Some("four-poster") => rooms::four_poster(m),
         Kind::Bed => bed(m, variant == Some("metal")),
         Kind::Nightstand => {
             let wood = surface(c);
@@ -597,13 +680,18 @@ fn draw(m: &mut Model<'_>, f: &Furniture) {
                 _ => m.fronts(front, 1.0, h - 1.0, cols, 1, true),
             }
         }
+        Kind::Chair if variant == Some("bistro") => kitchen::bistro_chair(m),
+        Kind::Chair if variant == Some("upholstered") => kitchen::upholstered_chair(m),
         Kind::Chair => chair(m),
         Kind::OfficeChair => office_chair(m),
         Kind::Stairs => stairs(m),
         Kind::Bookcase | Kind::Shelf | Kind::OpenShelving | Kind::GlazedBookcase => {
             shelves(m, f.kind, variant)
         }
-        Kind::Counter | Kind::Sink | Kind::Stove | Kind::Dishwasher => kitchen(m, f.kind),
+        Kind::Counter | Kind::Sink | Kind::Stove | Kind::Dishwasher => {
+            cabinets(m, f.kind, variant == Some("gas"));
+        }
+        Kind::Fridge if variant == Some("french-door") => kitchen::french_door(m),
         Kind::Fridge => {
             let body = Material::satin(c);
             m.bx(body, [-w / 2.0, 0.0, -d / 2.0], [w / 2.0, h, d / 2.0 - 2.0]);
@@ -621,6 +709,7 @@ fn draw(m: &mut Model<'_>, f: &Furniture) {
                 );
             }
         }
+        Kind::Bathtub if variant == Some("freestanding") => rooms::freestanding_bath(m),
         Kind::Bathtub => {
             let enamel = Material::ceramic(c);
             m.bx(enamel, [-w / 2.0, 0.0, -d / 2.0], [w / 2.0, h, d / 2.0]);
@@ -642,6 +731,8 @@ fn draw(m: &mut Model<'_>, f: &Furniture) {
                 1.0,
             );
         }
+        Kind::Vanity if variant == Some("pedestal") => rooms::pedestal_basin(m),
+        Kind::Vanity if variant == Some("double") => rooms::double_vanity(m),
         Kind::Vanity => {
             let body = surface(c);
             m.bx(
@@ -669,6 +760,7 @@ fn draw(m: &mut Model<'_>, f: &Furniture) {
             );
             faucet(m, [0.0, h, -d / 2.0 + 5.0]);
         }
+        Kind::TallCabinet if variant == Some("sliding") => rooms::sliding_wardrobe(m),
         Kind::TallCabinet => {
             let body = surface(c);
             m.bx(body, [-w / 2.0, 0.0, -d / 2.0], [w / 2.0, h, d / 2.0]);
@@ -688,6 +780,7 @@ fn draw(m: &mut Model<'_>, f: &Furniture) {
                 );
             }
         }
+        Kind::Toilet if variant == Some("wall-hung") => rooms::wall_hung_toilet(m),
         Kind::Toilet => {
             let porcelain = Material::ceramic(c);
             m.p.material = porcelain;
@@ -820,6 +913,13 @@ fn draw(m: &mut Model<'_>, f: &Furniture) {
             curtain(m, open);
         }
         Kind::Picture | Kind::PictureWall | Kind::Mirror => pictures(m, f.kind, variant),
+        Kind::Pendant if matches!(variant, Some("globe" | "dome")) => {
+            lights::pendant(m, variant == Some("dome"));
+        }
+        Kind::CeilingLight if variant == Some("panel") => lights::ceiling_panel(m),
+        Kind::FloorLamp if matches!(variant, Some("arc" | "tripod")) => {
+            lights::floor_lamp(m, variant == Some("arc"));
+        }
         Kind::Chandelier
         | Kind::Pendant
         | Kind::Spotlight
@@ -946,6 +1046,95 @@ fn draw(m: &mut Model<'_>, f: &Furniture) {
                 );
             }
         }
+        Kind::CornerSofa => living::corner_sofa(m, variant == Some("left")),
+        Kind::Ottoman => living::ottoman(m, variant == Some("round")),
+        Kind::TvStand => living::tv_stand(m),
+        Kind::Rug => living::rug(m, variant),
+        Kind::Fireplace => living::fireplace(m, variant),
+        Kind::Piano => living::piano(m, variant == Some("digital")),
+        Kind::Speaker => living::speaker(m, variant),
+        Kind::RockingChair => living::rocking_chair(m),
+        Kind::Bench => living::bench(m, variant == Some("upholstered")),
+        Kind::Aquarium => living::aquarium(m),
+        Kind::Clock => living::clock(m),
+        Kind::Vase => living::vase(m, variant),
+        Kind::Books => living::books(m, variant == Some("upright")),
+        Kind::WallShelf => living::wall_shelf(m),
+        Kind::CoatRack => living::coat_rack(m),
+        Kind::BarStool => kitchen::bar_stool(m, variant == Some("backrest")),
+        Kind::KitchenIsland => kitchen::kitchen_island(m, variant),
+        Kind::Sideboard => kitchen::sideboard(m),
+        Kind::Microwave => kitchen::microwave(m),
+        Kind::Oven => kitchen::oven(m, variant == Some("double")),
+        Kind::CoffeeMachine => kitchen::coffee_machine(m, variant == Some("espresso")),
+        Kind::Kettle => kitchen::kettle(m),
+        Kind::Toaster => kitchen::toaster(m),
+        Kind::WineCooler => kitchen::wine_cooler(m),
+        Kind::Freezer => kitchen::freezer(m, variant == Some("upright")),
+        Kind::Crib => rooms::crib(m),
+        Kind::BunkBed => rooms::bunk_bed(m),
+        Kind::ClothesRack => rooms::clothes_rack(m),
+        Kind::Shower => rooms::shower(m, variant),
+        Kind::TowelRadiator => rooms::towel_radiator(m),
+        Kind::LaundryBasket => rooms::laundry_basket(m),
+        Kind::WaterHeater => devices::water_heater(m),
+        Kind::Boiler => devices::boiler(m),
+        Kind::Furnace => devices::furnace(m),
+        Kind::HeatPump => devices::heat_pump(m),
+        Kind::AirPurifier => devices::air_purifier(m),
+        Kind::Dehumidifier => devices::dehumidifier(m),
+        Kind::Humidifier => devices::humidifier(m),
+        Kind::Fan => devices::fan(m, variant),
+        Kind::EvCharger => devices::ev_charger(m),
+        Kind::ElectricalPanel => devices::electrical_panel(m),
+        Kind::Router => devices::router(m, variant == Some("mesh")),
+        Kind::AccessPoint => devices::access_point(m),
+        Kind::Thermostat => devices::thermostat(m),
+        Kind::SmokeDetector => devices::smoke_detector(m),
+        Kind::Camera => devices::camera(m, variant),
+        Kind::WallTablet => devices::wall_tablet(m),
+        Kind::Sensor => devices::sensor(m, variant == Some("motion")),
+        Kind::WallLight => lights::wall_light(m, variant == Some("swing-arm")),
+        Kind::LightStrip => lights::light_strip(m),
+        Kind::TrackLight => lights::track_light(m),
+        Kind::Monitor => leisure::monitor(m),
+        Kind::Computer => leisure::computer(m),
+        Kind::FilingCabinet => leisure::filing_cabinet(m),
+        Kind::Treadmill => leisure::treadmill(m),
+        Kind::ExerciseBike => leisure::exercise_bike(m),
+        Kind::PetBed => leisure::pet_bed(m),
+        Kind::CatTree => leisure::cat_tree(m),
+        Kind::LitterBox => leisure::litter_box(m, variant == Some("self-cleaning")),
+        Kind::PetFeeder => leisure::pet_feeder(m),
+        Kind::Car => leisure::car(m),
+        Kind::Tree => garden::tree(m, variant),
+        Kind::Shrub => garden::shrub(m, variant),
+        Kind::Hedge => garden::hedge(m),
+        Kind::Planter => garden::planter(m, variant),
+        Kind::GardenTable => garden::garden_table(m, variant),
+        Kind::GardenChair => garden::garden_chair(m),
+        Kind::SunLounger => garden::sun_lounger(m),
+        Kind::Parasol => garden::parasol(m, variant),
+        Kind::Barbecue => garden::barbecue(m, variant),
+        Kind::FirePit => garden::fire_pit(m),
+        Kind::GardenLight => garden::garden_light(m, variant),
+        Kind::Pool => garden::pool(m, variant),
+        Kind::HotTub => garden::hot_tub(m),
+        Kind::RobotMower => garden::robot_mower(m),
+        Kind::Shed => garden::shed(m, variant),
+        Kind::Pergola => garden::pergola(m, variant),
+        Kind::Greenhouse => garden::greenhouse(m),
+        Kind::Trampoline => garden::trampoline(m),
+        Kind::Swing => garden::swing(m),
+        Kind::Fence => garden::fence(m, variant),
+        Kind::Gate => {
+            // Shut unless its cover or contact, or the plan, says otherwise.
+            let open = m
+                .open
+                .unwrap_or_else(|| f.open.map_or(0.0, |o| f64::from(o) / 100.0));
+            garden::gate(m, variant, open);
+        }
+        Kind::Mailbox => garden::mailbox(m),
         Kind::Box => {
             // A piece drawn from a 3D file once its mesh came; a box until then.
             let drawn = match m.file.take() {
@@ -1257,6 +1446,11 @@ fn heart(t: f64) -> f64 {
     (0.45 + 0.55 * (std::f64::consts::PI * t.powf(0.8)).sin()) * (1.0 - t.powi(6))
 }
 
+/// A fiddle-leaf fig's leaf: narrow at its stalk, widest near its rounded tip.
+fn fiddle(t: f64) -> f64 {
+    (0.3 + 0.7 * (std::f64::consts::PI * 0.5 * t.powf(0.8)).sin()) * (1.0 - t.powi(6))
+}
+
 /// A long, narrow leaf (dracaena, palms): widest a third of the way, to a point.
 fn strap(t: f64) -> f64 {
     (std::f64::consts::PI * t.powf(0.7)).sin().max(0.0).sqrt() * (1.0 - t.powi(3))
@@ -1293,6 +1487,72 @@ fn plant(m: &mut Model<'_>, variant: Option<&str>) {
     let top = h - pot_h;
     let soil = pot_h - 1.0;
     match variant {
+        Some("fiddle-leaf") => {
+            // A fiddle-leaf fig: a trunk branching high, broad leaves widest near their tips,
+            // held out all round.
+            let bark = Material::wood(Rgb8::from_u32(0x6a5038));
+            let fork = soil + top * 0.36;
+            m.twig(bark, [0.0, soil, 0.0], [0.0, fork, 0.0], 1.4);
+            let length = (r * 0.7).clamp(6.0, 32.0);
+            let mut ends = vec![[0.0, soil + top * 0.97 - length * 0.4, 0.0]];
+            m.twig(bark, [0.0, fork, 0.0], ends[0], 1.0);
+            for k in 0..2 {
+                let a = f64::from(k) * std::f64::consts::PI + m.rng.next();
+                let (s, co) = a.sin_cos();
+                let end = [
+                    co * r * 0.3,
+                    soil + top * (0.72 + 0.1 * m.rng.next()) - length * 0.4,
+                    s * r * 0.3,
+                ];
+                m.twig(bark, [0.0, fork, 0.0], end, 0.8);
+                ends.push(end);
+            }
+            let mut angle = m.rng.next() * std::f64::consts::TAU;
+            for end in ends {
+                let start = [end[0] * 0.2, fork + (end[1] - fork) * 0.15, end[2] * 0.2];
+                for j in 0..10 {
+                    let t = f64::from(j) / 9.0;
+                    let at = [0, 1, 2].map(|k| start[k] + (end[k] - start[k]) * t);
+                    angle += 2.4;
+                    let (s, co) = angle.sin_cos();
+                    let room = (r * 0.95 - at[0].hypot(at[2])).max(4.0);
+                    let size = (length * (0.7 + 0.3 * t)).min(room);
+                    let leaf = Blade {
+                        size: [size, size * 0.62],
+                        shape: fiddle,
+                        fold: 0.16,
+                        droop: size * 0.28,
+                        segments: 4,
+                    };
+                    let tone = tone(m);
+                    m.leaf(tone, at, [co, 0.35 + 0.4 * t, s], &leaf);
+                }
+            }
+        }
+        Some("snake-plant") => {
+            // A snake plant: stiff leaves like swords, standing up from the soil.
+            let width = (r * 0.36).clamp(2.0, 6.0);
+            for k in 0..11 {
+                let a = f64::from(k) * 2.4 + m.rng.next();
+                let (s, co) = a.sin_cos();
+                let lean = 0.06 + 0.2 * m.rng.next();
+                let at = [co * pr * 0.35, soil, s * pr * 0.35];
+                let tall = top * (0.55 + 0.45 * m.rng.next());
+                let leaf = Blade {
+                    size: [tall, width * (0.8 + 0.4 * m.rng.next())],
+                    shape: strap,
+                    fold: 0.3,
+                    droop: tall * 0.03,
+                    segments: 4,
+                };
+                let tone = Material::new(
+                    shade(Rgb8::from_u32(0x3f5f34), 0.8 + 0.35 * m.rng.next()),
+                    0.55,
+                    Surface::Leaf,
+                );
+                m.leaf(tone, at, [co * lean, 1.0, s * lean], &leaf);
+            }
+        }
         Some("dracaena") => {
             let cane = Material::wood(Rgb8::from_u32(0x6a5038));
             for k in 0..3 {
@@ -1511,7 +1771,7 @@ fn faucet(m: &mut Model<'_>, at: V3) {
     );
 }
 
-fn kitchen(m: &mut Model<'_>, kind: Kind) {
+fn cabinets(m: &mut Model<'_>, kind: Kind, gas: bool) {
     let (w, d, h, c) = (m.w, m.d, m.h, m.c);
     let plinth = 10.0;
     let top_t = 4.0;
@@ -1534,6 +1794,29 @@ fn kitchen(m: &mut Model<'_>, kind: Kind) {
                 [-w / 2.0, plinth, d / 2.0 - 2.0],
                 [w / 2.0, h - top_t, d / 2.0 - 1.0],
             );
+            if gas {
+                kitchen::gas_top(m, h - top_t);
+                for k in 0..4 {
+                    let x = (f64::from(k) - 1.5) * w * 0.2;
+                    m.cyl(
+                        Material::metal(DARK),
+                        [x, h - top_t - 6.0, d / 2.0 - 1.0],
+                        [1.5, 1.5],
+                        1.5,
+                    );
+                }
+                m.bx(
+                    SCREEN,
+                    [-w / 2.0 + 5.0, plinth + 8.0, d / 2.0 - 1.0],
+                    [w / 2.0 - 5.0, h - top_t - 18.0, d / 2.0 - 0.5],
+                );
+                m.bx(
+                    Material::metal(STEEL),
+                    [-w / 2.0 + 6.0, h - top_t - 12.0, d / 2.0 - 0.5],
+                    [w / 2.0 - 6.0, h - top_t - 10.0, d / 2.0 + 2.0],
+                );
+                return;
+            }
             m.bx(
                 SCREEN,
                 [-w / 2.0 + 5.0, plinth + 8.0, d / 2.0 - 1.0],
