@@ -89,6 +89,7 @@ Ce qu’on cherche du doigt : le côté pratique, sur un téléphone comme sur u
   tablette murale comme sur un téléphone. Quand Assist n’entend pas encore, DomoTwin installe la
   voix en local avec votre accord : Whisper ou Speech-to-Phrase et Piper, installés par le
   Supervisor, sans que rien ne quitte votre logement. Les blueprints vocaux s’ajoutent d’un geste.
+  La voix se coupe d’un geste sur un appareil : un téléphone, un écran dans une pièce commune.
   Voir [votre voix](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/voice.md) (en
   anglais).
 - **Les pointes d’Hydro-Québec.** Pour un logement au tarif Flex D ou au crédit hivernal, avec
@@ -490,7 +491,7 @@ YAML n’est jamais nécessaire. Pour référence, les options de la carte :
 | `orbit`       | `true`, `false`                     | `false`    | Kiosque : tourner lentement autour du logement entre-temps. |
 | `night_dim`   | `true`, `false`                     | `false`    | Kiosque : assombri la nuit entre-temps (sauf alerte). |
 | `tools`       | `true`, `false`                     | `true`     | Les boutons de la vue.                        |
-| `voice`       | `true`, `false`                     | `true`     | Le bouton micro, quand Assist est là.         |
+| `voice`       | `true`, `false`                     | `true`     | Le bouton micro, quand Assist est là et que la voix est active sur l’appareil. |
 | `screen`      | un nom (`hallway`…)                 | aucun      | Le nom de cet écran, pour `domotwin.show`.    |
 | `font_family` | une famille de police, `theme`      | incluse    | Police des textes de la carte ; `theme` : celle de votre thème. |
 | `demo`        | `true`, `false`                     | `false`    | La maison de démo et sa journée au lieu de votre maison ; rien de votre maison n’est touché. |

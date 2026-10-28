@@ -204,7 +204,13 @@ import {
   type RoomKind,
   type RoomLabel,
 } from "../live/room-labels";
-import { assistAvailable, canListen, listeningPipeline, openAssist } from "../live/voice";
+import {
+  assistAvailable,
+  canListen,
+  listeningPipeline,
+  openAssist,
+  readDeviceVoice,
+} from "../live/voice";
 import { drawable, type Wifi } from "../live/wifi";
 import { securityPage, shownAlerts, type SecurityAlert } from "../live/security";
 import { alertButton, type AlertRoom } from "./alert-button";
@@ -5736,7 +5742,8 @@ export class DomoTwinView extends LitElement {
           ${icon(mdiLayersOutline)}
         </button>
         ${
-          this.options.voice !== false && assistAvailable(this.hass)
+          // Voice may be off for the card (`voice: false`), the screen (D-076) or the device (D-085).
+          this.options.voice !== false && readDeviceVoice() && assistAvailable(this.hass)
             ? html`<button
                 data-testid="voice"
                 title=${t.t("voice.listen")}

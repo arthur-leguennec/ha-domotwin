@@ -25,6 +25,7 @@ import {
 import { SUMMARIES, isSummary } from "../live/overview";
 import { screenNamed, writeDeviceScreen, type Screens } from "../live/screens";
 import { sameScreen } from "../live/show";
+import { assistAvailable, writeDeviceVoice } from "../live/voice";
 import { define, fire } from "./define";
 import { icon } from "./icon";
 import { baseStyles } from "./styles";
@@ -65,11 +66,13 @@ export class DomoTwinChoices extends LitElement {
     t: { attribute: false },
     choices: { attribute: false },
     deviceStart: { attribute: false },
+    deviceVoice: { attribute: false },
     screens: { attribute: false },
     deviceScreen: { attribute: false },
     panelPath: { attribute: false },
     start: { state: true },
     device: { state: true },
+    voice: { state: true },
     screen: { state: true },
     cards: { state: true },
     first: { state: true },
@@ -84,6 +87,8 @@ export class DomoTwinChoices extends LitElement {
   choices?: Choices;
   /** This device's own tab, when it has one. */
   deviceStart?: Tab;
+  /** Voice on this device (D-085). */
+  deviceVoice = true;
   /** The wall screens (D-076), when read, and the one this device is. */
   screens?: Screens;
   deviceScreen?: string;
@@ -91,6 +96,7 @@ export class DomoTwinChoices extends LitElement {
   panelPath = "domotwin";
   protected start: Tab | "" = "";
   protected device: Tab | "" = "";
+  protected voice = true;
   protected screen = "";
   protected cards: HomeCard[] = [];
   protected first = false;
@@ -222,6 +228,7 @@ export class DomoTwinChoices extends LitElement {
     this.drafted = true;
     this.start = this.choices.start ?? "";
     this.device = this.deviceStart ?? "";
+    this.voice = this.deviceVoice;
     this.screen = this.deviceScreen ?? "";
     this.cards = [...this.choices.cards];
     this.first = opensFirst(hass, this.panelPath);
@@ -295,11 +302,13 @@ export class DomoTwinChoices extends LitElement {
         cards: this.cards,
       });
       writeDeviceStart(this.device || undefined);
+      writeDeviceVoice(this.voice);
       if (!hass.demo && !hass.sandbox) writeDeviceScreen(this.screen || undefined);
       fire(this, "domotwin-saved", {
         choices: saved,
         device: this.device || undefined,
         screen: this.screen || undefined,
+        voice: this.voice,
       });
     } catch (error) {
       this.error = t.t("choices.failed", { reason: reason(error) });
@@ -488,6 +497,22 @@ export class DomoTwinChoices extends LitElement {
           ${this.tabOptions(this.device, t.t("choices.device_same"))}
         </select>
       </label>
+      ${
+        // Voice on this device (D-085), where Assist runs.
+        assistAvailable(hass)
+          ? html`<label class="row">
+              <input
+                type="checkbox"
+                data-testid="choices-voice"
+                .checked=${this.voice}
+                @change=${(event: Event) => {
+                  this.voice = (event.target as HTMLInputElement).checked;
+                }}
+              />
+              <span>${t.t("choices.voice")}<br /><small>${t.t("choices.voice_hint")}</small></span>
+            </label>`
+          : nothing
+      }
       ${this.renderScreen()}
       ${
         how

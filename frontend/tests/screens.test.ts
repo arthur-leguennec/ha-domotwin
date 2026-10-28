@@ -160,17 +160,17 @@ describe("the wall screens (D-076)", () => {
     expect(freeName(screens, "kitchen")).toBe("kitchen");
     expect(folderName("media-source://media_source/local/holidays/")).toBe("holidays");
     expect(folderName("media-source://media_source/local/%C3%A9t%C3%A9")).toBe("été");
-    expect(
-      layoutOf({
-        name: "hall",
-        start: "",
-        after: 5,
-        wake: ["binary_sensor.hall_motion"],
-        weather: true,
-        every: 30,
-        dim: false,
-      }),
-    ).toEqual({
+    const draft = {
+      name: "hall",
+      start: "" as const,
+      voice: true,
+      after: 5,
+      wake: ["binary_sensor.hall_motion"],
+      weather: true,
+      every: 30,
+      dim: false,
+    };
+    expect(layoutOf(draft)).toEqual({
       saver: {
         after: 5,
         wake: ["binary_sensor.hall_motion"],
@@ -179,6 +179,16 @@ describe("the wall screens (D-076)", () => {
         dim: false,
       },
     });
+    // Voice off on the screen (D-085): kept; on, said by nothing.
+    expect(layoutOf({ ...draft, voice: false }).voice).toBe(false);
+    expect(
+      readScreens({ screens: { hall: { voice: false }, desk: { voice: true }, x: {} } }),
+    ).toMatchObject({
+      hall: { voice: false },
+    });
+    const read = readScreens({ screens: { desk: { voice: true }, x: { voice: "no" } } });
+    expect("voice" in (read.desk ?? {})).toBe(false);
+    expect("voice" in (read.x ?? {})).toBe(false);
   });
 
   it("says everything in both languages, none of the main dictionaries' words", () => {

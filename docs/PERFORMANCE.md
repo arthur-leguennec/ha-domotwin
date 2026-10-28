@@ -1458,3 +1458,11 @@ On a fictional home of 1 200 entities in 24 areas on two floors, working out eve
 about 3.6 ms (the median of ten, in Node); the Home tab works them out again only when the registries
 change, not at each state. The states of 10 shortcuts take about 1.3 ms at each update of Home
 Assistant's states: each kind's devices are worked out once for each of them, not once a button.
+
+### M47 (voice off on a device)
+
+Bundle: the first load is **658.2 kB gzipped** of 1 200 kB (+0.3 kB): the 3D view reads the
+device's choice (a read of `localStorage` each time its tools are drawn); the switches are in the
+voice settings', the choices' and the wall screens' chunks, each a few lines. Nothing more is done
+at each update of Home Assistant's states.
+

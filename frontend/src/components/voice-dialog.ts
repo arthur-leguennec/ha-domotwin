@@ -15,6 +15,7 @@ import {
   openAssist,
   setUpVoice,
   voiceState,
+  writeDeviceVoice,
   type BlueprintName,
   type SpeechApp,
   type VoiceState,
@@ -46,6 +47,7 @@ export class DomoTwinVoice extends LitElement {
   static override properties = {
     hass: { attribute: false },
     mode: {},
+    deviceVoice: { attribute: false },
     state: { state: true },
     pipeline: { state: true },
     app: { state: true },
@@ -158,6 +160,8 @@ export class DomoTwinVoice extends LitElement {
 
   hass?: HomeAssistant;
   mode: VoiceDialogMode = "settings";
+  /** Voice on this device (D-085), turned off or on in the settings. */
+  deviceVoice = true;
   /** DomoTwin's side: the blueprints, the Supervisor, a set-up in progress. */
   protected state?: VoiceState;
   /** The pipeline Assist listens with; `null` when none hears. */
@@ -288,6 +292,7 @@ export class DomoTwinVoice extends LitElement {
         </button>
       </header>
       ${this.mode === "https" ? this.renderHttps() : nothing}
+      ${this.mode === "settings" ? this.renderDevice() : nothing}
       ${this.mode !== "https" ? this.renderListening() : nothing}
       ${this.mode === "settings" && this.admin ? this.renderBlueprints() : nothing}
       ${this.mode === "settings" && this.hass && !canListen(this.hass) ? this.renderHttpsNote() : nothing}
@@ -319,6 +324,25 @@ export class DomoTwinVoice extends LitElement {
           ${t.t("voice.type")}
         </button>
       </div>`;
+  }
+
+  /** Voice on this device (D-085): off, no microphone button on it; Assist stays for the others. */
+  private renderDevice(): TemplateResult {
+    const t = this.t;
+    return html`<label class="choice">
+      <input
+        type="checkbox"
+        data-testid="voice-device"
+        .checked=${this.deviceVoice}
+        @change=${(event: Event) => {
+          const on = (event.target as HTMLInputElement).checked;
+          writeDeviceVoice(on);
+          fire(this, "domotwin-device-voice", { on });
+        }}
+      />
+      <span>${t.t("voice.device")}</span>
+      <small>${t.t("voice.device_hint")}</small>
+    </label>`;
   }
 
   private renderHttpsNote(): TemplateResult {

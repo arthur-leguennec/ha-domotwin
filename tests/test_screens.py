@@ -87,6 +87,11 @@ async def test_screens_are_set_by_administrators_and_read_by_everyone(
     assert answer["error"]["code"] == "screen_exists"
     answer = await _send(admin, {"type": "domotwin/screens/remove", "name": " Kitchen "})
     assert list(answer["result"]["screens"]) == ["hall"]
+    # No voice on a screen (D-085): kept as said.
+    answer = await _send(
+        admin, {"type": "domotwin/screens/save", "name": "hall", "layout": {"voice": False}}
+    )
+    assert answer["result"]["screens"]["hall"]["voice"] is False
     # Removing one that is not there changes nothing.
     answer = await _send(admin, {"type": "domotwin/screens/remove", "name": "attic"})
     assert list(answer["result"]["screens"]) == ["hall"]
@@ -110,6 +115,7 @@ async def test_screens_are_set_by_administrators_and_read_by_everyone(
         ("kitchen", {"saver": {"after": True}}),
         ("kitchen", {"saver": {"every": 30.5}}),
         ("kitchen", {"saver": {"clock": False}}),
+        ("kitchen", {"voice": "off"}),
         ("kitchen", {"cards": []}),
     ],
 )

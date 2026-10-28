@@ -111,6 +111,9 @@ export const practicalEn = {
     start_hint: "For you, on every device.",
     device_start: "On this device",
     device_same: "As on every device",
+    voice: "Voice on this device",
+    voice_hint:
+      "Off: no microphone button here, for a phone in a pocket or a screen in a shared room.",
     screen: "This device is the wall screen",
     screen_hint: "It opens on that screen's tab and shows its screen saver.",
     screen_none: "None",
@@ -253,6 +256,9 @@ export const practicalFr: PracticalDictionary = {
     start_hint: "Pour vous, sur tous vos appareils.",
     device_start: "Sur cet appareil",
     device_same: "Comme sur tous les appareils",
+    voice: "La voix sur cet appareil",
+    voice_hint:
+      "Désactivée : pas de bouton micro ici, pour un téléphone dans la poche ou un écran dans une pièce commune.",
     screen: "Cet appareil est l’écran mural",
     screen_hint: "Il s’ouvre sur l’onglet de cet écran et montre son économiseur.",
     screen_none: "Aucun",

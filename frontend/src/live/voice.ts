@@ -71,6 +71,29 @@ export async function listeningPipeline(hass: HomeAssistant): Promise<string | u
   return (preferred && hears(preferred) ? preferred : list.pipelines.find(hears))?.id;
 }
 
+/** Where this device keeps that DomoTwin's voice is off on it (D-085). */
+const DEVICE_KEY = "domotwin-voice";
+
+/** Whether voice is on on this device: on unless turned off here (D-085). */
+export function readDeviceVoice(): boolean {
+  try {
+    return window.localStorage.getItem(DEVICE_KEY) !== "off";
+  } catch {
+    // Storage disabled (private browsing, policies): on.
+    return true;
+  }
+}
+
+/** Turns DomoTwin's voice on or off on this device; the card and the panel read it. */
+export function writeDeviceVoice(on: boolean): void {
+  try {
+    if (on) window.localStorage.removeItem(DEVICE_KEY);
+    else window.localStorage.setItem(DEVICE_KEY, "off");
+  } catch {
+    // Storage disabled: the panel keeps it until it is opened again.
+  }
+}
+
 /** Whether Assist runs here at all (the conversation integration is loaded). */
 export function assistAvailable(hass: HomeAssistant | undefined): boolean {
   return hass?.config?.components?.includes("conversation") === true;

@@ -48,6 +48,8 @@ interface Draft {
   fresh?: boolean;
   name: string;
   start: Tab | "";
+  /** Voice on the screen (D-085). */
+  voice: boolean;
   after: number;
   wake: string[];
   weather: boolean;
@@ -68,6 +70,7 @@ function draftOf(name: string, layout: ScreenLayout): Draft {
   const draft: Draft = {
     name,
     start: layout.start ?? "",
+    voice: layout.voice !== false,
     after: saver.after,
     wake: [...saver.wake],
     weather: saver.weather,
@@ -90,6 +93,7 @@ export function layoutOf(draft: Draft): ScreenLayout {
     },
   };
   if (draft.start) layout.start = draft.start;
+  if (!draft.voice) layout.voice = false;
   if (draft.photos) layout.saver.photos = draft.photos;
   return layout;
 }
@@ -345,6 +349,7 @@ export class DomoTwinScreens extends LitElement {
       fresh: true,
       name: freeName(this.screens, t.t("wall.new_name")),
       start: "",
+      voice: true,
       after: 5,
       wake: [],
       weather: true,
@@ -601,6 +606,17 @@ export class DomoTwinScreens extends LitElement {
               </option>`,
           )}
         </select>
+      </label>
+      <label class="row">
+        <input
+          type="checkbox"
+          data-testid="screens-voice"
+          .checked=${draft.voice}
+          @change=${(event: Event) => {
+            this.change({ voice: (event.target as HTMLInputElement).checked });
+          }}
+        />
+        <span>${t.t("wall.voice")}<br /><small>${t.t("wall.voice_hint")}</small></span>
       </label>
       <h3>${t.t("wall.saver_title")}</h3>
       <label class="row">

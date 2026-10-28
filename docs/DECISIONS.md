@@ -4317,3 +4317,31 @@ start from suggestions, with more settings for those who want them.
     takes about 3.6 ms, and they are worked out again only when the registries change; the states
     of 10 shortcuts about 1.3 ms, each kind's devices worked out once for each of Home Assistant's
     states.
+
+## D-085 · Voice off on a device: a phone, a screen in a shared room (M47)
+
+Asked by the maintainer after 0.6.0: voice can be turned off on one device.
+
+- **Context.** The 3D view's microphone button (D-041) shows wherever Assist runs: on every phone,
+  computer and wall screen of the home. Some do not want it: a phone in a pocket, a screen in a
+  child's room or in a shared room. Only the card had a switch, `voice: false`, kept in a
+  dashboard's YAML, so the panel and a device's own preference had none.
+- **Decision.**
+  - **Kept on the device, not for the user.** `localStorage` keeps `domotwin-voice: off` on the
+    device (as its own start tab, D-055, and the wall screen it is, D-076): whoever signs in
+    there, nothing about the user changes on their other devices. The card and the panel read it
+    (`live/voice.ts`); storage the browser refuses leaves voice on.
+  - **Two places to turn it off, both for anyone.** *Voice on this device* in the panel's voice
+    settings (**⋮** → **Voice**, where one looks for it), and in *Your choices*, next to the tab
+    this device opens on. The voice settings change it at once; the choices with their **Save**.
+    Shown where Assist runs.
+  - **A wall screen without voice.** An administrator's layout of a screen (D-076) has *Voice on
+    this screen*: off, the device that is that screen has no microphone button, whatever its own
+    choice. Kept by the integration with the layout (`voice: false`).
+  - **What off means.** No microphone button on that device, in the panel and in the cards. Assist
+    stays set up; the other devices keep theirs; the blueprints and `domotwin.show` by voice from a
+    satellite go on, being Home Assistant's, not the device's. The card's `voice: false` is as
+    before.
+- **Consequences.** The first load grows by 0.3 kB (reading the device's choice in the 3D view);
+  the switches are in the dialogs' chunks. Nothing is sent anywhere.
+

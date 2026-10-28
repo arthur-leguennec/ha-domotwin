@@ -587,6 +587,8 @@ export const main: Dictionary = {
     listen: "对 Assist 说话",
     settings: "语音",
     https_title: "麦克风需要 HTTPS",
+    device: "在此设备上使用语音",
+    device_hint: "关闭后：此处不显示麦克风按钮。其他设备上的 Assist 不受影响。",
     https:
       "浏览器只向通过 HTTPS 提供的页面，或在运行 Home Assistant 的电脑上打开的页面开放麦克风。此页面是通过 HTTP 提供的。",
     https_how:

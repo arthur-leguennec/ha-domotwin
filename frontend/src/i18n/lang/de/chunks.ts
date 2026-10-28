@@ -1278,6 +1278,9 @@ export const chunks: Chunks = {
       start_hint: "Für dich, auf jedem Gerät.",
       device_start: "Auf diesem Gerät",
       device_same: "Wie auf jedem Gerät",
+      voice: "Sprachsteuerung auf diesem Gerät",
+      voice_hint:
+        "Aus: hier keine Mikrofontaste, etwa für ein Handy in der Tasche oder einen Bildschirm in einem gemeinsamen Raum.",
       screen: "Dieses Gerät ist der Wandbildschirm",
       screen_hint:
         "Es öffnet sich auf dem Tab dieses Bildschirms und zeigt dessen Bildschirmschoner.",
@@ -1997,6 +2000,8 @@ export const chunks: Chunks = {
       taken: "Ein anderer Bildschirm hat diesen Namen.",
       start: "Öffnet sich auf",
       start_same: "Dem eigenen Tab des Geräts, sonst dem des Benutzers",
+      voice: "Sprachsteuerung auf diesem Bildschirm",
+      voice_hint: "Aus: keine Mikrofontaste darauf, was auch immer sein Gerät sagt.",
       saver_title: "Bildschirmschoner",
       after: "Erscheint nach",
       never: "Nie",

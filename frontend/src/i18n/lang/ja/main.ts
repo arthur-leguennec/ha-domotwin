@@ -597,6 +597,8 @@ export const main: Dictionary = {
     listen: "Assist に話しかける",
     settings: "音声",
     https_title: "マイクには HTTPS が必要です",
+    device: "このデバイスで音声を使う",
+    device_hint: "オフ：ここにマイクボタンを表示しません。他のデバイスの Assist はそのままです。",
     https:
       "ブラウザがマイクの使用を許可するのは、HTTPS で配信されるページか、Home Assistant が動作しているコンピューター上で開いたページだけです。このページは HTTP で配信されています。",
     https_how:

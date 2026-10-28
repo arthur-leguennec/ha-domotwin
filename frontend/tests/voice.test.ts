@@ -1,7 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { HomeAssistant } from "../src/ha/types";
-import { assistAvailable, canListen, listeningPipeline } from "../src/live/voice";
+import {
+  assistAvailable,
+  canListen,
+  listeningPipeline,
+  readDeviceVoice,
+  writeDeviceVoice,
+} from "../src/live/voice";
 
 /** Home Assistant with these Assist pipelines; what it was asked is kept. */
 function hass(
@@ -54,5 +60,36 @@ describe("voice at hand (D-041)", () => {
     expect(canListen(home)).toBe(false);
     const app = { ...home, auth: { external: { config: { hasAssist: true } } } };
     expect(canListen(app as HomeAssistant)).toBe(true);
+  });
+});
+
+describe("voice off on a device (D-085)", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    window.localStorage.clear();
+  });
+
+  it("is on until turned off here, and kept on the device", () => {
+    expect(readDeviceVoice()).toBe(true);
+    writeDeviceVoice(false);
+    expect(readDeviceVoice()).toBe(false);
+    expect(window.localStorage.getItem("domotwin-voice")).toBe("off");
+    writeDeviceVoice(true);
+    expect(readDeviceVoice()).toBe(true);
+    expect(window.localStorage.getItem("domotwin-voice")).toBeNull();
+    // Anything else kept there is not "off".
+    window.localStorage.setItem("domotwin-voice", "maybe");
+    expect(readDeviceVoice()).toBe(true);
+  });
+
+  it("stays on when the browser keeps nothing", () => {
+    // Storage refused: reaching it throws, as in a browser that blocks it.
+    vi.spyOn(window, "localStorage", "get").mockImplementation(() => {
+      throw new Error("denied");
+    });
+    expect(() => {
+      writeDeviceVoice(false);
+    }).not.toThrow();
+    expect(readDeviceVoice()).toBe(true);
   });
 });

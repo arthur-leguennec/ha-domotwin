@@ -24,6 +24,18 @@ dialog says so and how to serve Home Assistant over HTTPS:
 The Home Assistant companion app listens itself, so it needs none of this. Meanwhile, the
 dialog offers to type to Assist.
 
+## Off on a device
+
+A phone in a pocket, a screen in a child's or a shared room: voice can be turned off on one
+device. **Voice on this device**, in the panel's voice settings (**⋮** → **Voice**) or in **Your
+choices** (the button on the Home and Rooms tabs), off: no microphone button on that device, in
+the panel and in its cards. It is kept on the device only, whoever signs in there; your other
+devices keep theirs, and Assist stays set up for them.
+
+A wall screen's layout has **Voice on this screen** too (administrators, see [the wall
+screen](wall-screen.md)): off, the device that is that screen has no microphone button, whatever
+its own choice.
+
 ## When Assist cannot hear yet
 
 A fresh Home Assistant has Assist without speech-to-text. The microphone button then offers to

@@ -539,6 +539,8 @@ export const en = {
     listen: "Speak to Assist",
     settings: "Voice",
     https_title: "The microphone needs HTTPS",
+    device: "Voice on this device",
+    device_hint: "Off: no microphone button here. Assist stays as it is on the other devices.",
     https:
       "Browsers lend the microphone only to pages served over HTTPS, or opened on the computer Home Assistant runs on. This page is served over HTTP.",
     https_how:
