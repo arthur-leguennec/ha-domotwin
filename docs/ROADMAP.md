@@ -75,7 +75,8 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | 0.6.0     | Sixth release: the shortcuts                               | ✅     |
 | M47       | Voice off on a device, or on a wall screen                 | ✅     |
 | M48       | A workplace: people counted, opening hours, closing up     | ✅     |
-| 0.7.0     | Seventh release: what the use of 0.6.0 asks for            | ⏳     |
+| 0.7.0     | Seventh release: voice off on a device, a workplace        | ✅     |
+| 0.8.0     | Eighth release: what the use of 0.7.0 asks for             | ⏳     |
 
 M5 to M11 were added after M3b (`DECISIONS.md`, D-022): what people expect of a 3D home dashboard,
 with no account and no network call outside Home Assistant. M8 became the looks alone, and the
@@ -2146,4 +2147,17 @@ before its milestone starts, which goes on with what needs no answer.
   named, in DomoTwin's views and by voice; its opening hours a schedule of Home Assistant's, the
   Home tab saying whether it is open and, closed, what was left on; *Close up* suggested as a
   shortcut. See [a workplace](workplace.md).
-- ⏳ **Release 0.7.0**: what the use of 0.6.0 asks for.
+- ✅ Tried in a fresh Home Assistant (2026.10.2): the smoke test (`scripts/ha-smoke.mjs`), then
+  the panel on a phone-sized screen, with Home Assistant's demo devices put in its areas. *Voice
+  on this device*, unticked in *Your choices*, is kept on the device and read again; ticked, it is
+  gone from it. A schedule of Home Assistant's, closed now, made the opening hours of a workplace:
+  the integration says its people are counted; the Home tab says *Closed: 16 left on* as a
+  warning, lists them (lamps, locks unlocked, media playing), suggests *Close up* rather than a
+  good night, and `domotwin.where` says how many are here, a name asked or none. No error, no
+  request outside Home Assistant.
+- ✅ **Release 0.7.0**: release-please's pull request, merged once this is in `main`, tags `v0.7.0`
+  and attaches `domotwin.zip`, with voice off on a device (M47) and a workplace (M48).
+
+## Then, to 0.8.0
+
+- ⏳ **Release 0.8.0**: what the use of 0.7.0 asks for.
