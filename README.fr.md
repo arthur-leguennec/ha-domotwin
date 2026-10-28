@@ -15,7 +15,7 @@ Local, gratuit, sans compte. Rust + WebAssembly.</p>
 <p align="center"><a href="https://github.com/arthur-leguennec/ha-domotwin/blob/main/README.md">Read in English</a></p>
 
 > [!NOTE]
-> **État : en développement, version 0.5.0.** DomoTwin se construit étape par étape
+> **État : en développement, version 0.6.0.** DomoTwin se construit étape par étape
 > ([feuille de route](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/ROADMAP.md), en anglais), et
 > tout ce que décrit *Fonctionnalités* marche déjà. La proposition à la liste par défaut de HACS
 > attend des mesures sur de vrais appareils.
