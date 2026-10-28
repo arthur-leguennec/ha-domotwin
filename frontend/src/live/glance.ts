@@ -11,14 +11,7 @@ import { NO_BINDINGS, areaOf, type BindingsJson } from "./bindings";
 import { numberOf, type PlanRoom } from "./layers";
 import { peakRooms, type PeakRooms } from "./peak-rooms";
 import { peakNow, type PeakNow } from "./peaks";
-import {
-  colorOf,
-  initials,
-  peopleShown,
-  radarSeen,
-  radarsCount,
-  type PeopleSettings,
-} from "./people";
+import { colorOf, countedHere, initials, peopleShown, type PeopleSettings } from "./people";
 import { closedAreas, outOfSight } from "./privacy";
 import { usualWeather } from "./weather";
 
@@ -140,22 +133,9 @@ function peopleOf(
   workplace: boolean,
 ): { people?: GlancePerson[]; away: number; here?: number } {
   if (settings?.shown === "admins" && hass.user?.is_admin !== true) return { away: 0 };
-  // A workplace (D-086): how many, named nowhere, as `domotwin.where` counts them: those placed
-  // and those the radars see without a name; with nobody placed, those the radars see, or without
-  // radars Home Assistant's people at home.
+  // A workplace (D-086): how many, named nowhere, as `domotwin.where` counts them.
   if (workplace || settings?.counted === true) {
-    const hidden = new Set(settings?.hidden ?? []);
-    const home = (ids: string[]): number =>
-      ids.filter((id) => !hidden.has(id) && hass.states[id]?.state === "home").length;
-    const seen = settings ? radarSeen(settings, hass, closed).length : 0;
-    if (settings && Object.keys(settings.people).length > 0) {
-      return { away: 0, here: home(Object.keys(settings.people)) + seen };
-    }
-    if (settings && radarsCount(settings, hass)) return { away: 0, here: seen };
-    return {
-      away: 0,
-      here: home(Object.keys(hass.states).filter((id) => domainOf(id) === "person")),
-    };
+    return { away: 0, here: countedHere(settings, hass, closed) };
   }
   if (settings && Object.keys(settings.people).length > 0) {
     const shown = outOfSight(peopleShown(settings, hass), closed);

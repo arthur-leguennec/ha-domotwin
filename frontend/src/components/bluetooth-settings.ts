@@ -70,6 +70,7 @@ export class DomoTwinBluetoothSettings extends LitElement {
     hass: { attribute: false },
     settings: { attribute: false },
     candidates: { attribute: false },
+    counted: { attribute: false },
     draft: { state: true },
     busy: { state: true },
     error: { state: true },
@@ -224,6 +225,8 @@ export class DomoTwinBluetoothSettings extends LitElement {
   settings?: LocatingSettings;
   /** Devices that may be followed; undefined until looked for. */
   candidates?: LocatedCandidate[];
+  /** A workplace (D-086): where a phone or a watch is now is not said, as where its owner is. */
+  counted = false;
   protected draft?: Draft;
   protected busy = false;
   protected error?: string;
@@ -705,12 +708,14 @@ export class DomoTwinBluetoothSettings extends LitElement {
         const now = settings.devices[id];
         const match = now && sameMatch(now.match, device.match) ? now.match : device.match;
         let where = "";
-        if (now?.room) {
+        // In a workplace, a phone's or a watch's room is its owner's: not said (D-086).
+        const told = !this.counted || device.kind === "thing";
+        if (told && now?.room) {
           where = t.t("bluetooth.now_in", {
             room: this.roomName(now.room),
             confidence: Math.round(now.confidence * 100),
           });
-        } else if (now) where = t.t("bluetooth.not_heard");
+        } else if (told && now) where = t.t("bluetooth.not_heard");
         return html`<div class="item" data-device=${id}>
           <div class="row">
             <input

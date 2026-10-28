@@ -2200,6 +2200,15 @@ export const chunks: Chunks = {
         robots: "الروبوتات",
       },
       people: {
+        here: {
+          zero: "لا أحد هنا",
+          one: "شخص واحد هنا",
+          two: "شخصان هنا",
+          few: "{count} أشخاص هنا",
+          many: "{count} شخصًا هنا",
+          other: "{count} شخص هنا",
+        },
+        nobody_here: "لا أحد هنا",
         home: {
           zero: "لا أحد في المنزل",
           one: "شخص واحد في المنزل",

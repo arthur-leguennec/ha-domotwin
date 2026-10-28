@@ -4383,8 +4383,13 @@ roles) would be another decision.
     the same way, in each language, whoever asks, a name or none, a thing (not a phone nor a
     watch) still found; `domotwin.show` with a person shows nothing; a room's people sensor keeps
     its count without the list. Administrators too: the one who runs a place is the one it
-    matters most for. The figures are numbered in the order the people were placed, so a figure
-    stays the same while others hide or are renamed.
+    matters most for. The figures are numbered in each room, not by person: one does not walk
+    from room to room, so nobody's way through the place can be followed. By voice, a name like a
+    person's, or like their phone's or watch's, gets the count; a thing named like a person is not
+    found either ("Alex's keys" would tell where Alex likely is); an unknown name is said unknown.
+    The Bluetooth settings do not say where a phone or a watch is; the Overview's People summary
+    counts. A person placed from another source than DomoTwin's Bluetooth, in a room a radar sees,
+    is counted twice, as they are drawn twice in a home (D-080).
   - **What Home Assistant keeps stays.** Its `person` entities, and each person's room sensor of
     DomoTwin's, are still there for whoever administers Home Assistant: hiding them would take
     their automations away. The guide says so, and that placing nobody, with presence radars,

@@ -187,13 +187,13 @@ describe("people (D-034)", () => {
     expect(peopleShown(counted, hass())).toEqual([]);
     // Those in a room drawn as figures of no one's colour, numbered, never named.
     const shown = seenShown(counted, hass());
-    expect(shown).toEqual([{ id: "counted.0", room: "kitchen", storey: "ground" }]);
-    // Numbered in the order placed: the same while others hide.
+    expect(shown).toEqual([{ id: "counted.kitchen.0", room: "kitchen", storey: "ground" }]);
+    // Numbered in each room: the same while others hide, and nobody's way can be followed.
     expect(seenShown({ ...counted, hidden: ["person.sam", "person.lou"] }, hass())).toEqual(shown);
     expect(JSON.stringify(shown)).not.toContain("alex");
     expect(seenShown(counted, hass(), new Set(["kitchen"]))).toEqual([]);
     expect(JSON.parse(peopleJson([], "figure", shown))).toEqual([
-      { id: "counted.0", room: "kitchen", color: SEEN_COLOR, look: "figure" },
+      { id: "counted.kitchen.0", room: "kitchen", color: SEEN_COLOR, look: "figure" },
     ]);
   });
 

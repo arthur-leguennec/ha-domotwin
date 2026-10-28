@@ -208,13 +208,19 @@ export function seenShown(
   if (settings.shown === "admins" && hass.user?.is_admin !== true) return [];
   const shown: SeenShown[] = [];
   if (settings.counted === true) {
-    // Numbered in the order they were placed, unnamed: the same figure while they move, whoever
-    // else hides or is renamed.
+    // Numbered in each room, unnamed: a figure is not one person walking from room to room, so
+    // nobody's way through the place can be followed.
     const order = Object.keys(settings.people);
-    for (const person of placedPeople(settings, hass)) {
+    const placed = placedPeople(settings, hass).sort(
+      (a, b) => order.indexOf(a.id) - order.indexOf(b.id),
+    );
+    const inRoom = new Map<string, number>();
+    for (const person of placed) {
       if (!person.room || closed.has(person.room)) continue;
+      const n = inRoom.get(person.room) ?? 0;
+      inRoom.set(person.room, n + 1);
       shown.push({
-        id: `counted.${String(order.indexOf(person.id))}`,
+        id: `counted.${person.room}.${String(n)}`,
         room: person.room,
         ...(person.storey ? { storey: person.storey } : {}),
         ...(person.at ? { at: person.at } : {}),
@@ -222,6 +228,28 @@ export function seenShown(
     }
   }
   return [...shown, ...radarSeen(settings, hass, closed)];
+}
+
+/**
+ * How many are here in a workplace (D-086), as `domotwin.where` counts them: those placed at home
+ * and those the radars see without a name; with nobody placed, those the radars see, or without
+ * radars Home Assistant's people at home. Hidden people are not counted.
+ */
+export function countedHere(
+  settings: PeopleSettings | undefined,
+  hass: HomeAssistant,
+  closed: ReadonlySet<string> = new Set(),
+): number {
+  const atHome = (ids: string[]): number =>
+    ids.filter((id) => hass.states[id]?.state === "home").length;
+  const seen = settings ? radarSeen(settings, hass, closed).length : 0;
+  if (settings && Object.keys(settings.people).length > 0) {
+    return (
+      atHome(Object.keys(settings.people).filter((id) => !settings.hidden.includes(id))) + seen
+    );
+  }
+  if (settings && radarsCount(settings, hass)) return seen;
+  return atHome(Object.keys(hass.states).filter((id) => id.startsWith("person.")));
 }
 
 /** Whether presence radars count people here (D-080): their sensor there, and shown. */

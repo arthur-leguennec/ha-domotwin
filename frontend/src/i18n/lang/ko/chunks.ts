@@ -1872,6 +1872,8 @@ export const chunks: Chunks = {
         robots: "로봇",
       },
       people: {
+        here: { one: "{count}명 있음", other: "{count}명 있음" },
+        nobody_here: "아무도 없음",
         home: {
           one: "집에 {count}명",
           other: "집에 {count}명",

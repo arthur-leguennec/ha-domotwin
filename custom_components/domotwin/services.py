@@ -41,7 +41,7 @@ from .const import (
 )
 from .data import DATA_KEY, LOCATOR_KEY, PEOPLE_KEY, SCHEDULER_KEY
 from .language import spoken
-from .people import Place, likeness, thing_likeness
+from .people import Place, likeness, norm, thing_likeness
 from .privacy import private_rooms
 from .rights import hidden_rooms
 from .schedules import ScheduleError, describe, moment, times
@@ -402,10 +402,7 @@ async def _async_where(hass: HomeAssistant, call: ServiceCall) -> ServiceRespons
     said = SENTENCES[spoken(hass.config.language)]
     limits = await _limits(hass, call)
     if _workplace(hass):
-        thing = _thing_named(hass, call.data.get("name", "").strip())
-        if thing is not None:
-            return _where_thing(hass, call, said, limits, thing)
-        return _where_counted(hass, said, limits)
+        return _where_at_work(hass, call, said, limits)
     return _where_named(hass, call, said, limits)
 
 
@@ -415,20 +412,73 @@ def _workplace(hass: HomeAssistant) -> bool:
     return data is not None and data.workplace
 
 
-def _thing_named(hass: HomeAssistant, asked: str) -> str | None:
-    """The one thing followed by Bluetooth (not a phone nor a watch) a name means, if any."""
+def _scored_people(hass: HomeAssistant, asked: str, people: list[str]) -> list[tuple[int, str]]:
+    """How alike a name is to each person's (their name in Home Assistant, or their entity's)."""
+    return [
+        (score, person)
+        for person in people
+        if (score := likeness(asked, [name_of(hass, person), person.split(".", 1)[1]])) is not None
+    ]
+
+
+def _scored_things(
+    hass: HomeAssistant, asked: str, kinds: tuple[str, ...] | None = None
+) -> list[tuple[int, str]]:
+    """How alike a name is to each device followed by Bluetooth (of these kinds), as `@device`."""
     locator = hass.data.get(LOCATOR_KEY)
-    if not asked or locator is None:
-        return None
-    scored = [
-        (score, device)
-        for device, settings in locator.settings["devices"].items()
-        if settings["kind"] == "thing"
+    devices = locator.settings["devices"] if locator is not None else {}
+    return [
+        (score, f"@{device}")
+        for device, settings in devices.items()
+        if (kinds is None or settings["kind"] in kinds)
         and (score := thing_likeness(asked, settings["name"])) is not None
     ]
+
+
+def _best(scored: list[tuple[int, str]]) -> list[str]:
+    """Those the likeliest, a name alike to them all."""
     best = min((score for score, _ in scored), default=None)
-    found = [device for score, device in scored if score == best]
-    return found[0] if len(found) == 1 else None
+    return [found for score, found in scored if score == best]
+
+
+def _where_at_work(
+    hass: HomeAssistant,
+    call: ServiceCall,
+    said: dict[str, str],
+    limits: tuple[set[str], set[str]],
+) -> ServiceResponse:
+    """In a workplace (D-086): how many are here; a thing by its name; where a person is, never.
+
+    A name like anyone's, placed or not, or like their phone's or watch's, is answered with how many
+    are here: a thing named after them ("Alex's keys") would tell where they likely are.
+    """
+    asked = call.data.get("name", "").strip()
+    persons = [state.entity_id for state in hass.states.async_all("person")]
+    if (
+        not asked
+        or _scored_people(hass, asked, persons)
+        or _scored_things(hass, asked, ("phone", "watch"))
+    ):
+        return _where_counted(hass, said, limits)
+    found = _best(_scored_things(hass, asked, ("thing",)))
+    if len(found) != 1:
+        return {"people": [], "text": said["unknown"].format(name=asked)}
+    device = found[0][1:]
+    # Named after someone ("Alex's keys"): where it is would tell where they likely are.
+    if _named_after(hass, hass.data[LOCATOR_KEY].settings["devices"][device]["name"], persons):
+        return _where_counted(hass, said, limits)
+    return _where_thing(hass, call, said, limits, device)
+
+
+def _named_after(hass: HomeAssistant, name: str, people: list[str]) -> bool:
+    """Whether a thing's name holds a person's first name ("Alex's keys", "badge Alex")."""
+    words = set(norm(name).split(" "))
+    for person in people:
+        for full in (name_of(hass, person), person.split(".", 1)[1]):
+            first = norm(full).split(" ")[0]
+            if first and first in words:
+                return True
+    return False
 
 
 def _where_counted(
@@ -459,12 +509,7 @@ def _where_counted(
     elif locator is not None and locator.radar.radars:
         here = seen
     else:
-        hidden = set(people.config["hidden"]) if people is not None else set()
-        here = sum(
-            1
-            for state in hass.states.async_all("person")
-            if state.state == "home" and state.entity_id not in hidden
-        )
+        here = sum(1 for state in hass.states.async_all("person") if state.state == "home")
     return {"people": [], "text": said["counted"].format(count=here)}
 
 
@@ -500,20 +545,8 @@ def _where_named(
             else:
                 clauses.append(_place_text(said, name, place, closed).removesuffix(said["stop"]))
         return {"people": entries, "text": said["and"].join(clauses) + said["stop"]}
-    scored = [
-        (score, person)
-        for person in placed
-        if (score := likeness(asked, [name_of(hass, person), person.split(".", 1)[1]])) is not None
-    ]
     locator = hass.data.get(LOCATOR_KEY)
-    devices = locator.settings["devices"] if locator is not None else {}
-    scored += [
-        (score, f"@{device}")
-        for device, settings in devices.items()
-        if (score := thing_likeness(asked, settings["name"])) is not None
-    ]
-    best = min((score for score, _ in scored), default=None)
-    found = [person for score, person in scored if score == best]
+    found = _best(_scored_people(hass, asked, placed) + _scored_things(hass, asked))
     # A person and a thing as alike ("Alex" and "Alex's phone"): the person is meant.
     people_found = [person for person in found if not person.startswith("@")]
     if people_found:

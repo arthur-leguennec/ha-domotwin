@@ -85,6 +85,25 @@ test.describe("a workplace (D-086)", () => {
     await expect(page.locator('[data-suggestion="good_night"]')).toHaveCount(0);
   });
 
+  test("the Overview's people summary counts, naming no room", async ({ page }) => {
+    await openHarness(page, {
+      mode: "summary",
+      summary: "people",
+      live: true,
+      overview: true,
+      people: true,
+      workplace: true,
+    });
+    await page.waitForFunction(() => {
+      const card = document.querySelector("domotwin-summary-card");
+      const body = card?.shadowRoot?.querySelector<HTMLElement & { people?: unknown }>(
+        "domotwin-summary-body",
+      );
+      return body?.people !== undefined;
+    });
+    await expect(page.getByTestId("summary-state")).toHaveText("2 here");
+  });
+
   test("speaks French", async ({ page }) => {
     await openHarness(page, {
       mode: "panel",

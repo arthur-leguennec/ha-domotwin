@@ -1469,7 +1469,7 @@ states.
 
 ### M48 (a workplace)
 
-Bundle: the first load is **659.4 kB gzipped** of 1 200 kB (+1.0 kB): the workplace's section of
+Bundle: the first load is **659.6 kB gzipped** of 1 200 kB (+1.2 kB): the workplace's section of
 the settings, its people counted in the 3D view and the rooms' panels, and the words of the 12
 languages' main dictionaries; the Home tab's hours and count are in its chunk. The Home tab works
 out what is left on only while a workplace is closed, in the same pass over the states as the lamps

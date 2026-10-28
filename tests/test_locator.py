@@ -933,6 +933,25 @@ async def test_a_thing_left_behind_is_told_and_found_by_voice(
     )
     assert answer["people"] == []
     assert answer["text"].startswith("This is a workplace")
+    # What it does not know, it says so.
+    answer = cast(
+        "dict[str, Any]",
+        await hass.services.async_call(
+            "domotwin", "where", {"name": "the projector"}, blocking=True, return_response=True
+        ),
+    )
+    assert answer["text"] == "I do not know who the projector is."
+    # A thing named after someone is not found either: it would tell where they likely are.
+    badge = {"name": "Alex badge", "kind": "thing", "match": {"address": TAG}}
+    assert (await _follow(client, {"badge": badge}))["success"]
+    await hass.async_block_till_done()
+    answer = cast(
+        "dict[str, Any]",
+        await hass.services.async_call(
+            "domotwin", "where", {"name": "the badge"}, blocking=True, return_response=True
+        ),
+    )
+    assert answer["text"].startswith("This is a workplace")
 
 
 async def test_a_person_is_meant_before_their_phone(

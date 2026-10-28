@@ -659,8 +659,6 @@ export class DomoTwinPanel extends LitElement {
   protected roofDraft?: RoofSettings;
   /** A workplace, being chosen in the settings (D-086); `null`: a home. */
   protected workplaceDraft?: Workplace | null;
-  /** Home Assistant's schedules, for the workplace's hours, and the states they were read from. */
-  private schedulesFrom?: { states: HomeAssistant["states"]; ids: string[] };
   /** The draft last shown, and its settings as read. */
   private energyShown?: { draft: EnergySettings; energy: EnergySettings | undefined };
   /** The power sensors Home Assistant's own energy settings name, offered first. */
@@ -5030,12 +5028,9 @@ export class DomoTwinPanel extends LitElement {
     const draft = this.workplaceDraft;
     const hass = this._hass;
     if (draft === undefined || !hass) return nothing;
-    // Home Assistant's schedules, looked for again only when its states change.
-    if (this.schedulesFrom?.states !== hass.states) {
-      const ids = Object.keys(hass.states).filter((id) => id.startsWith("schedule."));
-      this.schedulesFrom = { states: hass.states, ids: ids.sort() };
-    }
-    const schedules = [...this.schedulesFrom.ids];
+    const schedules = Object.keys(hass.states)
+      .filter((id) => id.startsWith("schedule."))
+      .sort();
     const hours = draft?.hours;
     if (hours && !schedules.includes(hours)) schedules.unshift(hours);
     return html`<h3>${t.t("settings.workplace")}</h3>
@@ -5325,6 +5320,7 @@ export class DomoTwinPanel extends LitElement {
         ? html`<domotwin-bluetooth-settings
             .hass=${this._hass}
             .settings=${this.locating}
+            .counted=${this.people?.counted === true}
             @domotwin-close=${() => (this.bluetoothOpen = false)}
             @domotwin-saved=${() => {
               this.show(this.t.t("bluetooth.saved"));

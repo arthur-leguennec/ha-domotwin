@@ -1918,6 +1918,8 @@ export const chunks: Chunks = {
         robots: "Robot",
       },
       people: {
+        here: { one: "{count} presente", other: "{count} presenti" },
+        nobody_here: "Nessuno presente",
         home: {
           one: "{count} in casa",
           other: "{count} in casa",
