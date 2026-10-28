@@ -418,6 +418,11 @@ export const main: Dictionary = {
     workplace_no_hours: "无",
     workplace_hours_hint:
       "Home Assistant 的日程（在 设置 → 设备与服务 → 辅助元素 中创建）：营业期间为开启。",
+    meeting_rooms: "会议室",
+    meeting_rooms_hint:
+      "用于开会的房间：首页标签显示哪些空闲、占用或已预订，并在 Home Assistant 的日历中预订。",
+    meeting_no_calendar: "无日历",
+    meeting_calendar: "预订 {room} 所用的日历",
     title: "设置",
     north: "平面图上的北方",
     north_hint: "北方所指的方向，从平面图顶部顺时针计算。太阳会从其真实位置照亮房间。",

@@ -113,6 +113,7 @@ import {
   type ShownAlert,
 } from "../live/security";
 import { plainWordsOffered } from "../live/ai-task";
+import type { MeetingRoomSetting } from "../live/meeting-rooms";
 import { closedRooms, gatedHass, RightsCache, viewerUnseen, type Gate } from "../live/rights";
 import { usableActions } from "../live/room-actions";
 import {
@@ -672,6 +673,8 @@ export class DomoTwinPanel extends LitElement {
   protected roofDraft?: RoofSettings;
   /** A workplace, being chosen in the settings (D-086); `null`: a home. */
   protected workplaceDraft?: Workplace | null;
+  /** The workplace as it was before it was unticked, while the settings are open. */
+  private workplaceWas?: Workplace;
   /** The draft last shown, and its settings as read. */
   private energyShown?: { draft: EnergySettings; energy: EnergySettings | undefined };
   /** The power sensors Home Assistant's own energy settings name, offered first. */
@@ -1231,6 +1234,32 @@ export class DomoTwinPanel extends LitElement {
         gap: 8px;
         font-size: 0.85rem;
       }
+      .ask h4 {
+        margin: 12px 0 0;
+        font-size: 0.9rem;
+        font-weight: 600;
+      }
+      .ask .meeting-rooms {
+        display: grid;
+        gap: 8px;
+        margin-top: 6px;
+      }
+      .ask .meeting-room {
+        display: grid;
+        gap: 4px;
+        min-width: 0;
+      }
+      .ask .meeting-room select {
+        min-height: 36px;
+        max-width: calc(100% - 24px);
+        margin-inline-start: 24px;
+        padding: 0 8px;
+        border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+        border-radius: 8px;
+        background: var(--card-background-color, #fff);
+        color: inherit;
+        font: inherit;
+      }
     `,
   ];
 
@@ -1505,6 +1534,7 @@ export class DomoTwinPanel extends LitElement {
     this.weatherDraft = undefined;
     this.roofDraft = undefined;
     this.workplaceDraft = undefined;
+    this.workplaceWas = undefined;
     this.peopleOpen = false;
     this.peopleSettings = undefined;
     this.bluetoothOpen = false;
@@ -2062,6 +2092,7 @@ export class DomoTwinPanel extends LitElement {
     this.weatherDraft = this.settings?.weather ?? "";
     this.roofDraft = { ...this.settings?.roof };
     this.workplaceDraft = this.settings?.workplace ? { ...this.settings.workplace } : null;
+    this.workplaceWas = undefined;
     void this.loadEnergyPreferred();
   };
 
@@ -2077,6 +2108,24 @@ export class DomoTwinPanel extends LitElement {
       // None read: none preferred.
     }
     if (hass.connection === this._hass?.connection) this.energyPreferred = preferredFromHome(prefs);
+  }
+
+  /**
+   * A workplace without the meeting rooms of rooms no longer in the plans (D-089), once every
+   * storey's rooms are read: kept until then, as they may be on a storey not read yet.
+   */
+  private keptMeetingRooms(workplace: Workplace): Workplace {
+    const marked = workplace.meeting_rooms;
+    if (!marked || !(this.storeys.length <= 1 || this.elsewhereRead)) return workplace;
+    const rooms = new Set(
+      [...planRooms(this.plan), ...this.elsewhere.flatMap((storey) => storey.rooms)].map(
+        (room) => room.id,
+      ),
+    );
+    const kept = Object.fromEntries(Object.entries(marked).filter(([id]) => rooms.has(id)));
+    const rest: Workplace = { ...workplace };
+    delete rest.meeting_rooms;
+    return Object.keys(kept).length > 0 ? { ...rest, meeting_rooms: kept } : rest;
   }
 
   private readonly saveSettings = async (): Promise<void> => {
@@ -2104,7 +2153,7 @@ export class DomoTwinPanel extends LitElement {
       const roof = this.roofDraft;
       if (roof && Object.keys(roof).length > 0) settings.roof = roof;
       else if (roof) delete settings.roof;
-      if (this.workplaceDraft) settings.workplace = this.workplaceDraft;
+      if (this.workplaceDraft) settings.workplace = this.keptMeetingRooms(this.workplaceDraft);
       else if (this.workplaceDraft === null) delete settings.workplace;
       await client.saveSettings(settings);
       this.settings = settings;
@@ -5091,7 +5140,11 @@ export class DomoTwinPanel extends LitElement {
           data-testid="settings-workplace"
           .checked=${draft !== null}
           @change=${(event: Event) => {
-            this.workplaceDraft = (event.target as HTMLInputElement).checked ? {} : null;
+            // Ticked again before saving: as it was (its hours, its meeting rooms).
+            if (this.workplaceDraft) this.workplaceWas = this.workplaceDraft;
+            this.workplaceDraft = (event.target as HTMLInputElement).checked
+              ? (this.workplaceWas ?? {})
+              : null;
           }}
         />
         <span>${t.t("settings.workplace_on")}</span>
@@ -5104,7 +5157,9 @@ export class DomoTwinPanel extends LitElement {
                   data-testid="settings-hours"
                   @change=${(event: Event) => {
                     const value = (event.target as HTMLSelectElement).value;
-                    this.workplaceDraft = value ? { hours: value } : {};
+                    const rest: Workplace = { ...(this.workplaceDraft ?? {}) };
+                    delete rest.hours;
+                    this.workplaceDraft = value ? { ...rest, hours: value } : rest;
                   }}
                 >
                   <option value="" ?selected=${!hours}>
@@ -5118,9 +5173,80 @@ export class DomoTwinPanel extends LitElement {
                   )}
                 </select>
               </label>
-              <p class="hint">${t.t("settings.workplace_hours_hint")}</p>`
+              <p class="hint">${t.t("settings.workplace_hours_hint")}</p>
+              ${this.renderMeetingRoomsSettings(draft)}`
           : nothing
       }`;
+  }
+
+  /**
+   * A workplace's meeting rooms (D-089): which rooms of the plans are, and the calendar of Home
+   * Assistant's each is booked in, if any.
+   */
+  private renderMeetingRoomsSettings(draft: Workplace): TemplateResult {
+    const t = this.t;
+    const hass = this._hass;
+    const marked = draft.meeting_rooms ?? {};
+    const rooms = [...planRooms(this.plan), ...this.elsewhere.flatMap((storey) => storey.rooms)];
+    const calendars = Object.keys(hass?.states ?? {})
+      .filter((id) => id.startsWith("calendar."))
+      .sort();
+    const change = (room: string, setting: MeetingRoomSetting | undefined): void => {
+      const meeting = Object.fromEntries(
+        Object.entries(this.workplaceDraft?.meeting_rooms ?? {}).filter(([id]) => id !== room),
+      );
+      if (setting) meeting[room] = setting;
+      const rest: Workplace = { ...(this.workplaceDraft ?? {}) };
+      delete rest.meeting_rooms;
+      this.workplaceDraft = Object.keys(meeting).length
+        ? { ...rest, meeting_rooms: meeting }
+        : rest;
+    };
+    return html`<h4>${t.t("settings.meeting_rooms")}</h4>
+      <p class="hint">${t.t("settings.meeting_rooms_hint")}</p>
+      <div class="meeting-rooms" data-testid="settings-meeting-rooms">
+        ${rooms.map((room) => {
+          const setting = marked[room.id];
+          const calendar = setting?.calendar;
+          const offered =
+            calendar && !calendars.includes(calendar) ? [calendar, ...calendars] : calendars;
+          return html`<div class="meeting-room" data-room=${room.id}>
+            <label class="reversed">
+              <input
+                type="checkbox"
+                data-testid="settings-meeting"
+                .checked=${setting !== undefined}
+                @change=${(event: Event) => {
+                  change(room.id, (event.target as HTMLInputElement).checked ? {} : undefined);
+                }}
+              />
+              <span>${room.name}</span>
+            </label>
+            ${
+              setting
+                ? html`<select
+                    data-testid="settings-meeting-calendar"
+                    aria-label=${t.t("settings.meeting_calendar", { room: room.name })}
+                    @change=${(event: Event) => {
+                      const value = (event.target as HTMLSelectElement).value;
+                      change(room.id, value ? { calendar: value } : {});
+                    }}
+                  >
+                    <option value="" ?selected=${!calendar}>
+                      ${t.t("settings.meeting_no_calendar")}
+                    </option>
+                    ${offered.map(
+                      (id) =>
+                        html`<option value=${id} ?selected=${id === calendar}>
+                          ${hass ? entityName(hass, id) : id}
+                        </option>`,
+                    )}
+                  </select>`
+                : nothing
+            }
+          </div>`;
+        })}
+      </div>`;
   }
 
   /** The weather drawn around the home (D-072): the usual entity, one chosen, or none; shown as

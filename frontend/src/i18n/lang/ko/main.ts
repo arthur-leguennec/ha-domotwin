@@ -421,6 +421,11 @@ export const main: Dictionary = {
     workplace_no_hours: "없음",
     workplace_hours_hint:
       "Home Assistant의 일정(설정 → 기기 및 서비스 → 도우미에서 만들기): 영업 중에는 켜짐.",
+    meeting_rooms: "회의실",
+    meeting_rooms_hint:
+      "회의용 방: 홈 탭에 비어 있음, 사용 중, 예약됨을 표시하고 Home Assistant 캘린더에 예약합니다.",
+    meeting_no_calendar: "캘린더 없음",
+    meeting_calendar: "{room} 예약에 쓰는 캘린더",
     title: "설정",
     north: "평면도의 북쪽",
     north_hint: "평면도 위쪽에서 시계 방향으로 잰 북쪽의 방향. 태양이 실제 위치에서 방을 비춥니다.",

@@ -464,7 +464,13 @@ async def test_workplace_settings_round_trip(
 ) -> None:
     client = await hass_ws_client(hass)
     # A workplace (D-086), with its opening hours or without: kept either way.
-    for workplace in ({"hours": "schedule.opening_hours"}, {}):
+    # Its meeting rooms (D-089), booked in a calendar or not.
+    rooms = {"meeting": {"calendar": "calendar.meeting_room"}, "office": {}}
+    for workplace in (
+        {"hours": "schedule.opening_hours"},
+        {},
+        {"hours": "schedule.opening_hours", "meeting_rooms": rooms},
+    ):
         await client.send_json_auto_id(
             {"type": "domotwin/settings/save", "settings": {"north": 0, "workplace": workplace}}
         )
@@ -526,6 +532,12 @@ async def test_workplace_settings_round_trip(
         {"workplace": {"hours": "schedule."}},
         {"workplace": {"hours": 9}},
         {"workplace": {"open": "08:00"}},
+        {"workplace": {"meeting_rooms": []}},
+        {"workplace": {"meeting_rooms": {"": {}}}},
+        {"workplace": {"meeting_rooms": {"meeting": []}}},
+        {"workplace": {"meeting_rooms": {"meeting": {"calendar": "todo.list"}}}},
+        {"workplace": {"meeting_rooms": {"meeting": {"seats": 8}}}},
+        {"workplace": {"meeting_rooms": {f"room{k}": {} for k in range(201)}}},
     ],
 )
 async def test_invalid_settings_are_refused(

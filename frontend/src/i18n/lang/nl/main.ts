@@ -426,6 +426,11 @@ export const main: Dictionary = {
     workplace_no_hours: "Geen",
     workplace_hours_hint:
       "Een schema van Home Assistant, gemaakt via Instellingen → Apparaten & diensten → Helpers: aan zolang het open is.",
+    meeting_rooms: "Vergaderruimtes",
+    meeting_rooms_hint:
+      "Ruimtes voor vergaderingen: het tabblad Thuis zegt welke vrij, bezet of geboekt zijn, en boekt er een in zijn agenda van Home Assistant.",
+    meeting_no_calendar: "Geen agenda",
+    meeting_calendar: "De agenda waarin {room} geboekt wordt",
     title: "Instellingen",
     north: "Noorden op de plattegrond",
     north_hint:

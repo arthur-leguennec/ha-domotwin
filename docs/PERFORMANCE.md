@@ -1492,3 +1492,11 @@ carry the rest in their own chunks. The integration works it out when asked, at 
 minutes for each Home Assistant and opening hours (the answer is kept by the page's client), from
 the schedule's history and the recorder's hourly statistics of the energy settings' meters since
 the first of the month (about 750 hours for each meter).
+
+### M51 (a workplace's meeting rooms)
+
+Bundle: the first load is **662.3 kB gzipped** of 1 200 kB (+1.0 kB): the settings' section that
+marks the meeting rooms and their calendars, and its styles; the Home tab's chip and list come
+with it, on demand.
+Each meeting room is worked out from the states Home Assistant already sent, at each new set of
+states: its calendar's attributes and the presence sensors of its area, a few entities for each.

@@ -78,7 +78,7 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | 0.7.0     | Seventh release: voice off on a device, a workplace        | ✅     |
 | M49       | The maintainer's answers: a room's link, the card's doorbell | ✅     |
 | M50       | A workplace's energy outside its opening hours             | ✅     |
-| M51       | Meeting rooms: free or taken, booked                       | ⏳     |
+| M51       | Meeting rooms: free or taken, booked                       | ✅     |
 | M52       | Several sites in one Home Assistant                        | ⏳     |
 | 0.8.0     | Eighth release: the answers, then the workplace's three    | ⏳     |
 
@@ -2182,8 +2182,11 @@ its energy, its meeting rooms, several sites.
   for the part of it closed: on the Home tab (a tap on the hours: the last seven days and this
   month, each with its share of all), and in the weekly report (this week against the week
   before, and each room's). See [a workplace](workplace.md).
-- ⏳ **M51, meeting rooms**: in a workplace, rooms marked as meeting rooms, free or taken from
-  their presence sensors and a calendar of Home Assistant's, booked from DomoTwin.
+- ✅ **M51, meeting rooms** (D-089): in a workplace, rooms marked as meeting rooms in the
+  settings, each with the calendar of Home Assistant's it is booked in; the Home tab counts the
+  free ones and says each booked (its calendar's event under way), taken (its presence sensors)
+  or free, with its next booking today, and books one now for 30 minutes or an hour in its
+  calendar. See [a workplace](workplace.md).
 - ⏳ **M52, several sites in one Home Assistant**: several buildings or shops, each its plans,
   its hours and its people counted; designed first, in a decision of its own, then built.
 - ⏳ **Release 0.8.0**: once they are in, tried in a fresh Home Assistant.

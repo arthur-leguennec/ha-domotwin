@@ -423,6 +423,11 @@ export const main: Dictionary = {
     workplace_no_hours: "Nenhum",
     workplace_hours_hint:
       "Um agendamento do Home Assistant, criado em Definições → Dispositivos e serviços → Ajudantes: ligado enquanto está aberto.",
+    meeting_rooms: "Salas de reunião",
+    meeting_rooms_hint:
+      "Salas para reuniões: o separador Início diz quais estão livres, ocupadas ou reservadas, e reserva uma no seu calendário do Home Assistant.",
+    meeting_no_calendar: "Sem calendário",
+    meeting_calendar: "O calendário onde se reserva {room}",
     title: "Definições",
     north: "Norte na planta",
     north_hint:

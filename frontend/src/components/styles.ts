@@ -59,6 +59,13 @@ export const baseStyles = css`
     transform: scale(0.98);
   }
 
+  button.action:disabled {
+    opacity: 0.5;
+    cursor: default;
+    filter: none;
+    transform: none;
+  }
+
   button:focus-visible,
   [tabindex]:focus-visible,
   a:focus-visible,

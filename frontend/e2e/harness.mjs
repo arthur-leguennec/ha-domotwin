@@ -88,7 +88,9 @@
 //   (no report yet); report=<id> asks the panel for a report, as the notification's link does
 //   (window.__refuseReport = "<code>" makes the integration refuse to write one)
 //   workplace=1 (D-086: the home a workplace, its people counted; with hours=on|off, opening hours
-//   from a fictional `schedule.opening_hours`, open until 18:00 or closed until 08:30)
+//   from a fictional `schedule.opening_hours`, open until 18:00 or closed until 08:30; with
+//   meetings=1, D-089, the living room, the bedroom and the kitchen its meeting rooms, the first two
+//   booked in fictional calendars that take `calendar.create_event`)
 import { applyService, demoHome } from "./demo-home.mjs";
 
 const params = new URLSearchParams(location.search);
@@ -302,7 +304,21 @@ const store = {
     ...(params.get("homeweather") ? { weather: params.get("homeweather") } : {}),
     // A workplace (D-086), its hours a schedule's when a test says.
     ...(params.get("workplace") === "1"
-      ? { workplace: params.get("hours") ? { hours: "schedule.opening_hours" } : {} }
+      ? {
+          workplace: {
+            ...(params.get("hours") ? { hours: "schedule.opening_hours" } : {}),
+            // Its meeting rooms (D-089): two booked in a calendar, the kitchen in none.
+            ...(params.get("meetings") === "1"
+              ? {
+                  meeting_rooms: {
+                    living: { calendar: "calendar.living_room_bookings" },
+                    bedroom: { calendar: "calendar.bedroom_bookings" },
+                    kitchen: {},
+                  },
+                }
+              : {}),
+          },
+        }
       : {}),
     ...(params.get("energy") === "1"
       ? {
@@ -2535,6 +2551,38 @@ if (params.get("hours")) {
     attributes: {
       friendly_name: "Opening hours",
       next_event: new Date(Date.now() + (open ? 3 : 10) * 3_600_000).toISOString(),
+    },
+  };
+}
+if (params.get("meetings") === "1") {
+  // A workplace's meeting rooms' calendars (D-089), as Home Assistant's say their event: the
+  // living room's under way for 45 minutes more, the bedroom's next in two hours; both take new
+  // events. Their times are the wall clock where Home Assistant is (this browser's).
+  const wall = (minutes) => {
+    const at = new Date(Date.now() + minutes * 60_000);
+    const two = (n) => String(n).padStart(2, "0");
+    return `${at.getFullYear()}-${two(at.getMonth() + 1)}-${two(at.getDate())} ${two(at.getHours())}:${two(at.getMinutes())}:00`;
+  };
+  states["calendar.living_room_bookings"] = {
+    entity_id: "calendar.living_room_bookings",
+    state: "on",
+    attributes: {
+      friendly_name: "Living room bookings",
+      message: "Team meeting",
+      start_time: wall(-15),
+      end_time: wall(45),
+      supported_features: 7,
+    },
+  };
+  states["calendar.bedroom_bookings"] = {
+    entity_id: "calendar.bedroom_bookings",
+    state: "off",
+    attributes: {
+      friendly_name: "Bedroom bookings",
+      message: "Interview",
+      start_time: wall(120),
+      end_time: wall(180),
+      supported_features: 7,
     },
   };
 }

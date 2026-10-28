@@ -425,6 +425,11 @@ export const main: Dictionary = {
     workplace_no_hours: "なし",
     workplace_hours_hint:
       "Home Assistant のスケジュール（設定 → デバイスとサービス → ヘルパーで作成）：営業中はオン。",
+    meeting_rooms: "会議室",
+    meeting_rooms_hint:
+      "会議用の部屋：ホームタブに空き・使用中・予約済みを表示し、Home Assistant のカレンダーに予約を入れます。",
+    meeting_no_calendar: "カレンダーなし",
+    meeting_calendar: "{room} を予約するカレンダー",
     title: "設定",
     north: "間取り図上の北",
     north_hint:
