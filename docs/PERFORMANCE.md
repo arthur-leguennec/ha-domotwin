@@ -1477,9 +1477,9 @@ and the doors; nothing more is done at each update of Home Assistant's states ot
 
 ### M49 (the maintainer's answers)
 
-Bundle: the first load is **660.3 kB gzipped** of 1 200 kB (+0.7 kB): the card's doorbell watch
+Bundle: the first load is **660.6 kB gzipped** of 1 200 kB (+1.0 kB): the card's doorbell watch
 and what it works out of the private rooms, and the panel's room asked in its address. The
-doorbell's full screen grows to 2.2 kB gzipped (+0.5 kB), loaded the first time a doorbell rings.
+doorbell's full screen grows to 2.5 kB gzipped (+0.8 kB), loaded the first time a doorbell rings.
 At each new set of states a card reads only the doorbells, as the panel does (D-068); what its
 viewer may not see is worked out once a ring is to be shown, and again only when the plans, the
 links, the settings or the private rooms change.

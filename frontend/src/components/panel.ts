@@ -580,6 +580,8 @@ export class DomoTwinPanel extends LitElement {
    * (D-039), except to change it. */
   protected settingsRead = false;
   private settingsTimer?: ReturnType<typeof setTimeout>;
+  /** Asks again for a plan or the links that could not be read. */
+  private readTimer?: ReturnType<typeof setTimeout>;
   /** The upkeep cards (D-033). */
   protected upkeep?: Upkeep;
   /** The people placed in their rooms (D-034). */
@@ -1310,6 +1312,7 @@ export class DomoTwinPanel extends LitElement {
     this.sizeObserver = undefined;
     documentFonts()?.removeEventListener("loadingdone", this.onFonts);
     clearTimeout(this.settingsTimer);
+    clearTimeout(this.readTimer);
     clearTimeout(this.choicesTimer);
     clearTimeout(this.wifiTimer);
     clearTimeout(this.ringTimer);
@@ -1489,6 +1492,7 @@ export class DomoTwinPanel extends LitElement {
     this.unsubscribe?.();
     this.unsubscribe = undefined;
     clearTimeout(this.settingsTimer);
+    clearTimeout(this.readTimer);
     this.ringWaiting = undefined;
     this.loads += 1;
     this.linking = false;
@@ -1606,8 +1610,8 @@ export class DomoTwinPanel extends LitElement {
   private showRing(hass: HomeAssistant, ring: Ring): void {
     if (this.demoSwitch.home) return;
     // Who may see what is known once the settings, the links and every storey's rooms are read
-    // (D-039): the ring waits for them.
-    if (!this.homeRead()) {
+    // (D-039), and who the viewer is (D-071): the ring waits for them.
+    if (!this.homeRead() || !hass.user) {
       this.ringWaiting = ring;
       return;
     }
@@ -2121,11 +2125,29 @@ export class DomoTwinPanel extends LitElement {
     if (!client) return;
     try {
       const bindings = readBindings((await client.getBindings()).bindings);
-      if (client === this.client) this.bindings = bindings;
-    } catch {
-      if (client === this.client) this.bindings = undefined;
+      if (client !== this.client) return;
+      this.bindings = bindings;
+      this.bindingsRead = true;
+    } catch (error) {
+      if (client !== this.client) return;
+      // An integration older than the links has none; else those read before stay, and they are
+      // asked for again (which rooms' things are private is not known without them, D-039).
+      if (isHassError(error) && error.code === "unknown_command") {
+        this.bindings = undefined;
+        this.bindingsRead = true;
+      } else this.readAgain(client, "bindings");
     }
-    if (client === this.client) this.bindingsRead = true;
+  }
+
+  /** A plan or the links that could not be read, asked for again in a while. */
+  private readAgain(client: DomoTwinClient, what: "plan" | "bindings"): void {
+    if (!this.unsubscribe || client !== this.client) return;
+    clearTimeout(this.readTimer);
+    this.readTimer = setTimeout(() => {
+      if (client !== this.client) return;
+      if (what === "plan") void this.loadPlan();
+      else void this.loadBindings();
+    }, SETTINGS_RETRY_MS);
   }
 
   private async loadPlan(): Promise<void> {
@@ -2162,18 +2184,25 @@ export class DomoTwinPanel extends LitElement {
       if (ticket !== this.loads) return;
       this.planError = isHassError(error) ? error.code : "unknown";
       this.firstPlan ??= false;
+      // Never read (Home Assistant starting): asked for again in a while.
+      if (this.plan === undefined) this.readAgain(client, "plan");
     }
   }
 
-  /** The rooms of the other storeys (plans the client has are not fetched again). */
+  /**
+   * The rooms of the other storeys (plans the client has are not fetched again). Until every one
+   * is read, which of their rooms are private is not known: those that could not be are asked
+   * for again in a while.
+   */
   private async loadElsewhere(client: DomoTwinClient, stored: StoredPlan): Promise<void> {
     this.elsewhereRead = false;
-    const elsewhere =
-      stored.storeys.length > 1 ? await roomsElsewhere(client, stored.storeys, stored.storey) : [];
+    const others = stored.storeys.filter((storey) => storey.id !== stored.storey).length;
+    const elsewhere = others > 0 ? await roomsElsewhere(client, stored.storeys, stored.storey) : [];
     // Another storey shown meanwhile, or another home: its own load sets them.
     if (client === this.client && (stored.storey ?? undefined) === this.storey) {
       this.elsewhere = elsewhere;
-      this.elsewhereRead = true;
+      this.elsewhereRead = elsewhere.length === others;
+      if (!this.elsewhereRead) this.readAgain(client, "plan");
     }
   }
 
@@ -3364,7 +3393,7 @@ export class DomoTwinPanel extends LitElement {
     this.dialogs.update(this.renderRoot.querySelector(PANEL_DIALOGS) ?? undefined);
     // A ring heard before who may see what was known, shown once it is if still fresh.
     const waiting = this.ringWaiting;
-    if (waiting && this._hass && this.homeRead()) {
+    if (waiting && this._hass?.user && this.homeRead()) {
       this.ringWaiting = undefined;
       if (nowOf(this._hass) - waiting.at <= RING_FRESH_MS) this.showRing(this._hass, waiting);
     }
@@ -4706,8 +4735,9 @@ export class DomoTwinPanel extends LitElement {
 
   /**
    * A room asked for in the address (`/domotwin/3d?room=kitchen`, the link on its device in Home
-   * Assistant, D-087): framed in the 3D view as `domotwin.show` frames it, once the settings say
-   * which rooms the viewer may not see (a private one is not), then left out of the address.
+   * Assistant, D-087): framed in the 3D view as `domotwin.show` frames it, once the settings and
+   * the viewer say which rooms they may not see (a private one is not), then left out of the
+   * address.
    */
   private async showRoomAsked(): Promise<void> {
     const room = takeAsked("room")?.trim();
@@ -4715,14 +4745,13 @@ export class DomoTwinPanel extends LitElement {
     // The settings and the plan read first, however long a slow device takes; given up after a
     // few minutes.
     const until = performance.now() + LAYER_WAIT_MS;
-    while (
-      (!this.settingsRead || !this.client || this.storeys.length === 0) &&
-      this.isConnected &&
-      performance.now() < until
-    ) {
+    const known = (): boolean =>
+      this.settingsRead && !!this.client && !!this._hass?.user && this.storeys.length > 0;
+    // Given up once the 3D view is left meanwhile: not taken back there.
+    while (!known() && this.isConnected && this.tab === "3d" && performance.now() < until) {
       await new Promise((resolve) => setTimeout(resolve, LAYER_POLL_MS));
     }
-    if (this.isConnected && this.settingsRead && !this.demoSwitch.home) {
+    if (this.isConnected && this.tab === "3d" && known() && !this.demoSwitch.home) {
       await this.showRequest({ room });
     }
   }

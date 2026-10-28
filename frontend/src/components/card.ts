@@ -74,6 +74,8 @@ export class DomoTwinCard extends LitElement {
   protected settingsRead = false;
   private settingsTimer?: ReturnType<typeof setTimeout>;
   private wifiTimer?: ReturnType<typeof setTimeout>;
+  /** Asks again for a plan or the links that could not be read. */
+  private readTimer?: ReturnType<typeof setTimeout>;
   /** The upkeep cards (D-033). */
   protected upkeep?: Upkeep;
   /** The people placed in their rooms (D-034). */
@@ -188,16 +190,19 @@ export class DomoTwinCard extends LitElement {
     // Voice on this device (D-085), as the panel may have left it, and as another tab turns it.
     this.deviceVoice = readDeviceVoice();
     window.addEventListener("storage", this.onStorage);
+    // Back on the page (a dashboard laying its columns out again): its ring stays.
+    this.doorbellPage?.awayFromPage(this, false);
     if (this._hass) this.connectData();
   }
 
   override disconnectedCallback(): void {
     super.disconnectedCallback();
     window.removeEventListener("storage", this.onStorage);
-    // Its ring over the page goes with it: nothing would tell it Home Assistant's states.
-    this.doorbellPage?.closeOnPage(this);
+    // Its ring over the page goes with it, unless it is back at once.
+    this.doorbellPage?.awayFromPage(this, true);
     clearTimeout(this.settingsTimer);
     clearTimeout(this.wifiTimer);
+    clearTimeout(this.readTimer);
     this.unsubscribe?.();
     this.unsubscribe = undefined;
   }
@@ -229,6 +234,7 @@ export class DomoTwinCard extends LitElement {
     this.unsubscribe = undefined;
     clearTimeout(this.settingsTimer);
     clearTimeout(this.wifiTimer);
+    clearTimeout(this.readTimer);
     this.loads += 1;
     this.chosen = undefined;
     this.plan = undefined;
@@ -386,18 +392,34 @@ export class DomoTwinCard extends LitElement {
       // A later load's, or another home's (the demo house, D-050), is not this one's.
       if (ticket !== this.loads) return;
       this.planError = isHassError(error) ? error.code : "unknown";
+      // Never read (Home Assistant starting): asked for again in a while.
+      if (this.plan === undefined && this.home === undefined) this.readAgain(client, "plan");
     }
   }
 
-  /** The rooms of the other storeys (plans the client has are not fetched again). */
+  /** A plan or the links that could not be read, asked for again in a while. */
+  private readAgain(client: DomoTwinClient, what: "plan" | "bindings"): void {
+    if (!this.unsubscribe || !this.current(client)) return;
+    clearTimeout(this.readTimer);
+    this.readTimer = setTimeout(() => {
+      if (what === "plan") void this.loadPlan(client);
+      else void this.loadBindings(client);
+    }, SETTINGS_RETRY_MS);
+  }
+
+  /**
+   * The rooms of the other storeys (plans the client has are not fetched again). Until every one
+   * is read, which of their rooms are private is not known: those that could not be are asked
+   * for again in a while.
+   */
   private async loadElsewhere(client: DomoTwinClient, stored: StoredPlan): Promise<void> {
-    const elsewhere =
-      stored.storeys.length > 1 ? await roomsElsewhere(client, stored.storeys, stored.storey) : [];
+    const others = stored.storeys.filter((storey) => storey.id !== stored.storey).length;
+    const elsewhere = others > 0 ? await roomsElsewhere(client, stored.storeys, stored.storey) : [];
     // Another storey shown meanwhile, or another home: its own load sets them.
-    if (this.current(client) && (stored.storey ?? undefined) === this.storey) {
-      this.elsewhere = elsewhere;
-      this.storeysRead = true;
-    }
+    if (!this.current(client) || (stored.storey ?? undefined) !== this.storey) return;
+    this.elsewhere = elsewhere;
+    this.storeysRead = elsewhere.length === others;
+    if (!this.storeysRead) this.readAgain(client, "plan");
   }
 
   /** `domotwin.show` (D-029): on this screen (or every one), the storey asked for, then what to
@@ -475,7 +497,8 @@ export class DomoTwinCard extends LitElement {
       this.ringWaiting = undefined;
       return;
     }
-    if (!this.settingsRead || !this.storeysRead || !this.bindingsRead) return;
+    // The viewer's rights too, once Home Assistant says who they are (D-071).
+    if (!this.settingsRead || !this.storeysRead || !this.bindingsRead || !hass.user) return;
     this.ringWaiting = undefined;
     if (!seen(this.unseen(hass), ring.entity, areaOf(hass, ring.entity))) return;
     this.doorbellModule ??= import("./doorbell").then(
@@ -491,7 +514,10 @@ export class DomoTwinCard extends LitElement {
     );
     void this.doorbellModule.then((page) => {
       const now = this._hass;
-      if (!page || !now || !this.isConnected || this.demoSwitch.home) return;
+      // Loaded meanwhile: no longer if the card was taken away or told not to (and too old a ring
+      // is not shown).
+      const off = this.config?.doorbell === false || this.demoSwitch.home;
+      if (!page || !now || !this.isConnected || off) return;
       page.ringOnPage(
         this,
         gatedHass(now, this.rightsOf(now).gate),
@@ -551,11 +577,18 @@ export class DomoTwinCard extends LitElement {
   private async loadBindings(client: DomoTwinClient): Promise<void> {
     try {
       const bindings = readBindings((await client.getBindings()).bindings);
-      if (this.current(client)) this.bindings = bindings;
-    } catch {
-      if (this.current(client)) this.bindings = undefined;
+      if (!this.current(client)) return;
+      this.bindings = bindings;
+      this.bindingsRead = true;
+    } catch (error) {
+      if (!this.current(client)) return;
+      // An integration older than the links has none; else those read before stay, and they are
+      // asked for again (which rooms' things are private is not known without them).
+      if (isHassError(error) && error.code === "unknown_command") {
+        this.bindings = undefined;
+        this.bindingsRead = true;
+      } else this.readAgain(client, "bindings");
     }
-    if (this.current(client)) this.bindingsRead = true;
   }
 
   private viewOptions(): ViewOptions {

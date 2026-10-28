@@ -74,6 +74,11 @@ export function closedAreas(
     const area = roomArea(hass, bindings, room.id, room.name);
     if (area !== undefined) areas.add(area);
   }
+  // The area linked to a closed room whose plan is not read, too.
+  for (const room of closed) {
+    const area = bindings.rooms[room]?.area;
+    if (area) areas.add(area);
+  }
   return areas;
 }
 
