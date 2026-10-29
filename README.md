@@ -15,7 +15,7 @@ Local, free, no account. Rust + WebAssembly.</p>
 <p align="center"><a href="https://github.com/arthur-leguennec/ha-domotwin/blob/main/README.fr.md">Lire en français</a></p>
 
 > [!NOTE]
-> **Status: early development, version 0.7.0.** DomoTwin is built milestone by milestone
+> **Status: early development, version 0.8.0.** DomoTwin is built milestone by milestone
 > ([roadmap](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/ROADMAP.md)), and everything under
 > *Features* works today. The submission to HACS's default list waits on measurements on real
 > devices.

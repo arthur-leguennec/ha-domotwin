@@ -82,7 +82,8 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M52       | Several sites in one Home Assistant                        | ✅     |
 | M53       | What trying 0.7.0 showed: undo, coming back, the demo      | ✅     |
 | M54       | The Energy tab's board; the automations as a list          | ✅     |
-| 0.8.0     | Eighth release: the answers, then the workplace's three    | ⏳     |
+| 0.8.0     | Eighth release: a workplace's three, energy, automations   | ✅     |
+| 0.9.0     | Ninth release: what the use of 0.8.0 asks for              | ⏳     |
 
 M5 to M11 were added after M3b (`DECISIONS.md`, D-022): what people expect of a 3D home dashboard,
 with no account and no network call outside Home Assistant. M8 became the looks alone, and the
@@ -2207,4 +2208,19 @@ its energy, its meeting rooms, several sites.
   the pieces and rooms using the most, a tap showing one on the plan. The automations layer is a
   list by room in plain words; a tap draws one automation's wires alone and says what it does;
   every wire at once is a button away.
-- ⏳ **Release 0.8.0**: once they are in, tried in a fresh Home Assistant.
+- ✅ Tried in a fresh Home Assistant (2026.10.2): the panel on a phone-sized screen, with Home
+  Assistant's demo devices put in its areas and two fictional plans as two sites. Each room's
+  device links to DomoTwin; a schedule, closed now, made the main site's opening hours (*Closed:
+  14 left on*), the other site's its own (*Open until 11:59 PM*); a Local Calendar made a meeting
+  room, booked from the Home tab for 30 minutes and *Booked* at once; the site chosen came back
+  after a reload. With a grid meter in Home Assistant's energy settings, the Energy tab showed
+  the plan above its board, today's energy read from the recorder's statistics (what was used,
+  bought, its source and the meter); an automation made in Home Assistant was listed in its room,
+  in a line and, picked, in plain words with its wires alone; the Home tab suggested *Close up*
+  for the workplace. No error, no request outside Home Assistant.
+- ✅ **Release 0.8.0**: release-please's pull request, merged once this is in `main`, tags `v0.8.0`
+  and attaches `domotwin.zip`, with M49 to M54.
+
+## Then, to 0.9.0
+
+- ⏳ **Release 0.9.0**: what the use of 0.8.0 asks for.
