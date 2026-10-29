@@ -568,3 +568,69 @@ export function batteryAt(minute: number): number {
   const step = plannedDay()[k] ?? { level: 30, battery: 0 };
   return chargeAfter(step.level, step.battery, m - k * STEP);
 }
+
+/** What the day counted between two minutes of it (kWh), as Home Assistant's energy would. */
+export interface DayEnergy {
+  solar: number;
+  gridIn: number;
+  gridOut: number;
+  batteryIn: number;
+  batteryOut: number;
+  washer: number;
+  dryer: number;
+  dishwasher: number;
+  oven: number;
+  fridge: number;
+  tv: number;
+}
+
+/**
+ * The energy of the day as planned between minutes `from` and `to` of it (D-092): the sun, the
+ * grid each way, the battery each way and the appliances, in steps as the battery's day is.
+ */
+export function energyBetween(from: number, to: number): DayEnergy {
+  const sum: DayEnergy = {
+    solar: 0,
+    gridIn: 0,
+    gridOut: 0,
+    batteryIn: 0,
+    batteryOut: 0,
+    washer: 0,
+    dryer: 0,
+    dishwasher: 0,
+    oven: 0,
+    fridge: 0,
+    tv: 0,
+  };
+  const steps = plannedDay();
+  const start = Math.max(0, Math.min(from, DAY));
+  const end = Math.max(start, Math.min(to, DAY));
+  for (let t = start; t < end; t += 1) {
+    const step = steps[Math.floor(t / STEP)] ?? { level: 30, battery: 0 };
+    let home = homePower({}, t);
+    let tv = tvPower(undefined);
+    for (const [id, change] of wantedAt(t)) {
+      if (id.startsWith("light.") && change.state === "on") home += LAMP;
+      if (id === "media_player.living_tv") {
+        home += tvPower(change.state) - tvPower(undefined);
+        tv = tvPower(change.state);
+      }
+    }
+    const solar = solarAt(t);
+    const grid = home - solar - step.battery;
+    const kwh = (watts: number): number => Math.max(watts, 0) / 60 / 1000;
+    const power = appliancesAt(t);
+    sum.solar += kwh(solar);
+    sum.gridIn += kwh(grid);
+    sum.gridOut += kwh(-grid);
+    sum.batteryOut += kwh(step.battery);
+    sum.batteryIn += kwh(-step.battery);
+    sum.washer += kwh(power.washer);
+    sum.dryer += kwh(power.dryer);
+    sum.dishwasher += kwh(power.dishwasher);
+    sum.oven += kwh(power.oven);
+    sum.fridge += kwh(power.fridge);
+    sum.tv += kwh(tv);
+  }
+  return sum;
+}

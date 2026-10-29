@@ -7,12 +7,15 @@ import {
   allAutomations,
   automationConfig,
   colorOf,
+  endName,
+  groupByArea,
   lastRuns,
   placeEnds,
   ranSince,
   readAutomations,
   relatedAutomations,
   rolesOf,
+  summaryOf,
   type AutomationEnd,
   type Placing,
 } from "../src/live/automations";
@@ -226,5 +229,87 @@ describe("automation wires (D-032)", () => {
     // A marker stays; a label on it goes above it.
     expect(lifted[2]).toEqual([300, 300]);
     expect(lifted[4]?.[1]).toBeLessThanOrEqual(300 - 12 - 2);
+  });
+});
+
+describe("every automation in a list, in plain words (D-092)", () => {
+  const label = (end: AutomationEnd) => (end.place === "sun" ? "Sun" : (end.place ?? "?"));
+
+  it("names each end: its piece, else its entity, device, area, floor or label", () => {
+    const h = hass();
+    const piece = (entity: string) => (entity === "light.hall" ? "Ceiling lamp" : undefined);
+    const name = (end: AutomationEnd) => endName(h, end, label, piece);
+    expect(name({ role: "action", entity: "light.hall" })).toBe("Ceiling lamp");
+    expect(name({ role: "trigger", entity: "binary_sensor.hall_motion" })).toBe("Hall motion");
+    expect(name({ role: "trigger", device: "dev-remote" })).toBe("Hall remote");
+    expect(name({ role: "action", device: "dev-kitchen" })).toBe("Kitchen bulb");
+    expect(name({ role: "action", area: "garden" })).toBe("Garden");
+    expect(name({ role: "action", floor: "ground" })).toBe("Ground floor");
+    expect(name({ role: "action", label: "evening" })).toBe("evening");
+    expect(name({ role: "trigger", place: "sun" })).toBe("Sun");
+    // A device is its piece's when one stands for it.
+    const devicePiece = (device: string) =>
+      device === "dev-remote" ? "Remote on the wall" : undefined;
+    expect(endName(h, { role: "trigger", device: "dev-remote" }, label, piece, devicePiece)).toBe(
+      "Remote on the wall",
+    );
+  });
+
+  it("says what sets it off and what it acts on, and where it is", () => {
+    const h = hass();
+    const name = (end: AutomationEnd) => endName(h, end, label);
+    const summary = summaryOf(
+      h,
+      [
+        { role: "trigger", entity: "binary_sensor.hall_motion" },
+        { role: "trigger", place: "sun" },
+        { role: "condition", area: "garden" },
+        { role: "action", device: "dev-kitchen" },
+        // Named once.
+        { role: "action", entity: "light.kitchen" },
+        { role: "action", device: "dev-kitchen" },
+      ],
+      name,
+    );
+    expect(summary.when).toEqual(["Hall motion", "Sun"]);
+    expect(summary.then).toEqual(["Kitchen bulb", "light.kitchen"]);
+    // Where its first action is.
+    expect(summary.area).toBe("kitchen");
+    // No action in an area: its first trigger's; none at all: around the home.
+    expect(
+      summaryOf(
+        h,
+        [
+          { role: "trigger", entity: "binary_sensor.hall_motion" },
+          { role: "action", place: "notify.phone" },
+        ],
+        name,
+      ).area,
+    ).toBe("hall");
+    expect(summaryOf(h, [{ role: "trigger", place: "sun" }], name).area).toBeUndefined();
+  });
+
+  it("puts them by area, by name, those around the home last", () => {
+    const h = hass();
+    h.states["automation.c"] = state("automation.c", { friendly_name: "Alarm at night" });
+    h.states["automation.a"] = state("automation.a", { friendly_name: "Morning lamp" });
+    h.states["automation.b"] = state("automation.b", { friendly_name: "Evening lamp" });
+    const areas: Record<string, string | undefined> = {
+      "automation.a": "kitchen",
+      "automation.b": "kitchen",
+      "automation.c": undefined,
+      "automation.d": "hall",
+    };
+    const groups = groupByArea(
+      h,
+      ["automation.a", "automation.b", "automation.c", "automation.d"],
+      (id) => areas[id],
+      "Around the home",
+    );
+    expect(groups).toEqual([
+      { area: "hall", name: "Hall", ids: ["automation.d"] },
+      { area: "kitchen", name: "Kitchen", ids: ["automation.b", "automation.a"] },
+      { name: "Around the home", ids: ["automation.c"] },
+    ]);
   });
 });

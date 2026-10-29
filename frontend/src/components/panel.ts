@@ -74,6 +74,7 @@ import {
   areaOf,
   entityName,
   readBindings,
+  roleOf,
   roomArea,
   shownEntity,
   type BindingsJson,
@@ -468,6 +469,7 @@ export class DomoTwinPanel extends LitElement {
     from3d: { state: true },
     report: { state: true },
     energyKnown: { state: true },
+    boardReady: { state: true },
     choices: { state: true },
     choicesRead: { state: true },
     choicesOpen: { state: true },
@@ -522,6 +524,15 @@ export class DomoTwinPanel extends LitElement {
   private practicalFailed = false;
   /** The 3D view was shown once: it stays, hidden on the other tabs, its engine and camera. */
   private shown3d = false;
+  /** The Energy tab's board (D-092): its module, once here. */
+  private boardModule?: Promise<unknown>;
+  /** The board's module did not load: said once, tried again when a tab is chosen. */
+  private boardFailed = false;
+  protected boardReady = false;
+  /** Whether some piece has a power sensor, for these bindings and entities. */
+  private powerFrom?: { bindings: BindingsJson; hass: unknown; found: boolean };
+  /** The layer the 3D view showed before the Energy tab showed the power on it. */
+  private layerBeforeEnergy?: LayerName;
   /** The alerts chosen on Home Assistant's Security page (D-068), followed while it shows. */
   protected securityChoices: SecurityAlertChoice[] = [];
   private securityFollowed?: Promise<(() => Promise<void>) | undefined>;
@@ -1067,6 +1078,25 @@ export class DomoTwinPanel extends LitElement {
         flex: 1;
         min-width: 0;
         display: flex;
+      }
+      /* The Energy tab (D-092): the plan beside its board, the board under it on a phone. */
+      .body.energy domotwin-energy-board {
+        flex: 0 0 clamp(320px, 38%, 520px);
+        min-width: 0;
+        border-inline-start: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+      }
+      .body.energy.tight {
+        flex-direction: column;
+      }
+      .body.energy.tight domotwin-view {
+        flex: 0 0 45%;
+        min-height: 0;
+      }
+      .body.energy.tight domotwin-energy-board {
+        flex: 1;
+        min-height: 0;
+        border-inline-start: none;
+        border-top: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
       }
       input[type="file"] {
         display: none;
@@ -3703,6 +3733,15 @@ export class DomoTwinPanel extends LitElement {
       view.setLayer(this.layerWanted);
       this.layerWanted = undefined;
     }
+    // The Energy tab shows the power on the plan (D-092); back on the 3D tab, the layer it had.
+    const shownView = this.view;
+    if (shownView && this.tab === "energy" && this.layerBeforeEnergy === undefined) {
+      this.layerBeforeEnergy = shownView.currentLayer();
+      shownView.setLayer("power");
+    } else if (shownView && this.tab !== "energy" && this.layerBeforeEnergy !== undefined) {
+      if (shownView.currentLayer() === "power") shownView.setLayer(this.layerBeforeEnergy);
+      this.layerBeforeEnergy = undefined;
+    }
     const hass = this._hass;
     const fitting = [
       hass?.locale?.language ?? hass?.language,
@@ -3834,6 +3873,10 @@ export class DomoTwinPanel extends LitElement {
    * address, so that back works. */
   private go(tab: Tab, area?: string, from3d = false, replace = false, graphs = false): void {
     this.retryPractical();
+    if (this.boardFailed) {
+      this.boardFailed = false;
+      this.boardModule = undefined;
+    }
     this.tab = tab;
     this.roomOpen = tab === "rooms" ? area : undefined;
     this.roomGraphs = tab === "rooms" && area !== undefined && graphs;
@@ -4071,7 +4114,7 @@ export class DomoTwinPanel extends LitElement {
   protected override willUpdate(changed: PropertyValues): void {
     if (changed.has("route") || this.tab === undefined) this.followRoute();
     if (this._hass) this.readEnergy(this._hass);
-    if (this.tab === "3d") this.shown3d = true;
+    if (this.tab === "3d" || (this.tab === "energy" && canDraw3d())) this.shown3d = true;
     // The Home, Rooms and Safety tabs, and the choices: their module the first time one shows;
     // failed (offline, an update since), tried again when a tab is chosen, not on every update.
     const practical = this.tab === "home" || this.tab === "rooms" || this.tab === "safety";
@@ -4134,8 +4177,10 @@ export class DomoTwinPanel extends LitElement {
     const t = this.t;
     const admin = this._hass?.user?.is_admin === true;
     const tool = this.editing || this.planning || this.linking;
-    // The 3D view's tab, or a tool working on it (D-055).
+    // The 3D view's tab, or a tool working on it (D-055); the Energy tab shows it too, beside its
+    // board (D-092).
     const on3d = this.tab === "3d" || tool;
+    const onEnergy = this.tab === "energy" && !tool;
     // The tabs, unless a tool works on the 3D view: at the bottom of a phone, else on the side.
     const tabs = !tool && this.tab !== undefined;
     // One template in both modes: the view stays the same element (engine, camera, 2D or 3D).
@@ -4183,13 +4228,21 @@ export class DomoTwinPanel extends LitElement {
       }
       <div class="main">
         ${tabs && !this.tight ? this.renderTabs("side") : nothing}
-        <div class="body">
+        <div class="body ${onEnergy ? "energy" : ""} ${this.tight ? "tight" : ""}">
           ${this.renderDoorbell()} ${this.renderSaver()}
           ${
             // Under the saver, the 3D view is not drawn (D-076).
-            this.shown3d || tool ? this.renderView(admin, on3d && !this.saverDrawn) : nothing
+            this.shown3d || tool
+              ? this.renderView(admin, (on3d || onEnergy) && !this.saverDrawn)
+              : nothing
           }
-          ${on3d ? nothing : this.renderPractical()} ${on3d ? nothing : this.renderReport()}
+          ${
+            on3d
+              ? nothing
+              : onEnergy
+                ? this.renderEnergyBoard(admin)
+                : html`${this.renderPractical()} ${this.renderReport()}`
+          }
           ${
             this.editing
               ? this.renderEditTools()
@@ -4313,6 +4366,7 @@ export class DomoTwinPanel extends LitElement {
       .accessPoints=${this.settings?.access_points ?? NO_ACCESS_POINTS}
       @domotwin-open-bluetooth=${this.openBluetooth}
       .roomTab=${true}
+      .boardBeside=${this.tab === "energy" && !this.editing && !this.planning && !this.linking}
       .securityAlerts=${shown ? this.securityAlertsShown() : this.securityShown.alerts}
       @domotwin-room-open=${this.onRoomOpen}
     >
@@ -4389,37 +4443,91 @@ export class DomoTwinPanel extends LitElement {
     const hass = this._hass;
     const route = this.route;
     const t = this.t;
-    if (!hass || !this.tab) return nothing;
-    // Its page shows only its setup wizard until something is set up: no tab until then.
-    const known = this.energyKnown;
-    const page =
-      known?.connection === hass.connection && known.setUp
-        ? energyPage(
-            hass,
-            route && `${route.prefix}${pathOf(this.tab, this.roomOpen, this.roomGraphs)}`,
-          )
-        : undefined;
-    const demo = hass.demo === true && canDraw3d();
-    if (!page && !demo) return nothing;
-    const href = page ?? (route ? `${route.prefix}/3d?layer=power` : "#energy");
+    if (!hass || !this.tab || !this.energyOffered(hass)) return nothing;
     return html`<a
-      href=${href}
+      href=${route ? `${route.prefix}${pathOf("energy")}` : "#energy"}
       data-testid="tab-energy"
-      aria-current="false"
+      aria-current=${this.tab === "energy" ? "page" : "false"}
       @click=${(event: MouseEvent) => {
         if (event.ctrlKey || event.metaKey || event.shiftKey || event.button !== 0) return;
         event.preventDefault();
-        if (page) {
-          navigate(page);
-        } else {
-          this.layerWanted = "power";
-          this.go("3d");
-          // Already on the 3D tab, nothing else changes: the layer is chosen all the same.
-          this.requestUpdate();
-        }
+        this.go("energy");
       }}
       >${icon(mdiLightningBoltOutline)}<span>${t.t("tabs.energy")}</span></a
     >`;
+  }
+
+  /**
+   * Whether the home has energy to show (D-092): Home Assistant's energy set up, DomoTwin's energy
+   * sensors chosen, or a piece with a power sensor; the demo house has all three.
+   */
+  private energyOffered(hass: HomeAssistant): boolean {
+    const known = this.energyKnown;
+    if (known?.connection === hass.connection && known.setUp) return true;
+    if (hass.demo === true || this.settings?.energy) return true;
+    const bindings = this.bindings;
+    if (!bindings) return false;
+    if (this.powerFrom?.bindings === bindings && this.powerFrom.hass === hass.entities) {
+      return this.powerFrom.found;
+    }
+    const found = Object.values(bindings.elements).some((binding) =>
+      binding.entities.some((bound) => roleOf(bound, hass) === "power"),
+    );
+    this.powerFrom = { bindings, hass: hass.entities, found };
+    return found;
+  }
+
+  /**
+   * The Energy tab's board (D-092), beside the 3D view (under it on a phone): its module the
+   * first time it shows.
+   */
+  private renderEnergyBoard(admin: boolean): TemplateResult | typeof nothing {
+    const real = this._hass;
+    if (!real) return nothing;
+    if (!this.boardFailed) {
+      this.boardModule ??= import("./energy-board").then(
+        () => {
+          this.boardReady = true;
+        },
+        (error: unknown) => {
+          this.boardFailed = true;
+          this.show(this.describe(error), true);
+        },
+      );
+    }
+    if (!this.boardReady) return nothing;
+    const rights = this.rightsOf(real);
+    const hass = gatedHass(real, rights.gate);
+    const bindings = this.bindings ? rights.bindings : NO_BINDINGS;
+    const { unseen } = this.practical(real);
+    const plans = this.home ? this.home.map((storey) => storey.plan) : this.plan ? [this.plan] : [];
+    const route = this.route;
+    const known = this.energyKnown;
+    const page =
+      known?.connection === real.connection && known.setUp
+        ? energyPage(real, route && `${route.prefix}${pathOf("energy")}`)
+        : undefined;
+    return html`<domotwin-energy-board
+      .hass=${hass}
+      .t=${this.t}
+      .energy=${this.settings?.energy}
+      .bindings=${bindings}
+      .plans=${plans}
+      .unseenPiece=${(element: string) =>
+        (bindings.elements[element]?.entities ?? []).every(
+          (bound) => !seen(unseen, bound.entity_id, areaOf(hass, bound.entity_id)),
+        )}
+      .unseenEntity=${(entity: string) =>
+        !seen(unseen, entity, areaOf(hass, entity)) || hass.canSee?.(entity) === false}
+      .page=${page}
+      .admin=${admin}
+      @domotwin-energy-show=${(event: CustomEvent<{ element: string }>) => {
+        this.view?.show({ element: event.detail.element });
+      }}
+      @domotwin-energy-settings=${() => {
+        this.openSettings();
+      }}
+    ></domotwin-energy-board>`;
   }
 
   /** The tabs (D-055): on the side of a tablet or a computer, at the bottom of a phone. */

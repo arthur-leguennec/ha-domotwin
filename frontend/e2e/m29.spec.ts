@@ -185,6 +185,7 @@ test.describe("the sandbox (D-057)", () => {
     await page.getByTestId("sandbox-day-apply").click();
     await page.getByTestId("layers").click();
     await page.getByTestId("layer-menu").locator('[data-layer="automations"]').click();
+    await page.getByTestId("wires-every").click();
     await expect(page.getByTestId("wires")).toContainText("Wires of");
     // Each pulse the view asks of its engine.
     await page.evaluate(() => {

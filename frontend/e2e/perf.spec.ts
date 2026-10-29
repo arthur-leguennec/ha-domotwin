@@ -305,6 +305,7 @@ test("frame time with 50 automations", async ({ page }, testInfo) => {
   const without = await benchmark();
   await page.getByTestId("layers").click();
   await page.getByTestId("layer-menu").locator('[data-layer="automations"]').click();
+  await page.getByTestId("wires-every").click();
   await expect(page.getByTestId("wires")).toContainText("50 automations");
   const bundled = await benchmark();
   const unbundled = await page.evaluate(() => {

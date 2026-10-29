@@ -29,6 +29,8 @@ export interface AutomationEnd {
 export interface ReadAutomation {
   ends: AutomationEnd[];
   skipped: number;
+  /** The configuration read, to say it in plain words (D-092). */
+  config?: unknown;
 }
 
 /** An end placed for the engine (`setAutomations`). */
@@ -108,7 +110,8 @@ export async function readAutomations(
         reader ??= automationReader();
         const read = await reader;
         try {
-          reads.set(id, JSON.parse(read(JSON.stringify(config))) as ReadAutomation);
+          const parsed = JSON.parse(read(JSON.stringify(config))) as ReadAutomation;
+          reads.set(id, { ...parsed, config });
         } catch {
           // One the reader cannot make sense of is left out; the others are kept.
         }
@@ -311,4 +314,111 @@ export function ranSince(before: ReadonlyMap<string, string>, hass: HomeAssistan
 /** The entities an automation acts on, to show those that changed when it ran. */
 export function actedOn(ends: readonly AutomationEnd[]): string[] {
   return ends.flatMap((e) => (e.role === "action" && e.entity ? [e.entity] : []));
+}
+
+/**
+ * What an end is called in plain words (D-092): the piece its entity or device is linked to, else
+ * the entity, its device, its area, its floor or its label; else what `label` calls it (`Sun`…).
+ */
+export function endName(
+  hass: HomeAssistant,
+  end: AutomationEnd,
+  label: (end: AutomationEnd) => string,
+  piece: (entity: string) => string | undefined = () => undefined,
+  devicePiece: (device: string) => string | undefined = () => undefined,
+): string {
+  if (end.entity) return piece(end.entity) ?? entityName(hass, end.entity);
+  if (end.device) {
+    const device = hass.devices?.[end.device];
+    return devicePiece(end.device) ?? (device?.name_by_user || device?.name || end.device);
+  }
+  if (end.area) return hass.areas?.[end.area]?.name ?? end.area;
+  if (end.floor) return hass.floors?.[end.floor]?.name ?? end.floor;
+  if (end.label) return end.label;
+  return label(end);
+}
+
+/** An automation in plain words (D-092). */
+export interface AutomationSummary {
+  /** What sets it off, and what it acts on: each named once, in their order. */
+  when: string[];
+  then: string[];
+  /** The Home Assistant area it is about: its first action's, else its first trigger's, else its
+   *  first condition's. None: around the home. */
+  area?: string;
+}
+
+export function summaryOf(
+  hass: HomeAssistant,
+  ends: readonly AutomationEnd[],
+  name: (end: AutomationEnd) => string,
+): AutomationSummary {
+  const when: string[] = [];
+  const then: string[] = [];
+  for (const end of ends) {
+    const list = end.role === "trigger" ? when : end.role === "action" ? then : undefined;
+    const named = list ? name(end) : "";
+    if (list && named && !list.includes(named)) list.push(named);
+  }
+  const areaOfEnd = (end: AutomationEnd): string | undefined =>
+    end.area ??
+    (end.entity
+      ? areaOf(hass, end.entity)
+      : end.device
+        ? (hass.devices?.[end.device]?.area_id ?? undefined)
+        : undefined);
+  let area: string | undefined;
+  for (const role of ["action", "trigger", "condition"] as const) {
+    area = ends
+      .filter((end) => end.role === role)
+      .map(areaOfEnd)
+      .find((id) => id !== undefined);
+    if (area) break;
+  }
+  return area ? { when, then, area } : { when, then };
+}
+
+/** Automations together by the area they are about (D-092). */
+export interface AutomationGroup {
+  area?: string;
+  name: string;
+  ids: string[];
+}
+
+/**
+ * The automations by the area each is about, the areas by name and those around the home last;
+ * in each, the automations by name. `around`: what the group of no area is called.
+ */
+export function groupByArea(
+  hass: HomeAssistant,
+  ids: readonly string[],
+  areaOfId: (id: string) => string | undefined,
+  around: string,
+): AutomationGroup[] {
+  const groups = new Map<string, AutomationGroup>();
+  for (const id of ids) {
+    const area = areaOfId(id);
+    const key = area ?? "";
+    let group = groups.get(key);
+    if (!group) {
+      group = area
+        ? { area, name: hass.areas?.[area]?.name ?? area, ids: [] }
+        : { name: around, ids: [] };
+      groups.set(key, group);
+    }
+    group.ids.push(id);
+  }
+  const collator = new Intl.Collator(hass.language);
+  for (const group of groups.values()) {
+    group.ids.sort((a, b) => collator.compare(entityName(hass, a), entityName(hass, b)));
+  }
+  return [...groups.values()].sort((a, b) =>
+    a.area === undefined
+      ? b.area === undefined
+        ? 0
+        : 1
+      : b.area === undefined
+        ? -1
+        : collator.compare(a.name, b.name),
+  );
 }

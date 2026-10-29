@@ -40,17 +40,30 @@ same period; **In Home Assistant's History** opens its History page on them.
 
 ## The Energy tab
 
-**Energy**, beside Rooms, opens Home Assistant's own Energy page rather than copying it: its
-energy integration (part of `default_config`) makes it for every user. Its back arrow (Home
-Assistant 2025.10 and later) leads back to the page of DomoTwin you left; on 2025.1, the browser's
-back does. The tab shows once something is set up in Home Assistant's energy settings (a grid, the
-sun, a battery, gas, water or a device): before, the page would only show its setup wizard, which
-is in Home Assistant's settings too. Without it, there is no Energy tab: the 3D view's **Power**
-layer still shows what each room draws, with the home's energy at a glance.
+**Energy**, beside Rooms, shows the home's plan on its power (each room tinted by what it draws)
+beside a board; on a phone, the plan is above the board. The board says, from top to bottom:
+
+- **Right now**: what the home uses, what the sun gives, what is bought from the grid or sold to
+  it, the home battery's charge, and the flow between them, from DomoTwin's energy sensors (its
+  settings). Without them, an administrator is offered to choose them.
+- **Today**: what the home used since midnight, what the sun gave, what was bought and sold, and
+  where what it used came from (the sun, the battery, the grid) as one bar, split as Home
+  Assistant's Energy page does (what was stored came from the sun first); how much of it was its
+  own; and the devices Home Assistant counts, the most first. Read from Home Assistant's energy
+  settings and its statistics (the same Home Assistant's Energy page draws), again every five
+  minutes.
+- **Using the most now**: the pieces drawing power (their power sensors), the most first, and each
+  room's together; the home's own meters (the grid's, the sun's, the battery's) are not pieces.
+  A tap shows the piece or the room on the plan, whose colours keep their key in its corner.
+
+Home Assistant's own Energy page is a tap away, at the bottom of *Today*; its back arrow (Home
+Assistant 2025.10 and later) leads back to the tab. The tab shows once something can be said:
+something set up in Home Assistant's energy settings, DomoTwin's energy sensors chosen, or a piece
+with a power sensor. Leaving it, the 3D view goes back to the layer it showed before.
 
 ## In the demo house
 
 Home Assistant's cards and pages do not know the demo house's entities: its graphs say what each
-sensor says now, its table answers from its own day, and its Energy tab opens the 3D view on the
-power layer, with the demo house's sun, grid and battery. The sandbox has neither: its day has a
+sensor says now, its table answers from its own day, and its Energy tab's board counts its own day:
+the sun, the grid, the battery and its appliances, minute by minute since midnight. The sandbox has neither: its day has a
 report of its own ([sandbox](sandbox.md)).

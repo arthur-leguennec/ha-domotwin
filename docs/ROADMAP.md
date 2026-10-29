@@ -81,6 +81,7 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M51       | Meeting rooms: free or taken, booked                       | ✅     |
 | M52       | Several sites in one Home Assistant                        | ✅     |
 | M53       | What trying 0.7.0 showed: undo, coming back, the demo      | ✅     |
+| M54       | The Energy tab's board; the automations as a list          | ✅     |
 | 0.8.0     | Eighth release: the answers, then the workplace's three    | ⏳     |
 
 M5 to M11 were added after M3b (`DECISIONS.md`, D-022): what people expect of a 3D home dashboard,
@@ -2200,4 +2201,10 @@ its energy, its meeting rooms, several sites.
   sideways and close with Escape; a layer menu of what has something to show; the rooms the sun
   comes into; an upkeep badge's count; a simpler radio coverage; solar panels on the roof; and in
   the demo house, an overdue task, two cameras and its panels.
+- ✅ **M54, the Energy tab's board, the automations as a list** (D-092): the Energy tab shows the
+  plan on its power beside a board (under it on a phone): now, today from Home Assistant's
+  statistics (what was used, where it came from, how much was the home's own, the devices), and
+  the pieces and rooms using the most, a tap showing one on the plan. The automations layer is a
+  list by room in plain words; a tap draws one automation's wires alone and says what it does;
+  every wire at once is a button away.
 - ⏳ **Release 0.8.0**: once they are in, tried in a fresh Home Assistant.

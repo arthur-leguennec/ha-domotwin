@@ -627,6 +627,7 @@ export class DomoTwinView extends LitElement {
     placeDevices: { attribute: false },
     linkable: { attribute: false },
     roomTab: { attribute: false },
+    boardBeside: { attribute: false },
     securityAlerts: { attribute: false },
     bubble: { state: true },
     tip: { state: true },
@@ -722,6 +723,8 @@ export class DomoTwinView extends LitElement {
   linkable = false;
   /** The panel's Rooms tab (D-055): a room tapped opens its room there, by its area. */
   roomTab = false;
+  /** The Energy tab's board beside the view (D-092): it says the home's energy; the legend keeps the colours. */
+  boardBeside = false;
   /**
    * Home Assistant's alerts on now (the panel's, D-068), said in the banner after the rooms' of
    * the same level; a tap opens its Security page.
@@ -1049,7 +1052,11 @@ export class DomoTwinView extends LitElement {
   /** `openNames`, and what it was worked out from. */
   private openNamesFrom?: { names: ElementNames; closed: Set<string>; open: ElementNames };
   /** What the viewer may not see, as an entity's test, and what it was worked out from (D-039). */
-  private unseenFrom?: { keys: unknown[]; unseen: (entity: string) => boolean };
+  private unseenFrom?: {
+    keys: unknown[];
+    unseen: (entity: string) => boolean;
+    areas: ReadonlySet<string>;
+  };
   /** The labels' JSON last read from the engine, and whether they must be read again. */
   private labelsText = "";
   private labelsDue = true;
@@ -2224,8 +2231,14 @@ export class DomoTwinView extends LitElement {
     }
     // The room chip leaves room for the legend (`renderLegend`), wider with the energy or a peak.
     // The sun's legend only where the sun's position is known (`renderSunLegend`).
-    if ((this.valueLayer || (this.realSun && sunNow(this.hass))) && !this.editingAny) {
-      const energy = this.valueLayer && this.layer === "power" && this.energyShown() !== undefined;
+    const legendShown = this.valueLayer || (this.realSun && sunNow(this.hass) !== undefined);
+    if (legendShown && !this.editingAny) {
+      // Beside the Energy tab's board, the power's legend is its colours alone (D-092).
+      const energy =
+        this.valueLayer &&
+        this.layer === "power" &&
+        !this.boardBeside &&
+        this.energyShown() !== undefined;
       const peak = this.valueLayer && this.shownLayer === "peak";
       this.setAttribute("legend", energy ? "energy" : peak ? "peak" : "");
     } else {
@@ -2745,6 +2758,11 @@ export class DomoTwinView extends LitElement {
   }
 
   /** Shows a layer (the layer menu). */
+  /** The layer shown now. */
+  currentLayer(): LayerName {
+    return this.layer;
+  }
+
   setLayer(layer: LayerName): void {
     // Every automation of the home takes over from those of a panel.
     if (layer === "automations") {
@@ -2839,8 +2857,13 @@ export class DomoTwinView extends LitElement {
     const test = (entity: string): boolean =>
       canSee?.(entity) === false ||
       !seen(unseen, entity, this.hass ? areaOf(this.hass, entity) : undefined);
-    this.unseenFrom = { keys, unseen: test };
+    this.unseenFrom = { keys, unseen: test, areas: unseen.areas };
     return test;
+  }
+
+  /** The areas of the private rooms the viewer may not see (D-039); none while every room is open. */
+  private unseenAreas(): ReadonlySet<string> | undefined {
+    return this.unseenEntity() ? this.unseenFrom?.areas : undefined;
   }
 
   /** Frames an element of the plan; false when it has nothing to show. */
@@ -5150,6 +5173,8 @@ export class DomoTwinView extends LitElement {
       .bindings=${this.bindings}
       .rooms=${this.rooms}
       .names=${this.names}
+      .unseen=${this.unseenEntity()}
+      .unseenAreas=${this.unseenAreas()}
       .ids=${shown.ids}
       .known=${shown.reads}
       @domotwin-redraw=${() => {
@@ -6270,8 +6295,9 @@ export class DomoTwinView extends LitElement {
     }
     if (layer === "power") {
       const gradient = `linear-gradient(to right, ${POWER_GRADIENT.join(", ")})`;
-      // The home's energy above the power of its pieces, when its sensors say something.
-      const energy = this.energyShown();
+      // The home's energy above the power of its pieces, when its sensors say something; beside
+      // the Energy tab's board, which says it, the colours alone (D-092).
+      const energy = this.boardBeside ? undefined : this.energyShown();
       const flow = energy ? energyFlow(t, energy, energyFlows(energy)) : nothing;
       return html`<div
         class="legend glass ${flow === nothing ? "" : "with-energy"}"

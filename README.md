@@ -71,8 +71,10 @@ What you reach for: the practical side, on a phone as on a computer.
 - **Each room's graphs, the home's energy.** *Graphs*, on a room's page or its panel in 3D: what
   its sensors measured over the last day or week (temperature, humidity, CO₂, power, the meters
   hour by hour, the doors and windows, presence) as Home Assistant's own graphs, the same as a
-  table or in Home Assistant's History a tap away. *Energy* opens Home Assistant's own Energy
-  page, whose back arrow leads back to DomoTwin. See
+  table or in Home Assistant's History a tap away. *Energy* shows the plan on its power beside a
+  board (under it on a phone): what the home uses now and where it comes from, what it used today
+  and how much of it was its own (from Home Assistant's energy statistics), and the pieces and
+  rooms using the most, a tap showing one on the plan; Home Assistant's Energy page a tap away. See
   [graphs](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/graphs.md).
 - **Later.** "Switch the lantern on tomorrow at 6:30 until 6:45": from a lamp's sheet, an
   automation (`domotwin.schedule`) or a voice assistant, DomoTwin does it on time, even across a
@@ -236,8 +238,9 @@ What it does, why, and what needs a look.
   words](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/plain-words.md).
 - **Automation wires.** Long-press a lamp: its panel lists the automations that involve it, with
   their switch and when they last ran. Show their wires, from what sets them off to what they act
-  on, and watch a pulse run along them when one runs. Or every automation of the home at once.
-  See [automation
+  on, and watch a pulse run along them when one runs. Or every automation of the home, as a list
+  by room in plain words ("Hall motion → Hall light"): tap one to draw its wires alone and read
+  what it does. See [automation
   wires](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/automations.md).
 - **Why?** Long-press a lamp and ask who or what changed it: the automation that switched it on,
   the motion that set the automation off, or the person who did it in the app, or nobody (its

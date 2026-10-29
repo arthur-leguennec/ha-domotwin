@@ -130,7 +130,9 @@ test.describe("history and energy, with Home Assistant's own cards (D-069)", () 
     await expect(page.getByTestId("room-graphs")).toHaveCount(0);
   });
 
-  test("the Energy tab opens Home Assistant's Energy page, which leads back", async ({ page }) => {
+  test("the Energy tab: the plan beside its board, Home Assistant's page a link away", async ({
+    page,
+  }) => {
     await openHarness(page, {
       mode: "panel",
       live: true,
@@ -141,17 +143,20 @@ test.describe("history and energy, with Home Assistant's own cards (D-069)", () 
     });
     const energy = page.getByTestId("tab-energy");
     await expect(energy).toHaveText("Energy");
-    await expect(energy).toHaveAttribute(
-      "href",
-      "/energy?historyBack=1&backPath=%2Fdomotwin%2Fhome",
-    );
+    await expect(energy).toHaveAttribute("href", "/domotwin/energy");
     await page.getByTestId("tab-rooms").click();
-    await expect(energy).toHaveAttribute(
-      "href",
-      "/energy?historyBack=1&backPath=%2Fdomotwin%2Frooms",
-    );
     await energy.click();
-    await expect(page).toHaveURL(/\/energy\?historyBack=1&backPath=%2Fdomotwin%2Frooms$/);
+    await expect(page).toHaveURL(/\/domotwin\/energy(\?|$)/);
+    await expect(energy).toHaveAttribute("aria-current", "page");
+    // The plan, on its power, beside the board (D-092).
+    await expect(page.locator("domotwin-view")).toBeVisible();
+    const board = page.getByTestId("energy-board");
+    await expect(board).toBeVisible();
+    await expect(page.getByTestId("energy-page")).toHaveAttribute(
+      "href",
+      "/energy?historyBack=1&backPath=%2Fdomotwin%2Fenergy",
+    );
+    // Back leads to the tab before.
     await page.goBack();
     await expect(page).toHaveURL(/\/domotwin\/rooms(\?|$)/);
     await expect(page.getByTestId("rooms-list")).toBeVisible();
@@ -160,11 +165,12 @@ test.describe("history and energy, with Home Assistant's own cards (D-069)", () 
   test("no Energy tab where Home Assistant has no Energy page, or nothing set up", async ({
     page,
   }) => {
-    await openHarness(page, { mode: "panel", live: true, start: "home" });
+    // No energy anywhere: no power sensor on a piece, none chosen, nothing set up.
+    await openHarness(page, { mode: "panel", start: "home" });
     await expect(page.getByTestId("tab-home")).toBeVisible();
     await expect(page.getByTestId("tab-energy")).toHaveCount(0);
     // Its page would show only its setup wizard.
-    await openHarness(page, { mode: "panel", live: true, start: "home", energyPage: "empty" });
+    await openHarness(page, { mode: "panel", start: "home", energyPage: "empty" });
     await expect(page.getByTestId("tab-home")).toBeVisible();
     await expect
       .poll(() =>
@@ -184,11 +190,11 @@ test.describe("history and energy, with Home Assistant's own cards (D-069)", () 
     await openHarness(page, { mode: "panel", plan: "none", live: true, energyPage: true });
     await page.getByTestId("demo-try").click();
     await expect.poll(async () => (await viewState(page)).summary?.name).toBe("Demo house");
-    // Its energy is DomoTwin's own: the 3D view on its power layer, the home's energy above it.
+    // Its energy is DomoTwin's own: the 3D view on its power layer, the board beside it.
     await page.getByTestId("tab-home").click();
     await page.getByTestId("tab-energy").click();
-    await expect(page.getByTestId("tab-3d")).toHaveAttribute("aria-current", "page");
-    await expect(page.locator("domotwin-view").getByTestId("energy")).toBeVisible();
+    await expect(page.getByTestId("tab-energy")).toHaveAttribute("aria-current", "page");
+    await expect(page.getByTestId("energy-board").getByTestId("energy")).toBeVisible();
     // Home Assistant's cards are not in the demo house: what each sensor says now.
     await page.getByTestId("tab-rooms").click();
     await page.getByTestId("rooms-list").locator("button[data-area='living_room']").click();

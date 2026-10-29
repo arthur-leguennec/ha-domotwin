@@ -113,11 +113,13 @@ test.describe("automation wires (D-032)", () => {
     const wire = await pointOnWire(page);
     await page.mouse.click(wire.x, wire.y);
     await expect(chip).toContainText(/Evening lights|Movie time/);
-    // Every automation of the home, from the layer menu, takes over from the panel's.
+    // Every automation of the home, from the layer menu, takes over from the panel's: a list.
     await chooseLayer(page, "automations");
-    await expect(chip).toContainText("Wires of 3 automations");
+    const list = page.getByTestId("automation-list");
+    await expect(list.locator("[data-automation]")).toHaveCount(3);
+    await expect(chip).toContainText("Tap an automation");
     // Hidden.
-    await chip.getByRole("button", { name: "Hide the wires" }).click();
+    await list.getByRole("button", { name: "Close the automations" }).click();
     await expect(wires).toHaveCount(0);
   });
 
@@ -142,21 +144,68 @@ test.describe("automation wires (D-032)", () => {
     expect(fetched).toEqual([]);
   });
 
-  test("every automation of the home, from the layer menu", async ({ page }) => {
+  test("every automation of the home, from the layer menu: a list first (D-092)", async ({
+    page,
+  }) => {
     await openHarness(page, { live: true, automations: true });
     await chooseLayer(page, "automations");
-    const chip = page.getByTestId("wires");
-    await expect(chip).toContainText("Wires of 3 automations");
+    const list = page.getByTestId("automation-list");
+    const status = page.getByTestId("wires");
     const wires = page.locator("domotwin-wires");
+    // In plain words, by the area each is about; no wire drawn until one is picked.
+    await expect(list.locator("[data-automation]")).toHaveCount(3);
+    await expect(status).toHaveText(
+      "Tap an automation to see on the plan what sets it off and what it acts on.",
+    );
+    await expect(list.locator("h3")).toHaveText(["Bedroom", "Living room"]);
+    const goodnight = list.locator('[data-automation="automation.goodnight"]');
+    await expect(goodnight).toContainText("Goodnight");
+    // Its two sides kept apart from the arrow, whichever way they are written.
+    await expect(goodnight.locator(".line")).toContainText(/^\u2068Time\u2069 → \u2068/);
+    await expect(wires.locator(".end, .label")).toHaveCount(0);
+    // Picked: its wires alone, and what it does in plain words.
+    await goodnight.click();
+    await expect(status).toHaveText("On the plan: Goodnight");
+    await expect(goodnight).toHaveAttribute("aria-expanded", "true");
+    const words = list.getByTestId("automation-words");
+    await expect(words).toContainText(/At (23:00|11:00\sPM)/);
+    await expect(words.getByRole("link", { name: "Edit Goodnight" })).toHaveAttribute(
+      "href",
+      "/config/automation/edit/1003",
+    );
+    await expect(words).toContainText("Then");
     // What has no piece floats above the home: the time, the notification, what a template picks.
     for (const label of ["Time", "notify.phone", "Decided when it runs"]) {
       await expect(wires.locator(".label", { hasText: label })).toHaveCount(1);
     }
     await expect(wires.locator(".label.dynamic")).toHaveCount(1);
-    await chip.getByRole("button", { name: "Hide the wires" }).click();
+    // Another one: its wires instead.
+    await list.locator('[data-automation="automation.movie_time"]').click();
+    await expect(status).toHaveText("On the plan: Movie time");
+    await expect(wires.locator(".label", { hasText: "notify.phone" })).toHaveCount(0);
+    // Put back: nothing drawn.
+    await list.locator('[data-automation="automation.movie_time"]').click();
+    await expect(list.getByTestId("automation-words")).toHaveCount(0);
+    await expect(wires.locator(".end, .label")).toHaveCount(0);
+    // Every wire at once, for those who want them.
+    await list.getByTestId("wires-every").click();
+    await expect(status).toHaveText("Wires of 3 automations");
+    await expect(wires.locator(".label", { hasText: "notify.phone" })).toHaveCount(1);
+    await list.getByRole("button", { name: "Close the automations" }).click();
     await expect(wires).toHaveCount(0);
     await page.getByTestId("layers").click();
     await expect(page.locator('[data-layer="off"]')).toHaveAttribute("aria-checked", "true");
+  });
+
+  test("the list leaves out what touches a private room (D-039)", async ({ page }) => {
+    // The bedroom kept for nobody: "Goodnight" switches its bedside lamps off.
+    await openHarness(page, { live: true, automations: true, private: ["bedroom"] });
+    await chooseLayer(page, "automations");
+    const list = page.getByTestId("automation-list");
+    await expect(list.locator("[data-automation]")).toHaveCount(2);
+    await expect(list.locator('[data-automation="automation.goodnight"]')).toHaveCount(0);
+    await expect(list.locator("h3")).toHaveText(["Living room"]);
+    await expect(list).not.toContainText("Bedside");
   });
 
   test("says when what they do cannot be read", async ({ page }) => {
@@ -176,9 +225,16 @@ test.describe("automation wires (D-032)", () => {
     await expect(page.getByTestId("wires")).toContainText("What they do could not be read");
   });
 
-  test("many automations are bundled by room", async ({ page }) => {
+  test("many automations can be searched, and bundled by room all at once", async ({ page }) => {
     await openHarness(page, { live: true, automations: 50 });
     await chooseLayer(page, "automations");
+    const list = page.getByTestId("automation-list");
+    await expect(list.locator("[data-automation]")).toHaveCount(50);
+    await list.getByTestId("automation-search").fill("made up 12");
+    await expect(list.locator("[data-automation]")).toHaveCount(1);
+    await list.getByTestId("automation-search").fill("nothing like it");
+    await expect(list).toContainText("No automation matches.");
+    await list.getByTestId("wires-every").click();
     await expect(page.getByTestId("wires")).toContainText("50 automations, bundled by room");
   });
 
@@ -187,6 +243,7 @@ test.describe("automation wires (D-032)", () => {
       await page.emulateMedia({ reducedMotion: "reduce" });
       await openHarness(page, { live: true, automations: true, theme: look });
       await chooseLayer(page, "automations");
+      await page.getByTestId("wires-every").click();
       await expect(page.getByTestId("wires")).toContainText("Wires of 3 automations");
       await settle(page);
       expect(await canvasPng(page)).toMatchSnapshot(`automations-${look}.png`, {

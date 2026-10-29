@@ -51,10 +51,22 @@ nothing runs while no wires are shown.
 
 ## Every automation of the home
 
-**Automations** in the layer menu shows the wires of every automation at once, drawn lighter; a
-tap on one picks its automation out. Above 30 automations the wires are bundled by room: one wire
-between two rooms for all the automations that go from one to the other, drawn stronger the more
-there are, and each tap on a bundle picks out the next of its automations.
+**Automations** in the layer menu lists every automation of the home, beside the view (under the
+house on a phone), by the room each is about (its first action's area, else what sets it off),
+those about no room last. Each says in a line what sets it off and what it acts on ("Hall motion →
+Hall light", the pieces by their names on the plan), and when it last ran; one turned off says so,
+one that runs flashes. Above eight, a search finds one by its name or its line. An automation
+with an end in a private room you may not see is not listed ([privacy](privacy.md)).
+
+No wire is drawn until one is picked: a tap on an automation draws its wires alone, and opens what
+it does in plain words (when, only if, then: [automations in plain words](plain-words.md)), with
+what the marks on its ends mean and, for administrators, Home Assistant's editor. Another tap puts
+it back; on a phone, the one picked is shown alone, *All the automations* bringing the list back.
+
+**Every wire at once** (the button beside the list's title) draws them all, lighter, as before; a
+tap on a wire picks its automation out. Above 30 automations the wires are bundled by room: one
+wire between two rooms for all the automations that go from one to the other, drawn stronger the
+more there are, and each tap on a bundle picks out the next of its automations.
 
 ## Who sees what
 
