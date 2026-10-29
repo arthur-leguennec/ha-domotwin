@@ -46,6 +46,7 @@ import {
   robotBatteryAt,
   sensorsAt,
   solarAt,
+  sunAt,
   tvPower,
   vacuumAt,
   wantedAt,
@@ -368,6 +369,14 @@ export class DemoHome implements MemoryHome {
       connection,
       demo: true,
       now: () => Date.parse(this.time()),
+      // Its sun at any hour of its day (D-093), as its `sun.sun` says it: by its clock.
+      sunAt: (time) => {
+        const at = new Date(time);
+        const { azimuth, elevation } = sunAt(
+          at.getHours() * 60 + at.getMinutes() + at.getSeconds() / 60,
+        );
+        return { azimuth, elevation };
+      },
       callService: (domain, service, data, target) => {
         this.callService(domain, service, data ?? {}, target ?? {});
         return Promise.resolve();

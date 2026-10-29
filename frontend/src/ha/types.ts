@@ -146,6 +146,11 @@ export interface HomeAssistant {
   canCall?: (entities: string[] | undefined) => boolean;
   /** The time it is for this Home Assistant (ms): the demo house's own clock (D-050). */
   now?(): number;
+  /**
+   * Where the sun is at a moment (ms): the demo house's own sun (D-050), which has no place on
+   * Earth; the others' is worked out from where the home is (D-093).
+   */
+  sunAt?: (time: number) => { azimuth: number; elevation: number };
   /** The page Home Assistant opens first on this device (2025.1: its `hass-default-panel`). */
   defaultPanel?: string;
   /** The user's own choices in Home Assistant's frontend, and everyone's (after 2025.1). */

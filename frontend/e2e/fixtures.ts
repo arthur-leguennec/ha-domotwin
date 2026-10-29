@@ -99,6 +99,8 @@ export interface HarnessOptions {
   automations?: true | number;
   /** The sandbox's time zone and place, and its automations and script (D-057). */
   sandbox?: boolean;
+  /** The same fictional place alone: the sun at any hour, and the rooms' hours of sun (D-093). */
+  place?: boolean;
   /** Upkeep cards (D-033): the demo's (`true`), or an integration without them (`false`). */
   upkeep?: boolean;
   /** People in their rooms (D-034): fictional ones (`true`), or an integration without them. */
@@ -290,6 +292,7 @@ export async function openHarness(page: Page, options: HarnessOptions = {}): Pro
   if (options.room) params.set("room", options.room);
   if (options.tip) params.set("tip", "1");
   if (options.sandbox) params.set("sandbox", "1");
+  if (options.place) params.set("place", "1");
   if (options.why) params.set("why", "1");
   if (options.automations) {
     params.set("automations", options.automations === true ? "1" : String(options.automations));

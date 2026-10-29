@@ -126,6 +126,8 @@ const zha = params.get("zha") === "1";
 // Fictional automations (D-032): `automations=1` three of them, `automations=50` as many made up.
 const automationCount = Number(params.get("automations") ?? 0);
 const sandbox = params.get("sandbox") === "1";
+// place=1: the sandbox's fictional place alone, for the sun at any hour (D-093).
+const place = sandbox || params.get("place") === "1";
 // Home Assistant's AI task (D-070), a fictional one.
 const aiTask = params.get("aitask") === "1";
 const AI_TASK = "ai_task.fictional_assistant";
@@ -2802,8 +2804,8 @@ let hass = {
       ...(why ? ["logbook"] : []),
       ...(aiTask || weekly === "summary" ? ["ai_task"] : []),
     ],
-    // A fictional place, rounded: the sandbox's sun.
-    ...(sandbox ? { time_zone: "Europe/Paris", latitude: 46, longitude: 2 } : {}),
+    // A fictional place, rounded: the sandbox's sun, the sun at any hour.
+    ...(place ? { time_zone: "Europe/Paris", latitude: 46, longitude: 2 } : {}),
     // overview=1: a Home Assistant that opens on its Overview, an area page each (D-061);
     // security=1: with its Security page (D-068).
     ...(overview || security ? { version: "2026.10.0" } : { version: "2026.1.0" }),

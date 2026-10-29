@@ -12,6 +12,7 @@ import {
 } from "../live/layers";
 import { peaksAvailable } from "../live/peak-sources";
 import { ALL_STOREYS, loadHome, storeyLevels, storeyName } from "../live/storeys";
+import { sunModel } from "../live/sun";
 import { planRooms } from "../live/suggest";
 import { define, fire, inLanguage } from "./define";
 
@@ -102,6 +103,7 @@ function schema(
     coverage: boolean;
     automations: boolean;
     peak: boolean;
+    sunshine: boolean;
   },
   config: Record<string, unknown>,
 ): FormField[] {
@@ -149,15 +151,16 @@ function schema(
       selector: {
         select: {
           mode: "dropdown",
-          // The network map (D-031), the radio coverage (D-066) and the peaks (D-063) only where
-          // they can be shown, or kept where they are set.
+          // The network map (D-031), the radio coverage (D-066), the peaks (D-063) and the hours
+          // of sun (D-093) only where they can be shown, or kept where they are set.
           options: LAYER_NAMES.filter(
             (value) =>
               config.layer === value ||
               ((value !== "network" || home.network) &&
                 (value !== "coverage" || home.coverage) &&
                 (value !== "automations" || home.automations) &&
-                (value !== "peak" || home.peak)),
+                (value !== "peak" || home.peak) &&
+                (value !== "sunshine" || home.sunshine)),
           ).map((value) => ({
             value,
             label: t.t(`layers.${value}` as MessageKey),
@@ -302,6 +305,7 @@ export class DomoTwinCardEditor extends LitElement {
           coverage: coverageAvailable(this.hass),
           automations: automationsAvailable(this.hass),
           peak: peaksAvailable(this.hass),
+          sunshine: sunModel(this.hass) !== undefined,
         },
         this.config,
       )}

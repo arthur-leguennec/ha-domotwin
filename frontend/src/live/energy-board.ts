@@ -5,6 +5,7 @@
  */
 import type { HomeAssistant } from "../ha/types";
 import { roleOf, type BindingsJson } from "./bindings";
+import { startOfDay } from "./clock";
 import { watts } from "./devices";
 
 /** The statistics of Home Assistant's energy settings, by what they count (kWh). */
@@ -330,47 +331,10 @@ export function formatEnergy(kwh: number, language: string): string {
   }
 }
 
-/** The wall clock of `zone` at `time` (ms), read as if it were UTC; the device's own zone when
- *  `zone` is not known. */
-function wallClock(time: number, zone: string | undefined): number {
-  const options: Intl.DateTimeFormatOptions = {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hourCycle: "h23",
-  };
-  let parts: Intl.DateTimeFormatPart[];
-  try {
-    parts = new Intl.DateTimeFormat("en-GB", { ...options, timeZone: zone }).formatToParts(time);
-  } catch {
-    parts = new Intl.DateTimeFormat("en-GB", options).formatToParts(time);
-  }
-  const part = (type: string): number =>
-    Number(parts.find((each) => each.type === type)?.value ?? 0);
-  return Date.UTC(
-    part("year"),
-    part("month") - 1,
-    part("day"),
-    part("hour"),
-    part("minute"),
-    part("second"),
-  );
-}
-
 /**
  * The start of today where the home is, as Home Assistant's statistics take it (ISO 8601): its
  * midnight, on a day the clocks change too.
  */
 export function startOfToday(now: Date, timeZone?: string): string {
-  const at = Math.floor(now.getTime() / 1000) * 1000;
-  const wall = wallClock(at, timeZone);
-  const midnight = Math.floor(wall / 86_400_000) * 86_400_000;
-  // The zone's offset now, then at the midnight found with it (it differs on a day the clocks
-  // change: midnight was before the change).
-  let start = midnight - (wall - at);
-  start = midnight - (wallClock(start, timeZone) - start);
-  return new Date(start).toISOString();
+  return new Date(startOfDay(now.getTime(), timeZone)).toISOString();
 }

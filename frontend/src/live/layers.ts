@@ -11,16 +11,27 @@ import type { PeakRooms } from "./peak-rooms";
 export const HEAT_KINDS = ["temperature", "humidity", "co2", "pm25"] as const;
 export type HeatKind = (typeof HEAT_KINDS)[number];
 /**
- * What the layer menu shows: nothing, a heatmap, the power layer, Hydro-Québec's peaks (D-063,
- * offered where an integration reads them), the network map (D-031, offered to administrators
- * with ZHA set up), the radio coverage (D-066, administrators), every automation's wires (D-032,
- * administrators) or upkeep (D-033: the pieces tinted by their tasks, and the list of them).
+ * What the layer menu shows: nothing, a heatmap, each room's hours of sun (D-093, offered where
+ * the home's place is known and its plan has windows), the power layer, Hydro-Québec's peaks
+ * (D-063, offered where an integration reads them), the network map (D-031, offered to
+ * administrators with ZHA set up), the radio coverage (D-066, administrators), every automation's
+ * wires (D-032, administrators) or upkeep (D-033: the pieces tinted by their tasks, and the list
+ * of them).
  */
 export type LayerName =
-  "off" | HeatKind | "power" | "peak" | "network" | "coverage" | "automations" | "upkeep";
+  | "off"
+  | HeatKind
+  | "sunshine"
+  | "power"
+  | "peak"
+  | "network"
+  | "coverage"
+  | "automations"
+  | "upkeep";
 export const LAYER_NAMES: readonly LayerName[] = [
   "off",
   ...HEAT_KINDS,
+  "sunshine",
   "power",
   "peak",
   "network",
@@ -126,6 +137,8 @@ export interface LayerChoice {
   closed?: Set<string>;
   /** The radio coverage's rooms (D-066), each its level's rank, drawn with its layer. */
   coverage?: Record<string, number>;
+  /** Each room's hours of sun on the day chosen (D-093), drawn with its layer. */
+  sunshine?: Record<string, number>;
   /** What the rooms do around a peak (D-063), when its layer is shown. */
   peak?: PeakRooms;
 }
@@ -405,6 +418,14 @@ export function roomLayers(
     json.values = Object.fromEntries(
       Object.entries(choice.coverage).filter(([room]) => choice.closed?.has(room) !== true),
     );
+  } else if (choice.layer === "sunshine" && choice.sunshine) {
+    // Written on the rooms as a heatmap's values are.
+    const open = Object.entries(choice.sunshine).filter(
+      ([room]) => choice.closed?.has(room) !== true,
+    );
+    json.heat = "sunshine";
+    json.values = Object.fromEntries(open);
+    Object.assign(values, json.values);
   }
   const peak = choice.peak;
   if (peak && Object.keys(peak.roles).length > 0) json.peak = peak.roles;
@@ -421,6 +442,20 @@ export function formatPower(watts: number, language: string): string {
     return `${kw} kW`;
   }
   return `${new Intl.NumberFormat(language, { maximumFractionDigits: 0 }).format(watts)} W`;
+}
+
+/** Hours as people read them, in their language: `4.5 hr`, `4,5 h`, `4.5小时` (D-093). */
+export function formatHours(hours: number, language: string): string {
+  try {
+    return new Intl.NumberFormat(language, {
+      style: "unit",
+      unit: "hour",
+      unitDisplay: "short",
+      maximumFractionDigits: 1,
+    }).format(hours);
+  } catch {
+    return `${Math.round(hours * 10) / 10} h`;
+  }
 }
 
 /**

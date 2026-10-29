@@ -2,7 +2,14 @@ import { describe, expect, it } from "vitest";
 
 import type { HassEntity, HomeAssistant } from "../src/ha/types";
 import type { BindingsJson } from "../src/live/bindings";
-import { celsius, formatHeat, formatPower, roomLayers, type PlanRoom } from "../src/live/layers";
+import {
+  celsius,
+  formatHeat,
+  formatHours,
+  formatPower,
+  roomLayers,
+  type PlanRoom,
+} from "../src/live/layers";
 
 const ROOMS: PlanRoom[] = [
   { id: "living", name: "Living room" },
@@ -44,6 +51,29 @@ const temperature = (unit = "°C"): Record<string, unknown> => ({
 });
 
 describe("roomLayers", () => {
+  it("draws each room's hours of sun, a private room's left out (D-093)", () => {
+    const hass = home([]);
+    const sunshine = { living: 6.5, kitchen: 0, study: 2 };
+    const layers = roomLayers(hass, BINDINGS, ROOMS, {
+      layer: "sunshine",
+      alerts: false,
+      presence: false,
+      sunshine,
+      closed: new Set(["study"]),
+    });
+    expect(JSON.parse(layers.json)).toEqual({
+      heat: "sunshine",
+      values: { living: 6.5, kitchen: 0 },
+    });
+    expect(layers.values).toEqual({ living: 6.5, kitchen: 0 });
+    // Another layer: the hours are not drawn.
+    const other = roomLayers(hass, BINDINGS, ROOMS, { layer: "off", ...ALL_ON, sunshine });
+    expect(JSON.parse(other.json)).toEqual({});
+    expect(formatHours(4.5, "en")).toBe("4.5 hr");
+    expect(formatHours(4.5, "fr")).toBe("4,5\u202fh");
+    expect(formatHours(10, "fr")).toBe("10\u202fh");
+  });
+
   it("averages the sensors of each room's area, in °C", () => {
     const hass = home([
       ["sensor.lounge_a", "lounge", "20", temperature()],
