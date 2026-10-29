@@ -35,7 +35,7 @@ import {
   type StepKind,
   type Suggestion,
 } from "../live/shortcuts";
-import { deepActive, focusDialog, fromField } from "./dialog";
+import { deepActive, focusDialog, fieldKeepsEscape } from "./dialog";
 import { define, fire } from "./define";
 import { icon } from "./icon";
 import { SHORTCUT_GLYPHS } from "./shortcut-icons";
@@ -367,7 +367,7 @@ export class DomoTwinShortcutDialog extends LitElement {
   }
 
   private readonly onKey = (event: KeyboardEvent): void => {
-    if (event.key !== "Escape" || fromField(event)) return;
+    if (event.key !== "Escape" || fieldKeepsEscape(event)) return;
     event.stopPropagation();
     this.close();
   };

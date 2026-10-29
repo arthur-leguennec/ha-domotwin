@@ -83,20 +83,26 @@ describe("menus and dialogs from the keyboard (D-042)", () => {
     focus.update(dialog);
     await Promise.resolve();
     expect(document.activeElement).toBe(dialog);
+    // Not while an input method composes, nor from a search that holds text: Escape is theirs.
     const field = document.createElement("input");
-    dialog.append(field);
-    const typing = new KeyboardEvent("keydown", { key: "Escape", composed: true });
-    field.addEventListener("keydown", (event) => {
-      expect(focus.escape(event)).toBe(false);
-    });
-    field.dispatchEvent(typing);
-    const onButton = new KeyboardEvent("keydown", { key: "Escape" });
-    let escaped = false;
-    cancel.addEventListener("keydown", (event) => {
-      escaped = focus.escape(event);
-    });
-    cancel.dispatchEvent(onButton);
-    expect(escaped).toBe(true);
+    const search = document.createElement("input");
+    search.type = "search";
+    search.value = "lamp";
+    dialog.append(field, search);
+    const kept: boolean[] = [];
+    for (const target of [field, search]) {
+      target.addEventListener("keydown", (event) => {
+        kept.push(focus.escape(event));
+      });
+    }
+    field.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", composed: true, isComposing: true }),
+    );
+    search.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", composed: true }));
+    expect(kept).toEqual([false, false]);
+    // From any other field, as from a button: the dialog is cancelled.
+    field.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", composed: true }));
+    expect(kept).toEqual([false, false, true]);
     expect(clicked).toHaveBeenCalledOnce();
     focus.update(undefined);
     expect(document.activeElement).toBe(opener);

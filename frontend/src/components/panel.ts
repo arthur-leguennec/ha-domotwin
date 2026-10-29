@@ -377,6 +377,7 @@ const PANEL_DIALOGS = [
   "domotwin-choices",
   "domotwin-screens",
   "domotwin-history",
+  "domotwin-report",
   "domotwin-first-launch",
   "domotwin-getting-started",
 ]
