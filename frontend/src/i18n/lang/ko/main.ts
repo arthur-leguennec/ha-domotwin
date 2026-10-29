@@ -51,6 +51,7 @@ export const main: Dictionary = {
   automations: {
     title: "자동화",
     loading: "자동화를 찾는 중…",
+    guide: "자동화 만드는 방법",
     none: "관련된 자동화가 없습니다.",
     ran: "{when} 실행됨",
     never: "실행된 적 없음",

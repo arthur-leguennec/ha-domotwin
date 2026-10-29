@@ -193,3 +193,53 @@ test.describe("the demo house's radios, placed (D-093)", () => {
     await expect(page.locator("domotwin-network .node").first()).toBeVisible();
   });
 });
+
+test.describe("how to make an automation, a guide in the panel (D-093)", () => {
+  test("walks through When, Only if and Then, with an example from the home", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await demo3d(page);
+    // From the automations' list.
+    await chooseLayer(page, "automations");
+    await page.getByTestId("automation-guide-open").click();
+    const guide = page.getByTestId("automation-guide");
+    await expect(guide).toBeVisible();
+    const step = guide.getByTestId("guide-step");
+    await expect(step).toHaveAttribute("data-step", "intro");
+    await expect(step).toContainText("When");
+    await expect(step).toContainText("Only if");
+    await expect(step).toContainText("Then");
+    // The demo house's own lamps and sensors make the example.
+    await expect(guide.getByTestId("guide-example")).toContainText(/When .+, only if the sun/);
+    await expect(guide).toContainText("Step 1 of 5");
+    for (const next of ["when", "if", "then", "make"]) {
+      await guide.getByTestId("guide-next").click();
+      await expect(step).toHaveAttribute("data-step", next);
+    }
+    await expect(guide).toContainText("Step 5 of 5");
+    // In the demo house, no editor of its own: it says so.
+    await expect(guide.getByTestId("guide-editor")).toHaveCount(0);
+    await expect(guide.getByTestId("guide-no-editor")).toContainText("demo house");
+    await guide.getByTestId("guide-back").click();
+    await expect(step).toHaveAttribute("data-step", "then");
+    // Escape closes it.
+    await page.keyboard.press("Escape");
+    await expect(guide).toHaveCount(0);
+  });
+
+  test("opens Home Assistant's editor for an administrator, from the More menu", async ({
+    page,
+  }) => {
+    await openHarness(page, { mode: "panel", live: true });
+    await expect(page.getByTestId("summary")).toBeVisible();
+    await page.getByTestId("more").click();
+    await page.getByTestId("guide-menu").click();
+    const guide = page.getByTestId("automation-guide");
+    await expect(guide).toBeVisible();
+    for (let k = 0; k < 4; k += 1) await guide.getByTestId("guide-next").click();
+    await guide.getByTestId("guide-editor").click();
+    await expect(guide).toHaveCount(0);
+    await expect
+      .poll(() => page.evaluate(() => location.pathname))
+      .toBe("/config/automation/edit/new");
+  });
+});

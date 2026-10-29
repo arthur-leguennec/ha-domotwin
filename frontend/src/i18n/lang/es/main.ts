@@ -52,6 +52,7 @@ export const main: Dictionary = {
   automations: {
     title: "Automatizaciones",
     loading: "Buscando automatizaciones…",
+    guide: "Cómo crear una automatización",
     none: "Ninguna automatización lo involucra.",
     ran: "se ejecutó {when}",
     never: "nunca se ejecutó",

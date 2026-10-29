@@ -53,6 +53,7 @@ export const main: Dictionary = {
   automations: {
     title: "Automazioni",
     loading: "Ricerca delle automazioni…",
+    guide: "Come creare un’automazione",
     none: "Nessuna automazione lo coinvolge.",
     ran: "eseguita {when}",
     never: "mai eseguita",

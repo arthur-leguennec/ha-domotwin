@@ -72,6 +72,7 @@ export const main: Dictionary = {
   automations: {
     title: "الأتمتة",
     loading: "جارٍ البحث عن الأتمتة…",
+    guide: "كيف تنشئ أتمتة",
     none: "لا توجد أتمتة تخصّه.",
     ran: "عملت {when}",
     never: "لم تعمل قط",

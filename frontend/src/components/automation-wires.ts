@@ -8,6 +8,7 @@
  */
 import {
   mdiClose,
+  mdiHelpCircleOutline,
   mdiHelpRhombusOutline,
   mdiLightningBolt,
   mdiPencilOutline,
@@ -320,6 +321,7 @@ export class DomoTwinWires extends LitElement {
     names: { attribute: false },
     unseen: { attribute: false },
     unseenAreas: { attribute: false },
+    guide: { attribute: false },
     ids: { attribute: false },
     known: { attribute: false },
     spots: { state: true },
@@ -341,6 +343,8 @@ export class DomoTwinWires extends LitElement {
    *  left out, as are the private rooms' areas. */
   unseen?: (entity: string) => boolean;
   unseenAreas?: ReadonlySet<string>;
+  /** The guide to making an automation can be opened (D-093): the panel, which has it. */
+  guide = false;
   /** The automations asked for; none: every one of the home. */
   ids?: string[];
   /** What is already read of them (the panel that asked read it): not asked again. */
@@ -843,6 +847,21 @@ export class DomoTwinWires extends LitElement {
                 }}
               >
                 ${icon(mdiVectorPolyline)}
+              </button>`
+            : nothing
+        }
+        ${
+          this.guide
+            ? html`<button
+                class="icon"
+                data-testid="automation-guide-open"
+                aria-label=${t.t("automations.guide")}
+                title=${t.t("automations.guide")}
+                @click=${() => {
+                  fire(this, "domotwin-automation-guide", undefined);
+                }}
+              >
+                ${icon(mdiHelpCircleOutline)}
               </button>`
             : nothing
         }

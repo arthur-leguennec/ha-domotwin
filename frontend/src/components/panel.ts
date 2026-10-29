@@ -20,6 +20,7 @@ import {
   mdiRobotVacuum,
   mdiShieldHomeOutline,
   mdiSpeedometer,
+  mdiSchoolOutline,
   mdiStarFourPointsOutline,
   mdiTestTube,
   mdiStairs,
@@ -370,6 +371,7 @@ const PANEL_DIALOGS = [
   "domotwin-voice",
   "domotwin-config-history",
   "domotwin-plain",
+  "domotwin-automation-guide",
   "domotwin-guests",
   "domotwin-rights",
   "domotwin-link",
@@ -432,6 +434,7 @@ export class DomoTwinPanel extends LitElement {
     deviceVoice: { state: true },
     configHistoryOpen: { state: true },
     plainOpen: { state: true },
+    guideOpen: { state: true },
     reportOpen: { state: true },
     firstOpen: { state: true },
     firstError: { state: true },
@@ -643,6 +646,8 @@ export class DomoTwinPanel extends LitElement {
   protected configHistoryOpen = false;
   /** An automation in plain words (D-070) is being written, its module loaded. */
   protected plainOpen = false;
+  /** The guide to making an automation is open (D-093). */
+  protected guideOpen = false;
   /** The automation being written in plain words: it outlives its dialog and the sandbox. */
   private plainSession?: PlainSession;
   /** The weekly report is open (D-081), on the report asked for (the notification's link). */
@@ -1590,6 +1595,17 @@ export class DomoTwinPanel extends LitElement {
     }
   }
 
+  /** Opens the guide to making an automation (D-093): its module and texts, loaded the first time. */
+  private readonly openGuide = async (): Promise<void> => {
+    this.moreOpen = false;
+    try {
+      await import("./automation-guide");
+      this.guideOpen = true;
+    } catch (error) {
+      this.show(this.describe(error), true);
+    }
+  };
+
   /** Opens an automation in plain words (D-070): its module and texts, loaded the first time. */
   private readonly openPlain = async (): Promise<void> => {
     try {
@@ -1676,6 +1692,7 @@ export class DomoTwinPanel extends LitElement {
     this.voiceOpen = false;
     this.configHistoryOpen = false;
     this.plainOpen = false;
+    this.guideOpen = false;
     this.reportOpen = false;
     this.storeysOpen = false;
     this.storeyRemoveAsk = undefined;
@@ -4365,6 +4382,8 @@ export class DomoTwinPanel extends LitElement {
       @domotwin-network-place=${this.onNetworkPlace}
       .accessPoints=${this.settings?.access_points ?? NO_ACCESS_POINTS}
       @domotwin-open-bluetooth=${this.openBluetooth}
+      .guide=${true}
+      @domotwin-automation-guide=${this.openGuide}
       .roomTab=${true}
       .boardBeside=${this.tab === "energy" && !this.editing && !this.planning && !this.linking}
       .securityAlerts=${shown ? this.securityAlertsShown() : this.securityShown.alerts}
@@ -5014,6 +5033,7 @@ export class DomoTwinPanel extends LitElement {
                     )
                   : nothing
               }
+              ${item("guide-menu", mdiSchoolOutline, t.t("automations.guide"), this.busy, this.openGuide)}
               ${item("report-menu", mdiClipboardCheckOutline, t.t("weekly.menu"), this.busy || this.sandbox !== undefined, () => this.openReport())}
               ${item("measure", mdiSpeedometer, t.t("measure.menu"), this.busy || this.measureOpen || this.sandbox !== undefined, this.openMeasure)}
               ${item("getting-started-menu", mdiCheck, t.t("first_launch.menu"), this.busy || this.demo !== undefined || this.sandbox !== undefined, this.openGettingStarted)}
@@ -6206,6 +6226,25 @@ export class DomoTwinPanel extends LitElement {
               this.show(this.t.t("settings.saved"));
             }}
           ></domotwin-rights>`
+        : nothing
+    }
+    ${
+      this.guideOpen
+        ? html`<domotwin-automation-guide
+            .hass=${this._hass}
+            .plain=${plainWordsOffered(this._hass)}
+            .sandbox=${this._hass?.user?.is_admin === true && !this.demo && !this.sandbox}
+            .demo=${this.demo !== undefined || this.sandbox !== undefined}
+            @domotwin-close=${() => (this.guideOpen = false)}
+            @domotwin-guide-plain=${() => {
+              this.guideOpen = false;
+              void this.openPlain();
+            }}
+            @domotwin-guide-sandbox=${() => {
+              this.guideOpen = false;
+              void this.enterSandbox();
+            }}
+          ></domotwin-automation-guide>`
         : nothing
     }
     ${

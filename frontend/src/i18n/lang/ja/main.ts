@@ -52,6 +52,7 @@ export const main: Dictionary = {
   automations: {
     title: "オートメーション",
     loading: "オートメーションを検索中…",
+    guide: "オートメーションの作り方",
     none: "関係するオートメーションはありません。",
     ran: "{when} に実行",
     never: "未実行",

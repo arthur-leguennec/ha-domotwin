@@ -46,6 +46,7 @@ export const en = {
   automations: {
     title: "Automations",
     loading: "Looking for automations…",
+    guide: "How to make an automation",
     none: "No automation involves it.",
     ran: "ran {when}",
     never: "never ran",

@@ -641,6 +641,7 @@ export class DomoTwinView extends LitElement {
     standings: { state: true },
     linking: { attribute: false },
     placeDevices: { attribute: false },
+    guide: { attribute: false },
     linkable: { attribute: false },
     roomTab: { attribute: false },
     boardBeside: { attribute: false },
@@ -734,6 +735,8 @@ export class DomoTwinView extends LitElement {
   linking = false;
   /** Devices of the network map can be placed in the home (the panel, which links them). */
   placeDevices = false;
+  /** The guide to making an automation can be opened from the automations (the panel's, D-093). */
+  guide = false;
   /**
    * A link editor is at hand (the panel): a piece's bubble offers it (`domotwin-link-element`,
    * detail: the piece, as `domotwin-pick`'s).
@@ -5421,6 +5424,7 @@ export class DomoTwinView extends LitElement {
       .names=${this.names}
       .unseen=${this.unseenEntity()}
       .unseenAreas=${this.unseenAreas()}
+      .guide=${this.guide}
       .ids=${shown.ids}
       .known=${shown.reads}
       @domotwin-redraw=${() => {

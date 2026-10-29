@@ -51,6 +51,7 @@ export const main: Dictionary = {
   automations: {
     title: "自动化",
     loading: "正在查找自动化…",
+    guide: "如何创建自动化",
     none: "没有涉及它的自动化。",
     ran: "{when} 运行过",
     never: "从未运行",
