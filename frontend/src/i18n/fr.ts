@@ -406,8 +406,10 @@ export const fr: Dictionary = {
       "Affichée avec le calque de puissance : d’où vient l’électricité et où elle va. Choisissez les capteurs de vos panneaux solaires, de votre compteur et de votre batterie.",
     energy_solar: "Puissance du soleil",
     energy_grid: "Puissance du réseau",
-    energy_battery: "Puissance de la batterie",
-    energy_battery_level: "Charge de la batterie",
+    energy_battery: "Batterie de la maison : puissance",
+    energy_battery_level: "Batterie de la maison : charge",
+    energy_battery_hint:
+      "Seulement si la maison a une batterie qui stocke l’électricité, avec des panneaux solaires par exemple : pas celle d’un téléphone ou d’un capteur.",
     energy_none: "Aucun",
     weather: "La météo autour du logement",
     weather_hint:

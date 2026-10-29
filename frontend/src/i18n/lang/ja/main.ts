@@ -461,8 +461,9 @@ export const main: Dictionary = {
       "電力レイヤーと一緒に表示されます：電力がどこから来て、どこへ行くか。太陽光パネル、電力メーター、バッテリーが提供するセンサーを選んでください。",
     energy_solar: "太陽光からの電力",
     energy_grid: "グリッドからの電力",
-    energy_battery: "バッテリーからの電力",
-    energy_battery_level: "バッテリー残量",
+    energy_battery: "家庭用蓄電池：電力",
+    energy_battery_level: "家庭用蓄電池：残量",
+    energy_battery_hint: "太陽光パネルなどと一緒に電気をためる蓄電池が家にある場合のみ。電話やセンサーの電池ではありません。",
     energy_none: "なし",
     weather: "家の周りの天気",
     weather_hint:

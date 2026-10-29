@@ -128,6 +128,10 @@ const NAMES: Record<EnergySensor, RegExp> = {
   battery_level: /batter|storage|stockage/i,
 };
 
+/** Words that name a home's battery, one that stores power: not a phone's nor a sensor's. */
+const STORAGE =
+  /home|house|maison|storage|stockage|powerwall|\bess\b|solar|solaire|inverter|onduleur|bms/i;
+
 /** Whether an entity can be the sensor `kind` (a power sensor; a battery charge in %). */
 function fitsKind(entity: HassEntity, kind: EnergySensor): boolean {
   if (!entity.entity_id.startsWith("sensor.")) return false;
@@ -141,22 +145,46 @@ function fitsKind(entity: HassEntity, kind: EnergySensor): boolean {
 /**
  * The sensors that can be the sensor `kind`, the likeliest first: those Home Assistant's energy
  * settings name for it (`preferred`), then those whose name says it, then the others; at most
- * `limit`.
+ * `limit`. A battery's charge is the home battery's only: on the device of its power (`battery`,
+ * the one chosen) or named a home's storage, never a phone's (every phone, every sensor on
+ * batteries has a charge in %).
  */
 export function energyCandidates(
   hass: HomeAssistant,
   kind: EnergySensor,
   preferred: readonly string[] = [],
   limit = 60,
+  battery?: string,
 ): string[] {
   const name = (entity: HassEntity): string => {
     const friendly = entity.attributes.friendly_name;
     return `${entity.entity_id} ${typeof friendly === "string" ? friendly : ""}`;
   };
+  const device = (id: string): string | undefined => hass.entities?.[id]?.device_id ?? undefined;
+  const batteryDevice = battery ? device(battery) : undefined;
+  const homeBattery = (entity: HassEntity): boolean => {
+    if (kind !== "battery_level") return true;
+    const id = entity.entity_id;
+    if (hass.entities?.[id]?.platform === "mobile_app") return false;
+    return (
+      preferred.includes(id) ||
+      (batteryDevice !== undefined && device(id) === batteryDevice) ||
+      STORAGE.test(name(entity))
+    );
+  };
   const score = (entity: HassEntity): number =>
-    preferred.includes(entity.entity_id) ? 0 : NAMES[kind].test(name(entity)) ? 1 : 2;
+    preferred.includes(entity.entity_id)
+      ? 0
+      : batteryDevice !== undefined && device(entity.entity_id) === batteryDevice
+        ? 1
+        : NAMES[kind].test(name(entity))
+          ? 2
+          : 3;
   return Object.values(hass.states)
-    .filter((entity): entity is HassEntity => entity !== undefined && fitsKind(entity, kind))
+    .filter(
+      (entity): entity is HassEntity =>
+        entity !== undefined && fitsKind(entity, kind) && homeBattery(entity),
+    )
     .sort(
       (a, b) =>
         score(a) - score(b) || name(a).localeCompare(name(b), undefined, { sensitivity: "base" }),

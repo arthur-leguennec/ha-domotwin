@@ -917,6 +917,7 @@ export function demoShortcuts(language: string): Shortcut[] {
         { kind: "locks", do: "lock" },
       ],
       quiet: true,
+      confirm: true,
     },
     {
       id: "heating",

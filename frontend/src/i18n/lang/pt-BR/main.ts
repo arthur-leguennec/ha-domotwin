@@ -458,8 +458,9 @@ export const main: Dictionary = {
       "Mostrada com a camada de potência: de onde vem a energia e para onde ela vai. Escolha os sensores que seus painéis solares, seu medidor e sua bateria fornecem.",
     energy_solar: "Energia do sol",
     energy_grid: "Energia da rede",
-    energy_battery: "Energia da bateria",
-    energy_battery_level: "Carga da bateria",
+    energy_battery: "Bateria da casa: potência",
+    energy_battery_level: "Bateria da casa: carga",
+    energy_battery_hint: "Só se a casa tiver uma bateria que armazena eletricidade, com painéis solares por exemplo: não a de um celular ou de um sensor.",
     energy_none: "Nenhum",
     weather: "O tempo ao redor da casa",
     weather_hint:

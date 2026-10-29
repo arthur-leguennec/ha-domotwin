@@ -1751,6 +1751,10 @@ export const chunks: Chunks = {
       no: "Nein",
       nothing: "{name}: gerade nichts zu tun.",
       failed: "{name}: Home Assistant hat einen Teil abgelehnt ({reason}).",
+      done: "{name}: erledigt.",
+      undo: "Rückgängig",
+      undo_close: "Schließen",
+      undo_failed: "{name} wurde nicht rückgängig gemacht: Home Assistant hat einen Teil abgelehnt ({reason}).",
       not_kept: "Die Verknüpfungen wurden nicht gespeichert: {reason}",
       state: {
         lights: {

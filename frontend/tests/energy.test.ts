@@ -104,6 +104,29 @@ describe("the home's energy (D-049)", () => {
     ]);
     expect(energyCandidates(h, "solar", ["sensor.kettle"])[0]).toBe("sensor.kettle");
     expect(energyCandidates(h, "battery_level")).toEqual(["sensor.house_battery"]);
+    // A home battery's charge: not a phone's, nor a sensor's, unless on the battery's device.
+    const charge = { device_class: "battery", unit_of_measurement: "%" };
+    const many = hass([
+      entity("sensor.pixel_battery_level", "80", { ...charge, friendly_name: "Pixel battery" }),
+      entity("sensor.home_phone_battery", "70", charge),
+      entity("sensor.door_battery", "90", charge),
+      entity("sensor.ess_soc", "40", charge),
+      entity("sensor.ess_power", "-300", power),
+      entity("sensor.powerwall_charge", "55", charge),
+    ]);
+    many.entities = {
+      "sensor.home_phone_battery": {
+        entity_id: "sensor.home_phone_battery",
+        platform: "mobile_app",
+      },
+      "sensor.ess_soc": { entity_id: "sensor.ess_soc", device_id: "ess" },
+      "sensor.ess_power": { entity_id: "sensor.ess_power", device_id: "ess" },
+    };
+    expect(energyCandidates(many, "battery_level")).toEqual(["sensor.powerwall_charge"]);
+    expect(energyCandidates(many, "battery_level", [], 60, "sensor.ess_power")).toEqual([
+      "sensor.ess_soc",
+      "sensor.powerwall_charge",
+    ]);
     // Home Assistant's energy settings: the power sensors of each source, not its counters.
     const preferred = preferredFromHome({
       energy_sources: [

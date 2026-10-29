@@ -1732,6 +1732,10 @@ export const chunks: Chunks = {
       no: "いいえ",
       nothing: "{name}：いま操作できるものはありません。",
       failed: "{name}：Home Assistant が一部を拒否しました（{reason}）。",
+      done: "{name}：完了しました。",
+      undo: "元に戻す",
+      undo_close: "閉じる",
+      undo_failed: "{name} を元に戻せませんでした：Home Assistant が一部を拒否しました（{reason}）。",
       not_kept: "ショートカットは保存されませんでした：{reason}",
       state: {
         lights: {

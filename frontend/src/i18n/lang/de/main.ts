@@ -463,8 +463,9 @@ export const main: Dictionary = {
       "Mit der Leistungsebene gezeigt: woher der Strom kommt und wohin er geht. Wähle die Sensoren deiner Solaranlage, deines Zählers und deiner Batterie.",
     energy_solar: "Leistung der Sonne",
     energy_grid: "Leistung aus dem Netz",
-    energy_battery: "Leistung der Batterie",
-    energy_battery_level: "Ladestand der Batterie",
+    energy_battery: "Hausbatterie: Leistung",
+    energy_battery_level: "Hausbatterie: Ladestand",
+    energy_battery_hint: "Nur wenn das Haus eine Batterie hat, die Strom speichert, etwa mit Solarmodulen: nicht die eines Telefons oder Sensors.",
     energy_none: "Keiner",
     weather: "Das Wetter rund ums Zuhause",
     weather_hint:

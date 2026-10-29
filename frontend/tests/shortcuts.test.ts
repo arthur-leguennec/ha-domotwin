@@ -19,6 +19,7 @@ import {
   shownState,
   suggestions,
   targets,
+  undoCalls,
   type Shortcut,
 } from "../src/live/shortcuts";
 
@@ -308,6 +309,75 @@ describe("shortcuts (D-084)", () => {
         steps: [{ kind: "run", do: "run", entities: ["scene.evening"] }],
       }),
     ).toBeUndefined();
+  });
+
+  it("puts back what a shortcut changes, as it was, but locks, the alarm and scenes", () => {
+    const hass = home({
+      ...HOUSE,
+      "light.sofa": { state: "on", area: "living", attributes: { brightness: 128 } },
+      "light.kitchen": { state: "on", area: "kitchen", attributes: { brightness: 255 } },
+      "cover.living": {
+        state: "open",
+        area: "living",
+        attributes: { ...blind, current_position: 60 },
+      },
+    });
+    const leaving: Shortcut = {
+      id: "leave",
+      name: "Leaving home",
+      icon: "leave",
+      steps: [
+        { kind: "lights", do: "off" },
+        { kind: "covers", do: "close" },
+        { kind: "locks", do: "lock" },
+        { kind: "climate", do: "eco" },
+        { kind: "media", do: "off" },
+        { kind: "alarm", do: "arm_away" },
+        { kind: "run", do: "run", entities: ["scene.evening"] },
+      ],
+    };
+    expect(undoCalls(hass, leaving)).toEqual([
+      // The lamps lit as they were, each at its brightness; those off left off.
+      ["light", "turn_on", {}, ["light.bed"]],
+      ["light", "turn_on", { brightness: 255 }, ["light.kitchen"]],
+      ["light", "turn_on", { brightness: 128 }, ["light.sofa"]],
+      ["cover", "set_cover_position", { position: 60 }, ["cover.living"]],
+      ["media_player", "turn_on", {}, ["media_player.tv"]],
+    ]);
+    // Switched on: those off back off; a thermostat back to its mode, its temperature.
+    expect(
+      undoCalls(hass, {
+        ...leaving,
+        steps: [
+          { kind: "lights", do: "on", area: "living" },
+          { kind: "climate", do: "heat" },
+          { kind: "climate", do: "temperature", value: 18 },
+          { kind: "media", do: "pause" },
+        ],
+      }),
+    ).toEqual([
+      ["light", "turn_off", {}, ["light.ceiling"]],
+      ["light", "turn_on", { brightness: 128 }, ["light.sofa"]],
+      ["climate", "set_hvac_mode", { hvac_mode: "off" }, ["climate.bedroom"]],
+      ["climate", "set_hvac_mode", { hvac_mode: "heat" }, ["climate.living"]],
+      ["media_player", "media_play", {}, ["media_player.tv"]],
+    ]);
+    // A preset kept: back to it.
+    const comfort = home({
+      ...HOUSE,
+      "climate.living": {
+        state: "heat",
+        area: "living",
+        attributes: {
+          preset_mode: "comfort",
+          preset_modes: ["eco", "comfort"],
+          supported_features: 17,
+        },
+      },
+    });
+    expect(undoCalls(comfort, { ...leaving, steps: [{ kind: "climate", do: "eco" }] })).toEqual([
+      ["climate", "set_preset_mode", { preset_mode: "comfort" }, ["climate.living"]],
+    ]);
   });
 
   it("suggests what the home has, in the viewer's words, not twice", () => {

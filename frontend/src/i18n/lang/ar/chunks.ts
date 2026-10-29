@@ -2010,6 +2010,10 @@ export const chunks: Chunks = {
       no: "لا",
       nothing: "{name}: لا شيء يُعمل عليه الآن.",
       failed: "{name}: رفض Home Assistant جزءًا منه ({reason}).",
+      done: "{name}: تم.",
+      undo: "تراجع",
+      undo_close: "إغلاق",
+      undo_failed: "لم يُتراجع عن {name}: رفض Home Assistant جزءًا منه ({reason}).",
       not_kept: "لم تُحفظ الاختصارات: {reason}",
       state: {
         lights: {

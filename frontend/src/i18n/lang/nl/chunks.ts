@@ -1745,6 +1745,10 @@ export const chunks: Chunks = {
       no: "Nee",
       nothing: "{name}: nu niets om op te werken.",
       failed: "{name}: Home Assistant weigerde een deel ({reason}).",
+      done: "{name}: gedaan.",
+      undo: "Ongedaan maken",
+      undo_close: "Sluiten",
+      undo_failed: "{name} is niet ongedaan gemaakt: Home Assistant weigerde een deel ({reason}).",
       not_kept: "De snelkoppelingen zijn niet bewaard: {reason}",
       state: {
         lights: {

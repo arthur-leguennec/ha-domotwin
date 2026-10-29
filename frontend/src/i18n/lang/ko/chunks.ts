@@ -1706,6 +1706,10 @@ export const chunks: Chunks = {
       no: "아니요",
       nothing: "{name}: 지금은 작동할 대상이 없습니다.",
       failed: "{name}: Home Assistant가 일부를 거부했습니다({reason}).",
+      done: "{name}: 완료했습니다.",
+      undo: "되돌리기",
+      undo_close: "닫기",
+      undo_failed: "{name}을(를) 되돌리지 못했습니다: Home Assistant가 일부를 거부했습니다({reason}).",
       not_kept: "바로가기가 저장되지 않았습니다: {reason}",
       state: {
         lights: {

@@ -76,9 +76,16 @@ function rank(id: string): number {
   return at === -1 ? ORDER.length : at;
 }
 
-/** Whether an entity has a place in the Rooms tab. */
+/**
+ * Whether an entity has a place in the Rooms tab: not DomoTwin's own (a room's people and upkeep,
+ * someone's room), which say what DomoTwin already shows, for Home Assistant's own pages.
+ */
 export function listed(hass: HomeAssistant, id: string): boolean {
-  return !LEFT_OUT.has(domainOf(id)) && shownEntity(hass, id);
+  return (
+    !LEFT_OUT.has(domainOf(id)) &&
+    shownEntity(hass, id) &&
+    hass.entities?.[id]?.platform !== "domotwin"
+  );
 }
 
 /** Entities in the Rooms tab's order: by kind, then by name. */

@@ -1753,6 +1753,10 @@ export const chunks: Chunks = {
       no: "No",
       nothing: "{name}: niente su cui agire ora.",
       failed: "{name}: Home Assistant ne ha rifiutato una parte ({reason}).",
+      done: "{name}: fatto.",
+      undo: "Annulla",
+      undo_close: "Chiudi",
+      undo_failed: "{name} non è stato annullato: Home Assistant ne ha rifiutato una parte ({reason}).",
       not_kept: "I comandi non sono stati salvati: {reason}",
       state: {
         lights: {

@@ -462,8 +462,9 @@ export const main: Dictionary = {
       "Getoond bij de vermogenslaag: waar de stroom vandaan komt en waar hij heen gaat. Kies de sensoren van je zonnepanelen, meter en batterij.",
     energy_solar: "Vermogen van de zon",
     energy_grid: "Vermogen van het net",
-    energy_battery: "Vermogen van de batterij",
-    energy_battery_level: "Batterijlading",
+    energy_battery: "Thuisbatterij: vermogen",
+    energy_battery_level: "Thuisbatterij: lading",
+    energy_battery_hint: "Alleen als het huis een batterij heeft die stroom opslaat, bijvoorbeeld met zonnepanelen: niet die van een telefoon of sensor.",
     energy_none: "Geen",
     weather: "Het weer rond het huis",
     weather_hint:

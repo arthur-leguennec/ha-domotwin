@@ -1747,6 +1747,10 @@ export const chunks: Chunks = {
       no: "No",
       nothing: "{name}: nada sobre lo que actuar ahora.",
       failed: "{name}: Home Assistant rechazó una parte ({reason}).",
+      done: "{name}: hecho.",
+      undo: "Deshacer",
+      undo_close: "Cerrar",
+      undo_failed: "{name} no se deshizo: Home Assistant rechazó una parte ({reason}).",
       not_kept: "Los accesos directos no se guardaron: {reason}",
       state: {
         lights: {

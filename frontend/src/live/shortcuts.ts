@@ -297,6 +297,122 @@ export function shortcutCalls(
   return shortcut.steps.flatMap((step) => stepCalls(hass, step, targets(hass, step, unseen)));
 }
 
+/** The calls that put `ids` back as they are now, for a step of this kind. */
+function undoStep(hass: HomeAssistant, step: Step, ids: readonly string[]): Call[] {
+  const calls: Call[] = [];
+  const add = (
+    domain: string,
+    service: string,
+    data: Record<string, unknown>,
+    id: string,
+  ): void => {
+    const same = calls.find(
+      (call) =>
+        call[0] === domain &&
+        call[1] === service &&
+        JSON.stringify(call[2]) === JSON.stringify(data),
+    );
+    if (same) same[3].push(id);
+    else calls.push([domain, service, data, [id]]);
+  };
+  for (const id of ids) {
+    const state = hass.states[id];
+    if (!state || UNKNOWN.has(state.state)) continue;
+    const attributes = state.attributes;
+    switch (step.kind) {
+      case "lights": {
+        if (state.state === "off") {
+          if (step.do !== "off") add("light", "turn_off", {}, id);
+        } else if (state.state === "on") {
+          const brightness = Number(attributes.brightness);
+          add(
+            "light",
+            "turn_on",
+            Number.isFinite(brightness) && brightness > 0 ? { brightness } : {},
+            id,
+          );
+        }
+        break;
+      }
+      case "covers": {
+        const position = Number(attributes.current_position);
+        if (Number.isFinite(position) && (features(hass, id) & SET_POSITION) === SET_POSITION) {
+          add("cover", "set_cover_position", { position }, id);
+        } else if (state.state === "open" || state.state === "closed") {
+          add("cover", state.state === "open" ? "open_cover" : "close_cover", {}, id);
+        }
+        break;
+      }
+      case "climate": {
+        if (step.do === "eco") {
+          const preset = attributes.preset_mode;
+          const modes = attributes.preset_modes;
+          if (typeof preset === "string" && preset !== "eco" && Array.isArray(modes)) {
+            if (modes.includes(preset))
+              add("climate", "set_preset_mode", { preset_mode: preset }, id);
+          }
+        } else if (step.do === "temperature") {
+          const temperature = Number(attributes.temperature);
+          if (Number.isFinite(temperature)) add("climate", "set_temperature", { temperature }, id);
+        } else {
+          add("climate", "set_hvac_mode", { hvac_mode: state.state }, id);
+        }
+        break;
+      }
+      case "media":
+        if (step.do === "off") {
+          if (state.state !== "off" && state.state !== "standby") {
+            add("media_player", "turn_on", {}, id);
+          }
+        } else if (state.state === "playing") {
+          add("media_player", "media_play", {}, id);
+        }
+        break;
+      // A lock, the alarm, a robot, a scene or a script: not undone by a tap (a door unlocked or
+      // the alarm off by mistake is not wanted; what a script did is not known).
+      default:
+        break;
+    }
+  }
+  return calls;
+}
+
+/**
+ * The calls that put back what a shortcut is about to change, from the states before it runs:
+ * the lamps lit as they were, the shutters where they were, the heating and what played as it
+ * was. Not a lock, the alarm, a robot, a scene nor a script. Each entity once, as it is now.
+ */
+export function undoCalls(
+  hass: HomeAssistant,
+  shortcut: Shortcut,
+  unseen: Unseen = NOTHING_UNSEEN,
+): Call[] {
+  const done = new Set<string>();
+  const calls: Call[] = [];
+  for (const step of shortcut.steps) {
+    const ids = targets(hass, step, unseen).filter((id) => !done.has(id));
+    const undo = undoStep(hass, step, ids);
+    if (undo.length === 0) continue;
+    for (const call of undo) for (const id of call[3]) done.add(id);
+    calls.push(...undo);
+  }
+  return calls;
+}
+
+/** Makes calls one after the other; one refused does not stop the others. */
+export async function makeCalls(hass: HomeAssistant, calls: readonly Call[]): Promise<Ran> {
+  const ran: Ran = { done: 0, failures: [] };
+  for (const [domain, service, data, ids] of calls) {
+    try {
+      await hass.callService(domain, service, data, { entity_id: ids });
+      ran.done += 1;
+    } catch (error) {
+      ran.failures.push(error);
+    }
+  }
+  return ran;
+}
+
 /** What a shortcut did: how many calls Home Assistant took, and why the others were refused. */
 export interface Ran {
   done: number;
@@ -309,16 +425,7 @@ export async function runShortcut(
   shortcut: Shortcut,
   unseen: Unseen = NOTHING_UNSEEN,
 ): Promise<Ran> {
-  const ran: Ran = { done: 0, failures: [] };
-  for (const [domain, service, data, ids] of shortcutCalls(hass, shortcut, unseen)) {
-    try {
-      await hass.callService(domain, service, data, { entity_id: ids });
-      ran.done += 1;
-    } catch (error) {
-      ran.failures.push(error);
-    }
-  }
-  return ran;
+  return makeCalls(hass, shortcutCalls(hass, shortcut, unseen));
 }
 
 // What a shortcut shows.
@@ -622,7 +729,13 @@ export function suggestions(
       add(
         "good_night",
         "routines",
-        { name: t.t("shortcuts.suggest.good_night"), icon: "moon", steps: nightSteps, quiet: true },
+        {
+          name: t.t("shortcuts.suggest.good_night"),
+          icon: "moon",
+          steps: nightSteps,
+          quiet: true,
+          confirm: true,
+        },
         nightSteps.reduce((sum, step) => sum + count(step), 0),
       );
     }
@@ -687,7 +800,7 @@ export function suggestions(
     add(
       "alarm_night",
       "security",
-      { name: t.t("shortcuts.suggest.alarm_night"), icon: "alarm", steps: [night] },
+      { name: t.t("shortcuts.suggest.alarm_night"), icon: "alarm", steps: [night], confirm: true },
       count(night),
     );
   }

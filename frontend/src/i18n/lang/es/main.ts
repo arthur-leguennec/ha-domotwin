@@ -460,8 +460,9 @@ export const main: Dictionary = {
       "Se muestra con la capa de consumo: de dónde viene la electricidad y adónde va. Elige los sensores que dan tus paneles solares, tu contador y tu batería.",
     energy_solar: "Potencia solar",
     energy_grid: "Potencia de la red",
-    energy_battery: "Potencia de la batería",
-    energy_battery_level: "Carga de la batería",
+    energy_battery: "Batería de la casa: potencia",
+    energy_battery_level: "Batería de la casa: carga",
+    energy_battery_hint: "Solo si la casa tiene una batería que almacena electricidad, con paneles solares por ejemplo: no la de un teléfono o un sensor.",
     energy_none: "Ninguno",
     weather: "El tiempo alrededor de la casa",
     weather_hint:

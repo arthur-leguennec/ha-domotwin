@@ -25,6 +25,7 @@ function hass(): HomeAssistant {
     "sensor.signal": state("sensor.signal", "Signal"),
     "light.hidden": state("light.hidden", "Hidden"),
     "light.cafe": state("light.cafe", "Café lamp"),
+    "sensor.domotwin_living_people": state("sensor.domotwin_living_people", "People", "0"),
   };
   return {
     states,
@@ -43,6 +44,11 @@ function hass(): HomeAssistant {
       },
       "light.hidden": { entity_id: "light.hidden", area_id: "living", hidden: true },
       "light.cafe": { entity_id: "light.cafe", area_id: "kitchen" },
+      "sensor.domotwin_living_people": {
+        entity_id: "sensor.domotwin_living_people",
+        area_id: "living",
+        platform: "domotwin",
+      },
     },
     devices: { dev1: { id: "dev1", area_id: "living" } },
     areas: {
@@ -71,7 +77,7 @@ describe("homeFloors", () => {
 
   it("gives each area its entities, what one acts on first; its device's area counts", () => {
     const living = homeFloors(hass(), NOTHING_UNSEEN, collator)[0]?.areas[1];
-    // Updates, diagnostic and hidden entities left out.
+    // Updates, diagnostic and hidden entities left out, and DomoTwin's own.
     expect(living?.entities).toEqual(["light.ceiling", "light.sofa", "sensor.living_temperature"]);
   });
 

@@ -3027,6 +3027,8 @@ export class DomoTwinPanel extends LitElement {
     // One import at a time: not while a file is read or its storey is being chosen.
     if (this.busy || this.importChoice) return;
     this.importTarget = "storey";
+    // From another tab's More menu: the plan is seen in the 3D view as it comes in.
+    if (this.tab !== undefined && this.tab !== "3d") this.go("3d");
     this.renderRoot.querySelector<HTMLInputElement>("input.plan-file")?.click();
   };
 
@@ -4825,10 +4827,13 @@ export class DomoTwinPanel extends LitElement {
               }}
             >
               ${
-                // On a phone, the import and the storeys, which have no room in the toolbar.
+                // A plan's import from every tab; on a phone, the storeys too, which have no room
+                // in the toolbar.
+                item("more-import", mdiTrayArrowUp, t.t("panel.import"), busy, this.chooseFile)
+              }
+              ${
                 this.tight
-                  ? html`${item("more-import", mdiTrayArrowUp, t.t("panel.import"), busy, this.chooseFile)}
-                    ${item("more-storeys", mdiStairs, t.t("storey.manage"), busy, this.openStoreys)}`
+                  ? item("more-storeys", mdiStairs, t.t("storey.manage"), busy, this.openStoreys)
                   : nothing
               }
               ${item("export", mdiTrayArrowDown, t.t("panel.export"), false, this.exportPlan)}
@@ -5347,8 +5352,16 @@ export class DomoTwinPanel extends LitElement {
     };
     const sensor = (key: EnergySensor) => {
       const chosen = draft[key];
-      const offered = energyCandidates(hass, key, this.energyPreferred?.[key] ?? []);
+      const offered = energyCandidates(
+        hass,
+        key,
+        this.energyPreferred?.[key] ?? [],
+        60,
+        draft.battery,
+      );
       if (chosen && !offered.includes(chosen)) offered.unshift(chosen);
+      // No home battery's charge to offer: not a field of phones' and sensors' batteries.
+      if (key === "battery_level" && offered.length === 0) return nothing;
       return html`<label class="look">
         <span>${t.t(`settings.energy_${key}`)}</span>
         <select
@@ -5384,6 +5397,7 @@ export class DomoTwinPanel extends LitElement {
     return html`<h3>${t.t("settings.energy")}</h3>
       <p class="hint">${t.t("settings.energy_hint")}</p>
       ${sensor("solar")} ${sensor("grid")} ${reversed("grid_reversed", Boolean(draft.grid))}
+      <p class="hint">${t.t("settings.energy_battery_hint")}</p>
       ${sensor("battery")} ${reversed("battery_reversed", Boolean(draft.battery))}
       ${sensor("battery_level")}`;
   }

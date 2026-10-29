@@ -462,8 +462,9 @@ export const main: Dictionary = {
       "Mostrata con il livello dei consumi: da dove arriva l'energia e dove va. Scegli i sensori dei tuoi pannelli solari, del contatore e della batteria.",
     energy_solar: "Potenza dal sole",
     energy_grid: "Potenza dalla rete",
-    energy_battery: "Potenza dalla batteria",
-    energy_battery_level: "Carica della batteria",
+    energy_battery: "Batteria di casa: potenza",
+    energy_battery_level: "Batteria di casa: carica",
+    energy_battery_hint: "Solo se la casa ha una batteria che accumula energia, con pannelli solari ad esempio: non quella di un telefono o di un sensore.",
     energy_none: "Nessuno",
     weather: "Il meteo intorno alla casa",
     weather_hint:

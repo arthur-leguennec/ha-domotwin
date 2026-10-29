@@ -456,8 +456,9 @@ export const main: Dictionary = {
       "전력 레이어와 함께 표시됩니다: 전력이 어디서 와서 어디로 가는지. 태양광 패널, 계량기, 배터리가 제공하는 센서를 고르세요.",
     energy_solar: "태양광 전력",
     energy_grid: "전력망 전력",
-    energy_battery: "배터리 전력",
-    energy_battery_level: "배터리 충전량",
+    energy_battery: "가정용 배터리: 전력",
+    energy_battery_level: "가정용 배터리: 충전량",
+    energy_battery_hint: "태양광 패널 등과 함께 전기를 저장하는 배터리가 집에 있을 때만: 휴대폰이나 센서의 배터리가 아닙니다.",
     energy_none: "없음",
     weather: "집 주변 날씨",
     weather_hint:

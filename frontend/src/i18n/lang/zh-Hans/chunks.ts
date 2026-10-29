@@ -1683,6 +1683,10 @@ export const chunks: Chunks = {
       no: "否",
       nothing: "{name}：目前没有可操作的设备。",
       failed: "{name}：Home Assistant 拒绝了其中一部分（{reason}）。",
+      done: "{name}：已完成。",
+      undo: "撤销",
+      undo_close: "关闭",
+      undo_failed: "未能撤销 {name}：Home Assistant 拒绝了其中一部分（{reason}）。",
       not_kept: "快捷指令未能保存：{reason}",
       state: {
         lights: {

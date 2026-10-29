@@ -1738,6 +1738,10 @@ export const chunks: Chunks = {
       no: "Não",
       nothing: "{name}: nada sobre o que agir agora.",
       failed: "{name}: o Home Assistant recusou uma parte ({reason}).",
+      done: "{name}: feito.",
+      undo: "Anular",
+      undo_close: "Fechar",
+      undo_failed: "{name} não foi anulado: o Home Assistant recusou uma parte ({reason}).",
       not_kept: "Os atalhos não foram guardados: {reason}",
       state: {
         lights: {

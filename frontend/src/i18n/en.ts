@@ -402,8 +402,10 @@ export const en = {
       "Shown with the power layer: where power comes from and where it goes. Pick the sensors your solar panels, meter and battery give.",
     energy_solar: "Power from the sun",
     energy_grid: "Power from the grid",
-    energy_battery: "Power from the battery",
-    energy_battery_level: "Battery charge",
+    energy_battery: "Home battery: power",
+    energy_battery_level: "Home battery: charge",
+    energy_battery_hint:
+      "Only if the home has a battery that stores power, with solar panels say: not a phone’s or a sensor’s.",
     energy_none: "None",
     weather: "The weather around the home",
     weather_hint:

@@ -7,8 +7,10 @@
 import {
   mdiAccountGroupOutline,
   mdiCalendarAccountOutline,
+  mdiClose,
   mdiDoorOpen,
   mdiLightbulbGroupOutline,
+  mdiLightbulbOn,
   mdiPlus,
   mdiStar,
   mdiStoreClockOutline,
@@ -41,11 +43,14 @@ import {
   MAX_SHORTCUTS,
   changeShortcuts,
   firstSuggestions,
+  makeCalls,
   newId,
   readShortcuts,
   runShortcut,
   shownState,
   suggestions,
+  undoCalls,
+  type Call,
   type ShownState,
   type Shortcut,
   type ShortcutChange,
@@ -81,6 +86,27 @@ type ShortcutDialog = { mode: "add" } | { mode: "edit"; shortcut: Shortcut };
 /** How long a shortcut shows it was pressed (ms). */
 const RAN_MS = 1200;
 
+/** How long what a shortcut did can be undone from its bar (ms). */
+const UNDO_MS = 120_000;
+
+/** What the last shortcut (or the lamps' All off) changed, and how to put it back. */
+interface Undo {
+  id: string;
+  name: string;
+  calls: Call[];
+  /** Where it was pressed: its bar is shown there. */
+  from: "shortcuts" | "lights";
+}
+
+/**
+ * A shortcut's glyph: its icon, but the lamps' lit while some are on, for one that switches them
+ * off (its button shows them on; a bulb crossed out on a lit button read as a fault).
+ */
+function glyphOf(shortcut: Shortcut, state: ShownState | undefined): string {
+  if (shortcut.icon === "lights_off" && state?.active) return mdiLightbulbOn;
+  return SHORTCUT_GLYPHS[shortcut.icon];
+}
+
 /** The lights the viewer may switch (their rights, D-071). */
 function usableLights(hass: HomeAssistant | undefined, lights: string[]): string[] {
   const canAct = hass?.canAct;
@@ -104,6 +130,7 @@ export class DomoTwinHome extends LitElement {
     dialogReady: { state: true },
     said: { state: true },
     ran: { state: true },
+    undo: { state: true },
     closedEnergy: { state: true },
     booking: { state: true },
   };
@@ -134,8 +161,11 @@ export class DomoTwinHome extends LitElement {
   protected said?: string;
   /** The shortcut pressed last, shown pressed a moment. */
   protected ran?: string;
+  /** What the last shortcut changed, undone from its bar a while. */
+  protected undo?: Undo;
   private glance?: Glance;
   private ranTimer: ReturnType<typeof setTimeout> | undefined;
+  private undoTimer: ReturnType<typeof setTimeout> | undefined;
   private rawShortcuts?: readonly unknown[];
   private readShortcuts: Shortcut[] = [];
   private suggestedMemo?: { key: unknown[]; value: Suggestion[] };
@@ -269,13 +299,13 @@ export class DomoTwinHome extends LitElement {
         grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
         gap: 8px;
       }
-      button.shortcut {
+      .shortcut {
         position: relative;
         display: flex;
         align-items: center;
-        gap: 10px;
+        gap: 8px;
         min-height: 64px;
-        padding: 10px 12px;
+        padding: 10px;
         border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
         border-radius: 16px;
         background: var(--card-background-color, #fff);
@@ -290,20 +320,21 @@ export class DomoTwinHome extends LitElement {
       button.shortcut:active {
         transform: scale(0.97);
       }
+      /* On the border, as the tile's own: not a second frame around it. */
       button.shortcut:focus-visible {
         outline: 2px solid var(--domotwin-accent, var(--primary-color, #03a9f4));
-        outline-offset: 2px;
+        outline-offset: -1px;
       }
-      button.shortcut .glyph {
+      .shortcut .glyph {
         flex: none;
         display: grid;
         place-items: center;
-        width: 40px;
-        height: 40px;
+        width: 36px;
+        height: 36px;
         border-radius: 50%;
         background: color-mix(in srgb, var(--secondary-text-color, #5f6368) 14%, transparent);
       }
-      button.shortcut .glyph svg {
+      .shortcut .glyph svg {
         width: 22px;
         height: 22px;
         fill: currentColor;
@@ -315,13 +346,15 @@ export class DomoTwinHome extends LitElement {
       button.shortcut.ran {
         border-color: var(--domotwin-accent, var(--primary-color, #03a9f4));
       }
-      button.shortcut .words {
+      .shortcut .words {
         display: grid;
         min-width: 0;
       }
-      button.shortcut .name {
+      /* A word cut only when it cannot fit whole on its line. */
+      .shortcut .name {
         font-weight: 600;
-        overflow-wrap: anywhere;
+        overflow-wrap: break-word;
+        hyphens: auto;
       }
       button.shortcut .state {
         color: var(--secondary-text-color, #5f6368);
@@ -348,18 +381,56 @@ export class DomoTwinHome extends LitElement {
       button.shortcut.add .glyph {
         background: transparent;
       }
-      .asking {
+      /* Asking on its own tile. */
+      .shortcut.asking {
+        cursor: default;
+        border-color: var(--warning-color, #ffa600);
+        background: color-mix(
+          in srgb,
+          var(--warning-color, #ffa600) 14%,
+          var(--card-background-color, #fff)
+        );
+      }
+      .shortcut.asking .answers {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+        margin-top: 6px;
+      }
+      .undo {
         display: flex;
         align-items: center;
         gap: 8px;
-        flex-wrap: wrap;
         margin-top: 8px;
-        padding: 8px 12px;
+        padding: 6px 6px 6px 12px;
         border-radius: 12px;
-        background: color-mix(in srgb, var(--warning-color, #ffa600) 18%, transparent);
+        background: color-mix(
+          in srgb,
+          var(--domotwin-accent, var(--primary-color, #03a9f4)) 12%,
+          transparent
+        );
       }
-      .asking span {
+      .undo span {
         flex: 1;
+        min-width: 0;
+      }
+      .undo button.icon {
+        display: grid;
+        place-items: center;
+        width: 36px;
+        height: 36px;
+        padding: 0;
+        border: none;
+        border-radius: 50%;
+        background: transparent;
+        color: inherit;
+        cursor: pointer;
+      }
+      .undo button.icon svg {
+        width: 20px;
+        height: 20px;
+        fill: currentColor;
       }
       @media (prefers-reduced-motion: reduce) {
         button.shortcut {
@@ -388,6 +459,20 @@ export class DomoTwinHome extends LitElement {
     super.disconnectedCallback();
     clearTimeout(this.peakTimer);
     clearTimeout(this.ranTimer);
+    clearTimeout(this.undoTimer);
+  }
+
+  protected override updated(changed: PropertyValues): void {
+    // The question takes the focus, and gives it back to its tile once answered.
+    if (!changed.has("asking")) return;
+    const was = changed.get("asking") as string | undefined;
+    if (this.asking) {
+      this.renderRoot.querySelector<HTMLElement>("[data-testid='shortcut-yes']")?.focus();
+    } else if (was) {
+      this.renderRoot
+        .querySelector<HTMLElement>(`button[data-shortcut='${CSS.escape(was)}']`)
+        ?.focus();
+    }
   }
 
   protected override willUpdate(changed: PropertyValues): void {
@@ -476,12 +561,22 @@ export class DomoTwinHome extends LitElement {
     const hass = this.hass;
     // Those the viewer may use (their rights, D-071).
     const lights = usableLights(hass, this.glance?.lights ?? []);
-    if (!hass || !this.t || lights.length === 0) return;
+    const t = this.t;
+    if (!hass || !t || lights.length === 0) return;
+    const off: Shortcut = {
+      id: "",
+      name: t.t("home.all_off"),
+      icon: "lights_off",
+      steps: [{ kind: "lights", do: "off", entities: lights }],
+    };
+    const calls = undoCalls(hass, off, this.unseen);
+    this.forget();
     try {
       await hass.callService("light", "turn_off", {}, { entity_id: lights });
       this.refused = undefined;
+      if (calls.length > 0) this.offerUndo({ id: "", name: off.name, calls, from: "lights" });
     } catch (error) {
-      this.refused = failureText(this.t, error);
+      this.refused = failureText(t, error);
     }
   };
 
@@ -547,6 +642,7 @@ export class DomoTwinHome extends LitElement {
                 </button>`
               : nothing
           }
+          ${this.undo?.from === "lights" ? this.undoBar(t, this.undo) : nothing}
           ${this.tiles(glance.lights, false)}
         </div>`;
       case "openings":
@@ -896,16 +992,52 @@ export class DomoTwinHome extends LitElement {
     if (!hass || !t) return;
     this.said = undefined;
     this.ran = shortcut.id;
+    this.forget();
     clearTimeout(this.ranTimer);
     this.ranTimer = setTimeout(() => {
       this.ran = undefined;
     }, RAN_MS);
+    // What it changes, as it is before: put back from the bar if the press was a mistake.
+    const calls = undoCalls(hass, shortcut, this.unseen);
     const ran = await runShortcut(hass, shortcut, this.unseen);
     const [failure] = ran.failures;
     if (failure !== undefined) {
       this.said = t.t("shortcuts.failed", { name: shortcut.name, reason: failureText(t, failure) });
     } else if (ran.done === 0) {
       this.said = t.t("shortcuts.nothing", { name: shortcut.name });
+    } else if (calls.length > 0) {
+      this.offerUndo({ id: shortcut.id, name: shortcut.name, calls, from: "shortcuts" });
+    }
+  }
+
+  /** What was just changed, offered to be undone a while. */
+  private offerUndo(undo: Undo): void {
+    this.forget();
+    this.undo = undo;
+    this.undoTimer = setTimeout(() => {
+      this.undo = undefined;
+    }, UNDO_MS);
+  }
+
+  /** What the last shortcut changed, no longer offered to be undone. */
+  private forget(): void {
+    clearTimeout(this.undoTimer);
+    this.undo = undefined;
+  }
+
+  /** What the last shortcut changed, put back as it was. */
+  private async undoIt(undo: Undo): Promise<void> {
+    const hass = this.hass;
+    const t = this.t;
+    this.forget();
+    if (!hass || !t) return;
+    const ran = await makeCalls(hass, undo.calls);
+    const [failure] = ran.failures;
+    if (failure !== undefined) {
+      this.said = t.t("shortcuts.undo_failed", {
+        name: undo.name,
+        reason: failureText(t, failure),
+      });
     }
   }
 
@@ -955,8 +1087,53 @@ export class DomoTwinHome extends LitElement {
     return state.text;
   }
 
+  /**
+   * A shortcut that asks first, asking on its own tile: the question, Yes and No where the finger
+   * already is.
+   */
+  private askingTile(shortcut: Shortcut, t: Translator): TemplateResult {
+    return html`<div
+      class="shortcut asking"
+      data-shortcut=${shortcut.id}
+      role="alertdialog"
+      aria-labelledby="asking-text"
+      @keydown=${(event: KeyboardEvent) => {
+        if (event.key !== "Escape") return;
+        event.stopPropagation();
+        this.asking = undefined;
+      }}
+    >
+      <span class="words">
+        <span class="name" id="asking-text"
+          >${t.t("shortcuts.confirm", { name: shortcut.name })}</span
+        >
+        <span class="answers">
+          <button
+            class="action"
+            data-testid="shortcut-yes"
+            @click=${() => {
+              this.confirmed(shortcut);
+            }}
+          >
+            ${t.t("shortcuts.yes")}
+          </button>
+          <button
+            class="link"
+            data-testid="shortcut-no"
+            @click=${() => {
+              this.asking = undefined;
+            }}
+          >
+            ${t.t("shortcuts.no")}
+          </button>
+        </span>
+      </span>
+    </div>`;
+  }
+
   private shortcutTile(hass: HomeAssistant, shortcut: Shortcut): TemplateResult {
     const t = this.t;
+    if (t && this.asking === shortcut.id && !this.editing) return this.askingTile(shortcut, t);
     const state = shownState(hass, shortcut, this.unseen);
     const words = this.stateWords(state);
     const label = this.editing
@@ -976,7 +1153,7 @@ export class DomoTwinHome extends LitElement {
         this.openShortcut(shortcut);
       }}
     >
-      <span class="glyph">${icon(SHORTCUT_GLYPHS[shortcut.icon])}</span>
+      <span class="glyph">${icon(glyphOf(shortcut, state))}</span>
       <span class="words">
         <span class="name">${shortcut.name}</span>
         ${words ? html`<span class="state" data-testid="shortcut-state">${words}</span>` : nothing}
@@ -1029,10 +1206,36 @@ export class DomoTwinHome extends LitElement {
     return value;
   }
 
+  /** What was just done, and a button to put it back as it was. */
+  private undoBar(t: Translator, undo: Undo): TemplateResult {
+    return html`<div class="undo" role="status" data-testid="shortcut-undo">
+      <span>${t.t("shortcuts.done", { name: undo.name })}</span>
+      <button
+        class="action"
+        data-testid="shortcut-undo-it"
+        @click=${() => {
+          void this.undoIt(undo);
+        }}
+      >
+        ${t.t("shortcuts.undo")}
+      </button>
+      <button
+        class="icon"
+        aria-label=${t.t("shortcuts.undo_close")}
+        title=${t.t("shortcuts.undo_close")}
+        @click=${() => {
+          this.forget();
+        }}
+      >
+        ${icon(mdiClose)}
+      </button>
+    </div>`;
+  }
+
   private renderShortcuts(hass: HomeAssistant, t: Translator): TemplateResult {
     const list = this.shortcuts;
     const suggested = list.length === 0 ? this.firstSuggested(hass, t) : [];
-    const asking = list.find((s) => s.id === this.asking);
+    const undo = this.undo;
     const full = list.length >= MAX_SHORTCUTS;
     return html`<section data-testid="home-shortcuts" aria-labelledby="shortcuts-title">
       <div class="head">
@@ -1076,30 +1279,7 @@ export class DomoTwinHome extends LitElement {
               </button>`
         }
       </div>
-      ${
-        asking
-          ? html`<div class="asking" role="alertdialog" aria-labelledby="asking-text">
-              <span id="asking-text">${t.t("shortcuts.confirm", { name: asking.name })}</span>
-              <button
-                class="action"
-                data-testid="shortcut-yes"
-                @click=${() => {
-                  this.confirmed(asking);
-                }}
-              >
-                ${t.t("shortcuts.yes")}
-              </button>
-              <button
-                class="link"
-                @click=${() => {
-                  this.asking = undefined;
-                }}
-              >
-                ${t.t("shortcuts.no")}
-              </button>
-            </div>`
-          : nothing
-      }
+      ${undo?.from === "shortcuts" ? this.undoBar(t, undo) : nothing}
       ${this.said ? html`<p class="error" role="alert" data-testid="shortcut-said">${this.said}</p>` : nothing}
     </section>`;
   }
