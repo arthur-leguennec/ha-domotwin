@@ -72,6 +72,8 @@ export const placementEn = {
     remove: "Remove {name}",
     save_failed: "The access points were not saved: {reason}",
     one_storey: "Show one storey to see the spots on it.",
+    how: "How it is worked out",
+    better: { one: "{count} room better covered", other: "{count} rooms better covered" },
   },
 };
 
@@ -149,5 +151,7 @@ export const placementFr: PlacementDictionary = {
     remove: "Retirer {name}",
     save_failed: "Les points d’accès n’ont pas été enregistrés : {reason}",
     one_storey: "Affichez un seul étage pour y voir les emplacements.",
+    how: "Comment c’est calculé",
+    better: { one: "{count} pièce mieux couverte", other: "{count} pièces mieux couvertes" },
   },
 };

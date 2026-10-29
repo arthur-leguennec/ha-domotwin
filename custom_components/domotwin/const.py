@@ -153,6 +153,8 @@ MAX_SHORTCUTS: Final = 24
 MAX_STEPS: Final = 6
 MAX_LISTED: Final = 50
 MAX_SHORTCUT_NAME: Final = 40
+#: A shortcut leaving home brings the heating back at most this long (minutes) before the return.
+MAX_BACK_AHEAD: Final = 240
 MAX_CALENDARS: Final = 10
 
 # The configuration history (docs/DECISIONS.md, D-062): each change of an automation, a script,

@@ -53,6 +53,8 @@ export function newId(taken: Iterable<string>, random: () => number = Math.rando
 /** `CoverEntityFeature.SET_POSITION`; `MediaPlayerEntityFeature.PAUSE`. */
 const SET_POSITION = 4;
 const MEDIA_PAUSE = 1;
+const MEDIA_TURN_ON = 128;
+const MEDIA_PLAY = 16384;
 /** `ClimateEntityFeature`: one target temperature, presets. */
 const TARGET_TEMPERATURE = 1;
 const PRESET_MODE = 16;
@@ -297,6 +299,131 @@ export function shortcutCalls(
   return shortcut.steps.flatMap((step) => stepCalls(hass, step, targets(hass, step, unseen)));
 }
 
+/** The calls that put `ids` back as they are now, for a step of this kind. */
+function undoStep(hass: HomeAssistant, step: Step, ids: readonly string[]): Call[] {
+  const calls: Call[] = [];
+  const add = (
+    domain: string,
+    service: string,
+    data: Record<string, unknown>,
+    id: string,
+  ): void => {
+    const same = calls.find(
+      (call) =>
+        call[0] === domain &&
+        call[1] === service &&
+        JSON.stringify(call[2]) === JSON.stringify(data),
+    );
+    if (same) same[3].push(id);
+    else calls.push([domain, service, data, [id]]);
+  };
+  for (const id of ids) {
+    const state = hass.states[id];
+    if (!state || UNKNOWN.has(state.state)) continue;
+    const attributes = state.attributes;
+    switch (step.kind) {
+      case "lights": {
+        if (state.state === "off") {
+          if (step.do !== "off") add("light", "turn_off", {}, id);
+        } else if (state.state === "on") {
+          const brightness = attributes.brightness;
+          add(
+            "light",
+            "turn_on",
+            typeof brightness === "number" && brightness > 0 ? { brightness } : {},
+            id,
+          );
+        }
+        break;
+      }
+      case "covers": {
+        // Not a position Home Assistant leaves empty (null reads as 0).
+        const position = attributes.current_position;
+        if (typeof position === "number" && (features(hass, id) & SET_POSITION) === SET_POSITION) {
+          add("cover", "set_cover_position", { position }, id);
+        } else if (state.state === "open" || state.state === "closed") {
+          add("cover", state.state === "open" ? "open_cover" : "close_cover", {}, id);
+        }
+        break;
+      }
+      case "climate": {
+        if (step.do === "eco") {
+          const preset = attributes.preset_mode;
+          const modes = attributes.preset_modes;
+          if (typeof preset === "string" && preset !== "eco" && Array.isArray(modes)) {
+            if (modes.includes(preset))
+              add("climate", "set_preset_mode", { preset_mode: preset }, id);
+          }
+        } else if (step.do === "temperature") {
+          // None while a thermostat keeps a range, or is off: nothing to put back.
+          const temperature = attributes.temperature;
+          if (typeof temperature === "number") {
+            add("climate", "set_temperature", { temperature }, id);
+          }
+        } else {
+          add("climate", "set_hvac_mode", { hvac_mode: state.state }, id);
+        }
+        break;
+      }
+      case "media":
+        // Only what the player can do: one call refused would leave the others too.
+        if (step.do === "off") {
+          const on = state.state !== "off" && state.state !== "standby";
+          if (on && (features(hass, id) & MEDIA_TURN_ON) === MEDIA_TURN_ON) {
+            add("media_player", "turn_on", {}, id);
+          }
+        } else if (state.state === "playing" && (features(hass, id) & MEDIA_PLAY) === MEDIA_PLAY) {
+          add("media_player", "media_play", {}, id);
+        }
+        break;
+      // A lock, the alarm, a robot, a scene or a script: not undone by a tap (a door unlocked or
+      // the alarm off by mistake is not wanted; what a script did is not known).
+      default:
+        break;
+    }
+  }
+  return calls;
+}
+
+/**
+ * The calls that put back what a shortcut is about to change, from the states before it runs:
+ * the lamps lit as they were, the shutters where they were, the heating and what played as it
+ * was. Not a lock, the alarm, a robot, a scene nor a script. Each entity once for what it is
+ * put back to (a thermostat's preset and its temperature both), as it is now.
+ */
+export function undoCalls(
+  hass: HomeAssistant,
+  shortcut: Shortcut,
+  unseen: Unseen = NOTHING_UNSEEN,
+): Call[] {
+  const done = new Set<string>();
+  const calls: Call[] = [];
+  for (const step of shortcut.steps) {
+    // The heating's preset, temperature and mode are put back each; the rest once.
+    const aspect = step.kind === "climate" ? `climate:${step.do}` : step.kind;
+    const ids = targets(hass, step, unseen).filter((id) => !done.has(`${id}|${aspect}`));
+    const undo = undoStep(hass, step, ids);
+    if (undo.length === 0) continue;
+    for (const call of undo) for (const id of call[3]) done.add(`${id}|${aspect}`);
+    calls.push(...undo);
+  }
+  return calls;
+}
+
+/** Makes calls one after the other; one refused does not stop the others. */
+export async function makeCalls(hass: HomeAssistant, calls: readonly Call[]): Promise<Ran> {
+  const ran: Ran = { done: 0, failures: [] };
+  for (const [domain, service, data, ids] of calls) {
+    try {
+      await hass.callService(domain, service, data, { entity_id: ids });
+      ran.done += 1;
+    } catch (error) {
+      ran.failures.push(error);
+    }
+  }
+  return ran;
+}
+
 /** What a shortcut did: how many calls Home Assistant took, and why the others were refused. */
 export interface Ran {
   done: number;
@@ -309,16 +436,7 @@ export async function runShortcut(
   shortcut: Shortcut,
   unseen: Unseen = NOTHING_UNSEEN,
 ): Promise<Ran> {
-  const ran: Ran = { done: 0, failures: [] };
-  for (const [domain, service, data, ids] of shortcutCalls(hass, shortcut, unseen)) {
-    try {
-      await hass.callService(domain, service, data, { entity_id: ids });
-      ran.done += 1;
-    } catch (error) {
-      ran.failures.push(error);
-    }
-  }
-  return ran;
+  return makeCalls(hass, shortcutCalls(hass, shortcut, unseen));
 }
 
 // What a shortcut shows.
@@ -612,6 +730,8 @@ export function suggestions(
           steps: closeSteps,
           quiet: true,
           confirm: true,
+          // The heating back before the place opens again (D-091).
+          ...(eco ? { back: {} } : {}),
         },
         closeSteps.reduce((sum, step) => sum + count(step), 0),
       );
@@ -622,7 +742,13 @@ export function suggestions(
       add(
         "good_night",
         "routines",
-        { name: t.t("shortcuts.suggest.good_night"), icon: "moon", steps: nightSteps, quiet: true },
+        {
+          name: t.t("shortcuts.suggest.good_night"),
+          icon: "moon",
+          steps: nightSteps,
+          quiet: true,
+          confirm: true,
+        },
         nightSteps.reduce((sum, step) => sum + count(step), 0),
       );
     }
@@ -639,6 +765,8 @@ export function suggestions(
           steps: leaveSteps,
           quiet: true,
           confirm: true,
+          // The heating back before one's return (D-091).
+          ...(eco ? { back: {} } : {}),
         },
         leaveSteps.reduce((sum, step) => sum + count(step), 0),
       );
@@ -687,7 +815,7 @@ export function suggestions(
     add(
       "alarm_night",
       "security",
-      { name: t.t("shortcuts.suggest.alarm_night"), icon: "alarm", steps: [night] },
+      { name: t.t("shortcuts.suggest.alarm_night"), icon: "alarm", steps: [night], confirm: true },
       count(night),
     );
   }

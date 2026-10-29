@@ -14,9 +14,9 @@ makes possible, by what it is about, each with how many devices it acts on:
 | About | Suggested |
 | --- | --- |
 | Lights | All the lights off; the lights off on each floor |
-| Several at once | Good night (the lights off, the shutters closed, the doors locked, the alarm for the night); Leaving home (the lights and the music off, the doors locked, the alarm armed, the heating in eco, asked first), from what your home has of them; in a workplace, Close up instead (the same with the shutters down, asked first, see [a workplace](workplace.md)) |
+| Several at once | Good night (the lights off, the shutters closed, the doors locked, the alarm for the night, asked first); Leaving home (the lights and the music off, the doors locked, the alarm armed, the heating in eco, asked first), from what your home has of them; in a workplace, Close up instead (the same with the shutters down, asked first, see [a workplace](workplace.md)) |
 | Shutters and blinds | Close the shutters; open the shutters |
-| Locks and alarm | Lock everything; arm the alarm; the alarm for the night |
+| Locks and alarm | Lock everything; arm the alarm (asked first); the alarm for the night (asked first) |
 | Heating | Heating in eco (thermostats that have it); heating at 19 °C (66 °F) |
 | Car | A car's battery: a battery sensor of a car's integration (Tesla, Renault, BMW, Volvo, Kia, Škoda…), or of a device whose name says it is a car (never a phone's) |
 | Music and TV | Pause the music |
@@ -48,6 +48,15 @@ rights in DomoTwin let you use (`rights.md`), never in a private room you may no
 (`privacy.md`). Its steps run one after the other; if Home Assistant refuses one, the others still
 run, and the button says so.
 
+### Undo
+
+Once it has run, a bar under the shortcuts says it is done, with **Undo** for two minutes: the
+lamps it touched are lit again as they were (their brightness), the shutters go back where they
+were, the heating to its mode, preset or temperature, what played plays again. A lock, the alarm,
+a robot, a scene or a script are not undone: a door unlocked or an alarm switched off by a tap
+meant for something else is not wanted, and what a script did is not known. The lamps' **All off**
+on *Home* (under the lamps on) can be undone the same way.
+
 ## More options
 
 *More options* in the dialog adds:
@@ -58,8 +67,30 @@ run, and the button says so.
   closed*, how warm it is where the thermostats are); the value of a device you pick (a car's
   battery, the home battery, the outside temperature), which a press then opens in Home
   Assistant's details; or nothing.
-- **Ask before it acts**: a press asks *go ahead?* first.
+- **Ask before it acts**: a press asks *go ahead?* on the shortcut itself, **Yes** where the
+  finger is; **No** or Escape leaves it. The second press of a double tap is not a Yes.
+- **Usually back** (with *Ask when I'm back*, below): your usual time of return each day of the
+  week (*18:30 every weekday* copies Monday's), and how long before it the heating comes back
+  (30 minutes unless said, up to 4 hours, or just as you are back).
 - **Move earlier, later**: its place among the others.
+
+## When you are back
+
+A shortcut that turns the heating down (*Leaving home*, a workplace's *Close up*) can ask when you
+are back: tick **Ask when I'm back** in its dialog (the suggested ones do). Pressed, it asks on its
+tile, with *go ahead?*:
+
+- **I don't know**: the heating stays turned down until you put it back (as before);
+- **In…**: in half an hour, an hour… a week;
+- **At…**: at a time (tomorrow's if today's has passed);
+- **On…**: on a day, at a time.
+
+Your usual return is offered first when you have filled it in and it is within a day; at a
+workplace, its next opening; else *I don't know*. On **Yes**, the heating the shortcut turned
+down comes back as it was (its preset, mode or temperature) a while before you are: the
+integration does it at its time (D-046), even with no screen open, even after a restart. A line
+under the shortcuts says when, with **Now** (you are back early: the heating as it was, at once)
+and **Leave it** (nothing comes back). Leaving again replaces what waited; **Undo** cancels it.
 
 ## Changing them
 

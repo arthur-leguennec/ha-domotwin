@@ -50,7 +50,7 @@ test.describe("network map (D-031)", () => {
   test("is offered to administrators with ZHA only", async ({ page }) => {
     await openHarness(page, { live: true });
     await page.getByTestId("layers").click();
-    await expect(page.locator('[data-layer="power"]')).toBeVisible();
+    await expect(page.getByTestId("layer-menu")).toBeVisible();
     await expect(page.locator('[data-layer="network"]')).toHaveCount(0);
     await openHarness(page, { live: true, zha: true, admin: false });
     await page.getByTestId("layers").click();

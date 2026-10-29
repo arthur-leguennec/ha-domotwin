@@ -32,9 +32,10 @@ test.describe("the demo house (D-050)", () => {
     await expect(page.getByTestId("demo-play")).toHaveAttribute("aria-pressed", "false");
     await page.getByTestId("demo-noon").click();
     await expect(page.getByTestId("demo-time")).toHaveText("12:50");
-    await page.getByTestId("layers").click();
-    await page.getByTestId("layer-menu").getByText("Power").click();
+    // The power layer, from the Energy tab (D-049).
+    await page.getByTestId("tab-energy").click();
     await expect(page.getByTestId("energy")).toHaveAttribute("aria-label", /the sun gives/);
+    await page.getByTestId("tab-3d").click();
     // The evening: the lamps of the evening scene on.
     await page.getByTestId("demo-evening").click();
     await expect(page.getByTestId("demo-time")).toHaveText("19:40");

@@ -109,18 +109,21 @@ export function upkeepShades(standings: Standings): Record<string, UpkeepState> 
 }
 
 /**
- * The badges of upkeep, by piece: a task overdue (urgent), due soon, a warranty ending. They join
- * the devices' badges (D-024), the most urgent first.
+ * The badges of upkeep, by piece: a task overdue (urgent), due soon, a warranty ending; how many
+ * tasks wait when more than one. They join the devices' badges (D-024), the most urgent first.
  */
 export function upkeepBadges(standings: Standings): Map<string, Badge[]> {
   const out = new Map<string, Badge[]>();
   for (const [element, standing] of Object.entries(standings)) {
     if (!standing) continue;
     const badges: Badge[] = [];
+    // How many of its tasks are due or overdue, said on its badge when more than one.
+    const waiting = standing.tasks.filter((task) => task.state !== "fine").length;
+    const count = waiting > 1 ? { text: String(waiting) } : {};
     if (standing.state === "overdue") {
-      badges.push({ element, kind: "upkeep_overdue", tone: "danger", entity: "" });
+      badges.push({ element, kind: "upkeep_overdue", tone: "danger", entity: "", ...count });
     } else if (standing.state === "due") {
-      badges.push({ element, kind: "upkeep_due", tone: "warning", entity: "" });
+      badges.push({ element, kind: "upkeep_due", tone: "warning", entity: "", ...count });
     }
     if (standing.warranty !== null) {
       badges.push({ element, kind: "warranty_ending", tone: "warning", entity: "" });

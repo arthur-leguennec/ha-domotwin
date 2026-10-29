@@ -7,7 +7,7 @@ import { LitElement, css, html, nothing, type TemplateResult } from "lit";
 
 import type { HomeAssistant } from "../ha/types";
 import { translatorFor, type Translator } from "../i18n";
-import { fromField } from "./dialog";
+import { fieldKeepsEscape } from "./dialog";
 import { fire } from "./define";
 import { icon } from "./icon";
 
@@ -93,7 +93,7 @@ export abstract class Sheet extends LitElement {
   }
 
   private readonly onKey = (event: KeyboardEvent): void => {
-    if (event.key === "Escape" && !fromField(event)) this.close();
+    if (event.key === "Escape" && !fieldKeepsEscape(event)) this.close();
   };
 
   override connectedCallback(): void {

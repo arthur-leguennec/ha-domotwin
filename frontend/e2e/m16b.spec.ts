@@ -80,8 +80,13 @@ test.describe("the home's energy (D-049)", () => {
     await page.setViewportSize({ width: 360, height: 740 });
     await openHarness(page, { live: true, energy: true, mode: "panel" });
     const view = page.locator("domotwin-view");
-    await view.getByTestId("layers").click();
-    await view.getByTestId("layer-menu").getByText("Power").click();
+    await expect(view.getByTestId("layers")).toBeVisible();
+    // The power layer, as the Energy tab shows it (D-049).
+    await page.evaluate(() => {
+      (window as never as { __view: () => { setLayer(layer: string): void } })
+        .__view()
+        .setLayer("power");
+    });
     const legend = await view.getByTestId("legend").boundingBox();
     const chip = await view.locator(".chip").first().boundingBox();
     if (!legend || !chip) throw new Error("the legend or the chip is not drawn");

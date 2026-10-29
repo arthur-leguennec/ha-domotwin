@@ -13,7 +13,7 @@ test.describe("Hydro-Québec's peaks (D-063)", () => {
     // A card set to the peak's layer shows none, and the menu does not offer it.
     await expect(page.locator("domotwin-view").getByTestId("legend")).toHaveCount(0);
     await page.getByTestId("layers").click();
-    await expect(page.getByTestId("layer-menu").locator('[data-layer="power"]')).toBeVisible();
+    await expect(page.getByTestId("layer-menu")).toBeVisible();
     await expect(page.getByTestId("layer-menu").locator('[data-layer="peak"]')).toHaveCount(0);
     await openHarness(page, { live: true, mode: "panel", start: "home" });
     await expect(page.getByTestId("home-tab")).toBeVisible();

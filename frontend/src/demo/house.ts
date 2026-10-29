@@ -26,9 +26,13 @@ export function say(words: Words, language: string): string {
 }
 
 /** What is said of an action planned for later (`{names}`, `{time}`), switching on or off. */
-export const SCHEDULED: Readonly<Record<"on" | "off", Words>> = {
+export const SCHEDULED: Readonly<Record<"on" | "off" | "climate", Words>> = {
   on: ["{names} will switch on at {time}.", "{names} : allumage prévu à {time}."],
   off: ["{names} will switch off at {time}.", "{names} : extinction prévue à {time}."],
+  climate: [
+    "{names} will go back to how it was at {time}.",
+    "{names} : retour au réglage d’avant prévu à {time}.",
+  ],
 };
 
 /** The storeys: their id, names and height, and their plan. */
@@ -188,6 +192,8 @@ const FRENCH: Readonly<Record<string, string>> = {
   "Letter box": "Boîte aux lettres",
   "Lamp post": "Lampadaire",
   Car: "Voiture",
+  "Entrance camera": "Caméra de l’entrée",
+  "Garden camera": "Caméra du jardin",
 };
 
 /** A storey's plan in the language: its rooms named as their areas, its pieces translated. */
@@ -220,6 +226,8 @@ export interface Thing {
   pieces?: readonly string[];
   state: string;
   attributes?: Record<string, unknown>;
+  /** A camera's angle of view and reach on its pieces (D-038). */
+  view?: { fov: number; range: number };
 }
 
 const warm = {
@@ -607,6 +615,25 @@ export const THINGS: readonly Thing[] = [
     state: "24.5",
     attributes: celsius,
   },
+  // Two cameras: what each sees is drawn on the ground (D-038).
+  {
+    // In the driveway, at the front: no area of its own, as the gate's.
+    id: "camera.entrance",
+    names: ["Entrance camera", "Caméra de l’entrée"],
+    pieces: ["cam-entrance"],
+    state: "idle",
+    attributes: { supported_features: 0 },
+    view: { fov: 100, range: 650 },
+  },
+  {
+    id: "camera.garden",
+    area: "garden",
+    names: ["Garden camera", "Caméra du jardin"],
+    pieces: ["cam-garden"],
+    state: "idle",
+    attributes: { supported_features: 0 },
+    view: { fov: 95, range: 900 },
+  },
   {
     id: "cover.gate",
     names: ["Gate", "Portail"],
@@ -862,10 +889,14 @@ export function roomSensorOf(person: string): string {
 
 /** The links between the plan and the entities (D-018): pieces, and rooms to their areas. */
 export function demoBindings(): Bindings {
-  const elements: Record<string, { entities: { entity_id: string }[] }> = {};
+  const elements: Record<
+    string,
+    { entities: { entity_id: string }[]; fov?: number; range?: number }
+  > = {};
   for (const thing of THINGS) {
     for (const piece of thing.pieces ?? []) {
-      elements[piece] ??= { entities: [] };
+      // A camera's angle and reach are its piece's (D-038).
+      elements[piece] ??= { entities: [], ...thing.view };
       elements[piece].entities.push({ entity_id: thing.id });
     }
   }
@@ -876,10 +907,12 @@ export function demoBindings(): Bindings {
   };
 }
 
-/** The settings: north (the garden faces south), the home's energy (D-049). */
+/** The settings: north (the garden faces south), the roof's solar panels, the energy (D-049). */
 export function demoSettings(): Settings {
   return {
     north: 180,
+    // The solar panels that make the home's power (`solarAt`), on the roof's sunny side.
+    roof: { solar: 16 },
     energy: {
       solar: "sensor.solar_power",
       grid: "sensor.grid_power",
@@ -891,7 +924,7 @@ export function demoSettings(): Settings {
 
 /**
  * The visitor's shortcuts on the Home tab (D-084): the lamps off, the curtains closed, a good night,
- * the heating, the home battery's charge.
+ * leaving home (asking when one is back, D-091), the heating, the home battery's charge.
  */
 export function demoShortcuts(language: string): Shortcut[] {
   return [
@@ -917,6 +950,22 @@ export function demoShortcuts(language: string): Shortcut[] {
         { kind: "locks", do: "lock" },
       ],
       quiet: true,
+      confirm: true,
+    },
+    {
+      id: "leaving",
+      name: say(["Leaving home", "Je pars"], language),
+      icon: "leave",
+      steps: [
+        { kind: "lights", do: "off" },
+        { kind: "media", do: "off" },
+        { kind: "locks", do: "lock" },
+        { kind: "climate", do: "temperature", value: 17 },
+      ],
+      quiet: true,
+      confirm: true,
+      // Back from work at half past six on weekdays: the heating back half an hour before.
+      back: { usual: ["18:30", "18:30", "18:30", "18:30", "18:30", null, null], ahead: 30 },
     },
     {
       id: "heating",
@@ -986,7 +1035,7 @@ export function demoUpkeep(today: string, language: string): Upkeep {
         service_life: 12,
         tasks: [
           task("filter", ["Clean the filter", "Nettoyer le filtre"], 3, "months", 85),
-          task("descale", ["Descale the drum", "Détartrer le tambour"], 6, "months", 60),
+          task("descale", ["Descale the drum", "Détartrer le tambour"], 6, "months", 175),
         ],
       },
       "robot-dock": {
@@ -999,6 +1048,13 @@ export function demoUpkeep(today: string, language: string): Upkeep {
       },
       "u-fan": {
         tasks: [task("dust", ["Dust the blades", "Dépoussiérer les pales"], 2, "months", 20)],
+      },
+      // Overdue: the list and the badges show what is late.
+      "water-heater": {
+        make: "Fictional Heat",
+        installed: back(2100),
+        service_life: 15,
+        tasks: [task("flush", ["Flush the tank", "Purger le ballon"], 12, "months", 380)],
       },
       fridge: {
         make: "Cold & Co",

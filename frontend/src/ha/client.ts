@@ -72,6 +72,8 @@ export interface RoofSettings {
   shape?: "gable" | "hip" | "shed" | "flat";
   pitch?: number;
   color?: string;
+  /** How many solar panels lie on the top roof (0–60), facing the sun's side. */
+  solar?: number;
 }
 
 /** A workplace, an office or a shop (D-086): its opening hours, a schedule of Home Assistant's. */
@@ -152,12 +154,14 @@ type Listener = (event: UpdateEvent) => void;
  */
 export interface NewSchedule {
   entities: string[];
-  action?: "on" | "off";
+  action?: "on" | "off" | "climate";
   at: string;
   until?: string;
   duration?: number;
   /** For lights switched on (%). */
   brightness?: number;
+  /** For "climate": what the heating is put back to, one preset, mode or temperature (D-091). */
+  climate?: Record<string, string | number>;
 }
 
 const clients = new WeakMap<HassConnection, DomoTwinClient>();

@@ -30,6 +30,7 @@ import {
   mdiViewGridOutline,
   mdiTabletDashboard,
   mdiWifi,
+  mdiWrenchClockOutline,
 } from "@mdi/js";
 import { LitElement, css, html, nothing, type PropertyValues, type TemplateResult } from "lit";
 import { live } from "lit/directives/live.js";
@@ -377,6 +378,7 @@ const PANEL_DIALOGS = [
   "domotwin-choices",
   "domotwin-screens",
   "domotwin-history",
+  "domotwin-report",
   "domotwin-first-launch",
   "domotwin-getting-started",
 ]
@@ -3113,6 +3115,9 @@ export class DomoTwinPanel extends LitElement {
     input.value = "";
     const client = this.client;
     if (!file || !client || this.busy || this.importChoice) return;
+    // From another tab's More menu, once a file is chosen: the plan is seen in the 3D view as it
+    // comes in.
+    if (this.tab !== undefined && this.tab !== "3d") this.go("3d");
     if (IMPORTED_FILES.test(file.name)) {
       await this.readImport(file);
       return;
@@ -4624,6 +4629,14 @@ export class DomoTwinPanel extends LitElement {
       ${admin && this.plan ? this.renderMore() : nothing}`;
   }
 
+  /** The upkeep list, on the 3D view (as its badges and pieces are there). */
+  private readonly openUpkeep = (): void => {
+    this.layerWanted = "upkeep";
+    this.go("3d");
+    // Already on the 3D tab, nothing else changes: the list is shown all the same.
+    this.requestUpdate();
+  };
+
   private readonly openChoices = (): void => {
     this.moreOpen = false;
     this.retryPractical();
@@ -4825,13 +4838,28 @@ export class DomoTwinPanel extends LitElement {
               }}
             >
               ${
-                // On a phone, the import and the storeys, which have no room in the toolbar.
+                // A plan's import from every tab; on a phone, the storeys too, which have no room
+                // in the toolbar.
+                item("more-import", mdiTrayArrowUp, t.t("panel.import"), busy, this.chooseFile)
+              }
+              ${
                 this.tight
-                  ? html`${item("more-import", mdiTrayArrowUp, t.t("panel.import"), busy, this.chooseFile)}
-                    ${item("more-storeys", mdiStairs, t.t("storey.manage"), busy, this.openStoreys)}`
+                  ? item("more-storeys", mdiStairs, t.t("storey.manage"), busy, this.openStoreys)
                   : nothing
               }
               ${item("export", mdiTrayArrowDown, t.t("panel.export"), false, this.exportPlan)}
+              ${
+                // The upkeep list (D-033), with its pieces shown on the plan: not a layer.
+                Object.keys(this.upkeep?.pieces ?? {}).length > 0
+                  ? item(
+                      "more-upkeep",
+                      mdiWrenchClockOutline,
+                      t.t("layers.upkeep"),
+                      false,
+                      this.openUpkeep,
+                    )
+                  : nothing
+              }
               ${
                 this._hass?.user?.is_admin === true && robotMaps(this._hass).length > 0
                   ? item(
@@ -5347,8 +5375,16 @@ export class DomoTwinPanel extends LitElement {
     };
     const sensor = (key: EnergySensor) => {
       const chosen = draft[key];
-      const offered = energyCandidates(hass, key, this.energyPreferred?.[key] ?? []);
+      const offered = energyCandidates(
+        hass,
+        key,
+        this.energyPreferred?.[key] ?? [],
+        60,
+        draft.battery,
+      );
       if (chosen && !offered.includes(chosen)) offered.unshift(chosen);
+      // No home battery's charge to offer: not a field of phones' and sensors' batteries.
+      if (key === "battery_level" && offered.length === 0) return nothing;
       return html`<label class="look">
         <span>${t.t(`settings.energy_${key}`)}</span>
         <select
@@ -5384,6 +5420,7 @@ export class DomoTwinPanel extends LitElement {
     return html`<h3>${t.t("settings.energy")}</h3>
       <p class="hint">${t.t("settings.energy_hint")}</p>
       ${sensor("solar")} ${sensor("grid")} ${reversed("grid_reversed", Boolean(draft.grid))}
+      <p class="hint">${t.t("settings.energy_battery_hint")}</p>
       ${sensor("battery")} ${reversed("battery_reversed", Boolean(draft.battery))}
       ${sensor("battery_level")}`;
   }
@@ -5460,7 +5497,25 @@ export class DomoTwinPanel extends LitElement {
               ${t.t("settings.roof_color_default")}
             </button>`
           : nothing
-      }`;
+      }
+      <label class="look">
+        <span>${t.t("settings.roof_solar")}</span>
+        <input
+          type="number"
+          data-testid="settings-roof-solar"
+          min="0"
+          max="60"
+          step="1"
+          .value=${String(draft.solar ?? 0)}
+          @change=${(event: Event) => {
+            const n = Math.round(Number((event.target as HTMLInputElement).value));
+            const rest = { ...draft };
+            delete rest.solar;
+            this.roofDraft =
+              Number.isFinite(n) && n > 0 ? { ...rest, solar: Math.min(60, n) } : rest;
+          }}
+        />
+      </label>`;
   }
 
   /**

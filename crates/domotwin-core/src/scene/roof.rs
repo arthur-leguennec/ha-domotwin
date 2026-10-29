@@ -32,6 +32,17 @@ const SMALLEST_CELL: f64 = 12.0;
 /// The share of a footprint its wings may leave uncovered before it is roofed whole, as a home
 /// whose walls are not square to each other.
 const LEFT_OVER: f64 = 0.12;
+/// Most solar panels on a roof; a panel's size across the slope and up it, the gap between two,
+/// the room kept from the roof's edges and ridge (cm), and how far above the tiles it lies.
+const MAX_PANELS: u32 = 60;
+const PANEL_ACROSS: f64 = 105.0;
+const PANEL_UP: f64 = 170.0;
+const PANEL_GAP: f64 = 4.0;
+const PANEL_MARGIN: f64 = 35.0;
+const PANEL_LIFT: f64 = 5.0;
+/// A panel's aluminium frame, and its cells (dark glass).
+const PANEL_FRAME: Material = Material::new(Rgb8::from_u32(0xb9bec4), 0.35, Surface::Metal);
+const PANEL_CELLS: Material = Material::new(Rgb8::from_u32(0x1c2a46), 0.2, Surface::Screen);
 
 /// The shape of a home's roofs (D-077).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -83,6 +94,11 @@ pub struct RoofStyle {
     pub pitch: f64,
     /// The colour of its tiles (a flat roof's membrane), else the usual one.
     pub color: Option<Rgb8>,
+    /// How many solar panels lie on the top roof's main wing (0: none), as many as fit.
+    pub solar: u32,
+    /// Where they face: degrees clockwise from the top of the plan (the sun's side where the home
+    /// is); the slope facing it most takes them. None: the main wing's `+v` slope.
+    pub solar_toward: Option<f64>,
 }
 
 /// The pitch a roof has unless its settings say otherwise, and the range they may say (degrees).
@@ -95,6 +111,8 @@ impl Default for RoofStyle {
             kind: RoofKind::Gable,
             pitch: PITCH,
             color: None,
+            solar: 0,
+            solar_toward: None,
         }
     }
 }
@@ -117,6 +135,16 @@ impl RoofStyle {
                 .get("color")
                 .and_then(serde_json::Value::as_str)
                 .and_then(Rgb8::from_hex),
+            #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+            solar: value
+                .get("solar")
+                .and_then(serde_json::Value::as_f64)
+                .filter(|n| n.is_finite())
+                .map_or(0, |n| n.clamp(0.0, f64::from(MAX_PANELS)).round() as u32),
+            solar_toward: value
+                .get("solar_toward")
+                .and_then(serde_json::Value::as_f64)
+                .filter(|a| a.is_finite()),
         }
     }
 }
@@ -125,6 +153,8 @@ impl RoofStyle {
 /// walls (`wall_height`); none over a storey without rooms.
 pub(crate) fn build(parts: &[StoreyPart], wall_height: f64, style: &RoofStyle) -> Vec<Roof> {
     let mut roofs = Vec::new();
+    // Each roof's main wing, for the solar panels of the top one.
+    let mut mains: Vec<(Rectangle, RoofShape, Vec<RoofShape>)> = Vec::new();
     for (storey, part) in parts.iter().enumerate() {
         // The rooms with their walls, not the places outside.
         let footprint = outlines(part, false);
@@ -142,7 +172,7 @@ pub(crate) fn build(parts: &[StoreyPart], wall_height: f64, style: &RoofStyle) -
         let mut mesh = Mesh::default();
         let mut lines = Lines::default();
         let main = wings[0].centre;
-        let shapes = wings
+        let shapes: Vec<RoofShape> = wings
             .iter()
             .enumerate()
             .map(|(k, wing)| {
@@ -161,6 +191,9 @@ pub(crate) fn build(parts: &[StoreyPart], wall_height: f64, style: &RoofStyle) -
             })
             .collect();
         if mesh.vertex_count() > 0 {
+            if let Some(shape) = shapes.first() {
+                mains.push((wings[0], *shape, shapes[1..].to_vec()));
+            }
             roofs.push(Roof {
                 elevation: part.elevation,
                 storey,
@@ -170,7 +203,145 @@ pub(crate) fn build(parts: &[StoreyPart], wall_height: f64, style: &RoofStyle) -
             });
         }
     }
+    // The solar panels, on the highest roof's main wing.
+    let top = roofs
+        .iter()
+        .enumerate()
+        .max_by(|a, b| a.1.elevation.total_cmp(&b.1.elevation))
+        .map(|(k, _)| k);
+    if let (Some(k), true) = (top, style.solar > 0)
+        && let (Some(roof), Some((wing, shape, others))) = (roofs.get_mut(k), mains.get(k))
+    {
+        draw_panels(&mut roof.mesh, wing, shape, others, style);
+    }
     roofs
+}
+
+/// Lays `style.solar` panels on a wing's roof, as many as fit: in rows up the slope facing
+/// `style.solar_toward` most (on a flat roof, in rows across it), from the eaves, a margin kept
+/// from the eaves, the ridge and the ends (a hipped end's slope too). None where another wing's
+/// roof (`others`) rises over the slope, at a valley.
+fn draw_panels(
+    mesh: &mut Mesh,
+    r: &Rectangle,
+    shape: &RoofShape,
+    others: &[RoofShape],
+    style: &RoofStyle,
+) {
+    let (hl, hw, rise, eaves) = (shape.half_length, shape.half_width, shape.rise, shape.eaves);
+    let toward = style.solar_toward.map(|a| {
+        let a = a.to_radians();
+        [a.sin(), -a.cos()]
+    });
+    // How much a side faces where the panels should: along ±v.
+    let facing = |side: f64| toward.map_or(side, |d| side * (r.v[0] * d[0] + r.v[1] * d[1]));
+    // The slope: where its eaves are across the wing (`t` along v), which way it climbs, its run.
+    let (low, up, run, lift) = match shape.kind {
+        RoofKind::Flat => (-hw, 1.0, 2.0 * hw, rise),
+        RoofKind::Shed => (-shape.high * hw, shape.high, 2.0 * hw, 0.0),
+        RoofKind::Gable | RoofKind::Hip => {
+            let side = if facing(1.0) >= facing(-1.0) {
+                1.0
+            } else {
+                -1.0
+            };
+            (side * hw, -side, hw, 0.0)
+        }
+    };
+    let flat = shape.kind == RoofKind::Flat;
+    // Up the slope, the plan's run of a panel and of a gap.
+    let length = if flat { run } else { run.hypot(rise) };
+    let (panel_run, gap_run) = (PANEL_UP * run / length, PANEL_GAP * run / length);
+    let usable = run - 2.0 * PANEL_MARGIN;
+    if usable < panel_run {
+        return;
+    }
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    let rows = ((usable + gap_run) / (panel_run + gap_run)).floor() as u32;
+    // The panels each row holds (a hip's ends narrow its slope towards the ridge).
+    let fits = |d_top: f64| -> u32 {
+        let half = if shape.kind == RoofKind::Hip {
+            hl - d_top
+        } else {
+            hl
+        } - PANEL_MARGIN;
+        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+        let n = ((2.0 * half + PANEL_GAP) / (PANEL_ACROSS + PANEL_GAP))
+            .floor()
+            .max(0.0) as u32;
+        n
+    };
+    let mut counts = Vec::new();
+    let mut left = style.solar;
+    for row in 0..rows {
+        if left == 0 {
+            break;
+        }
+        let d_top = PANEL_MARGIN + f64::from(row + 1) * panel_run + f64::from(row) * gap_run;
+        let n = fits(d_top).min(left);
+        if n == 0 {
+            break;
+        }
+        counts.push(n);
+        left -= n;
+    }
+    // From the eaves up, each row where it was counted: a hip's ends narrow the higher rows.
+    let start = PANEL_MARGIN;
+    let point = |s: f64, d: f64, above: f64| -> V3 {
+        let t = low + up * d;
+        let y = if flat { lift } else { rise * d / run };
+        [
+            r.centre[0] + r.u[0] * s + r.v[0] * t,
+            eaves + y + above,
+            r.centre[1] + r.u[1] * s + r.v[1] * t,
+        ]
+    };
+    let tag = Tag {
+        group: NO_GROUP,
+        ..Tag::default()
+    };
+    let mut painter = Painter::new(mesh, PANEL_FRAME, tag);
+    let none = [[0.0; 2]; 4];
+    for (row, &n) in counts.iter().enumerate() {
+        #[allow(clippy::cast_precision_loss)]
+        let d0 = start + row as f64 * (panel_run + gap_run);
+        let d1 = d0 + panel_run;
+        let width = f64::from(n) * (PANEL_ACROSS + PANEL_GAP) - PANEL_GAP;
+        for k in 0..n {
+            let s0 = -width / 2.0 + f64::from(k) * (PANEL_ACROSS + PANEL_GAP);
+            let s1 = s0 + PANEL_ACROSS;
+            let frame = [
+                point(s0, d0, PANEL_LIFT),
+                point(s1, d0, PANEL_LIFT),
+                point(s1, d1, PANEL_LIFT),
+                point(s0, d1, PANEL_LIFT),
+            ];
+            // Not under another wing's roof, where it meets this one.
+            let covered = frame.iter().any(|corner| {
+                others.iter().any(|other| {
+                    other
+                        .height_at([corner[0], corner[2]])
+                        .is_some_and(|h| h > corner[1] - PANEL_LIFT - 1.0)
+                })
+            });
+            if covered {
+                continue;
+            }
+            let up_n = up_normal(&frame);
+            painter.material = PANEL_FRAME;
+            painter.quad(frame, none, Some(up_n), 0.0);
+            // The cells inside the frame, a hair above it.
+            let (inset, inset_run) = (3.0, 3.0 * run / length);
+            let cells = [
+                point(s0 + inset, d0 + inset_run, PANEL_LIFT + 0.6),
+                point(s1 - inset, d0 + inset_run, PANEL_LIFT + 0.6),
+                point(s1 - inset, d1 - inset_run, PANEL_LIFT + 0.6),
+                point(s0 + inset, d1 - inset_run, PANEL_LIFT + 0.6),
+            ];
+            painter.material = PANEL_CELLS;
+            painter.quad(cells, none, Some(up_n), 0.0);
+        }
+    }
 }
 
 /// The outlines of a storey's rooms, their walls and corners, and of its places outside when
@@ -911,5 +1082,116 @@ mod tests {
             RoofStyle::read(&serde_json::json!({ "shape": "dome" })),
             RoofStyle::default()
         );
+        let solar = RoofStyle::read(&serde_json::json!({ "solar": 500, "solar_toward": 90 }));
+        assert_eq!((solar.solar, solar.solar_toward), (MAX_PANELS, Some(90.0)));
+        assert_eq!(
+            RoofStyle::read(&serde_json::json!({ "solar": -3 })).solar,
+            0
+        );
+    }
+
+    #[test]
+    fn solar_panels_lie_on_the_slope_facing_the_sun() {
+        // A wing 1000 × 800 along x: its slopes face ±y on the plan.
+        let r = Rectangle::new([500.0, 400.0], [1.0, 0.0], [500.0, 400.0]);
+        let panels = |toward: Option<f64>, count: u32, kind: RoofKind| -> Mesh {
+            let style = RoofStyle {
+                kind,
+                solar: count,
+                solar_toward: toward,
+                ..RoofStyle::default()
+            };
+            let shape = draw_wing(
+                &mut Mesh::default(),
+                &mut Lines::default(),
+                &r,
+                250.0,
+                &style,
+                1.0,
+            );
+            let mut mesh = Mesh::default();
+            draw_panels(&mut mesh, &r, &shape, &[], &style);
+            mesh
+        };
+        // Facing the top of the plan (−y): every panel on the −y slope, above the eaves.
+        let mesh = panels(Some(0.0), 6, RoofKind::Gable);
+        assert_eq!(mesh.vertex_count(), 6 * 2 * 4);
+        let vertices = &mesh.positions;
+        assert!(
+            vertices.iter().all(|v| v[2] < 400.0 && v[1] > 250.0),
+            "{vertices:?}"
+        );
+        // Facing the bottom: the other slope.
+        let mesh = panels(Some(180.0), 6, RoofKind::Gable);
+        assert!(mesh.positions.iter().all(|v| v[2] > 400.0));
+        // No more than fit; none asked, none drawn.
+        let many = panels(Some(0.0), MAX_PANELS, RoofKind::Hip).vertex_count();
+        assert!(many > 0 && many < MAX_PANELS as usize * 8, "{many}");
+        assert_eq!(panels(None, 0, RoofKind::Gable).vertex_count(), 0);
+        assert!(panels(None, 4, RoofKind::Flat).vertex_count() == 4 * 8);
+    }
+
+    #[test]
+    fn solar_panels_keep_to_their_slope_on_hips_and_by_other_wings() {
+        let r = Rectangle::new([525.0, 475.0], [1.0, 0.0], [525.0, 475.0]);
+        let style = |kind: RoofKind, solar: u32| RoofStyle {
+            kind,
+            solar,
+            solar_toward: Some(180.0),
+            ..RoofStyle::default()
+        };
+        // A hip roof: every panel just above its slope, none past the hip lines towards the ends.
+        for solar in [5, 16, MAX_PANELS] {
+            let hip = style(RoofKind::Hip, solar);
+            let shape = draw_wing(
+                &mut Mesh::default(),
+                &mut Lines::default(),
+                &r,
+                250.0,
+                &hip,
+                1.0,
+            );
+            let mut mesh = Mesh::default();
+            draw_panels(&mut mesh, &r, &shape, &[], &hip);
+            assert!(mesh.vertex_count() > 0);
+            for v in &mesh.positions {
+                let [x, y, z, _] = v.map(f64::from);
+                let roof = shape.height_at([x, z]).expect("on the roof");
+                let above = y - roof;
+                assert!(
+                    (PANEL_LIFT - 0.01..=PANEL_LIFT + 0.61).contains(&above),
+                    "{solar} panels: {above} above the roof at {v:?}"
+                );
+            }
+        }
+        // Another wing meeting this one across its south slope: no panel under its roof.
+        let gable = style(RoofKind::Gable, MAX_PANELS);
+        let shape = draw_wing(
+            &mut Mesh::default(),
+            &mut Lines::default(),
+            &r,
+            250.0,
+            &gable,
+            1.0,
+        );
+        let cross = Rectangle::new([525.0, 850.0], [0.0, 1.0], [200.0, 400.0]);
+        let other = draw_wing(
+            &mut Mesh::default(),
+            &mut Lines::default(),
+            &cross,
+            250.0,
+            &gable,
+            1.0,
+        );
+        let (mut alone, mut beside) = (Mesh::default(), Mesh::default());
+        draw_panels(&mut alone, &r, &shape, &[], &gable);
+        draw_panels(&mut beside, &r, &shape, &[other], &gable);
+        assert!(beside.vertex_count() > 0 && beside.vertex_count() < alone.vertex_count());
+        for v in &beside.positions {
+            let [x, y, z, _] = v.map(f64::from);
+            if let Some(h) = other.height_at([x, z]) {
+                assert!(h <= y - PANEL_LIFT + 1.0, "under the other wing at {v:?}");
+            }
+        }
     }
 }

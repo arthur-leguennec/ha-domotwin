@@ -221,12 +221,20 @@ async def test_a_file_stays_a_day_after_its_last_use(
 
     old = time.time() - 2 * 86_400
     os.utime(path, (old, old))
-    # Still used: its time is now.
+    # Still used: its time is now (the files are looked at once the save is answered).
     await save({"@model:m-1": model(digest)})
+    for _ in range(200):
+        if path.stat().st_mtime > time.time() - 60:
+            break
+        await asyncio.sleep(0.01)
     assert path.stat().st_mtime > time.time() - 60
     # Just forgotten (an undo may bring it back): kept for a day.
     await save({})
     assert path.exists()
     os.utime(path, (old, old))
     await save({})
+    for _ in range(200):
+        if not path.exists():
+            break
+        await asyncio.sleep(0.01)
     assert not path.exists()

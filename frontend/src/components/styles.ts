@@ -77,6 +77,26 @@ export const baseStyles = css`
     outline-offset: 2px;
   }
 
+  /*
+   * A dialog never scrolls sideways: its column no wider than it, its fields neither, a long word
+   * cut (its own styles may lay it out otherwise).
+   */
+  [role="dialog"],
+  [role="alertdialog"] {
+    grid-template-columns: minmax(0, 1fr);
+    overflow-wrap: break-word;
+  }
+  /* Without weight (:where): a dialog's own rules for its fields come first. */
+  :where([role="dialog"]) :where(input:not([type="checkbox"], [type="radio"]), select, textarea) {
+    box-sizing: border-box;
+    max-width: 100%;
+    min-width: 0;
+  }
+  /* A fieldset is otherwise as wide as what it holds. */
+  :where([role="dialog"]) :where(fieldset) {
+    min-inline-size: 0;
+  }
+
   /* A dialog takes the focus to hand it on: no ring around all of it. */
   [role="dialog"]:focus,
   [role="alertdialog"]:focus {

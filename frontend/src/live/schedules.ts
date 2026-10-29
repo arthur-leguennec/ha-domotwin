@@ -34,7 +34,8 @@ export function schedulable(entity: string): boolean {
 export interface Schedule {
   id: string;
   entities: string[];
-  action: "on" | "off";
+  /** Switch on, off, or put the heating back as it was (D-091). */
+  action: "on" | "off" | "climate";
   at: string;
   /** For "on": when the devices are switched off again. */
   until: string | null;
@@ -42,6 +43,8 @@ export interface Schedule {
   brightness: number | null;
   /** Switched on already, waiting for `until`. */
   started: boolean;
+  /** For "climate": what the heating is put back to. */
+  climate?: Record<string, string | number>;
 }
 
 /** The actions of a `domotwin/schedules/subscribe` event, read leniently. */
@@ -55,7 +58,7 @@ export function readSchedules(raw: unknown): Schedule[] {
       typeof read.id !== "string" ||
       !Array.isArray(read.entities) ||
       !read.entities.every((entity) => typeof entity === "string") ||
-      (read.action !== "on" && read.action !== "off") ||
+      (read.action !== "on" && read.action !== "off" && read.action !== "climate") ||
       typeof read.at !== "string" ||
       Number.isNaN(Date.parse(read.at))
     ) {
@@ -70,13 +73,25 @@ export function readSchedules(raw: unknown): Schedule[] {
         until: typeof read.until === "string" ? read.until : null,
         brightness: typeof read.brightness === "number" ? read.brightness : null,
         started: read.started === true,
+        ...(read.action === "climate" ? { climate: climateOf(read.climate) } : {}),
       },
     ];
   });
 }
 
+/** What the heating is put back to, read leniently. */
+function climateOf(raw: unknown): Record<string, string | number> {
+  if (typeof raw !== "object" || raw === null) return {};
+  return Object.fromEntries(
+    Object.entries(raw).filter(
+      (entry): entry is [string, string | number] =>
+        typeof entry[1] === "string" || typeof entry[1] === "number",
+    ),
+  );
+}
+
 /** An action's next step: its start, or its end once started. */
-export function nextStep(item: Schedule): { action: "on" | "off"; at: Date } {
+export function nextStep(item: Schedule): { action: Schedule["action"]; at: Date } {
   if (item.started && item.until) return { action: "off", at: new Date(item.until) };
   return { action: item.action, at: new Date(item.at) };
 }

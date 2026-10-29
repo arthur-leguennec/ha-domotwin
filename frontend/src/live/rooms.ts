@@ -76,9 +76,18 @@ function rank(id: string): number {
   return at === -1 ? ORDER.length : at;
 }
 
-/** Whether an entity has a place in the Rooms tab. */
+/** Whether an entity has a place in the Rooms tab and its search. */
 export function listed(hass: HomeAssistant, id: string): boolean {
   return !LEFT_OUT.has(domainOf(id)) && shownEntity(hass, id);
+}
+
+/**
+ * Whether an entity is one of DomoTwin's own (a room's people and upkeep, someone's room): not
+ * among a room's devices, as it says what DomoTwin already shows; found by a search all the same
+ * (a history report's).
+ */
+export function ownEntity(hass: HomeAssistant, id: string): boolean {
+  return hass.entities?.[id]?.platform === "domotwin";
 }
 
 /** Entities in the Rooms tab's order: by kind, then by name. */
@@ -97,11 +106,12 @@ export function sortEntities(
 function byArea(hass: HomeAssistant, unseen: Unseen): Map<string, string[]> {
   const areas = new Map<string, string[]>();
   for (const entry of Object.values(hass.entities ?? {})) {
-    if (!entry || !listed(hass, entry.entity_id) || unseen.entities.has(entry.entity_id)) continue;
-    const area = areaOf(hass, entry.entity_id) ?? "";
+    const id = entry?.entity_id;
+    if (!id || !listed(hass, id) || ownEntity(hass, id) || unseen.entities.has(id)) continue;
+    const area = areaOf(hass, id) ?? "";
     const list = areas.get(area);
-    if (list) list.push(entry.entity_id);
-    else areas.set(area, [entry.entity_id]);
+    if (list) list.push(id);
+    else areas.set(area, [id]);
   }
   return areas;
 }

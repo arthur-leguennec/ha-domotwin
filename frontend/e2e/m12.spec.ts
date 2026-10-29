@@ -142,13 +142,16 @@ test.describe("the panel's menu", () => {
     await more.focus();
     await page.keyboard.press("Enter");
     await expect(more).toHaveAttribute("aria-expanded", "true");
+    // The import first (in the More menu of every tab), then the export.
+    await expect(page.getByTestId("more-import")).toBeFocused();
+    await page.keyboard.press("ArrowDown");
     await expect(page.getByTestId("export")).toBeFocused();
     await page.keyboard.press("ArrowDown");
     await expect(page.getByTestId("settings")).toBeFocused();
     await page.keyboard.press("End");
     await expect(page.getByTestId("sandbox-menu")).toBeFocused();
     await page.keyboard.press("ArrowDown");
-    await expect(page.getByTestId("export")).toBeFocused();
+    await expect(page.getByTestId("more-import")).toBeFocused();
     await page.keyboard.press("Escape");
     await expect(page.getByTestId("more-menu")).toHaveCount(0);
     await expect(more).toBeFocused();

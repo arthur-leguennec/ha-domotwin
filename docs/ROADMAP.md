@@ -80,6 +80,7 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M50       | A workplace's energy outside its opening hours             | ✅     |
 | M51       | Meeting rooms: free or taken, booked                       | ✅     |
 | M52       | Several sites in one Home Assistant                        | ✅     |
+| M53       | What trying 0.7.0 showed: undo, coming back, the demo      | ✅     |
 | 0.8.0     | Eighth release: the answers, then the workplace's three    | ⏳     |
 
 M5 to M11 were added after M3b (`DECISIONS.md`, D-022): what people expect of a 3D home dashboard,
@@ -2192,4 +2193,11 @@ its energy, its meeting rooms, several sites.
   chooses the site shown, remembered by each screen, and the 3D view, the Home tab (people
   counted, lamps, openings, hours, meeting rooms) and the Rooms tab follow it. See [a
   workplace](workplace.md).
+- ✅ **M53, what trying 0.7.0 showed** (D-091): a shortcut undone from a bar, asked on its own
+  tile; leaving home, when one is back (in, at, on; the usual return first), the heating back as
+  it was before; the Rooms tab without DomoTwin's own sensors; the home battery's charge never a phone's;
+  the import and the upkeep list in the More menu of every tab; dialogs that do not scroll
+  sideways and close with Escape; a layer menu of what has something to show; the rooms the sun
+  comes into; an upkeep badge's count; a simpler radio coverage; solar panels on the roof; and in
+  the demo house, an overdue task, two cameras and its panels.
 - ⏳ **Release 0.8.0**: once they are in, tried in a fresh Home Assistant.

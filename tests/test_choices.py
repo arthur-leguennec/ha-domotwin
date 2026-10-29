@@ -13,6 +13,7 @@ from pytest_homeassistant_custom_component.typing import WebSocketGenerator
 from custom_components.domotwin.choices import SHORTCUT_ICONS, STEP_DOES, STEP_VALUES
 from custom_components.domotwin.const import (
     CHOICES_STORAGE_KEY,
+    MAX_BACK_AHEAD,
     MAX_FAVOURITES,
     MAX_LISTED,
     MAX_SHORTCUT_NAME,
@@ -139,6 +140,11 @@ def _shortcut(**change: Any) -> dict[str, Any]:
         {"set": _shortcut(steps=[{"kind": "lights", "do": "on", "value": 0}])},
         {"set": _shortcut(steps=[{"kind": "covers", "do": "position"}])},
         {"set": _shortcut(steps=[{"kind": "climate", "do": "temperature", "value": 200}])},
+        # Leaving home (D-091): a usual return each day of the week, a little ahead of it.
+        {"set": _shortcut(back={"usual": ["18:00"] * 6})},
+        {"set": _shortcut(back={"usual": ["24:00", *[None] * 6]})},
+        {"set": _shortcut(back={"ahead": 600})},
+        {"set": _shortcut(back={"when": "soon"})},
         # One change, and a move says where.
         {},
         {"move": "a"},
@@ -254,6 +260,7 @@ async def test_shortcuts_are_kept(
             "icon": "moon",
             "quiet": True,
             "confirm": True,
+            "back": {"usual": ["18:30", "18:30", None, "18:30", "17:00", None, None], "ahead": 45},
             "steps": [
                 {"kind": "covers", "do": "position", "area": "living_room", "value": 20},
                 {"kind": "run", "do": "run", "entities": ["scene.evening"]},
@@ -273,6 +280,7 @@ async def test_shortcuts_are_kept(
     kept = answer["result"]["shortcuts"]
     assert [s["id"] for s in kept] == ["lights", "night", "car"]
     assert kept[1]["steps"][0]["value"] == 20
+    assert kept[1]["back"]["usual"][4] == "17:00"
     # Kept with the rest of the user's choices, read back as saved.
     await hass.async_block_till_done()
     assert (await _send(client, {"type": "domotwin/choices/get"}))["result"]["shortcuts"] == kept
@@ -389,4 +397,5 @@ def test_the_frontend_makes_the_same_shortcuts() -> None:
         "MAX_STEPS": str(MAX_STEPS),
         "MAX_LISTED": str(MAX_LISTED),
         "MAX_NAME": str(MAX_SHORTCUT_NAME),
+        "MAX_BACK_AHEAD": str(MAX_BACK_AHEAD),
     }

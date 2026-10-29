@@ -65,6 +65,19 @@ describe("upkeep (D-033)", () => {
       ["warranty_ending", "warning"],
     ]);
     expect(badges.get("fridge")?.map((b) => b.kind)).toEqual(["upkeep_due"]);
+    // How many tasks wait, when more than one; one alone says none.
+    expect(badges.get("washer")?.[0]?.text).toBeUndefined();
+    const both = upkeepBadges({
+      washer: {
+        state: "overdue",
+        warranty: null,
+        tasks: [
+          { id: "filter", due: "2026-10-20", state: "overdue", days: -4 },
+          { id: "descale", due: "2026-10-30", state: "due", days: 6 },
+        ],
+      },
+    });
+    expect(both.get("washer")?.map((b) => [b.kind, b.text])).toEqual([["upkeep_overdue", "2"]]);
     expect(badges.has("sofa")).toBe(false);
     expect(upkeepShades(standings)).toEqual({ washer: "overdue", fridge: "due" });
     expect(readStandings("not json")).toEqual({});

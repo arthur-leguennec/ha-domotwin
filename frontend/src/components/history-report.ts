@@ -51,7 +51,7 @@ import { numberOf } from "../live/layers";
 import { NOTHING_UNSEEN, seen, type Unseen } from "../live/privacy";
 import { searchEntities } from "../live/rooms";
 import { define, fire } from "./define";
-import { fromField } from "./dialog";
+import { fieldKeepsEscape } from "./dialog";
 import { icon } from "./icon";
 import { copyText, saveText } from "./save";
 import { baseStyles } from "./styles";
@@ -477,7 +477,7 @@ export class DomoTwinHistory extends LitElement {
 
   /** Escape closes it, as it closes a sheet, wherever the focus is but in a field. */
   private readonly onKey = (event: KeyboardEvent): void => {
-    if (event.key === "Escape" && !fromField(event)) this.close();
+    if (event.key === "Escape" && !fieldKeepsEscape(event)) this.close();
   };
 
   override connectedCallback(): void {

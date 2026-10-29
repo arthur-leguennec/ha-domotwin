@@ -117,7 +117,7 @@ export class DomoTwinGuests extends LitElement {
       }
       .dialog {
         pointer-events: auto;
-        width: min(480px, calc(100% - 32px));
+        width: min(560px, calc(100% - 32px));
         max-height: calc(100% - 32px);
         overflow: auto;
         box-sizing: border-box;
@@ -200,8 +200,11 @@ export class DomoTwinGuests extends LitElement {
         gap: 4px;
         align-items: center;
       }
-      .link input {
+      /* Their room in the row, whatever their contents' width. */
+      .link input,
+      .link select {
         flex: 1;
+        width: 0;
       }
       .footer {
         display: flex;
@@ -246,9 +249,10 @@ export class DomoTwinGuests extends LitElement {
         color: var(--secondary-text-color, #5f6368);
         font-size: 0.85rem;
       }
+      /* Side by side where they fit, one above the other on a phone. */
       .times {
         display: grid;
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr));
         gap: 8px;
       }
       .devices {

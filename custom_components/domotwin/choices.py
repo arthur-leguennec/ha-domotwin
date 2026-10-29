@@ -21,6 +21,7 @@ from .compat import vol
 from .const import (
     CHOICES_STORAGE_KEY,
     CHOICES_STORAGE_VERSION,
+    MAX_BACK_AHEAD,
     MAX_CALENDARS,
     MAX_FAVOURITES,
     MAX_HOME_CARDS,
@@ -134,6 +135,18 @@ STEP_SCHEMA = vol.All(
 )
 
 
+#: When one is usually back, each day of the week from Monday: "HH:MM", or none that day.
+BACK_SCHEMA = vol.Schema(
+    {
+        vol.Optional("usual"): vol.All(
+            [vol.Any(None, vol.All(str, vol.Match(r"^([01]\d|2[0-3]):[0-5]\d$")))],
+            vol.Length(min=7, max=7),
+        ),
+        vol.Optional("ahead"): vol.All(vol.Coerce(int), vol.Range(min=0, max=MAX_BACK_AHEAD)),
+    }
+)
+
+
 def _shortcut_does(shortcut: dict[str, Any]) -> dict[str, Any]:
     """A shortcut does something, or shows something."""
     if not shortcut["steps"] and "show" not in shortcut:
@@ -151,6 +164,8 @@ SHORTCUT_SCHEMA = vol.All(
             vol.Optional("show"): cv.entity_id,
             vol.Optional("quiet"): bool,
             vol.Optional("confirm"): bool,
+            # Leaving home: asks when one is back, the heating back as it was before (D-091).
+            vol.Optional("back"): BACK_SCHEMA,
         }
     ),
     _shortcut_does,

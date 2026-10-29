@@ -60,7 +60,7 @@ export class DomoTwinPrivateRooms extends LitElement {
       }
       .dialog {
         pointer-events: auto;
-        width: min(480px, calc(100% - 32px));
+        width: min(540px, calc(100% - 32px));
         max-height: calc(100% - 32px);
         overflow: auto;
         box-sizing: border-box;

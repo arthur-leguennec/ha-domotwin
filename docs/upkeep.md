@@ -39,13 +39,15 @@ Administrators write the card with **Add an upkeep card**, then change it with *
 
 ## In the 3D view
 
-- **Badges**: a wrench on a piece with a task due soon (amber) or overdue (red), a shield on one
-  whose warranty ends within 30 days. They join the devices' badges, two at most a piece, the most
-  urgent first. A tap on them opens the piece's card.
-- **The upkeep layer** (layer menu, **Upkeep**) tints the pieces with tasks: green when all are
-  fine, amber when one is due soon, red when one is overdue. Its list shows every task of the
-  storey by date, the late first, with **Done**, and the warranties ending soon. A tap on a line
-  frames its piece.
+- **Badges**: a wrench on a piece with a task due soon (amber) or overdue (red), with how many
+  tasks wait when more than one, and a shield on one whose warranty ends within 30 days. They join
+  the devices' badges, two at most a piece, the most urgent first. A tap on them opens the piece's
+  card.
+- **The upkeep list** (**Upkeep** in the More menu, on any tab) opens on the 3D view: it tints the
+  pieces with tasks green when all are fine, amber when one is due soon, red when one is overdue,
+  and lists every task of the storey by date, the late first, with **Done**, and the warranties
+  ending soon. A tap on a line frames its piece. It is no longer a layer of the layer menu
+  (D-091); a card's `layer: upkeep` still opens it.
 
 ## From an IFC file
 

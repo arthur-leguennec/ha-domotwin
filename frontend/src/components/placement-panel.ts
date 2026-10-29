@@ -41,6 +41,7 @@ import {
   type RadioReadings,
   type RoomCoverage,
 } from "../live/placement";
+import { radioKinds } from "../live/radios";
 import { storeyLevels, storeyName } from "../live/storeys";
 import { define, fire } from "./define";
 import { icon } from "./icon";
@@ -57,6 +58,8 @@ const RADIO_KEY = "domotwin-coverage-radio";
  */
 const WIFI_EVERY_MS = 30_000;
 const LEVELS: readonly CoverageLevel[] = ["good", "fair", "weak", "out"];
+/** The spots offered for the next radio: the best few, not a list to read. */
+const MAX_SPOTS = 3;
 const RADIO_ICONS: Record<RadioKind, string> = {
   bluetooth: mdiBluetooth,
   zigbee: mdiRouterWireless,
@@ -266,6 +269,24 @@ export class DomoTwinPlacement extends LitElement {
       .level {
         white-space: nowrap;
       }
+      /* A room's line; what its level is said from, a tap away. */
+      li details {
+        flex: 1;
+        min-width: 0;
+      }
+      li summary {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+        cursor: pointer;
+        list-style: none;
+      }
+      li summary::-webkit-details-marker {
+        display: none;
+      }
+      li .detail {
+        padding-inline-start: 18px;
+      }
       button.spot {
         display: flex;
         align-items: flex-start;
@@ -388,10 +409,13 @@ export class DomoTwinPlacement extends LitElement {
     return translatorFor(this.hass);
   }
 
-  /** The radios this home can be advised on: Zigbee with ZHA set up. */
+  /**
+   * The radios this home can be advised on: Bluetooth where Home Assistant has it, Zigbee with
+   * ZHA, and Wi-Fi always: its access points are placed here, the first one too.
+   */
   private get kinds(): RadioKind[] {
-    const zha = (this.hass?.config?.components ?? []).includes("zha");
-    return zha ? ["bluetooth", "zigbee", "wifi"] : ["bluetooth", "wifi"];
+    const kinds = radioKinds(this.hass, (this.saved ?? this.accessPoints).length);
+    return kinds.includes("wifi") ? kinds : [...kinds, "wifi"];
   }
 
   /** Whether an access point is being placed (the view hands it the next tap on the floor). */
@@ -807,7 +831,6 @@ export class DomoTwinPlacement extends LitElement {
             </button>`,
         )}
       </div>
-      <p class="hint">${t.t("placement.model")}</p>
       <div class="legend">
         ${LEVELS.map((level) => html`<span class="swatch ${level}">${t.t(`placement.${level}`)}</span>`)}
       </div>
@@ -822,7 +845,11 @@ export class DomoTwinPlacement extends LitElement {
     const check = advice.check;
     const agreement = advice.agreement;
     const placedSomewhere = advice.radios.length > 0;
-    return html`${
+    const spots = this.spots().slice(0, MAX_SPOTS);
+    const how = html`<details class="how">
+      <summary>${t.t("placement.how")}</summary>
+      <p class="hint">${t.t("placement.model")}</p>
+      ${
         check
           ? html`<p class="hint" data-testid="placement-check">
               ${t.tp("placement.check", check.measurements, {
@@ -843,19 +870,20 @@ export class DomoTwinPlacement extends LitElement {
             </p>`
           : nothing
       }
-      <h3>${t.t(`placement.next_${radio}`)}</h3>
+      ${spots.length > 0 ? html`<p class="hint">${t.t("placement.alone")}</p>` : nothing}
       ${
-        this.spots().length === 0
+        spots.length > 0 && placedSomewhere && radio !== "bluetooth"
+          ? html`<p class="hint">${t.t(`placement.reach_${radio}`)}</p>`
+          : nothing
+      }
+    </details>`;
+    return html`<h3>${t.t(`placement.next_${radio}`)}</h3>
+      ${
+        spots.length === 0
           ? html`<p class="hint" data-testid="placement-covered">${t.t("placement.covered")}</p>`
           : html`<ol data-testid="placement-spots">
-                ${this.spots().map((spot, k) => this.renderSpot(spot, k + 1))}
+                ${spots.map((spot, k) => this.renderSpot(spot, k + 1))}
               </ol>
-              <p class="hint">${t.t("placement.alone")}</p>
-              ${
-                placedSomewhere && radio !== "bluetooth"
-                  ? html`<p class="hint">${t.t(`placement.reach_${radio}`)}</p>`
-                  : nothing
-              }
               ${
                 this.storey === undefined
                   ? html`<p class="hint">${t.t("placement.one_storey")}</p>`
@@ -867,7 +895,8 @@ export class DomoTwinPlacement extends LitElement {
         ${worstFirst(advice.rooms.filter((room) => !this.closed.has(room.id))).map((room) =>
           this.renderRoom(room),
         )}
-      </ul>`;
+      </ul>
+      ${how}`;
   }
 
   private renderSpot(spot: AdvisedSpot, rank: number): TemplateResult {
@@ -884,21 +913,26 @@ export class DomoTwinPlacement extends LitElement {
         <span class="rank">${rank}</span>
         <span class="grow"
           ><span>${this.spotPlace(spot)}</span>
-          <ul class="changes">
-            ${spot.changes.map(
-              (change) =>
-                html`<li class=${change.to}>
-                  <span class="dot"></span
-                  ><small
-                    >${t.t("placement.change", {
-                      room: this.roomName(change.room, this.roomStorey(change.room)),
-                      from: t.t(`placement.${change.from}`),
-                      to: t.t(`placement.${change.to}`),
-                    })}</small
-                  >
-                </li>`,
-            )}
-          </ul></span
+          <small>${t.tp("placement.better", spot.changes.length)}</small>
+          ${
+            this.selected === rank
+              ? html`<ul class="changes">
+                  ${spot.changes.map(
+                    (change) =>
+                      html`<li class=${change.to}>
+                        <span class="dot"></span
+                        ><small
+                          >${t.t("placement.change", {
+                            room: this.roomName(change.room, this.roomStorey(change.room)),
+                            from: t.t(`placement.${change.from}`),
+                            to: t.t(`placement.${change.to}`),
+                          })}</small
+                        >
+                      </li>`,
+                  )}
+                </ul>`
+              : nothing
+          }</span
         >
       </button>
     </li>`;
@@ -921,13 +955,16 @@ export class DomoTwinPlacement extends LitElement {
       : room.predicted !== undefined
         ? t.t("placement.predicted", { signal: this.dbm(room.predicted) })
         : t.t("placement.nothing");
+    // The room and its level; what it is said from a tap away (a touch, a reader reach it too).
     return html`<li class=${room.level} data-room=${room.id}>
-      <span class="dot"></span>
-      <span class="grow"
-        ><span>${this.roomName(room.id, room.storey)}</span>
-        <small data-kind=${measured ? "measured" : "predicted"}>${detail}</small></span
-      >
-      <span class="level">${t.t(`placement.${room.level}`)}</span>
+      <details>
+        <summary>
+          <span class="dot"></span>
+          <span class="grow">${this.roomName(room.id, room.storey)}</span>
+          <span class="level">${t.t(`placement.${room.level}`)}</span>
+        </summary>
+        <small class="detail" data-kind=${measured ? "measured" : "predicted"}>${detail}</small>
+      </details>
     </li>`;
   }
 

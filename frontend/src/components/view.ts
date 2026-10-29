@@ -113,6 +113,7 @@ import {
   holdAction,
   primaryEntity,
   readBindings,
+  roleOf,
   roomArea,
   tapAction,
   type Action,
@@ -128,11 +129,15 @@ import {
   networkAvailable,
   formatHeat,
   formatPower,
+  heatKindsFound,
   roomLayers,
+  type HeatKind,
   type LayerName,
   type PlanRoom,
 } from "../live/layers";
 import { deviceBadges, mergeBadges, type Badge, type BadgeKind } from "../live/devices";
+import { radioKinds } from "../live/radios";
+import { sunNow, sunnyRooms } from "../live/sun";
 import { scheduleBadges, timeStyle, whenText, type Schedule } from "../live/schedules";
 import {
   readStandings,
@@ -353,6 +358,14 @@ type NetworkMap = HTMLElement & {
   reproject(scale: number): void;
   selectLink(a: string, b: string): void;
 };
+
+/** The badges that show their text: a battery's level, a time, how many upkeep tasks wait. */
+const TEXT_BADGES: ReadonlySet<BadgeKind> = new Set<BadgeKind>([
+  "battery_low",
+  "scheduled",
+  "upkeep_due",
+  "upkeep_overdue",
+]);
 
 /** What the view asks of the radio coverage (`placement-panel.ts`, loaded on demand). */
 type PlacementSheet = HTMLElement & {
@@ -2061,7 +2074,15 @@ export class DomoTwinView extends LitElement {
   private applyRoofStyle(build = true): void {
     const engine = this.engine;
     if (!engine) return;
-    const json = JSON.stringify(this.roofStyle ?? {});
+    const style = this.roofStyle ?? {};
+    // Solar panels face the equator: south, north of it, and north south of it; on the plan,
+    // where that is from its north.
+    const south = (this.hass?.config?.latitude ?? 0) >= 0;
+    const north = Number.isFinite(this.north) ? this.north : 0;
+    // To the nearest eighth of a turn: the north's slider, dragged, builds the home again a few
+    // times, not at every degree (the slope facing it changes no more often).
+    const toward = (Math.round((north + (south ? 180 : 0)) / 45) * 45) % 360;
+    const json = JSON.stringify(style.solar ? { ...style, solar_toward: toward } : style);
     if (this.roofStyleSent?.engine === engine && this.roofStyleSent.json === json) return;
     this.roofStyleSent = { engine, json };
     if (engine.setRoofStyle(json, build)) {
@@ -2202,9 +2223,11 @@ export class DomoTwinView extends LitElement {
       this.readPeople();
     }
     // The room chip leaves room for the legend (`renderLegend`), wider with the energy or a peak.
-    if (this.valueLayer && !this.editingAny) {
-      const energy = this.layer === "power" && this.energyShown() !== undefined;
-      this.setAttribute("legend", energy ? "energy" : this.shownLayer === "peak" ? "peak" : "");
+    // The sun's legend only where the sun's position is known (`renderSunLegend`).
+    if ((this.valueLayer || (this.realSun && sunNow(this.hass))) && !this.editingAny) {
+      const energy = this.valueLayer && this.layer === "power" && this.energyShown() !== undefined;
+      const peak = this.valueLayer && this.shownLayer === "peak";
+      this.setAttribute("legend", energy ? "energy" : peak ? "peak" : "");
     } else {
       this.removeAttribute("legend");
     }
@@ -2262,7 +2285,14 @@ export class DomoTwinView extends LitElement {
       this.applyLayers();
     }
     if (changed.has("north") || own.has("realSun") || changed.has("hass")) this.applySun();
-    if (changed.has("roofStyle")) this.applyRoofStyle();
+    // Panels on the roof follow the home's latitude too, should it come late.
+    if (
+      changed.has("roofStyle") ||
+      changed.has("north") ||
+      (changed.has("hass") && this.roofStyle?.solar)
+    ) {
+      this.applyRoofStyle();
+    }
     if (
       changed.has("hass") ||
       changed.has("weather") ||
@@ -5833,6 +5863,86 @@ export class DomoTwinView extends LitElement {
     return shown.length > 0 ? `${t.t("layers.menu")}: ${shown.join(", ")}` : t.t("layers.menu");
   }
 
+  /**
+   * The layers the menu offers: those this viewer may see that have something to show (a value
+   * of their kind in some room). The power of the pieces is the Energy tab's, and the upkeep
+   * list the More menu's: not offered here, but listed while shown.
+   */
+  private menuLayers(): LayerName[] {
+    const hass = this.hass;
+    const found = hass
+      ? heatKindsFound(hass, this.bindings ?? NO_BINDINGS, this.rooms)
+      : new Set<HeatKind>();
+    const shown = this.shownLayer;
+    return LAYER_NAMES.filter((layer) => {
+      if (layer === shown) return true;
+      if ((HEAT_KINDS as readonly string[]).includes(layer)) return found.has(layer as HeatKind);
+      switch (layer) {
+        // The power is the Energy tab's (D-049).
+        case "power":
+          return false;
+        // The upkeep list is the panel's More menu's, for its administrators; a card's, and
+        // others, find it here.
+        case "upkeep":
+          return (
+            !(this.roomTab && hass?.user?.is_admin === true) &&
+            Object.keys(this.upkeep?.pieces ?? {}).length > 0
+          );
+        case "network":
+          return this.networkAllowed;
+        case "coverage":
+          return coverageAvailable(this.hass) && this.coverageOffered();
+        case "automations":
+          return automationsAvailable(this.hass);
+        case "peak":
+          return peaksAvailable(this.hass);
+        default:
+          return true;
+      }
+    });
+  }
+
+  /** The radio coverage has something to cover (D-066): a radio of a kind it reads. */
+  private coverageOffered(): boolean {
+    return radioKinds(this.hass, this.accessPoints.length).length > 0;
+  }
+
+  /** Some piece shows a camera's view (D-038): the menu offers to hide or show them. */
+  private hasCameras(): boolean {
+    const hass = this.hass;
+    return Object.values(this.bindings?.elements ?? {}).some((binding) =>
+      binding.entities.some((entity) => roleOf(entity, hass) === "camera"),
+    );
+  }
+
+  /**
+   * Where the sun comes in now (D-023), while sunlight through the windows is on: the rooms whose
+   * windows face it, as the light moves too slowly to be seen.
+   */
+  private renderSunLegend(t: Translator): TemplateResult | typeof nothing {
+    const sun = sunNow(this.hass);
+    if (!sun) return nothing;
+    let text: string;
+    if (sun.elevation <= 0) {
+      text = t.t("layers.sun_down");
+    } else {
+      const plans = this.loadedHome ? this.loadedHome.map((storey) => storey.plan) : [this.plan];
+      const names = new Map(this.rooms.map((room) => [room.id, room.name || room.id]));
+      const sunny = plans
+        .flatMap((plan) => sunnyRooms(plan, sun, this.north))
+        .filter((id) => !this.closed.has(id))
+        .map((id) => names.get(id) ?? id);
+      text =
+        sunny.length > 0
+          ? t.t("layers.sun_rooms", { rooms: [...new Set(sunny)].join(", ") })
+          : t.t("layers.sun_none");
+    }
+    return html`<div class="legend glass" data-testid="sun-legend" role="note">
+      <span class="name">${t.t("layers.sun")}</span>
+      <span>${text}</span>
+    </div>`;
+  }
+
   /** The layer menu: one layer at a time, and sunlight through the windows. */
   private renderLayerMenu(): TemplateResult {
     const t = this.translator;
@@ -5850,14 +5960,7 @@ export class DomoTwinView extends LitElement {
       }}
     >
       <div class="group" role="group" aria-label=${t.t("layers.menu")}>
-        ${LAYER_NAMES.filter(
-          (layer) =>
-            (layer !== "network" || this.networkAllowed) &&
-            (layer !== "coverage" || coverageAvailable(this.hass)) &&
-            (layer !== "automations" || automationsAvailable(this.hass)) &&
-            (layer !== "upkeep" || this.upkeep !== undefined) &&
-            (layer !== "peak" || peaksAvailable(this.hass)),
-        ).map(
+        ${this.menuLayers().map(
           (layer) =>
             html`<button
               role="menuitemradio"
@@ -5893,17 +5996,21 @@ export class DomoTwinView extends LitElement {
       >
         ${t.t("layers.badges")}
       </button>
-      <button
-        role="menuitemcheckbox"
-        data-testid="show-cameras"
-        aria-checked=${this.showCameras ? "true" : "false"}
-        @click=${() => {
-          this.layersOpen = false;
-          this.showCameras = !this.showCameras;
-        }}
-      >
-        ${t.t("layers.cameras")}
-      </button>
+      ${
+        this.hasCameras()
+          ? html`<button
+              role="menuitemcheckbox"
+              data-testid="show-cameras"
+              aria-checked=${this.showCameras ? "true" : "false"}
+              @click=${() => {
+                this.layersOpen = false;
+                this.showCameras = !this.showCameras;
+              }}
+            >
+              ${t.t("layers.cameras")}
+            </button>`
+          : nothing
+      }
       ${
         this.namesShown
           ? html`<button
@@ -6097,7 +6204,7 @@ export class DomoTwinView extends LitElement {
             (badge) =>
               html`<span class="badge ${badge.tone} ${badge.kind}" data-kind=${badge.kind}
                 >${icon(badgeIcon(badge))}${
-                  (badge.kind === "battery_low" || badge.kind === "scheduled") && badge.text
+                  TEXT_BADGES.has(badge.kind) && badge.text
                     ? html`<small>${badge.text}</small>`
                     : nothing
                 }</span
@@ -6151,7 +6258,8 @@ export class DomoTwinView extends LitElement {
   private renderLegend(): TemplateResult | typeof nothing {
     const t = this.translator;
     const layer = this.layer;
-    if (!this.valueLayer || this.editingAny) return nothing;
+    if (this.editingAny) return nothing;
+    if (!this.valueLayer) return this.realSun ? this.renderSunLegend(t) : nothing;
     const name = t.t(`layers.${layer}`);
     if (layer === "peak") {
       const peak = this.peakShown;

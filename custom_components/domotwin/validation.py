@@ -288,6 +288,8 @@ ACCENT: Final = re.compile(r"#[0-9a-fA-F]{6}")
 #: The roofs' shapes and slopes (degrees), as the engine draws them (D-077).
 ROOF_SHAPES: Final = ("gable", "hip", "shed", "flat")
 ROOF_PITCH: Final = (5, 60)
+#: The most solar panels a roof holds (D-077).
+ROOF_PANELS: Final = 60
 
 
 def validate_settings(settings: Any) -> dict[str, Any]:
@@ -543,10 +545,13 @@ def _roof(roof: Any) -> dict[str, Any]:
     """How the roofs are drawn (D-077).
 
     `{"shape"?: "gable" | "hip" | "shed" | "flat", "pitch"?: degrees from 5 to 60, "color"?:
-    "#rrggbb"}`; what is left out is drawn as by default.
+    "#rrggbb", "solar"?: how many solar panels lie on it, 0 to 60}`; what is left out is drawn as
+    by default.
     """
-    if not isinstance(roof, dict) or set(roof) - {"shape", "pitch", "color"}:
-        raise InvalidPayloadError("invalid_settings", "`roof` has `shape`, `pitch` and `color`")
+    if not isinstance(roof, dict) or set(roof) - {"shape", "pitch", "color", "solar"}:
+        raise InvalidPayloadError(
+            "invalid_settings", "`roof` has `shape`, `pitch`, `color` and `solar`"
+        )
     checked: dict[str, Any] = {}
     if "shape" in roof:
         if roof["shape"] not in ROOF_SHAPES:
@@ -567,6 +572,13 @@ def _roof(roof: Any) -> dict[str, Any]:
         if not isinstance(color, str) or not ACCENT.fullmatch(color):
             raise InvalidPayloadError("invalid_settings", "`roof.color` must be a colour #rrggbb")
         checked["color"] = color.lower()
+    if "solar" in roof:
+        solar = roof["solar"]
+        if not isinstance(solar, int) or isinstance(solar, bool) or not 0 <= solar <= ROOF_PANELS:
+            raise InvalidPayloadError(
+                "invalid_settings", f"`roof.solar` is a number of panels from 0 to {ROOF_PANELS}"
+            )
+        checked["solar"] = solar
     return checked
 
 

@@ -24,6 +24,7 @@ import type { PeopleSettings } from "../live/people";
 import type { Choices } from "../live/choices";
 import type { ConfigKind } from "../live/config-history";
 import { MAX_SCHEDULE_ENTITIES, schedulable, type Schedule } from "../live/schedules";
+import { heatingNow } from "../live/back";
 import type { Garden } from "../live/lawn";
 import type { Upkeep } from "../live/upkeep";
 import type { StoredWifi } from "../live/wifi";
@@ -882,6 +883,19 @@ export class DemoHome implements MemoryHome {
     if (request.action === "off" && (ends || request.brightness !== undefined)) {
       throw new DemoError("off_with_end");
     }
+    // The heating put back as it was (D-091): the heating only, to one setting, once.
+    const climate = request.climate;
+    const heatingOnly = entities.every((id) => id.startsWith("climate."));
+    if (
+      (request.action === "climate") !== (climate !== undefined) ||
+      (climate !== undefined &&
+        (!heatingOnly ||
+          ends ||
+          request.brightness !== undefined ||
+          Object.keys(climate).length !== 1))
+    ) {
+      throw new DemoError("not_climate");
+    }
     // A time of day it ends at is the first after it starts.
     const until = request.duration
       ? new Date(at.getTime() + request.duration * 1000)
@@ -901,6 +915,7 @@ export class DemoHome implements MemoryHome {
       until: until?.toISOString() ?? null,
       brightness: request.brightness ?? null,
       started: false,
+      ...(climate ? { climate } : {}),
     };
     this.store.schedules.push(schedule);
     this.publishSchedules();
@@ -912,7 +927,7 @@ export class DemoHome implements MemoryHome {
       .join(", ");
     // The demo's wall clock: this device's time.
     const time = `${pad(at.getHours())}:${pad(at.getMinutes())}`;
-    const text = say(SCHEDULED[schedule.action === "on" ? "on" : "off"], this.language)
+    const text = say(SCHEDULED[schedule.action], this.language)
       .replace("{names}", names)
       .replace("{time}", time);
     return { schedule, text };
@@ -933,6 +948,12 @@ export class DemoHome implements MemoryHome {
     for (const schedule of [...this.store.schedules]) {
       const start = new Date(schedule.at).getTime();
       const end = schedule.until ? new Date(schedule.until).getTime() : undefined;
+      if (!schedule.started && time >= start && schedule.action === "climate") {
+        this.heatingBack(schedule);
+        this.store.schedules.splice(this.store.schedules.indexOf(schedule), 1);
+        changed = true;
+        continue;
+      }
       if (!schedule.started && time >= start) {
         this.switchAll(schedule.entities, schedule.action === "on", schedule.brightness);
         schedule.started = true;
@@ -947,6 +968,16 @@ export class DemoHome implements MemoryHome {
       }
     }
     if (changed) this.publishSchedules();
+  }
+
+  /** Puts the heating back as it was (D-091), in the visitor's name. */
+  private heatingBack(schedule: Schedule): void {
+    const call = heatingNow(schedule);
+    if (!call) return;
+    const [domain, service, data, ids] = call;
+    this.callWith(this.context(undefined, this.hass.user?.id), domain, service, data, {
+      entity_id: ids,
+    });
   }
 
   /** Switches entities on or off as the integration does: covers opened or closed, lamps on at a

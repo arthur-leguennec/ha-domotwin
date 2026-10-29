@@ -551,6 +551,7 @@ export class DomoTwinReport extends LitElement {
         </button>
         <button
           class="round"
+          data-cancel
           aria-label=${t.t("weekly.close")}
           title=${t.t("weekly.close")}
           @click=${() => {

@@ -4,10 +4,23 @@
  * the focus goes back to what had it once the dialog is gone.
  */
 
-/** A key pressed in a field, which may hold what is being typed: Escape is the field's. */
+/** A key pressed in a field, which may hold what is being typed. */
 export function fromField(event: Event): boolean {
   const origin = event.composedPath()[0];
   return origin instanceof HTMLElement && origin.matches("input, textarea, select");
+}
+
+/**
+ * Whether the field Escape is pressed in keeps it: while an input method composes text (Safari
+ * says so only by the key code 229), in a search that holds some (Escape empties it), or in a
+ * text written over several lines, not to be lost to a key. From any other field, Escape closes.
+ */
+export function fieldKeepsEscape(event: KeyboardEvent): boolean {
+  // eslint-disable-next-line @typescript-eslint/no-deprecated -- Safari's only sign of composing.
+  if (event.isComposing || event.keyCode === 229) return true;
+  const origin = event.composedPath()[0];
+  if (origin instanceof HTMLTextAreaElement) return origin.value.trim() !== "";
+  return origin instanceof HTMLInputElement && origin.type === "search" && origin.value !== "";
 }
 
 /** The element that has the focus, through the shadow roots. */
@@ -72,11 +85,11 @@ export class DialogFocus {
   }
 
   /**
-   * Escape: the dialog shown is cancelled. Whether it was. Not from a field, which may hold what
-   * the user was typing (Escape leaves its suggestions, its input method).
+   * Escape: the dialog shown is cancelled. Whether it was. Not while an input method composes,
+   * nor from a search that holds text (Escape empties it first).
    */
   escape(event: KeyboardEvent): boolean {
-    if (fromField(event)) return false;
+    if (fieldKeepsEscape(event)) return false;
     return this.shown ? cancelDialog(this.shown) : false;
   }
 }

@@ -160,7 +160,7 @@ fn the_demo_house_reads_storey_by_storey_with_ids_of_its_own() {
     let ground = read_plan(HOUSE.as_bytes()).unwrap();
     let upper = read_plan(HOUSE_UPPER.as_bytes()).unwrap();
     let (g, u) = (ground.summary(), upper.summary());
-    assert_eq!((g.rooms, g.doors, g.windows, g.furniture), (12, 7, 5, 87));
+    assert_eq!((g.rooms, g.doors, g.windows, g.furniture), (12, 7, 5, 89));
     assert_eq!((u.rooms, u.doors, u.windows, u.furniture), (6, 5, 6, 42));
     // Its garden all round (D-077): five places outside, a lawn behind and in front.
     assert_eq!(ground.rooms().filter(|r| r.outside).count(), 5);

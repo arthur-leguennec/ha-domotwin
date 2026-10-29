@@ -1509,3 +1509,12 @@ rest of the Home and Rooms tabs' sources, once per change of the plans, links, s
 shown: the other sites' rooms' areas and the entities linked to them. The site's storeys given to
 the 3D view are the same array while they stay, so that what it works out from them (the radio
 coverage) is not worked out again at each new set of states.
+
+### M53 (what trying 0.7.0 showed)
+
+Bundle: the first load is **670.4 kB gzipped** of 1 200 kB (+3.6 kB): the layer menu's checks
+(which quantities some room measures, which radios have something to cover, whether a camera is
+linked, worked out only while the menu is open), the sun's rooms (its windows against where the
+sun is, only while sunlight through the windows is on) and the roof's panels setting; the undo and
+the question on a tile come with the Home tab. The engine lays the roof's solar panels once, with
+the roofs, when the home is built: two quads a panel, 60 panels at most.

@@ -51,8 +51,10 @@ What you reach for: the practical side, on a phone as on a computer.
   heating, a car's battery, the music, the robots, your scenes); add one as it is, or adjust it:
   where (the home, a floor, a room, the devices you choose), what it does (off, on at 30 %, half
   open, 19 °C), and with *More options* what is left out, several steps in a row, what the button
-  shows, a question before it acts. Kept for you, on every device, acting only on what your
-  rights let you use. See [shortcuts](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/shortcuts.md).
+  shows, a question before it acts. Leaving home, it asks when you are back (in an hour, at 18:30,
+  on Sunday; your usual time first), and the heating comes back as it was just before you. A
+  press made by mistake is undone from the bar under it. Kept for you, on every device, acting
+  only on what your rights let you use. See [shortcuts](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/shortcuts.md).
 - **Home, Rooms, Safety and 3D.** The panel's *Home* tab shows the home at a glance (who is in,
   the lamps on, the doors and windows open, the weather), your favourite scenes as big buttons and
   your favourites; *Rooms* lists Home Assistant's floors and areas, each room's devices as Home
@@ -261,8 +263,8 @@ What it does, why, and what needs a look.
   report](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/report.md).
 - **Upkeep cards.** Every appliance and piece of furniture can carry its make, model, serial
   number, warranty, manual and the tasks that come back (change the filter every 3 months). A
-  wrench badge shows what is due, the upkeep layer tints the pieces green, amber or red, and a
-  list by date has a **Done** button for everyone. An IFC file fills the cards; one sensor,
+  wrench badge shows what is due (and how many tasks wait), the upkeep list tints the pieces
+  green, amber or red and lists them by date with a **Done** button for everyone. An IFC file fills the cards; one sensor,
   `sensor.domotwin_upkeep_due`, is there for your notifications. See [upkeep
   cards](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/upkeep.md).
 

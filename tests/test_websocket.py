@@ -443,14 +443,14 @@ async def test_roof_settings_round_trip(
 ) -> None:
     client = await hass_ws_client(hass)
     # How the roofs are drawn (D-077): a colour in lower case; an empty roof is left out.
-    roof = {"shape": "hip", "pitch": 35, "color": "#8C4A3A"}
+    roof = {"shape": "hip", "pitch": 35, "color": "#8C4A3A", "solar": 12}
     await client.send_json_auto_id(
         {"type": "domotwin/settings/save", "settings": {"north": 0, "roof": roof}}
     )
     assert (await client.receive_json())["success"]
     await client.send_json_auto_id({"type": "domotwin/settings/get"})
     stored = (await client.receive_json())["result"]["settings"]
-    assert stored["roof"] == {"shape": "hip", "pitch": 35, "color": "#8c4a3a"}
+    assert stored["roof"] == {"shape": "hip", "pitch": 35, "color": "#8c4a3a", "solar": 12}
     await client.send_json_auto_id(
         {"type": "domotwin/settings/save", "settings": {"north": 0, "roof": {}}}
     )
@@ -560,6 +560,10 @@ async def test_sites_round_trip(
         {"roof": {"pitch": True}},
         {"roof": {"color": "brown"}},
         {"roof": {"height": 300}},
+        {"roof": {"solar": 61}},
+        {"roof": {"solar": -1}},
+        {"roof": {"solar": 2.5}},
+        {"roof": {"solar": True}},
         {"workplace": True},
         {"workplace": {"hours": "sensor.opening_hours"}},
         {"workplace": {"hours": "schedule."}},

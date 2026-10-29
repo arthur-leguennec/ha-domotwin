@@ -2316,6 +2316,20 @@ if (live && params.get("storeys") === "2") {
       supported_color_modes: ["color_temp"],
     },
   };
+  // Its temperature: the temperatures' layer is offered upstairs too (D-091).
+  home.entities["sensor.office_temperature"] = {
+    entity_id: "sensor.office_temperature",
+    area_id: "office",
+  };
+  home.states["sensor.office_temperature"] = {
+    entity_id: "sensor.office_temperature",
+    state: "20.5",
+    attributes: {
+      device_class: "temperature",
+      unit_of_measurement: "°C",
+      friendly_name: "Office temperature",
+    },
+  };
   if (store.bindings) {
     store.bindings.elements["up-lamp"] = { entities: [{ entity_id: "light.office_lamp" }] };
   }
