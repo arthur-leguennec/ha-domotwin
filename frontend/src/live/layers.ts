@@ -444,15 +444,23 @@ export function formatPower(watts: number, language: string): string {
   return `${new Intl.NumberFormat(language, { maximumFractionDigits: 0 }).format(watts)} W`;
 }
 
+/** The hours' formatter of each language, made once. */
+const HOURS = new Map<string, Intl.NumberFormat>();
+
 /** Hours as people read them, in their language: `4.5 hr`, `4,5 h`, `4.5小时` (D-093). */
 export function formatHours(hours: number, language: string): string {
   try {
-    return new Intl.NumberFormat(language, {
-      style: "unit",
-      unit: "hour",
-      unitDisplay: "short",
-      maximumFractionDigits: 1,
-    }).format(hours);
+    let format = HOURS.get(language);
+    if (!format) {
+      format = new Intl.NumberFormat(language, {
+        style: "unit",
+        unit: "hour",
+        unitDisplay: "short",
+        maximumFractionDigits: 1,
+      });
+      HOURS.set(language, format);
+    }
+    return format.format(hours);
   } catch {
     return `${Math.round(hours * 10) / 10} h`;
   }

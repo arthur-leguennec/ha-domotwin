@@ -12,7 +12,7 @@ import {
 } from "../live/layers";
 import { peaksAvailable } from "../live/peak-sources";
 import { ALL_STOREYS, loadHome, storeyLevels, storeyName } from "../live/storeys";
-import { sunModel } from "../live/sun";
+import { hasWindows, sunModel } from "../live/sun";
 import { planRooms } from "../live/suggest";
 import { define, fire, inLanguage } from "./define";
 
@@ -213,6 +213,7 @@ export class DomoTwinCardEditor extends LitElement {
     config: { state: true },
     rooms: { state: true },
     storeys: { state: true },
+    windows: { state: true },
   };
 
   hass?: HomeAssistant;
@@ -220,6 +221,8 @@ export class DomoTwinCardEditor extends LitElement {
   /** The rooms of the storey chosen, and the home's storeys, once fetched. */
   protected rooms: RoomOption[] = [];
   protected storeys: StoreyInfo[] = [];
+  /** Some room of the plans fetched has a window: the sun has a way in (D-093). */
+  protected windows = false;
   /** The storey whose rooms were fetched ("" for the ground floor); undefined before. */
   private fetchedFor?: string;
 
@@ -274,6 +277,7 @@ export class DomoTwinCardEditor extends LitElement {
       if (this.fetchedFor !== storey) return;
       this.rooms = home ? home.flatMap((s) => planRooms(s.plan)) : planRooms(stored.plan);
       this.storeys = stored.storeys;
+      this.windows = hasWindows(home ? home.map((s) => s.plan) : [stored.plan]);
     } catch {
       // No plan or no access: only the current settings are offered.
     }
@@ -305,7 +309,7 @@ export class DomoTwinCardEditor extends LitElement {
           coverage: coverageAvailable(this.hass),
           automations: automationsAvailable(this.hass),
           peak: peaksAvailable(this.hass),
-          sunshine: sunModel(this.hass) !== undefined,
+          sunshine: sunModel(this.hass) !== undefined && this.windows,
         },
         this.config,
       )}

@@ -6,26 +6,38 @@
 
 const DAY = 86_400_000;
 
+/** The formatter of each zone's wall clock (`""`: this device's), made once. */
+const formats = new Map<string, Intl.DateTimeFormat>();
+
+function wallFormat(zone: string | undefined): Intl.DateTimeFormat {
+  const key = zone ?? "";
+  let format = formats.get(key);
+  if (!format) {
+    const options: Intl.DateTimeFormatOptions = {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hourCycle: "h23",
+    };
+    try {
+      format = new Intl.DateTimeFormat("en-GB", { ...options, timeZone: zone });
+    } catch {
+      format = new Intl.DateTimeFormat("en-GB", options);
+    }
+    formats.set(key, format);
+  }
+  return format;
+}
+
 /**
  * The wall clock of `zone` at `time` (ms), read as if it were UTC; this device's zone when `zone`
  * is not known.
  */
 export function wallTime(time: number, zone: string | undefined): number {
-  const options: Intl.DateTimeFormatOptions = {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hourCycle: "h23",
-  };
-  let parts: Intl.DateTimeFormatPart[];
-  try {
-    parts = new Intl.DateTimeFormat("en-GB", { ...options, timeZone: zone }).formatToParts(time);
-  } catch {
-    parts = new Intl.DateTimeFormat("en-GB", options).formatToParts(time);
-  }
+  const parts = wallFormat(zone).formatToParts(time);
   const part = (type: string): number =>
     Number(parts.find((each) => each.type === type)?.value ?? 0);
   return Date.UTC(

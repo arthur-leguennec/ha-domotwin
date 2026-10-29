@@ -363,13 +363,15 @@ export function demoConnection(home: MemoryHome): HassConnection {
         const locating = store.locating;
         if (!locating) return { forgotten: 0 };
         const heard = locating.heard ?? {};
-        const rooms = typeof message.room === "string" ? [message.room] : Object.keys(heard);
-        let forgotten = 0;
-        for (const room of rooms) {
-          forgotten += Object.keys(heard[room] ?? {}).length;
-          delete heard[room];
-          delete locating.learned[room];
-        }
+        const gone = (room: string): boolean =>
+          typeof message.room !== "string" || room === message.room;
+        const forgotten = Object.entries(heard)
+          .filter(([room]) => gone(room))
+          .reduce((count, [, sources]) => count + Object.keys(sources).length, 0);
+        locating.heard = Object.fromEntries(Object.entries(heard).filter(([room]) => !gone(room)));
+        locating.learned = Object.fromEntries(
+          Object.entries(locating.learned).filter(([room]) => !gone(room)),
+        );
         return { forgotten };
       }
       case "zha/devices":

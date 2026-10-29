@@ -30,6 +30,9 @@ test.describe("the sun by the hour and the rooms' hours of sun (D-093)", () => {
   }) => {
     await page.setViewportSize({ width: 1280, height: 800 });
     await demo3d(page);
+    // The demo house's day held still: its sun now stays where it is.
+    await page.getByTestId("demo-play").click();
+    await expect(page.getByTestId("demo-play")).toHaveAttribute("aria-pressed", "false");
     await page.getByTestId("layers").click();
     await page.getByTestId("real-sun").click();
     const card = page.getByTestId("sun-legend");
@@ -60,6 +63,7 @@ test.describe("the sun by the hour and the rooms' hours of sun (D-093)", () => {
     // Back to now.
     await card.getByTestId("sun-now").click();
     await expect(card.getByTestId("sun-time")).toContainText("Now");
+    await expect(card.getByTestId("sun-hour")).toBeFocused();
     await expect.poll(async () => (await viewState(page)).sun).toBe(live);
     // Off: the hour chosen is forgotten.
     await slideTo(slider, 12 * 60);
@@ -67,6 +71,16 @@ test.describe("the sun by the hour and the rooms' hours of sun (D-093)", () => {
     await page.getByTestId("real-sun").click();
     await expect(card).toHaveCount(0);
     await expect.poll(async () => (await viewState(page)).sun).toBe("default");
+    await page.getByTestId("layers").click();
+    await page.getByTestId("real-sun").click();
+    await expect(card.getByTestId("sun-time")).toContainText("Now");
+    await expect(card.getByTestId("sun-now")).toHaveCount(0);
+    await expect.poll(async () => (await viewState(page)).sun).toBe(live);
+    // A layer of values takes the card's place: the hour chosen goes with it.
+    await slideTo(card.getByTestId("sun-hour"), 2 * 60);
+    await page.getByTestId("layers").click();
+    await page.getByTestId("layer-menu").locator('[data-layer="sunshine"]').click();
+    await expect.poll(async () => (await viewState(page)).sun).toBe(live);
   });
 
   test("the rooms show their hours of sun, written on them", async ({ page }) => {

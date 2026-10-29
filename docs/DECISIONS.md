@@ -4690,14 +4690,15 @@ their maps show, and a guide in DomoTwin to making an automation.
   radio: its coverage and its network map had nothing to show. Nothing in DomoTwin said how an
   automation is made, only how to read one.
 - **Decision.**
-  - **The sun's card** is bigger (0.875 rem, 280 px; the phone's width beside the tools there),
+  - **The sun's card** is bigger (0.875 rem, 280 px beside the tools' column; a phone's width),
     and while the sun over the home is known it has the hour of the day: a slider by quarter
     hours on the home's clock (its time zone, on the days the clocks change too), *Now* to come
     back, and when the sun rises and sets today. The engine's sun and light follow the hour
     chosen, and the card says which rooms the sun comes into then. The sun over the home is
     worked out from Home Assistant's latitude and longitude, as the sandbox's; the demo house,
-    which has no place on Earth, gives its own (`hass.sunAt`). Turning sunlight off forgets the
-    hour chosen.
+    which has no place on Earth, gives its own (`hass.sunAt`), rising and setting at the horizon.
+    The hour chosen goes with the card: sunlight turned off, a layer of values or a tool forgets
+    it. Near the poles in summer, the sunset said is the one after the sunrise, past midnight.
   - **Hours of sun** is a layer: each room's hours of direct sun through its windows, the sun
     looked at every ten minutes from midnight to midnight where the home is, the windows facing
     it within 75° (as D-023's), drawn as a heatmap from grey-blue (none) to orange (ten hours and

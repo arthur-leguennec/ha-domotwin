@@ -128,6 +128,23 @@ describe("the sun at any hour (D-093)", () => {
     // 05:47 and 21:58 in Paris, within two minutes.
     expect(Math.abs((rise ?? 0) - Date.parse("2026-06-21T03:47:00Z"))).toBeLessThan(2 * MINUTE);
     expect(Math.abs((set ?? 0) - Date.parse("2026-06-21T19:58:00Z"))).toBeLessThan(2 * MINUTE);
+    // Near the pole in summer, the sun sets after midnight: that setting, not the day before's.
+    const north64 = sunModel(placed(64.1, -21.9));
+    if (!north64) throw new Error("no sun");
+    const iceland = Date.parse("2026-06-21T00:00:00Z");
+    const late = sunTimes(north64, iceland, iceland + 24 * 3600_000);
+    expect((late.set ?? 0) > (late.rise ?? Infinity)).toBe(true);
+    // The demo house's sun rises and sets as its centre crosses the horizon.
+    const demo = sunModel({
+      states: {},
+      sunAt: (time: number) => ({
+        azimuth: 180,
+        elevation: Math.sin((time / 86_400_000) * 2 * Math.PI),
+      }),
+    } as unknown as HomeAssistant);
+    if (!demo) throw new Error("no sun");
+    const { rise: up } = sunTimes(demo, -3600_000, 86_400_000 - 3600_000);
+    expect(Math.abs(up ?? 1)).toBeLessThan(2000);
     // No sunset in a polar day.
     const north = sunModel(placed(78, 15));
     if (!north) throw new Error("no sun");

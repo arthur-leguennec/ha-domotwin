@@ -32,6 +32,11 @@ export interface SunModel {
    * seasons; none for the demo house's sun, which has one day.
    */
   latitude?: number;
+  /**
+   * How high its centre is when it rises and sets (degrees): the demo house's at the horizon,
+   * else Home Assistant's (its upper edge, refraction included).
+   */
+  horizon?: number;
 }
 
 /**
@@ -40,7 +45,7 @@ export interface SunModel {
  */
 export function sunModel(hass: HomeAssistant | undefined): SunModel | undefined {
   const own = hass?.sunAt;
-  if (own) return { at: own, key: "own" };
+  if (own) return { at: own, key: "own", horizon: 0 };
   const latitude = hass?.config?.latitude;
   const longitude = hass?.config?.longitude;
   if (
@@ -59,16 +64,24 @@ export function sunModel(hass: HomeAssistant | undefined): SunModel | undefined 
   };
 }
 
-/** When the sun rises and sets between `start` and `end` (ms), when it does. */
+/**
+ * When the sun rises between `start` and `end` (ms), and sets after it (past midnight, near the
+ * poles in summer); when it does.
+ */
 export function sunTimes(
   model: SunModel,
   start: number,
   end: number,
 ): { rise?: number; set?: number } {
-  const day = sunDayOf(start, end, (time) => model.at(time).elevation);
+  const elevation = (time: number): number => model.at(time).elevation;
+  const day = sunDayOf(start, end, elevation, model.horizon);
+  let set = day.setting;
+  if (day.rising !== undefined && set !== undefined && set < day.rising) {
+    set = sunDayOf(day.rising, day.rising + 86_400_000, elevation, model.horizon).setting;
+  }
   return {
     ...(day.rising !== undefined ? { rise: day.rising } : {}),
-    ...(day.setting !== undefined ? { set: day.setting } : {}),
+    ...(set !== undefined ? { set } : {}),
   };
 }
 
