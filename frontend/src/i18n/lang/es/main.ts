@@ -431,8 +431,9 @@ export const main: Dictionary = {
     meeting_calendar: "El calendario donde se reserva {room}",
     sites: "Sedes",
     sites_hint:
-      "Varios edificios o tiendas gestionados por este Home Assistant: asigna a cada uno sus plantas. Con dos o más, DomoTwin muestra una a la vez, elegida arriba; las pestañas Inicio y Habitaciones la siguen.",
+      "Varios edificios o tiendas gestionados por este Home Assistant: asigna a cada uno sus plantas. Con dos o más, DomoTwin muestra uno a la vez, elegido arriba; las pestañas Inicio y Habitaciones lo siguen.",
     site_name: "Nombre",
+    site_storeys: "Plantas de {name}",
     site_default: "Sede {n}",
     site_hours: "Horario de apertura",
     site_hours_workplace: "El del lugar de trabajo",

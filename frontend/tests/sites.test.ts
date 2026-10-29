@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { HomeAssistant } from "../src/ha/types";
 import { NO_BINDINGS, type BindingsJson } from "../src/live/bindings";
 import type { PlanRoom } from "../src/live/layers";
+import { countedHere, type PeopleSettings } from "../src/live/people";
 import {
   homeSites,
   siteGround,
@@ -96,5 +97,50 @@ describe("several sites (D-090)", () => {
     expect([...there.areas]).toEqual(["kitchen"]);
     expect(there.onSite(undefined)).toBe(false);
     expect(there.onSite("storey-4")).toBe(true);
+  });
+});
+
+describe("people on a site (D-090)", () => {
+  it("are counted on the storeys of the site shown; someone in no room, on the first", () => {
+    const sensor = (room: string | undefined, storey: string | undefined): object => ({
+      state: room ?? "unknown",
+      attributes: room ? { room_id: room, storey_id: storey } : {},
+    });
+    const hass = {
+      states: {
+        "person.alex": { state: "home", attributes: {} },
+        "person.sam": { state: "home", attributes: {} },
+        "person.lee": { state: "home", attributes: {} },
+        "person.kim": { state: "not_home", attributes: {} },
+        "sensor.alex_room": sensor("kitchen", "storey-1"),
+        "sensor.sam_room": sensor("counter", "storey-3"),
+        "sensor.lee_room": sensor(undefined, undefined),
+        "sensor.kim_room": sensor(undefined, undefined),
+      },
+      user: { is_admin: true },
+    } as unknown as HomeAssistant;
+    const people: PeopleSettings = {
+      revision: 1,
+      shown: "everyone",
+      look: "figure",
+      hidden: [],
+      counted: true,
+      people: Object.fromEntries(
+        ["alex", "sam", "lee", "kim"].map((name) => [
+          `person.${name}`,
+          { sources: [], color: "#888888", sensor: `sensor.${name}_room` },
+        ]),
+      ),
+    };
+    const home = new Set(["storey-1", "storey-2"]);
+    const shop = new Set(["storey-3"]);
+    expect(countedHere(people, hass)).toBe(3);
+    // Alex in the kitchen, and Lee in no room: the first site's.
+    expect(
+      countedHere(people, hass, new Set(), (storey) => (storey ? home.has(storey) : true)),
+    ).toBe(2);
+    expect(
+      countedHere(people, hass, new Set(), (storey) => (storey ? shop.has(storey) : false)),
+    ).toBe(1);
   });
 });

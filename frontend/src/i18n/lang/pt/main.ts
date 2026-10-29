@@ -432,6 +432,7 @@ export const main: Dictionary = {
     sites_hint:
       "Vários edifícios ou lojas geridos por este Home Assistant: atribua a cada um os seus pisos. A partir de dois, o DomoTwin mostra um de cada vez, escolhido no topo; os separadores Início e Divisões seguem-no.",
     site_name: "Nome",
+    site_storeys: "Pisos de {name}",
     site_default: "Local {n}",
     site_hours: "Horário de abertura",
     site_hours_workplace: "O do local de trabalho",

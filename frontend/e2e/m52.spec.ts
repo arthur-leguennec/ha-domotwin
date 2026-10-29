@@ -28,27 +28,40 @@ test.describe("several sites in one Home Assistant (D-090)", () => {
     const sites = page.getByTestId("settings-sites");
     await page.getByTestId("settings-site-add").click();
     // The first site has every storey.
-    const first = sites.locator('[data-site="site-1"]');
+    const first = sites.locator("fieldset.site").nth(0);
     await expect(first.getByTestId("settings-site-storey")).toHaveCount(2);
     await expect(first.locator('[data-storey="storey-2"]')).toBeChecked();
     await first.getByTestId("settings-site-name").fill("Main street");
     await page.getByTestId("settings-site-add").click();
-    const second = sites.locator('[data-site="site-2"]');
+    const second = sites.locator("fieldset.site").nth(1);
     await second.getByTestId("settings-site-name").fill("Harbour office");
-    // A storey given to the second is taken from the first.
+    // A storey given to the second is taken from the first; taken from the second, the first's
+    // again.
     await second.locator('[data-storey="storey-2"]').check();
     await expect(first.locator('[data-storey="storey-2"]')).not.toBeChecked();
+    // Named within its site: the harbour office's only storey is its ground floor.
+    await expect(second.locator('label:has([data-storey="storey-2"])')).toHaveText("Ground floor");
+    await second.locator('[data-storey="storey-1"]').check();
+    await second.locator('[data-storey="storey-1"]').uncheck();
+    await expect(first.locator('[data-storey="storey-1"]')).toBeChecked();
     await page.getByTestId("settings-save").click();
     await expect
-      .poll(async () => ((await savedSettings(page)) as { sites?: unknown }).sites)
+      .poll(async () =>
+        (
+          ((await savedSettings(page)) as { sites?: { name: string; storeys: string[] }[] })
+            .sites ?? []
+        ).map(({ name, storeys }) => ({ name, storeys })),
+      )
       .toEqual([
-        { id: "site-1", name: "Main street", storeys: ["storey-1"] },
-        { id: "site-2", name: "Harbour office", storeys: ["storey-2"] },
+        { name: "Main street", storeys: ["storey-1"] },
+        { name: "Harbour office", storeys: ["storey-2"] },
       ]);
     // One site at a time, from the toolbar.
     const switcher = page.getByTestId("site-switcher");
     await expect(switcher).toBeVisible();
     await expect(switcher.locator("option")).toHaveText(["Main street", "Harbour office"]);
+    await expect(switcher).toHaveCSS("color", "rgb(255, 255, 255)");
+    await expect(switcher).not.toHaveCSS("background-color", "rgb(255, 255, 255)");
   });
 
   test("the panel shows one site, its storeys, its lamps, and remembers it", async ({ page }) => {
@@ -81,6 +94,21 @@ test.describe("several sites in one Home Assistant (D-090)", () => {
     // This device opens on it again.
     await page.reload();
     await expect(page.getByTestId("site-switcher")).toHaveValue("site-2");
+  });
+
+  test("a room of the other site opened from the Rooms tab shows that site", async ({ page }) => {
+    await openHarness(page, {
+      mode: "panel",
+      live: true,
+      cards: true,
+      storeys: 2,
+      sites: true,
+      route: true,
+      path: "/rooms/office",
+    });
+    // The office is the harbour office's: that site shown, the office open.
+    await expect(page.getByTestId("site-switcher")).toHaveValue("site-2");
+    await expect(page.getByTestId("room-page")).toHaveAttribute("data-area", "office");
   });
 
   test("a site's own opening hours", async ({ page }) => {

@@ -379,6 +379,7 @@ export const fr: Dictionary = {
     sites_hint:
       "Plusieurs bâtiments ou commerces gérés par ce Home Assistant : donnez à chacun ses étages. À partir de deux, DomoTwin en montre un à la fois, choisi en haut ; les onglets Accueil et Pièces le suivent.",
     site_name: "Nom",
+    site_storeys: "Étages de {name}",
     site_default: "Site {n}",
     site_hours: "Heures d’ouverture",
     site_hours_workplace: "Celles du lieu de travail",

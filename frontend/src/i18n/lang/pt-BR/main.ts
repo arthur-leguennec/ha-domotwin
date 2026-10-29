@@ -431,6 +431,7 @@ export const main: Dictionary = {
     sites_hint:
       "Vários prédios ou lojas gerenciados por este Home Assistant: atribua a cada um seus andares. A partir de dois, o DomoTwin mostra um de cada vez, escolhido no topo; as abas Início e Cômodos o acompanham.",
     site_name: "Nome",
+    site_storeys: "Andares de {name}",
     site_default: "Unidade {n}",
     site_hours: "Horário de funcionamento",
     site_hours_workplace: "O do local de trabalho",

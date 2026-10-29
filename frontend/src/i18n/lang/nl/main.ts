@@ -435,6 +435,7 @@ export const main: Dictionary = {
     sites_hint:
       "Meerdere gebouwen of winkels die deze Home Assistant beheert: geef elk zijn verdiepingen. Vanaf twee toont DomoTwin er één tegelijk, bovenaan gekozen; de tabbladen Thuis en Kamers volgen die.",
     site_name: "Naam",
+    site_storeys: "Verdiepingen van {name}",
     site_default: "Vestiging {n}",
     site_hours: "Openingstijden",
     site_hours_workplace: "Die van de werkplek",

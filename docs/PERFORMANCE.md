@@ -1503,7 +1503,9 @@ states: its calendar's attributes and the presence sensors of its area, a few en
 
 ### M52 (several sites in one Home Assistant)
 
-Bundle: the first load is **664.5 kB gzipped** of 1 200 kB (+2.2 kB): the list of sites in the
+Bundle: the first load is **666.8 kB gzipped** of 1 200 kB (+4.5 kB): the list of sites in the
 toolbar, the settings' section, and what a site shows of the home. That is worked out with the
-rest of the Home and Rooms tabs' sources, once per change of the plans, links, settings or storey
-shown: the other sites' rooms' areas and the entities linked to them.
+rest of the Home and Rooms tabs' sources, once per change of the plans, links, settings or site
+shown: the other sites' rooms' areas and the entities linked to them. The site's storeys given to
+the 3D view are the same array while they stay, so that what it works out from them (the radio
+coverage) is not worked out again at each new set of states.

@@ -488,7 +488,7 @@ def _sites(sites: Any) -> list[dict[str, Any]]:
             raise InvalidPayloadError("invalid_settings", f"two sites are `{site_id}`")
         ids.add(site_id)
         name = site.get("name")
-        if not isinstance(name, str) or not name.strip() or len(name) > MAX_STOREY_NAME:
+        if not isinstance(name, str) or not 0 < len(name.strip()) <= MAX_STOREY_NAME:
             raise InvalidPayloadError(
                 "invalid_settings", f"a site's `name` must be 1 to {MAX_STOREY_NAME} characters"
             )
@@ -500,9 +500,8 @@ def _sites(sites: Any) -> list[dict[str, Any]]:
         for storey in storeys:
             _check_id(storey, "a storey id", "invalid_settings")
             if storey in placed:
-                raise InvalidPayloadError(
-                    "invalid_settings", f"the storey `{storey}` is in two sites"
-                )
+                where = "listed twice" if storeys.count(storey) > 1 else "in two sites"
+                raise InvalidPayloadError("invalid_settings", f"the storey `{storey}` is {where}")
             placed.add(storey)
         entry: dict[str, Any] = {"id": site_id, "name": name.strip(), "storeys": list(storeys)}
         if site.get("hours") is not None:

@@ -434,6 +434,7 @@ export const main: Dictionary = {
     sites_hint:
       "この Home Assistant が管理する複数の建物や店舗：それぞれに階を割り当てます。2 つ以上あると、DomoTwin は上で選んだ 1 つずつを表示し、ホームと部屋のタブもそれに従います。",
     site_name: "名前",
+    site_storeys: "{name} の階",
     site_default: "拠点 {n}",
     site_hours: "営業時間",
     site_hours_workplace: "職場の営業時間",

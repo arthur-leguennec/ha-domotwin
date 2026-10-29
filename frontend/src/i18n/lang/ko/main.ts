@@ -430,6 +430,7 @@ export const main: Dictionary = {
     sites_hint:
       "이 Home Assistant가 관리하는 여러 건물이나 매장: 각각에 층을 지정하세요. 두 곳 이상이면 DomoTwin은 위에서 고른 한 곳씩 보여 주며, 홈과 방 탭도 이를 따릅니다.",
     site_name: "이름",
+    site_storeys: "{name}의 층",
     site_default: "지점 {n}",
     site_hours: "영업시간",
     site_hours_workplace: "사업장 영업시간",

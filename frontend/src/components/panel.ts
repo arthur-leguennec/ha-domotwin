@@ -32,6 +32,7 @@ import {
   mdiWifi,
 } from "@mdi/js";
 import { LitElement, css, html, nothing, type PropertyValues, type TemplateResult } from "lit";
+import { live } from "lit/directives/live.js";
 
 import {
   EngineError,
@@ -106,8 +107,10 @@ import {
   homeSites,
   readDeviceSite,
   siteGround,
+  siteHours,
   siteOf,
   siteScope,
+  siteStoreyNames,
   siteStoreys,
   writeDeviceSite,
 } from "../live/sites";
@@ -201,7 +204,14 @@ import {
   type EnergySettings,
 } from "../live/energy";
 import { watts } from "../live/devices";
-import { formatPower, layerAsked, numberOf, roomLayers, type LayerName } from "../live/layers";
+import {
+  formatPower,
+  layerAsked,
+  numberOf,
+  roomLayers,
+  type LayerName,
+  type PlanRoom,
+} from "../live/layers";
 import { navigate } from "../live/actions";
 import { areaPage, energyPage, energySetUp } from "../live/overview";
 import type { PeriodChoice } from "../live/history";
@@ -691,6 +701,12 @@ export class DomoTwinPanel extends LitElement {
   private workplaceWas?: Workplace;
   /** The sites (D-090), being chosen in the settings. */
   protected sitesDraft?: Site[];
+  /** The sites, the site's storeys, the other sites' and every storey named, as worked out
+   * last (D-090): the same while what they come from stays. */
+  private sitesKept?: { settings: unknown; storeys: StoreyInfo[]; sites: Site[] };
+  private shownKept?: { site: Site; storeys: StoreyInfo[]; shown: StoreyInfo[] };
+  private othersKept?: { site: Site; elsewhere: StoreyRooms[]; others: StoreyRooms[] };
+  private namesKept?: { sites: Site[]; t: Translator; storeys: StoreyInfo[] };
   /** The draft last shown, and its settings as read. */
   private energyShown?: { draft: EnergySettings; energy: EnergySettings | undefined };
   /** The power sensors Home Assistant's own energy settings name, offered first. */
@@ -837,18 +853,33 @@ export class DomoTwinPanel extends LitElement {
         color: var(--app-header-text-color, var(--text-primary-color, #fff));
         border-bottom: var(--app-header-border-bottom, none);
       }
+      /* In the header's colours, as its buttons are; its options as the page's. */
       .toolbar select.site {
         flex: 0 1 auto;
         min-width: 0;
         max-width: 40%;
         min-height: 36px;
         padding: 0 8px;
-        border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+        border: 1px solid currentColor;
         border-radius: 8px;
-        background: var(--card-background-color, #fff);
+        background: rgba(255, 255, 255, 0.16);
         color: inherit;
         font: inherit;
         text-overflow: ellipsis;
+      }
+      .toolbar select.site option {
+        background: var(--card-background-color, #fff);
+        color: var(--primary-text-color, #1f2328);
+      }
+      .toolbar select.site:focus-visible {
+        outline: 2px solid var(--app-header-text-color, var(--text-primary-color, #fff));
+        outline-offset: 2px;
+      }
+      /* A phone: the list of sites takes the title's place. */
+      @media (max-width: 480px) {
+        .toolbar.sited h1 {
+          display: none;
+        }
       }
       .toolbar h1 {
         margin-block: 0;
@@ -1276,8 +1307,16 @@ export class DomoTwinPanel extends LitElement {
       .ask .site {
         display: grid;
         gap: 6px;
-        padding: 8px 0;
+        min-width: 0;
+        margin: 0;
+        padding: 8px 0 0;
+        border: none;
         border-top: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+      }
+      .ask .site legend {
+        padding: 0;
+        font-weight: 600;
+        font-size: 0.9rem;
       }
       .ask .site input[type="text"] {
         min-height: 36px;
@@ -2022,6 +2061,7 @@ export class DomoTwinPanel extends LitElement {
       { plan: this.plan, storey: shown },
       request,
       closedRooms(this.settings?.rooms, this.settings?.rights, this.hass),
+      new Set(this.shownStoreys().map((storey) => storey.id)),
     );
     if (!target || ticket !== this.shows) return;
     // Shown in 3D, from the other tabs too (not one more step back for each request).
@@ -2065,8 +2105,13 @@ export class DomoTwinPanel extends LitElement {
       const { settings } = await client.getSettings();
       // Another home's meanwhile (the demo house, D-050): not this one's.
       if (client !== this.client) return;
+      const sites = JSON.stringify(this.settings?.sites ?? []);
       this.settings = settings;
       this.settingsRead = true;
+      // Sites changed elsewhere: the storeys shown together are the site's (D-090).
+      if (this.plan !== undefined && JSON.stringify(settings.sites ?? []) !== sites) {
+        void this.loadPlan();
+      }
     } catch {
       if (client === this.client && !this.settingsRead && this.unsubscribe) {
         this.settingsTimer = setTimeout(() => void this.loadSettings(), SETTINGS_RETRY_MS);
@@ -2153,9 +2198,11 @@ export class DomoTwinPanel extends LitElement {
     this.roofDraft = { ...this.settings?.roof };
     this.workplaceDraft = this.settings?.workplace ? { ...this.settings.workplace } : null;
     this.workplaceWas = undefined;
+    // Storeys no longer the home's left out (D-090).
+    const known = new Set(this.storeys.map((storey) => storey.id));
     this.sitesDraft = (this.settings?.sites ?? []).map((site) => ({
       ...site,
-      storeys: [...site.storeys],
+      storeys: site.storeys.filter((id) => known.has(id)),
     }));
     void this.loadEnergyPreferred();
   };
@@ -2308,6 +2355,8 @@ export class DomoTwinPanel extends LitElement {
       this.layout = stored.layout;
       this.storeys = stored.storeys;
       this.storey = stored.storey ?? undefined;
+      // This screen opens on the site it was last on, however it got there (D-090).
+      if (site && stored.storey) writeDeviceSite(site.id);
       void this.loadElsewhere(client, stored);
       this.revision = stored.revision;
       this.planError = undefined;
@@ -2365,9 +2414,52 @@ export class DomoTwinPanel extends LitElement {
     }
   }
 
-  /** The home's sites (D-090); none with fewer than two. */
+  /** The home's sites (D-090); none with fewer than two. The same while nothing changes. */
   private homeSites(): Site[] {
-    return homeSites(this.settings, this.storeys);
+    const kept = this.sitesKept;
+    if (kept && kept.settings === this.settings?.sites && kept.storeys === this.storeys) {
+      return kept.sites;
+    }
+    const sites = homeSites(this.settings, this.storeys);
+    this.sitesKept = { settings: this.settings?.sites, storeys: this.storeys, sites };
+    return sites;
+  }
+
+  /** The storeys of the site shown (D-090); the home's without sites. The same while they stay. */
+  private shownStoreys(): StoreyInfo[] {
+    const site = this.shownSite();
+    if (!site) return this.storeys;
+    const kept = this.shownKept;
+    if (kept?.site === site && kept.storeys === this.storeys) return kept.shown;
+    const shown = siteStoreys(this.storeys, site);
+    this.shownKept = { site, storeys: this.storeys, shown };
+    return shown;
+  }
+
+  /** The other sites' storeys' rooms (D-090), for the view showing a site's storeys together. */
+  private otherSites(): StoreyRooms[] {
+    const site = this.shownSite();
+    if (!site) return [];
+    const kept = this.othersKept;
+    if (kept?.site === site && kept.elsewhere === this.elsewhere) return kept.others;
+    const others = this.elsewhere.filter((storey) => !site.storeys.includes(storey.storey));
+    this.othersKept = { site, elsewhere: this.elsewhere, others };
+    return others;
+  }
+
+  /** Every storey, named within its site and after it (D-090); none without sites. */
+  private namedStoreys(): StoreyInfo[] | undefined {
+    const sites = this.homeSites();
+    if (sites.length === 0) return undefined;
+    const kept = this.namesKept;
+    if (kept?.sites === sites && kept.t === this.t) return kept.storeys;
+    const names = siteStoreyNames(this.t, this.storeys, sites, true);
+    const storeys = this.storeys.map((storey) => ({
+      ...storey,
+      name: names.get(storey.id) ?? storey.name,
+    }));
+    this.namesKept = { sites, t: this.t, storeys };
+    return storeys;
   }
 
   /** The site shown (D-090): the shown storey's. */
@@ -2711,7 +2803,7 @@ export class DomoTwinPanel extends LitElement {
    */
   private nextElevation(): number {
     // Over the site shown's (D-090): another site's storeys may stand as high.
-    const storeys = siteStoreys(this.storeys, this.shownSite());
+    const storeys = this.shownStoreys();
     if (storeys.length === 0) return 0;
     const next = Math.max(...storeys.map((storey) => storey.elevation)) + 280;
     return Math.abs(next) < 100 ? 0 : Math.min(next, MAX_ELEVATION);
@@ -3631,13 +3723,15 @@ export class DomoTwinPanel extends LitElement {
 
   /** The sites (D-090), one shown at a time: a list to go to another, not while a tool works. */
   private renderSites(): TemplateResult | typeof nothing {
-    const sites = this.homeSites();
+    // A site without a storey yet has nothing to show: given one in the settings.
+    const sites = this.homeSites().filter((site) => site.storeys.length > 0);
     if (sites.length < 2 || this.editing || this.planning || this.linking) return nothing;
     const shown = this.shownSite();
     return html`<select
       class="site"
       data-testid="site-switcher"
       aria-label=${this.t.t("panel.site")}
+      .value=${live(shown?.id ?? "")}
       @change=${this.onSite}
     >
       ${sites.map(
@@ -3662,7 +3756,7 @@ export class DomoTwinPanel extends LitElement {
     }
     // The names, and Home Assistant's menu button (hidden while its sidebar is docked).
     const menu = toolbar.querySelector("ha-menu-button")?.getBoundingClientRect().width ?? 0;
-    const names = [...toolbar.querySelectorAll(".label")]
+    const names = [...toolbar.querySelectorAll(".label, select.site")]
       .map((label) => label.textContent)
       .concat(String(menu))
       .join("|");
@@ -3818,7 +3912,7 @@ export class DomoTwinPanel extends LitElement {
     const sites = this.homeSites();
     const site = siteOf(sites, this.storey);
     const from = [
-      site,
+      site?.id,
       this.storeys,
       this.plan,
       this.layout,
@@ -3832,6 +3926,8 @@ export class DomoTwinPanel extends LitElement {
     ];
     const shown = this.practicalShown;
     if (shown && from.every((value, i) => value === shown.from[i])) return shown;
+    // Another site shown, its other storeys not read yet: as it was, rather than mixed (D-090).
+    if (shown && site && !this.elsewhereRead) return shown;
     const rooms = [...planRooms(this.plan), ...this.elsewhere.flatMap((storey) => storey.rooms)];
     const bindings = this.bindings ?? NO_BINDINGS;
     const unseen = viewerUnseen(
@@ -3856,7 +3952,8 @@ export class DomoTwinPanel extends LitElement {
     // A workplace (D-086): its people counted, its hours; a site's own, of several (D-090).
     const workplace = this.settings?.workplace;
     if (workplace) {
-      sources.workplace = site?.hours ? { ...workplace, hours: site.hours } : workplace;
+      const hours = siteHours(this.settings, site);
+      sources.workplace = hours === workplace.hours ? workplace : { ...workplace, hours };
     }
     let shownUnseen = unseen;
     let others: ReadonlySet<string> = new Set();
@@ -3988,6 +4085,35 @@ export class DomoTwinPanel extends LitElement {
     const { theme, accent } = this.homeLook();
     this.look = resolveLook(theme, this._hass);
     this.style.setProperty("--domotwin-accent", accent ?? defaultAccent(this.look));
+    // A room of another site opened in the Rooms tab (a link, an alert's tap): its site shown.
+    if (
+      this.tab === "rooms" &&
+      this.roomOpen &&
+      (changed.has("roomOpen") || changed.has("elsewhereRead") || changed.has("settings"))
+    ) {
+      this.showAreaSite(this.roomOpen);
+    }
+  }
+
+  /**
+   * The site of an area's room shown (D-090), when it is another than the site shown: the storey
+   * holding that room, once every storey's rooms are read.
+   */
+  private showAreaSite(area: string): void {
+    const hass = this._hass;
+    const site = this.shownSite();
+    if (!hass || !site || !this.elsewhereRead) return;
+    const bindings = this.bindings ?? NO_BINDINGS;
+    const holds = (rooms: readonly PlanRoom[]): boolean =>
+      rooms.some((room) => roomArea(hass, bindings, room.id, room.name) === area);
+    if (holds(planRooms(this.plan))) return;
+    const other = this.elsewhere.find(
+      (storey) => !site.storeys.includes(storey.storey) && holds(storey.rooms),
+    );
+    if (!other) return;
+    this.storey = other.storey;
+    this.showAll = false;
+    void this.loadPlan();
   }
 
   /** Drawn once Home Assistant's language is here (D-082). */
@@ -4008,7 +4134,7 @@ export class DomoTwinPanel extends LitElement {
     // The tabs, unless a tool works on the 3D view: at the bottom of a phone, else on the side.
     const tabs = !tool && this.tab !== undefined;
     // One template in both modes: the view stays the same element (engine, camera, 2D or 3D).
-    return html`<div class="toolbar">
+    return html`<div class="toolbar ${this.homeSites().length > 1 ? "sited" : ""}">
         <ha-menu-button
           .hass=${this.demoSwitch.realHass ?? this._hass}
           .narrow=${this.narrow}
@@ -4164,10 +4290,11 @@ export class DomoTwinPanel extends LitElement {
       .roofStyle=${
         this.northDraft !== undefined && this.roofDraft ? this.roofDraft : this.settings?.roof
       }
-      .storeys=${siteStoreys(this.storeys, this.shownSite())}
+      .storeys=${this.shownStoreys()}
+      .alertStoreys=${this.namedStoreys()}
       .storey=${this.wholeHome() ? ALL_STOREYS : this.storey}
       .home=${this.wholeHome() && this.homeShown ? this.home : undefined}
-      .elsewhere=${this.wholeHome() ? [] : this.elsewhere}
+      .elsewhere=${this.wholeHome() ? this.otherSites() : this.elsewhere}
       @domotwin-storey=${this.onStorey}
       .multiSelect=${this.multi}
       .editKeys=${!this.catalogue && !this.discardAsk && !this.modelImport && !this.planDiscardAsk}
@@ -4331,7 +4458,7 @@ export class DomoTwinPanel extends LitElement {
         .hass=${hass}
         .t=${this.t}
         .alerts=${alerts}
-        .storeys=${this.storeys}
+        .storeys=${this.namedStoreys() ?? this.storeys}
         .unseen=${unseen}
         .page=${page}
         @domotwin-alert-room=${this.onAlertRoom}
@@ -4341,7 +4468,7 @@ export class DomoTwinPanel extends LitElement {
       <domotwin-alert-bar
         .t=${this.t}
         .alerts=${alerts}
-        .storeys=${this.storeys}
+        .storeys=${this.namedStoreys() ?? this.storeys}
         .page=${page}
         @domotwin-alert-room=${this.onAlertRoom}
         @domotwin-go=${this.onGo}
@@ -4445,8 +4572,11 @@ export class DomoTwinPanel extends LitElement {
     this.go("3d");
     await this.updateComplete;
     const view = await this.drawnView(ticket);
-    // Every storey shown at once: the room is framed among them.
-    view?.frameAlert(this.wholeHome() ? { room: alert.room, name: alert.name } : alert);
+    // Every storey shown at once: the room is framed among them, if one of them (a site's,
+    // D-090); else its storey is shown.
+    const site = this.shownSite();
+    const among = !alert.storey || !site || site.storeys.includes(alert.storey);
+    view?.frameAlert(this.wholeHome() && among ? { room: alert.room, name: alert.name } : alert);
   };
 
   /** A doorbell ringing (D-068), full screen over every tab, once its module is loaded. */
@@ -5334,36 +5464,45 @@ export class DomoTwinPanel extends LitElement {
   }
 
   /**
-   * A workplace (D-086): an office or a shop, its people counted and named nowhere; its opening
-   * hours a schedule of Home Assistant's.
-   */
-  /**
-   * The sites one Home Assistant runs (D-090): each a name, its storeys (each in one site), and
-   * its own opening hours for a workplace. With two or more, the panel shows one at a time.
+   * The sites one Home Assistant runs (D-090): each a name, its storeys (each in one site, the
+   * first's when in none), and its own opening hours for a workplace. With two or more, the panel
+   * shows one at a time.
    */
   private renderSitesSettings(): TemplateResult | typeof nothing {
     const t = this.t;
     const draft = this.sitesDraft;
     const hass = this._hass;
     if (!draft || !hass) return nothing;
-    const levels = storeyLevels(this.storeys);
     const schedules = Object.keys(hass.states)
       .filter((id) => id.startsWith("schedule."))
       .sort();
+    // Each storey named within the site it is in now, as the panel will show it.
+    const names = siteStoreyNames(
+      t,
+      this.storeys,
+      homeSites({ sites: draft }, this.storeys),
+      false,
+    );
+    const named = (site: Site, index: number): string =>
+      site.name.trim() || t.t("settings.site_default", { n: index + 1 });
+    // A storey in no site is the first's: never left in none in the draft.
+    const homed = (sites: Site[]): Site[] => {
+      const placed = new Set(sites.flatMap((site) => site.storeys));
+      const left = this.storeys.map((storey) => storey.id).filter((id) => !placed.has(id));
+      const [first, ...rest] = sites;
+      return first ? [{ ...first, storeys: [...first.storeys, ...left] }, ...rest] : sites;
+    };
     const change = (index: number, site: Site | undefined): void => {
       const sites = [...(this.sitesDraft ?? [])];
       if (site) sites[index] = site;
       else sites.splice(index, 1);
-      this.sitesDraft = sites;
+      this.sitesDraft = homed(sites);
     };
     const add = (): void => {
       const sites = this.sitesDraft ?? [];
-      const ids = new Set(sites.map((site) => site.id));
-      let n = 1;
-      while (ids.has(`site-${n}`)) n += 1;
-      // The first site has every storey, until some are given to another.
-      const storeys = sites.length === 0 ? this.storeys.map((storey) => storey.id) : [];
-      this.sitesDraft = [...sites, { id: `site-${n}`, name: "", storeys }];
+      // Never an id a removed site had: a screen may still remember it.
+      const id = `site-${Date.now().toString(36)}`;
+      this.sitesDraft = homed([...sites, { id, name: "", storeys: [] }]);
     };
     return html`<h3>${t.t("settings.sites")}</h3>
       <p class="hint">${t.t("settings.sites_hint")}</p>
@@ -5371,7 +5510,8 @@ export class DomoTwinPanel extends LitElement {
         ${draft.map((site, index) => {
           const hours = site.hours;
           const offered = hours && !schedules.includes(hours) ? [hours, ...schedules] : schedules;
-          return html`<div class="site" data-site=${site.id}>
+          return html`<fieldset class="site" data-site=${site.id}>
+            <legend>${named(site, index)}</legend>
             <label class="look">
               <span>${t.t("settings.site_name")}</span>
               <input
@@ -5385,28 +5525,35 @@ export class DomoTwinPanel extends LitElement {
                 }}
               />
             </label>
-            <div class="site-storeys">
-              ${levels.map(
-                ({ storey, level }) =>
+            <div
+              class="site-storeys"
+              role="group"
+              aria-label=${t.t("settings.site_storeys", { name: named(site, index) })}
+            >
+              ${this.storeys.map(
+                (storey) =>
                   html`<label class="reversed">
                     <input
                       type="checkbox"
                       data-testid="settings-site-storey"
                       data-storey=${storey.id}
-                      .checked=${site.storeys.includes(storey.id)}
+                      .checked=${live(site.storeys.includes(storey.id))}
                       @change=${(event: Event) => {
                         const on = (event.target as HTMLInputElement).checked;
-                        // A storey is in one site: given to this one, taken from the others.
-                        this.sitesDraft = (this.sitesDraft ?? []).map((each, i) => {
-                          const others = each.storeys.filter((id) => id !== storey.id);
-                          return {
-                            ...each,
-                            storeys: i === index && on ? [...others, storey.id] : others,
-                          };
-                        });
+                        // A storey is in one site: given to this one, taken from the others;
+                        // taken from it, the first's again.
+                        this.sitesDraft = homed(
+                          (this.sitesDraft ?? []).map((each, i) => {
+                            const others = each.storeys.filter((id) => id !== storey.id);
+                            return {
+                              ...each,
+                              storeys: i === index && on ? [...others, storey.id] : others,
+                            };
+                          }),
+                        );
                       }}
                     />
-                    <span>${storeyName(t, storey, level)}</span>
+                    <span>${names.get(storey.id) ?? storey.name}</span>
                   </label>`,
               )}
             </div>
@@ -5443,9 +5590,9 @@ export class DomoTwinPanel extends LitElement {
                 change(index, undefined);
               }}
             >
-              ${t.t("settings.site_remove", { name: site.name || t.t("settings.site_default", { n: index + 1 }) })}
+              ${t.t("settings.site_remove", { name: named(site, index) })}
             </button>
-          </div>`;
+          </fieldset>`;
         })}
       </div>
       <button
@@ -5458,6 +5605,10 @@ export class DomoTwinPanel extends LitElement {
       </button>`;
   }
 
+  /**
+   * A workplace (D-086): an office or a shop, its people counted and named nowhere; its opening
+   * hours a schedule of Home Assistant's.
+   */
   private renderWorkplaceSettings(): TemplateResult | typeof nothing {
     const t = this.t;
     const draft = this.workplaceDraft;

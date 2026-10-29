@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 import copy
 from datetime import date
 from enum import Enum
@@ -337,9 +338,12 @@ class DomoTwinData:
         return await self._async_commit("plan"), target["id"]
 
     async def async_remove_storey(self, storey: str, expected_revision: int | None = None) -> int:
-        """Remove a storey. Return the new revision."""
+        """Remove a storey, and from its site (D-090). Return the new revision."""
         self._check_revision("plan", expected_revision)
         self._data["storeys"].remove(self._by_id(storey))
+        # Its id may be a new storey's: in no site until one is given it.
+        if self._prune_sites(lambda storeys: [id_ for id_ in storeys if id_ != storey]):
+            await self._async_commit("settings")
         return await self._async_commit("plan")
 
     async def async_replace_storeys(
@@ -362,7 +366,24 @@ class DomoTwinData:
             for number, storey in enumerate(storeys, start=1)
         ]
         ids = [storey["id"] for storey in self._data["storeys"]]
+        # Numbered afresh, they are no site's (D-090): all the first's, until given again.
+        if self._prune_sites(lambda _storeys: []):
+            await self._async_commit("settings")
         return await self._async_commit("plan"), ids
+
+    def _prune_sites(self, keep: Callable[[list[str]], list[str]]) -> bool:
+        """The sites' storeys as `keep` leaves them (D-090); whether any changed."""
+        sites = self._data["settings"].get("sites")
+        if not isinstance(sites, list):
+            return False
+        changed = False
+        for site in sites:
+            if isinstance(site, dict) and isinstance(site.get("storeys"), list):
+                kept = keep(site["storeys"])
+                if kept != site["storeys"]:
+                    site["storeys"] = kept
+                    changed = True
+        return changed
 
     def _new_storey(self, name: str, elevation: float) -> dict[str, Any]:
         taken = {storey["id"] for storey in self._data["storeys"]}

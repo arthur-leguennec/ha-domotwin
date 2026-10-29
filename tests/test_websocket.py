@@ -593,6 +593,9 @@ async def test_sites_round_trip(
             ]
         },
         {"sites": [{"id": f"s{k}", "name": "Shop", "storeys": []} for k in range(17)]},
+        {"sites": [{"id": "a", "name": "   ", "storeys": []}]},
+        {"sites": [{"id": "a", "name": "Shop", "storeys": ["s1", "s1"]}]},
+        {"sites": [{"id": "a", "name": "Shop", "storeys": [f"s{k}" for k in range(21)]}]},
     ],
 )
 async def test_invalid_settings_are_refused(
@@ -654,12 +657,31 @@ async def test_storeys_over_the_websocket(
     assert unknown["error"]["code"] == "unknown_storey"
     unknown = await send({"type": "domotwin/storey/remove", "storey": "nope"})
     assert unknown["error"]["code"] == "unknown_storey"
-    # Removed.
+    # Two sites (D-090), the upper floor the second's.
+    sites = [
+        {"id": "home", "name": "Main street", "storeys": ["storey-1"]},
+        {"id": "office", "name": "Harbour", "storeys": [storey]},
+    ]
+    saved = await send({"type": "domotwin/settings/save", "settings": {"north": 0, "sites": sites}})
+    assert saved["success"]
+    # Removed: and from its site, its id being a new storey's next.
     assert (await send({"type": "domotwin/storey/remove", "storey": storey}))["success"]
     got = (await send({"type": "domotwin/plan/get"}))["result"]
     assert [s["id"] for s in got["storeys"]] == ["storey-1"]
     info = (await send({"type": "domotwin/info"}))["result"]
     assert info["storeys"] == 1
+    settings = (await send({"type": "domotwin/settings/get"}))["result"]["settings"]
+    assert [site["storeys"] for site in settings["sites"]] == [["storey-1"], []]
+    # Every storey replaced, numbered afresh: no site's any more.
+    replaced = await send(
+        {
+            "type": "domotwin/storeys/replace",
+            "storeys": [{"name": "", "elevation": 0, "plan": demo_plan}],
+        }
+    )
+    assert replaced["success"], replaced
+    settings = (await send({"type": "domotwin/settings/get"}))["result"]["settings"]
+    assert [site["storeys"] for site in settings["sites"]] == [[], []]
 
 
 async def test_pieces_added_in_edit_mode_have_ids_of_their_own(

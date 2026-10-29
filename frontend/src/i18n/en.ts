@@ -375,6 +375,7 @@ export const en = {
     sites_hint:
       "Several buildings or shops run by this Home Assistant: give each its storeys. With two or more, DomoTwin shows one at a time, chosen at the top; the Home and Rooms tabs follow it.",
     site_name: "Name",
+    site_storeys: "Storeys of {name}",
     site_default: "Site {n}",
     site_hours: "Opening hours",
     site_hours_workplace: "The workplace's",

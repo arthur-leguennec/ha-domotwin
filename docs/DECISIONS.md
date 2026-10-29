@@ -4538,8 +4538,9 @@ sites". Designed here before it was built, as the roadmap asked.
     With fewer than two sites, nothing changes.
   - **The site shown is the shown storey's.** A list at the top of the panel goes to another
     site's ground floor (its storey nearest the ground); each screen remembers the last one in its
-    browser, and opens on it. Whatever shows a storey (an alert's tap, `domotwin.show`, a room's
-    link, M49) shows its site with it.
+    browser (whichever way it got there), and opens on it. Whatever shows a storey (an alert's
+    tap, `domotwin.show`, a room's link, M49, a room of the Rooms tab) shows its site with it. A
+    site without a storey yet is not listed.
   - **What follows the site**: the 3D view's storeys (the switcher, *All storeys*, the names
     counted from the site's own ground floor), and the Home and Rooms tabs: the site's rooms
     (meeting rooms, D-089, and peaks' rooms among them), the people counted or placed on its
@@ -4549,13 +4550,16 @@ sites". Designed here before it was built, as the roadmap asked.
   - **Opening hours**: a site's own schedule, else the workplace's. What a workplace used while
     closed (D-088) is the whole place's at the workplace's hours: not shown on a site with hours of
     its own.
-  - **What stays the whole home's**: the alerts (a fire at the other site matters here), the
-    weekly report, the energy, the voice and `domotwin.where`, private rooms and rights, a card
-    (it shows the storey it is set to). People in no room of the plans count on the first site,
+  - **What stays the whole home's**: the alerts (a fire at the other site matters here; named
+    with their site, as every storey is named within its site), a doorbell's ring, the weekly
+    report, the energy, the voice and `domotwin.where`, private rooms and rights, a card (it shows
+    the storey it is set to). People in no room of the plans count on the first site,
     where Home Assistant's home zone is.
   - **A storey added** (drawn, imported) while a site other than the first is shown is that
     site's: the settings are saved with it.
-- **Consequences.** No new command; the integration validates `sites` with the settings. The
-  first load grows by 2.2 kB gzipped (the list, the settings' section, the site's filter). New
-  texts in the 12 languages. Replacing every storey from an IFC file numbers them afresh: their
-  sites are given again in the settings; ids no longer the home's are left out when read.
+- **Consequences.** No new command; the integration validates `sites` with the settings, and
+  takes a removed storey out of its site (its id may be a new storey's next); replacing every
+  storey from an IFC file numbers them afresh, so the sites lose them, to be given again. A
+  site's id is never one a removed site had (a screen may remember it). The first load grows by
+  4.5 kB gzipped (the list, the settings' section, the site's filter). New texts in the 12
+  languages.

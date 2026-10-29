@@ -433,10 +433,11 @@ export const main: Dictionary = {
     meeting_calendar: "Il calendario in cui si prenota {room}",
     sites: "Sedi",
     sites_hint:
-      "Più edifici o negozi gestiti da questo Home Assistant: assegna a ciascuno i suoi piani. Da due in su, DomoTwin ne mostra una alla volta, scelta in alto; le schede Casa e Stanze la seguono.",
+      "Più edifici o negozi gestiti da questo Home Assistant: assegna a ciascuno i suoi piani. Da due in su, DomoTwin ne mostra uno alla volta, scelto in alto; le schede Casa e Stanze lo seguono.",
     site_name: "Nome",
+    site_storeys: "Piani di {name}",
     site_default: "Sede {n}",
-    site_hours: "Orari di apertura",
+    site_hours: "Orario di apertura",
     site_hours_workplace: "Quelli del luogo di lavoro",
     site_add: "Aggiungi una sede",
     site_remove: "Rimuovi {name}",

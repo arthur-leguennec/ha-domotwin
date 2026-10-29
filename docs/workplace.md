@@ -129,11 +129,13 @@ from its sensors alone.
 One Home Assistant may run several buildings or shops: a shop in the town and its stockroom by
 the harbour, two offices. In the settings, under **Sites**, add one for each and tick its storeys
 (D-090): the first site has every storey until some are given to another, and a storey is in one
-site alone. A site of a workplace may have its own opening hours, a schedule of its own; else the
-workplace's.
+site alone (taken from another, it is the first's again). A site of a workplace may have its own
+opening hours, a schedule of its own; else the workplace's. A new site shows once it has a
+storey: draw or import its first one (it goes to the site shown), then tick it under its site.
 
 With two sites or more, a list at the top of DomoTwin chooses the one shown, and this screen
-remembers it. Everything then follows it:
+remembers it; an alert's tap, a link to a room of the other site or `domotwin.show` show that
+site too. Everything then follows it:
 
 - **the 3D view**: its storeys alone, numbered from its own ground floor; *All storeys* stacks
   them, not the other site's;
@@ -142,14 +144,15 @@ remembers it. Everything then follows it:
 - **the Rooms tab**: the areas of its rooms. An area no room of the plans has, and what is in no
   area, show on every site.
 
-The alerts stay the whole home's (smoke at the other site matters here too), and so do the
-weekly report, the energy and the voice. People without a room of the plans (no placement, no
+The alerts stay the whole home's (smoke at the other site matters here too), named with their
+site, and so do a doorbell's ring, the weekly report, the energy and the voice. People without a room of the plans (no placement, no
 radar) count on the first site, where Home Assistant's home zone is. What the place used while
 closed (above) is worked out with the workplace's hours: a site with hours of its own does not
 show it.
 
-A storey drawn or imported while a site is shown is that site's. Replacing every storey from an
-IFC file numbers them afresh: give them to their sites again.
+A storey drawn or imported while a site is shown is that site's; a storey removed leaves its
+site. Replacing every storey from an IFC file numbers them afresh: they are then all the first
+site's, until given to their sites again.
 
 ## Closing up
 

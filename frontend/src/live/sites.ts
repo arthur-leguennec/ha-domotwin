@@ -5,11 +5,12 @@
  */
 import type { Settings, Site, StoreyInfo } from "../ha/client";
 import type { HomeAssistant } from "../ha/types";
+import type { Translator } from "../i18n";
 import { roomArea, type BindingsJson } from "./bindings";
 import type { PlanRoom } from "./layers";
 import type { OnSite } from "./people";
 import { closedEntities } from "./privacy";
-import { storeyLevels, type StoreyRooms } from "./storeys";
+import { storeyLevels, storeyName, type StoreyRooms } from "./storeys";
 
 /** As many sites as the integration keeps (`MAX_SITES`). */
 export const MAX_SITES = 16;
@@ -64,6 +65,30 @@ export function siteGround(
   site: Site | undefined,
 ): StoreyInfo | undefined {
   return storeyLevels(siteStoreys(storeys, site)).find((each) => each.level === 0)?.storey;
+}
+
+/**
+ * Every storey named within its site (D-090): its level counted from the site's own ground floor;
+ * the site's name before it with `sited`. Without sites, as the home names them.
+ */
+export function siteStoreyNames(
+  t: Translator,
+  storeys: readonly StoreyInfo[],
+  sites: readonly Site[],
+  sited: boolean,
+): Map<string, string> {
+  const names = new Map<string, string>();
+  const groups: { site?: Site; own: StoreyInfo[] }[] =
+    sites.length > 0
+      ? sites.map((site) => ({ site, own: siteStoreys(storeys, site) }))
+      : [{ own: [...storeys] }];
+  for (const { site, own } of groups) {
+    for (const { storey, level } of storeyLevels(own)) {
+      const name = storeyName(t, storey, level);
+      names.set(storey.id, sited && site ? `${site.name} · ${name}` : name);
+    }
+  }
+  return names;
 }
 
 /** The opening hours of a site: its own, else the workplace's. */
