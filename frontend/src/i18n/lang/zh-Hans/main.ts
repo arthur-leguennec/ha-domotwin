@@ -475,6 +475,7 @@ export const main: Dictionary = {
     roof_pitch: "坡度：{degrees}°",
     roof_color: "颜色",
     roof_color_default: "随外观",
+    roof_solar: "屋顶上的太阳能板（数量）",
     energy_grid_reversed: "此传感器以大于 0 的值表示送入电网的功率",
     energy_battery_reversed: "此传感器以大于 0 的值表示充电",
     save: "保存",

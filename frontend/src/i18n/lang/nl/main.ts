@@ -487,6 +487,7 @@ export const main: Dictionary = {
     roof_pitch: "Helling: {degrees}°",
     roof_color: "Kleur",
     roof_color_default: "Die van de stijl",
+    roof_solar: "Zonnepanelen op het dak (hoeveel)",
     energy_grid_reversed: "Deze sensor telt stroom die naar het net gaat boven 0",
     energy_battery_reversed: "Deze sensor telt laden boven 0",
     save: "Opslaan",

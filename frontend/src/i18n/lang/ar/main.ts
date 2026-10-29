@@ -567,6 +567,7 @@ export const main: Dictionary = {
     roof_pitch: "الميل: {degrees}°",
     roof_color: "اللون",
     roof_color_default: "لون المظهر",
+    roof_solar: "ألواح شمسية على السطح (كم عددها)",
     energy_grid_reversed: "يحسب هذا المستشعر القدرة المرسلة إلى الشبكة فوق 0",
     energy_battery_reversed: "يحسب هذا المستشعر الشحن فوق 0",
     save: "حفظ",

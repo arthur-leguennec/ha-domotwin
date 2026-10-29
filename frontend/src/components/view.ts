@@ -2074,7 +2074,14 @@ export class DomoTwinView extends LitElement {
   private applyRoofStyle(build = true): void {
     const engine = this.engine;
     if (!engine) return;
-    const json = JSON.stringify(this.roofStyle ?? {});
+    const style = this.roofStyle ?? {};
+    // Solar panels face the equator: south, north of it, and north south of it; on the plan,
+    // where that is from its north.
+    const south = (this.hass?.config?.latitude ?? 0) >= 0;
+    const north = Number.isFinite(this.north) ? this.north : 0;
+    const json = JSON.stringify(
+      style.solar ? { ...style, solar_toward: (north + (south ? 180 : 0)) % 360 } : style,
+    );
     if (this.roofStyleSent?.engine === engine && this.roofStyleSent.json === json) return;
     this.roofStyleSent = { engine, json };
     if (engine.setRoofStyle(json, build)) {
@@ -2276,7 +2283,7 @@ export class DomoTwinView extends LitElement {
       this.applyLayers();
     }
     if (changed.has("north") || own.has("realSun") || changed.has("hass")) this.applySun();
-    if (changed.has("roofStyle")) this.applyRoofStyle();
+    if (changed.has("roofStyle") || changed.has("north")) this.applyRoofStyle();
     if (
       changed.has("hass") ||
       changed.has("weather") ||

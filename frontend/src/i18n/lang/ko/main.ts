@@ -481,6 +481,7 @@ export const main: Dictionary = {
     roof_pitch: "경사: {degrees}°",
     roof_color: "색상",
     roof_color_default: "스타일 기본값",
+    roof_solar: "지붕의 태양광 패널 (개수)",
     energy_grid_reversed: "이 센서는 전력망으로 보낸 전력을 0보다 큰 값으로 셉니다",
     energy_battery_reversed: "이 센서는 충전을 0보다 큰 값으로 셉니다",
     save: "저장",

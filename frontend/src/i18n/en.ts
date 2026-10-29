@@ -427,6 +427,7 @@ export const en = {
     roof_pitch: "Slope: {degrees}°",
     roof_color: "Colour",
     roof_color_default: "The look's",
+    roof_solar: "Solar panels on the roof (how many)",
     energy_grid_reversed: "This sensor counts power sent to the grid above 0",
     energy_battery_reversed: "This sensor counts charging above 0",
     save: "Save",

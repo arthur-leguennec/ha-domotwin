@@ -484,6 +484,7 @@ export const main: Dictionary = {
     roof_pitch: "Inclinação: {degrees}°",
     roof_color: "Cor",
     roof_color_default: "A do aspeto",
+    roof_solar: "Painéis solares no telhado (quantos)",
     energy_grid_reversed: "Este sensor conta acima de 0 a energia enviada para a rede",
     energy_battery_reversed: "Este sensor conta o carregamento acima de 0",
     save: "Guardar",

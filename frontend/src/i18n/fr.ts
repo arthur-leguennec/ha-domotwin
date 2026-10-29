@@ -432,6 +432,7 @@ export const fr: Dictionary = {
     roof_pitch: "Pente : {degrees}°",
     roof_color: "Couleur",
     roof_color_default: "Celle du style",
+    roof_solar: "Panneaux solaires sur le toit (combien)",
     energy_grid_reversed: "Ce capteur compte au-dessus de 0 ce qui part vers le réseau",
     energy_battery_reversed: "Ce capteur compte la charge au-dessus de 0",
     save: "Enregistrer",

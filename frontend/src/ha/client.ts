@@ -72,6 +72,8 @@ export interface RoofSettings {
   shape?: "gable" | "hip" | "shed" | "flat";
   pitch?: number;
   color?: string;
+  /** How many solar panels lie on the top roof (0–60), facing the sun's side. */
+  solar?: number;
 }
 
 /** A workplace, an office or a shop (D-086): its opening hours, a schedule of Home Assistant's. */

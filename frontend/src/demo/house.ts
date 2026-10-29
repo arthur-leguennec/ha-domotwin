@@ -188,6 +188,8 @@ const FRENCH: Readonly<Record<string, string>> = {
   "Letter box": "Boîte aux lettres",
   "Lamp post": "Lampadaire",
   Car: "Voiture",
+  "Entrance camera": "Caméra de l’entrée",
+  "Garden camera": "Caméra du jardin",
 };
 
 /** A storey's plan in the language: its rooms named as their areas, its pieces translated. */
@@ -220,6 +222,8 @@ export interface Thing {
   pieces?: readonly string[];
   state: string;
   attributes?: Record<string, unknown>;
+  /** A camera's angle of view and reach on its pieces (D-038). */
+  view?: { fov: number; range: number };
 }
 
 const warm = {
@@ -607,6 +611,25 @@ export const THINGS: readonly Thing[] = [
     state: "24.5",
     attributes: celsius,
   },
+  // Two cameras: what each sees is drawn on the ground (D-038).
+  {
+    id: "camera.entrance",
+    area: "garden",
+    names: ["Entrance camera", "Caméra de l’entrée"],
+    pieces: ["cam-entrance"],
+    state: "idle",
+    attributes: { supported_features: 0 },
+    view: { fov: 100, range: 650 },
+  },
+  {
+    id: "camera.garden",
+    area: "garden",
+    names: ["Garden camera", "Caméra du jardin"],
+    pieces: ["cam-garden"],
+    state: "idle",
+    attributes: { supported_features: 0 },
+    view: { fov: 95, range: 900 },
+  },
   {
     id: "cover.gate",
     names: ["Gate", "Portail"],
@@ -862,11 +885,14 @@ export function roomSensorOf(person: string): string {
 
 /** The links between the plan and the entities (D-018): pieces, and rooms to their areas. */
 export function demoBindings(): Bindings {
-  const elements: Record<string, { entities: { entity_id: string }[] }> = {};
+  const elements: Record<
+    string,
+    { entities: { entity_id: string; fov?: number; range?: number }[] }
+  > = {};
   for (const thing of THINGS) {
     for (const piece of thing.pieces ?? []) {
       elements[piece] ??= { entities: [] };
-      elements[piece].entities.push({ entity_id: thing.id });
+      elements[piece].entities.push({ entity_id: thing.id, ...thing.view });
     }
   }
   return {
@@ -876,10 +902,12 @@ export function demoBindings(): Bindings {
   };
 }
 
-/** The settings: north (the garden faces south), the home's energy (D-049). */
+/** The settings: north (the garden faces south), the roof's solar panels, the energy (D-049). */
 export function demoSettings(): Settings {
   return {
     north: 180,
+    // The solar panels that make the home's power (`solarAt`), on the roof's sunny side.
+    roof: { solar: 16 },
     energy: {
       solar: "sensor.solar_power",
       grid: "sensor.grid_power",
@@ -987,7 +1015,7 @@ export function demoUpkeep(today: string, language: string): Upkeep {
         service_life: 12,
         tasks: [
           task("filter", ["Clean the filter", "Nettoyer le filtre"], 3, "months", 85),
-          task("descale", ["Descale the drum", "Détartrer le tambour"], 6, "months", 60),
+          task("descale", ["Descale the drum", "Détartrer le tambour"], 6, "months", 175),
         ],
       },
       "robot-dock": {
@@ -1000,6 +1028,13 @@ export function demoUpkeep(today: string, language: string): Upkeep {
       },
       "u-fan": {
         tasks: [task("dust", ["Dust the blades", "Dépoussiérer les pales"], 2, "months", 20)],
+      },
+      // Overdue: the list and the badges show what is late.
+      "water-heater": {
+        make: "Fictional Heat",
+        installed: back(2100),
+        service_life: 15,
+        tasks: [task("flush", ["Flush the tank", "Purger le ballon"], 12, "months", 380)],
       },
       fridge: {
         make: "Cold & Co",

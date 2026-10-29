@@ -103,6 +103,8 @@
     {"id": "parasol", "name": "Parasol", "kind": "parasol", "at": [300, -175], "size": [300, 300, 250], "room": "terrace"},
     {"id": "barbecue", "name": "Barbecue", "kind": "barbecue", "at": [560, -270], "size": [130, 60, 110], "rotation": 180, "room": "terrace"},
     {"id": "terrace-lights", "name": "Terrace lights", "kind": "garden-light", "at": [300, -318], "size": [640, 2, 2], "lift": 220, "style": "string", "room": "terrace"},
+    {"id": "cam-garden", "name": "Garden camera", "kind": "camera", "at": [990, -32], "size": [8, 9, 12], "rotation": 150, "lift": 230, "style": "wall", "room": "back-garden"},
+    {"id": "cam-entrance", "name": "Entrance camera", "kind": "camera", "at": [600, 932], "size": [8, 9, 12], "rotation": -35, "lift": 230, "style": "wall", "room": "driveway"},
     {"id": "pool", "name": "Pool", "kind": "pool", "at": [560, -780], "size": [600, 300, 150], "room": "back-garden"},
     {"id": "lounger-1", "name": "Sun lounger", "kind": "sun-lounger", "at": [300, -500], "size": [70, 195, 80], "room": "back-garden"},
     {"id": "lounger-2", "name": "Sun lounger", "kind": "sun-lounger", "at": [400, -500], "size": [70, 195, 80], "room": "back-garden"},

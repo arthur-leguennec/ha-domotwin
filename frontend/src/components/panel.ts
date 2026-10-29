@@ -5496,7 +5496,25 @@ export class DomoTwinPanel extends LitElement {
               ${t.t("settings.roof_color_default")}
             </button>`
           : nothing
-      }`;
+      }
+      <label class="look">
+        <span>${t.t("settings.roof_solar")}</span>
+        <input
+          type="number"
+          data-testid="settings-roof-solar"
+          min="0"
+          max="60"
+          step="1"
+          .value=${String(draft.solar ?? 0)}
+          @change=${(event: Event) => {
+            const n = Math.round(Number((event.target as HTMLInputElement).value));
+            const rest = { ...draft };
+            delete rest.solar;
+            this.roofDraft =
+              Number.isFinite(n) && n > 0 ? { ...rest, solar: Math.min(60, n) } : rest;
+          }}
+        />
+      </label>`;
   }
 
   /**

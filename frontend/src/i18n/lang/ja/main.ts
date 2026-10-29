@@ -486,6 +486,7 @@ export const main: Dictionary = {
     roof_pitch: "勾配：{degrees}°",
     roof_color: "色",
     roof_color_default: "外観の色",
+    roof_solar: "屋根のソーラーパネル（枚数）",
     energy_grid_reversed: "このセンサーはグリッドへの送電を 0 より大きい値で示す",
     energy_battery_reversed: "このセンサーは充電を 0 より大きい値で示す",
     save: "保存",
