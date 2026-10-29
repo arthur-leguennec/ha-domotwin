@@ -83,8 +83,9 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M53       | What trying 0.7.0 showed: undo, coming back, the demo      | ✅     |
 | M54       | The Energy tab's board; the automations as a list          | ✅     |
 | 0.8.0     | Eighth release: a workplace's three, energy, automations   | ✅     |
-| M55       | The sun by the hour, the demo's radios, a guide to automations | ✅     |
-| 0.9.0     | Ninth release: the sun by the hour, a guide to automations | ⏳     |
+| M55       | Sun by the hour, the demo's radios, a guide to automations | ✅     |
+| 0.9.0     | Ninth release: the sun by the hour, a guide to automations | ✅     |
+| 0.10.0    | Tenth release: what the use of 0.9.0 asks for              | ⏳     |
 
 M5 to M11 were added after M3b (`DECISIONS.md`, D-022): what people expect of a 3D home dashboard,
 with no account and no network call outside Home Assistant. M8 became the looks alone, and the
@@ -2230,5 +2231,20 @@ its energy, its meeting rooms, several sites.
   the year's longest or shortest day; the demo house's Wi-Fi, Zigbee mesh and Bluetooth receivers
   placed, so that each radio's coverage and the network map show; and a guide, from the More menu
   and the automations' list, to making an automation step by step.
-- ⏳ **Release 0.9.0**: release-please's pull request, merged once this is in `main`, tags `v0.9.0`
+- ✅ Tried in a fresh Home Assistant (2026.10.2): the panel on a desktop-sized and a phone-sized
+  screen, the fictional apartment's plan with north turned, Home Assistant's demo devices put in
+  its areas, the home at a fictional place. The sun's card said when the sun rises and sets, as
+  Home Assistant's own sun does; its slider said, at 8:00 and 13:00, the rooms the sun comes into,
+  at 19:30 that it is down, and *Now* brought it back. The hours of sun gave each room's today,
+  on the longest day and on the shortest. With no motion or door sensor beside a light, the guide
+  gave its own example, and its last step opened Home Assistant's editor on a new automation. On
+  the phone, the sun's card stood beside the tools, nothing scrolling sideways. In the demo house,
+  the Wi-Fi's, the Zigbee's and the Bluetooth's coverage each showed, the playroom weak on the
+  first two; the network map counted 10 devices, 1 weak link, 4 placed on the other floor. No
+  error, no request outside Home Assistant.
+- ✅ **Release 0.9.0**: release-please's pull request, merged once this is in `main`, tags `v0.9.0`
   and attaches `domotwin.zip`, with M55.
+
+## Then, to 0.10.0
+
+- ⏳ **Release 0.10.0**: what the use of 0.9.0 asks for.
