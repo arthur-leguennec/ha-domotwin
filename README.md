@@ -261,8 +261,8 @@ What it does, why, and what needs a look.
   report](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/report.md).
 - **Upkeep cards.** Every appliance and piece of furniture can carry its make, model, serial
   number, warranty, manual and the tasks that come back (change the filter every 3 months). A
-  wrench badge shows what is due, the upkeep layer tints the pieces green, amber or red, and a
-  list by date has a **Done** button for everyone. An IFC file fills the cards; one sensor,
+  wrench badge shows what is due (and how many tasks wait), the upkeep list tints the pieces
+  green, amber or red and lists them by date with a **Done** button for everyone. An IFC file fills the cards; one sensor,
   `sensor.domotwin_upkeep_due`, is there for your notifications. See [upkeep
   cards](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/upkeep.md).
 

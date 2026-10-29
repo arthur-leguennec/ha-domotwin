@@ -80,7 +80,8 @@ test.describe("phones and crowded names (M13b)", () => {
 
   test("closets' and small rooms' names are a choice of the layers' menu", async ({ page }) => {
     // The upper floor's dressing room is a closet: left out unless asked for.
-    await openHarness(page, { storeys: 2, storey: "storey-2" });
+    // Live: the rooms' temperatures, so that their layer is offered (D-091).
+    await openHarness(page, { storeys: 2, storey: "storey-2", live: true });
     await expect(page.getByTestId("summary")).toBeVisible();
     await expect.poll(async () => (await nameBoxes(page)).length).toBeGreaterThan(0);
     const rooms = async () => (await nameBoxes(page)).map((n) => n.room).sort();

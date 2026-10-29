@@ -4563,3 +4563,54 @@ sites". Designed here before it was built, as the roadmap asked.
   site's id is never one a removed site had (a screen may remember it). The first load grows by
   4.5 kB gzipped (the list, the settings' section, the site's filter). New texts in the 12
   languages.
+
+## D-091 · What trying 0.7.0 showed (M53)
+
+The maintainer tried 0.7.0 at home and in the demo house, and said what got in the way. Each
+answer here keeps what was there, and takes away what confused.
+
+- **Context.** A shortcut that turned every lamp off could not turn them back on; one that asks
+  first asked under the shortcuts, out of sight; the Rooms tab listed DomoTwin's own sensors in
+  each room ("Office · Upkeep 0"); the home battery's charge offered a phone's; the plan's import
+  was only on the 3D tab; a dialog scrolled sideways on a phone and Escape did nothing from its
+  fields; the layer menu listed layers with nothing to show (PM2.5 without a sensor, cameras
+  without a camera), two of them (power, upkeep) already somewhere else; sunlight through the
+  windows changed the light but said nothing; an appliance with two tasks due showed one badge;
+  the radio coverage said too much, and in the demo, which has no Bluetooth, advised where to put
+  receivers it could not have.
+- **Decision.**
+  - **Undo.** What a shortcut changes, and the lamps' *All off*, can be put back for two minutes
+    from a bar under it: the lamps lit as they were (their brightness), the shutters where they
+    were, the heating's mode, preset or temperature, what played. Never a lock, the alarm, a
+    robot, a scene or a script: a door unlocked or an alarm off by a tap meant for something else
+    is not wanted, and what a script did is not known.
+  - **Asked on the tile.** A shortcut that asks first asks on its own tile, Yes under the finger;
+    Escape or No leaves it. *Good night* and *Alarm for the night* ask too, as *Leaving home*
+    did. The *All the lights off* tile shows a lit bulb while some are on.
+  - **The Rooms tab** lists no entity of DomoTwin's own: they say what DomoTwin shows already,
+    and stay for Home Assistant's own area pages.
+  - **The home battery** is one that stores power: its charge is offered only on its power
+    sensor's device or named so, never a phone's; nothing to offer, no field.
+  - **The import** is in the More menu of every tab, and goes to the 3D view as the plan comes in.
+    The upkeep list is there too: it is no longer a layer.
+  - **Dialogs** never scroll sideways (their fields and columns no wider than they are), and
+    Escape closes one from a field too, but while an input method composes or a search holds
+    text.
+  - **The layer menu** lists what has something to show: a quantity some room measures, the radio
+    coverage where a radio has something to cover (Bluetooth in Home Assistant, ZHA, Wi-Fi access
+    points or signals), cameras where one is linked. The pieces' power is the Energy tab's, the
+    upkeep the More menu's; a layer already shown (a card's, the Energy tab's) stays listed.
+  - **Sunlight through the windows** says which rooms the sun comes into now (their windows
+    facing it), or that it is down.
+  - **An upkeep badge** says how many tasks wait when more than one.
+  - **The radio coverage** shows the three best spots, each with how many rooms it would cover
+    better (what changes in each, once one is chosen), the rooms and their levels; how it is
+    worked out is folded away.
+  - **Solar panels on the roof.** The roof's settings say how many panels lie on the top roof
+    (0–60): on its main wing's slope facing the equator (from the plan's north and Home
+    Assistant's latitude), as many as fit, in rows from the eaves, clear of the edges.
+  - **The demo house** has an overdue task, a washer with two, two cameras (the entrance and the
+    garden) and 16 panels on its roof, whose power the day already made.
+- **Consequences.** Every new text in the 12 languages; no new command (`settings.roof.solar`
+  is validated with the settings). The undo is the browser's for two minutes: a reload forgets
+  it.

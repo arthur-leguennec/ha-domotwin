@@ -5895,7 +5895,7 @@ export class DomoTwinView extends LitElement {
   private hasCameras(): boolean {
     const hass = this.hass;
     return Object.values(this.bindings?.elements ?? {}).some((binding) =>
-      binding?.entities.some((entity) => roleOf(entity, hass) === "camera"),
+      binding.entities.some((entity) => roleOf(entity, hass) === "camera"),
     );
   }
 

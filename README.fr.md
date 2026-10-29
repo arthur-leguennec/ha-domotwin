@@ -304,8 +304,9 @@ Ce qu’il fait, pourquoi, et ce qui demande un coup d’œil.
   (en anglais).
 - **Fiches d’entretien.** Chaque appareil et chaque meuble peut porter sa marque, son modèle, son
   numéro de série, sa garantie, sa notice et les tâches qui reviennent (changer le filtre tous les
-  3 mois). Un badge en forme de clé montre ce qui est à faire, le calque Entretien colore les
-  meubles en vert, orange ou rouge, et une liste par date a un bouton **Fait** pour tout le monde.
+  3 mois). Un badge en forme de clé montre ce qui est à faire (et combien de tâches attendent), la
+  liste d’entretien colore les meubles en vert, orange ou rouge et les range par date avec un
+  bouton **Fait** pour tout le monde.
   Un fichier IFC remplit les fiches ; un seul capteur, `sensor.domotwin_upkeep_due`, sert à vos
   notifications. Voir [les fiches
   d’entretien](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/upkeep.md) (en

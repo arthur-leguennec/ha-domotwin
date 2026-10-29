@@ -74,7 +74,11 @@ the whole. Choose their look in the panel's **⋮** menu, **Settings**, **Roof**
 
 - **Shape**: two slopes (**Gable**, the default), four (**Hip**), one (**Shed**) or **Flat**;
 - **Slope**: from 5° to 60° (30° by default);
-- **Colour**: the look's own, or one of yours.
+- **Colour**: the look's own, or one of yours;
+- **Solar panels on the roof**: how many (up to 60), laid on the top roof's main wing, on the
+  slope that faces the equator (south north of it, north south of it: from the plan's north and
+  Home Assistant's latitude), in rows from the eaves, as many as fit clear of the edges; on a flat
+  roof, in rows on it. Their power is the energy settings' (the Energy tab).
 
 The choice is shown as it is picked and kept on **Save**; the weather falls on the roofs as they
 are. The roof button (**All storeys**) shows or hides them, as before.
