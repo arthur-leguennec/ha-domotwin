@@ -435,6 +435,9 @@ export const main: Dictionary = {
     legend: "مفتاح الألوان: {layer}، من {low} إلى {high}",
     no_values: "{layer}: لا يوجد مستشعر في مناطق الغرف.",
     no_power: "لا توجد قطعة تستهلك طاقة الآن.",
+    sun_rooms: "تدخل الشمس إلى: {rooms}.",
+    sun_none: "لا تدخل الشمس من أي نافذة الآن.",
+    sun_down: "غربت الشمس: لا شمس من النوافذ.",
     alerts: "التنبيهات",
     alert_smoke: "دخان في {room}",
     alert_gas: "غاز في {room}",
@@ -544,7 +547,8 @@ export const main: Dictionary = {
     energy_grid: "القدرة من الشبكة",
     energy_battery: "بطارية المنزل: القدرة",
     energy_battery_level: "بطارية المنزل: الشحن",
-    energy_battery_hint: "فقط إن كان في المنزل بطارية تخزّن الكهرباء، مع ألواح شمسية مثلًا: لا بطارية هاتف أو مستشعر.",
+    energy_battery_hint:
+      "فقط إن كان في المنزل بطارية تخزّن الكهرباء، مع ألواح شمسية مثلًا: لا بطارية هاتف أو مستشعر.",
     energy_none: "لا شيء",
     weather: "الطقس حول المنزل",
     weather_hint:

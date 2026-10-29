@@ -824,6 +824,11 @@ export const chunks: Chunks = {
       remove: "{name} を削除",
       save_failed: "アクセスポイントは保存されませんでした：{reason}",
       one_storey: "候補地を見るには、1 つの階だけを表示してください。",
+      how: "計算のしかた",
+      better: {
+        one: "{count} 部屋のカバーが向上",
+        other: "{count} 部屋のカバーが向上",
+      },
     },
   },
   plain: {
@@ -1735,7 +1740,8 @@ export const chunks: Chunks = {
       done: "{name}：完了しました。",
       undo: "元に戻す",
       undo_close: "閉じる",
-      undo_failed: "{name} を元に戻せませんでした：Home Assistant が一部を拒否しました（{reason}）。",
+      undo_failed:
+        "{name} を元に戻せませんでした：Home Assistant が一部を拒否しました（{reason}）。",
       not_kept: "ショートカットは保存されませんでした：{reason}",
       state: {
         lights: {

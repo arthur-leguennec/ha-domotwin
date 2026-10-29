@@ -827,6 +827,11 @@ export const chunks: Chunks = {
       remove: "Rimuovi {name}",
       save_failed: "Gli access point non sono stati salvati: {reason}",
       one_storey: "Mostra un solo piano per vederne i punti.",
+      how: "Come viene calcolato",
+      better: {
+        one: "{count} stanza coperta meglio",
+        other: "{count} stanze coperte meglio",
+      },
     },
   },
   plain: {
@@ -1756,7 +1761,8 @@ export const chunks: Chunks = {
       done: "{name}: fatto.",
       undo: "Annulla",
       undo_close: "Chiudi",
-      undo_failed: "{name} non è stato annullato: Home Assistant ne ha rifiutato una parte ({reason}).",
+      undo_failed:
+        "{name} non è stato annullato: Home Assistant ne ha rifiutato una parte ({reason}).",
       not_kept: "I comandi non sono stati salvati: {reason}",
       state: {
         lights: {

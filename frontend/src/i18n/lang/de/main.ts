@@ -360,6 +360,9 @@ export const main: Dictionary = {
     legend: "Legende: {layer}, {low} bis {high}",
     no_values: "{layer}: kein Sensor in den Bereichen der Räume.",
     no_power: "Gerade verbraucht kein Objekt Strom.",
+    sun_rooms: "Die Sonne scheint in: {rooms}.",
+    sun_none: "Die Sonne scheint gerade durch kein Fenster.",
+    sun_down: "Die Sonne ist untergegangen: kein Sonnenlicht durch die Fenster.",
     alerts: "Warnungen",
     alert_smoke: "Rauch: {room}",
     alert_gas: "Gas: {room}",
@@ -465,7 +468,8 @@ export const main: Dictionary = {
     energy_grid: "Leistung aus dem Netz",
     energy_battery: "Hausbatterie: Leistung",
     energy_battery_level: "Hausbatterie: Ladestand",
-    energy_battery_hint: "Nur wenn das Haus eine Batterie hat, die Strom speichert, etwa mit Solarmodulen: nicht die eines Telefons oder Sensors.",
+    energy_battery_hint:
+      "Nur wenn das Haus eine Batterie hat, die Strom speichert, etwa mit Solarmodulen: nicht die eines Telefons oder Sensors.",
     energy_none: "Keiner",
     weather: "Das Wetter rund ums Zuhause",
     weather_hint:

@@ -358,6 +358,9 @@ export const main: Dictionary = {
     legend: "凡例：{layer}、{low}〜{high}",
     no_values: "{layer}：部屋のエリアにセンサーがありません。",
     no_power: "現在、電力を消費しているアイテムはありません。",
+    sun_rooms: "日が差し込んでいる部屋：{rooms}。",
+    sun_none: "今はどの窓からも日が差し込んでいません。",
+    sun_down: "日が沈んでいます：窓からの日差しはありません。",
     alerts: "アラート",
     alert_smoke: "{room} で煙を検知",
     alert_gas: "{room} でガスを検知",
@@ -463,7 +466,8 @@ export const main: Dictionary = {
     energy_grid: "グリッドからの電力",
     energy_battery: "家庭用蓄電池：電力",
     energy_battery_level: "家庭用蓄電池：残量",
-    energy_battery_hint: "太陽光パネルなどと一緒に電気をためる蓄電池が家にある場合のみ。電話やセンサーの電池ではありません。",
+    energy_battery_hint:
+      "太陽光パネルなどと一緒に電気をためる蓄電池が家にある場合のみ。電話やセンサーの電池ではありません。",
     energy_none: "なし",
     weather: "家の周りの天気",
     weather_hint:

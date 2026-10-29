@@ -354,6 +354,9 @@ export const main: Dictionary = {
     legend: "범례: {layer}, {low}~{high}",
     no_values: "{layer}: 방의 영역에 센서가 없습니다.",
     no_power: "지금 전력을 쓰는 물건이 없습니다.",
+    sun_rooms: "햇빛이 드는 곳: {rooms}.",
+    sun_none: "지금은 어느 창으로도 햇빛이 들지 않습니다.",
+    sun_down: "해가 졌습니다: 창으로 드는 햇빛이 없습니다.",
     alerts: "경보",
     alert_smoke: "{room}에서 연기 감지",
     alert_gas: "{room}에서 가스 감지",
@@ -458,7 +461,8 @@ export const main: Dictionary = {
     energy_grid: "전력망 전력",
     energy_battery: "가정용 배터리: 전력",
     energy_battery_level: "가정용 배터리: 충전량",
-    energy_battery_hint: "태양광 패널 등과 함께 전기를 저장하는 배터리가 집에 있을 때만: 휴대폰이나 센서의 배터리가 아닙니다.",
+    energy_battery_hint:
+      "태양광 패널 등과 함께 전기를 저장하는 배터리가 집에 있을 때만: 휴대폰이나 센서의 배터리가 아닙니다.",
     energy_none: "없음",
     weather: "집 주변 날씨",
     weather_hint:

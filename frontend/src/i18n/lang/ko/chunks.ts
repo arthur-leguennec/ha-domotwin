@@ -816,6 +816,11 @@ export const chunks: Chunks = {
       remove: "{name} 삭제",
       save_failed: "액세스 포인트를 저장하지 못했습니다: {reason}",
       one_storey: "층 하나만 표시하면 그 층의 지점을 볼 수 있습니다.",
+      how: "계산 방법",
+      better: {
+        one: "방 {count}개 커버리지 향상",
+        other: "방 {count}개 커버리지 향상",
+      },
     },
   },
   plain: {
@@ -1709,7 +1714,8 @@ export const chunks: Chunks = {
       done: "{name}: 완료했습니다.",
       undo: "되돌리기",
       undo_close: "닫기",
-      undo_failed: "{name}을(를) 되돌리지 못했습니다: Home Assistant가 일부를 거부했습니다({reason}).",
+      undo_failed:
+        "{name}을(를) 되돌리지 못했습니다: Home Assistant가 일부를 거부했습니다({reason}).",
       not_kept: "바로가기가 저장되지 않았습니다: {reason}",
       state: {
         lights: {

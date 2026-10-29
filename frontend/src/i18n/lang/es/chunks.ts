@@ -821,6 +821,11 @@ export const chunks: Chunks = {
       remove: "Quitar {name}",
       save_failed: "No se guardaron los puntos de acceso: {reason}",
       one_storey: "Muestra una sola planta para ver los lugares que hay en ella.",
+      how: "Cómo se calcula",
+      better: {
+        one: "{count} habitación mejor cubierta",
+        other: "{count} habitaciones mejor cubiertas",
+      },
     },
   },
   plain: {

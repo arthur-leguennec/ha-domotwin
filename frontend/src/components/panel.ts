@@ -30,6 +30,7 @@ import {
   mdiViewGridOutline,
   mdiTabletDashboard,
   mdiWifi,
+  mdiWrenchClockOutline,
 } from "@mdi/js";
 import { LitElement, css, html, nothing, type PropertyValues, type TemplateResult } from "lit";
 import { live } from "lit/directives/live.js";
@@ -4627,6 +4628,14 @@ export class DomoTwinPanel extends LitElement {
       ${admin && this.plan ? this.renderMore() : nothing}`;
   }
 
+  /** The upkeep list, on the 3D view (as its badges and pieces are there). */
+  private readonly openUpkeep = (): void => {
+    this.layerWanted = "upkeep";
+    this.go("3d");
+    // Already on the 3D tab, nothing else changes: the list is shown all the same.
+    this.requestUpdate();
+  };
+
   private readonly openChoices = (): void => {
     this.moreOpen = false;
     this.retryPractical();
@@ -4838,6 +4847,18 @@ export class DomoTwinPanel extends LitElement {
                   : nothing
               }
               ${item("export", mdiTrayArrowDown, t.t("panel.export"), false, this.exportPlan)}
+              ${
+                // The upkeep list (D-033), with its pieces shown on the plan: not a layer.
+                Object.keys(this.upkeep?.pieces ?? {}).length > 0
+                  ? item(
+                      "more-upkeep",
+                      mdiWrenchClockOutline,
+                      t.t("layers.upkeep"),
+                      false,
+                      this.openUpkeep,
+                    )
+                  : nothing
+              }
               ${
                 this._hass?.user?.is_admin === true && robotMaps(this._hass).length > 0
                   ? item(

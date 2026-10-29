@@ -819,6 +819,11 @@ export const chunks: Chunks = {
       remove: "{name} verwijderen",
       save_failed: "De toegangspunten zijn niet opgeslagen: {reason}",
       one_storey: "Toon één verdieping om de plekken erop te zien.",
+      how: "Hoe het wordt berekend",
+      better: {
+        one: "{count} kamer beter gedekt",
+        other: "{count} kamers beter gedekt",
+      },
     },
   },
   plain: {

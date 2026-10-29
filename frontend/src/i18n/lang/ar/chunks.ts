@@ -908,6 +908,15 @@ export const chunks: Chunks = {
       remove: "إزالة {name}",
       save_failed: "لم تُحفظ نقاط الوصول: {reason}",
       one_storey: "اعرض طابقًا واحدًا لرؤية المواضع عليه.",
+      how: "كيف يُحسب ذلك",
+      better: {
+        zero: "لا غرفة أفضل تغطية",
+        one: "غرفة واحدة أفضل تغطية",
+        two: "غرفتان أفضل تغطية",
+        few: "{count} غرف أفضل تغطية",
+        many: "{count} غرفة أفضل تغطية",
+        other: "{count} غرفة أفضل تغطية",
+      },
     },
   },
   plain: {

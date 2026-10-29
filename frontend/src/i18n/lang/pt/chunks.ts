@@ -822,6 +822,11 @@ export const chunks: Chunks = {
       remove: "Remover {name}",
       save_failed: "Os pontos de acesso não foram guardados: {reason}",
       one_storey: "Mostre um só piso para ver os locais nele.",
+      how: "Como é calculado",
+      better: {
+        one: "{count} divisão melhor coberta",
+        other: "{count} divisões melhor cobertas",
+      },
     },
   },
   plain: {

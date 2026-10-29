@@ -359,6 +359,9 @@ export const main: Dictionary = {
     legend: "Legenda: {layer}, {low} tot {high}",
     no_values: "{layer}: geen sensor in de ruimtes van de kamers.",
     no_power: "Geen enkel object verbruikt nu stroom.",
+    sun_rooms: "De zon schijnt binnen in: {rooms}.",
+    sun_none: "De zon schijnt nu door geen enkel raam.",
+    sun_down: "De zon is onder: geen zonlicht door de ramen.",
     alerts: "Waarschuwingen",
     alert_smoke: "Rook in {room}",
     alert_gas: "Gas in {room}",
@@ -464,7 +467,8 @@ export const main: Dictionary = {
     energy_grid: "Vermogen van het net",
     energy_battery: "Thuisbatterij: vermogen",
     energy_battery_level: "Thuisbatterij: lading",
-    energy_battery_hint: "Alleen als het huis een batterij heeft die stroom opslaat, bijvoorbeeld met zonnepanelen: niet die van een telefoon of sensor.",
+    energy_battery_hint:
+      "Alleen als het huis een batterij heeft die stroom opslaat, bijvoorbeeld met zonnepanelen: niet die van een telefoon of sensor.",
     energy_none: "Geen",
     weather: "Het weer rond het huis",
     weather_hint:

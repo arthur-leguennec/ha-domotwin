@@ -800,6 +800,11 @@ export const chunks: Chunks = {
       remove: "移除 {name}",
       save_failed: "未保存接入点：{reason}",
       one_storey: "只显示一个楼层，即可看到其上的位置。",
+      how: "计算方式",
+      better: {
+        one: "{count} 个房间覆盖更好",
+        other: "{count} 个房间覆盖更好",
+      },
     },
   },
   plain: {

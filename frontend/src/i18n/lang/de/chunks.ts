@@ -821,6 +821,11 @@ export const chunks: Chunks = {
       remove: "{name} entfernen",
       save_failed: "Die Access Points wurden nicht gespeichert: {reason}",
       one_storey: "Zeige eine einzelne Etage, um die Stellen darauf zu sehen.",
+      how: "Wie es berechnet wird",
+      better: {
+        one: "{count} Raum besser abgedeckt",
+        other: "{count} Räume besser abgedeckt",
+      },
     },
   },
   plain: {
@@ -1754,7 +1759,8 @@ export const chunks: Chunks = {
       done: "{name}: erledigt.",
       undo: "Rückgängig",
       undo_close: "Schließen",
-      undo_failed: "{name} wurde nicht rückgängig gemacht: Home Assistant hat einen Teil abgelehnt ({reason}).",
+      undo_failed:
+        "{name} wurde nicht rückgängig gemacht: Home Assistant hat einen Teil abgelehnt ({reason}).",
       not_kept: "Die Verknüpfungen wurden nicht gespeichert: {reason}",
       state: {
         lights: {

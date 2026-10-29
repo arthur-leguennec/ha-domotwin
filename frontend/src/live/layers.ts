@@ -336,6 +336,37 @@ function readRoom(
   return reading;
 }
 
+/**
+ * The quantities some room of the plan has a value of now (a sensor in its area, else a
+ * thermostat): their layers alone are offered, as one with nothing to show would look broken.
+ */
+export function heatKindsFound(
+  hass: HomeAssistant,
+  bindings: BindingsJson,
+  rooms: PlanRoom[],
+): Set<HeatKind> {
+  const found = new Set<HeatKind>();
+  const byArea = areaIndex(hass);
+  for (const room of rooms) {
+    const area = areaOfRoom(hass, bindings, room);
+    for (const { id, hidden } of area ? (byArea.get(area) ?? []) : []) {
+      const entity = hass.states[id];
+      if (!entity || hidden) continue;
+      for (const kind of HEAT_KINDS) {
+        if (found.has(kind)) continue;
+        const value = id.startsWith("sensor.")
+          ? sensorValue(entity, kind)
+          : id.startsWith("climate.")
+            ? climateValue(hass, entity, kind)
+            : undefined;
+        if (value !== undefined) found.add(kind);
+      }
+      if (found.size === HEAT_KINDS.length) return found;
+    }
+  }
+  return found;
+}
+
 /** What the layers show for the rooms of the plan. */
 export function roomLayers(
   hass: HomeAssistant,
