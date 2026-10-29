@@ -68,6 +68,15 @@ tap on a wire picks its automation out. Above 30 automations the wires are bundl
 wire between two rooms for all the automations that go from one to the other, drawn stronger the
 more there are, and each tap on a bundle picks out the next of its automations.
 
+## Making one
+
+**How to make an automation** (the question mark beside the list's title, or the panel's More
+menu) is a guide in five steps: an automation's three parts, *When* (what starts it), *Only if*
+(what must be true then) and *Then* (what it does), with an example from your home (a motion or
+door sensor and a light of one area); what each part can be; and the ways to make one: Home
+Assistant's automation editor for administrators, [plain words](plain-words.md) where Home
+Assistant has an AI task, and the [sandbox](sandbox.md) to try them on a copy of the home (D-093).
+
 ## Who sees what
 
 Every user sees the automations of a piece, their switches and when they ran. Drawing the wires

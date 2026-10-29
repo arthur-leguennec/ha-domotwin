@@ -105,6 +105,14 @@ every reader returns `Result` with a stable error code that the frontend transla
   Energy tab's board links to. The board (D-092) is `components/energy-board.ts`, its own chunk,
   loaded the first time the tab shows; `live/energy-board.ts` reads Home Assistant's energy
   settings and statistics and adds up what each piece and room draws.
+- The sun by the hour (D-093): `live/sun.ts` has the sun over the home (Home Assistant's latitude
+  and longitude through `sandbox/sun.ts`, or the demo house's `hass.sunAt`), when it rises and
+  sets, and each room's hours of sun through its windows, which the view sends the engine as a
+  heat kind of its own (`sunshine`); `live/clock.ts` is the home's clock, shared with the energy
+  board's midnight.
+- The guide to making an automation (D-093): `components/automation-guide.ts`, its own chunk with
+  its texts (`i18n/guide.ts`), opened from the panel's More menu and the automations' list;
+  `live/guide.ts` finds its example in the home.
 - The weekly report (D-081): `components/report-dialog.ts` (its own chunk) shows what
   `domotwin/report/get` answers (`live/report.ts`), each storey's rooms drawn as SVG from their
   outlines; the integration writes the reports (`custom_components/domotwin/report*.py`).

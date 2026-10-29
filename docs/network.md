@@ -49,8 +49,8 @@ map reads the devices again every 30 seconds for three minutes.
 ## Devices not placed in the home
 
 A device is placed at a piece when the piece is linked to its Home Assistant device, or else to
-one of its entities. The ones that are not (and those linked to pieces of another storey) are
-listed under **Not placed in the home**. In the panel, **Place** next to one asks you to tap the
+one of its entities. The ones that are not are listed under **Not placed in the home**; those
+placed on another storey are not, a line says how many are on another floor (D-093). In the panel, **Place** next to one asks you to tap the
 piece, door or window where it is, then opens the link editor with its entities (not the hidden,
 configuration or diagnostic ones) and its device filled in: save, and it is on the map. A
 coordinator has no entities of its own: placing it links the piece to its device only. A piece

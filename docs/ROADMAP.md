@@ -83,7 +83,8 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M53       | What trying 0.7.0 showed: undo, coming back, the demo      | ✅     |
 | M54       | The Energy tab's board; the automations as a list          | ✅     |
 | 0.8.0     | Eighth release: a workplace's three, energy, automations   | ✅     |
-| 0.9.0     | Ninth release: what the use of 0.8.0 asks for              | ⏳     |
+| M55       | The sun by the hour, the demo's radios, a guide to automations | ✅     |
+| 0.9.0     | Ninth release: the sun by the hour, a guide to automations | ⏳     |
 
 M5 to M11 were added after M3b (`DECISIONS.md`, D-022): what people expect of a 3D home dashboard,
 with no account and no network call outside Home Assistant. M8 became the looks alone, and the
@@ -2223,4 +2224,11 @@ its energy, its meeting rooms, several sites.
 
 ## Then, to 0.9.0
 
-- ⏳ **Release 0.9.0**: what the use of 0.8.0 asks for.
+- ✅ **M55, the sun by the hour, the demo house's radios, a guide to automations** (D-093): the
+  sun's card is bigger, with a slider for the hour of the day, *Now*, and when the sun rises and
+  sets where the home is; a layer of each room's hours of sun through its windows, today or on
+  the year's longest or shortest day; the demo house's Wi-Fi, Zigbee mesh and Bluetooth receivers
+  placed, so that each radio's coverage and the network map show; and a guide, from the More menu
+  and the automations' list, to making an automation step by step.
+- ⏳ **Release 0.9.0**: release-please's pull request, merged once this is in `main`, tags `v0.9.0`
+  and attaches `domotwin.zip`, with M55.

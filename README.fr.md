@@ -168,9 +168,9 @@ Le jumeau : votre plan, vos appareils, en direct, dans l’apparence que vous ai
 - **Calques.** Une carte de chaleur animée (température, humidité, CO₂ ou particules fines) tirée
   des capteurs de la zone de chaque pièce, des alertes de sécurité qui pulsent dans leur pièce
   (fumée, gaz, fuite d’eau, alarme, fenêtre ouverte sous la pluie), les pièces occupées, le vrai
-  soleil qui entre par vos fenêtres, et ce que consomme chaque appareil, avec l’énergie du
-  logement : le soleil, le réseau et la batterie autour de la maison, l’électricité qui circule
-  entre eux.
+  soleil qui entre par vos fenêtres (à toute heure de la journée, avec les heures de soleil de
+  chaque pièce), et ce que consomme chaque appareil, avec l’énergie du logement : le soleil, le
+  réseau et la batterie autour de la maison, l’électricité qui circule entre eux.
 - **Aspirateurs robots.** Votre robot quitte sa base quand il nettoie, passe les pièces une à une et
   rentre, sur le plan.
 - **Appareils.** Des badges sur vos appareils (l’état d’une serrure, une caméra qui enregistre, ce
@@ -494,11 +494,11 @@ YAML n’est jamais nécessaire. Pour référence, les options de la carte :
 | `spread`      | `true`, `false`                     | `true`     | Tous les étages à la fois : écartés, ou empilés. |
 | `roof`        | `true`, `false`                     | `true`     | Tous les étages à la fois : le toit sur le dernier. |
 | `room`        | un identifiant de pièce du plan     | aucun      | Pièce à cadrer à l’ouverture de la carte.     |
-| `layer`       | `off`, `temperature`, `humidity`, `co2`, `pm25`, `power`, `peak`, `network`, `coverage`, `automations`, `upkeep` | `off` | Calque affiché à l’ouverture ; le menu des calques le change. `peak` s’affiche là où hydroqc ou HydroPeak lit les pointes d’Hydro-Québec, `network` aux administrateurs avec ZHA seulement, `coverage` et `automations` aux administrateurs. |
+| `layer`       | `off`, `temperature`, `humidity`, `co2`, `pm25`, `sunshine`, `power`, `peak`, `network`, `coverage`, `automations`, `upkeep` | `off` | Calque affiché à l’ouverture ; le menu des calques le change. `sunshine` (les heures de soleil de chaque pièce) s’affiche là où Home Assistant sait où est le logement, `peak` là où hydroqc ou HydroPeak lit les pointes d’Hydro-Québec, `network` aux administrateurs avec ZHA seulement, `coverage` et `automations` aux administrateurs. |
 | `alerts`      | `true`, `false`                     | `true`     | Alertes de sécurité des pièces (fumée, gaz, eau, alarme, fenêtre ouverte sous la pluie). |
 | `presence`    | `true`, `false`                     | `true`     | Les pièces occupées s’illuminent doucement.   |
 | `people`      | `true`, `false`                     | `true`     | Les personnes dans leurs pièces, en silhouettes. |
-| `sun`         | `fixed`, `real`                     | `fixed`    | `real` : le soleil éclaire depuis sa vraie position (`sun.sun`), par les fenêtres. |
+| `sun`         | `fixed`, `real`                     | `fixed`    | `real` : le soleil éclaire depuis sa vraie position (`sun.sun`), par les fenêtres ; sa carte le fait avancer dans la journée. |
 | `weather`     | `true`, `false`                     | `true`     | La météo autour du logement : pluie, neige, brouillard et orages. |
 | `badges`      | `true`, `false`                     | `true`     | Badges des appareils : serrures, caméras, lecture, batteries faibles, appareils en marche. |
 | `cameras`     | `true`, `false`                     | `true`     | Ce que voient les caméras liées, dessiné au sol. |
