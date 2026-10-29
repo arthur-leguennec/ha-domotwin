@@ -54,6 +54,8 @@ export interface MemoryHome {
    * `history/history_during_period` and `logbook/get_events` answer, for a period (ms).
    */
   history?(entities: readonly string[], start: number, end: number): unknown;
+  /** Energy statistics as Home Assistant counts them over a period (kWh, D-092). */
+  statistics?(ids: readonly string[], start: number, end: number): unknown;
   logbook?(entities: readonly string[], start: number, end: number): unknown;
   /** What its Home Assistant recorded, by context, as its logbook answers (D-059); none:
    * nothing recorded. */
@@ -435,10 +437,16 @@ export function demoConnection(home: MemoryHome): HassConnection {
         const { start, end } = span(message);
         return home.history(entityIds(message), start, end);
       }
-      case "recorder/statistics_during_period":
-        // No statistics: the report works its hours out from the history.
+      case "recorder/statistics_during_period": {
         if (!home.history) throw failure("unknown_command", message.type);
+        // The energy's, for the Energy tab (D-092); no others: the report works its hours out
+        // from the history.
+        if (home.statistics && message.period === "day" && Array.isArray(message.statistic_ids)) {
+          const { start, end } = span(message);
+          return home.statistics(message.statistic_ids.map(String), start, end);
+        }
         return {};
+      }
       case "logbook/get_events": {
         const { start, end } = span(message);
         // The rows of a context: what its Home Assistant recorded (D-059, "Why?").

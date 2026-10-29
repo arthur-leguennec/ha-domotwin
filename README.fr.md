@@ -79,8 +79,11 @@ Ce qu’on cherche du doigt : le côté pratique, sur un téléphone comme sur u
   pièce ou son panneau en 3D : ce que ses capteurs ont mesuré sur le dernier jour ou la dernière
   semaine (température, humidité, CO₂, puissance, les compteurs heure par heure, les portes et
   fenêtres, la présence) en graphiques de Home Assistant, la même chose en tableau ou dans
-  l’historique de Home Assistant à portée de doigt. *Énergie* ouvre la page Énergie de Home
-  Assistant, dont la flèche de retour ramène à DomoTwin. Voir
+  l’historique de Home Assistant à portée de doigt. *Énergie* montre le plan sur sa puissance à
+  côté d’un tableau (dessous sur un téléphone) : ce que la maison consomme maintenant et d’où ça
+  vient, ce qu’elle a consommé aujourd’hui et la part qui était la sienne (d’après les statistiques
+  d’énergie de Home Assistant), les pièces et les appareils qui consomment le plus, un toucher les
+  montrant sur le plan ; la page Énergie de Home Assistant à portée de doigt. Voir
   [graphiques](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/graphs.md) (en
   anglais).
 - **Plus tard.** « Allume la lanterne demain à 6 h 30 jusqu’à 6 h 45 » : depuis la fiche d’une
@@ -272,7 +275,9 @@ Ce qu’il fait, pourquoi, et ce qui demande un coup d’œil.
 - **Fils des automatisations.** Un appui long sur une lampe : son panneau liste les automatisations
   qui la concernent, avec leur interrupteur et leur dernier lancement. Montrez leurs fils, de ce
   qui les déclenche à ce qu’elles commandent, et voyez une impulsion les parcourir quand l’une se
-  lance. Ou toutes les automatisations du logement à la fois. Voir [les fils des
+  lance. Ou toutes les automatisations du logement, en liste par pièce et en mots simples
+  (« Mouvement entrée → Lumière entrée ») : touchez-en une pour ne dessiner que ses fils et lire ce
+  qu’elle fait. Voir [les fils des
   automatisations](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/automations.md)
   (en anglais).
 - **Pourquoi ?** Appuyez longuement sur une lampe et demandez qui ou quoi l’a changée :

@@ -58,6 +58,7 @@ const TAB_KEYS = {
   rooms: "tabs.rooms",
   safety: "tabs.safety",
   "3d": "tabs.three_d",
+  energy: "tabs.energy",
 } as const;
 
 export class DomoTwinChoices extends LitElement {

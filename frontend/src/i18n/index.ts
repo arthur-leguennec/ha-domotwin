@@ -138,9 +138,11 @@ const loading = new Map<Loaded, Promise<void>>();
 /** Languages whose module did not load: spoken in English until the page is loaded again. */
 const failed = new Set<Loaded>();
 
-/** Adds a chunk's messages, in English and French. */
+/** Adds a chunk's messages, in English and French (once, whichever chunks add them). */
 export function addMessages(messages: Record<"en" | "fr", unknown>): void {
-  for (const language of ["en", "fr"] as const) added[language].push(messages[language]);
+  for (const language of ["en", "fr"] as const) {
+    if (!added[language].includes(messages[language])) added[language].push(messages[language]);
+  }
 }
 
 function bundled(language: Language): language is "en" | "fr" {

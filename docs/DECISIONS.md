@@ -4629,3 +4629,51 @@ answer here keeps what was there, and takes away what confused.
   is validated with the settings, a shortcut's `back` with the user's choices, the action
   *climate* by `domotwin/schedules/add`). The undo is the browser's for two minutes: a reload
   forgets it; the heating's return is the integration's, kept.
+
+## D-092 · The Energy tab's board, the automations as a list (M54)
+
+The maintainer asked for an Energy tab that says more, with the plan beside it, and found the
+wires of every automation too much at once: too much on the screen to understand anything.
+
+- **Context.** The Energy tab opened Home Assistant's own Energy page (D-069): complete, but away
+  from the home's plan, and without what DomoTwin knows (which piece, in which room, draws what).
+  The automations layer drew every automation's wires at once, lighter, with a label above the
+  home for each end with no piece: ten automations in the demo house made a knot of wires and a
+  column of labels, and nothing said what any of them did.
+- **Decision.**
+  - **The Energy tab** shows the plan on its power beside a board (side by side from 560 px wide,
+    the plan above it on a phone; the view's legend keeps the colours' key, the home's energy
+    being the board's):
+    - *Right now*: the home's use, the sun, the grid, the battery's charge and the flow between
+      them, from DomoTwin's energy sensors (D-049); without them, an administrator's way to them.
+    - *Today*: read from Home Assistant's energy settings (`energy/get_prefs`) and their
+      statistics' changes since midnight where the home is, on a day the clocks change too
+      (`recorder/statistics_during_period`, by day, in kWh), asked again every five minutes (in
+      30 seconds after a failure, what was known staying): what was used (all that came in, less
+      what went out or was stored), the sun, bought and sold, one bar of where it came from (the
+      sun used at home, the battery, the grid: what was stored counted from the sun first, and
+      what was sold too, as Home Assistant's Energy page splits them), the share that was the
+      home's own, and the devices Home Assistant counts, named after their piece on the plan when
+      linked. Home Assistant's own Energy page is a link at its end, not the tab.
+    - *Using the most now*: the pieces of the storeys shown drawing power (from 1 W), by their
+      power sensors, and each room's together; a tap shows one on the plan. The home's own meters
+      (the grid's, the sun's, the battery's) are the whole home's, not a piece's. What a viewer
+      may not see is left out, a device's piece in a private room lending it no name (D-039,
+      D-071).
+    - The tab shows once something can be said: Home Assistant's energy set up, DomoTwin's energy
+      sensors chosen, or a piece with a power sensor; the 3D view goes back to its own layer when
+      the tab is left. The board is its own chunk, loaded the first time the tab shows.
+  - **The automations layer is a list first**, beside the view (under the house on a phone): each
+    automation by the area it is about (its first action's, else its first trigger's), in a line
+    of what sets it off and what it acts on (the pieces by their names on the plan, an arrow kept
+    between them whichever way they are written), when it last ran, turned off or just run;
+    searched above eight. An automation with an end in a room the viewer may not see is left out
+    (D-039). No wire is drawn until one is picked: then its wires alone, and what it does in
+    plain words (D-070's words, already in the 12 languages), with the marks' meaning and the
+    editor for administrators. On a phone the one picked shows alone. *Every wire at once* keeps
+    the drawing of D-032 (bundled above 30) for those who want it.
+- **Consequences.** No new command and no new setting: the board reads what Home Assistant
+  already gives every user who sees its Energy page (the statistics need nothing more), and the
+  list reads the configurations the wires already read (administrators). The wires' chunk now
+  carries the plain words' texts in English and French (the other languages have them in their
+  packs). The demo house answers the statistics from its planned day, minute by minute.

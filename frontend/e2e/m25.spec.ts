@@ -255,7 +255,7 @@ test.describe("safety (D-068)", () => {
     await expect(doorbell).toHaveCount(0);
   });
 
-  test("on a phone, four tabs at the bottom; in French", async ({ page }) => {
+  test("on a phone, five tabs at the bottom; in French", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 780 });
     await openHarness(page, {
       mode: "panel",
@@ -265,7 +265,9 @@ test.describe("safety (D-068)", () => {
       start: "safety",
       lang: "fr",
     });
-    await expect(page.locator("nav.tabs.bottom a")).toHaveCount(4);
+    // Home, Rooms, Energy (a piece's power sensor, D-092), Safety and 3D.
+    await expect(page.locator("nav.tabs.bottom a")).toHaveCount(5);
+    await expect(page.getByTestId("tab-energy")).toHaveText("Énergie");
     await expect(page.getByTestId("tab-safety")).toHaveText("Sécurité");
     await expect(page.getByTestId("safety-alerts")).toContainText("Aucune alerte");
     await expect(page.getByTestId("safety-cameras").locator("h2")).toHaveText("Caméras");

@@ -102,7 +102,9 @@ every reader returns `Result` with a stable error code that the frontend transla
 - History and energy (D-069): `live/graphs.ts` sorts a room's entities into Home Assistant's
   history-graph and statistics-graph cards, which `components/room-graphs.ts` shows in the Rooms
   tab's chunk; `live/overview.ts` gives the address of Home Assistant's Energy page, which the
-  panel's Energy tab opens.
+  Energy tab's board links to. The board (D-092) is `components/energy-board.ts`, its own chunk,
+  loaded the first time the tab shows; `live/energy-board.ts` reads Home Assistant's energy
+  settings and statistics and adds up what each piece and room draws.
 - The weekly report (D-081): `components/report-dialog.ts` (its own chunk) shows what
   `domotwin/report/get` answers (`live/report.ts`), each storey's rooms drawn as SVG from their
   outlines; the integration writes the reports (`custom_components/domotwin/report*.py`).

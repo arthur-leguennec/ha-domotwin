@@ -42,6 +42,7 @@ const TAB_KEYS = {
   rooms: "tabs.rooms",
   safety: "tabs.safety",
   "3d": "tabs.three_d",
+  energy: "tabs.energy",
 } as const;
 
 /** A screen while it is changed: its name (`fresh`: a new one, still named) and its layout. */

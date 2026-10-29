@@ -38,6 +38,7 @@ import {
   at,
   batteryAt,
   chargeAfter,
+  energyBetween,
   flowsAt,
   homePower,
   ofDay,
@@ -50,6 +51,7 @@ import {
   wantedAt,
   whereAt,
   type Change,
+  type DayEnergy,
 } from "./day";
 import {
   AREAS,
@@ -157,8 +159,8 @@ const ENERGY_PREFS = {
     },
     {
       type: "grid",
-      flow_from: [],
-      flow_to: [],
+      flow_from: [{ stat_energy_from: "sensor.grid_in" }],
+      flow_to: [{ stat_energy_to: "sensor.grid_out" }],
       power: [{ stat_rate: "sensor.grid_power" }],
     },
     {
@@ -168,7 +170,30 @@ const ENERGY_PREFS = {
       stat_rate: "sensor.battery_power",
     },
   ],
-  device_consumption: [],
+  // Counted from the appliances' power (the demo keeps no energy meters of theirs).
+  device_consumption: [
+    { stat_consumption: "sensor.washer_power" },
+    { stat_consumption: "sensor.dryer_power" },
+    { stat_consumption: "sensor.dishwasher_power" },
+    { stat_consumption: "sensor.oven_power" },
+    { stat_consumption: "sensor.fridge_power" },
+    { stat_consumption: "sensor.tv_power" },
+  ],
+};
+
+/** The energy the demo counts (kWh, D-092): each statistic's part of its day's energy. */
+const ENERGY_OF: Readonly<Record<string, keyof DayEnergy>> = {
+  "sensor.solar_energy": "solar",
+  "sensor.grid_in": "gridIn",
+  "sensor.grid_out": "gridOut",
+  "sensor.battery_out": "batteryOut",
+  "sensor.battery_in": "batteryIn",
+  "sensor.washer_power": "washer",
+  "sensor.dryer_power": "dryer",
+  "sensor.dishwasher_power": "dishwasher",
+  "sensor.oven_power": "oven",
+  "sensor.fridge_power": "fridge",
+  "sensor.tv_power": "tv",
 };
 
 /** The demo house, its day and its Home Assistant. */
@@ -404,6 +429,28 @@ export class DemoHome implements MemoryHome {
 
   energyPrefs(): unknown {
     return ENERGY_PREFS;
+  }
+
+  /**
+   * Energy statistics as Home Assistant counts them (D-092): its day's power summed over the
+   * period, up to the demo's clock, in kWh; an appliance's from its power sensor.
+   */
+  statistics(ids: readonly string[], start: number, end: number): unknown {
+    const now = Date.parse(this.time());
+    const until = Math.min(end, now);
+    if (until <= start) return {};
+    // Minutes of the demo's day: from its midnight, to its clock.
+    const midnight = now - ofDay(this.minute) * 60_000;
+    const energy = energyBetween(
+      Math.max(0, (start - midnight) / 60_000),
+      (until - midnight) / 60_000,
+    );
+    const out: Record<string, { start: number; end: number; change: number }[]> = {};
+    for (const id of ids) {
+      const part = ENERGY_OF[id];
+      if (part) out[id] = [{ start, end: until, change: energy[part] }];
+    }
+    return out;
   }
 
   /** Its day as Home Assistant's history (D-058), up to the demo's clock. */
