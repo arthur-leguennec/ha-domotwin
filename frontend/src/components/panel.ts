@@ -3029,8 +3029,6 @@ export class DomoTwinPanel extends LitElement {
     // One import at a time: not while a file is read or its storey is being chosen.
     if (this.busy || this.importChoice) return;
     this.importTarget = "storey";
-    // From another tab's More menu: the plan is seen in the 3D view as it comes in.
-    if (this.tab !== undefined && this.tab !== "3d") this.go("3d");
     this.renderRoot.querySelector<HTMLInputElement>("input.plan-file")?.click();
   };
 
@@ -3117,6 +3115,9 @@ export class DomoTwinPanel extends LitElement {
     input.value = "";
     const client = this.client;
     if (!file || !client || this.busy || this.importChoice) return;
+    // From another tab's More menu, once a file is chosen: the plan is seen in the 3D view as it
+    // comes in.
+    if (this.tab !== undefined && this.tab !== "3d") this.go("3d");
     if (IMPORTED_FILES.test(file.name)) {
       await this.readImport(file);
       return;

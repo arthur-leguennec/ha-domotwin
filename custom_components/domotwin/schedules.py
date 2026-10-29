@@ -3,7 +3,8 @@
 "Switch the lantern on tomorrow at 6:30, at full power, until 6:45": DomoTwin keeps such actions
 in a store of their own, so that they outlive a restart of Home Assistant, and does them at their
 time. A device is switched on (a light at a brightness given) and, when an end is given, off again;
-or it is switched off. Covers open and close.
+or it is switched off. Covers open and close. The heating can also be put back as it was (a preset,
+a mode or a temperature): a shortcut leaving home asks when one is back (D-091).
 
 They are made by `domotwin.schedule` (automations, scripts), by the voice assistants (`llm.py`)
 and from a piece's sheet; listed live over `domotwin/schedules/subscribe`; cancelled from the
@@ -12,7 +13,7 @@ sheet, by the assistants or by `domotwin.unschedule`.
 A step missed while Home Assistant was stopped is done when it starts again if it is less than
 `SCHEDULE_GRACE_SECONDS` late, or if the device should be on by now (its end is still to come). A
 device switched on and waiting for its end is always switched off, however late. Anything else
-missed is dropped.
+missed is dropped. The heating put back as it was is always done, however late: one is back.
 """
 
 from __future__ import annotations
@@ -63,6 +64,14 @@ LATE_ALLOWED = timedelta(minutes=1)
 OFF_RETRY = timedelta(minutes=1)
 #: …this many times (an hour), then given up on, and logged.
 OFF_RETRIES = 60
+#: What the heating is put back to, and the service of Home Assistant's that does it.
+CLIMATE_SERVICES = {
+    "preset_mode": "set_preset_mode",
+    "hvac_mode": "set_hvac_mode",
+    "temperature": "set_temperature",
+}
+#: A preset's or a mode's name is at most this long.
+CLIMATE_NAME_MAX = 64
 
 
 class ScheduleError(Exception):
@@ -76,7 +85,11 @@ class ScheduleError(Exception):
 
 @dataclass
 class Scheduled:
-    """An action waiting: switch `entities` on (`action` "on") or off at `at` (UTC)."""
+    """An action waiting: switch `entities` on (`action` "on") or off at `at` (UTC).
+
+    Or, `action` "climate": put the heating `entities` back to `climate` (one preset, mode or
+    temperature) at `at`.
+    """
 
     id: str
     entities: list[str]
@@ -91,6 +104,8 @@ class Scheduled:
     created: datetime = field(default_factory=dt_util.utcnow)
     #: Who set it: its steps are done in their name, with their rights.
     user_id: str | None = None
+    #: For "climate": what the heating is put back to, `{"preset_mode": "comfort"}` and the like.
+    climate: dict[str, str | float] | None = None
 
     @property
     def due(self) -> datetime:
@@ -109,6 +124,7 @@ class Scheduled:
             "started": self.started,
             "created": self.created.isoformat(),
             "user_id": self.user_id,
+            "climate": dict(self.climate) if self.climate is not None else None,
         }
 
     @classmethod
@@ -123,9 +139,12 @@ class Scheduled:
             or not isinstance(entities, list)
             or not entities
             or not all(isinstance(e, str) for e in entities)
-            or raw.get("action") not in ("on", "off")
+            or raw.get("action") not in ("on", "off", "climate")
             or at is None
         ):
+            return None
+        climate = climate_setting(raw.get("climate"))
+        if (raw["action"] == "climate") != (climate is not None):
             return None
         until = dt_util.parse_datetime(str(raw["until"])) if raw.get("until") else None
         brightness = raw.get("brightness")
@@ -140,7 +159,22 @@ class Scheduled:
             started=raw.get("started") is True,
             created=dt_util.as_utc(created),
             user_id=raw["user_id"] if isinstance(raw.get("user_id"), str) else None,
+            climate=climate,
         )
+
+
+def climate_setting(raw: Any) -> dict[str, str | float] | None:
+    """What the heating is put back to, read leniently: one preset, mode or temperature; or None."""
+    if not isinstance(raw, dict) or len(raw) != 1:
+        return None
+    ((key, value),) = raw.items()
+    if key == "temperature":
+        if isinstance(value, bool) or not isinstance(value, int | float):
+            return None
+        return {key: float(value)} if -50 <= value <= 100 else None
+    if key in CLIMATE_SERVICES and isinstance(value, str) and 0 < len(value) <= CLIMATE_NAME_MAX:
+        return {key: value}
+    return None
 
 
 def next_moment(moment: datetime | time, after: datetime) -> datetime:
@@ -198,11 +232,27 @@ def check(hass: HomeAssistant, item: Scheduled) -> None:
         raise ScheduleError("too_far")
     if action == "off" and (until is not None or item.brightness is not None):
         raise ScheduleError("off_with_end")
+    _check_climate(item)
     if until is not None:
         if until <= at or until <= now:
             raise ScheduleError("end_before_start")
         if until - at > timedelta(days=MAX_SCHEDULE_SPAN_DAYS):
             raise ScheduleError("too_long")
+
+
+def _check_climate(item: Scheduled) -> None:
+    """Raises `ScheduleError("not_climate")` for the heating put back wrongly, or not alone."""
+    if item.action != "climate":
+        if item.climate is not None:
+            raise ScheduleError("not_climate")
+        return
+    if (
+        climate_setting(item.climate) is None
+        or item.until is not None
+        or item.brightness is not None
+        or not all(entity.startswith("climate.") for entity in item.entities)
+    ):
+        raise ScheduleError("not_climate")
 
 
 class Scheduler:
@@ -234,8 +284,9 @@ class Scheduler:
     def async_start(self) -> None:
         """Arm every action; those missed while Home Assistant was stopped are done or dropped.
 
-        Switching off is always done, however late: it is the safe way. Switching on is done a
-        little late, or when the device should be on by now (its end to come).
+        Switching off is always done, however late: it is the safe way, and so is the heating
+        put back as it was (one is back). Switching on is done a little late, or when the device
+        should be on by now (its end to come).
         """
         self._running = True
         now = dt_util.utcnow()
@@ -250,7 +301,7 @@ class Scheduler:
                 dropped.append(item.id)
             elif (
                 item.started
-                or item.action == "off"
+                or item.action in ("off", "climate")
                 or late <= timedelta(seconds=SCHEDULE_GRACE_SECONDS)
                 or (item.until is not None and item.until > now)
             ):
@@ -322,11 +373,13 @@ class Scheduler:
         brightness: int | None = None,
         *,
         user_id: str | None = None,
+        climate: dict[str, str | float] | None = None,
     ) -> Scheduled:
         """Keeps a new action and arms it; raises a `ScheduleError` when it is refused.
 
         `user_id`: who sets it, who must be allowed to control its devices (none: Home Assistant
-        itself, an automation without a user).
+        itself, an automation without a user). `climate`: for the action "climate", what the
+        heating is put back to.
         """
         item = Scheduled(
             id=ulid_now(),
@@ -336,6 +389,7 @@ class Scheduler:
             until=dt_util.as_utc(until) if until else None,
             brightness=brightness,
             user_id=user_id,
+            climate=climate,
         )
         check(self._hass, item)
         await self.async_check_user(user_id, item.entities)
@@ -398,6 +452,13 @@ class Scheduler:
         self._timers.pop(scheduled_id, None)
         item = self._waiting.get(scheduled_id)
         if item is None or self._stopped:
+            return
+        if item.action == "climate":
+            # Once: the heating someone may since have set otherwise is not tried again.
+            await self._async_climate(item)
+            if not self._stopped and self._waiting.get(scheduled_id) is item:
+                self._waiting.pop(scheduled_id, None)
+                await self._async_save()
             return
         on = item.action == "on" and not item.started
         reached = await self._async_switch(item, on)
@@ -466,6 +527,23 @@ class Scheduler:
         ]
         return reached and not unavailable
 
+    async def _async_climate(self, item: Scheduled) -> None:
+        """Puts the heating back as it was, in the name of who set it; a failure is logged."""
+        if item.climate is None:
+            return
+        ((key, value),) = item.climate.items()
+        service = CLIMATE_SERVICES[key]
+        try:
+            await self._hass.services.async_call(
+                "climate",
+                service,
+                {"entity_id": list(item.entities), key: value},
+                blocking=True,
+                context=Context(user_id=item.user_id),
+            )
+        except Exception:  # A device failing must not leave the action stuck.
+            _LOGGER.exception("DomoTwin could not do climate.%s", service)
+
     async def _async_save(self) -> None:
         if self._stopped:
             return
@@ -485,6 +563,8 @@ _SAID = {
         "open": ("will open", "will open"),
         "close": ("will close", "will close"),
         # The end, said after the start ("will switch on … and off at 06:45").
+        # The heating put back as it was.
+        "back": ("will go back to how it was", "will go back to how they were"),
         "end": ("off", "off"),
         "end_cover": ("close", "close"),
         "today": "today at {time}",
@@ -503,6 +583,7 @@ _SAID = {
         "off": ("s'éteindra", "s'éteindront"),
         "open": ("s'ouvrira", "s'ouvriront"),
         "close": ("se fermera", "se fermeront"),
+        "back": ("reprendra son réglage", "reprendront leur réglage"),
         "end": ("s'éteindra", "s'éteindront"),
         "end_cover": ("se fermera", "se fermeront"),
         "today": "aujourd'hui à {time}",
@@ -521,6 +602,10 @@ _SAID = {
         "off": ("ausschalten", "ausschalten"),
         "open": ("öffnen", "öffnen"),
         "close": ("schließen", "schließen"),
+        "back": (
+            "auf die vorherige Einstellung zurücksetzen",
+            "auf die vorherige Einstellung zurücksetzen",
+        ),
         "end": ("ausschalten", "ausschalten"),
         "end_cover": ("schließen", "schließen"),
         "today": "heute um {time} Uhr",
@@ -539,6 +624,7 @@ _SAID = {
         "off": ("se apagará", "se apagarán"),
         "open": ("se abrirá", "se abrirán"),
         "close": ("se cerrará", "se cerrarán"),
+        "back": ("volverá a su ajuste", "volverán a su ajuste"),
         "end": ("se apagará", "se apagarán"),
         "end_cover": ("se cerrará", "se cerrarán"),
         "today": "hoy a las {time}",
@@ -557,6 +643,7 @@ _SAID = {
         "off": ("si spegnerà", "si spegneranno"),
         "open": ("si aprirà", "si apriranno"),
         "close": ("si chiuderà", "si chiuderanno"),
+        "back": ("tornerà alla sua impostazione", "torneranno alla loro impostazione"),
         "end": ("si spegnerà", "si spegneranno"),
         "end_cover": ("si chiuderà", "si chiuderanno"),
         "today": "oggi alle {time}",
@@ -575,6 +662,7 @@ _SAID = {
         "off": ("uitschakelen", "uitschakelen"),
         "open": ("openen", "openen"),
         "close": ("sluiten", "sluiten"),
+        "back": ("terugzetten naar de vorige instelling", "terugzetten naar de vorige instelling"),
         "end": ("uitschakelen", "uitschakelen"),
         "end_cover": ("sluiten", "sluiten"),
         "today": "vandaag om {time}",
@@ -593,6 +681,7 @@ _SAID = {
         "off": ("vai desligar-se", "vão desligar-se"),
         "open": ("vai abrir", "vão abrir"),
         "close": ("vai fechar", "vão fechar"),
+        "back": ("vai voltar à definição anterior", "vão voltar à definição anterior"),
         "end": ("desligar-se", "desligar-se"),
         "end_cover": ("fechar", "fechar"),
         "today": "hoje às {time}",
@@ -611,6 +700,7 @@ _SAID = {
         "off": ("vai desligar", "vão desligar"),
         "open": ("vai abrir", "vão abrir"),
         "close": ("vai fechar", "vão fechar"),
+        "back": ("vai voltar à configuração anterior", "vão voltar à configuração anterior"),
         "end": ("desligar", "desligar"),
         "end_cover": ("fechar", "fechar"),
         "today": "hoje às {time}",
@@ -629,6 +719,7 @@ _SAID = {
         "off": ("إيقاف تشغيل", "إيقاف تشغيل"),
         "open": ("فتح", "فتح"),
         "close": ("إغلاق", "إغلاق"),
+        "back": ("استعادة إعداد", "استعادة إعداد"),
         "end": ("إيقاف التشغيل", "إيقاف التشغيل"),
         "end_cover": ("الإغلاق", "الإغلاق"),
         "today": "اليوم في الساعة {time}",
@@ -647,6 +738,7 @@ _SAID = {
         "off": ("关闭", "关闭"),
         "open": ("打开", "打开"),
         "close": ("关闭", "关闭"),
+        "back": ("恢复原来的设置", "恢复原来的设置"),
         "end": ("关闭", "关闭"),
         "end_cover": ("关闭", "关闭"),
         "today": "今天{time}",
@@ -665,6 +757,7 @@ _SAID = {
         "off": ("オフにする", "オフにする"),
         "open": ("開ける", "開ける"),
         "close": ("閉める", "閉める"),
+        "back": ("元の設定に戻す", "元の設定に戻す"),
         "end": ("オフにする", "オフにする"),
         "end_cover": ("閉める", "閉める"),
         "today": "今日の{time}",
@@ -683,6 +776,7 @@ _SAID = {
         "off": ("꺼질", "꺼질"),
         "open": ("열릴", "열릴"),
         "close": ("닫힐", "닫힐"),
+        "back": ("원래 설정으로 돌아갈", "원래 설정으로 돌아갈"),
         "end": ("꺼질", "꺼질"),
         "end_cover": ("닫힐", "닫힐"),
         "today": "오늘 {time}",
@@ -730,6 +824,9 @@ def describe(hass: HomeAssistant, item: Scheduled) -> str:
         # On already: only its end is to come.
         when = _when(said, item.until)
         return sentence.format(who=who, verb=off_verb, level="", when=when, then="")
+    if item.action == "climate":
+        verb = said["back"][plural]
+        return sentence.format(who=who, verb=verb, level="", when=_when(said, item.at), then="")
     verb = on_verb if item.action == "on" else off_verb
     level = ""
     if item.brightness is not None and not covers:
@@ -811,19 +908,27 @@ def ws_schedules_subscribe(
     send()
 
 
+def _climate(value: Any) -> dict[str, str | float]:
+    """What the heating is put back to: one preset, mode or temperature."""
+    if (setting := climate_setting(value)) is None:
+        raise vol.Invalid("one preset_mode, hvac_mode or temperature")
+    return setting
+
+
 @websocket_api.websocket_command(
     {
         vol.Required("type"): "domotwin/schedules/add",
         vol.Required("entities"): vol.All(
             [cv.entity_id], vol.Length(min=1, max=MAX_SCHEDULE_ENTITIES)
         ),
-        vol.Optional("action", default="on"): vol.In(("on", "off")),
+        vol.Optional("action", default="on"): vol.In(("on", "off", "climate")),
         vol.Required("at"): moment,
         vol.Exclusive("until", "end"): moment,
         vol.Exclusive("duration", "end"): vol.All(
             vol.Coerce(int), vol.Range(min=1, max=MAX_SCHEDULE_DAYS * 86_400)
         ),
         vol.Optional("brightness"): vol.All(vol.Coerce(int), vol.Range(min=1, max=100)),
+        vol.Optional("climate"): _climate,
     }
 )
 @websocket_api.async_response
@@ -844,6 +949,7 @@ async def ws_schedules_add(
             end,
             msg.get("brightness"),
             user_id=connection.user.id,
+            climate=msg.get("climate"),
         )
     except ScheduleError as err:
         connection.send_error(msg["id"], err.code, err.code)

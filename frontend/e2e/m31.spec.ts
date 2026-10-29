@@ -42,9 +42,14 @@ test.describe("radio coverage (D-066)", () => {
   test("is offered to administrators only", async ({ page }) => {
     await openHarness(page, { live: true, admin: false });
     await page.getByTestId("layers").click();
-    await expect(page.locator('[data-layer="power"]')).toBeVisible();
+    await expect(page.getByTestId("layer-menu")).toBeVisible();
     await expect(page.locator('[data-layer="coverage"]')).toHaveCount(0);
+    // Nothing to cover (no Bluetooth, no ZHA, no Wi-Fi signal): not offered either (D-091).
     await openHarness(page, { live: true });
+    await page.getByTestId("layers").click();
+    await expect(page.getByTestId("layer-menu")).toBeVisible();
+    await expect(page.locator('[data-layer="coverage"]')).toHaveCount(0);
+    await openHarness(page, { live: true, bluetooth: true });
     await page.getByTestId("layers").click();
     await expect(page.locator('[data-layer="coverage"]')).toHaveText("Radio coverage");
   });
@@ -71,6 +76,9 @@ test.describe("radio coverage (D-066)", () => {
     // The spots, each raising the hall.
     const spots = page.getByTestId("placement-spots").locator("button.spot");
     await expect(spots).toHaveCount(3);
+    // What each changes, once chosen.
+    await expect(spots.first()).toContainText("1 room better covered");
+    await spots.first().click();
     await expect(spots.first()).toContainText("Hall: Fair → Good");
     // The receiver nobody placed, with the Bluetooth settings at hand.
     await expect(page.getByTestId("placement-unplaced")).toContainText("Not placed: hall-proxy");
@@ -131,6 +139,7 @@ test.describe("radio coverage (D-066)", () => {
       "Measured and predicted agree in",
     );
     const spots = page.getByTestId("placement-spots").locator("button.spot");
+    await spots.first().click();
     await expect(spots.first()).toContainText("Bathroom: Weak → Good");
     await expect(page.getByTestId("placement")).toContainText(
       "a router joins through its neighbours",

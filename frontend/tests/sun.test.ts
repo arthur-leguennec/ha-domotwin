@@ -56,6 +56,28 @@ describe("the sun through the windows (D-023)", () => {
     expect(sunnyRooms(undefined, { azimuth: 0, elevation: 20 }, 0)).toEqual([]);
   });
 
+  it("knows which side is out in an L-shaped room, whose middle is outside it", () => {
+    // An L: its inner wall at x = 200 (y 200 to 400) faces east, out to the yard in the corner.
+    const corner = {
+      rooms: [
+        {
+          id: "l",
+          outline: [
+            [0, 0],
+            [400, 0],
+            [400, 200],
+            [200, 200],
+            [200, 400],
+            [0, 400],
+          ],
+        },
+      ],
+      windows: [{ id: "w", from: [200, 250], to: [200, 350], room: "l" }],
+    };
+    expect(sunnyRooms(corner, { azimuth: 90, elevation: 30 }, 0)).toEqual(["l"]);
+    expect(sunnyRooms(corner, { azimuth: 270, elevation: 30 }, 0)).toEqual([]);
+  });
+
   it("reads where the sun is from Home Assistant", () => {
     const hass = (attributes: Record<string, unknown>) =>
       ({

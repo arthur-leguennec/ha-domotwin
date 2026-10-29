@@ -37,7 +37,20 @@ import { isPressed, type Choices, type HomeCard } from "../live/choices";
 import { glanceOf, type Glance, type GlanceSources } from "../live/glance";
 import { formatPower } from "../live/layers";
 import { peakWords } from "../live/peaks";
-import { timeStyle, whenText } from "../live/schedules";
+import { timeStyle, whenText, type Schedule } from "../live/schedules";
+import { todayIn } from "../live/upkeep";
+import {
+  BACK_IN,
+  BACK_WHENS,
+  asksBack,
+  backAt,
+  durationText,
+  firstChoice,
+  heatingAt,
+  heatingBack,
+  heatingNow,
+  type BackChoice,
+} from "../live/back";
 import { NOTHING_UNSEEN, seen, type Unseen } from "../live/privacy";
 import {
   MAX_SHORTCUTS,
@@ -96,7 +109,14 @@ interface Undo {
   calls: Call[];
   /** Where it was pressed: its bar is shown there. */
   from: "shortcuts" | "lights";
+  /** Leaving home (D-091): the actions waiting to bring the heating back, cancelled with it. */
+  heating?: string[];
+  /** Some of what it did is not undone (a lock, the alarm, a robot, a scene): the bar says so. */
+  partly?: boolean;
 }
+
+/** What a shortcut's undo leaves as it is (D-084): a door unlocked by mistake is not wanted. */
+const NOT_UNDONE: ReadonlySet<string> = new Set(["locks", "alarm", "vacuum", "run"]);
 
 /**
  * A shortcut's glyph: its icon, but the lamps' lit while some are on, for one that switches them
@@ -126,6 +146,8 @@ export class DomoTwinHome extends LitElement {
     refused: { state: true },
     editing: { state: true },
     asking: { state: true },
+    backChoice: { state: true },
+    heatingWaits: { state: true },
     dialog: { state: true },
     dialogReady: { state: true },
     said: { state: true },
@@ -154,6 +176,15 @@ export class DomoTwinHome extends LitElement {
   protected editing = false;
   /** The shortcut that asks before it acts, asking. */
   protected asking?: string;
+  /** Leaving home, as asked: when one is back (D-091). */
+  protected backChoice?: BackChoice;
+  /** The heating waiting to come back as it was (D-091), the soonest first. */
+  protected heatingWaits: Schedule[] = [];
+  /** The question closed by another control: the focus stays on it. */
+  private keepFocus = false;
+  /** The connection the actions waiting are followed on, and how to stop. */
+  private schedulesFrom?: unknown;
+  private stopSchedules?: () => void;
   /** The shortcuts' dialog, and whether its module is here. */
   protected dialog?: ShortcutDialog;
   protected dialogReady = false;
@@ -348,6 +379,8 @@ export class DomoTwinHome extends LitElement {
       }
       .shortcut .words {
         display: grid;
+        /* A long word wraps in the tile rather than widening its column. */
+        grid-template-columns: minmax(0, 1fr);
         min-width: 0;
       }
       /* A word cut only when it cannot fit whole on its line. */
@@ -391,6 +424,44 @@ export class DomoTwinHome extends LitElement {
           var(--card-background-color, #fff)
         );
       }
+      /* Leaving home: when one is back, across the whole row. */
+      .shortcut.asking.back {
+        grid-column: 1 / -1;
+      }
+      .shortcut.asking .back {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+        margin-top: 8px;
+      }
+      .shortcut.asking .back .label {
+        flex-basis: 100%;
+        font-weight: 500;
+      }
+      .shortcut.asking .back .choices {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      .shortcut.asking .back button.chip[aria-pressed="true"] {
+        border-color: var(--domotwin-accent, var(--primary-color, #03a9f4));
+        background: color-mix(
+          in srgb,
+          var(--domotwin-accent, var(--primary-color, #03a9f4)) 16%,
+          var(--card-background-color, #fff)
+        );
+      }
+      .shortcut.asking .back select,
+      .shortcut.asking .back input {
+        min-height: 40px;
+        max-width: 100%;
+        font: inherit;
+      }
+      .shortcut.asking .back .said {
+        flex-basis: 100%;
+        font-size: 0.85rem;
+      }
       .shortcut.asking .answers {
         display: flex;
         flex-wrap: wrap;
@@ -403,7 +474,8 @@ export class DomoTwinHome extends LitElement {
         align-items: center;
         gap: 8px;
         margin-top: 8px;
-        padding: 6px 6px 6px 12px;
+        padding-block: 6px;
+        padding-inline: 12px 6px;
         border-radius: 12px;
         background: color-mix(
           in srgb,
@@ -414,6 +486,7 @@ export class DomoTwinHome extends LitElement {
       .undo span {
         flex: 1;
         min-width: 0;
+        overflow-wrap: anywhere;
       }
       .undo button.icon {
         display: grid;
@@ -457,6 +530,11 @@ export class DomoTwinHome extends LitElement {
 
   override disconnectedCallback(): void {
     super.disconnectedCallback();
+    // Undone no more once away: its states would be old by the time it is back.
+    this.undo = undefined;
+    this.stopSchedules?.();
+    this.stopSchedules = undefined;
+    this.schedulesFrom = undefined;
     clearTimeout(this.peakTimer);
     clearTimeout(this.ranTimer);
     clearTimeout(this.undoTimer);
@@ -468,6 +546,8 @@ export class DomoTwinHome extends LitElement {
     const was = changed.get("asking") as string | undefined;
     if (this.asking) {
       this.renderRoot.querySelector<HTMLElement>("[data-testid='shortcut-yes']")?.focus();
+    } else if (this.keepFocus) {
+      this.keepFocus = false;
     } else if (was) {
       this.renderRoot
         .querySelector<HTMLElement>(`button[data-shortcut='${CSS.escape(was)}']`)
@@ -482,6 +562,25 @@ export class DomoTwinHome extends LitElement {
       if (this.open === "hours") this.readClosedEnergy();
     }
     if (["hass", "sources", "unseen"].some((key) => changed.has(key))) this.readMeetings();
+    if ((changed.has("hass") || changed.has("choices")) && this.hass) this.followHeating(this.hass);
+  }
+
+  /**
+   * The heating waiting to come back (D-091), followed while a shortcut asks when one is back:
+   * shown under the shortcuts, to bring it back now or leave it as it is.
+   */
+  private followHeating(hass: HomeAssistant): void {
+    const wanted = this.shortcuts.some(asksBack);
+    const from = wanted ? hass.connection : undefined;
+    if (from === this.schedulesFrom) return;
+    this.stopSchedules?.();
+    this.stopSchedules = undefined;
+    this.schedulesFrom = from;
+    this.heatingWaits = [];
+    if (!wanted) return;
+    this.stopSchedules = DomoTwinClient.for(hass).subscribeSchedules((items) => {
+      this.heatingWaits = items.filter((item) => item.action === "climate");
+    });
   }
 
   /** A workplace's meeting rooms (D-089), as the viewer may see them. */
@@ -972,21 +1071,66 @@ export class DomoTwinHome extends LitElement {
       if (shortcut.show) fire(this, "hass-more-info", { entityId: shortcut.show });
       return;
     }
-    // One that asks first runs only from its question's Yes: a second press does not answer it.
-    if (shortcut.confirm) {
+    // One that asks first runs only from its question's Yes, and not from a press made twice
+    // (a double tap or click, Enter held). Leaving home asks when one is back (D-091), the usual
+    // return first.
+    if (shortcut.confirm || asksBack(shortcut)) {
+      this.backChoice = asksBack(shortcut) ? this.firstBack(shortcut) : undefined;
       this.asking = shortcut.id;
       return;
     }
     void this.runIt(shortcut);
   }
 
-  /** Yes to the question of a shortcut that asks first. */
-  private confirmed(shortcut: Shortcut): void {
-    this.asking = undefined;
-    void this.runIt(shortcut);
+  /** The return first offered: the usual one, a workplace's next opening, or not known. */
+  private firstBack(shortcut: Shortcut): BackChoice | undefined {
+    const hass = this.hass;
+    if (!hass) return undefined;
+    const hours = this.glance?.hours;
+    const opens = hours && !hours.open && hours.until ? new Date(hours.until) : undefined;
+    return firstChoice(shortcut.back, new Date(nowOf(hass)), timeStyle(hass).timeZone, opens);
   }
 
-  private async runIt(shortcut: Shortcut): Promise<void> {
+  /** Yes to the question of a shortcut that asks first. */
+  private confirmed(shortcut: Shortcut): void {
+    const back = asksBack(shortcut) ? this.backChoice : undefined;
+    this.asking = undefined;
+    this.backChoice = undefined;
+    void this.runIt(shortcut, back);
+  }
+
+  /**
+   * Brings the heating the shortcut turned down back as it was, a little before one is back
+   * (D-091): what waited from an earlier leave is replaced. Says when, or why it could not.
+   */
+  private async bringHeatingBack(
+    hass: HomeAssistant,
+    t: Translator,
+    shortcut: Shortcut,
+    calls: readonly Call[],
+    choice: BackChoice,
+  ): Promise<Undo["heating"]> {
+    const now = new Date(nowOf(hass));
+    const back = backAt(choice, now, timeStyle(hass).timeZone);
+    if (!back) return undefined;
+    const at = heatingAt(shortcut.back, back, now);
+    const items = heatingBack(calls, at);
+    if (items.length === 0) return undefined;
+    const client = DomoTwinClient.for(hass);
+    const entities = new Set(items.flatMap((item) => item.entities));
+    const ids: string[] = [];
+    try {
+      for (const old of this.heatingWaits) {
+        if (old.entities.some((id) => entities.has(id))) await client.cancelSchedule(old.id);
+      }
+      for (const item of items) ids.push((await client.addSchedule(item)).schedule.id);
+    } catch (error) {
+      this.said = t.t("shortcuts.back.failed", { reason: failureText(t, error) });
+    }
+    return ids.length > 0 ? ids : undefined;
+  }
+
+  private async runIt(shortcut: Shortcut, back?: BackChoice): Promise<void> {
     const hass = this.hass;
     const t = this.t;
     if (!hass || !t) return;
@@ -1005,8 +1149,21 @@ export class DomoTwinHome extends LitElement {
       this.said = t.t("shortcuts.failed", { name: shortcut.name, reason: failureText(t, failure) });
     } else if (ran.done === 0) {
       this.said = t.t("shortcuts.nothing", { name: shortcut.name });
-    } else if (calls.length > 0) {
-      this.offerUndo({ id: shortcut.id, name: shortcut.name, calls, from: "shortcuts" });
+    }
+    // The heating back for one's return, even when part of it was refused.
+    const heating =
+      back && ran.done > 0
+        ? await this.bringHeatingBack(hass, t, shortcut, calls, back)
+        : undefined;
+    if (failure === undefined && ran.done > 0 && calls.length > 0) {
+      this.offerUndo({
+        id: shortcut.id,
+        name: shortcut.name,
+        calls,
+        from: "shortcuts",
+        ...(heating ? { heating } : {}),
+        ...(shortcut.steps.some((step) => NOT_UNDONE.has(step.kind)) ? { partly: true } : {}),
+      });
     }
   }
 
@@ -1031,13 +1188,22 @@ export class DomoTwinHome extends LitElement {
     const t = this.t;
     this.forget();
     if (!hass || !t) return;
+    // Back already: the heating no longer waits to come back.
+    for (const id of undo.heating ?? []) {
+      await DomoTwinClient.for(hass)
+        .cancelSchedule(id)
+        .catch(() => false);
+    }
     const ran = await makeCalls(hass, undo.calls);
     const [failure] = ran.failures;
     if (failure !== undefined) {
-      this.said = t.t("shortcuts.undo_failed", {
+      const said = t.t("shortcuts.undo_failed", {
         name: undo.name,
         reason: failureText(t, failure),
       });
+      // Said where it was pressed: the lamps' All off by the lamps.
+      if (undo.from === "lights") this.refused = said;
+      else this.said = said;
     }
   }
 
@@ -1092,8 +1258,15 @@ export class DomoTwinHome extends LitElement {
    * already is.
    */
   private askingTile(shortcut: Shortcut, t: Translator): TemplateResult {
+    const back = asksBack(shortcut) ? this.backChoice : undefined;
+    const hass = this.hass;
+    const now = new Date(hass ? nowOf(hass) : Date.now());
+    const style = hass ? timeStyle(hass) : undefined;
+    const at = back ? backAt(back, now, style?.timeZone) : undefined;
+    // A return said that cannot be: not gone without a word.
+    const unsure = back !== undefined && back.when !== "unknown" && at === undefined;
     return html`<div
-      class="shortcut asking"
+      class="shortcut asking ${back ? "back" : ""}"
       data-shortcut=${shortcut.id}
       role="alertdialog"
       aria-labelledby="asking-text"
@@ -1107,11 +1280,20 @@ export class DomoTwinHome extends LitElement {
         <span class="name" id="asking-text"
           >${t.t("shortcuts.confirm", { name: shortcut.name })}</span
         >
+        ${back && style ? this.backFields(shortcut, t, back, at, now, style) : nothing}
         <span class="answers">
           <button
             class="action"
             data-testid="shortcut-yes"
-            @click=${() => {
+            ?disabled=${unsure}
+            @keydown=${(event: KeyboardEvent) => {
+              // Enter held on the shortcut is not a Yes.
+              if (event.repeat) event.preventDefault();
+            }}
+            @click=${(event: MouseEvent) => {
+              // The second of a double tap or click, landed on Yes, is not one either.
+              if (event.detail > 1) return;
+
               this.confirmed(shortcut);
             }}
           >
@@ -1129,6 +1311,161 @@ export class DomoTwinHome extends LitElement {
         </span>
       </span>
     </div>`;
+  }
+
+  /**
+   * When one is back, asked on a shortcut leaving home's tile (D-091): not known, in a while, at a
+   * time, on a day; and when the heating comes back.
+   */
+  private backFields(
+    shortcut: Shortcut,
+    t: Translator,
+    choice: BackChoice,
+    at: Date | undefined,
+    now: Date,
+    style: ReturnType<typeof timeStyle>,
+  ): TemplateResult {
+    const set = (patch: Partial<BackChoice>): void => {
+      this.backChoice = { ...choice, ...patch };
+    };
+    const value = (event: Event): string => (event.target as HTMLInputElement).value;
+    const today = todayIn(style.timeZone, now);
+    let said: string;
+    if (choice.when === "unknown") said = t.t("shortcuts.back.unknown_hint");
+    else if (at) {
+      const when = whenText(heatingAt(shortcut.back, at, now), now, style);
+      said = t.t("schedules.back_at", { when });
+    } else said = t.t("shortcuts.back.past");
+    return html`<span class="back" role="group" aria-labelledby="back-label">
+      <span class="label" id="back-label">${t.t("shortcuts.back.when")}</span>
+      <span class="choices">
+        ${BACK_WHENS.map(
+          (when) =>
+            html`<button
+              class="chip"
+              data-back=${when}
+              aria-pressed=${choice.when === when ? "true" : "false"}
+              @click=${() => {
+                set({ when });
+              }}
+            >
+              ${t.t(`shortcuts.back.${when}`)}
+            </button>`,
+        )}
+      </span>
+      ${
+        choice.when === "in"
+          ? html`<select
+              data-testid="back-in"
+              aria-label=${t.t("shortcuts.back.in_label")}
+              @change=${(event: Event) => {
+                set({ minutes: Number(value(event)) });
+              }}
+            >
+              ${BACK_IN.map(
+                (minutes) =>
+                  html`<option value=${minutes} ?selected=${minutes === choice.minutes}>
+                    ${durationText(minutes, style.language)}
+                  </option>`,
+              )}
+            </select>`
+          : nothing
+      }
+      ${
+        choice.when === "on"
+          ? html`<input
+              type="date"
+              data-testid="back-date"
+              aria-label=${t.t("shortcuts.back.date_label")}
+              min=${today}
+              .value=${choice.date}
+              @change=${(event: Event) => {
+                set({ date: value(event) });
+              }}
+            />`
+          : nothing
+      }
+      ${
+        choice.when === "at" || choice.when === "on"
+          ? html`<input
+              type="time"
+              data-testid="back-time"
+              aria-label=${t.t("shortcuts.back.time_label")}
+              .value=${choice.time}
+              @change=${(event: Event) => {
+                set({ time: value(event) });
+              }}
+            />`
+          : nothing
+      }
+      <span class="muted said" data-testid="back-said" role="status">${said}</span>
+    </span>`;
+  }
+
+  /**
+   * The heating waiting to come back as it was (D-091): when, and to bring it back now (back
+   * early) or leave it as it is.
+   */
+  private heatingLine(hass: HomeAssistant, t: Translator): TemplateResult | typeof nothing {
+    const canAct = hass.canAct;
+    const waits = this.heatingWaits.filter(
+      (item) => !canAct || item.entities.every((id) => canAct(id)),
+    );
+    const first = waits[0];
+    if (!first) return nothing;
+    const now = new Date(nowOf(hass));
+    const when = whenText(new Date(first.at), now, timeStyle(hass));
+    const together = waits.filter((item) => item.at === first.at);
+    return html`<div class="undo heating" role="status" data-testid="heating-back">
+      <span>${t.t("schedules.back_at", { when })}</span>
+      <button
+        class="action"
+        data-testid="heating-now"
+        title=${t.t("shortcuts.back.now_title")}
+        @click=${() => {
+          void this.heatingBackNow(together);
+        }}
+      >
+        ${t.t("shortcuts.back.now")}
+      </button>
+      <button
+        class="link"
+        data-testid="heating-keep"
+        title=${t.t("shortcuts.back.keep_title")}
+        @click=${() => {
+          void this.leaveHeating(together);
+        }}
+      >
+        ${t.t("shortcuts.back.keep")}
+      </button>
+    </div>`;
+  }
+
+  /** Back early: the heating as it was now, no longer waiting. */
+  private async heatingBackNow(items: readonly Schedule[]): Promise<void> {
+    const hass = this.hass;
+    const t = this.t;
+    if (!hass || !t) return;
+    const calls = items.map(heatingNow).filter((call): call is Call => call !== undefined);
+    await this.leaveHeating(items);
+    const ran = await makeCalls(hass, calls);
+    const [failure] = ran.failures;
+    if (failure !== undefined) {
+      this.said = t.t("shortcuts.back.failed", { reason: failureText(t, failure) });
+    }
+  }
+
+  /** The heating left as it is: what waited to bring it back cancelled. */
+  private async leaveHeating(items: readonly Schedule[]): Promise<void> {
+    const hass = this.hass;
+    const t = this.t;
+    if (!hass || !t) return;
+    if (this.undo?.heating) this.undo = { ...this.undo, heating: undefined };
+    try {
+      for (const item of items) await DomoTwinClient.for(hass).cancelSchedule(item.id);
+    } catch (error) {
+      this.said = t.t("shortcuts.back.failed", { reason: failureText(t, error) });
+    }
   }
 
   private shortcutTile(hass: HomeAssistant, shortcut: Shortcut): TemplateResult {
@@ -1209,7 +1546,11 @@ export class DomoTwinHome extends LitElement {
   /** What was just done, and a button to put it back as it was. */
   private undoBar(t: Translator, undo: Undo): TemplateResult {
     return html`<div class="undo" role="status" data-testid="shortcut-undo">
-      <span>${t.t("shortcuts.done", { name: undo.name })}</span>
+      <span
+        >${t.t("shortcuts.done", { name: undo.name })}${
+          undo.partly ? html` <small>${t.t("shortcuts.undo_partly")}</small>` : nothing
+        }</span
+      >
       <button
         class="action"
         data-testid="shortcut-undo-it"
@@ -1248,6 +1589,7 @@ export class DomoTwinHome extends LitElement {
                 aria-pressed=${this.editing ? "true" : "false"}
                 @click=${() => {
                   this.editing = !this.editing;
+                  if (this.asking) this.keepFocus = true;
                   this.asking = undefined;
                 }}
               >
@@ -1279,7 +1621,7 @@ export class DomoTwinHome extends LitElement {
               </button>`
         }
       </div>
-      ${undo?.from === "shortcuts" ? this.undoBar(t, undo) : nothing}
+      ${undo?.from === "shortcuts" ? this.undoBar(t, undo) : nothing} ${this.heatingLine(hass, t)}
       ${this.said ? html`<p class="error" role="alert" data-testid="shortcut-said">${this.said}</p>` : nothing}
     </section>`;
   }

@@ -104,7 +104,24 @@ export interface Shortcut {
   quiet?: boolean;
   /** Asked before it acts. */
   confirm?: boolean;
+  /** Leaving home: asks when one is back, to bring the heating back as it was before (D-091). */
+  back?: Back;
 }
+
+/** When one is usually back from a shortcut leaving home, and how early the heating comes back. */
+export interface Back {
+  /** Each day of the week from Monday: the usual time of return ("HH:MM"), or none that day. */
+  usual?: (string | null)[];
+  /** How long before the return the heating comes back (minutes); 30 when not said. */
+  ahead?: number;
+}
+
+/** How long before the return the heating comes back when not said (minutes), and at most. */
+export const BACK_AHEAD = 30;
+export const MAX_BACK_AHEAD = 240;
+
+/** A time of day as the integration keeps it. */
+export const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 /** The integration's limits (its `MAX_SHORTCUTS`, `MAX_STEPS`, `MAX_LISTED`, `MAX_NAME`). */
 export const MAX_SHORTCUTS = 24;
@@ -178,6 +195,23 @@ function readStep(raw: unknown): Step | undefined {
   return step;
 }
 
+function readBack(raw: unknown): Back | undefined {
+  if (typeof raw !== "object" || raw === null) return undefined;
+  const value = raw as Record<string, unknown>;
+  const back: Back = {};
+  if (Array.isArray(value.usual) && value.usual.length === 7) {
+    const usual = value.usual.map((time) =>
+      typeof time === "string" && TIME.test(time) ? time : null,
+    );
+    if (usual.some((time) => time !== null)) back.usual = usual;
+  }
+  const ahead = value.ahead;
+  if (typeof ahead === "number" && Number.isInteger(ahead) && ahead >= 0) {
+    back.ahead = Math.min(ahead, MAX_BACK_AHEAD);
+  }
+  return back;
+}
+
 /** A shortcut the integration answered, what is not understood left out. */
 export function readShortcut(raw: unknown): Shortcut | undefined {
   if (typeof raw !== "object" || raw === null) return undefined;
@@ -200,6 +234,8 @@ export function readShortcut(raw: unknown): Shortcut | undefined {
   if (show) shortcut.show = show;
   if (value.quiet === true) shortcut.quiet = true;
   if (value.confirm === true) shortcut.confirm = true;
+  const back = readBack(value.back);
+  if (back) shortcut.back = back;
   return shortcut;
 }
 

@@ -53,6 +53,8 @@ export function newId(taken: Iterable<string>, random: () => number = Math.rando
 /** `CoverEntityFeature.SET_POSITION`; `MediaPlayerEntityFeature.PAUSE`. */
 const SET_POSITION = 4;
 const MEDIA_PAUSE = 1;
+const MEDIA_TURN_ON = 128;
+const MEDIA_PLAY = 16384;
 /** `ClimateEntityFeature`: one target temperature, presets. */
 const TARGET_TEMPERATURE = 1;
 const PRESET_MODE = 16;
@@ -324,19 +326,20 @@ function undoStep(hass: HomeAssistant, step: Step, ids: readonly string[]): Call
         if (state.state === "off") {
           if (step.do !== "off") add("light", "turn_off", {}, id);
         } else if (state.state === "on") {
-          const brightness = Number(attributes.brightness);
+          const brightness = attributes.brightness;
           add(
             "light",
             "turn_on",
-            Number.isFinite(brightness) && brightness > 0 ? { brightness } : {},
+            typeof brightness === "number" && brightness > 0 ? { brightness } : {},
             id,
           );
         }
         break;
       }
       case "covers": {
-        const position = Number(attributes.current_position);
-        if (Number.isFinite(position) && (features(hass, id) & SET_POSITION) === SET_POSITION) {
+        // Not a position Home Assistant leaves empty (null reads as 0).
+        const position = attributes.current_position;
+        if (typeof position === "number" && (features(hass, id) & SET_POSITION) === SET_POSITION) {
           add("cover", "set_cover_position", { position }, id);
         } else if (state.state === "open" || state.state === "closed") {
           add("cover", state.state === "open" ? "open_cover" : "close_cover", {}, id);
@@ -352,19 +355,24 @@ function undoStep(hass: HomeAssistant, step: Step, ids: readonly string[]): Call
               add("climate", "set_preset_mode", { preset_mode: preset }, id);
           }
         } else if (step.do === "temperature") {
-          const temperature = Number(attributes.temperature);
-          if (Number.isFinite(temperature)) add("climate", "set_temperature", { temperature }, id);
+          // None while a thermostat keeps a range, or is off: nothing to put back.
+          const temperature = attributes.temperature;
+          if (typeof temperature === "number") {
+            add("climate", "set_temperature", { temperature }, id);
+          }
         } else {
           add("climate", "set_hvac_mode", { hvac_mode: state.state }, id);
         }
         break;
       }
       case "media":
+        // Only what the player can do: one call refused would leave the others too.
         if (step.do === "off") {
-          if (state.state !== "off" && state.state !== "standby") {
+          const on = state.state !== "off" && state.state !== "standby";
+          if (on && (features(hass, id) & MEDIA_TURN_ON) === MEDIA_TURN_ON) {
             add("media_player", "turn_on", {}, id);
           }
-        } else if (state.state === "playing") {
+        } else if (state.state === "playing" && (features(hass, id) & MEDIA_PLAY) === MEDIA_PLAY) {
           add("media_player", "media_play", {}, id);
         }
         break;
@@ -380,7 +388,8 @@ function undoStep(hass: HomeAssistant, step: Step, ids: readonly string[]): Call
 /**
  * The calls that put back what a shortcut is about to change, from the states before it runs:
  * the lamps lit as they were, the shutters where they were, the heating and what played as it
- * was. Not a lock, the alarm, a robot, a scene nor a script. Each entity once, as it is now.
+ * was. Not a lock, the alarm, a robot, a scene nor a script. Each entity once for what it is
+ * put back to (a thermostat's preset and its temperature both), as it is now.
  */
 export function undoCalls(
   hass: HomeAssistant,
@@ -390,10 +399,12 @@ export function undoCalls(
   const done = new Set<string>();
   const calls: Call[] = [];
   for (const step of shortcut.steps) {
-    const ids = targets(hass, step, unseen).filter((id) => !done.has(id));
+    // The heating's preset, temperature and mode are put back each; the rest once.
+    const aspect = step.kind === "climate" ? `climate:${step.do}` : step.kind;
+    const ids = targets(hass, step, unseen).filter((id) => !done.has(`${id}|${aspect}`));
     const undo = undoStep(hass, step, ids);
     if (undo.length === 0) continue;
-    for (const call of undo) for (const id of call[3]) done.add(id);
+    for (const call of undo) for (const id of call[3]) done.add(`${id}|${aspect}`);
     calls.push(...undo);
   }
   return calls;
@@ -719,6 +730,8 @@ export function suggestions(
           steps: closeSteps,
           quiet: true,
           confirm: true,
+          // The heating back before the place opens again (D-091).
+          ...(eco ? { back: {} } : {}),
         },
         closeSteps.reduce((sum, step) => sum + count(step), 0),
       );
@@ -752,6 +765,8 @@ export function suggestions(
           steps: leaveSteps,
           quiet: true,
           confirm: true,
+          // The heating back before one's return (D-091).
+          ...(eco ? { back: {} } : {}),
         },
         leaveSteps.reduce((sum, step) => sum + count(step), 0),
       );

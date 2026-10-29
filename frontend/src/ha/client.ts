@@ -154,12 +154,14 @@ type Listener = (event: UpdateEvent) => void;
  */
 export interface NewSchedule {
   entities: string[];
-  action?: "on" | "off";
+  action?: "on" | "off" | "climate";
   at: string;
   until?: string;
   duration?: number;
   /** For lights switched on (%). */
   brightness?: number;
+  /** For "climate": what the heating is put back to, one preset, mode or temperature (D-091). */
+  climate?: Record<string, string | number>;
 }
 
 const clients = new WeakMap<HassConnection, DomoTwinClient>();

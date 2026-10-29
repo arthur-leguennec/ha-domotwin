@@ -26,9 +26,13 @@ export function say(words: Words, language: string): string {
 }
 
 /** What is said of an action planned for later (`{names}`, `{time}`), switching on or off. */
-export const SCHEDULED: Readonly<Record<"on" | "off", Words>> = {
+export const SCHEDULED: Readonly<Record<"on" | "off" | "climate", Words>> = {
   on: ["{names} will switch on at {time}.", "{names} : allumage prévu à {time}."],
   off: ["{names} will switch off at {time}.", "{names} : extinction prévue à {time}."],
+  climate: [
+    "{names} will go back to how it was at {time}.",
+    "{names} : retour au réglage d’avant prévu à {time}.",
+  ],
 };
 
 /** The storeys: their id, names and height, and their plan. */
@@ -613,8 +617,8 @@ export const THINGS: readonly Thing[] = [
   },
   // Two cameras: what each sees is drawn on the ground (D-038).
   {
+    // In the driveway, at the front: no area of its own, as the gate's.
     id: "camera.entrance",
-    area: "garden",
     names: ["Entrance camera", "Caméra de l’entrée"],
     pieces: ["cam-entrance"],
     state: "idle",
@@ -887,12 +891,13 @@ export function roomSensorOf(person: string): string {
 export function demoBindings(): Bindings {
   const elements: Record<
     string,
-    { entities: { entity_id: string; fov?: number; range?: number }[] }
+    { entities: { entity_id: string }[]; fov?: number; range?: number }
   > = {};
   for (const thing of THINGS) {
     for (const piece of thing.pieces ?? []) {
-      elements[piece] ??= { entities: [] };
-      elements[piece].entities.push({ entity_id: thing.id, ...thing.view });
+      // A camera's angle and reach are its piece's (D-038).
+      elements[piece] ??= { entities: [], ...thing.view };
+      elements[piece].entities.push({ entity_id: thing.id });
     }
   }
   return {
@@ -919,7 +924,7 @@ export function demoSettings(): Settings {
 
 /**
  * The visitor's shortcuts on the Home tab (D-084): the lamps off, the curtains closed, a good night,
- * the heating, the home battery's charge.
+ * leaving home (asking when one is back, D-091), the heating, the home battery's charge.
  */
 export function demoShortcuts(language: string): Shortcut[] {
   return [
@@ -946,6 +951,21 @@ export function demoShortcuts(language: string): Shortcut[] {
       ],
       quiet: true,
       confirm: true,
+    },
+    {
+      id: "leaving",
+      name: say(["Leaving home", "Je pars"], language),
+      icon: "leave",
+      steps: [
+        { kind: "lights", do: "off" },
+        { kind: "media", do: "off" },
+        { kind: "locks", do: "lock" },
+        { kind: "climate", do: "temperature", value: 17 },
+      ],
+      quiet: true,
+      confirm: true,
+      // Back from work at half past six on weekdays: the heating back half an hour before.
+      back: { usual: ["18:30", "18:30", "18:30", "18:30", "18:30", null, null], ahead: 30 },
     },
     {
       id: "heating",

@@ -2079,9 +2079,10 @@ export class DomoTwinView extends LitElement {
     // where that is from its north.
     const south = (this.hass?.config?.latitude ?? 0) >= 0;
     const north = Number.isFinite(this.north) ? this.north : 0;
-    const json = JSON.stringify(
-      style.solar ? { ...style, solar_toward: (north + (south ? 180 : 0)) % 360 } : style,
-    );
+    // To the nearest eighth of a turn: the north's slider, dragged, builds the home again a few
+    // times, not at every degree (the slope facing it changes no more often).
+    const toward = (Math.round((north + (south ? 180 : 0)) / 45) * 45) % 360;
+    const json = JSON.stringify(style.solar ? { ...style, solar_toward: toward } : style);
     if (this.roofStyleSent?.engine === engine && this.roofStyleSent.json === json) return;
     this.roofStyleSent = { engine, json };
     if (engine.setRoofStyle(json, build)) {
@@ -2222,7 +2223,8 @@ export class DomoTwinView extends LitElement {
       this.readPeople();
     }
     // The room chip leaves room for the legend (`renderLegend`), wider with the energy or a peak.
-    if ((this.valueLayer || this.realSun) && !this.editingAny) {
+    // The sun's legend only where the sun's position is known (`renderSunLegend`).
+    if ((this.valueLayer || (this.realSun && sunNow(this.hass))) && !this.editingAny) {
       const energy = this.valueLayer && this.layer === "power" && this.energyShown() !== undefined;
       const peak = this.valueLayer && this.shownLayer === "peak";
       this.setAttribute("legend", energy ? "energy" : peak ? "peak" : "");
@@ -2283,7 +2285,14 @@ export class DomoTwinView extends LitElement {
       this.applyLayers();
     }
     if (changed.has("north") || own.has("realSun") || changed.has("hass")) this.applySun();
-    if (changed.has("roofStyle") || changed.has("north")) this.applyRoofStyle();
+    // Panels on the roof follow the home's latitude too, should it come late.
+    if (
+      changed.has("roofStyle") ||
+      changed.has("north") ||
+      (changed.has("hass") && this.roofStyle?.solar)
+    ) {
+      this.applyRoofStyle();
+    }
     if (
       changed.has("hass") ||
       changed.has("weather") ||
@@ -5869,9 +5878,16 @@ export class DomoTwinView extends LitElement {
       if (layer === shown) return true;
       if ((HEAT_KINDS as readonly string[]).includes(layer)) return found.has(layer as HeatKind);
       switch (layer) {
+        // The power is the Energy tab's (D-049).
         case "power":
-        case "upkeep":
           return false;
+        // The upkeep list is the panel's More menu's, for its administrators; a card's, and
+        // others, find it here.
+        case "upkeep":
+          return (
+            !(this.roomTab && hass?.user?.is_admin === true) &&
+            Object.keys(this.upkeep?.pieces ?? {}).length > 0
+          );
         case "network":
           return this.networkAllowed;
         case "coverage":

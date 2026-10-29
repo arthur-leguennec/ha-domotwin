@@ -4585,8 +4585,19 @@ answer here keeps what was there, and takes away what confused.
     robot, a scene or a script: a door unlocked or an alarm off by a tap meant for something else
     is not wanted, and what a script did is not known.
   - **Asked on the tile.** A shortcut that asks first asks on its own tile, Yes under the finger;
-    Escape or No leaves it. *Good night* and *Alarm for the night* ask too, as *Leaving home*
-    did. The *All the lights off* tile shows a lit bulb while some are on.
+    Escape or No leaves it, and the second press of a double tap (or Enter held) is not a Yes.
+    *Good night* and *Alarm for the night* ask too, as *Leaving home* did. The *All the lights
+    off* tile shows a lit bulb while some are on. The undo bar says what Undo leaves as it is
+    (locks, the alarm, robots, scenes) when the shortcut did some.
+  - **When one is back.** A shortcut that turns the heating down may ask when one is back (its
+    dialog: *Ask when I'm back*; suggested for *Leaving home* and *Close up* with an eco step):
+    not known, in a while, at a time, or on a day. The usual return comes first when it is filled
+    in (in more options, a time per weekday) and within a day, or a workplace's next opening;
+    else *not known*. Known, the heating the shortcut turned down comes back as it was (its
+    preset, mode or temperature) a while before (30 minutes, or as set, up to 4 hours): actions
+    the integration keeps and does (D-046, a new action *climate*), even with no screen open and
+    after a restart, however late. A line under the shortcuts says when, to bring it back now
+    (back early) or leave it; a new leave replaces what waited; Undo cancels it.
   - **The Rooms tab** lists no entity of DomoTwin's own: they say what DomoTwin shows already,
     and stay for Home Assistant's own area pages.
   - **The home battery** is one that stores power: its charge is offered only on its power
@@ -4599,18 +4610,22 @@ answer here keeps what was there, and takes away what confused.
   - **The layer menu** lists what has something to show: a quantity some room measures, the radio
     coverage where a radio has something to cover (Bluetooth in Home Assistant, ZHA, Wi-Fi access
     points or signals), cameras where one is linked. The pieces' power is the Energy tab's, the
-    upkeep the More menu's; a layer already shown (a card's, the Energy tab's) stays listed.
+    upkeep the panel's More menu's for its administrators (a card and everyone else keep it in
+    the menu); a layer already shown (a card's, the Energy tab's) stays listed.
   - **Sunlight through the windows** says which rooms the sun comes into now (their windows
     facing it), or that it is down.
   - **An upkeep badge** says how many tasks wait when more than one.
   - **The radio coverage** shows the three best spots, each with how many rooms it would cover
     better (what changes in each, once one is chosen), the rooms and their levels; how it is
-    worked out is folded away.
+    worked out is folded away; a room's measure or prediction a tap away. Wi-Fi is always there,
+    to place the first access point.
   - **Solar panels on the roof.** The roof's settings say how many panels lie on the top roof
     (0–60): on its main wing's slope facing the equator (from the plan's north and Home
-    Assistant's latitude), as many as fit, in rows from the eaves, clear of the edges.
+    Assistant's latitude), as many as fit, in rows from the eaves, clear of the edges and of
+    another wing's roof where it meets this one.
   - **The demo house** has an overdue task, a washer with two, two cameras (the entrance and the
     garden) and 16 panels on its roof, whose power the day already made.
 - **Consequences.** Every new text in the 12 languages; no new command (`settings.roof.solar`
-  is validated with the settings). The undo is the browser's for two minutes: a reload forgets
-  it.
+  is validated with the settings, a shortcut's `back` with the user's choices, the action
+  *climate* by `domotwin/schedules/add`). The undo is the browser's for two minutes: a reload
+  forgets it; the heating's return is the integration's, kept.

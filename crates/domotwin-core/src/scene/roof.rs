@@ -154,7 +154,7 @@ impl RoofStyle {
 pub(crate) fn build(parts: &[StoreyPart], wall_height: f64, style: &RoofStyle) -> Vec<Roof> {
     let mut roofs = Vec::new();
     // Each roof's main wing, for the solar panels of the top one.
-    let mut mains: Vec<(Rectangle, RoofShape)> = Vec::new();
+    let mut mains: Vec<(Rectangle, RoofShape, Vec<RoofShape>)> = Vec::new();
     for (storey, part) in parts.iter().enumerate() {
         // The rooms with their walls, not the places outside.
         let footprint = outlines(part, false);
@@ -192,7 +192,7 @@ pub(crate) fn build(parts: &[StoreyPart], wall_height: f64, style: &RoofStyle) -
             .collect();
         if mesh.vertex_count() > 0 {
             if let Some(shape) = shapes.first() {
-                mains.push((wings[0], *shape));
+                mains.push((wings[0], *shape, shapes[1..].to_vec()));
             }
             roofs.push(Roof {
                 elevation: part.elevation,
@@ -210,17 +210,24 @@ pub(crate) fn build(parts: &[StoreyPart], wall_height: f64, style: &RoofStyle) -
         .max_by(|a, b| a.1.elevation.total_cmp(&b.1.elevation))
         .map(|(k, _)| k);
     if let (Some(k), true) = (top, style.solar > 0)
-        && let (Some(roof), Some((wing, shape))) = (roofs.get_mut(k), mains.get(k))
+        && let (Some(roof), Some((wing, shape, others))) = (roofs.get_mut(k), mains.get(k))
     {
-        draw_panels(&mut roof.mesh, wing, shape, style);
+        draw_panels(&mut roof.mesh, wing, shape, others, style);
     }
     roofs
 }
 
 /// Lays `style.solar` panels on a wing's roof, as many as fit: in rows up the slope facing
-/// `style.solar_toward` most (on a flat roof, in rows across it), the block centred, a margin
-/// kept from the eaves, the ridge and the ends (a hipped end's slope too).
-fn draw_panels(mesh: &mut Mesh, r: &Rectangle, shape: &RoofShape, style: &RoofStyle) {
+/// `style.solar_toward` most (on a flat roof, in rows across it), from the eaves, a margin kept
+/// from the eaves, the ridge and the ends (a hipped end's slope too). None where another wing's
+/// roof (`others`) rises over the slope, at a valley.
+fn draw_panels(
+    mesh: &mut Mesh,
+    r: &Rectangle,
+    shape: &RoofShape,
+    others: &[RoofShape],
+    style: &RoofStyle,
+) {
     let (hl, hw, rise, eaves) = (shape.half_length, shape.half_width, shape.rise, shape.eaves);
     let toward = style.solar_toward.map(|a| {
         let a = a.to_radians();
@@ -278,10 +285,8 @@ fn draw_panels(mesh: &mut Mesh, r: &Rectangle, shape: &RoofShape, style: &RoofSt
         counts.push(n);
         left -= n;
     }
-    #[allow(clippy::cast_precision_loss)]
-    let used = counts.len() as f64 * (panel_run + gap_run) - gap_run;
-    // The block centred up the slope.
-    let start = PANEL_MARGIN + (usable - used) / 2.0;
+    // From the eaves up, each row where it was counted: a hip's ends narrow the higher rows.
+    let start = PANEL_MARGIN;
     let point = |s: f64, d: f64, above: f64| -> V3 {
         let t = low + up * d;
         let y = if flat { lift } else { rise * d / run };
@@ -311,6 +316,17 @@ fn draw_panels(mesh: &mut Mesh, r: &Rectangle, shape: &RoofShape, style: &RoofSt
                 point(s1, d1, PANEL_LIFT),
                 point(s0, d1, PANEL_LIFT),
             ];
+            // Not under another wing's roof, where it meets this one.
+            let covered = frame.iter().any(|corner| {
+                others.iter().any(|other| {
+                    other
+                        .height_at([corner[0], corner[2]])
+                        .is_some_and(|h| h > corner[1] - PANEL_LIFT - 1.0)
+                })
+            });
+            if covered {
+                continue;
+            }
             let up_n = up_normal(&frame);
             painter.material = PANEL_FRAME;
             painter.quad(frame, none, Some(up_n), 0.0);
@@ -1094,7 +1110,7 @@ mod tests {
                 1.0,
             );
             let mut mesh = Mesh::default();
-            draw_panels(&mut mesh, &r, &shape, &style);
+            draw_panels(&mut mesh, &r, &shape, &[], &style);
             mesh
         };
         // Facing the top of the plan (−y): every panel on the −y slope, above the eaves.
@@ -1113,5 +1129,69 @@ mod tests {
         assert!(many > 0 && many < MAX_PANELS as usize * 8, "{many}");
         assert_eq!(panels(None, 0, RoofKind::Gable).vertex_count(), 0);
         assert!(panels(None, 4, RoofKind::Flat).vertex_count() == 4 * 8);
+    }
+
+    #[test]
+    fn solar_panels_keep_to_their_slope_on_hips_and_by_other_wings() {
+        let r = Rectangle::new([525.0, 475.0], [1.0, 0.0], [525.0, 475.0]);
+        let style = |kind: RoofKind, solar: u32| RoofStyle {
+            kind,
+            solar,
+            solar_toward: Some(180.0),
+            ..RoofStyle::default()
+        };
+        // A hip roof: every panel just above its slope, none past the hip lines towards the ends.
+        for solar in [5, 16, MAX_PANELS] {
+            let hip = style(RoofKind::Hip, solar);
+            let shape = draw_wing(
+                &mut Mesh::default(),
+                &mut Lines::default(),
+                &r,
+                250.0,
+                &hip,
+                1.0,
+            );
+            let mut mesh = Mesh::default();
+            draw_panels(&mut mesh, &r, &shape, &[], &hip);
+            assert!(mesh.vertex_count() > 0);
+            for v in &mesh.positions {
+                let [x, y, z, _] = v.map(f64::from);
+                let roof = shape.height_at([x, z]).expect("on the roof");
+                let above = y - roof;
+                assert!(
+                    (PANEL_LIFT - 0.01..=PANEL_LIFT + 0.61).contains(&above),
+                    "{solar} panels: {above} above the roof at {v:?}"
+                );
+            }
+        }
+        // Another wing meeting this one across its south slope: no panel under its roof.
+        let gable = style(RoofKind::Gable, MAX_PANELS);
+        let shape = draw_wing(
+            &mut Mesh::default(),
+            &mut Lines::default(),
+            &r,
+            250.0,
+            &gable,
+            1.0,
+        );
+        let cross = Rectangle::new([525.0, 850.0], [0.0, 1.0], [200.0, 400.0]);
+        let other = draw_wing(
+            &mut Mesh::default(),
+            &mut Lines::default(),
+            &cross,
+            250.0,
+            &gable,
+            1.0,
+        );
+        let (mut alone, mut beside) = (Mesh::default(), Mesh::default());
+        draw_panels(&mut alone, &r, &shape, &[], &gable);
+        draw_panels(&mut beside, &r, &shape, &[other], &gable);
+        assert!(beside.vertex_count() > 0 && beside.vertex_count() < alone.vertex_count());
+        for v in &beside.positions {
+            let [x, y, z, _] = v.map(f64::from);
+            if let Some(h) = other.height_at([x, z]) {
+                assert!(h <= y - PANEL_LIFT + 1.0, "under the other wing at {v:?}");
+            }
+        }
     }
 }

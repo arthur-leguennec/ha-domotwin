@@ -269,6 +269,24 @@ export class DomoTwinPlacement extends LitElement {
       .level {
         white-space: nowrap;
       }
+      /* A room's line; what its level is said from, a tap away. */
+      li details {
+        flex: 1;
+        min-width: 0;
+      }
+      li summary {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+        cursor: pointer;
+        list-style: none;
+      }
+      li summary::-webkit-details-marker {
+        display: none;
+      }
+      li .detail {
+        padding-inline-start: 18px;
+      }
       button.spot {
         display: flex;
         align-items: flex-start;
@@ -393,11 +411,11 @@ export class DomoTwinPlacement extends LitElement {
 
   /**
    * The radios this home can be advised on: Bluetooth where Home Assistant has it, Zigbee with
-   * ZHA, Wi-Fi with access points placed or signals reported; Wi-Fi when none (shown by a card).
+   * ZHA, and Wi-Fi always: its access points are placed here, the first one too.
    */
   private get kinds(): RadioKind[] {
     const kinds = radioKinds(this.hass, (this.saved ?? this.accessPoints).length);
-    return kinds.length > 0 ? kinds : ["wifi"];
+    return kinds.includes("wifi") ? kinds : [...kinds, "wifi"];
   }
 
   /** Whether an access point is being placed (the view hands it the next tap on the floor). */
@@ -937,13 +955,16 @@ export class DomoTwinPlacement extends LitElement {
       : room.predicted !== undefined
         ? t.t("placement.predicted", { signal: this.dbm(room.predicted) })
         : t.t("placement.nothing");
-    // What it is said from, on a hover: the list says the room and its level alone.
-    return html`<li class=${room.level} data-room=${room.id} title=${detail}>
-      <span class="dot"></span>
-      <span class="grow" data-kind=${measured ? "measured" : "predicted"}
-        >${this.roomName(room.id, room.storey)}</span
-      >
-      <span class="level">${t.t(`placement.${room.level}`)}</span>
+    // The room and its level; what it is said from a tap away (a touch, a reader reach it too).
+    return html`<li class=${room.level} data-room=${room.id}>
+      <details>
+        <summary>
+          <span class="dot"></span>
+          <span class="grow">${this.roomName(room.id, room.storey)}</span>
+          <span class="level">${t.t(`placement.${room.level}`)}</span>
+        </summary>
+        <small class="detail" data-kind=${measured ? "measured" : "predicted"}>${detail}</small>
+      </details>
     </li>`;
   }
 

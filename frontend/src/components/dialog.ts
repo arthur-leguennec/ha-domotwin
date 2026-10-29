@@ -11,12 +11,15 @@ export function fromField(event: Event): boolean {
 }
 
 /**
- * Whether the field Escape is pressed in keeps it: while an input method composes text, or in a
- * search that holds some (Escape empties it). From any other field of a dialog, Escape closes it.
+ * Whether the field Escape is pressed in keeps it: while an input method composes text (Safari
+ * says so only by the key code 229), in a search that holds some (Escape empties it), or in a
+ * text written over several lines, not to be lost to a key. From any other field, Escape closes.
  */
 export function fieldKeepsEscape(event: KeyboardEvent): boolean {
-  if (event.isComposing) return true;
+  // eslint-disable-next-line @typescript-eslint/no-deprecated -- Safari's only sign of composing.
+  if (event.isComposing || event.keyCode === 229) return true;
   const origin = event.composedPath()[0];
+  if (origin instanceof HTMLTextAreaElement) return origin.value.trim() !== "";
   return origin instanceof HTMLInputElement && origin.type === "search" && origin.value !== "";
 }
 

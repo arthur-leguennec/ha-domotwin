@@ -128,6 +128,7 @@ export const demo: Readonly<Record<string, string>> = {
   "Laundry leak sensor": "Sensor de fugas del lavadero",
   "Laundry light": "Luz del lavadero",
   "Laundry window": "Ventana del lavadero",
+  "Leaving home": "Me voy",
   "Letter box": "Buzón",
   "Lights follow people after dark": "Las luces siguen a la familia de noche",
   "Living room": "Salón",
@@ -220,6 +221,8 @@ export const demo: Readonly<Record<string, string>> = {
   "Washing machine power": "Consumo de la lavadora",
   "Water heater": "Calentador de agua",
   Worktop: "Encimera",
+  "{names} will go back to how it was at {time}.":
+    "{names}: vuelve a su ajuste anterior a las {time}.",
   "{names} will switch off at {time}.": "{names}: apagado previsto a las {time}.",
   "{names} will switch on at {time}.": "{names}: encendido previsto a las {time}.",
 };

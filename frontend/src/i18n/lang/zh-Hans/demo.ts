@@ -128,6 +128,7 @@ export const demo: Readonly<Record<string, string>> = {
   "Laundry leak sensor": "洗衣房漏水传感器",
   "Laundry light": "洗衣房灯",
   "Laundry window": "洗衣房窗户",
+  "Leaving home": "我出门了",
   "Letter box": "信箱",
   "Lights follow people after dark": "天黑后灯光随人而亮",
   "Living room": "客厅",
@@ -219,6 +220,7 @@ export const demo: Readonly<Record<string, string>> = {
   "Washing machine power": "洗衣机功率",
   "Water heater": "热水器",
   Worktop: "台面",
+  "{names} will go back to how it was at {time}.": "{names}：将在{time}恢复原来的设置。",
   "{names} will switch off at {time}.": "{names} 将于 {time} 关闭。",
   "{names} will switch on at {time}.": "{names} 将于 {time} 开启。",
 };

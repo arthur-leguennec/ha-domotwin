@@ -257,7 +257,9 @@ export class DomoTwinSchedules extends LitElement {
     const names = item.entities.map((id) => entityName(hass, id)).join(", ");
     const cover = item.entities.every((id) => id.startsWith("cover."));
     let text: string;
-    if (step.action === "off") {
+    if (step.action === "climate") {
+      text = t.t("schedules.back_at", { when });
+    } else if (step.action === "off") {
       text = t.t(cover ? "schedules.close_at" : "schedules.off_at", { when });
     } else {
       const until = item.until ? whenText(new Date(item.until), now, style) : undefined;

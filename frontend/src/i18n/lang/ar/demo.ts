@@ -72,7 +72,7 @@ export const demo: Readonly<Record<string, string>> = {
   "Evening lights": "أضواء المساء",
   Fence: "سياج",
   "Floor lamp": "مصباح أرضي",
-  "Flush the tank": "تفريغ الخزان",
+  "Flush the tank": "شطف الخزان",
   Forecast: "توقعات الطقس",
   Fridge: "ثلاجة",
   "Fridge power": "استهلاك الثلاجة",
@@ -128,6 +128,7 @@ export const demo: Readonly<Record<string, string>> = {
   "Laundry leak sensor": "مستشعر تسرّب غرفة الغسيل",
   "Laundry light": "ضوء غرفة الغسيل",
   "Laundry window": "نافذة غرفة الغسيل",
+  "Leaving home": "أنا خارج",
   "Letter box": "صندوق بريد",
   "Lights follow people after dark": "الأضواء تتبع الأشخاص بعد حلول الظلام",
   "Living room": "غرفة المعيشة",
@@ -219,6 +220,8 @@ export const demo: Readonly<Record<string, string>> = {
   "Washing machine power": "استهلاك غسالة الملابس",
   "Water heater": "سخان ماء",
   Worktop: "سطح عمل",
+  "{names} will go back to how it was at {time}.":
+    "{names}: العودة إلى الإعداد السابق في الساعة {time}.",
   "{names} will switch off at {time}.": "{names}: الإيقاف مقرّر في {time}.",
   "{names} will switch on at {time}.": "{names}: التشغيل مقرّر في {time}.",
 };

@@ -16,6 +16,7 @@ import {
 } from "../src/demo/day";
 import { DemoHome } from "../src/demo/home";
 import { STOREYS, THINGS, demoBindings } from "../src/demo/house";
+import { readBindings } from "../src/live/bindings";
 import { callService } from "../src/demo/services";
 
 function entity(id: string, state: string, attributes: Record<string, unknown> = {}): HassEntity {
@@ -158,6 +159,8 @@ describe("the demo house (D-050)", () => {
     for (const room of Object.keys(bindings.rooms)) expect(ids).toContain(room);
     // Every entity's id is one Home Assistant takes.
     for (const thing of THINGS) expect(thing.id).toMatch(/^[a-z_]+\.[a-z0-9_]+$/);
+    // A camera's angle and reach are on its piece, where the view reads them (D-038).
+    expect(readBindings(bindings).elements["cam-garden"]).toMatchObject({ fov: 95, range: 900 });
   });
 
   it("answers the panel's commands from memory, in the visitor's language", async () => {

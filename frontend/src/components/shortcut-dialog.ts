@@ -2,7 +2,7 @@
  * The shortcuts' dialog (D-084), loaded when first opened: `<domotwin-shortcut-dialog>` suggests
  * shortcuts from the home's devices (added as they are, or adjusted first), and changes one. What
  * it does and where come first; more options (what is left out, more steps, what the button
- * shows, a question first, its place) are a press away.
+ * shows, a question first, when one is usually back, its place) are a press away.
  */
 import { mdiClose, mdiPlus } from "@mdi/js";
 import { LitElement, css, html, nothing, type PropertyValues, type TemplateResult } from "lit";
@@ -35,6 +35,8 @@ import {
   type StepKind,
   type Suggestion,
 } from "../live/shortcuts";
+import { BACK_AHEAD, TIME } from "../live/shortcut-model";
+import { durationText } from "../live/back";
 import { deepActive, focusDialog, fieldKeepsEscape } from "./dialog";
 import { define, fire } from "./define";
 import { icon } from "./icon";
@@ -56,8 +58,30 @@ function advanced(shortcut: Shortcut): boolean {
     shortcut.confirm === true ||
     shortcut.show !== undefined ||
     shortcut.quiet === true ||
+    shortcut.back?.usual !== undefined ||
+    shortcut.back?.ahead !== undefined ||
     shortcut.steps.some((step) => (step.except?.length ?? 0) > 0)
   );
+}
+
+/** Whether a shortcut turns the heating down: it may then ask when one is back (D-091). */
+function heats(shortcut: Shortcut): boolean {
+  return shortcut.steps.some((step) => step.kind === "climate");
+}
+
+/** How early the heating may come back before the return (minutes), as offered. */
+const AHEADS = [0, 15, 30, 45, 60, 90, 120, 180, 240];
+
+/** The days of the week from Monday, named in `language`. */
+function weekdays(language: string): string[] {
+  let format: Intl.DateTimeFormat;
+  try {
+    format = new Intl.DateTimeFormat(language, { weekday: "long", timeZone: "UTC" });
+  } catch {
+    format = new Intl.DateTimeFormat("en", { weekday: "long", timeZone: "UTC" });
+  }
+  // 1 January 2024 was a Monday.
+  return Array.from({ length: 7 }, (_, day) => format.format(new Date(Date.UTC(2024, 0, 1 + day))));
 }
 
 /** Where a step acts, as its field says it: the home, a floor, a room, or devices chosen. */
@@ -211,6 +235,17 @@ const styles = css`
     overflow: auto;
     display: grid;
     gap: 2px;
+  }
+  /* When one is usually back, a day a field (D-091). */
+  .days {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 8px;
+  }
+  .days input {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
   }
   label.check {
     display: flex;
@@ -467,7 +502,9 @@ export class DomoTwinShortcutDialog extends LitElement {
       this.problem = t.t("shortcuts.dialog.empty");
       return;
     }
-    const shortcut: Shortcut = { ...draft, name: clipName(name), steps };
+    // Asking when one is back goes with a heating step.
+    const kept = heats({ ...draft, steps }) ? draft : without(draft, "back");
+    const shortcut: Shortcut = { ...kept, name: clipName(name), steps };
     for (const step of shortcut.steps) {
       if (step.except?.length === 0) delete step.except;
     }
@@ -835,6 +872,100 @@ export class DomoTwinShortcutDialog extends LitElement {
     return ids;
   }
 
+  /** Leaving home: whether it asks when one is back, to bring the heating back before (D-091). */
+  private renderBack(t: Translator, draft: Shortcut): TemplateResult | typeof nothing {
+    const heating = heats(draft);
+    if (!heating && !draft.back) return nothing;
+    return html`<label class="check">
+        <input
+          type="checkbox"
+          data-field="back"
+          aria-describedby="back-hint"
+          .checked=${draft.back !== undefined}
+          ?disabled=${!heating}
+          @change=${(event: Event) => {
+            const on = (event.target as HTMLInputElement).checked;
+            const rest = without(draft, "back");
+            this.draft = on ? { ...rest, back: {} } : rest;
+          }}
+        />
+        <span>${t.t("shortcuts.dialog.back")}</span>
+      </label>
+      <p class="hint" id="back-hint">
+        ${heating ? t.t("shortcuts.dialog.back_hint") : t.t("shortcuts.dialog.back_needs_heating")}
+      </p>`;
+  }
+
+  /** When one is usually back, each day, and how early the heating comes back (D-091). */
+  private renderBackMore(t: Translator, draft: Shortcut): TemplateResult | typeof nothing {
+    const back = draft.back;
+    if (!back || !heats(draft)) return nothing;
+    const usual = back.usual ?? Array.from({ length: 7 }, () => null);
+    const setUsual = (next: (string | null)[]): void => {
+      const rest = without(back, "usual");
+      this.change({ back: next.some((time) => time !== null) ? { ...rest, usual: next } : rest });
+    };
+    const ahead = back.ahead ?? BACK_AHEAD;
+    const monday = usual[0];
+    return html`<fieldset class="back-more" data-testid="back-more">
+      <legend>${t.t("shortcuts.dialog.back_usual")}</legend>
+      <p class="hint">${t.t("shortcuts.dialog.back_usual_hint")}</p>
+      <div class="days">
+        ${weekdays(t.language).map(
+          (name, day) =>
+            html`<label class="field"
+              >${name}
+              <input
+                type="time"
+                data-day=${day}
+                .value=${usual[day] ?? ""}
+                @change=${(event: Event) => {
+                  const time = (event.target as HTMLInputElement).value;
+                  const next = [...usual];
+                  next[day] = TIME.test(time) ? time : null;
+                  setUsual(next);
+                }}
+              />
+            </label>`,
+        )}
+      </div>
+      ${
+        monday
+          ? html`<button
+              class="text"
+              data-testid="back-weekdays"
+              @click=${() => {
+                setUsual(usual.map((time, day) => (day >= 1 && day <= 4 ? monday : time)));
+              }}
+            >
+              ${t.t("shortcuts.dialog.back_weekdays", { time: monday })}
+            </button>`
+          : nothing
+      }
+      <label class="field"
+        >${t.t("shortcuts.dialog.back_ahead")}
+        <select
+          data-field="ahead"
+          @change=${(event: Event) => {
+            const minutes = Number((event.target as HTMLSelectElement).value);
+            this.change({ back: { ...back, ahead: minutes } });
+          }}
+        >
+          ${AHEADS.map(
+            (minutes) =>
+              html`<option value=${minutes} ?selected=${minutes === ahead}>
+                ${
+                  minutes === 0
+                    ? t.t("shortcuts.dialog.back_ahead_none")
+                    : durationText(minutes, t.language)
+                }
+              </option>`,
+          )}
+        </select>
+      </label>
+    </fieldset>`;
+  }
+
   private renderMore(hass: HomeAssistant, t: Translator, draft: Shortcut): TemplateResult {
     const shows = showsOf(draft);
     const at = this.shortcuts.findIndex((s) => s.id === draft.id);
@@ -910,6 +1041,7 @@ export class DomoTwinShortcutDialog extends LitElement {
         />
         <span>${t.t("shortcuts.dialog.confirm")}</span>
       </label>
+      ${this.renderBackMore(t, draft)}
       ${
         !this.fresh && this.shortcuts.length > 1
           ? html`<div class="row">
@@ -1005,6 +1137,7 @@ export class DomoTwinShortcutDialog extends LitElement {
             </button>`
           : nothing
       }
+      ${this.renderBack(t, draft)}
       <button
         class="text"
         data-testid="shortcut-more-toggle"

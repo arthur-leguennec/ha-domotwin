@@ -566,6 +566,101 @@ async def test_the_sheets_list_set_and_cancel_actions_live(
     assert (await client.receive_json())["result"] == {"cancelled": 0}
 
 
+@pytest.mark.usefixtures("devices")
+async def test_the_heating_goes_back_as_it_was_when_one_is_back(
+    hass: HomeAssistant,
+    evening: FrozenDateTimeFactory,
+    setup_integration: MockConfigEntry,
+    hass_ws_client: WebSocketGenerator,
+) -> None:
+    """Leaving home, the heating set to eco goes back to comfort before one's return (D-091)."""
+    hass.states.async_set("climate.living", "heat", {"friendly_name": "Living room"})
+    hass.states.async_set("climate.office", "heat", {"friendly_name": "Office"})
+    presets = async_mock_service(hass, "climate", "set_preset_mode")
+    temperatures = async_mock_service(hass, "climate", "set_temperature")
+    client = await hass_ws_client(hass)
+    back = local(2026, 10, 27, 17, 30)
+    heating = {
+        "type": "domotwin/schedules/add",
+        "entities": ["climate.living", "climate.office"],
+        "action": "climate",
+        "at": back.isoformat(),
+    }
+    await client.send_json_auto_id({**heating, "climate": {"preset_mode": "comfort"}})
+    added = await client.receive_json()
+    assert added["success"]
+    assert added["result"]["text"] == (
+        "Living room and Office will go back to how they were tomorrow at 17:30."
+    )
+    assert added["result"]["schedule"]["climate"] == {"preset_mode": "comfort"}
+    await client.send_json_auto_id(
+        {**heating, "entities": ["climate.office"], "climate": {"temperature": 19.5}}
+    )
+    assert (await client.receive_json())["success"]
+
+    # Only the heating, put back to one thing, once.
+    for wrong in (
+        {**heating, "entities": ["light.lantern"], "climate": {"preset_mode": "comfort"}},
+        heating,
+        {**heating, "climate": {"preset_mode": "comfort"}, "duration": 60},
+        {**heating, "action": "on", "climate": {"preset_mode": "comfort"}},
+    ):
+        await client.send_json_auto_id(wrong)
+        assert (await client.receive_json())["error"]["code"] == "not_climate"
+    for malformed in ({"preset_mode": "comfort", "temperature": 20}, {"fan_mode": "auto"}):
+        await client.send_json_auto_id({**heating, "climate": malformed})
+        assert (await client.receive_json())["error"]["code"] == "invalid_format"
+
+    await move(hass, evening, back)
+    assert [dict(call.data) for call in presets] == [
+        {"entity_id": ["climate.living", "climate.office"], "preset_mode": "comfort"}
+    ]
+    assert presets[0].context.user_id is not None
+    assert [dict(call.data) for call in temperatures] == [
+        {"entity_id": ["climate.office"], "temperature": 19.5}
+    ]
+    assert hass.data[SCHEDULER_KEY].items() == []
+
+
+@pytest.mark.usefixtures("devices")
+async def test_the_heating_missed_while_stopped_goes_back_however_late(
+    hass: HomeAssistant,
+    evening: FrozenDateTimeFactory,
+    config_entry: MockConfigEntry,
+    hass_storage: dict[str, Any],
+) -> None:
+    hass.states.async_set("climate.living", "off", {"friendly_name": "Living room"})
+    modes = async_mock_service(hass, "climate", "set_hvac_mode")
+    now = local(2026, 10, 26, 22, 0)
+    hass_storage[SCHEDULES_STORAGE_KEY] = {
+        "version": 1,
+        "minor_version": 1,
+        "key": SCHEDULES_STORAGE_KEY,
+        "data": {
+            "schedules": [
+                stored(
+                    "back-home",
+                    now - timedelta(hours=3),
+                    action="climate",
+                    entities=["climate.living"],
+                    climate={"hvac_mode": "heat"},
+                ),
+                # The heating without what it goes back to, or a switch with one: left out.
+                stored("no-setting", now, action="climate", entities=["climate.living"]),
+                stored("switch-setting", now, climate={"hvac_mode": "heat"}),
+            ]
+        },
+    }
+    config_entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert [dict(call.data) for call in modes] == [
+        {"entity_id": ["climate.living"], "hvac_mode": "heat"}
+    ]
+    assert hass.data[SCHEDULER_KEY].items() == []
+
+
 async def test_the_list_waits_for_an_entry_and_the_commands_refuse(
     hass: HomeAssistant, hass_ws_client: WebSocketGenerator
 ) -> None:

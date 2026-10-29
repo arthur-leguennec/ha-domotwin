@@ -68,8 +68,29 @@ on *Home* (under the lamps on) can be undone the same way.
   battery, the home battery, the outside temperature), which a press then opens in Home
   Assistant's details; or nothing.
 - **Ask before it acts**: a press asks *go ahead?* on the shortcut itself, **Yes** where the
-  finger is; **No** or Escape leaves it.
+  finger is; **No** or Escape leaves it. The second press of a double tap is not a Yes.
+- **Usually back** (with *Ask when I'm back*, below): your usual time of return each day of the
+  week (*18:30 every weekday* copies Monday's), and how long before it the heating comes back
+  (30 minutes unless said, up to 4 hours, or just as you are back).
 - **Move earlier, later**: its place among the others.
+
+## When you are back
+
+A shortcut that turns the heating down (*Leaving home*, a workplace's *Close up*) can ask when you
+are back: tick **Ask when I'm back** in its dialog (the suggested ones do). Pressed, it asks on its
+tile, with *go ahead?*:
+
+- **I don't know**: the heating stays turned down until you put it back (as before);
+- **In…**: in half an hour, an hour… a week;
+- **At…**: at a time (tomorrow's if today's has passed);
+- **On…**: on a day, at a time.
+
+Your usual return is offered first when you have filled it in and it is within a day; at a
+workplace, its next opening; else *I don't know*. On **Yes**, the heating the shortcut turned
+down comes back as it was (its preset, mode or temperature) a while before you are: the
+integration does it at its time (D-046), even with no screen open, even after a restart. A line
+under the shortcuts says when, with **Now** (you are back early: the heating as it was, at once)
+and **Leave it** (nothing comes back). Leaving again replaces what waited; **Undo** cancels it.
 
 ## Changing them
 

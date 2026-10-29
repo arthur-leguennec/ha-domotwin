@@ -53,8 +53,11 @@ Ce qu’on cherche du doigt : le côté pratique, sur un téléphone comme sur u
   robots, vos scènes) ; ajoutez-en une telle quelle, ou ajustez-la : où (le logement, un étage, une
   pièce, les appareils que vous choisissez), ce qu’elle fait (éteindre, allumer à 30 %, ouvrir à
   moitié, 19 °C), et avec *Plus d’options* ce qui est laissé de côté, plusieurs étapes à la suite,
-  ce que le bouton affiche, une question avant d’agir. Gardées pour vous, sur chaque appareil, et
-  n’agissant que sur ce que vos droits vous laissent utiliser. Voir
+  ce que le bouton affiche, une question avant d’agir. En partant, elle demande quand vous
+  revenez (dans une heure, à 18 h 30, dimanche ; votre heure habituelle d’abord), et le chauffage
+  revient comme avant juste avant vous. Un appui fait par erreur s’annule depuis la barre en
+  dessous. Gardées pour vous, sur chaque appareil, et n’agissant que sur ce que vos droits vous
+  laissent utiliser. Voir
   [les commandes](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/shortcuts.md) (en anglais).
 - **Accueil, Pièces, Sécurité et 3D.** L’onglet *Accueil* du panneau montre la maison d’un coup
   d’œil (qui est là, les lampes allumées, les portes et fenêtres ouvertes, la météo), vos scènes

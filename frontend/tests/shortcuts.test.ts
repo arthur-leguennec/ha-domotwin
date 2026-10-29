@@ -110,7 +110,11 @@ const HOUSE: Record<string, Thing> = {
     state: "heat_cool",
     attributes: { hvac_modes: ["off", "heat_cool"], supported_features: 2 },
   },
-  "media_player.tv": { state: "playing", area: "living", attributes: { supported_features: 257 } },
+  "media_player.tv": {
+    state: "playing",
+    area: "living",
+    attributes: { supported_features: 16769 },
+  },
   "vacuum.robot": {
     state: "docked",
     area: "kitchen",
@@ -378,6 +382,52 @@ describe("shortcuts (D-084)", () => {
     expect(undoCalls(comfort, { ...leaving, steps: [{ kind: "climate", do: "eco" }] })).toEqual([
       ["climate", "set_preset_mode", { preset_mode: "comfort" }, ["climate.living"]],
     ]);
+    // Eco, then 17 °C: both put back, the preset and the temperature.
+    const warm = home({
+      ...HOUSE,
+      "climate.living": {
+        state: "heat",
+        area: "living",
+        attributes: {
+          preset_mode: "comfort",
+          preset_modes: ["eco", "comfort"],
+          temperature: 20.5,
+          supported_features: 17,
+        },
+      },
+    });
+    expect(
+      undoCalls(warm, {
+        ...leaving,
+        steps: [
+          { kind: "climate", do: "eco", area: "living" },
+          { kind: "climate", do: "temperature", value: 17, area: "living" },
+        ],
+      }),
+    ).toEqual([
+      ["climate", "set_preset_mode", { preset_mode: "comfort" }, ["climate.living"]],
+      ["climate", "set_temperature", { temperature: 20.5 }, ["climate.living"]],
+    ]);
+    // No temperature to put back (a range kept, or off: null), and a TV that cannot be switched
+    // on again: nothing asked that Home Assistant would refuse.
+    const ranged = home({
+      ...HOUSE,
+      "climate.living": {
+        state: "heat_cool",
+        area: "living",
+        attributes: { temperature: null, supported_features: 3 },
+      },
+      "media_player.tv": { state: "on", area: "living", attributes: { supported_features: 257 } },
+    });
+    expect(
+      undoCalls(ranged, {
+        ...leaving,
+        steps: [
+          { kind: "climate", do: "temperature", value: 17, area: "living" },
+          { kind: "media", do: "off" },
+        ],
+      }),
+    ).toEqual([]);
   });
 
   it("suggests what the home has, in the viewer's words, not twice", () => {
