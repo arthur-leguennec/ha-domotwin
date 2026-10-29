@@ -183,12 +183,12 @@ test.describe("the demo house's radios, placed (D-093)", () => {
     await demo3d(page);
     await chooseLayer(page, "network");
     const health = page.getByTestId("network-health");
-    await expect(health).toContainText("9 devices");
+    await expect(health).toContainText("10 devices");
     await expect(health).toContainText("1 weak link");
     // The ground floor shown: the upper floor's devices are there, none is left to place.
     await expect(page.getByTestId("network-not-placed")).toHaveCount(0);
     await expect(page.getByTestId("network-elsewhere")).toHaveText(
-      "3 devices are placed on another floor.",
+      "4 devices are placed on another floor.",
     );
     await expect(page.locator("domotwin-network .node").first()).toBeVisible();
   });
@@ -209,7 +209,9 @@ test.describe("how to make an automation, a guide in the panel (D-093)", () => {
     await expect(step).toContainText("Only if");
     await expect(step).toContainText("Then");
     // The demo house's own lamps and sensors make the example.
-    await expect(guide.getByTestId("guide-example")).toContainText(/When .+, only if the sun/);
+    await expect(guide.getByTestId("guide-example")).toContainText(
+      "When Hall motion sees someone, only if the sun is down, then switch on Hall spots.",
+    );
     await expect(guide).toContainText("Step 1 of 5");
     for (const next of ["when", "if", "then", "make"]) {
       await guide.getByTestId("guide-next").click();

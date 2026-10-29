@@ -17,14 +17,18 @@ const DOOR = new Set(["door", "garage_door", "opening"]);
 
 /**
  * The home's example: in the first area (by name) with a light, its motion sensor, else its door
- * sensor; none when no area has both. Hidden, configuration and diagnostic entities are left out.
+ * sensor; none when no area has both. Hidden, configuration and diagnostic entities are left out,
+ * and those the viewer may not see (`unseen`: a private room's, D-039).
  */
-export function guideExample(hass: HomeAssistant | undefined): GuideExample | undefined {
+export function guideExample(
+  hass: HomeAssistant | undefined,
+  unseen: (entity: string) => boolean = () => false,
+): GuideExample | undefined {
   if (!hass) return undefined;
   const byArea = new Map<string, { motion?: string; door?: string; light?: string }>();
   for (const id of Object.keys(hass.states).sort()) {
     const entry = hass.entities?.[id];
-    if (entry?.hidden === true || entry?.entity_category) continue;
+    if (entry?.hidden === true || entry?.entity_category || unseen(id)) continue;
     const area = areaOf(hass, id);
     if (!area) continue;
     const found = byArea.get(area) ?? {};

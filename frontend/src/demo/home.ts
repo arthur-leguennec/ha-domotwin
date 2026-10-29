@@ -74,6 +74,7 @@ import {
 } from "./house";
 import {
   COORDINATOR_DEVICE,
+  COORDINATOR_NAMES,
   INTERNET_BOX,
   WIFI_SIGNALS,
   demoAccessPoints,
@@ -156,7 +157,6 @@ function dayAt(day: Date, days: number, hour: number): Date {
   return new Date(day.getFullYear(), day.getMonth(), day.getDate() + days, hour);
 }
 
-/** A local date as `YYYY-MM-DD`. */
 /** The bindings with the Zigbee coordinator's device linked to the internet box (D-093). */
 function withCoordinator(bindings: Bindings): Bindings {
   return {
@@ -168,6 +168,7 @@ function withCoordinator(bindings: Bindings): Bindings {
   };
 }
 
+/** A local date as `YYYY-MM-DD`. */
 function dateOf(date: Date): string {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
@@ -399,7 +400,14 @@ export class DemoHome implements MemoryHome {
     this.hass = {
       states: {},
       entities,
-      devices: {},
+      // The Zigbee coordinator's device (D-093), linked to the internet box.
+      devices: {
+        [COORDINATOR_DEVICE]: {
+          id: COORDINATOR_DEVICE,
+          area_id: "hall",
+          name: say(COORDINATOR_NAMES, language),
+        },
+      },
       areas,
       floors,
       user: { id: "demo-visitor", name: visitor.name ?? "", is_admin: true },

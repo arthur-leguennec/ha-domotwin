@@ -47,6 +47,12 @@ describe("the guide to making an automation's example (D-093)", () => {
       sensor: "Bedroom motion",
       light: "Bedroom lamp",
     });
+    // A private bedroom the viewer may not see (D-039): not in the example.
+    expect(guideExample(hass, (id) => id.includes("bedroom"))).toEqual({
+      kind: "door",
+      sensor: "Hall door",
+      light: "Hall light",
+    });
     delete hass.states["binary_sensor.bedroom_motion"];
     expect(guideExample(hass)).toEqual({ kind: "door", sensor: "Hall door", light: "Hall light" });
   });

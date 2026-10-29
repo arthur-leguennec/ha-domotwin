@@ -240,6 +240,9 @@ import { baseStyles, lookStyles } from "./styles";
 
 type EngineState = "idle" | "loading" | "ready" | "unsupported" | "failed";
 
+/** No piece of another storey (D-093). */
+const NO_PIECES: ReadonlySet<string> = new Set();
+
 /** The days whose hours of sun the rooms can show (D-093). */
 type SunshineDay = "today" | "longest" | "shortest";
 const SUNSHINE_DAYS: readonly SunshineDay[] = ["today", "longest", "shortest"];
@@ -5367,7 +5370,9 @@ export class DomoTwinView extends LitElement {
    * they stay.
    */
   private piecesElsewhere(): ReadonlySet<string> {
+    // The home shown whole, or alone: one empty set, so that the network map is not placed again.
     const from = this.loadedHome ? [] : this.elsewhere;
+    if (from.length === 0) return NO_PIECES;
     const known = this.elsewhereIds;
     if (known?.from === from) return known.ids;
     const ids = new Set(from.flatMap((storey) => storeyIds(storey.plan, storey.layout)));

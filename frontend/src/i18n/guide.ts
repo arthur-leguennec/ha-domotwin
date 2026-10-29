@@ -46,7 +46,7 @@ export const guideEn = {
     make_title: "Make yours",
     make_editor: "Open Home Assistant's editor",
     make_editor_about:
-      "In Settings, Automations & scenes, Create automation: add a When, an Only if and a Then, and save.",
+      "In Settings, Automations & scenes, Create automation: fill in its three parts, then save.",
     make_plain: "Write it in plain words",
     make_plain_about:
       "Say it in a sentence: DomoTwin drafts it with Home Assistant's AI task, for you to check.",
@@ -57,7 +57,8 @@ export const guideEn = {
       "Once saved, it is in the 3D tab's Automations: its wires go from what starts it to what it does.",
     make_demo:
       "The demo house's automations cannot be changed: in your own home, Home Assistant's editor makes them.",
-    make_not_admin: "Only an administrator of Home Assistant can make automations.",
+    make_in_sandbox:
+      "This is the sandbox, a copy of your home where nothing is kept: leave it to make an automation in Home Assistant's editor.",
   },
 };
 
@@ -111,7 +112,7 @@ export const guideFr: Widen<typeof guideEn> = {
     make_title: "Créer la vôtre",
     make_editor: "Ouvrir l’éditeur de Home Assistant",
     make_editor_about:
-      "Dans Paramètres, Automatisations et scènes, Créer une automatisation : ajoutez un Quand, un Seulement si et un Alors, puis enregistrez.",
+      "Dans Paramètres, Automatisations et scènes, Créer une automatisation : remplissez ses trois parties, puis enregistrez.",
     make_plain: "L’écrire en langage courant",
     make_plain_about:
       "Dites-la en une phrase : DomoTwin en fait un brouillon avec la tâche d’IA de Home Assistant, à vérifier.",
@@ -122,6 +123,7 @@ export const guideFr: Widen<typeof guideEn> = {
       "Une fois enregistrée, elle apparaît dans les automatisations de l’onglet 3D : ses fils vont de ce qui la déclenche à ce qu’elle fait.",
     make_demo:
       "Les automatisations de la maison de démo ne se modifient pas : chez vous, l’éditeur de Home Assistant les crée.",
-    make_not_admin: "Seul un administrateur de Home Assistant peut créer des automatisations.",
+    make_in_sandbox:
+      "Ici, c’est le bac à sable, une copie de votre logement où rien n’est gardé : quittez-le pour créer une automatisation dans l’éditeur de Home Assistant.",
   },
 };

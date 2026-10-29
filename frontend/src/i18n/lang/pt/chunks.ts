@@ -346,7 +346,7 @@ export const chunks: Chunks = {
       make_title: "Crie a sua",
       make_editor: "Abrir o editor do Home Assistant",
       make_editor_about:
-        "Em Definições, Automatizações e cenas, Criar automatização: adicione um Quando, um Só se e um Então, e guarde.",
+        "Em Definições, Automatizações e cenas, Criar automatização: preencha as três partes e guarde.",
       make_plain: "Escrevê-la em linguagem simples",
       make_plain_about:
         "Diga-a numa frase: o DomoTwin faz um rascunho com a tarefa de IA do Home Assistant, para verificar.",
@@ -357,7 +357,8 @@ export const chunks: Chunks = {
         "Depois de guardada, aparece nas automatizações do separador 3D: os seus fios vão do que a inicia ao que faz.",
       make_demo:
         "As automatizações da casa de demonstração não podem ser alteradas: na sua própria casa, é o editor do Home Assistant que as cria.",
-      make_not_admin: "Só um administrador do Home Assistant pode criar automatizações.",
+      make_in_sandbox:
+        "Esta é a sandbox, uma cópia da sua casa onde nada fica guardado: saia dela para criar uma automatização no editor do Home Assistant.",
     },
   },
   history: {

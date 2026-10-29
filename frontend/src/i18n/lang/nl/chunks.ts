@@ -331,7 +331,7 @@ export const chunks: Chunks = {
       if_time: "Een tijdvak: tussen 22:00 en 6:00.",
       if_sun: "Na zonsondergang, of voor zonsopgang.",
       if_people: "Er is iemand thuis, of niemand.",
-      if_tip: "Ze zijn optioneel; als er zijn, moeten ze allemaal waar zijn om door te gaan.",
+      if_tip: "Ze zijn optioneel; als die er zijn, moeten ze allemaal waar zijn om door te gaan.",
       then_title: "Dan: wat ze doet",
       then_device:
         "Een apparaat aan- of uitzetten, of instellen: een lamp op 30 %, de verwarming op 19 °C.",
@@ -342,7 +342,7 @@ export const chunks: Chunks = {
       make_title: "Maak de jouwe",
       make_editor: "De editor van Home Assistant openen",
       make_editor_about:
-        "In Instellingen, Automatiseringen en scènes, Automatisering maken: voeg een Als, een Alleen als en een Dan toe, en sla op.",
+        "In Instellingen, Automatiseringen en scènes, Automatisering maken: vul de drie delen in en sla op.",
       make_plain: "In gewone woorden schrijven",
       make_plain_about:
         "Zeg het in één zin: DomoTwin maakt een ontwerp met de AI-taak van Home Assistant, om na te kijken.",
@@ -353,7 +353,8 @@ export const chunks: Chunks = {
         "Eenmaal opgeslagen staat ze bij de automatiseringen op het 3D-tabblad: haar draden lopen van wat haar start naar wat ze doet.",
       make_demo:
         "De automatiseringen van het demohuis kunnen niet worden gewijzigd: in je eigen huis maakt de editor van Home Assistant ze.",
-      make_not_admin: "Alleen een beheerder van Home Assistant kan automatiseringen maken.",
+      make_in_sandbox:
+        "Dit is de zandbak, een kopie van je huis waarin niets bewaard wordt: verlaat hem om een automatisering te maken in de editor van Home Assistant.",
     },
   },
   history: {

@@ -170,7 +170,7 @@ export const demo: Readonly<Record<string, string>> = {
   "Play table": "Mesa de brincar",
   Playroom: "Sala de brincar",
   "Playroom TV": "Televisão da sala de brincar",
-  "Playroom TV Wi-Fi signal": "Sinal Wi-Fi da televisão da sala de jogos",
+  "Playroom TV Wi-Fi signal": "Sinal Wi-Fi da televisão da sala de brincar",
   "Playroom door": "Porta da sala de brincar",
   "Playroom light": "Luz da sala de brincar",
   "Playroom temperature": "Temperatura da sala de brincar",

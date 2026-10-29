@@ -52,10 +52,13 @@ export const WIFI_SIGNALS: readonly { id: string; area: string; names: Words; st
 
 type Role = "Coordinator" | "Router" | "EndDevice";
 
+/** The Zigbee coordinator's names, in the mesh and in the device registry. */
+export const COORDINATOR_NAMES: Words = ["Zigbee coordinator", "Coordinateur Zigbee"];
+
 /**
  * The Zigbee mesh: each device, the entity of the house it is (the coordinator has none), and
- * whom it hears, how well (LQI, 0–255) and as what. The guest room's window sensor hears the
- * children's night light badly through the landing: a room a router would help.
+ * whom it hears, how well (LQI, 0–255) and as what. The playroom's thermometer hears the main
+ * bedroom's lamp badly through a wall: a room a router would help.
  */
 const MESH: readonly {
   n: number;
@@ -70,7 +73,7 @@ const MESH: readonly {
   {
     n: 1,
     role: "Coordinator",
-    names: ["Zigbee coordinator", "Coordinateur Zigbee"],
+    names: COORDINATOR_NAMES,
     hears: [
       [2, 205, "Child"],
       [3, 190, "Child"],
@@ -118,6 +121,7 @@ const MESH: readonly {
     hears: [
       [3, 115, "Parent"],
       [6, 170, "Sibling"],
+      [10, 55, "Child"],
     ],
     lqi: 115,
     seen: 50,
@@ -128,7 +132,7 @@ const MESH: readonly {
     thing: "light.children_night_light",
     hears: [
       [5, 165, "Parent"],
-      [9, 55, "Child"],
+      [9, 140, "Child"],
     ],
     lqi: 165,
     seen: 40,
@@ -153,9 +157,17 @@ const MESH: readonly {
     n: 9,
     role: "EndDevice",
     thing: "binary_sensor.guest_window",
-    hears: [[6, 55, "Parent"]],
-    lqi: 55,
+    hears: [[6, 140, "Parent"]],
+    lqi: 140,
     seen: 1200,
+  },
+  {
+    n: 10,
+    role: "EndDevice",
+    thing: "sensor.playroom_temperature",
+    hears: [[5, 55, "Parent"]],
+    lqi: 55,
+    seen: 300,
   },
 ];
 
@@ -215,8 +227,65 @@ export function demoZigbee(now: number, language: string): unknown[] {
 }
 
 /**
+ * What the receivers heard in the rooms taught (D-035, D-066): the mean signal of a phone held
+ * there, and of how many readings.
+ */
+const HEARD: Record<string, Record<string, { signal: number; readings: number }>> = {
+  living: { "D0:00:00:00:00:01": { signal: -58, readings: 36 } },
+  kitchen: {
+    "D0:00:00:00:00:02": { signal: -55, readings: 30 },
+    "D0:00:00:00:00:01": { signal: -79, readings: 30 },
+  },
+  office: { "D0:00:00:00:00:01": { signal: -74, readings: 28 } },
+  "u-landing": { "D0:00:00:00:00:03": { signal: -57, readings: 24 } },
+  "u-bedroom": { "D0:00:00:00:00:03": { signal: -72, readings: 22 } },
+};
+
+/**
+ * Where a receiver put in a room, or at a piece, stands (D-066): the piece's point, else the
+ * middle of the room, at a hand's height above its floor; nowhere for what the plans do not have.
+ */
+export function receiverPlace(
+  put: { room?: string; piece?: string },
+  height = 120,
+): { storey: string; at: [number, number]; z: number } | null {
+  for (const storey of STOREYS) {
+    const plan = storey.plan as {
+      rooms?: { id: string; outline: [number, number][] }[];
+      items?: { id: string; at: [number, number] }[];
+    };
+    const z = storey.info.elevation + height;
+    const item = put.piece ? plan.items?.find((i) => i.id === put.piece) : undefined;
+    if (item) return { storey: storey.info.id, at: [...item.at], z };
+    const room = put.room ? plan.rooms?.find((r) => r.id === put.room) : undefined;
+    if (room && room.outline.length > 0) {
+      const xs = room.outline.map(([x]) => x);
+      const ys = room.outline.map(([, y]) => y);
+      const at: [number, number] = [
+        (Math.min(...xs) + Math.max(...xs)) / 2,
+        (Math.min(...ys) + Math.max(...ys)) / 2,
+      ];
+      return { storey: storey.info.id, at, z };
+    }
+  }
+  return null;
+}
+
+/** How much was learned in each room: every receiver's readings there. */
+export function learnedOf(
+  heard: Record<string, Record<string, { readings: number }>>,
+): Record<string, number> {
+  return Object.fromEntries(
+    Object.entries(heard).map(([room, sources]) => [
+      room,
+      Object.values(sources).reduce((sum, source) => sum + source.readings, 0),
+    ]),
+  );
+}
+
+/**
  * The Bluetooth receivers: two on the ground floor, one on the landing, each placed by the room
- * it was put in; and what each learned in a few rooms (D-035, D-066). No device is followed.
+ * it was put in. No device is followed.
  */
 const RECEIVERS: readonly {
   source: string;
@@ -272,11 +341,8 @@ export function demoLocating(language: string): LocatingSettings {
       },
     })),
     devices: {},
-    learned: { living: 36, kitchen: 30, "u-landing": 24 },
-    heard: {
-      office: { "D0:00:00:00:00:01": { signal: -74, readings: 28 } },
-      "u-bedroom": { "D0:00:00:00:00:03": { signal: -72, readings: 22 } },
-    },
+    learned: learnedOf(HEARD),
+    heard: structuredClone(HEARD),
     rooms: AREAS.map((area) => ({
       id: area.room,
       name: say(area.names, language),

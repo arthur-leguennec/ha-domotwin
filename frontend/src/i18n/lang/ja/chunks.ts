@@ -342,7 +342,7 @@ export const chunks: Chunks = {
       make_title: "自分で作る",
       make_editor: "Home Assistant のエディターを開く",
       make_editor_about:
-        "設定 > オートメーションとシーン > オートメーションを作成 で、いつ・条件・実行を追加して保存します。",
+        "設定 > オートメーションとシーン > オートメーションを作成 で、3 つの部分を入力して保存します。",
       make_plain: "ふだんの言葉で書く",
       make_plain_about:
         "1 文で伝えるだけ：DomoTwin が Home Assistant の AI タスクで下書きし、あなたが確認します。",
@@ -353,7 +353,8 @@ export const chunks: Chunks = {
         "保存すると、3D タブのオートメーションに表示されます：線がきっかけから実行内容へつながります。",
       make_demo:
         "デモハウスのオートメーションは変更できません。自分の家では Home Assistant のエディターで作成します。",
-      make_not_admin: "オートメーションを作成できるのは Home Assistant の管理者だけです。",
+      make_in_sandbox:
+        "ここはサンドボックス（家のコピー）で、何も保存されません。オートメーションは、サンドボックスを出て Home Assistant のエディターで作成します。",
     },
   },
   history: {

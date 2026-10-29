@@ -336,8 +336,7 @@ export const chunks: Chunks = {
       then_tip: "동작은 순서대로 하나씩 실행됩니다.",
       make_title: "직접 만들기",
       make_editor: "Home Assistant 편집기 열기",
-      make_editor_about:
-        "설정 > 자동화 및 장면 > 자동화 만들기에서 언제, 다음일 때만, 그러면을 추가하고 저장하세요.",
+      make_editor_about: "설정 > 자동화 및 장면 > 자동화 만들기에서 세 부분을 채운 뒤 저장하세요.",
       make_plain: "평소 말로 쓰기",
       make_plain_about:
         "한 문장으로 말하세요: DomoTwin이 Home Assistant의 AI 작업으로 초안을 만들고, 직접 확인하면 됩니다.",
@@ -347,7 +346,8 @@ export const chunks: Chunks = {
       make_check: "저장하면 3D 탭의 자동화에 나타납니다: 선이 시작 계기에서 하는 일로 이어집니다.",
       make_demo:
         "데모 하우스의 자동화는 바꿀 수 없습니다. 내 집에서는 Home Assistant 편집기로 만듭니다.",
-      make_not_admin: "Home Assistant 관리자만 자동화를 만들 수 있습니다.",
+      make_in_sandbox:
+        "여기는 샌드박스로, 아무것도 저장되지 않는 집의 복사본입니다. 자동화를 만들려면 샌드박스를 나가 Home Assistant 편집기를 사용하세요.",
     },
   },
   history: {

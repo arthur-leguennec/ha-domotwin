@@ -37,7 +37,8 @@ export class DomoTwinAutomationGuide extends LitElement {
     hass: { attribute: false },
     plain: { attribute: false },
     sandbox: { attribute: false },
-    demo: { attribute: false },
+    kept: { attribute: false },
+    unseen: { attribute: false },
     step: { state: true },
   };
 
@@ -205,8 +206,10 @@ export class DomoTwinAutomationGuide extends LitElement {
   plain = false;
   /** The sandbox can be entered (D-057). */
   sandbox = false;
-  /** A home kept in the page (the demo house, the sandbox): no editor of its own. */
-  demo = false;
+  /** A home kept in the page, with no editor of its own: the demo house, or the sandbox. */
+  kept?: "demo" | "sandbox";
+  /** The entities the viewer may not see (a private room's, D-039): not in the example. */
+  unseen?: (entity: string) => boolean;
   protected step = 0;
 
   private get t(): Translator {
@@ -311,7 +314,7 @@ export class DomoTwinAutomationGuide extends LitElement {
   }
 
   private renderIntro(t: Translator): TemplateResult {
-    const example = guideExample(this.hass);
+    const example = guideExample(this.hass, this.unseen);
     const text = example
       ? t.t(example.kind === "motion" ? "guide.example_motion" : "guide.example_door", {
           sensor: example.sensor,
@@ -338,9 +341,12 @@ export class DomoTwinAutomationGuide extends LitElement {
   }
 
   private renderMake(t: Translator): TemplateResult {
-    const admin = this.hass?.user?.is_admin === true;
-    const editor =
-      admin && !this.demo
+    // Home Assistant's editor is its administrators' (the guide is theirs, as the automations).
+    const editor = this.kept
+      ? html`<p class="hint" data-testid="guide-no-editor">
+          ${this.kept === "demo" ? t.t("guide.make_demo") : t.t("guide.make_in_sandbox")}
+        </p>`
+      : this.hass?.user?.is_admin === true
         ? html`<div class="way">
             <button
               class="action"
@@ -354,9 +360,7 @@ export class DomoTwinAutomationGuide extends LitElement {
             </button>
             <span class="hint">${t.t("guide.make_editor_about")}</span>
           </div>`
-        : html`<p class="hint" data-testid="guide-no-editor">
-            ${this.demo ? t.t("guide.make_demo") : t.t("guide.make_not_admin")}
-          </p>`;
+        : nothing;
     return html`<h3 tabindex="-1">${t.t("guide.make_title")}</h3>
       <div class="ways">
         ${editor}

@@ -4707,15 +4707,18 @@ their maps show, and a guide in DomoTwin to making an automation.
     out again only when the day, the plans or north change.
   - **The demo house's radios**: an internet box in the hall and an access point on the landing
     (pieces of its plans, and the settings' access points), three Wi-Fi signals of its devices, a
-    Zigbee mesh of nine of its lamps and sensors (a weak link to the guest room's window) with its
-    coordinator beside the internet box, and three Bluetooth receivers placed in its rooms. All
-    fictional addresses; its Bluetooth settings save in the page. The network map no longer lists
-    a device placed on another storey as one to place: it says how many are on another floor.
+    Zigbee mesh of ten of its lamps and sensors (a weak link to the playroom's thermometer) with
+    its coordinator beside the internet box (a device of its registry), and three Bluetooth
+    receivers placed in its rooms, with what they learned there. All fictional addresses; its
+    Bluetooth settings save in the page, and it asks for no phone's identity key. The network map
+    no longer lists a device placed on another storey as one to place: it says how many are on
+    another floor; and ZHA's *last heard* is read on the demo house's clock.
   - **A guide to making an automation**, from the panel's More menu and the automations' list:
     five steps — the three parts (When, Only if, Then) with an example from the home (a motion or
     door sensor and a light of one area), what each part can be, and the ways to make one (Home
     Assistant's editor for an administrator, plain words where there is an AI task, the sandbox
-    to try them). In the demo house and the sandbox it says the editor is the home's own.
+    to try them). In the demo house and the sandbox, it says where automations are made instead;
+    the example leaves out what the viewer may not see (D-039).
 - **Consequences.** No new command and no new setting: the sun is worked out in the page, the
   hours of sun too (a few thousand dot products a day), and the engine draws a new heat kind
   (`sunshine`, in hours). The guide is its own chunk, loaded when it first opens. The energy

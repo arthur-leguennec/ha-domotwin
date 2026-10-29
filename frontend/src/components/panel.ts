@@ -1595,6 +1595,15 @@ export class DomoTwinPanel extends LitElement {
     }
   }
 
+  /** The entities the guide's example may not name: those the viewer may not see (D-039). */
+  private guideUnseen(): ((entity: string) => boolean) | undefined {
+    const hass = this._hass;
+    if (!hass) return undefined;
+    const { unseen } = this.practical(hass);
+    return (entity) =>
+      !seen(unseen, entity, areaOf(hass, entity)) || hass.canSee?.(entity) === false;
+  }
+
   /** Opens the guide to making an automation (D-093): its module and texts, loaded the first time. */
   private readonly openGuide = async (): Promise<void> => {
     this.moreOpen = false;
@@ -6234,7 +6243,8 @@ export class DomoTwinPanel extends LitElement {
             .hass=${this._hass}
             .plain=${plainWordsOffered(this._hass)}
             .sandbox=${this._hass?.user?.is_admin === true && !this.demo && !this.sandbox}
-            .demo=${this.demo !== undefined || this.sandbox !== undefined}
+            .kept=${this.demo ? "demo" : this.sandbox ? "sandbox" : undefined}
+            .unseen=${this.guideUnseen()}
             @domotwin-close=${() => (this.guideOpen = false)}
             @domotwin-guide-plain=${() => {
               this.guideOpen = false;
