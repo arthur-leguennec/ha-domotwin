@@ -12,6 +12,7 @@ import {
 } from "../live/layers";
 import { peaksAvailable } from "../live/peak-sources";
 import { ALL_STOREYS, loadHome, storeyLevels, storeyName } from "../live/storeys";
+import { hasWindows, sunModel } from "../live/sun";
 import { planRooms } from "../live/suggest";
 import { define, fire, inLanguage } from "./define";
 
@@ -102,6 +103,7 @@ function schema(
     coverage: boolean;
     automations: boolean;
     peak: boolean;
+    sunshine: boolean;
   },
   config: Record<string, unknown>,
 ): FormField[] {
@@ -149,15 +151,16 @@ function schema(
       selector: {
         select: {
           mode: "dropdown",
-          // The network map (D-031), the radio coverage (D-066) and the peaks (D-063) only where
-          // they can be shown, or kept where they are set.
+          // The network map (D-031), the radio coverage (D-066), the peaks (D-063) and the hours
+          // of sun (D-093) only where they can be shown, or kept where they are set.
           options: LAYER_NAMES.filter(
             (value) =>
               config.layer === value ||
               ((value !== "network" || home.network) &&
                 (value !== "coverage" || home.coverage) &&
                 (value !== "automations" || home.automations) &&
-                (value !== "peak" || home.peak)),
+                (value !== "peak" || home.peak) &&
+                (value !== "sunshine" || home.sunshine)),
           ).map((value) => ({
             value,
             label: t.t(`layers.${value}` as MessageKey),
@@ -210,6 +213,7 @@ export class DomoTwinCardEditor extends LitElement {
     config: { state: true },
     rooms: { state: true },
     storeys: { state: true },
+    windows: { state: true },
   };
 
   hass?: HomeAssistant;
@@ -217,6 +221,8 @@ export class DomoTwinCardEditor extends LitElement {
   /** The rooms of the storey chosen, and the home's storeys, once fetched. */
   protected rooms: RoomOption[] = [];
   protected storeys: StoreyInfo[] = [];
+  /** Some room of the plans fetched has a window: the sun has a way in (D-093). */
+  protected windows = false;
   /** The storey whose rooms were fetched ("" for the ground floor); undefined before. */
   private fetchedFor?: string;
 
@@ -271,6 +277,7 @@ export class DomoTwinCardEditor extends LitElement {
       if (this.fetchedFor !== storey) return;
       this.rooms = home ? home.flatMap((s) => planRooms(s.plan)) : planRooms(stored.plan);
       this.storeys = stored.storeys;
+      this.windows = hasWindows(home ? home.map((s) => s.plan) : [stored.plan]);
     } catch {
       // No plan or no access: only the current settings are offered.
     }
@@ -302,6 +309,7 @@ export class DomoTwinCardEditor extends LitElement {
           coverage: coverageAvailable(this.hass),
           automations: automationsAvailable(this.hass),
           peak: peaksAvailable(this.hass),
+          sunshine: sunModel(this.hass) !== undefined && this.windows,
         },
         this.config,
       )}

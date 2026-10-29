@@ -128,6 +128,7 @@ import {
   coverageAvailable,
   networkAvailable,
   formatHeat,
+  formatHours,
   formatPower,
   heatKindsFound,
   roomLayers,
@@ -137,7 +138,17 @@ import {
 } from "../live/layers";
 import { deviceBadges, mergeBadges, type Badge, type BadgeKind } from "../live/devices";
 import { radioKinds } from "../live/radios";
-import { sunNow, sunnyRooms } from "../live/sun";
+import { atMinute, atWall, minuteOfDay, wallTime } from "../live/clock";
+import {
+  hasWindows,
+  sunModel,
+  sunNow,
+  sunnyRooms,
+  sunshineHours,
+  sunTimes,
+  type SunModel,
+  type SunNow,
+} from "../live/sun";
 import { scheduleBadges, timeStyle, whenText, type Schedule } from "../live/schedules";
 import {
   readStandings,
@@ -194,6 +205,7 @@ import {
   ALL_STOREYS,
   homeStoreys,
   storeyCounts,
+  storeyIds,
   storeyLevels,
   storeyName,
   storeyShort,
@@ -227,6 +239,13 @@ import type { ShowWhy } from "./why-section";
 import { baseStyles, lookStyles } from "./styles";
 
 type EngineState = "idle" | "loading" | "ready" | "unsupported" | "failed";
+
+/** No piece of another storey (D-093). */
+const NO_PIECES: ReadonlySet<string> = new Set();
+
+/** The days whose hours of sun the rooms can show (D-093). */
+type SunshineDay = "today" | "longest" | "shortest";
+const SUNSHINE_DAYS: readonly SunshineDay[] = ["today", "longest", "shortest"];
 
 /** Options of a view (from the card configuration or the panel). */
 export interface ViewOptions {
@@ -625,6 +644,7 @@ export class DomoTwinView extends LitElement {
     standings: { state: true },
     linking: { attribute: false },
     placeDevices: { attribute: false },
+    guide: { attribute: false },
     linkable: { attribute: false },
     roomTab: { attribute: false },
     boardBeside: { attribute: false },
@@ -688,6 +708,8 @@ export class DomoTwinView extends LitElement {
     voiceHere: { attribute: false },
     wifiOpen: { state: true },
     realSun: { state: true },
+    sunMinute: { state: true },
+    sunshineDay: { state: true },
     alerts: { state: true },
     labels: { state: true },
     roomNames: { state: true },
@@ -716,6 +738,8 @@ export class DomoTwinView extends LitElement {
   linking = false;
   /** Devices of the network map can be placed in the home (the panel, which links them). */
   placeDevices = false;
+  /** The guide to making an automation can be opened from the automations (the panel's, D-093). */
+  guide = false;
   /**
    * A link editor is at hand (the panel): a piece's bubble offers it (`domotwin-link-element`,
    * detail: the piece, as `domotwin-pick`'s).
@@ -888,6 +912,13 @@ export class DomoTwinView extends LitElement {
   private wifiModule?: Promise<unknown>;
   /** Sunlight through the windows: the sun where it really is. */
   protected realSun = false;
+  /**
+   * The hour of the day the sun is shown at, in minutes past midnight where the home is (D-093):
+   * none for now.
+   */
+  protected sunMinute?: number;
+  /** The day whose hours of sun the rooms show (D-093). */
+  protected sunshineDay: SunshineDay = "today";
   /** Rooms with an alert, dangers first (the other storeys' with their storey). */
   protected alerts: StoreyAlert[] = [];
   /** A room to frame once its storey is shown (an alert on another storey was tapped). */
@@ -1023,6 +1054,14 @@ export class DomoTwinView extends LitElement {
   private lightKey?: string;
   /** Where the sun was last set from, and the room layers last sent, to skip repeats. */
   private sunKey?: string;
+  /** The rooms' hours of sun last worked out (D-093), and what from. */
+  private sunshine?: { key: string; plans: unknown[]; values: Record<string, number> };
+  /** When the sun rises and sets today (D-093), and from what. */
+  private sunDay?: { key: string; rise?: number; set?: number };
+  /** How the hours of the day are written, and for what. */
+  private clockFormat?: { key: string; format: Intl.DateTimeFormat };
+  /** The other storeys' element ids (`piecesElsewhere`), and what they were read from. */
+  private elsewhereIds?: { from: readonly StoreyRooms[]; ids: ReadonlySet<string> };
   private weatherKey?: string;
   private layersKey?: string;
   /** The rooms of the plan shown, and whether a heatmap found values in them. */
@@ -1392,8 +1431,11 @@ export class DomoTwinView extends LitElement {
       .legend .bar {
         height: 8px;
         border-radius: 4px;
+        /* Its ends below it, from its left: in Arabic too. */
+        direction: ltr;
       }
       .legend .ends {
+        direction: ltr;
         display: flex;
         justify-content: space-between;
         color: var(--secondary-text-color, #5f6368);
@@ -1426,8 +1468,74 @@ export class DomoTwinView extends LitElement {
       .legend.peak .drawn {
         color: var(--secondary-text-color, #5f6368);
       }
+      /* The sun through the windows (D-093): big enough to read, with the hour of the day; the
+         hours of sun, with the day shown. */
+      .legend.sun,
+      .legend.sunshine {
+        /* Beside the tools' column, not under it. */
+        inset-inline-end: 68px;
+        width: 280px;
+        max-height: calc(100% - 24px);
+        box-sizing: border-box;
+        overflow: auto;
+        gap: 6px;
+        font-size: 0.875rem;
+        line-height: 1.35;
+      }
+      .legend.sun .name,
+      .legend.sunshine .name {
+        font-size: 0.9375rem;
+      }
+      .legend.sun .hour {
+        display: grid;
+        gap: 2px;
+      }
+      .legend.sun .time {
+        font-size: 1.125rem;
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+      }
+      .legend.sun input[type="range"] {
+        width: 100%;
+        min-height: 28px;
+        margin: 0;
+        accent-color: var(--domotwin-accent, var(--primary-color, #03a9f4));
+      }
+      .legend.sun .times {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        min-height: 28px;
+        color: var(--secondary-text-color, #5f6368);
+      }
+      .legend.sun button,
+      .legend.sunshine button {
+        min-height: 28px;
+        padding: 2px 10px;
+        border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.2));
+        border-radius: 14px;
+        background: transparent;
+        color: inherit;
+        font: inherit;
+        cursor: pointer;
+      }
+      .legend.sunshine .days {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+      }
+      .legend.sunshine button[aria-pressed="true"] {
+        border-color: var(--domotwin-accent, var(--primary-color, #03a9f4));
+        background: var(--domotwin-accent, var(--primary-color, #03a9f4));
+        color: var(--text-primary-color, #fff);
+      }
       :host([legend]) .chip {
         max-width: calc(100% - 216px);
+      }
+      :host([legend="sun"]) .chip,
+      :host([legend="sunshine"]) .chip {
+        max-width: calc(100% - 384px);
       }
       :host([legend="energy"]) .chip {
         max-width: calc(100% - 268px);
@@ -1438,12 +1546,23 @@ export class DomoTwinView extends LitElement {
       /* A narrow view: the energy's or the peak's legend above the chip, which keeps the whole
          width. */
       :host([narrow][legend="energy"]) .chip,
-      :host([narrow][legend="peak"]) .chip {
+      :host([narrow][legend="peak"]) .chip,
+      :host([narrow][legend="sun"]) .chip,
+      :host([narrow][legend="sunshine"]) .chip {
         max-width: calc(100% - 24px);
       }
       :host([narrow]) .legend.with-energy,
-      :host([narrow]) .legend.peak {
+      :host([narrow]) .legend.peak,
+      :host([narrow]) .legend.sun,
+      :host([narrow]) .legend.sunshine {
         bottom: 76px;
+      }
+      /* The phone's width, but for the tools' column beside it. */
+      :host([narrow]) .legend.sun,
+      :host([narrow]) .legend.sunshine {
+        width: auto;
+        inset-inline-start: 12px;
+        max-height: calc(100% - 88px);
       }
       .labels {
         position: absolute;
@@ -2229,18 +2348,27 @@ export class DomoTwinView extends LitElement {
     ) {
       this.readPeople();
     }
-    // The room chip leaves room for the legend (`renderLegend`), wider with the energy or a peak.
-    // The sun's legend only where the sun's position is known (`renderSunLegend`).
-    const legendShown = this.valueLayer || (this.realSun && sunNow(this.hass) !== undefined);
-    if (legendShown && !this.editingAny) {
+    // The room chip leaves room for the legend (`renderLegend`), wider with the energy, a peak,
+    // the sun or the hours of sun. The sun's card only where the sun's position is known
+    // (`renderSunLegend`).
+    // The hour chosen for the sun is the card's (D-093): forgotten when the card goes (sunlight
+    // off, a layer of values, a tool at work), as the light and the shadows of it would stay.
+    if (this.sunMinute !== undefined && (!this.realSun || this.valueLayer || this.editingAny)) {
+      this.sunMinute = undefined;
+    }
+    const sunCard = !this.valueLayer && this.realSun && this.sunShown() !== undefined;
+    if ((this.valueLayer || sunCard) && !this.editingAny) {
       // Beside the Energy tab's board, the power's legend is its colours alone (D-092).
       const energy =
         this.valueLayer &&
         this.layer === "power" &&
         !this.boardBeside &&
         this.energyShown() !== undefined;
-      const peak = this.valueLayer && this.shownLayer === "peak";
-      this.setAttribute("legend", energy ? "energy" : peak ? "peak" : "");
+      const shown = this.valueLayer ? this.shownLayer : undefined;
+      this.setAttribute(
+        "legend",
+        energy ? "energy" : shown === "peak" || shown === "sunshine" ? shown : sunCard ? "sun" : "",
+      );
     } else {
       this.removeAttribute("legend");
     }
@@ -2293,11 +2421,17 @@ export class DomoTwinView extends LitElement {
       changed.has("options") ||
       changed.has("elsewhere") ||
       changed.has("upkeep") ||
-      own.has("layer")
+      own.has("layer") ||
+      own.has("sunshineDay") ||
+      changed.has("north")
     ) {
       this.applyLayers();
     }
-    if (changed.has("north") || own.has("realSun") || changed.has("hass")) this.applySun();
+    if (changed.has("north") || own.has("realSun") || own.has("sunMinute") || changed.has("hass")) {
+      this.applySun();
+    }
+    // The light of the hour chosen for the sun, or of now again (D-093).
+    if (own.has("realSun") || own.has("sunMinute")) this.applyLighting();
     // Panels on the roof follow the home's latitude too, should it come late.
     if (
       changed.has("roofStyle") ||
@@ -2785,6 +2919,7 @@ export class DomoTwinView extends LitElement {
   setRealSun(real: boolean): void {
     this.layersOpen = false;
     this.realSun = real;
+    if (!real) this.sunMinute = undefined;
   }
 
   /**
@@ -3189,6 +3324,7 @@ export class DomoTwinView extends LitElement {
     if (this.layer === "automations" && !automationsAvailable(this.hass)) return "off";
     if (this.layer === "upkeep" && !this.upkeep) return "off";
     if (this.layer === "peak" && !peaksAvailable(this.hass)) return "off";
+    if (this.layer === "sunshine" && !sunModel(this.hass)) return "off";
     return this.layer;
   }
 
@@ -3769,7 +3905,21 @@ export class DomoTwinView extends LitElement {
     } else {
       const sun = this.hass?.states["sun.sun"];
       const elevation = Number(sun?.attributes.elevation);
-      if (sun && Number.isFinite(elevation)) {
+      // While sunlight comes from where the sun is, the light is of the hour chosen (D-093), or of
+      // now where there is no `sun.sun`: as its shadows.
+      const model =
+        this.realSun && (this.sunMinute !== undefined || !sun) ? sunModel(this.hass) : undefined;
+      if (model) {
+        // The light of that moment, rising or setting then.
+        const time = this.sunTime();
+        const high = model.at(time).elevation;
+        const rounded = Math.round(high * 2) / 2;
+        const rising = model.at(time + 10 * 60_000).elevation > high;
+        key = `sun:${rounded}:${rising}`;
+        apply = () => {
+          engine.setSun(rounded, rising);
+        };
+      } else if (sun && Number.isFinite(elevation)) {
         const rounded = Math.round(elevation * 2) / 2;
         const rising = sun.attributes.rising === true;
         key = `sun:${rounded}:${rising}`;
@@ -3792,26 +3942,130 @@ export class DomoTwinView extends LitElement {
   }
 
   /**
-   * Sets where the sun lights from: where it is (`sun.sun`'s azimuth and elevation, with the
-   * home's north) when sunlight through the windows is on, else the default sun.
+   * Sets where the sun lights from: where it is (`sun.sun`'s azimuth and elevation, or at the
+   * hour chosen, D-093; with the home's north) when sunlight through the windows is on, else the
+   * default sun.
    */
   private applySun(): void {
     const engine = this.engine;
     if (!engine) return;
-    const sun = this.hass?.states["sun.sun"];
-    const azimuth = Number(sun?.attributes.azimuth);
-    const elevation = Number(sun?.attributes.elevation);
-    const real = this.realSun && Number.isFinite(azimuth) && Number.isFinite(elevation);
+    const sun = this.realSun ? this.sunShown() : undefined;
     // Half a degree: the shadows are drawn again only when the sun has visibly moved.
-    const a = Math.round(azimuth * 2) / 2;
-    const e = Math.round(elevation * 2) / 2;
+    const a = sun ? Math.round(sun.azimuth * 2) / 2 : 0;
+    const e = sun ? Math.round(sun.elevation * 2) / 2 : 0;
     const north = Number.isFinite(this.north) ? this.north : 0;
-    const key = real ? `${a}:${e}:${north}` : "default";
+    const key = sun ? `${a}:${e}:${north}` : "default";
     if (key === this.sunKey) return;
     this.sunKey = key;
-    if (real) engine.setSunPosition(a, e, north);
+    if (sun) engine.setSunPosition(a, e, north);
     else engine.useDefaultSun();
     this.redraw();
+  }
+
+  /** Home Assistant's time zone, where the hours of the sun are told (D-093). */
+  private get zone(): string | undefined {
+    return this.hass ? timeStyle(this.hass).timeZone : undefined;
+  }
+
+  /** The moment the sun is shown at (D-093): the hour chosen today, else now. */
+  private sunTime(): number {
+    const now = nowOf(this.hass);
+    return this.sunMinute === undefined ? now : atMinute(now, this.sunMinute, this.zone);
+  }
+
+  /**
+   * Where the sun is in the view: at the hour chosen (D-093), else where `sun.sun` says it is, or
+   * where it is now over the home when there is no `sun.sun`.
+   */
+  private sunShown(): SunNow | undefined {
+    const model = sunModel(this.hass);
+    if (model && this.sunMinute !== undefined) return model.at(this.sunTime());
+    return sunNow(this.hass) ?? model?.at(nowOf(this.hass));
+  }
+
+  /** The plans the sun comes into: every storey's when the home is shown whole. */
+  private sunPlans(): unknown[] {
+    return this.loadedHome ? this.loadedHome.map((storey) => storey.plan) : [this.plan];
+  }
+
+  /**
+   * The day whose hours of sun the rooms show, from midnight to midnight where the home is (D-093):
+   * today, or this year's longest or shortest (June's or December's solstice, by the hemisphere).
+   */
+  private sunshineSpan(model: SunModel): [number, number] {
+    const zone = this.zone;
+    const now = nowOf(this.hass);
+    const latitude = model.latitude;
+    if (latitude === undefined || this.sunshineDay === "today") {
+      return [atMinute(now, 0, zone), atMinute(now, 24 * 60, zone)];
+    }
+    const june = (this.sunshineDay === "longest") === latitude >= 0;
+    const midnight = Date.UTC(new Date(wallTime(now, zone)).getUTCFullYear(), june ? 5 : 11, 21);
+    return [atWall(midnight, zone), atWall(midnight + 86_400_000, zone)];
+  }
+
+  /**
+   * Each room's hours of sun on the day chosen (D-093), worked out again when the day, the plans
+   * or north change.
+   */
+  private sunshineValues(): Record<string, number> | undefined {
+    const model = sunModel(this.hass);
+    if (!model) return undefined;
+    const [start, end] = this.sunshineSpan(model);
+    const plans = this.sunPlans();
+    const north = Number.isFinite(this.north) ? this.north : 0;
+    const key = `${model.key}:${start}:${end}:${north}`;
+    const known = this.sunshine;
+    if (
+      known?.key === key &&
+      known.plans.length === plans.length &&
+      known.plans.every((plan, i) => plan === plans[i])
+    ) {
+      return known.values;
+    }
+    const values = sunshineHours(plans, model, north, start, end);
+    this.sunshine = { key, plans, values };
+    return values;
+  }
+
+  /** The rooms' hours of sun can be shown (D-093): where the sun is known, through a window. */
+  private sunshineOffered(): boolean {
+    return sunModel(this.hass) !== undefined && hasWindows(this.sunPlans());
+  }
+
+  /** When the sun rises and sets today where the home is (D-093). */
+  private sunRiseSet(model: SunModel): { rise?: number; set?: number } {
+    const zone = this.zone;
+    const now = nowOf(this.hass);
+    const start = atMinute(now, 0, zone);
+    const key = `${model.key}:${start}`;
+    if (this.sunDay?.key !== key) {
+      this.sunDay = { key, ...sunTimes(model, start, atMinute(now, 24 * 60, zone)) };
+    }
+    return this.sunDay;
+  }
+
+  /** A time of day as Home Assistant writes it (its language, time zone, 12 or 24 hours). */
+  private clockText(time: number): string {
+    const hass = this.hass;
+    const style = hass ? timeStyle(hass) : undefined;
+    const language = style?.language ?? this.translator.language;
+    const key = `${language}|${style?.timeZone ?? ""}|${String(style?.hour12)}`;
+    if (this.clockFormat?.key !== key) {
+      let format: Intl.DateTimeFormat;
+      try {
+        format = new Intl.DateTimeFormat(language, {
+          hour: "numeric",
+          minute: "2-digit",
+          timeZone: style?.timeZone,
+          hour12: style?.hour12,
+        });
+      } catch {
+        format = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" });
+      }
+      this.clockFormat = { key, format };
+    }
+    return this.clockFormat.format.format(time);
   }
 
   /**
@@ -3936,6 +4190,7 @@ export class DomoTwinView extends LitElement {
           presence: this.options.presence !== false,
           closed: this.closed,
           coverage: this.coverageShown ? this.coverage : undefined,
+          sunshine: this.shownLayer === "sunshine" ? this.sunshineValues() : undefined,
           ...(peak ? { peak } : {}),
         })
       : undefined;
@@ -5119,11 +5374,27 @@ export class DomoTwinView extends LitElement {
       .engine=${this.engine}
       .bindings=${this.bindings}
       .names=${this.names}
+      .elsewhere=${this.piecesElsewhere()}
       .placeable=${this.placeDevices}
       @domotwin-redraw=${() => {
         this.redraw();
       }}
     ></domotwin-network>`;
+  }
+
+  /**
+   * The ids of the other storeys' elements (D-093), while one storey is shown: the same set while
+   * they stay.
+   */
+  private piecesElsewhere(): ReadonlySet<string> {
+    // The home shown whole, or alone: one empty set, so that the network map is not placed again.
+    const from = this.loadedHome ? [] : this.elsewhere;
+    if (from.length === 0) return NO_PIECES;
+    const known = this.elsewhereIds;
+    if (known?.from === from) return known.ids;
+    const ids = new Set(from.flatMap((storey) => storeyIds(storey.plan, storey.layout)));
+    this.elsewhereIds = { from, ids };
+    return ids;
   }
 
   /** The radio coverage (D-066): its module is loaded the first time it is shown. */
@@ -5175,6 +5446,7 @@ export class DomoTwinView extends LitElement {
       .names=${this.names}
       .unseen=${this.unseenEntity()}
       .unseenAreas=${this.unseenAreas()}
+      .guide=${this.guide}
       .ids=${shown.ids}
       .known=${shown.reads}
       @domotwin-redraw=${() => {
@@ -5917,6 +6189,8 @@ export class DomoTwinView extends LitElement {
           return this.networkAllowed;
         case "coverage":
           return coverageAvailable(this.hass) && this.coverageOffered();
+        case "sunshine":
+          return this.sunshineOffered();
         case "automations":
           return automationsAvailable(this.hass);
         case "peak":
@@ -5941,30 +6215,141 @@ export class DomoTwinView extends LitElement {
   }
 
   /**
-   * Where the sun comes in now (D-023), while sunlight through the windows is on: the rooms whose
-   * windows face it, as the light moves too slowly to be seen.
+   * Where the sun comes in (D-023), while sunlight through the windows is on: the rooms whose
+   * windows face it, as the light moves too slowly to be seen; at any hour of the day where the
+   * sun over the home is known, with when it rises and sets (D-093).
    */
   private renderSunLegend(t: Translator): TemplateResult | typeof nothing {
-    const sun = sunNow(this.hass);
+    const sun = this.sunShown();
     if (!sun) return nothing;
+    const model = sunModel(this.hass);
+    const picked = model !== undefined && this.sunMinute !== undefined;
     let text: string;
     if (sun.elevation <= 0) {
-      text = t.t("layers.sun_down");
+      text = t.t(picked ? "layers.sun_down_then" : "layers.sun_down");
     } else {
-      const plans = this.loadedHome ? this.loadedHome.map((storey) => storey.plan) : [this.plan];
       const names = new Map(this.rooms.map((room) => [room.id, room.name || room.id]));
-      const sunny = plans
+      const sunny = this.sunPlans()
         .flatMap((plan) => sunnyRooms(plan, sun, this.north))
         .filter((id) => !this.closed.has(id))
         .map((id) => names.get(id) ?? id);
       text =
         sunny.length > 0
           ? t.t("layers.sun_rooms", { rooms: [...new Set(sunny)].join(", ") })
-          : t.t("layers.sun_none");
+          : t.t(picked ? "layers.sun_none_then" : "layers.sun_none");
     }
-    return html`<div class="legend glass" data-testid="sun-legend" role="note">
+    let hour: TemplateResult | typeof nothing = nothing;
+    if (model) {
+      const now = nowOf(this.hass);
+      const time = this.clockText(this.sunTime());
+      const day = this.sunRiseSet(model);
+      const times =
+        day.rise !== undefined && day.set !== undefined
+          ? t.t("layers.sun_times", {
+              rise: this.clockText(day.rise),
+              set: this.clockText(day.set),
+            })
+          : "";
+      hour = html`<label class="hour">
+          <span class="time" data-testid="sun-time"
+            >${picked ? time : t.t("layers.sun_time_now", { time })}</span
+          >
+          <input
+            type="range"
+            min="0"
+            max=${24 * 60 - 15}
+            step="15"
+            .value=${String(this.sunMinute ?? minuteOfDay(now, this.zone))}
+            aria-label=${t.t("layers.sun_hour")}
+            aria-valuetext=${time}
+            data-testid="sun-hour"
+            @input=${(event: Event) => {
+              this.sunMinute = Number((event.target as HTMLInputElement).value);
+            }}
+          />
+        </label>
+        <div class="times">
+          <span data-testid="sun-times">${times}</span>
+          ${
+            picked
+              ? html`<button
+                  type="button"
+                  data-testid="sun-now"
+                  @click=${() => {
+                    this.sunMinute = undefined;
+                    // The button goes with the hour chosen: the focus stays in the card.
+                    void this.updateComplete.then(() => {
+                      this.renderRoot
+                        .querySelector<HTMLElement>('[data-testid="sun-hour"]')
+                        ?.focus({ preventScroll: true });
+                    });
+                  }}
+                >
+                  ${t.t("layers.sun_now")}
+                </button>`
+              : nothing
+          }
+        </div>`;
+    }
+    return html`<div
+      class="legend glass sun"
+      data-testid="sun-legend"
+      role="group"
+      aria-label=${t.t("layers.sun")}
+    >
       <span class="name">${t.t("layers.sun")}</span>
-      <span>${text}</span>
+      ${hour}
+      <span data-testid="sun-text">${text}</span>
+    </div>`;
+  }
+
+  /**
+   * The hours of sun's legend (D-093): its colours from none to a long day's, and the day shown
+   * (today, the longest or the shortest of the year where the sun over the home has seasons).
+   */
+  private renderSunshineLegend(t: Translator): TemplateResult | typeof nothing {
+    const legend = heatLegend("sunshine");
+    const model = sunModel(this.hass);
+    if (!legend || !model) return nothing;
+    const name = t.t("layers.sunshine");
+    const language = t.language;
+    const low = formatHours(legend.stops[0]?.[0] ?? 0, language);
+    const high = formatHours(legend.stops[legend.stops.length - 1]?.[0] ?? 0, language);
+    const gradient = `linear-gradient(to right, ${legend.gradient.join(", ")})`;
+    return html`<div
+      class="legend glass sunshine"
+      data-testid="legend"
+      role="group"
+      aria-label=${name}
+    >
+      <span class="name">${name}</span>
+      <span>${t.t("layers.sunshine_about")}</span>
+      <div
+        class="bar"
+        style="background:${gradient}"
+        role="img"
+        aria-label=${t.t("layers.legend", { layer: name, low, high })}
+      ></div>
+      <div class="ends" aria-hidden="true"><span>${low}</span><span>${high}</span></div>
+      ${
+        model.latitude !== undefined
+          ? html`<div class="days" role="group" aria-label=${t.t("layers.sunshine_day")}>
+              ${SUNSHINE_DAYS.map(
+                (day) =>
+                  html`<button
+                    type="button"
+                    data-day=${day}
+                    aria-pressed=${this.sunshineDay === day ? "true" : "false"}
+                    @click=${() => {
+                      this.sunshineDay = day;
+                    }}
+                  >
+                    ${t.t(`layers.sunshine_${day}`)}
+                  </button>`,
+              )}
+            </div>`
+          : nothing
+      }
     </div>`;
   }
 
@@ -6089,7 +6474,12 @@ export class DomoTwinView extends LitElement {
     const values = new Map(
       this.labels
         .filter((label) => label.kind === "heat")
-        .map((label) => [label.id, formatHeat(label.value, unit, t.language, this.fahrenheit)]),
+        .map((label) => [
+          label.id,
+          this.layer === "sunshine"
+            ? formatHours(label.value, t.language)
+            : formatHeat(label.value, unit, t.language, this.fahrenheit),
+        ]),
     );
     // Every storey at once: each room says its storey (two may share a name).
     const rooms =
@@ -6285,6 +6675,7 @@ export class DomoTwinView extends LitElement {
     const layer = this.layer;
     if (this.editingAny) return nothing;
     if (!this.valueLayer) return this.realSun ? this.renderSunLegend(t) : nothing;
+    if (layer === "sunshine") return this.renderSunshineLegend(t);
     const name = t.t(`layers.${layer}`);
     if (layer === "peak") {
       const peak = this.peakShown;
@@ -6360,7 +6751,9 @@ export class DomoTwinView extends LitElement {
             >${
               label.kind === "power" || label.kind === "draw"
                 ? formatPower(label.value, language)
-                : formatHeat(label.value, unit, language, fahrenheit)
+                : this.layer === "sunshine"
+                  ? formatHours(label.value, language)
+                  : formatHeat(label.value, unit, language, fahrenheit)
             }</span
           >`,
       )}

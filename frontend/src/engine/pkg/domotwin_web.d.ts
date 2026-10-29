@@ -568,7 +568,7 @@ export function applyLayout(plan: string, layout: string): string;
 export function engineVersion(): string;
 
 /**
- * The legend of a heatmap (`temperature`, `humidity`, `co2`, `pm25`), as JSON `{"unit",
+ * The legend of a heatmap (`temperature`, `humidity`, `co2`, `pm25`, `coverage`, `sunshine`), as JSON `{"unit",
  * "stops": [[value, "#rrggbb"]…], "gradient": ["#rrggbb"…]}` (16 colours from the first stop to
  * the last, for a CSS gradient); an empty string for another name.
  */

@@ -26,6 +26,7 @@ import type { ConfigKind } from "../live/config-history";
 import { MAX_SCHEDULE_ENTITIES, schedulable, type Schedule } from "../live/schedules";
 import { heatingNow } from "../live/back";
 import type { Garden } from "../live/lawn";
+import type { LocatingSettings } from "../live/locating";
 import type { Upkeep } from "../live/upkeep";
 import type { StoredWifi } from "../live/wifi";
 import { DemoConfigHistory } from "./config-history";
@@ -46,6 +47,7 @@ import {
   robotBatteryAt,
   sensorsAt,
   solarAt,
+  sunAt,
   tvPower,
   vacuumAt,
   wantedAt,
@@ -70,6 +72,15 @@ import {
   SCHEDULED,
   type Words,
 } from "./house";
+import {
+  COORDINATOR_DEVICE,
+  COORDINATOR_NAMES,
+  INTERNET_BOX,
+  WIFI_SIGNALS,
+  demoAccessPoints,
+  demoLocating,
+  demoZigbee,
+} from "./radios";
 import { callService } from "./services";
 
 /** When the demo starts: a morning, the robot about to clean, the washing machine running. */
@@ -105,6 +116,8 @@ export interface DemoStore {
   wifi?: StoredWifi;
   /** When each lawn was last mown and each robot mower last mowed (D-077). */
   garden?: Garden;
+  /** Its Bluetooth locating (D-035): the demo house's receivers, placed (D-093). */
+  locating?: LocatingSettings;
 }
 
 /** Who opens the demo: their language, name and look, from their own Home Assistant. */
@@ -142,6 +155,17 @@ const pad = (n: number): string => String(n).padStart(2, "0");
 /** `days` after the day `day` (its midnight), at `hour` o'clock. */
 function dayAt(day: Date, days: number, hour: number): Date {
   return new Date(day.getFullYear(), day.getMonth(), day.getDate() + days, hour);
+}
+
+/** The bindings with the Zigbee coordinator's device linked to the internet box (D-093). */
+function withCoordinator(bindings: Bindings): Bindings {
+  return {
+    ...bindings,
+    elements: {
+      ...bindings.elements,
+      [INTERNET_BOX]: { device: COORDINATOR_DEVICE, entities: [] },
+    },
+  };
 }
 
 /** A local date as `YYYY-MM-DD`. */
@@ -255,8 +279,9 @@ export class DemoHome implements MemoryHome {
         plan: localPlan(s.plan, language),
         layout: {},
       })),
-      bindings: demoBindings(),
-      settings: demoSettings(),
+      // The Zigbee coordinator beside the internet box (D-093).
+      bindings: withCoordinator(demoBindings()),
+      settings: { ...demoSettings(), access_points: demoAccessPoints(language) },
       upkeep: demoUpkeep(dateOf(today), language),
       // The front lawn mown three days ago; the robot mower out on the back one yesterday.
       garden: {
@@ -264,6 +289,7 @@ export class DemoHome implements MemoryHome {
         mowers: { "lawn_mower.mowy": dayAt(today, -1, 12).toISOString() },
       },
       people: demoPeople(),
+      locating: demoLocating(language),
       schedules: [],
       // A fictional network: its code joins nothing.
       wifi: {
@@ -301,6 +327,28 @@ export class DemoHome implements MemoryHome {
       this.recordChange(thing.id, thing.state, start, now);
       entities[thing.id] = { entity_id: thing.id, area_id: thing.area ?? null };
       if (thing.area) this.areaOf.set(thing.id, thing.area);
+    }
+    // The devices that tell their Wi-Fi signal (D-093): diagnostic sensors in their areas.
+    for (const signal of WIFI_SIGNALS) {
+      this.states[signal.id] = {
+        entity_id: signal.id,
+        state: signal.state,
+        attributes: {
+          friendly_name: say(signal.names, language),
+          device_class: "signal_strength",
+          unit_of_measurement: "dBm",
+          state_class: "measurement",
+        },
+        last_changed: now,
+        last_updated: now,
+        context: start,
+      };
+      entities[signal.id] = {
+        entity_id: signal.id,
+        area_id: signal.area,
+        entity_category: "diagnostic",
+      };
+      this.areaOf.set(signal.id, signal.area);
     }
     for (const person of PEOPLE) {
       this.states[person.id] = {
@@ -352,7 +400,14 @@ export class DemoHome implements MemoryHome {
     this.hass = {
       states: {},
       entities,
-      devices: {},
+      // The Zigbee coordinator's device (D-093), linked to the internet box.
+      devices: {
+        [COORDINATOR_DEVICE]: {
+          id: COORDINATOR_DEVICE,
+          area_id: "hall",
+          name: say(COORDINATOR_NAMES, language),
+        },
+      },
       areas,
       floors,
       user: { id: "demo-visitor", name: visitor.name ?? "", is_admin: true },
@@ -361,13 +416,22 @@ export class DemoHome implements MemoryHome {
       themes: { darkMode: visitor.darkMode === true },
       config: {
         unit_system: { temperature: "°C" },
-        components: ["domotwin", "energy", "logbook"],
+        // Its radios too (D-093): Bluetooth receivers, a Zigbee mesh.
+        components: ["domotwin", "energy", "logbook", "bluetooth", "zha"],
         // Its times are written as its clock reads them: this device's time zone.
         time_zone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       },
       connection,
       demo: true,
       now: () => Date.parse(this.time()),
+      // Its sun at any hour of its day (D-093), as its `sun.sun` says it: by its clock.
+      sunAt: (time) => {
+        const at = new Date(time);
+        const { azimuth, elevation } = sunAt(
+          at.getHours() * 60 + at.getMinutes() + at.getSeconds() / 60,
+        );
+        return { azimuth, elevation };
+      },
       callService: (domain, service, data, target) => {
         this.callService(domain, service, data ?? {}, target ?? {});
         return Promise.resolve();
@@ -429,6 +493,11 @@ export class DemoHome implements MemoryHome {
 
   energyPrefs(): unknown {
     return ENERGY_PREFS;
+  }
+
+  /** Its Zigbee mesh, as ZHA's `zha/devices` gives it (D-093). */
+  zigbee(): unknown[] {
+    return demoZigbee(Date.parse(this.time()), this.language);
   }
 
   /**

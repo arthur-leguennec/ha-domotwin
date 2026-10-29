@@ -868,8 +868,9 @@ export class DomoTwinBluetoothSettings extends LitElement {
               )
       }
       ${
-        // Private BLE Device listens through Home Assistant's Bluetooth: none, no key to give it.
-        settings.status === "no_bluetooth" ? nothing : this.renderKey()
+        // Private BLE Device listens through Home Assistant's Bluetooth: none, no key to give it;
+        // nor to the demo house, which hears no phone's key (D-093).
+        settings.status === "no_bluetooth" || this.hass?.demo ? nothing : this.renderKey()
       }`;
   }
 

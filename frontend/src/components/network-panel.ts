@@ -50,6 +50,7 @@ export class DomoTwinNetwork extends LitElement {
     engine: { attribute: false },
     bindings: { attribute: false },
     names: { attribute: false },
+    elsewhere: { attribute: false },
     placeable: { attribute: false },
     devices: { state: true },
     analysis: { state: true },
@@ -240,6 +241,11 @@ export class DomoTwinNetwork extends LitElement {
   bindings?: BindingsJson;
   /** The elements of the plan shown, by id. */
   names: Record<string, { name: string; type: string }> = {};
+  /**
+   * The pieces of the other storeys (D-093): a device placed there is not one to place, it is on
+   * another floor.
+   */
+  elsewhere: ReadonlySet<string> = new Set();
   /** Devices placed nowhere can be placed (the panel, which has the link editor). */
   placeable = false;
 
@@ -257,6 +263,8 @@ export class DomoTwinNetwork extends LitElement {
   private source?: NetworkSource;
   /** Device id → the piece it is placed at. */
   private placed = new Map<string, string>();
+  /** The devices placed on another storey. */
+  private placedElsewhere = new Map<string, string>();
   /** The devices and the quality of each by id, for the markers drawn on every move. */
   private byId = new Map<string, NetworkDevice>();
   private qualities = new Map<string, Quality>();
@@ -291,7 +299,10 @@ export class DomoTwinNetwork extends LitElement {
 
   protected override willUpdate(changed: PropertyValues<this>): void {
     // Linked again, or another plan: the devices are placed again (not read again).
-    if ((changed.has("bindings") || changed.has("names")) && this.devices.length > 0) {
+    if (
+      (changed.has("bindings") || changed.has("names") || changed.has("elsewhere")) &&
+      this.devices.length > 0
+    ) {
       void this.show();
     }
   }
@@ -328,6 +339,11 @@ export class DomoTwinNetwork extends LitElement {
     const bindings = this.bindings ?? { version: 1, rooms: {}, elements: {} };
     this.byId = new Map(devices.map((d) => [d.id, d]));
     this.placed = placeDevices(devices, bindings, (id) => id in this.names);
+    this.placedElsewhere = placeDevices(
+      devices.filter((d) => !this.placed.has(d.id)),
+      bindings,
+      (id) => this.elsewhere.has(id),
+    );
     const run = (this.showing += 1);
     // Shown again, closed or on another engine meanwhile: the newer run, or the close, has it.
     const current = (): boolean =>
@@ -612,9 +628,18 @@ export class DomoTwinNetwork extends LitElement {
 
   private renderNotPlaced(): TemplateResult | typeof nothing {
     const t = this.t;
-    const loose = this.devices.filter((d) => !this.placed.has(d.id));
-    if (loose.length === 0) return nothing;
-    return html`<h3>${t.t("network.not_placed")}</h3>
+    const loose = this.devices.filter(
+      (d) => !this.placed.has(d.id) && !this.placedElsewhere.has(d.id),
+    );
+    const elsewhere =
+      this.placedElsewhere.size > 0
+        ? html`<p class="hint" data-testid="network-elsewhere">
+            ${t.tp("network.elsewhere", this.placedElsewhere.size)}
+          </p>`
+        : nothing;
+    if (loose.length === 0) return elsewhere;
+    return html`${elsewhere}
+      <h3>${t.t("network.not_placed")}</h3>
       <ul data-testid="network-not-placed">
         ${loose.map(
           (device) =>

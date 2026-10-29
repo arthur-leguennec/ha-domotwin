@@ -56,6 +56,7 @@
     {"id": "u-plant-landing", "name": "Dracaena", "kind": "plant", "at": [610, 870], "size": [40, 40, 120], "style": "dracaena", "room": "u-landing"},
     {"id": "u-ceiling-landing-1", "name": "Ceiling light", "kind": "ceiling-light", "at": [560, 410], "size": [30, 30, 12], "lift": 250, "light": {"kelvin": 3000}, "room": "u-landing"},
     {"id": "u-ceiling-landing-2", "name": "Ceiling light", "kind": "ceiling-light", "at": [500, 720], "size": [30, 30, 12], "lift": 250, "light": {"kelvin": 3000}, "room": "u-landing"},
+    {"id": "u-access-point", "name": "Wi-Fi access point", "kind": "access-point", "at": [520, 560], "size": [20, 20, 4], "lift": 256, "room": "u-landing"},
     {"id": "u-play-table", "name": "Play table", "kind": "round-table", "at": [130, 700], "size": [90, 90, 55], "color": "#e8c070", "room": "u-playroom"},
     {"id": "u-play-chair-1", "name": "Chair", "kind": "chair", "at": [65, 700], "size": [40, 40, 65], "rotation": 270, "room": "u-playroom"},
     {"id": "u-play-chair-2", "name": "Chair", "kind": "chair", "at": [195, 700], "size": [40, 40, 65], "rotation": 90, "room": "u-playroom"},

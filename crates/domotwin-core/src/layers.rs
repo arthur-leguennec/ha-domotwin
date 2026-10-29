@@ -1,5 +1,6 @@
 //! The layers drawn over the home (`DECISIONS.md`, D-023): a **heatmap** of one quantity per room
-//! (temperature, humidity, CO₂ or fine particles, or how well a radio covers it, D-066) on a
+//! (temperature, humidity, CO₂ or fine particles, how well a radio covers it, D-066, or how long
+//! the sun comes in through its windows in a day, D-093) on a
 //! perceptual colour scale, **alerts** pulsing
 //! on the floor of their room (warnings amber, dangers red) and **presence** (a room someone is in
 //! glows softly). During a Hydro-Québec peak (D-063), the **peak** tints each room by what its
@@ -29,16 +30,19 @@ pub enum HeatKind {
     /// How well a radio covers the room (D-066): its level's rank, from 0 (out of reach) to 3
     /// (good).
     Coverage,
+    /// How long the sun comes in through the room's windows in a day (hours, D-093).
+    Sunshine,
 }
 
 impl HeatKind {
-    /// Every kind, the heatmap menu's in its order, then the radio coverage.
-    pub const ALL: [HeatKind; 5] = [
+    /// Every kind, the heatmap menu's in its order, then the radio coverage and the sunshine.
+    pub const ALL: [HeatKind; 6] = [
         HeatKind::Temperature,
         HeatKind::Humidity,
         HeatKind::Co2,
         HeatKind::Pm25,
         HeatKind::Coverage,
+        HeatKind::Sunshine,
     ];
 
     /// The name in card options and in the API.
@@ -49,6 +53,7 @@ impl HeatKind {
             HeatKind::Co2 => "co2",
             HeatKind::Pm25 => "pm25",
             HeatKind::Coverage => "coverage",
+            HeatKind::Sunshine => "sunshine",
         }
     }
 
@@ -65,12 +70,13 @@ impl HeatKind {
             HeatKind::Co2 => "ppm",
             HeatKind::Pm25 => "µg/m³",
             HeatKind::Coverage => "",
+            HeatKind::Sunshine => "h",
         }
     }
 
     /// The colour scale: values and their sRGB colours. Cold to hot for temperatures, dry to damp
     /// for humidity, good to bad for the air (with the usual thresholds of indoor air quality),
-    /// out of reach to good for a radio.
+    /// out of reach to good for a radio, shade to sun for the sunshine.
     pub const fn stops(self) -> &'static [(f64, u32)] {
         match self {
             HeatKind::Temperature => &[
@@ -112,6 +118,14 @@ impl HeatKind {
                 (1.0, 0xf2_8a_2e),
                 (2.0, 0xf2_d0_3a),
                 (3.0, 0x2a_b0_5a),
+            ],
+            HeatKind::Sunshine => &[
+                (0.0, 0x5b_6c_8f),
+                (1.0, 0x9a_ad_c4),
+                (3.0, 0xf3_e3_9e),
+                (5.0, 0xf6_c4_4a),
+                (7.0, 0xf2_92_1f),
+                (10.0, 0xd8_5a_14),
             ],
         }
     }

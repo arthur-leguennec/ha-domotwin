@@ -4677,3 +4677,51 @@ wires of every automation too much at once: too much on the screen to understand
   list reads the configurations the wires already read (administrators). The wires' chunk now
   carries the plain words' texts in English and French (the other languages have them in their
   packs). The demo house answers the statistics from its planned day, minute by minute.
+
+## D-093 · The sun by the hour, the demo house's radios, a guide to automations (M55)
+
+The maintainer found the sun's legend too small to read, wanted to see the sun at any hour of the
+day and how much sun each room gets, the demo house's Wi-Fi, Zigbee and Bluetooth placed so that
+their maps show, and a guide in DomoTwin to making an automation.
+
+- **Context.** Sunlight through the windows (D-023) followed `sun.sun` alone: where the sun is
+  now, said in a legend of 0.75 rem. Home Assistant knows where the home is (its latitude and
+  longitude), and the sandbox already worked the sun out from them (D-057). The demo house had no
+  radio: its coverage and its network map had nothing to show. Nothing in DomoTwin said how an
+  automation is made, only how to read one.
+- **Decision.**
+  - **The sun's card** is bigger (0.875 rem, 280 px beside the tools' column; a phone's width),
+    and while the sun over the home is known it has the hour of the day: a slider by quarter
+    hours on the home's clock (its time zone, on the days the clocks change too), *Now* to come
+    back, and when the sun rises and sets today. The engine's sun and light follow the hour
+    chosen, and the card says which rooms the sun comes into then. The sun over the home is
+    worked out from Home Assistant's latitude and longitude, as the sandbox's; the demo house,
+    which has no place on Earth, gives its own (`hass.sunAt`), rising and setting at the horizon.
+    The hour chosen goes with the card: sunlight turned off, a layer of values or a tool forgets
+    it. Near the poles in summer, the sunset said is the one after the sunrise, past midnight.
+  - **Hours of sun** is a layer: each room's hours of direct sun through its windows, the sun
+    looked at every ten minutes from midnight to midnight where the home is, the windows facing
+    it within 75° (as D-023's), drawn as a heatmap from grey-blue (none) to orange (ten hours and
+    more) with the hours written on the rooms. The day is today, or this year's longest or
+    shortest (June's or December's solstice by the hemisphere); the demo house's sun has one day.
+    It is offered where the sun is known and a room has a window, the card's editor too; worked
+    out again only when the day, the plans or north change.
+  - **The demo house's radios**: an internet box in the hall and an access point on the landing
+    (pieces of its plans, and the settings' access points), three Wi-Fi signals of its devices, a
+    Zigbee mesh of ten of its lamps and sensors (a weak link to the playroom's thermometer) with
+    its coordinator beside the internet box (a device of its registry), and three Bluetooth
+    receivers placed in its rooms, with what they learned there. All fictional addresses; its
+    Bluetooth settings save in the page, and it asks for no phone's identity key. The network map
+    no longer lists a device placed on another storey as one to place: it says how many are on
+    another floor; and ZHA's *last heard* is read on the demo house's clock.
+  - **A guide to making an automation**, from the panel's More menu and the automations' list:
+    five steps — the three parts (When, Only if, Then) with an example from the home (a motion or
+    door sensor and a light of one area), what each part can be, and the ways to make one (Home
+    Assistant's editor for an administrator, plain words where there is an AI task, the sandbox
+    to try them). In the demo house and the sandbox, it says where automations are made instead;
+    the example leaves out what the viewer may not see (D-039).
+- **Consequences.** No new command and no new setting: the sun is worked out in the page, the
+  hours of sun too (a few thousand dot products a day), and the engine draws a new heat kind
+  (`sunshine`, in hours). The guide is its own chunk, loaded when it first opens. The energy
+  board's midnight and the sun's hours share one clock (`live/clock.ts`).
+

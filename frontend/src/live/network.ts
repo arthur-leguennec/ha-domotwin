@@ -5,7 +5,7 @@
  * analysis module as a snapshot (`domotwin_core::network`, D-043). Loaded with the network map,
  * not before.
  */
-import type { HomeAssistant } from "../ha/types";
+import { nowOf, type HomeAssistant } from "../ha/types";
 import type { BindingsJson } from "./bindings";
 
 /** What a device is in the mesh. */
@@ -193,7 +193,10 @@ export function zhaDevice(raw: unknown, now: number, zone?: string): NetworkDevi
 }
 
 /** ZHA as a source: administrators only, as Home Assistant's ZHA commands are. */
-export function zhaSource(hass: HomeAssistant, now: () => number = Date.now): NetworkSource {
+export function zhaSource(
+  hass: HomeAssistant,
+  now: () => number = () => nowOf(hass),
+): NetworkSource {
   return {
     kind: "zha",
     async devices() {

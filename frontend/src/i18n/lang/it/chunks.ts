@@ -303,6 +303,69 @@ export const chunks: Chunks = {
       },
     },
   },
+  guide: {
+    guide: {
+      title: "Creare un’automazione",
+      step: "Passo {step} di {count}",
+      back: "Indietro",
+      next: "Avanti",
+      done: "Fatto",
+      intro_title: "Un’automazione in tre parti",
+      intro:
+        "Un’automazione fa qualcosa da sola quando succede qualcosa in casa. Home Assistant la scrive in tre parti:",
+      when: "Quando",
+      when_about:
+        "ciò che la avvia: un dispositivo che cambia, un orario, il sole, qualcuno che torna a casa.",
+      only_if: "Solo se",
+      only_if_about:
+        "ciò che deve essere vero in quel momento, se serve: qualcuno in casa, dopo il tramonto, un giorno feriale.",
+      then: "Allora",
+      then_about: "ciò che fa: accendere una luce, chiudere le tende, inviare una notifica.",
+      example_title: "A casa tua, per esempio",
+      example_motion:
+        "Quando {sensor} rileva qualcuno, solo se il sole è tramontato, allora accendere {light}.",
+      example_door:
+        "Quando {sensor} si apre, solo se il sole è tramontato, allora accendere {light}.",
+      example_none:
+        "Quando la porta d’ingresso si apre, solo se il sole è tramontato, allora accendere la luce dell’ingresso.",
+      when_title: "Quando: ciò che la avvia",
+      when_state:
+        "Un dispositivo cambia: una porta si apre, viene rilevato un movimento, una temperatura supera i 25 °C.",
+      when_time: "Un orario: ogni giorno alle 7:00, o solo nei giorni feriali.",
+      when_sun: "Il sole: all’alba o al tramonto, qualche minuto prima o dopo.",
+      when_people: "Le persone: qualcuno torna a casa, o l’ultimo esce.",
+      when_tip: "Un’automazione può averne diversi: uno qualsiasi la avvia.",
+      if_title: "Solo se: ciò che deve essere vero",
+      if_state: "Un dispositivo è in uno stato: l’allarme è disattivato, la TV è accesa.",
+      if_time: "Una fascia oraria: tra le 22:00 e le 6:00.",
+      if_sun: "Dopo il tramonto, o prima dell’alba.",
+      if_people: "Qualcuno è in casa, o nessuno.",
+      if_tip: "Sono facoltative; se ce ne sono, devono essere tutte vere perché continui.",
+      then_title: "Allora: ciò che fa",
+      then_device:
+        "Accendere o spegnere un dispositivo, o regolarlo: una luce al 30 %, il riscaldamento a 19 °C.",
+      then_scene: "Attivare una scena: più dispositivi regolati insieme.",
+      then_notify: "Inviare una notifica a un telefono.",
+      then_wait: "Aspettare, poi fare altro: spegnere di nuovo la luce dopo 5 minuti.",
+      then_tip: "Vengono eseguite una dopo l’altra, nel loro ordine.",
+      make_title: "Crea la tua",
+      make_editor: "Aprire l’editor di Home Assistant",
+      make_editor_about:
+        "In Impostazioni, Automazioni e scene, Crea automazione: compila le sue tre parti, poi salva.",
+      make_plain: "Scriverla a parole",
+      make_plain_about:
+        "Dilla in una frase: DomoTwin ne prepara una bozza con l’attività IA di Home Assistant, da controllare.",
+      make_sandbox: "Provarle nella sandbox",
+      make_sandbox_about:
+        "Fai scorrere una giornata su una copia della tua casa e guarda cosa farebbero le sue automazioni, senza toccarla.",
+      make_check:
+        "Una volta salvata, compare tra le automazioni della scheda 3D: i suoi fili vanno da ciò che la avvia a ciò che fa.",
+      make_demo:
+        "Le automazioni della casa demo non si possono modificare: a casa tua, le crea l’editor di Home Assistant.",
+      make_in_sandbox:
+        "Questa è la sandbox, una copia della tua casa in cui non si conserva nulla: esci per creare un’automazione nell’editor di Home Assistant.",
+    },
+  },
   history: {
     report: {
       title: "Cronologia: {name}",

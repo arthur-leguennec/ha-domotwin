@@ -6,6 +6,7 @@
 import { configHistoryEn } from "./config-history";
 import { firstEn } from "./first";
 import { guestsEn } from "./guests";
+import { guideEn } from "./guide";
 import { historyEn } from "./history";
 import { iphoneEn } from "./iphone";
 import { libraryEn } from "./library";
@@ -29,6 +30,7 @@ export const englishChunks = {
   configHistory: configHistoryEn,
   first: firstEn,
   guests: guestsEn,
+  guide: guideEn,
   history: historyEn,
   iphone: iphoneEn,
   library: libraryEn,

@@ -2,6 +2,7 @@ import { en } from "./en";
 import { fr } from "./fr";
 import type { configHistoryEn } from "./config-history";
 import type { guestsEn } from "./guests";
+import type { guideEn } from "./guide";
 import type { historyEn } from "./history";
 import type { iphoneEn } from "./iphone";
 import type { libraryEn } from "./library";
@@ -56,7 +57,7 @@ type Leaves<T, Leaf, Prefix extends string = ""> = {
 /**
  * Every message: the dictionaries', and those added by a chunk when it loads (D-055, D-058,
  * D-059, D-060, D-061, D-062, D-063, D-066, D-067, D-068, D-070, D-071, D-073, D-074, D-075,
- * D-076, D-081, D-083; the sandbox's, D-057).
+ * D-076, D-081, D-083, D-093; the sandbox's, D-057).
  */
 type AllMessages = typeof en &
   typeof practicalEn &
@@ -70,6 +71,7 @@ type AllMessages = typeof en &
   typeof plainEn &
   typeof placementEn &
   typeof guestsEn &
+  typeof guideEn &
   typeof reportEn &
   typeof firstEn &
   typeof safetyEn &

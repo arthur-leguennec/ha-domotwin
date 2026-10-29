@@ -89,8 +89,21 @@ function crossings(
 
 /** When the sun rises and sets between `start` and `end` (ms), its dawn, dusk and noon. */
 export function sunDay(start: number, end: number, latitude: number, longitude: number): SunDay {
-  const elevation = (ms: number): number => sunAt(ms, latitude, longitude).elevation;
-  const sun = crossings(start, end, elevation, HORIZON);
+  return sunDayOf(start, end, (ms) => sunAt(ms, latitude, longitude).elevation);
+}
+
+/**
+ * When a sun rises and sets between `start` and `end` (ms), its dawn, dusk and noon, from how high
+ * it is at each moment (degrees): the sun of a place on Earth, or the demo house's (D-093), which
+ * rises and sets as its centre crosses the horizon (`horizon` 0).
+ */
+export function sunDayOf(
+  start: number,
+  end: number,
+  elevation: (ms: number) => number,
+  horizon = HORIZON,
+): SunDay {
+  const sun = crossings(start, end, elevation, horizon);
   const twilight = crossings(start, end, elevation, -6);
   // The sun at its highest: the best of each ten minutes, then to the second.
   let noon = start;

@@ -138,6 +138,8 @@ const FRENCH: Readonly<Record<string, string>> = {
   Kettle: "Bouilloire",
   Monitor: "Écran",
   "Wall tablet": "Tablette murale",
+  "Internet box": "Box internet",
+  "Wi-Fi access point": "Borne Wi-Fi",
   Thermostat: "Thermostat",
   "Coat stand": "Portemanteau",
   "Water heater": "Chauffe-eau",
@@ -809,6 +811,8 @@ export const THINGS: readonly Thing[] = [
     id: "sensor.playroom_temperature",
     area: "playroom",
     names: ["Playroom temperature", "Température de la salle de jeux"],
+    // A small Zigbee thermometer on the shelves (D-093).
+    pieces: ["u-play-shelves"],
     state: "19.4",
     attributes: celsius,
   },
