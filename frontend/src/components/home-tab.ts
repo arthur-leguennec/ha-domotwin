@@ -453,7 +453,8 @@ export class DomoTwinHome extends LitElement {
   private readClosedEnergy(): void {
     const hass = this.hass;
     const hours = this.sources?.workplace?.hours;
-    if (!hass || !hours) return;
+    // A site's own hours (D-090): the integration counts the workplace's.
+    if (!hass || !hours || this.sources?.site?.ownHours) return;
     const from = hass.connection;
     const still = (): boolean =>
       this.hass?.connection === from && this.sources?.workplace?.hours === hours;
@@ -769,7 +770,10 @@ export class DomoTwinHome extends LitElement {
     if (!hass || !t || !glance.hours) return nothing;
     const left = glance.leftOn ?? [];
     const language = t.language;
-    const said = this.closedEnergy?.hours === schedule ? this.closedEnergy?.found : undefined;
+    const said =
+      this.closedEnergy?.hours === schedule && !this.sources?.site?.ownHours
+        ? this.closedEnergy?.found
+        : undefined;
     const used = (
       key: "closed_week" | "closed_month",
       value?: ClosedEnergy,

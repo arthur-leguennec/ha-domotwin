@@ -430,6 +430,16 @@ export const main: Dictionary = {
       "会議用の部屋：ホームタブに空き・使用中・予約済みを表示し、Home Assistant のカレンダーに予約を入れます。",
     meeting_no_calendar: "カレンダーなし",
     meeting_calendar: "{room} を予約するカレンダー",
+    sites: "拠点",
+    sites_hint:
+      "この Home Assistant が管理する複数の建物や店舗：それぞれに階を割り当てます。2 つ以上あると、DomoTwin は上で選んだ 1 つずつを表示し、ホームと部屋のタブもそれに従います。",
+    site_name: "名前",
+    site_storeys: "{name} の階",
+    site_default: "拠点 {n}",
+    site_hours: "営業時間",
+    site_hours_workplace: "職場の営業時間",
+    site_add: "拠点を追加",
+    site_remove: "{name} を削除",
     title: "設定",
     north: "間取り図上の北",
     north_hint:
@@ -884,6 +894,7 @@ export const main: Dictionary = {
   },
   panel: {
     title: "DomoTwin",
+    site: "拠点",
     import: "間取り図をインポート",
     export: "間取り図をエクスポート",
     more: "その他",

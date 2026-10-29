@@ -81,6 +81,15 @@ export interface Workplace {
   meeting_rooms?: Record<string, { calendar?: string }>;
 }
 
+/** A site one Home Assistant runs (D-090): a building or a shop, a group of the home's storeys. */
+export interface Site {
+  id: string;
+  name: string;
+  storeys: string[];
+  /** Its own opening hours, a schedule of Home Assistant's; absent, the workplace's. */
+  hours?: string;
+}
+
 export interface Settings {
   /** Where north points on the plan, degrees clockwise from its top (0: up). */
   north?: number;
@@ -102,6 +111,8 @@ export interface Settings {
   roof?: RoofSettings;
   /** A workplace (D-086): people counted, not named; open at its hours. */
   workplace?: Workplace;
+  /** The sites it runs (D-090), each a group of its storeys; a storey in none is the first's. */
+  sites?: Site[];
 }
 
 export interface StoredSettings {

@@ -124,6 +124,8 @@ export interface HarnessOptions {
   hours?: "on" | "off";
   /** A workplace's meeting rooms (D-089), two of them booked in fictional calendars. */
   meetings?: boolean;
+  /** Two sites (D-090), with `storeys: 2`; the second with its own hours (`"own-hours"`). */
+  sites?: true | "own-hours";
   /** Bluetooth locating (D-035): fictional receivers and devices, or no Bluetooth at all. */
   bluetooth?: true | "none";
   /** The radio coverage's fictional radios (D-066): receivers placed, Wi-Fi signals, an access
@@ -248,6 +250,8 @@ export async function openHarness(page: Page, options: HarnessOptions = {}): Pro
   if (options.workplace) params.set("workplace", "1");
   if (options.hours) params.set("hours", options.hours);
   if (options.meetings) params.set("meetings", "1");
+  if (options.sites) params.set("sites", "1");
+  if (options.sites === "own-hours") params.set("sitehours", "1");
   if (options.bluetooth) params.set("bluetooth", options.bluetooth === true ? "1" : "none");
   if (options.radios) params.set("radios", "1");
   if (options.radars) params.set("radars", "1");

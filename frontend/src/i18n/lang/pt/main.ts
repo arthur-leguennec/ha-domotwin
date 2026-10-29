@@ -428,6 +428,16 @@ export const main: Dictionary = {
       "Salas para reuniões: o separador Início diz quais estão livres, ocupadas ou reservadas, e reserva uma no seu calendário do Home Assistant.",
     meeting_no_calendar: "Sem calendário",
     meeting_calendar: "O calendário onde se reserva {room}",
+    sites: "Locais",
+    sites_hint:
+      "Vários edifícios ou lojas geridos por este Home Assistant: atribua a cada um os seus pisos. A partir de dois, o DomoTwin mostra um de cada vez, escolhido no topo; os separadores Início e Divisões seguem-no.",
+    site_name: "Nome",
+    site_storeys: "Pisos de {name}",
+    site_default: "Local {n}",
+    site_hours: "Horário de abertura",
+    site_hours_workplace: "O do local de trabalho",
+    site_add: "Adicionar um local",
+    site_remove: "Remover {name}",
     title: "Definições",
     north: "Norte na planta",
     north_hint:
@@ -885,6 +895,7 @@ export const main: Dictionary = {
   },
   panel: {
     title: "DomoTwin",
+    site: "Local",
     import: "Importar planta",
     export: "Exportar planta",
     more: "Mais",

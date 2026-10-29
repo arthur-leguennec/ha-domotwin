@@ -511,6 +511,16 @@ export const main: Dictionary = {
       "غرف مخصّصة للاجتماعات: يعرض تبويب الرئيسية أيّها متاح أو مشغول أو محجوز، ويحجز إحداها في تقويمها في Home Assistant.",
     meeting_no_calendar: "بلا تقويم",
     meeting_calendar: "التقويم الذي تُحجز فيه {room}",
+    sites: "المواقع",
+    sites_hint:
+      "عدة مبانٍ أو متاجر يديرها Home Assistant هذا: أعطِ كل واحد طوابقه. عند وجود اثنين أو أكثر، يعرض DomoTwin واحدًا في كل مرة، يُختار في الأعلى؛ ويتبعه تبويبا الرئيسية والغرف.",
+    site_name: "الاسم",
+    site_storeys: "طوابق {name}",
+    site_default: "الموقع {n}",
+    site_hours: "ساعات العمل",
+    site_hours_workplace: "ساعات مكان العمل",
+    site_add: "إضافة موقع",
+    site_remove: "إزالة {name}",
     title: "الإعدادات",
     north: "الشمال على المخطط",
     north_hint:
@@ -960,6 +970,7 @@ export const main: Dictionary = {
   },
   panel: {
     title: "DomoTwin",
+    site: "الموقع",
     import: "استيراد مخطط",
     export: "تصدير المخطط",
     more: "المزيد",

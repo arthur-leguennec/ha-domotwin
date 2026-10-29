@@ -229,7 +229,8 @@ Chacun dans sa pièce, trouvé avec ce que votre logement a déjà.
   l’onglet Accueil dit ce qui est resté allumé (lampes, portes, serrures, musique), avec *Fermer
   les lieux* suggéré en commande ; un appui sur ses horaires dit ce que le lieu a consommé pendant
   la fermeture. Ses salles de réunion disent si elles sont libres, occupées ou réservées, et se
-  réservent dans leur calendrier de Home Assistant. Voir [un lieu de
+  réservent dans leur calendrier de Home Assistant. Plusieurs commerces ou bâtiments dans un même
+  Home Assistant sont des sites à part, chacun montré seul avec ses horaires. Voir [un lieu de
   travail](https://github.com/arthur-leguennec/ha-domotwin/blob/main/docs/workplace.md) (en
   anglais).
 

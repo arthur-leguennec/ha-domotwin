@@ -133,6 +133,7 @@ export async function resolveShow(
   shown: { plan: unknown; storey?: string },
   request: ShowRequest,
   closed: ReadonlySet<string> = new Set(),
+  together?: ReadonlySet<string>,
 ): Promise<ShowTarget | undefined> {
   const target: ShowTarget = {};
   if (request.view) target.view = request.view;
@@ -172,8 +173,11 @@ export async function resolveShow(
       target.element = found.id;
       // Its storey, unless every storey is shown (or asked for): it is framed there; walking
       // is on its storey alone.
+      // `together`: the storeys every storey shown means (a site's, D-090).
       const whole =
-        (target.storey ?? shown.storey) === ALL_STOREYS && spoken(target.view ?? "") !== "walk";
+        (target.storey ?? shown.storey) === ALL_STOREYS &&
+        spoken(target.view ?? "") !== "walk" &&
+        (!together || !found.storey || together.has(found.storey));
       if (storeys.length > 1 && !whole && found.storey) target.storey = found.storey;
     } else if (request.element === undefined && request.storey === undefined) {
       // "Show upstairs": a storey said as a room.

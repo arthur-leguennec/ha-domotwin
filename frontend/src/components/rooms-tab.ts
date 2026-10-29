@@ -29,6 +29,7 @@ export class DomoTwinRooms extends LitElement {
     t: { attribute: false },
     favourites: { attribute: false },
     unseen: { attribute: false },
+    others: { attribute: false },
     actions: { attribute: false },
     refused: { state: true },
     area: { attribute: false },
@@ -42,6 +43,8 @@ export class DomoTwinRooms extends LitElement {
   favourites: readonly string[] = [];
   /** What the viewer may not see (D-039). */
   unseen: Unseen = NOTHING_UNSEEN;
+  /** The other sites' areas (D-090), left out. */
+  others: ReadonlySet<string> = new Set();
   /** The actions an administrator gave the rooms of the plan (D-047), by their area. */
   actions: ReadonlyMap<string, readonly RoomAction[]> = new Map();
   /** What Home Assistant refused last. */
@@ -64,6 +67,7 @@ export class DomoTwinRooms extends LitElement {
     floors: unknown;
     states: unknown;
     unseen: unknown;
+    others: unknown;
     language: unknown;
   };
 
@@ -159,6 +163,7 @@ export class DomoTwinRooms extends LitElement {
       // An entity coming or going (renamed or moved, the registries are new).
       states: Object.keys(hass.states).length,
       unseen: this.unseen,
+      others: this.others,
       language,
     };
     const read = this.readFrom;
@@ -167,7 +172,7 @@ export class DomoTwinRooms extends LitElement {
       Object.entries(from).some(([key, value]) => read[key as keyof typeof read] !== value)
     ) {
       this.readFrom = from;
-      this.floors = homeFloors(hass, this.unseen, this.collator);
+      this.floors = homeFloors(hass, this.unseen, this.collator, this.others);
     }
     // A room opened from elsewhere: the search gives way.
     if (changed.has("area") && this.area) this.query = "";

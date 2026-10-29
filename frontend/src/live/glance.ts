@@ -11,7 +11,14 @@ import { NO_BINDINGS, areaOf, type BindingsJson } from "./bindings";
 import { numberOf, type PlanRoom } from "./layers";
 import { peakRooms, type PeakRooms } from "./peak-rooms";
 import { peakNow, type PeakNow } from "./peaks";
-import { colorOf, countedHere, initials, peopleShown, type PeopleSettings } from "./people";
+import {
+  colorOf,
+  countedHere,
+  initials,
+  peopleShown,
+  type OnSite,
+  type PeopleSettings,
+} from "./people";
 import { closedAreas, outOfSight } from "./privacy";
 import { usualWeather } from "./weather";
 
@@ -78,6 +85,12 @@ export interface GlanceSources {
   meters?: ReadonlySet<string>;
   /** A workplace (D-086). */
   workplace?: Workplace;
+  /**
+   * One site of several (D-090): `rooms` are its rooms alone, and the closed areas and entities
+   * hold the other sites'; `onSite` says whether someone on a storey is on it. `ownHours`: its
+   * hours are its own, not the workplace's.
+   */
+  site?: { onSite: OnSite; ownHours: boolean };
 }
 
 /** Contact sensors that say a door or a window is open. */
@@ -131,17 +144,18 @@ function peopleOf(
   settings: PeopleSettings | undefined,
   closed: Set<string>,
   workplace: boolean,
+  onSite?: OnSite,
 ): { people?: GlancePerson[]; away: number; here?: number } {
   if (settings?.shown === "admins" && hass.user?.is_admin !== true) return { away: 0 };
   // A workplace (D-086): how many, named nowhere, as `domotwin.where` counts them.
   if (workplace || settings?.counted === true) {
-    return { away: 0, here: countedHere(settings, hass, closed) };
+    return { away: 0, here: countedHere(settings, hass, closed, onSite) };
   }
   if (settings && Object.keys(settings.people).length > 0) {
     const shown = outOfSight(peopleShown(settings, hass), closed);
     return {
       people: shown
-        .filter((p) => p.home)
+        .filter((p) => p.home && (!onSite || onSite(p.storey)))
         .map((p) => ({
           id: p.id,
           name: p.name,
@@ -155,6 +169,8 @@ function peopleOf(
   }
   const people: GlancePerson[] = [];
   let away = 0;
+  // Home Assistant's home zone is one place: the first site's (D-090).
+  if (onSite && !onSite(undefined)) return { people, away };
   const hidden = new Set(settings?.hidden ?? []);
   for (const id of Object.keys(hass.states)
     .filter((id) => domainOf(id) === "person")
@@ -212,7 +228,13 @@ export function glanceOf(hass: HomeAssistant, sources: GlanceSources): Glance {
     }
   }
   const glance: Glance = {
-    ...peopleOf(hass, sources.people, closed, sources.workplace !== undefined),
+    ...peopleOf(
+      hass,
+      sources.people,
+      closed,
+      sources.workplace !== undefined,
+      sources.site?.onSite,
+    ),
     lights: lights.sort(),
     openings: openings.sort(),
   };

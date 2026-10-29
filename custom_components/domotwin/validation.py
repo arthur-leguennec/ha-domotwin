@@ -39,6 +39,7 @@ from .const import (
     MAX_RIGHTS_ROOMS,
     MAX_ROOM_ACTION_NAME,
     MAX_ROOM_ACTIONS,
+    MAX_SITES,
     MAX_STOREY_NAME,
     MAX_STOREYS,
     MAX_UPKEEP_BYTES,
@@ -297,7 +298,8 @@ def validate_settings(settings: Any) -> dict[str, Any]:
     home's energy is read (`energy`, D-049); the Wi-Fi access points placed on the plan
     (`access_points`, D-066); each person's rights (`rights`, D-071); the weather drawn around it
     (`weather`, D-072: a `weather` entity, or `none`); how its roofs are drawn (`roof`, D-077);
-    whether it is a workplace, and its opening hours (`workplace`, D-086).
+    whether it is a workplace, and its opening hours (`workplace`, D-086); its sites, the buildings
+    or shops one Home Assistant runs, each a group of its storeys (`sites`, D-090).
     """
     if not isinstance(settings, dict) or set(settings) - {
         "north",
@@ -310,11 +312,12 @@ def validate_settings(settings: Any) -> dict[str, Any]:
         "weather",
         "roof",
         "workplace",
+        "sites",
     }:
         raise InvalidPayloadError(
             "invalid_settings",
             "settings hold only `north`, `theme`, `accent`, `rooms`, `energy`, `access_points`, "
-            "`rights`, `weather`, `roof` and `workplace`",
+            "`rights`, `weather`, `roof`, `workplace` and `sites`",
         )
     north = settings.get("north", 0)
     if not _is_number(north) or not 0 <= north < 360:
@@ -342,6 +345,7 @@ def validate_settings(settings: Any) -> dict[str, Any]:
         ("access_points", _access_points),
         ("rights", _rights),
         ("roof", _roof),
+        ("sites", _sites),
     )
     for key, check in optional:
         if key in settings and (found := check(settings[key])):
@@ -442,18 +446,67 @@ def _workplace(workplace: Any) -> dict[str, Any]:
         )
     checked: dict[str, Any] = {}
     if "hours" in workplace:
-        hours = workplace["hours"]
-        if (
-            not isinstance(hours, str)
-            or not hours.startswith("schedule.")
-            or not valid_entity_id(hours)
-        ):
-            raise InvalidPayloadError(
-                "invalid_settings", "`workplace.hours` must be a schedule entity"
-            )
-        checked["hours"] = hours
+        checked["hours"] = _schedule(workplace["hours"], "`workplace.hours`")
     if "meeting_rooms" in workplace:
         checked["meeting_rooms"] = _meeting_rooms(workplace["meeting_rooms"])
+    return checked
+
+
+def _schedule(hours: Any, what: str) -> str:
+    """Opening hours: a `schedule` entity of Home Assistant's, on while the place is open."""
+    if (
+        not isinstance(hours, str)
+        or not hours.startswith("schedule.")
+        or not valid_entity_id(hours)
+    ):
+        raise InvalidPayloadError("invalid_settings", f"{what} must be a schedule entity")
+    return hours
+
+
+def _sites(sites: Any) -> list[dict[str, Any]]:
+    """The sites one Home Assistant runs (D-090), each a building or a shop of its own.
+
+    `[{"id", "name", "storeys": [storey ids], "hours"?: a `schedule` entity}]`, at most
+    `MAX_SITES`: each its storeys, in no other site, and its own opening hours, if they are not
+    the workplace's. A storey in none is the first site's.
+    """
+    if not isinstance(sites, list):
+        raise InvalidPayloadError("invalid_settings", "`sites` must be a list")
+    if len(sites) > MAX_SITES:
+        raise InvalidPayloadError("invalid_settings", f"at most {MAX_SITES} sites")
+    checked: list[dict[str, Any]] = []
+    ids: set[str] = set()
+    placed: set[str] = set()
+    for site in sites:
+        if not isinstance(site, dict) or set(site) - {"id", "name", "storeys", "hours"}:
+            raise InvalidPayloadError(
+                "invalid_settings", "a site has an `id`, a `name`, its `storeys` and maybe `hours`"
+            )
+        _check_id(site.get("id"), "a site id", "invalid_settings")
+        site_id = str(site["id"])
+        if site_id in ids:
+            raise InvalidPayloadError("invalid_settings", f"two sites are `{site_id}`")
+        ids.add(site_id)
+        name = site.get("name")
+        if not isinstance(name, str) or not 0 < len(name.strip()) <= MAX_STOREY_NAME:
+            raise InvalidPayloadError(
+                "invalid_settings", f"a site's `name` must be 1 to {MAX_STOREY_NAME} characters"
+            )
+        storeys = site.get("storeys", [])
+        if not isinstance(storeys, list) or len(storeys) > MAX_STOREYS:
+            raise InvalidPayloadError(
+                "invalid_settings", f"a site's `storeys` must be a list of {MAX_STOREYS} at most"
+            )
+        for storey in storeys:
+            _check_id(storey, "a storey id", "invalid_settings")
+            if storey in placed:
+                where = "listed twice" if storeys.count(storey) > 1 else "in two sites"
+                raise InvalidPayloadError("invalid_settings", f"the storey `{storey}` is {where}")
+            placed.add(storey)
+        entry: dict[str, Any] = {"id": site_id, "name": name.strip(), "storeys": list(storeys)}
+        if site.get("hours") is not None:
+            entry["hours"] = _schedule(site["hours"], "a site's `hours`")
+        checked.append(entry)
     return checked
 
 

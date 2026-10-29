@@ -431,6 +431,16 @@ export const main: Dictionary = {
       "Stanze per le riunioni: la scheda Casa dice quali sono libere, occupate o prenotate, e ne prenota una nel suo calendario di Home Assistant.",
     meeting_no_calendar: "Nessun calendario",
     meeting_calendar: "Il calendario in cui si prenota {room}",
+    sites: "Sedi",
+    sites_hint:
+      "Più edifici o negozi gestiti da questo Home Assistant: assegna a ciascuno i suoi piani. Da due in su, DomoTwin ne mostra uno alla volta, scelto in alto; le schede Casa e Stanze lo seguono.",
+    site_name: "Nome",
+    site_storeys: "Piani di {name}",
+    site_default: "Sede {n}",
+    site_hours: "Orario di apertura",
+    site_hours_workplace: "Quelli del luogo di lavoro",
+    site_add: "Aggiungi una sede",
+    site_remove: "Rimuovi {name}",
     title: "Impostazioni",
     north: "Nord sulla planimetria",
     north_hint:
@@ -891,6 +901,7 @@ export const main: Dictionary = {
   },
   panel: {
     title: "DomoTwin",
+    site: "Sede",
     import: "Importa planimetria",
     export: "Esporta planimetria",
     more: "Altro",

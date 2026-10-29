@@ -655,6 +655,7 @@ export class DomoTwinView extends LitElement {
     energy: { attribute: false },
     look: { reflect: true },
     storeys: { attribute: false },
+    alertStoreys: { attribute: false },
     storey: { attribute: false },
     home: { attribute: false },
     elsewhere: { attribute: false },
@@ -770,6 +771,8 @@ export class DomoTwinView extends LitElement {
    * `domotwin-storey` (detail: the storey's id) for the host to show it.
    */
   storeys: StoreyInfo[] = [];
+  /** The storeys the alerts are named by, when not those (every site's, named so, D-090). */
+  alertStoreys?: StoreyInfo[];
   storey?: string;
   /**
    * Every storey's plan, lowest first, to show the home whole (D-028; `storey` is then
@@ -5512,8 +5515,12 @@ export class DomoTwinView extends LitElement {
    */
   private unseen(hass: HomeAssistant): Unseen {
     const bindings = this.bindings ?? NO_BINDINGS;
+    // Every storey shown, and the others (another site's, D-090, while a site's are shown).
     const storeys = this.home
-      ? this.home.map((storey) => ({ plan: storey.plan, layout: storey.layout }))
+      ? [
+          ...this.home.map((storey) => ({ plan: storey.plan, layout: storey.layout })),
+          ...this.elsewhere,
+        ]
       : [{ plan: this.plan, layout: this.layout }, ...this.elsewhere];
     const rooms = [...this.rooms, ...this.elsewhere.flatMap((storey) => storey.rooms)];
     const unseen = unseenOf(hass, bindings, rooms, storeys, this.closed);
@@ -6255,7 +6262,14 @@ export class DomoTwinView extends LitElement {
     const page = securityPage(this.hass);
     return html`<div class="alerts" role="alert" data-testid="alerts">
       ${shown.map((alert) =>
-        alertButton(t, alert, this.storeys, page, (room) => this.frameAlert(room), "glass"),
+        alertButton(
+          t,
+          alert,
+          this.alertStoreys ?? this.storeys,
+          page,
+          (room) => this.frameAlert(room),
+          "glass",
+        ),
       )}
       ${more > 0 ? html`<span class="more">${t.tp("layers.more_alerts", more)}</span>` : nothing}
     </div>`;

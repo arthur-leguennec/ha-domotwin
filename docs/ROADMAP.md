@@ -79,7 +79,7 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned · ❓ needs a decision from
 | M49       | The maintainer's answers: a room's link, the card's doorbell | ✅     |
 | M50       | A workplace's energy outside its opening hours             | ✅     |
 | M51       | Meeting rooms: free or taken, booked                       | ✅     |
-| M52       | Several sites in one Home Assistant                        | ⏳     |
+| M52       | Several sites in one Home Assistant                        | ✅     |
 | 0.8.0     | Eighth release: the answers, then the workplace's three    | ⏳     |
 
 M5 to M11 were added after M3b (`DECISIONS.md`, D-022): what people expect of a 3D home dashboard,
@@ -2187,6 +2187,9 @@ its energy, its meeting rooms, several sites.
   free ones and says each booked (its calendar's event under way), taken (its presence sensors)
   or free, with its next booking today, and books one now for 30 minutes or an hour in its
   calendar. See [a workplace](workplace.md).
-- ⏳ **M52, several sites in one Home Assistant**: several buildings or shops, each its plans,
-  its hours and its people counted; designed first, in a decision of its own, then built.
+- ✅ **M52, several sites in one Home Assistant** (D-090): several buildings or shops, each a
+  group of the home's storeys with its own opening hours if it has some; a list at the top
+  chooses the site shown, remembered by each screen, and the 3D view, the Home tab (people
+  counted, lamps, openings, hours, meeting rooms) and the Rooms tab follow it. See [a
+  workplace](workplace.md).
 - ⏳ **Release 0.8.0**: once they are in, tried in a fresh Home Assistant.

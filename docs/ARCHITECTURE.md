@@ -351,7 +351,8 @@ every reader returns `Result` with a stable error code that the frontend transla
   "hip" | "shed" | "flat", "pitch"?: 5–60, "color"?: "#rrggbb"}`; a workplace (`workplace`,
   D-086): `{"hours"?: schedule entity, "meeting_rooms"?: {room id: {"calendar"?: calendar
   entity}}}` (D-089, at most 200 rooms), its people counted, never named
-  ([`workplace.md`](workplace.md)).
+  ([`workplace.md`](workplace.md)); its sites (`sites`, D-090): `[{"id", "name", "storeys":
+  [storey ids], "hours"?: schedule entity}]`, at most 16, a storey in one site.
 - `upkeep` (D-033, storage 4.1): the upkeep cards by piece id, and how many days before it a task
   is due soon; see [`upkeep.md`](upkeep.md). Kept apart from the plan, like the bindings.
 - `revision`: bumped on every write. `revisions` keeps the revision of the last write of each kind

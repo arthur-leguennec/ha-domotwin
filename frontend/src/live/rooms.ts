@@ -114,6 +114,7 @@ export function homeFloors(
   hass: HomeAssistant,
   unseen: Unseen,
   collator: Intl.Collator,
+  others: ReadonlySet<string> = new Set(),
 ): RoomsFloor[] {
   const entities = byArea(hass, unseen);
   const floors = Object.values(hass.floors ?? {})
@@ -126,7 +127,8 @@ export function homeFloors(
   const known = new Set(floors.map((floor) => floor.floor_id));
   const grouped = new Map<string, RoomsArea[]>();
   for (const area of Object.values(hass.areas ?? {})) {
-    if (!area) continue;
+    // Another site's (D-090): not this one's room at all.
+    if (!area || others.has(area.area_id)) continue;
     const shut = unseen.areas.has(area.area_id);
     const item: RoomsArea = {
       id: area.area_id,

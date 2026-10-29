@@ -91,6 +91,8 @@
 //   from a fictional `schedule.opening_hours`, open until 18:00 or closed until 08:30; with
 //   meetings=1, D-089, the living room, the bedroom and the kitchen its meeting rooms, the first two
 //   booked in fictional calendars that take `calendar.create_event`)
+//   sites=1 (D-090, with storeys=2: two sites, the apartment and the upper floor; sitehours=1 gives
+//   the second its own fictional `schedule.harbour_hours`, open)
 import { applyService, demoHome } from "./demo-home.mjs";
 
 const params = new URLSearchParams(location.search);
@@ -318,6 +320,21 @@ const store = {
                 }
               : {}),
           },
+        }
+      : {}),
+    // Two sites (D-090): the apartment, and the upper floor as an office of its own, its hours
+    // its own with sitehours=1.
+    ...(params.get("sites") === "1"
+      ? {
+          sites: [
+            { id: "site-1", name: "Main street", storeys: ["storey-1"] },
+            {
+              id: "site-2",
+              name: "Harbour office",
+              storeys: ["storey-2"],
+              ...(params.get("sitehours") === "1" ? { hours: "schedule.harbour_hours" } : {}),
+            },
+          ],
         }
       : {}),
     ...(params.get("energy") === "1"
@@ -2551,6 +2568,17 @@ if (params.get("hours")) {
     attributes: {
       friendly_name: "Opening hours",
       next_event: new Date(Date.now() + (open ? 3 : 10) * 3_600_000).toISOString(),
+    },
+  };
+}
+if (params.get("sitehours") === "1") {
+  // The harbour office's own hours (D-090): open for two hours more.
+  states["schedule.harbour_hours"] = {
+    entity_id: "schedule.harbour_hours",
+    state: "on",
+    attributes: {
+      friendly_name: "Harbour hours",
+      next_event: new Date(Date.now() + 2 * 3_600_000).toISOString(),
     },
   };
 }

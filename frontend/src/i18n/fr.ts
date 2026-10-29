@@ -375,6 +375,16 @@ export const fr: Dictionary = {
       "Les pièces réservées aux réunions : l’onglet Accueil dit lesquelles sont libres, occupées ou réservées, et en réserve une dans son calendrier de Home Assistant.",
     meeting_no_calendar: "Aucun calendrier",
     meeting_calendar: "Le calendrier où réserver {room}",
+    sites: "Sites",
+    sites_hint:
+      "Plusieurs bâtiments ou commerces gérés par ce Home Assistant : donnez à chacun ses étages. À partir de deux, DomoTwin en montre un à la fois, choisi en haut ; les onglets Accueil et Pièces le suivent.",
+    site_name: "Nom",
+    site_storeys: "Étages de {name}",
+    site_default: "Site {n}",
+    site_hours: "Heures d’ouverture",
+    site_hours_workplace: "Celles du lieu de travail",
+    site_add: "Ajouter un site",
+    site_remove: "Retirer {name}",
     title: "Réglages",
     north: "Nord sur le plan",
     north_hint:
@@ -834,6 +844,7 @@ export const fr: Dictionary = {
   },
   panel: {
     title: "DomoTwin",
+    site: "Site",
     import: "Importer un plan",
     export: "Exporter le plan",
     more: "Plus",

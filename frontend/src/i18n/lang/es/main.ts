@@ -429,6 +429,16 @@ export const main: Dictionary = {
       "Salas para reuniones: la pestaña Inicio dice cuáles están libres, ocupadas o reservadas, y reserva una en su calendario de Home Assistant.",
     meeting_no_calendar: "Sin calendario",
     meeting_calendar: "El calendario donde se reserva {room}",
+    sites: "Sedes",
+    sites_hint:
+      "Varios edificios o tiendas gestionados por este Home Assistant: asigna a cada uno sus plantas. Con dos o más, DomoTwin muestra uno a la vez, elegido arriba; las pestañas Inicio y Habitaciones lo siguen.",
+    site_name: "Nombre",
+    site_storeys: "Plantas de {name}",
+    site_default: "Sede {n}",
+    site_hours: "Horario de apertura",
+    site_hours_workplace: "El del lugar de trabajo",
+    site_add: "Añadir una sede",
+    site_remove: "Quitar {name}",
     title: "Configuración",
     north: "El norte en el plano",
     north_hint:
@@ -888,6 +898,7 @@ export const main: Dictionary = {
   },
   panel: {
     title: "DomoTwin",
+    site: "Sede",
     import: "Importar plano",
     export: "Exportar plano",
     more: "Más",
