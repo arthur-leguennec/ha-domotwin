@@ -205,6 +205,7 @@ import {
   ALL_STOREYS,
   homeStoreys,
   storeyCounts,
+  storeyIds,
   storeyLevels,
   storeyName,
   storeyShort,
@@ -1053,6 +1054,8 @@ export class DomoTwinView extends LitElement {
   private sunDay?: { key: string; rise?: number; set?: number };
   /** How the hours of the day are written, and for what. */
   private clockFormat?: { key: string; format: Intl.DateTimeFormat };
+  /** The other storeys' element ids (`piecesElsewhere`), and what they were read from. */
+  private elsewhereIds?: { from: readonly StoreyRooms[]; ids: ReadonlySet<string> };
   private weatherKey?: string;
   private layersKey?: string;
   /** The rooms of the plan shown, and whether a heatmap found values in them. */
@@ -5348,11 +5351,25 @@ export class DomoTwinView extends LitElement {
       .engine=${this.engine}
       .bindings=${this.bindings}
       .names=${this.names}
+      .elsewhere=${this.piecesElsewhere()}
       .placeable=${this.placeDevices}
       @domotwin-redraw=${() => {
         this.redraw();
       }}
     ></domotwin-network>`;
+  }
+
+  /**
+   * The ids of the other storeys' elements (D-093), while one storey is shown: the same set while
+   * they stay.
+   */
+  private piecesElsewhere(): ReadonlySet<string> {
+    const from = this.loadedHome ? [] : this.elsewhere;
+    const known = this.elsewhereIds;
+    if (known?.from === from) return known.ids;
+    const ids = new Set(from.flatMap((storey) => storeyIds(storey.plan, storey.layout)));
+    this.elsewhereIds = { from, ids };
+    return ids;
   }
 
   /** The radio coverage (D-066): its module is loaded the first time it is shown. */

@@ -80,6 +80,7 @@
     {"id": "radiator-office", "name": "Radiator", "kind": "radiator", "at": [180, 894], "size": [100, 10, 60], "rotation": 180, "room": "office"},
     {"id": "stairs", "name": "Stairs", "kind": "stairs", "at": [410, 700], "size": [100, 280, 270], "fixed": true, "room": "hall"},
     {"id": "shoe-cabinet", "name": "Shoe cabinet", "kind": "shoe-cabinet", "at": [627.5, 670], "size": [80, 25, 100], "rotation": 90, "room": "hall"},
+    {"id": "internet-box", "name": "Internet box", "kind": "router", "at": [627.5, 700], "size": [26, 18, 5], "rotation": 90, "lift": 100, "room": "hall"},
     {"id": "spot-hall-1", "name": "Spot", "kind": "spotlight", "at": [550, 560], "size": [10, 10, 3], "lift": 240, "room": "hall"},
     {"id": "spot-hall-2", "name": "Spot", "kind": "spotlight", "at": [550, 800], "size": [10, 10, 3], "lift": 240, "room": "hall"},
     {"id": "wall-tablet", "name": "Wall tablet", "kind": "wall-tablet", "at": [638.5, 860], "size": [26, 3, 18], "rotation": 90, "lift": 140, "room": "hall"},

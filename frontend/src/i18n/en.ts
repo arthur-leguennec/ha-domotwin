@@ -128,6 +128,10 @@ export const en = {
     neighbours: "Neighbours",
     no_neighbours: "None reported.",
     not_placed: "Not placed in the home",
+    elsewhere: {
+      one: "{count} device is placed on another floor.",
+      other: "{count} devices are placed on another floor.",
+    },
     place: "Place {name} in the home",
     place_short: "Place",
     place_hint: "Tap the piece, door or window where {name} is.",

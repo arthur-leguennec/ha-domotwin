@@ -152,6 +152,10 @@ export const main: Dictionary = {
     neighbours: "近隣デバイス",
     no_neighbours: "報告はありません。",
     not_placed: "家に配置されていません",
+    elsewhere: {
+      one: "{count} 台のデバイスは別の階に配置されています。",
+      other: "{count} 台のデバイスは別の階に配置されています。",
+    },
     place: "{name} を家に配置",
     place_short: "配置",
     place_hint: "{name} がある場所のアイテム、ドア、または窓をタップしてください。",

@@ -138,6 +138,8 @@ const FRENCH: Readonly<Record<string, string>> = {
   Kettle: "Bouilloire",
   Monitor: "Écran",
   "Wall tablet": "Tablette murale",
+  "Internet box": "Box internet",
+  "Wi-Fi access point": "Borne Wi-Fi",
   Thermostat: "Thermostat",
   "Coat stand": "Portemanteau",
   "Water heater": "Chauffe-eau",

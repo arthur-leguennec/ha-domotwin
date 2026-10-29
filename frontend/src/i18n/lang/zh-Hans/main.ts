@@ -149,6 +149,10 @@ export const main: Dictionary = {
     neighbours: "邻居",
     no_neighbours: "未报告任何邻居。",
     not_placed: "未放置在家中",
+    elsewhere: {
+      one: "{count} 个设备位于其他楼层。",
+      other: "{count} 个设备位于其他楼层。",
+    },
     place: "将 {name} 放置在家中",
     place_short: "放置",
     place_hint: "点击 {name} 所在的物件、门或窗。",

@@ -128,6 +128,10 @@ export const fr: Dictionary = {
     neighbours: "Voisins",
     no_neighbours: "Aucun signalé.",
     not_placed: "Pas placés dans le logement",
+    elsewhere: {
+      one: "{count} appareil est placé à un autre étage.",
+      other: "{count} appareils sont placés à un autre étage.",
+    },
     place: "Placer {name} dans le logement",
     place_short: "Placer",
     place_hint: "Touchez le meuble, la porte ou la fenêtre où se trouve {name}.",

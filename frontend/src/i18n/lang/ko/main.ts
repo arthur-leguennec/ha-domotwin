@@ -151,6 +151,10 @@ export const main: Dictionary = {
     neighbours: "이웃",
     no_neighbours: "보고된 이웃이 없습니다.",
     not_placed: "집에 배치되지 않음",
+    elsewhere: {
+      one: "기기 {count}대가 다른 층에 배치되어 있습니다.",
+      other: "기기 {count}대가 다른 층에 배치되어 있습니다.",
+    },
     place: "집에 {name} 배치",
     place_short: "배치",
     place_hint: "{name} 기기가 있는 물건, 문 또는 창문을 탭하세요.",

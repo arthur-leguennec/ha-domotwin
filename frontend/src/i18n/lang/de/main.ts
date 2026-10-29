@@ -157,6 +157,10 @@ export const main: Dictionary = {
     neighbours: "Nachbarn",
     no_neighbours: "Keine gemeldet.",
     not_placed: "Nicht im Zuhause platziert",
+    elsewhere: {
+      one: "{count} Gerät ist auf einer anderen Etage platziert.",
+      other: "{count} Geräte sind auf einer anderen Etage platziert.",
+    },
     place: "{name} im Zuhause platzieren",
     place_short: "Platzieren",
     place_hint: "Tippe auf das Objekt, die Tür oder das Fenster, wo {name} ist.",

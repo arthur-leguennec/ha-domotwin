@@ -176,9 +176,31 @@ describe("the demo house (D-050)", () => {
     );
     const settings = await client.getSettings();
     expect(settings.settings.energy?.solar).toBe("sensor.solar_power");
+    // Its radios (D-093): the Wi-Fi's access points, a Zigbee mesh of its own lamps and sensors,
+    // its Bluetooth receivers placed.
+    expect(settings.settings.access_points?.map((point) => point.name)).toEqual([
+      "Box internet",
+      "Borne Wi-Fi",
+    ]);
+    const mesh = await home.hass.connection.sendMessagePromise<
+      { device_type: string; name: string; entities: { entity_id: string }[] }[]
+    >({ type: "zha/devices" });
+    expect(mesh.filter((d) => d.device_type === "Coordinator").map((d) => d.name)).toEqual([
+      "Coordinateur Zigbee",
+    ]);
+    const meshed = mesh.flatMap((d) => d.entities.map((e) => e.entity_id));
+    for (const id of meshed) expect(home.hass.states[id]).toBeDefined();
+    expect(
+      readBindings((await client.getBindings()).bindings).elements["internet-box"]?.device,
+    ).toBe("demo-zigbee-coordinator");
+    const locating = await client.getLocating();
+    expect(locating.status).toBe("ready");
+    expect(locating.receivers.every((r) => r.place)).toBe(true);
+    expect(await client.saveLocating({}, {}, false, locating.revision)).toBe(locating.revision + 1);
+    expect((await client.getLocating()).learn).toBe(false);
     // What it does not have, it says so.
     await expect(
-      home.hass.connection.sendMessagePromise({ type: "zha/devices" }),
+      home.hass.connection.sendMessagePromise({ type: "assist_pipeline/pipeline/list" }),
     ).rejects.toMatchObject({ code: "unknown_command" });
     home.stop();
   });

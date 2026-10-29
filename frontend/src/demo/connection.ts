@@ -49,6 +49,8 @@ export interface MemoryHome {
   automationConfig(id: string): Record<string, unknown> | undefined;
   /** Home Assistant's energy settings, as `energy/get_prefs` gives them, if it has some. */
   energyPrefs(): unknown;
+  /** Its Zigbee mesh, as ZHA's `zha/devices` gives it, where it has one (D-093). */
+  zigbee?(): unknown[];
   /**
    * Its history and its logbook (D-058), where it keeps them (the demo house's day), as
    * `history/history_during_period` and `logbook/get_events` answer, for a period (ms).
@@ -309,16 +311,57 @@ export function demoConnection(home: MemoryHome): HassConnection {
         return { revision: store.people.revision };
       }
       case "domotwin/locating/get":
-        // No Bluetooth in the demo: the dialog says so.
-        return {
-          revision: 1,
-          status: "no_bluetooth",
-          learn: false,
-          receivers: [],
-          devices: {},
-          learned: {},
-          rooms: [],
-        };
+        // The demo house's receivers (D-093); none in the sandbox's copy: its dialog says so.
+        return (
+          structuredClone(store.locating) ?? {
+            revision: 1,
+            status: "no_bluetooth",
+            learn: false,
+            receivers: [],
+            devices: {},
+            learned: {},
+            rooms: [],
+          }
+        );
+      case "domotwin/locating/save": {
+        const locating = store.locating;
+        if (!locating) throw failure("no_bluetooth", "no Bluetooth here");
+        if (
+          message.expected_revision !== undefined &&
+          message.expected_revision !== locating.revision
+        ) {
+          throw failure("revision_conflict", "saved meanwhile");
+        }
+        locating.learn = message.learn === true;
+        // Where the receivers were put; their places on the plan stay those of the demo.
+        const asked = (message.receivers ?? {}) as Record<
+          string,
+          { room?: string; piece?: string }
+        >;
+        for (const receiver of locating.receivers) {
+          const put = asked[receiver.source];
+          if (put?.room) {
+            receiver.room = put.room;
+            receiver.placed_by = "room";
+          } else if (put?.piece) {
+            receiver.piece = put.piece;
+            receiver.placed_by = "piece";
+          }
+        }
+        locating.revision += 1;
+        home.saved("locating");
+        return { revision: locating.revision };
+      }
+      case "domotwin/locating/measure":
+        // Nothing is followed in the demo house: nothing measured.
+        return { since: new Date(home.hass.now?.() ?? Date.now()).toISOString(), devices: {} };
+      case "domotwin/locating/measure/reset":
+        return { since: new Date(home.hass.now?.() ?? Date.now()).toISOString() };
+      case "domotwin/locating/forget":
+        return { forgotten: 0 };
+      case "zha/devices":
+        if (!home.zigbee) throw failure("unknown_command", message.type);
+        return home.zigbee();
       case "domotwin/locating/candidates":
         return { candidates: [] };
       case "domotwin/locating/add_key":

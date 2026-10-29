@@ -145,3 +145,51 @@ test.describe("the sun by the hour and the rooms' hours of sun (D-093)", () => {
     ).toBe(true);
   });
 });
+
+/** Opens the layer menu and picks a layer. */
+async function chooseLayer(page: Page, layer: string): Promise<void> {
+  await page.getByTestId("layers").click();
+  await page.getByTestId("layer-menu").locator(`[data-layer="${layer}"]`).click();
+}
+
+/** What the engine was given for the rooms' coverage (`setLayers`). */
+async function coverage(page: Page): Promise<Record<string, number>> {
+  const layers = (await viewState(page)).layers;
+  const read = JSON.parse(layers ?? "{}") as { heat?: string; values?: Record<string, number> };
+  return read.heat === "coverage" ? (read.values ?? {}) : {};
+}
+
+test.describe("the demo house's radios, placed (D-093)", () => {
+  test("the Wi-Fi's, the Zigbee mesh's and the Bluetooth's coverage each show", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await demo3d(page);
+    await chooseLayer(page, "coverage");
+    await expect(page.getByTestId("placement")).toBeVisible();
+    for (const radio of ["wifi", "zigbee", "bluetooth"]) {
+      const kind = page.locator(`domotwin-placement [data-radio-kind="${radio}"]`);
+      await kind.click();
+      await expect(kind).toHaveAttribute("aria-pressed", "true");
+      await expect(page.getByTestId("placement-rooms").locator("li").first()).toBeVisible();
+      // Every radio placed: none left aside.
+      await expect(page.getByTestId("placement-unplaced")).toHaveCount(0);
+      await expect.poll(async () => Object.keys(await coverage(page)).length).toBeGreaterThan(3);
+    }
+  });
+
+  test("the Zigbee network map draws the mesh, a weak link in it", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await demo3d(page);
+    await chooseLayer(page, "network");
+    const health = page.getByTestId("network-health");
+    await expect(health).toContainText("9 devices");
+    await expect(health).toContainText("1 weak link");
+    // The ground floor shown: the upper floor's devices are there, none is left to place.
+    await expect(page.getByTestId("network-not-placed")).toHaveCount(0);
+    await expect(page.getByTestId("network-elsewhere")).toHaveText(
+      "3 devices are placed on another floor.",
+    );
+    await expect(page.locator("domotwin-network .node").first()).toBeVisible();
+  });
+});
