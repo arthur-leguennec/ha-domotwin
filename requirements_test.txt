@@ -3,9 +3,9 @@ pytest-homeassistant-custom-component==0.13.373
 home-assistant-frontend==20260930.5
 jsonschema==4.26.0
 types-jsonschema==4.26.0.20261006
-ruff==0.17.2
-mypy==2.4.0
+ruff==0.17.3
+mypy==2.4.1
 # Assist, for the voice blueprint's test (the versions Home Assistant pins).
 gazetteer-matcher==1.2.0
 hassil==3.12.1
-home-assistant-intents==2026.10.6
+home-assistant-intents==2026.10.27
